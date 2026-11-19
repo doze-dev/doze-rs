@@ -15,8 +15,17 @@ differences = [
 [api."CloudWatch Logs"]
 differences = [
   "Events older than 7 days are removed (`--logs-retention-days`, 0 to keep them as AWS does), and a log group keeps at most 100,000 events (`--logs-max-events`). Local logs grow fast; this keeps the disk in check.",
+  "Logs Insights runs the Logs Insights query language (CWLI) only: OpenSearch SQL and PPL, the `SOURCE` command and the `pattern`, `diff`, `anomaly`, `filterIndex`, `unnest` and `lookup` commands are refused with a sentence. `pct` is exact (AWS estimates). Queries and their results are kept in memory, the newest 200 queries and at most 1,000,000 result rows: a restart forgets them (AWS keeps results for days).",
+  "A sort that is not followed only by `limit`, `fields` or `display`, and a stats command, hold at most 1,000,000 rows or groups; past that the query fails and says so.",
+  "Field indexes change no answer and no cost locally (every event in range is read): policies are checked and kept, `DescribeFieldIndexes` reports when each indexed field was first and last seen, and `estimatedRecordsSkipped` stays 0.",
+  "An export task runs before `CreateExportTask` answers (AWS runs it in the background), so it is `COMPLETED` or `FAILED` when first described; a bucket S3 cannot write to refuses the call.",
+  "Destinations are one account's: the access policy is checked as JSON, kept and not evaluated. A subscription filter to a destination of the same region delivers to its Kinesis stream; a Firehose target is kept and not delivered.",
+  "Transformers: `parseCloudfront`, `parseRoute53`, `parsePostgres` and `parseToOCSF` are refused (their logs are vended by AWS services that do not run locally); `dateTimeConverter` reads English month and day names only.",
+  "Scheduled queries run on their schedule and write their answer to the local S3 as JSON rows; a lookup-table destination is refused.",
 ]
 not_planned = [
+  { why = "Large log objects exist only for logs ingested through OpenTelemetry (PutOpenTelemetryLogs), which this model and doze-aws do not have; there is never an object to fetch.", ops = ["GetLogObject"] },
+  { why = "Data sources are named by AWS-vended logs and CloudWatch pipelines, which do not exist locally; GetLogGroupFields answers the same question for a log group.", ops = ["GetLogFields"] },
   { why = "Vended logs: delivery of logs AWS services emit about themselves, which do not exist locally.", ops = ["PutDeliverySource", "GetDeliverySource", "DescribeDeliverySources", "DeleteDeliverySource", "PutDeliveryDestination", "GetDeliveryDestination", "DescribeDeliveryDestinations", "DeleteDeliveryDestination", "PutDeliveryDestinationPolicy", "GetDeliveryDestinationPolicy", "DeleteDeliveryDestinationPolicy", "CreateDelivery", "GetDelivery", "DescribeDeliveries", "DeleteDelivery", "UpdateDeliveryConfiguration", "DescribeConfigurationTemplates"] },
   { why = "Machine-learning anomaly detection over log patterns: no meaningful local equivalent.", ops = ["CreateLogAnomalyDetector", "GetLogAnomalyDetector", "ListLogAnomalyDetectors", "UpdateLogAnomalyDetector", "DeleteLogAnomalyDetector", "ListAnomalies", "UpdateAnomaly"] },
   { why = "Integrations with OpenSearch Service and S3 Tables, which doze-aws does not run.", ops = ["PutIntegration", "GetIntegration", "ListIntegrations", "DeleteIntegration", "AssociateSourceToS3TableIntegration", "DisassociateSourceFromS3TableIntegration", "ListSourcesForS3TableIntegration"] },
@@ -27,7 +36,11 @@ not_planned = [
 differences = [
   "Tables, indexes and streams become ACTIVE at once (AWS takes seconds); `--dynamodb-create-ms` and friends add AWS-like delays.",
   "A table's stream has one shard.",
-  "Point-in-time recovery is always on.",
+  "Continuous backups are always on; point-in-time recovery keeps a day of history (a bounded change log, so the disk does not fill with five weeks of every write), whatever `RecoveryPeriodInDays` says. `EarliestRestorableDateTime` reports the window that can really be served; `LatestRestorableDateTime` is the present (AWS: about five minutes ago).",
+  "Backups, restores, exports and imports are finished when the call answers (AWS takes minutes); the answer still says `CREATING` or `IN_PROGRESS`, as AWS's does, and the next describe says `AVAILABLE`, `ACTIVE` or `COMPLETED`.",
+  "An export writes one data file (AWS writes one per partition) in AWS's layout (`AWSDynamoDB/<id>/manifest-summary.json`, `manifest-files.json`, `data/*.json.gz`). `FilterSpecification` on an export and `ZSTD` input on an import are not built and are refused by name; an import's failed items are counted, not written to CloudWatch Logs.",
+  "Resource policies apply at once (AWS: eventually). IAM weighs them with every request on the table, its indexes and its stream; a key IAM did not issue is the account root's and is allowed everything locally, so a deny in a resource policy binds IAM users and roles.",
+  "A Kinesis streaming destination is sent each change after the call answers, one table to one active stream at a time; the record's partition key is the item's partition key value.",
 ]
 not_planned = [
   { why = "Global tables version 2017.11.29, superseded by replicas on the table itself; one machine has no second region to replicate to.", ops = ["CreateGlobalTable", "DescribeGlobalTable", "UpdateGlobalTable", "ListGlobalTables", "DescribeGlobalTableSettings", "UpdateGlobalTableSettings", "DescribeTableReplicaAutoScaling", "UpdateTableReplicaAutoScaling"] },
@@ -53,17 +66,32 @@ not_planned = [
 ]
 
 [api."IAM"]
+differences = [
+  "Virtual MFA devices give real TOTP codes (any authenticator app works) and STS checks them, but `CreateVirtualMFADevice` returns the base32 seed only, no QR code image. Hardware tokens and FIDO security keys cannot be registered, so `GetMFADevice` (FIDO keys only, as AWS documents) finds none.",
+  "Server certificates, signing certificates, SSH public keys and service-specific credentials are checked (PEM X.509, key pairs, RSA key sizes, quotas) and kept, and block `DeleteUser` as on AWS; nothing serves TLS with them or accepts them, since doze-aws runs no load balancers, CodeCommit, Keyspaces or Bedrock.",
+  "The credential report and last-accessed jobs are ready as soon as they are asked for (AWS takes seconds to minutes). Console passwords are never used to sign in, so the report says `no_information` for their last use.",
+  "Last-accessed data counts what IAM users and roles asked the authorizer, so it is recorded with `--iam soft` (the default) or `enforce`, not `off`. A policy action with a wildcard in its service part (`*`, `s3*:...`) is matched against the services doze-aws runs, not all of AWS's; action-level reports list every action asked for, where AWS tracks a few services' actions.",
+  "`SetSecurityTokenServicePreferences` is kept and shown in `GetAccountSummary`; doze-aws has one STS endpoint and its session tokens work in every region.",
+]
 not_planned = [
   { why = "Partner delegation, role templates, outbound web-identity federation and account properties: new account-administration features with no local use yet.", families = ["Delegation", "AcquireRole", "RoleTemplate", "HumanReadableSummary", "OutboundWebIdentityFederation", "AccountProperties"] },
   { why = "AWS Organizations administration: one account locally.", ops = ["GenerateOrganizationsAccessReport", "GetOrganizationsAccessReport", "ListOrganizationsFeatures", "EnableOrganizationsRootCredentialsManagement", "DisableOrganizationsRootCredentialsManagement", "EnableOrganizationsRootSessions", "DisableOrganizationsRootSessions"] },
 ]
 
 [api."KMS"]
+differences = [
+  "`DeriveSharedSecret` with a peer public key on another curve: AWS answers `ValidationException` with an empty message; doze-aws answers the same code and says the key is not a DER-encoded SubjectPublicKeyInfo of the key's curve.",
+]
 not_planned = [
   { why = "Custom key stores are backed by CloudHSM or an external key manager; doze-aws keys are software keys.", ops = ["CreateCustomKeyStore", "DescribeCustomKeyStores", "UpdateCustomKeyStore", "DeleteCustomKeyStore", "ConnectCustomKeyStore", "DisconnectCustomKeyStore"] },
 ]
 
 [api."SSM"]
+differences = [
+  "`GetServiceSetting` of a setting that does not exist: AWS answers `ServiceSettingNotFound` with an empty message; doze-aws answers the same code, names the setting and says to check its id.",
+  "Resource policies (`PutResourcePolicy`) on parameters and documents are read by the IAM evaluator as the resource-based layer of every request on them (a grant to a principal, an explicit deny). There is one account locally, so the cross-account sharing they exist for on AWS is not exercised, and no Resource Access Manager share is made; an `OpsItemGroup` takes no policy (OpsCenter is not run).",
+  "Change-template reviews (`UpdateDocumentMetadata`, `ListDocumentMetadataHistory`) record the account id as author and reviewer: doze-aws does not resolve the IAM user here. Change Manager approval workflows do not run.",
+]
 not_planned = [
   { why = "Fleet management needs managed EC2 instances or on-premises nodes: Run Command, Session Manager, patching, inventory, compliance, maintenance windows, State Manager associations, hybrid activations.", families = ["Command", "Session", "Patch", "Inventory", "Compliance", "MaintenanceWindow", "Association", "Activation", "ManagedInstance", "InstanceInformation", "InstanceProperties", "Nodes", "CloudConnector", "ResourceDataSync", "OpsItem", "OpsMetadata", "OpsSummary", "Automation", "ChangeRequest", "ExecutionPreview", "CalendarState", "AccessRequest", "AccessToken", "ConnectionStatus", "DeployablePatch", "InstancePatch", "EffectiveInstanceAssociations", "EffectivePatches", "AvailablePatches"] },
 ]
@@ -72,8 +100,14 @@ not_planned = [
 differences = [
   "Resources of services doze-aws does not run are not created and do not fail the stack (see the note at the top).",
   "Macros are refused; AWS::Serverless (SAM), AWS::LanguageExtensions and AWS::Include are applied.",
+  "Drift detection reads back SQS queues, SNS topics, SSM parameters, log groups, S3 buckets (name, versioning, tags), DynamoDB tables, IAM roles, Lambda functions, Secrets Manager secrets and KMS keys, each through its service's own read operations; every other type is NOT_CHECKED. Values with a dynamic reference are not compared.",
+  "AWS::CloudFormation::WaitCondition really waits: for SignalResource calls under a CreationPolicy, or for signals PUT to its handle's URL (served on the local endpoint). EC2 instances and Auto Scaling groups are not made locally, so their CreationPolicy and UpdatePolicy signals are not waited for.",
+  "CancelUpdateStack stops what the update has not started and what is waiting (a wait condition, a custom resource's answer); a call to a service already under way finishes first, and the rollback puts it back.",
+  "No hooks run: DescribeChangeSetHooks answers no hooks, ListHookResults no results, GetHookResult HookResultNotFoundException. DescribeEvents has no hook or validation events.",
+  "DescribeAccountLimits answers AWS's default quotas; none of them is enforced.",
 ]
 not_planned = [
+  { why = "The estimate AWS answers is a link to its Simple Monthly Calculator (now retired), filled in from AWS's prices; a local tool has no prices to give.", ops = ["EstimateTemplateCost"] },
   { why = "The IaC generator, resource scans and stack refactoring read or reshape resources across a real account; they are large, and the local tools rarely need them.", families = ["GeneratedTemplate", "ResourceScan", "StackRefactor"] },
   { why = "StackSets deploy across accounts and regions of an organization.", families = ["StackSet", "StackInstance", "OrganizationsAccess"] },
   { why = "The extension registry runs third-party resource handlers, which doze-aws does not host.", ops = ["RegisterType", "DeregisterType", "DescribeType", "DescribeTypeRegistration", "ListTypes", "ListTypeVersions", "ListTypeRegistrations", "ActivateType", "DeactivateType", "SetTypeDefaultVersion", "SetTypeConfiguration", "BatchDescribeTypeConfigurations", "PublishType", "TestType", "RegisterPublisher", "DescribePublisher", "RecordHandlerProgress"] },
@@ -92,6 +126,9 @@ not_planned = [
 ]
 
 [api."EventBridge"]
+differences = [
+  "A replay starts one second after `StartReplay` and then puts back 100 events every 250 ms. AWS gives no pace (it typically takes minutes to start); this one is long enough to cancel with `CancelReplay` and short enough to wait for.",
+]
 not_planned = [
   { why = "SaaS partner event sources: events from third-party partners' accounts.", families = ["EventSource", "PartnerEvent"] },
   { why = "Global endpoints fail over between two regions' event buses with Route 53 health checks.", ops = ["CreateEndpoint", "DescribeEndpoint", "ListEndpoints", "UpdateEndpoint", "DeleteEndpoint"] },
@@ -101,6 +138,10 @@ not_planned = [
 differences = [
   "Functions run as processes on this machine with the runtime's own interpreter (python3, node, ruby...), not in containers. Container-image functions are stored and cannot be invoked.",
   "Event source mappings poll SQS, Kinesis and DynamoDB Streams.",
+  "Durable functions run with AWS's durable execution SDKs unchanged: checkpoints, replay, waits, step retries, callbacks, child contexts, map and parallel, chained invokes. Waits take real time unless `DOZE_LAMBDA_DURABLE_WAIT_SCALE` shortens them (0.01 makes an hour 36 seconds). The `KMSKeyArn` of a `DurableConfig` is stored, and payloads are not encrypted with it.",
+  "A durable invocation that fails without an answer from the SDK (a crash, a timeout) is tried three times, one and two seconds apart, before the execution fails; AWS's retry policy for these is not recorded.",
+  "Deleting a function deletes its durable executions. A chained invoke that was under way when doze-aws stopped is made again when it starts.",
+  "Durable execution error messages that AWS's own local checkpoint server (`@aws/durable-execution-sdk-js-testing`) does not state are doze's words, not recorded ones.",
 ]
 not_planned = [
   { why = "Lambda Managed Instances run functions on EC2 capacity providers.", families = ["CapacityProvider", "FunctionScalingConfig"] },
@@ -118,6 +159,12 @@ not_planned = [
 ]
 
 [api."CloudWatch"]
+differences = [
+  "Metric math is worked out in `GetMetricData` and in metric math alarms: arithmetic, comparisons and logic, `ABS CEIL FLOOR LOG LOG10`, `AVG SUM MIN MAX STDDEV`, `DATAPOINT_COUNT`, `PERIOD`, `TIME_SERIES`, `IF`, `METRICS`, `REMOVE_EMPTY FIRST LAST SORT SLICE`, `FILL RATE DIFF DIFF_TIME RUNNING_SUM`, the time functions and `SEARCH`. Metrics Insights queries (`SELECT ...`) and `INSIGHT_RULE_METRIC`, `SERVICE_QUOTA`, `LAMBDA` and `DB_PERF_INSIGHTS` are refused with a sentence.",
+  "`ANOMALY_DETECTION_BAND` is a statistical stand-in, not AWS's trained model: the mean of the metric's datapoints in the window read (for an alarm, its window and up to 50 periods before it), plus and minus the given number of standard deviations.",
+  "`SEARCH` matches a partial term as a case-insensitive part of a namespace, metric name or dimension; AWS matches on the words of a name. A search finds a metric as soon as it has data; AWS can take minutes to index a new one.",
+  "Log alarms (`PutLogAlarm`) are kept, described, tagged, forced and deleted, but not evaluated: no scheduled Logs Insights query runs locally, so a log alarm stays `INSUFFICIENT_DATA` and its reason says so. Composite alarms are likewise kept and not evaluated.",
+]
 not_planned = [
   { why = "Datasets, vended-metric configuration, OpenTelemetry enrichment, managed Contributor Insights rules, alarm contributors and rendered graph images: features of AWS's own console and services, with no local use yet.", families = ["Dataset", "ResourceMetricsConfiguration", "OTelEnrichment", "ManagedInsightRules", "AlarmContributors", "MetricWidgetImage"] },
 ]

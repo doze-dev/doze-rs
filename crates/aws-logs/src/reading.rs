@@ -1,10 +1,9 @@
 //! Reading events: `GetLogEvents` and `FilterLogEvents`.
 
 use aws_wire::ApiError;
-use doze_store::record;
 use serde_json::{Value, json};
 
-use crate::core::{Core, VERSION};
+use crate::core::Core;
 use crate::model::{Event, Stream, stream_key};
 use crate::pattern;
 use crate::req::{Put, Req, invalid, no_group, no_stream};
@@ -28,7 +27,7 @@ fn parse_row(key: &str, value: &[u8]) -> Option<Row> {
     let pos = key.get(8..)?.to_owned();
     let ts = i64::from_str_radix(pos.get(..16)?, 16).ok()?;
     let seq = u64::from_str_radix(pos.get(16..)?, 16).ok()?;
-    let event = record::decode::<Event>("event", VERSION, value).ok()?;
+    let event = Event::decode(value).ok()?;
     Some(Row {
         pos,
         ts,

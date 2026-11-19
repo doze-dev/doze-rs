@@ -37,6 +37,9 @@ impl Registry {
         for subject in s.modes.keys().filter(|k| !k.is_empty()) {
             b.delete(&Key::Mode(subject.clone()));
         }
+        for subject in s.extras.keys().filter(|k| !k.is_empty()) {
+            b.delete(&Key::Config(subject.clone()));
+        }
         // Read back at open as the largest schema's id plus one, which would go back to 1 with no schema left.
         b.put(&Key::NextId, &s.next_id);
         self.commit(&b)?;
@@ -49,6 +52,7 @@ impl Registry {
         s.by_print.clear();
         s.levels.retain(|k, _| k.is_empty());
         s.modes.retain(|k, _| k.is_empty());
+        s.extras.retain(|k, _| k.is_empty());
         Ok(erased)
     }
 }

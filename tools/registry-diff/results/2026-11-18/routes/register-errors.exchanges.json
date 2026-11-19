@@ -1,0 +1,1063 @@
+[
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/e/versions",
+   "b": ""
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":422,\"message\":\"register.arg4 must not be null (was null)\"}",
+    "ms": 22
+   },
+   "confluent-8": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":422,\"message\":\"register.arg5 must not be null (was null)\"}",
+    "ms": 22
+   },
+   "doze": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":422,\"message\":\"register.arg4 must not be null (was null)\"}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/e/versions",
+   "b": "not json"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 400,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":400,\"message\":\"Unrecognized token 'not': was expecting (JSON String, Number, Array, Object or token 'null', 'true' or 'false')\"}",
+    "ms": 7
+   },
+   "confluent-8": {
+    "status": 400,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":400,\"message\":\"Unrecognized token 'not': was expecting (JSON String, Number (or 'NaN'/'+INF'/'-INF'), Array, Object or token 'null', 'true' or 'false')\"}",
+    "ms": 11
+   },
+   "doze": {
+    "status": 400,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":400,\"message\":\"Unrecognized token 'not': was expecting (JSON String, Number, Array, Object or token 'null', 'true' or 'false')\"}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/e/versions",
+   "b": "{}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42201,\"message\":\"Empty schema\"}",
+    "ms": 5
+   },
+   "confluent-8": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42201,\"message\":\"Empty schema\"}",
+    "ms": 6
+   },
+   "doze": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42201,\"message\":\"Empty schema\"}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/e/versions",
+   "b": "[]"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 400,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":400,\"message\":\"Cannot deserialize value of type `RegisterSchemaRequest` from Array value (token `JsonToken.START_ARRAY`)\"}",
+    "ms": 6
+   },
+   "confluent-8": {
+    "status": 400,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":400,\"message\":\"Cannot deserialize value of type `RegisterSchemaRequest` from Array value (token `JsonToken.START_ARRAY`)\"}",
+    "ms": 6
+   },
+   "doze": {
+    "status": 400,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":400,\"message\":\"Cannot deserialize value of type `RegisterSchemaRequest` from Array value (token `JsonToken.START_ARRAY`)\"}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/e/versions",
+   "b": "null"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":422,\"message\":\"register.arg4 must not be null (was null)\"}",
+    "ms": 8
+   },
+   "confluent-8": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":422,\"message\":\"register.arg5 must not be null (was null)\"}",
+    "ms": 9
+   },
+   "doze": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":422,\"message\":\"register.arg4 must not be null (was null)\"}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/e/versions",
+   "b": "{\"schema\":\"\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42201,\"message\":\"Empty schema\"}",
+    "ms": 7
+   },
+   "confluent-8": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42201,\"message\":\"Empty schema\"}",
+    "ms": 4
+   },
+   "doze": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42201,\"message\":\"Empty schema\"}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/e/versions",
+   "b": "{\"schema\":null}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42201,\"message\":\"Empty schema\"}",
+    "ms": 5
+   },
+   "confluent-8": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42201,\"message\":\"Empty schema\"}",
+    "ms": 9
+   },
+   "doze": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42201,\"message\":\"Empty schema\"}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/e/versions",
+   "b": "{\"schema\":5}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42201,\"message\":\"Invalid schema {subject=e,version=0,id=-1,schemaType=AVRO,references=[],metadata=null,ruleSet=null,schema=5,schemaTags=null} with refs [] of type AVRO, details: Schema not yet supported: 5\"}",
+    "ms": 12
+   },
+   "confluent-8": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42201,\"message\":\"Invalid schema of type AVRO, details: Invalid schema {subject=e,version=null,id=null,guid=e4da3b7f-bbce-2345-d777-2b0674a318d5,schemaType=AVRO,references=[],metadata=null,ruleSet=null,schema=5,schemaTags=null,ts=null,deleted=null} with refs [] of type AVRO, details: Schema not yet supported: 5\"}",
+    "ms": 11
+   },
+   "doze": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42201,\"message\":\"Invalid schema {subject=e,version=0,id=-1,schemaType=AVRO,references=[],metadata=null,ruleSet=null,schema=5,schemaTags=null} with refs [] of type AVRO, details: Schema not yet supported: 5\"}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/e/versions",
+   "b": "{\"schema\":\"{\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42201,\"message\":\"Invalid schema {subject=e,version=0,id=-1,schemaType=AVRO,references=[],metadata=null,ruleSet=null,schema={,schemaTags=null} with refs [] of type AVRO, details: com.fasterxml.jackson.core.io.JsonEOFException: Unexpected end-of-input: expected close marker for Object (start marker at [Source: REDACTED (`StreamReadFeature.INCLUDE_SOURCE_IN_LOCATION` disabled); line: 1, column: 1])\\n at [Source: REDACTED (`StreamReadFeature.INCLUDE_SOURCE_IN_LOCATION` disabled); line: 1, column: 2]\"}",
+    "ms": 8
+   },
+   "confluent-8": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42201,\"message\":\"Invalid schema of type AVRO, details: Invalid schema {subject=e,version=null,id=null,guid=f95b70fd-c308-8560-732a-5ac135644506,schemaType=AVRO,references=[],metadata=null,ruleSet=null,schema={,schemaTags=null,ts=null,deleted=null} with refs [] of type AVRO, details: com.fasterxml.jackson.core.io.JsonEOFException: Unexpected end-of-input: expected close marker for Object (start marker at [Source: REDACTED (`StreamReadFeature.INCLUDE_SOURCE_IN_LOCATION` disabled); line: 1, column: 1])\\n at [Source: REDACTED (`StreamReadFeature.INCLUDE_SOURCE_IN_LOCATION` disabled); line: 1, column: 2]\"}",
+    "ms": 6
+   },
+   "doze": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42201,\"message\":\"Invalid schema {subject=e,version=0,id=-1,schemaType=AVRO,references=[],metadata=null,ruleSet=null,schema={,schemaTags=null} with refs [] of type AVRO, details: expected a key at byte 1\"}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/e/versions",
+   "b": "{\"schema\":\"\\\"nonsense\\\"\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42201,\"message\":\"Invalid schema {subject=e,version=0,id=-1,schemaType=AVRO,references=[],metadata=null,ruleSet=null,schema=\\\"nonsense\\\",schemaTags=null} with refs [] of type AVRO, details: Undefined name: \\\"nonsense\\\"\"}",
+    "ms": 8
+   },
+   "confluent-8": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42201,\"message\":\"Invalid schema of type AVRO, details: Invalid schema {subject=e,version=null,id=null,guid=ab871f53-5cfb-5191-75bb-5b3ed8a00498,schemaType=AVRO,references=[],metadata=null,ruleSet=null,schema=\\\"nonsense\\\",schemaTags=null,ts=null,deleted=null} with refs [] of type AVRO, details: Unknown schema: org.apache.avro.compiler.UnresolvedSchema_0\"}",
+    "ms": 10
+   },
+   "doze": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42201,\"message\":\"Invalid schema {subject=e,version=0,id=-1,schemaType=AVRO,references=[],metadata=null,ruleSet=null,schema=\\\"nonsense\\\",schemaTags=null} with refs [] of type AVRO, details: Undefined name: \\\"nonsense\\\"\"}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/e/versions",
+   "b": "{\"schema\":\"\\\"string\\\"\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":3}",
+    "ms": 15
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":4,\"version\":1,\"guid\":\"095d71cf-1255-6b9d-5e33-0ad575b3df5d\",\"schemaType\":\"AVRO\",\"schema\":\"\\\"string\\\"\"}",
+    "ms": 24
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":3}",
+    "ms": 14
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/e/versions",
+   "b": "{\"schema\":\"\\\"string\\\"\",\"schemaType\":\"XML\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42201,\"message\":\"Invalid schema type XML\"}",
+    "ms": 5
+   },
+   "confluent-8": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42201,\"message\":\"Invalid schema type XML\"}",
+    "ms": 5
+   },
+   "doze": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42201,\"message\":\"Invalid schema type XML\"}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/e/versions",
+   "b": "{\"schema\":\"\\\"string\\\"\",\"schemaType\":\"avro\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42201,\"message\":\"Invalid schema type avro\"}",
+    "ms": 6
+   },
+   "confluent-8": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42201,\"message\":\"Invalid schema type avro\"}",
+    "ms": 8
+   },
+   "doze": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42201,\"message\":\"Invalid schema type avro\"}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/e/versions",
+   "b": "{\"schema\":\"\\\"string\\\"\",\"schemaType\":\"\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42201,\"message\":\"Invalid schema type \"}",
+    "ms": 6
+   },
+   "confluent-8": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42201,\"message\":\"Invalid schema type \"}",
+    "ms": 5
+   },
+   "doze": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42201,\"message\":\"Invalid schema type \"}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/e/versions",
+   "b": "{\"schema\":\"\\\"string\\\"\",\"unknownField\":1}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":3}",
+    "ms": 5
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":4,\"version\":1,\"guid\":\"095d71cf-1255-6b9d-5e33-0ad575b3df5d\",\"schemaType\":\"AVRO\",\"schema\":\"\\\"string\\\"\"}",
+    "ms": 5
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":3}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/e/versions",
+   "b": "{\"schema\":\"\\\"string\\\"\",\"version\":7}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42201,\"message\":\"Version is not one more than previous version\"}",
+    "ms": 11
+   },
+   "confluent-8": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42201,\"message\":\"Version is not one more than previous version\"}",
+    "ms": 9
+   },
+   "doze": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42201,\"message\":\"Version is not one more than previous version\"}",
+    "ms": 1
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/e/versions",
+   "b": "{\"schema\":\"\\\"int\\\"\",\"id\":42}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42205,\"message\":\"Subject e is not in import mode\"}",
+    "ms": 4
+   },
+   "confluent-8": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42205,\"message\":\"Subject e in context  is not in import mode\"}",
+    "ms": 7
+   },
+   "doze": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42205,\"message\":\"Subject e is not in import mode\"}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/e/versions",
+   "b": "{\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"R\\\",\\\"fields\\\":[{\\\"name\\\":\\\"a\\\"}]}\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42201,\"message\":\"Invalid schema {subject=e,version=0,id=-1,schemaType=AVRO,references=[],metadata=null,ruleSet=null,schema={\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"R\\\",\\\"fields\\\":[{\\\"name\\\":\\\"a\\\"}]},schemaTags=null} with refs [] of type AVRO, details: No field type: {\\\"name\\\":\\\"a\\\"}\"}",
+    "ms": 5
+   },
+   "confluent-8": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42201,\"message\":\"Invalid schema of type AVRO, details: Invalid schema {subject=e,version=null,id=null,guid=98685d1e-f638-4db8-1b84-7dda3acefadd,schemaType=AVRO,references=[],metadata=null,ruleSet=null,schema={\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"R\\\",\\\"fields\\\":[{\\\"name\\\":\\\"a\\\"}]},schemaTags=null,ts=null,deleted=null} with refs [] of type AVRO, details: No field type: {\\\"name\\\":\\\"a\\\"}\"}",
+    "ms": 9
+   },
+   "doze": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42201,\"message\":\"Invalid schema {subject=e,version=0,id=-1,schemaType=AVRO,references=[],metadata=null,ruleSet=null,schema={\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"R\\\",\\\"fields\\\":[{\\\"name\\\":\\\"a\\\"}]},schemaTags=null} with refs [] of type AVRO, details: No field type: {\\\"name\\\":\\\"a\\\"}\"}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/e/versions",
+   "b": "{\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"R\\\"}\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42201,\"message\":\"Invalid schema {subject=e,version=0,id=-1,schemaType=AVRO,references=[],metadata=null,ruleSet=null,schema={\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"R\\\"},schemaTags=null} with refs [] of type AVRO, details: Record has no fields: {\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"R\\\"}\"}",
+    "ms": 8
+   },
+   "confluent-8": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42201,\"message\":\"Invalid schema of type AVRO, details: Invalid schema {subject=e,version=null,id=null,guid=62057297-1d84-97b6-4daf-e70035ab0d61,schemaType=AVRO,references=[],metadata=null,ruleSet=null,schema={\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"R\\\"},schemaTags=null,ts=null,deleted=null} with refs [] of type AVRO, details: Record has no fields: {\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"R\\\"}\"}",
+    "ms": 6
+   },
+   "doze": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42201,\"message\":\"Invalid schema {subject=e,version=0,id=-1,schemaType=AVRO,references=[],metadata=null,ruleSet=null,schema={\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"R\\\"},schemaTags=null} with refs [] of type AVRO, details: Record has no fields: {\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"R\\\"}\"}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/e/versions",
+   "b": "{\"schema\":\"{\\\"type\\\":\\\"enum\\\",\\\"name\\\":\\\"E\\\",\\\"symbols\\\":[\\\"A\\\",\\\"A\\\"]}\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42201,\"message\":\"Invalid schema {subject=e,version=0,id=-1,schemaType=AVRO,references=[],metadata=null,ruleSet=null,schema={\\\"type\\\":\\\"enum\\\",\\\"name\\\":\\\"E\\\",\\\"symbols\\\":[\\\"A\\\",\\\"A\\\"]},schemaTags=null} with refs [] of type AVRO, details: Duplicate enum symbol: A\"}",
+    "ms": 5
+   },
+   "confluent-8": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42201,\"message\":\"Invalid schema of type AVRO, details: Invalid schema {subject=e,version=null,id=null,guid=91550287-f867-ab63-d244-364d28d4892c,schemaType=AVRO,references=[],metadata=null,ruleSet=null,schema={\\\"type\\\":\\\"enum\\\",\\\"name\\\":\\\"E\\\",\\\"symbols\\\":[\\\"A\\\",\\\"A\\\"]},schemaTags=null,ts=null,deleted=null} with refs [] of type AVRO, details: Duplicate enum symbol: A\"}",
+    "ms": 7
+   },
+   "doze": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42201,\"message\":\"Invalid schema {subject=e,version=0,id=-1,schemaType=AVRO,references=[],metadata=null,ruleSet=null,schema={\\\"type\\\":\\\"enum\\\",\\\"name\\\":\\\"E\\\",\\\"symbols\\\":[\\\"A\\\",\\\"A\\\"]},schemaTags=null} with refs [] of type AVRO, details: Duplicate enum symbol: A\"}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/e/versions",
+   "b": "{\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"R\\\",\\\"fields\\\":[{\\\"name\\\":\\\"a\\\",\\\"type\\\":\\\"Nope\\\"}]}\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42201,\"message\":\"Invalid schema {subject=e,version=0,id=-1,schemaType=AVRO,references=[],metadata=null,ruleSet=null,schema={\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"R\\\",\\\"fields\\\":[{\\\"name\\\":\\\"a\\\",\\\"type\\\":\\\"Nope\\\"}]},schemaTags=null} with refs [] of type AVRO, details: \\\"Nope\\\" is not a defined name. The type of the \\\"a\\\" field must be a defined name or a {\\\"type\\\": ...} expression.\"}",
+    "ms": 6
+   },
+   "confluent-8": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42201,\"message\":\"Invalid schema of type AVRO, details: Invalid schema {subject=e,version=null,id=null,guid=c7406d34-84b4-467e-0412-5d739bfe6fa8,schemaType=AVRO,references=[],metadata=null,ruleSet=null,schema={\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"R\\\",\\\"fields\\\":[{\\\"name\\\":\\\"a\\\",\\\"type\\\":\\\"Nope\\\"}]},schemaTags=null,ts=null,deleted=null} with refs [] of type AVRO, details: Undefined schema: Nope\"}",
+    "ms": 9
+   },
+   "doze": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42201,\"message\":\"Invalid schema {subject=e,version=0,id=-1,schemaType=AVRO,references=[],metadata=null,ruleSet=null,schema={\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"R\\\",\\\"fields\\\":[{\\\"name\\\":\\\"a\\\",\\\"type\\\":\\\"Nope\\\"}]},schemaTags=null} with refs [] of type AVRO, details: \\\"Nope\\\" is not a defined name. The type of the \\\"a\\\" field must be a defined name or a {\\\"type\\\": ...} expression.\"}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/e/versions",
+   "b": "{\"schema\":\"[\\\"null\\\",\\\"null\\\"]\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42201,\"message\":\"Invalid schema {subject=e,version=0,id=-1,schemaType=AVRO,references=[],metadata=null,ruleSet=null,schema=[\\\"null\\\",\\\"null\\\"],schemaTags=null} with refs [] of type AVRO, details: Duplicate in union:null\"}",
+    "ms": 7
+   },
+   "confluent-8": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42201,\"message\":\"Invalid schema of type AVRO, details: Invalid schema {subject=e,version=null,id=null,guid=39277a8d-b28c-208a-a9d0-a4e030491ed9,schemaType=AVRO,references=[],metadata=null,ruleSet=null,schema=[\\\"null\\\",\\\"null\\\"],schemaTags=null,ts=null,deleted=null} with refs [] of type AVRO, details: Duplicate in union:null\"}",
+    "ms": 10
+   },
+   "doze": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42201,\"message\":\"Invalid schema {subject=e,version=0,id=-1,schemaType=AVRO,references=[],metadata=null,ruleSet=null,schema=[\\\"null\\\",\\\"null\\\"],schemaTags=null} with refs [] of type AVRO, details: Duplicate in union:null\"}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/e/versions",
+   "b": "{\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"R\\\",\\\"fields\\\":[]} trailing\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42201,\"message\":\"Invalid schema {subject=e,version=0,id=-1,schemaType=AVRO,references=[],metadata=null,ruleSet=null,schema={\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"R\\\",\\\"fields\\\":[]} trailing,schemaTags=null} with refs [] of type AVRO, details: dangling content after end of schema: trailing\"}",
+    "ms": 6
+   },
+   "confluent-8": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42201,\"message\":\"Invalid schema of type AVRO, details: Invalid schema {subject=e,version=null,id=null,guid=cce87b45-e9e7-d451-bc2b-dd5e0425988f,schemaType=AVRO,references=[],metadata=null,ruleSet=null,schema={\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"R\\\",\\\"fields\\\":[]} trailing,schemaTags=null,ts=null,deleted=null} with refs [] of type AVRO, details: dangling content after end of schema: trailing\"}",
+    "ms": 5
+   },
+   "doze": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42201,\"message\":\"Invalid schema {subject=e,version=0,id=-1,schemaType=AVRO,references=[],metadata=null,ruleSet=null,schema={\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"R\\\",\\\"fields\\\":[]} trailing,schemaTags=null} with refs [] of type AVRO, details: dangling content after end of schema: trailing\"}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/e/versions",
+   "b": "{\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"}]}\",\"references\":[{\"name\":\"x\",\"subject\":\"nobody\",\"version\":1}]}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42201,\"message\":\"Invalid schema {subject=e,version=0,id=-1,schemaType=AVRO,references=[{name='x', subject='nobody', version=1}],metadata=null,ruleSet=null,schema={\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"}]},schemaTags=null} with refs [{name='x', subject='nobody', version=1}] of type AVRO, details: No schema reference found for subject \\\"nobody\\\" and version 1\"}",
+    "ms": 3
+   },
+   "confluent-8": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42201,\"message\":\"Invalid schema of type AVRO, details: Invalid schema {subject=e,version=null,id=null,guid=8f6bb5c0-f496-cc02-86e9-2372bef4eca4,schemaType=AVRO,references=[{name='x', subject='nobody', version=1}],metadata=null,ruleSet=null,schema={\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"}]},schemaTags=null,ts=null,deleted=null} with refs [{name='x', subject='nobody', version=1}] of type AVRO, details: No schema reference found for subject \\\"nobody\\\" and version 1\"}",
+    "ms": 11
+   },
+   "doze": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42201,\"message\":\"Invalid schema {subject=e,version=0,id=-1,schemaType=AVRO,references=[{name='x', subject='nobody', version=1}],metadata=null,ruleSet=null,schema={\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"}]},schemaTags=null} with refs [{name='x', subject='nobody', version=1}] of type AVRO, details: No schema reference found for subject \\\"nobody\\\" and version 1\"}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/e/versions",
+   "b": "{\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"}]}\",\"references\":[{\"name\":\"x\"}]}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42201,\"message\":\"Invalid schema {subject=e,version=0,id=-1,schemaType=AVRO,references=[{name='x', subject='null', version=null}],metadata=null,ruleSet=null,schema={\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"}]},schemaTags=null} with refs [{name='x', subject='null', version=null}] of type AVRO, details: Invalid reference: {name='x', subject='null', version=null}\"}",
+    "ms": 5
+   },
+   "confluent-8": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42201,\"message\":\"Invalid schema of type AVRO, details: Invalid schema {subject=e,version=null,id=null,guid=77639ae1-df51-f6ad-e3e5-c0a6f96cf9ca,schemaType=AVRO,references=[{name='x', subject='null', version=null}],metadata=null,ruleSet=null,schema={\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"}]},schemaTags=null,ts=null,deleted=null} with refs [{name='x', subject='null', version=null}] of type AVRO, details: Invalid reference: {name='x', subject='null', version=null}\"}",
+    "ms": 7
+   },
+   "doze": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42201,\"message\":\"Invalid schema {subject=e,version=0,id=-1,schemaType=AVRO,references=[{name='x', subject='null', version=null}],metadata=null,ruleSet=null,schema={\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"}]},schemaTags=null} with refs [{name='x', subject='null', version=null}] of type AVRO, details: Invalid reference: {name='x', subject='null', version=null}\"}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/e/versions",
+   "b": "{\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"}]}\"}",
+   "ct": "text/plain"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 415,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":415,\"message\":\"HTTP 415 Unsupported Media Type\"}",
+    "ms": 4
+   },
+   "confluent-8": {
+    "status": 415,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":415,\"message\":\"HTTP 415 Unsupported Media Type\"}",
+    "ms": 4
+   },
+   "doze": {
+    "status": 415,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":415,\"message\":\"HTTP 415 Unsupported Media Type\"}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/e/versions",
+   "b": "{\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"}]}\"}",
+   "ct": "application/json"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 409,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":409,\"message\":\"Schema being registered is incompatible with an earlier schema for subject \\\"e\\\", details: [{errorType:'TYPE_MISMATCH', description:'The type (path '/') of a field in the new schema does not match with the old schema', additionalInfo:'reader type: RECORD not compatible with writer type: STRING'}, {oldSchemaVersion: 1}, {oldSchema: '\\\"string\\\"'}, {validateFields: 'false', compatibility: 'BACKWARD'}]\"}",
+    "ms": 11
+   },
+   "confluent-8": {
+    "status": 409,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":40901,\"message\":\"Schema being registered is incompatible with an earlier schema for subject \\\"e\\\", details: [{errorType:'TYPE_MISMATCH', description:'The type (path '/') of a field in the new schema does not match with the old schema', additionalInfo:'reader type: RECORD not compatible with writer type: STRING'}, {oldSchemaVersion: 1}, {oldSchema: '\\\"string\\\"'}, {validateFields: 'false', compatibility: 'BACKWARD'}]\"}",
+    "ms": 8
+   },
+   "doze": {
+    "status": 409,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":409,\"message\":\"Schema being registered is incompatible with an earlier schema for subject \\\"e\\\", details: [{errorType:'TYPE_MISMATCH', description:'The type (path '/') of a field in the new schema does not match with the old schema', additionalInfo:'reader type: RECORD not compatible with writer type: STRING'}, {oldSchemaVersion: 1}, {oldSchema: '\\\"string\\\"'}, {validateFields: 'false', compatibility: 'BACKWARD'}]\"}",
+    "ms": 3
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/e/versions",
+   "b": "{\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"}]}\"}",
+   "ct": "application/octet-stream"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 409,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":409,\"message\":\"Schema being registered is incompatible with an earlier schema for subject \\\"e\\\", details: [{errorType:'TYPE_MISMATCH', description:'The type (path '/') of a field in the new schema does not match with the old schema', additionalInfo:'reader type: RECORD not compatible with writer type: STRING'}, {oldSchemaVersion: 1}, {oldSchema: '\\\"string\\\"'}, {validateFields: 'false', compatibility: 'BACKWARD'}]\"}",
+    "ms": 7
+   },
+   "confluent-8": {
+    "status": 409,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":40901,\"message\":\"Schema being registered is incompatible with an earlier schema for subject \\\"e\\\", details: [{errorType:'TYPE_MISMATCH', description:'The type (path '/') of a field in the new schema does not match with the old schema', additionalInfo:'reader type: RECORD not compatible with writer type: STRING'}, {oldSchemaVersion: 1}, {oldSchema: '\\\"string\\\"'}, {validateFields: 'false', compatibility: 'BACKWARD'}]\"}",
+    "ms": 10
+   },
+   "doze": {
+    "status": 409,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":409,\"message\":\"Schema being registered is incompatible with an earlier schema for subject \\\"e\\\", details: [{errorType:'TYPE_MISMATCH', description:'The type (path '/') of a field in the new schema does not match with the old schema', additionalInfo:'reader type: RECORD not compatible with writer type: STRING'}, {oldSchemaVersion: 1}, {oldSchema: '\\\"string\\\"'}, {validateFields: 'false', compatibility: 'BACKWARD'}]\"}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/e/versions",
+   "b": "{\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"}]}\"}",
+   "ct": "application/x-www-form-urlencoded"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 415,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":415,\"message\":\"HTTP 415 Unsupported Media Type\"}",
+    "ms": 5
+   },
+   "confluent-8": {
+    "status": 415,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":415,\"message\":\"HTTP 415 Unsupported Media Type\"}",
+    "ms": 10
+   },
+   "doze": {
+    "status": 415,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":415,\"message\":\"HTTP 415 Unsupported Media Type\"}",
+    "ms": 1
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/e/versions",
+   "b": "{\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"}]}\"}",
+   "ct": null
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 409,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":409,\"message\":\"Schema being registered is incompatible with an earlier schema for subject \\\"e\\\", details: [{errorType:'TYPE_MISMATCH', description:'The type (path '/') of a field in the new schema does not match with the old schema', additionalInfo:'reader type: RECORD not compatible with writer type: STRING'}, {oldSchemaVersion: 1}, {oldSchema: '\\\"string\\\"'}, {validateFields: 'false', compatibility: 'BACKWARD'}]\"}",
+    "ms": 6
+   },
+   "confluent-8": {
+    "status": 409,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":40901,\"message\":\"Schema being registered is incompatible with an earlier schema for subject \\\"e\\\", details: [{errorType:'TYPE_MISMATCH', description:'The type (path '/') of a field in the new schema does not match with the old schema', additionalInfo:'reader type: RECORD not compatible with writer type: STRING'}, {oldSchemaVersion: 1}, {oldSchema: '\\\"string\\\"'}, {validateFields: 'false', compatibility: 'BACKWARD'}]\"}",
+    "ms": 17
+   },
+   "doze": {
+    "status": 409,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":409,\"message\":\"Schema being registered is incompatible with an earlier schema for subject \\\"e\\\", details: [{errorType:'TYPE_MISMATCH', description:'The type (path '/') of a field in the new schema does not match with the old schema', additionalInfo:'reader type: RECORD not compatible with writer type: STRING'}, {oldSchemaVersion: 1}, {oldSchema: '\\\"string\\\"'}, {validateFields: 'false', compatibility: 'BACKWARD'}]\"}",
+    "ms": 1
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/e/versions",
+   "b": "{\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"}]}\"}",
+   "ct": "application/vnd.schemaregistry+json"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 409,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":409,\"message\":\"Schema being registered is incompatible with an earlier schema for subject \\\"e\\\", details: [{errorType:'TYPE_MISMATCH', description:'The type (path '/') of a field in the new schema does not match with the old schema', additionalInfo:'reader type: RECORD not compatible with writer type: STRING'}, {oldSchemaVersion: 1}, {oldSchema: '\\\"string\\\"'}, {validateFields: 'false', compatibility: 'BACKWARD'}]\"}",
+    "ms": 6
+   },
+   "confluent-8": {
+    "status": 409,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":40901,\"message\":\"Schema being registered is incompatible with an earlier schema for subject \\\"e\\\", details: [{errorType:'TYPE_MISMATCH', description:'The type (path '/') of a field in the new schema does not match with the old schema', additionalInfo:'reader type: RECORD not compatible with writer type: STRING'}, {oldSchemaVersion: 1}, {oldSchema: '\\\"string\\\"'}, {validateFields: 'false', compatibility: 'BACKWARD'}]\"}",
+    "ms": 12
+   },
+   "doze": {
+    "status": 409,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":409,\"message\":\"Schema being registered is incompatible with an earlier schema for subject \\\"e\\\", details: [{errorType:'TYPE_MISMATCH', description:'The type (path '/') of a field in the new schema does not match with the old schema', additionalInfo:'reader type: RECORD not compatible with writer type: STRING'}, {oldSchemaVersion: 1}, {oldSchema: '\\\"string\\\"'}, {validateFields: 'false', compatibility: 'BACKWARD'}]\"}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "GET",
+   "p": "/subjects/e/versions"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "[1]",
+    "ms": 3
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "[1]",
+    "ms": 5
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "[1]",
+    "ms": 0
+   }
+  }
+ }
+]

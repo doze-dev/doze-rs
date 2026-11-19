@@ -118,7 +118,13 @@ fn verdict(api: &Api, kind: SchemaType, c: &Case, level: &str) -> (String, Vec<S
         let (st, body) = common::send(api, "POST", &path, &common::typed_body(kind.name(), &c.new));
         if st == 200 {
             let v: serde_json::Value = serde_json::from_str(&body).unwrap();
-            if v["is_compatible"].as_bool().unwrap() {
+            // A verbose check answers a schema that is not one with a verdict naming why, as Confluent does.
+            let invalid = v["messages"][0]
+                .as_str()
+                .is_some_and(|m| m.starts_with("Invalid schema"));
+            if invalid {
+                out.0 = "invalid".into();
+            } else if v["is_compatible"].as_bool().unwrap() {
                 out.0 = "yes".into();
             } else {
                 out.0 = "no".into();

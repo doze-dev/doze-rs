@@ -1,10 +1,9 @@
 //! Writing events: `PutLogEvents`, and the data points metric filters and the Embedded Metric Format make (what is kept: `bounds`).
 
 use aws_wire::ApiError;
-use doze_store::record;
 use serde_json::{Value, json};
 
-use crate::core::{Core, VERSION};
+use crate::core::Core;
 use crate::model::{Event, Stream, event_key, stream_key};
 use crate::pattern::{self, Pattern};
 use crate::req::{Put, Req, invalid, no_stream};
@@ -29,9 +28,10 @@ pub(crate) fn token_of(s: &Stream) -> String {
 }
 
 /// One event of a request.
-struct Incoming {
-    ts: i64,
-    message: String,
+#[derive(Clone, Debug)]
+pub(crate) struct Incoming {
+    pub(crate) ts: i64,
+    pub(crate) message: String,
 }
 
 impl Core {
@@ -50,37 +50,26 @@ impl Core {
             .get(verdict.first_ok..verdict.end_ok)
             .unwrap_or_default();
         check_span(accepted)?;
-        self.metric_points(&group, accepted, now);
+        let transformed = self.transformed(&group, r, accepted);
+        let as_transformed = as_transformed(accepted, &transformed);
+        self.metric_points(
+            &group,
+            (accepted, as_transformed.as_deref().unwrap_or(accepted)),
+            now,
+        );
         if r.call.caller.service.as_deref() == Some("lambda") {
             self.emf_points(accepted, now);
         }
-        if let Some(g) = self.groups.get(&group) {
-            let group_arn = g.arn(r.region(), r.account());
-            let lines: Vec<crate::forward::Line<'_>> = accepted
-                .iter()
-                .map(|e| crate::forward::Line {
-                    ts: e.ts,
-                    message: &e.message,
-                })
-                .collect();
-            let origin = crate::forward::Origin {
-                owner: r.account(),
-                group: &group,
-                stream: r.s("logStreamName"),
-                group_arn: &group_arn,
-            };
-            self.queue_forwards(&origin, &lines);
-        }
+        self.forward_lines(r, &group, (accepted, &transformed));
+        self.tail(&group, r.s("logStreamName"), accepted, now);
         let stream = self.streams.get_mut(&key).ok_or_else(no_stream)?;
-        for e in accepted {
-            let bytes = record::encode(
-                "event",
-                VERSION,
-                &Event {
-                    ingested_ms: now,
-                    message: e.message.clone(),
-                },
-            )
+        for (e, t) in accepted.iter().zip(transformed) {
+            let bytes = Event {
+                ingested_ms: now,
+                message: e.message.clone(),
+                transformed: t,
+            }
+            .encode()
             .map_err(|x| ApiError::internal(x.to_string()))?;
             self.events
                 .put(event_key(stream.no, e.ts, stream.written), bytes);
@@ -104,12 +93,48 @@ impl Core {
         Ok(out)
     }
 
+    /// Queues for the group's subscription filters the lines of a write, with what the transformer made of each.
+    fn forward_lines(
+        &mut self,
+        r: &Req<'_>,
+        group: &str,
+        (accepted, transformed): (&[Incoming], &[Option<String>]),
+    ) {
+        let Some(g) = self.groups.get(group) else {
+            return;
+        };
+        let group_arn = g.arn(r.region(), r.account());
+        let lines: Vec<crate::forward::Line<'_>> = accepted
+            .iter()
+            .zip(transformed)
+            .map(|(e, t)| crate::forward::Line {
+                ts: e.ts,
+                message: &e.message,
+                transformed: t.as_deref(),
+            })
+            .collect();
+        let origin = crate::forward::Origin {
+            owner: r.account(),
+            group,
+            stream: r.s("logStreamName"),
+            group_arn: &group_arn,
+        };
+        self.queue_forwards(&origin, &lines);
+    }
+
     /// The data points the group's metric filters make of `events`, held until the call is answered. A filter none of whose events
     /// match reports its `defaultValue`, if it has one, once in the minute: AWS's documentation says the default is "the value
     /// reported to the metric filter during a period when logs are ingested but no matching logs are found", and that nothing is
     /// reported for a period with no logs. Reported at the time of ingestion, and only by a filter without dimensions (AWS does not
     /// take a default beside dimensions) (memory).
-    fn metric_points(&mut self, group: &str, events: &[Incoming], now: i64) {
+    /// A filter with `applyOnTransformedLogs` reads the transformed events (`transformed`, each the original where the transformer
+    /// made nothing of it).
+    fn metric_points(
+        &mut self,
+        group: &str,
+        (original, transformed): (&[Incoming], &[Incoming]),
+        now: i64,
+    ) {
         let Some(g) = self.groups.get(group) else {
             return;
         };
@@ -119,6 +144,11 @@ impl Core {
         for f in &g.metric_filters {
             let Ok(pattern) = pattern::parse(&f.pattern) else {
                 continue;
+            };
+            let events = if f.apply_on_transformed {
+                transformed
+            } else {
+                original
             };
             let t = &f.transformation;
             let hits: Vec<&Incoming> = events
@@ -198,6 +228,20 @@ impl Core {
         }
     }
 }
+/// The events as their group's transformer left them, when it made something of any.
+fn as_transformed(events: &[Incoming], transformed: &[Option<String>]) -> Option<Vec<Incoming>> {
+    transformed.iter().any(Option::is_some).then(|| {
+        events
+            .iter()
+            .zip(transformed)
+            .map(|(e, t)| Incoming {
+                ts: e.ts,
+                message: t.clone().unwrap_or_else(|| e.message.clone()),
+            })
+            .collect()
+    })
+}
+
 /// A data point: the filter's value read from the event, at the event's time.
 fn datum(pattern: &Pattern, t: &crate::model::Transformation, e: &Incoming) -> Option<Value> {
     let value: f64 = match t.value.parse() {

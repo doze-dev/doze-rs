@@ -97,12 +97,15 @@ impl EpochEndOffset {
 #[cfg(feature = "broker")]
 impl Encodable for EpochEndOffset {
     fn encode<B: ByteBufMut>(&self, buf: &mut B, version: i16) -> Result<()> {
-        if version < 2 || version > 4 {
+        if version < 0 || version > 4 { // PATCH 5: v0 and v1 (Kafka 1 to 3)
             bail!("specified version not supported by this message type");
         }
         types::Int16.encode(buf, &self.error_code)?;
         types::Int32.encode(buf, &self.partition)?;
-        types::Int32.encode(buf, &self.leader_epoch)?;
+        if version >= 1 {
+            // PATCH 5: from v1
+            types::Int32.encode(buf, &self.leader_epoch)?;
+        }
         types::Int64.encode(buf, &self.end_offset)?;
         if version >= 4 {
             let num_tagged_fields = self.unknown_tagged_fields.len();
@@ -122,7 +125,10 @@ impl Encodable for EpochEndOffset {
         let mut total_size = 0;
         total_size += types::Int16.compute_size(&self.error_code)?;
         total_size += types::Int32.compute_size(&self.partition)?;
-        total_size += types::Int32.compute_size(&self.leader_epoch)?;
+        if version >= 1 {
+            // PATCH 5
+            total_size += types::Int32.compute_size(&self.leader_epoch)?;
+        }
         total_size += types::Int64.compute_size(&self.end_offset)?;
         if version >= 4 {
             let num_tagged_fields = self.unknown_tagged_fields.len();
@@ -143,12 +149,13 @@ impl Encodable for EpochEndOffset {
 #[cfg(feature = "client")]
 impl Decodable for EpochEndOffset {
     fn decode<B: ByteBuf>(buf: &mut B, version: i16) -> Result<Self> {
-        if version < 2 || version > 4 {
+        if version < 0 || version > 4 { // PATCH 5: v0 and v1 (Kafka 1 to 3)
             bail!("specified version not supported by this message type");
         }
         let error_code = types::Int16.decode(buf)?;
         let partition = types::Int32.decode(buf)?;
-        let leader_epoch = types::Int32.decode(buf)?;
+        // PATCH 5: from v1; its default before.
+        let leader_epoch = if version >= 1 { types::Int32.decode(buf)? } else { -1 };
         let end_offset = types::Int64.decode(buf)?;
         let mut unknown_tagged_fields = BTreeMap::new();
         if version >= 4 {
@@ -183,7 +190,7 @@ impl Default for EpochEndOffset {
 }
 
 impl Message for EpochEndOffset {
-    const VERSIONS: VersionRange = VersionRange { min: 2, max: 4 };
+    const VERSIONS: VersionRange = VersionRange { min: 0, max: 4 } /* PATCH 5 */;
     const DEPRECATED_VERSIONS: Option<VersionRange> = None;
 }
 
@@ -239,10 +246,13 @@ impl OffsetForLeaderEpochResponse {
 #[cfg(feature = "broker")]
 impl Encodable for OffsetForLeaderEpochResponse {
     fn encode<B: ByteBufMut>(&self, buf: &mut B, version: i16) -> Result<()> {
-        if version < 2 || version > 4 {
+        if version < 0 || version > 4 { // PATCH 5: v0 and v1 (Kafka 1 to 3)
             bail!("specified version not supported by this message type");
         }
-        types::Int32.encode(buf, &self.throttle_time_ms)?;
+        if version >= 2 {
+            // PATCH 5: from v2
+            types::Int32.encode(buf, &self.throttle_time_ms)?;
+        }
         if version >= 4 {
             types::CompactArray(types::Struct { version }).encode(buf, &self.topics)?;
         } else {
@@ -264,7 +274,10 @@ impl Encodable for OffsetForLeaderEpochResponse {
     }
     fn compute_size(&self, version: i16) -> Result<usize> {
         let mut total_size = 0;
-        total_size += types::Int32.compute_size(&self.throttle_time_ms)?;
+        if version >= 2 {
+            // PATCH 5
+            total_size += types::Int32.compute_size(&self.throttle_time_ms)?;
+        }
         if version >= 4 {
             total_size +=
                 types::CompactArray(types::Struct { version }).compute_size(&self.topics)?;
@@ -290,10 +303,11 @@ impl Encodable for OffsetForLeaderEpochResponse {
 #[cfg(feature = "client")]
 impl Decodable for OffsetForLeaderEpochResponse {
     fn decode<B: ByteBuf>(buf: &mut B, version: i16) -> Result<Self> {
-        if version < 2 || version > 4 {
+        if version < 0 || version > 4 { // PATCH 5: v0 and v1 (Kafka 1 to 3)
             bail!("specified version not supported by this message type");
         }
-        let throttle_time_ms = types::Int32.decode(buf)?;
+        // PATCH 5: from v2; its default before.
+        let throttle_time_ms = if version >= 2 { types::Int32.decode(buf)? } else { 0 };
         let topics = if version >= 4 {
             types::CompactArray(types::Struct { version }).decode(buf)?
         } else {
@@ -328,7 +342,7 @@ impl Default for OffsetForLeaderEpochResponse {
 }
 
 impl Message for OffsetForLeaderEpochResponse {
-    const VERSIONS: VersionRange = VersionRange { min: 2, max: 4 };
+    const VERSIONS: VersionRange = VersionRange { min: 0, max: 4 } /* PATCH 5 */;
     const DEPRECATED_VERSIONS: Option<VersionRange> = None;
 }
 
@@ -384,7 +398,7 @@ impl OffsetForLeaderTopicResult {
 #[cfg(feature = "broker")]
 impl Encodable for OffsetForLeaderTopicResult {
     fn encode<B: ByteBufMut>(&self, buf: &mut B, version: i16) -> Result<()> {
-        if version < 2 || version > 4 {
+        if version < 0 || version > 4 { // PATCH 5: v0 and v1 (Kafka 1 to 3)
             bail!("specified version not supported by this message type");
         }
         if version >= 4 {
@@ -443,7 +457,7 @@ impl Encodable for OffsetForLeaderTopicResult {
 #[cfg(feature = "client")]
 impl Decodable for OffsetForLeaderTopicResult {
     fn decode<B: ByteBuf>(buf: &mut B, version: i16) -> Result<Self> {
-        if version < 2 || version > 4 {
+        if version < 0 || version > 4 { // PATCH 5: v0 and v1 (Kafka 1 to 3)
             bail!("specified version not supported by this message type");
         }
         let topic = if version >= 4 {
@@ -485,7 +499,7 @@ impl Default for OffsetForLeaderTopicResult {
 }
 
 impl Message for OffsetForLeaderTopicResult {
-    const VERSIONS: VersionRange = VersionRange { min: 2, max: 4 };
+    const VERSIONS: VersionRange = VersionRange { min: 0, max: 4 } /* PATCH 5 */;
     const DEPRECATED_VERSIONS: Option<VersionRange> = None;
 }
 

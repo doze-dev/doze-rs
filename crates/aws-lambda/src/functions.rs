@@ -318,6 +318,18 @@ impl Core {
         match f.qualifier.as_deref() {
             None => {
                 self.functions.remove(&f.name);
+                // Memory: what becomes of a deleted function's durable executions on AWS is not recorded; here they go with it.
+                let prefix = format!("{}/", f.name);
+                let gone: Vec<String> = self
+                    .durable
+                    .with_prefix(&prefix)
+                    .map(|(k, _)| k.to_owned())
+                    .collect();
+                for k in gone {
+                    self.durable.remove(&k);
+                    self.live.busy.remove(&k);
+                    self.live.changed = true;
+                }
             }
             Some(LATEST) => {
                 return Err(invalid(

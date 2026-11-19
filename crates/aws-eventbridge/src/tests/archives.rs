@@ -82,6 +82,16 @@ fn a_replay_puts_the_window_back_through_the_rules_marked_as_a_replay() {
         started["ReplayArn"],
         "arn:aws:events:us-east-1:000000000000:replay/rp"
     );
+    // Nothing is put back before the replay's first step.
+    assert!(w.drain("q").is_empty());
+    let d = w.ok("DescribeReplay", &json!({"ReplayName": "rp"}));
+    assert_eq!(d["State"], "STARTING");
+    assert!(d.get("ReplayEndTime").is_none());
+    assert_eq!(
+        w.ok("ListReplays", &json!({"State": "STARTING"}))["Replays"][0]["ReplayName"],
+        "rp"
+    );
+    w.finish_replays();
     let got = w.bodies("q");
     assert_eq!(
         got.iter()
@@ -131,6 +141,7 @@ fn a_replay_can_be_limited_to_named_rules() {
     let s = START / 1000;
     w.ok("StartReplay", &json!({"ReplayName": "rp", "EventSourceArn": "arn:aws:events:us-east-1:000000000000:archive/a",
         "EventStartTime": s - 60, "EventEndTime": s, "Destination": {"Arn": SHOP, "FilterArns": [two]}}));
+    w.finish_replays();
     assert!(w.drain("q-one").is_empty());
     assert_eq!(w.drain("q-two").len(), 1);
 }

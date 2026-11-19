@@ -408,6 +408,9 @@ impl Inner {
             .to_owned();
         let payload = payload_of(&r)?;
         let rs = self.resolve(&call, &r, false).await?;
+        if rs.config.contains_key("DurableConfig") {
+            return self.durable_invoke(&call, &r, rs, payload).await;
+        }
         let executed = rs.version.clone();
         match kind.as_str() {
             "DryRun" => Ok(RestReply {

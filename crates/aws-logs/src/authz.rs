@@ -26,6 +26,28 @@ pub(crate) fn needs(call: &Call) -> Vec<Need> {
                 .filter(|a| a.contains(":log-group:"))
                 .map(name_of_identifier)
         });
+    if let Some(name) = text("destinationName") {
+        return vec![Need::new(
+            action,
+            format!("arn:aws:logs:{region}:{account}:destination:{name}"),
+        )];
+    }
+    if op == O::StartLiveTail {
+        let arns: Vec<String> = body
+            .get("logGroupIdentifiers")
+            .and_then(Value::as_array)
+            .map(|a| {
+                a.iter()
+                    .filter_map(Value::as_str)
+                    .map(str::to_owned)
+                    .collect()
+            })
+            .unwrap_or_default();
+        return arns
+            .into_iter()
+            .map(|a| Need::new(action.clone(), a))
+            .collect();
+    }
     let resource = match (op, group) {
         (
             O::DescribeLogGroups

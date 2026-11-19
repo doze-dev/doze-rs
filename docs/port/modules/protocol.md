@@ -44,6 +44,7 @@ Flag bit 0: a handle rides with the frame. The decoder is sans-IO (bytes in, fra
 | `restart_policy`, `health` | host → module | supervised modules |
 | `resources`, `run_action` | host → module | admin |
 | `tail` | host → module, stream | credit-based |
+| `migrate` (minor 1, capability `MIGRATE`) | host → module | the instance's data moved to the version its block declares, with the instance stopped by the host; may call `fetch.resolve_major` and `fetch.ensure` while it runs (the old major's build). Postgres: Go's dump with the old server, the set-aside, and the restore into a fresh cluster (`doze-module-postgres/src/migrate.rs`), proven 16 → 17 on 2026-11-15 under a private DOZE_HOME with a local signed registry and the D1 daemon |
 | `wire.accept` | host → module, with a handle | the module may call `wire.boot`, `wire.acquire`, `wire.release` while it runs |
 | `shutdown` | host → module | |
 | `event`, `log` | module → host, one-way | |

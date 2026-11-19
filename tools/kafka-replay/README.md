@@ -16,10 +16,12 @@ CONFORMANCE_BIN=$CARGO_TARGET_DIR/release/doze-kafka GOWORK=off \
   go test . -run 'TestReplay$' -count=1 -v -timeout 30m
 ```
 
-The full replay takes about four and a half minutes and passes 58 of 58 scenarios. Narrow it with:
+The full replay takes about four and a half minutes and passes 61 of 61 scenarios (2026-11-18). Narrow it with:
 
 - `CONFORMANCE_ONLY=<prefix>,<prefix>`: only the scenarios whose names start with one of the prefixes.
 - `-args -only <name>`: one scenario by exact name.
+- `KAFKA_REPLAY_PORTS=<lo>-<hi>` (say `39900-39999`): every port the replay and the recorder hand out (the binary's listener, the Docker
+  broker's published port) is the first free one in that range, for a machine where the free ports are shared out.
 
 To read a run as a list: `grep -E '^    --- (PASS|FAIL|SKIP)'` over the `-v` output.
 
@@ -31,7 +33,7 @@ values a broker makes up are replaced by placeholders). The replay starts the bi
 the answers the same way and compares. A difference fails unless the scenario lists it under `Known` (a written-down
 difference); a `Known` entry that matches nothing is not reported, since that list is the Go edition's.
 
-Of the 81 recordings, 58 are replayed. The others are skipped by `TestReplay` without a subtest:
+Of the 84 recordings, 61 are replayed. The others are skipped by `TestReplay` without a subtest:
 
 - `DiskMiB` scenarios (`full-disk-*`): recorded on a size-limited volume; the broker's side is its own `SimFs` tests.
 - `NoReplay` scenarios: evidence only, recorded from Kafka and never replayed.
@@ -66,7 +68,7 @@ has no way to start.
 - `wire.go`, `normalize.go`, `produce_batches.go`: raw connection, normalisation, record batches.
 - `scenarios*.go`: the scripts. `version-matrix` uses a fixed API table (`matrixAPIs`), copied from the Go edition's
   Kafka 4 profile, because that is what its recording was made from.
-- `recordings/`: the 81 recordings. `claims/`: the Go repository's claims, each citing recordings; kept as data.
+- `recordings/`: the 84 recordings. `claims/`: the Go repository's claims, each citing recordings; kept as data.
 
 ## Record
 
@@ -77,6 +79,11 @@ needs a running Docker daemon (here: `colima start`); without one it skips and r
 GOWORK=off go test . -run 'TestRecord$' -count=1 -v -args -record              # every scenario not Frozen
 GOWORK=off go test . -run 'TestRecord$' -count=1 -v -args -record -only <name> # one
 ```
+
+A scenario is recorded against `KafkaImage` unless it names another `Image` (`acl-v0` is recorded against `apache/kafka:3.9.1`, the
+last release that serves the ACL APIs at v0, and replayed with `KafkaVersion: 3`, that is `--kafka-version 3`). Two step kinds go past
+the Kafka framing: `Env.Raw` (a raw SASL token after a SaslHandshake v0, `sasl-handshake-v0`) and `Env.DoOrSilence` (a request Kafka may
+leave unanswered, recorded as `no answer`).
 
 Against Kafka a step that answers a coordinator-loading code is asked again until it settles (`Env.settles`); against
 doze-kafka never. A new scenario is a `Scenario` in a `scenarios*.go` file, recorded, then replayed.

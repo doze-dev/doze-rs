@@ -9,8 +9,11 @@ use super::{Acl, AclFilter, ResourceType, pattern, resource};
 pub(super) struct ByType {
     /// LITERAL ACLs by the name they have (`*` among them).
     pub(super) literal: HashMap<String, Vec<Acl>>,
-    /// PREFIXED ACLs: the resources they cover are found by testing each one's prefix.
-    pub(super) prefixed: Vec<Acl>,
+    /// PREFIXED ACLs by the prefix they have. A check looks up only the prefixes of the name it is given whose
+    /// length some ACL has (`prefix_lengths`), so it never scans the PREFIXED ACLs of the type (SEC-400).
+    pub(super) prefixed: HashMap<String, Vec<Acl>>,
+    /// The distinct lengths in bytes of the prefixes in `prefixed`, shortest first.
+    pub(super) prefix_lengths: Vec<usize>,
     /// Every ACL of the type, whatever its pattern.
     pub(super) all: Vec<Acl>,
 }
@@ -46,9 +49,18 @@ impl AclSet {
                     .entry(acl.name.clone())
                     .or_default()
                     .push(acl.clone()),
-                pattern::PREFIXED => slot.prefixed.push(acl.clone()),
+                pattern::PREFIXED => slot
+                    .prefixed
+                    .entry(acl.name.clone())
+                    .or_default()
+                    .push(acl.clone()),
                 _ => {}
             }
+        }
+        for slot in &mut types {
+            slot.prefix_lengths = slot.prefixed.keys().map(String::len).collect();
+            slot.prefix_lengths.sort_unstable();
+            slot.prefix_lengths.dedup();
         }
         Self { all, types }
     }

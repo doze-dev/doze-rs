@@ -2,6 +2,7 @@
 //! help that says what each does in plain words. Groups for `--help` are in [`crate::help`].
 
 pub mod args;
+mod examples;
 pub mod setup;
 pub mod values;
 
@@ -64,6 +65,7 @@ pub enum Cmd {
     /// Converge the stack with doze.hcl: create what is new, change what changed, remove what went
     Sync(Sync),
     /// Every service: its state, its address and what it uses
+    #[command(after_help = examples::STATUS)]
     #[command(visible_aliases = ["tree", "ls", "ps"])]
     Status(Status),
     /// The services' connection variables, as exports to eval (or lines for a .env)
@@ -73,20 +75,25 @@ pub enum Cmd {
 
     // One service
     /// Wake services now, with what they depend on (no name: everything)
+    #[command(after_help = examples::WAKE)]
     #[command(visible_alias = "boot")]
     Wake(Names),
     /// Put services to sleep, keeping their data (no name: everything awake)
+    #[command(after_help = examples::SLEEP)]
     #[command(visible_alias = "reap")]
     Sleep(Names),
     /// Stop services and start them again
+    #[command(after_help = examples::RESTART)]
     Restart(SomeNames),
     /// Delete services' data; each starts fresh on its next wake
     Reset(SomeNames),
     /// Move a postgres service's data to the major version doze.hcl now declares
     Migrate(OneName),
     /// Run a task now, or list the tasks and how they last ran
+    #[command(after_help = examples::TASK)]
     Task(Task),
     /// Keep services awake past their idle time (--off lets them sleep again)
+    #[command(after_help = examples::PIN)]
     #[command(visible_alias = "keepawake")]
     Pin(Pin),
     /// Take services out of this run: stop them, and nothing wakes them until doze on
@@ -94,6 +101,7 @@ pub enum Cmd {
     /// Put services back into this run; each wakes on its next connection
     On(SomeNames),
     /// What services printed, also while asleep, after a crash, or with doze down
+    #[command(after_help = examples::LOGS)]
     Logs(Logs),
     /// A service's connect line (pipe it to your clipboard)
     #[command(visible_alias = "copy")]
@@ -101,6 +109,7 @@ pub enum Cmd {
     /// Open the engine's own client on a service (valkey-cli, psql), signed in
     Connect(Service),
     /// Why a service is awake or asleep: what woke it, what keeps it, when it sleeps
+    #[command(after_help = examples::WHY)]
     Why(Service),
 
     // Set up and edit
@@ -113,10 +122,13 @@ pub enum Cmd {
     /// Format doze.hcl and its sibling *.doze.hcl files
     Fmt(Fmt),
     /// Check this machine and project for what would stop doze, and say how to fix it
+    #[command(after_help = examples::DOCTOR)]
     Doctor(Doctor),
     /// One-time machine setup for .doze names (the same as doze doctor --fix)
+    #[command(after_help = examples::DNS_SETUP)]
     DnsSetup(DnsSetup),
     /// Set this machine up for the stack's own domains: routes and https (one sudo)
+    #[command(after_help = examples::TRUST)]
     Trust(Trust),
 
     // The app

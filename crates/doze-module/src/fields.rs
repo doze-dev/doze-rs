@@ -148,3 +148,118 @@ impl<T: Field> Field for BTreeMap<String, T> {
         Some(BTreeMap::new())
     }
 }
+
+/// An object whose entries keep the order they were written in: a doze.hcl object travels as a map (keys sorted), but
+/// each value carries its span, so the order of the source is the order of the spans. For a module to which order is
+/// meaning (a compound index's keys). When the order cannot be read (two entries at one place or in two files, as an
+/// object the host computed would be), decoding fails at the object rather than guess: write it out literally.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct Ordered<T>(pub Vec<(String, T)>);
+
+impl<T> Ordered<T> {
+    /// The entries, in the order they were written.
+    pub fn iter(&self) -> impl Iterator<Item = &(String, T)> {
+        self.0.iter()
+    }
+}
+
+impl<T: Field> Field for Ordered<T> {
+    fn ty() -> Type {
+        Type::Map(Box::new(T::ty()))
+    }
+    fn read(node: &Node, cx: &mut Decoding) -> Option<Ordered<T>> {
+        let Value::Map(m) = &node.value else {
+            cx.error(
+                format!("expected an object, found {}", kind(&node.value)),
+                None,
+            );
+            return None;
+        };
+        let mut entries: Vec<(&String, &Node)> = m.iter().collect();
+        entries.sort_by_key(|(_, v)| (v.span.file, v.span.start));
+        let unreadable = entries.windows(2).any(|w| match w {
+            [(_, a), (_, b)] => a.span.file != b.span.file || a.span.start == b.span.start,
+            _ => false,
+        });
+        if unreadable {
+            cx.error(
+                "the order of this object's entries cannot be read (it was not written out where it is used)",
+                Some("write the object literally here, e.g. { a = 1, b = -1 }".into()),
+            );
+            return None;
+        }
+        let mut out = Vec::with_capacity(entries.len());
+        for (k, v) in entries {
+            cx.path_push(PathSeg::Key(k.clone()));
+            out.push(T::read(v, cx).map(|v| (k.clone(), v)));
+            cx.path_pop();
+        }
+        out.into_iter().collect::<Option<Vec<_>>>().map(Ordered)
+    }
+    fn absent() -> Option<Ordered<T>> {
+        Some(Ordered(Vec::new()))
+    }
+}
+
+#[cfg(test)]
+#[allow(clippy::unwrap_used)]
+mod tests {
+    use super::Ordered;
+    use crate::spec::{Decoding, Field};
+    use doze_module_proto::msg::value::{Node, Span, Value};
+    use std::collections::BTreeMap;
+
+    fn at(file: u16, start: u32, n: i64) -> Node {
+        Node {
+            span: Span {
+                file,
+                start,
+                end: start + 1,
+            },
+            value: Value::Number(n.to_string()),
+        }
+    }
+
+    fn object(entries: &[(&str, Node)]) -> Node {
+        let m: BTreeMap<String, Node> = entries
+            .iter()
+            .map(|(k, v)| ((*k).to_string(), v.clone()))
+            .collect();
+        Node {
+            span: Span::default(),
+            value: Value::Map(m),
+        }
+    }
+
+    #[test]
+    fn entries_come_back_in_the_order_written() {
+        let node = object(&[
+            ("status", at(1, 10, 1)),
+            ("at", at(1, 24, -1)),
+            ("b", at(1, 40, 1)),
+        ]);
+        let mut cx = Decoding::new("");
+        let got: Ordered<i64> = Field::read(&node, &mut cx).unwrap();
+        let keys: Vec<&str> = got.iter().map(|(k, _)| k.as_str()).collect();
+        assert_eq!(keys, ["status", "at", "b"]);
+        assert!(cx.diagnostics.is_empty());
+    }
+
+    #[test]
+    fn an_order_that_cannot_be_read_is_refused_not_guessed() {
+        for node in [
+            // The host made it: no spans.
+            object(&[("b", at(0, 0, 1)), ("a", at(0, 0, 1))]),
+            // Two files.
+            object(&[("b", at(1, 5, 1)), ("a", at(2, 1, 1))]),
+        ] {
+            let mut cx = Decoding::new("");
+            assert!(<Ordered<i64> as Field>::read(&node, &mut cx).is_none());
+            assert_eq!(cx.diagnostics.len(), 1);
+        }
+        // One entry has an order whatever its span.
+        let mut cx = Decoding::new("");
+        let one: Ordered<i64> = Field::read(&object(&[("a", at(0, 0, 1))]), &mut cx).unwrap();
+        assert_eq!(one.0.len(), 1);
+    }
+}

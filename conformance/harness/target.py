@@ -109,8 +109,9 @@ class Doze(Target):
             endpoint_url=self.endpoint,
             # A scenario may ask for another region (a replica's).
             region_name=kw.pop("region_name", self.region),
-            aws_access_key_id="test",
-            aws_secret_access_key="test",
+            # A scenario may call as an IAM user it made (its access key).
+            aws_access_key_id=kw.pop("aws_access_key_id", "test"),
+            aws_secret_access_key=kw.pop("aws_secret_access_key", "test"),
             # One attempt. A retry turns a 500 that happens once into a pass,
             # and here the 500 is the finding.
             config=Config(retries={"total_max_attempts": 1}),
@@ -148,11 +149,16 @@ def _mark_kms_keys(client):
         params["Tags"] = [*params.get("Tags", []), _MARK]
 
     def hide(parsed, **_):
-        if "Tags" in parsed:
-            parsed["Tags"] = [t for t in parsed["Tags"] if t.get("TagKey") != _MARK["TagKey"]]
+        for field in ("Tags", "ReplicaTags"):
+            if field in parsed:
+                parsed[field] = [t for t in parsed[field] if t.get("TagKey") != _MARK["TagKey"]]
 
     client.meta.events.register("provide-client-params.kms.CreateKey", add)
+    # A replica is a key made in another region: it carries the mark too, or the recorder may not make it.
+    client.meta.events.register("provide-client-params.kms.ReplicateKey", add)
     client.meta.events.register("after-call.kms.ListResourceTags", hide)
+    # ReplicateKey answers with the replica's tags, the mark among them.
+    client.meta.events.register("after-call.kms.ReplicateKey", hide)
 
 
 class AWS(Target):

@@ -289,7 +289,6 @@ async fn what_is_not_built_is_refused_by_name() {
     let w = World::new();
     for op in [
         "CreateCapacityProvider",
-        "GetDurableExecution",
         "InvokeAsync",
         "PutFunctionScalingConfig",
     ] {

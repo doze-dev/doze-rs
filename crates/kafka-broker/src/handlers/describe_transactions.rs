@@ -71,7 +71,13 @@ impl<F: Fs> Broker<F> {
                         })
                         .collect();
                 }
-                _ => s.error_code = E::TransactionalIdNotFound.code(),
+                _ => {
+                    // An id with no transaction is the error and the schema's defaults (producer id 0, no start of -1), as the
+                    // recorded Kafka answers (`authz-matrix`, step `alice-describe-transactions`; SEC-405).
+                    s = TransactionState::default();
+                    s.transactional_id = id.clone();
+                    s.error_code = E::TransactionalIdNotFound.code();
+                }
             }
             resp.transaction_states.push(s);
         }

@@ -114,8 +114,22 @@ fn covering<'a>(by_type: &'a ByType, name: &'a str) -> impl Iterator<Item = &'a 
         .into_iter()
         .flatten()
         .filter(move |_| !name.starts_with(WILDCARD));
-    let prefixed = by_type.prefixed.iter().filter(move |a| a.covers(name));
-    exact.chain(wildcard).chain(prefixed)
+    exact
+        .chain(wildcard)
+        .chain(prefixed_covering(by_type, name))
+}
+
+/// The PREFIXED ACLs whose prefix `name` starts with: one lookup per prefix length some ACL of the type has, so
+/// the cost is in the distinct lengths, not in the number of PREFIXED ACLs (SEC-400; Kafka walks a sorted set to
+/// the same end).
+fn prefixed_covering<'a>(by_type: &'a ByType, name: &'a str) -> impl Iterator<Item = &'a Acl> {
+    by_type
+        .prefix_lengths
+        .iter()
+        .take_while(move |&&len| len <= name.len())
+        .filter_map(move |&len| name.get(..len))
+        .filter_map(|prefix| by_type.prefixed.get(prefix))
+        .flatten()
 }
 
 /// `findResult`: `Some(true)` if the ACL allows this, `Some(false)` if it denies, `None` if it is not about

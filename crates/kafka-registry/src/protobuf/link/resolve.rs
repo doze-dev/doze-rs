@@ -57,16 +57,14 @@ impl Linker<'_> {
         }
     }
 
-    pub(super) fn unresolved(&self, name: &str, at: u32) -> Error {
-        if self.descriptor {
-            Error::plain(format!("Could not resolve type: {name}"))
-        } else {
-            Error::at(at, format!("unknown type {name}"))
-        }
+    /// A type no file in reach declares, worded as Confluent words it for text and descriptors alike (recorded by
+    /// tools/registry-diff: `Could not resolve type: shop.Money`, the name as written, with no position).
+    pub(super) fn unresolved(name: &str) -> Error {
+        Error::plain(format!("Could not resolve type: {name}"))
     }
 
     /// A field's type from its name.
-    pub(super) fn ty(&self, name: &str, scope: &str, file: usize, at: u32) -> Result<Ty, Error> {
+    pub(super) fn ty(&self, name: &str, scope: &str, file: usize) -> Result<Ty, Error> {
         if let Some(t) = scalar(name) {
             return Ok(Ty::Scalar(t));
         }
@@ -74,7 +72,7 @@ impl Linker<'_> {
             .resolve(name, scope, file, |k| {
                 matches!(k, Kind::Message | Kind::Enum)
             })
-            .ok_or_else(|| self.unresolved(name, at))?;
+            .ok_or_else(|| Self::unresolved(name))?;
         Ok(if s.kind == Kind::Enum {
             Ty::Enum(s.idx)
         } else {
@@ -91,14 +89,14 @@ impl Linker<'_> {
                     .msg(*i)
                     .map(|m| m.full.clone())
                     .unwrap_or_default();
-                let key = self.ty(k, &scope, u.file, *at)?;
+                let key = self.ty(k, &scope, u.file)?;
                 if check && !matches!(key, Ty::Scalar(t) if !matches!(t, 1 | 2 | 12)) {
                     return Err(Error::at(
                         *at,
                         format!("map key type {k} is not an integer, bool or string"),
                     ));
                 }
-                let val = self.ty(v, &scope, u.file, *at)?;
+                let val = self.ty(v, &scope, u.file)?;
                 let field = |name: &str, number, ty| Fld {
                     name: name.to_owned(),
                     number,
@@ -122,12 +120,12 @@ impl Linker<'_> {
             Work::Service(s, scope) => {
                 let full = join(scope, &s.name);
                 for r in &s.rpcs {
-                    for (_, t, span) in [&r.input, &r.output] {
+                    for (_, t, _) in [&r.input, &r.output] {
                         if self
                             .resolve(t, &full, u.file, |k| k == Kind::Message)
                             .is_none()
                         {
-                            return Err(self.unresolved(t, span.0));
+                            return Err(Self::unresolved(t));
                         }
                     }
                     if check {
@@ -227,7 +225,7 @@ impl Linker<'_> {
         check: bool,
     ) -> Result<Fld, Error> {
         let (ty, card) = match &f.ty {
-            TypeRef::Named(n, _) => (self.ty(n, scope, u.file, f.at)?, card(f.label)),
+            TypeRef::Named(n, _) => (self.ty(n, scope, u.file)?, card(f.label)),
             TypeRef::Map(..) => {
                 let s = self
                     .pool
@@ -298,7 +296,7 @@ impl Linker<'_> {
     ) -> Result<(), Error> {
         let target = self
             .resolve(&e.extendee, scope, u.file, |k| k == Kind::Message)
-            .ok_or_else(|| self.unresolved(&e.extendee, e.at))?;
+            .ok_or_else(|| Self::unresolved(&e.extendee))?;
         let Some(m) = self.pool.msg(target.idx) else {
             return Ok(());
         };

@@ -1,0 +1,2 @@
+fields concat(toupper(a), substr(b, 1, 2)) as c, datefloor(@timestamp, 1mo) as d, isIpInSubnet(ip, "10.0.0.0/8") | dedup c
+{"a":"x","b":"yz","ip":"10.0.0.1"}

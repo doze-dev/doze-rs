@@ -66,5 +66,6 @@ Test: `tests/topics::metadata_describes_*`, `naming_no_topics_*`, `an_unknown_to
 `a_request_with_topic_ids_is_answered_by_id_whatever_the_names_say`
 
 ### Not yet
-Authorisation (Phase 8); `CreatePartitions`, `DescribeConfigs`, `AlterConfigs` and acting on the configs (Phase 7; the
-broker acts on none of them yet); auto-creation honouring `--auto-create-topics` from the command line (3g).
+Nothing (checked 2026-11-18). What this list held is built: authorisation in Phase 8 (`security.md` SEC-60 to SEC-72);
+`CreatePartitions`, `DescribeConfigs`, `AlterConfigs` and the configs acting at runtime in Phase 7 (`admin.md`); auto-creation
+follows `--auto-create-topics` (`module_boot::the_larder_examples_block_boots_with_its_four_topics_and_no_auto_create`).

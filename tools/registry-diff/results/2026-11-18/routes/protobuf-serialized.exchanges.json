@@ -1,0 +1,293 @@
+[
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/pd-big/versions",
+   "b": "{\"schema\":\"syntax = \\\"proto3\\\";\\npackage x.y;\\noption java_package = \\\"com.x\\\";\\noption java_multiple_files = true;\\nimport \\\"google/protobuf/timestamp.proto\\\";\\nmessage M {\\n  map<string, int32> m = 1;\\n  oneof o { string a = 2; int32 b = 3; }\\n  enum E { E0 = 0; E1 = 1 [deprecated = true]; }\\n  E e = 4;\\n  reserved 9, 10 to 12;\\n  reserved \\\"old\\\";\\n  google.protobuf.Timestamp t = 5;\\n  message N { bytes z = 1; }\\n  N n = 6 [deprecated = true, json_name = \\\"nn\\\"];\\n  optional int32 opt = 7;\\n  repeated N ns = 8 [packed = false];\\n}\\nenum Top { T0 = 0; T1 = 1; }\\nservice S { rpc Do (M) returns (stream M); }\\n\",\"schemaType\":\"PROTOBUF\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":27}",
+    "ms": 89
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":29,\"version\":1,\"guid\":\"423839de-e0bc-0f54-dc1b-10315a31f8b6\",\"schemaType\":\"PROTOBUF\",\"schema\":\"syntax = \\\"proto3\\\";\\npackage x.y;\\n\\nimport \\\"google/protobuf/timestamp.proto\\\";\\n\\noption java_package = \\\"com.x\\\";\\noption java_multiple_files = true;\\n\\nmessage M {\\n  reserved 9, 10 to 12;\\n  reserved \\\"old\\\";\\n\\n  map<string, int32> m = 1;\\n  E e = 4;\\n  google.protobuf.Timestamp t = 5;\\n  N n = 6 [\\n    deprecated = true,\\n    json_name = \\\"nn\\\"\\n  ];\\n  optional int32 opt = 7;\\n  repeated N ns = 8 [packed = false];\\n\\n  oneof o {\\n    string a = 2;\\n    int32 b = 3;\\n  }\\n\\n  message N {\\n    bytes z = 1;\\n  }\\n  enum E {\\n    E0 = 0;\\n    E1 = 1 [deprecated = true];\\n  }\\n}\\nenum Top {\\n  T0 = 0;\\n  T1 = 1;\\n}\\n\\nservice S {\\n  rpc Do (M) returns (stream M);\\n}\\n\"}",
+    "ms": 91
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":27}",
+    "ms": 11
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "GET",
+   "p": "/schemas/ids/@1?format=serialized"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"schemaType\":\"PROTOBUF\",\"schema\":\"CgdkZWZhdWx0EgN4LnkaH2dvb2dsZS9wcm90b2J1Zi90aW1lc3RhbXAucHJvdG8i+gEKAU0SCwoBYRgCIAEoCUgAEgsKAWIYAyABKAVIABIPCgFtGAEgAzIGbUVudHJ5EggKAWUYBDIBRRIgCgF0GAUyGWdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASEAoBbhgGMgFOQgIYAVICbm4SEAoDb3B0GAcgASgFSAGIAQESDwoCbnMYCCADMgFOQgIQABoMCgFOEgcKAXoYASgMGiQKBm1FbnRyeRIJCgNrZXkYASgJEgsKBXZhbHVlGAIoBToCOAEiFwoBRRIGCgJFMBAAEgoKAkUxEAEaAggBQgMKAW9CBgoEX29wdEoECAkQCkoECAoQDVIDb2xkKhUKA1RvcBIGCgJUMBAAEgYKAlQxEAEyEwoBUxIOCgJEbxIBTRoBTSgAMAFCCQoFY29tLnhQAWIGcHJvdG8z\"}",
+    "ms": 44
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"pd-big\",\"version\":1,\"guid\":\"423839de-e0bc-0f54-dc1b-10315a31f8b6\",\"schemaType\":\"PROTOBUF\",\"schema\":\"CgdkZWZhdWx0EgN4LnkaH2dvb2dsZS9wcm90b2J1Zi90aW1lc3RhbXAucHJvdG8ihgIKAU0SCwoBYRgCIAEoCUgAEgsKAWIYAyABKAVIABIPCgFtGAEgAzIGbUVudHJ5EgoKAWUYBCgOMgFFEiIKAXQYBSgLMhlnb29nbGUucHJvdG9idWYuVGltZXN0YW1wEhIKAW4YBigLMgFOQgIYAVICbm4SEAoDb3B0GAcgASgFSAGIAQESEQoCbnMYCCADKAsyAU5CAhAAGgwKAU4SBwoBehgBKAwaJAoGbUVudHJ5EgkKA2tleRgBKAkSCwoFdmFsdWUYAigFOgI4ASIXCgFFEgYKAkUwEAASCgoCRTEQARoCCAFCBQoBbxIAQggKBF9vcHQSAEoECAkQCkoECAoQDVIDb2xkKhUKA1RvcBIGCgJUMBAAEgYKAlQxEAEyEwoBUxIOCgJEbxIBTRoBTSgAMAFCCQoFY29tLnhQAWIGcHJvdG8z\",\"ts\":1795027471357,\"deleted\":false}",
+    "ms": 44
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"schemaType\":\"PROTOBUF\",\"schema\":\"CgdkZWZhdWx0EgN4LnkaH2dvb2dsZS9wcm90b2J1Zi90aW1lc3RhbXAucHJvdG8i+gEKAU0SCwoBYRgCIAEoCUgAEgsKAWIYAyABKAVIABIPCgFtGAEgAzIGbUVudHJ5EggKAWUYBDIBRRIgCgF0GAUyGWdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASEAoBbhgGMgFOQgIYAVICbm4SEAoDb3B0GAcgASgFSAGIAQESDwoCbnMYCCADMgFOQgIQABoMCgFOEgcKAXoYASgMGiQKBm1FbnRyeRIJCgNrZXkYASgJEgsKBXZhbHVlGAIoBToCOAEiFwoBRRIGCgJFMBAAEgoKAkUxEAEaAggBQgMKAW9CBgoEX29wdEoECAkQCkoECAoQDVIDb2xkKhUKA1RvcBIGCgJUMBAAEgYKAlQxEAEyEwoBUxIOCgJEbxIBTRoBTSgAMAFCCQoFY29tLnhQAWIGcHJvdG8z\"}",
+    "ms": 9
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "GET",
+   "p": "/subjects/pd-big/versions/latest?format=serialized"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"pd-big\",\"version\":1,\"id\":27,\"schemaType\":\"PROTOBUF\",\"schema\":\"syntax = \\\"proto3\\\";\\npackage x.y;\\n\\nimport \\\"google/protobuf/timestamp.proto\\\";\\n\\noption java_package = \\\"com.x\\\";\\noption java_multiple_files = true;\\n\\nmessage M {\\n  reserved 9, 10 to 12;\\n  reserved \\\"old\\\";\\n\\n  map<string, int32> m = 1;\\n  E e = 4;\\n  google.protobuf.Timestamp t = 5;\\n  N n = 6 [\\n    deprecated = true,\\n    json_name = \\\"nn\\\"\\n  ];\\n  optional int32 opt = 7;\\n  repeated N ns = 8 [packed = false];\\n\\n  oneof o {\\n    string a = 2;\\n    int32 b = 3;\\n  }\\n\\n  message N {\\n    bytes z = 1;\\n  }\\n  enum E {\\n    E0 = 0;\\n    E1 = 1 [deprecated = true];\\n  }\\n}\\nenum Top {\\n  T0 = 0;\\n  T1 = 1;\\n}\\n\\nservice S {\\n  rpc Do (M) returns (stream M);\\n}\\n\"}",
+    "ms": 10
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"pd-big\",\"version\":1,\"id\":29,\"guid\":\"423839de-e0bc-0f54-dc1b-10315a31f8b6\",\"schemaType\":\"PROTOBUF\",\"schema\":\"CgdkZWZhdWx0EgN4LnkaH2dvb2dsZS9wcm90b2J1Zi90aW1lc3RhbXAucHJvdG8ihgIKAU0SCwoBYRgCIAEoCUgAEgsKAWIYAyABKAVIABIPCgFtGAEgAzIGbUVudHJ5EgoKAWUYBCgOMgFFEiIKAXQYBSgLMhlnb29nbGUucHJvdG9idWYuVGltZXN0YW1wEhIKAW4YBigLMgFOQgIYAVICbm4SEAoDb3B0GAcgASgFSAGIAQESEQoCbnMYCCADKAsyAU5CAhAAGgwKAU4SBwoBehgBKAwaJAoGbUVudHJ5EgkKA2tleRgBKAkSCwoFdmFsdWUYAigFOgI4ASIXCgFFEgYKAkUwEAASCgoCRTEQARoCCAFCBQoBbxIAQggKBF9vcHQSAEoECAkQCkoECAoQDVIDb2xkKhUKA1RvcBIGCgJUMBAAEgYKAlQxEAEyEwoBUxIOCgJEbxIBTRoBTSgAMAFCCQoFY29tLnhQAWIGcHJvdG8z\",\"ts\":1795027471357,\"deleted\":false}",
+    "ms": 10
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"pd-big\",\"version\":1,\"id\":27,\"schemaType\":\"PROTOBUF\",\"schema\":\"syntax = \\\"proto3\\\";\\npackage x.y;\\n\\nimport \\\"google/protobuf/timestamp.proto\\\";\\n\\noption java_package = \\\"com.x\\\";\\noption java_multiple_files = true;\\n\\nmessage M {\\n  reserved 9, 10 to 12;\\n  reserved \\\"old\\\";\\n\\n  map<string, int32> m = 1;\\n  E e = 4;\\n  google.protobuf.Timestamp t = 5;\\n  N n = 6 [\\n    deprecated = true,\\n    json_name = \\\"nn\\\"\\n  ];\\n  optional int32 opt = 7;\\n  repeated N ns = 8 [packed = false];\\n\\n  oneof o {\\n    string a = 2;\\n    int32 b = 3;\\n  }\\n\\n  message N {\\n    bytes z = 1;\\n  }\\n  enum E {\\n    E0 = 0;\\n    E1 = 1 [deprecated = true];\\n  }\\n}\\nenum Top {\\n  T0 = 0;\\n  T1 = 1;\\n}\\n\\nservice S {\\n  rpc Do (M) returns (stream M);\\n}\\n\"}",
+    "ms": 3
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/pd-p2/versions",
+   "b": "{\"schema\":\"syntax = \\\"proto2\\\";\\npackage q;\\nmessage Q {\\n  required string a = 1;\\n  optional int32 b = 2 [default = 7];\\n  optional string s = 3 [default = \\\"hi\\\"];\\n  repeated int64 r = 4 [packed = true];\\n  extensions 100 to 199;\\n  optional group G = 5 { optional int32 x = 1; }\\n}\\nextend Q { optional int32 ext = 100; }\\n\",\"schemaType\":\"PROTOBUF\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":28}",
+    "ms": 24
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":30,\"version\":1,\"guid\":\"9c3b14e5-5ced-0868-0d60-ca51bb3accea\",\"schemaType\":\"PROTOBUF\",\"schema\":\"syntax = \\\"proto2\\\";\\npackage q;\\n\\nmessage Q {\\n  required string a = 1;\\n  optional int32 b = 2 [default = 7];\\n  optional string s = 3 [default = \\\"hi\\\"];\\n  repeated int64 r = 4 [packed = true];\\n\\n  optional group G = 5 {\\n    optional int32 x = 1;\\n  }\\n\\n  extensions 100 to 199;\\n}\\n\\nextend Q {\\n  optional int32 ext = 100;\\n}\\n\"}",
+    "ms": 68
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":28}",
+    "ms": 15
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "GET",
+   "p": "/schemas/ids/@2?format=serialized"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"schemaType\":\"PROTOBUF\",\"schema\":\"CgdkZWZhdWx0EgFxIkEKAVESCQoBYRgBIAIoCRIMCgFiGAIgASgFOgE3Eg0KAXMYAyABKAk6AmhpEg0KAXIYBCADKANCAhABKgUIZBDIAToOCgNleHQSAVEYZCABKAViBnByb3RvMg==\"}",
+    "ms": 17
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"pd-p2\",\"version\":1,\"guid\":\"9c3b14e5-5ced-0868-0d60-ca51bb3accea\",\"schemaType\":\"PROTOBUF\",\"schema\":\"CgdkZWZhdWx0EgFxIkMKAVESCQoBYRgBIAIoCRIMCgFiGAIgASgFOgE3Eg0KAXMYAyABKAk6AmhpEg0KAXIYBCADKANCAhABKgcIZBDIARoAOg4KA2V4dBIBURhkIAEoBWIGcHJvdG8y\",\"ts\":1795027471450,\"deleted\":false}",
+    "ms": 26
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"schemaType\":\"PROTOBUF\",\"schema\":\"CgdkZWZhdWx0EgFxIkEKAVESCQoBYRgBIAIoCRIMCgFiGAIgASgFOgE3Eg0KAXMYAyABKAk6AmhpEg0KAXIYBCADKANCAhABKgUIZBDIAToOCgNleHQSAVEYZCABKAViBnByb3RvMg==\"}",
+    "ms": 1
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "GET",
+   "p": "/subjects/pd-p2/versions/latest?format=serialized"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"pd-p2\",\"version\":1,\"id\":28,\"schemaType\":\"PROTOBUF\",\"schema\":\"syntax = \\\"proto2\\\";\\npackage q;\\n\\nmessage Q {\\n  required string a = 1;\\n  optional int32 b = 2 [default = 7];\\n  optional string s = 3 [default = \\\"hi\\\"];\\n  repeated int64 r = 4 [packed = true];\\n\\n  optional group G = 5 {\\n    optional int32 x = 1;\\n  }\\n\\n  extensions 100 to 199;\\n}\\n\\nextend Q {\\n  optional int32 ext = 100;\\n}\\n\"}",
+    "ms": 4
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"pd-p2\",\"version\":1,\"id\":30,\"guid\":\"9c3b14e5-5ced-0868-0d60-ca51bb3accea\",\"schemaType\":\"PROTOBUF\",\"schema\":\"CgdkZWZhdWx0EgFxIkMKAVESCQoBYRgBIAIoCRIMCgFiGAIgASgFOgE3Eg0KAXMYAyABKAk6AmhpEg0KAXIYBCADKANCAhABKgcIZBDIARoAOg4KA2V4dBIBURhkIAEoBWIGcHJvdG8y\",\"ts\":1795027471450,\"deleted\":false}",
+    "ms": 8
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"pd-p2\",\"version\":1,\"id\":28,\"schemaType\":\"PROTOBUF\",\"schema\":\"syntax = \\\"proto2\\\";\\npackage q;\\n\\nmessage Q {\\n  required string a = 1;\\n  optional int32 b = 2 [default = 7];\\n  optional string s = 3 [default = \\\"hi\\\"];\\n  repeated int64 r = 4 [packed = true];\\n\\n  optional group G = 5 {\\n    optional int32 x = 1;\\n  }\\n\\n  extensions 100 to 199;\\n}\\n\\nextend Q {\\n  optional int32 ext = 100;\\n}\\n\"}",
+    "ms": 1
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/pd-nopkg/versions",
+   "b": "{\"schema\":\"syntax = \\\"proto3\\\";\\nmessage A { int32 x = 1; B b = 2; }\\nmessage B { A a = 1; }\\n\",\"schemaType\":\"PROTOBUF\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":29}",
+    "ms": 13
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":31,\"version\":1,\"guid\":\"d5768576-58a6-36b5-3ef6-c90bc7ff1839\",\"schemaType\":\"PROTOBUF\",\"schema\":\"syntax = \\\"proto3\\\";\\n\\nmessage A {\\n  int32 x = 1;\\n  B b = 2;\\n}\\nmessage B {\\n  A a = 1;\\n}\\n\"}",
+    "ms": 42
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":29}",
+    "ms": 11
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "GET",
+   "p": "/schemas/ids/@3?format=serialized"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"schemaType\":\"PROTOBUF\",\"schema\":\"CgdkZWZhdWx0IhYKAUESBwoBeBgBKAUSCAoBYhgCMgFCIg0KAUISCAoBYRgBMgFBYgZwcm90bzM=\"}",
+    "ms": 8
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"pd-nopkg\",\"version\":1,\"guid\":\"d5768576-58a6-36b5-3ef6-c90bc7ff1839\",\"schemaType\":\"PROTOBUF\",\"schema\":\"CgdkZWZhdWx0IhgKAUESBwoBeBgBKAUSCgoBYhgCKAsyAUIiDwoBQhIKCgFhGAEoCzIBQWIGcHJvdG8z\",\"ts\":1795027471563,\"deleted\":false}",
+    "ms": 5
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"schemaType\":\"PROTOBUF\",\"schema\":\"CgdkZWZhdWx0IhYKAUESBwoBeBgBKAUSCAoBYhgCMgFCIg0KAUISCAoBYRgBMgFBYgZwcm90bzM=\"}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "GET",
+   "p": "/subjects/pd-nopkg/versions/latest?format=serialized"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"pd-nopkg\",\"version\":1,\"id\":29,\"schemaType\":\"PROTOBUF\",\"schema\":\"syntax = \\\"proto3\\\";\\n\\nmessage A {\\n  int32 x = 1;\\n  B b = 2;\\n}\\nmessage B {\\n  A a = 1;\\n}\\n\"}",
+    "ms": 4
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"pd-nopkg\",\"version\":1,\"id\":31,\"guid\":\"d5768576-58a6-36b5-3ef6-c90bc7ff1839\",\"schemaType\":\"PROTOBUF\",\"schema\":\"CgdkZWZhdWx0IhgKAUESBwoBeBgBKAUSCgoBYhgCKAsyAUIiDwoBQhIKCgFhGAEoCzIBQWIGcHJvdG8z\",\"ts\":1795027471563,\"deleted\":false}",
+    "ms": 6
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"pd-nopkg\",\"version\":1,\"id\":29,\"schemaType\":\"PROTOBUF\",\"schema\":\"syntax = \\\"proto3\\\";\\n\\nmessage A {\\n  int32 x = 1;\\n  B b = 2;\\n}\\nmessage B {\\n  A a = 1;\\n}\\n\"}",
+    "ms": 0
+   }
+  }
+ }
+]

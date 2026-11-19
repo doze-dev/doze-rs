@@ -94,6 +94,16 @@ TLS configured, `/proc/<pid>/status` and `smaps` read 3 s after start:
 Medians over the 20 runs above: 10,404 to 11,068 KB, main's latest (450d228e) 11,068, 7 KB under the line. Same shape as the TLS line: set
 from a measurement with no room for runner spread. Not moved here; for the aws session.
 
+## Landing core M1 (#71, 2026-11-19)
+
+The acceptance harness (`doze-module-test`) leaked one System V shared memory segment per failed boot: a boot that failed
+after its processes started (a readiness or hook failure in `run::start`, or a converge error in `boot_with`) dropped them,
+and `Tree`'s drop kills. A killed PostgreSQL leaves its 56-byte segment behind, and macOS allows 32 (`kern.sysv.shmmni`), so
+a few runs fill the table and every later PostgreSQL fails to start. Found with ferret's
+`a_seed_the_server_refuses_fails_the_converge` (DocumentDB is PostgreSQL): one new segment per run, none after the fix. Both
+paths now stop the started processes the way the module declared (30 s grace) before returning the error. A test that
+panics while its instance runs still kills on drop.
+
 ## Open items
 
 | item | owner | evidence |

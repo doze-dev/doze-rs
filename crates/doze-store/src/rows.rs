@@ -154,29 +154,24 @@ impl RowTable {
         let Some(db) = db else {
             return Ok(Vec::new());
         };
-        let read = db.read()?;
-        let table = read.open_table(TableDefinition::<&str, &[u8]>::new(self.table))?;
-        let rows = table.range::<&str>(from..to)?;
-        let mut out = Vec::new();
-        let mut take = |row: Result<_, redb::StorageError>| -> Result<bool, StoreError> {
-            let (k, v): (redb::AccessGuard<'_, &str>, redb::AccessGuard<'_, &[u8]>) = row?;
-            out.push((k.value().to_owned(), v.value().to_vec()));
-            Ok(out.len() < limit)
+        read_range(&db.read()?, self.table, (from, to), limit, reverse)
+    }
+
+    /// The table as it is now, to be read later and elsewhere (a long query reads it on another thread while its owner goes on):
+    /// on disk a read transaction, which sees what was committed when it began; without a disk a copy of the rows.
+    ///
+    /// # Errors
+    /// The database refused to start a read.
+    pub fn snapshot(&self, db: Option<&Db>) -> Result<RowSnapshot, StoreError> {
+        let source = match (&self.mem, db) {
+            (Some(mem), _) => Source::Mem(mem.clone()),
+            (None, Some(db)) => Source::Disk(Box::new(db.read()?)),
+            (None, None) => Source::Mem(BTreeMap::new()),
         };
-        if reverse {
-            for row in rows.rev() {
-                if !take(row)? {
-                    break;
-                }
-            }
-        } else {
-            for row in rows {
-                if !take(row)? {
-                    break;
-                }
-            }
-        }
-        Ok(out)
+        Ok(RowSnapshot {
+            table: self.table,
+            source,
+        })
     }
 
     /// The row under `key`.
@@ -202,6 +197,87 @@ impl RowTable {
             ops: std::mem::take(&mut self.ops),
         }
     }
+}
+
+/// A row table as it was at one moment ([`RowTable::snapshot`]): it can be sent to another thread and read there.
+pub struct RowSnapshot {
+    table: &'static str,
+    source: Source,
+}
+
+enum Source {
+    Mem(BTreeMap<String, Vec<u8>>),
+    Disk(Box<redb::ReadTransaction>),
+}
+
+impl std::fmt::Debug for RowSnapshot {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("RowSnapshot")
+            .field("table", &self.table)
+            .finish_non_exhaustive()
+    }
+}
+
+impl RowSnapshot {
+    /// As [`RowTable::scan`], over the table as it was when the snapshot was taken.
+    ///
+    /// # Errors
+    /// A failed read.
+    pub fn scan(
+        &self,
+        from: &str,
+        to: &str,
+        limit: usize,
+        reverse: bool,
+    ) -> Result<Vec<(String, Vec<u8>)>, StoreError> {
+        if from >= to {
+            return Ok(Vec::new());
+        }
+        match &self.source {
+            Source::Mem(mem) => {
+                let rows = mem.range::<str, _>((Bound::Included(from), Bound::Excluded(to)));
+                let own = |(k, v): (&String, &Vec<u8>)| (k.clone(), v.clone());
+                Ok(if reverse {
+                    rows.rev().take(limit).map(own).collect()
+                } else {
+                    rows.take(limit).map(own).collect()
+                })
+            }
+            Source::Disk(read) => read_range(read, self.table, (from, to), limit, reverse),
+        }
+    }
+}
+
+/// The rows of `table` with keys in `from..to`, at most `limit`, newest first when `reverse`.
+fn read_range(
+    read: &redb::ReadTransaction,
+    table: &'static str,
+    (from, to): (&str, &str),
+    limit: usize,
+    reverse: bool,
+) -> Result<Vec<(String, Vec<u8>)>, StoreError> {
+    let table = read.open_table(TableDefinition::<&str, &[u8]>::new(table))?;
+    let rows = table.range::<&str>(from..to)?;
+    let mut out = Vec::new();
+    let mut take = |row: Result<_, redb::StorageError>| -> Result<bool, StoreError> {
+        let (k, v): (redb::AccessGuard<'_, &str>, redb::AccessGuard<'_, &[u8]>) = row?;
+        out.push((k.value().to_owned(), v.value().to_vec()));
+        Ok(out.len() < limit)
+    };
+    if reverse {
+        for row in rows.rev() {
+            if !take(row)? {
+                break;
+            }
+        }
+    } else {
+        for row in rows {
+            if !take(row)? {
+                break;
+            }
+        }
+    }
+    Ok(out)
 }
 
 #[cfg(test)]
@@ -271,6 +347,34 @@ mod tests {
         assert_eq!(left, ["k5", "k6", "k7", "k8"]);
         assert_eq!(t.get(Some(&db), "k6").unwrap(), Some(vec![6]));
         assert_eq!(t.get(Some(&db), "k1").unwrap(), None);
+        db.close();
+        std::fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn a_snapshot_reads_on_another_thread_what_was_committed_when_taken() {
+        let dir = temp("snapshot");
+        let db = Db::open(&dir, "t.redb", &["rows"]).unwrap();
+        let mut t = RowTable::new("rows", false);
+        fill(&mut t);
+        db.submit_with_rows(Vec::new(), vec![t.stage()])
+            .unwrap()
+            .wait()
+            .unwrap();
+        let snap = t.snapshot(Some(&db)).unwrap();
+        t.delete_range("k0", "k9");
+        db.submit_with_rows(Vec::new(), vec![t.stage()])
+            .unwrap()
+            .wait()
+            .unwrap();
+        let seen = std::thread::spawn(move || snap.scan("k0", "k9", 100, true).unwrap().len())
+            .join()
+            .unwrap();
+        assert_eq!(seen, 9);
+        let mut mem = RowTable::new("rows", true);
+        fill(&mut mem);
+        let copy = mem.snapshot(None).unwrap();
+        assert_eq!(copy.scan("k0", "k9", 2, false).unwrap().len(), 2);
         db.close();
         std::fs::remove_dir_all(&dir).ok();
     }

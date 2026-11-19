@@ -14,7 +14,7 @@ use clap::Args;
 #[derive(Debug, Clone, Args)]
 #[command(next_help_heading = "Schema registry")]
 pub(crate) struct RegistryArgs {
-    /// Serve a Confluent-compatible schema registry beside the broker (Avro; Protobuf and JSON Schema are coming).
+    /// Serve a Confluent-compatible schema registry beside the broker (Avro, Protobuf and JSON Schema).
     /// `--schema-registry=false` serves none.
     #[arg(long, default_value_t = true, action = clap::ArgAction::Set, num_args = 0..=1, default_missing_value = "true", value_name = "BOOL")]
     pub(crate) schema_registry: bool,

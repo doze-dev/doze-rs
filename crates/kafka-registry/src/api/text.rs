@@ -1,5 +1,6 @@
-//! Reading the parts of a request the way Go's `net/http` (the oracle's) reads them: path segments unescaped one by
-//! one, query values (the first of a name, `+` as a space), Go's booleans, and HTTP basic credentials.
+//! Reading the parts of a request the way Confluent's web server and framework (Jetty and Jersey) read them: path
+//! segments unescaped one by one, query values (the first of a name, `+` as a space), Java's booleans and integers, and
+//! HTTP basic credentials.
 
 /// `%XX` escapes undone; `None` for a malformed escape or bytes that are not UTF-8.
 #[must_use]
@@ -29,12 +30,15 @@ pub fn unescape(s: &str, plus_is_space: bool) -> Option<String> {
     String::from_utf8(out).ok()
 }
 
-/// The path's segments, each unescaped on its own (so `%2F` stays inside its segment); `None` for a malformed escape.
+/// The path's segments, each unescaped on its own (so `%2F` stays inside its segment). Empty segments are dropped, as
+/// Confluent's web server merges `//` and ignores a trailing `/` (`/subjects/` is `/subjects`; `/` has none). `None` for
+/// a path that server refuses with its own 400 page: a malformed escape, bytes that are not UTF-8, or an escaped NUL.
 #[must_use]
 pub fn segments(path: &str) -> Option<Vec<String>> {
     path.strip_prefix('/')?
         .split('/')
-        .map(|s| unescape(s, false))
+        .filter(|s| !s.is_empty())
+        .map(|s| unescape(s, false).filter(|u| !u.contains('\0')))
         .collect()
 }
 
@@ -49,13 +53,28 @@ pub fn query(raw: &str, name: &str) -> Option<String> {
     })
 }
 
-/// A query flag as Go's `strconv.ParseBool` reads it; anything else is false.
+/// A query flag as Confluent's framework reads one (Java's `Boolean.valueOf` of the first value): `true` in any case;
+/// anything else, `1` and `t` too, is false.
 #[must_use]
 pub fn flag(raw: &str, name: &str) -> bool {
-    matches!(
-        query(raw, name).as_deref(),
-        Some("1" | "t" | "T" | "true" | "TRUE" | "True")
-    )
+    query(raw, name).is_some_and(|v| v.eq_ignore_ascii_case("true"))
+}
+
+/// A whole-number query parameter as Confluent's framework reads it: absent or empty is `Some(None)`; an optional `-`
+/// then digits that fit 32 bits is the number; anything else (`x`, `+1`, `1.0`, too large) is `None`, which Confluent
+/// answers with 404.
+#[must_use]
+pub fn int_param(raw: &str, name: &str) -> Option<Option<i32>> {
+    match query(raw, name).as_deref() {
+        None | Some("") => Some(None),
+        Some(v) => {
+            let digits = v.strip_prefix('-').unwrap_or(v);
+            if digits.is_empty() || !digits.bytes().all(|c| c.is_ascii_digit()) {
+                return None;
+            }
+            v.parse().ok().map(Some)
+        }
+    }
 }
 
 /// A number as Go's `strconv.Atoi` reads it.
@@ -126,21 +145,35 @@ mod tests {
             segments("/subjects/a%2Fb/versions"),
             Some(vec!["subjects".into(), "a/b".into(), "versions".into()])
         );
-        assert_eq!(segments("/"), Some(vec![String::new()]));
+        assert_eq!(segments("/"), Some(vec![]));
+        assert_eq!(
+            segments("//subjects//x/"),
+            Some(vec!["subjects".into(), "x".into()])
+        );
         assert_eq!(segments("/x%zz"), None);
         assert_eq!(segments("/x%e9"), None);
+        assert_eq!(segments("/subjects/%00x"), None);
     }
 
     #[test]
-    fn queries_read_as_go_reads_them() {
+    fn queries_read_as_javas_framework_reads_them() {
         assert_eq!(
             query("a=1&deleted=true&deleted=false", "deleted").as_deref(),
             Some("true")
         );
         assert_eq!(query("p=a+b%21", "p").as_deref(), Some("a b!"));
-        assert!(
-            flag("verbose=T", "verbose") && !flag("verbose=yes", "verbose") && !flag("", "verbose")
-        );
+        // Recorded from cp-schema-registry 7.7.1 (tools/registry-diff): TRUE and True are true, 1 and t are not, and the
+        // first value of a name is the one read.
+        assert!(flag("verbose=TRUE", "verbose") && flag("verbose=True", "verbose"));
+        assert!(!flag("verbose=T", "verbose") && !flag("verbose=1", "verbose"));
+        assert!(!flag("verbose=yes", "verbose") && !flag("", "verbose"));
+        assert!(!flag("deleted=false&deleted=true", "deleted"));
+        assert_eq!(int_param("offset=-1", "offset"), Some(Some(-1)));
+        assert_eq!(int_param("offset=", "offset"), Some(None));
+        assert_eq!(int_param("a=1", "offset"), Some(None));
+        for bad in ["x", "+1", "1.0", "99999999999", "-"] {
+            assert_eq!(int_param(&format!("offset={bad}"), "offset"), None, "{bad}");
+        }
         assert_eq!(atoi("+5"), Some(5));
         assert_eq!(atoi("-3"), Some(-3));
         assert_eq!(atoi("5x"), None);

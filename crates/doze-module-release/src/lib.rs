@@ -117,3 +117,9 @@ pub fn release(a: &Args) -> Result<String, String> {
         m.engine, a.version, a.target
     ))
 }
+
+/// The `meta.yaml` a module's manifest publishes (its docs and the module contract's `client` and `detect`), for the
+/// tests that read it back as the CLI does.
+pub fn meta_yaml(m: &doze_module_proto::msg::hello::Manifest) -> Result<String, String> {
+    meta::render(m)
+}

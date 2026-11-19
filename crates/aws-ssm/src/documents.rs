@@ -74,10 +74,10 @@ impl Core {
             ));
         }
         if self.documents.get(name).is_some() {
-            // (memory)
+            // Recorded (test_ssm.py::test_document_lifecycle).
             return Err(ApiError::modeled(
                 "DocumentAlreadyExists",
-                "Document with same name already exists.",
+                format!("Document with same name {name} already exists"),
             ));
         }
         let kind = v.get(Create::DOCUMENT_TYPE).unwrap_or("Command").to_owned();
@@ -115,7 +115,7 @@ impl Core {
             shared_version: None,
         };
         self.documents.insert(name.to_owned(), doc.clone());
-        let latest = doc.latest().ok_or_else(invalid_document)?;
+        let latest = doc.latest().ok_or_else(|| invalid_document(name))?;
         reply::<Created>(|o| {
             o.put_object(Created::DOCUMENT_DESCRIPTION, |d| {
                 shown(d, name, &doc, latest, "Creating")
@@ -126,7 +126,10 @@ impl Core {
     pub(crate) fn get_document(&mut self, call: &Call) -> Reply {
         let v = request::<Get>(call)?;
         let name = bare(v.get(Get::NAME).unwrap_or_default());
-        let doc = self.documents.get(name).ok_or_else(invalid_document)?;
+        let doc = self
+            .documents
+            .get(name)
+            .ok_or_else(|| invalid_document(name))?;
         let ver = doc.pick(v.get(Get::DOCUMENT_VERSION), v.get(Get::VERSION_NAME))?;
         let format = v.get(Get::DOCUMENT_FORMAT);
         let content = document::content_as(ver, format);
@@ -154,13 +157,25 @@ impl Core {
     pub(crate) fn describe_document(&mut self, call: &Call) -> Reply {
         let v = request::<Describe>(call)?;
         let name = bare(v.get(Describe::NAME).unwrap_or_default());
-        let doc = self.documents.get(name).ok_or_else(invalid_document)?;
+        let doc = self
+            .documents
+            .get(name)
+            .ok_or_else(|| invalid_document(name))?;
         let ver = doc.pick(
             v.get(Describe::DOCUMENT_VERSION),
             v.get(Describe::VERSION_NAME),
         )?;
         reply::<Described>(|o| {
-            o.put_object(Described::DOCUMENT, |d| shown(d, name, doc, ver, "Active"));
+            o.put_object(Described::DOCUMENT, |d| {
+                shown(d, name, doc, ver, "Active");
+                // DescribeDocument alone answers the categories, empty for a document made without them (recorded:
+                // test_ssm.py::test_document_lifecycle); doze-aws keeps none.
+                d.put_list(aws_model_ssm::keys::DocumentDescription::CATEGORY, |_| {});
+                d.put_list(
+                    aws_model_ssm::keys::DocumentDescription::CATEGORY_ENUM,
+                    |_| {},
+                );
+            });
         })
     }
 
@@ -174,8 +189,11 @@ impl Core {
                 "doze-aws does not keep document attachments: update the document without Attachments.",
             ));
         }
-        let doc = self.documents.get(name).ok_or_else(invalid_document)?;
-        let latest = doc.latest().ok_or_else(invalid_document)?;
+        let doc = self
+            .documents
+            .get(name)
+            .ok_or_else(|| invalid_document(name))?;
+        let latest = doc.latest().ok_or_else(|| invalid_document(name))?;
         match v.get(Update::DOCUMENT_VERSION) {
             None | Some("$LATEST") => {}
             Some(n) if n == latest.number.to_string() => {}
@@ -213,16 +231,21 @@ impl Core {
         };
         let next = self.version_of(&doc.kind, latest.number + 1, new)?;
         if next.hash == latest.hash {
-            // (memory)
+            // Recorded (test_ssm.py::test_document_lifecycle).
             return Err(ApiError::modeled(
                 "DuplicateDocumentContent",
-                "The content of the association document matches another document. Change the content of the document and try again.",
+                format!(
+                    "Document to be updated with name {name} has the same metadata and content as document version provided in request"
+                ),
             ));
         }
-        let doc = self.documents.get_mut(name).ok_or_else(invalid_document)?;
+        let doc = self
+            .documents
+            .get_mut(name)
+            .ok_or_else(|| invalid_document(name))?;
         doc.versions.push(next);
         let doc = doc.clone();
-        let ver = doc.latest().ok_or_else(invalid_document)?;
+        let ver = doc.latest().ok_or_else(|| invalid_document(name))?;
         reply::<Updated>(|o| {
             o.put_object(Updated::DOCUMENT_DESCRIPTION, |d| {
                 shown(d, name, &doc, ver, "Updating")
@@ -235,22 +258,32 @@ impl Core {
         let name = v.get(Delete::NAME).unwrap_or_default();
         let (version, version_name) =
             (v.get(Delete::DOCUMENT_VERSION), v.get(Delete::VERSION_NAME));
-        let doc = self.documents.get(name).ok_or_else(invalid_document)?;
+        let doc = self
+            .documents
+            .get(name)
+            .ok_or_else(|| invalid_document(name))?;
         if version.is_none() && version_name.is_none() {
+            let numbers: Vec<i64> = doc.versions.iter().map(|x| x.number).collect();
             self.documents.remove(name);
+            self.forget_policies(&crate::resource_policy::document_key(name));
+            for n in numbers {
+                self.reviews.remove(&crate::doc_review::review_key(name, n));
+            }
             return empty();
         }
         let number = doc.pick(version, version_name)?.number;
         if number == doc.default_version {
-            // (memory)
+            // Recorded (test_ssm.py::test_document_lifecycle).
             return Err(ApiError::modeled(
                 "InvalidDocumentOperation",
-                "You can't delete the default version of a document. Make another version the default, or delete the whole document.",
+                "Default version of the document can't be deleted.",
             ));
         }
         if let Some(doc) = self.documents.get_mut(name) {
             doc.versions.retain(|x| x.number != number);
         }
+        self.reviews
+            .remove(&crate::doc_review::review_key(name, number));
         empty()
     }
 
@@ -264,13 +297,18 @@ impl Core {
             Some(t) => page::resume(t)?.parse().map_err(|_| {
                 ApiError::modeled("InvalidNextToken", "The specified token is not valid.")
             })?,
-            None => 0,
+            None => i64::MAX,
         };
-        let doc = self.documents.get(name).ok_or_else(invalid_document)?;
+        let doc = self
+            .documents
+            .get(name)
+            .ok_or_else(|| invalid_document(name))?;
+        // Newest first (recorded: test_ssm.py::test_document_lifecycle); a page continues below the last version it showed.
         let mut rows: Vec<&DocVersion> = doc
             .versions
             .iter()
-            .filter(|x| x.number > after)
+            .rev()
+            .filter(|x| x.number < after)
             .take(limit + 1)
             .collect();
         let more = rows.len() > limit;
@@ -294,23 +332,24 @@ impl Core {
         let v = request::<SetDefault>(call)?;
         let name = v.get(SetDefault::NAME).unwrap_or_default();
         let wanted = v.get(SetDefault::DOCUMENT_VERSION).unwrap_or_default();
-        let doc = self.documents.get_mut(name).ok_or_else(invalid_document)?;
+        let doc = self
+            .documents
+            .get_mut(name)
+            .ok_or_else(|| invalid_document(name))?;
         let number = wanted
             .parse()
             .ok()
             .filter(|n| doc.version(*n).is_some())
             .ok_or_else(invalid_version)?;
         doc.default_version = number;
-        let version_name = doc.version(number).and_then(|x| x.version_name.clone());
+        // Only the name and the version: AWS leaves DefaultVersionName out even when the version has a name (recorded:
+        // test_ssm.py::test_document_lifecycle).
         reply::<DefaultSet>(|o| {
             o.put_object(
                 DefaultSet::DESCRIPTION,
                 |d: &mut Object<'_, DefaultShown>| {
                     d.put(DefaultShown::NAME, name);
                     d.put(DefaultShown::DEFAULT_VERSION, wanted);
-                    if let Some(n) = &version_name {
-                        d.put(DefaultShown::DEFAULT_VERSION_NAME, n);
-                    }
                 },
             );
         })

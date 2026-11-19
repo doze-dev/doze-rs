@@ -17,6 +17,7 @@ use doze_module_proto::peer::{self, CallOpts, Peer, Stream};
 use std::collections::BTreeMap;
 use std::path::Path;
 use std::sync::Mutex;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::{Duration, Instant};
 
 /// Deadlines the host gives each kind of call.
@@ -32,6 +33,8 @@ pub struct Running {
     peer: Peer,
     child: Mutex<Option<tokio::process::Child>>,
     last_used: Mutex<Instant>,
+    /// Calls in flight (a download in `resolve` may take minutes): the module is not idle while any is.
+    in_flight: AtomicUsize,
 }
 
 /// Starts `program` as the module for `engine` and waits for its hello.
@@ -64,6 +67,7 @@ pub async fn launch(engine: &str, program: &Path, services: Services) -> Result<
         peer,
         child: Mutex::new(Some(child)),
         last_used: Mutex::new(Instant::now()),
+        in_flight: AtomicUsize::new(0),
     })
 }
 
@@ -73,9 +77,8 @@ impl Running {
         A: minicbor::Encode<()>,
         R: for<'b> minicbor::Decode<'b, ()>,
     {
-        if let Ok(mut t) = self.last_used.lock() {
-            *t = Instant::now();
-        }
+        // Counted while in flight, and uncounted even when the caller drops the call (a cancelled start).
+        let _busy = Busy::enter(self);
         self.peer
             .call(
                 m,
@@ -93,8 +96,11 @@ impl Running {
         !self.peer.is_closed()
     }
 
-    /// How long since the host last called it.
+    /// How long since the host's last call to it ended; zero while a call is in flight.
     pub fn idle_for(&self) -> Duration {
+        if self.in_flight.load(Ordering::SeqCst) > 0 {
+            return Duration::ZERO;
+        }
         self.last_used
             .lock()
             .map(|t| t.elapsed())
@@ -170,6 +176,10 @@ impl Running {
     pub async fn run_action(&self, a: &RunAction) -> Result<String, Error> {
         self.call(Method::RunAction, a, SLOW).await
     }
+    /// Moves an instance's data to the version its block declares (it may fetch the builds it needs); what it did.
+    pub async fn migrate(&self, a: &ResolveArgs) -> Result<String, Error> {
+        self.call(Method::Migrate, a, SLOW).await
+    }
 
     /// A console stream; drop it to stop.
     pub fn tail(&self, a: &TailArgs) -> Result<Stream, Error> {
@@ -204,5 +214,24 @@ impl Running {
         {
             let _ = c.start_kill();
         }
+    }
+}
+
+/// One call in flight: idle counts from when the last one ended, whether it finished or was dropped.
+struct Busy<'a>(&'a Running);
+
+impl<'a> Busy<'a> {
+    fn enter(r: &'a Running) -> Busy<'a> {
+        r.in_flight.fetch_add(1, Ordering::SeqCst);
+        Busy(r)
+    }
+}
+
+impl Drop for Busy<'_> {
+    fn drop(&mut self) {
+        if let Ok(mut t) = self.0.last_used.lock() {
+            *t = Instant::now();
+        }
+        self.0.in_flight.fetch_sub(1, Ordering::SeqCst);
     }
 }

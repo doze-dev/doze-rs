@@ -1,0 +1,2 @@
+stats count(*) as n, avg(ms), pct(ms, 95) by bin(5m), level | filter n > 1
+{"ms":12,"level":"error"}

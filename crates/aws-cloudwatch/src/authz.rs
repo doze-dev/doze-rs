@@ -25,9 +25,11 @@ pub(crate) fn needs(call: &Call) -> Vec<Need> {
         )
     };
     match op {
-        O::PutMetricAlarm | O::PutCompositeAlarm | O::SetAlarmState => text("AlarmName")
-            .map(|n| vec![alarm(n)])
-            .unwrap_or_default(),
+        O::PutMetricAlarm | O::PutCompositeAlarm | O::PutLogAlarm | O::SetAlarmState => {
+            text("AlarmName")
+                .map(|n| vec![alarm(n)])
+                .unwrap_or_default()
+        }
         O::DeleteAlarms | O::EnableAlarmActions | O::DisableAlarmActions => body
             .get("AlarmNames")
             .and_then(Value::as_array)

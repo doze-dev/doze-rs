@@ -31,20 +31,26 @@ impl Core {
         }
     }
 
-    /// The earliest time anything is due: a schedule, or a retry.
+    /// The earliest time anything is due: a schedule, a retry, an accepted event, a replay's next step.
     pub(crate) fn next_due(&mut self) -> Option<i64> {
         self.refresh_due(self.now_ms());
         let schedules = self.due.values().min().copied();
-        [schedules, self.next_retry(), self.next_pending()]
-            .into_iter()
-            .flatten()
-            .min()
+        [
+            schedules,
+            self.next_retry(),
+            self.next_pending(),
+            self.next_replay_step(),
+        ]
+        .into_iter()
+        .flatten()
+        .min()
     }
 
-    /// Does what is due: runs the events `PutEvents` accepted, fires the rules whose time has come, and tries again the deliveries whose
-    /// wait is over.
+    /// Does what is due: runs the events `PutEvents` accepted, fires the rules whose time has come, tries again the deliveries whose
+    /// wait is over, and moves each replay on by a step.
     pub(crate) async fn tick(&mut self, armed_by: &Caller, deadline: i64) {
         self.deliver_pending().await;
+        self.step_replays().await;
         let caller = self.last_caller.clone().unwrap_or_else(|| armed_by.clone());
         // A service that was reaped and opened again for this wake-up has no memory of what was due: the slot it was woken for is the
         // first one after just before the deadline.
