@@ -282,9 +282,7 @@ impl Args {
         broker.log_cleaner_every = self.log_cleaner_interval;
         broker.log_cleaner_enable = self.log_cleaner_enable;
         broker.client_telemetry = self.client_telemetry;
-        broker.transaction_version = transaction_version(major);
-        broker.kafka_major = major;
-        broker.delegation_tokens = self.token_config(env)?;
+        self.major_and_tokens(&mut broker, major, env)?;
         broker.max_open_partitions = self.max_open_partitions;
         broker.acl_default_allow = self.acl_default == acl::AclDefault::Allow;
         broker.super_users = acl::super_users(&self.acl_super_user)?;
@@ -327,6 +325,20 @@ impl Args {
             registry,
             warnings,
         })
+    }
+
+    /// What the Kafka major sets in the broker (its `transaction.version`, what UpdateFeatures holds a level to), and the
+    /// delegation-token flags.
+    fn major_and_tokens(
+        &self,
+        broker: &mut BrokerConfig,
+        major: KafkaMajor,
+        env: &dyn Fn(&str) -> Option<std::ffi::OsString>,
+    ) -> Result<()> {
+        broker.transaction_version = transaction_version(major);
+        broker.kafka_major = major;
+        broker.delegation_tokens = self.token_config(env)?;
+        Ok(())
     }
 
     /// The delegation-token flags: the key from the flag, else from the variable; the times in milliseconds, at least 1.

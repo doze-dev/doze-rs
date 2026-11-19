@@ -56,6 +56,10 @@ async fn ask(socket: &mut TcpStream) -> Option<Vec<i16>> {
 }
 
 #[tokio::test]
+#[expect(
+    clippy::too_many_lines,
+    reason = "the list of every API served, one a line"
+)]
 async fn a_client_on_a_socket_gets_its_answer() {
     let server = start(10).await;
     let mut socket = TcpStream::connect(server.local_addr()).await.unwrap();

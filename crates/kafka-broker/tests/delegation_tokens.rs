@@ -81,7 +81,7 @@ async fn create(
     else {
         panic!()
     };
-    r
+    *r
 }
 
 async fn renew(rig: &Rig, who: &Caller, hmac: &Bytes, period: i64) -> (i16, i64) {

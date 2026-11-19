@@ -7,6 +7,7 @@ use kafka_wire::messages::*;
 
 use super::cases::{named, s, topic};
 
+#[expect(clippy::too_many_lines, reason = "one case for each of eleven APIs")]
 pub(super) fn admin(out: &mut Vec<(ApiKey, Request, Response)>) {
     macro_rules! case {
         ($key:ident, $req:expr, $resp:expr) => {

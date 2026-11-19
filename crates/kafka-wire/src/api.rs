@@ -223,7 +223,7 @@ served_apis! {
     // The admin APIs of debt K3, at the recorded brokers' versions. A single node has one replica of every partition, so
     // leader elections and reassignments have nothing to move; delegation tokens need SASL and a secret key, as in Kafka.
     AlterReplicaLogDirs(AlterReplicaLogDirsRequest, AlterReplicaLogDirsResponse) [v(0, 0), v(0, 2), v(0, 2), v(1, 2)];
-    CreateDelegationToken(CreateDelegationTokenRequest, CreateDelegationTokenResponse) [v(0, 0), v(0, 2), v(0, 3), v(1, 3)];
+    CreateDelegationToken(CreateDelegationTokenRequest, CreateDelegationTokenResponse in Box) [v(0, 0), v(0, 2), v(0, 3), v(1, 3)];
     RenewDelegationToken(RenewDelegationTokenRequest, RenewDelegationTokenResponse) [v(0, 0), v(0, 2), v(0, 2), v(1, 2)];
     ExpireDelegationToken(ExpireDelegationTokenRequest, ExpireDelegationTokenResponse) [v(0, 0), v(0, 2), v(0, 2), v(1, 2)];
     DescribeDelegationToken(DescribeDelegationTokenRequest, DescribeDelegationTokenResponse) [v(0, 0), v(0, 2), v(0, 3), v(1, 3)];

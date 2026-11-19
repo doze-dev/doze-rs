@@ -19,6 +19,7 @@
     clippy::panic,
     clippy::indexing_slicing,
     clippy::too_many_lines,
+    clippy::too_many_arguments,
     reason = "a command-line oracle: a step that cannot be made is a loud failure"
 )]
 

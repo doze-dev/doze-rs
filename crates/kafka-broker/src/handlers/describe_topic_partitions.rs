@@ -90,7 +90,7 @@ impl<F: Fs> Broker<F> {
             Some(c) if name == cursor_topic => c.partition_index,
             _ => 0,
         };
-        let limit = req.response_partition_limit.min(MAX_PARTITIONS).max(1);
+        let limit = req.response_partition_limit.clamp(1, MAX_PARTITIONS);
         let mut resp = self.page(&allowed, start_of, limit, all);
         for t in &mut resp.topics {
             if let Some(name) = &t.name {

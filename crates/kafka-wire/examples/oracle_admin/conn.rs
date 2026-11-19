@@ -91,7 +91,6 @@ impl Pair {
 
     /// As [`Pair::same`] with a request of each broker's own (one that names its log directory, or its token), and, if
     /// `known` says why, a difference that is written down (counted, not failed).
-    #[allow(clippy::too_many_arguments)]
     pub(crate) fn same2<Q: Encodable, A: Decodable + Debug + Clone>(
         &mut self,
         t: &mut Tally,

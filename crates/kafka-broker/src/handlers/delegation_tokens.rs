@@ -74,6 +74,10 @@ impl<F: Fs> Broker<F> {
     /// Makes a token for the caller, or for the owner it names (which needs CREATE_TOKENS on that user). Refused, the answer
     /// names the owner (and from v3 the requester) with no id, no HMAC and timestamps of -1 (`prepareResponse`); without a
     /// key, the controller's answer: AUTH_DISABLED with timestamps of 0.
+    #[expect(
+        clippy::too_many_lines,
+        reason = "Kafka's checks in Kafka's order (broker, then controller), each with the answer it gives"
+    )]
     pub(crate) async fn create_delegation_token(
         &self,
         caller: &Caller,
@@ -300,10 +304,11 @@ impl<F: Fs> Broker<F> {
         let me = caller.principal().as_str();
         r.tokens = (self.tokens.all().into_iter())
             .filter(|t| {
-                if let Some(owners) = &owners {
-                    if !owners.iter().any(|o| t.owner_or_renewer(o)) {
-                        return false;
-                    }
+                if owners
+                    .as_ref()
+                    .is_some_and(|owners| !owners.iter().any(|o| t.owner_or_renewer(o)))
+                {
+                    return false;
                 }
                 t.owner_or_renewer(me)
                     || self.authz.allows(

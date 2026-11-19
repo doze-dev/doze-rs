@@ -80,15 +80,7 @@ impl<F: Fs> Broker<F> {
                 .iter()
                 .find(|f| f.name == name)
                 .map_or(0, |f| f.level);
-            if let Err(why) = check(
-                &supported,
-                node,
-                name,
-                level,
-                u.upgrade_type,
-                current,
-                &proposed,
-            ) {
+            if let Err(why) = check(&supported, node, u, current, &proposed) {
                 resp.error_code = ResponseError::InvalidUpdateVersion.code();
                 resp.error_message = Some(StrBytes::from_string(format!(
                     "The update failed for all features since the following feature had an error: {why}"
@@ -152,12 +144,15 @@ fn java_hash_map_order(updates: &[FeatureUpdateKey]) -> Vec<&FeatureUpdateKey> {
 fn check(
     supported: &[FeatureLevel],
     node: i32,
-    name: &str,
-    level: i16,
-    upgrade_type: i8,
+    update: &FeatureUpdateKey,
     current: i16,
     proposed: &BTreeMap<&str, i16>,
 ) -> Result<(), String> {
+    let (name, level, upgrade_type) = (
+        update.feature.as_str(),
+        update.max_version_level,
+        update.upgrade_type,
+    );
     let invalid = |why: &str| format!("Invalid update version {level} for feature {name}. {why}");
     if ![UPGRADE, SAFE_DOWNGRADE, UNSAFE_DOWNGRADE].contains(&upgrade_type) {
         return Err(invalid(

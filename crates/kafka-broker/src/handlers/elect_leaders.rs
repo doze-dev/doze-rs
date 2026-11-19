@@ -55,7 +55,7 @@ impl<F: Fs> Broker<F> {
         let mut resp = ElectLeadersResponse::default();
         let Some(asked) = &req.topic_partitions else {
             resp.replica_election_results = (self.meta.topics().iter())
-                .map(|t| result(&t.name.to_string(), Vec::new()))
+                .map(|t| result(t.name.as_ref(), Vec::new()))
                 .collect();
             return resp;
         };

@@ -101,6 +101,10 @@ pub fn of_api_versions(r: &kafka_wire::messages::ApiVersionsRequest, f: &mut Fac
 }
 
 /// What the answer says.
+#[expect(
+    clippy::too_many_lines,
+    reason = "one typed match over every response with no wildcard, so an API with no summary does not compile"
+)]
 pub fn of_response(response: &Response, f: &mut Facts) {
     match response {
         Response::Produce(r) => produce::response(r, f),

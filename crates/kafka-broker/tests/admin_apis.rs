@@ -5,7 +5,10 @@
     clippy::unwrap_used,
     clippy::expect_used,
     clippy::indexing_slicing,
-    clippy::panic
+    clippy::panic,
+    clippy::too_many_lines,
+    clippy::type_complexity,
+    reason = "tests: each walks one API through Kafka's cases in turn"
 )]
 
 mod support;

@@ -32,6 +32,10 @@ fn the_answer_to_an_apiversions_in_the_middle_of_a_login_is_illegal_sasl_state_w
 /// negative; at v3 the supported rows whose least level is 0 are left out and the finalized ones kept. Kafka 1 and 2 list no
 /// feature, and nothing is listed below v3. A broker that does not serve the share or streams APIs lists neither feature.
 #[test]
+#[expect(
+    clippy::too_many_lines,
+    reason = "every feature of every major, as written down"
+)]
 fn each_major_lists_the_features_of_its_recorded_broker() {
     let ask = |major: u8, version: i16| {
         answer(

@@ -177,6 +177,10 @@ impl<F: Fs> Broker<F> {
     ///
     /// # Errors
     /// The data directory or the metadata database cannot be made or read.
+    #[expect(
+        clippy::too_many_lines,
+        reason = "every part of the broker's state, opened in the order each needs the others"
+    )]
     pub fn open(fs: F, mut config: Config) -> Result<Self, BrokerError> {
         // The console's own principal is a super user of every broker (SEC-241); nobody else can be it (SEC-240).
         config

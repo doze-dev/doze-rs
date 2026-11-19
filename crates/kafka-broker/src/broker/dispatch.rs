@@ -169,7 +169,7 @@ impl<F: Fs> Broker<F> {
                 head.version,
             ))),
             Request::CreateDelegationToken(r) => respond(Response::CreateDelegationToken(
-                self.create_delegation_token(caller, &r, head.version).await,
+                Box::new(self.create_delegation_token(caller, &r, head.version).await),
             )),
             Request::RenewDelegationToken(r) => respond(Response::RenewDelegationToken(
                 self.renew_delegation_token(caller, &r).await,

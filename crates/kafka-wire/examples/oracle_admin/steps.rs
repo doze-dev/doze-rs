@@ -43,10 +43,11 @@ fn internal(name: &str) -> bool {
 
 /// Kafka's CLUSTER_AUTHORIZATION_FAILED text names its own request object; what is compared is the operation it needs.
 pub(crate) fn denied(message: &mut Option<StrBytes>) {
-    if let Some(m) = message.as_ref() {
-        if let (true, Some((_, op))) = (m.starts_with("Request "), m.rsplit_once(" needs ")) {
-            *message = Some(s(&format!("Request <request> needs {op}")));
-        }
+    let op = (message.as_ref())
+        .filter(|m| m.starts_with("Request "))
+        .and_then(|m| m.rsplit_once(" needs ").map(|(_, op)| op.to_owned()));
+    if let Some(op) = op {
+        *message = Some(s(&format!("Request <request> needs {op}")));
     }
 }
 

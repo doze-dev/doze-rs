@@ -3,6 +3,10 @@
 use super::*;
 
 #[tokio::test]
+#[expect(
+    clippy::too_many_lines,
+    reason = "the list of every API served, one a line"
+)]
 async fn api_versions_lists_only_what_the_broker_serves() {
     let (mut client, _task, _stop) = start(Timeouts::default(), 4096);
     client.write_all(&api_versions(7)).await.unwrap();
