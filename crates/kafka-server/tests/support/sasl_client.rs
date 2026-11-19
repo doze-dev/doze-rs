@@ -119,6 +119,24 @@ impl<S: AsyncRead + AsyncWrite + Unpin> Client<S> {
         self.call(ApiKey::SaslHandshake, 1, &r).await
     }
 
+    /// A SaslHandshake at v0: the tokens after it are raw (SEC-401).
+    pub(crate) async fn handshake_v0(
+        &mut self,
+        mechanism: &'static str,
+    ) -> Option<SaslHandshakeResponse> {
+        let mut r = SaslHandshakeRequest::default();
+        r.mechanism = StrBytes::from_static_str(mechanism);
+        self.call(ApiKey::SaslHandshake, 0, &r).await
+    }
+
+    /// A raw SASL token, size-prefixed and nothing else; the server's raw reply, or `None` if it closed.
+    pub(crate) async fn raw_token(&mut self, bytes: &[u8]) -> Option<Bytes> {
+        let len = u32::try_from(bytes.len()).unwrap().to_be_bytes();
+        let _ = self.socket.write_all(&len).await;
+        let _ = self.socket.write_all(bytes).await;
+        self.read().await
+    }
+
     pub(crate) async fn token(&mut self, bytes: &[u8]) -> Option<SaslAuthenticateResponse> {
         let mut r = SaslAuthenticateRequest::default();
         r.auth_bytes = Bytes::copy_from_slice(bytes);

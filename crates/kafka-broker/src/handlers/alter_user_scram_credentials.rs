@@ -55,7 +55,11 @@ impl<F: Fs> Broker<F> {
                 .chain(req.upsertions.iter().map(|u| u.name.as_str()))
                 .collect();
             let code = ResponseError::ClusterAuthorizationFailed.code();
-            resp.results = names.into_iter().map(|n| line(n, code, None)).collect();
+            let why = caller.cluster_denied("ALTER");
+            resp.results = names
+                .into_iter()
+                .map(|n| line(n, code, Some(&why)))
+                .collect();
             return Outcome::Respond(Response::AlterUserScramCredentials(resp));
         }
         let _one_change_at_a_time = self.user_admin.lock().await;

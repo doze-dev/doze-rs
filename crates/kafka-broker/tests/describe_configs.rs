@@ -265,3 +265,72 @@ async fn synonyms_come_only_when_asked_for_and_only_the_assignment_interval_is_n
     assert!(read_only("num.partitions"));
     assert!(!read_only("log.retention.ms"), "and the changeable ones");
 }
+
+/// SEC-402 (I9): the authorizer's settings as Apache Kafka 4.3.1 lists them (recorded `authz-matrix`, step
+/// `admin-broker-authorizer-configs`): `super.users` (when set) and `allow.everyone.if.no.acl.found` (when the default
+/// allows) are UNKNOWN, sensitive and without a value; `authorizer.class.name` is the standard authorizer, read-only.
+#[tokio::test]
+async fn the_authorizer_settings_are_listed_as_kafka_lists_them() {
+    let names = [
+        "allow.everyone.if.no.acl.found",
+        "super.users",
+        "authorizer.class.name",
+    ];
+    let listed = |r: &kafka_wire::messages::describe_configs_response::DescribeConfigsResult| {
+        r.configs
+            .iter()
+            .map(|c| {
+                (
+                    c.name.to_string(),
+                    c.value.as_ref().map(ToString::to_string),
+                    c.config_type,
+                    c.is_sensitive,
+                    c.read_only,
+                    c.config_source,
+                )
+            })
+            .collect::<Vec<_>>()
+    };
+    let class = || {
+        (
+            "authorizer.class.name".to_owned(),
+            Some("org.apache.kafka.metadata.authorizer.StandardAuthorizer".to_owned()),
+            2,
+            false,
+            true,
+            STATIC_BROKER,
+        )
+    };
+    let hidden = |name: &str| (name.to_owned(), None, 0, true, true, STATIC_BROKER);
+
+    // A closed broker with a super user: the recorded case (the rig asks as ANONYMOUS, so that is the super user).
+    let closed = support::rig_with(|c| {
+        c.acl_default_allow = false;
+        c.super_users.insert("User:ANONYMOUS".to_owned());
+    });
+    let r = closed
+        .describe_configs(4, BROKER, "1", Some(&names), true, false)
+        .await;
+    assert_eq!(listed(&r), [hidden("super.users"), class()]);
+    // A sensitive config's synonyms carry no value either.
+    assert!(r.configs[0].synonyms.iter().all(|s| s.value.is_none()));
+
+    // The default broker: everyone allowed where no ACL says otherwise, nobody a super user.
+    let open = rig();
+    let r = open
+        .describe_configs(4, BROKER, "1", Some(&names), false, false)
+        .await;
+    assert_eq!(
+        listed(&r),
+        [hidden("allow.everyone.if.no.acl.found"), class()]
+    );
+    // And in the whole list.
+    let all = open
+        .describe_configs(4, BROKER, "1", None, false, false)
+        .await;
+    assert!(
+        all.configs
+            .iter()
+            .any(|c| c.name.as_str() == "authorizer.class.name")
+    );
+}

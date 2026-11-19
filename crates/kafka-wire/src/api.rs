@@ -13,7 +13,7 @@
 //!
 //! Two floors are deliberate. Produce starts at v3 and Fetch at v4, the first versions that carry record
 //! batch format v2, the only format the log stores. OffsetCommit and OffsetFetch stop below v10, where the
-//! wire form switches to topic ids. SaslHandshake is v1 only: v0 means "raw tokens follow".
+//! wire form switches to topic ids. SaslHandshake v0 means "raw tokens follow" (KIP-43 framing, served: SEC-401).
 
 use bytes::{Bytes, BytesMut};
 use kafka_protocol::messages::{
@@ -192,7 +192,7 @@ served_apis! {
     SyncGroup(SyncGroupRequest, SyncGroupResponse) [v(0, 1), v(0, 3), v(0, 4), v(0, 5)];
     DescribeGroups(DescribeGroupsRequest, DescribeGroupsResponse) [v(0, 1), v(0, 3), v(0, 5), v(0, 5)];
     ListGroups(ListGroupsRequest, ListGroupsResponse) [v(0, 1), v(0, 2), v(0, 4), v(0, 5)];
-    SaslHandshake(SaslHandshakeRequest, SaslHandshakeResponse) [v(1, 1), v(1, 1), v(1, 1), v(1, 1)], when Sasl;
+    SaslHandshake(SaslHandshakeRequest, SaslHandshakeResponse) [v(0, 1), v(0, 1), v(0, 1), v(0, 1)], when Sasl;
     ApiVersions(ApiVersionsRequest, ApiVersionsResponse) [v(0, 1), v(0, 2), v(0, 3), v(0, 4)];
     CreateTopics(CreateTopicsRequest, CreateTopicsResponse) [v(0, 2), v(0, 3), v(0, 7), v(2, 7)];
     DeleteTopics(DeleteTopicsRequest, DeleteTopicsResponse) [v(0, 1), v(0, 3), v(0, 5), v(1, 6)];

@@ -1008,6 +1008,14 @@ session cache and one task waiting on an alarm no one has set: nothing wakes unt
 presumably the larger binary's pages (not split into file-backed and anonymous in the VM, as the idle line above was). The line (xtask/weight-limits.txt) moves to 8,431,392 B times CI's 1.3747 plus 5%, 12,170,166 B, under the 15 MB
 ceiling, and its idle to CI's 11,132 KB times the measured rise plus 5%, 11,880 KB, until CI measures the tree.
 
+## The broker's debt cleared (2026-11-18, branch kafka-debt-broker)
+darwin arm64, release, default features: **9,110,048 B** (+16,560 B, +0.18% over streams groups' 9,093,488 B), **182 packages** (none added).
+The bytes are SaslHandshake v0 and the raw-token path (SEC-401), the v0 codecs vendor patch 5 restores (ACLs, DescribeLogDirs,
+OffsetForLeaderEpoch), the PREFIXED index (SEC-400), the authorizer's three broker configs (SEC-402) and the long CLUSTER_AUTHORIZATION_FAILED
+text (SEC-404). The size line moves to 9,110,048 x 1.3747 + 5% = 13,149,762 B until CI measures it (ceiling 15 MB); idle is unchanged (nothing new
+runs while idle; three starts read 4,848, 6,912 and 4,768 KB with a 6 s settle). `cargo xtask weight` now looks for the binary under
+`CARGO_TARGET_DIR` when it is set.
+
 ## Core M1: the mariadb module, measured 2026-11-14, release, darwin/arm64
 
 `doze-module-mariadb` 905,968 B, beside `doze-module-valkey` 888,128 B and `doze-module-temporal` 903,824 B built the

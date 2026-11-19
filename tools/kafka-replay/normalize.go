@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
+	"regexp"
 	"sort"
 	"strings"
 	"unicode/utf8"
@@ -206,6 +207,11 @@ func (n *normalizer) walk(v any, key string) any {
 			n.members[x] = m
 			return m
 		}
+		// Kafka's CLUSTER_AUTHORIZATION_FAILED text embeds the request object (processor, connection id, a session's
+		// hash, buffer positions, an envelope when forwarded to the controller): only the operation is the answer's.
+		if m := requestNeeds.FindStringSubmatch(x); m != nil {
+			return "Request <request> needs " + m[1] + " permission."
+		}
 		// A member id inside a message ("...member consumer-1-5a2c...").
 		for id, ph := range n.members {
 			if strings.Contains(x, id) {
@@ -216,6 +222,8 @@ func (n *normalizer) walk(v any, key string) any {
 	}
 	return v
 }
+
+var requestNeeds = regexp.MustCompile(`^Request Request\(.*\) needs ([A-Z_]+) permission\.$`)
 
 func (n *normalizer) topicID(id string) string {
 	if id == "00000000000000000000000000000000" {

@@ -1,0 +1,309 @@
+{
+  "scenario": "acl-v0",
+  "kafka": "apache/kafka:3.9.1",
+  "steps": [
+    {
+      "label": "create-v0",
+      "api": "CreateACLs",
+      "version": 0,
+      "request": {
+        "Creations": [
+          {
+            "Host": "\u003chost\u003e",
+            "Operation": "READ",
+            "PermissionType": "ALLOW",
+            "Principal": "User:alice",
+            "ResourceName": "orders",
+            "ResourcePatternType": "LITERAL",
+            "ResourceType": "TOPIC"
+          },
+          {
+            "Host": "\u003chost\u003e",
+            "Operation": "WRITE",
+            "PermissionType": "ALLOW",
+            "Principal": "User:bob",
+            "ResourceName": "orders",
+            "ResourcePatternType": "LITERAL",
+            "ResourceType": "TOPIC"
+          }
+        ]
+      },
+      "response": {
+        "Results": [
+          {
+            "ErrorCode": 0,
+            "ErrorMessage": ""
+          },
+          {
+            "ErrorCode": 0,
+            "ErrorMessage": ""
+          }
+        ],
+        "ThrottleMillis": 0
+      }
+    },
+    {
+      "label": "create-v1-prefixed",
+      "api": "CreateACLs",
+      "version": 1,
+      "request": {
+        "Creations": [
+          {
+            "Host": "\u003chost\u003e",
+            "Operation": "WRITE",
+            "PermissionType": "ALLOW",
+            "Principal": "User:alice",
+            "ResourceName": "ord",
+            "ResourcePatternType": "PREFIXED",
+            "ResourceType": "TOPIC"
+          }
+        ]
+      },
+      "response": {
+        "Results": [
+          {
+            "ErrorCode": 0,
+            "ErrorMessage": ""
+          }
+        ],
+        "ThrottleMillis": 0
+      }
+    },
+    {
+      "label": "describe-v0-topics",
+      "api": "DescribeACLs",
+      "version": 0,
+      "request": {
+        "Host": null,
+        "Operation": "ANY",
+        "PermissionType": "ANY",
+        "Principal": null,
+        "ResourceName": null,
+        "ResourcePatternType": "LITERAL",
+        "ResourceType": "TOPIC"
+      },
+      "response": {
+        "ErrorCode": 0,
+        "ErrorMessage": "",
+        "Resources": [
+          {
+            "ACLs": [
+              {
+                "Host": "\u003chost\u003e",
+                "Operation": "READ",
+                "PermissionType": "ALLOW",
+                "Principal": "User:alice"
+              },
+              {
+                "Host": "\u003chost\u003e",
+                "Operation": "WRITE",
+                "PermissionType": "ALLOW",
+                "Principal": "User:bob"
+              }
+            ],
+            "ResourceName": "orders",
+            "ResourcePatternType": "LITERAL",
+            "ResourceType": "TOPIC"
+          }
+        ],
+        "ThrottleMillis": 0
+      }
+    },
+    {
+      "label": "describe-v0-by-name",
+      "api": "DescribeACLs",
+      "version": 0,
+      "request": {
+        "Host": null,
+        "Operation": "ANY",
+        "PermissionType": "ANY",
+        "Principal": null,
+        "ResourceName": "orders",
+        "ResourcePatternType": "LITERAL",
+        "ResourceType": "TOPIC"
+      },
+      "response": {
+        "ErrorCode": 0,
+        "ErrorMessage": "",
+        "Resources": [
+          {
+            "ACLs": [
+              {
+                "Host": "\u003chost\u003e",
+                "Operation": "READ",
+                "PermissionType": "ALLOW",
+                "Principal": "User:alice"
+              },
+              {
+                "Host": "\u003chost\u003e",
+                "Operation": "WRITE",
+                "PermissionType": "ALLOW",
+                "Principal": "User:bob"
+              }
+            ],
+            "ResourceName": "orders",
+            "ResourcePatternType": "LITERAL",
+            "ResourceType": "TOPIC"
+          }
+        ],
+        "ThrottleMillis": 0
+      }
+    },
+    {
+      "label": "describe-v0-unknown-name",
+      "api": "DescribeACLs",
+      "version": 0,
+      "request": {
+        "Host": null,
+        "Operation": "ANY",
+        "PermissionType": "ANY",
+        "Principal": null,
+        "ResourceName": "nothing",
+        "ResourcePatternType": "LITERAL",
+        "ResourceType": "TOPIC"
+      },
+      "response": {
+        "ErrorCode": 0,
+        "ErrorMessage": "",
+        "Resources": null,
+        "ThrottleMillis": 0
+      }
+    },
+    {
+      "label": "describe-v1-prefixed",
+      "api": "DescribeACLs",
+      "version": 1,
+      "request": {
+        "Host": null,
+        "Operation": "ANY",
+        "PermissionType": "ANY",
+        "Principal": null,
+        "ResourceName": null,
+        "ResourcePatternType": "PREFIXED",
+        "ResourceType": "TOPIC"
+      },
+      "response": {
+        "ErrorCode": 0,
+        "ErrorMessage": "",
+        "Resources": [
+          {
+            "ACLs": [
+              {
+                "Host": "\u003chost\u003e",
+                "Operation": "WRITE",
+                "PermissionType": "ALLOW",
+                "Principal": "User:alice"
+              }
+            ],
+            "ResourceName": "ord",
+            "ResourcePatternType": "PREFIXED",
+            "ResourceType": "TOPIC"
+          }
+        ],
+        "ThrottleMillis": 0
+      }
+    },
+    {
+      "label": "delete-v0-read",
+      "api": "DeleteACLs",
+      "version": 0,
+      "request": {
+        "Filters": [
+          {
+            "Host": null,
+            "Operation": "READ",
+            "PermissionType": "ANY",
+            "Principal": null,
+            "ResourceName": "orders",
+            "ResourcePatternType": "LITERAL",
+            "ResourceType": "TOPIC"
+          }
+        ]
+      },
+      "response": {
+        "Results": [
+          {
+            "ErrorCode": 0,
+            "ErrorMessage": null,
+            "MatchingACLs": [
+              {
+                "ErrorCode": 0,
+                "ErrorMessage": null,
+                "Host": "\u003chost\u003e",
+                "Operation": "READ",
+                "PermissionType": "ALLOW",
+                "Principal": "User:alice",
+                "ResourceName": "orders",
+                "ResourcePatternType": "LITERAL",
+                "ResourceType": "TOPIC"
+              }
+            ]
+          }
+        ],
+        "ThrottleMillis": 0
+      }
+    },
+    {
+      "label": "delete-v0-read-again",
+      "api": "DeleteACLs",
+      "version": 0,
+      "request": {
+        "Filters": [
+          {
+            "Host": null,
+            "Operation": "READ",
+            "PermissionType": "ANY",
+            "Principal": null,
+            "ResourceName": "orders",
+            "ResourcePatternType": "LITERAL",
+            "ResourceType": "TOPIC"
+          }
+        ]
+      },
+      "response": {
+        "Results": [
+          {
+            "ErrorCode": 0,
+            "ErrorMessage": null,
+            "MatchingACLs": null
+          }
+        ],
+        "ThrottleMillis": 0
+      }
+    },
+    {
+      "label": "describe-v0-after",
+      "api": "DescribeACLs",
+      "version": 0,
+      "request": {
+        "Host": null,
+        "Operation": "ANY",
+        "PermissionType": "ANY",
+        "Principal": null,
+        "ResourceName": null,
+        "ResourcePatternType": "LITERAL",
+        "ResourceType": "TOPIC"
+      },
+      "response": {
+        "ErrorCode": 0,
+        "ErrorMessage": "",
+        "Resources": [
+          {
+            "ACLs": [
+              {
+                "Host": "\u003chost\u003e",
+                "Operation": "WRITE",
+                "PermissionType": "ALLOW",
+                "Principal": "User:bob"
+              }
+            ],
+            "ResourceName": "orders",
+            "ResourcePatternType": "LITERAL",
+            "ResourceType": "TOPIC"
+          }
+        ],
+        "ThrottleMillis": 0
+      }
+    }
+  ]
+}

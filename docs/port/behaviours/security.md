@@ -40,6 +40,7 @@ SEC-D4, D5, D51, D56, D59) say so where they stand.
 | SEC-295 to SEC-298 | OffsetForLeaderEpoch, DescribeLogDirs and the client quota APIs: their rights; what quotas guard | quotas | after SEC-294 |
 | SEC-230 to SEC-239 | the places a member's topics come from and whose right is applied: static takeover, names revoked, classic members, a group changing kind; the failed-login cap; file modes; the super-user name | re-audit C | "Re-audit of the authorization half" |
 | SEC-320 to SEC-327 | the share group APIs (KIP-932) and the group configs: READ or DESCRIBE or DELETE on the group, READ or DESCRIBE on each topic, ALTER_CONFIGS on the group | share groups | "Share groups (KIP-932)" |
+| SEC-400 to SEC-405 | the broker's debt cleared (2026-11-18): the PREFIXED index, SaslHandshake v0, the authorizer's configs, what `authz-matrix` found | debt | "Debt cleared, 2026-11-18" |
 | SEC-330 to SEC-333 | the streams group APIs (KIP-1071): READ or DESCRIBE on the group, DESCRIBE on every topic of the topology, CREATE for the internal topics the coordinator makes | streams groups | "Streams groups (KIP-1071)" |
 | SEC-334 to SEC-336 | Produce v13 and TxnOffsetCommit v6 (topics by id, KIP-516): the right on the name an id stands for, an unknown id before any right; InitProducerId v6 (KIP-939): TWO_PHASE_COMMIT on the id, the broker setting | wire tail | after SEC-333 |
 
@@ -47,15 +48,15 @@ Deviations from Apache Kafka (and one from the Go edition) by number. Every one 
 
 - **SEC-D1** a request in the middle of a login (other than ApiVersions and SaslHandshake) closes unanswered
 - **SEC-D2** the 30 s login budget from the accept
-- **SEC-D3** SaslHandshake v0 is not served
+- **SEC-D3** (withdrawn 2026-11-18) SaslHandshake v0 was not served; it is, in every profile (SEC-401)
 - **SEC-D4** (withdrawn: the 100 ms delay is rule SEC-192)
 - **SEC-D5** passwords are not zeroed on drop (and are not kept at all unless PLAIN is offered, SEC-198)
 - **SEC-D6** `Session::Unauthenticated` carries a `versions_answered` flag
 - **SEC-D7** the ACL APIs and authorizer work with SASL off, for `User:ANONYMOUS`
-- **SEC-D8** no long message on a CLUSTER_AUTHORIZATION_FAILED
+- **SEC-D8** (withdrawn 2026-11-18) no long message on a CLUSTER_AUTHORIZATION_FAILED; the four recorded APIs carry it (SEC-404)
 - **SEC-D9** a super user must be written `Type:name` with both parts non-empty
 - **SEC-D10** DescribeAcls and DeleteAcls results are sorted
-- **SEC-D11** no 10,000-ACL limit; DescribeConfigs does not report the two ACL settings
+- **SEC-D11** no 10,000-ACL limit (the DescribeConfigs half is withdrawn: SEC-402)
 - **SEC-D12** the server nonce is 18 random bytes in base64
 - **SEC-D13** several SCRAM extensions are signed in the order sent; no delegation tokens
 - **SEC-D14** bootstrap users have 4096 iterations and a random 16-byte salt
@@ -64,15 +65,15 @@ Deviations from Apache Kafka (and one from the Go edition) by number. Every one 
 - **SEC-D17** CreateTopics refused for want of CREATE answers empty `configs`; `__cluster_metadata` and DeleteTopics shape errors not added
 - **SEC-D18** unsupported resource types are checked for the right, then answered 42
 - **SEC-D19** a follower Fetch with CLUSTER_ACTION is read like a consumer's; a nameless Metadata entry has no operations field
-- **SEC-D20** the topic-API rules are read from the source, not recorded
+- **SEC-D20** (settled 2026-11-18) the topic-API rules were read from the source; `authz-matrix` records them
 - **SEC-D30** DeleteGroups with a repeated allowed name answers it twice
 - **SEC-D31** SyncGroup v5+ with no protocol type or name is 23 only for a caller also refused
 - **SEC-D32** AddPartitionsToTxn on the internal topics is 3, not 29
 - **SEC-D33** (withdrawn: InitProducerId v6 is served as Kafka 4.4.0 serves it, SEC-336)
-- **SEC-D34** unsure: a DescribeTransactions entry refused with 53 carries schema defaults
+- **SEC-D34** (settled by `authz-matrix`) a DescribeTransactions entry refused with 53, and one not found, carries schema defaults
 - **SEC-D35** unsure: ConsumerGroupDescribe and a deleted topic's empty name
-- **SEC-D36** unsure: FindCoordinator before v4 puts the error's own message in the answer
-- **SEC-D37** share groups and streams groups are not served
+- **SEC-D36** (settled by `authz-matrix`) FindCoordinator before v4 puts the error's own message in the answer
+- **SEC-D37** (withdrawn) share and streams groups are served and checked (SEC-320 to SEC-333)
 - **SEC-D40** client certificates and mutual TLS are out of scope
 - **SEC-D41** `ssl.principal.mapping.rules` has nothing to map
 - **SEC-D42** protocol versions and cipher suites are rustls's with ring
@@ -86,7 +87,7 @@ Deviations from Apache Kafka (and one from the Go edition) by number. Every one 
 - **SEC-D51** the credential APIs work with SASL off, and with `--acl-default allow` any login may manage users (super users' credentials excepted, SEC-D70)
 - **SEC-D52** credential results are in the request's order, or by name
 - **SEC-D53** `metadata.version` is not modelled
-- **SEC-D54** Describe with a null user list from a denied caller answers 31 where Kafka throws
+- **SEC-D54** Describe with a null user list from a denied caller answers 31 where Kafka sends nothing back (recorded)
 - **SEC-D55** a changed credential applies to new logins; no re-authentication
 - **SEC-D56** credentials are a table in `meta.redb` (mode 0600, SEC-193), not records in a metadata log
 - **SEC-D57** an unusable stored row is left and named at warn
@@ -104,7 +105,7 @@ Deviations from Apache Kafka (and one from the Go edition) by number. Every one 
 
 - **SEC-D80** a regex subscription is resolved per member, with that member's own rights, not per expression with the rights of the heartbeat that triggered a refresh
 - **SEC-D81** Kafka's own walk throws or never ends on some names (`findAclRule`); this broker answers by the rules
-- **SEC-D82** the PREFIXED ACLs of a type are scanned on every check (admin scale: thousands of prefixes)
+- **SEC-D82** (withdrawn 2026-11-18) the PREFIXED ACLs of a type were scanned on every check; they are indexed (SEC-400)
 - **SEC-D83** Metadata by id: names beside ids are served (Kafka drops them), and a repeated unknown id is answered each time
 - **SEC-D84** DeleteTopics by an unknown name answers 3 with no message; neither a name nor an id is not special-cased
 - **SEC-D85** `--acl-super-user` splits on commas and semicolons (the Go edition: commas; Kafka: semicolons)
@@ -158,7 +159,7 @@ topic 34 and no brokers; the Go edition closes, as this does; needs the stranger
 The mechanism must be offered, exactly: case-sensitive, so `plain`, `""`, `BOGUS` and an unconfigured `SCRAM-SHA-256` fail
 (`unknown-mechanism`, `lowercase-mechanism`, `empty-mechanism`, `scram-not-enabled`). Success: error 0 and the list of offered
 mechanisms. Failure: UNSUPPORTED_SASL_MECHANISM (33) with the same list, then the connection is closed, so a following handshake
-or token gets no answer (`refused-then-right`). **Served at v1 only** (v0 means "raw tokens follow" and is not served; **deviation SEC-D3**).
+or token gets no answer (`refused-then-right`). Served at v0 and v1 in every profile, as every recorded broker lists it: v0 means "raw tokens follow" (SEC-401).
 Test: `session::steps::tests::a_handshake_for_an_offered_mechanism_is_answered_with_the_list_and_moves_on`,
 `..::a_mechanism_that_is_not_offered_is_33_with_the_list_and_then_closed`, `tests/sasl::an_unknown_mechanism_is_answered_with_the_list_then_closed`.
 
@@ -882,7 +883,7 @@ They are served with SASL off too (SEC-D51). The crate decodes both at v0 (`vend
 Describe needs DESCRIBE on the cluster, Alter needs ALTER (which implies DESCRIBE, SEC-19), both through the authorizer of SEC-16 to SEC-19, so a super user, an ALLOW on `kafka-cluster`, or (on a broker with
 the default allow and no ACL) anybody. **Denied:** Describe answers the top-level `ErrorCode 31` and one entry with 31 for each name asked for (`DescribeUserScramCredentialsRequest.getErrorResponse`,
 DescribeUserScramCredentialsRequest.java:63-76); Alter answers 31 for each distinct user name in the request, sorted (`AlterUserScramCredentialsRequest.getErrorResponse`,
-AlterUserScramCredentialsRequest.java:67-83), and nothing is changed. The check precedes every rule below. Messages are null (**deviation SEC-D8**, the long message of `authorizeClusterOperation` is not reproduced). Test:
+AlterUserScramCredentialsRequest.java:67-83), and nothing is changed. The check precedes every rule below. Describe's messages are null, as recorded; Alter's carry the long message of `authorizeClusterOperation` (SEC-404). Test:
 `kafka-broker tests/user_scram_use::a_caller_without_the_right_is_refused_in_the_shape_kafka_answers`, `..::alter_needs_alter_on_the_cluster_and_describe_needs_describe_which_alter_implies`,
 `kafka-server tests/users_api::a_user_made_by_an_admin_logs_in_*` (a user who is not a super user gets 31 on a real socket).
 **Read this with the default:** on a broker with SASL on and `--acl-default allow` the right is everybody's, so every logged-in user may make, replace and delete the credential of any user who is not a super user, and may rewrite the ACLs (SEC-23). A super user's credential is the exception
@@ -1521,26 +1522,69 @@ settings, as 4.4.0 has not built it. The answer's `OngoingTxnProducerId` and `On
 `without_the_broker_setting_a_two_phase_commit_is_refused_and_a_plain_v6_is_served`, `kafka-wire profile::tests::init_producer_id_v6_is_offered_only_with_the_unstable_versions`,
 `kafka-wire tests/recorded_unstable_api_versions.rs::the_unstable_versions_are_init_producer_id_v6_alone_on_kafka_4_4_0_and_here`.
 
+## Debt cleared, 2026-11-18 (SEC-400 to SEC-405)
+
+Numbered from 400 so that rows another branch adds after SEC-333 do not clash. Each was found or settled by `debt.md` (SEC-D82, SEC-D3, I9, I1, I10)
+and each test fails when the change is put back.
+
+## SEC-400. A check finds the PREFIXED ACLs that cover a name by looking up its prefixes, not by scanning
+The PREFIXED ACLs of a type are kept by prefix, with the distinct prefix lengths; a check looks up the name's prefix at each of those lengths (a length
+inside a character of the name is no prefix of it). The answers are those of the scan (the model tests `the_authorizer_agrees_with_an_independent_transcription_of_kafka`
+and the SEC-29 model); a check among 50,000 PREFIXED ACLs costs a lookup per length. Kafka walks a sorted set to the same end (SAD:352-420). Test:
+`kafka-auth authz::tests::scale::a_check_among_fifty_thousand_prefixes_does_not_scan_them`, `..::the_lookup_by_length_finds_every_covering_prefix_and_no_other`.
+
+## SEC-401. SaslHandshake v0: raw tokens follow
+Every profile serves SaslHandshake 0-1, as every recorded broker (Kafka 1.1, 2.8, 3.9.1, 4.4.0) lists it. After a v0 handshake the tokens are raw
+(`SaslServerAuthenticator.handleHandshakeRequest`: `enableKafkaSaslAuthenticateHeaders(version >= 1)`): each a size-prefixed frame with no Kafka header,
+answered with the mechanism's reply as a size-prefixed frame (PLAIN's is empty, a frame of length 0; SCRAM's are the server-first and server-final
+messages). A refused token is answered with nothing, and the connection closes after the failed-login delay; a Kafka request sent instead is read as a
+token and refused so. The handshake's own answer and its refusal (33, then a close) are v1's. Recorded `sasl-handshake-v0` (Apache Kafka 4.3.1). Test:
+`kafka-server tests/sasl_raw.rs` (`plain_over_raw_tokens_logs_in_with_an_empty_reply`, `a_wrong_raw_token_is_answered_with_nothing_and_closed`,
+`a_kafka_request_after_a_v0_handshake_is_read_as_a_raw_token`, `scram_over_raw_tokens_logs_in_with_the_server_signature`).
+
+## SEC-402. The broker's DescribeConfigs lists the authorizer's settings as Kafka does
+`authorizer.class.name` (the standard authorizer, read-only, from the broker's start), `super.users` when `--acl-super-user` is given, and
+`allow.everyone.if.no.acl.found` when `--acl-default allow`; the last two are UNKNOWN to Kafka's `KafkaConfig` and so sensitive, shown with no
+value (and no value in a synonym). Recorded `authz-matrix`, `admin-broker-authorizer-configs` (debt I9: the note that "real Kafka lists neither" was wrong).
+Test: `kafka-broker tests/describe_configs::the_authorizer_settings_are_listed_as_kafka_lists_them`.
+
+## SEC-403. A refused Fetch partition has no high watermark and an empty list of aborted transactions
+Kafka's `FetchResponse.partitionResponse(error)`: high watermark, last stable offset and log start offset -1, aborted transactions `[]` (not null).
+It was 0 and null here. Recorded `authz-matrix`, `bob-fetch`. Test: `kafka-broker tests/authz_topics_data::a_refused_fetch_is_answered_at_once_and_does_not_wait_for_data`.
+
+## SEC-404. CLUSTER_AUTHORIZATION_FAILED on the ACL and credential APIs carries Kafka's long text
+DescribeAcls (the top-level message), CreateAcls, DeleteAcls and AlterUserScramCredentials (each result) say `Request Request(...) needs DESCRIBE
+permission.` or `... needs ALTER permission.`, the text of Kafka's `authorizeClusterOperation`, as recorded (`authz-matrix`; the replay compares the
+operation, the request part is normalised). The request part is written with what this broker knows (the caller's address and principal);
+Kafka's holds its processor, a session object's hash and buffer positions, and for the three forwarded to the controller an envelope. DescribeConfigs,
+IncrementalAlterConfigs and DescribeUserScramCredentials keep their recorded short texts. Test: `kafka-broker tests/acls_access::a_caller_with_nothing_on_the_cluster_is_refused_with_31_everywhere`.
+
+## SEC-405. DescribeTransactions of an id with no transaction: the error and the schema's defaults
+TRANSACTIONAL_ID_NOT_FOUND (105) with producer id 0, epoch 0 and start time 0, as Kafka's coordinator builds it (it was -1 and -1 here). Recorded
+`authz-matrix`, `alice-describe-transactions`. Test: `kafka-broker tests/transactions_describe.rs`.
+
 ## Deviations
 - **SEC-D1.** A request in the middle of a login other than ApiVersions and SaslHandshake closes unanswered; Kafka answers it in its
   own shape with 34 and then closes. (Recorded `request-before-token-who`; the Go edition has the same difference.)
 - **SEC-D2.** The 30 s login budget from the accept. Kafka has none.
-- **SEC-D3.** SaslHandshake v0 (raw tokens) is not served; the request closes the connection.
+- **SEC-D3.** (Withdrawn 2026-11-18.) SaslHandshake v0 (raw tokens) was not served, and the request closed the connection. Every recorded broker,
+  Kafka 1.1 to 4.4.0, lists SaslHandshake 0-1 and Kafka 4.3.1 serves v0 (recorded `sasl-handshake-v0`), so it is served in every profile: SEC-401.
 - **SEC-D4.** (Withdrawn by the first audit: the broker now waits `connection.failed.authentication.delay.ms`, 100 ms, before it answers a failed login: rule SEC-192, with its own deviation SEC-D73.)
 - **SEC-D5.** Passwords are not zeroed on drop (no `zeroize` dependency; the weight rule). Where a password is kept (a broker that offers PLAIN) it lives in the process for its life and is
   never printed; a broker that offers SCRAM alone keeps none after the verifiers are made (SEC-198).
 - **SEC-D6.** `Session::Unauthenticated` carries a flag (`versions_answered`) that the plan's enum did not (SEC-12 needs it).
 - **SEC-D7.** The ACL APIs and the authorizer work with SASL off, enforced for `User:ANONYMOUS` (decision D4, the Go edition's behaviour).
   Kafka without an authorizer answers SECURITY_DISABLED (54) and enforces nothing.
-- **SEC-D8.** A CLUSTER_AUTHORIZATION_FAILED on the ACL APIs carries no long message. Kafka's is `Request(processor=N, connectionId=...) needs
-  ALTER permission.`, which embeds a request dump and cannot be reproduced; here DescribeAcls says `""` and the results of CreateAcls and
-  DeleteAcls say nothing. The code is Kafka's.
+- **SEC-D8.** (Withdrawn 2026-11-18.) A CLUSTER_AUTHORIZATION_FAILED on the ACL APIs carried no long message. Recorded (`authz-matrix`): Kafka's
+  DescribeAcls, CreateAcls, DeleteAcls and AlterUserScramCredentials carry `Request <the request> needs <OP> permission.`, so they do here, in
+  the same shape (SEC-404). What is inside the request part (processor, a session's hash, buffer positions) is Kafka's process and not reproduced.
 - **SEC-D9.** A super user must be written `Type:name` with both parts non-empty (the Go edition's rule); Kafka only needs a colon, so it
   accepts `:x` and `User:`.
 - **SEC-D10.** DescribeAcls and DeleteAcls list resources and ACLs sorted; Kafka's order is a hash map's (unspecified).
 - **SEC-D11.** (This once also listed the topic, group and transactional-id APIs as unchecked; they are checked, SEC-60 to SEC-72 and SEC-100 to SEC-123.) A CreateAcls of
-  more than 10,000 new ACLs is not limited (Kafka's outcome is unspecified, kafka-semantics U3). DescribeConfigs on the broker does not report
-  `allow.everyone.if.no.acl.found` or `super.users` (the Go edition does; real Kafka lists neither, so the recorded answers would differ).
+  more than 10,000 new ACLs is not limited (Kafka's outcome is unspecified, kafka-semantics U3). (The second half, that DescribeConfigs on the broker
+  did not report `allow.everyone.if.no.acl.found` or `super.users`, is withdrawn: recorded Kafka lists `super.users` and `authorizer.class.name`, and
+  so does this broker, SEC-402.)
 - **SEC-D12.** The server nonce is 18 random bytes in base64 (24 characters); Kafka's is a base-36 rendering of 130 random bits (up to 26). Both are
   unpredictable, printable and comma-free; no client depends on the alphabet (SEC-51).
 - **SEC-D13.** With several extensions after the nonce Kafka signs them in the iteration order of an immutable `Map.copyOf`, which is random per JVM, so a client
@@ -1568,7 +1612,9 @@ settings, as 4.4.0 has not built it. The answer's `OngoingTxnProducerId` and `On
 - **SEC-D19.** A Fetch from a follower (`replica_id` 0 or more) that has CLUSTER_ACTION is read like a consumer's, without READ on the topic: there is no
   replication to serve, and the caller is a broker or a tool that asked for it. Metadata's topic entry that has no name (a topic asked for by an id
   nobody knows or may not describe) has no authorized operations field; Kafka builds a resource with a null name for it, which throws.
-- **SEC-D20.** The tests of these rules read the Kafka source and not a run of it (D9: `authz-matrix` is not recorded). The rows most likely to differ are
+- **SEC-D20.** (Settled 2026-11-18: `authz-matrix` in tools/kafka-replay records a refusal, and permits, for every API of the topic, group,
+  transaction, credential and ACL families against Apache Kafka 4.3.1, and replays with no difference but SEC-D54. It found three: SEC-403, SEC-404,
+  SEC-405.) The tests of these rules read the Kafka source and not a run of it. The rows most likely to differ are
   the ones whose order Kafka leaves to a hash map or a set (the order of the refused among themselves in CreateTopics and Metadata) and the texts of
   the 29 answers for which Kafka's message is the default one (set from `Errors.TOPIC_AUTHORIZATION_FAILED.message`, checked against the source only).
 
@@ -1597,14 +1643,17 @@ settings, as 4.4.0 has not built it. The answer's `OngoingTxnProducerId` and `On
   authorizer (KA:1912). Here those topics do not exist as topics: they are 3 (or 29, if the caller may not WRITE them). v4 and later is a broker's request and asks no right on a topic (SEC-124).
 - **SEC-D33.** Withdrawn (2026-11-18). It said the TWO_PHASE_COMMIT check (SEC-120) could not be reached because InitProducerId v6 was not served; v6 is now offered exactly when
   Kafka 4.4.0 offers it (`unstable.api.versions.enable`, here `--unstable-api-versions`) and its rights are SEC-336.
-- **SEC-D34.** Unsure, from the source alone: a DescribeTransactions entry refused with 53 carries the schema defaults for the rest (producer id 0, start time 0), as Kafka's
-  `new TransactionState().setTransactionalId().setErrorCode()` does; the entry for an id that is not found keeps the -1 and -1 this broker already gave it.
+- **SEC-D34.** Settled by `authz-matrix` (`bob-describe-transactions`): a DescribeTransactions entry refused with 53 carries the schema defaults for the
+  rest (producer id 0, start time 0), as Kafka's `new TransactionState().setTransactionalId().setErrorCode()` does. The entry for an id that is not found
+  carries them too (`alice-describe-transactions`; it had -1 and -1 here): SEC-405.
 - **SEC-D35.** Unsure: ConsumerGroupDescribe authorizes the topic names it has filled in. A topic deleted since a member held it has the name `""` there, which no ACL
   can name, so a caller that is not a super user and not covered by the default is told 29 for such a group. Kafka's coordinator names a missing topic from its metadata
-  image; whether it too gives `""` was not confirmed.
+  image; whether it too gives `""` was not confirmed. (`authz-matrix` records ConsumerGroupDescribe refused and permitted, and agrees; a deleted
+  topic's name needs a member that held it, which it does not set up.)
 - **SEC-D36.** Unsure: FindCoordinator before v4 puts the error's own message in the answer (`Errors.message()` is the exception's, `Group authorization failed.`; the `NONE` of a success
-  is its `toString`), read from `FindCoordinatorResponse.prepareOldResponse`. Not recorded.
-- **SEC-D37.** Not served, so not checked: share groups (key type 2), the share and streams group APIs. (AddPartitionsToTxn v4 and later is served since KIP-890: SEC-124.)
+  is its `toString`), read from `FindCoordinatorResponse.prepareOldResponse`. Settled: recorded (`authz-matrix`, `bob-find-group-coordinator-v3`).
+- **SEC-D37.** (Withdrawn 2026-11-18.) Share groups (key type 2) and the share and streams group APIs were not served, so not checked. They are
+  served (PRs #73 and #77) and checked: SEC-320 to SEC-327 and SEC-330 to SEC-333. AddPartitionsToTxn v4 and later is served since KIP-890: SEC-124.
 
 - **SEC-D50.** Two layers of users (SEC-172). Kafka has one store, the cluster metadata, and its PLAIN users live in a JAAS file outside it; here the users of the flags, the file and the variable are derived at every start and never stored. If a name is in both layers the bootstrap user wins for every
   mechanism and the stored entries under the name are shadowed, not deleted. An Alter or Delete aimed at a bootstrap user is refused with `UNACCEPTABLE_CREDENTIAL` (93) and a message that names the three sources: Kafka has no such case, and 93 (a credential it will not accept) is the closest of its codes; the check sits after the
@@ -1615,7 +1664,8 @@ settings, as 4.4.0 has not built it. The answer's `OngoingTxnProducerId` and `On
   every other API of a broker with no flags: it matters only if SASL is on, and then the users made are the only ones SASL checks. A broker that must not allow it needs `--acl-default deny` with ACLs and a super user. Kafka without an authorizer answers `SECURITY_DISABLED` (54) to the ACL APIs, but its credential APIs have no such case (ControllerApis checks `authorizeClusterOperation`, which succeeds with no authorizer).
 - **SEC-D52.** The order of the results of Alter and of Describe is the request's (Alter: deletions that happened, upsertions that happened, refusals) or by name (Describe with no list), not a Java hash map's, which no client depends on (SCM:229-257, ScramImage.java:96-127).
 - **SEC-D53.** Metadata.version is not modelled: Kafka's `UNSUPPORTED_VERSION` `The current metadata.version does not support SCRAM` (SCM:195, 216) is unreachable here, as a broker of 4.x always supports SCRAM.
-- **SEC-D54.** Describe with a **null** user list from a caller who is denied: Kafka's `getErrorResponse` iterates `data.users()` without a null check (DescribeUserScramCredentialsRequest.java:70), so the denial of a describe-all request throws a NullPointerException there and the client sees whatever the error path then does. Here it is the top-level 31 with no entries (what the same code does for an empty list). Not verified against a running Kafka.
+- **SEC-D54.** Describe with a **null** user list from a caller who is denied: Kafka's `getErrorResponse` iterates `data.users()` without a null check (DescribeUserScramCredentialsRequest.java:70), so the denial of a describe-all request throws a NullPointerException there and the client sees whatever the error path then does. Here it is the top-level 31 with no entries (what the same code does for an empty list). Recorded (`authz-matrix`, `bob-describe-scram-all`):
+  Kafka 4.3.1 sends nothing back at all (no answer within 5 s, then the client gives up); an answer is kept, as a client can act on it.
 - **SEC-D55.** A changed or deleted credential applies to new logins; a connection that is logged in stays logged in, as in Kafka with `connections.max.reauth.ms` at its default of 0. Kafka with re-authentication on checks again at the next re-login; this broker has no re-authentication (kafka-semantics 3.7, out of scope).
 - **SEC-D56.** The credentials are kept in a table of the broker's own database (`meta.redb`), key mechanism then user, value salt, iterations and the two keys, not as `UserScramCredentialRecord`s in a replicated metadata log. A data directory made by a build without this slice has no such table and reads as none; one written by this build and opened by an older one has a table the older one ignores. The keys are not encrypted at rest (a stolen `meta.redb` lets someone check
   passwords offline, not log in: SEC-162); the file is made readable by its owner only (mode 0600 at creation) and an older one is narrowed when it is opened, so another local user cannot read it (SEC-193; found by the first audit when it was 644).
@@ -1645,9 +1695,9 @@ settings, as 4.4.0 has not built it. The answer's `OngoingTxnProducerId` and `On
   and a change is seen at once. Stricter, not looser.
 - **SEC-D81.** Kafka's `findAclRule` throws or never ends on a resource whose name shares leading characters with an ACL name sorting below `*` (SEC-220). This broker answers by the rules. A client of Kafka
   would have had an error or a hung request there; none can depend on it.
-- **SEC-D82.** `covering` (`kafka-auth authz/rules.rs`) tests every PREFIXED ACL of the resource type on every check: Kafka walks a sorted set and visits only the prefixes of the name. Exact and fast at the scale
-  this broker is for (tens of ACLs; a check is a hash lookup plus the prefixes); an operator with several thousand PREFIXED ACLs of one type pays a scan of them per request. A sorted index by name, found by
-  the longest prefixes, would remove it and is not built (the model tests of SEC-29 and SEC-219 would hold it). CreateAcls no longer has its own N-times-M step (SEC-221).
+- **SEC-D82.** (Withdrawn 2026-11-18.) `covering` tested every PREFIXED ACL of the resource type on every check, where Kafka walks a sorted set and
+  visits only the prefixes of the name. The PREFIXED ACLs are now indexed by prefix and looked up by the lengths some ACL has (SEC-400); the model tests
+  of SEC-29 and SEC-219 hold the answers, a scale test the cost.
 - **SEC-D83.** Metadata by id: a request that carries ids and names serves both; Kafka serves the ids and drops the names (`KafkaApis.scala` 897-912). The same unknown id asked twice is answered twice; Kafka
   keeps a set and answers it once. Neither is something a client sends.
 - **SEC-D84.** DeleteTopics by an unknown **name** answers 3 with no message (Kafka: 3 with `This server does not host this topic-partition.`), and a topic with neither a name nor an id is not

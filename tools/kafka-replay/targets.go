@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"strconv"
+	"strings"
 
 	"doze-rs/tools/kafka-replay/config"
 )
@@ -33,6 +35,7 @@ func StartDozeFor(dir string, s Scenario) (Target, error) {
 		if s.Replay != nil {
 			s.Replay(c)
 		}
+		c.KafkaVersion = s.KafkaVersion
 	})
 	if err != nil {
 		return nil, err
@@ -44,7 +47,13 @@ func StartDozeFor(dir string, s Scenario) (Target, error) {
 // freePort is a free loopback port the OS picks, never one of the ports other
 // local stacks on this machine keep for themselves (29181, 29192, 29194 and
 // 39092 to 39699): one in those is let go and another asked for.
+//
+// With KAFKA_REPLAY_PORTS set to lo-hi (say 39900-39999) the port is the first free one in that range instead, for a
+// machine where the free ports are shared out between people and agents.
 func freePort() (int, error) {
+	if r := os.Getenv("KAFKA_REPLAY_PORTS"); r != "" {
+		return freePortIn(r)
+	}
 	var held []net.Listener
 	defer func() {
 		for _, ln := range held {
@@ -65,6 +74,33 @@ func freePort() (int, error) {
 	}
 	return 0, fmt.Errorf("no free loopback port outside the reserved ranges")
 }
+
+// freePortIn is a free loopback port in lo-hi. Successive calls start after the last port handed out, so two
+// brokers started one after the other (the Docker one publishes its port later) are not given the same one.
+func freePortIn(r string) (int, error) {
+	lo, hi, ok := strings.Cut(r, "-")
+	from, err1 := strconv.Atoi(strings.TrimSpace(lo))
+	to, err2 := strconv.Atoi(strings.TrimSpace(hi))
+	if !ok || err1 != nil || err2 != nil || from > to {
+		return 0, fmt.Errorf("KAFKA_REPLAY_PORTS=%q: want lo-hi", r)
+	}
+	for i := range to - from + 1 {
+		port := from + (nextInRange+i)%(to-from+1)
+		if reserved(port) {
+			continue
+		}
+		ln, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", port))
+		if err != nil {
+			continue
+		}
+		ln.Close()
+		nextInRange = (nextInRange + i + 1) % (to - from + 1)
+		return port, nil
+	}
+	return 0, fmt.Errorf("no free loopback port in %s", r)
+}
+
+var nextInRange int
 
 func reserved(port int) bool {
 	switch {

@@ -64,7 +64,25 @@ which were applied again on top. Every other message file is byte for byte what 
 Regression test: `crates/kafka-wire/tests/streams_versions.rs` (each version-dependent field written and read back where
 it is, and refused where it is not), and `tests/every_offered_version.rs`.
 
-## 5. TxnOffsetCommit v6 and InitProducerId v6 at Apache Kafka 4.4.0's versions
+## 5. The versions KIP-896 removed that the older profiles need (2026-11-18)
+
+0.18.0 is generated from Kafka 4.1.0's schemas, which start DescribeAcls, CreateAcls and DeleteAcls at v1, DescribeLogDirs at
+v1 and OffsetForLeaderEpoch at v2 (KIP-896). Kafka 1.1 has only v0 of all five, and 2.8 and 3.9 start them at 0
+(`crates/kafka-wire/tests/data/api-versions.json`), so without them `--kafka-version 1` could not offer the ACL APIs at all
+(debt I2). Patched by hand from the 3.9.1 schemas, each change marked `PATCH 5`:
+
+- The version checks of the ten messages and their structs, their `VERSIONS`, and `ApiKey::valid_versions` start at 0.
+- The ACL pattern type (`ResourcePatternType` of a creation, `PatternTypeFilter` of the two filters, `PatternType` of a
+  described resource and of a deleted ACL) is `"versions": "1+", "default": "3"`: read as 3 (LITERAL) at v0, not written
+  there, and a value other than 3 cannot be written at v0 (the field is not ignorable, so Kafka throws as well).
+- OffsetForLeaderEpoch: the request's `CurrentLeaderEpoch` is `2+` (default -1); the response's `LeaderEpoch` is `1+`
+  (default -1) and `ThrottleTimeMs` `2+`.
+- DescribeLogDirs v0 is v1 (the schema bumped the version for the throttle behaviour only).
+
+Regression test: `crates/kafka-wire/tests/old_versions.rs` (each version against bytes written by hand from the schema),
+`tests/every_offered_version.rs`, and the recorded `acl-v0` scenario of `tools/kafka-replay` (Apache Kafka 3.9.1).
+
+## 6. Wire tail: TxnOffsetCommit v6 and InitProducerId v6 at Apache Kafka 4.4.0's versions
 
 0.18.0 (Kafka 4.1.0's schemas) has TxnOffsetCommit to v5 and the InitProducerId request to v5. Kafka 4.4.0's
 `TxnOffsetCommitRequest.json` and `TxnOffsetCommitResponse.json` add v6 (topics named by id, KIP-516: `TopicId` from v6, `Name`

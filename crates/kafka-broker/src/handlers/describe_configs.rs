@@ -255,8 +255,11 @@ fn group_entry(
 
 fn broker_entry(v: &View, cluster: bool, req: &DescribeConfigsRequest) -> Config {
     let mut c = Config::default();
+    // A config of an UNKNOWN type is sensitive: its value is never shown, here or in a synonym (SEC-402).
+    let sensitive = v.kind == view::UNKNOWN;
     c.name = text(v.name);
-    c.value = Some(text(&v.value));
+    c.value = (!sensitive).then(|| text(&v.value));
+    c.is_sensitive = sensitive;
     c.read_only = v.read_only;
     c.documentation = None;
     c.config_source = v.source;
@@ -267,7 +270,13 @@ fn broker_entry(v: &View, cluster: bool, req: &DescribeConfigsRequest) -> Config
             .iter()
             // The configs of all brokers keep only the places that are for all brokers.
             .filter(|(source, _)| !cluster || *source == view::DYNAMIC_DEFAULT)
-            .map(|(source, value)| synonym(v.name, value, *source))
+            .map(|(source, value)| {
+                let mut s = synonym(v.name, value, *source);
+                if sensitive {
+                    s.value = None;
+                }
+                s
+            })
             .collect();
     }
     c
