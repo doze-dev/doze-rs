@@ -60,7 +60,15 @@ fn what_is_not_a_schema_of_its_draft_is_refused() {
         ),
         (r#"{"properties":[]}"#, "must be an object"),
         (r#"{"minLength":-1}"#, "non-negative integer"),
-        (r#"{"maxItems":1.5}"#, "non-negative integer"),
+        (r#"{"maxItems":1.5}"#, "without a fraction or exponent"),
+        (r#"{"minItems":1e1}"#, "without a fraction or exponent"),
+        (r#"{"maxLength":2147483648}"#, "no larger than 2147483647"),
+        (
+            r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","maxItems":1.5}"#,
+            "non-negative integer",
+        ),
+        (r#"{"minimum":1e2147483648}"#, "#/minimum: 1e2147483648 is past the largest"),
+        (r#"{"x":[-0.5e+000011999153157185615783]}"#, "#/x/0: -0.5e"),
         (r#"{"multipleOf":0}"#, "greater than 0"),
         (r#"{"required":["a","a"]}"#, "named twice"),
         (r#"{"required":[1]}"#, "array of strings"),
@@ -320,7 +328,14 @@ fn a_number_past_the_clamp_is_one_value_however_it_is_written() {
     );
     assert_eq!(d("5E99999999999999999999"), d("50E99999999999999999998"));
     assert!(d("-1E99999999999999999999") < d("1E-99999999999999999999"));
-    let items = r#"{ "minItems":2060002E888888888880744044}"#;
+    // A limit at the edge of what Java holds reads back as itself once stored.
+    let items = r#"{ "minimum":2060002E2147483641}"#;
     let stored = read(items).canonical(false);
+    assert_eq!(stored, r#"{"minimum":2.060002E+2147483647}"#);
     assert!(reasons(items, &stored).is_empty(), "{stored}");
+    // Past it, a small one is Java's double zero, compared and stored as Confluent does.
+    let tiny = read(r#"{"minimum":-1e-2147483649}"#);
+    assert_eq!(tiny.canonical(false), r#"{"minimum":-0.0}"#);
+    assert_eq!(tiny.canonical(true), r#"{"minimum":0.0}"#);
+    assert!(reasons(r#"{"minimum":0}"#, r#"{"minimum":1e-2147483649}"#).is_empty());
 }

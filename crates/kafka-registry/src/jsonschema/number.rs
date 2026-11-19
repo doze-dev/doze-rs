@@ -19,6 +19,14 @@ const EXP_BOUND: i64 = 1 << 40;
 impl Dec {
     /// Reads a JSON number's text (as the ordered JSON keeps it); anything else is `None`.
     pub(crate) fn parse(text: &str) -> Option<Self> {
+        if let Some(crate::json::JavaRead::Zero { .. }) = crate::json::java_reads(text) {
+            // Past what a BigDecimal holds and small: Confluent's Jackson keeps the double, zero.
+            return Some(Self {
+                neg: false,
+                digits: Vec::new(),
+                exp: 0,
+            });
+        }
         let (neg, rest) = match text.strip_prefix('-') {
             Some(r) => (true, r),
             None => (false, text),
