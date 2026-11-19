@@ -1,11 +1,10 @@
 //! Reading a request: its JSON body (already checked against the model by the gateway), the expression names and values, the
-//! members that name a table, and the legacy parameters this service refuses.
+//! members that name a table.
 //!
 //! Wording: the messages in `conformance/snapshots/test_dynamodb.json` (recorded 2026-11-09) are AWS's own; every other message in this file is
 //! `(memory)`: from the developer guide and from use, and unchecked until a recording reaches it.
 
 use aws_expr::{Invalid, NameMap, Scope, Value, ValueMap};
-use aws_model_dynamodb::Operation;
 use aws_wire::ApiError;
 use serde_json::Value as Json;
 
@@ -54,6 +53,14 @@ pub(crate) fn bool_of(v: &Json, key: &str) -> Option<bool> {
 
 pub(crate) fn int_of(v: &Json, key: &str) -> Option<i64> {
     v.get(key).and_then(Json::as_i64)
+}
+
+/// A timestamp member (epoch seconds, with a fraction) in milliseconds.
+#[allow(clippy::cast_possible_truncation)]
+pub(crate) fn time_ms_of(v: &Json, key: &str) -> Option<i64> {
+    v.get(key)
+        .and_then(Json::as_f64)
+        .map(|s| (s * 1000.0).round() as i64)
 }
 
 pub(crate) fn array_of<'a>(v: &'a Json, key: &str) -> &'a [Json] {
@@ -155,48 +162,6 @@ pub(crate) fn finish(scope: &Scope<'_>, used: &[&str], label: &str) -> Result<()
         return Ok(());
     }
     scope.finish().map_err(inv)
-}
-
-/// What each legacy parameter is replaced by.
-const LEGACY: &[(&str, &str)] = &[
-    ("Expected", "ConditionExpression"),
-    ("ConditionalOperator", "ConditionExpression"),
-    ("AttributeUpdates", "UpdateExpression"),
-    ("AttributesToGet", "ProjectionExpression"),
-    ("KeyConditions", "KeyConditionExpression"),
-    ("QueryFilter", "FilterExpression"),
-    ("ScanFilter", "FilterExpression"),
-];
-
-/// Refuses the legacy parameters by name: they are built by no one's hand here, and ignoring them would make a conditional write
-/// unconditional. `(memory)` for the wording, which is doze's own.
-pub(crate) fn refuse_legacy(op: Operation, body: &Json) -> Result<(), ApiError> {
-    let refuse = |name: &str, instead: &str| {
-        ApiError::new(
-            501,
-            "NotImplemented",
-            format!(
-                "The legacy parameter {name} of {op:?} is not built in doze-aws; use {instead}."
-            ),
-        )
-    };
-    let check = |v: &Json| -> Result<(), ApiError> {
-        for (name, instead) in LEGACY {
-            if v.get(*name).is_some() {
-                return Err(refuse(name, instead));
-            }
-        }
-        Ok(())
-    };
-    if matches!(op, Operation::BatchGetItem) {
-        if let Some(Json::Object(tables)) = body.get("RequestItems") {
-            for t in tables.values() {
-                check(t)?;
-            }
-        }
-        return Ok(());
-    }
-    check(body)
 }
 
 /// Sets a member of a JSON object.

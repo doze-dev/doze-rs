@@ -1,0 +1,821 @@
+[
+ {
+  "step": {
+   "m": "GET",
+   "p": "/"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{}",
+    "ms": 7
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{}",
+    "ms": 7
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "HEAD",
+   "p": "/"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "",
+    "ms": 6
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "",
+    "ms": 6
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "GET",
+   "p": "/nope"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 404,
+    "ct": "",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":404,\"message\":\"HTTP 404 Not Found\"}",
+    "ms": 12
+   },
+   "confluent-8": {
+    "status": 404,
+    "ct": "",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":404,\"message\":\"HTTP 404 Not Found\"}",
+    "ms": 16
+   },
+   "doze": {
+    "status": 404,
+    "ct": "",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":404,\"message\":\"HTTP 404 Not Found\"}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "GET",
+   "p": "/subjects/"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "[]",
+    "ms": 12
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "[]",
+    "ms": 12
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "[]",
+    "ms": 4
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "GET",
+   "p": "/subjects//versions"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 405,
+    "ct": "",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":405,\"message\":\"HTTP 405 Method Not Allowed\"}",
+    "ms": 6
+   },
+   "confluent-8": {
+    "status": 400,
+    "ct": "text/html;charset=iso-8859-1",
+    "www": "",
+    "allow": "",
+    "body": "<html>\n<head>\n<meta http-equiv=\"Content-Type\" content=\"text/html;charset=ISO-8859-1\"/>\n<title>Error 400 Ambiguous URI empty segment</title>\n</head>\n<body>\n<h2>HTTP ERROR 400 Ambiguous URI empty segment</h2>\n<table>\n<tr><th>URI:</th><td>http://127.0.0.1:40082/subjects//versions</td></tr>\n<tr><th>STATUS:</th><td>400</td></tr>\n<tr><th>MESSAGE:</th><td>Ambiguous URI empty segment</td></tr>\n</table>\n\n</body>\n</html>\n",
+    "ms": 15
+   },
+   "doze": {
+    "status": 405,
+    "ct": "",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":405,\"message\":\"HTTP 405 Method Not Allowed\"}",
+    "ms": 1
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "PATCH",
+   "p": "/subjects"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 405,
+    "ct": "",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":405,\"message\":\"HTTP 405 Method Not Allowed\"}",
+    "ms": 7
+   },
+   "confluent-8": {
+    "status": 405,
+    "ct": "",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":405,\"message\":\"HTTP 405 Method Not Allowed\"}",
+    "ms": 8
+   },
+   "doze": {
+    "status": 405,
+    "ct": "",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":405,\"message\":\"HTTP 405 Method Not Allowed\"}",
+    "ms": 1
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects",
+   "b": "{}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 405,
+    "ct": "",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":405,\"message\":\"HTTP 405 Method Not Allowed\"}",
+    "ms": 8
+   },
+   "confluent-8": {
+    "status": 405,
+    "ct": "",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":405,\"message\":\"HTTP 405 Method Not Allowed\"}",
+    "ms": 8
+   },
+   "doze": {
+    "status": 405,
+    "ct": "",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":405,\"message\":\"HTTP 405 Method Not Allowed\"}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "DELETE",
+   "p": "/subjects"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 405,
+    "ct": "",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":405,\"message\":\"HTTP 405 Method Not Allowed\"}",
+    "ms": 8
+   },
+   "confluent-8": {
+    "status": 405,
+    "ct": "",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":405,\"message\":\"HTTP 405 Method Not Allowed\"}",
+    "ms": 8
+   },
+   "doze": {
+    "status": 405,
+    "ct": "",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":405,\"message\":\"HTTP 405 Method Not Allowed\"}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "OPTIONS",
+   "p": "/subjects"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "text/plain",
+    "www": "",
+    "allow": "HEAD,GET,OPTIONS",
+    "body": "HEAD, GET, OPTIONS",
+    "ms": 18
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "text/plain",
+    "www": "",
+    "allow": "HEAD,GET,OPTIONS",
+    "body": "HEAD, GET, OPTIONS",
+    "ms": 12
+   },
+   "doze": {
+    "status": 200,
+    "ct": "text/plain",
+    "www": "",
+    "allow": "HEAD,GET,OPTIONS",
+    "body": "HEAD, GET, OPTIONS",
+    "ms": 1
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "GET",
+   "p": "/schemas/types"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "[\"JSON\",\"PROTOBUF\",\"AVRO\"]",
+    "ms": 55
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "[\"JSON\",\"PROTOBUF\",\"AVRO\"]",
+    "ms": 20
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "[\"JSON\",\"PROTOBUF\",\"AVRO\"]",
+    "ms": 1
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "GET",
+   "p": "/schemas/ids"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 404,
+    "ct": "",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":404,\"message\":\"HTTP 404 Not Found\"}",
+    "ms": 7
+   },
+   "confluent-8": {
+    "status": 404,
+    "ct": "",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":404,\"message\":\"HTTP 404 Not Found\"}",
+    "ms": 7
+   },
+   "doze": {
+    "status": 404,
+    "ct": "",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":404,\"message\":\"HTTP 404 Not Found\"}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "GET",
+   "p": "/contexts"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "[\".\"]",
+    "ms": 18
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "[\".\"]",
+    "ms": 7
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "[\".\"]",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "GET",
+   "p": "/exporters"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 404,
+    "ct": "",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":404,\"message\":\"HTTP 404 Not Found\"}",
+    "ms": 5
+   },
+   "confluent-8": {
+    "status": 404,
+    "ct": "",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":404,\"message\":\"HTTP 404 Not Found\"}",
+    "ms": 7
+   },
+   "doze": {
+    "status": 404,
+    "ct": "",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":404,\"message\":\"HTTP 404 Not Found\"}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "GET",
+   "p": "/v1/metadata/id"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"scope\":{\"path\":[],\"clusters\":{\"kafka-cluster\":\"5L6g3nShT-eMCtK--X86sw\",\"schema-registry-cluster\":\"regdiff-sr7\"}}}",
+    "ms": 15
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"scope\":{\"path\":[],\"clusters\":{\"kafka-cluster\":\"5L6g3nShT-eMCtK--X86sw\",\"schema-registry-cluster\":\"regdiff-sr8\"}}}",
+    "ms": 24
+   },
+   "doze": {
+    "status": 404,
+    "ct": "",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":404,\"message\":\"HTTP 404 Not Found\"}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "GET",
+   "p": "/v1/metadata/version"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"version\":\"7.7.1\",\"commitId\":\"b4110e23a6954a2bb3d4f664e81eba351e94fa2d\"}",
+    "ms": 10
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"version\":\"8.3.2\",\"commitId\":\"712a955fa30911395760b1621a3cc1a3cc647ca6\"}",
+    "ms": 12
+   },
+   "doze": {
+    "status": 404,
+    "ct": "",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":404,\"message\":\"HTTP 404 Not Found\"}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "GET",
+   "p": "/dek-registry/v1/keks"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 404,
+    "ct": "",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":404,\"message\":\"HTTP 404 Not Found\"}",
+    "ms": 4
+   },
+   "confluent-8": {
+    "status": 404,
+    "ct": "",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":404,\"message\":\"HTTP 404 Not Found\"}",
+    "ms": 4
+   },
+   "doze": {
+    "status": 404,
+    "ct": "",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":404,\"message\":\"HTTP 404 Not Found\"}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "DELETE",
+   "p": "/mode"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 405,
+    "ct": "",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":405,\"message\":\"HTTP 405 Method Not Allowed\"}",
+    "ms": 6
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"mode\":\"READWRITE\"}",
+    "ms": 21
+   },
+   "doze": {
+    "status": 405,
+    "ct": "",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":405,\"message\":\"HTTP 405 Method Not Allowed\"}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "GET",
+   "p": "/config"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"compatibilityLevel\":\"BACKWARD\"}",
+    "ms": 12
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"compatibilityLevel\":\"BACKWARD\"}",
+    "ms": 8
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"compatibilityLevel\":\"BACKWARD\"}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "GET",
+   "p": "/mode"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"mode\":\"READWRITE\"}",
+    "ms": 11
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"mode\":\"READWRITE\"}",
+    "ms": 16
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"mode\":\"READWRITE\"}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "GET",
+   "p": "/subjects",
+   "h": {
+    "Accept": "application/xml"
+   }
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 406,
+    "ct": "",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":406,\"message\":\"HTTP 406 Not Acceptable\"}",
+    "ms": 15
+   },
+   "confluent-8": {
+    "status": 406,
+    "ct": "",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":406,\"message\":\"HTTP 406 Not Acceptable\"}",
+    "ms": 9
+   },
+   "doze": {
+    "status": 406,
+    "ct": "",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":406,\"message\":\"HTTP 406 Not Acceptable\"}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "GET",
+   "p": "/subjects",
+   "h": {
+    "Accept": "text/html"
+   }
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 406,
+    "ct": "",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":406,\"message\":\"HTTP 406 Not Acceptable\"}",
+    "ms": 13
+   },
+   "confluent-8": {
+    "status": 406,
+    "ct": "",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":406,\"message\":\"HTTP 406 Not Acceptable\"}",
+    "ms": 12
+   },
+   "doze": {
+    "status": 406,
+    "ct": "",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":406,\"message\":\"HTTP 406 Not Acceptable\"}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "GET",
+   "p": "/subjects",
+   "h": {
+    "Accept": "application/json"
+   }
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/json",
+    "www": "",
+    "allow": "",
+    "body": "[]",
+    "ms": 12
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/json",
+    "www": "",
+    "allow": "",
+    "body": "[]",
+    "ms": 6
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/json",
+    "www": "",
+    "allow": "",
+    "body": "[]",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "GET",
+   "p": "/subjects",
+   "h": {
+    "Accept": "*/*"
+   }
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "[]",
+    "ms": 5
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "[]",
+    "ms": 5
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "[]",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "GET",
+   "p": "/subjects",
+   "h": {
+    "Accept": "application/vnd.schemaregistry.v1+json"
+   }
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "[]",
+    "ms": 6
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "[]",
+    "ms": 4
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "[]",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "GET",
+   "p": "/subjects",
+   "h": {
+    "Accept": "application/vnd.schemaregistry+json"
+   }
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry+json",
+    "www": "",
+    "allow": "",
+    "body": "[]",
+    "ms": 5
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry+json",
+    "www": "",
+    "allow": "",
+    "body": "[]",
+    "ms": 7
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry+json",
+    "www": "",
+    "allow": "",
+    "body": "[]",
+    "ms": 0
+   }
+  }
+ }
+]

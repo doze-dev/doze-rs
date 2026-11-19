@@ -1,0 +1,34 @@
+header avro-auto-register 00 @1
+ok avro-auto-register-magic magic 0
+ok avro-auto-register-id header id is the subject's latest
+ok avro-round-trip {"id": 42, "name": "ada"}
+ok avro-same-id-again one id
+header avro-evolve 00 @2
+ok avro-evolve-magic magic 0
+ok avro-evolve v2 registered
+ok avro-incompatible io.confluent.kafka.schemaregistry.client.rest.exceptions.RestClientException: Schema being registered is incompatible with an earlier schema for subject "e2e-17
+header avro-lookup 00 @1
+ok avro-lookup-magic magic 0
+ok avro-lookup found without registering
+ok avro-no-register io.confluent.kafka.schemaregistry.client.rest.exceptions.RestClientException: Subject 'e2e-1795027615-avro-none-value' not found.; error code: 40401
+header avro-use-latest 00 @1
+ok avro-use-latest-magic magic 0
+ok avro-use-latest the latest version's id
+header protobuf-second-message 00 @3 02 02
+ok protobuf-second-message-magic magic 0
+ok protobuf-indexes 02 02
+ok protobuf-round-trip id: "o-1" cents: 1250 lines {   qty: 3 } 
+ok protobuf-well-known-import-not-registered [c, persist-1795027605975-a, persist-1795027605975-doze-kill, persist-1795027605975-doze-restart, persist-1795027605975-j, persist-1795027605975-next-doze-kill, persist-1795027605975-next-doze-restart, persist-1795027605975-p, persist-1795027605975-r]
+header protobuf-first-message 00 @3 00
+ok protobuf-first-message-magic magic 0
+ok protobuf-first-index 00
+header protobuf-nested-message 00 @3 04 02 00
+ok protobuf-nested-message-magic magic 0
+ok protobuf-nested-index 04 02 00
+header json-auto-register 00 @4
+ok json-auto-register-magic magic 0
+ok json-round-trip {qty=2, sku=a-1}
+ok json-invalid-payload refused by the serializer: SerializationException
+ok broker-produce avro value produced
+ok broker-consume {"id": 42, "name": "ada"}
+all ok

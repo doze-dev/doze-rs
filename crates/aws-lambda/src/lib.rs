@@ -5,10 +5,12 @@
 //!
 //! Management operations run in a state machine behind a lazy actor per region (`core`); running a function does not (it takes
 //! seconds) and happens beside the actor (`invoke`, `rt`). Event source pollers wait for the source to say it has something
-//! (`poll`) and cost nothing when no mapping is enabled.
+//! (`poll`) and cost nothing when no mapping is enabled. Durable functions (`durable`) checkpoint through the API and are invoked
+//! again when a wait, a retry, a callback or a chained invoke comes due.
 //!
 //! **Stored and flagged, not acted on:** provisioned concurrency, code signing, runtime management, recursion detection, SnapStart,
-//! VPC, file systems, tracing, KMS keys. **Refused by name:** capacity providers, durable executions, function scaling, `InvokeAsync`.
+//! VPC, file systems, tracing, KMS keys (a durable execution's `KMSKeyArn` too). **Refused by name:** capacity providers, function scaling,
+//! `InvokeAsync`.
 //! A container-image function is stored and listed; invoking it says why it cannot run.
 
 mod aliases;
@@ -21,6 +23,7 @@ mod config;
 mod core;
 mod data;
 mod dispatch;
+mod durable;
 mod errors;
 mod eventstream;
 mod functions;
@@ -80,6 +83,9 @@ pub struct Config {
     pub runtime: RuntimeConfig,
     /// Keeps what functions print out of doze-aws's own log (it is always in CloudWatch Logs).
     pub quiet: bool,
+    /// What every durable execution wait and step retry delay is multiplied by (`None` is 1, AWS; `0.01` makes an hour 36 seconds).
+    /// Not AWS behaviour: for local runs that should not wait in real time.
+    pub durable_wait_scale: Option<f64>,
 }
 
 /// The streams and queues that tell a poller they have something, which Lambda is handed because the bus does not carry them.
@@ -122,6 +128,10 @@ pub(crate) struct Inner {
     patterns: Patterns,
     /// How long code just unpacked is left alone by `doze-aws data`'s `unused` (milliseconds).
     pub(crate) code_grace_ms: std::sync::atomic::AtomicU64,
+    /// One timer per region for durable executions, asleep until the soonest wait, retry or timeout, and none while nothing is due.
+    pub(crate) timers: Arc<doze_runtime::Deadlines<Core>>,
+    /// Who waits for a durable execution to end.
+    pub(crate) waiters: durable::run::Waiters,
 }
 
 impl Lambda {
@@ -138,7 +148,9 @@ impl Lambda {
             .ext
             .as_ref()
             .and_then(|e| Arc::clone(e).downcast::<Peers>().ok());
-        let inner = Arc::new(Inner {
+        let inner = Arc::new_cyclic(|me| Inner {
+            timers: durable::run::timers(Arc::clone(&ctx), me.clone()),
+            waiters: durable::run::Waiters::default(),
             actors: Keyed::new("lambda", Arc::clone(&ctx), HOME_REGION),
             dir: ctx.dir.clone(),
             tasks: ctx.tasks.clone(),
@@ -184,6 +196,7 @@ impl Lambda {
     /// Starts the pollers of the mappings that were enabled when the process last stopped.
     pub async fn resume(&self) {
         poll::resume(&self.inner).await;
+        self.inner.resume_durable().await;
     }
 }
 
@@ -283,6 +296,7 @@ impl Inner {
             reply,
             durable,
             retire,
+            wake,
         } = answer
         else {
             return Err(ApiError::internal(
@@ -293,6 +307,9 @@ impl Inner {
             saved
                 .await
                 .map_err(|e| ApiError::internal(format!("could not save: {e}")))?;
+        }
+        if !wake.is_empty() {
+            self.after(&region, wake);
         }
         for name in retire {
             self.rt.retire(&format!("{region}/{name}"));

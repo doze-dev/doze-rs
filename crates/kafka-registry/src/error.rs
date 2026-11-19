@@ -115,7 +115,7 @@ impl RegistryError {
         Self::new(
             422,
             code::INVALID_MODE,
-            "Invalid mode. Valid values are READWRITE and READONLY",
+            "Invalid mode. Valid values are READWRITE, READONLY, and IMPORT.",
         )
     }
 

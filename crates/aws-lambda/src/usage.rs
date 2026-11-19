@@ -52,8 +52,10 @@ impl Core {
                 .chain(f.versions.iter().map(|v| &v.snap.code.id))
                 .filter(|id| !id.is_empty())
                 .collect();
-            let rows = encoded("function", name, f) + mapped.get(name).copied().unwrap_or(0);
-            let mut notes = Vec::new();
+            let (executions, executions_note) = self.execution_usage(name);
+            let rows =
+                encoded("function", name, f) + mapped.get(name).copied().unwrap_or(0) + executions;
+            let mut notes: Vec<Note> = executions_note.into_iter().collect();
             let older: Vec<&String> = ids.iter().copied().filter(|id| *id != latest).collect();
             let older_bytes = self.code_bytes(older.iter().copied());
             if older_bytes > 0 {

@@ -42,7 +42,7 @@ const REFUSED: &[(&str, &str)] = &[
     ),
     (
         "syntax = \"proto3\"; message M { required int32 a = 1; }",
-        "required fields are not allowed in proto3",
+        "Could not parse Protobuf - Syntax error in :1:32: 'required' label forbidden in proto3 field declarations",
     ),
     (
         "syntax = \"proto3\"; message M { int32 a = 0; }",
@@ -74,7 +74,7 @@ const REFUSED: &[(&str, &str)] = &[
     ),
     (
         "syntax = \"proto3\"; message M { N n = 1; }",
-        "unknown type N",
+        "Could not resolve type: N",
     ),
     (
         "syntax = \"proto3\"; message M { map<float, int32> m = 1; }",
@@ -135,7 +135,7 @@ const REFUSED: &[(&str, &str)] = &[
     ),
     (
         "syntax = \"proto3\"; import \"other.proto\";",
-        "import \"other.proto\" was not found",
+        "Could not resolve import: other.proto",
     ),
     (
         "message M { optional int32 a = 1 [default = \"x\"]; }",
@@ -144,7 +144,7 @@ const REFUSED: &[(&str, &str)] = &[
     ("message M { optional group g = 1 { } }", "capital letter"),
     (
         "syntax = \"proto3\"; service S { rpc A (B) returns (B); }",
-        "unknown type B",
+        "Could not resolve type: B",
     ),
     (
         "syntax = \"proto3\"; message M { string s = 1 /* never closed",
@@ -319,7 +319,7 @@ fn imports_are_found_by_reference_name_and_public_imports_pass_through() {
     // A type of a file imported by an import (not publicly) is not seen.
     let not_seen = "syntax = \"proto3\"; import \"hidden.proto\"; message M { base.B b = 1; }";
     let e = parse(not_seen, &[base, hidden]).unwrap_err();
-    assert!(e.contains("unknown type base.B"), "{e}");
+    assert!(e.contains("Could not resolve type: base.B"), "{e}");
     let wkt = "syntax = \"proto3\"; import \"google/protobuf/struct.proto\"; import \"google/protobuf/api.proto\";\
         message M { google.protobuf.Struct s = 1; google.protobuf.NullValue n = 2; google.protobuf.Api a = 3; }";
     assert!(parse(wkt, &[]).is_ok());
@@ -330,7 +330,7 @@ fn names_resolve_from_the_innermost_scope() {
     let text = "syntax = \"proto3\"; package p; message A { message B {} } \
         message C { message A {} A.B b = 1; }";
     // Inside C, `A` is C.A, which has no B: protoc refuses rather than looking outward.
-    assert!(refused(text).contains("unknown type A.B"));
+    assert!(refused(text).contains("Could not resolve type: A.B"));
     let ok = "syntax = \"proto3\"; package p; message A { message B {} } message C { .p.A.B b = 1; p.A.B c = 2; A.B d = 3; }";
     assert!(parse(ok, &[]).is_ok());
 }
@@ -370,6 +370,7 @@ fn register(r: &Registry, subject: &str, text: &str, refs: Vec<Reference>) -> Re
         schema: Some(text.into()),
         schema_type: Some("PROTOBUF".into()),
         references: Some(refs),
+        ..SchemaInput::default()
     };
     match r.register(subject, &input, false, &Origin::default()) {
         Ok(RegisterResult::Id(id)) => Ok(id),

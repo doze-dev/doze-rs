@@ -1,0 +1,2 @@
+parse @message 'user=* action=*' as u, a | filter u like /b.b/ and not ispresent(x)
+user=bob action=login

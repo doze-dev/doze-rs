@@ -1,0 +1,819 @@
+[
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/t1/versions",
+   "b": "{\"schema\":\"\\\"string\\\"\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":38}",
+    "ms": 8
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":40,\"version\":1,\"guid\":\"095d71cf-1255-6b9d-5e33-0ad575b3df5d\",\"schemaType\":\"AVRO\",\"schema\":\"\\\"string\\\"\"}",
+    "ms": 16
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":38}",
+    "ms": 25
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/t1/versions",
+   "b": "{\"schema\":\"{\\\"type\\\":\\\"string\\\"}\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":38}",
+    "ms": 4
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":40,\"version\":1,\"guid\":\"095d71cf-1255-6b9d-5e33-0ad575b3df5d\",\"schemaType\":\"AVRO\",\"schema\":\"\\\"string\\\"\"}",
+    "ms": 4
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":38}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "GET",
+   "p": "/subjects/t1/versions/latest"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"t1\",\"version\":1,\"id\":38,\"schema\":\"\\\"string\\\"\"}",
+    "ms": 2
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"t1\",\"version\":1,\"id\":40,\"guid\":\"095d71cf-1255-6b9d-5e33-0ad575b3df5d\",\"schemaType\":\"AVRO\",\"schema\":\"\\\"string\\\"\",\"ts\":1795027472987,\"deleted\":false}",
+    "ms": 2
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"t1\",\"version\":1,\"id\":38,\"schema\":\"\\\"string\\\"\"}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/t2/versions",
+   "b": "{\"schema\":\"{\\\"type\\\":\\\"string\\\",\\\"logicalType\\\":\\\"uuid\\\"}\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":39}",
+    "ms": 9
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":41,\"version\":1,\"guid\":\"9e3f6634-6f21-7a4c-61e6-b6923b774f1b\",\"schemaType\":\"AVRO\",\"schema\":\"{\\\"type\\\":\\\"string\\\",\\\"logicalType\\\":\\\"uuid\\\"}\"}",
+    "ms": 16
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":39}",
+    "ms": 10
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "GET",
+   "p": "/subjects/t2/versions/latest"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"t2\",\"version\":1,\"id\":39,\"schema\":\"{\\\"type\\\":\\\"string\\\",\\\"logicalType\\\":\\\"uuid\\\"}\"}",
+    "ms": 3
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"t2\",\"version\":1,\"id\":41,\"guid\":\"9e3f6634-6f21-7a4c-61e6-b6923b774f1b\",\"schemaType\":\"AVRO\",\"schema\":\"{\\\"type\\\":\\\"string\\\",\\\"logicalType\\\":\\\"uuid\\\"}\",\"ts\":1795027473019,\"deleted\":false}",
+    "ms": 3
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"t2\",\"version\":1,\"id\":39,\"schema\":\"{\\\"type\\\":\\\"string\\\",\\\"logicalType\\\":\\\"uuid\\\"}\"}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/t3/versions",
+   "b": "{\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"R\\\",\\\"doc\\\":\\\"<d&>\\\",\\\"fields\\\":[{\\\"name\\\":\\\"a\\\",\\\"type\\\":\\\"int\\\",\\\"default\\\":1,\\\"doc\\\":\\\"x\\\",\\\"aliases\\\":[\\\"b\\\"],\\\"order\\\":\\\"descending\\\"}],\\\"aliases\\\":[\\\"Q\\\"],\\\"x-custom\\\":{\\\"z\\\":1,\\\"a\\\":2}}\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":40}",
+    "ms": 9
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":42,\"version\":1,\"guid\":\"037cf139-7e66-2693-5ecf-64872e4c9882\",\"schemaType\":\"AVRO\",\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"R\\\",\\\"doc\\\":\\\"<d&>\\\",\\\"fields\\\":[{\\\"name\\\":\\\"a\\\",\\\"type\\\":\\\"int\\\",\\\"doc\\\":\\\"x\\\",\\\"default\\\":1,\\\"order\\\":\\\"descending\\\",\\\"aliases\\\":[\\\"b\\\"]}],\\\"x-custom\\\":{\\\"z\\\":1,\\\"a\\\":2},\\\"aliases\\\":[\\\"Q\\\"]}\"}",
+    "ms": 16
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":40}",
+    "ms": 11
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "GET",
+   "p": "/subjects/t3/versions/latest"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"t3\",\"version\":1,\"id\":40,\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"R\\\",\\\"doc\\\":\\\"<d&>\\\",\\\"fields\\\":[{\\\"name\\\":\\\"a\\\",\\\"type\\\":\\\"int\\\",\\\"doc\\\":\\\"x\\\",\\\"default\\\":1,\\\"order\\\":\\\"descending\\\",\\\"aliases\\\":[\\\"b\\\"]}],\\\"x-custom\\\":{\\\"z\\\":1,\\\"a\\\":2},\\\"aliases\\\":[\\\"Q\\\"]}\"}",
+    "ms": 4
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"t3\",\"version\":1,\"id\":42,\"guid\":\"037cf139-7e66-2693-5ecf-64872e4c9882\",\"schemaType\":\"AVRO\",\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"R\\\",\\\"doc\\\":\\\"<d&>\\\",\\\"fields\\\":[{\\\"name\\\":\\\"a\\\",\\\"type\\\":\\\"int\\\",\\\"doc\\\":\\\"x\\\",\\\"default\\\":1,\\\"order\\\":\\\"descending\\\",\\\"aliases\\\":[\\\"b\\\"]}],\\\"x-custom\\\":{\\\"z\\\":1,\\\"a\\\":2},\\\"aliases\\\":[\\\"Q\\\"]}\",\"ts\":1795027473037,\"deleted\":false}",
+    "ms": 4
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"t3\",\"version\":1,\"id\":40,\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"R\\\",\\\"doc\\\":\\\"<d&>\\\",\\\"fields\\\":[{\\\"name\\\":\\\"a\\\",\\\"type\\\":\\\"int\\\",\\\"doc\\\":\\\"x\\\",\\\"default\\\":1,\\\"order\\\":\\\"descending\\\",\\\"aliases\\\":[\\\"b\\\"]}],\\\"x-custom\\\":{\\\"z\\\":1,\\\"a\\\":2},\\\"aliases\\\":[\\\"Q\\\"]}\"}",
+    "ms": 1
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/t3?normalize=true",
+   "b": "{\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"R\\\",\\\"doc\\\":\\\"<d&>\\\",\\\"fields\\\":[{\\\"name\\\":\\\"a\\\",\\\"type\\\":\\\"int\\\",\\\"default\\\":1,\\\"doc\\\":\\\"x\\\",\\\"aliases\\\":[\\\"b\\\"],\\\"order\\\":\\\"descending\\\"}],\\\"aliases\\\":[\\\"Q\\\"],\\\"x-custom\\\":{\\\"z\\\":1,\\\"a\\\":2}}\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 404,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":40403,\"message\":\"Schema not found\"}",
+    "ms": 8
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"t3\",\"version\":1,\"id\":42,\"guid\":\"037cf139-7e66-2693-5ecf-64872e4c9882\",\"schemaType\":\"AVRO\",\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"R\\\",\\\"doc\\\":\\\"<d&>\\\",\\\"fields\\\":[{\\\"name\\\":\\\"a\\\",\\\"type\\\":\\\"int\\\",\\\"doc\\\":\\\"x\\\",\\\"default\\\":1,\\\"order\\\":\\\"descending\\\",\\\"aliases\\\":[\\\"b\\\"]}],\\\"x-custom\\\":{\\\"z\\\":1,\\\"a\\\":2},\\\"aliases\\\":[\\\"Q\\\"]}\",\"ts\":1795027473037,\"deleted\":false}",
+    "ms": 9
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"t3\",\"version\":1,\"id\":40,\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"R\\\",\\\"doc\\\":\\\"<d&>\\\",\\\"fields\\\":[{\\\"name\\\":\\\"a\\\",\\\"type\\\":\\\"int\\\",\\\"doc\\\":\\\"x\\\",\\\"default\\\":1,\\\"order\\\":\\\"descending\\\",\\\"aliases\\\":[\\\"b\\\"]}],\\\"x-custom\\\":{\\\"z\\\":1,\\\"a\\\":2},\\\"aliases\\\":[\\\"Q\\\"]}\"}",
+    "ms": 2
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/t4/versions?normalize=true",
+   "b": "{\"schema\":\"{\\\"fields\\\":[{\\\"type\\\":\\\"int\\\",\\\"name\\\":\\\"a\\\"}],\\\"name\\\":\\\"R\\\",\\\"type\\\":\\\"record\\\",\\\"z-prop\\\":1,\\\"a-prop\\\":2}\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":41}",
+    "ms": 13
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":43,\"version\":1,\"guid\":\"6b51e97e-c3e0-a55a-d55b-e6d6fa198e34\",\"schemaType\":\"AVRO\",\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"R\\\",\\\"fields\\\":[{\\\"name\\\":\\\"a\\\",\\\"type\\\":\\\"int\\\"}],\\\"a-prop\\\":2,\\\"z-prop\\\":1}\"}",
+    "ms": 25
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":41}",
+    "ms": 13
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "GET",
+   "p": "/subjects/t4/versions/latest"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"t4\",\"version\":1,\"id\":41,\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"R\\\",\\\"fields\\\":[{\\\"name\\\":\\\"a\\\",\\\"type\\\":\\\"int\\\"}],\\\"a-prop\\\":2,\\\"z-prop\\\":1}\"}",
+    "ms": 4
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"t4\",\"version\":1,\"id\":43,\"guid\":\"6b51e97e-c3e0-a55a-d55b-e6d6fa198e34\",\"schemaType\":\"AVRO\",\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"R\\\",\\\"fields\\\":[{\\\"name\\\":\\\"a\\\",\\\"type\\\":\\\"int\\\"}],\\\"a-prop\\\":2,\\\"z-prop\\\":1}\",\"ts\":1795027473074,\"deleted\":false}",
+    "ms": 4
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"t4\",\"version\":1,\"id\":41,\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"R\\\",\\\"fields\\\":[{\\\"name\\\":\\\"a\\\",\\\"type\\\":\\\"int\\\"}],\\\"a-prop\\\":2,\\\"z-prop\\\":1}\"}",
+    "ms": 1
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/t5/versions",
+   "b": "{\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"a.b.R\\\",\\\"fields\\\":[{\\\"name\\\":\\\"n\\\",\\\"type\\\":{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"N\\\",\\\"fields\\\":[{\\\"name\\\":\\\"x\\\",\\\"type\\\":{\\\"type\\\":\\\"enum\\\",\\\"name\\\":\\\"c.E\\\",\\\"symbols\\\":[\\\"A\\\"]}}]}},{\\\"name\\\":\\\"m\\\",\\\"type\\\":\\\"a.b.N\\\"},{\\\"name\\\":\\\"e\\\",\\\"type\\\":\\\"c.E\\\"}]}\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":42}",
+    "ms": 9
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":44,\"version\":1,\"guid\":\"c265b260-b535-e99e-af81-b8b232282efc\",\"schemaType\":\"AVRO\",\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"R\\\",\\\"namespace\\\":\\\"a.b\\\",\\\"fields\\\":[{\\\"name\\\":\\\"n\\\",\\\"type\\\":{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"N\\\",\\\"fields\\\":[{\\\"name\\\":\\\"x\\\",\\\"type\\\":{\\\"type\\\":\\\"enum\\\",\\\"name\\\":\\\"E\\\",\\\"namespace\\\":\\\"c\\\",\\\"symbols\\\":[\\\"A\\\"]}}]}},{\\\"name\\\":\\\"m\\\",\\\"type\\\":\\\"N\\\"},{\\\"name\\\":\\\"e\\\",\\\"type\\\":\\\"c.E\\\"}]}\"}",
+    "ms": 22
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":42}",
+    "ms": 13
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "GET",
+   "p": "/subjects/t5/versions/latest"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"t5\",\"version\":1,\"id\":42,\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"R\\\",\\\"namespace\\\":\\\"a.b\\\",\\\"fields\\\":[{\\\"name\\\":\\\"n\\\",\\\"type\\\":{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"N\\\",\\\"fields\\\":[{\\\"name\\\":\\\"x\\\",\\\"type\\\":{\\\"type\\\":\\\"enum\\\",\\\"name\\\":\\\"E\\\",\\\"namespace\\\":\\\"c\\\",\\\"symbols\\\":[\\\"A\\\"]}}]}},{\\\"name\\\":\\\"m\\\",\\\"type\\\":\\\"N\\\"},{\\\"name\\\":\\\"e\\\",\\\"type\\\":\\\"c.E\\\"}]}\"}",
+    "ms": 4
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"t5\",\"version\":1,\"id\":44,\"guid\":\"c265b260-b535-e99e-af81-b8b232282efc\",\"schemaType\":\"AVRO\",\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"R\\\",\\\"namespace\\\":\\\"a.b\\\",\\\"fields\\\":[{\\\"name\\\":\\\"n\\\",\\\"type\\\":{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"N\\\",\\\"fields\\\":[{\\\"name\\\":\\\"x\\\",\\\"type\\\":{\\\"type\\\":\\\"enum\\\",\\\"name\\\":\\\"E\\\",\\\"namespace\\\":\\\"c\\\",\\\"symbols\\\":[\\\"A\\\"]}}]}},{\\\"name\\\":\\\"m\\\",\\\"type\\\":\\\"N\\\"},{\\\"name\\\":\\\"e\\\",\\\"type\\\":\\\"c.E\\\"}]}\",\"ts\":1795027473097,\"deleted\":false}",
+    "ms": 6
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"t5\",\"version\":1,\"id\":42,\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"R\\\",\\\"namespace\\\":\\\"a.b\\\",\\\"fields\\\":[{\\\"name\\\":\\\"n\\\",\\\"type\\\":{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"N\\\",\\\"fields\\\":[{\\\"name\\\":\\\"x\\\",\\\"type\\\":{\\\"type\\\":\\\"enum\\\",\\\"name\\\":\\\"E\\\",\\\"namespace\\\":\\\"c\\\",\\\"symbols\\\":[\\\"A\\\"]}}]}},{\\\"name\\\":\\\"m\\\",\\\"type\\\":\\\"N\\\"},{\\\"name\\\":\\\"e\\\",\\\"type\\\":\\\"c.E\\\"}]}\"}",
+    "ms": 3
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/t6/versions",
+   "b": "{\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"R\\\",\\\"fields\\\":[{\\\"name\\\":\\\"d\\\",\\\"type\\\":{\\\"type\\\":\\\"bytes\\\",\\\"logicalType\\\":\\\"decimal\\\",\\\"precision\\\":4,\\\"scale\\\":2}},{\\\"name\\\":\\\"f\\\",\\\"type\\\":\\\"float\\\",\\\"default\\\":1},{\\\"name\\\":\\\"big\\\",\\\"type\\\":\\\"long\\\",\\\"default\\\":9007199254740992}]}\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":43}",
+    "ms": 12
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":45,\"version\":1,\"guid\":\"85609ea2-4e06-348a-5580-8ff9b8132d07\",\"schemaType\":\"AVRO\",\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"R\\\",\\\"fields\\\":[{\\\"name\\\":\\\"d\\\",\\\"type\\\":{\\\"type\\\":\\\"bytes\\\",\\\"logicalType\\\":\\\"decimal\\\",\\\"precision\\\":4,\\\"scale\\\":2}},{\\\"name\\\":\\\"f\\\",\\\"type\\\":\\\"float\\\",\\\"default\\\":1},{\\\"name\\\":\\\"big\\\",\\\"type\\\":\\\"long\\\",\\\"default\\\":9007199254740992}]}\"}",
+    "ms": 18
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":43}",
+    "ms": 10
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "GET",
+   "p": "/subjects/t6/versions/latest"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"t6\",\"version\":1,\"id\":43,\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"R\\\",\\\"fields\\\":[{\\\"name\\\":\\\"d\\\",\\\"type\\\":{\\\"type\\\":\\\"bytes\\\",\\\"logicalType\\\":\\\"decimal\\\",\\\"precision\\\":4,\\\"scale\\\":2}},{\\\"name\\\":\\\"f\\\",\\\"type\\\":\\\"float\\\",\\\"default\\\":1},{\\\"name\\\":\\\"big\\\",\\\"type\\\":\\\"long\\\",\\\"default\\\":9007199254740992}]}\"}",
+    "ms": 4
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"t6\",\"version\":1,\"id\":45,\"guid\":\"85609ea2-4e06-348a-5580-8ff9b8132d07\",\"schemaType\":\"AVRO\",\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"R\\\",\\\"fields\\\":[{\\\"name\\\":\\\"d\\\",\\\"type\\\":{\\\"type\\\":\\\"bytes\\\",\\\"logicalType\\\":\\\"decimal\\\",\\\"precision\\\":4,\\\"scale\\\":2}},{\\\"name\\\":\\\"f\\\",\\\"type\\\":\\\"float\\\",\\\"default\\\":1},{\\\"name\\\":\\\"big\\\",\\\"type\\\":\\\"long\\\",\\\"default\\\":9007199254740992}]}\",\"ts\":1795027473123,\"deleted\":false}",
+    "ms": 4
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"t6\",\"version\":1,\"id\":43,\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"R\\\",\\\"fields\\\":[{\\\"name\\\":\\\"d\\\",\\\"type\\\":{\\\"type\\\":\\\"bytes\\\",\\\"logicalType\\\":\\\"decimal\\\",\\\"precision\\\":4,\\\"scale\\\":2}},{\\\"name\\\":\\\"f\\\",\\\"type\\\":\\\"float\\\",\\\"default\\\":1},{\\\"name\\\":\\\"big\\\",\\\"type\\\":\\\"long\\\",\\\"default\\\":9007199254740992}]}\"}",
+    "ms": 1
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/t7/versions",
+   "b": "{\"schema\":\"{\\\"type\\\":\\\"array\\\",\\\"items\\\":{\\\"type\\\":\\\"map\\\",\\\"values\\\":[\\\"null\\\",\\\"int\\\"]}}\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":44}",
+    "ms": 12
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":46,\"version\":1,\"guid\":\"4151947f-dd9f-ef46-0ede-13cfa644fa09\",\"schemaType\":\"AVRO\",\"schema\":\"{\\\"type\\\":\\\"array\\\",\\\"items\\\":{\\\"type\\\":\\\"map\\\",\\\"values\\\":[\\\"null\\\",\\\"int\\\"]}}\"}",
+    "ms": 19
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":44}",
+    "ms": 5
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "GET",
+   "p": "/subjects/t7/versions/latest"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"t7\",\"version\":1,\"id\":44,\"schema\":\"{\\\"type\\\":\\\"array\\\",\\\"items\\\":{\\\"type\\\":\\\"map\\\",\\\"values\\\":[\\\"null\\\",\\\"int\\\"]}}\"}",
+    "ms": 5
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"t7\",\"version\":1,\"id\":46,\"guid\":\"4151947f-dd9f-ef46-0ede-13cfa644fa09\",\"schemaType\":\"AVRO\",\"schema\":\"{\\\"type\\\":\\\"array\\\",\\\"items\\\":{\\\"type\\\":\\\"map\\\",\\\"values\\\":[\\\"null\\\",\\\"int\\\"]}}\",\"ts\":1795027473144,\"deleted\":false}",
+    "ms": 5
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"t7\",\"version\":1,\"id\":44,\"schema\":\"{\\\"type\\\":\\\"array\\\",\\\"items\\\":{\\\"type\\\":\\\"map\\\",\\\"values\\\":[\\\"null\\\",\\\"int\\\"]}}\"}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/t8/versions",
+   "b": "{\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"R\\\",\\\"fields\\\":[{\\\"name\\\":\\\"s\\\",\\\"type\\\":\\\"string\\\",\\\"default\\\":\\\"é\\\\n\\\\u0001\\\"}]}\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":45}",
+    "ms": 34
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":47,\"version\":1,\"guid\":\"b5e3d431-8493-8d6c-2149-a3fdb6d08dba\",\"schemaType\":\"AVRO\",\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"R\\\",\\\"fields\\\":[{\\\"name\\\":\\\"s\\\",\\\"type\\\":\\\"string\\\",\\\"default\\\":\\\"é\\\\n\\\\u0001\\\"}]}\"}",
+    "ms": 34
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":45}",
+    "ms": 25
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "GET",
+   "p": "/subjects/t8/versions/latest"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"t8\",\"version\":1,\"id\":45,\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"R\\\",\\\"fields\\\":[{\\\"name\\\":\\\"s\\\",\\\"type\\\":\\\"string\\\",\\\"default\\\":\\\"é\\\\n\\\\u0001\\\"}]}\"}",
+    "ms": 4
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"t8\",\"version\":1,\"id\":47,\"guid\":\"b5e3d431-8493-8d6c-2149-a3fdb6d08dba\",\"schemaType\":\"AVRO\",\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"R\\\",\\\"fields\\\":[{\\\"name\\\":\\\"s\\\",\\\"type\\\":\\\"string\\\",\\\"default\\\":\\\"é\\\\n\\\\u0001\\\"}]}\",\"ts\":1795027473168,\"deleted\":false}",
+    "ms": 4
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"t8\",\"version\":1,\"id\":45,\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"R\\\",\\\"fields\\\":[{\\\"name\\\":\\\"s\\\",\\\"type\\\":\\\"string\\\",\\\"default\\\":\\\"é\\\\n\\\\u0001\\\"}]}\"}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/t9/versions",
+   "b": "{\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"R\\\",\\\"fields\\\":[{\\\"name\\\":\\\"i\\\",\\\"type\\\":\\\"int\\\",\\\"default\\\":\\\"\\\"}]}\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":46}",
+    "ms": 45
+   },
+   "confluent-8": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42201,\"message\":\"Invalid schema of type AVRO, details: Invalid schema {subject=t9,version=null,id=null,guid=46989f21-d07e-586a-f864-071d773b30e4,schemaType=AVRO,references=[],metadata=null,ruleSet=null,schema={\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"R\\\",\\\"fields\\\":[{\\\"name\\\":\\\"i\\\",\\\"type\\\":\\\"int\\\",\\\"default\\\":\\\"\\\"}]},schemaTags=null,ts=null,deleted=null} with refs [] of type AVRO, details: Invalid default for field i: \\\"\\\" not a \\\"int\\\"\"}",
+    "ms": 39
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":46}",
+    "ms": 28
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/t9/versions",
+   "b": "{\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"R\\\",\\\"fields\\\":[{\\\"name\\\":\\\"i\\\",\\\"type\\\":\\\"int\\\",\\\"default\\\":\\\"x\\\"}]}\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":47}",
+    "ms": 17
+   },
+   "confluent-8": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42201,\"message\":\"Invalid schema of type AVRO, details: Invalid schema {subject=t9,version=null,id=null,guid=1eab1dae-190a-f989-5f5d-3de3f7bcd43f,schemaType=AVRO,references=[],metadata=null,ruleSet=null,schema={\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"R\\\",\\\"fields\\\":[{\\\"name\\\":\\\"i\\\",\\\"type\\\":\\\"int\\\",\\\"default\\\":\\\"x\\\"}]},schemaTags=null,ts=null,deleted=null} with refs [] of type AVRO, details: Invalid default for field i: \\\"x\\\" not a \\\"int\\\"\"}",
+    "ms": 13
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":47}",
+    "ms": 6
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/t9/versions",
+   "b": "{\"schema\":\"{\\\"type\\\":\\\"enum\\\",\\\"name\\\":\\\"E\\\",\\\"symbols\\\":[\\\"A\\\"],\\\"default\\\":\\\"B\\\"}\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42201,\"message\":\"Invalid schema {subject=t9,version=0,id=-1,schemaType=AVRO,references=[],metadata=null,ruleSet=null,schema={\\\"type\\\":\\\"enum\\\",\\\"name\\\":\\\"E\\\",\\\"symbols\\\":[\\\"A\\\"],\\\"default\\\":\\\"B\\\"},schemaTags=null} with refs [] of type AVRO, details: The Enum Default: B is not in the enum symbol set: [A]\"}",
+    "ms": 4
+   },
+   "confluent-8": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42201,\"message\":\"Invalid schema of type AVRO, details: Invalid schema {subject=t9,version=null,id=null,guid=33851d3a-a652-8dc4-9437-99854645d112,schemaType=AVRO,references=[],metadata=null,ruleSet=null,schema={\\\"type\\\":\\\"enum\\\",\\\"name\\\":\\\"E\\\",\\\"symbols\\\":[\\\"A\\\"],\\\"default\\\":\\\"B\\\"},schemaTags=null,ts=null,deleted=null} with refs [] of type AVRO, details: The Enum Default: B is not in the enum symbol set: [A]\"}",
+    "ms": 6
+   },
+   "doze": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42201,\"message\":\"Invalid schema {subject=t9,version=0,id=-1,schemaType=AVRO,references=[],metadata=null,ruleSet=null,schema={\\\"type\\\":\\\"enum\\\",\\\"name\\\":\\\"E\\\",\\\"symbols\\\":[\\\"A\\\"],\\\"default\\\":\\\"B\\\"},schemaTags=null} with refs [] of type AVRO, details: The Enum Default: B is not in the enum symbol set: [A]\"}",
+    "ms": 1
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/t9/versions",
+   "b": "{\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"int\\\",\\\"fields\\\":[]}\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42201,\"message\":\"Invalid schema {subject=t9,version=0,id=-1,schemaType=AVRO,references=[],metadata=null,ruleSet=null,schema={\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"int\\\",\\\"fields\\\":[]},schemaTags=null} with refs [] of type AVRO, details: Schemas may not be named after primitives: int\"}",
+    "ms": 12
+   },
+   "confluent-8": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42201,\"message\":\"Invalid schema of type AVRO, details: Invalid schema {subject=t9,version=null,id=null,guid=d5ce1849-89e8-a045-7aea-26d066dcbe86,schemaType=AVRO,references=[],metadata=null,ruleSet=null,schema={\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"int\\\",\\\"fields\\\":[]},schemaTags=null,ts=null,deleted=null} with refs [] of type AVRO, details: Schemas may not be named after primitives: int\"}",
+    "ms": 12
+   },
+   "doze": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42201,\"message\":\"Invalid schema {subject=t9,version=0,id=-1,schemaType=AVRO,references=[],metadata=null,ruleSet=null,schema={\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"int\\\",\\\"fields\\\":[]},schemaTags=null} with refs [] of type AVRO, details: Schemas may not be named after primitives: int\"}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/t9/versions",
+   "b": "{\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"1R\\\",\\\"fields\\\":[]}\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42201,\"message\":\"Invalid schema {subject=t9,version=0,id=-1,schemaType=AVRO,references=[],metadata=null,ruleSet=null,schema={\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"1R\\\",\\\"fields\\\":[]},schemaTags=null} with refs [] of type AVRO, details: Illegal initial character: 1R\"}",
+    "ms": 6
+   },
+   "confluent-8": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42201,\"message\":\"Invalid schema of type AVRO, details: Invalid schema {subject=t9,version=null,id=null,guid=6f500544-ab7a-2ea1-4277-f6d4fd82352b,schemaType=AVRO,references=[],metadata=null,ruleSet=null,schema={\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"1R\\\",\\\"fields\\\":[]},schemaTags=null,ts=null,deleted=null} with refs [] of type AVRO, details: Illegal initial character: 1R\"}",
+    "ms": 5
+   },
+   "doze": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42201,\"message\":\"Invalid schema {subject=t9,version=0,id=-1,schemaType=AVRO,references=[],metadata=null,ruleSet=null,schema={\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"1R\\\",\\\"fields\\\":[]},schemaTags=null} with refs [] of type AVRO, details: Illegal initial character: 1R\"}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/t9/versions",
+   "b": "{\"schema\":\"{\\\"type\\\":\\\"fixed\\\",\\\"name\\\":\\\"F\\\"}\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42201,\"message\":\"Invalid schema {subject=t9,version=0,id=-1,schemaType=AVRO,references=[],metadata=null,ruleSet=null,schema={\\\"type\\\":\\\"fixed\\\",\\\"name\\\":\\\"F\\\"},schemaTags=null} with refs [] of type AVRO, details: Invalid or no size: {\\\"type\\\":\\\"fixed\\\",\\\"name\\\":\\\"F\\\"}\"}",
+    "ms": 3
+   },
+   "confluent-8": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42201,\"message\":\"Invalid schema of type AVRO, details: Invalid schema {subject=t9,version=null,id=null,guid=f1e055db-2342-8cdb-6755-485ecb84a6d9,schemaType=AVRO,references=[],metadata=null,ruleSet=null,schema={\\\"type\\\":\\\"fixed\\\",\\\"name\\\":\\\"F\\\"},schemaTags=null,ts=null,deleted=null} with refs [] of type AVRO, details: Invalid or no size: {\\\"type\\\":\\\"fixed\\\",\\\"name\\\":\\\"F\\\"}\"}",
+    "ms": 4
+   },
+   "doze": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42201,\"message\":\"Invalid schema {subject=t9,version=0,id=-1,schemaType=AVRO,references=[],metadata=null,ruleSet=null,schema={\\\"type\\\":\\\"fixed\\\",\\\"name\\\":\\\"F\\\"},schemaTags=null} with refs [] of type AVRO, details: Invalid or no size: {\\\"type\\\":\\\"fixed\\\",\\\"name\\\":\\\"F\\\"}\"}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/t9/versions",
+   "b": "{\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"R\\\",\\\"fields\\\":[{\\\"name\\\":\\\"a\\\",\\\"type\\\":\\\"int\\\",\\\"order\\\":\\\"sideways\\\"}]}\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42201,\"message\":\"Invalid schema {subject=t9,version=0,id=-1,schemaType=AVRO,references=[],metadata=null,ruleSet=null,schema={\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"R\\\",\\\"fields\\\":[{\\\"name\\\":\\\"a\\\",\\\"type\\\":\\\"int\\\",\\\"order\\\":\\\"sideways\\\"}]},schemaTags=null} with refs [] of type AVRO, details: No enum constant org.apache.avro.Schema.Field.Order.SIDEWAYS\"}",
+    "ms": 5
+   },
+   "confluent-8": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42201,\"message\":\"Invalid schema of type AVRO, details: Invalid schema {subject=t9,version=null,id=null,guid=5b7ef4cd-dfbe-689a-d178-c14c9b1d3f73,schemaType=AVRO,references=[],metadata=null,ruleSet=null,schema={\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"R\\\",\\\"fields\\\":[{\\\"name\\\":\\\"a\\\",\\\"type\\\":\\\"int\\\",\\\"order\\\":\\\"sideways\\\"}]},schemaTags=null,ts=null,deleted=null} with refs [] of type AVRO, details: No enum constant org.apache.avro.Schema.Field.Order.SIDEWAYS\"}",
+    "ms": 5
+   },
+   "doze": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42201,\"message\":\"Invalid schema {subject=t9,version=0,id=-1,schemaType=AVRO,references=[],metadata=null,ruleSet=null,schema={\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"R\\\",\\\"fields\\\":[{\\\"name\\\":\\\"a\\\",\\\"type\\\":\\\"int\\\",\\\"order\\\":\\\"sideways\\\"}]},schemaTags=null} with refs [] of type AVRO, details: No enum constant org.apache.avro.Schema.Field.Order.SIDEWAYS\"}",
+    "ms": 0
+   }
+  }
+ }
+]

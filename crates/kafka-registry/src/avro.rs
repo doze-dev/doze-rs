@@ -59,7 +59,7 @@ pub fn parse(text: &str, refs: &[ResolvedRef]) -> Result<AvroSchema, String> {
             .map_err(|e| format!("reference \"{}\": {e}", r.name))?;
         known.extend(text::defined_names(&j));
     }
-    let j = Json::parse(text).map_err(|e| e.to_string())?;
+    let j = Json::parse(text).map_err(|e| dangling(text, &e.to_string()))?;
     let root = parser.read(&j)?;
     Ok(AvroSchema {
         stored: text::stored_text(&j, &known, false)?,
@@ -115,3 +115,19 @@ impl ParsedSchema for AvroSchema {
 
 #[cfg(test)]
 mod tests;
+
+/// A JSON error said as Avro's parser says it where it has words of its own: text after the schema is "dangling content"
+/// (its next word quoted); anything else is the JSON reader's message.
+fn dangling(text: &str, why: &str) -> String {
+    let at = why
+        .strip_prefix("unexpected content after the value at byte ")
+        .and_then(|n| n.trim().parse::<usize>().ok());
+    match at.and_then(|i| text.get(i..)) {
+        Some(rest) => {
+            let rest = rest.trim_start();
+            let word: String = rest.chars().take_while(|c| !c.is_whitespace()).collect();
+            format!("dangling content after end of schema: {word}")
+        }
+        None => why.to_owned(),
+    }
+}

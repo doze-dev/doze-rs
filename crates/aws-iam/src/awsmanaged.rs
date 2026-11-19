@@ -9,6 +9,7 @@
 //! | `Amazon<Svc>FullAccess`, `AWS<Svc>FullAccess`, `<Svc>FullAccess`, `AWS<Svc>_FullAccess`, `<Svc>ReadWrite` | `<prefix>:*` |
 //! | `Amazon<Svc>ReadOnlyAccess` (and the same spellings) | the service's read verbs |
 //! | `AWSLambda<Source>ExecutionRole` (Basic, SQSQueue, Kinesis, DynamoDB, VPCAccess) | what the poller reads, and writing logs |
+//! | `AWSLambdaBasicDurableExecutionRolePolicy` | writing logs, `CheckpointDurableExecution` and `GetDurableExecutionState` |
 //!
 //! A path (`service-role/`) is not part of the rule: the name decides. A name the rules do not cover is not a policy
 //! (`NoSuchEntity`), so a template that names one fails where it would otherwise be silently allowed nothing.
@@ -99,6 +100,14 @@ pub(crate) fn document(name: &str) -> Option<String> {
             allow(&["execute-api:Invoke", "execute-api:ManageConnections"])
         }
         "AWSLambdaRole" => allow(&["lambda:InvokeFunction"]),
+        // (memory) The execution role of a durable function: its logs, and the two calls its SDK makes.
+        "AWSLambdaBasicDurableExecutionRolePolicy" => allow(&[
+            "logs:CreateLogGroup",
+            "logs:CreateLogStream",
+            "logs:PutLogEvents",
+            "lambda:CheckpointDurableExecution",
+            "lambda:GetDurableExecutionState",
+        ]),
         _ => lambda_execution(name).or_else(|| by_service(name))?,
     };
     Some(doc.to_string())

@@ -71,7 +71,8 @@ pub(crate) struct Archive {
     pub(crate) bytes: u64,
 }
 
-/// A replay. Keyed `<account>/<name>`. Replays finish as they start (no asynchronous replay, SCOPE.md), so a record is a finished one.
+/// A replay that `COMPLETED`. Keyed `<account>/<name>`. A replay that is still going, or was cancelled or failed, is a [`Run`] instead
+/// (its own table, so the records written before replays ran over time read as they are).
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub(crate) struct Replay {
     pub(crate) account: String,
@@ -86,6 +87,54 @@ pub(crate) struct Replay {
     pub(crate) started_ms: i64,
     pub(crate) ended_ms: i64,
     pub(crate) last_replayed_ms: Option<i64>,
+}
+
+/// Where a replay that did not complete is (the model's `ReplayState`, less `COMPLETED`, which is a [`Replay`]).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub(crate) enum RunState {
+    Starting,
+    Running,
+    Cancelling,
+    Cancelled,
+    Failed,
+}
+
+impl RunState {
+    pub(crate) const fn as_str(self) -> &'static str {
+        match self {
+            Self::Starting => "STARTING",
+            Self::Running => "RUNNING",
+            Self::Cancelling => "CANCELLING",
+            Self::Cancelled => "CANCELLED",
+            Self::Failed => "FAILED",
+        }
+    }
+
+    /// Whether the replay is still doing something (and so has a deadline).
+    pub(crate) const fn going(self) -> bool {
+        matches!(self, Self::Starting | Self::Running | Self::Cancelling)
+    }
+}
+
+/// A replay that has not completed: going, or stopped by `CancelReplay` or a failure. Keyed `<account>/<name>`, as [`Replay`]; a key
+/// is in one table or the other.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub(crate) struct Run {
+    /// What is said of it (`ended_ms` once it stopped).
+    pub(crate) replay: Replay,
+    pub(crate) state: RunState,
+    pub(crate) reason: Option<String>,
+    /// The archive read and the bus the events go back on (names).
+    pub(crate) archive: String,
+    pub(crate) bus: String,
+    /// Only the rules with these ARNs get the events; all of them when empty.
+    pub(crate) only: Vec<String>,
+    /// The key of the last archived event put back; the next batch reads after it.
+    pub(crate) cursor: Option<String>,
+    /// When the next step is due.
+    pub(crate) due_ms: i64,
+    /// Who started it: the deliveries are made as them.
+    pub(crate) caller: Who,
 }
 
 /// A connection. Keyed `<account>/<name>`.

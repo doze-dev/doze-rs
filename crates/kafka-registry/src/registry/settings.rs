@@ -74,11 +74,14 @@ impl Level {
     }
 }
 
-/// A mode. IMPORT and READONLY_OVERRIDE are not offered (docs/port/behaviours/registry.md).
+/// A mode, as Confluent has them. IMPORT takes schemas with the ids (and versions) they are given and checks no
+/// compatibility; READONLY_OVERRIDE is READONLY that, set globally, no subject's own mode overrides.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Mode {
     ReadWrite,
     ReadOnly,
+    ReadOnlyOverride,
+    Import,
 }
 
 impl Mode {
@@ -87,6 +90,8 @@ impl Mode {
         match text.to_ascii_uppercase().as_str() {
             "READWRITE" => Some(Self::ReadWrite),
             "READONLY" => Some(Self::ReadOnly),
+            "READONLY_OVERRIDE" => Some(Self::ReadOnlyOverride),
+            "IMPORT" => Some(Self::Import),
             _ => None,
         }
     }
@@ -96,8 +101,64 @@ impl Mode {
         match self {
             Self::ReadWrite => "READWRITE",
             Self::ReadOnly => "READONLY",
+            Self::ReadOnlyOverride => "READONLY_OVERRIDE",
+            Self::Import => "IMPORT",
         }
     }
+
+    /// Whether writes are refused.
+    #[must_use]
+    pub fn read_only(self) -> bool {
+        matches!(self, Self::ReadOnly | Self::ReadOnlyOverride)
+    }
+}
+
+/// The settings Confluent keeps beside a level (`ConfigUpdateRequest`): each one set or not. `normalize` is applied (a
+/// registration, lookup or check normalizes when its subject's, or else the global, setting says so); the others are kept
+/// and answered as Confluent answers them but change nothing here (REG-D26). The metadata and rule sets are their JSON.
+#[derive(Debug, Clone, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct ConfigExtra {
+    pub alias: Option<String>,
+    pub normalize: Option<bool>,
+    pub validate_fields: Option<bool>,
+    pub compatibility_group: Option<String>,
+    pub default_metadata: Option<String>,
+    pub override_metadata: Option<String>,
+    pub default_rule_set: Option<String>,
+    pub override_rule_set: Option<String>,
+}
+
+impl ConfigExtra {
+    /// Whether nothing is set.
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        *self == Self::default()
+    }
+
+    /// These settings with `newer`'s laid over them: what a PUT leaves.
+    #[must_use]
+    pub fn merged(&self, newer: &Self) -> Self {
+        fn pick<T: Clone>(old: &Option<T>, new: &Option<T>) -> Option<T> {
+            new.clone().or_else(|| old.clone())
+        }
+        Self {
+            alias: pick(&self.alias, &newer.alias),
+            normalize: pick(&self.normalize, &newer.normalize),
+            validate_fields: pick(&self.validate_fields, &newer.validate_fields),
+            compatibility_group: pick(&self.compatibility_group, &newer.compatibility_group),
+            default_metadata: pick(&self.default_metadata, &newer.default_metadata),
+            override_metadata: pick(&self.override_metadata, &newer.override_metadata),
+            default_rule_set: pick(&self.default_rule_set, &newer.default_rule_set),
+            override_rule_set: pick(&self.override_rule_set, &newer.override_rule_set),
+        }
+    }
+}
+
+/// A subject's (or the global) configuration as `GET /config` answers it.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ConfigView {
+    pub level: Level,
+    pub extra: ConfigExtra,
 }
 
 impl State {
@@ -118,6 +179,39 @@ impl State {
         own.or_else(|| self.modes.get(""))
             .and_then(|s| Mode::parse(&s.value))
             .unwrap_or(Mode::ReadWrite)
+    }
+
+    /// Whether a subject's schemas are normalized when a request does not ask: its own setting, else the global one.
+    pub(super) fn normalizes(&self, subject: &str) -> bool {
+        let own = (!subject.is_empty())
+            .then(|| self.extras.get(subject).and_then(|e| e.normalize))
+            .flatten();
+        own.or_else(|| self.extras.get("").and_then(|e| e.normalize))
+            .unwrap_or(false)
+    }
+
+    /// The configuration a subject has of its own (`""`: the global one, which always has one).
+    fn own_config(&self, subject: &str) -> Option<ConfigView> {
+        let level = self.levels.get(subject);
+        let extra = self.extras.get(subject);
+        if !subject.is_empty() && level.is_none() && extra.is_none() {
+            return None;
+        }
+        Some(ConfigView {
+            level: level
+                .and_then(|s| Level::parse(&s.value))
+                .unwrap_or(Level::Backward),
+            extra: extra.cloned().unwrap_or_default(),
+        })
+    }
+
+    /// The mode a write to a subject is held to: the subject's, unless the global one is READONLY_OVERRIDE.
+    pub(super) fn enforced_mode(&self, subject: &str) -> Mode {
+        let global = self.mode_of("");
+        if global == Mode::ReadOnlyOverride {
+            return global;
+        }
+        self.mode_of(subject)
     }
 }
 
@@ -143,21 +237,79 @@ impl Registry {
     /// # Errors
     /// An invalid level or subject, a read-only subject, a store failure.
     pub fn set_level(&self, subject: &str, level: &str) -> Result<(), RegistryError> {
-        let level = Level::parse(level).ok_or_else(RegistryError::invalid_compatibility)?;
+        self.set_config(subject, Some(level), &ConfigExtra::default())
+    }
+
+    /// The configuration of a subject (`""`: the global one): its level and the settings beside it. With `fallback`, a
+    /// subject without one of its own reports the global one.
+    ///
+    /// # Errors
+    /// The subject has no configuration of its own and `fallback` is off.
+    pub fn config(&self, subject: &str, fallback: bool) -> Result<ConfigView, RegistryError> {
+        let s = self.lock();
+        match s.own_config(subject) {
+            Some(c) => Ok(c),
+            None if fallback => s
+                .own_config("")
+                .ok_or_else(|| RegistryError::subject_not_found("")),
+            None => Err(RegistryError::new(
+                404,
+                code::SUBJECT_COMPAT_NOT_SET,
+                format!("Subject '{subject}' does not have subject-level compatibility configured"),
+            )),
+        }
+    }
+
+    /// Sets the level and settings of a subject (`""`: the global one); what is not given stays as it was. A subject's
+    /// first configuration without a level takes BACKWARD, as Confluent's does.
+    ///
+    /// # Errors
+    /// An invalid level or subject, a read-only subject, a store failure.
+    pub fn set_config(
+        &self,
+        subject: &str,
+        level: Option<&str>,
+        extra: &ConfigExtra,
+    ) -> Result<(), RegistryError> {
+        let level = match level {
+            Some(l) => Some(Level::parse(l).ok_or_else(RegistryError::invalid_compatibility)?),
+            None => None,
+        };
         check_subject(subject)?;
         let mut s = self.lock();
         // A read-only subject's level does not change either (recorded: readonly-subject).
-        if !subject.is_empty() && s.mode_of(subject) == Mode::ReadOnly {
+        if !subject.is_empty() && s.enforced_mode(subject).read_only() {
             return Err(RegistryError::read_only(subject));
         }
-        let setting = Setting {
-            value: level.name().to_owned(),
-            at: (self.clock)(),
-        };
+        let at = (self.clock)();
         let mut b = Batch::default();
-        b.put(&Key::Level(subject.to_owned()), &setting);
+        let level = level.or_else(|| {
+            (!subject.is_empty() && !s.levels.contains_key(subject)).then_some(Level::Backward)
+        });
+        let setting = level.map(|l| Setting {
+            value: l.name().to_owned(),
+            at,
+        });
+        if let Some(setting) = &setting {
+            b.put(&Key::Level(subject.to_owned()), setting);
+        }
+        let merged = s
+            .extras
+            .get(subject)
+            .cloned()
+            .unwrap_or_default()
+            .merged(extra);
+        let extra_changed = !extra.is_empty();
+        if extra_changed {
+            b.put(&Key::Config(subject.to_owned()), &merged);
+        }
         self.commit(&b)?;
-        s.levels.insert(subject.to_owned(), setting);
+        if let Some(setting) = setting {
+            s.levels.insert(subject.to_owned(), setting);
+        }
+        if extra_changed {
+            s.extras.insert(subject.to_owned(), merged);
+        }
         Ok(())
     }
 
@@ -166,15 +318,24 @@ impl Registry {
     /// # Errors
     /// The subject has no level of its own; a store failure.
     pub fn delete_level(&self, subject: &str) -> Result<Level, RegistryError> {
+        self.delete_config(subject).map(|c| c.level)
+    }
+
+    /// Removes a subject's own configuration (the global one goes back to the default) and returns it as it was.
+    ///
+    /// # Errors
+    /// The subject has no configuration of its own; a store failure.
+    pub fn delete_config(&self, subject: &str) -> Result<ConfigView, RegistryError> {
         let mut s = self.lock();
-        let before = s.level_of(subject);
-        if !subject.is_empty() && !s.levels.contains_key(subject) {
-            return Err(RegistryError::subject_not_found(subject));
-        }
+        let before = s
+            .own_config(subject)
+            .ok_or_else(|| RegistryError::subject_not_found(subject))?;
         let mut b = Batch::default();
         b.delete(&Key::Level(subject.to_owned()));
+        b.delete(&Key::Config(subject.to_owned()));
         self.commit(&b)?;
         s.levels.remove(subject);
+        s.extras.remove(subject);
         Ok(before)
     }
 
@@ -190,14 +351,27 @@ impl Registry {
         Err(mode_not_set(subject))
     }
 
-    /// Sets the mode of a subject (`""`: the global one).
+    /// Sets the mode of a subject (`""`: the global one). IMPORT is refused where schemas are already registered (in the
+    /// subject, or anywhere for the global mode) unless `force`, as Confluent refuses it.
     ///
     /// # Errors
-    /// An invalid mode or subject, a store failure.
-    pub fn set_mode(&self, subject: &str, mode: &str) -> Result<Mode, RegistryError> {
+    /// An invalid mode or subject, IMPORT over existing schemas, a store failure.
+    pub fn set_mode(&self, subject: &str, mode: &str, force: bool) -> Result<Mode, RegistryError> {
         let mode = Mode::parse(mode).ok_or_else(RegistryError::invalid_mode)?;
         check_subject(subject)?;
         let mut s = self.lock();
+        let occupied = if subject.is_empty() {
+            s.subjects.values().any(|vs| !vs.is_empty())
+        } else {
+            !s.versions(subject).is_empty()
+        };
+        if mode == Mode::Import && occupied && !force {
+            return Err(RegistryError::new(
+                422,
+                code::OPERATION_NOT_PERMITTED,
+                "Cannot import since found existing subjects",
+            ));
+        }
         let setting = Setting {
             value: mode.name().to_owned(),
             at: (self.clock)(),
@@ -217,7 +391,8 @@ impl Registry {
         let mut s = self.lock();
         let before = s.mode_of(subject);
         if !subject.is_empty() && !s.modes.contains_key(subject) {
-            return Err(mode_not_set(subject));
+            // Confluent's answer (tools/registry-diff): no such subject, whatever versions it has.
+            return Err(RegistryError::subject_not_found(subject));
         }
         let mut b = Batch::default();
         b.delete(&Key::Mode(subject.to_owned()));

@@ -36,12 +36,12 @@ impl Draft {
         }
     }
 
-    /// The draft of a document: its `$schema`, or draft 7, Confluent's default.
+    /// The draft of a document: its `$schema`, or draft 7, Confluent's default, for none and for a `$schema` that names
+    /// no draft (cp-schema-registry 7.7.1 takes `http://example.com/nope`, tools/registry-diff).
     fn of_doc(doc: &Json) -> Result<Self, String> {
         match field(doc, "$schema") {
             None => Ok(Self::D7),
-            Some(Json::Str(url)) => Self::of_url(url)
-                .ok_or_else(|| format!("$schema \"{url}\" is not a JSON Schema draft")),
+            Some(Json::Str(url)) => Ok(Self::of_url(url).unwrap_or(Self::D7)),
             Some(_) => Err("$schema must be a string".to_owned()),
         }
     }

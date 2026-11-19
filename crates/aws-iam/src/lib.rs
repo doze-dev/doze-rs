@@ -12,30 +12,63 @@ mod anonymous;
 mod attached;
 mod authz;
 mod awsmanaged;
+mod certs;
 mod core;
+mod der;
 mod details;
 mod entity;
 mod errors;
 mod gather;
+mod grants;
 mod groups;
+mod held;
+mod heldops;
 mod keys;
+mod lastaccess;
 mod local;
 mod managed;
+mod mfa;
 mod model;
 mod needs;
 mod oidc;
 mod ops;
+mod password;
 mod profiles;
 mod providers;
+mod report;
 mod req;
 mod saml;
 mod samltrust;
 mod session;
 mod simulate;
+mod sshkey;
 mod storage;
 mod sts;
+mod totp;
+mod usercreds;
+mod userheld;
 mod view;
+mod x509;
 mod xmldsig;
+
+/// Entry points for the fuzz targets (`crates/aws-iam/fuzz`): each reads any input and must not panic.
+#[doc(hidden)]
+pub mod fuzz {
+    /// A server or signing certificate's body, a private key against it, and a chain.
+    pub fn certificate(text: &str) {
+        if let Some(cert) = crate::x509::certificate(text) {
+            std::hint::black_box(crate::x509::key_matches(&cert, text));
+        }
+        std::hint::black_box(crate::x509::chain(text));
+    }
+
+    /// An SSH public key, in either encoding, written back in both.
+    pub fn ssh_key(text: &str) {
+        if let Ok(key) = crate::sshkey::read(text) {
+            drop((key.fingerprint(), key.ssh(), key.pem()));
+        }
+    }
+}
 
 use std::sync::{Arc, Mutex};
 

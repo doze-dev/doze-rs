@@ -7,16 +7,20 @@ use std::sync::Arc;
 use aws_model_dynamodb::Operation;
 use aws_peers::{Mode, Peers};
 use aws_wire::ApiError;
-use aws_wire::service::{Call, Reply};
+use aws_wire::service::{Call, Output, Reply};
 use doze_runtime::{Clock, Ctx};
 use doze_store::StoreError;
-use doze_store::records::Records;
+use doze_store::records::{Changes, Records};
 use serde_json::Value as Json;
 
 use crate::disk::{Disk, TABLES, Writes};
+use crate::extras::Extra;
 use crate::meta::Table;
-use crate::req::{body, not_found, refuse_legacy, table_name};
+use crate::req::{body, not_found, table_name};
+pub(crate) use crate::route::{built, not_built};
+use crate::route::{endpoints, limits};
 use crate::stream::{Batch, StreamInfo};
+use crate::work::{Done, Work};
 
 const VERSION: u8 = 1;
 
@@ -75,6 +79,10 @@ pub(crate) enum Request {
     Tick,
     /// From `doze-aws data`: what the tables hold, or remove some of it.
     Data(Box<crate::storage::Asked>),
+    /// What work done outside the actor found (`work.rs`).
+    Done(Box<Done>),
+    /// The resource policy that governs an ARN (for the Streams API).
+    Policy(String),
 }
 
 /// What the actor answers.
@@ -87,16 +95,22 @@ pub(crate) struct Answer {
     pub(crate) streams: Option<Result<Vec<StreamInfo>, String>>,
     /// When the first item with a time to live expires: the deadline the service's timer sleeps to.
     pub(crate) next_due: Option<i64>,
+    /// What is left to do outside the actor before the caller is answered.
+    pub(crate) work: Vec<Work>,
+    /// The policy a `Policy` request asked for.
+    pub(crate) policy: Option<String>,
 }
 
 impl Answer {
-    fn of(reply: Reply, appended: bool) -> Self {
+    pub(crate) fn of(reply: Reply, appended: bool) -> Self {
         Self {
             reply,
             appended,
             stream: None,
             streams: None,
             next_due: None,
+            work: Vec::new(),
+            policy: None,
         }
     }
 }
@@ -152,6 +166,12 @@ pub(crate) struct Core {
     pub(crate) ttl_stale: bool,
     /// Contributor Insights settings, by table (and `table/index`): stored, nothing computed.
     pub(crate) insights: Records<crate::insights::Insight>,
+    /// Backups, export and import tasks, resource policies, Kinesis streaming destinations.
+    pub(crate) extras: Records<Extra>,
+    /// What the call in progress leaves to be done outside the actor.
+    pub(crate) work: Vec<Work>,
+    /// Orders the recovery log's entries written in one millisecond.
+    pub(crate) pitr_seq: u32,
 }
 
 impl doze_runtime::Service for Core {
@@ -202,10 +222,35 @@ impl doze_runtime::Service for Core {
             Request::Tick => {
                 // The timer's own sweep is not held back by the once-a-second limit a burst of calls is.
                 self.next_sweep_ms = 0;
-                match self.housekeeping().await {
+                let mut answer = match self.housekeeping().await {
                     Ok(appended) => Answer::of(Err(ApiError::internal("not a call")), appended),
                     Err(e) => Answer::of(Err(e), false),
-                }
+                };
+                answer.work = std::mem::take(&mut self.work);
+                answer
+            }
+            Request::Policy(arn) => Answer {
+                policy: self.policy_text(&arn),
+                ..Answer::of(Err(ApiError::internal("not a call")), false)
+            },
+            Request::Done(done) => {
+                let applied = self.apply_done(*done, self.clock.now_ms());
+                let appended = std::mem::take(&mut self.appended);
+                let work = std::mem::take(&mut self.work);
+                let saved = match applied {
+                    Ok(()) => self.save().await,
+                    Err(e) => {
+                        self.pending = Writes::default();
+                        Err(e)
+                    }
+                };
+                let empty = || Output {
+                    arena: aws_schema::arena::Arena::new(),
+                    root: aws_schema::arena::NIL,
+                };
+                let mut answer = Answer::of(saved.map(|()| empty()), appended);
+                answer.work = work;
+                answer
             }
         };
         answer.next_due = self.ttl_due();
@@ -232,6 +277,12 @@ impl Core {
             crate::insights::VERSION,
             &read,
         )?;
+        let extras = Records::load(
+            crate::disk::EXTRAS,
+            "dynamodb record",
+            crate::extras::VERSION,
+            &read,
+        )?;
         drop(read);
         Ok(Self {
             disk,
@@ -248,15 +299,16 @@ impl Core {
             // Read on the first answer, so a service opened by its timer or a restart finds what is due.
             ttl_stale: true,
             insights,
+            extras,
+            work: Vec::new(),
+            pitr_seq: 0,
         })
     }
 
     async fn handle_call(&mut self, call: Call) -> Answer {
         if let Some(peers) = self.peers.clone()
             && peers.mode() != Mode::Off
-            && let Err(refusal) = peers
-                .authorize(&call.caller, crate::authz::needs(&call))
-                .await
+            && let Err(refusal) = peers.authorize(&call.caller, self.needs(&call)).await
         {
             return Answer::of(Err(refusal), false);
         }
@@ -264,13 +316,20 @@ impl Core {
             Ok(appended) => appended,
             Err(e) => return Answer::of(Err(e), false),
         };
+        // What the sweep left to send goes whether or not the call is refused.
+        let swept_work = std::mem::take(&mut self.work);
         let mut answer = self.handle_checked(call).await;
         answer.appended |= swept;
+        answer.work.splice(0..0, swept_work);
         answer
     }
 
     async fn handle_checked(&mut self, call: Call) -> Answer {
-        let json = match body(&call.body) {
+        let json = match body(&call.body).and_then(|j| match Operation::from_index(call.op) {
+            // The legacy parameters become the expressions they stand for (`legacy.rs`).
+            Some(op) => crate::legacy::translate(op, j),
+            None => Ok(j),
+        }) {
             Ok(j) => j,
             Err(e) => return Answer::of(Err(e), false),
         };
@@ -286,37 +345,48 @@ impl Core {
     /// Ends a call: its writes go to disk (and are waited for, so the next call reads them), and the answer is made.
     async fn finish(&mut self, outcome: Result<(Operation, Json), ApiError>) -> Answer {
         let appended = std::mem::take(&mut self.appended);
-        let mut writes = std::mem::take(&mut self.pending);
-        let reply = match outcome {
+        let work = std::mem::take(&mut self.work);
+        let (op, json) = match outcome {
             Err(e) => {
                 // A refused call changes nothing.
+                self.pending = Writes::default();
                 return Answer::of(Err(e), false);
             }
-            Ok((op, json)) => {
-                match (self.tables.stage(), self.insights.stage()) {
-                    (Ok(tables), Ok(insights)) => writes.meta.extend([tables, insights]),
-                    (Err(e), _) | (_, Err(e)) => {
-                        return Answer::of(
-                            Err(ApiError::internal(format!("could not save: {e}"))),
-                            false,
-                        );
-                    }
-                }
-                crate::answer::reply(op, &json)
-            }
+            Ok(done) => done,
         };
+        if let Err(e) = self.save().await {
+            return Answer::of(Err(e), false);
+        }
+        let mut answer = Answer::of(crate::answer::reply(op, &json), appended);
+        answer.work = work;
+        answer
+    }
+
+    /// The records every call may change, as rows for the writer.
+    pub(crate) fn stage_meta(&mut self) -> Result<Vec<Changes>, StoreError> {
+        Ok(vec![
+            self.tables.stage()?,
+            self.insights.stage()?,
+            self.extras.stage()?,
+        ])
+    }
+
+    /// Writes what the call changed, and waits for it.
+    pub(crate) async fn save(&mut self) -> Result<(), ApiError> {
+        let mut writes = std::mem::take(&mut self.pending);
+        writes.meta.extend(
+            self.stage_meta()
+                .map_err(|e| ApiError::internal(format!("could not save: {e}")))?,
+        );
         if !writes.is_empty() {
             self.ttl_stale = true;
         }
         if let Some(saved) = self.disk.submit(writes)
             && let Err(e) = saved.await
         {
-            return Answer::of(
-                Err(ApiError::internal(format!("could not save: {e}"))),
-                false,
-            );
+            return Err(ApiError::internal(format!("could not save: {e}")));
         }
-        Answer::of(reply, appended)
+        Ok(())
     }
 
     /// Every operation of the model is either run here or refused by name; the dispatch is exhaustive over those it runs.
@@ -324,7 +394,6 @@ impl Core {
         let Some(op) = Operation::from_index(cx.call.op).filter(|op| built(*op)) else {
             return Err(not_built());
         };
-        refuse_legacy(op, &cx.body)?;
         let json = match op {
             Operation::CreateTable => self.create_table(cx),
             Operation::DescribeTable => self.describe_table(cx),
@@ -343,98 +412,15 @@ impl Core {
             Operation::DescribeContributorInsights => self.describe_insights(cx),
             Operation::UpdateContributorInsights => self.update_insights(cx),
             Operation::ListContributorInsights => self.list_insights(cx),
-            _ => self.dispatch_items(op, cx),
+            _ => self.dispatch_more(op, cx),
         }?;
         Ok((op, json))
-    }
-
-    fn dispatch_items(&mut self, op: Operation, cx: &Cx<'_>) -> Result<Json, ApiError> {
-        match op {
-            Operation::PutItem => self.put_item(cx),
-            Operation::GetItem => self.get_item(cx),
-            Operation::UpdateItem => self.update_item(cx),
-            Operation::DeleteItem => self.delete_item(cx),
-            Operation::Query => self.query(cx),
-            Operation::Scan => self.scan(cx),
-            Operation::BatchGetItem => self.batch_get(cx),
-            Operation::BatchWriteItem => self.batch_write(cx),
-            Operation::TransactGetItems => self.transact_get(cx),
-            Operation::TransactWriteItems => self.transact_write(cx),
-            Operation::ExecuteStatement => self.execute_statement(cx),
-            Operation::BatchExecuteStatement => self.batch_execute_statement(cx),
-            Operation::ExecuteTransaction => self.execute_transaction(cx),
-            _ => Err(not_built()),
-        }
     }
 
     /// A table by name.
     pub(crate) fn table(&self, name: &str) -> Result<Table, ApiError> {
         self.tables.get(name).cloned().ok_or_else(not_found)
     }
-}
-
-/// The operations this service runs. Every other is refused by name before its request is read.
-pub(crate) fn built(op: Operation) -> bool {
-    matches!(
-        op,
-        Operation::CreateTable
-            | Operation::DescribeTable
-            | Operation::DeleteTable
-            | Operation::ListTables
-            | Operation::UpdateTable
-            | Operation::DescribeTimeToLive
-            | Operation::UpdateTimeToLive
-            | Operation::DescribeContinuousBackups
-            | Operation::UpdateContinuousBackups
-            | Operation::TagResource
-            | Operation::UntagResource
-            | Operation::ListTagsOfResource
-            | Operation::DescribeLimits
-            | Operation::DescribeEndpoints
-            | Operation::PutItem
-            | Operation::GetItem
-            | Operation::UpdateItem
-            | Operation::DeleteItem
-            | Operation::Query
-            | Operation::Scan
-            | Operation::BatchGetItem
-            | Operation::BatchWriteItem
-            | Operation::TransactGetItems
-            | Operation::TransactWriteItems
-            | Operation::DescribeContributorInsights
-            | Operation::UpdateContributorInsights
-            | Operation::ListContributorInsights
-            | Operation::ExecuteStatement
-            | Operation::BatchExecuteStatement
-            | Operation::ExecuteTransaction
-    )
-}
-
-pub(crate) fn not_built() -> ApiError {
-    ApiError::new(
-        501,
-        "NotImplemented",
-        "This operation is not built in doze-aws.",
-    )
-}
-
-/// The default quotas, as the developer guide gives them.
-fn limits() -> Json {
-    serde_json::json!({
-        "AccountMaxReadCapacityUnits": 80_000,
-        "AccountMaxWriteCapacityUnits": 80_000,
-        "TableMaxReadCapacityUnits": 40_000,
-        "TableMaxWriteCapacityUnits": 40_000,
-    })
-}
-
-/// The address the caller used, since an SDK that discovers endpoints must be sent back to the same place.
-fn endpoints(cx: &Cx<'_>) -> Json {
-    let endpoint = &cx.call.caller.endpoint;
-    let host = endpoint
-        .split_once("://")
-        .map_or(endpoint.as_str(), |(_, h)| h);
-    serde_json::json!({"Endpoints": [{"Address": host, "CachePeriodInMinutes": 1440}]})
 }
 
 /// The bus the host handed this service, if it did (directly, or inside the [`Ext`] that also carries the windows).

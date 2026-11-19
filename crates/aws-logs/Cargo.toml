@@ -16,6 +16,7 @@ aws-model-cloudwatch-logs = { path = "../aws-model-cloudwatch-logs" }
 aws-schema = { path = "../aws-schema" }
 aws-wire = { path = "../aws-wire" }
 aws-core = { path = "../aws-core" }
+aws-cron = { path = "../aws-cron" }
 aws-peers = { path = "../aws-peers" }
 aws-seal = { path = "../aws-seal" }
 doze-runtime = { path = "../doze-runtime" }
@@ -25,7 +26,9 @@ serde_json = "1"
 flate2 = { version = "1", default-features = false, features = ["rust_backend"] }
 tracing = "0.1"
 regex-lite = "0.1"
-tokio = { version = "1", default-features = false, features = ["sync"] }
+# `rt` runs Insights queries on the blocking pool; `time` paces Live Tail updates (only while a session is open); `macros` selects.
+tokio = { version = "1", default-features = false, features = ["sync", "rt", "time", "macros"] }
+bytes = "1"
 
 [dev-dependencies]
 aws-testkit = { path = "../aws-testkit" }

@@ -12,7 +12,9 @@ use std::time::Duration;
 use bytes::Bytes;
 use http_body_util::{BodyExt, Full, Limited};
 use hyper::body::Incoming;
-use hyper::header::{AUTHORIZATION, CONTENT_TYPE, HOST, HeaderValue, USER_AGENT, WWW_AUTHENTICATE};
+use hyper::header::{
+    ACCEPT, ALLOW, AUTHORIZATION, CONTENT_TYPE, HOST, HeaderValue, USER_AGENT, WWW_AUTHENTICATE,
+};
 use hyper::server::conn::http1;
 use hyper::service::service_fn;
 use hyper_util::rt::{TokioIo, TokioTimer};
@@ -163,6 +165,7 @@ async fn answer(
         .unwrap_or_default();
     r.authorization = header(&req, &AUTHORIZATION);
     r.content_type = header(&req, &CONTENT_TYPE);
+    r.accept = header(&req, &ACCEPT);
     r.user_agent = header(&req, &USER_AGENT).unwrap_or_default();
     r.peer = peer.ip().to_string();
     r.own = req.headers().contains_key(api::log::OWN_HEADER);
@@ -178,20 +181,22 @@ async fn answer(
                 Body::TooLarge(limit)
             }
             // A body that stopped arriving, or a broken connection: nothing to answer that anybody reads.
-            _ => return Ok(plain(408, Vec::new())),
+            _ => return Ok(plain(408, Vec::new(), Some(api::CONTENT_TYPE))),
         };
     }
     let resp = tokio::task::spawn_blocking(move || api.serve(&r)).await;
-    let resp = resp.unwrap_or_else(|_| Response {
-        status: 500,
-        body: b"{\"error_code\":50001,\"message\":\"Internal error\"}\n".to_vec(),
-        challenge: false,
-        delay: Duration::ZERO,
-    });
+    let resp = resp.unwrap_or_else(|_| Response::internal());
     if !resp.delay.is_zero() {
         tokio::time::sleep(resp.delay).await;
     }
-    let mut out = plain(resp.status, resp.body);
+    let mut out = plain(resp.status, resp.body, resp.content_type);
+    if let Some(allow) = resp
+        .allow
+        .as_deref()
+        .and_then(|a| HeaderValue::from_str(a).ok())
+    {
+        out.headers_mut().insert(ALLOW, allow);
+    }
     if resp.challenge {
         out.headers_mut().insert(
             WWW_AUTHENTICATE,
@@ -201,12 +206,14 @@ async fn answer(
     Ok(out)
 }
 
-fn plain(status: u16, body: Vec<u8>) -> hyper::Response<Full<Bytes>> {
+fn plain(status: u16, body: Vec<u8>, ct: Option<&'static str>) -> hyper::Response<Full<Bytes>> {
     let mut out = hyper::Response::new(Full::new(Bytes::from(body)));
     *out.status_mut() =
         hyper::StatusCode::from_u16(status).unwrap_or(hyper::StatusCode::INTERNAL_SERVER_ERROR);
-    out.headers_mut()
-        .insert(CONTENT_TYPE, HeaderValue::from_static(api::CONTENT_TYPE));
+    if let Some(ct) = ct {
+        out.headers_mut()
+            .insert(CONTENT_TYPE, HeaderValue::from_static(ct));
+    }
     out
 }
 

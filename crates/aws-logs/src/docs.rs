@@ -1,6 +1,6 @@
 //! The documents that are stored and returned and applied to nothing: resource policies, account policies, query definitions and
 //! data protection policies. One table of (kind, id) to the document as sent, shown the way the API shows it. The flag a client
-//! cannot see is that no policy here is evaluated and no query definition is run: Insights is not built.
+//! cannot see is that no policy here is evaluated and a query definition is not run by itself (`StartQuery` runs a query string).
 
 use aws_model_cloudwatch_logs::Operation;
 use aws_wire::ApiError;

@@ -13,7 +13,9 @@ use crate::core::Core;
 mod data;
 mod events;
 mod groups;
+mod insights;
 mod persistence;
+mod resources;
 
 pub(crate) const NOW: i64 = 1_700_000_000_000;
 
@@ -109,15 +111,25 @@ impl World {
 #[test]
 fn what_is_not_built_is_refused_by_name() {
     let w = World::new();
-    for op in ["PutLogEvents", "FilterLogEvents", "PutMetricFilter"] {
-        assert!(w.h.serves(op), "{op} is built");
-    }
     for op in [
+        "PutLogEvents",
+        "FilterLogEvents",
+        "PutMetricFilter",
         "StartQuery",
         "StartLiveTail",
         "CreateExportTask",
         "PutDestination",
+        "PutTransformer",
+        "CreateScheduledQuery",
+    ] {
+        assert!(w.h.serves(op), "{op} is built");
+    }
+    for op in [
+        "GetLogObject",
+        "GetLogFields",
         "CreateDelivery",
+        "CreateImportTask",
+        "CreateLookupTable",
     ] {
         assert!(!w.h.serves(op), "{op} is refused");
     }
