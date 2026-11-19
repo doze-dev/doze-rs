@@ -97,6 +97,7 @@ pub fn answer_as(
         .map(|a| row(a.key, a.min, a.max))
         .collect();
     if version >= 3 {
+        resp.finalized_features_epoch = finalized_epoch(profile);
         for f in profile.features() {
             // A broker that does not serve share or streams groups says it supports neither (KIP-1022: off).
             let off = (f.name == "share.version" && !features.served.contains(ApiKey::ShareFetch))
@@ -130,7 +131,13 @@ fn feature(f: FeatureLevel, version: i16, resp: &mut ApiVersionsResponse) {
         finalized.max_version_level = f.level;
         resp.finalized_features.push(finalized);
     }
-    resp.finalized_features_epoch = 0;
+}
+
+/// The epoch of the finalized features from v3: a KRaft broker's (Kafka 3 and 4) is the offset of the metadata record that
+/// last changed them, above 0, and as a single node's never change it is 1 here; Kafka 2.8, with no features, says 0
+/// (recorded, `tools/old-profiles-oracle`, `api-versions`).
+fn finalized_epoch(profile: Profile) -> i64 {
+    if profile.features().is_empty() { 0 } else { 1 }
 }
 
 /// The answer to an ApiVersions request that arrives in the middle of a SASL login: ILLEGAL_SASL_STATE and no

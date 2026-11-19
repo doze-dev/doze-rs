@@ -86,10 +86,13 @@ impl<F: Fs> Broker<F> {
         validate_only: bool,
         mutations: &mut Mutations<'_>,
     ) -> Result<bool, Refusal> {
+        // Kafka 1.1 to 3.9 say which topic (`AdminManager.createPartitions`); 4 says nothing.
+        let unknown = (self.config.kafka_major.get() <= 3)
+            .then(|| format!("The topic '{}' does not exist.", t.name.0));
         let topic = TopicName::parse(&t.name.0)
             .ok()
             .and_then(|n| self.meta.topic(&n))
-            .ok_or((E::UnknownTopicOrPartition, None))?;
+            .ok_or((E::UnknownTopicOrPartition, unknown))?;
         let have = topic.partitions.get();
         if t.count == have {
             return Err(refuse(

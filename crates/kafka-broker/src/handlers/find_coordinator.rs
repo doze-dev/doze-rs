@@ -54,6 +54,8 @@ impl<F: Fs> Broker<F> {
         };
         let known = matches!(req.key_type, GROUP | TRANSACTION) || version == 0;
         let share = req.key_type == SHARE && version >= 6;
+        let share_groups_run =
+            kafka_wire::profile::Profile::new(self.config.kafka_major).share_version() > 0;
         if share && !guard.cluster(Operation::ClusterAction) {
             return cluster_refused(req);
         }
@@ -78,8 +80,10 @@ impl<F: Fs> Broker<F> {
                 resp.node_id = BrokerId(self.config.node_id);
                 resp.host = StrBytes::from_string(at.advertised_host.clone());
                 resp.port = at.advertised_port;
+                // (Kafka 1.1 leaves it null.)
                 if (1..=3).contains(&version) {
-                    resp.error_message = Some(StrBytes::from_static_str("NONE"));
+                    resp.error_message = (self.config.kafka_major.get() >= 2)
+                        .then(|| StrBytes::from_static_str("NONE"));
                 }
             } else {
                 resp.error_code = ResponseError::InvalidRequest.code();
@@ -95,6 +99,11 @@ impl<F: Fs> Broker<F> {
             c.error_message = Some(StrBytes::from_static_str(""));
             if let Some(error) = refused(key.as_str()) {
                 c.error_code = error.code();
+                c.node_id = BrokerId(-1);
+                c.port = -1;
+            } else if share && !share_groups_run {
+                // Kafka 3.9 lists v6 with share groups off: no share coordinator, whatever the key.
+                c.error_code = ResponseError::CoordinatorNotAvailable.code();
                 c.node_id = BrokerId(-1);
                 c.port = -1;
             } else if known || (share && share_key(key.as_str())) {

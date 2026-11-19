@@ -107,3 +107,49 @@ fn sized(out: &mut Vec<u8>, field: Option<&[u8]>) {
 
 #[cfg(test)]
 mod tests;
+
+/// A message set of format `magic` holding `messages` (timestamp, key, value), uncompressed, at offsets 0, 1, 2: what a
+/// client of Produce v0 to v2 sends. For tests (feature `test-support`).
+#[cfg(any(test, feature = "test-support"))]
+#[must_use]
+pub fn message_set(magic: Magic, messages: &[(i64, Option<&[u8]>, Option<&[u8]>)]) -> Bytes {
+    let mut out = Vec::new();
+    for (i, (timestamp, key, value)) in messages.iter().enumerate() {
+        message::write(
+            &mut out,
+            &message::Out {
+                magic,
+                offset: i64::try_from(i).unwrap_or(i64::MAX),
+                timestamp: *timestamp,
+                log_append_time: false,
+                codec: 0,
+                key: *key,
+                value: *value,
+            },
+        );
+    }
+    Bytes::from(out)
+}
+
+/// The messages of a message set of format v0 or v1 (offset, timestamp, key, value), a wrapper's inner ones included, as an
+/// old consumer reads them; `None` if it is not one. For tests (feature `test-support`).
+#[cfg(any(test, feature = "test-support"))]
+#[must_use]
+pub fn read_set(set: &Bytes) -> Option<Vec<(Magic, i64, i64, Option<Bytes>, Option<Bytes>)>> {
+    let mut out = Vec::new();
+    for entry in message::entries(set) {
+        let message::Entry::Message(m) = entry.ok()? else {
+            return None;
+        };
+        let c = codec::of(m.codec());
+        if c == super::Compression::None {
+            let (k, v) = m.key_value().ok()?;
+            out.push((m.magic(), m.offset(), m.timestamp(), k, v));
+            continue;
+        }
+        let (_, value) = m.key_value().ok()?;
+        let inner = Bytes::from(codec::inflate(m.magic(), c, &value?, 1 << 26).ok()?);
+        out.extend(read_set(&inner)?);
+    }
+    Some(out)
+}

@@ -127,6 +127,8 @@ public class Probe {
         s = s.replaceAll("clusterId='[^']*'", "clusterId=C");
         s = s.replaceAll("producerId=[0-9]+", "producerId=P");
         s = s.replaceAll("throttleTimeMs=[0-9]+", "throttleTimeMs=_");
+        s = s.replaceAll("'[A-Za-z0-9._-]+-(UUID|[0-9a-f]{32})'", "'M'");
+        s = s.replaceAll("clientHost='/[0-9.]+'", "clientHost=H");
         return s;
     }
 
@@ -246,10 +248,13 @@ public class Probe {
     static String describe(BaseRecords base) {
         if (base == null) return "records=null";
         MemoryRecords recs = (MemoryRecords) base;
-        StringBuilder s = new StringBuilder("bytes=" + recs.sizeInBytes());
+        StringBuilder s = new StringBuilder();
         ByteBuffer raw = recs.buffer().duplicate();
+        // Two brokers compress the same records to different bytes: where a batch is compressed, sizes are not compared.
+        boolean compressed = false;
         try {
             for (RecordBatch b : recs.batches()) {
+                compressed |= b.compressionType() != CompressionType.NONE;
                 s.append(" [m").append(b.magic()).append(" ").append(b.compressionType().name).append(" ")
                     .append(b.baseOffset()).append("-").append(b.lastOffset())
                     .append(" ").append(b.timestampType()).append(" max=").append(ts(b.maxTimestamp()));
@@ -278,15 +283,16 @@ public class Probe {
         if (whole < recs.sizeInBytes()) {
             ByteBuffer tail = raw.duplicate();
             tail.position(whole);
-            s.append(" tail=").append(recs.sizeInBytes() - whole);
-            if (tail.remaining() >= 12) s.append(" tailOffset=").append(tail.getLong(whole)).append(" tailLen=").append(tail.getInt(whole + 8));
+            s.append(" tail=").append(compressed ? "~" : Integer.toString(recs.sizeInBytes() - whole));
+            if (tail.remaining() >= 12) s.append(" tailOffset=").append(tail.getLong(whole)).append(" tailLen=").append(compressed ? "~" : Integer.toString(tail.getInt(whole + 8)));
         }
-        return s.toString();
+        return "bytes=" + (compressed ? "~" : Integer.toString(recs.sizeInBytes())) + s;
     }
 
     /** A time near BASE as its distance from it (B+n), another recent one as T, anything else as it is. */
     static String ts(long t) {
-        if (Math.abs(t - BASE) < 86_400_000L) return "B" + (t >= BASE ? "+" : "") + (t - BASE);
+        // The records' own times are BASE and the first few milliseconds after it, and BASE + 100000 in list-offsets.
+        if (t >= BASE && t < BASE + 1000 || t == BASE + 100_000 || t == BASE + 10_000_000) return "B+" + (t - BASE);
         return t > 1_700_000_000_000L ? "T" : Long.toString(t);
     }
 
@@ -294,7 +300,9 @@ public class Probe {
         if (b == null) return "null";
         byte[] a = new byte[b.remaining()];
         b.duplicate().get(a);
-        return new String(a, StandardCharsets.UTF_8);
+        StringBuilder s = new StringBuilder();
+        for (byte c : a) s.append(c >= 0x20 && c < 0x7f ? (char) c : '.');
+        return s.toString();
     }
 
     // ---- scenarios ----
@@ -591,7 +599,9 @@ public class Probe {
                 var r = (DescribeConfigsResponseData) ask(ApiKeys.DESCRIBE_CONFIGS, v, d);
                 for (var res : r.results()) {
                     StringBuilder s = new StringBuilder("err=" + res.errorCode() + " " + res.resourceName().replace(run, "R"));
-                    for (var c : res.configs()) {
+                    var configs = new ArrayList<>(res.configs());
+                    configs.sort(Comparator.comparing(DescribeConfigsResponseData.DescribeConfigsResourceResult::name));
+                    for (var c : configs) {
                         s.append(" ").append(c.name()).append("=").append(c.value()).append(" ro=").append(c.readOnly());
                         if (v == 0) s.append(" default=").append(c.configSource() == 5 || c.isDefault());
                         else s.append(" src=").append(c.configSource());
@@ -633,7 +643,9 @@ public class Probe {
                 String s = t.name().replace(run, "R") + "=" + t.errorCode() + " internal=" + t.isInternal() + " parts=" + t.partitions().size();
                 if (v >= 8) s += " ops=" + t.topicAuthorizedOperations();
                 if (v >= 10) s += " id=" + (t.topicId().equals(Uuid.ZERO_UUID) ? "NIL" : "ID");
-                for (var p : t.partitions()) s += " [" + p.partitionIndex() + " e=" + p.errorCode() + " l=" + p.leaderId() + " ep=" + p.leaderEpoch() + " r=" + p.replicaNodes() + " isr=" + p.isrNodes() + " off=" + p.offlineReplicas() + "]";
+                var parts = new ArrayList<>(t.partitions());
+                parts.sort(Comparator.comparingInt(MetadataResponseData.MetadataResponsePartition::partitionIndex));
+                for (var p : parts) s += " [" + p.partitionIndex() + " e=" + p.errorCode() + " l=" + p.leaderId() + " ep=" + p.leaderEpoch() + " r=" + p.replicaNodes() + " isr=" + p.isrNodes() + " off=" + p.offlineReplicas() + "]";
                 topics.add(s);
             }
             Collections.sort(topics);
@@ -807,7 +819,11 @@ public class Probe {
         for (short v = 0; v <= max(ApiKeys.DELETE_RECORDS); v++) {
             var d = new DeleteRecordsRequestData().setTimeoutMs(5000);
             d.topics().add(new DeleteRecordsRequestData.DeleteRecordsTopic().setName(tp).setPartitions(List.of(new DeleteRecordsRequestData.DeleteRecordsPartition().setPartitionIndex(0).setOffset(1 + v), new DeleteRecordsRequestData.DeleteRecordsPartition().setPartitionIndex(4).setOffset(1))));
-            say(L, "delete records v" + v + " " + norm(ask(ApiKeys.DELETE_RECORDS, v, d)));
+            var dr = (DeleteRecordsResponseData) ask(ApiKeys.DELETE_RECORDS, v, d);
+            List<String> parts = new ArrayList<>();
+            for (var t : dr.topics()) for (var p : t.partitions()) parts.add(p.partitionIndex() + "=" + p.errorCode() + "@" + p.lowWatermark());
+            Collections.sort(parts);
+            say(L, "delete records v" + v + " " + parts);
         }
         for (short v = 0; v <= max(ApiKeys.CREATE_PARTITIONS); v++) {
             var d = new CreatePartitionsRequestData().setTimeoutMs(5000).setValidateOnly(v % 2 == 1);
@@ -821,7 +837,7 @@ public class Probe {
         }
         for (short v = 0; v <= max(ApiKeys.CREATE_ACLS); v++) {
             var d = new CreateAclsRequestData();
-            d.creations().add(new CreateAclsRequestData.AclCreation().setResourceType((byte) 2).setResourceName(tp).setResourcePatternType((byte) 3).setPrincipal("User:a" + v).setHost("*").setOperation((byte) 3).setPermissionType((byte) 3));
+            d.creations().add(new CreateAclsRequestData.AclCreation().setResourceType((byte) 2).setResourceName(t("acl")).setResourcePatternType((byte) 3).setPrincipal("User:a" + v).setHost("*").setOperation((byte) 3).setPermissionType((byte) 3));
             say(L, "create acls v" + v + " " + norm(ask(ApiKeys.CREATE_ACLS, v, d)));
         }
         if (has(ApiKeys.DESCRIBE_CLUSTER)) {

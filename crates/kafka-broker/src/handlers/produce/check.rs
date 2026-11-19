@@ -3,19 +3,24 @@
 use bytes::Bytes;
 use kafka_meta::Topic;
 use kafka_wire::ResponseError;
+use kafka_wire::batch::legacy::{self, Up, UpRules};
 use kafka_wire::batch::{
     Batch, Compression, HEADER_LEN, ProduceRules, RecordError, RecordsRefused, Refusal, ScanRules,
     Scanned, TimestampType,
 };
 use kafka_wire::ids::{PartitionId, TimestampMs};
+use kafka_wire::profile::KafkaMajor;
 
 use crate::Defaults;
 
 /// The most one batch may inflate to when its records are read: sixty-four times the Java producer's default request
 /// size. Real Kafka has no such bound; a batch past it is refused with Kafka's size error.
 const MAX_INFLATED: u64 = 64 << 20;
-/// How far ahead of the broker's clock a CreateTime record may be (`message.timestamp.after.max.ms`).
-const AFTER_MAX_MS: i64 = 3_600_000;
+/// How far ahead of the broker's clock a CreateTime record may be by default (`message.timestamp.after.max.ms`): an hour
+/// from Kafka 4.0 (KIP-937); before it, no bound (the recorded 2.8 and 3.9 take a record three days ahead).
+fn after_max_ms(kafka: KafkaMajor) -> i64 {
+    if kafka.get() >= 4 { 3_600_000 } else { i64::MAX }
+}
 
 /// Why a batch is not stored, and how it is answered.
 pub(super) struct Refused {
@@ -48,6 +53,13 @@ impl From<RecordsRefused> for Refused {
     }
 }
 
+/// What every partition of a request is checked against: the broker's defaults, and the release it stands for.
+#[derive(Clone, Copy)]
+pub(super) struct At<'a> {
+    pub(super) defaults: &'a Defaults,
+    pub(super) kafka: KafkaMajor,
+}
+
 /// A batch that passed, and whether its topic stamps records with the broker's clock.
 pub(super) struct Accepted {
     pub(super) batch: Batch,
@@ -70,13 +82,14 @@ pub(super) fn code_of(refusal: Refusal) -> ResponseError {
 /// batch's header and size, then every record, then the size it is stored at. On success the batch's newest
 /// timestamp is the records' own, and its records are in the codec the topic stores.
 pub(super) fn check(
-    defaults: &Defaults,
+    at: &At<'_>,
     version: i16,
     topic: &Topic,
     partition: PartitionId,
     records: &Bytes,
     now: TimestampMs,
 ) -> Result<Accepted, Refused> {
+    let At { defaults, kafka } = *at;
     let settings = topic.settings();
     let max_batch = settings
         .max_message_bytes
@@ -101,7 +114,7 @@ pub(super) fn check(
         log_append_time,
         now,
         before_max_ms: settings.timestamp_before_max_ms.unwrap_or(i64::MAX),
-        after_max_ms: settings.timestamp_after_max_ms.unwrap_or(AFTER_MAX_MS),
+        after_max_ms: settings.timestamp_after_max_ms.unwrap_or(after_max_ms(kafka)),
         max_inflated: MAX_INFLATED,
         renumbering: target != produced,
     };
@@ -126,6 +139,79 @@ pub(super) fn check(
         log_append_time,
     })
 }
+
+/// The batch a Produce v0 to v2 message set becomes (`batch::legacy::up`), held to the topic's rules as a v3 batch is, or
+/// `None` for a set with no whole message, which appends nothing and is answered with no offset. `kafka` is the release the
+/// broker stands for: Kafka 1.1 holds the set to no shape, and knows no zstd.
+pub(super) fn check_old(
+    at: &At<'_>,
+    topic: &Topic,
+    partition: PartitionId,
+    records: &Bytes,
+    now: TimestampMs,
+) -> Result<Option<Accepted>, Refused> {
+    let At { defaults, kafka } = *at;
+    let settings = topic.settings();
+    let max = u64::try_from(
+        settings
+            .max_message_bytes
+            .unwrap_or(defaults.message_max_bytes),
+    )
+    .unwrap_or(0);
+    let rules = UpRules {
+        strict: kafka.get() >= 2,
+        knows_zstd: kafka.get() >= 2,
+        max_message_bytes: max,
+        max_inflated: MAX_INFLATED,
+    };
+    let refused = |e: legacy::UpError| {
+        tracing::debug!(topic = %topic.name, partition = %partition, why = %e, "an old message set was refused");
+        Refused {
+            code: code_of(e.refusal),
+            before_log: true,
+            message: None,
+            records: Vec::new(),
+        }
+    };
+    let (batch, source) = match legacy::up(records, &rules).map_err(refused)? {
+        Up::Empty => return Ok(None),
+        // One v2 batch is taken as from v3, except that zstd's floor (v7) is not asked: Kafka holds only v3 and later
+        // requests to it (`ProduceRequest.validateRecords`).
+        Up::Batch(batch) => return check(at, ZSTD_FROM, topic, partition, &batch, now).map(Some),
+        Up::Converted { batch, source } => (batch, source),
+    };
+    let log_append_time = settings.timestamp_type == TimestampType::LogAppend;
+    let scan = ScanRules {
+        require_keys: settings.cleanup.compact,
+        log_append_time,
+        now,
+        before_max_ms: settings.timestamp_before_max_ms.unwrap_or(i64::MAX),
+        after_max_ms: settings.timestamp_after_max_ms.unwrap_or(after_max_ms(kafka)),
+        max_inflated: MAX_INFLATED,
+        renumbering: false,
+    };
+    let scanned = batch
+        .scan(&scan, &format_args!("{}-{partition}", topic.name))
+        .map_err(Refused::from)?;
+    // Written in the topic's codec, or the producer's under `producer`, and held to the size as stored (Kafka checks the
+    // batch it built, `LogValidator`'s `messageSizeMaybeChanged`).
+    let target = settings.compression.unwrap_or(source);
+    let batch = if target == Compression::None {
+        if batch.len() as u64 > max {
+            return Err(Refused::too_large());
+        }
+        batch
+    } else {
+        written_again(&batch, target, &scanned, max)?
+    };
+    Ok(Some(Accepted {
+        batch,
+        log_append_time,
+    }))
+}
+
+/// The first Produce version that may carry zstd.
+const ZSTD_FROM: i16 = 7;
 
 /// The batch in the codec the topic stores, held to the size limit as it is stored there: a batch can be within
 /// the limit as it arrived and over it as the topic keeps it.

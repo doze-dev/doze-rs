@@ -1,0 +1,990 @@
+{
+  "scenario": "old-offsets",
+  "kafka": "apache/kafka:3.9.1",
+  "steps": [
+    {
+      "label": "create",
+      "api": "CreateTopics",
+      "version": 4,
+      "request": {
+        "TimeoutMillis": 15000,
+        "Topics": [
+          {
+            "Configs": null,
+            "NumPartitions": 2,
+            "ReplicaAssignment": null,
+            "ReplicationFactor": 1,
+            "Topic": "oo"
+          }
+        ],
+        "ValidateOnly": false
+      },
+      "response": {
+        "ThrottleMillis": 0,
+        "Topics": [
+          {
+            "ConfigErrorCode": 0,
+            "Configs": null,
+            "ErrorCode": 0,
+            "ErrorMessage": null,
+            "NumPartitions": -1,
+            "ReplicationFactor": -1,
+            "Topic": "oo",
+            "TopicID": "\u003czero-id\u003e"
+          }
+        ]
+      }
+    },
+    {
+      "label": "batch-0",
+      "api": "Produce",
+      "version": 3,
+      "request": {
+        "Acks": -1,
+        "TimeoutMillis": 5000,
+        "Topics": [
+          {
+            "Partitions": [
+              {
+                "Partition": 0,
+                "Records": "AAAAAAAAAAAAAABF/////wL7qdwhAAAAAAABAAABoe5WXgAAAAGh7lZeAP//////////////////AAAAAhIAAAAEazACdgASAAACBGsxAnYA"
+              }
+            ],
+            "Topic": "oo",
+            "TopicID": "\u003czero-id\u003e"
+          }
+        ],
+        "TransactionID": null
+      },
+      "response": {
+        "Brokers": null,
+        "ThrottleMillis": 0,
+        "Topics": [
+          {
+            "Partitions": [
+              {
+                "BaseOffset": 0,
+                "CurrentLeader": {
+                  "LeaderEpoch": -1,
+                  "LeaderID": -1
+                },
+                "ErrorCode": 0,
+                "ErrorMessage": null,
+                "ErrorRecords": null,
+                "LogAppendTime": -1,
+                "LogStartOffset": -1,
+                "Partition": 0
+              }
+            ],
+            "Topic": "oo",
+            "TopicID": "\u003czero-id\u003e"
+          }
+        ]
+      }
+    },
+    {
+      "label": "batch-1",
+      "api": "Produce",
+      "version": 3,
+      "request": {
+        "Acks": -1,
+        "TimeoutMillis": 5000,
+        "Topics": [
+          {
+            "Partitions": [
+              {
+                "Partition": 0,
+                "Records": "AAAAAAAAAAAAAABF/////wL7qdwhAAAAAAABAAABoe5WXgAAAAGh7lZeAP//////////////////AAAAAhIAAAAEazACdgASAAACBGsxAnYA"
+              }
+            ],
+            "Topic": "oo",
+            "TopicID": "\u003czero-id\u003e"
+          }
+        ],
+        "TransactionID": null
+      },
+      "response": {
+        "Brokers": null,
+        "ThrottleMillis": 0,
+        "Topics": [
+          {
+            "Partitions": [
+              {
+                "BaseOffset": 2,
+                "CurrentLeader": {
+                  "LeaderEpoch": -1,
+                  "LeaderID": -1
+                },
+                "ErrorCode": 0,
+                "ErrorMessage": null,
+                "ErrorRecords": null,
+                "LogAppendTime": -1,
+                "LogStartOffset": -1,
+                "Partition": 0
+              }
+            ],
+            "Topic": "oo",
+            "TopicID": "\u003czero-id\u003e"
+          }
+        ]
+      }
+    },
+    {
+      "label": "list-offsets-v0--1-1",
+      "api": "ListOffsets",
+      "version": 0,
+      "request": {
+        "IsolationLevel": 0,
+        "ReplicaID": -1,
+        "TimeoutMillis": 30000,
+        "Topics": [
+          {
+            "Partitions": [
+              {
+                "CurrentLeaderEpoch": -1,
+                "MaxNumOffsets": 1,
+                "Partition": 0,
+                "Timestamp": -1
+              }
+            ],
+            "Topic": "oo"
+          }
+        ]
+      },
+      "response": {
+        "ThrottleMillis": 0,
+        "Topics": [
+          {
+            "Partitions": [
+              {
+                "ErrorCode": 0,
+                "LeaderEpoch": -1,
+                "Offset": -1,
+                "OldStyleOffsets": [
+                  4
+                ],
+                "Partition": 0,
+                "Timestamp": -1
+              }
+            ],
+            "Topic": "oo"
+          }
+        ]
+      }
+    },
+    {
+      "label": "list-offsets-v0--1-2",
+      "api": "ListOffsets",
+      "version": 0,
+      "request": {
+        "IsolationLevel": 0,
+        "ReplicaID": -1,
+        "TimeoutMillis": 30000,
+        "Topics": [
+          {
+            "Partitions": [
+              {
+                "CurrentLeaderEpoch": -1,
+                "MaxNumOffsets": 2,
+                "Partition": 0,
+                "Timestamp": -1
+              }
+            ],
+            "Topic": "oo"
+          }
+        ]
+      },
+      "response": {
+        "ThrottleMillis": 0,
+        "Topics": [
+          {
+            "Partitions": [
+              {
+                "ErrorCode": 0,
+                "LeaderEpoch": -1,
+                "Offset": -1,
+                "OldStyleOffsets": [
+                  4,
+                  0
+                ],
+                "Partition": 0,
+                "Timestamp": -1
+              }
+            ],
+            "Topic": "oo"
+          }
+        ]
+      }
+    },
+    {
+      "label": "list-offsets-v0--1-10",
+      "api": "ListOffsets",
+      "version": 0,
+      "request": {
+        "IsolationLevel": 0,
+        "ReplicaID": -1,
+        "TimeoutMillis": 30000,
+        "Topics": [
+          {
+            "Partitions": [
+              {
+                "CurrentLeaderEpoch": -1,
+                "MaxNumOffsets": 10,
+                "Partition": 0,
+                "Timestamp": -1
+              }
+            ],
+            "Topic": "oo"
+          }
+        ]
+      },
+      "response": {
+        "ThrottleMillis": 0,
+        "Topics": [
+          {
+            "Partitions": [
+              {
+                "ErrorCode": 0,
+                "LeaderEpoch": -1,
+                "Offset": -1,
+                "OldStyleOffsets": [
+                  4,
+                  0
+                ],
+                "Partition": 0,
+                "Timestamp": -1
+              }
+            ],
+            "Topic": "oo"
+          }
+        ]
+      }
+    },
+    {
+      "label": "list-offsets-v0--2-1",
+      "api": "ListOffsets",
+      "version": 0,
+      "request": {
+        "IsolationLevel": 0,
+        "ReplicaID": -1,
+        "TimeoutMillis": 30000,
+        "Topics": [
+          {
+            "Partitions": [
+              {
+                "CurrentLeaderEpoch": -1,
+                "MaxNumOffsets": 1,
+                "Partition": 0,
+                "Timestamp": -2
+              }
+            ],
+            "Topic": "oo"
+          }
+        ]
+      },
+      "response": {
+        "ThrottleMillis": 0,
+        "Topics": [
+          {
+            "Partitions": [
+              {
+                "ErrorCode": 0,
+                "LeaderEpoch": -1,
+                "Offset": -1,
+                "OldStyleOffsets": [
+                  0
+                ],
+                "Partition": 0,
+                "Timestamp": -1
+              }
+            ],
+            "Topic": "oo"
+          }
+        ]
+      }
+    },
+    {
+      "label": "list-offsets-v0--2-2",
+      "api": "ListOffsets",
+      "version": 0,
+      "request": {
+        "IsolationLevel": 0,
+        "ReplicaID": -1,
+        "TimeoutMillis": 30000,
+        "Topics": [
+          {
+            "Partitions": [
+              {
+                "CurrentLeaderEpoch": -1,
+                "MaxNumOffsets": 2,
+                "Partition": 0,
+                "Timestamp": -2
+              }
+            ],
+            "Topic": "oo"
+          }
+        ]
+      },
+      "response": {
+        "ThrottleMillis": 0,
+        "Topics": [
+          {
+            "Partitions": [
+              {
+                "ErrorCode": 0,
+                "LeaderEpoch": -1,
+                "Offset": -1,
+                "OldStyleOffsets": [
+                  0
+                ],
+                "Partition": 0,
+                "Timestamp": -1
+              }
+            ],
+            "Topic": "oo"
+          }
+        ]
+      }
+    },
+    {
+      "label": "list-offsets-v0--2-10",
+      "api": "ListOffsets",
+      "version": 0,
+      "request": {
+        "IsolationLevel": 0,
+        "ReplicaID": -1,
+        "TimeoutMillis": 30000,
+        "Topics": [
+          {
+            "Partitions": [
+              {
+                "CurrentLeaderEpoch": -1,
+                "MaxNumOffsets": 10,
+                "Partition": 0,
+                "Timestamp": -2
+              }
+            ],
+            "Topic": "oo"
+          }
+        ]
+      },
+      "response": {
+        "ThrottleMillis": 0,
+        "Topics": [
+          {
+            "Partitions": [
+              {
+                "ErrorCode": 0,
+                "LeaderEpoch": -1,
+                "Offset": -1,
+                "OldStyleOffsets": [
+                  0
+                ],
+                "Partition": 0,
+                "Timestamp": -1
+              }
+            ],
+            "Topic": "oo"
+          }
+        ]
+      }
+    },
+    {
+      "label": "list-offsets-v0-0-1",
+      "api": "ListOffsets",
+      "version": 0,
+      "request": {
+        "IsolationLevel": 0,
+        "ReplicaID": -1,
+        "TimeoutMillis": 30000,
+        "Topics": [
+          {
+            "Partitions": [
+              {
+                "CurrentLeaderEpoch": -1,
+                "MaxNumOffsets": 1,
+                "Partition": 0,
+                "Timestamp": 0
+              }
+            ],
+            "Topic": "oo"
+          }
+        ]
+      },
+      "response": {
+        "ThrottleMillis": 0,
+        "Topics": [
+          {
+            "Partitions": [
+              {
+                "ErrorCode": 0,
+                "LeaderEpoch": -1,
+                "Offset": -1,
+                "OldStyleOffsets": null,
+                "Partition": 0,
+                "Timestamp": -1
+              }
+            ],
+            "Topic": "oo"
+          }
+        ]
+      }
+    },
+    {
+      "label": "list-offsets-v0-0-2",
+      "api": "ListOffsets",
+      "version": 0,
+      "request": {
+        "IsolationLevel": 0,
+        "ReplicaID": -1,
+        "TimeoutMillis": 30000,
+        "Topics": [
+          {
+            "Partitions": [
+              {
+                "CurrentLeaderEpoch": -1,
+                "MaxNumOffsets": 2,
+                "Partition": 0,
+                "Timestamp": 0
+              }
+            ],
+            "Topic": "oo"
+          }
+        ]
+      },
+      "response": {
+        "ThrottleMillis": 0,
+        "Topics": [
+          {
+            "Partitions": [
+              {
+                "ErrorCode": 0,
+                "LeaderEpoch": -1,
+                "Offset": -1,
+                "OldStyleOffsets": null,
+                "Partition": 0,
+                "Timestamp": -1
+              }
+            ],
+            "Topic": "oo"
+          }
+        ]
+      }
+    },
+    {
+      "label": "list-offsets-v0-0-10",
+      "api": "ListOffsets",
+      "version": 0,
+      "request": {
+        "IsolationLevel": 0,
+        "ReplicaID": -1,
+        "TimeoutMillis": 30000,
+        "Topics": [
+          {
+            "Partitions": [
+              {
+                "CurrentLeaderEpoch": -1,
+                "MaxNumOffsets": 10,
+                "Partition": 0,
+                "Timestamp": 0
+              }
+            ],
+            "Topic": "oo"
+          }
+        ]
+      },
+      "response": {
+        "ThrottleMillis": 0,
+        "Topics": [
+          {
+            "Partitions": [
+              {
+                "ErrorCode": 0,
+                "LeaderEpoch": -1,
+                "Offset": -1,
+                "OldStyleOffsets": null,
+                "Partition": 0,
+                "Timestamp": -1
+              }
+            ],
+            "Topic": "oo"
+          }
+        ]
+      }
+    },
+    {
+      "label": "find-coordinator",
+      "api": "FindCoordinator",
+      "version": 1,
+      "request": {
+        "CoordinatorKey": "og",
+        "CoordinatorKeys": null,
+        "CoordinatorType": 0
+      },
+      "response": {
+        "Coordinators": null,
+        "ErrorCode": 0,
+        "ErrorMessage": "NONE",
+        "Host": "\u003chost\u003e",
+        "NodeID": "\u003cnode\u003e",
+        "Port": "\u003cport\u003e",
+        "ThrottleMillis": 0
+      }
+    },
+    {
+      "label": "group-ready",
+      "api": "OffsetFetch",
+      "version": 2,
+      "request": {
+        "Group": "og",
+        "Groups": null,
+        "RequireStable": false,
+        "Topics": null
+      },
+      "response": {
+        "ErrorCode": 0,
+        "Groups": null,
+        "ThrottleMillis": 0,
+        "Topics": null
+      }
+    },
+    {
+      "label": "commit-v0",
+      "api": "OffsetCommit",
+      "version": 0,
+      "request": {
+        "Generation": -1,
+        "Group": "og",
+        "InstanceID": null,
+        "MemberID": "",
+        "RetentionTimeMillis": -1,
+        "Topics": [
+          {
+            "Partitions": [
+              {
+                "LeaderEpoch": -1,
+                "Metadata": "m0",
+                "Offset": 10,
+                "Partition": 0,
+                "Timestamp": 1795000000000
+              }
+            ],
+            "Topic": "oo",
+            "TopicID": "\u003czero-id\u003e"
+          }
+        ]
+      },
+      "response": {
+        "ThrottleMillis": 0,
+        "Topics": [
+          {
+            "Partitions": [
+              {
+                "ErrorCode": 35,
+                "Partition": 0
+              }
+            ],
+            "Topic": "oo",
+            "TopicID": "\u003czero-id\u003e"
+          }
+        ]
+      }
+    },
+    {
+      "label": "commit-v0-unknown-topic",
+      "api": "OffsetCommit",
+      "version": 0,
+      "request": {
+        "Generation": -1,
+        "Group": "og",
+        "InstanceID": null,
+        "MemberID": "",
+        "RetentionTimeMillis": -1,
+        "Topics": [
+          {
+            "Partitions": [
+              {
+                "LeaderEpoch": -1,
+                "Metadata": "m0",
+                "Offset": 10,
+                "Partition": 0,
+                "Timestamp": 1795000000000
+              }
+            ],
+            "Topic": "nothing",
+            "TopicID": "\u003czero-id\u003e"
+          }
+        ]
+      },
+      "response": {
+        "ThrottleMillis": 0,
+        "Topics": [
+          {
+            "Partitions": [
+              {
+                "ErrorCode": 3,
+                "Partition": 0
+              }
+            ],
+            "Topic": "nothing",
+            "TopicID": "\u003czero-id\u003e"
+          }
+        ]
+      }
+    },
+    {
+      "label": "after-v0-fetch-v0",
+      "api": "OffsetFetch",
+      "version": 0,
+      "request": {
+        "Group": "og",
+        "Groups": null,
+        "RequireStable": false,
+        "Topics": [
+          {
+            "Partitions": [
+              0,
+              1
+            ],
+            "Topic": "oo"
+          }
+        ]
+      },
+      "response": {
+        "ErrorCode": 0,
+        "Groups": null,
+        "ThrottleMillis": 0,
+        "Topics": [
+          {
+            "Partitions": [
+              {
+                "ErrorCode": 35,
+                "LeaderEpoch": -1,
+                "Metadata": "",
+                "Offset": -1,
+                "Partition": 1
+              },
+              {
+                "ErrorCode": 35,
+                "LeaderEpoch": -1,
+                "Metadata": "",
+                "Offset": -1,
+                "Partition": 0
+              }
+            ],
+            "Topic": "oo"
+          }
+        ]
+      }
+    },
+    {
+      "label": "after-v0-fetch-v1",
+      "api": "OffsetFetch",
+      "version": 1,
+      "request": {
+        "Group": "og",
+        "Groups": null,
+        "RequireStable": false,
+        "Topics": [
+          {
+            "Partitions": [
+              0,
+              1
+            ],
+            "Topic": "oo"
+          }
+        ]
+      },
+      "response": {
+        "ErrorCode": 0,
+        "Groups": null,
+        "ThrottleMillis": 0,
+        "Topics": [
+          {
+            "Partitions": [
+              {
+                "ErrorCode": 0,
+                "LeaderEpoch": -1,
+                "Metadata": "",
+                "Offset": -1,
+                "Partition": 0
+              },
+              {
+                "ErrorCode": 0,
+                "LeaderEpoch": -1,
+                "Metadata": "",
+                "Offset": -1,
+                "Partition": 1
+              }
+            ],
+            "Topic": "oo"
+          }
+        ]
+      }
+    },
+    {
+      "label": "after-v0-fetch-v2",
+      "api": "OffsetFetch",
+      "version": 2,
+      "request": {
+        "Group": "og",
+        "Groups": null,
+        "RequireStable": false,
+        "Topics": [
+          {
+            "Partitions": [
+              0,
+              1
+            ],
+            "Topic": "oo"
+          }
+        ]
+      },
+      "response": {
+        "ErrorCode": 0,
+        "Groups": null,
+        "ThrottleMillis": 0,
+        "Topics": [
+          {
+            "Partitions": [
+              {
+                "ErrorCode": 0,
+                "LeaderEpoch": -1,
+                "Metadata": "",
+                "Offset": -1,
+                "Partition": 0
+              },
+              {
+                "ErrorCode": 0,
+                "LeaderEpoch": -1,
+                "Metadata": "",
+                "Offset": -1,
+                "Partition": 1
+              }
+            ],
+            "Topic": "oo"
+          }
+        ]
+      }
+    },
+    {
+      "label": "commit-v1",
+      "api": "OffsetCommit",
+      "version": 1,
+      "request": {
+        "Generation": -1,
+        "Group": "og",
+        "InstanceID": null,
+        "MemberID": "",
+        "RetentionTimeMillis": -1,
+        "Topics": [
+          {
+            "Partitions": [
+              {
+                "LeaderEpoch": -1,
+                "Metadata": "m1",
+                "Offset": 11,
+                "Partition": 1,
+                "Timestamp": 1795000000000
+              }
+            ],
+            "Topic": "oo",
+            "TopicID": "\u003czero-id\u003e"
+          }
+        ]
+      },
+      "response": {
+        "ThrottleMillis": 0,
+        "Topics": [
+          {
+            "Partitions": [
+              {
+                "ErrorCode": 0,
+                "Partition": 1
+              }
+            ],
+            "Topic": "oo",
+            "TopicID": "\u003czero-id\u003e"
+          }
+        ]
+      }
+    },
+    {
+      "label": "commit-v1-unknown-topic",
+      "api": "OffsetCommit",
+      "version": 1,
+      "request": {
+        "Generation": -1,
+        "Group": "og",
+        "InstanceID": null,
+        "MemberID": "",
+        "RetentionTimeMillis": -1,
+        "Topics": [
+          {
+            "Partitions": [
+              {
+                "LeaderEpoch": -1,
+                "Metadata": "m1",
+                "Offset": 11,
+                "Partition": 1,
+                "Timestamp": 1795000000000
+              }
+            ],
+            "Topic": "nothing",
+            "TopicID": "\u003czero-id\u003e"
+          }
+        ]
+      },
+      "response": {
+        "ThrottleMillis": 0,
+        "Topics": [
+          {
+            "Partitions": [
+              {
+                "ErrorCode": 3,
+                "Partition": 1
+              }
+            ],
+            "Topic": "nothing",
+            "TopicID": "\u003czero-id\u003e"
+          }
+        ]
+      }
+    },
+    {
+      "label": "after-v1-fetch-v0",
+      "api": "OffsetFetch",
+      "version": 0,
+      "request": {
+        "Group": "og",
+        "Groups": null,
+        "RequireStable": false,
+        "Topics": [
+          {
+            "Partitions": [
+              0,
+              1
+            ],
+            "Topic": "oo"
+          }
+        ]
+      },
+      "response": {
+        "ErrorCode": 0,
+        "Groups": null,
+        "ThrottleMillis": 0,
+        "Topics": [
+          {
+            "Partitions": [
+              {
+                "ErrorCode": 35,
+                "LeaderEpoch": -1,
+                "Metadata": "",
+                "Offset": -1,
+                "Partition": 1
+              },
+              {
+                "ErrorCode": 35,
+                "LeaderEpoch": -1,
+                "Metadata": "",
+                "Offset": -1,
+                "Partition": 0
+              }
+            ],
+            "Topic": "oo"
+          }
+        ]
+      }
+    },
+    {
+      "label": "after-v1-fetch-v1",
+      "api": "OffsetFetch",
+      "version": 1,
+      "request": {
+        "Group": "og",
+        "Groups": null,
+        "RequireStable": false,
+        "Topics": [
+          {
+            "Partitions": [
+              0,
+              1
+            ],
+            "Topic": "oo"
+          }
+        ]
+      },
+      "response": {
+        "ErrorCode": 0,
+        "Groups": null,
+        "ThrottleMillis": 0,
+        "Topics": [
+          {
+            "Partitions": [
+              {
+                "ErrorCode": 0,
+                "LeaderEpoch": -1,
+                "Metadata": "",
+                "Offset": -1,
+                "Partition": 0
+              },
+              {
+                "ErrorCode": 0,
+                "LeaderEpoch": -1,
+                "Metadata": "m1",
+                "Offset": 11,
+                "Partition": 1
+              }
+            ],
+            "Topic": "oo"
+          }
+        ]
+      }
+    },
+    {
+      "label": "after-v1-fetch-v2",
+      "api": "OffsetFetch",
+      "version": 2,
+      "request": {
+        "Group": "og",
+        "Groups": null,
+        "RequireStable": false,
+        "Topics": [
+          {
+            "Partitions": [
+              0,
+              1
+            ],
+            "Topic": "oo"
+          }
+        ]
+      },
+      "response": {
+        "ErrorCode": 0,
+        "Groups": null,
+        "ThrottleMillis": 0,
+        "Topics": [
+          {
+            "Partitions": [
+              {
+                "ErrorCode": 0,
+                "LeaderEpoch": -1,
+                "Metadata": "",
+                "Offset": -1,
+                "Partition": 0
+              },
+              {
+                "ErrorCode": 0,
+                "LeaderEpoch": -1,
+                "Metadata": "m1",
+                "Offset": 11,
+                "Partition": 1
+              }
+            ],
+            "Topic": "oo"
+          }
+        ]
+      }
+    }
+  ]
+}
