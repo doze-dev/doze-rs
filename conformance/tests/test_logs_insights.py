@@ -198,7 +198,7 @@ def test_destinations(client, names, cleanup, snapshot, service_role):
     snapshot.error("delete-absent", lambda: logs.delete_destination(destinationName=names("absent")))
 
 
-def test_transformers(client, names, cleanup, snapshot):
+def test_transformers(client, names, cleanup, snapshot, eventually):
     logs = client("logs")
     name = group(logs, names, cleanup)
     config = [{"parseJSON": {}}, {"addKeys": {"entries": [{"key": "env", "value": "dev"}]}},
@@ -243,6 +243,15 @@ def test_transformers(client, names, cleanup, snapshot):
         transformerConfig=[{"addKeys": {"entries": [{"key": "a", "value": "b"}]}}, {"parseVPC": {}}],
         logEventMessages=["x"]))
     snapshot.match("delete", logs.delete_transformer(logGroupIdentifier=name))
+
+    def gone():
+        # AWS (recorded 2026-11-19): GetTransformer can still answer the transformer just after it is deleted.
+        try:
+            logs.get_transformer(logGroupIdentifier=name)
+        except logs.exceptions.ClientError:
+            return
+        raise AssertionError("still there")
+    eventually(gone, timeout=60, every=2)
     snapshot.error("get-deleted", lambda: logs.get_transformer(logGroupIdentifier=name))
 
 

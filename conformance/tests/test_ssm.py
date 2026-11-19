@@ -428,7 +428,12 @@ CHANGE_TEMPLATE = json.dumps({"schemaVersion": "0.3", "emergencyChange": False, 
      "inputs": {"Approvers": ["doze-rec-approver"], "MinRequiredApprovals": 1}}]})
 
 
-def test_change_template_review_history(client, names, cleanup, snapshot):
+def test_change_template_review_history(client, names, cleanup, snapshot, target):
+    if target.name == "aws":
+        # Recorded 2026-11-19: CreateDocument of an Automation.ChangeTemplate is NoLongerSupportedException, "Change Manager has
+        # been closed to new customers", in an account that never used it. doze-aws keeps change templates (an account that
+        # already uses Change Manager still has them); listed in docs/aws/compatibility-notes.toml.
+        pytest.skip("AWS closed Change Manager to new customers; the recorder account cannot make a change template")
     ssm = client("ssm")
     name = names("change")
     ssm.create_document(Name=name, Content=CHANGE_TEMPLATE, DocumentType="Automation.ChangeTemplate")
