@@ -57,7 +57,7 @@ pub(super) fn head(
         ))
         .child(up(
             t,
-            (h.running, busy, shown),
+            (h.running, busy),
             (&h.key, v.menu),
             h.stopped.as_ref().is_some_and(|s| !s.problem.is_empty()),
             cx,
@@ -124,19 +124,17 @@ fn views(t: &Tokens, v: &OverviewView, cx: &mut Context<OverviewView>) -> impl I
 
 /// `.swl`: Up and the stack's switch; ⋯. (Sleep all is over the services' own switches: `tiles::sleep_all`.)
 /// While the stack is busy the switch, faded, shows where it is going at once; once the action has lasted a moment
-/// the label says what it is doing ("starting…"), so a quick one changes nothing but the switch.
+/// the head's status line says what it is doing ("Starting…"); the label stays Up.
 fn up(
     t: &Tokens,
-    (running, busy, shown): (
-        bool,
-        Option<doze_desk::act::Busy>,
-        Option<doze_desk::act::Busy>,
-    ),
+    (running, busy): (bool, Option<doze_desk::act::Busy>),
     (key, menu): (&str, bool),
     broken: bool,
     cx: &mut Context<OverviewView>,
 ) -> impl IntoElement {
-    let label = shown.map_or_else(|| "Up".to_owned(), |b| format!("{}…", b.word()));
+    // The status line says what an action is doing ("Starting…", with its spinner); here the switch's own movement is
+    // enough, so the label stays Up and nothing beside it changes width.
+    let label = "Up";
     div()
         .flex()
         .flex_none()
@@ -146,7 +144,7 @@ fn up(
             div()
                 .text_size(px(ty::SM))
                 .font_weight(ty::SEMIBOLD)
-                .text_color(if shown.is_some() { t.cool } else { t.bright })
+                .text_color(t.bright)
                 .child(label),
         )
         .child(
