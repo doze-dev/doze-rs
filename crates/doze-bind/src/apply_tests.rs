@@ -37,7 +37,7 @@ fn free_port() -> u16 {
 #[test]
 fn a_stack_is_claimed_listened_routed_and_given_back() {
     let reg = Registry::open(&home(), "doze").with_net(TRANSLATED_LOOPBACK);
-    let p = plan("shop", &[kafka(), aws("aws")], true).unwrap();
+    let p = plan("shop", &[kafka(), aws("aws")], Addressing::Own).unwrap();
     let bound = bind(&p, &reg, &sock).unwrap();
 
     let a = &bound.instances["aws"];
@@ -115,7 +115,7 @@ fn without_names_each_listener_is_on_loopback() {
             decl("db", Some(a), 0, vec![]),
             decl("cache", Some(b), 0, vec![]),
         ],
-        false,
+        Addressing::Off,
     )
     .unwrap();
     let reg = Registry::open(&home(), "doze");
@@ -132,7 +132,7 @@ fn without_names_each_listener_is_on_loopback() {
 fn a_port_already_taken_says_which_instance() {
     let taken = TcpListener::bind("127.0.0.1:0").unwrap();
     let port = taken.local_addr().unwrap().port();
-    let p = plan("shop", &[decl("db", Some(port), 0, vec![])], false).unwrap();
+    let p = plan("shop", &[decl("db", Some(port), 0, vec![])], Addressing::Off).unwrap();
     let e = bind(&p, &Registry::open(&home(), "doze"), &sock).unwrap_err();
     assert!(e.to_string().starts_with("db: "), "{e}");
 }
@@ -151,4 +151,35 @@ fn a_name_held_elsewhere_names_the_holder_and_the_fix() {
         e.to_string(),
         "db: db.shop.doze is already in use on this machine by doze (pid 42): stop it, or rename this stack or service"
     );
+}
+
+#[test]
+fn shared_addressing_claims_the_names_on_loopback_and_routes_them() {
+    let reg = Registry::open(&home(), "doze");
+    let (port, other) = (free_port(), free_port());
+    let mut a = aws("aws");
+    a.port = Some(port);
+    let p = plan(
+        "shop",
+        &[a, decl("db", Some(other), 0, vec![])],
+        Addressing::Shared,
+    )
+    .unwrap();
+    let bound = bind(&p, &reg, &sock).unwrap();
+    let aws = &bound.instances["aws"];
+    let main = &aws.listeners["main"];
+    assert_eq!(main.granted.addr, format!("aws.shop.doze:{port}"));
+    assert_eq!(
+        main.socket.local_addr().unwrap().to_string(),
+        format!("127.0.0.1:{port}")
+    );
+    assert_eq!(reg.resolve("aws.shop.doze"), Some(crate::LOOPBACK));
+    assert_eq!(reg.resolve("db.shop.doze"), Some(crate::LOOPBACK));
+    assert_eq!(
+        reg.front_target("sync-aws.shop.doze"),
+        Some(format!("127.0.0.1:{port}"))
+    );
+    assert!(aws.lease.is_some(), "the lease is there for domains");
+    drop(bound);
+    assert!(reg.resolve("aws.shop.doze").is_none(), "released with the bound");
 }

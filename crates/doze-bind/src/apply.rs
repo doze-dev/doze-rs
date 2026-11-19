@@ -1,6 +1,6 @@
 //! The half that touches the machine: claim, listen, route, and the grant.
 
-use crate::plan::{InstancePlan, ListenerPlan, Plan};
+use crate::plan::{Addressing, InstancePlan, ListenerPlan, Plan};
 use doze_module_proto::msg::instance::{Address, Granted};
 use doze_names::{Forwarding, Lease, Name, Registry, Tier};
 use std::collections::BTreeMap;
@@ -43,6 +43,9 @@ pub struct BoundInstance {
     /// Empty when names are off.
     pub host: String,
     pub listeners: BTreeMap<String, BoundListener>,
+    /// The claim on its name (none when names are off): what more names for the same listeners (an app's own
+    /// domains) are twinned onto. Released with the [`Bound`] it is in.
+    pub lease: Option<Lease>,
 }
 
 impl BoundInstance {
@@ -87,9 +90,15 @@ pub fn bind(
             instance: i.name.clone(),
             source,
         };
-        let inst = match &i.host {
-            Some(host) => bind_named(i, host, reg, backend, &mut bound.leases).map_err(fail)?,
-            None => bind_loopback(i, backend).map_err(fail)?,
+        let inst = match (&i.host, plan.addressing) {
+            (Some(host), Addressing::Own) => {
+                bind_named(i, host, reg, None, backend, &mut bound.leases).map_err(fail)?
+            }
+            (Some(host), Addressing::Shared) => {
+                let at = Some(crate::LOOPBACK);
+                bind_named(i, host, reg, at, backend, &mut bound.leases).map_err(fail)?
+            }
+            _ => bind_loopback(i, backend).map_err(fail)?,
         };
         bound.instances.insert(i.name.clone(), inst);
     }
@@ -121,13 +130,19 @@ fn bind_loopback(
         listeners.insert(l.name.clone(), bl);
     }
     let host = String::new();
-    Ok(BoundInstance { host, listeners })
+    Ok(BoundInstance {
+        host,
+        listeners,
+        lease: None,
+    })
 }
 
+/// Claims `host` (at `at`, or at an address of its own) and listens on it.
 fn bind_named(
     i: &InstancePlan,
     host: &str,
     reg: &Registry,
+    at: Option<std::net::Ipv4Addr>,
     backend: &dyn Fn(&str, &ListenerPlan) -> Address,
     leases: &mut Vec<Lease>,
 ) -> Result<BoundInstance, doze_names::Error> {
@@ -135,7 +150,10 @@ fn bind_named(
         host: host.to_string(),
         tier: Tier::Qualified,
     };
-    let lease = reg.claim(&qualified(host))?;
+    let lease = match at {
+        Some(ip) => reg.claim_at(&qualified(host), ip)?,
+        None => reg.claim(&qualified(host))?,
+    };
     leases.push(lease.clone());
     let mut listeners = BTreeMap::new();
     for l in &i.listeners {
@@ -161,7 +179,11 @@ fn bind_named(
         listeners.insert(l.name.clone(), bl);
     }
     let host = host.to_string();
-    Ok(BoundInstance { host, listeners })
+    Ok(BoundInstance {
+        host,
+        listeners,
+        lease: Some(lease),
+    })
 }
 
 #[cfg(test)]

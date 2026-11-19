@@ -17,7 +17,7 @@ mod apply;
 mod plan;
 
 pub use apply::{Bound, BoundInstance, BoundListener, bind};
-pub use plan::{Decl, InstancePlan, ListenerPlan, Plan, RouteHost, plan};
+pub use plan::{Addressing, Decl, InstancePlan, ListenerPlan, Plan, RouteHost, plan};
 
 /// The address every listener is on when names are off or the machine is not set up.
 pub const LOOPBACK: std::net::Ipv4Addr = std::net::Ipv4Addr::LOCALHOST;
