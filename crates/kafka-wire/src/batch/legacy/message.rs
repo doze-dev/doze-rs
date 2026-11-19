@@ -231,9 +231,7 @@ pub(super) struct Out<'a> {
 /// Appends one message, offset and size included, to `out`.
 pub(super) fn write(out: &mut Vec<u8>, m: &Out<'_>) {
     let mut body = Vec::with_capacity(
-        m.magic.header_len()
-            + m.key.map_or(0, <[u8]>::len)
-            + m.value.map_or(0, <[u8]>::len),
+        m.magic.header_len() + m.key.map_or(0, <[u8]>::len) + m.value.map_or(0, <[u8]>::len),
     );
     body.extend_from_slice(&[0; 4]); // the CRC, below
     let mut attributes = m.codec & CODEC_MASK;
@@ -253,7 +251,9 @@ pub(super) fn write(out: &mut Vec<u8>, m: &Out<'_>) {
     for field in [m.key, m.value] {
         match field {
             Some(bytes) => {
-                body.extend_from_slice(&i32::try_from(bytes.len()).unwrap_or(i32::MAX).to_be_bytes());
+                body.extend_from_slice(
+                    &i32::try_from(bytes.len()).unwrap_or(i32::MAX).to_be_bytes(),
+                );
                 body.extend_from_slice(bytes);
             }
             None => body.extend_from_slice(&(-1_i32).to_be_bytes()),

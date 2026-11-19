@@ -19,7 +19,11 @@ const MAX_INFLATED: u64 = 64 << 20;
 /// How far ahead of the broker's clock a CreateTime record may be by default (`message.timestamp.after.max.ms`): an hour
 /// from Kafka 4.0 (KIP-937); before it, no bound (the recorded 2.8 and 3.9 take a record three days ahead).
 fn after_max_ms(kafka: KafkaMajor) -> i64 {
-    if kafka.get() >= 4 { 3_600_000 } else { i64::MAX }
+    if kafka.get() >= 4 {
+        3_600_000
+    } else {
+        i64::MAX
+    }
 }
 
 /// Why a batch is not stored, and how it is answered.
@@ -114,7 +118,9 @@ pub(super) fn check(
         log_append_time,
         now,
         before_max_ms: settings.timestamp_before_max_ms.unwrap_or(i64::MAX),
-        after_max_ms: settings.timestamp_after_max_ms.unwrap_or(after_max_ms(kafka)),
+        after_max_ms: settings
+            .timestamp_after_max_ms
+            .unwrap_or(after_max_ms(kafka)),
         max_inflated: MAX_INFLATED,
         renumbering: target != produced,
     };
@@ -186,7 +192,9 @@ pub(super) fn check_old(
         log_append_time,
         now,
         before_max_ms: settings.timestamp_before_max_ms.unwrap_or(i64::MAX),
-        after_max_ms: settings.timestamp_after_max_ms.unwrap_or(after_max_ms(kafka)),
+        after_max_ms: settings
+            .timestamp_after_max_ms
+            .unwrap_or(after_max_ms(kafka)),
         max_inflated: MAX_INFLATED,
         renumbering: false,
     };

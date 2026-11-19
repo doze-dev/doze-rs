@@ -201,7 +201,11 @@ impl<F: Fs> Broker<F> {
                         .as_ref()
                         .zip(group.as_ref())
                         .zip(kafka_wire::ids::PartitionId::new(index))
-                        .filter(|((n, _), id)| self.meta.topic(n).is_some_and(|t| id.get() < t.partitions.get()))
+                        .filter(|((n, _), id)| {
+                            self.meta
+                                .topic(n)
+                                .is_some_and(|t| id.get() < t.partitions.get())
+                        })
                         .and_then(|((n, g), id)| {
                             blocking::run(|| self.meta.zk_offset(g, n, id)).unwrap_or_else(|e| {
                                 tracing::error!(error = %e, "reading v0 offsets failed");

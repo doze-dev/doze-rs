@@ -50,7 +50,10 @@ impl MetaStore {
             let mut table = txn.open_table(ZK_OFFSETS)?;
             for ((topic, partition, offset), outcome) in commits.iter().zip(&outcomes) {
                 if *outcome == Committed::Stored {
-                    table.insert(key(group, topic, *partition).as_slice(), offset.cast_unsigned())?;
+                    table.insert(
+                        key(group, topic, *partition).as_slice(),
+                        offset.cast_unsigned(),
+                    )?;
                 }
             }
         }
@@ -98,20 +101,32 @@ mod tests {
         let store = MetaStore::open(&fs, Path::new("/data")).unwrap();
         let name = TopicName::parse("orders").unwrap();
         store
-            .create_topic(&name, PartitionCount::new(2).unwrap(), BTreeMap::new(), &HashSet::new())
+            .create_topic(
+                &name,
+                PartitionCount::new(2).unwrap(),
+                BTreeMap::new(),
+                &HashSet::new(),
+            )
             .unwrap();
         let group = GroupId::parse("old").unwrap();
         let p = |n| PartitionId::new(n).unwrap();
         let outcomes = store
             .commit_zk_offsets(&group, &[(name.clone(), p(1), 42), (name.clone(), p(5), 1)])
             .unwrap();
-        assert_eq!(outcomes, [Committed::Stored, Committed::UnknownTopicOrPartition]);
+        assert_eq!(
+            outcomes,
+            [Committed::Stored, Committed::UnknownTopicOrPartition]
+        );
         assert_eq!(store.zk_offset(&group, &name, p(1)).unwrap(), Some(42));
         assert_eq!(store.zk_offset(&group, &name, p(0)).unwrap(), None);
         // Not an offset the group has committed by any later version.
         assert_eq!(store.offset(&group, &name, p(1)).unwrap(), None);
         drop(store);
         let again = MetaStore::open(&fs, Path::new("/data")).unwrap();
-        assert_eq!(again.zk_offset(&group, &name, p(1)).unwrap(), Some(42), "kept across a restart");
+        assert_eq!(
+            again.zk_offset(&group, &name, p(1)).unwrap(),
+            Some(42),
+            "kept across a restart"
+        );
     }
 }

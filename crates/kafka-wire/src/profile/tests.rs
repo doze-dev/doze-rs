@@ -100,7 +100,10 @@ fn only_kafka_4_offers_streams_groups_at_kafka_4_4_versions() {
 fn each_major_offers_what_it_should() {
     assert!(!profile(1).offers_consumer_groups() && !profile(3).offers_consumer_groups());
     assert!(profile(4).offers_consumer_groups());
-    assert_eq!(profile(3).range(ApiKey::ConsumerGroupHeartbeat), Some((0, 0)));
+    assert_eq!(
+        profile(3).range(ApiKey::ConsumerGroupHeartbeat),
+        Some((0, 0))
+    );
     assert_eq!(profile(1).range(ApiKey::DescribeCluster), None);
     assert_eq!(profile(2).range(ApiKey::DescribeCluster), Some((0, 0)));
     assert_eq!(profile(4).range(ApiKey::Fetch), Some((4, 18)));
@@ -109,12 +112,20 @@ fn each_major_offers_what_it_should() {
     assert_eq!(profile(4).range(ApiKey::Produce), Some((0, 13)));
     let f = Features::default();
     for v in 0..=2 {
-        assert!(profile(4).check(ApiKey::Produce, v, f).is_err(), "Produce v{v} at Kafka 4");
-        assert!(profile(3).check(ApiKey::Produce, v, f).is_ok(), "Produce v{v} at Kafka 3");
+        assert!(
+            profile(4).check(ApiKey::Produce, v, f).is_err(),
+            "Produce v{v} at Kafka 4"
+        );
+        assert!(
+            profile(3).check(ApiKey::Produce, v, f).is_ok(),
+            "Produce v{v} at Kafka 3"
+        );
     }
     assert!(profile(4).check(ApiKey::Produce, 3, f).is_ok());
     assert_eq!(
-        KafkaMajor::RANGE.map(|m| KafkaMajor::new(m).unwrap().release()).collect::<Vec<_>>(),
+        KafkaMajor::RANGE
+            .map(|m| KafkaMajor::new(m).unwrap().release())
+            .collect::<Vec<_>>(),
         ["1.1", "2.8", "3.9", "4.4"]
     );
 }

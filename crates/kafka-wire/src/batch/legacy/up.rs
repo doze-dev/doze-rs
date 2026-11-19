@@ -147,15 +147,21 @@ fn look(set: &Bytes, rules: &UpRules) -> Result<(Vec<Entry>, Compression), UpErr
         let (valid, codec) = match &entry {
             Entry::Message(m) => (m.is_valid(), codec_of(m, rules)?),
             Entry::Batch(b) => (
-                b.get(17..21).and_then(|c| <[u8; 4]>::try_from(c).ok()) == Some(crc_of(b).to_be_bytes()),
+                b.get(17..21).and_then(|c| <[u8; 4]>::try_from(c).ok())
+                    == Some(crc_of(b).to_be_bytes()),
                 crate::batch::Attributes::from_bits(
-                    b.get(21..23).and_then(|a| <[u8; 2]>::try_from(a).ok()).map_or(0, u16::from_be_bytes),
+                    b.get(21..23)
+                        .and_then(|a| <[u8; 2]>::try_from(a).ok())
+                        .map_or(0, u16::from_be_bytes),
                 )
                 .compression(),
             ),
         };
         if !valid {
-            return Err(refused(Refusal::CorruptMessage, "Record is corrupt (stored crc does not match)"));
+            return Err(refused(
+                Refusal::CorruptMessage,
+                "Record is corrupt (stored crc does not match)",
+            ));
         }
         if codec != Compression::None {
             source = codec;
@@ -197,22 +203,37 @@ fn take_message(m: &Message, rules: &UpRules, out: &mut Vec<Rec>) -> Result<(), 
     let (_, value) = m
         .key_value()
         .map_err(|_| refused(Refusal::CorruptMessage, "a wrapper's fields do not fit it"))?;
-    let inner = codec::inflate(m.magic(), codec, value.as_deref().unwrap_or_default(), rules.max_inflated)
-        .map_err(|e| match e {
-            crate::batch::inflate::InflateError::TooLarge => {
-                refused(Refusal::MessageTooLarge, "the inner messages inflate past the limit")
-            }
-            other => refused(Refusal::CorruptMessage, format!("the inner messages cannot be read: {other:?}")),
-        })?;
+    let inner = codec::inflate(
+        m.magic(),
+        codec,
+        value.as_deref().unwrap_or_default(),
+        rules.max_inflated,
+    )
+    .map_err(|e| match e {
+        crate::batch::inflate::InflateError::TooLarge => refused(
+            Refusal::MessageTooLarge,
+            "the inner messages inflate past the limit",
+        ),
+        other => refused(
+            Refusal::CorruptMessage,
+            format!("the inner messages cannot be read: {other:?}"),
+        ),
+    })?;
     let inner = Bytes::from(inner);
     // The wrapper's time stands for every inner message's when it is the broker's (LogAppendTime).
     let stamped = m.log_append_time().then(|| m.timestamp());
     for entry in message::entries(&inner) {
         let Ok(Entry::Message(i)) = entry else {
-            return Err(refused(Refusal::CorruptMessage, "an inner message that is not one"));
+            return Err(refused(
+                Refusal::CorruptMessage,
+                "an inner message that is not one",
+            ));
         };
         if i.magic() != m.magic() {
-            return Err(refused(Refusal::InvalidRecord, "Log record magic does not match outer magic"));
+            return Err(refused(
+                Refusal::InvalidRecord,
+                "Log record magic does not match outer magic",
+            ));
         }
         if i.codec() != 0 {
             return Err(refused(
@@ -221,7 +242,10 @@ fn take_message(m: &Message, rules: &UpRules, out: &mut Vec<Rec>) -> Result<(), 
             ));
         }
         if !i.is_valid() {
-            return Err(refused(Refusal::CorruptMessage, "an inner message's checksum does not match"));
+            return Err(refused(
+                Refusal::CorruptMessage,
+                "an inner message's checksum does not match",
+            ));
         }
         out.push(record_of(&i, stamped)?);
     }
@@ -245,11 +269,13 @@ fn record_of(m: &Message, stamped: Option<i64>) -> Result<Rec, UpError> {
 fn take_batch(b: &Bytes, rules: &UpRules, out: &mut Vec<Rec>) -> Result<(), UpError> {
     let batch = Batch::parse(b.clone()).map_err(|e| refused(e.refusal(), e.to_string()))?;
     let recs = records::read(&batch, rules.max_inflated).map_err(|e| match e {
-        Unread::TooLarge => refused(Refusal::MessageTooLarge, "the records inflate past the limit"),
+        Unread::TooLarge => refused(
+            Refusal::MessageTooLarge,
+            "the records inflate past the limit",
+        ),
         Unread::Unsupported(c) => refused(Refusal::UnsupportedCompression, format!("{c:?}")),
         Unread::Corrupt(why) => refused(Refusal::CorruptMessage, why),
     })?;
     out.extend(recs);
     Ok(())
 }
-

@@ -12,7 +12,11 @@ const CRC_TABLE: [u32; 256] = {
         let mut c = n as u32;
         let mut k = 0;
         while k < 8 {
-            c = if c & 1 == 1 { 0xEDB8_8320 ^ (c >> 1) } else { c >> 1 };
+            c = if c & 1 == 1 {
+                0xEDB8_8320 ^ (c >> 1)
+            } else {
+                c >> 1
+            };
             k += 1;
         }
         table[n] = c;
@@ -56,12 +60,7 @@ pub(super) fn xxh32(bytes: &[u8]) -> u32 {
     let len = bytes.len();
     let mut rest = bytes;
     let mut h = if len >= 16 {
-        let mut v = [
-            P1.wrapping_add(P2),
-            P2,
-            0,
-            0_u32.wrapping_sub(P1),
-        ];
+        let mut v = [P1.wrapping_add(P2), P2, 0, 0_u32.wrapping_sub(P1)];
         while rest.len() >= 16 {
             let (stripe, after) = rest.split_at(16);
             for (i, acc) in v.iter_mut().enumerate() {
@@ -108,7 +107,10 @@ mod tests {
         // The check value of CRC-32/ISO-HDLC, and of an empty input.
         assert_eq!(crc32(b"123456789"), 0xCBF4_3926);
         assert_eq!(crc32(b""), 0);
-        assert_eq!(crc32(b"The quick brown fox jumps over the lazy dog"), 0x414F_A339);
+        assert_eq!(
+            crc32(b"The quick brown fox jumps over the lazy dog"),
+            0x414F_A339
+        );
     }
 
     #[test]
@@ -117,6 +119,9 @@ mod tests {
         assert_eq!(xxh32(b""), 0x02CC_5D05);
         assert_eq!(xxh32(b"a"), 0x550D_7456);
         assert_eq!(xxh32(b"abc"), 0x32D1_53FF);
-        assert_eq!(xxh32(b"Nobody inspects the spammish repetition"), 0xE229_3B2F);
+        assert_eq!(
+            xxh32(b"Nobody inspects the spammish repetition"),
+            0xE229_3B2F
+        );
     }
 }

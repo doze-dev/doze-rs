@@ -21,7 +21,10 @@ fn vectors() -> Vec<(String, Bytes, Option<Bytes>)> {
 }
 
 fn vector(name: &str) -> (Bytes, Option<Bytes>) {
-    let (_, a, b) = vectors().into_iter().find(|(n, ..)| n == name).unwrap_or_else(|| panic!("{name}"));
+    let (_, a, b) = vectors()
+        .into_iter()
+        .find(|(n, ..)| n == name)
+        .unwrap_or_else(|| panic!("{name}"));
     (a, b)
 }
 
@@ -121,11 +124,19 @@ fn a_one_batch_set_of_format_v2_is_taken_as_it_is() {
     let at_zero = Bytes::from(at_zero);
     assert_eq!(up(&at_zero, &STRICT).unwrap(), Up::Batch(at_zero.clone()));
     // A client's batch has base offset 0.
-    assert_eq!(up(&v2, &STRICT).unwrap_err().refusal, Refusal::InvalidRecord);
+    assert_eq!(
+        up(&v2, &STRICT).unwrap_err().refusal,
+        Refusal::InvalidRecord
+    );
 }
 
 fn concat(parts: &[&Bytes]) -> Bytes {
-    Bytes::from(parts.iter().flat_map(|p| p.iter().copied()).collect::<Vec<u8>>())
+    Bytes::from(
+        parts
+            .iter()
+            .flat_map(|p| p.iter().copied())
+            .collect::<Vec<u8>>(),
+    )
 }
 
 #[test]
@@ -139,12 +150,18 @@ fn from_kafka_2_a_set_is_one_format_and_a_compressed_one_one_wrapper_and_kafka_1
         ..STRICT
     };
     for mix in [concat(&[&m0, &m1]), concat(&[&gz, &m1])] {
-        assert_eq!(up(&mix, &STRICT).unwrap_err().refusal, Refusal::InvalidRecord);
+        assert_eq!(
+            up(&mix, &STRICT).unwrap_err().refusal,
+            Refusal::InvalidRecord
+        );
         let (recs, _) = converted(&mix, &one_one);
         assert_eq!(recs.len(), 6);
     }
     // Kafka 1.1 writes the mix in the codec of its compressed entries.
-    assert_eq!(converted(&concat(&[&gz, &m1]), &one_one).1, Compression::Gzip);
+    assert_eq!(
+        converted(&concat(&[&gz, &m1]), &one_one).1,
+        Compression::Gzip
+    );
 }
 
 #[test]
@@ -152,12 +169,18 @@ fn checksums_sizes_and_codecs_are_refused_as_kafka_refuses_them() {
     let (m1, _) = vector("legacy m1 none");
     let mut bad = m1.to_vec();
     bad[30] ^= 0x5a;
-    assert_eq!(up(&Bytes::from(bad), &STRICT).unwrap_err().refusal, Refusal::CorruptMessage);
+    assert_eq!(
+        up(&Bytes::from(bad), &STRICT).unwrap_err().refusal,
+        Refusal::CorruptMessage
+    );
     let small = UpRules {
         max_message_bytes: 20,
         ..STRICT
     };
-    assert_eq!(up(&m1, &small).unwrap_err().refusal, Refusal::MessageTooLarge);
+    assert_eq!(
+        up(&m1, &small).unwrap_err().refusal,
+        Refusal::MessageTooLarge
+    );
     // A wrapper that names zstd: unknown to Kafka 1.1, and not a legacy codec to 2.0 on.
     let (gz, _) = vector("legacy m1 gzip");
     let mut z = gz.to_vec();
@@ -171,10 +194,16 @@ fn checksums_sizes_and_codecs_are_refused_as_kafka_refuses_them() {
         strict: false,
         ..STRICT
     };
-    assert_eq!(up(&z, &old).unwrap_err().refusal, Refusal::UnknownServerError);
+    assert_eq!(
+        up(&z, &old).unwrap_err().refusal,
+        Refusal::UnknownServerError
+    );
     let mut size = m1.to_vec();
     size[8..12].copy_from_slice(&13_i32.to_be_bytes());
-    assert_eq!(up(&Bytes::from(size), &STRICT).unwrap_err().refusal, Refusal::CorruptMessage);
+    assert_eq!(
+        up(&Bytes::from(size), &STRICT).unwrap_err().refusal,
+        Refusal::CorruptMessage
+    );
 }
 
 fn down_rules(to: Magic, fetch_offset: i64, how: Downconversion) -> DownRules {
@@ -230,14 +259,19 @@ fn a_compressed_batch_is_one_wrapper_in_its_codec_numbered_as_its_format_numbers
             let (recs, _) = converted(&out, &STRICT);
             assert_eq!(recs.len(), 3, "{codec} {magic:?}");
             let (_, value) = w.key_value().unwrap();
-            let inner = Bytes::from(codec::inflate(magic, source, &value.unwrap(), 1 << 20).unwrap());
+            let inner =
+                Bytes::from(codec::inflate(magic, source, &value.unwrap(), 1 << 20).unwrap());
             let offsets: Vec<i64> = message::entries(&inner)
                 .map(|e| match e.unwrap() {
                     message::Entry::Message(m) => m.offset(),
                     message::Entry::Batch(_) => panic!(),
                 })
                 .collect();
-            let want = if magic == Magic::V0 { [10, 11, 12] } else { [0, 1, 2] };
+            let want = if magic == Magic::V0 {
+                [10, 11, 12]
+            } else {
+                [0, 1, 2]
+            };
             assert_eq!(offsets, want);
         }
     }
@@ -248,9 +282,15 @@ fn an_lz4_frame_of_format_v0_has_kafkas_header_checksum_both_ways() {
     let (set, _) = vector("legacy m0 lz4");
     // Kafka's frame: magic, flags 0x60, descriptor 0x40, then its checksum over all six bytes.
     let frame_at = 12 + 14;
-    assert_eq!(&set[frame_at..frame_at + 6], &[0x04, 0x22, 0x4d, 0x18, 0x60, 0x40]);
+    assert_eq!(
+        &set[frame_at..frame_at + 6],
+        &[0x04, 0x22, 0x4d, 0x18, 0x60, 0x40]
+    );
     let kafkas = set[frame_at + 6];
-    assert_eq!(kafkas, (checksum::xxh32(&set[frame_at..frame_at + 6]) >> 8) as u8);
+    assert_eq!(
+        kafkas,
+        (checksum::xxh32(&set[frame_at..frame_at + 6]) >> 8) as u8
+    );
     let (recs, _) = converted(&set, &STRICT);
     assert_eq!(recs.len(), 3);
     let written = codec::deflate(Magic::V0, Compression::Lz4, b"some bytes").unwrap();
@@ -288,7 +328,10 @@ fn from_kafka_2_the_answer_is_as_long_as_the_read_and_filled_with_overflow() {
     let tail = &later[want.len()..];
     assert_eq!(tail.len(), input.len() - want.len());
     assert_eq!(&tail[..8], &(-1_i64).to_be_bytes());
-    assert_eq!(i32::from_be_bytes(tail[8..12].try_into().unwrap()) as usize, (tail.len() + 1).max(61));
+    assert_eq!(
+        i32::from_be_bytes(tail[8..12].try_into().unwrap()) as usize,
+        (tail.len() + 1).max(61)
+    );
     assert!(tail[12..].iter().all(|b| *b == 0));
     // v1 messages are longer than the batch was: the answer is the first batch's, whole.
     let (want_v1, _) = vector("down CreateTime m1 from 10");
@@ -325,9 +368,22 @@ fn a_read_that_converts_to_nothing_or_holds_no_whole_batch_is_answered_as_each_r
     assert_eq!(&overflow[..8], &(-1_i64).to_be_bytes());
     assert_eq!(&overflow[8..12], &61_i32.to_be_bytes());
     let cut = marker.slice(..40);
-    assert_eq!(down(&cut, &down_rules(Magic::V0, 2, Downconversion::Eager)).unwrap(), cut);
-    assert_eq!(down(&cut, &down_rules(Magic::V0, 2, Downconversion::Chunked)).unwrap(), cut);
-    assert!(down(&cut, &down_rules(Magic::V0, 2, Downconversion::ChunkedAlways)).unwrap().is_empty());
+    assert_eq!(
+        down(&cut, &down_rules(Magic::V0, 2, Downconversion::Eager)).unwrap(),
+        cut
+    );
+    assert_eq!(
+        down(&cut, &down_rules(Magic::V0, 2, Downconversion::Chunked)).unwrap(),
+        cut
+    );
+    assert!(
+        down(
+            &cut,
+            &down_rules(Magic::V0, 2, Downconversion::ChunkedAlways)
+        )
+        .unwrap()
+        .is_empty()
+    );
 }
 
 #[test]
@@ -336,9 +392,14 @@ fn zstd_cannot_be_down_converted() {
         panic!()
     };
     let batch = crate::batch::Batch::parse(input).unwrap();
-    let z = batch.recode(Compression::Zstd, 1 << 20, batch.max_timestamp()).unwrap();
+    let z = batch
+        .recode(Compression::Zstd, 1 << 20, batch.max_timestamp())
+        .unwrap();
     assert_eq!(
-        down(z.as_bytes(), &down_rules(Magic::V1, 10, Downconversion::Chunked)),
+        down(
+            z.as_bytes(),
+            &down_rules(Magic::V1, 10, Downconversion::Chunked)
+        ),
         Err(DownError::Zstd)
     );
 }

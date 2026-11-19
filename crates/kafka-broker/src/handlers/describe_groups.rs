@@ -45,7 +45,8 @@ impl<F: Fs> Broker<F> {
                 described.error_message = None;
             }
             if operations && described.error_code == 0 {
-                described.authorized_operations = guard.group_operations(&name) & self.group_operations_known();
+                described.authorized_operations =
+                    guard.group_operations(&name) & self.group_operations_known();
             }
             resp.groups.push(described);
         }

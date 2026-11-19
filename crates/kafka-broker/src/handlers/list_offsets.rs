@@ -163,7 +163,11 @@ impl<F: Fs> Broker<F> {
     /// (if the last segment holds anything). LATEST counts back from the end, EARLIEST is the first alone, and a time
     /// counts back from the last of those whose time is at or before it (none: no offsets). A partition never written is
     /// one empty segment as old as now.
-    async fn list_old(&self, topic: Option<&Topic>, p: &ListOffsetsPartition) -> ListOffsetsPartitionResponse {
+    async fn list_old(
+        &self,
+        topic: Option<&Topic>,
+        p: &ListOffsetsPartition,
+    ) -> ListOffsetsPartitionResponse {
         let mut r = ListOffsetsPartitionResponse::default();
         r.partition_index = p.partition_index;
         let Some((topic, id)) = topic

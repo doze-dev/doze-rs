@@ -103,7 +103,8 @@ pub(super) fn read<F: Fs>(
                     // The refusals of an older consumer (`refused_to_old_consumer`), in their release's shape.
                     if matches!(
                         code,
-                        ResponseError::UnsupportedCompressionType | ResponseError::UnsupportedVersion
+                        ResponseError::UnsupportedCompressionType
+                            | ResponseError::UnsupportedVersion
                     ) {
                         old::as_the_release_refuses(&mut data, how);
                     }
@@ -123,7 +124,14 @@ pub(super) fn read<F: Fs>(
                     let limit =
                         limit_for(asked.partition_max_bytes, req.max_bytes, budget.remaining);
                     round.bytes += if how.version < BATCHES_FROM {
-                        old::fill(&mut data, partition.reader(), asked, limit, how, &mut budget)
+                        old::fill(
+                            &mut data,
+                            partition.reader(),
+                            asked,
+                            limit,
+                            how,
+                            &mut budget,
+                        )
                     } else {
                         fill(
                             &mut data,

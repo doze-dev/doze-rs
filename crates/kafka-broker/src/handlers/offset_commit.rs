@@ -143,7 +143,9 @@ impl<F: Fs> Broker<F> {
                 let metadata = partition.committed_metadata.as_ref().map_or(0, |m| m.len());
                 let code = match (barred, known, PartitionId::new(partition.partition_index)) {
                     (true, ..) => Some(ResponseError::TopicAuthorizationFailed),
-                    (false, Some(_), Some(_)) if metadata > MAX_METADATA => Some(ResponseError::OffsetMetadataTooLarge),
+                    (false, Some(_), Some(_)) if metadata > MAX_METADATA => {
+                        Some(ResponseError::OffsetMetadataTooLarge)
+                    }
                     (false, Some(topic), Some(id)) => {
                         to_store.push((topic.name.clone(), id, partition.committed_offset));
                         slots.push((t, p));
@@ -162,12 +164,15 @@ impl<F: Fs> Broker<F> {
         if self.config.kafka_major.get() >= 3 {
             return blanket(req, ResponseError::UnsupportedVersion);
         }
-        let codes: Vec<i16> = match blocking::run(|| self.meta.commit_zk_offsets(&group, &to_store)) {
+        let codes: Vec<i16> = match blocking::run(|| self.meta.commit_zk_offsets(&group, &to_store))
+        {
             Ok(outcomes) => outcomes
                 .iter()
                 .map(|o| match o {
                     Committed::Stored => 0,
-                    Committed::UnknownTopicOrPartition => ResponseError::UnknownTopicOrPartition.code(),
+                    Committed::UnknownTopicOrPartition => {
+                        ResponseError::UnknownTopicOrPartition.code()
+                    }
                 })
                 .collect(),
             Err(e) => {
@@ -176,7 +181,11 @@ impl<F: Fs> Broker<F> {
             }
         };
         for ((t, p), code) in slots.iter().zip(codes) {
-            if let Some(answer) = resp.topics.get_mut(*t).and_then(|topic| topic.partitions.get_mut(*p)) {
+            if let Some(answer) = resp
+                .topics
+                .get_mut(*t)
+                .and_then(|topic| topic.partitions.get_mut(*p))
+            {
                 answer.error_code = code;
             }
         }
