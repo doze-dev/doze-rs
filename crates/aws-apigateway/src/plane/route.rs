@@ -94,6 +94,26 @@ pub(crate) fn rest(snap: &Value, path: &[String], method: &str) -> Option<Route>
     })
 }
 
+/// The method `method` of one REST resource, its path variables bound from `path` where the path fits the resource's template (a
+/// test invocation names the resource; its path may say nothing of the variables).
+pub(crate) fn rest_resource(res: &Value, path: &[String], method: &str) -> Option<Route> {
+    let template = text(res, "path").unwrap_or("/");
+    let parts: Vec<&str> = template.split('/').filter(|s| !s.is_empty()).collect();
+    let params = fit(&parts, path).map(|(p, _)| p).unwrap_or_default();
+    let m = obj(res, "resourceMethods")?.get(method)?;
+    Some(Route {
+        resource_id: text(res, "id").unwrap_or_default().to_owned(),
+        resource_path: template.to_owned(),
+        params,
+        integration: m.get("methodIntegration").cloned().unwrap_or(Value::Null),
+        method: m.clone(),
+        authorizer: None,
+        validator: None,
+        responses: None,
+        integration_responses: None,
+    })
+}
+
 /// The HTTP API route for `path` and `method`.
 pub(crate) fn http(config: &Value, path: &[String], method: &str) -> Option<Route> {
     let routes = obj(config, "routes")?;
