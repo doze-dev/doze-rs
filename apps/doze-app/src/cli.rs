@@ -12,7 +12,7 @@
 //!          --act sleep|restart|reset|reset-typed|stop|remove|action|action-typed|copy|toast-fail|recent|preflight|start
 //!                |busy|failed|library-busy|verb-busy|empty|empty-found|add     (M2: done before the shot)
 //! doze-app bench [--fixture NAME | --synth N] [--idle SECONDS]  first-frame time, then idle for a memory reading
-//! doze-app bench --fixture shop --logs [--follow SECONDS]          the logs viewer: 100k lines scrolled, then followed
+//! doze-app bench --fixture shop --logs [--follow S] [--display N]  the logs viewer: 100k lines scrolled, then followed
 //! doze-app bench --fixture medium-150 --map                         the Map: frames while it pans, zooms and hovers
 //! doze-app bench [--idle S] [--closed S]                         with no fixture: $DOZE_HOME (a fixture served apart)
 //!          [--display N] [--in-use | --hidden] [--at 12,30,60] [--check [--budget MB] [--per-minute N]]

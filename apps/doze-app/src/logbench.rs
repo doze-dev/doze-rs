@@ -189,10 +189,16 @@ async fn follow(cx: &mut AsyncApp, h: WindowHandle<Root>, src: &Source, secs: u6
 }
 
 /// The whole run, in the opened window.
-pub(crate) async fn run(cx: &mut AsyncApp, src: Rc<Source>, follow_secs: u64) {
+pub(crate) async fn run(
+    cx: &mut AsyncApp,
+    src: Rc<Source>,
+    follow_secs: u64,
+    display: Option<usize>,
+) {
     let (hub, first, facts) = (src.hub.clone(), src.first.clone(), src.facts.clone());
     let opened = cx.update(|cx| {
-        let bounds = gpui::Bounds::centered(None, gpui::size(gpui::px(1280.), gpui::px(800.)), cx);
+        let on = display.and_then(|i| cx.displays().get(i).map(|d| d.id()));
+        let bounds = gpui::Bounds::centered(on, gpui::size(gpui::px(1280.), gpui::px(800.)), cx);
         cx.open_window(crate::app::options(bounds, true), |window, cx| {
             cx.new(|cx| Root::new(hub.clone(), first.clone(), facts.clone(), window, cx))
         })

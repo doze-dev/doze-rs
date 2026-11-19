@@ -14,7 +14,7 @@ pub const SET_UP: &str = "The same setup as doze doctor --fix, behind the system
 pub const MACHINE: &str = "What doze set up here, part by part";
 /// The domain setup banner's Set up the machine (one password) (overview.tsx `home.setup`).
 pub const SET_UP_MACHINE: &str = "Runs the machine's setup (doze doctor --fix), which routes and trusts the domain, behind the system's password prompt";
-/// The domain setup banner's Copy <command> (overview.tsx `home.setup`).
+/// The domain setup banner's `Copy <command>` (overview.tsx `home.setup`).
 pub const COPY_COMMAND: &str = "For a terminal instead";
 /// The logs page's Copy (logs.tsx).
 pub const COPY_LINES: &str = "The lines shown, with their times";
