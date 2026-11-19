@@ -119,7 +119,8 @@ enum Work<'a> {
     Body(usize, &'a [Item], u32),
     Map(usize, &'a str, &'a str, u32),
     Extend(&'a Extend, String),
-    Enum(&'a Enum, usize),
+    /// An enum, its index and its full name (the scope its options are resolved from).
+    Enum(&'a Enum, usize, String),
     Service(&'a super::ast::Service, String),
 }
 

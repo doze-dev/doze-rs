@@ -5,7 +5,8 @@
 //! label has no label, one in a oneof is `LABEL_OPTIONAL`; a oneof's fields come before the other fields; a map is a
 //! repeated field of a nested `<field>Entry` message added after the declared nested messages; a proto3 `optional` field
 //! has a synthetic oneof `_<field>` after the declared ones; groups are left out; ranges end one past their last number;
-//! an rpc's two streaming flags are always written; `syntax` is always written.
+//! an rpc's two streaming flags are always written; `syntax` is written when the text has it (recorded:
+//! `protobuf-normalize/proto2`, whose normalized text has none).
 
 use super::ast::{self, Decl, EnumItem, File, Item, Label, MAX_FIELD, MAX_WORD, Opt, TypeRef, Val};
 use super::link::SCALARS;
@@ -420,6 +421,9 @@ pub(super) fn descriptor(src: &str, file: &File) -> Vec<u8> {
     for i in weak {
         m.int(11, i);
     }
-    m.str(12, if proto3 { "proto3" } else { "proto2" });
+    // A file without a `syntax` line (a proto2 one as Confluent normalizes it) has none in its descriptor either.
+    if file.syntax.is_some() {
+        m.str(12, if proto3 { "proto3" } else { "proto2" });
+    }
     m.0
 }

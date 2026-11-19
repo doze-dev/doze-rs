@@ -96,3 +96,8 @@ pub(super) fn source(path: &str) -> Option<&'static str> {
     }
     FILES.iter().find(|(n, _)| *n == name).map(|(_, t)| *t)
 }
+
+/// Every well-known file Confluent's normalizing resolution sees, imported or not (its `KNOWN_DEPENDENCIES`).
+pub(super) fn all() -> impl Iterator<Item = &'static str> {
+    FILES.iter().map(|(_, t)| *t).chain(std::iter::once(DESCRIPTOR))
+}

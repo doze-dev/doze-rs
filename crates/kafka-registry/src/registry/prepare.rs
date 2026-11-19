@@ -230,12 +230,30 @@ impl Registry {
             )));
         }
         let read = |why: String| invalid(subject, input, kind, Stage::Read, &why);
-        let refs = s.concrete(input.refs()).map_err(read)?;
+        let mut refs = s.concrete(input.refs()).map_err(read)?;
         let resolved = s.resolve(&refs).map_err(read)?;
         let parsed = format
             .parse(text, &resolved)
             .map_err(|why| invalid(subject, input, kind, stage(kind, &why), &why))?;
-        let canonical = parsed.canonical(normalize || s.normalizes(subject));
+        let normalize = normalize || s.normalizes(subject);
+        if normalize {
+            // Every language's `normalize()` sorts its references by subject, then version, and keeps each once.
+            refs.sort_by(|a, b| {
+                a.subject
+                    .encode_utf16()
+                    .cmp(b.subject.encode_utf16())
+                    .then(a.version.cmp(&b.version))
+            });
+            let mut seen: Vec<Reference> = Vec::new();
+            refs.retain(|r| {
+                let first = !seen.contains(r);
+                if first {
+                    seen.push(r.clone());
+                }
+                first
+            });
+        }
+        let canonical = parsed.canonical(normalize);
         Ok((Prepared { kind, parsed, refs }, canonical))
     }
 

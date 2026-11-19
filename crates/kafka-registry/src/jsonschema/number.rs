@@ -137,7 +137,7 @@ impl Dec {
         }
     }
 
-    fn to_f64(&self) -> f64 {
+    pub(crate) fn to_f64(&self) -> f64 {
         let mut text: String = self.digits.iter().map(|d| char::from(b'0' + d)).collect();
         if text.is_empty() {
             return 0.0;

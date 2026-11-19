@@ -12,6 +12,7 @@ import { comparable, type Exchange, Ids, reset, send, type Step, type Target } f
 import { scenarios } from "./scenarios.ts";
 import { corpus } from "./corpus.ts";
 import { known } from "./known.ts";
+import { gaps } from "./gaps.ts";
 
 const args = process.argv.slice(2);
 const opt = (name: string, dflt: string) => {
@@ -58,7 +59,7 @@ async function run(name: string, steps: Step[]) {
   return { exchanges, dozeVsRef: diffs(ref, doze), ref8VsRef: ref8 ? diffs(ref, ref8) : [], dozeVsRef8: ref8 ? diffs(ref8, doze) : [] };
 }
 
-const all: Record<string, Step[]> = { ...scenarios };
+const all: Record<string, Step[]> = { ...scenarios, ...gaps };
 if (chains > 0) Object.assign(all, corpus(chains, seed));
 const names = Object.keys(all).filter((n) => only.length === 0 || only.some((o) => n === o || n.startsWith(o + "/")));
 

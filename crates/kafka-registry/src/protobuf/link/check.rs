@@ -268,7 +268,14 @@ impl Linker<'_> {
         Ok(())
     }
 
-    pub(super) fn check_enum(&self, u: &Unit<'_>, e: &Enum, _i: usize) -> Result<(), Error> {
+    /// An enum's rules; its options (and its values') name extensions as seen from `full`, the enum's own name.
+    pub(super) fn check_enum(
+        &self,
+        u: &Unit<'_>,
+        e: &Enum,
+        _i: usize,
+        full: &str,
+    ) -> Result<(), Error> {
         let mut values: Vec<(&str, i64, u32)> = Vec::new();
         let mut reserved = Vec::new();
         let mut names = Vec::new();
@@ -282,7 +289,7 @@ impl Linker<'_> {
                             format!("enum value {} is out of range", v.name),
                         ));
                     }
-                    self.check_options(u, &v.opts, "V", &e.name)?;
+                    self.check_options(u, &v.opts, "V", full)?;
                     values.push((&v.name, v.number, v.at));
                 }
                 EnumItem::Reserved(r) => {
@@ -292,7 +299,7 @@ impl Linker<'_> {
                 EnumItem::Option(o) => {
                     alias |= o.simple() == Some("allow_alias")
                         && matches!(&o.val, Val::Ident(v) if v == "true");
-                    self.check_options(u, std::slice::from_ref(o), "E", &e.name)?;
+                    self.check_options(u, std::slice::from_ref(o), "E", full)?;
                 }
             }
         }

@@ -5,11 +5,33 @@ use crate::jsonschema::node::{Num, Str};
 use crate::jsonschema::number::Dec;
 
 pub(super) fn limit_change(l: &Limit, o: Option<&Dec>, u: Option<&Dec>, path: &str, out: &mut Out) {
+    change(l, o, u, path, out, Dec::cmp);
+}
+
+/// A number's bound, compared as Confluent's `NumberSchemaDiff` compares it: as Java doubles (`doubleValue()`), so
+/// two bounds one double holds are one (`1e2147483647` and `1e2147483648` are both infinite; recorded by
+/// tools/registry-diff, `json-schema-huge-numbers`).
+fn bound_change(l: &Limit, o: Option<&Dec>, u: Option<&Dec>, path: &str, out: &mut Out) {
+    change(l, o, u, path, out, |a, b| {
+        a.to_f64()
+            .partial_cmp(&b.to_f64())
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
+}
+
+fn change(
+    l: &Limit,
+    o: Option<&Dec>,
+    u: Option<&Dec>,
+    path: &str,
+    out: &mut Out,
+    cmp: impl Fn(&Dec, &Dec) -> std::cmp::Ordering,
+) {
     let kind = match (o, u) {
         (None, None) => return,
         (None, Some(_)) => l.added,
         (Some(_), None) => l.removed,
-        (Some(o), Some(u)) => match o.cmp(u) {
+        (Some(o), Some(u)) => match cmp(o, u) {
             std::cmp::Ordering::Less => l.increased,
             std::cmp::Ordering::Greater => l.decreased,
             std::cmp::Ordering::Equal => return,
@@ -43,28 +65,28 @@ pub(super) fn string(o: &Str, u: &Str, path: &str, out: &mut Out) {
 
 pub(super) fn number(o: &Num, u: &Num, path: &str, out: &mut Out) {
     // The limits first, then whether it became integer only (Confluent's order, recorded: "random 114").
-    limit_change(
+    bound_change(
         &limit!("maximum", "MAXIMUM"),
         o.max.as_ref(),
         u.max.as_ref(),
         path,
         out,
     );
-    limit_change(
+    bound_change(
         &limit!("minimum", "MINIMUM"),
         o.min.as_ref(),
         u.min.as_ref(),
         path,
         out,
     );
-    limit_change(
+    bound_change(
         &limit!("exclusiveMaximum", "EXCLUSIVE_MAXIMUM"),
         o.ex_max.as_ref(),
         u.ex_max.as_ref(),
         path,
         out,
     );
-    limit_change(
+    bound_change(
         &limit!("exclusiveMinimum", "EXCLUSIVE_MINIMUM"),
         o.ex_min.as_ref(),
         u.ex_min.as_ref(),
