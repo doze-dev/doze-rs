@@ -1,11 +1,12 @@
-import { ActivityIcon, BoxesIcon, FileJson2Icon, FlaskConicalIcon, HardDriveIcon, HomeIcon, type LucideIcon, PlugIcon, Rows3Icon, SettingsIcon, ShieldIcon, SwatchBookIcon, UsersIcon } from "lucide-react";
+import { ActivityIcon, BoxesIcon, RadioIcon, FileJson2Icon, FlaskConicalIcon, HardDriveIcon, HomeIcon, type LucideIcon, PlugIcon, Rows3Icon, SettingsIcon, ShieldIcon, SwatchBookIcon, UsersIcon } from "lucide-react";
 
 export type NavItem = { label: string; to: string; icon: LucideIcon; count?: "topics" | "groups" | "schemas"; keywords?: string; disk?: true };
 
-/** The sidebar, in the direction's order: Home, Live, the resources, what they take on disk, Access, Lab, Settings. */
+/** The sidebar, in the direction's order: Home, Live and its Live tail of records, the resources, what they take on disk, Access, Lab, Settings. */
 export const NAV: NavItem[] = [
   { label: "Home", to: "/", icon: HomeIcon },
   { label: "Live", to: "/live", icon: ActivityIcon, keywords: "wire requests tape" },
+  { label: "Live tail", to: "/tail", icon: RadioIcon, keywords: "tail follow stream records messages events consume watch" },
   { label: "Topics", to: "/topics", icon: Rows3Icon, count: "topics" },
   { label: "Groups", to: "/groups", icon: UsersIcon, count: "groups", keywords: "consumers lag" },
   { label: "Schemas", to: "/schemas", icon: FileJson2Icon, count: "schemas", keywords: "registry avro protobuf json subjects" },

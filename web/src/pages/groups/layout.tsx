@@ -3,7 +3,7 @@
 // Lag, Story, Wire), and the group's write dialogs, each routed by `?dialog=`.
 import { useIsFetching, useQueryClient } from "@tanstack/react-query";
 import { getRouteApi, Link, Outlet, useLocation, useNavigate } from "@tanstack/react-router";
-import { RotateCcwIcon, Trash2Icon, UsersIcon } from "lucide-react";
+import { RadioIcon, RotateCcwIcon, Trash2Icon, UsersIcon } from "lucide-react";
 import { ApiFailure } from "@/api/client";
 import { groupKeys, useGroup } from "@/api/groups";
 import type { GroupHead } from "@/api/types/GroupHead";
@@ -163,6 +163,8 @@ export function GroupLayout() {
     return <PageError error={res.error} onRetry={() => void res.refetch()} />;
   }
   const h = res.data?.head;
+  // The topics the group reads (those that still exist): what "Tail this group's input" follows (CON-1580).
+  const input = (res.data?.topics ?? []).filter((t) => t.exists).map((t) => t.name).slice(0, 32);
   const refresh = <RefreshControl updatedAt={res.dataUpdatedAt} fetching={fetching} onRefresh={() => {
         void qc.invalidateQueries({ queryKey: groupKeys.group(id) });
         void qc.invalidateQueries({ queryKey: ["live-group-wire", id] });
@@ -190,6 +192,13 @@ export function GroupLayout() {
         }
         actions={
           <>
+            {input.length > 0 && (
+              <Button variant="outline" className="bg-card" asChild>
+                <Link to="/tail" search={{ topic: input }} title={`Follow ${input.join(", ")} on the Live tail page`} data-testid="tail-input">
+                  <RadioIcon /> Tail this group's input
+                </Link>
+              </Button>
+            )}
             {/* A share group commits no offset: its starts are moved with kafka-share-groups (the Lag tab says how). */}
             {h?.protocol !== "share" && (
               <>

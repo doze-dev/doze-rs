@@ -3,7 +3,7 @@
 // renders under exactly this, so switching tabs changes nothing above the tab body.
 import { useQueryClient } from "@tanstack/react-query";
 import { Link, Outlet, useNavigate, useParams, useRouterState, useSearch } from "@tanstack/react-router";
-import { CircleCheckIcon, ListIcon, PlusIcon, SearchIcon, SendIcon, Trash2Icon, TriangleAlertIcon } from "lucide-react";
+import { CircleCheckIcon, ListIcon, PlusIcon, RadioIcon, SearchIcon, SendIcon, Trash2Icon, TriangleAlertIcon } from "lucide-react";
 import { useCallback } from "react";
 import { ApiFailure } from "@/api/client";
 import { topicKeys, useTopicFrame } from "@/api/topics";
@@ -164,6 +164,12 @@ function Actions({ f, place }: { f: TopicFrame; place: TopicTab | "partitions" }
           </Link>
         </Button>
       )}
+      {/* The Live tail page, following this topic from now (CON-1580). */}
+      <Button variant="outline" className="bg-card" asChild>
+        <Link to="/tail" search={{ topic: [topic] }} data-testid="act-tail">
+          <RadioIcon /> Live tail
+        </Link>
+      </Button>
       <Button onClick={() => open("produce")} data-testid="act-produce">
         <SendIcon /> Produce
       </Button>
