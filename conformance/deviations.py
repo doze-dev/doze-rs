@@ -16,6 +16,10 @@ Key: "<module>::<test>::<label>".
 # What belongs here is only what cannot exist on a laptop at all, or what an
 # owner-chosen default trades for local ease while a flag gives AWS's answer.
 DEVIATIONS = {
+    # AWS reads the last invocation's EndTimestamp apart from the execution's (two clock readings in its own pipeline); doze-aws
+    # ends both at one instant, and faking an offset would be inventing data. Listed in docs/aws/compatibility-notes.toml.
+    "test_lambda_durable::test_durable_execution_with_a_wait_and_a_callback::history-newest-first":
+        "the last invocation ends at the instant the execution does; AWS takes two readings",
     # AWS answers a virtual-hosted URL on its own host (https://<bucket>.s3.amazonaws.com/<key>); that host cannot exist locally,
     # so doze-aws answers the URL that fetches the object from itself (<endpoint>/<bucket>/<key>, path style).
     "test_s3::test_multipart_upload::complete":
