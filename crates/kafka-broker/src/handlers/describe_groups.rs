@@ -11,8 +11,10 @@ use crate::groups::{Description, State, kafka_order};
 use crate::{Broker, Caller, Outcome, blocking};
 
 impl<F: Fs> Broker<F> {
-    /// Describes each group named, in the order Kafka answers. A group the broker has never heard of is Dead (not an
-    /// error), and one known only by its committed offsets is Empty.
+    /// Describes each group named, in the order Kafka answers. A group the broker has never heard of is Dead, and one known
+    /// only by its committed offsets is Empty. Up to v5 Dead is not an error; from v6 (KIP-1043) a group not found, or one
+    /// that is not a classic group, is Dead with GROUP_ID_NOT_FOUND (69) and Kafka's words for which
+    /// (`GroupMetadataManager.describeGroups`).
     ///
     /// A group the caller may not DESCRIBE is an entry of its own with 30 and nothing else, and those come first, in the
     /// order asked; the rest follow, each with the operations the caller may do to it if the request asks (v3 and later).
@@ -38,6 +40,10 @@ impl<F: Fs> Broker<F> {
         let operations = version >= 3 && req.include_authorized_operations;
         for name in kafka_order(&asked) {
             let mut described = self.describe_group(&name).await;
+            if version < 6 {
+                described.error_code = 0;
+                described.error_message = None;
+            }
             if operations && described.error_code == 0 {
                 described.authorized_operations = guard.group_operations(&name);
             }
@@ -67,11 +73,13 @@ impl<F: Fs> Broker<F> {
                 .as_ref()
                 .is_some_and(|l| l.consumer.is_some() || l.share.is_some() || l.streams.is_some())
             {
-                out.group_state = StrBytes::from_static_str("Dead");
-                return out;
+                return not_found(out, name, "is not a classic group");
             }
             let known = has_offsets || life.is_some();
-            out.group_state = StrBytes::from_static_str(if known { "Empty" } else { "Dead" });
+            if !known {
+                return not_found(out, name, "not found");
+            }
+            out.group_state = StrBytes::from_static_str("Empty");
             if let Some(life) = life {
                 out.protocol_type = StrBytes::from_string(life.protocol_type);
             }
@@ -80,12 +88,20 @@ impl<F: Fs> Broker<F> {
         // A consumer group is not described by the classic API: it is Dead here, as on Kafka, and ConsumerGroupDescribe
         // has it.
         if d.consumer.is_some() || d.share.is_some() || d.streams.is_some() {
-            out.group_state = StrBytes::from_static_str("Dead");
-            return out;
+            return not_found(out, name, "is not a classic group");
         }
         fill(&mut out, d);
         out
     }
+}
+
+/// A group this API does not describe: Dead, and from v6 GROUP_ID_NOT_FOUND with `Group <id> <why>.` (the caller clears
+/// both below v6).
+fn not_found(mut out: DescribedGroup, name: &str, why: &str) -> DescribedGroup {
+    out.group_state = StrBytes::from_static_str("Dead");
+    out.error_code = kafka_wire::ResponseError::GroupIdNotFound.code();
+    out.error_message = Some(StrBytes::from_string(format!("Group {name} {why}.")));
+    out
 }
 
 fn fill(out: &mut DescribedGroup, d: Description) {

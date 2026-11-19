@@ -65,6 +65,17 @@ impl Response {
             Self::StreamsGroupHeartbeat(r) => &mut r.throttle_time_ms,
             Self::StreamsGroupDescribe(r) => &mut r.throttle_time_ms,
             Self::StreamsGroupTopologyDescriptionUpdate(r) => &mut r.throttle_time_ms,
+            Self::AlterReplicaLogDirs(r) => &mut r.throttle_time_ms,
+            Self::CreateDelegationToken(r) => &mut r.throttle_time_ms,
+            Self::RenewDelegationToken(r) => &mut r.throttle_time_ms,
+            Self::ExpireDelegationToken(r) => &mut r.throttle_time_ms,
+            Self::DescribeDelegationToken(r) => &mut r.throttle_time_ms,
+            Self::ElectLeaders(r) => &mut r.throttle_time_ms,
+            Self::AlterPartitionReassignments(r) => &mut r.throttle_time_ms,
+            Self::ListPartitionReassignments(r) => &mut r.throttle_time_ms,
+            Self::UpdateFeatures(r) => &mut r.throttle_time_ms,
+            Self::ListConfigResources(r) => &mut r.throttle_time_ms,
+            Self::DescribeTopicPartitions(r) => &mut r.throttle_time_ms,
             Self::SaslHandshake(_) | Self::SaslAuthenticate(_) => return,
         };
         *field = ms;

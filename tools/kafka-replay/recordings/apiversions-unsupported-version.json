@@ -1,31 +1,9 @@
 {
   "scenario": "apiversions-unsupported-version",
-  "kafka": "apache/kafka:4.3.1",
+  "kafka": "apache/kafka:4.4.0",
   "steps": [
     {
       "label": "highest-served",
-      "api": "ApiVersions",
-      "version": 4,
-      "request": {
-        "ClientSoftwareName": "my-app",
-        "ClientSoftwareVersion": "1.0",
-        "ClusterID": null,
-        "NodeID": -1
-      },
-      "response": {
-        "ApiKeys": [
-          {
-            "ApiKey": 18,
-            "MaxVersion": 4,
-            "MinVersion": 0
-          }
-        ],
-        "ErrorCode": 0,
-        "OtherApiKeys": true
-      }
-    },
-    {
-      "label": "one-past-the-highest",
       "api": "ApiVersions",
       "version": 5,
       "request": {
@@ -38,7 +16,29 @@
         "ApiKeys": [
           {
             "ApiKey": 18,
-            "MaxVersion": 4,
+            "MaxVersion": 5,
+            "MinVersion": 0
+          }
+        ],
+        "ErrorCode": 0,
+        "OtherApiKeys": true
+      }
+    },
+    {
+      "label": "one-past-the-highest",
+      "api": "ApiVersions",
+      "version": 6,
+      "request": {
+        "ClientSoftwareName": "my-app",
+        "ClientSoftwareVersion": "1.0",
+        "ClusterID": null,
+        "NodeID": -1
+      },
+      "response": {
+        "ApiKeys": [
+          {
+            "ApiKey": 18,
+            "MaxVersion": 5,
             "MinVersion": 0
           }
         ],
@@ -60,7 +60,7 @@
         "ApiKeys": [
           {
             "ApiKey": 18,
-            "MaxVersion": 4,
+            "MaxVersion": 5,
             "MinVersion": 0
           }
         ],
@@ -82,7 +82,7 @@
         "ApiKeys": [
           {
             "ApiKey": 18,
-            "MaxVersion": 4,
+            "MaxVersion": 5,
             "MinVersion": 0
           }
         ],
@@ -93,7 +93,7 @@
     {
       "label": "past-the-highest-with-a-name-it-would-refuse",
       "api": "ApiVersions",
-      "version": 5,
+      "version": 6,
       "request": {
         "ClientSoftwareName": "my app",
         "ClientSoftwareVersion": "1.0",
@@ -104,7 +104,7 @@
         "ApiKeys": [
           {
             "ApiKey": 18,
-            "MaxVersion": 4,
+            "MaxVersion": 5,
             "MinVersion": 0
           }
         ],
@@ -126,7 +126,7 @@
         "ApiKeys": [
           {
             "ApiKey": 18,
-            "MaxVersion": 4,
+            "MaxVersion": 5,
             "MinVersion": 0
           }
         ],

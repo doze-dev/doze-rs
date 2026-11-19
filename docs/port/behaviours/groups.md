@@ -119,7 +119,9 @@ Test: `offsets::a_commit_that_was_acknowledged_survives_*`, `deleting_a_topic_ta
 
 ### G7. DescribeGroups
 Groups are answered in the order Kafka answers them (not the request's), duplicates kept. A group never heard of, an empty
-id and an unusable id are Dead, not an error; one known only by its offsets is Empty. Only a Stable group shows its
+id and an unusable id are Dead, not an error up to v5; from v6 (KIP-1043) they are Dead with GROUP_ID_NOT_FOUND (69) and
+`Group <id> not found.`, and a consumer, share or streams group `Group <id> is not a classic group.` (wire.md W37). One known
+only by its offsets is Empty. Only a Stable group shows its
 protocol and its members' metadata. Member client host is a fixed `/127.0.0.1` (the peer address is not carried to the
 group APIs yet).
 Test: `group_admin::*`, `groups::order::tests` (13 orders recorded from Apache Kafka 4.3.1, past a resize of its map)
@@ -130,7 +132,9 @@ Test: `group_admin::groups_are_listed_by_id_*`
 
 ### G9. DeleteGroups
 In Kafka's order: a group with members NON_EMPTY_GROUP (68); an empty one goes with its offsets; nothing there and no
-offsets GROUP_ID_NOT_FOUND (69); an unusable id 24. A group deleted can be made again by a join.
+offsets GROUP_ID_NOT_FOUND (69), the empty id and any id no group can have included (Kafka 4.4.0 looks the empty one up like any
+other; it was 24 here before 2026-11-19). v3 adds an error message to each result: null, as Kafka sets one only for a streams
+group's topology description plugin (W37). A group deleted can be made again by a join.
 Test: `group_admin::deleting_a_group_needs_it_empty_*`
 
 ### G10. OffsetDelete
