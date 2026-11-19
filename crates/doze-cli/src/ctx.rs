@@ -186,3 +186,9 @@ pub const VERSION: &str = match option_env!("DOZE_VERSION") {
     Some(v) => v,
     None => "dev",
 };
+
+/// The source commit this doze was built from: set by the release build (`DOZE_COMMIT`), `None` otherwise.
+pub const COMMIT: Option<&str> = match option_env!("DOZE_COMMIT") {
+    Some(c) if !c.is_empty() => Some(c),
+    _ => None,
+};

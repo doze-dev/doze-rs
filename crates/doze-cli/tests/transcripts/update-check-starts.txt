@@ -13,6 +13,8 @@ json:
 |   "ok": true,
 |   "data": {
 |     "arch": "{arch}",
+|     "commit": null,
+|     "control_protocol": 2,
 |     "os": "{os}",
 |     "protocol": 2,
 |     "version": "dev"
