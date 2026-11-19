@@ -158,6 +158,7 @@ pub(super) fn view(
         .border_1()
         .border_color(t.line)
         .bg(t.panel)
+        .shadow(t.lift())
         .overflow_hidden()
         .on_scroll(cx.listener(on_wheel))
         .on_hover(cx.listener(|this, hovered: &bool, _, cx| {

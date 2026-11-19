@@ -134,6 +134,20 @@ pub(crate) fn has_keys(
     input.read(cx).focus_handle(cx).is_focused(window)
 }
 
+/// The selected row's mark: a 2 px accent bar at the row's left edge, over the row's `sel` fill (the design pass of
+/// 2026-11-19: a whole `pick` block made the cursor the loudest thing on the page). `inset` keeps it off a rounded
+/// row's corners. The row must be `relative`.
+pub(crate) fn sel_bar(t: &Tokens, inset: f32) -> gpui::Div {
+    div()
+        .absolute()
+        .left(px(0.))
+        .top(px(inset))
+        .bottom(px(inset))
+        .w(px(2.))
+        .when(inset > 0., |d| d.rounded_full())
+        .bg(t.accent)
+}
+
 /// `.dot` (8px disc) and `.ring` (8px, 2px cool border).
 pub(crate) fn dot(color: Hsla) -> impl IntoElement {
     div().size(px(8.)).flex_none().rounded_full().bg(color)

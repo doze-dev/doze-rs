@@ -232,6 +232,16 @@ fn chips(t: &Tokens, z: Z, m: &MapView, c: &Card, mark: Mark) -> gpui::Div {
     row
 }
 
+/// The card's lift: awake cards lift off the page and asleep (dashed) ones lie flat, easing between them over 120 ms
+/// as a service sleeps or wakes; under the accent ring when the card is hot.
+fn lifted(t: &Tokens, c: &Card, dashed: bool, ring: Vec<BoxShadow>) -> (Vec<BoxShadow>, bool) {
+    let (k, moving) =
+        crate::motion::lift(&format!("card/{}", c.name), if dashed { 0. } else { 1. });
+    let mut v = ring;
+    v.extend(t.lift_at(k));
+    (v, moving)
+}
+
 /// A small map's card under the pointer: a plain border turns `line2` over 120 ms (Go `.node:hover`); a red or
 /// selected one keeps its own.
 fn framed_border(t: &Tokens, m: &MapView, c: &Card, border: gpui::Hsla) -> (gpui::Hsla, bool) {
@@ -263,12 +273,15 @@ fn node_card(t: &Tokens, z: Z, m: &MapView, c: &Card, at: (f32, f32), mark: Mark
     if st.dashed {
         f = f.border_dashed();
     }
+    let mut rung = Vec::new();
     if mark.hot > 0.0 {
         let was = st.border;
         f = f.border_color(mix(t.accent, was, mark.hot * 100.0));
         // The ring fades with the border: an opaque outline blended from the well to the accent.
-        f = f.shadow(ring(t, z, mark.sel, mark.hot));
+        rung = ring(t, z, mark.sel, mark.hot);
     }
+    let (shadow, lifting) = lifted(t, c, st.dashed, rung);
+    f = f.shadow(shadow).child(crate::motion::tick(lifting));
     f.when(mark.opacity < 1.0, |d| d.opacity(mark.opacity))
         .child(top_row(t, z, c, r, true))
         .child(chips(t, z, m, c, mark))
@@ -291,11 +304,14 @@ fn shared_card(t: &Tokens, z: Z, m: &MapView, c: &Card, at: (f32, f32), mark: Ma
     if st.dashed {
         f = f.border_dashed();
     }
+    let mut rung = Vec::new();
     if mark.hot > 0.0 {
         let was = st.border;
         f = f.border_color(mix(t.accent, was, mark.hot * 100.0));
-        f = f.shadow(ring(t, z, false, mark.hot));
+        rung = ring(t, z, false, mark.hot);
     }
+    let (shadow, lifting) = lifted(t, c, st.dashed, rung);
+    f = f.shadow(shadow).child(crate::motion::tick(lifting));
     let line = || {
         div()
             .w_full()

@@ -146,7 +146,11 @@ fn row(
         .h(px(density.row()))
         .px(px(14.))
         .rounded(px(if density == Density::Compact { 6. } else { 9. }))
-        .when(selected, |d| d.bg(t.pick))
+        // Selected: `sel` and the accent bar at the left edge (not a `pick` block); hovered: `sel`.
+        .relative()
+        .when(selected, |d| {
+            d.bg(t.sel).child(crate::widgets::sel_bar(t, 8.))
+        })
         .when(!selected, |d| d.hover(|d| d.bg(t.sel)))
         .child(div().w(px(10.)).flex_none().child(row_dot(t, r)))
         .child(
@@ -239,5 +243,5 @@ pub(super) fn view(
         .flex_1()
         .min_h_0()
         .child(main)
-        .child(super::pane::pane(t, v, cx))
+        .children(super::pane::pane(t, v, cx))
 }

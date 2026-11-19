@@ -19,6 +19,7 @@ mod list;
 mod pane;
 mod strip;
 mod tiles;
+mod toolbar;
 
 use std::collections::HashMap;
 use std::path::Path;

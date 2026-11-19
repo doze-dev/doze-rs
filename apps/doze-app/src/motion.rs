@@ -196,6 +196,18 @@ thread_local! {
 /// Where the knob `id` is now on its way to `to` (120 ms ease-out from where it was when `to` changed; the first
 /// time an id is seen it is already there), and whether it is still moving.
 pub(crate) fn slide(id: &str, to: f32) -> (f32, bool) {
+    scalar(id, to, "knob", "left")
+}
+
+/// How lifted the card `id` is now, 0 flat to 1 lifted, on its way to `to`: a tile falling asleep lets its shadow go
+/// over the same 120 ms ease-out as a hover (and takes it back as it wakes), rather than at once.
+pub(crate) fn lift(id: &str, to: f32) -> (f32, bool) {
+    scalar(&format!("{id}/lift"), to, "lift", "k")
+}
+
+/// A number easing to `to` over 120 ms, noted in a scripted run's log as `NOTE id WORD=…`.
+#[cfg_attr(not(feature = "fixtures"), allow(unused_variables))]
+fn scalar(id: &str, to: f32, note: &str, word: &str) -> (f32, bool) {
     seen(id);
     SLIDES.with(|s| {
         let mut s = s.borrow_mut();
@@ -218,7 +230,7 @@ pub(crate) fn slide(id: &str, to: f32) -> (f32, bool) {
         let (x, moving) = at(e);
         #[cfg(feature = "fixtures")]
         if moving || (x - to).abs() < f32::EPSILON && now.duration_since(e.2) < KNOB * 2 {
-            crate::driver::note("knob", &format!("{id} left={x:.1}"));
+            crate::driver::note(note, &format!("{id} {word}={x:.2}"));
         }
         (x, moving)
     })
@@ -269,7 +281,16 @@ pub(crate) fn tick(moving: bool) -> impl IntoElement {
 
 #[cfg(test)]
 mod tests {
-    use super::{colour, curve};
+    use super::{colour, curve, lift};
+
+    #[test]
+    fn a_card_lets_its_lift_go_over_120_ms() {
+        assert_eq!(lift("card", 1.0), (1.0, false));
+        let (k, moving) = lift("card", 0.0);
+        assert!(moving && k > 0.0 && k <= 1.0);
+        std::thread::sleep(super::COLOUR);
+        assert_eq!(lift("card", 0.0), (0.0, false));
+    }
 
     #[test]
     fn a_colour_eases_to_where_it_is_going_and_then_stops() {

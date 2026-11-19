@@ -121,7 +121,9 @@ fn item(t: &Tokens, p: &Palette, r: &Row, i: usize, cx: &mut Context<Palette>) -
         .h(px(36.))
         .px(px(16.))
         .text_size(px(ty::BASE))
-        .when(on, |d| d.bg(t.pick))
+        // The highlighted row: `sel` and the accent bar at the left edge, not a `pick` block.
+        .relative()
+        .when(on, |d| d.bg(t.sel).child(crate::widgets::sel_bar(t, 0.)))
         .hover(|d| d.bg(t.sel))
         .cursor_pointer()
         .on_click(cx.listener(move |this, _, window, cx| this.click(i, window, cx)))

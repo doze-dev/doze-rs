@@ -159,7 +159,9 @@ fn figures(
 
 /// The memory figure's share bar (each instance its colour, biggest first) and the biggest few.
 fn memory(t: &Tokens, v: &Vitals4) -> AnyElement {
-    let colors = [t.cool, t.accent, t.good, t.warn, t.extra, t.dim];
+    // The categorical ramp, not the status hues: a share is a category, never "good" or "warn".
+    let [c1, c2, c3, c4] = t.cat;
+    let colors = [c1, c2, c3, c4, t.dim];
     let parts = v.mem.shares.iter().zip(colors.iter().cycle());
     let bar = div()
         .flex()

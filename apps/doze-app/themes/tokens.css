@@ -12,7 +12,6 @@
  *   text dim bright                          ink
  *   accent                                   the mark's orange (a deeper burnt orange in light, for AA on white)
  *   good warn cool bad                       the status set: awake, dozing/warning, waking, broken
- *   extra                                    a spare hue the Go tokens had
  *   sel pick track ink on-accent             a hovered or selected row, a faint orange tint, a switch's track, …
  *   on on-knob                               a switch's fill and knob when on (neutral: the accent is not "on")
  *   cat-1 … cat-4                            the categorical ramp: log service names, the memory strip, chart lines.
@@ -30,14 +29,13 @@
   --line2: #323237;
   --well: #111113;
   --text: #d6d6db;
-  --dim: #92929b;
+  --dim: #97979f;
   --bright: #f5f5f6;
   --accent: #f0a24b;
   --good: #5fd38a;
   --warn: #e5d266;
   --cool: #7fa8ff;
   --bad: #ff6b6b;
-  --extra: #c79bf2;
   --sel: #222226;
   --pick: #2e2924;
   --track: #2a2a2e;
@@ -71,7 +69,6 @@
   --warn: #7f6500;
   --cool: #2a5bd7;
   --bad: #c62a3f;
-  --extra: #7c4dd6;
   --sel: #eeeeec;
   --pick: #f6e8d8;
   --track: #e4e4e1;

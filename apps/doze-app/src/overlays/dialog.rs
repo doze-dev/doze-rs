@@ -284,12 +284,19 @@ impl DialogView {
     fn button(&self, t: &Tokens, i: usize, b: &Button, cx: &mut Context<Self>) -> AnyElement {
         let at = i == self.c.at;
         let on = self.c.enabled(i);
+        // A danger dialog has one colour, its red: Cancel's highlight there is the ink, not the accent (two accents
+        // competed in it, the design pass of 2026-11-19 found).
+        let focus = if self.c.dialog.danger || self.c.dialog.buttons.iter().any(|b| b.danger) {
+            t.text
+        } else {
+            t.accent
+        };
         let (bg, border, fg) = if b.danger {
             (t.bad, t.bad, t.ink)
         } else if b.primary {
             (t.accent, t.accent, t.ink)
         } else {
-            (t.panel, if at { t.accent } else { t.line2 }, t.text)
+            (t.panel, if at { focus } else { t.line2 }, t.text)
         };
         let key = if b.cancel {
             "esc"
@@ -326,8 +333,10 @@ impl DialogView {
             .when(at && on && !self.c.has_box(), |d| {
                 d.shadow(vec![super::scrim::ring(if b.danger {
                     t.bad
-                } else {
+                } else if b.primary {
                     t.accent
+                } else {
+                    focus
                 })])
             })
             .when(!on, |d| d.opacity(0.6))

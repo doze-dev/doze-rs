@@ -20,7 +20,9 @@ enum Mark {
     Ring,
 }
 
-/// `.banner`: the mark, a bold line and a dim one, tinted by its tone; buttons at the right.
+/// `.banner`: the mark, a bold line and a dim one, tinted by its tone; buttons at the right. A note (the cool tone:
+/// a domain to set up, doze.hcl changed) is drawn at note weight, a plain card with its dot and no coloured frame, so
+/// it is not the strongest box on the page; a warning or a failure keeps its tinted frame.
 fn banner(
     t: &Tokens,
     id: &'static str,
@@ -49,8 +51,14 @@ fn banner(
         .py(px(10.))
         .rounded(px(10.))
         .border_1()
-        .border_color(mix(tone, t.panel, 50.))
-        .bg(mix(tone, t.panel, 10.))
+        .map(|d| {
+            if tone == t.cool {
+                d.border_color(t.line).bg(t.panel)
+            } else {
+                d.border_color(mix(tone, t.panel, 50.))
+                    .bg(mix(tone, t.panel, 10.))
+            }
+        })
         .child(mark)
         .child(
             div()

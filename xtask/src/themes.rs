@@ -18,7 +18,7 @@ const JSON: &str = "apps/doze-app/themes/doze.json";
 const MODES: [&str; 2] = ["dark", "light"];
 
 /// doze's colour tokens, in the order the CSS writes them; each mode must have them all.
-const TOKENS: [&str; 26] = [
+const TOKENS: [&str; 25] = [
     "bg",
     "side",
     "panel",
@@ -33,7 +33,6 @@ const TOKENS: [&str; 26] = [
     "warn",
     "cool",
     "bad",
-    "extra",
     "sel",
     "pick",
     "track",

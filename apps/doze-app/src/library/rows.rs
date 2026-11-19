@@ -8,7 +8,7 @@ use super::LibraryView;
 use crate::kit::{heading, need, pill, s, tone};
 use crate::outward::Probe as _;
 use crate::theme::{Tokens, ty};
-use crate::widgets::{Mono as _, dot, switch};
+use crate::widgets::{Mono as _, dot, sel_bar, switch};
 
 /// The columns' widths: the dot, then name / running / addresses share the rest, then last and the controls.
 const DOT_W: f32 = 10.;
@@ -93,16 +93,15 @@ fn row(
         "y" => t.warn,
         _ => t.dim,
     };
-    // `.lrow`: the pick when selected, the hover colour under the pointer, easing over 120 ms.
+    // `.lrow`: selected is `sel` with the accent bar at its left edge, hovered `sel` alone, easing over 120 ms.
     let hid = format!("lrow/{key}");
-    let row_bg = if selected {
-        t.pick
-    } else if crate::motion::hovered(&hid) {
+    let row_bg = if selected || crate::motion::hovered(&hid) {
         t.sel
     } else {
         gpui::transparent_black()
     };
     let (row_bg, bg_moving) = crate::motion::colour(&hid, row_bg);
+    let bar = selected.then(|| sel_bar(t, 0.).when(last, |d| d.rounded_bl(px(10.))));
     let base = div()
         .id(gpui::SharedString::from(format!("lrow-{key}")))
         .relative()
@@ -116,6 +115,7 @@ fn row(
         .border_color(t.line)
         .when(last, |d| d.rounded_b(px(10.)))
         .bg(row_bg)
+        .children(bar)
         .child(crate::motion::tick(bg_moving))
         .on_click(cx.listener(move |this, e: &gpui::ClickEvent, _, cx| {
             if e.click_count() >= 2 {

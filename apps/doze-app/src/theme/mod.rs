@@ -81,7 +81,6 @@ pub(crate) struct Tokens {
     pub(crate) warn: Hsla,
     pub(crate) cool: Hsla,
     pub(crate) bad: Hsla,
-    pub(crate) extra: Hsla,
     pub(crate) sel: Hsla,
     pub(crate) pick: Hsla,
     pub(crate) track: Hsla,
@@ -124,7 +123,6 @@ struct Raw {
     warn: String,
     cool: String,
     bad: String,
-    extra: String,
     sel: String,
     pick: String,
     track: String,
@@ -161,7 +159,6 @@ impl Tokens {
             warn: color(&r.warn)?,
             cool: color(&r.cool)?,
             bad: color(&r.bad)?,
-            extra: color(&r.extra)?,
             sel: color(&r.sel)?,
             pick: color(&r.pick)?,
             track: color(&r.track)?,
@@ -206,24 +203,6 @@ impl Tokens {
             inset: false,
         };
         vec![shade(a, 1.0, 2.0), shade(a * 0.7, 6.0, 18.0)]
-    }
-
-    /// The shadow a floating thing casts (⌘K, the bell, a menu): the card's lift, deeper, so it parts from the page.
-    pub(crate) fn float(&self) -> Vec<gpui::BoxShadow> {
-        let shade = |a: f32, y: f32, blur: f32| gpui::BoxShadow {
-            color: alpha(gpui::black(), a.min(0.9)),
-            offset: gpui::point(gpui::px(0.), gpui::px(y)),
-            blur_radius: gpui::px(blur),
-            spread_radius: gpui::px(0.),
-            inset: false,
-        };
-        // Light lifts faintly (.07): a popover needs more than a card to part from what is under it.
-        let a = if self.dark {
-            self.lift
-        } else {
-            self.lift * 2.5
-        };
-        vec![shade(a, 2.0, 6.0), shade(a * 0.9, 18.0, 48.0)]
     }
 
     /// Category `i` of the ramp, cycling.

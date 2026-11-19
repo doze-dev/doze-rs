@@ -22,9 +22,10 @@ pub(super) fn charts(t: &Tokens, p: &InstancePage) -> Vec<AnyElement> {
         ];
     };
     let mut out = vec![
-        chart_card(t, "Memory", "ram", &v.ram, t.cool, 90.),
-        chart_card(t, "CPU", "cpu", &v.cpu, t.accent, 90.),
-        chart_card(t, "Connections", "conns", &v.conns, t.good, 70.),
+        // The ramp's first three: a count is a category of line, not a status (green read as "healthy").
+        chart_card(t, "Memory", "ram", &v.ram, t.cat(0), 90.),
+        chart_card(t, "CPU", "cpu", &v.cpu, t.cat(1), 90.),
+        chart_card(t, "Connections", "conns", &v.conns, t.cat(2), 70.),
     ];
     out.extend(extends(t, p, "vitals"));
     out
