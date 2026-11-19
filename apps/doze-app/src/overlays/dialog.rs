@@ -204,7 +204,12 @@ fn sentence(t: &Tokens, v: &DialogView) -> Option<AnyElement> {
 /// The box: a reset's "Type db to confirm", or an action's input.
 fn input(t: &Tokens, v: &DialogView, focused: bool) -> Option<AnyElement> {
     let i = v.input.as_ref()?;
-    let (frame, moving) = crate::widgets::input_frame(t, "dialog/input", focused);
+    // In a danger dialog the box's focus tint is the ink too: red is the dialog's one colour.
+    let tint = Tokens {
+        accent: v.focus(t),
+        ..*t
+    };
+    let (frame, moving) = crate::widgets::input_frame(&tint, "dialog/input", focused);
     let field = div()
         .h(px(36.))
         .px(px(12.))

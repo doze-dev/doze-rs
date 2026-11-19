@@ -134,7 +134,8 @@ pub(crate) fn pill(t: &Tokens, text: &str, up: bool, link: bool) -> gpui::Div {
         .text_ellipsis()
         .child(SharedString::from(text.to_owned()));
     p.child(if link {
-        words.text_color(t.cool).underline()
+        // A link in the mark's orange (Graphite: the accent is links and the current thing), not waking's blue.
+        words.text_color(t.accent).underline()
     } else {
         words
     })

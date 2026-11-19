@@ -211,17 +211,11 @@ fn tile(
     // As shell.css orders them: in trouble, then off (no fill, a dashed frame, even when selected), then selected. A
     // failed one is both: its red frame, dashed, and no fill (doze stopped trying; it waits for you).
     let (border, bg) = if r.trouble {
-        let fill = if off {
-            gpui::transparent_black()
-        } else {
-            mix(t.bad, t.panel, 7.)
-        };
+        // An unfilled tile is the page's own ground, opaque, so the shadow it lets go does not show through it.
+        let fill = if off { t.bg } else { mix(t.bad, t.panel, 7.) };
         (mix(t.bad, t.line, 55.), fill)
     } else if off {
-        (
-            if selected { t.line2 } else { t.line },
-            gpui::transparent_black(),
-        )
+        (if selected { t.line2 } else { t.line }, t.bg)
     } else if selected {
         (t.line2, mix(t.accent, t.panel, 7.))
     } else {

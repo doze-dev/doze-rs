@@ -77,7 +77,7 @@ fn alert(t: &Tokens, it: &Item, here: bool, cx: &mut Context<Root>) -> gpui::Div
     let fx = alert_fixes(t, it, here, cx);
     let id = it.id.clone();
     crate::outward::Probe::probe(div(), format!("alert-{}", it.id), it.title.clone())
-        .w(px(380.))
+        .w(px(420.))
         .flex()
         .items_start()
         .gap(px(10.))

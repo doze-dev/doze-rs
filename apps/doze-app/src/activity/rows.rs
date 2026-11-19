@@ -235,7 +235,8 @@ fn asleep(t: &Tokens, r: &doze_desk::activity::Row) -> impl IntoElement {
                     div()
                         .h_full()
                         .w(gpui::relative(r.asleep_part as f32))
-                        .bg(t.accent),
+                        // Asleep in the asleep ink: the accent is not a data colour (the design pass, 2026-11-19).
+                        .bg(t.dim),
                 ),
         )
         .child(
