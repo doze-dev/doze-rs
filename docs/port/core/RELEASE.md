@@ -26,7 +26,7 @@ Modules are different: each goes to its own rolling release **in doze-rs** (see 
 |---|---|---|
 | `doze_<v>_darwin_arm64.tar.gz` | job `cli`, macos-latest | `doze` (profile `release-doze`), `LICENSE`, `NOTICE` |
 | `doze_<v>_linux_amd64.tar.gz`, `_linux_arm64` | job `cli`, ubuntu-22.04 and ubuntu-22.04-arm | built on 22.04 so the glibc it asks for stays old; the job prints the newest `GLIBC_` symbol |
-| `Doze-<v>.dmg`, `Doze.app.zip` | job `app-macos` | Doze.app from `cargo xtask app-bundle --id dev.doze.app --cli <doze>`: `Contents/MacOS/doze-app` (the GUI and the whole CLI, O1) and `Contents/MacOS/doze` (the CLI-only binary, which the cask links onto the PATH), each signed with the hardened runtime; the bundle and the image are notarised and stapled |
+| `Doze-<v>.dmg`, `Doze.app.zip` | job `app-macos` | Doze.app from `cargo xtask app-bundle --id dev.doze.app --cli <doze>`: `Contents/MacOS/doze-app` (the GUI and the whole CLI, O1) and `Contents/MacOS/doze` (the CLI-only binary, identifier `dev.doze.cli`, which the cask links onto the PATH), each signed with the hardened runtime; the bundle and the image are notarised and stapled |
 | `doze_<v>_amd64.deb`, `doze-<v>-1.x86_64.rpm` (and arm64) | job `linux-packages`, nfpm | `/usr/bin/doze`; config `packaging/linux/nfpm-doze.yaml` |
 | `doze-app_<v>_amd64.deb`, `doze-app-<v>-1.x86_64.rpm` (and arm64) | job `linux-packages`, **gated** | `/usr/bin/doze-app`, `doze.desktop` (the `doze://` scheme), the icon; depends on `doze` and GPUI's libraries; config `packaging/linux/nfpm-doze-app.yaml` |
 | `checksums.txt` | job `assemble` | `sha256sum` over every file above; `install.sh` checks against it |

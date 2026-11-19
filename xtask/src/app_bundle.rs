@@ -235,6 +235,7 @@ fn sign(app: &Path) -> Result<(), String> {
         for t in &targets {
             sh(Command::new("codesign")
                 .args(["--force", "--sign", "-"])
+                .args(ident(t, app))
                 .arg(t))?;
         }
         println!("app-bundle: ad-hoc signed (set DOZE_SIGN_ID for a Developer ID)");
@@ -250,6 +251,7 @@ fn sign(app: &Path) -> Result<(), String> {
                 ])
                 .arg(root().join("apps/doze-app/bundle/entitlements.plist"))
                 .args(["--sign", &id])
+                .args(ident(t, app))
                 .arg(t))?;
         }
         println!("app-bundle: signed with {id}");
@@ -258,6 +260,16 @@ fn sign(app: &Path) -> Result<(), String> {
     sh(Command::new("codesign")
         .args(["--verify", "--deep", "--strict"])
         .arg(app))
+}
+
+/// The nested `doze` gets a stable identifier (`dev.doze.cli`) rather than the one codesign derives from its hash;
+/// the bundle keeps its Info.plist identifier.
+fn ident<'a>(target: &Path, app: &Path) -> &'a [&'a str] {
+    if target == app {
+        &[]
+    } else {
+        &["--identifier", "dev.doze.cli"]
+    }
 }
 
 /// Notarises and staples, when `NOTARY_KEY_PATH`, `NOTARY_KEY_ID` and `NOTARY_ISSUER_ID` are all set.
