@@ -115,13 +115,15 @@ fn an_enabled_device_holds_its_user_and_must_be_deactivated_before_it_goes() {
         w.err("DeleteUser", &json!({"UserName": "u"})),
         (
             "DeleteConflictException".into(),
-            "Cannot delete entity, must delete MFA device first.".into()
+            "Cannot delete entity, must remove tokens from principal first.".into()
         )
     );
     assert_eq!(
-        w.err("DeleteVirtualMFADevice", &json!({"SerialNumber": SERIAL}))
-            .0,
-        "DeleteConflictException"
+        w.err("DeleteVirtualMFADevice", &json!({"SerialNumber": SERIAL})),
+        (
+            "DeleteConflictException".into(),
+            "MFA VirtualDevice in use. Must deactivate first.".into()
+        )
     );
     w.ok(
         "DeactivateMFADevice",
@@ -131,9 +133,11 @@ fn an_enabled_device_holds_its_user_and_must_be_deactivated_before_it_goes() {
         w.err(
             "DeactivateMFADevice",
             &json!({"UserName": "u", "SerialNumber": SERIAL})
+        ),
+        (
+            "NoSuchEntityException".into(),
+            "MFA Device invalid for user.".into()
         )
-        .0,
-        "NoSuchEntityException"
     );
     w.ok("DeleteVirtualMFADevice", &json!({"SerialNumber": SERIAL}));
     w.ok("DeleteUser", &json!({"UserName": "u"}));
@@ -175,14 +179,14 @@ fn a_device_is_resynced_with_two_codes_and_tagged() {
         w.ok("ListMFADeviceTags", &json!({"SerialNumber": SERIAL}))["Tags"],
         json!([{"Key": "a", "Value": "1"}])
     );
-    // GetMFADevice answers for FIDO keys only, as the model says.
+    // GetMFADevice answers for FIDO keys only, as the model says, and refuses a virtual device's serial as AWS does.
     assert_eq!(
         w.err(
             "GetMFADevice",
             &json!({"SerialNumber": SERIAL, "UserName": "u"})
         )
         .0,
-        "NoSuchEntityException"
+        "ValidationError"
     );
 }
 

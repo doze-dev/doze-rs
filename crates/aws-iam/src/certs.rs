@@ -25,7 +25,8 @@ fn malformed(message: &str) -> ApiError {
     ApiError::modeled("MalformedCertificateException", message)
 }
 
-/// The certificate a body holds, refused as AWS refuses a malformed or expired one (memory: the sentences).
+/// The certificate a body holds, refused as AWS refuses a malformed or expired one (the malformed sentence recorded 2026-11-19, the
+/// expired one from memory).
 fn read_certificate(body: &str, now_ms: i64) -> Result<x509::Cert, ApiError> {
     let cert = x509::certificate(body).ok_or_else(|| {
         malformed("Unable to parse certificate. Please ensure the certificate is in PEM format.")
@@ -64,14 +65,15 @@ impl Core {
         let cert = read_certificate(r.s("CertificateBody"), self.now_ms())?;
         match x509::key_matches(&cert, r.s("PrivateKey")) {
             KeyCheck::Matches => {}
-            // (memory)
+            // Recorded 2026-11-19.
             KeyCheck::Mismatch => {
                 return Err(ApiError::modeled(
                     "KeyPairMismatchException",
-                    "Public key certificate and private key doesn't match.",
+                    "The private key did not match the public key provided. Please verify the key material and try again.",
                 ));
             }
-            KeyCheck::Unreadable => return Err(malformed("Unable to parse private key.")),
+            // Recorded 2026-11-19: AWS gives this refusal no message at all.
+            KeyCheck::Unreadable => return Err(malformed("")),
         }
         let chain = r.opt("CertificateChain");
         if chain.is_some_and(|c| !x509::chain(c)) {
@@ -83,7 +85,8 @@ impl Core {
             path: path.to_owned(),
             id: new_id("ASCA")?,
             arn: arn_of(r.account(), "server-certificate", path, name),
-            body: r.s("CertificateBody").to_owned(),
+            // Recorded 2026-11-19: AWS hands the body back without its closing newline.
+            body: r.s("CertificateBody").trim().to_owned(),
             chain: chain.map(str::to_owned),
             uploaded_ms: self.now_ms(),
             expires_ms: cert.not_after_s * 1000,

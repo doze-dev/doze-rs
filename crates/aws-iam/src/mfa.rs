@@ -72,10 +72,10 @@ impl Core {
         let path = r.opt("Path").unwrap_or("/");
         let serial = arn_of(r.account(), "mfa", path, r.s("VirtualMFADeviceName"));
         if self.held.mfa.get(&serial).is_some() {
-            // (memory)
+            // Recorded 2026-11-19.
             return Err(ApiError::modeled(
                 "EntityAlreadyExistsException",
-                "MFADevice entity at the same path and name already exists.",
+                "MFA device already exists.",
             ));
         }
         let tags: BTreeMap<String, String> = r.tags().into_iter().collect();
@@ -158,7 +158,14 @@ impl Core {
     pub(crate) fn deactivate_mfa_device(&mut self, r: &Req<'_>) -> Result<Value, ApiError> {
         let serial = r.s("SerialNumber");
         let user = self.named_or_caller(r)?.ok_or_else(|| no_device(serial))?;
-        self.users_device(&user, serial)?;
+        let d = self.device(serial)?;
+        if !d.user.as_ref().is_some_and(|(u, _)| *u == user) {
+            // Recorded 2026-11-19: a device that is there but not this user's.
+            return Err(ApiError::modeled(
+                "NoSuchEntityException",
+                "MFA Device invalid for user.",
+            ));
+        }
         if let Some(d) = self.held.mfa.get_mut(serial) {
             d.user = None;
         }
@@ -168,26 +175,26 @@ impl Core {
     pub(crate) fn delete_virtual_mfa_device(&mut self, r: &Req<'_>) -> Result<Value, ApiError> {
         let serial = r.s("SerialNumber");
         if self.device(serial)?.user.is_some() {
-            // (memory)
+            // Recorded 2026-11-19.
             return Err(crate::errors::conflict(
-                "MFA Device must be deactivated before it can be deleted.",
+                "MFA VirtualDevice in use. Must deactivate first.",
             ));
         }
         self.held.mfa.remove(serial);
         Ok(Value::Null)
     }
 
-    /// The model: "For this API, we only accept FIDO security key ARNs." None can be registered locally, so every serial is unknown.
+    /// The model: "For this API, we only accept FIDO security key ARNs." None can be registered locally, so every serial is refused
+    /// as AWS refuses a virtual device's.
     pub(crate) fn get_mfa_device(&self, r: &Req<'_>) -> Result<Value, ApiError> {
         if let Some(name) = r.opt("UserName") {
             self.entity(Kind::User, name)?;
         }
-        Err(ApiError::modeled(
-            "NoSuchEntityException",
-            format!(
-                "MFA device {} is not a FIDO security key: GetMFADevice answers for FIDO keys only, and none can be registered in doze-aws. ListMFADevices lists virtual devices.",
-                r.s("SerialNumber")
-            ),
+        // Recorded 2026-11-19, for a virtual device's serial.
+        Err(ApiError::new(
+            400,
+            "ValidationError",
+            "The MFA device serial number sent in the request is invalid or not supported by this API. Currently, only hardware FIDO security keys are supported. Please use the compatible device or API.",
         ))
     }
 

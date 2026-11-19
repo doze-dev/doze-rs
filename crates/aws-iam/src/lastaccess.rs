@@ -319,6 +319,107 @@ fn job_fields(m: &mut Map<String, Value>, job: &Job) {
     m.insert("JobCompletionDate".into(), secs(job.created_ms));
 }
 
+/// DynamoDB's tracked actions (recorded 2026-11-19).
+const TRACKED_DYNAMODB: &[&str] = &[
+    "CreateBackup",
+    "CreateGlobalTable",
+    "CreateTable",
+    "DeleteBackup",
+    "DeleteTable",
+    "DescribeBackup",
+    "DescribeContinuousBackups",
+    "DescribeContributorInsights",
+    "DescribeEndpoints",
+    "DescribeExport",
+    "DescribeGlobalTable",
+    "DescribeGlobalTableSettings",
+    "DescribeImport",
+    "DescribeKinesisStreamingDestination",
+    "DescribeLimits",
+    "DescribeStream",
+    "DescribeTable",
+    "DescribeTableReplicaAutoScaling",
+    "DescribeTimeToLive",
+    "DisableKinesisStreamingDestination",
+    "EnableKinesisStreamingDestination",
+    "ExportTableToPointInTime",
+    "GetResourcePolicy",
+    "ImportTable",
+    "ListBackups",
+    "ListBulkOperations",
+    "ListContributorInsights",
+    "ListExports",
+    "ListGlobalTables",
+    "ListImports",
+    "ListStreams",
+    "ListTables",
+    "RestoreTableFromBackup",
+    "RestoreTableToPointInTime",
+    "UpdateContinuousBackups",
+    "UpdateContributorInsights",
+    "UpdateGlobalTable",
+    "UpdateGlobalTableSettings",
+    "UpdateKinesisStreamingDestination",
+    "UpdateTable",
+    "UpdateTableReplicaAutoScaling",
+    "UpdateTimeToLive",
+];
+/// S3's tracked actions (recorded 2026-11-19).
+const TRACKED_S3: &[&str] = &[
+    "GetAccelerateConfiguration",
+    "GetAccessGrant",
+    "GetAccessGrantsInstance",
+    "GetAccessGrantsInstanceForPrefix",
+    "GetAccessGrantsInstanceResourcePolicy",
+    "GetAccessGrantsLocation",
+    "GetAccessPoint",
+    "GetAccessPointConfigurationForObjectLambda",
+    "GetAccessPointForObjectLambda",
+    "GetAccessPointPolicy",
+    "GetAccessPointPolicyForObjectLambda",
+    "GetAccessPointPolicyStatus",
+    "GetAccessPointPolicyStatusForObjectLambda",
+    "GetAccountPublicAccessBlock",
+    "GetAnalyticsConfiguration",
+    "GetBucketAbac",
+    "GetBucketAcl",
+    "GetBucketCORS",
+    "GetBucketLocation",
+    "GetBucketLogging",
+    "GetBucketNotification",
+    "GetBucketObjectLockConfiguration",
+    "GetBucketOwnershipControls",
+    "GetBucketPolicy",
+    "GetBucketPolicyStatus",
+    "GetBucketPublicAccessBlock",
+    "GetBucketRequestPayment",
+    "GetBucketVersioning",
+    "GetBucketWebsite",
+    "GetDataAccess",
+    "GetEncryptionConfiguration",
+    "GetIntelligentTieringConfiguration",
+    "GetInventoryConfiguration",
+    "GetLifecycleConfiguration",
+    "GetMetricsConfiguration",
+    "GetMultiRegionAccessPoint",
+    "GetMultiRegionAccessPointPolicy",
+    "GetMultiRegionAccessPointPolicyStatus",
+    "GetMultiRegionAccessPointRoutes",
+    "GetReplicationConfiguration",
+    "GetStorageLensConfiguration",
+    "GetStorageLensDashboard",
+];
+
+/// The actions AWS tracks for a service in an `ACTION_LEVEL` report, listed whether asked for or not. Recorded 2026-11-19 for
+/// DynamoDB and S3 (42 each, in this order); AWS tracks others (IAM, EC2, Lambda) whose lists were not recorded.
+fn tracked_actions(namespace: &str) -> &'static [&'static str] {
+    match namespace {
+        "dynamodb" => TRACKED_DYNAMODB,
+        "s3" => TRACKED_S3,
+        _ => &[],
+    }
+}
+
 fn service_json(s: &ServiceUse, actions: bool) -> Value {
     let mut m = Map::new();
     m.insert("ServiceName".into(), json!(service_name(&s.namespace)));
@@ -327,15 +428,24 @@ fn service_json(s: &ServiceUse, actions: bool) -> Value {
         m.insert("LastAuthenticated".into(), secs(u.at_ms));
         m.insert("LastAuthenticatedEntity".into(), json!(entity));
         m.insert("LastAuthenticatedRegion".into(), json!(u.region));
-        m.insert("TotalAuthenticatedEntities".into(), json!(s.entities.len()));
     }
-    if actions && !s.actions.is_empty() {
-        let tracked: Vec<Value> = s
-            .actions
-            .iter()
-            .map(|(name, entity, u)| json!({"ActionName": name, "LastAccessedEntity": entity, "LastAccessedTime": secs(u.at_ms), "LastAccessedRegion": u.region}))
+    // Recorded 2026-11-19: the count is there, 0, for a service no one asked for.
+    m.insert("TotalAuthenticatedEntities".into(), json!(s.entities.len()));
+    if actions {
+        // A tracked action no one asked for is listed by name alone (recorded 2026-11-19); one asked for says who, when and where.
+        // Actions asked for of a service with no recorded list are listed too, where AWS may track none.
+        let mut names: BTreeSet<&str> = tracked_actions(&s.namespace).iter().copied().collect();
+        names.extend(s.actions.iter().map(|(name, _, _)| name.as_str()));
+        let tracked: Vec<Value> = names
+            .into_iter()
+            .map(|name| match s.actions.iter().find(|(n, _, _)| n == name) {
+                Some((_, entity, u)) => json!({"ActionName": name, "LastAccessedEntity": entity, "LastAccessedTime": secs(u.at_ms), "LastAccessedRegion": u.region}),
+                None => json!({"ActionName": name}),
+            })
             .collect();
-        m.insert("TrackedActionsLastAccessed".into(), Value::Array(tracked));
+        if !tracked.is_empty() {
+            m.insert("TrackedActionsLastAccessed".into(), Value::Array(tracked));
+        }
     }
     Value::Object(m)
 }
@@ -350,4 +460,17 @@ fn entity_details(e: &Entity, at: Option<i64>) -> Value {
         m.insert("LastAuthenticated".into(), secs(at));
     }
     Value::Object(m)
+}
+
+#[cfg(test)]
+mod tracked {
+    /// The report lists tracked actions in sorted order; the recorded lists must already be in it, so none is reordered.
+    #[test]
+    fn the_recorded_lists_are_in_the_order_aws_gave_them() {
+        for ns in ["dynamodb", "s3"] {
+            let list = super::tracked_actions(ns);
+            assert_eq!(list.len(), 42, "{ns}");
+            assert!(list.is_sorted(), "{ns}");
+        }
+    }
 }

@@ -165,6 +165,12 @@ fn a_users_report_lists_what_its_policies_allow_and_when_each_was_asked_for() {
         services[0].get("LastAuthenticated").is_none(),
         "s3 was never asked for"
     );
+    assert_eq!(services[0]["TotalAuthenticatedEntities"], 0);
+    let s3 = services[0]["TrackedActionsLastAccessed"]
+        .as_array()
+        .unwrap();
+    assert_eq!(s3.len(), 42, "S3's tracked actions, by name alone");
+    assert_eq!(s3[0], json!({"ActionName": "GetAccelerateConfiguration"}));
     let absent = json!({"JobId": "00000000-0000-4000-8000-000000000000"});
     assert_eq!(
         w.err("GetServiceLastAccessedDetails", &absent).0,
