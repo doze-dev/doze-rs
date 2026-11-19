@@ -11,9 +11,9 @@
 //! (`unstable from` on its line) is in the column but offered only as Kafka offers it, with `unstable.api.versions.enable`
 //! ([`Features::unstable`](crate::profile::Features::unstable)); the recording holds the rest.
 //!
-//! Two floors are deliberate. Produce starts at v3 and Fetch at v4, the first versions that carry record
-//! batch format v2, the only format the log stores. OffsetCommit and OffsetFetch stop below v10, where the
-//! wire form switches to topic ids. SaslHandshake v0 means "raw tokens follow" (KIP-43 framing, served: SEC-401).
+//! One floor is deliberate. Produce starts at v3 and Fetch at v4, the first versions that carry record
+//! batch format v2, the only format the log stores. SaslHandshake v0 means "raw tokens follow" (KIP-43 framing, served:
+//! SEC-401). The Kafka 4 column is Kafka 4.4.0's, every version of every API served (debt K1, closed 2026-11-19).
 
 use bytes::{Bytes, BytesMut};
 use kafka_protocol::messages::{
@@ -178,22 +178,22 @@ macro_rules! served_apis {
 }
 
 served_apis! {
-    // Produce v13 and TxnOffsetCommit v6 name topics by id (KIP-516); Kafka 4.4.0 offers both.
+    // Produce v13, TxnOffsetCommit v6, OffsetCommit v10 and OffsetFetch v10 name topics by id (KIP-516, KIP-848).
     Produce(ProduceRequest, ProduceResponse) [v(3, 5), v(3, 7), v(3, 11), v(3, 13)];
-    Fetch(FetchRequest, FetchResponse) [v(4, 6), v(4, 10), v(4, 13), v(4, 13)];
-    ListOffsets(ListOffsetsRequest, ListOffsetsResponse) [v(0, 2), v(0, 5), v(0, 7), v(1, 7)];
-    Metadata(MetadataRequest, MetadataResponse) [v(0, 5), v(0, 8), v(0, 12), v(0, 12)];
-    OffsetCommit(OffsetCommitRequest, OffsetCommitResponse) [v(0, 3), v(0, 6), v(0, 8), v(2, 9)];
-    OffsetFetch(OffsetFetchRequest, OffsetFetchResponse) [v(0, 3), v(0, 5), v(0, 8), v(1, 9)];
-    FindCoordinator(FindCoordinatorRequest, FindCoordinatorResponse) [v(0, 1), v(0, 2), v(0, 4), v(0, 4)];
+    Fetch(FetchRequest, FetchResponse) [v(4, 6), v(4, 10), v(4, 13), v(4, 18)];
+    ListOffsets(ListOffsetsRequest, ListOffsetsResponse) [v(0, 2), v(0, 5), v(0, 7), v(1, 11)];
+    Metadata(MetadataRequest, MetadataResponse) [v(0, 5), v(0, 8), v(0, 12), v(0, 13)];
+    OffsetCommit(OffsetCommitRequest, OffsetCommitResponse) [v(0, 3), v(0, 6), v(0, 8), v(2, 10)];
+    OffsetFetch(OffsetFetchRequest, OffsetFetchResponse) [v(0, 3), v(0, 5), v(0, 8), v(1, 10)];
+    FindCoordinator(FindCoordinatorRequest, FindCoordinatorResponse) [v(0, 1), v(0, 2), v(0, 4), v(0, 6)];
     JoinGroup(JoinGroupRequest, JoinGroupResponse) [v(0, 2), v(0, 4), v(0, 7), v(0, 9)];
     Heartbeat(HeartbeatRequest, HeartbeatResponse) [v(0, 1), v(0, 2), v(0, 4), v(0, 4)];
     LeaveGroup(LeaveGroupRequest, LeaveGroupResponse) [v(0, 1), v(0, 2), v(0, 4), v(0, 5)];
     SyncGroup(SyncGroupRequest, SyncGroupResponse) [v(0, 1), v(0, 3), v(0, 4), v(0, 5)];
-    DescribeGroups(DescribeGroupsRequest, DescribeGroupsResponse) [v(0, 1), v(0, 3), v(0, 5), v(0, 5)];
+    DescribeGroups(DescribeGroupsRequest, DescribeGroupsResponse) [v(0, 1), v(0, 3), v(0, 5), v(0, 6)];
     ListGroups(ListGroupsRequest, ListGroupsResponse) [v(0, 1), v(0, 2), v(0, 4), v(0, 5)];
     SaslHandshake(SaslHandshakeRequest, SaslHandshakeResponse) [v(0, 1), v(0, 1), v(0, 1), v(0, 1)], when Sasl;
-    ApiVersions(ApiVersionsRequest, ApiVersionsResponse) [v(0, 1), v(0, 2), v(0, 3), v(0, 4)];
+    ApiVersions(ApiVersionsRequest, ApiVersionsResponse) [v(0, 1), v(0, 2), v(0, 3), v(0, 5)];
     CreateTopics(CreateTopicsRequest, CreateTopicsResponse) [v(0, 2), v(0, 3), v(0, 7), v(2, 7)];
     DeleteTopics(DeleteTopicsRequest, DeleteTopicsResponse) [v(0, 1), v(0, 3), v(0, 5), v(1, 6)];
     DeleteRecords(DeleteRecordsRequest, DeleteRecordsResponse) [v(0, 0), v(0, 1), v(0, 2), v(0, 2)];
@@ -210,13 +210,13 @@ served_apis! {
     AlterConfigs(AlterConfigsRequest, AlterConfigsResponse) [v(0, 0), v(0, 2), v(0, 2), v(0, 2)];
     SaslAuthenticate(SaslAuthenticateRequest, SaslAuthenticateResponse) [v(0, 0), v(0, 2), v(0, 2), v(0, 2)], when Sasl;
     CreatePartitions(CreatePartitionsRequest, CreatePartitionsResponse) [v(0, 0), v(0, 1), v(0, 3), v(0, 3)];
-    DeleteGroups(DeleteGroupsRequest, DeleteGroupsResponse) [v(0, 0), v(0, 2), v(0, 2), v(0, 2)];
+    DeleteGroups(DeleteGroupsRequest, DeleteGroupsResponse) [v(0, 0), v(0, 2), v(0, 2), v(0, 3)];
     IncrementalAlterConfigs(IncrementalAlterConfigsRequest, IncrementalAlterConfigsResponse) [NONE, v(0, 1), v(0, 1), v(0, 1)];
     OffsetDelete(OffsetDeleteRequest, OffsetDeleteResponse) [NONE, v(0, 0), v(0, 0), v(0, 0)];
     DescribeCluster(DescribeClusterRequest, DescribeClusterResponse) [NONE, NONE, v(0, 1), v(0, 2)];
     DescribeProducers(DescribeProducersRequest, DescribeProducersResponse) [NONE, NONE, v(0, 0), v(0, 0)];
     DescribeTransactions(DescribeTransactionsRequest, DescribeTransactionsResponse) [NONE, NONE, v(0, 0), v(0, 0)];
-    ListTransactions(ListTransactionsRequest, ListTransactionsResponse) [NONE, NONE, v(0, 1), v(0, 1)];
+    ListTransactions(ListTransactionsRequest, ListTransactionsResponse) [NONE, NONE, v(0, 1), v(0, 2)];
     ConsumerGroupHeartbeat(ConsumerGroupHeartbeatRequest, ConsumerGroupHeartbeatResponse) [NONE, NONE, NONE, v(0, 1)];
     ConsumerGroupDescribe(ConsumerGroupDescribeRequest, ConsumerGroupDescribeResponse) [NONE, NONE, NONE, v(0, 1)];
     DescribeUserScramCredentials(DescribeUserScramCredentialsRequest, DescribeUserScramCredentialsResponse) [NONE, v(0, 0), v(0, 0), v(0, 0)];

@@ -99,7 +99,7 @@ fn each_major_offers_what_it_should() {
     assert!(profile(4).offers_consumer_groups());
     assert_eq!(profile(1).range(ApiKey::DescribeCluster), None);
     assert!(profile(3).range(ApiKey::DescribeCluster).is_some());
-    assert_eq!(profile(4).range(ApiKey::Fetch), Some((4, 13)));
+    assert_eq!(profile(4).range(ApiKey::Fetch), Some((4, 18)));
     assert_eq!(profile(1).range(ApiKey::Produce), Some((3, 5)));
 }
 
@@ -145,9 +145,9 @@ fn init_producer_id_v6_is_offered_only_with_the_unstable_versions() {
 #[test]
 fn outside_the_range_is_not_served() {
     let p = profile(4);
-    assert!(p.check(ApiKey::Fetch, 13, Features::default()).is_ok());
+    assert!(p.check(ApiKey::Fetch, 18, Features::default()).is_ok());
     assert!(p.check(ApiKey::Fetch, 3, Features::default()).is_err());
-    assert!(p.check(ApiKey::Fetch, 14, Features::default()).is_err());
+    assert!(p.check(ApiKey::Fetch, 19, Features::default()).is_err());
     // A SASL API is refused until SASL is on, and an unserved API always.
     assert!(
         p.check(ApiKey::SaslAuthenticate, 0, Features::default())
@@ -266,7 +266,7 @@ fn log_dirs_leader_epochs_and_client_quotas_are_offered_as_each_major_did_within
     // The recorded brokers (tests/data/api-versions.json): Kafka 1.1 lists OffsetForLeaderEpoch and DescribeLogDirs at v0
     // only and neither quota API; 2.8 lists 0..4, 0..2 and 0..1, 0..1; 3.9 lists 0..4, 0..4, 0..1, 0..1; 4.3 lists 2..4,
     // 1..5, 0..1, 0..1. The crate reads OffsetForLeaderEpoch from v0 (v0 and v1 by PATCHES.md 5) and DescribeLogDirs from
-    // v0 to v4.
+    // v0 (PATCHES.md 5) to v5 (PATCHES.md 6).
     let at = |major, key| profile(major).range(key);
     assert_eq!(at(1, ApiKey::OffsetForLeaderEpoch), Some((0, 0)));
     assert_eq!(at(1, ApiKey::DescribeLogDirs), Some((0, 0)));
@@ -276,7 +276,7 @@ fn log_dirs_leader_epochs_and_client_quotas_are_offered_as_each_major_did_within
     assert_eq!(at(2, ApiKey::DescribeLogDirs), Some((0, 2)));
     assert_eq!(at(3, ApiKey::DescribeLogDirs), Some((0, 4)));
     assert_eq!(at(4, ApiKey::OffsetForLeaderEpoch), Some((2, 4)));
-    assert_eq!(at(4, ApiKey::DescribeLogDirs), Some((1, 4)));
+    assert_eq!(at(4, ApiKey::DescribeLogDirs), Some((1, 5)));
     for major in 2..=4 {
         assert_eq!(at(major, ApiKey::DescribeClientQuotas), Some((0, 1)));
         assert_eq!(at(major, ApiKey::AlterClientQuotas), Some((0, 1)));

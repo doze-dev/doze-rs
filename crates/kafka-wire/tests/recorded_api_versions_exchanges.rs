@@ -1,5 +1,7 @@
 //! Every ApiVersions exchange recorded from Apache Kafka 4.3.1 (tests/data/README.md), replayed through
-//! the request reader, `answer` and the response writer.
+//! the request reader, `answer` and the response writer. Kafka 4.4.0, which the Kafka 4 profile now stands for, serves
+//! ApiVersions to v5 (KIP-1242) where 4.3.1 served it to v4: its own row is read as 4.4.0 lists it (0 to 5), and the two
+//! steps that asked for v5 as a version not served are left out (v5 is served: `tools/wire-tail-oracle`, `api-versions`).
 #![allow(
     clippy::unwrap_used,
     clippy::expect_used,
@@ -52,11 +54,11 @@ fn rows(v: &Value) -> Vec<(i64, i64, i64)> {
         .unwrap()
         .iter()
         .map(|r| {
-            (
-                r["ApiKey"].as_i64().unwrap(),
-                r["MinVersion"].as_i64().unwrap(),
-                r["MaxVersion"].as_i64().unwrap(),
-            )
+            let key = r["ApiKey"].as_i64().unwrap();
+            let max = r["MaxVersion"].as_i64().unwrap();
+            // ApiVersions itself: 4.3.1 recorded 0 to 4, and 4.4.0 serves 0 to 5.
+            let max = if key == 18 && max == 4 { 5 } else { max };
+            (key, r["MinVersion"].as_i64().unwrap(), max)
         })
         .collect()
 }
@@ -72,6 +74,9 @@ fn every_recorded_exchange_is_answered_as_kafka_answered() {
                 continue;
             }
             let label = step["label"].as_str().unwrap();
+            if step["version"] == 5 {
+                continue;
+            }
             let Incoming::ApiVersions { head, body } =
                 incoming::read(payload(step), profile, AS_RECORDED).unwrap()
             else {
@@ -113,6 +118,6 @@ fn every_recorded_exchange_is_answered_as_kafka_answered() {
             replayed += 1;
         }
     }
-    // 25 client-software steps (the 26th is a Metadata request) and 6 unsupported-version steps.
-    assert_eq!(replayed, 31);
+    // 25 client-software steps (the 26th is a Metadata request) and 4 of the 6 unsupported-version steps.
+    assert_eq!(replayed, 29);
 }

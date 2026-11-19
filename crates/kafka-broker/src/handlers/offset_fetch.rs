@@ -5,7 +5,7 @@ use std::collections::HashSet;
 use kafka_meta::GroupOffset;
 use kafka_storage::fs::Fs;
 use kafka_wire::StrBytes;
-use kafka_wire::ids::GroupId;
+use kafka_wire::ids::{GroupId, TopicId, TopicName};
 use kafka_wire::messages::offset_fetch_response::{
     OffsetFetchResponseGroup, OffsetFetchResponsePartition, OffsetFetchResponsePartitions,
     OffsetFetchResponseTopic, OffsetFetchResponseTopics,
@@ -50,6 +50,9 @@ impl Found {
 /// Offsets that a transaction is still deciding: the partition has none to give yet.
 const UNSTABLE_OFFSET_COMMIT: i16 = 88;
 
+/// The first version of OffsetFetch that names its topics by id (KIP-848), and is answered with ids.
+const BY_ID: i16 = 10;
+
 /// What was asked of a group: every offset it has, or these partitions of these topics.
 type Asked<'a> = Option<Vec<(&'a WireName, &'a [i32])>>;
 
@@ -58,12 +61,32 @@ impl<F: Fs> Broker<F> {
     ///
     /// The caller must be allowed to DESCRIBE the group (30, in the shape of the version), and sees the topics it may
     /// DESCRIBE (see `guard.rs`).
+    ///
+    /// From v10 a topic is named by id: each id is turned into the name it stands for first, and one that stands for none
+    /// is 100 on each partition asked. The answer names each topic by its id; asked for every offset, a topic with no id
+    /// (one deleted since its offsets were committed) is left out, as Kafka cannot write it.
     pub(crate) async fn offset_fetch(
         &self,
         version: i16,
         caller: &Caller,
-        req: &OffsetFetchRequest,
+        mut req: OffsetFetchRequest,
     ) -> Outcome {
+        let by_id = version >= BY_ID;
+        // The ids asked for that stand for no topic, in the order asked: the answer gives them back as they came.
+        let mut unknown_ids = Vec::new();
+        if by_id {
+            for t in req.groups.iter_mut().flat_map(|g| g.topics.iter_mut().flatten()) {
+                let found = TopicId::from_uuid(t.topic_id).and_then(|id| self.meta.topic_by_id(id));
+                if found.is_none() {
+                    unknown_ids.push(t.topic_id);
+                }
+                t.name = WireName(found.map_or_else(StrBytes::default, |topic| {
+                    StrBytes::from_string(topic.name.as_ref().to_owned())
+                }));
+            }
+        }
+        let mut unknown_ids = unknown_ids.into_iter();
+        let req = &req;
         let guard = self.guard(caller);
         let mut resp = OffsetFetchResponse::default();
         if req.groups.is_empty() {
@@ -80,7 +103,8 @@ impl<F: Fs> Broker<F> {
             let pending = self
                 .pending_if(req.require_stable, req.group_id.as_str())
                 .await;
-            for (name, found) in self.answer_guarded(&guard, req.group_id.as_str(), asked, &pending)
+            for (name, found) in
+                self.answer_guarded(&guard, req.group_id.as_str(), asked, &pending, false)
             {
                 let mut topic = OffsetFetchResponseTopic::default();
                 topic.name = name;
@@ -114,9 +138,21 @@ impl<F: Fs> Broker<F> {
                         .collect()
                 });
                 for (name, found) in
-                    self.answer_guarded(&guard, g.group_id.as_str(), asked, &pending)
+                    self.answer_guarded(&guard, g.group_id.as_str(), asked, &pending, by_id)
                 {
                     let mut topic = OffsetFetchResponseTopics::default();
+                    if by_id {
+                        let id = if name.is_empty() {
+                            unknown_ids.next()
+                        } else {
+                            TopicName::parse(name.as_str())
+                                .ok()
+                                .and_then(|n| self.meta.topic(&n))
+                                .map(|t| t.id.to_uuid())
+                        };
+                        let Some(id) = id else { continue };
+                        topic.topic_id = id;
+                    }
                     topic.name = name;
                     topic.partitions = found.into_iter().map(batched).collect();
                     group.topics.push(topic);

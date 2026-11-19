@@ -7,6 +7,11 @@
 //!   client asks again at one of those. The body of such a request is not read.
 //! - From v3 a client says what it is. A software name or version that is empty, or is not letters and
 //!   digits with dots and dashes between them, is INVALID_REQUEST with no rows; the connection lives on.
+//!
+//! A third is Kafka 4.4.0's (KIP-1242, `KafkaApis.handleApiVersionsRequest`): from v5 a client may say which cluster and
+//! node it means to reach. A cluster id that is given and is not this broker's, or a node id that is not this broker's
+//! with a cluster id given, is REBOOTSTRAP_REQUIRED (129) with no rows. A login in progress is not held to it: Kafka's
+//! `SaslServerAuthenticator` answers that ApiVersions with the list, unchecked.
 
 use kafka_protocol::ResponseError;
 use kafka_protocol::messages::api_versions_response::{
@@ -31,14 +36,37 @@ pub fn valid_client_software(s: &str) -> bool {
     }
 }
 
+/// The broker a v5 ApiVersions is checked against (KIP-1242).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Identity<'a> {
+    /// This broker's cluster id.
+    pub cluster_id: &'a str,
+    /// This broker's node id.
+    pub node_id: i32,
+}
+
 /// The answer to an ApiVersions request at `version`, and the version it must be encoded at (v0 when the
-/// request's own version is not served). `request` is the decoded body, if there was a readable one.
+/// request's own version is not served). `request` is the decoded body, if there was a readable one. No cluster or
+/// node is checked: see [`answer_as`].
 #[must_use]
 pub fn answer(
     profile: Profile,
     features: Features,
     version: i16,
     request: Option<&ApiVersionsRequest>,
+) -> (i16, ApiVersionsResponse) {
+    answer_as(profile, features, version, request, None)
+}
+
+/// [`answer`], with a v5 request's cluster and node held to `me` if given: REBOOTSTRAP_REQUIRED (129) with no rows for a
+/// client that means another cluster or node, after the version and the client's name are judged, as Kafka 4.4.0 orders it.
+#[must_use]
+pub fn answer_as(
+    profile: Profile,
+    features: Features,
+    version: i16,
+    request: Option<&ApiVersionsRequest>,
+    me: Option<Identity<'_>>,
 ) -> (i16, ApiVersionsResponse) {
     let (min, max) = profile.range(ApiKey::ApiVersions).unwrap_or((0, 0));
     let mut resp = ApiVersionsResponse::default();
@@ -49,6 +77,14 @@ pub fn answer(
     }
     if version >= 3 && request.is_some_and(|q| !named_well(q)) {
         resp.error_code = ResponseError::InvalidRequest.code();
+        return (version, resp);
+    }
+    if version >= 5
+        && let (Some(q), Some(me)) = (request, me)
+        && let Some(cluster) = q.cluster_id.as_deref()
+        && (cluster != me.cluster_id || q.node_id != me.node_id)
+    {
+        resp.error_code = ResponseError::RebootstrapRequired.code();
         return (version, resp);
     }
     resp.api_keys = profile

@@ -4,7 +4,8 @@ use kafka_auth::authz::Operation;
 use kafka_meta::{Committed, MetaError, OffsetCommit, StoredOffset};
 use kafka_storage::fs::Fs;
 use kafka_wire::ResponseError;
-use kafka_wire::ids::{GroupId, InstanceId, MemberId, PartitionId, TopicName};
+use kafka_wire::StrBytes;
+use kafka_wire::ids::{GroupId, InstanceId, MemberId, PartitionId, TopicId, TopicName};
 use kafka_wire::messages::offset_commit_response::{
     OffsetCommitResponsePartition, OffsetCommitResponseTopic,
 };
@@ -16,22 +17,41 @@ use crate::{Broker, Caller, Outcome, blocking, clock};
 /// Kafka's `offset.metadata.max.bytes`: the longest text a commit may carry.
 const MAX_METADATA: usize = 4096;
 
+/// The first version of OffsetCommit that names its topics by id (KIP-848), and is answered with ids.
+const BY_ID: i16 = 10;
+
 impl<F: Fs> Broker<F> {
     /// Stores what each partition of the request says its group has reached.
     ///
     /// The caller must be allowed to READ the group (30 for every partition if not), and each topic it commits to (29 for
     /// that topic's partitions): before the topic is looked for, and before the group is asked about the committer.
+    ///
+    /// From v10 a topic is named by id: each id is turned into the name it stands for first, and one that stands for
+    /// nothing is UNKNOWN_TOPIC_ID (100) on each of its partitions, before its READ is asked, and is not put to the group
+    /// (`KafkaApis.handleOffsetCommitRequest`). The answer names each topic by the id it was asked by.
     pub(crate) async fn offset_commit(
         &self,
         version: i16,
         caller: &Caller,
-        req: &OffsetCommitRequest,
+        mut req: OffsetCommitRequest,
     ) -> Outcome {
+        if version >= BY_ID {
+            for t in &mut req.topics {
+                // (v10 has no name on the wire: the one the id stands for, or none.)
+                let found = TopicId::from_uuid(t.topic_id).and_then(|id| self.meta.topic_by_id(id));
+                t.name = kafka_wire::messages::TopicName(found.map_or_else(StrBytes::default, |topic| {
+                    StrBytes::from_string(topic.name.as_ref().to_owned())
+                }));
+            }
+        }
+        let req = &req;
+        let unknown_id = |name: &str| version >= BY_ID && name.is_empty();
         let guard = self.guard(caller);
         if !guard.group(Operation::Read, req.group_id.as_str()) {
             return blanket(req, ResponseError::GroupAuthorizationFailed);
         }
-        let barred = |name: &str| !guard.topic(Operation::Read, name);
+        // An id that stands for no topic is answered before any right is asked, and is left out like a barred topic.
+        let barred = |name: &str| unknown_id(name) || !guard.topic(Operation::Read, name);
         let fence = self.fence_unless_barred(version, req, &barred).await;
         let mut resp = OffsetCommitResponse::default();
         // Each partition is judged; those that pass are stored together in one write.
@@ -54,7 +74,9 @@ impl<F: Fs> Broker<F> {
                     .committed_metadata
                     .as_ref()
                     .map_or("", |m| m.as_str());
-                let refusal = if refused_topic {
+                let refusal = if unknown_id(topic.name.as_str()) {
+                    Some(ResponseError::UnknownTopicId)
+                } else if refused_topic {
                     Some(ResponseError::TopicAuthorizationFailed)
                 } else if let Some(e) = fence {
                     Some(e)
