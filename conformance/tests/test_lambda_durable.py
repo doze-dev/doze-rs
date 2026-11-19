@@ -68,7 +68,8 @@ def handler(event, context):
 
 # Clock readings, generated names and ids, and where AWS keeps the code: not ours to match.
 MINTED = ("LastModified", "Location", "RepositoryType", "DurableExecutionArn", "FunctionArn", "StartTimestamp",
-          "EndTimestamp", "EventTimestamp", "StopTimestamp", "CallbackId", "RequestId", "ScheduledEndTimestamp", "Id")
+          "EndTimestamp", "EventTimestamp", "StopTimestamp", "CallbackId", "RequestId", "ScheduledEndTimestamp", "Id",
+          "XAmznTraceId")  # the X-Ray trace id is minted per execution (recorded 2026-11-19)
 SETTLING = ("State", "StateReason", "StateReasonCode", "LastUpdateStatus",
             "LastUpdateStatusReason", "LastUpdateStatusReasonCode", "RuntimeVersionConfig")
 
