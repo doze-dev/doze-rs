@@ -124,7 +124,10 @@ fn a_topic_named_by_id_is_shown_by_its_id() {
     rt.topic_id = id;
     rt.partitions = vec![Default::default()];
     answer.topics = vec![rt];
-    let f = facts_of(&Request::OffsetCommit(commit), &Response::OffsetCommit(answer));
+    let f = facts_of(
+        &Request::OffsetCommit(commit),
+        &Response::OffsetCommit(answer),
+    );
     assert_eq!(&*f.topics[0].name, id.to_string());
     assert_eq!(&*f.results[0].topic, id.to_string());
     let mut fetch = kafka_wire::messages::OffsetFetchRequest::default();

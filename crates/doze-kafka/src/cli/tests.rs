@@ -392,7 +392,10 @@ fn unstable_versions_and_two_phase_commit_are_off_unless_asked_for() {
     assert!(!plain.unstable_api_versions && !plain.transaction_two_phase_commit);
     let both = broker(&["--unstable-api-versions", "--transaction-two-phase-commit"]);
     assert!(both.unstable_api_versions && both.transaction_two_phase_commit);
-    let off = broker(&["--unstable-api-versions=false", "--transaction-two-phase-commit=false"]);
+    let off = broker(&[
+        "--unstable-api-versions=false",
+        "--transaction-two-phase-commit=false",
+    ]);
     assert!(!off.unstable_api_versions && !off.transaction_two_phase_commit);
 }
 

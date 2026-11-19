@@ -187,11 +187,12 @@ impl Profile {
             .iter()
             .filter(|row| features.allows(row))
             .filter_map(|row| {
-                self.range_with(row.key, features.unstable).map(|(min, max)| Advertised {
-                    key: row.key,
-                    min,
-                    max,
-                })
+                self.range_with(row.key, features.unstable)
+                    .map(|(min, max)| Advertised {
+                        key: row.key,
+                        min,
+                        max,
+                    })
             })
             .collect();
         out.sort_by_key(|a| a.key as i16);

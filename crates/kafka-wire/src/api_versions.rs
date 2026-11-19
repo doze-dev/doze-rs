@@ -77,7 +77,9 @@ pub fn answer_as(
         resp.api_keys.push(row(ApiKey::ApiVersions, min, max));
         return (0, resp);
     }
-    if version >= 3 && request.is_some_and(|q| !named_well(q) || (version >= 5 && !both_or_neither(q))) {
+    if version >= 3
+        && request.is_some_and(|q| !named_well(q) || (version >= 5 && !both_or_neither(q)))
+    {
         resp.error_code = ResponseError::InvalidRequest.code();
         return (version, resp);
     }

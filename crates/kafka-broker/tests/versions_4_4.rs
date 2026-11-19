@@ -17,7 +17,9 @@ use kafka_wire::messages::list_offsets_request::{ListOffsetsPartition, ListOffse
 use kafka_wire::messages::offset_commit_request::{
     OffsetCommitRequestPartition, OffsetCommitRequestTopic,
 };
-use kafka_wire::messages::offset_fetch_request::{OffsetFetchRequestGroup, OffsetFetchRequestTopics};
+use kafka_wire::messages::offset_fetch_request::{
+    OffsetFetchRequestGroup, OffsetFetchRequestTopics,
+};
 use kafka_wire::messages::{
     BrokerId, DescribeGroupsRequest, DescribeGroupsResponse, FindCoordinatorRequest,
     FindCoordinatorResponse, GroupId, ListOffsetsRequest, ListOffsetsResponse,
@@ -40,7 +42,13 @@ fn text(s: &str) -> StrBytes {
 }
 
 /// `(error, offset, leader epoch)` of a ListOffsets of one partition at `version`.
-async fn list(rig: &Rig, version: i16, name: &str, timestamp: i64, isolation: i8) -> (i16, i64, i32) {
+async fn list(
+    rig: &Rig,
+    version: i16,
+    name: &str,
+    timestamp: i64,
+    isolation: i8,
+) -> (i16, i64, i32) {
     let mut p = ListOffsetsPartition::default();
     p.partition_index = 0;
     p.timestamp = timestamp;
@@ -66,7 +74,8 @@ async fn list(rig: &Rig, version: i16, name: &str, timestamp: i64, isolation: i8
 #[tokio::test]
 async fn the_tiered_storage_times_are_answered_as_kafka_4_4_answers_them_with_none() {
     let rig = rig();
-    rig.create(vec![topic("t", 1), topic("empty", 1)], false).await;
+    rig.create(vec![topic("t", 1), topic("empty", 1)], false)
+        .await;
     rig.produce(-1, "t", 0, records(1)).await;
     rig.produce(-1, "t", 0, records(1)).await;
     let ok = |offset, epoch| (0, offset, epoch);
@@ -74,7 +83,11 @@ async fn the_tiered_storage_times_are_answered_as_kafka_4_4_answers_them_with_no
     assert_eq!(list(&rig, 11, "t", -4, 0).await, ok(0, 0));
     assert_eq!(list(&rig, 11, "t", -5, 0).await, ok(-1, -1));
     assert_eq!(list(&rig, 11, "t", -6, 0).await, ok(-1, -1));
-    assert_eq!(list(&rig, 11, "t", -6, 1).await, ok(-1, -1), "read_committed alike");
+    assert_eq!(
+        list(&rig, 11, "t", -6, 1).await,
+        ok(-1, -1),
+        "read_committed alike"
+    );
     assert_eq!(list(&rig, 11, "empty", -4, 0).await, ok(0, 0));
     assert_eq!(list(&rig, 11, "empty", -5, 0).await, ok(-1, -1));
     assert_eq!(list(&rig, 9, "t", -5, 0).await, ok(-1, -1));
@@ -83,7 +96,11 @@ async fn the_tiered_storage_times_are_answered_as_kafka_4_4_answers_them_with_no
     assert_eq!(list(&rig, 8, "t", -5, 0).await, unsupported);
     assert_eq!(list(&rig, 10, "t", -6, 0).await, unsupported);
     assert_eq!(list(&rig, 11, "t", -7, 0).await, unsupported);
-    assert_eq!(list(&rig, 10, "nothing", -6, 0).await, unsupported, "before the topic");
+    assert_eq!(
+        list(&rig, 10, "nothing", -6, 0).await,
+        unsupported,
+        "before the topic"
+    );
     assert_eq!(
         list(&rig, 11, "nothing", -6, 0).await,
         (UNKNOWN_TOPIC_OR_PARTITION, -1, -1)
@@ -111,7 +128,11 @@ fn commit_request(group: &str, id: Uuid, name: &str, partitions: &[i32]) -> Offs
 }
 
 /// `(topic id, name, partition, code)` of each partition of an OffsetCommit answer.
-async fn commit(rig: &Rig, version: i16, req: OffsetCommitRequest) -> Vec<(Uuid, String, i32, i16)> {
+async fn commit(
+    rig: &Rig,
+    version: i16,
+    req: OffsetCommitRequest,
+) -> Vec<(Uuid, String, i32, i16)> {
     let Response::OffsetCommit(r) = rig.ask(version, Request::OffsetCommit(req)).await else {
         panic!("not OffsetCommit")
     };
@@ -119,9 +140,14 @@ async fn commit(rig: &Rig, version: i16, req: OffsetCommitRequest) -> Vec<(Uuid,
     topics
         .iter()
         .flat_map(|t| {
-            t.partitions
-                .iter()
-                .map(|p| (t.topic_id, t.name.0.to_string(), p.partition_index, p.error_code))
+            t.partitions.iter().map(|p| {
+                (
+                    t.topic_id,
+                    t.name.0.to_string(),
+                    p.partition_index,
+                    p.error_code,
+                )
+            })
         })
         .collect()
 }
@@ -157,9 +183,14 @@ async fn fetch(
         .topics
         .iter()
         .flat_map(|t| {
-            t.partitions
-                .iter()
-                .map(|p| (t.topic_id, p.partition_index, p.error_code, p.committed_offset))
+            t.partitions.iter().map(|p| {
+                (
+                    t.topic_id,
+                    p.partition_index,
+                    p.error_code,
+                    p.committed_offset,
+                )
+            })
         })
         .collect()
 }
@@ -176,7 +207,10 @@ async fn offset_commit_and_fetch_v10_name_topics_by_id() {
     let committed = commit(&rig, 10, commit_request("g", id, "", &[0, 1, 2])).await;
     let codes: Vec<_> = committed.iter().map(|c| (c.0, c.2, c.3)).collect();
     // In Kafka's order: what KafkaApis answers itself first, then what the group answered.
-    assert_eq!(codes, [(id, 2, UNKNOWN_TOPIC_OR_PARTITION), (id, 0, 0), (id, 1, 0)]);
+    assert_eq!(
+        codes,
+        [(id, 2, UNKNOWN_TOPIC_OR_PARTITION), (id, 0, 0), (id, 1, 0)]
+    );
     for unknown in [nobody, Uuid::nil()] {
         let refused = commit(&rig, 10, commit_request("g", unknown, "t", &[0])).await;
         assert_eq!(
@@ -197,14 +231,21 @@ async fn offset_commit_and_fetch_v10_name_topics_by_id() {
             (nobody, 1, UNKNOWN_TOPIC_ID, -1)
         ]
     );
-    assert_eq!(fetch(&rig, 10, "g", None).await, [(id, 0, 0, 5), (id, 1, 0, 6)]);
+    assert_eq!(
+        fetch(&rig, 10, "g", None).await,
+        [(id, 0, 0, 5), (id, 1, 0, 6)]
+    );
     assert_eq!(
         fetch(&rig, 10, "g-none", Some(&[id])).await,
         [(id, 0, 0, -1), (id, 1, 0, -1)]
     );
 }
 
-async fn describe(rig: &Rig, version: i16, groups: &[&str]) -> Vec<(String, i16, String, Option<String>)> {
+async fn describe(
+    rig: &Rig,
+    version: i16,
+    groups: &[&str],
+) -> Vec<(String, i16, String, Option<String>)> {
     let mut req = DescribeGroupsRequest::default();
     req.groups = groups.iter().map(|g| GroupId(text(g))).collect();
     let Response::DescribeGroups(r) = rig.ask(version, Request::DescribeGroups(req)).await else {
@@ -232,7 +273,12 @@ async fn describe(rig: &Rig, version: i16, groups: &[&str]) -> Vec<(String, i16,
 async fn describe_groups_v6_says_a_group_is_not_found() {
     let rig = rig();
     let made = rig.create(vec![topic("t", 1)], false).await;
-    commit(&rig, 10, commit_request("empty", made[0].topic_id, "", &[0])).await;
+    commit(
+        &rig,
+        10,
+        commit_request("empty", made[0].topic_id, "", &[0]),
+    )
+    .await;
     let found = |g: &str| (g.to_owned(), 0, "Empty".to_owned(), None);
     let dead = |g: &str| (g.to_owned(), 0, "Dead".to_owned(), None);
     let missing = |g: &str| {
@@ -256,7 +302,8 @@ async fn describe_groups_v6_says_a_group_is_not_found() {
 async fn list_txns(rig: &Rig, version: i16, pattern: Option<&str>) -> (i16, Vec<String>) {
     let mut req = ListTransactionsRequest::default();
     req.transactional_id_pattern = pattern.map(text);
-    let Response::ListTransactions(r) = rig.ask(version, Request::ListTransactions(req)).await else {
+    let Response::ListTransactions(r) = rig.ask(version, Request::ListTransactions(req)).await
+    else {
         panic!("not ListTransactions")
     };
     let ListTransactionsResponse {
@@ -283,8 +330,15 @@ async fn list_transactions_v2_keeps_the_ids_its_pattern_matches_whole() {
     assert_eq!(list_txns(&rig, 1, None).await, both);
     assert_eq!(list_txns(&rig, 2, None).await, both);
     assert_eq!(list_txns(&rig, 2, Some("")).await, both);
-    assert_eq!(list_txns(&rig, 2, Some(".*alph.")).await, (0, vec!["lt-alpha".to_owned()]));
-    assert_eq!(list_txns(&rig, 2, Some("alpha")).await, (0, vec![]), "a part is not a match");
+    assert_eq!(
+        list_txns(&rig, 2, Some(".*alph.")).await,
+        (0, vec!["lt-alpha".to_owned()])
+    );
+    assert_eq!(
+        list_txns(&rig, 2, Some("alpha")).await,
+        (0, vec![]),
+        "a part is not a match"
+    );
     assert_eq!(list_txns(&rig, 2, Some("lt-(alpha|beta)")).await, both);
     assert_eq!(
         list_txns(&rig, 2, Some("(unclosed")).await,
@@ -302,7 +356,10 @@ async fn coordinators(
     let mut req = FindCoordinatorRequest::default();
     req.key_type = key_type;
     req.coordinator_keys = keys.iter().map(|k| text(k)).collect();
-    let Response::FindCoordinator(r) = rig.ask_as(who, version, Request::FindCoordinator(req)).await else {
+    let Response::FindCoordinator(r) = rig
+        .ask_as(who, version, Request::FindCoordinator(req))
+        .await
+    else {
         panic!("not FindCoordinator")
     };
     let FindCoordinatorResponse { coordinators, .. } = r;

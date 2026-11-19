@@ -32,7 +32,8 @@ fn unstable_broker() -> Vec<(i64, i64, i64)> {
 }
 
 fn default_broker() -> Vec<(i64, i64, i64)> {
-    let rec: serde_json::Value = serde_json::from_str(include_str!("data/api-versions.json")).unwrap();
+    let rec: serde_json::Value =
+        serde_json::from_str(include_str!("data/api-versions.json")).unwrap();
     let four = rec["brokers"]
         .as_array()
         .unwrap()

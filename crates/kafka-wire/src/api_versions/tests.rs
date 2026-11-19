@@ -117,6 +117,10 @@ fn a_v5_client_that_means_another_cluster_or_node_is_told_to_rebootstrap() {
     assert_eq!(ask(5, Some("c1"), -1, Some(me)), (42, true));
     assert_eq!(ask(5, None, 2, Some(me)), (42, true));
     assert_eq!(ask(5, None, 2, None), (42, true));
-    assert_eq!(ask(5, Some("other"), 1, None), (0, false), "a login in progress is not held to it");
+    assert_eq!(
+        ask(5, Some("other"), 1, None),
+        (0, false),
+        "a login in progress is not held to it"
+    );
     assert_eq!(ask(4, None, -1, Some(me)), (0, false));
 }

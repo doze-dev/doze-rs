@@ -75,7 +75,11 @@ impl<F: Fs> Broker<F> {
         // The ids asked for that stand for no topic, in the order asked: the answer gives them back as they came.
         let mut unknown_ids = Vec::new();
         if by_id {
-            for t in req.groups.iter_mut().flat_map(|g| g.topics.iter_mut().flatten()) {
+            for t in req
+                .groups
+                .iter_mut()
+                .flat_map(|g| g.topics.iter_mut().flatten())
+            {
                 let found = TopicId::from_uuid(t.topic_id).and_then(|id| self.meta.topic_by_id(id));
                 if found.is_none() {
                     unknown_ids.push(t.topic_id);

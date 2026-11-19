@@ -68,7 +68,8 @@ fn produced(r: &ProduceResponse) -> Vec<(Uuid, i32, i16)> {
 }
 
 #[tokio::test]
-async fn produce_v13_writes_to_the_topic_its_id_stands_for_and_an_id_that_stands_for_none_is_unknown_topic_id() {
+async fn produce_v13_writes_to_the_topic_its_id_stands_for_and_an_id_that_stands_for_none_is_unknown_topic_id()
+ {
     let rig = rig();
     let made = rig.create(vec![topic("t", 2)], false).await;
     let id = made[0].topic_id;
@@ -121,7 +122,8 @@ async fn produce_v12_names_by_name_and_v13_by_id() {
 /// WRITE is asked on the name the id stands for; an id that stands for none is UNKNOWN_TOPIC_ID to everyone, before any
 /// right is asked (KafkaApis: the unknown ids are answered before `filterByAuthorized`).
 #[tokio::test]
-async fn produce_v13_asks_write_on_the_name_the_id_stands_for_and_an_unknown_id_is_unknown_to_all() {
+async fn produce_v13_asks_write_on_the_name_the_id_stands_for_and_an_unknown_id_is_unknown_to_all()
+{
     let rig = rig_with_topics(&["a", "b"]).await;
     grant(&rig, vec![allow("a", "User:alice", WRITE)]).await;
     let (a, b) = (rig.id_of("a").await, rig.id_of("b").await);
@@ -195,8 +197,16 @@ fn commit_of(t: Txn, group: &str, targets: &[(Uuid, &str, i32)]) -> TxnOffsetCom
     req
 }
 
-async fn commit(rig: &Rig, who: &Caller, version: i16, req: TxnOffsetCommitRequest) -> TxnOffsetCommitResponse {
-    let Response::TxnOffsetCommit(r) = rig.ask_as(who, version, Request::TxnOffsetCommit(req)).await else {
+async fn commit(
+    rig: &Rig,
+    who: &Caller,
+    version: i16,
+    req: TxnOffsetCommitRequest,
+) -> TxnOffsetCommitResponse {
+    let Response::TxnOffsetCommit(r) = rig
+        .ask_as(who, version, Request::TxnOffsetCommit(req))
+        .await
+    else {
         panic!("not TxnOffsetCommit")
     };
     r
@@ -224,7 +234,16 @@ async fn txn_offset_commit_v6_stages_the_offsets_of_the_topic_its_id_stands_for(
     let id = made[0].topic_id;
     let nobody = Uuid::from_u128(0xbee);
     let p = rig.init_txn("tx", 60_000).await.unwrap();
-    let req = commit_of(p, "g", &[(id, "", 0), (id, "", 3), (nobody, "t", 0), (Uuid::nil(), "", 0)]);
+    let req = commit_of(
+        p,
+        "g",
+        &[
+            (id, "", 0),
+            (id, "", 3),
+            (nobody, "t", 0),
+            (Uuid::nil(), "", 0),
+        ],
+    );
     let r = commit(&rig, &admin(), 6, req).await;
     assert_eq!(
         committed(&r),
@@ -237,10 +256,17 @@ async fn txn_offset_commit_v6_stages_the_offsets_of_the_topic_its_id_stands_for(
     );
     let (state, _, parts) = rig.describe_txn("tx").await;
     assert_eq!(state, "Ongoing", "the group was added");
-    assert!(parts.iter().all(|(t, _)| t == "__consumer_offsets"), "{parts:?}");
+    assert!(
+        parts.iter().all(|(t, _)| t == "__consumer_offsets"),
+        "{parts:?}"
+    );
     rig.end_v5("tx", p, true).await;
     let offsets = rig.fetch_offsets(false, "g", Some(&[("t", &[0])])).await;
-    assert_eq!(offsets.first().map(|o| o.2), Some(5), "applied by the commit, to t by its id");
+    assert_eq!(
+        offsets.first().map(|o| o.2),
+        Some(5),
+        "applied by the commit, to t by its id"
+    );
 }
 
 /// The boundary: v5 names the topic by name (an empty name is no topic), v6 by id (the name is not on its wire).
@@ -304,7 +330,9 @@ impl support::Rig {
         let mut req = kafka_wire::messages::InitProducerIdRequest::default();
         req.transactional_id = Some(TransactionalId(text(id)));
         req.transaction_timeout_ms = 60_000;
-        let Response::InitProducerId(r) = self.ask_as(&admin(), 4, Request::InitProducerId(req)).await else {
+        let Response::InitProducerId(r) =
+            self.ask_as(&admin(), 4, Request::InitProducerId(req)).await
+        else {
             panic!("not InitProducerId")
         };
         assert_eq!(r.error_code, 0);

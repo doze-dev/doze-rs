@@ -10,7 +10,10 @@ pub(super) fn request(r: &ProduceRequest, f: &mut Facts) {
         f.txn(&t.0);
     }
     for t in &r.topic_data {
-        f.topic(&named(&t.name.0, t.topic_id), t.partition_data.iter().map(|p| p.index));
+        f.topic(
+            &named(&t.name.0, t.topic_id),
+            t.partition_data.iter().map(|p| p.index),
+        );
         for p in &t.partition_data {
             if let Some(records) = &p.records {
                 let s = facts::batches(records);

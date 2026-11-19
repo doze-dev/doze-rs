@@ -9,7 +9,9 @@ use kafka_protocol::messages::describe_log_dirs_response::DescribeLogDirsResult;
 use kafka_protocol::messages::offset_commit_request::{
     OffsetCommitRequestPartition, OffsetCommitRequestTopic,
 };
-use kafka_protocol::messages::offset_fetch_request::{OffsetFetchRequestGroup, OffsetFetchRequestTopics};
+use kafka_protocol::messages::offset_fetch_request::{
+    OffsetFetchRequestGroup, OffsetFetchRequestTopics,
+};
 use kafka_protocol::messages::{
     ApiKey, ApiVersionsRequest, DeleteGroupsResponse, DescribeLogDirsResponse, GroupId,
     OffsetCommitRequest, OffsetFetchRequest, TopicName,
@@ -98,9 +100,15 @@ fn offset_commit_and_fetch_v10_name_topics_by_id_and_v9_by_name() {
     req.group_id = GroupId(StrBytes::from_static_str("g"));
     req.topics = vec![t];
     let r: OffsetCommitRequest = back(bytes(&req, 10), 10);
-    assert_eq!((r.topics[0].topic_id, r.topics[0].name.0.as_str()), (ID, ""));
+    assert_eq!(
+        (r.topics[0].topic_id, r.topics[0].name.0.as_str()),
+        (ID, "")
+    );
     let r: OffsetCommitRequest = back(bytes(&req, 9), 9);
-    assert_eq!((r.topics[0].topic_id, r.topics[0].name.0.as_str()), (Uuid::nil(), "orders"));
+    assert_eq!(
+        (r.topics[0].topic_id, r.topics[0].name.0.as_str()),
+        (Uuid::nil(), "orders")
+    );
 
     let mut ft = OffsetFetchRequestTopics::default();
     ft.name = TopicName(StrBytes::from_static_str("orders"));
@@ -116,5 +124,8 @@ fn offset_commit_and_fetch_v10_name_topics_by_id_and_v9_by_name() {
     assert_eq!((topic.topic_id, topic.name.0.as_str()), (ID, ""));
     let r: OffsetFetchRequest = back(bytes(&freq, 9), 9);
     let topic = &r.groups[0].topics.as_ref().unwrap()[0];
-    assert_eq!((topic.topic_id, topic.name.0.as_str()), (Uuid::nil(), "orders"));
+    assert_eq!(
+        (topic.topic_id, topic.name.0.as_str()),
+        (Uuid::nil(), "orders")
+    );
 }

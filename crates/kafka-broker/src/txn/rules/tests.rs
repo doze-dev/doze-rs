@@ -306,13 +306,24 @@ fn a_two_phase_commit_has_no_timeout_and_never_expires() {
     assert_eq!(Timeout::Ms(1).to_store(), Ok(1));
     assert_eq!(Timeout::Ms(MOST_TIMEOUT_MS).to_store(), Ok(MOST_TIMEOUT_MS));
     for bad in [i32::MIN, -1, 0, MOST_TIMEOUT_MS + 1, i32::MAX] {
-        assert_eq!(Timeout::Ms(bad).to_store(), Err(E::InvalidTransactionTimeout), "{bad}");
+        assert_eq!(
+            Timeout::Ms(bad).to_store(),
+            Err(E::InvalidTransactionTimeout),
+            "{bad}"
+        );
     }
     let mut r = rec(TxnState::Ongoing);
     r.timeout_ms = TWO_PHASE_TIMEOUT_MS;
     assert!(!expired(&r, i64::MAX), "never over it");
-    assert_eq!(next_step_ms(&r, 7 * 24 * 3600 * 1000), None, "nothing to wake for");
+    assert_eq!(
+        next_step_ms(&r, 7 * 24 * 3600 * 1000),
+        None,
+        "nothing to wake for"
+    );
     r.timeout_ms = TWO_PHASE_TIMEOUT_MS - 1;
-    assert!(expired(&r, i64::MAX), "one millisecond less is an ordinary timeout");
+    assert!(
+        expired(&r, i64::MAX),
+        "one millisecond less is an ordinary timeout"
+    );
     assert!(next_step_ms(&r, 0).is_some());
 }

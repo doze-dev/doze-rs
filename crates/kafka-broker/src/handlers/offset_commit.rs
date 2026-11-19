@@ -39,9 +39,11 @@ impl<F: Fs> Broker<F> {
             for t in &mut req.topics {
                 // (v10 has no name on the wire: the one the id stands for, or none.)
                 let found = TopicId::from_uuid(t.topic_id).and_then(|id| self.meta.topic_by_id(id));
-                t.name = kafka_wire::messages::TopicName(found.map_or_else(StrBytes::default, |topic| {
-                    StrBytes::from_string(topic.name.as_ref().to_owned())
-                }));
+                t.name = kafka_wire::messages::TopicName(
+                    found.map_or_else(StrBytes::default, |topic| {
+                        StrBytes::from_string(topic.name.as_ref().to_owned())
+                    }),
+                );
             }
         }
         let req = &req;
@@ -121,7 +123,9 @@ impl<F: Fs> Broker<F> {
         if !to_store.is_empty() {
             self.store(req, &to_store, &slots, &mut resp);
         }
-        Outcome::Respond(kafka_wire::api::Response::OffsetCommit(kafka_order_of(resp, &early)))
+        Outcome::Respond(kafka_wire::api::Response::OffsetCommit(kafka_order_of(
+            resp, &early,
+        )))
     }
 
     /// [`Self::commit_fence`], except that Kafka asks the group nothing when no topic is left to commit to.
@@ -263,7 +267,10 @@ impl<F: Fs> Broker<F> {
 /// added, and the partitions `KafkaApis` answered itself (`early`) are added before the group's answer is merged in.
 /// Kafka 4.4.0 answers a request for partitions 0, 1 and 2 of a two-partition topic with 2 first (`tools/wire-tail-oracle`,
 /// `offsets-10`); clients find each partition by its index, so only the order changes.
-fn kafka_order_of(mut resp: OffsetCommitResponse, early: &[(usize, usize)]) -> OffsetCommitResponse {
+fn kafka_order_of(
+    mut resp: OffsetCommitResponse,
+    early: &[(usize, usize)],
+) -> OffsetCommitResponse {
     if early.is_empty() {
         return resp;
     }

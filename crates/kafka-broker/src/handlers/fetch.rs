@@ -165,7 +165,8 @@ impl<F: Fs> Broker<F> {
                 ResponseError::UnknownTopicOrPartition
             });
         };
-        let Some(id) = PartitionId::new(index).filter(|id| id.get() < topic.partitions.get()) else {
+        let Some(id) = PartitionId::new(index).filter(|id| id.get() < topic.partitions.get())
+        else {
             return Place::Error(ResponseError::UnknownTopicOrPartition);
         };
         match self.partitions.get(topic, id).await {

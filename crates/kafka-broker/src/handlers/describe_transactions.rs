@@ -99,7 +99,11 @@ impl<F: Fs> Broker<F> {
         use kafka_wire::messages::list_transactions_response::TransactionState as Listed;
         let guard = self.guard(caller);
         let mut resp = ListTransactionsResponse::default();
-        let pattern = match req.transactional_id_pattern.as_deref().filter(|p| !p.is_empty()) {
+        let pattern = match req
+            .transactional_id_pattern
+            .as_deref()
+            .filter(|p| !p.is_empty())
+        {
             None => None,
             Some(text) => match regex_lite::Regex::new(&format!("^(?:{text})$")) {
                 Ok(compiled) => Some(compiled),

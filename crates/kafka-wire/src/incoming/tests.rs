@@ -11,7 +11,13 @@ fn profile() -> Profile {
 #[test]
 fn a_version_outside_the_range_is_refused() {
     // InitProducerId v6 is in the table but offered only with the unstable versions (every version of the rest is offered).
-    let p = request_payload(ApiKey::InitProducerId, 6, 1, None, &InitProducerIdRequest::default());
+    let p = request_payload(
+        ApiKey::InitProducerId,
+        6,
+        1,
+        None,
+        &InitProducerIdRequest::default(),
+    );
     assert!(matches!(
         read(p, profile(), Features::default()),
         Err(WireError::NotAdvertised {

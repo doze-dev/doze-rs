@@ -54,7 +54,13 @@ async fn init_producer_id_range(socket: &mut TcpStream) -> (i16, i16) {
     body.client_software_name = StrBytes::from_static_str("test");
     body.client_software_version = StrBytes::from_static_str("1");
     socket
-        .write_all(&framed(&request_payload(ApiKey::ApiVersions, 3, 1, None, &body)))
+        .write_all(&framed(&request_payload(
+            ApiKey::ApiVersions,
+            3,
+            1,
+            None,
+            &body,
+        )))
         .await
         .unwrap();
     let mut payload = answer(socket).await.unwrap();
@@ -73,7 +79,13 @@ async fn init_v6(socket: &mut TcpStream) -> Option<InitProducerIdResponse> {
     body.transactional_id = Some(TransactionalId(StrBytes::from_static_str("tx")));
     body.transaction_timeout_ms = 60_000;
     socket
-        .write_all(&framed(&request_payload(ApiKey::InitProducerId, 6, 2, Some("test"), &body)))
+        .write_all(&framed(&request_payload(
+            ApiKey::InitProducerId,
+            6,
+            2,
+            Some("test"),
+            &body,
+        )))
         .await
         .unwrap();
     let mut payload = answer(socket).await?;
@@ -88,7 +100,10 @@ async fn init_producer_id_v6_is_listed_and_served_only_with_the_unstable_version
     let plain = start(false).await;
     let mut socket = TcpStream::connect(plain.local_addr()).await.unwrap();
     assert_eq!(init_producer_id_range(&mut socket).await, (0, 5));
-    assert!(init_v6(&mut socket).await.is_none(), "closed unanswered, as Kafka 4.4.0 does");
+    assert!(
+        init_v6(&mut socket).await.is_none(),
+        "closed unanswered, as Kafka 4.4.0 does"
+    );
 
     let unstable = start(true).await;
     let mut socket = TcpStream::connect(unstable.local_addr()).await.unwrap();

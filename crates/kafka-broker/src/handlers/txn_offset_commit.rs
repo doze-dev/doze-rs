@@ -4,9 +4,9 @@ use kafka_auth::authz::Operation;
 use kafka_meta::{TxnOffset, TxnState, TxnVersion};
 use kafka_storage::fs::Fs;
 use kafka_wire::ResponseError as E;
+use kafka_wire::StrBytes;
 use kafka_wire::api::Response;
 use kafka_wire::ids::{GroupId, InstanceId, MemberId, TopicId, TopicName};
-use kafka_wire::StrBytes;
 use kafka_wire::messages::txn_offset_commit_request::TxnOffsetCommitRequestTopic;
 use kafka_wire::messages::txn_offset_commit_response::{
     TxnOffsetCommitResponsePartition, TxnOffsetCommitResponseTopic,
@@ -43,9 +43,11 @@ impl<F: Fs> Broker<F> {
             for t in &mut req.topics {
                 // (v6 has no name on the wire: the one the id stands for, or none.)
                 let found = TopicId::from_uuid(t.topic_id).and_then(|id| self.meta.topic_by_id(id));
-                t.name = kafka_wire::messages::TopicName(found.map_or_else(StrBytes::default, |topic| {
-                    StrBytes::from_string(topic.name.as_ref().to_owned())
-                }));
+                t.name = kafka_wire::messages::TopicName(
+                    found.map_or_else(StrBytes::default, |topic| {
+                        StrBytes::from_string(topic.name.as_ref().to_owned())
+                    }),
+                );
             }
         }
         let unknown_id = |t: &TxnOffsetCommitRequestTopic| version >= BY_ID && t.name.0.is_empty();

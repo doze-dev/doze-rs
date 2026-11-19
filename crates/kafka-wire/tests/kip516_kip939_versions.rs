@@ -12,8 +12,8 @@ use kafka_protocol::messages::txn_offset_commit_response::{
     TxnOffsetCommitResponsePartition, TxnOffsetCommitResponseTopic,
 };
 use kafka_protocol::messages::{
-    ApiKey, InitProducerIdRequest, InitProducerIdResponse, ProduceRequest, ProducerId,
-    TopicName, TransactionalId, TxnOffsetCommitRequest, TxnOffsetCommitResponse,
+    ApiKey, InitProducerIdRequest, InitProducerIdResponse, ProduceRequest, ProducerId, TopicName,
+    TransactionalId, TxnOffsetCommitRequest, TxnOffsetCommitResponse,
 };
 use kafka_protocol::protocol::{Decodable, Encodable, StrBytes};
 use uuid::Uuid;
@@ -73,7 +73,11 @@ fn a_txn_offset_commit_names_its_topic_by_id_from_v6_and_by_name_before() {
     assert_eq!(at6.generation_id_or_member_epoch, 3);
     let at5: TxnOffsetCommitRequest = back(bytes(&req, 5), 5);
     assert_eq!(at5.topics[0].name, name("orders"));
-    assert_eq!(at5.topics[0].topic_id, Uuid::nil(), "no id on the wire before v6");
+    assert_eq!(
+        at5.topics[0].topic_id,
+        Uuid::nil(),
+        "no id on the wire before v6"
+    );
     // The name is ignorable at v6 and the id at v5: a request that sets both is written at either, less one.
     assert!(bytes(&req, 6).len() > bytes(&req, 5).len());
 }
@@ -116,7 +120,10 @@ fn init_producer_id_v6_carries_the_two_phase_commit_flags_and_older_versions_can
     let mut buf = BytesMut::new();
     assert!(req.encode(&mut buf, 5).is_err(), "v5 has no 2PC flags");
     req.enable_2_pc = false;
-    assert!(req.encode(&mut BytesMut::new(), 5).is_err(), "nor KeepPreparedTxn");
+    assert!(
+        req.encode(&mut BytesMut::new(), 5).is_err(),
+        "nor KeepPreparedTxn"
+    );
     req.keep_prepared_txn = false;
     let at5: InitProducerIdRequest = back(bytes(&req, 5), 5);
     assert!(!at5.enable_2_pc && !at5.keep_prepared_txn);
@@ -128,7 +135,10 @@ fn init_producer_id_v6_carries_the_two_phase_commit_flags_and_older_versions_can
 fn init_producer_id_v6_answers_with_the_ongoing_transaction_fields() {
     let resp = InitProducerIdResponse::default();
     assert_eq!(
-        (resp.ongoing_txn_producer_id, resp.ongoing_txn_producer_epoch),
+        (
+            resp.ongoing_txn_producer_id,
+            resp.ongoing_txn_producer_epoch
+        ),
         (ProducerId(-1), -1),
         "-1 when no transaction is kept"
     );

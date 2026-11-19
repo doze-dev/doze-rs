@@ -13,7 +13,9 @@ mod support;
 use kafka_broker::Caller;
 use kafka_wire::StrBytes;
 use kafka_wire::api::{Request, Response};
-use kafka_wire::messages::{InitProducerIdRequest, InitProducerIdResponse, ProducerId, TransactionalId};
+use kafka_wire::messages::{
+    InitProducerIdRequest, InitProducerIdResponse, ProducerId, TransactionalId,
+};
 use support::acls::{LITERAL, TXN_ID, WRITE, closed_world, creation, grant, user};
 use support::{Rig, rig, rig_with};
 
@@ -63,7 +65,10 @@ async fn without_the_broker_setting_a_two_phase_commit_is_refused_and_a_plain_v6
     let rig = rig();
     let who = support::acls::admin();
     let r = ask(&rig, &who, init(Some("tx"), true, false, 60_000)).await;
-    assert_eq!((r.error_code, r.producer_id.0, r.producer_epoch), (TRANSACTIONAL_ID_AUTHORIZATION_FAILED, -1, -1));
+    assert_eq!(
+        (r.error_code, r.producer_id.0, r.producer_epoch),
+        (TRANSACTIONAL_ID_AUTHORIZATION_FAILED, -1, -1)
+    );
     assert_eq!(
         code_and_ids(&ask(&rig, &who, init(Some("tx"), true, true, 60_000)).await),
         (TRANSACTIONAL_ID_AUTHORIZATION_FAILED, false),
@@ -73,7 +78,10 @@ async fn without_the_broker_setting_a_two_phase_commit_is_refused_and_a_plain_v6
         code_and_ids(&ask(&rig, &who, init(Some("tx"), false, true, 60_000)).await),
         (UNSUPPORTED_VERSION, false)
     );
-    assert_eq!(code_and_ids(&ask(&rig, &who, init(Some("tx"), false, false, 60_000)).await), (0, true));
+    assert_eq!(
+        code_and_ids(&ask(&rig, &who, init(Some("tx"), false, false, 60_000)).await),
+        (0, true)
+    );
     let (state, _, _) = rig.describe_txn("tx").await;
     assert_eq!(state, "Empty");
 }
@@ -102,13 +110,22 @@ async fn with_the_broker_setting_a_two_phase_commit_has_no_timeout() {
         code_and_ids(&ask(&rig, &who, init(Some("tx"), true, true, 60_000)).await),
         (UNSUPPORTED_VERSION, false)
     );
-    assert_eq!(code_and_ids(&ask(&rig, &who, init(Some("tx"), false, false, 30_000)).await), (0, true));
+    assert_eq!(
+        code_and_ids(&ask(&rig, &who, init(Some("tx"), false, false, 30_000)).await),
+        (0, true)
+    );
     assert_eq!(rig.txn_timeout("tx").await, 30_000);
     // The empty id is INVALID_REQUEST before the flags are looked at, and with no id the flags are not looked at at all.
-    assert_eq!(code_and_ids(&ask(&rig, &who, init(Some(""), true, true, 1)).await), (INVALID_REQUEST, false));
+    assert_eq!(
+        code_and_ids(&ask(&rig, &who, init(Some(""), true, true, 1)).await),
+        (INVALID_REQUEST, false)
+    );
     let plain = rig_with(|_| {});
     for r in [&rig, &plain] {
-        assert_eq!(code_and_ids(&ask(r, &who, init(None, true, true, -1)).await), (0, true));
+        assert_eq!(
+            code_and_ids(&ask(r, &who, init(None, true, true, -1)).await),
+            (0, true)
+        );
     }
 }
 
@@ -121,12 +138,24 @@ async fn a_two_phase_commit_fences_an_open_transaction_like_any_owner() {
     let old = rig.init_txn("tx", 60_000).await.unwrap();
     rig.add_partitions("tx", old, "t", &[0]).await;
     rig.produce_txn("tx", old, ("t", 0), 0, 1).await;
-    let r = ask(&rig, &support::acls::admin(), init(Some("tx"), true, false, 60_000)).await;
+    let r = ask(
+        &rig,
+        &support::acls::admin(),
+        init(Some("tx"), true, false, 60_000),
+    )
+    .await;
     assert_eq!(r.error_code, 0);
     assert!(r.producer_epoch > old.epoch);
     let (state, _, _) = rig.describe_txn("tx").await;
     assert_eq!(state, "Empty", "the open transaction was aborted");
-    assert_eq!(rig.fetch_committed("t", 0, 0).await.aborted_transactions.unwrap().len(), 1);
+    assert_eq!(
+        rig.fetch_committed("t", 0, 0)
+            .await
+            .aborted_transactions
+            .unwrap()
+            .len(),
+        1
+    );
 }
 
 /// The transaction of a two-phase commit is never aborted for its age: its end is the external coordinator's. One begun a
@@ -155,22 +184,46 @@ async fn enable2pc_needs_two_phase_commit_on_the_id_as_well_as_write() {
         &rig,
         vec![
             creation((TXN_ID, "tx", LITERAL), "User:alice", WRITE, ALLOW),
-            creation((TXN_ID, "tx", LITERAL), "User:alice", TWO_PHASE_COMMIT, ALLOW),
+            creation(
+                (TXN_ID, "tx", LITERAL),
+                "User:alice",
+                TWO_PHASE_COMMIT,
+                ALLOW,
+            ),
             creation((TXN_ID, "tx", LITERAL), "User:bob", WRITE, ALLOW),
-            creation((TXN_ID, "tx", LITERAL), "User:carol", TWO_PHASE_COMMIT, ALLOW),
+            creation(
+                (TXN_ID, "tx", LITERAL),
+                "User:carol",
+                TWO_PHASE_COMMIT,
+                ALLOW,
+            ),
         ],
     )
     .await;
     let code = |who: &str, enable| {
         let rig = &rig;
         let who = user(who);
-        async move { ask(rig, &who, init(Some("tx"), enable, false, 60_000)).await.error_code }
+        async move {
+            ask(rig, &who, init(Some("tx"), enable, false, 60_000))
+                .await
+                .error_code
+        }
     };
     assert_eq!(code("alice", true).await, 0);
-    assert_eq!(code("bob", true).await, TRANSACTIONAL_ID_AUTHORIZATION_FAILED);
+    assert_eq!(
+        code("bob", true).await,
+        TRANSACTIONAL_ID_AUTHORIZATION_FAILED
+    );
     assert_eq!(code("bob", false).await, 0);
-    assert_eq!(code("carol", true).await, TRANSACTIONAL_ID_AUTHORIZATION_FAILED, "TWO_PHASE_COMMIT is not WRITE");
-    assert_eq!(code("dave", true).await, TRANSACTIONAL_ID_AUTHORIZATION_FAILED);
+    assert_eq!(
+        code("carol", true).await,
+        TRANSACTIONAL_ID_AUTHORIZATION_FAILED,
+        "TWO_PHASE_COMMIT is not WRITE"
+    );
+    assert_eq!(
+        code("dave", true).await,
+        TRANSACTIONAL_ID_AUTHORIZATION_FAILED
+    );
     // KeepPreparedTxn is not a right: bob is refused by the coordinator, not by the authorizer.
     let r = ask(&rig, &user("bob"), init(Some("tx"), false, true, 60_000)).await;
     assert_eq!(r.error_code, UNSUPPORTED_VERSION);
@@ -181,7 +234,9 @@ impl Rig {
     async fn txn_timeout(&self, id: &str) -> i32 {
         let mut req = kafka_wire::messages::DescribeTransactionsRequest::default();
         req.transactional_ids = vec![TransactionalId(StrBytes::from_string(id.to_owned()))];
-        let Response::DescribeTransactions(r) = self.ask(0, Request::DescribeTransactions(req)).await else {
+        let Response::DescribeTransactions(r) =
+            self.ask(0, Request::DescribeTransactions(req)).await
+        else {
             panic!("not DescribeTransactions")
         };
         r.transaction_states[0].transaction_timeout_ms
