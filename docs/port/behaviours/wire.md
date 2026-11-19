@@ -50,15 +50,19 @@ Test: `profile::tests::advertised_is_sorted_and_conditional`
 ### W9. No profile offers more than a real broker of that major
 Held to the recorded ApiVersions of a real broker of each major
 (`conformance/recordings/api-versions.json`).
-Test: `tests/recorded_api_versions.rs::no_profile_offers_more_than_a_real_broker`
+Test: `tests/recorded_api_versions.rs::no_profile_offers_more_than_a_real_broker`. Narrower is held too: W36.
 
 ### W10. Floors are the crate's where the crate's are higher
 Kafka 4.0 removed the oldest versions of nine APIs (KIP-896) and the wire crate does not decode them. A
 profile never advertises below what the crate can decode. (Deviation from Go, which advertised v0 of these
-at majors 1 to 3: no client of the last eight years negotiates them.) One consequence is a removal, not a
-raised floor: Kafka 1.x has only v0 of DescribeAcls, CreateAcls and DeleteAcls, and of OffsetForLeaderEpoch and
-DescribeLogDirs (the crate reads those from v2 and v1), so those five are not offered at `--kafka-version 1`. The list of such removals is pinned, so a new one needs a reason.
-Test: `tests/every_offered_version.rs::every_offered_request_is_read` (every advertised version is decoded), `profile::tests::the_apis_dropped_because_the_crate_cannot_decode_them_are_known`
+at majors 1 to 3: no client of the last eight years negotiates them.) The raised floors are ListOffsets v0, OffsetCommit
+v0 and v1, OffsetFetch v0, CreateTopics v0 and v1, DeleteTopics v0 and DescribeConfigs v0 at majors 1 to 3, besides the
+record-format floors (Produce v3, Fetch v4). Where a removal would leave a profile without an API, the crate reads the
+version again instead (vendor/kafka-protocol PATCHES.md 5, 2026-11-18): v0 of DescribeAcls, CreateAcls and DeleteAcls (all
+Kafka 1.x has; a pattern type is LITERAL there, and a PREFIXED one cannot be written at v0), v0 and v1 of
+OffsetForLeaderEpoch and v0 of DescribeLogDirs, so `--kafka-version 1` offers all five as Kafka 1.1 does and majors 2 and 3
+start them at 0 as 2.8 and 3.9 do (debt I2). No API is dropped from a profile for want of a decoder.
+Test: `tests/every_offered_version.rs::every_offered_request_is_read` (every advertised version is decoded), `profile::tests::the_apis_dropped_because_the_crate_cannot_decode_them_are_known` (none), `tests/old_versions.rs` (each restored version against bytes written from Kafka's schema), recorded `acl-v0` (tools/kafka-replay, Apache Kafka 3.9.1)
 
 ### W11. A request outside the advertised range closes the connection
 An API outside the profile, or a version outside its range, is refused (the connection is closed). The one
@@ -100,6 +104,19 @@ Test: `api::throttle::tests::the_throttle_is_written_where_the_version_has_it_an
 Offered only at Kafka 4 and only when client telemetry is on (`--client-telemetry`, on by default: W35); the recorded brokers have no reporter, so they
 do not list them.
 Test: `tests/recorded_api_versions.rs::telemetry_apis_are_the_only_extension`
+
+### W36. Every recorded API and range is offered as recorded, or is a written-down deviation
+W9 is one direction; this is both. For each major, every API the recorded broker lists is offered at exactly its range,
+and nothing else is offered, unless the pair (major, API) is in the deviations table of the test with its reason and its
+row: the floors of W10; inter-broker and controller APIs real brokers list on the client listener (LeaderAndIsr,
+StopReplica, UpdateMetadata, ControlledShutdown, WriteTxnMarkers, AlterPartition, UnregisterBroker, DescribeQuorum, the
+Raft voter APIs, UnregisterController and the share-state APIs 83 to 87), left out by the owner's decision of 2026-11-18: clients never
+send them, a single node has no other broker, and serving them would only make the list match (debt K4); admin APIs not served
+(debt K3); versions newer than served at Kafka 4 (K1); the older columns written for an earlier release than the one
+recorded (K2); and Produce v13 and TxnOffsetCommit v6, in flight on another branch. A table entry that no longer differs
+fails as well, so the list cannot go stale. SaslHandshake is 0 to 1 in every major, as every recorded broker lists it
+(v0 is raw tokens, SEC-401).
+Test: `tests/recorded_api_versions.rs::every_recorded_range_is_offered_as_recorded_or_is_a_written_down_deviation`
 
 ## Hostile input
 

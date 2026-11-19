@@ -42,6 +42,20 @@ impl Caller {
         &self.host
     }
 
+    /// The text of a CLUSTER_AUTHORIZATION_FAILED that Kafka's `authorizeClusterOperation` throws: `Request <the request>
+    /// needs <OPERATION> permission.` (SEC-404, recorded `authz-matrix`). Kafka writes its `RequestChannel.Request`
+    /// there (processor, connection id, a `Session` object's hash, the listener, the buffer), none of which a client can
+    /// read anything from; the request is written in the same shape with what this broker knows of it.
+    #[must_use]
+    pub fn cluster_denied(&self, operation: &str) -> String {
+        format!(
+            "Request Request(processor=0, connectionId={host}, session=Session({who},/{host}), \
+             listenerName=ListenerName(PLAINTEXT), buffer=null, envelope=None) needs {operation} permission.",
+            host = self.host,
+            who = self.principal.as_str(),
+        )
+    }
+
     pub(crate) fn subject(&self) -> Subject<'_> {
         Subject {
             principal: self.principal.as_str(),

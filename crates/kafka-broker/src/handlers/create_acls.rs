@@ -58,7 +58,10 @@ impl<F: Fs> Broker<F> {
             CLUSTER_NAME,
             Operation::Alter,
         ) {
-            all(ResponseError::ClusterAuthorizationFailed, None)
+            all(
+                ResponseError::ClusterAuthorizationFailed,
+                Some(&caller.cluster_denied("ALTER")),
+            )
         } else if acls.iter().any(Acl::has_filter_only_code) {
             all(ResponseError::UnknownServerError, None)
         } else {

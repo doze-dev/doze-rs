@@ -2,6 +2,9 @@
 //! the URL has the same path-style shape (`/cloudformation-custom-resource-response-<region>/<key>?X-Amz-...`) on the local
 //! endpoint, and the gateway hands a request to it to this service before it looks for a signature. The `PUT` body is delivered to
 //! the operation waiting for it; the key carries a random token that only that operation knows, so nothing else can answer.
+//!
+//! A wait condition handle's URL (`/cloudformation-waitcondition-<region>/...`) is served here too: its `PUT`s are signals, handed
+//! to `crate::signal`.
 
 use std::collections::HashMap;
 use std::sync::{Mutex, PoisonError};
@@ -13,9 +16,9 @@ use tokio::sync::oneshot;
 /// The bucket-like first segment of a response URL's path.
 const PREFIX: &str = "/cloudformation-custom-resource-response-";
 
-/// Whether a path is a response URL's.
+/// Whether a path is a response URL's, or a wait condition handle's.
 pub(crate) fn owns(path: &str) -> bool {
-    path.starts_with(PREFIX)
+    path.starts_with(PREFIX) || path.starts_with(crate::signal::HANDLE_PREFIX)
 }
 
 /// The operations waiting for a function's answer, by token.
@@ -70,7 +73,18 @@ impl Responses {
                 "<Error><Code>MethodNotAllowed</Code><Message>The specified method is not allowed against this resource.</Message></Error>",
             );
         }
-        let token = token_of(&format!("{}?{}", request.path, request.query));
+        let url = format!("{}?{}", request.path, request.query);
+        if request.path.starts_with(crate::signal::HANDLE_PREFIX) {
+            if crate::signal::handle_put(&url, &request.body) {
+                return reply(200, "");
+            }
+            // (memory) An expired or unknown presigned URL.
+            return reply(
+                403,
+                "<Error><Code>AccessDenied</Code><Message>Request has expired</Message></Error>",
+            );
+        }
+        let token = token_of(&url);
         let sender = token.and_then(|t| {
             self.waiting
                 .lock()
