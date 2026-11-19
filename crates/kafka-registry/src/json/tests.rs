@@ -63,3 +63,18 @@ fn numbers_are_written_as_javas_big_decimal_writes_them() {
         assert_eq!(super::java_number(raw), want, "{raw}");
     }
 }
+
+/// Found by fuzz json_schema: an exponent past i64 was read as 0, so `0.5e+<huge>` was stored as `0.5`, a different
+/// number. One that can't be held, or whose scale can't, is kept as it was sent.
+#[test]
+fn a_number_too_large_to_rewrite_is_kept_as_sent() {
+    for raw in [
+        "0.555500000000000000005e+000011999153157185615783",
+        "1e99999999999999999999",
+        "-1.5e-99999999999999999999",
+        "1.5e-9223372036854775808",
+        "125e9223372036854775807",
+    ] {
+        assert_eq!(java_number(raw), raw, "{raw}");
+    }
+}
