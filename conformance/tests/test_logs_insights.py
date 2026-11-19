@@ -218,7 +218,7 @@ def test_transformers(client, names, cleanup, snapshot):
                      {"substituteString": {"entries": [{"source": "u", "from": "o+", "to": "0"}]}}],
                     ['{"s":"  pad  ","u":"FOO","list":"a,b,c"}']),
         "keys": ([{"parseJSON": {}}, {"copyValue": {"entries": [{"source": "a", "target": "b"}]}},
-                  {"moveKeys": {"entries": [{"source": "c", "target": "d"}]}}, {"deleteKeys": {"withKeys": ["x"]}}],
+                  {"deleteKeys": {"withKeys": ["x"]}}],
                  ['{"a":1,"c":2,"x":3}']),
         "date": ([{"parseJSON": {}}, {"dateTimeConverter": {"source": "t", "target": "iso",
                                                              "matchPatterns": ["dd/MMM/yyyy:HH:mm:ss Z"]}}],
@@ -227,10 +227,15 @@ def test_transformers(client, names, cleanup, snapshot):
     for label, (cfg, messages) in tests.items():
         got = logs.test_transformer(transformerConfig=cfg, logEventMessages=messages)["transformedLogs"]
         snapshot.match(f"test-{label}", [json.loads(t["transformedEventMessage"]) for t in got])
-    # AWS (recorded 2026-11-19): moveKeys into a key under one that does not exist is refused.
-    snapshot.error("move-under-absent", lambda: logs.test_transformer(
-        transformerConfig=[{"parseJSON": {}}, {"moveKeys": {"entries": [{"source": "c", "target": "d.e"}]}}],
-        logEventMessages=['{"c":2}']))
+    # AWS (recorded 2026-11-19) refused moveKeys c -> d and c -> d.e ("No corresponding field. Field Name: 'd'"); which rule that is
+    # (a target that must exist?) is what these three settle.
+    def move(target, **kw):
+        return lambda: [json.loads(t["transformedEventMessage"]) for t in logs.test_transformer(
+            transformerConfig=[{"parseJSON": {}}, {"moveKeys": {"entries": [{"source": "c", "target": target, **kw}]}}],
+            logEventMessages=['{"a":1,"c":2}'])["transformedLogs"]]
+    snapshot.outcome("move-to-new", move("d"))
+    snapshot.outcome("move-to-existing", move("a", overwriteIfExists=True))
+    snapshot.outcome("move-under-absent", move("d.e"))
     # AWS (recorded 2026-11-19): a grok pattern with a type conversion is refused.
     snapshot.error("grok-type-conversion", lambda: logs.test_transformer(
         transformerConfig=[{"grok": {"match": "%{NUMBER:bytes:int}"}}], logEventMessages=["15824"]))
