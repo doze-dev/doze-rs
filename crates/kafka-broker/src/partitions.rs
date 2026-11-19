@@ -128,6 +128,7 @@ impl<F: Fs> Partition<F> {
     /// The first offset still open to a transaction, as the cleaner's planner is given it: the index's own, not held inside
     /// the log as [`Self::last_stable`] is (the two differ only when DeleteRecords moved the start past an open
     /// transaction). The Log page's verdict asks this, so that it is the planner's.
+    #[cfg(feature = "inspect")]
     pub(crate) fn planner_stable(&self) -> i64 {
         self.with_index(|index, seen| index.last_stable(seen.end))
     }
