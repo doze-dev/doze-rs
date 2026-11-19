@@ -160,6 +160,10 @@ async fn api_keys_are_imported_from_csv() {
         .await
         .unwrap_err();
     assert_eq!(strict.code, "BadRequestException");
+    assert_eq!(
+        strict.message,
+        "Warnings found during import:\n\tSkipped invalid record: 2. API Key value should be at least 20 characters"
+    );
     let no_header = w
         .rest(
             "ImportApiKeys",

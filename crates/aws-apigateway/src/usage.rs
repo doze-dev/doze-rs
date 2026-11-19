@@ -237,13 +237,10 @@ const MAX_RANGE: i64 = 366;
 pub(crate) fn get(core: &Core, r: &Req) -> Res {
     let plan_id = r.s("usagePlanId");
     let plan = core.plans.get(plan_id).map(|d| &d.0).ok_or_else(no_plan)?;
+    // Recorded 2026-11-19.
     let date = |k: &str| {
-        day_of(r.s(k)).ok_or_else(|| {
-            bad(format!(
-                "Invalid {k}: '{}'. The date format is yyyy-MM-dd",
-                r.s(k)
-            ))
-        })
+        day_of(r.s(k))
+            .ok_or_else(|| bad("Invalid usage date specified. Date must be in yyyy-MM-dd format"))
     };
     let (from, to) = (date("startDate")?, date("endDate")?);
     if to < from {

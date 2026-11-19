@@ -287,7 +287,7 @@ async fn a_model_template_follows_the_schema() {
         .unwrap();
     let t = pet["value"].as_str().unwrap();
     assert!(
-        t.contains("\"name\" : \"$inputRoot.name\"") && t.contains("\"age\" : $inputRoot.age"),
+        t.contains("\"name\" : \"foo\"") && t.contains("\"age\" : 42"),
         "{t}"
     );
     let none = w
@@ -298,6 +298,7 @@ async fn a_model_template_follows_the_schema() {
         .await
         .unwrap_err();
     assert_eq!(none.code, "NotFoundException");
+    assert_eq!(none.message, "Invalid model name specified: Nope");
 
     let h = w.http("CreateApi", json!({"name": "w", "protocolType": "WEBSOCKET", "routeSelectionExpression": "$request.body.action"})).await.unwrap();
     let hid = h["apiId"].as_str().unwrap();
@@ -309,10 +310,5 @@ async fn a_model_template_follows_the_schema() {
         )
         .await
         .unwrap();
-    assert!(
-        t2["value"]
-            .as_str()
-            .unwrap()
-            .contains("\"ok\" : $inputRoot.ok")
-    );
+    assert!(t2["value"].as_str().unwrap().contains("\"ok\" : true"));
 }
