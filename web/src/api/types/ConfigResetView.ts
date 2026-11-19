@@ -3,6 +3,7 @@ import type { ConfigPace } from "./ConfigPace";
 import type { ConfigRow } from "./ConfigRow";
 import type { ConfigValue } from "./ConfigValue";
 import type { Refusal } from "./Refusal";
+import type { SegmentsNow } from "./SegmentsNow";
 import type { Tok } from "./Tok";
 
 /**
@@ -12,4 +13,8 @@ export type ConfigResetView = { topic: string, row: ConfigRow,
 /**
  * What the config would be after: the place that takes over.
  */
-after: ConfigValue | null, pace: ConfigPace | null, call: Array<Array<[Tok, string]>>, refusal: Refusal | null, };
+after: ConfigValue | null, pace: ConfigPace | null, call: Array<Array<[Tok, string]>>, refusal: Refusal | null, 
+/**
+ * For the keys that decide when a segment rolls (`segment.bytes`, `segment.ms`): the log's segments now.
+ */
+segments: SegmentsNow | null, };

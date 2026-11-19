@@ -29,7 +29,7 @@ pub use config::{
     ConfigAsk, ConfigChange, ConfigChecked, ConfigEditView, ConfigForm, ConfigHead, ConfigInput,
     ConfigOp, ConfigPace, ConfigPage, ConfigPass, ConfigRefusal, ConfigRefused, ConfigResetResult,
     ConfigResetView, ConfigResult, ConfigRow, ConfigSaved, ConfigShow, ConfigSource, ConfigSynonym,
-    ConfigTeach, ConfigValue,
+    ConfigTeach, ConfigValue, SegmentsNow,
 };
 pub use connect::{
     Access, Chrome, ClientSnippet, ConnectView, ProbeView, Rule, Span, Tok, Verdict,
@@ -38,7 +38,9 @@ pub use consumers::{ConsumersView, TopicReader};
 pub use data::{
     AlarmTone, DataKind, DataKindRow, DataTopicRow, DataView, DiskAlarm, EmptyTopicView, VolumeView,
 };
-pub use home::{Attention, HeldBack, HomeState, HomeView, InstanceView, StopView};
+pub use home::{
+    Attention, HeldBack, HomeState, HomeView, InstanceView, OfflinePartition, StopView,
+};
 pub use live::{
     LiveState, LiveView, WIRE_LIMIT, WIRE_MOST, WireClass, WireDetail, WirePart, WireQuery,
     WireRefusal, WireRow, WireWindow,
@@ -52,8 +54,8 @@ pub use log::{
     LogView,
 };
 pub use producers::{
-    ProdAborted, ProdBatch, ProdCell, ProdRow, ProdTail, ProdTxn, ProducersView, TxnPart, TxnRow,
-    TxnView,
+    AbortBy, ProdAborted, ProdBatch, ProdCell, ProdEpoch, ProdRow, ProdTail, ProdTxn,
+    ProducersView, TxnPart, TxnRow, TxnView,
 };
 
 pub(crate) mod write;
@@ -62,7 +64,7 @@ pub use messages::{
     Framed, HeaderRow, Hold, Kind, MessagesView, Reach, RecordRow, RecordTxn, RecordView,
     SchemaShown, Shown, Standing,
 };
-pub use query::{DEFAULT_LIMIT, MOST_KEY, MOST_LIMIT, MessageQuery, Reading};
+pub use query::{DEFAULT_LIMIT, MOST_KEY, MOST_LIMIT, MessageQuery, Reading, before_text};
 pub use topic::{CallVersions, OpenTxn, PartitionRow, TabCounts, TopicHead};
 pub use topics::{Cleanup, TopicRow, TopicsState, TopicsView};
 pub use write::{

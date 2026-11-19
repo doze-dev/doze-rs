@@ -148,6 +148,7 @@ fn all() -> BTreeMap<String, String> {
     one::<HomeResponse>(&cfg, &mut out);
     one::<HomeWords>(&cfg, &mut out);
     one::<HomeView>(&cfg, &mut out);
+    one::<crate::model::OfflinePartition>(&cfg, &mut out);
     one::<HomeState>(&cfg, &mut out);
     one::<Attention>(&cfg, &mut out);
     one::<HeldBack>(&cfg, &mut out);
@@ -301,6 +302,7 @@ fn r1b_config(cfg: &Config, out: &mut BTreeMap<String, String>) {
     one::<ConfigRefusal>(cfg, out);
     one::<ConfigPass>(cfg, out);
     one::<ConfigResetView>(cfg, out);
+    one::<crate::model::SegmentsNow>(cfg, out);
 }
 
 /// The Groups pages (R2).

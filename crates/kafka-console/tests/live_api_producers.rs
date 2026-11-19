@@ -21,6 +21,31 @@ use serde_json::Value;
 use support_api::{api, get};
 use support_log::{from, seeded};
 
+/// An administrator's commit (no member) of `offset` on `topic`-`partition` for `group`.
+async fn commit(w: &support_write::World, group: &str, topic: &str, partition: i32, offset: i64) {
+    use kafka_wire::StrBytes;
+    use kafka_wire::api::{Request, Response};
+    use kafka_wire::messages::offset_commit_request::{
+        OffsetCommitRequestPartition, OffsetCommitRequestTopic,
+    };
+    use kafka_wire::messages::{GroupId, OffsetCommitRequest, TopicName};
+    let mut p = OffsetCommitRequestPartition::default();
+    p.partition_index = partition;
+    p.committed_offset = offset;
+    p.committed_leader_epoch = -1;
+    let mut t = OffsetCommitRequestTopic::default();
+    t.name = TopicName(StrBytes::from_string(topic.to_owned()));
+    t.partitions = vec![p];
+    let mut r = OffsetCommitRequest::default();
+    r.group_id = GroupId(StrBytes::from_string(group.to_owned()));
+    r.generation_id_or_member_epoch = -1;
+    r.topics = vec![t];
+    let Response::OffsetCommit(a) = w.ask(8, Request::OffsetCommit(r)).await else {
+        panic!("not OffsetCommit")
+    };
+    assert_eq!(a.topics[0].partitions[0].error_code, 0);
+}
+
 async fn ok(app: &Router, path: &str) -> Value {
     let (s, v) = get(app, path).await;
     assert_eq!(s, StatusCode::OK, "{path}: {v}");
@@ -119,7 +144,15 @@ async fn a_transaction_answer_says_what_it_holds_back_and_what_the_timeout_will_
             .0,
         0
     );
+    // J35: who it holds back: a group at the start of orders-1 is 2 behind and both are held; one past the end is not.
+    commit(&w, "payments-workers", "orders", 1, 0).await;
+    commit(&w, "auditor", "orders", 0, 0).await;
     let v = ok(&app, "/api/v1/topics/orders/transactions/orders-eos").await;
+    assert_eq!(
+        v["readers"],
+        serde_json::json!([{ "group": "payments-workers", "committed": 0, "behind": 2, "held": 2 }]),
+        "only the groups that committed on the held partition"
+    );
     assert_eq!(v["view"]["txn"]["state"], "Ongoing");
     assert_eq!(v["view"]["txn"]["producer_id"], t.0);
     assert_eq!(v["view"]["txn"]["producer_epoch"], t.1);

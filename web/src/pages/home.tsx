@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import { ActivityIcon, ArrowRightIcon, CircleCheckIcon, CodeIcon, HardDriveIcon, InfoIcon, PlusIcon, SettingsIcon, TriangleAlertIcon } from "lucide-react";
+import { ActivityIcon, ArrowRightIcon, CircleAlertIcon, CircleCheckIcon, CodeIcon, HardDriveIcon, InfoIcon, PlusIcon, SettingsIcon, TriangleAlertIcon } from "lucide-react";
 import { useHome } from "@/api/queries";
 import type { HomeResponse } from "@/api/types/HomeResponse";
 import { CodeValue } from "@/components/app/code-value";
@@ -35,6 +35,33 @@ function stats(r: HomeResponse, now: number): Stat[] {
       ? { label: "Last request", value: clockUtc(spoke.last_ms), unit: spoke.last_client ? `from ${spoke.last_client}` : "UTC", mono: true, ch: 9, tip: `${duration(now - spoke.last_ms)} before this page was fetched` }
       : { label: "Last request", value: "none yet", mono: true, ch: 9 },
   ];
+}
+
+/** A partition a failed flush took offline: its writes are refused until a restart (J2). Home says so before anything else. */
+function OfflineCallout({ r }: { r: HomeResponse }) {
+  const down = r.home.offline;
+  const first = down[0];
+  if (!first) return null;
+  const names = down.map((p) => `${p.topic}-${p.partition}`);
+  const shown = names.slice(0, 3).join(", ") + (names.length > 3 ? ` and ${names.length - 3} more` : "");
+  return (
+    <div className="flex gap-3 rounded-xl border border-bad/30 bg-bad/5 p-5" role="alert" data-testid="home-offline">
+      <CircleAlertIcon className="mt-0.5 size-5 shrink-0 text-bad" aria-hidden />
+      <div className="min-w-0 flex-1 text-[14px]">
+        <b className="font-semibold text-bright">
+          {down.length === 1 ? "A partition is offline." : `${down.length} partitions are offline.`}
+        </b>
+        <p className="mt-1 text-muted-foreground">
+          A flush failed on <code className="font-mono text-foreground">{shown}</code>, so the broker refuses writes to {down.length === 1 ? "it" : "them"} with KAFKA_STORAGE_ERROR until it restarts. Reads still work. The writer said: <code className="font-mono text-foreground">{first.cause}</code>
+        </p>
+        <p className="mt-2">
+          <Link to="/topics/$topic/messages" params={{ topic: first.topic }} className="font-medium text-link hover:underline" data-testid="home-offline-open">
+            Open {first.topic}
+          </Link>
+        </p>
+      </div>
+    </div>
+  );
 }
 
 function Callout({ r }: { r: HomeResponse }) {
@@ -86,7 +113,7 @@ function Callout({ r }: { r: HomeResponse }) {
           </>
         ) : (
           <>
-            <b className="font-semibold text-bright">Nothing needs you.</b> No transaction is near its timeout. When something does, it shows here.
+            <b className="font-semibold text-bright">Nothing needs you.</b> No transaction is near its timeout and no partition is offline. When something does, it shows here.
           </>
         )}
       </p>
@@ -318,8 +345,9 @@ export function HomePage() {
       ) : (
         <div className="flex flex-col gap-6" data-testid="home">
           <StatStrip stats={stats(r, q.dataUpdatedAt)} />
-          {/* "Nothing needs you" is not said while the disk does. */}
-          {!(r.home.disk && r.home.state.kind === "steady") && <Callout r={r} />}
+          <OfflineCallout r={r} />
+          {/* "Nothing needs you" is not said while the disk or an offline partition does. */}
+          {!((r.home.disk || r.home.offline.length > 0) && r.home.state.kind === "steady") && <Callout r={r} />}
           {r.home.disk && (
             <DiskAlarmBanner
               alarm={r.home.disk}

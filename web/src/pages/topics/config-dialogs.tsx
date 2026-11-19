@@ -2,6 +2,7 @@
 // dialog in its three shapes with Check (`validate_only`) and Save, what the broker answered in the same dialog (saved,
 // would take it, refused in Kafka's words with what would pass), and Reset.
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { Link } from "@tanstack/react-router";
 import { CheckIcon } from "lucide-react";
 import { useState } from "react";
 import { Controller, useForm, useWatch } from "react-hook-form";
@@ -71,6 +72,14 @@ function Saved({ a }: { a: ConfigSavedAnswer }) {
           <p className="mt-1 text-muted-foreground">
             A change does not rewrite anything. {a.reader} ({a.when})
           </p>
+          {a.cleaner_now && (
+            <p className="mt-2" data-testid="saved-cleaner">
+              <b className="font-semibold text-foreground">The cleaner now:</b> partition 0 is <span className="font-mono">{a.cleaner_now}</span>.{" "}
+              <Link to="/topics/$topic/log" params={{ topic: a.saved.head.name }} className="font-medium text-link hover:underline">
+                See the Log
+              </Link>
+            </p>
+          )}
         </div>
       )}
       <StickyFooter>
@@ -330,6 +339,11 @@ function ResetBody({ topic, k, open, onDone }: { topic: string; k: string; open:
       {shown.takes_effect && (
         <p className="border-l-2 pl-3 text-[12.5px] text-muted-foreground">
           <b className="font-semibold text-foreground">Takes effect</b> {shown.takes_effect}
+        </p>
+      )}
+      {shown.segments_note && (
+        <p className="border-l-2 pl-3 text-[12.5px] text-muted-foreground" data-testid="reset-segments">
+          <b className="font-semibold text-foreground">The log there is</b> {shown.segments_note}
         </p>
       )}
       {v.refusal && <RefusalCallout r={v.refusal} />}

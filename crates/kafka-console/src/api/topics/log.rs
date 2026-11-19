@@ -89,6 +89,49 @@ pub struct TxnResponse {
     pub left_ms: i64,
     pub timeout_percent: i64,
     pub timeout: String,
+    /// The groups that committed on the partition it holds back, and how far each is behind (J35).
+    pub readers: Vec<HeldReader>,
+    /// The groups whose offsets it staged (AddOffsetsToTxn), as the wire recorder saw them; `None` without a recorder.
+    pub staged: Option<Vec<String>>,
+}
+
+/// A group with a commit on the partition a transaction holds back.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
+pub struct HeldReader {
+    pub group: String,
+    pub committed: i64,
+    /// Records between its commit and the high watermark.
+    pub behind: i64,
+    /// Of those, the ones a read_committed consumer of the group cannot have until the transaction ends: from its commit or
+    /// the last stable offset, whichever is later, to the high watermark.
+    pub held: i64,
+}
+
+/// The groups with a commit on `part`, most held first.
+fn held_readers(
+    readers: &[crate::model::TopicReader],
+    part: &crate::model::TxnPart,
+) -> Vec<HeldReader> {
+    let mut out: Vec<HeldReader> = readers
+        .iter()
+        .filter_map(|r| {
+            let row = r
+                .block
+                .rows
+                .iter()
+                .find(|x| x.partition == part.partition)?;
+            let committed = row.committed?;
+            Some(HeldReader {
+                group: r.id.clone(),
+                committed,
+                behind: (part.end - committed).max(0),
+                held: (part.end - committed.max(part.last_stable)).max(0),
+            })
+        })
+        .collect();
+    out.sort_by(|a, b| b.held.cmp(&a.held).then_with(|| a.group.cmp(&b.group)));
+    out
 }
 
 fn lab_on(s: &Shared) -> bool {
@@ -262,7 +305,24 @@ pub(super) async fn txn(
         );
     };
     let (unended_before, unended_after) = w::unended_parts(&view);
+    let readers = match (
+        view.parts
+            .iter()
+            .find(|p| p.partition == view.tail_partition),
+        s.source.consumers(&name).await,
+    ) {
+        (Some(part), Some(c)) => held_readers(&c.readers, part),
+        _ => Vec::new(),
+    };
     let x = &view.txn;
+    let staged = match &s.source {
+        Source::Live(l) => l
+            .recorder
+            .as_ref()
+            .map(|r| r.staged(&x.id, (x.producer_id, x.producer_epoch), x.since_ms)),
+        #[cfg(any(test, feature = "examples"))]
+        Source::Fixture => Some(vec!["payments-workers".to_owned()]),
+    };
     json(
         StatusCode::OK,
         &TxnResponse {
@@ -276,6 +336,8 @@ pub(super) async fn txn(
             left_ms: w::left_ms(x, view.now_ms),
             timeout_percent: w::timeout_percent(x, view.now_ms),
             timeout: w::timeout_text(x.timeout_ms),
+            readers,
+            staged,
             view,
         },
     )

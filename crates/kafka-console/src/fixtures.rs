@@ -133,6 +133,7 @@ pub fn home(state: HomeState) -> HomeView {
         unchecked: 0,
         spoke,
         disk: None,
+        offline: Vec::new(),
     }
 }
 

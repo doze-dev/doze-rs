@@ -9,4 +9,9 @@ export type ConfigSavedAnswer = { saved: ConfigSaved, sentence: Array<Span>,
 /**
  * What it does to this log, when the broker reads it, and what reads it.
  */
-effect: string | null, when: string | null, reader: string | null, };
+effect: string | null, when: string | null, reader: string | null, 
+/**
+ * For a key the cleaner reads: what its planner makes of partition 0 now, under the new value (`3 segments, 61 % dirty:
+ * not due`), the same line as the Log tab's (J121).
+ */
+cleaner_now: string | null, };

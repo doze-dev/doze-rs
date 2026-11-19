@@ -147,6 +147,12 @@ impl Backend {
             .partition_files(&self.caller, topic)
     }
 
+    /// The partitions a failed flush took offline, as (topic, partition, cause), of the topics the console may describe.
+    #[must_use]
+    pub fn offline_partitions(&self) -> Vec<(String, i32, String)> {
+        self.broker.console_view().offline_partitions(&self.caller)
+    }
+
     /// What the protocol hides about one group (leader, timeouts, last heartbeat, when the sweep takes its commits), if the
     /// console may describe it.
     pub async fn group_detail(&self, group: &str) -> Option<kafka_broker::GroupDetail> {

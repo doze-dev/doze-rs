@@ -1679,3 +1679,49 @@ for tasks"). The Lag tab and the Reads panel are the consumer group's: what the 
 takes an admin commit only while the group is empty, and refuses it otherwise with its own words. Tests:
 `live_api_streams::a_streams_group_is_described_with_its_topology_tasks_and_lag`; file:
 `web/e2e/tests/streams-groups.spec.ts`.
+
+## CON-1560. Older past the most a page shows is a cursor, partition by partition
+At 200 records Older can no longer ask for a larger page, so it asks for the next one: `before=0:1200,1:880`, the oldest offset
+shown on each partition (a partition the page showed nothing of keeps its place). The read is the newest-first read of each
+partition below its cursor, down to the log start; a page read before a cursor is no tail, carries its cursor back in its
+query, and has a chip with a way off. A cursor that is not one is said and the newest records are shown. Tests:
+`live_api_messages::older_past_two_hundred_records_follows_a_cursor_to_the_start_of_every_partition`,
+`model::query::tests::a_before_cursor_is_partition_and_offset_pairs_sorted_once_each_and_written_back`; file:
+`web/e2e/tests/messages.spec.ts`.
+
+## CON-1561. What the tape says about a topic: who wrote it, a producer's epochs, the groups staged, who aborted
+From the request recorder, and only as far as its tape reaches: the clients whose Produce to a topic was answered without an
+error (newest write first, three at most) on the topics list and a topic's head; the epochs InitProducerId gave a producer id
+(oldest first, five at most); the groups an AddOffsetsToTxn staged for a transaction since it began; and whether an abort
+marker was the producer's (its EndTxn within 10 s of the marker) or the broker's (the tape reaches past the marker and holds
+none). A console without a recorder says none of these. Tests:
+`live_recorder_facts::the_topics_list_and_a_topic_say_who_the_tape_saw_write_to_them`,
+`live_recorder_facts::a_producer_says_the_epochs_the_tape_saw_it_given`,
+`recorder::tests_topics::an_abort_is_the_producers_when_its_end_txn_is_on_the_tape_and_the_brokers_when_the_tape_reaches_past_it_without_one`.
+
+## CON-1562. Home says which partitions are offline
+A partition whose flush failed refuses writes until a restart; Home names each one, first, with the writer's words, and its
+all-clear says that no partition is offline. Only open partitions can be offline, so nothing is opened or read to find them.
+Tests: `view_partition_files::the_offline_partitions_of_the_broker_are_listed_with_their_cause_and_nothing_is_opened`.
+
+## CON-1563. The log's facts: flushed through, the index head, segments removed, the planner's own input
+The Durability card's "Flushed through" is the end of the log at its last completed flush (its end at open when the stop
+vouched for it). A segment says how many index entries it has and its first three. A retention pass notes how many whole
+segments it removed from each partition. The verdict is judged on the last stable offset the cleaner is given, not the one held
+inside the log. Other logs lists the ones with the most to say first. Tests:
+`log::tests::durability::the_offset_flushed_through_is_the_end_at_the_last_completed_flush`,
+`log::tests::survey::a_segment_says_how_many_index_entries_it_has_and_its_first_ones`,
+`view_log_facts::a_start_moved_past_an_open_transaction_is_judged_as_the_cleaner_judges_it`,
+`live_api_log::retention_is_named_before_and_after_a_pass`, `live_api_log::other_logs_with_a_story_come_first`.
+
+## CON-1564. The config dialogs say what a change does to this log
+A save of a key the cleaner reads says what its planner makes of partition 0 now; a reset of `segment.bytes` or `segment.ms`
+says which segments keep their size and how big the largest active one is; a Static flag place names the command-line flag.
+Tests: `live_api_config::a_saved_cleaner_key_says_what_the_planner_makes_of_the_log_now`,
+`live_api_config::a_reset_of_segment_bytes_says_which_segments_keep_their_size`,
+`api::config::tests::a_static_flag_place_names_the_command_line_flag_behind_the_broker_config`.
+
+## CON-1565. Who a transaction holds back
+The held page lists each group that committed on the held partition: its commit, how far it is behind the high watermark, and how
+many of those a read_committed consumer of it cannot have until the transaction ends. Tests:
+`live_api_producers::a_transaction_answer_says_what_it_holds_back_and_what_the_timeout_will_do`.

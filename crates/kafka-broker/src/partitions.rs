@@ -125,6 +125,13 @@ impl<F: Fs> Partition<F> {
         self.with_index(|_, seen| seen.stable)
     }
 
+    /// The first offset still open to a transaction, as the cleaner's planner is given it: the index's own, not held inside
+    /// the log as [`Self::last_stable`] is (the two differ only when DeleteRecords moved the start past an open
+    /// transaction). The Log page's verdict asks this, so that it is the planner's.
+    pub(crate) fn planner_stable(&self) -> i64 {
+        self.with_index(|index, seen| index.last_stable(seen.end))
+    }
+
     /// What a `read_committed` reader from `from` may be given: the last stable offset, and each aborted transaction that
     /// touches `from` up to it, as `each` makes it. One look at the index, so the two agree.
     pub(crate) fn committed<T>(

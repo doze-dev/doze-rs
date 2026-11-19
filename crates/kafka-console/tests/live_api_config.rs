@@ -10,6 +10,7 @@
 
 mod support;
 mod support_api;
+mod support_log;
 mod support_write;
 
 use axum::http::StatusCode;
@@ -119,5 +120,73 @@ async fn the_config_tab_edits_checks_saves_appends_and_resets() {
     let (s, v) = get(&app, "/api/v1/topics/t/config/edit?key=no.such.key").await;
     assert_eq!(s, StatusCode::OK);
     assert_eq!(v["missing"]["code"], "NOT_FOUND");
+    w.stop().await;
+}
+
+/// J124: resetting a key that decides when a segment rolls says what that does to the log there is: the sealed segments keep
+/// their size, the active one of each partition rolls by the value after; the other keys say nothing of segments.
+#[tokio::test]
+async fn a_reset_of_segment_bytes_says_which_segments_keep_their_size() {
+    let w = world("api-config-segments", |_, _| {}).await;
+    w.create_topic("t", 2, &[("segment.bytes", "1048576")])
+        .await;
+    let app = api(&w);
+    let (_, v) = get(&app, "/api/v1/topics/t/config/reset?key=segment.bytes").await;
+    assert_eq!(v["view"]["segments"]["partitions"], 2, "{v}");
+    assert_eq!(v["view"]["segments"]["sealed"], 0);
+    let note = v["segments_note"].as_str().unwrap();
+    assert!(
+        note.starts_with(
+            "No segment is sealed yet. The active segment of each of the 2 partitions"
+        ),
+        "{note}"
+    );
+    assert!(
+        note.ends_with("rolls once it passes the value after."),
+        "{note}"
+    );
+    let (_, v) = get(&app, "/api/v1/topics/t/config/reset?key=retention.ms").await;
+    assert!(
+        v["segments_note"].is_null() && v["view"]["segments"].is_null(),
+        "{v}"
+    );
+    w.stop().await;
+}
+
+/// J121: a save of a key the cleaner reads says what its planner makes of the log now, under the new value, in the Log tab's
+/// words; a key it does not read says nothing of the cleaner.
+#[tokio::test]
+async fn a_saved_cleaner_key_says_what_the_planner_makes_of_the_log_now() {
+    let w = world("api-config-cleaner", |_, _| {}).await;
+    w.create_topic("c", 1, &[("cleanup.policy", "compact")])
+        .await;
+    w.fill("c", 10, 3).await;
+    let app = api(&w);
+    let (s, v) = post(
+        &app,
+        "/api/v1/topics/c/config/edit",
+        &[
+            ("key", "min.cleanable.dirty.ratio"),
+            ("op", "set"),
+            ("value", "0.9"),
+        ],
+    )
+    .await;
+    assert_eq!(
+        (s, v["outcome"].as_str()),
+        (StatusCode::OK, Some("done")),
+        "{v}"
+    );
+    let now = v["answer"]["cleaner_now"]
+        .as_str()
+        .unwrap_or_else(|| panic!("{v}"));
+    assert_eq!(now, "1 segment, nothing dirty: not due");
+    let (_, v) = post(
+        &app,
+        "/api/v1/topics/c/config/edit",
+        &[("key", "retention.ms"), ("op", "set"), ("value", "3600000")],
+    )
+    .await;
+    assert!(v["answer"]["cleaner_now"].is_null(), "{v}");
     w.stop().await;
 }

@@ -86,6 +86,11 @@ impl<F: Fs> IndexView<F> {
         }
     }
 
+    /// The first `n` visible entries (fewer if it has fewer).
+    pub(crate) fn first(&self, n: u64) -> io::Result<Vec<Entry>> {
+        (0..self.len().min(n)).map(|i| self.get(i)).collect()
+    }
+
     /// The last visible entry, if there is one.
     pub(crate) fn last(&self) -> io::Result<Option<Entry>> {
         match self.len().checked_sub(1) {

@@ -609,9 +609,14 @@ export function GroupStoryPage() {
                 <p className="text-[13px] text-muted-foreground" data-testid="flap-verdict">
                   {verdict(v)}
                 </p>
-                <Button variant="outline" className="mt-4 bg-card" onClick={(e) => rule.open(1, e.currentTarget)} data-testid="check-rule">
-                  <SearchIcon /> Check the rule
-                </Button>
+<div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2">
+                  <Button variant="outline" className="bg-card" onClick={(e) => rule.open(1, e.currentTarget)} data-testid="check-rule">
+                    <SearchIcon /> Check the rule
+                  </Button>
+                  <Link to="/lab" search={{ new: "expire" }} className="text-[13px] font-medium text-link hover:underline" data-testid="flap-lab">
+                    Rehearse it: expire a member's session in the Lab
+                  </Link>
+                </div>
               </Panel>
               <Calm v={v} fetchedAt={res.dataUpdatedAt} />
             </>

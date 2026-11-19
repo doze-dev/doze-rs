@@ -15,6 +15,9 @@ use crate::segment::SegmentView;
 pub(crate) struct SyncState {
     /// Every append numbered up to this is on disk.
     pub synced: u64,
+    /// Every record before this offset is on disk: the end of the log at the last completed flush (or at open, when the
+    /// stop before vouched for it). `None` until the first flush of a log read back from a stop that did not vouch.
+    pub through: Option<Offset>,
     /// The first flush failure, which takes the partition offline.
     pub failed: Option<Arc<str>>,
 }
@@ -36,6 +39,7 @@ impl<F: Fs> Shared<F> {
             end: watch::Sender::new(end),
             sync: watch::Sender::new(SyncState {
                 synced: 0,
+                through: Some(end),
                 failed: None,
             }),
         }
