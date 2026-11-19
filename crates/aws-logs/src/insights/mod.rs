@@ -16,6 +16,7 @@ mod funcs;
 pub(crate) mod job;
 mod lex;
 mod parse;
+mod parse_expr;
 pub(crate) mod record;
 pub(crate) mod run;
 mod stats;

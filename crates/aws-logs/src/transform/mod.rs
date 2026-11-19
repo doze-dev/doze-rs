@@ -14,6 +14,7 @@ mod datetime;
 mod grok;
 mod path;
 mod procs;
+mod procs_read;
 
 pub(crate) use procs::{invalid, with_defaults};
 
