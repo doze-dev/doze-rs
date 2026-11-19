@@ -121,6 +121,11 @@ async fn a_stack_left_alone_is_in_sync() {
         .await
         .unwrap_err();
     assert_eq!(refused.code, "ValidationError");
+    // Recorded 2026-11-19.
+    assert_eq!(
+        refused.message,
+        "Drift detection is not supported for ResourceType AWS::CloudFormation::WaitConditionHandle"
+    );
 }
 
 #[tokio::test]

@@ -63,7 +63,8 @@ async fn signal(
 #[tokio::test]
 async fn a_wait_condition_completes_on_its_signals() {
     let w = World::new();
-    let t = json!({"Resources": {"Wait": waiting(2, "PT5M")}});
+    let t = json!({"Resources": {"Wait": waiting(2, "PT5M")},
+        "Outputs": {"Data": {"Value": {"Fn::GetAtt": ["Wait", "Data"]}}}});
     start(&w, "sig", &t).await;
     until_in_progress(&w, "sig", "Wait").await;
     signal(&w, "sig", "Wait", "a", "SUCCESS").await.unwrap();
@@ -78,11 +79,38 @@ async fn a_wait_condition_completes_on_its_signals() {
     signal(&w, "sig", "Wait", "b", "SUCCESS").await.unwrap();
     assert_eq!(w.settle("sig").await, "CREATE_COMPLETE");
     let trail = w.events("sig").await;
-    assert!(
-        trail
-            .iter()
-            .any(|(l, _, r)| l == "Wait" && r == "Received SUCCESS signal with UniqueId b")
+    // As recorded 2026-11-19: `Resource creation Initiated` as the wait starts, then each signal, then the completion.
+    let waits: Vec<(&str, &str)> = trail
+        .iter()
+        .filter(|(l, _, _)| l == "Wait")
+        .map(|(_, s, r)| (s.as_str(), r.as_str()))
+        .collect();
+    assert_eq!(
+        waits.get(..3),
+        Some(
+            &[
+                ("CREATE_IN_PROGRESS", ""),
+                ("CREATE_IN_PROGRESS", "Resource creation Initiated"),
+                (
+                    "CREATE_IN_PROGRESS",
+                    "Received SUCCESS signal with UniqueId a"
+                ),
+            ][..]
+        ),
+        "{waits:?}"
     );
+    assert_eq!(
+        waits.iter().rev().take(2).collect::<Vec<_>>(),
+        [
+            &("CREATE_COMPLETE", ""),
+            &(
+                "CREATE_IN_PROGRESS",
+                "Received SUCCESS signal with UniqueId b"
+            ),
+        ]
+    );
+    // Recorded 2026-11-19: `SignalResource` carries no data.
+    assert_eq!(w.outputs("sig").await["Data"], "{}");
     // Once complete, a signal is accepted and changes nothing (recorded 2026-11-19).
     signal(&w, "sig", "Wait", "c", "SUCCESS").await.unwrap();
     assert_eq!(w.events("sig").await.len(), trail.len());
@@ -176,7 +204,7 @@ async fn signal_resource_refusals() {
     let ghost = signal(&w, "ghost", "Wait", "a", "SUCCESS")
         .await
         .unwrap_err();
-    assert_eq!(ghost.message, "Stack with id ghost does not exist");
+    assert_eq!(ghost.message, "Stack ghost does not exist");
     assert_eq!(
         w.create(
             "plain",
@@ -274,17 +302,44 @@ async fn describe_events_by_operation_stack_and_change_set() {
         .await
         .unwrap();
     let events = got["OperationEvents"].as_array().unwrap();
-    assert!(events.len() >= 4, "{events:?}");
+    assert!(events.len() >= 6, "{events:?}");
+    // Recorded 2026-11-19: the operation's own events carry its type and status and no resource; the stack events are PROGRESS
+    // and carry neither.
+    let ops: Vec<(&Value, &Value)> = events
+        .iter()
+        .filter(|e| e["EventType"] == "STACK_EVENT")
+        .map(|e| (&e["OperationType"], &e["OperationStatus"]))
+        .collect();
+    assert_eq!(
+        ops,
+        [
+            (&json!("CREATE_STACK"), &json!("SUCCEEDED")),
+            (&json!("CREATE_STACK"), &json!("IN_PROGRESS")),
+        ]
+    );
     assert!(
         events
             .iter()
-            .all(|e| e["OperationType"] == "CREATE_STACK" && e["OperationStatus"] == "SUCCEEDED")
+            .filter(|e| e["EventType"] == "STACK_EVENT")
+            .all(|e| e.get("LogicalResourceId").is_none() && e.get("ResourceStatus").is_none())
+    );
+    assert!(
+        events
+            .iter()
+            .filter(|e| e["EventType"] != "STACK_EVENT")
+            .all(|e| e["EventType"] == "PROGRESS"
+                && e.get("OperationType").is_none()
+                && e.get("OperationStatus").is_none())
     );
     assert_eq!(events[0]["EventType"], "STACK_EVENT");
-    assert_eq!(events[0]["ResourceStatus"], "CREATE_COMPLETE");
-    assert!(events.iter().any(|e| e["LogicalResourceId"] == "Q"
-        && e["EventType"] == "PROGRESS_EVENT"
-        && e["EndTime"].is_string()));
+    assert!(events[0]["EndTime"].is_string());
+    assert_eq!(events[1]["LogicalResourceId"], "ev");
+    assert_eq!(events[1]["ResourceStatus"], "CREATE_COMPLETE");
+    assert!(
+        events
+            .iter()
+            .any(|e| e["LogicalResourceId"] == "Q" && e["EndTime"].is_string())
+    );
 
     let body = json!({"Resources": {"Q": queue("ev-q"), "Bad": {"Type": "AWS::SSM::Parameter",
         "Properties": {"Name": "has space", "Type": "String", "Value": "v"}}}});
@@ -309,10 +364,17 @@ async fn describe_events_by_operation_stack_and_change_set() {
         .await
         .unwrap();
     let cs_events = by_cs["OperationEvents"].as_array().unwrap();
+    let cs_ops: Vec<&Value> = cs_events
+        .iter()
+        .filter(|e| e["EventType"] == "STACK_EVENT")
+        .map(|e| &e["OperationStatus"])
+        .collect();
+    assert_eq!(cs_ops, [&json!("FAILED"), &json!("IN_PROGRESS")]);
     assert!(
         cs_events
             .iter()
-            .all(|e| e["OperationType"] == "UPDATE_STACK" && e["OperationStatus"] == "FAILED")
+            .filter(|e| e["EventType"] == "STACK_EVENT")
+            .all(|e| e["OperationType"] == "UPDATE_STACK")
     );
     let failed = w
         .cfn(
@@ -360,7 +422,7 @@ async fn hooks_are_none_and_limits_are_aws_defaults() {
         .await
         .unwrap();
     assert_eq!(hooks["Hooks"], json!([]));
-    assert_eq!(hooks["Status"], "UNAVAILABLE");
+    assert_eq!(hooks["Status"], "PLANNED");
     assert_eq!(hooks["ChangeSetId"], id.as_str());
     let absent = w
         .cfn(
@@ -401,6 +463,7 @@ async fn hooks_are_none_and_limits_are_aws_defaults() {
         .await
         .unwrap_err();
     assert_eq!(one.code, "HookResultNotFoundException");
+    assert_eq!(one.message, "The hook result was not found.");
     let limits = w.cfn("DescribeAccountLimits", json!({})).await.unwrap();
     assert_eq!(
         limits["AccountLimits"],

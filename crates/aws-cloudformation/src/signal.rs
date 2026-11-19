@@ -17,7 +17,7 @@ use tokio::sync::Notify;
 use aws_wire::ApiError;
 
 use crate::core::Core;
-use crate::errors::no_stack;
+use crate::errors::no_stack_plain;
 use crate::model::Draft;
 use crate::req::Req;
 
@@ -223,7 +223,7 @@ impl Core {
     pub(crate) fn signal_resource(&mut self, r: &Req<'_>) -> Result<Value, ApiError> {
         let name = r.s("StackName");
         let Some(stack) = self.find(name).filter(|s| s.status != "DELETE_COMPLETE") else {
-            return Err(no_stack(name));
+            return Err(no_stack_plain(name));
         };
         let logical = r.s("LogicalResourceId");
         let Some(res) = stack.resources.get(logical) else {
@@ -244,7 +244,7 @@ impl Core {
             // accepted and changes nothing.
             return Ok(json!({}));
         }
-        // (memory) Each signal shows as an event of the resource.
+        // Recorded 2026-11-19: each signal shows as an event of the resource.
         let word = if success { "SUCCESS" } else { "FAILURE" };
         self.push_event(
             &stack_id,
