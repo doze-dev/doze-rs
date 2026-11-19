@@ -636,6 +636,7 @@ def test_backup_lifecycle(client, names, cleanup, snapshot, eventually):
     snapshot.match("restored-item", ddb.get_item(TableName=target, Key={"pk": {"S": "a"}}, ConsistentRead=True))
     snapshot.error("restore-onto-existing", lambda: ddb.restore_table_from_backup(TargetTableName=target, BackupArn=arn))
     snapshot.match("delete", ddb.delete_backup(BackupArn=arn), opaque=("BackupArn",), drop=BACKUP_VOLATILE[2:])
+    snapshot.known(arn, "backup-arn")  # the refusal quotes it
     snapshot.error("describe-deleted", lambda: ddb.describe_backup(BackupArn=arn))
 
 
@@ -684,7 +685,7 @@ def test_resource_policy_lifecycle(client, names, cleanup, snapshot, eventually)
     snapshot.error("get-none", lambda: ddb.get_resource_policy(ResourceArn=arn))
     put = ddb.put_resource_policy(ResourceArn=arn, Policy=scan_denied(account, arn), ExpectedRevisionId="NO_POLICY")
     snapshot.match("put", put, opaque=("RevisionId",))
-    revision = put["RevisionId"]
+    revision = snapshot.known(put["RevisionId"], "revision")  # the mismatch refusals quote it
 
     def stored():
         # AWS (recorded 2026-11-19): right after the put, GetResourcePolicy may still answer PolicyNotFoundException.
