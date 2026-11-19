@@ -56,18 +56,63 @@ impl Root {
     }
 
     pub(crate) fn on_help(&mut self, _: &ShowHelp, window: &mut Window, cx: &mut Context<Self>) {
-        if matches!(self.overlay, Some(Overlay::Help)) {
+        if matches!(self.overlay, Some(Overlay::Help(_))) {
             self.close(window, cx);
         } else {
-            self.overlay = Some(Overlay::Help);
-            window.focus(&self.focus, cx);
+            // The sheet opens on the keys of where the person is: the page, or ⌘K or Needs you when one is open.
+            let here = self.help_here(cx);
+            self.close_bell();
+            let h = cx.new(|cx| overlays::help::HelpView::new(here, window, cx));
+            self.overlay = Some(Overlay::Help(h));
             cx.notify();
+        }
+    }
+
+    /// The help sheet's context for what is on screen: ⌘K or Needs you when open, else the page (a stack's view, a
+    /// service's tab).
+    pub(crate) fn help_here(&self, cx: &gpui::App) -> crate::actions::Scope {
+        use crate::actions::Scope;
+        match &self.overlay {
+            Some(Overlay::Palette(_)) => return Scope::Palette,
+            Some(Overlay::Bell(_)) => return Scope::Bell,
+            _ => {}
+        }
+        match &self.screen {
+            Screen::Library => Scope::Library,
+            Screen::Stack(_) => match self.overview.read(cx).view {
+                View::Map => Scope::Map,
+                View::Grid => Scope::Grid,
+                _ => Scope::Overview,
+            },
+            Screen::Instance(..) => match &self.inside {
+                Some(super::inside::Inside::Instance(v)) => {
+                    let tab = &v.read(cx).tab;
+                    if tab == doze_display::TAB_LOGS || tab == doze_display::TAB_LAST_RUN {
+                        Scope::Logs
+                    } else if tab.starts_with("console:") {
+                        Scope::Console
+                    } else {
+                        Scope::Instance
+                    }
+                }
+                _ => Scope::Instance,
+            },
+            Screen::Logs(_) => Scope::Logs,
+            Screen::Activity(_) => Scope::Activity,
+            Screen::Settings => Scope::Settings,
+            Screen::Empty(_) => Scope::Global,
         }
     }
 
     /// Closes the innermost thing open: an overlay, else what the page inside holds or the page itself, else the Map's
     /// find box or its selection, else the stack's page itself (back to Home).
     pub(super) fn close(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        // The help sheet's esc clears its filter, and only then closes.
+        if let Some(Overlay::Help(h)) = &self.overlay
+            && h.update(cx, |h, cx| h.escape(window, cx))
+        {
+            return;
+        }
         // ⌘K's esc clears its box, then steps out, and only then closes.
         if let Some(Overlay::Palette(p)) = &self.overlay
             && p.update(cx, |p, cx| p.escape(window, cx))
@@ -173,11 +218,7 @@ impl Root {
         }
     }
 
-    pub(super) fn overlay_el(
-        &self,
-        height: f32,
-        cx: &mut Context<Self>,
-    ) -> Option<gpui::AnyElement> {
+    pub(super) fn overlay_el(&self, cx: &mut Context<Self>) -> Option<gpui::AnyElement> {
         let t = tokens(cx);
         let motion = Motion::of(cx);
         match &self.overlay {
@@ -188,9 +229,9 @@ impl Root {
                 motion,
                 "palette",
             )),
-            Some(Overlay::Help) => Some(overlays::layer(
+            Some(Overlay::Help(h)) => Some(overlays::layer(
                 &t,
-                overlays::help::sheet(&t, crate::VERSION, height).into_any_element(),
+                h.clone().into_any_element(),
                 0.,
                 motion,
                 "help",

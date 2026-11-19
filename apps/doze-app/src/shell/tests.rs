@@ -54,7 +54,7 @@ pub(super) fn window<'a>(
 fn over(root: &Entity<Root>, vcx: &mut VisualTestContext) -> &'static str {
     vcx.update(|_, cx| match &root.read(cx).overlay {
         Some(Overlay::Palette(_)) => "palette",
-        Some(Overlay::Help) => "help",
+        Some(Overlay::Help(_)) => "help",
         Some(Overlay::Dialog(_)) => "dialog",
         Some(Overlay::Preflight(_)) => "preflight",
         Some(Overlay::Start(_)) => "start",

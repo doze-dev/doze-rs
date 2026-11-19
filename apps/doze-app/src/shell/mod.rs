@@ -8,6 +8,8 @@ mod admin;
 pub(crate) mod attention;
 pub(crate) mod attn;
 mod clock;
+#[cfg(all(test, feature = "capture"))]
+mod help_tests;
 mod history;
 #[cfg(all(test, feature = "capture"))]
 mod idle_tests;
@@ -399,6 +401,6 @@ impl Render for Root {
             .child(self.touches(cx))
             .child(page)
             .child(self.foot_column(cx))
-            .children(self.overlay_el(f32::from(window.viewport_size().height), cx))
+            .children(self.overlay_el(cx))
     }
 }
