@@ -422,7 +422,9 @@ def test_resource_policy_refusals(client, names, cleanup, snapshot):
 
 
 CHANGE_TEMPLATE = json.dumps({"schemaVersion": "0.3", "emergencyChange": False, "mainSteps": [
-    {"name": "wait", "action": "aws:sleep", "timeoutSeconds": 60, "inputs": {"Duration": "PT1S"}}]})
+    # AWS (recorded 2026-11-19): a change template's steps are approvals (aws:approve), each with a timeoutSeconds.
+    {"name": "approve", "action": "aws:approve", "timeoutSeconds": 600,
+     "inputs": {"Approvers": ["doze-rec-approver"], "MinRequiredApprovals": 1}}]})
 
 
 def test_change_template_review_history(client, names, cleanup, snapshot):

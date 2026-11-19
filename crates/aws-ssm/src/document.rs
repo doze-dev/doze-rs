@@ -321,6 +321,18 @@ fn change_template(map: &serde_json::Map<String, Value>) -> Result<(), ApiError>
     }) {
         return Err(missing("timeoutSeconds", &format!("/mainSteps/{i}")));
     }
+    // Recorded 2026-11-19 (after the missing properties): a change template's steps are approvals only.
+    for (i, step) in steps.into_iter().flatten().enumerate() {
+        let action = step
+            .get("action")
+            .and_then(Value::as_str)
+            .unwrap_or_default();
+        if action != "aws:approve" {
+            return Err(invalid_content(format!(
+                "[message: \"instance value (\\\"{action}\\\") not found in enum (possible values: [\\\"aws:approve\\\"])\" - parent node: /mainSteps/{i}/action]"
+            )));
+        }
+    }
     Ok(())
 }
 
