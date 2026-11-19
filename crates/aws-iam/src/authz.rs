@@ -24,8 +24,6 @@ const UNSUPPLIED: &[&str] = &[
     "aws:PrincipalOrgID",
     "aws:PrincipalOrgPaths",
     "aws:UserAgent",
-    "aws:MultiFactorAuthPresent",
-    "aws:MultiFactorAuthAge",
     "aws:TokenIssueTime",
     "aws:ResourceOrgID",
     "aws:ResourceAccount",
@@ -47,6 +45,8 @@ struct Principal {
     context: Context,
     /// The credential whose last use is noted.
     used: Used,
+    /// The user's or role's ARN, whose use of each service is noted (`lastaccess`).
+    entity: Option<String>,
 }
 
 /// What a request was made with, for `GetAccessKeyLastUsed` and `RoleLastUsed`.
@@ -93,6 +93,9 @@ impl Core {
             Resolved::Principal(p) => p,
         };
         self.note_use(&principal.used, caller, needs);
+        if let Some(entity) = &principal.entity {
+            self.note_access(entity, needs, &caller.region);
+        }
         for need in needs {
             let (decision, resource_docs) = self.decide(&principal, caller, need);
             let why = (!decision.allowed()).then(|| why_refused(&principal, need, &decision));
@@ -177,6 +180,7 @@ impl Core {
                 return Ok(Resolved::Root);
             };
             return match Session::verify(token, &key, self.now_ms()) {
+                Ok(s) if s.kind == SessionKind::User => Ok(self.of_users_session(&s, caller)),
                 Ok(s) => Ok(Resolved::Principal(Box::new(self.of_session(&s, caller)))),
                 Err(TokenFault::Expired) => Err(ApiError::new(
                     400,
@@ -243,7 +247,24 @@ impl Core {
             session: None,
             context: self.base_context(caller, c),
             used: Used::Key(caller.access_key_id.clone()),
+            entity: Some(user.arn.clone()),
         }
+    }
+
+    /// A user's own session (`GetSessionToken`): the user, with its policies, and whether an MFA code made the session. A session of
+    /// a user that is gone, or of the root, is the root's.
+    fn of_users_session(&self, s: &Session, caller: &Caller) -> Resolved {
+        let name = s
+            .subject
+            .split_once(":user/")
+            .and_then(|(_, rest)| rest.rsplit('/').next());
+        let Some(user) = name.and_then(|n| self.entity(Kind::User, n).ok()) else {
+            return Resolved::Root;
+        };
+        let mut p = self.of_user(user, caller);
+        p.used = Used::Nothing;
+        mfa_context(&mut p.context, s.mfa_ms, self.now_ms());
+        Resolved::Principal(Box::new(p))
     }
 
     fn of_session(&self, s: &Session, caller: &Caller) -> Principal {
@@ -262,6 +283,7 @@ impl Core {
         if s.kind == SessionKind::Role {
             c.set("aws:RoleSessionName", s.name.clone());
         }
+        mfa_context(&mut c, s.mfa_ms, self.now_ms());
         if let Some(e) = entity {
             tags(&mut c, e.tags.iter());
         }
@@ -286,8 +308,22 @@ impl Core {
             session,
             context: self.base_context(caller, c),
             used,
+            entity: entity
+                .filter(|_| s.kind == SessionKind::Role)
+                .map(|e| e.arn.clone()),
         }
     }
+}
+
+/// Temporary credentials carry whether an MFA code made them, and how long ago (memory: AWS's condition-key reference; long-term keys
+/// carry neither key).
+fn mfa_context(c: &mut Context, mfa_ms: Option<i64>, now_ms: i64) {
+    match mfa_ms {
+        Some(at) => c
+            .set("aws:MultiFactorAuthPresent", "true")
+            .set("aws:MultiFactorAuthAge", ((now_ms - at) / 1000).to_string()),
+        None => c.set("aws:MultiFactorAuthPresent", "false"),
+    };
 }
 
 fn tags<'a>(c: &mut Context, pairs: impl Iterator<Item = (&'a String, &'a String)>) {

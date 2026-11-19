@@ -212,6 +212,8 @@ def test_replica_follows_its_primary(client, names, cleanup, snapshot):
     made = sm.create_secret(Name=name, SecretString="one", AddReplicaRegions=[{"Region": REPLICA_REGION}])
     cleanup(sm.delete_secret, SecretId=name, ForceDeleteWithoutRecovery=True)
     cleanup(sm.remove_regions_from_replication, SecretId=name, RemoveReplicaRegions=[REPLICA_REGION])
+    # The ARN ends in six random characters, and a refusal names it.
+    snapshot.known(made["ARN"], "secret-arn")
     snapshot.match("create", made, opaque=("ARN", "VersionId"))
     snapshot.match("in-sync", in_sync(sm, name))
     snapshot.match("describe-primary", sm.describe_secret(SecretId=name),
@@ -224,8 +226,12 @@ def test_replica_follows_its_primary(client, names, cleanup, snapshot):
     assert west.get_secret_value(SecretId=name)["SecretString"] == "two"
     snapshot.error("put-on-replica", lambda: west.put_secret_value(SecretId=name, SecretString="x"))
     snapshot.error("delete-primary-with-replicas", lambda: sm.delete_secret(SecretId=name))
-    snapshot.error("replicate-again", lambda: sm.replicate_secret_to_regions(
-        SecretId=name, AddReplicaRegions=[{"Region": REPLICA_REGION}]))
+    # Asking again for a region that already holds the replica is not refused (recorded).
+    snapshot.outcome("replicate-again", lambda: sm.replicate_secret_to_regions(
+        SecretId=name, AddReplicaRegions=[{"Region": REPLICA_REGION}]), opaque=("ARN",))
+    # Made again in the background, as at first: it settles back in sync.
+    snapshot.match("after-replicate-again", {"replicas": [
+        {k: r.get(k) for k in ("Region", "Status", "StatusMessage")} for r in in_sync(sm, name)]})
     snapshot.match("remove", sm.remove_regions_from_replication(
         SecretId=name, RemoveReplicaRegions=[REPLICA_REGION]), opaque=("ARN",))
     snapshot.error("stop-on-a-primary", lambda: sm.stop_replication_to_replica(SecretId=name))

@@ -28,8 +28,8 @@ pub(crate) struct MetricFilter {
     pub(crate) emit_system: Vec<String>,
 }
 
-/// A subscription filter. The lines it matches are delivered to a Lambda function or a Kinesis stream (`forward`); a Firehose or a
-/// destination in another account is stored and not delivered.
+/// A subscription filter. The lines it matches are delivered to a Lambda function or a Kinesis stream, directly or through a logs
+/// destination (`forward`); a Firehose, or a destination of another region, is stored and not delivered.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub(crate) struct Subscription {
     pub(crate) name: String,
@@ -92,6 +92,39 @@ pub(crate) fn stream_key(group: &str, stream: &str) -> String {
 pub(crate) struct Event {
     pub(crate) ingested_ms: i64,
     pub(crate) message: String,
+    /// What the group's transformer made of the message when it was ingested (JSON), if the group had one.
+    pub(crate) transformed: Option<String>,
+}
+
+/// The event record's version: 2 added `transformed`; a version 1 record is read with none.
+const EVENT_VERSION: u8 = 2;
+
+#[derive(Deserialize)]
+struct EventV1 {
+    ingested_ms: i64,
+    message: String,
+}
+
+impl Event {
+    pub(crate) fn encode(&self) -> Result<Vec<u8>, doze_store::StoreError> {
+        doze_store::record::encode("event", EVENT_VERSION, self)
+    }
+
+    pub(crate) fn decode(bytes: &[u8]) -> Result<Self, doze_store::StoreError> {
+        use doze_store::record::{body, split};
+        let (version, rest) = split("event", bytes)?;
+        match version {
+            1 => body::<EventV1>("event", rest).map(|e| Self {
+                ingested_ms: e.ingested_ms,
+                message: e.message,
+                transformed: None,
+            }),
+            EVENT_VERSION => body("event", rest),
+            other => Err(doze_store::StoreError::Corrupt(format!(
+                "event: version {other} is not known"
+            ))),
+        }
+    }
 }
 
 /// The row key of an event: stream, timestamp, sequence, as fixed-width hex so the keys sort as the events do.

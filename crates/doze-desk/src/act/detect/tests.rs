@@ -1,4 +1,68 @@
-use super::{compose_images, detect, image_base, make_targets};
+use super::{compose_images, image_base, make_targets};
+use doze_module_proto::msg::hints::{Detect, ModuleHints};
+use std::collections::BTreeMap;
+use std::path::Path;
+
+/// Two modules' declarations, as their manifests give them (the scan knows no engine of its own).
+fn hints() -> Vec<ModuleHints> {
+    let hint =
+        |module: &str, label: &str, go: &[&str], npm: &[&str], images: &[&str]| ModuleHints {
+            module: module.into(),
+            label: label.into(),
+            client: None,
+            detect: Some(Detect {
+                packages: BTreeMap::from([
+                    ("go".into(), go.iter().map(|s| s.to_string()).collect()),
+                    ("npm".into(), npm.iter().map(|s| s.to_string()).collect()),
+                ]),
+                images: images.iter().map(|s| s.to_string()).collect(),
+                env: BTreeMap::new(),
+            }),
+        };
+    vec![
+        hint(
+            "postgres",
+            "db",
+            &["github.com/jackc/pgx"],
+            &["pg"],
+            &["postgres"],
+        ),
+        hint("valkey", "cache", &[], &["ioredis"], &["valkey/valkey"]),
+        ModuleHints {
+            module: "quiet".into(),
+            label: "quiet".into(),
+            client: None,
+            detect: None,
+        },
+    ]
+}
+
+fn detect(dir: &Path) -> super::Detected {
+    super::detect(dir, &hints())
+}
+
+/// The generic default: with no module declaring anything, nothing is guessed as a module; a compose image is a service.
+#[test]
+fn without_declarations_nothing_is_a_module() {
+    let dir = tempfile::tempdir().unwrap();
+    let p = dir.path();
+    std::fs::write(
+        p.join("package.json"),
+        r#"{"dependencies":{"ioredis":"5","pg":"8"}}"#,
+    )
+    .unwrap();
+    std::fs::write(
+        p.join("compose.yaml"),
+        "services:\n  db:\n    image: postgres:17\n",
+    )
+    .unwrap();
+    let d = super::detect(p, &[]);
+    assert!(d.modules.is_empty());
+    assert_eq!(
+        d.services.first().map(|s| s.becomes.as_str()),
+        Some("service \"db\"")
+    );
+}
 
 #[test]
 fn a_node_app_with_a_postgres_beside_it() {

@@ -433,6 +433,24 @@
       "InvokeMode": null
     }
   },
+  "test_function_url_with_iam_auth_refuses_a_bad_signature": {
+    "bad-signature": {
+      "body": {
+        "message": "The request signature we calculated does not match the signature you provided. Check your AWS Secret Access Key and signing method. Consult the service documentation for details."
+      },
+      "status": 403
+    },
+    "signed": {
+      "body": "ran",
+      "status": 200
+    },
+    "unsigned": {
+      "body": {
+        "Message": "Forbidden"
+      },
+      "status": 403
+    }
+  },
   "test_layers_tags_and_settings": {
     "account": {
       "count": true

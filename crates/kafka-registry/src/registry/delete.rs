@@ -1,7 +1,7 @@
 //! Deleting: a version or a whole subject, soft first and permanent only after that. A version another schema
 //! references cannot go; a schema no version holds any more goes with its last permanent version.
 
-use super::{Mode, Registry, State};
+use super::{Registry, State};
 use crate::error::{RegistryError, code};
 use crate::store::{Batch, Key};
 
@@ -37,7 +37,7 @@ impl State {
     /// permanent, a version another schema references.
     fn subject_targets(&self, subject: &str, permanent: bool) -> Result<Vec<u32>, RegistryError> {
         let s = self;
-        if s.mode_of(subject) == Mode::ReadOnly {
+        if s.enforced_mode(subject).read_only() {
             return Err(RegistryError::read_only(subject));
         }
         let has_any = !s.versions(subject).is_empty();
@@ -92,7 +92,7 @@ impl Registry {
         permanent: bool,
     ) -> Result<u32, RegistryError> {
         let mut s = self.lock();
-        if s.mode_of(subject) == Mode::ReadOnly {
+        if s.enforced_mode(subject).read_only() {
             return Err(RegistryError::read_only(subject));
         }
         let v = s.version_of(subject, version, true)?.clone();
@@ -189,9 +189,11 @@ impl Registry {
         }
         b.delete(&Key::Level(subject.to_owned()));
         b.delete(&Key::Mode(subject.to_owned()));
+        b.delete(&Key::Config(subject.to_owned()));
         self.commit(&b)?;
         s.levels.remove(subject);
         s.modes.remove(subject);
+        s.extras.remove(subject);
         if permanent {
             s.subjects.remove(subject);
             s.drop_schemas(&gone);

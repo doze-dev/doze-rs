@@ -138,10 +138,16 @@ async fn remote(rc: &Rc, req: Request, old: Option<&Res>, p: &Value) -> Done {
     let wait = text(p, "ServiceTimeout")
         .and_then(|s| s.parse::<u64>().ok())
         .unwrap_or(3600);
-    let answer = match (
-        failed_early,
-        tokio::time::timeout(Duration::from_secs(wait), rx).await,
-    ) {
+    let waited = crate::cancel::unless_cancelled(
+        &rc.stack_id,
+        tokio::time::timeout(Duration::from_secs(wait), rx),
+    )
+    .await;
+    let Some(waited) = waited else {
+        responses.forget(&url);
+        return Err(crate::cancel::cut_off(req == Request::Create));
+    };
+    let answer = match (failed_early, waited) {
         (_, Ok(Ok(v))) => v,
         (Some(error), _) => {
             responses.forget(&url);

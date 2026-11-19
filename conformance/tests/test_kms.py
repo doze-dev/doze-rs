@@ -327,9 +327,10 @@ def test_update_primary_region(client, cleanup, snapshot):
         KeyId=kid, PrimaryRegion="eu-west-1"))
     snapshot.match("update", kms.update_primary_region(KeyId=kid, PrimaryRegion=REPLICA_REGION))
     import time
+    # Wait for both sides to settle: a key still Updating refuses ScheduleKeyDeletion, and the cleanup would leave it behind.
     for _ in range(60):
         config = west.describe_key(KeyId=kid)["KeyMetadata"]["MultiRegionConfiguration"]
-        if config["MultiRegionKeyType"] == "PRIMARY":
+        if config["MultiRegionKeyType"] == "PRIMARY" and kms.describe_key(KeyId=kid)["KeyMetadata"]["KeyState"] == "Enabled":
             break
         time.sleep(1)
     snapshot.match("west-is-primary", west.describe_key(KeyId=kid)["KeyMetadata"]["MultiRegionConfiguration"])

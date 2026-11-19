@@ -377,6 +377,131 @@ No limit moved (7,800,000 B, 161 packages): a person lowers them, with the first
 
 **doze-aws at `opt-level = "z"` (2026-11-13, release-aws): 4,867,344 B (4.64 MiB) on darwin/arm64, 233 packages, idle 4,400 KB; 7,481,552 B on x86_64 Linux (musl).** The same code at `"s"` was 6,500,256 B, 233 packages and 3,920 KB idle on macOS and 8,206,736 B on Linux. `"z"` took 25% off macOS and only 9% off Linux: of the Linux binary, `.text` is 5.1 MB, `.rodata` 1.0 MB, `.eh_frame` 0.8 MB (plus 0.1 MB of index), `.rela.dyn` 0.17 MB. The Linux limits are 7,900,000 B (the musl size plus 5%) and 240 packages. Cost of `"z"`: server CPU 30 to 60% higher per request (0.2 to 0.7 ms), idle memory +0.4 MB, wall time unchanged; see the PLAN entry for the benchmark. Linux is now 1.54 times the macOS size, which is the ratio to plan with.
 
+**doze-aws with every Go service (2026-11-13, release-aws): 7,444,224 B (7.10 MiB) on darwin/arm64, 258 packages, idle 5,344 KB; 11,764,560 B on x86_64 Linux (musl), 10,561,264 B with JSONata off.** Over the "z" base (4,867,344 B / 233 on macOS, 7,481,552 B on Linux): Step Functions, API Gateway and CloudFormation together add 2.58 MB on macOS and 4.28 MB on Linux (1.66 times). The owner raised doze-aws's ceiling to 20 MB the same day; the CI line is 12,400,000 B (musl plus 5%) and 264 packages. Cross-building now needs a C compiler and an ELF archiver for the target (JSONata's `psm`): a `clang --target=x86_64-unknown-linux-musl` wrapper as `CC_x86_64_unknown_linux_musl` and `llvm-ar` as `AR_x86_64_unknown_linux_musl`.
+
+
+## Phase 11, the module face in the default build (2026-11-14, branch `p11-module`), release, darwin/arm64
+
+`doze-kafka` gained the doze module face (feature `module`, on by default like the console; docs/port/phase11.md): the module
+SDK (`doze-module`, `doze-module-proto`, `doze-os`, `minicbor`, `sha2`, `hex`, `rustix`) and the client half of the Kafka
+messages the module speaks to its own broker with.
+
+| darwin arm64, fat LTO | without `module` | default build |
+|---|---|---|
+| doze-kafka binary | 6,011,568 B | **6,574,304 B** (+562,736 B, +9.4%) |
+| packages (`cargo xtask weight`) | 158 | **171** (+13: the SDK's five crates, `minicbor`, `minicbor-derive`, `hex`, `sha2`, `const-oid`, `rustix`, `errno`, `bitflags`; `kafka-protocol` and `syn` counted again on new edges) |
+| idle | | 7,152 KB (the module code does not run in a broker) |
+
+`cargo bloat` puts about 250 KiB of text in the SDK (`doze_module` 120 KiB, `doze_module_proto` 82 KiB, `minicbor` 46 KiB); the rest
+is the module code and the request encoders and response decoders it uses. The Linux limits became 8,400,000 B (the macOS size times
+1.216, the Phase 7 ratio, plus 5%: 8,394,071) and 175 packages (171 plus 4); idle unchanged. Under the owner's 10 MB ceiling, but a
+cost every standalone user pays for a face only doze uses: **owner's decision** (phase11.md, cutover readiness) whether the module
+stays in the default build or moves behind a non-default feature that the release of `kafka-plugin` turns on (the lean broker would
+then be 6.0 MB again, and the gate's test run would need that feature turned on to keep testing the module).
+
+**Corrected the same day, merging with main:** CI had by then measured the default build before the module on ubuntu x86_64 at 8,174,048 B, so the
+macOS-to-Linux ratio is 1.36 (8,174,048 / 6,011,568), not 1.216. With the module that is about 8.94 MB on ubuntu x86_64, about 0.6 MB under
+the 10 MB ceiling; the limit is now 9,386,171 B (that plus 5%) and 174 packages until the next CI run measures it (`weight-limits.txt`).
+The schema registry (Phase 10) must fit in what is left, or the module face moves behind a feature: the owner decides.
+## Limits raised to the measured values (2026-11-14, owner decision)
+
+Main's CI had been red on the weight jobs since the React console and the doze-aws A14 to A16 merges. The owner decided on 2026-11-14 to raise
+the budgets to what CI measures on the ubuntu x86_64 runners. Byte and package limits are the measurement exactly (they are the same in every
+run of one commit). Idle memory is not: one sample two or three seconds after start moved by up to 870 KB between runs of the same commit
+(doze-aws: 8,612 and 9,484 KB). So the method changed with this entry:
+
+- **Idle memory is the median of three fresh starts**, each with an empty data directory, read two (`cargo xtask weight`) or three (the
+  `weight-lean` and `weight-tls` jobs) seconds after the server listens. All three samples are printed.
+- **An idle limit is that median plus 5%**, rounded up to the KB, for the noise that is left. Byte and package limits get no headroom.
+
+Measured in run 43572452563 (main plus PR #7's build fixes):
+
+| job | measured | old limit | new limit |
+|---|---|---|---|
+| `weight`, doze-kafka binary | 8,174,048 B | 7,800,000 B | **8,174,048 B** |
+| `weight`, doze-kafka idle | 9,428 / 9,296 / 9,280 KB, median 9,296 | 8,192 KB | **9,761 KB** |
+| `weight`, doze-aws idle | 8,964 / 8,952 / 9,088 KB, median 8,964 | 6,144 KB | **9,413 KB** |
+| `weight-lean` binary | 5,263,296 B | 5,200,000 B | **5,263,296 B** |
+| `weight-lean` idle | 6,972 / 6,884 / 6,876 KB, median 6,884 | 8,192 KB | **7,229 KB** (lowered: same rule) |
+| `weight-tls` binary | 9,279,000 B | 8,750,000 B | **9,279,000 B** |
+| `weight-tls` idle | 10,080 / 10,104 / 10,280 KB, median 10,104 | 8,192 KB | **10,610 KB** |
+
+Packages did not move (doze-kafka 155 of 161, doze-aws 259 of 264, lean 127 of 130, tls 166 of 173), nor did doze-aws bytes (11,641,952 of
+12,400,000). The two byte limits the weight pass of 2026-11-13 had lowered (doze-kafka 7.8 MB, tls 8.75 MB) were crossed by later merges and
+raised under the same decision; both stay under the owner's hard ceilings (kafka 10 MB, doze-aws 20 MB).
+
+**Why idle grew** (issue #36, from the `weight` job of every main push since 2026-11-12): doze-aws went from about 5.2 MB to about 9 MB in two
+steps. 128eab40 (doze-aws at `opt-level = "z"`) cost about 1.4 MB: a deliberate trade for a smaller binary, accepted. The A14 to A16 merges
+(`04c500b4..e1ab82d4`: Step Functions, API Gateway, CloudFormation) cost about 1.5 MB more with no request made, which points at something
+built at start; it stays open in #36 as a regression to fix. doze-kafka's default and TLS builds rose about 0.3 to 0.5 MB with the React
+console merge (bc4db1ac); the lean build stayed flat.
+
+## Phase 10, slice 10a: the schema registry (2026-11-14, branch `p10-registry`), release, darwin/arm64
+
+The registry (Avro, every REST route, storage in `meta.redb`) on by default behind the `registry` feature. The libraries weighed for
+it and not taken (apache-avro, protox with prost-reflect, jsonschema, boon) are in `phase10.md`, "Weight first".
+
+| | main (2f1bb66) | 10a |
+|---|---|---|
+| doze-kafka binary | 6,011,568 B | **6,244,864 B** (+233,296 B; +413,984 B before the crate was built at `opt-level = "z"`) |
+| packages (`cargo xtask weight`) | 155 | **156** (a repeated `cargo tree` line; no third-party package added) |
+| idle | 6,960 KB | 7,184 KB (the registry listens on 127.0.0.1:8081) |
+| with `--features tls` | | 7,039,920 B, 168 `cargo tree` lines |
+
+No limit moved (7,800,000 B, 161 packages, 8,192 KB; TLS job 8,750,000 B and 173 lines). On the Linux estimate (darwin times 1.216)
+the default build is about 7.59 MB (97% of its limit) and the TLS build about 8.56 MB (98%): 10b and 10c are to be measured against
+that before they merge.
+
+**10a on top of the module face (merged with main at Phase 11, 2026-11-14):** the default build 6,791,104 B on darwin arm64 (+216,800 B over
+the module's 6,574,304 B), 171 packages, 7,248 KB idle. With `--features tls`: 7,586,144 B and 183 `cargo tree` lines.
+
+**The ceiling, with CI's measured ratio (2026-11-14).** CI measured ubuntu x86_64 at 1.36 times darwin (8,174,048 B against
+6,011,568 B), not the 1.216 used above. On that scale: the default build with the module face and 10a is about 9.24 MB, under main's
+line of 9,386,171 B (which does not move) and 0.76 MB under the owner's 10 MB ceiling; 10a itself is about 0.29 MB of it. **The TLS
+build does not fit:** 7,586,144 B times 1.36 is about 10.32 MB, over the 10 MB ceiling, and the module face alone already puts it at
+about 10.0 MB (main's TLS line, 9,279,000 B and 173, was measured before the module; the module adds 13 packages). No limit was raised;
+the CI TLS job will fail on main with or without the registry until the owner decides (leave the module or the registry out of the
+`tls` release, or take a size lever such as `opt-level = "z"` on more of the tree).
+
+## The TLS build over 10 MB: the owner raised its ceiling (2026-11-14)
+
+With the module face (Phase 11) and the schema registry's foundation (Phase 10a), `--features tls` is 7,586,144 B on darwin arm64, about
+10.32 MB on ubuntu x86_64 at CI's measured ratio of 1.36. Asked whether to make room (module face opt-in, no module or no registry in the
+TLS build, or a higher ceiling), the owner chose to raise the ceiling. The `weight-tls` job's limit is now 10,833,014 B (that estimate
+plus 5%) and 186 packages, until CI's next run on main measures it; Protobuf (10b) and JSON Schema (10c) will move it again, each with
+its numbers. The default build's limit (9,386,171 B, 174 packages) is unchanged.
+
+## One build: TLS in the default (2026-11-14, owner decision)
+
+Asked whether to keep a separate TLS build "for a few MB", the owner chose one build, and raised the ceiling to 15 MB the same day. `tls` is
+now a default feature of `doze-kafka`; `--no-default-features` (no console, registry, module or TLS) stays only as an internal check that the
+broker core needs none of them. CI: the `weight-tls` size job is gone; its size and packages are the `weight` job's single line
+(`xtask/weight-limits.txt`), and a `weight-tls-idle` job keeps the one thing it measured that the default job does not: idle memory with a
+certificate loaded (10,610 KB). The single build, with the module face and the registry's Avro and JSON Schema, is 7,669,200 B on darwin
+arm64, 183 packages, 7,472 KB idle; about 10.43 MB on ubuntu x86_64 at CI's 1.36. Limit 10,951,617 B, 186 packages, 9,996 KB, estimates
+until CI measures them. Building from source needs a C compiler and an assembler (ring); release binaries are unaffected.
+
+## One build: CI's measurements (2026-11-14)
+
+Main's first CI run with the one build (TLS in the default, the registry with Avro, JSON Schema and Protobuf), run 43588988185 on PR #45,
+replaces the estimates above, by the rule of "Limits raised to the measured values": bytes and packages exact, idle the median of three
+plus 5%. Small, justified rises under the owner's delegation of 2026-11-14.
+
+| job | measured | old limit | new limit |
+|---|---|---|---|
+| `weight`, doze-kafka binary | 10,634,592 B, 183 packages | 10,951,617 B, 186 (estimates) | **10,634,592 B, 183** |
+| `weight`, doze-kafka idle | 10,488 / 10,048 / 10,576 KB, median 10,488 | 9,996 KB (estimate) | **11,013 KB** |
+| `weight-lean` binary | 5,274,120 B | 5,263,296 B | **5,274,120 B** (+10,824 B: the module face's and registry's shared code reached the lean build) |
+| `weight-tls-idle` | 10,932 / 10,916 / 10,936 KB, median 10,932 | 10,610 KB | **11,479 KB** |
+
+doze-aws held (median 8,728 KB of 9,413) and the lean build's idle held (6,920 KB of 7,229). doze-kafka's idle has risen about 1.2 MB since
+2026-11-12 (the console, then the registry on by default); that is in issue #36.
+
+doze-aws, from the same PR's next run (43592223803, main with the aws-tls, aws-gaps and aws-correctness merges): 13,128,520 B and 274
+packages, inside the 13,900,000 B / 280 lines its stage set; idle 9,964 / 10,036 / 10,024 KB, median 10,024 KB, so its idle line is
+**10,526 KB** (was 9,413). That is +1.06 MB over the median of 8,964 KB measured before those merges; added to issue #36 beside the A14 to
+A16 step. In the same run doze-kafka's idle median was 10,648 KB, inside its new 11,013 KB.
+
 
 ## The desktop app (`apps/doze-app`), measured 2026-11-13, darwin/arm64
 
@@ -620,65 +745,29 @@ redraws only when a figure changed; the strips are painted, so a 2,000-service s
 (`doze-desk` lays out 2,000 services over 10,000 events in a few milliseconds, `tests/activity.rs`).
 **doze-aws with every Go service (2026-11-13, release-aws): 7,444,224 B (7.10 MiB) on darwin/arm64, 258 packages, idle 5,344 KB; 11,764,560 B on x86_64 Linux (musl), 10,561,264 B with JSONata off.** Over the "z" base (4,867,344 B / 233 on macOS, 7,481,552 B on Linux): Step Functions, API Gateway and CloudFormation together add 2.58 MB on macOS and 4.28 MB on Linux (1.66 times). The owner raised doze-aws's ceiling to 20 MB the same day; the CI line is 12,400,000 B (musl plus 5%) and 264 packages. Cross-building now needs a C compiler and an ELF archiver for the target (JSONata's `psm`): a `clang --target=x86_64-unknown-linux-musl` wrapper as `CC_x86_64_unknown_linux_musl` and `llvm-ar` as `AR_x86_64_unknown_linux_musl`.
 
+**The app carries the CLI (core C1, 2026-11-14).** Owner decision: Doze.app holds the GUI and the full CLI in one
+binary, `doze-app <command>` being the doze CLI (`doze` alone stays CLI-only, under 10 MB). Linking `doze-cli` into
+`doze-app` (darwin/arm64, `release-app`):
 
-## Phase 11, the module face in the default build (2026-11-14, branch `p11-module`), release, darwin/arm64
-
-`doze-kafka` gained the doze module face (feature `module`, on by default like the console; docs/port/phase11.md): the module
-SDK (`doze-module`, `doze-module-proto`, `doze-os`, `minicbor`, `sha2`, `hex`, `rustix`) and the client half of the Kafka
-messages the module speaks to its own broker with.
-
-| darwin arm64, fat LTO | without `module` | default build |
-|---|---|---|
-| doze-kafka binary | 6,011,568 B | **6,574,304 B** (+562,736 B, +9.4%) |
-| packages (`cargo xtask weight`) | 158 | **171** (+13: the SDK's five crates, `minicbor`, `minicbor-derive`, `hex`, `sha2`, `const-oid`, `rustix`, `errno`, `bitflags`; `kafka-protocol` and `syn` counted again on new edges) |
-| idle | | 7,152 KB (the module code does not run in a broker) |
-
-`cargo bloat` puts about 250 KiB of text in the SDK (`doze_module` 120 KiB, `doze_module_proto` 82 KiB, `minicbor` 46 KiB); the rest
-is the module code and the request encoders and response decoders it uses. The Linux limits became 8,400,000 B (the macOS size times
-1.216, the Phase 7 ratio, plus 5%: 8,394,071) and 175 packages (171 plus 4); idle unchanged. Under the owner's 10 MB ceiling, but a
-cost every standalone user pays for a face only doze uses: **owner's decision** (phase11.md, cutover readiness) whether the module
-stays in the default build or moves behind a non-default feature that the release of `kafka-plugin` turns on (the lean broker would
-then be 6.0 MB again, and the gate's test run would need that feature turned on to keep testing the module).
-
-**Corrected the same day, merging with main:** CI had by then measured the default build before the module on ubuntu x86_64 at 8,174,048 B, so the
-macOS-to-Linux ratio is 1.36 (8,174,048 / 6,011,568), not 1.216. With the module that is about 8.94 MB on ubuntu x86_64, about 0.6 MB under
-the 10 MB ceiling; the limit is now 9,386,171 B (that plus 5%) and 174 packages until the next CI run measures it (`weight-limits.txt`).
-The schema registry (Phase 10) must fit in what is left, or the module face moves behind a feature: the owner decides.
-## Limits raised to the measured values (2026-11-14, owner decision)
-
-Main's CI had been red on the weight jobs since the React console and the doze-aws A14 to A16 merges. The owner decided on 2026-11-14 to raise
-the budgets to what CI measures on the ubuntu x86_64 runners. Byte and package limits are the measurement exactly (they are the same in every
-run of one commit). Idle memory is not: one sample two or three seconds after start moved by up to 870 KB between runs of the same commit
-(doze-aws: 8,612 and 9,484 KB). So the method changed with this entry:
-
-- **Idle memory is the median of three fresh starts**, each with an empty data directory, read two (`cargo xtask weight`) or three (the
-  `weight-lean` and `weight-tls` jobs) seconds after the server listens. All three samples are printed.
-- **An idle limit is that median plus 5%**, rounded up to the KB, for the noise that is left. Byte and package limits get no headroom.
-
-Measured in run 43572452563 (main plus PR #7's build fixes):
-
-| job | measured | old limit | new limit |
+| | Line | app-try (a112aa29) | With the CLI |
 |---|---|---|---|
-| `weight`, doze-kafka binary | 8,174,048 B | 7,800,000 B | **8,174,048 B** |
-| `weight`, doze-kafka idle | 9,428 / 9,296 / 9,280 KB, median 9,296 | 8,192 KB | **9,761 KB** |
-| `weight`, doze-aws idle | 8,964 / 8,952 / 9,088 KB, median 8,964 | 6,144 KB | **9,413 KB** |
-| `weight-lean` binary | 5,263,296 B | 5,200,000 B | **5,263,296 B** |
-| `weight-lean` idle | 6,972 / 6,884 / 6,876 KB, median 6,884 | 8,192 KB | **7,229 KB** (lowered: same rule) |
-| `weight-tls` binary | 9,279,000 B | 8,750,000 B | **9,279,000 B** |
-| `weight-tls` idle | 10,080 / 10,104 / 10,280 KB, median 10,104 | 8,192 KB | **10,610 KB** |
+| Binary | ≤ 16 MB | not re-measured here (13,131,648 B at M3 combined) | 15,137,792 B |
+| Packages (`cargo tree -p doze-app --edges normal --target aarch64-apple-darwin`, unique lines) | was 560, now 640 | 537 | 631 |
 
-Packages did not move (doze-kafka 155 of 161, doze-aws 259 of 264, lean 127 of 130, tls 166 of 173), nor did doze-aws bytes (11,641,952 of
-12,400,000). The two byte limits the weight pass of 2026-11-13 had lowered (doze-kafka 7.8 MB, tls 8.75 MB) were crossed by later merges and
-raised under the same decision; both stay under the owner's hard ceilings (kafka 10 MB, doze-aws 20 MB).
+The 94 packages are the CLI's own: clap, the registry client (ureq, rustls, ring, the platform roots, ed25519), the
+YAML reader and jiff for the wall clock. The package line moves to 640 (the measured 631 plus 9) because the owner's
+decision puts them there; the byte line stays 16 MB, now with 0.86 MB of room. If that room is needed back, the
+lever is one HTTP and TLS stack shared by the app and the CLI (core plan §6.3).
 
-**Why idle grew** (issue #36, from the `weight` job of every main push since 2026-11-12): doze-aws went from about 5.2 MB to about 9 MB in two
-steps. 128eab40 (doze-aws at `opt-level = "z"`) cost about 1.4 MB: a deliberate trade for a smaller binary, accepted. The A14 to A16 merges
-(`04c500b4..e1ab82d4`: Step Functions, API Gateway, CloudFormation) cost about 1.5 MB more with no request made, which points at something
-built at start; it stays open in #36 as a regression to fix. doze-kafka's default and TLS builds rose about 0.3 to 0.5 MB with the React
-console merge (bc4db1ac); the lean build stayed flat.
+## Core P1 (dns-setup, trust, doctor --fix), measured 2026-11-14, release
 
-## Phase 10, slice 10a: the schema registry (2026-11-14, branch `p10-registry`), release, darwin/arm64
+The privileged commands bring three things into the CLI: the zone's setup and trust scripts and the doze certificate
+authority (doze-names `setup`: x509 and p256 were in the tree, now linked), the network daemon the setup installs, which
+is this same program run as `__doze-netd` (doze-names `netd`: tun-rs and the crates under it), and `doze-doctor`. A
+separate netd binary would save the CLI those bytes but would be a second program to ship, install and keep in step;
+Go's model, which the plan keeps, is one binary.
 
+| | Line | Before (C1 + app, 10e18e80) | P1 |
 The registry (Avro, every REST route, storage in `meta.redb`) on by default behind the `registry` feature. The libraries weighed for
 it and not taken (apache-avro, protox with prost-reflect, jsonschema, boon) are in `phase10.md`, "Weight first".
 
@@ -794,10 +883,18 @@ plus 5%. Small, justified rises under the owner's delegation of 2026-11-14.
 
 | job | measured | old limit | new limit |
 |---|---|---|---|
-| `weight`, doze-kafka binary | 10,634,592 B, 183 packages | 10,951,617 B, 186 (estimates) | **10,634,592 B, 183** |
-| `weight`, doze-kafka idle | 10,488 / 10,048 / 10,576 KB, median 10,488 | 9,996 KB (estimate) | **11,013 KB** |
-| `weight-lean` binary | 5,274,120 B | 5,263,296 B | **5,274,120 B** (+10,824 B: the module face's and registry's shared code reached the lean build) |
-| `weight-tls-idle` | 10,932 / 10,916 / 10,936 KB, median 10,932 | 10,610 KB | **11,479 KB** |
+| `doze`, darwin/arm64, `release` | 9 MB (ceiling 10) | about 3.8 MB | 4,592,176 B (+0.79 MB) |
+| `doze`, Linux aarch64 (Lima VM), `release` | 9 MB | not measured | 4,986,168 B, 185 packages |
+| `doze-app`, darwin/arm64, `release-app` | 16 MB | 15,137,792 B | 15,654,752 B (+517 KB) |
+| `doze-app` packages (CI's count) | was 640, now 650 | 631 | 640 |
+
+New packages: `doze-doctor`, `tun-rs`, `nix`, `route_manager`, `getifaddrs`, `ipnet`, `memoffset` (the network
+daemon), `privesc` (UAC on Windows; on macOS and Linux the system's prompt is `doze-os`'s). The app's package line
+moves to 650: the measured 640 plus the room the C1 line had. **The app's byte room is now 345 KB under 16 MB**: the
+next core crates that join the CLI (the daemon, the engine, config) will not fit in the app without the lever §6.3 names
+(one HTTP and TLS stack for the registry client and the front door; ureq + rustls-native-certs is the obvious
+duplicate) or a size profile change; this has to be decided before D1 joins the CLI. CI now holds `doze` to 9 MB and
+200 packages (the `weight` job).
 
 **Data control (2026-11-15, `docs/port/data-control.md`).** Measured on darwin arm64 against main at 3636c3d2 built the same day: the
 default build 8,001,424 to 8,167,424 B (+166,000 B), times 1.3747 is 11,227,858 B on ubuntu x86_64, under its 11,549,536 B line; the lean
@@ -910,3 +1007,59 @@ recorder's summaries and the console's share views. The embedded console assets 
 session cache and one task waiting on an alarm no one has set: nothing wakes until a lock is held (`tests/idle_upkeep.rs`); the idle rise is
 presumably the larger binary's pages (not split into file-backed and anonymous in the VM, as the idle line above was). The line (xtask/weight-limits.txt) moves to 8,431,392 B times CI's 1.3747 plus 5%, 12,170,166 B, under the 15 MB
 ceiling, and its idle to CI's 11,132 KB times the measured rise plus 5%, 11,880 KB, until CI measures the tree.
+
+## Core M1: the mariadb module, measured 2026-11-14, release, darwin/arm64
+
+`doze-module-mariadb` 905,968 B, beside `doze-module-valkey` 888,128 B and `doze-module-temporal` 903,824 B built the
+same way: no new dependency (the module runs the engine's own `mariadb` client, D6). The line for a module of this
+kind is 1 MB until the modules plan sets per-module lines.
+
+## One HTTP stack: the app makes its requests through the system's curl (core step 0, measured 2026-11-14)
+
+Same machine and method (darwin/arm64; `release-app` for the app, `release` for `doze`). Before, the app carried two HTTP
+paths: the CLI's registry client in the binary (ureq over rustls with ring and the system's trust store, linked when the
+CLI joined the app) and the update check's system `curl` (Settings › About, Q6). Now there is one, `doze_cli::http::get`,
+built one of two ways by the `doze-cli` feature `tls`:
+
+| Binary | Client | Before (core-m1, b2c73a09) | After |
+|---|---|---|---|
+| `doze-app` | the system's `curl` (no `tls`): the registry and the update check | 15,654,736 B, 640 packages | **14,792,432 B (−862,304 B), 634 packages** |
+| `doze` | ureq + rustls in the process (`tls`, the default) | 4,608,720 B | 4,608,720 B (unchanged) |
+
+The 0.84 MB is what the HTTPS client cost the app: ureq, its HTTP parser, rustls's client side, ring, webpki and the
+platform roots (a curl build of the same code measured 14,792,432 B too). `doze` keeps the in-process client because it
+must work where nothing is installed beside it (a container, a CI image without curl); the app runs on a desktop whose
+system ships curl (macOS /usr/bin/curl, Windows 10 and later in System32). Both clients say the same words for the same
+failure (`http.rs`; both are tested against a local server in every build). **The app's room under its 16,000,000 B
+line is now 1,207,568 B** (was 345,264 B).
+
+**What else `cargo tree -d` shows for the app**, and why it stays:
+- `objc2` 0.5 and 0.6, `png` 0.17 and 0.18, `itertools` ×3, `getrandom` ×3, `base64` 0.22 and 0.23, `dirs` 5 and 6,
+  `hashbrown` ×2, `miniz_oxide` ×2: all inside GPUI and gpui-component's own trees; none can go without patching them.
+- `image` with every format (exr, tiff, webp, jpeg, gif, …: about 0.55 MB with `image` itself): gpui-component turns on
+  gpui-pre's default features, which turn on the formats; the app's own `default-features = false` cannot undo it. The
+  lever is a patched gpui-component (vendor it, as gpui-pre-apple is), for the app's owner to weigh.
+- `syn` 2 and 3, `toml_edit`, `winnow` 0.7 and 1.0: build-time only, no bytes in the binary.
+- `jiff` (the CLI's wall clock, about 120 KB with `jiff-core`) beside `chrono` (GPUI's): the CLI could use chrono and
+  save that in the app; not done here, the CLI's clock being the CLI's choice.
+
+**The profile lever, measured, not taken:** the same app at `opt-level = "z"` (fat LTO, as `release-aws`) is
+**10,915,200 B, 30% smaller** than at `"s"`. doze-aws measured 30 to 60% more CPU per request at `"z"`; for the app that
+means frame and layout time, which this step did not measure. It is the lever that makes room for the engine, the daemon
+and the config when they join the CLI (the CLI alone is 4.6 MB at `"s"`), and it is the app owner's call, with the
+frame-time numbers of `doze-app bench` beside it.
+
+## Core M1: the ferret module, and the OP_MSG client (D6), measured 2026-11-14, release, darwin/arm64
+
+**D6, the client converge talks to FerretDB with.** Three small programs, each sending one command over a unix socket
+and reading the reply (opt "s", fat LTO, stripped, current-thread tokio and serde_json in all three, as a module has
+them): a hand-written BSON document and OP_MSG frame, 353,840 B and 12 packages; the same frame with the `bson` crate
+(2.x) for the documents and the JSON seed conversion, 801,120 B (+447 KB) and 54 packages; the official `mongodb` driver
+(3.x, rustls, its smallest feature set), 2,790,000 B (+2.4 MB) and 144 packages. The module writes its own: BSON is
+seven element types to write and a length rule to step over the rest, about 400 lines with tests, fuzzed
+(`fuzz_bson`, `fuzz_reply`). The plan named the `bson` crate; the measurement made it a module's half again for no
+behaviour the module uses.
+
+`doze-module-ferret` **1,006,976 B**, 49 packages (mariadb 922,288 B and 44 on the same build): +85 KB over mariadb for
+the BSON, the OP_MSG client and serde_json, which reads the seed files. Under the 1 MiB (1,048,576 B) line a module of
+this kind has until the modules plan sets per-module lines.

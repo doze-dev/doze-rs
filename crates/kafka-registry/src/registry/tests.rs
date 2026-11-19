@@ -57,7 +57,7 @@ fn everything_survives_a_restart_and_a_spent_id_is_not_given_again() {
     );
     r.set_level("orders", "FULL").unwrap();
     r.set_level("", "NONE").unwrap();
-    r.set_mode("frozen", "READONLY").unwrap();
+    r.set_mode("frozen", "READONLY", false).unwrap();
     r.delete_version("orders", "1", false).unwrap();
     r.delete_subject("users", false).unwrap();
     r.delete_subject("users", true).unwrap();
@@ -226,7 +226,10 @@ fn subjects_are_bounded_exactly_at_the_limit_and_control_characters_are_refused(
     assert_eq!(e.error_code, code::INVALID_SUBJECT);
     assert!(e.message.len() < 200, "the refusal echoes the subject");
     assert_eq!(err(r.set_level(&over, "FULL")), code::INVALID_SUBJECT);
-    assert_eq!(err(r.set_mode(&over, "READONLY")), code::INVALID_SUBJECT);
+    assert_eq!(
+        err(r.set_mode(&over, "READONLY", false)),
+        code::INVALID_SUBJECT
+    );
     for s in ["\u{1}orders", "ord\u{1f}ers", "orders\u{7f}", "__GLOBAL"] {
         assert_eq!(
             err(r.register(s, &avro(r#""string""#), false, &Origin::default())),
@@ -271,6 +274,7 @@ fn a_diamond_of_references_is_resolved_once_per_schema() {
             schema: Some(schema),
             schema_type: None,
             references: Some(refs),
+            ..SchemaInput::default()
         };
         r.register(&format!("l{i}"), &input, false, &Origin::default())
             .unwrap();
@@ -298,6 +302,7 @@ fn a_chain_of_forty_references_registers_and_a_referenced_version_cannot_go() {
                 subject: format!("c{}", i - 1),
                 version: 1,
             }]),
+            ..SchemaInput::default()
         };
         r.register(&format!("c{i}"), &input, false, &Origin::default())
             .unwrap();

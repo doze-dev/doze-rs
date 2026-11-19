@@ -56,6 +56,69 @@ fn go_float(v: f64) -> String {
     }
 }
 
+/// Go's `json.Encoder` with `SetIndent("", "  ")`: the structure of serde's pretty printer (two spaces, `[]` and `{}`
+/// for empty ones), the strings and floats of [`GoFormatter`].
+#[derive(Debug, Default)]
+pub(crate) struct GoPretty<'a>(serde_json::ser::PrettyFormatter<'a>);
+
+macro_rules! structure {
+    ($($name:ident($($arg:ident: $ty:ty),*);)*) => {
+        $(fn $name<W: ?Sized + Write>(&mut self, w: &mut W $(, $arg: $ty)*) -> io::Result<()> {
+            serde_json::ser::Formatter::$name(&mut self.0, w $(, $arg)*)
+        })*
+    };
+}
+
+impl serde_json::ser::Formatter for GoPretty<'_> {
+    structure! {
+        begin_array();
+        end_array();
+        begin_array_value(first: bool);
+        end_array_value();
+        begin_object();
+        end_object();
+        begin_object_key(first: bool);
+        begin_object_value();
+        end_object_value();
+    }
+
+    fn write_string_fragment<W: ?Sized + Write>(
+        &mut self,
+        w: &mut W,
+        fragment: &str,
+    ) -> io::Result<()> {
+        GoFormatter.write_string_fragment(w, fragment)
+    }
+
+    fn write_f64<W: ?Sized + Write>(&mut self, w: &mut W, value: f64) -> io::Result<()> {
+        w.write_all(go_float(value).as_bytes())
+    }
+
+    fn write_f32<W: ?Sized + Write>(&mut self, w: &mut W, value: f32) -> io::Result<()> {
+        w.write_all(go_float(f64::from(value)).as_bytes())
+    }
+}
+
+/// `v` as Go's `json.Marshal` writes it: one line, no newline.
+pub fn go_line<T: Serialize + ?Sized>(v: &T) -> serde_json::Result<String> {
+    let mut out = Vec::new();
+    v.serialize(&mut serde_json::Serializer::with_formatter(
+        &mut out,
+        GoFormatter,
+    ))?;
+    Ok(String::from_utf8_lossy(&out).into_owned())
+}
+
+/// `v` as Go's `json.Encoder` with a two-space indent writes it, without the final newline.
+pub fn go_pretty<T: Serialize + ?Sized>(v: &T) -> serde_json::Result<String> {
+    let mut out = Vec::new();
+    v.serialize(&mut serde_json::Serializer::with_formatter(
+        &mut out,
+        GoPretty::default(),
+    ))?;
+    Ok(String::from_utf8_lossy(&out).into_owned())
+}
+
 /// Serialises `v` as one line of Go-shaped JSON, newline included, onto `out`.
 pub(crate) fn write_line<T: Serialize + ?Sized>(
     v: &T,
@@ -109,6 +172,21 @@ mod tests {
         for (v, s) in cases {
             assert_eq!(go_float(v), s);
         }
+    }
+
+    #[test]
+    fn pretty_is_go_encoders_indent() {
+        let v = serde_json::json!({"a": [1.0, 0.5], "b": {}, "c": [], "d": "<x>"});
+        assert_eq!(
+            go_pretty(&v).ok().as_deref(),
+            Some(
+                "{\n  \"a\": [\n    1,\n    0.5\n  ],\n  \"b\": {},\n  \"c\": [],\n  \"d\": \"\\u003cx\\u003e\"\n}"
+            )
+        );
+        assert_eq!(
+            go_line(&v).ok().as_deref(),
+            Some("{\"a\":[1,0.5],\"b\":{},\"c\":[],\"d\":\"\\u003cx\\u003e\"}")
+        );
     }
 
     #[test]

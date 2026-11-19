@@ -20,6 +20,8 @@ http = "1"
 bytes = "1"
 getrandom = "0.4"
 thiserror = "2"
+# The event-stream framing's checksums; already linked (Lambda's zip reader, gzip bodies).
+crc32fast = "1"
 
 [dev-dependencies]
 aws-model-lambda = { path = "../aws-model-lambda" }

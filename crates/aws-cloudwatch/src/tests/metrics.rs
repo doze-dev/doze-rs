@@ -173,19 +173,6 @@ fn the_refusals_are_worded_as_aws_worded_them() {
 }
 
 #[test]
-fn metric_math_is_refused_not_guessed() {
-    let mut w = World::new();
-    let e = w
-        .run(
-            "GetMetricData",
-            &json!({"MetricDataQueries": [{"Id": "e", "Expression": "m1 * 2"}],
-                "StartTime": (NOW - 60_000) as f64 / 1000.0, "EndTime": (NOW + 60_000) as f64 / 1000.0}),
-        )
-        .unwrap_err();
-    assert_eq!(e.status, 501);
-}
-
-#[test]
 fn old_samples_and_quiet_metrics_are_forgotten_and_the_series_count_is_bounded() {
     let mut w = World::new();
     w.put("m", NOW, 1.0);

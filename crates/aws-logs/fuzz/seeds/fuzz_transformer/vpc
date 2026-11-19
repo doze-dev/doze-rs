@@ -1,0 +1,2 @@
+[{"parseVPC":{}},{"copyValue":{"entries":[{"source":"@logGroupName","target":"x.y"}]}},{"moveKeys":{"entries":[{"source":"action","target":"a.b"}]}},{"deleteKeys":{"withKeys":["version"]}},{"upperCaseString":{"withKeys":["log_status"]}}]
+2 123456789012 eni-1 10.0.0.1 10.0.0.2 443 49152 6 10 840 1700000000 1700000060 ACCEPT OK

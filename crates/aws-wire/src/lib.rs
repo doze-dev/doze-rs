@@ -11,6 +11,7 @@
 mod auth_error;
 pub mod cbor;
 mod error;
+pub mod eventstream;
 pub mod handler;
 pub mod json;
 pub mod local;

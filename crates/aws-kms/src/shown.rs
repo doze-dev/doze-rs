@@ -16,14 +16,45 @@ pub(crate) fn metadata(
     region: &str,
     set: Option<&Set>,
 ) {
+    shown(m, key, account, region, set, false);
+}
+
+/// A new replica as `ReplicateKey` shows it. On AWS a replica is made in the background: the call answers `Creating`, not
+/// enabled, with no current material yet (recorded: test_kms.py::test_multi_region_replica), and the key is `Enabled` moments
+/// later. doze-aws makes it at once, so only this answer says `Creating`; `DescribeKey` already says `Enabled`.
+pub(crate) fn creating(
+    m: &mut Object<'_, Meta>,
+    key: &Key,
+    account: &str,
+    region: &str,
+    set: Option<&Set>,
+) {
+    shown(m, key, account, region, set, true);
+}
+
+fn shown(
+    m: &mut Object<'_, Meta>,
+    key: &Key,
+    account: &str,
+    region: &str,
+    set: Option<&Set>,
+    creating: bool,
+) {
     m.put(Meta::AWS_ACCOUNT_ID, account);
     m.put(Meta::KEY_ID, &key.id);
     m.put(Meta::ARN, &key.arn);
     m.put_time(Meta::CREATION_DATE, seconds(key.created_ms));
-    m.put_bool(Meta::ENABLED, key.state == State::Enabled);
+    m.put_bool(Meta::ENABLED, !creating && key.state == State::Enabled);
     m.put(Meta::DESCRIPTION, &key.description);
     m.put(Meta::KEY_USAGE, key.usage.name());
-    m.put(Meta::KEY_STATE, key.state.name());
+    m.put(
+        Meta::KEY_STATE,
+        if creating {
+            "Creating"
+        } else {
+            key.state.name()
+        },
+    );
     if let Some(at) = key.purge_ms {
         m.put_time(Meta::DELETION_DATE, seconds(at));
     }
@@ -43,6 +74,28 @@ pub(crate) fn metadata(
     );
     m.put(Meta::CUSTOMER_MASTER_KEY_SPEC, key.spec.name());
     m.put(Meta::KEY_SPEC, key.spec.name());
+    algorithms(m, key);
+    m.put_bool(Meta::MULTI_REGION, key.multi_region);
+    if key.multi_region {
+        let own = Set {
+            primary: region.to_owned(),
+            replicas: Vec::new(),
+        };
+        let set = set.unwrap_or(&own);
+        m.put_object(Meta::MULTI_REGION_CONFIGURATION, |c| {
+            multi_region(c, key, account, region, set);
+        });
+    }
+    if !creating
+        && key.spec == Spec::Symmetric
+        && let Some(current) = key.current()
+    {
+        m.put(Meta::CURRENT_KEY_MATERIAL_ID, &current.id);
+    }
+}
+
+/// The algorithms a key's spec and usage allow, each list only when it has any.
+fn algorithms(m: &mut Object<'_, Meta>, key: &Key) {
     for (member, values) in [
         (
             Meta::ENCRYPTION_ALGORITHMS,
@@ -65,22 +118,6 @@ pub(crate) fn metadata(
                 }
             });
         }
-    }
-    m.put_bool(Meta::MULTI_REGION, key.multi_region);
-    if key.multi_region {
-        let own = Set {
-            primary: region.to_owned(),
-            replicas: Vec::new(),
-        };
-        let set = set.unwrap_or(&own);
-        m.put_object(Meta::MULTI_REGION_CONFIGURATION, |c| {
-            multi_region(c, key, account, region, set);
-        });
-    }
-    if key.spec == Spec::Symmetric
-        && let Some(current) = key.current()
-    {
-        m.put(Meta::CURRENT_KEY_MATERIAL_ID, &current.id);
     }
 }
 

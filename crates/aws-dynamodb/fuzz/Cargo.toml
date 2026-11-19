@@ -19,3 +19,9 @@ name = "fuzz_partiql"
 path = "fuzz_targets/fuzz_partiql.rs"
 test = false
 doc = false
+
+[[bin]]
+name = "fuzz_import"
+path = "fuzz_targets/fuzz_import.rs"
+test = false
+doc = false

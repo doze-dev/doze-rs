@@ -14,6 +14,7 @@ pub struct RouteDef {
 #[non_exhaustive]
 pub enum Route {
     Root,
+    Contexts,
     Subjects,
     Versions,
     Register,
@@ -60,6 +61,7 @@ const fn def(method: &'static str, pattern: &'static str, route: Route) -> Route
 /// Every route served, in the order the ledger lists them (docs/port/behaviours/registry.md).
 pub const ROUTES: &[RouteDef] = &[
     def("GET", "/", Route::Root),
+    def("GET", "/contexts", Route::Contexts),
     def("GET", "/subjects", Route::Subjects),
     def("GET", "/subjects/{subject}/versions", Route::Versions),
     def("POST", "/subjects/{subject}/versions", Route::Register),
@@ -143,11 +145,7 @@ pub enum Miss {
 }
 
 fn matches(pattern: &str, segs: &[String]) -> Option<Captures> {
-    let parts: Vec<&str> = pattern
-        .strip_prefix('/')
-        .unwrap_or(pattern)
-        .split('/')
-        .collect();
+    let parts: Vec<&str> = pattern.split('/').filter(|p| !p.is_empty()).collect();
     if parts.len() != segs.len() {
         return None;
     }
@@ -188,6 +186,28 @@ pub fn find(method: &str, segs: &[String]) -> Result<(Route, Captures), Miss> {
     })
 }
 
+/// The methods a path is served under, as Confluent's framework lists them for OPTIONS (in the order of the Java hash set
+/// it keeps them in: HEAD, DELETE, POST, GET, OPTIONS, PUT; HEAD wherever GET is); `None` when no route has the path.
+#[must_use]
+pub fn methods(segs: &[String]) -> Option<Vec<&'static str>> {
+    let served: Vec<&str> = ROUTES
+        .iter()
+        .filter(|d| matches(d.pattern, segs).is_some())
+        .map(|d| d.method)
+        .collect();
+    if served.is_empty() {
+        return None;
+    }
+    let has =
+        |m: &str| served.contains(&m) || (m == "HEAD" && served.contains(&"GET")) || m == "OPTIONS";
+    Some(
+        ["HEAD", "DELETE", "POST", "GET", "OPTIONS", "PUT"]
+            .into_iter()
+            .filter(|m| has(m))
+            .collect(),
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -207,12 +227,32 @@ mod tests {
         );
         assert_eq!(at("HEAD", "/subjects").unwrap().0, Route::Subjects);
         assert_eq!(at("GET", "/schemas/types").unwrap().0, Route::Types);
-        assert_eq!(at("GET", "/subjects/").unwrap_err(), Miss::NotFound);
+        // Recorded from cp-schema-registry 7.7.1 (tools/registry-diff): a trailing `/` is ignored and `//` is one `/`.
+        assert_eq!(at("GET", "/subjects/").unwrap().0, Route::Subjects);
+        assert_eq!(
+            at("GET", "/subjects//versions").unwrap_err(),
+            Miss::MethodNotAllowed
+        );
+        let segs = |p: &str| segments(p).unwrap();
+        assert_eq!(
+            methods(&segs("/subjects/x/versions")),
+            Some(vec!["HEAD", "POST", "GET", "OPTIONS"])
+        );
+        assert_eq!(
+            methods(&segs("/config")),
+            Some(vec!["HEAD", "DELETE", "GET", "OPTIONS", "PUT"])
+        );
+        assert_eq!(
+            methods(&segs("/subjects/x")),
+            Some(vec!["DELETE", "POST", "OPTIONS"])
+        );
+        assert_eq!(methods(&segs("/nope")), None);
         assert_eq!(
             at("PATCH", "/subjects").unwrap_err(),
             Miss::MethodNotAllowed
         );
         assert_eq!(at("DELETE", "/mode").unwrap_err(), Miss::MethodNotAllowed);
-        assert_eq!(at("GET", "/contexts").unwrap_err(), Miss::NotFound);
+        assert_eq!(at("GET", "/contexts").unwrap().0, Route::Contexts);
+        assert_eq!(at("GET", "/exporters").unwrap_err(), Miss::NotFound);
     }
 }

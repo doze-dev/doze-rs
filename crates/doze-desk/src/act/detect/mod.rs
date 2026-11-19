@@ -6,6 +6,7 @@
 //! CLI's word, never this guess. Source imports and the environment variables code reads, which Go also follows, are
 //! left to the CLI.
 
+use doze_module_proto::msg::hints::{Detect, ModuleHints};
 use std::collections::BTreeMap;
 use std::path::Path;
 
@@ -51,87 +52,24 @@ impl Detected {
     }
 }
 
-/// A module doze has, by what makes a project need it (Go `kinds`).
-struct ModKind {
-    module: &'static str,
-    name: &'static str,
-    go: &'static [&'static str],
-    npm: &'static [&'static str],
-    images: &'static [&'static str],
+/// What makes a project need a module is the module's own declaration (its manifest's `detect`, the module contract in
+/// docs/port/modules/sdk.md): the scan is handed the union of what the modules this machine knows declare, and knows no
+/// engine of its own. A module that declares nothing is never guessed.
+fn go_needs(d: &Detect, path: &str) -> bool {
+    d.packages
+        .get("go")
+        .is_some_and(|ps| ps.iter().any(|g| path.starts_with(g.as_str())))
 }
 
-const KINDS: &[ModKind] = &[
-    ModKind {
-        module: "postgres",
-        name: "db",
-        go: &[
-            "github.com/jackc/pgx",
-            "github.com/lib/pq",
-            "gorm.io/driver/postgres",
-            "github.com/uptrace/bun/driver/pgdriver",
-        ],
-        npm: &["pg", "postgres", "@prisma/client", "typeorm", "sequelize"],
-        images: &["postgres", "postgis/postgis", "timescale/timescaledb"],
-    },
-    ModKind {
-        module: "valkey",
-        name: "cache",
-        go: &[
-            "github.com/redis/go-redis",
-            "github.com/go-redis/redis",
-            "github.com/gomodule/redigo",
-            "github.com/valkey-io/valkey-go",
-        ],
-        npm: &["redis", "ioredis", "bullmq"],
-        images: &["redis", "valkey/valkey"],
-    },
-    ModKind {
-        module: "kafka",
-        name: "events",
-        go: &[
-            "github.com/twmb/franz-go",
-            "github.com/segmentio/kafka-go",
-            "github.com/IBM/sarama",
-            "github.com/Shopify/sarama",
-            "github.com/confluentinc/confluent-kafka-go",
-        ],
-        npm: &["kafkajs", "node-rdkafka"],
-        images: &[
-            "confluentinc/cp-kafka",
-            "bitnami/kafka",
-            "apache/kafka",
-            "redpandadata/redpanda",
-        ],
-    },
-    ModKind {
-        module: "aws",
-        name: "cloud",
-        go: &["github.com/aws/aws-sdk-go"],
-        npm: &[
-            "aws-sdk",
-            "@aws-sdk/client-s3",
-            "@aws-sdk/client-sqs",
-            "@aws-sdk/client-sns",
-            "@aws-sdk/client-dynamodb",
-        ],
-        images: &["localstack/localstack"],
-    },
-    ModKind {
-        module: "mariadb",
-        name: "sql",
-        go: &["github.com/go-sql-driver/mysql"],
-        npm: &["mysql", "mysql2"],
-        images: &["mariadb", "mysql"],
-    },
-];
+fn npm_needs(d: &Detect, dep: &str) -> bool {
+    d.packages
+        .get("npm")
+        .is_some_and(|ps| ps.iter().any(|n| n == dep))
+}
 
-const MONGO: ModKind = ModKind {
-    module: "mongo",
-    name: "mongo",
-    go: &["go.mongodb.org/mongo-driver"],
-    npm: &["mongodb", "mongoose"],
-    images: &["mongo"],
-};
+fn image_needs(d: &Detect, base: &str) -> bool {
+    d.images.iter().any(|i| i == base)
+}
 
 /// The Makefile targets that read as preparing something.
 const TASK_TARGETS: &[&str] = &[
@@ -147,20 +85,22 @@ const TASK_TARGETS: &[&str] = &[
     "codegen",
 ];
 
-#[derive(Default)]
-struct Scan {
+struct Scan<'h> {
+    hints: &'h [ModuleHints],
     out: Detected,
-    modules: BTreeMap<&'static str, Found>,
+    modules: BTreeMap<String, Found>,
     services: BTreeMap<String, Found>,
 }
 
-impl Scan {
-    fn module(&mut self, k: &ModKind, why: String) {
-        self.modules.entry(k.module).or_insert_with(|| Found {
-            name: k.name.to_owned(),
-            where_: why,
-            becomes: format!("module {} {:?}", k.module, k.name),
-        });
+impl Scan<'_> {
+    fn module(&mut self, h: &ModuleHints, why: String) {
+        self.modules
+            .entry(h.module.clone())
+            .or_insert_with(|| Found {
+                name: h.label.clone(),
+                where_: why,
+                becomes: format!("module {} {:?}", h.module, h.label),
+            });
     }
 
     fn service(&mut self, name: &str, image: &str, why: String) {
@@ -177,15 +117,17 @@ impl Scan {
             });
     }
 
-    fn need(&mut self, pick: impl Fn(&ModKind) -> bool, why: &str) {
-        for k in KINDS {
-            if pick(k) {
-                self.module(k, why.to_owned());
+    /// Every module whose declaration `pick` accepts is needed, for `why`; whether any was.
+    fn need(&mut self, pick: impl Fn(&Detect) -> bool, why: &str) -> bool {
+        let hints = self.hints;
+        let mut any = false;
+        for h in hints {
+            if h.detect.as_ref().is_some_and(&pick) {
+                self.module(h, why.to_owned());
+                any = true;
             }
         }
-        if pick(&MONGO) {
-            self.service("mongo", "", why.to_owned());
-        }
+        any
     }
 }
 
@@ -202,9 +144,14 @@ fn slug(s: &str) -> String {
     out.trim_end_matches('-').to_owned()
 }
 
-/// Reads `dir`.
-pub fn detect(dir: &Path) -> Detected {
-    let mut s = Scan::default();
+/// Reads `dir`, guessing modules from `hints` (the union of what the known modules declare).
+pub fn detect(dir: &Path, hints: &[ModuleHints]) -> Detected {
+    let mut s = Scan {
+        hints,
+        out: Detected::default(),
+        modules: BTreeMap::new(),
+        services: BTreeMap::new(),
+    };
     let read = |f: &str| std::fs::read_to_string(dir.join(f)).ok();
     if let Some(m) = read("go.mod") {
         go(&mut s, dir, &m);
@@ -222,13 +169,7 @@ pub fn detect(dir: &Path) -> Detected {
         for (svc, image) in compose_images(&text) {
             let base = image_base(&image);
             let why = format!("{file} has a {base} service");
-            let known = KINDS
-                .iter()
-                .chain([&MONGO])
-                .any(|k| k.images.iter().any(|i| *i == base));
-            if known {
-                s.need(|k| k.images.iter().any(|i| *i == base), &why);
-            } else {
+            if !s.need(|d| image_needs(d, &base), &why) {
                 s.service(
                     &slug(&svc),
                     &image,
@@ -267,7 +208,7 @@ fn go(s: &mut Scan, dir: &Path, gomod: &str) {
             && path.contains('.')
         {
             let why = format!("the code imports {path}");
-            s.need(|k| k.go.iter().any(|g| path.starts_with(g)), &why);
+            s.need(|d| go_needs(d, path), &why);
         }
     }
     if go_main(&dir.join("main.go")) {
@@ -323,7 +264,7 @@ fn node(s: &mut Scan, dir: &Path, text: &str) {
         .collect();
     for d in &deps {
         let why = format!("package.json depends on {d}");
-        s.need(|k| k.npm.iter().any(|n| n == d), &why);
+        s.need(|h| npm_needs(h, d), &why);
     }
     let scripts = pkg.get("scripts").and_then(|v| v.as_object());
     let Some(script) = ["dev", "start", "serve"]

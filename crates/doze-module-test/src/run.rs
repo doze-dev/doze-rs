@@ -147,12 +147,30 @@ async fn wait_ready(
     }
 }
 
-/// Starts every process of `plan`, each ready before the next, running hooks after each.
+/// How long a process that started but failed the boot is given to stop the way its module declared.
+pub(crate) const FAILED_BOOT_GRACE: Duration = Duration::from_secs(30);
+
+/// Starts every process of `plan`, each ready before the next, running hooks after each. On a failure the processes
+/// already started are stopped the way their module declared, not killed: a killed PostgreSQL leaves its System V
+/// shared memory segment behind, and the machine has few of those (macOS: 32).
 pub async fn start(plan: &Plan, logs: &Path, limit: Duration) -> Result<Started, String> {
     let mut started = Started {
         procs: Vec::new(),
         logs: logs.to_path_buf(),
     };
+    if let Err(e) = start_into(plan, logs, limit, &mut started).await {
+        started.stop(FAILED_BOOT_GRACE).await;
+        return Err(e);
+    }
+    Ok(started)
+}
+
+async fn start_into(
+    plan: &Plan,
+    logs: &Path,
+    limit: Duration,
+    started: &mut Started,
+) -> Result<(), String> {
     for p in order(plan)? {
         let log = logs.join(format!("{}.log", p.name));
         let (out, err) = (log_file(logs, &p.name)?, log_file(logs, &p.name)?);
@@ -176,7 +194,7 @@ pub async fn start(plan: &Plan, logs: &Path, limit: Duration) -> Result<Started,
             }
         }
     }
-    Ok(started)
+    Ok(())
 }
 
 impl Started {

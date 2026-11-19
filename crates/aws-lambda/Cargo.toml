@@ -41,6 +41,7 @@ tracing = "0.1"
 
 [dev-dependencies]
 aws-testkit = { path = "../aws-testkit" }
+aws-gateway = { path = "../aws-gateway" }
 aws-logs = { path = "../aws-logs" }
 aws-cloudwatch = { path = "../aws-cloudwatch" }
 aws-iam = { path = "../aws-iam" }

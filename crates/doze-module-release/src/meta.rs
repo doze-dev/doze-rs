@@ -2,7 +2,9 @@
 //! Go `modtool` writes them (the site's ArgTable reads them). No versions field: engine support lives in the index.
 
 use doze_module_proto::msg::hello::{Attr, Manifest, Schema, Type};
+use doze_module_proto::msg::hints::{ClientCommand, Detect};
 use doze_module_proto::msg::value::Value;
+use std::collections::BTreeMap;
 use yaml_rust2::YamlEmitter;
 use yaml_rust2::yaml::{Hash, Yaml};
 
@@ -90,6 +92,13 @@ pub(crate) fn render(m: &Manifest) -> Result<String, String> {
     opt(&mut h, "description", m.description.as_deref());
     opt(&mut h, "homepage", m.homepage.as_deref());
     opt(&mut h, "source", m.source.as_deref());
+    opt(&mut h, "defaultVersion", m.default_version.as_deref());
+    if let Some(c) = &m.client {
+        h.insert(key("client"), client(c));
+    }
+    if let Some(d) = &m.detect {
+        h.insert(key("detect"), detect(d));
+    }
     h.insert(key("config"), config(&m.schema));
     let mut out = String::new();
     YamlEmitter::new(&mut out)
@@ -97,4 +106,77 @@ pub(crate) fn render(m: &Manifest) -> Result<String, String> {
         .map_err(|e| e.to_string())?;
     out.push('\n');
     Ok(out)
+}
+
+fn strings(v: &[String]) -> Yaml {
+    Yaml::Array(v.iter().map(|s| key(s)).collect())
+}
+
+fn map_of(m: &BTreeMap<String, String>) -> Yaml {
+    Yaml::Hash(m.iter().map(|(k, v)| (key(k), key(v))).collect())
+}
+
+/// The module's shell client (module contract): the program, its argument template, its environment template, and
+/// the programs that take the same arguments.
+fn client(c: &ClientCommand) -> Yaml {
+    let mut h = Hash::new();
+    h.insert(key("program"), key(&c.program));
+    h.insert(key("args"), strings(&c.args));
+    if !c.env.is_empty() {
+        h.insert(key("env"), map_of(&c.env));
+    }
+    if !c.fallbacks.is_empty() {
+        h.insert(key("fallbacks"), strings(&c.fallbacks));
+    }
+    Yaml::Hash(h)
+}
+
+/// How a project shows it uses the engine (module contract): packages by ecosystem, container images, env variables.
+fn detect(d: &Detect) -> Yaml {
+    let mut h = Hash::new();
+    if !d.packages.is_empty() {
+        let p = d
+            .packages
+            .iter()
+            .map(|(k, v)| (key(k), strings(v)))
+            .collect();
+        h.insert(key("packages"), Yaml::Hash(p));
+    }
+    if !d.images.is_empty() {
+        h.insert(key("images"), strings(&d.images));
+    }
+    if !d.env.is_empty() {
+        h.insert(key("env"), map_of(&d.env));
+    }
+    Yaml::Hash(h)
+}
+
+#[cfg(test)]
+mod hint_tests {
+    use super::*;
+
+    /// The keys and shape `doze_cli::registry::meta` reads back (its `tests/hints.rs` holds the other half).
+    #[test]
+    fn client_and_detect_are_written_for_the_registry() {
+        let c = ClientCommand {
+            program: "valkey-cli".into(),
+            args: vec!["-h".into(), "{host}".into()],
+            env: BTreeMap::from([("REDISCLI_AUTH".into(), "{password}".into())]),
+            fallbacks: vec!["redis-cli".into()],
+        };
+        let d = Detect {
+            packages: BTreeMap::from([("npm".into(), vec!["ioredis".into()])]),
+            images: vec!["valkey/valkey".into()],
+            env: BTreeMap::new(),
+        };
+        let mut out = String::new();
+        let mut h = Hash::new();
+        h.insert(key("client"), client(&c));
+        h.insert(key("detect"), detect(&d));
+        YamlEmitter::new(&mut out).dump(&Yaml::Hash(h)).unwrap();
+        assert_eq!(
+            out,
+            "---\nclient:\n  program: valkey-cli\n  args:\n    - \"-h\"\n    - \"{host}\"\n  env:\n    REDISCLI_AUTH: \"{password}\"\n  fallbacks:\n    - redis-cli\ndetect:\n  packages:\n    npm:\n      - ioredis\n  images:\n    - valkey/valkey"
+        );
+    }
 }

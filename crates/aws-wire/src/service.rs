@@ -241,6 +241,18 @@ pub trait Service: Send + Sync + 'static {
     /// Handles one call. An error names a modelled shape ([`ApiError::modeled`]) or states itself.
     fn call(&self, call: Call) -> BoxFuture<'_, Reply>;
 
+    /// Whether operation `op` of a JSON-protocol service answers with an event stream (`application/vnd.amazon.eventstream`): the
+    /// gateway then hands its call to [`Service::call_stream`] instead of [`Service::call`]. The default is none.
+    fn streams(&self, _op: u32) -> bool {
+        false
+    }
+
+    /// Handles a call whose answer is an event stream: the body, already framed (`crate::eventstream`), sent as it is produced.
+    /// Called only for an operation [`Service::streams`] names.
+    fn call_stream(&self, _call: Call) -> BoxFuture<'_, Result<crate::rest::Download, ApiError>> {
+        Box::pin(async { Err(ApiError::internal("this operation does not stream")) })
+    }
+
     /// The service's REST side, for a service that speaks a REST protocol (S3): the gateway hands it streaming bodies and takes
     /// streaming answers. `None` for every service that speaks a JSON or Query protocol.
     fn rest(&self) -> Option<&dyn crate::rest::RestService> {

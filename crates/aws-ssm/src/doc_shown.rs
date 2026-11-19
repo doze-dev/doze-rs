@@ -76,20 +76,10 @@ pub(crate) fn shown(
     if let Some(x) = &ver.description {
         d.put(Shown::DESCRIPTION, x);
     }
-    d.put_list(Shown::PARAMETERS, |l| {
-        for p in &ver.params {
-            l.push(|o: &mut Object<'_, DocumentParameter>| {
-                o.put(DocumentParameter::NAME, &p.name);
-                o.put(DocumentParameter::TYPE, &p.kind);
-                if let Some(x) = &p.description {
-                    o.put(DocumentParameter::DESCRIPTION, x);
-                }
-                if let Some(x) = &p.default {
-                    o.put(DocumentParameter::DEFAULT_VALUE, x);
-                }
-            });
-        }
-    });
+    // Absent, not empty, for a document without parameters (recorded: test_ssm.py::test_document_content_is_checked).
+    if !ver.params.is_empty() {
+        put_params(d, ver);
+    }
     d.put_list(Shown::PLATFORM_TYPES, |l| {
         for p in &ver.platforms {
             l.push(p);
@@ -120,4 +110,21 @@ pub(crate) fn shown(
     if let Some(r) = &ver.review {
         d.put(Shown::REVIEW_STATUS, r);
     }
+}
+
+fn put_params(d: &mut Object<'_, Shown>, ver: &DocVersion) {
+    d.put_list(Shown::PARAMETERS, |l| {
+        for p in &ver.params {
+            l.push(|o: &mut Object<'_, DocumentParameter>| {
+                o.put(DocumentParameter::NAME, &p.name);
+                o.put(DocumentParameter::TYPE, &p.kind);
+                if let Some(x) = &p.description {
+                    o.put(DocumentParameter::DESCRIPTION, x);
+                }
+                if let Some(x) = &p.default {
+                    o.put(DocumentParameter::DEFAULT_VALUE, x);
+                }
+            });
+        }
+    });
 }

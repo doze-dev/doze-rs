@@ -1,0 +1,2 @@
+[{"csv":{"columns":["a"],"delimiter":";","quoteCharacter":"'"}},{"typeConverter":{"entries":[{"key":"a","type":"integer"}]}},{"splitString":{"entries":[{"source":"column_2","delimiter":","}]}}]
+1;'x,y'

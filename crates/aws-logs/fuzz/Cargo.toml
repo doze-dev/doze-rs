@@ -15,7 +15,19 @@ aws-logs = { path = ".." }
 [workspace]
 
 [[bin]]
+name = "fuzz_insights_query"
+path = "fuzz_targets/fuzz_insights_query.rs"
+test = false
+doc = false
+
+[[bin]]
 name = "fuzz_filter_pattern"
 path = "fuzz_targets/fuzz_filter_pattern.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "fuzz_transformer"
+path = "fuzz_targets/fuzz_transformer.rs"
 test = false
 doc = false

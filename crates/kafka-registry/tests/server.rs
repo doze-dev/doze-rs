@@ -54,7 +54,8 @@ async fn a_registration_over_tcp_is_answered_in_the_registrys_type() {
             .contains("content-type: application/vnd.schemaregistry.v1+json"),
         "{got}"
     );
-    assert!(got.ends_with("{\"id\":1}\n"), "{got}");
+    // Compact JSON with no line end after it, as Confluent writes it (tools/registry-diff).
+    assert!(got.ends_with("\r\n\r\n{\"id\":1}"), "{got}");
     let big = vec![b'x'; 70 * 1024];
     let head = format!(
         "PUT /config HTTP/1.1\r\nHost: localhost\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",

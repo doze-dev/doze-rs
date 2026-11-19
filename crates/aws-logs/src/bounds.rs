@@ -1,9 +1,7 @@
 //! What a group keeps: its retention, and the local bounds of [`crate::Settings`] (an age and an event count), applied lazily when
 //! the group is written or read. Nothing ticks.
 
-use doze_store::record;
-
-use crate::core::{Core, VERSION};
+use crate::core::Core;
 use crate::events::EVENT_OVERHEAD;
 use crate::model::{Event, event_key, stream_key};
 
@@ -72,7 +70,7 @@ impl Core {
             at = format!("{last}\u{0}");
             count += rows.len() as u64;
             for (_, value) in &rows {
-                if let Ok(e) = record::decode::<Event>("event", VERSION, value) {
+                if let Ok(e) = Event::decode(value) {
                     total += i64::try_from(e.message.len() + EVENT_OVERHEAD).unwrap_or(0);
                 }
             }
@@ -139,7 +137,7 @@ impl Core {
             let after = format!("{last}\u{0}");
             let removed: i64 = rows
                 .iter()
-                .filter_map(|(_, v)| record::decode::<Event>("event", VERSION, v).ok())
+                .filter_map(|(_, v)| Event::decode(v).ok())
                 .map(|e| i64::try_from(e.message.len() + EVENT_OVERHEAD).unwrap_or(0))
                 .sum();
             let next = self

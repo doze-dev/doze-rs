@@ -257,6 +257,7 @@ impl Core {
         let v = request::<Delete>(call)?;
         let name = v.get(Delete::NAME).unwrap_or_default();
         self.params.remove(name).ok_or_else(not_found)?;
+        self.forget_policies(&crate::resource_policy::parameter_key(name));
         empty()
     }
 
@@ -269,6 +270,7 @@ impl Core {
         let (mut gone, mut invalid) = (Vec::new(), Vec::new());
         for name in names {
             if self.params.remove(name).is_some() {
+                self.forget_policies(&crate::resource_policy::parameter_key(name));
                 gone.push(name);
             } else {
                 invalid.push(name);

@@ -38,6 +38,10 @@ impl Core {
                 },
             ));
         }
+        let policy = str_of(body, "ResourcePolicy");
+        if let Some(p) = policy {
+            crate::policy::check_policy(p)?;
+        }
         let shown = description(
             &table,
             cx.region(),
@@ -46,11 +50,15 @@ impl Core {
             &Sizes::default(),
         );
         self.tables.insert(name.to_owned(), table);
+        if let Some(p) = policy {
+            let arn = crate::req::table_arn(cx.region(), cx.account(), name);
+            self.store_policy(&arn, p, cx.now_ms);
+        }
         Ok(json!({ "TableDescription": shown }))
     }
 
     /// The table a `CreateTable` request describes, checked.
-    fn table_from(&self, cx: &Cx<'_>, name: &str) -> Result<Table, ApiError> {
+    pub(crate) fn table_from(&self, cx: &Cx<'_>, name: &str) -> Result<Table, ApiError> {
         let body = &cx.body;
         let defs = definitions(body)?;
         let (hash, range) = key_schema(array_of(body, "KeySchema"), &defs, true)?;
@@ -148,7 +156,11 @@ impl Core {
             .cloned()
             .ok_or_else(|| table_not_found(&name))?;
         let sizes = self.sizes(&t)?;
-        Ok(json!({ "Table": description(&t, cx.region(), cx.account(), Shape::Describe, &sizes) }))
+        let mut shown = description(&t, cx.region(), cx.account(), Shape::Describe, &sizes);
+        if let Some(r) = self.restore_summary(&name) {
+            crate::req::set(&mut shown, "RestoreSummary", r);
+        }
+        Ok(json!({ "Table": shown }))
     }
 
     pub(crate) fn delete_table(&mut self, cx: &Cx<'_>) -> Result<Json, ApiError> {
@@ -164,6 +176,9 @@ impl Core {
             )));
         }
         let until = cx.now_ms + self.windows.delete_ms;
+        if t.status != Status::Deleting {
+            self.system_backup(&t, cx)?;
+        }
         let mut shown = t.clone();
         if let Some(live) = self.tables.get_mut(&name)
             && live.status != Status::Deleting
@@ -254,14 +269,12 @@ pub(crate) fn check_definitions(
 
 /// Parameters that name something doze-aws does not build.
 fn refuse_unbuilt(body: &Json) -> Result<(), ApiError> {
-    for member in ["ResourcePolicy", "GlobalTableSettingsReplicationMode"] {
-        if body.get(member).is_some() {
-            return Err(ApiError::new(
-                501,
-                "NotImplemented",
-                format!("{member} of CreateTable is not built in doze-aws."),
-            ));
-        }
+    if body.get("GlobalTableSettingsReplicationMode").is_some() {
+        return Err(ApiError::new(
+            501,
+            "NotImplemented",
+            "GlobalTableSettingsReplicationMode of CreateTable is not built in doze-aws.",
+        ));
     }
     Ok(())
 }

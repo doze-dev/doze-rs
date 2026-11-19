@@ -5,6 +5,7 @@
 
 mod authz;
 mod core;
+mod doc_review;
 mod doc_share;
 mod doc_shown;
 mod doc_storage;
@@ -15,11 +16,13 @@ mod label;
 mod list;
 mod model;
 mod name;
+mod namespace;
 mod page;
 mod policy;
 mod public;
 mod read;
 mod reference;
+mod resource_policy;
 mod settings;
 mod storage;
 mod tags;

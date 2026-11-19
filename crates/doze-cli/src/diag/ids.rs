@@ -1,6 +1,7 @@
 //! The stable message codes. A code never changes meaning and is never reused; a script or a search can rely on it
 //! where the wording moves. Grouped by whose problem it is: 00 doze's own, 01 the command line, 02 the registry and
-//! modules, 03 the project's files, 04 the machine, 05 checks, 06 updates.
+//! modules, 03 the project's files, 04 the machine, 05 checks, 06 updates, 07 the running
+//! stack.
 
 use crate::exit::Exit;
 
@@ -45,6 +46,16 @@ pub const LOCK_UNREADABLE: Id = id("DZ0303", Exit::ConfigInvalid);
 pub const HOME_UNUSABLE: Id = id("DZ0401", Exit::Machine);
 /// The browser could not be opened.
 pub const NO_BROWSER: Id = id("DZ0402", Exit::Machine);
+/// The person closed the administrator prompt; nothing more was changed.
+pub const PROMPT_CANCELLED: Id = id("DZ0403", Exit::Failed);
+/// There is no way to ask for root here (no terminal for sudo, no system prompt).
+pub const NO_PROMPT: Id = id("DZ0404", Exit::Machine);
+/// The privileged script ran and failed.
+pub const PRIVILEGED_FAILED: Id = id("DZ0405", Exit::Machine);
+/// The machine's setup could not be made (an unsupported system, a file it could not read).
+pub const SETUP_FAILED: Id = id("DZ0406", Exit::Machine);
+/// The `.doze` zone is switched off, so there is nothing to set up.
+pub const NAMES_OFF: Id = id("DZ0407", Exit::Failed);
 
 /// `doctor` found something wrong.
 pub const CHECKS_FAILED: Id = id("DZ0501", Exit::Failed);
@@ -55,3 +66,24 @@ pub const NOT_ALL_CHECKED: Id = id("DZ0503", Exit::Partial);
 
 /// The newest doze is not known: the release file could not be fetched.
 pub const LATEST_UNKNOWN: Id = id("DZ0601", Exit::Machine);
+
+/// The command needs a running stack and doze is not running it.
+pub const DAEMON_DOWN: Id = id("DZ0701", Exit::DaemonDown);
+/// The stack declares no service (or task) by that name.
+pub const NO_SUCH_SERVICE: Id = id("DZ0702", Exit::NotFound);
+/// The daemon tried and it did not work: a wake, a restart, a task (its words follow).
+pub const DAEMON_REFUSED: Id = id("DZ0703", Exit::Failed);
+/// It took longer than `--timeout` (or the daemon's own limit).
+pub const TOO_SLOW: Id = id("DZ0704", Exit::Timeout);
+/// It deletes data, and there is no terminal to ask: `-y` says yes.
+pub const NEEDS_YES: Id = id("DZ0705", Exit::NeedsConfirmation);
+/// The daemon is there but could not be talked to: another protocol, a broken connection.
+pub const DAEMON_UNREADABLE: Id = id("DZ0706", Exit::Failed);
+/// Ctrl-C or SIGTERM.
+pub const INTERRUPTED: Id = id("DZ0707", Exit::Interrupted);
+/// Two flags that ask for different things.
+pub const FLAGS_DISAGREE: Id = id("DZ0104", Exit::Usage);
+/// `--run` names a run that is not kept.
+pub const NO_SUCH_RUN: Id = id("DZ0708", Exit::Failed);
+/// There is nothing for the command to act on (Go exits 1 here too).
+pub const NOTHING_TO_DO: Id = id("DZ0709", Exit::Failed);

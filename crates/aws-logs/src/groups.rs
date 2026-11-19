@@ -8,7 +8,7 @@ use crate::model::{Group, stream_key};
 use crate::req::{Put, Req, invalid, name_of_identifier, no_group};
 
 /// Tags one resource may have.
-const MAX_TAGS: usize = 50;
+pub(crate) const MAX_TAGS: usize = 50;
 /// The retention periods, in days, that AWS accepts (the list it printed when asked for 2 days).
 pub(crate) const RETENTION: [i64; 22] = [
     1, 3, 5, 7, 14, 30, 60, 90, 120, 150, 180, 365, 400, 545, 731, 1096, 1827, 2192, 2557, 2922,
@@ -219,8 +219,39 @@ impl Core {
         self.groups.get_mut(&name).ok_or_else(no_group)
     }
 
+    /// A tag call on a resource that is not a log group (a destination, a scheduled query): its answer, or `None` for a log group.
+    fn tag_other(
+        &mut self,
+        r: &Req<'_>,
+        change: impl FnOnce(&mut serde_json::Map<String, Value>),
+    ) -> Option<Result<Value, ApiError>> {
+        let arn = r.opt("resourceArn")?;
+        if arn.contains(":log-group:") {
+            return None;
+        }
+        let tags = if arn.contains(":destination:") {
+            self.destination_tags(arn, change)
+        } else {
+            self.scheduled_tags(arn, change)
+        };
+        Some(match tags {
+            Some(t) if t.as_object().is_some_and(|m| m.len() > MAX_TAGS) => Err(too_many_tags()),
+            Some(t) => Ok(t),
+            None => Err(ApiError::modeled(
+                "ResourceNotFoundException",
+                "The specified resource does not exist.",
+            )),
+        })
+    }
+
     pub(crate) fn tag(&mut self, r: &Req<'_>) -> Result<Value, ApiError> {
         let new = r.map("tags");
+        let adding = new.clone();
+        if let Some(done) = self.tag_other(r, |m| {
+            m.extend(adding.into_iter().map(|(k, v)| (k, Value::String(v))));
+        }) {
+            return done.map(|_| json!({}));
+        }
         let g = self.tagged(r)?;
         let added = new.iter().filter(|(k, _)| !g.tags.contains_key(k)).count();
         if g.tags.len() + added > MAX_TAGS {
@@ -233,6 +264,10 @@ impl Core {
     pub(crate) fn untag(&mut self, r: &Req<'_>) -> Result<Value, ApiError> {
         let mut keys = r.strings("tagKeys");
         keys.extend(r.strings("tags"));
+        let doomed = keys.clone();
+        if let Some(done) = self.tag_other(r, |m| doomed.iter().for_each(|k| drop(m.remove(k)))) {
+            return done.map(|_| json!({}));
+        }
         let g = self.tagged(r)?;
         for k in keys {
             g.tags.remove(&k);
@@ -241,6 +276,9 @@ impl Core {
     }
 
     pub(crate) fn list_tags(&mut self, r: &Req<'_>) -> Result<Value, ApiError> {
+        if let Some(done) = self.tag_other(r, |_| {}) {
+            return done.map(|t| json!({"tags": t}));
+        }
         let g = self.tagged(r)?;
         Ok(json!({"tags": g.tags}))
     }

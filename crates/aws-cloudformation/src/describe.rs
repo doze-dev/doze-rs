@@ -26,8 +26,8 @@ fn put(o: &mut Map<String, Value>, k: &str, v: Option<impl Into<Value>>) {
     }
 }
 
-/// A stack as `DescribeStacks` shows it.
-pub(crate) fn stack_json(s: &Stack) -> Value {
+/// A stack as `DescribeStacks` shows it, with its drift information.
+pub(crate) fn stack_json(s: &Stack, drift: Value) -> Value {
     let mut o = Map::new();
     o.insert("StackId".into(), s.id.clone().into());
     o.insert("StackName".into(), s.name.clone().into());
@@ -74,10 +74,7 @@ pub(crate) fn stack_json(s: &Stack) -> Value {
     );
     put(&mut o, "ParentId", s.parent_id.clone());
     put(&mut o, "RootId", s.root_id.clone());
-    o.insert(
-        "DriftInformation".into(),
-        json!({"StackDriftStatus": "NOT_CHECKED"}),
-    );
+    o.insert("DriftInformation".into(), drift);
     if s.retain_except_on_create {
         o.insert("RetainExceptOnCreate".into(), true.into());
     }
@@ -157,7 +154,8 @@ impl Core {
 
     pub(crate) fn describe_stacks(&self, r: &Req<'_>) -> Result<Value, ApiError> {
         if r.opt("StackName").is_some() {
-            return Ok(json!({"Stacks": [stack_json(self.named(r)?)]}));
+            let s = self.named(r)?;
+            return Ok(json!({"Stacks": [stack_json(s, self.stack_drift_info(s))]}));
         }
         let mut live: Vec<&Stack> = self
             .stacks
@@ -168,7 +166,9 @@ impl Core {
         live.sort_by_key(|s| std::cmp::Reverse(s.created_ms));
         Ok(page(
             r,
-            live.into_iter().map(stack_json).collect(),
+            live.into_iter()
+                .map(|s| stack_json(s, self.stack_drift_info(s)))
+                .collect(),
             "Stacks",
         ))
     }
@@ -199,10 +199,7 @@ impl Core {
                 put(&mut o, "StackStatusReason", s.reason.clone());
                 put(&mut o, "ParentId", s.parent_id.clone());
                 put(&mut o, "RootId", s.root_id.clone());
-                o.insert(
-                    "DriftInformation".into(),
-                    json!({"StackDriftStatus": "NOT_CHECKED"}),
-                );
+                o.insert("DriftInformation".into(), self.stack_drift_info(s));
                 Value::Object(o)
             })
             .collect();
@@ -241,7 +238,7 @@ impl Core {
         );
         o.insert(
             "DriftInformation".into(),
-            json!({"StackResourceDriftStatus": "NOT_CHECKED"}),
+            self.resource_drift_info(&s.id, logical, res),
         );
         Ok(json!({"StackResourceDetail": o}))
     }
@@ -280,7 +277,7 @@ impl Core {
                 o.insert("Timestamp".into(), secs(res.updated_ms));
                 o.insert(
                     "DriftInformation".into(),
-                    json!({"StackResourceDriftStatus": "NOT_CHECKED"}),
+                    self.resource_drift_info(&stack.id, k, res),
                 );
                 Value::Object(o)
             })
@@ -298,7 +295,7 @@ impl Core {
                 o.insert("LastUpdatedTimestamp".into(), secs(res.updated_ms));
                 o.insert(
                     "DriftInformation".into(),
-                    json!({"StackResourceDriftStatus": "NOT_CHECKED"}),
+                    self.resource_drift_info(&s.id, k, res),
                 );
                 Value::Object(o)
             })

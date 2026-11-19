@@ -17,6 +17,7 @@ pub mod spec;
 
 pub use doze_module_derive::Spec;
 pub use doze_module_proto as proto;
+pub use fields::Ordered;
 pub use module::{About, Cx, Module, Result};
 pub use server::{Server, serve};
 

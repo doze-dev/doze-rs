@@ -176,12 +176,46 @@ impl Diff<'_> {
         if package(self.old) != package(self.new) {
             self.add("PACKAGE_CHANGED", "#".into(), "");
         }
-        // By name, so a message's own fields come before what is missing among the messages nested in it.
+        // Each message compared, then the messages nested in it; at each level in the order Confluent's Java `HashMap`
+        // of names gives them (by the bucket of each name, declaration order within a bucket). Recorded: a changed field
+        // of `Order` before a removed `Line` (both in bucket 0, tools/registry-diff); the corpus's removed `I` before
+        // `O`, and `O`'s own changes before its removed nested `O.I`.
+        let top = self
+            .old
+            .pool
+            .files
+            .get(self.old.file)
+            .map(|f| f.msgs.clone())
+            .unwrap_or_default();
+        self.level(&top);
+    }
+
+    /// Compares the old schema's messages `children` (message indexes) with the new schema's of the same names.
+    fn level(&mut self, children: &[usize]) {
         let (om, nm) = (self.old.messages(), self.new.messages());
-        for (name, o) in &om {
-            match nm.get(name) {
-                Some(n) => self.messages(name, o, n),
-                None => self.add("MESSAGE_REMOVED", format!("#/{name}"), ""),
+        // Each child's name relative to the package, in declaration order.
+        let named: Vec<&String> = children
+            .iter()
+            .filter_map(|&c| {
+                let m = self.old.pool.msg(c)?;
+                om.iter()
+                    .find(|(_, x)| std::ptr::eq(**x, m))
+                    .map(|(rel, _)| rel)
+            })
+            .collect();
+        let simple = |rel: &str| rel.rsplit('.').next().unwrap_or(rel).to_owned();
+        let order = crate::json::java_hash_inserted(named.iter().map(|r| simple(r)).collect());
+        for name in order {
+            let Some(rel) = named.iter().find(|r| simple(r) == name) else {
+                continue;
+            };
+            let Some(o) = om.get(*rel) else { continue };
+            match nm.get(*rel) {
+                Some(n) => {
+                    self.messages(rel, o, n);
+                    self.level(&o.nested);
+                }
+                None => self.add("MESSAGE_REMOVED", format!("#/{rel}"), ""),
             }
         }
     }
@@ -191,30 +225,37 @@ impl Diff<'_> {
             m.fields.iter().map(|f| (f.number, f)).collect()
         }
         let (of, nf) = (by_number(o), by_number(n));
-        for (num, f) in &of {
-            let mut path = field_path(name, o, f);
-            let Some(g) = nf.get(num) else {
-                let kind = if f.card == Card::Required {
-                    "REQUIRED_FIELD_REMOVED"
-                } else {
-                    "FIELD_REMOVED"
-                };
-                self.add(kind, path, "");
-                continue;
-            };
-            if f.oneof.is_none() {
-                path = field_path(name, n, g); // in a oneof on the new side only
-            }
-            self.fields(&path, o, f, n, g);
-        }
-        for (num, g) in &nf {
-            if !of.contains_key(num) {
-                let kind = if g.card == Card::Required {
-                    "REQUIRED_FIELD_ADDED"
-                } else {
-                    "FIELD_ADDED"
-                };
-                self.add(kind, field_path(name, n, g), "");
+        // By field number across both schemas, as Confluent walks them (recorded by tools/registry-diff: a required
+        // field added at 3 is named before one removed at 7).
+        let mut numbers: Vec<i32> = of.keys().chain(nf.keys()).copied().collect();
+        numbers.sort_unstable();
+        numbers.dedup();
+        for num in numbers {
+            match (of.get(&num), nf.get(&num)) {
+                (Some(f), None) => {
+                    let kind = if f.card == Card::Required {
+                        "REQUIRED_FIELD_REMOVED"
+                    } else {
+                        "FIELD_REMOVED"
+                    };
+                    self.add(kind, field_path(name, o, f), "");
+                }
+                (None, Some(g)) => {
+                    let kind = if g.card == Card::Required {
+                        "REQUIRED_FIELD_ADDED"
+                    } else {
+                        "FIELD_ADDED"
+                    };
+                    self.add(kind, field_path(name, n, g), "");
+                }
+                // A field that joins or leaves a oneof is not compared with itself: Confluent keeps a message's
+                // fields and its oneofs' apart (recorded: uint32 to bytes moved into a new oneof is compatible).
+                (Some(f), Some(g)) if f.oneof.is_none() != g.oneof.is_none() => {}
+                (Some(f), Some(g)) => {
+                    let path = field_path(name, o, f);
+                    self.fields(&path, o, f, n, g);
+                }
+                (None, None) => {}
             }
         }
         self.oneofs(name, o, n, &of);

@@ -23,6 +23,7 @@ pub(crate) struct Resumable {
     dynamodb: Option<Arc<aws_dynamodb::Dynamodb>>,
     lambda: Option<Arc<aws_lambda::Lambda>>,
     states: Option<Arc<aws_sfn::Sfn>>,
+    logs: Option<Arc<aws_logs::Logs>>,
 }
 
 impl Resumable {
@@ -49,6 +50,10 @@ impl Resumable {
             s.resume().await;
         }
         if let Some(s) = &self.states {
+            s.resume().await;
+        }
+        // Scheduled Logs Insights queries: the next run is waited for.
+        if let Some(s) = &self.logs {
             s.resume().await;
         }
     }
@@ -78,7 +83,7 @@ impl On<'_> {
 /// The gateway with every service on it, the services to resume once it listens, and the data engine over all of them.
 pub(crate) fn gateway(
     cfg: &Config,
-    gw: GatewayConfig,
+    mut gw: GatewayConfig,
     on: &[&'static Svc],
     tasks: &Tasks,
 ) -> (Gateway, Resumable, Arc<crate::data::Data>) {
@@ -96,7 +101,6 @@ pub(crate) fn gateway(
             ext: Some(Arc::clone(&ext)),
         })
     };
-    let mut gw = gw;
     let hook = data_hook(cfg, &mut gw);
     peers.set_mode(iam_mode(cfg));
     let (iam, sts) = aws_iam::services(ctx("iam"));
@@ -127,7 +131,7 @@ pub(crate) fn gateway(
         ("dynamodb", dynamodb.clone()),
         ("s3", Arc::new(aws_s3::S3::new(ctx("s3")))),
         ("kinesis", kinesis),
-        ("logs", logs),
+        ("logs", logs.clone()),
         ("cloudwatch", cloudwatch.clone()),
         ("eventbridge", eventbridge.clone()),
         ("scheduler", scheduler.clone()),
@@ -156,6 +160,7 @@ pub(crate) fn gateway(
         dynamodb: on.keep("dynamodb", &dynamodb),
         lambda: on.keep("lambda", &lambda),
         states: on.keep("stepfunctions", &states),
+        logs: on.keep("logs", &logs),
     };
     (gateway, resumable, data)
 }
@@ -250,7 +255,7 @@ fn cloudformation_config(cfg: &Config) -> aws_cloudformation::Config {
 fn observability(
     ctx: &impl Fn(&str) -> Arc<Ctx>,
     cfg: &Config,
-) -> (Arc<aws_cloudwatch::Cloudwatch>, Arc<dyn Service>) {
+) -> (Arc<aws_cloudwatch::Cloudwatch>, Arc<aws_logs::Logs>) {
     let cloudwatch = Arc::new(aws_cloudwatch::Cloudwatch::with_settings(
         ctx("cloudwatch"),
         aws_cloudwatch::Settings {
@@ -335,6 +340,12 @@ fn lambda_config(cfg: &Config) -> aws_lambda::Config {
             },
         },
         quiet: cfg.switch("lambda-quiet"),
+        // Not AWS behaviour: every durable execution wait and step retry delay multiplied by it (as `DOZE_SFN_WAIT_SCALE` is for
+        // Step Functions).
+        durable_wait_scale: env("DOZE_LAMBDA_DURABLE_WAIT_SCALE")
+            .and_then(|s| s.parse::<f64>().ok())
+            .filter(|s| s.is_finite())
+            .map(|s| s.max(0.0)),
     }
 }
 

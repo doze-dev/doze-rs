@@ -1,0 +1,885 @@
+[
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/js/versions",
+   "b": "{\"schema\":\"{\\\"type\\\":\\\"object\\\",\\\"properties\\\":{\\\"id\\\":{\\\"type\\\":\\\"integer\\\"}},\\\"required\\\":[\\\"id\\\"]}\",\"schemaType\":\"JSON\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":30}",
+    "ms": 293
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":32,\"version\":1,\"guid\":\"76571d5d-955c-c4b6-5977-e007f708a7d3\",\"schemaType\":\"JSON\",\"schema\":\"{\\\"type\\\":\\\"object\\\",\\\"properties\\\":{\\\"id\\\":{\\\"type\\\":\\\"integer\\\"}},\\\"required\\\":[\\\"id\\\"]}\"}",
+    "ms": 287
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":30}",
+    "ms": 12
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/js/versions",
+   "b": "{\"schema\":\"{\\n  \\\"type\\\": \\\"object\\\",\\n  \\\"properties\\\": {\\n    \\\"id\\\": {\\n      \\\"type\\\": \\\"integer\\\"\\n    }\\n  },\\n  \\\"required\\\": [\\n    \\\"id\\\"\\n  ]\\n}\",\"schemaType\":\"JSON\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":30}",
+    "ms": 11
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":32,\"version\":1,\"guid\":\"76571d5d-955c-c4b6-5977-e007f708a7d3\",\"schemaType\":\"JSON\",\"schema\":\"{\\\"type\\\":\\\"object\\\",\\\"properties\\\":{\\\"id\\\":{\\\"type\\\":\\\"integer\\\"}},\\\"required\\\":[\\\"id\\\"]}\"}",
+    "ms": 12
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":30}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/js/versions",
+   "b": "{\"schema\":\"{\\\"type\\\":\\\"object\\\",\\\"properties\\\":{\\\"id\\\":{\\\"type\\\":\\\"integer\\\"},\\\"name\\\":{\\\"type\\\":\\\"string\\\"}},\\\"required\\\":[\\\"id\\\"]}\",\"schemaType\":\"JSON\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 409,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":409,\"message\":\"Schema being registered is incompatible with an earlier schema for subject \\\"js\\\", details: [{errorType:\\\"PROPERTY_ADDED_TO_OPEN_CONTENT_MODEL\\\", description:\\\"The new schema has an open content model and has a property or item at path '#/properties/name' which is missing in the old schema'}, {oldSchemaVersion: 1}, {oldSchema: '{\\\"type\\\":\\\"object\\\",\\\"properties\\\":{\\\"id\\\":{\\\"type\\\":\\\"integer\\\"}},\\\"required\\\":[\\\"id\\\"]}'}, {validateFields: 'false', compatibility: 'BACKWARD'}]\"}",
+    "ms": 28
+   },
+   "confluent-8": {
+    "status": 409,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":40901,\"message\":\"Schema being registered is incompatible with an earlier schema for subject \\\"js\\\", details: [{errorType:\\\"OPTIONAL_PROPERTY_ADDED_TO_OPEN_CONTENT_MODEL\\\", description:\\\"The new schema has an open content model and has a property or item at path '#/properties/name' which is missing in the old schema'}, {oldSchemaVersion: 1}, {oldSchema: '{\\\"type\\\":\\\"object\\\",\\\"properties\\\":{\\\"id\\\":{\\\"type\\\":\\\"integer\\\"}},\\\"required\\\":[\\\"id\\\"]}'}, {validateFields: 'false', compatibility: 'BACKWARD'}]\"}",
+    "ms": 28
+   },
+   "doze": {
+    "status": 409,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":409,\"message\":\"Schema being registered is incompatible with an earlier schema for subject \\\"js\\\", details: [{errorType:\\\"PROPERTY_ADDED_TO_OPEN_CONTENT_MODEL\\\", description:\\\"The new schema has an open content model and has a property or item at path '#/properties/name' which is missing in the old schema'}, {oldSchemaVersion: 1}, {oldSchema: '{\\\"type\\\":\\\"object\\\",\\\"properties\\\":{\\\"id\\\":{\\\"type\\\":\\\"integer\\\"}},\\\"required\\\":[\\\"id\\\"]}'}, {validateFields: 'false', compatibility: 'BACKWARD'}]\"}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "GET",
+   "p": "/subjects/js/versions/latest"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"js\",\"version\":1,\"id\":30,\"schemaType\":\"JSON\",\"schema\":\"{\\\"type\\\":\\\"object\\\",\\\"properties\\\":{\\\"id\\\":{\\\"type\\\":\\\"integer\\\"}},\\\"required\\\":[\\\"id\\\"]}\"}",
+    "ms": 14
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"js\",\"version\":1,\"id\":32,\"guid\":\"76571d5d-955c-c4b6-5977-e007f708a7d3\",\"schemaType\":\"JSON\",\"schema\":\"{\\\"type\\\":\\\"object\\\",\\\"properties\\\":{\\\"id\\\":{\\\"type\\\":\\\"integer\\\"}},\\\"required\\\":[\\\"id\\\"]}\",\"ts\":1795027472019,\"deleted\":false}",
+    "ms": 17
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"js\",\"version\":1,\"id\":30,\"schemaType\":\"JSON\",\"schema\":\"{\\\"type\\\":\\\"object\\\",\\\"properties\\\":{\\\"id\\\":{\\\"type\\\":\\\"integer\\\"}},\\\"required\\\":[\\\"id\\\"]}\"}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "GET",
+   "p": "/schemas/ids/@1"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"schemaType\":\"JSON\",\"schema\":\"{\\\"type\\\":\\\"object\\\",\\\"properties\\\":{\\\"id\\\":{\\\"type\\\":\\\"integer\\\"}},\\\"required\\\":[\\\"id\\\"]}\"}",
+    "ms": 14
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"js\",\"version\":1,\"guid\":\"76571d5d-955c-c4b6-5977-e007f708a7d3\",\"schemaType\":\"JSON\",\"schema\":\"{\\\"type\\\":\\\"object\\\",\\\"properties\\\":{\\\"id\\\":{\\\"type\\\":\\\"integer\\\"}},\\\"required\\\":[\\\"id\\\"]}\",\"ts\":1795027472019,\"deleted\":false}",
+    "ms": 12
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"schemaType\":\"JSON\",\"schema\":\"{\\\"type\\\":\\\"object\\\",\\\"properties\\\":{\\\"id\\\":{\\\"type\\\":\\\"integer\\\"}},\\\"required\\\":[\\\"id\\\"]}\"}",
+    "ms": 9
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "GET",
+   "p": "/schemas/ids/@1?format=serialized"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 500,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":500,\"message\":\"Internal Server Error\"}",
+    "ms": 14
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"js\",\"version\":1,\"guid\":\"76571d5d-955c-c4b6-5977-e007f708a7d3\",\"schemaType\":\"JSON\",\"schema\":\"{\\\"type\\\":\\\"object\\\",\\\"properties\\\":{\\\"id\\\":{\\\"type\\\":\\\"integer\\\"}},\\\"required\\\":[\\\"id\\\"]}\",\"ts\":1795027472019,\"deleted\":false}",
+    "ms": 14
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"schemaType\":\"JSON\",\"schema\":\"{\\\"type\\\":\\\"object\\\",\\\"properties\\\":{\\\"id\\\":{\\\"type\\\":\\\"integer\\\"}},\\\"required\\\":[\\\"id\\\"]}\"}",
+    "ms": 9
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/js",
+   "b": "{\"schema\":\"{\\\"type\\\":\\\"object\\\",\\\"properties\\\":{\\\"id\\\":{\\\"type\\\":\\\"integer\\\"}},\\\"required\\\":[\\\"id\\\"]}\",\"schemaType\":\"JSON\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"js\",\"version\":1,\"id\":30,\"schemaType\":\"JSON\",\"schema\":\"{\\\"type\\\":\\\"object\\\",\\\"properties\\\":{\\\"id\\\":{\\\"type\\\":\\\"integer\\\"}},\\\"required\\\":[\\\"id\\\"]}\"}",
+    "ms": 14
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"js\",\"version\":1,\"id\":32,\"guid\":\"76571d5d-955c-c4b6-5977-e007f708a7d3\",\"schemaType\":\"JSON\",\"schema\":\"{\\\"type\\\":\\\"object\\\",\\\"properties\\\":{\\\"id\\\":{\\\"type\\\":\\\"integer\\\"}},\\\"required\\\":[\\\"id\\\"]}\"}",
+    "ms": 14
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"js\",\"version\":1,\"id\":30,\"schemaType\":\"JSON\",\"schema\":\"{\\\"type\\\":\\\"object\\\",\\\"properties\\\":{\\\"id\\\":{\\\"type\\\":\\\"integer\\\"}},\\\"required\\\":[\\\"id\\\"]}\"}",
+    "ms": 4
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/js?normalize=true",
+   "b": "{\"schema\":\"{\\\"type\\\":\\\"object\\\",\\\"properties\\\":{\\\"id\\\":{\\\"type\\\":\\\"integer\\\"}},\\\"required\\\":[\\\"id\\\"]}\",\"schemaType\":\"JSON\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 404,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":40403,\"message\":\"Schema not found\"}",
+    "ms": 14
+   },
+   "confluent-8": {
+    "status": 404,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":40403,\"message\":\"Schema not found\"}",
+    "ms": 14
+   },
+   "doze": {
+    "status": 404,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":40403,\"message\":\"Schema not found\"}",
+    "ms": 2
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/js/versions",
+   "b": "{\"schema\":\"{\\\"type\\\":\\\"nonsense\\\"}\",\"schemaType\":\"JSON\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42201,\"message\":\"Invalid schema {subject=js,version=0,id=-1,schemaType=JSON,references=[],metadata=null,ruleSet=null,schema={\\\"type\\\":\\\"nonsense\\\"},schemaTags=null}, details: Invalid JSON Schema\"}",
+    "ms": 21
+   },
+   "confluent-8": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42201,\"message\":\"Invalid schema {subject=js,version=0,id=-1,guid=b70a74c5-17c5-d46e-73cb-3def8c716f9f,schemaType=JSON,references=[],metadata=null,ruleSet=null,schema={\\\"type\\\":\\\"nonsense\\\"},schemaTags=null,ts=null,deleted=null}, details: Invalid JSON\"}",
+    "ms": 22
+   },
+   "doze": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42201,\"message\":\"Invalid schema {subject=js,version=0,id=-1,schemaType=JSON,references=[],metadata=null,ruleSet=null,schema={\\\"type\\\":\\\"nonsense\\\"},schemaTags=null}, details: Invalid JSON Schema: #/type: \\\"nonsense\\\" is not a type\"}",
+    "ms": 2
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/js/versions",
+   "b": "{\"schema\":\"{\",\"schemaType\":\"JSON\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42201,\"message\":\"Invalid schema {subject=js,version=0,id=-1,schemaType=JSON,references=[],metadata=null,ruleSet=null,schema={,schemaTags=null} with refs [] of type JSON, details: Invalid JSON {\"}",
+    "ms": 26
+   },
+   "confluent-8": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42201,\"message\":\"Invalid schema of type JSON, details: Invalid schema of type JSON, details: Invalid JSON schema\"}",
+    "ms": 38
+   },
+   "doze": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42201,\"message\":\"Invalid schema {subject=js,version=0,id=-1,schemaType=JSON,references=[],metadata=null,ruleSet=null,schema={,schemaTags=null} with refs [] of type JSON, details: Invalid JSON: expected a key at byte 1\"}",
+    "ms": 6
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/js/versions",
+   "b": "{\"schema\":\"{\\\"$schema\\\":\\\"http://example.com/nope\\\",\\\"type\\\":\\\"object\\\"}\",\"schemaType\":\"JSON\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":31}",
+    "ms": 22
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":33,\"version\":2,\"guid\":\"a6c3de95-c254-7c9f-6c78-aa9e3306e59e\",\"schemaType\":\"JSON\",\"schema\":\"{\\\"$schema\\\":\\\"http://example.com/nope\\\",\\\"type\\\":\\\"object\\\"}\"}",
+    "ms": 44
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":31}",
+    "ms": 10
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/js/versions",
+   "b": "{\"schema\":\"true\",\"schemaType\":\"JSON\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":32}",
+    "ms": 17
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":34,\"version\":3,\"guid\":\"b326b506-2b2f-0e69-0468-10717534cb09\",\"schemaType\":\"JSON\",\"schema\":\"true\"}",
+    "ms": 21
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":32}",
+    "ms": 9
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/js/versions",
+   "b": "{\"schema\":\"{\\\"type\\\":\\\"object\\\",\\\"properties\\\":{\\\"a\\\":{\\\"$ref\\\":\\\"#/definitions/missing\\\"}}}\",\"schemaType\":\"JSON\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42201,\"message\":\"Invalid schema {subject=js,version=0,id=-1,schemaType=JSON,references=[],metadata=null,ruleSet=null,schema={\\\"type\\\":\\\"object\\\",\\\"properties\\\":{\\\"a\\\":{\\\"$ref\\\":\\\"#/definitions/missing\\\"}}},schemaTags=null}, details: Invalid JSON Schema\"}",
+    "ms": 14
+   },
+   "confluent-8": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42201,\"message\":\"Invalid schema {subject=js,version=0,id=-1,guid=bfef9841-59e1-a021-477c-95e18a19f293,schemaType=JSON,references=[],metadata=null,ruleSet=null,schema={\\\"type\\\":\\\"object\\\",\\\"properties\\\":{\\\"a\\\":{\\\"$ref\\\":\\\"#/definitions/missing\\\"}}},schemaTags=null,ts=null,deleted=null}, details: Invalid JSON\"}",
+    "ms": 10
+   },
+   "doze": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42201,\"message\":\"Invalid schema {subject=js,version=0,id=-1,schemaType=JSON,references=[],metadata=null,ruleSet=null,schema={\\\"type\\\":\\\"object\\\",\\\"properties\\\":{\\\"a\\\":{\\\"$ref\\\":\\\"#/definitions/missing\\\"}}},schemaTags=null}, details: Invalid JSON Schema: #/properties/a: unresolved reference \\\"#/definitions/missing\\\"\"}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/compatibility/subjects/js/versions/latest?verbose=true",
+   "b": "{\"schema\":\"{\\\"type\\\":\\\"object\\\",\\\"properties\\\":{\\\"id\\\":{\\\"type\\\":\\\"integer\\\"},\\\"name\\\":{\\\"type\\\":\\\"integer\\\"}},\\\"required\\\":[\\\"id\\\"]}\",\"schemaType\":\"JSON\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"is_compatible\":false,\"messages\":[\"{errorType:\\\"TYPE_CHANGED\\\", description:\\\"A type at path '#/' is different between the new schema and the old schema'}\",\"{oldSchemaVersion: 3}\",\"{oldSchema: 'true'}\",\"{validateFields: 'false', compatibility: 'BACKWARD'}\"]}",
+    "ms": 7
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"is_compatible\":false,\"messages\":[\"{errorType:\\\"TYPE_CHANGED\\\", description:\\\"A type at path '#/' is different between the new schema and the old schema'}\",\"{oldSchemaVersion: 3}\",\"{oldSchema: 'true'}\",\"{validateFields: 'false', compatibility: 'BACKWARD'}\"]}",
+    "ms": 13
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"is_compatible\":false,\"messages\":[\"{errorType:\\\"TYPE_CHANGED\\\", description:\\\"A type at path '#/' is different between the new schema and the old schema'}\",\"{oldSchemaVersion: 3}\",\"{oldSchema: 'true'}\",\"{validateFields: 'false', compatibility: 'BACKWARD'}\"]}",
+    "ms": 1
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "PUT",
+   "p": "/config/js",
+   "b": "{\"compatibility\":\"FORWARD\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"compatibility\":\"FORWARD\"}",
+    "ms": 26
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"compatibility\":\"FORWARD\"}",
+    "ms": 37
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"compatibility\":\"FORWARD\"}",
+    "ms": 7
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/compatibility/subjects/js/versions/latest?verbose=true",
+   "b": "{\"schema\":\"{\\\"type\\\":\\\"object\\\",\\\"properties\\\":{\\\"id\\\":{\\\"type\\\":\\\"integer\\\"},\\\"name\\\":{\\\"type\\\":\\\"string\\\"}},\\\"required\\\":[\\\"id\\\"],\\\"additionalProperties\\\":false}\",\"schemaType\":\"JSON\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"is_compatible\":true,\"messages\":[]}",
+    "ms": 11
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"is_compatible\":true,\"messages\":[]}",
+    "ms": 10
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"is_compatible\":true,\"messages\":[]}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/addr.json/versions",
+   "b": "{\"schema\":\"{\\\"type\\\":\\\"object\\\",\\\"properties\\\":{\\\"city\\\":{\\\"type\\\":\\\"string\\\"}}}\",\"schemaType\":\"JSON\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":33}",
+    "ms": 23
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":35,\"version\":1,\"guid\":\"bbc7847f-9e46-1781-507f-5433147353af\",\"schemaType\":\"JSON\",\"schema\":\"{\\\"type\\\":\\\"object\\\",\\\"properties\\\":{\\\"city\\\":{\\\"type\\\":\\\"string\\\"}}}\"}",
+    "ms": 28
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":33}",
+    "ms": 7
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/jsr/versions",
+   "b": "{\"schema\":\"{\\\"$schema\\\":\\\"http://json-schema.org/draft-07/schema#\\\",\\\"type\\\":\\\"object\\\",\\\"properties\\\":{\\\"addr\\\":{\\\"$ref\\\":\\\"addr.json\\\"}}}\",\"schemaType\":\"JSON\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42201,\"message\":\"Invalid schema {subject=jsr,version=0,id=-1,schemaType=JSON,references=[],metadata=null,ruleSet=null,schema={\\\"$schema\\\":\\\"http://json-schema.org/draft-07/schema#\\\",\\\"type\\\":\\\"object\\\",\\\"properties\\\":{\\\"addr\\\":{\\\"$ref\\\":\\\"addr.json\\\"}}},schemaTags=null}, details: Invalid JSON Schema\"}",
+    "ms": 15
+   },
+   "confluent-8": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42201,\"message\":\"Invalid schema {subject=jsr,version=0,id=-1,guid=bae46b93-80e0-1117-c97a-451a459349bb,schemaType=JSON,references=[],metadata=null,ruleSet=null,schema={\\\"$schema\\\":\\\"http://json-schema.org/draft-07/schema#\\\",\\\"type\\\":\\\"object\\\",\\\"properties\\\":{\\\"addr\\\":{\\\"$ref\\\":\\\"addr.json\\\"}}},schemaTags=null,ts=null,deleted=null}, details: Invalid JSON\"}",
+    "ms": 14
+   },
+   "doze": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42201,\"message\":\"Invalid schema {subject=jsr,version=0,id=-1,schemaType=JSON,references=[],metadata=null,ruleSet=null,schema={\\\"$schema\\\":\\\"http://json-schema.org/draft-07/schema#\\\",\\\"type\\\":\\\"object\\\",\\\"properties\\\":{\\\"addr\\\":{\\\"$ref\\\":\\\"addr.json\\\"}}},schemaTags=null}, details: Invalid JSON Schema: #/properties/addr: unresolved reference \\\"addr.json\\\"\"}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/jsr/versions",
+   "b": "{\"schema\":\"{\\\"$schema\\\":\\\"http://json-schema.org/draft-07/schema#\\\",\\\"type\\\":\\\"object\\\",\\\"properties\\\":{\\\"addr\\\":{\\\"$ref\\\":\\\"addr.json\\\"}}}\",\"schemaType\":\"JSON\",\"references\":[{\"name\":\"addr.json\",\"subject\":\"addr.json\",\"version\":1}]}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":34}",
+    "ms": 26
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":36,\"version\":1,\"guid\":\"4c1616ec-7902-c28f-fbb6-e2486c9b27fc\",\"schemaType\":\"JSON\",\"references\":[{\"name\":\"addr.json\",\"subject\":\"addr.json\",\"version\":1}],\"schema\":\"{\\\"$schema\\\":\\\"http://json-schema.org/draft-07/schema#\\\",\\\"type\\\":\\\"object\\\",\\\"properties\\\":{\\\"addr\\\":{\\\"$ref\\\":\\\"addr.json\\\"}}}\"}",
+    "ms": 20
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":34}",
+    "ms": 7
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "GET",
+   "p": "/subjects/jsr/versions/latest"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"jsr\",\"version\":1,\"id\":34,\"schemaType\":\"JSON\",\"references\":[{\"name\":\"addr.json\",\"subject\":\"addr.json\",\"version\":1}],\"schema\":\"{\\\"$schema\\\":\\\"http://json-schema.org/draft-07/schema#\\\",\\\"type\\\":\\\"object\\\",\\\"properties\\\":{\\\"addr\\\":{\\\"$ref\\\":\\\"addr.json\\\"}}}\"}",
+    "ms": 3
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"jsr\",\"version\":1,\"id\":36,\"guid\":\"4c1616ec-7902-c28f-fbb6-e2486c9b27fc\",\"schemaType\":\"JSON\",\"references\":[{\"name\":\"addr.json\",\"subject\":\"addr.json\",\"version\":1}],\"schema\":\"{\\\"$schema\\\":\\\"http://json-schema.org/draft-07/schema#\\\",\\\"type\\\":\\\"object\\\",\\\"properties\\\":{\\\"addr\\\":{\\\"$ref\\\":\\\"addr.json\\\"}}}\",\"ts\":1795027472410,\"deleted\":false}",
+    "ms": 3
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"jsr\",\"version\":1,\"id\":34,\"schemaType\":\"JSON\",\"references\":[{\"name\":\"addr.json\",\"subject\":\"addr.json\",\"version\":1}],\"schema\":\"{\\\"$schema\\\":\\\"http://json-schema.org/draft-07/schema#\\\",\\\"type\\\":\\\"object\\\",\\\"properties\\\":{\\\"addr\\\":{\\\"$ref\\\":\\\"addr.json\\\"}}}\"}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "GET",
+   "p": "/subjects/addr.json/versions/1/referencedby"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "[34]",
+    "ms": 2
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "[36]",
+    "ms": 4
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "[34]",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/js3/versions",
+   "b": "{\"schema\":\"{\\\"$schema\\\":\\\"https://json-schema.org/draft/2020-12/schema\\\",\\\"type\\\":\\\"object\\\",\\\"properties\\\":{\\\"a\\\":{\\\"type\\\":\\\"string\\\",\\\"format\\\":\\\"email\\\",\\\"x-extra\\\":1}}}\",\"schemaType\":\"JSON\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":35}",
+    "ms": 120
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":37,\"version\":1,\"guid\":\"7c885c6a-3bb5-7fe5-84b6-4eecf571c513\",\"schemaType\":\"JSON\",\"schema\":\"{\\\"$schema\\\":\\\"https://json-schema.org/draft/2020-12/schema\\\",\\\"type\\\":\\\"object\\\",\\\"properties\\\":{\\\"a\\\":{\\\"type\\\":\\\"string\\\",\\\"format\\\":\\\"email\\\",\\\"x-extra\\\":1}}}\"}",
+    "ms": 109
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":35}",
+    "ms": 7
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "GET",
+   "p": "/subjects/js3/versions/latest"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"js3\",\"version\":1,\"id\":35,\"schemaType\":\"JSON\",\"schema\":\"{\\\"$schema\\\":\\\"https://json-schema.org/draft/2020-12/schema\\\",\\\"type\\\":\\\"object\\\",\\\"properties\\\":{\\\"a\\\":{\\\"type\\\":\\\"string\\\",\\\"format\\\":\\\"email\\\",\\\"x-extra\\\":1}}}\"}",
+    "ms": 3
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"js3\",\"version\":1,\"id\":37,\"guid\":\"7c885c6a-3bb5-7fe5-84b6-4eecf571c513\",\"schemaType\":\"JSON\",\"schema\":\"{\\\"$schema\\\":\\\"https://json-schema.org/draft/2020-12/schema\\\",\\\"type\\\":\\\"object\\\",\\\"properties\\\":{\\\"a\\\":{\\\"type\\\":\\\"string\\\",\\\"format\\\":\\\"email\\\",\\\"x-extra\\\":1}}}\",\"ts\":1795027472533,\"deleted\":false}",
+    "ms": 5
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"js3\",\"version\":1,\"id\":35,\"schemaType\":\"JSON\",\"schema\":\"{\\\"$schema\\\":\\\"https://json-schema.org/draft/2020-12/schema\\\",\\\"type\\\":\\\"object\\\",\\\"properties\\\":{\\\"a\\\":{\\\"type\\\":\\\"string\\\",\\\"format\\\":\\\"email\\\",\\\"x-extra\\\":1}}}\"}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/js4/versions",
+   "b": "{\"schema\":\"{\\\"type\\\":\\\"string\\\",\\\"description\\\":\\\"<b>&\\\\u2028</b>\\\"}\",\"schemaType\":\"JSON\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":36}",
+    "ms": 14
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":38,\"version\":1,\"guid\":\"5649af6b-8365-00f2-a18a-ffc40c44a8b3\",\"schemaType\":\"JSON\",\"schema\":\"{\\\"type\\\":\\\"string\\\",\\\"description\\\":\\\"<b>& </b>\\\"}\"}",
+    "ms": 18
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":36}",
+    "ms": 15
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "GET",
+   "p": "/subjects/js4/versions/latest"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"js4\",\"version\":1,\"id\":36,\"schemaType\":\"JSON\",\"schema\":\"{\\\"type\\\":\\\"string\\\",\\\"description\\\":\\\"<b>& </b>\\\"}\"}",
+    "ms": 3
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"js4\",\"version\":1,\"id\":38,\"guid\":\"5649af6b-8365-00f2-a18a-ffc40c44a8b3\",\"schemaType\":\"JSON\",\"schema\":\"{\\\"type\\\":\\\"string\\\",\\\"description\\\":\\\"<b>& </b>\\\"}\",\"ts\":1795027472567,\"deleted\":false}",
+    "ms": 7
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"js4\",\"version\":1,\"id\":36,\"schemaType\":\"JSON\",\"schema\":\"{\\\"type\\\":\\\"string\\\",\\\"description\\\":\\\"<b>& </b>\\\"}\"}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/js5/versions",
+   "b": "{\"schema\":\"{\\\"type\\\":\\\"number\\\",\\\"maximum\\\":1.50,\\\"minimum\\\":1e2}\",\"schemaType\":\"JSON\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":37}",
+    "ms": 17
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":39,\"version\":1,\"guid\":\"10c858c3-c5e0-4ae6-887b-f20246d1bc56\",\"schemaType\":\"JSON\",\"schema\":\"{\\\"type\\\":\\\"number\\\",\\\"maximum\\\":1.50,\\\"minimum\\\":1E+2}\"}",
+    "ms": 32
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":37}",
+    "ms": 9
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "GET",
+   "p": "/subjects/js5/versions/latest"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"js5\",\"version\":1,\"id\":37,\"schemaType\":\"JSON\",\"schema\":\"{\\\"type\\\":\\\"number\\\",\\\"maximum\\\":1.50,\\\"minimum\\\":1E+2}\"}",
+    "ms": 4
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"js5\",\"version\":1,\"id\":39,\"guid\":\"10c858c3-c5e0-4ae6-887b-f20246d1bc56\",\"schemaType\":\"JSON\",\"schema\":\"{\\\"type\\\":\\\"number\\\",\\\"maximum\\\":1.50,\\\"minimum\\\":1E+2}\",\"ts\":1795027472600,\"deleted\":false}",
+    "ms": 6
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"js5\",\"version\":1,\"id\":37,\"schemaType\":\"JSON\",\"schema\":\"{\\\"type\\\":\\\"number\\\",\\\"maximum\\\":1.50,\\\"minimum\\\":1E+2}\"}",
+    "ms": 0
+   }
+  }
+ }
+]

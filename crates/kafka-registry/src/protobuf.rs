@@ -13,6 +13,7 @@ mod encode;
 mod lex;
 mod link;
 mod print;
+mod serialize;
 mod wkt;
 
 use std::any::Any;
@@ -105,20 +106,29 @@ pub fn parse(text: &str, refs: &[ResolvedRef]) -> Result<ProtobufSchema, String>
         .iter()
         .map(|r| (r.name.as_str(), r.text.as_str()))
         .collect();
-    let err = match read(text, &sources, false) {
+    let err = match read(text, &sources) {
         Ok(s) => return Ok(s),
         Err(e) => e,
     };
     match desc::descriptor_text(text) {
-        Some(t) => read(&t, &sources, true),
+        Some(t) => read(&t, &sources),
         None => Err(err),
     }
 }
 
-fn read(text: &str, sources: &[(&str, &str)], descriptor: bool) -> Result<ProtobufSchema, String> {
+/// The one rule Confluent's parser words as a syntax error.
+const REQUIRED_IN_PROTO3: &str = "'required' label forbidden in proto3 field declarations";
+
+fn read(text: &str, sources: &[(&str, &str)]) -> Result<ProtobufSchema, String> {
     let ast =
         ast::parse(text).map_err(|e| format!("Could not parse Protobuf - {}", e.render(text)))?;
-    let pool = link::link(text, &ast, sources, descriptor)?;
+    let pool = link::link(text, &ast, sources).map_err(|e| {
+        if e.ends_with(REQUIRED_IN_PROTO3) {
+            format!("Could not parse Protobuf - Syntax error in {e}")
+        } else {
+            e
+        }
+    })?;
     let file = pool.files.len().saturating_sub(1);
     Ok(ProtobufSchema {
         stored: print::print(text, &ast),
@@ -128,6 +138,16 @@ fn read(text: &str, sources: &[(&str, &str)], descriptor: bool) -> Result<Protob
 }
 
 impl ProtobufSchema {
+    /// The schema as Confluent answers it for `?format=serialized`: the base64 of the `FileDescriptorProto` it builds
+    /// from the stored text (`serialize`).
+    #[must_use]
+    pub fn serialized(&self) -> String {
+        let bytes = ast::parse(&self.stored)
+            .map(|f| serialize::descriptor(&self.stored, &f))
+            .unwrap_or_default();
+        kafka_auth::crypto::base64::encode(&bytes)
+    }
+
     /// The full name of the message a value's message indexes name (`[0]` is the first message of the file, `[1, 0]`
     /// the first message nested in the second), as Confluent's serializers number them.
     #[must_use]

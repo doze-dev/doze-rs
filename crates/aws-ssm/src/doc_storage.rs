@@ -107,5 +107,18 @@ impl Core {
         for id in ids {
             self.settings.remove(&id);
         }
+        // Resource policies and reviews belong to the parameters and documents just removed.
+        let keys: Vec<String> = self
+            .res_policies
+            .iter()
+            .map(|(k, _)| k.to_owned())
+            .collect();
+        for k in keys {
+            self.res_policies.remove(&k);
+        }
+        let keys: Vec<String> = self.reviews.iter().map(|(k, _)| k.to_owned()).collect();
+        for k in keys {
+            self.reviews.remove(&k);
+        }
     }
 }

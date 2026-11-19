@@ -1,6 +1,8 @@
 //! Registering capabilities on the server. Each method needs its trait, sets its capability bit, and routes its calls.
 
-use crate::caps::{Admin, Attributes, BackendUrl, Converge, Health, Objects, Prune, Restarts};
+use crate::caps::{
+    Admin, Attributes, BackendUrl, Converge, Health, Migrate, Objects, Prune, Restarts,
+};
 use crate::module::Module;
 use crate::route;
 use crate::route::args;
@@ -11,7 +13,7 @@ use doze_module_proto::msg::calls::{PruneArgs, RunAction, Unit};
 use doze_module_proto::msg::error::Error;
 use doze_module_proto::msg::hello::caps;
 use doze_module_proto::msg::instance::Instance;
-use doze_module_proto::msg::run::WithToolchain;
+use doze_module_proto::msg::run::{ResolveArgs, WithToolchain};
 use doze_module_proto::peer::Incoming;
 use std::sync::Arc;
 
@@ -167,6 +169,24 @@ impl<M: Module> Server<M> {
                 };
                 with_cx!(m, a.instance, call, peer, |cx| m
                     .run_action(&cx, &a.action, &a.resource, a.input.as_deref())
+                    .await);
+            }),
+        )
+    }
+
+    pub fn migrate(self) -> Self
+    where
+        M: Migrate,
+    {
+        self.add(
+            caps::MIGRATE,
+            Method::Migrate,
+            route!(|m, call, peer| {
+                let Some((a, call)) = args::<ResolveArgs>(call) else {
+                    return;
+                };
+                with_cx!(m, a.instance, call, peer, |cx| m
+                    .migrate(&cx, &a.pins, &a.target)
                     .await);
             }),
         )
