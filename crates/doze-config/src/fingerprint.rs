@@ -38,7 +38,8 @@ impl Instance {
         deps.sort();
         h.update(format!("[{}]\n", deps.join(" ")));
         match &self.spec {
-            Spec::None => {}
+            // The shape pass: the module block's body as its print (an edit inside the block is a change).
+            Spec::None => h.update(&self.body_print),
             Spec::Command(c) => h.update(format!("{c:?}")),
             Spec::Module(b) => h.update(format!("{b:?}")),
         }

@@ -31,6 +31,13 @@ impl<'a> Loader<'a, '_> {
         for i in order {
             let Some(p) = pending.get(i) else { continue };
             let attrs = if p.module.is_none() {
+                // The shape pass: no module to decode the body for, but its print, for the block's fingerprint.
+                let print = self.in_ctx(p.stamp.as_ref(), Probes::No, |ctx| {
+                    crate::module_body::print(&p.remain, ctx)
+                });
+                if let Some(inst) = cfg.instances.get_mut(p.idx) {
+                    inst.body_print = print;
+                }
                 let inst = cfg.instances.get(p.idx).cloned().unwrap_or_default();
                 crate::shape::stand_in(&inst, stand_ins.get(&inst.name))
             } else {

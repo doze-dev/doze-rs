@@ -217,6 +217,9 @@ pub struct Instance {
     /// The directory of the file the block is declared in, absolute: a relative path in a module's block (ferret's
     /// `seed`, a postgres extension's `source`) is relative to it (Go's `baseDir`; protocol's `Instance.dir`).
     pub dir: String,
+    /// The shape pass only: a module block's own body as a canonical text (`module_body::print`), so its fingerprint
+    /// sees an edit inside the block; the full load has the body itself in `spec`. Empty otherwise.
+    pub body_print: String,
 }
 
 impl Instance {
