@@ -35,6 +35,8 @@ impl Op {
         let mut stop = false;
         loop {
             let mut moved = true;
+            // A cancelled update starts nothing new; what runs finishes, and the rollback puts it back.
+            stop |= crate::cancel::is_cancelled(&self.job.stack_id);
             while moved && !stop {
                 moved = false;
                 let ready: Vec<String> = waiting
@@ -131,6 +133,7 @@ impl Op {
                 props,
                 old: None,
                 class,
+                creation: self.creation_policy(name),
             }));
         };
         let before = old.props_value();
@@ -176,7 +179,14 @@ impl Op {
             props,
             old: Some(old.clone()),
             class,
+            creation: self.creation_policy(name),
         }))
+    }
+
+    /// A resource's `CreationPolicy`, resolved (a reference in it to a parameter is allowed).
+    fn creation_policy(&self, name: &str) -> Option<Value> {
+        let c = self.w.declared(name)?.get("CreationPolicy")?;
+        self.w.scope().eval(c).ok().flatten()
     }
 
     fn verb(&self, l: &Launch) -> &'static str {
@@ -219,6 +229,9 @@ impl Op {
         res.ty = l.ty.clone();
         res.status = format!("{verb}_IN_PROGRESS");
         res.reason = None;
+        if launch::takes_signals(&l) {
+            crate::signal::open(&crate::signal::resource_key(&self.job.stack_id, &l.logical));
+        }
         self.runner
             .report(Progress {
                 stack_id: self.job.stack_id.clone(),
@@ -363,6 +376,7 @@ impl Op {
             props: Value::Null,
             old,
             class: Class::Map,
+            creation: None,
         };
         let verb = self.verb(&l);
         self.runner

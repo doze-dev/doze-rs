@@ -158,19 +158,14 @@ pub(super) async fn create(rc: &Rc, p: &Value) -> Done {
         "AWS::CloudFormation::Stack" => crate::nested::create(rc, p).await,
         t if crate::custom::is_custom(t) => crate::custom::create(rc, p).await,
         "AWS::CDK::Metadata" => Ok(Made::new(aws_seal::uuid_v4().unwrap_or_default())),
-        "AWS::CloudFormation::WaitConditionHandle" => {
-            let (url, _rx) = rc.runner.responses.expect(
-                &rc.caller.endpoint,
-                &rc.caller.region,
-                &rc.stack_id,
-                &rc.logical,
-            );
-            Ok(Made::new(url))
-        }
-        "AWS::CloudFormation::WaitCondition" => {
-            // (memory) With nothing local to send a signal, a wait condition completes at once and its Data is empty.
-            Ok(Made::new(super::generated_name(rc, 128, false)).with("Data", "{}"))
-        }
+        "AWS::CloudFormation::WaitConditionHandle" => Ok(Made::new(crate::signal::handle_url(
+            &rc.caller.endpoint,
+            &rc.caller.region,
+            &rc.stack_id,
+            &rc.logical,
+        ))),
+        // Made with its creation policy in `engine::launch`; without one, from its properties.
+        "AWS::CloudFormation::WaitCondition" => super::wait::create(rc, p, None).await,
         other => Err(format!("{other} is not a type doze-aws makes")),
     }
 }
@@ -196,6 +191,11 @@ pub(super) async fn delete(rc: &Rc, res: &Res) -> Result<(), String> {
     }
     if crate::custom::is_custom(&rc.ty) {
         return crate::custom::delete(rc, res).await;
+    }
+    if rc.ty == "AWS::CloudFormation::WaitConditionHandle"
+        && let Some(url) = &res.physical
+    {
+        crate::signal::close_handle(url);
     }
     Ok(())
 }
