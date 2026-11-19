@@ -99,18 +99,15 @@ impl Core {
             account: r.account(),
             region: r.region(),
         };
-        let out: Vec<Value> = r
-            .strings("logEventMessages")
-            .iter()
-            .enumerate()
-            .map(|(i, m)| {
-                json!({
-                    "eventNumber": i + 1,
-                    "eventMessage": m,
-                    "transformedEventMessage": t.apply(m, &meta).unwrap_or_else(|| m.clone()),
-                })
-            })
-            .collect();
+        let mut out = Vec::new();
+        for (i, m) in r.strings("logEventMessages").iter().enumerate() {
+            let made = t.test(m, &meta).map_err(crate::transform::invalid)?;
+            out.push(json!({
+                "eventNumber": i + 1,
+                "eventMessage": m,
+                "transformedEventMessage": made.unwrap_or_else(|| m.clone()),
+            }));
+        }
         Ok(json!({"transformedLogs": out}))
     }
 

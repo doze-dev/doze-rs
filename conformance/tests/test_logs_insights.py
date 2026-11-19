@@ -73,8 +73,12 @@ def test_insights_queries(client, names, cleanup, snapshot, eventually):
     _, r = run_query(logs, eventually, name, "filter ispresent(level) | stats count(*) as n, avg(ms) as mean by level", 2, start)
     snapshot.match("stats-by", sorted(rows(r), key=lambda x: x["level"]))
     _, r = run_query(logs, eventually, name, "parse @message 'user=* action=*' as user, action | filter ispresent(user) "
-                     "| fields user, action, toupper(user) as up", 1, start)
+                     "| fields toupper(user) as up | display user, action, up", 1, start)
     snapshot.match("parse-glob", rows(r))
+    # AWS (recorded 2026-11-19): a bare `fields` naming a field `parse` made is refused.
+    snapshot.error("parse-then-fields-again", lambda: logs.start_query(
+        logGroupName=name, startTime=start // 1000 - 60, endTime=int(time.time()) + 60,
+        queryString="parse @message 'user=* action=*' as user, action | fields user, action"))
     _, r = run_query(logs, eventually, name, "filter @message like /ERROR/ | fields @message, @logStream", 1, start)
     snapshot.match("like-regex", rows(r))
     _, r = run_query(logs, eventually, name, "fields @message | limit 2", 2, start)
@@ -214,7 +218,7 @@ def test_transformers(client, names, cleanup, snapshot):
                      {"substituteString": {"entries": [{"source": "u", "from": "o+", "to": "0"}]}}],
                     ['{"s":"  pad  ","u":"FOO","list":"a,b,c"}']),
         "keys": ([{"parseJSON": {}}, {"copyValue": {"entries": [{"source": "a", "target": "b"}]}},
-                  {"moveKeys": {"entries": [{"source": "c", "target": "d.e"}]}}, {"deleteKeys": {"withKeys": ["x"]}}],
+                  {"moveKeys": {"entries": [{"source": "c", "target": "d"}]}}, {"deleteKeys": {"withKeys": ["x"]}}],
                  ['{"a":1,"c":2,"x":3}']),
         "date": ([{"parseJSON": {}}, {"dateTimeConverter": {"source": "t", "target": "iso",
                                                              "matchPatterns": ["dd/MMM/yyyy:HH:mm:ss Z"]}}],
@@ -223,6 +227,10 @@ def test_transformers(client, names, cleanup, snapshot):
     for label, (cfg, messages) in tests.items():
         got = logs.test_transformer(transformerConfig=cfg, logEventMessages=messages)["transformedLogs"]
         snapshot.match(f"test-{label}", [json.loads(t["transformedEventMessage"]) for t in got])
+    # AWS (recorded 2026-11-19): moveKeys into a key under one that does not exist is refused.
+    snapshot.error("move-under-absent", lambda: logs.test_transformer(
+        transformerConfig=[{"parseJSON": {}}, {"moveKeys": {"entries": [{"source": "c", "target": "d.e"}]}}],
+        logEventMessages=['{"c":2}']))
     # AWS (recorded 2026-11-19): a grok pattern with a type conversion is refused.
     snapshot.error("grok-type-conversion", lambda: logs.test_transformer(
         transformerConfig=[{"grok": {"match": "%{NUMBER:bytes:int}"}}], logEventMessages=["15824"]))

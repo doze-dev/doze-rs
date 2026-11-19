@@ -128,11 +128,18 @@ fn commands_after_stats_run_over_the_groups() {
 #[test]
 fn parse_takes_fields_out_with_a_glob_or_a_regular_expression() {
     let rows = run(
-        "parse @message 'user=* action=*' as user, action | filter ispresent(user) | fields user",
+        "parse @message 'user=* action=*' as user, action | filter ispresent(user) | display user, action",
         &LINES,
     );
     assert_eq!(rows[0][0], ("user".into(), "bob".into()));
     assert_eq!(rows[0][1], ("action".into(), "login".into()));
+    // Recorded 2026-11-19: a bare `fields` naming a field `parse` made is refused.
+    assert_eq!(
+        super::parse("parse @message 'user=* action=*' as user, action | fields user")
+            .unwrap_err()
+            .message,
+        "Ephemeral field is already defined: user"
+    );
     let rows = run(
         r"parse @message /user=(?<who>\w+)/ | filter ispresent(who)",
         &LINES,

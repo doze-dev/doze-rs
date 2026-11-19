@@ -265,10 +265,23 @@ pub(crate) fn read(content: &str, format: &str, kind: &str) -> Result<Read, ApiE
             )));
         }
         // Recorded 2026-11-19: a change template's content is held to a schema that requires `emergencyChange`.
-        if kind == "Automation.ChangeTemplate" && !map.contains_key("emergencyChange") {
-            return Err(invalid_content(
-                "[message: \"object has missing required properties ([\\\"emergencyChange\\\"])\" - parent node: /]",
-            ));
+        if kind == "Automation.ChangeTemplate" {
+            let missing = |what: &str, node: &str| {
+                invalid_content(format!(
+                    "[message: \"object has missing required properties ([\\\"{what}\\\"])\" - parent node: {node}]"
+                ))
+            };
+            if !map.contains_key("emergencyChange") {
+                return Err(missing("emergencyChange", "/"));
+            }
+            // Recorded 2026-11-19: and each step needs `timeoutSeconds`.
+            let steps = map.get("mainSteps").and_then(Value::as_array);
+            if let Some(i) = steps.and_then(|s| {
+                s.iter()
+                    .position(|step| step.get("timeoutSeconds").is_none())
+            }) {
+                return Err(missing("timeoutSeconds", &format!("/mainSteps/{i}")));
+            }
         }
     }
     Ok(Read {

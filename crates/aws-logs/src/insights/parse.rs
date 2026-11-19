@@ -35,7 +35,41 @@ pub(crate) fn parse(src: &str) -> Result<Query, QueryError> {
             _ => return Err(p.lx.error("unexpected symbol found")),
         }
     }
+    ephemeral_once(&cmds)?;
     Ok(Query { cmds })
+}
+
+/// A field `parse` made may not be named again by a bare `fields` (recorded 2026-11-19: `parse ... as user, action | fields
+/// user` is "Ephemeral field is already defined: user"). AWS adds a range in its own rewritten query, which a local parser
+/// cannot know; it is left out.
+fn ephemeral_once(cmds: &[Cmd]) -> Result<(), QueryError> {
+    let mut made: Vec<String> = Vec::new();
+    for c in cmds {
+        match c {
+            Cmd::Parse {
+                how: Parser::Glob { names, .. },
+                ..
+            } => made.extend(names.iter().cloned()),
+            Cmd::Parse {
+                how: Parser::Regex(re),
+                ..
+            } => {
+                made.extend(re.capture_names().flatten().map(str::to_owned));
+            }
+            Cmd::Fields(list) => {
+                for n in list {
+                    if matches!(&n.expr, Expr::Field(f) if *f == n.name) && made.contains(&n.name) {
+                        return Err(QueryError {
+                            message: format!("Ephemeral field is already defined: {}", n.name),
+                            start: 0,
+                        });
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+    Ok(())
 }
 
 pub(super) struct P<'a> {

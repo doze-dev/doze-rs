@@ -746,7 +746,10 @@ def test_export_and_import(client, names, cleanup, snapshot, eventually):
     for pk in ("a", "b"):
         ddb.put_item(TableName=name, Item={"pk": {"S": pk}, "n": {"N": "1"}})
     bucket = export_bucket(s3, names, cleanup)
-    started = ddb.export_table_to_point_in_time(TableArn=created["TableDescription"]["TableArn"], S3Bucket=bucket, S3Prefix="x")
+    # AWS (recorded 2026-11-19): a prefix shorter than 3 characters is refused.
+    snapshot.error("prefix-too-short", lambda: ddb.export_table_to_point_in_time(
+        TableArn=created["TableDescription"]["TableArn"], S3Bucket=bucket, S3Prefix="x"))
+    started = ddb.export_table_to_point_in_time(TableArn=created["TableDescription"]["TableArn"], S3Bucket=bucket, S3Prefix="exp")
     snapshot.match("export", started, drop=EXPORT_VOLATILE + ("ItemCount",))
     arn = started["ExportDescription"]["ExportArn"]
 

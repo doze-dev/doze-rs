@@ -32,6 +32,8 @@ pub(crate) struct Event<'a> {
     pub(crate) message: &'a str,
     pub(crate) meta: &'a Meta<'a>,
     pub(crate) obj: Map<String, Value>,
+    /// Why a processor could not do its job (the first one that could not); the processors after it do not run.
+    pub(crate) failed: Option<String>,
 }
 
 impl Event<'_> {
@@ -158,6 +160,17 @@ fn grok(e: &mut Event<'_>, source: Option<&str>, g: &Grok) {
 
 fn copy(e: &mut Event<'_>, moves: &[Move], remove: bool) {
     for m in moves {
+        // Recorded 2026-11-19 (moveKeys): a target under a key the event does not have is refused, not made.
+        if remove
+            && let Some((parent, _)) = m.target.rsplit_once('.')
+            && !path::has(&e.obj, parent)
+        {
+            e.failed = Some(format!(
+                "No corresponding field. Field Name: '{}', Processor: 'MoveKeysProcessor'",
+                m.target
+            ));
+            return;
+        }
         if !m.overwrite && path::has(&e.obj, &m.target) {
             continue;
         }
