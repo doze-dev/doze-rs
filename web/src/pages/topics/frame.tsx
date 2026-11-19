@@ -121,7 +121,7 @@ function TxnRegion({ f }: { f: TopicFrame }) {
 
 function Words({ f }: { f: TopicFrame }) {
   return (
-    <span className="inline-flex flex-wrap items-center gap-2" data-testid="topic-words">
+    <span className="inline-flex min-h-7 max-w-full min-w-0 flex-nowrap items-center gap-2 overflow-hidden" data-testid="topic-words">
       {f.head.cleanup === "compact" ? (
         <StatusDot tone="ok">Compacted</StatusDot>
       ) : (
@@ -137,7 +137,7 @@ function Words({ f }: { f: TopicFrame }) {
         <StatusDot tone="warn">Transaction open</StatusDot>
       ) : null}
       {f.written_by.length > 0 && (
-        <span className="max-w-[28rem] truncate text-[13px] text-muted-foreground" title={`Written by ${f.written_by.join(", ")}: the clients the request recorder saw produce to it`} data-testid="written-by">
+        <span className="min-w-0 truncate text-[13px] text-muted-foreground" title={`Written by ${f.written_by.join(", ")}: the clients the request recorder saw produce to it`} data-testid="written-by">
           written by <span className="font-mono text-foreground">{f.written_by.join(", ")}</span>
         </span>
       )}
@@ -296,7 +296,9 @@ export function TopicLayout() {
           {place !== "messages" && <RefreshControl updatedAt={q.dataUpdatedAt} fetching={q.isFetching} onRefresh={refresh} />}
         </div>
         <div className="mt-3 flex flex-wrap items-start justify-between gap-x-8 gap-y-4">
-          <div className="flex min-w-0 flex-1 basis-[28rem] flex-wrap items-center gap-x-4 gap-y-2">
+          {/* The name, then its words on a line of their own: the head is one height whatever the words' length (a "written by"
+              that grows never moves the page below, CON-807). */}
+          <div className="flex min-w-0 flex-1 basis-[28rem] flex-col items-start gap-y-1.5">
             {/* One rule for titles: the name of a thing (a topic) in mono, a page's own title (Partitions) in the page face. */}
             {place === "partitions" ? (
               <h1 className="min-w-0 text-[34px] leading-[42px] font-light tracking-[-0.03em] text-bright">Partitions</h1>
