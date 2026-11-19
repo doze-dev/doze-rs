@@ -45,7 +45,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: modules-release-${{ github.ref }}
+  group: modules-release-${{ github.ref }}-${{ github.event.label.name || 'run' }}
   cancel-in-progress: false
 
 env:
