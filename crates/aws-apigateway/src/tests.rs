@@ -20,8 +20,10 @@ use serde_json::{Value, json};
 use crate::{ApiGateway, ApiGatewayV2};
 
 mod data;
+mod invoke;
 mod logs;
 mod openapi;
+mod ops;
 mod plane;
 mod rest;
 mod tls;

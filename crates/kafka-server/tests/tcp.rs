@@ -56,6 +56,10 @@ async fn ask(socket: &mut TcpStream) -> Option<Vec<i16>> {
 }
 
 #[tokio::test]
+#[expect(
+    clippy::too_many_lines,
+    reason = "the list of every API served, one a line"
+)]
 async fn a_client_on_a_socket_gets_its_answer() {
     let server = start(10).await;
     let mut socket = TcpStream::connect(server.local_addr()).await.unwrap();
@@ -88,15 +92,24 @@ async fn a_client_on_a_socket_gets_its_answer() {
         ApiKey::DeleteAcls,
         ApiKey::DescribeConfigs,
         ApiKey::AlterConfigs,
+        ApiKey::AlterReplicaLogDirs,
         ApiKey::DescribeLogDirs,
         ApiKey::CreatePartitions,
+        ApiKey::CreateDelegationToken,
+        ApiKey::RenewDelegationToken,
+        ApiKey::ExpireDelegationToken,
+        ApiKey::DescribeDelegationToken,
         ApiKey::DeleteGroups,
+        ApiKey::ElectLeaders,
         ApiKey::IncrementalAlterConfigs,
+        ApiKey::AlterPartitionReassignments,
+        ApiKey::ListPartitionReassignments,
         ApiKey::OffsetDelete,
         ApiKey::DescribeClientQuotas,
         ApiKey::AlterClientQuotas,
         ApiKey::DescribeUserScramCredentials,
         ApiKey::AlterUserScramCredentials,
+        ApiKey::UpdateFeatures,
         ApiKey::DescribeCluster,
         ApiKey::DescribeProducers,
         ApiKey::DescribeTransactions,
@@ -105,6 +118,8 @@ async fn a_client_on_a_socket_gets_its_answer() {
         ApiKey::ConsumerGroupDescribe,
         ApiKey::GetTelemetrySubscriptions,
         ApiKey::PushTelemetry,
+        ApiKey::ListConfigResources,
+        ApiKey::DescribeTopicPartitions,
         ApiKey::ShareGroupHeartbeat,
         ApiKey::ShareGroupDescribe,
         ApiKey::ShareFetch,

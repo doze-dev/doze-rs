@@ -47,6 +47,10 @@ pub fn can_fail(api: ApiKey) -> bool {
 /// The response to `request` (sent at `version`) that carries `code` everywhere a client reads one, or `None` for an API the lab
 /// cannot answer ([`can_fail`] says which).
 #[must_use]
+#[expect(
+    clippy::too_many_lines,
+    reason = "one match over every request with no wildcard, so that an API with no decision here does not compile"
+)]
 pub fn fail_response(request: &Request, version: i16, code: i16) -> Option<Response> {
     Some(match request {
         Request::Produce(r) => Response::Produce(produce(r, code)),
@@ -111,7 +115,18 @@ pub fn fail_response(request: &Request, version: i16, code: i16) -> Option<Respo
         | Request::DeleteShareGroupOffsets(_)
         | Request::StreamsGroupHeartbeat(_)
         | Request::StreamsGroupDescribe(_)
-        | Request::StreamsGroupTopologyDescriptionUpdate(_) => return None,
+        | Request::StreamsGroupTopologyDescriptionUpdate(_)
+        | Request::DescribeTopicPartitions(_)
+        | Request::ElectLeaders(_)
+        | Request::AlterPartitionReassignments(_)
+        | Request::ListPartitionReassignments(_)
+        | Request::AlterReplicaLogDirs(_)
+        | Request::ListConfigResources(_)
+        | Request::UpdateFeatures(_)
+        | Request::CreateDelegationToken(_)
+        | Request::RenewDelegationToken(_)
+        | Request::ExpireDelegationToken(_)
+        | Request::DescribeDelegationToken(_) => return None,
     })
 }
 

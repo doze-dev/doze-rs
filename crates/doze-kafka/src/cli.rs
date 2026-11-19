@@ -13,7 +13,7 @@ use std::time::Duration;
 
 use anyhow::{Result, bail};
 use clap::{Parser, ValueEnum};
-use kafka_broker::{Config as BrokerConfig, Defaults, TxnVersion};
+use kafka_broker::{Config as BrokerConfig, Defaults};
 use kafka_server::{Config as ServerConfig, Timeouts};
 use kafka_wire::profile::{KafkaMajor, Profile};
 
@@ -144,6 +144,22 @@ pub(crate) struct Args {
     #[arg(long, value_name = "PRINCIPAL")]
     acl_super_user: Vec<String>,
 
+    /// The key delegation tokens are signed with (Kafka's delegation.token.secret.key); tokens are off without it. It shows in
+    /// `ps`: DOZE_KAFKA_DELEGATION_TOKEN_SECRET_KEY is read too. Tokens are used over SASL only; a new key voids them all.
+    #[arg(long, value_name = "SECRET")]
+    delegation_token_secret_key: Option<String>,
+    /// The longest a delegation token can live, renewals and all (Kafka's delegation.token.max.lifetime.ms, 7 days).
+    #[arg(long, default_value = "168h", value_name = "DURATION", value_parser = duration::parse)]
+    delegation_token_max_lifetime: Duration,
+    /// How long a delegation token lives from its making or its last renewal, unless less is asked for (Kafka's
+    /// delegation.token.expiry.time.ms, 1 day).
+    #[arg(long, default_value = "24h", value_name = "DURATION", value_parser = duration::parse)]
+    delegation_token_expiry_time: Duration,
+    /// How often expired delegation tokens are removed (Kafka's delegation.token.expiry.check.interval.ms, 1 hour); until then
+    /// an expired token is still described and can still log in, as in Kafka.
+    #[arg(long, default_value = "1h", value_name = "DURATION", value_parser = duration::parse)]
+    delegation_token_expiry_check_interval: Duration,
+
     // Accepted and ignored until the phase that has it.
     #[arg(long, hide = true)]
     meta_db: Option<String>,
@@ -214,15 +230,6 @@ pub(crate) struct Settings {
     pub(crate) warnings: Vec<String>,
 }
 
-/// How the broker ends a transaction on its own at a Kafka major: the `transaction.version` its profile finalizes.
-fn transaction_version(major: KafkaMajor) -> TxnVersion {
-    if Profile::new(major).transaction_version() >= 2 {
-        TxnVersion::EpochBump
-    } else {
-        TxnVersion::Classic
-    }
-}
-
 impl Args {
     /// Checks the arguments and turns them into the configuration of the broker and the server.
     pub(crate) fn settings(&self) -> Result<Settings> {
@@ -264,7 +271,7 @@ impl Args {
         broker.log_cleaner_every = self.log_cleaner_interval;
         broker.log_cleaner_enable = self.log_cleaner_enable;
         broker.client_telemetry = self.client_telemetry;
-        broker.transaction_version = transaction_version(major);
+        self.major_and_tokens(&mut broker, major, env)?;
         broker.max_open_partitions = self.max_open_partitions;
         broker.acl_default_allow = self.acl_default == acl::AclDefault::Allow;
         broker.super_users = acl::super_users(&self.acl_super_user)?;
@@ -426,6 +433,7 @@ impl Args {
 
 mod acl;
 mod console;
+mod major;
 pub(crate) use console::Console;
 #[cfg(feature = "console")]
 pub(crate) use console::DEFAULT_ADDR as DEFAULT_CONSOLE_ADDR;

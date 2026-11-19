@@ -30,7 +30,9 @@ bytes = "1"
 # Selection patterns, `replaceAll` in templates and `pattern` in models; already linked by aws-schema.
 regex-lite = "0.1"
 # Ids are random; getrandom is already linked (request ids, KMS).
-getrandom = "0.4"
+getrandom = { version = "0.4", features = ["sys_rng"] }
+# Client certificates: an RSA 2048 key and its PKCS #1 v1.5 SHA-256 signature, with the features KMS already links (no new crate).
+rsa = { version = "=0.10.0-rc.22", default-features = false, features = ["std", "encoding", "getrandom", "pkcs1v15"] }
 # The WebSocket handshake hashes with SHA-1 (RFC 6455); already linked by KMS. A JWT is verified by aws-webhook's `jwt`.
 sha1 = "0.11"
 tokio = { version = "1", default-features = false, features = ["rt", "sync", "time", "net", "io-util", "macros"] }

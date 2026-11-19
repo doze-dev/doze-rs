@@ -11,11 +11,11 @@ use aws_wire::service::Call;
 use doze_runtime::{Clock, Ctx};
 use doze_store::records::Records;
 use doze_store::{Ack, Db, StoreError};
-use serde_json::Value;
 
 use crate::doc::Doc;
 use crate::plane::{Find, Found};
 use crate::req::{Req, Res};
+use crate::usage::Gate;
 
 const FILE: &str = "apigateway.redb";
 const REST: &str = "rest";
@@ -24,6 +24,10 @@ const KEYS: &str = "keys";
 const PLANS: &str = "plans";
 const DOMAINS: &str = "domains";
 const ACCOUNT: &str = "account";
+const CERTS: &str = "certs";
+/// VPC links of both APIs, `v1/<id>` and `v2/<id>`.
+const LINKS: &str = "links";
+const USAGE: &str = "usage";
 /// The version of every record. A change of a record's shape is a new version with a branch that reads the old one.
 const VERSION: u8 = 1;
 
@@ -40,11 +44,13 @@ pub(crate) enum Ask {
     Call(Api, Box<Call>),
     /// What an execute-api request reaches.
     Find(Box<Find>),
-    /// Whether an API key value opens a stage: the key's id when it exists, is enabled and is in a usage plan for the stage.
+    /// Whether an API key value opens a stage: the key's id when it exists, is enabled, is in a usage plan for the stage and the
+    /// plan's quota and throttle let the request through (it is then counted).
     Key {
         value: String,
         api: String,
         stage: String,
+        now_ms: i64,
     },
     /// From `doze-aws data`: what API Gateway holds, or remove it all.
     Data(Box<crate::storage::DataCall>),
@@ -63,7 +69,7 @@ pub(crate) enum Answer {
         durable: Option<Ack>,
     },
     Found(Result<Box<Found>, crate::plane::Miss>),
-    Key(Option<String>),
+    Key(Gate),
     /// A data question was answered on its own channel.
     Data,
 }
@@ -83,6 +89,12 @@ pub(crate) struct Core {
     pub(crate) plans: Records<Doc>,
     pub(crate) domains: Records<Doc>,
     pub(crate) account: Records<Doc>,
+    /// Client certificates, by id (the private key kept as `_key`).
+    pub(crate) certs: Records<Doc>,
+    pub(crate) links: Records<Doc>,
+    /// Requests counted per usage plan and key, by day.
+    pub(crate) usage: Records<Doc>,
+    pub(crate) buckets: crate::usage::Buckets,
     pub(crate) peers: Option<Arc<Peers>>,
     pub(crate) clock: Arc<dyn Clock>,
     pub(crate) db: Option<Db>,
@@ -105,7 +117,12 @@ impl doze_runtime::Service for Core {
         match ask {
             Ask::Call(api, call) => self.call(api, *call).await,
             Ask::Find(find) => Answer::Found(self.find(&find).map(Box::new)),
-            Ask::Key { value, api, stage } => Answer::Key(self.key_opens(&value, &api, &stage)),
+            Ask::Key {
+                value,
+                api,
+                stage,
+                now_ms,
+            } => Answer::Key(self.key_gate(&value, &api, &stage, now_ms)),
             Ask::Data(asked) => {
                 let crate::storage::DataCall { region, ask, reply } = *asked;
                 if reply.send(self.data(&region, ask)).is_err() {
@@ -129,7 +146,13 @@ impl Core {
         clock: Arc<dyn Clock>,
         peers: Option<Arc<Peers>>,
     ) -> Result<Self, StoreError> {
-        let db = Db::open(dir, FILE, &[REST, HTTP, KEYS, PLANS, DOMAINS, ACCOUNT])?;
+        let db = Db::open(
+            dir,
+            FILE,
+            &[
+                REST, HTTP, KEYS, PLANS, DOMAINS, ACCOUNT, CERTS, LINKS, USAGE,
+            ],
+        )?;
         let read = db.read()?;
         let core = Self {
             rest: Records::load(REST, "REST API", VERSION, &read)?,
@@ -138,6 +161,10 @@ impl Core {
             plans: Records::load(PLANS, "usage plan", VERSION, &read)?,
             domains: Records::load(DOMAINS, "domain name", VERSION, &read)?,
             account: Records::load(ACCOUNT, "account", VERSION, &read)?,
+            certs: Records::load(CERTS, "client certificate", VERSION, &read)?,
+            links: Records::load(LINKS, "VPC link", VERSION, &read)?,
+            usage: Records::load(USAGE, "usage count", VERSION, &read)?,
+            buckets: crate::usage::Buckets::default(),
             peers,
             clock,
             db: None,
@@ -159,6 +186,9 @@ impl Core {
             tally(&self.plans),
             tally(&self.domains),
             tally(&self.account),
+            tally(&self.certs),
+            tally(&self.links),
+            tally(&self.usage),
         ]
         .iter()
         .fold((0, 0), |a, b| (a.0 + b.0, a.1 + b.1))
@@ -173,6 +203,10 @@ impl Core {
         clear(&mut self.plans);
         clear(&mut self.domains);
         clear(&mut self.account);
+        clear(&mut self.certs);
+        clear(&mut self.links);
+        clear(&mut self.usage);
+        self.buckets.clear();
         drop(self.flush()?);
         Ok(())
     }
@@ -185,6 +219,9 @@ impl Core {
             self.plans.stage()?,
             self.domains.stage()?,
             self.account.stage()?,
+            self.certs.stage()?,
+            self.links.stage()?,
+            self.usage.stage()?,
         ];
         Ok(self.db.as_ref().and_then(|db| db.submit(changes)))
     }
@@ -216,28 +253,16 @@ impl Core {
         Answer::Reply { reply, durable }
     }
 
-    /// The id of the API key whose value is `value`, when it is enabled and a usage plan puts it on `api`'s `stage`.
-    fn key_opens(&self, value: &str, api: &str, stage: &str) -> Option<String> {
-        let (id, _) = self.keys.iter().find(|(_, k)| {
-            crate::doc::text(&k.0, "value") == Some(value)
-                && k.0.get("enabled").and_then(Value::as_bool) == Some(true)
-        })?;
-        let covered = self.plans.iter().any(|(_, p)| {
-            let has_key =
-                p.0.get("_keys")
-                    .and_then(Value::as_array)
-                    .is_some_and(|ks| ks.iter().any(|k| k.as_str() == Some(id)));
-            let has_stage =
-                p.0.get("apiStages")
-                    .and_then(Value::as_array)
-                    .is_some_and(|ss| {
-                        ss.iter().any(|s| {
-                            crate::doc::text(s, "apiId") == Some(api)
-                                && crate::doc::text(s, "stage") == Some(stage)
-                        })
-                    });
-            has_key && has_stage
-        });
-        covered.then(|| id.to_owned())
+    /// A key check on the plane: counted (and so written) when it opens the stage.
+    fn key_gate(&mut self, value: &str, api: &str, stage: &str, now_ms: i64) -> Gate {
+        let gate = self.gate(value, api, stage, now_ms);
+        if matches!(gate, Gate::Open(_)) {
+            match self.flush() {
+                // WHY: a count need not be on disk before the request is served; the writer commits it with the next group.
+                Ok(ack) => drop(ack),
+                Err(e) => tracing::warn!("API Gateway could not save a usage count: {e}"),
+            }
+        }
+        gate
     }
 }

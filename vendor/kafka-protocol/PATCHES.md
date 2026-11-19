@@ -81,3 +81,16 @@ v1 and OffsetForLeaderEpoch at v2 (KIP-896). Kafka 1.1 has only v0 of all five, 
 
 Regression test: `crates/kafka-wire/tests/old_versions.rs` (each version against bytes written by hand from the schema),
 `tests/every_offered_version.rs`, and the recorded `acl-v0` scenario of `tools/kafka-replay` (Apache Kafka 3.9.1).
+
+## 7. Admin APIs: v0 of AlterReplicaLogDirs and of the four delegation-token APIs (2026-11-19)
+
+(Patch 6 is the wire tail's, branch kafka-wire-tail.) Kafka 4.1.0's schemas start AlterReplicaLogDirs and the four
+delegation-token APIs (CreateDelegationToken, RenewDelegationToken, ExpireDelegationToken, DescribeDelegationToken) at v1
+(KIP-896). Kafka 1.1 has only v0 of all five, and 2.8 and 3.9 start them at 0
+(`crates/kafka-wire/tests/data/api-versions.json`), so `--kafka-version 1` to `3` could not offer them as recorded (debt
+K3). In the 3.9.1 schemas every one of the ten messages says "Version 1 is the same as version 0" (the responses bumped
+the version for the throttle behaviour only), so v0 is v1 on the wire. Patched by hand, each change marked `PATCH 7`: the
+version checks of the ten messages and their structs, their `VERSIONS`, and `ApiKey::valid_versions` start at 0.
+
+Regression test: `crates/kafka-wire/tests/old_versions.rs` (v0 against bytes written by hand from the schema) and
+`tests/every_offered_version.rs`.

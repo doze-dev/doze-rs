@@ -109,6 +109,11 @@ pub struct Config {
     /// The share groups' assignment interval when a group sets no `share.assignment.interval.ms`; `None`: Kafka's 1 s. A
     /// knob for tests, which would otherwise wait out the interval.
     pub share_assignment_interval: Option<Duration>,
+    /// The Kafka major the broker stands for (`--kafka-version`): what UpdateFeatures holds a level to
+    /// (`Profile::features`).
+    pub kafka_major: kafka_wire::profile::KafkaMajor,
+    /// Delegation tokens (KIP-48): off unless a secret key is set, as in Kafka.
+    pub delegation_tokens: crate::tokens::TokenConfig,
 }
 
 impl Config {
@@ -143,6 +148,8 @@ impl Config {
             client_telemetry: true,
             transaction_version: TxnVersion::EpochBump,
             share_assignment_interval: None,
+            kafka_major: kafka_wire::profile::KafkaMajor::DEFAULT,
+            delegation_tokens: crate::tokens::TokenConfig::default(),
         }
     }
 }

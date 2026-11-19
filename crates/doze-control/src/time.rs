@@ -190,10 +190,21 @@ fn parse_rfc3339(s: &str) -> Option<i128> {
                 return None;
             }
             let (oh, om) = (digits(rest.get(1..3)?)?, digits(rest.get(4..6)?)?);
+            // Go refuses an offset of 24 hours or more, or a minute past 59.
+            if oh > 23 || om > 59 {
+                return None;
+            }
             sign * (oh * 3600 + om * 60)
         }
     };
     let secs = days_from_civil(y, m, d) * SECS_PER_DAY + h * 3600 + mi * 60 + sec - offset;
+    // In UTC the instant must still fall in years 0000 to 9999: Go cannot write a time outside them as JSON, so a
+    // daemon never sends one, and `from_unix_nanos` could not write it back as RFC 3339 either.
+    let first = days_from_civil(0, 1, 1) * SECS_PER_DAY;
+    let last = days_from_civil(10_000, 1, 1) * SECS_PER_DAY;
+    if !(first..last).contains(&secs) {
+        return None;
+    }
     Some(i128::from(secs) * NANOS_PER_SEC + frac)
 }
 
@@ -224,6 +235,24 @@ impl GoDuration {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Found by fuzz_text: a time whose UTC instant leaves years 0000 to 9999 was read, but could not be written back.
+    #[test]
+    fn refuses_what_go_cannot_send_and_round_trips_the_ends() {
+        for bad in [
+            "0000-01-01T20:44:00+80:00",
+            "2026-11-12T22:49:47+24:00",
+            "2026-11-12T22:49:47+05:60",
+            "0000-01-01T00:00:00+01:00",
+            "9999-12-31T23:00:00-02:00",
+        ] {
+            assert_eq!(Timestamp(bad.into()).unix_nanos(), None, "{bad}");
+        }
+        for end in ["0000-01-01T00:00:00Z", "9999-12-31T23:59:59.999999999Z"] {
+            let n = Timestamp(end.into()).unix_nanos().expect(end);
+            assert_eq!(Timestamp::from_unix_nanos(n).as_str(), end);
+        }
+    }
 
     #[test]
     fn reads_go_times_with_offsets_and_fractions() {
