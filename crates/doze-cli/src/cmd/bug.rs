@@ -58,7 +58,8 @@ fn report(ctx: &Ctx<'_>, mode: &Mode) -> String {
         return r;
     };
     r.push_str("\n## the stack (its shape: no values)\n\n");
-    match crate::config::shape_of(ctx, mode, &project) {
+    let shape = crate::config::shape_of(ctx, mode, &project);
+    match &shape {
         Ok(cfg) => {
             for i in &cfg.instances {
                 let _ = write!(r, "- {} {}", i.kind().as_str(), i.name);
@@ -82,7 +83,7 @@ fn report(ctx: &Ctx<'_>, mode: &Mode) -> String {
         }
     }
     lock(&mut r, &project);
-    log(&mut r, ctx, &project);
+    log(&mut r, &crate::stack::key_of(ctx, &project, shape.as_ref().ok()));
     r
 }
 
@@ -101,11 +102,8 @@ fn lock(r: &mut String, project: &crate::project::Project) {
     }
 }
 
-fn log(r: &mut String, ctx: &Ctx<'_>, project: &crate::project::Project) {
-    let key = doze_projects::StackKey::for_config(
-        &ctx.home,
-        project.source.as_ref().unwrap_or(&project.config),
-    );
+/// The end of the daemon's log, from the stack's state folder (the one its doze.hcl moves it to, as the daemon puts it).
+fn log(r: &mut String, key: &doze_projects::StackKey) {
     let path: PathBuf = key.log_file();
     let _ = write!(r, "\n## the daemon's log (its last {LOG_LINES} lines)\n\n");
     match std::fs::read_to_string(&path) {
