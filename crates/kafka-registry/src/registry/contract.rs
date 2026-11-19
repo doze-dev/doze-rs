@@ -263,11 +263,11 @@ impl Rule {
         if len > 64 {
             return Err("Rule name too long".into());
         }
-        let first = chars[0];
+        let (&first, rest) = chars.split_first().ok_or("Empty rule name")?;
         if !(first.is_alphabetic() || first == '_') {
             return Err(format!("Illegal initial character in rule name: {name}"));
         }
-        if chars[1..]
+        if rest
             .iter()
             .any(|&c| !(c.is_alphanumeric() || c == '_' || c == '-'))
         {
@@ -329,7 +329,7 @@ impl RuleSet {
 }
 
 /// Java's `toString` of a collection: `[a, b]`, and of a map `{k=v, l=w}`.
-fn java_list<'a>(items: impl Iterator<Item = String>) -> String {
+fn java_list(items: impl Iterator<Item = String>) -> String {
     let all: Vec<String> = items.collect();
     format!("[{}]", all.join(", "))
 }
@@ -469,10 +469,6 @@ pub mod json {
     ///
     /// # Errors
     /// The serializer's.
-    #[expect(
-        clippy::ref_option,
-        reason = "serde's serialize_with passes a reference"
-    )]
     pub fn metadata<S: serde::Serializer>(m: &Option<Metadata>, s: S) -> Result<S::Ok, S::Error> {
         m.as_ref()
             .map(|m| MetadataOut {
@@ -487,10 +483,6 @@ pub mod json {
     ///
     /// # Errors
     /// The serializer's.
-    #[expect(
-        clippy::ref_option,
-        reason = "serde's serialize_with passes a reference"
-    )]
     pub fn rule_set<S: serde::Serializer>(r: &Option<RuleSet>, s: S) -> Result<S::Ok, S::Error> {
         r.as_ref()
             .map(|r| RuleSetOut {

@@ -313,14 +313,9 @@ impl Literal<'_> {
     /// A dotted word (`a.b.c`), as Wire's `readWord` takes dots into a word.
     fn word(&mut self) -> String {
         let mut w = String::new();
-        loop {
-            match self.toks.get(self.i).map(|t| t.kind) {
-                Some(Tok::Ident | Tok::Int | Tok::Float) => {
-                    w.push_str(self.text(self.i));
-                    self.i += 1;
-                }
-                _ => break,
-            }
+        while let Some(Tok::Ident | Tok::Int | Tok::Float) = self.toks.get(self.i).map(|t| t.kind) {
+            w.push_str(self.text(self.i));
+            self.i += 1;
             if self.is(b'.')
                 && matches!(self.toks.get(self.i + 1).map(|t| t.kind), Some(Tok::Ident))
             {
@@ -635,8 +630,9 @@ impl Exact {
                 r
             })
         } else {
-            let k = usize::try_from(keep).unwrap_or(0);
-            (self.digits[..k].to_vec(), self.digits[k..].to_vec())
+            let k = usize::try_from(keep).unwrap_or(0).min(self.digits.len());
+            let (a, b) = self.digits.split_at(k);
+            (a.to_vec(), b.to_vec())
         };
         let half = match rest.first() {
             Some(&d) if d > 5 => std::cmp::Ordering::Greater,
@@ -650,19 +646,19 @@ impl Exact {
             std::cmp::Ordering::Less => false,
         };
         if up {
-            let mut i = kept.len();
-            loop {
-                if i == 0 {
-                    kept.insert(0, 1);
-                    break;
-                }
-                i -= 1;
-                if kept[i] == 9 {
-                    kept[i] = 0;
+            // Add one to the last kept digit, carrying.
+            let mut carry = true;
+            for d in kept.iter_mut().rev() {
+                if *d == 9 {
+                    *d = 0;
                 } else {
-                    kept[i] += 1;
+                    *d += 1;
+                    carry = false;
                     break;
                 }
+            }
+            if carry {
+                kept.insert(0, 1);
             }
         }
         let rounded = Self {
@@ -786,6 +782,29 @@ impl Printer<'_> {
     }
 
     fn file(&mut self, f: &File) -> Res<String> {
+        let mut sb = Self::head(f);
+        let opts: Vec<Named> = f
+            .decls
+            .iter()
+            .filter_map(|d| match d {
+                Decl::Option(o) => Some(named(self.src, o)),
+                _ => None,
+            })
+            .collect();
+        let opts = self.options(opts);
+        if !opts.is_empty() {
+            sb.push('\n');
+            for o in &opts {
+                sb.push_str(&format!("option {};\n", self.option(o)));
+            }
+        }
+        sb.push_str(&self.file_types(f)?);
+        sb.push_str(&self.file_tail(f)?);
+        Ok(sb)
+    }
+
+    /// The syntax (proto3 only), the package and the imports, sorted and each once.
+    fn head(f: &File) -> String {
         let mut sb = String::new();
         if let Some((_, s)) = &f.syntax
             && s == "proto3"
@@ -808,52 +827,52 @@ impl Printer<'_> {
                 }
             }
         }
-        if !imports.is_empty() || !public.is_empty() {
-            sb.push('\n');
-            for list in [&mut imports, &mut public] {
-                list.sort_by(|a, b| java_cmp(a, b));
-                list.dedup();
-            }
-            for i in &imports {
-                sb.push_str(&format!("import \"{i}\";\n"));
-            }
-            for i in &public {
-                sb.push_str(&format!("import public \"{i}\";\n"));
-            }
+        if imports.is_empty() && public.is_empty() {
+            return sb;
         }
-        let opts: Vec<&Opt> = f
+        sb.push('\n');
+        for list in [&mut imports, &mut public] {
+            list.sort_by(|a, b| java_cmp(a, b));
+            list.dedup();
+        }
+        for i in &imports {
+            sb.push_str(&format!("import \"{i}\";\n"));
+        }
+        for i in &public {
+            sb.push_str(&format!("import public \"{i}\";\n"));
+        }
+        sb
+    }
+
+    /// The file's messages, then its enums, in their order.
+    fn file_types(&mut self, f: &File) -> Res<String> {
+        let mut sb = String::new();
+        if !f
             .decls
-            .iter()
-            .filter_map(|d| match d {
-                Decl::Option(o) => Some(o),
-                _ => None,
-            })
-            .collect();
-        let opts = self.options(opts.iter().map(|o| named(self.src, o)).collect());
-        if !opts.is_empty() {
-            sb.push('\n');
-            for o in &opts {
-                sb.push_str(&format!("option {};\n", self.option(o)));
-            }
-        }
-        if f.decls
             .iter()
             .any(|d| matches!(d, Decl::Message(_) | Decl::Enum(_)))
         {
-            sb.push('\n');
-            for d in &f.decls {
-                if let Decl::Message(m) = d {
-                    let s = self.enter(&m.name, |p| p.message(m))?;
-                    sb.push_str(&s);
-                }
-            }
-            for d in &f.decls {
-                if let Decl::Enum(e) = d {
-                    let s = self.enter(&e.name, |p| p.enumeration(e));
-                    sb.push_str(&s);
-                }
+            return Ok(sb);
+        }
+        sb.push('\n');
+        for d in &f.decls {
+            if let Decl::Message(m) = d {
+                let s = self.enter(&m.name, |p| p.message(m))?;
+                sb.push_str(&s);
             }
         }
+        for d in &f.decls {
+            if let Decl::Enum(e) = d {
+                let s = self.enter(&e.name, |p| p.enumeration(e));
+                sb.push_str(&s);
+            }
+        }
+        Ok(sb)
+    }
+
+    /// The file's extends, then its services.
+    fn file_tail(&self, f: &File) -> Res<String> {
+        let mut sb = String::new();
         let extends: Vec<&Extend> = f
             .decls
             .iter()
@@ -985,6 +1004,17 @@ impl Printer<'_> {
 
     fn message(&mut self, m: &Message) -> Res<String> {
         let mut sb = format!("message {} {{", m.name);
+        sb.push_str(&self.message_head(m));
+        sb.push_str(&self.message_members(m)?);
+        sb.push_str(&self.message_ranges(m)?);
+        sb.push_str(&self.message_nested(m)?);
+        sb.push_str("}\n");
+        Ok(sb)
+    }
+
+    /// A message's reserved ranges and names, then its options.
+    fn message_head(&self, m: &Message) -> String {
+        let mut sb = String::new();
         let pick = |f: fn(&Item) -> bool| m.body.iter().filter(move |i| f(i));
         let reserved: Vec<&Reserved> = m
             .body
@@ -1013,6 +1043,12 @@ impl Printer<'_> {
                 indented(&mut sb, &format!("option {};\n", self.option(o)));
             }
         }
+        sb
+    }
+
+    /// A message's fields, oneofs and groups, each by number.
+    fn message_members(&self, m: &Message) -> Res<String> {
+        let mut sb = String::new();
         let mut fields: Vec<&Field> = m
             .body
             .iter()
@@ -1073,6 +1109,12 @@ impl Printer<'_> {
                 indented(&mut sb, &self.group(g)?);
             }
         }
+        Ok(sb)
+    }
+
+    /// A message's extension ranges, then its extends.
+    fn message_ranges(&self, m: &Message) -> Res<String> {
+        let mut sb = String::new();
         let ext_ranges: Vec<(&Reserved, String)> = m
             .body
             .iter()
@@ -1111,6 +1153,12 @@ impl Printer<'_> {
                 indented(&mut sb, &e);
             }
         }
+        Ok(sb)
+    }
+
+    /// A message's nested messages (not a map's entry), then its nested enums.
+    fn message_nested(&mut self, m: &Message) -> Res<String> {
+        let mut sb = String::new();
         let nested: Vec<&Item> = m
             .body
             .iter()
@@ -1139,7 +1187,6 @@ impl Printer<'_> {
                 }
             }
         }
-        sb.push_str("}\n");
         Ok(sb)
     }
 
@@ -1244,7 +1291,7 @@ impl Printer<'_> {
             TypeRef::Named(n, _) if is_scalar(n) => (n.clone(), n.clone()),
             TypeRef::Named(n, _) => {
                 let full = self.type_name(n)?;
-                let info = self.names.types.get(&full[1..]);
+                let info = self.names.types.get(full.get(1..).unwrap_or_default());
                 match info.and_then(|t| t.map.as_ref()) {
                     Some((k, v)) => {
                         label = None;
@@ -1267,7 +1314,18 @@ impl Printer<'_> {
             s.push(' ');
         }
         s.push_str(&format!("{ty} {} = {}", f.name, f.number));
-        // Wire takes `default` and `json_name` out of the options and Confluent adds them back at the end.
+        let opts = self.options(self.field_options(f, &simple));
+        if !opts.is_empty() {
+            s.push(' ');
+            s.push_str(&self.option_list(&opts));
+        }
+        s.push_str(";\n");
+        Ok(s)
+    }
+
+    /// A field's options as Wire keeps them: `default` and `json_name` taken out, and added back at the end by Confluent
+    /// (a default of the kind its type gives, `simple` being the type's last name).
+    fn field_options(&self, f: &Field, simple: &str) -> Vec<Named> {
         let mut opts: Vec<Named> = Vec::new();
         let mut default = None;
         let mut json = None;
@@ -1288,7 +1346,7 @@ impl Printer<'_> {
                 Val::Ident(w) | Val::Num(w, _) => w.clone(),
                 Val::Aggregate => String::new(),
             };
-            let val = match kind_of(&simple, &text) {
+            let val = match kind_of(simple, &text) {
                 // A bytes default stays a string: Confluent writes it bare (`[default = abc]`), which no reader takes.
                 V::Num(t) if simple == "bytes" => V::Str(t),
                 v => v,
@@ -1310,13 +1368,7 @@ impl Printer<'_> {
                 )),
             });
         }
-        let opts = self.options(opts);
-        if !opts.is_empty() {
-            s.push(' ');
-            s.push_str(&self.option_list(&opts));
-        }
-        s.push_str(";\n");
-        Ok(s)
+        opts
     }
 
     /// A map's value type, qualified when it names a type.
@@ -1493,7 +1545,7 @@ impl Printer<'_> {
                 sb.push('}');
                 sb
             }
-            V::List(l) if l.len() == 1 => self.value(&l[0]),
+            V::List(l) if l.len() == 1 => l.first().map_or_else(String::new, |x| self.value(x)),
             V::List(l) => {
                 let mut sb = "[\n".to_owned();
                 let last = l.len().saturating_sub(1);

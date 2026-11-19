@@ -59,6 +59,20 @@ impl State {
         })
     }
 
+    /// A registration answered with the version of the subject holding schema `id`, as Confluent answers one whose
+    /// schema has a contract.
+    fn answered(&self, subject: &str, id: u32) -> RegisterResult {
+        let print = self.schemas.get(&id).map(SchemaRecord::print);
+        match print.and_then(|p| self.holding(subject, &p, true)) {
+            Some(v) => {
+                let mut view = self.view(subject, v);
+                view.subject = String::new();
+                RegisterResult::Full(view)
+            }
+            None => RegisterResult::Id(id),
+        }
+    }
+
     /// The contract of a subject's latest live version.
     fn latest_contract(&self, subject: &str) -> Option<&Contract> {
         let v = self.live(subject).last()?;
@@ -147,18 +161,10 @@ impl Registry {
             contract,
         };
         let id = self.register_locked(&mut s, &req, &p, canonical)?;
-        if !full {
-            return Ok(RegisterResult::Id(id));
-        }
-        let print = s.schemas.get(&id).map(SchemaRecord::print);
-        let held = print.and_then(|p| s.holding(subject, &p, true));
-        Ok(match held {
-            Some(v) => {
-                let mut view = s.view(subject, v);
-                view.subject = String::new();
-                RegisterResult::Full(view)
-            }
-            None => RegisterResult::Id(id),
+        Ok(if full {
+            s.answered(subject, id)
+        } else {
+            RegisterResult::Id(id)
         })
     }
 
