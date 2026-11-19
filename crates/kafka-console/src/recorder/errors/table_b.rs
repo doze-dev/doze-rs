@@ -248,8 +248,16 @@ pub(super) const ROWS: &[Row] = &[
         "INVALID_REGULAR_EXPRESSION",
         Refused,
         "The regular expression is not valid.",
-        "The subscription pattern is not a valid regular expression.",
+        "The subscription pattern, or a ListTransactions pattern, is not a valid regular expression.",
         "Fix the pattern.",
+    ),
+    r(
+        129,
+        "REBOOTSTRAP_REQUIRED",
+        Warn,
+        "Client metadata is stale, client should rebootstrap to obtain new metadata.",
+        "The client asked ApiVersions (v5) for a cluster id, or a node id, that is not this broker's: it is talking to another broker than the one it knew at this address.",
+        "Let the client rebootstrap; if the broker was recreated, restart the client.",
     ),
     r(
         130,

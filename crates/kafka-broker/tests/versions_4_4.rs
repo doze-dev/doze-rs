@@ -175,7 +175,8 @@ async fn offset_commit_and_fetch_v10_name_topics_by_id() {
     let nobody = Uuid::from_u128(0xfeed);
     let committed = commit(&rig, 10, commit_request("g", id, "", &[0, 1, 2])).await;
     let codes: Vec<_> = committed.iter().map(|c| (c.0, c.2, c.3)).collect();
-    assert_eq!(codes, [(id, 0, 0), (id, 1, 0), (id, 2, UNKNOWN_TOPIC_OR_PARTITION)]);
+    // In Kafka's order: what KafkaApis answers itself first, then what the group answered.
+    assert_eq!(codes, [(id, 2, UNKNOWN_TOPIC_OR_PARTITION), (id, 0, 0), (id, 1, 0)]);
     for unknown in [nobody, Uuid::nil()] {
         let refused = commit(&rig, 10, commit_request("g", unknown, "t", &[0])).await;
         assert_eq!(

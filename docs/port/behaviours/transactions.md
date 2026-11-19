@@ -373,3 +373,9 @@ closed unanswered with the defaults, answered with the unstable versions).
 The wire-tail oracle (`tools/wire-tail-oracle/Probe.java`), run against Kafka 4.4.0 in four settings (the defaults, the unstable
 versions, both, the two-phase setting alone) and against doze-kafka with the same flags, answers the same lines but one, in every
 setting: ApiVersions lists Produce from v3 (the deliberate floor of `api.rs`).
+
+## TX-28. ListTransactions v2 filters by a pattern (KIP-1152) [wire-tail oracle `list-transactions`]
+A `TransactionalIdPattern` that is neither null nor empty keeps the transactional ids it matches whole (Java's
+`Matcher.matches`), after the state, producer and duration filters; one that does not compile is INVALID_REGULAR_EXPRESSION
+(128) for the request, with no rows (`TransactionStateManager.listTransactionStates`). The pattern is read by `regex-lite`
+(wire.md W37-D1). Test: `kafka-broker tests/versions_4_4.rs::list_transactions_v2_keeps_the_ids_its_pattern_matches_whole`.

@@ -1,5 +1,8 @@
-// Oracle probe for the last Kafka 4.4.0 versions (docs/port/behaviours/transactions.md TX-26 and TX-27): Produce v13 and
-// TxnOffsetCommit v6 (topics named by id, KIP-516) and InitProducerId v6 (two-phase commit, KIP-939). Raw requests at
+// Oracle probe for the last Kafka 4.4.0 versions (docs/port/behaviours/transactions.md TX-26 to TX-28, wire.md W37): Produce v13
+// and TxnOffsetCommit v6 (topics named by id, KIP-516) and InitProducerId v6 (two-phase commit, KIP-939); and (debt K1,
+// 2026-11-19) Fetch 12-18, ListOffsets 7-11, Metadata 13, OffsetCommit and OffsetFetch 10, FindCoordinator 4-6,
+// DescribeGroups 6, DeleteGroups 3, ListTransactions 2, DescribeLogDirs 5 and ApiVersions 5 (scenarios `fetch` to
+// `api-versions`, recorded in kafka-4.4.0.txt, the defaults; the other three files predate them). Raw requests at
 // chosen versions over one plain connection, the answers printed one line each, with producer ids normalised (P0, P1, ...)
 // and topic ids replaced by ID (the topic's), UNKNOWN (an id no topic has) and NIL (the zero id), so that two brokers'
 // outputs can be diffed.
@@ -530,12 +533,14 @@ public class Probe {
     static void findCoordinatorVersions() throws IOException {
         self();
         String L = "find-coordinator", g = t("fc-g");
-        String good = g + ":" + Uuid.randomUuid() + ":0";
+        // Fixed topic ids, so that two runs' lines compare.
+        String id1 = "0bFg2GHCR_67Zo0_m2MTGQ", id2 = "ZJXISKCaTLSUkskfFuyhqQ";
+        String good = g + ":" + id1 + ":0";
         for (short v = 4; v <= 6; v++) say(L, "v" + v + " group " + coordLine(v, (byte) 0, g));
         say(L, "v5 share " + coordLine((short) 5, (byte) 2, good));
         say(L, "v6 share " + coordLine((short) 6, (byte) 2, good));
-        say(L, "v6 share colons in the group " + coordLine((short) 6, (byte) 2, "a:b:" + Uuid.randomUuid() + ":3"));
-        say(L, "v6 share bad keys " + coordLine((short) 6, (byte) 2, "x", "g:notanid:0", g + ":" + Uuid.randomUuid() + ":x", " :" + Uuid.randomUuid() + ":0", "", g + ":" + Uuid.randomUuid() + ":-1"));
+        say(L, "v6 share colons in the group " + coordLine((short) 6, (byte) 2, "a:b:" + id2 + ":3"));
+        say(L, "v6 share bad keys " + coordLine((short) 6, (byte) 2, "x", "g:notanid:0", g + ":" + id1 + ":x", " :" + id1 + ":0", "", g + ":" + id2 + ":-1"));
         say(L, "v6 key type 3 " + coordLine((short) 6, (byte) 3, g));
     }
 
@@ -545,6 +550,9 @@ public class Probe {
         List<String> each = new ArrayList<>();
         for (var x : r.groups())
             each.add("[" + x.groupId().replace(run, "R") + "]=" + x.errorCode() + " " + x.groupState() + " type=" + x.protocolType() + (v >= 6 ? " msg=" + (x.errorMessage() == null ? "null" : x.errorMessage().replace(run, "R")) : ""));
+        // Sorted: Kafka answers in the order of each group's offsets partition, which follows the run's random names
+        // (the order itself is held by groups::order::tests).
+        Collections.sort(each);
         return String.join(" ", each);
     }
 

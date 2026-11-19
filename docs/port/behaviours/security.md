@@ -42,7 +42,7 @@ SEC-D4, D5, D51, D56, D59) say so where they stand.
 | SEC-320 to SEC-327 | the share group APIs (KIP-932) and the group configs: READ or DESCRIBE or DELETE on the group, READ or DESCRIBE on each topic, ALTER_CONFIGS on the group | share groups | "Share groups (KIP-932)" |
 | SEC-400 to SEC-405 | the broker's debt cleared (2026-11-18): the PREFIXED index, SaslHandshake v0, the authorizer's configs, what `authz-matrix` found | debt | "Debt cleared, 2026-11-18" |
 | SEC-330 to SEC-333 | the streams group APIs (KIP-1071): READ or DESCRIBE on the group, DESCRIBE on every topic of the topology, CREATE for the internal topics the coordinator makes | streams groups | "Streams groups (KIP-1071)" |
-| SEC-334 to SEC-336 | Produce v13 and TxnOffsetCommit v6 (topics by id, KIP-516): the right on the name an id stands for, an unknown id before any right; InitProducerId v6 (KIP-939): TWO_PHASE_COMMIT on the id, the broker setting | wire tail | after SEC-333 |
+| SEC-334 to SEC-337 | Produce v13 and TxnOffsetCommit v6 (topics by id, KIP-516): the right on the name an id stands for, an unknown id before any right; InitProducerId v6 (KIP-939): TWO_PHASE_COMMIT on the id, the broker setting; FindCoordinator v6 share keys: CLUSTER_ACTION | wire tail | after SEC-333 |
 
 Deviations from Apache Kafka (and one from the Go edition) by number. Every one is a decision, not a bug; each has a row in `debt.md` section I.
 
@@ -1521,6 +1521,12 @@ settings, as 4.4.0 has not built it. The answer's `OngoingTxnProducerId` and `On
 `kafka-broker tests/transactions_two_phase.rs::enable2pc_needs_two_phase_commit_on_the_id_as_well_as_write`,
 `without_the_broker_setting_a_two_phase_commit_is_refused_and_a_plain_v6_is_served`, `kafka-wire profile::tests::init_producer_id_v6_is_offered_only_with_the_unstable_versions`,
 `kafka-wire tests/recorded_unstable_api_versions.rs::the_unstable_versions_are_init_producer_id_v6_alone_on_kafka_4_4_0_and_here`.
+
+## SEC-337. FindCoordinator v6: a share partition's coordinator needs CLUSTER_ACTION (KIP-932; Kafka 4.4.0 `KafkaApis.getCoordinator` L1257-1314) [oracle `find-coordinator`]
+Key type 2 (`group:topicId:partition`) is a broker's question (the share persister's), from v6; before v6 it is INVALID_REQUEST for the key, with no right asked.
+At v6 the caller needs CLUSTER_ACTION on the cluster: without it Kafka throws for the request, so every key of it is CLUSTER_AUTHORIZATION_FAILED (31) with
+`Cluster authorization failed.` and no broker (`FindCoordinatorResponse.prepareErrorResponse`). With it, a key not of that form is INVALID_REQUEST and any other is this
+broker. No right on the group is asked. Test: `kafka-broker tests/versions_4_4.rs::find_coordinator_v6_answers_a_share_partition_key`.
 
 ## Debt cleared, 2026-11-18 (SEC-400 to SEC-405)
 

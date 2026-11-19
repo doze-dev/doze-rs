@@ -156,18 +156,18 @@ impl<F: Fs> Broker<F> {
     }
 
     async fn place(&self, topic: Option<&Topic>, t: &FetchTopic, index: i32) -> Place<F> {
-        // Asked for by id (the name is empty) or by name decides which "unknown" it is.
-        let unknown = if t.topic.0.is_empty() {
-            ResponseError::UnknownTopicId
-        } else {
-            ResponseError::UnknownTopicOrPartition
+        // A topic asked for by an id (the name is empty) that stands for none is UNKNOWN_TOPIC_ID; a partition the topic
+        // has not is UNKNOWN_TOPIC_OR_PARTITION however the topic was named (Kafka 4.4.0, `tools/wire-tail-oracle`, `fetch`).
+        let Some(topic) = topic else {
+            return Place::Error(if t.topic.0.is_empty() {
+                ResponseError::UnknownTopicId
+            } else {
+                ResponseError::UnknownTopicOrPartition
+            });
         };
-        let (Some(topic), Some(id)) = (topic, PartitionId::new(index)) else {
-            return Place::Error(unknown);
+        let Some(id) = PartitionId::new(index).filter(|id| id.get() < topic.partitions.get()) else {
+            return Place::Error(ResponseError::UnknownTopicOrPartition);
         };
-        if id.get() >= topic.partitions.get() {
-            return Place::Error(unknown);
-        }
         match self.partitions.get(topic, id).await {
             Ok(partition) => Place::Open(partition),
             Err(e) => {

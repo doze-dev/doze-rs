@@ -82,26 +82,38 @@ v1 and OffsetForLeaderEpoch at v2 (KIP-896). Kafka 1.1 has only v0 of all five, 
 Regression test: `crates/kafka-wire/tests/old_versions.rs` (each version against bytes written by hand from the schema),
 `tests/every_offered_version.rs`, and the recorded `acl-v0` scenario of `tools/kafka-replay` (Apache Kafka 3.9.1).
 
-## 6. Wire tail: TxnOffsetCommit v6 and InitProducerId v6 at Apache Kafka 4.4.0's versions
+## 6. Wire tail: the versions Kafka 4.4.0 added to the APIs served (2026-11-18 and -19)
 
-0.18.0 (Kafka 4.1.0's schemas) has TxnOffsetCommit to v5 and the InitProducerId request to v5. Kafka 4.4.0's
-`TxnOffsetCommitRequest.json` and `TxnOffsetCommitResponse.json` add v6 (topics named by id, KIP-516: `TopicId` from v6, `Name`
-to v5 only and ignorable; the request's `GenerationId` is renamed `GenerationIdOrMemberEpoch`), and 4.4.0's Java client sends it.
-`InitProducerIdRequest.json` has v6 (KIP-939: `Enable2Pc` and `KeepPreparedTxn`) in 4.1.0 and in 4.4.0 alike, marked
-`latestVersionUnstable`, so the generator skipped it (it decoded neither flag); the response was already generated to v6.
+0.18.0 is generated from Kafka 4.1.0's schemas. Kafka 4.4.0 serves more versions of eight APIs the broker serves, and of two
+4.1.0 marked `latestVersionUnstable`, which the generator skips (debt K1). Two kinds of change, each tested:
 
-Generated as patch 4 was, by upstream's generator (`protocol_codegen` at the head of `tychedelia/kafka-protocol-rs`), from
-patch 4's input (Kafka 4.1.0's schemas with 4.4.0's six `StreamsGroup*.json`) with the four `TxnOffsetCommit*.json` and
-`InitProducerId*.json` of the 4.4.0 source release put in their place, then `rustfmt`. One change was made to the input:
-`InitProducerIdRequest.json`'s `"latestVersionUnstable": true` set to `false`, so that v6 is generated; whether v6 is offered is
-the broker's decision (doze-kafka offers it only with `--unstable-api-versions`, as Kafka 4.4.0 only with
-`unstable.api.versions.enable`). Against the vendored files the output differs in exactly `init_producer_id_request.rs`,
-`txn_offset_commit_request.rs` and `txn_offset_commit_response.rs`, which were taken whole, and in `messages.rs` by
-`ApiKey::TxnOffsetCommit`'s range (0-6) and patch 3's three ranges, of which only the first was applied. Every other file is
-byte for byte what patch 4 left.
+**Regenerated** as patch 4 was, by upstream's generator (`protocol_codegen` at the head of `tychedelia/kafka-protocol-rs`), from
+patch 4's input (Kafka 4.1.0's schemas with 4.4.0's six `StreamsGroup*.json`) with these 4.4.0 schemas put in their place,
+then `rustfmt`; the files taken whole, unmarked:
 
-The rename is the one source change it asks of the workspace (`generation_id` to `generation_id_or_member_epoch` on
-`TxnOffsetCommitRequest`).
+- `TxnOffsetCommitRequest.json`, `TxnOffsetCommitResponse.json`: v6 (topics named by id, KIP-516: `TopicId` from v6, `Name`
+  to v5 only and ignorable; the request's `GenerationId` is renamed `GenerationIdOrMemberEpoch`, the one source change it asks
+  of the workspace).
+- `InitProducerIdRequest.json`: v6 (KIP-939: `Enable2Pc` and `KeepPreparedTxn`), unstable in 4.1.0 and in 4.4.0 alike. One
+  change was made to the input, `"latestVersionUnstable": true` set to `false`, so that v6 is generated; whether it is offered
+  is the broker's decision (only with `--unstable-api-versions`, as 4.4.0 only with `unstable.api.versions.enable`). The
+  response was already generated to v6.
+- `OffsetCommitRequest.json`, `OffsetFetchRequest.json`: v10 (topics by id, KIP-848), unstable in 4.1.0 and stable in 4.4.0.
+  0.18.0 had the `TopicId` fields but stopped the requests at v9; the responses were already generated to v10.
 
-Regression test: `crates/kafka-wire/tests/kip516_kip939_versions.rs` (each new field written and read back at its versions, and
-left out or refused below them), and `tests/every_offered_version.rs`.
+Against the vendored files the output differs in exactly those five files; the generated `TxnOffsetCommitResponse` and the
+two v10 responses are byte for byte what was vendored, which checks the pipeline. In `messages.rs` only
+`ApiKey::TxnOffsetCommit`'s range (0-6) is applied, marked `PATCH 6`.
+
+**By hand** from the 4.4.0 schemas, each change marked `PATCH 6` (the version checks, `VERSIONS`, `ApiKey::valid_versions`):
+
+- `ListOffsetsRequest` and `ListOffsetsResponse` 1-11 (KIP-1023: a new special time, no new field).
+- `ApiVersionsRequest` and `ApiVersionsResponse` 0-5: the request's `ClusterId` (nullable compact string, default null) and
+  `NodeId` (int32, default -1), both ignorable, after `ClientSoftwareVersion` (KIP-1242).
+- `DeleteGroupsRequest` and `DeleteGroupsResponse` 0-3: each result's `ErrorMessage` (nullable, ignorable) after `ErrorCode`.
+- `DescribeLogDirsRequest` and `DescribeLogDirsResponse` to 5 (on top of patch 5's v0): each directory's `IsCordoned` (bool,
+  ignorable, default false) after `UsableBytes` (KIP-1066).
+
+Regression test: `crates/kafka-wire/tests/kip516_kip939_versions.rs` (TxnOffsetCommit v6, InitProducerId v6),
+`tests/every_offered_version.rs` (every offered version of every served API written and read back), and the requests
+and answers of `tools/wire-tail-oracle` against a real Kafka 4.4.0.

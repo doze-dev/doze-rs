@@ -57,6 +57,9 @@ impl<F: Fs> Broker<F> {
         // Each partition is judged; those that pass are stored together in one write.
         let mut to_store: Vec<OffsetCommit> = Vec::new();
         let mut slots: Vec<(usize, usize)> = Vec::new();
+        // The partitions `KafkaApis` answers itself (an unknown id, a barred topic, a topic or partition that does not
+        // exist), which come first in its answer.
+        let mut early: Vec<(usize, usize)> = Vec::new();
         let now = clock::now().get();
         for (t, topic) in req.topics.iter().enumerate() {
             let mut out = OffsetCommitResponseTopic::default();
@@ -74,19 +77,24 @@ impl<F: Fs> Broker<F> {
                     .committed_metadata
                     .as_ref()
                     .map_or("", |m| m.as_str());
+                // KafkaApis answers an unknown id, a barred topic and a topic or partition that does not exist before the
+                // group is asked; the group's answer (`fence`) is for the rest.
                 let refusal = if unknown_id(topic.name.as_str()) {
                     Some(ResponseError::UnknownTopicId)
                 } else if refused_topic {
                     Some(ResponseError::TopicAuthorizationFailed)
-                } else if let Some(e) = fence {
-                    Some(e)
                 } else if known.is_none() {
                     Some(ResponseError::UnknownTopicOrPartition)
+                } else if let Some(e) = fence {
+                    Some(e)
                 } else if metadata.len() > MAX_METADATA {
                     Some(ResponseError::OffsetMetadataTooLarge)
                 } else {
                     None
                 };
+                if unknown_id(topic.name.as_str()) || refused_topic || known.is_none() {
+                    early.push((t, p));
+                }
                 match (refusal, &name, PartitionId::new(partition.partition_index)) {
                     (Some(e), _, _) => answer.error_code = e.code(),
                     (None, Some(name), Some(id)) => {
@@ -113,7 +121,7 @@ impl<F: Fs> Broker<F> {
         if !to_store.is_empty() {
             self.store(req, &to_store, &slots, &mut resp);
         }
-        Outcome::Respond(kafka_wire::api::Response::OffsetCommit(resp))
+        Outcome::Respond(kafka_wire::api::Response::OffsetCommit(kafka_order_of(resp, &early)))
     }
 
     /// [`Self::commit_fence`], except that Kafka asks the group nothing when no topic is left to commit to.
@@ -249,6 +257,48 @@ impl<F: Fs> Broker<F> {
             }
         }
     }
+}
+
+/// The answer in the order Kafka's `OffsetCommitResponse.Builder` gives it: a topic appears where its first partition is
+/// added, and the partitions `KafkaApis` answered itself (`early`) are added before the group's answer is merged in.
+/// Kafka 4.4.0 answers a request for partitions 0, 1 and 2 of a two-partition topic with 2 first (`tools/wire-tail-oracle`,
+/// `offsets-10`); clients find each partition by its index, so only the order changes.
+fn kafka_order_of(mut resp: OffsetCommitResponse, early: &[(usize, usize)]) -> OffsetCommitResponse {
+    if early.is_empty() {
+        return resp;
+    }
+    let asked = std::mem::take(&mut resp.topics);
+    let mut topics: Vec<OffsetCommitResponseTopic> = Vec::new();
+    // For each topic of the request, where it is in the new answer once it has a partition there.
+    let mut placed: Vec<Option<usize>> = vec![None; asked.len()];
+    let mut place = |topics: &mut Vec<OffsetCommitResponseTopic>,
+                     t: usize,
+                     from: &OffsetCommitResponseTopic,
+                     part: OffsetCommitResponsePartition| {
+        let at = *placed[t].get_or_insert_with(|| {
+            let mut topic = from.clone();
+            topic.partitions.clear();
+            topics.push(topic);
+            topics.len() - 1
+        });
+        topics[at].partitions.push(part);
+    };
+    for (t, topic) in asked.iter().enumerate() {
+        for (p, part) in topic.partitions.iter().enumerate() {
+            if early.contains(&(t, p)) {
+                place(&mut topics, t, topic, part.clone());
+            }
+        }
+    }
+    for (t, topic) in asked.iter().enumerate() {
+        for (p, part) in topic.partitions.iter().enumerate() {
+            if !early.contains(&(t, p)) {
+                place(&mut topics, t, topic, part.clone());
+            }
+        }
+    }
+    resp.topics = topics;
+    resp
 }
 
 /// The answer when the whole request is refused: every partition of every topic, with the code.

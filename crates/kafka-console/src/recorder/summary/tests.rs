@@ -111,4 +111,37 @@ fn a_topic_named_by_id_is_shown_by_its_id() {
     );
     assert_eq!(&*f.topics[0].name, id.to_string());
     assert_eq!(&*f.results[0].topic, id.to_string());
+    // OffsetCommit v10 and OffsetFetch v10 (KIP-848) alike.
+    use kafka_wire::messages::{offset_commit_request as ocq, offset_commit_response as ocr};
+    use kafka_wire::messages::{offset_fetch_request as ofq, offset_fetch_response as ofr};
+    let mut commit = kafka_wire::messages::OffsetCommitRequest::default();
+    let mut t = ocq::OffsetCommitRequestTopic::default();
+    t.topic_id = id;
+    t.partitions = vec![Default::default()];
+    commit.topics = vec![t];
+    let mut answer = kafka_wire::messages::OffsetCommitResponse::default();
+    let mut rt = ocr::OffsetCommitResponseTopic::default();
+    rt.topic_id = id;
+    rt.partitions = vec![Default::default()];
+    answer.topics = vec![rt];
+    let f = facts_of(&Request::OffsetCommit(commit), &Response::OffsetCommit(answer));
+    assert_eq!(&*f.topics[0].name, id.to_string());
+    assert_eq!(&*f.results[0].topic, id.to_string());
+    let mut fetch = kafka_wire::messages::OffsetFetchRequest::default();
+    let mut g = ofq::OffsetFetchRequestGroup::default();
+    let mut ft = ofq::OffsetFetchRequestTopics::default();
+    ft.topic_id = id;
+    ft.partition_indexes = vec![0];
+    g.topics = Some(vec![ft]);
+    fetch.groups = vec![g];
+    let mut answer = kafka_wire::messages::OffsetFetchResponse::default();
+    let mut rg = ofr::OffsetFetchResponseGroup::default();
+    let mut rt = ofr::OffsetFetchResponseTopics::default();
+    rt.topic_id = id;
+    rt.partitions = vec![Default::default()];
+    rg.topics = vec![rt];
+    answer.groups = vec![rg];
+    let f = facts_of(&Request::OffsetFetch(fetch), &Response::OffsetFetch(answer));
+    assert_eq!(&*f.topics[0].name, id.to_string());
+    assert_eq!(&*f.results[0].topic, id.to_string());
 }

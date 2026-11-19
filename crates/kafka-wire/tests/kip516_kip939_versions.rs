@@ -1,5 +1,5 @@
 //! TxnOffsetCommit v6 (topic ids, KIP-516) and InitProducerId v6 (two-phase commit, KIP-939) at the versions Apache Kafka
-//! 4.4.0 has (vendor/kafka-protocol/PATCHES.md, patch 5): each field that differs between versions is written and read back
+//! 4.4.0 has (vendor/kafka-protocol/PATCHES.md, patch 6): each field that differs between versions is written and read back
 //! where it is, and is not on the wire where it is not. Produce v13 was in 0.18.0 already; its id is held here too.
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::indexing_slicing)]
 
