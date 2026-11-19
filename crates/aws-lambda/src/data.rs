@@ -82,11 +82,16 @@ impl Core {
 
     /// Removes what `prune` names: only the code nothing uses (and the runtime clients) can go.
     pub(crate) fn empty(
-        &self,
+        &mut self,
         name: &str,
         prune: &Prune,
         grace: Duration,
     ) -> Result<Emptied, StorageError> {
+        if let Some(before) = prune.before_ms
+            && self.functions.get(name).is_some()
+        {
+            return Ok(self.forget_executions(name, before, prune.dry_run));
+        }
         if prune.prefix.is_some() || prune.old_versions || prune.before_ms.is_some() {
             return Err(StorageError::Unsupported(WAYS.to_owned()));
         }
@@ -141,6 +146,9 @@ impl Core {
         self.checkpoints
             .iter()
             .for_each(|(k, v)| count(encoded("checkpoint", k, v)));
+        self.durable
+            .iter()
+            .for_each(|(k, v)| count(encoded(crate::durable::WHAT, k, v)));
         let files: Vec<PathBuf> = [Some(self.code_dir()), self.clients_dir()]
             .into_iter()
             .flatten()
@@ -174,6 +182,8 @@ impl Core {
         clear(&mut self.mappings);
         clear(&mut self.signing);
         clear(&mut self.checkpoints);
+        clear(&mut self.durable);
+        self.live.busy.clear();
     }
 
     /// Compacts the file; answers the bytes freed.

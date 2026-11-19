@@ -37,6 +37,7 @@ const SETTABLE: &[&str] = &[
     "CodeSigningConfigArn",
     "Command",
     "TenantIsolationConfig",
+    "DurableConfig",
 ];
 
 /// The environment variables Lambda sets itself and does not let a function set.
@@ -102,11 +103,34 @@ pub(crate) fn check(config: &Map<String, Value>) -> Result<(), ApiError> {
                 .collect()
         })
         .unwrap_or_default();
+    check_durable(config)?;
     if !reserved.is_empty() {
         return Err(invalid(format!(
             "Lambda was unable to configure your environment variables because the environment variables you have provided contains reserved keys that are currently not supported for modification. Reserved keys used in this request: {}",
             reserved.join(",")
         )));
+    }
+    Ok(())
+}
+
+/// A `DurableConfig` must name its `ExecutionTimeout` (developer guide, "Configure Lambda durable functions": "creating a function with
+/// a durable configuration but no execution timeout fails with an `InvalidParameterValueException`"; the words are (memory)).
+fn check_durable(config: &Map<String, Value>) -> Result<(), ApiError> {
+    match config.get("DurableConfig") {
+        Some(d) if d.get("ExecutionTimeout").and_then(Value::as_i64).is_none() => Err(invalid(
+            "DurableConfig.ExecutionTimeout is required: the most seconds a durable execution may run (1 to 31622400).",
+        )),
+        _ => Ok(()),
+    }
+}
+
+/// Durability is chosen when a function is made (developer guide: "You can only enable durable execution when creating a function.
+/// You cannot enable it on existing functions."). The words are (memory).
+pub(crate) fn check_durable_update(stored: &Map<String, Value>, r: &Req) -> Result<(), ApiError> {
+    if r.value("DurableConfig").is_some() && !stored.contains_key("DurableConfig") {
+        return Err(invalid(
+            "Durable execution can only be enabled when a function is created: create a new function with DurableConfig.",
+        ));
     }
     Ok(())
 }
@@ -192,6 +216,7 @@ pub(crate) fn render(s: &Shown<'_>) -> Value {
             .collect();
         out.insert("Layers".into(), Value::Array(shown));
     }
+    out.extend(durable_shown(&cfg));
     if let Some(vpc) = cfg
         .get("VpcConfig")
         .filter(|v| v.as_object().is_some_and(|o| !o.is_empty()))
@@ -199,6 +224,15 @@ pub(crate) fn render(s: &Shown<'_>) -> Value {
         out.insert("VpcConfig".into(), vpc_shown(vpc));
     }
     Value::Object(out)
+}
+
+/// `DurableConfig` as set, with the retention it defaults to.
+fn durable_shown(cfg: &Map<String, Value>) -> Option<(String, Value)> {
+    let mut shown = cfg.get("DurableConfig")?.as_object()?.clone();
+    shown
+        .entry("RetentionPeriodInDays")
+        .or_insert(json!(crate::durable::RETENTION_DAYS));
+    Some(("DurableConfig".to_owned(), Value::Object(shown)))
 }
 
 fn package_type(code: &Code) -> &'static str {

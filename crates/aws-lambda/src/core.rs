@@ -15,6 +15,7 @@ use doze_store::{Ack, Db, StoreError};
 use serde_json::Value;
 
 use crate::arn;
+use crate::durable::{self, Execution, Live, Wake};
 use crate::model::{Code, Function, Layer, Mapping, Signing};
 use crate::req::Req;
 use crate::resolve::{Resolved, Resolving};
@@ -46,6 +47,8 @@ pub(crate) enum Ask {
     Result { uuid: String, result: String },
     /// From `doze-aws data`: what the functions hold, or remove some of it.
     Data(Box<crate::storage::Asked>),
+    /// A durable execution's life: start, invocations, chained invokes, the timers.
+    Durable(Box<crate::durable::life::DurableAsk>),
 }
 
 impl std::fmt::Debug for Ask {
@@ -82,10 +85,13 @@ pub(crate) enum Answer {
         reply: Result<Out, ApiError>,
         durable: Option<Ack>,
         retire: Vec<String>,
+        /// What a durable execution operation set in motion.
+        wake: Wake,
     },
     Resolved(Result<Box<Resolved>, ApiError>),
     Value(Option<Value>),
     Many(Vec<Value>),
+    Durable(Box<crate::durable::life::Answered>),
 }
 
 impl std::fmt::Debug for Answer {
@@ -95,7 +101,7 @@ impl std::fmt::Debug for Answer {
 }
 
 /// The operations this service runs. The others are refused by name before their request is read: capacity providers and Managed
-/// Instances, durable executions and function scaling are cut (SCOPE.md); `InvokeAsync` is deprecated.
+/// Instances and function scaling are cut (SCOPE.md); `InvokeAsync` is deprecated.
 pub(crate) fn built(op: Operation) -> bool {
     !matches!(
         op,
@@ -107,15 +113,6 @@ pub(crate) fn built(op: Operation) -> bool {
             | Operation::ListFunctionVersionsByCapacityProvider
             | Operation::PutFunctionScalingConfig
             | Operation::GetFunctionScalingConfig
-            | Operation::CheckpointDurableExecution
-            | Operation::GetDurableExecution
-            | Operation::GetDurableExecutionHistory
-            | Operation::GetDurableExecutionState
-            | Operation::ListDurableExecutionsByFunction
-            | Operation::SendDurableExecutionCallbackFailure
-            | Operation::SendDurableExecutionCallbackHeartbeat
-            | Operation::SendDurableExecutionCallbackSuccess
-            | Operation::StopDurableExecution
             | Operation::InvokeAsync
     )
 }
@@ -128,6 +125,9 @@ pub(crate) struct Core {
     pub(crate) mappings: Records<Mapping>,
     pub(crate) signing: Records<Signing>,
     pub(crate) checkpoints: Records<String>,
+    /// Durable executions, by `<function>/<id>`.
+    pub(crate) durable: Records<Execution>,
+    pub(crate) live: Live,
     pub(crate) peers: Option<Arc<Peers>>,
     pub(crate) clock: Arc<dyn Clock>,
     pub(crate) db: Option<Db>,
@@ -156,6 +156,7 @@ impl doze_runtime::Service for Core {
             }
             Ask::Result { uuid, result } => self.note_result(&uuid, result),
             Ask::Data(asked) => self.data_asked(*asked).await,
+            Ask::Durable(ask) => Answer::Durable(Box::new(self.durable_ask(*ask))),
         }
     }
 
@@ -175,7 +176,14 @@ impl Core {
         let db = Db::open(
             dir,
             FILE,
-            &[FUNCTIONS, LAYERS, MAPPINGS, SIGNING, CHECKPOINTS],
+            &[
+                FUNCTIONS,
+                LAYERS,
+                MAPPINGS,
+                SIGNING,
+                CHECKPOINTS,
+                durable::TABLE,
+            ],
         )?;
         let read = db.read()?;
         let core = Self {
@@ -184,6 +192,8 @@ impl Core {
             mappings: Records::load(MAPPINGS, "event source mapping", VERSION, &read)?,
             signing: Records::load(SIGNING, "code signing configuration", VERSION, &read)?,
             checkpoints: Records::load(CHECKPOINTS, "checkpoint", VERSION, &read)?,
+            durable: Records::load(durable::TABLE, durable::WHAT, VERSION, &read)?,
+            live: Live::default(),
             peers,
             clock,
             db: None,
@@ -209,6 +219,7 @@ impl Core {
             self.mappings.stage()?,
             self.signing.stage()?,
             self.checkpoints.stage()?,
+            self.durable.stage()?,
         ];
         Ok(self.db.as_ref().and_then(|db| db.submit(changes)))
     }
@@ -225,6 +236,7 @@ impl Core {
             reply: Ok(Out::default()),
             durable: ack,
             retire: Vec::new(),
+            wake: Wake::default(),
         }
     }
 
@@ -237,6 +249,7 @@ impl Core {
                 reply: Err(denied(refusal)),
                 durable: None,
                 retire: Vec::new(),
+                wake: Wake::default(),
             };
         }
         if matches!(
@@ -250,6 +263,7 @@ impl Core {
                     reply: Err(e),
                     durable: None,
                     retire: Vec::new(),
+                    wake: Wake::default(),
                 };
             }
         }
@@ -267,6 +281,7 @@ impl Core {
             reply,
             durable,
             retire,
+            wake: self.take_wake(),
         }
     }
 
@@ -329,6 +344,7 @@ impl Core {
             reply: Ok(Out::default()),
             durable: ack,
             retire: Vec::new(),
+            wake: Wake::default(),
         }
     }
 }

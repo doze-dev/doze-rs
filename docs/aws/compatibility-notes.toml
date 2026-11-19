@@ -132,6 +132,10 @@ not_planned = [
 differences = [
   "Functions run as processes on this machine with the runtime's own interpreter (python3, node, ruby...), not in containers. Container-image functions are stored and cannot be invoked.",
   "Event source mappings poll SQS, Kinesis and DynamoDB Streams.",
+  "Durable functions run with AWS's durable execution SDKs unchanged: checkpoints, replay, waits, step retries, callbacks, child contexts, map and parallel, chained invokes. Waits take real time unless `DOZE_LAMBDA_DURABLE_WAIT_SCALE` shortens them (0.01 makes an hour 36 seconds). The `KMSKeyArn` of a `DurableConfig` is stored, and payloads are not encrypted with it.",
+  "A durable invocation that fails without an answer from the SDK (a crash, a timeout) is tried three times, one and two seconds apart, before the execution fails; AWS's retry policy for these is not recorded.",
+  "Deleting a function deletes its durable executions. A chained invoke that was under way when doze-aws stopped is made again when it starts.",
+  "Durable execution error messages that AWS's own local checkpoint server (`@aws/durable-execution-sdk-js-testing`) does not state are doze's words, not recorded ones.",
 ]
 not_planned = [
   { why = "Lambda Managed Instances run functions on EC2 capacity providers.", families = ["CapacityProvider", "FunctionScalingConfig"] },

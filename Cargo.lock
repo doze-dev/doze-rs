@@ -929,6 +929,7 @@ dependencies = [
  "aws-cloudwatch",
  "aws-core",
  "aws-dynamodb",
+ "aws-gateway",
  "aws-iam",
  "aws-iam-policy",
  "aws-kinesis",

@@ -97,13 +97,14 @@ async fn a_function_is_measured_by_its_code_and_only_what_nothing_uses_can_go() 
         matches!(&refused, Err(StorageError::Unsupported(why)) if why.contains("DeleteFunction")),
         "{refused:?}"
     );
+    // `--before` on a function removes its closed durable executions (it has none).
     let by_time = Prune {
         before_ms: Some(1),
         ..Prune::default()
     };
     assert!(matches!(
         w.lambda.empty("us-east-1", "app", &by_time).await,
-        Err(StorageError::Unsupported(_))
+        Ok(done) if done.items == 0
     ));
     assert!(matches!(
         w.lambda
