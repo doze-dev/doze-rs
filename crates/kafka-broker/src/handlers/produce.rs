@@ -58,6 +58,9 @@ struct Txn<'a> {
 /// The first version of Produce that adds its partitions to the transaction (KIP-890's second part).
 const ADDS_PARTITIONS: i16 = 12;
 
+/// The first version of Produce that names its topics by id (KIP-516), and is answered with ids.
+const BY_ID: i16 = 13;
+
 /// What a Produce of v12 on adds to its transaction: the partitions, and the producer adding them.
 struct Adds {
     who: (i64, i16),
@@ -178,7 +181,7 @@ impl<F: Fs> Broker<F> {
     ) -> bool {
         let name = match found {
             Some(topic) => topic.name.as_ref(),
-            None if version >= 13 => return true,
+            None if version >= BY_ID => return true,
             None => t.name.0.as_str(),
         };
         self.topic_allows(caller, name, Operation::Write)
@@ -198,7 +201,7 @@ impl<F: Fs> Broker<F> {
         id: kafka_wire::Uuid,
         name: &kafka_wire::messages::TopicName,
     ) -> Option<Arc<Topic>> {
-        if version >= 13 {
+        if version >= BY_ID {
             return self.meta.topic_by_id(TopicId::from_uuid(id)?);
         }
         self.meta.topic(&TopicName::parse(&name.0).ok()?)
@@ -213,19 +216,10 @@ impl<F: Fs> Broker<F> {
         topic: Option<&Topic>,
         p: &PartitionProduceData,
     ) -> Stage<F> {
-        let unknown = || {
-            Stage::Done(failed(
-                p.index,
-                ResponseError::UnknownTopicOrPartition,
-                None,
-            ))
+        let (topic, id) = match target(version, topic, p.index) {
+            Ok(found) => found,
+            Err(code) => return Stage::Done(failed(p.index, code, None)),
         };
-        let (Some(topic), Some(id)) = (topic, PartitionId::new(p.index)) else {
-            return unknown();
-        };
-        if id.get() >= topic.partitions.get() {
-            return unknown();
-        }
         let now = clock::now();
         let records = p.records.as_ref().unwrap_or(&NO_RECORDS);
         let Accepted {
@@ -358,6 +352,27 @@ fn add_refused(code: ResponseError) -> ResponseError {
         ResponseError::NotCoordinator => ResponseError::NotEnoughReplicas,
         code => crate::txn::rules::on_partition(code),
     }
+}
+
+/// The topic and partition an entry writes to, or why there is none. From v13 an id that stands for no topic is
+/// UNKNOWN_TOPIC_ID on each of its partitions, before anything else of them is looked at (`KafkaApis.handleProduceRequest`);
+/// a topic that exists without the partition is UNKNOWN_TOPIC_OR_PARTITION, as before.
+fn target(
+    version: i16,
+    topic: Option<&Topic>,
+    index: i32,
+) -> Result<(&Topic, PartitionId), ResponseError> {
+    let Some(topic) = topic else {
+        return Err(if version >= BY_ID {
+            ResponseError::UnknownTopicId
+        } else {
+            ResponseError::UnknownTopicOrPartition
+        });
+    };
+    PartitionId::new(index)
+        .filter(|id| id.get() < topic.partitions.get())
+        .map(|id| (topic, id))
+        .ok_or(ResponseError::UnknownTopicOrPartition)
 }
 
 #[cfg(test)]

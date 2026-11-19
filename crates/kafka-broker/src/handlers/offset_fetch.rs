@@ -5,7 +5,7 @@ use std::collections::HashSet;
 use kafka_meta::GroupOffset;
 use kafka_storage::fs::Fs;
 use kafka_wire::StrBytes;
-use kafka_wire::ids::GroupId;
+use kafka_wire::ids::{GroupId, TopicId, TopicName};
 use kafka_wire::messages::offset_fetch_response::{
     OffsetFetchResponseGroup, OffsetFetchResponsePartition, OffsetFetchResponsePartitions,
     OffsetFetchResponseTopic, OffsetFetchResponseTopics,
@@ -50,6 +50,9 @@ impl Found {
 /// Offsets that a transaction is still deciding: the partition has none to give yet.
 const UNSTABLE_OFFSET_COMMIT: i16 = 88;
 
+/// The first version of OffsetFetch that names its topics by id (KIP-848), and is answered with ids.
+const BY_ID: i16 = 10;
+
 /// What was asked of a group: every offset it has, or these partitions of these topics.
 type Asked<'a> = Option<Vec<(&'a WireName, &'a [i32])>>;
 
@@ -58,35 +61,29 @@ impl<F: Fs> Broker<F> {
     ///
     /// The caller must be allowed to DESCRIBE the group (30, in the shape of the version), and sees the topics it may
     /// DESCRIBE (see `guard.rs`).
+    ///
+    /// From v10 a topic is named by id: each id is turned into the name it stands for first, and one that stands for none
+    /// is 100 on each partition asked. The answer names each topic by its id; asked for every offset, a topic with no id
+    /// (one deleted since its offsets were committed) is left out, as Kafka cannot write it.
     pub(crate) async fn offset_fetch(
         &self,
         version: i16,
         caller: &Caller,
-        req: &OffsetFetchRequest,
+        mut req: OffsetFetchRequest,
     ) -> Outcome {
+        let by_id = version >= BY_ID;
+        // The ids asked for that stand for no topic, in the order asked: the answer gives them back as they came.
+        let mut unknown_ids = if by_id {
+            self.fetch_names_by_id(&mut req)
+        } else {
+            Vec::new()
+        }
+        .into_iter();
+        let req = &req;
         let guard = self.guard(caller);
         let mut resp = OffsetFetchResponse::default();
         if req.groups.is_empty() {
-            // Versions 0 to 7: one group, named at the top.
-            let asked: Asked<'_> = req.topics.as_ref().map(|ts| {
-                ts.iter()
-                    .map(|t| (&t.name, t.partition_indexes.as_slice()))
-                    .collect()
-            });
-            if !guard.group(Operation::Describe, req.group_id.as_str()) {
-                guard::refuse_old(version, &asked, &mut resp);
-                return Outcome::Respond(kafka_wire::api::Response::OffsetFetch(resp));
-            }
-            let pending = self
-                .pending_if(req.require_stable, req.group_id.as_str())
-                .await;
-            for (name, found) in self.answer_guarded(&guard, req.group_id.as_str(), asked, &pending)
-            {
-                let mut topic = OffsetFetchResponseTopic::default();
-                topic.name = name;
-                topic.partitions = found.into_iter().map(single).collect();
-                resp.topics.push(topic);
-            }
+            self.answer_one_group(version, &guard, req, &mut resp).await;
         } else {
             for g in &req.groups {
                 let mut group = OffsetFetchResponseGroup::default();
@@ -114,9 +111,18 @@ impl<F: Fs> Broker<F> {
                         .collect()
                 });
                 for (name, found) in
-                    self.answer_guarded(&guard, g.group_id.as_str(), asked, &pending)
+                    self.answer_guarded(&guard, g.group_id.as_str(), asked, &pending, by_id)
                 {
                     let mut topic = OffsetFetchResponseTopics::default();
+                    if by_id {
+                        let id = if name.is_empty() {
+                            unknown_ids.next()
+                        } else {
+                            self.fetched_topic_id(&name)
+                        };
+                        let Some(id) = id else { continue };
+                        topic.topic_id = id;
+                    }
                     topic.name = name;
                     topic.partitions = found.into_iter().map(batched).collect();
                     group.topics.push(topic);
@@ -125,6 +131,64 @@ impl<F: Fs> Broker<F> {
             }
         }
         Outcome::Respond(kafka_wire::api::Response::OffsetFetch(resp))
+    }
+
+    /// Versions 0 to 7: one group, named at the top.
+    async fn answer_one_group(
+        &self,
+        version: i16,
+        guard: &crate::handlers::group_guard::Guard<'_>,
+        req: &OffsetFetchRequest,
+        resp: &mut OffsetFetchResponse,
+    ) {
+        let asked: Asked<'_> = req.topics.as_ref().map(|ts| {
+            ts.iter()
+                .map(|t| (&t.name, t.partition_indexes.as_slice()))
+                .collect()
+        });
+        if !guard.group(Operation::Describe, req.group_id.as_str()) {
+            guard::refuse_old(version, &asked, resp);
+            return;
+        }
+        let pending = self
+            .pending_if(req.require_stable, req.group_id.as_str())
+            .await;
+        for (name, found) in
+            self.answer_guarded(guard, req.group_id.as_str(), asked, &pending, false)
+        {
+            let mut topic = OffsetFetchResponseTopic::default();
+            topic.name = name;
+            topic.partitions = found.into_iter().map(single).collect();
+            resp.topics.push(topic);
+        }
+    }
+
+    /// Gives each topic of a v10 request the name its id stands for (v10 has no name on the wire), or none; returns the ids
+    /// that stand for none, in the order asked.
+    fn fetch_names_by_id(&self, req: &mut OffsetFetchRequest) -> Vec<kafka_wire::Uuid> {
+        let mut unknown = Vec::new();
+        for t in req
+            .groups
+            .iter_mut()
+            .flat_map(|g| g.topics.iter_mut().flatten())
+        {
+            let found = TopicId::from_uuid(t.topic_id).and_then(|id| self.meta.topic_by_id(id));
+            if found.is_none() {
+                unknown.push(t.topic_id);
+            }
+            t.name = WireName(found.map_or_else(StrBytes::default, |topic| {
+                StrBytes::from_string(topic.name.as_ref().to_owned())
+            }));
+        }
+        unknown
+    }
+
+    /// The id of the topic named `name`, if there is one.
+    fn fetched_topic_id(&self, name: &WireName) -> Option<kafka_wire::Uuid> {
+        TopicName::parse(name.as_str())
+            .ok()
+            .and_then(|n| self.meta.topic(&n))
+            .map(|t| t.id.to_uuid())
     }
 
     /// The offsets of `group`, by topic. A group, topic or partition that is not known has offset -1: not an error,

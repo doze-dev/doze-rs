@@ -204,7 +204,7 @@ impl Rig {
         req.producer_id = ProducerId(t.producer);
         req.producer_epoch = t.epoch;
         req.member_id = text(committer.0);
-        req.generation_id = committer.1;
+        req.generation_id_or_member_epoch = committer.1;
         let mut p = TxnOffsetCommitRequestPartition::default();
         p.partition_index = partition;
         p.committed_offset = offset;
@@ -332,7 +332,7 @@ impl Rig {
         req.group_id = GroupId(text(group));
         req.producer_id = ProducerId(t.producer);
         req.producer_epoch = t.epoch;
-        req.generation_id = -1;
+        req.generation_id_or_member_epoch = -1;
         let mut p = TxnOffsetCommitRequestPartition::default();
         p.partition_index = partition;
         p.committed_offset = offset;

@@ -15,29 +15,33 @@ use super::{Asked, Found, single};
 use crate::Broker;
 use crate::handlers::group_guard::Guard;
 
-/// The topics asked for that the caller may not describe, with their partitions.
-type Barred<'a> = Vec<(&'a WireName, &'a [i32])>;
+/// The topics asked for that are answered with an error, with their partitions and the error: those the caller may not
+/// describe, and (from v10) those asked for by an id that stands for no topic, whose name is empty.
+type Barred<'a> = Vec<(&'a WireName, &'a [i32], ResponseError)>;
 
 impl<F: Fs> Broker<F> {
-    /// [`Broker::answer`] for what the caller may see, and 29 with offset -1 for the topics it asked for and may not.
+    /// [`Broker::answer`] for what the caller may see, and 29 with offset -1 for the topics it asked for and may not. With
+    /// `by_id` (v10) a topic with no name was asked for by an id that stands for none: 100 with offset -1, before its right
+    /// is asked. The answered topics come first, then those refused, in the order asked (`KafkaApis.fetchOffsetsForGroup`).
     pub(super) fn answer_guarded(
         &self,
         guard: &Guard<'_>,
         group: &str,
         asked: Asked<'_>,
         pending: &HashSet<(String, i32)>,
+        by_id: bool,
     ) -> Vec<(WireName, Vec<Found>)> {
         let every = asked.is_none();
-        let (allowed, barred) = split(guard, asked);
+        let (allowed, barred) = split(guard, asked, by_id);
         let mut out = self.answer(group, allowed, pending);
         if every {
             out.retain(|(name, _)| guard.topic(Operation::Describe, name.as_str()));
         }
-        out.extend(barred.into_iter().map(|(name, partitions)| {
+        out.extend(barred.into_iter().map(|(name, partitions, error)| {
             let refused = partitions
                 .iter()
                 .map(|p| Found {
-                    error: ResponseError::TopicAuthorizationFailed.code(),
+                    error: error.code(),
                     ..Found::none(*p)
                 })
                 .collect();
@@ -47,14 +51,22 @@ impl<F: Fs> Broker<F> {
     }
 }
 
-/// The topics asked for, divided into those the caller may describe and those it may not.
-fn split<'a>(guard: &Guard<'_>, asked: Asked<'a>) -> (Asked<'a>, Barred<'a>) {
+/// The topics asked for, divided into those the caller may describe and those answered with an error.
+fn split<'a>(guard: &Guard<'_>, asked: Asked<'a>, by_id: bool) -> (Asked<'a>, Barred<'a>) {
     let Some(topics) = asked else {
         return (None, Vec::new());
     };
-    let (allowed, barred) = topics
-        .into_iter()
-        .partition(|(name, _)| guard.topic(Operation::Describe, name.as_str()));
+    let mut allowed = Vec::new();
+    let mut barred = Vec::new();
+    for (name, partitions) in topics {
+        if by_id && name.is_empty() {
+            barred.push((name, partitions, ResponseError::UnknownTopicId));
+        } else if guard.topic(Operation::Describe, name.as_str()) {
+            allowed.push((name, partitions));
+        } else {
+            barred.push((name, partitions, ResponseError::TopicAuthorizationFailed));
+        }
+    }
     (Some(allowed), barred)
 }
 

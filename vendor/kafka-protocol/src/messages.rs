@@ -1577,7 +1577,7 @@ impl ApiKey {
         match self {
             ApiKey::Produce => VersionRange { min: 3, max: 13 },
             ApiKey::Fetch => VersionRange { min: 4, max: 18 },
-            ApiKey::ListOffsets => VersionRange { min: 1, max: 10 },
+            ApiKey::ListOffsets => VersionRange { min: 1, max: 11 }, // PATCH 6
             ApiKey::Metadata => VersionRange { min: 0, max: 13 },
             ApiKey::OffsetCommit => VersionRange { min: 2, max: 10 },
             ApiKey::OffsetFetch => VersionRange { min: 1, max: 10 },
@@ -1589,7 +1589,7 @@ impl ApiKey {
             ApiKey::DescribeGroups => VersionRange { min: 0, max: 6 },
             ApiKey::ListGroups => VersionRange { min: 0, max: 5 },
             ApiKey::SaslHandshake => VersionRange { min: 0, max: 1 },
-            ApiKey::ApiVersions => VersionRange { min: 0, max: 4 },
+            ApiKey::ApiVersions => VersionRange { min: 0, max: 5 }, // PATCH 6
             ApiKey::CreateTopics => VersionRange { min: 2, max: 7 },
             ApiKey::DeleteTopics => VersionRange { min: 1, max: 6 },
             ApiKey::DeleteRecords => VersionRange { min: 0, max: 2 },
@@ -1599,21 +1599,21 @@ impl ApiKey {
             ApiKey::AddOffsetsToTxn => VersionRange { min: 0, max: 4 },
             ApiKey::EndTxn => VersionRange { min: 0, max: 5 },
             ApiKey::WriteTxnMarkers => VersionRange { min: 1, max: 1 },
-            ApiKey::TxnOffsetCommit => VersionRange { min: 0, max: 5 },
+            ApiKey::TxnOffsetCommit => VersionRange { min: 0, max: 6 }, // PATCH 6
             ApiKey::DescribeAcls => VersionRange { min: 0, max: 3 }, // PATCH 5
             ApiKey::CreateAcls => VersionRange { min: 0, max: 3 }, // PATCH 5
             ApiKey::DeleteAcls => VersionRange { min: 0, max: 3 }, // PATCH 5
             ApiKey::DescribeConfigs => VersionRange { min: 1, max: 4 },
             ApiKey::AlterConfigs => VersionRange { min: 0, max: 2 },
             ApiKey::AlterReplicaLogDirs => VersionRange { min: 0, max: 2 }, // PATCH 7
-            ApiKey::DescribeLogDirs => VersionRange { min: 0, max: 4 }, // PATCH 5
+            ApiKey::DescribeLogDirs => VersionRange { min: 0, max: 5 }, // PATCH 5, PATCH 6
             ApiKey::SaslAuthenticate => VersionRange { min: 0, max: 2 },
             ApiKey::CreatePartitions => VersionRange { min: 0, max: 3 },
             ApiKey::CreateDelegationToken => VersionRange { min: 0, max: 3 }, // PATCH 7
             ApiKey::RenewDelegationToken => VersionRange { min: 0, max: 2 }, // PATCH 7
             ApiKey::ExpireDelegationToken => VersionRange { min: 0, max: 2 }, // PATCH 7
             ApiKey::DescribeDelegationToken => VersionRange { min: 0, max: 3 }, // PATCH 7
-            ApiKey::DeleteGroups => VersionRange { min: 0, max: 2 },
+            ApiKey::DeleteGroups => VersionRange { min: 0, max: 3 }, // PATCH 6
             ApiKey::ElectLeaders => VersionRange { min: 0, max: 2 },
             ApiKey::IncrementalAlterConfigs => VersionRange { min: 0, max: 1 },
             ApiKey::AlterPartitionReassignments => VersionRange { min: 0, max: 1 },

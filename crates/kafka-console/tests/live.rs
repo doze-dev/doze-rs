@@ -246,7 +246,7 @@ async fn the_check_passes_against_a_real_listener_and_the_page_says_so() {
     assert_eq!(v.rules.len(), 3);
     assert!(v.same);
     assert!(v.rules.iter().all(|r| r.ok), "{v:?}");
-    assert_eq!(v.metadata_version, 12);
+    assert_eq!(v.metadata_version, 13);
     let app = w.router();
     let v = probe_now(&app).await;
     assert_eq!(v["verdict"], "reachable", "{v}");
@@ -324,7 +324,7 @@ async fn a_listener_that_is_gone_fails_the_first_rule_and_a_result_is_reused_for
 #[tokio::test]
 async fn the_consoles_own_requests_name_it_and_are_answered_at_the_highest_version() {
     let w = world("head", |_, _| {}).await;
-    assert_eq!(w.backend.version(ApiKey::Metadata), 12);
+    assert_eq!(w.backend.version(ApiKey::Metadata), 13);
     assert_eq!(w.backend.caller().principal().as_str(), "User:__console");
     let Response::Metadata(m) = w
         .backend

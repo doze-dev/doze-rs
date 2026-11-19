@@ -111,12 +111,64 @@ and nothing else is offered, unless the pair (major, API) is in the deviations t
 row: the floors of W10; inter-broker and controller APIs real brokers list on the client listener (LeaderAndIsr,
 StopReplica, UpdateMetadata, ControlledShutdown, WriteTxnMarkers, AlterPartition, UnregisterBroker, DescribeQuorum, the
 Raft voter APIs, UnregisterController and the share-state APIs 83 to 87), left out by the owner's decision of 2026-11-18: clients never
-send them, a single node has no other broker, and serving them would only make the list match (debt K4); versions newer than served at Kafka 4 (K1); the older columns written for an earlier release than the one
-recorded (K2); and Produce v13 and TxnOffsetCommit v6, in flight on another branch. A table entry that no longer differs
-fails as well, so the list cannot go stale. The admin APIs of debt K3 left the table on 2026-11-19: every one is offered as recorded
-(ADM-10 to ADM-17). SaslHandshake is 0 to 1 in every major, as every recorded broker lists it
+send them, a single node has no other broker, and serving them would only make the list match (debt K4); and the older columns
+written for an earlier release than the one recorded (K2). A table entry that no longer differs fails as well, so the list cannot go
+stale. The admin APIs of debt K3 left the table on 2026-11-19: every one is offered as recorded (ADM-10 to ADM-17); and so did the
+newer versions at Kafka 4 (K1, W37): Kafka 4 serves every version 4.4.0 lists of every API it serves. SaslHandshake is 0 to 1 in
+every major, as every recorded broker lists it
 (v0 is raw tokens, SEC-401).
 Test: `tests/recorded_api_versions.rs::every_recorded_range_is_offered_as_recorded_or_is_a_written_down_deviation`
+
+### W37. Kafka 4 serves every version Kafka 4.4.0 lists, each handled (debt K1, 2026-11-19)
+The Kafka 4 column of `api.rs` is 4.4.0's for every API served: Produce 3-13, Fetch 4-18, ListOffsets 1-11, Metadata 0-13,
+OffsetCommit 2-10, OffsetFetch 1-10, FindCoordinator 0-6, DescribeGroups 0-6, ApiVersions 0-5, DeleteGroups 0-3,
+TxnOffsetCommit 0-6, ListTransactions 0-2, DescribeLogDirs 1-5 (InitProducerId 6 only with `--unstable-api-versions`,
+TX-27). The crate reads them all (vendor/kafka-protocol PATCHES.md 6). What each version changed, and what is done with it,
+as a real Kafka 4.4.0 answered the same raw requests (`tools/wire-tail-oracle/Probe.java`, files `kafka-4.4.0*.txt`):
+
+- **Fetch 14-18.** 14 adds an error only tiered storage raises; 15 moves the follower's id into the `ReplicaState` tagged
+  field (KIP-903), so a follower (CLUSTER_ACTION, no quota) is read from there from v15 (`fetch::replica_of`); 16 adds
+  `NodeEndpoints` and the current leader for NOT_LEADER and FENCED_LEADER_EPOCH, which one node never answers; 17 and 18
+  add follower-only tagged fields (directory id, KIP-853; high watermark, KIP-1166), read and not used. A known id with a
+  partition the topic has not is UNKNOWN_TOPIC_OR_PARTITION, as by name; only an id that stands for no topic is
+  UNKNOWN_TOPIC_ID (it was 100 for both before). Tests: `handlers::fetch::tests::the_replica_is_read_from_its_state_from_v15`,
+  `tests/fetch.rs::an_unknown_topic_or_partition_is_unknown_and_by_id_it_is_an_unknown_id`.
+- **ListOffsets 8-11.** -4 (local start, v8) is the log's start; -5 (newest tiered, v9) and -6 (first not uploaded, v11)
+  are offset -1 at leader epoch -1, as for a topic with no tiered storage; v10's `TimeoutMs` is for tiered reads and not
+  needed. A special time below the version that brought it, or one no version has (-7), is UNSUPPORTED_VERSION, judged
+  before the topic is looked for (`ReplicaManager.fetchOffset`; the topic was looked for first here before).
+  Test: `tests/versions_4_4.rs::the_tiered_storage_times_are_answered_as_kafka_4_4_answers_them_with_none`.
+- **Metadata 13** adds a top-level error code, which a broker sets on none of its answers: 0.
+- **OffsetCommit 10 and OffsetFetch 10** name topics by id (KIP-848): an id that stands for no topic (the nil id
+  included) is UNKNOWN_TOPIC_ID on each partition, before its right is asked and without asking the group; the answer
+  names each topic by id; fetching every offset at v10 leaves out a topic with no id. OffsetCommit answers in the order of
+  Kafka's builder at every version: the partitions `KafkaApis` answers itself (unknown id, barred topic, unknown topic or
+  partition) first, then the group's; and an unknown partition is 3 even where the group would refuse the committer.
+  Test: `tests/versions_4_4.rs::offset_commit_and_fetch_v10_name_topics_by_id`.
+- **FindCoordinator 5-6.** 5 lets a broker answer TRANSACTION_ABORTABLE, which this one never does; 6 adds the share
+  coordinator's key type (2), groups.md / security.md SEC-337. Test: `tests/versions_4_4.rs::find_coordinator_v6_answers_a_share_partition_key`.
+- **DescribeGroups 6** (KIP-1043): a group not found, or one that is not a classic group, is Dead with GROUP_ID_NOT_FOUND
+  and `Group <id> not found.` or `Group <id> is not a classic group.`; up to v5 the same group is Dead with no error.
+  Test: `tests/versions_4_4.rs::describe_groups_v6_says_a_group_is_not_found`.
+- **ApiVersions 5** (KIP-1242): a client may name the cluster and node it means. Both or neither, else INVALID_REQUEST;
+  another cluster, or another node with this cluster, is REBOOTSTRAP_REQUIRED (129) with no rows. A login in progress is
+  held to the first rule only (Kafka's authenticator answers that ApiVersions, unchecked). Test:
+  `api_versions::tests::a_v5_client_that_means_another_cluster_or_node_is_told_to_rebootstrap`.
+- **DeleteGroups 3** adds an error message to each result, which Kafka sets only for a streams group's topology
+  description plugin (none here): null. The empty group id is GROUP_ID_NOT_FOUND, as 4.4.0 looks it up like any other (it
+  was INVALID_GROUP_ID here). Test: `tests/group_admin.rs::deleting_a_group_needs_it_empty_takes_its_offsets_and_says_when_there_was_nothing`.
+- **ListTransactions 2** (KIP-1152): a pattern that is neither null nor empty keeps the ids it matches whole;
+  one that does not compile is INVALID_REGULAR_EXPRESSION (128). Read with `regex-lite`, not Java's `Pattern`: what only
+  Java has (look-around, back-references) does not compile here (W37-D1). Test:
+  `tests/versions_4_4.rs::list_transactions_v2_keeps_the_ids_its_pattern_matches_whole`.
+- **DescribeLogDirs 5** adds `IsCordoned` to each directory (KIP-1066); no directory is cordoned: false.
+
+Every new version is also written and read back by `tests/every_offered_version.rs`. The oracle's lines that still differ
+are the all-apis list (W36's table) and the order DescribeGroups answers groups in, which follows each group's offsets
+partition and so the run's random names: no other line differs (2026-11-19).
+
+- **W37-D1.** A ListTransactions v2 pattern is `regex-lite` syntax, not `java.util.regex`: the common syntax matches alike;
+  look-around, back-references and possessive quantifiers are refused with 128 where Kafka accepts them.
 
 ## Hostile input
 

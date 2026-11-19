@@ -25,6 +25,16 @@ use round::Budget;
 /// the client's timeout, and answering early with nothing is always correct: the client fetches again.
 const MAX_WAIT: Duration = Duration::from_secs(30);
 
+/// The broker a Fetch comes from, or -1 for a consumer (`FetchRequest.replicaId`): the top-level `ReplicaId` up to v14, and
+/// from v15 (KIP-903) the `ReplicaState` tagged field's, the other set to -1.
+pub(crate) fn replica_of(version: i16, req: &FetchRequest) -> i32 {
+    if version < 15 {
+        req.replica_id.0
+    } else {
+        req.replica_state.replica_id.0
+    }
+}
+
 /// A partition a Fetch reads, or why it cannot.
 pub(super) enum Place<F: Fs> {
     Error(ResponseError),
@@ -101,8 +111,8 @@ impl<F: Fs> Broker<F> {
         req: &'a FetchRequest,
     ) -> Vec<Wanted<'a, F>> {
         // A request from a follower (a broker id, not -1) is the cluster's, checked once for the whole request.
-        let follower =
-            (req.replica_id.0 >= 0).then(|| self.cluster_allows(caller, Operation::ClusterAction));
+        let follower = (replica_of(version, req) >= 0)
+            .then(|| self.cluster_allows(caller, Operation::ClusterAction));
         let mut out = Vec::new();
         for t in &req.topics {
             let topic = self.fetch_topic(version, t);
@@ -146,18 +156,19 @@ impl<F: Fs> Broker<F> {
     }
 
     async fn place(&self, topic: Option<&Topic>, t: &FetchTopic, index: i32) -> Place<F> {
-        // Asked for by id (the name is empty) or by name decides which "unknown" it is.
-        let unknown = if t.topic.0.is_empty() {
-            ResponseError::UnknownTopicId
-        } else {
-            ResponseError::UnknownTopicOrPartition
+        // A topic asked for by an id (the name is empty) that stands for none is UNKNOWN_TOPIC_ID; a partition the topic
+        // has not is UNKNOWN_TOPIC_OR_PARTITION however the topic was named (Kafka 4.4.0, `tools/wire-tail-oracle`, `fetch`).
+        let Some(topic) = topic else {
+            return Place::Error(if t.topic.0.is_empty() {
+                ResponseError::UnknownTopicId
+            } else {
+                ResponseError::UnknownTopicOrPartition
+            });
         };
-        let (Some(topic), Some(id)) = (topic, PartitionId::new(index)) else {
-            return Place::Error(unknown);
+        let Some(id) = PartitionId::new(index).filter(|id| id.get() < topic.partitions.get())
+        else {
+            return Place::Error(ResponseError::UnknownTopicOrPartition);
         };
-        if id.get() >= topic.partitions.get() {
-            return Place::Error(unknown);
-        }
         match self.partitions.get(topic, id).await {
             Ok(partition) => Place::Open(partition),
             Err(e) => {

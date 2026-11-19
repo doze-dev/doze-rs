@@ -66,6 +66,8 @@ pub(crate) const GROUPS: [(&str, &[&str]); 7] = [
         &[
             "kafka-version",
             "client-telemetry",
+            "unstable-api-versions",
+            "transaction-two-phase-commit",
             "worker-threads",
             "log-level",
             "log-format",

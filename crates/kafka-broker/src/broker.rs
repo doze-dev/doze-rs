@@ -328,6 +328,18 @@ impl<F: Fs> Broker<F> {
         self.config.client_telemetry
     }
 
+    /// This broker's cluster id and node id, which a v5 ApiVersions may name (KIP-1242).
+    #[must_use]
+    pub fn identity(&self) -> (&str, i32) {
+        (&self.config.cluster_id, self.config.node_id)
+    }
+
+    /// Whether the versions Kafka marks unstable are offered (`Config::unstable_api_versions`).
+    #[must_use]
+    pub fn unstable_api_versions(&self) -> bool {
+        self.config.unstable_api_versions
+    }
+
     /// The metadata database, for what keeps its records beside the broker's: the schema registry (`kafka-registry`).
     #[must_use]
     pub fn meta(&self) -> &Arc<MetaStore> {

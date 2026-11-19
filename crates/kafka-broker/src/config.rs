@@ -109,6 +109,13 @@ pub struct Config {
     /// The share groups' assignment interval when a group sets no `share.assignment.interval.ms`; `None`: Kafka's 1 s. A
     /// knob for tests, which would otherwise wait out the interval.
     pub share_assignment_interval: Option<Duration>,
+    /// Whether the versions Kafka marks unstable are offered (Kafka's internal `unstable.api.versions.enable`, false):
+    /// in Kafka 4.4.0 that is InitProducerId v6 (KIP-939, two-phase commit) alone.
+    pub unstable_api_versions: bool,
+    /// Whether a producer may take part in a two-phase commit (KIP-939: InitProducerId v6 with `Enable2Pc`), whose
+    /// transactions never time out (`transaction.two.phase.commit.enable`, false as in Kafka 4.4.0). Off, such a request
+    /// is TRANSACTIONAL_ID_AUTHORIZATION_FAILED, as Kafka answers it.
+    pub transaction_two_phase_commit: bool,
     /// The Kafka major the broker stands for (`--kafka-version`): what UpdateFeatures holds a level to
     /// (`Profile::features`).
     pub kafka_major: kafka_wire::profile::KafkaMajor,
@@ -148,6 +155,8 @@ impl Config {
             client_telemetry: true,
             transaction_version: TxnVersion::EpochBump,
             share_assignment_interval: None,
+            unstable_api_versions: false,
+            transaction_two_phase_commit: false,
             kafka_major: kafka_wire::profile::KafkaMajor::DEFAULT,
             delegation_tokens: crate::tokens::TokenConfig::default(),
         }

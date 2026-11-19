@@ -29,7 +29,7 @@ mod describe_transactions;
 mod describe_user_scram_credentials;
 mod elect_leaders;
 mod end_txn;
-mod fetch;
+pub(crate) mod fetch;
 mod find_coordinator;
 mod get_telemetry_subscriptions;
 mod group_guard;
