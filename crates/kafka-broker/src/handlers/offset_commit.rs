@@ -164,8 +164,26 @@ impl<F: Fs> Broker<F> {
         if self.config.kafka_major.get() >= 3 {
             return blanket(req, ResponseError::UnsupportedVersion);
         }
-        let codes: Vec<i16> = match blocking::run(|| self.meta.commit_zk_offsets(&group, &to_store))
-        {
+        let codes = self.store_in_zookeeper(&group, &to_store);
+        for ((t, p), code) in slots.iter().zip(codes) {
+            if let Some(answer) = resp
+                .topics
+                .get_mut(*t)
+                .and_then(|topic| topic.partitions.get_mut(*p))
+            {
+                answer.error_code = code;
+            }
+        }
+        Outcome::Respond(kafka_wire::api::Response::OffsetCommit(resp))
+    }
+
+    /// What became of each v0 commit, as its code.
+    fn store_in_zookeeper(
+        &self,
+        group: &GroupId,
+        to_store: &[(TopicName, PartitionId, i64)],
+    ) -> Vec<i16> {
+        match blocking::run(|| self.meta.commit_zk_offsets(group, to_store)) {
             Ok(outcomes) => outcomes
                 .iter()
                 .map(|o| match o {
@@ -179,17 +197,7 @@ impl<F: Fs> Broker<F> {
                 tracing::error!(group = %group, error = %e, "storing v0 offsets failed");
                 vec![ResponseError::UnknownServerError.code(); to_store.len()]
             }
-        };
-        for ((t, p), code) in slots.iter().zip(codes) {
-            if let Some(answer) = resp
-                .topics
-                .get_mut(*t)
-                .and_then(|topic| topic.partitions.get_mut(*p))
-            {
-                answer.error_code = code;
-            }
         }
-        Outcome::Respond(kafka_wire::api::Response::OffsetCommit(resp))
     }
 
     /// Gives each topic of a v10 request the name its id stands for (v10 has no name on the wire), or none.
