@@ -133,7 +133,9 @@ async fn committing_fetching_and_deleting_offsets_at_every_version() {
         let group = format!("commit{v}");
         let commits = [("t", 0, 5, Some("m")), ("nope", 0, 1, None)];
         let r = rig.commit_offsets(v, &group, "", -1, &commits).await;
-        assert_eq!(r.topics[0].partitions[0].error_code, 0, "commit v{v}");
+        // (The unknown topic comes first, as Kafka's builder adds what KafkaApis answers itself before the group's answer.)
+        assert_eq!(r.topics[0].name.0.as_str(), "nope", "commit v{v}");
+        assert_eq!(r.topics[1].partitions[0].error_code, 0, "commit v{v}");
     }
     rig.commit_offsets(8, "committed", "", -1, &[("t", 0, 5, Some("m"))])
         .await;

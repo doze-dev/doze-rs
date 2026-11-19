@@ -31,6 +31,11 @@ pub struct DeletableGroupResult {
     /// Supported API versions: 0-2
     pub error_code: i16,
 
+    /// PATCH 6: the error message, or null if there was no error (ignorable, default null).
+    ///
+    /// Supported API versions: 3
+    pub error_message: Option<StrBytes>,
+
     /// Other tagged fields
     pub unknown_tagged_fields: BTreeMap<i32, Bytes>,
 }
@@ -54,6 +59,11 @@ impl DeletableGroupResult {
         self.error_code = value;
         self
     }
+    /// Sets `error_message` to the passed value (PATCH 6).
+    pub fn with_error_message(mut self, value: Option<StrBytes>) -> Self {
+        self.error_message = value;
+        self
+    }
     /// Sets unknown_tagged_fields to the passed value.
     pub fn with_unknown_tagged_fields(mut self, value: BTreeMap<i32, Bytes>) -> Self {
         self.unknown_tagged_fields = value;
@@ -69,7 +79,7 @@ impl DeletableGroupResult {
 #[cfg(feature = "broker")]
 impl Encodable for DeletableGroupResult {
     fn encode<B: ByteBufMut>(&self, buf: &mut B, version: i16) -> Result<()> {
-        if version < 0 || version > 2 {
+        if version < 0 || version > 3 { // PATCH 6: v3
             bail!("specified version not supported by this message type");
         }
         if version >= 2 {
@@ -78,6 +88,10 @@ impl Encodable for DeletableGroupResult {
             types::String.encode(buf, &self.group_id)?;
         }
         types::Int16.encode(buf, &self.error_code)?;
+        if version >= 3 {
+            // PATCH 6
+            types::CompactString.encode(buf, &self.error_message)?;
+        }
         if version >= 2 {
             let num_tagged_fields = self.unknown_tagged_fields.len();
             if num_tagged_fields > std::u32::MAX as usize {
@@ -100,6 +114,10 @@ impl Encodable for DeletableGroupResult {
             total_size += types::String.compute_size(&self.group_id)?;
         }
         total_size += types::Int16.compute_size(&self.error_code)?;
+        if version >= 3 {
+            // PATCH 6
+            total_size += types::CompactString.compute_size(&self.error_message)?;
+        }
         if version >= 2 {
             let num_tagged_fields = self.unknown_tagged_fields.len();
             if num_tagged_fields > std::u32::MAX as usize {
@@ -119,7 +137,7 @@ impl Encodable for DeletableGroupResult {
 #[cfg(feature = "client")]
 impl Decodable for DeletableGroupResult {
     fn decode<B: ByteBuf>(buf: &mut B, version: i16) -> Result<Self> {
-        if version < 0 || version > 2 {
+        if version < 0 || version > 3 { // PATCH 6: v3
             bail!("specified version not supported by this message type");
         }
         let group_id = if version >= 2 {
@@ -128,6 +146,12 @@ impl Decodable for DeletableGroupResult {
             types::String.decode(buf)?
         };
         let error_code = types::Int16.decode(buf)?;
+        let error_message = if version >= 3 {
+            // PATCH 6
+            types::CompactString.decode(buf)?
+        } else {
+            None
+        };
         let mut unknown_tagged_fields = BTreeMap::new();
         if version >= 2 {
             let num_tagged_fields = types::UnsignedVarInt.decode(buf)?;
@@ -141,6 +165,7 @@ impl Decodable for DeletableGroupResult {
         Ok(Self {
             group_id,
             error_code,
+            error_message,
             unknown_tagged_fields,
         })
     }
@@ -151,13 +176,14 @@ impl Default for DeletableGroupResult {
         Self {
             group_id: Default::default(),
             error_code: 0,
+            error_message: None,
             unknown_tagged_fields: BTreeMap::new(),
         }
     }
 }
 
 impl Message for DeletableGroupResult {
-    const VERSIONS: VersionRange = VersionRange { min: 0, max: 2 };
+    const VERSIONS: VersionRange = VersionRange { min: 0, max: 3 } /* PATCH 6 */;
     const DEPRECATED_VERSIONS: Option<VersionRange> = None;
 }
 
@@ -213,7 +239,7 @@ impl DeleteGroupsResponse {
 #[cfg(feature = "broker")]
 impl Encodable for DeleteGroupsResponse {
     fn encode<B: ByteBufMut>(&self, buf: &mut B, version: i16) -> Result<()> {
-        if version < 0 || version > 2 {
+        if version < 0 || version > 3 { // PATCH 6: v3
             bail!("specified version not supported by this message type");
         }
         types::Int32.encode(buf, &self.throttle_time_ms)?;
@@ -264,7 +290,7 @@ impl Encodable for DeleteGroupsResponse {
 #[cfg(feature = "client")]
 impl Decodable for DeleteGroupsResponse {
     fn decode<B: ByteBuf>(buf: &mut B, version: i16) -> Result<Self> {
-        if version < 0 || version > 2 {
+        if version < 0 || version > 3 { // PATCH 6: v3
             bail!("specified version not supported by this message type");
         }
         let throttle_time_ms = types::Int32.decode(buf)?;
@@ -302,7 +328,7 @@ impl Default for DeleteGroupsResponse {
 }
 
 impl Message for DeleteGroupsResponse {
-    const VERSIONS: VersionRange = VersionRange { min: 0, max: 2 };
+    const VERSIONS: VersionRange = VersionRange { min: 0, max: 3 } /* PATCH 6 */;
     const DEPRECATED_VERSIONS: Option<VersionRange> = None;
 }
 

@@ -169,7 +169,8 @@ async fn deleting_a_group_needs_it_empty_takes_its_offsets_and_says_when_there_w
     };
     assert_eq!(by("busy"), [NON_EMPTY_GROUP]);
     assert_eq!(by("never"), [GROUP_ID_NOT_FOUND]);
-    assert_eq!(by(""), [INVALID_GROUP_ID]);
+    // Kafka 4.4.0 looks the empty id up like any other (`tools/wire-tail-oracle`, `delete-groups`).
+    assert_eq!(by(""), [GROUP_ID_NOT_FOUND]);
     // Deleted once, and then there was nothing.
     let idle = by("idle");
     assert!(

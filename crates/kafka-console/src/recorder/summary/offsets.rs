@@ -6,6 +6,8 @@ use kafka_wire::messages::{
     OffsetForLeaderEpochRequest, OffsetForLeaderEpochResponse,
 };
 
+use super::produce::named;
+
 use super::n;
 use crate::recorder::facts::Facts;
 
@@ -54,15 +56,24 @@ pub(super) fn commit_request(r: &OffsetCommitRequest, f: &mut Facts) {
     f.group(&r.group_id.0);
     f.member(&r.member_id);
     f.generation = Some(r.generation_id_or_member_epoch);
+    // (v10 names topics by id, KIP-848: the summary shows the id, as Fetch's does.)
     for t in &r.topics {
-        f.topic(&t.name.0, t.partitions.iter().map(|p| p.partition_index));
+        f.topic(
+            &named(&t.name.0, t.topic_id),
+            t.partitions.iter().map(|p| p.partition_index),
+        );
     }
 }
 
 pub(super) fn commit_response(r: &OffsetCommitResponse, f: &mut Facts) {
     for t in &r.topics {
         for p in &t.partitions {
-            f.result(&t.name.0, p.partition_index, p.error_code, None);
+            f.result(
+                &named(&t.name.0, t.topic_id),
+                p.partition_index,
+                p.error_code,
+                None,
+            );
         }
     }
 }
@@ -72,7 +83,10 @@ pub(super) fn fetch_request(r: &OffsetFetchRequest, f: &mut Facts) {
     for g in &r.groups {
         f.group(&g.group_id.0);
         for t in g.topics.iter().flatten() {
-            f.topic(&t.name.0, t.partition_indexes.iter().copied());
+            f.topic(
+                &named(&t.name.0, t.topic_id),
+                t.partition_indexes.iter().copied(),
+            );
         }
     }
     for t in r.topics.iter().flatten() {
@@ -101,7 +115,7 @@ pub(super) fn fetch_response(r: &OffsetFetchResponse, f: &mut Facts) {
         for t in &g.topics {
             for p in &t.partitions {
                 f.result(
-                    &t.name.0,
+                    &named(&t.name.0, t.topic_id),
                     p.partition_index,
                     p.error_code,
                     (p.error_code == 0 && p.committed_offset >= 0).then_some(p.committed_offset),

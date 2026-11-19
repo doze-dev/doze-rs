@@ -17,18 +17,18 @@ use crate::protocol::{
     Encodable, Encoder, HeaderVersion, Message, StrBytes, VersionRange,
 };
 
-/// Valid versions: 0-5
+/// Valid versions: 0-6
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq)]
 pub struct TxnOffsetCommitResponse {
     /// The duration in milliseconds for which the request was throttled due to a quota violation, or zero if the request did not violate any quota.
     ///
-    /// Supported API versions: 0-5
+    /// Supported API versions: 0-6
     pub throttle_time_ms: i32,
 
     /// The responses for each topic.
     ///
-    /// Supported API versions: 0-5
+    /// Supported API versions: 0-6
     pub topics: Vec<TxnOffsetCommitResponseTopic>,
 
     /// Other tagged fields
@@ -40,7 +40,7 @@ impl TxnOffsetCommitResponse {
     ///
     /// The duration in milliseconds for which the request was throttled due to a quota violation, or zero if the request did not violate any quota.
     ///
-    /// Supported API versions: 0-5
+    /// Supported API versions: 0-6
     pub fn with_throttle_time_ms(mut self, value: i32) -> Self {
         self.throttle_time_ms = value;
         self
@@ -49,7 +49,7 @@ impl TxnOffsetCommitResponse {
     ///
     /// The responses for each topic.
     ///
-    /// Supported API versions: 0-5
+    /// Supported API versions: 0-6
     pub fn with_topics(mut self, value: Vec<TxnOffsetCommitResponseTopic>) -> Self {
         self.topics = value;
         self
@@ -69,7 +69,7 @@ impl TxnOffsetCommitResponse {
 #[cfg(feature = "broker")]
 impl Encodable for TxnOffsetCommitResponse {
     fn encode<B: ByteBufMut>(&self, buf: &mut B, version: i16) -> Result<()> {
-        if version < 0 || version > 5 {
+        if version < 0 || version > 6 {
             bail!("specified version not supported by this message type");
         }
         types::Int32.encode(buf, &self.throttle_time_ms)?;
@@ -120,7 +120,7 @@ impl Encodable for TxnOffsetCommitResponse {
 #[cfg(feature = "client")]
 impl Decodable for TxnOffsetCommitResponse {
     fn decode<B: ByteBuf>(buf: &mut B, version: i16) -> Result<Self> {
-        if version < 0 || version > 5 {
+        if version < 0 || version > 6 {
             bail!("specified version not supported by this message type");
         }
         let throttle_time_ms = types::Int32.decode(buf)?;
@@ -158,22 +158,22 @@ impl Default for TxnOffsetCommitResponse {
 }
 
 impl Message for TxnOffsetCommitResponse {
-    const VERSIONS: VersionRange = VersionRange { min: 0, max: 5 };
+    const VERSIONS: VersionRange = VersionRange { min: 0, max: 6 };
     const DEPRECATED_VERSIONS: Option<VersionRange> = None;
 }
 
-/// Valid versions: 0-5
+/// Valid versions: 0-6
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq)]
 pub struct TxnOffsetCommitResponsePartition {
     /// The partition index.
     ///
-    /// Supported API versions: 0-5
+    /// Supported API versions: 0-6
     pub partition_index: i32,
 
     /// The error code, or 0 if there was no error.
     ///
-    /// Supported API versions: 0-5
+    /// Supported API versions: 0-6
     pub error_code: i16,
 
     /// Other tagged fields
@@ -185,7 +185,7 @@ impl TxnOffsetCommitResponsePartition {
     ///
     /// The partition index.
     ///
-    /// Supported API versions: 0-5
+    /// Supported API versions: 0-6
     pub fn with_partition_index(mut self, value: i32) -> Self {
         self.partition_index = value;
         self
@@ -194,7 +194,7 @@ impl TxnOffsetCommitResponsePartition {
     ///
     /// The error code, or 0 if there was no error.
     ///
-    /// Supported API versions: 0-5
+    /// Supported API versions: 0-6
     pub fn with_error_code(mut self, value: i16) -> Self {
         self.error_code = value;
         self
@@ -214,7 +214,7 @@ impl TxnOffsetCommitResponsePartition {
 #[cfg(feature = "broker")]
 impl Encodable for TxnOffsetCommitResponsePartition {
     fn encode<B: ByteBufMut>(&self, buf: &mut B, version: i16) -> Result<()> {
-        if version < 0 || version > 5 {
+        if version < 0 || version > 6 {
             bail!("specified version not supported by this message type");
         }
         types::Int32.encode(buf, &self.partition_index)?;
@@ -256,7 +256,7 @@ impl Encodable for TxnOffsetCommitResponsePartition {
 #[cfg(feature = "client")]
 impl Decodable for TxnOffsetCommitResponsePartition {
     fn decode<B: ByteBuf>(buf: &mut B, version: i16) -> Result<Self> {
-        if version < 0 || version > 5 {
+        if version < 0 || version > 6 {
             bail!("specified version not supported by this message type");
         }
         let partition_index = types::Int32.decode(buf)?;
@@ -290,11 +290,11 @@ impl Default for TxnOffsetCommitResponsePartition {
 }
 
 impl Message for TxnOffsetCommitResponsePartition {
-    const VERSIONS: VersionRange = VersionRange { min: 0, max: 5 };
+    const VERSIONS: VersionRange = VersionRange { min: 0, max: 6 };
     const DEPRECATED_VERSIONS: Option<VersionRange> = None;
 }
 
-/// Valid versions: 0-5
+/// Valid versions: 0-6
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq)]
 pub struct TxnOffsetCommitResponseTopic {
@@ -303,9 +303,14 @@ pub struct TxnOffsetCommitResponseTopic {
     /// Supported API versions: 0-5
     pub name: super::TopicName,
 
+    /// The topic ID.
+    ///
+    /// Supported API versions: 6
+    pub topic_id: Uuid,
+
     /// The responses for each partition in the topic.
     ///
-    /// Supported API versions: 0-5
+    /// Supported API versions: 0-6
     pub partitions: Vec<TxnOffsetCommitResponsePartition>,
 
     /// Other tagged fields
@@ -322,11 +327,20 @@ impl TxnOffsetCommitResponseTopic {
         self.name = value;
         self
     }
+    /// Sets `topic_id` to the passed value.
+    ///
+    /// The topic ID.
+    ///
+    /// Supported API versions: 6
+    pub fn with_topic_id(mut self, value: Uuid) -> Self {
+        self.topic_id = value;
+        self
+    }
     /// Sets `partitions` to the passed value.
     ///
     /// The responses for each partition in the topic.
     ///
-    /// Supported API versions: 0-5
+    /// Supported API versions: 0-6
     pub fn with_partitions(mut self, value: Vec<TxnOffsetCommitResponsePartition>) -> Self {
         self.partitions = value;
         self
@@ -346,13 +360,18 @@ impl TxnOffsetCommitResponseTopic {
 #[cfg(feature = "broker")]
 impl Encodable for TxnOffsetCommitResponseTopic {
     fn encode<B: ByteBufMut>(&self, buf: &mut B, version: i16) -> Result<()> {
-        if version < 0 || version > 5 {
+        if version < 0 || version > 6 {
             bail!("specified version not supported by this message type");
         }
-        if version >= 3 {
-            types::CompactString.encode(buf, &self.name)?;
-        } else {
-            types::String.encode(buf, &self.name)?;
+        if version <= 5 {
+            if version >= 3 {
+                types::CompactString.encode(buf, &self.name)?;
+            } else {
+                types::String.encode(buf, &self.name)?;
+            }
+        }
+        if version >= 6 {
+            types::Uuid.encode(buf, &self.topic_id)?;
         }
         if version >= 3 {
             types::CompactArray(types::Struct { version }).encode(buf, &self.partitions)?;
@@ -375,10 +394,15 @@ impl Encodable for TxnOffsetCommitResponseTopic {
     }
     fn compute_size(&self, version: i16) -> Result<usize> {
         let mut total_size = 0;
-        if version >= 3 {
-            total_size += types::CompactString.compute_size(&self.name)?;
-        } else {
-            total_size += types::String.compute_size(&self.name)?;
+        if version <= 5 {
+            if version >= 3 {
+                total_size += types::CompactString.compute_size(&self.name)?;
+            } else {
+                total_size += types::String.compute_size(&self.name)?;
+            }
+        }
+        if version >= 6 {
+            total_size += types::Uuid.compute_size(&self.topic_id)?;
         }
         if version >= 3 {
             total_size +=
@@ -405,13 +429,22 @@ impl Encodable for TxnOffsetCommitResponseTopic {
 #[cfg(feature = "client")]
 impl Decodable for TxnOffsetCommitResponseTopic {
     fn decode<B: ByteBuf>(buf: &mut B, version: i16) -> Result<Self> {
-        if version < 0 || version > 5 {
+        if version < 0 || version > 6 {
             bail!("specified version not supported by this message type");
         }
-        let name = if version >= 3 {
-            types::CompactString.decode(buf)?
+        let name = if version <= 5 {
+            if version >= 3 {
+                types::CompactString.decode(buf)?
+            } else {
+                types::String.decode(buf)?
+            }
         } else {
-            types::String.decode(buf)?
+            Default::default()
+        };
+        let topic_id = if version >= 6 {
+            types::Uuid.decode(buf)?
+        } else {
+            Uuid::nil()
         };
         let partitions = if version >= 3 {
             types::CompactArray(types::Struct { version }).decode(buf)?
@@ -430,6 +463,7 @@ impl Decodable for TxnOffsetCommitResponseTopic {
         }
         Ok(Self {
             name,
+            topic_id,
             partitions,
             unknown_tagged_fields,
         })
@@ -440,6 +474,7 @@ impl Default for TxnOffsetCommitResponseTopic {
     fn default() -> Self {
         Self {
             name: Default::default(),
+            topic_id: Uuid::nil(),
             partitions: Default::default(),
             unknown_tagged_fields: BTreeMap::new(),
         }
@@ -447,7 +482,7 @@ impl Default for TxnOffsetCommitResponseTopic {
 }
 
 impl Message for TxnOffsetCommitResponseTopic {
-    const VERSIONS: VersionRange = VersionRange { min: 0, max: 5 };
+    const VERSIONS: VersionRange = VersionRange { min: 0, max: 6 };
     const DEPRECATED_VERSIONS: Option<VersionRange> = None;
 }
 

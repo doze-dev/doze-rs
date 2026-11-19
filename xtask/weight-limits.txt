@@ -76,12 +76,27 @@
 # ubuntu x86_64, plus 5% = 13,198,009 B until CI measures it (ceiling 15 MB). Idle unchanged: 11,880 KB.
 # 2026-11-19, both of the above on one main (the two rises add: 9,093,488 + 16,560 + 49,984 = 9,160,032 B darwin arm64), 182 packages.
 # Bytes: times CI's 1.3747 is 12,592,296 B on ubuntu x86_64, plus 5% = 13,221,911 B until CI measures it (ceiling 15 MB). Idle unchanged: 11,880 KB.
+# 2026-11-19, the admin APIs of debt K3 (branch kafka-admin-apis: DescribeTopicPartitions, ElectLeaders, the reassignment APIs,
+# AlterReplicaLogDirs, ListConfigResources, UpdateFeatures, delegation tokens with their SCRAM login and table), measured with `cargo xtask
+# weight doze-kafka` on darwin arm64 over main: 9,375,536 B (+215,504 B, +2.35%, over 9,160,032 B), 182 packages (no new package), idle
+# 7,168 KB (samples 7,120, 7,168, 7,168). Bytes: times CI's 1.3747 is 12,888,549 B on ubuntu x86_64, plus 5% = 13,532,976 B until CI
+# measures it (ceiling 15 MB). Idle unchanged: 11,880 KB.
+# 2026-11-19, the wire tail on top (branch kafka-wire-tail, debt K1: every Kafka 4.4.0 version of the served APIs, vendor patch 6;
+# merged with kafka-admin-apis), measured with `cargo xtask weight doze-kafka` on darwin arm64: 9,392,112 B (+16,576 B, +0.18%, over
+# the admin APIs' 9,375,536 B; alone over main it was +16,592 B), 182 packages (none added: the ListTransactions pattern uses the
+# regex-lite already linked), idle 7,248 KB (samples 7,248, 7,248, 7,232). The bytes are the regenerated and patched message codecs and
+# the handlers' new versions. Bytes: times CI's 1.3747 is 12,911,336 B on ubuntu x86_64, plus 5% = 13,556,903 B until CI measures it (ceiling
+# 15 MB). Idle unchanged: 11,880 KB.
 # 2026-11-19, the console debt cleared (branch kafka-debt-console: written by, the before cursor, Home's offline partitions, the held
 # readers, the tape's facts of producers and transactions, flushed through, the index head, the cleaner's verdict on save): the release
 # binary on darwin arm64 was 9,126,832 B against 9,093,488 B at its base (+33,344 B, Rust code and the larger bundle), no new package;
 # on this main that is 9,160,032 + 33,344 = 9,193,376 B. Nothing new runs at idle (the facts are read when a page asks for them).
 # Bytes: times CI's 1.3747 is 12,638,234 B on ubuntu x86_64, plus 5% = 13,270,146 B until CI measures it (ceiling 15 MB). Idle unchanged.
-doze-kafka 13270146 182 11880 --listen 127.0.0.1:{port} --data-dir {data}
+# 2026-11-19, the console debt merged with the admin APIs and the wire tail (kafka-debt-console over main at d51637d40), measured with
+# `cargo xtask weight doze-kafka` on darwin arm64: 9,425,424 B (+33,312 B, +0.35%, over the wire tail's 9,392,112 B; the debt alone
+# was +33,344 B), 182 packages (none added), idle 7,088 KB (samples 7,072, 7,104, 7,088). Bytes: times CI's 1.3747 is 12,957,130 B on
+# ubuntu x86_64, plus 5% = 13,604,987 B until CI measures it (ceiling 15 MB). Idle unchanged: 11,880 KB.
+doze-kafka 13604987 182 11880 --listen 127.0.0.1:{port} --data-dir {data}
 # 2026-11-14, with the schema registry too (Phase 10a, docs/port/phase10.md): 6,791,104 B on darwin arm64 (+216,800 B over the module's 6,574,304 B),
 # 171 packages (no third-party package), 7,248 KB idle. Times 1.36: about 9.24 MB on ubuntu x86_64, under this line (9,386,171 B), which does not move.
 # 2026-11-14, with Protobuf (Phase 10b, written here, no Protobuf crate): 6,857,840 B on darwin arm64 (+66,736 B), 171 packages (none added), 7,376 KB idle.
@@ -215,4 +230,10 @@ doze-kafka 13270146 182 11880 --listen 127.0.0.1:{port} --data-dir {data}
 # CloudFormation, Lambda durable behind it) adds about 80 KB per service. CI measured 14,820,896 B with Logs on top of IAM and DynamoDB
 # (merge-queue run 44415143466). The byte line moves to that plus 5% = 15,562,000 B, room for the three still queued; the 20 MB aws
 # ceiling stands, and a trim pass comes at the end.
-doze-aws 15562000 280 11395 --listen 127.0.0.1:{port} --data-dir {data}
+# Later that day API Gateway left the queue on idle memory: 11,504 KB with Logs, Lambda durable and API Gateway (run 44450040192), while main with
+# CloudFormation measured 15,344,120 B and 11,236 KB (run 44456222535). API Gateway allocates nothing at start (no statics, tasks or tables built
+# eagerly); the gap is within the ~350 KB runner spread noted above. API Gateway added 281,664 B, so main plus API Gateway is about 15,625,784 B.
+# The owner, the same day: "Keep the size more generous... it's gonna be 20 MB. People will not fight over using software because of a few KBs
+# and MBs." So the byte line is now the 20 MB ceiling itself (20,000,000 B), and idle gets the same room: 16,384 KB (16 MB). The table still prints
+# every measurement, so growth stays visible; it just no longer blocks merges below those marks.
+doze-aws 20000000 280 16384 --listen 127.0.0.1:{port} --data-dir {data}

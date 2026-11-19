@@ -36,6 +36,7 @@ impl Backend {
         self.profile.advertised(Features {
             sasl,
             telemetry: self.broker.client_telemetry(),
+            unstable: self.broker.unstable_api_versions(),
             served: self.broker.served(),
         })
     }
@@ -46,6 +47,7 @@ impl Backend {
         self.profile.advertised(Features {
             sasl: true,
             telemetry: true,
+            unstable: false,
             served: ApiSet::ALL,
         })
     }

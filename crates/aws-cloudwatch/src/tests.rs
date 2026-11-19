@@ -13,6 +13,7 @@ use crate::core::Core;
 mod alarms;
 mod cbor;
 mod data;
+mod kinds;
 mod math;
 mod metrics;
 mod producers;

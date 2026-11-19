@@ -7,6 +7,11 @@ mode, formatted with its defaults), as `kafka-broker-api-versions.sh` lists it: 
 versions 4.3.1 did not (StreamsGroupHeartbeat and StreamsGroupDescribe 0-1, StreamsGroupTopologyDescriptionUpdate 0), and
 4.4.0 is the version the broker stands for.
 
+`api-versions-4.4.0-unstable.json` is the same 4.4.0 broker started with `unstable.api.versions.enable=true`, recorded
+by `tools/wire-tail-oracle/Probe.java` (`all-apis`) on 2026-11-18: InitProducerId 0-6 (KIP-939, `latestVersionUnstable` in
+4.4.0) is its one difference. `transaction.two.phase.commit.enable` changes nothing in either answer.
+`recorded_unstable_api_versions.rs` holds the Kafka 4 profile with `Features::unstable` to it.
+
 `apiversions-client-software.json` and `apiversions-unsupported-version.json` are the same-named files in
 `conformance/recordings/` at the same commit: real Apache Kafka 4.3.1 answering ApiVersions at versions it does
 and does not serve and with client software names it accepts and refuses. `recorded_api_versions_exchanges.rs`

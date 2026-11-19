@@ -68,6 +68,7 @@ fn features<F: Fs>(config: &Config, broker: &Broker<F>) -> Features {
     Features {
         sasl,
         telemetry: broker.client_telemetry(),
+        unstable: broker.unstable_api_versions(),
         served: if sasl {
             served
                 .with(ApiKey::SaslHandshake)

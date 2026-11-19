@@ -9,6 +9,7 @@ use super::event::{self, Context};
 use super::{Found, Incoming, Route, auth, lambda, reply, validate};
 use crate::Inner;
 use crate::doc::text;
+use crate::usage::Gate;
 
 /// `arn:aws:execute-api:<region>:<account>:<api>/<stage>/<METHOD>/<path>`: what an authorizer is told and IAM is asked about.
 pub(crate) fn method_arn(found: &Found, method: &str) -> String {
@@ -47,6 +48,20 @@ async fn serve(inner: &Inner, found: &Found, req: &Incoming) -> WebReply {
     if let Err(refused) = api_key(inner, found, route, req, &mut extra).await {
         return refused;
     }
+    let context = event::rest_context(found, route, req, &extra);
+    if let Err(invalid) = validate::rest(found, route, req, &context) {
+        return invalid;
+    }
+    integrate(inner, found, route, req, &extra, &context).await
+}
+
+/// A test invocation (`TestInvokeMethod`): what a deployed stage runs after authorization and the API key, which a test skips
+/// `(memory)`: request validation, then the integration.
+pub(crate) async fn test(inner: &Inner, found: &Found, req: &Incoming) -> WebReply {
+    let Some(route) = found.route.as_ref() else {
+        return reply::message(404, "Not Found");
+    };
+    let extra = Context::default();
     let context = event::rest_context(found, route, req, &extra);
     if let Err(invalid) = validate::rest(found, route, req, &context) {
         return invalid;
@@ -94,13 +109,31 @@ async fn api_key(
         value: value.clone(),
         api: found.api_id().to_owned(),
         stage: found.stage_name.clone(),
+        now_ms: req.now_ms,
     };
     match inner.ask(&found.region, ask).await {
-        Ok(crate::core::Answer::Key(Some(id))) => {
+        Ok(crate::core::Answer::Key(Gate::Open(id))) => {
             extra.identity.insert("apiKey".into(), Value::String(value));
             extra.identity.insert("apiKeyId".into(), Value::String(id));
             Ok(())
         }
+        // The words of both 429s are AWS's defaults as remembered `(memory)`.
+        Ok(crate::core::Answer::Key(Gate::Quota)) => Err(reply::gateway(
+            found,
+            "QUOTA_EXCEEDED",
+            429,
+            "Limit Exceeded",
+            req,
+            None,
+        )),
+        Ok(crate::core::Answer::Key(Gate::Throttled)) => Err(reply::gateway(
+            found,
+            "THROTTLED",
+            429,
+            "Too Many Requests",
+            req,
+            None,
+        )),
         _ => Err(forbidden()),
     }
 }

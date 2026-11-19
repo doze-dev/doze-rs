@@ -2,7 +2,7 @@
 //! the registry, and the warnings of what is left open.
 
 use anyhow::{Result, bail};
-use kafka_broker::{Config as BrokerConfig, Defaults, TxnVersion};
+use kafka_broker::Config as BrokerConfig;
 use kafka_server::{Config as ServerConfig, Timeouts};
 use kafka_wire::profile::{KafkaMajor, Profile};
 
@@ -22,15 +22,6 @@ pub(crate) struct Settings {
     pub(crate) registry: Registry,
     /// What the operator chose that leaves something open, to be said once at start.
     pub(crate) warnings: Vec<String>,
-}
-
-/// How the broker ends a transaction on its own at a Kafka major: the `transaction.version` its profile finalizes.
-fn transaction_version(major: KafkaMajor) -> TxnVersion {
-    if Profile::new(major).transaction_version() >= 2 {
-        TxnVersion::EpochBump
-    } else {
-        TxnVersion::Classic
-    }
 }
 
 impl Args {
@@ -91,7 +82,6 @@ impl Args {
         major: KafkaMajor,
         env: &dyn Fn(&str) -> Option<std::ffi::OsString>,
     ) -> Result<BrokerConfig> {
-        let none_is_zero = |n: i64| if n <= 0 { -1 } else { n };
         let mut broker = BrokerConfig::new(self.data_dir.clone());
         broker.auto_create_topics = self.auto_create_topics;
         broker.default_partitions = self.default_partitions;
@@ -109,17 +99,13 @@ impl Args {
         broker.log_cleaner_every = self.log_cleaner_interval;
         broker.log_cleaner_enable = self.log_cleaner_enable;
         broker.client_telemetry = self.client_telemetry;
-        broker.transaction_version = transaction_version(major);
+        broker.unstable_api_versions = self.unstable_api_versions;
+        broker.transaction_two_phase_commit = self.transaction_two_phase_commit;
+        self.major_and_tokens(&mut broker, major, env)?;
         broker.max_open_partitions = self.max_open_partitions;
         broker.acl_default_allow = self.login.acl_allow();
         broker.super_users = self.login.super_users()?;
-        broker.defaults = Defaults {
-            segment_bytes: self.segment_bytes,
-            index_interval_bytes: self.index_interval_bytes,
-            message_max_bytes: self.message_max_bytes,
-            retention_bytes: none_is_zero(self.retention_bytes),
-            retention_ms: none_is_zero(self.retention_ms),
-        };
+        broker.defaults = self.topic_defaults();
         Ok(broker)
     }
 
@@ -141,45 +127,6 @@ impl Args {
         let (registry, notes) = registry::setup(&self.registry, self.listen, tls, sasl, &names)?;
         warnings.extend(notes);
         Ok((console, registry, warnings))
-    }
-
-    /// The sizes, counts and times that must be above zero.
-    fn check_numbers(&self) -> Result<()> {
-        for (name, value) in [
-            ("--segment-bytes", self.segment_bytes),
-            ("--index-interval-bytes", self.index_interval_bytes),
-            ("--message-max-bytes", self.message_max_bytes),
-        ] {
-            if value <= 0 {
-                bail!("{name} must be positive, not {value}");
-            }
-        }
-        if self.default_partitions <= 0
-            || self.max_partitions <= 0
-            || self.default_partitions > self.max_partitions
-        {
-            bail!(
-                "--default-partitions ({}) must be positive and at most --max-partitions ({})",
-                self.default_partitions,
-                self.max_partitions
-            );
-        }
-        for (name, time) in [
-            ("--consumer-session-timeout", self.consumer_session_timeout),
-            ("--log-cleaner-interval", self.log_cleaner_interval),
-            (
-                "--log-retention-check-interval",
-                self.log_retention_check_interval,
-            ),
-        ] {
-            if time.is_zero() {
-                bail!("{name} must be above zero");
-            }
-        }
-        if self.worker_threads == 0 {
-            bail!("--worker-threads must be at least 1");
-        }
-        Ok(())
     }
 
     /// The flags of later parts that were given a value and are being ignored, for a warning. A build without the

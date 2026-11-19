@@ -11,7 +11,9 @@ pub(crate) struct Dec {
     exp: i64,
 }
 
-/// An exponent past this is clamped: such numbers compare correctly, they are only not exact.
+/// An exponent past this (once the digits are normalised) is clamped: such numbers compare correctly, they are only
+/// not exact. The clamp comes last, so that `2060002E888888888880744044` and `2.060002E+888888888880744050` (one
+/// number, as Java rewrites it) stay one value.
 const EXP_BOUND: i64 = 1 << 40;
 
 impl Dec {
@@ -36,11 +38,12 @@ impl Dec {
         let exp = parse_exp(exp_text)?;
         let mut digits: Vec<u8> = int.bytes().chain(frac.bytes()).map(|b| b - b'0').collect();
         let frac_len = i64::try_from(frac.len()).ok()?;
-        let mut exp = exp - frac_len;
+        let mut exp = exp.saturating_sub(frac_len);
         while digits.last() == Some(&0) {
             digits.pop();
-            exp += 1;
+            exp = exp.saturating_add(1);
         }
+        let exp = exp.clamp(-EXP_BOUND, EXP_BOUND);
         let lead = digits.iter().take_while(|d| **d == 0).count();
         digits.drain(..lead);
         if digits.is_empty() {
@@ -164,7 +167,7 @@ fn parse_exp(text: &str) -> Option<i64> {
     }
     let mut v: i64 = 0;
     for b in digits.bytes() {
-        v = (v * 10 + i64::from(b - b'0')).min(EXP_BOUND);
+        v = v.saturating_mul(10).saturating_add(i64::from(b - b'0'));
     }
     Some(if neg { -v } else { v })
 }

@@ -77,6 +77,15 @@ pub(crate) struct Args {
     /// two APIs (Kafka 4 only: older versions have none).
     #[arg(long, default_value_t = true, action = clap::ArgAction::Set, num_args = 0..=1, default_missing_value = "true")]
     client_telemetry: bool,
+    /// Also offer the protocol versions Kafka marks unstable, as Kafka's internal `unstable.api.versions.enable` does (off,
+    /// as in Kafka). In Kafka 4.4.0 that is InitProducerId v6 alone: the two-phase commit of KIP-939, which no released client
+    /// sends yet.
+    #[arg(long, default_value_t = false, action = clap::ArgAction::Set, num_args = 0..=1, default_missing_value = "true")]
+    unstable_api_versions: bool,
+    /// Let producers take part in a two-phase commit (KIP-939, Kafka's `transaction.two.phase.commit.enable`; off, as in
+    /// Kafka): their transactions never time out. It needs `--unstable-api-versions` for a client to ask for one.
+    #[arg(long, default_value_t = false, action = clap::ArgAction::Set, num_args = 0..=1, default_missing_value = "true")]
+    transaction_two_phase_commit: bool,
     /// Kafka major version to stand for (1-4).
     #[arg(long, default_value_t = 4)]
     kafka_version: u8,
@@ -109,6 +118,22 @@ pub(crate) struct Args {
     /// Who may log in and what they may do (`cli/login_flags.rs`).
     #[command(flatten)]
     pub(crate) login: login_flags::LoginFlags,
+
+    /// The key delegation tokens are signed with (Kafka's delegation.token.secret.key); tokens are off without it. It shows in
+    /// `ps`: DOZE_KAFKA_DELEGATION_TOKEN_SECRET_KEY is read too. Tokens are used over SASL only; a new key voids them all.
+    #[arg(long, value_name = "SECRET")]
+    delegation_token_secret_key: Option<String>,
+    /// The longest a delegation token can live, renewals and all (Kafka's delegation.token.max.lifetime.ms, 7 days).
+    #[arg(long, default_value = "168h", value_name = "DURATION", value_parser = duration::parse)]
+    delegation_token_max_lifetime: Duration,
+    /// How long a delegation token lives from its making or its last renewal, unless less is asked for (Kafka's
+    /// delegation.token.expiry.time.ms, 1 day).
+    #[arg(long, default_value = "24h", value_name = "DURATION", value_parser = duration::parse)]
+    delegation_token_expiry_time: Duration,
+    /// How often expired delegation tokens are removed (Kafka's delegation.token.expiry.check.interval.ms, 1 hour); until then
+    /// an expired token is still described and can still log in, as in Kafka.
+    #[arg(long, default_value = "1h", value_name = "DURATION", value_parser = duration::parse)]
+    delegation_token_expiry_check_interval: Duration,
 
     // Accepted and ignored until the phase that has it.
     #[arg(long, hide = true)]
@@ -143,7 +168,9 @@ pub(crate) struct Args {
 mod acl;
 mod console;
 mod console_flags;
+mod derived;
 mod login_flags;
+mod major;
 mod settings;
 pub(crate) use console::Console;
 #[cfg(feature = "console")]
