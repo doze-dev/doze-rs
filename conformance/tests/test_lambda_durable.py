@@ -118,9 +118,11 @@ def test_durable_execution_with_a_wait_and_a_callback(client, names, cleanup, sn
     again = lam.invoke(FunctionName=name, Qualifier="$LATEST", InvocationType="Event",
                        DurableExecutionName="order-1", Payload=b'{"n": 21}')
     assert again["DurableExecutionArn"] == arn
-    snapshot.error("invoke-same-name-other-payload", lambda: lam.invoke(
+    # Recorded 2026-11-19: AWS accepts this (the scenario expected a refusal); what it answers is kept.
+    snapshot.outcome("invoke-same-name-other-payload", lambda: (lambda r: {"StatusCode": r["StatusCode"],
+                     "same-execution": r.get("DurableExecutionArn") == arn})(lam.invoke(
         FunctionName=name, Qualifier="$LATEST", InvocationType="Event",
-        DurableExecutionName="order-1", Payload=b'{"n": 1}'))
+        DurableExecutionName="order-1", Payload=b'{"n": 1}')))
 
     callback = callback_of(lam, arn, eventually)
     snapshot.match("running", lam.get_durable_execution(DurableExecutionArn=arn), opaque=MINTED)
@@ -147,7 +149,8 @@ def test_durable_execution_stopped(client, names, cleanup, snapshot, service_rol
     snapshot.match("stop", lam.stop_durable_execution(
         DurableExecutionArn=arn, Error={"ErrorMessage": "changed my mind", "ErrorType": "Cancelled"}), opaque=MINTED)
     snapshot.match("stopped", lam.get_durable_execution(DurableExecutionArn=arn), opaque=MINTED)
-    snapshot.error("stop-again", lambda: lam.stop_durable_execution(DurableExecutionArn=arn))
+    # Recorded 2026-11-19: AWS accepts a second stop.
+    snapshot.outcome("stop-again", lambda: lam.stop_durable_execution(DurableExecutionArn=arn), opaque=("StopTimestamp",))
     snapshot.error("fail-after-stop", lambda: lam.send_durable_execution_callback_failure(
         CallbackId=callback, Error={"ErrorMessage": "no"}))
 
