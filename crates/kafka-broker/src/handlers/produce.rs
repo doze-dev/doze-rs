@@ -251,18 +251,7 @@ impl<F: Fs> Broker<F> {
         };
         let now = clock::now();
         let records = p.records.as_ref().unwrap_or(&NO_RECORDS);
-        let checked = blocking::run(|| {
-            let defaults = self.defaults.get();
-            let at = check::At {
-                defaults: &defaults,
-                kafka: self.config.kafka_major,
-            };
-            if version < OLD_FORMATS_TO {
-                check::check_old(&at, topic, id, records, now)
-            } else {
-                check::check(&at, version, topic, id, records, now).map(Some)
-            }
-        });
+        let checked = blocking::run(|| self.checked(version, topic, id, records, now));
         let Accepted {
             batch,
             log_append_time,
@@ -316,6 +305,27 @@ impl<F: Fs> Broker<F> {
                 appended_at: log_append_time.then_some(now),
             },
             Err(e) => Stage::Done(storage_fault(p.index, &e, self.deleted(topic.id))),
+        }
+    }
+
+    /// One partition's records held to the rules: a message set of v0 to v2 converted first, a v3 batch as it is.
+    fn checked(
+        &self,
+        version: i16,
+        topic: &Topic,
+        id: PartitionId,
+        records: &Bytes,
+        now: TimestampMs,
+    ) -> Result<Option<Accepted>, check::Refused> {
+        let defaults = self.defaults.get();
+        let at = check::At {
+            defaults: &defaults,
+            kafka: self.config.kafka_major,
+        };
+        if version < OLD_FORMATS_TO {
+            check::check_old(&at, topic, id, records, now)
+        } else {
+            check::check(&at, version, topic, id, records, now).map(Some)
         }
     }
 

@@ -103,15 +103,11 @@ impl<F: Fs> Broker<F> {
                 c.port = -1;
             } else if share && !share_groups_run {
                 // Kafka 3.9 lists v6 with share groups off: no share coordinator, whatever the key.
-                c.error_code = ResponseError::CoordinatorNotAvailable.code();
-                c.node_id = BrokerId(-1);
-                c.port = -1;
+                nowhere(&mut c, ResponseError::CoordinatorNotAvailable);
             } else if known || (share && share_key(key.as_str())) {
                 me(&mut c);
             } else if share {
-                c.error_code = ResponseError::InvalidRequest.code();
-                c.node_id = BrokerId(-1);
-                c.port = -1;
+                nowhere(&mut c, ResponseError::InvalidRequest);
             } else {
                 c.error_code = ResponseError::InvalidRequest.code();
                 c.error_message =
@@ -123,6 +119,13 @@ impl<F: Fs> Broker<F> {
         }
         resp
     }
+}
+
+/// A key answered with `error` and no broker.
+fn nowhere(c: &mut Coordinator, error: ResponseError) {
+    c.error_code = error.code();
+    c.node_id = BrokerId(-1);
+    c.port = -1;
 }
 
 /// Every key of a v6 request for share state, refused CLUSTER_ACTION: `FindCoordinatorResponse.prepareErrorResponse`.

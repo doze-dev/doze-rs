@@ -216,8 +216,10 @@ What `tools/old-profiles-oracle` still finds different from the real brokers (20
 - **W38-D2.** Every profile has Kafka 4.4's topic configs and their defaults (`compression.type=zstd` is taken at 1.1, 
   DescribeConfigs lists 4.4's set, `segment.bytes` is this broker's own); only `message.timestamp.after.max.ms`'s default
   is the release's (no bound before 4.0, KIP-937), as it decides which records are refused.
-- **W38-D3.** Kafka 2.8's group coordinator starts a new generation when a static member is replaced while its group waits
-  for SyncGroup; this broker answers with the current one, as 3.9 and 4 do.
+- **W38-D3.** Kafka 2.8 and 3.9 start a new generation when a static member is replaced while its group waits for SyncGroup
+  (3.9 not on every run: it is a race with the join it completes); this broker answers with the current one.
+- **W38-D6.** DescribeProducers v0 at Kafka 3.9 gives an idempotent producer coordinator epoch -1 and its batch's own time, and an
+  unknown topic the text "This server does not host this topic-partition."; this broker answers as at Kafka 4 (0, its clock, no text).
 - **W38-D4.** As at Kafka 4 (and decided elsewhere): no internal topics in Metadata, an authorizer is always there (the
   recorded brokers have none and answer the ACL APIs SECURITY_DISABLED), member ids are `doze-…`, and DescribeGroups,
   DeleteGroups and DeleteRecords answer in the order asked, where Kafka's follows its hash maps.

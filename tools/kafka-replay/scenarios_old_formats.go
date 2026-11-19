@@ -3,7 +3,6 @@ package replay
 import (
 	"encoding/binary"
 	"fmt"
-	"time"
 
 	"github.com/twmb/franz-go/pkg/kmsg"
 )
@@ -16,9 +15,9 @@ import (
 //   - old-formats-produce: Produce v0, v1 and v2 carrying message sets of format v0 and v1, a v2 batch, two formats in one
 //     set, a cut last message, nothing at all, a bad checksum, and a keyless message on a compacted topic; read back
 //     by Fetch v4 as the v2 batches the log made of them, and by ListOffsets.
-//   - old-formats-fetch: v2 batches and a transaction's markers read by Fetch v0 to v3, from several offsets and with
-//     several limits: down-converted to format v0 or v1, cut at the limit, filled with overflow, the first batch converted
-//     twice after a marker (Kafka's KIP-283 iterator), a marker alone answered with an overflow message.
+//   - old-formats-fetch: v2 batches read by Fetch v0 to v3, from several offsets and with several limits: down-converted to
+//     format v0 or v1, cut at the limit, filled with overflow (transactions and their markers are the probe's: their times
+//     are the broker's clock).
 //   - old-offsets: ListOffsets v0 (a list of offsets, newest first), OffsetCommit and OffsetFetch v0 (ZooKeeper's, which a
 //     KRaft broker refuses: UNSUPPORTED_VERSION) and OffsetCommit v1 with a commit time.
 
@@ -122,7 +121,7 @@ func oldFormatsProduce(e *Env) {
 }
 
 func oldFormatsFetch(e *Env) {
-	e.Do("create", createTopics(false, newTopic("of", 1, 1), newTopic("oft", 1, 1)), 4)
+	e.Do("create", createTopics(false, newTopic("of", 1, 1)), 4)
 	for i := range 3 {
 		e.produceRaw(fmt.Sprintf("batch-%d", i), "of", 3, -1, "", v2Batch(3).bytes())
 	}
@@ -132,36 +131,6 @@ func oldFormatsFetch(e *Env) {
 		}
 		for _, max := range []int32{40, 100, 150, 250} {
 			e.oldFetch(fmt.Sprintf("v%d-limit-%d", v, max), "of", v, 0, max)
-		}
-	}
-	// A committed transaction: its records, then a marker; another batch after it.
-	init := kmsg.NewPtrInitProducerIDRequest()
-	tx := "oft-tx"
-	init.TransactionalID, init.TransactionTimeoutMillis = &tx, 60000
-	find := kmsg.NewPtrFindCoordinatorRequest()
-	find.CoordinatorKey, find.CoordinatorType = tx, 1
-	e.DoUntil("find-coordinator", find, 1, func(r kmsg.Response) bool { return r.(*kmsg.FindCoordinatorResponse).ErrorCode == 0 })
-	ir := e.DoUntil("init", init, 0, func(r kmsg.Response) bool { return r.(*kmsg.InitProducerIDResponse).ErrorCode == 0 }).(*kmsg.InitProducerIDResponse)
-	add := kmsg.NewPtrAddPartitionsToTxnRequest()
-	add.TransactionalID, add.ProducerID, add.ProducerEpoch = tx, ir.ProducerID, ir.ProducerEpoch
-	at := kmsg.NewAddPartitionsToTxnRequestTopic()
-	at.Topic, at.Partitions = "oft", []int32{0}
-	add.Topics = append(add.Topics, at)
-	e.DoUntil("add-partitions", add, 0, func(r kmsg.Response) bool {
-		return r.(*kmsg.AddPartitionsToTxnResponse).Topics[0].Partitions[0].ErrorCode == 0
-	})
-	b := v2Batch(2)
-	b.PID, b.Epoch, b.Seq, b.Attrs = ir.ProducerID, ir.ProducerEpoch, 0, 0x10
-	e.produceRaw("txn-records", "oft", 3, -1, tx, b.bytes())
-	end := kmsg.NewPtrEndTxnRequest()
-	end.TransactionalID, end.ProducerID, end.ProducerEpoch, end.Commit = tx, ir.ProducerID, ir.ProducerEpoch, true
-	e.DoUntil("commit", end, 0, func(r kmsg.Response) bool { return r.(*kmsg.EndTxnResponse).ErrorCode == 0 })
-	e.Wait(500 * time.Millisecond)
-	e.oldFetch("v0-the-marker-alone", "oft", 0, 2, 1<<20)
-	e.produceRaw("after-the-marker", "oft", 3, -1, "", v2Batch(1).bytes())
-	for v := int16(0); v <= 3; v++ {
-		for _, off := range []int64{0, 2} {
-			e.oldFetch(fmt.Sprintf("txn-v%d-at-%d", v, off), "oft", v, off, 1<<20)
 		}
 	}
 }
@@ -207,13 +176,16 @@ func oldOffsets(e *Env) {
 		e.Do(fmt.Sprintf("commit-v%d", v), c, v)
 		c.Topics = []kmsg.OffsetCommitRequestTopic{unknown}
 		e.Do(fmt.Sprintf("commit-v%d-unknown-topic", v), c, v)
+		// One partition a request: Kafka answers v0's in its map's order.
 		for f := int16(0); f <= 2; f++ {
-			r := kmsg.NewPtrOffsetFetchRequest()
-			r.Group = "og"
-			ft := kmsg.NewOffsetFetchRequestTopic()
-			ft.Topic, ft.Partitions = "oo", []int32{0, 1}
-			r.Topics = append(r.Topics, ft)
-			e.Do(fmt.Sprintf("after-v%d-fetch-v%d", v, f), r, f)
+			for _, part := range []int32{0, 1} {
+				r := kmsg.NewPtrOffsetFetchRequest()
+				r.Group = "og"
+				ft := kmsg.NewOffsetFetchRequestTopic()
+				ft.Topic, ft.Partitions = "oo", []int32{part}
+				r.Topics = append(r.Topics, ft)
+				e.Do(fmt.Sprintf("after-v%d-fetch-v%d-partition-%d", v, f, part), r, f)
+			}
 		}
 	}
 }

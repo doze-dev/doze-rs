@@ -108,11 +108,19 @@ fn sized(out: &mut Vec<u8>, field: Option<&[u8]>) {
 #[cfg(test)]
 mod tests;
 
+/// A message to put in a set: its timestamp, key and value. For tests.
+#[cfg(any(test, feature = "test-support"))]
+pub type TestMessage<'a> = (i64, Option<&'a [u8]>, Option<&'a [u8]>);
+
+/// A message read back: its format, offset, timestamp, key and value. For tests.
+#[cfg(any(test, feature = "test-support"))]
+pub type ReadMessage = (Magic, i64, i64, Option<Bytes>, Option<Bytes>);
+
 /// A message set of format `magic` holding `messages` (timestamp, key, value), uncompressed, at offsets 0, 1, 2: what a
 /// client of Produce v0 to v2 sends. For tests (feature `test-support`).
 #[cfg(any(test, feature = "test-support"))]
 #[must_use]
-pub fn message_set(magic: Magic, messages: &[(i64, Option<&[u8]>, Option<&[u8]>)]) -> Bytes {
+pub fn message_set(magic: Magic, messages: &[TestMessage<'_>]) -> Bytes {
     let mut out = Vec::new();
     for (i, (timestamp, key, value)) in messages.iter().enumerate() {
         message::write(
@@ -135,7 +143,7 @@ pub fn message_set(magic: Magic, messages: &[(i64, Option<&[u8]>, Option<&[u8]>)
 /// old consumer reads them; `None` if it is not one. For tests (feature `test-support`).
 #[cfg(any(test, feature = "test-support"))]
 #[must_use]
-pub fn read_set(set: &Bytes) -> Option<Vec<(Magic, i64, i64, Option<Bytes>, Option<Bytes>)>> {
+pub fn read_set(set: &Bytes) -> Option<Vec<ReadMessage>> {
     let mut out = Vec::new();
     for entry in message::entries(set) {
         let message::Entry::Message(m) = entry.ok()? else {

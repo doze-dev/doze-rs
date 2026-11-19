@@ -46,7 +46,7 @@ async fn kafka(major: u8) -> Rig {
 fn set(magic: Magic, n: usize) -> Bytes {
     let ts = 1_795_000_000_000_i64;
     let keys: Vec<String> = (0..n).map(|i| format!("k{i}")).collect();
-    let msgs: Vec<(i64, Option<&[u8]>, Option<&[u8]>)> = keys
+    let msgs: Vec<legacy::TestMessage<'_>> = keys
         .iter()
         .enumerate()
         .map(|(i, k)| (ts + i as i64, Some(k.as_bytes()), Some(&b"v"[..])))

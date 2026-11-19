@@ -633,7 +633,7 @@
       }
     },
     {
-      "label": "after-v0-fetch-v0",
+      "label": "after-v0-fetch-v0-partition-0",
       "api": "OffsetFetch",
       "version": 0,
       "request": {
@@ -643,7 +643,43 @@
         "Topics": [
           {
             "Partitions": [
-              0,
+              0
+            ],
+            "Topic": "oo"
+          }
+        ]
+      },
+      "response": {
+        "ErrorCode": 0,
+        "Groups": null,
+        "ThrottleMillis": 0,
+        "Topics": [
+          {
+            "Partitions": [
+              {
+                "ErrorCode": 35,
+                "LeaderEpoch": -1,
+                "Metadata": "",
+                "Offset": -1,
+                "Partition": 0
+              }
+            ],
+            "Topic": "oo"
+          }
+        ]
+      }
+    },
+    {
+      "label": "after-v0-fetch-v0-partition-1",
+      "api": "OffsetFetch",
+      "version": 0,
+      "request": {
+        "Group": "og",
+        "Groups": null,
+        "RequireStable": false,
+        "Topics": [
+          {
+            "Partitions": [
               1
             ],
             "Topic": "oo"
@@ -663,13 +699,6 @@
                 "Metadata": "",
                 "Offset": -1,
                 "Partition": 1
-              },
-              {
-                "ErrorCode": 35,
-                "LeaderEpoch": -1,
-                "Metadata": "",
-                "Offset": -1,
-                "Partition": 0
               }
             ],
             "Topic": "oo"
@@ -678,7 +707,7 @@
       }
     },
     {
-      "label": "after-v0-fetch-v1",
+      "label": "after-v0-fetch-v1-partition-0",
       "api": "OffsetFetch",
       "version": 1,
       "request": {
@@ -688,8 +717,7 @@
         "Topics": [
           {
             "Partitions": [
-              0,
-              1
+              0
             ],
             "Topic": "oo"
           }
@@ -708,7 +736,37 @@
                 "Metadata": "",
                 "Offset": -1,
                 "Partition": 0
-              },
+              }
+            ],
+            "Topic": "oo"
+          }
+        ]
+      }
+    },
+    {
+      "label": "after-v0-fetch-v1-partition-1",
+      "api": "OffsetFetch",
+      "version": 1,
+      "request": {
+        "Group": "og",
+        "Groups": null,
+        "RequireStable": false,
+        "Topics": [
+          {
+            "Partitions": [
+              1
+            ],
+            "Topic": "oo"
+          }
+        ]
+      },
+      "response": {
+        "ErrorCode": 0,
+        "Groups": null,
+        "ThrottleMillis": 0,
+        "Topics": [
+          {
+            "Partitions": [
               {
                 "ErrorCode": 0,
                 "LeaderEpoch": -1,
@@ -723,7 +781,7 @@
       }
     },
     {
-      "label": "after-v0-fetch-v2",
+      "label": "after-v0-fetch-v2-partition-0",
       "api": "OffsetFetch",
       "version": 2,
       "request": {
@@ -733,8 +791,7 @@
         "Topics": [
           {
             "Partitions": [
-              0,
-              1
+              0
             ],
             "Topic": "oo"
           }
@@ -753,7 +810,37 @@
                 "Metadata": "",
                 "Offset": -1,
                 "Partition": 0
-              },
+              }
+            ],
+            "Topic": "oo"
+          }
+        ]
+      }
+    },
+    {
+      "label": "after-v0-fetch-v2-partition-1",
+      "api": "OffsetFetch",
+      "version": 2,
+      "request": {
+        "Group": "og",
+        "Groups": null,
+        "RequireStable": false,
+        "Topics": [
+          {
+            "Partitions": [
+              1
+            ],
+            "Topic": "oo"
+          }
+        ]
+      },
+      "response": {
+        "ErrorCode": 0,
+        "Groups": null,
+        "ThrottleMillis": 0,
+        "Topics": [
+          {
+            "Partitions": [
               {
                 "ErrorCode": 0,
                 "LeaderEpoch": -1,
@@ -852,7 +939,7 @@
       }
     },
     {
-      "label": "after-v1-fetch-v0",
+      "label": "after-v1-fetch-v0-partition-0",
       "api": "OffsetFetch",
       "version": 0,
       "request": {
@@ -862,7 +949,43 @@
         "Topics": [
           {
             "Partitions": [
-              0,
+              0
+            ],
+            "Topic": "oo"
+          }
+        ]
+      },
+      "response": {
+        "ErrorCode": 0,
+        "Groups": null,
+        "ThrottleMillis": 0,
+        "Topics": [
+          {
+            "Partitions": [
+              {
+                "ErrorCode": 35,
+                "LeaderEpoch": -1,
+                "Metadata": "",
+                "Offset": -1,
+                "Partition": 0
+              }
+            ],
+            "Topic": "oo"
+          }
+        ]
+      }
+    },
+    {
+      "label": "after-v1-fetch-v0-partition-1",
+      "api": "OffsetFetch",
+      "version": 0,
+      "request": {
+        "Group": "og",
+        "Groups": null,
+        "RequireStable": false,
+        "Topics": [
+          {
+            "Partitions": [
               1
             ],
             "Topic": "oo"
@@ -882,13 +1005,6 @@
                 "Metadata": "",
                 "Offset": -1,
                 "Partition": 1
-              },
-              {
-                "ErrorCode": 35,
-                "LeaderEpoch": -1,
-                "Metadata": "",
-                "Offset": -1,
-                "Partition": 0
               }
             ],
             "Topic": "oo"
@@ -897,7 +1013,7 @@
       }
     },
     {
-      "label": "after-v1-fetch-v1",
+      "label": "after-v1-fetch-v1-partition-0",
       "api": "OffsetFetch",
       "version": 1,
       "request": {
@@ -907,8 +1023,7 @@
         "Topics": [
           {
             "Partitions": [
-              0,
-              1
+              0
             ],
             "Topic": "oo"
           }
@@ -927,7 +1042,37 @@
                 "Metadata": "",
                 "Offset": -1,
                 "Partition": 0
-              },
+              }
+            ],
+            "Topic": "oo"
+          }
+        ]
+      }
+    },
+    {
+      "label": "after-v1-fetch-v1-partition-1",
+      "api": "OffsetFetch",
+      "version": 1,
+      "request": {
+        "Group": "og",
+        "Groups": null,
+        "RequireStable": false,
+        "Topics": [
+          {
+            "Partitions": [
+              1
+            ],
+            "Topic": "oo"
+          }
+        ]
+      },
+      "response": {
+        "ErrorCode": 0,
+        "Groups": null,
+        "ThrottleMillis": 0,
+        "Topics": [
+          {
+            "Partitions": [
               {
                 "ErrorCode": 0,
                 "LeaderEpoch": -1,
@@ -942,7 +1087,7 @@
       }
     },
     {
-      "label": "after-v1-fetch-v2",
+      "label": "after-v1-fetch-v2-partition-0",
       "api": "OffsetFetch",
       "version": 2,
       "request": {
@@ -952,8 +1097,7 @@
         "Topics": [
           {
             "Partitions": [
-              0,
-              1
+              0
             ],
             "Topic": "oo"
           }
@@ -972,7 +1116,37 @@
                 "Metadata": "",
                 "Offset": -1,
                 "Partition": 0
-              },
+              }
+            ],
+            "Topic": "oo"
+          }
+        ]
+      }
+    },
+    {
+      "label": "after-v1-fetch-v2-partition-1",
+      "api": "OffsetFetch",
+      "version": 2,
+      "request": {
+        "Group": "og",
+        "Groups": null,
+        "RequireStable": false,
+        "Topics": [
+          {
+            "Partitions": [
+              1
+            ],
+            "Topic": "oo"
+          }
+        ]
+      },
+      "response": {
+        "ErrorCode": 0,
+        "Groups": null,
+        "ThrottleMillis": 0,
+        "Topics": [
+          {
+            "Partitions": [
               {
                 "ErrorCode": 0,
                 "LeaderEpoch": -1,

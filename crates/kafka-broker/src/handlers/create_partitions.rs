@@ -86,8 +86,8 @@ impl<F: Fs> Broker<F> {
         validate_only: bool,
         mutations: &mut Mutations<'_>,
     ) -> Result<bool, Refusal> {
-        // Kafka 1.1 to 3.9 say which topic (`AdminManager.createPartitions`); 4 says nothing.
-        let unknown = (self.config.kafka_major.get() <= 3)
+        // Kafka 1.1 and 2.8 say which topic (ZooKeeper's `AdminManager.createPartitions`); the controller (3 and 4) nothing.
+        let unknown = (self.config.kafka_major.get() <= 2)
             .then(|| format!("The topic '{}' does not exist.", t.name.0));
         let topic = TopicName::parse(&t.name.0)
             .ok()
