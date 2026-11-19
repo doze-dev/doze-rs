@@ -1,0 +1,199 @@
+[
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/pcmp/versions?normalize=true",
+   "b": "{\"schema\":\"syntax = \\\"proto3\\\";\\npackage c;\\nmessage M { string b = 2; int32 a = 1; }\\n\",\"schemaType\":\"PROTOBUF\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":73}",
+    "ms": 7
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":72,\"version\":1,\"guid\":\"8413af44-db8d-3232-b4e0-4e9dceac3f17\",\"schemaType\":\"PROTOBUF\",\"schema\":\"syntax = \\\"proto3\\\";\\npackage c;\\n\\nmessage M {\\n  int32 a = 1;\\n  string b = 2;\\n}\\n\"}",
+    "ms": 9
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":74}",
+    "ms": 5
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/compatibility/subjects/pcmp/versions/latest?normalize=true&verbose=true",
+   "b": "{\"schema\":\"syntax = \\\"proto3\\\";\\npackage c;\\nmessage M { int32 a = 1; int64 c = 3; string b = 2; }\\n\",\"schemaType\":\"PROTOBUF\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"is_compatible\":true,\"messages\":[]}",
+    "ms": 2
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"is_compatible\":true,\"messages\":[]}",
+    "ms": 4
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"is_compatible\":true,\"messages\":[]}",
+    "ms": 1
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/compatibility/subjects/pcmp/versions/latest?normalize=true&verbose=true",
+   "b": "{\"schema\":\"syntax = \\\"proto3\\\";\\npackage c;\\nmessage M { int32 a = 1; bytes b = 2; }\\n\",\"schemaType\":\"PROTOBUF\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"is_compatible\":true,\"messages\":[]}",
+    "ms": 2
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"is_compatible\":true,\"messages\":[]}",
+    "ms": 3
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"is_compatible\":true,\"messages\":[]}",
+    "ms": 1
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/pcmp/versions?normalize=true",
+   "b": "{\"schema\":\"syntax = \\\"proto3\\\";\\npackage c;\\nmessage M { int64 c = 3; int32 a = 1; string b = 2; }\\n\",\"schemaType\":\"PROTOBUF\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":74}",
+    "ms": 4
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":73,\"version\":2,\"guid\":\"1710fe83-8cf5-3bc4-f30d-99474869613f\",\"schemaType\":\"PROTOBUF\",\"schema\":\"syntax = \\\"proto3\\\";\\npackage c;\\n\\nmessage M {\\n  int32 a = 1;\\n  string b = 2;\\n  int64 c = 3;\\n}\\n\"}",
+    "ms": 10
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":75}",
+    "ms": 5
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "GET",
+   "p": "/subjects/pcmp/versions/latest/schema"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "syntax = \"proto3\";\npackage c;\n\nmessage M {\n  int32 a = 1;\n  string b = 2;\n  int64 c = 3;\n}\n",
+    "ms": 1
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "syntax = \"proto3\";\npackage c;\n\nmessage M {\n  int32 a = 1;\n  string b = 2;\n  int64 c = 3;\n}\n",
+    "ms": 2
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "syntax = \"proto3\";\npackage c;\n\nmessage M {\n  int32 a = 1;\n  string b = 2;\n  int64 c = 3;\n}\n",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/pcmp/versions",
+   "b": "{\"schema\":\"syntax = \\\"proto3\\\";\\npackage c;\\nmessage M { int32 a = 1; Nope n = 2; }\\n\",\"schemaType\":\"PROTOBUF\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42201,\"message\":\"Invalid schema {subject=pcmp,version=0,id=-1,schemaType=PROTOBUF,references=[],metadata=null,ruleSet=null,schema=syntax = \\\"proto3\\\";\\npackage c;\\nmessage M { int32 a = 1; Nope n = 2; }\\n,schemaTags=null}, details: Could not resolve type: Nope\"}",
+    "ms": 2
+   },
+   "confluent-8": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42201,\"message\":\"Invalid schema {subject=pcmp,version=0,id=-1,guid=811a28ec-da77-de18-ef3b-bddb53677b90,schemaType=PROTOBUF,references=[],metadata=null,ruleSet=null,schema=syntax = \\\"proto3\\\";\\npackage c;\\nmessage M { int32 a = 1; Nope n = 2; }\\n,schemaTags=null,ts=null,deleted=null}, details: Could not resolve type: Nope\"}",
+    "ms": 3
+   },
+   "doze": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42201,\"message\":\"Invalid schema {subject=pcmp,version=0,id=-1,schemaType=PROTOBUF,references=[],metadata=null,ruleSet=null,schema=syntax = \\\"proto3\\\";\\npackage c;\\nmessage M { int32 a = 1; Nope n = 2; }\\n,schemaTags=null}, details: Could not resolve type: Nope\"}",
+    "ms": 0
+   }
+  }
+ }
+]

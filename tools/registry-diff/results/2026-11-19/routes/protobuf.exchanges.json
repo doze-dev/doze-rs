@@ -1,0 +1,979 @@
+[
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/p/versions",
+   "b": "{\"schema\":\"syntax = \\\"proto3\\\";\\npackage shop;\\n\\nmessage Order {\\n  string id = 1;\\n  int64 cents = 2;\\n}\\n\",\"schemaType\":\"PROTOBUF\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":21}",
+    "ms": 9
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":22,\"version\":1,\"guid\":\"4a56cb59-0075-8807-b2e8-08d229a4380c\",\"schemaType\":\"PROTOBUF\",\"schema\":\"syntax = \\\"proto3\\\";\\npackage shop;\\n\\nmessage Order {\\n  string id = 1;\\n  int64 cents = 2;\\n}\\n\"}",
+    "ms": 12
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":22}",
+    "ms": 5
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/p/versions",
+   "b": "{\"schema\":\"syntax = \\\"proto3\\\";\\npackage shop;\\nmessage Order {\\n  string id = 1;\\n  int64 cents = 2;\\n}\\n\",\"schemaType\":\"PROTOBUF\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":21}",
+    "ms": 4
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":22,\"version\":1,\"guid\":\"4a56cb59-0075-8807-b2e8-08d229a4380c\",\"schemaType\":\"PROTOBUF\",\"schema\":\"syntax = \\\"proto3\\\";\\npackage shop;\\n\\nmessage Order {\\n  string id = 1;\\n  int64 cents = 2;\\n}\\n\"}",
+    "ms": 4
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":22}",
+    "ms": 1
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/p/versions",
+   "b": "{\"schema\":\"syntax = \\\"proto3\\\";\\npackage shop;\\n\\nmessage Order {\\n  string id = 1;\\n  int64 cents = 2;\\n  repeated string tags = 3;\\n}\\nmessage Line { int32 qty = 1; }\\n\",\"schemaType\":\"PROTOBUF\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":22}",
+    "ms": 12
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":23,\"version\":2,\"guid\":\"e5d5e4c2-85e4-4975-3273-dfda49393c23\",\"schemaType\":\"PROTOBUF\",\"schema\":\"syntax = \\\"proto3\\\";\\npackage shop;\\n\\nmessage Order {\\n  string id = 1;\\n  int64 cents = 2;\\n  repeated string tags = 3;\\n}\\nmessage Line {\\n  int32 qty = 1;\\n}\\n\"}",
+    "ms": 18
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":23}",
+    "ms": 5
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "GET",
+   "p": "/subjects/p/versions/1"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"p\",\"version\":1,\"id\":21,\"schemaType\":\"PROTOBUF\",\"schema\":\"syntax = \\\"proto3\\\";\\npackage shop;\\n\\nmessage Order {\\n  string id = 1;\\n  int64 cents = 2;\\n}\\n\"}",
+    "ms": 1
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"p\",\"version\":1,\"id\":22,\"guid\":\"4a56cb59-0075-8807-b2e8-08d229a4380c\",\"schemaType\":\"PROTOBUF\",\"schema\":\"syntax = \\\"proto3\\\";\\npackage shop;\\n\\nmessage Order {\\n  string id = 1;\\n  int64 cents = 2;\\n}\\n\",\"ts\":1795104622252,\"deleted\":false}",
+    "ms": 2
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"p\",\"version\":1,\"id\":22,\"schemaType\":\"PROTOBUF\",\"schema\":\"syntax = \\\"proto3\\\";\\npackage shop;\\n\\nmessage Order {\\n  string id = 1;\\n  int64 cents = 2;\\n}\\n\"}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "GET",
+   "p": "/subjects/p/versions/2"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"p\",\"version\":2,\"id\":22,\"schemaType\":\"PROTOBUF\",\"schema\":\"syntax = \\\"proto3\\\";\\npackage shop;\\n\\nmessage Order {\\n  string id = 1;\\n  int64 cents = 2;\\n  repeated string tags = 3;\\n}\\nmessage Line {\\n  int32 qty = 1;\\n}\\n\"}",
+    "ms": 1
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"p\",\"version\":2,\"id\":23,\"guid\":\"e5d5e4c2-85e4-4975-3273-dfda49393c23\",\"schemaType\":\"PROTOBUF\",\"schema\":\"syntax = \\\"proto3\\\";\\npackage shop;\\n\\nmessage Order {\\n  string id = 1;\\n  int64 cents = 2;\\n  repeated string tags = 3;\\n}\\nmessage Line {\\n  int32 qty = 1;\\n}\\n\",\"ts\":1795104622272,\"deleted\":false}",
+    "ms": 2
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"p\",\"version\":2,\"id\":23,\"schemaType\":\"PROTOBUF\",\"schema\":\"syntax = \\\"proto3\\\";\\npackage shop;\\n\\nmessage Order {\\n  string id = 1;\\n  int64 cents = 2;\\n  repeated string tags = 3;\\n}\\nmessage Line {\\n  int32 qty = 1;\\n}\\n\"}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "GET",
+   "p": "/subjects/p/versions/2/schema"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "syntax = \"proto3\";\npackage shop;\n\nmessage Order {\n  string id = 1;\n  int64 cents = 2;\n  repeated string tags = 3;\n}\nmessage Line {\n  int32 qty = 1;\n}\n",
+    "ms": 2
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "syntax = \"proto3\";\npackage shop;\n\nmessage Order {\n  string id = 1;\n  int64 cents = 2;\n  repeated string tags = 3;\n}\nmessage Line {\n  int32 qty = 1;\n}\n",
+    "ms": 1
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "syntax = \"proto3\";\npackage shop;\n\nmessage Order {\n  string id = 1;\n  int64 cents = 2;\n  repeated string tags = 3;\n}\nmessage Line {\n  int32 qty = 1;\n}\n",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "GET",
+   "p": "/schemas/ids/@1"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"schemaType\":\"PROTOBUF\",\"schema\":\"syntax = \\\"proto3\\\";\\npackage shop;\\n\\nmessage Order {\\n  string id = 1;\\n  int64 cents = 2;\\n}\\n\"}",
+    "ms": 1
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"p\",\"version\":1,\"guid\":\"4a56cb59-0075-8807-b2e8-08d229a4380c\",\"schemaType\":\"PROTOBUF\",\"schema\":\"syntax = \\\"proto3\\\";\\npackage shop;\\n\\nmessage Order {\\n  string id = 1;\\n  int64 cents = 2;\\n}\\n\",\"ts\":1795104622252,\"deleted\":false}",
+    "ms": 1
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"schemaType\":\"PROTOBUF\",\"schema\":\"syntax = \\\"proto3\\\";\\npackage shop;\\n\\nmessage Order {\\n  string id = 1;\\n  int64 cents = 2;\\n}\\n\"}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "GET",
+   "p": "/schemas/ids/@2?format=serialized"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"schemaType\":\"PROTOBUF\",\"schema\":\"CgdkZWZhdWx0EgRzaG9wIiwKBU9yZGVyEggKAmlkGAEoCRILCgVjZW50cxgCKAMSDAoEdGFncxgDIAMoCSIRCgRMaW5lEgkKA3F0eRgBKAViBnByb3RvMw==\"}",
+    "ms": 6
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"p\",\"version\":2,\"guid\":\"e5d5e4c2-85e4-4975-3273-dfda49393c23\",\"schemaType\":\"PROTOBUF\",\"schema\":\"CgdkZWZhdWx0EgRzaG9wIiwKBU9yZGVyEggKAmlkGAEoCRILCgVjZW50cxgCKAMSDAoEdGFncxgDIAMoCSIRCgRMaW5lEgkKA3F0eRgBKAViBnByb3RvMw==\",\"ts\":1795104622272,\"deleted\":false}",
+    "ms": 9
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"schemaType\":\"PROTOBUF\",\"schema\":\"CgdkZWZhdWx0EgRzaG9wIiwKBU9yZGVyEggKAmlkGAEoCRILCgVjZW50cxgCKAMSDAoEdGFncxgDIAMoCSIRCgRMaW5lEgkKA3F0eRgBKAViBnByb3RvMw==\"}",
+    "ms": 1
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "GET",
+   "p": "/schemas/ids/@2?format=ignore_extensions"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"schemaType\":\"PROTOBUF\",\"schema\":\"syntax = \\\"proto3\\\";\\npackage shop;\\n\\nmessage Order {\\n  string id = 1;\\n  int64 cents = 2;\\n  repeated string tags = 3;\\n}\\nmessage Line {\\n  int32 qty = 1;\\n}\\n\"}",
+    "ms": 3
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"p\",\"version\":2,\"guid\":\"e5d5e4c2-85e4-4975-3273-dfda49393c23\",\"schemaType\":\"PROTOBUF\",\"schema\":\"syntax = \\\"proto3\\\";\\npackage shop;\\n\\nmessage Order {\\n  string id = 1;\\n  int64 cents = 2;\\n  repeated string tags = 3;\\n}\\nmessage Line {\\n  int32 qty = 1;\\n}\\n\",\"ts\":1795104622272,\"deleted\":false}",
+    "ms": 1
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"schemaType\":\"PROTOBUF\",\"schema\":\"syntax = \\\"proto3\\\";\\npackage shop;\\n\\nmessage Order {\\n  string id = 1;\\n  int64 cents = 2;\\n  repeated string tags = 3;\\n}\\nmessage Line {\\n  int32 qty = 1;\\n}\\n\"}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "GET",
+   "p": "/schemas/ids/@2/schema"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "syntax = \"proto3\";\npackage shop;\n\nmessage Order {\n  string id = 1;\n  int64 cents = 2;\n  repeated string tags = 3;\n}\nmessage Line {\n  int32 qty = 1;\n}\n",
+    "ms": 6
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "syntax = \"proto3\";\npackage shop;\n\nmessage Order {\n  string id = 1;\n  int64 cents = 2;\n  repeated string tags = 3;\n}\nmessage Line {\n  int32 qty = 1;\n}\n",
+    "ms": 2
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "syntax = \"proto3\";\npackage shop;\n\nmessage Order {\n  string id = 1;\n  int64 cents = 2;\n  repeated string tags = 3;\n}\nmessage Line {\n  int32 qty = 1;\n}\n",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/p",
+   "b": "{\"schema\":\"syntax = \\\"proto3\\\";\\npackage shop;\\n\\nmessage Order {\\n  string id = 1;\\n  int64 cents = 2;\\n}\\n\",\"schemaType\":\"PROTOBUF\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"p\",\"version\":1,\"id\":21,\"schemaType\":\"PROTOBUF\",\"schema\":\"syntax = \\\"proto3\\\";\\npackage shop;\\n\\nmessage Order {\\n  string id = 1;\\n  int64 cents = 2;\\n}\\n\"}",
+    "ms": 3
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"p\",\"version\":1,\"id\":22,\"guid\":\"4a56cb59-0075-8807-b2e8-08d229a4380c\",\"schemaType\":\"PROTOBUF\",\"schema\":\"syntax = \\\"proto3\\\";\\npackage shop;\\n\\nmessage Order {\\n  string id = 1;\\n  int64 cents = 2;\\n}\\n\"}",
+    "ms": 4
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"p\",\"version\":1,\"id\":22,\"schemaType\":\"PROTOBUF\",\"schema\":\"syntax = \\\"proto3\\\";\\npackage shop;\\n\\nmessage Order {\\n  string id = 1;\\n  int64 cents = 2;\\n}\\n\"}",
+    "ms": 1
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/p",
+   "b": "{\"schema\":\"syntax = \\\"proto3\\\";\\npackage shop;\\n\\nmessage Order {\\n  string id = 1;\\n  int64 cents = 2;\\n}\\n\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42201,\"message\":\"Invalid schema {subject=p,version=0,id=-1,schemaType=AVRO,references=[],metadata=null,ruleSet=null,schema=syntax = \\\"proto3\\\";\\npackage shop;\\n\\nmessage Order {\\n  string id = 1;\\n  int64 cents = 2;\\n}\\n,schemaTags=null} with refs [] of type AVRO, details: com.fasterxml.jackson.core.JsonParseException: Unrecognized token 'syntax': was expecting (JSON String, Number, Array, Object or token 'null', 'true' or 'false')\\n at [Source: REDACTED (`StreamReadFeature.INCLUDE_SOURCE_IN_LOCATION` disabled); line: 1, column: 7]\"}",
+    "ms": 3
+   },
+   "confluent-8": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42201,\"message\":\"Invalid schema of type AVRO, details: Invalid schema {subject=p,version=null,id=null,guid=4a56cb59-0075-8807-b2e8-08d229a4380c,schemaType=AVRO,references=[],metadata=null,ruleSet=null,schema=syntax = \\\"proto3\\\";\\npackage shop;\\n\\nmessage Order {\\n  string id = 1;\\n  int64 cents = 2;\\n}\\n,schemaTags=null,ts=null,deleted=null} with refs [] of type AVRO, details: com.fasterxml.jackson.core.JsonParseException: Unrecognized token 'syntax': was expecting (JSON String, Number, Array, Object or token 'null', 'true' or 'false')\\n at [Source: REDACTED (`StreamReadFeature.INCLUDE_SOURCE_IN_LOCATION` disabled); line: 1, column: 1]\"}",
+    "ms": 4
+   },
+   "doze": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42201,\"message\":\"Invalid schema {subject=p,version=0,id=-1,schemaType=AVRO,references=[],metadata=null,ruleSet=null,schema=syntax = \\\"proto3\\\";\\npackage shop;\\n\\nmessage Order {\\n  string id = 1;\\n  int64 cents = 2;\\n}\\n,schemaTags=null} with refs [] of type AVRO, details: expected a value at byte 0\"}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/p/versions",
+   "b": "{\"schema\":\"message {\",\"schemaType\":\"PROTOBUF\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42201,\"message\":\"Invalid schema {subject=p,version=0,id=-1,schemaType=PROTOBUF,references=[],metadata=null,ruleSet=null,schema=message {,schemaTags=null} with refs [] of type PROTOBUF, details: Could not parse Protobuf - Syntax error in :1:9: expected a word\"}",
+    "ms": 4
+   },
+   "confluent-8": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42201,\"message\":\"Invalid schema of type PROTOBUF, details: Invalid schema of type PROTOBUF, details: Could not parse Protobuf - Syntax error in :1:9: expected a word\"}",
+    "ms": 4
+   },
+   "doze": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42201,\"message\":\"Invalid schema {subject=p,version=0,id=-1,schemaType=PROTOBUF,references=[],metadata=null,ruleSet=null,schema=message {,schemaTags=null} with refs [] of type PROTOBUF, details: Could not parse Protobuf - Syntax error in :1:9: expected a name, found \\\"{\\\"\"}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/p/versions",
+   "b": "{\"schema\":\"syntax = \\\"proto3\\\"; message A { string a = 1; string b = 1; }\",\"schemaType\":\"PROTOBUF\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 409,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":409,\"message\":\"Schema being registered is incompatible with an earlier schema for subject \\\"p\\\", details: [{errorType:\\\"PACKAGE_CHANGED\\\", description:\\\"The package at '#/' in the new schema does not match the package in the old schema\\\"}, {errorType:\\\"MESSAGE_REMOVED\\\", description:\\\"The new schema is missing a MESSAGE type at path '#/Order' in the old schema\\\"}, {errorType:\\\"MESSAGE_REMOVED\\\", description:\\\"The new schema is missing a MESSAGE type at path '#/Line' in the old schema\\\"}, {oldSchemaVersion: 2}, {oldSchema: 'syntax = \\\"proto3\\\";\\npackage shop;\\n\\nmessage Order {\\n  string id = 1;\\n  int64 cents = 2;\\n  repeated string tags = 3;\\n}\\nmessage Line {\\n  int32 qty = 1;\\n}\\n'}, {validateFields: 'false', compatibility: 'BACKWARD'}]\"}",
+    "ms": 5
+   },
+   "confluent-8": {
+    "status": 409,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":40901,\"message\":\"Schema being registered is incompatible with an earlier schema for subject \\\"p\\\", details: [{errorType:\\\"PACKAGE_CHANGED\\\", description:\\\"The package at '#/' in the new schema does not match the package in the old schema\\\"}, {errorType:\\\"MESSAGE_REMOVED\\\", description:\\\"The new schema is missing a MESSAGE type at path '#/Order' in the old schema\\\"}, {errorType:\\\"MESSAGE_REMOVED\\\", description:\\\"The new schema is missing a MESSAGE type at path '#/Line' in the old schema\\\"}, {oldSchemaVersion: 2}, {oldSchema: 'syntax = \\\"proto3\\\";\\npackage shop;\\n\\nmessage Order {\\n  string id = 1;\\n  int64 cents = 2;\\n  repeated string tags = 3;\\n}\\nmessage Line {\\n  int32 qty = 1;\\n}\\n'}, {validateFields: 'false', compatibility: 'BACKWARD'}]\"}",
+    "ms": 5
+   },
+   "doze": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42201,\"message\":\"Invalid schema {subject=p,version=0,id=-1,schemaType=PROTOBUF,references=[],metadata=null,ruleSet=null,schema=syntax = \\\"proto3\\\"; message A { string a = 1; string b = 1; },schemaTags=null}, details: :1:28: message A: field b uses number 1 already used by a\"}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/p/versions",
+   "b": "{\"schema\":\"syntax = \\\"proto3\\\"; message A { Nope a = 1; }\",\"schemaType\":\"PROTOBUF\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42201,\"message\":\"Invalid schema {subject=p,version=0,id=-1,schemaType=PROTOBUF,references=[],metadata=null,ruleSet=null,schema=syntax = \\\"proto3\\\"; message A { Nope a = 1; },schemaTags=null}, details: Could not resolve type: Nope\"}",
+    "ms": 2
+   },
+   "confluent-8": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42201,\"message\":\"Invalid schema {subject=p,version=0,id=-1,guid=26537f60-72a7-182f-44ad-bd7dfc097286,schemaType=PROTOBUF,references=[],metadata=null,ruleSet=null,schema=syntax = \\\"proto3\\\"; message A { Nope a = 1; },schemaTags=null,ts=null,deleted=null}, details: Could not resolve type: Nope\"}",
+    "ms": 5
+   },
+   "doze": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42201,\"message\":\"Invalid schema {subject=p,version=0,id=-1,schemaType=PROTOBUF,references=[],metadata=null,ruleSet=null,schema=syntax = \\\"proto3\\\"; message A { Nope a = 1; },schemaTags=null}, details: Could not resolve type: Nope\"}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/compatibility/subjects/p/versions/latest?verbose=true",
+   "b": "{\"schema\":\"syntax = \\\"proto3\\\";\\npackage shop;\\n\\nmessage Order {\\n  string id = 1;\\n  string cents = 2;\\n}\\n\",\"schemaType\":\"PROTOBUF\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"is_compatible\":false,\"messages\":[\"{errorType:\\\"FIELD_SCALAR_KIND_CHANGED\\\", description:\\\"The kind of a SCALAR field at path '#/Order/2' in the new schema does not match its kind in the old schema\\\"}\",\"{errorType:\\\"MESSAGE_REMOVED\\\", description:\\\"The new schema is missing a MESSAGE type at path '#/Line' in the old schema\\\"}\",\"{oldSchemaVersion: 2}\",\"{oldSchema: 'syntax = \\\"proto3\\\";\\npackage shop;\\n\\nmessage Order {\\n  string id = 1;\\n  int64 cents = 2;\\n  repeated string tags = 3;\\n}\\nmessage Line {\\n  int32 qty = 1;\\n}\\n'}\",\"{validateFields: 'false', compatibility: 'BACKWARD'}\"]}",
+    "ms": 2
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"is_compatible\":false,\"messages\":[\"{errorType:\\\"FIELD_SCALAR_KIND_CHANGED\\\", description:\\\"The kind of a SCALAR field at path '#/Order/2' in the new schema does not match its kind in the old schema\\\"}\",\"{errorType:\\\"MESSAGE_REMOVED\\\", description:\\\"The new schema is missing a MESSAGE type at path '#/Line' in the old schema\\\"}\",\"{oldSchemaVersion: 2}\",\"{oldSchema: 'syntax = \\\"proto3\\\";\\npackage shop;\\n\\nmessage Order {\\n  string id = 1;\\n  int64 cents = 2;\\n  repeated string tags = 3;\\n}\\nmessage Line {\\n  int32 qty = 1;\\n}\\n'}\",\"{validateFields: 'false', compatibility: 'BACKWARD'}\"]}",
+    "ms": 4
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"is_compatible\":false,\"messages\":[\"{errorType:\\\"FIELD_SCALAR_KIND_CHANGED\\\", description:\\\"The kind of a SCALAR field at path '#/Order/2' in the new schema does not match its kind in the old schema\\\"}\",\"{errorType:\\\"MESSAGE_REMOVED\\\", description:\\\"The new schema is missing a MESSAGE type at path '#/Line' in the old schema\\\"}\",\"{oldSchemaVersion: 2}\",\"{oldSchema: 'syntax = \\\"proto3\\\";\\npackage shop;\\n\\nmessage Order {\\n  string id = 1;\\n  int64 cents = 2;\\n  repeated string tags = 3;\\n}\\nmessage Line {\\n  int32 qty = 1;\\n}\\n'}\",\"{validateFields: 'false', compatibility: 'BACKWARD'}\"]}",
+    "ms": 1
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/money/versions",
+   "b": "{\"schema\":\"syntax = \\\"proto3\\\";\\npackage shop;\\nmessage Money { int64 units = 1; string currency = 2; }\\n\",\"schemaType\":\"PROTOBUF\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":23}",
+    "ms": 8
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":24,\"version\":1,\"guid\":\"e51ec0e6-8c05-21f5-35a5-c1fc9793ce05\",\"schemaType\":\"PROTOBUF\",\"schema\":\"syntax = \\\"proto3\\\";\\npackage shop;\\n\\nmessage Money {\\n  int64 units = 1;\\n  string currency = 2;\\n}\\n\"}",
+    "ms": 19
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":24}",
+    "ms": 5
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/paid/versions",
+   "b": "{\"schema\":\"syntax = \\\"proto3\\\";\\npackage shop;\\nimport \\\"google/protobuf/timestamp.proto\\\";\\nimport \\\"money.proto\\\";\\n\\nmessage Paid {\\n  google.protobuf.Timestamp at = 1;\\n  shop.Money amount = 2;\\n}\\n\",\"schemaType\":\"PROTOBUF\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42201,\"message\":\"Invalid schema {subject=paid,version=0,id=-1,schemaType=PROTOBUF,references=[],metadata=null,ruleSet=null,schema=syntax = \\\"proto3\\\";\\npackage shop;\\nimport \\\"google/protobuf/timestamp.proto\\\";\\nimport \\\"money.proto\\\";\\n\\nmessage Paid {\\n  google.protobuf.Timestamp at = 1;\\n  shop.Money amount = 2;\\n}\\n,schemaTags=null}, details: Could not resolve type: shop.Money\"}",
+    "ms": 12
+   },
+   "confluent-8": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42201,\"message\":\"Invalid schema {subject=paid,version=0,id=-1,guid=008f8389-ded4-e648-a2d8-9a384ed2ff5f,schemaType=PROTOBUF,references=[],metadata=null,ruleSet=null,schema=syntax = \\\"proto3\\\";\\npackage shop;\\nimport \\\"google/protobuf/timestamp.proto\\\";\\nimport \\\"money.proto\\\";\\n\\nmessage Paid {\\n  google.protobuf.Timestamp at = 1;\\n  shop.Money amount = 2;\\n}\\n,schemaTags=null,ts=null,deleted=null}, details: Could not resolve type: shop.Money\"}",
+    "ms": 7
+   },
+   "doze": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42201,\"message\":\"Invalid schema {subject=paid,version=0,id=-1,schemaType=PROTOBUF,references=[],metadata=null,ruleSet=null,schema=syntax = \\\"proto3\\\";\\npackage shop;\\nimport \\\"google/protobuf/timestamp.proto\\\";\\nimport \\\"money.proto\\\";\\n\\nmessage Paid {\\n  google.protobuf.Timestamp at = 1;\\n  shop.Money amount = 2;\\n}\\n,schemaTags=null}, details: Could not resolve type: shop.Money\"}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/paid/versions",
+   "b": "{\"schema\":\"syntax = \\\"proto3\\\";\\npackage shop;\\nimport \\\"google/protobuf/timestamp.proto\\\";\\nimport \\\"money.proto\\\";\\n\\nmessage Paid {\\n  google.protobuf.Timestamp at = 1;\\n  shop.Money amount = 2;\\n}\\n\",\"schemaType\":\"PROTOBUF\",\"references\":[{\"name\":\"money.proto\",\"subject\":\"money\",\"version\":1}]}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":24}",
+    "ms": 9
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":25,\"version\":1,\"guid\":\"2f6d92c6-a79d-9fd4-434e-23c52a485554\",\"schemaType\":\"PROTOBUF\",\"references\":[{\"name\":\"money.proto\",\"subject\":\"money\",\"version\":1}],\"schema\":\"syntax = \\\"proto3\\\";\\npackage shop;\\n\\nimport \\\"google/protobuf/timestamp.proto\\\";\\nimport \\\"money.proto\\\";\\n\\nmessage Paid {\\n  google.protobuf.Timestamp at = 1;\\n  shop.Money amount = 2;\\n}\\n\"}",
+    "ms": 17
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":25}",
+    "ms": 5
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "GET",
+   "p": "/subjects/paid/versions/1"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"paid\",\"version\":1,\"id\":24,\"schemaType\":\"PROTOBUF\",\"references\":[{\"name\":\"money.proto\",\"subject\":\"money\",\"version\":1}],\"schema\":\"syntax = \\\"proto3\\\";\\npackage shop;\\n\\nimport \\\"google/protobuf/timestamp.proto\\\";\\nimport \\\"money.proto\\\";\\n\\nmessage Paid {\\n  google.protobuf.Timestamp at = 1;\\n  shop.Money amount = 2;\\n}\\n\"}",
+    "ms": 2
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"paid\",\"version\":1,\"id\":25,\"guid\":\"2f6d92c6-a79d-9fd4-434e-23c52a485554\",\"schemaType\":\"PROTOBUF\",\"references\":[{\"name\":\"money.proto\",\"subject\":\"money\",\"version\":1}],\"schema\":\"syntax = \\\"proto3\\\";\\npackage shop;\\n\\nimport \\\"google/protobuf/timestamp.proto\\\";\\nimport \\\"money.proto\\\";\\n\\nmessage Paid {\\n  google.protobuf.Timestamp at = 1;\\n  shop.Money amount = 2;\\n}\\n\",\"ts\":1795104622373,\"deleted\":false}",
+    "ms": 4
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"paid\",\"version\":1,\"id\":25,\"schemaType\":\"PROTOBUF\",\"references\":[{\"name\":\"money.proto\",\"subject\":\"money\",\"version\":1}],\"schema\":\"syntax = \\\"proto3\\\";\\npackage shop;\\n\\nimport \\\"google/protobuf/timestamp.proto\\\";\\nimport \\\"money.proto\\\";\\n\\nmessage Paid {\\n  google.protobuf.Timestamp at = 1;\\n  shop.Money amount = 2;\\n}\\n\"}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "GET",
+   "p": "/schemas/ids/@4?format=serialized"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"schemaType\":\"PROTOBUF\",\"schema\":\"CgdkZWZhdWx0EgRzaG9wGh9nb29nbGUvcHJvdG9idWYvdGltZXN0YW1wLnByb3RvGgttb25leS5wcm90byJBCgRQYWlkEiEKAmF0GAEyGWdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASFgoGYW1vdW50GAIyCnNob3AuTW9uZXliBnByb3RvMw==\",\"references\":[{\"name\":\"money.proto\",\"subject\":\"money\",\"version\":1}]}",
+    "ms": 6
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"paid\",\"version\":1,\"guid\":\"2f6d92c6-a79d-9fd4-434e-23c52a485554\",\"schemaType\":\"PROTOBUF\",\"schema\":\"CgdkZWZhdWx0EgRzaG9wGh9nb29nbGUvcHJvdG9idWYvdGltZXN0YW1wLnByb3RvGgttb25leS5wcm90byJFCgRQYWlkEiMKAmF0GAEoCzIZZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIYCgZhbW91bnQYAigLMgpzaG9wLk1vbmV5YgZwcm90bzM=\",\"references\":[{\"name\":\"money.proto\",\"subject\":\"money\",\"version\":1}],\"ts\":1795104622373,\"deleted\":false}",
+    "ms": 6
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"schemaType\":\"PROTOBUF\",\"schema\":\"CgdkZWZhdWx0EgRzaG9wGh9nb29nbGUvcHJvdG9idWYvdGltZXN0YW1wLnByb3RvGgttb25leS5wcm90byJBCgRQYWlkEiEKAmF0GAEyGWdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASFgoGYW1vdW50GAIyCnNob3AuTW9uZXliBnByb3RvMw==\",\"references\":[{\"name\":\"money.proto\",\"subject\":\"money\",\"version\":1}]}",
+    "ms": 1
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "GET",
+   "p": "/subjects/money/versions/1/referencedby"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "[24]",
+    "ms": 1
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "[25]",
+    "ms": 2
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "[25]",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/p/versions?normalize=true",
+   "b": "{\"schema\":\"syntax=\\\"proto3\\\";package shop;message Order{string id=1;int64 cents=2;}\",\"schemaType\":\"PROTOBUF\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":21}",
+    "ms": 5
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":22,\"version\":1,\"guid\":\"4a56cb59-0075-8807-b2e8-08d229a4380c\",\"schemaType\":\"PROTOBUF\",\"schema\":\"syntax = \\\"proto3\\\";\\npackage shop;\\n\\nmessage Order {\\n  string id = 1;\\n  int64 cents = 2;\\n}\\n\"}",
+    "ms": 5
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":22}",
+    "ms": 1
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/p",
+   "b": "{\"schema\":\"syntax=\\\"proto3\\\";package shop;message Order{string id=1;int64 cents=2;}\",\"schemaType\":\"PROTOBUF\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"p\",\"version\":1,\"id\":21,\"schemaType\":\"PROTOBUF\",\"schema\":\"syntax = \\\"proto3\\\";\\npackage shop;\\n\\nmessage Order {\\n  string id = 1;\\n  int64 cents = 2;\\n}\\n\"}",
+    "ms": 2
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"p\",\"version\":1,\"id\":22,\"guid\":\"4a56cb59-0075-8807-b2e8-08d229a4380c\",\"schemaType\":\"PROTOBUF\",\"schema\":\"syntax = \\\"proto3\\\";\\npackage shop;\\n\\nmessage Order {\\n  string id = 1;\\n  int64 cents = 2;\\n}\\n\"}",
+    "ms": 4
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"p\",\"version\":1,\"id\":22,\"schemaType\":\"PROTOBUF\",\"schema\":\"syntax = \\\"proto3\\\";\\npackage shop;\\n\\nmessage Order {\\n  string id = 1;\\n  int64 cents = 2;\\n}\\n\"}",
+    "ms": 1
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/p?normalize=true",
+   "b": "{\"schema\":\"syntax=\\\"proto3\\\";package shop;message Order{int64 cents=2;string id=1;}\",\"schemaType\":\"PROTOBUF\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"p\",\"version\":1,\"id\":21,\"schemaType\":\"PROTOBUF\",\"schema\":\"syntax = \\\"proto3\\\";\\npackage shop;\\n\\nmessage Order {\\n  string id = 1;\\n  int64 cents = 2;\\n}\\n\"}",
+    "ms": 4
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"p\",\"version\":1,\"id\":22,\"guid\":\"4a56cb59-0075-8807-b2e8-08d229a4380c\",\"schemaType\":\"PROTOBUF\",\"schema\":\"syntax = \\\"proto3\\\";\\npackage shop;\\n\\nmessage Order {\\n  string id = 1;\\n  int64 cents = 2;\\n}\\n\"}",
+    "ms": 3
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"p\",\"version\":1,\"id\":22,\"schemaType\":\"PROTOBUF\",\"schema\":\"syntax = \\\"proto3\\\";\\npackage shop;\\n\\nmessage Order {\\n  string id = 1;\\n  int64 cents = 2;\\n}\\n\"}",
+    "ms": 1
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/p2/versions",
+   "b": "{\"schema\":\"syntax = \\\"proto3\\\";\\npackage x;\\noption java_package = \\\"com.x\\\";\\nimport \\\"google/protobuf/any.proto\\\";\\nmessage M {\\n  // c\\n  map<string, int32> m = 1;\\n  oneof o { string a = 2; int32 b = 3; }\\n  enum E { E0 = 0; E1 = 1; }\\n  E e = 4;\\n  reserved 9, 10 to 12;\\n  reserved \\\"old\\\";\\n  google.protobuf.Any any = 5;\\n  message N { bytes z = 1; }\\n  N n = 6 [deprecated = true];\\n}\\nservice S { rpc Do (M) returns (M); }\\n\",\"schemaType\":\"PROTOBUF\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":25}",
+    "ms": 15
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":26,\"version\":1,\"guid\":\"dbdea471-8e87-2754-2682-763334b338d1\",\"schemaType\":\"PROTOBUF\",\"schema\":\"syntax = \\\"proto3\\\";\\npackage x;\\n\\nimport \\\"google/protobuf/any.proto\\\";\\n\\noption java_package = \\\"com.x\\\";\\n\\nmessage M {\\n  reserved 9, 10 to 12;\\n  reserved \\\"old\\\";\\n\\n  map<string, int32> m = 1;\\n  E e = 4;\\n  google.protobuf.Any any = 5;\\n  N n = 6 [deprecated = true];\\n\\n  oneof o {\\n    string a = 2;\\n    int32 b = 3;\\n  }\\n\\n  message N {\\n    bytes z = 1;\\n  }\\n  enum E {\\n    E0 = 0;\\n    E1 = 1;\\n  }\\n}\\n\\nservice S {\\n  rpc Do (M) returns (M);\\n}\\n\"}",
+    "ms": 16
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":26}",
+    "ms": 6
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "GET",
+   "p": "/subjects/p2/versions/latest"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"p2\",\"version\":1,\"id\":25,\"schemaType\":\"PROTOBUF\",\"schema\":\"syntax = \\\"proto3\\\";\\npackage x;\\n\\nimport \\\"google/protobuf/any.proto\\\";\\n\\noption java_package = \\\"com.x\\\";\\n\\nmessage M {\\n  reserved 9, 10 to 12;\\n  reserved \\\"old\\\";\\n\\n  map<string, int32> m = 1;\\n  E e = 4;\\n  google.protobuf.Any any = 5;\\n  N n = 6 [deprecated = true];\\n\\n  oneof o {\\n    string a = 2;\\n    int32 b = 3;\\n  }\\n\\n  message N {\\n    bytes z = 1;\\n  }\\n  enum E {\\n    E0 = 0;\\n    E1 = 1;\\n  }\\n}\\n\\nservice S {\\n  rpc Do (M) returns (M);\\n}\\n\"}",
+    "ms": 1
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"p2\",\"version\":1,\"id\":26,\"guid\":\"dbdea471-8e87-2754-2682-763334b338d1\",\"schemaType\":\"PROTOBUF\",\"schema\":\"syntax = \\\"proto3\\\";\\npackage x;\\n\\nimport \\\"google/protobuf/any.proto\\\";\\n\\noption java_package = \\\"com.x\\\";\\n\\nmessage M {\\n  reserved 9, 10 to 12;\\n  reserved \\\"old\\\";\\n\\n  map<string, int32> m = 1;\\n  E e = 4;\\n  google.protobuf.Any any = 5;\\n  N n = 6 [deprecated = true];\\n\\n  oneof o {\\n    string a = 2;\\n    int32 b = 3;\\n  }\\n\\n  message N {\\n    bytes z = 1;\\n  }\\n  enum E {\\n    E0 = 0;\\n    E1 = 1;\\n  }\\n}\\n\\nservice S {\\n  rpc Do (M) returns (M);\\n}\\n\",\"ts\":1795104622414,\"deleted\":false}",
+    "ms": 2
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"p2\",\"version\":1,\"id\":26,\"schemaType\":\"PROTOBUF\",\"schema\":\"syntax = \\\"proto3\\\";\\npackage x;\\n\\nimport \\\"google/protobuf/any.proto\\\";\\n\\noption java_package = \\\"com.x\\\";\\n\\nmessage M {\\n  reserved 9, 10 to 12;\\n  reserved \\\"old\\\";\\n\\n  map<string, int32> m = 1;\\n  E e = 4;\\n  google.protobuf.Any any = 5;\\n  N n = 6 [deprecated = true];\\n\\n  oneof o {\\n    string a = 2;\\n    int32 b = 3;\\n  }\\n\\n  message N {\\n    bytes z = 1;\\n  }\\n  enum E {\\n    E0 = 0;\\n    E1 = 1;\\n  }\\n}\\n\\nservice S {\\n  rpc Do (M) returns (M);\\n}\\n\"}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/p3/versions",
+   "b": "{\"schema\":\"syntax = \\\"proto2\\\";\\nmessage Q {\\n  required string a = 1;\\n  optional int32 b = 2 [default = 7];\\n  extensions 100 to 199;\\n}\\n\",\"schemaType\":\"PROTOBUF\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":26}",
+    "ms": 9
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":27,\"version\":1,\"guid\":\"ccf696e2-3e2b-2806-c29d-9d13c5b03bd7\",\"schemaType\":\"PROTOBUF\",\"schema\":\"syntax = \\\"proto2\\\";\\n\\nmessage Q {\\n  required string a = 1;\\n  optional int32 b = 2 [default = 7];\\n\\n  extensions 100 to 199;\\n}\\n\"}",
+    "ms": 13
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":27}",
+    "ms": 6
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "GET",
+   "p": "/subjects/p3/versions/latest"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"p3\",\"version\":1,\"id\":26,\"schemaType\":\"PROTOBUF\",\"schema\":\"syntax = \\\"proto2\\\";\\n\\nmessage Q {\\n  required string a = 1;\\n  optional int32 b = 2 [default = 7];\\n\\n  extensions 100 to 199;\\n}\\n\"}",
+    "ms": 2
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"p3\",\"version\":1,\"id\":27,\"guid\":\"ccf696e2-3e2b-2806-c29d-9d13c5b03bd7\",\"schemaType\":\"PROTOBUF\",\"schema\":\"syntax = \\\"proto2\\\";\\n\\nmessage Q {\\n  required string a = 1;\\n  optional int32 b = 2 [default = 7];\\n\\n  extensions 100 to 199;\\n}\\n\",\"ts\":1795104622430,\"deleted\":false}",
+    "ms": 2
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"p3\",\"version\":1,\"id\":27,\"schemaType\":\"PROTOBUF\",\"schema\":\"syntax = \\\"proto2\\\";\\n\\nmessage Q {\\n  required string a = 1;\\n  optional int32 b = 2 [default = 7];\\n\\n  extensions 100 to 199;\\n}\\n\"}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "GET",
+   "p": "/schemas/types"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "[\"JSON\",\"PROTOBUF\",\"AVRO\"]",
+    "ms": 3
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "[\"JSON\",\"PROTOBUF\",\"AVRO\"]",
+    "ms": 3
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "[\"JSON\",\"PROTOBUF\",\"AVRO\"]",
+    "ms": 0
+   }
+  }
+ }
+]

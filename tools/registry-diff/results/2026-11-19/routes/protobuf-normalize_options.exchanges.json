@@ -1,0 +1,460 @@
+[
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/pn-options/versions?normalize=true",
+   "b": "{\"schema\":\"syntax = \\\"proto3\\\";\\npackage opts;\\nimport \\\"google/protobuf/descriptor.proto\\\";\\nmessage Rule { int32 min = 1; int32 max = 2; repeated string tags = 3; }\\nextend google.protobuf.MessageOptions { Rule rule = 51000; repeated Rule rules = 51001; string label = 51002; }\\nextend google.protobuf.FieldOptions { int32 width = 52000; }\\nmessage M {\\n  option (rule).min = 1;\\n  option (rule).tags = \\\"x\\\";\\n  option (rule).tags = \\\"y\\\";\\n  option (rules) = { min: 1 tags: [\\\"a\\\"] };\\n  option (rules) = { max: 2, tags: [] };\\n  option (label) = 'L\\\\'s';\\n  int32 v = 1 [(width) = 010, deprecated = false];\\n}\\n\",\"schemaType\":\"PROTOBUF\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":57}",
+    "ms": 14
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":56,\"version\":1,\"guid\":\"5dcc189d-7549-9db7-31d7-91756ac31dff\",\"schemaType\":\"PROTOBUF\",\"schema\":\"syntax = \\\"proto3\\\";\\npackage opts;\\n\\nimport \\\"google/protobuf/descriptor.proto\\\";\\n\\nmessage Rule {\\n  int32 min = 1;\\n  int32 max = 2;\\n  repeated string tags = 3;\\n}\\nmessage M {\\n  option (opts.label) = \\\"L\\\\'s\\\";\\n  option (opts.rule) = {\\n    min: 1,\\n    tags: [\\n      \\\"x\\\",\\n      \\\"y\\\"\\n    ]\\n  };\\n  option (opts.rules) = {\\n    min: 1,\\n    tags: \\\"a\\\"\\n  };\\n  option (opts.rules) = {\\n    max: 2\\n  };\\n\\n  int32 v = 1 [\\n    deprecated = false,\\n    (opts.width) = 8\\n  ];\\n}\\n\\nextend .google.protobuf.MessageOptions {\\n  .opts.Rule rule = 51000;\\n  repeated .opts.Rule rules = 51001;\\n  string label = 51002;\\n}\\nextend .google.protobuf.FieldOptions {\\n  int32 width = 52000;\\n}\\n\"}",
+    "ms": 15
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":58}",
+    "ms": 6
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "GET",
+   "p": "/subjects/pn-options/versions/latest/schema"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "syntax = \"proto3\";\npackage opts;\n\nimport \"google/protobuf/descriptor.proto\";\n\nmessage Rule {\n  int32 min = 1;\n  int32 max = 2;\n  repeated string tags = 3;\n}\nmessage M {\n  option (opts.label) = \"L\\'s\";\n  option (opts.rule) = {\n    min: 1,\n    tags: [\n      \"x\",\n      \"y\"\n    ]\n  };\n  option (opts.rules) = {\n    min: 1,\n    tags: \"a\"\n  };\n  option (opts.rules) = {\n    max: 2\n  };\n\n  int32 v = 1 [\n    deprecated = false,\n    (opts.width) = 8\n  ];\n}\n\nextend .google.protobuf.MessageOptions {\n  .opts.Rule rule = 51000;\n  repeated .opts.Rule rules = 51001;\n  string label = 51002;\n}\nextend .google.protobuf.FieldOptions {\n  int32 width = 52000;\n}\n",
+    "ms": 1
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "syntax = \"proto3\";\npackage opts;\n\nimport \"google/protobuf/descriptor.proto\";\n\nmessage Rule {\n  int32 min = 1;\n  int32 max = 2;\n  repeated string tags = 3;\n}\nmessage M {\n  option (opts.label) = \"L\\'s\";\n  option (opts.rule) = {\n    min: 1,\n    tags: [\n      \"x\",\n      \"y\"\n    ]\n  };\n  option (opts.rules) = {\n    min: 1,\n    tags: \"a\"\n  };\n  option (opts.rules) = {\n    max: 2\n  };\n\n  int32 v = 1 [\n    deprecated = false,\n    (opts.width) = 8\n  ];\n}\n\nextend .google.protobuf.MessageOptions {\n  .opts.Rule rule = 51000;\n  repeated .opts.Rule rules = 51001;\n  string label = 51002;\n}\nextend .google.protobuf.FieldOptions {\n  int32 width = 52000;\n}\n",
+    "ms": 3
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "syntax = \"proto3\";\npackage opts;\n\nimport \"google/protobuf/descriptor.proto\";\n\nmessage Rule {\n  int32 min = 1;\n  int32 max = 2;\n  repeated string tags = 3;\n}\nmessage M {\n  option (opts.label) = \"L\\'s\";\n  option (opts.rule) = {\n    min: 1,\n    tags: [\n      \"x\",\n      \"y\"\n    ]\n  };\n  option (opts.rules) = {\n    min: 1,\n    tags: \"a\"\n  };\n  option (opts.rules) = {\n    max: 2\n  };\n\n  int32 v = 1 [\n    deprecated = false,\n    (opts.width) = 8\n  ];\n}\n\nextend .google.protobuf.MessageOptions {\n  .opts.Rule rule = 51000;\n  repeated .opts.Rule rules = 51001;\n  string label = 51002;\n}\nextend .google.protobuf.FieldOptions {\n  int32 width = 52000;\n}\n",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/pn-options?normalize=true",
+   "b": "{\"schema\":\"syntax = \\\"proto3\\\";\\npackage opts;\\nimport \\\"google/protobuf/descriptor.proto\\\";\\nmessage Rule { int32 min = 1; int32 max = 2; repeated string tags = 3; }\\nextend google.protobuf.MessageOptions { Rule rule = 51000; repeated Rule rules = 51001; string label = 51002; }\\nextend google.protobuf.FieldOptions { int32 width = 52000; }\\nmessage M {\\n  option (rule).min = 1;\\n  option (rule).tags = \\\"x\\\";\\n  option (rule).tags = \\\"y\\\";\\n  option (rules) = { min: 1 tags: [\\\"a\\\"] };\\n  option (rules) = { max: 2, tags: [] };\\n  option (label) = 'L\\\\'s';\\n  int32 v = 1 [(width) = 010, deprecated = false];\\n}\\n\",\"schemaType\":\"PROTOBUF\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"pn-options\",\"version\":1,\"id\":57,\"schemaType\":\"PROTOBUF\",\"schema\":\"syntax = \\\"proto3\\\";\\npackage opts;\\n\\nimport \\\"google/protobuf/descriptor.proto\\\";\\n\\nmessage Rule {\\n  int32 min = 1;\\n  int32 max = 2;\\n  repeated string tags = 3;\\n}\\nmessage M {\\n  option (opts.label) = \\\"L\\\\'s\\\";\\n  option (opts.rule) = {\\n    min: 1,\\n    tags: [\\n      \\\"x\\\",\\n      \\\"y\\\"\\n    ]\\n  };\\n  option (opts.rules) = {\\n    min: 1,\\n    tags: \\\"a\\\"\\n  };\\n  option (opts.rules) = {\\n    max: 2\\n  };\\n\\n  int32 v = 1 [\\n    deprecated = false,\\n    (opts.width) = 8\\n  ];\\n}\\n\\nextend .google.protobuf.MessageOptions {\\n  .opts.Rule rule = 51000;\\n  repeated .opts.Rule rules = 51001;\\n  string label = 51002;\\n}\\nextend .google.protobuf.FieldOptions {\\n  int32 width = 52000;\\n}\\n\"}",
+    "ms": 2
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"pn-options\",\"version\":1,\"id\":56,\"guid\":\"5dcc189d-7549-9db7-31d7-91756ac31dff\",\"schemaType\":\"PROTOBUF\",\"schema\":\"syntax = \\\"proto3\\\";\\npackage opts;\\n\\nimport \\\"google/protobuf/descriptor.proto\\\";\\n\\nmessage Rule {\\n  int32 min = 1;\\n  int32 max = 2;\\n  repeated string tags = 3;\\n}\\nmessage M {\\n  option (opts.label) = \\\"L\\\\'s\\\";\\n  option (opts.rule) = {\\n    min: 1,\\n    tags: [\\n      \\\"x\\\",\\n      \\\"y\\\"\\n    ]\\n  };\\n  option (opts.rules) = {\\n    min: 1,\\n    tags: \\\"a\\\"\\n  };\\n  option (opts.rules) = {\\n    max: 2\\n  };\\n\\n  int32 v = 1 [\\n    deprecated = false,\\n    (opts.width) = 8\\n  ];\\n}\\n\\nextend .google.protobuf.MessageOptions {\\n  .opts.Rule rule = 51000;\\n  repeated .opts.Rule rules = 51001;\\n  string label = 51002;\\n}\\nextend .google.protobuf.FieldOptions {\\n  int32 width = 52000;\\n}\\n\"}",
+    "ms": 7
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"pn-options\",\"version\":1,\"id\":58,\"schemaType\":\"PROTOBUF\",\"schema\":\"syntax = \\\"proto3\\\";\\npackage opts;\\n\\nimport \\\"google/protobuf/descriptor.proto\\\";\\n\\nmessage Rule {\\n  int32 min = 1;\\n  int32 max = 2;\\n  repeated string tags = 3;\\n}\\nmessage M {\\n  option (opts.label) = \\\"L\\\\'s\\\";\\n  option (opts.rule) = {\\n    min: 1,\\n    tags: [\\n      \\\"x\\\",\\n      \\\"y\\\"\\n    ]\\n  };\\n  option (opts.rules) = {\\n    min: 1,\\n    tags: \\\"a\\\"\\n  };\\n  option (opts.rules) = {\\n    max: 2\\n  };\\n\\n  int32 v = 1 [\\n    deprecated = false,\\n    (opts.width) = 8\\n  ];\\n}\\n\\nextend .google.protobuf.MessageOptions {\\n  .opts.Rule rule = 51000;\\n  repeated .opts.Rule rules = 51001;\\n  string label = 51002;\\n}\\nextend .google.protobuf.FieldOptions {\\n  int32 width = 52000;\\n}\\n\"}",
+    "ms": 1
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/pn-options",
+   "b": "{\"schema\":\"syntax = \\\"proto3\\\";\\npackage opts;\\nimport \\\"google/protobuf/descriptor.proto\\\";\\nmessage Rule { int32 min = 1; int32 max = 2; repeated string tags = 3; }\\nextend google.protobuf.MessageOptions { Rule rule = 51000; repeated Rule rules = 51001; string label = 51002; }\\nextend google.protobuf.FieldOptions { int32 width = 52000; }\\nmessage M {\\n  option (rule).min = 1;\\n  option (rule).tags = \\\"x\\\";\\n  option (rule).tags = \\\"y\\\";\\n  option (rules) = { min: 1 tags: [\\\"a\\\"] };\\n  option (rules) = { max: 2, tags: [] };\\n  option (label) = 'L\\\\'s';\\n  int32 v = 1 [(width) = 010, deprecated = false];\\n}\\n\",\"schemaType\":\"PROTOBUF\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 404,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":40403,\"message\":\"Schema not found\"}",
+    "ms": 6
+   },
+   "confluent-8": {
+    "status": 404,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":40403,\"message\":\"Schema not found\"}",
+    "ms": 4
+   },
+   "doze": {
+    "status": 404,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":40403,\"message\":\"Schema not found\"}",
+    "ms": 1
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/compatibility/subjects/pn-options/versions/latest?normalize=true&verbose=true",
+   "b": "{\"schema\":\"syntax = \\\"proto3\\\";\\npackage opts;\\nimport \\\"google/protobuf/descriptor.proto\\\";\\nmessage Rule { int32 min = 1; int32 max = 2; repeated string tags = 3; }\\nextend google.protobuf.MessageOptions { Rule rule = 51000; repeated Rule rules = 51001; string label = 51002; }\\nextend google.protobuf.FieldOptions { int32 width = 52000; }\\nmessage M {\\n  option (rule).min = 1;\\n  option (rule).tags = \\\"x\\\";\\n  option (rule).tags = \\\"y\\\";\\n  option (rules) = { min: 1 tags: [\\\"a\\\"] };\\n  option (rules) = { max: 2, tags: [] };\\n  option (label) = 'L\\\\'s';\\n  int32 v = 1 [(width) = 010, deprecated = false];\\n}\\n\",\"schemaType\":\"PROTOBUF\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"is_compatible\":true,\"messages\":[]}",
+    "ms": 6
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"is_compatible\":true,\"messages\":[]}",
+    "ms": 8
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"is_compatible\":true,\"messages\":[]}",
+    "ms": 1
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "GET",
+   "p": "/schemas/ids/@1?format=serialized"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"schemaType\":\"PROTOBUF\",\"schema\":\"CgdkZWZhdWx0EgRvcHRzGiBnb29nbGUvcHJvdG9idWYvZGVzY3JpcHRvci5wcm90byIqCgRSdWxlEgkKA21pbhgBKAUSCQoDbWF4GAIoBRIMCgR0YWdzGAMgAygJIhAKAU0SCwoBdhgBKAVCAhgAOjcKBHJ1bGUSHy5nb29nbGUucHJvdG9idWYuTWVzc2FnZU9wdGlvbnMYuI4DMgoub3B0cy5SdWxlOjoKBXJ1bGVzEh8uZ29vZ2xlLnByb3RvYnVmLk1lc3NhZ2VPcHRpb25zGLmOAyADMgoub3B0cy5SdWxlOi4KBWxhYmVsEh8uZ29vZ2xlLnByb3RvYnVmLk1lc3NhZ2VPcHRpb25zGLqOAygJOiwKBXdpZHRoEh0uZ29vZ2xlLnByb3RvYnVmLkZpZWxkT3B0aW9ucxiglgMoBWIGcHJvdG8z\"}",
+    "ms": 7
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"pn-options\",\"version\":1,\"guid\":\"5dcc189d-7549-9db7-31d7-91756ac31dff\",\"schemaType\":\"PROTOBUF\",\"schema\":\"CgdkZWZhdWx0EgRvcHRzGiBnb29nbGUvcHJvdG9idWYvZGVzY3JpcHRvci5wcm90byIqCgRSdWxlEgkKA21pbhgBKAUSCQoDbWF4GAIoBRIMCgR0YWdzGAMgAygJIhAKAU0SCwoBdhgBKAVCAhgAOjkKBHJ1bGUSHy5nb29nbGUucHJvdG9idWYuTWVzc2FnZU9wdGlvbnMYuI4DKAsyCi5vcHRzLlJ1bGU6PAoFcnVsZXMSHy5nb29nbGUucHJvdG9idWYuTWVzc2FnZU9wdGlvbnMYuY4DIAMoCzIKLm9wdHMuUnVsZTouCgVsYWJlbBIfLmdvb2dsZS5wcm90b2J1Zi5NZXNzYWdlT3B0aW9ucxi6jgMoCTosCgV3aWR0aBIdLmdvb2dsZS5wcm90b2J1Zi5GaWVsZE9wdGlvbnMYoJYDKAViBnByb3RvMw==\",\"ts\":1795104624896,\"deleted\":false}",
+    "ms": 8
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"schemaType\":\"PROTOBUF\",\"schema\":\"CgdkZWZhdWx0EgRvcHRzGiBnb29nbGUvcHJvdG9idWYvZGVzY3JpcHRvci5wcm90byIqCgRSdWxlEgkKA21pbhgBKAUSCQoDbWF4GAIoBRIMCgR0YWdzGAMgAygJIhAKAU0SCwoBdhgBKAVCAhgAOjcKBHJ1bGUSHy5nb29nbGUucHJvdG9idWYuTWVzc2FnZU9wdGlvbnMYuI4DMgoub3B0cy5SdWxlOjoKBXJ1bGVzEh8uZ29vZ2xlLnByb3RvYnVmLk1lc3NhZ2VPcHRpb25zGLmOAyADMgoub3B0cy5SdWxlOi4KBWxhYmVsEh8uZ29vZ2xlLnByb3RvYnVmLk1lc3NhZ2VPcHRpb25zGLqOAygJOiwKBXdpZHRoEh0uZ29vZ2xlLnByb3RvYnVmLkZpZWxkT3B0aW9ucxiglgMoBWIGcHJvdG8z\"}",
+    "ms": 1
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/pp-options/versions",
+   "b": "{\"schema\":\"syntax = \\\"proto3\\\";\\npackage opts;\\nimport \\\"google/protobuf/descriptor.proto\\\";\\nmessage Rule { int32 min = 1; int32 max = 2; repeated string tags = 3; }\\nextend google.protobuf.MessageOptions { Rule rule = 51000; repeated Rule rules = 51001; string label = 51002; }\\nextend google.protobuf.FieldOptions { int32 width = 52000; }\\nmessage M {\\n  option (rule).min = 1;\\n  option (rule).tags = \\\"x\\\";\\n  option (rule).tags = \\\"y\\\";\\n  option (rules) = { min: 1 tags: [\\\"a\\\"] };\\n  option (rules) = { max: 2, tags: [] };\\n  option (label) = 'L\\\\'s';\\n  int32 v = 1 [(width) = 010, deprecated = false];\\n}\\n\",\"schemaType\":\"PROTOBUF\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":58}",
+    "ms": 7
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":57,\"version\":1,\"guid\":\"53a0bbeb-6739-077c-6e15-ad7e810abc70\",\"schemaType\":\"PROTOBUF\",\"schema\":\"syntax = \\\"proto3\\\";\\npackage opts;\\n\\nimport \\\"google/protobuf/descriptor.proto\\\";\\n\\nmessage Rule {\\n  int32 min = 1;\\n  int32 max = 2;\\n  repeated string tags = 3;\\n}\\nmessage M {\\n  option (rule).min = 1;\\n  option (rule).tags = \\\"x\\\";\\n  option (rule).tags = \\\"y\\\";\\n  option (rules) = {\\n    min: 1,\\n    tags: [\\n      \\\"a\\\"\\n    ]\\n  };\\n  option (rules) = {\\n    max: 2,\\n    tags: [\\n    ]\\n  };\\n  option (label) = \\\"L\\\\'s\\\";\\n\\n  int32 v = 1 [\\n    (width) = 010,\\n    deprecated = false\\n  ];\\n}\\n\\nextend google.protobuf.MessageOptions {\\n  Rule rule = 51000;\\n  repeated Rule rules = 51001;\\n  string label = 51002;\\n}\\nextend google.protobuf.FieldOptions {\\n  int32 width = 52000;\\n}\\n\"}",
+    "ms": 18
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":59}",
+    "ms": 5
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/pp-options?normalize=true",
+   "b": "{\"schema\":\"syntax = \\\"proto3\\\";\\npackage opts;\\nimport \\\"google/protobuf/descriptor.proto\\\";\\nmessage Rule { int32 min = 1; int32 max = 2; repeated string tags = 3; }\\nextend google.protobuf.MessageOptions { Rule rule = 51000; repeated Rule rules = 51001; string label = 51002; }\\nextend google.protobuf.FieldOptions { int32 width = 52000; }\\nmessage M {\\n  option (rule).min = 1;\\n  option (rule).tags = \\\"x\\\";\\n  option (rule).tags = \\\"y\\\";\\n  option (rules) = { min: 1 tags: [\\\"a\\\"] };\\n  option (rules) = { max: 2, tags: [] };\\n  option (label) = 'L\\\\'s';\\n  int32 v = 1 [(width) = 010, deprecated = false];\\n}\\n\",\"schemaType\":\"PROTOBUF\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 404,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":40403,\"message\":\"Schema not found\"}",
+    "ms": 5
+   },
+   "confluent-8": {
+    "status": 404,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":40403,\"message\":\"Schema not found\"}",
+    "ms": 6
+   },
+   "doze": {
+    "status": 404,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":40403,\"message\":\"Schema not found\"}",
+    "ms": 1
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/pp-options/versions?normalize=true",
+   "b": "{\"schema\":\"syntax = \\\"proto3\\\";\\npackage opts;\\nimport \\\"google/protobuf/descriptor.proto\\\";\\nmessage Rule { int32 min = 1; int32 max = 2; repeated string tags = 3; }\\nextend google.protobuf.MessageOptions { Rule rule = 51000; repeated Rule rules = 51001; string label = 51002; }\\nextend google.protobuf.FieldOptions { int32 width = 52000; }\\nmessage M {\\n  option (rule).min = 1;\\n  option (rule).tags = \\\"x\\\";\\n  option (rule).tags = \\\"y\\\";\\n  option (rules) = { min: 1 tags: [\\\"a\\\"] };\\n  option (rules) = { max: 2, tags: [] };\\n  option (label) = 'L\\\\'s';\\n  int32 v = 1 [(width) = 010, deprecated = false];\\n}\\n\",\"schemaType\":\"PROTOBUF\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":57}",
+    "ms": 11
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":56,\"version\":2,\"guid\":\"5dcc189d-7549-9db7-31d7-91756ac31dff\",\"schemaType\":\"PROTOBUF\",\"schema\":\"syntax = \\\"proto3\\\";\\npackage opts;\\n\\nimport \\\"google/protobuf/descriptor.proto\\\";\\n\\nmessage Rule {\\n  int32 min = 1;\\n  int32 max = 2;\\n  repeated string tags = 3;\\n}\\nmessage M {\\n  option (opts.label) = \\\"L\\\\'s\\\";\\n  option (opts.rule) = {\\n    min: 1,\\n    tags: [\\n      \\\"x\\\",\\n      \\\"y\\\"\\n    ]\\n  };\\n  option (opts.rules) = {\\n    min: 1,\\n    tags: \\\"a\\\"\\n  };\\n  option (opts.rules) = {\\n    max: 2\\n  };\\n\\n  int32 v = 1 [\\n    deprecated = false,\\n    (opts.width) = 8\\n  ];\\n}\\n\\nextend .google.protobuf.MessageOptions {\\n  .opts.Rule rule = 51000;\\n  repeated .opts.Rule rules = 51001;\\n  string label = 51002;\\n}\\nextend .google.protobuf.FieldOptions {\\n  int32 width = 52000;\\n}\\n\"}",
+    "ms": 14
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":58}",
+    "ms": 6
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "GET",
+   "p": "/subjects/pp-options/versions"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "[1,2]",
+    "ms": 2
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "[1,2]",
+    "ms": 2
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "[1,2]",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "PUT",
+   "p": "/config/pc-options",
+   "b": "{\"normalize\":true}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"normalize\":true}",
+    "ms": 6
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"normalize\":true}",
+    "ms": 10
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"normalize\":true}",
+    "ms": 5
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/pc-options/versions",
+   "b": "{\"schema\":\"syntax = \\\"proto3\\\";\\npackage opts;\\nimport \\\"google/protobuf/descriptor.proto\\\";\\nmessage Rule { int32 min = 1; int32 max = 2; repeated string tags = 3; }\\nextend google.protobuf.MessageOptions { Rule rule = 51000; repeated Rule rules = 51001; string label = 51002; }\\nextend google.protobuf.FieldOptions { int32 width = 52000; }\\nmessage M {\\n  option (rule).min = 1;\\n  option (rule).tags = \\\"x\\\";\\n  option (rule).tags = \\\"y\\\";\\n  option (rules) = { min: 1 tags: [\\\"a\\\"] };\\n  option (rules) = { max: 2, tags: [] };\\n  option (label) = 'L\\\\'s';\\n  int32 v = 1 [(width) = 010, deprecated = false];\\n}\\n\",\"schemaType\":\"PROTOBUF\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":57}",
+    "ms": 8
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":56,\"version\":1,\"guid\":\"5dcc189d-7549-9db7-31d7-91756ac31dff\",\"schemaType\":\"PROTOBUF\",\"schema\":\"syntax = \\\"proto3\\\";\\npackage opts;\\n\\nimport \\\"google/protobuf/descriptor.proto\\\";\\n\\nmessage Rule {\\n  int32 min = 1;\\n  int32 max = 2;\\n  repeated string tags = 3;\\n}\\nmessage M {\\n  option (opts.label) = \\\"L\\\\'s\\\";\\n  option (opts.rule) = {\\n    min: 1,\\n    tags: [\\n      \\\"x\\\",\\n      \\\"y\\\"\\n    ]\\n  };\\n  option (opts.rules) = {\\n    min: 1,\\n    tags: \\\"a\\\"\\n  };\\n  option (opts.rules) = {\\n    max: 2\\n  };\\n\\n  int32 v = 1 [\\n    deprecated = false,\\n    (opts.width) = 8\\n  ];\\n}\\n\\nextend .google.protobuf.MessageOptions {\\n  .opts.Rule rule = 51000;\\n  repeated .opts.Rule rules = 51001;\\n  string label = 51002;\\n}\\nextend .google.protobuf.FieldOptions {\\n  int32 width = 52000;\\n}\\n\"}",
+    "ms": 9
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":58}",
+    "ms": 6
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "GET",
+   "p": "/subjects/pc-options/versions/latest/schema"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "syntax = \"proto3\";\npackage opts;\n\nimport \"google/protobuf/descriptor.proto\";\n\nmessage Rule {\n  int32 min = 1;\n  int32 max = 2;\n  repeated string tags = 3;\n}\nmessage M {\n  option (opts.label) = \"L\\'s\";\n  option (opts.rule) = {\n    min: 1,\n    tags: [\n      \"x\",\n      \"y\"\n    ]\n  };\n  option (opts.rules) = {\n    min: 1,\n    tags: \"a\"\n  };\n  option (opts.rules) = {\n    max: 2\n  };\n\n  int32 v = 1 [\n    deprecated = false,\n    (opts.width) = 8\n  ];\n}\n\nextend .google.protobuf.MessageOptions {\n  .opts.Rule rule = 51000;\n  repeated .opts.Rule rules = 51001;\n  string label = 51002;\n}\nextend .google.protobuf.FieldOptions {\n  int32 width = 52000;\n}\n",
+    "ms": 1
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "syntax = \"proto3\";\npackage opts;\n\nimport \"google/protobuf/descriptor.proto\";\n\nmessage Rule {\n  int32 min = 1;\n  int32 max = 2;\n  repeated string tags = 3;\n}\nmessage M {\n  option (opts.label) = \"L\\'s\";\n  option (opts.rule) = {\n    min: 1,\n    tags: [\n      \"x\",\n      \"y\"\n    ]\n  };\n  option (opts.rules) = {\n    min: 1,\n    tags: \"a\"\n  };\n  option (opts.rules) = {\n    max: 2\n  };\n\n  int32 v = 1 [\n    deprecated = false,\n    (opts.width) = 8\n  ];\n}\n\nextend .google.protobuf.MessageOptions {\n  .opts.Rule rule = 51000;\n  repeated .opts.Rule rules = 51001;\n  string label = 51002;\n}\nextend .google.protobuf.FieldOptions {\n  int32 width = 52000;\n}\n",
+    "ms": 2
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "syntax = \"proto3\";\npackage opts;\n\nimport \"google/protobuf/descriptor.proto\";\n\nmessage Rule {\n  int32 min = 1;\n  int32 max = 2;\n  repeated string tags = 3;\n}\nmessage M {\n  option (opts.label) = \"L\\'s\";\n  option (opts.rule) = {\n    min: 1,\n    tags: [\n      \"x\",\n      \"y\"\n    ]\n  };\n  option (opts.rules) = {\n    min: 1,\n    tags: \"a\"\n  };\n  option (opts.rules) = {\n    max: 2\n  };\n\n  int32 v = 1 [\n    deprecated = false,\n    (opts.width) = 8\n  ];\n}\n\nextend .google.protobuf.MessageOptions {\n  .opts.Rule rule = 51000;\n  repeated .opts.Rule rules = 51001;\n  string label = 51002;\n}\nextend .google.protobuf.FieldOptions {\n  int32 width = 52000;\n}\n",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/pc-options",
+   "b": "{\"schema\":\"syntax = \\\"proto3\\\";\\npackage opts;\\nimport \\\"google/protobuf/descriptor.proto\\\";\\nmessage Rule { int32 min = 1; int32 max = 2; repeated string tags = 3; }\\nextend google.protobuf.MessageOptions { Rule rule = 51000; repeated Rule rules = 51001; string label = 51002; }\\nextend google.protobuf.FieldOptions { int32 width = 52000; }\\nmessage M {\\n  option (rule).min = 1;\\n  option (rule).tags = \\\"x\\\";\\n  option (rule).tags = \\\"y\\\";\\n  option (rules) = { min: 1 tags: [\\\"a\\\"] };\\n  option (rules) = { max: 2, tags: [] };\\n  option (label) = 'L\\\\'s';\\n  int32 v = 1 [(width) = 010, deprecated = false];\\n}\\n\",\"schemaType\":\"PROTOBUF\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"pc-options\",\"version\":1,\"id\":57,\"schemaType\":\"PROTOBUF\",\"schema\":\"syntax = \\\"proto3\\\";\\npackage opts;\\n\\nimport \\\"google/protobuf/descriptor.proto\\\";\\n\\nmessage Rule {\\n  int32 min = 1;\\n  int32 max = 2;\\n  repeated string tags = 3;\\n}\\nmessage M {\\n  option (opts.label) = \\\"L\\\\'s\\\";\\n  option (opts.rule) = {\\n    min: 1,\\n    tags: [\\n      \\\"x\\\",\\n      \\\"y\\\"\\n    ]\\n  };\\n  option (opts.rules) = {\\n    min: 1,\\n    tags: \\\"a\\\"\\n  };\\n  option (opts.rules) = {\\n    max: 2\\n  };\\n\\n  int32 v = 1 [\\n    deprecated = false,\\n    (opts.width) = 8\\n  ];\\n}\\n\\nextend .google.protobuf.MessageOptions {\\n  .opts.Rule rule = 51000;\\n  repeated .opts.Rule rules = 51001;\\n  string label = 51002;\\n}\\nextend .google.protobuf.FieldOptions {\\n  int32 width = 52000;\\n}\\n\"}",
+    "ms": 3
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"pc-options\",\"version\":1,\"id\":56,\"guid\":\"5dcc189d-7549-9db7-31d7-91756ac31dff\",\"schemaType\":\"PROTOBUF\",\"schema\":\"syntax = \\\"proto3\\\";\\npackage opts;\\n\\nimport \\\"google/protobuf/descriptor.proto\\\";\\n\\nmessage Rule {\\n  int32 min = 1;\\n  int32 max = 2;\\n  repeated string tags = 3;\\n}\\nmessage M {\\n  option (opts.label) = \\\"L\\\\'s\\\";\\n  option (opts.rule) = {\\n    min: 1,\\n    tags: [\\n      \\\"x\\\",\\n      \\\"y\\\"\\n    ]\\n  };\\n  option (opts.rules) = {\\n    min: 1,\\n    tags: \\\"a\\\"\\n  };\\n  option (opts.rules) = {\\n    max: 2\\n  };\\n\\n  int32 v = 1 [\\n    deprecated = false,\\n    (opts.width) = 8\\n  ];\\n}\\n\\nextend .google.protobuf.MessageOptions {\\n  .opts.Rule rule = 51000;\\n  repeated .opts.Rule rules = 51001;\\n  string label = 51002;\\n}\\nextend .google.protobuf.FieldOptions {\\n  int32 width = 52000;\\n}\\n\"}",
+    "ms": 5
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"pc-options\",\"version\":1,\"id\":58,\"schemaType\":\"PROTOBUF\",\"schema\":\"syntax = \\\"proto3\\\";\\npackage opts;\\n\\nimport \\\"google/protobuf/descriptor.proto\\\";\\n\\nmessage Rule {\\n  int32 min = 1;\\n  int32 max = 2;\\n  repeated string tags = 3;\\n}\\nmessage M {\\n  option (opts.label) = \\\"L\\\\'s\\\";\\n  option (opts.rule) = {\\n    min: 1,\\n    tags: [\\n      \\\"x\\\",\\n      \\\"y\\\"\\n    ]\\n  };\\n  option (opts.rules) = {\\n    min: 1,\\n    tags: \\\"a\\\"\\n  };\\n  option (opts.rules) = {\\n    max: 2\\n  };\\n\\n  int32 v = 1 [\\n    deprecated = false,\\n    (opts.width) = 8\\n  ];\\n}\\n\\nextend .google.protobuf.MessageOptions {\\n  .opts.Rule rule = 51000;\\n  repeated .opts.Rule rules = 51001;\\n  string label = 51002;\\n}\\nextend .google.protobuf.FieldOptions {\\n  int32 width = 52000;\\n}\\n\"}",
+    "ms": 1
+   }
+  }
+ }
+]

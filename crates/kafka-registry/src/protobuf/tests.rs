@@ -422,3 +422,61 @@ fn a_comment_inside_the_package_name_is_not_stored() {
     assert!(text.starts_with("package a.b;\n"), "{text}");
     assert_eq!(stored(&text), text);
 }
+
+/// Recorded from cp-schema-registry 7.7.1 and 8.3.2 (tools/registry-diff, protobuf-normalize/names): every name qualified
+/// from its scope, rpc options sorted, fields by number. The normalized text reads back as itself.
+#[test]
+fn a_schema_normalizes_as_confluent_normalizes_it() {
+    let text = "syntax = \"proto3\";
+package a.b;
+message Outer {
+  message Inner { message Leaf { int32 x = 1; } Leaf leaf = 1; }
+  Inner.Leaf direct = 1;
+  .a.b.Outer.Inner absolute = 2;
+  b.Outer up = 3;
+  repeated Inner inners = 4;
+}
+message Other { Outer.Inner.Leaf l = 1; a.b.Other self = 2; }
+service S {
+  rpc R (Outer) returns (b.Other) { option idempotency_level = NO_SIDE_EFFECTS; option deprecated = true; }
+  rpc Q (stream .a.b.Other) returns (Other);
+}
+
+";
+    let want = "syntax = \"proto3\";
+package a.b;
+
+message Outer {
+  .a.b.Outer.Inner.Leaf direct = 1;
+  .a.b.Outer.Inner absolute = 2;
+  .a.b.Outer up = 3;
+  repeated .a.b.Outer.Inner inners = 4;
+
+  message Inner {
+    .a.b.Outer.Inner.Leaf leaf = 1;
+  
+    message Leaf {
+      int32 x = 1;
+    }
+  }
+}
+message Other {
+  .a.b.Outer.Inner.Leaf l = 1;
+  .a.b.Other self = 2;
+}
+
+service S {
+  rpc R (.a.b.Outer) returns (.a.b.Other) {
+    option deprecated = true;
+    option idempotency_level = NO_SIDE_EFFECTS;
+  };
+  rpc Q (stream .a.b.Other) returns (.a.b.Other);
+}
+";
+    let got = parse(text, &[]).unwrap().canonical(true);
+    assert_eq!(got, want);
+    assert_eq!(parse(&got, &[]).unwrap().canonical(true), want);
+    // proto2 loses its syntax line.
+    let p2 = parse("syntax = \"proto2\"; message A { optional int32 a = 1; }", &[]).unwrap();
+    assert_eq!(p2.canonical(true), "\nmessage A {\n  optional int32 a = 1;\n}\n");
+}
