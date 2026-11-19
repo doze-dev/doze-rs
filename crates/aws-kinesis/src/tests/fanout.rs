@@ -207,7 +207,8 @@ async fn every_starting_position_is_honoured() {
 }
 
 #[tokio::test]
-async fn a_second_subscription_within_five_seconds_is_refused_and_a_later_one_takes_over() {
+async fn a_second_subscription_takes_over_even_at_once() {
+    // Recorded 2026-11-19: AWS accepted a second call made at once (the model says one within 5 seconds is refused).
     let w = Live::new();
     let consumer = w.consumer().await;
     let mut first = w
@@ -216,13 +217,6 @@ async fn a_second_subscription_within_five_seconds_is_refused_and_a_later_one_ta
         .unwrap();
     event(&mut first).await;
     w.clock.advance(1000);
-    let e = w
-        .subscribe(from(&consumer, json!({"Type": "LATEST"})))
-        .await
-        .err()
-        .unwrap();
-    assert_eq!(e.code, "ResourceInUseException");
-    w.clock.advance(5000);
     let mut second = w
         .subscribe(from(&consumer, json!({"Type": "LATEST"})))
         .await

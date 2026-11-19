@@ -86,7 +86,11 @@ fn a_server_certificate_is_returned_renamed_tagged_and_deleted() {
         &json!({"ServerCertificateName": "site"}),
     )["ServerCertificate"]
         .clone();
-    assert_eq!(got["CertificateBody"], RSA_CERT);
+    assert_eq!(
+        got["CertificateBody"],
+        RSA_CERT.trim(),
+        "without its closing newline"
+    );
     assert!(got.get("PrivateKey").is_none());
     w.ok(
         "UpdateServerCertificate",
@@ -203,7 +207,7 @@ fn signing_certificates_are_two_per_user_and_unique_in_the_account() {
     assert_eq!(listed.as_array().unwrap().len(), 2);
     assert_eq!(
         w.err("DeleteUser", &json!({"UserName": "u"})).1,
-        "Cannot delete entity, must delete signing certificates first."
+        "Cannot delete entity, must delete certificates first."
     );
     assert_eq!(
         w.err(

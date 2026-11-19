@@ -256,7 +256,13 @@ def test_math_alarm(client, names, cleanup, snapshot):
     snapshot.match("delete", cw.delete_alarms(AlarmNames=[name]))
 
 
-def test_log_alarm(client, names, cleanup, snapshot):
+def query_role(service_role):
+    """The role a log alarm's scheduled query runs as: CloudWatch Logs assumes it to run the Insights query."""
+    return service_role("logs", inline={"Version": "2012-10-17", "Statement": [{"Effect": "Allow", "Resource": "*", "Action": [
+        "logs:StartQuery", "logs:GetQueryResults", "logs:StopQuery", "logs:DescribeLogGroups"]}]})
+
+
+def test_log_alarm(client, names, cleanup, snapshot, service_role):
     """A log alarm on a Logs Insights query. Cost on AWS: a scheduled query runs every five minutes for as long as the alarm
     lives (a minute or two here). The role must exist on AWS for the put to be accepted (memory); locally any ARN is kept."""
     cw, logs = client("cloudwatch"), client("logs")
@@ -270,7 +276,7 @@ def test_log_alarm(client, names, cleanup, snapshot):
         QueryResultsToEvaluate=3, QueryResultsToAlarm=2, ActionsEnabled=False,
         ScheduledQueryConfiguration={
             "QueryString": "fields @message | filter @message like /ERROR/", "LogGroupIdentifiers": [group],
-            "ScheduledQueryRoleARN": f"arn:aws:iam::{account}:role/dzc-log-alarm",
+            "ScheduledQueryRoleARN": query_role(service_role),
             "AggregationExpression": "count(*)",
             "ScheduleConfiguration": {"ScheduleExpression": "rate(5 minutes)", "StartTimeOffset": 300}})
     snapshot.match("put", cw.put_log_alarm(**alarm))
@@ -323,12 +329,13 @@ def test_a_composite_alarm_follows_its_rule(client, names, cleanup, snapshot, ev
     snapshot.match("both-children-in-alarm", state("ALARM"))
     cw.set_alarm_state(AlarmName=cpu, StateValue="OK", StateReason="forced by the scenario")
     snapshot.match("one-child-ok", state("OK"))
-    snapshot.error("rule-that-does-not-read", lambda: cw.put_composite_alarm(AlarmName=comp, AlarmRule=f"ALARM({cpu}"))
+    # A fixed text: the error gives a character position, which a run-numbered alarm name would move.
+    snapshot.error("rule-that-does-not-read", lambda: cw.put_composite_alarm(AlarmName=comp, AlarmRule="ALARM(unclosed"))
 
 
-def test_a_log_alarm_is_evaluated_on_its_schedule(client, names, cleanup, snapshot, eventually):
+def test_a_log_alarm_is_evaluated_on_its_schedule(client, names, cleanup, snapshot, eventually, service_role):
     """A log alarm on a query every minute: three ERROR lines against a threshold of 2. Takes a minute or two on either side. On AWS
-    the role `dzc-log-alarm` must exist (not made here)."""
+    the query role is made here (service_role)."""
     cw, logs = client("cloudwatch"), client("logs")
     group, name = f"/dzc/{names('group')}", names("alarm")
     logs.create_log_group(logGroupName=group)
@@ -341,7 +348,7 @@ def test_a_log_alarm_is_evaluated_on_its_schedule(client, names, cleanup, snapsh
         QueryResultsToEvaluate=1, QueryResultsToAlarm=1, ActionsEnabled=False,
         ScheduledQueryConfiguration={
             "QueryString": "fields @message | filter @message like /ERROR/", "LogGroupIdentifiers": [group],
-            "ScheduledQueryRoleARN": f"arn:aws:iam::{account}:role/dzc-log-alarm",
+            "ScheduledQueryRoleARN": query_role(service_role),
             "AggregationExpression": "count(*)",
             "ScheduleConfiguration": {"ScheduleExpression": "rate(1 minute)", "StartTimeOffset": 600}})
     at = int(datetime.datetime.now(datetime.timezone.utc).timestamp() * 1000)

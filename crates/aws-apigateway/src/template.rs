@@ -1,13 +1,14 @@
 //! `GetModelTemplate` (both APIs): a mapping template that writes a payload in the shape of a model, generated from the model's JSON
-//! schema. The `$inputRoot` line and the empty model's `{ }` are AWS's (the CLI reference's example for `Empty`); the rest follows
-//! the console's generated templates as remembered `(memory)`: strings quoted, numbers and booleans bare, an object's properties
-//! written in place, an array as a `#foreach` over the input's array, a `$ref` to another model followed (once per path, so a
-//! recursive model ends).
+//! schema. Recorded 2026-11-19: AWS writes sample values, not references to the input: a string is `"foo"`, an integer `42`, a
+//! boolean `true`, each property on its own line two spaces in per level; an array is a `#foreach` over `$inputRoot.TODO` behind
+//! a `##TODO` comment, its element written once between single spaces, its `]` at the start of the line; the empty model is
+//! `{ }`. A `number` written as `42` too, and a nested object written in place, are `(memory)`: the recording has neither. A
+//! `$ref` to another model is followed (once per path, so a recursive model ends).
 
 use serde_json::{Map, Value};
 
 const ROOT: &str = "#set($inputRoot = $input.path('$'))";
-/// How deep a template is written; deeper parts are written as their reference.
+/// How deep a template is written; deeper parts are written as a string sample.
 const MAX_DEPTH: usize = 16;
 
 /// The models a schema may `$ref`, by name.
@@ -22,9 +23,7 @@ pub(crate) fn generate(schema: &str, models: Models<'_>) -> String {
     let shape = resolve(&schema, models, &mut seen);
     match kind(&shape) {
         "object" if props(&shape).is_none_or(Map::is_empty) => out.push_str("{ }"),
-        "array" => array(&mut out, &shape, "$inputRoot", 0, models, &mut seen),
-        "object" => object(&mut out, &shape, "$inputRoot", 0, models, &mut seen),
-        _ => out.push_str(&scalar(&shape, "$inputRoot")),
+        _ => value(&mut out, &shape, 0, models, &mut seen),
     }
     out
 }
@@ -65,10 +64,12 @@ fn props(schema: &Value) -> Option<&Map<String, Value>> {
     schema.get("properties").and_then(Value::as_object)
 }
 
-fn scalar(schema: &Value, at: &str) -> String {
+/// The sample AWS writes for a scalar.
+fn scalar(schema: &Value) -> &'static str {
     match kind(schema) {
-        "integer" | "number" | "boolean" => at.to_owned(),
-        _ => format!("\"{at}\""),
+        "integer" | "number" => "42",
+        "boolean" => "true",
+        _ => "\"foo\"",
     }
 }
 
@@ -79,7 +80,6 @@ fn indent(out: &mut String, depth: usize) {
 fn object(
     out: &mut String,
     schema: &Value,
-    at: &str,
     depth: usize,
     models: Models<'_>,
     seen: &mut Vec<String>,
@@ -90,10 +90,9 @@ fn object(
     for (i, (name, sub)) in fields.into_iter().enumerate() {
         indent(out, depth + 1);
         out.push_str(&format!("\"{name}\" : "));
-        let path = format!("{at}.{name}");
         let mark = seen.len();
         let sub = resolve(sub, models, seen);
-        value(out, &sub, &path, depth + 1, models, seen);
+        value(out, &sub, depth + 1, models, seen);
         seen.truncate(mark);
         if i < last {
             out.push(',');
@@ -107,41 +106,39 @@ fn object(
 fn value(
     out: &mut String,
     schema: &Value,
-    at: &str,
     depth: usize,
     models: Models<'_>,
     seen: &mut Vec<String>,
 ) {
     if depth >= MAX_DEPTH {
-        out.push_str(&format!("\"{at}\""));
+        out.push_str("\"foo\"");
         return;
     }
     match kind(schema) {
-        "object" => object(out, schema, at, depth, models, seen),
-        "array" => array(out, schema, at, depth, models, seen),
-        _ => out.push_str(&scalar(schema, at)),
+        "object" => object(out, schema, depth, models, seen),
+        "array" => array(out, schema, depth, models, seen),
+        _ => out.push_str(scalar(schema)),
     }
 }
 
 fn array(
     out: &mut String,
     schema: &Value,
-    at: &str,
     depth: usize,
     models: Models<'_>,
     seen: &mut Vec<String>,
 ) {
     out.push_str("[\n");
-    out.push_str(&format!("#foreach($elem in {at})\n"));
-    indent(out, depth + 1);
+    out.push_str("##TODO: Update this foreach loop to reference array from input json\n");
+    out.push_str("#foreach($elem in $inputRoot.TODO)\n ");
     let items = schema.get("items").cloned().unwrap_or(Value::Null);
     let mark = seen.len();
     let items = resolve(&items, models, seen);
-    value(out, &items, "$elem", depth + 1, models, seen);
+    value(out, &items, depth + 1, models, seen);
     seen.truncate(mark);
+    out.push_str(" \n");
     out.push_str("#if($foreach.hasNext),#end\n");
     out.push_str("#end\n");
-    indent(out, depth);
     out.push(']');
 }
 
@@ -166,18 +163,37 @@ mod tests {
     }
 
     #[test]
-    fn properties_arrays_and_references_are_written() {
-        let pet = json!({"type": "object", "properties": {"id": {"type": "integer"}, "name": {"type": "string"}}});
-        let models = move |n: &str| (n == "Pet").then(|| pet.clone());
+    fn samples_are_written_as_aws_writes_them() {
+        // Recorded 2026-11-19.
+        let none = |_: &str| None;
         let t = generate(
-            r##"{"type": "object", "properties": {"count": {"type": "number"},
-                "pets": {"type": "array", "items": {"$ref": "#/definitions/Pet"}}}}"##,
-            &models,
+            r#"{"type": "object", "properties": {"name": {"type": "string"}, "age": {"type": "integer"},
+                "tags": {"type": "array", "items": {"type": "string"}}}}"#,
+            &none,
         );
         assert_eq!(
             t,
-            "#set($inputRoot = $input.path('$'))\n{\n  \"count\" : $inputRoot.count,\n  \"pets\" : [\n#foreach($elem in $inputRoot.pets)\n    {\n      \"id\" : $elem.id,\n      \"name\" : \"$elem.name\"\n    }#if($foreach.hasNext),#end\n#end\n  ]\n}"
+            "#set($inputRoot = $input.path('$'))\n{\n  \"name\" : \"foo\",\n  \"age\" : 42,\n  \"tags\" : [\n##TODO: Update this foreach loop to reference array from input json\n#foreach($elem in $inputRoot.TODO)\n \"foo\" \n#if($foreach.hasNext),#end\n#end\n]\n}"
         );
+        let ok = generate(
+            r#"{"type": "object", "properties": {"ok": {"type": "boolean"}}}"#,
+            &none,
+        );
+        assert_eq!(
+            ok,
+            "#set($inputRoot = $input.path('$'))\n{\n  \"ok\" : true\n}"
+        );
+    }
+
+    #[test]
+    fn references_are_followed_and_the_template_runs() {
+        let pet = json!({"type": "object", "properties": {"id": {"type": "integer"}}});
+        let models = move |n: &str| (n == "Pet").then(|| pet.clone());
+        let t = generate(
+            r##"{"type": "object", "properties": {"pets": {"type": "array", "items": {"$ref": "#/definitions/Pet"}}}}"##,
+            &models,
+        );
+        assert!(t.contains("\"id\" : 42"), "{t}");
         // The template runs on the plane's VTL.
         let mut env = crate::plane::vtl::Env::default();
         assert!(crate::plane::vtl::render(&t, &mut env).is_ok());

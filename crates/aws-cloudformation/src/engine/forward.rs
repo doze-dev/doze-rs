@@ -229,13 +229,20 @@ impl Op {
         res.ty = l.ty.clone();
         res.status = format!("{verb}_IN_PROGRESS");
         res.reason = None;
+        let mut events = vec![draft.clone()];
         if launch::takes_signals(&l) {
             crate::signal::open(&crate::signal::resource_key(&self.job.stack_id, &l.logical));
+            // Recorded 2026-11-19: a wait condition shows `Resource creation Initiated` as it starts waiting, before any signal
+            // (and before it fails or is cancelled), not once it completes.
+            events.push(Draft {
+                reason: Some("Resource creation Initiated".into()),
+                ..draft
+            });
         }
         self.runner
             .report(Progress {
                 stack_id: self.job.stack_id.clone(),
-                events: vec![draft],
+                events,
                 resources: vec![(l.logical.clone(), Some(res))],
                 ..Progress::default()
             })
@@ -293,7 +300,7 @@ impl Op {
             detailed: detailed.map(str::to_owned),
         };
         let mut events = Vec::new();
-        if l.step != Step::Update {
+        if l.step != Step::Update && !launch::takes_signals(l) {
             events.push(event(
                 format!("{verb}_IN_PROGRESS"),
                 Some("Resource creation Initiated".into()),

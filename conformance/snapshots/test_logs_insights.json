@@ -1,0 +1,654 @@
+{
+  "_recorded": {
+    "boto3": "1.43.107",
+    "botocore": "1.43.107",
+    "on": "2026-11-19",
+    "region": "us-east-1",
+    "target": "aws"
+  },
+  "test_destinations": {
+    "delete-absent": {
+      "Error": {
+        "Code": "ResourceNotFoundException",
+        "Message": "The specified destination does not exist."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "put": {
+      "Error": {
+        "Code": "InvalidParameterException",
+        "Message": "Could not deliver test message to specified destination. Check if the destination is valid."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    }
+  },
+  "test_export_task": {
+    "absent-group": {
+      "Error": {
+        "Code": "ResourceNotFoundException",
+        "Message": "The specified log group does not exist."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "cancel-finished": {
+      "Error": {
+        "Code": "InvalidOperationException",
+        "Message": "The specified export task has already finished"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "completed": {
+      "destination": "<name:bucket>",
+      "destinationPrefix": "out",
+      "executionInfo": {
+        "completionTime": "<completionTime:1>",
+        "creationTime": "<creationTime:1>"
+      },
+      "from": "<from:1>",
+      "logGroupName": "/<name:group>",
+      "status": {
+        "code": "COMPLETED",
+        "message": "Completed successfully"
+      },
+      "taskId": "<taskId:1>",
+      "to": "<to:1>"
+    },
+    "objects": [
+      "out/aws-logs-write-test"
+    ]
+  },
+  "test_index_policies": {
+    "custom-indexes": [],
+    "delete": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "delete-again": {
+      "Error": {
+        "Code": "ResourceNotFoundException",
+        "Message": "Specified resource does not exist!"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "describe": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "indexPolicies": [
+        {
+          "lastUpdateTime": "<lastUpdateTime:1>",
+          "logGroupIdentifier": "arn:aws:logs:us-east-1:<account>:log-group:/<name:group>",
+          "policyDocument": "{\"Fields\": [\"requestId\"], \"FieldsV2\": {\"status\": {\"type\": \"FACET\"}}}",
+          "source": "LOG_GROUP"
+        }
+      ]
+    },
+    "empty-policy": {
+      "Error": {
+        "Code": "InvalidParameterException",
+        "Message": "Policy document should contain at least 1 field."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "put": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "indexPolicy": {
+        "lastUpdateTime": "<lastUpdateTime:1>",
+        "logGroupIdentifier": "arn:aws:logs:us-east-1:<account>:log-group:/<name:group>",
+        "policyDocument": "{\"Fields\": [\"requestId\"], \"FieldsV2\": {\"status\": {\"type\": \"FACET\"}}}",
+        "source": "LOG_GROUP"
+      }
+    }
+  },
+  "test_insights_queries": {
+    "described": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "nextToken": "<nextToken:1>",
+      "queries": [
+        {
+          "createTime": "<createTime:1>",
+          "logGroupName": "/<name:group>",
+          "queryDuration": "<queryDuration:1>",
+          "queryId": "<queryId:1>",
+          "queryLanguage": "CWLI",
+          "queryString": "SOURCE \"/<name:group>\" START=1795099290000 END=1795099444999 | fields @message | limit 2",
+          "status": "Complete",
+          "userIdentity": "<caller>"
+        }
+      ]
+    },
+    "fields-filter-sort": [
+      {
+        "ms": "250",
+        "path": "/b"
+      },
+      {
+        "ms": "10",
+        "path": "/a"
+      }
+    ],
+    "group-fields": [
+      [
+        "@aws.account",
+        100
+      ],
+      [
+        "@aws.region",
+        100
+      ],
+      [
+        "@data_format",
+        100
+      ],
+      [
+        "@data_source_name",
+        100
+      ],
+      [
+        "@data_source_type",
+        100
+      ],
+      [
+        "@ingestionTime",
+        100
+      ],
+      [
+        "@logStream",
+        100
+      ],
+      [
+        "@message",
+        100
+      ],
+      [
+        "@timestamp",
+        100
+      ],
+      [
+        "level",
+        75
+      ],
+      [
+        "ms",
+        75
+      ],
+      [
+        "path",
+        75
+      ]
+    ],
+    "groups-for-query": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "logGroupIdentifiers": [
+        "/<name:group>"
+      ]
+    },
+    "like-regex": [
+      {
+        "@logStream": "app",
+        "@message": "plain ERROR user=bob action=login"
+      }
+    ],
+    "limit-newest-first": [
+      {
+        "@message": "plain ERROR user=bob action=login"
+      },
+      {
+        "@message": "{\"level\":\"info\",\"ms\":30,\"path\":\"/a\"}"
+      }
+    ],
+    "no-such-query": {
+      "Error": {
+        "Code": "InvalidParameterException",
+        "Message": "The provided queryId = <uuid:4> is invalid "
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "parse-glob": [
+      {
+        "action": "login",
+        "up": "BOB",
+        "user": "bob"
+      }
+    ],
+    "parse-then-fields-again": {
+      "Error": {
+        "Code": "MalformedQueryException",
+        "Message": "Ephemeral field is already defined: user ([127,145]) (Service: AWSLogs; Status Code: 400; Error Code: MalformedQueryException; Request ID: <uuid:1>; Proxy: null)"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "record": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "logRecord": {
+        "@aws.account": "<account>",
+        "@aws.region": "us-east-1",
+        "@data_format": "Default",
+        "@data_source_name": "Unknown",
+        "@data_source_type": "Unknown",
+        "@ingestionTime": "<@ingestionTime:1>",
+        "@log": "<account>:/<name:group>",
+        "@logGroupId": "<uuid:2>",
+        "@logStream": "app",
+        "@logStreamId": "<uuid:2>::a172cedcae47474b615c54d510a5d84a8dea3032e958587430b413538be3f333::1795099350866",
+        "@message": "plain ERROR user=bob action=login",
+        "@timestamp": "<@timestamp:1>",
+        "backwardToken": "b/hotstore:ODIxNzEyOTE1Njc0Oi9kb3plLXJlYy05MzhmZjFhOC0xLWdyb3VwHzE3OTUwOTkzNTEfMTc5NTA5OTM1MTM4Nh8yMDczMzg1MzUzMDM0NjU0MjQzHzMfMTc5NTA5OTM1MDk5Mg==/s",
+        "forwardToken": "f/hotstore:ODIxNzEyOTE1Njc0Oi9kb3plLXJlYy05MzhmZjFhOC0xLWdyb3VwHzE3OTUwOTkzNTEfMTc5NTA5OTM1MTM4Nh8yMDczMzg1MzUzMDM0NjU0MjQzHzMfMTc5NTA5OTM1MDk5Mg==/s"
+      }
+    },
+    "result-shape": {
+      "queryLanguage": "CWLI",
+      "results": [
+        [
+          {
+            "field": "@message",
+            "value": "<value:1>"
+          },
+          {
+            "field": "@ptr",
+            "value": "<value:2>"
+          }
+        ],
+        [
+          {
+            "field": "@message",
+            "value": "<value:3>"
+          },
+          {
+            "field": "@ptr",
+            "value": "<value:4>"
+          }
+        ]
+      ],
+      "status": "Complete"
+    },
+    "stats-by": [
+      {
+        "level": "error",
+        "mean": "250",
+        "n": "1"
+      },
+      {
+        "level": "info",
+        "mean": "20",
+        "n": "2"
+      }
+    ],
+    "stop-ended": {
+      "Error": {
+        "Code": "InvalidParameterException",
+        "Message": "Query is already ended with Complete (Service: AWSLogs; Status Code: 400; Error Code: InvalidParameterException; Request ID: <uuid:3>; Proxy: null)"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    }
+  },
+  "test_insights_refusals": {
+    "absent-group": {
+      "Error": {
+        "Code": "ResourceNotFoundException",
+        "Message": "Log group '/<name:absent>' does not exist for account ID '<account>' (Service: AWSLogs; Status Code: 400; Error Code: ResourceNotFoundException; Request ID: <uuid:2>; Proxy: null)"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "backwards": {
+      "Error": {
+        "Code": "InvalidParameterException",
+        "Message": "End time cannot be less than Start time (Service: AWSLogs; Status Code: 400; Error Code: InvalidParameterException; Request ID: <uuid:3>; Proxy: null)"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "bad-pointer": {
+      "Error": {
+        "Code": "InvalidParameterException",
+        "Message": "InvalidParameter Unable to deserialize token"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "malformed": {
+      "Error": {
+        "Code": "MalformedQueryException",
+        "Message": "unexpected symbol found | at line 1 and position 83 (Service: AWSLogs; Status Code: 400; Error Code: MalformedQueryException; Request ID: <uuid:4>; Proxy: null)"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "no-group": {
+      "Error": {
+        "Code": "MalformedQueryException",
+        "Message": "Invalid syntax while using query definition snippets: unexpected symbol found fields at line 1 and position 0 (Service: AWSLogs; Status Code: 400; Error Code: MalformedQueryException; Request ID: <uuid:1>; Proxy: null)"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "two-ways": {
+      "Error": {
+        "Code": "InvalidParameterException",
+        "Message": "Both logGroupName and logGroupNames cannot be specified at the same time"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "unknown-function": {
+      "Error": {
+        "Code": "MalformedQueryException",
+        "Message": "Unrecognized function name: nosuch ([83,98]) (Service: AWSLogs; Status Code: 400; Error Code: MalformedQueryException; Request ID: <uuid:5>; Proxy: null)"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    }
+  },
+  "test_live_tail": {
+    "names-a-stream-and-a-prefix": {
+      "Error": {
+        "Code": "InvalidParameterException",
+        "Message": "LogStreamNames provided with LogStreamPrefixes. LogStreamPrefixes is disabled if log stream names is provided."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "session-start": {
+      "logEventFilterPattern": "ERROR",
+      "logGroupIdentifiers": [
+        "arn:aws:logs:us-east-1:<account>:log-group:/<name:group>"
+      ],
+      "requestId": "<requestId:1>",
+      "sessionId": "<sessionId:1>"
+    },
+    "tailed": []
+  },
+  "test_scheduled_queries": {
+    "create": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "scheduledQueryArn": "arn:aws:logs:us-east-1:<account>:scheduled-query:<uuid:1>",
+      "state": "DISABLED"
+    },
+    "delete": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "duplicate": {
+      "Error": {
+        "Code": "ValidationException",
+        "Message": "Invalid syntax while using query definition snippets: unexpected symbol found fields at line 1 and position 0 (Service: AWSLogs; Status Code: 400; Error Code: MalformedQueryException; Request ID: <uuid:2>; Proxy: null)"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "get": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "creationTime": "<creationTime:1>",
+      "endTimeOffset": 0,
+      "executionRoleArn": "arn:aws:iam::<account>:role/<name:role-1>",
+      "lastUpdatedTime": "<lastUpdatedTime:1>",
+      "logGroupIdentifiers": [
+        "/<name:group>"
+      ],
+      "name": "<name:scheduled>",
+      "queryLanguage": "CWLI",
+      "queryString": "stats count(*) as n",
+      "scheduleExpression": "cron(0 0 * * ? *)",
+      "scheduleType": "CUSTOMER_MANAGED",
+      "scheduledQueryArn": "arn:aws:logs:us-east-1:<account>:scheduled-query:<uuid:1>",
+      "startTimeOffset": 3600,
+      "state": "DISABLED"
+    },
+    "get-deleted": {
+      "Error": {
+        "Code": "ResourceNotFoundException",
+        "Message": "Scheduled query with identifier <name:scheduled> not found"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "history": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "name": "<name:scheduled>",
+      "scheduledQueryArn": "arn:aws:logs:us-east-1:<account>:scheduled-query:<uuid:1>",
+      "triggerHistory": []
+    },
+    "listed": [
+      {
+        "creationTime": "<creationTime:1>",
+        "lastUpdatedTime": "<lastUpdatedTime:2>",
+        "name": "<name:scheduled>",
+        "scheduleExpression": "cron(0 1 * * ? *)",
+        "scheduleType": "CUSTOMER_MANAGED",
+        "scheduledQueryArn": "arn:aws:logs:us-east-1:<account>:scheduled-query:<uuid:1>",
+        "state": "DISABLED"
+      }
+    ],
+    "update-without-offset": {
+      "Error": {
+        "Code": "ValidationException",
+        "Message": "1 validation errors detected: StartTimeOffset is required field"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "updated": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "creationTime": "<creationTime:1>",
+      "endTimeOffset": 0,
+      "executionRoleArn": "arn:aws:iam::<account>:role/<name:role-1>",
+      "lastUpdatedTime": "<lastUpdatedTime:2>",
+      "logGroupIdentifiers": [
+        "/<name:group>"
+      ],
+      "name": "<name:scheduled>",
+      "queryLanguage": "CWLI",
+      "queryString": "fields @message",
+      "scheduleExpression": "cron(0 1 * * ? *)",
+      "scheduleType": "CUSTOMER_MANAGED",
+      "scheduledQueryArn": "arn:aws:logs:us-east-1:<account>:scheduled-query:<uuid:1>",
+      "startTimeOffset": 3600,
+      "state": "DISABLED"
+    }
+  },
+  "test_transformers": {
+    "delete": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "get": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "creationTime": "<creationTime:1>",
+      "lastModifiedTime": "<lastModifiedTime:1>",
+      "logGroupIdentifier": "/<name:group>",
+      "transformerConfig": [
+        {
+          "parseJSON": {}
+        },
+        {
+          "addKeys": {
+            "entries": [
+              {
+                "key": "env",
+                "overwriteIfExists": false,
+                "value": "dev"
+              }
+            ]
+          }
+        },
+        {
+          "renameKeys": {
+            "entries": [
+              {
+                "key": "lvl",
+                "overwriteIfExists": false,
+                "renameTo": "level"
+              }
+            ]
+          }
+        },
+        {
+          "upperCaseString": {
+            "withKeys": [
+              "level"
+            ]
+          }
+        }
+      ]
+    },
+    "get-deleted": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "transformerConfig": []
+    },
+    "grok-type-conversion": {
+      "Error": {
+        "Code": "InvalidParameterException",
+        "Message": "Grok parser doesn't support type conversions for any grok patterns"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "move-to-existing": [
+      {
+        "a": {
+          "c": 2
+        }
+      }
+    ],
+    "move-to-new": {
+      "Error": {
+        "Code": "InvalidParameterException",
+        "Message": "No corresponding field. Field Name: 'd', Processor: 'MoveKeysProcessor'"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "move-under-absent": {
+      "Error": {
+        "Code": "InvalidParameterException",
+        "Message": "No corresponding field. Field Name: 'd.e', Processor: 'MoveKeysProcessor'"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "ocsf-not-first-or-unknown": {
+      "Error": {
+        "Code": "InvalidParameterException",
+        "Message": "Transformer config should begin with parser. Allowed parsers are parsePostgres, parseWAF, parseCloudfront, parseCloudfrontOCSF, parseRoute53, parseLambda, parseVPC, parseSyslog, parseRDS, parseCiscoFTD, parseF5BigIP, parseCiscoISE, parseForescoutNac, parseInfobloxDDI, parseToOCSF, parseJSON, grok, csv, parseKeyValue"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "put": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "test-csv": [
+      {
+        "a": "1",
+        "b": "two, too",
+        "c": "3"
+      }
+    ],
+    "test-date": [
+      {
+        "iso": "2000-10-10T20:55:36.000Z",
+        "t": "10/Oct/2000:13:55:36 -0700"
+      }
+    ],
+    "test-grok": [
+      {
+        "bytes": "15824",
+        "client": "55.3.244.1",
+        "method": "GET",
+        "request": "/index.html?x=1"
+      }
+    ],
+    "test-json": [
+      {
+        "env": "dev",
+        "level": "WARN",
+        "n": 1
+      }
+    ],
+    "test-key-value": [
+      {
+        "a": "1",
+        "b": "x",
+        "n": 7
+      }
+    ],
+    "test-keys": [
+      {
+        "a": 1,
+        "b": 1,
+        "c": 2
+      }
+    ],
+    "test-strings": [
+      {
+        "list": [
+          "a",
+          "b",
+          "c"
+        ],
+        "s": "pad",
+        "u": "f0"
+      }
+    ]
+  }
+}

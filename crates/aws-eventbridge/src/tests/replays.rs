@@ -79,7 +79,10 @@ fn a_starting_replay_is_cancelled_before_it_puts_anything_back() {
     w.finish_replays();
     let d = state(&mut w, "rp");
     assert_eq!(d["State"], "CANCELLED");
-    assert!(d["StateReason"].is_string());
+    assert!(
+        d.get("StateReason").is_none(),
+        "a cancelled replay has no reason (recorded)"
+    );
     assert!(d["ReplayEndTime"].is_number());
     assert_eq!(count(&w), 0);
     assert_eq!(

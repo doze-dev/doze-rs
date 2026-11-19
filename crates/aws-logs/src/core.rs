@@ -65,6 +65,8 @@ pub(crate) struct Core {
     pub(crate) tails: Vec<crate::tail::Tail>,
     /// The export the last call made, run before it is answered.
     pub(crate) export: Option<crate::export::Pending>,
+    /// The destination the last call put, whose stream is looked up before it is answered.
+    pub(crate) check: Option<crate::destinations::Check>,
 }
 
 /// What the actor answers: the reply, the commit it must wait for, and when its scheduled queries next need it.
@@ -134,6 +136,7 @@ impl doze_runtime::Service for Core {
         }
         let mut reply = self.dispatch(&call);
         self.run_export(&call, &mut reply).await;
+        self.check_destination(&call, &mut reply).await;
         let durable = match self.flush() {
             Ok(ack) => ack,
             Err(e) => {
@@ -259,6 +262,7 @@ impl Core {
             tasks: None,
             tails: Vec::new(),
             export: None,
+            check: None,
         }
     }
 

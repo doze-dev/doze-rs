@@ -2,10 +2,13 @@
 //! operation was and how it stands (the model's `OperationEvent`). Built on the stack events; what each operation was is kept in a
 //! table of its own (`operations`), written when an operation's first event is.
 //!
-//! Not recorded against AWS: which `EventType` each event takes (here `STACK_EVENT` for the stack's own events,
-//! `PROVISIONING_ERROR` for a resource that failed, `PROGRESS_EVENT` for the rest), and what `StartTime` and `EndTime` hold (here
-//! when the resource's work in the operation began, and when it ended, on the event that ends it). doze-aws runs no hooks and no
-//! early validations, so there are no hook or validation events.
+//! Recorded 2026-11-19 (a stack created with one queue): every stack event, the stack's own included, shows as `EventType`
+//! `PROGRESS` (a value the model's enum lacks) with no `OperationType` or `OperationStatus`; the operation itself shows as
+//! `STACK_EVENT`s that carry those two and no resource: one `IN_PROGRESS` as it starts, one with how it ended once it has.
+//!
+//! Not recorded: `PROVISIONING_ERROR` for a resource that failed (the model's value), what else the operation's events carry, and
+//! what `StartTime` and `EndTime` hold (here when the resource's work, or the operation, began, and when it ended, on the event
+//! that ends it). doze-aws runs no hooks and no early validations, so there are no hook or validation events.
 
 use std::collections::BTreeMap;
 
@@ -49,6 +52,10 @@ struct Op {
     status: &'static str,
     /// When each resource's work in it began.
     started: BTreeMap<String, i64>,
+    /// Its first event, by index among the chosen events.
+    first: usize,
+    /// The stack-level event that ended it, by index, once it has ended.
+    end: Option<usize>,
 }
 
 fn op_status(kind: &str, last: &str) -> &'static str {
@@ -89,11 +96,31 @@ impl Core {
         let events = self.chosen_events(r)?;
         let failed_only = r.v.at("Filters").at("FailedEvents").as_bool() == Some(true);
         let ops = self.operations_of(&events);
-        let mut items: Vec<Value> = events
-            .iter()
-            .filter(|e| !failed_only || e.status.ends_with("FAILED"))
-            .map(|e| operation_event(e, e.op_id.as_ref().and_then(|o| ops.get(o))))
-            .collect();
+        let mut items: Vec<Value> = Vec::new();
+        for (i, e) in events.iter().enumerate() {
+            let op = e
+                .op_id
+                .as_ref()
+                .and_then(|id| ops.get(id).map(|op| (id.as_str(), op)));
+            if failed_only {
+                // A failed resource's events; the operation's own carry no resource status.
+                if e.status.ends_with("FAILED") {
+                    items.push(progress_event(e, op.map(|(_, op)| op)));
+                }
+                continue;
+            }
+            if let Some((id, op)) = op
+                && op.first == i
+            {
+                items.push(operation_event(e, id, op, "IN_PROGRESS", None));
+            }
+            items.push(progress_event(e, op.map(|(_, op)| op)));
+            if let Some((id, op)) = op
+                && op.end == Some(i)
+            {
+                items.push(operation_event(e, id, op, op.status, Some(e.at_ms)));
+            }
+        }
         items.reverse();
         let start: usize = r.opt("NextToken").and_then(|t| t.parse().ok()).unwrap_or(0);
         let total = items.len();
@@ -154,13 +181,14 @@ impl Core {
     /// What each operation among `events` is, and how it stands now.
     fn operations_of(&self, events: &[&Event]) -> BTreeMap<String, Op> {
         let mut out: BTreeMap<String, Op> = BTreeMap::new();
-        for e in events {
+        for (i, e) in events.iter().enumerate() {
             let Some(id) = &e.op_id else { continue };
             let op = out.entry(id.clone()).or_insert_with(|| Op {
                 kind: self
                     .operations
                     .get(id)
                     .map_or_else(String::new, |o| o.kind.clone()),
+                first: i,
                 ..Op::default()
             });
             op.started.entry(e.logical.clone()).or_insert(e.at_ms);
@@ -169,39 +197,60 @@ impl Core {
             // The operation's last stack-level event says how it stands.
             let last = events
                 .iter()
+                .enumerate()
                 .rev()
-                .filter(|e| {
-                    e.op_id.as_deref() == Some(id.as_str()) && e.ty == "AWS::CloudFormation::Stack"
-                })
-                .find(|e| e.logical == e.stack_name)
-                .map_or("", |e| e.status.as_str());
-            op.status = op_status(&op.kind, last);
+                .find(|(_, e)| e.op_id.as_deref() == Some(id.as_str()) && is_stack(e));
+            let status = last.map_or("", |(_, e)| e.status.as_str());
+            op.status = op_status(&op.kind, status);
+            op.end = last
+                .filter(|(_, e)| !e.status.ends_with("_IN_PROGRESS"))
+                .map(|(i, _)| i);
         }
         out
     }
 }
 
-/// One event as `OperationEvent`.
-fn operation_event(e: &Event, op: Option<&Op>) -> Value {
+/// Whether `e` is the stack's own event.
+fn is_stack(e: &Event) -> bool {
+    e.ty == "AWS::CloudFormation::Stack" && e.logical == e.stack_name
+}
+
+/// The operation's own event (a `STACK_EVENT`), at `e`: `status` is how it stands; `ended` when it ended, if it has.
+fn operation_event(e: &Event, op_id: &str, op: &Op, status: &str, ended: Option<i64>) -> Value {
+    let mut o = Map::new();
+    let at = ended.unwrap_or(e.at_ms);
+    o.insert("EventId".into(), format!("{}-{status}", e.id).into());
+    o.insert("StackId".into(), e.stack_id.clone().into());
+    o.insert("OperationId".into(), op_id.to_owned().into());
+    if !op.kind.is_empty() {
+        o.insert("OperationType".into(), op.kind.clone().into());
+    }
+    o.insert("OperationStatus".into(), status.to_owned().into());
+    o.insert("EventType".into(), "STACK_EVENT".into());
+    o.insert("Timestamp".into(), secs(at));
+    let start = op.started.values().min().copied().unwrap_or(e.at_ms);
+    o.insert("StartTime".into(), secs(start));
+    if let Some(end) = ended {
+        o.insert("EndTime".into(), secs(end));
+    }
+    if let Some(t) = &e.token {
+        o.insert("ClientRequestToken".into(), t.clone().into());
+    }
+    Value::Object(o)
+}
+
+/// One stack event as `OperationEvent` (recorded 2026-11-19: `PROGRESS`, without the operation's type or status).
+fn progress_event(e: &Event, op: Option<&Op>) -> Value {
     let mut o = Map::new();
     o.insert("EventId".into(), e.id.clone().into());
     o.insert("StackId".into(), e.stack_id.clone().into());
     if let Some(id) = &e.op_id {
         o.insert("OperationId".into(), id.clone().into());
     }
-    if let Some(op) = op {
-        if !op.kind.is_empty() {
-            o.insert("OperationType".into(), op.kind.clone().into());
-        }
-        o.insert("OperationStatus".into(), op.status.into());
-    }
-    let is_stack = e.ty == "AWS::CloudFormation::Stack" && e.logical == e.stack_name;
-    let kind = if is_stack {
-        "STACK_EVENT"
-    } else if e.status.ends_with("FAILED") {
+    let kind = if e.status.ends_with("FAILED") && !is_stack(e) {
         "PROVISIONING_ERROR"
     } else {
-        "PROGRESS_EVENT"
+        "PROGRESS"
     };
     o.insert("EventType".into(), kind.into());
     o.insert("LogicalResourceId".into(), e.logical.clone().into());
