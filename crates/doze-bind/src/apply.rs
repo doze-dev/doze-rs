@@ -86,6 +86,10 @@ pub struct BoundInstance {
     /// Route names another program holds, said as "<host> is held by <owner> (pid <n>)": the instance runs without
     /// them (its own name held is an error instead).
     pub held: Vec<String>,
+    /// Routed listeners whose port something else had, said as "<listener>: <addr> is taken; it is reached by its
+    /// name only": on a shared address (no machine setup) a console's conventional port is often another program's,
+    /// and the front door reaches the listener by name wherever it listens.
+    pub moved: Vec<String>,
 }
 
 impl BoundInstance {
@@ -173,6 +177,7 @@ fn bind_loopback(
         listeners,
         lease: None,
         held: Vec::new(),
+        moved: Vec::new(),
     })
 }
 
@@ -196,8 +201,24 @@ fn bind_named(
     leases.push(lease.clone());
     let mut listeners = BTreeMap::new();
     let mut held = Vec::new();
+    let mut moved = Vec::new();
     for l in &i.listeners {
-        let opened = listening(lease.listen(l.port), i.addr(l))?;
+        let opened = match lease.listen(l.port) {
+            // Shared address, a routed listener, its port taken: listen anywhere, the route still finds it.
+            Err(doze_names::Error::Io(e))
+                if at.is_some()
+                    && !l.routes.is_empty()
+                    && e.kind() == std::io::ErrorKind::AddrInUse =>
+            {
+                moved.push(format!(
+                    "{}: {} is taken; it is reached by its name only",
+                    l.name,
+                    i.addr(l)
+                ));
+                listening(lease.listen_any(), i.addr(l))?
+            }
+            r => listening(r, i.addr(l))?,
+        };
         let public = opened.addr();
         let (socket, forwarding) = opened.into_parts();
         // The front door dials what the proxy really listens on: the name's address where it is bound, the daemon's
@@ -234,6 +255,7 @@ fn bind_named(
         listeners,
         lease: Some(lease),
         held,
+        moved,
     })
 }
 

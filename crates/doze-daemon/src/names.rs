@@ -228,6 +228,9 @@ impl Zone {
                 say!("names: {h}");
                 self.note_held(&f.name, h.clone());
             }
+            for m in &i.moved {
+                say!("{}: {m}", f.name);
+            }
             for (l, b) in &i.listeners {
                 if !b.granted.hosts.is_empty() {
                     say!(

@@ -221,3 +221,31 @@ fn a_route_name_another_program_holds_is_said_and_the_rest_is_bound() {
     );
     assert!(reg.front_target("aws.shop.doze").is_some());
 }
+
+#[test]
+fn on_a_shared_address_a_routed_listener_whose_port_is_taken_is_reached_by_name() {
+    let reg = Registry::open(&home(), "doze");
+    let taken = TcpListener::bind("127.0.0.1:0").unwrap();
+    let busy = taken.local_addr().unwrap().port();
+    let mut k = kafka();
+    k.port = Some(free_port());
+    k.listeners[1].port = busy; // the registry's conventional port, another program's
+    k.listeners[2].port = free_port(); // the console's: 9093 may be another program's on this machine too
+    let p = plan("shop", &[k], Addressing::Shared).unwrap();
+    let bound = bind(&p, &reg, &sock).unwrap();
+    let e = &bound.instances["events"];
+    let registry = &e.listeners["registry"];
+    let at = registry.socket.local_addr().unwrap();
+    assert_ne!(at.port(), busy);
+    assert_eq!(e.moved.len(), 1, "{:?}", e.moved);
+    assert_eq!(
+        reg.front_target("registry.events.shop.doze"),
+        Some(at.to_string()),
+        "the route goes where it listens"
+    );
+    // A port taken for the main listener, which is reached by port, is still an error.
+    let mut k = kafka();
+    k.port = Some(busy);
+    let p = plan("shop", &[k], Addressing::Shared).unwrap();
+    assert!(bind(&p, &reg, &sock).is_err());
+}

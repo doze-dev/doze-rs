@@ -74,6 +74,25 @@ impl Lease {
         })
     }
 
+    /// A listener on a free port of this name's address, for one reached only by name through the front door (its own
+    /// port was taken). Where the address is translated there is no such thing: the error says so.
+    pub fn listen_any(&self) -> Result<Listener, Error> {
+        if self.translated() {
+            let host = &self.name.host;
+            return Err(std::io::Error::other(format!(
+                "{host}: no port to choose on a translated address"
+            ))
+            .into());
+        }
+        let socket = TcpListener::bind(SocketAddrV4::new(self.ip, 0))?;
+        let addr = socket.local_addr()?;
+        Ok(Listener {
+            socket,
+            addr,
+            forwarding: None,
+        })
+    }
+
     fn set_port(&self, public: u16, private: Option<u16>) -> Result<(), Error> {
         if public == 0 || private == Some(0) {
             let host = &self.name.host;
