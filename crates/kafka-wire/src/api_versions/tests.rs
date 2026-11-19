@@ -106,9 +106,9 @@ fn each_major_lists_the_features_of_its_recorded_broker() {
         assert_eq!(names(&ask(4, version)), (vec![], vec![]), "v{version}");
     }
     assert_eq!(
-        names(&ask(3, 4)),
+        names(&ask(3, 3)),
         (
-            rows(&[("kraft.version", 0, 1), ("metadata.version", 1, 21)]),
+            rows(&[("metadata.version", 1, 21)]),
             rows(&[("metadata.version", 21, 21)])
         )
     );

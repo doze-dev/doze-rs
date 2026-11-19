@@ -183,9 +183,11 @@ fn a_delegation_token_logs_in_over_scram_as_its_owner() {
     let mac = hmac(b"key", "tok1");
     let password = crate::crypto::base64::encode(&mac);
     let login = TokenLogin::derive(Principal::user("bob"), &mac).unwrap();
-    auth.users().replace_tokens(TokenLogins::default().with("tok1", login));
+    auth.users()
+        .replace_tokens(TokenLogins::default().with("tok1", login));
     for (mechanism, kind) in [(ScramSha256, Kind::Sha256), (ScramSha512, Kind::Sha512)] {
-        let client = Client::new(kind, "tok1", &password, "n0nce").with_extensions(",tokenauth=true");
+        let client =
+            Client::new(kind, "tok1", &password, "n0nce").with_extensions(",tokenauth=true");
         let (server_first, awaiting) = auth.scram_first(mechanism, &client.first()).unwrap();
         assert!(awaiting.by_token());
         let last = client.last(&server_first, None, "");
@@ -195,10 +197,14 @@ fn a_delegation_token_logs_in_over_scram_as_its_owner() {
         let plain = Client::new(kind, "tok1", &password, "n0nce");
         assert!(auth.scram_first(mechanism, &plain.first()).is_err());
         // A token there is not.
-        let other = Client::new(kind, "tok2", &password, "n0nce").with_extensions(",tokenauth=true");
+        let other =
+            Client::new(kind, "tok2", &password, "n0nce").with_extensions(",tokenauth=true");
         assert!(matches!(
             auth.scram_first(mechanism, &other.first()),
-            Err(scram::Refusal::Rejected { why: Why::TokenAuth, .. })
+            Err(scram::Refusal::Rejected {
+                why: Why::TokenAuth,
+                ..
+            })
         ));
     }
     // A user's own login is not a token's.

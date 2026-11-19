@@ -151,15 +151,15 @@ pub(crate) struct Args {
     #[arg(long, value_name = "SECRET")]
     delegation_token_secret_key: Option<String>,
     /// The longest a delegation token can live, renewals and all (Kafka's delegation.token.max.lifetime.ms, 7 days).
-    #[arg(long, default_value = "168h", value_parser = duration::parse)]
+    #[arg(long, default_value = "168h", value_name = "DURATION", value_parser = duration::parse)]
     delegation_token_max_lifetime: Duration,
     /// How long a delegation token lives from its making or its last renewal, unless less is asked for (Kafka's
     /// delegation.token.expiry.time.ms, 1 day).
-    #[arg(long, default_value = "24h", value_parser = duration::parse)]
+    #[arg(long, default_value = "24h", value_name = "DURATION", value_parser = duration::parse)]
     delegation_token_expiry_time: Duration,
     /// How often expired delegation tokens are removed (Kafka's delegation.token.expiry.check.interval.ms, 1 hour); until then
     /// an expired token is still described and can still log in, as in Kafka.
-    #[arg(long, default_value = "1h", value_parser = duration::parse)]
+    #[arg(long, default_value = "1h", value_name = "DURATION", value_parser = duration::parse)]
     delegation_token_expiry_check_interval: Duration,
 
     // Accepted and ignored until the phase that has it.

@@ -42,14 +42,25 @@ fn fresh(tweak: impl FnOnce(&mut Config)) -> Rig {
 }
 
 fn sasl(name: &str) -> Caller {
-    Caller::logged_in(Principal::user(name), Some("10.0.0.1".parse().unwrap()), false)
+    Caller::logged_in(
+        Principal::user(name),
+        Some("10.0.0.1".parse().unwrap()),
+        false,
+    )
 }
 
 fn text(s: &str) -> StrBytes {
     StrBytes::from_string(s.to_owned())
 }
 
-async fn create(rig: &Rig, who: &Caller, version: i16, owner: Option<&str>, renewers: &[(&str, &str)], max: i64) -> CreateDelegationTokenResponse {
+async fn create(
+    rig: &Rig,
+    who: &Caller,
+    version: i16,
+    owner: Option<&str>,
+    renewers: &[(&str, &str)],
+    max: i64,
+) -> CreateDelegationTokenResponse {
     let mut req = CreateDelegationTokenRequest::default();
     if let Some(owner) = owner {
         req.owner_principal_type = Some(text("User"));
@@ -64,7 +75,10 @@ async fn create(rig: &Rig, who: &Caller, version: i16, owner: Option<&str>, rene
             r
         })
         .collect();
-    let Response::CreateDelegationToken(r) = rig.ask_as(who, version, Request::CreateDelegationToken(req)).await else {
+    let Response::CreateDelegationToken(r) = rig
+        .ask_as(who, version, Request::CreateDelegationToken(req))
+        .await
+    else {
         panic!()
     };
     r
@@ -74,7 +88,9 @@ async fn renew(rig: &Rig, who: &Caller, hmac: &Bytes, period: i64) -> (i16, i64)
     let mut req = RenewDelegationTokenRequest::default();
     req.hmac = hmac.clone();
     req.renew_period_ms = period;
-    let Response::RenewDelegationToken(r) = rig.ask_as(who, 2, Request::RenewDelegationToken(req)).await else {
+    let Response::RenewDelegationToken(r) =
+        rig.ask_as(who, 2, Request::RenewDelegationToken(req)).await
+    else {
         panic!()
     };
     (r.error_code, r.expiry_timestamp_ms)
@@ -84,7 +100,10 @@ async fn expire(rig: &Rig, who: &Caller, hmac: &Bytes, period: i64) -> (i16, i64
     let mut req = ExpireDelegationTokenRequest::default();
     req.hmac = hmac.clone();
     req.expiry_time_period_ms = period;
-    let Response::ExpireDelegationToken(r) = rig.ask_as(who, 2, Request::ExpireDelegationToken(req)).await else {
+    let Response::ExpireDelegationToken(r) = rig
+        .ask_as(who, 2, Request::ExpireDelegationToken(req))
+        .await
+    else {
         panic!()
     };
     (r.error_code, r.expiry_timestamp_ms)
@@ -103,7 +122,10 @@ async fn describe(rig: &Rig, who: &Caller, owners: Option<&[&str]>) -> (i16, Vec
             })
             .collect()
     });
-    let Response::DescribeDelegationToken(r) = rig.ask_as(who, 3, Request::DescribeDelegationToken(req)).await else {
+    let Response::DescribeDelegationToken(r) = rig
+        .ask_as(who, 3, Request::DescribeDelegationToken(req))
+        .await
+    else {
         panic!()
     };
     let mut ids: Vec<String> = r.tokens.iter().map(|t| t.token_id.to_string()).collect();
@@ -117,27 +139,52 @@ async fn a_token_is_made_with_kafkas_times_and_an_hmac_of_its_id_under_the_key()
     let alice = sasl("alice");
     let r = create(&rig, &alice, 3, None, &[("User", "bob")], 3_600_000).await;
     assert_eq!(r.error_code, 0);
-    assert_eq!((r.principal_name.as_str(), r.token_requester_principal_name.as_str()), ("alice", "alice"));
+    assert_eq!(
+        (
+            r.principal_name.as_str(),
+            r.token_requester_principal_name.as_str()
+        ),
+        ("alice", "alice")
+    );
     assert_eq!(r.token_id.len(), 22);
     assert!(!r.token_id.contains('-'));
     assert_eq!(r.max_timestamp_ms - r.issue_timestamp_ms, 3_600_000);
-    assert_eq!(r.expiry_timestamp_ms, r.max_timestamp_ms, "the expiry is never past the maximum");
-    assert_eq!(&r.hmac[..], &kafka_auth::tokens::hmac(b"the-key", &r.token_id)[..]);
+    assert_eq!(
+        r.expiry_timestamp_ms, r.max_timestamp_ms,
+        "the expiry is never past the maximum"
+    );
+    assert_eq!(
+        &r.hmac[..],
+        &kafka_auth::tokens::hmac(b"the-key", &r.token_id)[..]
+    );
     // No maximum asked: Kafka's seven days, and a day to the expiry.
     let r = create(&rig, &alice, 1, None, &[], 0).await;
-    assert_eq!((r.max_timestamp_ms - r.issue_timestamp_ms, r.expiry_timestamp_ms - r.issue_timestamp_ms), (7 * DAY, DAY));
+    assert_eq!(
+        (
+            r.max_timestamp_ms - r.issue_timestamp_ms,
+            r.expiry_timestamp_ms - r.issue_timestamp_ms
+        ),
+        (7 * DAY, DAY)
+    );
     // The token logs in, as its owner.
     let login = users.token(&r.token_id).unwrap();
     assert_eq!(login.owner().as_str(), "User:alice");
 }
 
 #[tokio::test]
-async fn token_requests_are_refused_before_anything_without_sasl_or_with_a_token_or_without_a_key() {
+async fn token_requests_are_refused_before_anything_without_sasl_or_with_a_token_or_without_a_key()
+{
     let rig = fresh(keyed);
     let bogus = Bytes::from_static(&[7; 64]);
-    for who in [support::caller(), Caller::logged_in(Principal::user("alice"), None, true)] {
+    for who in [
+        support::caller(),
+        Caller::logged_in(Principal::user("alice"), None, true),
+    ] {
         let r = create(&rig, &who, 3, None, &[("Group", "g")], 0).await;
-        assert_eq!((r.error_code, r.issue_timestamp_ms, r.token_id.as_str()), (64, -1, ""));
+        assert_eq!(
+            (r.error_code, r.issue_timestamp_ms, r.token_id.as_str()),
+            (64, -1, "")
+        );
         assert_eq!(renew(&rig, &who, &bogus, 0).await, (64, -1));
         assert_eq!(expire(&rig, &who, &bogus, 0).await, (64, -1));
         assert_eq!(describe(&rig, &who, None).await.0, 64);
@@ -145,12 +192,24 @@ async fn token_requests_are_refused_before_anything_without_sasl_or_with_a_token
     let off = fresh(|_| {});
     let alice = sasl("alice");
     let r = create(&off, &alice, 3, None, &[], 0).await;
-    assert_eq!((r.error_code, r.issue_timestamp_ms, r.principal_name.as_str()), (61, 0, "alice"));
+    assert_eq!(
+        (
+            r.error_code,
+            r.issue_timestamp_ms,
+            r.principal_name.as_str()
+        ),
+        (61, 0, "alice")
+    );
     assert_eq!(renew(&off, &alice, &bogus, 0).await, (61, 0));
     assert_eq!(expire(&off, &alice, &bogus, 0).await, (61, 0));
     assert_eq!(describe(&off, &alice, None).await, (61, vec![]));
     // A renewer that is not a user, then with a key the owner's right on another user.
-    assert_eq!(create(&rig, &alice, 3, None, &[("Group", "g")], 0).await.error_code, 67);
+    assert_eq!(
+        create(&rig, &alice, 3, None, &[("Group", "g")], 0)
+            .await
+            .error_code,
+        67
+    );
 }
 
 #[tokio::test]
@@ -169,25 +228,53 @@ async fn owners_renewers_and_the_rights_decide_who_renews_expires_and_sees_a_tok
     let id = mine.token_id.to_string();
     // For another user: CREATE_TOKENS on that user.
     let r = create(&rig, &alice, 3, Some("dave"), &[], 0).await;
-    assert_eq!((r.error_code, r.principal_name.as_str(), r.token_requester_principal_name.as_str()), (65, "dave", "alice"));
-    grant(&rig, vec![creation((7, "User:dave", LITERAL), "User:alice", 13, ALLOW)]).await;
+    assert_eq!(
+        (
+            r.error_code,
+            r.principal_name.as_str(),
+            r.token_requester_principal_name.as_str()
+        ),
+        (65, "dave", "alice")
+    );
+    grant(
+        &rig,
+        vec![creation((7, "User:dave", LITERAL), "User:alice", 13, ALLOW)],
+    )
+    .await;
     let r = create(&rig, &alice, 3, Some("dave"), &[], 0).await;
     assert_eq!((r.error_code, r.principal_name.as_str()), (0, "dave"));
     // The requester sees the token it asked for; dave's other rights do not matter.
-    assert!(describe(&rig, &alice, None).await.1.contains(&r.token_id.to_string()));
+    assert!(
+        describe(&rig, &alice, None)
+            .await
+            .1
+            .contains(&r.token_id.to_string())
+    );
     // Seen by the owner, a renewer and a super user; carol sees none of alice's; an empty owner list is nothing.
     assert!(describe(&rig, &alice, None).await.1.contains(&id));
     assert!(describe(&rig, &bob, None).await.1.contains(&id));
     assert!(describe(&rig, &admin, None).await.1.contains(&id));
     assert!(!describe(&rig, &carol, None).await.1.contains(&id));
     assert_eq!(describe(&rig, &alice, Some(&[])).await, (0, vec![]));
-    assert_eq!(describe(&rig, &alice, Some(&["bob"])).await.1, vec![id.clone()]);
+    assert_eq!(
+        describe(&rig, &alice, Some(&["bob"])).await.1,
+        vec![id.clone()]
+    );
     // DESCRIBE on the token lets carol see it.
-    grant(&rig, vec![creation((6, &id, LITERAL), "User:carol", 8, ALLOW)]).await;
+    grant(
+        &rig,
+        vec![creation((6, &id, LITERAL), "User:carol", 8, ALLOW)],
+    )
+    .await;
     assert!(describe(&rig, &carol, None).await.1.contains(&id));
     // Renewals: the owner and a renewer, not anybody else; a minute asked is a minute.
     assert_eq!(renew(&rig, &admin, &hmac, 0).await.0, 63);
-    assert_eq!(renew(&rig, &alice, &Bytes::from_static(&[1; 64]), 0).await.0, 62);
+    assert_eq!(
+        renew(&rig, &alice, &Bytes::from_static(&[1; 64]), 0)
+            .await
+            .0,
+        62
+    );
     let (code, expiry) = renew(&rig, &bob, &hmac, 60_000).await;
     assert_eq!(code, 0);
     assert!((expiry - kafka_now() - 60_000).abs() < 5_000);
@@ -214,19 +301,31 @@ async fn an_expired_token_lives_until_the_sweep_and_tokens_outlive_a_restart() {
         assert_eq!(expire(&rig, &alice, &gone.hmac, 10).await.0, 66);
         assert_eq!(describe(&rig, &alice, None).await.1.len(), 2);
         rig.broker.sweep_expired_tokens().await;
-        assert_eq!(describe(&rig, &alice, None).await.1, vec![kept.token_id.to_string()]);
+        assert_eq!(
+            describe(&rig, &alice, None).await.1,
+            vec![kept.token_id.to_string()]
+        );
         rig.broker.shutdown().await.unwrap();
         (kept, gone)
     };
     let (rig, users) = keyed_on(fs);
-    assert_eq!(describe(&rig, &alice, None).await.1, vec![kept.token_id.to_string()]);
+    assert_eq!(
+        describe(&rig, &alice, None).await.1,
+        vec![kept.token_id.to_string()]
+    );
     assert!(users.token(&kept.token_id).is_some());
     assert!(users.token(&gone.token_id).is_none());
     assert_eq!(renew(&rig, &alice, &kept.hmac, 0).await.0, 0);
 }
 
 fn kafka_now() -> i64 {
-    i64::try_from(std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis()).unwrap()
+    i64::try_from(
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_millis(),
+    )
+    .unwrap()
 }
 
 /// A keyed broker on `fs`, and the users its logins read (the server's authenticator shares them).
