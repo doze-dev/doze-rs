@@ -1,14 +1,15 @@
-//! The admin APIs of debt K3 on one node (behaviours ADM-10 to ADM-16, SEC-340 to SEC-346): DescribeTopicPartitions,
-//! ElectLeaders, AlterPartitionReassignments, ListPartitionReassignments, AlterReplicaLogDirs, ListConfigResources and
-//! UpdateFeatures. Held to real Kafka 4.4.0 by `crates/kafka-wire/examples/oracle_admin`; these pin the same answers here.
+//! The admin APIs of debt K3 on one node (behaviours ADM-10 to ADM-14, SEC-340): DescribeTopicPartitions, ElectLeaders,
+//! AlterPartitionReassignments, ListPartitionReassignments, AlterReplicaLogDirs and ListConfigResources. Held to real Kafka
+//! 4.4.0 by `crates/kafka-wire/examples/oracle_admin`; these pin the same answers here. UpdateFeatures and the rights each API
+//! asks: `admin_apis_rights.rs`.
 #![allow(
     clippy::unwrap_used,
     clippy::expect_used,
     clippy::indexing_slicing,
     clippy::panic,
     clippy::too_many_lines,
-    clippy::type_complexity,
-    reason = "tests: each walks one API through Kafka's cases in turn"
+    unused_imports,
+    reason = "tests: each walks one API through Kafka's cases in turn; the imports are the helpers' shared set"
 )]
 
 mod support;
@@ -36,93 +37,7 @@ use support::acls::{
 };
 use support::{Rig, rig, rig_with, topic, wire_name};
 
-const DESCRIBE_CONFIGS: i8 = 10;
-
-/// Topics made by the super user of a closed world.
-async fn create_as_admin(
-    rig: &Rig,
-    topics: Vec<kafka_wire::messages::create_topics_request::CreatableTopic>,
-) {
-    let mut req = kafka_wire::messages::CreateTopicsRequest::default();
-    req.topics = topics;
-    let Response::CreateTopics(r) = rig
-        .ask_as(&user("admin"), 7, Request::CreateTopics(req))
-        .await
-    else {
-        panic!()
-    };
-    assert!(r.topics.iter().all(|t| t.error_code == 0));
-}
-
-async fn fixture() -> Rig {
-    let rig = rig();
-    rig.create(
-        vec![topic("one", 1), topic("three", 3), topic("many", 5)],
-        false,
-    )
-    .await;
-    rig
-}
-
-fn dtp(names: &[&str], limit: i32, cursor: Option<(&str, i32)>) -> DescribeTopicPartitionsRequest {
-    let mut req = DescribeTopicPartitionsRequest::default();
-    req.response_partition_limit = limit;
-    req.topics = (names.iter())
-        .map(|n| {
-            let mut t = TopicRequest::default();
-            t.name = wire_name(n);
-            t
-        })
-        .collect();
-    req.cursor = cursor.map(|(name, p)| {
-        let mut c = Cursor::default();
-        c.topic_name = wire_name(name);
-        c.partition_index = p;
-        c
-    });
-    req
-}
-
-async fn describe(
-    rig: &Rig,
-    who: &Caller,
-    req: DescribeTopicPartitionsRequest,
-) -> DescribeTopicPartitionsResponse {
-    let Response::DescribeTopicPartitions(r) = rig
-        .ask_as(who, 0, Request::DescribeTopicPartitions(req))
-        .await
-    else {
-        panic!("not DescribeTopicPartitions")
-    };
-    r
-}
-
-/// Each topic as (name, error, partitions listed), and the cursor.
-fn pages(
-    r: &DescribeTopicPartitionsResponse,
-) -> (Vec<(String, i16, Vec<i32>)>, Option<(String, i32)>) {
-    let topics = (r.topics.iter())
-        .map(|t| {
-            let name = t.name.as_ref().map_or(String::new(), |n| n.0.to_string());
-            (
-                name,
-                t.error_code,
-                t.partitions.iter().map(|p| p.partition_index).collect(),
-            )
-        })
-        .collect();
-    let cursor = r
-        .next_cursor
-        .as_ref()
-        .map(|c| (c.topic_name.0.to_string(), c.partition_index));
-    (topics, cursor)
-}
-
-fn own(v: &[(&str, i16, &[i32])]) -> Vec<(String, i16, Vec<i32>)> {
-    v.iter()
-        .map(|(n, e, p)| ((*n).to_owned(), *e, p.to_vec()))
-        .collect()
-}
+use support::admin::*;
 
 #[tokio::test]
 async fn describe_topic_partitions_pages_in_name_order_and_says_where_to_go_on() {
@@ -230,47 +145,6 @@ async fn describe_topic_partitions_hides_what_the_caller_may_not_describe() {
     assert_eq!(r.topics[1].topic_authorized_operations, i32::MIN);
 }
 
-fn elect(kind: i8, asks: Option<&[(&str, &[i32])]>) -> ElectLeadersRequest {
-    let mut req = ElectLeadersRequest::default();
-    req.election_type = kind;
-    req.topic_partitions = asks.map(|asks| {
-        asks.iter()
-            .map(|(name, parts)| {
-                let mut tp = TopicPartitions::default();
-                tp.topic = wire_name(name);
-                tp.partitions = parts.to_vec();
-                tp
-            })
-            .collect()
-    });
-    req
-}
-
-async fn elect_codes(
-    rig: &Rig,
-    who: &Caller,
-    version: i16,
-    req: ElectLeadersRequest,
-) -> (i16, Vec<(String, i32, i16, Option<String>)>) {
-    let Response::ElectLeaders(r) = rig.ask_as(who, version, Request::ElectLeaders(req)).await
-    else {
-        panic!("not ElectLeaders")
-    };
-    let lines = (r.replica_election_results.iter())
-        .flat_map(|t| {
-            t.partition_result.iter().map(|p| {
-                (
-                    t.topic.0.to_string(),
-                    p.partition_id,
-                    p.error_code,
-                    p.error_message.as_ref().map(ToString::to_string),
-                )
-            })
-        })
-        .collect();
-    (r.error_code, lines)
-}
-
 #[tokio::test]
 async fn no_election_is_ever_needed_on_one_node() {
     let rig = fixture().await;
@@ -322,20 +196,6 @@ async fn no_election_is_ever_needed_on_one_node() {
         elect_codes(&rig, &me, 2, elect(5, Some(&[]))).await,
         (0, vec![])
     );
-}
-
-fn reassign(asks: &[(&str, i32, Option<&[i32]>)]) -> AlterPartitionReassignmentsRequest {
-    let mut req = AlterPartitionReassignmentsRequest::default();
-    for (name, part, replicas) in asks {
-        let mut t = ReassignableTopic::default();
-        t.name = wire_name(name);
-        let mut p = ReassignablePartition::default();
-        p.partition_index = *part;
-        p.replicas = replicas.map(|r| r.iter().map(|&b| BrokerId(b)).collect());
-        t.partitions.push(p);
-        req.topics.push(t);
-    }
-    req
 }
 
 #[tokio::test]
@@ -417,20 +277,6 @@ async fn a_reassignment_to_this_broker_is_done_at_once_and_any_other_is_refused_
     }
 }
 
-fn move_logs(asks: &[(&str, &str, &[i32])]) -> AlterReplicaLogDirsRequest {
-    let mut req = AlterReplicaLogDirsRequest::default();
-    for (dir, name, parts) in asks {
-        let mut d = AlterReplicaLogDir::default();
-        d.path = StrBytes::from_string((*dir).to_owned());
-        let mut t = AlterReplicaLogDirTopic::default();
-        t.name = wire_name(name);
-        t.partitions = parts.to_vec();
-        d.topics.push(t);
-        req.dirs.push(d);
-    }
-    req
-}
-
 #[tokio::test]
 async fn a_log_moves_only_to_where_it_is() {
     let rig = fixture().await;
@@ -509,250 +355,4 @@ async fn config_resources_are_listed_by_type_and_an_unknown_type_is_unsupported(
     );
     assert_eq!(ask(&[4], 1).await.1, vec![(4, "1".into())]);
     assert_eq!(ask(&[2, 99], 1).await, (35, vec![]));
-}
-
-fn update(asks: &[(&str, i16, i8)], validate_only: bool) -> UpdateFeaturesRequest {
-    let mut req = UpdateFeaturesRequest::default();
-    req.validate_only = validate_only;
-    for (name, level, kind) in asks {
-        let mut u = FeatureUpdateKey::default();
-        u.feature = StrBytes::from_string((*name).to_owned());
-        u.max_version_level = *level;
-        u.upgrade_type = *kind;
-        req.feature_updates.push(u);
-    }
-    req
-}
-
-async fn features(
-    rig: &Rig,
-    who: &Caller,
-    version: i16,
-    req: UpdateFeaturesRequest,
-) -> (i16, Option<String>, usize) {
-    let Response::UpdateFeatures(r) = rig.ask_as(who, version, Request::UpdateFeatures(req)).await
-    else {
-        panic!()
-    };
-    (
-        r.error_code,
-        r.error_message.map(|m| m.to_string()),
-        r.results.len(),
-    )
-}
-
-#[tokio::test]
-async fn feature_updates_are_checked_as_kafka_checks_them_and_levels_do_not_move() {
-    let rig = fixture().await;
-    let me = support::caller();
-    let prefix = "The update failed for all features since the following feature had an error: ";
-    // Validated, or no change: success, with results before v2.
-    assert_eq!(
-        features(&rig, &me, 1, update(&[("transaction.version", 0, 2)], true)).await,
-        (0, None, 1)
-    );
-    assert_eq!(
-        features(&rig, &me, 2, update(&[("group.version", 1, 1)], false)).await,
-        (0, None, 0)
-    );
-    let refused = [
-        (
-            ("transaction.version", 1, 1),
-            "Invalid update version 1 for feature transaction.version. Can't downgrade the version of this feature without setting the upgrade type to either safe or unsafe downgrade.",
-        ),
-        (
-            ("transaction.version", 3, 1),
-            "Invalid update version 3 for feature transaction.version. Local controller 1 only supports versions 0-2",
-        ),
-        (
-            ("no.such", 1, 1),
-            "Invalid update version 1 for feature no.such. Local controller 1 does not support this feature.",
-        ),
-        (
-            ("no.such", 0, 1),
-            "Invalid update version 0 for feature no.such. Feature no.such not found.",
-        ),
-        (
-            ("group.version", 0, 9),
-            "Invalid update version 0 for feature group.version. The controller does not support the given upgrade type.",
-        ),
-        (
-            ("kraft.version", 1, 2),
-            "Invalid update version 1 for feature kraft.version. Can't downgrade to a newer version.",
-        ),
-        (
-            ("metadata.version", 30, 2),
-            "Unsupported metadata.version downgrade from 33 to 30. Refusing to perform the requested downgrade because it might delete metadata information.",
-        ),
-    ];
-    for (ask, why) in refused {
-        assert_eq!(
-            features(&rig, &me, 1, update(&[ask], true)).await,
-            (95, Some(format!("{prefix}{why}")), 0),
-            "{ask:?}"
-        );
-    }
-    // The order Kafka's hash map checks them in: metadata.version before eligible.leader.replicas.version.
-    let (_, why, _) = features(
-        &rig,
-        &me,
-        2,
-        update(
-            &[
-                ("eligible.leader.replicas.version", 1, 1),
-                ("metadata.version", 22, 2),
-            ],
-            true,
-        ),
-    )
-    .await;
-    assert!(
-        why.unwrap()
-            .contains("Unsupported metadata.version downgrade from 33 to 22")
-    );
-    // A change Kafka would make is refused here (ADM-D9).
-    let (code, why, _) = features(
-        &rig,
-        &me,
-        2,
-        update(&[("transaction.version", 1, 2)], false),
-    )
-    .await;
-    assert_eq!(code, 95);
-    assert!(why.unwrap().contains("--kafka-version"));
-}
-
-#[tokio::test]
-async fn each_admin_api_asks_kafkas_right_and_refuses_in_kafkas_shape() {
-    let rig = rig_with(closed_world);
-    create_as_admin(&rig, vec![topic("t", 2)]).await;
-    let bob = user("bob");
-    let denied = ResponseError::ClusterAuthorizationFailed.code();
-    let (top, lines) = elect_codes(&rig, &bob, 2, elect(0, Some(&[("t", &[0, 1])]))).await;
-    assert_eq!(top, denied);
-    assert!(lines.iter().all(|l| {
-        l.2 == denied
-            && l.3
-                .as_deref()
-                .is_some_and(|m| m.ends_with("needs ALTER permission."))
-    }));
-    assert_eq!(
-        elect_codes(&rig, &bob, 0, elect(0, Some(&[("t", &[0])])))
-            .await
-            .0,
-        0,
-        "v0 has no top-level code"
-    );
-    let Response::AlterPartitionReassignments(r) = rig
-        .ask_as(
-            &bob,
-            1,
-            Request::AlterPartitionReassignments(reassign(&[("t", 0, Some(&[1]))])),
-        )
-        .await
-    else {
-        panic!()
-    };
-    assert_eq!(
-        (r.error_code, r.responses[0].partitions[0].error_code),
-        (denied, denied)
-    );
-    let Response::ListPartitionReassignments(r) = rig
-        .ask_as(
-            &bob,
-            0,
-            Request::ListPartitionReassignments(ListPartitionReassignmentsRequest::default()),
-        )
-        .await
-    else {
-        panic!()
-    };
-    assert!(
-        r.error_code == denied
-            && r.error_message
-                .unwrap()
-                .ends_with("needs DESCRIBE permission.")
-    );
-    let Response::AlterReplicaLogDirs(r) = rig
-        .ask_as(
-            &bob,
-            2,
-            Request::AlterReplicaLogDirs(move_logs(&[(support::DATA, "t", &[0, 1])])),
-        )
-        .await
-    else {
-        panic!()
-    };
-    assert!(
-        r.results[0]
-            .partitions
-            .iter()
-            .all(|p| p.error_code == denied)
-    );
-    let Response::ListConfigResources(r) = rig
-        .ask_as(
-            &bob,
-            1,
-            Request::ListConfigResources(ListConfigResourcesRequest::default()),
-        )
-        .await
-    else {
-        panic!()
-    };
-    assert_eq!((r.error_code, r.config_resources.len()), (denied, 0));
-    assert_eq!(
-        features(&rig, &bob, 1, update(&[("group.version", 1, 1)], true))
-            .await
-            .0,
-        denied
-    );
-    // And the rights each asks: ALTER on the cluster, DESCRIBE, DESCRIBE_CONFIGS.
-    grant(
-        &rig,
-        vec![
-            creation(
-                (CLUSTER, "kafka-cluster", LITERAL),
-                "User:bob",
-                ALTER,
-                ALLOW,
-            ),
-            creation(
-                (CLUSTER, "kafka-cluster", LITERAL),
-                "User:bob",
-                DESCRIBE_CONFIGS,
-                ALLOW,
-            ),
-        ],
-    )
-    .await;
-    assert_eq!(
-        elect_codes(&rig, &bob, 2, elect(0, Some(&[("t", &[0])])))
-            .await
-            .1[0]
-            .2,
-        84
-    );
-    let Response::ListConfigResources(r) = rig
-        .ask_as(
-            &bob,
-            1,
-            Request::ListConfigResources(ListConfigResourcesRequest::default()),
-        )
-        .await
-    else {
-        panic!()
-    };
-    assert_eq!(r.error_code, 0);
-    // ALTER implies DESCRIBE (SEC-20), so the list is open to bob now.
-    let Response::ListPartitionReassignments(r) = rig
-        .ask_as(
-            &bob,
-            0,
-            Request::ListPartitionReassignments(ListPartitionReassignmentsRequest::default()),
-        )
-        .await
-    else {
-        panic!()
-    };
-    assert_eq!(r.error_code, 0);
 }

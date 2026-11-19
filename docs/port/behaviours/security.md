@@ -1514,29 +1514,29 @@ Test: `kafka-broker tests/admin_apis.rs::describe_topic_partitions_hides_what_th
 ## SEC-341. ElectLeaders: ALTER on the cluster (source; oracle)
 `ControllerApis.handleElectLeaders`: refused, the request is answered in the shape of `ElectLeadersRequest.getErrorResponse`: the error at
 the top (v1 and later) and on every partition named, each with Kafka's text. Row: **CLUSTER:ALTER**.
-Test: `kafka-broker tests/admin_apis.rs::each_admin_api_asks_kafkas_right_and_refuses_in_kafkas_shape`
+Test: `kafka-broker tests/admin_apis_rights.rs::each_admin_api_asks_kafkas_right_and_refuses_in_kafkas_shape`
 
 ## SEC-342. AlterPartitionReassignments: ALTER on the cluster (source; oracle)
 Refused: the error and its text at the top and on every partition named (`AlterPartitionReassignmentsRequest.getErrorResponse`); nothing
 moves. Row: **CLUSTER:ALTER**.
-Test: `kafka-broker tests/admin_apis.rs::each_admin_api_asks_kafkas_right_and_refuses_in_kafkas_shape`
+Test: `kafka-broker tests/admin_apis_rights.rs::each_admin_api_asks_kafkas_right_and_refuses_in_kafkas_shape`
 
 ## SEC-343. ListPartitionReassignments: DESCRIBE on the cluster (source; oracle)
 Refused: the error and its text, and the topics named echoed with their partitions and nothing else. Row: **CLUSTER:DESCRIBE**.
-Test: `kafka-broker tests/admin_apis.rs::each_admin_api_asks_kafkas_right_and_refuses_in_kafkas_shape`
+Test: `kafka-broker tests/admin_apis_rights.rs::each_admin_api_asks_kafkas_right_and_refuses_in_kafkas_shape`
 
 ## SEC-344. AlterReplicaLogDirs: ALTER on the cluster (source; oracle)
 `KafkaApis.handleAlterReplicaLogDirsRequest`: refused, every partition of every directory named is CLUSTER_AUTHORIZATION_FAILED, one entry
 per topic of each directory, as sent. Row: **CLUSTER:ALTER**.
-Test: `kafka-broker tests/admin_apis.rs::each_admin_api_asks_kafkas_right_and_refuses_in_kafkas_shape`
+Test: `kafka-broker tests/admin_apis_rights.rs::each_admin_api_asks_kafkas_right_and_refuses_in_kafkas_shape`
 
 ## SEC-345. ListConfigResources: DESCRIBE_CONFIGS on the cluster (source; oracle)
 Refused: CLUSTER_AUTHORIZATION_FAILED and nothing listed. Row: **CLUSTER:DESCRIBE_CONFIGS**.
-Test: `kafka-broker tests/admin_apis.rs::each_admin_api_asks_kafkas_right_and_refuses_in_kafkas_shape`
+Test: `kafka-broker tests/admin_apis_rights.rs::each_admin_api_asks_kafkas_right_and_refuses_in_kafkas_shape`
 
 ## SEC-346. UpdateFeatures: ALTER on the cluster (source; oracle)
 Refused: the error and the request's text at the top, no results. Row: **CLUSTER:ALTER**.
-Test: `kafka-broker tests/admin_apis.rs::each_admin_api_asks_kafkas_right_and_refuses_in_kafkas_shape`
+Test: `kafka-broker tests/admin_apis_rights.rs::each_admin_api_asks_kafkas_right_and_refuses_in_kafkas_shape`
 
 ## SEC-347. Delegation tokens are asked for over SASL only, and not with a token (source; oracle)
 `KafkaApis.allowTokenRequests`: a connection that did not log in with SASL (a listener without SASL; TLS alone is one-way here, SEC-D40) or

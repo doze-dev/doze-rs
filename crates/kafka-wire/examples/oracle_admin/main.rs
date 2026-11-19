@@ -24,6 +24,7 @@
 )]
 
 mod conn;
+mod features;
 mod steps;
 mod tokens;
 
@@ -48,15 +49,15 @@ fn main() {
     steps::elect_leaders(&mut admin, &mut t);
     steps::reassignments(&mut admin, &mut t);
     steps::log_dirs(&mut admin, &mut t);
-    steps::list_config_resources(&mut admin, &mut t);
-    steps::features(&mut admin, &mut t);
+    features::list_config_resources(&mut admin, &mut t);
+    features::features(&mut admin, &mut t);
     tokens::tokens(&as_user, &mut t);
     let mut plain = Pair {
         kafka: Conn::open(kafka_plain),
         doze: Conn::open(doze_plain),
     };
     tokens::not_over_plaintext(&mut plain, &mut t);
-    steps::refused(&mut admin, &mut as_user("bob"), &mut t);
+    features::refused(&mut admin, &mut as_user("bob"), &mut t);
     println!(
         "{} steps, {} differences, {} written down",
         t.steps, t.differences, t.known

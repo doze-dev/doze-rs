@@ -13,7 +13,7 @@ use std::time::Duration;
 
 use anyhow::{Result, bail};
 use clap::{Parser, ValueEnum};
-use kafka_broker::{Config as BrokerConfig, Defaults, TxnVersion};
+use kafka_broker::{Config as BrokerConfig, Defaults};
 use kafka_server::{Config as ServerConfig, Timeouts};
 use kafka_wire::profile::{KafkaMajor, Profile};
 
@@ -144,10 +144,8 @@ pub(crate) struct Args {
     #[arg(long, value_name = "PRINCIPAL")]
     acl_super_user: Vec<String>,
 
-    /// The key delegation tokens are signed with (Kafka's delegation.token.secret.key): tokens are off without it, and a
-    /// token API then answers DELEGATION_TOKEN_AUTH_DISABLED. It shows in `ps`: the variable
-    /// DOZE_KAFKA_DELEGATION_TOKEN_SECRET_KEY is read too. Tokens are asked for and used over SASL only, as in Kafka; the
-    /// tokens made are kept in the data directory, and a new key makes them all useless.
+    /// The key delegation tokens are signed with (Kafka's delegation.token.secret.key); tokens are off without it. It shows in
+    /// `ps`: DOZE_KAFKA_DELEGATION_TOKEN_SECRET_KEY is read too. Tokens are used over SASL only; a new key voids them all.
     #[arg(long, value_name = "SECRET")]
     delegation_token_secret_key: Option<String>,
     /// The longest a delegation token can live, renewals and all (Kafka's delegation.token.max.lifetime.ms, 7 days).
@@ -230,15 +228,6 @@ pub(crate) struct Settings {
     pub(crate) registry: Registry,
     /// What the operator chose that leaves something open, to be said once at start.
     pub(crate) warnings: Vec<String>,
-}
-
-/// How the broker ends a transaction on its own at a Kafka major: the `transaction.version` its profile finalizes.
-fn transaction_version(major: KafkaMajor) -> TxnVersion {
-    if Profile::new(major).transaction_version() >= 2 {
-        TxnVersion::EpochBump
-    } else {
-        TxnVersion::Classic
-    }
 }
 
 impl Args {
@@ -324,58 +313,6 @@ impl Args {
             console,
             registry,
             warnings,
-        })
-    }
-
-    /// What the Kafka major sets in the broker (its `transaction.version`, what UpdateFeatures holds a level to), and the
-    /// delegation-token flags.
-    fn major_and_tokens(
-        &self,
-        broker: &mut BrokerConfig,
-        major: KafkaMajor,
-        env: &dyn Fn(&str) -> Option<std::ffi::OsString>,
-    ) -> Result<()> {
-        broker.transaction_version = transaction_version(major);
-        broker.kafka_major = major;
-        broker.delegation_tokens = self.token_config(env)?;
-        Ok(())
-    }
-
-    /// The delegation-token flags: the key from the flag, else from the variable; the times in milliseconds, at least 1.
-    fn token_config(
-        &self,
-        env: &dyn Fn(&str) -> Option<std::ffi::OsString>,
-    ) -> Result<kafka_broker::TokenConfig> {
-        let key = match &self.delegation_token_secret_key {
-            Some(key) => Some(key.clone()),
-            None => env("DOZE_KAFKA_DELEGATION_TOKEN_SECRET_KEY")
-                .map(|v| v.to_string_lossy().into_owned()),
-        };
-        if key.as_ref().is_some_and(String::is_empty) {
-            bail!("the delegation token secret key is empty");
-        }
-        let ms = |d: Duration, flag: &str| -> Result<i64> {
-            let ms = i64::try_from(d.as_millis()).unwrap_or(i64::MAX);
-            if ms < 1 {
-                bail!("--{flag} must be at least 1ms");
-            }
-            Ok(ms)
-        };
-        ms(
-            self.delegation_token_expiry_check_interval,
-            "delegation-token-expiry-check-interval",
-        )?;
-        Ok(kafka_broker::TokenConfig {
-            secret: key.map(|k| std::sync::Arc::new(kafka_auth::Secret::new(k.into_bytes()))),
-            max_lifetime_ms: ms(
-                self.delegation_token_max_lifetime,
-                "delegation-token-max-lifetime",
-            )?,
-            expiry_time_ms: ms(
-                self.delegation_token_expiry_time,
-                "delegation-token-expiry-time",
-            )?,
-            expiry_check_every: self.delegation_token_expiry_check_interval,
         })
     }
 
@@ -496,6 +433,7 @@ impl Args {
 
 mod acl;
 mod console;
+mod major;
 pub(crate) use console::Console;
 #[cfg(feature = "console")]
 pub(crate) use console::DEFAULT_ADDR as DEFAULT_CONSOLE_ADDR;

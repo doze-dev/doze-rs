@@ -107,7 +107,7 @@ Eleven APIs real brokers list, at the recorded versions of each major (`crates/k
 one), `kafka-reassign-partitions.sh --execute/--verify/--list`, `kafka-features.sh describe/downgrade --dry-run/upgrade`,
 `kafka-delegation-tokens.sh --create/--describe/--renew/--expire`, and `kafka-topics.sh --list` logged in with a token; they differ only by
 ids, HMACs, times, the log directory's path, the features' epoch and the topics' static configs (ADM-D4). Who may ask: SEC-340 to SEC-351.
-Tests: `crates/kafka-broker/tests/admin_apis.rs`, `tests/delegation_tokens.rs`.
+Tests: `crates/kafka-broker/tests/admin_apis.rs`, `tests/admin_apis_rights.rs`, `tests/delegation_tokens.rs`.
 
 The oracle, by hand: Kafka 4.4.0 with `listeners` PLAINTEXT and SASL_PLAINTEXT (PLAIN and both SCRAMs; JAAS users admin, alice, bob with
 passwords `<name>-pw`, SCRAM credentials added at format), `StandardAuthorizer`, `allow.everyone.if.no.acl.found=true`,
@@ -159,7 +159,7 @@ support this feature."), a downgrade asked as an upgrade, an upgrade asked as a 
 4.4-IV2, which changed metadata), a `kraft.version` downgrade, an unknown feature, ELR's dependency on `metadata.version`. The first failure fails
 the request: INVALID_UPDATE_VERSION "The update failed for all features since the following feature had an error: ...". A request that passes and
 changes no level, or validates only, succeeds, with a result per feature ("NONE") before v2. v0 has neither `validate_only` nor an upgrade type
-(Kafka 4.4.0 reads every v0 update as an upgrade). Test: `admin_apis::feature_updates_are_checked_as_kafka_checks_them_and_levels_do_not_move`
+(Kafka 4.4.0 reads every v0 update as an upgrade). Test: `admin_apis_rights::feature_updates_are_checked_as_kafka_checks_them_and_levels_do_not_move`
 
 ## ADM-16. The features ApiVersions lists (KIP-584; oracle, `kafka-features.sh describe`)
 From v3, every feature the recorded broker of the major supports (`Profile::features`): at Kafka 4 `eligible.leader.replicas.version` 0-1,
