@@ -24,6 +24,7 @@ mod mapping;
 mod reply;
 mod rest;
 mod route;
+pub(crate) mod test;
 mod validate;
 pub(crate) mod vtl;
 pub(crate) mod ws;

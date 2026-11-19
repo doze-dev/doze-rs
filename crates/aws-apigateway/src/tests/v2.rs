@@ -147,10 +147,7 @@ async fn an_http_api_routes_answers_cors_and_checks_tokens() {
         .await
         .unwrap_err();
     assert_eq!(in_use.code, "ConflictException");
-    let refused = w
-        .http("CreateVpcLink", json!({"name": "v", "subnetIds": ["s"]}))
-        .await
-        .unwrap_err();
+    let refused = w.http("ListPortals", json!({})).await.unwrap_err();
     assert_eq!(refused.status, 501);
 }
 

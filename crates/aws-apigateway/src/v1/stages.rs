@@ -51,7 +51,7 @@ fn stage<'a>(doc: &'a Value, name: &str) -> Result<&'a Value, ApiError> {
 }
 
 /// What a deployment keeps of the API: everything the execute-api plane reads.
-fn snapshot(doc: &Value) -> Value {
+pub(crate) fn snapshot(doc: &Value) -> Value {
     let mut snap = Map::new();
     for part in [
         "api",
