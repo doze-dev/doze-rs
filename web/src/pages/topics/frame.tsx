@@ -3,7 +3,7 @@
 // renders under exactly this, so switching tabs changes nothing above the tab body.
 import { useQueryClient } from "@tanstack/react-query";
 import { Link, Outlet, useNavigate, useParams, useRouterState, useSearch } from "@tanstack/react-router";
-import { CircleCheckIcon, ListIcon, PlusIcon, RadioIcon, SearchIcon, SendIcon, Trash2Icon, TriangleAlertIcon } from "lucide-react";
+import { CircleCheckIcon, EraserIcon, ListIcon, PlusIcon, RadioIcon, SearchIcon, SendIcon, Trash2Icon, TriangleAlertIcon } from "lucide-react";
 import { useCallback } from "react";
 import { ApiFailure } from "@/api/client";
 import { topicKeys, useTopicFrame } from "@/api/topics";
@@ -173,6 +173,11 @@ function Actions({ f, place }: { f: TopicFrame; place: TopicTab | "partitions" }
       <Button onClick={() => open("produce")} data-testid="act-produce">
         <SendIcon /> Produce
       </Button>
+      {f.acts !== "offline" && f.acts !== "empty" && (
+        <Button variant="outline" className="bg-card" onClick={() => open("empty")} data-testid="act-empty">
+          <EraserIcon /> Empty
+        </Button>
+      )}
       {f.acts !== "offline" && (
         <Button variant="outline" className="border-destructive/40 bg-card text-destructive hover:bg-destructive/5 hover:text-destructive" onClick={() => open("delete")} data-testid="act-delete">
           <Trash2Icon /> Delete topic

@@ -22,6 +22,7 @@ pub mod config_teach;
 pub mod config_words;
 pub mod data_words;
 pub mod door;
+pub mod empty_records;
 pub mod facts;
 pub mod facts_start;
 pub mod files;

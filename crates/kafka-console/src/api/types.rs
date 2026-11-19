@@ -241,6 +241,13 @@ fn r1b(cfg: &Config, out: &mut BTreeMap<String, String>) {
     one::<RecordsDeletedAnswer>(cfg, out);
     one::<DeleteForm>(cfg, out);
     one::<DeletedAnswer>(cfg, out);
+    one::<EmptyRecordsForm>(cfg, out);
+    one::<RecordsEmptiedAnswer>(cfg, out);
+    one::<crate::empty_records::EmptyRecordsView>(cfg, out);
+    one::<crate::empty_records::EmptyPart>(cfg, out);
+    one::<crate::empty_records::EmptyGroup>(cfg, out);
+    one::<crate::empty_records::GroupMoved>(cfg, out);
+    one::<crate::empty_records::RecordsEmptied>(cfg, out);
     one::<CreateView>(cfg, out);
     one::<Draft>(cfg, out);
     one::<Step>(cfg, out);

@@ -20,6 +20,7 @@ const POST_PATHS: &[&str] = &[
     "/api/v1/topics/orders/produce",
     "/api/v1/topics/orders/add-partitions",
     "/api/v1/topics/orders/delete-records",
+    "/api/v1/topics/orders/empty",
     "/api/v1/topics/orders/delete",
     "/api/v1/topics/orders/config/edit",
     "/api/v1/topics/orders/config/reset",

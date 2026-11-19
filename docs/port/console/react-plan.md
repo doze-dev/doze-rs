@@ -375,3 +375,15 @@ uses the wrapper (not changed here). Firefox and WebKit leave the read of an abo
 it never opens again; the tail's connection ends each opening as a generation (fetch aborted, reader cancelled) and starts a new one.
 `tools/ux` (named in the brief) was removed with the classic pages in 7b791fd1c; its four tail proofs are Playwright specs now
 (`ux-tests.md` says so).
+
+**Empty, on the same branch (owner-approved extra).** A topic's actions carry **Empty** (`?dialog=empty`,
+`web/src/pages/topics/writes/empty.tsx`; also `Empty <topic>…` in the palette, under the topic the text names, with `Live tail of
+<topic>` beside it, in a "Do with" group of their own that is not kept as a recent): every partition to its high watermark in ONE
+DeleteRecords (`offset -1`), as `kafka-delete-records.sh`. `GET/POST /api/v1/topics/{topic}/empty` (`api/topic_admin.rs`; the view
+and its words in `src/empty_records.rs`, the reading and the write in `src/gather/empty_records.rs`): the records and bytes per
+partition, the groups whose commits fall below the new start (ticked to move to it when they have no members; moved after the delete by
+the group page's Reset offsets, to earliest), what stays, the call; the name typed; POLICY_VIOLATION before the button for a topic
+that only compacts, as Kafka answers, with the way to the Data page's Empty (CON-1519, which frees the disk now and works on such a
+topic). Catalogue CON-1590, CON-1591; `overlays.md` has the `?dialog=` recipe of the React console. Found: a form preview is cached
+(staleTime Infinity, 30 s gcTime) and `afterWrite` leaves the form queries alone, so the Empty dialog opened again within 30 s showed
+the old preview; it now drops its own preview after the write. Delete records' preview has the same shape (not changed here).

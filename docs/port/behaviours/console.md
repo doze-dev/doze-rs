@@ -1791,3 +1791,23 @@ or a `kafka-console-producer` line (`parse.key`, `parse.headers`); a record that
 console reads, in the wire format, with control characters, a deletion, or a tab for the console producer) says why instead. The
 page's keys: `p` pause, `n` show the new rows, `/` the filters, `c` clear the screen. Files: `web/src/pages/tail/tail.test.ts`,
 `web/e2e/tests/tail.spec.ts`.
+
+## CON-1590. Empty a topic from its page: every partition to its high watermark, in one DeleteRecords
+`?dialog=empty` on a topic (the actions beside Delete topic, and the palette's `Empty <topic>…`): `GET /api/v1/topics/{topic}/empty`
+says, in the server's words, the records and bytes that go per partition and in all, the groups whose commits fall below the new log
+start (with what they had not read and whether they have members), what stays (the id, the configs, the partitions; offsets carry on
+from each end; segments leave the disk as each log start passes them, where the Data page's Empty, CON-1519, frees it at once), and the
+call. `POST` with the name typed sends ONE DeleteRecords with every partition at offset -1, as `kafka-delete-records.sh` does; a name
+that is not the topic's sends nothing. A topic whose cleanup.policy is only `compact` is refused by the broker with POLICY_VIOLATION as
+Kafka refuses it; the dialog says so before the button (which stays shut) and points at the Data page's Empty. Tests:
+`live_api_topic_empty::emptying_takes_every_partition_to_its_end_in_one_call_and_moves_the_groups_asked_for`,
+`live_api_topic_empty::a_topic_that_only_compacts_is_refused_before_the_button_and_by_the_broker`,
+`empty_records::tests::the_dialog_says_what_goes_who_falls_behind_and_what_stays`,
+`gather::empty_records::tests::only_compact_without_delete_is_compact_only`. File: `web/e2e/tests/topic-empty.spec.ts`.
+
+## CON-1591. The groups below the new start can be moved to it with the same write
+Each group with a commit below the new start is listed with a checkbox, ticked when it has no members: after the delete, each ticked
+group is reset to the earliest offset of the topic (the new start) by the Reset offsets write the group page uses, so its consumers
+do not meet OFFSET_OUT_OF_RANGE. A group with members is refused by Kafka (UNKNOWN_MEMBER_ID) and the result says so in its words; a
+group not below the start is never asked. Tests: `live_api_topic_empty::emptying_takes_every_partition_to_its_end_in_one_call_and_moves_the_groups_asked_for`.
+File: `web/e2e/tests/topic-empty.spec.ts`.
