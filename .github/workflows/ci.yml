@@ -376,7 +376,9 @@ jobs:
           rss=$(echo $samples | tr ' ' '\n' | sort -n | sed -n 2p)
           echo "idle $rss KB with TLS configured"
           # CI's measurement with TLS configured on 2026-11-14 (median 10,104 KB) plus 5% (weight.md, "Limits raised to the measured values").
-          [ "$rss" -le 11479 ] || { echo "idle resident memory over 11,479 KB with TLS configured"; exit 1; }
+          # 2026-11-20, with the admin APIs, the wire tail and the old profiles: CI measured median 11,516 KB (samples 11,516, 11,564,
+          # 11,324; run 44602805454), right at the old line, which the previous run of the same code passed. Line: that plus 5%.
+          [ "$rss" -le 12092 ] || { echo "idle resident memory over 12,092 KB with TLS configured"; exit 1; }
 
   # The React console (web/, docs/port/console/react-plan.md): its built bundle is committed in crates/kafka-console/web-dist
   # so that `cargo build` needs no bun. This rebuilds it from the locked dependencies and fails if the result differs from what
