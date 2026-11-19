@@ -8,8 +8,8 @@
 //! changes metadata, so Kafka refuses it too), a downgrade of `kraft.version`, and a feature's dependencies. The first that
 //! fails fails the whole request, with Kafka's text.
 //!
-//! The levels themselves are this broker's Kafka major's and do not move (deviation W-D?, `docs/port/behaviours/admin.md`
-//! AD-D1): a request that passes every check and changes no level, or only validates, succeeds; one that would change a level
+//! The levels themselves are this broker's Kafka major's and do not move (`docs/port/behaviours/admin.md`
+//! ADM-D9): a request that passes every check and changes no level, or only validates, succeeds; one that would change a level
 //! is refused with INVALID_UPDATE_VERSION and says why. Kafka would apply it.
 
 use std::collections::BTreeMap;

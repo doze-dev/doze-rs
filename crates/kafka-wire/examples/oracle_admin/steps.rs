@@ -631,7 +631,7 @@ pub(crate) fn features(p: &mut Pair, t: &mut Tally) {
             norm_features,
         );
     }
-    // A real change: Kafka makes it, this broker keeps its levels (AD-D9). Kafka is put back after.
+    // A real change: Kafka makes it, this broker keeps its levels (ADM-D9). Kafka is put back after.
     p.same2(
         t,
         "transaction.version down to 1",
@@ -642,7 +642,7 @@ pub(crate) fn features(p: &mut Pair, t: &mut Tally) {
             &update(&[("transaction.version", 1, 2)], false),
         ),
         norm_features,
-        Some("AD-D9: the feature levels do not move"),
+        Some("ADM-D9: the feature levels do not move"),
     );
     let back = update(&[("transaction.version", 2, 1)], false);
     let _: UpdateFeaturesResponse = p.kafka.call(k, 2, &back);

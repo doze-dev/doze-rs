@@ -171,3 +171,38 @@ fn a_start_with_nobody_who_could_log_in_is_refused() {
     let other = Authenticator::over(&[ScramSha512, Plain], users).unwrap();
     assert_eq!(other.ensure_users(), Err(SetupError::NoUsers));
 }
+
+/// KIP-48: a SCRAM login with `tokenauth=true` is checked against the token whose id is the user name, with the base64 of
+/// its HMAC as the password, and is its owner's; an unknown token, or a token's id without the extension, is refused as an
+/// unknown user is (SEC-349).
+#[test]
+fn a_delegation_token_logs_in_over_scram_as_its_owner() {
+    use crate::scram::client::Client;
+    use crate::tokens::{TokenLogin, TokenLogins, hmac};
+    let auth = Authenticator::new(&[ScramSha256, ScramSha512], users()).unwrap();
+    let mac = hmac(b"key", "tok1");
+    let password = crate::crypto::base64::encode(&mac);
+    let login = TokenLogin::derive(Principal::user("bob"), &mac).unwrap();
+    auth.users().replace_tokens(TokenLogins::default().with("tok1", login));
+    for (mechanism, kind) in [(ScramSha256, Kind::Sha256), (ScramSha512, Kind::Sha512)] {
+        let client = Client::new(kind, "tok1", &password, "n0nce").with_extensions(",tokenauth=true");
+        let (server_first, awaiting) = auth.scram_first(mechanism, &client.first()).unwrap();
+        assert!(awaiting.by_token());
+        let last = client.last(&server_first, None, "");
+        let (reply, principal) = awaiting.finish(&last.message).unwrap();
+        assert_eq!((reply, principal.as_str()), (last.expected, "User:bob"));
+        // Not a token: the id is nobody's user name.
+        let plain = Client::new(kind, "tok1", &password, "n0nce");
+        assert!(auth.scram_first(mechanism, &plain.first()).is_err());
+        // A token there is not.
+        let other = Client::new(kind, "tok2", &password, "n0nce").with_extensions(",tokenauth=true");
+        assert!(matches!(
+            auth.scram_first(mechanism, &other.first()),
+            Err(scram::Refusal::Rejected { why: Why::TokenAuth, .. })
+        ));
+    }
+    // A user's own login is not a token's.
+    let alice = Client::new(Kind::Sha256, "alice", "alice-secret", "n");
+    let (_, awaiting) = auth.scram_first(ScramSha256, &alice.first()).unwrap();
+    assert!(!awaiting.by_token());
+}

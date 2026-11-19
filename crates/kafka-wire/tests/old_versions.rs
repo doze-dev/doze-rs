@@ -215,3 +215,63 @@ fn describe_log_dirs_v0_is_v1() {
     assert_eq!(bytes(&req, 0), bytes(&req, 1));
     let _: DescribeLogDirsRequest = back(bytes(&req, 1), 0);
 }
+
+/// Patch 7: v0 of AlterReplicaLogDirs and of the four delegation-token APIs is v1 on the wire ("Version 1 is the same as version
+/// 0" in each 3.9.1 schema), so each message reads and writes the same bytes at both, and v0 is decodable. A RenewDelegationToken
+/// request is also held to its bytes written by hand: the HMAC (int32 length, then the bytes), then the period (int64).
+#[test]
+fn patch_7_v0_of_the_log_dirs_and_token_apis_is_v1() {
+    use kafka_protocol::messages::alter_replica_log_dirs_request::{
+        AlterReplicaLogDir, AlterReplicaLogDirTopic,
+    };
+    use kafka_protocol::messages::{
+        AlterReplicaLogDirsRequest, AlterReplicaLogDirsResponse, CreateDelegationTokenRequest,
+        CreateDelegationTokenResponse, DescribeDelegationTokenRequest,
+        DescribeDelegationTokenResponse, ExpireDelegationTokenRequest,
+        ExpireDelegationTokenResponse, RenewDelegationTokenRequest, RenewDelegationTokenResponse,
+        TopicName,
+    };
+    for key in [
+        ApiKey::AlterReplicaLogDirs,
+        ApiKey::CreateDelegationToken,
+        ApiKey::RenewDelegationToken,
+        ApiKey::ExpireDelegationToken,
+        ApiKey::DescribeDelegationToken,
+    ] {
+        assert_eq!(key.valid_versions().min, 0, "{key:?}");
+    }
+    fn same<T: Encodable + Decodable + PartialEq + std::fmt::Debug>(m: &T) {
+        let (v0, v1) = (bytes(m, 0), bytes(m, 1));
+        assert_eq!(v0, v1);
+        assert_eq!(&back::<T>(v0, 0), m);
+    }
+    let mut dirs = AlterReplicaLogDirsRequest::default();
+    let mut d = AlterReplicaLogDir::default();
+    d.path = StrBytes::from_static_str("/data");
+    let mut t = AlterReplicaLogDirTopic::default();
+    t.name = TopicName(StrBytes::from_static_str("t"));
+    t.partitions = vec![0, 2];
+    d.topics.push(t);
+    dirs.dirs.push(d);
+    same(&dirs);
+    same(&AlterReplicaLogDirsResponse::default());
+    same(&CreateDelegationTokenRequest::default());
+    same(&CreateDelegationTokenResponse::default());
+    same(&DescribeDelegationTokenRequest::default());
+    same(&DescribeDelegationTokenResponse::default());
+    same(&ExpireDelegationTokenResponse::default());
+    same(&RenewDelegationTokenResponse::default());
+    let mut renew = RenewDelegationTokenRequest::default();
+    renew.hmac = Bytes::from_static(&[1, 2, 3]);
+    renew.renew_period_ms = 60_000;
+    same(&renew);
+    let mut expect = BytesMut::new();
+    expect.put_i32(3);
+    expect.put_slice(&[1, 2, 3]);
+    expect.put_i64(60_000);
+    assert_eq!(bytes(&renew, 0), expect.freeze());
+    let mut expire = ExpireDelegationTokenRequest::default();
+    expire.hmac = Bytes::from_static(&[9]);
+    expire.expiry_time_period_ms = -1;
+    same(&expire);
+}

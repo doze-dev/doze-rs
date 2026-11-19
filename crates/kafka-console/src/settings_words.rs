@@ -208,6 +208,7 @@ const FAMILIES: [(&str, &[ApiKey]); 11] = [
             ApiKey::Metadata,
             ApiKey::FindCoordinator,
             ApiKey::DescribeCluster,
+            ApiKey::DescribeTopicPartitions,
         ],
     ),
     (
@@ -219,6 +220,11 @@ const FAMILIES: [(&str, &[ApiKey]); 11] = [
             ApiKey::DescribeConfigs,
             ApiKey::AlterConfigs,
             ApiKey::IncrementalAlterConfigs,
+            ApiKey::ListConfigResources,
+            ApiKey::ElectLeaders,
+            ApiKey::AlterPartitionReassignments,
+            ApiKey::ListPartitionReassignments,
+            ApiKey::UpdateFeatures,
         ],
     ),
     (
@@ -286,6 +292,10 @@ const FAMILIES: [(&str, &[ApiKey]); 11] = [
             ApiKey::AlterUserScramCredentials,
             ApiKey::SaslHandshake,
             ApiKey::SaslAuthenticate,
+            ApiKey::CreateDelegationToken,
+            ApiKey::RenewDelegationToken,
+            ApiKey::ExpireDelegationToken,
+            ApiKey::DescribeDelegationToken,
         ],
     ),
     (
@@ -294,6 +304,7 @@ const FAMILIES: [(&str, &[ApiKey]); 11] = [
             ApiKey::DescribeClientQuotas,
             ApiKey::AlterClientQuotas,
             ApiKey::DescribeLogDirs,
+            ApiKey::AlterReplicaLogDirs,
         ],
     ),
     (
