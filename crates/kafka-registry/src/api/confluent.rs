@@ -4,6 +4,7 @@ use std::collections::BTreeMap;
 
 use serde::Serialize;
 
+use super::answer::{ById, Registered};
 use super::body::{self, Bound};
 use super::route::Route;
 use super::{Call, Response, text};
@@ -155,53 +156,6 @@ fn subjects(r: &Registry, route: Route, call: &Call<'_>) -> Result<Response, Reg
         }
         _ => return Err(RegistryError::http(404, "HTTP 404 Not Found")),
     })
-}
-
-/// A registration answered with its schema, in the order Confluent writes one (`RegisterSchemaResponse`).
-#[derive(Serialize)]
-struct Registered {
-    id: u32,
-    version: u32,
-    #[serde(rename = "schemaType", skip_serializing_if = "Option::is_none")]
-    schema_type: Option<crate::format::SchemaType>,
-    #[serde(skip_serializing_if = "Vec::is_empty")]
-    references: Vec<crate::store::Reference>,
-    #[serde(
-        skip_serializing_if = "Option::is_none",
-        serialize_with = "crate::registry::contract_json::metadata"
-    )]
-    metadata: Option<crate::registry::Metadata>,
-    #[serde(
-        rename = "ruleSet",
-        skip_serializing_if = "Option::is_none",
-        serialize_with = "crate::registry::contract_json::rule_set"
-    )]
-    rule_set: Option<crate::registry::RuleSet>,
-    schema: String,
-}
-
-/// A schema by id, in the order Confluent writes one (`SchemaString`): its type, its text, its references, its
-/// metadata and rule set, the highest id.
-#[derive(Serialize)]
-struct ById {
-    #[serde(rename = "schemaType", skip_serializing_if = "Option::is_none")]
-    schema_type: Option<crate::format::SchemaType>,
-    schema: String,
-    #[serde(skip_serializing_if = "Vec::is_empty")]
-    references: Vec<crate::store::Reference>,
-    #[serde(
-        skip_serializing_if = "Option::is_none",
-        serialize_with = "crate::registry::contract_json::metadata"
-    )]
-    metadata: Option<crate::registry::Metadata>,
-    #[serde(
-        rename = "ruleSet",
-        skip_serializing_if = "Option::is_none",
-        serialize_with = "crate::registry::contract_json::rule_set"
-    )]
-    rule_set: Option<crate::registry::RuleSet>,
-    #[serde(rename = "maxId", skip_serializing_if = "Option::is_none")]
-    max_id: Option<u32>,
 }
 
 #[derive(Serialize)]
