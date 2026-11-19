@@ -4,9 +4,11 @@
 //! document (see `authz.rs`), as it reads an SQS queue's or a secret's policy.
 //!
 //! As the model says: a parameter takes a policy only in the advanced tier, and a `SecureString` only under a customer managed key; a
-//! policy is at most 1024 bytes; changing or deleting one needs its `PolicyId` and the `PolicyHash` it has now, and a hash that is not
-//! the current one is `ResourcePolicyConflictException`. The hash is the SHA-256 of the policy text, as hex, and the id is derived the
-//! same way (both opaque on AWS: memory). The words of every refusal are (memory).
+//! policy is at most 1024 bytes; changing or deleting one needs its `PolicyId` and the `PolicyHash` it has now. As AWS answered
+//! (recorded 2026-11-19): a parameter holds one policy (a second put without an id is "already exists"), an id and hash that are not the
+//! current pair are `ResourcePolicyNotFoundException` (not the model's conflict), and the policy is kept as compact JSON, its keys in the
+//! order given. The id has a UUID's shape and the hash is 32 hex digits, as AWS's; both are derived from SHA-256 here (opaque on AWS).
+//! Refusals not marked recorded are (memory).
 
 use aws_model_ssm::keys::{
     DeleteResourcePolicyRequest as Delete, GetResourcePoliciesRequest as Get,
@@ -20,7 +22,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sha2::{Digest, Sha256};
 
-use crate::core::Core;
+use crate::core::{Core, validation};
 use crate::page;
 
 /// The largest policy (the model's `ResourcePolicyLimitExceededException`: "A policy can't be greater than 1024 bytes in size").
@@ -76,27 +78,38 @@ fn invalid(message: impl Into<String>, members: &[&str]) -> ApiError {
 }
 
 fn not_found(arn: &str) -> ApiError {
-    // (memory)
+    // (memory): a document, or an ARN outside the caller's account and region.
     ApiError::modeled(
         "ResourceNotFoundException",
         format!("The resource {arn} was not found."),
     )
 }
 
-fn no_policy() -> ApiError {
-    // (memory)
+fn parameter_not_found(arn: &str) -> ApiError {
+    // Recorded 2026-11-19.
     ApiError::modeled(
-        "ResourcePolicyNotFoundException",
-        "No policy with the specified policy ID and hash was found on the resource.",
+        "ResourceNotFoundException",
+        format!("Parameter {arn} not found"),
     )
 }
 
-fn conflict() -> ApiError {
-    // (memory)
+/// No policy on the resource has this id and this hash: a stale hash is answered so too (recorded 2026-11-19).
+fn no_policy(arn: &str, id: &str, hash: &str) -> ApiError {
+    // Recorded 2026-11-19.
     ApiError::modeled(
-        "ResourcePolicyConflictException",
-        "The policy hash does not match the current version of the policy. Get the policy again and retry with its current hash.",
+        "ResourcePolicyNotFoundException",
+        format!(
+            "Resource policy for resource {arn} with policy ID {id} and policy hash {hash} does not exist"
+        ),
     )
+}
+
+/// A parameter holds one policy; a second needs the first's id and hash, to change it (recorded 2026-11-19).
+fn already_held(arn: &str) -> ApiError {
+    // Recorded 2026-11-19.
+    validation(format!(
+        "Resource policy for parameter {arn} already exists"
+    ))
 }
 
 /// What `arn` names, in the caller's own account and region.
@@ -128,8 +141,56 @@ fn target<'a>(arn: &'a str, call: &Call) -> Result<Target<'a>, ApiError> {
     ))
 }
 
+/// 32 hex digits, the shape of AWS's `PolicyHash`.
 fn hash_of(text: &str) -> String {
-    aws_core::hex::encode(&Sha256::digest(text.as_bytes()))
+    let digest = Sha256::digest(text.as_bytes());
+    aws_core::hex::encode(digest.get(..16).unwrap_or_default())
+}
+
+/// A UUID's shape (version 4, RFC 4122 variant), the shape of AWS's `PolicyId`, derived from `seed`.
+fn id_of(seed: &str) -> String {
+    let mut b = [0u8; 16];
+    b.copy_from_slice(
+        Sha256::digest(seed.as_bytes())
+            .get(..16)
+            .unwrap_or(&[0; 16]),
+    );
+    b[6] = (b[6] & 0x0f) | 0x40;
+    b[8] = (b[8] & 0x3f) | 0x80;
+    let h = aws_core::hex::encode(&b);
+    format!(
+        "{}-{}-{}-{}-{}",
+        &h[..8],
+        &h[8..12],
+        &h[12..16],
+        &h[16..20],
+        &h[20..]
+    )
+}
+
+/// The policy as AWS keeps it (recorded 2026-11-19): compact JSON, every key and value in the order given. Whitespace outside a string
+/// is dropped; the text is already known to parse.
+fn compact(text: &str) -> String {
+    let mut out = String::with_capacity(text.len());
+    let (mut quoted, mut escaped) = (false, false);
+    for c in text.chars() {
+        if quoted {
+            out.push(c);
+            if escaped {
+                escaped = false;
+            } else if c == '\\' {
+                escaped = true;
+            } else if c == '"' {
+                quoted = false;
+            }
+        } else if c == '"' {
+            quoted = true;
+            out.push(c);
+        } else if !c.is_whitespace() {
+            out.push(c);
+        }
+    }
+    out
 }
 
 /// Refuses what is not an IAM policy document, or is larger than AWS takes.
@@ -179,13 +240,13 @@ impl Core {
                 .map(|_| ())
                 .ok_or_else(|| not_found(arn)),
             Target::Parameter(tail) => {
-                let name = self.parameter_named(tail).ok_or_else(|| not_found(arn))?;
+                let name = self
+                    .parameter_named(tail)
+                    .ok_or_else(|| parameter_not_found(arn))?;
                 let latest = self.params.get(&name).map(|p| &p.latest);
                 if latest.is_some_and(|v| !v.advanced) {
-                    return Err(invalid(
-                        "Only a parameter in the advanced tier can be shared. Change the parameter to the advanced tier and try again.",
-                        &["ResourceArn"],
-                    ));
+                    // Recorded 2026-11-19; asked before the policy is read, so a policy that is not JSON is refused so too.
+                    return Err(validation("Only advanced parameters can be shared"));
                 }
                 if latest.is_some_and(|v| v.key_id.as_deref() == Some(crate::kms::DEFAULT_KEY)) {
                     return Err(invalid(
@@ -205,21 +266,24 @@ impl Core {
         let t = target(arn, call)?;
         self.may_hold(&t, arn)?;
         check(text)?;
+        let text = compact(text);
         let key = t.key();
-        let hash = hash_of(text);
+        let hash = hash_of(&text);
         let mut held = self.res_policies.get(&key).cloned().unwrap_or_default();
         let id = match (v.get(Put::POLICY_ID), v.get(Put::POLICY_HASH)) {
             (None, None) => {
-                let id = hash_of(&format!(
+                if matches!(t, Target::Parameter(_)) && !held.policies.is_empty() {
+                    return Err(already_held(arn));
+                }
+                let id = id_of(&format!(
                     "{key}\n{}\n{}",
                     self.now_ms(),
                     held.policies.len()
                 ));
-                let id = id.get(..32).unwrap_or(&id).to_owned();
                 held.policies.push(ResPolicy {
                     id: id.clone(),
                     hash: hash.clone(),
-                    text: text.to_owned(),
+                    text: text.clone(),
                 });
                 id
             }
@@ -239,13 +303,10 @@ impl Core {
                 let p = held
                     .policies
                     .iter_mut()
-                    .find(|p| p.id == id)
-                    .ok_or_else(no_policy)?;
-                if p.hash != given {
-                    return Err(conflict());
-                }
+                    .find(|p| p.id == id && p.hash == given)
+                    .ok_or_else(|| no_policy(arn, id, given))?;
                 p.hash.clone_from(&hash);
-                text.clone_into(&mut p.text);
+                p.text = text;
                 id.to_owned()
             }
         };
@@ -260,12 +321,14 @@ impl Core {
         let v = request::<Get>(call)?;
         let arn = v.get(Get::RESOURCE_ARN).unwrap_or_default();
         let t = target(arn, call)?;
-        let exists = match &t {
-            Target::Document(name) => self.documents.get(name).is_some(),
-            Target::Parameter(tail) => self.parameter_named(tail).is_some(),
-        };
-        if !exists {
-            return Err(not_found(arn));
+        match &t {
+            Target::Document(name) if self.documents.get(name).is_none() => {
+                return Err(not_found(arn));
+            }
+            Target::Parameter(tail) if self.parameter_named(tail).is_none() => {
+                return Err(parameter_not_found(arn));
+            }
+            _ => {}
         }
         let limit = v
             .get(Get::MAX_RESULTS)
@@ -309,15 +372,12 @@ impl Core {
             v.get(Delete::POLICY_ID).unwrap_or_default(),
             v.get(Delete::POLICY_HASH).unwrap_or_default(),
         );
-        let mut held = self.res_policies.get(&key).cloned().ok_or_else(no_policy)?;
+        let mut held = self.res_policies.get(&key).cloned().unwrap_or_default();
         let ix = held
             .policies
             .iter()
-            .position(|p| p.id == id)
-            .ok_or_else(no_policy)?;
-        if held.policies.get(ix).is_some_and(|p| p.hash != given) {
-            return Err(conflict());
-        }
+            .position(|p| p.id == id && p.hash == given)
+            .ok_or_else(|| no_policy(arn, id, given))?;
         held.policies.remove(ix);
         if held.policies.is_empty() {
             self.res_policies.remove(&key);

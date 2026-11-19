@@ -95,11 +95,11 @@ async fn run(cfg: ResolverConfig, mut stop: watch::Receiver<bool>, bound: watch:
                 announced = false;
                 let sock = Arc::new(sock);
                 answer_until_stopped(Arc::clone(&sock), &cfg, &mut stop).await;
-                // The record goes while the socket is still held: once it closes a peer may bind and record itself,
-                // and a release after that would erase the successor's record (it matches by pid, and peers in one
-                // process share one; seen on a slow Windows runner).
+                // The record goes while the socket is still held (once it closes a peer may bind and record itself),
+                // and only if it is still this resolver's own: peers in one process share a pid, so a release by pid
+                // alone erased the successor's record when the two crossed (windows-11-arm, before 243d848e).
                 if let Some(r) = &cfg.registry {
-                    let _ = r.release_key(RESOLVER_KEY);
+                    let _ = r.release_holder(RESOLVER_KEY, &cfg.addr);
                 }
                 drop(sock);
                 if *stop.borrow() {

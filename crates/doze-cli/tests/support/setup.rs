@@ -21,12 +21,15 @@ pub(crate) fn prepare(setup: &[String]) -> (Sandbox, FakeHost, Option<FixtureDae
     for d in setup {
         let (verb, arg) = d.split_once(' ').unwrap_or((d, ""));
         match verb {
-            "registry" | "tty" | "no-json" => {}
+            "registry" | "tty" | "no-json" | "untimed" => {}
             "env" => {
                 let (k, v) = arg.split_once('=').unwrap();
-                host.env.insert(k.into(), v.into());
+                let v = v.replace("{sandbox}", &sb.root.display().to_string());
+                host.env.insert(k.into(), v);
             }
             "browser-fails" => host.browser_fails = true,
+            // `@ app`: a Doze.app in an Applications folder of the sandbox, which the host reports.
+            "app" => host.apps.push(install_app(&sb)),
             "now" => host.now = Some(stamp(arg)),
             "daemon" => daemon = Some(start_daemon(&sb, arg)),
             // `@ logfile api r000001.s000.log <line>`: a line in the stack's log store.
@@ -48,6 +51,8 @@ pub(crate) fn prepare(setup: &[String]) -> (Sandbox, FakeHost, Option<FixtureDae
                 std::fs::write(to, text.replace("\\n", "\n")).unwrap();
             }
             "project" => project(&sb, arg),
+            // `@ exe bin/psql`: an empty program under the sandbox, runnable (a client `connect` finds).
+            "exe" => exe(&sb.root.join(arg)),
             "cached" => {
                 for f in ["index.yaml", "meta.yaml"] {
                     let to = sb.home().join("registry/doze").join(arg).join(f);
@@ -81,11 +86,26 @@ pub(crate) fn prepare(setup: &[String]) -> (Sandbox, FakeHost, Option<FixtureDae
     (sb, host, daemon)
 }
 
-/// A fixture daemon playing `tests/fixtures/daemon/<name>.ndjson` on the sandbox project's control socket.
+/// An empty program at `to`, runnable.
+fn exe(to: &Path) {
+    std::fs::create_dir_all(to.parent().unwrap()).unwrap();
+    std::fs::write(to, "").unwrap();
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(to, std::fs::Permissions::from_mode(0o755)).unwrap();
+    }
+}
+
+/// A fixture daemon playing `tests/fixtures/daemon/<name>.ndjson` on the sandbox project's control socket; `{sandbox}`
+/// in it is the sandbox's folder.
 fn start_daemon(sb: &Sandbox, name: &str) -> FixtureDaemon {
     let script =
         Path::new(env!("CARGO_MANIFEST_DIR")).join(format!("tests/fixtures/daemon/{name}.ndjson"));
-    let script = Script::load(&script).unwrap();
+    let text = std::fs::read_to_string(&script)
+        .unwrap()
+        .replace("{sandbox}", &sb.root.display().to_string());
+    let script = Script::parse(name, &text).unwrap();
     let sock = StackKey::for_config(&sb.home(), &sb.project().join("doze.hcl")).socket();
     std::fs::create_dir_all(sock.parent().unwrap()).unwrap();
     FixtureDaemon::start(&sock, script).unwrap()
@@ -137,19 +157,69 @@ fn stamp(s: &str) -> std::time::SystemTime {
         .unwrap()
 }
 
+/// A Doze.app (an empty program) in the sandbox's Applications folder; that folder.
+fn install_app(sb: &Sandbox) -> std::path::PathBuf {
+    let apps = sb.root.join("Applications");
+    let exe = apps
+        .join("Doze.app")
+        .join("Contents")
+        .join("MacOS")
+        .join("doze-app");
+    std::fs::create_dir_all(exe.parent().unwrap()).unwrap();
+    std::fs::write(&exe, "").unwrap();
+    apps
+}
+
 fn project(sb: &Sandbox, kind: &str) {
     let p = sb.project();
-    std::fs::write(
-        p.join("doze.hcl"),
-        "valkey \"cache\" { version = 9 }\npostgres \"db\" { version = 17 }\n",
-    )
-    .unwrap();
+    let hcl = if kind == "shop" {
+        SHOP
+    } else {
+        "module valkey \"cache\" { version = 9 }\nmodule postgres \"db\" { version = 17 }\n"
+    };
+    std::fs::write(p.join("doze.hcl"), hcl).unwrap();
     let lock = match kind {
         "pinned" => fixture::lock_text(false),
         "tampered" => fixture::lock_text(true),
         "conflict" => "doze: 0.2.1\nmodules:\n<<<<<<< HEAD\n    doze/valkey:\n        version: 0.2.1\n=======\n    doze/valkey:\n        version: 0.3.0\n>>>>>>> main\n".into(),
-        "bare" => return,
+        "bare" | "shop" => return,
         other => panic!("unknown project `{other}`"),
     };
     std::fs::write(p.join("doze.lock"), lock).unwrap();
 }
+
+/// The stack of Go's status goldens (cmd/doze/golden_test.go `shopConfig`), as written there.
+const SHOP: &str = r#"
+stack = "shop"
+
+module postgres "db" {
+  version = 16
+  port    = 5432
+}
+
+module valkey "cache" {
+  version = 9
+  port    = 6379
+}
+
+module kafka "events" {
+  version = 4
+  port    = 9092
+}
+
+app "api" {
+  run  = "go run ./cmd/api"
+  port = 8080
+  env  = { DATABASE_URL = module.db.url }
+}
+
+app "worker" {
+  run = "go run ./cmd/worker"
+  env = { KAFKA = module.events.address }
+}
+
+app "web" {
+  run  = "go run ./cmd/web"
+  port = 8090
+}
+"#;

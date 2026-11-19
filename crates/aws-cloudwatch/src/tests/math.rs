@@ -123,7 +123,11 @@ fn search_finds_the_metrics_this_region_holds() {
         .iter()
         .map(|r| r["Label"].as_str().unwrap())
         .collect();
-    assert_eq!(labels, ["depth billing", "depth orders"]);
+    assert_eq!(
+        labels,
+        ["billing", "orders"],
+        "recorded 2026-11-19: dimension values only"
+    );
     let sum = data(
         &mut w,
         vec![expr("s", "SUM(SEARCH('{T,queue} depth', 'Sum', 60))")],
@@ -136,12 +140,18 @@ fn search_finds_the_metrics_this_region_holds() {
 fn what_cannot_be_worked_out_is_refused() {
     let mut w = World::new();
     for (queries, words) in [
-        (vec![expr("e", "m9 * 2")], "Unrecognized identifier m9"),
+        (
+            vec![expr("e", "m9 * 2")],
+            "Error in expression 'e': ID 'm9' not found",
+        ),
         (
             vec![expr("e", "f"), expr("f", "e + 1")],
-            "Circular dependency",
+            "Circular dependency between expressions: e -> f -> e",
         ),
-        (vec![expr("e", "m1 +")], "Error in expression e"),
+        (
+            vec![expr("e", "m1 +")],
+            "Error in expression 'e': Invalid syntax",
+        ),
         (vec![expr("e", "NOPE(1)")], "Unknown function NOPE"),
         (vec![expr("e", "SELECT AVG(x) FROM T")], "Metrics Insights"),
         (vec![expr("e", "'text'")], "not a time series"),
@@ -197,6 +207,13 @@ fn a_math_alarm_follows_its_expression() {
         a["StateReason"]
     );
     assert_eq!(a["Metrics"][2]["Expression"], "m1 + m2");
+    // Recorded 2026-11-19: no dimensions sent shows as an empty list, on the alarm and on each metric.
+    assert_eq!(a["Dimensions"], json!([]));
+    assert_eq!(
+        a["Metrics"][0]["MetricStat"]["Metric"]["Dimensions"],
+        json!([])
+    );
+    assert!(a["Metrics"][2].get("MetricStat").is_none());
     // And back when the minute leaves the window.
     assert_eq!(w.core.earliest_due(), Some(NOW + 120_000));
     w.clock.advance(60_000);
@@ -239,7 +256,7 @@ fn a_math_alarm_is_held_to_the_rules_of_the_model() {
         (two, "Exactly one element"),
         (
             json!({"Namespace": "T"}),
-            "cannot be used with the parameter Metrics",
+            "Namespace should not be set if list of Metrics is set.",
         ),
         (
             json!({"Metrics": [{"Id": "e", "Expression": "SEARCH('x', 'Sum', 60)", "ReturnData": true}]}),

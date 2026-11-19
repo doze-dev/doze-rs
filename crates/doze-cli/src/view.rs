@@ -2,7 +2,10 @@
 //! (colour), for a pipe (the same words without it) and as JSON (the envelope's `data`). Plain and JSON are the stable
 //! contracts the transcript tests pin. `data` is each result serialised in its own field order, as Go's structs are.
 
-use crate::cmd::{docs, doctor, logs, modules, report, setup, status, task, verify, version, why};
+use crate::cmd::{
+    add, bug, docs, doctor, down, format, init, lint, logs, modules, report, setup, status, task,
+    update, upgrade, verify, version, why,
+};
 use crate::paint::Paint;
 use crate::plan::Plan;
 use serde::{Serialize, Serializer};
@@ -35,6 +38,19 @@ pub enum View {
     Tasks(task::Listing),
     Logs(logs::Report),
     Why(Box<why::Why>),
+    Lint(lint::Verdict),
+    Fmt(format::Formatted),
+    Added(add::Added),
+    Inited(init::Inited),
+    Upgraded(upgrade::Upgraded),
+    Bug(bug::Report),
+    Updated(update::Updated),
+    Stopped(down::Stopped),
+    /// A module's web console, opened or (with no display) its address.
+    Console(crate::cmd::console::Console),
+    Env(crate::cmd::env::Vars),
+    Url(crate::cmd::env::Line),
+    Migrated(crate::cmd::migrate::Migrated),
 }
 
 impl View {
@@ -44,6 +60,10 @@ impl View {
             View::Raw(s) => s.clone(),
             View::Silent | View::Streamed | View::Verbs(_) => String::new(),
             View::Opened(url) => format!("→ opened {url} in your browser\n"),
+            View::Console(c) => c.human(),
+            View::Env(e) => e.human(p),
+            View::Url(u) => format!("{}\n", u.url),
+            View::Migrated(m) => m.human(p),
             View::Version(v) => v.human(),
             View::Plan(plan) => plan.render(p),
             View::Docs(page) => page.human(p),
@@ -57,6 +77,14 @@ impl View {
             View::Tasks(t) => t.human(p),
             View::Logs(l) => l.human(p),
             View::Why(w) => w.human(p),
+            View::Lint(v) => v.human(p),
+            View::Fmt(f) => f.human(p),
+            View::Added(a) => a.human(p),
+            View::Inited(i) => i.human(p),
+            View::Upgraded(u) => u.human(p),
+            View::Bug(b) => b.human(p),
+            View::Updated(u) => u.human(p),
+            View::Stopped(d) => d.human(p),
         }
     }
 
@@ -83,6 +111,10 @@ impl Serialize for View {
         match self {
             View::Raw(_) | View::Silent | View::Streamed => s.serialize_none(),
             View::Opened(url) => Opened { opened: url }.serialize(s),
+            View::Console(c) => c.serialize(s),
+            View::Env(e) => e.serialize(s),
+            View::Url(u) => u.serialize(s),
+            View::Migrated(m) => m.serialize(s),
             View::Version(v) => v.serialize(s),
             View::Plan(plan) => DryRun {
                 dry_run: true,
@@ -101,6 +133,14 @@ impl Serialize for View {
             View::Tasks(t) => t.serialize(s),
             View::Logs(l) => l.serialize(s),
             View::Why(w) => w.serialize(s),
+            View::Lint(v) => v.serialize(s),
+            View::Fmt(f) => f.serialize(s),
+            View::Added(a) => a.serialize(s),
+            View::Inited(i) => i.serialize(s),
+            View::Upgraded(u) => u.serialize(s),
+            View::Bug(b) => b.serialize(s),
+            View::Updated(u) => u.serialize(s),
+            View::Stopped(d) => d.serialize(s),
         }
     }
 }

@@ -85,7 +85,13 @@ fn model_template(core: &Core, r: &Req) -> Res {
     let models = obj(doc, "models");
     let schema = models
         .and_then(|m| m.get(r.s("modelName")))
-        .ok_or_else(|| invalid_id("Model"))
+        // Recorded 2026-11-19.
+        .ok_or_else(|| {
+            crate::errors::not_found(format!(
+                "Invalid model name specified: {}",
+                r.s("modelName")
+            ))
+        })
         .map(|m| text(m, "schema").unwrap_or("{}"))?;
     let by_name = |n: &str| {
         models?

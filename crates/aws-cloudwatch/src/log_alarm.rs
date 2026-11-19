@@ -52,8 +52,9 @@ fn check(r: &Req<'_>) -> Result<(), String> {
         ));
     }
     if m > n {
+        // Recorded 2026-11-19 (the two spaces are AWS's).
         return Err(
-            "QueryResultsToAlarm must be less than or equal to QueryResultsToEvaluate.".to_owned(),
+            "QueryResultsToAlarm must be  smaller or equal than QueryResultsToEvaluate".to_owned(),
         );
     }
     let comparison = r.s("ComparisonOperator");
@@ -118,7 +119,7 @@ fn schedule(s: &Value) -> Result<(), String> {
     Ok(())
 }
 
-/// A log alarm as `DescribeAlarms` shows it: what was sent, with the defaults the model gives, the scheduled query's ARN, and its
+/// A log alarm as `DescribeAlarms` shows it: what was sent, the scheduled query's ARN, and its
 /// `EvaluationState` when it has one.
 pub(crate) fn shown(mut v: Value, evaluation: Option<&str>) -> Value {
     if let Some(state) = evaluation {
@@ -136,13 +137,7 @@ pub(crate) fn shown(mut v: Value, evaluation: Option<&str>) -> Value {
     if let Some(Value::Object(q)) = v.get_mut("ScheduledQueryConfiguration") {
         q.insert("QueryARN".to_owned(), Value::String(query_arn));
     }
-    for (key, default) in [
-        ("TreatMissingData", Value::from("missing")),
-        ("ActionLogLineCount", Value::from(0)),
-    ] {
-        if v.get(key).is_none() {
-            v.put(key, default);
-        }
-    }
+    // Recorded 2026-11-19: AWS fills in no default for TreatMissingData or ActionLogLineCount; a member not sent is not shown (the
+    // evaluation still treats missing data as `missing`).
     v
 }

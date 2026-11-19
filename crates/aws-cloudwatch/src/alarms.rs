@@ -283,6 +283,9 @@ pub(crate) fn alarm_json(name: &str, a: &Alarm, region: &str, account: &str) -> 
         })
         .unwrap_or_default();
     v.remove("Tags");
+    if matches!(a.kind, Kind::Metric | Kind::Math) {
+        no_dimensions_is_an_empty_list(&mut v);
+    }
     let mut out = Value::Object(v);
     out.put("AlarmName", json!(name));
     out.put("AlarmArn", json!(alarm_arn(region, account, name)));
@@ -302,6 +305,20 @@ pub(crate) fn alarm_json(name: &str, a: &Alarm, region: &str, account: &str) -> 
     out.put("StateUpdatedTimestamp", secs(a.state_updated_ms));
     out.put("StateTransitionedTimestamp", secs(a.transitioned_ms));
     out
+}
+
+/// A metric alarm shows `Dimensions` even when none were sent: an empty list on the alarm and on each metric of a math alarm's
+/// `Metrics` (recorded 2026-11-19).
+fn no_dimensions_is_an_empty_list(v: &mut Map<String, Value>) {
+    v.entry("Dimensions").or_insert_with(|| json!([]));
+    let Some(Value::Array(metrics)) = v.get_mut("Metrics") else {
+        return;
+    };
+    for m in metrics {
+        if let Some(Value::Object(metric)) = m.pointer_mut("/MetricStat/Metric") {
+            metric.entry("Dimensions").or_insert_with(|| json!([]));
+        }
+    }
 }
 
 /// A metric alarm's request, held to the rules AWS holds it to (the messages are the recorded ones where they are marked so in

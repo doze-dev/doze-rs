@@ -1,0 +1,9 @@
+engines:
+  valkey:
+    versions:
+      "9": 9.1.1
+    artifacts:
+      9.1.1:
+        aarch64-apple-darwin:
+          url: valkey-9.1.1.tar.gz
+          sha256: 00

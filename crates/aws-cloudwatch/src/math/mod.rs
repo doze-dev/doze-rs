@@ -89,10 +89,11 @@ fn expression(id: &str, text: &str) -> Result<Expr, String> {
         .is_some_and(|w| w.eq_ignore_ascii_case("select"))
     {
         return Err(format!(
-            "Error in expression {id}: Metrics Insights queries (SELECT) are not supported in doze-aws; use metric math or SEARCH."
+            "Error in expression '{id}': Metrics Insights queries (SELECT) are not supported in doze-aws; use metric math or SEARCH."
         ));
     }
-    parse::parse(text).map_err(|e| format!("Error in expression {id}: {e}"))
+    // Recorded 2026-11-19: AWS says only that the syntax is wrong, whatever is wrong with it.
+    parse::parse(text).map_err(|_| format!("Error in expression '{id}': Invalid syntax"))
 }
 
 fn stat_of(s: &Value) -> Stat {
@@ -114,58 +115,92 @@ fn stat_of(s: &Value) -> Stat {
 }
 
 /// The expressions in the order they can be worked out: each after the ids it names. An id no query has, and a query that comes
-/// back to itself, are refused (memory).
+/// back to itself, are refused in AWS's words (recorded 2026-11-19): the cycle is named from the query it was entered by.
 pub(crate) fn order(queries: &[Query]) -> Result<Vec<usize>, String> {
     let index: HashMap<&str, usize> = queries
         .iter()
         .enumerate()
         .map(|(i, q)| (q.id.as_str(), i))
         .collect();
-    let mut state = vec![0u8; queries.len()];
-    let mut out = Vec::new();
+    let mut walk = Walk {
+        queries,
+        index: &index,
+        state: vec![0u8; queries.len()],
+        path: Vec::new(),
+        out: Vec::new(),
+    };
     for i in 0..queries.len() {
-        visit(i, queries, &index, &mut state, &mut out)?;
+        walk.visit(i)?;
     }
-    Ok(out)
+    Ok(walk.out)
 }
 
-fn visit(
-    i: usize,
-    queries: &[Query],
-    index: &HashMap<&str, usize>,
-    state: &mut [u8],
-    out: &mut Vec<usize>,
-) -> Result<(), String> {
-    let (Some(q), Some(s)) = (queries.get(i), state.get(i).copied()) else {
-        return Ok(());
-    };
-    match s {
-        2 => return Ok(()),
-        1 => return Err(format!("Error in expression {}: Circular dependency", q.id)),
-        _ => {}
-    }
-    let Body::Expr(e) = &q.body else {
-        if let Some(s) = state.get_mut(i) {
-            *s = 2;
+/// A depth-first walk over the ids the expressions name.
+struct Walk<'a> {
+    queries: &'a [Query],
+    index: &'a HashMap<&'a str, usize>,
+    /// 0 not seen, 1 on the path, 2 done.
+    state: Vec<u8>,
+    /// The queries being worked out, outermost first.
+    path: Vec<usize>,
+    out: Vec<usize>,
+}
+
+impl Walk<'_> {
+    fn visit(&mut self, i: usize) -> Result<(), String> {
+        let queries = self.queries;
+        let (Some(q), Some(s)) = (queries.get(i), self.state.get(i).copied()) else {
+            return Ok(());
+        };
+        match s {
+            2 => return Ok(()),
+            1 => return Err(self.circular(i)),
+            _ => {}
         }
-        return Ok(());
-    };
-    if let Some(s) = state.get_mut(i) {
-        *s = 1;
+        let Body::Expr(e) = &q.body else {
+            self.mark(i, 2);
+            return Ok(());
+        };
+        self.mark(i, 1);
+        self.path.push(i);
+        let mut names = Vec::new();
+        e.names(&mut names);
+        for n in names.iter().filter(|n| is_id(n)) {
+            // Recorded 2026-11-19.
+            let j = *self
+                .index
+                .get(n.as_str())
+                .ok_or_else(|| format!("Error in expression '{}': ID '{n}' not found", q.id))?;
+            self.visit(j)?;
+        }
+        self.path.pop();
+        self.mark(i, 2);
+        self.out.push(i);
+        Ok(())
     }
-    let mut names = Vec::new();
-    e.names(&mut names);
-    for n in names.iter().filter(|n| is_id(n)) {
-        let j = *index
-            .get(n.as_str())
-            .ok_or_else(|| format!("Error in expression {}: Unrecognized identifier {n}", q.id))?;
-        visit(j, queries, index, state, out)?;
+
+    fn mark(&mut self, i: usize, to: u8) {
+        if let Some(s) = self.state.get_mut(i) {
+            *s = to;
+        }
     }
-    if let Some(s) = state.get_mut(i) {
-        *s = 2;
+
+    /// The cycle that comes back to `i`, as AWS words it. Recorded 2026-11-19.
+    fn circular(&self, i: usize) -> String {
+        let from = self.path.iter().position(|p| *p == i).unwrap_or(0);
+        let ids: Vec<&str> = self
+            .path
+            .get(from..)
+            .unwrap_or_default()
+            .iter()
+            .chain(std::iter::once(&i))
+            .filter_map(|p| self.queries.get(*p).map(|q| q.id.as_str()))
+            .collect();
+        format!(
+            "Circular dependency between expressions: {}",
+            ids.join(" -> ")
+        )
     }
-    out.push(i);
-    Ok(())
 }
 
 /// Where the data of a metric and of a search comes from: the samples on disk for `GetMetricData`, the data an alarm holds in
@@ -231,7 +266,7 @@ pub(crate) fn solve(
             period_ms,
             src: &vars,
         };
-        let v = eval::eval(e, &env).map_err(|m| format!("Error in expression {id}: {m}"))?;
+        let v = eval::eval(e, &env).map_err(|m| format!("Error in expression '{id}': {m}"))?;
         values.insert(id.clone(), v);
     }
     Ok(values)

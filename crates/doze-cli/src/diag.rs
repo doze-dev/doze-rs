@@ -19,6 +19,8 @@ pub struct Diagnostic {
     pub span: Option<Box<Span>>,
     pub notes: Vec<String>,
     pub fix: Option<String>,
+    /// Further problems found in the same pass (a config with three mistakes says all three), drawn after this one.
+    pub more: Option<Box<[Diagnostic]>>,
 }
 
 impl Diagnostic {
@@ -29,6 +31,7 @@ impl Diagnostic {
             span: None,
             notes: Vec::new(),
             fix: None,
+            more: None,
         }
     }
 
@@ -72,6 +75,10 @@ impl Diagnostic {
                 }
             }
         }
+        // The further problems of the same pass, then the one next step for the group (rule 4).
+        for d in self.more.iter().flat_map(|m| m.iter()) {
+            out.push_str(&d.render(p));
+        }
         if let Some(fix) = &self.fix {
             out.push_str(&format!("  {} {}\n", p.dim("fix:"), p.cmd(fix)));
         }
@@ -88,6 +95,12 @@ impl Diagnostic {
             span: self.span.as_deref(),
             notes: &self.notes,
             fix: self.fix.as_deref(),
+            more: self
+                .more
+                .iter()
+                .flat_map(|m| m.iter())
+                .map(Diagnostic::json)
+                .collect(),
         }
     }
 }
@@ -105,4 +118,7 @@ pub(crate) struct ErrorBody<'a> {
     notes: &'a [String],
     #[serde(skip_serializing_if = "Option::is_none")]
     fix: Option<&'a str>,
+    /// The other problems of the same pass (added in C2; absent when there is one).
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    more: Vec<ErrorBody<'a>>,
 }

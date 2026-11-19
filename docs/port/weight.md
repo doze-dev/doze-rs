@@ -743,7 +743,6 @@ reach GitHub. When the Rust CLI has `doze version --check`, the app asks it inst
 Activity at rest: it reads the journal again every ten seconds while shown (as Go's page did), off the UI thread, and
 redraws only when a figure changed; the strips are painted, so a 2,000-service stack builds only the rows in view
 (`doze-desk` lays out 2,000 services over 10,000 events in a few milliseconds, `tests/activity.rs`).
-**doze-aws with every Go service (2026-11-13, release-aws): 7,444,224 B (7.10 MiB) on darwin/arm64, 258 packages, idle 5,344 KB; 11,764,560 B on x86_64 Linux (musl), 10,561,264 B with JSONata off.** Over the "z" base (4,867,344 B / 233 on macOS, 7,481,552 B on Linux): Step Functions, API Gateway and CloudFormation together add 2.58 MB on macOS and 4.28 MB on Linux (1.66 times). The owner raised doze-aws's ceiling to 20 MB the same day; the CI line is 12,400,000 B (musl plus 5%) and 264 packages. Cross-building now needs a C compiler and an ELF archiver for the target (JSONata's `psm`): a `clang --target=x86_64-unknown-linux-musl` wrapper as `CC_x86_64_unknown_linux_musl` and `llvm-ar` as `AR_x86_64_unknown_linux_musl`.
 
 **The app carries the CLI (core C1, 2026-11-14).** Owner decision: Doze.app holds the GUI and the full CLI in one
 binary, `doze-app <command>` being the doze CLI (`doze` alone stays CLI-only, under 10 MB). Linking `doze-cli` into
@@ -768,48 +767,55 @@ separate netd binary would save the CLI those bytes but would be a second progra
 Go's model, which the plan keeps, is one binary.
 
 | | Line | Before (C1 + app, 10e18e80) | P1 |
-The registry (Avro, every REST route, storage in `meta.redb`) on by default behind the `registry` feature. The libraries weighed for
-it and not taken (apache-avro, protox with prost-reflect, jsonschema, boon) are in `phase10.md`, "Weight first".
+|---|---|---|---|
+| `doze`, darwin/arm64, `release` | 9 MB (ceiling 10) | about 3.8 MB | 4,592,176 B (+0.79 MB) |
+| `doze`, Linux aarch64 (Lima VM), `release` | 9 MB | not measured | 4,986,168 B, 185 packages |
+| `doze-app`, darwin/arm64, `release-app` | 16 MB | 15,137,792 B | 15,654,752 B (+517 KB) |
+| `doze-app` packages (CI's count) | was 640, now 650 | 631 | 640 |
 
-| | main (2f1bb66) | 10a |
-|---|---|---|
-| doze-kafka binary | 6,011,568 B | **6,244,864 B** (+233,296 B; +413,984 B before the crate was built at `opt-level = "z"`) |
-| packages (`cargo xtask weight`) | 155 | **156** (a repeated `cargo tree` line; no third-party package added) |
-| idle | 6,960 KB | 7,184 KB (the registry listens on 127.0.0.1:8081) |
-| with `--features tls` | | 7,039,920 B, 168 `cargo tree` lines |
+New packages: `doze-doctor`, `tun-rs`, `nix`, `route_manager`, `getifaddrs`, `ipnet`, `memoffset` (the network
+daemon), `privesc` (UAC on Windows; on macOS and Linux the system's prompt is `doze-os`'s). The app's package line
+moves to 650: the measured 640 plus the room the C1 line had. **The app's byte room is now 345 KB under 16 MB**: the
+next core crates that join the CLI (the daemon, the engine, config) will not fit in the app without the lever §6.3 names
+(one HTTP and TLS stack for the registry client and the front door; ureq + rustls-native-certs is the obvious
+duplicate) or a size profile change; this has to be decided before D1 joins the CLI. CI now holds `doze` to 9 MB and
+200 packages (the `weight` job).
+**doze-aws with every Go service (2026-11-13, release-aws): 7,444,224 B (7.10 MiB) on darwin/arm64, 258 packages, idle 5,344 KB; 11,764,560 B on x86_64 Linux (musl), 10,561,264 B with JSONata off.** Over the "z" base (4,867,344 B / 233 on macOS, 7,481,552 B on Linux): Step Functions, API Gateway and CloudFormation together add 2.58 MB on macOS and 4.28 MB on Linux (1.66 times). The owner raised doze-aws's ceiling to 20 MB the same day; the CI line is 12,400,000 B (musl plus 5%) and 264 packages. Cross-building now needs a C compiler and an ELF archiver for the target (JSONata's `psm`): a `clang --target=x86_64-unknown-linux-musl` wrapper as `CC_x86_64_unknown_linux_musl` and `llvm-ar` as `AR_x86_64_unknown_linux_musl`.
 
-No limit moved (7,800,000 B, 161 packages, 8,192 KB; TLS job 8,750,000 B and 173 lines). On the Linux estimate (darwin times 1.216)
-the default build is about 7.59 MB (97% of its limit) and the TLS build about 8.56 MB (98%): 10b and 10c are to be measured against
-that before they merge.
 
-**10a on top of the module face (merged with main at Phase 11, 2026-11-14):** the default build 6,791,104 B on darwin arm64 (+216,800 B over
-the module's 6,574,304 B), 171 packages, 7,248 KB idle. With `--features tls`: 7,586,144 B and 183 `cargo tree` lines.
+## Core F1 (`doze` with doze-fetch), measured 2026-11-14, release, darwin/arm64
 
-**The ceiling, with CI's measured ratio (2026-11-14).** CI measured ubuntu x86_64 at 1.36 times darwin (8,174,048 B against
-6,011,568 B), not the 1.216 used above. On that scale: the default build with the module face and 10a is about 9.24 MB, under main's
-line of 9,386,171 B (which does not move) and 0.76 MB under the owner's 10 MB ceiling; 10a itself is about 0.29 MB of it. **The TLS
-build does not fit:** 7,586,144 B times 1.36 is about 10.32 MB, over the 10 MB ceiling, and the module face alone already puts it at
-about 10.0 MB (main's TLS line, 9,279,000 B and 173, was measured before the module; the module adds 13 packages). No limit was raised;
-the CI TLS job will fail on main with or without the registry until the owner decides (leave the module or the registry out of the
-`tls` release, or take a size lever such as `opt-level = "z"` on more of the tree).
+The `doze` CLI (package `doze-cli`) gets its first line in `xtask/weight-limits.txt`. F1 links the registry client: ureq,
+rustls with ring, rustls-native-certs, tar and flate2, ed25519-dalek and yaml-rust2. With the F1 audit fixes (cross-process
+locks from doze-os, which `doze` already linked): **3,148,064 B, 169 packages**. The F1 audit measured 3.05 MB before
+them; the fixes cost about 100 KB (the capped unpack, the lock merge, the platform list), which is the judgement call
+the owner leaves to the builder.
 
-## The TLS build over 10 MB: the owner raised its ceiling (2026-11-14)
+- Limit: 4,300,000 B (the macOS size times 1.3 for an x86_64 Linux build, plus 5%, the rule of the doze-aws line) and
+  175 packages (six of room). It is re-based from the first Linux CI run.
+- Idle memory is not weighed: the CLI serves nothing by itself (the line's `0`; the daemon gets its own line when it
+  exists). Downloads run in `doze __fetch` children, so none of this is resident in a daemon.
+- The 10 MB ceiling (owner, 2026-11-12) stands far above.
 
-With the module face (Phase 11) and the schema registry's foundation (Phase 10a), `--features tls` is 7,586,144 B on darwin arm64, about
-10.32 MB on ubuntu x86_64 at CI's measured ratio of 1.36. Asked whether to make room (module face opt-in, no module or no registry in the
-TLS build, or a higher ceiling), the owner chose to raise the ceiling. The `weight-tls` job's limit is now 10,833,014 B (that estimate
-plus 5%) and 186 packages, until CI's next run on main measures it; Protobuf (10b) and JSON Schema (10c) will move it again, each with
-its numbers. The default build's limit (9,386,171 B, 174 packages) is unchanged.
+## Core C2b (`doze`: init, add, modules upgrade, bug, open, update), measured 2026-11-14, release, darwin/arm64
 
-## One build: TLS in the default (2026-11-14, owner decision)
+| | Line | C2a (#51) | C2a + F1 merged | C2b |
+|---|---|---|---|---|
+| `doze` bytes | 9,000,000 | 6,207,024 | 6,505,152 (+298,128) | 6,802,928 (+297,776) |
+| `doze` packages (CI's count) | 230 | 210 | not counted | 221 (210 without `tls`) |
 
-Asked whether to keep a separate TLS build "for a few MB", the owner chose one build, and raised the ceiling to 15 MB the same day. `tls` is
-now a default feature of `doze-kafka`; `--no-default-features` (no console, registry, module or TLS) stays only as an internal check that the
-broker core needs none of them. CI: the `weight-tls` size job is gone; its size and packages are the `weight` job's single line
-(`xtask/weight-limits.txt`), and a `weight-tls-idle` job keeps the one thing it measured that the default job does not: idle memory with a
-certificate loaded (10,610 KB). The single build, with the module face and the registry's Avro and JSON Schema, is 7,669,200 B on darwin
-arm64, 183 packages, 7,472 KB idle; about 10.43 MB on ubuntu x86_64 at CI's 1.36. Limit 10,951,617 B, 186 packages, 9,996 KB, estimates
-until CI measures them. Building from source needs a C compiler and an assembler (ring); release binaries are unaffected.
+- **F1 merged in (+298 KB).** doze-fetch replaces doze-cli's registry code (the same bytes) and brings what `doze` did not
+  have: the `__fetch` child (module resolve, the engine mirror, archive unpacking with tar and flate2, tokio's process
+  support) and the `doze.lock` writer. These are F1's design (downloads run in `doze __fetch`, never in a daemon), and
+  `modules upgrade` needs them in `doze` itself.
+- **C2b's commands (+298 KB).** doze-detect (Go's detector without its engine table; regex and yaml-rust2 were already
+  linked), `init`, `add`, `modules upgrade` (resolving and verifying a module build), `bug`, `open`, `update`, and
+  the examples in their help.
+- **One HTTP stack.** `doze_cli::http` is doze-fetch's client: ureq over rustls in `doze` (feature `tls`), the system's
+  curl without it. The app can build doze-cli with `default-features = false` to drop ureq and rustls; that is the app
+  owner's change (its size profile is being worked on separately).
+- Over C2a in all: +595,904 B, under the 9 MB line by 2.2 MB. xtask's `doze-cli` line, which F1 had set at 4.3 MB for the
+  registry client alone, is now the CLI's: 9,000,000 B and 230 packages, as the `weight-doze` job.
 
 ## Idle (2026-11-15, branch `fix-idle`), release, darwin/arm64 and the Linux aarch64 VM
 
@@ -916,6 +922,110 @@ packages, inside the 13,900,000 B / 280 lines its stage set; idle 9,964 / 10,036
 **10,526 KB** (was 9,413). That is +1.06 MB over the median of 8,964 KB measured before those merges; added to issue #36 beside the A14 to
 A16 step. In the same run doze-kafka's idle median was 10,648 KB, inside its new 11,013 KB.
 
+## doze's profile: room for the daemon (2026-11-15, core C2b), `doze` on darwin/arm64 and x86_64 Linux
+
+At C2b `doze` was 8,948,248 B on CI's x86_64 Linux, 52 KB under its 9 MB line, with the daemon, the engine and the module host
+still to come. Each lever was measured on the C2b head (284d2ff7). Linux numbers are a cross build (`x86_64-unknown-linux-gnu`,
+zig as the linker), within 0.3% of CI's (8,924,224 B here against CI's 8,948,248 B for the same code). `doze status` is warm, with
+the daemon down, on examples/shop's doze.hcl, median of 80 after 5 warm-ups, on the reference Mac.
+
+| Option | x86_64 Linux | darwin/arm64 | `status` warm (darwin) |
+|---|---|---|---|
+| C2b as it was (`release`, the broker's profile) | 8,924,224 B | 6,802,944 B | 7.65 / 8.06 ms (two runs) |
+| doze's own crates at "s" (doze-*, yaml-rust2, ureq, x509-cert, der, tar, jiff, clap_complete, num-bigint, flate2, winnow) | 7,522,720 B (−1.40 MB) | not measured | |
+| the same at "z" | 7,257,776 B (−1.67 MB) | | |
+| the same without the crates the broker or doze-aws link (flate2, miniz_oxide, der, doze-os, doze-module-proto), "z" | 7,263,136 B (−1.66 MB) | 7,109,168 B (**+306 KB**) | |
+| the same at "s" | | 7,226,160 B (**+423 KB**) | |
+| **the whole build at "s": profile `release-doze`** | **7,123,432 B (−1.80 MB)** | **5,531,712 B (−1.27 MB)** | 8.29 / 8.20 ms |
+| the whole build at "z" | 6,901,448 B (−2.02 MB) | | |
+
+- **Chosen: `release-doze`**, `inherits = "release"`, `opt-level = "s"`, the same move as the app's `release-app`. It is the only
+  option that shrinks both platforms: per-package levels on doze's crates shrank Linux but grew darwin (fat LTO with mixed levels;
+  measured twice, the baseline rebuilt to the byte). The broker's profile and its hot path are untouched, since `release` is unchanged.
+  The workspace's per-package overrides (clap and regex at "z") are inherited: `release-doze` measures the same as `release`
+  with `opt-level` overridden.
+- **Headroom**: 1.88 MB under the 9 MB line on x86_64 Linux (target 1.5 MB), 3.47 MB on darwin. CI confirmed it on bc68fd9b: `doze` 7,086,496 B on ubuntu x86_64 (from 8,948,248 B, so 1.91 MB under the line), 219 packages, and a warm `doze status` with a median of 11.15 ms on the shared runner (no earlier CI figure to compare with; the darwin before and after is above).
+- **Cost**: about 0.3 ms on a warm `doze status` (7.65–8.06 to 8.20–8.29 ms), inside run-to-run noise and half the 15 ms budget.
+  CI's weight-doze job now also reports the x86_64 Linux number (not gated). "z" saves 0.22 MB more on Linux but turns off loop
+  vectorisation for the daemon to come (log store, proxy); not worth it with this headroom.
+- **Not levers**:
+  - Duplicate dependencies (`cargo tree -d`): only getrandom 0.2/0.3/0.4 (ring, doze-names, crypto-bigint), a few KB, and syn 2/3
+    (build time only).
+  - tokio: 96 KB of `.text`; the daemon needs `net`, `time`, `process`, `signal` and `io-util` anyway.
+  - jiff: 104 KB with jiff-core; `tzdb-bundle-platform` bundles only on Windows. chrono with a zone database would not be smaller.
+  - Linux carries `.eh_frame` (489 KB) and `.rela.dyn` (352 KB) that Mach-O does not; dropping them needs RUSTFLAGS
+    (`-C force-unwind-tables=no`, a static relocation model), which CI's own `RUSTFLAGS` would override, so they are left.
+  - What is heavy and linked once (cargo-bloat, Linux `.text`): yaml-rust2 236 KB (doze-fetch's meta.yaml), the regex stack
+    about 520 KB (doze-hcl's `regex`), rustls and ring about 600 KB (ureq, the front door). Each is needed; yaml-rust2 is the
+    one candidate for a small owned parser later.
+- **Builds**: CI's weight-doze job and `cargo xtask weight` build `--profile release-doze` (binary at `target/release-doze/doze`).
+  Release tooling for `doze` must use the same profile; `--release` still builds a working, bigger `doze`.
+- **The app** (`release-app`, already "s" throughout) is not changed by this: its 16 MB line has been red since C2a
+  (16,733,040 B at #51, 17,064,576 B at #53); that is the app's size profile, worked on separately.
+
+## C2c: the daemon inside `doze` (2026-11-15)
+
+With D1's `doze __daemon` merged into C2c (the daemon, the engine, doze-config's full load and the control server are now in the
+CLI's binary, as Go's were), `doze` in `release-doze` on darwin/arm64 is 6,211,408 B (C2b: 5,531,712 B, +680 KB) and 234 packages
+(C2b: 221). Bytes stay 2.8 MB under the 9 MB line (x86_64 Linux, about 1.29 times darwin, should be near 8.0 MB; CI's weight-doze
+job reports it). The package line moves from 230 to 240: the daemon's own crates, a small rise with its reason, under the owner's
+delegation of 2026-11-14.
+
+Session 10 (D1's session 9 merged: converge on start, meters, the data ops and the console topic, the plan op; and `connect`):
+`doze` in `release-doze` on darwin/arm64 is 6,725,008 B (+514 KB over the line above), about 8.7 MB on x86_64 Linux at CI's
+1.29; CI's weight-doze job gives the measured Linux number on this push. Under the 9 MB line, with less room than before:
+most of the rise is the daemon's (the console topic and meters), not the CLI's.
+
+Session 11 (D1's session 10 merged: add and remove at run time, `migrate` and `lint` as daemon calls, per-major builds;
+and C2c's migrate, lint's module pass, the verbs that start the daemon, sync's block drift, the fetch child's progress line).
+Measured 2026-11-15 on the C2c head, `release-doze`; x86_64 Linux is a cross build with zig as the linker (within 0.3% of
+CI's, above):
+
+| | x86_64 Linux | darwin/arm64 | packages |
+|---|---|---|---|
+| session 10 as CI measured it (5328d9e9) | 8,505,920 B | 6,725,008 B | 233 |
+| D1 session 10 merged, and this session's work | **8,994,120 B** (5,880 B under the line) | 6,940,192 B | 235 |
+| `regex` without its `perf` engines (doze-hcl, doze-detect) | **8,607,968 B** (392 KB under) | **6,723,920 B** | 233 |
+
+- **The lever: `regex` with `default-features = false, features = ["std", "unicode"]`** in doze-hcl and doze-detect, the only
+  two users in `doze`. The `perf` features (the lazy DFA, the one-pass and bounded backtracker engines, aho-corasick and
+  memchr literal search) make matching faster, never different: the same matches come out of the PikeVM. −386 KB on Linux,
+  −216 KB on darwin, two packages fewer (aho-corasick and memchr). Cost: `doze init --dry-run` over a 14,725-file Go
+  project (doze-detect's scans) is 12 ms before and 14 ms after (median of four, warm); HCL's `regex` functions run on
+  config values of a few bytes. A side effect is closer parity: without the DFA the compiled-size limit no longer refuses
+  three `\pL{0,1000}` that Go accepts (`fn2.regex3.07` matches Go now; it was a known difference, hcl-values.md F22).
+- Where the rest of the rise went (cargo-bloat, darwin `.text`): doze-daemon 373 KB, doze-engine 398 KB, doze-cli 564 KB,
+  doze-config 251 KB. D1 session 10 (add/remove, migrate, lint, per-major builds) is most of +215 KB on darwin; the CLI's
+  share this session is migrate, lint's pass and the block drift, a few tens of KB.
+- Not taken: `opt-level = "z"` for the whole build (−0.22 MB on Linux at C2b, but no loop vectorisation for the log store
+  and the front); `regex-lite` in doze-hcl (Go's `\w` is ASCII in both, but `regex-lite` has no Unicode classes, which
+  HCL's `regex` must take). doze-engine's `regex-lite` (31 KB) stays: its log patterns are Go's RE2 and need nothing more.
+- The 9 MB line is unchanged; the package line stays 240.
+
+## Core D1 with the module catalog (`doze` carries the daemon), measured 2026-11-15, release, darwin/arm64
+
+| | bytes | packages (normal, unique) |
+|---|---|---|
+| D1 `__daemon` and `ctl` (b51674d3) | 6,219,760 | 168 |
+| + E2's CI fixes, the module catalog, the front, pins in doze.lock, the reaper (96c9137b) | 6,832,160 | 168 |
+
++612 KB, no new package: doze-module-host and doze-module-proto were already linked through the engine; the cost is the
+catalog's and the front's code, F1's module path now reached from the daemon, and E2's merge. Under the 8.5 MB line
+(the owner's ceiling for `doze` is 9 MB). Measured with `--release`: the `release-doze` profile is on #53/#56, not on
+this branch; Linux with it is measured once D1 and C2c meet (CI's weight job measures x86_64 on each push).
+## The app's ceiling raised to 20 MB (2026-11-15, branches `core-c2b`, `core-c2c`)
+
+The owner set the doze app's hard ceiling to **20 MB** on 2026-11-15: `doze-app` carries the GUI, the full CLI and the
+daemon, so the old 16 MB line (set when the app was the GUI alone) no longer fits what it is. CI measured doze-app at
+17,064,576 B and 662 packages at #53, which failed the 16 MB / 650 line. The CI lines are now:
+
+| | Ceiling | CI line | Measured (#53) |
+|---|---|---|---|
+| `doze-app`, darwin/arm64, `release-app` | 20 MB | 17,918,000 B (measured + 5%) | 17,064,576 B |
+| `doze-app` packages (CI's count) | | 700 | 662 |
+
+Branch `app-size-profile` (#55, merged into `app-finish`) separately brings the app down to about 14.5 MB with a size
+profile; when that meets these branches the byte line tightens again to its measured + 5%.
 ## The lean line after the efficiency pass (2026-11-15)
 
 Main's runs on 3636c3d2 (43665814939) and 1f182947 (43696911937) measured the lean build (`weight-lean`) at **5,450,072 B**, over the exact
@@ -1030,7 +1140,6 @@ CLI joined the app) and the update check's system `curl` (Settings › About, Q6
 built one of two ways by the `doze-cli` feature `tls`:
 
 | Binary | Client | Before (core-m1, b2c73a09) | After |
-|---|---|---|---|
 | `doze-app` | the system's `curl` (no `tls`): the registry and the update check | 15,654,736 B, 640 packages | **14,792,432 B (−862,304 B), 634 packages** |
 | `doze` | ureq + rustls in the process (`tls`, the default) | 4,608,720 B | 4,608,720 B (unchanged) |
 

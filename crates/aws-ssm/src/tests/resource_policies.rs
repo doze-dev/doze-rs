@@ -67,20 +67,21 @@ fn a_policy_is_put_read_changed_by_its_hash_and_deleted() {
     .unwrap();
     assert_eq!(changed["PolicyId"], id.as_str());
     assert_ne!(changed["PolicyHash"], hash.as_str());
-    // The old hash is out of date.
+    // The old hash is out of date: AWS answers that no policy has that id and hash (recorded 2026-11-19).
     let stale = json!({"PolicyId": id, "PolicyHash": hash});
-    assert_eq!(
-        put(&mut w, &stale).unwrap_err().0,
-        "ResourcePolicyConflictException"
+    let want = format!(
+        "Resource policy for resource {ARN} with policy ID {id} and policy hash {hash} does not exist"
     );
     assert_eq!(
-        w.err(
-            "DeleteResourcePolicy",
-            &json!({"ResourceArn": ARN, "PolicyId": id, "PolicyHash": hash})
-        )
-        .0,
-        "ResourcePolicyConflictException"
+        put(&mut w, &stale).unwrap_err(),
+        ("ResourcePolicyNotFoundException".to_owned(), want.clone())
     );
+    let e = w.err(
+        "DeleteResourcePolicy",
+        &json!({"ResourceArn": ARN, "PolicyId": id, "PolicyHash": hash}),
+    );
+    assert_eq!(e.0, "ResourcePolicyNotFoundException");
+    assert_eq!(e.1, want);
     assert_eq!(
         w.err(
             "DeleteResourcePolicy",
@@ -103,14 +104,23 @@ fn a_policy_is_put_read_changed_by_its_hash_and_deleted() {
 fn the_model_s_rules_for_a_policy_are_kept() {
     let mut w = World::new();
     assert_eq!(
-        put(&mut w, &json!({})).unwrap_err().0,
-        "ResourceNotFoundException"
+        put(&mut w, &json!({})).unwrap_err(),
+        (
+            "ResourceNotFoundException".to_owned(),
+            format!("Parameter {ARN} not found")
+        )
     );
-    // A standard parameter cannot be shared.
+    // A standard parameter cannot be shared, and that is asked before the policy is read (recorded 2026-11-19).
     w.put("/shared/db", "v");
-    let e = put(&mut w, &json!({})).unwrap_err();
-    assert_eq!(e.0, "ResourcePolicyInvalidParameterException");
-    assert!(e.1.contains("advanced"));
+    let refused = (
+        "ValidationException".to_owned(),
+        "Only advanced parameters can be shared".to_owned(),
+    );
+    assert_eq!(put(&mut w, &json!({})).unwrap_err(), refused);
+    assert_eq!(
+        put(&mut w, &json!({"Policy": "{nope"})).unwrap_err(),
+        refused
+    );
     advanced(&mut w);
     // Under the AWS managed key a SecureString cannot be shared.
     w.ok(
@@ -195,11 +205,11 @@ fn the_authorizer_is_handed_the_policy_and_the_evaluator_reads_it_as_the_resourc
     advanced(&mut w);
     let request = json!({"Name": "/shared/db"});
     assert!(asked(&w, "GetParameter", &request)[0].policy.is_none());
-    put(&mut w, &json!({})).unwrap();
-    let deny = json!({"Version": "2012-10-17", "Statement": [{"Effect": "Deny", "Principal": "*",
-        "Action": "ssm:DeleteParameter", "Resource": ARN}]})
+    let both = json!({"Version": "2012-10-17", "Statement": [
+        {"Sid": "s", "Effect": "Allow", "Principal": {"AWS": USER}, "Action": "ssm:GetParameter", "Resource": ARN},
+        {"Effect": "Deny", "Principal": "*", "Action": "ssm:DeleteParameter", "Resource": ARN}]})
     .to_string();
-    put(&mut w, &json!({"Policy": deny})).unwrap();
+    put(&mut w, &json!({"Policy": both})).unwrap();
     let get = asked(&w, "GetParameter", &request);
     let by_arn = asked(&w, "GetParameter", &json!({"Name": format!("{ARN}:1")}));
     assert_eq!(get[0].resource, ARN);
@@ -236,4 +246,32 @@ fn the_authorizer_is_handed_the_policy_and_the_evaluator_reads_it_as_the_resourc
     assert!(decide(&get[0]));
     let delete = asked(&w, "DeleteParameter", &request);
     assert!(!decide(&delete[0]));
+}
+
+#[test]
+fn a_parameter_holds_one_policy_kept_compact_with_aws_s_shapes() {
+    let mut w = World::new();
+    advanced(&mut w);
+    // Spaced as Python's json.dumps writes it; AWS keeps it compact, in the order given (recorded 2026-11-19).
+    let spaced = r#"{"Version": "2012-10-17", "Statement": [{"Sid": "a b", "Effect": "Allow", "Principal": {"AWS": "*"}, "Action": "ssm:GetParameter", "Resource": "*"}]}"#;
+    let made = put(&mut w, &json!({"Policy": spaced})).unwrap();
+    let got = w.ok("GetResourcePolicies", &json!({"ResourceArn": ARN}));
+    assert_eq!(
+        got["Policies"][0]["Policy"],
+        r#"{"Version":"2012-10-17","Statement":[{"Sid":"a b","Effect":"Allow","Principal":{"AWS":"*"},"Action":"ssm:GetParameter","Resource":"*"}]}"#
+    );
+    let id = made["PolicyId"].as_str().unwrap();
+    let hash = made["PolicyHash"].as_str().unwrap();
+    let dashes: Vec<usize> = id.split('-').map(str::len).collect();
+    assert_eq!(dashes, [8, 4, 4, 4, 12]);
+    assert_eq!(hash.len(), 32);
+    assert!(hash.chars().all(|c| c.is_ascii_hexdigit()));
+    // A second policy without the first's id is refused (recorded 2026-11-19).
+    assert_eq!(
+        put(&mut w, &json!({})).unwrap_err(),
+        (
+            "ValidationException".to_owned(),
+            format!("Resource policy for parameter {ARN} already exists")
+        )
+    );
 }

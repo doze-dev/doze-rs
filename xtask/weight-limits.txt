@@ -1,6 +1,19 @@
 # Weight limits (docs/port/weight.md). A limit moves only with a written reason in that file.
 # package   max_bytes  max_packages  max_rss_kb  server args ({port} and {data} are filled in)
 #
+# doze (package doze-cli), core F1: measured 2026-11-14 on darwin/arm64, 3,148,064 B and 169 packages (docs/port/weight.md, "Core F1"). The byte limit
+# is the macOS size times 1.3 plus 5%; six packages of room. No server: idle memory is not weighed (0).
+# Core C2b (the CLI with doze.hcl, doze-fetch and doze-detect, on the C2a stack): 6,802,928 B and 221 packages on darwin/arm64. The line is the
+# CLI's own (core plan §6.3: 9 MB under the 10 MB ceiling, 230 packages), the same as the weight-doze job's (docs/port/weight.md, "Core C2b").
+# 2026-11-15: weighed in its own profile, release-doze (opt-level "s"): 5,531,712 B on darwin/arm64, 7,123,432 B on x86_64 Linux (weight.md,
+# "doze's profile"). Line unchanged.
+# C2c with D1 merged (`__daemon`: the daemon is in this binary): 6,211,408 B (+680 KB) and 234 packages on darwin/arm64 in
+# release-doze. Bytes stay under the 9 MB line; packages to 240 (the daemon's crates; weight.md, "C2c").
+# D1 alone (no release-doze profile there) re-based its line to 10,160,000 B from CI's 9,674,976 B in `release`; with C2c's
+# release-doze profile and regex without its perf engines doze is 8,607,968 B on x86_64 Linux (weight.md, "Session 11"): the 9 MB line holds.
+# 2026-11-19 core-land: this block sits first, apart from the kafka and aws lines, so their moves never touch it.
+doze-cli 9000000 240 0
+#
 # doze-kafka (the default build, with the console). Re-based 2026-11-13 by the weight pass (docs/port/weight.md, "Phase 9, weight pass"):
 # darwin arm64 5,797,328 B, Linux aarch64 (the doze-ubuntu VM) 6,626,840 B, 158 packages, 7.1 MB idle in the VM. The ubuntu x86_64 estimate is
 # 7.05 MB (darwin times the 1.216 of Phase 7) to 7.42 MB (the VM times 1.12); the limit is the larger plus about 5%. Before the pass the same
@@ -18,6 +31,8 @@
 # Estimates until CI's next run on main measures them. The owner's ceiling is 15 MB (2026-11-14).
 # 2026-11-14, CI's first run of the one build (PR #45, run 43588988185) replaces the estimates: 10,634,592 B, 183 packages, idle median
 # 10,488 KB (samples 10,488, 10,048, 10,576) plus 5% = 11,013 KB. docs/port/weight.md, "One build: CI's measurements".
+# 2026-11-15, core D1 session 10 (CI run 43660663612; note carried to main by core-land, 2026-11-19, line unchanged): 10,635,616 B, +1,024 B over the line: protocol 2 minor 1 (the `migrate` call, callbacks
+# scoped to a list of calls, the in-flight count as a guard). A small, justified rise; the line takes it.
 # 2026-11-15, the hand-off fix (PR #60): the protocol peer keeps its copy of a handed-over connection until the module has it (a map of held
 # copies and `Passable::hold`). CI measured +4,288 B on its own; that fits inside the estimate below, so the line below stands.
 # 2026-11-15, the registry in the console (Phase 10d) and the efficiency pass (correctness, idle, idioms): darwin arm64 8,001,408 B against

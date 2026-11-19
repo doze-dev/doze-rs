@@ -8,8 +8,8 @@ name: ci
 # GitHub links only label-started runs to a pull request, so only they can satisfy main's protection, which requires
 # the one `all-green` check below. Automatic runs on push come back once main stays green and every job has an owner
 # (docs/port/ci-health.md).
-# - The merge queue (since 2026-11-18): once a pull request's `all-green` has passed, `gh pr merge <n> --merge` puts
-#   it in main's queue. GitHub runs CI once more on main plus the queued changes ahead of it, and merges only if that
+# - The merge queue (since 2026-11-18): once a pull request's `all-green` has passed, the GraphQL
+#   `enqueuePullRequest` mutation puts it in main's queue (`gh pr merge` refuses: auto-merge is off for the repo). GitHub runs CI once more on main plus the queued changes ahead of it, and merges only if that
 #   run is green too, so nobody brings a branch up to date with main by hand.
 on:
   workflow_dispatch:
@@ -38,56 +38,16 @@ jobs:
     steps:
       - run: echo "CI started by ${{ github.event_name }} on ${{ github.ref }}"
 
+  # The workspace check on Linux (.github/ci/check.sh); macOS runs the same script in the one `macos` job below.
   check:
     needs: gate
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-24.04, macos-latest]
-    runs-on: ${{ matrix.os }}
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       # rust-toolchain.toml pins the version and components.
       - uses: actions-rust-lang/setup-rust-toolchain@v1
-      - run: cargo fmt --check
-      # The desktop app is left out here: it has its own macOS job (`app`, below).
-      - run: cargo clippy --workspace --exclude doze-app --all-targets -- -D warnings
-      - run: cargo test --workspace --exclude doze-app
-      # The broker without the console (`--no-default-features`) and the console crate on its own: the two runs above build
-      # the default features only. The lean build is the Phase 8 broker with no HTTP in it (docs/port/weight.md, "lean").
-      - run: cargo clippy --no-default-features -p doze-kafka -p kafka-console --all-targets -- -D warnings
-      - run: cargo test -p kafka-console
-      - run: cargo test -p doze-kafka --no-default-features
-      # TLS is in the default build (one build since 2026-11-14), so the workspace runs above cover it; kafka-server's own TLS
-      # tests need its feature named, as the crate keeps it optional.
-      - run: cargo test -p kafka-server --features tls
-      - run: cargo clippy -p kafka-server --all-targets --features tls -- -D warnings
-      # The storage simulation (random workloads, a disk that fails and loses power at every file operation).
-      - run: cargo test -p kafka-storage -p kafka-meta --features kafka-storage/sim --release
-        env:
-          SIM_SEEDS: "200"
-      # The generated aws-model crates are what the models and overlays produce (docs/port/aws/PLAN.md, rule 11).
-      - run: cargo xtask codegen --check
-      # The desktop app's themes are what the Go app's tokens.css gives (apps/doze-app/themes).
-      - run: cargo xtask themes --check
-      # No file grows past the hard size limit (docs/port/PLAN.md, quality rule 1).
-      - run: cargo xtask lint-size
-      # Every parser has a fuzz target (a `// fuzz:parser` marker with no target fails).
-      - run: cargo xtask fuzz-check
-      # The Phase 8 catalogue: each SEC number defined once, none referenced without a definition, every deviation in the
-      # index, every test name it quotes a real `fn` (tools/check-security-catalogue.ts; bun is the only extra tool).
       - uses: oven-sh/setup-bun@v2
-      - run: bun tools/check-security-catalogue.ts
-      # The same checks of the schema registry's catalogue (docs/port/behaviours/registry.md, REG-n).
-      - run: bun tools/check-registry-catalogue.ts
-      # The Phase 9 catalogue (docs/port/behaviours/console.md): each CON number defined once, none referenced without a
-      # definition, every test name it quotes a real `fn`; the lean tree has no HTTP and the default tree has the console
-      # (decision D1: `default = []` would take the console out and the size limits, being upper bounds, would not notice).
-      - run: bun tools/check-console-catalogue.ts --lean-tree --default-tree
-      # Public docs build without broken links.
-      - run: cargo doc --workspace --exclude doze-app --no-deps
-        env:
-          RUSTDOCFLAGS: -D warnings
+      - run: .github/ci/check.sh
 
   # doze-os and the module protocol on all five targets (docs/port/modules/PLAN.md D10): the only platform code and
   # the only `unsafe` in the workspace, and the protocol that runs over it. The Windows runners run elevated, so the postgres test there proves engines start under doze's restricted
@@ -97,22 +57,14 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-24.04, ubuntu-24.04-arm, macos-latest, windows-latest, windows-11-arm]
+        # macOS runs .github/ci/os.sh in the one `macos` job below.
+        os: [ubuntu-24.04, ubuntu-24.04-arm, windows-latest, windows-11-arm]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions-rust-lang/setup-rust-toolchain@v1
-      - name: Postgres for the tree test (the Linux images ship one; the Windows x64 image sets PGBIN itself)
+      - run: .github/ci/os.sh
         shell: bash
-        run: |
-          d=$(ls -d /usr/lib/postgresql/*/bin 2>/dev/null | sort -V | tail -1 || true)
-          if [ -n "$d" ]; then echo "PGBIN=$d" >> "$GITHUB_ENV"; fi
-      - run: cargo clippy -p doze-os -p doze-module-proto -p doze-module -p doze-module-derive -p doze-module-host -p doze-module-test -p doze-module-release -p doze-resp -p doze-module-valkey -p doze-module-kvrocks -p doze-module-temporal -p doze-module-mariadb -p doze-names -p doze-control -p doze-projects -p doze-journal -p doze-display -p doze-desk -p doze-cli -p doze-doctor -p doze-logstore -p doze-bind --all-targets --features doze-control/test-support -- -D warnings
-      - run: cargo test -p doze-os -p doze-module-proto -p doze-module -p doze-module-host -p doze-module-test -p doze-module-release -p doze-resp -p doze-module-valkey -p doze-module-kvrocks -p doze-module-temporal -p doze-module-mariadb -p doze-names -p doze-control -p doze-projects -p doze-journal -p doze-display -p doze-desk -p doze-cli -p doze-doctor -p doze-logstore -p doze-bind --no-fail-fast -- --nocapture
-      - name: doze-names with the network daemon (tun-rs; the root end-to-end test skips itself here)
-        run: cargo clippy -p doze-names --features netd --all-targets -- -D warnings && cargo test -p doze-names --features netd --no-fail-fast
-      - name: doze-names with machine setup and trust (every system's scripts are tested on every system)
-        run: cargo clippy -p doze-names --features setup --all-targets -- -D warnings && cargo test -p doze-names --features setup --no-fail-fast
       # The runner is elevated, so this is setup for real: the NRPT rule for .doze to the resolver on 127.0.0.53:53, a
       # name answered through the system resolver (getaddrinfo, the DNS client, the rule), a declared domain routed and a
       # throwaway doze CA trusted in the machine's Root store and removed, then uninstall (crates/doze-names/tests/setup_root.rs).
@@ -129,72 +81,15 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - { os: ubuntu-24.04, target: x86_64-unknown-linux-gnu }
-          - { os: ubuntu-24.04-arm, target: aarch64-unknown-linux-gnu }
-          - { os: macos-latest, target: aarch64-apple-darwin }
-    runs-on: ${{ matrix.os }}
-    env:
-      DOZE_ACCEPTANCE: "1"
-      # Every major a module declares is accepted on its newest build: valkey 9 and 8, kvrocks 2.
-      VALKEY: "9.1.1"
-      VALKEY8: "8.1.9"
-      KVROCKS: "2.16.0"
-      TEMPORAL: "1.8.2"
-      MARIADB: "11.4.13"
-      MARIADB12: "12.2.2"
-      MARIADB118: "11.8.9"
-      # ferret is two builds: the FerretDB gateway (the version a block names) and PostgreSQL with DocumentDB (pinned).
-      FERRETDB: "2.7.0"
-      DOCUMENTDB: "0.112-0"
-      # postgres: each major's newest build; the release is `postgres`, its files `postgresql-<version>-<target>`.
-      POSTGRES17: "17.12.0"
-      POSTGRES18: "18.7.0"
-      POSTGRES16: "16.16.0"
+        # macOS (aarch64-apple-darwin) runs .github/ci/modules.sh in the one `macos` job below.
+        target: [x86_64-unknown-linux-gnu, aarch64-unknown-linux-gnu]
+    runs-on: ${{ matrix.target == 'aarch64-unknown-linux-gnu' && 'ubuntu-24.04-arm' || 'ubuntu-24.04' }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions-rust-lang/setup-rust-toolchain@v1
-      - name: The engine builds from doze-binaries
-        shell: bash
+      - run: .github/ci/modules.sh ${{ matrix.target }}
         env:
           GH_TOKEN: ${{ github.token }}
-          TARGET: ${{ matrix.target }}
-        run: |
-          # <variable>:<engine>:<version> — the variable names where that build's bin/ is.
-          for e in "DOZE_VALKEY_BINDIR:valkey:$VALKEY" "VALKEY8_BINDIR:valkey:$VALKEY8" "DOZE_KVROCKS_BINDIR:kvrocks:$KVROCKS" "DOZE_TEMPORAL_BINDIR:temporal:$TEMPORAL" "DOZE_MARIADB_BINDIR:mariadb:$MARIADB" "MARIADB12_BINDIR:mariadb:$MARIADB12" "MARIADB118_BINDIR:mariadb:$MARIADB118" "DOZE_FERRET_BINDIR:ferretdb:$FERRETDB" "DOZE_DOCUMENTDB_BINDIR:documentdb:$DOCUMENTDB"; do
-            var=${e%%:*}; rest=${e#*:}; name=${rest%%:*}; v=${rest#*:}
-            dir="$RUNNER_TEMP/engines/$name-$v"; art="$name-$v-$TARGET.tar.gz"
-            mkdir -p "$dir"
-            gh release download "$name" -R doze-dev/doze-binaries -p "$art" -p "$art.sha256" -D "$dir"
-            (cd "$dir" && shasum -a 256 -c "$art.sha256")
-            tar -xzf "$dir/$art" -C "$dir"
-            echo "$var=$dir/$name-$v-$TARGET/bin" >> "$GITHUB_ENV"
-          done
-          for e in "DOZE_POSTGRES_BINDIR:$POSTGRES18" "POSTGRES17_BINDIR:$POSTGRES17" "POSTGRES16_BINDIR:$POSTGRES16"; do
-            var=${e%%:*}; v=${e#*:}
-            dir="$RUNNER_TEMP/engines/postgresql-$v"; art="postgresql-$v-$TARGET.tar.gz"
-            mkdir -p "$dir"
-            gh release download postgres -R doze-dev/doze-binaries -p "$art" -p "$art.sha256" -D "$dir"
-            (cd "$dir" && shasum -a 256 -c "$art.sha256")
-            tar -xzf "$dir/$art" -C "$dir"
-            echo "$var=$dir/postgresql-$v-$TARGET/bin" >> "$GITHUB_ENV"
-          done
-      - run: cargo test -p doze-module-valkey -p doze-module-kvrocks -p doze-module-temporal -p doze-module-mariadb -p doze-module-ferret -p doze-module-postgres -p doze-names --no-fail-fast -- --nocapture
-      - name: valkey's acceptance on its other major (8)
-        shell: bash
-        run: DOZE_VALKEY_BINDIR="$VALKEY8_BINDIR" cargo test -p doze-module-valkey --test acceptance --no-fail-fast -- --nocapture
-      - name: mariadb's acceptance on its newest line (12.2)
-        shell: bash
-        run: DOZE_MARIADB_BINDIR="$MARIADB12_BINDIR" cargo test -p doze-module-mariadb --test acceptance --no-fail-fast -- --nocapture
-      - name: mariadb's acceptance on its middle line (11.8)
-        shell: bash
-        run: DOZE_MARIADB_BINDIR="$MARIADB118_BINDIR" cargo test -p doze-module-mariadb --test acceptance --no-fail-fast -- --nocapture
-      - name: postgres's acceptance on 16 (the oldest major the published example is promised on)
-        shell: bash
-        run: DOZE_POSTGRES_BINDIR="$POSTGRES16_BINDIR" cargo test -p doze-module-postgres --test acceptance --test wire --test declared --no-fail-fast -- --nocapture
-      - name: postgres's acceptance on its other major (17)
-        shell: bash
-        run: DOZE_POSTGRES_BINDIR="$POSTGRES17_BINDIR" cargo test -p doze-module-postgres --test acceptance --test wire --test declared --no-fail-fast -- --nocapture
 
   # Windows (docs/port/aws/phase0.md, spike S2): the whole workspace must at least compile there. Tests join as crates are made
   # portable; a red job here is information about what is still Unix-only, not noise.
@@ -210,9 +105,15 @@ jobs:
   # compiles Metal shaders, so the app is not a default member and has this job of its own. It lints and tests the app (with and
   # without offscreen capture) and doze-os's `ui` feature, holds the app to its own weight line (docs/port/weight.md, "The desktop
   # app"), and renders the screens offscreen through a fixture daemon: the PNGs are this run's artifacts, to look at.
-  app:
+  #
+  # macOS is one job (owner, 2026-11-19): macOS runners are the scarce ones, and four macOS jobs per run (check, os,
+  # modules, app) left pull requests waiting hours for runners. This job runs the app first, then the same scripts the
+  # Linux jobs run (.github/ci/{check,os,modules}.sh). Each of those three runs even when a step before it failed, so
+  # one red run reports everything that is red.
+  macos:
     needs: gate
     runs-on: macos-latest
+    timeout-minutes: 180
     env:
       # Whether the signing secrets exist (a step cannot test a secret directly).
       HAS_CERT: ${{ secrets.MACOS_CERT_P12 != '' }}
@@ -225,14 +126,14 @@ jobs:
       - run: cargo clippy -p doze-app --all-targets -- -D warnings
       - run: cargo clippy -p doze-os --features ui --all-targets -- -D warnings
       - run: cargo test -p doze-app --features capture
-      - name: The app's weight line (binary at most 16 MB, packages at most 650 with the CLI and its machine setup inside, weight.md; the release-app build has no capture)
+      - name: The app's weight line (binary at most 17,918,000 B (measured + 5%, owner ceiling 20 MB), packages at most 700 with the CLI and its machine setup inside, weight.md; the release-app build has no capture)
         run: |
           cargo build --profile release-app -p doze-app
           size=$(stat -f %z target/release-app/doze-app)
           crates=$(cargo tree -p doze-app --prefix none --edges normal --target aarch64-apple-darwin | sort -u | wc -l | tr -d ' ')
           echo "doze-app: $size bytes, $crates packages"
-          [ "$size" -le 16000000 ] || { echo "doze-app over 16 MB (PLAN.md §6)"; exit 1; }
-          [ "$crates" -le 650 ] || { echo "doze-app over 650 packages (docs/port/weight.md)"; exit 1; }
+          [ "$size" -le 17918000 ] || { echo "doze-app over 17,918,000 B (weight.md; ceiling 20 MB)"; exit 1; }
+          [ "$crates" -le 700 ] || { echo "doze-app over 700 packages (docs/port/weight.md)"; exit 1; }
       # Doze.app (PLAN.md step 3.5): signed ad hoc, or with a Developer ID and notarised when the secrets exist. With no
       # secrets (forks, and until the owner adds them) the import is skipped and the bundle is signed ad hoc.
       - name: Signing identity (only when the secrets exist)
@@ -335,6 +236,20 @@ jobs:
           name: doze-app-shots
           path: shots/
 
+      - uses: oven-sh/setup-bun@v2
+        if: ${{ !cancelled() }}
+      - name: The workspace check (.github/ci/check.sh)
+        if: ${{ !cancelled() }}
+        run: .github/ci/check.sh
+      - name: doze-os and the module protocol (.github/ci/os.sh)
+        if: ${{ !cancelled() }}
+        run: .github/ci/os.sh
+      - name: Module acceptance (.github/ci/modules.sh)
+        if: ${{ !cancelled() }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: .github/ci/modules.sh aarch64-apple-darwin
+
   # Weight is a feature (docs/port/weight.md): numbers may only rise with a written reason, so the limits (xtask/weight-limits.txt) sit a
   # little above the measured values and a change that crosses one has to move the limit and say why.
   # The default build includes the console (Phase 9, decision D1: the owner chose it). The size limit is 7.8 MB, re-based by the
@@ -370,14 +285,33 @@ jobs:
       - uses: actions-rust-lang/setup-rust-toolchain@v1
       # The CLI-only doze (core plan §6.3: a 9 MB line under the 10 MB ceiling). P1 measured 4,986,168 B and 185 packages
       # on Linux aarch64 (the Lima VM); the package line leaves room for the core's crates as they land (weight.md).
+      # C2a adds doze.hcl (doze-config, doze-hcl, hcl-edit and winnow) and the completion engine: 210 packages on darwin,
+      # 6,207,024 B; the line moves to 230 (docs/port/core/weight.md, C2a). C2b (doze-fetch merged in, doze-detect, init, add,
+      # modules upgrade, bug, open, update): 6,802,928 B and 221 packages on darwin (docs/port/weight.md, "Core C2b").
+      # doze is built with its own profile, release-doze ("s"): 8,948,248 B here at release, 7.1 MB at release-doze
+      # (docs/port/weight.md, "doze's profile").
+      # C2c with D1 (`__daemon` in this binary): 6,211,408 B and 234 packages on darwin; the package line moves to 240.
+      # Session 11: regex without its perf engines (weight.md, "Session 11"): 8,607,968 B on x86_64 Linux (cross build), 233 packages.
       - name: doze (the CLI) under 9 MB
         run: |
-          cargo build --release -p doze-cli
-          size=$(stat -c %s target/release/doze)
+          cargo build --profile release-doze -p doze-cli
+          size=$(stat -c %s target/release-doze/doze)
           crates=$(cargo tree -p doze-cli --prefix none --edges normal | sort -u | wc -l)
           echo "doze: $size bytes, $crates packages"
           [ "$size" -le 9000000 ] || { echo "doze over 9 MB (core plan §6.3)"; exit 1; }
-          [ "$crates" -le 200 ] || { echo "doze over 200 packages (docs/port/weight.md)"; exit 1; }
+          [ "$crates" -le 240 ] || { echo "doze over 240 packages (docs/port/weight.md)"; exit 1; }
+      # Reported, not gated (a shared runner's timing is too noisy for a line): a warm `doze status` with the daemon down, on
+      # the app's acme fixture (doze.hcl read, the table drawn), median of 50 after 5 warm-ups. Core plan §6.3: under 15 ms.
+      - name: doze status, warm (reported)
+        run: |
+          home=$(mktemp -d)
+          cd apps/doze-app/fixtures/acme
+          bin=$GITHUB_WORKSPACE/target/release-doze/doze
+          for i in 1 2 3 4 5; do DOZE_HOME=$home NO_COLOR=1 "$bin" status > /dev/null; done
+          for i in $(seq 50); do
+            s=$(date +%s%N); DOZE_HOME=$home NO_COLOR=1 "$bin" status > /dev/null; e=$(date +%s%N)
+            echo $(( (e - s) / 1000 ))
+          done | sort -n | sed -n '25p' | awk '{ printf "doze status warm: median %.2f ms\n", $1 / 1000 }'
 
   # The broker without the console (`--no-default-features`): one cheap job so that the lean build, the one the Phase 8 limits
   # described, cannot grow unnoticed. Re-based by the weight pass of 2026-11-13: 3,917,008 B on darwin and 4,398,512 B in the Linux
@@ -507,6 +441,25 @@ jobs:
             mkdir -p "corpus/$target"
             cargo fuzz run "$target" "corpus/$target" "seeds/$target" -- -max_total_time=30 -max_len=1048576
           done
+      - name: Fuzz the engine's env file reader for 30 seconds
+        working-directory: crates/doze-engine/fuzz
+        run: |
+          mkdir -p corpus/fuzz_env
+          cargo fuzz run fuzz_env corpus/fuzz_env -- -max_total_time=30 -max_len=65536
+          mkdir -p corpus/fuzz_glob
+          cargo fuzz run fuzz_glob corpus/fuzz_glob -- -max_total_time=30 -max_len=512 -timeout=2
+          mkdir -p corpus/fuzz_porttrap
+          cargo fuzz run fuzz_porttrap corpus/fuzz_porttrap -- -max_total_time=30 -max_len=4096
+      - name: Fuzz the project record's reader and writer (a newer doze's fields kept as bytes) for 30 seconds
+        working-directory: crates/doze-projects/fuzz
+        run: |
+          mkdir -p corpus/fuzz_rawscan
+          cargo fuzz run fuzz_rawscan corpus/fuzz_rawscan ../tests/fixtures/updates -- -max_total_time=30 -max_len=65536
+      - name: Fuzz the process-table reader for 30 seconds
+        working-directory: crates/doze-os/fuzz
+        run: |
+          mkdir -p corpus/fuzz_ps
+          cargo fuzz run fuzz_ps corpus/fuzz_ps -- -max_total_time=30 -max_len=65536
       - name: Fuzz the module protocol's frame decoder for 30 seconds
         working-directory: crates/doze-module-proto/fuzz
         run: |
@@ -530,6 +483,34 @@ jobs:
         run: |
           mkdir -p corpus/fuzz_duration
           cargo fuzz run fuzz_duration corpus/fuzz_duration -- -max_total_time=30
+      - name: Fuzz doze-detect's readers (compose, go.mod, Makefile) and its HCL quoting for 30 seconds
+        working-directory: crates/doze-detect/fuzz
+        run: |
+          mkdir -p corpus/fuzz_project_files
+          cargo fuzz run fuzz_project_files corpus/fuzz_project_files -- -max_total_time=30 -max_len=4096
+      - name: Fuzz the journal reader for 30 seconds
+        working-directory: crates/doze-journal/fuzz
+        run: |
+          mkdir -p corpus/fuzz_line
+          cargo fuzz run fuzz_line corpus/fuzz_line seeds/fuzz_line -- -max_total_time=30 -max_len=4096
+      - name: Fuzz the daemon's control sessions (any bytes after the hello, on a real socket) for 30 seconds
+        working-directory: crates/doze-daemon/fuzz
+        run: |
+          mkdir -p corpus/fuzz_session
+          cargo fuzz run fuzz_session corpus/fuzz_session seeds/fuzz_session -- -max_total_time=30 -max_len=4096
+      - name: Fuzz the log store's line reader for 30 seconds
+        working-directory: crates/doze-logstore/fuzz
+        run: |
+          mkdir -p corpus/fuzz_logline
+          cargo fuzz run fuzz_logline corpus/fuzz_logline -- -max_total_time=30 -max_len=4096
+      # The seeds include an alias bomb and deep nesting (F1 audit, blocker 1): both must be refused quickly, not grown.
+      - name: Fuzz doze-fetch's parsers (doze.lock, the registry's files, the mirror manifest) for 30 seconds each
+        working-directory: crates/doze-fetch/fuzz
+        run: |
+          for t in fuzz_lock fuzz_index fuzz_manifest fuzz_meta fuzz_latest; do
+            mkdir -p "corpus/$t"
+            cargo fuzz run "$t" "corpus/$t" "seeds/$t" -- -max_total_time=30 -max_len=65536 -rss_limit_mb=512
+          done
       - name: Fuzz ferret's BSON reader, OP_MSG replies and seed reader for 30 seconds each
         working-directory: crates/doze-module-ferret/fuzz
         run: |
@@ -556,16 +537,6 @@ jobs:
             mkdir -p "corpus/$t"
             cargo fuzz run "$t" "corpus/$t" -- -max_total_time=30 -max_len=4096
           done
-      - name: Fuzz the journal reader for 30 seconds
-        working-directory: crates/doze-journal/fuzz
-        run: |
-          mkdir -p corpus/fuzz_line
-          cargo fuzz run fuzz_line corpus/fuzz_line seeds/fuzz_line -- -max_total_time=30 -max_len=4096
-      - name: Fuzz the log store's line reader for 30 seconds
-        working-directory: crates/doze-logstore/fuzz
-        run: |
-          mkdir -p corpus/fuzz_logline
-          cargo fuzz run fuzz_logline corpus/fuzz_logline -- -max_total_time=30 -max_len=4096
       - name: Fuzz the CLI's command line and TZ for 30 seconds each
         working-directory: crates/doze-cli/fuzz
         run: |
@@ -580,6 +551,20 @@ jobs:
             mkdir -p "corpus/$t"
             cargo fuzz run "$t" "corpus/$t" -- -max_total_time=30 -max_len=4096
           done
+      - name: Fuzz doze-hcl (tokens and syntax check, parse, evaluate, numbers) for 30 seconds each
+        working-directory: crates/doze-hcl/fuzz
+        run: |
+          for t in fuzz_check fuzz_parse fuzz_eval fuzz_number fuzz_funcs fuzz_fmt; do
+            mkdir -p "corpus/$t"
+            cargo fuzz run "$t" "corpus/$t" -- -max_total_time=30 -max_len=4096
+          done
+      - name: Fuzz the doze.hcl loader (both passes, seeded with the oracle corpus) and the public suffix lookup for 30 seconds each
+        working-directory: crates/doze-config/fuzz
+        run: |
+          mkdir -p corpus/fuzz_load
+          cargo fuzz run fuzz_load corpus/fuzz_load ../testdata/oracle/files -- -max_total_time=30 -max_len=4096
+          mkdir -p corpus/fuzz_psl
+          cargo fuzz run fuzz_psl corpus/fuzz_psl -- -max_total_time=30 -max_len=512
       - name: Fuzz the PLAIN token for 30 seconds
         working-directory: crates/kafka-auth/fuzz
         run: |
@@ -634,7 +619,7 @@ jobs:
   # was skipped (a label other than `ci` skips them all), so a skipped run never counts as green.
   all-green:
     if: always()
-    needs: [gate, check, os, modules, windows, app, weight, weight-doze, weight-lean, weight-tls-idle, web, supply-chain, fuzz]
+    needs: [gate, check, os, modules, windows, macos, weight, weight-doze, weight-lean, weight-tls-idle, web, supply-chain, fuzz]
     runs-on: ubuntu-24.04
     steps:
       - name: Every job passed

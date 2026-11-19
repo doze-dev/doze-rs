@@ -1,0 +1,100 @@
+# migrate: a module instance's data moved to the major doze.hcl declares, by its module (the daemon's migrate call;
+# nothing module-specific in the CLI). doze.hcl answers first: a name it does not declare is exit 4, an app is not a
+# module (exit 1). The dry run says what would happen, and the move; the run prints what the module said of it.
+@ project shop
+@ daemon migrate
+
+$ doze migrate nosuch
+exit 4
+stderr:
+| error[DZ0702]: the stack has no service called "nosuch"
+|   it has db, cache, events, api, worker, web
+|   fix: doze status
+json exit 4
+json:
+| {
+|   "schema": "doze/v1",
+|   "command": "doze migrate",
+|   "ok": false,
+|   "error": {
+|     "code": "not_found",
+|     "message": "the stack has no service called \"nosuch\"",
+|     "exit": 4,
+|     "id": "DZ0702",
+|     "notes": [
+|       "it has db, cache, events, api, worker, web"
+|     ],
+|     "fix": "doze status"
+|   }
+| }
+
+$ doze migrate api
+exit 1
+stderr:
+| error[DZ0709]: api is an app; doze migrate moves a module's data between majors
+|   fix: doze reset api starts it fresh instead
+json exit 1
+json:
+| {
+|   "schema": "doze/v1",
+|   "command": "doze migrate",
+|   "ok": false,
+|   "error": {
+|     "code": "failed",
+|     "message": "api is an app; doze migrate moves a module's data between majors",
+|     "exit": 1,
+|     "id": "DZ0709",
+|     "fix": "doze reset api starts it fresh instead"
+|   }
+| }
+
+$ doze migrate --dry-run db
+exit 0
+stdout:
+| db
+|   → migrate  its module moves the data to postgres 16, as doze.hcl declares; db is stopped meanwhile
+|   dry run: nothing was changed · doze migrate db applies this
+json exit 0
+json:
+| {
+|   "schema": "doze/v1",
+|   "command": "doze migrate",
+|   "ok": true,
+|   "data": {
+|     "applies_with": "doze migrate db",
+|     "dry_run": true,
+|     "plan": [
+|       {
+|         "changes": [
+|           {
+|             "detail": "its module moves the data to postgres 16, as doze.hcl declares; db is stopped meanwhile",
+|             "op": "→",
+|             "subject": "migrate"
+|           }
+|         ],
+|         "title": "db"
+|       }
+|     ]
+|   }
+| }
+
+$ doze migrate db
+exit 0
+stdout:
+| ✓ db migrated
+|   db is on postgres 17 now; its postgres 16 data is set aside at /nowhere/clusters/db.pg16-20261010-091500
+stderr:
+| → db migrating…
+json exit 0
+json:
+| {
+|   "schema": "doze/v1",
+|   "command": "doze migrate",
+|   "ok": true,
+|   "data": {
+|     "name": "db",
+|     "result": "db is on postgres 17 now; its postgres 16 data is set aside at /nowhere/clusters/db.pg16-20261010-091500"
+|   }
+| }
+json stderr:
+| → db migrating…

@@ -69,7 +69,7 @@ pub(crate) fn run(ctx: &mut Ctx<'_>, mode: &Mode) -> Outcome {
             Some(Fit::Release(v)) => (Some(v), String::new()),
             Some(Fit::NeedsDoze(need)) => (None, format!("newer ones need doze {need}")),
             Some(Fit::Protocol { .. }) => (None, "none for this doze yet (module protocol)".into()),
-            Some(Fit::Engines | Fit::Empty) => (None, "none".into()),
+            Some(Fit::Engines { .. } | Fit::Empty) => (None, "none".into()),
             None => {
                 unknown.push(short.clone());
                 (None, "not known yet".into())
@@ -112,6 +112,11 @@ pub(crate) fn run(ctx: &mut Ctx<'_>, mode: &Mode) -> Outcome {
 /// The project, or "no doze.hcl" (exit 6).
 pub(crate) fn find(ctx: &Ctx<'_>, mode: &Mode) -> Result<Project, Diagnostic> {
     project::find(&ctx.cwd, mode.config.as_deref()).ok_or_else(|| match &mode.config {
+        Some(c) if ctx.cwd.join(c).is_dir() => Diagnostic::new(
+            ids::NO_CONFIG,
+            format!("there are no .hcl files in {}", c.display()),
+        )
+        .fix("check the folder given to -c"),
         Some(c) => Diagnostic::new(
             ids::NO_CONFIG,
             format!("there is no doze.hcl at {}", c.display()),

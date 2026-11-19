@@ -25,7 +25,9 @@ aws-webhook = { path = "../aws-webhook" }
 doze-runtime = { path = "../doze-runtime" }
 doze-store = { path = "../doze-store" }
 serde = { version = "1", features = ["derive"] }
-serde_json = "1"
+# `preserve_order`: a generated model template lists the properties in the schema's order, as AWS does (recorded 2026-11-19). The
+# doze-aws binary already links it (jlens-core, through aws-asl); naming it here keeps the crate's own build the same.
+serde_json = { version = "1", features = ["preserve_order"] }
 bytes = "1"
 # Selection patterns, `replaceAll` in templates and `pattern` in models; already linked by aws-schema.
 regex-lite = "0.1"

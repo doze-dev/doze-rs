@@ -1,0 +1,18 @@
+# init with the registry out of reach and no module's declaration here: the apps are written, no module can be
+# guessed, and the run says so (exit 11).
+@ no-json
+@ file project/go.mod module example.com/x\n\ngo 1.22\n\nrequire github.com/redis/go-redis/v9 v9.5.1\n
+@ file project/main.go package main\n\nfunc main() {}\n
+
+$ doze init
+exit 11
+stdout:
+| Found in this project:
+|   app      project        a Go main package at the project root
+| 
+| ✓ wrote doze.hcl
+|   next: read it   ·   doze lint   ·   doze up   ·   doze add <module> for more
+stderr:
+| ! no module could be guessed: the registry can't be reached ({sandbox}/unreachable: no registry in that directory) and this machine has no module's declaration
+|   the file was written from what the project says, without modules
+|   fix: check the network and run doze init --force again · doze add <module> adds one by hand

@@ -2,9 +2,26 @@
   "_recorded": {
     "boto3": "1.43.107",
     "botocore": "1.43.107",
-    "on": "2026-11-15",
+    "on": "2026-11-19",
     "region": "us-east-1",
     "target": "aws"
+  },
+  "test_a_composite_alarm_follows_its_rule": {
+    "both-children-in-alarm": "ALARM",
+    "made": "OK",
+    "one-child-ok": "OK",
+    "rule-that-does-not-read": {
+      "Error": {
+        "Code": "ValidationError",
+        "Message": "Error in AlarmRule [Unsupported token '<EOF>' at char 14]"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    }
+  },
+  "test_a_log_alarm_is_evaluated_on_its_schedule": {
+    "alarmed": "ALARM"
   },
   "test_alarm_lifecycle": {
     "by-prefix": [
@@ -182,6 +199,178 @@
       }
     }
   },
+  "test_describe_alarms_shows_metric_alarms_unless_asked": {
+    "both": {
+      "CompositeAlarms": [
+        false
+      ],
+      "LogAlarms": [],
+      "MetricAlarms": [
+        true
+      ]
+    },
+    "composite-only": {
+      "CompositeAlarms": [
+        false
+      ],
+      "LogAlarms": [],
+      "MetricAlarms": []
+    },
+    "no-types": {
+      "CompositeAlarms": [],
+      "LogAlarms": [],
+      "MetricAlarms": [
+        true
+      ]
+    }
+  },
+  "test_log_alarm": {
+    "delete": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "describe": {
+      "CompositeAlarms": [],
+      "LogAlarms": [
+        {
+          "ActionsEnabled": false,
+          "AlarmActions": [],
+          "AlarmArn": "arn:aws:cloudwatch:us-east-1:<account>:alarm:<name:alarm>",
+          "AlarmConfigurationUpdatedTimestamp": "<AlarmConfigurationUpdatedTimestamp:1>",
+          "AlarmName": "<name:alarm>",
+          "ComparisonOperator": "GreaterThanThreshold",
+          "InsufficientDataActions": [],
+          "OKActions": [],
+          "QueryResultsToAlarm": 2,
+          "QueryResultsToEvaluate": 3,
+          "ScheduledQueryConfiguration": {
+            "AggregationExpression": "count(*)",
+            "LogGroupIdentifiers": [
+              "/dzc/<name:group>"
+            ],
+            "QueryARN": "<QueryARN:1>",
+            "QueryString": "fields @message | filter @message like /ERROR/",
+            "ScheduleConfiguration": {
+              "ScheduleExpression": "rate(5 minutes)",
+              "StartTimeOffset": 300
+            },
+            "ScheduledQueryRoleARN": "arn:aws:iam::<account>:role/<name:role-1>"
+          },
+          "StateTransitionedTimestamp": "<StateTransitionedTimestamp:1>",
+          "StateUpdatedTimestamp": "<StateUpdatedTimestamp:1>",
+          "Threshold": 5.0
+        }
+      ],
+      "MetricAlarms": [],
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "more-to-alarm-than-evaluated": {
+      "Error": {
+        "Code": "ValidationError",
+        "Message": "QueryResultsToAlarm must be  smaller or equal than QueryResultsToEvaluate"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "not-a-metric-alarm": [],
+    "put": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    }
+  },
+  "test_math_alarm": {
+    "delete": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "describe": {
+      "CompositeAlarms": [],
+      "LogAlarms": [],
+      "MetricAlarms": [
+        {
+          "ActionsEnabled": false,
+          "AlarmActions": [],
+          "AlarmArn": "arn:aws:cloudwatch:us-east-1:<account>:alarm:<name:alarm>",
+          "AlarmConfigurationUpdatedTimestamp": "<AlarmConfigurationUpdatedTimestamp:1>",
+          "AlarmName": "<name:alarm>",
+          "ComparisonOperator": "GreaterThanThreshold",
+          "Dimensions": [],
+          "EvaluationPeriods": 1,
+          "InsufficientDataActions": [],
+          "Metrics": [
+            {
+              "Id": "m1",
+              "MetricStat": {
+                "Metric": {
+                  "Dimensions": [],
+                  "MetricName": "a",
+                  "Namespace": "dzc/<name:ns>"
+                },
+                "Period": 60,
+                "Stat": "Maximum"
+              },
+              "ReturnData": false
+            },
+            {
+              "Id": "m2",
+              "MetricStat": {
+                "Metric": {
+                  "Dimensions": [],
+                  "MetricName": "b",
+                  "Namespace": "dzc/<name:ns>"
+                },
+                "Period": 60,
+                "Stat": "Maximum"
+              },
+              "ReturnData": false
+            },
+            {
+              "Expression": "m1 + m2",
+              "Id": "e",
+              "ReturnData": true
+            }
+          ],
+          "OKActions": [],
+          "StateTransitionedTimestamp": "<StateTransitionedTimestamp:1>",
+          "StateUpdatedTimestamp": "<StateUpdatedTimestamp:1>",
+          "Threshold": 100.0,
+          "TreatMissingData": "notBreaching"
+        }
+      ],
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "metrics-and-namespace": {
+      "Error": {
+        "Code": "ValidationError",
+        "Message": "Namespace should not be set if list of Metrics is set."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "put": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "two-return-data": {
+      "Error": {
+        "Code": "ValidationError",
+        "Message": "Exactly one element of the metrics list should return data."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    }
+  },
   "test_metric_data_reads_back_as_statistics": {
     "get-metric-data": {
       "Messages": [],
@@ -266,6 +455,91 @@
       "Label": "depth",
       "ResponseMetadata": {
         "HTTPStatusCode": 200
+      }
+    }
+  },
+  "test_metric_math_in_get_metric_data": {
+    "math": {
+      "Messages": [],
+      "MetricDataResults": [
+        {
+          "Id": "ratio",
+          "Label": "ratio",
+          "StatusCode": "Complete",
+          "Timestamps": "<Timestamps:1>",
+          "Values": [
+            2.5,
+            4.0,
+            5.0
+          ]
+        },
+        {
+          "Id": "total",
+          "Label": "both",
+          "StatusCode": "Complete",
+          "Timestamps": "<Timestamps:1>",
+          "Values": [
+            14.0,
+            25.0,
+            48.0
+          ]
+        },
+        {
+          "Id": "cond",
+          "Label": "cond",
+          "StatusCode": "Complete",
+          "Timestamps": "<Timestamps:1>",
+          "Values": [
+            -1.0,
+            20.0,
+            40.0
+          ]
+        },
+        {
+          "Id": "filled",
+          "Label": "filled",
+          "StatusCode": "Complete",
+          "Timestamps": "<Timestamps:2>",
+          "Values": [
+            0.0,
+            10.0,
+            20.0,
+            40.0,
+            0.0
+          ]
+        }
+      ],
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    }
+  },
+  "test_metric_math_refusals": {
+    "circular": {
+      "Error": {
+        "Code": "ValidationError",
+        "Message": "Circular dependency between expressions: e -> f -> e"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "syntax": {
+      "Error": {
+        "Code": "ValidationError",
+        "Message": "Error in expression 'e': Invalid syntax"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "unknown-id": {
+      "Error": {
+        "Code": "ValidationError",
+        "Message": "Error in expression 'e': ID 'm9' not found"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
       }
     }
   },
@@ -372,6 +646,34 @@
       },
       "ResponseMetadata": {
         "HTTPStatusCode": 400
+      }
+    }
+  },
+  "test_search_expression": {
+    "search": {
+      "Messages": [],
+      "MetricDataResults": [
+        {
+          "Id": "s",
+          "Label": "billing",
+          "StatusCode": "Complete",
+          "Timestamps": "<Timestamps:1>",
+          "Values": [
+            2.0
+          ]
+        },
+        {
+          "Id": "s",
+          "Label": "orders",
+          "StatusCode": "Complete",
+          "Timestamps": "<Timestamps:1>",
+          "Values": [
+            1.0
+          ]
+        }
+      ],
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
       }
     }
   }

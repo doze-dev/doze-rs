@@ -5,7 +5,7 @@
 
 use crate::ctx::Ctx;
 use crate::output::Mode;
-use doze_control::{Connection, Error, Request, Verb};
+use doze_control::{Connection, Error, Request, Response, Verb};
 use doze_os::interrupt::Interrupt;
 use std::time::{Duration, Instant};
 
@@ -39,25 +39,54 @@ impl Asker {
         }
     }
 
+    /// One that leaves Ctrl-C alone (it ends the run, as it always does), for a command that later hands Ctrl-C to a
+    /// command of its own (`connect`).
+    pub(crate) fn unwatched(conn: Connection, mode: &Mode) -> Asker {
+        Asker {
+            conn,
+            interrupt: Interrupt::never(),
+            timeout: mode.timeout,
+        }
+    }
+
     /// Runs `verb` on `target` (empty: the daemon's "all") and waits for it, at most `--timeout`.
     pub(crate) fn verb(&self, verb: Verb, target: &str) -> Result<(), Stop> {
+        self.verb_while(verb, target, &mut || {})
+    }
+
+    /// [`Asker::verb`], calling `meanwhile` between the steps of the wait (`up`'s progress).
+    pub(crate) fn verb_while(
+        &self,
+        verb: Verb,
+        target: &str,
+        meanwhile: &mut dyn FnMut(),
+    ) -> Result<(), Stop> {
+        self.call_while(Request::verb(verb, target), self.timeout, meanwhile)
+            .map(drop)
+    }
+
+    /// Sends `req` and waits for its answer, at most `timeout`, calling `meanwhile` between the steps of the wait.
+    pub(crate) fn call_while(
+        &self,
+        req: Request,
+        timeout: Duration,
+        meanwhile: &mut dyn FnMut(),
+    ) -> Result<Response, Stop> {
         if self.interrupt.raised() {
             return Err(Stop::Interrupted);
         }
-        let pending = self
-            .conn
-            .send(Request::verb(verb, target))
-            .map_err(Stop::Failed)?;
-        let deadline = Instant::now() + self.timeout;
+        let pending = self.conn.send(req).map_err(Stop::Failed)?;
+        let deadline = Instant::now() + timeout;
         loop {
             if self.interrupt.raised() {
                 return Err(Stop::Interrupted);
             }
             if let Some(answer) = pending.poll(STEP) {
-                return answer.map(drop).map_err(Stop::Failed);
+                return answer.map_err(Stop::Failed);
             }
+            meanwhile();
             if Instant::now() >= deadline {
-                return Err(Stop::Failed(Error::Timeout(self.timeout)));
+                return Err(Stop::Failed(Error::Timeout(timeout)));
             }
         }
     }

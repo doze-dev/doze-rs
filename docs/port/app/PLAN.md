@@ -789,7 +789,7 @@ These are measured by `xtask app-bench` (a port of deskbench) on a macOS CI runn
 | CPU, window open, static | — | ~0 % | **≤ 0.3 %** |
 | Frames > 16 ms while scrolling 100k log lines | — | — | **0** in a 5 s scroll |
 | 100k log lines held | — | — | **≤ 25 MB** |
-| App binary (macOS arm64, stripped, fonts included) | Go binary + webview assets | 12 MB | **≤ 16 MB** for `doze-app` alone (Q5 decides whether it joins the `doze` binary) |
+| App binary (macOS arm64, stripped, fonts included) | Go binary + webview assets | 12 MB | **≤ 20 MB** ceiling for `doze-app` (owner, 2026-11-15: it carries the GUI, the full CLI and the daemon; CI line 17,918,000 B, weight.md) |
 | Crate count | — | — | recorded in `weight.md`; gpui pulls in a few hundred crates, so the app gets **its own** limit line and does not move the kafka/aws gates |
 
 The 216 MB redraw peak is the OS compositor floor (a bare Metal view costs 168 MB), so the rules are:

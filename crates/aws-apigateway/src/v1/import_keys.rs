@@ -2,7 +2,8 @@
 //! header row naming `Name` and `Key` (case ignored, any order), optionally `Description`, `Enabled` and `UsagePlanIds` (a quoted,
 //! comma-separated list); other columns are ignored. A key is 20 to 128 characters, a name at most 1024. Missing values are an empty
 //! string, and `Enabled` is `true`. A key whose value is already there is overwritten (two keys are the same key when their values
-//! are). A row that cannot be imported is a warning; with `failonwarnings` nothing is imported. The warning texts are ours.
+//! are). A row that cannot be imported is a warning; with `failonwarnings` nothing is imported. The short-key warning and the refusal
+//! are recorded (2026-11-19); the other warning texts are `(memory)`.
 
 use serde_json::{Map, Value, json};
 
@@ -74,18 +75,24 @@ fn row(header: &[String], line: &str) -> Row {
     }
 }
 
-/// Why a row cannot be imported, if it cannot.
+/// Why a row cannot be imported, if it cannot; `n` counts the records from 1. Recorded 2026-11-19: `Skipped invalid record: 1. API
+/// Key value should be at least 20 characters`; the other reasons are written the same way `(memory)`.
 fn problem(core: &Core, n: usize, r: &Row) -> Option<String> {
-    if !(20..=128).contains(&r.key.chars().count()) {
-        return Some(format!("Row {n}: the key must be 20 to 128 characters"));
+    let why = |reason: String| Some(format!("Skipped invalid record: {n}. {reason}"));
+    let length = r.key.chars().count();
+    if length < 20 {
+        return why("API Key value should be at least 20 characters".into());
+    }
+    if length > 128 {
+        return why("API Key value should be at most 128 characters".into());
     }
     if r.name.chars().count() > 1024 {
-        return Some(format!("Row {n}: the name must be at most 1024 characters"));
+        return why("API Key name should be at most 1024 characters".into());
     }
     r.plans
         .iter()
         .find(|p| core.plans.get(p).is_none())
-        .map(|p| format!("Row {n}: no usage plan has the id {p}"))
+        .and_then(|p| why(format!("Invalid usage plan id specified: {p}")))
 }
 
 fn store(core: &mut Core, r: &Row, now: f64) -> String {
@@ -141,29 +148,29 @@ pub(super) fn import(core: &mut Core, r: &Req) -> Res {
     let warnings: Vec<String> = rows
         .iter()
         .enumerate()
-        .filter_map(|(i, x)| problem(core, i + 2, x))
+        .filter_map(|(i, x)| problem(core, i + 1, x))
         .collect();
     if r.flag("failOnWarnings") == Some(true) && !warnings.is_empty() {
+        // Recorded 2026-11-19.
         return Err(bad(format!(
-            "API keys were not imported: {}",
-            warnings.join("; ")
+            "Warnings found during import:\n\t{}",
+            warnings.join("\n\t")
         )));
     }
     let now = r.now_secs();
     let ids: Vec<Value> = rows
         .iter()
         .enumerate()
-        .filter(|(i, x)| problem(core, i + 2, x).is_none())
+        .filter(|(i, x)| problem(core, i + 1, x).is_none())
         .map(|(_, x)| x)
         .collect::<Vec<_>>()
         .into_iter()
         .map(|x| json!(store(core, x, now)))
         .collect();
+    // Recorded 2026-11-19: `warnings` is there when empty too.
     let mut out = Map::new();
     out.insert("ids".into(), Value::Array(ids));
-    if !warnings.is_empty() {
-        out.insert("warnings".into(), json!(warnings));
-    }
+    out.insert("warnings".into(), json!(warnings));
     Ok(json!(out).into())
 }
 
