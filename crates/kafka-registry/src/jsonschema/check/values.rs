@@ -26,7 +26,9 @@ pub(super) fn number(shape: Shape, raw: &str, draft: Draft) -> Result<(), &'stat
         && (crate::json::java_reads(raw) != Some(crate::json::JavaRead::Integer)
             || raw.parse::<i32>().is_err())
     {
-        return Err("must be an integer no larger than 2147483647, written without a fraction or exponent");
+        return Err(
+            "must be an integer no larger than 2147483647, written without a fraction or exponent",
+        );
     }
     match shape {
         Shape::Count if !n.is_integer() || n.is_negative() => Err("must be a non-negative integer"),

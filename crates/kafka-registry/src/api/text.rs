@@ -59,7 +59,9 @@ pub fn query_all(raw: &str, name: &str) -> Vec<String> {
     raw.split('&')
         .filter_map(|pair| {
             let (k, v) = pair.split_once('=').unwrap_or((pair, ""));
-            (unescape(k, true)? == name).then(|| unescape(v, true)).flatten()
+            (unescape(k, true)? == name)
+                .then(|| unescape(v, true))
+                .flatten()
         })
         .collect()
 }

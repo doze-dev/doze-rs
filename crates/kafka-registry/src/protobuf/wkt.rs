@@ -99,5 +99,8 @@ pub(super) fn source(path: &str) -> Option<&'static str> {
 
 /// Every well-known file Confluent's normalizing resolution sees, imported or not (its `KNOWN_DEPENDENCIES`).
 pub(super) fn all() -> impl Iterator<Item = &'static str> {
-    FILES.iter().map(|(_, t)| *t).chain(std::iter::once(DESCRIPTOR))
+    FILES
+        .iter()
+        .map(|(_, t)| *t)
+        .chain(std::iter::once(DESCRIPTOR))
 }

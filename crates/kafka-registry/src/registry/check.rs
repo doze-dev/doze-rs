@@ -78,16 +78,29 @@ fn compare(newer: &Prepared, older: &Prepared, level: Level) -> (Vec<CompatReaso
 
 impl State {
     /// Whether version `v` is in the compatibility group of a schema with `contract` (always, with no group).
-    pub(super) fn in_group(&self, v: &Version, group: Option<&str>, contract: &super::Contract) -> bool {
+    pub(super) fn in_group(
+        &self,
+        v: &Version,
+        group: Option<&str>,
+        contract: &super::Contract,
+    ) -> bool {
         let Some(key) = group else { return true };
-        let theirs = self.schemas.get(&v.rec.id).and_then(|r| r.contract.property(key));
+        let theirs = self
+            .schemas
+            .get(&v.rec.id)
+            .and_then(|r| r.contract.property(key));
         theirs == contract.property(key)
     }
 
     /// The versions a schema with `contract` is compared with at `level`: of the live ones, those of its compatibility
     /// group when the configuration names one (the value of that metadata property, absent counting as a value), then
     /// all of them when transitive, else the newest (Confluent filters before it picks).
-    pub(super) fn compared_at(&self, subject: &str, level: Level, contract: &super::Contract) -> Vec<Version> {
+    pub(super) fn compared_at(
+        &self,
+        subject: &str,
+        level: Level,
+        contract: &super::Contract,
+    ) -> Vec<Version> {
         let group = self.compatibility_group(subject);
         let live: Vec<Version> = self
             .live(subject)

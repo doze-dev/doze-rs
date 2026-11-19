@@ -221,7 +221,8 @@ impl Registry {
             .map(|(name, v)| (name.clone(), v.number))
             .collect::<Vec<_>>())
         .map(|mut pairs| {
-            let order = crate::json::java_hash_order(pairs.iter().map(|(s, _)| s.clone()).collect());
+            let order =
+                crate::json::java_hash_order(pairs.iter().map(|(s, _)| s.clone()).collect());
             pairs.sort_by_key(|(s, _)| order.iter().position(|o| o == s));
             pairs
         })

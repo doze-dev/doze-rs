@@ -477,6 +477,13 @@ service S {
     assert_eq!(got, want);
     assert_eq!(parse(&got, &[]).unwrap().canonical(true), want);
     // proto2 loses its syntax line.
-    let p2 = parse("syntax = \"proto2\"; message A { optional int32 a = 1; }", &[]).unwrap();
-    assert_eq!(p2.canonical(true), "\nmessage A {\n  optional int32 a = 1;\n}\n");
+    let p2 = parse(
+        "syntax = \"proto2\"; message A { optional int32 a = 1; }",
+        &[],
+    )
+    .unwrap();
+    assert_eq!(
+        p2.canonical(true),
+        "\nmessage A {\n  optional int32 a = 1;\n}\n"
+    );
 }

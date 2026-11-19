@@ -130,11 +130,18 @@ impl Contract {
     /// The value of a property of the metadata.
     #[must_use]
     pub fn property(&self, key: &str) -> Option<&str> {
-        self.metadata.as_ref()?.properties.get(key).map(String::as_str)
+        self.metadata
+            .as_ref()?
+            .properties
+            .get(key)
+            .map(String::as_str)
     }
 }
 
-fn merge_map<V: Clone>(old: &BTreeMap<String, V>, new: &BTreeMap<String, V>) -> BTreeMap<String, V> {
+fn merge_map<V: Clone>(
+    old: &BTreeMap<String, V>,
+    new: &BTreeMap<String, V>,
+) -> BTreeMap<String, V> {
     let mut m = old.clone();
     m.extend(new.iter().map(|(k, v)| (k.clone(), v.clone())));
     m
@@ -234,7 +241,8 @@ impl ContractConfig {
             .is_some_and(|m| m.properties.contains_key(CONFLUENT_VERSION));
         if let Some(v) = version.filter(|_| asked || named) {
             let m = metadata.get_or_insert_with(Metadata::default);
-            m.properties.insert(CONFLUENT_VERSION.to_owned(), v.to_string());
+            m.properties
+                .insert(CONFLUENT_VERSION.to_owned(), v.to_string());
         }
         Contract { metadata, rule_set }
     }
@@ -269,7 +277,8 @@ impl Rule {
             return Err("Missing rule type".into());
         }
         for action in [&self.on_success, &self.on_failure].into_iter().flatten() {
-            if !matches!(self.mode, RuleMode::WriteRead | RuleMode::UpDown) && action.contains(',') {
+            if !matches!(self.mode, RuleMode::WriteRead | RuleMode::UpDown) && action.contains(',')
+            {
                 return Err("Multiple actions only valid with WRITEREAD and UPDOWN".into());
             }
         }
@@ -286,9 +295,21 @@ impl RuleSet {
     pub fn validate(&self) -> Result<(), String> {
         let mut names: Vec<&Option<String>> = Vec::new();
         let lists: [(&[Rule], bool, &str); 3] = [
-            (&self.migration, true, "Migration rules can only be UPGRADE, DOWNGRADE, UPDOWN"),
-            (&self.domain, false, "Domain rules can only be WRITE, READ, WRITEREAD"),
-            (&self.encoding, false, "Encoding rules can only be WRITE, READ, WRITEREAD"),
+            (
+                &self.migration,
+                true,
+                "Migration rules can only be UPGRADE, DOWNGRADE, UPDOWN",
+            ),
+            (
+                &self.domain,
+                false,
+                "Domain rules can only be WRITE, READ, WRITEREAD",
+            ),
+            (
+                &self.encoding,
+                false,
+                "Encoding rules can only be WRITE, READ, WRITEREAD",
+            ),
         ];
         for (rules, migration, wrong) in lists {
             for r in rules {
@@ -330,7 +351,11 @@ impl Metadata {
     /// Confluent's `Metadata.toString`, as a refusal quotes a schema.
     #[must_use]
     pub fn java(&self) -> String {
-        let tags: BTreeMap<String, String> = self.tags.iter().map(|(k, v)| (k.clone(), java_set(v))).collect();
+        let tags: BTreeMap<String, String> = self
+            .tags
+            .iter()
+            .map(|(k, v)| (k.clone(), java_set(v)))
+            .collect();
         format!(
             "Metadata{{tags={}, properties={}, sensitive={}}}",
             java_map(&tags),
@@ -444,7 +469,10 @@ pub mod json {
     ///
     /// # Errors
     /// The serializer's.
-    #[expect(clippy::ref_option, reason = "serde's serialize_with passes a reference")]
+    #[expect(
+        clippy::ref_option,
+        reason = "serde's serialize_with passes a reference"
+    )]
     pub fn metadata<S: serde::Serializer>(m: &Option<Metadata>, s: S) -> Result<S::Ok, S::Error> {
         m.as_ref()
             .map(|m| MetadataOut {
@@ -459,7 +487,10 @@ pub mod json {
     ///
     /// # Errors
     /// The serializer's.
-    #[expect(clippy::ref_option, reason = "serde's serialize_with passes a reference")]
+    #[expect(
+        clippy::ref_option,
+        reason = "serde's serialize_with passes a reference"
+    )]
     pub fn rule_set<S: serde::Serializer>(r: &Option<RuleSet>, s: S) -> Result<S::Ok, S::Error> {
         r.as_ref()
             .map(|r| RuleSetOut {
@@ -575,6 +606,7 @@ pub mod read {
     ///
     /// # Errors
     /// Jackson's 400 for what is not one.
+    // fuzz:parser registry_api
     pub fn metadata(v: &Value) -> Result<Option<Metadata>, RegistryError> {
         let m = match v {
             Value::Null => return Ok(None),
@@ -642,7 +674,9 @@ pub mod read {
             kind,
             mode,
             rule_type: field("type")?,
-            tags: m.get("tags").map_or(Ok(BTreeSet::new()), |t| strings(t, "HashSet"))?,
+            tags: m
+                .get("tags")
+                .map_or(Ok(BTreeSet::new()), |t| strings(t, "HashSet"))?,
             params: m.get("params").map_or(Ok(BTreeMap::new()), string_map)?,
             expr: field("expr")?,
             on_success: field("onSuccess")?,
@@ -664,6 +698,7 @@ pub mod read {
     ///
     /// # Errors
     /// Jackson's 400 for what is not one.
+    // fuzz:parser registry_api
     pub fn rule_set(v: &Value) -> Result<Option<RuleSet>, RegistryError> {
         let m = match v {
             Value::Null => return Ok(None),
@@ -747,7 +782,10 @@ mod tests {
         let got = ContractConfig::default().apply(&Contract::default(), Some(&prev), Some(4), true);
         assert_eq!(
             got.metadata.unwrap().properties,
-            BTreeMap::from([("confluent:version".into(), "4".into()), ("p".into(), "1".into())])
+            BTreeMap::from([
+                ("confluent:version".into(), "4".into()),
+                ("p".into(), "1".into())
+            ])
         );
     }
 
@@ -762,10 +800,17 @@ mod tests {
             ..RuleSet::default()
         };
         let m = merge_rule_sets(Some(&old), Some(&new)).unwrap();
-        let names: Vec<_> = m.domain.iter().map(|r| (r.name.clone().unwrap(), r.mode)).collect();
+        let names: Vec<_> = m
+            .domain
+            .iter()
+            .map(|r| (r.name.clone().unwrap(), r.mode))
+            .collect();
         assert_eq!(
             names,
-            [("d1".into(), RuleMode::Write), ("shared".into(), RuleMode::Read)]
+            [
+                ("d1".into(), RuleMode::Write),
+                ("shared".into(), RuleMode::Read)
+            ]
         );
     }
 
@@ -792,8 +837,15 @@ mod tests {
             bad(one(rule("a.b", RuleMode::Write))),
             "Illegal character in rule name: a.b"
         );
-        assert_eq!(bad(one(rule(&"x".repeat(65), RuleMode::Write))), "Rule name too long");
-        assert!(one(rule(&"x".repeat(64), RuleMode::Write)).validate().is_ok());
+        assert_eq!(
+            bad(one(rule(&"x".repeat(65), RuleMode::Write))),
+            "Rule name too long"
+        );
+        assert!(
+            one(rule(&"x".repeat(64), RuleMode::Write))
+                .validate()
+                .is_ok()
+        );
         assert_eq!(
             bad(one(Rule {
                 rule_type: None,

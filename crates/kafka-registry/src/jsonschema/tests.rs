@@ -67,7 +67,10 @@ fn what_is_not_a_schema_of_its_draft_is_refused() {
             r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","maxItems":1.5}"#,
             "non-negative integer",
         ),
-        (r#"{"minimum":1e2147483648}"#, "#/minimum: 1e2147483648 is past the largest"),
+        (
+            r#"{"minimum":1e2147483648}"#,
+            "#/minimum: 1e2147483648 is past the largest",
+        ),
         (r#"{"x":[-0.5e+000011999153157185615783]}"#, "#/x/0: -0.5e"),
         (r#"{"multipleOf":0}"#, "greater than 0"),
         (r#"{"required":["a","a"]}"#, "named twice"),

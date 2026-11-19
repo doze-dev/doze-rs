@@ -137,7 +137,10 @@ impl Names {
         path.pop();
         let pick = |n: &str| fields.iter().find(|f| f.name == n).map(|f| f.ty.clone());
         let map = if map_entry {
-            Some((pick("key").unwrap_or_default(), pick("value").unwrap_or_default()))
+            Some((
+                pick("key").unwrap_or_default(),
+                pick("value").unwrap_or_default(),
+            ))
         } else {
             None
         };
@@ -215,10 +218,17 @@ fn wire_unquote(lit: &str) -> String {
                 continue;
             }
             let Some(e) = chars.next() else { break };
-            let numeric = |chars: &mut std::iter::Peekable<std::str::Chars<'_>>, radix: u32, len: usize, first: Option<u32>| {
+            let numeric = |chars: &mut std::iter::Peekable<std::str::Chars<'_>>,
+                           radix: u32,
+                           len: usize,
+                           first: Option<u32>| {
                 let mut v = first;
                 for _ in 0..len - usize::from(first.is_some()) {
-                    match chars.peek().and_then(|c| c.to_digit(16)).filter(|&d| d < radix) {
+                    match chars
+                        .peek()
+                        .and_then(|c| c.to_digit(16))
+                        .filter(|&d| d < radix)
+                    {
                         Some(d) => {
                             v = Some(v.map_or(d, |v| v * radix + d));
                             chars.next();
@@ -287,7 +297,9 @@ impl Literal<'_> {
     }
 
     fn is(&self, c: u8) -> bool {
-        self.toks.get(self.i).is_some_and(|t| t.kind == Tok::Punct(c))
+        self.toks
+            .get(self.i)
+            .is_some_and(|t| t.kind == Tok::Punct(c))
     }
 
     fn eat(&mut self, c: u8) -> bool {
@@ -309,7 +321,9 @@ impl Literal<'_> {
                 }
                 _ => break,
             }
-            if self.is(b'.') && matches!(self.toks.get(self.i + 1).map(|t| t.kind), Some(Tok::Ident)) {
+            if self.is(b'.')
+                && matches!(self.toks.get(self.i + 1).map(|t| t.kind), Some(Tok::Ident))
+            {
                 w.push('.');
                 self.i += 1;
             } else {
@@ -416,10 +430,20 @@ fn named(src: &str, o: &Opt) -> Named {
         Val::Aggregate => {
             let text = span(o.val_span);
             let toks = lex(text).unwrap_or_default();
-            V::Map(Literal { src: text, toks, i: 0 }.map(0))
+            V::Map(
+                Literal {
+                    src: text,
+                    toks,
+                    i: 0,
+                }
+                .map(0),
+            )
         }
     };
-    let (first, rest) = o.name.split_first().map_or((None, &[][..]), |(f, r)| (Some(f), r));
+    let (first, rest) = o
+        .name
+        .split_first()
+        .map_or((None, &[][..]), |(f, r)| (Some(f), r));
     for (n, paren) in rest.iter().rev() {
         val = V::Opt(Box::new(Named {
             name: n.clone(),
@@ -464,7 +488,11 @@ fn format_number(text: &str) -> Option<String> {
     let sign = if neg { "-" } else { "" };
     if let Some(hex) = body.strip_prefix("0x").or_else(|| body.strip_prefix("0X")) {
         let v = u128::from_str_radix(hex, 16).ok()?;
-        return Some(if v == 0 { "0".into() } else { format!("{sign}{v}") });
+        return Some(if v == 0 {
+            "0".into()
+        } else {
+            format!("{sign}{v}")
+        });
     }
     if !body.contains(['.', 'e', 'E']) {
         if !body.bytes().all(|b| b.is_ascii_digit()) || body.is_empty() {
@@ -476,8 +504,16 @@ fn format_number(text: &str) -> Option<String> {
         } else {
             body.trim_start_matches('0').to_owned()
         };
-        let digits = if digits.is_empty() { "0".to_owned() } else { digits };
-        return Some(if digits == "0" { digits } else { format!("{sign}{digits}") });
+        let digits = if digits.is_empty() {
+            "0".to_owned()
+        } else {
+            digits
+        };
+        return Some(if digits == "0" {
+            digits
+        } else {
+            format!("{sign}{digits}")
+        });
     }
     let (mant, frac_exp) = match body.split_once('.') {
         Some((m, rest)) => (m, rest),
@@ -634,7 +670,8 @@ impl Exact {
             digits: kept,
             exp: -3,
         };
-        let text = Self::parse(&format!("{}e-3", rounded.plain_digits())).map_or_else(|| "0".into(), |r| r.plain());
+        let text = Self::parse(&format!("{}e-3", rounded.plain_digits()))
+            .map_or_else(|| "0".into(), |r| r.plain());
         format!("{sign}{text}")
     }
 
@@ -689,7 +726,10 @@ fn bound(n: i64) -> String {
 /// Reserved ranges and names, one to a statement, by start (names last, by name).
 fn reserved_lines(rs: &[&Reserved], word: &str, opts: &[String]) -> Vec<String> {
     let mut items: Vec<(i64, String, String)> = Vec::new();
-    for (r, o) in rs.iter().zip(opts.iter().chain(std::iter::repeat(&String::new()))) {
+    for (r, o) in rs
+        .iter()
+        .zip(opts.iter().chain(std::iter::repeat(&String::new())))
+    {
         for &(a, b) in &r.ranges {
             let text = if a == b {
                 a.to_string()
@@ -796,7 +836,10 @@ impl Printer<'_> {
                 sb.push_str(&format!("option {};\n", self.option(o)));
             }
         }
-        if f.decls.iter().any(|d| matches!(d, Decl::Message(_) | Decl::Enum(_))) {
+        if f.decls
+            .iter()
+            .any(|d| matches!(d, Decl::Message(_) | Decl::Enum(_)))
+        {
             sb.push('\n');
             for d in &f.decls {
                 if let Decl::Message(m) = d {
@@ -861,7 +904,12 @@ impl Printer<'_> {
                         self.type_name(name)?
                     ))
                 };
-                let mut t = format!("rpc {} ({}) returns ({})", r.name, end(&r.input)?, end(&r.output)?);
+                let mut t = format!(
+                    "rpc {} ({}) returns ({})",
+                    r.name,
+                    end(&r.input)?,
+                    end(&r.output)?
+                );
                 let opts = self.options(r.opts.iter().map(|o| named(self.src, o)).collect());
                 if !opts.is_empty() {
                     t.push_str(" {\n");
@@ -916,7 +964,11 @@ impl Printer<'_> {
         for o in &self.options(raw_opts.iter().map(|o| named(self.src, o)).collect()) {
             indented(&mut sb, &format!("option {};\n", self.option(o)));
         }
-        values.sort_by(|a, b| a.number.cmp(&b.number).then_with(|| java_cmp(&a.name, &b.name)));
+        values.sort_by(|a, b| {
+            a.number
+                .cmp(&b.number)
+                .then_with(|| java_cmp(&a.name, &b.name))
+        });
         for v in values {
             let mut s = format!("{} = {}", v.name, v.number);
             let opts = self.options(v.opts.iter().map(|o| named(self.src, o)).collect());
@@ -1329,7 +1381,12 @@ impl Printer<'_> {
         self.names.types.get(&full)?.fields.as_ref()
     }
 
-    fn merge_maps(&self, container: Option<&FieldInfo>, a: Vec<(String, V)>, b: Vec<(String, V)>) -> Vec<(String, V)> {
+    fn merge_maps(
+        &self,
+        container: Option<&FieldInfo>,
+        a: Vec<(String, V)>,
+        b: Vec<(String, V)>,
+    ) -> Vec<(String, V)> {
         let fields = self.message_fields(container);
         let mut merged = a;
         for (k, v) in b {
@@ -1525,7 +1582,10 @@ mod tests {
             ("inf", "inf"),
             ("-inf", "-inf"),
             ("nan", "nan"),
-            ("123456789012345678901234567890", "123456789012345678901234567890"),
+            (
+                "123456789012345678901234567890",
+                "123456789012345678901234567890",
+            ),
             ("0.1234567890123456789", "0.123"),
             // commons-lang reads it as a float, which DecimalFormat writes as its double.
             ("1e20", "100000002004087730000"),

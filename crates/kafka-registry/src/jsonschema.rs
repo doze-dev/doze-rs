@@ -81,7 +81,10 @@ fn finite(v: &Json, at: &str) -> Result<(), String> {
             .enumerate()
             .try_for_each(|(i, x)| finite(x, &format!("{at}/{i}"))),
         Json::Object(m) => m.iter().try_for_each(|(k, x)| {
-            finite(x, &format!("{at}/{}", k.replace('~', "~0").replace('/', "~1")))
+            finite(
+                x,
+                &format!("{at}/{}", k.replace('~', "~0").replace('/', "~1")),
+            )
         }),
         Json::Str(_) => Ok(()),
     }
@@ -118,7 +121,9 @@ fn stored_text(v: &Json, sort: bool) -> String {
             }
             Json::Array(items) => Json::Array(items.iter().map(|x| redo(x, sort)).collect()),
             // Normalizing reads the stored text again (Confluent's sorted mapper), so a `-0.0` becomes `0.0`.
-            Json::Raw(r) if sort => Json::Raw(crate::json::java_number(&crate::json::java_number(r))),
+            Json::Raw(r) if sort => {
+                Json::Raw(crate::json::java_number(&crate::json::java_number(r)))
+            }
             Json::Raw(r) => Json::Raw(crate::json::java_number(r)),
             Json::Str(s) => Json::Str(s.clone()),
         }

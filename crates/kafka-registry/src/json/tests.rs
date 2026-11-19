@@ -78,7 +78,10 @@ fn a_number_too_large_to_rewrite_is_kept_as_sent() {
         "-0.12e2147483649",
     ] {
         assert_eq!(java_number(raw), raw, "{raw}");
-        assert!(matches!(java_reads(raw), Some(JavaRead::Infinite { .. })), "{raw}");
+        assert!(
+            matches!(java_reads(raw), Some(JavaRead::Infinite { .. })),
+            "{raw}"
+        );
     }
     for (raw, want) in [
         ("-1.5e-99999999999999999999", "-0.0"),

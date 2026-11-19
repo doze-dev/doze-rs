@@ -358,9 +358,9 @@ impl Registry {
             return Ok(v);
         }
         if let Some(prev) = s.latest_contract(subject) {
-            let inherited = s
-                .contract_config(subject)
-                .apply(&input.contract, Some(prev), None, false);
+            let inherited =
+                s.contract_config(subject)
+                    .apply(&input.contract, Some(prev), None, false);
             if inherited != input.contract
                 && let Some(v) = found(&inherited)
             {

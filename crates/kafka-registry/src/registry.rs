@@ -24,8 +24,8 @@ use sha2::{Digest, Sha256};
 
 pub use check::CompatFinding;
 pub use contract::{
-    CONFLUENT_VERSION, Contract, ContractConfig, Metadata, Rule, RuleKind, RuleMode, RuleSet, json as contract_json,
-    read as contract_read,
+    CONFLUENT_VERSION, Contract, ContractConfig, Metadata, Rule, RuleKind, RuleMode, RuleSet,
+    json as contract_json, read as contract_read,
 };
 pub(crate) use doze::rfc3339_now;
 pub use doze::{Overview, Resolved, ResolvedSchema, SubjectState, VersionInfo};

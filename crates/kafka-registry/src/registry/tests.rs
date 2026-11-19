@@ -409,24 +409,36 @@ fn a_contract_is_part_of_the_schema_and_survives_a_restart() {
         },
         ..avro(USER1)
     };
-    let first = r.register("s", &with("a"), false, &Origin::default()).unwrap();
-    let second = r.register("s", &with("b"), false, &Origin::default()).unwrap();
+    let first = r
+        .register("s", &with("a"), false, &Origin::default())
+        .unwrap();
+    let second = r
+        .register("s", &with("b"), false, &Origin::default())
+        .unwrap();
     // The same text with other metadata is another schema, and another version.
     assert!(matches!(first, RegisterResult::Full(_)));
     assert_ne!(first.id(), second.id());
     assert_eq!(r.versions("s", false).unwrap(), [1, 2]);
     // Without metadata the schema takes the latest version's: it is that version.
-    let again = r.register("s", &avro(USER1), false, &Origin::default()).unwrap();
+    let again = r
+        .register("s", &avro(USER1), false, &Origin::default())
+        .unwrap();
     assert_eq!(again.id(), second.id());
     let plain = reg(&r, "plain", USER2);
     let r = open(&st);
     let v = r.version("s", "1", false).unwrap();
     assert_eq!(v.metadata.unwrap().properties["owner"], "a");
     assert!(r.schema_by_id(plain).unwrap().metadata.is_none());
-    let found = r.latest_with_metadata("s", &[("owner".into(), "b".into())], false).unwrap();
+    let found = r
+        .latest_with_metadata("s", &[("owner".into(), "b".into())], false)
+        .unwrap();
     assert_eq!(found.version, 2);
     let raw = st.load().unwrap();
     let plain_key = crate::store::Key::Schema(plain).encode();
     let rec = raw.iter().find(|(k, _)| *k == plain_key).unwrap();
-    assert_eq!(rec.1.first(), Some(&1), "a schema without a contract keeps the first format");
+    assert_eq!(
+        rec.1.first(),
+        Some(&1),
+        "a schema without a contract keeps the first format"
+    );
 }
