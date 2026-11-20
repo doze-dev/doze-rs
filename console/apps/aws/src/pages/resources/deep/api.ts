@@ -9,6 +9,19 @@ import type { Uploaded } from "../../../api/types/Uploaded";
 /** Where one resource's operations go. */
 export type Target = { service: string; kind: string; name: string };
 
+/** The resources whose pages read through each other's (a function's log group) or from a page of their own (an execution's
+ * machine, a stream's group). */
+export const on = {
+  fn: (name: string): Target => ({ service: "lambda", kind: "functions", name }),
+  group: (name: string): Target => ({ service: "logs", kind: "groups", name }),
+  stack: (name: string): Target => ({ service: "cloudformation", kind: "stacks", name }),
+  machine: (name: string): Target => ({ service: "stepfunctions", kind: "machines", name }),
+};
+
+/** The machine an execution belongs to, by its ARN (`arn:aws:states:<region>:<account>:execution:<machine>:<name>`): the
+ * server makes the execution's calls on that machine alone, and refuses an ARN that is not one of its executions. */
+export const machineOf = (executionArn: string) => executionArn.split(":")[6] ?? "";
+
 const json = (body: unknown): RequestInit => ({ method: "POST", body: JSON.stringify(body), headers: { "Content-Type": "application/json" } });
 
 /** `POST …/<name>/op/<operation>`: the service's answer as it gave it. */
@@ -27,6 +40,11 @@ export function useOpQuery<T>(t: Target, operation: string, input: object, key: 
     enabled,
     retry: false,
   });
+}
+
+/** A read whose input is its key: a new input is a new read. */
+export function useOpRead<T>(t: Target, operation: string, input: object, enabled = true) {
+  return useOpQuery<T>(t, operation, input, [input], enabled);
 }
 
 /** A write (or a read that changes something, as a peek does): made when the person asks; the page's reads are stale after. */

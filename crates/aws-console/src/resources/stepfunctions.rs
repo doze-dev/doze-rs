@@ -1,8 +1,14 @@
-//! Step Functions: state machines, and a machine's executions (the newest first) on its page. The console does not create a
-//! machine: its definition is code, written in Amazon States Language and deployed with a tool or the AWS CLI.
+//! Step Functions: state machines; a machine's executions (the newest first) are a page of its own. The console does not
+//! create a machine: its definition is code, written in Amazon States Language and deployed with a tool or the AWS CLI.
 
 use super::Format::{Json, Mono, Tail, Text as Plain, Time};
-use super::{Delete, Descriptor, Field, Id, Kind, LinkTo, List, Step, Sub, Text, col, field, or};
+use super::{
+    Deep, Delete, Descriptor, Field, Id, Kind, LinkTo, List, Step, Text, col, field, op, op_within,
+    or,
+};
+
+/// What its executions' ARNs begin with: an execution page acts only on an execution of this machine.
+const EXECUTION: &str = "arn:aws:states:{region}:{account}:execution:{name}:";
 
 pub(super) static STEPFUNCTIONS: Descriptor = Descriptor {
     service: "stepfunctions",
@@ -60,24 +66,7 @@ pub(super) static STEPFUNCTIONS: Descriptor = Descriptor {
             field("Created", "creationDate", Time),
             field("Definition", "definition", Json),
         ],
-        subs: &[Sub {
-            title: "Executions",
-            step: Step::new(
-                "ListExecutions",
-                r#"{"stateMachineArn":"{id}","maxResults":100}"#,
-            ),
-            items: "executions",
-            item_as: "name",
-            columns: &[
-                col("Execution", "name", Mono),
-                col("Status", "status", Plain),
-                col("Started", "startDate", Time),
-                col("Stopped", "stopDate", Time),
-            ],
-            link: None,
-            more: "nextToken",
-            add: None,
-        }],
+        subs: &[],
         create: None,
         delete: Some(Delete {
             verb: "Delete",
@@ -85,6 +74,26 @@ pub(super) static STEPFUNCTIONS: Descriptor = Descriptor {
             words: "The machine is marked DELETING and no execution can start; it goes once its running executions end.",
         }),
         reveal: None,
-        deep: &[],
+        // Its executions are a page of their own, not a list on its details; each execution's page (addressed by its ARN)
+        // makes its calls here, on an execution of this machine alone.
+        deep: &[Deep {
+            id: "executions",
+            title: "Executions",
+            ops: &[
+                op(
+                    "ListExecutions",
+                    r#"{"stateMachineArn":"{id}","mapRunArn":null}"#,
+                ),
+                op("StartExecution", r#"{"stateMachineArn":"{id}"}"#),
+                op_within("DescribeExecution", "executionArn", EXECUTION),
+                op_within(
+                    "DescribeStateMachineForExecution",
+                    "executionArn",
+                    EXECUTION,
+                ),
+                op_within("GetExecutionHistory", "executionArn", EXECUTION),
+                op_within("StopExecution", "executionArn", EXECUTION),
+            ],
+        }],
     }],
 };

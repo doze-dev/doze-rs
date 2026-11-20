@@ -1,10 +1,14 @@
-//! CloudWatch Logs: log groups, and a group's streams (the most recently written first) and filters on its page.
+//! CloudWatch Logs: log groups, with their subscription filters on their page; their streams, search and Live Tail are pages of
+//! their own.
 
 use super::Format::{Bytes, Mono, Number, Tail, Text as Plain, Time};
 use super::{
-    Create, Delete, Descriptor, Id, Input, InputKind, Kind, List, Step, Sub, Text, col, field,
-    input, or,
+    Create, Deep, Delete, Descriptor, Id, Input, InputKind, Kind, List, Step, Sub, Text, col,
+    field, input, op, or,
 };
+
+/// What a read of its streams names: this group, and no other by `logGroupIdentifier`.
+const GROUP: &str = r#"{"logGroupName":"{id}","logGroupIdentifier":null}"#;
 
 pub(super) static LOGS: Descriptor = Descriptor {
     service: "logs",
@@ -42,10 +46,8 @@ pub(super) static LOGS: Descriptor = Descriptor {
             ),
             "logGroups.@logGroupName.logGroupName",
         ),
-        detail: &[Step::new(
-            "DescribeLogStreams",
-            r#"{"logGroupName":"{id}","orderBy":"LastEventTime","descending":true,"limit":50}"#,
-        )],
+        // What it is comes from finding it (above); its streams are a page of their own.
+        detail: &[],
         fields: &[
             field("ARN", "logGroups.@logGroupName.logGroupArn", Mono),
             or(
@@ -64,37 +66,20 @@ pub(super) static LOGS: Descriptor = Descriptor {
             or("KMS key", "logGroups.@logGroupName.kmsKeyId", Mono, "None"),
             field("Created", "logGroups.@logGroupName.creationTime", Time),
         ],
-        subs: &[
-            Sub {
-                title: "Log streams",
-                step: Step::answered("DescribeLogStreams"),
-                items: "logStreams",
-                item_as: "logStreamName",
-                columns: &[
-                    col("Stream", "logStreamName", Mono),
-                    col("Last event", "lastEventTimestamp", Time),
-                    col("First event", "firstEventTimestamp", Time),
-                    col("Created", "creationTime", Time),
-                ],
-                link: None,
-                more: "nextToken",
-                add: None,
-            },
-            Sub {
-                title: "Subscription filters",
-                step: Step::new("DescribeSubscriptionFilters", r#"{"logGroupName":"{id}"}"#),
-                items: "subscriptionFilters",
-                item_as: "filterName",
-                columns: &[
-                    col("Filter", "filterName", Mono),
-                    col("Pattern", "filterPattern", Mono),
-                    col("Destination", "destinationArn", Tail),
-                ],
-                link: None,
-                more: "nextToken",
-                add: None,
-            },
-        ],
+        subs: &[Sub {
+            title: "Subscription filters",
+            step: Step::new("DescribeSubscriptionFilters", r#"{"logGroupName":"{id}"}"#),
+            items: "subscriptionFilters",
+            item_as: "filterName",
+            columns: &[
+                col("Filter", "filterName", Mono),
+                col("Pattern", "filterPattern", Mono),
+                col("Destination", "destinationArn", Tail),
+            ],
+            link: None,
+            more: "nextToken",
+            add: None,
+        }],
         create: Some(Create {
             inputs: &[
                 Input {
@@ -131,6 +116,27 @@ pub(super) static LOGS: Descriptor = Descriptor {
             words: "Deleting removes the group, its streams and every event in them.",
         }),
         reveal: None,
-        deep: &[],
+        // Its streams are a page of their own, not a list on its details; a stream's viewer reads through this group.
+        deep: &[
+            Deep {
+                id: "streams",
+                title: "Log streams",
+                ops: &[op("DescribeLogStreams", GROUP), op("GetLogEvents", GROUP)],
+            },
+            Deep {
+                id: "search",
+                title: "Search",
+                ops: &[op("FilterLogEvents", GROUP)],
+            },
+            // Read at its own address (`GET …/tail`) as server-sent events.
+            Deep {
+                id: "tail",
+                title: "Live Tail",
+                ops: &[op(
+                    "StartLiveTail",
+                    r#"{"logGroupIdentifiers":["arn:aws:logs:{region}:{account}:log-group:{id}"]}"#,
+                )],
+            },
+        ],
     }],
 };

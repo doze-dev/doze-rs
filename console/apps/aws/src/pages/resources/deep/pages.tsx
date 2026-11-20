@@ -25,7 +25,34 @@ const PAGES: Record<string, Page> = {
   "sqs/settings": { page: lazy(() => import("./sqs-settings").then((m) => ({ default: m.QueueSettings }))) },
   "s3/objects": { page: lazy(() => import("./s3-objects").then((m) => ({ default: m.BucketObjects }))) },
   "dynamodb/items": { page: lazy(() => import("./ddb-items").then((m) => ({ default: m.TableItems }))) },
+  "lambda/test": { page: lazy(() => import("./lambda/test-tab").then((m) => ({ default: ({ d }: DeepProps) => <m.FunctionTest name={d.name} /> }))) },
+  "lambda/configuration": { page: lazy(() => import("./lambda/config-tab").then((m) => ({ default: ({ d }: DeepProps) => <m.FunctionConfig name={d.name} /> }))) },
+  "lambda/versions": { page: lazy(() => import("./lambda/lists").then((m) => ({ default: ({ d }: DeepProps) => <m.FunctionVersions name={d.name} /> }))) },
+  "lambda/invocations": { page: lazy(() => import("./lambda/lists").then((m) => ({ default: ({ d }: DeepProps) => <m.FunctionInvocations d={d} /> }))) },
+  "stepfunctions/executions": { page: lazy(() => import("./sfn/executions-tab").then((m) => ({ default: ({ d }: DeepProps) => <m.MachineExecutions arn={d.id} name={d.name} /> }))) },
+  "logs/streams": { page: lazy(() => import("./logs/streams-tab").then((m) => ({ default: ({ d }: DeepProps) => <m.GroupStreams group={d.name} /> }))) },
+  "logs/search": { page: lazy(() => import("./logs/search-tab").then((m) => ({ default: ({ d }: DeepProps) => <m.GroupSearch group={d.name} /> }))) },
+  "logs/tail": { page: lazy(() => import("./logs/tail-tab").then((m) => ({ default: ({ d }: DeepProps) => <m.GroupTail group={d.name} /> }))) },
+  "cloudformation/events": { page: lazy(() => import("./cfn/stack-tabs").then((m) => ({ default: ({ d }: DeepProps) => <m.StackEvents name={d.name} /> }))) },
+  "cloudformation/template": { page: lazy(() => import("./cfn/stack-tabs").then((m) => ({ default: ({ d }: DeepProps) => <m.StackTemplate name={d.name} /> }))) },
+  "cloudformation/changesets": { page: lazy(() => import("./cfn/stack-tabs").then((m) => ({ default: ({ d }: DeepProps) => <m.StackChangeSets name={d.name} /> }))) },
 };
+
+/** What a resource's details open with, for the kinds that have something to say first (a stack's status, as a sentence). */
+const LEADS: Record<string, React.LazyExoticComponent<(p: { d: ResourceDetail }) => React.ReactNode>> = {
+  "cloudformation/stacks": lazy(() => import("./cfn/stack-tabs").then((m) => ({ default: m.StackSentence }))),
+};
+
+/** The lead of `d`'s details, if its kind has one. */
+export function DetailLead({ d }: { d: ResourceDetail }) {
+  const Lead = LEADS[`${d.service}/${d.kind}`];
+  if (!Lead) return null;
+  return (
+    <Suspense fallback={null}>
+      <Lead d={d} />
+    </Suspense>
+  );
+}
 
 /** The resource's own pages that apply to it now. */
 export function tabsOf(d: ResourceDetail): DeepTab[] {

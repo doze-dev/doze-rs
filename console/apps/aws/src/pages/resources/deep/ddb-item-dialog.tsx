@@ -4,10 +4,10 @@ import { PencilIcon, Trash2Icon } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { CopyButton } from "@doze/ui/components/app/copy-button";
+import { JsonEditor } from "@doze/ui/components/app/json-editor";
 import { Button } from "@doze/ui/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@doze/ui/components/ui/dialog";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@doze/ui/components/ui/sheet";
-import { Textarea } from "@doze/ui/components/ui/textarea";
 import { ToggleGroup, ToggleGroupItem } from "@doze/ui/components/ui/toggle-group";
 import { type Target, useOp } from "./api";
 import { type Item, type KeyPart, cell, itemPlainBlocker, itemText, keyOf, parseItem } from "./ddb-json";
@@ -67,16 +67,25 @@ export function ItemDialog({ open, onOpenChange, t, keys, item, onSaved }: { ope
           </DialogDescription>
         </DialogHeader>
         <ModeToggle mode={mode} set={switchMode} blocked={blocked} />
-        <Textarea aria-label="Item JSON" value={text} onChange={(e) => setText(e.target.value)} className="min-h-72 bg-card font-mono text-[13px] leading-5" spellCheck={false} data-testid="item-json" />
-        {"error" in parsed ? (
-          <p className="text-[13px] text-bad" data-testid="item-wrong">
-            {parsed.error}
-          </p>
-        ) : moved ? (
-          <p className="text-[13px] text-warn">The key changed: this writes a new item, and the one you opened stays.</p>
-        ) : (
-          <p className="text-[13px] text-muted-foreground">Valid: {Object.keys(parsed.item).length} attributes.</p>
-        )}
+        <JsonEditor
+          label="Item"
+          value={text}
+          onChange={setText}
+          empty="invalid"
+          rows={14}
+          testId="item-json"
+          help={
+            "error" in parsed ? (
+              <span className="text-bad" data-testid="item-wrong">
+                {parsed.error}
+              </span>
+            ) : moved ? (
+              <span className="text-warn">The key changed: this writes a new item, and the one you opened stays.</span>
+            ) : (
+              <>Valid: {Object.keys(parsed.item).length} attributes.</>
+            )
+          }
+        />
         <Refused operation="PutItem" error={put.error} testId="item-error" />
         <DialogFooter>
           <Button type="button" variant="outline" className="bg-card" onClick={() => change(false)}>

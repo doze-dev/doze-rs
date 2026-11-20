@@ -79,8 +79,14 @@ fn b64(bytes: &[u8]) -> String {
     out
 }
 
-async fn deep(w: &World, path: &str, body: &Value) -> (u16, Value) {
-    w.send("POST", &format!("/api/v1/deep/{path}"), body).await
+/// `operation` of a resource's pages (`lambda/functions/echo`), made through the console.
+async fn op(w: &World, resource: &str, operation: &str, body: &Value) -> (u16, Value) {
+    w.send(
+        "POST",
+        &format!("/api/v1/resources/{resource}/op/{operation}"),
+        body,
+    )
+    .await
 }
 
 #[tokio::test]
@@ -103,9 +109,10 @@ async fn a_function_is_invoked_with_its_log_and_configured() {
             "Code": {"ZipFile": b64(&zipped())}, "Timeout": 10}),
     )
     .await;
-    let (status, ok) = deep(
+    let (status, ok) = op(
         &w,
-        "lambda/Invoke",
+        "lambda/functions/echo",
+        "Invoke",
         &json!({"FunctionName": "echo", "Payload": "{\"n\":1}", "LogType": "Tail"}),
     )
     .await;
@@ -122,9 +129,10 @@ async fn a_function_is_invoked_with_its_log_and_configured() {
         "{log}"
     );
 
-    let (_, failed) = deep(
+    let (_, failed) = op(
         &w,
-        "lambda/Invoke",
+        "lambda/functions/echo",
+        "Invoke",
         &json!({"FunctionName": "echo", "Payload": "{\"fail\":true}"}),
     )
     .await;
@@ -137,38 +145,60 @@ async fn a_function_is_invoked_with_its_log_and_configured() {
     );
     assert!(failed["log"].is_null());
 
-    let (status, updated) = deep(
-        &w,
-        "lambda/UpdateFunctionConfiguration",
+    let (status, updated) = op(&w, "lambda/functions/echo", "UpdateFunctionConfiguration",
         &json!({"FunctionName": "echo", "MemorySize": 256, "Timeout": 5, "Environment": {"Variables": {"MODE": "blue"}}}),
     )
     .await;
     assert_eq!(status, 200, "{updated}");
     assert_eq!(updated["MemorySize"], 256);
-    let (_, again) = deep(&w, "lambda/Invoke", &json!({"FunctionName": "echo"})).await;
+    let (_, again) = op(
+        &w,
+        "lambda/functions/echo",
+        "Invoke",
+        &json!({"FunctionName": "echo"}),
+    )
+    .await;
     let answered: Value = serde_json::from_str(again["payload"].as_str().unwrap()).unwrap();
     assert_eq!(answered["mode"], "blue");
-    let (_, versions) = deep(
+    let (_, versions) = op(
         &w,
-        "lambda/ListVersionsByFunction",
+        "lambda/functions/echo",
+        "ListVersionsByFunction",
         &json!({"FunctionName": "echo"}),
     )
     .await;
     assert_eq!(versions["Versions"][0]["Version"], "$LATEST");
-    let (_, aliases) = deep(&w, "lambda/ListAliases", &json!({"FunctionName": "echo"})).await;
+    let (_, aliases) = op(
+        &w,
+        "lambda/functions/echo",
+        "ListAliases",
+        &json!({"FunctionName": "echo"}),
+    )
+    .await;
     assert!(
         aliases["Aliases"].as_array().is_none_or(Vec::is_empty),
         "{aliases}"
     );
+    // The function is the address's: one the page names is set aside.
+    let (status, bound) = op(
+        &w,
+        "lambda/functions/echo",
+        "Invoke",
+        &json!({"FunctionName": "nope", "Payload": "{\"n\":2}"}),
+    )
+    .await;
+    assert_eq!(status, 200, "{bound}");
+    assert!(bound["payload"].as_str().unwrap().contains("\"n\":2"));
     // Lambda's own refusal, in its words; and the console's for an operation no page asks for.
-    let (status, missing) = deep(&w, "lambda/Invoke", &json!({"FunctionName": "nope"})).await;
+    let (status, missing) = op(&w, "lambda/functions/nope", "Invoke", &json!({})).await;
     assert_eq!(
         (status, missing["code"].as_str()),
         (404, Some("ResourceNotFoundException"))
     );
-    let (status, _) = deep(
+    let (status, _) = op(
         &w,
-        "lambda/DeleteFunction",
+        "lambda/functions/echo",
+        "DeleteFunction",
         &json!({"FunctionName": "echo"}),
     )
     .await;
@@ -179,9 +209,15 @@ async fn a_function_is_invoked_with_its_log_and_configured() {
         "{live:?}"
     );
     assert!(live.contains(&"console lambda UpdateFunctionConfiguration".to_owned()));
-    // The detail page knows it has a deep page.
+    // The detail page names its pages.
     let (_, detail) = w.get("/api/v1/resources/lambda/functions/echo").await;
-    assert_eq!(detail["page"], "lambda-function");
+    let tabs: Vec<&str> = detail["deep"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|t| t["id"].as_str().unwrap())
+        .collect();
+    assert_eq!(tabs, ["test", "configuration", "versions", "invocations"]);
     assert_eq!(field(&detail, "Memory (MB)")["value"], "256");
 }
 
@@ -200,9 +236,10 @@ async fn an_execution_is_started_read_and_stopped() {
         )
         .await;
     let machine = made["stateMachineArn"].as_str().unwrap();
-    let (status, quick) = deep(
+    let (status, quick) = op(
         &w,
-        "stepfunctions/StartExecution",
+        "stepfunctions/machines/flow",
+        "StartExecution",
         &json!({"stateMachineArn": machine, "name": "quick", "input": "{}"}),
     )
     .await;
@@ -210,9 +247,10 @@ async fn an_execution_is_started_read_and_stopped() {
     let quick = quick["executionArn"].as_str().unwrap().to_owned();
     let mut done = Value::Null;
     for _ in 0..50 {
-        done = deep(
+        done = op(
             &w,
-            "stepfunctions/DescribeExecution",
+            "stepfunctions/machines/flow",
+            "DescribeExecution",
             &json!({"executionArn": quick}),
         )
         .await
@@ -223,9 +261,10 @@ async fn an_execution_is_started_read_and_stopped() {
         tokio::time::sleep(Duration::from_millis(100)).await;
     }
     assert_eq!(done["status"], "SUCCEEDED", "{done}");
-    let (_, history) = deep(
+    let (_, history) = op(
         &w,
-        "stepfunctions/GetExecutionHistory",
+        "stepfunctions/machines/flow",
+        "GetExecutionHistory",
         &json!({"executionArn": quick, "reverseOrder": true, "maxResults": 100}),
     )
     .await;
@@ -238,23 +277,26 @@ async fn an_execution_is_started_read_and_stopped() {
     assert_eq!(types.first(), Some(&"ExecutionSucceeded"), "{types:?}");
     assert!(types.contains(&"ChoiceStateEntered") && !types.contains(&"WaitStateEntered"));
 
-    let (_, slow) = deep(
+    let (_, slow) = op(
         &w,
-        "stepfunctions/StartExecution",
+        "stepfunctions/machines/flow",
+        "StartExecution",
         &json!({"stateMachineArn": machine, "name": "slow", "input": "{\"wait\":true}"}),
     )
     .await;
     let slow = slow["executionArn"].as_str().unwrap().to_owned();
-    let (status, stopped) = deep(
+    let (status, stopped) = op(
         &w,
-        "stepfunctions/StopExecution",
+        "stepfunctions/machines/flow",
+        "StopExecution",
         &json!({"executionArn": slow, "error": "Console", "cause": "stopped from its page"}),
     )
     .await;
     assert_eq!(status, 200, "{stopped}");
-    let (_, read) = deep(
+    let (_, read) = op(
         &w,
-        "stepfunctions/DescribeExecution",
+        "stepfunctions/machines/flow",
+        "DescribeExecution",
         &json!({"executionArn": slow}),
     )
     .await;
@@ -262,5 +304,42 @@ async fn an_execution_is_started_read_and_stopped() {
     assert!(
         w.live()
             .contains(&"console states StopExecution".to_owned())
+    );
+    // An execution page acts only on an execution of the machine in its address: not another machine's, nor none.
+    w.app(
+        "states",
+        "CreateStateMachine",
+        &json!({"name": "flow-2", "definition": definition.to_string(), "roleArn": "arn:aws:iam::000000000000:role/sfn"}),
+    )
+    .await;
+    for (machine, asked) in [
+        ("flow-2", json!({"executionArn": quick})),
+        (
+            "flow",
+            json!({"executionArn": quick.replace(":flow:", ":flow-2:")}),
+        ),
+        ("flow", json!({})),
+    ] {
+        let (status, refused) = op(
+            &w,
+            &format!("stepfunctions/machines/{machine}"),
+            "DescribeExecution",
+            &asked,
+        )
+        .await;
+        assert_eq!(
+            (status, refused["code"].as_str()),
+            (400, Some("NOT_THIS_RESOURCE")),
+            "{machine} {asked}"
+        );
+    }
+    let (_, tabs) = w.get("/api/v1/resources/stepfunctions/machines/flow").await;
+    assert!(
+        tabs["subs"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .all(|s| s["title"] != "Executions"),
+        "the executions are a tab, not a list on the details: {tabs}"
     );
 }

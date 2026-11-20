@@ -2,7 +2,7 @@
 
 use serde::Serialize;
 
-/// `POST /api/v1/deep/lambda/Invoke`: what a synchronous invoke answered.
+/// `POST /api/v1/resources/lambda/functions/<name>/op/Invoke`: what a synchronous invoke answered.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[cfg_attr(test, derive(ts_rs::TS))]
 pub struct Invoked {

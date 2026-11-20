@@ -100,17 +100,36 @@ pub struct Deep {
 }
 
 /// An operation a [`Deep`] page may make. The page sends the input; the members of `bind` are then set over it, filled as a
-/// step's body (`{"QueueUrl":"{id}"}`), so the call acts on this resource and on no other.
+/// step's body (`{"QueueUrl":"{id}"}`), so the call acts on this resource and on no other. A member bound to `null` is taken
+/// out of the input (another way to name a resource: `logGroupIdentifier` beside `logGroupName`).
 #[derive(Debug)]
 pub struct Op {
     pub op: &'static str,
     pub bind: &'static str,
+    /// For an operation on a part of the resource that the page names (an execution of a state machine): the member, and
+    /// what its value must begin with, filled as `bind` is (`arn:aws:states:{region}:{account}:execution:{name}:`).
+    pub within: Option<(&'static str, &'static str)>,
 }
 
 /// An operation of a [`Deep`] page.
 #[must_use]
 pub const fn op(op: &'static str, bind: &'static str) -> Op {
-    Op { op, bind }
+    Op {
+        op,
+        bind,
+        within: None,
+    }
+}
+
+/// An operation of a [`Deep`] page on a part of the resource: the page names it by `member`, whose value must begin with
+/// `prefix` (filled).
+#[must_use]
+pub const fn op_within(op: &'static str, member: &'static str, prefix: &'static str) -> Op {
+    Op {
+        op,
+        bind: "{}",
+        within: Some((member, prefix)),
+    }
 }
 
 /// How a kind is listed.

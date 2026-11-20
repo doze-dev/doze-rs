@@ -25,8 +25,4 @@ reveal: string | null, delete: DeleteSpec | null,
 /**
  * Its pages of its own, shown as tabs beside its details.
  */
-deep: Array<DeepTab>, 
-/**
- * The deep page that shows more of it (`lambda-function`), when it has one.
- */
-page: string | null, };
+deep: Array<DeepTab>, };

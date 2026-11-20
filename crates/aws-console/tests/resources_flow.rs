@@ -50,7 +50,22 @@ async fn a_log_group_shows_its_streams_newest_first_and_a_missing_one_is_refused
     }
     let one = format!("/api/v1/resources/logs/groups/{}", encode("/larder/api"));
     let (_, detail) = w.get(&one).await;
-    assert_eq!(firsts(sub(&detail, "Log streams")), ["newer", "older"]);
+    // Its streams are a page of their own: the page reads them through the group.
+    let (status, streams) = w
+        .send(
+            "POST",
+            &format!("{one}/op/DescribeLogStreams"),
+            &json!({"orderBy": "LastEventTime", "descending": true}),
+        )
+        .await;
+    assert_eq!(status, 200, "{streams}");
+    let names: Vec<&str> = streams["logStreams"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|s| s["logStreamName"].as_str().unwrap())
+        .collect();
+    assert_eq!(names, ["newer", "older"]);
     assert_eq!(field(&detail, "Retention (days)")["value"], "Never expire");
     assert!(
         field(&detail, "ARN")["value"]
@@ -228,10 +243,22 @@ async fn a_state_machine_lists_its_executions_newest_first() {
         .await;
     assert_eq!(status, 200, "{detail}");
     assert_eq!(field(&detail, "Role")["link"]["name"], "sfn");
-    assert_eq!(
-        firsts(sub(&detail, "Executions")),
-        ["third", "second", "first"]
-    );
+    // Its executions are a page of their own: the page lists them through the machine.
+    let (status, runs) = w
+        .send(
+            "POST",
+            "/api/v1/resources/stepfunctions/machines/checkout/op/ListExecutions",
+            &json!({}),
+        )
+        .await;
+    assert_eq!(status, 200, "{runs}");
+    let names: Vec<&str> = runs["executions"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|e| e["name"].as_str().unwrap())
+        .collect();
+    assert_eq!(names, ["third", "second", "first"]);
     w.delete("/api/v1/resources/stepfunctions/machines", "checkout")
         .await;
 }

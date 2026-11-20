@@ -23,8 +23,14 @@ use support::HOST;
 use tower::ServiceExt;
 use world::{World, field, world};
 
-async fn deep(w: &World, path: &str, body: &Value) -> (u16, Value) {
-    w.send("POST", &format!("/api/v1/deep/{path}"), body).await
+/// `operation` of a resource's pages (`lambda/functions/echo`), made through the console.
+async fn op(w: &World, resource: &str, operation: &str, body: &Value) -> (u16, Value) {
+    w.send(
+        "POST",
+        &format!("/api/v1/resources/{resource}/op/{operation}"),
+        body,
+    )
+    .await
 }
 
 /// The events of a server-sent stream, read until `enough` holds of them or `ms` pass.
@@ -87,31 +93,23 @@ async fn a_stream_is_read_both_ways_a_group_searched_and_tailed() {
         &json!({"logGroupName": "/app/api", "logStreamName": "web-1", "logEvents": events}),
     )
     .await;
-    let (status, first) = deep(
-        &w,
-        "logs/GetLogEvents",
+    let (status, first) = op(&w, "logs/groups/%2Fapp%2Fapi", "GetLogEvents",
         &json!({"logGroupName": "/app/api", "logStreamName": "web-1", "startFromHead": true, "limit": 2}),
     )
     .await;
     assert_eq!(status, 200, "{first}");
     assert_eq!(first["events"][0]["message"], "ok 0");
-    let (_, next) = deep(
-        &w,
-        "logs/GetLogEvents",
+    let (_, next) = op(&w, "logs/groups/%2Fapp%2Fapi", "GetLogEvents",
         &json!({"logGroupName": "/app/api", "logStreamName": "web-1", "startFromHead": true, "limit": 2, "nextToken": first["nextForwardToken"]}),
     )
     .await;
     assert_eq!(next["events"][0]["message"], "ok 2");
-    let (_, back) = deep(
-        &w,
-        "logs/GetLogEvents",
+    let (_, back) = op(&w, "logs/groups/%2Fapp%2Fapi", "GetLogEvents",
         &json!({"logGroupName": "/app/api", "logStreamName": "web-1", "limit": 2, "nextToken": next["nextBackwardToken"]}),
     )
     .await;
     assert_eq!(back["events"][0]["message"], "ok 0");
-    let (_, found) = deep(
-        &w,
-        "logs/FilterLogEvents",
+    let (_, found) = op(&w, "logs/groups/%2Fapp%2Fapi", "FilterLogEvents",
         &json!({"logGroupName": "/app/api", "filterPattern": "ERROR", "startTime": now, "endTime": now + 10}),
     )
     .await;
@@ -141,7 +139,8 @@ async fn a_stream_is_read_both_ways_a_group_searched_and_tailed() {
     };
     let (status, text) = sse(
         &w,
-        "/api/v1/deep/logs/tail?group=%2Fapp%2Fapi&pattern=ERROR",
+        // The group is the address's: one the query names is not read.
+        "/api/v1/resources/logs/groups/%2Fapp%2Fapi/tail?group=%2Fother&pattern=ERROR",
         |t| t.contains("live one"),
         5_000,
     )
@@ -154,8 +153,37 @@ async fn a_stream_is_read_both_ways_a_group_searched_and_tailed() {
         "{text}"
     );
     assert!(w.live().contains(&"console logs StartLiveTail".to_owned()));
-    let (status, _) = sse(&w, "/api/v1/deep/logs/tail", |_| true, 1_000).await;
-    assert_eq!(status, 400);
+    // No such group; a kind with nothing to tail; the stream asked for as an operation.
+    let (status, _) = sse(
+        &w,
+        "/api/v1/resources/logs/groups/%2Fnope/tail",
+        |_| true,
+        1_000,
+    )
+    .await;
+    assert_eq!(status, 404);
+    let (status, _) = sse(&w, "/api/v1/resources/sqs/queues/q/tail", |_| true, 1_000).await;
+    assert_eq!(status, 404);
+    let (status, streamed) = op(&w, "logs/groups/%2Fapp%2Fapi", "StartLiveTail", &json!({})).await;
+    assert_eq!((status, streamed["code"].as_str()), (400, Some("STREAMED")));
+    // Another group named by logGroupIdentifier is taken out, not read.
+    let (status, found) = op(
+        &w,
+        "logs/groups/%2Fapp%2Fapi",
+        "FilterLogEvents",
+        &json!({"logGroupIdentifier": "/nope", "filterPattern": "boom"}),
+    )
+    .await;
+    assert_eq!(status, 200, "{found}");
+    let (_, detail) = w.get("/api/v1/resources/logs/groups/%2Fapp%2Fapi").await;
+    assert!(
+        detail["subs"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .all(|s| s["title"] != "Log streams"),
+        "{detail}"
+    );
 }
 
 #[tokio::test]
@@ -170,9 +198,10 @@ async fn a_stack_shows_its_events_template_and_change_sets() {
     .await;
     let mut events = Value::Null;
     for _ in 0..50 {
-        events = deep(
+        events = op(
             &w,
-            "cloudformation/DescribeStackEvents",
+            "cloudformation/stacks/larder",
+            "DescribeStackEvents",
             &json!({"StackName": "larder"}),
         )
         .await
@@ -188,9 +217,10 @@ async fn a_stack_shows_its_events_template_and_change_sets() {
         list[0]["LogicalResourceId"], "larder",
         "newest first: {events}"
     );
-    let (status, got) = deep(
+    let (status, got) = op(
         &w,
-        "cloudformation/GetTemplate",
+        "cloudformation/stacks/larder",
+        "GetTemplate",
         &json!({"StackName": "larder"}),
     )
     .await;
@@ -201,9 +231,10 @@ async fn a_stack_shows_its_events_template_and_change_sets() {
             .unwrap()
             .contains("deep-orders")
     );
-    let (status, sets) = deep(
+    let (status, sets) = op(
         &w,
-        "cloudformation/ListChangeSets",
+        "cloudformation/stacks/larder",
+        "ListChangeSets",
         &json!({"StackName": "larder"}),
     )
     .await;
@@ -215,9 +246,29 @@ async fn a_stack_shows_its_events_template_and_change_sets() {
     let (_, detail) = w
         .get("/api/v1/resources/cloudformation/stacks/larder")
         .await;
-    assert_eq!(detail["page"], "stack");
+    let tabs: Vec<&str> = detail["deep"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|t| t["id"].as_str().unwrap())
+        .collect();
+    assert_eq!(tabs, ["events", "template", "changesets"]);
+    // Its events are a tab, not a list on its details as well.
+    assert!(
+        detail["subs"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .all(|s| s["title"] != "Events")
+    );
     assert_eq!(field(&detail, "Status")["value"], "CREATE_COMPLETE");
     // Not a JSON object: refused before any call.
-    let (status, _) = deep(&w, "cloudformation/GetTemplate", &json!([1])).await;
+    let (status, _) = op(
+        &w,
+        "cloudformation/stacks/larder",
+        "GetTemplate",
+        &json!([1]),
+    )
+    .await;
     assert_eq!(status, 400);
 }

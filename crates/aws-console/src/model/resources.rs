@@ -242,8 +242,6 @@ pub struct ResourceDetail {
     pub delete: Option<DeleteSpec>,
     /// Its pages of its own, shown as tabs beside its details.
     pub deep: Vec<DeepTab>,
-    /// The deep page that shows more of it (`lambda-function`), when it has one.
-    pub page: Option<String>,
 }
 
 /// A page of one resource that the console's app draws (a queue's messages), and the operations it may make on it.

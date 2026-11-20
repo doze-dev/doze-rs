@@ -1,25 +1,33 @@
-//! The API of a resource's own pages (a queue's messages, a bucket's objects, a table's items), each call made through the
-//! peer bus as the caller `console`, when the page asks:
+//! The API of a resource's own pages (a queue's messages, a bucket's objects, a table's items, a function's test, a log
+//! group's tail), each call made through the peer bus as the caller `console`, when the page asks:
 //!
 //! - `POST /api/v1/resources/<service>/<kind>/<name>/op/<Operation>`: one of the operations the kind's pages make
-//!   ([`crate::resources::Deep`]), with the page's input (a JSON object); the service's answer as it gave it.
+//!   ([`crate::resources::Deep`]), with the page's input (a JSON object); the service's answer as it gave it (Lambda's
+//!   `Invoke`: [`crate::model::Invoked`], the payload and log tail as text).
 //! - `POST /api/v1/resources/s3/buckets/<name>/object?key=<key>`: the request's body put as the object `key` (PutObject), at
 //!   most [`UPLOAD_MAX`]; its `Content-Type` is the object's.
 //! - `GET /api/v1/resources/s3/buckets/<name>/object?key=<key>`: the object, streamed as GetObject answers it.
+//! - `GET /api/v1/resources/logs/groups/<name>/tail[?stream=<name>…][&pattern=<text>]`: a Live Tail of the group as
+//!   server-sent events ([`deep::tail`]), its request bound to the group as any operation's is; one of the console's event
+//!   streams ([`crate::limits::Limits::max_streams`]).
 //!
 //! The upload and the download are S3's alone: no other kind has bytes to carry.
+
+use std::sync::Arc;
 
 use axum::body::{Body, Bytes};
 use axum::extract::{Path, RawQuery, State};
 use axum::http::header::{CONTENT_DISPOSITION, CONTENT_LENGTH, CONTENT_TYPE};
 use axum::http::{HeaderMap, HeaderValue, StatusCode};
+use axum::response::sse::{KeepAlive, Sse};
 use axum::response::{IntoResponse, Response};
 use serde_json::{Map, Value, json};
 
+use super::calls::KEEP_ALIVE;
 use super::resources::{decode, find, refused};
-use super::{error, json, param};
+use super::{busy, error, json, param};
 use crate::model::Uploaded;
-use crate::resources::{deep, path};
+use crate::resources::{deep, path, run};
 use crate::state::Shared;
 
 /// The most an upload through the console may be: 25 MiB. A larger object is put with the AWS CLI or an SDK.
@@ -160,6 +168,42 @@ pub async fn download(
         h.insert(CONTENT_DISPOSITION, v);
     }
     res
+}
+
+/// `GET /api/v1/resources/<service>/<kind>/<name>/tail`: the kind's streamed operation (a log group's `StartLiveTail`), bound
+/// to the resource `name` by its descriptor as every page's operation is.
+pub async fn tail(
+    State(s): State<Shared>,
+    Path((service, kind, name)): Path<(String, String, String)>,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let (bus, d, k) = match find(&s, &service, &kind) {
+        Ok(found) => found,
+        Err(res) => return *res,
+    };
+    let Some(op) = deep::STREAMED.iter().find_map(|o| deep::allowed(k, o)) else {
+        return refused(&deep::not_made(k, "a tail"));
+    };
+    let Ok(slot) = Arc::clone(&s.streams).try_acquire_owned() else {
+        return busy(
+            "The console has as many event streams open as it allows. Close a tail in another tab and start this one again.",
+        );
+    };
+    let ask = deep::tail::ask_of(query.as_deref(), decode);
+    let body = match run::id_of(&bus, d, k, &name).await {
+        Ok((id, _)) => deep::bound(&bus, op, (&id, &name), deep::tail::input(&ask)),
+        Err(e) => Err(e),
+    };
+    let body = match body {
+        Ok(body) => Value::Object(body),
+        Err(e) => return refused(&e),
+    };
+    match bus.stream(d.target, op.op, &body).await {
+        Ok(download) => Sse::new(deep::tail::events(download, s.stop.clone(), slot))
+            .keep_alive(KeepAlive::new().interval(KEEP_ALIVE).text("keep-alive"))
+            .into_response(),
+        Err(e) => refused(&e),
+    }
 }
 
 /// `Content-Disposition` for saving the object `key` as a file named by its last part: a plain name for old readers (only

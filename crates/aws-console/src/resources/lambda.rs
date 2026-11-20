@@ -1,7 +1,12 @@
 //! Lambda: functions. The console does not create one: a function needs its code, which a deploy tool or the AWS CLI sends.
 
 use super::Format::{Bytes, Json, Mono, Number, Seconds, Tail, Text as Plain, Time};
-use super::{Delete, Descriptor, Field, Id, Kind, LinkTo, List, Step, Sub, Text, col, field, or};
+use super::{
+    Deep, Delete, Descriptor, Field, Id, Kind, LinkTo, List, Step, Sub, Text, col, field, op, or,
+};
+
+/// What every call of its pages names: this function.
+const FUNCTION: &str = r#"{"FunctionName":"{id}"}"#;
 
 pub(super) static LAMBDA: Descriptor = Descriptor {
     service: "lambda",
@@ -95,6 +100,35 @@ pub(super) static LAMBDA: Descriptor = Descriptor {
             words: "Deleting removes the function, its versions and aliases. Its event source mappings stop delivering to it.",
         }),
         reveal: None,
-        deep: &[],
+        deep: &[
+            // Invoke is synchronous from here, its payload and log tail as text (`deep/invoke.rs`).
+            Deep {
+                id: "test",
+                title: "Test",
+                ops: &[op("Invoke", FUNCTION)],
+            },
+            Deep {
+                id: "configuration",
+                title: "Configuration",
+                ops: &[
+                    op("GetFunctionConfiguration", FUNCTION),
+                    op("UpdateFunctionConfiguration", FUNCTION),
+                ],
+            },
+            Deep {
+                id: "versions",
+                title: "Versions and aliases",
+                ops: &[
+                    op("ListVersionsByFunction", FUNCTION),
+                    op("ListAliases", FUNCTION),
+                ],
+            },
+            // The Live record's Invoke calls, and the streams of its log group, read through that group's own page.
+            Deep {
+                id: "invocations",
+                title: "Invocations",
+                ops: &[],
+            },
+        ],
     }],
 };

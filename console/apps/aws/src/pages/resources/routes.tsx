@@ -15,8 +15,8 @@ import { ResourceListPage } from "./list-page";
 import { resolve } from "./model";
 
 // An execution and a log stream are pages of their own, in a chunk of their own.
-const DeepRoute = lazy(() => import("../deep/routes").then((m) => ({ default: m.DeepRoute })));
-/** (The same test as `../deep/routes`, here so the chunk is fetched only when it is needed.) */
+const DeepRoute = lazy(() => import("./deep/routes").then((m) => ({ default: m.DeepRoute })));
+/** (The same test as `./deep/routes`, here so the chunk is fetched only when it is needed.) */
 const isDeepRoute = (service: string, kind: string) => (service === "stepfunctions" && kind === "executions") || (service === "logs" && kind === "streams");
 
 function NotDescribed({ service, note }: { service: string; note: string | null }) {

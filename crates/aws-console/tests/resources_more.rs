@@ -188,11 +188,17 @@ async fn a_stack_made_from_a_template_shows_its_resources_outputs_and_events() {
             .unwrap()
             .ends_with("/stack-inbox")
     );
+    // Its events are a page of their own.
+    let (_, events) = w
+        .send(
+            "POST",
+            "/api/v1/resources/cloudformation/stacks/larder/op/DescribeStackEvents",
+            &json!({}),
+        )
+        .await;
     assert!(
-        !sub(&detail, "Events")["rows"]
-            .as_array()
-            .unwrap()
-            .is_empty()
+        !events["StackEvents"].as_array().unwrap().is_empty(),
+        "{events}"
     );
     // A stack is deleted in the background: it is DELETE_IN_PROGRESS first.
     let (status, done) = w

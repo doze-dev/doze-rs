@@ -34,10 +34,13 @@ test("a log group made with the CLI shows its streams", async ({ page, cli, brow
   expect(cli(["logs", "create-log-group", "--log-group-name", group]).code).toBe(0);
   for (const s of ["first", "second"]) expect(cli(["logs", "create-log-stream", "--log-group-name", group, "--log-stream-name", s]).code).toBe(0);
   await open(page, `/resources/logs/groups/${encodeURIComponent(group)}`, group);
-  const streams = page.getByTestId("sub-Log streams");
+  await expect(page.getByTestId("field-Retention (days)")).toHaveText("Never expire");
+  // Its streams are a tab of their own, not a list on its details as well.
+  await expect(page.getByTestId("sub-Log streams")).toHaveCount(0);
+  await page.getByTestId("tab-streams").click();
+  const streams = page.getByTestId("group-streams");
   await expect(streams).toContainText("DescribeLogStreams");
   await expect(streams.locator("tbody tr")).toHaveCount(2);
-  await expect(page.getByTestId("field-Retention (days)")).toHaveText("Never expire");
 });
 
 test("a state machine lists its executions, the newest first", async ({ page, cli, browserName }) => {
@@ -51,7 +54,10 @@ test("a state machine lists its executions, the newest first", async ({ page, cl
     await page.waitForTimeout(1100);
   }
   await open(page, `/resources/stepfunctions/machines/${name}`, name);
-  const executions = page.getByTestId("sub-Executions").locator("tbody tr");
+  // Its executions are a tab of their own, not a list on its details as well.
+  await expect(page.getByTestId("sub-Executions")).toHaveCount(0);
+  await page.getByTestId("tab-executions").click();
+  const executions = page.getByTestId("machine-executions").locator("tbody tr");
   await expect(executions).toHaveCount(2);
   await expect(executions.first()).toContainText("two");
   await expect(executions.last()).toContainText("one");

@@ -1,8 +1,9 @@
 // Small pieces the resource pages share: a card with a title, a refusal in the service's own words, a line naming the call
-// made, a JSON block, and a confirm dialog.
+// made, a JSON block, a read-only code block, a read's states, a time, and a confirm dialog.
 import { useState } from "react";
 import { Alert, errorWords } from "@doze/ui/components/app/alert";
 import { Button } from "@doze/ui/components/ui/button";
+import { Skeleton } from "@doze/ui/components/ui/skeleton";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@doze/ui/components/ui/dialog";
 import { dateTimeUtc } from "@doze/ui/lib/format";
 import { cn } from "@doze/ui/lib/utils";
@@ -35,8 +36,8 @@ export function Refused({ operation, error, testId = "op-error" }: { operation: 
   );
 }
 
-/** `Made with SendMessage as the caller console; Live shows it.` */
-export function Made({ ops, className }: { ops: string[]; className?: string }) {
+/** `Calls SendMessage as the caller console; Live shows each one.`, and `more` after it. */
+export function Made({ ops, className, more }: { ops: string[]; className?: string; more?: React.ReactNode }) {
   return (
     <p className={cn("text-[12.5px] text-muted-foreground", className)}>
       Calls{" "}
@@ -46,7 +47,7 @@ export function Made({ ops, className }: { ops: string[]; className?: string }) 
           <span className="font-mono text-foreground">{o}</span>
         </span>
       ))}{" "}
-      as the caller <span className="font-mono text-foreground">console</span>; Live shows each one.
+      as the caller <span className="font-mono text-foreground">console</span>; Live shows each one.{more ? <> {more}</> : null}
     </p>
   );
 }
@@ -61,14 +62,38 @@ export function JsonBlock({ value, className, testId }: { value: unknown; classN
   );
 }
 
-/** A body that is JSON, indented; any other text as it is. */
-export function pretty(body: string): string {
+/** A body that is JSON, indented; any other text as it is (none: empty). */
+export function pretty(body: string | null | undefined): string {
+  if (!body) return "";
   try {
     const v: unknown = JSON.parse(body);
     return typeof v === "object" && v !== null ? JSON.stringify(v, null, 2) : body;
   } catch {
     return body;
   }
+}
+
+/** A read-only block of code or text, with its own scroll; wrapped or not. */
+export function CodeBlock({ text, wrap = true, className, testId, max = "max-h-[560px]" }: { text: string; wrap?: boolean; className?: string; testId?: string; max?: string }) {
+  return (
+    <pre className={cn("overflow-auto rounded-[12px] border bg-well px-5 py-4 font-mono text-[12.5px] leading-[21px] text-foreground", max, wrap ? "whitespace-pre-wrap break-words" : "whitespace-pre", className)} data-testid={testId}>
+      {text}
+    </pre>
+  );
+}
+
+/** A read's states: loading, refused (the service's words, and Retry), or its body. */
+export function Loaded<T>({ q, what, children, height = "h-40" }: { q: { data: T | undefined; error: unknown; isFetching: boolean; refetch: () => unknown }; what: string; children: (data: T) => React.ReactNode; height?: string }) {
+  if (q.data !== undefined) return <>{children(q.data)}</>;
+  if (q.error) {
+    const w = errorWords(q.error);
+    return (
+      <Alert tone="bad" title={`${what} could not be read${w.code ? `: ${w.code}` : ""}`} testId="deep-error" action={<Button variant="outline" size="sm" className="bg-card" onClick={() => void q.refetch()} disabled={q.isFetching}>{q.isFetching ? "Retrying…" : "Retry"}</Button>}>
+        {w.message}
+      </Alert>
+    );
+  }
+  return <Skeleton className={cn("rounded-[12px]", height)} data-testid="deep-loading" />;
 }
 
 /** A dialog that asks before a change that cannot be undone, and shows the refusal if there is one. */

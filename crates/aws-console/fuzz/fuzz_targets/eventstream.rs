@@ -1,7 +1,7 @@
 #![no_main]
 //! Any bytes, split anywhere: the event-stream reader never panics, and what it reads in two pieces is what it reads in one.
 
-use aws_console::deep::frames::{Reader, headers};
+use aws_console::resources::deep::frames::{Reader, headers};
 use libfuzzer_sys::fuzz_target;
 
 fuzz_target!(|data: &[u8]| {

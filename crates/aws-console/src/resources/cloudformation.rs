@@ -1,8 +1,11 @@
-//! CloudFormation: stacks, with their resources, outputs, parameters and events (the newest first) on their page. The console
-//! does not create a stack: it needs a template, deployed with the AWS CLI or a tool.
+//! CloudFormation: stacks, with their resources, outputs and parameters on their page, and their events, template and change
+//! sets on pages of their own. The console does not create a stack: it needs a template, deployed with the AWS CLI or a tool.
 
 use super::Format::{Flag, Mono, Pairs, Text as Plain, Time};
-use super::{Delete, Descriptor, Id, Kind, List, Step, Sub, Text, col, field};
+use super::{Deep, Delete, Descriptor, Id, Kind, List, Step, Sub, Text, col, field, op};
+
+/// What every call of its pages names: this stack.
+const STACK: &str = r#"{"StackName":"{id}"}"#;
 
 /// The one stack `DescribeStacks` answered for a name.
 macro_rules! stack {
@@ -107,21 +110,6 @@ pub(super) static CLOUDFORMATION: Descriptor = Descriptor {
                 more: "",
                 add: None,
             },
-            Sub {
-                title: "Events",
-                step: Step::new("DescribeStackEvents", r#"{"StackName":"{id}"}"#),
-                items: "StackEvents",
-                item_as: "EventId",
-                columns: &[
-                    col("Time", "Timestamp", Time),
-                    col("Logical ID", "LogicalResourceId", Mono),
-                    col("Status", "ResourceStatus", Plain),
-                    col("Why", "ResourceStatusReason", Plain),
-                ],
-                link: None,
-                more: "NextToken",
-                add: None,
-            },
         ],
         create: None,
         delete: Some(Delete {
@@ -130,6 +118,27 @@ pub(super) static CLOUDFORMATION: Descriptor = Descriptor {
             words: "Deleting the stack deletes every resource it made, except those its template retains. CloudFormation refuses while termination protection is on.",
         }),
         reveal: None,
-        deep: &[],
+        // Its events are a page of their own, not a list on its details.
+        deep: &[
+            Deep {
+                id: "events",
+                title: "Events",
+                ops: &[op("DescribeStackEvents", STACK)],
+            },
+            Deep {
+                id: "template",
+                title: "Template",
+                // A change set named by its ARN could be another stack's.
+                ops: &[op(
+                    "GetTemplate",
+                    r#"{"StackName":"{id}","ChangeSetName":null}"#,
+                )],
+            },
+            Deep {
+                id: "changesets",
+                title: "Change sets",
+                ops: &[op("ListChangeSets", STACK)],
+            },
+        ],
     }],
 };
