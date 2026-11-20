@@ -17,7 +17,10 @@
 # (`doze-dev/doze-rs`) or from a dispatch's `sources` map. Publishing there (signing) is off on purpose while the
 # registry's schedule is commented out; this workflow does not dispatch to it. The hand-off is written in RELEASE.md.
 #
-# The kafka and aws modules are not part of the core cut-over and are not offered here.
+# kafka and aws are the module faces of their own binaries (doze-kafka, doze-aws: one binary is the broker or the stack,
+# and, started as `kafka-plugin` / `aws-plugin`, the module). Their acceptance is the module's boot test against the real
+# binary (tests/module_boot.rs: the published example boots and converges; aws's checks it with the aws CLI) plus the
+# crate's unit tests; they need no engine from doze-binaries.
 name: modules-release
 
 on:
@@ -32,7 +35,7 @@ on:
       module:
         description: "The module"
         type: choice
-        options: [postgres, mariadb, ferret, valkey, kvrocks, temporal]
+        options: [postgres, mariadb, ferret, valkey, kvrocks, temporal, kafka, aws]
       version:
         description: "Its version, without the v (1.2.0)"
         required: true
@@ -57,6 +60,7 @@ jobs:
     runs-on: ubuntu-24.04
     outputs:
       module: ${{ steps.plan.outputs.module }}
+      crate: ${{ steps.plan.outputs.crate }}
       version: ${{ steps.plan.outputs.version }}
       dry_run: ${{ steps.plan.outputs.dry_run }}
     steps:
@@ -78,11 +82,12 @@ jobs:
             module=$INPUT_MODULE; version=${INPUT_VERSION#v}; dry_run=$INPUT_DRY_RUN
           fi
           case "$module" in
-            postgres|mariadb|ferret|valkey|kvrocks|temporal) ;;
-            *) echo "::error::'$module' is not a module this workflow releases (postgres mariadb ferret valkey kvrocks temporal)"; exit 1 ;;
+            postgres|mariadb|ferret|valkey|kvrocks|temporal) crate=doze-module-$module ;;
+            kafka|aws) crate=doze-$module ;;
+            *) echo "::error::'$module' is not a module this workflow releases (postgres mariadb ferret valkey kvrocks temporal kafka aws)"; exit 1 ;;
           esac
           echo "$version" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$' || { echo "::error::version '$version' is not X.Y.Z"; exit 1; }
-          { echo "module=$module"; echo "version=$version"; echo "dry_run=$dry_run"; } >> "$GITHUB_OUTPUT"
+          { echo "module=$module"; echo "crate=$crate"; echo "version=$version"; echo "dry_run=$dry_run"; } >> "$GITHUB_OUTPUT"
           echo "$module $version · dry run: $dry_run"
 
   # Acceptance, then the build, on each target.
@@ -98,6 +103,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     env:
       MODULE: ${{ needs.plan.outputs.module }}
+      CRATE: ${{ needs.plan.outputs.crate }}
       TARGET: ${{ matrix.target }}
       DOZE_ACCEPTANCE: "1"
       # The engine builds the acceptance runs against: keep these in step with ci.yml's `modules` job.
@@ -126,6 +132,7 @@ jobs:
             mariadb) engines="DOZE_MARIADB_BINDIR:mariadb:mariadb:$MARIADB" ;;
             ferret) engines="DOZE_FERRET_BINDIR:ferretdb:ferretdb:$FERRETDB DOZE_DOCUMENTDB_BINDIR:documentdb:documentdb:$DOCUMENTDB" ;;
             postgres) engines="DOZE_POSTGRES_BINDIR:postgres:postgresql:$POSTGRES" ;;
+            kafka|aws) engines="" ;; # the engine is the binary itself
           esac
           for e in $engines; do
             IFS=: read -r var release prefix v <<< "$e"
@@ -137,12 +144,19 @@ jobs:
             echo "$var=$dir/$prefix-$v-$TARGET/bin" >> "$GITHUB_ENV"
           done
       - name: The module's tests, acceptance included
-        run: cargo test --locked -p "doze-module-$MODULE" --no-fail-fast -- --nocapture
+        shell: bash
+        run: |
+          case "$MODULE" in
+            # The binary's unit tests and the module's boot test (the other suites are the broker's and the stack's,
+            # which ci.yml runs; module_oracle needs the Go oracle).
+            kafka|aws) cargo test --locked -p "$CRATE" --bins --test module_boot --no-fail-fast -- --nocapture ;;
+            *) cargo test --locked -p "$CRATE" --no-fail-fast -- --nocapture ;;
+          esac
       - name: The module (release)
         run: |
-          cargo build --locked --release -p "doze-module-$MODULE"
+          cargo build --locked --release -p "$CRATE"
           mkdir -p dist
-          cp "target/release/doze-module-$MODULE" "dist/doze-module-$MODULE-$TARGET"
+          cp "target/release/$CRATE" "dist/doze-module-$MODULE-$TARGET"
           ls -l dist
       - uses: actions/upload-artifact@v4
         with:
@@ -183,10 +197,13 @@ jobs:
         run: |
           chmod 0755 bin/*
           cargo build --locked --release -p doze-module-release
-          # The x86_64 Linux build answers --describe here; each target's own binary goes into its archive.
+          # The x86_64 Linux build answers --describe here; each target's own binary goes into its archive. kafka and aws
+          # answer it only under their plugin name (<name>-plugin), as doze starts them.
+          describe="bin/doze-module-$MODULE-x86_64-unknown-linux-gnu"
+          mkdir -p describe && cp "$describe" "describe/$MODULE-plugin" && describe="describe/$MODULE-plugin"
           for t in x86_64-unknown-linux-gnu aarch64-unknown-linux-gnu aarch64-apple-darwin; do
             target/release/doze-module-release --binary "bin/doze-module-$MODULE-$t" \
-              --describe-with "bin/doze-module-$MODULE-x86_64-unknown-linux-gnu" \
+              --describe-with "$describe" \
               --target "$t" --version "$VERSION" --out dist --accepted
           done
           ls -l "dist/$MODULE"
