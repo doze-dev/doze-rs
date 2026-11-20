@@ -5,12 +5,14 @@ import { createRoot } from "react-dom/client";
 import { Toaster } from "@doze/ui/components/ui/sonner";
 import { TooltipProvider } from "@doze/ui/components/ui/tooltip";
 import { startTheme } from "@doze/ui/lib/theme";
+import { applyDensity } from "./density";
 import { THEME_KEY } from "./nav";
 import { router } from "./router";
 import "./index.css";
 
 // Before the first render: light, dark, or the OS's, as chosen in this browser.
 startTheme({ storageKey: THEME_KEY });
+applyDensity();
 
 const queries = new QueryClient({
   defaultOptions: {

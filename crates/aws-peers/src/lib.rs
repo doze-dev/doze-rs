@@ -87,6 +87,20 @@ impl Peers {
         }
     }
 
+    /// Every service that can be called, by its name on the bus, in name order (the console's Lab lists them).
+    #[must_use]
+    pub fn targets(&self) -> Vec<(&'static str, Arc<dyn Service>)> {
+        let Ok(entries) = self.entries.read() else {
+            return Vec::new();
+        };
+        let mut all: Vec<(&'static str, Arc<dyn Service>)> = entries
+            .iter()
+            .map(|(name, e)| (*name, Arc::clone(&e.service)))
+            .collect();
+        all.sort_by_key(|(name, _)| *name);
+        all
+    }
+
     /// The model tables of service `target`, when it is registered (a caller that builds bodies from loosely typed input, such as
     /// a CloudFormation template, reads them to coerce its values).
     #[must_use]

@@ -41,7 +41,7 @@ pub const MOST_RESOURCE: usize = 256;
 pub const MOST_VIA: usize = 64;
 /// The most text a request from the wire holds.
 pub const MOST_WIRE_TEXT: usize =
-    MOST_REQUEST_ID + MOST_CALLER + MOST_REGION + MOST_CODE + MOST_RESOURCE;
+    MOST_REQUEST_ID + MOST_CALLER + MOST_REGION + MOST_CODE + MOST_RESOURCE + crate::agent::MOST;
 /// The most a call between services holds beside its slot: it has no request id of its own, and a [`Via`].
 pub const MOST_BUS_TEXT: usize = MOST_CALLER
     + MOST_REGION
@@ -91,6 +91,9 @@ pub struct Call {
     pub resource: Box<str>,
     /// A call one service made to another on the bus, not a request from the wire: who made it and why.
     pub via: Option<Box<Via>>,
+    /// The client that sent it, from its `User-Agent` ([`crate::agent::label`]: `boto3 1.34.69`); empty for a call between
+    /// services and for a request that named no client.
+    pub sdk: Box<str>,
 }
 
 /// What made a call between services.
@@ -122,6 +125,7 @@ impl Call {
             + self.code.len()
             + self.resource.len()
             + self.via.as_ref().map_or(0, |v| v.bytes())
+            + self.sdk.len()
     }
 }
 
@@ -239,6 +243,7 @@ impl Recorder {
             member: call.member,
             resource: cut(call.resource, MOST_RESOURCE),
             via: None,
+            sdk: crate::agent::label(call.user_agent).into(),
         })
     }
 
@@ -285,6 +290,7 @@ impl Recorder {
                 ),
                 name: text(cause.and_then(|c| c.name.as_deref())),
             })),
+            sdk: Box::default(),
         })
     }
 

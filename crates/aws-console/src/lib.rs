@@ -18,12 +18,14 @@
 //! `files`, `origin`, `headers`, `limits` and the connection loop of `serve` are doze-kafka's console code made product-neutral;
 //! they belong in a crate both consoles share (see the note in each).
 
+pub mod agent;
 pub mod api;
 pub mod app;
 pub mod facts;
 pub mod files;
 pub mod guard;
 pub mod headers;
+pub mod iam;
 pub mod limits;
 pub mod model;
 pub mod origin;
@@ -33,7 +35,7 @@ pub mod serve;
 pub mod state;
 pub mod web;
 
-pub use facts::{Facts, ServiceFacts};
+pub use facts::{Facts, Flag, LocalData, ServiceFacts};
 pub use limits::Limits;
 pub use ring::Recorder;
 pub use serve::{Running, Settings, start_on, start_with};

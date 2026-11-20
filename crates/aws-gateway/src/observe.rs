@@ -54,6 +54,9 @@ pub struct Finished<'a> {
     pub took: Duration,
     /// IAM in soft mode found it would refuse this request and let it through ([`crate::Config::would_deny`]).
     pub would_be_denied: bool,
+    /// The request's `User-Agent` header as sent (an SDK names itself and its version there); empty when it had none. The
+    /// observer keeps what it needs of it: the gateway neither reads nor stores it.
+    pub user_agent: &'a str,
 }
 
 /// The requests in flight, so a refusal IAM's soft mode lets through can be marked on the request it was for ([`crate::Config::would_deny`]).
@@ -268,5 +271,10 @@ pub(crate) fn end<B>(
         code,
         took: started.elapsed(),
         would_be_denied: notes.would_be_denied,
+        user_agent: parts
+            .headers
+            .get(http::header::USER_AGENT)
+            .and_then(|v| v.to_str().ok())
+            .unwrap_or_default(),
     });
 }

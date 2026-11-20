@@ -18,6 +18,7 @@ fn call(n: u64) -> Finished<'static> {
         code: "",
         took: Duration::from_micros(n),
         would_be_denied: false,
+        user_agent: "",
     }
 }
 
@@ -92,6 +93,7 @@ fn the_bytes_held_are_counted_and_never_pass_the_bound() {
         access_key_id: &long,
         region: &long,
         code: &long,
+        user_agent: &long,
         ..call(1)
     };
     for n in 1..=20 {
@@ -107,8 +109,9 @@ fn the_bytes_held_are_counted_and_never_pass_the_bound() {
     assert_eq!(one.caller.len(), MOST_CALLER);
     // The whole ring, at its worst, is under a megabyte.
     const { assert!(MOST_BYTES < 1 << 20) };
-    // A slot grew from 160 to 184 bytes with the member that named the resource and the cause of a call between services.
-    const { assert!(RECORD_BYTES <= 184) };
+    // A slot grew from 160 to 184 bytes with the member that named the resource and the cause of a call between services, and
+    // to 200 with the client its User-Agent named.
+    const { assert!(RECORD_BYTES <= 200) };
 }
 
 #[test]
