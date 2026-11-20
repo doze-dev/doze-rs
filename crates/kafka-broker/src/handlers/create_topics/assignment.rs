@@ -43,7 +43,12 @@ impl<F: Fs> Broker<F> {
             t.num_partitions
         };
         PartitionCount::new(count).ok_or_else(|| {
-            let why = "Number of partitions was set to an invalid non-positive value.";
+            // ZooKeeper's admin path (Kafka 1.1 and 2.8) words it otherwise than the controller (3 and 4).
+            let why = if self.config.kafka_major.get() <= 2 {
+                "Number of partitions must be larger than 0."
+            } else {
+                "Number of partitions was set to an invalid non-positive value."
+            };
             (ResponseError::InvalidPartitions, why.to_owned())
         })
     }

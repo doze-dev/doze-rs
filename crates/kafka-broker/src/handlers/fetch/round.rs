@@ -13,6 +13,18 @@ use kafka_wire::messages::{FetchRequest, FetchResponse, ProducerId};
 use super::{Place, Wanted};
 use crate::txn_index::Aborted;
 
+mod old;
+
+pub(super) use old::BATCHES_FROM;
+
+/// Who reads: the request's version and the release the broker stands for, which decide how an older consumer's read is
+/// cut and converted (`old`).
+#[derive(Debug, Clone, Copy)]
+pub(super) struct How {
+    pub(super) version: i16,
+    pub(super) kafka: kafka_wire::profile::KafkaMajor,
+}
+
 /// The size of a read when neither the partition nor the request names one.
 const DEFAULT_MAX_BYTES: i64 = 1 << 20;
 /// A read is never asked for more than this, whatever the client says: a client's limit is not a promise that
@@ -62,6 +74,7 @@ impl Budget {
 pub(super) fn read<F: Fs>(
     wanted: &[Wanted<'_, F>],
     req: &FetchRequest,
+    how: How,
     mut budget: Budget,
 ) -> Round {
     let read_committed = req.isolation_level == 1;
@@ -82,11 +95,7 @@ pub(super) fn read<F: Fs>(
             data.aborted_transactions = None;
             match place {
                 Place::Error(code) => {
-                    // Kafka's `FetchResponse.partitionResponse(error)`: no high watermark (-1) and an empty, not null,
-                    // list of aborted transactions (recorded `authz-matrix`, step `bob-fetch`; SEC-403).
-                    data.error_code = code.code();
-                    data.high_watermark = -1;
-                    data.aborted_transactions = Some(Vec::new());
+                    refused(&mut data, *code, how);
                     round.failed = true;
                 }
                 Place::Open(partition) => {
@@ -102,15 +111,31 @@ pub(super) fn read<F: Fs>(
                     };
                     let limit =
                         limit_for(asked.partition_max_bytes, req.max_bytes, budget.remaining);
-                    round.bytes += fill(
-                        &mut data,
-                        partition.reader(),
-                        asked.fetch_offset,
-                        (limit, aborted.is_some().then_some(last_stable)),
-                        &mut budget,
-                    );
+                    round.bytes += if how.version < BATCHES_FROM {
+                        old::fill(
+                            &mut data,
+                            partition.reader(),
+                            asked,
+                            limit,
+                            how,
+                            &mut budget,
+                        )
+                    } else {
+                        fill(
+                            &mut data,
+                            partition.reader(),
+                            asked.fetch_offset,
+                            (limit, aborted.is_some().then_some(last_stable)),
+                            &mut budget,
+                        )
+                    };
                     if data.error_code == 0 {
-                        data.last_stable_offset = last_stable.get();
+                        // Kafka 1.1 gives a read-uncommitted consumer no last stable offset (-1).
+                        data.last_stable_offset = if how.kafka.get() == 1 && !read_committed {
+                            -1
+                        } else {
+                            last_stable.get()
+                        };
                         data.aborted_transactions = aborted;
                     }
                     round.failed |= data.error_code != 0;
@@ -121,6 +146,21 @@ pub(super) fn read<F: Fs>(
         round.topics.push(topic);
     }
     round
+}
+
+/// A partition refused before it is read. Kafka's `FetchResponse.partitionResponse(error)`: no high watermark (-1) and an
+/// empty, not null, list of aborted transactions (recorded `authz-matrix`, step `bob-fetch`; SEC-403); the refusals of an
+/// older consumer (`refused_to_old_consumer`) in their release's shape.
+fn refused(data: &mut PartitionData, code: ResponseError, how: How) {
+    data.error_code = code.code();
+    data.high_watermark = -1;
+    data.aborted_transactions = Some(Vec::new());
+    if matches!(
+        code,
+        ResponseError::UnsupportedCompressionType | ResponseError::UnsupportedVersion
+    ) {
+        old::as_the_release_refuses(data, how);
+    }
 }
 
 fn wire_aborted(a: &Aborted) -> AbortedTransaction {
@@ -184,7 +224,7 @@ fn fill<F: Fs>(
     }
 }
 
-fn take(data: &mut PartitionData, records: Bytes, budget: &mut Budget) -> usize {
+pub(super) fn take(data: &mut PartitionData, records: Bytes, budget: &mut Budget) -> usize {
     let size = i64::try_from(records.len()).unwrap_or(i64::MAX);
     if budget.gave_data && size > budget.remaining {
         // The first batch here does not fit in what the request has left, and an earlier partition already took

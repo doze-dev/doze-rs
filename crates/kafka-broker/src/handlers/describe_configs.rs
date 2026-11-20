@@ -39,13 +39,21 @@ fn synonym(name: &str, value: &str, source: i8) -> Synonym {
     s
 }
 
+/// A config's source when nothing sets it (`DescribeConfigsResponse.ConfigSource.DEFAULT_CONFIG`).
+const DEFAULT_CONFIG: i8 = 5;
+
 impl<F: Fs> Broker<F> {
     /// The caller must be allowed to DESCRIBE_CONFIGS the resource (which an ALTER_CONFIGS ACL grants): on the topic, on
     /// the cluster for a broker, or on the group; a resource it may not is answered 29, 31 or 30 with that error's
     /// words and no configs, before the resource is looked for. The answers for the resources it may come first, then
     /// those it may not (`ConfigHelper.handleDescribeConfigsRequest`).
+    ///
+    /// v0 has no source, only whether each config is the default: Kafka 1.1 says so; 2.8 and 3.9 say it of none
+    /// (their v0 answer leaves the field false), and so does this broker at those releases (recorded,
+    /// `tools/old-profiles-oracle`, `admin-old`).
     pub(crate) fn describe_configs(
         &self,
+        version: i16,
         caller: &Caller,
         req: &DescribeConfigsRequest,
     ) -> Outcome {
@@ -62,7 +70,14 @@ impl<F: Fs> Broker<F> {
                 continue;
             }
             match self.configs_of(r, req) {
-                Ok(configs) => out.configs = configs,
+                Ok(mut configs) => {
+                    if version == 0 && self.config.kafka_major.get() == 1 {
+                        for c in &mut configs {
+                            c.is_default = c.config_source == DEFAULT_CONFIG;
+                        }
+                    }
+                    out.configs = configs;
+                }
                 Err(Refused(code, message)) => {
                     out.error_code = code.code();
                     out.error_message = message.as_deref().map(text);

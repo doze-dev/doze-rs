@@ -68,6 +68,16 @@ func askOffered(addr string, opts ...kgo.Opt) (apis, error) {
 	for _, k := range resp.ApiKeys {
 		out[k.ApiKey] = [2]int16{k.MinVersion, k.MaxVersion}
 	}
+	// Kafka 3.9 lists ConsumerGroupHeartbeat and, as installed, refuses it (UNSUPPORTED_VERSION): its groups are classic only.
+	// What runs is what answers, so a heartbeat refused so is not offered.
+	if _, ok := out[int16(kmsg.ConsumerGroupHeartbeat)]; ok {
+		hb := kmsg.NewPtrConsumerGroupHeartbeatRequest()
+		hb.Group, hb.MemberID, hb.RebalanceTimeoutMillis = "interop-probe", "interop-probe-member", 5000
+		hb.SubscribedTopicNames = []string{"interop-probe"}
+		if r, err := hb.RequestWith(ctx, cl); err == nil && r.ErrorCode == 35 {
+			delete(out, int16(kmsg.ConsumerGroupHeartbeat))
+		}
+	}
 	return out, nil
 }
 

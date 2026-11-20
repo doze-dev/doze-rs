@@ -14,6 +14,7 @@ mod shares;
 mod tokens;
 mod topics;
 mod txns;
+mod zk_offsets;
 
 pub use schemas::Records;
 pub use shares::ShareStateWrite;

@@ -90,6 +90,13 @@ The header's newest timestamp is rewritten to the latest of the records' (a prod
 ListOffsets and the time lookups read it), and the checksum with it, without copying the body.
 Test: `produce_records::the_newest_timestamp_a_log_keeps_*`, `batch::tests::a_corrected_newest_timestamp_*`
 
+### P16. Produce v0 to v2 carry message sets of formats v0 and v1 (debt K2, 2026-11-19)
+Converted into one v2 batch with Kafka's checks, in the release's rules (wire.md W38), then held to everything a v3 batch is
+(P11 to P15). A set with no whole message appends nothing (0, offset -1). At Kafka 1.1 INVALID_RECORD is CORRUPT_MESSAGE, and
+a v3 to v5 request whose records are not one v2 batch closes the connection. `message.timestamp.after.max.ms` has no default
+bound before Kafka 4 (KIP-937).
+Test: `batch::legacy::tests`, recorded `old-formats-produce`, `tools/old-profiles-oracle` `produce-old`, `produce-old-refused`
+
 ### P15. A topic's `compression.type` writes the batch again
 When a topic stores a codec other than the producer's (`uncompressed`, `gzip`, `snappy`, `lz4`, `zstd`), the records are
 read, numbered 0, 1, 2, and written out in the topic's codec, and the size limit is held to the batch as stored (an

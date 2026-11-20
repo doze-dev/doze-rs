@@ -102,7 +102,7 @@ impl<F: Fs> Broker<F> {
             }
             Request::DeleteRecords(r) => self.delete_records(caller, &r).await,
             Request::CreatePartitions(r) => self.create_partitions(caller, &r, mutations).await,
-            Request::DescribeConfigs(r) => self.describe_configs(caller, &r),
+            Request::DescribeConfigs(r) => self.describe_configs(head.version, caller, &r),
             Request::AlterConfigs(r) => self.alter_configs(caller, &r).await,
             Request::IncrementalAlterConfigs(r) => self.incremental_alter_configs(caller, &r).await,
             Request::DescribeProducers(r) => self.describe_producers(caller, &r).await,
