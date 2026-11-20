@@ -156,8 +156,9 @@ new version is signed within the hour with no token in doze-rs. To sign at once:
 The commented dispatch step at the end of the `publish` job is the faster path; it needs `REGISTRY_DISPATCH_TOKEN`
 (owner), which does not exist.
 
-Versions: the Rust modules start at **0.3.0**, above every Go-built version (the highest was aws 0.2.0, postgres
-0.2.4). Those Go versions are withdrawn (doze-registry `withdrawn.yaml`, which now names versions) and may never be
+Versions: each Rust module starts above every withdrawn Go-built version of that module: **0.3.0** for postgres,
+valkey, kvrocks, temporal, mariadb, ferret and aws (Go reached postgres 0.2.4, aws 0.2.0), **0.2.0** for kafka (Go reached
+0.1.2). Those Go versions are withdrawn (doze-registry `withdrawn.yaml`, which now names versions) and may never be
 published again. Every Rust release is protocol 2; the Go doze takes only protocol-1 releases, so it never selects one.
 
 ## Testing the pipeline
