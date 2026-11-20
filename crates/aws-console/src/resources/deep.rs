@@ -21,6 +21,67 @@ use crate::model::DeepTab;
 /// The operations whose answer is a stream, each read at an address of its own and never through [`call`].
 pub const STREAMED: &[&str] = &["StartLiveTail"];
 
+/// How to tell that a handle the page names is one of this resource's own parts when nothing in the handle says so (an SQS
+/// move task's handle): the operation `list`, bound by `bind` as an [`Op`]'s is, lists them; the handle in `member` must be
+/// the `at` of one of the `items`.
+#[derive(Debug)]
+pub struct Owned {
+    pub member: &'static str,
+    pub list: &'static str,
+    pub bind: &'static str,
+    pub items: &'static str,
+    pub at: &'static str,
+}
+
+/// An operation of a [`super::Deep`] page on a part of the resource that [`Owned`] tells is this resource's.
+#[must_use]
+pub const fn op_owned(op: &'static str, bind: &'static str, owned: &'static Owned) -> Op {
+    Op {
+        op,
+        bind,
+        within: None,
+        owned: Some(owned),
+    }
+}
+
+/// 400 `NOT_THIS_RESOURCE` unless the part `input` names is among those `owned.list` lists for this resource.
+async fn check_owned(
+    bus: &Bus,
+    (target, op, owned): (&str, &Op, &Owned),
+    (id, name): (&str, &str),
+    input: &Map<String, Value>,
+) -> Result<(), ApiError> {
+    let named = input
+        .get(owned.member)
+        .and_then(Value::as_str)
+        .unwrap_or("");
+    let list = Op {
+        op: owned.list,
+        bind: owned.bind,
+        within: None,
+        owned: None,
+    };
+    let ask = bound(bus, &list, (id, name), Map::new())?;
+    let answer = bus.call(target, owned.list, &Value::Object(ask)).await?;
+    let ours = path::get(&answer, owned.items)
+        .and_then(|v| v.as_array().cloned())
+        .unwrap_or_default()
+        .iter()
+        .any(|item| !named.is_empty() && path::text(item, owned.at).as_deref() == Some(named));
+    if ours {
+        Ok(())
+    } else {
+        Err(ApiError::new(
+            400,
+            "NOT_THIS_RESOURCE",
+            format!(
+                "{} acts here only on a {} that {} lists for this {name}.",
+                op.op, owned.member, owned.list
+            ),
+        ))
+    }
+}
+
 /// The tabs a detail page shows for `kind`.
 #[must_use]
 pub fn tabs(kind: &Kind) -> Vec<DeepTab> {
@@ -104,6 +165,28 @@ pub fn bound(
     Ok(input)
 }
 
+/// What `op`'s binding fills `{id}` with: the kind's id of `name` ([`run::id_of`], which may be a call), or, when nothing `op`
+/// binds names `{id}` (a log group's operations take its name), the name itself and no call.
+///
+/// # Errors
+/// The kind has no resource named `name`, or the call that finds it was refused.
+pub async fn id_for(
+    bus: &Bus,
+    (d, kind): (&Descriptor, &Kind),
+    op: &Op,
+    name: &str,
+) -> Result<String, ApiError> {
+    let uses_id = |t: &str| t.contains("{id}");
+    let needed = uses_id(op.bind)
+        || op.within.is_some_and(|(_, prefix)| uses_id(prefix))
+        || op.owned.is_some_and(|o| uses_id(o.bind));
+    if needed {
+        Ok(run::id_of(bus, d, kind, name).await?.0)
+    } else {
+        Ok(name.to_owned())
+    }
+}
+
 /// Makes operation `operation` of `kind`'s pages on the resource named `name`, with the page's input; the service's answer
 /// (for Lambda's `Invoke`, [`crate::model::Invoked`]).
 ///
@@ -125,7 +208,10 @@ pub async fn call(
             format!("{operation} answers a stream: the page reads it at …/tail."),
         ));
     }
-    let (id, _) = run::id_of(bus, d, kind, name).await?;
+    let id = id_for(bus, (d, kind), op, name).await?;
+    if let Some(owned) = op.owned {
+        check_owned(bus, (d.target, op, owned), (&id, name), &input).await?;
+    }
     let body = Value::Object(bound(bus, op, (&id, name), input)?);
     if (d.target, op.op) == ("lambda", "Invoke") {
         let done = invoke::invoke(bus, &body).await?;

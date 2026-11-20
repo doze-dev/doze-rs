@@ -3,7 +3,7 @@
 use super::Format::{Bytes, Flag, Json, Mono, Number, Seconds, Tail, Time};
 use super::{
     Create, Deep, Delete, Descriptor, Field, Id, Input, InputKind, Kind, LinkTo, List, Step, Sub,
-    Text, col, field, input, op,
+    Text, col, deep, field, input, op,
 };
 
 const ATTRIBUTES: Step = Step::new(
@@ -15,6 +15,16 @@ const ATTRIBUTES: Step = Step::new(
 const QUEUE: &str = r#"{"QueueUrl":"{id}"}"#;
 /// What a redrive names: this queue as the dead-letter queue the messages leave.
 const SOURCE: &str = r#"{"SourceArn":"arn:aws:sqs:{region}:{account}:{name}"}"#;
+
+/// A move task is this queue's when `ListMessageMoveTasks` on it lists its handle (it lists at most ten, newest first: a task
+/// that can still be cancelled is the newest).
+static MOVE_OF_THIS_QUEUE: deep::Owned = deep::Owned {
+    member: "TaskHandle",
+    list: "ListMessageMoveTasks",
+    bind: r#"{"SourceArn":"arn:aws:sqs:{region}:{account}:{name}","MaxResults":10}"#,
+    items: "Results",
+    at: "TaskHandle",
+};
 
 pub(super) static SQS: Descriptor = Descriptor {
     service: "sqs",
@@ -258,7 +268,8 @@ pub(super) static SQS: Descriptor = Descriptor {
                 ops: &[
                     op("StartMessageMoveTask", SOURCE),
                     op("ListMessageMoveTasks", SOURCE),
-                    op("CancelMessageMoveTask", "{}"),
+                    // Only a move of this queue's: its handle must be one ListMessageMoveTasks lists for this queue.
+                    deep::op_owned("CancelMessageMoveTask", "{}", &MOVE_OF_THIS_QUEUE),
                 ],
             },
             Deep {

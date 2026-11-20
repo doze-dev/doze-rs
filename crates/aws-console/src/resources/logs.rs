@@ -7,8 +7,9 @@ use super::{
     field, input, op, or,
 };
 
-/// What a read of its streams names: this group, and no other by `logGroupIdentifier`.
-const GROUP: &str = r#"{"logGroupName":"{id}","logGroupIdentifier":null}"#;
+/// What a read of its streams names: this group, and no other by `logGroupIdentifier`. By its name as the address gives it, so
+/// no `DescribeLogGroups` is made first to find it (Logs itself refuses a group that is not there).
+const GROUP: &str = r#"{"logGroupName":"{name}","logGroupIdentifier":null}"#;
 
 pub(super) static LOGS: Descriptor = Descriptor {
     service: "logs",
@@ -134,7 +135,7 @@ pub(super) static LOGS: Descriptor = Descriptor {
                 title: "Live Tail",
                 ops: &[op(
                     "StartLiveTail",
-                    r#"{"logGroupIdentifiers":["arn:aws:logs:{region}:{account}:log-group:{id}"]}"#,
+                    r#"{"logGroupIdentifiers":["arn:aws:logs:{region}:{account}:log-group:{name}"]}"#,
                 )],
             },
         ],

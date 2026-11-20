@@ -153,15 +153,22 @@ async fn a_stream_is_read_both_ways_a_group_searched_and_tailed() {
         "{text}"
     );
     assert!(w.live().contains(&"console logs StartLiveTail".to_owned()));
-    // No such group; a kind with nothing to tail; the stream asked for as an operation.
-    let (status, _) = sse(
+    // No such group (Logs' own refusal: the console makes no DescribeLogGroups first to find it); a kind with nothing to tail;
+    // the stream asked for as an operation.
+    let (status, text) = sse(
         &w,
         "/api/v1/resources/logs/groups/%2Fnope/tail",
         |_| true,
         1_000,
     )
     .await;
-    assert_eq!(status, 404);
+    assert_eq!(status, 400, "{text}");
+    assert!(text.contains("ResourceNotFoundException"), "{text}");
+    let live = w.live();
+    assert!(
+        !live.iter().any(|c| c == "console logs DescribeLogGroups"),
+        "{live:?}"
+    );
     let (status, _) = sse(&w, "/api/v1/resources/sqs/queues/q/tail", |_| true, 1_000).await;
     assert_eq!(status, 404);
     let (status, streamed) = op(&w, "logs/groups/%2Fapp%2Fapi", "StartLiveTail", &json!({})).await;

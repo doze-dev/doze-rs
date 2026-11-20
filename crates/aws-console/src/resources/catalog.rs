@@ -87,3 +87,6 @@ pub fn descriptor(service: &str) -> Option<&'static Descriptor> {
         .find(|e| e.service == service)
         .and_then(|e| e.descriptor)
 }
+
+#[cfg(test)]
+mod tests;

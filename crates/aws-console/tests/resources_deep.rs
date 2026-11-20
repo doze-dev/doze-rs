@@ -153,3 +153,53 @@ async fn a_dead_letter_queue_moves_its_messages_back_and_lists_the_task() {
     assert_eq!(moved["SourceArn"], arn("orders-dlq"));
     assert_eq!(moved["ApproximateNumberOfMessagesMoved"], 2);
 }
+
+#[tokio::test]
+async fn a_move_task_is_cancelled_only_from_the_page_of_the_queue_it_moves_from() {
+    let w = world("deep-redrive-cancel", Mode::Soft, &[]);
+    let arn = |q: &str| format!("arn:aws:sqs:us-east-1:000000000000:{q}");
+    for (q, dlq) in [("orders", "orders-dlq"), ("billing", "billing-dlq")] {
+        w.app("sqs", "CreateQueue", &json!({"QueueName": dlq}))
+            .await;
+        let policy = json!({"deadLetterTargetArn": arn(dlq), "maxReceiveCount": 1}).to_string();
+        let made = json!({"QueueName": q, "Attributes": {"RedrivePolicy": policy}});
+        w.app("sqs", "CreateQueue", &made).await;
+    }
+    let orders = "/api/v1/resources/sqs/queues/orders-dlq";
+    let billing = "/api/v1/resources/sqs/queues/billing-dlq";
+    ok(&w, orders, "SendMessage", &json!({"MessageBody": "a"})).await;
+    let started = ok(&w, orders, "StartMessageMoveTask", &json!({})).await;
+    let handle = started["TaskHandle"].as_str().unwrap().to_owned();
+    // From another queue's page the handle is refused before SQS is asked to cancel anything.
+    let (status, answer) = op(
+        &w,
+        billing,
+        "CancelMessageMoveTask",
+        &json!({"TaskHandle": handle}),
+    )
+    .await;
+    assert_eq!(
+        (status, answer["code"].as_str()),
+        (400, Some("NOT_THIS_RESOURCE")),
+        "{answer}"
+    );
+    let (status, answer) = op(&w, billing, "CancelMessageMoveTask", &json!({})).await;
+    assert_eq!(answer["code"], "NOT_THIS_RESOURCE", "{status} {answer}");
+    assert!(
+        !w.live()
+            .contains(&"console sqs CancelMessageMoveTask".to_owned())
+    );
+    // From its own page it reaches SQS (which may say the move is over: it is a small one).
+    let (_, answer) = op(
+        &w,
+        orders,
+        "CancelMessageMoveTask",
+        &json!({"TaskHandle": handle}),
+    )
+    .await;
+    assert_ne!(answer["code"], "NOT_THIS_RESOURCE", "{answer}");
+    assert!(
+        w.live()
+            .contains(&"console sqs CancelMessageMoveTask".to_owned())
+    );
+}

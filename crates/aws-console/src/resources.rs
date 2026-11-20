@@ -109,6 +109,9 @@ pub struct Op {
     /// For an operation on a part of the resource that the page names (an execution of a state machine): the member, and
     /// what its value must begin with, filled as `bind` is (`arn:aws:states:{region}:{account}:execution:{name}:`).
     pub within: Option<(&'static str, &'static str)>,
+    /// For an operation on a part the page names by a handle no prefix tells (a move task's handle): how to list this
+    /// resource's own parts, among which the handle must be ([`deep::Owned`]).
+    pub owned: Option<&'static deep::Owned>,
 }
 
 /// An operation of a [`Deep`] page.
@@ -118,6 +121,7 @@ pub const fn op(op: &'static str, bind: &'static str) -> Op {
         op,
         bind,
         within: None,
+        owned: None,
     }
 }
 
@@ -129,6 +133,7 @@ pub const fn op_within(op: &'static str, member: &'static str, prefix: &'static 
         op,
         bind: "{}",
         within: Some((member, prefix)),
+        owned: None,
     }
 }
 

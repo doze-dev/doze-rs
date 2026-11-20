@@ -27,7 +27,7 @@ use super::calls::KEEP_ALIVE;
 use super::resources::{decode, find, refused};
 use super::{busy, error, json, param};
 use crate::model::Uploaded;
-use crate::resources::{deep, path, run};
+use crate::resources::{deep, path};
 use crate::state::Shared;
 
 /// The most an upload through the console may be: 25 MiB. A larger object is put with the AWS CLI or an SDK.
@@ -190,8 +190,8 @@ pub async fn tail(
         );
     };
     let ask = deep::tail::ask_of(query.as_deref(), decode);
-    let body = match run::id_of(&bus, d, k, &name).await {
-        Ok((id, _)) => deep::bound(&bus, op, (&id, &name), deep::tail::input(&ask)),
+    let body = match deep::id_for(&bus, (d, k), op, &name).await {
+        Ok(id) => deep::bound(&bus, op, (&id, &name), deep::tail::input(&ask)),
         Err(e) => Err(e),
     };
     let body = match body {
