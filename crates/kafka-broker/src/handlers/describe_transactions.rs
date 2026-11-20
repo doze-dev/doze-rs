@@ -71,7 +71,13 @@ impl<F: Fs> Broker<F> {
                         })
                         .collect();
                 }
-                _ => s.error_code = E::TransactionalIdNotFound.code(),
+                _ => {
+                    // An id with no transaction is the error and the schema's defaults (producer id 0, no start of -1), as the
+                    // recorded Kafka answers (`authz-matrix`, step `alice-describe-transactions`; SEC-405).
+                    s = TransactionState::default();
+                    s.transactional_id = id.clone();
+                    s.error_code = E::TransactionalIdNotFound.code();
+                }
             }
             resp.transaction_states.push(s);
         }
@@ -79,6 +85,12 @@ impl<F: Fs> Broker<F> {
     }
 
     /// Lists the transactional ids the caller may DESCRIBE.
+    ///
+    /// From v2 (KIP-1152) a pattern that is neither null nor empty keeps only the ids it matches whole (Java's
+    /// `Matcher.matches`); one that does not compile is INVALID_REGULAR_EXPRESSION (128) for the whole request, with no
+    /// rows (`TransactionStateManager.listTransactionStates`). The pattern is read by `regex-lite`, not Java's `Pattern`:
+    /// the syntax they share is the same, and what only Java has (look-around, back-references, possessive quantifiers) is
+    /// refused here as not compiling.
     pub(crate) async fn list_transactions(
         &self,
         caller: &Caller,
@@ -87,6 +99,20 @@ impl<F: Fs> Broker<F> {
         use kafka_wire::messages::list_transactions_response::TransactionState as Listed;
         let guard = self.guard(caller);
         let mut resp = ListTransactionsResponse::default();
+        let pattern = match req
+            .transactional_id_pattern
+            .as_deref()
+            .filter(|p| !p.is_empty())
+        {
+            None => None,
+            Some(text) => match regex_lite::Regex::new(&format!("^(?:{text})$")) {
+                Ok(compiled) => Some(compiled),
+                Err(_) => {
+                    resp.error_code = E::InvalidRegularExpression.code();
+                    return Outcome::Respond(Response::ListTransactions(resp));
+                }
+            },
+        };
         let mut rows: Vec<Listed> = Vec::new();
         for entry in self.txns.all() {
             let e = entry.read().await;
@@ -111,6 +137,9 @@ impl<F: Fs> Broker<F> {
                 continue;
             }
             if e.rec.producer_id < 0 || !wanted_state || !wanted_producer || !long_enough {
+                continue;
+            }
+            if pattern.as_ref().is_some_and(|p| !p.is_match(&e.rec.id)) {
                 continue;
             }
             let mut row = Listed::default();

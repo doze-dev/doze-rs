@@ -3,6 +3,32 @@
 One row per service, filled in at each phase close. Fidelity score = matched / (matched + unverified + deviations) from the
 conformance harness. Predictions are written before the measurement; a miss needs a written explanation.
 
+## 2026-11-19: every service built, recorded and scored (main after the planned operations and rec3)
+
+All 25 conformance modules against AWS recordings (`cargo xtask conformance --save`): **1,882 labels, 1,846 exact (98%)**; the
+36 that are not exact are decided (owner wording, deviations, AWS-side timing) or unverified by design. The per-API table, with
+operations built and every difference, is `docs/aws/COMPATIBILITY.md` (generated); this table is the summary.
+
+| Service | Built | Recorded checks exact | Not exact (why) |
+|---|---|---|---|
+| API Gateway (REST, HTTP and WebSocket) | 117/124 v1, 72/103 v2, 3/3 management | 134 of 134 | none |
+| CloudFormation | 35 of 90 | 125 of 125 | none |
+| CloudWatch | 40 of 55 | 63 of 63 | none |
+| CloudWatch Logs (and Insights) | 69 of 118 | 107 of 111 | 4: AWS's tokens and clock, Live Tail and export timing |
+| DynamoDB (and Streams) | 49 of 58, 4 of 4 | 181 of 184 | 3: shard count, restore window clock, export file count |
+| EventBridge, Scheduler | 42 of 57, 12 of 12 | 95 of 95, 30 of 30 | 1 Scheduler label unverified |
+| IAM (and credentials) | 157 of 180 | 104 of 104 | none |
+| Kinesis | 39 of 45 | 64 of 64 | none |
+| KMS | 48 of 54 | 130 of 132 | 2: owner's wording, AWS records usage later |
+| Lambda (and durable functions) | 79 of 88 | 90 of 91 | 1: AWS's two end-time readings |
+| S3 | 90 of 112 | 168 of 172 | 4: decided (path-style location, trusted signatures, `--iam soft`) |
+| Secrets Manager, SNS, Step Functions, STS | 23/23, 36/42, 37/37, 9/11 | all | none |
+| SQS | 23 of 23 | 180 of 181 | 1: decided |
+| SSM | 31 of 152 | 113 of 114 | 1: owner's wording; 12 labels unverified by design |
+
+Binary: the doze-aws line is 20 MB and 16 MB idle (owner, 2026-11-19); CI measured 15.3 MB before the last two PRs. The history
+of this board follows.
+
 Baseline (Stage 0.3, re-run 2026-11-12): Go doze-aws (origin/main f8c31a1) against AWS recordings, all 17 modules, 850 labels: **423 exact (50%), 225 behavioural differences (26%)**, 18 unverified; the rest differ only in error-message wording. Per-module table in `baseline.md`. Weakest: S3 (33%), KMS (33%), CloudWatch (32%). Strongest: Logs (86%), EventBridge (73%), DynamoDB (68%), Step Functions (68%). The IAM and CloudFormation snapshots are not final (see STATUS.md): their numbers will move when re-recorded.
 
 | Service | Fidelity (Rust) | Fidelity (Go, same snapshots) | Binary delta | Idle RSS delta | Sessions est. | Sessions actual | Audit rounds | Open decisions |

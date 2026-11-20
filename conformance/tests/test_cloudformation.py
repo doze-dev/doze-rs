@@ -555,3 +555,170 @@ def test_an_export_in_use_keeps_its_stack(client, names, cleanup, snapshot, even
         return s["StackStatus"]
 
     snapshot.match("exporter-status", eventually(settled, timeout=300, every=2))
+
+
+# Written ahead of a recording (UNVERIFIED until recorded): CancelUpdateStack, SignalResource, drift detection,
+# DescribeEvents, the hook reads and the account limits.
+
+def waiting_for(count, timeout):
+    """A wait condition that waits for SignalResource (what `cfn-signal --stack --resource` calls)."""
+    return {"Type": "AWS::CloudFormation::WaitCondition",
+            "CreationPolicy": {"ResourceSignal": {"Count": count, "Timeout": timeout}}}
+
+
+def resource_status(cfn, name, logical):
+    """The resource's status, or None before the stack has it."""
+    for r in cfn.list_stack_resources(StackName=name)["StackResourceSummaries"]:
+        if r["LogicalResourceId"] == logical:
+            return r["ResourceStatus"]
+    return None
+
+
+def test_cancel_update_stack_rolls_the_update_back(client, names, cleanup, snapshot, eventually):
+    cfn, sqs = client("cloudformation"), client("sqs")
+    queue, extra = names("queue"), names("extra")
+    q = lambda n: {"Type": "AWS::SQS::Queue", "Properties": {"QueueName": n}}
+    name = deploy(cfn, names, cleanup, {"Resources": {"Q": q(queue)}}, label="cancel")
+    snapshot.error("nothing-to-cancel", lambda: cfn.cancel_update_stack(StackName=name))
+    snapshot.error("cancel-absent", lambda: cfn.cancel_update_stack(StackName=names("absent")))
+
+    cfn.update_stack(StackName=name, TemplateBody=json.dumps({"Resources": {
+        "Q": q(queue), "Extra": q(extra), "Wait": {**waiting_for(1, "PT1H"), "DependsOn": "Extra"}}}))
+
+    def waits():
+        assert resource_status(cfn, name, "Wait") == "CREATE_IN_PROGRESS"
+    eventually(waits, timeout=300, every=2)
+    snapshot.match("cancel", cfn.cancel_update_stack(StackName=name))
+    snapshot.match("status", settled(cfn, eventually, name))
+    snapshot.error("the-update-queue-is-gone", lambda: sqs.get_queue_url(QueueName=extra))
+    snapshot.match("stack-level-events", [s for who, s in trail(cfn, name) if who == name])
+    snapshot.match("wait-condition-events", [s for who, s in trail(cfn, name) if who == "Wait"])
+
+
+def test_signal_resource_completes_a_wait_condition(client, names, cleanup, snapshot, eventually):
+    cfn = client("cloudformation")
+    name = deploy(cfn, names, cleanup, {"Resources": {"Wait": waiting_for(2, "PT10M")},
+                                        "Outputs": {"Data": {"Value": {"Fn::GetAtt": ["Wait", "Data"]}}}},
+                  label="signal", wait=False)
+
+    def waits():
+        assert resource_status(cfn, name, "Wait") == "CREATE_IN_PROGRESS"
+    eventually(waits, timeout=300, every=2)
+    snapshot.match("first", cfn.signal_resource(StackName=name, LogicalResourceId="Wait", UniqueId="one",
+                                                 Status="SUCCESS"))
+    cfn.signal_resource(StackName=name, LogicalResourceId="Wait", UniqueId="two", Status="SUCCESS")
+    cfn.get_waiter("stack_create_complete").wait(StackName=name, WaiterConfig=WAIT)
+    snapshot.match("data", outputs(cfn, name))
+    snapshot.match("wait-condition-events", [(s, r) for who, s, r in (
+        (e["LogicalResourceId"], e["ResourceStatus"], e.get("ResourceStatusReason"))
+        for e in reversed(cfn.describe_stack_events(StackName=name)["StackEvents"])) if who == "Wait"])
+    snapshot.outcome("signal-after-complete", lambda: cfn.signal_resource(
+        StackName=name, LogicalResourceId="Wait", UniqueId="three", Status="SUCCESS"))
+    snapshot.outcome("signal-absent-resource", lambda: cfn.signal_resource(
+        StackName=name, LogicalResourceId="Ghost", UniqueId="x", Status="SUCCESS"))
+    snapshot.error("signal-absent-stack", lambda: cfn.signal_resource(
+        StackName=names("absent"), LogicalResourceId="Wait", UniqueId="x", Status="SUCCESS"))
+
+
+def test_a_failure_signal_fails_the_wait_condition(client, names, cleanup, snapshot, eventually):
+    cfn = client("cloudformation")
+    name = deploy(cfn, names, cleanup, {"Resources": {"Wait": waiting_for(1, "PT10M")}}, label="signal-fail", wait=False)
+
+    def waits():
+        assert resource_status(cfn, name, "Wait") == "CREATE_IN_PROGRESS"
+    eventually(waits, timeout=300, every=2)
+    cfn.signal_resource(StackName=name, LogicalResourceId="Wait", UniqueId="bad", Status="FAILURE")
+    snapshot.match("status", settled(cfn, eventually, name))
+    snapshot.match("wait-condition-events", [(s, r) for who, s, r in (
+        (e["LogicalResourceId"], e["ResourceStatus"], e.get("ResourceStatusReason"))
+        for e in reversed(cfn.describe_stack_events(StackName=name)["StackEvents"])) if who == "Wait"])
+
+
+def drift_results(cfn, name):
+    drifts = cfn.describe_stack_resource_drifts(StackName=name)["StackResourceDrifts"]
+    return sorted(({k: d.get(k) for k in ("LogicalResourceId", "ResourceType", "StackResourceDriftStatus")}
+                   | {"Differences": sorted((p["PropertyPath"], p["DifferenceType"], p["ExpectedValue"], p["ActualValue"])
+                                            for p in d.get("PropertyDifferences", []))}
+                   for d in drifts), key=lambda d: d["LogicalResourceId"])
+
+
+def detect(cfn, eventually, name, **kw):
+    detection = cfn.detect_stack_drift(StackName=name, **kw)["StackDriftDetectionId"]
+
+    def done():
+        s = cfn.describe_stack_drift_detection_status(StackDriftDetectionId=detection)
+        assert s["DetectionStatus"] != "DETECTION_IN_PROGRESS", s
+        return {k: s.get(k) for k in ("DetectionStatus", "StackDriftStatus", "DriftedStackResourceCount")}
+    return eventually(done, timeout=300, every=2)
+
+
+def test_drift_detection_finds_changes_made_out_of_band(client, names, cleanup, snapshot, eventually):
+    cfn, sqs, ssm = client("cloudformation"), client("sqs"), client("ssm")
+    queue, param = names("queue"), f"/{names('param')}"
+    name = deploy(cfn, names, cleanup, {"Resources": {
+        "Queue": {"Type": "AWS::SQS::Queue", "Properties": {"QueueName": queue, "VisibilityTimeout": 30}},
+        "Param": {"Type": "AWS::SSM::Parameter", "Properties": {"Name": param, "Type": "String", "Value": "one"}},
+        "Handle": {"Type": "AWS::CloudFormation::WaitConditionHandle"},
+    }}, label="drift")
+    snapshot.match("before", cfn.describe_stacks(StackName=name)["Stacks"][0]["DriftInformation"]["StackDriftStatus"])
+    snapshot.match("in-sync", detect(cfn, eventually, name))
+    snapshot.match("in-sync-resources", drift_results(cfn, name))
+
+    url = sqs.get_queue_url(QueueName=queue)["QueueUrl"]
+    sqs.set_queue_attributes(QueueUrl=url, Attributes={"VisibilityTimeout": "45"})
+    ssm.put_parameter(Name=param, Value="two", Type="String", Overwrite=True)
+    snapshot.match("drifted", detect(cfn, eventually, name))
+    snapshot.match("drifted-resources", drift_results(cfn, name))
+    snapshot.match("only-modified", sorted(d["LogicalResourceId"] for d in cfn.describe_stack_resource_drifts(
+        StackName=name, StackResourceDriftStatusFilters=["MODIFIED"])["StackResourceDrifts"]))
+    stack = cfn.describe_stacks(StackName=name)["Stacks"][0]
+    snapshot.match("stack-drift", stack["DriftInformation"]["StackDriftStatus"])
+    snapshot.match("resource-drift", sorted((r["LogicalResourceId"], r["DriftInformation"]["StackResourceDriftStatus"])
+                                            for r in cfn.list_stack_resources(StackName=name)["StackResourceSummaries"]))
+
+    sqs.set_queue_attributes(QueueUrl=url, Attributes={"VisibilityTimeout": "30"})
+    one = cfn.detect_stack_resource_drift(StackName=name, LogicalResourceId="Queue")["StackResourceDrift"]
+    snapshot.match("queue-put-back", one["StackResourceDriftStatus"])
+    snapshot.error("handle-not-checked", lambda: cfn.detect_stack_resource_drift(
+        StackName=name, LogicalResourceId="Handle"))
+    snapshot.outcome("absent-resource", lambda: cfn.detect_stack_drift(StackName=name, LogicalResourceIds=["Ghost"]))
+
+    ssm.delete_parameter(Name=param)
+    snapshot.match("deleted", detect(cfn, eventually, name, LogicalResourceIds=["Param"]))
+    snapshot.match("deleted-resource", [d for d in drift_results(cfn, name) if d["LogicalResourceId"] == "Param"])
+
+
+def test_describe_events_of_an_operation(client, names, cleanup, snapshot):
+    cfn = client("cloudformation")
+    name = names("events")
+    made = cfn.create_stack(StackName=name, TemplateBody=json.dumps(
+        {"Resources": {"Q": {"Type": "AWS::SQS::Queue", "Properties": {"QueueName": names("q")}}}}))
+
+    def delete():
+        cfn.delete_stack(StackName=name)
+        cfn.get_waiter("stack_delete_complete").wait(StackName=name, WaiterConfig=WAIT)
+    cleanup(delete)
+    cfn.get_waiter("stack_create_complete").wait(StackName=name, WaiterConfig=WAIT)
+    events = cfn.describe_events(OperationId=made["OperationId"])["OperationEvents"]
+    snapshot.match("shape", sorted({(e.get("OperationType") or "", e.get("OperationStatus") or "", e.get("EventType") or "",
+                                     e.get("LogicalResourceId") == name, e.get("ResourceStatus") or "") for e in events}))
+    snapshot.match("by-stack", len(cfn.describe_events(StackName=name)["OperationEvents"]) >= len(events))
+    snapshot.match("failed-only", cfn.describe_events(OperationId=made["OperationId"],
+                                                      Filters={"FailedEvents": True})["OperationEvents"])
+    snapshot.error("nothing-named", lambda: cfn.describe_events())
+
+
+def test_hooks_and_account_limits(client, names, cleanup, snapshot):
+    cfn = client("cloudformation")
+    name = deploy(cfn, names, cleanup, {"Resources": {"Q": {"Type": "AWS::SQS::Queue", "Properties": {"QueueName": names("q")}}}},
+                  label="hooks")
+    cs = cfn.create_change_set(StackName=name, ChangeSetName=names("cs"), TemplateBody=json.dumps({"Resources": {
+        "Q": {"Type": "AWS::SQS::Queue", "Properties": {"QueueName": names("q"), "DelaySeconds": 1}}}}))
+    cfn.get_waiter("change_set_create_complete").wait(ChangeSetName=cs["Id"], WaiterConfig=WAIT)
+    hooks = cfn.describe_change_set_hooks(ChangeSetName=cs["Id"])
+    snapshot.match("change-set-hooks", {k: hooks.get(k) for k in ("Hooks", "Status")})
+    snapshot.error("hooks-of-absent-change-set", lambda: cfn.describe_change_set_hooks(
+        StackName=name, ChangeSetName=names("absent")))
+    snapshot.match("hook-results", cfn.list_hook_results(TargetType="CHANGE_SET", TargetId=cs["Id"]).get("HookResults"))
+    snapshot.error("hook-result-absent", lambda: cfn.get_hook_result(HookResultId="00000000-0000-0000-0000-000000000000"))
+    snapshot.match("limits", sorted(l["Name"] for l in cfn.describe_account_limits()["AccountLimits"]))

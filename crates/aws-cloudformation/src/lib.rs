@@ -14,14 +14,18 @@
 //! at the same time. An operation cut off by a stop is marked failed when the region next opens.
 
 mod authz;
+mod cancel;
 mod changes;
 mod changesets;
 mod core;
 mod custom;
 mod describe;
+mod drift;
 mod dynref;
 mod engine;
 mod errors;
+mod events;
+mod hooks;
 mod j;
 mod model;
 mod nested;
@@ -31,6 +35,7 @@ mod progress;
 mod req;
 mod res;
 mod rollback;
+mod signal;
 mod stackpolicy;
 mod stacks;
 mod storage;

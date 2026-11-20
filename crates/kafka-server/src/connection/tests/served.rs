@@ -3,6 +3,10 @@
 use super::*;
 
 #[tokio::test]
+#[expect(
+    clippy::too_many_lines,
+    reason = "the list of every API served, one a line"
+)]
 async fn api_versions_lists_only_what_the_broker_serves() {
     let (mut client, _task, _stop) = start(Timeouts::default(), 4096);
     client.write_all(&api_versions(7)).await.unwrap();
@@ -38,15 +42,24 @@ async fn api_versions_lists_only_what_the_broker_serves() {
         ApiKey::DeleteAcls,
         ApiKey::DescribeConfigs,
         ApiKey::AlterConfigs,
+        ApiKey::AlterReplicaLogDirs,
         ApiKey::DescribeLogDirs,
         ApiKey::CreatePartitions,
+        ApiKey::CreateDelegationToken,
+        ApiKey::RenewDelegationToken,
+        ApiKey::ExpireDelegationToken,
+        ApiKey::DescribeDelegationToken,
         ApiKey::DeleteGroups,
+        ApiKey::ElectLeaders,
         ApiKey::IncrementalAlterConfigs,
+        ApiKey::AlterPartitionReassignments,
+        ApiKey::ListPartitionReassignments,
         ApiKey::OffsetDelete,
         ApiKey::DescribeClientQuotas,
         ApiKey::AlterClientQuotas,
         ApiKey::DescribeUserScramCredentials,
         ApiKey::AlterUserScramCredentials,
+        ApiKey::UpdateFeatures,
         ApiKey::DescribeCluster,
         ApiKey::DescribeProducers,
         ApiKey::DescribeTransactions,
@@ -55,6 +68,8 @@ async fn api_versions_lists_only_what_the_broker_serves() {
         ApiKey::ConsumerGroupDescribe,
         ApiKey::GetTelemetrySubscriptions,
         ApiKey::PushTelemetry,
+        ApiKey::ListConfigResources,
+        ApiKey::DescribeTopicPartitions,
         ApiKey::ShareGroupHeartbeat,
         ApiKey::ShareGroupDescribe,
         ApiKey::ShareFetch,

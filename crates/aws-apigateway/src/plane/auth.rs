@@ -187,6 +187,7 @@ pub(crate) async fn lambda_v1(
         extra.usage_key = Some(key.to_owned());
     }
     let principal = text(&answer, "principalId").map(str::to_owned);
+    extra.principal.clone_from(&principal);
     let (Some(principal), Some(policy)) = (principal, answer.get("policyDocument")) else {
         return Err(failed(
             found,
@@ -194,6 +195,7 @@ pub(crate) async fn lambda_v1(
             "the authorizer's answer has no principalId or policyDocument",
         ));
     };
+    extra.policy = Some(policy.clone());
     allowed(found, req, policy, arn)?;
     let mut ctx = Map::new();
     for (k, v) in answer

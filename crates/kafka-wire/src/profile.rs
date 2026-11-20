@@ -72,6 +72,9 @@ pub struct Features {
     pub sasl: bool,
     /// Client telemetry (KIP-714) is on.
     pub telemetry: bool,
+    /// The versions Kafka marks unstable are offered too (Kafka's internal `unstable.api.versions.enable`, off by
+    /// default): InitProducerId v6 (KIP-939) in Kafka 4.4.0.
+    pub unstable: bool,
     /// The APIs the broker has a handler for. The rest are neither advertised nor accepted, so a client never
     /// negotiates an API it will be refused. Everything, unless narrowed.
     pub served: ApiSet,
@@ -82,6 +85,7 @@ impl Default for Features {
         Self {
             sasl: false,
             telemetry: false,
+            unstable: false,
             served: ApiSet::ALL,
         }
     }
@@ -136,6 +140,19 @@ pub struct Advertised {
     pub max: i16,
 }
 
+/// A feature a profile supports (KIP-584): its name, the levels it can be set to, and the level it is at.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct FeatureLevel {
+    /// The feature's name, such as `transaction.version`.
+    pub name: &'static str,
+    /// The lowest level supported.
+    pub min: i16,
+    /// The highest level supported.
+    pub max: i16,
+    /// The level finalized.
+    pub level: i16,
+}
+
 /// The behaviour envelope of one declared Kafka major.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Profile {
@@ -155,12 +172,22 @@ impl Profile {
         self.major
     }
 
-    /// The versions this profile serves `key` at, or `None` if it does not. Never below what the wire
-    /// crate can decode (Kafka 4.0 dropped the oldest versions of nine APIs, KIP-896).
+    /// The versions this profile serves `key` at, or `None` if it does not: the stable ones, as a broker with
+    /// Kafka's defaults offers them. Never below what the wire crate can decode (Kafka 4.0 dropped the oldest versions
+    /// of nine APIs, KIP-896).
     #[must_use]
     pub fn range(self, key: ApiKey) -> Option<(i16, i16)> {
+        self.range_with(key, false)
+    }
+
+    /// [`Profile::range`], with the versions Kafka marks unstable if `unstable`.
+    fn range_with(self, key: ApiKey, unstable: bool) -> Option<(i16, i16)> {
         let row = API_TABLE.iter().find(|r| r.key == key)?;
         let (min, max) = row.offered.get(self.major.column()).copied().flatten()?;
+        let max = match row.unstable_from {
+            Some(first) if !unstable => max.min(first - 1),
+            _ => max,
+        };
         let can = key.valid_versions();
         let (min, max) = (min.max(can.min), max.min(can.max));
         (min <= max).then_some((min, max))
@@ -173,11 +200,12 @@ impl Profile {
             .iter()
             .filter(|row| features.allows(row))
             .filter_map(|row| {
-                self.range(row.key).map(|(min, max)| Advertised {
-                    key: row.key,
-                    min,
-                    max,
-                })
+                self.range_with(row.key, features.unstable)
+                    .map(|(min, max)| Advertised {
+                        key: row.key,
+                        min,
+                        max,
+                    })
             })
             .collect();
         out.sort_by_key(|a| a.key as i16);
@@ -220,13 +248,43 @@ impl Profile {
         i16::from(self.range(ApiKey::StreamsGroupHeartbeat).is_some())
     }
 
+    /// Every feature (KIP-584) the recorded broker of this major supports, with the levels it supports and the one it
+    /// finalizes when formatted with its defaults (`kafka-features.sh describe`, 2026-11-19): Kafka 4.4.0 (KRaft, static
+    /// voters) and 3.9.1; Kafka 2 and 1 have none. The `transaction.version`, `share.version` and `streams.version` levels
+    /// are this profile's own (see [`Profile::transaction_version`]), which are those of the recorded broker.
+    #[must_use]
+    pub fn features(self) -> Vec<FeatureLevel> {
+        let f = |name, min, max, level| FeatureLevel {
+            name,
+            min,
+            max,
+            level,
+        };
+        match self.major.get() {
+            4 => vec![
+                f("eligible.leader.replicas.version", 0, 1, 1),
+                f("group.version", 0, 1, 1),
+                f("kraft.version", 0, 1, 0),
+                f("metadata.version", 7, 33, 33),
+                f("share.version", 0, 2, self.share_version()),
+                f("streams.version", 0, 1, self.streams_version()),
+                f("transaction.version", 0, 2, self.transaction_version()),
+            ],
+            3 => vec![
+                f("kraft.version", 0, 1, 0),
+                f("metadata.version", 1, 21, 21),
+            ],
+            _ => Vec::new(),
+        }
+    }
+
     /// Refuses a request outside what was advertised: an API not offered, or a version out of range.
     ///
     /// # Errors
     /// [`WireError::NotAdvertised`] for anything the profile does not serve.
     pub fn check(self, key: ApiKey, version: i16, features: Features) -> Result<(), WireError> {
         let offered = API_TABLE.iter().any(|r| r.key == key && features.allows(r));
-        match self.range(key) {
+        match self.range_with(key, features.unstable) {
             Some((min, max)) if offered && (min..=max).contains(&version) => Ok(()),
             _ => Err(WireError::NotAdvertised { key, version }),
         }

@@ -9,6 +9,10 @@
 //!
 //! The verdict is given on the request's header alone, so the body of a stranger's request is never decoded
 //! for an API it may not use.
+//!
+//! A SaslHandshake at v0 asks for the oldest framing (Kafka before KIP-152): what follows the handshake is not Kafka
+//! requests but the mechanism's raw tokens, each a size-prefixed frame of its own, answered by the server's raw token
+//! (`RawHandshaken`, `RawChallenged`; SEC-401). Every Kafka major serves it, as the recorded brokers do.
 
 use kafka_auth::scram::Awaiting;
 use kafka_auth::{Mechanism, Principal};
@@ -28,8 +32,12 @@ pub(crate) enum Session {
     /// A SCRAM login whose first message was answered: the exchange it holds is waiting for the final one. It
     /// is the only state that holds anything a client made up (a nonce), and it is dropped with the connection.
     Challenged(Awaiting),
-    /// Logged in, as this principal, for the life of the connection.
-    Authenticated(Principal),
+    /// As [`Session::Handshaken`] after a SaslHandshake v0: the next frame is the first raw token, not a request.
+    RawHandshaken(Mechanism),
+    /// As [`Session::Challenged`] after a SaslHandshake v0: the next frame is the final raw token.
+    RawChallenged(Awaiting),
+    /// Logged in, as this principal, for the life of the connection; `true` if with a delegation token.
+    Authenticated(Principal, bool),
 }
 
 /// What to do with a request, given its API alone.
@@ -67,13 +75,18 @@ impl Session {
             (Self::Handshaken(_) | Self::Challenged(_), ApiVersions | SaslHandshake) => {
                 Verdict::IllegalState { stays_open: false }
             }
-            (Self::Authenticated(_), SaslHandshake | SaslAuthenticate) => {
+            (Self::Authenticated(..), SaslHandshake | SaslAuthenticate) => {
                 Verdict::IllegalState { stays_open: true }
             }
-            (Self::Authenticated(_), _) => Verdict::Serve,
-            (Self::Unauthenticated { .. } | Self::Handshaken(_) | Self::Challenged(_), _) => {
-                Verdict::Close
-            }
+            (Self::Authenticated(..), _) => Verdict::Serve,
+            (
+                Self::Unauthenticated { .. }
+                | Self::Handshaken(_)
+                | Self::Challenged(_)
+                | Self::RawHandshaken(_)
+                | Self::RawChallenged(_),
+                _,
+            ) => Verdict::Close,
         }
     }
 
@@ -84,15 +97,25 @@ impl Session {
         }
     }
 
+    /// Whether the next frame is a raw SASL token (after a SaslHandshake v0) and not a request.
+    pub(crate) fn wants_raw_token(&self) -> bool {
+        matches!(self, Self::RawHandshaken(_) | Self::RawChallenged(_))
+    }
+
     /// Whether the login is complete.
     pub(crate) fn is_authenticated(&self) -> bool {
-        matches!(self, Self::Authenticated(_))
+        matches!(self, Self::Authenticated(..))
+    }
+
+    /// Whether the connection logged in with a delegation token.
+    pub(crate) fn by_token(&self) -> bool {
+        matches!(self, Self::Authenticated(_, true))
     }
 
     /// Who the connection is, once it has logged in.
     pub(crate) fn principal(&self) -> Option<&Principal> {
         match self {
-            Self::Authenticated(p) => Some(p),
+            Self::Authenticated(p, _) => Some(p),
             _ => None,
         }
     }

@@ -63,7 +63,7 @@ async fn one_transaction_at(rig: &support::Rig, v: i16) {
     commit.group_id = GroupId(text("g"));
     commit.producer_id = ProducerId(producer);
     commit.producer_epoch = epoch;
-    commit.generation_id = -1;
+    commit.generation_id_or_member_epoch = -1;
     let mut p = TxnOffsetCommitRequestPartition::default();
     p.partition_index = 0;
     p.committed_offset = 3;
@@ -109,10 +109,10 @@ async fn a_transaction_is_run_through_every_version_of_each_api() {
     let mut ask = DescribeTransactionsRequest::default();
     ask.transactional_ids = vec![TransactionalId(text("v-0")), TransactionalId(text("nope"))];
     rig.ask(0, Request::DescribeTransactions(ask)).await;
-    // ListTransactions is offered at 0 to 1 (v1 adds the duration filter): a narrower offer is a regression.
+    // ListTransactions is offered at 0 to 2 (v1 adds the duration filter, v2 the pattern): a narrower offer is a regression.
     let offered = Profile::new(KafkaMajor::new(4).unwrap()).range(ApiKey::ListTransactions);
-    assert_eq!(offered, Some((0, 1)));
-    for v in 0..=1 {
+    assert_eq!(offered, Some((0, 2)));
+    for v in 0..=2 {
         rig.ask(
             v,
             Request::ListTransactions(ListTransactionsRequest::default()),

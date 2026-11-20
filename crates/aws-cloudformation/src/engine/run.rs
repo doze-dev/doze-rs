@@ -257,7 +257,8 @@ impl Op {
     }
 
     async fn update(&mut self) -> Outcome {
-        if self.removals_allowed().await && self.forward().await {
+        let cancelled = |op: &Self| crate::cancel::is_cancelled(&op.job.stack_id);
+        if self.removals_allowed().await && self.forward().await && !cancelled(self) {
             match super::outputs::evaluate(&self.w, &self.job) {
                 Ok(outputs) => {
                     self.stack_status("UPDATE_COMPLETE_CLEANUP_IN_PROGRESS", None)
@@ -267,6 +268,15 @@ impl Op {
                 }
                 Err(why) => self.failed.push((why, false)),
             }
+        }
+        let was_cancelled = cancelled(self);
+        // From here on the update is rolling back or failed, which is not cancelled.
+        crate::cancel::unwatch(&self.job.stack_id);
+        if was_cancelled {
+            // CancelUpdateStack rolls back whatever the update's rollback setting (model); the reason is (memory).
+            self.stack_status("UPDATE_ROLLBACK_IN_PROGRESS", Some("User Initiated"))
+                .await;
+            return self.rollback_update(Some(())).await;
         }
         let reason = self.failure_reason();
         if self.job.on_failure == OnFailure::DoNothing {

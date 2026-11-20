@@ -18,6 +18,7 @@ use crate::grants::{self, service_name};
 use crate::held::{Access, Job, ServiceUse, Use};
 use crate::model::{Entity, Kind};
 use crate::req::{Req, page, secs};
+use crate::tracked::tracked_actions;
 
 /// A use is written at most once a minute for each entity and service (and each action), as access keys' last use is.
 const EVERY_MS: i64 = 60_000;
@@ -327,15 +328,24 @@ fn service_json(s: &ServiceUse, actions: bool) -> Value {
         m.insert("LastAuthenticated".into(), secs(u.at_ms));
         m.insert("LastAuthenticatedEntity".into(), json!(entity));
         m.insert("LastAuthenticatedRegion".into(), json!(u.region));
-        m.insert("TotalAuthenticatedEntities".into(), json!(s.entities.len()));
     }
-    if actions && !s.actions.is_empty() {
-        let tracked: Vec<Value> = s
-            .actions
-            .iter()
-            .map(|(name, entity, u)| json!({"ActionName": name, "LastAccessedEntity": entity, "LastAccessedTime": secs(u.at_ms), "LastAccessedRegion": u.region}))
+    // Recorded 2026-11-19: the count is there, 0, for a service no one asked for.
+    m.insert("TotalAuthenticatedEntities".into(), json!(s.entities.len()));
+    if actions {
+        // A tracked action no one asked for is listed by name alone (recorded 2026-11-19); one asked for says who, when and where.
+        // Actions asked for of a service with no recorded list are listed too, where AWS may track none.
+        let mut names: BTreeSet<&str> = tracked_actions(&s.namespace).iter().copied().collect();
+        names.extend(s.actions.iter().map(|(name, _, _)| name.as_str()));
+        let tracked: Vec<Value> = names
+            .into_iter()
+            .map(|name| match s.actions.iter().find(|(n, _, _)| n == name) {
+                Some((_, entity, u)) => json!({"ActionName": name, "LastAccessedEntity": entity, "LastAccessedTime": secs(u.at_ms), "LastAccessedRegion": u.region}),
+                None => json!({"ActionName": name}),
+            })
             .collect();
-        m.insert("TrackedActionsLastAccessed".into(), Value::Array(tracked));
+        if !tracked.is_empty() {
+            m.insert("TrackedActionsLastAccessed".into(), Value::Array(tracked));
+        }
     }
     Value::Object(m)
 }

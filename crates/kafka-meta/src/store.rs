@@ -11,6 +11,7 @@ mod quotas;
 mod registry;
 mod schemas;
 mod shares;
+mod tokens;
 mod topics;
 mod txns;
 
@@ -66,6 +67,9 @@ pub(super) const SHARE_STATES: TableDefinition<'static, &[u8], &[u8]> =
 /// The configs set on groups (`store/group_configs.rs`). Absent from a database made before group configs.
 pub(super) const GROUP_CONFIGS: TableDefinition<'static, &[u8], &[u8]> =
     TableDefinition::new("group_configs");
+
+/// The delegation tokens: id to the record. Absent from a database made before tokens, which the reads take as none.
+pub(super) const TOKENS: TableDefinition<'static, &str, &[u8]> = TableDefinition::new("tokens");
 
 pub(super) const COUNTERS: TableDefinition<'static, &str, u64> = TableDefinition::new("counters");
 

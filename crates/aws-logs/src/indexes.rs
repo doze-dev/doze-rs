@@ -1,7 +1,7 @@
 //! Field index policies (`PutIndexPolicy`, `DeleteIndexPolicy`, `DescribeIndexPolicies`) and the indexes they make
 //! (`DescribeFieldIndexes`). Locally a query reads every event in its range, so an index changes no answer and no cost: the policy
-//! is checked as the model describes it, kept, and reported, and the indexes report the times of the first and last event that
-//! holds each field. `estimatedRecordsSkipped` in a query's statistics stays 0.
+//! is checked as the model describes it, kept, and reported, and the indexes (those of fields some event holds) report the times
+//! of the first and last event that holds each field. `estimatedRecordsSkipped` in a query's statistics stays 0.
 
 use aws_wire::ApiError;
 use serde_json::{Value, json};
@@ -62,9 +62,8 @@ fn fields_of(doc: &str) -> Result<Vec<(String, String)>, ApiError> {
         }
     }
     if out.is_empty() {
-        return Err(invalid(
-            "The policy document must include at least one field index.",
-        ));
+        // Recorded 2026-11-19.
+        return Err(invalid("Policy document should contain at least 1 field."));
     }
     if out.len() > MAX_FIELDS {
         return Err(ApiError::modeled(
@@ -119,10 +118,10 @@ impl Core {
         self.docs
             .remove(&doc_key(INDEX_POLICY, &name))
             .ok_or_else(|| {
-                // (memory)
+                // Recorded 2026-11-19.
                 ApiError::modeled(
                     "ResourceNotFoundException",
-                    "The specified log group does not have a field index policy.",
+                    "Specified resource does not exist!",
                 )
             })?;
         Ok(json!({}))
@@ -195,21 +194,23 @@ impl Core {
             if wants("CUSTOM") {
                 fields.extend(custom.into_iter().map(|(f, t)| (f, t, "CUSTOM")));
             }
-            let seen = self.seen(&name, &fields, r.account());
+            let seen = self.seen(&name, &fields, (r.account(), r.region()));
             let arn = group_arn(r.region(), r.account(), &name);
+            // The model: the indexes "which are discovered in log data"; recorded 2026-11-19, a policy's fields are not listed
+            // before an event holds them.
             for ((field, kind, category), times) in fields.iter().zip(seen) {
-                let mut v = json!({
+                let Some((first, last)) = times else {
+                    continue;
+                };
+                out.push(json!({
                     "logGroupIdentifier": arn,
                     "fieldIndexName": field,
                     "type": kind,
                     "indexCategory": category,
                     "lastScanTime": self.now_ms(),
-                });
-                if let Some((first, last)) = times {
-                    v.put("firstEventTime", json!(first));
-                    v.put("lastEventTime", json!(last));
-                }
-                out.push(v);
+                    "firstEventTime": first,
+                    "lastEventTime": last,
+                }));
             }
         }
         Ok(json!({"fieldIndexes": out}))
@@ -220,7 +221,7 @@ impl Core {
         &self,
         group: &str,
         fields: &[(String, String, &str)],
-        account: &str,
+        (account, region): (&str, &str),
     ) -> Vec<Option<(i64, i64)>> {
         let mut found: Vec<Option<(i64, i64)>> = vec![None; fields.len()];
         let streams: Vec<(u32, String)> = self
@@ -241,6 +242,7 @@ impl Core {
                     stream: &stream,
                     group,
                     account,
+                    region,
                     ptr: String::new(),
                     lambda: false,
                 };

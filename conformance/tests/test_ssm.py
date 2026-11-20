@@ -371,9 +371,12 @@ def test_service_settings_update_and_reset(client, cleanup, snapshot, target):
     snapshot.match("reset", ssm.reset_service_setting(SettingId=TIER), opaque=SETTING_VARYING)
 
 
-def share_policy(arn, action="ssm:GetParameter"):
+def share_policy(arn, action="ssm:GetParameter", account=None):
+    """A policy sharing the parameter with an account: by default its own (AWS, recorded 2026-11-19, refuses an account that
+    does not exist with "Policy contains invalid principal", so OTHER_ACCOUNT cannot be shared with on AWS)."""
+    account = account or arn.split(":")[4]
     return json.dumps({"Version": "2012-10-17", "Statement": [{
-        "Sid": "share", "Effect": "Allow", "Principal": {"AWS": f"arn:aws:iam::{OTHER_ACCOUNT}:root"},
+        "Sid": "share", "Effect": "Allow", "Principal": {"AWS": f"arn:aws:iam::{account}:root"},
         "Action": action, "Resource": arn}]})
 
 
@@ -387,8 +390,11 @@ def test_resource_policy_on_a_parameter(client, names, cleanup, snapshot):
     # The id and the hash are the service's own; each must be the same wherever it appears again.
     ids = ("PolicyId", "PolicyHash")
     made = ssm.put_resource_policy(ResourceArn=arn, Policy=share_policy(arn))
+    snapshot.known(made["PolicyHash"], "first-hash")  # the stale-hash refusals quote it
     snapshot.match("put", made, opaque=ids)
     snapshot.match("get", ssm.get_resource_policies(ResourceArn=arn), opaque=ids)
+    snapshot.error("unknown-account", lambda: ssm.put_resource_policy(
+        ResourceArn=arn, Policy=share_policy(arn, account=OTHER_ACCOUNT)))
     changed = ssm.put_resource_policy(ResourceArn=arn, Policy=share_policy(arn, "ssm:GetParameters"),
                                       PolicyId=made["PolicyId"], PolicyHash=made["PolicyHash"])
     assert changed["PolicyHash"] != made["PolicyHash"]
@@ -416,11 +422,18 @@ def test_resource_policy_refusals(client, names, cleanup, snapshot):
         ResourceArn=arn, PolicyId="0123456789abcdef", PolicyHash="0123456789abcdef"))
 
 
-CHANGE_TEMPLATE = json.dumps({"schemaVersion": "0.3", "mainSteps": [
-    {"name": "wait", "action": "aws:sleep", "inputs": {"Duration": "PT1S"}}]})
+CHANGE_TEMPLATE = json.dumps({"schemaVersion": "0.3", "emergencyChange": False, "mainSteps": [
+    # AWS (recorded 2026-11-19): a change template's steps are approvals (aws:approve), each with a timeoutSeconds.
+    {"name": "approve", "action": "aws:approve", "timeoutSeconds": 600,
+     "inputs": {"Approvers": ["doze-rec-approver"], "MinRequiredApprovals": 1}}]})
 
 
-def test_change_template_review_history(client, names, cleanup, snapshot):
+def test_change_template_review_history(client, names, cleanup, snapshot, target):
+    if target.name == "aws":
+        # Recorded 2026-11-19: CreateDocument of an Automation.ChangeTemplate is NoLongerSupportedException, "Change Manager has
+        # been closed to new customers", in an account that never used it. doze-aws keeps change templates (an account that
+        # already uses Change Manager still has them); listed in docs/aws/compatibility-notes.toml.
+        pytest.skip("AWS closed Change Manager to new customers; the recorder account cannot make a change template")
     ssm = client("ssm")
     name = names("change")
     ssm.create_document(Name=name, Content=CHANGE_TEMPLATE, DocumentType="Automation.ChangeTemplate")

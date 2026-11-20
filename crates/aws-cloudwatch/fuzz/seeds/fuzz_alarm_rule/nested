@@ -1,0 +1,1 @@
+(ALARM(cpu) OR ALARM("disk high")) AND NOT OK(arn:aws:cloudwatch:us-east-1:1:alarm:net)

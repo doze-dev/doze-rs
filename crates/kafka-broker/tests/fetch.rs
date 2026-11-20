@@ -77,6 +77,19 @@ async fn an_unknown_topic_or_partition_is_unknown_and_by_id_it_is_an_unknown_id(
         panic!()
     };
     assert_eq!(r.responses[0].partitions[0].error_code, 100);
+    // A known id with a partition the topic has not is UNKNOWN_TOPIC_OR_PARTITION, as by name (Kafka 4.4.0,
+    // `tools/wire-tail-oracle`, `fetch`), at every version that names by id.
+    let id = rig.create(vec![topic("u", 1)], false).await[0].topic_id;
+    for version in 13..=18 {
+        let mut req = fetch_request(&[("", 5, 0, 100)], 0, 1, 1 << 20);
+        req.topics[0].topic_id = id;
+        let kafka_wire::api::Response::Fetch(r) =
+            rig.ask(version, kafka_wire::api::Request::Fetch(req)).await
+        else {
+            panic!()
+        };
+        assert_eq!(r.responses[0].partitions[0].error_code, 3, "v{version}");
+    }
 }
 
 #[tokio::test]

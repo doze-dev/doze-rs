@@ -173,11 +173,10 @@ impl Inner {
         payload: Bytes,
     ) -> Result<RestReply, ApiError> {
         if r.function()?.qualifier.is_none() {
-            // The developer guide: "You cannot use an unqualified identifier (without a version or alias suffix)." The words are (memory).
-            return Err(invalid(format!(
-                "Durable functions must be invoked with a qualified identifier: add a version, an alias or $LATEST to {} (for example {}:$LATEST).",
-                rs.name, rs.name
-            )));
+            // Recorded 2026-11-19.
+            return Err(invalid(
+                "You cannot invoke a durable function using an unqualified ARN.",
+            ));
         }
         let kind = r.opt("InvocationType").unwrap_or("RequestResponse");
         if kind == "DryRun" {
@@ -249,6 +248,7 @@ impl Inner {
         };
         let Begun {
             payload,
+            trace,
             function,
             version,
             account,
@@ -263,7 +263,7 @@ impl Inner {
                 let input = Input {
                     payload: Bytes::from(payload),
                     client_context: None,
-                    trace_id: String::new(),
+                    trace_id: trace,
                 };
                 self.run_function(&rs, &caller, input).await
             }

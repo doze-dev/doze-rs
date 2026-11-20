@@ -1,7 +1,6 @@
 //! `PutLogAlarm`: an alarm on the results of a CloudWatch Logs scheduled query. It is checked as the model documents it, kept,
 //! described (`DescribeAlarms` with `AlarmTypes: [LogAlarm]`), tagged, forced (`SetAlarmState`) and deleted like any alarm, and its
-//! history is kept. It is **not evaluated**: no scheduled query runs locally (doze-aws's CloudWatch Logs has no Logs Insights
-//! engine to run one on yet), so the alarm stays `INSUFFICIENT_DATA` and its reason says why. The refusals' words are (memory).
+//! history is kept. It is evaluated on its schedule through Logs Insights (`log_eval`, `log_query`). The refusals' words are (memory).
 
 use aws_wire::ApiError;
 use serde_json::Value;
@@ -9,9 +8,6 @@ use serde_json::Value;
 use crate::core::Core;
 use crate::model::{Kind, Spec};
 use crate::req::{Put, Req, validation};
-
-/// The reason a log alarm carries.
-pub(crate) const NOT_EVALUATED: &str = "Not evaluated locally: log alarms are stored, not evaluated, in doze-aws (no scheduled query runs on this machine).";
 
 /// The comparisons a log alarm takes (the model's documentation of `ComparisonOperator`).
 const COMPARISONS: [&str; 4] = [
@@ -56,8 +52,9 @@ fn check(r: &Req<'_>) -> Result<(), String> {
         ));
     }
     if m > n {
+        // Recorded 2026-11-19 (the two spaces are AWS's).
         return Err(
-            "QueryResultsToAlarm must be less than or equal to QueryResultsToEvaluate.".to_owned(),
+            "QueryResultsToAlarm must be  smaller or equal than QueryResultsToEvaluate".to_owned(),
         );
     }
     let comparison = r.s("ComparisonOperator");
@@ -122,8 +119,12 @@ fn schedule(s: &Value) -> Result<(), String> {
     Ok(())
 }
 
-/// A log alarm as `DescribeAlarms` shows it: what was sent, with the defaults the model gives and the scheduled query's ARN.
-pub(crate) fn shown(mut v: Value) -> Value {
+/// A log alarm as `DescribeAlarms` shows it: what was sent, the scheduled query's ARN, and its
+/// `EvaluationState` when it has one.
+pub(crate) fn shown(mut v: Value, evaluation: Option<&str>) -> Value {
+    if let Some(state) = evaluation {
+        v.put("EvaluationState", Value::from(state));
+    }
     let arn = v
         .get("AlarmArn")
         .and_then(Value::as_str)
@@ -136,13 +137,7 @@ pub(crate) fn shown(mut v: Value) -> Value {
     if let Some(Value::Object(q)) = v.get_mut("ScheduledQueryConfiguration") {
         q.insert("QueryARN".to_owned(), Value::String(query_arn));
     }
-    for (key, default) in [
-        ("TreatMissingData", Value::from("missing")),
-        ("ActionLogLineCount", Value::from(0)),
-    ] {
-        if v.get(key).is_none() {
-            v.put(key, default);
-        }
-    }
+    // Recorded 2026-11-19: AWS fills in no default for TreatMissingData or ActionLogLineCount; a member not sent is not shown (the
+    // evaluation still treats missing data as `missing`).
     v
 }
