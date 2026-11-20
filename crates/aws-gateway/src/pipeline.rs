@@ -188,8 +188,13 @@ pub(crate) async fn respond(shared: &Shared, req: http::Request<Incoming>) -> Re
         Ok(response) => return response,
         Err(body) => body,
     };
-    let watched = crate::observe::begin(shared, &mut parts);
-    let response = api(shared, &id, &parts, body).await;
+    let watched = crate::observe::begin(shared, &id, &mut parts);
+    // While someone watches, a call this request makes to another service on the bus is marked as caused by it.
+    let response = if watched.is_some() {
+        aws_peers::seen::within_request(id.as_str(), api(shared, &id, &parts, body)).await
+    } else {
+        api(shared, &id, &parts, body).await
+    };
     crate::observe::end(shared, watched, &id, &parts, &response);
     response
 }
@@ -309,6 +314,7 @@ async fn handle(
     let bytes = inflate(parts, bytes, shared.max_body_bytes()).map_err(|e| fail(&e))?;
     let caller = caller_of(shared, parts, claim);
     let call = decode_call(entry, op, id, caller, bytes).map_err(|e| fail(&e))?;
+    crate::observe::input(parts, entry, &call);
     answer(entry, (op, version), call)
         .await
         .map_err(|e| fail(&e))

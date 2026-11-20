@@ -323,7 +323,7 @@ fn decode_call(entry: &Entry, h: &Head<'_>, claim: Claim) -> Result<Call, ApiErr
         }
         None => (String::new(), NIL),
     };
-    Ok(Call {
+    let call = Call {
         op: matched.op,
         id: id.clone(),
         caller: Caller {
@@ -337,7 +337,9 @@ fn decode_call(entry: &Entry, h: &Head<'_>, claim: Claim) -> Result<Call, ApiErr
         body: text,
         arena,
         root,
-    })
+    };
+    crate::observe::input(parts, entry, &call);
+    Ok(call)
 }
 
 /// The HTTP answer for a service's reply.

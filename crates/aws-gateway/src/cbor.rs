@@ -62,6 +62,7 @@ pub(crate) async fn handle(
     })?;
     let caller = caller_of(shared, parts, claim);
     let call = decode_call(entry, op, id, caller, Bytes::from(json)).map_err(|e| fail(&e))?;
+    crate::observe::input(parts, entry, &call);
     let output = entry.service.call(call).await.map_err(|e| fail(&e))?;
     let encoded = encode_output(entry, op, &output).map_err(|e| fail(&e))?;
     Ok(cbor::success(id, encoded))

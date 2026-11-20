@@ -50,8 +50,9 @@ pub struct Config {
     pub local_key: Option<String>,
     /// Told about every finished AWS API request (the console's Live ring). `None`, the default, costs a request nothing.
     pub observer: Option<Arc<dyn crate::Observer>>,
-    /// With an observer under `--iam soft`: the requests in flight, which IAM's let-through refusals are marked on
-    /// ([`crate::Finished::would_be_denied`]). `None`, the default, costs a request nothing.
+    /// With an observer: the requests in flight, which IAM's let-through refusals under `--iam soft` are marked on
+    /// ([`crate::Finished::would_be_denied`]) and which a call between services is matched to as its cause
+    /// ([`crate::WouldDeny::request_of`]). `None`, the default, costs a request nothing.
     pub would_deny: Option<Arc<crate::WouldDeny>>,
 }
 

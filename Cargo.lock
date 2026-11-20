@@ -716,6 +716,8 @@ name = "aws-console"
 version = "0.0.0"
 dependencies = [
  "aws-gateway",
+ "aws-peers",
+ "aws-schema",
  "aws-sqs",
  "aws-wire",
  "axum",
@@ -845,6 +847,7 @@ dependencies = [
  "aws-auth",
  "aws-core",
  "aws-model-sqs",
+ "aws-peers",
  "aws-schema",
  "aws-wire",
  "bytes",

@@ -85,8 +85,18 @@ pub(crate) fn base_caller(inv: &Invocation) -> Caller {
     }
 }
 
-/// Makes attempt number `attempt` of the invocation.
+/// Makes attempt number `attempt` of the invocation. While the bus is watched (the console's Live record), the calls it makes
+/// are marked as the schedule's.
 pub(crate) async fn attempt(sh: &Arc<Shared>, inv: &Invocation, attempt: u32) -> Outcome {
+    if sh.peers.as_ref().is_some_and(|p| p.calls_watched()) {
+        let name = inv.schedule_arn.rsplit('/').next().unwrap_or_default();
+        let name = format!("schedule {name}");
+        return aws_peers::seen::named(&name, make(sh, inv, attempt)).await;
+    }
+    make(sh, inv, attempt).await
+}
+
+async fn make(sh: &Arc<Shared>, inv: &Invocation, attempt: u32) -> Outcome {
     let Some(peers) = sh.peers.clone() else {
         return Outcome::NotLocal("no other service is running".to_owned());
     };
