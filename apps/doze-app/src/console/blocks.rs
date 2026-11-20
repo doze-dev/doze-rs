@@ -218,6 +218,8 @@ impl Draw<'_> {
         let line: AnyElement = if data.len() > 1 {
             AreaChart::new(data)
                 .id(SharedString::from(format!("chart-{}", n.id)))
+                .interactive(!crate::motion::still())
+                .appear(!crate::motion::still())
                 .x(|(i, _)| SharedString::from(i.to_string()))
                 .y(|(_, v)| *v)
                 .stroke(t.cat(0))

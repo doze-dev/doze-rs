@@ -347,6 +347,7 @@ impl Render for Root {
         // A window glanced at draws each change in one frame: no entrance runs on it (see `clock`).
         let glanced = attention::mode(cx.background_executor().now()) == attention::Mode::Glance;
         crate::motion::set_reduced(cx.reduce_motion() || glanced);
+        crate::motion::set_still(glanced);
         crate::motion::frame();
         self.follow_system(window, cx);
         let t = tokens(cx);

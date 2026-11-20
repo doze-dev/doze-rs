@@ -38,6 +38,26 @@ pub(crate) fn reduced() -> bool {
     REDUCED.load(Ordering::Relaxed)
 }
 
+thread_local! {
+    /// Per thread: the window renders on the main thread, and each test thread keeps its own.
+    static STILL: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+}
+
+/// Says, once a frame, whether the window is only glanced at (`shell::attention`): then a colour or a knob that moves
+/// goes straight to where it is going, so a change on a window left alone is one frame, not a transition's dozen
+/// (each frame brings the GPU driver's ~150 MB back; docs/port/weight.md, "A live stack's idle window").
+pub(crate) fn set_still(still: bool) {
+    STILL.with(|s| s.set(still));
+}
+
+/// Whether transitions are off (the window is only glanced at). A chart then neither draws its data in nor answers the
+/// pointer: gpui-component's plot re-derives its hover every frame and, when a relayout moves it under a resting
+/// pointer, asks for frame after frame (32 frames in 1.6 s on a service page at each 30 s step, measured over a
+/// real daemon).
+pub(crate) fn still() -> bool {
+    STILL.with(std::cell::Cell::get)
+}
+
 /// Go's `settle`: fades `el` in from `6 px` above over `ms`, the first frame it shows (again each time it mounts).
 pub(crate) fn settle<E>(id: &'static str, el: E, ms: u64) -> AnyElement
 where
@@ -133,7 +153,13 @@ pub(crate) fn colour(id: &str, to: Hsla) -> (Hsla, bool) {
             to,
             at: now.checked_sub(COLOUR).unwrap_or(now),
         });
-        if e.to != to {
+        if still() {
+            *e = Blend {
+                from: to,
+                to,
+                at: now.checked_sub(COLOUR).unwrap_or(now),
+            };
+        } else if e.to != to {
             let (shown, _) = at(e, now);
             *e = Blend {
                 from: shown,
@@ -223,7 +249,9 @@ fn scalar(id: &str, to: f32, note: &str, word: &str) -> (f32, bool) {
                 (e.0 + (e.1 - e.0) * ease_out(x), true)
             }
         };
-        if (e.1 - to).abs() > f32::EPSILON {
+        if still() {
+            *e = (to, to, now.checked_sub(KNOB).unwrap_or(now));
+        } else if (e.1 - to).abs() > f32::EPSILON {
             let (shown, _) = at(e);
             *e = (shown, to, now);
         }

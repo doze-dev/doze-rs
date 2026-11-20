@@ -1500,6 +1500,11 @@ redraw against the frames (a temporary `eprintln` trace, not kept).
    facts and reads the page shown in the window's words (`clock::hear_facts`).
 6. *Activity's clock ticked every 10 s for as long as the page lived, hidden or not.* It now waits 10 s in use, 60 s
    glanced at, and stops while hidden; the window winds it again when it shows (`ActivityView::wind`).
+7. *One change, many frames.* A colour or a knob that changed ran its 120 ms transition (a dozen frames), and
+   gpui-component's `AreaChart` (a service page's meters) re-derives its hover every frame: after a relayout under a
+   resting pointer it asked for frame after frame, 32 frames in 1.6 s at each grid step on a fresh stack's service
+   page (found with `bench --real` and a backtrace on `request_animation_frame`). Glanced at, transitions go
+   straight to their end (`motion::still`) and charts neither draw in nor answer the pointer, so a change is one frame.
 
 **What held the memory once the frames stopped.** The service page settled at 98 MB: 16.5 MB of it was the renderer's
 window-sized path texture (the meters' curves and the countdown ring are paths), resident for good once any path was
@@ -1518,6 +1523,16 @@ stack above; before = app-design 723f5907e with only the bench's harness added; 
 | A service's page (api, its logs following) | 121 → 0–3 | **255–257 MB** throughout | 82 / 83 / 92 | 83 (98 before PATCHES §6) | 40 → 40 |
 | All logs | 119 → 4 | **231 MB** throughout | 79 / 79 / 83 | 79 | 41 → 39 |
 | Activity | 2 → 2 | 76–77 MB | 75 / 75 / 80 | 75 | 41 → 39 |
+
+The same through CI's check, `bench --real 13` (a fresh stack of sh and `nc`, its minute words turning; release-app, the
+window on top; before = the same harness over 723f5907e):
+
+| `--real 13`, idle | Frames, before → after | Footprint idle, before → after | Settled | Closed |
+|---|---|---|---|---|
+| Tiles, 120 s | 102 → 3 (one per 30 s step) | 227 → 75 MB | 228 → 71 MB | 41 → 36 MB |
+| A service page (driver), 60 s | 60 → 1 | 256 → 88–90 MB (the frame's 10 s) | 258 → under 85 | 44 → 39–40 MB |
+| Home, 60 s | 3 → 1 | 80 → 80 MB | 76 → 76 MB | 36 → 37 MB |
+| Tiles, hidden, 30 s | → 0 | → 58 MB | | → 38 MB |
 
 The ranges in "after" are runs while the stack's minute words were turning (a fresh stack: one frame per 30 s step
 at most) and runs once it had settled (no visible change in two minutes, so no frame at all). A frame on this Mac
