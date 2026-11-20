@@ -9,8 +9,11 @@
 use aws_schema::arena::{Arena, NIL, Val};
 use aws_schema::tables::Tables;
 
-/// The input members that name what a call acts on, most specific first. `Name` is last: it names the thing a create makes
+/// The input members that name what a call acts on, most specific first. `Name` is near the end: it names the thing a create makes
 /// (`CreateTopic`, `CreateSecret`, SSM's `PutParameter`), and in an input that has a more specific member it is something else.
+/// After it comes a rule's bus, which names where a rule lives, not the rule (`PutRule` has `Name` and `EventBusName`,
+/// `PutTargets` `Rule` and `EventBusName`): it names the call only when nothing else does. (`GroupName` stays above: it is an
+/// IAM group's name first, and `AttachGroupPolicy` acts on the group; a schedule in a group of its own is named by its group.)
 pub const MEMBERS: &[&str] = &[
     "QueueUrl",
     "QueueName",
@@ -34,12 +37,12 @@ pub const MEMBERS: &[&str] = &[
     "StackName",
     "RestApiId",
     "ApiId",
-    "EventBusName",
     "Rule",
     "ScheduleName",
     "AlarmName",
     "Bucket",
     "Name",
+    "EventBusName",
 ];
 
 /// The member of `MEMBERS` that names the resource of a call with input `root` (decoded from `body` into `arena`), and its

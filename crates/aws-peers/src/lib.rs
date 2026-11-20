@@ -95,6 +95,16 @@ impl Peers {
         entries.get(target).map(|e| e.service.tables())
     }
 
+    /// Whether service `target` speaks a REST protocol (S3, Lambda, Scheduler): a caller calls it with [`Peers::call_rest_as`].
+    #[must_use]
+    pub fn speaks_rest(&self, target: &str) -> bool {
+        self.entries.read().is_ok_and(|entries| {
+            entries
+                .get(target)
+                .is_some_and(|e| e.service.rest().is_some())
+        })
+    }
+
     /// Calls operation `operation` of service `target` with `body`, as service `acting` on behalf of `caller`. The answer is the
     /// operation's output as JSON (`{}` for an operation with none).
     ///
