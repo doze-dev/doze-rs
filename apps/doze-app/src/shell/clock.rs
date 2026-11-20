@@ -5,8 +5,8 @@
 //! - **in use**: once a second, to the second, and every batch as it comes;
 //! - **glanced at**: the words are written to the minute (`doze_display::coarse`: "sleeps in 4m", "<1m ago"), and the
 //!   page wakes once, when the first of them would read differently, rather than every second. A change of state is
-//!   taken in at most once a second, the meters at most every ten; and when the daemon's last frame would turn old
-//!   (`doze_display::STALE_AFTER`), one wake says so;
+//!   taken in at most once a second; the rest (meters, connections, logs, the words) on a grid of 30 s, together
+//!   (`glance`); and when the daemon's last frame would turn old (`doze_display::STALE_AFTER`), one wake says so;
 //! - **hidden**: nothing is read or drawn; what came meanwhile is taken in when the window shows again.
 //!
 //! A page re-renders only when what it shows changed (the views are `PartialEq`), so a wake whose words read the same
@@ -36,9 +36,11 @@ pub(crate) struct Clock {
     lapse: Option<Task<()>>,
     /// Glanced at or hidden: the batches not taken in yet, merged.
     pending: Option<Batch>,
-    /// Glanced at: when a change of state was last taken in, and the meters.
+    /// Glanced at: when a change of state was last taken in, and the [`glance::signature`] of what was then.
     took_state: Option<Instant>,
-    took_meters: Option<Instant>,
+    sig: Option<u64>,
+    /// Glanced at: where the grid of [`glance::SLOT`] starts.
+    origin: Option<Instant>,
     /// Glanced at: the wake that takes `pending` in, and when it lands.
     flush: Option<(Instant, Task<()>)>,
     /// Glanced at: the wake for the first word to read differently, and when it lands.
@@ -74,8 +76,11 @@ impl Root {
             Mode::Hidden => self.clock.calm(),
             Mode::Glance => {
                 self.clock.took_state = None;
-                self.clock.took_meters = None;
+                self.clock.origin = None;
                 self.glance(cx);
+                if let Some(a) = self.pages.activity.clone() {
+                    a.update(cx, |a, cx| a.wind(cx));
+                }
             }
             Mode::Use => {
                 self.clock.calm();
@@ -83,7 +88,10 @@ impl Root {
                     self.apply_now(&b, cx);
                 }
                 if let Some(a) = self.pages.activity.clone() {
-                    a.update(cx, |a, cx| a.read(cx));
+                    a.update(cx, |a, cx| {
+                        a.read(cx);
+                        a.wind(cx);
+                    });
                 }
                 self.reread(cx);
                 self.wind(cx);
@@ -113,6 +121,17 @@ impl Root {
             Mode::Glance => self.glance(cx),
             Mode::Hidden => {}
         }
+    }
+
+    /// A fact landed (a stopped stack's shape, doctor's report, the leftovers): Needs you, and the page shown, read in
+    /// the window's words (`refresh` is timed: to the minute while glanced at, so a fact never puts seconds back on a
+    /// window left alone). The pages do not hear the facts themselves.
+    pub(super) fn hear_facts(facts: &gpui::Entity<crate::facts::Facts>, cx: &mut Context<Self>) {
+        cx.observe(facts, |this: &mut Root, _, cx| {
+            this.rebuild_attention(cx);
+            this.refresh(cx);
+        })
+        .detach();
     }
 
     /// Winds the clock when what is shown counts and the window is in use, unless it is wound already.
@@ -187,7 +206,7 @@ impl Root {
         self.settle(cx);
     }
 
-    /// The meters stream while the window is on screen (glanced at, the page takes them in every ten seconds), not
+    /// The meters stream while the window is on screen (glanced at, the page takes them in on its 30 s grid), not
     /// while it is hidden. A hands-off run leaves the hub as its harness set it. While the window is in use, one wake
     /// for the moment it stops being in use, to write its words to the minute from then on.
     pub(crate) fn sync_hub(&mut self, cx: &mut Context<Self>) {

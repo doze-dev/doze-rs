@@ -182,9 +182,10 @@ fn a_frozen_daemon_says_so_on_a_window_glanced_at_in_one_frame(cx: &mut TestAppC
         "the banner, to the minute"
     );
     assert_eq!(drawn, 1, "one frame says it, and nothing ticks after");
-    // It turns "1m ago" when the minute comes; in that minute only words to the minute change (the banner's, the
-    // countdown running out, the rows' "up"), a frame each, and nothing between them.
-    let (_, changes) = watched(&src, &root, vcx, 60_000);
+    // It turns "1m ago" at the first step of the 30 s grid once the minute comes (`clock::glance::SLOT`); until then
+    // only words to the minute change (the banner's, the countdown running out, the rows' "up"), on the grid, a frame
+    // each, and nothing between them.
+    let (_, changes) = watched(&src, &root, vcx, 90_000);
     eprintln!("the minute after the banner: changes at {changes:?} ms");
     assert!(changes.len() <= 4, "changes at {changes:?} ms");
     assert_eq!(banner(&root, vcx), "last update 1m ago");

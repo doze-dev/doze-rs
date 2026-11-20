@@ -71,7 +71,6 @@ impl Focusable for LibraryView {
 
 impl LibraryView {
     pub(crate) fn new(hub: Hub, facts: Entity<Facts>, cx: &mut Context<Self>) -> LibraryView {
-        cx.observe(&facts, |this, _, cx| this.refresh(cx)).detach();
         // A row says "starting…" once its action has run a moment, and its moon turns while everything goes to sleep:
         // both are read from acts when the row is drawn.
         if let Some(a) = crate::act::acts(cx) {

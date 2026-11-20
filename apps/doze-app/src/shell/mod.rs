@@ -14,6 +14,8 @@ mod history;
 #[cfg(all(test, feature = "capture"))]
 mod idle_tests;
 mod inside;
+#[cfg(all(test, feature = "capture"))]
+mod live_tests;
 mod nav;
 mod needs;
 mod ops;
@@ -81,6 +83,8 @@ pub(crate) struct Root {
     tasks: tasks::Tasks,
     /// Activity and Settings (M3).
     pub(crate) pages: pages::Pages,
+    /// The sidebar and foot the root drew beside a page inside a stack (see `inside::chrome`).
+    chrome: Option<(Vec<doze_desk::page::side::Side>, String)>,
 }
 
 impl Root {
@@ -97,8 +101,7 @@ impl Root {
         let toasts = cx.new(|cx| crate::overlays::toasts::ToastsView::new(acts.clone(), cx));
         let facts = cx.new(|_| Facts::new(mode));
         let library = cx.new(|cx| LibraryView::new(hub.clone(), facts.clone(), cx));
-        cx.observe(&facts, |this: &mut Root, _, cx| this.rebuild_attention(cx))
-            .detach();
+        Root::hear_facts(&facts, cx);
         cx.observe(&acts, |this: &mut Root, _, cx| this.acting_moved(cx))
             .detach();
         let attn = attn::Attn::new(facts.clone());
@@ -151,6 +154,7 @@ impl Root {
             clock: clock::Clock::default(),
             tasks: tasks::Tasks::default(),
             pages: pages::Pages::new(facts.clone(), fixture),
+            chrome: None,
         };
         root.rebuild_attention(cx);
         root.follow_use(window, cx);
@@ -187,7 +191,7 @@ impl Root {
             Screen::Instance(k, _) | Screen::Logs(k) => {
                 if !batch.parts(k).is_empty() {
                     self.apply_inside(batch, cx);
-                    cx.notify();
+                    self.chrome(cx);
                 }
             }
         }
@@ -204,9 +208,10 @@ impl Root {
         match &self.screen {
             Screen::Library => self.library.update(cx, |l, cx| l.refresh(cx)),
             Screen::Empty(_) => cx.notify(),
-            Screen::Activity(_) | Screen::Settings => cx.notify(),
+            // Activity and Settings read the hub themselves; the root draws nothing of its own from it there.
+            Screen::Activity(_) | Screen::Settings => {}
             Screen::Stack(_) => self.overview.update(cx, |o, cx| o.refresh(cx)),
-            Screen::Instance(..) | Screen::Logs(_) => cx.notify(),
+            Screen::Instance(..) | Screen::Logs(_) => self.chrome(cx),
         }
     }
 

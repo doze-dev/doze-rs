@@ -112,6 +112,25 @@ impl Source {
         true
     }
 
+    /// One second of a live stack from the fixture daemon (`Fixture::live`), waiting (a moment of the wall clock at
+    /// most) until the hub has it.
+    #[cfg(all(test, feature = "capture"))]
+    pub(crate) fn live_second(&self, n: u64) -> bool {
+        let (Some(fx), Some(key)) = (&self._fixture, &self.first) else {
+            return false;
+        };
+        let last = || self.hub.stack(key).and_then(|s| s.link.last_frame);
+        let before = last();
+        if !self.hub.stack(key).is_some_and(|s| s.metered) || !fx.live(n) {
+            return false;
+        }
+        let start = std::time::Instant::now();
+        while last() == before && start.elapsed() < Duration::from_secs(2) {
+            std::thread::sleep(Duration::from_millis(1));
+        }
+        true
+    }
+
     /// The verbs the fixture daemon was asked, as `op target` (`sleep db`).
     #[cfg(all(test, feature = "capture"))]
     pub(crate) fn verbs(&self) -> Vec<String> {

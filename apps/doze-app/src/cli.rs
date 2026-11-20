@@ -16,6 +16,8 @@
 //! doze-app bench --fixture medium-150 --map                         the Map: frames while it pans, zooms and hovers
 //! doze-app bench [--idle S] [--closed S]                         with no fixture: $DOZE_HOME (a fixture served apart)
 //!          [--display N] [--in-use | --hidden] [--at 12,30,60] [--check [--budget MB] [--per-minute N]]
+//!          [--real [N]] [--screen home|tiles|list|map|grid|service|logs|activity] [--select NAME] [--on-top]
+//!          [--settled MB] [--closed-budget MB]      a real stack of N services under its own daemon (bench/real.rs)
 //! doze-app fixture-serve NAME ROOT                               a fixture daemon alone, on its own socket under ROOT/home
 //! doze-app status | logs | wake | …                              the doze CLI, whole (main.rs `as_cli`)
 //! ```
@@ -136,6 +138,19 @@ pub(crate) struct Bench {
     pub(crate) hidden: bool,
     /// Footprint readings this many seconds after the window opens (`--at 12,30,60`), as `footprint_at_s S MB`.
     pub(crate) at: Vec<u64>,
+    /// The page the idle window is left on (`--screen home|tiles|list|map|grid|service|logs|activity`), and the
+    /// service a service's page shows (`--select NAME`).
+    pub(crate) screen: crate::bench::stage::Screen,
+    pub(crate) select: Option<String>,
+    /// A real stack of this many services under its own daemon, on a throwaway home (`--real [N]`, 13 by default).
+    pub(crate) real: Option<usize>,
+    /// `--check`: the footprint the window must fall back under by the end of the idle time (`--settled MB`), the
+    /// redraw floor gone, and the closed window's (`--closed-budget MB`), read at the end of `--closed`.
+    pub(crate) settled: Option<f64>,
+    pub(crate) closed_budget: Option<f64>,
+    /// The window floats over the others, on every Space (`--on-top`), so a reading on a busy screen is an on-screen
+    /// window's, not a covered one's.
+    pub(crate) on_top: bool,
 }
 
 /// What to do.
@@ -308,7 +323,8 @@ fn shot(mut args: impl Iterator<Item = String>) -> Result<Shot, String> {
     Ok(s)
 }
 
-fn bench(mut args: impl Iterator<Item = String>) -> Result<Bench, String> {
+fn bench(args: impl Iterator<Item = String>) -> Result<Bench, String> {
+    let mut args = args.peekable();
     let mut b = Bench {
         idle: 20,
         follow: 30,
@@ -337,6 +353,26 @@ fn bench(mut args: impl Iterator<Item = String>) -> Result<Bench, String> {
             "--budget" => b.budget = Some(number(&value(&mut args, &a)?, "--budget")?),
             "--display" => b.display = Some(number(&value(&mut args, &a)?, "--display")?),
             "--follow" => b.follow = number(&value(&mut args, &a)?, "--follow")?,
+            "--screen" => {
+                let v = value(&mut args, &a)?;
+                b.screen = crate::bench::stage::Screen::parse(&v)
+                    .ok_or_else(|| format!("bench: no screen {v}"))?;
+            }
+            "--select" => b.select = Some(value(&mut args, &a)?),
+            "--on-top" => b.on_top = true,
+            "--real" => {
+                b.real = Some(match args.peek().and_then(|n| n.parse().ok()) {
+                    Some(n) => {
+                        args.next();
+                        n
+                    }
+                    None => 13,
+                });
+            }
+            "--settled" => b.settled = Some(number(&value(&mut args, &a)?, "--settled")?),
+            "--closed-budget" => {
+                b.closed_budget = Some(number(&value(&mut args, &a)?, "--closed-budget")?);
+            }
             _ => return Err(format!("bench: unknown flag {a}")),
         }
     }

@@ -175,15 +175,40 @@ fn pump(cx: &mut App, hub: Hub) {
     cx.spawn(async move |cx: &mut AsyncApp| {
         while let Ok(batch) = hub.updates().recv().await {
             cx.update(|cx| {
-                crate::around::on_batch(cx);
-                crate::activity::remember_batch(&hub, &batch, cx);
-                if let Some(h) = cx.try_global::<State>().and_then(|s| s.window) {
-                    let _ = h.update(cx, |root, _, cx| root.apply(&batch, cx));
-                }
+                let window = cx.try_global::<State>().and_then(|s| s.window);
+                take(&hub, &batch, window, cx);
             });
         }
     })
     .detach();
+}
+
+/// The window closed: once it has let go of what it held (its views, its renderer, a page's log lines; a moment
+/// later), the heap's free pages go back to the system, so the menu-bar app is as light as one that never opened it.
+pub(crate) fn window_gone(cx: &mut App) {
+    cx.spawn(async move |cx: &mut AsyncApp| {
+        cx.background_executor()
+            .timer(std::time::Duration::from_secs(2))
+            .await;
+        let back = doze_os::ui::give_back_memory();
+        log::debug!("window closed: {back} bytes of free heap given back");
+    })
+    .detach();
+}
+
+/// A batch taken in: the menu-bar item and the notifications, Activity's memory, and the window when one is open. The
+/// bench takes its batches here too, so its window is measured as a launch's is.
+pub(crate) fn take(
+    hub: &Hub,
+    batch: &doze_desk::Batch,
+    window: Option<WindowHandle<Root>>,
+    cx: &mut App,
+) {
+    crate::around::on_batch(cx);
+    crate::activity::remember_batch(hub, batch, cx);
+    if let Some(h) = window {
+        let _ = h.update(cx, |root, _, cx| root.apply(batch, cx));
+    }
 }
 
 /// Runs the app until it quits.
@@ -263,6 +288,7 @@ fn started(
             }
             cx.global_mut::<State>().window = None;
             cx.set_activation_policy(ActivationPolicy::Accessory);
+            window_gone(cx);
         }
     })
     .detach();

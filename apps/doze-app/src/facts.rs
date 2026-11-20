@@ -336,9 +336,15 @@ impl Facts {
                             .checked_sub(doctor_age(false))
                             .unwrap_or_else(Instant::now)
                     };
+                    // The same report again (doctor runs every 30 s while a window shows it) wakes no page, unless
+                    // someone waits for a fresh answer (a repair forgot the last one).
+                    let changed = f.doctor.as_ref().is_none_or(|(_, old)| *old != d)
+                        || f.doctor_seen <= f.fresh_after;
                     f.doctor = Some((at, d));
                     f.doctor_seen = started;
-                    cx.notify();
+                    if changed {
+                        cx.notify();
+                    }
                 });
             })
             .detach();

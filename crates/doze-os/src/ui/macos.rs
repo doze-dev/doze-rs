@@ -365,6 +365,38 @@ pub(super) fn hands_off() -> usize {
     n
 }
 
+unsafe extern "C" {
+    /// libmalloc: returns free pages of `zone` (every zone when null) to the system, aiming for `goal` bytes (0: all).
+    fn malloc_zone_pressure_relief(zone: *mut std::ffi::c_void, goal: usize) -> usize;
+}
+
+pub(super) fn give_back_memory() -> usize {
+    // SAFETY: a null zone asks every malloc zone; the call only returns free pages, never memory in use.
+    unsafe { malloc_zone_pressure_relief(std::ptr::null_mut(), 0) }
+}
+
+pub(super) fn float_over() -> usize {
+    use objc2_app_kit::{NSWindowCollectionBehavior, NSWindowStyleMask};
+    /// `NSFloatingWindowLevel` (kCGFloatingWindowLevel).
+    const FLOATING: isize = 3;
+    let Some(mtm) = MainThreadMarker::new() else {
+        return 0;
+    };
+    let mut n = 0;
+    for w in NSApplication::sharedApplication(mtm).windows().iter() {
+        if w.styleMask().contains(NSWindowStyleMask::Titled) {
+            w.setLevel(FLOATING);
+            w.setCollectionBehavior(
+                NSWindowCollectionBehavior::CanJoinAllSpaces
+                    | NSWindowCollectionBehavior::FullScreenAuxiliary,
+            );
+            w.orderFrontRegardless();
+            n += 1;
+        }
+    }
+    n
+}
+
 pub(super) fn holds_input() -> (bool, usize) {
     let Some(mtm) = MainThreadMarker::new() else {
         return (false, 0);

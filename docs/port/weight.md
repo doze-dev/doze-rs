@@ -1456,3 +1456,92 @@ edge: doze-app → doze-daemon).
 
 A rise with its reason: without it the app cannot start a stack at all. The line is the new measure plus 5%; the
 owner's ceiling stays 20 MB.
+
+## A live stack's idle window (2026-11-21, branch `app-design`), release-app, darwin/arm64
+
+**What the owner saw.** The window open and untouched on a real running stack (shop, 13 services, a live daemon):
+255 MB footprint, peaks of 401 MB (111 MB IOSurface, ~57 MB driver graphics, ~60 MB heap). The budget above is
+85 MB open and idle, 35 MB closed; CI's `bench --fixture larder` passed at 55–77 MB because a still fixture never
+moves, and because the bench's window never took the hub's batches at all (`bench` pumped them to the menu bar only),
+so no bench had ever measured a window following a live daemon.
+
+**Method.** A real daemon, as the owner's rule asks: a throwaway `DOZE_HOME` under /tmp, the built `doze-app` as CLI
+and daemon (as `tests/real_daemon.rs`), and a 14-service stack (nine bun HTTP servers, two `nc` listeners, two bun
+workers logging every 3 s, a bun driver hitting four of the servers every 0.7 s; seven dozing ones fell asleep after
+their two minutes, so the stack had both kinds). `doze-app bench` now opens the window on a page (`--screen
+home|tiles|list|service|logs|activity`, `--select NAME`), takes the hub's batches as a launch does (`app::take`),
+floats the window over the others (`--on-top`, `doze_os::ui::float_over`: a covered window is sent no frames, and
+the first readings here came from a window the system hid), counts the frames the renderer committed over 120 s after
+a 3 s settle, samples `footprint` every 5 s, reads the footprint again once 15 s have passed with no frame
+(`--settled`), and after the window closes (`--closed`). The causes were found by tracing every batch, read and
+redraw against the frames (a temporary `eprintln` trace, not kept).
+
+**What drew the frames (each with its fix):**
+
+1. *Every instance frame was a change of state.* A real daemon sends its instances again every ~3 s with nothing a
+   person would call a change, and a connection flips a service between held (`active`) and dozing (`idle`) every
+   second. Glanced at, `shell/clock/glance.rs` took any `INSTANCES`/`CONN`/`LOGS`/`JOURNAL` part in within a second,
+   and the read picked up the newest meters with it, so the page redrew every 1–3 s. Now a change of state is decided
+   on the rendered meaning, not the raw frame: `glance::signature` hashes each stack's running, link and each
+   service's state (held and dozing both count as up), error, restarts and switches; only a different signature is
+   taken in at once.
+2. *The meters every 10 s* (`METERS_EVERY`), which on a live stack always differ: the weight.md "Open: the meters'
+   10 s" above, now measured. Everything that is not a change of state (meters, connections, holders, logs, the
+   journal) waits for a grid of 30 s (`glance::SLOT`), and so do the words that move with time:
+3. *Each row's "up Nm" turned at its own second* (services start seconds apart), and each turn was a wake and a frame:
+   up to a dozen frames in a few seconds once a minute. `arm_next` now wakes at the grid step on or after the first
+   word's change, so every word, and the meters, change in one frame.
+4. *The root redrew the whole window on every batch on a service page, All logs, Activity and Settings*
+   (`Root::apply_now`, `refresh_shown`: an unconditional `cx.notify()`). The root draws the sidebar and its foot
+   from the hub itself; it now keeps what it drew (`inside::chrome`) and redraws only when that changed.
+5. *Doctor's report every 30 s woke every page* (`facts.rs`: notified even when the report was the same), and the
+   Library and the stack page heard the facts themselves with fine words (to the second) on a glanced window. A
+   report the same as the last now wakes nothing (unless a repair waits for a fresh one), and the root alone hears the
+   facts and reads the page shown in the window's words (`clock::hear_facts`).
+6. *Activity's clock ticked every 10 s for as long as the page lived, hidden or not.* It now waits 10 s in use, 60 s
+   glanced at, and stops while hidden; the window winds it again when it shows (`ActivityView::wind`).
+
+**What held the memory once the frames stopped.** The service page settled at 98 MB: 16.5 MB of it was the renderer's
+window-sized path texture (the meters' curves and the countdown ring are paths), resident for good once any path was
+drawn. vendor/gpui-pre-apple PATCHES.md §6: its pages go back (`MTLPurgeableState::Empty`) when the last frame
+completes with no newer one encoded, and come back with the next frame. And the closed window's heap is handed back
+to the system (`doze_os::ui::give_back_memory`, `malloc_zone_pressure_relief`, 2 s after the close).
+
+**Measured** (release-app; `bench --screen S --idle 123 --closed 15 --on-top --settled 85 --at 5,10,…,120`; the live
+stack above; before = app-design 723f5907e with only the bench's harness added; after = this branch):
+
+| Page | Frames in 120 s, before → after | Footprint while idle, before | after (min / median / max of 24 samples) | Settled (15 s after a frame) | Closed after 15 s, before → after |
+|---|---|---|---|---|---|
+| Home (Library) | 2 → 0 | 76–81 MB | 75 / 75 / 80 | 75 | 36 → 36 |
+| Stack page, Tiles | 65 → 0–5 | 79 MB, 225 at a minute's turn | 74 / 74 / 79 | 74 | 38 → 38 |
+| Stack page, List | 68 → 0–4 | **224 MB** throughout | 74 / 74 / 78 | 74 | 38 → 38 |
+| A service's page (api, its logs following) | 121 → 0–3 | **255–257 MB** throughout | 82 / 83 / 92 | 83 (98 before PATCHES §6) | 40 → 40 |
+| All logs | 119 → 4 | **231 MB** throughout | 79 / 79 / 83 | 79 | 41 → 39 |
+| Activity | 2 → 2 | 76–77 MB | 75 / 75 / 80 | 75 | 41 → 39 |
+
+The ranges in "after" are runs while the stack's minute words were turning (a fresh stack: one frame per 30 s step
+at most) and runs once it had settled (no visible change in two minutes, so no frame at all). A frame on this Mac
+brings the driver's ~150 MB back for about ten seconds (the 224 MB at 15, 45, 75 and 105 s of one Tiles run landed
+on grid steps); with at most two frames a minute the window spends most of each minute under 85 MB, and 15 s after a
+frame it is always under it.
+
+Also: menu bar only (the window never opened) 21 MB, 0.0 % CPU, 9 threads, no idle wake-ups (`top`); the glanced
+window 0.0–0.2 % CPU, 11 threads, 0 idle wake-ups, and a 5 s `sample` shows every thread blocked (the main thread and
+AppKit's event thread in `mach_msg`, the hub's threads on semaphores, its control client in `recvfrom`, the
+discovery thread on a timed wait): nothing busy-polls. The owner's running preview read 344 MB (174 MB driver
+graphics), 0.0 % CPU, 15 threads, 2 idle wake-ups at the start of this work.
+
+**Open.** Closed, the app reads 36–40 MB depending on the page last shown (the window's heap: its pages, the hub's log
+ring for a stack whose logs it showed, text caches; the menu-bar-only process is 21 MB), over the 35 MB line; giving
+free pages back took 2 MB. Getting under it means letting go of the hub's log ring when the window closes (a reopened
+service page would start from the daemon's 400-line backlog), an owner call. CI holds the closed line at 40 MB until
+then.
+
+**The guard.** CI's `app` job, beside the still-fixture checks it keeps: `bench --real 13` brings up 13 services of
+sh and `nc` (listeners that would sleep after an hour, two workers logging every 2 s, a driver connecting every
+second) under the release-app binary as CLI and daemon on a /tmp home, and checks, on Tiles for 120 s, a service page
+and Home for 60 s, at most two frames a minute, 85 MB settled and 40 MB closed (Tiles), and a hidden window draws
+nothing. Locally, `shell/live_tests.rs` (gpui test windows over the fixture daemon sending moving meters every second
+and its instances every third): a glanced stack page draws 3–7 frames in 180 s and its vitals still move; a service
+page at most 7; a hidden window none. `idle_tests`' frozen-daemon test now allows the banner's "1m ago" the grid
+step after the minute.

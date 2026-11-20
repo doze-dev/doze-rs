@@ -3,8 +3,8 @@
 //! page in another state: the same rows in the same places, each down, the strip saying what Up starts.
 //!
 //! Every word is doze-desk's ([`doze_desk::overview`]); this keeps the selection, the filter, the Grid's crosshair.
-//! The page watches the stack's meters while it shows, so its figures are the last second's; it redraws only when what
-//! it shows changed.
+//! It watches the stack's meters while it shows, read as the window is looked at (`shell::clock`); it redraws only
+//! when what it shows changed.
 
 mod act;
 mod addr;
@@ -143,7 +143,6 @@ impl OverviewView {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> OverviewView {
-        cx.observe(&facts, |this, _, cx| this.refresh(cx)).detach();
         act::observe_acts(cx);
         let filter = cx.new(|cx| InputState::new(window, cx).placeholder("Filter"));
         cx.subscribe(
