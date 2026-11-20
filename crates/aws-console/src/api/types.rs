@@ -9,6 +9,7 @@ use std::path::PathBuf;
 
 use ts_rs::{Config, TS};
 
+use crate::model::Invoked;
 use crate::model::{
     About, ApiCoverage, ApiError, CallRecord, CallVia, CallsPage, CopyCommands, FlowRow,
     FlowsResponse, Outcome, RingFill, ServiceName, ServiceRow, ServicesResponse, TailReady,
@@ -39,6 +40,7 @@ fn all() -> BTreeMap<String, String> {
     let cfg = config();
     let mut out = BTreeMap::new();
     one::<ApiError>(&cfg, &mut out);
+    one::<Invoked>(&cfg, &mut out);
     one::<About>(&cfg, &mut out);
     one::<ServiceName>(&cfg, &mut out);
     one::<ServicesResponse>(&cfg, &mut out);

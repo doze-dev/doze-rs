@@ -197,3 +197,17 @@ async fn work_a_person_asked_for_is_known_as_asked() {
     assert!(seen::asked(async { seen::is_asked() }).await);
     assert!(!seen::is_asked());
 }
+
+#[tokio::test]
+async fn an_operation_that_does_not_stream_is_not_called_as_a_stream() {
+    let dir = std::env::temp_dir().join(format!("doze-aws-peers-stream-{}", std::process::id()));
+    let peers = bus(&dir);
+    // (`err().unwrap()`: a stream is not `Debug`.)
+    let e = peers
+        .call_stream_as(&caller(), "kms", "ListKeys", &json!({}))
+        .await
+        .err()
+        .unwrap();
+    assert!(e.message.contains("does not stream"), "{}", e.message);
+    drop(std::fs::remove_dir_all(&dir));
+}

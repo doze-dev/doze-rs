@@ -21,6 +21,7 @@ use crate::state::Shared;
 pub mod about;
 pub mod calls;
 pub mod copy;
+pub mod deep;
 pub mod flows;
 pub mod resources;
 #[cfg(test)]
@@ -53,6 +54,8 @@ pub fn routes() -> Router<Shared> {
             "/api/v1/resources/{service}/{kind}/{name}/reveal",
             post(resources::reveal),
         )
+        .route("/api/v1/deep/logs/tail", get(deep::live_tail))
+        .route("/api/v1/deep/{service}/{operation}", post(deep::call))
         .route_layer(from_fn(guard))
 }
 

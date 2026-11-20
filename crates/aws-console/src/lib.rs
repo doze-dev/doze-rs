@@ -20,6 +20,7 @@
 
 pub mod api;
 pub mod app;
+pub mod deep;
 pub mod facts;
 pub mod files;
 pub mod guard;

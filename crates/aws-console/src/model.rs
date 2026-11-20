@@ -10,7 +10,9 @@ use serde::Serialize;
 use crate::facts::Facts;
 use crate::ring::{Call, Flow};
 
+mod deep;
 mod resources;
+pub use deep::*;
 pub use resources::*;
 
 /// A refusal: a stable code a script can match and the words a person reads.

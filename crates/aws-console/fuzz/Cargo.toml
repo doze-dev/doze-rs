@@ -19,3 +19,9 @@ name = "origin"
 path = "fuzz_targets/origin.rs"
 test = false
 doc = false
+
+[[bin]]
+name = "eventstream"
+path = "fuzz_targets/eventstream.rs"
+test = false
+doc = false

@@ -271,6 +271,7 @@ pub async fn detail(
         calls: calls(facts, recorder, d.service, (&id, &called_as(kind, name))),
         reveal: kind.reveal.as_ref().map(|r| r.label.to_owned()),
         delete: delete_spec(kind),
+        deep: crate::deep::page_of(d.service, kind.id).map(str::to_owned),
         operations,
         name: name.to_owned(),
         id,

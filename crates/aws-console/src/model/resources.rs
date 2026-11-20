@@ -240,6 +240,8 @@ pub struct ResourceDetail {
     /// The button that reveals its hidden value, when it has one.
     pub reveal: Option<String>,
     pub delete: Option<DeleteSpec>,
+    /// The deep page that shows more of it (`lambda-function`), when it has one.
+    pub deep: Option<String>,
 }
 
 /// `POST /api/v1/resources/<service>/<kind>`: what was made.
