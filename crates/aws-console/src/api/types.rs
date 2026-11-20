@@ -13,6 +13,11 @@ use crate::model::{
     About, ApiCoverage, ApiError, CallRecord, CallVia, CallsPage, CopyCommands, FlowRow,
     FlowsResponse, Outcome, RingFill, ServiceName, ServiceRow, ServicesResponse, TailReady,
 };
+use crate::model::{
+    ColumnSpec, Created, DeleteSpec, Deleted, FieldValue, FormInput, KindCount, ResourceDetail,
+    ResourceLink, ResourceList, ResourceRow, ResourceService, ResourcesIndex, Revealed, SubList,
+    ValueFormat,
+};
 
 fn dir() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../console/apps/aws/src/api/types")
@@ -48,6 +53,22 @@ fn all() -> BTreeMap<String, String> {
     one::<FlowRow>(&cfg, &mut out);
     one::<FlowsResponse>(&cfg, &mut out);
     one::<CopyCommands>(&cfg, &mut out);
+    one::<ResourcesIndex>(&cfg, &mut out);
+    one::<ResourceService>(&cfg, &mut out);
+    one::<KindCount>(&cfg, &mut out);
+    one::<ValueFormat>(&cfg, &mut out);
+    one::<ColumnSpec>(&cfg, &mut out);
+    one::<ResourceRow>(&cfg, &mut out);
+    one::<ResourceLink>(&cfg, &mut out);
+    one::<FormInput>(&cfg, &mut out);
+    one::<DeleteSpec>(&cfg, &mut out);
+    one::<ResourceList>(&cfg, &mut out);
+    one::<FieldValue>(&cfg, &mut out);
+    one::<SubList>(&cfg, &mut out);
+    one::<ResourceDetail>(&cfg, &mut out);
+    one::<Created>(&cfg, &mut out);
+    one::<Revealed>(&cfg, &mut out);
+    one::<Deleted>(&cfg, &mut out);
     out
 }
 

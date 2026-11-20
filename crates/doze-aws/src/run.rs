@@ -100,7 +100,10 @@ async fn run(cfg: &Config, started: Instant) -> Result<(), String> {
     let tasks = Tasks::new();
     // With the console on, its Live record is told about every call (wire::live_on_the_bus).
     let live = console.as_ref().map(crate::console::Planned::recorder);
-    let (gateway, resumable, _data, apis) = crate::wire::gateway(cfg, gw, &on, &tasks, live);
+    // The bus between services; the console's Resources space calls on it too.
+    let peers = aws_peers::Peers::new();
+    let (gateway, resumable, _data, apis) =
+        crate::wire::gateway(cfg, (gw, &peers), &on, &tasks, live);
     let running = match gateway.bind().await {
         Ok(r) => r,
         Err(e) if e.kind() == std::io::ErrorKind::AddrInUse => {
@@ -112,17 +115,10 @@ async fn run(cfg: &Config, started: Instant) -> Result<(), String> {
     resumable.resume(&me.endpoint).await;
     // The line a supervisor (and the conformance harness) waits for.
     tracing::info!("doze-aws listening on {}", running.local_addr());
-    if cfg.text("auth") == "verify" {
-        (me.access_key, me.secret_key) =
-            (Some(cfg.text("access-key")), Some(cfg.text("secret-key")));
-    }
-    if let Err(e) = instance::write(&data, &me) {
-        tracing::warn!(
-            "{}: {e} (`doze-aws env` will not find this instance by its data directory)",
-            instance::FILE
-        );
-    }
-    let console = console.map(|c| c.start(cfg, &me, &on, apis)).transpose()?;
+    write_instance(cfg, &data, &mut me);
+    let console = console
+        .map(|c| c.start(cfg, &me, (&on, peers), apis))
+        .transpose()?;
     let url = console.as_ref().map(aws_console::Running::url);
     announce(cfg, &me, &on, started, url.as_deref());
     mention_size(&data, cfg.count("data-warn-gb"), &tasks);
@@ -133,6 +129,20 @@ async fn run(cfg: &Config, started: Instant) -> Result<(), String> {
     tasks.shutdown().await;
     instance::remove(&data);
     Ok(())
+}
+
+/// The instance file `doze-aws env` finds this process by (with the key, under `--auth verify`).
+fn write_instance(cfg: &Config, data: &std::path::Path, me: &mut Instance) {
+    if cfg.text("auth") == "verify" {
+        (me.access_key, me.secret_key) =
+            (Some(cfg.text("access-key")), Some(cfg.text("secret-key")));
+    }
+    if let Err(e) = instance::write(data, me) {
+        tracing::warn!(
+            "{}: {e} (`doze-aws env` will not find this instance by its data directory)",
+            instance::FILE
+        );
+    }
 }
 
 /// The ready block, then the template `--template` names, applied beside the server.

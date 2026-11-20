@@ -190,3 +190,10 @@ fn background_polls_are_known_by_service_and_operation() {
     assert!(!seen::is_poll("sqs", "SendMessage"));
     assert!(!seen::is_poll("lambda", "Invoke"));
 }
+
+#[tokio::test]
+async fn work_a_person_asked_for_is_known_as_asked() {
+    assert!(!seen::is_asked());
+    assert!(seen::asked(async { seen::is_asked() }).await);
+    assert!(!seen::is_asked());
+}

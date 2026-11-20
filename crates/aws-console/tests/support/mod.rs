@@ -60,6 +60,7 @@ pub(crate) fn facts() -> Facts {
                 apis: vec![Arc::new(aws_sqs::Sqs::new(ctx))],
             },
         ],
+        peers: None,
     }
 }
 

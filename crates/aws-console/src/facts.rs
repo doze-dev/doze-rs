@@ -52,6 +52,9 @@ pub struct Facts {
     pub started: u64,
     /// Every service of the build, in catalogue order.
     pub services: Vec<ServiceFacts>,
+    /// The bus the services call each other on: the Resources space reads and changes them through it, as the caller
+    /// `console`. `None` leaves the space without data (it says so).
+    pub peers: Option<Arc<aws_peers::Peers>>,
 }
 
 impl Facts {

@@ -2,8 +2,8 @@
 //!
 //! Every answer is JSON. A refusal is `{ "code": "...", "message": "..." }`. Every request must carry `X-Console: 1` (the
 //! console's fetch client sets it): a page on another site cannot send a custom header without a CORS preflight, which this
-//! server never grants. A request that is not a plain read must also pass the same-origin proof of [`crate::origin`]. No route
-//! changes anything yet; the proof is in front of the routes already, so the first write that is added is behind it.
+//! server never grants. A request that is not a plain read must also pass the same-origin proof of [`crate::origin`]: the Resources
+//! space's creates, deletes and reveals ([`resources`]) are behind it.
 
 use axum::Router;
 use axum::extract::Request;
@@ -11,7 +11,7 @@ use axum::http::header::{CONTENT_TYPE, HOST, ORIGIN, RETRY_AFTER};
 use axum::http::{HeaderName, HeaderValue, StatusCode};
 use axum::middleware::{Next, from_fn};
 use axum::response::{IntoResponse, Response};
-use axum::routing::get;
+use axum::routing::{get, post};
 use serde::Serialize;
 
 use crate::model::ApiError;
@@ -22,6 +22,7 @@ pub mod about;
 pub mod calls;
 pub mod copy;
 pub mod flows;
+pub mod resources;
 #[cfg(test)]
 mod types;
 
@@ -39,6 +40,19 @@ pub fn routes() -> Router<Shared> {
         .route("/api/v1/tail/live", get(calls::tail))
         .route("/api/v1/calls/{seq}/copy", get(copy::copy))
         .route("/api/v1/flows", get(flows::flows))
+        .route("/api/v1/resources", get(resources::index))
+        .route(
+            "/api/v1/resources/{service}/{kind}",
+            get(resources::list).post(resources::create),
+        )
+        .route(
+            "/api/v1/resources/{service}/{kind}/{name}",
+            get(resources::detail).delete(resources::delete),
+        )
+        .route(
+            "/api/v1/resources/{service}/{kind}/{name}/reveal",
+            post(resources::reveal),
+        )
         .route_layer(from_fn(guard))
 }
 

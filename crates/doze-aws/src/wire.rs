@@ -97,17 +97,16 @@ impl<'a> On<'a> {
     }
 }
 
-/// The gateway with every service on it, the services to resume once it listens, the data engine over all of them, and every API
-/// that is on the gateway.
+/// The gateway with every service on it (and on `peers`, the bus the console's Resources space calls too), the services to resume
+/// once it listens, the data engine over all of them, and every API that is on the gateway.
 pub(crate) fn gateway(
     cfg: &Config,
-    mut gw: GatewayConfig,
+    (mut gw, peers): (GatewayConfig, &Arc<Peers>),
     on: &[&'static Svc],
     tasks: &Tasks,
     recorder: Option<Arc<aws_console::Recorder>>,
 ) -> (Gateway, Resumable, Arc<crate::data::Data>, Apis) {
     let on = On::new(on);
-    let peers = Peers::new();
     let ext: Arc<dyn std::any::Any + Send + Sync> = peers.clone();
     let idle = Duration::from_secs(cfg.count("idle-secs"));
     let data = cfg.data_dir();
@@ -121,7 +120,7 @@ pub(crate) fn gateway(
         })
     };
     let hook = data_hook(cfg, &mut gw);
-    live_on_the_bus(cfg, &peers, &mut gw, recorder.as_ref());
+    live_on_the_bus(cfg, peers, &mut gw, recorder.as_ref());
     let (iam, sts) = aws_iam::services(ctx("iam"));
     let iam = Arc::new(iam);
     // IAM decides for every service whether or not IAM's own API is served.
@@ -167,7 +166,7 @@ pub(crate) fn gateway(
         peers.register(Arc::clone(&service));
         gateway = gateway.with(on.wrap(name, service));
     }
-    let (gateway, apis) = paired(gateway, &on, &peers, &dynamodb, ctx("apigateway"));
+    let (gateway, apis) = paired(gateway, &on, peers, &dynamodb, ctx("apigateway"));
     kept.extend(catalogued(&[("apigateway", apis)]));
     let data = Arc::new(crate::data::Data::new(data.clone(), kept));
     hook.set(Arc::clone(&data));

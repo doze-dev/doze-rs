@@ -715,10 +715,18 @@ dependencies = [
 name = "aws-console"
 version = "0.0.0"
 dependencies = [
+ "aws-dynamodb",
  "aws-gateway",
+ "aws-iam",
+ "aws-kms",
+ "aws-lambda",
  "aws-peers",
+ "aws-s3",
  "aws-schema",
+ "aws-secrets",
+ "aws-sns",
  "aws-sqs",
+ "aws-ssm",
  "aws-wire",
  "axum",
  "doze-runtime",

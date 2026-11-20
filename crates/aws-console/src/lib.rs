@@ -10,6 +10,8 @@
 //!   proof ([`origin`]).
 //! - [`ring`] is the Live record: a bounded ring of finished calls, fed by the gateway on its request path
 //!   ([`aws_gateway::Observer`]), with no timer of its own. A reader is woken by a call, never by a clock.
+//! - [`resources`] is the Resources space: each service's descriptor, read and changed through the peer bus as the caller
+//!   `console`.
 //! - [`model`] is the contract: the view-models the API answers with, from which a test writes the TypeScript types of
 //!   `console/apps/aws/src/api/types/` (a stale file fails it).
 //!
@@ -25,6 +27,7 @@ pub mod headers;
 pub mod limits;
 pub mod model;
 pub mod origin;
+pub mod resources;
 pub mod ring;
 pub mod serve;
 pub mod state;

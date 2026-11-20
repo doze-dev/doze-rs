@@ -23,6 +23,19 @@ pub struct Cause {
 
 tokio::task_local! {
     static CAUSE: Cause;
+    static ASKED: ();
+}
+
+/// Runs `work` as asked for by a person (the console reading a queue's attributes for its page): a call it makes is told to the
+/// watcher even when it is one of the background reads [`is_poll`] would leave out, since a person asked for it.
+pub async fn asked<F: Future>(work: F) -> F::Output {
+    ASKED.scope((), work).await
+}
+
+/// Whether the work running now was asked for by a person ([`asked`]).
+#[must_use]
+pub fn is_asked() -> bool {
+    ASKED.try_with(|()| ()).is_ok()
 }
 
 /// Runs `work` as the handling of request `request_id`: a bus call it makes is marked as caused by that request.
@@ -131,6 +144,7 @@ impl Pending {
         let cause = current();
         if cause.as_ref().is_none_or(|c| c.request.is_none())
             && is_poll(meta.signing_name, operation)
+            && !is_asked()
         {
             return None;
         }

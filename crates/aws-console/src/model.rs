@@ -10,6 +10,9 @@ use serde::Serialize;
 use crate::facts::Facts;
 use crate::ring::{Call, Flow};
 
+mod resources;
+pub use resources::*;
+
 /// A refusal: a stable code a script can match and the words a person reads.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[cfg_attr(test, derive(ts_rs::TS))]

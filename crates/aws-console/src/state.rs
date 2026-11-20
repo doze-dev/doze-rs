@@ -73,6 +73,18 @@ impl State {
         self.bundle.set(bundle).is_ok()
     }
 
+    /// The console as a caller on the services' bus, when it was given one.
+    #[must_use]
+    pub fn bus(&self) -> Option<crate::resources::bus::Bus> {
+        let peers = self.facts.peers.clone()?;
+        Some(crate::resources::bus::Bus::new(
+            peers,
+            &self.facts.account,
+            &self.facts.region,
+            &self.facts.endpoint,
+        ))
+    }
+
     /// The URL a browser on this machine reaches the console at (a wildcard address is reached on loopback).
     #[must_use]
     pub fn url(&self) -> String {

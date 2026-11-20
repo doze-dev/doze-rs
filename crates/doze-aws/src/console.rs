@@ -69,7 +69,7 @@ impl Planned {
         self.recorder.clone()
     }
 
-    /// Serves the console, now that the gateway listens (`me` has its endpoint).
+    /// Serves the console, now that the gateway listens (`me` has its endpoint), with the services' bus for its Resources space.
     ///
     /// # Errors
     /// The listener could not be served.
@@ -77,13 +77,14 @@ impl Planned {
         self,
         cfg: &Config,
         me: &Instance,
-        on: &[&'static Svc],
+        (on, peers): (&[&'static Svc], Arc<aws_peers::Peers>),
         apis: Apis,
     ) -> Result<Running, String> {
         let settings = Settings {
             allow_hosts: cfg.list("console-allow-host"),
         };
-        let facts = facts(cfg, me, on, &apis);
+        let mut facts = facts(cfg, me, on, &apis);
+        facts.peers = Some(peers);
         let running = aws_console::start_on(self.listener, facts, self.recorder, settings)
             .map_err(|e| format!("doze-aws cannot serve its console: {e}"))?;
         // The line a supervisor (and the tests) wait for, beside the gateway's.
@@ -124,6 +125,7 @@ fn facts(cfg: &Config, me: &Instance, on: &[&'static Svc], apis: &Apis) -> Facts
                     .collect(),
             })
             .collect(),
+        peers: None,
     }
 }
 

@@ -40,8 +40,16 @@ serde_json = "1"
 [dev-dependencies]
 # TypeScript types of the JSON API, written by a test into console/apps/aws/src/api/types (a stale file fails the test).
 ts-rs = "12"
-# A real service to count operations on.
+# A real service to count operations on, and the services the Resources descriptors are tested against (tests/resources.rs).
 aws-sqs = { path = "../aws-sqs" }
+aws-sns = { path = "../aws-sns" }
+aws-s3 = { path = "../aws-s3" }
+aws-dynamodb = { path = "../aws-dynamodb" }
+aws-lambda = { path = "../aws-lambda" }
+aws-secrets = { path = "../aws-secrets" }
+aws-ssm = { path = "../aws-ssm" }
+aws-kms = { path = "../aws-kms" }
+aws-iam = { path = "../aws-iam" }
 doze-runtime = { path = "../doze-runtime" }
 # `oneshot` on a Router, and the bodies of its answers.
 tower = { version = "0.5", default-features = false, features = ["util"] }
