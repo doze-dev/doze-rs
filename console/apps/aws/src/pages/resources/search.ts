@@ -8,3 +8,12 @@ export function resourceSearch(s: Record<string, unknown>): { m?: string; all?: 
   if (s.all === "yes") out.all = "yes";
   return out;
 }
+
+/** `?tab=objects`: one of the resource's own pages, beside its details (none: the details). `?p=banners/`: where in it the page
+ * is (a bucket's folder). */
+export function oneSearch(s: Record<string, unknown>): { tab?: string; p?: string } {
+  const out: { tab?: string; p?: string } = {};
+  if (typeof s.tab === "string" && /^[a-z-]{1,40}$/.test(s.tab)) out.tab = s.tab;
+  if (typeof s.p === "string" && s.p.length <= 1024) out.p = s.p;
+  return out;
+}

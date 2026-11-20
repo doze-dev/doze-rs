@@ -22,6 +22,7 @@ import { columnSizes, isDocument, sortKey, titleOf } from "./model";
 import { isConsole } from "../live/search";
 import { CreateDialog } from "./create-dialog";
 import { ResourceTo, Value } from "./value";
+import { DeepPage, DeepTabs } from "./deep/pages";
 
 /** The hidden value of a field: Reveal makes the one call that reads it (Live shows it); Hide forgets it. */
 function Hidden({ service, kind, name, label }: { service: string; kind: string; name: string; label: string }) {
@@ -188,7 +189,7 @@ function Calls({ d }: { d: ResourceDetail }) {
 
 /** One resource: what the descriptor's detail operations answered, the lists that belong to it, its recent calls in Live,
  * Delete (a confirm dialog), and Reveal for a hidden value. */
-export function ResourceDetailPage({ service, kind, name }: { service: string; kind: string; name: string }) {
+export function ResourceDetailPage({ service, kind, name, tab }: { service: string; kind: string; name: string; tab?: string }) {
   const detail = useResourceDetail(service, kind, name);
   const [deleting, setDeleting] = useState(false);
   const { refetch } = detail;
@@ -217,10 +218,17 @@ export function ResourceDetailPage({ service, kind, name }: { service: string; k
         <Skeleton className="h-80 rounded-[14px]" data-testid="detail-loading" />
       ) : (
         <div data-testid="detail">
-          <Fields d={d} />
-          {d.subs.map((s) => (
-            <Sub key={s.title} sub={s} service={service} />
-          ))}
+          <DeepTabs d={d} name={name} tab={tab} />
+          {tab ? (
+            <DeepPage d={d} id={tab} />
+          ) : (
+            <>
+              <Fields d={d} />
+              {d.subs.map((s) => (
+                <Sub key={s.title} sub={s} service={service} />
+              ))}
+            </>
+          )}
           <Calls d={d} />
           {d.delete && <DeleteDialog open={deleting} onOpenChange={setDeleting} service={service} kind={kind} one={d.one} name={d.name} label={name} spec={d.delete} />}
         </div>

@@ -67,5 +67,6 @@ export function SecondPage() {
 
 export function OnePage() {
   const { service, kind, name } = oneRoute.useParams();
-  return <ResourceDetailPage key={`${service}/${kind}/${name}`} service={service} kind={kind} name={name} />;
+  const { tab } = oneRoute.useSearch();
+  return <ResourceDetailPage key={`${service}/${kind}/${name}`} service={service} kind={kind} name={name} tab={tab} />;
 }

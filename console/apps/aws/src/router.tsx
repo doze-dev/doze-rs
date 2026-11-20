@@ -7,7 +7,7 @@ import { NotFoundPage } from "./pages/not-found";
 import { AccessPage, LabPage, SettingsPage } from "./pages/soon";
 // Live's address (the drawer of a call, the view, the filters): a small module of its own, so the router does not pull Live in.
 import { liveSearch } from "./pages/live/search";
-import { resourceSearch } from "./pages/resources/search";
+import { oneSearch, resourceSearch } from "./pages/resources/search";
 import { Shell } from "./shell/shell";
 
 const root = createRootRoute({ component: Shell, notFoundComponent: NotFoundPage });
@@ -22,7 +22,7 @@ const resourcesChunk = () => import("./pages/resources/routes");
 const resources = createRoute({ getParentRoute: () => root, path: "/resources", component: lazyRouteComponent(unlessLeaving(() => import("./pages/resources/index-page")), "ResourcesPage") });
 const service = createRoute({ getParentRoute: () => root, path: "/resources/$service", component: lazyRouteComponent(unlessLeaving(resourcesChunk), "ServicePage") });
 const second = createRoute({ getParentRoute: () => root, path: "/resources/$service/$second", validateSearch: resourceSearch, component: lazyRouteComponent(unlessLeaving(resourcesChunk), "SecondPage") });
-const resource = createRoute({ getParentRoute: () => root, path: "/resources/$service/$kind/$name", component: lazyRouteComponent(unlessLeaving(resourcesChunk), "OnePage") });
+const resource = createRoute({ getParentRoute: () => root, path: "/resources/$service/$kind/$name", validateSearch: oneSearch, component: lazyRouteComponent(unlessLeaving(resourcesChunk), "OnePage") });
 const access = createRoute({ getParentRoute: () => root, path: "/access", component: AccessPage });
 const lab = createRoute({ getParentRoute: () => root, path: "/lab", component: LabPage });
 const settings = createRoute({ getParentRoute: () => root, path: "/settings", component: SettingsPage });
