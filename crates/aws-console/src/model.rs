@@ -11,7 +11,9 @@ use crate::facts::Facts;
 use crate::ring::{Call, Flow};
 
 mod resources;
+mod spaces;
 pub use resources::*;
+pub use spaces::*;
 
 /// A refusal: a stable code a script can match and the words a person reads.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -171,6 +173,9 @@ pub struct CallRecord {
     /// `null` for a request from the wire. Set for a call one service made to another on doze-aws's internal bus (SNS delivering
     /// to SQS, a rule invoking a function): no socket, no signature, and no request id of its own.
     pub via: Option<CallVia>,
+    /// The client that sent it, as its `User-Agent` names it (`boto3 1.34.69`, `AWS CLI 2.15.30`, `JS v3 3.540.0`); `null` for a
+    /// call between services and a request that named none.
+    pub sdk: Option<String>,
 }
 
 /// What made a call between services.
@@ -213,6 +218,7 @@ impl CallRecord {
                 request_id: some(&v.request),
                 name: some(&v.name),
             }),
+            sdk: some(&call.sdk),
         }
     }
 }

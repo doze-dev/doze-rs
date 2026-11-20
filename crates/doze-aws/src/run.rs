@@ -102,7 +102,7 @@ async fn run(cfg: &Config, started: Instant) -> Result<(), String> {
     let live = console.as_ref().map(crate::console::Planned::recorder);
     // The bus between services; the console's Resources space calls on it too.
     let peers = aws_peers::Peers::new();
-    let (gateway, resumable, _data, apis) =
+    let (gateway, resumable, engine, apis) =
         crate::wire::gateway(cfg, (gw, &peers), &on, &tasks, live);
     let running = match gateway.bind().await {
         Ok(r) => r,
@@ -117,7 +117,7 @@ async fn run(cfg: &Config, started: Instant) -> Result<(), String> {
     tracing::info!("doze-aws listening on {}", running.local_addr());
     write_instance(cfg, &data, &mut me);
     let console = console
-        .map(|c| c.start(cfg, &me, (&on, peers), apis))
+        .map(|c| c.start(cfg, &me, (&on, peers, engine), apis))
         .transpose()?;
     let url = console.as_ref().map(aws_console::Running::url);
     announce(cfg, &me, &on, started, url.as_deref());

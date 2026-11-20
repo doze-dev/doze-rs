@@ -19,3 +19,9 @@ name = "origin"
 path = "fuzz_targets/origin.rs"
 test = false
 doc = false
+
+[[bin]]
+name = "user_agent"
+path = "fuzz_targets/user_agent.rs"
+test = false
+doc = false

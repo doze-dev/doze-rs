@@ -14,6 +14,12 @@ use crate::model::{
     FlowsResponse, Outcome, RingFill, ServiceName, ServiceRow, ServicesResponse, TailReady,
 };
 use crate::model::{
+    AccessView, Attached, CallerSeen, DataUse, DenialGroup, FlagRow, HomeChecks, HomeView,
+    KeyPrincipal, LabAnswer, LabError, LabIndex, LabMember, LabOperation, LabTarget, PrincipalKind,
+    PrincipalsResponse, Refusal, ResetDone, ResetRow, ServiceSeen, SettingsView, Signal,
+    SignalKind,
+};
+use crate::model::{
     ColumnSpec, CreateSpec, Created, DeepTab, DeleteSpec, Deleted, FieldValue, FormInput,
     KindCount, ResourceDetail, ResourceLink, ResourceList, ResourceRow, ResourceService,
     ResourcesIndex, Revealed, SetAside, SubAdd, SubList, Uploaded, ValueFormat,
@@ -74,6 +80,30 @@ fn all() -> BTreeMap<String, String> {
     one::<Deleted>(&cfg, &mut out);
     one::<DeepTab>(&cfg, &mut out);
     one::<Uploaded>(&cfg, &mut out);
+    one::<KeyPrincipal>(&cfg, &mut out);
+    one::<PrincipalKind>(&cfg, &mut out);
+    one::<PrincipalsResponse>(&cfg, &mut out);
+    one::<Refusal>(&cfg, &mut out);
+    one::<DenialGroup>(&cfg, &mut out);
+    one::<AccessView>(&cfg, &mut out);
+    one::<Attached>(&cfg, &mut out);
+    one::<CallerSeen>(&cfg, &mut out);
+    one::<ServiceSeen>(&cfg, &mut out);
+    one::<SignalKind>(&cfg, &mut out);
+    one::<Signal>(&cfg, &mut out);
+    one::<HomeView>(&cfg, &mut out);
+    one::<HomeChecks>(&cfg, &mut out);
+    one::<FlagRow>(&cfg, &mut out);
+    one::<DataUse>(&cfg, &mut out);
+    one::<SettingsView>(&cfg, &mut out);
+    one::<ResetRow>(&cfg, &mut out);
+    one::<ResetDone>(&cfg, &mut out);
+    one::<LabTarget>(&cfg, &mut out);
+    one::<LabIndex>(&cfg, &mut out);
+    one::<LabMember>(&cfg, &mut out);
+    one::<LabOperation>(&cfg, &mut out);
+    one::<LabError>(&cfg, &mut out);
+    one::<LabAnswer>(&cfg, &mut out);
     out
 }
 

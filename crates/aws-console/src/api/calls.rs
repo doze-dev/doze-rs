@@ -50,7 +50,7 @@ pub fn seq_of(s: &Console, cursor: &str) -> Option<u64> {
         .flatten()
 }
 
-fn fill(s: &Console) -> RingFill {
+pub(crate) fn fill(s: &Console) -> RingFill {
     let f = s.recorder.fill();
     RingFill {
         capacity: u32::try_from(s.recorder.capacity()).unwrap_or(u32::MAX),

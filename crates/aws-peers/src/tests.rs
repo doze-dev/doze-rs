@@ -197,3 +197,13 @@ async fn work_a_person_asked_for_is_known_as_asked() {
     assert!(seen::asked(async { seen::is_asked() }).await);
     assert!(!seen::is_asked());
 }
+
+#[test]
+fn every_target_is_listed_by_its_name_on_the_bus() {
+    let dir = std::env::temp_dir().join(format!("doze-aws-peers-targets-{}", std::process::id()));
+    let peers = bus(&dir);
+    let names: Vec<&str> = peers.targets().iter().map(|(n, _)| *n).collect();
+    assert_eq!(names, ["kms"]);
+    assert_eq!(Peers::new().targets().len(), 0);
+    drop(std::fs::remove_dir_all(&dir));
+}

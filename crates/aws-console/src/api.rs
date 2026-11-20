@@ -19,11 +19,15 @@ use crate::origin;
 use crate::state::Shared;
 
 pub mod about;
+pub mod access;
 pub mod calls;
 pub mod copy;
 pub mod deep;
 pub mod flows;
+pub mod home;
+pub mod lab;
 pub mod resources;
+pub mod settings;
 #[cfg(test)]
 mod types;
 
@@ -41,6 +45,18 @@ pub fn routes() -> Router<Shared> {
         .route("/api/v1/tail/live", get(calls::tail))
         .route("/api/v1/calls/{seq}/copy", get(copy::copy))
         .route("/api/v1/flows", get(flows::flows))
+        .route("/api/v1/home", get(home::home))
+        .route("/api/v1/home/checks", get(home::checks))
+        .route("/api/v1/principals", get(access::principals))
+        .route("/api/v1/access", get(access::access))
+        .route("/api/v1/access/attach", post(access::attach))
+        .route("/api/v1/settings", get(settings::settings))
+        .route("/api/v1/settings/reset", post(settings::reset))
+        .route("/api/v1/lab", get(lab::index))
+        .route(
+            "/api/v1/lab/{target}/{operation}",
+            get(lab::operation).post(lab::send),
+        )
         .route("/api/v1/resources", get(resources::index))
         .route(
             "/api/v1/resources/{service}/{kind}",
@@ -84,6 +100,12 @@ pub fn json<T: Serialize>(status: StatusCode, value: &T) -> Response {
             (StatusCode::INTERNAL_SERVER_ERROR, "serialisation failed").into_response()
         }
     }
+}
+
+/// The member `key` of a JSON object, or null.
+#[must_use]
+pub fn at<'a>(v: &'a serde_json::Value, key: &str) -> &'a serde_json::Value {
+    v.get(key).unwrap_or(&serde_json::Value::Null)
 }
 
 /// A refusal as a response.

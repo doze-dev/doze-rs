@@ -19,6 +19,7 @@ mod entities;
 mod mfa;
 mod persistence;
 mod policies;
+mod principals;
 mod reports;
 mod sessions;
 mod simulate;

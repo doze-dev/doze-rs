@@ -61,6 +61,8 @@ pub(crate) fn facts() -> Facts {
             },
         ],
         peers: None,
+        flags: Vec::new(),
+        data: None,
     }
 }
 
@@ -96,6 +98,7 @@ pub(crate) fn sqs_call(action: &'static str, status: u16, code: &'static str) ->
         code,
         took: Duration::from_micros(1_500),
         would_be_denied: false,
+        user_agent: "Boto3/1.34.69 md/Botocore#1.34.69",
     }
 }
 

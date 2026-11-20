@@ -55,6 +55,35 @@ pub struct Facts {
     /// The bus the services call each other on: the Resources space reads and changes them through it, as the caller
     /// `console`. `None` leaves the space without data (it says so).
     pub peers: Option<Arc<aws_peers::Peers>>,
+    /// Every setting it was started with, in the order `doze-aws config print` lists them (Settings shows them).
+    pub flags: Vec<Flag>,
+    /// The data directory, as `doze-aws data` reads and resets it; `None` when the binary did not hand it over.
+    pub data: Option<Arc<dyn LocalData>>,
+}
+
+/// One setting of the run: its name, its value and where the value came from.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Flag {
+    /// The flag's name without its dashes (`iam`).
+    pub name: String,
+    /// The value; a list's items joined with commas. A secret (`secret-key`) is never here: it is `None`.
+    pub value: Option<String>,
+    /// Where it came from, as a person looks for it (`--iam`, `DOZE_AWS_IAM`, `doze-aws.toml, line 4`, `the default`).
+    pub source: String,
+    /// Whether it is the default (nobody set it).
+    pub default: bool,
+}
+
+/// The data directory as the binary's data engine sees it (`doze-aws data`): what each service keeps, and a reset.
+pub trait LocalData: Send + Sync + std::fmt::Debug {
+    /// `GET /_doze/data`'s answer: `{data_dir, bytes, services: [{name, title, bytes, ...}]}`.
+    fn report(&self) -> aws_wire::service::BoxFuture<'_, Result<serde_json::Value, String>>;
+    /// `POST /_doze/data/reset`'s answer for every service (`{services: [{service, items, bytes, freed}]}`); with `dry_run`,
+    /// what it would remove, removing nothing.
+    fn reset(
+        &self,
+        dry_run: bool,
+    ) -> aws_wire::service::BoxFuture<'_, Result<serde_json::Value, String>>;
 }
 
 impl Facts {

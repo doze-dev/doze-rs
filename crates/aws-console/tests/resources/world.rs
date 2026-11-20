@@ -159,6 +159,8 @@ pub(crate) fn world(name: &str, mode: Mode, served: &[&'static str]) -> World {
             })
             .collect(),
         peers: Some(peers),
+        flags: Vec::new(),
+        data: None,
     };
     let state = State::new(
         facts,
@@ -282,6 +284,7 @@ pub(crate) fn encode(name: &str) -> String {
         .replace(':', "%3A")
 }
 
+#[allow(dead_code)]
 pub(crate) fn field<'a>(detail: &'a Value, label: &str) -> &'a Value {
     detail["fields"]
         .as_array()

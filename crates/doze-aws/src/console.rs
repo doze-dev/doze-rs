@@ -10,10 +10,11 @@
 use std::net::SocketAddr;
 use std::sync::Arc;
 
-use aws_console::{Facts, Recorder, Running, ServiceFacts, Settings};
+use aws_console::{Facts, Flag, LocalData, Recorder, Running, ServiceFacts, Settings};
 use tokio::net::TcpListener;
 
-use crate::config::Config;
+use crate::config::{Config, Source};
+use crate::data::Data;
 use crate::instance::Instance;
 use crate::services::{ALL, Svc};
 use crate::wire::Apis;
@@ -77,7 +78,7 @@ impl Planned {
         self,
         cfg: &Config,
         me: &Instance,
-        (on, peers): (&[&'static Svc], Arc<aws_peers::Peers>),
+        (on, peers, data): (&[&'static Svc], Arc<aws_peers::Peers>, Arc<Data>),
         apis: Apis,
     ) -> Result<Running, String> {
         let settings = Settings {
@@ -85,6 +86,8 @@ impl Planned {
         };
         let mut facts = facts(cfg, me, on, &apis);
         facts.peers = Some(peers);
+        facts.flags = flags(cfg);
+        facts.data = Some(Arc::new(ConsoleData(data)));
         let running = aws_console::start_on(self.listener, facts, self.recorder, settings)
             .map_err(|e| format!("doze-aws cannot serve its console: {e}"))?;
         // The line a supervisor (and the tests) wait for, beside the gateway's.
@@ -97,6 +100,48 @@ impl Planned {
 pub(crate) async fn stop(console: Option<Running>) {
     if let Some(console) = console {
         console.shutdown().await;
+    }
+}
+
+/// Every setting of the run, as `doze-aws config print` lists them; the secret key's value is left out.
+fn flags(cfg: &Config) -> Vec<Flag> {
+    let file = cfg.file.as_deref().map(|p| p.display().to_string());
+    cfg.all()
+        .iter()
+        .map(|s| Flag {
+            name: s.key.name.to_owned(),
+            value: (s.key.name != "secret-key").then(|| s.value.join(",")),
+            source: crate::config::describe(s.key, &s.source, file.as_deref()),
+            default: s.source == Source::Default,
+        })
+        .collect()
+}
+
+/// The data engine, as the console's Settings reads and resets it: the same engine `/_doze/data` serves `doze-aws data`.
+struct ConsoleData(Arc<Data>);
+
+impl std::fmt::Debug for ConsoleData {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("ConsoleData")
+    }
+}
+
+impl LocalData for ConsoleData {
+    fn report(&self) -> aws_wire::service::BoxFuture<'_, Result<serde_json::Value, String>> {
+        Box::pin(async move {
+            let parts = self.0.report(None).await.map_err(|r| r.message)?;
+            Ok(crate::data::to_json(self.0.dir(), self.0.total(), &parts))
+        })
+    }
+
+    fn reset(
+        &self,
+        dry_run: bool,
+    ) -> aws_wire::service::BoxFuture<'_, Result<serde_json::Value, String>> {
+        Box::pin(async move {
+            let done = self.0.reset(None, dry_run).await.map_err(|r| r.message)?;
+            Ok(crate::data::reset_json(&done))
+        })
     }
 }
 
@@ -126,6 +171,8 @@ fn facts(cfg: &Config, me: &Instance, on: &[&'static Svc], apis: &Apis) -> Facts
             })
             .collect(),
         peers: None,
+        flags: Vec::new(),
+        data: None,
     }
 }
 
