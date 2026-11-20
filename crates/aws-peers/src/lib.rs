@@ -202,6 +202,30 @@ impl Peers {
         told(seen, rest.call_rest(call, upload).await)
     }
 
+    /// Like [`Peers::call_as`], for an operation whose answer is an event stream (CloudWatch Logs' `StartLiveTail`): the framed
+    /// messages (`aws_wire::eventstream`), read by the caller as the target writes them.
+    ///
+    /// # Errors
+    /// As [`Peers::call_as`]; an internal error when the operation does not stream.
+    pub async fn call_stream_as(
+        &self,
+        caller: &Caller,
+        target: &str,
+        operation: &str,
+        body: &Value,
+    ) -> Result<aws_wire::rest::Download, ApiError> {
+        let (service, call, seen) = self.prepare(None, caller, target, operation, body)?;
+        if !service.streams(call.op) {
+            return told(
+                seen,
+                Err(ApiError::internal(format!(
+                    "{operation} of {target} does not stream"
+                ))),
+            );
+        }
+        told(seen, service.call_stream(call).await)
+    }
+
     /// The model of a service on the bus, when it runs.
     #[must_use]
     pub fn tables_of(&self, target: &str) -> Option<&'static aws_schema::tables::Tables> {

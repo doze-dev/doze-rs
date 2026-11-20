@@ -23,6 +23,7 @@ pub mod calls;
 pub mod copy;
 pub mod deep;
 pub mod flows;
+pub mod pages;
 pub mod resources;
 #[cfg(test)]
 mod types;
@@ -64,6 +65,8 @@ pub fn routes() -> Router<Shared> {
                 .post(deep::upload)
                 .layer(DefaultBodyLimit::max(deep::UPLOAD_MAX)),
         )
+        .route("/api/v1/deep/logs/tail", get(pages::live_tail))
+        .route("/api/v1/deep/{service}/{operation}", post(pages::call))
         .route_layer(from_fn(guard))
 }
 

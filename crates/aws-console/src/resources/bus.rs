@@ -104,6 +104,23 @@ impl Bus {
         ))
         .await
     }
+
+    /// Calls `operation` of `target`, whose answer is an event stream (`StartLiveTail`): the framed messages as they come.
+    ///
+    /// # Errors
+    /// The target's refusal, IAM's included.
+    pub async fn stream(
+        &self,
+        target: &str,
+        operation: &str,
+        body: &Value,
+    ) -> Result<aws_wire::rest::Download, ApiError> {
+        aws_peers::seen::asked(
+            self.peers
+                .call_stream_as(&self.caller, target, operation, body),
+        )
+        .await
+    }
 }
 
 /// A request payload held whole, handed to the service as one piece.

@@ -2,6 +2,7 @@
 // a kind's list or (from Live) a resource whose kind the call's input member says, `/resources/<service>/<kind>/<name>` is one.
 import { getRouteApi, Link, Navigate } from "@tanstack/react-router";
 import { LayoutGridIcon } from "lucide-react";
+import { lazy, Suspense } from "react";
 import { ErrorBlock } from "@doze/ui/components/app/alert";
 import { EmptyState } from "@doze/ui/components/app/empty-state";
 import { PageHeader } from "@doze/ui/components/app/page-header";
@@ -12,6 +13,11 @@ import { ResourceDetailPage } from "./detail-page";
 import { HINT } from "./index-page";
 import { ResourceListPage } from "./list-page";
 import { resolve } from "./model";
+
+// An execution and a log stream are pages of their own, in a chunk of their own.
+const DeepRoute = lazy(() => import("../deep/routes").then((m) => ({ default: m.DeepRoute })));
+/** (The same test as `../deep/routes`, here so the chunk is fetched only when it is needed.) */
+const isDeepRoute = (service: string, kind: string) => (service === "stepfunctions" && kind === "executions") || (service === "logs" && kind === "streams");
 
 function NotDescribed({ service, note }: { service: string; note: string | null }) {
   return (
@@ -67,6 +73,13 @@ export function SecondPage() {
 
 export function OnePage() {
   const { service, kind, name } = oneRoute.useParams();
-  const { tab } = oneRoute.useSearch();
+  const { tab, group } = oneRoute.useSearch();
+  if (isDeepRoute(service, kind)) {
+    return (
+      <Suspense fallback={<Skeleton className="h-80 rounded-[14px]" />}>
+        <DeepRoute key={`${service}/${kind}/${name}`} service={service} kind={kind} name={name} group={group} />
+      </Suspense>
+    );
+  }
   return <ResourceDetailPage key={`${service}/${kind}/${name}`} service={service} kind={kind} name={name} tab={tab} />;
 }

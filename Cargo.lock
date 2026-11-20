@@ -718,6 +718,7 @@ dependencies = [
  "aws-apigateway",
  "aws-cloudformation",
  "aws-cloudwatch",
+ "aws-core",
  "aws-dynamodb",
  "aws-eventbridge",
  "aws-gateway",

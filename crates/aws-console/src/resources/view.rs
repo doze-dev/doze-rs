@@ -272,6 +272,7 @@ pub async fn detail(
         reveal: kind.reveal.as_ref().map(|r| r.label.to_owned()),
         delete: delete_spec(kind),
         deep: super::deep::tabs(kind),
+        page: crate::deep::page_of(d.service, kind.id).map(str::to_owned),
         operations,
         name: name.to_owned(),
         id,

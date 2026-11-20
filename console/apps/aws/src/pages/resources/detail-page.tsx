@@ -1,6 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import { EyeIcon, EyeOffIcon, PlusIcon, RadioIcon, Trash2Icon } from "lucide-react";
-import { useCallback, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { lazy, Suspense, useCallback, useState } from "react";
 import { Alert, ErrorBlock, errorWords } from "@doze/ui/components/app/alert";
 import { CopyButton } from "@doze/ui/components/app/copy-button";
 import { type DataColumn, DataTable } from "@doze/ui/components/app/data-table";
@@ -23,6 +24,9 @@ import { isConsole } from "../live/search";
 import { CreateDialog } from "./create-dialog";
 import { ResourceTo, Value } from "./value";
 import { DeepPage, DeepTabs } from "./deep/pages";
+
+// A resource with a deep page (a function's Test, a stack's Events) shows its tabs; their code is a chunk of its own.
+const PageTabs = lazy(() => import("../deep/deep-page").then((m) => ({ default: m.DeepTabs })));
 
 /** The hidden value of a field: Reveal makes the one call that reads it (Live shows it); Hide forgets it. */
 function Hidden({ service, kind, name, label }: { service: string; kind: string; name: string; label: string }) {
@@ -187,13 +191,31 @@ function Calls({ d }: { d: ResourceDetail }) {
   );
 }
 
+/** The generic detail: the fields, the lists that belong to it, its recent calls. */
+function DetailBody({ d, service }: { d: ResourceDetail; service: string }) {
+  return (
+    <>
+      <Fields d={d} />
+      {d.subs.map((s) => (
+        <Sub key={s.title} sub={s} service={service} />
+      ))}
+      <Calls d={d} />
+    </>
+  );
+}
+
 /** One resource: what the descriptor's detail operations answered, the lists that belong to it, its recent calls in Live,
  * Delete (a confirm dialog), and Reveal for a hidden value. */
 export function ResourceDetailPage({ service, kind, name, tab }: { service: string; kind: string; name: string; tab?: string }) {
   const detail = useResourceDetail(service, kind, name);
   const [deleting, setDeleting] = useState(false);
   const { refetch } = detail;
-  const refresh = useCallback(() => void refetch(), [refetch]);
+  const qc = useQueryClient();
+  // A deep page's tabs read on their own (["deep", …]): Refresh reads them again too.
+  const refresh = useCallback(() => {
+    void refetch();
+    void qc.invalidateQueries({ queryKey: ["deep"] });
+  }, [refetch, qc]);
   const d = detail.data;
   const crumbs = [{ label: "Resources", to: "/resources" }, ...(d ? [{ label: d.service_title, to: `/resources/${service}` }, { label: d.kind_title, to: `/resources/${service}/${kind}` }] : [])];
   return (
@@ -218,18 +240,26 @@ export function ResourceDetailPage({ service, kind, name, tab }: { service: stri
         <Skeleton className="h-80 rounded-[14px]" data-testid="detail-loading" />
       ) : (
         <div data-testid="detail">
-          <DeepTabs d={d} name={name} tab={tab} />
-          {tab ? (
-            <DeepPage d={d} id={tab} />
+          {d.page ? (
+            <Suspense fallback={<Skeleton className="h-80 rounded-[14px]" />}>
+              <PageTabs d={d} details={<DetailBody d={d} service={service} />} />
+            </Suspense>
           ) : (
             <>
-              <Fields d={d} />
-              {d.subs.map((s) => (
-                <Sub key={s.title} sub={s} service={service} />
-              ))}
+            <DeepTabs d={d} name={name} tab={tab} />
+            {tab ? (
+              <DeepPage d={d} id={tab} />
+            ) : (
+              <>
+                <Fields d={d} />
+                {d.subs.map((s) => (
+                  <Sub key={s.title} sub={s} service={service} />
+                ))}
+              </>
+            )}
+            <Calls d={d} />
             </>
           )}
-          <Calls d={d} />
           {d.delete && <DeleteDialog open={deleting} onOpenChange={setDeleting} service={service} kind={kind} one={d.one} name={d.name} label={name} spec={d.delete} />}
         </div>
       )}
