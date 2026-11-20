@@ -13,7 +13,7 @@ use crate::front::{Front, Fronted};
 use crate::names::{BindError, Zone};
 use crate::planners::Grant;
 use crate::{Daemon, Labels, StackInfo};
-use doze_config::{Instance, Kind, Spec};
+use doze_config::{Instance, Kind};
 use doze_engine::modules::Pinned;
 use doze_engine::stack::Planner;
 use doze_fetch::child::ChildDownloads;
@@ -295,50 +295,6 @@ async fn reap_modules(catalog: Arc<Catalog>) {
     }
 }
 
-/// The stack at `path`, as the CLI loads it: this process's environment (`DOZE_VAR_*` included), doze-names' checks.
-fn load(
-    path: &str,
-    version: &str,
-    modules: &dyn doze_config::modules::Modules,
-    env: BTreeMap<String, String>,
-) -> Result<doze_config::Config, String> {
-    with_options(version, modules, env, |opts| doze_config::load(path, opts))
-}
-
-/// One block read alone as if it were in the stack at `path` (Go's `Parse` of the add op's block): its references to
-/// other instances do not resolve.
-pub(crate) fn parse_block(
-    block: &str,
-    path: &str,
-    version: &str,
-    modules: &dyn doze_config::modules::Modules,
-    env: BTreeMap<String, String>,
-) -> Result<doze_config::Config, String> {
-    with_options(version, modules, env, |opts| {
-        doze_config::parse(block, path, opts, false)
-    })
-}
-
-pub(crate) fn with_options(
-    version: &str,
-    modules: &dyn doze_config::modules::Modules,
-    env: BTreeMap<String, String>,
-    f: impl FnOnce(&doze_config::Options<'_>) -> Result<doze_config::Config, doze_config::Error>,
-) -> Result<doze_config::Config, String> {
-    let domains = Domains;
-    let host = Overlay {
-        os: doze_config::host::OsHost { domains: &domains },
-        env: Arc::new(env),
-    };
-    let opts = doze_config::Options {
-        host: &host,
-        modules,
-        vars: BTreeMap::new(),
-        version: version.into(),
-    };
-    f(&opts).map_err(|e| e.to_string())
-}
-
 /// The catalog for the stack at `config`: module builds through a `__fetch` child of this very program, the lock
 /// beside doze.hcl, and the lock's engine pins in front of the downloads modules ask for.
 pub(crate) fn catalog(config: &Path) -> Result<Catalog, String> {
@@ -368,173 +324,6 @@ pub(crate) fn catalog(config: &Path) -> Result<Catalog, String> {
         home,
     )
     .with_service_downloads(Arc::new(services)))
-}
-
-/// What the config says about each instance, for the views; a module instance's variables, URL and client as its
-/// module answers them.
-fn labels(
-    cfg: &doze_config::Config,
-    cat: &Catalog,
-    grants: &BTreeMap<String, Grant>,
-) -> BTreeMap<String, Labels> {
-    cfg.instances
-        .iter()
-        .map(|i| (i.name.clone(), label(i, cat, grants.get(&i.name))))
-        .collect()
-}
-
-/// What the config says about one instance, and what the zone granted it (its name, its listeners).
-pub(crate) fn label(i: &Instance, cat: &Catalog, grant: Option<&Grant>) -> Labels {
-    let run = match &i.spec {
-        Spec::Command(c) => c.run.clone(),
-        _ => String::new(),
-    };
-    let host = grant.map(|g| g.host.clone()).unwrap_or_default();
-    let named = !host.is_empty();
-    let mut l = Labels {
-        kind: match i.kind() {
-            Kind::Module => String::new(),
-            k => k.as_str().into(),
-        },
-        engine: i.ty.clone(),
-        version: i.version.clone(),
-        run,
-        needs: i.deps.iter().map(|d| d.name.clone()).collect(),
-        endpoint: doze_config::instance_addr(i, cat).unwrap_or_default(),
-        domain: host,
-        paused: !i.enabled,
-        ..Labels::default()
-    };
-    if named && let Some(first) = i.domains.first() {
-        l.domains = i.domains.clone();
-        l.https = format!("https://{}", doze_names::domains::route_domain(first));
-    }
-    let main = grant.and_then(|g| g.listeners.get(doze_module_proto::network::MAIN));
-    if i.kind() != Kind::Module
-        && let Some(m) = main
-    {
-        l.url = if m.url.is_empty() {
-            format!("http://{}", m.addr)
-        } else {
-            m.url.clone()
-        };
-    }
-    if i.kind() == Kind::Module
-        && let Some(p) = crate::planners::as_module_sees_it_granted(cat, i, grant)
-            .and_then(|mi| cat.published(&mi))
-    {
-        l.connect = cat
-            .manifest_for(&i.ty, &i.version)
-            .and_then(|m| m.client)
-            .map(|c| crate::client::view(&c, &l.endpoint, &p.url));
-        (l.url, l.env_var, l.env, l.client) = (p.url, p.env_var, p.env, p.client);
-    }
-    l
-}
-
-/// Where doze listens for `i`, if it sits in front of it: every module that is not supervised, and every app or
-/// service with a port it does not bind itself. Its listeners are what its module declares (`network`); an app's is
-/// one HTTP listener, routed through the front door by its name (Go's ingress: `http://api.shop.doze`, no port).
-pub(crate) fn fronted_one(
-    i: &Instance,
-    cat: &Catalog,
-    supervised: bool,
-    run_dir: &Path,
-) -> Option<Fronted> {
-    let app = matches!(&i.spec, Spec::Command(c) if i.port > 0 && !c.direct);
-    let module = i.kind() == Kind::Module && !supervised;
-    if !i.enabled || !(app || module) {
-        return None;
-    }
-    let addr = doze_config::instance_addr(i, cat).ok()?;
-    if addr.is_empty() || addr.starts_with("unix:") {
-        return None;
-    }
-    let port = addr
-        .rsplit_once(':')
-        .and_then(|(_, p)| p.parse::<u16>().ok())
-        .filter(|p| *p > 0);
-    let any =
-        doze_module_proto::msg::instance::Address::Tcp(doze_engine::modules::ANY_LOOPBACK.into());
-    let (listeners, default_port, main_backend) = if app {
-        let main = doze_module_proto::msg::instance::Listener {
-            name: doze_module_proto::network::MAIN.into(),
-            port: 0,
-            http: true,
-            routes: vec!["@".into()],
-            tcp: false,
-        };
-        (vec![main], 0, any)
-    } else {
-        let m = cat.manifest_for(&i.ty, &i.version)?;
-        let mi = crate::planners::as_module_sees_it(cat, i)?;
-        let tcp_only = cat.main_is_tcp(&mi);
-        let backend = crate::planners::backend(&addr, &i.name, &m, tcp_only, run_dir);
-        (cat.network(&mi), m.default_port, backend)
-    };
-    Some(Fronted {
-        name: i.name.clone(),
-        decl: doze_bind::Decl {
-            name: i.name.clone(),
-            port,
-            routes: !i.no_routes,
-            listeners,
-            default_port,
-        },
-        app,
-        domains: i.domains.clone(),
-        cert: i.cert.clone(),
-        key: i.key.clone(),
-        main_backend,
-    })
-}
-
-/// This process's machine, with some variables set first.
-struct Overlay<'a> {
-    os: doze_config::host::OsHost<'a>,
-    env: Arc<BTreeMap<String, String>>,
-}
-
-impl doze_config::host::Host for Overlay<'_> {
-    fn env_lookup(&self) -> doze_hcl::funcs::EnvLookup {
-        let (os, env) = (self.os.env_lookup(), self.env.clone());
-        Arc::new(move |name: &str| env.get(name).cloned().or_else(|| os(name)))
-    }
-    fn cwd(&self) -> PathBuf {
-        self.os.cwd()
-    }
-    fn home_dir(&self) -> Option<PathBuf> {
-        self.os.home_dir()
-    }
-    fn valid_domain(&self, host: &str) -> Result<(), String> {
-        self.os.valid_domain(host)
-    }
-    fn route_domain(&self, host: &str) -> String {
-        self.os.route_domain(host)
-    }
-    fn check_certificate(&self, cert: &Path, key: &Path, domain: &str) -> Result<(), String> {
-        self.os.check_certificate(cert, key, domain)
-    }
-}
-
-/// doze-names' domain checks for the config.
-struct Domains;
-
-impl doze_config::host::DomainChecks for Domains {
-    fn valid_domain(&self, host: &str) -> Result<(), String> {
-        doze_names::domains::valid_domain(host)
-    }
-    fn route_domain(&self, host: &str) -> String {
-        doze_names::domains::route_domain(host)
-    }
-    fn check_certificate(&self, cert: &Path, key: &Path, _domain: &str) -> Result<(), String> {
-        for f in [cert, key] {
-            if !f.exists() {
-                return Err(format!("{} does not exist", f.display()));
-            }
-        }
-        Ok(())
-    }
 }
 
 /// The stack's run folder, made, when no daemon serves it yet: the data folder comes from doze.hcl read without its
@@ -579,3 +368,13 @@ fn refuse_if_running(run: &RunDir) -> Result<(), String> {
     }
     Ok(())
 }
+
+#[path = "entry_load.rs"]
+mod load;
+use load::load;
+pub(crate) use load::{parse_block, with_options};
+
+#[path = "entry_labels.rs"]
+mod labels;
+use labels::labels;
+pub(crate) use labels::{fronted_one, label};

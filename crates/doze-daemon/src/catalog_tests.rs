@@ -1,4 +1,6 @@
+use super::config::unserved;
 use super::*;
+use doze_config::modules::ModuleInfo;
 
 pub(crate) fn manifest(versions: &[&str]) -> Manifest {
     Manifest {
