@@ -121,7 +121,7 @@ fn instance() -> doze_module::proto::msg::instance::Instance {
     doze_module::proto::msg::instance::Instance {
         name: "local".into(),
         engine: "aws".into(),
-        version: "1".into(),
+        version: String::new(),
         data_dir: "/d".into(),
         socket_dir: "/s".into(),
         spec: doze_module::proto::msg::value::Node {

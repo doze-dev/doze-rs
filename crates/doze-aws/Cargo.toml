@@ -15,7 +15,7 @@ workspace = true
 # The doze module face (docs/port/modules/PLAN.md step 15): run as `aws-plugin` (the name a module release packages it under) or
 # as `doze-aws module`, the binary speaks doze's module protocol 2 and plans itself as the engine. On in the default build, as
 # kafka's is; `--no-default-features` leaves it out.
-module = ["dep:doze-module"]
+module = ["dep:doze-module", "dep:doze-bolt"]
 default = ["module"]
 
 [dependencies]
@@ -47,6 +47,8 @@ aws-core = { path = "../aws-core" }
 doze-runtime = { path = "../doze-runtime" }
 # The module face (feature `module`).
 doze-module = { path = "../doze-module", optional = true }
+# Reading the bbolt files a Go doze-aws module left, to carry them over (module/godata).
+doze-bolt = { path = "../doze-bolt", optional = true }
 anyhow = "1"
 clap = { version = "4", features = ["derive", "env", "string"] }
 # Already in the tree (clap uses it): the nearest name to a typo in --services or doze-aws.toml.

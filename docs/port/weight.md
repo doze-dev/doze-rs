@@ -1209,6 +1209,12 @@ feature, measured medians of 6,544 KB and 6,656 KB: the module face costs about 
 code, because the server never calls it. The rest of CI's +612 KB is within the run-to-run spread that issue #36 records:
 several hundred KB between runs of one commit.
 
-The new lines are CI's measurement: 286 packages, and an idle of 10,716 KB plus 5%, which is **11,252 KB**. The bytes stay
-inside the 13,900,000 B line. This is a small rise and explained, so it was my call (weight rule). Issue #36 stays open for
-the growth before it.
+Those lines were for the branch as it stood on 2026-11-15. Since then main moved doze-aws's lines to the owner's ceilings
+(20,000,000 B and 16,384 KB idle, 2026-11-19), so the face fits without a new byte or idle line.
+
+### Core M3 landed on main (2026-11-21)
+
+Re-applied on main, with the take-over of a Go module's data (`module/godata`, both modules). That adds one package to each
+binary: `doze-bolt`, a read-only bbolt reader of about 300 lines with no dependencies. The package lines move to **293** for
+doze-aws (280 on main, +12 for the module SDK as CI counted on 2026-11-15, +1) and **183** for doze-kafka (+1). The kafka
+face's other new code (the importer, `serde` and `serde_json`, already in its tree) runs only in `kafka-plugin`'s provision.

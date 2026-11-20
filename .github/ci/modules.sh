@@ -66,6 +66,6 @@ else
   command -v kcat >/dev/null || brew install kcat >/dev/null
   command -v aws >/dev/null || brew install awscli >/dev/null
 fi
-step cargo test -p doze-kafka --test module_kcat --test module_data --no-fail-fast -- --nocapture
-step cargo test -p doze-aws --test module_boot --test module_data --no-fail-fast -- --nocapture
+step cargo test -p doze-kafka --test module_kcat --no-fail-fast -- --nocapture
+step cargo test -p doze-aws --test module_boot --test module_godata --no-fail-fast -- --nocapture
 echo "::endgroup::"

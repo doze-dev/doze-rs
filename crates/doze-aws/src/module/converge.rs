@@ -40,13 +40,43 @@ impl Converge for Aws {
         let addr = backend(&cx.instance)?;
         let body = super::template::template(&cx.spec, &cx.instance.dir).to_string();
         let empty = super::declared_nothing(&cx.spec);
-        let run = move || -> std::result::Result<(), Error> {
+        let data = std::path::PathBuf::from(&cx.instance.data_dir);
+        let run = move || -> std::result::Result<_, Error> {
             let cfn = cfn_of(&addr)?;
-            apply(&cfn, &body, empty)
+            apply(&cfn, &body, empty)?;
+            // After the stack, so what doze.hcl declares is the stack's; then what the Go module left (godata.rs).
+            let client = Client::new(&format!("http://{addr}"), REGION, "test", "test")
+                .map_err(|e| Error::new(ErrorKind::Internal, e))?;
+            super::godata::replay(&data, &client).map_err(|why| {
+                Error::new(
+                    ErrorKind::Unavailable,
+                    format!(
+                        "carrying over the Go doze-aws data (kept in {}/; the next start goes on): {why}",
+                        super::godata::KEPT
+                    ),
+                )
+            })
         };
-        tokio::task::spawn_blocking(run)
+        let replayed = tokio::task::spawn_blocking(run)
             .await
-            .map_err(|e| Error::new(ErrorKind::Internal, format!("converge: {e}")))?
+            .map_err(|e| Error::new(ErrorKind::Internal, format!("converge: {e}")))??;
+        if let Some(r) = replayed {
+            cx.log(
+                2,
+                format!(
+                    "took over the Go doze-aws data: {} buckets, {} objects, {} queues, {} messages (Go's files kept in {}/)",
+                    r.buckets,
+                    r.objects,
+                    r.queues,
+                    r.messages,
+                    super::godata::KEPT
+                ),
+            );
+            for what in r.left {
+                cx.log(1, format!("not carried from the Go data: {what}"));
+            }
+        }
+        Ok(())
     }
 }
 

@@ -22,6 +22,7 @@ mod admin;
 mod check;
 mod client;
 mod converge;
+mod godata;
 mod hints;
 #[cfg(test)]
 mod tests;
@@ -384,7 +385,9 @@ impl Module for Kafka {
     }
 
     async fn provision(&self, cx: &Cx<KafkaSpec>, _tc: &Toolchain) -> Result<Provisioned> {
-        help::empty_data_dir(&cx.instance.data_dir)
+        let made = help::empty_data_dir(&cx.instance.data_dir)?;
+        godata::say(cx, godata::take_over(Path::new(&cx.instance.data_dir)))?;
+        Ok(made)
     }
 
     async fn plan(&self, cx: &Cx<KafkaSpec>, _tc: &Toolchain) -> Result<Plan> {

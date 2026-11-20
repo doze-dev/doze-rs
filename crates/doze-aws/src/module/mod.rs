@@ -19,6 +19,7 @@
 mod check;
 mod check_more;
 mod converge;
+mod godata;
 mod spec;
 mod template;
 mod template_more;
@@ -169,7 +170,8 @@ impl Module for Aws {
             category: "cloud".into(),
             title: "AWS".into(),
             tagline: "The whole local AWS as one service.".into(),
-            versions: vec!["1".into()],
+            // Versionless, as Go's: the engine is this binary, and a block names no version.
+            versions: vec![],
             exact_dots: 0,
             default_port: 4566,
             example: EXAMPLE.into(),
@@ -185,7 +187,7 @@ impl Module for Aws {
             homepage: Some("https://github.com/doze-dev/doze-rs".into()),
             source: Some("doze/aws".into()),
             example_label: Some("local".into()),
-            default_version: Some("1".into()),
+            default_version: None,
             client: Some(client()),
             detect: Some(detect()),
             ..About::default()
@@ -239,7 +241,25 @@ impl Module for Aws {
     }
 
     async fn provision(&self, cx: &Cx<AwsSpec>, _tc: &Toolchain) -> Result<Provisioned> {
-        help::empty_data_dir(&cx.instance.data_dir)
+        let made = help::empty_data_dir(&cx.instance.data_dir)?;
+        // A folder the Go doze-aws module left: its files are set aside before this server first starts (godata.rs).
+        match godata::set_aside(std::path::Path::new(&cx.instance.data_dir)) {
+            Ok(true) => cx.log(
+                2,
+                format!(
+                    "the Go doze-aws data is set aside in {}/, to be carried over at converge",
+                    godata::KEPT
+                ),
+            ),
+            Ok(false) => {}
+            Err(why) => {
+                return Err(Error::new(
+                    ErrorKind::Internal,
+                    format!("setting the Go doze-aws data aside: {why}"),
+                ));
+            }
+        }
+        Ok(made)
     }
 
     async fn plan(&self, cx: &Cx<AwsSpec>, _tc: &Toolchain) -> Result<Plan> {
