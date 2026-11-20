@@ -23,6 +23,8 @@ mod pages;
 #[cfg(all(test, feature = "capture"))]
 mod pages_tests;
 mod pick;
+#[cfg(all(test, feature = "capture"))]
+mod reopen_tests;
 mod tasks;
 #[cfg(all(test, feature = "capture"))]
 mod tests;

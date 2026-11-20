@@ -103,6 +103,7 @@ pub(super) fn wanted(inner: &Inner, key: &StackKey) -> Wanted {
         // Logs keep coming while hidden: the pages read the hub's ring (Go fetched its window again), so a line said
         // meanwhile must be in it.
         logs: n(Topic::Logs) > 0,
+        keep_logs: n(Topic::Logs) > 0 || !inner.hidden,
     }
 }
 

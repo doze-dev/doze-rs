@@ -1546,16 +1546,31 @@ AppKit's event thread in `mach_msg`, the hub's threads on semaphores, its contro
 discovery thread on a timed wait): nothing busy-polls. The owner's running preview read 344 MB (174 MB driver
 graphics), 0.0 % CPU, 15 threads, 2 idle wake-ups at the start of this work.
 
-**Open.** Closed, the app reads 36–40 MB depending on the page last shown (the window's heap: its pages, the hub's log
-ring for a stack whose logs it showed, text caches; the menu-bar-only process is 21 MB), over the 35 MB line; giving
-free pages back took 2 MB. Getting under it means letting go of the hub's log ring when the window closes (a reopened
-service page would start from the daemon's 400-line backlog), an owner call. CI holds the closed line at 40 MB until
-then.
+**The closed window (owner decision, 2026-11-21: "does not use more resources than needed").** Closed, the app read
+36–40 MB depending on the page last shown, over the 35 MB line (menu bar only, never opened: 21 MB). Two things held
+what nobody could see:
+
+- *The hub's log ring* (up to 100,000 lines, ~24 MB, a stack), kept for the life of the app once a page had shown
+  logs. Now, when the window has closed (the hub hidden and no page watching logs), the stack's thread lets the ring
+  go (`LogRing::release`: the lines and their text back to the allocator; line numbers and added-counts go on, so
+  nothing that remembered them misreads). A page that shows logs again subscribes with the daemon's 400-line backlog,
+  as a reconnect does; while the window shows, a page that stops watching keeps the ring (it may be gone back to).
+  Tests: `rings.rs` (a released ring holds under 4 KB and takes the backlog again, numbered on), `watch.rs` (kept
+  while the window shows, let go when it closes, the stack still followed for the menu bar, the backlog once each on
+  reopening), and the app's `shell/reopen_tests.rs` (All logs shows the same lines after a close and a reopen).
+- *The doze mark, decoded at 512 px* (`img("brand/doze.svg")` in the Library's head and the sidebar): gpui decodes an
+  image at the file's own size and keeps the pixels for the life of the app, a 4 MB allocation for a 32 px mark (found
+  with `malloc_history` on a closed window). The app now serves the mark at 64 px (`assets::brand`; the file stays
+  512 px for the app icon). It also took 3–5 MB off every open window.
+
+Closed footprint, 15 s after the close (`bench --real 13`, release-app), before → after: Tiles 38 → 33 MB, Home
+36–37 → 32 MB, a service page 39–40 → 33 MB, All logs 39 → 35 MB. The open window: Tiles 74 → 69 MB, Home 80 → 72
+MB, a service page 78 → 73 MB. CI holds the closed line at 35 MB.
 
 **The guard.** CI's `app` job, beside the still-fixture checks it keeps: `bench --real 13` brings up 13 services of
 sh and `nc` (listeners that would sleep after an hour, two workers logging every 2 s, a driver connecting every
 second) under the release-app binary as CLI and daemon on a /tmp home, and checks, on Tiles for 120 s, a service page
-and Home for 60 s, at most two frames a minute, 85 MB settled and 40 MB closed (Tiles), and a hidden window draws
+and Home for 60 s, at most two frames a minute, 85 MB settled and 35 MB closed (Tiles), and a hidden window draws
 nothing. Locally, `shell/live_tests.rs` (gpui test windows over the fixture daemon sending moving meters every second
 and its instances every third): a glanced stack page draws 3–7 frames in 180 s and its vitals still move; a service
 page at most 7; a hidden window none. `idle_tests`' frozen-daemon test now allows the banner's "1m ago" the grid

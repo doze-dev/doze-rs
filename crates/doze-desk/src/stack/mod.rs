@@ -21,6 +21,10 @@ use std::thread;
 pub(crate) struct Wanted {
     pub(crate) stats: bool,
     pub(crate) logs: bool,
+    /// The log ring is kept: a page watches the logs, or the UI shows (a page that stopped watching may be gone back
+    /// to). Neither, the window has closed, and the ring lets its lines go (`LogRing::release`); a page that watches
+    /// again is sent the daemon's backlog.
+    pub(crate) keep_logs: bool,
 }
 
 /// What the hub tells a stack's thread.

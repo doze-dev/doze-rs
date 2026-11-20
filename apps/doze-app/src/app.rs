@@ -185,13 +185,17 @@ fn pump(cx: &mut App, hub: Hub) {
 
 /// The window closed: once it has let go of what it held (its views, its renderer, a page's log lines; a moment
 /// later), the heap's free pages go back to the system, so the menu-bar app is as light as one that never opened it.
+/// Twice: what the hub's threads and the renderer free a little later (the log ring, the last frame's buffers) goes
+/// back at the second.
 pub(crate) fn window_gone(cx: &mut App) {
     cx.spawn(async move |cx: &mut AsyncApp| {
-        cx.background_executor()
-            .timer(std::time::Duration::from_secs(2))
-            .await;
-        let back = doze_os::ui::give_back_memory();
-        log::debug!("window closed: {back} bytes of free heap given back");
+        for wait in [2, 8] {
+            cx.background_executor()
+                .timer(std::time::Duration::from_secs(wait))
+                .await;
+            let back = doze_os::ui::give_back_memory();
+            log::debug!("window closed: {back} bytes of free heap given back");
+        }
     })
     .detach();
 }

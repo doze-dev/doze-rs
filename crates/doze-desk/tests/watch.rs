@@ -257,3 +257,36 @@ fn a_console_streams_while_a_page_shows_it() {
     });
     wait("both console streams ended", || d.streams() == 1);
 }
+
+#[test]
+fn the_log_ring_lets_go_when_the_window_closes_and_a_reopened_page_gets_the_backlog() {
+    let Some((_home, _d, hub, key)) = following("shop") else {
+        return;
+    };
+    hub.set_visible(true);
+    let logs = hub.watch(&key, Topic::Logs);
+    wait("every line", || hub.logs(&key, "").len() == 23);
+    // A page that stops watching while the window shows keeps them (it may be gone back to).
+    drop(logs);
+    std::thread::sleep(Duration::from_millis(100));
+    assert_eq!(hub.logs(&key, "").len(), 23, "kept while the window shows");
+    // The window closes: the ring lets go; the stack goes on being followed for the menu bar.
+    hub.set_visible(false);
+    wait("the ring let go", || {
+        hub.with_logs(&key, |r| r.len()) == Some(0)
+    });
+    assert!(hub.with_logs(&key, |r| r.heap_bytes()).unwrap() < 4_096);
+    let s = hub.stack(&key).unwrap();
+    assert!(
+        s.link.is_live() && s.instance("api").is_some(),
+        "the menu bar still has the stack"
+    );
+    // Opened again on a page with logs: the daemon's backlog, every line once.
+    hub.set_visible(true);
+    let logs = hub.watch(&key, Topic::Logs);
+    wait("the backlog again", || hub.logs(&key, "").len() == 23);
+    std::thread::sleep(Duration::from_millis(50));
+    assert_eq!(hub.logs(&key, "api").len(), 10);
+    assert_eq!(hub.logs(&key, "").len(), 23, "nothing doubled");
+    drop(logs);
+}

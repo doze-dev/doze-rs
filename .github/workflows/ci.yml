@@ -328,14 +328,14 @@ jobs:
       # nc under this binary as CLI and daemon, on a throwaway home under /tmp, whose meters, connections and logs move
       # every second. Left alone, the window takes a change of state at once and the rest on a 30 s grid, so at most
       # two frames a minute; 15 s after its last frame the driver's ~150 MB is gone (under the 85 MB line); closed, the
-      # menu-bar app is under 40 MB (38 measured: the 35 MB line is not met once a window has shown a live stack, an open
-      # item in weight.md). The release-app build (the weight line's, above), as shipped; `--on-top` keeps the
+      # menu-bar app is under 35 MB (32-35 measured: the hub lets its log ring go when the window closes, and the mark is
+      # decoded at the 64 px it is drawn). The release-app build (the weight line's, above), as shipped; `--on-top` keeps the
       # window on screen, and `--hidden` checks a covered one draws nothing (docs/port/weight.md, "A live stack's idle
       # window").
       - name: An idle window over a real daemon draws (almost) nothing, and its footprint lines
         run: |
           app=target/release-app/doze-app
-          $app bench --real 13 --screen tiles --idle 123 --closed 15 --on-top --check --per-minute 2 --settled 85 --closed-budget 40
+          $app bench --real 13 --screen tiles --idle 123 --closed 15 --on-top --check --per-minute 2 --settled 85 --closed-budget 35
           $app bench --real 13 --screen service --idle 63 --closed 1 --on-top --check --per-minute 2
           $app bench --real 13 --screen home --idle 63 --closed 1 --on-top --check --per-minute 2
           $app bench --real 13 --screen tiles --idle 33 --closed 1 --check --hidden

@@ -28,6 +28,17 @@ const SPIN: &str = r#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16
 /// The doze mark, whole (website/brand/doze.svg): the Library's head draws it in its own colours.
 const BRAND: &str = include_str!("../assets/brand/doze.svg");
 
+/// The mark as the window draws it: at most 32 px (64 device pixels on a 2× display). gpui decodes an `img` at the
+/// file's own size and keeps the pixels for the life of the app, so the file's 512 px (it is the app icon's source too)
+/// would hold megabytes for a 32 px mark; at 64 it is 16 KB.
+fn brand() -> String {
+    BRAND.replacen(
+        r#"width="512" height="512""#,
+        r#"width="64" height="64""#,
+        1,
+    )
+}
+
 /// Three bars `gap` apart, as density.tsx draws them.
 fn lines(gap: f32) -> String {
     let top = 8.0 - gap;
@@ -62,7 +73,7 @@ impl AssetSource for Assets {
             "icons/check.svg" => CHECK.into(),
             "icons/moon.svg" => MOON.into(),
             "icons/spin.svg" => SPIN.into(),
-            "brand/doze.svg" => BRAND.into(),
+            "brand/doze.svg" => brand().into(),
             _ => return Ok(None),
         };
         Ok(Some(Cow::Owned(svg.into_owned().into_bytes())))
@@ -126,5 +137,14 @@ mod tests {
         // The alert picture shares the frame, so the item keeps its width and the bat its place when it turns.
         assert_eq!(size(t.alert.x1), (w, h));
         assert_eq!(size(t.alert.x2), (2 * w, 40));
+    }
+
+    #[test]
+    fn the_mark_is_served_at_the_size_it_is_drawn() {
+        let svg = super::brand();
+        assert!(
+            svg.contains(r#"width="64" height="64""#),
+            "the file's size changed: update `brand`"
+        );
     }
 }
