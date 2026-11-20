@@ -1,0 +1,4 @@
+POST
+https://evil.example
+cross-site
+127.0.0.1:4567
