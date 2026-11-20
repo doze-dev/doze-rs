@@ -15,6 +15,9 @@ export type PaletteItem = {
   mono?: boolean;
   /** More words it is found by. */
   keywords?: string;
+  /** Something to do, not a place to go (`Dark theme`): choosing it closes the palette and calls this, `onGo` is not called
+   * and Recents does not remember it. `to` is then only its key in the list. */
+  run?: () => void;
 };
 
 export type PaletteGroup = {
@@ -78,6 +81,11 @@ export function CommandPalette({
     onOpenChange(o);
   };
   const go = (item: PaletteItem) => {
+    if (item.run) {
+      onOpen(false);
+      item.run();
+      return;
+    }
     saveRecent({ kind: item.kind, label: item.label, to: item.to }, recentsKey);
     onOpen(false);
     onGo(item);

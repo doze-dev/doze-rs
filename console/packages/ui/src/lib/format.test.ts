@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { clockUtc, duration, hhmmUtc, number, plural } from "./format";
+import { bytes, clockMsUtc, clockUtc, dateTimeUtc, duration, hhmmUtc, micros, number, plural } from "./format";
 import { intervalMs, parseInterval } from "./refresh";
 import { parseRecents, pushRecent } from "./recents";
 
@@ -25,6 +25,27 @@ describe("format", () => {
   test("plural", () => {
     expect(plural(1, "topic")).toBe("1 topic");
     expect(plural(1200, "topic")).toBe("1,200 topics");
+  });
+  test("a call's time has its milliseconds, and a moment has its day", () => {
+    expect(clockMsUtc(Date.UTC(2026, 10, 20, 8, 14, 22, 904))).toBe("08:14:22.904");
+    expect(clockMsUtc(Date.UTC(2026, 10, 20, 8, 14, 22, 7))).toBe("08:14:22.007");
+    expect(dateTimeUtc(Date.UTC(2026, 0, 2, 3, 4, 5))).toBe("2026-01-02 03:04:05 UTC");
+  });
+  test("how long a call took, in three figures at most", () => {
+    expect(micros(0)).toBe("0 µs");
+    expect(micros(412)).toBe("412 µs");
+    expect(micros(2_449)).toBe("2.4 ms");
+    expect(micros(19_400)).toBe("19 ms");
+    expect(micros(999_400)).toBe("999 ms");
+    expect(micros(1_250_000)).toBe("1.25 s");
+    expect(micros(-3)).toBe("0 µs");
+  });
+  test("sizes are in binary units", () => {
+    expect(bytes(0)).toBe("0 B");
+    expect(bytes(512)).toBe("512 B");
+    expect(bytes(1536)).toBe("1.5 KiB");
+    expect(bytes(12 * 1024 * 1024)).toBe("12 MiB");
+    expect(bytes(3 * 1024 ** 3)).toBe("3.0 GiB");
   });
 });
 

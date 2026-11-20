@@ -24,7 +24,7 @@ test("the product switch changes the theme in place, and the choice survives a r
   await page.getByTestId("product-aws").click();
   await expect(page.locator("html")).toHaveAttribute("data-product", "aws");
   await expect(page.locator("body")).toHaveCSS("background-color", GROUND["aws-light"]!);
-  expect(await primary()).toBe("#7a4fe0");
+  expect(await primary()).toBe("#5bb8e8");
   // One theme stylesheet at a time: the old one is gone.
   await expect(page.locator("link[data-theme]")).toHaveCount(1);
   await page.reload();

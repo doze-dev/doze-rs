@@ -25,8 +25,8 @@ export { expect };
 export const GROUND: Record<string, string> = {
   "kafka-light": "rgb(250, 249, 245)",
   "kafka-dark": "rgb(18, 17, 16)",
-  "aws-light": "rgb(251, 250, 255)",
-  "aws-dark": "rgb(21, 19, 29)",
+  "aws-light": "rgb(247, 249, 252)",
+  "aws-dark": "rgb(15, 22, 38)",
 };
 export const tag = (look: Look) => `${look.theme}-${look.mode}`;
 

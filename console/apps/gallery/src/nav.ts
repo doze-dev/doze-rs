@@ -9,6 +9,6 @@ export const PAGES: Page[] = [
   { to: "/forms", label: "Forms", icon: TextCursorInputIcon, keywords: "input select combobox field", holds: ["Input", "Textarea", "Checkbox", "RadioGroup", "Switch", "Select", "Combobox", "MultiSelect", "UtcDateTimePicker", "Form"] },
   { to: "/overlays", label: "Overlays", icon: LayersIcon, keywords: "dialog sheet drawer popover menu toast", holds: ["Dialog", "Sheet", "Popover", "Tooltip", "DropdownMenu", "CommandPalette", "Toast"] },
   { to: "/data", label: "Data", icon: Table2Icon, keywords: "table rows stat figures virtual", holds: ["StatStrip", "Figures", "DataTable", "Table", "CodeValue", "IdValue", "StatusDot", "Spans"] },
-  { to: "/states", label: "States", icon: CircleDashedIcon, keywords: "loading empty error long text disabled skeleton", holds: ["Skeleton", "EmptyState", "Done"] },
+  { to: "/states", label: "States", icon: CircleDashedIcon, keywords: "loading empty error alert long text disabled skeleton", holds: ["Skeleton", "EmptyState", "Alert", "ErrorBlock", "Done"] },
   { to: "/frame", label: "Frame", icon: PanelLeftIcon, keywords: "page header breadcrumb tabs sidebar refresh card", holds: ["PageHeader", "RefreshControl", "ThemeSwitch", "TopBar", "Breadcrumb", "Tabs", "Card", "Collapsible", "ScrollArea", "Separator", "Sidebar"] },
 ];

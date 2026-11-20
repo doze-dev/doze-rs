@@ -8,6 +8,7 @@
   "exports": {
     ".": "./src/index.ts",
     "./components/ui/*": "./src/components/ui/*.tsx",
+    "./components/app/copy": "./src/components/app/copy.ts",
     "./components/app/*": "./src/components/app/*.tsx",
     "./hooks/*": "./src/hooks/*.ts",
     "./lib/*": "./src/lib/*.ts",

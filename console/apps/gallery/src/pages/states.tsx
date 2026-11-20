@@ -1,12 +1,14 @@
 import { InboxIcon, Loader2Icon, PlusIcon, RefreshCwIcon, SearchXIcon, ServerOffIcon } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
+import { Alert, ErrorBlock } from "@doze/ui/components/app/alert";
 import { CodeValue } from "@doze/ui/components/app/code-value";
 import { EmptyState } from "@doze/ui/components/app/empty-state";
 import { PageHeader } from "@doze/ui/components/app/page-header";
 import { Done } from "@doze/ui/components/app/write-done";
 import { Button } from "@doze/ui/components/ui/button";
 import { Skeleton } from "@doze/ui/components/ui/skeleton";
+import { ApiFailure } from "@doze/ui/lib/api";
 import { LONG } from "../data";
 import { Section, Specimen } from "../specimen";
 
@@ -104,7 +106,41 @@ export function StatesPage() {
         </Specimen>
       </Section>
 
-      <Section id="long" title="Long text" source="every component" note="A long value is cut with an ellipsis on one line and shown whole on hover and focus; it never breaks a layout.">
+      <Section id="alert" title="Alert and ErrorBlock" source="components/app/alert.tsx" note="A block that says something happened, where it happened. The tone colours the icon only; the words carry the meaning. An ErrorBlock is the alert of a fetch that failed: what could not be had, the server's words and code, what to do, and Try again.">
+        <Specimen label="Tones" stack>
+          <div className="grid w-full gap-3 md:grid-cols-2">
+            <Alert tone="info" title="The record keeps the newest 1,024 calls" testId="alert-info">
+              Older ones are dropped as new ones arrive.
+            </Alert>
+            <Alert tone="good" title="The queue was created" testId="alert-good">
+              It is empty and ready for messages.
+            </Alert>
+            <Alert tone="warn" title="The tail is paused" testId="alert-warn" action={<Button size="sm" variant="outline" className="bg-card">Resume</Button>}>
+              12 calls arrived since. They are shown when you resume.
+            </Alert>
+            <Alert tone="bad" title="The stream was refused" testId="alert-bad">
+              The console has as many event streams open as it allows.
+            </Alert>
+          </div>
+        </Specimen>
+        <Specimen label="A failed fetch" stack>
+          <ErrorBlock
+            className="w-full"
+            what="The services could not be loaded"
+            error={new ApiFailure(0, { code: "UNREACHABLE", message: "The console did not answer. Is it still running?" })}
+            hint="Start it again, then try again. Nothing on this page was changed."
+            onRetry={() => setTries((n) => n + 1)}
+          />
+        </Specimen>
+        <Specimen label="A refusal" stack>
+          <ErrorBlock className="w-full" testId="error-refusal" what="The calls could not be loaded" error={new ApiFailure(403, { code: "FORBIDDEN", message: "The console's API answers only its own pages, which send the header X-Console: 1." })} />
+        </Specimen>
+        <Specimen label="Long text">
+          <Alert tone="info" title={LONG} className="w-80" testId="alert-long" />
+        </Specimen>
+      </Section>
+
+      <Section id="long"title="Long text" source="every component" note="A long value is cut with an ellipsis on one line and shown whole on hover and focus; it never breaks a layout.">
         <Specimen label="In 20 rem">
           <CodeValue value={LONG} className="w-80" />
         </Specimen>

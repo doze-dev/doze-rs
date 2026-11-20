@@ -11,7 +11,7 @@ Seeded from doze-kafka's console (`web/src`, copied, not moved). The plan: `docs
 | Path | What |
 |---|---|
 | `src/components/ui/` | The shadcn/ui components (Radix): Button, Dialog, Sheet, Select, Sidebar, Tabs, Tooltip, ... as the CLI wrote them, plus the changes listed below |
-| `src/components/app/` | The frame and page pieces: CommandPalette, TopBar, PageHeader, RefreshControl, ThemeSwitch, DataTable (virtual past 500 rows), StatStrip, Combobox, MultiSelect, UtcDateTimePicker, CopyButton, CodeValue, IdValue, EmptyState, StatusDot, HeldPill, Done, Spans |
+| `src/components/app/` | The frame and page pieces: CommandPalette, TopBar, PageHeader, RefreshControl, ThemeSwitch, DataTable (virtual past 500 rows), StatStrip, Combobox, MultiSelect, UtcDateTimePicker, CopyButton, CodeValue, IdValue, EmptyState, Alert and ErrorBlock (a failed fetch: what failed, the server's words and code, what to do, Try again), StatusDot, HeldPill, Done, Spans |
 | `src/lib/` | `api` (the fetch client and event stream with the same-origin proof header), `sse`, `leaving`, `search-params`, `search`, `refresh`, `recents`, `theme`, `sidebar-state`, `opener` (focus return), `format`, `shell`, `utils` |
 | `src/hooks/` | `use-overlay-opener`, `use-inert-page`, `use-mobile` |
 | `src/styles/base.css` | The Tailwind v4 setup and the mapping from roles to utilities. Nothing of a product is in it |

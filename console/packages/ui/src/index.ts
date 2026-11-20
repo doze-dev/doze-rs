@@ -26,6 +26,7 @@ export * from "./components/ui/textarea";
 export * from "./components/ui/toggle-group";
 export * from "./components/ui/toggle";
 export * from "./components/ui/tooltip";
+export * from "./components/app/alert";
 export * from "./components/app/code-value";
 export * from "./components/app/combobox";
 export * from "./components/app/command-palette";
