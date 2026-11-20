@@ -70,4 +70,9 @@ request_id: string,
  * `null` for a request from the wire. Set for a call one service made to another on doze-aws's internal bus (SNS delivering
  * to SQS, a rule invoking a function): no socket, no signature, and no request id of its own.
  */
-via: CallVia | null, };
+via: CallVia | null, 
+/**
+ * The client that sent it, as its `User-Agent` names it (`boto3 1.34.69`, `AWS CLI 2.15.30`, `JS v3 3.540.0`); `null` for a
+ * call between services and a request that named none.
+ */
+sdk: string | null, };

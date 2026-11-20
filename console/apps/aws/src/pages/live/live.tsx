@@ -14,7 +14,10 @@ import { ToggleGroup, ToggleGroupItem } from "@doze/ui/components/ui/toggle-grou
 import { bytes, clockMsUtc, micros, number } from "@doze/ui/lib/format";
 import { useTailOwnsRefresh } from "@doze/ui/lib/refresh";
 import { useAbout } from "../../api/queries";
+import { usePrincipals } from "../../api/spaces";
 import type { CallRecord } from "../../api/types/CallRecord";
+import type { KeyPrincipal } from "../../api/types/KeyPrincipal";
+import { who } from "../../people";
 import { serviceTitle } from "../../words";
 import { RowMenu } from "./actions";
 import { CallSheet } from "./call-sheet";
@@ -40,8 +43,19 @@ function connWords(conn: Conn, paused: boolean): { tone: Tone; word: string } {
   return paused ? { tone: "idle", word: "Paused" } : { tone: "ok", word: "Live" };
 }
 
-function Caller({ call, titles }: { call: CallRecord; titles: ReadonlyMap<string, string> }) {
-  if (!call.via) return call.caller ? <span className="truncate">{call.caller}</span> : dim;
+function Caller({ call, titles, names }: { call: CallRecord; titles: ReadonlyMap<string, string>; names: ReadonlyMap<string, KeyPrincipal> }) {
+  if (!call.via) {
+    if (!call.caller) return dim;
+    // An IAM user by its name (Access resolves it from IAM), the key on hover; any other key as itself.
+    const p = names.get(call.caller);
+    if (p?.kind !== "user") return <span className="truncate">{call.caller}</span>;
+    const w = who(p);
+    return (
+      <span className="truncate font-sans text-[13px]" title={w.title} data-testid="caller-name">
+        {w.label}
+      </span>
+    );
+  }
   const by = call.via.by ? (serviceTitle(call.via.by, titles) ?? call.via.by) : (call.caller ?? "");
   return (
     <span className="flex min-w-0 items-center gap-1.5" title={`Made by ${madeBy(call, titles)}, for ${call.caller ?? "no key"}`}>
@@ -104,6 +118,10 @@ export function LivePage() {
     return [...seen].map(([id, internal]) => ({ id, internal })).sort((a, b) => Number(a.internal) - Number(b.internal) || a.id.localeCompare(b.id));
   }, [flows]);
   const openCall = findCall(tape, search.call);
+  // The callers IAM may know: asked again only when one the page has not seen arrives.
+  const keys = useMemo(() => callers.filter((c) => !c.internal && c.id.startsWith("AKIA")).map((c) => c.id).join(","), [callers]);
+  const principals = usePrincipals(keys);
+  const names = useMemo(() => new Map((principals.data?.principals ?? []).map((p) => [p.key, p])), [principals.data]);
 
   const columns = useMemo<DataColumn<Line>[]>(
     () => [
@@ -153,12 +171,12 @@ export function LivePage() {
         },
       },
       { id: "resource", header: "Resource", enableSorting: false, accessorFn: (l) => resourceShown(l.call), meta: { mono: true }, cell: (c) => (c.getValue<string>() ? <span title={c.row.original.call.resource ?? undefined}>{c.getValue<string>()}</span> : dim) },
-      { id: "caller", header: "Caller", size: 186, enableSorting: false, accessorFn: (l) => callerOf(l.call), meta: { mono: true }, cell: (c) => <Caller call={c.row.original.call} titles={titles} /> },
+      { id: "caller", header: "Caller", size: 186, enableSorting: false, accessorFn: (l) => callerOf(l.call), meta: { mono: true }, cell: (c) => <Caller call={c.row.original.call} titles={titles} names={names} /> },
       { id: "result", header: "Result", size: 214, enableSorting: false, accessorFn: (l) => `${l.call.outcome} ${l.call.status}${l.call.error_code ? ` ${l.call.error_code}` : ""}`, cell: (c) => <Result call={c.row.original.call} /> },
       { id: "latency", header: "Latency", size: 84, enableSorting: false, accessorFn: (l) => micros(l.call.duration_us), meta: { numeric: true, mono: true } },
       { id: "actions", header: () => <span className="sr-only">Actions</span>, size: 44, enableSorting: false, cell: (c) => <RowMenu call={c.row.original.call} /> },
     ],
-    [titles, toggle],
+    [titles, toggle, names],
   );
 
   const status = connWords(conn, tape.paused);

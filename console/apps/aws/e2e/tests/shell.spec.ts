@@ -1,4 +1,4 @@
-// The frame: the six spaces, the palette, the theme, the chips, and what the spaces that are not built say.
+// The frame: the six spaces, the palette, the theme and the chips.
 import { about, expect, GROUND, open, overflowX, test, themeColour } from "./fixtures";
 
 const SPACES = [
@@ -29,19 +29,6 @@ test("the rail has the six spaces, each opens its page, and its address survives
   const mark = page.getByTestId("brand").locator("img");
   await expect(mark).toHaveAttribute("src", /\/assets\/doze-aws-[\w-]+\.svg$/);
   expect(await mark.evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth > 0)).toBe(true);
-});
-
-test("a space that is not built says so in one line and shows no table or sample data", async ({ page }) => {
-  for (const s of SPACES.slice(3)) {
-    await open(page, s.path, s.label);
-    const box = page.getByTestId(`not-built-${s.label.toLowerCase()}`);
-    await expect(box.getByRole("heading")).toHaveText(`${s.label} is not built yet`);
-    await expect(box.locator("p, div").filter({ hasText: "will be" }).first()).toBeVisible();
-    await expect(page.locator("#main table")).toHaveCount(0);
-    await expect(page.locator('#main [data-slot="stat"], #main [data-slot="figures"]')).toHaveCount(0);
-    // It is not a dead end.
-    await expect(box.getByRole("link", { name: "Open Live" })).toBeVisible();
-  }
 });
 
 test("the palette goes to a space and switches the theme, by the keyboard alone", async ({ page }) => {
@@ -87,7 +74,7 @@ test("light and dark are a choice that is kept across a reload", async ({ page }
   await expect(page.locator("body")).toHaveCSS("background-color", GROUND.dark);
   await expect(page.getByTestId("theme-dark")).toHaveAttribute("aria-checked", "true");
   // A card is the dark theme's too, not left light.
-  await expect(page.getByTestId("card-about")).toHaveCSS("background-color", themeColour("dark", "--card"));
+  await expect(page.getByTestId("card-connect")).toHaveCSS("background-color", themeColour("dark", "--card"));
   expect(GROUND.dark).not.toBe(GROUND.light);
   await page.getByTestId("theme-light").click();
   await page.reload();

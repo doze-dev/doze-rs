@@ -1,4 +1,5 @@
-// Home against the real doze-aws: every value on the page is what `/api/v1/about` and `/api/v1/services` answer.
+// Home against the real doze-aws: its values are what `/api/v1/about`, `/api/v1/services` and `/api/v1/home` answer (the
+// facts of the instance are on Settings now; the refresh test reads them there).
 import { about, CUT, expect, open, services, test } from "./fixtures";
 
 test("Home says what this doze-aws is, as /about says it", async ({ page }) => {
@@ -9,16 +10,6 @@ test("Home says what this doze-aws is, as /about says it", async ({ page }) => {
   await expect(page.getByTestId("home-sub")).toContainText(a.region);
   await expect(page.getByTestId("endpoint")).toHaveText(a.endpoint);
   await expect(page.getByTestId("endpoint-env")).toHaveText(`AWS_ENDPOINT_URL=${a.endpoint}`);
-  await expect(page.getByTestId("fact-version")).toContainText(a.version);
-  await expect(page.getByTestId("fact-account")).toContainText(a.account);
-  await expect(page.getByTestId("fact-region")).toContainText(a.region);
-  await expect(page.getByTestId("fact-auth")).toContainText(a.auth);
-  await expect(page.getByTestId("fact-iam")).toContainText(a.iam);
-  await expect(page.getByTestId("fact-data-dir")).toContainText(a.data_dir);
-  await expect(page.getByTestId("fact-console")).toContainText(a.console);
-  await expect(page.getByTestId("fact-process")).toContainText(`pid ${a.pid}`);
-  // The data directory is the one this run's doze-aws was started with.
-  expect(a.data_dir).toBe(process.env.DOZE_AWS_E2E_DATA_DIR);
 });
 
 test("the services table has every service of the build, with its state and how much of it is built", async ({ page }) => {
@@ -33,8 +24,8 @@ test("the services table has every service of the build, with its state and how 
     await expect(row.locator("td").nth(0)).toHaveText(s.title);
     await expect(row.locator("td").nth(1)).toHaveText(s.name);
     await expect(row.locator("td").nth(2)).toHaveText(s.served ? "Served" : "Not served");
-    await expect(row.locator("td").nth(3)).toHaveText(`${s.built.toLocaleString("en-US")} of ${s.total.toLocaleString("en-US")}`);
-    await expect(row.locator("td").nth(5)).toHaveText(s.apis.map((x) => x.sdk_id).join(", "));
+    await expect(row.locator("td").nth(4)).toHaveText(`${s.built.toLocaleString("en-US")} of ${s.total.toLocaleString("en-US")}`);
+    await expect(row.locator("td").nth(6)).toHaveText(s.apis.map((x) => x.sdk_id).join(", "));
   }
   const served = list.filter((s) => s.served).length;
   await expect(page.getByTestId("services-counts")).toContainText(`${served} of ${list.length} are served in this run`);
@@ -49,7 +40,7 @@ test("the services table has every service of the build, with its state and how 
 test("Refresh fetches again: a region first called after the page was drawn appears", async ({ page, cli, browserName }) => {
   // A region no other browser's run of this test uses, so it is new to this doze-aws now.
   const region = { firefox: "ap-south-1", webkit: "ca-central-1", chromium: "sa-east-1" }[browserName] ?? "eu-north-1";
-  await open(page, "/", "Home");
+  await open(page, "/settings", "Settings");
   await expect(page.getByTestId("fact-region")).not.toContainText(region);
   await expect(page.getByTestId("refresh-stamp")).toContainText("Updated");
   expect(cli(["sqs", "list-queues"], { region }).code).toBe(0);

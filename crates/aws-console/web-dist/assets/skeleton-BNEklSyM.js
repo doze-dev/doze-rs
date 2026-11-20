@@ -1,0 +1,1 @@
+import{L as e,j as t,lt as n}from"./client-BO2oRBBz.js";var r={name:`chevron-right`,size:24,node:[[`path`,{d:`m9 18 6-6-6-6`,key:`mthhwq`}]]};r.node;var i=e(r),a=n();function o({className:e,...n}){return(0,a.jsx)(`div`,{"data-slot":`skeleton`,className:t(`animate-pulse rounded-md bg-accent`,e),...n})}export{i as n,o as t};

@@ -2,11 +2,11 @@ import { createRootRoute, createRoute, createRouter, lazyRouteComponent } from "
 import { basePathFromMeta } from "@doze/ui/lib/api";
 import { unlessLeaving } from "@doze/ui/lib/leaving";
 import { parseSearch, stringifySearch } from "@doze/ui/lib/search-params";
-import { HomePage } from "./pages/home";
+import { HomePage } from "./pages/home/home";
 import { NotFoundPage } from "./pages/not-found";
-import { AccessPage, LabPage, SettingsPage } from "./pages/soon";
 // Live's address (the drawer of a call, the view, the filters): a small module of its own, so the router does not pull Live in.
 import { liveSearch } from "./pages/live/search";
+import { labSearch } from "./pages/lab/search";
 import { oneSearch, resourceSearch } from "./pages/resources/search";
 import { Shell } from "./shell/shell";
 
@@ -23,12 +23,14 @@ const resources = createRoute({ getParentRoute: () => root, path: "/resources", 
 const service = createRoute({ getParentRoute: () => root, path: "/resources/$service", component: lazyRouteComponent(unlessLeaving(resourcesChunk), "ServicePage") });
 const second = createRoute({ getParentRoute: () => root, path: "/resources/$service/$second", validateSearch: resourceSearch, component: lazyRouteComponent(unlessLeaving(resourcesChunk), "SecondPage") });
 const resource = createRoute({ getParentRoute: () => root, path: "/resources/$service/$kind/$name", validateSearch: oneSearch, component: lazyRouteComponent(unlessLeaving(resourcesChunk), "OnePage") });
-const access = createRoute({ getParentRoute: () => root, path: "/access", component: AccessPage });
-const lab = createRoute({ getParentRoute: () => root, path: "/lab", component: LabPage });
-const settings = createRoute({ getParentRoute: () => root, path: "/settings", component: SettingsPage });
+// Connect, Access, Lab and Settings: each a chunk of its own, fetched when first opened.
+const connect = createRoute({ getParentRoute: () => root, path: "/connect", component: lazyRouteComponent(unlessLeaving(() => import("./pages/home/connect")), "ConnectPage") });
+const access = createRoute({ getParentRoute: () => root, path: "/access", component: lazyRouteComponent(unlessLeaving(() => import("./pages/access/access")), "AccessPage") });
+const lab = createRoute({ getParentRoute: () => root, path: "/lab", validateSearch: labSearch, component: lazyRouteComponent(unlessLeaving(() => import("./pages/lab/lab")), "LabPage") });
+const settings = createRoute({ getParentRoute: () => root, path: "/settings", component: lazyRouteComponent(unlessLeaving(() => import("./pages/settings/settings")), "SettingsPage") });
 
 export const router = createRouter({
-  routeTree: root.addChildren([home, live, resources, service, second, resource, access, lab, settings]),
+  routeTree: root.addChildren([home, connect, live, resources, service, second, resource, access, lab, settings]),
   basepath: basePathFromMeta() || "/",
   defaultPreload: false,
   scrollRestoration: true,
