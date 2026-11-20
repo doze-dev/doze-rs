@@ -14,23 +14,23 @@ pub const FILES: &[(&str, Served)] = &[
         },
     ),
     (
-        "assets/index-A8NVJBTu.css",
+        "assets/index-CPaLaf4y.js",
         Served {
-            content_type: "text/css; charset=utf-8",
+            content_type: "text/javascript; charset=utf-8",
             bytes: include_bytes!(concat!(
                 env!("CARGO_MANIFEST_DIR"),
-                "/web-dist/assets/index-A8NVJBTu.css.gz"
+                "/web-dist/assets/index-CPaLaf4y.js.gz"
             )),
             gzip: true,
         },
     ),
     (
-        "assets/index-CawmgYFF.js",
+        "assets/index-Cg-tY-iP.css",
         Served {
-            content_type: "text/javascript; charset=utf-8",
+            content_type: "text/css; charset=utf-8",
             bytes: include_bytes!(concat!(
                 env!("CARGO_MANIFEST_DIR"),
-                "/web-dist/assets/index-CawmgYFF.js.gz"
+                "/web-dist/assets/index-Cg-tY-iP.css.gz"
             )),
             gzip: true,
         },
@@ -69,12 +69,23 @@ pub const FILES: &[(&str, Served)] = &[
         },
     ),
     (
-        "assets/live-Cuqdm7Pm.js",
+        "assets/live-CLtplg-q.js",
         Served {
             content_type: "text/javascript; charset=utf-8",
             bytes: include_bytes!(concat!(
                 env!("CARGO_MANIFEST_DIR"),
-                "/web-dist/assets/live-Cuqdm7Pm.js.gz"
+                "/web-dist/assets/live-CLtplg-q.js.gz"
+            )),
+            gzip: true,
+        },
+    ),
+    (
+        "assets/rolldown-runtime-WkwZ5CU-.js",
+        Served {
+            content_type: "text/javascript; charset=utf-8",
+            bytes: include_bytes!(concat!(
+                env!("CARGO_MANIFEST_DIR"),
+                "/web-dist/assets/rolldown-runtime-WkwZ5CU-.js.gz"
             )),
             gzip: true,
         },
