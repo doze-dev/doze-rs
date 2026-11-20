@@ -1,6 +1,6 @@
 import { getRouteApi } from "@tanstack/react-router";
-import { PauseIcon, PlayIcon, RadioIcon } from "lucide-react";
-import { useMemo } from "react";
+import { ChevronDownIcon, ChevronRightIcon, PauseIcon, PlayIcon, RadioIcon, SearchXIcon } from "lucide-react";
+import { useCallback, useMemo, useState } from "react";
 import { Alert, ErrorBlock, errorWords } from "@doze/ui/components/app/alert";
 import { type DataColumn, DataTable } from "@doze/ui/components/app/data-table";
 import { EmptyState } from "@doze/ui/components/app/empty-state";
@@ -10,14 +10,24 @@ import { Figures } from "@doze/ui/components/app/stat";
 import { StatusDot, type Tone } from "@doze/ui/components/app/status-dot";
 import { Button } from "@doze/ui/components/ui/button";
 import { Skeleton } from "@doze/ui/components/ui/skeleton";
+import { ToggleGroup, ToggleGroupItem } from "@doze/ui/components/ui/toggle-group";
 import { bytes, clockMsUtc, micros, number } from "@doze/ui/lib/format";
 import { useTailOwnsRefresh } from "@doze/ui/lib/refresh";
 import { useAbout } from "../../api/queries";
 import type { CallRecord } from "../../api/types/CallRecord";
 import { serviceTitle } from "../../words";
+import { RowMenu } from "./actions";
 import { CallSheet } from "./call-sheet";
+import { madeBy } from "./cause";
+import { Filters } from "./filters";
+import { flowKeyOf, layout } from "./flows";
+import { LiveMap, MapLegend } from "./map";
 import { Result } from "./outcome";
+import { type Line, lineId, lines } from "./repeats";
+import { resourceShown } from "./resource";
+import { callerOf, filtering, type LiveSearch, matches, type View } from "./search";
 import { findCall } from "./tape";
+import { useFlows } from "./use-flows";
 import { type Conn, useTail } from "./use-tail";
 
 const route = getRouteApi("/live");
@@ -30,43 +40,100 @@ function connWords(conn: Conn, paused: boolean): { tone: Tone; word: string } {
   return paused ? { tone: "idle", word: "Paused" } : { tone: "ok", word: "Live" };
 }
 
-/** Live: every AWS API call this doze-aws answers, as it happens. The list is the record's calls, newest first, kept
- * current by the stream; Pause holds new calls aside; a row opens its drawer. Every column is a field of the contract. */
+function Caller({ call, titles }: { call: CallRecord; titles: ReadonlyMap<string, string> }) {
+  if (!call.via) return call.caller ? <span className="truncate">{call.caller}</span> : dim;
+  const by = call.via.by ? (serviceTitle(call.via.by, titles) ?? call.via.by) : (call.caller ?? "");
+  return (
+    <span className="flex min-w-0 items-center gap-1.5" title={`Made by ${madeBy(call, titles)}, for ${call.caller ?? "no key"}`}>
+      <span className="truncate font-sans text-[13px]">{by}</span>
+      <span className="shrink-0 rounded-full border bg-muted px-1.5 font-sans text-[10.5px] leading-4 text-muted-foreground" data-testid="via-pill">
+        {call.via.name ? `via ${call.via.name.split(" ")[0]}` : "via"}
+      </span>
+    </span>
+  );
+}
+
+/** Live: every AWS API call this doze-aws answers, and every call one service makes to another, as it happens. The map draws
+ * who calls what; the wire lists the calls, newest first, repeats folded. Every value on screen is a field of the contract. */
 export function LivePage() {
   useTailOwnsRefresh();
   const { tape, conn, pause, resume, retry } = useTail();
   const about = useAbout().data;
-  const { call: openSeq } = route.useSearch();
+  const search = route.useSearch();
   const navigate = route.useNavigate();
-  const open = (seq: number | undefined) => void navigate({ search: seq === undefined ? {} : { call: seq } });
+  const set = useCallback((patch: Partial<LiveSearch>) => void navigate({ search: (prev) => ({ ...prev, ...patch }), replace: true }), [navigate]);
+  const open = useCallback((seq: number | undefined) => void navigate({ search: (prev) => ({ ...prev, call: seq }) }), [navigate]);
+  const view: View = search.view ?? "both";
   const titles = useMemo(() => new Map((about?.services ?? []).map((s) => [s.name, s.title])), [about]);
+  const { flows } = useFlows(tape.calls, tape.cursor);
+  const map = useMemo(() => layout(flows), [flows]);
+  const [runs, setRuns] = useState<ReadonlySet<number>>(new Set());
+  const toggle = useCallback((id: number) => setRuns((was) => (was.has(id) ? new Set([...was].filter((x) => x !== id)) : new Set([...was, id]))), []);
 
-  const columns = useMemo<DataColumn<CallRecord>[]>(
+  const kept = useMemo(() => (filtering(search) ? tape.calls.filter((c) => matches(c, search)) : tape.calls), [tape.calls, search]);
+  const shown = useMemo(() => lines(kept, runs), [kept, runs]);
+  const services = useMemo(() => [...new Set([...flows.byKey.values()].map((f) => f.service).filter(Boolean))].sort(), [flows]);
+  const callers = useMemo(() => {
+    const seen = new Map<string, boolean>();
+    for (const f of flows.byKey.values()) seen.set(f.caller, f.internal);
+    return [...seen].map(([id, internal]) => ({ id, internal })).sort((a, b) => Number(a.internal) - Number(b.internal) || a.id.localeCompare(b.id));
+  }, [flows]);
+  const openCall = findCall(tape, search.call);
+
+  const columns = useMemo<DataColumn<Line>[]>(
     () => [
-      // The widths add up to what a 1440 px window leaves beside the rail, with the rest for Resource; a narrower window
-      // scrolls the table in its box. The time is never cut; a long service title, operation or error code is, with the
-      // whole value on hover and in the drawer. The region a call was signed for is in its drawer, not a column.
-      { id: "time", header: "Time", size: 126, enableSorting: false, accessorFn: (c) => clockMsUtc(c.at_ms), meta: { mono: true }, cell: (c) => <span className="text-muted-foreground">{c.getValue<string>()}</span> },
-      { id: "service", header: "Service", size: 150, enableSorting: false, accessorFn: (c) => serviceTitle(c.service, titles) ?? "", cell: (c) => c.getValue<string>() || dim },
+      // The widths add up to what a 1440 px window leaves beside the rail, with the rest for Resource. The time is never cut; a
+      // long service title, operation or error code is, with the whole value on hover and in the drawer.
+      {
+        id: "time",
+        header: "Time",
+        size: 122,
+        enableSorting: false,
+        accessorFn: (l) => clockMsUtc(l.call.at_ms),
+        meta: { mono: true },
+        cell: (c) => <span className={c.row.original.kind === "member" ? "pl-3 text-muted-foreground/80" : "text-muted-foreground"}>{c.getValue<string>()}</span>,
+      },
+      { id: "service", header: "Service", size: 124, enableSorting: false, accessorFn: (l) => serviceTitle(l.call.service, titles) ?? "", cell: (c) => c.getValue<string>() || dim },
       {
         id: "operation",
         header: "Operation",
-        size: 210,
+        size: 214,
         enableSorting: false,
-        accessorFn: (c) => c.action ?? "",
-        cell: (c) => (
-          // The row's own control: a click anywhere on the row opens the drawer, and so does this from the keyboard.
-          <button type="button" className="max-w-full truncate rounded-sm text-left font-semibold text-bright outline-none hover:text-primary focus-visible:ring-2 focus-visible:ring-ring/50" aria-label={`Open call ${c.row.original.seq}: ${c.row.original.action ?? "unknown operation"}`} data-testid="open-call">
-            {c.getValue<string>() || <span className="font-normal text-muted-foreground">Unknown</span>}
-          </button>
-        ),
+        accessorFn: (l) => l.call.action ?? "",
+        cell: (c) => {
+          const l = c.row.original;
+          return (
+            <span className="flex min-w-0 items-center gap-2">
+              {/* The row's own control: a click anywhere on the row opens the drawer, and so does this from the keyboard. */}
+              <button type="button" className="max-w-full truncate rounded-sm text-left font-semibold text-bright outline-none hover:text-primary focus-visible:ring-2 focus-visible:ring-ring/50" aria-label={`Open call ${l.call.seq}: ${l.call.action ?? "unknown operation"}`} data-testid="open-call">
+                {c.getValue<string>() || <span className="font-normal text-muted-foreground">Unknown</span>}
+              </button>
+              {l.kind === "run" && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    toggle(l.calls[l.calls.length - 1]!.seq);
+                  }}
+                  className="inline-flex shrink-0 items-center gap-0.5 rounded-full border bg-muted px-1.5 font-mono text-[11px] leading-[18px] text-foreground outline-none hover:border-ring focus-visible:ring-2 focus-visible:ring-ring"
+                  aria-expanded={l.open}
+                  aria-label={`${l.calls.length} calls in a row like this one: ${l.open ? "fold them" : "show each"}`}
+                  data-testid="repeat-count"
+                >
+                  {l.open ? <ChevronDownIcon className="size-3" /> : <ChevronRightIcon className="size-3" />}×{number(l.calls.length)}
+                </button>
+              )}
+            </span>
+          );
+        },
       },
-      { id: "resource", header: "Resource", enableSorting: false, accessorFn: (c) => c.resource ?? "", meta: { mono: true }, cell: (c) => c.getValue<string>() || dim },
-      { id: "caller", header: "Caller", size: 172, enableSorting: false, accessorFn: (c) => c.caller ?? "", meta: { mono: true }, cell: (c) => c.getValue<string>() || dim },
-      { id: "result", header: "Result", size: 250, enableSorting: false, accessorFn: (c) => `${c.outcome} ${c.status}${c.error_code ? ` ${c.error_code}` : ""}`, cell: (c) => <Result call={c.row.original} /> },
-      { id: "latency", header: "Latency", size: 84, enableSorting: false, accessorFn: (c) => micros(c.duration_us), meta: { numeric: true, mono: true } },
+      { id: "resource", header: "Resource", enableSorting: false, accessorFn: (l) => resourceShown(l.call), meta: { mono: true }, cell: (c) => (c.getValue<string>() ? <span title={c.row.original.call.resource ?? undefined}>{c.getValue<string>()}</span> : dim) },
+      { id: "caller", header: "Caller", size: 186, enableSorting: false, accessorFn: (l) => callerOf(l.call), meta: { mono: true }, cell: (c) => <Caller call={c.row.original.call} titles={titles} /> },
+      { id: "result", header: "Result", size: 214, enableSorting: false, accessorFn: (l) => `${l.call.outcome} ${l.call.status}${l.call.error_code ? ` ${l.call.error_code}` : ""}`, cell: (c) => <Result call={c.row.original.call} /> },
+      { id: "latency", header: "Latency", size: 84, enableSorting: false, accessorFn: (l) => micros(l.call.duration_us), meta: { numeric: true, mono: true } },
+      { id: "actions", header: () => <span className="sr-only">Actions</span>, size: 44, enableSorting: false, cell: (c) => <RowMenu call={c.row.original.call} /> },
     ],
-    [titles],
+    [titles, toggle],
   );
 
   const status = connWords(conn, tape.paused);
@@ -75,13 +142,24 @@ export function LivePage() {
     <>
       <PageHeader
         title="Live"
-        sub="Every AWS API call this doze-aws answers, as it happens. The record is kept in memory and holds only the newest calls."
+        sub="Every AWS API call this doze-aws answers, and every call one service makes to another, as it happens. Kept in memory: only the newest calls."
         actions={
           <>
             <HeldPill count={tape.paused ? tape.held.length : 0} onShow={resume} />
             <StatusDot tone={status.tone} className="min-w-[6.75rem] justify-end" data-testid="live-status" aria-live="polite">
               {status.word}
             </StatusDot>
+            <ToggleGroup type="single" variant="outline" size="sm" value={view} onValueChange={(v) => v && set({ view: v === "both" ? undefined : (v as View) })} aria-label="View" className="bg-card" data-testid="live-view">
+              <ToggleGroupItem value="map" className="px-3" data-testid="view-map">
+                Map
+              </ToggleGroupItem>
+              <ToggleGroupItem value="wire" className="px-3" data-testid="view-wire">
+                Wire
+              </ToggleGroupItem>
+              <ToggleGroupItem value="both" className="px-3" data-testid="view-both">
+                Both
+              </ToggleGroupItem>
+            </ToggleGroup>
             {tape.paused ? (
               <Button variant="outline" className="min-w-[6.5rem] bg-card" onClick={resume} data-testid="live-resume">
                 <PlayIcon /> Resume
@@ -142,31 +220,56 @@ export function LivePage() {
               ]}
             />
           )}
-          <DataTable
-            aria-label="Calls, newest first"
-            data={tape.calls}
-            columns={columns}
-            rowId={(c) => String(c.seq)}
-            maxHeight={640}
-            anchorTop
-            onRowClick={(c) => open(c.seq)}
-            rowClassName={(c) => (c.seq === openSeq ? "[&>td]:bg-accent" : c.seq > tape.freshAfter ? "row-new" : undefined)}
-            empty={
-              <EmptyState icon={RadioIcon} title="No calls yet" className="w-full border-0 bg-transparent">
-                {about ? (
-                  <>
-                    Point an AWS SDK or the AWS CLI at <code className="text-bright">{about.endpoint}</code>. Each call appears here as it is answered, without a reload.
-                  </>
-                ) : (
-                  "Each call to doze-aws appears here as it is answered, without a reload."
-                )}
-              </EmptyState>
-            }
-          />
+          {view !== "wire" && (
+            <section className="mb-5 rounded-xl border bg-card px-5 pt-3 pb-4" aria-label="Map of who calls what" data-testid="live-map-card">
+              {map.lines.length === 0 ? (
+                <EmptyState icon={RadioIcon} title="Nothing to draw yet" className="border-0 bg-transparent">
+                  Each caller and each service it calls is drawn here, joined by a line, as calls arrive.
+                </EmptyState>
+              ) : (
+                <>
+                  <LiveMap layout={map} calls={tape.calls} titles={titles} selected={openCall ? flowKeyOf(openCall) : null} caller={search.caller} service={search.service} onCaller={(caller) => set({ caller })} onService={(service) => set({ service })} />
+                  <MapLegend />
+                </>
+              )}
+            </section>
+          )}
+          {view !== "map" && (
+            <>
+              <Filters search={search} set={set} services={services} callers={callers} titles={titles} shown={kept.length} held={tape.calls.length} />
+              <DataTable
+                aria-label="Calls, newest first"
+                data={shown}
+                columns={columns}
+                rowId={lineId}
+                maxHeight={view === "both" ? 520 : 640}
+                anchorTop
+                onRowClick={(l) => open(l.call.seq)}
+                rowClassName={(l) => (l.call.seq === search.call ? "[&>td]:bg-accent" : l.kind === "member" ? "[&>td]:bg-muted/50" : l.call.seq > tape.freshAfter ? "row-new" : l.call.via ? "[&>td]:text-muted-foreground" : undefined)}
+                empty={
+                  filtering(search) && tape.calls.length > 0 ? (
+                    <EmptyState icon={SearchXIcon} title="No call matches" className="w-full border-0 bg-transparent">
+                      None of the {number(tape.calls.length)} calls held matches these filters.
+                    </EmptyState>
+                  ) : (
+                    <EmptyState icon={RadioIcon} title="No calls yet" className="w-full border-0 bg-transparent">
+                      {about ? (
+                        <>
+                          Point an AWS SDK or the AWS CLI at <code className="text-bright">{about.endpoint}</code>. Each call appears here as it is answered, without a reload.
+                        </>
+                      ) : (
+                        "Each call to doze-aws appears here as it is answered, without a reload."
+                      )}
+                    </EmptyState>
+                  )
+                }
+              />
+            </>
+          )}
         </>
       )}
 
-      <CallSheet seq={tape.loaded ? openSeq : undefined} call={findCall(tape, openSeq)} serviceTitle={serviceTitle(findCall(tape, openSeq)?.service ?? null, titles)} onClose={() => open(undefined)} />
+      <CallSheet seq={tape.loaded ? search.call : undefined} call={openCall} serviceTitle={serviceTitle(openCall?.service ?? null, titles)} titles={titles} held={tape.calls} onOpen={open} onClose={() => open(undefined)} />
     </>
   );
 }

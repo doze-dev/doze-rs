@@ -3,3 +3,18 @@
    data-slot); this app adds none of its own. */
 @import "@doze/ui/styles/base.css";
 @import "@doze/ui/themes/aws.css";
+
+/* Live's map with reduced motion: a call does not travel along its line, the service's station pulses once (opacity only). */
+@keyframes live-pulse {
+  0% {
+    stroke-opacity: 1;
+    fill: var(--primary);
+  }
+  100% {
+    stroke-opacity: 1;
+    fill: var(--background);
+  }
+}
+.live-pulse {
+  animation: live-pulse 700ms var(--ease) 1;
+}

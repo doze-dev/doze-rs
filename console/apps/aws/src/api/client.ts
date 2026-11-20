@@ -6,10 +6,12 @@ export const UNREACHABLE = "doze-aws did not answer. Is it still running?";
 
 export const client = createApi({ unreachable: UNREACHABLE });
 
-/** The four addresses the API has today (crates/aws-console/src/api.rs). */
+/** The addresses the API has today (crates/aws-console/src/api.rs). */
 export const PATHS = {
   about: "/api/v1/about",
   services: "/api/v1/services",
   calls: "/api/v1/calls",
   tail: "/api/v1/tail/live",
+  flows: "/api/v1/flows",
+  copy: (seq: number) => `/api/v1/calls/${seq}/copy`,
 } as const;

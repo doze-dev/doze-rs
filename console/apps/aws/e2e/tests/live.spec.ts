@@ -1,6 +1,8 @@
 // Live against the real doze-aws: calls made with the real AWS CLI arrive on the page without a reload, Pause holds them,
 // a row opens its drawer, and a doze-aws that stops is said and survived.
 import { aws, start } from "../server";
+import { lines } from "../../src/pages/live/repeats";
+import { LISTEN_PORT } from "../global-setup";
 import { about, calls, CUT, expect, open, openLive, rows, test, unique } from "./fixtures";
 
 test("calls made with the AWS CLI appear as they are answered, without a reload", async ({ page, cli, accessKey, browserName }) => {
@@ -40,7 +42,8 @@ test("calls made with the AWS CLI appear as they are answered, without a reload"
   // What is on the page is what the record holds, newest first, and the figures are the record's own.
   const record = await calls(page);
   const newest = [...record.calls].reverse();
-  await expect(rows(page)).toHaveCount(Math.min(newest.length, record.ring.capacity));
+  // One row a call, but calls in a row that repeat each other are one row (repeats.ts).
+  await expect(rows(page)).toHaveCount(lines(newest.slice(0, record.ring.capacity), new Set()).length);
   await expect(rows(page).first()).toHaveAttribute("data-row", String(newest[0]!.seq));
   await expect(page.getByTestId("live-recorded")).toContainText(record.ring.recorded.toLocaleString("en-US"));
   await expect(page.getByTestId("live-held")).toContainText(`${record.ring.held.toLocaleString("en-US")} of ${record.ring.capacity.toLocaleString("en-US")}`);
@@ -105,7 +108,9 @@ test("a row opens a drawer over the page with everything the record has for the 
   await expect(page.getByTestId("call-service")).toContainText("sqs");
   await expect(page.getByTestId("call-api")).toContainText("SQS");
   await expect(page.getByTestId("call-action")).toHaveText("GetQueueUrl");
-  await expect(page.getByTestId("call-resource")).toContainText("Not known");
+  // What it acted on: the queue it asked for, by the member of its input that names it.
+  await expect(page.getByTestId("call-resource")).toContainText(record.resource!);
+  await expect(page.getByTestId("call-resource")).toContainText("The call's QueueName.");
   await expect(page.getByTestId("call-caller")).toContainText(accessKey);
   await expect(page.getByTestId("call-region")).toHaveText("eu-west-1");
   await expect(page.getByTestId("call-status")).toHaveText("400");
@@ -167,7 +172,7 @@ test.describe("when requests fail", () => {
   test("a doze-aws that stops is said on the page, and the page comes back by itself when it starts again", async ({ page, browserName }) => {
     // A doze-aws of this test's own (it is stopped in the middle), on ports of its own per browser.
     const at = { firefox: 0, webkit: 2, chromium: 4 }[browserName] ?? 6;
-    let server = await start(41761 + at, 41762 + at);
+    let server = await start(LISTEN_PORT + 10 + at, LISTEN_PORT + 11 + at);
     const { endpoint, console: consoleUrl } = server;
     try {
       expect(aws(endpoint, ["sqs", "create-queue", "--queue-name", "before-the-stop"]).code).toBe(0);
@@ -184,7 +189,7 @@ test.describe("when requests fail", () => {
       // What was on the page stays: it is not blanked by the failure.
       await expect(rows(page).first().locator("td").nth(2)).toHaveText("CreateQueue");
 
-      server = await start(41761 + at, 41762 + at);
+      server = await start(LISTEN_PORT + 10 + at, LISTEN_PORT + 11 + at);
       expect((await about(page, consoleUrl)).pid).not.toBe(firstRun);
       await expect(page.getByTestId("live-status")).toHaveText("Live", { timeout: 20_000 });
       await expect(stopped).toHaveCount(0);

@@ -1,6 +1,7 @@
 // What IAM did to a call, on Live, against real doze-aws processes: a call `--iam soft` let through that the caller's policies
 // refuse is OK with a "would be denied" marker; the same call under `--iam enforce` is DENIED. The caller is an IAM user made
 // with the real AWS CLI and given no policy, so IAM refuses everything it asks.
+import { LISTEN_PORT } from "../global-setup";
 import { aws, start } from "../server";
 import { calls, ENDPOINT, expect, openLive, rows, test, unique } from "./fixtures";
 
@@ -44,7 +45,7 @@ test("a call soft IAM let through is OK, marked would be denied, and the drawer 
 test("a call enforced IAM refused is DENIED, told apart from an error", async ({ page, browserName }) => {
   // A doze-aws of this test's own, enforcing, on ports of its own per browser.
   const at = { firefox: 0, webkit: 2, chromium: 4 }[browserName] ?? 6;
-  const server = await start(41771 + at, 41772 + at, { args: ["--iam", "enforce"] });
+  const server = await start(LISTEN_PORT + 20 + at, LISTEN_PORT + 21 + at, { args: ["--iam", "enforce"] });
   try {
     const key = refusedCaller(server.endpoint, "nobody");
     const refused = aws(server.endpoint, ["sqs", "list-queues"], { accessKey: key });
