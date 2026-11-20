@@ -112,4 +112,21 @@ describe("an edge that passes a layer", () => {
     expect(ey).toBeGreaterThan(go.y);
     expect(fromWait.points[1]).toEqual([go.x + go.w / 2, go.y]);
   });
+
+  test("runs left of a target wider than what it passes, and never back across it", () => {
+    const branch = (n: string) => ({ StartAt: n, States: { [n]: { Type: "Pass", End: true } } });
+    const g = layout({
+      StartAt: "Route",
+      States: {
+        Route: { Type: "Choice", Choices: [{ Variable: "$.hold", Next: "Wait" }], Default: "Fulfil" },
+        Wait: { Type: "Wait", Next: "Fulfil" },
+        Fulfil: { Type: "Parallel", Branches: [branch("CreatePickList"), branch("ReserveStock")], End: true },
+      },
+    });
+    const fulfil = g.boxes.find((b) => b.name === "Fulfil")!;
+    const skip = g.edges.find((e) => e.from === "Route" && e.to === "Fulfil")!;
+    expect(skip.points[3][0]).toBeLessThan(fulfil.x);
+    expect(skip.points[4]).toEqual([fulfil.x, skip.points[3][1]]);
+    expect(skip.points[3][0]).toBeGreaterThanOrEqual(0);
+  });
 });

@@ -181,7 +181,8 @@ export function layout(def: Definition, scope = ""): Graph {
     const tx = b.x + b.w / 2;
     const blocked = between.some((x) => x.x - 8 < Math.max(sx, tx) && x.x + x.w + 8 > Math.min(sx, tx));
     if (!isBack && blocked) {
-      const lx = Math.max(6, Math.min(...between.map((x) => x.x)) - 14 - 6 * lanes++);
+      // Left of what it passes and of its target, which it joins from the side.
+      const lx = Math.max(6, Math.min(b.x, ...between.map((x) => x.x)) - 14 - 6 * lanes++);
       // It joins its target from the side, at the height of the target's name: never at the top, where the edge from the
       // layer above it comes in.
       const ey = b.y + Math.min(b.h, BOX_H) / 2;
