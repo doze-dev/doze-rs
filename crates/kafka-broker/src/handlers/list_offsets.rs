@@ -70,6 +70,11 @@ impl<F: Fs> Broker<F> {
             // answers each entry, because the console asks for a partition's earliest and latest offset as two
             // entries of one request.)
             for p in &t.partitions {
+                if version == 0 {
+                    out.partitions
+                        .push(self.list_old(topic.as_deref(), p).await);
+                    continue;
+                }
                 let mut answer = self
                     .list_one(version, req.isolation_level, topic.as_deref(), p)
                     .await;
@@ -151,6 +156,81 @@ impl<F: Fs> Broker<F> {
     }
 }
 
+impl<F: Fs> Broker<F> {
+    /// ListOffsets v0: up to `max_num_offsets` offsets, newest first, for the time asked, as Kafka answered before KIP-79
+    /// (`Log.legacyFetchOffsetsBefore`). The answer is not about records but about segments: each segment's first offset
+    /// (no lower than the log start) stands with the time its file was last written, and the log end stands with now
+    /// (if the last segment holds anything). LATEST counts back from the end, EARLIEST is the first alone, and a time
+    /// counts back from the last of those whose time is at or before it (none: no offsets). A partition never written is
+    /// one empty segment as old as now.
+    async fn list_old(
+        &self,
+        topic: Option<&Topic>,
+        p: &ListOffsetsPartition,
+    ) -> ListOffsetsPartitionResponse {
+        let mut r = ListOffsetsPartitionResponse::default();
+        r.partition_index = p.partition_index;
+        let Some((topic, id)) = topic
+            .zip(PartitionId::new(p.partition_index))
+            .filter(|(t, id)| id.get() < t.partitions.get())
+        else {
+            r.error_code = ResponseError::UnknownTopicOrPartition.code();
+            return r;
+        };
+        let now = crate::clock::now().get();
+        let table = match self.partitions.get_unless_empty(topic, id).await {
+            Ok(Some(partition)) => segment_times(partition.reader(), now),
+            Ok(None) => vec![(0, now)],
+            Err(e) => {
+                tracing::error!(error = %e, topic = %topic.name, partition = p.partition_index, "list offsets could not open a partition");
+                r.error_code = ResponseError::KafkaStorageError.code();
+                return r;
+            }
+        };
+        r.old_style_offsets = legacy_offsets(&table, p.timestamp, p.max_num_offsets);
+        r
+    }
+}
+
+/// Each segment's first offset (no lower than the log start) and when its file was last written, then the end and now if
+/// the last segment holds anything.
+fn segment_times<F: Fs>(reader: &kafka_storage::LogReader<F>, now: i64) -> Vec<(i64, i64)> {
+    let start = reader.start_offset().get();
+    let segments = reader.segments();
+    let mut table: Vec<(i64, i64)> = segments
+        .iter()
+        .map(|s| (s.base.get().max(start), s.modified_ms.unwrap_or(now)))
+        .collect();
+    if segments.last().is_none_or(|s| s.bytes > 0) {
+        table.push((reader.end_offset().get(), now));
+    }
+    table
+}
+
+/// `Log.legacyFetchOffsetsBefore` over `table` (offsets and times, oldest first).
+fn legacy_offsets(table: &[(i64, i64)], timestamp: i64, max: i32) -> Vec<i64> {
+    let last = table.len().checked_sub(1);
+    let from = match timestamp {
+        LATEST => last,
+        EARLIEST => (!table.is_empty()).then_some(0),
+        t => table.iter().rposition(|(_, time)| *time <= t),
+    };
+    let Some(from) = from else {
+        return Vec::new();
+    };
+    let take = usize::try_from(max).unwrap_or(0).min(from + 1);
+    let mut out: Vec<i64> = table
+        .get(..=from)
+        .unwrap_or_default()
+        .iter()
+        .rev()
+        .take(take)
+        .map(|(offset, _)| *offset)
+        .collect();
+    out.sort_unstable_by(|a, b| b.cmp(a));
+    out
+}
+
 /// A topic the caller may not describe: each partition asked is 29, with no timestamp or offset.
 fn not_described(t: &ListOffsetsTopic) -> ListOffsetsTopicResponse {
     let mut out = ListOffsetsTopicResponse::default();
@@ -160,6 +240,7 @@ fn not_described(t: &ListOffsetsTopic) -> ListOffsetsTopicResponse {
         r.partition_index = p.partition_index;
         r.error_code = ResponseError::TopicAuthorizationFailed.code();
         (r.timestamp, r.offset, r.leader_epoch) = (-1, -1, -1);
+        // (v0's answer has neither field; their defaults, -1, are not written.)
         out.partitions.push(r);
     }
     out

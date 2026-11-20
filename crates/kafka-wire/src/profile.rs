@@ -102,15 +102,27 @@ impl Features {
     }
 }
 
-/// A Kafka major version the broker can stand for: 1 to 4.
+/// A Kafka major version the broker can stand for: 1 to 4. Each stands for the newest release of that major there is a
+/// recording of (`tests/data/api-versions.json`): Kafka 1.1, 2.8, 3.9 and 4.4.0 ([`KafkaMajor::release`]).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct KafkaMajor(u8);
 
 impl KafkaMajor {
     /// The version emulated when none is declared.
     pub const DEFAULT: KafkaMajor = KafkaMajor(4);
-    /// The oldest and newest majors there is a column for. The floor is record batch format v2.
+    /// The oldest and newest majors there is a column for.
     pub const RANGE: std::ops::RangeInclusive<u8> = 1..=4;
+
+    /// The release this major stands for: the newest of the major the version table was recorded from.
+    #[must_use]
+    pub fn release(self) -> &'static str {
+        match self.0 {
+            1 => "1.1",
+            2 => "2.8",
+            3 => "3.9",
+            _ => "4.4",
+        }
+    }
 
     /// A major, if it is one this broker can stand for.
     #[must_use]
@@ -212,10 +224,19 @@ impl Profile {
         out
     }
 
-    /// Whether the KIP-848 consumer group protocol is offered in this profile.
+    /// Whether consumer-protocol groups (KIP-848) run in this profile: Kafka 4. Kafka 3.9 lists ConsumerGroupHeartbeat
+    /// and ConsumerGroupDescribe (v0), but `group.coordinator.rebalance.protocols` is `classic` by default there, so
+    /// a 3.9 broker as installed answers both with UNSUPPORTED_VERSION (recorded, `tools/old-profiles-oracle`).
     #[must_use]
     pub fn offers_consumer_groups(self) -> bool {
-        self.range(ApiKey::ConsumerGroupHeartbeat).is_some()
+        self.major.get() >= 4
+    }
+
+    /// The first version of `key` this profile reads, where it lists older ones it does not: Kafka 4 lists Produce from
+    /// v0 but reads it from v3 (its schema starts there, KIP-896), and closes the connection of a client that sends v0 to
+    /// v2 (`UnsupportedVersionException`, as a real 4.4.0 does: `tools/old-profiles-oracle`).
+    fn read_from(self, key: ApiKey) -> Option<i16> {
+        (self.major.get() >= 4 && key == ApiKey::Produce).then_some(3)
     }
 
     /// The `transaction.version` this profile finalizes: 2 where EndTxn v5 is offered (Kafka 4, KIP-890's second part:
@@ -278,14 +299,16 @@ impl Profile {
         }
     }
 
-    /// Refuses a request outside what was advertised: an API not offered, or a version out of range.
+    /// Refuses a request outside what was advertised: an API not offered, or a version out of range; and a version that
+    /// is listed and not read (Produce v0 to v2 at Kafka 4).
     ///
     /// # Errors
     /// [`WireError::NotAdvertised`] for anything the profile does not serve.
     pub fn check(self, key: ApiKey, version: i16, features: Features) -> Result<(), WireError> {
         let offered = API_TABLE.iter().any(|r| r.key == key && features.allows(r));
+        let read = self.read_from(key).is_none_or(|from| version >= from);
         match self.range_with(key, features.unstable) {
-            Some((min, max)) if offered && (min..=max).contains(&version) => Ok(()),
+            Some((min, max)) if offered && read && (min..=max).contains(&version) => Ok(()),
             _ => Err(WireError::NotAdvertised { key, version }),
         }
     }

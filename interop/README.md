@@ -60,10 +60,11 @@ failure was the harness's: the leader of `mixed` (see "What the clients taught")
 | SASL users made over the API (14 lines) | skip (b) | pass | pass | pass |
 | **SASL: passed / skipped / failed** | **12 / 1 / 0** | **26 / 0 / 0** | **26 / 0 / 0** | **26 / 0 / 0** |
 
-(a) `ConsumerGroupHeartbeat` is not advertised. Kafka 1 and 2 have no such API. The Kafka 3.9.1 broker the table was recorded from
+(a) `ConsumerGroupHeartbeat` is not offered. Kafka 1 and 2 have no such API. The Kafka 3.9.1 broker the table was recorded from
 lists it (v0), but KIP-848 was early access in 3.x: `group.coordinator.rebalance.protocols` defaults to `classic`
-(`GroupCoordinatorConfig` in 3.9.1), so a 3.9 broker as installed does not run consumer-protocol groups. `--kafka-version 3`
-leaves it out (`profile(3).offers_consumer_groups()` is false, pinned in `profile/tests.rs`).
+(`GroupCoordinatorConfig` in 3.9.1), so a 3.9 broker as installed answers it UNSUPPORTED_VERSION. Since debt K2 (2026-11-19)
+`--kafka-version 3` lists it and answers it so too; the Go suite asks one heartbeat after ApiVersions and takes a refused API as
+not offered (`askOffered`), and the Java client, told the major, leaves the two APIs out at Kafka 3.
 (b) `DescribeUserScramCredentials` and `AlterUserScramCredentials` came with Kafka 2.7 (KIP-554); the 1.1 broker does not list them.
 SCRAM itself is from 0.10.2, so the 12 SCRAM and PLAIN cells run at Kafka 1.
 
@@ -71,6 +72,17 @@ Transactions run at every major (they arrived in 0.11): at Kafka 1, every librar
 AddOffsetsToTxn, EndTxn and TxnOffsetCommit at v0, and sarama (`V1_1_0_0`) uses its oldest transactional requests. The three ACL APIs
 are not offered at Kafka 1 (the protocol crate dropped their only version there, KIP-896), but no scenario uses ACLs, so nothing is
 skipped for that. TLS is transport: `-tls` accepts `-kafka-version` (both brokers start with it), and is run at the default, 4.
+
+## Old clients (debt K2, `tools/old-profiles-oracle/clients.sh`)
+
+`--kafka-version` 1, 2 and 3 are Kafka 1.1, 2.8 and 3.9 and serve every version those releases did, the message formats of
+Produce v0 to v2 and Fetch v0 to v3 included (converted: wire.md W38). `tools/old-profiles-oracle/clients.sh <doze-kafka> <port>
+<out dir>` runs, at each of the three: librdkafka (kcat) with `api.version.request=false` and `broker.version.fallback`
+0.8.2.2 (Produce v0, Fetch v0 and ListOffsets v0, message format v0), 0.9.0.1 (Produce v1, Fetch v1, a balanced consumer with the
+group APIs) and 0.10.0.1 (Produce v2, Fetch v2, format v1), each with no codec, gzip, snappy and lz4; and Kafka 1.1's own tools
+from `confluentinc/cp-kafka:4.1.4` in Docker, the console producer and consumer (the Java client, which negotiates) and the
+SimpleConsumerShell (the old Scala consumer), each codec. Each produces five messages and reads them back. Run 2026-11-19: 66 of
+66 pass (22 at each version).
 
 ## The scenarios
 

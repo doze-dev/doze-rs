@@ -23,6 +23,12 @@ const HEARTBEAT_INTERVAL_MS: i32 = 1000;
 const MOST_BYTES: usize = 4096;
 
 impl<F: Fs> Broker<F> {
+    /// Whether consumer-protocol groups run at the release the broker stands for (Kafka 4; 3.9 lists the two APIs and
+    /// refuses them, `Profile::offers_consumer_groups`).
+    pub(crate) fn consumer_groups_run(&self) -> bool {
+        kafka_wire::profile::Profile::new(self.config.kafka_major).offers_consumer_groups()
+    }
+
     /// Before the request is looked at: the caller must be allowed to READ the group (30), and to DESCRIBE every topic
     /// it subscribes to (29 if there is one it may not; the answer then has no message, as in Kafka). Once per request,
     /// here, and not in the group.
@@ -33,7 +39,14 @@ impl<F: Fs> Broker<F> {
         client: &Client<'_>,
         req: &ConsumerGroupHeartbeatRequest,
     ) -> Outcome {
-        if let Some(error) = self.heartbeat_refusal(caller, req) {
+        // Kafka 3.9 lists the API and, as installed (`group.coordinator.rebalance.protocols=classic`), refuses it before
+        // anything else: UNSUPPORTED_VERSION (recorded, `tools/old-profiles-oracle`, `consumer-groups`).
+        let refused_first = if self.consumer_groups_run() {
+            self.heartbeat_refusal(caller, req)
+        } else {
+            Some(kafka_wire::ResponseError::UnsupportedVersion)
+        };
+        if let Some(error) = refused_first {
             let mut resp = ConsumerGroupHeartbeatResponse::default();
             resp.error_code = error.code();
             resp.error_message = None;

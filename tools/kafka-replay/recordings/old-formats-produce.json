@@ -1,0 +1,1404 @@
+{
+  "scenario": "old-formats-produce",
+  "kafka": "apache/kafka:3.9.1",
+  "steps": [
+    {
+      "label": "create",
+      "api": "CreateTopics",
+      "version": 4,
+      "request": {
+        "TimeoutMillis": 15000,
+        "Topics": [
+          {
+            "Configs": null,
+            "NumPartitions": 1,
+            "ReplicaAssignment": null,
+            "ReplicationFactor": 1,
+            "Topic": "op"
+          },
+          {
+            "Configs": [
+              {
+                "Name": "cleanup.policy",
+                "Value": "compact"
+              }
+            ],
+            "NumPartitions": 1,
+            "ReplicaAssignment": null,
+            "ReplicationFactor": 1,
+            "Topic": "opc"
+          }
+        ],
+        "ValidateOnly": false
+      },
+      "response": {
+        "ThrottleMillis": 0,
+        "Topics": [
+          {
+            "ConfigErrorCode": 0,
+            "Configs": null,
+            "ErrorCode": 0,
+            "ErrorMessage": null,
+            "NumPartitions": -1,
+            "ReplicationFactor": -1,
+            "Topic": "op",
+            "TopicID": "\u003czero-id\u003e"
+          },
+          {
+            "ConfigErrorCode": 0,
+            "Configs": null,
+            "ErrorCode": 0,
+            "ErrorMessage": null,
+            "NumPartitions": -1,
+            "ReplicationFactor": -1,
+            "Topic": "opc",
+            "TopicID": "\u003czero-id\u003e"
+          }
+        ]
+      }
+    },
+    {
+      "label": "v0-m0",
+      "api": "Produce",
+      "version": 0,
+      "request": {
+        "Acks": -1,
+        "TimeoutMillis": 5000,
+        "Topics": [
+          {
+            "Partitions": [
+              {
+                "Partition": 0,
+                "Records": "AAAAAAAAAAAAAAAShpdyTAAAAAAAAmswAAAAAnYwAAAAAAAAAAEAAAASV+dJbgAAAAAAAmsxAAAAAnYxAAAAAAAAAAIAAAAS/wYCSQAAAAAAAmsyAAAAAnYy"
+              }
+            ],
+            "Topic": "op",
+            "TopicID": "\u003czero-id\u003e"
+          }
+        ],
+        "TransactionID": null
+      },
+      "response": {
+        "Brokers": null,
+        "ThrottleMillis": 0,
+        "Topics": [
+          {
+            "Partitions": [
+              {
+                "BaseOffset": 0,
+                "CurrentLeader": {
+                  "LeaderEpoch": -1,
+                  "LeaderID": -1
+                },
+                "ErrorCode": 0,
+                "ErrorMessage": null,
+                "ErrorRecords": null,
+                "LogAppendTime": -1,
+                "LogStartOffset": -1,
+                "Partition": 0
+              }
+            ],
+            "Topic": "op",
+            "TopicID": "\u003czero-id\u003e"
+          }
+        ]
+      }
+    },
+    {
+      "label": "v0-m1",
+      "api": "Produce",
+      "version": 0,
+      "request": {
+        "Acks": -1,
+        "TimeoutMillis": 5000,
+        "Topics": [
+          {
+            "Partitions": [
+              {
+                "Partition": 0,
+                "Records": "AAAAAAAAAAAAAAAaETtiHgEAAAABoe5WXgAAAAACazAAAAACdjAAAAAAAAAAAQAAABod3YC5AQAAAAGh7lZeAQAAAAJrMQAAAAJ2MQAAAAAAAAACAAAAGgj2p1ABAAAAAaHuVl4CAAAAAmsyAAAAAnYy"
+              }
+            ],
+            "Topic": "op",
+            "TopicID": "\u003czero-id\u003e"
+          }
+        ],
+        "TransactionID": null
+      },
+      "response": {
+        "Brokers": null,
+        "ThrottleMillis": 0,
+        "Topics": [
+          {
+            "Partitions": [
+              {
+                "BaseOffset": 3,
+                "CurrentLeader": {
+                  "LeaderEpoch": -1,
+                  "LeaderID": -1
+                },
+                "ErrorCode": 0,
+                "ErrorMessage": null,
+                "ErrorRecords": null,
+                "LogAppendTime": -1,
+                "LogStartOffset": -1,
+                "Partition": 0
+              }
+            ],
+            "Topic": "op",
+            "TopicID": "\u003czero-id\u003e"
+          }
+        ]
+      }
+    },
+    {
+      "label": "v0-m2",
+      "api": "Produce",
+      "version": 0,
+      "request": {
+        "Acks": -1,
+        "TimeoutMillis": 5000,
+        "Topics": [
+          {
+            "Partitions": [
+              {
+                "Partition": 0,
+                "Records": "AAAAAAAAAAAAAABF/////wL7qdwhAAAAAAABAAABoe5WXgAAAAGh7lZeAP//////////////////AAAAAhIAAAAEazACdgASAAACBGsxAnYA"
+              }
+            ],
+            "Topic": "op",
+            "TopicID": "\u003czero-id\u003e"
+          }
+        ],
+        "TransactionID": null
+      },
+      "response": {
+        "Brokers": null,
+        "ThrottleMillis": 0,
+        "Topics": [
+          {
+            "Partitions": [
+              {
+                "BaseOffset": 6,
+                "CurrentLeader": {
+                  "LeaderEpoch": -1,
+                  "LeaderID": -1
+                },
+                "ErrorCode": 0,
+                "ErrorMessage": null,
+                "ErrorRecords": null,
+                "LogAppendTime": -1,
+                "LogStartOffset": -1,
+                "Partition": 0
+              }
+            ],
+            "Topic": "op",
+            "TopicID": "\u003czero-id\u003e"
+          }
+        ]
+      }
+    },
+    {
+      "label": "v0-m0-and-m1",
+      "api": "Produce",
+      "version": 0,
+      "request": {
+        "Acks": -1,
+        "TimeoutMillis": 5000,
+        "Topics": [
+          {
+            "Partitions": [
+              {
+                "Partition": 0,
+                "Records": "AAAAAAAAAAAAAAAShpdyTAAAAAAAAmswAAAAAnYwAAAAAAAAAAAAAAAaETtiHgEAAAABoe5WXgAAAAACazAAAAACdjA="
+              }
+            ],
+            "Topic": "op",
+            "TopicID": "\u003czero-id\u003e"
+          }
+        ],
+        "TransactionID": null
+      },
+      "response": {
+        "Brokers": null,
+        "ThrottleMillis": 0,
+        "Topics": [
+          {
+            "Partitions": [
+              {
+                "BaseOffset": -1,
+                "CurrentLeader": {
+                  "LeaderEpoch": -1,
+                  "LeaderID": -1
+                },
+                "ErrorCode": 87,
+                "ErrorMessage": null,
+                "ErrorRecords": null,
+                "LogAppendTime": -1,
+                "LogStartOffset": -1,
+                "Partition": 0
+              }
+            ],
+            "Topic": "op",
+            "TopicID": "\u003czero-id\u003e"
+          }
+        ]
+      }
+    },
+    {
+      "label": "v0-cut",
+      "api": "Produce",
+      "version": 0,
+      "request": {
+        "Acks": -1,
+        "TimeoutMillis": 5000,
+        "Topics": [
+          {
+            "Partitions": [
+              {
+                "Partition": 0,
+                "Records": "AAAAAAAAAAAAAAAaETtiHgEAAAABoe5WXgAAAAACazAAAAACdjAAAAAAAAAAAQAAABod3YC5AQAAAAGh7lZeAQAAAAJrMQAAAA=="
+              }
+            ],
+            "Topic": "op",
+            "TopicID": "\u003czero-id\u003e"
+          }
+        ],
+        "TransactionID": null
+      },
+      "response": {
+        "Brokers": null,
+        "ThrottleMillis": 0,
+        "Topics": [
+          {
+            "Partitions": [
+              {
+                "BaseOffset": 8,
+                "CurrentLeader": {
+                  "LeaderEpoch": -1,
+                  "LeaderID": -1
+                },
+                "ErrorCode": 0,
+                "ErrorMessage": null,
+                "ErrorRecords": null,
+                "LogAppendTime": -1,
+                "LogStartOffset": -1,
+                "Partition": 0
+              }
+            ],
+            "Topic": "op",
+            "TopicID": "\u003czero-id\u003e"
+          }
+        ]
+      }
+    },
+    {
+      "label": "v0-empty",
+      "api": "Produce",
+      "version": 0,
+      "request": {
+        "Acks": -1,
+        "TimeoutMillis": 5000,
+        "Topics": [
+          {
+            "Partitions": [
+              {
+                "Partition": 0,
+                "Records": ""
+              }
+            ],
+            "Topic": "op",
+            "TopicID": "\u003czero-id\u003e"
+          }
+        ],
+        "TransactionID": null
+      },
+      "response": {
+        "Brokers": null,
+        "ThrottleMillis": 0,
+        "Topics": [
+          {
+            "Partitions": [
+              {
+                "BaseOffset": -1,
+                "CurrentLeader": {
+                  "LeaderEpoch": -1,
+                  "LeaderID": -1
+                },
+                "ErrorCode": 0,
+                "ErrorMessage": null,
+                "ErrorRecords": null,
+                "LogAppendTime": -1,
+                "LogStartOffset": -1,
+                "Partition": 0
+              }
+            ],
+            "Topic": "op",
+            "TopicID": "\u003czero-id\u003e"
+          }
+        ]
+      }
+    },
+    {
+      "label": "v0-bad-crc",
+      "api": "Produce",
+      "version": 0,
+      "request": {
+        "Acks": -1,
+        "TimeoutMillis": 5000,
+        "Topics": [
+          {
+            "Partitions": [
+              {
+                "Partition": 0,
+                "Records": "AAAAAAAAAAAAAAAaETtiHgEAAAABoe5WXgAAAAACazAAAAACdmo="
+              }
+            ],
+            "Topic": "op",
+            "TopicID": "\u003czero-id\u003e"
+          }
+        ],
+        "TransactionID": null
+      },
+      "response": {
+        "Brokers": null,
+        "ThrottleMillis": 0,
+        "Topics": [
+          {
+            "Partitions": [
+              {
+                "BaseOffset": -1,
+                "CurrentLeader": {
+                  "LeaderEpoch": -1,
+                  "LeaderID": -1
+                },
+                "ErrorCode": 2,
+                "ErrorMessage": null,
+                "ErrorRecords": null,
+                "LogAppendTime": -1,
+                "LogStartOffset": -1,
+                "Partition": 0
+              }
+            ],
+            "Topic": "op",
+            "TopicID": "\u003czero-id\u003e"
+          }
+        ]
+      }
+    },
+    {
+      "label": "v0-compact-no-key",
+      "api": "Produce",
+      "version": 0,
+      "request": {
+        "Acks": -1,
+        "TimeoutMillis": 5000,
+        "Topics": [
+          {
+            "Partitions": [
+              {
+                "Partition": 0,
+                "Records": "AAAAAAAAAAAAAAAXc3MQvQEAAAABoe5WXgD/////AAAAAXY="
+              }
+            ],
+            "Topic": "opc",
+            "TopicID": "\u003czero-id\u003e"
+          }
+        ],
+        "TransactionID": null
+      },
+      "response": {
+        "Brokers": null,
+        "ThrottleMillis": 0,
+        "Topics": [
+          {
+            "Partitions": [
+              {
+                "BaseOffset": -1,
+                "CurrentLeader": {
+                  "LeaderEpoch": -1,
+                  "LeaderID": -1
+                },
+                "ErrorCode": 87,
+                "ErrorMessage": null,
+                "ErrorRecords": null,
+                "LogAppendTime": -1,
+                "LogStartOffset": -1,
+                "Partition": 0
+              }
+            ],
+            "Topic": "opc",
+            "TopicID": "\u003czero-id\u003e"
+          }
+        ]
+      }
+    },
+    {
+      "label": "v1-m0",
+      "api": "Produce",
+      "version": 1,
+      "request": {
+        "Acks": -1,
+        "TimeoutMillis": 5000,
+        "Topics": [
+          {
+            "Partitions": [
+              {
+                "Partition": 0,
+                "Records": "AAAAAAAAAAAAAAAShpdyTAAAAAAAAmswAAAAAnYwAAAAAAAAAAEAAAASV+dJbgAAAAAAAmsxAAAAAnYxAAAAAAAAAAIAAAAS/wYCSQAAAAAAAmsyAAAAAnYy"
+              }
+            ],
+            "Topic": "op",
+            "TopicID": "\u003czero-id\u003e"
+          }
+        ],
+        "TransactionID": null
+      },
+      "response": {
+        "Brokers": null,
+        "ThrottleMillis": 0,
+        "Topics": [
+          {
+            "Partitions": [
+              {
+                "BaseOffset": 9,
+                "CurrentLeader": {
+                  "LeaderEpoch": -1,
+                  "LeaderID": -1
+                },
+                "ErrorCode": 0,
+                "ErrorMessage": null,
+                "ErrorRecords": null,
+                "LogAppendTime": -1,
+                "LogStartOffset": -1,
+                "Partition": 0
+              }
+            ],
+            "Topic": "op",
+            "TopicID": "\u003czero-id\u003e"
+          }
+        ]
+      }
+    },
+    {
+      "label": "v1-m1",
+      "api": "Produce",
+      "version": 1,
+      "request": {
+        "Acks": -1,
+        "TimeoutMillis": 5000,
+        "Topics": [
+          {
+            "Partitions": [
+              {
+                "Partition": 0,
+                "Records": "AAAAAAAAAAAAAAAaETtiHgEAAAABoe5WXgAAAAACazAAAAACdjAAAAAAAAAAAQAAABod3YC5AQAAAAGh7lZeAQAAAAJrMQAAAAJ2MQAAAAAAAAACAAAAGgj2p1ABAAAAAaHuVl4CAAAAAmsyAAAAAnYy"
+              }
+            ],
+            "Topic": "op",
+            "TopicID": "\u003czero-id\u003e"
+          }
+        ],
+        "TransactionID": null
+      },
+      "response": {
+        "Brokers": null,
+        "ThrottleMillis": 0,
+        "Topics": [
+          {
+            "Partitions": [
+              {
+                "BaseOffset": 12,
+                "CurrentLeader": {
+                  "LeaderEpoch": -1,
+                  "LeaderID": -1
+                },
+                "ErrorCode": 0,
+                "ErrorMessage": null,
+                "ErrorRecords": null,
+                "LogAppendTime": -1,
+                "LogStartOffset": -1,
+                "Partition": 0
+              }
+            ],
+            "Topic": "op",
+            "TopicID": "\u003czero-id\u003e"
+          }
+        ]
+      }
+    },
+    {
+      "label": "v1-m2",
+      "api": "Produce",
+      "version": 1,
+      "request": {
+        "Acks": -1,
+        "TimeoutMillis": 5000,
+        "Topics": [
+          {
+            "Partitions": [
+              {
+                "Partition": 0,
+                "Records": "AAAAAAAAAAAAAABF/////wL7qdwhAAAAAAABAAABoe5WXgAAAAGh7lZeAP//////////////////AAAAAhIAAAAEazACdgASAAACBGsxAnYA"
+              }
+            ],
+            "Topic": "op",
+            "TopicID": "\u003czero-id\u003e"
+          }
+        ],
+        "TransactionID": null
+      },
+      "response": {
+        "Brokers": null,
+        "ThrottleMillis": 0,
+        "Topics": [
+          {
+            "Partitions": [
+              {
+                "BaseOffset": 15,
+                "CurrentLeader": {
+                  "LeaderEpoch": -1,
+                  "LeaderID": -1
+                },
+                "ErrorCode": 0,
+                "ErrorMessage": null,
+                "ErrorRecords": null,
+                "LogAppendTime": -1,
+                "LogStartOffset": -1,
+                "Partition": 0
+              }
+            ],
+            "Topic": "op",
+            "TopicID": "\u003czero-id\u003e"
+          }
+        ]
+      }
+    },
+    {
+      "label": "v1-m0-and-m1",
+      "api": "Produce",
+      "version": 1,
+      "request": {
+        "Acks": -1,
+        "TimeoutMillis": 5000,
+        "Topics": [
+          {
+            "Partitions": [
+              {
+                "Partition": 0,
+                "Records": "AAAAAAAAAAAAAAAShpdyTAAAAAAAAmswAAAAAnYwAAAAAAAAAAAAAAAaETtiHgEAAAABoe5WXgAAAAACazAAAAACdjA="
+              }
+            ],
+            "Topic": "op",
+            "TopicID": "\u003czero-id\u003e"
+          }
+        ],
+        "TransactionID": null
+      },
+      "response": {
+        "Brokers": null,
+        "ThrottleMillis": 0,
+        "Topics": [
+          {
+            "Partitions": [
+              {
+                "BaseOffset": -1,
+                "CurrentLeader": {
+                  "LeaderEpoch": -1,
+                  "LeaderID": -1
+                },
+                "ErrorCode": 87,
+                "ErrorMessage": null,
+                "ErrorRecords": null,
+                "LogAppendTime": -1,
+                "LogStartOffset": -1,
+                "Partition": 0
+              }
+            ],
+            "Topic": "op",
+            "TopicID": "\u003czero-id\u003e"
+          }
+        ]
+      }
+    },
+    {
+      "label": "v1-cut",
+      "api": "Produce",
+      "version": 1,
+      "request": {
+        "Acks": -1,
+        "TimeoutMillis": 5000,
+        "Topics": [
+          {
+            "Partitions": [
+              {
+                "Partition": 0,
+                "Records": "AAAAAAAAAAAAAAAaETtiHgEAAAABoe5WXgAAAAACazAAAAACdjAAAAAAAAAAAQAAABod3YC5AQAAAAGh7lZeAQAAAAJrMQAAAA=="
+              }
+            ],
+            "Topic": "op",
+            "TopicID": "\u003czero-id\u003e"
+          }
+        ],
+        "TransactionID": null
+      },
+      "response": {
+        "Brokers": null,
+        "ThrottleMillis": 0,
+        "Topics": [
+          {
+            "Partitions": [
+              {
+                "BaseOffset": 17,
+                "CurrentLeader": {
+                  "LeaderEpoch": -1,
+                  "LeaderID": -1
+                },
+                "ErrorCode": 0,
+                "ErrorMessage": null,
+                "ErrorRecords": null,
+                "LogAppendTime": -1,
+                "LogStartOffset": -1,
+                "Partition": 0
+              }
+            ],
+            "Topic": "op",
+            "TopicID": "\u003czero-id\u003e"
+          }
+        ]
+      }
+    },
+    {
+      "label": "v1-empty",
+      "api": "Produce",
+      "version": 1,
+      "request": {
+        "Acks": -1,
+        "TimeoutMillis": 5000,
+        "Topics": [
+          {
+            "Partitions": [
+              {
+                "Partition": 0,
+                "Records": ""
+              }
+            ],
+            "Topic": "op",
+            "TopicID": "\u003czero-id\u003e"
+          }
+        ],
+        "TransactionID": null
+      },
+      "response": {
+        "Brokers": null,
+        "ThrottleMillis": 0,
+        "Topics": [
+          {
+            "Partitions": [
+              {
+                "BaseOffset": -1,
+                "CurrentLeader": {
+                  "LeaderEpoch": -1,
+                  "LeaderID": -1
+                },
+                "ErrorCode": 0,
+                "ErrorMessage": null,
+                "ErrorRecords": null,
+                "LogAppendTime": -1,
+                "LogStartOffset": -1,
+                "Partition": 0
+              }
+            ],
+            "Topic": "op",
+            "TopicID": "\u003czero-id\u003e"
+          }
+        ]
+      }
+    },
+    {
+      "label": "v1-bad-crc",
+      "api": "Produce",
+      "version": 1,
+      "request": {
+        "Acks": -1,
+        "TimeoutMillis": 5000,
+        "Topics": [
+          {
+            "Partitions": [
+              {
+                "Partition": 0,
+                "Records": "AAAAAAAAAAAAAAAaETtiHgEAAAABoe5WXgAAAAACazAAAAACdmo="
+              }
+            ],
+            "Topic": "op",
+            "TopicID": "\u003czero-id\u003e"
+          }
+        ],
+        "TransactionID": null
+      },
+      "response": {
+        "Brokers": null,
+        "ThrottleMillis": 0,
+        "Topics": [
+          {
+            "Partitions": [
+              {
+                "BaseOffset": -1,
+                "CurrentLeader": {
+                  "LeaderEpoch": -1,
+                  "LeaderID": -1
+                },
+                "ErrorCode": 2,
+                "ErrorMessage": null,
+                "ErrorRecords": null,
+                "LogAppendTime": -1,
+                "LogStartOffset": -1,
+                "Partition": 0
+              }
+            ],
+            "Topic": "op",
+            "TopicID": "\u003czero-id\u003e"
+          }
+        ]
+      }
+    },
+    {
+      "label": "v1-compact-no-key",
+      "api": "Produce",
+      "version": 1,
+      "request": {
+        "Acks": -1,
+        "TimeoutMillis": 5000,
+        "Topics": [
+          {
+            "Partitions": [
+              {
+                "Partition": 0,
+                "Records": "AAAAAAAAAAAAAAAXc3MQvQEAAAABoe5WXgD/////AAAAAXY="
+              }
+            ],
+            "Topic": "opc",
+            "TopicID": "\u003czero-id\u003e"
+          }
+        ],
+        "TransactionID": null
+      },
+      "response": {
+        "Brokers": null,
+        "ThrottleMillis": 0,
+        "Topics": [
+          {
+            "Partitions": [
+              {
+                "BaseOffset": -1,
+                "CurrentLeader": {
+                  "LeaderEpoch": -1,
+                  "LeaderID": -1
+                },
+                "ErrorCode": 87,
+                "ErrorMessage": null,
+                "ErrorRecords": null,
+                "LogAppendTime": -1,
+                "LogStartOffset": -1,
+                "Partition": 0
+              }
+            ],
+            "Topic": "opc",
+            "TopicID": "\u003czero-id\u003e"
+          }
+        ]
+      }
+    },
+    {
+      "label": "v2-m0",
+      "api": "Produce",
+      "version": 2,
+      "request": {
+        "Acks": -1,
+        "TimeoutMillis": 5000,
+        "Topics": [
+          {
+            "Partitions": [
+              {
+                "Partition": 0,
+                "Records": "AAAAAAAAAAAAAAAShpdyTAAAAAAAAmswAAAAAnYwAAAAAAAAAAEAAAASV+dJbgAAAAAAAmsxAAAAAnYxAAAAAAAAAAIAAAAS/wYCSQAAAAAAAmsyAAAAAnYy"
+              }
+            ],
+            "Topic": "op",
+            "TopicID": "\u003czero-id\u003e"
+          }
+        ],
+        "TransactionID": null
+      },
+      "response": {
+        "Brokers": null,
+        "ThrottleMillis": 0,
+        "Topics": [
+          {
+            "Partitions": [
+              {
+                "BaseOffset": 18,
+                "CurrentLeader": {
+                  "LeaderEpoch": -1,
+                  "LeaderID": -1
+                },
+                "ErrorCode": 0,
+                "ErrorMessage": null,
+                "ErrorRecords": null,
+                "LogAppendTime": -1,
+                "LogStartOffset": -1,
+                "Partition": 0
+              }
+            ],
+            "Topic": "op",
+            "TopicID": "\u003czero-id\u003e"
+          }
+        ]
+      }
+    },
+    {
+      "label": "v2-m1",
+      "api": "Produce",
+      "version": 2,
+      "request": {
+        "Acks": -1,
+        "TimeoutMillis": 5000,
+        "Topics": [
+          {
+            "Partitions": [
+              {
+                "Partition": 0,
+                "Records": "AAAAAAAAAAAAAAAaETtiHgEAAAABoe5WXgAAAAACazAAAAACdjAAAAAAAAAAAQAAABod3YC5AQAAAAGh7lZeAQAAAAJrMQAAAAJ2MQAAAAAAAAACAAAAGgj2p1ABAAAAAaHuVl4CAAAAAmsyAAAAAnYy"
+              }
+            ],
+            "Topic": "op",
+            "TopicID": "\u003czero-id\u003e"
+          }
+        ],
+        "TransactionID": null
+      },
+      "response": {
+        "Brokers": null,
+        "ThrottleMillis": 0,
+        "Topics": [
+          {
+            "Partitions": [
+              {
+                "BaseOffset": 21,
+                "CurrentLeader": {
+                  "LeaderEpoch": -1,
+                  "LeaderID": -1
+                },
+                "ErrorCode": 0,
+                "ErrorMessage": null,
+                "ErrorRecords": null,
+                "LogAppendTime": -1,
+                "LogStartOffset": -1,
+                "Partition": 0
+              }
+            ],
+            "Topic": "op",
+            "TopicID": "\u003czero-id\u003e"
+          }
+        ]
+      }
+    },
+    {
+      "label": "v2-m2",
+      "api": "Produce",
+      "version": 2,
+      "request": {
+        "Acks": -1,
+        "TimeoutMillis": 5000,
+        "Topics": [
+          {
+            "Partitions": [
+              {
+                "Partition": 0,
+                "Records": "AAAAAAAAAAAAAABF/////wL7qdwhAAAAAAABAAABoe5WXgAAAAGh7lZeAP//////////////////AAAAAhIAAAAEazACdgASAAACBGsxAnYA"
+              }
+            ],
+            "Topic": "op",
+            "TopicID": "\u003czero-id\u003e"
+          }
+        ],
+        "TransactionID": null
+      },
+      "response": {
+        "Brokers": null,
+        "ThrottleMillis": 0,
+        "Topics": [
+          {
+            "Partitions": [
+              {
+                "BaseOffset": 24,
+                "CurrentLeader": {
+                  "LeaderEpoch": -1,
+                  "LeaderID": -1
+                },
+                "ErrorCode": 0,
+                "ErrorMessage": null,
+                "ErrorRecords": null,
+                "LogAppendTime": -1,
+                "LogStartOffset": -1,
+                "Partition": 0
+              }
+            ],
+            "Topic": "op",
+            "TopicID": "\u003czero-id\u003e"
+          }
+        ]
+      }
+    },
+    {
+      "label": "v2-m0-and-m1",
+      "api": "Produce",
+      "version": 2,
+      "request": {
+        "Acks": -1,
+        "TimeoutMillis": 5000,
+        "Topics": [
+          {
+            "Partitions": [
+              {
+                "Partition": 0,
+                "Records": "AAAAAAAAAAAAAAAShpdyTAAAAAAAAmswAAAAAnYwAAAAAAAAAAAAAAAaETtiHgEAAAABoe5WXgAAAAACazAAAAACdjA="
+              }
+            ],
+            "Topic": "op",
+            "TopicID": "\u003czero-id\u003e"
+          }
+        ],
+        "TransactionID": null
+      },
+      "response": {
+        "Brokers": null,
+        "ThrottleMillis": 0,
+        "Topics": [
+          {
+            "Partitions": [
+              {
+                "BaseOffset": -1,
+                "CurrentLeader": {
+                  "LeaderEpoch": -1,
+                  "LeaderID": -1
+                },
+                "ErrorCode": 87,
+                "ErrorMessage": null,
+                "ErrorRecords": null,
+                "LogAppendTime": -1,
+                "LogStartOffset": -1,
+                "Partition": 0
+              }
+            ],
+            "Topic": "op",
+            "TopicID": "\u003czero-id\u003e"
+          }
+        ]
+      }
+    },
+    {
+      "label": "v2-cut",
+      "api": "Produce",
+      "version": 2,
+      "request": {
+        "Acks": -1,
+        "TimeoutMillis": 5000,
+        "Topics": [
+          {
+            "Partitions": [
+              {
+                "Partition": 0,
+                "Records": "AAAAAAAAAAAAAAAaETtiHgEAAAABoe5WXgAAAAACazAAAAACdjAAAAAAAAAAAQAAABod3YC5AQAAAAGh7lZeAQAAAAJrMQAAAA=="
+              }
+            ],
+            "Topic": "op",
+            "TopicID": "\u003czero-id\u003e"
+          }
+        ],
+        "TransactionID": null
+      },
+      "response": {
+        "Brokers": null,
+        "ThrottleMillis": 0,
+        "Topics": [
+          {
+            "Partitions": [
+              {
+                "BaseOffset": 26,
+                "CurrentLeader": {
+                  "LeaderEpoch": -1,
+                  "LeaderID": -1
+                },
+                "ErrorCode": 0,
+                "ErrorMessage": null,
+                "ErrorRecords": null,
+                "LogAppendTime": -1,
+                "LogStartOffset": -1,
+                "Partition": 0
+              }
+            ],
+            "Topic": "op",
+            "TopicID": "\u003czero-id\u003e"
+          }
+        ]
+      }
+    },
+    {
+      "label": "v2-empty",
+      "api": "Produce",
+      "version": 2,
+      "request": {
+        "Acks": -1,
+        "TimeoutMillis": 5000,
+        "Topics": [
+          {
+            "Partitions": [
+              {
+                "Partition": 0,
+                "Records": ""
+              }
+            ],
+            "Topic": "op",
+            "TopicID": "\u003czero-id\u003e"
+          }
+        ],
+        "TransactionID": null
+      },
+      "response": {
+        "Brokers": null,
+        "ThrottleMillis": 0,
+        "Topics": [
+          {
+            "Partitions": [
+              {
+                "BaseOffset": -1,
+                "CurrentLeader": {
+                  "LeaderEpoch": -1,
+                  "LeaderID": -1
+                },
+                "ErrorCode": 0,
+                "ErrorMessage": null,
+                "ErrorRecords": null,
+                "LogAppendTime": -1,
+                "LogStartOffset": -1,
+                "Partition": 0
+              }
+            ],
+            "Topic": "op",
+            "TopicID": "\u003czero-id\u003e"
+          }
+        ]
+      }
+    },
+    {
+      "label": "v2-bad-crc",
+      "api": "Produce",
+      "version": 2,
+      "request": {
+        "Acks": -1,
+        "TimeoutMillis": 5000,
+        "Topics": [
+          {
+            "Partitions": [
+              {
+                "Partition": 0,
+                "Records": "AAAAAAAAAAAAAAAaETtiHgEAAAABoe5WXgAAAAACazAAAAACdmo="
+              }
+            ],
+            "Topic": "op",
+            "TopicID": "\u003czero-id\u003e"
+          }
+        ],
+        "TransactionID": null
+      },
+      "response": {
+        "Brokers": null,
+        "ThrottleMillis": 0,
+        "Topics": [
+          {
+            "Partitions": [
+              {
+                "BaseOffset": -1,
+                "CurrentLeader": {
+                  "LeaderEpoch": -1,
+                  "LeaderID": -1
+                },
+                "ErrorCode": 2,
+                "ErrorMessage": null,
+                "ErrorRecords": null,
+                "LogAppendTime": -1,
+                "LogStartOffset": -1,
+                "Partition": 0
+              }
+            ],
+            "Topic": "op",
+            "TopicID": "\u003czero-id\u003e"
+          }
+        ]
+      }
+    },
+    {
+      "label": "v2-compact-no-key",
+      "api": "Produce",
+      "version": 2,
+      "request": {
+        "Acks": -1,
+        "TimeoutMillis": 5000,
+        "Topics": [
+          {
+            "Partitions": [
+              {
+                "Partition": 0,
+                "Records": "AAAAAAAAAAAAAAAXc3MQvQEAAAABoe5WXgD/////AAAAAXY="
+              }
+            ],
+            "Topic": "opc",
+            "TopicID": "\u003czero-id\u003e"
+          }
+        ],
+        "TransactionID": null
+      },
+      "response": {
+        "Brokers": null,
+        "ThrottleMillis": 0,
+        "Topics": [
+          {
+            "Partitions": [
+              {
+                "BaseOffset": -1,
+                "CurrentLeader": {
+                  "LeaderEpoch": -1,
+                  "LeaderID": -1
+                },
+                "ErrorCode": 87,
+                "ErrorMessage": null,
+                "ErrorRecords": null,
+                "LogAppendTime": -1,
+                "LogStartOffset": -1,
+                "Partition": 0
+              }
+            ],
+            "Topic": "opc",
+            "TopicID": "\u003czero-id\u003e"
+          }
+        ]
+      }
+    },
+    {
+      "label": "read-back",
+      "api": "Fetch",
+      "version": 4,
+      "request": {
+        "ClusterID": null,
+        "ForgottenTopics": null,
+        "IsolationLevel": 0,
+        "MaxBytes": 1048576,
+        "MaxWaitMillis": 0,
+        "MinBytes": 0,
+        "Rack": "",
+        "ReplicaID": -1,
+        "ReplicaState": {
+          "Epoch": -1,
+          "ID": -1
+        },
+        "SessionEpoch": -1,
+        "SessionID": 0,
+        "Topics": [
+          {
+            "Partitions": [
+              {
+                "CurrentLeaderEpoch": -1,
+                "FetchOffset": 0,
+                "HighWatermark": 9223372036854775807,
+                "LastFetchedEpoch": -1,
+                "LogStartOffset": -1,
+                "Partition": 0,
+                "PartitionMaxBytes": 1048576,
+                "ReplicaDirectoryID": [
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0
+                ]
+              }
+            ],
+            "Topic": "op",
+            "TopicID": "\u003czero-id\u003e"
+          }
+        ]
+      },
+      "response": {
+        "Brokers": null,
+        "ErrorCode": 0,
+        "SessionID": 0,
+        "ThrottleMillis": 0,
+        "Topics": [
+          {
+            "Partitions": [
+              {
+                "AbortedTransactions": null,
+                "CurrentLeader": {
+                  "LeaderEpoch": -1,
+                  "LeaderID": -1
+                },
+                "DivergingEpoch": {
+                  "EndOffset": -1,
+                  "Epoch": -1
+                },
+                "ErrorCode": 0,
+                "HighWatermark": 27,
+                "LastStableOffset": 27,
+                "LogStartOffset": -1,
+                "Partition": 0,
+                "PreferredReadReplica": -1,
+                "RecordBatches": "AAAAAAAAAAAAAABSAAAAAAL2k3neAAAAAAAC////////////////////////////////////////AAAAAxQAAAAEazAEdjAAFAAAAgRrMQR2MQAUAAAEBGsyBHYyAAAAAAAAAAADAAAAUgAAAAACzV908QAAAAAAAgAAAaHuVl4AAAABoe5WXgL//////////////////wAAAAMUAAAABGswBHYwABQAAgIEazEEdjEAFAAEBARrMgR2MgAAAAAAAAAABgAAAEUAAAAAAvup3CEAAAAAAAEAAAGh7lZeAAAAAaHuVl4A//////////////////8AAAACEgAAAARrMAJ2ABIAAAIEazECdgAAAAAAAAAACAAAADwAAAAAApw/QsQAAAAAAAAAAAGh7lZeAAAAAaHuVl4A//////////////////8AAAABFAAAAARrMAR2MAAAAAAAAAAACQAAAFIAAAAAAvaTed4AAAAAAAL///////////////////////////////////////8AAAADFAAAAARrMAR2MAAUAAACBGsxBHYxABQAAAQEazIEdjIAAAAAAAAAAAwAAABSAAAAAALNX3TxAAAAAAACAAABoe5WXgAAAAGh7lZeAv//////////////////AAAAAxQAAAAEazAEdjAAFAACAgRrMQR2MQAUAAQEBGsyBHYyAAAAAAAAAAAPAAAARQAAAAAC+6ncIQAAAAAAAQAAAaHuVl4AAAABoe5WXgD//////////////////wAAAAISAAAABGswAnYAEgAAAgRrMQJ2AAAAAAAAAAARAAAAPAAAAAACnD9CxAAAAAAAAAAAAaHuVl4AAAABoe5WXgD//////////////////wAAAAEUAAAABGswBHYwAAAAAAAAAAASAAAAUgAAAAAC9pN53gAAAAAAAv///////////////////////////////////////wAAAAMUAAAABGswBHYwABQAAAIEazEEdjEAFAAABARrMgR2MgAAAAAAAAAAFQAAAFIAAAAAAs1fdPEAAAAAAAIAAAGh7lZeAAAAAaHuVl4C//////////////////8AAAADFAAAAARrMAR2MAAUAAICBGsxBHYxABQABAQEazIEdjIAAAAAAAAAABgAAABFAAAAAAL7qdwhAAAAAAABAAABoe5WXgAAAAGh7lZeAP//////////////////AAAAAhIAAAAEazACdgASAAACBGsxAnYAAAAAAAAAABoAAAA8AAAAAAKcP0LEAAAAAAAAAAABoe5WXgAAAAGh7lZeAP//////////////////AAAAARQAAAAEazAEdjAA",
+                "SnapshotID": {
+                  "EndOffset": -1,
+                  "Epoch": -1
+                }
+              }
+            ],
+            "Topic": "op",
+            "TopicID": "\u003czero-id\u003e"
+          }
+        ]
+      }
+    },
+    {
+      "label": "list-offsets--1",
+      "api": "ListOffsets",
+      "version": 1,
+      "request": {
+        "IsolationLevel": 0,
+        "ReplicaID": -1,
+        "TimeoutMillis": 30000,
+        "Topics": [
+          {
+            "Partitions": [
+              {
+                "CurrentLeaderEpoch": -1,
+                "MaxNumOffsets": 1,
+                "Partition": 0,
+                "Timestamp": -1
+              }
+            ],
+            "Topic": "op"
+          }
+        ]
+      },
+      "response": {
+        "ThrottleMillis": 0,
+        "Topics": [
+          {
+            "Partitions": [
+              {
+                "ErrorCode": 0,
+                "LeaderEpoch": -1,
+                "Offset": 27,
+                "OldStyleOffsets": null,
+                "Partition": 0,
+                "Timestamp": -1
+              }
+            ],
+            "Topic": "op"
+          }
+        ]
+      }
+    },
+    {
+      "label": "list-offsets--2",
+      "api": "ListOffsets",
+      "version": 1,
+      "request": {
+        "IsolationLevel": 0,
+        "ReplicaID": -1,
+        "TimeoutMillis": 30000,
+        "Topics": [
+          {
+            "Partitions": [
+              {
+                "CurrentLeaderEpoch": -1,
+                "MaxNumOffsets": 1,
+                "Partition": 0,
+                "Timestamp": -2
+              }
+            ],
+            "Topic": "op"
+          }
+        ]
+      },
+      "response": {
+        "ThrottleMillis": 0,
+        "Topics": [
+          {
+            "Partitions": [
+              {
+                "ErrorCode": 0,
+                "LeaderEpoch": -1,
+                "Offset": 0,
+                "OldStyleOffsets": null,
+                "Partition": 0,
+                "Timestamp": -1
+              }
+            ],
+            "Topic": "op"
+          }
+        ]
+      }
+    },
+    {
+      "label": "list-offsets-1795000000001",
+      "api": "ListOffsets",
+      "version": 1,
+      "request": {
+        "IsolationLevel": 0,
+        "ReplicaID": -1,
+        "TimeoutMillis": 30000,
+        "Topics": [
+          {
+            "Partitions": [
+              {
+                "CurrentLeaderEpoch": -1,
+                "MaxNumOffsets": 1,
+                "Partition": 0,
+                "Timestamp": 1795000000001
+              }
+            ],
+            "Topic": "op"
+          }
+        ]
+      },
+      "response": {
+        "ThrottleMillis": 0,
+        "Topics": [
+          {
+            "Partitions": [
+              {
+                "ErrorCode": 0,
+                "LeaderEpoch": -1,
+                "Offset": 4,
+                "OldStyleOffsets": null,
+                "Partition": 0,
+                "Timestamp": 1795000000001
+              }
+            ],
+            "Topic": "op"
+          }
+        ]
+      }
+    }
+  ]
+}

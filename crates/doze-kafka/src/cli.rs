@@ -86,7 +86,9 @@ pub(crate) struct Args {
     /// Kafka): their transactions never time out. It needs `--unstable-api-versions` for a client to ask for one.
     #[arg(long, default_value_t = false, action = clap::ArgAction::Set, num_args = 0..=1, default_missing_value = "true")]
     transaction_two_phase_commit: bool,
-    /// Kafka major version to stand for (1-4).
+    /// Kafka major version to stand for (1-4). Each is the newest release of that major: 1 is Kafka 1.1, 2 is 2.8, 3 is
+    /// 3.9 and 4 is 4.4, and the broker serves every API version that release does (message formats v0 and v1 included,
+    /// converted for Produce v0-v2 and Fetch v0-v3).
     #[arg(long, default_value_t = 4)]
     kafka_version: u8,
     /// Create unknown topics when a client asks about them.

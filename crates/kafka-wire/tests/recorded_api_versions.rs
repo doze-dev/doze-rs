@@ -113,31 +113,16 @@ fn telemetry_apis_are_the_only_extension() {
     }
 }
 
-/// Every profile starts each API where the real broker of its major starts it, except the floors W10 pins: the two
-/// record-format ones (Produce v3 and Fetch v4, the first versions with record batch format v2) and six versions KIP-896
-/// removed that a client negotiates past (ListOffsets v0, OffsetCommit v0 and v1, OffsetFetch v0, CreateTopics v0 and
-/// v1, DeleteTopics v0, DescribeConfigs v0). Kafka 1.x has only v0 of the three ACL APIs, of OffsetForLeaderEpoch and of
-/// DescribeLogDirs, and every major serves SaslHandshake v0 (raw tokens): the wire crate reads those versions
-/// (vendor/kafka-protocol PATCHES.md 5) and the broker serves them (W10, SEC-401).
+/// Every profile starts each API where the real broker of its major starts it (debt K2, 2026-11-19): Produce v0 to v2 and
+/// Fetch v0 to v3 carry message formats v0 and v1, converted to and from record batch format v2 (wire.md W38), and the
+/// versions KIP-896 removed are read again (vendor/kafka-protocol PATCHES.md 5, 7 and 8). Kafka 1.x has only v0 of the three
+/// ACL APIs, of OffsetForLeaderEpoch and of DescribeLogDirs, and every major serves SaslHandshake v0 (raw tokens, SEC-401).
 #[test]
 fn every_profile_starts_where_the_real_broker_starts() {
     use kafka_protocol::messages::ApiKey;
-    let floors = [
-        ApiKey::Produce,
-        ApiKey::Fetch,
-        ApiKey::ListOffsets,
-        ApiKey::OffsetCommit,
-        ApiKey::OffsetFetch,
-        ApiKey::CreateTopics,
-        ApiKey::DeleteTopics,
-        ApiKey::DescribeConfigs,
-    ];
     for major in KafkaMajor::RANGE {
         let theirs = real(u64::from(major));
         for a in Profile::new(KafkaMajor::new(major).unwrap()).advertised(AS_RECORDED) {
-            if floors.contains(&a.key) {
-                continue;
-            }
             let key = i64::from(a.key as i16);
             let (_, min, _) = *theirs.iter().find(|t| t.0 == key).unwrap();
             assert_eq!(
@@ -167,106 +152,43 @@ fn every_profile_starts_where_the_real_broker_starts() {
 /// Why a profile differs from the recorded broker of its major, and the row that says so.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Why {
-    /// Produce from v3 and Fetch from v4: the first versions with record batch format v2, the only format the log
-    /// stores. wire.md W10.
-    FormatFloor,
-    /// A version KIP-896 removed (Kafka 4.0) and the wire crate does not read; every client negotiates past it.
-    /// wire.md W10.
-    Kip896Floor,
     /// An inter-broker or controller API that real brokers list on the client listener. Owner's decision, 2026-11-18: they
     /// stay out; clients never send them, a single node has no other broker, and serving them would only make the list
     /// match (wire.md W36, debt.md K4).
     InterBroker,
-    /// The column of an older major stops below the recorded broker of that major, or leaves out an API it lists
-    /// (the columns were written for an earlier release of that major than the one recorded). debt.md K2.
-    OlderColumn,
 }
 
-use Why::{
-    FormatFloor as FORMAT_FLOOR, InterBroker as INTER_BROKER, Kip896Floor as KIP896_FLOOR,
-    OlderColumn as OLDER_COLUMN,
-};
+use Why::InterBroker as INTER_BROKER;
 
 /// (major, API key, what the profile offers, why) for every difference from the recording. The list as it stood on
 /// main before 2026-11-18 had 16 more: SaslHandshake v0 in all four majors, and v0 of the ACL APIs, OffsetForLeaderEpoch
 /// and DescribeLogDirs in majors 1 to 3 (I2, SEC-D3: served since), and on 2026-11-19 twelve more at Kafka 4, every version
 /// 4.4.0 lists of an API served (K1: Produce 13, Fetch 18, ListOffsets 11, Metadata 13, OffsetCommit and OffsetFetch 10,
-/// FindCoordinator 6, DescribeGroups 6, ApiVersions 5, TxnOffsetCommit 6, DescribeLogDirs 5, DeleteGroups 3, ListTransactions 2).
+/// FindCoordinator 6, DescribeGroups 6, ApiVersions 5, TxnOffsetCommit 6, DescribeLogDirs 5, DeleteGroups 3, ListTransactions 2),
+/// and on 2026-11-19 the rest but K4 (K2): the floors of Produce, Fetch and the versions KIP-896 removed in majors 1 to 3 and
+/// Produce's at Kafka 4, and the columns of majors 1 to 3 raised to the recorded 1.1, 2.8 and 3.9 (about thirty maxima, and
+/// DescribeCluster and DescribeProducers at 2.8, ConsumerGroupHeartbeat and ConsumerGroupDescribe at 3.9).
 /// (major, API key, what the profile offers, why).
 type Deviation = (u8, i16, Option<(i16, i16)>, &'static [Why]);
 
 #[rustfmt::skip]
 const DEVIATIONS: &[Deviation] = &[
-    (1, 0, Some((3, 5)), &[FORMAT_FLOOR]), // Produce, recorded 0-5
-    (1, 1, Some((4, 6)), &[FORMAT_FLOOR, OLDER_COLUMN]), // Fetch, recorded 0-7
-    (1, 2, Some((1, 2)), &[KIP896_FLOOR]), // ListOffsets, recorded 0-2
     (1, 4, None, &[INTER_BROKER]), // LeaderAndISR, recorded 0-1
     (1, 5, None, &[INTER_BROKER]), // StopReplica, recorded 0-0
     (1, 6, None, &[INTER_BROKER]), // UpdateMetadata, recorded 0-4
     (1, 7, None, &[INTER_BROKER]), // ControlledShutdown, recorded 0-1
-    (1, 8, Some((2, 3)), &[KIP896_FLOOR]), // OffsetCommit, recorded 0-3
-    (1, 9, Some((1, 3)), &[KIP896_FLOOR]), // OffsetFetch, recorded 0-3
-    (1, 19, Some((2, 2)), &[KIP896_FLOOR]), // CreateTopics, recorded 0-2
-    (1, 20, Some((1, 1)), &[KIP896_FLOOR]), // DeleteTopics, recorded 0-1
     (1, 27, None, &[INTER_BROKER]), // WriteTxnMarkers, recorded 0-0
-    (1, 32, Some((1, 1)), &[KIP896_FLOOR]), // DescribeConfigs, recorded 0-1
-    (2, 0, Some((3, 7)), &[FORMAT_FLOOR, OLDER_COLUMN]), // Produce, recorded 0-9
-    (2, 1, Some((4, 10)), &[FORMAT_FLOOR, OLDER_COLUMN]), // Fetch, recorded 0-12
-    (2, 2, Some((1, 5)), &[KIP896_FLOOR, OLDER_COLUMN]), // ListOffsets, recorded 0-6
-    (2, 3, Some((0, 8)), &[OLDER_COLUMN]), // Metadata, recorded 0-11
     (2, 4, None, &[INTER_BROKER]), // LeaderAndISR, recorded 0-5
     (2, 5, None, &[INTER_BROKER]), // StopReplica, recorded 0-3
     (2, 6, None, &[INTER_BROKER]), // UpdateMetadata, recorded 0-7
     (2, 7, None, &[INTER_BROKER]), // ControlledShutdown, recorded 0-3
-    (2, 8, Some((2, 6)), &[KIP896_FLOOR, OLDER_COLUMN]), // OffsetCommit, recorded 0-8
-    (2, 9, Some((1, 5)), &[KIP896_FLOOR, OLDER_COLUMN]), // OffsetFetch, recorded 0-7
-    (2, 10, Some((0, 2)), &[OLDER_COLUMN]), // FindCoordinator, recorded 0-3
-    (2, 11, Some((0, 4)), &[OLDER_COLUMN]), // JoinGroup, recorded 0-7
-    (2, 12, Some((0, 2)), &[OLDER_COLUMN]), // Heartbeat, recorded 0-4
-    (2, 13, Some((0, 2)), &[OLDER_COLUMN]), // LeaveGroup, recorded 0-4
-    (2, 14, Some((0, 3)), &[OLDER_COLUMN]), // SyncGroup, recorded 0-5
-    (2, 15, Some((0, 3)), &[OLDER_COLUMN]), // DescribeGroups, recorded 0-5
-    (2, 16, Some((0, 2)), &[OLDER_COLUMN]), // ListGroups, recorded 0-4
-    (2, 18, Some((0, 2)), &[OLDER_COLUMN]), // ApiVersions, recorded 0-3
-    (2, 19, Some((2, 3)), &[KIP896_FLOOR, OLDER_COLUMN]), // CreateTopics, recorded 0-7
-    (2, 20, Some((1, 3)), &[KIP896_FLOOR, OLDER_COLUMN]), // DeleteTopics, recorded 0-6
-    (2, 21, Some((0, 1)), &[OLDER_COLUMN]), // DeleteRecords, recorded 0-2
-    (2, 22, Some((0, 1)), &[OLDER_COLUMN]), // InitProducerID, recorded 0-4
-    (2, 24, Some((0, 1)), &[OLDER_COLUMN]), // AddPartitionsToTxn, recorded 0-3
-    (2, 25, Some((0, 1)), &[OLDER_COLUMN]), // AddOffsetsToTxn, recorded 0-3
-    (2, 26, Some((0, 1)), &[OLDER_COLUMN]), // EndTxn, recorded 0-3
     (2, 27, None, &[INTER_BROKER]), // WriteTxnMarkers, recorded 0-1
-    (2, 28, Some((0, 2)), &[OLDER_COLUMN]), // TxnOffsetCommit, recorded 0-3
-    (2, 29, Some((0, 1)), &[OLDER_COLUMN]), // DescribeACLs, recorded 0-2
-    (2, 30, Some((0, 1)), &[OLDER_COLUMN]), // CreateACLs, recorded 0-2
-    (2, 31, Some((0, 1)), &[OLDER_COLUMN]), // DeleteACLs, recorded 0-2
-    (2, 32, Some((1, 2)), &[KIP896_FLOOR, OLDER_COLUMN]), // DescribeConfigs, recorded 0-4
-    (2, 37, Some((0, 1)), &[OLDER_COLUMN]), // CreatePartitions, recorded 0-3
     (2, 56, None, &[INTER_BROKER]), // AlterPartition, recorded 0-0
-    (2, 60, None, &[OLDER_COLUMN]), // DescribeCluster, recorded 0-0
-    (2, 61, None, &[OLDER_COLUMN]), // DescribeProducers, recorded 0-0
-    (3, 0, Some((3, 11)), &[FORMAT_FLOOR]), // Produce, recorded 0-11
-    (3, 1, Some((4, 13)), &[FORMAT_FLOOR, OLDER_COLUMN]), // Fetch, recorded 0-17
-    (3, 2, Some((1, 7)), &[KIP896_FLOOR, OLDER_COLUMN]), // ListOffsets, recorded 0-9
-    (3, 8, Some((2, 8)), &[KIP896_FLOOR, OLDER_COLUMN]), // OffsetCommit, recorded 0-9
-    (3, 9, Some((1, 8)), &[KIP896_FLOOR, OLDER_COLUMN]), // OffsetFetch, recorded 0-9
-    (3, 10, Some((0, 4)), &[OLDER_COLUMN]), // FindCoordinator, recorded 0-6
-    (3, 11, Some((0, 7)), &[OLDER_COLUMN]), // JoinGroup, recorded 0-9
-    (3, 13, Some((0, 4)), &[OLDER_COLUMN]), // LeaveGroup, recorded 0-5
-    (3, 14, Some((0, 4)), &[OLDER_COLUMN]), // SyncGroup, recorded 0-5
-    (3, 16, Some((0, 4)), &[OLDER_COLUMN]), // ListGroups, recorded 0-5
-    (3, 18, Some((0, 3)), &[OLDER_COLUMN]), // ApiVersions, recorded 0-4
-    (3, 19, Some((2, 7)), &[KIP896_FLOOR]), // CreateTopics, recorded 0-7
-    (3, 20, Some((1, 5)), &[KIP896_FLOOR, OLDER_COLUMN]), // DeleteTopics, recorded 0-6
     (3, 27, None, &[INTER_BROKER]), // WriteTxnMarkers, recorded 0-1
-    (3, 32, Some((1, 4)), &[KIP896_FLOOR]), // DescribeConfigs, recorded 0-4
     (3, 55, None, &[INTER_BROKER]), // DescribeQuorum, recorded 0-2
     (3, 64, None, &[INTER_BROKER]), // UnregisterBroker, recorded 0-0
-    (3, 68, None, &[OLDER_COLUMN]), // ConsumerGroupHeartbeat, recorded 0-0
-    (3, 69, None, &[OLDER_COLUMN]), // ConsumerGroupDescribe, recorded 0-0
     (3, 80, None, &[INTER_BROKER]), // AddRaftVoter, recorded 0-0
     (3, 81, None, &[INTER_BROKER]), // RemoveRaftVoter, recorded 0-0
-    (4, 0, Some((3, 13)), &[FORMAT_FLOOR]), // Produce, recorded 0-13
     (4, 27, None, &[INTER_BROKER]), // WriteTxnMarkers, recorded 1-2
     (4, 55, None, &[INTER_BROKER]), // DescribeQuorum, recorded 0-2
     (4, 64, None, &[INTER_BROKER]), // UnregisterBroker, recorded 0-0

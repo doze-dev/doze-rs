@@ -53,6 +53,9 @@ const UNSTABLE_OFFSET_COMMIT: i16 = 88;
 /// The first version of OffsetFetch that names its topics by id (KIP-848), and is answered with ids.
 const BY_ID: i16 = 10;
 
+/// The version that reads the offsets Kafka keeps in ZooKeeper.
+const ZOOKEEPER: i16 = 0;
+
 /// What was asked of a group: every offset it has, or these partitions of these topics.
 type Asked<'a> = Option<Vec<(&'a WireName, &'a [i32])>>;
 
@@ -150,6 +153,10 @@ impl<F: Fs> Broker<F> {
             guard::refuse_old(version, &asked, resp);
             return;
         }
+        if version == ZOOKEEPER {
+            self.answer_from_zookeeper(guard, req, resp);
+            return;
+        }
         let pending = self
             .pending_if(req.require_stable, req.group_id.as_str())
             .await;
@@ -159,6 +166,62 @@ impl<F: Fs> Broker<F> {
             let mut topic = OffsetFetchResponseTopic::default();
             topic.name = name;
             topic.partitions = found.into_iter().map(single).collect();
+            resp.topics.push(topic);
+        }
+    }
+
+    /// OffsetFetch v0, which Kafka 1.1 and 2.8 read from ZooKeeper (`KafkaApis.handleOffsetFetchRequest`): what
+    /// OffsetCommit v0 stored there, and nothing any later version committed. Each partition of a topic the caller may not
+    /// describe is 29; of a topic or partition that does not exist, or that has nothing there, 3 (`UNKNOWN_PARTITION`);
+    /// always with no metadata. Kafka 3 has no ZooKeeper: every partition asked is UNSUPPORTED_VERSION.
+    fn answer_from_zookeeper(
+        &self,
+        guard: &crate::handlers::group_guard::Guard<'_>,
+        req: &OffsetFetchRequest,
+        resp: &mut OffsetFetchResponse,
+    ) {
+        let zookeeper = self.config.kafka_major.get() <= 2;
+        let group = GroupId::parse(req.group_id.as_str()).ok();
+        for t in req.topics.iter().flatten() {
+            let mut topic = OffsetFetchResponseTopic::default();
+            topic.name = t.name.clone();
+            let barred = !guard.topic(Operation::Describe, t.name.as_str());
+            let name = TopicName::parse(t.name.as_str()).ok();
+            for &index in &t.partition_indexes {
+                let error = |code: kafka_wire::ResponseError| Found {
+                    error: code.code(),
+                    ..Found::none(index)
+                };
+                let found = if !zookeeper {
+                    error(kafka_wire::ResponseError::UnsupportedVersion)
+                } else if barred {
+                    error(kafka_wire::ResponseError::TopicAuthorizationFailed)
+                } else {
+                    let stored = name
+                        .as_ref()
+                        .zip(group.as_ref())
+                        .zip(kafka_wire::ids::PartitionId::new(index))
+                        .filter(|((n, _), id)| {
+                            self.meta
+                                .topic(n)
+                                .is_some_and(|t| id.get() < t.partitions.get())
+                        })
+                        .and_then(|((n, g), id)| {
+                            blocking::run(|| self.meta.zk_offset(g, n, id)).unwrap_or_else(|e| {
+                                tracing::error!(error = %e, "reading v0 offsets failed");
+                                None
+                            })
+                        });
+                    match stored {
+                        Some(offset) => Found {
+                            offset,
+                            ..Found::none(index)
+                        },
+                        None => error(kafka_wire::ResponseError::UnknownTopicOrPartition),
+                    }
+                };
+                topic.partitions.push(single(found));
+            }
             resp.topics.push(topic);
         }
     }

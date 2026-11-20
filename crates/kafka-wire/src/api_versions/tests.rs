@@ -85,7 +85,7 @@ fn each_major_lists_the_features_of_its_recorded_broker() {
             ])
         )
     );
-    assert!(v4.finalized_features_epoch >= 0);
+    assert!(v4.finalized_features_epoch > 0);
     let v3 = ask(4, 3);
     assert_eq!(names(&v3).0, rows(&[("metadata.version", 7, 33)]));
     assert_eq!(names(&v3).1, names(&v4).1);
@@ -119,7 +119,11 @@ fn each_major_lists_the_features_of_its_recorded_broker() {
     for major in 1..=2 {
         let r = ask(major, 3);
         assert_eq!(names(&r), (vec![], vec![]), "Kafka {major}");
-        assert_eq!(r.finalized_features_epoch, -1, "Kafka {major}");
+        assert_eq!(
+            r.finalized_features_epoch,
+            if major == 2 { 0 } else { -1 },
+            "Kafka {major}"
+        );
     }
 }
 
