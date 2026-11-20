@@ -109,5 +109,6 @@ pub(super) static SECRETS: Descriptor = Descriptor {
             step: Step::new("GetSecretValue", r#"{"SecretId":"{id}"}"#),
             path: "SecretString|SecretBinary",
         }),
+        deep: &[],
     }],
 };

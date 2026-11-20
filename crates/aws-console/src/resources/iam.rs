@@ -139,6 +139,7 @@ const USERS: Kind = Kind {
         words: "IAM refuses (DeleteConflict) while the user still has access keys, policies or groups: remove those first. Its access keys stop working when it goes.",
     }),
     reveal: None,
+    deep: &[],
 };
 
 const GROUPS: Kind = Kind {
@@ -218,4 +219,5 @@ const GROUPS: Kind = Kind {
         words: "IAM refuses (DeleteConflict) while the group still has users or policies: remove those first.",
     }),
     reveal: None,
+    deep: &[],
 };

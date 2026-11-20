@@ -149,6 +149,7 @@ const RULES: Kind = Kind {
         words: "EventBridge refuses while the rule still has targets: remove them first (aws events remove-targets). Events stop matching it at once.",
     }),
     reveal: None,
+    deep: &[],
 };
 
 const BUSES: Kind = Kind {
@@ -225,6 +226,7 @@ const BUSES: Kind = Kind {
         words: "Deleting removes the bus and its rules. The default bus cannot be deleted.",
     }),
     reveal: None,
+    deep: &[],
 };
 
 const ARCHIVES: Kind = Kind {
@@ -282,4 +284,5 @@ const ARCHIVES: Kind = Kind {
         words: "Deleting removes the archive and the events in it; they can no longer be replayed.",
     }),
     reveal: None,
+    deep: &[],
 };

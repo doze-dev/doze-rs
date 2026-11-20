@@ -86,6 +86,7 @@ const ALARMS: Kind = Kind {
         words: "Deleting removes the alarm and its history. The metric and its data stay.",
     }),
     reveal: None,
+    deep: &[],
 };
 
 const METRICS: Kind = Kind {
@@ -118,4 +119,5 @@ const METRICS: Kind = Kind {
     create: None,
     delete: None,
     reveal: None,
+    deep: &[],
 };

@@ -139,6 +139,7 @@ const TOPICS: Kind = Kind {
         words: "Deleting removes the topic and all of its subscriptions. Messages already delivered stay where they went.",
     }),
     reveal: None,
+    deep: &[],
 };
 
 const SUBSCRIPTIONS: Kind = Kind {
@@ -256,6 +257,7 @@ const SUBSCRIPTIONS: Kind = Kind {
         words: "The topic stops delivering to this endpoint.",
     }),
     reveal: None,
+    deep: &[],
 };
 
 pub(super) static SNS: Descriptor = Descriptor {

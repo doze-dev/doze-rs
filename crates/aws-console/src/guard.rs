@@ -67,15 +67,32 @@ pub async fn host_guard(State(s): State<Shared>, req: Request, next: Next) -> Re
     )
 }
 
+/// The most a request to `path` may bring: [`MAX_BODY`], or an upload's cap for an object put through the console.
+#[must_use]
+pub fn most(path: &str) -> usize {
+    let object = path.starts_with("/api/v1/resources/s3/buckets/") && path.ends_with("/object");
+    if object {
+        crate::api::deep::UPLOAD_MAX
+    } else {
+        MAX_BODY
+    }
+}
+
 /// 413 for a body that says it is over the limit; a body that does not say is cut at the limit by the extractors.
 pub async fn body_limit(req: Request, next: Next) -> Response {
     let length = text(&req, &CONTENT_LENGTH).and_then(|v| v.parse::<usize>().ok());
-    if length.is_some_and(|n| n > MAX_BODY) {
-        return refusal(
-            StatusCode::PAYLOAD_TOO_LARGE,
-            "That is too large",
-            "<p>The console accepts at most 1 MiB in a request.</p>",
+    let most = most(req.uri().path());
+    if length.is_some_and(|n| n > most) {
+        let words = format!(
+            "<p>The console accepts at most {} MiB in a request{}.</p>",
+            most >> 20,
+            if most == MAX_BODY {
+                ""
+            } else {
+                " to upload an object: put a larger one with the AWS CLI or an SDK"
+            }
         );
+        return refusal(StatusCode::PAYLOAD_TOO_LARGE, "That is too large", &words);
     }
     next.run(req).await
 }

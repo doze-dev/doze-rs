@@ -95,5 +95,6 @@ pub(super) static LAMBDA: Descriptor = Descriptor {
             words: "Deleting removes the function, its versions and aliases. Its event source mappings stop delivering to it.",
         }),
         reveal: None,
+        deep: &[],
     }],
 };

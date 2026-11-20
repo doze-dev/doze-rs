@@ -2,14 +2,19 @@
 
 use super::Format::{Bytes, Flag, Json, Mono, Number, Seconds, Tail, Time};
 use super::{
-    Create, Delete, Descriptor, Field, Id, Input, InputKind, Kind, LinkTo, List, Step, Sub, Text,
-    col, field, input,
+    Create, Deep, Delete, Descriptor, Field, Id, Input, InputKind, Kind, LinkTo, List, Step, Sub,
+    Text, col, field, input, op,
 };
 
 const ATTRIBUTES: Step = Step::new(
     "GetQueueAttributes",
     r#"{"QueueUrl":"{id}","AttributeNames":["All"]}"#,
 );
+
+/// What every message call names: this queue.
+const QUEUE: &str = r#"{"QueueUrl":"{id}"}"#;
+/// What a redrive names: this queue as the dead-letter queue the messages leave.
+const SOURCE: &str = r#"{"SourceArn":"arn:aws:sqs:{region}:{account}:{name}"}"#;
 
 pub(super) static SQS: Descriptor = Descriptor {
     service: "sqs",
@@ -231,5 +236,36 @@ pub(super) static SQS: Descriptor = Descriptor {
             words: "Deleting removes the queue and every message in it at once.",
         }),
         reveal: None,
+        deep: &[
+            Deep {
+                id: "messages",
+                title: "Messages",
+                ops: &[
+                    op("SendMessage", QUEUE),
+                    // A peek: the messages stay visible to the queue's consumers, and the console never waits.
+                    op(
+                        "ReceiveMessage",
+                        r#"{"QueueUrl":"{id}","VisibilityTimeout":0,"WaitTimeSeconds":0}"#,
+                    ),
+                    op("DeleteMessage", QUEUE),
+                    op("PurgeQueue", QUEUE),
+                ],
+            },
+            // Shown when other queues use this one as their dead-letter queue.
+            Deep {
+                id: "redrive",
+                title: "Dead-letter redrive",
+                ops: &[
+                    op("StartMessageMoveTask", SOURCE),
+                    op("ListMessageMoveTasks", SOURCE),
+                    op("CancelMessageMoveTask", "{}"),
+                ],
+            },
+            Deep {
+                id: "settings",
+                title: "Settings",
+                ops: &[op("SetQueueAttributes", QUEUE)],
+            },
+        ],
     }],
 };

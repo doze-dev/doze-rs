@@ -85,5 +85,6 @@ pub(super) static STEPFUNCTIONS: Descriptor = Descriptor {
             words: "The machine is marked DELETING and no execution can start; it goes once its running executions end.",
         }),
         reveal: None,
+        deep: &[],
     }],
 };

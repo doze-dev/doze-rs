@@ -110,5 +110,6 @@ pub(super) static SSM: Descriptor = Descriptor {
             step: Step::new("GetParameter", r#"{"Name":"{id}","WithDecryption":true}"#),
             path: "Parameter.Value",
         }),
+        deep: &[],
     }],
 };

@@ -131,5 +131,6 @@ pub(super) static LOGS: Descriptor = Descriptor {
             words: "Deleting removes the group, its streams and every event in them.",
         }),
         reveal: None,
+        deep: &[],
     }],
 };

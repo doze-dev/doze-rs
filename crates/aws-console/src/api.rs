@@ -6,7 +6,7 @@
 //! space's creates, deletes and reveals ([`resources`]) are behind it.
 
 use axum::Router;
-use axum::extract::Request;
+use axum::extract::{DefaultBodyLimit, Request};
 use axum::http::header::{CONTENT_TYPE, HOST, ORIGIN, RETRY_AFTER};
 use axum::http::{HeaderName, HeaderValue, StatusCode};
 use axum::middleware::{Next, from_fn};
@@ -21,6 +21,7 @@ use crate::state::Shared;
 pub mod about;
 pub mod calls;
 pub mod copy;
+pub mod deep;
 pub mod flows;
 pub mod resources;
 #[cfg(test)]
@@ -52,6 +53,16 @@ pub fn routes() -> Router<Shared> {
         .route(
             "/api/v1/resources/{service}/{kind}/{name}/reveal",
             post(resources::reveal),
+        )
+        .route(
+            "/api/v1/resources/{service}/{kind}/{name}/op/{operation}",
+            post(deep::op),
+        )
+        .route(
+            "/api/v1/resources/{service}/{kind}/{name}/object",
+            get(deep::download)
+                .post(deep::upload)
+                .layer(DefaultBodyLimit::max(deep::UPLOAD_MAX)),
         )
         .route_layer(from_fn(guard))
 }

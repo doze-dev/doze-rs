@@ -131,6 +131,7 @@ pub(super) const ROLES: Kind = Kind {
         words: "IAM refuses (DeleteConflict) while policies are attached to the role or it has inline policies: detach and delete those first. Sessions already made from it keep working until they expire.",
     }),
     reveal: None,
+    deep: &[],
 };
 
 /// The entities a policy is attached to, from its detail's `ListEntitiesForPolicy`.
@@ -258,4 +259,5 @@ pub(super) const POLICIES: Kind = Kind {
         words: "IAM refuses (DeleteConflict) while the policy is attached or has versions besides its default: detach it and delete those first.",
     }),
     reveal: None,
+    deep: &[],
 };

@@ -2,11 +2,15 @@
 
 use super::Format::{Bytes, Flag, Mono, Number, Text as Plain, Time};
 use super::{
-    Create, Delete, Descriptor, Id, Input, InputKind, Kind, List, Step, Text, col, field, input,
+    Create, Deep, Delete, Descriptor, Id, Input, InputKind, Kind, List, Step, Text, col, field,
+    input, op,
 };
 
 const DESCRIBE: Step = Step::new("DescribeTable", r#"{"TableName":"{id}"}"#);
 const TYPES: &[&str] = &["S", "N", "B"];
+
+/// What every item call names: this table.
+const TABLE: &str = r#"{"TableName":"{id}"}"#;
 
 pub(super) static DYNAMODB: Descriptor = Descriptor {
     service: "dynamodb",
@@ -160,5 +164,18 @@ pub(super) static DYNAMODB: Descriptor = Descriptor {
             words: "Deleting removes the table and every item in it. Its stream, if it has one, stops.",
         }),
         reveal: None,
+        deep: &[Deep {
+            id: "items",
+            title: "Items",
+            ops: &[
+                // The key schema and the indexes the page queries by.
+                op("DescribeTable", TABLE),
+                op("Scan", TABLE),
+                op("Query", TABLE),
+                op("GetItem", TABLE),
+                op("PutItem", TABLE),
+                op("DeleteItem", TABLE),
+            ],
+        }],
     }],
 };

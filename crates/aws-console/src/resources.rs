@@ -17,6 +17,7 @@
 pub mod act;
 pub mod bus;
 pub mod catalog;
+pub mod deep;
 pub mod path;
 pub mod run;
 pub mod view;
@@ -83,6 +84,33 @@ pub struct Kind {
     pub create: Option<Create>,
     pub delete: Option<Delete>,
     pub reveal: Option<Reveal>,
+    /// Its pages of its own (a queue's messages, a bucket's objects, a table's items): tabs of the detail page, drawn by the
+    /// console's app, each with the operations it may make on the resource.
+    pub deep: &'static [Deep],
+}
+
+/// A page of one resource that its descriptor's generic detail cannot draw: a tab of the detail page that the console's app
+/// draws by its `id`, and the only operations it may make, each on this resource (`POST …/<name>/op/<Operation>`).
+#[derive(Debug)]
+pub struct Deep {
+    /// In the address (`?tab=messages`) and in the app's table of pages.
+    pub id: &'static str,
+    pub title: &'static str,
+    pub ops: &'static [Op],
+}
+
+/// An operation a [`Deep`] page may make. The page sends the input; the members of `bind` are then set over it, filled as a
+/// step's body (`{"QueueUrl":"{id}"}`), so the call acts on this resource and on no other.
+#[derive(Debug)]
+pub struct Op {
+    pub op: &'static str,
+    pub bind: &'static str,
+}
+
+/// An operation of a [`Deep`] page.
+#[must_use]
+pub const fn op(op: &'static str, bind: &'static str) -> Op {
+    Op { op, bind }
 }
 
 /// How a kind is listed.

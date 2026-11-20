@@ -23,7 +23,7 @@ use crate::resources::{Descriptor, Kind, act, catalog, view};
 use crate::state::Shared;
 
 /// The bus and the descriptor and kind an address names, or the answer that says why there are none.
-fn find(
+pub(super) fn find(
     s: &Shared,
     service: &str,
     kind: &str,
@@ -70,7 +70,7 @@ fn no(status: StatusCode, code: &str, message: &str) -> Box<Response> {
 }
 
 /// A service's refusal, as an answer.
-fn refused(e: &aws_wire::ApiError) -> Response {
+pub(super) fn refused(e: &aws_wire::ApiError) -> Response {
     let status = StatusCode::from_u16(e.status).unwrap_or(StatusCode::BAD_GATEWAY);
     error(status, &e.code, &e.message)
 }

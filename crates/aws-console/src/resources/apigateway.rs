@@ -111,6 +111,7 @@ const REST: Kind = Kind {
         words: "Deleting removes the API, its resources, methods, deployments and stages. Its URLs stop answering.",
     }),
     reveal: None,
+    deep: &[],
 };
 
 const HTTP: Kind = Kind {
@@ -230,4 +231,5 @@ const HTTP: Kind = Kind {
         words: "Deleting removes the API, its routes, integrations and stages. Its URLs stop answering.",
     }),
     reveal: None,
+    deep: &[],
 };

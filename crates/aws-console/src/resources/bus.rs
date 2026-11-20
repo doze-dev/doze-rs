@@ -12,7 +12,9 @@ use std::sync::Arc;
 
 use aws_peers::Peers;
 use aws_wire::ApiError;
+use aws_wire::rest::{RestReply, Upload};
 use aws_wire::service::Caller;
+use axum::body::Bytes;
 use serde_json::Value;
 
 /// The access key the console's calls carry, and the caller Live shows them under.
@@ -78,5 +80,46 @@ impl Bus {
             }
         })
         .await
+    }
+
+    /// Calls `operation` of the REST service `target` with `body` and the request payload `payload` (an object's bytes, held
+    /// whole: the console's upload is capped); the whole answer, its streamed body included.
+    ///
+    /// # Errors
+    /// The target's refusal, IAM's included.
+    pub async fn call_rest(
+        &self,
+        target: &str,
+        operation: &str,
+        body: &Value,
+        payload: Option<Bytes>,
+    ) -> Result<RestReply, ApiError> {
+        let upload = payload.map(|p| Box::new(Whole(Some(p))) as Box<dyn Upload>);
+        aws_peers::seen::asked(self.peers.call_rest_as(
+            &self.caller,
+            target,
+            operation,
+            body,
+            upload,
+        ))
+        .await
+    }
+}
+
+/// A request payload held whole, handed to the service as one piece.
+struct Whole(Option<Bytes>);
+
+impl Upload for Whole {
+    fn next(&mut self) -> aws_wire::service::BoxFuture<'_, Result<Option<Bytes>, ApiError>> {
+        let piece = self.0.take();
+        Box::pin(async move { Ok(piece) })
+    }
+
+    fn trailers(&self) -> Vec<(String, String)> {
+        Vec::new()
+    }
+
+    fn length(&self) -> Option<u64> {
+        self.0.as_ref().map(|b| b.len() as u64)
     }
 }

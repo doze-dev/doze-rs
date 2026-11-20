@@ -140,6 +140,7 @@ const SCHEDULES: Kind = Kind {
         words: "Deleting stops the schedule: the target is not called again.",
     }),
     reveal: None,
+    deep: &[],
 };
 
 const GROUPS: Kind = Kind {
@@ -213,4 +214,5 @@ const GROUPS: Kind = Kind {
         words: "Deleting the group deletes every schedule in it. The default group cannot be deleted.",
     }),
     reveal: None,
+    deep: &[],
 };

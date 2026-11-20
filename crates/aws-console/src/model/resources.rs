@@ -240,6 +240,29 @@ pub struct ResourceDetail {
     /// The button that reveals its hidden value, when it has one.
     pub reveal: Option<String>,
     pub delete: Option<DeleteSpec>,
+    /// Its pages of its own, shown as tabs beside its details.
+    pub deep: Vec<DeepTab>,
+}
+
+/// A page of one resource that the console's app draws (a queue's messages), and the operations it may make on it.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
+pub struct DeepTab {
+    /// `messages`: the tab in the address and the page the app draws.
+    pub id: String,
+    pub title: String,
+    pub operations: Vec<String>,
+}
+
+/// `POST /api/v1/resources/s3/buckets/<name>/upload?key=`: the object put.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
+pub struct Uploaded {
+    pub key: String,
+    pub size: u64,
+    pub etag: Option<String>,
+    pub version_id: Option<String>,
+    pub operation: String,
 }
 
 /// `POST /api/v1/resources/<service>/<kind>`: what was made.

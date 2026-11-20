@@ -130,5 +130,6 @@ pub(super) static CLOUDFORMATION: Descriptor = Descriptor {
             words: "Deleting the stack deletes every resource it made, except those its template retains. CloudFormation refuses while termination protection is on.",
         }),
         reveal: None,
+        deep: &[],
     }],
 };

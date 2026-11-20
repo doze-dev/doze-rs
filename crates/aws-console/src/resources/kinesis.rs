@@ -161,5 +161,6 @@ pub(super) static KINESIS: Descriptor = Descriptor {
             words: "Deleting removes the stream and every record in it. Kinesis refuses while it has registered consumers.",
         }),
         reveal: None,
+        deep: &[],
     }],
 };

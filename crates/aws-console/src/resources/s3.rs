@@ -2,9 +2,12 @@
 
 use super::Format::{Bytes, Json, Mono, Text as Plain, Time};
 use super::{
-    Create, Delete, Descriptor, Id, Input, InputKind, Kind, List, Step, Sub, Text, col, field,
-    input, or,
+    Create, Deep, Delete, Descriptor, Id, Input, InputKind, Kind, List, Step, Sub, Text, col,
+    field, input, op, or,
 };
+
+/// What every object call names: this bucket.
+const BUCKET: &str = r#"{"Bucket":"{id}"}"#;
 
 pub(super) static S3: Descriptor = Descriptor {
     service: "s3",
@@ -96,5 +99,19 @@ pub(super) static S3: Descriptor = Descriptor {
             words: "Only an empty bucket can be deleted: S3 refuses one that still holds objects (BucketNotEmpty).",
         }),
         reveal: None,
+        // Its objects; an upload (a folder too: an empty object whose key ends in `/`) and a download are the console's own
+        // addresses (`api/deep.rs`), each one PutObject or GetObject.
+        deep: &[Deep {
+            id: "objects",
+            title: "Objects",
+            ops: &[
+                op("ListObjectsV2", BUCKET),
+                op("ListObjectVersions", BUCKET),
+                op("HeadObject", BUCKET),
+                op("GetObjectTagging", BUCKET),
+                op("DeleteObject", BUCKET),
+                op("DeleteObjects", BUCKET),
+            ],
+        }],
     }],
 };

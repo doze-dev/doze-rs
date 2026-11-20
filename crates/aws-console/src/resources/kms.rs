@@ -130,6 +130,7 @@ const KEYS: Kind = Kind {
         words: "The key is disabled now and deleted after 7 days, KMS's shortest waiting period. Until then CancelKeyDeletion brings it back; afterwards what it encrypted can never be decrypted.",
     }),
     reveal: None,
+    deep: &[],
 };
 
 const ALIASES: Kind = Kind {
@@ -208,4 +209,5 @@ const ALIASES: Kind = Kind {
         words: "Only the name goes: the key and what it encrypted are untouched. Calls that name the key by this alias stop working.",
     }),
     reveal: None,
+    deep: &[],
 };
