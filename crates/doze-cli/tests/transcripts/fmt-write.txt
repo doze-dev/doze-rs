@@ -1,0 +1,15 @@
+# fmt writes: it prints each file it changed, and a second run changes nothing (and --check then exits 0).
+@ project bare
+@ no-json
+@ file project/doze.hcl stack="s"\nmodule valkey "cache" {\nversion=9\n}\n
+
+$ doze fmt
+exit 0
+stdout:
+| doze.hcl
+
+$ doze fmt
+exit 0
+
+$ doze fmt --check
+exit 0

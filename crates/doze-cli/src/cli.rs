@@ -31,7 +31,7 @@ pub struct Cli {
 #[derive(Debug, Args)]
 #[command(next_help_heading = "Flags for every command")]
 pub struct Global {
-    /// Path to doze.hcl (a directory: its doze.hcl); found here or in a parent when not given
+    /// Path to doze.hcl (a directory: all its *.hcl together); found here or in a parent when not given
     #[arg(short = 'c', long, global = true, value_name = "path")]
     pub config: Option<PathBuf>,
     /// Set a config variable (repeatable)
@@ -114,12 +114,16 @@ pub enum Cmd {
 
     // Set up and edit
     /// Write a doze.hcl for this project from what it finds, saying why (or a wizard)
+    #[command(after_help = examples::INIT)]
     Init(Init),
     /// Add a module or a service to doze.hcl
+    #[command(after_help = examples::ADD)]
     Add(Add),
     /// Check doze.hcl without touching the daemon or any data
+    #[command(after_help = examples::LINT)]
     Lint(Lint),
     /// Format doze.hcl and its sibling *.doze.hcl files
+    #[command(after_help = examples::FMT)]
     Fmt(Fmt),
     /// Check this machine and project for what would stop doze, and say how to fix it
     #[command(after_help = examples::DOCTOR)]
@@ -133,21 +137,25 @@ pub enum Cmd {
 
     // The app
     /// Open the doze app at this project, or a module's web console (--console)
+    #[command(after_help = examples::OPEN)]
     Open(Open),
 
     // Modules and the lockfile
     /// The modules the stack uses: each pin in doze.lock and the newest release that fits
-    #[command(visible_alias = "mod")]
+    #[command(visible_alias = "mod", after_help = examples::MODULES)]
     Modules(Modules),
 
     // Other
     /// Print the doze version
     Version,
     /// Update doze the way it was installed, without stopping services
+    #[command(after_help = examples::UPDATE)]
     Update(DryRun),
     /// Write a bug report (versions, the stack's shape, recent logs) to a file
+    #[command(after_help = examples::BUG)]
     Bug,
     /// Print the completion script for a shell
+    #[command(after_help = examples::COMPLETION)]
     Completion(Completion),
 
     /// The background refresh: the release file and module documentation, within the network budget.

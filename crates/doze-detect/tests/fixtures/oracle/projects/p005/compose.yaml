@@ -1,0 +1,5 @@
+services:
+  mongo:
+    image: bitnami/kafka
+  store:
+    image: postgres:16

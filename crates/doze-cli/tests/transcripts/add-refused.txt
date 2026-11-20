@@ -1,0 +1,25 @@
+# add refuses what it can't write safely: a folder given to -c (its config is several files), and a name that is
+# not an identifier (audit findings 1 and 8).
+@ registry
+@ no-json
+@ file project/base.hcl stack = "shop"\nmodule postgres "db" { version = 17 }\n
+
+$ doze -c . add postgres
+exit 1
+stderr:
+| error[DZ0310]: -c names a folder (.); this writes one file
+|   fix: name the file to write: -c doze.hcl
+
+$ doze add postgres 9lives
+exit 1
+stderr:
+| error[DZ0310]: "9lives" can't name a block
+|   a name starts with a letter and has letters, digits, - and _
+|   fix: doze add postgres <name>, with a name like my-db
+
+$ doze add mongo x.y --as container
+exit 1
+stderr:
+| error[DZ0310]: "x.y" can't name a block
+|   a name starts with a letter and has letters, digits, - and _
+|   fix: doze add mongo <name>, with a name like my-db

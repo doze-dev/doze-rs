@@ -1,0 +1,5 @@
+services:
+  db:
+    image: mariadb:11
+  cache:
+    image: postgres:16

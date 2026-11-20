@@ -1,0 +1,7 @@
+services:
+  store:
+    image: bitnami/kafka
+  search:
+    image: postgres:16
+  db:
+    image: mongo:7

@@ -8,13 +8,17 @@
 pub mod cli;
 pub mod clock;
 mod cmd;
+mod complete;
+mod config;
 pub mod ctx;
 pub mod diag;
+mod diff;
 pub mod exit;
+pub mod fetch_child;
 pub mod help;
-pub mod http;
+pub use doze_fetch::http;
 pub mod install;
-pub mod lock;
+pub use doze_fetch::lock;
 mod machine;
 pub mod notice;
 pub mod output;
@@ -23,7 +27,7 @@ pub mod plan;
 pub mod platform;
 pub mod process;
 pub mod project;
-pub mod registry;
+pub use doze_fetch::registry;
 mod stack;
 mod stream;
 mod suggest;
@@ -43,6 +47,10 @@ use std::ffi::OsString;
 // fuzz:parser fuzz_argv
 /// Runs one command line (`argv[0]` is the program) and says how it ended.
 pub fn run(argv: Vec<OsString>, ctx: &mut Ctx<'_>) -> Exit {
+    // A shell asking for completions (`COMPLETE=<shell> doze -- …`): answer it and nothing else.
+    if let Some(shell) = ctx.var(complete::VAR).filter(|v| v != "0") {
+        return complete::run(&shell, argv, ctx);
+    }
     let asked_json = argv
         .iter()
         .take_while(|a| *a != "--")
@@ -76,7 +84,7 @@ pub fn run(argv: Vec<OsString>, ctx: &mut Ctx<'_>) -> Exit {
         Some(Cmd::Update(_) | Cmd::Completion(_) | Cmd::Refresh(_))
     );
     let mut notices = notices;
-    let outcome = cmd::dispatch(cli.command, &path, ctx, &mode, &mut notices);
+    let outcome = cmd::dispatch(cli.command, ctx, &mode, &mut notices);
     let exit = output::finish(ctx, &mode, &path, outcome, &notices);
     if let Some(line) = update::notice(ctx, &mode, tell) {
         let _ = writeln!(ctx.err, "{}", mode.err().dim(&line));

@@ -4,7 +4,8 @@
 //! `statusCode` `*`). One part per location. `properties` must be a JSON object. A version (`docVersions`) is a snapshot of every
 //! part, and a stage names the one it publishes (`documentationVersion`), which `GetExport` writes when asked for
 //! `extensions=documentation`. `ImportDocumentationParts` reads `x-amazon-apigateway-documentation` from an OpenAPI document.
-//! The refusal words are `(memory)`.
+//! The refusals of a location, of `properties` and of a part or version that exists are recorded (2026-11-19); the rest of the
+//! words are `(memory)`.
 
 use aws_model_api_gateway::Operation;
 use aws_wire::ApiError;
@@ -43,6 +44,18 @@ pub(super) fn dispatch(core: &mut Core, op: Operation, r: &Req) -> Option<Res> {
         }),
         Operation::UpdateDocumentationVersion => update_version(core, r),
         Operation::DeleteDocumentationVersion => api_mut(core, r).and_then(|d| {
+            // Recorded 2026-11-19: a version a stage publishes cannot be deleted.
+            let name = r.s("documentationVersion");
+            let used = obj(d, "stages").is_some_and(|stages| {
+                stages
+                    .values()
+                    .any(|s| s.get("documentationVersion").and_then(Value::as_str) == Some(name))
+            });
+            if used {
+                return Err(bad(
+                    "Cannot delete documentation version because there are API Stages associated with it.",
+                ));
+            }
             child(d, "docVersions")
                 .and_then(|m| m.remove(r.s("documentationVersion")))
                 .ok_or_else(no_version)
@@ -94,6 +107,7 @@ pub(crate) fn location(loc: Option<&Value>) -> Result<Value, ApiError> {
     let kind = text(loc, "type").unwrap_or_default();
     let (path, method, status, name) =
         takes(kind).ok_or_else(|| bad(format!("Invalid documentation part type: {kind}")))?;
+    let refused = || bad(rule(kind, path, method, status, name.is_some()));
     let mut out = Map::new();
     out.insert("type".into(), json!(kind));
     for (field, ok, default) in [
@@ -102,11 +116,7 @@ pub(crate) fn location(loc: Option<&Value>) -> Result<Value, ApiError> {
         ("statusCode", status, "*"),
     ] {
         match (text(loc, field), ok) {
-            (Some(_), false) => {
-                return Err(bad(format!(
-                    "Invalid location: {field} is not a valid field for type {kind}"
-                )));
-            }
+            (Some(_), false) => return Err(refused()),
             (v, true) => {
                 out.insert(field.into(), json!(v.unwrap_or(default)));
             }
@@ -114,12 +124,7 @@ pub(crate) fn location(loc: Option<&Value>) -> Result<Value, ApiError> {
         }
     }
     match (text(loc, "name"), name) {
-        (Some(_), None) => Err(bad(format!(
-            "Invalid location: name is not a valid field for type {kind}"
-        ))),
-        (None, Some(true)) => Err(bad(format!(
-            "Invalid location: name is required for type {kind}"
-        ))),
+        (Some(_), None) | (None, Some(true)) => Err(refused()),
         (n, _) => {
             if let Some(n) = n {
                 out.insert("name".into(), json!(n));
@@ -129,13 +134,49 @@ pub(crate) fn location(loc: Option<&Value>) -> Result<Value, ApiError> {
     }
 }
 
+/// The refusal of a location its type does not take: one sentence per type, whatever was wrong. Recorded 2026-11-19 for `API`
+/// ("cannot have path, method, statusCode or name defined") and `MODEL` ("must have a name and cannot have path, method or
+/// statusCode defined"); the other types' sentences are built the same way `(memory)`.
+fn rule(kind: &str, path: bool, method: bool, status: bool, named: bool) -> String {
+    let mut cannot: Vec<&str> = [("path", path), ("method", method), ("statusCode", status)]
+        .into_iter()
+        .filter(|(_, ok)| !ok)
+        .map(|(f, _)| f)
+        .collect();
+    if !named {
+        cannot.push("name");
+    }
+    let list = match cannot.split_last() {
+        None => String::new(),
+        Some((last, [])) => (*last).to_owned(),
+        Some((last, rest)) => format!("{} or {last}", rest.join(", ")),
+    };
+    let body = match (named, list.is_empty()) {
+        (true, true) => "must have a name".to_owned(),
+        (true, false) => format!("must have a name and cannot have {list} defined"),
+        (false, _) => format!("cannot have {list} defined"),
+    };
+    format!("[Location type: {kind} {body}.]")
+}
+
 /// `properties` must be a JSON object, kept as the text sent.
 fn properties(p: Option<&str>) -> Result<String, ApiError> {
     let p = p.ok_or_else(|| bad("Documentation part properties must be specified"))?;
     match serde_json::from_str::<Value>(p) {
         Ok(Value::Object(_)) => Ok(p.to_owned()),
-        _ => Err(bad("Invalid properties: the content must be a JSON object")),
+        // Recorded 2026-11-19: also for JSON that is not an object (`[1]`).
+        _ => Err(bad("Documentation part properties must be a valid JSON.")),
     }
+}
+
+/// How a conflict names a location: `type 'METHOD', path '/pets', method 'GET'` (recorded 2026-11-19; the `statusCode` and `name`
+/// labels follow the same form `(memory)`).
+fn described(loc: &Value) -> String {
+    ["type", "path", "method", "statusCode", "name"]
+        .into_iter()
+        .filter_map(|f| text(loc, f).map(|v| format!("{f} '{v}'")))
+        .collect::<Vec<_>>()
+        .join(", ")
 }
 
 /// The id of the part at `loc`, if there is one.
@@ -151,9 +192,10 @@ fn create_part(core: &mut Core, r: &Req) -> Res {
     let loc = location(r.value("location"))?;
     let props = properties(r.opt("properties"))?;
     if at_location(doc, &loc).is_some() {
-        return Err(conflict(
-            "Documentation part already exists for the specified location",
-        ));
+        return Err(conflict(format!(
+            "Documentation part already exists for the specified location: {}.",
+            described(&loc)
+        )));
     }
     let id = new_id(6);
     let p = json!({"id": id, "location": loc, "properties": props});
@@ -213,8 +255,9 @@ fn create_version(core: &mut Core, r: &Req) -> Res {
         return Err(bad("Documentation version must be specified"));
     }
     if obj(doc, "docVersions").is_some_and(|m| m.contains_key(name)) {
+        // Recorded 2026-11-19.
         return Err(conflict(format!(
-            "Documentation version already exists: {name}"
+            "Documentation version {name} already exists."
         )));
     }
     if let Some(stage) = r.opt("stageName").filter(|s| !s.is_empty()) {
@@ -320,8 +363,40 @@ pub(crate) fn export(doc: &Value, stage: &str) -> Option<Value> {
             json!({"location": p.get("location"), "properties": props})
         })
         .collect();
+    let mut parts = parts;
+    // Recorded 2026-11-19: the API's part before a method's, though made after it. Taken to be the model's order of location
+    // types, then the path (memory beyond those two).
+    parts.sort_by_key(|p| {
+        let loc = p.get("location");
+        let ty = loc.and_then(|l| text(l, "type")).unwrap_or_default();
+        let rank = LOCATION_ORDER
+            .iter()
+            .position(|t| *t == ty)
+            .unwrap_or(LOCATION_ORDER.len());
+        let path = loc
+            .and_then(|l| text(l, "path"))
+            .unwrap_or_default()
+            .to_owned();
+        (rank, path)
+    });
     Some(json!({"version": name, "createdDate": v.get("createdDate"), "documentationParts": parts}))
 }
+
+/// The model's `DocumentationPartType` values, in its order.
+const LOCATION_ORDER: &[&str] = &[
+    "API",
+    "AUTHORIZER",
+    "MODEL",
+    "RESOURCE",
+    "METHOD",
+    "PATH_PARAMETER",
+    "QUERY_PARAMETER",
+    "REQUEST_HEADER",
+    "REQUEST_BODY",
+    "RESPONSE",
+    "RESPONSE_HEADER",
+    "RESPONSE_BODY",
+];
 
 #[cfg(test)]
 mod tests {
@@ -341,5 +416,29 @@ mod tests {
             json!({"type": "RESPONSE_HEADER", "path": "/", "method": "*", "statusCode": "*", "name": "X-A"})
         );
         assert!(location(Some(&json!({"type": "NOPE"}))).is_err());
+    }
+
+    #[test]
+    fn a_refused_location_is_worded_as_aws_words_it() {
+        // Recorded 2026-11-19.
+        let api = location(Some(&json!({"type": "API", "path": "/pets"}))).unwrap_err();
+        assert_eq!(
+            api.message,
+            "[Location type: API cannot have path, method, statusCode or name defined.]"
+        );
+        let model = location(Some(&json!({"type": "MODEL"}))).unwrap_err();
+        assert_eq!(
+            model.message,
+            "[Location type: MODEL must have a name and cannot have path, method or statusCode defined.]"
+        );
+        let at = location(Some(
+            &json!({"type": "METHOD", "path": "/pets", "method": "GET"}),
+        ))
+        .unwrap_or_default();
+        assert_eq!(described(&at), "type 'METHOD', path '/pets', method 'GET'");
+        assert_eq!(
+            properties(Some("[1]")).unwrap_err().message,
+            "Documentation part properties must be a valid JSON."
+        );
     }
 }

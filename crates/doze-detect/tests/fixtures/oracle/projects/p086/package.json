@@ -1,0 +1,1 @@
+{"name":"storefront","scripts":{"dev":"x"},"dependencies":{"bullmq":"1","mysql2":"1"}}

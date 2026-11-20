@@ -52,6 +52,7 @@ json:
 |     ],
 |     "blocks": [],
 |     "category": "cache",
+|     "default_version": "9",
 |     "description": "A local Valkey server, the open-source Redis fork. Any redis client works.",
 |     "engine": "valkey",
 |     "engines": [
@@ -61,6 +62,7 @@ json:
 |     "example": "valkey \"cache\" {\n  version   = 9\n  maxmemory = \"256mb\"\n}",
 |     "fetched_from": "{sandbox}/registry",
 |     "homepage": "",
+|     "label": "cache",
 |     "module": "doze/valkey",
 |     "pinned": false,
 |     "port": 6379,
@@ -136,6 +138,7 @@ json:
 |       }
 |     ],
 |     "category": "database",
+|     "default_version": "18",
 |     "description": "A real Postgres per service.",
 |     "engine": "postgres",
 |     "engines": [
@@ -145,6 +148,7 @@ json:
 |     "example": "postgres \"db\" { version = 17 }",
 |     "fetched_from": "{sandbox}/registry",
 |     "homepage": "",
+|     "label": "db",
 |     "module": "doze/postgres",
 |     "pinned": false,
 |     "port": 5432,

@@ -22,6 +22,7 @@ differences = [
   "Destinations are one account's: the access policy is checked as JSON, kept and not evaluated. A subscription filter to a destination of the same region delivers to its Kinesis stream; a Firehose target is kept and not delivered.",
   "Transformers: `parseCloudfront`, `parseRoute53`, `parsePostgres` and `parseToOCSF` are refused (their logs are vended by AWS services that do not run locally); `dateTimeConverter` reads English month and day names only.",
   "Scheduled queries run on their schedule and write their answer to the local S3 as JSON rows; a lookup-table destination is refused.",
+  "Logs Insights results carry doze-aws's own `@logGroupId` and pagination tokens, and a stream id built as AWS builds it from the group id, a hash of the stream name and its creation time; AWS's are its own. `DescribeQueries` shows the caller doze-aws knows (the local keys' principal) as `userIdentity`. Live Tail delivers an event as soon as it is written, and an export task includes events written just before it (AWS may take a minute for both).",
 ]
 not_planned = [
   { why = "Large log objects exist only for logs ingested through OpenTelemetry (PutOpenTelemetryLogs), which this model and doze-aws do not have; there is never an object to fetch.", ops = ["GetLogObject"] },
@@ -41,6 +42,8 @@ differences = [
   "An export writes one data file (AWS writes one per partition) in AWS's layout (`AWSDynamoDB/<id>/manifest-summary.json`, `manifest-files.json`, `data/*.json.gz`). `FilterSpecification` on an export and `ZSTD` input on an import are not built and are refused by name; an import's failed items are counted, not written to CloudWatch Logs.",
   "Resource policies apply at once (AWS: eventually). IAM weighs them with every request on the table, its indexes and its stream; a key IAM did not issue is the account root's and is allowed everything locally, so a deny in a resource policy binds IAM users and roles.",
   "A Kinesis streaming destination is sent each change after the call answers, one table to one active stream at a time; the record's partition key is the item's partition key value.",
+  "AWS gives a new on-demand table's stream several shards (4 when recorded); doze-aws gives it one, so `DescribeStream` lists one shard.",
+  "A restore time outside the restorable window is refused with AWS's words; the window it names is doze-aws's own (a day of history), so the times differ from AWS's.",
 ]
 not_planned = [
   { why = "Global tables version 2017.11.29, superseded by replicas on the table itself; one machine has no second region to replicate to.", ops = ["CreateGlobalTable", "DescribeGlobalTable", "UpdateGlobalTable", "ListGlobalTables", "DescribeGlobalTableSettings", "UpdateGlobalTableSettings", "DescribeTableReplicaAutoScaling", "UpdateTableReplicaAutoScaling"] },
@@ -72,6 +75,7 @@ differences = [
   "The credential report and last-accessed jobs are ready as soon as they are asked for (AWS takes seconds to minutes). Console passwords are never used to sign in, so the report says `no_information` for their last use.",
   "Last-accessed data counts what IAM users and roles asked the authorizer, so it is recorded with `--iam soft` (the default) or `enforce`, not `off`. A policy action with a wildcard in its service part (`*`, `s3*:...`) is matched against the services doze-aws runs, not all of AWS's; action-level reports list every action asked for, where AWS tracks a few services' actions.",
   "`SetSecurityTokenServicePreferences` is kept and shown in `GetAccountSummary`; doze-aws has one STS endpoint and its session tokens work in every region.",
+  "Action-level last-accessed reports list every action AWS tracks for DynamoDB and S3 (recorded); for other services they list only the actions asked for.",
 ]
 not_planned = [
   { why = "Partner delegation, role templates, outbound web-identity federation and account properties: new account-administration features with no local use yet.", families = ["Delegation", "AcquireRole", "RoleTemplate", "HumanReadableSummary", "OutboundWebIdentityFederation", "AccountProperties"] },
@@ -91,6 +95,8 @@ differences = [
   "`GetServiceSetting` of a setting that does not exist: AWS answers `ServiceSettingNotFound` with an empty message; doze-aws answers the same code, names the setting and says to check its id.",
   "Resource policies (`PutResourcePolicy`) on parameters and documents are read by the IAM evaluator as the resource-based layer of every request on them (a grant to a principal, an explicit deny). There is one account locally, so the cross-account sharing they exist for on AWS is not exercised, and no Resource Access Manager share is made; an `OpsItemGroup` takes no policy (OpsCenter is not run).",
   "Change-template reviews (`UpdateDocumentMetadata`, `ListDocumentMetadataHistory`) record the account id as author and reviewer: doze-aws does not resolve the IAM user here. Change Manager approval workflows do not run.",
+  "AWS has closed Change Manager to new customers: in an account that never used it, `CreateDocument` of an `Automation.ChangeTemplate` is `NoLongerSupportedException` (recorded 2026-11-19). doze-aws keeps change templates, as accounts already using Change Manager still have them, and holds their content to AWS's schema (`emergencyChange`, approval steps with `timeoutSeconds`).",
+  "A resource policy that shares with an account that does not exist is refused on AWS (`Policy contains invalid principal`); doze-aws cannot know which real accounts exist and keeps it.",
 ]
 not_planned = [
   { why = "Fleet management needs managed EC2 instances or on-premises nodes: Run Command, Session Manager, patching, inventory, compliance, maintenance windows, State Manager associations, hybrid activations.", families = ["Command", "Session", "Patch", "Inventory", "Compliance", "MaintenanceWindow", "Association", "Activation", "ManagedInstance", "InstanceInformation", "InstanceProperties", "Nodes", "CloudConnector", "ResourceDataSync", "OpsItem", "OpsMetadata", "OpsSummary", "Automation", "ChangeRequest", "ExecutionPreview", "CalendarState", "AccessRequest", "AccessToken", "ConnectionStatus", "DeployablePatch", "InstancePatch", "EffectiveInstanceAssociations", "EffectivePatches", "AvailablePatches"] },
@@ -152,6 +158,7 @@ differences = [
   "A durable invocation that fails without an answer from the SDK (a crash, a timeout) is tried three times, one and two seconds apart, before the execution fails; AWS's retry policy for these is not recorded.",
   "Deleting a function deletes its durable executions. A chained invoke that was under way when doze-aws stopped is made again when it starts.",
   "Durable execution error messages that AWS's own local checkpoint server (`@aws/durable-execution-sdk-js-testing`) does not state are doze's words, not recorded ones.",
+  "A durable execution's X-Ray trace header is doze-aws's own id in X-Ray's format; the last invocation ends at the instant the execution does (AWS reads the two times apart).",
 ]
 not_planned = [
   { why = "Lambda Managed Instances run functions on EC2 capacity providers.", families = ["CapacityProvider", "FunctionScalingConfig"] },
@@ -165,7 +172,7 @@ not_planned = [
 
 [api."Kinesis"]
 differences = [
-  "A registered stream consumer is `ACTIVE` at once (AWS takes seconds). `SubscribeToShard` is answered on the connection it came on (boto3's HTTP/1.1 included; AWS documents HTTP/2), with no per-consumer throughput limit: a subscription is pushed records as soon as they are written, and an empty event at least every five seconds otherwise.",
+  "A registered stream consumer is `ACTIVE` at once (AWS takes seconds). `SubscribeToShard` is answered on the connection it came on (boto3's HTTP/1.1 included; AWS documents HTTP/2), with no per-consumer throughput limit: a subscription is pushed records as soon as they are written, and an empty event at least every five seconds otherwise. Every call takes the consumer's shard over, the one before ending with `ResourceInUseException`, as AWS did when recorded (the model says a call within 5 seconds is refused).",
 ]
 not_planned = [
   { why = "Kinesis channels and record distribution strategies are new features with no local use yet.", ops = ["CreateChannel", "DeleteChannel", "DescribeChannel", "ListChannels", "UpdateChannel", "UpdateStreamRecordDistributionStrategy"] },

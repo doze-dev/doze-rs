@@ -2,7 +2,7 @@
   "_recorded": {
     "boto3": "1.43.107",
     "botocore": "1.43.107",
-    "on": "2026-11-15",
+    "on": "2026-11-19",
     "region": "us-east-1",
     "target": "aws"
   },
@@ -82,6 +82,211 @@
       "content-type": "application/json",
       "status": 403,
       "x-handled-by": null
+    }
+  },
+  "test_client_certificates": {
+    "absent": {
+      "Error": {
+        "Code": "NotFoundException",
+        "Message": "Invalid client certificate id specified"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 404
+      }
+    },
+    "generate": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 201
+      },
+      "clientCertificateId": "<clientCertificateId:1>",
+      "createdDate": "<createdDate:1>",
+      "description": "conformance",
+      "expirationDate": "<expirationDate:1>",
+      "pemEncodedCertificate": "<pemEncodedCertificate:1>"
+    },
+    "get": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "clientCertificateId": "<clientCertificateId:1>",
+      "createdDate": "<createdDate:1>",
+      "description": "conformance",
+      "expirationDate": "<expirationDate:1>",
+      "pemEncodedCertificate": "<pemEncodedCertificate:1>",
+      "tags": {}
+    },
+    "pem-shape": [
+      true,
+      true
+    ],
+    "update": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "clientCertificateId": "<clientCertificateId:1>",
+      "createdDate": "<createdDate:1>",
+      "description": "renamed",
+      "expirationDate": "<expirationDate:1>",
+      "pemEncodedCertificate": "<pemEncodedCertificate:1>",
+      "tags": {}
+    },
+    "valid-days": 365
+  },
+  "test_documentation_parts_and_versions": {
+    "absent-part": {
+      "Error": {
+        "Code": "NotFoundException",
+        "Message": "Invalid Documentation part identifier specified"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 404
+      }
+    },
+    "api-part-with-a-path": {
+      "Error": {
+        "Code": "BadRequestException",
+        "Message": "[Location type: API cannot have path, method, statusCode or name defined.]"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "create-api-part": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 201
+      },
+      "id": "<id:2>",
+      "location": {
+        "type": "API"
+      },
+      "properties": "{\"description\": \"Pets\"}"
+    },
+    "create-method-part": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 201
+      },
+      "id": "<id:1>",
+      "location": {
+        "method": "GET",
+        "path": "/pets",
+        "type": "METHOD"
+      },
+      "properties": "{\"summary\": \"List pets\"}"
+    },
+    "delete-a-published-version": {
+      "Error": {
+        "Code": "BadRequestException",
+        "Message": "Cannot delete documentation version because there are API Stages associated with it."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "export-documentation": {
+      "createdDate": "<createdDate:2>",
+      "documentationParts": [
+        {
+          "location": {
+            "type": "API"
+          },
+          "properties": {
+            "description": "Pets"
+          }
+        },
+        {
+          "location": {
+            "method": "GET",
+            "path": "/pets",
+            "type": "METHOD"
+          },
+          "properties": {
+            "summary": "All pets"
+          }
+        }
+      ],
+      "version": "1.0"
+    },
+    "export-summary": "All pets",
+    "list-methods": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "items": [
+        {
+          "id": "<id:1>",
+          "location": {
+            "method": "GET",
+            "path": "/pets",
+            "type": "METHOD"
+          },
+          "properties": "{\"summary\": \"List pets\"}"
+        }
+      ]
+    },
+    "model-part-without-a-name": {
+      "Error": {
+        "Code": "BadRequestException",
+        "Message": "[Location type: MODEL must have a name and cannot have path, method or statusCode defined.]"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "properties-not-an-object": {
+      "Error": {
+        "Code": "BadRequestException",
+        "Message": "Documentation part properties must be a valid JSON."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "same-location-twice": {
+      "Error": {
+        "Code": "ConflictException",
+        "Message": "Documentation part already exists for the specified location: type 'METHOD', path '/pets', method 'GET'."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 409
+      }
+    },
+    "stage-names-it": "1.0",
+    "update-part": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "id": "<id:1>",
+      "location": {
+        "method": "GET",
+        "path": "/pets",
+        "type": "METHOD"
+      },
+      "properties": "{\"summary\": \"All pets\"}"
+    },
+    "update-version": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "createdDate": "<createdDate:1>",
+      "description": "renamed",
+      "version": "1.0"
+    },
+    "version": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 201
+      },
+      "createdDate": "<createdDate:1>",
+      "description": "first",
+      "version": "1.0"
+    },
+    "version-twice": {
+      "Error": {
+        "Code": "ConflictException",
+        "Message": "Documentation version 1.0 already exists."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 409
+      }
     }
   },
   "test_http_api_proxies_to_lambda": {
@@ -384,6 +589,69 @@
       "/pets",
       "/pets/{id}"
     ]
+  },
+  "test_import_api_keys": {
+    "a-short-key": {
+      "Error": {
+        "Code": "BadRequestException",
+        "Message": "Warnings found during import:\n\tSkipped invalid record: 1. API Key value should be at least 20 characters"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "import": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 201
+      },
+      "ids": "<ids:1>",
+      "warnings": []
+    },
+    "in-the-plan": [
+      "doze0123456789abcdefghijk-import"
+    ]
+  },
+  "test_import_documentation_parts": {
+    "import": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "ids": "<ids:1>"
+    },
+    "imported-count": 2,
+    "parts": [
+      "API",
+      "RESOURCE"
+    ]
+  },
+  "test_model_templates": {
+    "absent-model": {
+      "Error": {
+        "Code": "NotFoundException",
+        "Message": "Invalid model name specified: Nope"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 404
+      }
+    },
+    "empty": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "value": "#set($inputRoot = $input.path('$'))\n{ }"
+    },
+    "pet": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "value": "#set($inputRoot = $input.path('$'))\n{\n  \"name\" : \"foo\",\n  \"age\" : 42,\n  \"tags\" : [\n##TODO: Update this foreach loop to reference array from input json\n#foreach($elem in $inputRoot.TODO)\n \"foo\" \n#if($foreach.hasNext),#end\n#end\n]\n}"
+    },
+    "v2": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "Value": "#set($inputRoot = $input.path('$'))\n{\n  \"ok\" : true\n}"
+    }
   },
   "test_models_validators_and_gateway_responses": {
     "default-models": [
@@ -998,6 +1266,96 @@
       "methodSettings": {},
       "stageName": "dev",
       "tracingEnabled": false
+    }
+  },
+  "test_test_invoke_method_and_authorizer": {
+    "absent-method": {
+      "Error": {
+        "Code": "NotFoundException",
+        "Message": "Invalid Method identifier specified"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 404
+      }
+    },
+    "allowed": {
+      "authorization": {
+        "Allow": [],
+        "Deny": []
+      },
+      "clientStatus": 0,
+      "principalId": "user"
+    },
+    "allowed-policy-effect": "Allow",
+    "denied": {
+      "authorization": {
+        "Allow": [],
+        "Deny": []
+      },
+      "clientStatus": 401
+    },
+    "log-first-and-last": [
+      "Execution log for",
+      "Method completed with status: 200"
+    ],
+    "method": {
+      "body": "{\"id\": \"42\", \"stage\": \"test-invoke-stage\"}",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "multiValueHeaders": {
+        "Content-Type": [
+          "application/json"
+        ]
+      },
+      "status": 200
+    }
+  },
+  "test_usage_is_metered_and_granted": {
+    "bad-date": {
+      "Error": {
+        "Code": "BadRequestException",
+        "Message": "Invalid usage date specified. Date must be in yyyy-MM-dd format"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "grant": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "items": {
+        "<name:key-id>": [
+          [
+            3,
+            5
+          ]
+        ]
+      },
+      "usagePlanId": "<name:plan-id>"
+    },
+    "over-the-quota": {
+      "body": {
+        "message": "Limit Exceeded"
+      },
+      "content-type": "application/json",
+      "status": 429,
+      "x-handled-by": null
+    },
+    "usage": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "items": {
+        "<name:key-id>": [
+          [
+            3,
+            0
+          ]
+        ]
+      },
+      "usagePlanId": "<name:plan-id>"
     }
   },
   "test_websocket_api_control_plane": {

@@ -1,0 +1,7 @@
+services:
+  mongo:
+    image: mariadb:11
+  es:
+    image: nats:2
+  db:
+    build: .

@@ -63,7 +63,7 @@ pub fn to_json(tables: &Tables, shape: u32, p: &Parts<'_>) -> Result<Value, Read
                 .find(|(l, _)| l == ix)
                 .map(|(_, v)| Value::String(v.clone())),
             2 => query(m, p.query),
-            3 => None,
+            3 => query_params(tables, m, &members, p.query),
             4 => header(m, p.headers),
             5 => prefixed(m, p.headers),
             6 => payload(tables, m, p.body)?,
@@ -88,6 +88,41 @@ pub(super) fn query(m: &MemberRef<'_>, pairs: &[(String, String)]) -> Option<Val
         return (!items.is_empty()).then_some(Value::Array(items));
     }
     hits.next().map(|v| scalar(m.kind, v))
+}
+
+/// A member bound with `httpQueryParams`: a map of every query pair no `httpQuery` member of the input claims (API Gateway's
+/// `GetExport` `parameters`, sent as `?extensions=documentation`). A name given twice keeps its first value; a map of lists takes
+/// them all.
+pub(super) fn query_params(
+    tables: &Tables,
+    m: &MemberRef<'_>,
+    members: &[(u32, MemberRef<'_>)],
+    pairs: &[(String, String)],
+) -> Option<Value> {
+    let claimed: Vec<&str> = members
+        .iter()
+        .filter(|(_, o)| o.bind == 2)
+        .filter_map(|(_, o)| o.bind_str)
+        .collect();
+    // A map member's target is its key member; the value member follows it.
+    let lists = tables
+        .member(m.target + 1)
+        .is_some_and(|v| v.kind == K_LIST);
+    let mut out = Map::new();
+    for (k, v) in pairs.iter().filter(|(k, _)| !claimed.contains(&k.as_str())) {
+        if lists {
+            if let Value::Array(items) = out
+                .entry(k.clone())
+                .or_insert_with(|| Value::Array(Vec::new()))
+            {
+                items.push(Value::String(v.clone()));
+            }
+        } else {
+            out.entry(k.clone())
+                .or_insert_with(|| Value::String(v.clone()));
+        }
+    }
+    (!out.is_empty()).then_some(Value::Object(out))
 }
 
 pub(super) fn header(m: &MemberRef<'_>, headers: &HeaderMap) -> Option<Value> {

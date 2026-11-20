@@ -1,0 +1,11 @@
+# bug: a report in the doze home (versions, the stack's shape without values, doze.lock's pins, the daemon's log)
+# and where it is; nothing is sent.
+@ project pinned
+@ no-json
+@ now 2026-11-14T10:00:00Z
+
+$ doze bug
+exit 0
+stdout:
+| ✓ wrote {sandbox}/home/reports/doze-bug-1794650400.md
+|   next: nothing was sent · read it, then attach it to an issue: https://github.com/doze-dev/doze/issues/new

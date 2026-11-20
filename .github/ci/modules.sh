@@ -43,7 +43,7 @@ fetch POSTGRES17_BINDIR postgres "postgresql-$POSTGRES17"
 fetch POSTGRES16_BINDIR postgres "postgresql-$POSTGRES16"
 
 step cargo test -p doze-module-valkey -p doze-module-kvrocks -p doze-module-temporal -p doze-module-mariadb \
-  -p doze-module-ferret -p doze-module-postgres -p doze-names --no-fail-fast -- --nocapture
+  -p doze-module-ferret -p doze-module-postgres -p doze-names -p doze-hcl --no-fail-fast -- --nocapture
 # valkey's acceptance on its other major (8).
 DOZE_VALKEY_BINDIR=$VALKEY8_BINDIR step cargo test -p doze-module-valkey --test acceptance --no-fail-fast -- --nocapture
 # mariadb's acceptance on its newest line (12.2), then its middle line (11.8).

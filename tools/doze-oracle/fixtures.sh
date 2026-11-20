@@ -14,5 +14,6 @@ rm -f "$j"/journal.jsonl* "$j"/go-*.jsonl
 p="$root/crates/doze-projects/tests/fixtures"
 rm -rf "$p/home" "$p"/go-list.jsonl "$p"/slugs.txt && mkdir -p "$p"
 "$here/run.sh" "$doze" projects "$p/home" > "$p/go-list.jsonl"
+rm -rf "$p/updates" && "$here/run.sh" "$doze" update "$p/updates"
 "$here/run.sh" "$doze" slug /code/shop/doze.hcl "/Users/me/My Shop!/doze.hcl" /a/b/../c/./doze.hcl \
 	"/x/__/doze.hcl" /doze.hcl "/code/Ünïcode app/doze.hcl" "/code/trailing/" "" > "$p/slugs.txt"

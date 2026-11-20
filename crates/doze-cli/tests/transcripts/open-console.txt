@@ -1,0 +1,70 @@
+# open --console: the module's own web console (its web_url from the running stack) in the browser; a service with
+# none says so, a typo gets the nearest name.
+@ project bare
+@ env DISPLAY=:0
+@ daemon console
+
+$ doze open --console cache
+exit 0
+stdout:
+| → opened http://127.0.0.1:6380/ in your browser
+opened:
+| http://127.0.0.1:6380/
+json exit 0
+json:
+| {
+|   "schema": "doze/v1",
+|   "command": "doze open",
+|   "ok": true,
+|   "data": {
+|     "name": "cache",
+|     "opened": true,
+|     "url": "http://127.0.0.1:6380/"
+|   }
+| }
+
+$ doze open --console db
+exit 1
+stderr:
+| error[DZ0709]: db has no console of its own
+|   fix: doze url db prints its address · doze open --show db shows it in the app
+json exit 1
+json:
+| {
+|   "schema": "doze/v1",
+|   "command": "doze open",
+|   "ok": false,
+|   "error": {
+|     "code": "failed",
+|     "message": "db has no console of its own",
+|     "exit": 1,
+|     "id": "DZ0709",
+|     "fix": "doze url db prints its address · doze open --show db shows it in the app"
+|   }
+| }
+
+$ doze open --console cach
+exit 4
+stderr:
+| error[DZ0702]: the stack has no service called "cach"
+|   did you mean "cache"?
+|   it has cache, db
+|   fix: doze status
+json exit 4
+json:
+| {
+|   "schema": "doze/v1",
+|   "command": "doze open",
+|   "ok": false,
+|   "error": {
+|     "code": "not_found",
+|     "message": "the stack has no service called \"cach\"",
+|     "exit": 4,
+|     "id": "DZ0702",
+|     "notes": [
+|       "did you mean \"cache\"?",
+|       "it has cache, db"
+|     ],
+|     "fix": "doze status"
+|   }
+| }

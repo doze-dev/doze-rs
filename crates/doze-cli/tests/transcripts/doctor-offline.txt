@@ -10,6 +10,7 @@ stdout:
 |   ✓  names      the .doze zone is switched off (DOZE_ZONE=off): nothing to set up
 stderr:
 | error[DZ0501]: some checks need attention (marked ✗ above)
+|   fix: each ✗ says what it needs · doze doctor --fix sets up what it can (one password)
 json exit 1
 json:
 | {
@@ -55,6 +56,7 @@ json:
 |     "code": "failed",
 |     "message": "some checks need attention (marked ✗ above)",
 |     "exit": 1,
-|     "id": "DZ0501"
+|     "id": "DZ0501",
+|     "fix": "each ✗ says what it needs · doze doctor --fix sets up what it can (one password)"
 |   }
 | }

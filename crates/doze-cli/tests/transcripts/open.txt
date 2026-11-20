@@ -1,0 +1,43 @@
+# open hands the app the command, the folder made absolute; with no app here it says where it looked (exit 10);
+# over SSH it shows the status table, as Go does; --console with doze stopped names the name first, then exit 7.
+@ project bare
+@ no-json
+@ env DISPLAY=:0
+@ app
+
+$ doze open --show cache
+exit 0
+spawned:
+| run doze-app open {sandbox}/project --show cache
+
+$ doze open --show cach
+exit 4
+stderr:
+| error[DZ0702]: the stack has no service called "cach"
+|   did you mean "cache"?
+|   it has cache, db
+|   fix: doze status
+
+$ doze open doze://shop/db
+exit 0
+spawned:
+| run doze-app open doze://shop/db
+
+$ doze open nowhere
+exit 6
+stderr:
+| error[DZ0302]: there is no folder nowhere
+|   fix: doze open <folder> opens a project's folder · doze open doze://<stack> opens a stack
+
+$ doze open --console flows
+exit 4
+stderr:
+| error[DZ0702]: the stack has no service called "flows"
+|   it has cache, db
+|   fix: doze status
+
+$ doze open --console cache
+exit 7
+stderr:
+| error[DZ0701]: doze open --console needs the stack running, and doze is not running it
+|   fix: doze up
