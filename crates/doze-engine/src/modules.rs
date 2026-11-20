@@ -357,10 +357,8 @@ impl ModuleInstance {
             if !any {
                 continue;
             }
-            let port = std::net::TcpListener::bind(("127.0.0.1", 0))
-                .and_then(|s| s.local_addr())
-                .map_err(|e| format!("{}: no loopback port is free for its engine: {e}", i.name))?
-                .port();
+            let port = crate::ports::free_port()
+                .map_err(|e| format!("{}: no loopback port is free for its engine: {e}", i.name))?;
             l.backend = Address::Tcp(format!("127.0.0.1:{port}"));
             ports.insert(name.clone(), l.backend.clone());
         }

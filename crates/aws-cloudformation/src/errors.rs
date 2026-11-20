@@ -23,6 +23,16 @@ pub(crate) fn no_stack(name: &str) -> ApiError {
     validation(format!("Stack with id {name} does not exist"))
 }
 
+/// `Stack: <name> does not exist` (recorded 2026-11-19, for CancelUpdateStack).
+pub(crate) fn no_stack_colon(name: &str) -> ApiError {
+    validation(format!("Stack: {name} does not exist"))
+}
+
+/// `Stack <name> does not exist` (recorded 2026-11-19, for SignalResource).
+pub(crate) fn no_stack_plain(name: &str) -> ApiError {
+    validation(format!("Stack {name} does not exist"))
+}
+
 /// `Stack [<name>] does not exist` (recorded 2026-11-12, for UpdateStack).
 pub(crate) fn no_stack_bracketed(name: &str) -> ApiError {
     validation(format!("Stack [{name}] does not exist"))

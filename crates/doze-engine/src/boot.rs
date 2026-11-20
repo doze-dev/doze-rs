@@ -279,7 +279,7 @@ async fn plan_for(
         SvcKind::Process(spec) => {
             let spec = &*fetched(&svc.name, spec).await?;
             let private = if spec.proxied() {
-                Some(free_port().map_err(|err| io("a free port", err))?)
+                Some(crate::ports::free_port().map_err(|err| io("a free port", err))?)
             } else {
                 None
             };
@@ -333,13 +333,6 @@ async fn plan_for(
         crate::process::with_extra(&mut p.env, &e.stack().extra_env);
     }
     Ok(planned)
-}
-
-/// A port nothing listens on now (Go's `netutil.FreePort`).
-fn free_port() -> std::io::Result<u16> {
-    std::net::TcpListener::bind(("127.0.0.1", 0))?
-        .local_addr()
-        .map(|a| a.port())
 }
 
 pub(crate) fn step_event(e: &Engine, name: &str, r: steps::Ran) {

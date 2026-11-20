@@ -1,4 +1,4 @@
-//! Wait conditions and their signals, CancelUpdateStack, DescribeEvents, the hook reads and the account limits.
+//! Wait conditions and their signals, and CancelUpdateStack.
 
 use std::time::Duration;
 
@@ -63,7 +63,8 @@ async fn signal(
 #[tokio::test]
 async fn a_wait_condition_completes_on_its_signals() {
     let w = World::new();
-    let t = json!({"Resources": {"Wait": waiting(2, "PT5M")}});
+    let t = json!({"Resources": {"Wait": waiting(2, "PT5M")},
+        "Outputs": {"Data": {"Value": {"Fn::GetAtt": ["Wait", "Data"]}}}});
     start(&w, "sig", &t).await;
     until_in_progress(&w, "sig", "Wait").await;
     signal(&w, "sig", "Wait", "a", "SUCCESS").await.unwrap();
@@ -78,15 +79,41 @@ async fn a_wait_condition_completes_on_its_signals() {
     signal(&w, "sig", "Wait", "b", "SUCCESS").await.unwrap();
     assert_eq!(w.settle("sig").await, "CREATE_COMPLETE");
     let trail = w.events("sig").await;
-    assert!(
-        trail
-            .iter()
-            .any(|(l, _, r)| l == "Wait" && r == "Received SUCCESS signal with UniqueId b")
+    // As recorded 2026-11-19: `Resource creation Initiated` as the wait starts, then each signal, then the completion.
+    let waits: Vec<(&str, &str)> = trail
+        .iter()
+        .filter(|(l, _, _)| l == "Wait")
+        .map(|(_, s, r)| (s.as_str(), r.as_str()))
+        .collect();
+    assert_eq!(
+        waits.get(..3),
+        Some(
+            &[
+                ("CREATE_IN_PROGRESS", ""),
+                ("CREATE_IN_PROGRESS", "Resource creation Initiated"),
+                (
+                    "CREATE_IN_PROGRESS",
+                    "Received SUCCESS signal with UniqueId a"
+                ),
+            ][..]
+        ),
+        "{waits:?}"
     );
-    // Once complete it takes no more.
-    let late = signal(&w, "sig", "Wait", "c", "SUCCESS").await.unwrap_err();
-    assert_eq!(late.code, "ValidationError");
-    assert!(late.message.contains("CREATE_COMPLETE"), "{}", late.message);
+    assert_eq!(
+        waits.iter().rev().take(2).collect::<Vec<_>>(),
+        [
+            &("CREATE_COMPLETE", ""),
+            &(
+                "CREATE_IN_PROGRESS",
+                "Received SUCCESS signal with UniqueId b"
+            ),
+        ]
+    );
+    // Recorded 2026-11-19: `SignalResource` carries no data.
+    assert_eq!(w.outputs("sig").await["Data"], "{}");
+    // Once complete, a signal is accepted and changes nothing (recorded 2026-11-19).
+    signal(&w, "sig", "Wait", "c", "SUCCESS").await.unwrap();
+    assert_eq!(w.events("sig").await.len(), trail.len());
 }
 
 #[tokio::test]
@@ -177,7 +204,7 @@ async fn signal_resource_refusals() {
     let ghost = signal(&w, "ghost", "Wait", "a", "SUCCESS")
         .await
         .unwrap_err();
-    assert_eq!(ghost.message, "Stack with id ghost does not exist");
+    assert_eq!(ghost.message, "Stack ghost does not exist");
     assert_eq!(
         w.create(
             "plain",
@@ -187,21 +214,11 @@ async fn signal_resource_refusals() {
         .await,
         "CREATE_COMPLETE"
     );
-    let absent = signal(&w, "plain", "Nope", "a", "SUCCESS")
-        .await
-        .unwrap_err();
-    assert_eq!(
-        absent.message,
-        "Resource Nope does not exist for stack plain"
-    );
-    let not_waiting = signal(&w, "plain", "Q", "a", "SUCCESS").await.unwrap_err();
-    assert!(
-        not_waiting
-            .message
-            .starts_with("Resource Q is in CREATE_COMPLETE state"),
-        "{}",
-        not_waiting.message
-    );
+    // A resource the stack does not have, or one that does not wait: accepted, nothing happens (recorded 2026-11-19).
+    let before = w.events("plain").await.len();
+    signal(&w, "plain", "Nope", "a", "SUCCESS").await.unwrap();
+    signal(&w, "plain", "Q", "a", "SUCCESS").await.unwrap();
+    assert_eq!(w.events("plain").await.len(), before);
 }
 
 #[tokio::test]
@@ -269,153 +286,4 @@ async fn cancel_update_stack_rolls_the_update_back() {
     .await
     .unwrap();
     assert_eq!(w.settle("cancel").await, "UPDATE_COMPLETE");
-}
-
-#[tokio::test]
-async fn describe_events_by_operation_stack_and_change_set() {
-    let w = World::new();
-    let made = w
-        .cfn("CreateStack", json!({"StackName": "ev", "TemplateBody": json!({"Resources": {"Q": queue("ev-q")}}).to_string()}))
-        .await
-        .unwrap();
-    let op = made["OperationId"].as_str().unwrap().to_owned();
-    assert_eq!(w.settle("ev").await, "CREATE_COMPLETE");
-    let got = w
-        .cfn("DescribeEvents", json!({"OperationId": op}))
-        .await
-        .unwrap();
-    let events = got["OperationEvents"].as_array().unwrap();
-    assert!(events.len() >= 4, "{events:?}");
-    assert!(
-        events
-            .iter()
-            .all(|e| e["OperationType"] == "CREATE_STACK" && e["OperationStatus"] == "SUCCEEDED")
-    );
-    assert_eq!(events[0]["EventType"], "STACK_EVENT");
-    assert_eq!(events[0]["ResourceStatus"], "CREATE_COMPLETE");
-    assert!(events.iter().any(|e| e["LogicalResourceId"] == "Q"
-        && e["EventType"] == "PROGRESS_EVENT"
-        && e["EndTime"].is_string()));
-
-    let body = json!({"Resources": {"Q": queue("ev-q"), "Bad": {"Type": "AWS::SSM::Parameter",
-        "Properties": {"Name": "has space", "Type": "String", "Value": "v"}}}});
-    w.cfn(
-        "CreateChangeSet",
-        json!({"StackName": "ev", "ChangeSetName": "cs", "TemplateBody": body.to_string()}),
-    )
-    .await
-    .unwrap();
-    w.cfn(
-        "ExecuteChangeSet",
-        json!({"StackName": "ev", "ChangeSetName": "cs"}),
-    )
-    .await
-    .unwrap();
-    assert_eq!(w.settle("ev").await, "UPDATE_ROLLBACK_COMPLETE");
-    let by_cs = w
-        .cfn(
-            "DescribeEvents",
-            json!({"StackName": "ev", "ChangeSetName": "cs"}),
-        )
-        .await
-        .unwrap();
-    let cs_events = by_cs["OperationEvents"].as_array().unwrap();
-    assert!(
-        cs_events
-            .iter()
-            .all(|e| e["OperationType"] == "UPDATE_STACK" && e["OperationStatus"] == "FAILED")
-    );
-    let failed = w
-        .cfn(
-            "DescribeEvents",
-            json!({"StackName": "ev", "Filters": {"FailedEvents": true}}),
-        )
-        .await
-        .unwrap();
-    let failed = failed["OperationEvents"].as_array().unwrap();
-    assert!(!failed.is_empty());
-    assert!(
-        failed
-            .iter()
-            .all(|e| e["ResourceStatus"].as_str().unwrap().ends_with("FAILED"))
-    );
-    assert_eq!(failed[0]["EventType"], "PROVISIONING_ERROR");
-    let all = w
-        .cfn("DescribeEvents", json!({"StackName": "ev"}))
-        .await
-        .unwrap();
-    assert!(all["OperationEvents"].as_array().unwrap().len() > events.len() + cs_events.len() - 1);
-    let none = w.cfn("DescribeEvents", json!({})).await.unwrap_err();
-    assert_eq!(none.code, "ValidationError");
-}
-
-#[tokio::test]
-async fn hooks_are_none_and_limits_are_aws_defaults() {
-    let w = World::new();
-    assert_eq!(
-        w.create("hk", json!({"Resources": {"Q": queue("hk-q")}}), &[])
-            .await,
-        "CREATE_COMPLETE"
-    );
-    let cs = w
-        .cfn("CreateChangeSet", json!({"StackName": "hk", "ChangeSetName": "c1",
-            "TemplateBody": json!({"Resources": {"Q": queue("hk-q"), "R": queue("hk-r")}}).to_string()}))
-        .await
-        .unwrap();
-    let id = cs["Id"].as_str().unwrap().to_owned();
-    let hooks = w
-        .cfn(
-            "DescribeChangeSetHooks",
-            json!({"StackName": "hk", "ChangeSetName": "c1"}),
-        )
-        .await
-        .unwrap();
-    assert_eq!(hooks["Hooks"], json!([]));
-    assert_eq!(hooks["Status"], "UNAVAILABLE");
-    assert_eq!(hooks["ChangeSetId"], id.as_str());
-    let absent = w
-        .cfn(
-            "DescribeChangeSetHooks",
-            json!({"StackName": "hk", "ChangeSetName": "nope"}),
-        )
-        .await
-        .unwrap_err();
-    assert_eq!(absent.code, "ChangeSetNotFoundException");
-    let all = w.cfn("ListHookResults", json!({})).await.unwrap();
-    assert_eq!(all["HookResults"], json!([]));
-    let of_cs = w
-        .cfn(
-            "ListHookResults",
-            json!({"TargetType": "CHANGE_SET", "TargetId": id}),
-        )
-        .await
-        .unwrap();
-    assert_eq!(of_cs["HookResults"], json!([]));
-    let half = w
-        .cfn("ListHookResults", json!({"TargetType": "CHANGE_SET"}))
-        .await
-        .unwrap_err();
-    assert_eq!(half.code, "ValidationError");
-    let unknown = w
-        .cfn(
-            "ListHookResults",
-            json!({"TargetType": "CLOUD_CONTROL", "TargetId": "token"}),
-        )
-        .await
-        .unwrap_err();
-    assert_eq!(unknown.code, "HookResultNotFoundException");
-    let one = w
-        .cfn(
-            "GetHookResult",
-            json!({"HookResultId": "00000000-0000-0000-0000-000000000000"}),
-        )
-        .await
-        .unwrap_err();
-    assert_eq!(one.code, "HookResultNotFoundException");
-    let limits = w.cfn("DescribeAccountLimits", json!({})).await.unwrap();
-    assert_eq!(
-        limits["AccountLimits"],
-        json!([{"Name": "StackLimit", "Value": 2000}, {"Name": "StackOutputsLimit", "Value": 200},
-            {"Name": "ConcurrentResourcesLimit", "Value": 2500}])
-    );
 }

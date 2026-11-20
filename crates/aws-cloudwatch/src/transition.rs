@@ -65,6 +65,7 @@ impl Core {
                 at_ms: now,
             });
         }
+        self.cascade(name);
     }
 
     /// Adds an entry to an alarm's history, keeping the newest [`MAX_HISTORY`].

@@ -17,7 +17,7 @@ use crate::protocol::{
     Encodable, Encoder, HeaderVersion, Message, StrBytes, VersionRange,
 };
 
-/// Valid versions: 0-4
+/// Valid versions: 0-5 (PATCH 6)
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq)]
 pub struct ApiVersionsRequest {
@@ -30,6 +30,16 @@ pub struct ApiVersionsRequest {
     ///
     /// Supported API versions: 3-4
     pub client_software_version: StrBytes,
+
+    /// PATCH 6: the cluster ID the client intends to connect to (KIP-1242; ignorable, default null).
+    ///
+    /// Supported API versions: 5
+    pub cluster_id: Option<StrBytes>,
+
+    /// PATCH 6: the node ID the client intends to connect to (KIP-1242; ignorable, default -1).
+    ///
+    /// Supported API versions: 5
+    pub node_id: i32,
 
     /// Other tagged fields
     pub unknown_tagged_fields: BTreeMap<i32, Bytes>,
@@ -54,6 +64,16 @@ impl ApiVersionsRequest {
         self.client_software_version = value;
         self
     }
+    /// Sets `cluster_id` to the passed value (PATCH 6).
+    pub fn with_cluster_id(mut self, value: Option<StrBytes>) -> Self {
+        self.cluster_id = value;
+        self
+    }
+    /// Sets `node_id` to the passed value (PATCH 6).
+    pub fn with_node_id(mut self, value: i32) -> Self {
+        self.node_id = value;
+        self
+    }
     /// Sets unknown_tagged_fields to the passed value.
     pub fn with_unknown_tagged_fields(mut self, value: BTreeMap<i32, Bytes>) -> Self {
         self.unknown_tagged_fields = value;
@@ -69,7 +89,7 @@ impl ApiVersionsRequest {
 #[cfg(feature = "client")]
 impl Encodable for ApiVersionsRequest {
     fn encode<B: ByteBufMut>(&self, buf: &mut B, version: i16) -> Result<()> {
-        if version < 0 || version > 4 {
+        if version < 0 || version > 5 { // PATCH 6: v5 (KIP-1242)
             bail!("specified version not supported by this message type");
         }
         if version >= 3 {
@@ -77,6 +97,11 @@ impl Encodable for ApiVersionsRequest {
         }
         if version >= 3 {
             types::CompactString.encode(buf, &self.client_software_version)?;
+        }
+        if version >= 5 {
+            // PATCH 6
+            types::CompactString.encode(buf, &self.cluster_id)?;
+            types::Int32.encode(buf, &self.node_id)?;
         }
         if version >= 3 {
             let num_tagged_fields = self.unknown_tagged_fields.len();
@@ -100,6 +125,11 @@ impl Encodable for ApiVersionsRequest {
         if version >= 3 {
             total_size += types::CompactString.compute_size(&self.client_software_version)?;
         }
+        if version >= 5 {
+            // PATCH 6
+            total_size += types::CompactString.compute_size(&self.cluster_id)?;
+            total_size += types::Int32.compute_size(&self.node_id)?;
+        }
         if version >= 3 {
             let num_tagged_fields = self.unknown_tagged_fields.len();
             if num_tagged_fields > std::u32::MAX as usize {
@@ -119,7 +149,7 @@ impl Encodable for ApiVersionsRequest {
 #[cfg(feature = "broker")]
 impl Decodable for ApiVersionsRequest {
     fn decode<B: ByteBuf>(buf: &mut B, version: i16) -> Result<Self> {
-        if version < 0 || version > 4 {
+        if version < 0 || version > 5 { // PATCH 6: v5 (KIP-1242)
             bail!("specified version not supported by this message type");
         }
         let client_software_name = if version >= 3 {
@@ -131,6 +161,12 @@ impl Decodable for ApiVersionsRequest {
             types::CompactString.decode(buf)?
         } else {
             Default::default()
+        };
+        // PATCH 6
+        let (cluster_id, node_id) = if version >= 5 {
+            (types::CompactString.decode(buf)?, types::Int32.decode(buf)?)
+        } else {
+            (None, -1)
         };
         let mut unknown_tagged_fields = BTreeMap::new();
         if version >= 3 {
@@ -145,6 +181,8 @@ impl Decodable for ApiVersionsRequest {
         Ok(Self {
             client_software_name,
             client_software_version,
+            cluster_id,
+            node_id,
             unknown_tagged_fields,
         })
     }
@@ -155,13 +193,15 @@ impl Default for ApiVersionsRequest {
         Self {
             client_software_name: Default::default(),
             client_software_version: Default::default(),
+            cluster_id: None,
+            node_id: -1,
             unknown_tagged_fields: BTreeMap::new(),
         }
     }
 }
 
 impl Message for ApiVersionsRequest {
-    const VERSIONS: VersionRange = VersionRange { min: 0, max: 4 };
+    const VERSIONS: VersionRange = VersionRange { min: 0, max: 5 } /* PATCH 6 */;
     const DEPRECATED_VERSIONS: Option<VersionRange> = None;
 }
 

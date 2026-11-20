@@ -33,12 +33,12 @@ fn no_results(what: &str) -> ApiError {
 impl Core {
     pub(crate) fn describe_change_set_hooks(&self, r: &Req<'_>) -> Result<Value, ApiError> {
         let c = self.change_set(r, r.s("ChangeSetName"))?;
-        // (memory) With no hook activated, the change set's hooks are UNAVAILABLE.
+        // Recorded 2026-11-19: with no hook activated, a created change set's hooks are PLANNED (and there are none).
         Ok(json!({
             "ChangeSetId": c.id,
             "ChangeSetName": c.name,
             "Hooks": [],
-            "Status": "UNAVAILABLE",
+            "Status": "PLANNED",
             "StackId": c.stack_id,
             "StackName": c.stack_name,
         }))
@@ -70,8 +70,12 @@ impl Core {
         Ok(json!({"TargetType": ty, "TargetId": id, "HookResults": []}))
     }
 
-    pub(crate) fn get_hook_result(r: &Req<'_>) -> Result<Value, ApiError> {
-        Err(no_results(&format!("hook result {}", r.s("HookResultId"))))
+    pub(crate) fn get_hook_result(_r: &Req<'_>) -> Result<Value, ApiError> {
+        // Recorded 2026-11-19.
+        Err(ApiError::modeled(
+            "HookResultNotFoundException",
+            "The hook result was not found.",
+        ))
     }
 
     pub(crate) fn describe_account_limits() -> Value {

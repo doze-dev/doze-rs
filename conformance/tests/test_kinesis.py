@@ -287,3 +287,54 @@ def test_account_settings(client, snapshot):
     # Only read: enabling a commitment on a real account would bill it for a day.
     kinesis = client("kinesis")
     snapshot.match("describe", kinesis.describe_account_settings())
+
+
+# Written ahead of a recording (2026-11-19, final-ops): UNVERIFIED until recorded against AWS.
+
+def test_subscribe_to_shard(client, names, cleanup, snapshot, eventually):
+    """Enhanced fan-out: a registered consumer is pushed the shard's records as an event stream. Cost on AWS: enhanced fan-out
+    bills per consumer-shard hour and per GB pushed; a minute here is a fraction of a cent."""
+    kinesis = client("kinesis")
+    name = stream(kinesis, names, cleanup)
+    arn = kinesis.describe_stream_summary(StreamName=name)["StreamDescriptionSummary"]["StreamARN"]
+
+    def register():
+        try:
+            return kinesis.register_stream_consumer(StreamARN=arn, ConsumerName="fan")["Consumer"]["ConsumerARN"]
+        except kinesis.exceptions.ResourceNotFoundException as e:
+            raise AssertionError(str(e))
+    consumer = eventually(register)
+
+    def active():
+        d = kinesis.describe_stream_consumer(ConsumerARN=consumer)["ConsumerDescription"]
+        assert d["ConsumerStatus"] == "ACTIVE", d["ConsumerStatus"]
+    eventually(active, timeout=120, every=2)
+    (shard,) = first_shards(kinesis, name, 1, eventually)
+    kinesis.put_record(StreamName=name, Data=b"before", PartitionKey="k")
+
+    sub = kinesis.subscribe_to_shard(ConsumerARN=consumer, ShardId=shard["ShardId"],
+                                     StartingPosition={"Type": "TRIM_HORIZON"})
+    started = time.time()
+    got, events, deadline = [], 0, time.time() + 60
+    for event in sub["EventStream"]:
+        e = event["SubscribeToShardEvent"]
+        events += 1
+        got += [r["Data"] for r in e["Records"]]
+        if events == 1:
+            snapshot.match("continuation-is-a-sequence-number", {"set": e["ContinuationSequenceNumber"].isdigit()})
+            kinesis.put_record(StreamName=name, Data=b"after", PartitionKey="k")
+        if len(got) >= 2 or time.time() > deadline:
+            break
+    snapshot.match("pushed", got)
+    # The model: a second call for the same consumer and shard "within 5 seconds of a successful call" is refused; one later takes
+    # over. The first recording (2026-11-19) did not time its second call, so both are timed here and AWS's answers are kept.
+    time.sleep(max(0.0, started + 6 - time.time()))
+    later = kinesis.subscribe_to_shard(ConsumerARN=consumer, ShardId=shard["ShardId"], StartingPosition={"Type": "LATEST"})
+    snapshot.match("six-seconds-later", sorted(k for k in later if k != "ResponseMetadata"))
+    snapshot.outcome("again-at-once", lambda: sorted(k for k in kinesis.subscribe_to_shard(
+        ConsumerARN=consumer, ShardId=shard["ShardId"], StartingPosition={"Type": "LATEST"}) if k != "ResponseMetadata"))
+    snapshot.error("absent-shard", lambda: kinesis.subscribe_to_shard(
+        ConsumerARN=consumer, ShardId="shardId-000000000099", StartingPosition={"Type": "LATEST"}))
+    snapshot.error("sequence-number-missing", lambda: kinesis.subscribe_to_shard(
+        ConsumerARN=consumer, ShardId=shard["ShardId"], StartingPosition={"Type": "AT_SEQUENCE_NUMBER"}))
+    kinesis.deregister_stream_consumer(ConsumerARN=consumer)

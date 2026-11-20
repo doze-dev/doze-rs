@@ -37,6 +37,8 @@ pub(crate) enum Request {
     Tick(Caller),
     /// From `doze-aws data`: what the namespaces hold, or remove some of it.
     Data(Box<crate::storage::DataCall>),
+    /// What a log alarm's scheduled query found, from the task that ran it.
+    LogResult(Caller, Box<crate::log_eval::LogOutcome>),
 }
 
 /// An alarm action to carry out once the call that caused it has been answered.
@@ -76,7 +78,13 @@ pub(crate) struct Core {
     /// How long samples are kept (`Settings::retention`).
     pub(crate) keep_ms: i64,
     /// The namespaces last said to be watched by an alarm (see [`Core::tell_watched`]).
-    told_watched: Option<Vec<String>>,
+    pub(crate) told_watched: Option<Vec<String>>,
+    /// The region the service answers for, from the last call or wake-up (an alarm ARN in a composite's reason names it).
+    pub(crate) region: String,
+    /// While a state change is being carried to the composite alarms above it: the alarms that changed meanwhile.
+    pub(crate) cascading: Option<Vec<String>>,
+    /// Log alarm queries due, to be run outside the actor once it answers.
+    pub(crate) log_runs: Vec<crate::log_eval::LogRun>,
 }
 
 /// What the actor answers.
@@ -86,6 +94,8 @@ pub(crate) struct Answer {
     pub(crate) durable: Option<Ack>,
     /// The earliest time any alarm needs evaluating, if one does.
     pub(crate) next_due: Option<i64>,
+    /// The log alarm queries to run now, and as whom.
+    pub(crate) log_runs: Vec<(Caller, crate::log_eval::LogRun)>,
 }
 
 /// The operations this service runs. Every other is refused by name before its request is read.
@@ -152,13 +162,8 @@ impl doze_runtime::Service for Core {
         let (caller, mut reply) = match req {
             Request::Call(call) => {
                 if let Some(refusal) = self.refused(&call).await {
-                    return Answer {
-                        reply: Err(refusal),
-                        durable: None,
-                        next_due: self.earliest_due(),
-                    };
+                    return self.aside(Err(refusal));
                 }
-                self.remember_account(&call.caller.account_id);
                 let mut reply = self.dispatch(&call);
                 if let Err(e) = self.settle().await {
                     reply = Err(e);
@@ -166,7 +171,13 @@ impl doze_runtime::Service for Core {
                 (call.caller, reply)
             }
             Request::Tick(caller) => {
+                self.region.clone_from(&caller.region);
                 self.tick();
+                (self.identified(caller), empty())
+            }
+            Request::LogResult(caller, outcome) => {
+                self.region.clone_from(&caller.region);
+                self.apply_log_outcome(*outcome);
                 (self.identified(caller), empty())
             }
             Request::Data(call) => {
@@ -174,11 +185,7 @@ impl doze_runtime::Service for Core {
                 if reply.send(self.data(&region, ask)).is_err() {
                     // WHY: the person stopped waiting; what was asked was done all the same.
                 }
-                return Answer {
-                    reply: empty(),
-                    durable: None,
-                    next_due: self.earliest_due(),
-                };
+                return self.aside(empty());
             }
         };
         self.tell_watched(&caller.region);
@@ -190,10 +197,15 @@ impl doze_runtime::Service for Core {
                 None
             }
         };
+        let log_runs = std::mem::take(&mut self.log_runs)
+            .into_iter()
+            .map(|run| (caller.clone(), run))
+            .collect();
         Answer {
             reply,
             durable,
             next_due: self.earliest_due(),
+            log_runs,
         }
     }
 
@@ -205,6 +217,16 @@ impl doze_runtime::Service for Core {
 }
 
 impl Core {
+    /// An answer that changed nothing.
+    fn aside(&self, reply: Reply) -> Answer {
+        Answer {
+            reply,
+            durable: None,
+            next_due: self.earliest_due(),
+            log_runs: Vec::new(),
+        }
+    }
+
     /// CloudWatch with no disk (the rules alone are under test).
     #[cfg(test)]
     pub(crate) fn in_memory(clock: Arc<dyn Clock>, peers: Option<Arc<Peers>>) -> Self {
@@ -274,57 +296,14 @@ impl Core {
             to_evaluate: Vec::new(),
             keep_ms: ms(crate::Settings::default().retention),
             told_watched: None,
+            region: String::new(),
+            cascading: None,
+            log_runs: Vec::new(),
         }
-    }
-
-    /// After a reset: tells the bus again, from nothing, which namespaces an alarm watches.
-    pub(crate) fn forget_watched(&mut self, region: &str) {
-        self.told_watched = None;
-        self.tell_watched(region);
-    }
-
-    /// Tells the bus which namespaces this region's metric alarms watch, when that changed, so a producer that holds its data
-    /// until it is read (Lambda) sends the data an alarm needs as it makes it.
-    fn tell_watched(&mut self, region: &str) {
-        let namespaces = self.watched_namespaces();
-        if self.told_watched.as_ref() == Some(&namespaces) {
-            return;
-        }
-        if let Some(peers) = &self.peers {
-            peers.watch_namespaces(region, namespaces.clone());
-        }
-        self.told_watched = Some(namespaces);
     }
 
     pub(crate) fn now_ms(&self) -> i64 {
         self.clock.now_ms()
-    }
-
-    /// Keeps the account the service answers for, so that a wake-up with nobody calling (after a restart) can still build the ARN of
-    /// an alarm for its notification.
-    fn remember_account(&mut self, account: &str) {
-        let key = crate::model::doc_key("meta", "account");
-        if self.docs.get(&key).is_none_or(|d| d.json != account) {
-            let updated_ms = self.now_ms();
-            self.docs.insert(
-                key,
-                Doc {
-                    json: account.to_owned(),
-                    updated_ms,
-                    tags: Default::default(),
-                },
-            );
-        }
-    }
-
-    /// A caller with the account filled in from what was remembered, if it has none.
-    fn identified(&self, mut caller: Caller) -> Caller {
-        if caller.account_id.is_empty()
-            && let Some(d) = self.docs.get(&crate::model::doc_key("meta", "account"))
-        {
-            caller.account_id.clone_from(&d.json);
-        }
-        caller
     }
 
     /// When the call wrote data an alarm watches: waits until it is on disk (a read of the samples finds only what is committed), then
@@ -373,6 +352,8 @@ impl Core {
 
     /// Runs the call and writes the answer as the operation's output.
     pub(crate) fn dispatch(&mut self, call: &Call) -> Reply {
+        self.region.clone_from(&call.caller.region);
+        self.remember_account(&call.caller.account_id);
         let Some(op) = Operation::from_index(call.op).filter(|op| built(*op)) else {
             return Err(not_built());
         };

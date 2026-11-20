@@ -114,13 +114,15 @@ async fn each_partition_is_judged_and_the_good_ones_are_stored() {
             ],
         )
         .await;
+    // In Kafka's order (wire.md W37): what KafkaApis answers itself (the partitions and topic that do not exist) first,
+    // then what the group answered.
     assert_eq!(
         codes(&r),
         [
             vec![
+                UNKNOWN_TOPIC_OR_PARTITION,
+                UNKNOWN_TOPIC_OR_PARTITION,
                 0,
-                UNKNOWN_TOPIC_OR_PARTITION,
-                UNKNOWN_TOPIC_OR_PARTITION,
                 OFFSET_METADATA_TOO_LARGE,
                 0
             ],
@@ -154,7 +156,11 @@ async fn an_unusable_group_id_refuses_every_partition() {
     let r = rig
         .commit_offsets(8, "", "", -1, &[("t", 0, 1, None), ("nope", 0, 2, None)])
         .await;
-    assert_eq!(codes(&r), [[INVALID_GROUP_ID], [INVALID_GROUP_ID]]);
+    // A topic that does not exist is answered by KafkaApis before the group is looked at, and first (wire.md W37).
+    assert_eq!(
+        codes(&r),
+        [[UNKNOWN_TOPIC_OR_PARTITION], [INVALID_GROUP_ID]]
+    );
 }
 
 #[tokio::test]
@@ -269,7 +275,7 @@ async fn a_commit_that_cannot_be_stored_says_so_to_every_partition_it_covered() 
     assert_eq!(
         codes(&r),
         [
-            vec![NOT_COORDINATOR, UNKNOWN_TOPIC_OR_PARTITION],
+            vec![UNKNOWN_TOPIC_OR_PARTITION, NOT_COORDINATOR],
             vec![NOT_COORDINATOR]
         ]
     );

@@ -4,8 +4,10 @@ use kafka_auth::authz::Operation;
 use kafka_meta::{TxnOffset, TxnState, TxnVersion};
 use kafka_storage::fs::Fs;
 use kafka_wire::ResponseError as E;
+use kafka_wire::StrBytes;
 use kafka_wire::api::Response;
-use kafka_wire::ids::{GroupId, InstanceId, MemberId, TopicName};
+use kafka_wire::ids::{GroupId, InstanceId, MemberId, TopicId, TopicName};
+use kafka_wire::messages::txn_offset_commit_request::TxnOffsetCommitRequestTopic;
 use kafka_wire::messages::txn_offset_commit_response::{
     TxnOffsetCommitResponsePartition, TxnOffsetCommitResponseTopic,
 };
@@ -20,16 +22,36 @@ use crate::{Broker, Caller, Outcome};
 /// no AddOffsetsToTxn).
 const ADDS_THE_GROUP: i16 = 5;
 
+/// The first version of TxnOffsetCommit that names its topics by id (KIP-516), and is answered with ids.
+const BY_ID: i16 = 6;
+
 impl<F: Fs> Broker<F> {
     /// The caller must be allowed to WRITE the transactional id (53 on every partition of the request), then to READ the
     /// group (30 on every partition), and each topic is READ in turn (29 on its partitions): in that order, and before the
     /// topic is looked for.
+    ///
+    /// From v6 a topic is named by id: each id is turned into the name it stands for before the topics are judged, and
+    /// one that stands for nothing is UNKNOWN_TOPIC_ID on each of its partitions, before its READ is asked
+    /// (`KafkaApis.handleTxnOffsetCommitRequest`). The answer names each topic by the id it was asked by.
     pub(crate) async fn txn_offset_commit(
         &self,
         version: i16,
         caller: &Caller,
-        req: &TxnOffsetCommitRequest,
+        mut req: TxnOffsetCommitRequest,
     ) -> Outcome {
+        if version >= BY_ID {
+            for t in &mut req.topics {
+                // (v6 has no name on the wire: the one the id stands for, or none.)
+                let found = TopicId::from_uuid(t.topic_id).and_then(|id| self.meta.topic_by_id(id));
+                t.name = kafka_wire::messages::TopicName(
+                    found.map_or_else(StrBytes::default, |topic| {
+                        StrBytes::from_string(topic.name.as_ref().to_owned())
+                    }),
+                );
+            }
+        }
+        let unknown_id = |t: &TxnOffsetCommitRequestTopic| version >= BY_ID && t.name.0.is_empty();
+        let req = &req;
         let guard = self.guard(caller);
         let whole = if !guard.txn(Operation::Write, req.transactional_id.0.as_str()) {
             Some(E::TransactionalIdAuthorizationFailed)
@@ -40,13 +62,15 @@ impl<F: Fs> Broker<F> {
         };
         let code = match whole {
             Some(_) => whole,
-            None => self.stage_offsets(version, &guard, req).await,
+            None => self.stage_offsets(version, &guard, req, unknown_id).await,
         };
         let mut resp = TxnOffsetCommitResponse::default();
         for t in &req.topics {
             let mut rt = TxnOffsetCommitResponseTopic::default();
             rt.name = t.name.clone();
-            let barred = !guard.topic(Operation::Read, t.name.0.as_str());
+            rt.topic_id = t.topic_id;
+            let unknown_id = unknown_id(t);
+            let barred = !unknown_id && !guard.topic(Operation::Read, t.name.0.as_str());
             for p in &t.partitions {
                 let mut rp = TxnOffsetCommitResponsePartition::default();
                 rp.partition_index = p.partition_index;
@@ -59,6 +83,7 @@ impl<F: Fs> Broker<F> {
                 // A partition that is not there is said so whatever else is wrong; the others share the request's answer.
                 rp.error_code = match code {
                     Some(c) if whole.is_some() => c.code(),
+                    _ if unknown_id => E::UnknownTopicId.code(),
                     _ if barred => E::TopicAuthorizationFailed.code(),
                     _ if !known => E::UnknownTopicOrPartition.code(),
                     Some(c) => c.code(),
@@ -77,6 +102,7 @@ impl<F: Fs> Broker<F> {
         version: i16,
         guard: &Guard<'_>,
         req: &TxnOffsetCommitRequest,
+        unknown_id: impl Fn(&TxnOffsetCommitRequestTopic) -> bool + Copy,
     ) -> Option<E> {
         // In Kafka's order: the group's id, then the producer's right to write to the transaction (an id nobody owns,
         // including the empty one, is no producer's), then the committer's place in the group.
@@ -120,11 +146,11 @@ impl<F: Fs> Broker<F> {
                 .group_instance_id
                 .as_ref()
                 .map(|i| InstanceId::new(i.as_str())),
-            generation: req.generation_id,
+            generation: req.generation_id_or_member_epoch,
             transactional: true,
             // Those that exist and may be read: `KafkaApis` answers the others before the coordinator is asked.
             partitions: self
-                .offsets_of(guard, req, group.as_str())
+                .offsets_of(guard, req, group.as_str(), unknown_id)
                 .iter()
                 .filter_map(|o| {
                     let topic = TopicName::parse(&o.topic)
@@ -137,7 +163,7 @@ impl<F: Fs> Broker<F> {
         if let Some(code) = self.ask_group_to_commit(&group, committer).await {
             return Some(code);
         }
-        let staged = self.offsets_of(guard, req, group.as_str());
+        let staged = self.offsets_of(guard, req, group.as_str(), unknown_id);
         if staged.is_empty() {
             return None;
         }
@@ -153,17 +179,18 @@ impl<F: Fs> Broker<F> {
         .err()
     }
 
-    /// The offsets of the request for partitions that exist.
+    /// The offsets of the request for partitions that exist (of a topic it names by an id that stands for one, from v6).
     fn offsets_of(
         &self,
         guard: &Guard<'_>,
         req: &TxnOffsetCommitRequest,
         group: &str,
+        unknown_id: impl Fn(&TxnOffsetCommitRequestTopic) -> bool,
     ) -> Vec<TxnOffset> {
         let group_name = group.to_owned();
         req.topics
             .iter()
-            .filter(|t| guard.topic(Operation::Read, t.name.0.as_str()))
+            .filter(|t| !unknown_id(t) && guard.topic(Operation::Read, t.name.0.as_str()))
             .flat_map(|t| {
                 let size = TopicName::parse(&t.name.0)
                     .ok()

@@ -128,6 +128,16 @@ public class Interop {
                     new Scenario("txn-v2-timeout", concat(concat(BASIC, TXN), DESCRIBE_TRANSACTIONS), Interop::txnV2Timeout))) {
                 scenarios.add(v2.needClient(4, "transaction v2 (KIP-890)").needVersion(END_TXN, 5, "transaction v2 (KIP-890)"));
             }
+            // Topics named by id in a transaction (KIP-516): Produce v13 and TxnOffsetCommit v6, which the 4.4.0 client sends once
+            // the broker offers them and its Metadata has given the topics' ids.
+            scenarios.add(new Scenario("txn-topic-ids", concat(concat(BASIC, TXN), concat(GROUP, TXN_OFFSET_COMMIT)), Interop::txnTopicIds)
+                .needClient(4, "topic ids in Produce and TxnOffsetCommit (KIP-516)").needVersion(END_TXN, 5, "transaction v2 (KIP-890)")
+                .needVersion(PRODUCE, 13, "Produce by topic id (KIP-516)").needVersion(TXN_OFFSET_COMMIT, 6, "TxnOffsetCommit by topic id (KIP-516)"));
+            // KIP-939's producer setting. The 4.4.0 client has the setting and no two-phase API: it never sets Enable2Pc, and its
+            // InitProducerId builder leaves out the unstable v6 (AbstractRequest.Builder), so it sends v5 even to a broker that offers
+            // v6. A transaction runs as any other, whatever the broker's settings.
+            scenarios.add(new Scenario("txn-two-phase-commit-setting", concat(BASIC, TXN), Interop::txnTwoPhaseSetting)
+                .needClient(4, "transaction.two.phase.commit.enable (KIP-939)"));
             scenarios.add(new Scenario("group-classic", concat(BASIC, GROUP), () -> group(false)));
             scenarios.add(new Scenario("group-848", concat(BASIC, CONSUMER_GROUP_HEARTBEAT, OFFSET_COMMIT, OFFSET_FETCH), () -> group(true)));
             scenarios.add(new Scenario("rebalance-commits-classic", concat(BASIC, GROUP), () -> rebalanceCommits(false)));
@@ -579,6 +589,77 @@ public class Interop {
 
     /** Consume-transform-produce: offsets sent to the transaction; one transaction aborted and redone. */
     @SuppressWarnings("removal") // ConsumerGroupMetadata(String), for a broker before TxnOffsetCommit v3
+    /** The newest version of `key` the client negotiated with any broker it has spoken to (`KafkaProducer.apiVersions`). */
+    static short negotiated(KafkaProducer<?, ?> p, ApiKeys key) throws Exception {
+        var field = KafkaProducer.class.getDeclaredField("apiVersions");
+        field.setAccessible(true);
+        Object versions = field.get(p);
+        var nodes = versions.getClass().getDeclaredField("nodeApiVersions");
+        nodes.setAccessible(true);
+        short best = -1;
+        synchronized (versions) {
+            for (Object node : ((Map<?, ?>) nodes.get(versions)).values()) {
+                Method m = node.getClass().getMethod("latestUsableVersion", ApiKeys.class);
+                best = (short) Math.max(best, (short) m.invoke(node, key));
+            }
+        }
+        return best;
+    }
+
+    /** A transaction of the second version that writes and commits consumer offsets, with the client at Produce v13 and
+     *  TxnOffsetCommit v6: the records are read once with read_committed, the offsets are the group's after the commit, and an
+     *  aborted transaction leaves neither. */
+    static String txnTopicIds() throws Exception {
+        String in = newTopic("java-ids-in"), out = in.replace("-in-", "-out-"), group = in + "-g";
+        try (Admin a = admin()) {
+            createTopic(a, in, 2, null);
+            createTopic(a, out, 2, null);
+        }
+        short produceV, offsetsV;
+        try (var p = producer(Map.of("transactional.id", in + "-tx"))) {
+            p.initTransactions();
+            p.beginTransaction();
+            for (int i = 0; i < 10; i++) p.send(new ProducerRecord<>(out, i % 2, "k" + i, "v" + i)).get(30, TimeUnit.SECONDS);
+            p.sendOffsetsToTransaction(Map.of(new TopicPartition(in, 0), new OffsetAndMetadata(4), new TopicPartition(in, 1), new OffsetAndMetadata(6)),
+                new ConsumerGroupMetadata(group));
+            p.commitTransaction();
+            p.beginTransaction();
+            p.send(new ProducerRecord<>(out, 0, "gone", "gone")).get(30, TimeUnit.SECONDS);
+            p.sendOffsetsToTransaction(Map.of(new TopicPartition(in, 0), new OffsetAndMetadata(99)), new ConsumerGroupMetadata(group));
+            p.abortTransaction();
+            produceV = negotiated(p, ApiKeys.PRODUCE);
+            offsetsV = negotiated(p, ApiKeys.TXN_OFFSET_COMMIT);
+        }
+        check(produceV == 13 && offsetsV == 6, "negotiated Produce v%d and TxnOffsetCommit v%d, not v13 and v6", produceV, offsetsV);
+        exactlyOnce(readAll(out, "read_committed", 10), values("v", 0, 10), "output, read_committed");
+        try (Admin a = admin()) {
+            var offsets = a.listConsumerGroupOffsets(group).partitionsToOffsetAndMetadata().get(30, TimeUnit.SECONDS);
+            long p0 = offsets.get(new TopicPartition(in, 0)).offset(), p1 = offsets.get(new TopicPartition(in, 1)).offset();
+            check(p0 == 4 && p1 == 6, "committed %d and %d, not 4 and 6 (the aborted 99 must not show)", p0, p1);
+        }
+        return "Produce v13 and TxnOffsetCommit v6: 10 records once each, offsets 4 and 6 committed, the aborted transaction left nothing";
+    }
+
+    /** A transactional producer with transaction.two.phase.commit.enable=true (and no transaction.timeout.ms, which the
+     *  setting forbids) commits and aborts as any other. */
+    static String txnTwoPhaseSetting() throws Exception {
+        String t = newTopic("java-2pc");
+        try (Admin a = admin()) {
+            createTopic(a, t, 1, null);
+        }
+        try (var p = producer(Map.of("transactional.id", t + "-tx", "transaction.two.phase.commit.enable", "true"))) {
+            p.initTransactions();
+            p.beginTransaction();
+            for (int i = 0; i < 5; i++) p.send(new ProducerRecord<>(t, "k" + i, "v" + i));
+            p.commitTransaction();
+            p.beginTransaction();
+            p.send(new ProducerRecord<>(t, "k", "aborted"));
+            p.abortTransaction();
+        }
+        exactlyOnce(readAll(t, "read_committed", 5), values("v", 0, 5), "read_committed");
+        return "the broker offers InitProducerId to v" + max(INIT_PRODUCER_ID) + "; 5 committed, the aborted one hidden";
+    }
+
     static String txnSendOffsets() throws Exception {
         String in = newTopic("java-eos-in"), out = in.replace("-in-", "-out-"), group = in + "-g";
         try (Admin a = admin()) {

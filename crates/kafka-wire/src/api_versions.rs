@@ -6,7 +6,14 @@
 //!   client is sure to read, with UNSUPPORTED_VERSION and one row: the versions of ApiVersions itself. The
 //!   client asks again at one of those. The body of such a request is not read.
 //! - From v3 a client says what it is. A software name or version that is empty, or is not letters and
-//!   digits with dots and dashes between them, is INVALID_REQUEST with no rows; the connection lives on.
+//!   digits with dots and dashes between them, is INVALID_REQUEST with no rows; the connection lives on. From v5 a
+//!   cluster id with no node id (-1), or a node id with no cluster id, is INVALID_REQUEST too (4.4.0's
+//!   `ApiVersionsRequest.isValid`: both or neither).
+//!
+//! A third is Kafka 4.4.0's (KIP-1242, `KafkaApis.handleApiVersionsRequest`): from v5 a client may say which cluster and
+//! node it means to reach. A cluster id that is given and is not this broker's, or a node id that is not this broker's
+//! with a cluster id given, is REBOOTSTRAP_REQUIRED (129) with no rows. A login in progress is not held to it: Kafka's
+//! `SaslServerAuthenticator` answers that ApiVersions with the list, unchecked.
 
 use kafka_protocol::ResponseError;
 use kafka_protocol::messages::api_versions_response::{
@@ -15,7 +22,7 @@ use kafka_protocol::messages::api_versions_response::{
 use kafka_protocol::messages::{ApiKey, ApiVersionsRequest, ApiVersionsResponse};
 use kafka_protocol::protocol::StrBytes;
 
-use crate::profile::{Features, Profile};
+use crate::profile::{FeatureLevel, Features, Profile};
 
 /// Whether a client software name or version is well formed: ASCII letters and digits, with dots and dashes
 /// allowed between them.
@@ -31,14 +38,37 @@ pub fn valid_client_software(s: &str) -> bool {
     }
 }
 
+/// The broker a v5 ApiVersions is checked against (KIP-1242).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Identity<'a> {
+    /// This broker's cluster id.
+    pub cluster_id: &'a str,
+    /// This broker's node id.
+    pub node_id: i32,
+}
+
 /// The answer to an ApiVersions request at `version`, and the version it must be encoded at (v0 when the
-/// request's own version is not served). `request` is the decoded body, if there was a readable one.
+/// request's own version is not served). `request` is the decoded body, if there was a readable one. No cluster or
+/// node is checked: see [`answer_as`].
 #[must_use]
 pub fn answer(
     profile: Profile,
     features: Features,
     version: i16,
     request: Option<&ApiVersionsRequest>,
+) -> (i16, ApiVersionsResponse) {
+    answer_as(profile, features, version, request, None)
+}
+
+/// [`answer`], with a v5 request's cluster and node held to `me` if given: REBOOTSTRAP_REQUIRED (129) with no rows for a
+/// client that means another cluster or node, after the version and the client's name are judged, as Kafka 4.4.0 orders it.
+#[must_use]
+pub fn answer_as(
+    profile: Profile,
+    features: Features,
+    version: i16,
+    request: Option<&ApiVersionsRequest>,
+    me: Option<Identity<'_>>,
 ) -> (i16, ApiVersionsResponse) {
     let (min, max) = profile.range(ApiKey::ApiVersions).unwrap_or((0, 0));
     let mut resp = ApiVersionsResponse::default();
@@ -47,8 +77,18 @@ pub fn answer(
         resp.api_keys.push(row(ApiKey::ApiVersions, min, max));
         return (0, resp);
     }
-    if version >= 3 && request.is_some_and(|q| !named_well(q)) {
+    if version >= 3
+        && request.is_some_and(|q| !named_well(q) || (version >= 5 && !both_or_neither(q)))
+    {
         resp.error_code = ResponseError::InvalidRequest.code();
+        return (version, resp);
+    }
+    if version >= 5
+        && let (Some(q), Some(me)) = (request, me)
+        && let Some(cluster) = q.cluster_id.as_deref()
+        && (cluster != me.cluster_id || q.node_id != me.node_id)
+    {
+        resp.error_code = ResponseError::RebootstrapRequired.code();
         return (version, resp);
     }
     resp.api_keys = profile
@@ -57,61 +97,40 @@ pub fn answer(
         .map(|a| row(a.key, a.min, a.max))
         .collect();
     if version >= 3 {
-        transaction_feature(profile.transaction_version(), version, &mut resp);
-        let share = if features.served.contains(ApiKey::ShareFetch) {
-            profile.share_version()
-        } else {
-            0
-        };
-        feature("share.version", share, 2, version, &mut resp);
-        let streams = if features.served.contains(ApiKey::StreamsGroupHeartbeat) {
-            profile.streams_version()
-        } else {
-            0
-        };
-        feature("streams.version", streams, 1, version, &mut resp);
+        for f in profile.features() {
+            // A broker that does not serve share or streams groups says it supports neither (KIP-1022: off).
+            let off = (f.name == "share.version" && !features.served.contains(ApiKey::ShareFetch))
+                || (f.name == "streams.version"
+                    && !features.served.contains(ApiKey::StreamsGroupHeartbeat));
+            if !off {
+                feature(f, version, &mut resp);
+            }
+        }
     }
     (version, resp)
 }
 
-/// `share.version` (KIP-932) as Kafka 4.4.0 lists it when formatted with its defaults: supported 0 to 2, finalized at 2
-/// (share groups on, level 1, and their dead-letter queue, level 2), under the same rules as `transaction.version`; and
-/// `streams.version` (KIP-1071) likewise: supported 0 to 1, finalized at 1 (streams groups on). `most` is the highest
-/// level supported.
-fn feature(
-    name: &'static str,
-    level: i16,
-    most: i16,
-    version: i16,
-    resp: &mut ApiVersionsResponse,
-) {
-    if level == 0 {
-        return;
-    }
-    if version >= 4 {
+/// One feature (KIP-584) as the recorded broker of the major lists it (`Profile::features`): every feature it supports,
+/// with its levels, and, finalized, every one at a level above 0, with the finalized epoch not negative (a client takes the
+/// features of an epoch newer than it has seen, from -1). Below v4 a supported feature whose least level is 0 is left out
+/// (old clients cannot read it, KAFKA-17492). `transaction.version` is the one a client decides by: the Java client's
+/// `TransactionManager` speaks KIP-890's second part at a finalized level of 2.
+fn feature(f: FeatureLevel, version: i16, resp: &mut ApiVersionsResponse) {
+    if version >= 4 || f.min > 0 {
         let mut supported = SupportedFeatureKey::default();
-        supported.name = StrBytes::from_static_str(name);
-        supported.min_version = 0;
-        supported.max_version = most;
+        supported.name = StrBytes::from_static_str(f.name);
+        supported.min_version = f.min;
+        supported.max_version = f.max;
         resp.supported_features.push(supported);
     }
-    let mut finalized = FinalizedFeatureKey::default();
-    finalized.name = StrBytes::from_static_str(name);
-    finalized.min_version_level = level;
-    finalized.max_version_level = level;
-    resp.finalized_features.push(finalized);
+    if f.level > 0 {
+        let mut finalized = FinalizedFeatureKey::default();
+        finalized.name = StrBytes::from_static_str(f.name);
+        finalized.min_version_level = f.level;
+        finalized.max_version_level = f.level;
+        resp.finalized_features.push(finalized);
+    }
     resp.finalized_features_epoch = 0;
-}
-
-/// `transaction.version`, which a client reads to decide whether to speak KIP-890's second part (the Java client's
-/// `TransactionManager` turns it on at a finalized level of 2). As Kafka 4.4.0 answers: supported 0 to 2 and finalized at
-/// the level, with the finalized epoch not negative (the client takes the features of an epoch newer than it has seen,
-/// from -1). Below v4 a supported feature whose least level is 0 is left out (old clients cannot read it, KAFKA-17492),
-/// and a finalized level of 0 is never listed. Kafka lists its other features too (`metadata.version`, `group.version`,
-/// ...); no client decides anything here by them, so they are not claimed. `share.version` and `streams.version` are the
-/// others listed.
-fn transaction_feature(level: i16, version: i16, resp: &mut ApiVersionsResponse) {
-    feature("transaction.version", level, 2, version, resp);
 }
 
 /// The answer to an ApiVersions request that arrives in the middle of a SASL login: ILLEGAL_SASL_STATE and no
@@ -130,6 +149,11 @@ pub fn illegal_state(profile: Profile, version: i16) -> (i16, ApiVersionsRespons
         },
         resp,
     )
+}
+
+/// A v5 request names its cluster and its node together, or neither.
+fn both_or_neither(q: &ApiVersionsRequest) -> bool {
+    q.cluster_id.is_some() == (q.node_id != -1)
 }
 
 fn named_well(q: &ApiVersionsRequest) -> bool {

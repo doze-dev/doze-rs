@@ -72,6 +72,12 @@ fn a_backup_is_a_copy_that_outlives_its_table_and_restores_with_its_indexes() {
         shown["SourceTableFeatureDetails"]["StreamDescription"]["StreamViewType"],
         "NEW_IMAGE"
     );
+    // Recorded 2026-11-19: no time to live, no `TimeToLiveDescription`.
+    assert!(
+        shown["SourceTableFeatureDetails"]
+            .get("TimeToLiveDescription")
+            .is_none()
+    );
     w.ok("DeleteTable", json!({"TableName": "src"}));
     restored_from(&mut w, &arn);
 }
@@ -86,6 +92,14 @@ fn restored_from(w: &mut World, arn: &str) {
     assert_eq!(d["TableStatus"], "CREATING");
     assert_eq!(d["RestoreSummary"]["SourceBackupArn"], arn);
     assert_eq!(d["RestoreSummary"]["RestoreInProgress"], true);
+    // Recorded 2026-11-19: a restore's answer leaves these out.
+    assert!(d.get("DeletionProtectionEnabled").is_none(), "{d}");
+    assert!(
+        d["ProvisionedThroughput"]
+            .get("NumberOfDecreasesToday")
+            .is_none(),
+        "{d}"
+    );
     assert_eq!(items(w, "back"), ["a=1", "b=2"]);
     // The index came along and holds the items; the stream and tags did not.
     let by_v = w.ok(
@@ -212,7 +226,21 @@ fn a_table_restores_to_how_it_was_at_a_point_in_time() {
         json!({"SourceTableName": "tab", "TargetTableName": "xxx", "RestoreDateTime": earliest}),
     );
     assert_eq!(e.code, "InvalidRestoreTimeException");
-    assert!(message(&e).contains("outside of the restorable window"));
+    outside_the_window(message(&e));
+}
+
+/// AWS's words for a time outside the window (recorded 2026-11-19), with whole-second times.
+fn outside_the_window(m: &str) {
+    let words = [
+        "RestoreDateTime '",
+        "' must be within EarliestRestorableDateTime '",
+        "' and LatestRestorableDateTime '",
+        "' for table 'tab'",
+    ];
+    assert!(
+        words.iter().all(|w| m.contains(w)) && !m.contains(".000Z"),
+        "{m}"
+    );
 }
 
 #[test]

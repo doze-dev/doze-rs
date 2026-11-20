@@ -93,7 +93,7 @@ fn an_ssh_key_is_deactivated_holds_its_user_and_is_deleted() {
     );
     assert_eq!(
         w.err("DeleteUser", &json!({"UserName": "u"})).1,
-        "Cannot delete entity, must delete SSH public keys first."
+        "Cannot delete entity, must remove referenced objects first."
     );
     w.ok(
         "DeleteSSHPublicKey",
@@ -131,7 +131,7 @@ fn service_specific_credentials_show_their_secret_on_create_and_reset_only() {
     assert_eq!(refused, "LimitExceededException");
     let sqs = json!({"UserName": "jane", "ServiceName": "sqs.amazonaws.com"});
     let refused = w.err("CreateServiceSpecificCredential", &sqs).0;
-    assert_eq!(refused, "ServiceNotSupportedException");
+    assert_eq!(refused, "NoSuchEntityException");
     w.ok(
         "CreateServiceSpecificCredential",
         &json!({"UserName": "jane", "ServiceName": "bedrock.amazonaws.com"}),
@@ -143,10 +143,15 @@ fn service_specific_credentials_show_their_secret_on_create_and_reset_only() {
         .clone();
     assert_eq!(listed.as_array().unwrap().len(), 2);
     assert!(listed[0].get("ServicePassword").is_none());
+    let everyone = w.ok("ListServiceSpecificCredentials", &json!({"AllUsers": true}));
     assert_eq!(
-        w.ok("ListServiceSpecificCredentials", &json!({"AllUsers": true}))["ServiceSpecificCredentials"].as_array().unwrap().len(),
+        everyone["ServiceSpecificCredentials"]
+            .as_array()
+            .unwrap()
+            .len(),
         3
     );
+    assert_eq!(everyone["IsTruncated"], false);
     let reset = w.ok(
         "ResetServiceSpecificCredential",
         &json!({"UserName": "jane", "ServiceSpecificCredentialId": id}),
@@ -160,7 +165,7 @@ fn service_specific_credentials_show_their_secret_on_create_and_reset_only() {
     );
     assert_eq!(
         w.err("DeleteUser", &json!({"UserName": "jane"})).1,
-        "Cannot delete entity, must delete service specific credentials first."
+        "Cannot delete entity, must remove referenced objects first."
     );
     w.ok(
         "DeleteServiceSpecificCredential",

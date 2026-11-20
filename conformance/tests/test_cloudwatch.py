@@ -256,7 +256,13 @@ def test_math_alarm(client, names, cleanup, snapshot):
     snapshot.match("delete", cw.delete_alarms(AlarmNames=[name]))
 
 
-def test_log_alarm(client, names, cleanup, snapshot):
+def query_role(service_role):
+    """The role a log alarm's scheduled query runs as: CloudWatch Logs assumes it to run the Insights query."""
+    return service_role("logs", inline={"Version": "2012-10-17", "Statement": [{"Effect": "Allow", "Resource": "*", "Action": [
+        "logs:StartQuery", "logs:GetQueryResults", "logs:StopQuery", "logs:DescribeLogGroups"]}]})
+
+
+def test_log_alarm(client, names, cleanup, snapshot, service_role):
     """A log alarm on a Logs Insights query. Cost on AWS: a scheduled query runs every five minutes for as long as the alarm
     lives (a minute or two here). The role must exist on AWS for the put to be accepted (memory); locally any ARN is kept."""
     cw, logs = client("cloudwatch"), client("logs")
@@ -270,7 +276,7 @@ def test_log_alarm(client, names, cleanup, snapshot):
         QueryResultsToEvaluate=3, QueryResultsToAlarm=2, ActionsEnabled=False,
         ScheduledQueryConfiguration={
             "QueryString": "fields @message | filter @message like /ERROR/", "LogGroupIdentifiers": [group],
-            "ScheduledQueryRoleARN": f"arn:aws:iam::{account}:role/dzc-log-alarm",
+            "ScheduledQueryRoleARN": query_role(service_role),
             "AggregationExpression": "count(*)",
             "ScheduleConfiguration": {"ScheduleExpression": "rate(5 minutes)", "StartTimeOffset": 300}})
     snapshot.match("put", cw.put_log_alarm(**alarm))
@@ -279,3 +285,78 @@ def test_log_alarm(client, names, cleanup, snapshot):
     snapshot.match("not-a-metric-alarm", cw.describe_alarms(AlarmNames=[name])["MetricAlarms"])
     snapshot.error("more-to-alarm-than-evaluated", lambda: cw.put_log_alarm(**{**alarm, "QueryResultsToAlarm": 4}))
     snapshot.match("delete", cw.delete_alarms(AlarmNames=[name]))
+
+
+# Written ahead of a recording (2026-11-19, final-ops): UNVERIFIED until recorded against AWS.
+
+def test_describe_alarms_shows_metric_alarms_unless_asked(client, names, cleanup, snapshot):
+    """The model: with no AlarmTypes, "only metric alarms are returned, even if composite alarms or log alarms exist"."""
+    cw = client("cloudwatch")
+    base, comp = names("alarm"), names("composite")
+    cw.put_metric_alarm(AlarmName=base, Namespace=f"dzc/{names('ns')}", MetricName="m", Statistic="Sum", Period=60,
+                        EvaluationPeriods=1, Threshold=1, ComparisonOperator="GreaterThanThreshold", ActionsEnabled=False)
+    cw.put_composite_alarm(AlarmName=comp, AlarmRule=f"ALARM({base})", ActionsEnabled=False)
+    cleanup(cw.delete_alarms, AlarmNames=[comp, base])
+
+    def shown(**kw):
+        d = cw.describe_alarms(AlarmNames=[base, comp], **kw)
+        return {k: [a["AlarmName"] == base for a in d.get(k, [])] for k in ("MetricAlarms", "CompositeAlarms", "LogAlarms")}
+    snapshot.match("no-types", shown())
+    snapshot.match("composite-only", shown(AlarmTypes=["CompositeAlarm"]))
+    snapshot.match("both", shown(AlarmTypes=["MetricAlarm", "CompositeAlarm"]))
+
+
+def test_a_composite_alarm_follows_its_rule(client, names, cleanup, snapshot, eventually):
+    cw = client("cloudwatch")
+    ns, cpu, disk, comp = f"dzc/{names('ns')}", names("cpu"), names("disk"), names("composite")
+    for a in (cpu, disk):
+        cw.put_metric_alarm(AlarmName=a, Namespace=ns, MetricName=a, Statistic="Sum", Period=60, EvaluationPeriods=1,
+                            Threshold=1, ComparisonOperator="GreaterThanThreshold", ActionsEnabled=False)
+    cw.put_composite_alarm(AlarmName=comp, AlarmRule=f'ALARM({cpu}) AND ALARM("{disk}")', ActionsEnabled=False)
+    cleanup(cw.delete_alarms, AlarmNames=[comp, cpu, disk])
+
+    def state(want):
+        def read():
+            s = cw.describe_alarms(AlarmNames=[comp], AlarmTypes=["CompositeAlarm"])["CompositeAlarms"][0]["StateValue"]
+            assert s == want, s
+            return s
+        return eventually(read, timeout=120, every=5)
+
+    # Evaluated once it is made: the rule does not hold.
+    snapshot.match("made", state("OK"))
+    for a in (cpu, disk):
+        cw.set_alarm_state(AlarmName=a, StateValue="ALARM", StateReason="forced by the scenario")
+    snapshot.match("both-children-in-alarm", state("ALARM"))
+    cw.set_alarm_state(AlarmName=cpu, StateValue="OK", StateReason="forced by the scenario")
+    snapshot.match("one-child-ok", state("OK"))
+    # A fixed text: the error gives a character position, which a run-numbered alarm name would move.
+    snapshot.error("rule-that-does-not-read", lambda: cw.put_composite_alarm(AlarmName=comp, AlarmRule="ALARM(unclosed"))
+
+
+def test_a_log_alarm_is_evaluated_on_its_schedule(client, names, cleanup, snapshot, eventually, service_role):
+    """A log alarm on a query every minute: three ERROR lines against a threshold of 2. Takes a minute or two on either side. On AWS
+    the query role is made here (service_role)."""
+    cw, logs = client("cloudwatch"), client("logs")
+    group, name = f"/dzc/{names('group')}", names("alarm")
+    logs.create_log_group(logGroupName=group)
+    cleanup(logs.delete_log_group, logGroupName=group)
+    logs.create_log_stream(logGroupName=group, logStreamName="app")
+    cleanup(cw.delete_alarms, AlarmNames=[name])
+    account = client("sts").get_caller_identity()["Account"]
+    cw.put_log_alarm(
+        AlarmName=name, Threshold=2, ComparisonOperator="GreaterThanThreshold",
+        QueryResultsToEvaluate=1, QueryResultsToAlarm=1, ActionsEnabled=False,
+        ScheduledQueryConfiguration={
+            "QueryString": "fields @message | filter @message like /ERROR/", "LogGroupIdentifiers": [group],
+            "ScheduledQueryRoleARN": query_role(service_role),
+            "AggregationExpression": "count(*)",
+            "ScheduleConfiguration": {"ScheduleExpression": "rate(1 minute)", "StartTimeOffset": 600}})
+    at = int(datetime.datetime.now(datetime.timezone.utc).timestamp() * 1000)
+    logs.put_log_events(logGroupName=group, logStreamName="app", logEvents=[
+        {"timestamp": at, "message": m} for m in ("ERROR one", "INFO fine", "ERROR two", "ERROR three")])
+
+    def alarmed():
+        a = cw.describe_alarms(AlarmNames=[name], AlarmTypes=["LogAlarm"])["LogAlarms"][0]
+        assert a["StateValue"] == "ALARM", a["StateValue"]
+        return a["StateValue"]
+    snapshot.match("alarmed", eventually(alarmed, timeout=420, every=10))

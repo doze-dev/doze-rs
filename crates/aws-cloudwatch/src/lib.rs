@@ -18,19 +18,23 @@
 //! `ListMetrics`; alarms (`PutMetricAlarm` on a metric or on metric math, `PutCompositeAlarm`, `PutLogAlarm`, describing, deleting,
 //! `SetAlarmState`, enabling and disabling actions, history, tags); dashboards (the body kept verbatim); anomaly detectors (stored);
 //! metric streams, Contributor Insights rules and alarm mute rules (stored, returned and tagged, not active locally: `stored.rs`).
-//! Metric math alarms are evaluated as metric alarms are (`math_alarm`). Composite alarms and log alarms are stored and returned;
-//! they are not evaluated, and say so in their reason. An alarm action on an SNS topic or a Lambda function is carried out through
+//! Metric math alarms are evaluated as metric alarms are (`math_alarm`). Composite alarms are judged on their rule whenever an alarm
+//! they name changes (`composite`, `rule`); log alarms run their Logs Insights query on its schedule through the peer bus and are
+//! judged on the newest results (`log_eval`, `log_query`). An alarm action on an SNS topic or a Lambda function is carried out through
 //! the peer bus when that service runs; otherwise the alarm's history says it was not delivered. Refused by name: everything else
 //! (managed Contributor Insights rules, the widget image, OTel enrichment, resource metrics configuration).
 
 mod actions;
 mod alarms;
 mod authz;
+mod composite;
 mod core;
 mod docs;
 mod eval;
 mod judge;
 mod log_alarm;
+mod log_eval;
+mod log_query;
 mod math;
 mod math_alarm;
 mod metric_data;
@@ -39,6 +43,7 @@ mod period;
 mod put;
 mod read;
 mod req;
+mod rule;
 mod stats;
 mod storage;
 mod stored;
@@ -46,6 +51,7 @@ mod stored_rules;
 mod tags;
 mod timers;
 mod transition;
+mod whom;
 
 #[cfg(test)]
 mod tests;
@@ -128,7 +134,7 @@ impl Cloudwatch {
         });
         Self {
             dir: ctx.dir.clone(),
-            timers: Timers::new(Arc::clone(&ctx)),
+            timers: Timers::new(Arc::clone(&ctx), peers.clone()),
             actors: Keyed::new("cloudwatch", ctx, HOME_REGION),
             peers,
         }
@@ -208,6 +214,8 @@ impl Cloudwatch {
                     // WHY: a failed save is the writer's to report; the next call finds the same state and says so.
                     drop(saved.await);
                 }
+                self.timers
+                    .launch(&region, &actor, std::mem::take(&mut answer.log_runs));
                 self.timers.arm(&region, &caller, &actor, answer.next_due);
             }
         }
@@ -303,6 +311,13 @@ impl Service for Cloudwatch {
         }
         e
     }
+}
+
+/// Whether `text` reads as a composite alarm's `AlarmRule`. Exists so the parser can be fuzzed.
+#[doc(hidden)]
+#[must_use]
+pub fn check_alarm_rule(text: &str) -> bool {
+    rule::check(text)
 }
 
 /// Whether `text` reads as a metric math expression or a search expression. Exists so the parsers can be fuzzed.

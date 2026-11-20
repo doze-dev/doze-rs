@@ -167,10 +167,11 @@ async fn a_step_a_wait_and_a_callback_run_across_invocations() {
         .ok("Invoke", json!({"FunctionName": "dur:$LATEST", "InvocationType": "Event", "DurableExecutionName": "order-1", "Payload": payload}))
         .await;
     assert_eq!(again["DurableExecutionArn"], json!(arn));
+    // Recorded 2026-11-19: a different payload under the same name is answered with the same execution.
     let other = w
-        .err("Invoke", json!({"FunctionName": "dur:$LATEST", "InvocationType": "Event", "DurableExecutionName": "order-1", "Payload": base64::encode(b"{\"n\": 1}")}))
+        .ok("Invoke", json!({"FunctionName": "dur:$LATEST", "InvocationType": "Event", "DurableExecutionName": "order-1", "Payload": base64::encode(b"{\"n\": 1}")}))
         .await;
-    assert_eq!(other.code, "DurableExecutionAlreadyStartedException");
+    assert_eq!(other["DurableExecutionArn"], json!(arn));
 
     let callback = callback_of(&w, &arn).await;
     assert_eq!(status(&w, &arn).await["Status"], "RUNNING");
@@ -272,12 +273,11 @@ async fn a_synchronous_invoke_waits_for_the_execution_and_a_stopped_one_ends() {
     let s = status(&w, &arn).await;
     assert_eq!(s["Status"], "STOPPED");
     assert_eq!(s["Error"]["ErrorMessage"], "changed my mind");
-    assert_eq!(
-        w.err("StopDurableExecution", json!({"DurableExecutionArn": arn}))
-            .await
-            .code,
-        "InvalidParameterValueException"
-    );
+    // Recorded 2026-11-19: a second stop answers with the time of the first.
+    let again = w
+        .ok("StopDurableExecution", json!({"DurableExecutionArn": arn}))
+        .await;
+    assert_eq!(again["StopTimestamp"], stopped["StopTimestamp"]);
     let late = w
         .err(
             "SendDurableExecutionCallbackFailure",

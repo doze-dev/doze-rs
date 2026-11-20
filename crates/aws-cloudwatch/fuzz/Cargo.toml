@@ -19,3 +19,9 @@ name = "fuzz_metric_math"
 path = "fuzz_targets/fuzz_metric_math.rs"
 test = false
 doc = false
+
+[[bin]]
+name = "fuzz_alarm_rule"
+path = "fuzz_targets/fuzz_alarm_rule.rs"
+test = false
+doc = false

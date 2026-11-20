@@ -1,7 +1,7 @@
 //! Kinesis Data Streams for DynamoDB: `EnableKinesisStreamingDestination`, `DisableKinesisStreamingDestination`,
 //! `DescribeKinesisStreamingDestination`, `UpdateKinesisStreamingDestination`. While a destination is `ACTIVE`, every change of an
 //! item is put on the Kinesis stream (over the bus, after the call is answered: `work.rs`) as a record in the shape the developer
-//! guide's consumer reads: `eventName`, `dynamodb` with `ApproximateCreationDateTime` in the precision asked for, `Keys`,
+//! guide's consumer reads: `eventName`, `dynamodb` with `ApproximateCreationDateTime` in the precision asked for (the precision itself only when asked for), `Keys`,
 //! `NewImage` and `OldImage` (both, whatever the table's own stream view), `SizeBytes`.
 //!
 //! Enabling answers `ENABLING`; the stream is looked up outside the actor and the destination is `ACTIVE` (or `ENABLE_FAILED`, the
@@ -59,19 +59,20 @@ impl Core {
 
     pub(crate) fn enable_kinesis(&mut self, cx: &Cx<'_>) -> Result<Json, ApiError> {
         let (name, arn) = self.kinesis_target(cx)?;
+        // Recorded 2026-11-19: the precision is shown (on the answer, the destination and the records) only when the caller set it.
         let precision = cx
             .body
             .get("EnableKinesisStreamingConfiguration")
             .and_then(|c| str_of(c, "ApproximateCreationDateTimePrecision"))
-            .unwrap_or(MILLISECOND)
-            .to_owned();
+            .map(str::to_owned);
         let mut list = self.destinations(&name);
         let live =
             |d: &Destination| matches!(d.status.as_str(), "ACTIVE" | "ENABLING" | "UPDATING");
         if list.iter().any(|d| d.stream_arn == arn && live(d)) {
-            return Err(in_use(format!(
-                "Table {name} is already streaming to the Kinesis data stream {arn}"
-            )));
+            // Recorded 2026-11-19.
+            return Err(validation(
+                "Table is not in a valid state to enable Kinesis Streaming Destination: EnableKinesisStreamingDestination must be DISABLED or ENABLE_FAILED to perform ENABLE operation.",
+            ));
         }
         if list.iter().any(live) {
             return Err(in_use(format!(
@@ -91,11 +92,19 @@ impl Core {
             table: name.clone(),
             stream_arn: arn.clone(),
         });
+        let mut config = json!({});
+        if let Some(p) = precision {
+            crate::req::set(
+                &mut config,
+                "ApproximateCreationDateTimePrecision",
+                json!(p),
+            );
+        }
         Ok(json!({
             "TableName": name,
             "StreamArn": arn,
             "DestinationStatus": "ENABLING",
-            "EnableKinesisStreamingConfiguration": {"ApproximateCreationDateTimePrecision": precision},
+            "EnableKinesisStreamingConfiguration": config,
         }))
     }
 
@@ -132,14 +141,17 @@ impl Core {
             )));
         };
         d.status = "DISABLED".into();
-        let precision = d.precision.clone();
         self.set_destinations(&name, list);
-        Ok(json!({
+        let mut out = json!({
             "TableName": name,
             "StreamArn": arn,
             "DestinationStatus": "DISABLING",
-            "EnableKinesisStreamingConfiguration": {"ApproximateCreationDateTimePrecision": precision},
-        }))
+        });
+        // Recorded 2026-11-19: the configuration is echoed only when the request carried one.
+        if let Some(c) = cx.body.get("EnableKinesisStreamingConfiguration") {
+            crate::req::set(&mut out, "EnableKinesisStreamingConfiguration", c.clone());
+        }
+        Ok(out)
     }
 
     pub(crate) fn describe_kinesis(&mut self, cx: &Cx<'_>) -> Result<Json, ApiError> {
@@ -154,8 +166,10 @@ impl Core {
                 let mut out = json!({
                     "StreamArn": d.stream_arn,
                     "DestinationStatus": d.status,
-                    "ApproximateCreationDateTimePrecision": d.precision,
                 });
+                if let Some(p) = &d.precision {
+                    crate::req::set(&mut out, "ApproximateCreationDateTimePrecision", json!(p));
+                }
                 if let Some(why) = &d.description {
                     crate::req::set(&mut out, "DestinationStatusDescription", json!(why));
                 }
@@ -186,12 +200,12 @@ impl Core {
                 "Table {name} has no active Kinesis streaming destination {arn}"
             )));
         };
-        if d.precision == precision {
+        if d.precision.as_deref().unwrap_or(MILLISECOND) == precision {
             return Err(validation(format!(
                 "The Kinesis streaming destination already uses ApproximateCreationDateTimePrecision {precision}"
             )));
         }
-        d.precision.clone_from(&precision);
+        d.precision = Some(precision.clone());
         self.set_destinations(&name, list);
         Ok(json!({
             "TableName": name,
@@ -213,7 +227,7 @@ impl Core {
         let Some(Extra::Kinesis(list)) = self.extras.get(&kinesis_key(&t.name)) else {
             return;
         };
-        let active: Vec<(String, String)> = list
+        let active: Vec<(String, Option<String>)> = list
             .iter()
             .filter(|d| d.status == "ACTIVE")
             .map(|d| (d.stream_arn.clone(), d.precision.clone()))
@@ -225,7 +239,7 @@ impl Core {
                 new,
                 by_ttl,
             };
-            let (key, record) = record(t, &stream_arn, &precision, &change);
+            let (key, record) = record(t, &stream_arn, precision.as_deref(), &change);
             let data = record.to_string().into_bytes();
             match self.work.iter_mut().find_map(|w| match w {
                 Work::Deliver {
@@ -253,7 +267,7 @@ struct Change<'a> {
     by_ttl: bool,
 }
 
-fn record(t: &Table, stream_arn: &str, precision: &str, c: &Change<'_>) -> (String, Json) {
+fn record(t: &Table, stream_arn: &str, precision: Option<&str>, c: &Change<'_>) -> (String, Json) {
     let Change {
         now_ms,
         old,
@@ -270,7 +284,7 @@ fn record(t: &Table, stream_arn: &str, precision: &str, c: &Change<'_>) -> (Stri
         (Some(_), Some(_)) => "MODIFY",
         (Some(_), None) => "REMOVE",
     };
-    let time = if precision == "MICROSECOND" {
+    let time = if precision == Some("MICROSECOND") {
         now_ms.saturating_mul(1000)
     } else {
         now_ms
@@ -278,10 +292,12 @@ fn record(t: &Table, stream_arn: &str, precision: &str, c: &Change<'_>) -> (Stri
     let size = item_size(&keys) + new.map_or(0, item_size) + old.map_or(0, item_size);
     let mut inner = json!({
         "ApproximateCreationDateTime": time,
-        "ApproximateCreationDateTimePrecision": precision,
         "Keys": item_to_json(&keys),
         "SizeBytes": size,
     });
+    if let Some(p) = precision {
+        crate::req::set(&mut inner, "ApproximateCreationDateTimePrecision", json!(p));
+    }
     if let Some(n) = new {
         crate::req::set(&mut inner, "NewImage", item_to_json(n));
     }

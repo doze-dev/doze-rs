@@ -18,6 +18,7 @@ use arc_swap::ArcSwap;
 use crate::credentials::{Credentials, CredentialsError};
 use crate::principal::Mechanism;
 use crate::scram::{Kind, Verifier};
+use crate::tokens::{TokenLogin, TokenLogins};
 
 /// The stored SCRAM verifiers: user, then mechanism, to the verifier. Immutable; a change makes a new one.
 #[derive(Clone, Default)]
@@ -89,6 +90,8 @@ impl fmt::Debug for Stored {
 pub struct Users {
     bootstrap: Credentials,
     stored: ArcSwap<Stored>,
+    /// The delegation tokens that can log in (KIP-48), swapped whole as `stored` is.
+    tokens: ArcSwap<TokenLogins>,
 }
 
 impl Users {
@@ -98,6 +101,7 @@ impl Users {
         Self {
             bootstrap,
             stored: ArcSwap::from_pointee(Stored::default()),
+            tokens: ArcSwap::from_pointee(TokenLogins::default()),
         }
     }
 
@@ -160,6 +164,23 @@ impl Users {
         self.stored.store(Arc::new(stored));
     }
 
+    /// The delegation token `id`, for a login with it.
+    #[must_use]
+    pub fn token(&self, id: &str) -> Option<Arc<TokenLogin>> {
+        self.tokens.load().get(id)
+    }
+
+    /// The tokens that can log in now.
+    #[must_use]
+    pub fn tokens(&self) -> Arc<TokenLogins> {
+        self.tokens.load_full()
+    }
+
+    /// Puts `tokens` in force, for the logins that begin after this, as [`Users::replace_stored`] does.
+    pub fn replace_tokens(&self, tokens: TokenLogins) {
+        self.tokens.store(Arc::new(tokens));
+    }
+
     /// Whether there is no user at all, configured or stored.
     #[must_use]
     pub fn is_empty(&self) -> bool {
@@ -209,6 +230,7 @@ impl fmt::Debug for Users {
         f.debug_struct("Users")
             .field("bootstrap", &self.bootstrap)
             .field("stored", &*self.stored.load())
+            .field("tokens", &*self.tokens.load())
             .finish()
     }
 }

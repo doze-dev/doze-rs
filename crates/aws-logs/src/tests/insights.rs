@@ -74,11 +74,32 @@ fn a_query_runs_over_every_stream_newest_first_and_points_at_each_event() {
     assert_eq!(record["logRecord"]["ms"], "30");
     assert_eq!(record["logRecord"]["@logStream"], "b");
     assert_eq!(record["logRecord"]["@timestamp"], (NOW - 1000).to_string());
-    let (code, _) = w.err(
+    a_record_carries_what_aws_adds(&mut w, &record);
+}
+
+/// Recorded 2026-11-19: the fields every ordinary event carries, the ids of its group and stream, and a pointer refused.
+fn a_record_carries_what_aws_adds(w: &mut World, record: &Value) {
+    assert_eq!(record["logRecord"]["@aws.account"], "000000000000");
+    assert_eq!(record["logRecord"]["@aws.region"], "us-east-1");
+    assert_eq!(record["logRecord"]["@data_format"], "Default");
+    assert_eq!(record["logRecord"]["@data_source_name"], "Unknown");
+    assert_eq!(record["logRecord"]["@data_source_type"], "Unknown");
+    let group_id = record["logRecord"]["@logGroupId"].as_str().unwrap();
+    assert_eq!(group_id.len(), 36);
+    let stream_id = record["logRecord"]["@logStreamId"].as_str().unwrap();
+    let parts: Vec<&str> = stream_id.split("::").collect();
+    assert_eq!(parts[0], group_id);
+    // The SHA-256 of `b`.
+    assert_eq!(
+        parts[1],
+        "3e23e8160039594a33894f6564e1b1348bbd7a0088d42c4acb73eeaed59c009d"
+    );
+    let (code, message) = w.err(
         "GetLogRecord",
         &json!({"logRecordPointer": "bm90IGEgcG9pbnRlcg=="}),
     );
     assert_eq!(code, "InvalidParameterException");
+    assert_eq!(message, "InvalidParameter Unable to deserialize token");
 }
 
 #[test]
@@ -123,18 +144,26 @@ fn queries_are_described_listed_and_refused_to_stop_once_ended() {
     let all = w.ok("DescribeQueries", &json!({"logGroupName": "/app"}));
     assert_eq!(all["queries"][0]["queryId"], id.as_str());
     assert_eq!(all["queries"][0]["status"], "Complete");
-    assert_eq!(all["queries"][0]["queryString"], "fields @message");
+    // Recorded 2026-11-19: the query as AWS rewrote it, behind its groups and range.
+    let shown = all["queries"][0]["queryString"].as_str().unwrap();
+    assert!(
+        shown.starts_with("SOURCE \"/app\" START=") && shown.ends_with(" | fields @message"),
+        "{shown}"
+    );
     let none = w.ok("DescribeQueries", &json!({"status": "Running"}));
     assert_eq!(none["queries"].as_array().unwrap().len(), 0);
+    // The groups as the query named them.
     let groups = w.ok("ListLogGroupsForQuery", &json!({"queryId": id}));
-    assert_eq!(
-        groups["logGroupIdentifiers"][0],
-        "arn:aws:logs:us-east-1:000000000000:log-group:/app"
-    );
-    let (code, _) = w.err("StopQuery", &json!({"queryId": id}));
+    assert_eq!(groups["logGroupIdentifiers"][0], "/app");
+    let (code, message) = w.err("StopQuery", &json!({"queryId": id}));
     assert_eq!(code, "InvalidParameterException");
-    let (code, _) = w.err("GetQueryResults", &json!({"queryId": "no-such-query"}));
-    assert_eq!(code, "ResourceNotFoundException");
+    assert!(
+        message.starts_with("Query is already ended with Complete (Service: AWSLogs;"),
+        "{message}"
+    );
+    let (code, message) = w.err("GetQueryResults", &json!({"queryId": "no-such-query"}));
+    assert_eq!(code, "InvalidParameterException");
+    assert_eq!(message, "The provided queryId = no-such-query is invalid ");
 }
 
 #[test]
@@ -148,19 +177,38 @@ fn a_query_is_refused_for_what_it_names_and_how_it_is_written() {
             .extend(extra.as_object().unwrap().clone());
         v
     };
-    assert_eq!(w.err("StartQuery", &base).0, "InvalidParameterException");
+    // Recorded 2026-11-19: with no group named, the query is read as one that must name its own.
+    let (code, message) = w.err("StartQuery", &base);
+    assert_eq!(code, "MalformedQueryException");
+    assert!(
+        message.starts_with("Invalid syntax while using query definition snippets: unexpected symbol found fields at line 1 and position 0 (Service: AWSLogs; Status Code: 400; Error Code: MalformedQueryException; Request ID: "),
+        "{message}"
+    );
     let both = with(json!({"logGroupName": "/app", "logGroupNames": ["/app"]}));
-    assert_eq!(w.err("StartQuery", &both).0, "InvalidParameterException");
+    assert_eq!(
+        w.err("StartQuery", &both),
+        (
+            "InvalidParameterException".into(),
+            "Both logGroupName and logGroupNames cannot be specified at the same time".into()
+        )
+    );
     let absent = with(json!({"logGroupNames": ["/absent"]}));
     assert_eq!(w.err("StartQuery", &absent).0, "ResourceNotFoundException");
+    // Positions count from 0 in the rewritten query: `SOURCE "/app" START=1000 END=2999 | ` is 36 characters.
     let bad = with(json!({"logGroupName": "/app", "queryString": "fields | |"}));
     let (code, message) = w.err("StartQuery", &bad);
     assert_eq!(code, "MalformedQueryException");
-    assert!(message.contains("at line 1"), "{message}");
+    assert!(
+        message
+            .starts_with("unexpected symbol found | at line 1 and position 43 (Service: AWSLogs;"),
+        "{message}"
+    );
     let backwards = with(json!({"logGroupName": "/app", "startTime": 5, "endTime": 2}));
-    assert_eq!(
-        w.err("StartQuery", &backwards).0,
-        "InvalidParameterException"
+    let (code, message) = w.err("StartQuery", &backwards);
+    assert_eq!(code, "InvalidParameterException");
+    assert!(
+        message.starts_with("End time cannot be less than Start time (Service: AWSLogs;"),
+        "{message}"
     );
     let sql = with(json!({"logGroupName": "/app", "queryLanguage": "SQL"}));
     assert_eq!(w.err("StartQuery", &sql).0, "InvalidParameterException");
@@ -183,7 +231,9 @@ fn group_fields_are_counted_over_the_recent_window() {
         .collect();
     assert!(fields.contains(&("@message".into(), 100)));
     assert!(fields.contains(&("level".into(), 75)));
-    assert!(!fields.iter().any(|(f, _)| f == "@ptr"));
+    assert!(fields.contains(&("@aws.region".into(), 100)));
+    // Recorded 2026-11-19: neither `@ptr` nor `@log` is listed.
+    assert!(!fields.iter().any(|(f, _)| f == "@ptr" || f == "@log"));
 }
 
 #[test]

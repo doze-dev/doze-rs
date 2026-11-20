@@ -18,10 +18,32 @@ use crate::{Broker, Caller, blocking};
 const LATEST: i64 = -1;
 const EARLIEST: i64 = -2;
 const MAX_TIMESTAMP: i64 = -3;
+/// The local log's start (KIP-405, v8): with no tiered storage, the log's start, as `EARLIEST`.
+const EARLIEST_LOCAL: i64 = -4;
+/// The newest offset in tiered storage (KIP-1005, v9): with none, offset -1 and leader epoch -1.
+const LATEST_TIERED: i64 = -5;
+/// The first offset not yet uploaded to tiered storage (KIP-1023, v11): with none, offset -1 and leader epoch -1.
+const EARLIEST_PENDING_UPLOAD: i64 = -6;
+
+/// The first version each special time may be asked at (`ReplicaManager.timestampMinSupportedVersion`); any other time
+/// below 0 is asked at none.
+fn first_version(timestamp: i64) -> Option<i16> {
+    match timestamp {
+        LATEST | EARLIEST => Some(0),
+        MAX_TIMESTAMP => Some(7),
+        EARLIEST_LOCAL => Some(8),
+        LATEST_TIERED => Some(9),
+        EARLIEST_PENDING_UPLOAD => Some(11),
+        _ => None,
+    }
+}
 
 impl<F: Fs> Broker<F> {
     /// Answers earliest, latest and max-timestamp queries and, for a real timestamp, the offset of the first record at or
-    /// after it ("replay from ten minutes ago"). A timestamp after every record is offset -1 with timestamp -1.
+    /// after it ("replay from ten minutes ago"). A timestamp after every record is offset -1 with timestamp -1. The times
+    /// tiered storage added (v8, v9, v11) are answered as Kafka answers them for a topic with no tiered storage: the local
+    /// start is the start, and the tiered ones are offset -1 at leader epoch -1. A special time below the version that
+    /// brought it is UNSUPPORTED_VERSION, before the topic is looked for (`ReplicaManager.fetchOffset`).
     ///
     /// The caller must be allowed to DESCRIBE each topic (which any ACL for READ, WRITE, DELETE or ALTER grants); the
     /// check is made before the topic is looked for, and the topics refused are answered after those that were not
@@ -80,6 +102,9 @@ impl<F: Fs> Broker<F> {
             r.error_code = code.code();
             r
         };
+        if p.timestamp < 0 && first_version(p.timestamp).is_none_or(|first| version < first) {
+            return refuse(r, ResponseError::UnsupportedVersion);
+        }
         let Some((topic, id)) = topic.zip(PartitionId::new(p.partition_index)) else {
             return refuse(r, ResponseError::UnknownTopicOrPartition);
         };
@@ -94,15 +119,11 @@ impl<F: Fs> Broker<F> {
         if p.current_leader_epoch > 0 {
             return refuse(r, ResponseError::UnknownLeaderEpoch);
         }
-        // -4 and -5 came with v8 and v9, which are not offered; max timestamp (-3) came with v7.
-        if p.timestamp < MAX_TIMESTAMP || (p.timestamp == MAX_TIMESTAMP && version < 7) {
-            return refuse(r, ResponseError::UnsupportedVersion);
-        }
         let partition = match self.partitions.get_unless_empty(topic, id).await {
             Ok(Some(partition)) => partition,
             // Nothing was ever written: it starts and ends at 0, and has no record at any time.
             Ok(None) => {
-                if matches!(p.timestamp, LATEST | EARLIEST) {
+                if matches!(p.timestamp, LATEST | EARLIEST | EARLIEST_LOCAL) {
                     r.offset = 0;
                     r.leader_epoch = 0;
                 }
@@ -157,7 +178,9 @@ fn lookup<F: Fs>(
         // the end.
         LATEST if isolation == 1 => Ok(Some((partition.stability().last_stable, None))),
         LATEST => Ok(Some((reader.end_offset(), None))),
-        EARLIEST => Ok(Some((reader.start_offset(), None))),
+        EARLIEST | EARLIEST_LOCAL => Ok(Some((reader.start_offset(), None))),
+        // Nothing is tiered: the offset -1, with leader epoch -1, which is the answer's default.
+        LATEST_TIERED | EARLIEST_PENDING_UPLOAD => Ok(None),
         MAX_TIMESTAMP => {
             blocking::run(|| reader.offset_of_max_timestamp()).map(|f| f.map(|(o, t)| (o, Some(t))))
         }
@@ -169,7 +192,7 @@ fn lookup<F: Fs>(
     match found {
         Ok(Some((offset, _)))
             if isolation == 1
-                && !matches!(timestamp, LATEST | EARLIEST)
+                && !matches!(timestamp, LATEST | EARLIEST | EARLIEST_LOCAL)
                 && offset.get() >= partition.stability().last_stable.get() =>
         {
             Ok(None)
