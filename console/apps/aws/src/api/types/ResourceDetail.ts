@@ -20,4 +20,8 @@ calls: Array<CallRecord>,
 /**
  * The button that reveals its hidden value, when it has one.
  */
-reveal: string | null, delete: DeleteSpec | null, };
+reveal: string | null, delete: DeleteSpec | null, 
+/**
+ * The deep page that shows more of it (`lambda-function`), when it has one.
+ */
+deep: string | null, };

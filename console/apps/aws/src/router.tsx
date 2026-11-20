@@ -22,7 +22,7 @@ const resourcesChunk = () => import("./pages/resources/routes");
 const resources = createRoute({ getParentRoute: () => root, path: "/resources", component: lazyRouteComponent(unlessLeaving(() => import("./pages/resources/index-page")), "ResourcesPage") });
 const service = createRoute({ getParentRoute: () => root, path: "/resources/$service", component: lazyRouteComponent(unlessLeaving(resourcesChunk), "ServicePage") });
 const second = createRoute({ getParentRoute: () => root, path: "/resources/$service/$second", validateSearch: resourceSearch, component: lazyRouteComponent(unlessLeaving(resourcesChunk), "SecondPage") });
-const resource = createRoute({ getParentRoute: () => root, path: "/resources/$service/$kind/$name", component: lazyRouteComponent(unlessLeaving(resourcesChunk), "OnePage") });
+const resource = createRoute({ getParentRoute: () => root, path: "/resources/$service/$kind/$name", validateSearch: resourceSearch, component: lazyRouteComponent(unlessLeaving(resourcesChunk), "OnePage") });
 const access = createRoute({ getParentRoute: () => root, path: "/access", component: AccessPage });
 const lab = createRoute({ getParentRoute: () => root, path: "/lab", component: LabPage });
 const settings = createRoute({ getParentRoute: () => root, path: "/settings", component: SettingsPage });
