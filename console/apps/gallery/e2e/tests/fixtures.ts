@@ -40,7 +40,8 @@ export async function open(page: Page, path: string, look: Look) {
 
 /** The page scrolls sideways by this many pixels (0 is the rule). */
 export async function overflowX(page: Page): Promise<number> {
-  return page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+  // Never below 0: with classic scrollbars (Chromium on Linux) the client width can exceed the scroll width by the bar.
+  return page.evaluate(() => Math.max(0, document.documentElement.scrollWidth - document.documentElement.clientWidth));
 }
 
 /** Tab, as a person presses it. Safari's Tab skips buttons unless Option is held (its default), so there it is Option+Tab. */

@@ -52,11 +52,11 @@ pub struct Finished<'a> {
     pub code: &'a str,
     /// From the request's head being read to its answer being made.
     pub took: Duration,
-    /// IAM in soft mode found it would refuse this request and let it through ([`Config::would_deny`]).
+    /// IAM in soft mode found it would refuse this request and let it through ([`crate::Config::would_deny`]).
     pub would_be_denied: bool,
 }
 
-/// The requests in flight, so a refusal IAM's soft mode lets through can be marked on the request it was for ([`Config::would_deny`]).
+/// The requests in flight, so a refusal IAM's soft mode lets through can be marked on the request it was for ([`crate::Config::would_deny`]).
 ///
 /// IAM is told only the caller and the action, not which request asked, so a refusal is matched by the caller's key and region,
 /// then by the operation (`sqs:SendMessage` to `SendMessage`). When the caller has one request in flight it is that one, whatever

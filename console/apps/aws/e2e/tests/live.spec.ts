@@ -49,9 +49,9 @@ test("calls made with the AWS CLI appear as they are answered, without a reload"
   await expect(page.getByTestId("live-held")).toContainText(`${record.ring.held.toLocaleString("en-US")} of ${record.ring.capacity.toLocaleString("en-US")}`);
   expect(await page.evaluate(() => (window as unknown as { mark?: string }).mark)).toBe("same page");
   // Every column fits a 1440 px window: the table does not scroll sideways in its box, and no time is cut.
-  expect(await page.locator('[data-slot="data-table"]').evaluate((el) => el.scrollWidth - el.clientWidth)).toBe(0);
-  expect(await first.locator("td").nth(0).evaluate((td) => td.scrollWidth - td.clientWidth)).toBe(0);
-  expect(await first.locator("td").nth(6).evaluate((td) => td.scrollWidth - td.clientWidth)).toBe(0);
+  expect(await page.locator('[data-slot="data-table"]').evaluate((el) => Math.max(0, el.scrollWidth - el.clientWidth))).toBe(0);
+  expect(await first.locator("td").nth(0).evaluate((td) => Math.max(0, td.scrollWidth - td.clientWidth))).toBe(0);
+  expect(await first.locator("td").nth(6).evaluate((td) => Math.max(0, td.scrollWidth - td.clientWidth))).toBe(0);
 });
 
 test("Pause holds new calls aside and counts them; Resume shows them", async ({ page, cli }) => {
