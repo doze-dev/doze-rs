@@ -41,7 +41,7 @@ pub struct Zone {
     /// The project folder (absolute, symlinks resolved): the routes record keys projects by it.
     project: String,
     lease: Option<StackLease>,
-    /// Per instance, which of its names another program holds ("<host> is held by <owner> (pid <n>)").
+    /// Per instance, which of its names another program holds (`"<host> is held by <owner> (pid <n>)"`).
     held: Mutex<BTreeMap<String, String>>,
     serving: Mutex<Option<Serving>>,
 }

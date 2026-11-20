@@ -83,10 +83,10 @@ pub struct BoundInstance {
     /// The claim on its name (none when names are off): what more names for the same listeners (an app's own
     /// domains) are twinned onto. Released with the [`Bound`] it is in.
     pub lease: Option<Lease>,
-    /// Route names another program holds, said as "<host> is held by <owner> (pid <n>)": the instance runs without
+    /// Route names another program holds, said as `"<host> is held by <owner> (pid <n>)"`: the instance runs without
     /// them (its own name held is an error instead).
     pub held: Vec<String>,
-    /// Routed listeners whose port something else had, said as "<listener>: <addr> is taken; it is reached by its
+    /// Routed listeners whose port something else had, said as "`<listener>`: `<addr>` is taken; it is reached by its
     /// name only": on a shared address (no machine setup) a console's conventional port is often another program's,
     /// and the front door reaches the listener by name wherever it listens.
     pub moved: Vec<String>,
