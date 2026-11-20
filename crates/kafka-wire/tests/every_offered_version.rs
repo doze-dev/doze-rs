@@ -20,6 +20,7 @@ use kafka_wire::{profile::Advertised, response};
 const ALL: Features = Features {
     sasl: true,
     telemetry: true,
+    unstable: true,
     served: ApiSet::ALL,
 };
 
@@ -126,6 +127,29 @@ defaults!(
     StreamsGroupTopologyDescriptionUpdate(
         StreamsGroupTopologyDescriptionUpdateRequest,
         StreamsGroupTopologyDescriptionUpdateResponse
+    ),
+    AlterReplicaLogDirs(AlterReplicaLogDirsRequest, AlterReplicaLogDirsResponse),
+    CreateDelegationToken(CreateDelegationTokenRequest, CreateDelegationTokenResponse),
+    RenewDelegationToken(RenewDelegationTokenRequest, RenewDelegationTokenResponse),
+    ExpireDelegationToken(ExpireDelegationTokenRequest, ExpireDelegationTokenResponse),
+    DescribeDelegationToken(
+        DescribeDelegationTokenRequest,
+        DescribeDelegationTokenResponse
+    ),
+    ElectLeaders(ElectLeadersRequest, ElectLeadersResponse),
+    AlterPartitionReassignments(
+        AlterPartitionReassignmentsRequest,
+        AlterPartitionReassignmentsResponse
+    ),
+    ListPartitionReassignments(
+        ListPartitionReassignmentsRequest,
+        ListPartitionReassignmentsResponse
+    ),
+    UpdateFeatures(UpdateFeaturesRequest, UpdateFeaturesResponse),
+    ListConfigResources(ListConfigResourcesRequest, ListConfigResourcesResponse),
+    DescribeTopicPartitions(
+        DescribeTopicPartitionsRequest,
+        DescribeTopicPartitionsResponse
     ),
 );
 

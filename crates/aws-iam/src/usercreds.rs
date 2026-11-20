@@ -43,10 +43,10 @@ fn no_ssh_key(id: &str) -> ApiError {
 }
 
 fn no_credential(id: &str) -> ApiError {
-    // (memory)
+    // Recorded 2026-11-19.
     ApiError::modeled(
         "NoSuchEntityException",
-        format!("No such credential {id} exists."),
+        format!("No such credential {id} exists"),
     )
 }
 
@@ -68,23 +68,26 @@ impl Core {
         self.entity(Kind::User, &user)?;
         let body = r.s("SSHPublicKeyBody");
         let key = sshkey::read(body).map_err(|f| match f {
-            // (memory)
+            // Recorded 2026-11-19.
             KeyFault::Encoding => ApiError::modeled(
                 "UnrecognizedPublicKeyEncodingException",
-                "The public key encoding format is unsupported or unrecognized: give an ssh-rsa key or a PEM RSA public key.",
+                "Invalid public key uploaded.",
             ),
             KeyFault::Invalid => ApiError::modeled(
                 "InvalidPublicKeyException",
-                format!("The public key is not a valid RSA key of at least {} bits.", sshkey::MIN_BITS),
+                format!(
+                    "The public key is not a valid RSA key of at least {} bits.",
+                    sshkey::MIN_BITS
+                ),
             ),
         })?;
         let fingerprint = key.fingerprint();
         let same = |c: &UserCred| matches!(&c.kind, CredKind::Ssh { fingerprint: f, .. } if *f == fingerprint);
         if self.ssh_keys_of(&user).any(same) {
-            // (memory)
+            // Recorded 2026-11-19.
             return Err(ApiError::modeled(
                 "DuplicateSSHPublicKeyException",
-                "The SSH public key is already associated with the specified IAM user.",
+                "Duplicate SSH public key uploaded.",
             ));
         }
         if self.ssh_keys_of(&user).count() >= SSH_PER_USER {
@@ -276,9 +279,8 @@ impl Core {
             .filter(|(_, s)| r.opt("ServiceName").is_none_or(|want| s.service == want))
             .map(|(c, _)| service_json(c, false))
             .collect();
-        let mut out = Map::new();
-        out.insert("ServiceSpecificCredentials".into(), Value::Array(items));
-        Ok(Value::Object(out))
+        // Recorded 2026-11-19: the list says IsTruncated, as the other lists do.
+        page(r, items, "ServiceSpecificCredentials")
     }
 
     pub(crate) fn reset_service_specific_credential(
@@ -336,10 +338,10 @@ fn api_key(service: &str) -> Result<bool, ApiError> {
         .find(|(s, _)| *s == service)
         .map(|(_, api)| *api)
         .ok_or_else(|| {
-            // (memory)
+            // Recorded 2026-11-19: AWS answers NoSuchEntity, not the model's ServiceNotSupported.
             ApiError::modeled(
-                "ServiceNotSupportedException",
-                format!("Service {service} is not supported for service-specific credentials."),
+                "NoSuchEntityException",
+                format!("No such service {service} is supported for Service Specific Credentials"),
             )
         })
 }

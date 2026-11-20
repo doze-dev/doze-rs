@@ -13,7 +13,7 @@ use std::time::Duration;
 
 use anyhow::{Result, bail};
 use clap::{Parser, ValueEnum};
-use kafka_broker::{Config as BrokerConfig, Defaults, TxnVersion};
+use kafka_broker::Config as BrokerConfig;
 use kafka_server::{Config as ServerConfig, Timeouts};
 use kafka_wire::profile::{KafkaMajor, Profile};
 
@@ -81,6 +81,15 @@ pub(crate) struct Args {
     /// two APIs (Kafka 4 only: older versions have none).
     #[arg(long, default_value_t = true, action = clap::ArgAction::Set, num_args = 0..=1, default_missing_value = "true")]
     client_telemetry: bool,
+    /// Also offer the protocol versions Kafka marks unstable, as Kafka's internal `unstable.api.versions.enable` does (off,
+    /// as in Kafka). In Kafka 4.4.0 that is InitProducerId v6 alone: the two-phase commit of KIP-939, which no released client
+    /// sends yet.
+    #[arg(long, default_value_t = false, action = clap::ArgAction::Set, num_args = 0..=1, default_missing_value = "true")]
+    unstable_api_versions: bool,
+    /// Let producers take part in a two-phase commit (KIP-939, Kafka's `transaction.two.phase.commit.enable`; off, as in
+    /// Kafka): their transactions never time out. It needs `--unstable-api-versions` for a client to ask for one.
+    #[arg(long, default_value_t = false, action = clap::ArgAction::Set, num_args = 0..=1, default_missing_value = "true")]
+    transaction_two_phase_commit: bool,
     /// Kafka major version to stand for (1-4).
     #[arg(long, default_value_t = 4)]
     kafka_version: u8,
@@ -143,6 +152,22 @@ pub(crate) struct Args {
     /// naming the administrators here is what stops any other login from taking their place.
     #[arg(long, value_name = "PRINCIPAL")]
     acl_super_user: Vec<String>,
+
+    /// The key delegation tokens are signed with (Kafka's delegation.token.secret.key); tokens are off without it. It shows in
+    /// `ps`: DOZE_KAFKA_DELEGATION_TOKEN_SECRET_KEY is read too. Tokens are used over SASL only; a new key voids them all.
+    #[arg(long, value_name = "SECRET")]
+    delegation_token_secret_key: Option<String>,
+    /// The longest a delegation token can live, renewals and all (Kafka's delegation.token.max.lifetime.ms, 7 days).
+    #[arg(long, default_value = "168h", value_name = "DURATION", value_parser = duration::parse)]
+    delegation_token_max_lifetime: Duration,
+    /// How long a delegation token lives from its making or its last renewal, unless less is asked for (Kafka's
+    /// delegation.token.expiry.time.ms, 1 day).
+    #[arg(long, default_value = "24h", value_name = "DURATION", value_parser = duration::parse)]
+    delegation_token_expiry_time: Duration,
+    /// How often expired delegation tokens are removed (Kafka's delegation.token.expiry.check.interval.ms, 1 hour); until then
+    /// an expired token is still described and can still log in, as in Kafka.
+    #[arg(long, default_value = "1h", value_name = "DURATION", value_parser = duration::parse)]
+    delegation_token_expiry_check_interval: Duration,
 
     // Accepted and ignored until the phase that has it.
     #[arg(long, hide = true)]
@@ -214,15 +239,6 @@ pub(crate) struct Settings {
     pub(crate) warnings: Vec<String>,
 }
 
-/// How the broker ends a transaction on its own at a Kafka major: the `transaction.version` its profile finalizes.
-fn transaction_version(major: KafkaMajor) -> TxnVersion {
-    if Profile::new(major).transaction_version() >= 2 {
-        TxnVersion::EpochBump
-    } else {
-        TxnVersion::Classic
-    }
-}
-
 impl Args {
     /// Checks the arguments and turns them into the configuration of the broker and the server.
     pub(crate) fn settings(&self) -> Result<Settings> {
@@ -246,7 +262,6 @@ impl Args {
             );
         };
         self.check_numbers()?;
-        let none_is_zero = |n: i64| if n <= 0 { -1 } else { n };
         let mut broker = BrokerConfig::new(self.data_dir.clone());
         broker.auto_create_topics = self.auto_create_topics;
         broker.default_partitions = self.default_partitions;
@@ -264,17 +279,13 @@ impl Args {
         broker.log_cleaner_every = self.log_cleaner_interval;
         broker.log_cleaner_enable = self.log_cleaner_enable;
         broker.client_telemetry = self.client_telemetry;
-        broker.transaction_version = transaction_version(major);
+        broker.unstable_api_versions = self.unstable_api_versions;
+        broker.transaction_two_phase_commit = self.transaction_two_phase_commit;
+        self.major_and_tokens(&mut broker, major, env)?;
         broker.max_open_partitions = self.max_open_partitions;
         broker.acl_default_allow = self.acl_default == acl::AclDefault::Allow;
         broker.super_users = acl::super_users(&self.acl_super_user)?;
-        broker.defaults = Defaults {
-            segment_bytes: self.segment_bytes,
-            index_interval_bytes: self.index_interval_bytes,
-            message_max_bytes: self.message_max_bytes,
-            retention_bytes: none_is_zero(self.retention_bytes),
-            retention_ms: none_is_zero(self.retention_ms),
-        };
+        broker.defaults = self.topic_defaults();
         let sasl = sasl::setup(&sasl::Input {
             mechanisms: &self.sasl_mechanisms,
             users: &self.sasl_user,
@@ -339,45 +350,6 @@ impl Args {
         })
     }
 
-    /// The sizes, counts and times that must be above zero.
-    fn check_numbers(&self) -> Result<()> {
-        for (name, value) in [
-            ("--segment-bytes", self.segment_bytes),
-            ("--index-interval-bytes", self.index_interval_bytes),
-            ("--message-max-bytes", self.message_max_bytes),
-        ] {
-            if value <= 0 {
-                bail!("{name} must be positive, not {value}");
-            }
-        }
-        if self.default_partitions <= 0
-            || self.max_partitions <= 0
-            || self.default_partitions > self.max_partitions
-        {
-            bail!(
-                "--default-partitions ({}) must be positive and at most --max-partitions ({})",
-                self.default_partitions,
-                self.max_partitions
-            );
-        }
-        for (name, time) in [
-            ("--consumer-session-timeout", self.consumer_session_timeout),
-            ("--log-cleaner-interval", self.log_cleaner_interval),
-            (
-                "--log-retention-check-interval",
-                self.log_retention_check_interval,
-            ),
-        ] {
-            if time.is_zero() {
-                bail!("{name} must be above zero");
-            }
-        }
-        if self.worker_threads == 0 {
-            bail!("--worker-threads must be at least 1");
-        }
-        Ok(())
-    }
-
     /// The flags of later parts that were given a value and are being ignored, for a warning. A build without the
     /// `console` feature has no console, so it names the console flags that were given.
     pub(crate) fn ignored(&self) -> Vec<&'static str> {
@@ -426,6 +398,8 @@ impl Args {
 
 mod acl;
 mod console;
+mod derived;
+mod major;
 pub(crate) use console::Console;
 #[cfg(feature = "console")]
 pub(crate) use console::DEFAULT_ADDR as DEFAULT_CONSOLE_ADDR;

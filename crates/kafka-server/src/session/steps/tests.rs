@@ -37,7 +37,7 @@ fn message(r: &SaslAuthenticateResponse) -> Option<&str> {
 #[test]
 fn a_handshake_for_an_offered_mechanism_is_answered_with_the_list_and_moves_on() {
     let mut s = Session::new();
-    let (r, fate) = handshake(&mut s, &authenticator(), &hs("PLAIN"));
+    let (r, fate) = handshake(&mut s, &authenticator(), &hs("PLAIN"), 1);
     assert_eq!(
         (r.error_code, names(&r), fate),
         (0, vec!["PLAIN"], Fate::Open)
@@ -57,7 +57,7 @@ fn a_mechanism_that_is_not_offered_is_33_with_the_list_and_then_closed() {
         "PLAIN ",
     ] {
         let mut s = Session::new();
-        let (r, fate) = handshake(&mut s, &authenticator(), &hs(wrong));
+        let (r, fate) = handshake(&mut s, &authenticator(), &hs(wrong), 1);
         assert_eq!(
             (r.error_code, names(&r), fate),
             (33, vec!["PLAIN"], Fate::Closing),
@@ -71,7 +71,7 @@ fn a_mechanism_that_is_not_offered_is_33_with_the_list_and_then_closed() {
 fn a_handshake_in_any_other_state_is_34_with_no_mechanisms_and_changes_nothing() {
     // handshake-twice, and `twice` after a login.
     let mut s = handshaken();
-    let (r, fate) = handshake(&mut s, &authenticator(), &hs("PLAIN"));
+    let (r, fate) = handshake(&mut s, &authenticator(), &hs("PLAIN"), 1);
     assert_eq!(
         (r.error_code, r.mechanisms.len(), fate),
         (34, 0, Fate::Closing)
@@ -137,7 +137,7 @@ fn a_second_token_after_a_login_is_34_whoever_it_names_and_changes_nobody() {
         b"\0alice\0nope",
         b"",
     ] {
-        let mut s = Session::Authenticated(Principal::user("alice"));
+        let mut s = Session::Authenticated(Principal::user("alice"), false);
         let (r, fate) = authenticate(&mut s, &authenticator(), &token(bytes)).unwrap();
         assert_eq!(
             (r.error_code, message(&r), fate),

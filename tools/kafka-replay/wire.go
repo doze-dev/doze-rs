@@ -209,3 +209,27 @@ func (w *wire) saslPlain(user, pass string) error {
 	}
 	return nil
 }
+
+// rawRoundTrip writes token as a size-prefixed frame with no Kafka header (a SASL token after a SaslHandshake v0)
+// and reads one size-prefixed frame back: the mechanism's raw reply. A broker that closes instead is io.EOF (or a
+// reset), which isClosed recognises.
+func (w *wire) rawRoundTrip(token []byte) ([]byte, error) {
+	w.conn.SetDeadline(time.Now().Add(10 * time.Second))
+	frame := binary.BigEndian.AppendUint32(nil, uint32(len(token)))
+	if _, err := w.conn.Write(append(frame, token...)); err != nil {
+		return nil, err
+	}
+	var size [4]byte
+	if _, err := io.ReadFull(w.conn, size[:]); err != nil {
+		return nil, err
+	}
+	n := binary.BigEndian.Uint32(size[:])
+	if n > 1<<20 {
+		return nil, fmt.Errorf("raw reply of %d bytes", n)
+	}
+	body := make([]byte, n)
+	if _, err := io.ReadFull(w.conn, body); err != nil {
+		return nil, err
+	}
+	return body, nil
+}

@@ -83,7 +83,7 @@ impl ApiVersion {
 #[cfg(feature = "broker")]
 impl Encodable for ApiVersion {
     fn encode<B: ByteBufMut>(&self, buf: &mut B, version: i16) -> Result<()> {
-        if version < 0 || version > 4 {
+        if version < 0 || version > 5 { // PATCH 6: v5 (KIP-1242)
             bail!("specified version not supported by this message type");
         }
         types::Int16.encode(buf, &self.api_key)?;
@@ -127,7 +127,7 @@ impl Encodable for ApiVersion {
 #[cfg(feature = "client")]
 impl Decodable for ApiVersion {
     fn decode<B: ByteBuf>(buf: &mut B, version: i16) -> Result<Self> {
-        if version < 0 || version > 4 {
+        if version < 0 || version > 5 { // PATCH 6: v5 (KIP-1242)
             bail!("specified version not supported by this message type");
         }
         let api_key = types::Int16.decode(buf)?;
@@ -164,7 +164,7 @@ impl Default for ApiVersion {
 }
 
 impl Message for ApiVersion {
-    const VERSIONS: VersionRange = VersionRange { min: 0, max: 4 };
+    const VERSIONS: VersionRange = VersionRange { min: 0, max: 5 } /* PATCH 6 */;
     const DEPRECATED_VERSIONS: Option<VersionRange> = None;
 }
 
@@ -290,7 +290,7 @@ impl ApiVersionsResponse {
 #[cfg(feature = "broker")]
 impl Encodable for ApiVersionsResponse {
     fn encode<B: ByteBufMut>(&self, buf: &mut B, version: i16) -> Result<()> {
-        if version < 0 || version > 4 {
+        if version < 0 || version > 5 { // PATCH 6: v5 (KIP-1242)
             bail!("specified version not supported by this message type");
         }
         types::Int16.encode(buf, &self.error_code)?;
@@ -473,7 +473,7 @@ impl Encodable for ApiVersionsResponse {
 #[cfg(feature = "client")]
 impl Decodable for ApiVersionsResponse {
     fn decode<B: ByteBuf>(buf: &mut B, version: i16) -> Result<Self> {
-        if version < 0 || version > 4 {
+        if version < 0 || version > 5 { // PATCH 6: v5 (KIP-1242)
             bail!("specified version not supported by this message type");
         }
         let error_code = types::Int16.decode(buf)?;
@@ -548,7 +548,7 @@ impl Default for ApiVersionsResponse {
 }
 
 impl Message for ApiVersionsResponse {
-    const VERSIONS: VersionRange = VersionRange { min: 0, max: 4 };
+    const VERSIONS: VersionRange = VersionRange { min: 0, max: 5 } /* PATCH 6 */;
     const DEPRECATED_VERSIONS: Option<VersionRange> = None;
 }
 
@@ -618,7 +618,7 @@ impl FinalizedFeatureKey {
 #[cfg(feature = "broker")]
 impl Encodable for FinalizedFeatureKey {
     fn encode<B: ByteBufMut>(&self, buf: &mut B, version: i16) -> Result<()> {
-        if version < 0 || version > 4 {
+        if version < 0 || version > 5 { // PATCH 6: v5 (KIP-1242)
             bail!("specified version not supported by this message type");
         }
         if version >= 3 {
@@ -698,7 +698,7 @@ impl Encodable for FinalizedFeatureKey {
 #[cfg(feature = "client")]
 impl Decodable for FinalizedFeatureKey {
     fn decode<B: ByteBuf>(buf: &mut B, version: i16) -> Result<Self> {
-        if version < 0 || version > 4 {
+        if version < 0 || version > 5 { // PATCH 6: v5 (KIP-1242)
             bail!("specified version not supported by this message type");
         }
         let name = if version >= 3 {
@@ -747,7 +747,7 @@ impl Default for FinalizedFeatureKey {
 }
 
 impl Message for FinalizedFeatureKey {
-    const VERSIONS: VersionRange = VersionRange { min: 0, max: 4 };
+    const VERSIONS: VersionRange = VersionRange { min: 0, max: 5 } /* PATCH 6 */;
     const DEPRECATED_VERSIONS: Option<VersionRange> = None;
 }
 
@@ -817,7 +817,7 @@ impl SupportedFeatureKey {
 #[cfg(feature = "broker")]
 impl Encodable for SupportedFeatureKey {
     fn encode<B: ByteBufMut>(&self, buf: &mut B, version: i16) -> Result<()> {
-        if version < 0 || version > 4 {
+        if version < 0 || version > 5 { // PATCH 6: v5 (KIP-1242)
             bail!("specified version not supported by this message type");
         }
         if version >= 3 {
@@ -897,7 +897,7 @@ impl Encodable for SupportedFeatureKey {
 #[cfg(feature = "client")]
 impl Decodable for SupportedFeatureKey {
     fn decode<B: ByteBuf>(buf: &mut B, version: i16) -> Result<Self> {
-        if version < 0 || version > 4 {
+        if version < 0 || version > 5 { // PATCH 6: v5 (KIP-1242)
             bail!("specified version not supported by this message type");
         }
         let name = if version >= 3 {
@@ -946,7 +946,7 @@ impl Default for SupportedFeatureKey {
 }
 
 impl Message for SupportedFeatureKey {
-    const VERSIONS: VersionRange = VersionRange { min: 0, max: 4 };
+    const VERSIONS: VersionRange = VersionRange { min: 0, max: 5 } /* PATCH 6 */;
     const DEPRECATED_VERSIONS: Option<VersionRange> = None;
 }
 

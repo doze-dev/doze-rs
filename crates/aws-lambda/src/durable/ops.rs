@@ -14,9 +14,10 @@ use crate::req::Req;
 /// The page size when `MaxItems` is 0 or absent (the model: "The default is 100").
 const PAGE: usize = 100;
 
-/// `ResourceNotFoundException` for an execution (memory: AWS's words are not recorded).
-fn no_execution(arn: &str) -> ApiError {
-    not_found(format!("Durable execution not found: {arn}"))
+/// `ResourceNotFoundException` for an execution. AWS does not name the ARN.
+// Recorded 2026-11-19.
+fn no_execution() -> ApiError {
+    not_found("Durable Execution does not exist")
 }
 
 /// A token that is not the execution's current one (memory: the checkpoint server says "Invalid checkpoint token").
@@ -24,12 +25,13 @@ fn bad_token() -> ApiError {
     invalid("Invalid checkpoint token")
 }
 
-/// The model's `CallbackTimeoutException` (its documentation's words).
+/// `CallbackTimeoutException` for a callback that timed out or is already answered (AWS's words, not the model documentation's).
+// Recorded 2026-11-19.
 fn callback_closed() -> ApiError {
     ApiError::new(
         400,
         "CallbackTimeoutException",
-        "The callback ID token has either expired or the callback associated with the token has already been closed.",
+        "The callback is either timed out or already completed",
     )
 }
 
@@ -56,7 +58,7 @@ impl Core {
         key_of(arn)
             .and_then(|k| self.durable.get(&k))
             .filter(|e| e.arn == arn)
-            .ok_or_else(|| no_execution(arn))
+            .ok_or_else(no_execution)
     }
 
     pub(crate) fn execution_mut(&mut self, arn: &str) -> Result<&mut Execution, ApiError> {
@@ -64,7 +66,7 @@ impl Core {
         key_of(arn)
             .and_then(|k| self.durable.get_mut(&k))
             .filter(|e| e.arn == arn)
-            .ok_or_else(|| no_execution(arn))
+            .ok_or_else(no_execution)
     }
 
     pub(crate) fn get_durable_execution(&self, r: &Req) -> Result<Out, ApiError> {
@@ -161,8 +163,14 @@ impl Core {
         let now = self.now_ms();
         let err = r.value("Error").map(Value::to_string);
         let e = self.execution_mut(r.text("DurableExecutionArn"))?;
+        // Recorded 2026-11-19: stopping a stopped execution again is answered with the time it stopped.
+        if e.status == "STOPPED"
+            && let Some(at) = e.end_ms
+        {
+            return Ok(json!({"StopTimestamp": secs(at)}).into());
+        }
         if closed(&e.status) {
-            // Memory: AWS's answer for an execution that already ended is not recorded.
+            // Memory: AWS's answer for an execution that succeeded or failed is not recorded.
             return Err(invalid(format!(
                 "The durable execution is not running: it is {}.",
                 e.status

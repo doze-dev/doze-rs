@@ -2,7 +2,7 @@
   "_recorded": {
     "boto3": "1.43.107",
     "botocore": "1.43.107",
-    "on": "2026-11-15",
+    "on": "2026-11-19",
     "region": "us-east-1",
     "target": "aws"
   },
@@ -745,5 +745,42 @@
         }
       ]
     }
+  },
+  "test_subscribe_to_shard": {
+    "absent-shard": {
+      "Error": {
+        "Code": "ResourceNotFoundException",
+        "Message": "Shard shardId-000000000099 in stream <name:stream> under account <account> does not exist"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "again-at-once": [
+      "EventStream"
+    ],
+    "continuation-is-a-sequence-number": {
+      "set": true
+    },
+    "pushed": [
+      {
+        "<bytes>": "before"
+      },
+      {
+        "<bytes>": "after"
+      }
+    ],
+    "sequence-number-missing": {
+      "Error": {
+        "Code": "InvalidArgumentException",
+        "Message": "Must either specify (1) AT_SEQUENCE_NUMBER or AFTER_SEQUENCE_NUMBER and StartingSequenceNumber or (2) TRIM_HORIZON or LATEST and no StartingSequenceNumber. Request specified AT_SEQUENCE_NUMBER and no StartingSequenceNumber."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "six-seconds-later": [
+      "EventStream"
+    ]
   }
 }

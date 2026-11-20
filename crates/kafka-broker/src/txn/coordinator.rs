@@ -45,12 +45,10 @@ impl<F: Fs> Broker<F> {
     pub(crate) async fn init_txn_producer(
         &self,
         id: &str,
-        timeout_ms: i32,
+        timeout: rules::Timeout,
         expected: Option<(i64, i16)>,
     ) -> Result<(i64, i16), E> {
-        if timeout_ms <= 0 || timeout_ms > rules::MOST_TIMEOUT_MS {
-            return Err(E::InvalidTransactionTimeout);
-        }
+        let timeout_ms = timeout.to_store()?;
         let mut e = self.txns.lock_or_create(id).await;
         rules::expected_is_current(&e.rec, expected)?;
         match e.rec.state {

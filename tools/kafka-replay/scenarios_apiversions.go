@@ -14,8 +14,10 @@ import (
 
 func init() {
 	Scenarios = append(Scenarios,
-		Scenario{Name: "apiversions-client-software", Run: apiVersionsClientSoftware},
-		Scenario{Name: "apiversions-unsupported-version", Run: apiVersionsUnsupportedVersion},
+		// Recorded against Kafka 4.4.0, which serves ApiVersions to v5 (KIP-1242), as the Kafka 4 profile does since
+		// 2026-11-19 (debt K1); 4.3.1 stopped at v4.
+		Scenario{Name: "apiversions-client-software", Run: apiVersionsClientSoftware, Image: "apache/kafka:4.4.0"},
+		Scenario{Name: "apiversions-unsupported-version", Run: apiVersionsUnsupportedVersion, Image: "apache/kafka:4.4.0"},
 	)
 }
 
@@ -107,6 +109,20 @@ func apiVersionsClientSoftware(e *Env) {
 	e.apiVersions("v3-version-ends-with-a-dash", 3, "my-app", "1.0-")
 	e.apiVersions("v4-name-with-a-space", 4, "my app", "1.0")
 
+	// v5 (KIP-1242): a client may name the cluster and node it means. Neither is served; another cluster is told to
+	// rebootstrap; a cluster with no node, or a node with no cluster, is not a valid request.
+	v5 := func(label string, cluster *string, node int32) {
+		req := kmsg.NewPtrApiVersionsRequest()
+		req.ClientSoftwareName, req.ClientSoftwareVersion = "my-app", "1.0"
+		req.ClusterID, req.NodeID = cluster, node
+		e.Do(label, apiVersionsAsk{ApiVersionsRequest: req}, 5)
+	}
+	other := "AAAAAAAAAAAAAAAAAAAAAA"
+	v5("v5-no-cluster-and-no-node", nil, -1)
+	v5("v5-another-cluster", &other, 1)
+	v5("v5-a-cluster-and-no-node", &other, -1)
+	v5("v5-a-node-and-no-cluster", nil, 1)
+
 	// The connection that was refused is the one these went over: it is still served.
 	e.apiVersions("v3-valid-after-the-refusals", 3, "my-app", "1.0")
 	md := kmsg.NewPtrMetadataRequest()
@@ -129,13 +145,13 @@ func apiVersionsUnsupportedVersion(e *Env) {
 		req.ClientSoftwareName, req.ClientSoftwareVersion = name, softwareVersion
 		e.Do(label, apiVersionsAsk{ApiVersionsRequest: req, v0: v0}, version)
 	}
-	ask("highest-served", 4, "my-app", "1.0", false)
-	ask("one-past-the-highest", 5, "my-app", "1.0", true)
+	ask("highest-served", 5, "my-app", "1.0", false)
+	ask("one-past-the-highest", 6, "my-app", "1.0", true)
 	ask("far-past-the-highest", 99, "my-app", "1.0", true)
 	ask("highest-a-version-can-be", 32767, "my-app", "1.0", true)
 	// The body of a version the broker does not know is not read: a name it would
 	// refuse at v3 changes nothing.
-	ask("past-the-highest-with-a-name-it-would-refuse", 5, "my app", "1.0", true)
+	ask("past-the-highest-with-a-name-it-would-refuse", 6, "my app", "1.0", true)
 	// And the connection is still served afterwards.
 	ask("served-again-after-them", 3, "my-app", "1.0", false)
 }

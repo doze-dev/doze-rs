@@ -11,6 +11,17 @@ use kafka_auth::authz::Subject;
 pub struct Caller {
     principal: Principal,
     host: String,
+    /// How the connection proved who it is: not at all (a listener without SASL, the console, a test), by a SASL login,
+    /// or by a SASL login with a delegation token.
+    login: Login,
+}
+
+/// How a connection proved its principal, which decides whether it may ask for delegation tokens.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Login {
+    None,
+    Sasl,
+    Token,
 }
 
 impl Caller {
@@ -21,7 +32,24 @@ impl Caller {
         Self {
             principal,
             host: peer.map_or_else(String::new, host_text),
+            login: Login::None,
         }
+    }
+
+    /// `principal`, connected from `peer`, who proved it with a SASL login: with a delegation token if `by_token`.
+    #[must_use]
+    pub fn logged_in(principal: Principal, peer: Option<IpAddr>, by_token: bool) -> Self {
+        Self {
+            login: if by_token { Login::Token } else { Login::Sasl },
+            ..Self::new(principal, peer)
+        }
+    }
+
+    /// Whether the caller may create, renew, expire or describe delegation tokens: only over a SASL login, and not one made
+    /// with a token (`KafkaApis.allowTokenRequests`: not a PLAINTEXT listener, not one-way SSL, not `tokenAuthenticated`).
+    #[must_use]
+    pub fn may_use_tokens(&self) -> bool {
+        self.login == Login::Sasl
     }
 
     /// A connection that never logged in: `User:ANONYMOUS`.
@@ -40,6 +68,20 @@ impl Caller {
     #[must_use]
     pub fn host(&self) -> &str {
         &self.host
+    }
+
+    /// The text of a CLUSTER_AUTHORIZATION_FAILED that Kafka's `authorizeClusterOperation` throws: `Request <the request>
+    /// needs <OPERATION> permission.` (SEC-404, recorded `authz-matrix`). Kafka writes its `RequestChannel.Request`
+    /// there (processor, connection id, a `Session` object's hash, the listener, the buffer), none of which a client can
+    /// read anything from; the request is written in the same shape with what this broker knows of it.
+    #[must_use]
+    pub fn cluster_denied(&self, operation: &str) -> String {
+        format!(
+            "Request Request(processor=0, connectionId={host}, session=Session({who},/{host}), \
+             listenerName=ListenerName(PLAINTEXT), buffer=null, envelope=None) needs {operation} permission.",
+            host = self.host,
+            who = self.principal.as_str(),
+        )
     }
 
     pub(crate) fn subject(&self) -> Subject<'_> {

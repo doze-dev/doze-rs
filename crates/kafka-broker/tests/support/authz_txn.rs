@@ -118,7 +118,7 @@ pub async fn txn_offset_commit(
     req.group_id = group_id(group);
     req.producer_id = ProducerId(t.producer);
     req.producer_epoch = t.epoch;
-    req.generation_id = -1;
+    req.generation_id_or_member_epoch = -1;
     req.topics = topics
         .iter()
         .map(|(n, ps)| {

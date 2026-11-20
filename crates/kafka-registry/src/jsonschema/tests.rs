@@ -308,3 +308,33 @@ fn numbers_compare_by_value_and_multiples_are_exact() {
     assert!(reasons(&num("0.3"), &num("0.1")).is_empty());
     assert_eq!(reasons(&num("0.1"), &num("0.3")), ["MULTIPLE_OF_EXPANDED"]);
 }
+
+/// Found by fuzz_json_schema: a limit with an exponent past the clamp, once stored (`2.060002E+888888888880744050`, as
+/// Java rewrites it), was read as a different number, so the schema could not read its own data.
+#[test]
+fn a_number_past_the_clamp_is_one_value_however_it_is_written() {
+    let d = |s: &str| Dec::parse(s).unwrap();
+    assert_eq!(
+        d("2060002E888888888880744044"),
+        d("2.060002E+888888888880744050")
+    );
+    assert_eq!(d("5E99999999999999999999"), d("50E99999999999999999998"));
+    assert!(d("-1E99999999999999999999") < d("1E-99999999999999999999"));
+    let items = r#"{ "minItems":2060002E888888888880744044}"#;
+    let stored = read(items).canonical(false);
+    assert!(reasons(items, &stored).is_empty(), "{stored}");
+}
+
+/// Found by fuzz_json_schema: an `enum` or `const` number written with an exponent (`-77e0`) is stored as Java writes it
+/// (`-77`), and the two were compared as text, so the schema could not read its own data.
+#[test]
+fn an_enum_number_is_the_same_value_once_stored() {
+    for text in [
+        r#"{"const":-77e0}"#,
+        r#"{"const":-7.7e1}"#,
+        r#"{"enum":[-77e0,"a",{"b":5E1}]}"#,
+    ] {
+        let stored = read(text).canonical(false);
+        assert!(reasons(text, &stored).is_empty(), "{text} -> {stored}");
+    }
+}

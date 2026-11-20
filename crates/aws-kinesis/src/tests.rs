@@ -11,6 +11,7 @@ use crate::Kinesis;
 use crate::core::Core;
 
 mod data;
+mod fanout;
 mod persistence;
 mod refusals;
 mod reshard;
@@ -97,7 +98,7 @@ impl World {
 }
 
 #[test]
-fn streaming_is_refused_by_name_and_resharding_is_built() {
+fn channels_are_refused_by_name_and_resharding_and_fan_out_are_built() {
     let w = World::new();
     for op in [
         "PutRecord",
@@ -109,12 +110,11 @@ fn streaming_is_refused_by_name_and_resharding_is_built() {
         "UpdateShardCount",
         "DescribeAccountSettings",
         "UpdateAccountSettings",
+        "SubscribeToShard",
     ] {
         assert!(w.h.serves(op), "{op} is built");
     }
-    for op in ["SubscribeToShard", "CreateChannel"] {
-        assert!(!w.h.serves(op), "{op} is refused");
-    }
+    assert!(!w.h.serves("CreateChannel"), "channels are refused");
 }
 
 pub(crate) fn temp() -> TempDir {

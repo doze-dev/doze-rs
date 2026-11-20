@@ -165,7 +165,10 @@ fn measure(limit: &Limit) -> Result<Measure, String> {
     if !status.success() {
         return Err("release build failed".to_string());
     }
-    let binary = Path::new("target").join(profile).join(format!(
+    // Where cargo put it: CARGO_TARGET_DIR when set (one target directory per agent), else the workspace's own.
+    let target = std::env::var_os("CARGO_TARGET_DIR")
+        .map_or_else(|| "target".into(), std::path::PathBuf::from);
+    let binary = target.join(profile).join(format!(
         "{}{}",
         binary_of(&limit.package),
         std::env::consts::EXE_SUFFIX

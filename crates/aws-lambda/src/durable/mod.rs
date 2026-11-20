@@ -7,8 +7,9 @@
 //! The references are the model (`models/lambda.json`: shapes, enums, limits, documentation), AWS's developer guide (qualified
 //! invokes, idempotent names, `DurableConfig`), and AWS's own local stand-in for the service, the checkpoint server in
 //! `@aws/durable-execution-sdk-js-testing` 1.3.2 (`dist/checkpoint-server`), whose checks say they were measured against the service:
-//! the status transitions, the validation messages, `UpdatedOperationIds`, the pruning of completed contexts' children. Nothing here
-//! is recorded yet; a message from that server is cited as such, one from neither source is marked `(memory)`.
+//! the status transitions, the validation messages, `UpdatedOperationIds`, the pruning of completed contexts' children. What the
+//! conformance recording of 2026-11-19 settled says `Recorded 2026-11-19`; a message from that server is cited as such, one from
+//! none of these sources is marked `(memory)`.
 //!
 //! The state is one record per execution in `lambda.redb` (`durable`). Timers (wait ends, retries, callback timeouts, the execution
 //! timeout, retention) are one [`doze_runtime::Deadlines`] task per region that sleeps until the soonest and is gone while nothing is

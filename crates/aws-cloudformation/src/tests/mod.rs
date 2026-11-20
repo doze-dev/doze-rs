@@ -9,6 +9,9 @@
 mod cdk;
 mod changes;
 mod data;
+mod drift;
+mod events_hooks;
+mod signals;
 mod stacks;
 mod templates;
 

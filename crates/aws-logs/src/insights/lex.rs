@@ -169,7 +169,7 @@ impl<'a> Lexer<'a> {
 
     /// A refusal at the current position.
     pub(crate) fn error(&self, what: &str) -> QueryError {
-        QueryError::at(self.src, self.pos, what)
+        QueryError::at(self.pos, what)
     }
 }
 

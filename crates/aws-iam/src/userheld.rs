@@ -7,8 +7,8 @@ use crate::held::CredKind;
 use crate::model::Kind;
 
 impl Core {
-    /// What must go before `user` can be deleted, in the words of AWS's refusal (memory: AWS's order and words, after the groups and
-    /// keys, which were recorded).
+    /// What must go before `user` can be deleted, in the words of AWS's refusal. Recorded 2026-11-19: the words for MFA devices,
+    /// signing certificates, SSH keys and service-specific credentials; the login profile's words and the order are from memory.
     pub(crate) fn user_still_has(&self, user: &str) -> Option<&'static str> {
         if self
             .entity(Kind::User, user)
@@ -17,7 +17,8 @@ impl Core {
             return Some("delete login profile");
         }
         if self.devices_of(user).next().is_some() {
-            return Some("delete MFA device");
+            // Recorded 2026-11-19.
+            return Some("remove tokens from principal");
         }
         let held = |want: fn(&CredKind) -> bool| {
             self.held
@@ -26,13 +27,16 @@ impl Core {
                 .any(|(_, c)| c.user == user && want(&c.kind))
         };
         if held(|k| matches!(k, CredKind::Signing { .. })) {
-            return Some("delete signing certificates");
+            // Recorded 2026-11-19.
+            return Some("delete certificates");
         }
         if held(|k| matches!(k, CredKind::Ssh { .. })) {
-            return Some("delete SSH public keys");
+            // Recorded 2026-11-19.
+            return Some("remove referenced objects");
         }
         if held(|k| matches!(k, CredKind::Service(_))) {
-            return Some("delete service specific credentials");
+            // Recorded 2026-11-19.
+            return Some("remove referenced objects");
         }
         None
     }

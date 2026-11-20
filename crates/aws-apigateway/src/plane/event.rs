@@ -149,6 +149,9 @@ pub(crate) struct Context {
     pub(crate) identity: Map<String, Value>,
     /// The key a Lambda authorizer named for usage plans (`usageIdentifierKey`), for an API whose key source is `AUTHORIZER`.
     pub(crate) usage_key: Option<String>,
+    /// The policy a Lambda authorizer returned (`TestInvokeAuthorizer` shows it).
+    pub(crate) policy: Option<Value>,
+    pub(crate) principal: Option<String>,
 }
 
 /// The payload-format 1.0 event (REST APIs; HTTP APIs with `PayloadFormatVersion: 1.0` add `version` and `routeKey`).

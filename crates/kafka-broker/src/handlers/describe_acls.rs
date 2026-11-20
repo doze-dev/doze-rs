@@ -44,6 +44,7 @@ impl<F: Fs> Broker<F> {
             Operation::Describe,
         ) {
             resp.error_code = ResponseError::ClusterAuthorizationFailed.code();
+            resp.error_message = Some(text(&caller.cluster_denied("DESCRIBE")));
             return Outcome::Respond(Response::DescribeAcls(resp));
         }
         if filter.validate().is_ok() {

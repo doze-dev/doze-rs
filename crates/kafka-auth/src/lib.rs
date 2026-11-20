@@ -15,6 +15,7 @@ pub mod hostguard;
 pub mod plain;
 pub mod principal;
 pub mod scram;
+pub mod tokens;
 pub mod users;
 
 pub use authenticator::{Authenticator, SetupError};

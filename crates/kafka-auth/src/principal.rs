@@ -18,6 +18,12 @@ impl Principal {
         Self(format!("User:{name}"))
     }
 
+    /// A principal of another type than `User`, written `kind:name` (a delegation token may be made for one).
+    #[must_use]
+    pub fn of_type(kind: &str, name: &str) -> Self {
+        Self(format!("{kind}:{name}"))
+    }
+
     /// The console's own principal, `User:__console`: a super user of the broker that holds it, and nobody else.
     #[must_use]
     pub fn console() -> Self {

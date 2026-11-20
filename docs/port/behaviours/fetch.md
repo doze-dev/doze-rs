@@ -77,7 +77,10 @@ Test: `tests/list_offsets::*`; `kafka-storage::log::tests::times::*` (against a 
 
 ### L2. Refusals
 UNKNOWN_TOPIC_OR_PARTITION; an isolation level that is neither 0 nor 1 is UNKNOWN_SERVER_ERROR; a leader epoch above 0
-is UNKNOWN_LEADER_EPOCH (a single node has only epoch 0); -3 before v7 and anything below -3 is UNSUPPORTED_VERSION.
+is UNKNOWN_LEADER_EPOCH (a single node has only epoch 0). A special time asked below the version that brought it (-3 v7,
+-4 v8, -5 v9, -6 v11) or one no version has (below -6) is UNSUPPORTED_VERSION, before the topic is looked for, as
+`ReplicaManager.fetchOffset` orders it. -4 is the log start; -5 and -6 are offset -1 at leader epoch -1, there being no
+tiered storage (wire.md W37).
 Test: `list_offsets_refuses_*`, `list_offsets_holds_the_isolation_level_and_the_leader_epoch_*`
 
 ### Known cost

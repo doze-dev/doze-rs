@@ -51,10 +51,16 @@ fn a_transformer_is_kept_tested_and_removed() {
         &json!({"logGroupIdentifier": "/t", "transformerConfig": config}),
     );
     let got = w.ok("GetTransformer", &json!({"logGroupIdentifier": "/t"}));
-    assert_eq!(got["transformerConfig"], config);
+    // Recorded 2026-11-19: the model's defaults shown, and the identifier as given.
     assert_eq!(
-        got["logGroupIdentifier"],
-        "arn:aws:logs:us-east-1:000000000000:log-group:/t"
+        got["transformerConfig"],
+        json!([{"parseJSON": {}}, {"addKeys": {"entries": [{"key": "env", "value": "dev", "overwriteIfExists": false}]}}])
+    );
+    assert_eq!(got["logGroupIdentifier"], "/t");
+    let arn = "arn:aws:logs:us-east-1:000000000000:log-group:/t";
+    assert_eq!(
+        w.ok("GetTransformer", &json!({"logGroupIdentifier": arn}))["logGroupIdentifier"],
+        arn
     );
     let tested = w.ok(
         "TestTransformer",
@@ -69,10 +75,10 @@ fn a_transformer_is_kept_tested_and_removed() {
     assert_eq!(out, json!({"a": 1, "env": "dev"}));
     assert_eq!(tested["transformedLogs"][0]["eventNumber"], 1);
     w.ok("DeleteTransformer", &json!({"logGroupIdentifier": "/t"}));
+    // Recorded 2026-11-19: an empty config, not a refusal.
     assert_eq!(
-        w.err("GetTransformer", &json!({"logGroupIdentifier": "/t"}))
-            .0,
-        "ResourceNotFoundException"
+        w.ok("GetTransformer", &json!({"logGroupIdentifier": "/t"})),
+        json!({"transformerConfig": []})
     );
     let (code, _) = w.err("PutTransformer", &json!({"logGroupIdentifier": "/t", "transformerConfig": [{"parseToOCSF": {"eventSource": "VPCFlow", "ocsfVersion": "V1.1"}}]}));
     assert_eq!(code, "InvalidParameterException");
@@ -107,12 +113,11 @@ fn an_index_policy_is_checked_kept_and_its_indexes_described() {
         "DescribeFieldIndexes",
         &json!({"logGroupIdentifiers": ["/i"], "indexCategories": ["CUSTOM"]}),
     );
+    // Recorded 2026-11-19: only the fields some event holds are listed (`status` is in none).
     let list = indexes["fieldIndexes"].as_array().unwrap();
-    assert_eq!(list.len(), 2);
+    assert_eq!(list.len(), 1);
     assert_eq!(list[0]["fieldIndexName"], "requestId");
     assert_eq!(list[0]["firstEventTime"], NOW);
-    assert_eq!(list[1]["type"], "FACET");
-    assert!(list[1].get("firstEventTime").is_none());
     for bad in [
         r#"{"Fields":[]}"#,
         r#"{"Fields":["a"],"FieldsV2":{"a":{"type":"FACET"}}}"#,
@@ -130,9 +135,11 @@ fn an_index_policy_is_checked_kept_and_its_indexes_described() {
     }
     w.ok("DeleteIndexPolicy", &json!({"logGroupIdentifier": "/i"}));
     assert_eq!(
-        w.err("DeleteIndexPolicy", &json!({"logGroupIdentifier": "/i"}))
-            .0,
-        "ResourceNotFoundException"
+        w.err("DeleteIndexPolicy", &json!({"logGroupIdentifier": "/i"})),
+        (
+            "ResourceNotFoundException".into(),
+            "Specified resource does not exist!".into()
+        )
     );
 }
 
@@ -200,15 +207,30 @@ fn a_scheduled_query_runs_when_due_and_keeps_its_history() {
     let got = w.ok("GetScheduledQuery", &json!({"identifier": arn}));
     assert_eq!(got["lastExecutionStatus"], "Complete");
     assert_eq!(got["scheduleType"], "CUSTOMER_MANAGED");
+    // Recorded 2026-11-19: an end offset not given is shown as 0.
+    assert_eq!(got["endTimeOffset"], 0);
     let listed = w.ok("ListScheduledQueries", &json!({"state": "ENABLED"}));
     assert_eq!(listed["scheduledQueries"][0]["name"], "every-minute");
-    assert_eq!(w.err("CreateScheduledQuery", &json!({"name": "every-minute", "queryLanguage": "CWLI", "queryString": "fields x", "scheduleExpression": "rate(1 minute)", "executionRoleArn": "r"})).0, "ConflictException");
+    assert_eq!(w.err("CreateScheduledQuery", &json!({"name": "every-minute", "queryLanguage": "CWLI", "queryString": "fields x", "logGroupIdentifiers": ["/s"], "startTimeOffset": 60, "scheduleExpression": "rate(1 minute)", "executionRoleArn": "r"})).0, "ConflictException");
+    // Recorded 2026-11-19: with no group named the query is refused (as one that does not name its own) before the name is looked at.
+    let (code, message) = w.err("CreateScheduledQuery", &json!({"name": "every-minute", "queryLanguage": "CWLI", "queryString": "fields x", "startTimeOffset": 60, "scheduleExpression": "rate(1 minute)", "executionRoleArn": "r"}));
+    assert_eq!(code, "ValidationException");
+    assert!(message.starts_with("Invalid syntax while using query definition snippets: unexpected symbol found fields at line 1 and position 0 (Service: AWSLogs; Status Code: 400; Error Code: MalformedQueryException;"), "{message}");
+    // Recorded 2026-11-19: the query is checked before StartTimeOffset.
+    let (_, message) = w.err("CreateScheduledQuery", &json!({"name": "every-minute", "queryLanguage": "CWLI", "queryString": "fields x", "scheduleExpression": "rate(1 minute)", "executionRoleArn": "r"}));
+    assert!(
+        message.starts_with("Invalid syntax while using query definition snippets:"),
+        "{message}"
+    );
     assert_eq!(w.err("CreateScheduledQuery", &json!({"name": "bad", "queryLanguage": "CWLI", "queryString": "fields x", "scheduleExpression": "every minute", "executionRoleArn": "r"})).0, "ValidationException");
-    w.ok("UpdateScheduledQuery", &json!({"identifier": "every-minute", "queryLanguage": "CWLI", "queryString": "fields x", "scheduleExpression": "rate(5 minutes)", "executionRoleArn": "r", "state": "DISABLED"}));
+    w.ok("UpdateScheduledQuery", &json!({"identifier": "every-minute", "queryLanguage": "CWLI", "queryString": "fields x", "logGroupIdentifiers": ["/s"], "scheduleExpression": "rate(5 minutes)", "executionRoleArn": "r", "startTimeOffset": 300, "state": "DISABLED"}));
     assert_eq!(w.core.next_due(), None);
     w.ok("DeleteScheduledQuery", &json!({"identifier": arn}));
     assert_eq!(
-        w.err("GetScheduledQuery", &json!({"identifier": arn})).0,
-        "ResourceNotFoundException"
+        w.err("GetScheduledQuery", &json!({"identifier": "every-minute"})),
+        (
+            "ResourceNotFoundException".into(),
+            "Scheduled query with identifier every-minute not found".into()
+        )
     );
 }

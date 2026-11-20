@@ -86,14 +86,22 @@ pub(super) fn commit_request(r: &TxnOffsetCommitRequest, f: &mut Facts) {
     f.group(&r.group_id.0);
     f.producer = Some((r.producer_id.0, r.producer_epoch));
     for t in &r.topics {
-        f.topic(&t.name.0, t.partitions.iter().map(|p| p.partition_index));
+        f.topic(
+            &super::produce::named(&t.name.0, t.topic_id),
+            t.partitions.iter().map(|p| p.partition_index),
+        );
     }
 }
 
 pub(super) fn commit_response(r: &TxnOffsetCommitResponse, f: &mut Facts) {
     for t in &r.topics {
         for p in &t.partitions {
-            f.result(&t.name.0, p.partition_index, p.error_code, None);
+            f.result(
+                &super::produce::named(&t.name.0, t.topic_id),
+                p.partition_index,
+                p.error_code,
+                None,
+            );
         }
     }
 }

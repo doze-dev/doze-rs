@@ -39,9 +39,13 @@ async fn init_producer_id_with_a_transactional_id_needs_write_on_it() {
 
 #[tokio::test]
 async fn a_two_phase_commit_needs_that_right_on_the_id_as_well() {
-    // KA:1610-1614. (The field is a version 6 one, which the broker does not serve; the handler is asked as if.)
+    // KA:1610-1614. Enable2Pc is a version 6 field (served with the unstable versions), and the broker setting
+    // (`transaction.two.phase.commit.enable`) is asked after the rights: on here, so that only the rights decide (SEC-336).
     use kafka_wire::api::{Request, Response};
-    let rig = world();
+    let rig = support::rig_with(|c| {
+        gx::closed(c);
+        c.transaction_two_phase_commit = true;
+    });
     grant(
         &rig,
         vec![
@@ -64,7 +68,7 @@ async fn a_two_phase_commit_needs_that_right_on_the_id_as_well() {
             req.transaction_timeout_ms = 60_000;
             req.enable_2_pc = true;
             let Response::InitProducerId(r) =
-                rig.ask_as(&who, 4, Request::InitProducerId(req)).await
+                rig.ask_as(&who, 6, Request::InitProducerId(req)).await
             else {
                 panic!("not InitProducerId")
             };
