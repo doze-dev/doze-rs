@@ -7,8 +7,8 @@ use super::run::{self, MOST_COUNTED, PAGES_COUNTED};
 use super::{Column, Descriptor, Format, InputKind, Kind, catalog};
 use crate::facts::Facts;
 use crate::model::{
-    CallRecord, ColumnSpec, DeleteSpec, FormInput, KindCount, ResourceDetail, ResourceList,
-    ResourceService, ResourcesIndex,
+    CallRecord, ColumnSpec, CreateSpec, DeleteSpec, FormInput, KindCount, ResourceDetail,
+    ResourceList, ResourceService, ResourcesIndex,
 };
 use crate::ring::Recorder;
 
@@ -42,33 +42,35 @@ pub fn columns(columns: &[Column]) -> Vec<ColumnSpec> {
         .collect()
 }
 
-fn create_form(kind: &Kind) -> Option<Vec<FormInput>> {
+fn create_form(kind: &Kind) -> Option<CreateSpec> {
     let create = kind.create.as_ref()?;
-    Some(
-        create
-            .inputs
-            .iter()
-            .map(|i| {
-                let (input, options) = match i.kind {
-                    InputKind::Text => ("text", &[][..]),
-                    InputKind::Number => ("number", &[][..]),
-                    InputKind::Textarea => ("textarea", &[][..]),
-                    InputKind::Select(o) => ("select", o),
-                    InputKind::Toggle => ("toggle", &[][..]),
-                };
-                FormInput {
-                    key: i.key.to_owned(),
-                    label: i.label.to_owned(),
-                    help: i.help.to_owned(),
-                    input: input.to_owned(),
-                    required: i.required,
-                    placeholder: i.placeholder.to_owned(),
-                    value: i.value.to_owned(),
-                    options: options.iter().map(|o| (*o).to_owned()).collect(),
-                }
-            })
-            .collect(),
-    )
+    let inputs = create
+        .inputs
+        .iter()
+        .map(|i| {
+            let (input, options) = match i.kind {
+                InputKind::Text => ("text", &[][..]),
+                InputKind::Number => ("number", &[][..]),
+                InputKind::Textarea => ("textarea", &[][..]),
+                InputKind::Select(o) => ("select", o),
+                InputKind::Toggle => ("toggle", &[][..]),
+            };
+            FormInput {
+                key: i.key.to_owned(),
+                label: i.label.to_owned(),
+                help: i.help.to_owned(),
+                input: input.to_owned(),
+                required: i.required,
+                placeholder: i.placeholder.to_owned(),
+                value: i.value.to_owned(),
+                options: options.iter().map(|o| (*o).to_owned()).collect(),
+            }
+        })
+        .collect();
+    Some(CreateSpec {
+        operations: create.steps.iter().map(|s| s.op.to_owned()).collect(),
+        inputs,
+    })
 }
 
 /// What deleting one of `kind` does.
@@ -96,8 +98,9 @@ pub fn served(facts: &Facts, service: &str) -> bool {
     facts.services.iter().any(|s| s.name == service && s.served)
 }
 
-/// The index: every service of the build, each described kind counted by listing it (a served service only).
-pub async fn index(bus: &Bus, facts: &Facts) -> ResourcesIndex {
+/// The index: every service of the build, each described kind counted by listing it (a served service only, and only when
+/// `counted`).
+pub async fn index(bus: &Bus, facts: &Facts, counted: bool) -> ResourcesIndex {
     let mut services = Vec::new();
     for entry in catalog::ALL {
         let Some(svc) = facts.services.iter().find(|s| s.name == entry.service) else {
@@ -115,7 +118,7 @@ pub async fn index(bus: &Bus, facts: &Facts) -> ResourcesIndex {
                 names: Vec::new(),
                 error: None,
             };
-            if let (true, Some(d)) = (svc.served, entry.descriptor) {
+            if let (true, true, Some(d)) = (counted, svc.served, entry.descriptor) {
                 count(bus, d, kind, &mut k).await;
             }
             kinds.push(k);

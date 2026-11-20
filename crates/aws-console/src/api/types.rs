@@ -14,9 +14,9 @@ use crate::model::{
     FlowsResponse, Outcome, RingFill, ServiceName, ServiceRow, ServicesResponse, TailReady,
 };
 use crate::model::{
-    ColumnSpec, Created, DeleteSpec, Deleted, FieldValue, FormInput, KindCount, ResourceDetail,
-    ResourceLink, ResourceList, ResourceRow, ResourceService, ResourcesIndex, Revealed, SubList,
-    ValueFormat,
+    ColumnSpec, CreateSpec, Created, DeleteSpec, Deleted, FieldValue, FormInput, KindCount,
+    ResourceDetail, ResourceLink, ResourceList, ResourceRow, ResourceService, ResourcesIndex,
+    Revealed, SubList, ValueFormat,
 };
 
 fn dir() -> PathBuf {
@@ -61,6 +61,7 @@ fn all() -> BTreeMap<String, String> {
     one::<ResourceRow>(&cfg, &mut out);
     one::<ResourceLink>(&cfg, &mut out);
     one::<FormInput>(&cfg, &mut out);
+    one::<CreateSpec>(&cfg, &mut out);
     one::<DeleteSpec>(&cfg, &mut out);
     one::<ResourceList>(&cfg, &mut out);
     one::<FieldValue>(&cfg, &mut out);

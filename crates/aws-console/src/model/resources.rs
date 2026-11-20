@@ -114,6 +114,15 @@ pub struct FormInput {
     pub options: Vec<String>,
 }
 
+/// How one is created: the operations called and the form.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
+pub struct CreateSpec {
+    /// `CreateQueue`.
+    pub operations: Vec<String>,
+    pub inputs: Vec<FormInput>,
+}
+
 /// What deleting one does, said before it is done.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[cfg_attr(test, derive(ts_rs::TS))]
@@ -142,8 +151,8 @@ pub struct ResourceList {
     pub rows: Vec<ResourceRow>,
     /// The token of the next page; `null` on the last.
     pub next: Option<String>,
-    /// The form of a create, when the console can create one.
-    pub create: Option<Vec<FormInput>>,
+    /// How one is created, when the console can create one.
+    pub create: Option<CreateSpec>,
     pub delete: Option<DeleteSpec>,
 }
 

@@ -1,7 +1,7 @@
 //! The Resources space's API: each answer made by a descriptor's calls through the peer bus, as the caller `console`, when it
 //! is asked (nothing is polled or kept).
 //!
-//! - `GET /api/v1/resources`: every service, its kinds, how many of each (and their names, for the palette).
+//! - `GET /api/v1/resources[?counts=no]`: every service, its kinds, how many of each (and their names, for the palette).
 //! - `GET /api/v1/resources/<service>/<kind>[?token=]`: a page of a kind.
 //! - `POST /api/v1/resources/<service>/<kind>`: create one from the form's values (a JSON object).
 //! - `GET /api/v1/resources/<service>/<kind>/<name>`: one, with its lists and its recent calls.
@@ -75,10 +75,12 @@ fn refused(e: &aws_wire::ApiError) -> Response {
     error(status, &e.code, &e.message)
 }
 
-/// `GET /api/v1/resources`.
-pub async fn index(State(s): State<Shared>) -> Response {
+/// `GET /api/v1/resources[?counts=no]`: with `counts=no`, the services and kinds alone, with no call made (what the pages need
+/// to know which kinds there are).
+pub async fn index(State(s): State<Shared>, RawQuery(query): RawQuery) -> Response {
+    let counted = param(query.as_deref(), "counts") != Some("no");
     match bus(&s) {
-        Ok(bus) => json(StatusCode::OK, &view::index(&bus, &s.facts).await),
+        Ok(bus) => json(StatusCode::OK, &view::index(&bus, &s.facts, counted).await),
         Err(res) => *res,
     }
 }
