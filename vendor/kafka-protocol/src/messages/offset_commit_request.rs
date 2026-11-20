@@ -17,23 +17,23 @@ use crate::protocol::{
     Encodable, Encoder, HeaderVersion, Message, StrBytes, VersionRange,
 };
 
-/// Valid versions: 2-10
+/// Valid versions: 0-10
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq)]
 pub struct OffsetCommitRequest {
     /// The unique group identifier.
     ///
-    /// Supported API versions: 2-10
+    /// Supported API versions: 0-10
     pub group_id: super::GroupId,
 
     /// The generation of the group if using the classic group protocol or the member epoch if using the consumer protocol.
     ///
-    /// Supported API versions: 2-10
+    /// Supported API versions: 1-10
     pub generation_id_or_member_epoch: i32,
 
     /// The member ID assigned by the group coordinator.
     ///
-    /// Supported API versions: 2-10
+    /// Supported API versions: 1-10
     pub member_id: StrBytes,
 
     /// The unique identifier of the consumer instance provided by end user.
@@ -48,7 +48,7 @@ pub struct OffsetCommitRequest {
 
     /// The topics to commit offsets for.
     ///
-    /// Supported API versions: 2-10
+    /// Supported API versions: 0-10
     pub topics: Vec<OffsetCommitRequestTopic>,
 
     /// Other tagged fields
@@ -60,7 +60,7 @@ impl OffsetCommitRequest {
     ///
     /// The unique group identifier.
     ///
-    /// Supported API versions: 2-10
+    /// Supported API versions: 0-10
     pub fn with_group_id(mut self, value: super::GroupId) -> Self {
         self.group_id = value;
         self
@@ -69,7 +69,7 @@ impl OffsetCommitRequest {
     ///
     /// The generation of the group if using the classic group protocol or the member epoch if using the consumer protocol.
     ///
-    /// Supported API versions: 2-10
+    /// Supported API versions: 1-10
     pub fn with_generation_id_or_member_epoch(mut self, value: i32) -> Self {
         self.generation_id_or_member_epoch = value;
         self
@@ -78,7 +78,7 @@ impl OffsetCommitRequest {
     ///
     /// The member ID assigned by the group coordinator.
     ///
-    /// Supported API versions: 2-10
+    /// Supported API versions: 1-10
     pub fn with_member_id(mut self, value: StrBytes) -> Self {
         self.member_id = value;
         self
@@ -105,7 +105,7 @@ impl OffsetCommitRequest {
     ///
     /// The topics to commit offsets for.
     ///
-    /// Supported API versions: 2-10
+    /// Supported API versions: 0-10
     pub fn with_topics(mut self, value: Vec<OffsetCommitRequestTopic>) -> Self {
         self.topics = value;
         self
@@ -125,7 +125,7 @@ impl OffsetCommitRequest {
 #[cfg(feature = "client")]
 impl Encodable for OffsetCommitRequest {
     fn encode<B: ByteBufMut>(&self, buf: &mut B, version: i16) -> Result<()> {
-        if version < 2 || version > 10 {
+        if version < 0 || version > 10 {
             bail!("specified version not supported by this message type");
         }
         if version >= 8 {
@@ -133,11 +133,15 @@ impl Encodable for OffsetCommitRequest {
         } else {
             types::String.encode(buf, &self.group_id)?;
         }
-        types::Int32.encode(buf, &self.generation_id_or_member_epoch)?;
-        if version >= 8 {
-            types::CompactString.encode(buf, &self.member_id)?;
-        } else {
-            types::String.encode(buf, &self.member_id)?;
+        if version >= 1 {
+            types::Int32.encode(buf, &self.generation_id_or_member_epoch)?;
+        }
+        if version >= 1 {
+            if version >= 8 {
+                types::CompactString.encode(buf, &self.member_id)?;
+            } else {
+                types::String.encode(buf, &self.member_id)?;
+            }
         }
         if version >= 7 {
             if version >= 8 {
@@ -150,7 +154,7 @@ impl Encodable for OffsetCommitRequest {
                 bail!("A field is set that is not available on the selected protocol version");
             }
         }
-        if version <= 4 {
+        if version >= 2 && version <= 4 {
             types::Int64.encode(buf, &self.retention_time_ms)?;
         }
         if version >= 8 {
@@ -179,11 +183,15 @@ impl Encodable for OffsetCommitRequest {
         } else {
             total_size += types::String.compute_size(&self.group_id)?;
         }
-        total_size += types::Int32.compute_size(&self.generation_id_or_member_epoch)?;
-        if version >= 8 {
-            total_size += types::CompactString.compute_size(&self.member_id)?;
-        } else {
-            total_size += types::String.compute_size(&self.member_id)?;
+        if version >= 1 {
+            total_size += types::Int32.compute_size(&self.generation_id_or_member_epoch)?;
+        }
+        if version >= 1 {
+            if version >= 8 {
+                total_size += types::CompactString.compute_size(&self.member_id)?;
+            } else {
+                total_size += types::String.compute_size(&self.member_id)?;
+            }
         }
         if version >= 7 {
             if version >= 8 {
@@ -196,7 +204,7 @@ impl Encodable for OffsetCommitRequest {
                 bail!("A field is set that is not available on the selected protocol version");
             }
         }
-        if version <= 4 {
+        if version >= 2 && version <= 4 {
             total_size += types::Int64.compute_size(&self.retention_time_ms)?;
         }
         if version >= 8 {
@@ -224,7 +232,7 @@ impl Encodable for OffsetCommitRequest {
 #[cfg(feature = "broker")]
 impl Decodable for OffsetCommitRequest {
     fn decode<B: ByteBuf>(buf: &mut B, version: i16) -> Result<Self> {
-        if version < 2 || version > 10 {
+        if version < 0 || version > 10 {
             bail!("specified version not supported by this message type");
         }
         let group_id = if version >= 8 {
@@ -232,11 +240,19 @@ impl Decodable for OffsetCommitRequest {
         } else {
             types::String.decode(buf)?
         };
-        let generation_id_or_member_epoch = types::Int32.decode(buf)?;
-        let member_id = if version >= 8 {
-            types::CompactString.decode(buf)?
+        let generation_id_or_member_epoch = if version >= 1 {
+            types::Int32.decode(buf)?
         } else {
-            types::String.decode(buf)?
+            -1
+        };
+        let member_id = if version >= 1 {
+            if version >= 8 {
+                types::CompactString.decode(buf)?
+            } else {
+                types::String.decode(buf)?
+            }
+        } else {
+            Default::default()
         };
         let group_instance_id = if version >= 7 {
             if version >= 8 {
@@ -247,7 +263,7 @@ impl Decodable for OffsetCommitRequest {
         } else {
             None
         };
-        let retention_time_ms = if version <= 4 {
+        let retention_time_ms = if version >= 2 && version <= 4 {
             types::Int64.decode(buf)?
         } else {
             -1
@@ -294,22 +310,22 @@ impl Default for OffsetCommitRequest {
 }
 
 impl Message for OffsetCommitRequest {
-    const VERSIONS: VersionRange = VersionRange { min: 2, max: 10 };
+    const VERSIONS: VersionRange = VersionRange { min: 0, max: 10 };
     const DEPRECATED_VERSIONS: Option<VersionRange> = None;
 }
 
-/// Valid versions: 2-10
+/// Valid versions: 0-10
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq)]
 pub struct OffsetCommitRequestPartition {
     /// The partition index.
     ///
-    /// Supported API versions: 2-10
+    /// Supported API versions: 0-10
     pub partition_index: i32,
 
     /// The message offset to be committed.
     ///
-    /// Supported API versions: 2-10
+    /// Supported API versions: 0-10
     pub committed_offset: i64,
 
     /// The leader epoch of this partition.
@@ -317,9 +333,14 @@ pub struct OffsetCommitRequestPartition {
     /// Supported API versions: 6-10
     pub committed_leader_epoch: i32,
 
+    /// The timestamp of the commit.
+    ///
+    /// Supported API versions: 1
+    pub commit_timestamp: i64,
+
     /// Any associated metadata the client wants to keep.
     ///
-    /// Supported API versions: 2-10
+    /// Supported API versions: 0-10
     pub committed_metadata: Option<StrBytes>,
 
     /// Other tagged fields
@@ -331,7 +352,7 @@ impl OffsetCommitRequestPartition {
     ///
     /// The partition index.
     ///
-    /// Supported API versions: 2-10
+    /// Supported API versions: 0-10
     pub fn with_partition_index(mut self, value: i32) -> Self {
         self.partition_index = value;
         self
@@ -340,7 +361,7 @@ impl OffsetCommitRequestPartition {
     ///
     /// The message offset to be committed.
     ///
-    /// Supported API versions: 2-10
+    /// Supported API versions: 0-10
     pub fn with_committed_offset(mut self, value: i64) -> Self {
         self.committed_offset = value;
         self
@@ -354,11 +375,20 @@ impl OffsetCommitRequestPartition {
         self.committed_leader_epoch = value;
         self
     }
+    /// Sets `commit_timestamp` to the passed value.
+    ///
+    /// The timestamp of the commit.
+    ///
+    /// Supported API versions: 1
+    pub fn with_commit_timestamp(mut self, value: i64) -> Self {
+        self.commit_timestamp = value;
+        self
+    }
     /// Sets `committed_metadata` to the passed value.
     ///
     /// Any associated metadata the client wants to keep.
     ///
-    /// Supported API versions: 2-10
+    /// Supported API versions: 0-10
     pub fn with_committed_metadata(mut self, value: Option<StrBytes>) -> Self {
         self.committed_metadata = value;
         self
@@ -378,13 +408,20 @@ impl OffsetCommitRequestPartition {
 #[cfg(feature = "client")]
 impl Encodable for OffsetCommitRequestPartition {
     fn encode<B: ByteBufMut>(&self, buf: &mut B, version: i16) -> Result<()> {
-        if version < 2 || version > 10 {
+        if version < 0 || version > 10 {
             bail!("specified version not supported by this message type");
         }
         types::Int32.encode(buf, &self.partition_index)?;
         types::Int64.encode(buf, &self.committed_offset)?;
         if version >= 6 {
             types::Int32.encode(buf, &self.committed_leader_epoch)?;
+        }
+        if version == 1 {
+            types::Int64.encode(buf, &self.commit_timestamp)?;
+        } else {
+            if self.commit_timestamp != -1 {
+                bail!("A field is set that is not available on the selected protocol version");
+            }
         }
         if version >= 8 {
             types::CompactString.encode(buf, &self.committed_metadata)?;
@@ -412,6 +449,13 @@ impl Encodable for OffsetCommitRequestPartition {
         if version >= 6 {
             total_size += types::Int32.compute_size(&self.committed_leader_epoch)?;
         }
+        if version == 1 {
+            total_size += types::Int64.compute_size(&self.commit_timestamp)?;
+        } else {
+            if self.commit_timestamp != -1 {
+                bail!("A field is set that is not available on the selected protocol version");
+            }
+        }
         if version >= 8 {
             total_size += types::CompactString.compute_size(&self.committed_metadata)?;
         } else {
@@ -436,13 +480,18 @@ impl Encodable for OffsetCommitRequestPartition {
 #[cfg(feature = "broker")]
 impl Decodable for OffsetCommitRequestPartition {
     fn decode<B: ByteBuf>(buf: &mut B, version: i16) -> Result<Self> {
-        if version < 2 || version > 10 {
+        if version < 0 || version > 10 {
             bail!("specified version not supported by this message type");
         }
         let partition_index = types::Int32.decode(buf)?;
         let committed_offset = types::Int64.decode(buf)?;
         let committed_leader_epoch = if version >= 6 {
             types::Int32.decode(buf)?
+        } else {
+            -1
+        };
+        let commit_timestamp = if version == 1 {
+            types::Int64.decode(buf)?
         } else {
             -1
         };
@@ -465,6 +514,7 @@ impl Decodable for OffsetCommitRequestPartition {
             partition_index,
             committed_offset,
             committed_leader_epoch,
+            commit_timestamp,
             committed_metadata,
             unknown_tagged_fields,
         })
@@ -477,6 +527,7 @@ impl Default for OffsetCommitRequestPartition {
             partition_index: 0,
             committed_offset: 0,
             committed_leader_epoch: -1,
+            commit_timestamp: -1,
             committed_metadata: Some(Default::default()),
             unknown_tagged_fields: BTreeMap::new(),
         }
@@ -484,17 +535,17 @@ impl Default for OffsetCommitRequestPartition {
 }
 
 impl Message for OffsetCommitRequestPartition {
-    const VERSIONS: VersionRange = VersionRange { min: 2, max: 10 };
+    const VERSIONS: VersionRange = VersionRange { min: 0, max: 10 };
     const DEPRECATED_VERSIONS: Option<VersionRange> = None;
 }
 
-/// Valid versions: 2-10
+/// Valid versions: 0-10
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq)]
 pub struct OffsetCommitRequestTopic {
     /// The topic name.
     ///
-    /// Supported API versions: 2-9
+    /// Supported API versions: 0-9
     pub name: super::TopicName,
 
     /// The topic ID.
@@ -504,7 +555,7 @@ pub struct OffsetCommitRequestTopic {
 
     /// Each partition to commit offsets for.
     ///
-    /// Supported API versions: 2-10
+    /// Supported API versions: 0-10
     pub partitions: Vec<OffsetCommitRequestPartition>,
 
     /// Other tagged fields
@@ -516,7 +567,7 @@ impl OffsetCommitRequestTopic {
     ///
     /// The topic name.
     ///
-    /// Supported API versions: 2-9
+    /// Supported API versions: 0-9
     pub fn with_name(mut self, value: super::TopicName) -> Self {
         self.name = value;
         self
@@ -534,7 +585,7 @@ impl OffsetCommitRequestTopic {
     ///
     /// Each partition to commit offsets for.
     ///
-    /// Supported API versions: 2-10
+    /// Supported API versions: 0-10
     pub fn with_partitions(mut self, value: Vec<OffsetCommitRequestPartition>) -> Self {
         self.partitions = value;
         self
@@ -554,7 +605,7 @@ impl OffsetCommitRequestTopic {
 #[cfg(feature = "client")]
 impl Encodable for OffsetCommitRequestTopic {
     fn encode<B: ByteBufMut>(&self, buf: &mut B, version: i16) -> Result<()> {
-        if version < 2 || version > 10 {
+        if version < 0 || version > 10 {
             bail!("specified version not supported by this message type");
         }
         if version <= 9 {
@@ -623,7 +674,7 @@ impl Encodable for OffsetCommitRequestTopic {
 #[cfg(feature = "broker")]
 impl Decodable for OffsetCommitRequestTopic {
     fn decode<B: ByteBuf>(buf: &mut B, version: i16) -> Result<Self> {
-        if version < 2 || version > 10 {
+        if version < 0 || version > 10 {
             bail!("specified version not supported by this message type");
         }
         let name = if version <= 9 {
@@ -676,7 +727,7 @@ impl Default for OffsetCommitRequestTopic {
 }
 
 impl Message for OffsetCommitRequestTopic {
-    const VERSIONS: VersionRange = VersionRange { min: 2, max: 10 };
+    const VERSIONS: VersionRange = VersionRange { min: 0, max: 10 };
     const DEPRECATED_VERSIONS: Option<VersionRange> = None;
 }
 

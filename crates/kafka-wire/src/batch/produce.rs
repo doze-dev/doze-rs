@@ -191,6 +191,19 @@ impl Batch {
         }
     }
 
+    /// Whether `records` are one whole v2 batch and nothing whole after it: what Kafka 1.1 holds a Produce v3 request's
+    /// records to as it reads the request (`ProduceRequest.validateRecords`), from the headers alone.
+    #[must_use]
+    pub fn is_one_v2_batch(records: &Bytes) -> bool {
+        match first(records) {
+            Ok(Some((batch, rest))) => {
+                batch.get(16).copied().map(|b| b as i8) == Some(MAGIC_V2)
+                    && matches!(first(&rest), Ok(None))
+            }
+            _ => false,
+        }
+    }
+
     /// Whether a partition's first batch is transactional, which the request layer asks of every
     /// partition before it handles any: Kafka fails the whole request on a first batch it cannot tell apart.
     ///

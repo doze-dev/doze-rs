@@ -22,7 +22,7 @@ fn only_kafka_4_offers_the_second_part_of_kip_890() {
     assert_eq!(max(3, ApiKey::EndTxn), Some(4));
     assert_eq!(max(3, ApiKey::TxnOffsetCommit), Some(4));
     assert_eq!(max(3, ApiKey::AddPartitionsToTxn), Some(5));
-    assert_eq!(max(2, ApiKey::EndTxn), Some(1));
+    assert_eq!(max(2, ApiKey::EndTxn), Some(3));
     assert_eq!(profile(4).transaction_version(), 2);
     for major in 1..=3 {
         assert_eq!(profile(major).transaction_version(), 0, "Kafka {major}");
@@ -93,14 +93,41 @@ fn only_kafka_4_offers_streams_groups_at_kafka_4_4_versions() {
     assert_eq!(profile(3).streams_version(), 0);
 }
 
+/// Kafka 3.9 lists the consumer group APIs (v0) and does not run consumer-protocol groups as installed; Kafka 4 runs them.
+/// Each older profile starts Produce and Fetch at v0 (message formats v0 and v1, converted); Kafka 4 lists Produce from v0
+/// and reads it from v3, as 4.4.0 does.
 #[test]
 fn each_major_offers_what_it_should() {
     assert!(!profile(1).offers_consumer_groups() && !profile(3).offers_consumer_groups());
     assert!(profile(4).offers_consumer_groups());
+    assert_eq!(
+        profile(3).range(ApiKey::ConsumerGroupHeartbeat),
+        Some((0, 0))
+    );
     assert_eq!(profile(1).range(ApiKey::DescribeCluster), None);
-    assert!(profile(3).range(ApiKey::DescribeCluster).is_some());
+    assert_eq!(profile(2).range(ApiKey::DescribeCluster), Some((0, 0)));
     assert_eq!(profile(4).range(ApiKey::Fetch), Some((4, 18)));
-    assert_eq!(profile(1).range(ApiKey::Produce), Some((3, 5)));
+    assert_eq!(profile(1).range(ApiKey::Produce), Some((0, 5)));
+    assert_eq!(profile(1).range(ApiKey::Fetch), Some((0, 7)));
+    assert_eq!(profile(4).range(ApiKey::Produce), Some((0, 13)));
+    let f = Features::default();
+    for v in 0..=2 {
+        assert!(
+            profile(4).check(ApiKey::Produce, v, f).is_err(),
+            "Produce v{v} at Kafka 4"
+        );
+        assert!(
+            profile(3).check(ApiKey::Produce, v, f).is_ok(),
+            "Produce v{v} at Kafka 3"
+        );
+    }
+    assert!(profile(4).check(ApiKey::Produce, 3, f).is_ok());
+    assert_eq!(
+        KafkaMajor::RANGE
+            .map(|m| KafkaMajor::new(m).unwrap().release())
+            .collect::<Vec<_>>(),
+        ["1.1", "2.8", "3.9", "4.4"]
+    );
 }
 
 /// InitProducerId v6 (KIP-939, two-phase commit) is `latestVersionUnstable` in Kafka 4.4.0's spec: a broker with the

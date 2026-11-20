@@ -92,6 +92,12 @@ public class Interop {
         }
         // ApiVersions is answered before any login, as in Kafka, so it is asked over a bare socket (TLS when the run is -tls).
         offered = askOffered(broker, tlsCA.isEmpty() ? null : tlsCA);
+        if (kafkaMajor == 3) {
+            // Kafka 3.9 lists ConsumerGroupHeartbeat and ConsumerGroupDescribe and, as installed, answers both
+            // UNSUPPORTED_VERSION (classic groups only): offered only where they run.
+            offered.remove(CONSUMER_GROUP_HEARTBEAT);
+            offered.remove(CONSUMER_GROUP_DESCRIBE);
+        }
         StringBuilder adv = new StringBuilder();
         for (var e : offered.entrySet()) {
             ApiKeys k = apiKey(e.getKey());

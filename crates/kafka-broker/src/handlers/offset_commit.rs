@@ -20,6 +20,11 @@ const MAX_METADATA: usize = 4096;
 /// The first version of OffsetCommit that names its topics by id (KIP-848), and is answered with ids.
 const BY_ID: i16 = 10;
 
+/// The version whose offsets Kafka keeps in ZooKeeper, apart from every other commit.
+const ZOOKEEPER: i16 = 0;
+
+mod zookeeper;
+
 impl<F: Fs> Broker<F> {
     /// Stores what each partition of the request says its group has reached.
     ///
@@ -37,6 +42,9 @@ impl<F: Fs> Broker<F> {
     ) -> Outcome {
         if version >= BY_ID {
             self.commit_names_by_id(&mut req);
+        }
+        if version == ZOOKEEPER {
+            return self.offset_commit_v0(caller, &req);
         }
         let req = &req;
         let unknown_id = |name: &str| version >= BY_ID && name.is_empty();
@@ -81,7 +89,13 @@ impl<F: Fs> Broker<F> {
                 if by_kafka_apis {
                     early.push((t, p));
                 }
-                match to_be_stored(refusal, name.as_ref(), partition, metadata, now) {
+                // v1 lets the client say when it committed (KIP-32's era): the time the offset's retention counts from.
+                let committed_ms = if version == 1 && partition.commit_timestamp != -1 {
+                    partition.commit_timestamp
+                } else {
+                    now
+                };
+                match to_be_stored(refusal, name.as_ref(), partition, metadata, committed_ms) {
                     Ok(commit) => {
                         to_store.push(commit);
                         slots.push((t, p));
@@ -302,7 +316,7 @@ fn to_be_stored(
     name: Option<&TopicName>,
     partition: &kafka_wire::messages::offset_commit_request::OffsetCommitRequestPartition,
     metadata: &str,
-    now: i64,
+    committed_ms: i64,
 ) -> Result<OffsetCommit, ResponseError> {
     if let Some(e) = refusal {
         return Err(e);
@@ -315,7 +329,7 @@ fn to_be_stored(
                 offset: partition.committed_offset,
                 leader_epoch: partition.committed_leader_epoch,
                 metadata: metadata.to_owned(),
-                committed_ms: now,
+                committed_ms,
             },
         }),
         _ => Err(ResponseError::UnknownTopicOrPartition),

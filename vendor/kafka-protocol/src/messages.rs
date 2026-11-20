@@ -1575,12 +1575,12 @@ impl ApiKey {
     /// Returns the valid versions that can be used with this ApiKey
     pub fn valid_versions(&self) -> VersionRange {
         match self {
-            ApiKey::Produce => VersionRange { min: 3, max: 13 },
-            ApiKey::Fetch => VersionRange { min: 4, max: 18 },
-            ApiKey::ListOffsets => VersionRange { min: 1, max: 11 }, // PATCH 6
+            ApiKey::Produce => VersionRange { min: 0, max: 13 }, // PATCH 8
+            ApiKey::Fetch => VersionRange { min: 0, max: 18 }, // PATCH 8
+            ApiKey::ListOffsets => VersionRange { min: 0, max: 11 }, // PATCH 6, PATCH 8
             ApiKey::Metadata => VersionRange { min: 0, max: 13 },
-            ApiKey::OffsetCommit => VersionRange { min: 2, max: 10 },
-            ApiKey::OffsetFetch => VersionRange { min: 1, max: 10 },
+            ApiKey::OffsetCommit => VersionRange { min: 0, max: 10 }, // PATCH 8
+            ApiKey::OffsetFetch => VersionRange { min: 0, max: 10 }, // PATCH 8
             ApiKey::FindCoordinator => VersionRange { min: 0, max: 6 },
             ApiKey::JoinGroup => VersionRange { min: 0, max: 9 },
             ApiKey::Heartbeat => VersionRange { min: 0, max: 4 },
@@ -1590,8 +1590,8 @@ impl ApiKey {
             ApiKey::ListGroups => VersionRange { min: 0, max: 5 },
             ApiKey::SaslHandshake => VersionRange { min: 0, max: 1 },
             ApiKey::ApiVersions => VersionRange { min: 0, max: 5 }, // PATCH 6
-            ApiKey::CreateTopics => VersionRange { min: 2, max: 7 },
-            ApiKey::DeleteTopics => VersionRange { min: 1, max: 6 },
+            ApiKey::CreateTopics => VersionRange { min: 0, max: 7 }, // PATCH 8
+            ApiKey::DeleteTopics => VersionRange { min: 0, max: 6 }, // PATCH 8
             ApiKey::DeleteRecords => VersionRange { min: 0, max: 2 },
             ApiKey::InitProducerId => VersionRange { min: 0, max: 6 },
             ApiKey::OffsetForLeaderEpoch => VersionRange { min: 0, max: 4 }, // PATCH 5
@@ -1603,7 +1603,7 @@ impl ApiKey {
             ApiKey::DescribeAcls => VersionRange { min: 0, max: 3 }, // PATCH 5
             ApiKey::CreateAcls => VersionRange { min: 0, max: 3 }, // PATCH 5
             ApiKey::DeleteAcls => VersionRange { min: 0, max: 3 }, // PATCH 5
-            ApiKey::DescribeConfigs => VersionRange { min: 1, max: 4 },
+            ApiKey::DescribeConfigs => VersionRange { min: 0, max: 4 }, // PATCH 8
             ApiKey::AlterConfigs => VersionRange { min: 0, max: 2 },
             ApiKey::AlterReplicaLogDirs => VersionRange { min: 0, max: 2 }, // PATCH 7
             ApiKey::DescribeLogDirs => VersionRange { min: 0, max: 5 }, // PATCH 5, PATCH 6
