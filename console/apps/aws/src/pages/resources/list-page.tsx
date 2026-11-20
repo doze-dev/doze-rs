@@ -1,4 +1,4 @@
-import { Link } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
 import { PlusIcon, SearchIcon, SearchXIcon } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 import { ErrorBlock } from "@doze/ui/components/app/alert";
@@ -9,6 +9,7 @@ import { RefreshControl } from "@doze/ui/components/app/refresh-control";
 import { Button } from "@doze/ui/components/ui/button";
 import { Input } from "@doze/ui/components/ui/input";
 import { Skeleton } from "@doze/ui/components/ui/skeleton";
+import { Switch } from "@doze/ui/components/ui/switch";
 import { number } from "@doze/ui/lib/format";
 import { cn } from "@doze/ui/lib/utils";
 import { useCatalogue, useResourceList } from "../../api/resources";
@@ -16,20 +17,27 @@ import type { ResourceList } from "../../api/types/ResourceList";
 import type { ResourceRow } from "../../api/types/ResourceRow";
 import { CreateDialog } from "./create-dialog";
 import { HINT } from "./index-page";
-import { iconOf, sortKey } from "./model";
+import { columnSizes, iconOf, sortKey } from "./model";
 import { ResourceTo, Value } from "./value";
 
-function columnsOf(page: ResourceList): DataColumn<ResourceRow>[] {
+function columnsOf(page: ResourceList, rows: ResourceRow[]): DataColumn<ResourceRow>[] {
+  const sizes = columnSizes({ columns: [{ title: "Name", format: "mono" }, ...page.columns], rows: rows.map((r) => ({ cells: [r.label, ...r.cells] })) });
   const name: DataColumn<ResourceRow> = {
     id: "name",
     header: "Name",
+    size: sizes[0],
     accessorFn: (r) => r.label.toLowerCase(),
     meta: { mono: true },
-    cell: (c) => (
-      <ResourceTo to={{ service: page.service, kind: page.kind, name: c.row.original.name }} className="font-mono text-[13px] font-medium" testId="row-link">
-        <span title={c.row.original.id}>{c.row.original.label}</span>
-      </ResourceTo>
-    ),
+    cell: (c) =>
+      page.openable ? (
+        <ResourceTo to={{ service: page.service, kind: page.kind, name: c.row.original.name }} className="font-mono text-[13px] font-medium" testId="row-link">
+          <span title={c.row.original.id}>{c.row.original.label}</span>
+        </ResourceTo>
+      ) : (
+        <span className="font-mono text-[13px] font-medium text-bright" data-testid="row-name">
+          {c.row.original.label}
+        </span>
+      ),
   };
   return [
     name,
@@ -38,7 +46,7 @@ function columnsOf(page: ResourceList): DataColumn<ResourceRow>[] {
       return {
         id: `c${i}`,
         header: col.title,
-        size: col.format === "time" ? 220 : numeric ? Math.max(130, col.title.length * 9 + 40) : 180,
+        size: sizes[i + 1],
         accessorFn: (r) => sortKey(r.cells[i] ?? null, col.format),
         meta: { numeric, mono: col.format === "mono" },
         sortDescFirst: numeric,
@@ -63,17 +71,28 @@ function KindTabs({ service, kind }: { service: string; kind: string }) {
   );
 }
 
+/** The switch that shows the rows a kind sets aside (AWS managed keys); kept in the address. */
+function SetAsideSwitch({ what, count, all, set }: { what: string; count: number; all: boolean; set: (on: boolean) => void }) {
+  return (
+    <label className="ml-auto inline-flex items-center gap-2.5 text-[13px] text-foreground" data-testid="set-aside">
+      <Switch checked={all} onCheckedChange={set} data-testid="set-aside-switch" />
+      Show {what} <span className="text-muted-foreground tabular-nums">({number(count)})</span>
+    </label>
+  );
+}
+
 /** A kind of resource, listed by the service's own list operation (one page at a time; the next on request), with a search over
  * what is shown, sortable columns, and Create when the descriptor has a form. */
-export function ResourceListPage({ service, kind }: { service: string; kind: string }) {
-  const list = useResourceList(service, kind);
+export function ResourceListPage({ service, kind, all = false }: { service: string; kind: string; all?: boolean }) {
+  const list = useResourceList(service, kind, all);
+  const navigate = useNavigate();
   const [query, setQuery] = useState("");
   const [creating, setCreating] = useState(false);
   const { refetch } = list;
   const refresh = useCallback(() => void refetch(), [refetch]);
   const first = list.data?.pages[0];
   const rows = useMemo(() => list.data?.pages.flatMap((p) => p.rows) ?? [], [list.data]);
-  const columns = useMemo(() => (first ? columnsOf(first) : []), [first]);
+  const columns = useMemo(() => (first ? columnsOf(first, rows) : []), [first, rows]);
   const q = query.trim().toLowerCase();
   const shown = q ? rows.filter((r) => r.label.toLowerCase().includes(q) || r.name.toLowerCase().includes(q)) : rows;
   const Icon = iconOf(service);
@@ -84,7 +103,18 @@ export function ResourceListPage({ service, kind }: { service: string; kind: str
       <PageHeader
         title={title}
         crumbs={crumbs}
-        sub={first ? <span className="text-foreground">{first.about}</span> : undefined}
+        sub={
+          first ? (
+            <>
+              <span className="text-foreground">{first.about}</span>
+              {first.create_elsewhere && (
+                <span className="mt-1 block" data-testid="create-elsewhere">
+                  {first.create_elsewhere}
+                </span>
+              )}
+            </>
+          ) : undefined
+        }
         refresh={<RefreshControl updatedAt={list.dataUpdatedAt} fetching={list.isFetching} onRefresh={refresh} interval={false} />}
         actions={
           first?.create && (
@@ -115,7 +145,7 @@ export function ResourceListPage({ service, kind }: { service: string; kind: str
               )
             }
           >
-            {first.operation} answered with none. {first.create ? `Create one here, or with your app or the AWS CLI.` : "Create one with your app, a deploy tool or the AWS CLI."}
+            {first.operation} answered with none{first.others && first.others.count > 0 && !all ? ` but ${number(first.others.count)} ${first.others.what}` : ""}. {first.create ? `Create one here, or with your app or the AWS CLI.` : "Create one with your app, a deploy tool or the AWS CLI."}
           </EmptyState>
         </div>
       ) : (
@@ -129,6 +159,7 @@ export function ResourceListPage({ service, kind }: { service: string; kind: str
               {q ? `${number(shown.length)} of ${number(rows.length)}` : `${number(rows.length)} ${rows.length === 1 ? first.one : first.title.toLowerCase()}`}
               {list.hasNextPage ? ", more to load" : ""}
             </span>
+            {first.others && (first.others.count > 0 || all) && <SetAsideSwitch what={first.others.what} count={first.others.count} all={all} set={(on) => void navigate({ to: "/resources/$service/$second", params: { service, second: kind }, search: on ? { all: "yes" } : {}, replace: true })} />}
           </div>
           <DataTable
             aria-label={first.title}

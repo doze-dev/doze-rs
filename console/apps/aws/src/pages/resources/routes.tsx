@@ -58,10 +58,10 @@ export function ServicePage() {
 
 export function SecondPage() {
   const { service, second } = secondRoute.useParams();
-  const { m } = secondRoute.useSearch();
+  const { m, all } = secondRoute.useSearch();
   const r = useResolved(service, second, m);
   if ("page" in r) return r.page;
-  if (r.name === null) return <ResourceListPage key={`${service}/${r.kind}`} service={service} kind={r.kind} />;
+  if (r.name === null) return <ResourceListPage key={`${service}/${r.kind}`} service={service} kind={r.kind} all={all === "yes"} />;
   return <ResourceDetailPage key={`${service}/${r.kind}/${r.name}`} service={service} kind={r.kind} name={r.name} />;
 }
 

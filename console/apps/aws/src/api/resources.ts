@@ -15,7 +15,10 @@ const enc = encodeURIComponent;
 export const RESOURCE_PATHS = {
   index: "/api/v1/resources",
   catalogue: "/api/v1/resources?counts=no",
-  list: (service: string, kind: string, token?: string) => `/api/v1/resources/${enc(service)}/${enc(kind)}${token ? `?token=${enc(token)}` : ""}`,
+  list: (service: string, kind: string, token?: string, all = false) => {
+    const q = [token ? `token=${enc(token)}` : "", all ? "all=yes" : ""].filter(Boolean).join("&");
+    return `/api/v1/resources/${enc(service)}/${enc(kind)}${q ? `?${q}` : ""}`;
+  },
   one: (service: string, kind: string, name: string) => `/api/v1/resources/${enc(service)}/${enc(kind)}/${enc(name)}`,
 };
 
@@ -29,11 +32,12 @@ export function useCatalogue() {
   return useQuery({ queryKey: ["resources", "catalogue"], queryFn: ({ signal }) => client.api<ResourcesIndex>(RESOURCE_PATHS.catalogue, {}, signal), staleTime: Number.POSITIVE_INFINITY });
 }
 
-/** A kind's pages: the first when opened, the next when asked for (`fetchNextPage`), each by the token the one before gave. */
-export function useResourceList(service: string, kind: string) {
+/** A kind's pages: the first when opened, the next when asked for (`fetchNextPage`), each by the token the one before gave.
+ * `all`: with the rows the kind sets aside (AWS managed keys). */
+export function useResourceList(service: string, kind: string, all = false) {
   return useInfiniteQuery({
-    queryKey: ["resources", "list", service, kind],
-    queryFn: ({ signal, pageParam }) => client.api<ResourceList>(RESOURCE_PATHS.list(service, kind, pageParam || undefined), {}, signal),
+    queryKey: ["resources", "list", service, kind, all],
+    queryFn: ({ signal, pageParam }) => client.api<ResourceList>(RESOURCE_PATHS.list(service, kind, pageParam || undefined, all), {}, signal),
     initialPageParam: "",
     getNextPageParam: (last) => last.next ?? undefined,
     retry: false,

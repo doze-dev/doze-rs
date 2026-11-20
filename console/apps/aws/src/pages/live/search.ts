@@ -23,14 +23,25 @@ export type LiveSearch = {
   caller?: string;
   /** Text looked for in the operation and the resource. */
   q?: string;
+  /** `shown`: this console's own calls are shown too (hidden otherwise). */
+  console?: "shown";
 };
+
+/** The caller this console's own calls carry (`aws-console/src/resources/bus.rs`). */
+export const CONSOLE_CALLER = "console";
+
+/** Made by this console, or by a service on its behalf (both carry its caller). */
+export const isConsole = (c: Pick<CallRecord, "caller">): boolean => c.caller === CONSOLE_CALLER;
+
+/** Whether this console's own calls are shown: asked for, or the caller filter names the console. */
+export const consoleShown = (f: LiveSearch): boolean => f.console === "shown" || f.caller === CONSOLE_CALLER;
 
 const text = (v: unknown, most = 256): string | undefined => (typeof v === "string" && v.trim() !== "" ? v.trim().slice(0, most) : undefined);
 
 export function liveSearch(s: Record<string, unknown>): LiveSearch {
   const n = s.call;
   // Every key is set, to undefined when the value is not one of ours: the router keeps a raw value the validator leaves out.
-  const out: LiveSearch = { call: undefined, view: undefined, service: undefined, outcome: undefined, caller: undefined, q: undefined };
+  const out: LiveSearch = { call: undefined, view: undefined, service: undefined, outcome: undefined, caller: undefined, q: undefined, console: undefined };
   if (typeof n === "number" && Number.isSafeInteger(n) && n > 0) out.call = n;
   if (VIEWS.includes(s.view as View)) out.view = s.view as View;
   const service = text(s.service, 64);
@@ -40,6 +51,7 @@ export function liveSearch(s: Record<string, unknown>): LiveSearch {
   if (caller) out.caller = caller;
   const q = text(s.q);
   if (q) out.q = q;
+  if (s.console === "shown") out.console = "shown";
   return out;
 }
 

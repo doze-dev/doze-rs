@@ -1,19 +1,21 @@
 import { describe, expect, test } from "bun:test";
 import type { CallRecord } from "../../api/types/CallRecord";
 import { childrenOf, madeBy, parentOf } from "./cause";
-import { flowKeyOf, fromServer, layout, lineWidth, withCalls } from "./flows";
+import { flowKeyOf, fromServer, layout, lineWidth, withCalls, withoutConsole } from "./flows";
 import { beadColour } from "./map";
 import { lineId, lines } from "./repeats";
 import { nameIn, resourceHref, resourceName } from "./resource";
-import { callerOf, filtering, liveSearch, matches } from "./search";
+import { callerOf, consoleShown, filtering, isConsole, liveSearch, matches } from "./search";
 
 const call = (seq: number, more: Partial<CallRecord> = {}): CallRecord => ({ seq, at_ms: 1_800_000_000_000 + seq, service: "sqs", api: "SQS", action: "SendMessage", resource: "orders", member: "QueueName", caller: "AKIA1", region: "us-east-1", status: 200, error_code: null, outcome: "ok", would_be_denied: false, duration_us: 100, request_id: `r-${seq}`, via: null, ...more });
 const via = (by: string, request_id: string | null = null, name: string | null = null) => ({ by, request_id, name });
 
 describe("Live's address", () => {
   test("only known values are kept", () => {
-    expect(liveSearch({ call: 4, view: "map", service: "sqs", outcome: "would-be-denied", caller: "AKIA1", q: " orders " })).toEqual({ call: 4, view: "map", service: "sqs", outcome: "would-be-denied", caller: "AKIA1", q: "orders" });
-    const none = { call: undefined, view: undefined, service: undefined, outcome: undefined, caller: undefined, q: undefined };
+    expect(liveSearch({ call: 4, view: "map", service: "sqs", outcome: "would-be-denied", caller: "AKIA1", q: " orders " })).toEqual({ call: 4, view: "map", service: "sqs", outcome: "would-be-denied", caller: "AKIA1", q: "orders", console: undefined });
+    expect(liveSearch({ console: "shown" }).console).toBe("shown");
+    expect(liveSearch({ console: "yes" }).console).toBeUndefined();
+    const none = { call: undefined, view: undefined, service: undefined, outcome: undefined, caller: undefined, q: undefined, console: undefined };
     expect(liveSearch({ call: -1, view: "grid", service: "S Q S", outcome: "fine", caller: "", q: "  " })).toEqual(none);
     expect(liveSearch({ call: "abc" })).toEqual(none);
   });
@@ -81,8 +83,8 @@ describe("the map", () => {
   test("flows from the server and the calls since are counted once, and laid out caller to service", () => {
     const server = fromServer({
       flows: [
-        { caller: "AKIA1", internal: false, service: "sns", api: "SNS", calls: 3, ok: 3, error: 0, denied: 0, not_built: 0, would_be_denied: 0, first_ms: 1, last_ms: 2, last_seq: 4 },
-        { caller: "sns", internal: true, service: "sqs", api: "SQS", calls: 1, ok: 1, error: 0, denied: 0, not_built: 0, would_be_denied: 0, first_ms: 1, last_ms: 2, last_seq: 3 },
+        { caller: "AKIA1", internal: false, service: "sns", api: "SNS", console: false, calls: 3, ok: 3, error: 0, denied: 0, not_built: 0, would_be_denied: 0, first_ms: 1, last_ms: 2, last_seq: 4 },
+        { caller: "sns", internal: true, service: "sqs", api: "SQS", console: false, calls: 1, ok: 1, error: 0, denied: 0, not_built: 0, would_be_denied: 0, first_ms: 1, last_ms: 2, last_seq: 3 },
       ],
       capacity: 64,
       dropped: 0,
@@ -110,6 +112,21 @@ describe("the map", () => {
     expect(lineWidth(1)).toBe(1.5);
     expect(lineWidth(1e9)).toBe(7);
     expect(beadColour({ outcome: "denied" })).toBe("var(--refused)");
+  });
+
+  test("this console's own calls, and those made for it, are a flow apart that the map can leave out", () => {
+    const flows = withCalls({ byKey: new Map(), through: 0 }, [call(3, { caller: "console", via: via("secretsmanager") }), call(2, { caller: "console" }), call(1)]);
+    expect([...flows.byKey.values()].map((f) => [f.caller, f.console])).toEqual([
+      ["secretsmanager", true],
+      ["console", true],
+      ["AKIA1", false],
+    ]);
+    const mine = withoutConsole(flows);
+    expect([...mine.byKey.values()].map((f) => f.caller)).toEqual(["AKIA1"]);
+    expect(withoutConsole(mine)).toBe(mine);
+    expect(isConsole(call(1, { caller: "console" }))).toBe(true);
+    expect(consoleShown({ caller: "console" })).toBe(true);
+    expect(consoleShown({})).toBe(false);
   });
 });
 

@@ -2,13 +2,15 @@
 // calls the stream brought since, and where each station and line goes. Pure: the map draws what this returns.
 import type { CallRecord } from "../../api/types/CallRecord";
 import type { FlowsResponse } from "../../api/types/FlowsResponse";
-import { callerOf } from "./search";
+import { callerOf, isConsole } from "./search";
 
 export type Flow = {
   key: string;
   /** An access key, or for calls between services the service that made them. */
   caller: string;
   internal: boolean;
+  /** Made by this console, or by a service for it: off the map unless asked for. */
+  console: boolean;
   service: string;
   calls: number;
   ok: number;
@@ -21,19 +23,19 @@ export type Flow = {
 
 export type Flows = { byKey: Map<string, Flow>; through: number };
 
-export const flowKey = (caller: string, internal: boolean, service: string) => `${internal ? "via" : "key"}|${caller}|${service}`;
+export const flowKey = (caller: string, internal: boolean, service: string, console = false) => `${internal ? "via" : "key"}|${console ? "console|" : ""}${caller}|${service}`;
 
 /** The flow a call is counted in. */
 export function flowKeyOf(c: CallRecord): string {
-  return flowKey(callerOf(c), c.via !== null, c.service ?? "");
+  return flowKey(callerOf(c), c.via !== null, c.service ?? "", isConsole(c));
 }
 
 export function fromServer(r: FlowsResponse): Flows {
   const byKey = new Map<string, Flow>();
   for (const f of r.flows) {
     const service = f.service ?? "";
-    const key = flowKey(f.caller, f.internal, service);
-    byKey.set(key, { key, caller: f.caller, internal: f.internal, service, calls: f.calls, ok: f.ok, error: f.error, denied: f.denied, notBuilt: f.not_built, wouldBeDenied: f.would_be_denied, lastSeq: f.last_seq });
+    const key = flowKey(f.caller, f.internal, service, f.console);
+    byKey.set(key, { key, caller: f.caller, internal: f.internal, console: f.console, service, calls: f.calls, ok: f.ok, error: f.error, denied: f.denied, notBuilt: f.not_built, wouldBeDenied: f.would_be_denied, lastSeq: f.last_seq });
   }
   return { byKey, through: r.through_seq };
 }
@@ -46,7 +48,7 @@ export function withCalls(flows: Flows, calls: readonly CallRecord[]): Flows {
   let through = flows.through;
   for (const c of fresh) {
     const key = flowKeyOf(c);
-    const was = byKey.get(key) ?? { key, caller: callerOf(c), internal: c.via !== null, service: c.service ?? "", calls: 0, ok: 0, error: 0, denied: 0, notBuilt: 0, wouldBeDenied: 0, lastSeq: 0 };
+    const was = byKey.get(key) ?? { key, caller: callerOf(c), internal: c.via !== null, console: isConsole(c), service: c.service ?? "", calls: 0, ok: 0, error: 0, denied: 0, notBuilt: 0, wouldBeDenied: 0, lastSeq: 0 };
     byKey.set(key, {
       ...was,
       calls: was.calls + 1,
@@ -60,6 +62,13 @@ export function withCalls(flows: Flows, calls: readonly CallRecord[]): Flows {
     through = Math.max(through, c.seq);
   }
   return { byKey, through };
+}
+
+/** `flows` without this console's own (the same object when it has none). */
+export function withoutConsole(flows: Flows): Flows {
+  const all = [...flows.byKey.values()];
+  if (!all.some((f) => f.console)) return flows;
+  return { byKey: new Map(all.filter((f) => !f.console).map((f) => [f.key, f])), through: flows.through };
 }
 
 export type Station = { id: string; internal: boolean; calls: number; error: number; denied: number; y: number };

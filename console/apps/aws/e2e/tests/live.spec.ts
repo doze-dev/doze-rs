@@ -42,9 +42,11 @@ test("calls made with the AWS CLI appear as they are answered, without a reload"
   // What is on the page is what the record holds, newest first, and the figures are the record's own.
   const record = await calls(page);
   const newest = [...record.calls].reverse();
-  // One row a call, but calls in a row that repeat each other are one row (repeats.ts).
-  await expect(rows(page)).toHaveCount(lines(newest.slice(0, record.ring.capacity), new Set()).length);
-  await expect(rows(page).first()).toHaveAttribute("data-row", String(newest[0]!.seq));
+  // One row a call, but calls in a row that repeat each other are one row (repeats.ts); this console's own calls (the Resources
+  // tests' in another browser) are hidden until asked for.
+  const shown = newest.slice(0, record.ring.capacity).filter((c) => c.caller !== "console");
+  await expect(rows(page)).toHaveCount(lines(shown, new Set()).length);
+  await expect(rows(page).first()).toHaveAttribute("data-row", String(shown[0]!.seq));
   await expect(page.getByTestId("live-recorded")).toContainText(record.ring.recorded.toLocaleString("en-US"));
   await expect(page.getByTestId("live-held")).toContainText(`${record.ring.held.toLocaleString("en-US")} of ${record.ring.capacity.toLocaleString("en-US")}`);
   expect(await page.evaluate(() => (window as unknown as { mark?: string }).mark)).toBe("same page");

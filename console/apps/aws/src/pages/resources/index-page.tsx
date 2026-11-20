@@ -17,7 +17,9 @@ export const HINT = "Check that doze-aws is still running, then try again. Nothi
 export function countWords(k: KindCount): string {
   if (k.count === null) return k.error ? `${k.title}: not read` : k.title;
   const noun = k.count === 1 ? k.one : k.title.toLowerCase();
-  return `${k.more ? "at least " : ""}${number(k.count)} ${noun}`;
+  // What a kind sets aside is said apart: `1 key + 2 AWS managed`.
+  const others = k.others && k.others.count > 0 ? ` + ${number(k.others.count)} ${k.others.what.replace(/ \S+$/, "")}` : "";
+  return `${k.more ? "at least " : ""}${number(k.count)} ${noun}${others}`;
 }
 
 function ServiceCard({ s }: { s: ResourceService }) {

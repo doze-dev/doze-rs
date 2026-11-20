@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import { EyeIcon, EyeOffIcon, RadioIcon, Trash2Icon } from "lucide-react";
+import { EyeIcon, EyeOffIcon, PlusIcon, RadioIcon, Trash2Icon } from "lucide-react";
 import { useCallback, useState } from "react";
 import { Alert, ErrorBlock, errorWords } from "@doze/ui/components/app/alert";
 import { CopyButton } from "@doze/ui/components/app/copy-button";
@@ -18,7 +18,9 @@ import type { SubList } from "../../api/types/SubList";
 import { Result } from "../live/outcome";
 import { DeleteDialog } from "./delete-dialog";
 import { HINT } from "./index-page";
-import { sortKey } from "./model";
+import { columnSizes, isDocument, sortKey, titleOf } from "./model";
+import { isConsole } from "../live/search";
+import { CreateDialog } from "./create-dialog";
 import { ResourceTo, Value } from "./value";
 
 /** The hidden value of a field: Reveal makes the one call that reads it (Live shows it); Hide forgets it. */
@@ -63,8 +65,8 @@ function Hidden({ service, kind, name, label }: { service: string; kind: string;
 }
 
 function Fields({ d }: { d: ResourceDetail }) {
-  const blocks = d.fields.filter((f) => f.format === "json" && f.value);
-  const plain = d.fields.filter((f) => !(f.format === "json" && f.value));
+  const blocks = d.fields.filter((f) => f.format === "json" && isDocument(f.value));
+  const plain = d.fields.filter((f) => !(f.format === "json" && isDocument(f.value)));
   const half = Math.ceil(plain.length / 2);
   const row = (f: FieldValue) => (
     <div key={f.label} className="contents">
@@ -94,11 +96,13 @@ function Fields({ d }: { d: ResourceDetail }) {
   );
 }
 
-function Sub({ sub }: { sub: SubList }) {
+function Sub({ sub, service }: { sub: SubList; service: string }) {
+  const [adding, setAdding] = useState(false);
+  const sizes = columnSizes(sub);
   const columns: DataColumn<ResourceRow>[] = sub.columns.map((col, i) => ({
     id: `c${i}`,
     header: col.title,
-    size: i === 0 ? undefined : col.format === "time" ? 220 : 170,
+    size: sizes[i],
     accessorFn: (r) => sortKey(r.cells[i] ?? null, col.format),
     meta: { numeric: col.format === "number" || col.format === "bytes", mono: col.format === "mono" },
     cell: (c) => {
@@ -107,9 +111,18 @@ function Sub({ sub }: { sub: SubList }) {
       return i === 0 && r.link ? <ResourceTo to={r.link}>{v}</ResourceTo> : v;
     },
   }));
+  const add = sub.add;
   return (
     <section className="mt-10" aria-label={sub.title} data-testid={`sub-${sub.title}`}>
-      <h2 className="text-[17px] leading-6 font-semibold tracking-[-0.01em] text-bright">{sub.title}</h2>
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <h2 className="text-[17px] leading-6 font-semibold tracking-[-0.01em] text-bright">{sub.title}</h2>
+        {add && (
+          <Button variant="outline" size="sm" className="bg-card" onClick={() => setAdding(true)} data-testid="sub-add">
+            <PlusIcon /> Add {add.one}
+          </Button>
+        )}
+      </div>
+      {add && <CreateDialog open={adding} onOpenChange={setAdding} service={service} kind={add.kind} one={add.one} operation={add.create.operations.join(", ")} inputs={add.create.inputs.map((i) => (i.key === add.key ? { ...i, value: add.value } : i))} />}
       <p className="mt-1 mb-4 text-[13.5px] text-muted-foreground">
         Read with <span className="font-mono">{sub.operation}</span>
         {sub.more ? "; the first page only, there are more." : "."}
@@ -137,6 +150,11 @@ const CALL_COLUMNS: DataColumn<CallRecord>[] = [
 ];
 
 function Calls({ d }: { d: ResourceDetail }) {
+  // This console's own reads of the resource are noise beside an app's calls: hidden unless asked for, as on Live.
+  const [mine, setMine] = useState(false);
+  const theirs = d.calls.filter((c) => !isConsole(c));
+  const hidden = d.calls.length - theirs.length;
+  const shown = mine ? d.calls : theirs;
   return (
     <section className="mt-12" aria-labelledby="calls-title" data-testid="recent-calls">
       <div className="flex flex-wrap items-end justify-between gap-3">
@@ -144,7 +162,18 @@ function Calls({ d }: { d: ResourceDetail }) {
           <h2 id="calls-title" className="text-[17px] leading-6 font-semibold tracking-[-0.01em] text-bright">
             Recent calls
           </h2>
-          <p className="mt-1 mb-4 text-[13.5px] text-muted-foreground">The last calls in the Live record that acted on this {d.one}, newest first. Times are UTC.</p>
+          <p className="mt-1 mb-4 text-[13.5px] text-muted-foreground">
+            The last calls in the Live record that acted on this {d.one}, newest first. Times are UTC.
+            {(hidden > 0 || mine) && (
+              <span data-testid="calls-console-hidden">
+                {" "}
+                {mine ? "This console's own are shown." : `${hidden} made by this console ${hidden === 1 ? "is" : "are"} hidden.`}{" "}
+                <button type="button" className="rounded-sm font-medium text-link hover:underline focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none" onClick={() => setMine(!mine)} data-testid="calls-console-toggle">
+                  {mine ? "Hide them" : "Show"}
+                </button>
+              </span>
+            )}
+          </p>
         </div>
         <Button asChild variant="outline" size="sm" className="mb-4 bg-card">
           <Link to="/live">
@@ -152,7 +181,7 @@ function Calls({ d }: { d: ResourceDetail }) {
           </Link>
         </Button>
       </div>
-      <DataTable aria-label="Recent calls" data={d.calls} columns={CALL_COLUMNS} rowId={(r) => String(r.seq)} maxHeight={420} empty={`No call in the Live record acted on this ${d.one} yet.`} />
+      <DataTable aria-label="Recent calls" data={shown} columns={CALL_COLUMNS} rowId={(r) => String(r.seq)} maxHeight={420} empty={hidden > 0 && !mine ? `Only this console has acted on this ${d.one} so far.` : `No call in the Live record acted on this ${d.one} yet.`} />
     </section>
   );
 }
@@ -169,7 +198,7 @@ export function ResourceDetailPage({ service, kind, name }: { service: string; k
   return (
     <>
       <PageHeader
-        title={name}
+        title={titleOf(name)}
         mono
         crumbs={crumbs}
         sub={d ? <>Read with {d.operations.map((o, i) => <span key={`${o}${i}`}>{i > 0 && ", "}<span className="font-mono text-foreground">{o}</span></span>)} as the caller <span className="font-mono text-foreground">console</span>.</> : undefined}
@@ -190,7 +219,7 @@ export function ResourceDetailPage({ service, kind, name }: { service: string; k
         <div data-testid="detail">
           <Fields d={d} />
           {d.subs.map((s) => (
-            <Sub key={s.title} sub={s} />
+            <Sub key={s.title} sub={s} service={service} />
           ))}
           <Calls d={d} />
           {d.delete && <DeleteDialog open={deleting} onOpenChange={setDeleting} service={service} kind={kind} one={d.one} name={d.name} label={name} spec={d.delete} />}

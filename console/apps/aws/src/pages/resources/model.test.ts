@@ -1,8 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import type { ResourcesIndex } from "../../api/types/ResourcesIndex";
-import { resolve, seconds, shown, sortKey, timeMs } from "./model";
+import { columnSizes, isDocument, resolve, seconds, shown, sortKey, timeMs, titleOf } from "./model";
 
-const kind = (id: string, members: string[]) => ({ id, title: id, one: id, members, count: null, more: false, names: [], error: null });
+const kind = (id: string, members: string[]) => ({ id, title: id, one: id, members, count: null, more: false, names: [], error: null, others: null });
 const INDEX: ResourcesIndex = {
   services: [
     { name: "sns", title: "SNS", group: "Messaging and events", served: true, described: true, note: null, kinds: [kind("topics", ["TopicArn", "TargetArn"]), kind("subscriptions", ["SubscriptionArn"])] },
@@ -41,4 +41,27 @@ describe("the Resources pages", () => {
     expect(sortKey("Orders", "text")).toBe("orders");
     expect(sortKey(null, "number")).toBe("");
   });
+});
+
+test("a page named by an ARN is titled by the name at its end", () => {
+  expect(titleOf("arn:aws:iam::111122223333:policy/team/orders-send")).toBe("orders-send");
+  expect(titleOf("orders")).toBe("orders");
+});
+
+test("a JSON field is a block only when it holds a document", () => {
+  expect(isDocument('{"a":1}')).toBe(true);
+  expect(isDocument("None")).toBe(false);
+  expect(isDocument(null)).toBe(false);
+});
+
+test("a related list's longest values take the room left", () => {
+  const sizes = columnSizes({
+    columns: [
+      { title: "Key", format: "mono" },
+      { title: "Value", format: "mono" },
+    ],
+    rows: [{ cells: ["InboxUrl", "http://127.0.0.1:4566/111122223333/stack-inbox"] }],
+  });
+  expect(sizes[1]).toBeUndefined();
+  expect(sizes[0]).toBe(110);
 });

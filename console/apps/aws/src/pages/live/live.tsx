@@ -20,12 +20,12 @@ import { RowMenu } from "./actions";
 import { CallSheet } from "./call-sheet";
 import { madeBy } from "./cause";
 import { Filters } from "./filters";
-import { flowKeyOf, layout } from "./flows";
+import { flowKeyOf, layout, withoutConsole } from "./flows";
 import { LiveMap, MapLegend } from "./map";
 import { Result } from "./outcome";
 import { type Line, lineId, lines } from "./repeats";
 import { resourceShown } from "./resource";
-import { callerOf, filtering, type LiveSearch, matches, type View } from "./search";
+import { callerOf, consoleShown, filtering, isConsole, type LiveSearch, matches, type View } from "./search";
 import { findCall } from "./tape";
 import { useFlows } from "./use-flows";
 import { type Conn, useTail } from "./use-tail";
@@ -53,6 +53,26 @@ function Caller({ call, titles }: { call: CallRecord; titles: ReadonlyMap<string
   );
 }
 
+/** The line that says how many of this console's own calls are hidden, with the switch that shows them (kept in the address). */
+function ConsoleLine({ hidden, shown, set }: { hidden: number; shown: boolean; set: (patch: Partial<LiveSearch>) => void }) {
+  if (!shown && hidden === 0) return null;
+  return (
+    <p className="mb-4 flex flex-wrap items-center gap-x-2 text-[13px] text-muted-foreground" data-testid="console-hidden">
+      {shown ? (
+        <span>This console's own calls are shown, marked with the caller console.</span>
+      ) : (
+        <span className="tabular-nums">
+          {number(hidden)} {hidden === 1 ? "call" : "calls"} made by this console {hidden === 1 ? "is" : "are"} hidden
+        </span>
+      )}
+      <span aria-hidden>·</span>
+      <button type="button" className="rounded-sm font-medium text-link hover:underline focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none" onClick={() => set({ console: shown ? undefined : "shown" })} data-testid="console-toggle">
+        {shown ? "Hide them" : "Show"}
+      </button>
+    </p>
+  );
+}
+
 /** Live: every AWS API call this doze-aws answers, and every call one service makes to another, as it happens. The map draws
  * who calls what; the wire lists the calls, newest first, repeats folded. Every value on screen is a field of the contract. */
 export function LivePage() {
@@ -65,12 +85,17 @@ export function LivePage() {
   const open = useCallback((seq: number | undefined) => void navigate({ search: (prev) => ({ ...prev, call: seq }) }), [navigate]);
   const view: View = search.view ?? "both";
   const titles = useMemo(() => new Map((about?.services ?? []).map((s) => [s.name, s.title])), [about]);
-  const { flows } = useFlows(tape.calls, tape.cursor);
+  const { flows: allFlows } = useFlows(tape.calls, tape.cursor);
+  // This console's own calls (its Resources pages' reads and writes) are noise while watching an app: hidden unless asked for.
+  const mine = consoleShown(search);
+  const flows = useMemo(() => (mine ? allFlows : withoutConsole(allFlows)), [mine, allFlows]);
   const map = useMemo(() => layout(flows), [flows]);
+  const visible = useMemo(() => (mine ? tape.calls : tape.calls.filter((c) => !isConsole(c))), [mine, tape.calls]);
+  const hidden = tape.calls.length - visible.length;
   const [runs, setRuns] = useState<ReadonlySet<number>>(new Set());
   const toggle = useCallback((id: number) => setRuns((was) => (was.has(id) ? new Set([...was].filter((x) => x !== id)) : new Set([...was, id]))), []);
 
-  const kept = useMemo(() => (filtering(search) ? tape.calls.filter((c) => matches(c, search)) : tape.calls), [tape.calls, search]);
+  const kept = useMemo(() => (filtering(search) ? visible.filter((c) => matches(c, search)) : visible), [visible, search]);
   const shown = useMemo(() => lines(kept, runs), [kept, runs]);
   const services = useMemo(() => [...new Set([...flows.byKey.values()].map((f) => f.service).filter(Boolean))].sort(), [flows]);
   const callers = useMemo(() => {
@@ -220,6 +245,7 @@ export function LivePage() {
               ]}
             />
           )}
+          <ConsoleLine hidden={hidden} shown={search.console === "shown"} set={set} />
           {view !== "wire" && (
             <section className="mb-5 rounded-xl border bg-card px-5 pt-3 pb-4" aria-label="Map of who calls what" data-testid="live-map-card">
               {map.lines.length === 0 ? (
@@ -228,7 +254,7 @@ export function LivePage() {
                 </EmptyState>
               ) : (
                 <>
-                  <LiveMap layout={map} calls={tape.calls} titles={titles} selected={openCall ? flowKeyOf(openCall) : null} caller={search.caller} service={search.service} onCaller={(caller) => set({ caller })} onService={(service) => set({ service })} />
+                  <LiveMap layout={map} calls={visible} titles={titles} selected={openCall ? flowKeyOf(openCall) : null} caller={search.caller} service={search.service} onCaller={(caller) => set({ caller })} onService={(service) => set({ service })} />
                   <MapLegend />
                 </>
               )}
@@ -236,7 +262,7 @@ export function LivePage() {
           )}
           {view !== "map" && (
             <>
-              <Filters search={search} set={set} services={services} callers={callers} titles={titles} shown={kept.length} held={tape.calls.length} />
+              <Filters search={search} set={set} services={services} callers={callers} titles={titles} shown={kept.length} held={visible.length} />
               <DataTable
                 aria-label="Calls, newest first"
                 data={shown}
@@ -247,9 +273,13 @@ export function LivePage() {
                 onRowClick={(l) => open(l.call.seq)}
                 rowClassName={(l) => (l.call.seq === search.call ? "[&>td]:bg-accent" : l.kind === "member" ? "[&>td]:bg-muted/50" : l.call.seq > tape.freshAfter ? "row-new" : l.call.via ? "[&>td]:text-muted-foreground" : undefined)}
                 empty={
-                  filtering(search) && tape.calls.length > 0 ? (
+                  filtering(search) && visible.length > 0 ? (
                     <EmptyState icon={SearchXIcon} title="No call matches" className="w-full border-0 bg-transparent">
-                      None of the {number(tape.calls.length)} calls held matches these filters.
+                      None of the {number(visible.length)} calls held matches these filters.
+                    </EmptyState>
+                  ) : hidden > 0 && visible.length === 0 ? (
+                    <EmptyState icon={RadioIcon} title="Only this console's calls so far" className="w-full border-0 bg-transparent">
+                      The {number(hidden)} calls held were made by this console's own pages. Calls from your apps, the AWS CLI and between services appear here as they are answered.
                     </EmptyState>
                   ) : (
                     <EmptyState icon={RadioIcon} title="No calls yet" className="w-full border-0 bg-transparent">

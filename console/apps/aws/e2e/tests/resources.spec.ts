@@ -42,7 +42,7 @@ test("the index groups the services and counts what each holds", async ({ page, 
   const index = page.getByTestId("resources-index");
   await expect(index.getByRole("heading", { level: 2 })).toContainText(["Messaging and events", "Storage and data", "Compute and flow", "Config and secrets"]);
   await expect(page.getByTestId("count-sqs")).toContainText(/\d+ queues?/);
-  await expect(page.getByTestId("count-iam")).toHaveText("Not described yet");
+  await expect(page.getByTestId("count-iam")).toContainText(/\d+ roles?/);
   await expect(page.getByTestId("count-sts")).toHaveText("No resources");
   // Each count was a list call the console made.
   expect((await consoleCalls(page, "ListQueues")).length).toBeGreaterThan(0);
@@ -57,7 +57,9 @@ test("a queue is created in a dialog, listed, opened, and deleted, each call in 
   await expect(page.locator("h1")).toHaveText(q);
   await expect(page.getByTestId("field-Type")).toHaveText("Standard");
   await expect(page.getByTestId("field-Visibility timeout")).toHaveText("30 seconds");
-  // Its recent calls are the console's own.
+  // Its recent calls are the console's own, hidden until asked for.
+  await expect(page.getByTestId("calls-console-hidden")).toContainText(/\d+ made by this console (is|are) hidden/);
+  await page.getByTestId("calls-console-toggle").click();
   await expect(page.getByTestId("recent-calls")).toContainText("CreateQueue");
   await expect(page.getByTestId("recent-calls")).toContainText("console");
   const made = (await consoleCalls(page, "CreateQueue")).find((c) => c.resource === q);

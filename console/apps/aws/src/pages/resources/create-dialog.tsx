@@ -15,6 +15,9 @@ function first(inputs: FormInput[]): Record<string, string> {
   return Object.fromEntries(inputs.map((i) => [i.key, i.value]));
 }
 
+/** A placeholder is an example, never a value: said so (`e.g. 30`), in the muted colour of every placeholder. */
+export const example = (p: string): string | undefined => (p ? `e.g. ${p}` : undefined);
+
 function Field({ input, value, set }: { input: FormInput; value: string; set: (v: string) => void }) {
   const id = `create-${input.key}`;
   const help = input.help && (
@@ -54,9 +57,9 @@ function Field({ input, value, set }: { input: FormInput; value: string; set: (v
           </SelectContent>
         </Select>
       ) : input.input === "textarea" ? (
-        <Textarea {...common} placeholder={input.placeholder} onChange={(e) => set(e.target.value)} className="min-h-24 bg-card font-mono text-[13px]" spellCheck={false} />
+        <Textarea {...common} placeholder={example(input.placeholder)} onChange={(e) => set(e.target.value)} className="min-h-24 bg-card font-mono text-[13px]" spellCheck={false} />
       ) : (
-        <Input {...common} type="text" inputMode={input.input === "number" ? "numeric" : undefined} placeholder={input.placeholder} onChange={(e) => set(e.target.value)} className="bg-card font-mono text-[13px]" spellCheck={false} autoComplete="off" />
+        <Input {...common} type="text" inputMode={input.input === "number" ? "numeric" : undefined} placeholder={example(input.placeholder)} onChange={(e) => set(e.target.value)} className="bg-card font-mono text-[13px]" spellCheck={false} autoComplete="off" />
       )}
       {help}
     </div>
@@ -90,7 +93,18 @@ export function CreateDialog({ open, onOpenChange, service, kind, one, operation
   const failed = create.error ? errorWords(create.error) : null;
   return (
     <Dialog open={open} onOpenChange={change}>
-      <DialogContent className="sm:max-w-[600px]" data-testid="create-dialog">
+      <DialogContent
+        className="sm:max-w-[600px]"
+        data-testid="create-dialog"
+        onOpenAutoFocus={(e) => {
+          // The first field still to fill, not one the page filled in (a subscription's topic).
+          const empty = [...(e.currentTarget as HTMLElement).querySelectorAll<HTMLInputElement | HTMLTextAreaElement>("input[data-testid^=field-], textarea[data-testid^=field-]")].find((el) => el.value === "");
+          if (empty) {
+            e.preventDefault();
+            empty.focus();
+          }
+        }}
+      >
         <form onSubmit={submit} className="grid gap-5">
           <DialogHeader>
             <DialogTitle className="text-[21px] font-semibold">Create {one}</DialogTitle>

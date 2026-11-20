@@ -80,6 +80,25 @@ export function shown(value: string, format: ValueFormat): string {
   }
 }
 
+/** Whether a JSON field's value is a document (an object or a list) to show as a block; otherwise it is a word the service's
+ * absence means (`None`, `Every event`). */
+export const isDocument = (value: string | null): boolean => value !== null && /^\s*[[{]/.test(value);
+
+/** The widths of a related list's columns, by what they hold: each as wide as its longest value needs (within bounds), and
+ * the one with the longest values takes what is left (`undefined`), so an output's value or an ARN is not the one cut. */
+export function columnSizes(list: { columns: { title: string; format: ValueFormat }[]; rows: { cells: (string | null)[] }[] }): (number | undefined)[] {
+  const longest = list.columns.map((col, i) => {
+    const values = list.rows.map((r) => r.cells[i] ?? "");
+    const most = Math.max(0, ...values.map((v) => (col.format === "time" && v ? 23 : v.length)));
+    return { most, title: col.title.length };
+  });
+  let grow = 0;
+  longest.forEach((l, i) => {
+    if (l.most > longest[grow]!.most) grow = i;
+  });
+  return longest.map((l, i) => (i === grow ? undefined : Math.min(340, Math.max(110, l.title * 9 + 40, l.most * 8.6 + 32))));
+}
+
 /** The value a column sorts by: a number for numbers, sizes and times, the text otherwise. */
 export function sortKey(value: string | null, format: ValueFormat): string | number {
   if (value === null) return "";
@@ -99,4 +118,11 @@ export function resolve(index: ResourcesIndex, service: string, second: string, 
   if (s.kinds.some((k) => k.id === second)) return { kind: second, name: null };
   const byMember = member ? s.kinds.find((k) => k.members.includes(member)) : undefined;
   return { kind: (byMember ?? s.kinds[0]!).id, name: second };
+}
+
+/** What a resource's page is titled: its name, or for one named by its ARN (an IAM policy) the name at the ARN's end. */
+export function titleOf(name: string): string {
+  if (!name.startsWith("arn:")) return name;
+  const resource = name.split(":").slice(5).join(":");
+  return resource.split("/").filter(Boolean).pop() ?? name;
 }
