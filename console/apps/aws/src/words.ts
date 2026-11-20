@@ -29,14 +29,14 @@ export function authWords(mode: string): string {
   }
 }
 
-export type OutcomeTone = "good" | "bad" | "warn" | "refused";
+export type OutcomeTone = "good" | "bad" | "denied" | "muted";
 
 /** How a call ended, in the contract's four words. `label` is the word shown in capitals beside the status. */
 export const OUTCOMES: Record<Outcome, { label: string; tone: OutcomeTone }> = {
   ok: { label: "OK", tone: "good" },
   error: { label: "ERROR", tone: "bad" },
-  denied: { label: "DENIED", tone: "warn" },
-  refused: { label: "REFUSED", tone: "refused" },
+  denied: { label: "DENIED", tone: "denied" },
+  "not-built": { label: "NOT BUILT", tone: "muted" },
 };
 
 /** One sentence on why a call ended as it did. */
@@ -45,15 +45,20 @@ export function outcomeSentence(call: Pick<CallRecord, "outcome" | "status" | "e
     case "ok":
       return "Answered as asked.";
     case "denied":
-      return "IAM said no: the caller may not do this.";
-    case "refused":
+      return "IAM refused it: the caller's policies do not allow this (--iam enforce).";
+    case "not-built":
       if (call.error_code === "OptInRequired") return "doze-aws was started without this service (--services), so it answers every call to it with how to turn it on.";
-      if (call.status === 501) return "doze-aws does not do this: the operation is not built.";
-      return "doze-aws itself does not do this.";
+      return "doze-aws does not do this yet: the operation is not built.";
     case "error":
       return call.status >= 500 ? "The server answered with an error of its own." : "The request was answered with an error: the caller's to fix.";
   }
 }
+
+/** What the would-be-denied marker says: only `--iam soft` lets a refused call through. */
+export const WOULD_BE_DENIED = {
+  short: "Would be denied",
+  sentence: "IAM is soft: the caller's policies refuse this call, and it was let through. Under --iam enforce it would be DENIED.",
+};
 
 /** A service's name for a person: its title when the build has the service, else the name the call carried. */
 export function serviceTitle(name: string | null, titles: ReadonlyMap<string, string>): string | null {

@@ -3,7 +3,7 @@ import { CopyButton } from "@doze/ui/components/app/copy-button";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@doze/ui/components/ui/sheet";
 import { clockMsUtc, dateTimeUtc, micros, number } from "@doze/ui/lib/format";
 import type { CallRecord } from "../../api/types/CallRecord";
-import { outcomeSentence } from "../../words";
+import { outcomeSentence, WOULD_BE_DENIED } from "../../words";
 import { Result } from "./outcome";
 
 /** One field of the call: its name, its value (or why there is none), and a line on what it is. */
@@ -48,6 +48,11 @@ export function CallSheet({ seq, call, serviceTitle, onClose }: { seq: number | 
             <div className="rounded-xl border bg-card p-4" data-testid="call-summary">
               <Result call={call} className="text-[13.5px]" />
               <p className="mt-1.5 text-[13px] text-foreground">{outcomeSentence(call)}</p>
+              {call.would_be_denied && (
+                <p className="mt-2 rounded-md bg-tint-warn px-2.5 py-1.5 text-[13px] text-warn" data-testid="call-would-be-denied">
+                  {WOULD_BE_DENIED.sentence}
+                </p>
+              )}
             </div>
             <dl className="mt-5 grid grid-cols-[8.5rem_minmax(0,1fr)] [&>dd:last-of-type]:border-b-0 [&>dt:last-of-type]:border-b-0">
               <Field testId="at" label="Answered" value={dateTimeUtc(call.at_ms).replace(" UTC", `.${clockMsUtc(call.at_ms).slice(-3)} UTC`)} />

@@ -17,17 +17,18 @@ test("calls made with the AWS CLI appear as they are answered, without a reload"
   await expect(first.locator('[data-slot="result"]')).toHaveAttribute("data-outcome", "ok");
   await expect(first.locator('[data-slot="result"]')).toContainText("200");
 
-  // A call that fails: the queue does not exist.
+  // A call that fails: the queue does not exist. The code is the one the CLI reports (SQS answers its query-compatible code in
+  // x-amzn-query-error, as AWS does: conformance/snapshots/test_sqs.json).
   expect(cli(["sqs", "get-queue-url", "--queue-name", `${queue}-missing`]).code).not.toBe(0);
   await expect(first.locator("td").nth(2)).toHaveText("GetQueueUrl");
   await expect(first.locator('[data-slot="result"]')).toHaveAttribute("data-outcome", "error");
-  await expect(first.locator('[data-slot="result"]')).toHaveText(/ERROR\s*400\s*QueueDoesNotExist/);
+  await expect(first.locator('[data-slot="result"]')).toHaveText(/ERROR\s*400\s*AWS\.SimpleQueueService\.NonExistentQueue/);
 
-  // An operation this build does not have: refused, not an error of the caller's.
+  // An operation this build does not have: not built, not an error of the caller's.
   expect(cli(["ssm", "describe-instance-information"]).code).not.toBe(0);
   await expect(first.locator("td").nth(2)).toHaveText("DescribeInstanceInformation");
-  await expect(first.locator('[data-slot="result"]')).toHaveAttribute("data-outcome", "refused");
-  await expect(first.locator('[data-slot="result"]')).toHaveText(/REFUSED\s*501\s*NotImplemented/);
+  await expect(first.locator('[data-slot="result"]')).toHaveAttribute("data-outcome", "not-built");
+  await expect(first.locator('[data-slot="result"]')).toHaveText(/NOT BUILT\s*501\s*NotImplemented/);
 
   // S3 names what was acted on.
   const bucket = unique("shots", browserName);
@@ -108,7 +109,7 @@ test("a row opens a drawer over the page with everything the record has for the 
   await expect(page.getByTestId("call-caller")).toContainText(accessKey);
   await expect(page.getByTestId("call-region")).toHaveText("eu-west-1");
   await expect(page.getByTestId("call-status")).toHaveText("400");
-  await expect(page.getByTestId("call-error-code")).toContainText("QueueDoesNotExist");
+  await expect(page.getByTestId("call-error-code")).toContainText("AWS.SimpleQueueService.NonExistentQueue");
   await expect(page.getByTestId("call-summary").locator('[data-slot="result"]')).toHaveAttribute("data-outcome", "error");
   await expect(page.getByTestId("call-outcome")).toHaveText("error");
   await expect(page.getByTestId("call-request-id")).toContainText(record.request_id);

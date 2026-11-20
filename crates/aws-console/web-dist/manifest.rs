@@ -14,23 +14,23 @@ pub const FILES: &[(&str, Served)] = &[
         },
     ),
     (
-        "assets/index-BP7_p1WN.js",
+        "assets/index-A8NVJBTu.css",
         Served {
-            content_type: "text/javascript; charset=utf-8",
+            content_type: "text/css; charset=utf-8",
             bytes: include_bytes!(concat!(
                 env!("CARGO_MANIFEST_DIR"),
-                "/web-dist/assets/index-BP7_p1WN.js.gz"
+                "/web-dist/assets/index-A8NVJBTu.css.gz"
             )),
             gzip: true,
         },
     ),
     (
-        "assets/index-DavnKpxk.css",
+        "assets/index-CawmgYFF.js",
         Served {
-            content_type: "text/css; charset=utf-8",
+            content_type: "text/javascript; charset=utf-8",
             bytes: include_bytes!(concat!(
                 env!("CARGO_MANIFEST_DIR"),
-                "/web-dist/assets/index-DavnKpxk.css.gz"
+                "/web-dist/assets/index-CawmgYFF.js.gz"
             )),
             gzip: true,
         },
@@ -69,12 +69,12 @@ pub const FILES: &[(&str, Served)] = &[
         },
     ),
     (
-        "assets/live-BzloeF1p.js",
+        "assets/live-Cuqdm7Pm.js",
         Served {
             content_type: "text/javascript; charset=utf-8",
             bytes: include_bytes!(concat!(
                 env!("CARGO_MANIFEST_DIR"),
-                "/web-dist/assets/live-BzloeF1p.js.gz"
+                "/web-dist/assets/live-Cuqdm7Pm.js.gz"
             )),
             gzip: true,
         },

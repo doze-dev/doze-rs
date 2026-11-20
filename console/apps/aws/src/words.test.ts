@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { authWords, iamWords, OUTCOMES, outcomeSentence, serviceTitle } from "./words";
+import { authWords, iamWords, OUTCOMES, outcomeSentence, serviceTitle, WOULD_BE_DENIED } from "./words";
 
 test("each IAM mode has its chip and its sentence, and an unknown one is shown as it is", () => {
   expect(iamWords("off").chip).toBe("IAM off");
@@ -15,19 +15,27 @@ test("each auth mode says whether signatures are checked", () => {
 });
 
 test("the four outcomes of the contract each have a word and a tone, and no two share a tone", () => {
-  expect(Object.keys(OUTCOMES).sort()).toEqual(["denied", "error", "ok", "refused"]);
+  expect(Object.keys(OUTCOMES).sort()).toEqual(["denied", "error", "not-built", "ok"]);
   expect(new Set(Object.values(OUTCOMES).map((o) => o.tone)).size).toBe(4);
-  expect(OUTCOMES.refused.label).toBe("REFUSED");
+  expect(OUTCOMES["not-built"].label).toBe("NOT BUILT");
   expect(OUTCOMES.denied.label).toBe("DENIED");
 });
 
 test("why a call ended as it did, by what the contract says of each outcome", () => {
   expect(outcomeSentence({ outcome: "ok", status: 200, error_code: null })).toBe("Answered as asked.");
-  expect(outcomeSentence({ outcome: "denied", status: 403, error_code: "AccessDenied" })).toContain("IAM said no");
-  expect(outcomeSentence({ outcome: "refused", status: 501, error_code: "NotImplemented" })).toContain("not built");
-  expect(outcomeSentence({ outcome: "refused", status: 403, error_code: "OptInRequired" })).toContain("--services");
+  expect(outcomeSentence({ outcome: "denied", status: 403, error_code: "AccessDenied" })).toContain("IAM refused it");
+  expect(outcomeSentence({ outcome: "not-built", status: 501, error_code: "NotImplemented" })).toContain("not built");
+  expect(outcomeSentence({ outcome: "not-built", status: 403, error_code: "OptInRequired" })).toContain("--services");
   expect(outcomeSentence({ outcome: "error", status: 400, error_code: "QueueDoesNotExist" })).toContain("caller's to fix");
   expect(outcomeSentence({ outcome: "error", status: 500, error_code: "InternalFailure" })).toContain("error of its own");
+  // A validation error is an error like any other: no separate word for it.
+  expect(outcomeSentence({ outcome: "error", status: 400, error_code: "ValidationException" })).toContain("caller's to fix");
+});
+
+test("the would-be-denied marker names the soft mode and what enforce would do", () => {
+  expect(WOULD_BE_DENIED.sentence).toContain("IAM is soft");
+  expect(WOULD_BE_DENIED.sentence).toContain("let through");
+  expect(WOULD_BE_DENIED.sentence).toContain("--iam enforce");
 });
 
 test("a service is named by its title when the build has it, else by the name the call carried", () => {

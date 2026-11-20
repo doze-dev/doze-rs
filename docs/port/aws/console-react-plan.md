@@ -38,7 +38,7 @@ committed, both checked stale by a Rust test, as Kafka's is today.
 2. **Density and motion.** Also variables, not code: `--row-h`, `--control-h`, `--gap`, `--dur-in`, `--dur-out`, `--ease`. AWS
    lists can be denser than Kafka's without forking the table.
 3. **Variants.** Components keep shadcn's `cva` variants; an app may add its own variant (`<Badge tone="denied">` for AWS's
-   Denied, distinct from Refused) by extending the variant map it passes in, not by editing the shared file.
+   Denied, distinct from Error) by extending the variant map it passes in, not by editing the shared file.
 4. **Override.** When a component must look or behave differently in one product, the app keeps its own file and imports that
    one; the shared one is untouched. Used sparingly, and each override is listed in `apps/<app>/OVERRIDES.md` with its reason.
 
@@ -66,7 +66,7 @@ built bundle must be byte-identical or explained), agreed with that session befo
   proof, CSP `default-src 'self'` as Kafka's.
 - View-models in Rust with `serde` + `ts-rs` (a test writes `apps/aws/src/api/types/*.ts`; stale fails), so the UI cannot drift
   from the backend.
-- Live: the call record the gateway already sees (service, action, resource, caller, status, refused/denied, duration, cause
+- Live: the call record the gateway already sees (service, action, resource, caller, status, outcome (ok, error, denied, not-built, decided 2026-11-21) and whether `--iam soft` would have denied it, duration, cause
   chain) kept in a bounded ring, buckets updated on the request path (no timer: zero idle wake-ups stays true).
 - Resources: each service exposes a small descriptor (lists, columns, detail fields, actions mapped to its own operations, deep
   page if any); the generic Resources pages render any descriptor, so a service joins without new chrome.
@@ -77,10 +77,10 @@ built bundle must be byte-identical or explained), agreed with that session befo
 |---|---|---|
 | W0 Workspace | `web/` → workspace; `packages/ui` extracted; Kafka unchanged (its suite green, bundle identical); colour lint and theme-completeness tests | 1 |
 | A-R0 Foundation | `aws-console` crate, embed + SPA fallback + CSP, ts-rs contract, AWS theme (Paper), shell with the six spaces, palette, RefreshControl, gallery under both themes | 2 |
-| A-R1 Live | the transit-line map (flows, one bead per call), the call tape (SSE, aggregated repeats, refused vs denied), the call Sheet with its cause chain | 2 to 3 |
+| A-R1 Live | the transit-line map (flows, one bead per call), the call tape (SSE, aggregated repeats, error vs denied vs not built, the would-be-denied marker), the call Sheet with its cause chain | 2 to 3 |
 | A-R2 Resources | descriptors for all 17 services, the generic list and detail pages, create/delete through the bus | 3 |
 | A-R3 Deep pages | SQS messages, S3 objects, Lambda invocations and logs, Step Functions executions (graph + events), DynamoDB items, Logs tail, CloudFormation stack events | 3 to 4 |
-| A-R4 Access, Lab, Settings, Home | IAM views and the "would be refused" log, Connect with both URL kinds, Lab, settings | 2 |
+| A-R4 Access, Lab, Settings, Home | IAM views and the "would be denied" log, Connect with both URL kinds, Lab, settings | 2 |
 | A-R5 Close | two independent audits (security; UX in three browsers at four widths), fixes, weight measured and argued | 1.5 |
 
 Total about 14.5 to 16.5 agent sessions. Weight is measured at every slice against the 20 MB ceiling (line = measured + 5%).

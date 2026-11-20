@@ -32,7 +32,7 @@ function Card({ title, lede, children, testId }: { title: string; lede?: React.R
 /** A value to copy: what it is, the value on one line (cut with an ellipsis, whole on hover), and Copy. */
 function CopyRow({ label, value, testId }: { label: string; value: string; testId: string }) {
   return (
-    <div className="flex items-center gap-4 border-t py-4 last:pb-0">
+    <div className="flex items-center gap-4 border-t py-4 last:pb-0 lg:pb-0">
       <div className="min-w-0 flex-1">
         <div className="text-[13px] text-muted-foreground">{label}</div>
         <div className="mt-1 truncate font-mono text-[14.5px] text-bright" title={value} data-testid={testId}>
@@ -56,35 +56,43 @@ function Fact({ label, children, note, testId }: { label: string; children: Reac
   );
 }
 
+/** Two lists side by side on a wide window (the card spans the page, so neither leaves a gap), one under the other on a narrow one. */
+const FACTS = "grid grid-cols-[minmax(7.5rem,10.5rem)_minmax(0,1fr)]";
+const LAST = "[&>dd:last-of-type]:border-b-0 [&>dd:last-of-type]:pb-0 [&>dt:last-of-type]:border-b-0 [&>dt:last-of-type]:pb-0";
+
 function Facts({ about }: { about: About }) {
   const mono = "font-mono text-[13px]";
   return (
-    <dl className="grid grid-cols-[minmax(7.5rem,10.5rem)_minmax(0,1fr)] [&>dd:last-of-type]:border-b-0 [&>dd:last-of-type]:pb-0 [&>dt:last-of-type]:border-b-0 [&>dt:last-of-type]:pb-0">
-      <Fact label="Version" testId="fact-version">
-        <span className={mono}>{about.version}</span>
-      </Fact>
-      <Fact label="Account" testId="fact-account" note="Every request is for this account.">
-        <span className={mono}>{about.account}</span>
-      </Fact>
-      <Fact label="Region" testId="fact-region" note={about.regions.length > 1 ? `Calls in the Live record were signed for: ${about.regions.join(", ")}.` : "The default (--region), and the only one calls in the Live record were signed for."}>
-        <span className={mono}>{about.region}</span>
-      </Fact>
-      <Fact label="Signatures" testId="fact-auth" note={authWords(about.auth)}>
-        <span className={mono}>{about.auth}</span>
-      </Fact>
-      <Fact label="IAM" testId="fact-iam" note={iamWords(about.iam).sentence}>
-        <span className={mono}>{about.iam}</span>
-      </Fact>
-      <Fact label="Data directory" testId="fact-data-dir" note="Where state is kept on this machine.">
-        <span className={`${mono} break-all`}>{about.data_dir}</span>
-      </Fact>
-      <Fact label="Console" testId="fact-console" note="This page's own address. It has no login and answers this machine only.">
-        <span className={`${mono} break-all`}>{about.console}</span>
-      </Fact>
-      <Fact label="Process" testId="fact-process" note={`Started ${dateTimeUtc(about.started * 1000)}.`}>
-        <span className={mono}>pid {about.pid}</span>
-      </Fact>
-    </dl>
+    <div className="grid lg:grid-cols-2 lg:gap-x-12">
+      <dl className={`${FACTS} lg:[&>dd:last-of-type]:border-b-0 lg:[&>dd:last-of-type]:pb-0 lg:[&>dt:last-of-type]:border-b-0 lg:[&>dt:last-of-type]:pb-0`}>
+        <Fact label="Version" testId="fact-version">
+          <span className={mono}>{about.version}</span>
+        </Fact>
+        <Fact label="Account" testId="fact-account" note="Every request is for this account.">
+          <span className={mono}>{about.account}</span>
+        </Fact>
+        <Fact label="Region" testId="fact-region" note={about.regions.length > 1 ? `Calls in the Live record were signed for: ${about.regions.join(", ")}.` : "The default (--region), and the only one calls in the Live record were signed for."}>
+          <span className={mono}>{about.region}</span>
+        </Fact>
+        <Fact label="Signatures" testId="fact-auth" note={authWords(about.auth)}>
+          <span className={mono}>{about.auth}</span>
+        </Fact>
+      </dl>
+      <dl className={`${FACTS} ${LAST}`}>
+        <Fact label="IAM" testId="fact-iam" note={iamWords(about.iam).sentence}>
+          <span className={mono}>{about.iam}</span>
+        </Fact>
+        <Fact label="Data directory" testId="fact-data-dir" note="Where state is kept on this machine.">
+          <span className={`${mono} break-all`}>{about.data_dir}</span>
+        </Fact>
+        <Fact label="Console" testId="fact-console" note="This page's own address. It has no login and answers this machine only.">
+          <span className={`${mono} break-all`}>{about.console}</span>
+        </Fact>
+        <Fact label="Process" testId="fact-process" note={`Started ${dateTimeUtc(about.started * 1000)}.`}>
+          <span className={mono}>pid {about.pid}</span>
+        </Fact>
+      </dl>
+    </div>
   );
 }
 
@@ -164,13 +172,13 @@ export function HomePage() {
       {about.isError && !a ? (
         <ErrorBlock className="mb-8" what="What this doze-aws is could not be loaded" error={about.error} hint={HINT} onRetry={() => void about.refetch()} retrying={about.isFetching} testId="about-error" />
       ) : (
-        <div className="mb-10 grid items-start gap-6 xl:grid-cols-2">
+        <div className="mb-10 grid gap-6">
           <Card testId="card-connect" title="Where your app connects" lede="Point an AWS SDK or the AWS CLI at this address. Any region works; signatures are checked only when doze-aws is started with --auth verify.">
             {a ? (
-              <>
+              <div className="grid lg:grid-cols-2 lg:gap-x-12">
                 <CopyRow label="Endpoint" value={a.endpoint} testId="endpoint" />
                 <CopyRow label="As an environment variable" value={`AWS_ENDPOINT_URL=${a.endpoint}`} testId="endpoint-env" />
-              </>
+              </div>
             ) : (
               <CardSkeleton rows={2} />
             )}
