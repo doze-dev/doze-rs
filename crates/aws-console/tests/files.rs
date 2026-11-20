@@ -13,7 +13,7 @@ use axum::http::{Request, StatusCode, header};
 use support::{HOST, app, get, header_of, json, send, state};
 
 #[tokio::test]
-async fn the_page_is_the_placeholder_for_every_address_that_is_not_the_api_or_a_file() {
+async fn the_page_is_the_embedded_index_for_every_address_that_is_not_the_api_or_a_file() {
     let s = state(8, &[]);
     let app = app(&s);
     for path in [
@@ -32,7 +32,7 @@ async fn the_page_is_the_placeholder_for_every_address_that_is_not_the_api_or_a_
         );
         assert_eq!(header_of(&res, "cache-control"), "no-cache", "{path}");
         assert!(
-            text.contains("The doze-aws console is not built yet"),
+            text.contains("<title>doze-aws</title>") && text.contains("<div id=\"root\">"),
             "{path}: {text}"
         );
         assert!(
