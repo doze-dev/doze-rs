@@ -99,6 +99,7 @@ fn every_api_a_kafka_profile_offers_has_a_family_and_a_place_and_no_two_share_on
         let all = profile.advertised(Features {
             sasl: true,
             telemetry: true,
+            unstable: false,
             served: ApiSet::ALL,
         });
         for a in all {

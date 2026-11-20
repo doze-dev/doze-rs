@@ -12,6 +12,15 @@ use crate::req::{Put, Req, invalid};
 
 pub(crate) const DESTINATION: &str = "destination";
 
+/// A destination `PutDestination` just put, whose stream is looked up before the call is answered: its name, what it was before
+/// (if it was), and its target.
+#[derive(Debug)]
+pub(crate) struct Check {
+    name: String,
+    old: Option<Value>,
+    target: String,
+}
+
 /// (memory)
 fn no_destination() -> ApiError {
     ApiError::modeled(
@@ -71,7 +80,63 @@ impl Core {
             d.put("tags", tags.clone());
         }
         self.keep_destination(&name, &d);
+        if stream {
+            self.check = Some(Check {
+                name: name.clone(),
+                old,
+                target: target.to_owned(),
+            });
+        }
         Ok(json!({"destination": shown(&d)}))
+    }
+
+    /// Whether the Kinesis stream a destination just put names is there, before the call is answered; if it is not, the
+    /// destination is put back as it was and the call refused. Recorded 2026-11-19: AWS refuses a destination whose stream does not
+    /// exist with "Could not deliver test message to specified destination. Check if the destination is valid." Locally the stream
+    /// is looked up (`DescribeStreamSummary`) rather than written to. With no peers (the rules alone under test) nothing is checked.
+    pub(crate) async fn check_destination(
+        &mut self,
+        call: &aws_wire::service::Call,
+        reply: &mut aws_wire::service::Reply,
+    ) {
+        let Some(c) = self.check.take() else {
+            return;
+        };
+        let Some(peers) = self.peers.clone() else {
+            return;
+        };
+        if reply.is_err() {
+            return;
+        }
+        let parts: Vec<&str> = c.target.splitn(6, ':').collect();
+        let [_, _, _, region, account, resource] = parts.as_slice() else {
+            return;
+        };
+        let mut caller = call.caller.clone();
+        (*region).clone_into(&mut caller.region);
+        (*account).clone_into(&mut caller.account_id);
+        let stream = resource.strip_prefix("stream/").unwrap_or(resource);
+        let found = peers
+            .call(
+                "logs",
+                &caller,
+                "kinesis",
+                "DescribeStreamSummary",
+                &json!({"StreamName": stream}),
+            )
+            .await;
+        if found.is_ok() {
+            return;
+        }
+        match c.old {
+            Some(old) => self.keep_destination(&c.name, &old),
+            None => {
+                self.docs.remove(&doc_key(DESTINATION, &c.name));
+            }
+        }
+        *reply = Err(invalid(
+            "Could not deliver test message to specified destination. Check if the destination is valid.",
+        ));
     }
 
     pub(crate) fn put_destination_policy(&mut self, r: &Req<'_>) -> Result<Value, ApiError> {

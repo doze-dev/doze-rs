@@ -8,8 +8,8 @@ name: ci
 # GitHub links only label-started runs to a pull request, so only they can satisfy main's protection, which requires
 # the one `all-green` check below. Automatic runs on push come back once main stays green and every job has an owner
 # (docs/port/ci-health.md).
-# - The merge queue (since 2026-11-18): once a pull request's `all-green` has passed, `gh pr merge <n> --merge` puts
-#   it in main's queue. GitHub runs CI once more on main plus the queued changes ahead of it, and merges only if that
+# - The merge queue (since 2026-11-18): once a pull request's `all-green` has passed, the GraphQL
+#   `enqueuePullRequest` mutation puts it in main's queue (`gh pr merge` refuses: auto-merge is off for the repo). GitHub runs CI once more on main plus the queued changes ahead of it, and merges only if that
 #   run is green too, so nobody brings a branch up to date with main by hand.
 on:
   workflow_dispatch:
@@ -38,56 +38,16 @@ jobs:
     steps:
       - run: echo "CI started by ${{ github.event_name }} on ${{ github.ref }}"
 
+  # The workspace check on Linux (.github/ci/check.sh); macOS runs the same script in the one `macos` job below.
   check:
     needs: gate
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-24.04, macos-latest]
-    runs-on: ${{ matrix.os }}
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       # rust-toolchain.toml pins the version and components.
       - uses: actions-rust-lang/setup-rust-toolchain@v1
-      - run: cargo fmt --check
-      # The desktop app is left out here: it has its own macOS job (`app`, below).
-      - run: cargo clippy --workspace --exclude doze-app --all-targets -- -D warnings
-      - run: cargo test --workspace --exclude doze-app
-      # The broker without the console (`--no-default-features`) and the console crate on its own: the two runs above build
-      # the default features only. The lean build is the Phase 8 broker with no HTTP in it (docs/port/weight.md, "lean").
-      - run: cargo clippy --no-default-features -p doze-kafka -p kafka-console --all-targets -- -D warnings
-      - run: cargo test -p kafka-console
-      - run: cargo test -p doze-kafka --no-default-features
-      # TLS is in the default build (one build since 2026-11-14), so the workspace runs above cover it; kafka-server's own TLS
-      # tests need its feature named, as the crate keeps it optional.
-      - run: cargo test -p kafka-server --features tls
-      - run: cargo clippy -p kafka-server --all-targets --features tls -- -D warnings
-      # The storage simulation (random workloads, a disk that fails and loses power at every file operation).
-      - run: cargo test -p kafka-storage -p kafka-meta --features kafka-storage/sim --release
-        env:
-          SIM_SEEDS: "200"
-      # The generated aws-model crates are what the models and overlays produce (docs/port/aws/PLAN.md, rule 11).
-      - run: cargo xtask codegen --check
-      # The desktop app's themes are what the Go app's tokens.css gives (apps/doze-app/themes).
-      - run: cargo xtask themes --check
-      # No file grows past the hard size limit (docs/port/PLAN.md, quality rule 1).
-      - run: cargo xtask lint-size
-      # Every parser has a fuzz target (a `// fuzz:parser` marker with no target fails).
-      - run: cargo xtask fuzz-check
-      # The Phase 8 catalogue: each SEC number defined once, none referenced without a definition, every deviation in the
-      # index, every test name it quotes a real `fn` (tools/check-security-catalogue.ts; bun is the only extra tool).
       - uses: oven-sh/setup-bun@v2
-      - run: bun tools/check-security-catalogue.ts
-      # The same checks of the schema registry's catalogue (docs/port/behaviours/registry.md, REG-n).
-      - run: bun tools/check-registry-catalogue.ts
-      # The Phase 9 catalogue (docs/port/behaviours/console.md): each CON number defined once, none referenced without a
-      # definition, every test name it quotes a real `fn`; the lean tree has no HTTP and the default tree has the console
-      # (decision D1: `default = []` would take the console out and the size limits, being upper bounds, would not notice).
-      - run: bun tools/check-console-catalogue.ts --lean-tree --default-tree
-      # Public docs build without broken links.
-      - run: cargo doc --workspace --exclude doze-app --no-deps
-        env:
-          RUSTDOCFLAGS: -D warnings
+      - run: .github/ci/check.sh
 
   # doze-os and the module protocol on all five targets (docs/port/modules/PLAN.md D10): the only platform code and
   # the only `unsafe` in the workspace, and the protocol that runs over it. The Windows runners run elevated, so the postgres test there proves engines start under doze's restricted
@@ -97,26 +57,14 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-24.04, ubuntu-24.04-arm, macos-latest, windows-latest, windows-11-arm]
+        # macOS runs .github/ci/os.sh in the one `macos` job below.
+        os: [ubuntu-24.04, ubuntu-24.04-arm, windows-latest, windows-11-arm]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions-rust-lang/setup-rust-toolchain@v1
-      - name: Postgres for the tree test (the Linux images ship one; the Windows x64 image sets PGBIN itself)
+      - run: .github/ci/os.sh
         shell: bash
-        run: |
-          d=$(ls -d /usr/lib/postgresql/*/bin 2>/dev/null | sort -V | tail -1 || true)
-          if [ -n "$d" ]; then echo "PGBIN=$d" >> "$GITHUB_ENV"; fi
-      - run: cargo clippy -p doze-os -p doze-module-proto -p doze-module -p doze-module-derive -p doze-module-host -p doze-module-test -p doze-module-release -p doze-resp -p doze-module-valkey -p doze-module-kvrocks -p doze-module-temporal -p doze-module-mariadb -p doze-names -p doze-bind -p doze-fetch -p doze-detect -p doze-control -p doze-projects -p doze-journal -p doze-display -p doze-desk -p doze-cli -p doze-doctor -p doze-logstore -p doze-hcl -p doze-config -p doze-engine -p doze-daemon --all-targets --features doze-control/test-support -- -D warnings
-      # doze-fetch's live test checks every module the real registry publishes (signed index, signed archive, unpacked)
-      # for this runner's platform (modules ship for macOS and Linux; on Windows the indexes are checked).
-      - run: cargo test -p doze-os -p doze-module-proto -p doze-module -p doze-module-host -p doze-module-test -p doze-module-release -p doze-resp -p doze-module-valkey -p doze-module-kvrocks -p doze-module-temporal -p doze-module-mariadb -p doze-names -p doze-bind -p doze-fetch -p doze-detect -p doze-control -p doze-projects -p doze-journal -p doze-display -p doze-desk -p doze-cli -p doze-doctor -p doze-logstore -p doze-hcl -p doze-config -p doze-engine -p doze-daemon --no-fail-fast -- --nocapture
-        env:
-          DOZE_LIVE_REGISTRY: "1"
-      - name: doze-names with the network daemon (tun-rs; the root end-to-end test skips itself here)
-        run: cargo clippy -p doze-names --features netd --all-targets -- -D warnings && cargo test -p doze-names --features netd --no-fail-fast
-      - name: doze-names with machine setup and trust (every system's scripts are tested on every system)
-        run: cargo clippy -p doze-names --features setup --all-targets -- -D warnings && cargo test -p doze-names --features setup --no-fail-fast
       # The runner is elevated, so this is setup for real: the NRPT rule for .doze to the resolver on 127.0.0.53:53, a
       # name answered through the system resolver (getaddrinfo, the DNS client, the rule), a declared domain routed and a
       # throwaway doze CA trusted in the machine's Root store and removed, then uninstall (crates/doze-names/tests/setup_root.rs).
@@ -133,72 +81,15 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - { os: ubuntu-24.04, target: x86_64-unknown-linux-gnu }
-          - { os: ubuntu-24.04-arm, target: aarch64-unknown-linux-gnu }
-          - { os: macos-latest, target: aarch64-apple-darwin }
-    runs-on: ${{ matrix.os }}
-    env:
-      DOZE_ACCEPTANCE: "1"
-      # Every major a module declares is accepted on its newest build: valkey 9 and 8, kvrocks 2.
-      VALKEY: "9.1.1"
-      VALKEY8: "8.1.9"
-      KVROCKS: "2.16.0"
-      TEMPORAL: "1.8.2"
-      MARIADB: "11.4.13"
-      MARIADB12: "12.2.2"
-      MARIADB118: "11.8.9"
-      # ferret is two builds: the FerretDB gateway (the version a block names) and PostgreSQL with DocumentDB (pinned).
-      FERRETDB: "2.7.0"
-      DOCUMENTDB: "0.112-0"
-      # postgres: each major's newest build; the release is `postgres`, its files `postgresql-<version>-<target>`.
-      POSTGRES17: "17.12.0"
-      POSTGRES18: "18.7.0"
-      POSTGRES16: "16.16.0"
+        # macOS (aarch64-apple-darwin) runs .github/ci/modules.sh in the one `macos` job below.
+        target: [x86_64-unknown-linux-gnu, aarch64-unknown-linux-gnu]
+    runs-on: ${{ matrix.target == 'aarch64-unknown-linux-gnu' && 'ubuntu-24.04-arm' || 'ubuntu-24.04' }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions-rust-lang/setup-rust-toolchain@v1
-      - name: The engine builds from doze-binaries
-        shell: bash
+      - run: .github/ci/modules.sh ${{ matrix.target }}
         env:
           GH_TOKEN: ${{ github.token }}
-          TARGET: ${{ matrix.target }}
-        run: |
-          # <variable>:<engine>:<version> — the variable names where that build's bin/ is.
-          for e in "DOZE_VALKEY_BINDIR:valkey:$VALKEY" "VALKEY8_BINDIR:valkey:$VALKEY8" "DOZE_KVROCKS_BINDIR:kvrocks:$KVROCKS" "DOZE_TEMPORAL_BINDIR:temporal:$TEMPORAL" "DOZE_MARIADB_BINDIR:mariadb:$MARIADB" "MARIADB12_BINDIR:mariadb:$MARIADB12" "MARIADB118_BINDIR:mariadb:$MARIADB118" "DOZE_FERRET_BINDIR:ferretdb:$FERRETDB" "DOZE_DOCUMENTDB_BINDIR:documentdb:$DOCUMENTDB"; do
-            var=${e%%:*}; rest=${e#*:}; name=${rest%%:*}; v=${rest#*:}
-            dir="$RUNNER_TEMP/engines/$name-$v"; art="$name-$v-$TARGET.tar.gz"
-            mkdir -p "$dir"
-            gh release download "$name" -R doze-dev/doze-binaries -p "$art" -p "$art.sha256" -D "$dir"
-            (cd "$dir" && shasum -a 256 -c "$art.sha256")
-            tar -xzf "$dir/$art" -C "$dir"
-            echo "$var=$dir/$name-$v-$TARGET/bin" >> "$GITHUB_ENV"
-          done
-          for e in "DOZE_POSTGRES_BINDIR:$POSTGRES18" "POSTGRES17_BINDIR:$POSTGRES17" "POSTGRES16_BINDIR:$POSTGRES16"; do
-            var=${e%%:*}; v=${e#*:}
-            dir="$RUNNER_TEMP/engines/postgresql-$v"; art="postgresql-$v-$TARGET.tar.gz"
-            mkdir -p "$dir"
-            gh release download postgres -R doze-dev/doze-binaries -p "$art" -p "$art.sha256" -D "$dir"
-            (cd "$dir" && shasum -a 256 -c "$art.sha256")
-            tar -xzf "$dir/$art" -C "$dir"
-            echo "$var=$dir/postgresql-$v-$TARGET/bin" >> "$GITHUB_ENV"
-          done
-      - run: cargo test -p doze-module-valkey -p doze-module-kvrocks -p doze-module-temporal -p doze-module-mariadb -p doze-module-ferret -p doze-module-postgres -p doze-names -p doze-hcl --no-fail-fast -- --nocapture
-      - name: valkey's acceptance on its other major (8)
-        shell: bash
-        run: DOZE_VALKEY_BINDIR="$VALKEY8_BINDIR" cargo test -p doze-module-valkey --test acceptance --no-fail-fast -- --nocapture
-      - name: mariadb's acceptance on its newest line (12.2)
-        shell: bash
-        run: DOZE_MARIADB_BINDIR="$MARIADB12_BINDIR" cargo test -p doze-module-mariadb --test acceptance --no-fail-fast -- --nocapture
-      - name: mariadb's acceptance on its middle line (11.8)
-        shell: bash
-        run: DOZE_MARIADB_BINDIR="$MARIADB118_BINDIR" cargo test -p doze-module-mariadb --test acceptance --no-fail-fast -- --nocapture
-      - name: postgres's acceptance on 16 (the oldest major the published example is promised on)
-        shell: bash
-        run: DOZE_POSTGRES_BINDIR="$POSTGRES16_BINDIR" cargo test -p doze-module-postgres --test acceptance --test wire --test declared --no-fail-fast -- --nocapture
-      - name: postgres's acceptance on its other major (17)
-        shell: bash
-        run: DOZE_POSTGRES_BINDIR="$POSTGRES17_BINDIR" cargo test -p doze-module-postgres --test acceptance --test wire --test declared --no-fail-fast -- --nocapture
 
   # Windows (docs/port/aws/phase0.md, spike S2): the whole workspace must at least compile there. Tests join as crates are made
   # portable; a red job here is information about what is still Unix-only, not noise.
@@ -214,9 +105,15 @@ jobs:
   # compiles Metal shaders, so the app is not a default member and has this job of its own. It lints and tests the app (with and
   # without offscreen capture) and doze-os's `ui` feature, holds the app to its own weight line (docs/port/weight.md, "The desktop
   # app"), and renders the screens offscreen through a fixture daemon: the PNGs are this run's artifacts, to look at.
-  app:
+  #
+  # macOS is one job (owner, 2026-11-19): macOS runners are the scarce ones, and four macOS jobs per run (check, os,
+  # modules, app) left pull requests waiting hours for runners. This job runs the app first, then the same scripts the
+  # Linux jobs run (.github/ci/{check,os,modules}.sh). Each of those three runs even when a step before it failed, so
+  # one red run reports everything that is red.
+  macos:
     needs: gate
     runs-on: macos-latest
+    timeout-minutes: 180
     env:
       # Whether the signing secrets exist (a step cannot test a secret directly).
       HAS_CERT: ${{ secrets.MACOS_CERT_P12 != '' }}
@@ -345,6 +242,20 @@ jobs:
         with:
           name: doze-app-shots
           path: shots/
+
+      - uses: oven-sh/setup-bun@v2
+        if: ${{ !cancelled() }}
+      - name: The workspace check (.github/ci/check.sh)
+        if: ${{ !cancelled() }}
+        run: .github/ci/check.sh
+      - name: doze-os and the module protocol (.github/ci/os.sh)
+        if: ${{ !cancelled() }}
+        run: .github/ci/os.sh
+      - name: Module acceptance (.github/ci/modules.sh)
+        if: ${{ !cancelled() }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: .github/ci/modules.sh aarch64-apple-darwin
 
   # Weight is a feature (docs/port/weight.md): numbers may only rise with a written reason, so the limits (xtask/weight-limits.txt) sit a
   # little above the measured values and a change that crosses one has to move the limit and say why.
@@ -715,7 +626,7 @@ jobs:
   # was skipped (a label other than `ci` skips them all), so a skipped run never counts as green.
   all-green:
     if: always()
-    needs: [gate, check, os, modules, windows, app, weight, weight-doze, weight-lean, weight-tls-idle, web, supply-chain, fuzz]
+    needs: [gate, check, os, modules, windows, macos, weight, weight-doze, weight-lean, weight-tls-idle, web, supply-chain, fuzz]
     runs-on: ubuntu-24.04
     steps:
       - name: Every job passed

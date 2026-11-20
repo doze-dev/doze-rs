@@ -23,6 +23,7 @@ pub(crate) struct Event<'a> {
     pub(crate) stream: &'a str,
     pub(crate) group: &'a str,
     pub(crate) account: &'a str,
+    pub(crate) region: &'a str,
     pub(crate) ptr: String,
     /// The group is a Lambda function's (`/aws/lambda/...`).
     pub(crate) lambda: bool,
@@ -63,6 +64,13 @@ pub(crate) fn row(e: &Event<'_>) -> Row {
     ));
     r.0.push(("@ingestionTime".into(), Val::Time(e.ingested)));
     r.0.push(("@ptr".into(), Val::Str(e.ptr.clone())));
+    // Recorded 2026-11-19 (`GetLogRecord` and `GetLogGroupFields`): every event of an ordinary group, ingested by PutLogEvents,
+    // carries these.
+    r.0.push(("@aws.account".into(), Val::Str(e.account.to_owned())));
+    r.0.push(("@aws.region".into(), Val::Str(e.region.to_owned())));
+    r.0.push(("@data_format".into(), Val::Str("Default".into())));
+    r.0.push(("@data_source_name".into(), Val::Str("Unknown".into())));
+    r.0.push(("@data_source_type".into(), Val::Str("Unknown".into())));
     let body = e.transformed.unwrap_or(e.message);
     if body.trim_start().starts_with('{')
         && let Ok(v) = serde_json::from_str::<Value>(body)
@@ -162,6 +170,7 @@ mod tests {
             stream: "s",
             group: "/aws/lambda/f",
             account: "111122223333",
+            region: "us-east-1",
             ptr: "p".into(),
             lambda: true,
         }

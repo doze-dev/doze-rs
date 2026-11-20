@@ -124,6 +124,14 @@ impl Core {
             Shape::Create,
             &Sizes::default(),
         );
+        // Recorded 2026-11-19: a restore's answer carries neither `DeletionProtectionEnabled` nor the throughput's
+        // `NumberOfDecreasesToday` (both restores, from a backup and to a point in time).
+        if let Json::Object(m) = &mut shown {
+            m.remove("DeletionProtectionEnabled");
+        }
+        if let Some(Json::Object(p)) = shown.get_mut("ProvisionedThroughput") {
+            p.remove("NumberOfDecreasesToday");
+        }
         set(
             &mut shown,
             "RestoreSummary",
@@ -212,21 +220,24 @@ fn restore_time(t: &Table, body: &Json, now_ms: i64) -> Result<i64, ApiError> {
     };
     let earliest = crate::pitr::earliest_ms(t, now_ms);
     if at < earliest || at > now_ms {
+        // Recorded 2026-11-19.
         return Err(ApiError::modeled(
             "InvalidRestoreTimeException",
             format!(
-                "Requested point in time {} is outside of the restorable window, which is from {} to {}",
+                "RestoreDateTime '{}' must be within EarliestRestorableDateTime '{}' and LatestRestorableDateTime '{}' for table '{}'",
                 iso(at),
                 iso(earliest),
-                iso(now_ms)
+                iso(now_ms),
+                t.name
             ),
         ));
     }
     Ok(at)
 }
 
+/// A time as a restore refusal shows it: whole seconds, `2001-09-09T01:46:40Z`.
 fn iso(ms: i64) -> String {
-    aws_core::time::format_iso8601(ms.div_euclid(1000))
+    aws_core::time::format_iso8601(ms.div_euclid(1000)).replace(".000Z", "Z")
 }
 
 /// The indexes an override keeps: all of them with none given, else the ones it names, each of which must exist.

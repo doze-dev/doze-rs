@@ -74,7 +74,7 @@ pub(crate) fn shard_number(name: &str) -> Option<u32> {
         .flatten()
 }
 
-/// A registered stream consumer (enhanced fan-out). It is stored; nothing subscribes.
+/// A registered stream consumer (enhanced fan-out), which subscribes to shards with `SubscribeToShard`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub(crate) struct Consumer {
     pub(crate) name: String,

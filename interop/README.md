@@ -135,6 +135,12 @@ summary of `-versions` counts it. `-only <scenario>` picks one.
   any login), and a scenario that needs an API the broker does not advertise, or advertises only below what the client speaks,
   is skipped with the API named.
 
+Since 2026-11-19 (debt K1) the Kafka 4 profile serves every version Kafka 4.4.0 lists, and the 4.4.0 client uses them: run with
+`NetworkClient` at debug (`group-classic`, `group-848`, `txn-send-offsets`) it sent Produce 13, Fetch 18, ListOffsets 11,
+Metadata 13, OffsetCommit and OffsetFetch 10 (by topic id; 9 as well, on the classic group's path), FindCoordinator 6,
+TxnOffsetCommit 6 and ApiVersions 5, and `interop/run.sh -java-also` passed every scenario (72 ok: the Go clients, then 49 of
+the Java client, share and streams groups included; none failed or skipped).
+
 The scenarios (plain mode):
 
 | Scenario | What it does |
@@ -147,6 +153,8 @@ The scenarios (plain mode):
 | `txn-v2-epochs` | `transaction.version` finalized at 2 (`describeFeatures`); commit, abort, commit raise the producer epoch by one each (`describeTransactions`); the partition's producer at the last end's epoch (`describeProducers`); `read_committed` 12 of 18 |
 | `txn-v2-fence` | a second producer of the transactional id takes it over while the first has a transaction open: the first's commit is refused (InvalidProducerEpochException), the new owner's commits |
 | `txn-v2-timeout` | a transaction that outlives its 1 s timeout is aborted by the broker (epoch raised); the next write is refused, the producer's abort is accepted (a retry of the broker's own) and it commits again at the new epoch |
+| `txn-topic-ids` | one transaction of 10 records and offsets 4 and 6 committed, one aborted (a record, offset 99): the client negotiated Produce v13 and TxnOffsetCommit v6 (topics by id, KIP-516); 10 read once with `read_committed`, the group at 4 and 6. Needs Produce 13 and TxnOffsetCommit 6 (Kafka 4) |
+| `txn-two-phase-commit-setting` | a producer with `transaction.two.phase.commit.enable=true` (KIP-939) commits 5 and aborts 1: the 4.4.0 client has no two-phase API, never sets `Enable2Pc` and sends InitProducerId v5 even where the broker offers v6 (`--unstable-api-versions`) |
 | `group-classic`, `group-848` | two members split four partitions (a rebalance), read and commit; one leaves and the other takes over; a new member resumes with exactly the records after the commit |
 | `rebalance-commits-classic`, `-848` | four members join and two leave while records flow; each commits asynchronously after every poll and synchronously in `onPartitionsRevoked`; no commit may be refused and no record read twice. Under KIP-848 a commit in flight when the member's epoch moves arrives at an older epoch (KIP-1251, doze G848-10) |
 | `group-848-regex` | `subscribe(SubscriptionPattern)`: the broker resolves the expression; a matching topic made later is picked up, one that does not match is left out |

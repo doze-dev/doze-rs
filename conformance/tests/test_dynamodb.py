@@ -578,7 +578,7 @@ def test_legacy_refusals(client, names, cleanup, snapshot):
     eq_a = {"pk": {"ComparisonOperator": "EQ", "AttributeValueList": [{"S": "a"}]}}
     snapshot.error("mix-projection", lambda: ddb.get_item(
         TableName=name, Key=key, AttributesToGet=["n"], ProjectionExpression="n"))
-    snapshot.error("mix-filter", lambda: ddb.query(
+    snapshot.outcome("mix-filter", lambda: ddb.query(
         TableName=name, KeyConditions=eq_a, FilterExpression="n > :v", ExpressionAttributeValues={":v": {"N": "1"}}))
     snapshot.error("mix-condition", lambda: ddb.put_item(
         TableName=name, Item=key, Expected={"n": {"Exists": False}}, ConditionExpression="attribute_not_exists(pk)"))
@@ -617,7 +617,15 @@ def test_backup_lifecycle(client, names, cleanup, snapshot, eventually):
     ddb = client("dynamodb")
     name, _ = table(ddb, names, cleanup)
     ddb.put_item(TableName=name, Item={"pk": {"S": "a"}, "v": {"S": "1"}})
-    made = ddb.create_backup(TableName=name, BackupName=names("backup"))
+    backup_name = names("backup")
+
+    def backed_up():
+        # AWS (recorded 2026-11-19): on a table just made, CreateBackup can answer ContinuousBackupsUnavailableException.
+        try:
+            return ddb.create_backup(TableName=name, BackupName=backup_name)
+        except ddb.exceptions.ContinuousBackupsUnavailableException:
+            raise AssertionError("backups still being enabled")
+    made = eventually(backed_up, timeout=300, every=5)
     arn = made["BackupDetails"]["BackupArn"]
     snapshot.match("create", made, opaque=("BackupArn",), drop=BACKUP_VOLATILE[2:])
 
@@ -636,6 +644,7 @@ def test_backup_lifecycle(client, names, cleanup, snapshot, eventually):
     snapshot.match("restored-item", ddb.get_item(TableName=target, Key={"pk": {"S": "a"}}, ConsistentRead=True))
     snapshot.error("restore-onto-existing", lambda: ddb.restore_table_from_backup(TargetTableName=target, BackupArn=arn))
     snapshot.match("delete", ddb.delete_backup(BackupArn=arn), opaque=("BackupArn",), drop=BACKUP_VOLATILE[2:])
+    snapshot.known(arn, "backup-arn")  # the refusal quotes it
     snapshot.error("describe-deleted", lambda: ddb.describe_backup(BackupArn=arn))
 
 
@@ -684,14 +693,18 @@ def test_resource_policy_lifecycle(client, names, cleanup, snapshot, eventually)
     snapshot.error("get-none", lambda: ddb.get_resource_policy(ResourceArn=arn))
     put = ddb.put_resource_policy(ResourceArn=arn, Policy=scan_denied(account, arn), ExpectedRevisionId="NO_POLICY")
     snapshot.match("put", put, opaque=("RevisionId",))
-    revision = put["RevisionId"]
+    revision = snapshot.known(put["RevisionId"], "revision")  # the mismatch refusals quote it
 
     def stored():
-        r = ddb.get_resource_policy(ResourceArn=arn)
+        # AWS (recorded 2026-11-19): right after the put, GetResourcePolicy may still answer PolicyNotFoundException.
+        try:
+            r = ddb.get_resource_policy(ResourceArn=arn)
+        except ddb.exceptions.PolicyNotFoundException:
+            raise AssertionError("not applied yet")
         assert r["RevisionId"] == revision, "not applied yet"
         return r
 
-    snapshot.match("get", eventually(stored, timeout=60, every=2), opaque=("RevisionId",))
+    snapshot.match("get", eventually(stored, timeout=180, every=3), opaque=("RevisionId",))
     snapshot.match("put-same", ddb.put_resource_policy(ResourceArn=arn, Policy=scan_denied(account, arn)), opaque=("RevisionId",))
     snapshot.error("put-expecting-none", lambda: ddb.put_resource_policy(
         ResourceArn=arn, Policy=scan_denied(account, arn), ExpectedRevisionId="NO_POLICY"))
@@ -719,6 +732,18 @@ def export_bucket(s3, names, cleanup):
     return name
 
 
+def enable_pitr(ddb, name, eventually):
+    """AWS (recorded 2026-11-19): on a table just made, UpdateContinuousBackups can answer ContinuousBackupsUnavailableException
+    ('Backups are being enabled') for a while."""
+    def on():
+        try:
+            return ddb.update_continuous_backups(
+                TableName=name, PointInTimeRecoverySpecification={"PointInTimeRecoveryEnabled": True})
+        except ddb.exceptions.ContinuousBackupsUnavailableException:
+            raise AssertionError("backups still being enabled")
+    return eventually(on, timeout=300, every=5)
+
+
 EXPORT_VOLATILE = ("ExportArn", "ImportArn", "StartTime", "EndTime", "ExportTime", "ExportManifest", "BilledSizeBytes",
                    "ProcessedSizeBytes", "CloudWatchLogGroupArn", "TableId")
 
@@ -726,13 +751,17 @@ EXPORT_VOLATILE = ("ExportArn", "ImportArn", "StartTime", "EndTime", "ExportTime
 def test_export_and_import(client, names, cleanup, snapshot, eventually):
     ddb, s3 = client("dynamodb"), client("s3")
     name, created = table(ddb, names, cleanup)
-    ddb.update_continuous_backups(TableName=name, PointInTimeRecoverySpecification={"PointInTimeRecoveryEnabled": True})
+    enable_pitr(ddb, name, eventually)
     for pk in ("a", "b"):
         ddb.put_item(TableName=name, Item={"pk": {"S": pk}, "n": {"N": "1"}})
     bucket = export_bucket(s3, names, cleanup)
-    started = ddb.export_table_to_point_in_time(TableArn=created["TableDescription"]["TableArn"], S3Bucket=bucket, S3Prefix="x")
+    # AWS (recorded 2026-11-19): a prefix shorter than 3 characters is refused.
+    snapshot.error("prefix-too-short", lambda: ddb.export_table_to_point_in_time(
+        TableArn=created["TableDescription"]["TableArn"], S3Bucket=bucket, S3Prefix="x"))
+    started = ddb.export_table_to_point_in_time(TableArn=created["TableDescription"]["TableArn"], S3Bucket=bucket, S3Prefix="exp")
     snapshot.match("export", started, drop=EXPORT_VOLATILE + ("ItemCount",))
     arn = started["ExportDescription"]["ExportArn"]
+    snapshot.known(arn.rsplit("/", 1)[-1], "export-id")  # the import names its prefix, which holds it
 
     def exported():
         r = ddb.describe_export(ExportArn=arn)
@@ -757,7 +786,8 @@ def test_export_and_import(client, names, cleanup, snapshot, eventually):
 
     def done():
         r = ddb.describe_import(ImportArn=import_arn)
-        assert r["ImportTableDescription"]["ImportStatus"] == "COMPLETED", "still importing"
+        # Settled either way: a FAILED import is AWS's answer too, and waiting for COMPLETED would sit out the timeout.
+        assert r["ImportTableDescription"]["ImportStatus"] not in ("IN_PROGRESS", "CANCELLING"), "still importing"
         return r
 
     snapshot.match("imported", eventually(done, timeout=1800, every=20), drop=EXPORT_VOLATILE)

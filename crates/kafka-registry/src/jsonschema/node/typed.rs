@@ -3,7 +3,8 @@
 
 use super::*;
 
-/// A value's canonical JSON for an `enum` or `const`: object keys sorted, numbers as written.
+/// A value's canonical JSON for an `enum` or `const`: object keys sorted, numbers as the stored text writes them
+/// (Java's `BigDecimal` form, [`crate::json::java_number`]), so that `77e0` and the stored `77` are one value.
 pub(crate) fn canonical_value(v: &Json) -> String {
     match v {
         Json::Object(_) => {
@@ -23,6 +24,7 @@ pub(crate) fn canonical_value(v: &Json) -> String {
             "[{}]",
             a.iter().map(canonical_value).collect::<Vec<_>>().join(",")
         ),
+        Json::Raw(r) => crate::json::java_number(r),
         other => other.to_text(),
     }
 }

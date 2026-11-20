@@ -23,7 +23,7 @@ const SYSTEM_DAYS_MS: i64 = 35 * 24 * 60 * 60 * 1000;
 const LIST_MAX: usize = 100;
 
 fn not_found(arn: &str) -> ApiError {
-    // (memory)
+    // Recorded 2026-11-19.
     ApiError::modeled(
         "BackupNotFoundException",
         format!("Backup not found: {arn}"),
@@ -356,12 +356,11 @@ fn features(t: &Table) -> Json {
             json!({"StreamEnabled": true, "StreamViewType": s.view}),
         );
     }
-    let ttl = if t.ttl.enabled {
-        json!({"TimeToLiveStatus": "ENABLED", "AttributeName": t.ttl.attribute})
-    } else {
-        json!({"TimeToLiveStatus": "DISABLED"})
-    };
-    crate::req::set(&mut out, "TimeToLiveDescription", ttl);
+    // Recorded 2026-11-19: a table without time to live shows no `TimeToLiveDescription` here at all.
+    if t.ttl.enabled {
+        let ttl = json!({"TimeToLiveStatus": "ENABLED", "AttributeName": t.ttl.attribute});
+        crate::req::set(&mut out, "TimeToLiveDescription", ttl);
+    }
     if let Some((kind, key)) = &t.sse {
         let mut sse = json!({"Status": "ENABLED", "SSEType": kind});
         if let Some(k) = key {

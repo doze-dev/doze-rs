@@ -695,6 +695,7 @@ version = "0.0.0"
 dependencies = [
  "aws-core",
  "aws-gateway",
+ "aws-logs",
  "aws-model-cloudwatch",
  "aws-peers",
  "aws-schema",
@@ -883,6 +884,7 @@ dependencies = [
  "aws-seal",
  "aws-testkit",
  "aws-wire",
+ "bytes",
  "doze-runtime",
  "doze-store",
  "md-5 0.11.0",
@@ -977,6 +979,7 @@ dependencies = [
  "regex-lite",
  "serde",
  "serde_json",
+ "sha2 0.11.1",
  "tokio",
  "tracing",
 ]

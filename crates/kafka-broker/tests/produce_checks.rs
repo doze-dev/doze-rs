@@ -158,13 +158,13 @@ async fn from_v13_a_topic_is_named_by_its_id_and_the_answer_says_which() {
     assert_eq!(r.responses[0].topic_id, made[0].topic_id);
     let first = &r.responses[0].partition_responses[0];
     assert_eq!((first.error_code, first.base_offset), (0, 0));
-    // An id that is no topic's is unknown, whatever name the request carries.
+    // An id that is no topic's is UNKNOWN_TOPIC_ID (100), whatever name the request carries.
     let mut req = produce_request(1, "t", &[(0, records(1))]);
     req.topic_data[0].topic_id = kafka_wire::Uuid::from_u128(9);
     let Response::Produce(r) = rig.ask(13, kafka_wire::api::Request::Produce(req)).await else {
         panic!()
     };
-    assert_eq!(r.responses[0].partition_responses[0].error_code, 3);
+    assert_eq!(r.responses[0].partition_responses[0].error_code, 100);
 }
 
 #[tokio::test]

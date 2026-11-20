@@ -22,6 +22,7 @@ differences = [
   "Destinations are one account's: the access policy is checked as JSON, kept and not evaluated. A subscription filter to a destination of the same region delivers to its Kinesis stream; a Firehose target is kept and not delivered.",
   "Transformers: `parseCloudfront`, `parseRoute53`, `parsePostgres` and `parseToOCSF` are refused (their logs are vended by AWS services that do not run locally); `dateTimeConverter` reads English month and day names only.",
   "Scheduled queries run on their schedule and write their answer to the local S3 as JSON rows; a lookup-table destination is refused.",
+  "Logs Insights results carry doze-aws's own `@logGroupId` and pagination tokens, and a stream id built as AWS builds it from the group id, a hash of the stream name and its creation time; AWS's are its own. `DescribeQueries` shows the caller doze-aws knows (the local keys' principal) as `userIdentity`. Live Tail delivers an event as soon as it is written, and an export task includes events written just before it (AWS may take a minute for both).",
 ]
 not_planned = [
   { why = "Large log objects exist only for logs ingested through OpenTelemetry (PutOpenTelemetryLogs), which this model and doze-aws do not have; there is never an object to fetch.", ops = ["GetLogObject"] },
@@ -41,6 +42,8 @@ differences = [
   "An export writes one data file (AWS writes one per partition) in AWS's layout (`AWSDynamoDB/<id>/manifest-summary.json`, `manifest-files.json`, `data/*.json.gz`). `FilterSpecification` on an export and `ZSTD` input on an import are not built and are refused by name; an import's failed items are counted, not written to CloudWatch Logs.",
   "Resource policies apply at once (AWS: eventually). IAM weighs them with every request on the table, its indexes and its stream; a key IAM did not issue is the account root's and is allowed everything locally, so a deny in a resource policy binds IAM users and roles.",
   "A Kinesis streaming destination is sent each change after the call answers, one table to one active stream at a time; the record's partition key is the item's partition key value.",
+  "AWS gives a new on-demand table's stream several shards (4 when recorded); doze-aws gives it one, so `DescribeStream` lists one shard.",
+  "A restore time outside the restorable window is refused with AWS's words; the window it names is doze-aws's own (a day of history), so the times differ from AWS's.",
 ]
 not_planned = [
   { why = "Global tables version 2017.11.29, superseded by replicas on the table itself; one machine has no second region to replicate to.", ops = ["CreateGlobalTable", "DescribeGlobalTable", "UpdateGlobalTable", "ListGlobalTables", "DescribeGlobalTableSettings", "UpdateGlobalTableSettings", "DescribeTableReplicaAutoScaling", "UpdateTableReplicaAutoScaling"] },
@@ -72,6 +75,7 @@ differences = [
   "The credential report and last-accessed jobs are ready as soon as they are asked for (AWS takes seconds to minutes). Console passwords are never used to sign in, so the report says `no_information` for their last use.",
   "Last-accessed data counts what IAM users and roles asked the authorizer, so it is recorded with `--iam soft` (the default) or `enforce`, not `off`. A policy action with a wildcard in its service part (`*`, `s3*:...`) is matched against the services doze-aws runs, not all of AWS's; action-level reports list every action asked for, where AWS tracks a few services' actions.",
   "`SetSecurityTokenServicePreferences` is kept and shown in `GetAccountSummary`; doze-aws has one STS endpoint and its session tokens work in every region.",
+  "Action-level last-accessed reports list every action AWS tracks for DynamoDB and S3 (recorded); for other services they list only the actions asked for.",
 ]
 not_planned = [
   { why = "Partner delegation, role templates, outbound web-identity federation and account properties: new account-administration features with no local use yet.", families = ["Delegation", "AcquireRole", "RoleTemplate", "HumanReadableSummary", "OutboundWebIdentityFederation", "AccountProperties"] },
@@ -91,6 +95,8 @@ differences = [
   "`GetServiceSetting` of a setting that does not exist: AWS answers `ServiceSettingNotFound` with an empty message; doze-aws answers the same code, names the setting and says to check its id.",
   "Resource policies (`PutResourcePolicy`) on parameters and documents are read by the IAM evaluator as the resource-based layer of every request on them (a grant to a principal, an explicit deny). There is one account locally, so the cross-account sharing they exist for on AWS is not exercised, and no Resource Access Manager share is made; an `OpsItemGroup` takes no policy (OpsCenter is not run).",
   "Change-template reviews (`UpdateDocumentMetadata`, `ListDocumentMetadataHistory`) record the account id as author and reviewer: doze-aws does not resolve the IAM user here. Change Manager approval workflows do not run.",
+  "AWS has closed Change Manager to new customers: in an account that never used it, `CreateDocument` of an `Automation.ChangeTemplate` is `NoLongerSupportedException` (recorded 2026-11-19). doze-aws keeps change templates, as accounts already using Change Manager still have them, and holds their content to AWS's schema (`emergencyChange`, approval steps with `timeoutSeconds`).",
+  "A resource policy that shares with an account that does not exist is refused on AWS (`Policy contains invalid principal`); doze-aws cannot know which real accounts exist and keeps it.",
 ]
 not_planned = [
   { why = "Fleet management needs managed EC2 instances or on-premises nodes: Run Command, Session Manager, patching, inventory, compliance, maintenance windows, State Manager associations, hybrid activations.", families = ["Command", "Session", "Patch", "Inventory", "Compliance", "MaintenanceWindow", "Association", "Activation", "ManagedInstance", "InstanceInformation", "InstanceProperties", "Nodes", "CloudConnector", "ResourceDataSync", "OpsItem", "OpsMetadata", "OpsSummary", "Automation", "ChangeRequest", "ExecutionPreview", "CalendarState", "AccessRequest", "AccessToken", "ConnectionStatus", "DeployablePatch", "InstancePatch", "EffectiveInstanceAssociations", "EffectivePatches", "AvailablePatches"] },
@@ -114,12 +120,22 @@ not_planned = [
 ]
 
 [api."API Gateway"]
+differences = [
+  "VPC links are kept and follow AWS's status lifecycle without the wait (`PENDING` when made, `AVAILABLE` when next read). There is no VPC locally: an integration with `connectionType: VPC_LINK` calls its integration URI directly, so point it at a local address.",
+  "Client certificates are real self-signed certificates (RSA 2048, valid 365 days), but a stage's or test's `clientCertificateId` is not yet presented to HTTPS backends.",
+  "`TestInvokeMethod` and `TestInvokeAuthorizer` run the API as it is now through the same code a deployed stage runs; the execution log's lines between the first and the last are worded from memory of AWS's logs.",
+  "Usage plans meter and enforce: the quota per key and the throttle as a token bucket per key (429 `Limit Exceeded` and `Too Many Requests`). `GetUsage` is current at once (AWS reports after a delay). Per-method throttles in a plan's stages, and the account-level throttle, are not enforced.",
+  "`GetUsage` with no quota on the plan reports 0 remaining.",
+]
 not_planned = [
   { why = "Private custom domains need VPC endpoints.", families = ["DomainNameAccessAssociation"] },
   { why = "Generated client SDKs.", ops = ["GetSdk", "GetSdkType", "GetSdkTypes"] },
 ]
 
 [api."ApiGatewayV2"]
+differences = [
+  "VPC links are kept (`PENDING` when made, `AVAILABLE` when next read). An integration over a VPC link whose URI is a load balancer listener or Cloud Map ARN cannot be reached locally and answers 500 with the reason in doze-aws's log; give it an http(s) URI instead.",
+]
 not_planned = [
   { why = "Routing rules act on custom domains, which are kept but not served locally.", families = ["RoutingRule"] },
   { why = "Developer portals (hosted documentation sites).", families = ["Portal", "ProductPage", "ProductRestEndpointPage"] },
@@ -142,6 +158,7 @@ differences = [
   "A durable invocation that fails without an answer from the SDK (a crash, a timeout) is tried three times, one and two seconds apart, before the execution fails; AWS's retry policy for these is not recorded.",
   "Deleting a function deletes its durable executions. A chained invoke that was under way when doze-aws stopped is made again when it starts.",
   "Durable execution error messages that AWS's own local checkpoint server (`@aws/durable-execution-sdk-js-testing`) does not state are doze's words, not recorded ones.",
+  "A durable execution's X-Ray trace header is doze-aws's own id in X-Ray's format; the last invocation ends at the instant the execution does (AWS reads the two times apart).",
 ]
 not_planned = [
   { why = "Lambda Managed Instances run functions on EC2 capacity providers.", families = ["CapacityProvider", "FunctionScalingConfig"] },
@@ -154,6 +171,9 @@ not_planned = [
 ]
 
 [api."Kinesis"]
+differences = [
+  "A registered stream consumer is `ACTIVE` at once (AWS takes seconds). `SubscribeToShard` is answered on the connection it came on (boto3's HTTP/1.1 included; AWS documents HTTP/2), with no per-consumer throughput limit: a subscription is pushed records as soon as they are written, and an empty event at least every five seconds otherwise. Every call takes the consumer's shard over, the one before ending with `ResourceInUseException`, as AWS did when recorded (the model says a call within 5 seconds is refused).",
+]
 not_planned = [
   { why = "Kinesis channels and record distribution strategies are new features with no local use yet.", ops = ["CreateChannel", "DeleteChannel", "DescribeChannel", "ListChannels", "UpdateChannel", "UpdateStreamRecordDistributionStrategy"] },
 ]
@@ -163,7 +183,8 @@ differences = [
   "Metric math is worked out in `GetMetricData` and in metric math alarms: arithmetic, comparisons and logic, `ABS CEIL FLOOR LOG LOG10`, `AVG SUM MIN MAX STDDEV`, `DATAPOINT_COUNT`, `PERIOD`, `TIME_SERIES`, `IF`, `METRICS`, `REMOVE_EMPTY FIRST LAST SORT SLICE`, `FILL RATE DIFF DIFF_TIME RUNNING_SUM`, the time functions and `SEARCH`. Metrics Insights queries (`SELECT ...`) and `INSIGHT_RULE_METRIC`, `SERVICE_QUOTA`, `LAMBDA` and `DB_PERF_INSIGHTS` are refused with a sentence.",
   "`ANOMALY_DETECTION_BAND` is a statistical stand-in, not AWS's trained model: the mean of the metric's datapoints in the window read (for an alarm, its window and up to 50 periods before it), plus and minus the given number of standard deviations.",
   "`SEARCH` matches a partial term as a case-insensitive part of a namespace, metric name or dimension; AWS matches on the words of a name. A search finds a metric as soon as it has data; AWS can take minutes to index a new one.",
-  "Log alarms (`PutLogAlarm`) are kept, described, tagged, forced and deleted, but not evaluated: no scheduled Logs Insights query runs locally, so a log alarm stays `INSUFFICIENT_DATA` and its reason says so. Composite alarms are likewise kept and not evaluated.",
+  "Log alarms (`PutLogAlarm`) run their Logs Insights query on its `rate()` schedule against the local CloudWatch Logs and are judged M out of N on the results. No scheduled query appears in CloudWatch Logs for them, and the query role is not assumed. A run with several contributors (`... by host`) counts as breaching when any contributor does: contributors are not judged one by one, and `PARTIAL_DATA` is never reported.",
+  "Composite alarms are judged on their rule as soon as they are made and whenever an alarm they name changes. `ActionsSuppressor` is kept and shown but never suppresses an action. Deleting an alarm that a composite names is accepted; the composite then finds it in no state.",
 ]
 not_planned = [
   { why = "Datasets, vended-metric configuration, OpenTelemetry enrichment, managed Contributor Insights rules, alarm contributors and rendered graph images: features of AWS's own console and services, with no local use yet.", families = ["Dataset", "ResourceMetricsConfiguration", "OTelEnrichment", "ManagedInsightRules", "AlarmContributors", "MetricWidgetImage"] },
