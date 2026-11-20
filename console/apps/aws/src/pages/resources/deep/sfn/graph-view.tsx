@@ -38,20 +38,33 @@ function EdgeLine({ g, e, run }: { g: Graph; e: Edge } & Look) {
   const to = nameOf(g, e.to);
   const status = (n: string) => run?.steps.get(n)?.status;
   const taken = !!run && (run.taken.has(`${from}>${to}`) || (e.kind === "start" && !!status(to)) || (e.kind === "end" && status(from) === "succeeded"));
-  const last = e.points[e.points.length - 1];
-  // A lane edge is labelled where it turns off; a straight one halfway.
-  const turn = !e.back && e.points.length > 2 ? e.points[2] : null;
-  const label = !e.label ? null : turn ? [turn[0], turn[1] - 5] : e.points[0] && last ? [(e.points[0][0] + last[0]) / 2, (e.points[0][1] + last[1]) / 2] : null;
   return (
     <g data-edge={`${from}>${to}`} data-taken={taken || undefined}>
       <path d={pathOf(e)} fill="none" className={cn(taken ? "stroke-good" : "stroke-border", e.kind === "catch" && "[stroke-dasharray:4_4]")} strokeWidth={taken ? 2 : 1.5} markerEnd={`url(#${taken ? "arrow-taken" : "arrow"})`} />
-      {label && e.kind !== "next" && (
-        <text x={e.back ? (e.points[1]?.[0] ?? 0) - 4 : label[0] + 6} y={e.back ? label[1] : label[1] - 2} textAnchor={e.back ? "end" : "start"} className="fill-muted-foreground font-mono text-[10.5px]">
-          {e.label && e.label.length > 22 ? `${e.label.slice(0, 21)}…` : e.label}
-        </text>
-      )}
+      {e.label && e.kind !== "next" && <EdgeLabel e={e} text={e.label.length > 22 ? `${e.label.slice(0, 21)}…` : e.label} />}
     </g>
   );
+}
+
+/** Where an edge's words go, beside its line and never on it: a loop's at its far side, a lane's along the lane (turned, on its
+ * outer side), a straight one's just under its state, on the side its line does not bend to. A halo of the card keeps them
+ * legible where another line passes. */
+function EdgeLabel({ e, text }: { e: Edge; text: string }) {
+  const [a, b, c, d] = e.points;
+  const look = "fill-muted-foreground stroke-card font-mono text-[10.5px] [paint-order:stroke]";
+  if (!a || !b) return null;
+  if (e.back) {
+    const y = ((b[1] ?? 0) + (c?.[1] ?? b[1])) / 2;
+    return <text x={b[0] - 5} y={y} textAnchor="end" strokeWidth={3} className={look}>{text}</text>;
+  }
+  if (c && d) {
+    const x = c[0] - 5;
+    const y = (c[1] + d[1]) / 2;
+    return <text x={x} y={y} transform={`rotate(-90 ${x} ${y})`} textAnchor="middle" strokeWidth={3} className={look} data-label="lane">{text}</text>;
+  }
+  // On the side the line does not bend to.
+  const right = !(b[0] > a[0] + 1);
+  return <text x={a[0] + (right ? 6 : -6)} y={a[1] + 13} textAnchor={right ? "start" : "end"} strokeWidth={3} className={look}>{text}</text>;
 }
 
 function StateBox({ b, run, selected, onSelect }: { b: Box } & Look) {

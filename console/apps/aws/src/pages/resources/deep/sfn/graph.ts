@@ -182,13 +182,15 @@ export function layout(def: Definition, scope = ""): Graph {
     const blocked = between.some((x) => x.x - 8 < Math.max(sx, tx) && x.x + x.w + 8 > Math.min(sx, tx));
     if (!isBack && blocked) {
       const lx = Math.max(6, Math.min(...between.map((x) => x.x)) - 14 - 6 * lanes++);
+      // It joins its target from the side, at the height of the target's name: never at the top, where the edge from the
+      // layer above it comes in.
+      const ey = b.y + Math.min(b.h, BOX_H) / 2;
       const points: [number, number][] = [
         [sx, a.y + a.h],
         [sx, a.y + a.h + GAP_Y / 3],
         [lx, a.y + a.h + GAP_Y / 3],
-        [lx, b.y - GAP_Y / 3],
-        [tx, b.y - GAP_Y / 3],
-        [tx, b.y],
+        [lx, ey],
+        [b.x, ey],
       ];
       edges.push({ from: a.id, to: b.id, kind, label, back: false, points });
       return;
@@ -209,16 +211,23 @@ export function layout(def: Definition, scope = ""): Graph {
   if (start) add(START, start, "start", undefined, false, 0, 1);
   for (const n of order) {
     const s = states[n] ?? {};
-    const out = exits(s).filter((e) => states[e.to]);
+    // An edge that passes a layer leaves from the left, nearest the lane it runs down, so it crosses no edge of its state's.
+    const passes = (e: { to: string }) => !back.has(`${n}>${e.to}`) && (rowOf.get(e.to) ?? 0) - (rowOf.get(n) ?? 0) > 1;
+    const out = exits(s)
+      .filter((e) => states[e.to])
+      .sort((x, y) => Number(passes(y)) - Number(passes(x)));
     const forward = out.filter((e) => !back.has(`${n}>${e.to}`));
     const slots = forward.length + (ends(s) ? 1 : 0);
     let slot = 0;
+    // An end that passes layers goes down the lane too, so it leaves first.
+    const endFirst = ends(s) && depth + 2 - (rowOf.get(n) ?? 0) > 1;
+    if (endFirst) add(n, END, "end", undefined, false, slot++, slots);
     for (const e of out) {
       const isBack = back.has(`${n}>${e.to}`);
       add(n, e.to, e.kind, e.label, isBack, isBack ? 0 : slot, slots);
       if (!isBack) slot++;
     }
-    if (ends(s)) add(n, END, "end", undefined, false, slot, slots);
+    if (ends(s) && !endFirst) add(n, END, "end", undefined, false, slot, slots);
   }
   return { w: width + loops, h: y - GAP_Y, boxes, edges };
 }

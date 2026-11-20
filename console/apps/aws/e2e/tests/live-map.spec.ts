@@ -1,6 +1,7 @@
 // Live's map, the cause of a call between services, the wire's filters and repeats, and copying a call, against the real
 // doze-aws and the real AWS CLI.
-import { ACCOUNT } from "../server";
+import { LISTEN_PORT } from "../global-setup";
+import { ACCOUNT, aws, type Running, start } from "../server";
 import { calls, ENDPOINT, expect, openLive, rows, test, unique } from "./fixtures";
 
 /** A queue subscribed to a topic, and one message published to the topic: SNS delivers it to SQS on doze-aws's bus. */
@@ -48,29 +49,42 @@ test("SNS delivering to SQS is a call via SNS, and its drawer shows the Publish 
   await expect(page.getByTestId("call-open-resource")).toHaveAttribute("href", /\/resources\/sns\/placed-/);
 });
 
-test("the map draws a line from each caller to each service it called, and a dashed one for SNS to SQS", async ({ page, cli, accessKey, browserName }) => {
-  fanOut(cli, browserName);
-  await openLive(page, "/live?view=map");
-  await expect(page.getByTestId("live-map")).toBeVisible();
-  // The wire is not drawn in the Map view.
-  await expect(rows(page)).toHaveCount(0);
-  const line = (key: string) => page.locator(`[data-testid="map-line"][data-flow="${key}"]`);
-  await expect(line(`key|${accessKey}|sqs`)).toHaveCount(1);
-  await expect(line(`key|${accessKey}|sns`)).toHaveCount(1);
-  await expect(line("via|sns|sqs")).toHaveAttribute("stroke-dasharray", /\d/);
-  await expect(line(`key|${accessKey}|sqs`)).not.toHaveAttribute("stroke-dasharray", /./);
-  await expect(page.locator('[data-testid="map-caller"][data-station="sns"]')).toContainText("service");
-  // A new call arrives on the open map: its line is there (a new flow is drawn without a reload).
-  expect(cli(["dynamodb", "list-tables"]).code).toBe(0);
-  await expect(line(`key|${accessKey}|dynamodb`)).toHaveCount(1);
-  // A station is a filter: the address keeps it, and Both shows the wire filtered by it.
-  await page.locator('[data-testid="map-service"][data-station="dynamodb"]').click();
-  await expect(page).toHaveURL(/service=dynamodb/);
-  await page.getByTestId("view-both").click();
-  await expect(page).toHaveURL(/service=dynamodb/);
-  await expect(page).not.toHaveURL(/view=/);
-  await expect(rows(page).first().locator("td").nth(1)).toHaveText("DynamoDB");
-  for (const cell of await rows(page).locator("td:nth-child(2)").allTextContents()) expect(cell).toBe("DynamoDB");
+// The map draws the busiest 8 callers: on the shared doze-aws the other tests' callers (each browser's key, IAM's users) push
+// this one's off it. So the map is read on a doze-aws of its own (the ports after deep-run's), whose only callers are its own.
+test.describe("the map, on a doze-aws of its own", () => {
+  let own: Running | undefined;
+  test.beforeAll(async () => {
+    own = await start(LISTEN_PORT + 4, LISTEN_PORT + 5);
+  });
+  test.afterAll(async () => {
+    await own?.stop();
+  });
+
+  test("the map draws a line from each caller to each service it called, and a dashed one for SNS to SQS", async ({ page, accessKey, browserName }) => {
+    const cli = (args: string[]) => aws(own?.endpoint ?? "", args, { accessKey });
+    fanOut(cli, browserName);
+    await openLive(page, `${own?.console}/live?view=map`);
+    await expect(page.getByTestId("live-map")).toBeVisible();
+    // The wire is not drawn in the Map view.
+    await expect(rows(page)).toHaveCount(0);
+    const line = (key: string) => page.locator(`[data-testid="map-line"][data-flow="${key}"]`);
+    await expect(line(`key|${accessKey}|sqs`)).toHaveCount(1);
+    await expect(line(`key|${accessKey}|sns`)).toHaveCount(1);
+    await expect(line("via|sns|sqs")).toHaveAttribute("stroke-dasharray", /\d/);
+    await expect(line(`key|${accessKey}|sqs`)).not.toHaveAttribute("stroke-dasharray", /./);
+    await expect(page.locator('[data-testid="map-caller"][data-station="sns"]')).toContainText("service");
+    // A new call arrives on the open map: its line is there (a new flow is drawn without a reload).
+    expect(cli(["dynamodb", "list-tables"]).code).toBe(0);
+    await expect(line(`key|${accessKey}|dynamodb`)).toHaveCount(1);
+    // A station is a filter: the address keeps it, and Both shows the wire filtered by it.
+    await page.locator('[data-testid="map-service"][data-station="dynamodb"]').click();
+    await expect(page).toHaveURL(/service=dynamodb/);
+    await page.getByTestId("view-both").click();
+    await expect(page).toHaveURL(/service=dynamodb/);
+    await expect(page).not.toHaveURL(/view=/);
+    await expect(rows(page).first().locator("td").nth(1)).toHaveText("DynamoDB");
+    for (const cell of await rows(page).locator("td:nth-child(2)").allTextContents()) expect(cell).toBe("DynamoDB");
+  });
 });
 
 test("the wire's filters keep the calls that match, and live in the address", async ({ page, cli, accessKey, browserName }) => {

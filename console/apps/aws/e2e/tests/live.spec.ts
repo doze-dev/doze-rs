@@ -75,15 +75,18 @@ test("Pause holds new calls aside and counts them; Resume shows them", async ({ 
   await page.getByTestId("live-resume").click();
   await expect(page.getByTestId("live-status")).toHaveText("Live");
   await expect(page.getByTestId("held-pill")).toHaveCount(0);
-  await expect(rows(page)).toHaveCount(before + 2);
+  // The two held calls are on top of the row that was. Read by place, not by counting rows: the record holds the last 1,024
+  // calls, so on a shared doze-aws that is full (the third browser's run) each new call pushes the oldest out.
   await expect(rows(page).nth(0).locator("td").nth(2)).toHaveText("ListTables");
   await expect(rows(page).nth(1).locator("td").nth(2)).toHaveText("ListTopics");
+  await expect(rows(page).nth(2)).toHaveAttribute("data-row", top!);
   // The pill shows them too.
   await page.getByTestId("live-pause").click();
   expect(cli(["sqs", "list-queues"]).code).toBe(0);
   await page.getByTestId("held-pill").click();
   await expect(page.getByTestId("live-status")).toHaveText("Live");
-  await expect(rows(page)).toHaveCount(before + 3);
+  await expect(rows(page).nth(0).locator("td").nth(2)).toHaveText("ListQueues");
+  await expect(rows(page).nth(3)).toHaveAttribute("data-row", top!);
 });
 
 test("a row opens a drawer over the page with everything the record has for the call", async ({ page, cli, accessKey, browserName }) => {

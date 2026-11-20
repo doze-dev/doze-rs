@@ -98,8 +98,18 @@ describe("an edge that passes a layer", () => {
     });
     const skip = g.edges.find((e) => e.from === "Route" && e.to === "Go");
     const wait = g.boxes.find((b) => b.name === "Wait")!;
-    expect(skip?.points.length).toBe(6);
+    expect(skip?.points.length).toBe(5);
     expect(Math.min(...(skip?.points ?? []).map((p) => p[0]))).toBeLessThan(wait.x);
-    expect(g.edges.find((e) => e.from === "Route" && e.to === "Wait")?.points.length).toBe(2);
+    const straight = g.edges.find((e) => e.from === "Route" && e.to === "Wait");
+    expect(straight?.points.length).toBe(2);
+    // It leaves its state first (nearest the lane), so it crosses the other edge of its state nowhere.
+    expect(skip!.points[0][0]).toBeLessThan(straight!.points[0][0]);
+    // It joins its target from the side, not where the edge from Wait comes in at the top.
+    const go = g.boxes.find((b) => b.name === "Go")!;
+    const fromWait = g.edges.find((e) => e.from === "Wait" && e.to === "Go")!;
+    const [ex, ey] = skip!.points[4];
+    expect(ex).toBe(go.x);
+    expect(ey).toBeGreaterThan(go.y);
+    expect(fromWait.points[1]).toEqual([go.x + go.w / 2, go.y]);
   });
 });
