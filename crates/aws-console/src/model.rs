@@ -7,7 +7,8 @@
 
 use serde::Serialize;
 
-use crate::ring::Call;
+use crate::facts::Facts;
+use crate::ring::{Call, Flow};
 
 /// A refusal: a stable code a script can match and the words a person reads.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -142,10 +143,14 @@ pub struct CallRecord {
     pub api: Option<String>,
     /// The operation (`SendMessage`); `null` when the request was refused before one was found.
     pub action: Option<String>,
-    /// What was acted on, when the gateway itself knows: an S3 path (`bucket/key`, cut at 256 bytes). `null` for every other
-    /// service until the services name their resources.
+    /// What was acted on, cut at 256 bytes: an S3 path (`bucket/key`), or the value of the input member `member` names (a queue
+    /// URL, a table name, an ARN), as the caller wrote it. `null` when the call named nothing the gateway knows to look for.
     pub resource: Option<String>,
-    /// The access key id the request was signed with; `null` for one that carried none.
+    /// The input member `resource` is the value of (`QueueUrl`, `TableName`, `stateMachineArn`); `null` for an S3 path,
+    /// which is read from the address, and with `resource`.
+    pub member: Option<String>,
+    /// The access key id the request was signed with; `null` for one that carried none. For a call between services, the key of
+    /// the caller it was made for.
     pub caller: Option<String>,
     /// The region it was signed for.
     pub region: Option<String>,
@@ -158,22 +163,40 @@ pub struct CallRecord {
     pub would_be_denied: bool,
     /// From the request's head being read to its answer being made, in microseconds.
     pub duration_us: u32,
-    /// The id the answer carried (`x-amzn-RequestId`).
+    /// The id the answer carried (`x-amzn-RequestId`); empty for a call between services, which has no answer on the wire.
     pub request_id: String,
+    /// `null` for a request from the wire. Set for a call one service made to another on doze-aws's internal bus (SNS delivering
+    /// to SQS, a rule invoking a function): no socket, no signature, and no request id of its own.
+    pub via: Option<CallVia>,
+}
+
+/// What made a call between services.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
+pub struct CallVia {
+    /// The service that made it, by its `--services` name (`sns`); `null` for a call made as the caller itself (a Step
+    /// Functions task, as its role).
+    pub by: Option<String>,
+    /// The request id of the call from the wire being answered when it was made (SNS delivering inside `Publish`): that call's
+    /// `request_id`. It is recorded after this one, since it is answered after. `null` when no request was being answered.
+    pub request_id: Option<String>,
+    /// The rule, subscription, mapping or schedule that made it, when the service said; `null` otherwise.
+    pub name: Option<String>,
 }
 
 impl CallRecord {
-    /// The record of `call`, its service named `service`.
+    /// The record of `call`, its services named as `facts` names them.
     #[must_use]
-    pub fn new(call: &Call, service: &str) -> Self {
+    pub fn new(call: &Call, facts: &Facts) -> Self {
         let some = |s: &str| (!s.is_empty()).then(|| s.to_owned());
         Self {
             seq: call.seq,
             at_ms: call.at_ms,
-            service: some(service),
+            service: some(facts.service_named(call.signing_name)),
             api: some(call.sdk_id),
             action: some(call.action),
             resource: some(&call.resource),
+            member: some(call.member).filter(|_| !call.resource.is_empty()),
             caller: some(&call.caller),
             region: some(&call.region),
             status: call.status,
@@ -182,8 +205,99 @@ impl CallRecord {
             would_be_denied: call.would_be_denied,
             duration_us: call.took_us,
             request_id: call.request_id.to_string(),
+            via: call.via.as_ref().map(|v| CallVia {
+                by: some(facts.catalogue_name(&v.by).unwrap_or(&v.by)),
+                request_id: some(&v.request),
+                name: some(&v.name),
+            }),
         }
     }
+}
+
+/// The calls of one caller to one service since doze-aws started: a line of the Live map.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
+pub struct FlowRow {
+    /// The access key; for calls between services (`internal`), the service that made them, by its `--services` name, or the key
+    /// of the caller they were made for when no service said. Empty for requests that carried no key.
+    pub caller: String,
+    /// Calls between services, not requests from the wire.
+    pub internal: bool,
+    /// As a call's `service`; `null` for requests that named no service of this build.
+    pub service: Option<String>,
+    /// As a call's `api`.
+    pub api: Option<String>,
+    pub calls: u64,
+    pub ok: u64,
+    pub error: u64,
+    pub denied: u64,
+    pub not_built: u64,
+    pub would_be_denied: u64,
+    /// When its first and newest calls were answered, in milliseconds since 1970.
+    pub first_ms: u64,
+    pub last_ms: u64,
+    /// The number of its newest call.
+    pub last_seq: u64,
+}
+
+impl FlowRow {
+    /// The row of `flow`.
+    #[must_use]
+    pub fn new(flow: &Flow, facts: &Facts) -> Self {
+        let some = |s: &str| (!s.is_empty()).then(|| s.to_owned());
+        let [ok, error, denied, not_built] = flow.outcomes;
+        Self {
+            caller: if flow.internal {
+                facts
+                    .catalogue_name(&flow.caller)
+                    .unwrap_or(&flow.caller)
+                    .to_owned()
+            } else {
+                flow.caller.to_string()
+            },
+            internal: flow.internal,
+            service: some(facts.service_named(flow.signing_name)),
+            api: some(flow.sdk_id),
+            calls: flow.calls,
+            ok,
+            error,
+            denied,
+            not_built,
+            would_be_denied: flow.would_be_denied,
+            first_ms: flow.first_ms,
+            last_ms: flow.last_ms,
+            last_seq: flow.last_seq,
+        }
+    }
+}
+
+/// `GET /api/v1/flows`: who called which service, counted as calls are answered (not only the calls the record still holds).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
+pub struct FlowsResponse {
+    /// The most recently called first.
+    pub flows: Vec<FlowRow>,
+    /// The most flows kept: past it, the one quiet the longest is let go.
+    pub capacity: u32,
+    /// Flows let go since doze-aws started.
+    pub dropped: u64,
+    /// The number of the newest call counted: a call on the stream numbered above it is not in these counts yet.
+    pub through_seq: u64,
+}
+
+/// `GET /api/v1/calls/<seq>/copy`: one call as commands to run again. The record keeps no request body, so a command carries
+/// only what the record has: the operation, the region, the endpoint, and the one input member that named the resource.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
+pub struct CopyCommands {
+    pub seq: u64,
+    /// An AWS CLI command (`aws --endpoint-url … sqs send-message --queue-url …`); `null` when the call named no operation.
+    pub cli: Option<String>,
+    /// A curl command, signed by curl itself (`--aws-sigv4`) with the keys in the environment; `null` for a protocol it cannot
+    /// be written for.
+    pub curl: Option<String>,
+    /// The input members filled in (`QueueUrl`): every other parameter the call carried is not known.
+    pub filled: Vec<String>,
 }
 
 /// How full the Live record is.

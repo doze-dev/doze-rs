@@ -22,7 +22,7 @@ pub(crate) fn run(cfg: &crate::config::Config) -> i32 {
     let tasks = doze_runtime::Tasks::new();
     let all: Vec<&'static crate::services::Svc> = crate::services::ALL.iter().collect();
     let gw = aws_gateway::Config::new(std::net::SocketAddr::from(([127, 0, 0, 1], 0)));
-    let (gateway, _resume, _data, _apis) = crate::wire::gateway(&cfg, gw, &all, &tasks);
+    let (gateway, _resume, _data, _apis) = crate::wire::gateway(&cfg, gw, &all, &tasks, None);
     let apis: Vec<Value> = gateway
         .services()
         .iter()

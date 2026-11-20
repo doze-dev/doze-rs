@@ -104,6 +104,7 @@ pub(crate) fn gateway(
     mut gw: GatewayConfig,
     on: &[&'static Svc],
     tasks: &Tasks,
+    recorder: Option<Arc<aws_console::Recorder>>,
 ) -> (Gateway, Resumable, Arc<crate::data::Data>, Apis) {
     let on = On::new(on);
     let peers = Peers::new();
@@ -120,7 +121,7 @@ pub(crate) fn gateway(
         })
     };
     let hook = data_hook(cfg, &mut gw);
-    iam_on_the_bus(cfg, &peers, &mut gw);
+    live_on_the_bus(cfg, &peers, &mut gw, recorder.as_ref());
     let (iam, sts) = aws_iam::services(ctx("iam"));
     let iam = Arc::new(iam);
     // IAM decides for every service whether or not IAM's own API is served.
@@ -216,18 +217,33 @@ fn paired(
     (gateway, data)
 }
 
-/// IAM's mode on the bus. With the console's Live record under `--iam soft`, a call IAM lets through that it would refuse is
-/// marked on its record; off, or with no console, nothing more is set and a request pays nothing for it.
-fn iam_on_the_bus(cfg: &Config, peers: &Peers, gw: &mut GatewayConfig) {
+/// IAM's mode on the bus, and the console's Live record. With the record, the gateway tells it each request it answers and the
+/// bus each call between services; the gateway keeps the requests it is answering, so a call between services made for a caller
+/// with one request in flight is marked as caused by it, and under `--iam soft` a call IAM lets through that it would refuse is
+/// marked on its record. With no console nothing more is set and a request pays nothing for it.
+fn live_on_the_bus(
+    cfg: &Config,
+    peers: &Peers,
+    gw: &mut GatewayConfig,
+    recorder: Option<&Arc<aws_console::Recorder>>,
+) {
     peers.set_mode(iam_mode(cfg));
-    if gw.observer.is_none() || iam_mode(cfg) != aws_peers::Mode::Soft {
+    let Some(recorder) = recorder else {
         return;
-    }
+    };
+    gw.observer = Some(recorder.clone());
+    peers.watch_calls(recorder.clone());
     let flight = Arc::new(aws_gateway::WouldDeny::default());
-    let told = Arc::clone(&flight);
-    peers.on_would_deny(move |caller, action| {
-        told.let_through(&caller.access_key_id, &caller.region, action);
-    });
+    let asked = Arc::clone(&flight);
+    recorder.find_causes_with(Arc::new(move |key: &str, region: &str| {
+        asked.request_of(key, region)
+    }));
+    if iam_mode(cfg) == aws_peers::Mode::Soft {
+        let told = Arc::clone(&flight);
+        peers.on_would_deny(move |caller, action| {
+            told.let_through(&caller.access_key_id, &caller.region, action);
+        });
+    }
     gw.would_deny = Some(flight);
 }
 

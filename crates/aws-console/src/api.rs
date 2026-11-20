@@ -20,6 +20,8 @@ use crate::state::Shared;
 
 pub mod about;
 pub mod calls;
+pub mod copy;
+pub mod flows;
 #[cfg(test)]
 mod types;
 
@@ -35,6 +37,8 @@ pub fn routes() -> Router<Shared> {
         .route("/api/v1/services", get(about::services))
         .route("/api/v1/calls", get(calls::calls))
         .route("/api/v1/tail/live", get(calls::tail))
+        .route("/api/v1/calls/{seq}/copy", get(copy::copy))
+        .route("/api/v1/flows", get(flows::flows))
         .route_layer(from_fn(guard))
 }
 

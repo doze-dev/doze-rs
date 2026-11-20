@@ -87,6 +87,7 @@ pub(crate) fn sqs_call(action: &'static str, status: u16, code: &'static str) ->
         signing_name: "sqs",
         sdk_id: "SQS",
         action,
+        member: "",
         resource: "",
         access_key_id: "test",
         region: "us-east-1",

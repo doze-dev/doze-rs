@@ -10,8 +10,8 @@ use std::path::PathBuf;
 use ts_rs::{Config, TS};
 
 use crate::model::{
-    About, ApiCoverage, ApiError, CallRecord, CallsPage, Outcome, RingFill, ServiceName,
-    ServiceRow, ServicesResponse, TailReady,
+    About, ApiCoverage, ApiError, CallRecord, CallVia, CallsPage, CopyCommands, FlowRow,
+    FlowsResponse, Outcome, RingFill, ServiceName, ServiceRow, ServicesResponse, TailReady,
 };
 
 fn dir() -> PathBuf {
@@ -44,6 +44,10 @@ fn all() -> BTreeMap<String, String> {
     one::<Outcome>(&cfg, &mut out);
     one::<RingFill>(&cfg, &mut out);
     one::<TailReady>(&cfg, &mut out);
+    one::<CallVia>(&cfg, &mut out);
+    one::<FlowRow>(&cfg, &mut out);
+    one::<FlowsResponse>(&cfg, &mut out);
+    one::<CopyCommands>(&cfg, &mut out);
     out
 }
 

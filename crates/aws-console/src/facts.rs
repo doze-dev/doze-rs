@@ -64,4 +64,23 @@ impl Facts {
             .find(|s| s.apis.iter().any(|a| a.meta().signing_name == signing_name))
             .map_or(signing_name, |s| s.name)
     }
+
+    /// The catalogue name of the service a bus caller named itself by: its catalogue name or a signing name of one of its APIs
+    /// (`sns`, `states`, `events`); `None` for a name no service of the build has.
+    #[must_use]
+    pub fn catalogue_name(&self, said: &str) -> Option<&'static str> {
+        self.services
+            .iter()
+            .find(|s| s.name == said || s.apis.iter().any(|a| a.meta().signing_name == said))
+            .map(|s| s.name)
+    }
+
+    /// The service of the build whose API has SDK id `sdk_id`.
+    #[must_use]
+    pub fn api(&self, sdk_id: &str) -> Option<&Arc<dyn Service>> {
+        self.services
+            .iter()
+            .flat_map(|s| s.apis.iter())
+            .find(|a| a.meta().sdk_id == sdk_id)
+    }
 }

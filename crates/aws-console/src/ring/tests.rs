@@ -10,6 +10,7 @@ fn call(n: u64) -> Finished<'static> {
         signing_name: "sqs",
         sdk_id: "SQS",
         action: "SendMessage",
+        member: "",
         resource: "",
         access_key_id: "test",
         region: "us-east-1",
@@ -101,12 +102,13 @@ fn the_bytes_held_are_counted_and_never_pass_the_bound() {
         assert!(fill.bytes <= 3 * (RECORD_BYTES + MOST_TEXT), "{fill:?}");
     }
     let one = &r.newest(1).calls[0];
-    assert_eq!(one.bytes(), RECORD_BYTES + MOST_TEXT);
+    assert_eq!(one.bytes(), RECORD_BYTES + MOST_WIRE_TEXT);
     assert_eq!(one.resource.len(), MOST_RESOURCE);
     assert_eq!(one.caller.len(), MOST_CALLER);
     // The whole ring, at its worst, is under a megabyte.
     const { assert!(MOST_BYTES < 1 << 20) };
-    const { assert!(RECORD_BYTES <= 160) };
+    // A slot grew from 160 to 184 bytes with the member that named the resource and the cause of a call between services.
+    const { assert!(RECORD_BYTES <= 184) };
 }
 
 #[test]
@@ -163,4 +165,121 @@ fn recording_with_no_reader_is_fine() {
         r.record(&call(n), n);
     }
     assert_eq!(r.newest_seq(), 5);
+}
+
+fn bus<'a>(acting: &'a str, cause: Option<&'a aws_peers::Cause>) -> aws_peers::BusCall<'a> {
+    aws_peers::BusCall {
+        acting,
+        signing_name: "sqs",
+        sdk_id: "SQS",
+        operation: "SendMessage",
+        member: "QueueUrl",
+        resource: "http://localhost:4566/000000000000/orders",
+        access_key_id: "test",
+        region: "us-east-1",
+        status: 200,
+        code: "",
+        took: Duration::from_micros(40),
+        cause,
+    }
+}
+
+#[test]
+fn a_call_between_services_is_recorded_with_its_cause_and_counted_in_bytes() {
+    let r = Recorder::holding(8);
+    r.record(&call(1), 1);
+    let cause = aws_peers::Cause {
+        request: Some("req-9".into()),
+        name: Some("subscription orders".into()),
+    };
+    let seq = r.record_bus(&bus("sns", Some(&cause)), 2);
+    let made = r.get(seq).unwrap();
+    assert_eq!(made.member, "QueueUrl");
+    assert_eq!(made.request_id.len(), 0);
+    let via = made.via.as_deref().unwrap();
+    assert_eq!(
+        (&*via.by, &*via.request, &*via.name),
+        ("sns", "req-9", "subscription orders")
+    );
+    assert_eq!(
+        r.fill().bytes,
+        r.newest(8).calls.iter().map(Call::bytes).sum::<usize>()
+    );
+    assert!(made.bytes() <= RECORD_BYTES + MOST_TEXT);
+    // A long cause is cut like any other text.
+    let long = "n".repeat(500);
+    let cause = aws_peers::Cause {
+        request: None,
+        name: Some(long.as_str().into()),
+    };
+    let seq = r.record_bus(&bus(&long, Some(&cause)), 3);
+    let made = r.get(seq).unwrap();
+    assert_eq!(made.via.as_deref().unwrap().name.len(), MOST_VIA);
+    assert!(made.bytes() <= RECORD_BYTES + MOST_TEXT);
+    assert_eq!(r.get(99), None);
+}
+
+#[test]
+fn flows_count_each_caller_to_each_service_and_keep_the_most_recent() {
+    let r = Recorder::holding(4);
+    for n in 1..=3 {
+        r.record(&call(n), n);
+    }
+    r.record(
+        &Finished {
+            status: 403,
+            code: "AccessDenied",
+            ..call(4)
+        },
+        4,
+    );
+    r.record_bus(&bus("sns", None), 5);
+    r.record(
+        &Finished {
+            access_key_id: "other",
+            would_be_denied: true,
+            ..call(6)
+        },
+        6,
+    );
+    let (flows, dropped) = r.flows();
+    assert_eq!(dropped, 0);
+    let summary: Vec<_> = flows
+        .iter()
+        .map(|f| {
+            (
+                &*f.caller,
+                f.internal,
+                f.calls,
+                f.outcomes,
+                f.would_be_denied,
+                f.last_seq,
+            )
+        })
+        .collect();
+    assert_eq!(
+        summary,
+        [
+            ("other", false, 1, [1, 0, 0, 0], 1, 6),
+            ("sns", true, 1, [1, 0, 0, 0], 0, 5),
+            ("test", false, 4, [3, 0, 1, 0], 0, 4),
+        ]
+    );
+    // Counts outlive the ring: four calls held, six counted.
+    assert_eq!(r.fill().held, 4);
+    // Past the most flows, the quietest goes.
+    for n in 0..FLOWS {
+        let key = format!("k{n}");
+        r.record(
+            &Finished {
+                access_key_id: &key,
+                ..call(1)
+            },
+            10,
+        );
+    }
+    let (flows, dropped) = r.flows();
+    assert_eq!(flows.len(), FLOWS);
+    assert_eq!(dropped, 3);
+    assert!(flows.iter().all(|f| f.caller.starts_with('k')));
 }

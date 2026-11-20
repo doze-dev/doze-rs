@@ -16,6 +16,10 @@ workspace = true
 aws-gateway = { path = "../aws-gateway" }
 # The Service trait (`/api/v1/services` counts each API's operations on the services themselves, as `doze-aws compat` does).
 aws-wire = { path = "../aws-wire" }
+# The bus's call watcher (the Live record is told about calls between services too) and its table of resource members.
+aws-peers = { path = "../aws-peers" }
+# A model's protocol, operations and addresses, for a call written out as a command (`api/copy.rs`).
+aws-schema = { path = "../aws-schema" }
 # Only `hostguard` (the DNS-rebinding guard on the Host header): generic, and fuzzed there. It should move to a crate both
 # consoles share; until then this is the one copy.
 kafka-auth = { path = "../kafka-auth" }

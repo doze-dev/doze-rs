@@ -66,7 +66,7 @@ fn view(s: &Console, page: &Page, reset: bool) -> CallsPage {
         calls: page
             .calls
             .iter()
-            .map(|c| CallRecord::new(c, s.facts.service_named(c.signing_name)))
+            .map(|c| CallRecord::new(c, &s.facts))
             .collect(),
         cursor: cursor(s, page.last),
         reset,

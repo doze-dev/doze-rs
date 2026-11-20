@@ -90,7 +90,6 @@ async fn run(cfg: &Config, started: Instant) -> Result<(), String> {
     };
     let console = crate::console::plan(cfg).await?;
     let mut gw = aws_gateway::Config::new(listen);
-    gw.observer = console.as_ref().map(crate::console::Planned::observer);
     gw.account_id = cfg.text("account");
     gw.default_region = cfg.text("region");
     gw.auth = crate::wire::auth_of(cfg);
@@ -99,7 +98,9 @@ async fn run(cfg: &Config, started: Instant) -> Result<(), String> {
     gw.anonymous = cfg.text("iam") != "off";
     gw.health = Some(me.health());
     let tasks = Tasks::new();
-    let (gateway, resumable, _data, apis) = crate::wire::gateway(cfg, gw, &on, &tasks);
+    // With the console on, its Live record is told about every call (wire::live_on_the_bus).
+    let live = console.as_ref().map(crate::console::Planned::recorder);
+    let (gateway, resumable, _data, apis) = crate::wire::gateway(cfg, gw, &on, &tasks, live);
     let running = match gateway.bind().await {
         Ok(r) => r,
         Err(e) if e.kind() == std::io::ErrorKind::AddrInUse => {

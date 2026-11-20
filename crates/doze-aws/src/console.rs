@@ -64,8 +64,8 @@ fn address(given: &str) -> Result<SocketAddr, String> {
 }
 
 impl Planned {
-    /// What the gateway tells about each finished call.
-    pub(crate) fn observer(&self) -> Arc<dyn aws_gateway::Observer> {
+    /// The Live record, which the gateway tells about each finished call and the bus about each call between services.
+    pub(crate) fn recorder(&self) -> Arc<Recorder> {
         self.recorder.clone()
     }
 
