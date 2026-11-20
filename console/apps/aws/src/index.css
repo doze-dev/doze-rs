@@ -1,0 +1,5 @@
+/* The doze-aws console's stylesheet: the shared base and the doze-aws theme, light and dark. Every colour, face, density and
+   duration is a role the theme sets (the navy frame too: the theme scopes roles to the top bar and the sidebar by their
+   data-slot); this app adds none of its own. */
+@import "@doze/ui/styles/base.css";
+@import "@doze/ui/themes/aws.css";

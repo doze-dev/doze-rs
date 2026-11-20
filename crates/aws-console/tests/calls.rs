@@ -1,0 +1,191 @@
+//! The Live record as pages (`GET /api/v1/calls`), answered by the router: a cursor, a limit, what a reader missed, and when it
+//! must start over. The keys of each answer are the keys the generated TypeScript type declares.
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    clippy::indexing_slicing
+)]
+
+mod support;
+
+use aws_gateway::Finished;
+use serde_json::Value;
+use support::{app, get, json, keys, sqs_call, state, ts_keys};
+
+#[tokio::test]
+async fn calls_are_paged_by_a_cursor_oldest_first() {
+    let s = state(8, &[]);
+    let app = app(&s);
+    let (status, empty) = json(&app, get("/api/v1/calls")).await;
+    assert_eq!(status, 200, "{empty}");
+    assert_eq!(keys(&empty), ts_keys("CallsPage"));
+    assert_eq!(empty["calls"], serde_json::json!([]));
+    assert_eq!(
+        (&empty["reset"], &empty["missed"], &empty["more"]),
+        (&false.into(), &0.into(), &false.into())
+    );
+    assert_eq!(keys(&empty["ring"]), ts_keys("RingFill"));
+    assert_eq!(
+        empty["ring"],
+        serde_json::json!({"capacity": 8, "held": 0, "recorded": 0, "bytes": 0})
+    );
+    let start = empty["cursor"].as_str().unwrap().to_owned();
+
+    s.recorder.record(&sqs_call("CreateQueue", 200, ""), 1_000);
+    s.recorder.record(
+        &sqs_call(
+            "GetQueueUrl",
+            400,
+            "AWS.SimpleQueueService.NonExistentQueue",
+        ),
+        2_000,
+    );
+    s.recorder.record(
+        &Finished {
+            signing_name: "",
+            sdk_id: "",
+            action: "",
+            access_key_id: "",
+            region: "",
+            ..sqs_call("", 403, "MissingAuthenticationTokenException")
+        },
+        3_000,
+    );
+    let (_, page) = json(&app, get(&format!("/api/v1/calls?since={start}"))).await;
+    let calls = page["calls"].as_array().unwrap();
+    assert_eq!(calls.len(), 3, "{page}");
+    assert_eq!(keys(&calls[0]), ts_keys("CallRecord"));
+    assert_eq!(
+        calls[0],
+        serde_json::json!({
+            "seq": 1, "at_ms": 1_000, "service": "sqs", "api": "SQS", "action": "CreateQueue", "resource": null,
+            "caller": "test", "region": "us-east-1", "status": 200, "error_code": null, "outcome": "ok",
+            "would_be_denied": false, "duration_us": 1_500, "request_id": "0c6f3a52-7a8b-4c1d-9e2f-000000000000",
+        })
+    );
+    assert_eq!(
+        calls[1]["error_code"],
+        "AWS.SimpleQueueService.NonExistentQueue"
+    );
+    assert_eq!(calls[1]["outcome"], "error");
+    // A request that named no service: nothing is made up for it.
+    for key in ["service", "api", "action", "caller", "region", "resource"] {
+        assert!(calls[2][key].is_null(), "{key}: {}", calls[2]);
+    }
+    assert_eq!(page["ring"]["held"], 3);
+    assert!(page["ring"]["bytes"].as_u64().unwrap() > 3 * 100, "{page}");
+}
+
+#[tokio::test]
+async fn a_page_has_a_limit_and_hands_back_the_cursor_of_the_next() {
+    let s = state(8, &[]);
+    let app = app(&s);
+    let (_, empty) = json(&app, get("/api/v1/calls")).await;
+    let start = empty["cursor"].as_str().unwrap().to_owned();
+    for action in ["CreateQueue", "GetQueueUrl", "SendMessage"] {
+        s.recorder.record(&sqs_call(action, 200, ""), 1_000);
+    }
+    // The newest, when no cursor is given; a limit; and the rest from the cursor a page hands back.
+    let (_, newest) = json(&app, get("/api/v1/calls?limit=2")).await;
+    let seqs = |p: &Value| -> Vec<u64> {
+        p["calls"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|c| c["seq"].as_u64().unwrap())
+            .collect()
+    };
+    assert_eq!(seqs(&newest), [2, 3]);
+    let (_, first) = json(&app, get(&format!("/api/v1/calls?since={start}&limit=2"))).await;
+    assert_eq!(seqs(&first), [1, 2]);
+    assert_eq!(first["more"], true);
+    let next = first["cursor"].as_str().unwrap();
+    let (_, rest) = json(&app, get(&format!("/api/v1/calls?since={next}&limit=2"))).await;
+    assert_eq!(seqs(&rest), [3]);
+    assert_eq!(rest["more"], false);
+    let end = rest["cursor"].as_str().unwrap();
+    let (_, nothing) = json(&app, get(&format!("/api/v1/calls?since={end}"))).await;
+    assert_eq!(seqs(&nothing), [0_u64; 0]);
+    assert_eq!(nothing["cursor"], end);
+}
+
+#[tokio::test]
+async fn a_reader_is_told_what_it_missed_and_when_to_start_over() {
+    let s = state(4, &[]);
+    let app = app(&s);
+    let (_, empty) = json(&app, get("/api/v1/calls")).await;
+    let start = empty["cursor"].as_str().unwrap().to_owned();
+    for n in 1..=10 {
+        s.recorder.record(&sqs_call("SendMessage", 200, ""), n);
+    }
+    let (_, page) = json(&app, get(&format!("/api/v1/calls?since={start}"))).await;
+    assert_eq!(
+        page["calls"].as_array().unwrap().len(),
+        4,
+        "the ring holds four"
+    );
+    assert_eq!(
+        (&page["missed"], &page["reset"]),
+        (&6.into(), &false.into())
+    );
+    assert_eq!(page["ring"]["recorded"], 10);
+    // A cursor of another run of doze-aws, one ahead of this run, and text that is no cursor: start over with the newest.
+    for since in ["1.3", &format!("{}.999", s.epoch), "nonsense", ""] {
+        let (status, page) = json(&app, get(&format!("/api/v1/calls?since={since}&limit=2"))).await;
+        assert_eq!(status, 200, "{since}");
+        assert_eq!(page["reset"], true, "{since}: {page}");
+        assert_eq!(page["calls"].as_array().unwrap().len(), 2, "{since}");
+        assert_eq!(page["missed"], 0, "{since}");
+    }
+    // A limit is held to the ring.
+    let (_, all) = json(&app, get("/api/v1/calls?limit=100000")).await;
+    assert_eq!(all["calls"].as_array().unwrap().len(), 4);
+    let (_, one) = json(&app, get("/api/v1/calls?limit=0")).await;
+    assert_eq!(one["calls"].as_array().unwrap().len(), 1);
+}
+
+#[tokio::test]
+async fn an_s3_call_names_its_object_and_a_refusal_says_which_kind() {
+    let s = state(8, &[]);
+    let app = app(&s);
+    s.recorder.record(
+        &Finished {
+            signing_name: "s3",
+            sdk_id: "S3",
+            action: "GetObject",
+            resource: "uploads/a/b.txt",
+            ..sqs_call("", 403, "AccessDenied")
+        },
+        1,
+    );
+    s.recorder
+        .record(&sqs_call("AddPermission", 501, "NotImplemented"), 2);
+    let (_, page) = json(&app, get("/api/v1/calls")).await;
+    let calls = page["calls"].as_array().unwrap();
+    assert_eq!(calls[0]["resource"], "uploads/a/b.txt");
+    assert_eq!(
+        (&calls[0]["service"], &calls[0]["outcome"]),
+        (&"s3".into(), &"denied".into())
+    );
+    assert_eq!(calls[1]["outcome"], "not-built");
+}
+
+#[tokio::test]
+async fn a_call_soft_iam_let_through_says_so() {
+    let s = state(8, &[]);
+    let app = app(&s);
+    s.recorder.record(
+        &Finished {
+            would_be_denied: true,
+            ..sqs_call("SendMessage", 200, "")
+        },
+        1,
+    );
+    let (_, page) = json(&app, get("/api/v1/calls")).await;
+    let call = &page["calls"][0];
+    assert_eq!(
+        (&call["outcome"], &call["would_be_denied"]),
+        (&"ok".into(), &true.into())
+    );
+}

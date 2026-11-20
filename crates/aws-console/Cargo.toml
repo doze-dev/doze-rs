@@ -1,0 +1,46 @@
+[package]
+name = "aws-console"
+version = "0.0.0"
+description = "The doze-aws web console: its own listener, the embedded React app, the JSON API over view-models, the Live ring"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+# The Observer the Live ring implements: the dependency points from the console to the gateway, never back.
+aws-gateway = { path = "../aws-gateway" }
+# The Service trait (`/api/v1/services` counts each API's operations on the services themselves, as `doze-aws compat` does).
+aws-wire = { path = "../aws-wire" }
+# Only `hostguard` (the DNS-rebinding guard on the Host header): generic, and fuzzed there. It should move to a crate both
+# consoles share; until then this is the one copy.
+kafka-auth = { path = "../kafka-auth" }
+# The HTTP server and router, as doze-kafka's console: no default features (no macros, no json, no query, no tracing, no HTTP/2).
+axum = { version = "0.8", default-features = false, features = ["tokio", "http1"] }
+# The embedded text assets are gzip; a client that does not accept gzip is sent them inflated. The gateway's own backend.
+flate2 = { version = "1", default-features = false, features = ["rust_backend"] }
+tokio = { version = "1", default-features = false, features = ["rt", "net", "time", "sync", "macros", "io-util"] }
+tokio-util = { version = "0.7", default-features = false }
+futures-util = { version = "0.3", default-features = false }
+tracing = "0.1"
+# The connection loop (a header-read timeout and a cap on connections need hyper's own server, which axum::serve does not expose).
+hyper = { version = "1", default-features = false, features = ["http1", "server"] }
+hyper-util = { version = "0.1", default-features = false, features = ["tokio", "server", "service"] }
+serde = { version = "1", default-features = false, features = ["std", "derive"] }
+serde_json = "1"
+
+[dev-dependencies]
+# TypeScript types of the JSON API, written by a test into console/apps/aws/src/api/types (a stale file fails the test).
+ts-rs = "12"
+# A real service to count operations on.
+aws-sqs = { path = "../aws-sqs" }
+doze-runtime = { path = "../doze-runtime" }
+# `oneshot` on a Router, and the bodies of its answers.
+tower = { version = "0.5", default-features = false, features = ["util"] }
+http-body-util = "0.1"
+tokio = { version = "1", default-features = false, features = ["rt", "rt-multi-thread", "net", "time", "sync", "macros", "io-util", "test-util"] }
+tempfile = "3"

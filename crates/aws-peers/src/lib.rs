@@ -35,6 +35,7 @@ pub struct Peers {
     entries: RwLock<HashMap<&'static str, Entry>>,
     authorizer: RwLock<Option<Arc<dyn Authorizer>>>,
     mode: authz::ModeCell,
+    would_deny: RwLock<Option<authz::WouldDeny>>,
     metrics: RwLock<metrics::Registry>,
 }
 

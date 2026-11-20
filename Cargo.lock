@@ -712,6 +712,31 @@ dependencies = [
 ]
 
 [[package]]
+name = "aws-console"
+version = "0.0.0"
+dependencies = [
+ "aws-gateway",
+ "aws-sqs",
+ "aws-wire",
+ "axum",
+ "doze-runtime",
+ "flate2",
+ "futures-util",
+ "http-body-util",
+ "hyper",
+ "hyper-util",
+ "kafka-auth",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "tokio",
+ "tokio-util",
+ "tower",
+ "tracing",
+ "ts-rs",
+]
+
+[[package]]
 name = "aws-core"
 version = "0.0.0"
 
@@ -2756,6 +2781,7 @@ dependencies = [
  "aws-auth",
  "aws-cloudformation",
  "aws-cloudwatch",
+ "aws-console",
  "aws-core",
  "aws-dynamodb",
  "aws-dynamodb-streams",

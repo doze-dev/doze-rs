@@ -59,19 +59,36 @@ impl Resumable {
     }
 }
 
-/// Which services are served.
-struct On<'a>(&'a [&'static Svc]);
+/// Every API on the gateway by its catalogue entry: the service itself, never the stand-in of one left out of `--services`
+/// (the console counts what the build can do).
+pub(crate) type Apis = Vec<(&'static Svc, Arc<dyn Service>)>;
 
-impl On<'_> {
+/// Which services are served, and every API that was put on the gateway.
+struct On<'a> {
+    on: &'a [&'static Svc],
+    apis: std::cell::RefCell<Apis>,
+}
+
+impl<'a> On<'a> {
+    fn new(on: &'a [&'static Svc]) -> Self {
+        let apis = std::cell::RefCell::default();
+        Self { on, apis }
+    }
+
     fn has(&self, name: &str) -> bool {
-        self.0.iter().any(|s| s.name == name)
+        self.on.iter().any(|s| s.name == name)
     }
 
     /// `service` as it is served: itself, or [`Off`].
     fn wrap(&self, name: &str, service: Arc<dyn Service>) -> Arc<dyn Service> {
-        match crate::services::find(name) {
-            Some(svc) if !self.has(name) => Arc::new(Off::new(service, svc, self.0)),
-            _ => service,
+        let Some(svc) = crate::services::find(name) else {
+            return service;
+        };
+        self.apis.borrow_mut().push((svc, Arc::clone(&service)));
+        if self.has(name) {
+            service
+        } else {
+            Arc::new(Off::new(service, svc, self.on))
         }
     }
 
@@ -80,14 +97,15 @@ impl On<'_> {
     }
 }
 
-/// The gateway with every service on it, the services to resume once it listens, and the data engine over all of them.
+/// The gateway with every service on it, the services to resume once it listens, the data engine over all of them, and every API
+/// that is on the gateway.
 pub(crate) fn gateway(
     cfg: &Config,
     mut gw: GatewayConfig,
     on: &[&'static Svc],
     tasks: &Tasks,
-) -> (Gateway, Resumable, Arc<crate::data::Data>) {
-    let on = On(on);
+) -> (Gateway, Resumable, Arc<crate::data::Data>, Apis) {
+    let on = On::new(on);
     let peers = Peers::new();
     let ext: Arc<dyn std::any::Any + Send + Sync> = peers.clone();
     let idle = Duration::from_secs(cfg.count("idle-secs"));
@@ -102,7 +120,7 @@ pub(crate) fn gateway(
         })
     };
     let hook = data_hook(cfg, &mut gw);
-    peers.set_mode(iam_mode(cfg));
+    iam_on_the_bus(cfg, &peers, &mut gw);
     let (iam, sts) = aws_iam::services(ctx("iam"));
     let iam = Arc::new(iam);
     // IAM decides for every service whether or not IAM's own API is served.
@@ -162,7 +180,7 @@ pub(crate) fn gateway(
         states: on.keep("stepfunctions", &states),
         logs: on.keep("logs", &logs),
     };
-    (gateway, resumable, data)
+    (gateway, resumable, data, on.apis.into_inner())
 }
 
 /// The services that share a signing name with another, which the bus cannot key by it.
@@ -196,6 +214,21 @@ fn paired(
         .with(on.wrap("apigateway", rest_apis))
         .with(on.wrap("apigateway", http_apis));
     (gateway, data)
+}
+
+/// IAM's mode on the bus. With the console's Live record under `--iam soft`, a call IAM lets through that it would refuse is
+/// marked on its record; off, or with no console, nothing more is set and a request pays nothing for it.
+fn iam_on_the_bus(cfg: &Config, peers: &Peers, gw: &mut GatewayConfig) {
+    peers.set_mode(iam_mode(cfg));
+    if gw.observer.is_none() || iam_mode(cfg) != aws_peers::Mode::Soft {
+        return;
+    }
+    let flight = Arc::new(aws_gateway::WouldDeny::default());
+    let told = Arc::clone(&flight);
+    peers.on_would_deny(move |caller, action| {
+        told.let_through(&caller.access_key_id, &caller.region, action);
+    });
+    gw.would_deny = Some(flight);
 }
 
 fn iam_mode(cfg: &Config) -> aws_peers::Mode {

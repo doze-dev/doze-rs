@@ -88,7 +88,9 @@ async fn run(cfg: &Config, started: Instant) -> Result<(), String> {
         data_dir: data.display().to_string(),
         ..Instance::default()
     };
+    let console = crate::console::plan(cfg).await?;
     let mut gw = aws_gateway::Config::new(listen);
+    gw.observer = console.as_ref().map(crate::console::Planned::observer);
     gw.account_id = cfg.text("account");
     gw.default_region = cfg.text("region");
     gw.auth = crate::wire::auth_of(cfg);
@@ -97,7 +99,7 @@ async fn run(cfg: &Config, started: Instant) -> Result<(), String> {
     gw.anonymous = cfg.text("iam") != "off";
     gw.health = Some(me.health());
     let tasks = Tasks::new();
-    let (gateway, resumable, _data) = crate::wire::gateway(cfg, gw, &on, &tasks);
+    let (gateway, resumable, _data, apis) = crate::wire::gateway(cfg, gw, &on, &tasks);
     let running = match gateway.bind().await {
         Ok(r) => r,
         Err(e) if e.kind() == std::io::ErrorKind::AddrInUse => {
@@ -119,10 +121,13 @@ async fn run(cfg: &Config, started: Instant) -> Result<(), String> {
             instance::FILE
         );
     }
-    announce(cfg, &me, &on, started);
+    let console = console.map(|c| c.start(cfg, &me, &on, apis)).transpose()?;
+    let url = console.as_ref().map(aws_console::Running::url);
+    announce(cfg, &me, &on, started, url.as_deref());
     mention_size(&data, cfg.count("data-warn-gb"), &tasks);
     wait_for_stop().await;
     tracing::info!("stopping");
+    crate::console::stop(console).await;
     running.shutdown().await;
     tasks.shutdown().await;
     instance::remove(&data);
@@ -130,9 +135,16 @@ async fn run(cfg: &Config, started: Instant) -> Result<(), String> {
 }
 
 /// The ready block, then the template `--template` names, applied beside the server.
-fn announce(cfg: &Config, me: &Instance, on: &[&'static Svc], started: Instant) {
+fn announce(
+    cfg: &Config,
+    me: &Instance,
+    on: &[&'static Svc],
+    started: Instant,
+    console: Option<&str>,
+) {
     let ready = crate::ready::Ready {
         endpoint: &me.endpoint,
+        console,
         services: on,
         region: &me.region,
         account: &me.account,

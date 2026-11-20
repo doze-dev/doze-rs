@@ -133,6 +133,7 @@ impl Shared {
         // An unsigned request is nobody: only a resource policy that grants to anyone lets it in.
         if caller.is_anonymous() {
             let (verdict, seen) = anonymous::authorize(self.mode(), &needs, self.clock.now_ms());
+            self.tell_let_through(caller, &verdict, &seen);
             self.record(seen);
             return verdict;
         }
@@ -159,6 +160,7 @@ impl Shared {
             .await
         {
             Ok(Answer::Authorize(verdict, seen)) => {
+                self.tell_let_through(caller, &verdict, &seen);
                 self.record(seen);
                 verdict
             }
@@ -186,6 +188,19 @@ impl Shared {
             for s in seen {
                 log.record(s);
             }
+        }
+    }
+
+    /// Soft mode answered yes to what the policies refused: the bus is told, for whoever marks the request (the console).
+    fn tell_let_through(&self, caller: &Caller, verdict: &Result<(), ApiError>, seen: &[Seen]) {
+        let Some(peers) = self.peers.as_ref() else {
+            return;
+        };
+        if verdict.is_err() || peers.mode() != Mode::Soft {
+            return;
+        }
+        for s in seen.iter().filter(|s| s.decision != "allowed") {
+            peers.would_deny(caller, &s.action);
         }
     }
 

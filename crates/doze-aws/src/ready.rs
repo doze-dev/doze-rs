@@ -12,6 +12,8 @@ use crate::style::Style;
 #[derive(Debug)]
 pub(crate) struct Ready<'a> {
     pub(crate) endpoint: &'a str,
+    /// The console's URL, when `--console` is given.
+    pub(crate) console: Option<&'a str>,
     pub(crate) services: &'a [&'static Svc],
     pub(crate) region: &'a str,
     pub(crate) account: &'a str,
@@ -29,6 +31,9 @@ impl Ready<'_> {
             ("serving", self.serving()),
             ("data", display_path(&self.config.data_dir(), &cwd)),
         ];
+        if let Some(console) = self.console {
+            rows.insert(1, ("console", console.to_owned()));
+        }
         if let Some(f) = &self.config.file {
             rows.push(("config", display_path(f, &cwd)));
         }
@@ -108,6 +113,7 @@ mod tests {
             .collect();
         let ready = Ready {
             endpoint: "http://127.0.0.1:4566",
+            console: Some("http://127.0.0.1:4567"),
             services: &few,
             region: "us-east-1",
             account: "000000000000",
@@ -118,6 +124,7 @@ mod tests {
         let text = ready.render(Style::plain());
         assert!(text.contains("doze-aws is up in 12 ms"), "{text}");
         assert!(text.contains("endpoint   http://127.0.0.1:4566"), "{text}");
+        assert!(text.contains("console    http://127.0.0.1:4567"), "{text}");
         assert!(
             text.contains(
                 "s3 and sqs in us-east-1, account 000000000000 (16 more with --services all)"
