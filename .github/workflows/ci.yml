@@ -292,6 +292,8 @@ jobs:
       # (docs/port/weight.md, "doze's profile").
       # C2c with D1 (`__daemon` in this binary): 6,211,408 B and 234 packages on darwin; the package line moves to 240.
       # Session 11: regex without its perf engines (weight.md, "Session 11"): 8,607,968 B on x86_64 Linux (cross build), 233 packages.
+      # 2026-11-19, D2 (names, the front door, TLS, downloads): 9,192,984 B at "s" (zig cross build), over the line; release-doze moved
+      # to opt-level "z": 8,754,344 B, 234 packages (weight.md, "D2"). The line is unchanged.
       - name: doze (the CLI) under 9 MB
         run: |
           cargo build --profile release-doze -p doze-cli

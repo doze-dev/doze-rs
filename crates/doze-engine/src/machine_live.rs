@@ -8,6 +8,8 @@ impl Machine {
     /// Makes `name` known: reaped, nothing held, nothing in flight; `task` when it is a task.
     pub fn declare(&mut self, name: &str, task: bool) {
         self.declared.insert(name.into());
+        self.generations += 1;
+        self.generation.insert(name.into(), self.generations);
         if task {
             self.tasks.insert(name.into());
         }
@@ -33,6 +35,7 @@ impl Machine {
             )));
         }
         self.declared.remove(name);
+        self.generation.remove(name);
         self.tasks.remove(name);
         self.ctl.remove(name);
         self.table.forget(name);
