@@ -56,12 +56,14 @@ impl Core {
                     stream: &name,
                     group: &group,
                     account: r.account(),
+                    region: r.region(),
                     ptr: String::new(),
                     lambda: group.starts_with("/aws/lambda/"),
                 };
                 total += 1;
                 for (field, _) in record::row(&e).0 {
-                    if field != "@ptr" {
+                    // Recorded 2026-11-19: `@log` (and `@ptr`) are not listed.
+                    if field != "@ptr" && field != "@log" {
                         *counts.entry(field).or_default() += 1;
                     }
                 }

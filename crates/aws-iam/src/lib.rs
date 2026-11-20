@@ -45,6 +45,7 @@ mod sshkey;
 mod storage;
 mod sts;
 mod totp;
+mod tracked;
 mod usercreds;
 mod userheld;
 mod view;

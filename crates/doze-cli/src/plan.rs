@@ -99,6 +99,17 @@ impl Plan {
 
     /// The plan as a person reads it.
     pub(crate) fn render(&self, p: Paint) -> String {
+        let mut out = self.steps(p);
+        out.push_str(&format!(
+            "  {} · {} applies this\n",
+            p.dim("dry run: nothing was changed"),
+            p.cmd(&self.applies_with)
+        ));
+        out
+    }
+
+    /// The groups and their steps, without the dry run's last line (a command that shows its plan, then asks).
+    pub(crate) fn steps(&self, p: Paint) -> String {
         // Every detail starts in one column, so a long plan reads down.
         let col = self
             .groups
@@ -139,11 +150,6 @@ impl Plan {
                 }
             }
         }
-        out.push_str(&format!(
-            "  {} · {} applies this\n",
-            p.dim("dry run: nothing was changed"),
-            p.cmd(&self.applies_with)
-        ));
         out
     }
 }

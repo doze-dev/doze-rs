@@ -88,6 +88,17 @@ pub struct InstanceView {
     /// The conventional env var (`DATABASE_URL`, …).
     #[serde(skip_serializing_if = "String::is_empty")]
     pub env_var: String,
+    /// Rust daemon, additive (not in Go's protocol 2; Go clients ignore it): the variables a client sets to reach this
+    /// instance, as its module answers them (`DATABASE_URL` and the rest).
+    #[serde(default, skip_serializing_if = "std::collections::BTreeMap::is_empty")]
+    pub env: std::collections::BTreeMap<String, String>,
+    /// Rust daemon, additive: the client program the module declares (`psql`, `redis-cli`), for `doze connect`.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub client: String,
+    /// Rust daemon, additive: the client command `doze connect` runs, resolved for this instance by its module's
+    /// declaration ({host}, {port}, {url}, {password} filled in). `None` when its module declares no client.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub connect: Option<ClientView>,
     /// Where this instance's data is written.
     #[serde(skip_serializing_if = "String::is_empty")]
     pub data_dir: String,
@@ -150,6 +161,23 @@ pub struct HolderView {
     pub name: String,
     #[serde(skip_serializing_if = "is_zero_i64")]
     pub count: i64,
+}
+
+/// The client command for an instance (Rust daemon, additive): run `path` when it is set (the program in the engine's
+/// own build), else `program` on `PATH`, else each of `fallbacks` on `PATH`, with `args` and `env` added to the
+/// caller's environment.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct ClientView {
+    pub program: String,
+    #[serde(skip_serializing_if = "String::is_empty")]
+    pub path: String,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub args: Vec<String>,
+    #[serde(skip_serializing_if = "std::collections::BTreeMap::is_empty")]
+    pub env: std::collections::BTreeMap<String, String>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub fallbacks: Vec<String>,
 }
 
 /// One descendant process of a supervised instance (Go `ProcView`).

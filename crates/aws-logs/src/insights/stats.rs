@@ -23,7 +23,7 @@ impl P<'_> {
         } else {
             Vec::new()
         };
-        let fail = |why: &str| QueryError::at(self.lx.src, at, why);
+        let fail = |why: &str| QueryError::at(at, why);
         let mut aggs = Vec::new();
         for item in &mut items {
             let before = aggs.len();

@@ -98,7 +98,8 @@ fn known(
 }
 
 fn not_found(id: &str) -> ApiError {
-    // (memory)
+    // AWS (recorded) answers this code with an empty message; the owner chose (2026-11-18) to keep these words, which say what
+    // is wrong. Listed as a difference in docs/aws/compatibility-notes.toml.
     ApiError::modeled(
         "ServiceSettingNotFound",
         format!("The service setting {id} was not found. Check the setting ID and try again."),

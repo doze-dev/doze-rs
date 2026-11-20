@@ -1,0 +1,26 @@
+# open, and bare doze, over SSH: no window to open, so the status table.
+@ project bare
+@ no-json
+@ env SSH_CONNECTION=10.0.0.2 51000 10.0.0.1 22
+
+$ doze open
+exit 0
+stdout:
+| doze is not running — showing declared services
+| 
+|       NAME    ENGINE        STATE    ENDPOINT            CONNS   MEM   CPU   NOTE
+| Modules
+|   ·   cache   valkey 9      asleep   its module's port   -       -     -
+|   ·   db      postgres 17   asleep   its module's port   -       -     -
+stderr:
+| no display here; showing the status table instead
+
+$ doze
+exit 0
+stdout:
+| doze is not running — showing declared services
+| 
+|       NAME    ENGINE        STATE    ENDPOINT            CONNS   MEM   CPU   NOTE
+| Modules
+|   ·   cache   valkey 9      asleep   its module's port   -       -     -
+|   ·   db      postgres 17   asleep   its module's port   -       -     -

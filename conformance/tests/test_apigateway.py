@@ -455,6 +455,9 @@ def test_documentation_parts_and_versions(client, names, cleanup, snapshot):
     snapshot.match("update-version", api.update_documentation_version(
         restApiId=rid, documentationVersion="1.0",
         patchOperations=[{"op": "replace", "path": "/description", "value": "renamed"}]), opaque=CLOCK)
+    # AWS (recorded 2026-11-19): a version a stage publishes is not deleted.
+    snapshot.error("delete-a-published-version", lambda: api.delete_documentation_version(restApiId=rid, documentationVersion="1.0"))
+    api.delete_stage(restApiId=rid, stageName="dev")
     api.delete_documentation_version(restApiId=rid, documentationVersion="1.0")
     api.delete_documentation_part(restApiId=rid, documentationPartId=part["id"])
     snapshot.error("absent-part", lambda: api.get_documentation_part(restApiId=rid, documentationPartId=part["id"]))
@@ -530,9 +533,10 @@ def test_usage_is_metered_and_granted(client, names, cleanup, snapshot, target, 
         assert r["status"] == 200, r
         return r
 
-    eventually(keyed, timeout=60)
-    keyed()
-    keyed()
+    # AWS (recorded 2026-11-19): while a new key and plan spread, calls flip between 403 and 200, so each of the three waits
+    # for its 200 (a 403 uses no quota).
+    for _ in range(3):
+        eventually(keyed, timeout=120)
 
     def over():
         r = call(url, headers={"x-api-key": value})

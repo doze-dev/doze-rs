@@ -102,13 +102,23 @@ impl Parser<'_> {
         self.at += rest.len() - rest.trim_start().len();
     }
 
+    /// A token the rule cannot have here, in AWS's words: the token and the character it starts at, counted from 0. Recorded
+    /// 2026-11-19 for the end of the rule (`'<EOF>'`); how AWS cuts a token other than the end is (memory): a word, or one
+    /// character.
     fn unexpected(&self) -> String {
-        let near: String = self.rest().chars().take(20).collect();
-        if near.is_empty() {
-            "AlarmRule ended where an alarm state function, TRUE, FALSE or a parenthesis was expected.".to_owned()
-        } else {
-            format!("AlarmRule could not be read near '{near}'.")
-        }
+        let rest = self.rest();
+        let lead = rest.len() - rest.trim_start().len();
+        let start = self.at + lead;
+        let at = self.text.get(..start).unwrap_or_default().chars().count();
+        let token = match self.word() {
+            Some((_, len)) => self.rest().get(lead..len).unwrap_or_default().to_owned(),
+            None => rest
+                .trim_start()
+                .chars()
+                .next()
+                .map_or_else(|| "<EOF>".to_owned(), String::from),
+        };
+        format!("Error in AlarmRule [Unsupported token '{token}' at char {at}]")
     }
 
     /// The next word (letters and underscores), upper-cased, without taking it.
@@ -240,8 +250,11 @@ impl Parser<'_> {
             (rest.get(..end).unwrap_or_default().trim().to_owned(), end)
         };
         self.at += used;
-        if name.is_empty() || !self.take_char(')') {
+        if name.is_empty() {
             return Err("AlarmRule has an alarm state function without an alarm name.".to_owned());
+        }
+        if !self.take_char(')') {
+            return Err(self.unexpected());
         }
         Ok(name)
     }
@@ -305,6 +318,16 @@ mod tests {
         ] {
             assert!(parse(bad).is_err(), "{bad:?}");
         }
+        // Recorded 2026-11-19: the rule was `ALARM(` and a 23-character name, 29 characters in all.
+        let name = "a".repeat(23);
+        assert_eq!(
+            parse(&format!("ALARM({name}")).unwrap_err(),
+            "Error in AlarmRule [Unsupported token '<EOF>' at char 29]"
+        );
+        assert_eq!(
+            parse("ALARM(cpu) ALARM(disk)").unwrap_err(),
+            "Error in AlarmRule [Unsupported token 'ALARM' at char 11]"
+        );
         let deep = format!("{}TRUE{}", "(".repeat(100), ")".repeat(100));
         assert!(parse(&deep).is_err());
         let wide = vec!["TRUE"; 501].join(" OR ");

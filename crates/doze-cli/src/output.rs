@@ -29,6 +29,8 @@ pub struct Mode {
     pub yes: bool,
     pub timeout: Duration,
     pub config: Option<PathBuf>,
+    /// `--var name=value`, the last of a name winning (as Go's map).
+    pub vars: std::collections::BTreeMap<String, String>,
 }
 
 impl Mode {
@@ -42,6 +44,7 @@ impl Mode {
             yes: false,
             timeout: Duration::from_secs(300),
             config: None,
+            vars: std::collections::BTreeMap::new(),
         }
     }
 
@@ -56,6 +59,7 @@ impl Mode {
             yes: g.yes || ctx.var("DOZE_YES").as_deref() == Some("1"),
             timeout: g.timeout,
             config: g.config.clone(),
+            vars: g.vars.iter().cloned().collect(),
         };
         if g.json && g.quiet {
             return Err(Diagnostic::new(
@@ -89,12 +93,14 @@ fn color(ctx: &Ctx<'_>, terminal: bool, no_color: bool) -> bool {
 }
 
 /// Commands with a result to give as JSON: all but those that hand the terminal to something else or print a script.
+/// `open --console` has one: the console's address, and whether it was opened.
 pub(crate) fn json_capable(cmd: Option<&Cmd>) -> bool {
+    if let Some(Cmd::Open(o)) = cmd {
+        return o.console.is_some();
+    }
     !matches!(
         cmd,
-        None | Some(
-            Cmd::Run(_) | Cmd::Connect(_) | Cmd::Open(_) | Cmd::Completion(_) | Cmd::Refresh(_)
-        )
+        None | Some(Cmd::Run(_) | Cmd::Connect(_) | Cmd::Completion(_) | Cmd::Refresh(_))
     )
 }
 

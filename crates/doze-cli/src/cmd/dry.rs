@@ -56,21 +56,41 @@ fn reason(snap: &Snapshot, name: &str, asked: &[String]) -> String {
     format!("{} needs it", by.join(", "))
 }
 
-/// `doze wake --dry-run`: `closure` is what the run would start, in its order; `targets` what it was asked for (or
-/// everything); `named` the names typed.
-pub(crate) fn wake(
+/// A wake's plan (`doze wake`, `doze up`): `closure` is what the run would start, in its order; `targets` what it
+/// was asked for (or everything); `named` the names typed; the daemon started first when `starts`.
+pub(crate) fn wake_as(
+    command: &str,
     snap: &Snapshot,
     closure: &[String],
-    targets: &[String],
-    named: &[String],
+    (targets, named): (&[String], &[String]),
+    starts: bool,
 ) -> Plan {
-    let mut plan = Plan::new(applies("doze wake", named, &[]));
+    let mut plan = Plan::new(applies(command, named, &[]));
+    if starts {
+        plan = after_start(plan);
+    }
     for name in closure {
         match find(snap, name) {
             Some(v) if awake(&v.state) => plan.unchanged(name),
             _ => plan.step(name, Op::Do, "wake", reason(snap, name, targets)),
         }
     }
+    plan
+}
+
+/// `plan`, the daemon's start in front of it: a command that starts the daemon when doze is stopped.
+pub(crate) fn after_start(mut plan: Plan) -> Plan {
+    plan.groups.insert(
+        0,
+        crate::plan::Group {
+            title: "doze".into(),
+            changes: vec![crate::plan::Change {
+                op: Op::Do,
+                subject: "start the daemon".into(),
+                detail: "it supervises the stack in the background".into(),
+            }],
+        },
+    );
     plan
 }
 

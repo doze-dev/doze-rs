@@ -1,0 +1,9 @@
+services:
+  mongo:
+    image: postgres:16
+  store:
+    image: nats:2
+  mail:
+    image: mongo:7
+  cache:
+    image: postgres:16

@@ -17,7 +17,7 @@ use tokio::sync::Notify;
 use aws_wire::ApiError;
 
 use crate::core::Core;
-use crate::errors::{no_stack, validation};
+use crate::errors::{no_stack_colon, validation};
 use crate::req::Req;
 
 /// One update's flag.
@@ -103,10 +103,10 @@ impl Core {
     pub(crate) fn cancel_update_stack(&mut self, r: &Req<'_>) -> Result<Value, ApiError> {
         let name = r.s("StackName");
         let Some(stack) = self.find(name).filter(|s| s.status != "DELETE_COMPLETE") else {
-            return Err(no_stack(name));
+            return Err(no_stack_colon(name));
         };
         if stack.status != "UPDATE_IN_PROGRESS" {
-            // (memory) AWS's refusal names no status.
+            // Recorded 2026-11-19: AWS's refusal names no status.
             return Err(validation(
                 "CancelUpdateStack cannot be called from current stack status",
             ));

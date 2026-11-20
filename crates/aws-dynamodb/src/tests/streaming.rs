@@ -21,6 +21,7 @@ async fn item_changes_reach_a_kinesis_streaming_destination() {
         )
         .await;
     assert_eq!(on["DestinationStatus"], "ENABLING");
+    assert_eq!(on["EnableKinesisStreamingConfiguration"], json!({}));
     let d = bus
         .ok(
             "DescribeKinesisStreamingDestination",
@@ -31,6 +32,20 @@ async fn item_changes_reach_a_kinesis_streaming_destination() {
         d["KinesisDataStreamDestinations"][0]["DestinationStatus"], "ACTIVE",
         "{d}"
     );
+    assert!(
+        d["KinesisDataStreamDestinations"][0]
+            .get("ApproximateCreationDateTimePrecision")
+            .is_none(),
+        "{d}"
+    );
+    let twice = bus
+        .call(
+            "EnableKinesisStreamingDestination",
+            json!({"TableName": "tab", "StreamArn": stream}),
+        )
+        .await
+        .unwrap_err();
+    assert_eq!(twice.code, "ValidationException");
     bus.ok(
         "PutItem",
         json!({"TableName": "tab", "Item": {"pk": {"S": "a"}, "v": {"N": "1"}}}),
@@ -86,9 +101,12 @@ fn check_records(got: &Value) {
     assert_eq!(modify["dynamodb"]["Keys"], json!({"pk": {"S": "a"}}));
     assert_eq!(modify["dynamodb"]["OldImage"]["v"], json!({"N": "1"}));
     assert_eq!(modify["dynamodb"]["NewImage"]["v"], json!({"N": "2"}));
-    assert_eq!(
-        modify["dynamodb"]["ApproximateCreationDateTimePrecision"],
-        "MILLISECOND"
+    // Recorded 2026-11-19: no precision on the record unless the caller set one.
+    assert!(
+        modify["dynamodb"]
+            .get("ApproximateCreationDateTimePrecision")
+            .is_none(),
+        "{modify}"
     );
 }
 
@@ -108,6 +126,10 @@ async fn then_disabled(bus: &Bus, stream: &str, got: &Value) {
         )
         .await;
     assert_eq!(off["DestinationStatus"], "DISABLING");
+    assert!(
+        off.get("EnableKinesisStreamingConfiguration").is_none(),
+        "{off}"
+    );
     bus.ok(
         "PutItem",
         json!({"TableName": "tab", "Item": {"pk": {"S": "b"}}}),

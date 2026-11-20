@@ -40,12 +40,26 @@ impl Module for Echo {
             category: "test".into(),
             title: "Echo".into(),
             tagline: "A module for testing the SDK".into(),
-            versions: vec!["1".into(), "2".into()],
+            versions: versions(),
             exact_dots: 2,
             default_port: 7000,
             backend_socket: Some("echo.sock".into()),
             example: "echo \"e\" {\n  version = \"2\"\n}\n".into(),
             console: Some(console()),
+            // The engine's own build has a client: `doze connect` runs it there, at doze's address for the instance.
+            client: Some(doze_module::proto::msg::hello::ClientCommand {
+                program: "doze-module-echo-engine".into(),
+                args: ["client", "{host}", "{port}"].map(String::from).to_vec(),
+                env: BTreeMap::from([("ECHO_PASSWORD".into(), "{password}".into())]),
+                fallbacks: vec!["nc".into()],
+            }),
+            actions: vec![doze_module::proto::msg::console::Action {
+                id: "purge".into(),
+                label: "Purge".into(),
+                kind: "channel".into(),
+                destructive: true,
+                input_hint: None,
+            }],
             targets: [
                 "aarch64-apple-darwin",
                 "aarch64-unknown-linux-gnu",
@@ -65,6 +79,8 @@ impl Module for Echo {
     }
 
     fn check(&self, spec: &EchoSpec, _instance: &Instance) -> Vec<Diagnostic> {
+        // Every call decodes and checks the spec first: `decode` is the one call that does nothing after.
+        record(spec, "check");
         let at = |i: usize| {
             vec![
                 PathSeg::Key("channel".into()),
@@ -101,10 +117,12 @@ impl Module for Echo {
     }
 
     async fn resolve(&self, cx: &Cx<EchoSpec>, pins: &[Pin], target: &str) -> Result<Resolved> {
+        record(&cx.spec, "resolve");
         help::resolve_via(cx, pins, target, 2).await
     }
 
     async fn provision(&self, cx: &Cx<EchoSpec>, _tc: &Toolchain) -> Result<Provisioned> {
+        record(&cx.spec, "provision");
         let marker = std::path::Path::new(&cx.instance.data_dir).join("ECHO_VERSION");
         if marker.exists() {
             return Ok(Provisioned::Existing);
@@ -121,6 +139,7 @@ impl Module for Echo {
     }
 
     async fn plan(&self, cx: &Cx<EchoSpec>, tc: &Toolchain) -> Result<Plan> {
+        record(&cx.spec, "plan");
         cx.log(2, "planning the echo engine");
         // Listen where the host said (PLAN.md D13): a Unix socket, or loopback TCP where the host gives no sockets.
         let backend = cx.instance.listeners.get("main").map(|l| l.backend.clone());
@@ -128,11 +147,15 @@ impl Module for Echo {
             .join("echo.sock")
             .to_string_lossy()
             .into_owned();
-        let (listen, ready) = match backend {
+        let (listen, mut ready) = match backend {
             Some(Address::Tcp(a)) => (format!("tcp:{a}"), Ready::Tcp(a)),
             Some(Address::Unix(p)) => (format!("unix:{p}"), Ready::Socket(p)),
             None => (format!("unix:{socket}"), Ready::Socket(socket)),
         };
+        // `settings.ready = "log"`: ready when the engine says so, so where it is reached comes from the grant alone.
+        if cx.spec.settings.get("ready").is_some_and(|r| r == "log") {
+            ready = Ready::LogLine("listening".into());
+        }
         let mut args = vec![
             "--listen".to_string(),
             listen,
@@ -142,7 +165,7 @@ impl Module for Echo {
         if let Some(g) = &cx.spec.greeting {
             args.push(format!("--greeting={g}"));
         }
-        for (k, v) in help::settings(&cx.spec.settings, &["socket"]) {
+        for (k, v) in help::settings(&cx.spec.settings, &["socket", "ready"]) {
             args.push(format!("--{k}={v}"));
         }
         let program = std::path::Path::new(&tc.bin_dir)
@@ -184,11 +207,82 @@ impl Objects for Echo {
     }
 }
 
+impl doze_module::caps::Admin for Echo {
+    async fn resources(
+        &self,
+        cx: &Cx<EchoSpec>,
+    ) -> Result<Vec<doze_module::proto::msg::console::Resource>> {
+        Ok(cx
+            .spec
+            .channel
+            .iter()
+            .map(|c| doze_module::proto::msg::console::Resource {
+                kind: "channel".into(),
+                name: c.name.clone(),
+                status: "open".into(),
+                info: BTreeMap::from([("size".to_string(), c.size.to_string())]),
+            })
+            .collect())
+    }
+
+    async fn run_action(
+        &self,
+        cx: &Cx<EchoSpec>,
+        action: &str,
+        resource: &str,
+        _input: Option<&str>,
+    ) -> Result<String> {
+        record(&cx.spec, &format!("{action} {resource}"));
+        Ok(format!("{action}d {resource}"))
+    }
+}
+
+impl doze_module::caps::Console for Echo {
+    /// Two rows naming the panel and the selector, then the stream ends.
+    async fn tail(
+        &self,
+        _cx: &Cx<EchoSpec>,
+        panel: &str,
+        selector: &str,
+        out: &doze_module::caps::Rows<'_>,
+    ) -> Result<()> {
+        for i in 1..=2 {
+            let row = doze_module::proto::msg::console::Row {
+                cells: BTreeMap::from([
+                    ("panel".to_string(), panel.to_string()),
+                    ("n".to_string(), format!("{selector}{i}")),
+                ]),
+                tone: String::new(),
+            };
+            out.send(&row).await?;
+        }
+        Ok(())
+    }
+}
+
+/// With the setting `calls` (a file), appends `what` to it: the order the host called in, for the engine's tests.
+fn record(spec: &EchoSpec, what: &str) {
+    use std::io::Write as _;
+    let Some(file) = spec.settings.get("calls") else {
+        return;
+    };
+    let f = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(file);
+    if let Ok(mut f) = f {
+        let _ = writeln!(f, "{what}");
+    }
+}
+
 fn main() -> std::process::ExitCode {
     serve(Echo)
         .release(env!("CARGO_PKG_VERSION"))
         .objects()
         .wire()
+        .admin()
+        .console()
+        .migrate()
         .run()
 }
 
@@ -255,5 +349,55 @@ fn console() -> doze_module::proto::msg::console::ConsoleSpec {
             after: "vitals".into(),
             node: stat,
         }],
+    }
+}
+
+impl doze_module::caps::Migrate for Echo {
+    /// Moves the data's version marker to the declared version, after asking the host for the old major's build (as
+    /// postgres reads its old data with its old server).
+    async fn migrate(&self, cx: &Cx<EchoSpec>, _pins: &[Pin], _target: &str) -> Result<String> {
+        use doze_module::proto::msg::error::{Error, ErrorKind};
+        record(&cx.spec, "migrate");
+        let marker = std::path::Path::new(&cx.instance.data_dir).join("ECHO_VERSION");
+        let from = std::fs::read_to_string(&marker).map_err(|_| {
+            Error::new(
+                ErrorKind::Invalid,
+                format!(
+                    "{} has no data yet: there is nothing to move",
+                    cx.instance.name
+                ),
+            )
+        })?;
+        let to = &cx.instance.version;
+        if from.trim() == to {
+            return Err(Error::new(
+                ErrorKind::Invalid,
+                format!(
+                    "{} is already on echo {to}; nothing to move",
+                    cx.instance.name
+                ),
+            ));
+        }
+        let old = cx.fetch().resolve_major("echo", from.trim()).await?;
+        std::fs::write(&marker, to.as_bytes())
+            .map_err(|e| Error::new(ErrorKind::Unavailable, e.to_string()))?;
+        Ok(format!(
+            "{} is on echo {to} now (its echo {old} data was read)",
+            cx.instance.name
+        ))
+    }
+}
+
+/// Engines 1 and 2; a copy of this program named `…-v1` serves engine 1 only (the daemon's test of one build per
+/// major).
+fn versions() -> Vec<String> {
+    let only1 = std::env::current_exe()
+        .ok()
+        .and_then(|p| p.file_stem().map(|s| s.to_string_lossy().ends_with("-v1")))
+        .unwrap_or(false);
+    if only1 {
+        vec!["1".into()]
+    } else {
+        vec!["1".into(), "2".into()]
     }
 }

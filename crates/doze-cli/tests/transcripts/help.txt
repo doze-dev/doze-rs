@@ -60,7 +60,7 @@ stdout:
 |   help                      Help for doze or one of its commands
 | 
 | Flags for every command:
-|   -c, --config <path>       Path to doze.hcl (a directory: its doze.hcl); found here or in a parent when not given
+|   -c, --config <path>       Path to doze.hcl (a directory: all its *.hcl together); found here or in a parent when not given
 |       --var <name=value>    Set a config variable (repeatable)
 |       --json                Print the result as one JSON envelope, doze/v1 (DOZE_JSON=1)
 |   -q, --quiet               Print nothing on stdout: the exit code is the answer
@@ -89,13 +89,21 @@ stdout:
 |   -h, --help  Print help
 | 
 | Flags for every command:
-|   -c, --config <path>       Path to doze.hcl (a directory: its doze.hcl); found here or in a parent when not given
+|   -c, --config <path>       Path to doze.hcl (a directory: all its *.hcl together); found here or in a parent when not given
 |       --var <name=value>    Set a config variable (repeatable)
 |       --json                Print the result as one JSON envelope, doze/v1 (DOZE_JSON=1)
 |   -q, --quiet               Print nothing on stdout: the exit code is the answer
 |   -y, --yes                 Answer yes to every question (DOZE_YES=1)
 |       --timeout <duration>  How long to wait for one service to become ready [default: 5m]
 |       --no-color            No colour (NO_COLOR=1)
+| 
+| Examples:
+|   doze modules                        each pin in doze.lock and the newest release that fits
+|   doze modules upgrade --check        would any pin move? exit 1 if so (CI)
+|   doze modules upgrade --dry-run      each pin from and to, changing nothing
+|   doze modules upgrade valkey         move valkey's pin, then commit doze.lock
+|   doze modules docs valkey            a module's arguments and an example
+|   doze modules verify                 every pin against the signed registry
 
 $ doze modules docs --help
 exit 0
@@ -112,7 +120,7 @@ stdout:
 |   -h, --help  Print help
 | 
 | Flags for every command:
-|   -c, --config <path>       Path to doze.hcl (a directory: its doze.hcl); found here or in a parent when not given
+|   -c, --config <path>       Path to doze.hcl (a directory: all its *.hcl together); found here or in a parent when not given
 |       --var <name=value>    Set a config variable (repeatable)
 |       --json                Print the result as one JSON envelope, doze/v1 (DOZE_JSON=1)
 |   -q, --quiet               Print nothing on stdout: the exit code is the answer

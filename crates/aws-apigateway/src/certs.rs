@@ -129,7 +129,8 @@ pub(crate) fn make(now_secs: i64) -> Option<(String, String)> {
 }
 
 fn no_cert() -> ApiError {
-    not_found("Invalid Client Certificate identifier specified")
+    // Recorded 2026-11-19.
+    not_found("Invalid client certificate id specified")
 }
 
 /// What a read shows: never the key.

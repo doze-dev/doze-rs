@@ -299,7 +299,8 @@ async fn authorizer(
     ];
     let mut extra = Context::default();
     let arn = super::rest::method_arn(found, &req.method);
-    let outcome = if text(&auth, "type") == Some("COGNITO_USER_POOLS") {
+    let cognito = text(&auth, "type") == Some("COGNITO_USER_POOLS");
+    let outcome = if cognito {
         super::jwt::cognito(found, route, req, &mut extra)
     } else {
         super::auth::lambda_v1(inner, found, route, req, &arn, &mut extra).await
@@ -318,18 +319,27 @@ async fn authorizer(
             i64::from(reply.status)
         }
     };
-    let authorization: Map<String, Value> = given
-        .iter()
-        .map(|(k, v)| (k.clone(), json!([crate::doc::plain(v)])))
-        .collect();
-    let claims = extra
-        .authorizer
-        .as_ref()
-        .and_then(|a| a.get("claims"))
-        .cloned()
-        .unwrap_or_else(|| json!({}));
-    let mut out = json!({"clientStatus": status, "log": log(req, &lines), "latency": millis(started),
-        "authorization": authorization, "claims": claims});
+    let mut out =
+        json!({"clientStatus": status, "log": log(req, &lines), "latency": millis(started)});
+    if cognito {
+        // `(memory)`: no Cognito authorizer has been recorded; the identity given and the token's claims are shown.
+        let authorization: Map<String, Value> = given
+            .iter()
+            .map(|(k, v)| (k.clone(), json!([crate::doc::plain(v)])))
+            .collect();
+        let claims = extra
+            .authorizer
+            .as_ref()
+            .and_then(|a| a.get("claims"))
+            .cloned()
+            .unwrap_or_else(|| json!({}));
+        put(&mut out, "authorization", Value::Object(authorization));
+        put(&mut out, "claims", claims);
+    } else {
+        // Recorded 2026-11-19 (a TOKEN authorizer, allowing and denying): `authorization` is empty `Allow` and `Deny` lists, and
+        // there are no `claims`.
+        put(&mut out, "authorization", json!({"Allow": [], "Deny": []}));
+    }
     if let Some(p) = extra.principal {
         put(&mut out, "principalId", json!(p));
     }

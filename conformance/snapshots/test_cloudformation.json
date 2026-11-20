@@ -2,7 +2,7 @@
   "_recorded": {
     "boto3": "1.43.107",
     "botocore": "1.43.107",
-    "on": "2026-11-15",
+    "on": "2026-11-19",
     "region": "us-east-1",
     "target": "aws"
   },
@@ -184,6 +184,31 @@
         "HTTPStatusCode": 400
       }
     }
+  },
+  "test_a_failure_signal_fails_the_wait_condition": {
+    "status": "ROLLBACK_COMPLETE",
+    "wait-condition-events": [
+      [
+        "CREATE_IN_PROGRESS",
+        null
+      ],
+      [
+        "CREATE_IN_PROGRESS",
+        "Resource creation Initiated"
+      ],
+      [
+        "CREATE_FAILED",
+        "Received FAILURE signal with UniqueId bad"
+      ],
+      [
+        "DELETE_IN_PROGRESS",
+        null
+      ],
+      [
+        "DELETE_COMPLETE",
+        null
+      ]
+    ]
   },
   "test_a_nested_stack_from_s3": {
     "child": {
@@ -383,6 +408,57 @@
       }
     }
   },
+  "test_cancel_update_stack_rolls_the_update_back": {
+    "cancel": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "cancel-absent": {
+      "Error": {
+        "Code": "ValidationError",
+        "Message": "Stack: <name:absent> does not exist"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "nothing-to-cancel": {
+      "Error": {
+        "Code": "ValidationError",
+        "Message": "CancelUpdateStack cannot be called from current stack status"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "stack-level-events": [
+      "CREATE_IN_PROGRESS",
+      "CREATE_IN_PROGRESS",
+      "CREATE_COMPLETE",
+      "UPDATE_IN_PROGRESS",
+      "UPDATE_ROLLBACK_IN_PROGRESS",
+      "UPDATE_ROLLBACK_COMPLETE_CLEANUP_IN_PROGRESS",
+      "UPDATE_ROLLBACK_COMPLETE"
+    ],
+    "status": "UPDATE_ROLLBACK_COMPLETE",
+    "the-update-queue-is-gone": {
+      "Error": {
+        "Code": "AWS.SimpleQueueService.NonExistentQueue",
+        "Message": "The specified queue does not exist."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "wait-condition-events": [
+      "CREATE_IN_PROGRESS",
+      "CREATE_IN_PROGRESS",
+      "CREATE_FAILED",
+      "DELETE_IN_PROGRESS",
+      "DELETE_COMPLETE"
+    ]
+  },
   "test_change_set": {
     "after": [
       "CREATE_COMPLETE"
@@ -478,8 +554,198 @@
       "REVIEW_IN_PROGRESS"
     ]
   },
+  "test_describe_events_of_an_operation": {
+    "by-stack": true,
+    "failed-only": [],
+    "nothing-named": {
+      "Error": {
+        "Code": "ValidationError",
+        "Message": "One of ChangeSetName, OperationId or StackName must be specified."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "shape": [
+      [
+        "",
+        "",
+        "PROGRESS",
+        false,
+        "CREATE_COMPLETE"
+      ],
+      [
+        "",
+        "",
+        "PROGRESS",
+        false,
+        "CREATE_IN_PROGRESS"
+      ],
+      [
+        "",
+        "",
+        "PROGRESS",
+        true,
+        "CREATE_COMPLETE"
+      ],
+      [
+        "",
+        "",
+        "PROGRESS",
+        true,
+        "CREATE_IN_PROGRESS"
+      ],
+      [
+        "CREATE_STACK",
+        "IN_PROGRESS",
+        "STACK_EVENT",
+        false,
+        ""
+      ],
+      [
+        "CREATE_STACK",
+        "SUCCEEDED",
+        "STACK_EVENT",
+        false,
+        ""
+      ]
+    ]
+  },
+  "test_drift_detection_finds_changes_made_out_of_band": {
+    "absent-resource": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "StackDriftDetectionId": "<uuid:1>"
+    },
+    "before": "NOT_CHECKED",
+    "deleted": {
+      "DetectionStatus": "DETECTION_COMPLETE",
+      "DriftedStackResourceCount": 1,
+      "StackDriftStatus": "DRIFTED"
+    },
+    "deleted-resource": [
+      {
+        "Differences": [],
+        "LogicalResourceId": "Param",
+        "ResourceType": "AWS::SSM::Parameter",
+        "StackResourceDriftStatus": "DELETED"
+      }
+    ],
+    "drifted": {
+      "DetectionStatus": "DETECTION_COMPLETE",
+      "DriftedStackResourceCount": 2,
+      "StackDriftStatus": "DRIFTED"
+    },
+    "drifted-resources": [
+      {
+        "Differences": [
+          [
+            "/Value",
+            "NOT_EQUAL",
+            "one",
+            "two"
+          ]
+        ],
+        "LogicalResourceId": "Param",
+        "ResourceType": "AWS::SSM::Parameter",
+        "StackResourceDriftStatus": "MODIFIED"
+      },
+      {
+        "Differences": [
+          [
+            "/VisibilityTimeout",
+            "NOT_EQUAL",
+            "30",
+            "45"
+          ]
+        ],
+        "LogicalResourceId": "Queue",
+        "ResourceType": "AWS::SQS::Queue",
+        "StackResourceDriftStatus": "MODIFIED"
+      }
+    ],
+    "handle-not-checked": {
+      "Error": {
+        "Code": "ValidationError",
+        "Message": "Drift detection is not supported for ResourceType AWS::CloudFormation::WaitConditionHandle"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "in-sync": {
+      "DetectionStatus": "DETECTION_COMPLETE",
+      "DriftedStackResourceCount": 0,
+      "StackDriftStatus": "IN_SYNC"
+    },
+    "in-sync-resources": [
+      {
+        "Differences": [],
+        "LogicalResourceId": "Param",
+        "ResourceType": "AWS::SSM::Parameter",
+        "StackResourceDriftStatus": "IN_SYNC"
+      },
+      {
+        "Differences": [],
+        "LogicalResourceId": "Queue",
+        "ResourceType": "AWS::SQS::Queue",
+        "StackResourceDriftStatus": "IN_SYNC"
+      }
+    ],
+    "only-modified": [
+      "Param",
+      "Queue"
+    ],
+    "queue-put-back": "IN_SYNC",
+    "resource-drift": [
+      [
+        "Handle",
+        "NOT_CHECKED"
+      ],
+      [
+        "Param",
+        "MODIFIED"
+      ],
+      [
+        "Queue",
+        "MODIFIED"
+      ]
+    ],
+    "stack-drift": "DRIFTED"
+  },
   "test_dynamic_references_resolve_at_create": {
     "resolved": "x-from-ssm"
+  },
+  "test_hooks_and_account_limits": {
+    "change-set-hooks": {
+      "Hooks": [],
+      "Status": "PLANNED"
+    },
+    "hook-result-absent": {
+      "Error": {
+        "Code": "HookResultNotFound",
+        "Message": "The hook result was not found."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 404
+      }
+    },
+    "hook-results": [],
+    "hooks-of-absent-change-set": {
+      "Error": {
+        "Code": "ChangeSetNotFound",
+        "Message": "ChangeSet [<name:absent>] does not exist"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 404
+      }
+    },
+    "limits": [
+      "ConcurrentResourcesLimit",
+      "StackLimit",
+      "StackOutputsLimit"
+    ]
   },
   "test_iam_resources_land_in_iam": {
     "inline": [
@@ -594,6 +860,57 @@
         "HTTPStatusCode": 400
       }
     }
+  },
+  "test_signal_resource_completes_a_wait_condition": {
+    "data": {
+      "Data": "{}"
+    },
+    "first": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "signal-absent-resource": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "signal-absent-stack": {
+      "Error": {
+        "Code": "ValidationError",
+        "Message": "Stack <name:absent> does not exist"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "signal-after-complete": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "wait-condition-events": [
+      [
+        "CREATE_IN_PROGRESS",
+        null
+      ],
+      [
+        "CREATE_IN_PROGRESS",
+        "Resource creation Initiated"
+      ],
+      [
+        "CREATE_IN_PROGRESS",
+        "Received SUCCESS signal with UniqueId one"
+      ],
+      [
+        "CREATE_IN_PROGRESS",
+        "Received SUCCESS signal with UniqueId two"
+      ],
+      [
+        "CREATE_COMPLETE",
+        null
+      ]
+    ]
   },
   "test_stack_lifecycle": {
     "create": {

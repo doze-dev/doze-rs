@@ -1,0 +1,32 @@
+[package]
+name = "doze-hcl"
+version = "0.0.0"
+description = "HCL as a language: hcl-edit syntax, cty values and types, conversion and the evaluator, with Go's semantics"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+# Syntax and spans (vendored and pinned: vendor/hcl-edit/PATCHES.md).
+hcl-edit = "0.10"
+# cty's numbers are big.Float values; the arithmetic, parse and print are ours (src/number), on exact integers.
+num-bigint = { version = "0.4", default-features = false, features = ["std"] }
+num-traits = "0.2"
+# cty strings are NFC; positions and strlen count grapheme clusters, as Go's textseg does.
+unicode-normalization = "0.1"
+unicode-segmentation = "1"
+# Go's regular expressions run on the regex crate after translation (src/funcs/regex_syntax.rs).
+regex = { version = "1", default-features = false, features = ["std", "unicode"] }
+
+[dev-dependencies]
+serde_json = "1"
+# The tests run with regex's `perf` engines on, as every workspace build has them (doze-desk and others enable them): the
+# Go oracle's verdicts then do not depend on which crates share the build. The shipped `doze` builds without them
+# (docs/port/weight.md, "Session 11"), where fn2.regex3.07 matches Go too.
+regex = { version = "1", features = ["perf"] }
+proptest = "1"

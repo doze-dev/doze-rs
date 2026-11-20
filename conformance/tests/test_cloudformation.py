@@ -612,9 +612,9 @@ def test_signal_resource_completes_a_wait_condition(client, names, cleanup, snap
     snapshot.match("wait-condition-events", [(s, r) for who, s, r in (
         (e["LogicalResourceId"], e["ResourceStatus"], e.get("ResourceStatusReason"))
         for e in reversed(cfn.describe_stack_events(StackName=name)["StackEvents"])) if who == "Wait"])
-    snapshot.error("signal-after-complete", lambda: cfn.signal_resource(
+    snapshot.outcome("signal-after-complete", lambda: cfn.signal_resource(
         StackName=name, LogicalResourceId="Wait", UniqueId="three", Status="SUCCESS"))
-    snapshot.error("signal-absent-resource", lambda: cfn.signal_resource(
+    snapshot.outcome("signal-absent-resource", lambda: cfn.signal_resource(
         StackName=name, LogicalResourceId="Ghost", UniqueId="x", Status="SUCCESS"))
     snapshot.error("signal-absent-stack", lambda: cfn.signal_resource(
         StackName=names("absent"), LogicalResourceId="Wait", UniqueId="x", Status="SUCCESS"))
@@ -681,7 +681,7 @@ def test_drift_detection_finds_changes_made_out_of_band(client, names, cleanup, 
     snapshot.match("queue-put-back", one["StackResourceDriftStatus"])
     snapshot.error("handle-not-checked", lambda: cfn.detect_stack_resource_drift(
         StackName=name, LogicalResourceId="Handle"))
-    snapshot.error("absent-resource", lambda: cfn.detect_stack_drift(StackName=name, LogicalResourceIds=["Ghost"]))
+    snapshot.outcome("absent-resource", lambda: cfn.detect_stack_drift(StackName=name, LogicalResourceIds=["Ghost"]))
 
     ssm.delete_parameter(Name=param)
     snapshot.match("deleted", detect(cfn, eventually, name, LogicalResourceIds=["Param"]))
@@ -700,8 +700,8 @@ def test_describe_events_of_an_operation(client, names, cleanup, snapshot):
     cleanup(delete)
     cfn.get_waiter("stack_create_complete").wait(StackName=name, WaiterConfig=WAIT)
     events = cfn.describe_events(OperationId=made["OperationId"])["OperationEvents"]
-    snapshot.match("shape", sorted({(e.get("OperationType"), e.get("OperationStatus"), e.get("EventType"),
-                                     e["LogicalResourceId"] == name, e["ResourceStatus"]) for e in events}))
+    snapshot.match("shape", sorted({(e.get("OperationType") or "", e.get("OperationStatus") or "", e.get("EventType") or "",
+                                     e.get("LogicalResourceId") == name, e.get("ResourceStatus") or "") for e in events}))
     snapshot.match("by-stack", len(cfn.describe_events(StackName=name)["OperationEvents"]) >= len(events))
     snapshot.match("failed-only", cfn.describe_events(OperationId=made["OperationId"],
                                                       Filters={"FailedEvents": True})["OperationEvents"])

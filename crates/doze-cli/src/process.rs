@@ -4,7 +4,7 @@
 
 use crate::ctx::Refused;
 use crate::diag::{Diagnostic, ids};
-use crate::registry::{self, Base, signed};
+use crate::registry::{self, signed};
 use crate::{Ctx, Host, Terminals};
 use doze_names::setup::Plan;
 use doze_os::interrupt::Interrupt;
@@ -52,6 +52,34 @@ impl Host for Process {
         Some(matches!(answer.trim().to_lowercase().as_str(), "y" | "yes"))
     }
 
+    fn run(&self, program: &std::path::Path, args: &[String]) -> io::Result<u8> {
+        self.run_env(program, args, &[])
+    }
+
+    fn run_env(
+        &self,
+        program: &std::path::Path,
+        args: &[String],
+        env: &[(String, String)],
+    ) -> io::Result<u8> {
+        // Ctrl-C is the command's (a shell cancels its query and stays): doze waits for it and gives its code. Go's
+        // `doze run` died on it, leaving a command that stays without doze. One ended by a signal gives 128 + it (130).
+        let _ = doze_os::interrupt::pass_to_child();
+        let status = Command::new(program)
+            .args(args)
+            .envs(env.iter().map(|(k, v)| (k, v)))
+            .status()?;
+        Ok(doze_os::process::exit_code(&status))
+    }
+
+    fn read_line(&self) -> Option<String> {
+        let mut line = String::new();
+        match io::stdin().read_line(&mut line) {
+            Ok(0) | Err(_) => None,
+            Ok(_) => Some(line.trim_end_matches(['\n', '\r']).to_owned()),
+        }
+    }
+
     fn privileged(&self, plan: &Plan, prompt: bool) -> Result<(), Refused> {
         crate::machine::run_as_root(plan, prompt)
     }
@@ -62,6 +90,13 @@ pub fn main(argv: Vec<OsString>) -> u8 {
     // The network daemon dns-setup installs is this program: it runs before anything else (Go `names.Helper()`).
     if argv.get(1).is_some_and(|a| a == doze_names::HELPER_ARG) {
         return crate::machine::netd(argv.get(2..).unwrap_or_default());
+    }
+    // One download for the daemon, in a process of its own (core plan F1): stdin to stdout, nothing else.
+    if argv.get(1).is_some_and(|a| a == crate::fetch_child::ARG) {
+        return match surroundings() {
+            Ok((home, _, registry)) => crate::fetch_child::serve(&home, registry),
+            Err(_) => 1,
+        };
     }
     let term = Terminals {
         stdin: io::stdin().is_terminal(),
@@ -125,10 +160,7 @@ fn surroundings() -> Result<(PathBuf, PathBuf, registry::Config), Diagnostic> {
     })?;
     let key = test_registry_key().unwrap_or(key);
     let registry = registry::Config {
-        bases: registry::HOSTS
-            .iter()
-            .map(|h| Base::Http((*h).to_string()))
-            .collect(),
+        bases: registry::bases_from_env(),
         key,
         budget: registry::BUDGET,
     };

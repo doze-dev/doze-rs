@@ -99,14 +99,14 @@ impl Core {
                 invalid("Timestamp must be specified when StartingPosition Type is AT_TIMESTAMP.")
             })?,
             (kind, _) => {
-                // (memory) worded after GetShardIterator's recorded refusal.
+                // Recorded 2026-11-19 for AT_SEQUENCE_NUMBER with no number: GetShardIterator's words, naming its member.
+                let given = if number.is_some() {
+                    format!("{kind} and StartingSequenceNumber")
+                } else {
+                    format!("{kind} and no StartingSequenceNumber")
+                };
                 return Err(invalid(format!(
-                    "StartingPosition Type {kind} {} a SequenceNumber.",
-                    if number.is_some() {
-                        "does not take"
-                    } else {
-                        "needs"
-                    }
+                    "Must either specify (1) AT_SEQUENCE_NUMBER or AFTER_SEQUENCE_NUMBER and StartingSequenceNumber or (2) TRIM_HORIZON or LATEST and no StartingSequenceNumber. Request specified {given}."
                 )));
             }
         };

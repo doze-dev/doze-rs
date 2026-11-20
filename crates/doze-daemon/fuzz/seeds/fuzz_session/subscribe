@@ -1,0 +1,2 @@
+{"id":2,"op":"subscribe","topics":["instances","journal","logs","stats"],"interval":"1s"}
+{"id":2,"op":"cancel"}

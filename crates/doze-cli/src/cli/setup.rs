@@ -118,6 +118,7 @@ pub struct Modules {
 #[derive(Debug, Subcommand)]
 pub enum ModulesCmd {
     /// Move module pins in doze.lock to the newest releases that fit
+    #[command(after_help = super::examples::UPGRADE)]
     Upgrade(Upgrade),
     /// A module's documentation: what it runs, an example, every argument
     Docs(Docs),

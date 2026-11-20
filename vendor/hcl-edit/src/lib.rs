@@ -1,0 +1,55 @@
+#![doc = include_str!("../README.md")]
+#![warn(missing_docs, clippy::pedantic)]
+#![allow(
+    clippy::bool_to_int_with_if,
+    clippy::let_underscore_untyped,
+    clippy::manual_div_ceil,
+    clippy::module_name_repetitions,
+    clippy::must_use_candidate,
+    clippy::naive_bytecount,
+    clippy::needless_lifetimes,
+    clippy::return_self_not_must_use
+)]
+
+extern crate alloc;
+
+#[macro_use]
+mod macros;
+
+mod encode;
+pub mod expr;
+pub mod parser;
+mod raw_string;
+#[doc(hidden)]
+pub mod repr;
+pub mod structure;
+pub mod template;
+mod util;
+pub mod visit;
+pub mod visit_mut;
+
+pub use self::raw_string::RawString;
+use self::repr::SetSpan;
+pub use self::repr::{Decor, Decorate, Decorated, Formatted, Span, Spanned};
+
+// Re-exported for convenience.
+#[doc(inline)]
+pub use hcl_primitives::{Ident, Number};
+
+/// Core concepts available for glob import.
+///
+/// This includes useful traits like [`Decorate`] and [`Span`].
+///
+/// # Example
+///
+/// ```
+/// use hcl_edit::expr::Expression;
+/// use hcl_edit::prelude::*;
+///
+/// let mut expr = Expression::from("A string");
+/// expr.decor_mut().set_suffix(" // Comment.");
+/// assert_eq!(expr.to_string(), r#""A string" // Comment."#);
+/// ```
+pub mod prelude {
+    pub use crate::{Decorate, Span};
+}
