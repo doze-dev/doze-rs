@@ -11,7 +11,6 @@ const TYPES: &[&str] = &["S", "N", "B"];
 pub(super) static DYNAMODB: Descriptor = Descriptor {
     service: "dynamodb",
     target: "dynamodb",
-    rest: false,
     kinds: &[Kind {
         id: "tables",
         title: "Tables",
@@ -29,7 +28,9 @@ pub(super) static DYNAMODB: Descriptor = Descriptor {
             id: "TableName",
             name: Text::at("TableName"),
             label: None,
+            split: None,
         },
+        elsewhere: "",
         each: &[DESCRIBE],
         columns: &[
             col("Status", "Table.TableStatus", Plain),

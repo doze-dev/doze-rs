@@ -16,7 +16,7 @@ use crate::model::{
 use crate::model::{
     ColumnSpec, CreateSpec, Created, DeleteSpec, Deleted, FieldValue, FormInput, KindCount,
     ResourceDetail, ResourceLink, ResourceList, ResourceRow, ResourceService, ResourcesIndex,
-    Revealed, SubList, ValueFormat,
+    Revealed, SetAside, SubAdd, SubList, ValueFormat,
 };
 
 fn dir() -> PathBuf {
@@ -65,6 +65,8 @@ fn all() -> BTreeMap<String, String> {
     one::<DeleteSpec>(&cfg, &mut out);
     one::<ResourceList>(&cfg, &mut out);
     one::<FieldValue>(&cfg, &mut out);
+    one::<SetAside>(&cfg, &mut out);
+    one::<SubAdd>(&cfg, &mut out);
     one::<SubList>(&cfg, &mut out);
     one::<ResourceDetail>(&cfg, &mut out);
     one::<Created>(&cfg, &mut out);

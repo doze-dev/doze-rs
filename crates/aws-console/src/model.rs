@@ -226,6 +226,8 @@ pub struct FlowRow {
     pub caller: String,
     /// Calls between services, not requests from the wire.
     pub internal: bool,
+    /// Calls the console made, or that a service made for it (caller `console`): Live hides them unless asked.
+    pub console: bool,
     /// As a call's `service`; `null` for requests that named no service of this build.
     pub service: Option<String>,
     /// As a call's `api`.
@@ -259,6 +261,7 @@ impl FlowRow {
                 flow.caller.to_string()
             },
             internal: flow.internal,
+            console: flow.console,
             service: some(facts.service_named(flow.signing_name)),
             api: some(flow.sdk_id),
             calls: flow.calls,

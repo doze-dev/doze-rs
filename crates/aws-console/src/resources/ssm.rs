@@ -9,7 +9,6 @@ use super::{
 pub(super) static SSM: Descriptor = Descriptor {
     service: "ssm",
     target: "ssm",
-    rest: false,
     kinds: &[Kind {
         id: "parameters",
         title: "Parameters",
@@ -27,7 +26,9 @@ pub(super) static SSM: Descriptor = Descriptor {
             id: "Name",
             name: Text::at("Name"),
             label: None,
+            split: None,
         },
+        elsewhere: "",
         each: &[],
         columns: &[
             col("Type", "Type", Plain),

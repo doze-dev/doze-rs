@@ -294,7 +294,7 @@ async fn the_index_counts_what_is_served_and_says_what_is_not_described() {
         (status, refused["code"].as_str()),
         (409, Some("NOT_SERVED"))
     );
-    assert_eq!(svc("iam")["described"], false);
+    assert_eq!(svc("iam")["described"], true);
     // Without counts nothing is called.
     let before = w.live().len();
     let (_, bare) = w.get("/api/v1/resources?counts=no").await;

@@ -2,7 +2,7 @@
 //! is asked (nothing is polled or kept).
 //!
 //! - `GET /api/v1/resources[?counts=no]`: every service, its kinds, how many of each (and their names, for the palette).
-//! - `GET /api/v1/resources/<service>/<kind>[?token=]`: a page of a kind.
+//! - `GET /api/v1/resources/<service>/<kind>[?token=][&all=yes]`: a page of a kind (with `all`, the rows it sets aside too).
 //! - `POST /api/v1/resources/<service>/<kind>`: create one from the form's values (a JSON object).
 //! - `GET /api/v1/resources/<service>/<kind>/<name>`: one, with its lists and its recent calls.
 //! - `DELETE /api/v1/resources/<service>/<kind>/<name>`: delete it.
@@ -96,7 +96,8 @@ pub async fn list(
         Err(res) => return *res,
     };
     let token = param(query.as_deref(), "token").map(decode);
-    match view::list(&bus, &s.facts, (d, k), token.as_deref()).await {
+    let all = param(query.as_deref(), "all") == Some("yes");
+    match view::list(&bus, &s.facts, (d, k), (token.as_deref(), all)).await {
         Ok(page) => json(StatusCode::OK, &page),
         Err(e) => refused(&e),
     }

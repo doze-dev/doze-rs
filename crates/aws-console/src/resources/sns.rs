@@ -36,7 +36,9 @@ const TOPICS: Kind = Kind {
         id: "TopicArn",
         name: Text::tail("TopicArn"),
         label: None,
+        split: None,
     },
+    elsewhere: "",
     each: &[Step::new("GetTopicAttributes", r#"{"TopicArn":"{id}"}"#)],
     columns: &[
         col("Type", "Attributes.FifoTopic", Flag("FIFO", "Standard")),
@@ -97,6 +99,7 @@ const TOPICS: Kind = Kind {
         ],
         link: Some(("sns", "subscriptions", Text::at("SubscriptionArn"))),
         more: "NextToken",
+        add: Some(("subscriptions", "TopicArn")),
     }],
     create: Some(Create {
         inputs: &[
@@ -152,7 +155,9 @@ const SUBSCRIPTIONS: Kind = Kind {
         id: "SubscriptionArn",
         name: Text::at("SubscriptionArn"),
         label: Some(Text::tail("SubscriptionArn")),
+        split: None,
     },
+    elsewhere: "",
     each: &[],
     columns: &[
         col("Topic", "TopicArn", Tail),
@@ -256,6 +261,5 @@ const SUBSCRIPTIONS: Kind = Kind {
 pub(super) static SNS: Descriptor = Descriptor {
     service: "sns",
     target: "sns",
-    rest: false,
     kinds: &[TOPICS, SUBSCRIPTIONS],
 };

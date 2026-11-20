@@ -75,10 +75,61 @@ fn services(dir: &std::path::Path, peers: &Arc<Peers>, mode: Mode) -> Named {
         ),
         ("kms", "KMS", Arc::new(aws_kms::Kms::new(ctx("kms")))),
     ];
+    let mut services = services;
+    services.extend(more(&ctx));
     for (_, _, s) in &services {
         peers.register(Arc::clone(s));
     }
+    // API Gateway's two APIs sign alike: the bus names the second `apigatewayv2`, as doze-aws does.
+    let (rest, http) = aws_apigateway::services(ctx("apigateway"));
+    let (rest, http): (Arc<dyn Service>, Arc<dyn Service>) = (Arc::new(rest), Arc::new(http));
+    peers.register_as("apigateway", Arc::clone(&rest));
+    peers.register_as("apigatewayv2", http);
+    services.push(("apigateway", "API Gateway", rest));
     services
+}
+
+/// The services of Resources' second part.
+fn more(ctx: &dyn Fn(&str) -> Arc<doze_runtime::Ctx>) -> Named {
+    vec![
+        (
+            "kinesis",
+            "Kinesis",
+            Arc::new(aws_kinesis::Kinesis::new(ctx("kinesis"))),
+        ),
+        (
+            "logs",
+            "CloudWatch Logs",
+            Arc::new(aws_logs::Logs::new(ctx("logs"))),
+        ),
+        (
+            "cloudwatch",
+            "CloudWatch",
+            Arc::new(aws_cloudwatch::Cloudwatch::new(ctx("cloudwatch"))),
+        ),
+        (
+            "eventbridge",
+            "EventBridge",
+            Arc::new(aws_eventbridge::Eventbridge::new(ctx("eventbridge"))),
+        ),
+        (
+            "scheduler",
+            "Scheduler",
+            Arc::new(aws_scheduler::Scheduler::new(ctx("scheduler"))),
+        ),
+        (
+            "stepfunctions",
+            "Step Functions",
+            Arc::new(aws_sfn::Sfn::new(ctx("states"))),
+        ),
+        (
+            "cloudformation",
+            "CloudFormation",
+            Arc::new(aws_cloudformation::Cloudformation::new(ctx(
+                "cloudformation",
+            ))),
+        ),
+    ]
 }
 
 pub(crate) fn world(name: &str, mode: Mode, served: &[&'static str]) -> World {
@@ -137,6 +188,8 @@ pub(crate) fn write(method: &str, path: &str, body: &Value) -> Request<Body> {
         .unwrap()
 }
 
+// Each test binary uses some of these.
+#[allow(dead_code)]
 impl World {
     pub(crate) async fn get(&self, path: &str) -> (u16, Value) {
         answer(&self.app, get(path)).await
@@ -188,6 +241,28 @@ impl World {
         );
     }
 
+    /// A call as an app's would be: to `target` on the bus, with an access key of its own (`app`), the account root's.
+    pub(crate) async fn app(&self, target: &str, op: &str, body: &Value) -> Value {
+        let caller = aws_wire::service::Caller {
+            access_key_id: "app".to_owned(),
+            account_id: "000000000000".to_owned(),
+            region: "us-east-1".to_owned(),
+            endpoint: "http://127.0.0.1:4566".to_owned(),
+            service: None,
+            session_token: None,
+        };
+        let peers = self.state.facts.peers.clone().unwrap();
+        let answer = if peers.speaks_rest(target) {
+            peers
+                .call_rest_as(&caller, target, op, body, None)
+                .await
+                .map(|r| r.json)
+        } else {
+            peers.call_as(&caller, target, op, body).await
+        };
+        answer.unwrap_or_else(|e| panic!("{target} {op}: {e:?}"))
+    }
+
     /// Every call in the Live record, as `caller service action`.
     pub(crate) fn live(&self) -> Vec<String> {
         self.state
@@ -214,4 +289,26 @@ pub(crate) fn field<'a>(detail: &'a Value, label: &str) -> &'a Value {
         .iter()
         .find(|f| f["label"] == label)
         .unwrap_or_else(|| panic!("no field {label} in {detail}"))
+}
+
+/// The titles of a detail's related lists, and each one's rows' first cells.
+#[allow(dead_code)]
+pub(crate) fn sub<'a>(detail: &'a Value, title: &str) -> &'a Value {
+    detail["subs"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|s| s["title"] == title)
+        .unwrap_or_else(|| panic!("no list {title} in {detail}"))
+}
+
+#[allow(dead_code)]
+pub(crate) fn firsts(list: &Value) -> Vec<String> {
+    assert_eq!(list["error"], Value::Null, "{list}");
+    list["rows"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|r| r["cells"][0].as_str().unwrap_or_default().to_owned())
+        .collect()
 }

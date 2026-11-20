@@ -83,9 +83,10 @@ pub async fn create(
         let answer = run::call(d, step, &fill).await?;
         run::merge(&mut out, answer);
     }
-    let from_answer = path::text(&out, create.name.path)
-        .filter(|_| !create.name.path.is_empty())
-        .map(|t| if create.name.tail { path::tail(&t) } else { t });
+    let from_answer = create
+        .name
+        .read(&out)
+        .filter(|_| !create.name.path.is_empty());
     let name = from_answer
         .or_else(|| {
             form.get(create.key)

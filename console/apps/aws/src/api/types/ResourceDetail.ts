@@ -13,7 +13,8 @@ export type ResourceDetail = { service: string, service_title: string, group: st
  */
 operations: Array<string>, fields: Array<FieldValue>, subs: Array<SubList>, 
 /**
- * The last calls in the Live record that acted on it, newest first.
+ * The last calls in the Live record that acted on it, newest first: the newest of others' and, apart, of the console's own
+ * (caller `console`, which a page hides unless asked).
  */
 calls: Array<CallRecord>, 
 /**

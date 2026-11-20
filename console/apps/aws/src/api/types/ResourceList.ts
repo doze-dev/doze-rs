@@ -3,6 +3,7 @@ import type { ColumnSpec } from "./ColumnSpec";
 import type { CreateSpec } from "./CreateSpec";
 import type { DeleteSpec } from "./DeleteSpec";
 import type { ResourceRow } from "./ResourceRow";
+import type { SetAside } from "./SetAside";
 
 /**
  * `GET /api/v1/resources/<service>/<kind>`: one page of a kind.
@@ -19,4 +20,20 @@ next: string | null,
 /**
  * How one is created, when the console can create one.
  */
-create: CreateSpec | null, delete: DeleteSpec | null, };
+create: CreateSpec | null, delete: DeleteSpec | null, 
+/**
+ * Whether a row opens a page of its own (a metric does not: there is nothing more to read of one).
+ */
+openable: boolean, 
+/**
+ * The rows of this page the list sets aside (`?all=yes` shows them), when the kind sets some aside.
+ */
+others: SetAside | null, 
+/**
+ * Whether the rows set aside are shown.
+ */
+all: boolean, 
+/**
+ * Why the console does not create one (a function needs its code), when it does not.
+ */
+create_elsewhere: string | null, };

@@ -2,13 +2,13 @@
 
 use aws_wire::ApiError;
 
-use super::bus::Bus;
+use super::bus::{Bus, CONSOLE};
 use super::run::{self, MOST_COUNTED, PAGES_COUNTED};
 use super::{Column, Descriptor, Format, InputKind, Kind, catalog};
 use crate::facts::Facts;
 use crate::model::{
     CallRecord, ColumnSpec, CreateSpec, DeleteSpec, FormInput, KindCount, ResourceDetail,
-    ResourceList, ResourceService, ResourcesIndex,
+    ResourceList, ResourceService, ResourcesIndex, SetAside,
 };
 use crate::ring::Recorder;
 
@@ -20,8 +20,8 @@ pub const MOST_CALLS: usize = 20;
 pub const fn format(f: Format) -> crate::model::ValueFormat {
     use crate::model::ValueFormat as V;
     match f {
-        Format::Text | Format::Flag(..) => V::Text,
-        Format::Mono | Format::Tail => V::Mono,
+        Format::Text | Format::Flag(..) | Format::Named(_) => V::Text,
+        Format::Mono | Format::Tail | Format::Pairs => V::Mono,
         Format::Number => V::Number,
         Format::Bytes => V::Bytes,
         Format::Time => V::Time,
@@ -42,7 +42,7 @@ pub fn columns(columns: &[Column]) -> Vec<ColumnSpec> {
         .collect()
 }
 
-fn create_form(kind: &Kind) -> Option<CreateSpec> {
+pub(super) fn create_form(kind: &Kind) -> Option<CreateSpec> {
     let create = kind.create.as_ref()?;
     let inputs = create
         .inputs
@@ -117,6 +117,7 @@ pub async fn index(bus: &Bus, facts: &Facts, counted: bool) -> ResourcesIndex {
                 more: false,
                 names: Vec::new(),
                 error: None,
+                others: None,
             };
             if let (true, true, Some(d)) = (counted, svc.served, entry.descriptor) {
                 count(bus, d, kind, &mut k).await;
@@ -139,21 +140,20 @@ pub async fn index(bus: &Bus, facts: &Facts, counted: bool) -> ResourcesIndex {
 /// Counts `kind` by reading its pages, up to [`MOST_COUNTED`] names or [`PAGES_COUNTED`] pages.
 async fn count(bus: &Bus, d: &Descriptor, kind: &Kind, k: &mut KindCount) {
     let mut token: Option<String> = None;
+    let mut others = 0;
     for _ in 0..PAGES_COUNTED {
         match run::page(bus, d, kind, token.as_deref()).await {
             Ok((items, next)) => {
-                for item in &items {
-                    let id = super::path::text(item, kind.list.id).unwrap_or_default();
-                    let name = super::path::text(item, kind.list.name.path)
-                        .map(|n| {
-                            if kind.list.name.tail {
-                                super::path::tail(&n)
-                            } else {
-                                n
-                            }
-                        })
-                        .unwrap_or(id);
-                    k.names.push(name);
+                if kind.list.split.is_some() {
+                    // What sets a row aside is read by its own calls (a key's manager): made for these rows only.
+                    let (rows, set_aside) = run::rows(bus, (d, kind), items, false).await;
+                    others += set_aside;
+                    k.names.extend(rows.into_iter().map(|r| r.name));
+                } else {
+                    for item in &items {
+                        let id = super::path::text(item, kind.list.id).unwrap_or_default();
+                        k.names.push(kind.list.name.read(item).unwrap_or(id));
+                    }
                 }
                 token = next;
             }
@@ -169,9 +169,22 @@ async fn count(bus: &Bus, d: &Descriptor, kind: &Kind, k: &mut KindCount) {
     k.more = token.is_some();
     k.names.truncate(MOST_COUNTED);
     k.count = u32::try_from(k.names.len()).ok();
+    if kind.fields.is_empty() {
+        // Nothing to open (a metric): the palette is not given them.
+        k.names.clear();
+    }
+    k.others = set_aside(kind, others);
 }
 
-/// One page of `kind`.
+/// What `kind` sets aside, `count` of them.
+fn set_aside(kind: &Kind, count: u32) -> Option<SetAside> {
+    kind.list.split.as_ref().map(|s| SetAside {
+        what: s.others.to_owned(),
+        count,
+    })
+}
+
+/// One page of `kind`; with `all`, the rows it sets aside too.
 ///
 /// # Errors
 /// The service's refusal.
@@ -179,10 +192,10 @@ pub async fn list(
     bus: &Bus,
     facts: &Facts,
     (d, kind): (&Descriptor, &Kind),
-    token: Option<&str>,
+    (token, all): (Option<&str>, bool),
 ) -> Result<ResourceList, ApiError> {
     let (items, next) = run::page(bus, d, kind, token).await?;
-    let rows = run::rows(bus, d, kind, items).await;
+    let (rows, others) = run::rows(bus, (d, kind), items, all).await;
     Ok(ResourceList {
         service: d.service.to_owned(),
         service_title: title_of(facts, d.service),
@@ -197,6 +210,10 @@ pub async fn list(
         next,
         create: create_form(kind),
         delete: delete_spec(kind),
+        openable: !kind.fields.is_empty(),
+        others: set_aside(kind, others),
+        all: all && kind.list.split.is_some(),
+        create_elsewhere: (!kind.elsewhere.is_empty()).then(|| kind.elsewhere.to_owned()),
     })
 }
 
@@ -225,8 +242,22 @@ pub async fn detail(
     operations.extend(run::read_detail(bus, d, kind, (&id, name), &mut out).await?);
     let mut subs = Vec::new();
     for sub in kind.subs {
-        operations.push(sub.step.op.to_owned());
-        subs.push(run::sub(bus, d, sub, (&id, name), &out).await);
+        let mut list = run::sub(bus, d, sub, (&id, name), &out).await;
+        // A list read from the detail's answers made no call of its own.
+        if !sub.step.is_answered() {
+            operations.push(sub.step.op.to_owned());
+        }
+        list.add = sub.add.and_then(|(of, key)| {
+            let other = d.kinds.iter().find(|k| k.id == of)?;
+            Some(crate::model::SubAdd {
+                kind: of.to_owned(),
+                one: other.one.to_owned(),
+                create: create_form(other)?,
+                key: key.to_owned(),
+                value: id.clone(),
+            })
+        });
+        subs.push(list);
     }
     Ok(ResourceDetail {
         service: d.service.to_owned(),
@@ -237,7 +268,7 @@ pub async fn detail(
         one: kind.one.to_owned(),
         fields: run::fields(kind, &out),
         subs,
-        calls: calls(facts, recorder, d.service, (&id, name)),
+        calls: calls(facts, recorder, d.service, (&id, &called_as(kind, name))),
         reveal: kind.reveal.as_ref().map(|r| r.label.to_owned()),
         delete: delete_spec(kind),
         operations,
@@ -246,7 +277,18 @@ pub async fn detail(
     })
 }
 
-/// The newest calls of the Live record to `service` that acted on the resource, newest first.
+/// What the calls of a resource named `name` name it as: a rule named with its bus (`orders/on-order`) is `on-order` in a
+/// call (with the bus apart), as a schedule is without its group. A call to a rule of that name on another bus is counted too.
+fn called_as(kind: &Kind, name: &str) -> String {
+    let parted = kind.detail.iter().any(|s| s.body.contains("{name:last}"));
+    match name.rsplit_once('/') {
+        Some((_, last)) if parted => last.to_owned(),
+        _ => name.to_owned(),
+    }
+}
+
+/// The newest calls of the Live record to `service` that acted on the resource, newest first: up to [`MOST_CALLS`] of others'
+/// and up to as many of the console's own (a page hides those unless asked).
 #[must_use]
 pub fn calls(
     facts: &Facts,
@@ -267,7 +309,12 @@ pub fn calls(
                 // An S3 path names its bucket first.
                 || (c.member.is_empty() && r.split('/').next() == Some(name))
         })
-        .take(MOST_CALLS)
+        .scan((0, 0), |(mine, theirs), c| {
+            let n = if *c.caller == *CONSOLE { mine } else { theirs };
+            *n += 1;
+            Some((*n <= MOST_CALLS).then_some(c))
+        })
+        .flatten()
         .map(|c| CallRecord::new(c, facts))
         .collect()
 }

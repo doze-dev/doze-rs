@@ -14,7 +14,6 @@ const ATTRIBUTES: Step = Step::new(
 pub(super) static SQS: Descriptor = Descriptor {
     service: "sqs",
     target: "sqs",
-    rest: false,
     kinds: &[Kind {
         id: "queues",
         title: "Queues",
@@ -29,7 +28,9 @@ pub(super) static SQS: Descriptor = Descriptor {
             id: "QueueUrl",
             name: Text::tail("QueueUrl"),
             label: None,
+            split: None,
         },
+        elsewhere: "",
         each: &[ATTRIBUTES],
         columns: &[
             col("Type", "Attributes.FifoQueue", Flag("FIFO", "Standard")),
@@ -158,6 +159,7 @@ pub(super) static SQS: Descriptor = Descriptor {
                 ],
                 link: Some(("lambda", "functions", Text::tail("FunctionArn"))),
                 more: "NextMarker",
+                add: None,
             },
             Sub {
                 title: "Queues that use it as their dead-letter queue",
@@ -167,6 +169,7 @@ pub(super) static SQS: Descriptor = Descriptor {
                 columns: &[col("Queue", "QueueUrl", Tail)],
                 link: Some(("sqs", "queues", Text::tail("QueueUrl"))),
                 more: "NextToken",
+                add: None,
             },
         ],
         create: Some(Create {
@@ -192,7 +195,7 @@ pub(super) static SQS: Descriptor = Descriptor {
                     ..input(
                         "VisibilityTimeout",
                         "Visibility timeout (seconds)",
-                        "How long a received message is hidden from other consumers. 0 to 43,200; 30 if not given.",
+                        "How long a received message is hidden from other consumers, 0 to 43,200. Default: 30 seconds.",
                         InputKind::Number,
                     )
                 },
@@ -201,7 +204,7 @@ pub(super) static SQS: Descriptor = Descriptor {
                     ..input(
                         "MessageRetentionPeriod",
                         "Message retention period (seconds)",
-                        "60 to 1,209,600 (14 days); 4 days if not given.",
+                        "60 to 1,209,600 (14 days). Default: 4 days.",
                         InputKind::Number,
                     )
                 },
@@ -210,7 +213,7 @@ pub(super) static SQS: Descriptor = Descriptor {
                     ..input(
                         "DelaySeconds",
                         "Delivery delay (seconds)",
-                        "0 to 900.",
+                        "0 to 900. Default: 0 seconds.",
                         InputKind::Number,
                     )
                 },

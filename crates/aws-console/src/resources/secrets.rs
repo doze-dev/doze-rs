@@ -10,7 +10,6 @@ use super::{
 pub(super) static SECRETS: Descriptor = Descriptor {
     service: "secretsmanager",
     target: "secretsmanager",
-    rest: false,
     kinds: &[Kind {
         id: "secrets",
         title: "Secrets",
@@ -25,7 +24,9 @@ pub(super) static SECRETS: Descriptor = Descriptor {
             id: "ARN",
             name: Text::at("Name"),
             label: None,
+            split: None,
         },
+        elsewhere: "",
         each: &[],
         columns: &[
             col("Description", "Description", Plain),

@@ -48,6 +48,17 @@ pub struct KindCount {
     /// The names counted, for the command palette.
     pub names: Vec<String>,
     pub error: Option<String>,
+    /// The ones not counted in `count` (AWS managed keys), when the kind sets some aside.
+    pub others: Option<SetAside>,
+}
+
+/// Rows a list sets aside by default, and how many there are.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
+pub struct SetAside {
+    /// `AWS managed keys`.
+    pub what: String,
+    pub count: u32,
 }
 
 /// How a value is shown: the page formats `number`, `bytes`, `time` and `seconds`; the rest is shown as it comes.
@@ -154,6 +165,14 @@ pub struct ResourceList {
     /// How one is created, when the console can create one.
     pub create: Option<CreateSpec>,
     pub delete: Option<DeleteSpec>,
+    /// Whether a row opens a page of its own (a metric does not: there is nothing more to read of one).
+    pub openable: bool,
+    /// The rows of this page the list sets aside (`?all=yes` shows them), when the kind sets some aside.
+    pub others: Option<SetAside>,
+    /// Whether the rows set aside are shown.
+    pub all: bool,
+    /// Why the console does not create one (a function needs its code), when it does not.
+    pub create_elsewhere: Option<String>,
 }
 
 /// A field of a detail page.
@@ -182,6 +201,21 @@ pub struct SubList {
     pub more: bool,
     /// Why it could not be read.
     pub error: Option<String>,
+    /// Adds one from this page, when it can.
+    pub add: Option<SubAdd>,
+}
+
+/// The create a related list offers (Add subscription on a topic): another kind's form, one input given.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
+pub struct SubAdd {
+    pub kind: String,
+    /// `subscription`.
+    pub one: String,
+    pub create: CreateSpec,
+    /// The input filled with this resource's id, and its value.
+    pub key: String,
+    pub value: String,
 }
 
 /// `GET /api/v1/resources/<service>/<kind>/<name>`: one resource.
@@ -200,7 +234,8 @@ pub struct ResourceDetail {
     pub operations: Vec<String>,
     pub fields: Vec<FieldValue>,
     pub subs: Vec<SubList>,
-    /// The last calls in the Live record that acted on it, newest first.
+    /// The last calls in the Live record that acted on it, newest first: the newest of others' and, apart, of the console's own
+    /// (caller `console`, which a page hides unless asked).
     pub calls: Vec<CallRecord>,
     /// The button that reveals its hidden value, when it has one.
     pub reveal: Option<String>,

@@ -18,6 +18,8 @@ pub struct Flow {
     pub caller: Box<str>,
     /// A call between services ([`Call::via`]).
     pub internal: bool,
+    /// Made by the console or for it (caller [`crate::resources::bus::CONSOLE`]): Live leaves it off the map unless asked.
+    pub console: bool,
     /// The service's name in a credential scope; empty for a request that named no service of this build.
     pub signing_name: &'static str,
     pub sdk_id: &'static str,
@@ -59,8 +61,10 @@ impl Flows {
     /// Counts `call` (its number set) into its flow.
     pub(super) fn count(&mut self, call: &Call) {
         let (caller, internal) = caller_of(call);
+        let console = *call.caller == *crate::resources::bus::CONSOLE;
         let found = self.flows.iter().position(|f| {
             f.internal == internal
+                && f.console == console
                 && f.sdk_id == call.sdk_id
                 && f.signing_name == call.signing_name
                 && *f.caller == *caller
@@ -81,6 +85,7 @@ impl Flows {
             self.flows.push(Flow {
                 caller: caller.into(),
                 internal,
+                console,
                 signing_name: call.signing_name,
                 sdk_id: call.sdk_id,
                 calls: 0,

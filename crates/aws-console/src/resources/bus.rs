@@ -54,19 +54,19 @@ impl Bus {
         &self.caller.region
     }
 
-    /// Calls `operation` of `target` with `body`; the answer as JSON. A REST service's streamed body (an object's bytes) is not
-    /// read: no page asks for one.
+    /// Calls `operation` of `target` (its name on the bus) with `body`; the answer as JSON. A service that speaks a REST protocol
+    /// is called on its REST side; its streamed body (an object's bytes) is not read: no page asks for one.
     ///
     /// # Errors
     /// The target's refusal, IAM's included.
     pub async fn call(
         &self,
-        (target, rest): (&str, bool),
+        target: &str,
         operation: &str,
         body: &Value,
     ) -> Result<Value, ApiError> {
         aws_peers::seen::asked(async {
-            if rest {
+            if self.peers.speaks_rest(target) {
                 self.peers
                     .call_rest_as(&self.caller, target, operation, body, None)
                     .await

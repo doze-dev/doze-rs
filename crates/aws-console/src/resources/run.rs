@@ -5,7 +5,7 @@ use serde_json::{Map, Value, json};
 
 use super::bus::Bus;
 use super::path::{self, Vars};
-use super::{Descriptor, Id, Kind, LinkTo, Step, Sub, Text, catalog};
+use super::{Descriptor, Id, Kind, LinkTo, Step, Sub};
 use crate::model::{FieldValue, ResourceLink, ResourceRow, SubList};
 
 /// The most of one kind the index counts: past it, it says "at least".
@@ -32,6 +32,14 @@ impl Vars for Fill<'_> {
         match name {
             "id" => Some(self.id.to_owned()),
             "name" => Some(self.name.to_owned()),
+            // A name that holds its parent's (`orders-bus/on-order`, `default/nightly`): the parent, and the rest.
+            "name:head" => self.name.rsplit_once('/').map(|(h, _)| h.to_owned()),
+            "name:last" => Some(
+                self.name
+                    .rsplit_once('/')
+                    .map_or(self.name, |(_, l)| l)
+                    .to_owned(),
+            ),
             "account" => Some(self.bus.account().to_owned()),
             "region" => Some(self.bus.region().to_owned()),
             "token" => self.token.map(str::to_owned),
@@ -74,11 +82,9 @@ pub async fn call(d: &Descriptor, step: &Step, fill: &Fill<'_>) -> Result<Value,
     let template: Value = serde_json::from_str(step.body)
         .map_err(|e| ApiError::internal(format!("a descriptor's body is not JSON: {e}")))?;
     let body = path::fill(&template, fill);
-    let (target, rest) = match step.service {
-        Some(s) => (s, catalog::descriptor(s).is_some_and(|o| o.rest)),
-        None => (d.target, d.rest),
-    };
-    fill.bus.call((target, rest), step.op, &body).await
+    fill.bus
+        .call(step.service.unwrap_or(d.target), step.op, &body)
+        .await
 }
 
 /// Every member of `answer` put into `out`.
@@ -125,18 +131,19 @@ fn items_of(answer: &Value, items: &str, item_as: &str) -> Vec<Value> {
         .collect()
 }
 
-/// `text` read out of `item`.
-fn read(item: &Value, text: Text) -> Option<String> {
-    let t = path::text(item, text.path)?;
-    Some(if text.tail { path::tail(&t) } else { t })
-}
-
-/// The rows of one page, with [`Kind::each`] called for each (a failed call leaves its cells empty).
-pub async fn rows(bus: &Bus, d: &Descriptor, kind: &Kind, items: Vec<Value>) -> Vec<ResourceRow> {
+/// The rows of one page, with [`Kind::each`] called for each (a failed call leaves its cells empty); the rows the kind sets
+/// aside ([`super::Split`]) only when `all`. Also how many it set aside.
+pub async fn rows(
+    bus: &Bus,
+    (d, kind): (&Descriptor, &Kind),
+    items: Vec<Value>,
+    all: bool,
+) -> (Vec<ResourceRow>, u32) {
     let mut rows = Vec::with_capacity(items.len());
+    let mut others = 0;
     for (i, mut item) in items.into_iter().enumerate() {
         let id = path::text(&item, kind.list.id).unwrap_or_default();
-        let name = read(&item, kind.list.name).unwrap_or_else(|| id.clone());
+        let name = kind.list.name.read(&item).unwrap_or_else(|| id.clone());
         if i < MOST_EACH {
             for step in kind.each {
                 let form = Map::new();
@@ -151,10 +158,18 @@ pub async fn rows(bus: &Bus, d: &Descriptor, kind: &Kind, items: Vec<Value>) -> 
                 }
             }
         }
+        if let Some(split) = &kind.list.split
+            && path::text(&item, split.path).is_none_or(|v| v != split.keep)
+        {
+            others += 1;
+            if !all {
+                continue;
+            }
+        }
         let label = kind
             .list
             .label
-            .and_then(|l| read(&item, l))
+            .and_then(|l| l.read(&item))
             .unwrap_or_else(|| name.clone());
         rows.push(ResourceRow {
             cells: kind
@@ -168,7 +183,7 @@ pub async fn rows(bus: &Bus, d: &Descriptor, kind: &Kind, items: Vec<Value>) -> 
             id,
         });
     }
-    rows
+    (rows, others)
 }
 
 /// What the calls of a resource named `name` take, and what was answered on the way (SQS's `GetQueueUrl`).
@@ -200,9 +215,15 @@ pub async fn id_of(
                 ..Fill::bare(bus, &snapshot, &form)
             };
             let answer = call(d, step, &fill).await?;
-            let id = path::text(&answer, at).unwrap_or_default();
             merge(&mut out, answer);
-            id
+            // A call that finds by a filter (an alarm by its name) answers none rather than refusing: no id is a refusal.
+            path::text(&out, at).ok_or_else(|| {
+                ApiError::new(
+                    404,
+                    "NOT_FOUND",
+                    format!("There is no {} named {name}.", kind.one),
+                )
+            })?
         }
     };
     merge(&mut out, json!({ "$id": id }));
@@ -250,7 +271,8 @@ pub fn fields(kind: &Kind, out: &Value) -> Vec<FieldValue> {
             let hidden = f
                 .hide_when
                 .is_some_and(|(p, eq)| p.is_empty() || path::text(out, p).is_some_and(|v| v == eq));
-            let value = path::shown(out, f.path, f.format);
+            let value = path::shown(out, f.path, f.format)
+                .or_else(|| (!f.empty.is_empty()).then(|| f.empty.to_owned()));
             let link = value
                 .as_ref()
                 .and_then(|_| link(f.link, out, &path::text(out, f.path).unwrap_or_default()));
@@ -278,7 +300,7 @@ fn link(to: &[LinkTo], out: &Value, value: &str) -> Option<ResourceLink> {
     })
 }
 
-/// A list that belongs to the resource: its first page.
+/// A list that belongs to the resource: its first page (or, for [`Step::answered`], what the detail's calls answered).
 pub async fn sub(
     bus: &Bus,
     d: &Descriptor,
@@ -292,7 +314,12 @@ pub async fn sub(
         name,
         ..Fill::bare(bus, out, &form)
     };
-    let (rows, more, error) = match call(d, &sub.step, &fill).await {
+    let answer = if sub.step.is_answered() {
+        Ok(out.clone())
+    } else {
+        call(d, &sub.step, &fill).await
+    };
+    let (rows, more, error) = match answer {
         Ok(answer) => {
             let items = items_of(&answer, sub.items, sub.item_as);
             let more = !sub.more.is_empty()
@@ -310,6 +337,7 @@ pub async fn sub(
         rows,
         more,
         error,
+        add: None,
     }
 }
 
@@ -324,7 +352,7 @@ fn sub_row(sub: &Sub, item: &Value) -> ResourceRow {
         Some(ResourceLink {
             service: service.to_owned(),
             kind: kind.to_owned(),
-            name: read(item, at)?,
+            name: at.read(item)?,
         })
     });
     ResourceRow {

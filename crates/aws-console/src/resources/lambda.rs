@@ -1,17 +1,16 @@
 //! Lambda: functions. The console does not create one: a function needs its code, which a deploy tool or the AWS CLI sends.
 
 use super::Format::{Bytes, Json, Mono, Number, Seconds, Tail, Text as Plain, Time};
-use super::{Delete, Descriptor, Id, Kind, List, Step, Sub, Text, col, field};
+use super::{Delete, Descriptor, Field, Id, Kind, LinkTo, List, Step, Sub, Text, col, field, or};
 
 pub(super) static LAMBDA: Descriptor = Descriptor {
     service: "lambda",
     target: "lambda",
-    rest: true,
     kinds: &[Kind {
         id: "functions",
         title: "Functions",
         one: "function",
-        about: "Functions, their runtimes, and what triggers them. Deploy code with your own tool or the AWS CLI.",
+        about: "Functions, their runtimes, and what triggers them.",
         members: &["FunctionName"],
         list: List {
             step: Step::new("ListFunctions", r#"{"MaxItems":50,"Marker":"{token}"}"#),
@@ -21,7 +20,9 @@ pub(super) static LAMBDA: Descriptor = Descriptor {
             id: "FunctionName",
             name: Text::at("FunctionName"),
             label: None,
+            split: None,
         },
+        elsewhere: "A function needs its code, so the console does not create one: deploy it with your own tool, or with aws lambda create-function.",
         each: &[],
         columns: &[
             col("Runtime", "Runtime", Mono),
@@ -46,8 +47,16 @@ pub(super) static LAMBDA: Descriptor = Descriptor {
             field("Memory (MB)", "Configuration.MemorySize", Number),
             field("Timeout", "Configuration.Timeout", Seconds),
             field("Code size", "Configuration.CodeSize", Bytes),
-            field("Execution role", "Configuration.Role", Mono),
-            field("Function URL", "FunctionUrl", Mono),
+            Field {
+                link: &[LinkTo {
+                    service: "iam",
+                    kind: "roles",
+                    when: None,
+                }],
+                ..field("Execution role", "Configuration.Role", Mono)
+            },
+            // GetFunctionUrlConfig answers ResourceNotFoundException for a function with no URL.
+            or("Function URL", "FunctionUrl", Mono, "None"),
             field("Function URL auth", "AuthType", Plain),
             field(
                 "Environment variables",
@@ -77,6 +86,7 @@ pub(super) static LAMBDA: Descriptor = Descriptor {
             ],
             link: None,
             more: "NextMarker",
+            add: None,
         }],
         create: None,
         delete: Some(Delete {

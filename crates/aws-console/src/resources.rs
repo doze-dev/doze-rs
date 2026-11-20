@@ -21,24 +21,35 @@ pub mod path;
 pub mod run;
 pub mod view;
 
+mod parts;
+pub(crate) use parts::{col, field, input, or};
+
+mod apigateway;
+mod cloudformation;
+mod cloudwatch;
 mod dynamodb;
+mod eventbridge;
+mod iam;
+mod iam_roles;
+mod kinesis;
 mod kms;
 mod lambda;
+mod logs;
 mod s3;
+mod scheduler;
 mod secrets;
 mod sns;
 mod sqs;
 mod ssm;
+mod stepfunctions;
 
 /// One service's resources.
 #[derive(Debug)]
 pub struct Descriptor {
     /// The service's name in `--services` and in the console's addresses (`secretsmanager`).
     pub service: &'static str,
-    /// Its name on the peer bus (its signing name).
+    /// Its name on the peer bus (its signing name). The bus knows whether it speaks a REST protocol.
     pub target: &'static str,
-    /// It speaks a REST protocol (S3, Lambda): called with [`aws_peers::Peers::call_rest_as`].
-    pub rest: bool,
     pub kinds: &'static [Kind],
 }
 
@@ -56,6 +67,9 @@ pub struct Kind {
     /// The input members that name one of these in a call (`QueueUrl`), so Live's link to a call's resource finds its kind.
     pub members: &'static [&'static str],
     pub list: List,
+    /// Why the console does not create one and what does (a function needs its code: the AWS CLI or a deploy tool); empty when
+    /// it creates one or there is nothing to say.
+    pub elsewhere: &'static str,
     /// Calls made for each listed row, whose answers fill more columns (SQS lists only URLs).
     pub each: &'static [Step],
     pub columns: &'static [Column],
@@ -86,6 +100,18 @@ pub struct List {
     pub name: Text,
     /// What the list shows a row as, when it is not its name.
     pub label: Option<Text>,
+    /// Rows left out unless the person asks for them (AWS managed keys).
+    pub split: Option<Split>,
+}
+
+/// The rows of a list set aside by default: those whose value at `path` (after [`Kind::each`]) is not `keep`. The index
+/// counts the kept ones and says how many others there are.
+#[derive(Debug)]
+pub struct Split {
+    pub path: &'static str,
+    pub keep: &'static str,
+    /// What the others are, in the plural (`AWS managed keys`).
+    pub others: &'static str,
 }
 
 /// A text read from an answer.
@@ -94,19 +120,55 @@ pub struct Text {
     pub path: &'static str,
     /// Read the name out of a URL or ARN ([`path::tail`]).
     pub tail: bool,
+    /// When not empty: what follows this in the value (`:rule/` of a rule's ARN is `orders-bus/on-order`, or `on-order` on the
+    /// default bus).
+    pub after: &'static str,
 }
 
 impl Text {
     /// The value at `path`, as it is.
     #[must_use]
     pub const fn at(path: &'static str) -> Self {
-        Self { path, tail: false }
+        Self {
+            path,
+            tail: false,
+            after: "",
+        }
     }
 
     /// The name in the URL or ARN at `path`.
     #[must_use]
     pub const fn tail(path: &'static str) -> Self {
-        Self { path, tail: true }
+        Self {
+            path,
+            tail: true,
+            after: "",
+        }
+    }
+
+    /// What follows `marker` in the value at `path` (the value as it is when it has no `marker`).
+    #[must_use]
+    pub const fn after(path: &'static str, marker: &'static str) -> Self {
+        Self {
+            path,
+            tail: false,
+            after: marker,
+        }
+    }
+
+    /// The text read out of `item`.
+    #[must_use]
+    pub fn read(self, item: &serde_json::Value) -> Option<String> {
+        let t = path::text(item, self.path)?;
+        Some(if self.tail {
+            path::tail(&t)
+        } else if !self.after.is_empty()
+            && let Some((_, rest)) = t.split_once(self.after)
+        {
+            rest.to_owned()
+        } else {
+            t
+        })
     }
 }
 
@@ -121,19 +183,33 @@ pub enum Id {
     Call(Step, &'static str),
 }
 
-/// One call: an operation of the descriptor's service (or of `service`, when set) and its body.
+/// One call: an operation of the descriptor's service (or of `service`, when set) and its body. A sub-list's step with no
+/// body ([`Step::answered`]) makes no call: it reads what the detail's call `op` answered (a stack's outputs).
 #[derive(Debug, Clone, Copy)]
 pub struct Step {
     pub op: &'static str,
     /// JSON with placeholders (module text).
     pub body: &'static str,
-    /// Another service's operation (a queue's Lambda triggers are Lambda's).
+    /// Another service's operation, by its name on the bus (a queue's Lambda triggers are `lambda`'s; HTTP APIs are
+    /// `apigatewayv2`).
     pub service: Option<&'static str>,
     /// A refusal is not a failure of the page (a bucket with no policy answers `NoSuchBucketPolicy`).
     pub optional: bool,
 }
 
 impl Step {
+    /// No call: what the detail's call `op` answered (for a [`Sub`]).
+    #[must_use]
+    pub const fn answered(op: &'static str) -> Self {
+        Self::new(op, "")
+    }
+
+    /// Whether this is no call of its own ([`Step::answered`]).
+    #[must_use]
+    pub const fn is_answered(&self) -> bool {
+        self.body.is_empty()
+    }
+
     #[must_use]
     pub const fn new(op: &'static str, body: &'static str) -> Self {
         Self {
@@ -174,8 +250,13 @@ pub enum Format {
     Json,
     /// The name in a URL or ARN.
     Tail,
+    /// A list of pairs (`[{"Name":"QueueName","Value":"orders"}]`, `[{"Key":..,"Value":..}]`) or an object of texts, written
+    /// `QueueName=orders, env=dev`.
+    Pairs,
     /// `yes` when the value is `true`, `no` otherwise (absent included).
     Flag(&'static str, &'static str),
+    /// A value written as people say it (`CUSTOMER` is `Customer`); one not named, as it is.
+    Named(&'static [(&'static str, &'static str)]),
 }
 
 /// A column of a list.
@@ -197,6 +278,9 @@ pub struct Field {
     /// Hidden until revealed when the value at the path equals the text (`Parameter.Type` is `SecureString`); `("", "")` for
     /// always.
     pub hide_when: Option<(&'static str, &'static str)>,
+    /// What an absent value means, shown in its place (`None` for a bucket with no policy, `us-east-1` for a bucket's empty
+    /// location); empty for a dash.
+    pub empty: &'static str,
 }
 
 /// A link from a value to a resource of the console: the name is the value's tail.
@@ -220,6 +304,9 @@ pub struct Sub {
     pub link: Option<(&'static str, &'static str, Text)>,
     /// Where the answer says it has more than it gave.
     pub more: &'static str,
+    /// Adds one from this page: the create of the service's kind `.0`, with its input `.1` filled with this resource's id (a
+    /// subscription to this topic).
+    pub add: Option<(&'static str, &'static str)>,
 }
 
 /// A form field of a create.
@@ -274,45 +361,4 @@ pub struct Reveal {
     pub step: Step,
     /// Where the value is in the answer; `a|b` for the first of two (a secret's text, else its bytes).
     pub path: &'static str,
-}
-
-/// A field with no link that is never hidden.
-#[must_use]
-pub(crate) const fn field(label: &'static str, path: &'static str, format: Format) -> Field {
-    Field {
-        label,
-        path,
-        format,
-        link: &[],
-        hide_when: None,
-    }
-}
-
-/// A column.
-#[must_use]
-pub(crate) const fn col(title: &'static str, path: &'static str, format: Format) -> Column {
-    Column {
-        title,
-        path,
-        format,
-    }
-}
-
-/// An input that is not required, empty at first.
-#[must_use]
-pub(crate) const fn input(
-    key: &'static str,
-    label: &'static str,
-    help: &'static str,
-    kind: InputKind,
-) -> Input {
-    Input {
-        key,
-        label,
-        help,
-        kind,
-        required: false,
-        placeholder: "",
-        value: "",
-    }
 }

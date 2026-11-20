@@ -6,7 +6,8 @@ use super::Format;
 
 /// The value at `path` (`Attributes.RedrivePolicy.deadLetterTargetArn`, `Table.KeySchema.0.AttributeName`): members by name,
 /// list items by number. A text met on the way that holds a JSON object or list is read as one (SQS keeps its redrive policy as
-/// a JSON text). The empty path is `value` itself.
+/// a JSON text). The empty path is `value` itself. In a list, `@member` is the item whose `member` is the resource's name
+/// (`$name` of `value`): the log group of that name among those a prefix found.
 #[must_use]
 pub fn get(value: &Value, path: &str) -> Option<Value> {
     let mut at = value.clone();
@@ -18,6 +19,11 @@ pub fn get(value: &Value, path: &str) -> Option<Value> {
         }
         at = match at {
             Value::Object(mut m) => m.remove(step)?,
+            Value::Array(a) if step.starts_with('@') => {
+                let name = value.get("$name")?;
+                let member = step.get(1..)?;
+                a.into_iter().find(|i| i.get(member) == Some(name))?
+            }
             Value::Array(mut a) => {
                 let i: usize = step.parse().ok()?;
                 (i < a.len()).then(|| a.swap_remove(i))?
@@ -168,21 +174,59 @@ pub fn shown(value: &Value, path: &str, format: Format) -> Option<String> {
             .to_owned(),
         ),
         Format::Tail => text(value, path).map(|t| tail(&t)),
+        Format::Pairs => pairs(&get(value, path)?),
+        Format::Named(names) => text(value, path).map(|t| {
+            names
+                .iter()
+                .find(|(from, _)| *from == t)
+                .map_or(t, |(_, to)| (*to).to_owned())
+        }),
         Format::Json => {
             let v = get(value, path)?;
             let doc = match &v {
-                Value::String(s) => serde_json::from_str::<Value>(s).unwrap_or(v.clone()),
+                // IAM answers its documents URL-encoded, as on its wire.
+                Value::String(s) => serde_json::from_str::<Value>(s)
+                    .or_else(|_| serde_json::from_str(&crate::api::resources::decode(s)))
+                    .unwrap_or(v.clone()),
                 _ => v.clone(),
             };
             match doc {
                 Value::Null => None,
                 Value::String(s) if s.is_empty() => None,
+                Value::Array(a) if a.is_empty() => None,
+                Value::Object(m) if m.is_empty() => None,
                 Value::String(s) => Some(s),
                 other => serde_json::to_string_pretty(&other).ok(),
             }
         }
         _ => text(value, path).filter(|t| !t.is_empty()),
     }
+}
+
+/// `[{"Name":"a","Value":"1"}]` (or `Key`/`Value`, or `{"a":"1"}`) as `a=1`, pairs joined by `, `; `None` when there are none.
+fn pairs(value: &Value) -> Option<String> {
+    let one = |k: &Value, v: &Value| {
+        let v = match v {
+            Value::String(s) => s.clone(),
+            other => other.to_string(),
+        };
+        format!("{}={v}", k.as_str().unwrap_or_default())
+    };
+    let all: Vec<String> = match value {
+        Value::Array(items) => items
+            .iter()
+            .filter_map(|i| {
+                let k = i.get("Name").or_else(|| i.get("Key"))?;
+                Some(one(k, i.get("Value").unwrap_or(&Value::Null)))
+            })
+            .collect(),
+        Value::Object(m) => m
+            .iter()
+            .map(|(k, v)| one(&Value::String(k.clone()), v))
+            .collect(),
+        _ => return None,
+    };
+    (!all.is_empty()).then(|| all.join(", "))
 }
 
 #[cfg(test)]

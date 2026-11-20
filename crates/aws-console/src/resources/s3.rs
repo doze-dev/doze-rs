@@ -3,13 +3,12 @@
 use super::Format::{Bytes, Json, Mono, Text as Plain, Time};
 use super::{
     Create, Delete, Descriptor, Id, Input, InputKind, Kind, List, Step, Sub, Text, col, field,
-    input,
+    input, or,
 };
 
 pub(super) static S3: Descriptor = Descriptor {
     service: "s3",
     target: "s3",
-    rest: true,
     kinds: &[Kind {
         id: "buckets",
         title: "Buckets",
@@ -27,7 +26,9 @@ pub(super) static S3: Descriptor = Descriptor {
             id: "Name",
             name: Text::at("Name"),
             label: None,
+            split: None,
         },
+        elsewhere: "",
         each: &[],
         columns: &[
             col("Region", "BucketRegion", Mono),
@@ -37,13 +38,27 @@ pub(super) static S3: Descriptor = Descriptor {
         detail: &[
             Step::new("GetBucketLocation", r#"{"Bucket":"{id}"}"#),
             Step::new("GetBucketVersioning", r#"{"Bucket":"{id}"}"#).optional(),
+            // Each of these answers a refusal (NoSuchBucketPolicy, ServerSideEncryptionConfigurationNotFoundError,
+            // NoSuchCORSConfiguration, NoSuchLifecycleConfiguration) when the bucket has none: shown as "None".
             Step::new("GetBucketPolicy", r#"{"Bucket":"{id}"}"#).optional(),
+            Step::new("GetBucketEncryption", r#"{"Bucket":"{id}"}"#).optional(),
+            Step::new("GetBucketCors", r#"{"Bucket":"{id}"}"#).optional(),
+            Step::new("GetBucketLifecycleConfiguration", r#"{"Bucket":"{id}"}"#).optional(),
         ],
         fields: &[
             field("Name", "$id", Mono),
-            field("Region", "LocationConstraint", Mono),
-            field("Versioning", "Status", Plain),
-            field("Bucket policy", "Policy", Json),
+            // AWS's rule: a bucket in us-east-1 answers an empty LocationConstraint.
+            or("Region", "LocationConstraint", Mono, "us-east-1"),
+            or("Versioning", "Status", Plain, "Disabled"),
+            or(
+                "Default encryption",
+                "ServerSideEncryptionConfiguration.Rules.0.ApplyServerSideEncryptionByDefault.SSEAlgorithm",
+                Mono,
+                "None",
+            ),
+            or("Bucket policy", "Policy", Json, "None"),
+            or("CORS rules", "CORSRules", Json, "None"),
+            or("Lifecycle rules", "Rules", Json, "None"),
         ],
         subs: &[Sub {
             title: "Objects",
@@ -58,6 +73,7 @@ pub(super) static S3: Descriptor = Descriptor {
             ],
             link: None,
             more: "IsTruncated",
+            add: None,
         }],
         create: Some(Create {
             inputs: &[Input {

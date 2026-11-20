@@ -14,6 +14,10 @@ caller: string,
  */
 internal: boolean, 
 /**
+ * Calls the console made, or that a service made for it (caller `console`): Live hides them unless asked.
+ */
+console: boolean, 
+/**
  * As a call's `service`; `null` for requests that named no service of this build.
  */
 service: string | null, 
