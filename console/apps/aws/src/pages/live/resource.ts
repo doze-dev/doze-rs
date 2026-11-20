@@ -26,11 +26,14 @@ export function nameIn(value: string): string {
   return value;
 }
 
-/** The name of what `call` acted on, or null when it named nothing. An S3 path names its bucket. */
+/** The name of what `call` acted on, or null when it named nothing. An S3 path names its bucket; a subscription is named by its
+ * whole ARN (its last part alone names nothing); a secret's ARN ends in the six characters Secrets Manager adds to its name. */
 export function resourceName(call: Pick<CallRecord, "resource" | "member" | "service">): string | null {
   const r = call.resource;
   if (!r) return null;
   if (call.member === null && call.service === "s3") return r.split("/")[0] || null;
+  if (call.member === "SubscriptionArn") return r;
+  if (call.service === "secretsmanager" && r.startsWith("arn:")) return nameIn(r).replace(/-[A-Za-z0-9]{6}$/, "");
   return nameIn(r);
 }
 
@@ -41,9 +44,15 @@ export function resourceShown(call: Pick<CallRecord, "resource" | "member" | "se
   return call.member === null ? call.resource : nameIn(call.resource);
 }
 
-/** Where the Resources space shows it: `/resources/<service>/<name>`; null without a service or a name. */
+/** Where the Resources space shows it: `/resources/<service>/<name>` (with {@link resourceSearchOf}, which says its kind); null
+ * without a service or a name. */
 export function resourceHref(call: Pick<CallRecord, "resource" | "member" | "service">): string | null {
   const name = resourceName(call);
   if (!name || !call.service) return null;
   return `/resources/${encodeURIComponent(call.service)}/${encodeURIComponent(name)}`;
+}
+
+/** The search of {@link resourceHref}: the input member that named the resource, by which the Resources space knows its kind. */
+export function resourceSearchOf(call: Pick<CallRecord, "member">): { m?: string } {
+  return call.member ? { m: call.member } : {};
 }

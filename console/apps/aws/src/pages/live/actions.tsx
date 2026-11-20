@@ -12,7 +12,7 @@ import { errorWords } from "@doze/ui/components/app/alert";
 import { client, PATHS } from "../../api/client";
 import type { CallRecord } from "../../api/types/CallRecord";
 import type { CopyCommands } from "../../api/types/CopyCommands";
-import { resourceHref, resourceName } from "./resource";
+import { resourceHref, resourceName, resourceSearchOf } from "./resource";
 
 export type CopyKind = "cli" | "curl";
 
@@ -64,7 +64,7 @@ export function RowMenu({ call }: { call: CallRecord }) {
           <>
             <DropdownMenuSeparator />
             <DropdownMenuItem asChild data-testid="open-resource">
-              <Link to={href}>
+              <Link to={href} search={resourceSearchOf(call)}>
                 <ExternalLinkIcon /> Open <span className="max-w-[14rem] truncate font-mono text-[12.5px]">{resourceName(call)}</span>
               </Link>
             </DropdownMenuItem>

@@ -3,6 +3,17 @@
 /// Every file of the bundle.
 pub const FILES: &[(&str, Served)] = &[
     (
+        "assets/client-DbsTUU-6.js",
+        Served {
+            content_type: "text/javascript; charset=utf-8",
+            bytes: include_bytes!(concat!(
+                env!("CARGO_MANIFEST_DIR"),
+                "/web-dist/assets/client-DbsTUU-6.js.gz"
+            )),
+            gzip: true,
+        },
+    ),
+    (
         "assets/doze-aws-BquDl2pM.svg",
         Served {
             content_type: "image/svg+xml",
@@ -14,23 +25,34 @@ pub const FILES: &[(&str, Served)] = &[
         },
     ),
     (
-        "assets/index-CPaLaf4y.js",
+        "assets/index-DC63Ncnu.js",
         Served {
             content_type: "text/javascript; charset=utf-8",
             bytes: include_bytes!(concat!(
                 env!("CARGO_MANIFEST_DIR"),
-                "/web-dist/assets/index-CPaLaf4y.js.gz"
+                "/web-dist/assets/index-DC63Ncnu.js.gz"
             )),
             gzip: true,
         },
     ),
     (
-        "assets/index-Cg-tY-iP.css",
+        "assets/index-page-C9QX1y_b.js",
+        Served {
+            content_type: "text/javascript; charset=utf-8",
+            bytes: include_bytes!(concat!(
+                env!("CARGO_MANIFEST_DIR"),
+                "/web-dist/assets/index-page-C9QX1y_b.js.gz"
+            )),
+            gzip: true,
+        },
+    ),
+    (
+        "assets/index-z6uPxsDy.css",
         Served {
             content_type: "text/css; charset=utf-8",
             bytes: include_bytes!(concat!(
                 env!("CARGO_MANIFEST_DIR"),
-                "/web-dist/assets/index-Cg-tY-iP.css.gz"
+                "/web-dist/assets/index-z6uPxsDy.css.gz"
             )),
             gzip: true,
         },
@@ -69,23 +91,45 @@ pub const FILES: &[(&str, Served)] = &[
         },
     ),
     (
-        "assets/live-CLtplg-q.js",
+        "assets/live-jiJ09rsM.js",
         Served {
             content_type: "text/javascript; charset=utf-8",
             bytes: include_bytes!(concat!(
                 env!("CARGO_MANIFEST_DIR"),
-                "/web-dist/assets/live-CLtplg-q.js.gz"
+                "/web-dist/assets/live-jiJ09rsM.js.gz"
             )),
             gzip: true,
         },
     ),
     (
-        "assets/rolldown-runtime-WkwZ5CU-.js",
+        "assets/outcome-DJRk-FKG.js",
         Served {
             content_type: "text/javascript; charset=utf-8",
             bytes: include_bytes!(concat!(
                 env!("CARGO_MANIFEST_DIR"),
-                "/web-dist/assets/rolldown-runtime-WkwZ5CU-.js.gz"
+                "/web-dist/assets/outcome-DJRk-FKG.js.gz"
+            )),
+            gzip: true,
+        },
+    ),
+    (
+        "assets/routes-C2LbLnID.js",
+        Served {
+            content_type: "text/javascript; charset=utf-8",
+            bytes: include_bytes!(concat!(
+                env!("CARGO_MANIFEST_DIR"),
+                "/web-dist/assets/routes-C2LbLnID.js.gz"
+            )),
+            gzip: true,
+        },
+    ),
+    (
+        "assets/use-overlay-opener-B_0RTmsN.js",
+        Served {
+            content_type: "text/javascript; charset=utf-8",
+            bytes: include_bytes!(concat!(
+                env!("CARGO_MANIFEST_DIR"),
+                "/web-dist/assets/use-overlay-opener-B_0RTmsN.js.gz"
             )),
             gzip: true,
         },

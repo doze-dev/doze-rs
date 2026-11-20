@@ -70,6 +70,10 @@ describe("resource names", () => {
     expect(resourceName({ service: "sqs", member: null, resource: null })).toBe(null);
     expect(resourceHref({ service: "logs", member: "logGroupName", resource: "/aws/lambda/resize" })).toBe("/resources/logs/%2Faws%2Flambda%2Fresize");
     expect(resourceHref({ service: null, member: "QueueName", resource: "orders" })).toBe(null);
+    const sub = "arn:aws:sns:us-east-1:000000000000:orders:6f1c";
+    expect(resourceName({ service: "sns", member: "SubscriptionArn", resource: sub })).toBe(sub);
+    expect(resourceName({ service: "secretsmanager", member: "SecretId", resource: "arn:aws:secretsmanager:us-east-1:000000000000:secret:larder/prod/key-AbC123" })).toBe("larder/prod/key");
+    expect(resourceName({ service: "secretsmanager", member: "SecretId", resource: "larder/prod/key" })).toBe("larder/prod/key");
   });
 });
 

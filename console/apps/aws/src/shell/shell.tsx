@@ -11,6 +11,8 @@ import { useSidebarOpen } from "@doze/ui/lib/sidebar-state";
 import { setTheme } from "@doze/ui/lib/theme";
 import { cn } from "@doze/ui/lib/utils";
 import { useAbout } from "../api/queries";
+import { useResourcesIndex } from "../api/resources";
+import { iconOf } from "../pages/resources/model";
 import { isActive, RECENTS_KEY, SPACES, type SpacePath } from "../nav";
 import { iamWords } from "../words";
 import { Logo, Wordmark } from "./brand";
@@ -107,6 +109,24 @@ export function Shell() {
     }
     setPalette(o);
   };
+  // Every resource by name, counted when the palette is first opened (each kind is one list call, which Live shows), and again
+  // when the counts are older than the query's stale time.
+  const index = useResourcesIndex(palette);
+  const resources = useMemo<PaletteGroup | null>(() => {
+    const items = (index.data?.services ?? []).flatMap((s) =>
+      s.kinds.flatMap((k) =>
+        k.names.map((name) => ({
+          label: name,
+          to: `/resources/${encodeURIComponent(s.name)}/${encodeURIComponent(k.id)}/${encodeURIComponent(name)}`,
+          kind: k.one,
+          icon: iconOf(s.name),
+          mono: true,
+          keywords: `${s.title} ${k.title}`,
+        })),
+      ),
+    );
+    return items.length > 0 ? { heading: "Resources", separated: true, items } : null;
+  }, [index.data]);
   const groups = useMemo<PaletteGroup[]>(
     () => [
       { heading: "Spaces", items: SPACES.map((s) => ({ label: s.label, to: s.to, kind: "space", icon: s.icon, keywords: s.keywords })) },
@@ -119,15 +139,16 @@ export function Shell() {
           { label: "Theme of the system", to: "theme:system", kind: "theme", icon: MonitorIcon, keywords: "mode appearance os auto", run: () => setTheme("system") },
         ],
       },
+      ...(resources ? [resources] : []),
     ],
-    [],
+    [resources],
   );
   return (
     // 184 px, the boards' rail. The shared Sidebar sets its width inline, so it is given as a style, not a class.
     <SidebarProvider style={{ "--sidebar-width": "11.5rem" } as React.CSSProperties} open={sidebar} onOpenChange={setSidebar}>
       <Rail />
       <SidebarInset className="min-w-0 bg-background">
-        <TopBar onPalette={() => openPalette(true)} paletteLabel="Jump to a space, or switch the theme">
+        <TopBar onPalette={() => openPalette(true)} paletteLabel="Jump to a space or a resource">
           <Chips />
           <ThemeSwitch />
         </TopBar>
@@ -140,9 +161,9 @@ export function Shell() {
           returnFocus={() => (opener.current?.isConnected ? opener.current : trigger())}
           groups={groups}
           onGo={(item) => void navigate({ to: item.to as SpacePath })}
-          title="Jump to a space"
+          title="Jump to a space or a resource"
           description="Type a name, then Enter"
-          placeholder="Jump to a space, or switch the theme…"
+          placeholder="Jump to a space or a resource, or switch the theme…"
           recentsKey={RECENTS_KEY}
         />
       </SidebarInset>

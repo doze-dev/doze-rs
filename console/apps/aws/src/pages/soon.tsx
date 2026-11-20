@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import { FlaskConicalIcon, KeyRoundIcon, LayoutGridIcon, type LucideIcon, SlidersHorizontalIcon } from "lucide-react";
+import { FlaskConicalIcon, KeyRoundIcon, type LucideIcon, SlidersHorizontalIcon } from "lucide-react";
 import { EmptyState } from "@doze/ui/components/app/empty-state";
 import { PageHeader } from "@doze/ui/components/app/page-header";
 import { Button } from "@doze/ui/components/ui/button";
@@ -27,7 +27,6 @@ function NotBuilt({ title, icon, will, testId }: { title: string; icon: LucideIc
   );
 }
 
-export const ResourcesPage = () => <NotBuilt testId="not-built-resources" title="Resources" icon={LayoutGridIcon} will="What each service holds will be listed here: queues, buckets, tables, functions and the rest, each opening to its own page." />;
 export const AccessPage = () => <NotBuilt testId="not-built-access" title="Access" icon={KeyRoundIcon} will="IAM will be here: users, roles and policies, and the calls a policy refused or would have refused." />;
 export const LabPage = () => <NotBuilt testId="not-built-lab" title="Lab" icon={FlaskConicalIcon} will="Rehearsals will be here: making a service slow or failing on purpose, to see what your app does." />;
 export const SettingsPage = () => <NotBuilt testId="not-built-settings" title="Settings" icon={SlidersHorizontalIcon} will="How this doze-aws was started will be here: every flag, its value, and where the value came from." />;

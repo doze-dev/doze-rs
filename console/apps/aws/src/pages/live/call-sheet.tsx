@@ -10,7 +10,7 @@ import { outcomeSentence, WOULD_BE_DENIED } from "../../words";
 import { copyCommand } from "./actions";
 import { CauseChain, madeBy } from "./cause";
 import { Result } from "./outcome";
-import { resourceHref, resourceName } from "./resource";
+import { resourceHref, resourceName, resourceSearchOf } from "./resource";
 
 /** One field of the call: its name, its value (or why there is none), and a line on what it is. */
 function Field({ label, value, none, note, mono = true, copy, testId }: { label: string; value: string | null; /** What an absent value means. */ none?: string; note?: string; mono?: boolean; copy?: boolean; testId: string }) {
@@ -74,7 +74,7 @@ export function CallSheet({ seq, call, serviceTitle, titles, held, onOpen, onClo
                 </Button>
                 {href && (
                   <Button asChild variant="outline" size="sm" className="max-w-full bg-card" data-testid="call-open-resource">
-                    <Link to={href}>
+                    <Link to={href} search={resourceSearchOf(call)}>
                       <ExternalLinkIcon /> Open <span className="truncate font-mono text-[12px]">{resourceName(call)}</span>
                     </Link>
                   </Button>

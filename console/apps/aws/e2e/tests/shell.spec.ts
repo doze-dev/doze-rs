@@ -32,7 +32,7 @@ test("the rail has the six spaces, each opens its page, and its address survives
 });
 
 test("a space that is not built says so in one line and shows no table or sample data", async ({ page }) => {
-  for (const s of SPACES.slice(2)) {
+  for (const s of SPACES.slice(3)) {
     await open(page, s.path, s.label);
     const box = page.getByTestId(`not-built-${s.label.toLowerCase()}`);
     await expect(box.getByRole("heading")).toHaveText(`${s.label} is not built yet`);
@@ -49,8 +49,9 @@ test("the palette goes to a space and switches the theme, by the keyboard alone"
   await page.keyboard.press("ControlOrMeta+k");
   const input = page.getByTestId("palette-input");
   await expect(input).toBeFocused();
-  // The six spaces and the three theme choices are offered.
-  await expect(page.getByTestId("palette-list").getByRole("option")).toHaveCount(9);
+  // The six spaces and the three theme choices are offered (and, under them, the resources of the shared doze-aws).
+  await expect(page.getByTestId("palette-list").getByRole("group", { name: "Spaces" }).getByRole("option")).toHaveCount(6);
+  await expect(page.getByTestId("palette-list").getByRole("group", { name: "Theme" }).getByRole("option")).toHaveCount(3);
   await input.fill("lab");
   await expect(page.getByTestId("palette-list").getByRole("option")).toHaveText(["Lab"]);
   await page.keyboard.press("Enter");
