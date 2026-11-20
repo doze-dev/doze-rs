@@ -1,13 +1,19 @@
-/* The doze-aws theme, "Paper" (direction B of the console's design): every role of @doze/ui, for light and for dark.
-   Values only.
+/* The doze-aws theme: every role of @doze/ui, for light and for dark. Values only; no component is named here but two (the
+   frame, at the end).
 
-   Where the values come from: the design canvas. Light is the palette every direction-B board is drawn in (Live B: paper
-   #fbfaff, ink #17141f, the violet accent #7a4fe0, the rail #f3f1fa); dark is the "Dark violet" column of the System board's
-   role table. Both are the doze brand's violet set. A value the canvas does not give is marked "provisional" on its line:
-   it is a guess in the same family, to be replaced when the brand generator has the role.
+   Built on the logo's two colours, Navy #1F2A44 and Sky #5BB8E8 (doze-website/public/brand/doze-aws.svg), the way doze-kafka's
+   is built on its bat yellow and ink (owner, 2026-11-21). The navy is within a shade of the AWS console's own top bar, so the
+   FRAME (top bar and sidebar) is navy in light and in dark: that is the recognisable part. Sky is the accent: a FILL (the
+   primary button, the active item, selection) with navy text on it, and the focus ring. Sky is too light for text or a ring on
+   a white ground, so in light those are a deeper sky (--link, --ring); in dark and on the navy frame the sky itself is used.
+   AWS's orange is deliberately not used: the navy-and-orange pair is AWS's own trade dress, and doze-aws must not look like
+   an AWS product.
 
-   Paper is a light design: light is what the boards show. Dark exists so the console follows the OS and the person's choice,
-   and has been looked at only in the gallery. */
+   Contrast (WCAG, measured on the values below): navy on sky 6.6, --link on white 5.1, --ring on white 3.6, --muted-foreground
+   on the page 5.4; on the navy frame its text 10, its dim text 5.9, sky 6.6.
+
+   Replaced the violet "Paper" values of the first gallery (2026-11-19), which matched neither the logo nor AWS. The status
+   hues (good, warn, bad, refused) are kept from it. */
 
 @font-face {
   font-family: "Inter";
@@ -32,179 +38,236 @@
 }
 
 :root {
-  --radius: 0.625rem; /* canvas: radius 7, 10, 12; 10 px is a button and a field */
+  --radius: 0.625rem;
 
-  /* Type. canvas: Inter for text (the wordmark and the page titles too), JetBrains Mono for names, numbers and times. */
+  /* Type: Inter for text, JetBrains Mono for names, numbers and times. */
   --font-sans: "Inter", -apple-system, "Helvetica Neue", Arial, sans-serif;
   --font-display: "Inter", -apple-system, "Helvetica Neue", Arial, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
-  --body-size: 13.5px; /* canvas: 13 and 14 are the text sizes; provisional between them */
+  --body-size: 13.5px;
   --body-leading: 1.5;
 
-  /* Density: a little tighter than doze-kafka (canvas: buttons and fields are 32 px). The row is provisional. */
+  /* Density: a little tighter than doze-kafka. */
   --control-h: 2rem;
   --row-h: 36px;
 
-  /* Motion. canvas: panels and drawers 200 ms. */
+  /* Motion. */
   --dur-in: 200ms;
   --dur-out: 160ms;
   --ease: cubic-bezier(0.2, 0, 0, 1);
   --dur-highlight: 1.5s;
 
-  --background: #fbfaff; /* canvas: bg */
-  --foreground: #3a3550; /* canvas: text */
-  --card: #ffffff; /* canvas: panel */
-  --card-foreground: #3a3550;
+  --background: #f7f9fc;
+  --foreground: #2a3550;
+  --card: #ffffff;
+  --card-foreground: #2a3550;
   --popover: #ffffff;
-  --popover-foreground: #3a3550;
-  --primary: #7a4fe0; /* canvas: accent */
-  --primary-foreground: #ffffff;
-  --secondary: #f3f1fa;
-  --secondary-foreground: #17141f;
-  --muted: #f6f4fb; /* canvas: the chip and pill ground */
-  --muted-foreground: #6f6888; /* canvas: dim */
-  --accent: #ece6fb; /* canvas: the chosen rail item and the selected row */
-  --accent-foreground: #17141f;
-  --destructive: #cc3550; /* canvas: bad */
+  --popover-foreground: #2a3550;
+  --primary: #5bb8e8; /* logo: Sky */
+  --primary-foreground: #1f2a44; /* logo: Navy */
+  --secondary: #eef3f9;
+  --secondary-foreground: #1f2a44;
+  --muted: #f1f5fa;
+  --muted-foreground: #5a6680;
+  --accent: #e3f2fb;
+  --accent-foreground: #1f2a44;
+  --destructive: #cc3550;
   --destructive-foreground: #ffffff;
-  --border: #e4e0f0; /* canvas: line */
-  --input: #d4cde6; /* canvas: the border of a button and a field */
-  --ring: #7a4fe0;
-  --scrim: rgba(23, 20, 31, 0.42); /* provisional: bright, thinned */
+  --border: #dfe5ee;
+  --input: #cbd4e1;
+  --ring: #2b8ec4;
+  --scrim: rgba(15, 22, 38, 0.42);
 
-  --bright: #17141f; /* canvas: bright */
-  --link: #2f62d9; /* canvas: cool is "information, links" */
+  --bright: #1f2a44;
+  --link: #1f74a8;
   --good: #17773f;
   --warn: #9a6400;
-  --cool: #2f62d9;
+  --cool: #1f74a8;
   --bad: #cc3550;
-  --refused: #a3279a; /* canvas, Live B: the REFUSED word of the call tape */
-  --pick: #ece6fb;
-  --track: #ece8f5; /* canvas: the segmented control's ground */
-  --well: #f6f4fb;
+  --refused: #a3279a;
+  --pick: #dff0fa;
+  --track: #e8edf4;
+  --well: #f1f5fa;
 
-  --tint-good: #e8f4ec; /* provisional, as are all tints but brand */
+  --tint-good: #e8f4ec;
   --tint-good-line: #b7dbc4;
   --tint-warn: #fbf1dc;
   --tint-warn-line: #e8cf96;
-  --tint-brand: #f1ecff; /* canvas, System: the callout */
-  --tint-brand-line: #d9cffa;
-  --tint-cool: #e6edfc;
-  --tint-cool-line: #c6d6f5;
+  --tint-brand: #e8f5fc;
+  --tint-brand-line: #b9def3;
+  --tint-cool: #e6f0f8;
+  --tint-cool-line: #c3d9ec;
 
-  --sidebar: #f3f1fa; /* canvas: side */
-  --sidebar-foreground: #3a3550;
-  --sidebar-primary: #7a4fe0;
-  --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #ece6fb;
-  --sidebar-accent-foreground: #17141f;
-  --sidebar-border: #e4e0f0;
-  --sidebar-ring: #7a4fe0;
+  --sidebar: #1f2a44; /* the navy frame */
+  --sidebar-foreground: #d6deeb;
+  --sidebar-primary: #5bb8e8;
+  --sidebar-primary-foreground: #1f2a44;
+  --sidebar-accent: #2c3a5c;
+  --sidebar-accent-foreground: #ffffff;
+  --sidebar-border: #2c3a5c;
+  --sidebar-ring: #5bb8e8;
   color-scheme: light;
 }
 @media (prefers-color-scheme: dark) {
   :root:not(.light) {
-    --background: #15131d; /* canvas: bg */
-    --foreground: #cfcbe3; /* canvas: text */
-    --card: #1b1927; /* canvas: panel */
-    --card-foreground: #cfcbe3;
-    --popover: #201d2e; /* provisional: panel, one step up */
-    --popover-foreground: #e2def2;
-    --primary: #bd93f9; /* canvas: accent */
-    --primary-foreground: #15131d;
-    --secondary: #231f33;
-    --secondary-foreground: #f4f1ff;
-    --muted: #211e30;
-    --muted-foreground: #8a85a8; /* canvas: dim */
-    --accent: #2a2540;
-    --accent-foreground: #f4f1ff;
-    --destructive: #ff7a93; /* canvas: bad */
-    --destructive-foreground: #ffffff; /* on the dimmed fill a destructive button has in dark */
-    --border: #2c2840; /* canvas: line */
-    --input: #3d3857;
-    --ring: #bd93f9;
-    --scrim: rgba(6, 5, 10, 0.6);
+    --background: #0f1626;
+    --foreground: #c9d3e3;
+    --card: #151e31;
+    --card-foreground: #c9d3e3;
+    --popover: #1a2439;
+    --popover-foreground: #dde4ef;
+    --primary: #5bb8e8;
+    --primary-foreground: #0f1626;
+    --secondary: #1a2439;
+    --secondary-foreground: #f2f6fb;
+    --muted: #172034;
+    --muted-foreground: #8794ad;
+    --accent: #1d3048;
+    --accent-foreground: #f2f6fb;
+    --destructive: #ff7a93;
+    --destructive-foreground: #ffffff;
+    --border: #243049;
+    --input: #33415e;
+    --ring: #5bb8e8;
+    --scrim: rgba(5, 8, 15, 0.6);
 
-    --bright: #f4f1ff; /* canvas: bright */
-    --link: #82aaff; /* canvas: cool */
+    --bright: #f2f6fb;
+    --link: #7cc8f0;
     --good: #7ee787;
     --warn: #f2c879;
-    --cool: #82aaff;
+    --cool: #7cc8f0;
     --bad: #ff7a93;
-    --refused: #e386dc; /* provisional: the canvas leaves the dark hue open */
-    --pick: #2f2750;
-    --track: #262238;
-    --well: #191724;
+    --refused: #e386dc;
+    --pick: #1f3550;
+    --track: #1c263b;
+    --well: #121a2b;
 
     --tint-good: #16291e;
     --tint-good-line: #2c5a3f;
     --tint-warn: #2c2413;
     --tint-warn-line: #655021;
-    --tint-brand: #241d3d;
-    --tint-brand-line: #45357a;
-    --tint-cool: #172036;
-    --tint-cool-line: #2f4677;
+    --tint-brand: #13283a;
+    --tint-brand-line: #245170;
+    --tint-cool: #142338;
+    --tint-cool-line: #2a4a70;
 
-    --sidebar: #110f18; /* canvas: side */
-    --sidebar-foreground: #cfcbe3;
-    --sidebar-primary: #bd93f9;
-    --sidebar-primary-foreground: #15131d;
-    --sidebar-accent: #272240;
-    --sidebar-accent-foreground: #f4f1ff;
-    --sidebar-border: #2c2840;
-    --sidebar-ring: #bd93f9;
+    --sidebar: #0b111e;
+    --sidebar-foreground: #c9d3e3;
+    --sidebar-primary: #5bb8e8;
+    --sidebar-primary-foreground: #0b111e;
+    --sidebar-accent: #1a2742;
+    --sidebar-accent-foreground: #ffffff;
+    --sidebar-border: #1c263b;
+    --sidebar-ring: #5bb8e8;
     color-scheme: dark;
   }
 }
 :root.dark {
-  --background: #15131d; /* canvas: bg */
-  --foreground: #cfcbe3; /* canvas: text */
-  --card: #1b1927; /* canvas: panel */
-  --card-foreground: #cfcbe3;
-  --popover: #201d2e; /* provisional: panel, one step up */
-  --popover-foreground: #e2def2;
-  --primary: #bd93f9; /* canvas: accent */
-  --primary-foreground: #15131d;
-  --secondary: #231f33;
-  --secondary-foreground: #f4f1ff;
-  --muted: #211e30;
-  --muted-foreground: #8a85a8; /* canvas: dim */
-  --accent: #2a2540;
-  --accent-foreground: #f4f1ff;
-  --destructive: #ff7a93; /* canvas: bad */
-  --destructive-foreground: #ffffff; /* on the dimmed fill a destructive button has in dark */
-  --border: #2c2840; /* canvas: line */
-  --input: #3d3857;
-  --ring: #bd93f9;
-  --scrim: rgba(6, 5, 10, 0.6);
+  --background: #0f1626;
+  --foreground: #c9d3e3;
+  --card: #151e31;
+  --card-foreground: #c9d3e3;
+  --popover: #1a2439;
+  --popover-foreground: #dde4ef;
+  --primary: #5bb8e8;
+  --primary-foreground: #0f1626;
+  --secondary: #1a2439;
+  --secondary-foreground: #f2f6fb;
+  --muted: #172034;
+  --muted-foreground: #8794ad;
+  --accent: #1d3048;
+  --accent-foreground: #f2f6fb;
+  --destructive: #ff7a93;
+  --destructive-foreground: #ffffff;
+  --border: #243049;
+  --input: #33415e;
+  --ring: #5bb8e8;
+  --scrim: rgba(5, 8, 15, 0.6);
 
-  --bright: #f4f1ff; /* canvas: bright */
-  --link: #82aaff; /* canvas: cool */
+  --bright: #f2f6fb;
+  --link: #7cc8f0;
   --good: #7ee787;
   --warn: #f2c879;
-  --cool: #82aaff;
+  --cool: #7cc8f0;
   --bad: #ff7a93;
-  --refused: #e386dc; /* provisional: the canvas leaves the dark hue open */
-  --pick: #2f2750;
-  --track: #262238;
-  --well: #191724;
+  --refused: #e386dc;
+  --pick: #1f3550;
+  --track: #1c263b;
+  --well: #121a2b;
 
   --tint-good: #16291e;
   --tint-good-line: #2c5a3f;
   --tint-warn: #2c2413;
   --tint-warn-line: #655021;
-  --tint-brand: #241d3d;
-  --tint-brand-line: #45357a;
-  --tint-cool: #172036;
-  --tint-cool-line: #2f4677;
+  --tint-brand: #13283a;
+  --tint-brand-line: #245170;
+  --tint-cool: #142338;
+  --tint-cool-line: #2a4a70;
 
-  --sidebar: #110f18; /* canvas: side */
-  --sidebar-foreground: #cfcbe3;
-  --sidebar-primary: #bd93f9;
-  --sidebar-primary-foreground: #15131d;
-  --sidebar-accent: #272240;
-  --sidebar-accent-foreground: #f4f1ff;
-  --sidebar-border: #2c2840;
-  --sidebar-ring: #bd93f9;
+  --sidebar: #0b111e;
+  --sidebar-foreground: #c9d3e3;
+  --sidebar-primary: #5bb8e8;
+  --sidebar-primary-foreground: #0b111e;
+  --sidebar-accent: #1a2742;
+  --sidebar-accent-foreground: #ffffff;
+  --sidebar-border: #1c263b;
+  --sidebar-ring: #5bb8e8;
   color-scheme: dark;
+}
+
+/* The navy frame. The top bar and the sidebar hold ordinary components (the palette's button, chips, the theme switch, a
+   section label) that read the page's roles; inside the frame those roles are the frame's, so every one of them is legible on
+   navy without the library knowing. (The library's Tailwind theme is inline, so a role set here reaches the utilities.) */
+[data-slot="top-bar"],
+[data-slot="sidebar"] {
+  --background: #1f2a44;
+  --foreground: #d6deeb;
+  --card: #2a3756;
+  --card-foreground: #d6deeb;
+  --muted: #2a3756;
+  --muted-foreground: #9aa8c0;
+  --secondary: #2a3756;
+  --secondary-foreground: #ffffff;
+  --accent: #2c3a5c;
+  --accent-foreground: #ffffff;
+  --border: #33415e;
+  --input: #46557a;
+  --ring: #5bb8e8;
+  --bright: #ffffff;
+  --link: #7cc8f0;
+  --track: #18223a;
+  --pick: #2c3a5c;
+  --well: #18223a;
+  color-scheme: dark;
+  /* Text that sets no colour of its own inherits the body's, worked out from the page's --foreground: work it out again here
+     (the gallery's inactive product toggle was page ink on navy without this). */
+  color: var(--foreground);
+}
+:root.dark [data-slot="top-bar"],
+:root.dark [data-slot="sidebar"] {
+  --background: #0b111e;
+  --card: #16203a;
+  --muted: #16203a;
+  --secondary: #16203a;
+  --accent: #1a2742;
+  --border: #1c263b;
+  --input: #2c3a5c;
+  --track: #121a2b;
+  --pick: #1a2742;
+  --well: #121a2b;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not(.light) [data-slot="top-bar"],
+  :root:not(.light) [data-slot="sidebar"] {
+    --background: #0b111e;
+    --card: #16203a;
+    --muted: #16203a;
+    --secondary: #16203a;
+    --accent: #1a2742;
+    --border: #1c263b;
+    --input: #2c3a5c;
+    --track: #121a2b;
+    --pick: #1a2742;
+    --well: #121a2b;
+  }
 }
