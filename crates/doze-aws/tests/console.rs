@@ -264,12 +264,25 @@ fn a_call_through_the_gateway_shows_in_the_console() {
 }
 
 #[test]
-fn without_the_flag_there_is_no_console_and_an_address_beyond_this_machine_is_refused() {
+fn the_console_is_on_by_default_off_when_asked_and_an_address_beyond_this_machine_is_refused() {
     let dir = tempfile::tempdir().unwrap();
+    // On by default, on loopback (with the gateway on port 0, on a free port of its own).
     let (child, rows) = start(dir.path(), &[]);
     assert!(row(&rows, "endpoint").is_some(), "{rows:?}");
-    assert_eq!(row(&rows, "console"), None, "{rows:?}");
+    let console = row(&rows, "console").unwrap_or_else(|| panic!("no console row in {rows:?}"));
+    assert!(console.starts_with("http://127.0.0.1:"), "{console}");
+    sees_the_page(console);
     stop(child);
+    for off in [
+        &["--no-console"][..],
+        &["--console", "off"],
+        &["--console=false"],
+    ] {
+        let (child, rows) = start(dir.path(), off);
+        assert!(row(&rows, "endpoint").is_some(), "{off:?}: {rows:?}");
+        assert_eq!(row(&rows, "console"), None, "{off:?}: {rows:?}");
+        stop(child);
+    }
 
     let out = Command::new(BIN)
         .args(["--listen", "127.0.0.1:0", "--console", "0.0.0.0:0"])

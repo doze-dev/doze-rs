@@ -71,9 +71,9 @@ pub(crate) const KEYS: &[Key] = &[
     key(
         "console",
         Kind::Text,
-        "",
+        "on",
         "ADDR",
-        "Serve the web console on this address of this machine (127.0.0.1:4567); off unless given. It has no login",
+        "The web console: on (127.0.0.1 at the gateway's port + 1), off (or --no-console), or an address of this machine. It has no login",
         SERVER,
     ),
     key(

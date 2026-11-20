@@ -12,7 +12,7 @@ use crate::style::Style;
 #[derive(Debug)]
 pub(crate) struct Ready<'a> {
     pub(crate) endpoint: &'a str,
-    /// The console's URL, when `--console` is given.
+    /// The console's URL, when it serves (on by default; `--no-console` turns it off).
     pub(crate) console: Option<&'a str>,
     pub(crate) services: &'a [&'static Svc],
     pub(crate) region: &'a str,
