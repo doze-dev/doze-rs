@@ -10,7 +10,7 @@
    an AWS product.
 
    Contrast (WCAG, measured on the values below): navy on sky 6.6, --link on white 5.1, --ring on white 3.6, --muted-foreground
-   on the page 5.4; on the navy frame its text 10, its dim text 5.9, sky 6.6.
+   on the page 5.4; on the navy frame its text 10, its dim text 6.9, sky 6.6.
 
    Replaced the violet "Paper" values of the first gallery (2026-11-19), which matched neither the logo nor AWS. The status
    hues (good, warn, bad, refused) are kept from it. */
@@ -225,13 +225,13 @@
   --card: #2a3756;
   --card-foreground: #d6deeb;
   --muted: #2a3756;
-  --muted-foreground: #9aa8c0;
+  --muted-foreground: #aab6cb;
   --secondary: #2a3756;
   --secondary-foreground: #ffffff;
   --accent: #2c3a5c;
   --accent-foreground: #ffffff;
-  --border: #33415e;
-  --input: #46557a;
+  --border: #44547a;
+  --input: #56678f;
   --ring: #5bb8e8;
   --bright: #ffffff;
   --link: #7cc8f0;
@@ -250,7 +250,7 @@
   --muted: #16203a;
   --secondary: #16203a;
   --accent: #1a2742;
-  --border: #1c263b;
+  --border: #26334f;
   --input: #2c3a5c;
   --track: #121a2b;
   --pick: #1a2742;
@@ -264,7 +264,7 @@
     --muted: #16203a;
     --secondary: #16203a;
     --accent: #1a2742;
-    --border: #1c263b;
+    --border: #26334f;
     --input: #2c3a5c;
     --track: #121a2b;
     --pick: #1a2742;
