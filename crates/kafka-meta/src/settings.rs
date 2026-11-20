@@ -23,6 +23,9 @@ pub struct TopicSettings {
     pub timestamp_after_max_ms: Option<i64>,
     /// `cleanup.policy`.
     pub cleanup: CleanupPolicy,
+    /// `message.downconversion.enable` (KIP-283, Kafka 2.0 to 3.9): whether a consumer of Fetch v0 to v3 is answered
+    /// at all, which needs the records converted to an older format. True unless set to `false`.
+    pub down_conversion: bool,
 }
 
 /// What `cleanup.policy` names: compaction, deletion (retention), both, or neither (an empty list keeps everything).
@@ -86,6 +89,9 @@ impl TopicSettings {
             timestamp_before_max_ms: number("message.timestamp.before.max.ms"),
             timestamp_after_max_ms: number("message.timestamp.after.max.ms"),
             cleanup: CleanupPolicy::parse(config.get("cleanup.policy").map(String::as_str)),
+            down_conversion: !config
+                .get("message.downconversion.enable")
+                .is_some_and(|v| v.eq_ignore_ascii_case("false")),
         }
     }
 }
@@ -110,6 +116,8 @@ mod tests {
         assert_eq!(none.timestamp_type, TimestampType::Create);
         assert_eq!(none.max_message_bytes, None);
         assert!(none.cleanup.delete && !none.cleanup.compact);
+        assert!(none.down_conversion);
+        assert!(!of(&[("message.downconversion.enable", "false")]).down_conversion);
         let odd = of(&[
             ("compression.type", "producer"),
             ("max.message.bytes", "lots"),

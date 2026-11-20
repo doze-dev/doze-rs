@@ -52,6 +52,14 @@ const sets: Record<string, Jar[]> = {
   ],
 };
 
+// kafka-clients 3.9.1 for tools/old-profiles-oracle/Probe.java (debt K2, 2026-11-19): the last client that writes every version
+// Kafka 1.1, 2.8 and 3.9 serve, v0 included, and builds message sets of format v0 and v1. Its SHA-1 matched Maven Central's
+// .sha1 (86ca0799...). The compression libraries are the 4.4.0 set's: the same packages, and the ones with a darwin aarch64 library.
+sets["3.9"] = [
+  jar("org.apache.kafka:kafka-clients:3.9.1", "7568b998572d256f0b7bc0afdc1b7a2588b8b08415c62ce314c864a6851ae9d9"),
+  ...sets["4"].slice(1),
+];
+
 // Kafka Streams 4.4.0 for Streams.java, checked against Maven Central's .sha1 and .sha256 on 2026-11-18. Its POM also names
 // rocksdbjni (72 MB) and Jackson; the word count keeps its state in memory and loads neither, so they are not fetched.
 sets["streams"] = [

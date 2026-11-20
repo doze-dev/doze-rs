@@ -45,11 +45,23 @@ impl<F: Fs> Broker<F> {
                 described.error_message = None;
             }
             if operations && described.error_code == 0 {
-                described.authorized_operations = guard.group_operations(&name);
+                described.authorized_operations =
+                    guard.group_operations(&name) & self.group_operations_known();
             }
             resp.groups.push(described);
         }
         Outcome::Respond(kafka_wire::api::Response::DescribeGroups(resp))
+    }
+
+    /// The operations a group has at the release the broker stands for: DESCRIBE_CONFIGS and ALTER_CONFIGS came with group
+    /// configs in Kafka 4 (KIP-848); 2.8 and 3.9 give READ, DELETE and DESCRIBE alone (328, recorded,
+    /// `tools/old-profiles-oracle`, `groups`).
+    fn group_operations_known(&self) -> i32 {
+        if self.config.kafka_major.get() >= 4 {
+            !0
+        } else {
+            !((1 << Operation::DescribeConfigs.code()) | (1 << Operation::AlterConfigs.code()))
+        }
     }
 
     async fn describe_group(&self, name: &str) -> DescribedGroup {
