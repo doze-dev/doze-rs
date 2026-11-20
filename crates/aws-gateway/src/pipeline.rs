@@ -250,6 +250,7 @@ async fn handle(
         // No signature: only an operation its model marks as taking none (STS's web identity and SAML) is answered.
         return whole(crate::query::unsigned(shared, id, parts, body).await);
     };
+    crate::observe::signed(parts, &claim);
     let entry = shared.entry_for(&claim.service, parts).ok_or_else(|| {
         early(
             id,

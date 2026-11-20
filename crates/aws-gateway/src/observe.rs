@@ -44,17 +44,77 @@ pub struct Finished<'a> {
     pub region: &'a str,
     /// The HTTP status answered.
     pub status: u16,
-    /// The error code answered (`QueueDoesNotExist`); empty for a success.
+    /// The error code answered as an SDK reads it (`AWS.SimpleQueueService.NonExistentQueue` for SQS, whose JSON answer carries
+    /// its query-compatible code in `x-amzn-query-error`); empty for a success.
     pub code: &'a str,
     /// From the request's head being read to its answer being made.
     pub took: Duration,
+    /// IAM in soft mode found it would refuse this request and let it through ([`Config::would_deny`]).
+    pub would_be_denied: bool,
+}
+
+/// The requests in flight, so a refusal IAM's soft mode lets through can be marked on the request it was for ([`Config::would_deny`]).
+///
+/// IAM is told only the caller and the action, not which request asked, so a refusal is matched by the caller's key and region,
+/// then by the operation (`sqs:SendMessage` to `SendMessage`). When the caller has one request in flight it is that one, whatever
+/// the action is called (S3's `ListObjectsV2` asks for `s3:ListBucket`); when it has several, those whose operation is the
+/// action's are marked; when none is, none is (a guess would mark a call that was allowed).
+#[derive(Debug, Default)]
+pub struct WouldDeny(Mutex<Vec<Arc<Seen>>>);
+
+impl WouldDeny {
+    /// Soft mode let `access_key_id`, signed for `region`, do `action` (`sqs:SendMessage`), which its policies refuse.
+    pub fn let_through(&self, access_key_id: &str, region: &str, action: &str) {
+        let operation = action.split_once(':').map_or(action, |(_, op)| op);
+        let flight = self.0.lock().unwrap_or_else(PoisonError::into_inner);
+        let mine: Vec<&Arc<Seen>> = flight
+            .iter()
+            .filter(|s| {
+                let n = s.notes();
+                n.access_key_id == access_key_id && n.region == region
+            })
+            .collect();
+        let named: Vec<&&Arc<Seen>> = mine
+            .iter()
+            .filter(|s| s.notes().action == operation)
+            .collect();
+        if named.is_empty() {
+            if let [only] = mine.as_slice() {
+                only.notes().would_be_denied = true;
+            }
+            return;
+        }
+        for s in named {
+            s.notes().would_be_denied = true;
+        }
+    }
+
+    fn enter(&self, seen: &Arc<Seen>) {
+        self.0
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .push(Arc::clone(seen));
+    }
+
+    fn leave(&self, seen: &Arc<Seen>) {
+        self.0
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .retain(|s| !Arc::ptr_eq(s, seen));
+    }
 }
 
 /// What the pipeline has learnt about the request in hand.
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub(crate) struct Seen(Mutex<Notes>);
 
-#[derive(Default)]
+impl Seen {
+    fn notes(&self) -> std::sync::MutexGuard<'_, Notes> {
+        self.0.lock().unwrap_or_else(PoisonError::into_inner)
+    }
+}
+
+#[derive(Debug, Default)]
 struct Notes {
     meta: Option<&'static ServiceMeta>,
     action: &'static str,
@@ -62,12 +122,21 @@ struct Notes {
     access_key_id: String,
     region: String,
     code: Cow<'static, str>,
+    would_be_denied: bool,
 }
 
 fn note(parts: &Parts, write: impl FnOnce(&mut Notes)) {
     if let Some(seen) = parts.extensions.get::<Arc<Seen>>() {
-        write(&mut seen.0.lock().unwrap_or_else(PoisonError::into_inner));
+        write(&mut seen.notes());
     }
+}
+
+/// The request is signed by `claim`, whether or not a service of this build is signed for.
+pub(crate) fn signed(parts: &Parts, claim: &Claim) {
+    note(parts, |n| {
+        n.access_key_id.clone_from(&claim.access_key_id);
+        n.region.clone_from(&claim.region);
+    });
 }
 
 /// The request is for `entry`'s service, signed as `claim` says.
@@ -99,7 +168,11 @@ pub(crate) fn failed(parts: &Parts, error: &ApiError) {
 /// Starts watching a request, if anyone wants to be told: the time it started.
 pub(crate) fn begin(shared: &Shared, parts: &mut Parts) -> Option<Instant> {
     shared.config.observer.as_ref()?;
-    parts.extensions.insert(Arc::new(Seen::default()));
+    let seen = Arc::new(Seen::default());
+    if let Some(flight) = &shared.config.would_deny {
+        flight.enter(&seen);
+    }
+    parts.extensions.insert(seen);
     Some(Instant::now())
 }
 
@@ -118,18 +191,26 @@ pub(crate) fn end<B>(
     ) else {
         return;
     };
-    let notes = seen.0.lock().unwrap_or_else(PoisonError::into_inner);
+    if let Some(flight) = &shared.config.would_deny {
+        flight.leave(seen);
+    }
+    let notes = seen.notes();
     let status = response.status().as_u16();
+    let header = |name: &str| response.headers().get(name).and_then(|v| v.to_str().ok());
+    // A query-compatible service (SQS) answers its JSON with the code its query protocol had, which is the code an SDK reports.
+    let query = (status >= 400)
+        .then(|| header("x-amzn-query-error"))
+        .flatten()
+        .and_then(|v| v.split(';').next())
+        .filter(|c| !c.is_empty());
     // A refusal made before any service was known (no signature, an unknown service) noted no code: the JSON protocols say it in
     // a header.
-    let code = if notes.code.is_empty() && status >= 400 {
-        response
-            .headers()
-            .get("x-amzn-errortype")
-            .and_then(|v| v.to_str().ok())
-            .map_or("", |v| v.split([':', '#']).next_back().unwrap_or(v))
-    } else {
-        &notes.code
+    let code = match query {
+        Some(code) => code,
+        None if notes.code.is_empty() && status >= 400 => {
+            header("x-amzn-errortype").map_or("", |v| v.split([':', '#']).next_back().unwrap_or(v))
+        }
+        None => &notes.code,
     };
     observer.finished(&Finished {
         request_id: id.as_str(),
@@ -142,5 +223,6 @@ pub(crate) fn end<B>(
         status,
         code,
         took: started.elapsed(),
+        would_be_denied: notes.would_be_denied,
     });
 }

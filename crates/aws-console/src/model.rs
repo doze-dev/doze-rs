@@ -98,17 +98,17 @@ pub struct ServicesResponse {
 /// How a call ended.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[cfg_attr(test, derive(ts_rs::TS))]
-#[serde(rename_all = "snake_case")]
+#[serde(rename_all = "kebab-case")]
 pub enum Outcome {
     /// Answered as asked (a status under 400).
     Ok,
-    /// IAM said no (an `AccessDenied...` error): the caller may not do this.
-    Denied,
-    /// doze-aws itself does not do this: the operation is not built (501 `NotImplemented`), or the service was left out of
-    /// `--services` (`OptInRequired`).
-    Refused,
-    /// Any other error, the caller's or the server's: the status says which.
+    /// Any other error answer, 4xx or 5xx, the caller's or the server's, a validation error included: the status says which.
     Error,
+    /// IAM refused it (an `AccessDenied...` error, under `--iam enforce`): the caller may not do this.
+    Denied,
+    /// doze-aws does not do this: the operation is not built (501 `NotImplemented`), or the service is not served in this run
+    /// (`OptInRequired`, the answer to a service left out of `--services`).
+    NotBuilt,
 }
 
 impl Outcome {
@@ -120,7 +120,7 @@ impl Outcome {
         } else if code.starts_with("AccessDenied") {
             Self::Denied
         } else if (status == 501 && code == "NotImplemented") || code == "OptInRequired" {
-            Self::Refused
+            Self::NotBuilt
         } else {
             Self::Error
         }
@@ -154,6 +154,8 @@ pub struct CallRecord {
     /// The error code answered (`QueueDoesNotExist`); `null` for a success.
     pub error_code: Option<String>,
     pub outcome: Outcome,
+    /// `--iam soft` found the caller's policies refuse this call and let it through: under `--iam enforce` it would be `denied`.
+    pub would_be_denied: bool,
     /// From the request's head being read to its answer being made, in microseconds.
     pub duration_us: u32,
     /// The id the answer carried (`x-amzn-RequestId`).
@@ -177,6 +179,7 @@ impl CallRecord {
             status: call.status,
             error_code: some(&call.code),
             outcome: Outcome::of(call.status, &call.code),
+            would_be_denied: call.would_be_denied,
             duration_us: call.took_us,
             request_id: call.request_id.to_string(),
         }

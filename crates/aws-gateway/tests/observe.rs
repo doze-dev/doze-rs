@@ -10,7 +10,7 @@
 use std::net::SocketAddr;
 use std::sync::{Arc, Mutex};
 
-use aws_gateway::{Config, Finished, Gateway, Observer};
+use aws_gateway::{Config, Finished, Gateway, Observer, WouldDeny};
 use aws_model_sqs::{meta::META, tables::TABLES};
 use aws_schema::meta::ServiceMeta;
 use aws_schema::tables::Tables;
@@ -20,8 +20,9 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream;
 
 /// SQS's model with nothing behind it: `ListQueues` answers empty, `PurgeQueue` is not built, anything else is a missing queue.
-#[derive(Debug)]
-struct FakeSqs;
+/// With a [`WouldDeny`], it plays soft IAM: `ListQueues` is let through as `sqs:ListQueues` refused.
+#[derive(Debug, Default)]
+struct FakeSqs(Option<Arc<WouldDeny>>);
 
 impl Service for FakeSqs {
     fn meta(&self) -> &'static ServiceMeta {
@@ -38,6 +39,15 @@ impl Service for FakeSqs {
 
     fn call(&self, call: Call) -> BoxFuture<'_, Reply> {
         Box::pin(async move {
+            if let Some(flight) = &self.0
+                && TABLES.op(call.op).unwrap().name == "ListQueues"
+            {
+                flight.let_through(
+                    &call.caller.access_key_id,
+                    &call.caller.region,
+                    "sqs:ListQueues",
+                );
+            }
             match TABLES.op(call.op).unwrap().name {
                 "ListQueues" => Ok(Output {
                     arena: aws_schema::arena::Arena::new(),
@@ -62,6 +72,7 @@ struct Told {
     status: u16,
     code: String,
     request_id: String,
+    would_be_denied: bool,
 }
 
 #[derive(Debug, Default)]
@@ -77,19 +88,28 @@ impl Observer for Tape {
             status: call.status,
             code: call.code.to_owned(),
             request_id: call.request_id.to_owned(),
+            would_be_denied: call.would_be_denied,
         });
     }
 }
 
 async fn start(observed: bool) -> (aws_gateway::Running, SocketAddr, Arc<Tape>) {
+    start_with(observed, None).await
+}
+
+async fn start_with(
+    observed: bool,
+    soft: Option<Arc<WouldDeny>>,
+) -> (aws_gateway::Running, SocketAddr, Arc<Tape>) {
     let tape = Arc::new(Tape::default());
     let mut config = Config::new("127.0.0.1:0".parse().unwrap());
     config.health = Some(serde_json::Map::new());
     if observed {
         config.observer = Some(tape.clone());
     }
+    config.would_deny.clone_from(&soft);
     let running = Gateway::new(config)
-        .with(Arc::new(FakeSqs))
+        .with(Arc::new(FakeSqs(soft)))
         .bind()
         .await
         .unwrap();
@@ -177,8 +197,13 @@ async fn each_api_request_is_told_once_with_what_the_gateway_learnt() {
     );
     assert_eq!(
         (told[1].action, told[1].status, told[1].code.as_str()),
-        ("GetQueueUrl", 400, "QueueDoesNotExist")
+        (
+            "GetQueueUrl",
+            400,
+            "AWS.SimpleQueueService.NonExistentQueue"
+        )
     );
+    assert!(told.iter().all(|t| !t.would_be_denied));
     // An operation this build does not serve is told by its name, with the refusal's code.
     assert_eq!(
         (told[2].action, told[2].status, told[2].code.as_str()),
@@ -194,6 +219,11 @@ async fn each_api_request_is_told_once_with_what_the_gateway_learnt() {
     assert_eq!(
         (told[5].service, told[5].code.as_str()),
         (("", ""), "UnrecognizedClientException")
+    );
+    // ...but a signed one keeps who signed it and for which region.
+    assert_eq!(
+        (told[5].caller.as_str(), told[5].region.as_str()),
+        ("AKIDEXAMPLE", "eu-west-1")
     );
     assert_eq!(told[6].service, ("", ""));
     assert!(!told[6].code.is_empty(), "{:?}", told[6]);
@@ -215,5 +245,25 @@ async fn the_health_check_is_not_a_call_and_no_observer_is_no_trouble() {
     let (status, _) = call(addr, "AmazonSQS.ListQueues", "sqs", "{}").await;
     assert_eq!(status, 200);
     assert!(tape.0.lock().unwrap().is_empty());
+    running.shutdown().await;
+}
+
+#[tokio::test]
+async fn a_call_soft_iam_let_through_is_marked_and_no_other() {
+    let flight = Arc::new(WouldDeny::default());
+    let (running, addr, tape) = start_with(true, Some(flight.clone())).await;
+    let (listed, _) = call(addr, "AmazonSQS.ListQueues", "sqs", "{}").await;
+    // Another call by the same caller, which IAM allowed: not marked.
+    let (missing, _) = call(addr, "AmazonSQS.GetQueueUrl", "sqs", r#"{"QueueName":"q"}"#).await;
+    assert_eq!((listed, missing), (200, 400));
+    let told = tape.0.lock().unwrap().clone();
+    assert_eq!(
+        told.iter()
+            .map(|t| (t.action, t.would_be_denied))
+            .collect::<Vec<_>>(),
+        [("ListQueues", true), ("GetQueueUrl", false)]
+    );
+    // A refusal for a caller with nothing in flight marks nothing (and does not panic).
+    flight.let_through("AKIDEXAMPLE", "eu-west-1", "sqs:ListQueues");
     running.shutdown().await;
 }

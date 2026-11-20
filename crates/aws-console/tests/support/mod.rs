@@ -93,6 +93,7 @@ pub(crate) fn sqs_call(action: &'static str, status: u16, code: &'static str) ->
         status,
         code,
         took: Duration::from_micros(1_500),
+        would_be_denied: false,
     }
 }
 

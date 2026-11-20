@@ -51,6 +51,8 @@ pub struct Call {
     pub took_us: u32,
     /// The HTTP status answered.
     pub status: u16,
+    /// `--iam soft` would have refused it and let it through.
+    pub would_be_denied: bool,
     /// The service's name in a credential scope; empty when the request named no service of this build.
     pub signing_name: &'static str,
     /// The service's SDK id (`DynamoDB Streams`).
@@ -168,6 +170,7 @@ impl Recorder {
             at_ms,
             took_us: u32::try_from(call.took.as_micros()).unwrap_or(u32::MAX),
             status: call.status,
+            would_be_denied: call.would_be_denied,
             signing_name: call.signing_name,
             sdk_id: call.sdk_id,
             action: call.action,

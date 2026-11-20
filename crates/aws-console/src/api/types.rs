@@ -81,9 +81,9 @@ fn the_typescript_types_of_the_api_are_current() {
 fn an_outcome_is_sent_as_one_lower_case_word() {
     for (outcome, word) in [
         (Outcome::Ok, "\"ok\""),
-        (Outcome::Denied, "\"denied\""),
-        (Outcome::Refused, "\"refused\""),
         (Outcome::Error, "\"error\""),
+        (Outcome::Denied, "\"denied\""),
+        (Outcome::NotBuilt, "\"not-built\""),
     ] {
         assert_eq!(serde_json::to_string(&outcome).expect("json"), word);
     }
@@ -95,8 +95,10 @@ fn an_outcome_tells_iam_saying_no_from_doze_not_doing_it_from_any_other_error() 
     assert_eq!(Outcome::of(304, ""), Outcome::Ok);
     assert_eq!(Outcome::of(403, "AccessDenied"), Outcome::Denied);
     assert_eq!(Outcome::of(400, "AccessDeniedException"), Outcome::Denied);
-    assert_eq!(Outcome::of(501, "NotImplemented"), Outcome::Refused);
-    assert_eq!(Outcome::of(403, "OptInRequired"), Outcome::Refused);
+    assert_eq!(Outcome::of(501, "NotImplemented"), Outcome::NotBuilt);
+    assert_eq!(Outcome::of(403, "OptInRequired"), Outcome::NotBuilt);
+    // A validation error is an error like any other.
+    assert_eq!(Outcome::of(400, "ValidationException"), Outcome::Error);
     assert_eq!(Outcome::of(400, "QueueDoesNotExist"), Outcome::Error);
     assert_eq!(Outcome::of(500, "InternalFailure"), Outcome::Error);
     assert_eq!(Outcome::of(403, ""), Outcome::Error);

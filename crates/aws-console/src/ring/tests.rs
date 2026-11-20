@@ -16,6 +16,7 @@ fn call(n: u64) -> Finished<'static> {
         status: 200,
         code: "",
         took: Duration::from_micros(n),
+        would_be_denied: false,
     }
 }
 

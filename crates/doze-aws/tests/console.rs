@@ -94,7 +94,7 @@ fn stop(mut child: Child) {
     }
 }
 
-/// The page: the placeholder, with the console's headers.
+/// The page: the embedded console's index (any client route is answered with it), with the console's headers.
 fn sees_the_page(console: &str) {
     let page = request(console, "GET /live/calls HTTP/1.1", "");
     assert!(page.starts_with("HTTP/1.1 200"), "{page}");
@@ -105,7 +105,7 @@ fn sees_the_page(console: &str) {
     );
     assert!(lower.contains("x-frame-options: deny"), "{page}");
     assert!(
-        page.contains("The doze-aws console is not built yet"),
+        page.contains("<title>doze-aws</title>") && page.contains(r#"<div id="root">"#),
         "{page}"
     );
 }
@@ -212,7 +212,12 @@ fn sees_the_calls(console: &str, made: &str) {
         (&second["action"], &second["status"], &second["outcome"]),
         (&"GetQueueUrl".into(), &400.into(), &"error".into())
     );
-    assert_eq!(second["error_code"], "QueueDoesNotExist");
+    // The code an SDK reports: SQS answers its query-compatible code in `x-amzn-query-error`, as AWS does.
+    assert_eq!(
+        second["error_code"],
+        "AWS.SimpleQueueService.NonExistentQueue"
+    );
+    assert_eq!(second["would_be_denied"], false);
     // The region the calls were signed for is one this doze-aws has seen.
     assert_eq!(
         api(console, "/api/v1/about")["regions"],

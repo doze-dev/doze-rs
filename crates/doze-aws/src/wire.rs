@@ -120,7 +120,7 @@ pub(crate) fn gateway(
         })
     };
     let hook = data_hook(cfg, &mut gw);
-    peers.set_mode(iam_mode(cfg));
+    iam_on_the_bus(cfg, &peers, &mut gw);
     let (iam, sts) = aws_iam::services(ctx("iam"));
     let iam = Arc::new(iam);
     // IAM decides for every service whether or not IAM's own API is served.
@@ -214,6 +214,21 @@ fn paired(
         .with(on.wrap("apigateway", rest_apis))
         .with(on.wrap("apigateway", http_apis));
     (gateway, data)
+}
+
+/// IAM's mode on the bus. With the console's Live record under `--iam soft`, a call IAM lets through that it would refuse is
+/// marked on its record; off, or with no console, nothing more is set and a request pays nothing for it.
+fn iam_on_the_bus(cfg: &Config, peers: &Peers, gw: &mut GatewayConfig) {
+    peers.set_mode(iam_mode(cfg));
+    if gw.observer.is_none() || iam_mode(cfg) != aws_peers::Mode::Soft {
+        return;
+    }
+    let flight = Arc::new(aws_gateway::WouldDeny::default());
+    let told = Arc::clone(&flight);
+    peers.on_would_deny(move |caller, action| {
+        told.let_through(&caller.access_key_id, &caller.region, action);
+    });
+    gw.would_deny = Some(flight);
 }
 
 fn iam_mode(cfg: &Config) -> aws_peers::Mode {

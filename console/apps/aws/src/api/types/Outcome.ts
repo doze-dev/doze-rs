@@ -3,4 +3,4 @@
 /**
  * How a call ended.
  */
-export type Outcome = "ok" | "denied" | "refused" | "error";
+export type Outcome = "ok" | "error" | "denied" | "not-built";

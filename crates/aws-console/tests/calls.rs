@@ -61,7 +61,7 @@ async fn calls_are_paged_by_a_cursor_oldest_first() {
         serde_json::json!({
             "seq": 1, "at_ms": 1_000, "service": "sqs", "api": "SQS", "action": "CreateQueue", "resource": null,
             "caller": "test", "region": "us-east-1", "status": 200, "error_code": null, "outcome": "ok",
-            "duration_us": 1_500, "request_id": "0c6f3a52-7a8b-4c1d-9e2f-000000000000",
+            "would_be_denied": false, "duration_us": 1_500, "request_id": "0c6f3a52-7a8b-4c1d-9e2f-000000000000",
         })
     );
     assert_eq!(
@@ -168,5 +168,24 @@ async fn an_s3_call_names_its_object_and_a_refusal_says_which_kind() {
         (&calls[0]["service"], &calls[0]["outcome"]),
         (&"s3".into(), &"denied".into())
     );
-    assert_eq!(calls[1]["outcome"], "refused");
+    assert_eq!(calls[1]["outcome"], "not-built");
+}
+
+#[tokio::test]
+async fn a_call_soft_iam_let_through_says_so() {
+    let s = state(8, &[]);
+    let app = app(&s);
+    s.recorder.record(
+        &Finished {
+            would_be_denied: true,
+            ..sqs_call("SendMessage", 200, "")
+        },
+        1,
+    );
+    let (_, page) = json(&app, get("/api/v1/calls")).await;
+    let call = &page["calls"][0];
+    assert_eq!(
+        (&call["outcome"], &call["would_be_denied"]),
+        (&"ok".into(), &true.into())
+    );
 }

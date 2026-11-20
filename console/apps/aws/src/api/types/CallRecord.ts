@@ -48,6 +48,10 @@ status: number,
  */
 error_code: string | null, outcome: Outcome, 
 /**
+ * `--iam soft` found the caller's policies refuse this call and let it through: under `--iam enforce` it would be `denied`.
+ */
+would_be_denied: boolean, 
+/**
  * From the request's head being read to its answer being made, in microseconds.
  */
 duration_us: number, 
