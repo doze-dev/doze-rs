@@ -68,6 +68,7 @@ export function ResourcePage({ detail, meta, banner, overview, tabs = [], tab, o
       {detail.sentence && <Sentence text={detail.sentence} name={detail.name} also={detail.wired?.map((w) => w.to.name)} bold={sentenceBold} />}
       {detail.wired && <WiredStrip wired={detail.wired} self={wiredSelf === undefined ? undefined : { name: detail.name, at: wiredSelf }} chipText={wiredText} chipHref={wiredHref} lead={wiredLead} />}
       {overview}
+      {all.length > 0 && (
       <Tabs value={shown} onValueChange={choose} className={cn("gap-0", overview && "mt-10")}>
         <TabsList variant="line" className="h-11 w-full justify-start gap-2 overflow-x-auto rounded-none border-b p-0" aria-label={`${detail.name}'s pages`}>
           {all.map((t) => (
@@ -81,6 +82,7 @@ export function ResourcePage({ detail, meta, banner, overview, tabs = [], tab, o
           {all.find((t) => t.id === shown)?.render()}
         </div>
       </Tabs>
+      )}
     </div>
   );
 }
