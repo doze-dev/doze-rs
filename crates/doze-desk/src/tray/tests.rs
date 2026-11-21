@@ -278,6 +278,8 @@ fn the_menu_has_needs_you_on_top_then_the_stacks_then_the_fixed_lines() {
         "Check for Updates…".into(),
         "Quit doze   ·   stacks keep running".into()
     ]));
+    // Go's menu has no line before Quit.
+    assert!(!matches!(e[e.len() - 2], Entry::Separator));
     // The red item: its fix, then Show.
     let fix = titles(sub(&e, "api keeps crashing"));
     assert_eq!(fix, ["Restart", "Show in doze"]);

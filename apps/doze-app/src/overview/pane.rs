@@ -1,6 +1,7 @@
 //! The List view's pane (`.insp`): the selected service in full (its addresses, how it runs, what it needs and what
 //! holds it, its last error), or, for a stopped stack's row, what doze.hcl says of it.
 
+use doze_desk::copied;
 use doze_desk::overview::{Pane, Row};
 use gpui::{AnyElement, Context, IntoElement, div, prelude::*, px};
 
@@ -10,7 +11,7 @@ use super::tiles::{row_dot, word_tone};
 use super::{OverviewView, all_rows};
 use crate::kit::{Btn, Click, btn, chip_of, s, tone, word_line};
 use crate::theme::{Tokens, ty};
-use crate::widgets::{MONO_FAMILY, dot, tracked};
+use crate::widgets::{Mono as _, dot, tracked};
 
 const PANE_W: f32 = 372.;
 
@@ -123,7 +124,11 @@ fn head(t: &Tokens, r: &Row, p: &Pane) -> impl IntoElement {
 fn run(t: &Tokens, r: &Row, p: &Pane, cx: &mut Context<OverviewView>) -> impl IntoElement {
     let mut run = sec(t, "Run");
     if !p.run.is_empty() {
-        run = run.child(Kv::new("command", &p.run).copy(&p.run).el(t, cx));
+        run = run.child(
+            Kv::new("command", &p.run)
+                .copy(&p.run, copied::THE_COMMAND.into())
+                .el(t, cx),
+        );
     }
     if !p.up.is_empty() {
         run = run.child(Kv::new("awake for", &p.up).el(t, cx));
@@ -244,7 +249,7 @@ fn live(t: &Tokens, r: &Row, p: &Pane, cx: &mut Context<OverviewView>) -> AnyEle
                     ..Kv::new(&c.k, &c.v)
                 }
             } else {
-                let kv = Kv::new(&c.k, &c.v).copy(&c.copy);
+                let kv = Kv::new(&c.k, &c.v).copy(&c.copy, copied::key(&c.k));
                 Kv { bright, ..kv }
             };
             let kv = Kv {
@@ -271,7 +276,7 @@ fn live(t: &Tokens, r: &Row, p: &Pane, cx: &mut Context<OverviewView>) -> AnyEle
             .bg(t.panel)
             .border_1()
             .border_color(t.line)
-            .font_family(MONO_FAMILY)
+            .mono_face()
             .text_size(px(ty::SM))
             .text_color(t.bad)
             .child(s(&c.error));
@@ -350,10 +355,18 @@ fn down(t: &Tokens, r: &Row, cx: &mut Context<OverviewView>) -> AnyElement {
         )
         .child(Kv::new("on Up", on_up(r)).el(t, cx));
     if !r.address.is_empty() {
-        sec = sec.child(Kv::new("address", &r.address).copy(&r.address).el(t, cx));
+        sec = sec.child(
+            Kv::new("address", &r.address)
+                .copy(&r.address, copied::address_of(&r.name))
+                .el(t, cx),
+        );
     }
     if !r.run.is_empty() {
-        sec = sec.child(Kv::new("command", &r.run).copy(&r.run).el(t, cx));
+        sec = sec.child(
+            Kv::new("command", &r.run)
+                .copy(&r.run, copied::THE_COMMAND.into())
+                .el(t, cx),
+        );
     }
     frame(t).child(head).child(sec).into_any_element()
 }

@@ -377,3 +377,19 @@ fn dismissed_items_leave_quietly() {
     let a = build(&mut s, &healthy, &nn, t0() + Duration::from_secs(1));
     assert!(a.items.is_empty());
 }
+
+#[test]
+fn the_bell_says_what_go_says() {
+    let a = |red, yellow| Attention {
+        red,
+        yellow,
+        ..Attention::default()
+    };
+    assert_eq!(
+        a(2, 1).bell_label(),
+        "Needs you: 2 broken now, 1 worth doing"
+    );
+    assert_eq!(a(2, 0).bell_label(), "Needs you: 2 broken now");
+    assert_eq!(a(0, 3).bell_label(), "Needs you: 3 worth doing");
+    assert_eq!(a(0, 0).bell_label(), "Needs you: nothing");
+}

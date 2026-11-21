@@ -53,6 +53,9 @@ pub fn snippets(p: &InstancePage) -> Vec<(&'static str, String)> {
         ),
         (".env", format!("{env}={url}")),
     ];
+    // TODO(module contract): the psql and redis-cli lines are module-specific. They switch to the client the module
+    // declares (manifest `client`, through the SDK and protocol) once that field lands; until then they stay, for
+    // parity with Go. Nothing else here may know a module.
     if url.starts_with("postgres") {
         out.push(("psql", format!("psql \"{url}\"")));
     }

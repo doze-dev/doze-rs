@@ -90,8 +90,8 @@ impl InstanceView {
 
     pub(crate) fn copy_address(&mut self, cx: &mut Context<Self>) {
         if let Some(line) = self.page.copy_line().map(str::to_owned) {
-            self.copy("address", &line, cx);
-            self.say(format!("Copied {line}"), cx);
+            let what = doze_desk::copied::connect_line(&self.name);
+            self.copy("address", &line, &what, cx);
         }
     }
 

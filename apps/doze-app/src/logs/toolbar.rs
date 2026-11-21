@@ -59,11 +59,11 @@ fn click(
 pub(crate) fn toolbar(
     t: &Tokens,
     v: &LogsView,
-    input: Entity<InputState>,
+    (input, focused): (Entity<InputState>, bool),
     cx: &mut Context<LogsView>,
 ) -> impl IntoElement {
     let total = v.index.len();
-    let filter = filter_box(t, v, input, cx);
+    let filter = filter_box(t, v, (input, focused), cx);
     let levels = level_seg(t, v, cx);
     let mut bar = div()
         .flex()
@@ -95,6 +95,7 @@ pub(crate) fn toolbar(
                     &chip("Copy the lines"),
                     false,
                 )
+                .tooltip(crate::widgets::tip(doze_desk::titles::COPY_LINES))
                 .on_click(cx.listener(|v, _, _, cx| v.copy_shown(cx))),
             )
         })
@@ -104,9 +105,10 @@ pub(crate) fn toolbar(
 fn filter_box(
     t: &Tokens,
     v: &LogsView,
-    input: Entity<InputState>,
+    (input, focused): (Entity<InputState>, bool),
     cx: &mut Context<LogsView>,
 ) -> gpui::Div {
+    let (frame, moving) = crate::widgets::input_frame(t, "logs/filter", focused);
     let total = v.index.len();
     let typed = !v.filter_text.is_empty();
     let said = match (typed, v.index.query().filter.error()) {
@@ -129,8 +131,9 @@ fn filter_box(
         .flex_shrink(1.)
         .rounded(px(7.))
         .border_1()
-        .border_color(t.line2)
+        .border_color(frame)
         .bg(t.well)
+        .child(crate::motion::tick(moving))
         .text_size(px(ty::SM))
         .child(
             div().flex_1().min_w_0().child(

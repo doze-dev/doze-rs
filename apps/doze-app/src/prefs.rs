@@ -17,6 +17,19 @@ pub(crate) mod recall;
 
 static HOME: OnceLock<PathBuf> = OnceLock::new();
 
+/// The project the window last showed (Go's `lastDir`), written with the frame when the window closes.
+static LAST_DIR: std::sync::Mutex<Option<String>> = std::sync::Mutex::new(None);
+
+/// Notes the project the window shows, for `lastDir`.
+pub(crate) fn note_dir(dir: &str) {
+    if dir.is_empty() {
+        return;
+    }
+    if let Ok(mut d) = LAST_DIR.lock() {
+        *d = Some(dir.to_owned());
+    }
+}
+
 /// Names the doze home whose prefs this run reads and writes.
 pub(crate) fn set_home(home: &Path) {
     let _ = HOME.set(home.to_path_buf());
@@ -80,9 +93,14 @@ pub(crate) fn frame() -> Option<Frame> {
     frame_of(&load())
 }
 
-/// Keeps the frame and the time the window closed (`windowClosed`, for "while the window was closed").
+/// Keeps the frame, the project the window last showed (`lastDir`, when there was one) and the time the window
+/// closed (`windowClosed`, for "while the window was closed"), as Go's `WindowClosing` does.
 pub(crate) fn save_frame(f: Frame) {
+    let dir = LAST_DIR.lock().ok().and_then(|d| d.clone());
     save(|m| {
+        if let Some(d) = dir {
+            m.insert("lastDir".into(), Value::String(d));
+        }
         m.insert(
             "window".into(),
             json!({"X": f.x, "Y": f.y, "W": f.w, "H": f.h}),

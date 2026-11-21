@@ -130,6 +130,9 @@ fn keeps(key: &str, s: Svc<'_>) -> Vec<Row> {
 }
 
 /// The shell client a connection string opens, when doze knows one (Go `clientLine`, with `%q` quoting).
+///
+/// TODO(module contract): module-specific (postgres, redis). It switches to the client the module declares (manifest
+/// `client`, through the SDK and protocol) once that field lands; kept until then for parity with Go.
 #[must_use]
 pub fn client_line(url: &str) -> Option<String> {
     let q = |s: &str| serde_json::to_string(s).unwrap_or_default();

@@ -53,7 +53,9 @@ pub fn web_url(v: &Instance) -> &str {
 /// described, once it has been received; before then a console still gets one tab called "console". (Go: `Tabs`.)
 #[must_use]
 pub fn tabs<'a>(v: &Instance, spec: Option<&'a ConsoleSpec>) -> Vec<Tab<'a>> {
-    if v.has_console && v.kind != Kind::Task {
+    // Only a module's page is customised, and only by what the module declares (its console spec): an app, a task
+    // or an outside service is the standard page, whatever it claims (the owner's rule).
+    if v.has_console && v.kind == Kind::Module {
         let mut out = Vec::with_capacity(spec.map_or(1, |s| s.tabs.len()) + 2);
         if !v.console_front.is_empty() && v.console_front != "console" {
             out.push(Tab::fixed(TAB_OVERVIEW));
@@ -65,8 +67,8 @@ pub fn tabs<'a>(v: &Instance, spec: Option<&'a ConsoleSpec>) -> Vec<Tab<'a>> {
     let first = match v.kind {
         // Its last run first, as the Task board draws it; the logs tab beside it filters and searches every run.
         Kind::Task => TAB_LAST_RUN,
-        // A module that ships a good UI (temporal) and a service that was told where its own is both open on it.
-        _ if has_web(v) => TAB_WEB,
+        // A module that ships a good UI opens on it; a service told where its own is keeps the standard page.
+        Kind::Module if has_web(v) => TAB_WEB,
         Kind::Module | Kind::Unspecified => TAB_OVERVIEW,
         Kind::App | Kind::Service | Kind::Other => return vec![Tab::fixed(TAB_LOGS)],
     };
@@ -145,4 +147,45 @@ pub fn console_body<'a>(spec: Option<&'a ConsoleSpec>, tab_id: &str) -> Option<C
         children: kids,
         ..Node::default()
     }))
+}
+
+#[cfg(test)]
+mod owner_rule_tests {
+    use super::{TAB_LAST_RUN, TAB_LOGS, TAB_OVERVIEW, TAB_WEB, tabs};
+    use crate::model::{Instance, Kind};
+
+    fn ids(v: &Instance) -> Vec<String> {
+        tabs(v, None)
+            .into_iter()
+            .map(|t| t.id.into_owned())
+            .collect()
+    }
+
+    /// Only a module's page is customised: an app, a task, an outside service or an instance of no kind that carries
+    /// a console or a web address still gets the standard page's tabs (the owner's rule).
+    #[test]
+    fn only_a_module_gets_console_or_web_tabs() {
+        let custom = |kind| Instance {
+            kind,
+            has_console: true,
+            console_front: "console".into(),
+            web_url: "http://ui.doze".into(),
+            ..Instance::default()
+        };
+        for kind in [Kind::App, Kind::Service, Kind::Other] {
+            assert_eq!(ids(&custom(kind)), [TAB_LOGS], "{kind:?}");
+        }
+        assert_eq!(ids(&custom(Kind::Task)), [TAB_LAST_RUN, TAB_LOGS]);
+        assert_eq!(ids(&custom(Kind::Unspecified)), [TAB_OVERVIEW, TAB_LOGS]);
+        let module = ids(&custom(Kind::Module));
+        assert!(
+            module.iter().any(|t| t.starts_with("console:")),
+            "{module:?}"
+        );
+        let web = Instance {
+            has_console: false,
+            ..custom(Kind::Module)
+        };
+        assert_eq!(ids(&web), [TAB_WEB, TAB_LOGS]);
+    }
 }
