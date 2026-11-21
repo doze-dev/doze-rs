@@ -65,6 +65,11 @@ test.beforeAll(async ({ browserName }) => {
 test.afterAll(async () => {
   await server.stop();
 });
+// The pages are many and quick, and Firefox keeps the sockets of a closed context for a while: the console answers 503 to the 65th open connection
+// (limits.rs), which a run of 20 tests in 30 seconds would reach. A pause between tests lets them go.
+test.afterEach(async () => {
+  await new Promise((r) => setTimeout(r, browserKind === "firefox" ? 1500 : 300));
+});
 
 test("cloudformation__stacks-list: the sentence, the nested stack marked, the filter by status", async ({ page }) => {
   await go(page, STACKS, "Stacks");
