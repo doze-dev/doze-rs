@@ -383,10 +383,12 @@ test("sqs__queue-purge and sqs__queue-purged: the count in the confirm, then the
 });
 
 test("sqs__queue-delete, sqs__queue-deleted and sqs__queues-none: the confirm names what goes and what feeds it, then the list, then no queue at all", async ({ page }) => {
+  // The purge emptied it; the delete is photographed with messages in it, as the board is.
+  for (const n of [1, 2]) cli(["sqs", "send-message", "--queue-url", url("pick-lists"), "--message-body", `pick list ${n}`]);
   await go(page, "/resources/sqs/queues/pick-lists", "pick-lists");
   await page.getByTestId("verb-delete").click();
   const dialog = page.getByTestId("delete-dialog");
-  await expect(dialog).toContainText("Delete pick-lists");
+  await expect(dialog).toContainText("Delete pick-lists and its 2 messages?");
   await expect(dialog).toContainText("QueueDeletedRecently");
   await expect(dialog).toContainText("The rule payment-settled targets this queue and will have nowhere to deliver.");
   await expect(dialog).toContainText("pick-lists-dlq keeps its 1 message.");

@@ -17,10 +17,17 @@ const VIEWS: { id: CallView; label: string }[] = [
 
 /** The text of one view of a preview: the operation's name over the request body (as the board shows it), the CLI line, or the
  * boto3 snippet. */
-export function viewText(p: Preview, operation: string, view: CallView): string {
+export function viewText(p: Preview, operation: string, view: CallView, service?: string): string {
   if (view === "cli") return p.cli;
   if (view === "boto3") return p.boto3;
-  return `${operation}\n${JSON.stringify(p.json, null, 2)}`;
+  return `${service ? `${service} ` : ""}${operation}\n${JSON.stringify(withoutWire(p.json), null, 2)}`;
+}
+
+/** A query-protocol request carries the wire's `Action` and `Version` beside its members; the call as a person means it has the members only. */
+export function withoutWire(json: unknown): unknown {
+  if (typeof json !== "object" || json === null || Array.isArray(json)) return json;
+  const { Action, Version, ...members } = json as Record<string, unknown>;
+  return typeof Action === "string" && typeof Version === "string" ? members : json;
 }
 
 /** The members the call still needs, said as words: `Needs QueueName`, `Needs QueueName and Attributes`. */
@@ -34,7 +41,7 @@ export function missingWords(missing: string[]): string {
  * (asked after a pause, the last answer kept while the next is on its way). Copy takes the view shown; "Copy as" takes the
  * others without switching. `refusal` turns it into the call that was refused, with what came back under it; `note` is the
  * sentence under the code (what the call leaves out, what its answer carries). */
-export function CallPanel({ request, refusal, note, title, className, testId = "call-panel" }: { request: PreviewRequest | null; /** The service's refusal of this call: its code and words. */ refusal?: { code: string; message: string } | null; note?: React.ReactNode; title?: string; className?: string; testId?: string }) {
+export function CallPanel({ request, refusal, note, title, className, showService = false, testId = "call-panel" }: { request: PreviewRequest | null; /** Name the service before the operation (`sns Subscribe`), for a call to a service other than the page's own. */ showService?: boolean; /** The service's refusal of this call: its code and words. */ refusal?: { code: string; message: string } | null; note?: React.ReactNode; title?: string; className?: string; testId?: string }) {
   const [view, setView] = useState<CallView>("json");
   const preview = usePreview(request);
   const p = preview.data;
@@ -73,9 +80,9 @@ export function CallPanel({ request, refusal, note, title, className, testId = "
           <Skeleton className="h-44 rounded-[10px]" data-testid={`${testId}-loading`} />
         ) : (
           <div className="relative">
-            <CopyButton text={viewText(p, request.operation, view)} label={`Copy ${VIEWS.find((v) => v.id === view)!.label}`} what="Copied" iconOnly variant="ghost" className="absolute top-1.5 right-1.5 z-10" />
+            <CopyButton text={viewText(p, request.operation, view, showService ? request.service : undefined)} label={`Copy ${VIEWS.find((v) => v.id === view)!.label}`} what="Copied" iconOnly variant="ghost" className="absolute top-1.5 right-1.5 z-10" />
           <pre tabIndex={0} className={cn("max-h-[22rem] overflow-auto rounded-[10px] bg-well py-3 pr-11 pl-4 font-mono text-[12.5px] leading-[21px] text-foreground transition-opacity outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50", preview.settling && "opacity-60", view !== "json" && "whitespace-pre-wrap break-all")} data-testid={`${testId}-code`}>
-            {viewText(p, request.operation, view)}
+            {viewText(p, request.operation, view, showService ? request.service : undefined)}
           </pre>
           </div>
         )}

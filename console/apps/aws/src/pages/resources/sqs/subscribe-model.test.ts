@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { statementCount, withTopic } from "./subscribe-model";
+import { statementCount, topicHint, withTopic } from "./subscribe-model";
 
 const Q = "arn:aws:sqs:us-east-1:1:pick-lists";
 const T = "arn:aws:sns:us-east-1:1:orders-created";
@@ -20,4 +20,9 @@ test("a statement the queue has stays, and one for the same topic is not added t
   const again = withTopic(first.policy, Q, T);
   expect(again.added).toBe(false);
   expect(again.count).toBe(2);
+});
+
+test("the other topics are named with what they already deliver", () => {
+  expect(topicHint([])).toBe("The topics in this account and Region are listed. If yours isn't, enter its ARN.");
+  expect(topicHint([{ name: "alerts", cells: ["Standard", "0"] }, { name: "orders-created", cells: ["Standard", "3"] }])).toContain("alerts, orders-created are the other topics here; orders-created already has 3 subscriptions.");
 });

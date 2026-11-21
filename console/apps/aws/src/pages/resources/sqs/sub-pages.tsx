@@ -4,14 +4,13 @@ import { lazy, Suspense, useState } from "react";
 import { Alert } from "@doze/ui/components/app/alert";
 import { Combobox } from "@doze/ui/components/app/combobox";
 import { Skeleton } from "@doze/ui/components/ui/skeleton";
-import { useAbout } from "../../../api/queries";
 import { useResourceDetail, useResourceList } from "../../../api/resources";
 import type { ResourceDetail } from "../../../api/types/ResourceDetail";
 import { Field, FormPage, FormSection, RuleHelp } from "../../../kit";
 import { useOp } from "../deep/api";
 import { ApiFailure } from "@doze/ui/lib/api";
 import { wait, type Queue } from "./queue-model";
-import { statementCount, withTopic } from "./subscribe-model";
+import { statementCount, topicHint, withTopic } from "./subscribe-model";
 
 const Edit = lazy(() => import("./edit").then((m) => ({ default: m.SqsEdit })));
 const Messages = lazy(() => import("./messages").then((m) => ({ default: m.SqsMessages })));
@@ -62,6 +61,7 @@ export function ConfigureTrigger({ d, q, back, done }: SubProps) {
       request={fn ? { service: "lambda", operation: "CreateEventSourceMapping", input: { EventSourceArn: q.arn, FunctionName: fn } } : null}
       refusal={refused}
       callNote="An event source mapping with Lambda's defaults for every setting not shown."
+      callService
       banner={refused ? <Alert tone="bad" title="The trigger was not made." testId="trigger-refused">{refused.code}: {refused.message}</Alert> : undefined}
       submitLabel="Save"
       pending={make.isPending}
@@ -94,7 +94,6 @@ export function SubscribeTopic({ d, q, back, done }: SubProps) {
   const mine = rows.find((r) => r.id === topic);
   const others = rows.filter((r) => r.id !== topic);
   const plan = topic ? withTopic(q.policy, q.arn, topic) : null;
-  const about = useAbout().data;
   const refused = failure(subscribe.error ?? settings.error);
   const save = async () => {
     if (!topic || !plan) return;
@@ -109,6 +108,7 @@ export function SubscribeTopic({ d, q, back, done }: SubProps) {
       request={topic ? { service: "sns", operation: "Subscribe", input: { TopicArn: topic, Protocol: "sqs", Endpoint: q.arn } } : null}
       refusal={refused}
       callNote="Protocol sqs, with the queue's ARN as the endpoint. The access policy statement is written to the queue through SQS."
+      callService
       banner={refused ? <Alert tone="bad" title="The subscription was not made." testId="subscribe-refused">{refused.code}: {refused.message}</Alert> : undefined}
       submitLabel="Save"
       pending={subscribe.isPending || settings.isPending}
@@ -119,7 +119,7 @@ export function SubscribeTopic({ d, q, back, done }: SubProps) {
       testId="subscribe-form"
     >
       <FormSection title="Amazon SNS topic">
-        <Field label="Specify an Amazon SNS topic available for this queue" hint={`The topics in ${about?.account ?? "this account"} and Region are listed. If yours isn't, enter its ARN.${others.length > 0 ? ` ${others.slice(0, 2).map((r) => `${r.name}${Number(r.cells[1]) > 0 ? ` already has ${Number(r.cells[1])} ${Number(r.cells[1]) === 1 ? "subscription" : "subscriptions"}` : ""}`).join("; ")}.` : ""}`} testId="field-topic">
+        <Field label="Specify an Amazon SNS topic available for this queue" hint={topicHint(others)} testId="field-topic">
           {(id) => <ListPicker id={id} service="sns" kind="topics" noun="topic" value={topic} onChange={setTopic} by="id" />}
         </Field>
         {plan && (

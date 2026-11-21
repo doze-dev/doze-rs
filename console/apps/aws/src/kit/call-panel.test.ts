@@ -15,3 +15,12 @@ describe("call panel text", () => {
     expect(missingWords(["A", "B", "C"])).toBe("Needs A, B and C.");
   });
 });
+
+describe("a call to another service", () => {
+  const q = { ...p, json: { Action: "Subscribe", Version: "2010-03-31", TopicArn: "t", Protocol: "sqs" } };
+  test("a query request is shown by its members, with the service named when asked", () => {
+    expect(viewText(q, "Subscribe", "json", "sns")).toBe('sns Subscribe\n{\n  "TopicArn": "t",\n  "Protocol": "sqs"\n}');
+    expect(viewText(q, "Subscribe", "json")).toBe('Subscribe\n{\n  "TopicArn": "t",\n  "Protocol": "sqs"\n}');
+  });
+  test("a body that only looks like one is left whole", () => expect(viewText({ ...p, json: { Action: 1 } }, "X", "json")).toContain('"Action": 1'));
+});
