@@ -4,8 +4,11 @@
 // make may still be invalid (a choice with no rule): that is for ValidateStateMachineDefinition to say, which the studio asks.
 import type { AslState, Definition } from "./graph";
 
+/** Where the console is: what a sample state names (this account's queue, in this Region). */
+export type Ctx = { region: string; account: string; endpoint: string };
+
 /** A state the browser offers. `kind` says how it joins a path: `linear` (it has a Next or ends), `choice`, or `terminal` (Succeed, Fail). */
-export type Offer = { id: string; label: string; group: "flow" | "action" | "pattern"; kind: "linear" | "choice" | "terminal"; service?: string; make: () => AslState; /** More states it brings (a failure to catch to); `refer` points the state at the name the extra one was given. */ extra?: { name: string; state: AslState; refer: (s: AslState, name: string) => void }; hint?: string; /** The name its state is first given, when it is not the label. */ name?: string };
+export type Offer = { id: string; label: string; group: "flow" | "action" | "pattern"; kind: "linear" | "choice" | "terminal"; service?: string; make: (c: Ctx) => AslState; /** More states it brings (a failure to catch to); `refer` points the state at the name the extra one was given. */ extra?: { name: string; state: AslState; refer: (s: AslState, name: string) => void }; hint?: string; /** The name its state is first given, when it is not the label. */ name?: string };
 
 const pass = (): AslState => ({ Type: "Pass", End: true });
 
@@ -26,15 +29,15 @@ export const FLOW: Offer[] = [
 /** What doze-aws can run as a Task: the integrations its Step Functions serves (crates/aws-sfn/src/integ). */
 export const ACTIONS: Offer[] = [
   { id: "lambda-invoke", label: "Lambda Invoke", group: "action", kind: "linear", service: "Lambda", make: () => task("arn:aws:states:::lambda:invoke", { FunctionName: "my-function", "Payload.$": "$" }) },
-  { id: "sqs-send", label: "SQS SendMessage", group: "action", kind: "linear", service: "SQS", make: () => task("arn:aws:states:::sqs:sendMessage", { QueueUrl: "http://127.0.0.1:4566/000000000000/my-queue", "MessageBody.$": "States.JsonToString($)" }) },
-  { id: "sns-publish", label: "SNS Publish", group: "action", kind: "linear", service: "SNS", make: () => task("arn:aws:states:::sns:publish", { TopicArn: "arn:aws:sns:us-east-1:000000000000:my-topic", "Message.$": "States.JsonToString($)" }) },
+  { id: "sqs-send", label: "SQS SendMessage", group: "action", kind: "linear", service: "SQS", make: (c) => task("arn:aws:states:::sqs:sendMessage", { QueueUrl: `${c.endpoint}/${c.account}/my-queue`, "MessageBody.$": "States.JsonToString($)" }) },
+  { id: "sns-publish", label: "SNS Publish", group: "action", kind: "linear", service: "SNS", make: (c) => task("arn:aws:states:::sns:publish", { TopicArn: `arn:aws:sns:${c.region}:${c.account}:my-topic`, "Message.$": "States.JsonToString($)" }) },
   { id: "events-put", label: "EventBridge PutEvents", group: "action", kind: "linear", service: "EventBridge", make: () => task("arn:aws:states:::events:putEvents", { Entries: [{ Source: "my.app", DetailType: "event", "Detail.$": "States.JsonToString($)" }] }) },
   { id: "ddb-get", label: "DynamoDB GetItem", group: "action", kind: "linear", service: "DynamoDB", make: () => task("arn:aws:states:::dynamodb:getItem", { TableName: "my-table", Key: { id: { "S.$": "$.id" } } }) },
   { id: "ddb-put", label: "DynamoDB PutItem", group: "action", kind: "linear", service: "DynamoDB", make: () => task("arn:aws:states:::dynamodb:putItem", { TableName: "my-table", Item: { id: { "S.$": "$.id" } } }) },
   { id: "ddb-update", label: "DynamoDB UpdateItem", group: "action", kind: "linear", service: "DynamoDB", make: () => task("arn:aws:states:::dynamodb:updateItem", { TableName: "my-table", Key: { id: { "S.$": "$.id" } }, UpdateExpression: "SET #s = :s", ExpressionAttributeNames: { "#s": "status" }, ExpressionAttributeValues: { ":s": { S: "done" } } }) },
   { id: "ddb-delete", label: "DynamoDB DeleteItem", group: "action", kind: "linear", service: "DynamoDB", make: () => task("arn:aws:states:::dynamodb:deleteItem", { TableName: "my-table", Key: { id: { "S.$": "$.id" } } }) },
   { id: "s3-put", label: "S3 PutObject", group: "action", kind: "linear", service: "S3", make: () => task("arn:aws:states:::aws-sdk:s3:putObject", { Bucket: "my-bucket", Key: "key", "Body.$": "States.JsonToString($)" }) },
-  { id: "sfn-start", label: "Step Functions StartExecution", group: "action", kind: "linear", service: "Step Functions", make: () => task("arn:aws:states:::states:startExecution", { StateMachineArn: "arn:aws:states:us-east-1:000000000000:stateMachine:other", "Input.$": "$" }) },
+  { id: "sfn-start", label: "Step Functions StartExecution", group: "action", kind: "linear", service: "Step Functions", make: (c) => task("arn:aws:states:::states:startExecution", { StateMachineArn: `arn:aws:states:${c.region}:${c.account}:stateMachine:other`, "Input.$": "$" }) },
 ];
 
 /** Pieces of several states that go together. */
@@ -116,13 +119,13 @@ const clone = <T>(v: T): T => JSON.parse(JSON.stringify(v)) as T;
 export const nameFor = (o: Offer): string => o.name ?? o.label;
 
 /** Drops `offer` on `edge`: the new state takes the place between the two states the edge joins. */
-export function insertOnEdge(def: Definition, edge: EdgeRef, offer: Offer): { def: Definition; name: string } | null {
+export function insertOnEdge(def: Definition, edge: EdgeRef, offer: Offer, ctx: Ctx = { region: "us-east-1", account: "000000000000", endpoint: "http://127.0.0.1:4566" }): { def: Definition; name: string } | null {
   const next = clone(def);
   const c = containerOf(next, parseScope(edge.scope));
   if (!c) return null;
   c.States ??= {};
   const name = uniqueName(next, nameFor(offer));
-  const state = offer.make();
+  const state = offer.make(ctx);
   const to = edge.to;
   const join = (s: AslState) => {
     delete s.End;

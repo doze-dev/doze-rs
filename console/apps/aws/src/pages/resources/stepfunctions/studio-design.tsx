@@ -16,6 +16,8 @@ import { CodeBlock } from "../deep/parts";
 import { ACTIONS, FLOW, PATTERNS, type EdgeRef, type Offer, deleteState, insertOnEdge, offerOf, renameState, setState, stateOf } from "./design-model";
 import { type AslState, type Definition, parseDefinition } from "./graph";
 import { GraphView } from "./graph-view";
+import { useAbout } from "../../../api/queries";
+import { useWhere } from "./hooks";
 import { pretty, taskResource, taskWords } from "./model";
 
 type Tab = "actions" | "flow" | "patterns";
@@ -58,6 +60,9 @@ export function DesignMode({ text, setText }: { text: string; setText: (t: strin
   const [dragged, setDragged] = useState(false);
   const [selected, setSelected] = useState<string | undefined>();
   const [problem, setProblem] = useState<string | null>(null);
+  const where = useWhere();
+  const about = useAbout().data;
+  const ctx = { ...where, endpoint: about?.endpoint ?? "http://127.0.0.1:4566" };
   const def = useMemo(() => parseDefinition(text), [text]);
   const empty = !def || Object.keys(def.States ?? {}).length === 0;
   const write = (next: Definition | null, refused: string) => {
@@ -72,7 +77,7 @@ export function DesignMode({ text, setText }: { text: string; setText: (t: strin
   const drop = (edge: EdgeRef, id: string) => {
     const offer = offerOf(id);
     if (!offer || !def) return;
-    const r = insertOnEdge(def, edge, offer);
+    const r = insertOnEdge(def, edge, offer, ctx);
     if (!r) {
       write(null, `${offer.label} ends a path, so it goes only at the end of one: drop it on the edge into End.`);
       return;

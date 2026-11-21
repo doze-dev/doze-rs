@@ -455,9 +455,15 @@ test("stepfunctions__machine-delete, machines-none and activities-none: the dele
   await expect(page.getByTestId("delete-running")).toContainText(`${running} executions are running.`);
   await expect(page.getByTestId("delete-difference")).toContainText("doze-aws deletes the state machine at once and does not stop what is running");
   await shot(page, "stepfunctions__machine-delete");
+  // Nothing reads what is gone again: no request that came back refused is made once the delete has answered.
+  const refused: string[] = [];
+  page.on("response", (r) => {
+    if (r.status() >= 400) refused.push(`${r.status()} ${r.url()}`);
+  });
   await page.getByTestId("delete-dialog-submit").click();
   await expect(page.getByTestId("deleted-banner")).toContainText("State machine order-fulfilment deleted.");
-  // Nothing re-reads what is gone: the browser logged no failed request for it (the test fails on a console error beyond the cut ones).
+  await expect(rows(page, "State machines")).toHaveCount(2);
+  expect(refused).toEqual([]);
   expect(cli(["stepfunctions", "list-state-machines"])).not.toContain("order-fulfilment");
   for (const name of ["thumbnail-batch", "stock-reorder"]) cli(["stepfunctions", "delete-state-machine", "--state-machine-arn", `arn:aws:states:us-east-1:${server.account}:stateMachine:${name}`]);
   await go(page, "/resources/stepfunctions/machines", "State machines");
