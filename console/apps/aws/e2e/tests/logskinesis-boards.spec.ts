@@ -255,3 +255,186 @@ test("logs__log-group-delete, log-group-deleted, log-groups-none: delete from th
   await expect(page.getByTestId("list-empty")).toContainText("No log groups");
   await shot(page, "logs__log-groups-none");
 });
+
+test("kinesis__streams-list: the data streams with their sentence and the consumer by name", async ({ page }) => {
+  await go(page, "/resources/kinesis/streams", "Data streams");
+  await expect(page.getByTestId("list-sentence")).toContainText("3 data streams: 2 provisioned and 1 on-demand. clickstream has 1 registered consumer, search-indexer.");
+  const row = (name: string) => page.locator('[data-slot="data-table"] tbody tr[data-row]').filter({ hasText: name });
+  await expect(row("clickstream")).toContainText("Active");
+  await expect(row("clickstream")).toContainText("Provisioned");
+  await expect(row("orders-feed")).toContainText("On-demand");
+  await expect(page.getByTestId("action-delete")).toBeDisabled();
+  await row("clickstream").getByRole("checkbox").click();
+  await shot(page, "kinesis__streams-list");
+});
+
+test("kinesis__stream-create, stream-create-refused, stream-create-provisioned: the capacity cards, the call, the name in use, the estimator", async ({ page }) => {
+  await go(page, "/resources/kinesis/streams?create=yes", "Create data stream");
+  await page.getByTestId("stream-name").fill("orders-feed");
+  await page.getByTestId("section-tags").getByRole("textbox").first().fill("stack");
+  await page.getByTestId("section-tags").getByRole("textbox").nth(1).fill("larder");
+  await expect(page.getByTestId("stream-create")).toContainText("An on-demand stream starts with 4 shards in doze-aws.");
+  await expect(page.getByTestId("stream-create")).toContainText("clickstream and inventory-feed already exist in us-east-1.");
+  await expect(page.getByTestId("call-panel")).toContainText('"StreamMode": "ON_DEMAND"');
+  await expect(page.getByTestId("call-panel")).toContainText('"stack": "larder"');
+  await shot(page, "kinesis__stream-create");
+  await page.getByTestId("form-submit").click();
+  await expect(page.getByTestId("create-refused")).toContainText("CreateStream answered ResourceInUseException");
+  await expect(page.getByTestId("section-name")).toContainText("ResourceInUseException");
+  await shot(page, "kinesis__stream-create-refused");
+  // Provisioned: the estimator sizes the shards from the traffic.
+  await page.getByTestId("mode-PROVISIONED").click();
+  await page.getByTestId("stream-name").fill("audit-feed");
+  await expect(page.getByTestId("est-shards")).toHaveText("6");
+  await expect(page.getByTestId("est-result")).toContainText("max(6,000 / 1,024, 12,000 / 2,048) = 5.86, rounded up");
+  await expect(page.getByTestId("stream-shards")).toHaveValue("6");
+  await expect(page.getByTestId("call-panel")).toContainText('"ShardCount": 6');
+  await shot(page, "kinesis__stream-create-provisioned");
+  await page.getByTestId("form-submit").click();
+  await expect(page.getByTestId("created-banner")).toContainText("CreateStream returned 200");
+  const made = json<{ StreamDescriptionSummary: { OpenShardCount: number; StreamModeDetails: { StreamMode: string } } }>(["kinesis", "describe-stream-summary", "--stream-name", "audit-feed"]).StreamDescriptionSummary;
+  expect([made.OpenShardCount, made.StreamModeDetails.StreamMode]).toEqual([6, "PROVISIONED"]);
+});
+
+test("kinesis__stream-detail and the edits: capacity, retention, encryption, shard-level metrics", async ({ page }) => {
+  await go(page, kstream("clickstream"), "clickstream");
+  await expect(page.getByTestId("detail-badge")).toHaveText("Active");
+  await expect(page.getByTestId("detail-sentence")).toContainText("clickstream has 2 open shards, keeps records for 24 hours, and has 1 registered consumer, search-indexer, which reads it with GetRecords.");
+  await expect(page.getByTestId("wired-strip")).toContainText("search-indexer");
+  await expect(page.getByTestId("details")).toContainText("arn:aws:kinesis:us-east-1:");
+  await expect(page.getByTestId("section-capacity")).toContainText("2 shards is 2 MiB per second and 2,000 records per second in, 4 MiB per second out");
+  await expect(page.getByTestId("section-retention")).toContainText("The oldest record the Data Viewer can reach on shardId-");
+  await expect(page.getByTestId("section-encryption")).toContainText("Stored, not applied locally.");
+  await expect(page.getByTestId("section-metrics")).toContainText("None enabled");
+  await expect(page.getByTestId("section-tags")).toContainText("larder");
+  await expect(page.getByTestId("recent-calls")).toContainText("PutRecord");
+  await shot(page, "kinesis__stream-detail");
+  // Capacity mode: a switch changes the mode and keeps the shards.
+  await page.getByTestId("edit-capacity").click();
+  await expect(page.getByTestId("capacity-dialog")).toContainText("Switching keeps the 2 shards the stream has");
+  await shot(page, "kinesis__stream-capacity-edit");
+  await page.getByTestId("cap-ON_DEMAND").click();
+  await page.getByTestId("capacity-dialog-save").click();
+  await expect(page.getByTestId("section-capacity").getByTestId("field-Capacity mode")).toHaveText("On-demand");
+  cli(["kinesis", "update-stream-mode", "--stream-arn", json<{ StreamDescriptionSummary: { StreamARN: string } }>(["kinesis", "describe-stream-summary", "--stream-name", "clickstream"]).StreamDescriptionSummary.StreamARN, "--stream-mode-details", "StreamMode=PROVISIONED"]);
+  await page.reload();
+  // Retention: hours, with the day equivalent; Increase is chosen by the direction.
+  await page.getByTestId("edit-retention").click();
+  await page.getByTestId("retention-hours").fill("72");
+  await expect(page.getByTestId("retention-dialog")).toContainText("That is 3 days. The API takes hours (RetentionPeriodHours).");
+  await expect(page.getByTestId("retention-dialog-call")).toContainText("IncreaseStreamRetentionPeriod");
+  await shot(page, "kinesis__stream-retention-edit");
+  await page.getByTestId("retention-dialog-save").click();
+  await expect(page.getByTestId("section-retention")).toContainText("72 hours");
+  // Encryption: on, with a key.
+  await page.getByTestId("edit-encryption").click();
+  await page.getByTestId("sse-switch").click();
+  await page.getByTestId("sse-key").click();
+  await page.getByRole("option", { name: "alias/larder-app" }).click();
+  await expect(page.getByTestId("encryption-dialog-call")).toContainText("StartStreamEncryption");
+  await shot(page, "kinesis__stream-encryption-edit");
+  await page.getByTestId("encryption-dialog-save").click();
+  await expect(page.getByTestId("section-encryption")).toContainText("alias/larder-app");
+  // Shard-level metrics.
+  await page.getByTestId("edit-metrics").click();
+  await expect(page.getByTestId("metrics-dialog")).toContainText("ReadProvisionedThroughputExceeded");
+  await shot(page, "kinesis__stream-metrics-edit");
+  await page.getByTestId("metric-IncomingBytes").click();
+  await page.getByTestId("metrics-dialog-save").click();
+  await expect(page.getByTestId("section-metrics")).toContainText("IncomingBytes");
+  expect(json<{ StreamDescriptionSummary: { RetentionPeriodHours: number; EncryptionType: string; EnhancedMonitoring: { ShardLevelMetrics: string[] }[] } }>(["kinesis", "describe-stream-summary", "--stream-name", "clickstream"]).StreamDescriptionSummary).toMatchObject({ RetentionPeriodHours: 72, EncryptionType: "KMS", EnhancedMonitoring: [{ ShardLevelMetrics: ["IncomingBytes"] }] });
+});
+
+test("kinesis__stream-data-viewer, data-viewer-none, record-detail: a shard from its trim horizon, a position with nothing, one record opened", async ({ page }) => {
+  await go(page, kstream("clickstream", "?tab=viewer"), "clickstream");
+  await expect(page.getByTestId("stream-viewer")).toContainText("Shows the records in one shard without a consumer application.");
+  // Every shard is read until the one that holds records (the six were spread by partition key).
+  const shards = json<{ Shards: { ShardId: string }[] }>(["kinesis", "list-shards", "--stream-name", "clickstream"]).Shards.map((s) => s.ShardId);
+  let found = shards[0] ?? "";
+  for (const id of shards) {
+    const it = json<{ ShardIterator: string }>(["kinesis", "get-shard-iterator", "--stream-name", "clickstream", "--shard-id", id, "--shard-iterator-type", "TRIM_HORIZON"]).ShardIterator;
+    if (json<{ Records: unknown[] }>(["kinesis", "get-records", "--shard-iterator", it]).Records.length > 0) { found = id; break; }
+  }
+  await page.getByTestId("viewer-shard").click();
+  await page.getByRole("option", { name: found }).click();
+  await page.getByTestId("viewer-get").click();
+  await expect(page.getByTestId("viewer-records")).toContainText("Approximate arrival timestamp");
+  await expect(page.getByTestId("viewer-count")).toContainText(`from ${found}`);
+  await expect(page.getByTestId("viewer-showing")).toContainText("Showing");
+  await shot(page, "kinesis__stream-data-viewer");
+  await page.getByTestId("record-open").first().click();
+  await expect(page.getByTestId("record-drawer")).toContainText("Encryption type");
+  await expect(page.getByTestId("record-data")).toContainText("event");
+  await page.getByTestId("record-view-json").click();
+  await shot(page, "kinesis__record-detail");
+  await page.getByTestId("record-done").click();
+  // Latest starts after the newest record: nothing.
+  await page.getByTestId("viewer-position").click();
+  await page.getByRole("option", { name: "Latest" }).click();
+  await page.getByTestId("viewer-get").click();
+  await expect(page.getByTestId("viewer-empty")).toContainText("GetRecords returned nothing from this position.");
+  await shot(page, "kinesis__stream-data-viewer-none");
+});
+
+test("kinesis__stream-sharing, sharing-none, sharing-create: no policy, the visual editor, the policy kept", async ({ page }) => {
+  await go(page, kstream("orders-feed", "?tab=sharing"), "orders-feed");
+  await expect(page.getByTestId("sharing-empty")).toContainText("No resource policy is attached, so no other account or principal has been given access to this stream.");
+  await shot(page, "kinesis__stream-sharing-none");
+  await page.getByTestId("sharing-create").click();
+  await expect(page.locator("h1").first()).toHaveText("Visual policy editor");
+  await page.getByTestId("share-principal").fill(`arn:aws:iam::${server.account}:role/report-job`);
+  await expect(page.getByTestId("sharing-create-page")).toContainText("The role report-job already exists in this account.");
+  await expect(page.getByTestId("call-panel")).toContainText("PutResourcePolicy");
+  await expect(page.getByTestId("share-policy")).toContainText("kinesis:GetShardIterator");
+  await shot(page, "kinesis__stream-sharing-create");
+  await page.getByTestId("form-submit").click();
+  await expect(page.getByTestId("sharing-banner")).toContainText("PutResourcePolicy returned 200");
+  await expect(page.getByTestId("sharing-policy")).toContainText("may call kinesis:DescribeStreamSummary");
+  await expect(page.getByTestId("sharing-policy")).toContainText("does not evaluate a stream's resource policy");
+  await shot(page, "kinesis__stream-sharing");
+  expect(cli(["kinesis", "get-resource-policy", "--resource-arn", json<{ StreamDescriptionSummary: { StreamARN: string } }>(["kinesis", "describe-stream-summary", "--stream-name", "orders-feed"]).StreamDescriptionSummary.StreamARN])).toContain("report-job");
+});
+
+test("kinesis__stream-tags-none, stream-tags-edit, stream-shards-edit: a stream with no tags, tags changed on a page, shards scaled", async ({ page }) => {
+  await go(page, kstream("inventory-feed"), "inventory-feed");
+  await expect(page.getByTestId("tags-empty")).toContainText("inventory-feed has no tags. Tags are key-value labels for organising streams and tracking their cost.");
+  await shot(page, "kinesis__stream-tags-none");
+  await go(page, kstream("clickstream", "?view=tags"), "Manage tags");
+  await expect(page.getByTestId("manage-tags-page")).toContainText("3 tags are saved on this stream.");
+  await page.getByRole("button", { name: "Add new tag" }).click();
+  const inputs = page.getByTestId("tags-kv").getByRole("textbox");
+  await inputs.nth(6).fill("team");
+  await inputs.nth(7).fill("storefront");
+  await expect(page.getByTestId("call-panel")).toContainText("AddTagsToStream");
+  await expect(page.getByTestId("manage-tags-page")).toContainText("The team row is new.");
+  await shot(page, "kinesis__stream-tags-edit");
+  await page.getByTestId("form-submit").click();
+  await expect(page.getByTestId("tags-banner")).toContainText("Tags saved.");
+  expect(json<{ Tags: { Key: string }[] }>(["kinesis", "list-tags-for-stream", "--stream-name", "clickstream"]).Tags.map((t) => t.Key)).toContain("team");
+  // Shards: UNIFORM_SCALING, before and after.
+  await page.getByTestId("edit-shards").click();
+  await page.getByTestId("shard-target").fill("4");
+  await expect(page.getByTestId("shards-dialog")).toContainText("UNIFORM_SCALING");
+  await expect(page.getByTestId("shards-after")).toContainText("2 now, 4 after");
+  await shot(page, "kinesis__stream-shards-edit");
+  await page.getByTestId("shards-dialog-save").click();
+  await expect(page.getByTestId("field-Provisioned shards")).toHaveText("4");
+});
+
+test("kinesis__stream-delete, stream-deleted, streams-none: delete from the list with the consumer named, then the last of them", async ({ page }) => {
+  await go(page, "/resources/kinesis/streams", "Data streams");
+  const row = (name: string) => page.locator('[data-slot="data-table"] tbody tr[data-row]').filter({ hasText: name });
+  await row("clickstream").getByRole("checkbox").click();
+  await page.getByTestId("action-delete").click();
+  await expect(page.getByTestId("delete-dialog")).toContainText("This deletes clickstream and all its shards and data. Its 4 tags are dissociated from it. Applications that still use it will get ResourceNotFoundException.");
+  await expect(page.getByTestId("delete-consumers")).toContainText("clickstream has 1 registered consumer, search-indexer. Deleting the stream drops its consumer registrations too.");
+  await shot(page, "kinesis__stream-delete");
+  await page.getByTestId("delete-dialog-submit").click();
+  await expect(page.getByTestId("deleted-banner")).toContainText("Deleted clickstream. Its shards, its records and its tags are gone, and the consumer search-indexer was deregistered with it.");
+  await expect(page.getByTestId("list-sentence")).toContainText("3 data streams remain. Anything still writing to clickstream now gets ResourceNotFoundException.");
+  await shot(page, "kinesis__stream-deleted");
+  for (const n of ["orders-feed", "inventory-feed", "audit-feed"]) cli(["kinesis", "delete-stream", "--stream-name", n]);
+  await page.reload();
+  await expect(page.getByTestId("list-empty")).toContainText("Create a data stream to start ingesting records.");
+  await shot(page, "kinesis__streams-none");
+});

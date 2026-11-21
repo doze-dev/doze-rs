@@ -267,7 +267,8 @@ async fn a_stream_is_made_with_its_tags_and_each_setting_is_its_own_call() {
     let one = format!("{BASE}/kinesis/streams/clickstream");
     let (status, d) = w.get(&one).await;
     assert_eq!(status, 200, "{d}");
-    assert_eq!(d["badges"][0]["text"], "ACTIVE");
+    assert_eq!(d["badges"][0]["text"], "Active");
+    assert_eq!(d["badges"][0]["tone"], "good");
     assert_eq!(field(&d, "Open shards")["value"], "2");
     assert_eq!(d["tags"], true);
     let (_, tags) = w.get(&format!("{one}/tags")).await;

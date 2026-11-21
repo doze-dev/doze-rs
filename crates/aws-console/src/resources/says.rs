@@ -55,7 +55,6 @@ status_badge!(alarm, "MetricAlarms.@AlarmName.StateValue");
 status_badge!(stack, "Stacks.0.StackStatus");
 status_badge!(table, "Table.TableStatus");
 status_badge!(rule, "State");
-status_badge!(stream, "StreamDescriptionSummary.StreamStatus");
 status_badge!(key, "KeyMetadata.KeyState");
 status_badge!(function, "Configuration.State");
 status_badge!(machine, "status");
