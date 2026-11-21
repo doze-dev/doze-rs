@@ -27,16 +27,18 @@ pub(super) fn login_item(fixture: bool) -> Option<PathBuf> {
     doze_os::autostart::path_in(&home, config.as_deref())
 }
 
-/// Where the `doze` is: a fixture's is where Homebrew puts it.
+/// Where a terminal finds `doze`, and whether it is the app's own: a fixture's is the app's link in place.
 pub(crate) fn doze_at(fixture: bool) -> DozeAt {
     if fixture {
         return DozeAt {
-            on_path: Some("/opt/homebrew/bin/doze".into()),
-            elsewhere: None,
+            on_path: Some(doze_desk::settings::machine::PATH_LINK.into()),
+            own: None,
         };
     }
-    let home = std::env::var_os("HOME").map(PathBuf::from);
-    DozeAt::find(std::env::var_os("PATH").as_deref(), home.as_deref())
+    DozeAt::find(
+        std::env::var_os("PATH").as_deref(),
+        crate::own::program().as_deref(),
+    )
 }
 
 /// The doze the app's own login item starts: this program, in the menu bar only.
@@ -104,9 +106,11 @@ impl SettingsView {
     /// The machine's hands for a clear that needs no root: stopping a process, deleting a folder (no CLI involved, so
     /// a missing `doze` does not stop it), refusing anything that would ask for the password.
     fn hands(&self) -> NoRoot {
-        let cli = doze_desk::settings::Cli::from_env(crate::own::program())
-            .unwrap_or_else(|| doze_desk::settings::Cli::go(PathBuf::from("doze")));
-        NoRoot(SystemHands::new(cli, self.hub.home().to_path_buf()))
+        // With no CLI of its own the hands still stop and delete; a doze command is refused, never looked for.
+        let cli = doze_desk::settings::Cli::from_env(crate::own::program());
+        let found = cli.is_some();
+        let cli = cli.unwrap_or_else(|| doze_desk::settings::Cli::at(PathBuf::new()));
+        NoRoot(SystemHands::new(cli, self.hub.home().to_path_buf()), found)
     }
 
     /// Repair: the steps the failing parts need, shown in the run sheet before anything asks for the password; the
@@ -120,11 +124,7 @@ impl SettingsView {
             self.refresh(cx);
             return;
         }
-        let steps = repair::steps(
-            &self.hub.stacks(),
-            &self.parts,
-            self.at.elsewhere.as_deref(),
-        );
+        let steps = repair::steps(&self.hub.stacks(), &self.parts, self.at.own.as_deref());
         cx.emit(SettingsEvent::Run(Job::Repair(steps)));
     }
 
@@ -285,8 +285,9 @@ mod tests {
 }
 
 /// Hands that never ask for the administrator's password: a clear done at once, outside the run sheet, must not raise
-/// the system's prompt for something nobody was shown.
-struct NoRoot(SystemHands);
+/// the system's prompt for something nobody was shown. The flag: whether the app named its own doze for the hands to
+/// run (without it, a doze command is refused, not run from the `PATH`).
+struct NoRoot(SystemHands, bool);
 
 impl doze_desk::settings::Hands for NoRoot {
     fn doze(
@@ -294,6 +295,11 @@ impl doze_desk::settings::Hands for NoRoot {
         dir: Option<&std::path::Path>,
         args: &[String],
     ) -> Result<(), doze_desk::settings::Fail> {
+        if !self.1 {
+            return Err(doze_desk::settings::Fail::Failed(
+                "the app cannot find its own doze program to run this".into(),
+            ));
+        }
         self.0.doze(dir, args)
     }
     fn admin(&mut self, _: &str, _: &str) -> Result<(), doze_desk::settings::Fail> {

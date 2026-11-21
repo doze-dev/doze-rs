@@ -1,6 +1,7 @@
-//! Version skew: a stack's daemon, or the `doze` the app was told to run, that is older than the app. The app carries
-//! the CLI and runs itself (doze-app `own`), but a daemon started before (by the Go doze, or an older Doze.app) keeps
-//! running its own program; the app then speaks to a daemon whose answers may not be the ones it reads. What a doze is
+//! Version skew: a stack's daemon, or a test's stand-in CLI, that is older than the app. The app carries the CLI and
+//! runs itself (doze-app `own`), but a daemon started before (by an older doze, the Go one included) keeps running its
+//! own program; the app's one answer to it is "restart the stack", which stops it and brings the stack back up on the
+//! app's own doze. Nothing is ever asked of an older doze beyond what it is. What a doze is
 //! comes from `doze --json version` (`version`, the module `protocol`, and `commit` once the CLI says it); a doze that
 //! cannot answer that (the Go doze: "unknown flag: --json") is older than any that can.
 
@@ -28,7 +29,7 @@ pub struct DozeVersion {
 pub enum Whose {
     /// The program the stack's daemon runs.
     Daemon,
-    /// The `doze` the app runs for its commands (`DOZE_APP_CLI`, or one found on the `PATH`).
+    /// The stand-in `doze` a test or check script named (`DOZE_APP_CLI`) in place of the app's own.
     Cli,
 }
 

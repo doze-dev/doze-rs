@@ -85,8 +85,8 @@ pub(crate) struct Facts {
 }
 
 /// The `doze` the app runs, from the command source (`doze_desk::settings::cli`): the app itself, which carries the
-/// CLI (`crate::own`), unless `DOZE_APP_CLI` names another. Never a `doze` found on the `PATH` while the app can
-/// name itself: that may be an older one (the Go doze).
+/// CLI (`crate::own`), or a check script's stand-in (`DOZE_APP_CLI`, test-only). `None` when the app cannot name
+/// itself: a `doze` found on the `PATH` is never run in its place.
 pub(crate) fn find_doze() -> Option<PathBuf> {
     doze_desk::settings::Cli::from_env(crate::own::program()).map(|c| c.program)
 }

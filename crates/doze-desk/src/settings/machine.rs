@@ -22,22 +22,23 @@ pub struct Part {
     pub fix: String,
 }
 
-/// Where the `doze` the app runs is.
+/// Where a terminal finds `doze`, and whether that is the app's own.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct DozeAt {
-    /// Where a terminal finds it: on `PATH`, or in `/usr/local/bin` or `/opt/homebrew/bin` (Go `dozeOnPath`).
+    /// Where a terminal finds a `doze`: on `PATH`, or in `/usr/local/bin` or `/opt/homebrew/bin` (Go `dozeOnPath`).
     pub on_path: Option<PathBuf>,
-    /// Found somewhere a terminal does not look (`~/go/bin`, `~/.local/bin`): what Repair links.
-    pub elsewhere: Option<PathBuf>,
+    /// The app's own `doze` (its CLI), when a terminal does not find it there (none on the `PATH`, or another,
+    /// older one ahead of it): what Repair links.
+    pub own: Option<PathBuf>,
 }
 
 /// Where Repair puts doze so a terminal finds it.
 pub const PATH_LINK: &str = "/usr/local/bin/doze";
 
 impl DozeAt {
-    /// Looks: `PATH` first (a terminal's), then the places a terminal's `PATH` has; then the places the app also
-    /// looks.
-    pub fn find(path_var: Option<&std::ffi::OsStr>, user_home: Option<&Path>) -> DozeAt {
+    /// Looks where a terminal does (`PATH` first, then the places a terminal's `PATH` has) and compares what it finds
+    /// with the app's `own` `doze`. Nothing found is ever run: the app runs only itself.
+    pub fn find(path_var: Option<&std::ffi::OsStr>, own: Option<&Path>) -> DozeAt {
         let mut terminal: Vec<PathBuf> = path_var
             .map(|p| std::env::split_paths(p).collect())
             .unwrap_or_default();
@@ -51,14 +52,13 @@ impl DozeAt {
             .into_iter()
             .map(|d| d.join("doze"))
             .find(|p| p.is_file());
-        let elsewhere = user_home.and_then(|h| {
-            [".local/bin/doze", "go/bin/doze"]
-                .iter()
-                .map(|p| h.join(p))
-                .find(|p| p.is_file())
-        });
+        let mine = |o: &Path| {
+            on_path
+                .as_deref()
+                .is_some_and(|p| crate::skew::same_program(p, o))
+        };
         DozeAt {
-            elsewhere: if on_path.is_some() { None } else { elsewhere },
+            own: own.filter(|o| !mine(o)).map(Path::to_path_buf),
             on_path,
         }
     }
@@ -121,17 +121,28 @@ fn app_part(at: &DozeAt, version: &str) -> Part {
         ok: true,
         ..Part::default()
     };
-    match (&at.on_path, &at.elsewhere) {
-        (Some(path), _) => p.text = format!("{} · {version}", path.display()),
-        (None, Some(found)) => {
+    match (&at.on_path, &at.own) {
+        (Some(path), None) => p.text = format!("{} · {version}", path.display()),
+        (Some(other), Some(own)) => {
+            p.ok = false;
+            p.text = if other == Path::new(PATH_LINK) {
+                format!("{PATH_LINK} is another, older doze: a terminal does not run the app's")
+            } else {
+                format!(
+                    "a terminal runs {}, another, older doze: remove it, then link the app's",
+                    other.display()
+                )
+            };
+            p.fix = format!("ln -sf {} {PATH_LINK}", own.display());
+        }
+        (None, Some(own)) => {
             p.ok = false;
             p.text = "not on your PATH: a terminal and scripts cannot find doze".into();
-            p.fix = format!("ln -s {} {PATH_LINK}", found.display());
+            p.fix = format!("ln -sf {} {PATH_LINK}", own.display());
         }
         (None, None) => {
             p.ok = false;
-            p.text = "not installed: the app needs the doze command for stacks".into();
-            p.fix = "brew install doze".into();
+            p.text = "not on your PATH, and the app cannot name its own doze to link".into();
         }
     }
     p
@@ -260,7 +271,7 @@ mod tests {
         };
         let at = DozeAt {
             on_path: None,
-            elsewhere: Some(PathBuf::from("/Users/me/go/bin/doze")),
+            own: Some(PathBuf::from("/Applications/Doze.app/Contents/MacOS/doze")),
         };
         let p = attention_parts(&d, &at, "v0.2.0");
         let fixes: Vec<(&str, &str)> = p
@@ -272,7 +283,10 @@ mod tests {
             [
                 ("names", "doze dns-setup"),
                 ("domains", "doze trust"),
-                ("app", "ln -s /Users/me/go/bin/doze /usr/local/bin/doze"),
+                (
+                    "app",
+                    "ln -sf /Applications/Doze.app/Contents/MacOS/doze /usr/local/bin/doze"
+                ),
             ]
         );
         assert_eq!(
@@ -280,11 +294,45 @@ mod tests {
             "not on your PATH: a terminal and scripts cannot find doze"
         );
         let found = DozeAt {
-            on_path: Some(PathBuf::from("/opt/homebrew/bin/doze")),
-            elsewhere: None,
+            on_path: Some(PathBuf::from(PATH_LINK)),
+            own: None,
         };
         let app = attention_parts(&Doctor::default(), &found, "v0.2.0");
         assert!(app[0].ok && app[0].fix.is_empty());
+    }
+
+    /// A terminal's `doze` that is not the app's (an older one, the Go doze) is not in place: the app's is linked over
+    /// it, and nothing found on the `PATH` counts as the app's.
+    #[test]
+    fn another_doze_on_the_path_is_not_the_apps() {
+        let dir = tempfile::tempdir().unwrap_or_else(|e| panic!("{e}"));
+        let (bin, app) = (dir.path().join("bin"), dir.path().join("app"));
+        for d in [&bin, &app] {
+            std::fs::create_dir_all(d).unwrap_or_else(|e| panic!("{e}"));
+        }
+        std::fs::write(bin.join("doze"), "old").unwrap_or_else(|e| panic!("{e}"));
+        std::fs::write(app.join("doze-app"), "new").unwrap_or_else(|e| panic!("{e}"));
+        let own = app.join("doze-app");
+        let at = DozeAt::find(Some(bin.as_os_str()), Some(&own));
+        assert_eq!(at.on_path, Some(bin.join("doze")));
+        assert_eq!(at.own.as_deref(), Some(own.as_path()));
+        let p = app_part(&at, "v0.3.0");
+        assert!(!p.ok);
+        assert!(p.text.contains("another, older doze"), "{}", p.text);
+        assert_eq!(p.fix, format!("ln -sf {} {PATH_LINK}", own.display()));
+        #[cfg(unix)]
+        {
+            std::fs::remove_file(bin.join("doze")).unwrap_or_else(|e| panic!("{e}"));
+            std::os::unix::fs::symlink(&own, bin.join("doze")).unwrap_or_else(|e| panic!("{e}"));
+            let at = DozeAt::find(Some(bin.as_os_str()), Some(&own));
+            assert_eq!(at.own, None, "the app's own link is in place");
+            assert!(app_part(&at, "v0.3.0").ok);
+        }
+        let none = app_part(&DozeAt::default(), "v0.3.0");
+        assert!(
+            !none.ok && none.fix.is_empty(),
+            "nothing to install from elsewhere"
+        );
     }
 
     fn check(section: &'static str, name: &str, ok: bool) -> Check {
@@ -307,14 +355,17 @@ mod tests {
         };
         let at = DozeAt {
             on_path: None,
-            elsewhere: Some("/Users/x/go/bin/doze".into()),
+            own: Some("/x/Doze.app/Contents/MacOS/doze".into()),
         };
         let p = parts(&d, &at, "v0.2.0");
         assert_eq!(p.len(), 4);
         assert_eq!(p[0].fix, "doze dns-setup");
         assert_eq!(p[1].fix, "");
         assert_eq!(p[2].fix, "doze trust");
-        assert_eq!(p[3].fix, "ln -s /Users/x/go/bin/doze /usr/local/bin/doze");
+        assert_eq!(
+            p[3].fix,
+            "ln -sf /x/Doze.app/Contents/MacOS/doze /usr/local/bin/doze"
+        );
         assert_eq!(to_do(&p), 3);
         assert_eq!(side_word(&p, 0), "3 to do");
         assert!(fixable(&p));
@@ -335,11 +386,11 @@ mod tests {
     #[test]
     fn all_good() {
         let at = DozeAt {
-            on_path: Some("/opt/homebrew/bin/doze".into()),
-            elsewhere: None,
+            on_path: Some(PATH_LINK.into()),
+            own: None,
         };
         let p = parts(&Doctor::default(), &at, "v0.2.0");
-        assert_eq!(p[0].text, "/opt/homebrew/bin/doze · v0.2.0");
+        assert_eq!(p[0].text, "/usr/local/bin/doze · v0.2.0");
         assert_eq!(side_word(&p, 0), "all good");
         assert_eq!(side_word(&p, 3), "3 left behind");
         assert_eq!(banner(&p, false).0, "Everything is in place.");

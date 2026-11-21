@@ -338,7 +338,7 @@ mod tests {
         home: &std::path::Path,
     ) -> (SystemHands, Arc<Mutex<Vec<Said>>>) {
         let said = Arc::new(Mutex::new(Vec::new()));
-        let mut h = SystemHands::new(Cli::go(cli), home.to_path_buf());
+        let mut h = SystemHands::new(Cli::at(cli), home.to_path_buf());
         let s = said.clone();
         h.out = Some(Arc::new(move |l| {
             s.lock().unwrap_or_else(|e| e.into_inner()).push(l)
