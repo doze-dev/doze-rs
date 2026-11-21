@@ -2,12 +2,19 @@
 
 use super::Format::{Mono, Number, Text as Plain, Time};
 use super::{
-    Create, Delete, Descriptor, Field, Id, Input, InputKind, Kind, LinkTo, List, Shape, Step, Sub,
-    Tags, Text, Write, col, field, input, op, state,
+    Create, Deep, Delete, Descriptor, Field, Id, Input, InputKind, Kind, LinkTo, List, Shape, Step,
+    Sub, Tags, Text, Write, col, field, input, op, ops, says, state,
 };
 
 /// What a tag call names: this stream.
 const STREAM: &str = r#"{"StreamName":"{id}"}"#;
+
+/// What a call on the stream's settings names: this stream, by its name.
+const NAMED: &str = r#"{"StreamName":"{id}"}"#;
+/// What a call that names a stream by its ARN takes: this stream.
+const ARN: &str = r#"{"StreamARN":"arn:aws:kinesis:{region}:{account}:stream/{id}"}"#;
+/// What a resource policy call names.
+const POLICY: &str = r#"{"ResourceARN":"arn:aws:kinesis:{region}:{account}:stream/{id}"}"#;
 
 const SUMMARY: Step = Step::new("DescribeStreamSummary", r#"{"StreamName":"{id}"}"#);
 
@@ -40,19 +47,15 @@ pub(super) static KINESIS: Descriptor = Descriptor {
                 Plain,
             ),
             col(
-                "Open shards",
-                "StreamDescriptionSummary.OpenShardCount",
-                Number,
-            ),
-            col(
-                "Retention (hours)",
-                "StreamDescriptionSummary.RetentionPeriodHours",
-                Number,
-            ),
-            col(
                 "Created",
                 "StreamDescriptionSummary.StreamCreationTimestamp",
                 Time,
+            ),
+            // Not on the board's list: what its sentence counts (the consumers a stream has).
+            col(
+                "Consumers",
+                "StreamDescriptionSummary.ConsumerCount",
+                Number,
             ),
         ],
         id_of: Id::Name,
@@ -160,11 +163,54 @@ pub(super) static KINESIS: Descriptor = Descriptor {
         }),
         delete: Some(Delete {
             verb: "Delete",
-            step: Step::new("DeleteStream", r#"{"StreamName":"{id}"}"#),
-            words: "Deleting removes the stream and every record in it. Kinesis refuses while it has registered consumers.",
+            // The console deletes the consumers with the stream (its dialog says which): Kinesis otherwise refuses.
+            step: Step::new(
+                "DeleteStream",
+                r#"{"StreamName":"{id}","EnforceConsumerDeletion":true}"#,
+            ),
+            words: "Deleting removes the stream, every record in it and its registered consumers.",
         }),
         reveal: None,
-        deep: &[],
+        // What the pages of a stream do to it: each setting its own call, the Data Viewer's reads, the sharing policy.
+        deep: &[
+            Deep {
+                id: "configuration",
+                title: "Configuration",
+                ops: &[
+                    op("UpdateStreamMode", ARN),
+                    op("UpdateShardCount", NAMED),
+                    op("IncreaseStreamRetentionPeriod", NAMED),
+                    op("DecreaseStreamRetentionPeriod", NAMED),
+                    op("StartStreamEncryption", NAMED),
+                    op("StopStreamEncryption", NAMED),
+                    op("EnableEnhancedMonitoring", NAMED),
+                    op("DisableEnhancedMonitoring", NAMED),
+                    op("DescribeStreamSummary", NAMED),
+                    op("ListStreamConsumers", ARN),
+                ],
+            },
+            Deep {
+                id: "viewer",
+                title: "Data Viewer",
+                ops: &[
+                    op("ListShards", NAMED),
+                    op("GetShardIterator", NAMED),
+                    op("GetRecords", "{}"),
+                ],
+            },
+            Deep {
+                id: "sharing",
+                title: "Data stream sharing",
+                ops: &[
+                    op("GetResourcePolicy", POLICY),
+                    op("PutResourcePolicy", POLICY),
+                    op("DeleteResourcePolicy", POLICY),
+                ],
+            },
+        ],
+        // The create with its form (the tags), and the consumers a stream's sentence and delete dialog name.
+        ops: &[ops::free("CreateStream"), ops::free("ListStreamConsumers")],
+        page: says::kinesis::STREAM,
         // Kinesis answers a stream's tags as pairs and takes them as a map.
         tags: Some(
             Tags::new(
