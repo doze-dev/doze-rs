@@ -4,7 +4,6 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useSearch } from "@tanstack/react-router";
 import { lazy, Suspense, useMemo, useState } from "react";
-import { ErrorBlock } from "@doze/ui/components/app/alert";
 import { RefreshControl } from "@doze/ui/components/app/refresh-control";
 import { ResultBanner } from "@doze/ui/components/app/result-banner";
 import { Skeleton } from "@doze/ui/components/ui/skeleton";
@@ -12,8 +11,7 @@ import { useUrlParam } from "@doze/ui/hooks/use-url-param";
 import { useAbout } from "../../../api/queries";
 import { useDelete, useResourceDetail, useResourceList } from "../../../api/resources";
 import type { ResourceDetail } from "../../../api/types/ResourceDetail";
-import { RecentCalls, ResourcePage, ResourcePageSkeleton, TagsTab, type Verb, useTags } from "../../../kit";
-import { hintFor } from "../index-page";
+import { DetailError, RecentCalls, ResourcePage, ResourcePageSkeleton, TagsTab, type Verb, useTags } from "../../../kit";
 import { ConfirmSubscription } from "./confirm-dialog";
 import { Block, Rich } from "./parts";
 import { lastPublished, publishedSentence } from "./publish-result";
@@ -39,7 +37,7 @@ export function TopicDetail({ service, kind, name }: { service: string; kind: st
     void qc.invalidateQueries({ queryKey: ["resources", "tags", service, kind, name] });
     void qc.invalidateQueries({ queryKey: ["resources", "one", "sns", "subscriptions"] });
   };
-  if (detail.isError && !detail.data) return <ErrorBlock what="This topic could not be read" error={detail.error} hint={hintFor(detail.error, "topic")} onRetry={refresh} retrying={detail.isFetching} testId="detail-error" />;
+  if (detail.isError && !detail.data) return <DetailError service={service} kind={kind} name={name} error={detail.error} onRetry={refresh} retrying={detail.isFetching} />;
   if (!detail.data) return <ResourcePageSkeleton />;
   return <TopicView d={detail.data} updatedAt={detail.dataUpdatedAt} fetching={detail.isFetching} refresh={refresh} />;
 }

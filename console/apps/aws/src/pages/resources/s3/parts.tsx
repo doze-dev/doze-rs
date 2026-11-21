@@ -72,12 +72,19 @@ export function Footer({ cancel, onCancel, children }: { cancel?: string; onCanc
 }
 
 /** What a section says when it has nothing: a heading, the consequence, and the way on. Small: it sits inside a card. */
-export function NoneYet({ title, children, action, testId = "none-yet" }: { title: string; children?: React.ReactNode; action?: React.ReactNode; testId?: string }) {
+export function NoneYet({ title, children, action, icon: Icon, testId = "none-yet" }: { title: string; children?: React.ReactNode; action?: React.ReactNode; /** An icon in a tile at the left, as the empty tabs have one. */ icon?: import("lucide-react").LucideIcon; testId?: string }) {
   return (
-    <div className="grid justify-items-start gap-1.5 rounded-xl border border-dashed bg-well/50 px-5 py-4" data-testid={testId}>
-      <h3 className="text-[15px] font-semibold text-bright">{title}</h3>
-      {children && <p className="max-w-[40rem] text-[13.5px] leading-[21px] text-muted-foreground">{children}</p>}
-      {action && <div className="mt-1.5">{action}</div>}
+    <div className="flex items-start gap-4 rounded-xl border border-dashed bg-well/50 px-5 py-4" data-testid={testId}>
+      {Icon && (
+        <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-muted text-muted-foreground">
+          <Icon className="size-[18px]" aria-hidden />
+        </span>
+      )}
+      <div className="grid justify-items-start gap-1.5">
+        <h3 className="text-[15px] font-semibold text-bright">{title}</h3>
+        {children && <p className="max-w-[40rem] text-[13.5px] leading-[21px] text-muted-foreground">{children}</p>}
+        {action && <div className="mt-1.5">{action}</div>}
+      </div>
     </div>
   );
 }

@@ -151,6 +151,16 @@ test("lambda__function-delete: the dialog says what goes with the function and w
   await page.keyboard.press("Escape");
 });
 
+test("a function that is not there: the same page as every kind", async ({ page }) => {
+  await page.goto(`${server.console}${fn("no-such-function")}`);
+  await expect(page.locator("h1").first()).toHaveText("Function not found");
+  const err = page.getByTestId("detail-error");
+  await expect(err).toContainText("There is no function named no-such-function");
+  await expect(err).toContainText("ResourceNotFoundException");
+  await expect(err).not.toContainText("Check that doze-aws is still running");
+  await expect(err.getByRole("link", { name: "Back to event functions" })).toBeVisible();
+});
+
 test("lambda__function-test and lambda__test-result-ok: an event shaped like its trigger, and what ran", async ({ page }) => {
   await go(page, fn("send-email", "?tab=test"), "send-email");
   // As the board: no template is picked ("Choose a template"), and the event already has the shape of the function's trigger.

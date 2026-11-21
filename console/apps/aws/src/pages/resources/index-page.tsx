@@ -3,7 +3,6 @@ import { createElement, useCallback } from "react";
 import { ErrorBlock } from "@doze/ui/components/app/alert";
 import { PageHeader } from "@doze/ui/components/app/page-header";
 import { RefreshControl } from "@doze/ui/components/app/refresh-control";
-import { ApiFailure } from "@doze/ui/lib/api";
 import { Skeleton } from "@doze/ui/components/ui/skeleton";
 import { cn } from "@doze/ui/lib/utils";
 import { number } from "@doze/ui/lib/format";
@@ -12,14 +11,8 @@ import type { KindCount } from "../../api/types/KindCount";
 import type { ResourceService } from "../../api/types/ResourceService";
 import { iconOf } from "./model";
 
-export const HINT = "Check that doze-aws is still running, then try again. Nothing was changed.";
-
-/** What to do about a failed read: for a service that answered that the thing is not there, to choose one that is; else the
- * words for a console that could not reach doze-aws (it did answer, so "check that it is running" would be wrong). */
-export function hintFor(error: unknown, noun: string): string {
-  if (error instanceof ApiFailure && error.status > 0 && error.status < 500 && /NotFound|DoesNotExist|NonExistent|NOT_FOUND/i.test(error.code)) return `There is no ${noun} of that name in this account and Region. Choose one from the list.`;
-  return HINT;
-}
+import { HINT } from "../../kit";
+export { HINT };
 
 /** `3 queues`, `1 topic`, `at least 1,000 keys`; a kind not counted says why in a word. */
 export function countWords(k: KindCount): string {

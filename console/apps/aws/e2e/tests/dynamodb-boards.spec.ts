@@ -10,7 +10,7 @@ import { seedLarder } from "./dynamodb-seed";
 import { CUT, expect, test } from "./fixtures";
 
 const SHOTS = process.env.SHOTS_DIR ?? join(import.meta.dirname, "../../../../../shots-dynamodb");
-const BASE = 44800;
+const BASE = Number(process.env.E2E_BASE_PORT ?? 44800);
 const at = (b: string) => BASE + ({ firefox: 10, webkit: 20, chromium: 30 }[b] ?? 40);
 
 test.describe.configure({ mode: "serial" });
@@ -125,6 +125,24 @@ test("dynamodb__table-create-custom and table-created: capacity, encryption and 
   expect(cli(["dynamodb", "list-tags-of-resource", "--resource-arn", `arn:aws:dynamodb:us-east-1:${server.account}:table/stock-moves`])).toContain("fulfilment");
 });
 
+test("a table that is not there: one page for a missing name, with the way back and the service's code", async ({ page }) => {
+  await page.goto(`${server.console}${T}/no-such-table`);
+  await expect(page.locator("h1").first()).toHaveText("Table not found");
+  const err = page.getByTestId("detail-error");
+  await expect(err).toContainText("There is no table named no-such-table");
+  await expect(err).toContainText("There is no table of that name in this account and Region.");
+  await expect(err).toContainText("ResourceNotFoundException");
+  await expect(err).not.toContainText("Check that doze-aws is still running");
+  await expect(page.getByRole("navigation", { name: "Breadcrumb" }).getByRole("link")).toContainText(["Resources", "Storage and data", "DynamoDB", "Tables"]);
+  await shot(page, "dynamodb__table-missing");
+  // The same page behind the item forms and the settings forms.
+  await page.goto(`${server.console}${T}/no-such-table?do=explore`);
+  await expect(page.locator("h1").first()).toHaveText("Table not found");
+  await err.getByRole("link", { name: "Back to tables" }).click();
+  await expect(page.locator("h1").first()).toHaveText("Tables");
+  // A read that failed otherwise keeps Try again (not covered here: it needs the server to fail).
+});
+
 test("dynamodb__table-detail: the sentence, what it is wired to, and the fields of DescribeTable", async ({ page }) => {
   await go(page, T, "Tables");
   await page.getByRole("link", { name: "orders-table" }).click();
@@ -184,6 +202,7 @@ test("dynamodb__indexes-none: a table with no index says what an index is for", 
   await go(page, `${T}/deliveries?tab=indexes`, "deliveries");
   await expect(page.getByTestId("indexes-none")).toContainText("No global secondary indexes");
   await expect(page.getByTestId("indexes-none")).toContainText("deliveries is queried by its primary key only.");
+  await expect(page.getByTestId("indexes-none").locator("span.rounded-xl svg")).toHaveCount(1);
   await shot(page, "dynamodb__indexes-none");
 });
 
@@ -204,6 +223,7 @@ test("dynamodb__table-exports and exports-none: the stream, an export to S3 and 
   await go(page, `${T}/orders-table?tab=exports`, "orders-table");
   await expect(page.getByTestId("fact-StreamEnabled")).toContainText("Off");
   await expect(page.getByTestId("exports-none")).toContainText("orders-table has not been exported.");
+  await expect(page.getByTestId("exports-none").locator("span.rounded-xl svg")).toHaveCount(1);
   await shot(page, "dynamodb__table-exports");
   await page.getByTestId("stream-on-open").click();
   await expect(page.getByTestId("stream-on-call-code")).toContainText('"StreamViewType": "NEW_AND_OLD_IMAGES"');
@@ -306,6 +326,10 @@ test("dynamodb__items-explore, items-scan and items-none: a query by key and ind
   await expect(page.getByTestId("items-card")).toContainText("Items returned (3)");
   await expect(page.getByTestId("items-card")).toContainText("Everything the query found for customer cus-1042.");
   await expect(page.getByTestId("items-note")).toContainText("there is nothing to continue");
+  // A status is its word with a dot of the colour it means (delivered is good, placed is waiting).
+  await expect(rows.nth(0).locator("[data-tone]")).toHaveAttribute("data-tone", "ok");
+  await expect(rows.nth(1).locator("[data-tone]")).toHaveAttribute("data-tone", "warn");
+  await expect(rows.nth(1).locator("[data-tone]")).toHaveText("placed");
   await rows.first().getByRole("checkbox").click();
   await shot(page, "dynamodb__items-explore");
   await page.getByTestId("mode-scan").click();
@@ -331,6 +355,9 @@ test("dynamodb__items-explore, items-scan and items-none: a query by key and ind
 
 test("dynamodb__item-create and item-edit: an item as rows, its keys fixed, saved with PutItem", async ({ page }) => {
   await go(page, `${T}/orders-table?do=item-create`, "Create item");
+  // Nothing typed: the form has not been wrong about anything, so the footer says nothing yet.
+  await expect(page.getByTestId("form-submit")).toBeDisabled();
+  await expect(page.getByText("a key cannot be empty")).toHaveCount(0);
   await expect(page.getByTestId("attr-order_id").getByTestId("attr-name")).toBeDisabled();
   await expect(page.getByTestId("attr-created_at")).toContainText("Sort key");
   await page.getByTestId("attr-order_id").getByTestId("attr-value").fill("ord-20261108-0431");
@@ -374,11 +401,13 @@ test("dynamodb__item-delete: the ticked item is named by its key and deleted", a
   const rows = page.getByRole("table", { name: "Items" }).locator("tbody tr[data-row]");
   await expect(rows).toHaveCount(3);
   await expect(page.getByTestId("item-delete")).toBeDisabled();
-  // Firefox, with the machine busy, sometimes misses the first click while the rows settle: tick again until the button is live.
-  await expect(async () => {
-    await rows.filter({ hasText: "ord-20261108-0412" }).getByRole("checkbox").check({ timeout: 2000 });
-    await expect(page.getByTestId("item-delete")).toBeEnabled({ timeout: 1000 });
-  }).toPass({ timeout: 10_000 });
+  // Wait until the call panel has shown the final call before ticking: the preview of the call lands a moment after the typing, resizes
+  // the panel and so moves the table under the pointer. A click whose mouse-down and mouse-up land on different elements is no click
+  // (Firefox on a busy machine: Delete stayed disabled). A person waits for "Updating…" to go; so does the test.
+  await expect(code(page)).toContainText('"S": "cus-1042"');
+  await expect(page.getByTestId("call-panel-settling")).toHaveCount(0);
+  await rows.filter({ hasText: "ord-20261108-0412" }).getByRole("checkbox").check();
+  await expect(page.getByTestId("item-delete")).toBeEnabled();
   await page.getByTestId("item-delete").click();
   await expect(page.getByTestId("item-delete-dialog")).toContainText("Delete 1 item?");
   await expect(page.getByTestId("item-key")).toContainText("ord-20261108-0412");
@@ -396,13 +425,20 @@ test("dynamodb__partiql and partiql-error: a statement run, and a write that fin
   await page.getByRole("option", { name: "orders-table" }).click();
   await page.getByTestId("partiql-start").click();
   await expect(page.getByTestId("partiql-statement")).toHaveValue('SELECT * FROM "orders-table"');
-  await page.getByTestId("partiql-statement").fill(`UPDATE "orders-table" SET status = 'cancelled' WHERE order_id = 'ord-20261108-0499' AND created_at = '2026-11-08T08:01:00Z'`);
+  await expect(page.getByTestId("partiql-none").locator("span.rounded-xl svg")).toHaveCount(1);
+  // The box suggests the statement on four lines, as the board lays it out; a statement may be typed over as many lines as a person likes.
+  await expect(page.getByTestId("partiql-statement")).toHaveAttribute("placeholder", /^UPDATE "orders-table"\nSET status = 'cancelled'\nWHERE order_id = '.+'\nAND created_at = '.+'$/);
+  await page.getByTestId("partiql-statement").fill(`UPDATE "orders-table"\nSET status = 'cancelled'\nWHERE order_id = 'ord-20261108-0499'\nAND created_at = '2026-11-08T08:01:00Z'`);
   await expect(code(page)).toContainText("ExecuteStatement");
   await expect(page.getByTestId("partiql-none")).toContainText("Nothing run yet");
   await shot(page, "dynamodb__partiql");
   await page.getByTestId("partiql-run").click();
   await expect(page.getByTestId("partiql-error")).toContainText("Nothing was changed.");
   await expect(page.getByTestId("partiql-error")).toContainText("ConditionalCheckFailedException");
+  // The service's own words stay, with what they mean beside them.
+  await expect(page.getByTestId("partiql-plain")).toHaveText("No item in orders-table has that order_id and created_at, so there was nothing to update.");
+  await expect(page.getByTestId("partiql-raw")).toContainText("The service said: The conditional request failed");
+  await expect(page.getByTestId("call-panel-came-back")).toHaveCount(0);
   await expect(page.getByTestId("partiql-outcomes")).toContainText("DuplicateItemException");
   await shot(page, "dynamodb__partiql-error");
   await page.getByTestId("partiql-statement").fill(`SELECT order_id, status FROM "orders-table" WHERE order_id = 'ord-20261107-0372'`);

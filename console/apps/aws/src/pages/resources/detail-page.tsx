@@ -1,7 +1,7 @@
 import { EyeIcon, EyeOffIcon, PlusIcon, Trash2Icon } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useCallback, useState } from "react";
-import { Alert, ErrorBlock, errorWords } from "@doze/ui/components/app/alert";
+import { Alert, errorWords } from "@doze/ui/components/app/alert";
 import { CopyButton } from "@doze/ui/components/app/copy-button";
 import { type DataColumn, DataTable } from "@doze/ui/components/app/data-table";
 import { PageHeader } from "@doze/ui/components/app/page-header";
@@ -13,9 +13,9 @@ import type { FieldValue } from "../../api/types/FieldValue";
 import type { ResourceDetail } from "../../api/types/ResourceDetail";
 import type { ResourceRow } from "../../api/types/ResourceRow";
 import type { SubList } from "../../api/types/SubList";
+import { DetailError } from "../../kit/detail-error";
 import { RecentCalls } from "../../kit/recent-calls";
 import { DeleteDialog } from "./delete-dialog";
-import { HINT } from "./index-page";
 import { columnLeast, columnSizes, isDocument, oneOf, sortKey, titleFor } from "./model";
 import { CreateDialog } from "./create-dialog";
 import { ResourceTo, Value } from "./value";
@@ -180,7 +180,7 @@ export function ResourceDetailPage({ service, kind, name, tab }: { service: stri
       {detail.isError && !d && hasGonePage(service, kind, errorWords(detail.error).message) ? (
         <GonePage service={service} kind={kind} name={name} />
       ) : detail.isError && !d ? (
-        <ErrorBlock what={`This ${oneOf(kind)} could not be read`} error={detail.error} hint={HINT} onRetry={refresh} retrying={detail.isFetching} testId="detail-error" />
+        <DetailError service={service} kind={kind} name={name} what={`This ${oneOf(kind)} could not be read`} error={detail.error} onRetry={refresh} retrying={detail.isFetching} header={false} />
       ) : !d ? (
         <Skeleton className="h-80 rounded-[14px]" data-testid="detail-loading" />
       ) : (

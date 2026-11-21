@@ -5,6 +5,7 @@ export * from "./calls";
 export * from "./calls-panel";
 export * from "./contract";
 export * from "./deletion-window";
+export * from "./detail-error";
 export * from "./form-page";
 export * from "./form-parts";
 export * from "./local-status";

@@ -2,17 +2,15 @@
 // is wired to on the Overview, and five tabs, Overview, Indexes, Monitor, Exports and streams, Additional settings. What a tab's change
 // leaves is said at the top from the address (`?dialog=index-created&name=`).
 import { useState } from "react";
-import { ErrorBlock } from "@doze/ui/components/app/alert";
 import { RefreshControl } from "@doze/ui/components/app/refresh-control";
 import { ResultBanner } from "@doze/ui/components/app/result-banner";
 import { useQueryClient } from "@tanstack/react-query";
 import { dateTimeUtc, number } from "@doze/ui/lib/format";
 import { useResourceDetail } from "../../../api/resources";
 import type { Wired } from "../../../api/types/Wired";
-import { ResourcePage, ResourcePageSkeleton } from "../../../kit";
+import { DetailError, ResourcePage, ResourcePageSkeleton } from "../../../kit";
 import { deepKey } from "../deep/api";
 import type { OwnProps } from "../deep/registry";
-import { HINT } from "../index-page";
 import { headerWords, type TableInfo } from "./model";
 import { Overview } from "./overview";
 import { tableTarget, useListNav, useTable, useTableNav } from "./parts";
@@ -54,7 +52,7 @@ export function TablePage({ name, search }: OwnProps) {
   const t = read.table;
   const d = detail.data;
   const tab: Tab = TABS.find((x) => x === search.tab) ?? "overview";
-  if ((detail.isError && !d) || (read.isError && !t)) return <ErrorBlock what="This table could not be read" error={detail.error ?? read.error} hint={HINT} onRetry={() => (void detail.refetch(), void read.refetch())} retrying={detail.isFetching} testId="detail-error" />;
+  if ((detail.isError && !d) || (read.isError && !t)) return <DetailError service="dynamodb" kind="tables" name={table} error={detail.error ?? read.error} onRetry={() => (void detail.refetch(), void read.refetch())} retrying={detail.isFetching} />;
   if (!d || !t) return <ResourcePageSkeleton />;
   const over = tab === "overview";
   const wired: Wired[] = [...t.global.map((i) => ({ label: i.name, to: { service: "dynamodb", kind: "tables", name: i.name }, note: `The global secondary index ${i.name}` }))];

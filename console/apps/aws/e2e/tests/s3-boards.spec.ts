@@ -8,6 +8,9 @@ import type { Page } from "@playwright/test";
 import { start } from "../server";
 import { CUT, expect, test } from "./fixtures";
 
+/** Where the doze-aws with no bucket listens (two ports a browser); `E2E_BASE_PORT` moves it when another run holds these. */
+const S3_EMPTY = Number(process.env.E2E_BASE_PORT ?? 44690);
+
 const SHOTS = process.env.S3_SHOTS;
 test.describe.configure({ mode: "serial" });
 
@@ -70,7 +73,7 @@ test("s3__buckets-list and s3__buckets-none: the list says how many and where; a
   await page.getByTestId(`select-${n.rec}`).click();
   await shot(page, "s3__buckets-list", browserName);
   // A doze-aws with no bucket: the empty state.
-  const other = await start(44690 + (browserName === "firefox" ? 0 : browserName === "webkit" ? 2 : 4), 44691 + (browserName === "firefox" ? 0 : browserName === "webkit" ? 2 : 4));
+  const other = await start(S3_EMPTY + (browserName === "firefox" ? 0 : browserName === "webkit" ? 2 : 4), S3_EMPTY + 1 + (browserName === "firefox" ? 0 : browserName === "webkit" ? 2 : 4));
   try {
     await page.goto(`${other.console}/resources/s3/buckets`);
     await expect(page.getByTestId("list-empty")).toContainText("You have no buckets in this region");

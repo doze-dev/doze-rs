@@ -1,6 +1,6 @@
 // The PartiQL editor (dynamodb__partiql, partiql-error): a statement, run with ExecuteStatement, and what it returned as a table or as
 // JSON. Choose a table and Query table writes a starting statement. A refused write says nothing was changed, in the service's words.
-import { PlayIcon } from "lucide-react";
+import { CodeXmlIcon, PlayIcon } from "lucide-react";
 import { useState } from "react";
 import { Alert, errorWords } from "@doze/ui/components/app/alert";
 import { type DataColumn, DataTable } from "@doze/ui/components/app/data-table";
@@ -15,12 +15,16 @@ import { useResourceList } from "../../../api/resources";
 import { CallPanel, useKindOp } from "../../../kit";
 import { Card, JsonBlock } from "../deep/parts";
 import { type Item, cell, toPlain } from "./json";
+import { partiqlWords } from "./partiql-words";
 import { crumbs, KIND, Said } from "./parts";
 
 type Answer = { Items?: Item[]; NextToken?: string };
 
 /** The statement `Query table` writes for `table`. */
 export const startStatement = (table: string): string => `SELECT * FROM "${table}"`;
+
+/** The statement the box suggests while it is empty (an UPDATE, laid out on four lines as the board shows it). */
+export const SAMPLE = `UPDATE "orders-table"\nSET status = 'cancelled'\nWHERE order_id = 'ord-20261108-0499'\nAND created_at = '2026-11-08T08:01:00Z'`;
 
 /** Whether a statement changes an item (its refusal then says nothing was changed). */
 export const writes = (statement: string): boolean => /^\s*(INSERT|UPDATE|DELETE)\b/i.test(statement);
@@ -36,6 +40,7 @@ export function Partiql() {
   const chosen = table ?? names[0] ?? null;
   const failed = run.error ? errorWords(run.error) : null;
   const code = run.error instanceof ApiFailure ? run.error.code : "";
+  const plain = failed && ran ? partiqlWords(code, ran) : null;
   const items = run.data?.Items ?? [];
   const names2 = [...new Set(items.flatMap((i) => Object.keys(i)))];
   const columns: DataColumn<Item>[] = names2.map((n) => ({ id: n, header: n, accessorFn: (r) => cell(r[n]), meta: { mono: true }, min: 110, cell: (c) => cell(c.row.original[n]) || <span className="text-muted-foreground">–</span> }));
@@ -71,7 +76,7 @@ export function Partiql() {
                   Query table
                 </Button>
               </div>
-              <Textarea value={statement} onChange={(e) => (setStatement(e.target.value), run.reset())} rows={5} spellCheck={false} aria-label="Statement" placeholder={`UPDATE "orders-table" SET status = 'cancelled' WHERE order_id = 'ord-1' AND created_at = '2026-11-08T08:01:00Z'`} className="bg-card font-mono text-[13px] leading-6" data-testid="partiql-statement" />
+              <Textarea value={statement} onChange={(e) => (setStatement(e.target.value), run.reset())} rows={4} spellCheck={false} aria-label="Statement" placeholder={SAMPLE} className="bg-card font-mono text-[13px] leading-6" data-testid="partiql-statement" />
               <div>
                 <Button type="submit" disabled={!statement.trim() || run.isPending} data-testid="partiql-run">
                   <PlayIcon /> {run.isPending ? "Running…" : "Run"}
@@ -81,7 +86,9 @@ export function Partiql() {
           </Card>
           {failed && (
             <Alert tone="bad" title={ran && writes(ran) ? "Nothing was changed." : "The statement was not run."} testId="partiql-error">
-              <span className="font-mono text-[13px]">{code || failed.code}</span> {failed.message}
+              <span className="font-mono text-[13px]" data-testid="partiql-code">{code || failed.code}</span>
+              {plain && <p className="mt-0.5" data-testid="partiql-plain">{plain}</p>}
+              <p className={plain ? "mt-0.5 text-muted-foreground" : "mt-0.5"} data-testid="partiql-raw">{plain ? "The service said: " : ""}{failed.message}</p>
             </Alert>
           )}
           {failed && ran && writes(ran) && (
@@ -103,9 +110,9 @@ export function Partiql() {
             testId="results-card"
           >
             {!run.data ? (
-              <EmptyTab title="Nothing run yet" testId="partiql-none">Run a statement to see its items in table or JSON view.</EmptyTab>
+              <EmptyTab icon={CodeXmlIcon} title="Nothing run yet" testId="partiql-none">Run a statement to see its items in table or JSON view.</EmptyTab>
             ) : items.length === 0 ? (
-              <EmptyTab title="The statement ran" testId="partiql-empty">It returned no items{ran && writes(ran) ? ", which is how a write answers" : ""}.</EmptyTab>
+              <EmptyTab icon={CodeXmlIcon} title="The statement ran" testId="partiql-empty">It returned no items{ran && writes(ran) ? ", which is how a write answers" : ""}.</EmptyTab>
             ) : view === "table" ? (
               <DataTable aria-label="Results" data={items} columns={columns} rowId={(r) => JSON.stringify(r)} maxHeight={480} />
             ) : (
@@ -114,7 +121,7 @@ export function Partiql() {
             {run.data && items.length > 0 && <Said testId="results-count">{items.length} {items.length === 1 ? "item" : "items"} returned.{run.data.NextToken ? " There are more; the console shows the first page." : ""}</Said>}
           </Card>}
         </div>
-        <CallPanel request={request} refusal={failed ? { code: code || failed.code || "Error", message: failed.message } : null} />
+        <CallPanel request={request} />
       </div>
     </div>
   );

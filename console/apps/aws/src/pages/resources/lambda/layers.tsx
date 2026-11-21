@@ -21,10 +21,9 @@ import { Skeleton } from "@doze/ui/components/ui/skeleton";
 import { bytes as sizeOf } from "@doze/ui/lib/format";
 import { useResourceDetail, useResourceList } from "../../../api/resources";
 import type { ResourceList } from "../../../api/types/ResourceList";
-import { callKindOp, Field, FieldRefusal, FormPage, FormSection, useKindOp } from "../../../kit";
+import { DetailError, HINT, callKindOp, Field, FieldRefusal, FormPage, FormSection, useKindOp } from "../../../kit";
 import { callOp, useOp } from "../deep/api";
 import { Card, Confirm, Loaded } from "../deep/parts";
-import { HINT } from "../index-page";
 import { ResourceTo, Value } from "../value";
 import { type LayerForm, layerInput, layerProblems } from "./forms";
 import { LAYERS, refusalOf, useLayers, type LayerRow } from "./hooks";
@@ -188,7 +187,7 @@ export function LayerDetail({ service, kind, name }: { service: string; kind: st
     { id: "arn", header: "ARN", min: 260, accessorFn: (r) => r.cells[3] ?? "", meta: { mono: true }, cell: (c) => <span className="font-mono text-[13px]">{c.row.original.cells[3]}</span> },
     { id: "delete", header: "", size: 60, enableSorting: false, cell: (c) => <Button type="button" variant="ghost" size="icon-sm" aria-label={`Delete version ${c.row.original.cells[0]}`} onClick={() => setGone(Number(c.row.original.cells[0]))} data-testid="layer-version-delete"><Trash2Icon /></Button> },
   ];
-  if (detail.isError && !detail.data) return <ErrorBlock what="This layer could not be read" error={detail.error} hint={HINT} onRetry={() => void detail.refetch()} retrying={detail.isFetching} testId="detail-error" />;
+  if (detail.isError && !detail.data) return <DetailError service={service} kind={kind} name={name} error={detail.error} onRetry={() => void detail.refetch()} retrying={detail.isFetching} />;
   if (!detail.data) return <Skeleton className="h-72 rounded-[14px]" />;
   const last = rows.length <= 1;
   return (
