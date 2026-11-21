@@ -81,14 +81,25 @@ export function aliasProblem(value: string): string | null {
 
 export type Principal = { kind: "user" | "role" | "root" | "account" | "service" | "federated" | "any" | "other"; /** What to show: the user's name, the service, the ARN. */ label: string; account?: string };
 
-/** A policy document as IAM answers it: text, or the JSON it holds. */
+/** A policy document as IAM answers it: its JSON text, that text URL-encoded (as IAM sends a policy of its own), or the JSON it holds. */
 export type Doc = string | object;
+
+/** The document as text a person reads: a URL-encoded one decoded, an object written out. */
+export function docText(doc: Doc): string {
+  if (typeof doc !== "string") return JSON.stringify(doc);
+  if (!/^%7B|^%5B/i.test(doc)) return doc;
+  try {
+    return decodeURIComponent(doc);
+  } catch {
+    return doc;
+  }
+}
 type Trust = { Statement?: unknown };
 const asList = (v: unknown): string[] => (typeof v === "string" ? [v] : Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : []);
 
 const parse = (doc: Doc): Trust | null => {
   try {
-    const v: unknown = typeof doc === "string" ? JSON.parse(doc) : doc;
+    const v: unknown = typeof doc === "string" ? JSON.parse(docText(doc)) : doc;
     return typeof v === "object" && v !== null ? (v as Trust) : null;
   } catch {
     return null;
@@ -173,9 +184,9 @@ export function trustSentence(role: string, doc: Doc, account: string): string {
 }
 
 /** Whether a trust policy asks for an external ID: the console cannot switch to such a role. */
-export const needsExternalId = (doc: Doc): boolean => /sts:ExternalId/i.test(typeof doc === "string" ? doc : JSON.stringify(doc));
+export const needsExternalId = (doc: Doc): boolean => /sts:ExternalId/i.test(docText(doc));
 
-export type TrustChoice = { type: "service" | "account" | "custom"; service: string; account: "this" | "other"; other: string; external: boolean; externalId: string; custom: string };
+export type TrustChoice = { type: "service" | "account" | "custom"; service: string; account: "this" | "other"; other: string; external: boolean; externalId: string; mfa: boolean; custom: string };
 
 /** The services a role is commonly made for, as their principals. */
 export const SERVICES: { value: string; label: string }[] = [
@@ -188,7 +199,7 @@ export const SERVICES: { value: string; label: string }[] = [
   { value: "cloudformation.amazonaws.com", label: "CloudFormation" },
 ];
 
-export const blankTrust: TrustChoice = { type: "account", service: "lambda.amazonaws.com", account: "this", other: "", external: false, externalId: "", custom: "" };
+export const blankTrust: TrustChoice = { type: "account", service: "lambda.amazonaws.com", account: "this", other: "", external: false, externalId: "", mfa: false, custom: "" };
 
 /** The account the AWS account choice trusts: this one's root, or the ID typed. */
 export const accountTrusted = (c: TrustChoice, account: string): string => (c.account === "this" ? account : c.other.trim());
@@ -208,7 +219,10 @@ export function trustDocument(c: TrustChoice, account: string): string {
   if (c.type === "custom") return c.custom;
   const principal = c.type === "service" ? { Service: c.service } : { AWS: `arn:aws:iam::${accountTrusted(c, account) || "000000000000"}:root` };
   const statement: Record<string, unknown> = { Effect: "Allow", Principal: principal, Action: "sts:AssumeRole" };
-  if (c.type === "account" && c.external) statement.Condition = { StringEquals: { "sts:ExternalId": c.externalId } };
+  const condition: Record<string, unknown> = {};
+  if (c.type === "account" && c.external) condition.StringEquals = { "sts:ExternalId": c.externalId };
+  if (c.type === "account" && c.mfa) condition.Bool = { "aws:MultiFactorAuthPresent": "true" };
+  if (Object.keys(condition).length > 0) statement.Condition = condition;
   return JSON.stringify({ Version: "2012-10-17", Statement: [statement] }, null, 2);
 }
 

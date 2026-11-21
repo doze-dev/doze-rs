@@ -215,7 +215,10 @@ async fn a_role_is_made_with_its_trust_and_policies_and_the_trust_can_be_replace
     assert_eq!(made["Role"]["RoleName"], "report-job");
     let listed = ok(&w, "roles", "ListRoles", json!({})).await;
     assert_eq!(listed["Roles"][0]["RoleName"], "report-job");
-    assert!(listed["Roles"][0]["AssumeRolePolicyDocument"].is_object() || listed["Roles"][0]["AssumeRolePolicyDocument"].is_string());
+    assert!(
+        listed["Roles"][0]["AssumeRolePolicyDocument"].is_object()
+            || listed["Roles"][0]["AssumeRolePolicyDocument"].is_string()
+    );
     ok(
         &w,
         "roles",

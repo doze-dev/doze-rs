@@ -79,6 +79,7 @@ describe("trust policies", () => {
     const other = JSON.parse(trustDocument({ ...blankTrust, account: "other", other: "210987654321", external: true, externalId: "abc" }, ACCOUNT)).Statement[0];
     expect(other.Principal).toEqual({ AWS: "arn:aws:iam::210987654321:root" });
     expect(other.Condition).toEqual({ StringEquals: { "sts:ExternalId": "abc" } });
+    expect(JSON.parse(trustDocument({ ...blankTrust, mfa: true }, ACCOUNT)).Statement[0].Condition).toEqual({ Bool: { "aws:MultiFactorAuthPresent": "true" } });
     expect(trustDocument({ ...blankTrust, type: "custom", custom: "{}" }, ACCOUNT)).toBe("{}");
   });
   test("a choice that cannot be built says why", () => {
@@ -106,5 +107,15 @@ describe("policy documents", () => {
   });
   test("an AWS managed policy has its ARN from its name", () => {
     expect(awsArn("PowerUserAccess")).toBe("arn:aws:iam::aws:policy/PowerUserAccess");
+  });
+});
+
+describe("documents as IAM sends them", () => {
+  test("a URL-encoded policy is read as the JSON it is", async () => {
+    const { docText } = await import("./model");
+    expect(docText("%7B%22Version%22%3A%222012-10-17%22%7D")).toBe('{"Version":"2012-10-17"}');
+    expect(docText('{"a":1}')).toBe('{"a":1}');
+    expect(docText({ a: 1 })).toBe('{"a":1}');
+    expect(permissions("%7B%22Statement%22%3A%5B%7B%22Effect%22%3A%22Allow%22%2C%22Action%22%3A%22s3%3AGetObject%22%2C%22Resource%22%3A%22%2A%22%7D%5D%7D")[0]?.actions).toBe("s3:GetObject");
   });
 });

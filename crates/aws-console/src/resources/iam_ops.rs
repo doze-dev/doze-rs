@@ -48,6 +48,9 @@ pub(super) const ROLE_OPS: &[Op] = &[
     free("ListAttachedRolePolicies"),
     free("AttachRolePolicy"),
     free("DetachRolePolicy"),
+    free("ListRolePolicies"),
+    free("PutRolePolicy"),
+    free("DeleteRolePolicy"),
     free("UpdateAssumeRolePolicy"),
     free("AssumeRole").of("sts"),
 ];

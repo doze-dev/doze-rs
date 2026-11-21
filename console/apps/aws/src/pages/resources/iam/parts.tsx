@@ -84,14 +84,14 @@ export function Segmented<T extends string>({ value, onChange, options, label, t
   );
 }
 
-type Option<T extends string> = { value: T; title: React.ReactNode; description?: React.ReactNode; disabled?: boolean };
+type Option<T extends string> = { value: T; title: React.ReactNode; description?: React.ReactNode; disabled?: boolean; /** A grid class for the card (`sm:col-span-2`). */ span?: string };
 
 /** Choices as cards side by side, the radio inside each. */
 export function CardChoice<T extends string>({ value, onChange, options, name, className }: { value: T; onChange: (v: T) => void; options: Option<T>[]; name: string; className?: string }) {
   return (
     <RadioGroup value={value} onValueChange={(v) => onChange(v as T)} className={cn("grid gap-4", className ?? "sm:grid-cols-3")} aria-label={name}>
       {options.map((o) => (
-        <Label key={o.value} htmlFor={`${name}-${o.value}`} className={cn("flex cursor-pointer items-start gap-3 rounded-xl border bg-card p-4 font-normal leading-5 has-[[data-state=checked]]:border-primary has-[[data-state=checked]]:bg-pick/40 has-[[data-state=checked]]:ring-[3px] has-[[data-state=checked]]:ring-primary/10", o.disabled && "cursor-not-allowed bg-muted/40 opacity-60")}>
+        <Label key={o.value} htmlFor={`${name}-${o.value}`} className={cn("flex cursor-pointer items-start gap-3 rounded-xl border bg-card p-4 font-normal leading-5 has-[[data-state=checked]]:border-primary has-[[data-state=checked]]:bg-pick/40 has-[[data-state=checked]]:ring-[3px] has-[[data-state=checked]]:ring-primary/10", o.disabled && "cursor-not-allowed bg-muted/40 opacity-60", o.span)}>
           <RadioGroupItem id={`${name}-${o.value}`} value={o.value} disabled={o.disabled} className="mt-0.5" data-testid={`${name}-${o.value}`} />
           <span className="grid gap-0.5">
             <span className="font-medium text-bright">{o.title}</span>
@@ -186,5 +186,18 @@ export function NotThere({ kind, name }: { kind: keyof typeof KINDS; name: strin
       <p className="text-[13.5px] leading-[21px] text-muted-foreground">IAM answered NoSuchEntity: there is no {noun} of that name in this account. It may have been deleted, or the address is mistyped.</p>
       <p><Link to="/resources/$service/$second" params={{ service: "iam", second: kind }} search={{}} className="text-[13.5px] font-medium text-link hover:underline">See the {KINDS[kind].title.toLowerCase()}</Link></p>
     </div>
+  );
+}
+
+/** A block of the review step: its title, the Edit that goes back to the step, and what that step chose. */
+export function ReviewBlock({ title, onEdit, children, testId }: { title: string; onEdit?: () => void; children: React.ReactNode; testId?: string }) {
+  return (
+    <section className="min-w-0 rounded-[14px] border bg-card p-6 lg:p-7" aria-label={title} data-testid={testId}>
+      <div className="flex items-start justify-between gap-3">
+        <h2 className="text-[17px] leading-6 font-semibold tracking-[-0.01em] text-bright">{title}</h2>
+        {onEdit && <button type="button" className="rounded-sm text-[13px] font-medium text-link hover:underline focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none" onClick={onEdit} data-testid={`review-edit-${testId ?? title}`}>Edit</button>}
+      </div>
+      <div className="mt-3 grid gap-3">{children}</div>
+    </section>
   );
 }

@@ -37,16 +37,16 @@ export function groupsSentence(groups: readonly GroupFacts[]): string {
   return `${count(groups.length, "group")}: ${shown.join("; ")}${more}.`;
 }
 
-export type RoleFacts = { name: string; trusted: string[]; assumed: number; assumedBy: string[] };
+export type RoleFacts = { name: string; trusted: string[]; assumed: number; inLastHour: number; assumedBy: string[] };
 
 /** `3 roles. report-job was assumed 7 times in the last hour...`: what the record says of who took a session, and for which service the role is. */
 export function rolesSentence(roles: readonly RoleFacts[]): string {
   if (roles.length === 0) return "There are no roles in this account.";
   const clauses = roles.slice(0, 3).map((r) => {
-    if (r.assumed > 0) return `${r.name} was assumed ${count(r.assumed, "time")} in the record${r.assumedBy.length === 1 ? `, with ${r.assumedBy[0]}` : ""}`;
+    if (r.assumed > 0) return `${r.name} was assumed ${count(r.assumed, "time")}${r.inLastHour === r.assumed ? " in the last hour" : " in the Live record"}${r.assumedBy.length === 1 ? `, each time with ${r.assumedBy[0]}'s key` : r.assumedBy.length > 1 ? `, with the keys of ${list(r.assumedBy)}` : ""}`;
     const svc = r.trusted.filter((t) => t.startsWith("AWS service: ")).map((t) => t.slice("AWS service: ".length));
     if (svc.length > 0) return `${r.name} is for ${list(svc)}`;
-    return `${r.name} was not assumed in the record`;
+    return `${r.name} was not assumed in the Live record`;
   });
   return `${count(roles.length, "role")}. ${clauses.join("; ")}${roles.length > 3 ? `; ${roles.length - 3} more` : ""}.`;
 }

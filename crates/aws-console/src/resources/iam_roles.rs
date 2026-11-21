@@ -11,6 +11,8 @@ use super::{
 
 /// What a role call names: this role.
 const ROLE: &str = r#"{"RoleName":"{id}"}"#;
+/// What a policy call names: this policy, by its ARN.
+const POLICY: &str = r#"{"PolicyArn":"{id}"}"#;
 
 /// The trust policy a role starts from: Lambda may assume it. The person changes the service, or the principal, before
 /// creating.
@@ -282,6 +284,17 @@ pub(super) const POLICIES: Kind = Kind {
     deep: &[],
     blockers: POLICY_BLOCKERS,
     ops: POLICY_OPS,
+    tags: Some(Tags::new(
+        Step::new("ListPolicyTags", POLICY),
+        "Tags",
+        Shape::KEY_VALUE,
+        Write::Delta {
+            add: op("TagPolicy", POLICY),
+            at: "Tags",
+            remove: op("UntagPolicy", POLICY),
+            keys: "TagKeys",
+        },
+    )),
     // Customer managed policies (the default), AWS managed ones, or both.
     params: &[Param {
         key: "scope",

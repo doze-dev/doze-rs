@@ -48,3 +48,11 @@ export const iamCalls = (page: CallsPage | undefined): CallRecord[] => (page?.ca
 
 /** The names of the IAM entities of a kind, from a list answer: what a form's "already exists" hint says. */
 export const namesOf = (rows: readonly { name: string }[] | undefined): string[] => (rows ?? []).map((r) => r.name);
+
+/** The sessions the record shows taken of each role: how many, how many in the last hour, and the IAM users whose keys took them. */
+export type Assumed = { count: number; lastHour: number; by: string[] };
+
+export function assumedOf(calls: readonly CallRecord[], role: string, names: ReadonlyMap<string, string>, now: number): Assumed {
+  const mine = calls.filter((c) => c.service === "sts" && c.action === "AssumeRole" && c.status < 400 && c.caller !== "console" && (c.resource ?? "").split("/").pop() === role && (c.resource ?? "").includes(":role/"));
+  return { count: mine.length, lastHour: mine.filter((c) => now - c.at_ms <= 3_600_000).length, by: [...new Set(mine.map((c) => (c.caller ? names.get(c.caller) : undefined)).filter((n): n is string => Boolean(n)))] };
+}
