@@ -41,6 +41,7 @@ pub const fn op_owned(op: &'static str, bind: &'static str, owned: &'static Owne
         bind,
         within: None,
         owned: Some(owned),
+        service: None,
     }
 }
 
@@ -60,6 +61,7 @@ async fn check_owned(
         bind: owned.bind,
         within: None,
         owned: None,
+        service: None,
     };
     let ask = bound(bus, &list, (id, name), Map::new())?;
     let answer = bus.call(target, owned.list, &Value::Object(ask)).await?;
@@ -210,12 +212,12 @@ pub async fn call(
     }
     let id = id_for(bus, (d, kind), op, name).await?;
     if let Some(owned) = op.owned {
-        check_owned(bus, (d.target, op, owned), (&id, name), &input).await?;
+        check_owned(bus, (op.target(d), op, owned), (&id, name), &input).await?;
     }
     let body = Value::Object(bound(bus, op, (&id, name), input)?);
     if (d.target, op.op) == ("lambda", "Invoke") {
         let done = invoke::invoke(bus, &body).await?;
         return serde_json::to_value(done).map_err(|e| ApiError::internal(e.to_string()));
     }
-    bus.call(d.target, op.op, &body).await
+    bus.call(op.target(d), op.op, &body).await
 }

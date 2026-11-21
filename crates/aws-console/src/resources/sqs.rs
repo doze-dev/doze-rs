@@ -2,8 +2,9 @@
 
 use super::Format::{Bytes, Flag, Json, Mono, Number, Seconds, Tail, Time};
 use super::{
-    Create, Deep, Delete, Descriptor, Field, Id, Input, InputKind, Kind, LinkTo, List, Shape, Step,
-    Sub, Tags, Text, Write, col, deep, field, input, op, ops, says,
+    Apply, Create, Deep, Delete, Descriptor, Field, Id, Input, InputKind, Kind, LinkTo, List, Op,
+    Options, Param, ParamKind, Shape, Step, Sub, Tags, Text, Write, col, deep, field, input, op,
+    ops, says,
 };
 
 const ATTRIBUTES: Step = Step::new(
@@ -65,6 +66,18 @@ pub(super) static SQS: Descriptor = Descriptor {
                 Tail,
             ),
             col("Created", "Attributes.CreatedTimestamp", Time),
+            // The page reads these two as one column, Encryption: SSE-SQS is on unless a KMS key is set.
+            col(
+                "SQS-managed encryption",
+                "Attributes.SqsManagedSseEnabled",
+                Flag("Enabled", ""),
+            ),
+            col("KMS key", "Attributes.KmsMasterKeyId", Tail),
+            col(
+                "Content-based deduplication",
+                "Attributes.ContentBasedDeduplication",
+                Flag("Enabled", ""),
+            ),
         ],
         id_of: Id::Call(
             Step::new("GetQueueUrl", r#"{"QueueName":"{name}"}"#),
@@ -146,6 +159,21 @@ pub(super) static SQS: Descriptor = Descriptor {
                 }],
                 ..field("KMS key", "Attributes.KmsMasterKeyId", Mono)
             },
+            field(
+                "Data key reuse period",
+                "Attributes.KmsDataKeyReusePeriodSeconds",
+                Seconds,
+            ),
+            field(
+                "Deduplication scope",
+                "Attributes.DeduplicationScope",
+                Mono,
+            ),
+            field(
+                "FIFO throughput limit",
+                "Attributes.FifoThroughputLimit",
+                Mono,
+            ),
             field("Created", "Attributes.CreatedTimestamp", Time),
             field("Last modified", "Attributes.LastModifiedTimestamp", Time),
             field("Access policy", "Attributes.Policy", Json),
@@ -174,6 +202,23 @@ pub(super) static SQS: Descriptor = Descriptor {
                 ],
                 link: Some(("lambda", "functions", Text::tail("FunctionArn"))),
                 more: "NextMarker",
+                add: None,
+            },
+            // SNS lists every subscription of the account; the queue's are the ones that deliver to it.
+            Sub {
+                title: "SNS subscriptions",
+                step: Step::new("ListSubscriptions", r#"{"NextToken":"{token}"}"#)
+                    .of("sns")
+                    .optional()
+                    .keeping("Endpoint", "{out:Attributes.QueueArn}"),
+                items: "Subscriptions",
+                item_as: "SubscriptionArn",
+                columns: &[
+                    col("Topic", "TopicArn", Tail),
+                    col("Subscription", "SubscriptionArn", Mono),
+                ],
+                link: Some(("sns", "topics", Text::tail("TopicArn"))),
+                more: "NextToken",
                 add: None,
             },
             Sub {
@@ -277,7 +322,53 @@ pub(super) static SQS: Descriptor = Descriptor {
                 title: "Settings",
                 ops: &[op("SetQueueAttributes", QUEUE)],
             },
+            // What feeds the queue: the rules of every bus that target it (EventBridge lists them one bus at a time).
+            Deep {
+                id: "wiring",
+                title: "Wired to",
+                ops: &[
+                    op("ListEventBuses", "{}").of("events"),
+                    op(
+                        "ListRuleNamesByTarget",
+                        r#"{"TargetArn":"arn:aws:sqs:{region}:{account}:{name}"}"#,
+                    )
+                    .of("events"),
+                ],
+            },
+            // A Lambda function polls the queue: the mapping's source is this queue and no other.
+            Deep {
+                id: "triggers",
+                title: "Lambda triggers",
+                ops: &[
+                    op(
+                        "CreateEventSourceMapping",
+                        r#"{"EventSourceArn":"arn:aws:sqs:{region}:{account}:{name}"}"#,
+                    )
+                    .of("lambda"),
+                ],
+            },
+            // The queue subscribes to a topic of this account and Region; the endpoint is this queue.
+            Deep {
+                id: "subscriptions",
+                title: "SNS subscriptions",
+                ops: &[Op {
+                    within: Some(("TopicArn", "arn:aws:sns:{region}:{account}:")),
+                    ..op(
+                        "Subscribe",
+                        r#"{"Protocol":"sqs","Endpoint":"arn:aws:sqs:{region}:{account}:{name}"}"#,
+                    )
+                    .of("sns")
+                }],
+            },
         ],
+        params: &[Param {
+            key: "prefix",
+            label: "Name begins with",
+            input: ParamKind::Text,
+            options: Options::None,
+            default: "",
+            apply: Apply::Member("QueueNamePrefix"),
+        }],
         ops: &[ops::free("CreateQueue")],
         tags: Some(Tags::new(
             Step::new("ListQueueTags", QUEUE),

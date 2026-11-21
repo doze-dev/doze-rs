@@ -146,6 +146,8 @@ pub struct Op {
     /// For an operation on a part the page names by a handle no prefix tells (a move task's handle): how to list this
     /// resource's own parts, among which the handle must be ([`deep::Owned`]).
     pub owned: Option<&'static deep::Owned>,
+    /// Another service's operation, by its name on the bus (a queue's `Subscribe` is `sns`'s); the descriptor's own when absent.
+    pub service: Option<&'static str>,
 }
 
 /// An operation of a [`Deep`] page.
@@ -156,6 +158,7 @@ pub const fn op(op: &'static str, bind: &'static str) -> Op {
         bind,
         within: None,
         owned: None,
+        service: None,
     }
 }
 
@@ -168,6 +171,7 @@ pub const fn op_within(op: &'static str, member: &'static str, prefix: &'static 
         bind: "{}",
         within: Some((member, prefix)),
         owned: None,
+        service: None,
     }
 }
 

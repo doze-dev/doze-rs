@@ -385,7 +385,11 @@ pub async fn sub(
     };
     let (rows, more, error) = match answer {
         Ok(answer) => {
-            let items = items_of(&answer, sub.items, sub.item_as);
+            let mut items = items_of(&answer, sub.items, sub.item_as);
+            if let Some((at, value)) = sub.step.keep {
+                let want = path::text(&path::fill(&Value::String(value.to_owned()), &fill), "");
+                items.retain(|item| path::text(item, at) == want);
+            }
             let more = !sub.more.is_empty()
                 && path::text(&answer, sub.more)
                     .is_some_and(|m| m == "true" || (!m.is_empty() && m != "false"));

@@ -92,10 +92,10 @@ pub const QUEUE: Page = Page {
     badges: Some(badges),
     verbs: &[
         Verb::ui("edit", "Edit"),
-        Verb::ui("messages", "Send and receive messages"),
-        Verb::call("purge", "Purge", "PurgeQueue", Needs::Confirm).danger(),
-        Verb::ui("redrive", "Start DLQ redrive").when(is_dead_letter),
         Verb::ui("delete", "Delete").danger(),
+        Verb::call("purge", "Purge", "PurgeQueue", Needs::Confirm).danger(),
+        Verb::ui("messages", "Send and receive messages"),
+        Verb::ui("redrive", "Start DLQ redrive").when(is_dead_letter),
     ],
     summary: Some(summary),
 };
@@ -110,7 +110,7 @@ fn cell(row: &ResourceRow, at: usize) -> i64 {
         .unwrap_or(0)
 }
 
-/// `7 queues hold 58 messages waiting, 3 in flight. pick-lists-dlq is the only dead-letter queue with a message.`
+/// `7 queues hold 58 messages waiting and 6 in flight. pick-lists-dlq is the only dead-letter queue with a message in it.`
 fn summary(rows: &[ResourceRow]) -> Option<String> {
     if rows.is_empty() {
         return None;
@@ -134,16 +134,16 @@ fn summary(rows: &[ResourceRow]) -> Option<String> {
         plural(waiting, "message", "messages")
     );
     if in_flight > 0 {
-        out.push_str(&format!(", {in_flight} in flight"));
+        out.push_str(&format!(" and {in_flight} in flight"));
     }
     out.push('.');
     match loaded.as_slice() {
         [] => {}
         [one] => out.push_str(&format!(
-            " {one} is the only dead-letter queue with a message."
+            " {one} is the only dead-letter queue with a message in it."
         )),
         many => out.push_str(&format!(
-            " {} are dead-letter queues with messages.",
+            " {} are dead-letter queues with messages in them.",
             list(many)
         )),
     }

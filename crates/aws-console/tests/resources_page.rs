@@ -92,7 +92,7 @@ async fn a_queue_says_what_it_holds_where_it_sends_what_fails_and_what_can_be_do
     assert_eq!(badges(&d), ["Standard"]);
     assert_eq!(keys(&d["badges"][0]), ts_keys("Badge"));
     assert_eq!(d["badges"][0]["tone"], "neutral");
-    assert_eq!(verbs(&d), ["edit", "messages", "purge", "delete"]);
+    assert_eq!(verbs(&d), ["edit", "delete", "purge", "messages"]);
     assert_eq!(keys(&d["verbs"][0]), ts_keys("VerbSpec"));
     let purge = &d["verbs"][2];
     assert_eq!(
@@ -104,7 +104,7 @@ async fn a_queue_says_what_it_holds_where_it_sends_what_fails_and_what_can_be_do
         (json!("PurgeQueue"), json!("confirm"), json!(true))
     );
     assert_eq!(d["verbs"][1]["op"], Value::Null);
-    assert_eq!(d["verbs"][3]["danger"], true);
+    assert_eq!(d["verbs"][1]["danger"], true);
     assert_eq!(
         wired(&d),
         [("Dead-letter queue".to_owned(), "pick-lists-dlq".to_owned())]
@@ -122,14 +122,14 @@ async fn a_queue_says_what_it_holds_where_it_sends_what_fails_and_what_can_be_do
     assert_eq!(dlq["badges"][1]["tone"], "info");
     assert_eq!(
         verbs(&dlq),
-        ["edit", "messages", "purge", "redrive", "delete"]
+        ["edit", "delete", "purge", "messages", "redrive"]
     );
 
     // The list says what its page holds.
     let (_, list) = w.get(&format!("{BASE}/sqs/queues")).await;
     assert_eq!(
         list["sentence"],
-        "2 queues hold 3 messages waiting. pick-lists-dlq is the only dead-letter queue with a message."
+        "2 queues hold 3 messages waiting. pick-lists-dlq is the only dead-letter queue with a message in it."
     );
     w.app(
         "sqs",

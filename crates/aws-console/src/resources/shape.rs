@@ -86,6 +86,9 @@ pub struct Step {
     pub service: Option<&'static str>,
     /// A refusal is not a failure of the page (a bucket with no policy answers `NoSuchBucketPolicy`).
     pub optional: bool,
+    /// For a list that the service cannot ask for by what it wants (SNS lists every subscription of the account): the rows
+    /// kept are those whose value at `.0` is `.1` (filled), so a queue lists the subscriptions that deliver to it.
+    pub keep: Option<(&'static str, &'static str)>,
 }
 
 impl Step {
@@ -108,7 +111,15 @@ impl Step {
             body,
             service: None,
             optional: false,
+            keep: None,
         }
+    }
+
+    /// The same call, its rows narrowed to those whose value at `path` is `value` (filled as a body is).
+    #[must_use]
+    pub const fn keeping(mut self, path: &'static str, value: &'static str) -> Self {
+        self.keep = Some((path, value));
+        self
     }
 
     /// The same call, to `service`.

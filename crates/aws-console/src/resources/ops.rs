@@ -18,6 +18,21 @@ pub fn allowed(kind: &Kind, name: &str) -> Option<&'static Op> {
     kind.ops.iter().find(|o| o.op == name)
 }
 
+impl Op {
+    /// The same operation, of `service` (its name on the bus).
+    #[must_use]
+    pub const fn of(mut self, service: &'static str) -> Self {
+        self.service = Some(service);
+        self
+    }
+
+    /// The service it is made on: its own, else the descriptor's.
+    #[must_use]
+    pub fn target(&self, d: &Descriptor) -> &'static str {
+        self.service.unwrap_or(d.target)
+    }
+}
+
 /// An operation of a kind that binds nothing: the page's input goes as it is.
 #[must_use]
 pub const fn free(op: &'static str) -> Op {
@@ -40,5 +55,5 @@ pub async fn call(
         e
     })?;
     let body = Value::Object(bound(bus, op, ("", ""), input)?);
-    bus.call(d.target, op.op, &body).await
+    bus.call(op.target(d), op.op, &body).await
 }
