@@ -1,0 +1,57 @@
+# The `doze-app` package (deb and rpm): the desktop app, which carries the whole CLI too (core PLAN.md §2.3, O1), with
+# its launcher entry and icon. It depends on `doze`, so `doze` on the PATH is always the CLI-only binary and the app
+# is `doze-app` beside it (`doze open` finds it there). ${VERSION} and ${ARCH} are filled in by the workflow, as in
+# nfpm-doze.yaml.
+#
+# GATED: built only when the release workflow's `linux_app` input (or the repository variable DOZE_LINUX_APP) is true,
+# because the app does not run on Linux yet (another builder is making it; docs/port/core/RELEASE.md). The runtime
+# dependencies below are GPUI's on Linux (X11 and Wayland through xkbcommon, Vulkan through blade, fonts through
+# fontconfig and freetype). The workflow prints `ldd doze-app` beside the package: check this list against it the
+# first time the gate is on.
+#
+# No AppArmor profile, unlike Go's package: Go's WebKitGTK sandbox needed a user namespace (bubblewrap); GPUI starts no
+# sandboxed web process.
+name: doze-app
+version: ${VERSION}
+arch: ${ARCH}
+platform: linux
+maintainer: doze <hello@doze-dev.com>
+vendor: doze-dev
+homepage: https://doze-dev.com
+license: Apache-2.0
+description: The doze desktop app, a window and tray over doze's stacks.
+section: devel
+depends:
+  - doze (= ${VERSION})
+  - libxkbcommon0
+  - libxkbcommon-x11-0
+  - libwayland-client0
+  - libvulkan1
+  - libfontconfig1
+  - libfreetype6
+  - libxcb1
+  - libx11-xcb1
+overrides:
+  rpm:
+    depends:
+      - doze = ${VERSION}
+      - libxkbcommon
+      - libxkbcommon-x11
+      - libwayland-client
+      - vulkan-loader
+      - fontconfig
+      - freetype
+      - libxcb
+      - libX11-xcb
+contents:
+  - src: dist/stage/doze-app
+    dst: /usr/bin/doze-app
+    file_info:
+      mode: 0755
+  - src: packaging/linux/doze.desktop
+    dst: /usr/share/applications/doze.desktop
+  - src: apps/doze-app/assets/brand/doze.svg
+    dst: /usr/share/icons/hicolor/scalable/apps/doze.svg
+scripts:
+  postinstall: packaging/linux/postinstall.sh
+  postremove: packaging/linux/postremove.sh

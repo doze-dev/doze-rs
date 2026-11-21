@@ -1,0 +1,575 @@
+all-apis: 0 0..5
+all-apis: 1 0..7
+all-apis: 2 0..2
+all-apis: 3 0..5
+all-apis: 4 0..1
+all-apis: 5 0..0
+all-apis: 6 0..4
+all-apis: 7 0..1
+all-apis: 8 0..3
+all-apis: 9 0..3
+all-apis: 10 0..1
+all-apis: 11 0..2
+all-apis: 12 0..1
+all-apis: 13 0..1
+all-apis: 14 0..1
+all-apis: 15 0..1
+all-apis: 16 0..1
+all-apis: 17 0..1
+all-apis: 18 0..1
+all-apis: 19 0..2
+all-apis: 20 0..1
+all-apis: 21 0..0
+all-apis: 22 0..0
+all-apis: 23 0..0
+all-apis: 24 0..0
+all-apis: 25 0..0
+all-apis: 26 0..0
+all-apis: 27 0..0
+all-apis: 28 0..0
+all-apis: 29 0..0
+all-apis: 30 0..0
+all-apis: 31 0..0
+all-apis: 32 0..1
+all-apis: 33 0..0
+all-apis: 34 0..0
+all-apis: 35 0..0
+all-apis: 36 0..0
+all-apis: 37 0..0
+all-apis: 38 0..0
+all-apis: 39 0..0
+all-apis: 40 0..0
+all-apis: 41 0..0
+all-apis: 42 0..0
+api-versions: v0 err=0 apis=43
+api-versions: v1 err=0 apis=43
+produce-old: create v0 m0 none err=0 base=0
+produce-old: create v0 m0 gzip err=0 base=3
+produce-old: create v0 m0 snappy err=0 base=6
+produce-old: create v0 m0 lz4 err=0 base=9
+produce-old: create v0 m1 none err=0 base=12
+produce-old: create v0 m1 gzip err=0 base=15
+produce-old: create v0 m1 snappy err=0 base=18
+produce-old: create v0 m1 lz4 err=0 base=21
+produce-old: create v0 m2 none err=0 base=24
+produce-old: create v0 m2 gzip err=0 base=26
+produce-old: create v0 m0+m1 err=0 base=28
+produce-old: create v0 m1 gzip+m1 none err=0 base=31
+produce-old: create v0 m1+m2 err=0 base=34
+produce-old: create v0 empty err=0 base=-1
+produce-old: create v1 m0 none err=0 base=36
+produce-old: create v1 m0 gzip err=0 base=39
+produce-old: create v1 m0 snappy err=0 base=42
+produce-old: create v1 m0 lz4 err=0 base=45
+produce-old: create v1 m1 none err=0 base=48
+produce-old: create v1 m1 gzip err=0 base=51
+produce-old: create v1 m1 snappy err=0 base=54
+produce-old: create v1 m1 lz4 err=0 base=57
+produce-old: create v1 m2 none err=0 base=60
+produce-old: create v1 m2 gzip err=0 base=62
+produce-old: create v1 m0+m1 err=0 base=64
+produce-old: create v1 m1 gzip+m1 none err=0 base=67
+produce-old: create v1 m1+m2 err=0 base=70
+produce-old: create v1 empty err=0 base=-1
+produce-old: create v2 m0 none err=0 base=72 appendTime=-1
+produce-old: create v2 m0 gzip err=0 base=75 appendTime=-1
+produce-old: create v2 m0 snappy err=0 base=78 appendTime=-1
+produce-old: create v2 m0 lz4 err=0 base=81 appendTime=-1
+produce-old: create v2 m1 none err=0 base=84 appendTime=-1
+produce-old: create v2 m1 gzip err=0 base=87 appendTime=-1
+produce-old: create v2 m1 snappy err=0 base=90 appendTime=-1
+produce-old: create v2 m1 lz4 err=0 base=93 appendTime=-1
+produce-old: create v2 m2 none err=0 base=96 appendTime=-1
+produce-old: create v2 m2 gzip err=0 base=98 appendTime=-1
+produce-old: create v2 m0+m1 err=0 base=100 appendTime=-1
+produce-old: create v2 m1 gzip+m1 none err=0 base=103 appendTime=-1
+produce-old: create v2 m1+m2 err=0 base=106 appendTime=-1
+produce-old: create v2 empty err=0 base=-1 appendTime=-1
+produce-old: create v3 m1 closed
+produce-old: create fetch v4 err=0 hw=108 lso=-1 aborted=null bytes=~
+produce-old: create fetch v4 [m2 none 0-2 CreateTime max=-1 pid=-1 txn=false ctl=false seq=-1 valid=true (0 -1 k0=v0) (1 -1 k1=v1) (2 -1 k2=v2)]
+produce-old: create fetch v4 [m2 gzip 3-5 CreateTime max=-1 pid=-1 txn=false ctl=false seq=-1 valid=true (3 -1 k0=v0) (4 -1 k1=v1) (5 -1 k2=v2)]
+produce-old: create fetch v4 [m2 snappy 6-8 CreateTime max=-1 pid=-1 txn=false ctl=false seq=-1 valid=true (6 -1 k0=v0) (7 -1 k1=v1) (8 -1 k2=v2)]
+produce-old: create fetch v4 [m2 lz4 9-11 CreateTime max=-1 pid=-1 txn=false ctl=false seq=-1 valid=true (9 -1 k0=v0) (10 -1 k1=v1) (11 -1 k2=v2)]
+produce-old: create fetch v4 [m2 none 12-14 CreateTime max=B+2 pid=-1 txn=false ctl=false seq=-1 valid=true (12 B+0 k0=v0) (13 B+1 k1=v1) (14 B+2 k2=v2)]
+produce-old: create fetch v4 [m2 gzip 15-17 CreateTime max=B+2 pid=-1 txn=false ctl=false seq=-1 valid=true (15 B+0 k0=v0) (16 B+1 k1=v1) (17 B+2 k2=v2)]
+produce-old: create fetch v4 [m2 snappy 18-20 CreateTime max=B+2 pid=-1 txn=false ctl=false seq=-1 valid=true (18 B+0 k0=v0) (19 B+1 k1=v1) (20 B+2 k2=v2)]
+produce-old: create fetch v4 [m2 lz4 21-23 CreateTime max=B+2 pid=-1 txn=false ctl=false seq=-1 valid=true (21 B+0 k0=v0) (22 B+1 k1=v1) (23 B+2 k2=v2)]
+produce-old: create fetch v4 [m2 none 24-25 CreateTime max=B+1 pid=-1 txn=false ctl=false seq=-1 valid=true (24 B+0 k0=v0 h1) (25 B+1 k1=v1 h1)]
+produce-old: create fetch v4 [m2 gzip 26-27 CreateTime max=B+1 pid=-1 txn=false ctl=false seq=-1 valid=true (26 B+0 k0=v0 h1) (27 B+1 k1=v1 h1)]
+produce-old: create fetch v4 [m2 none 28-30 CreateTime max=B+1 pid=-1 txn=false ctl=false seq=-1 valid=true (28 -1 k0=v0) (29 B+0 k0=v0) (30 B+1 k1=v1)]
+produce-old: create fetch v4 [m2 gzip 31-33 CreateTime max=B+1 pid=-1 txn=false ctl=false seq=-1 valid=true (31 B+0 k0=v0) (32 B+1 k1=v1) (33 B+0 k0=v0)]
+produce-old: create fetch v4 [m2 none 34-35 CreateTime max=B+0 pid=-1 txn=false ctl=false seq=-1 valid=true (34 B+0 k0=v0) (35 B+0 k0=v0 h1)]
+produce-old: create fetch v4 [m2 none 36-38 CreateTime max=-1 pid=-1 txn=false ctl=false seq=-1 valid=true (36 -1 k0=v0) (37 -1 k1=v1) (38 -1 k2=v2)]
+produce-old: create fetch v4 [m2 gzip 39-41 CreateTime max=-1 pid=-1 txn=false ctl=false seq=-1 valid=true (39 -1 k0=v0) (40 -1 k1=v1) (41 -1 k2=v2)]
+produce-old: create fetch v4 [m2 snappy 42-44 CreateTime max=-1 pid=-1 txn=false ctl=false seq=-1 valid=true (42 -1 k0=v0) (43 -1 k1=v1) (44 -1 k2=v2)]
+produce-old: create fetch v4 [m2 lz4 45-47 CreateTime max=-1 pid=-1 txn=false ctl=false seq=-1 valid=true (45 -1 k0=v0) (46 -1 k1=v1) (47 -1 k2=v2)]
+produce-old: create fetch v4 [m2 none 48-50 CreateTime max=B+2 pid=-1 txn=false ctl=false seq=-1 valid=true (48 B+0 k0=v0) (49 B+1 k1=v1) (50 B+2 k2=v2)]
+produce-old: create fetch v4 [m2 gzip 51-53 CreateTime max=B+2 pid=-1 txn=false ctl=false seq=-1 valid=true (51 B+0 k0=v0) (52 B+1 k1=v1) (53 B+2 k2=v2)]
+produce-old: create fetch v4 [m2 snappy 54-56 CreateTime max=B+2 pid=-1 txn=false ctl=false seq=-1 valid=true (54 B+0 k0=v0) (55 B+1 k1=v1) (56 B+2 k2=v2)]
+produce-old: create fetch v4 [m2 lz4 57-59 CreateTime max=B+2 pid=-1 txn=false ctl=false seq=-1 valid=true (57 B+0 k0=v0) (58 B+1 k1=v1) (59 B+2 k2=v2)]
+produce-old: create fetch v4 [m2 none 60-61 CreateTime max=B+1 pid=-1 txn=false ctl=false seq=-1 valid=true (60 B+0 k0=v0 h1) (61 B+1 k1=v1 h1)]
+produce-old: create fetch v4 [m2 gzip 62-63 CreateTime max=B+1 pid=-1 txn=false ctl=false seq=-1 valid=true (62 B+0 k0=v0 h1) (63 B+1 k1=v1 h1)]
+produce-old: create fetch v4 [m2 none 64-66 CreateTime max=B+1 pid=-1 txn=false ctl=false seq=-1 valid=true (64 -1 k0=v0) (65 B+0 k0=v0) (66 B+1 k1=v1)]
+produce-old: create fetch v4 [m2 gzip 67-69 CreateTime max=B+1 pid=-1 txn=false ctl=false seq=-1 valid=true (67 B+0 k0=v0) (68 B+1 k1=v1) (69 B+0 k0=v0)]
+produce-old: create fetch v4 [m2 none 70-71 CreateTime max=B+0 pid=-1 txn=false ctl=false seq=-1 valid=true (70 B+0 k0=v0) (71 B+0 k0=v0 h1)]
+produce-old: create fetch v4 [m2 none 72-74 CreateTime max=-1 pid=-1 txn=false ctl=false seq=-1 valid=true (72 -1 k0=v0) (73 -1 k1=v1) (74 -1 k2=v2)]
+produce-old: create fetch v4 [m2 gzip 75-77 CreateTime max=-1 pid=-1 txn=false ctl=false seq=-1 valid=true (75 -1 k0=v0) (76 -1 k1=v1) (77 -1 k2=v2)]
+produce-old: create fetch v4 [m2 snappy 78-80 CreateTime max=-1 pid=-1 txn=false ctl=false seq=-1 valid=true (78 -1 k0=v0) (79 -1 k1=v1) (80 -1 k2=v2)]
+produce-old: create fetch v4 [m2 lz4 81-83 CreateTime max=-1 pid=-1 txn=false ctl=false seq=-1 valid=true (81 -1 k0=v0) (82 -1 k1=v1) (83 -1 k2=v2)]
+produce-old: create fetch v4 [m2 none 84-86 CreateTime max=B+2 pid=-1 txn=false ctl=false seq=-1 valid=true (84 B+0 k0=v0) (85 B+1 k1=v1) (86 B+2 k2=v2)]
+produce-old: create fetch v4 [m2 gzip 87-89 CreateTime max=B+2 pid=-1 txn=false ctl=false seq=-1 valid=true (87 B+0 k0=v0) (88 B+1 k1=v1) (89 B+2 k2=v2)]
+produce-old: create fetch v4 [m2 snappy 90-92 CreateTime max=B+2 pid=-1 txn=false ctl=false seq=-1 valid=true (90 B+0 k0=v0) (91 B+1 k1=v1) (92 B+2 k2=v2)]
+produce-old: create fetch v4 [m2 lz4 93-95 CreateTime max=B+2 pid=-1 txn=false ctl=false seq=-1 valid=true (93 B+0 k0=v0) (94 B+1 k1=v1) (95 B+2 k2=v2)]
+produce-old: create fetch v4 [m2 none 96-97 CreateTime max=B+1 pid=-1 txn=false ctl=false seq=-1 valid=true (96 B+0 k0=v0 h1) (97 B+1 k1=v1 h1)]
+produce-old: create fetch v4 [m2 gzip 98-99 CreateTime max=B+1 pid=-1 txn=false ctl=false seq=-1 valid=true (98 B+0 k0=v0 h1) (99 B+1 k1=v1 h1)]
+produce-old: create fetch v4 [m2 none 100-102 CreateTime max=B+1 pid=-1 txn=false ctl=false seq=-1 valid=true (100 -1 k0=v0) (101 B+0 k0=v0) (102 B+1 k1=v1)]
+produce-old: create fetch v4 [m2 gzip 103-105 CreateTime max=B+1 pid=-1 txn=false ctl=false seq=-1 valid=true (103 B+0 k0=v0) (104 B+1 k1=v1) (105 B+0 k0=v0)]
+produce-old: create fetch v4 [m2 none 106-107 CreateTime max=B+0 pid=-1 txn=false ctl=false seq=-1 valid=true (106 B+0 k0=v0) (107 B+0 k0=v0 h1)]
+produce-old: append v0 m0 none err=0 base=0
+produce-old: append v0 m0 gzip err=0 base=3
+produce-old: append v0 m0 snappy err=0 base=6
+produce-old: append v0 m0 lz4 err=0 base=9
+produce-old: append v0 m1 none err=0 base=12
+produce-old: append v0 m1 gzip err=0 base=15
+produce-old: append v0 m1 snappy err=0 base=18
+produce-old: append v0 m1 lz4 err=0 base=21
+produce-old: append v0 m2 none err=0 base=24
+produce-old: append v0 m2 gzip err=0 base=26
+produce-old: append v0 m0+m1 err=0 base=28
+produce-old: append v0 m1 gzip+m1 none err=0 base=31
+produce-old: append v0 m1+m2 err=0 base=34
+produce-old: append v0 empty err=0 base=-1
+produce-old: append v1 m0 none err=0 base=36
+produce-old: append v1 m0 gzip err=0 base=39
+produce-old: append v1 m0 snappy err=0 base=42
+produce-old: append v1 m0 lz4 err=0 base=45
+produce-old: append v1 m1 none err=0 base=48
+produce-old: append v1 m1 gzip err=0 base=51
+produce-old: append v1 m1 snappy err=0 base=54
+produce-old: append v1 m1 lz4 err=0 base=57
+produce-old: append v1 m2 none err=0 base=60
+produce-old: append v1 m2 gzip err=0 base=62
+produce-old: append v1 m0+m1 err=0 base=64
+produce-old: append v1 m1 gzip+m1 none err=0 base=67
+produce-old: append v1 m1+m2 err=0 base=70
+produce-old: append v1 empty err=0 base=-1
+produce-old: append v2 m0 none err=0 base=72 appendTime=T
+produce-old: append v2 m0 gzip err=0 base=75 appendTime=T
+produce-old: append v2 m0 snappy err=0 base=78 appendTime=T
+produce-old: append v2 m0 lz4 err=0 base=81 appendTime=T
+produce-old: append v2 m1 none err=0 base=84 appendTime=T
+produce-old: append v2 m1 gzip err=0 base=87 appendTime=T
+produce-old: append v2 m1 snappy err=0 base=90 appendTime=T
+produce-old: append v2 m1 lz4 err=0 base=93 appendTime=T
+produce-old: append v2 m2 none err=0 base=96 appendTime=T
+produce-old: append v2 m2 gzip err=0 base=98 appendTime=T
+produce-old: append v2 m0+m1 err=0 base=100 appendTime=T
+produce-old: append v2 m1 gzip+m1 none err=0 base=103 appendTime=T
+produce-old: append v2 m1+m2 err=0 base=106 appendTime=T
+produce-old: append v2 empty err=0 base=-1 appendTime=-1
+produce-old: append v3 m1 closed
+produce-old: append fetch v4 err=0 hw=108 lso=-1 aborted=null bytes=~
+produce-old: append fetch v4 [m2 none 0-2 LogAppendTime max=T pid=-1 txn=false ctl=false seq=-1 valid=true (0 T k0=v0) (1 T k1=v1) (2 T k2=v2)]
+produce-old: append fetch v4 [m2 gzip 3-5 LogAppendTime max=T pid=-1 txn=false ctl=false seq=-1 valid=true (3 T k0=v0) (4 T k1=v1) (5 T k2=v2)]
+produce-old: append fetch v4 [m2 snappy 6-8 LogAppendTime max=T pid=-1 txn=false ctl=false seq=-1 valid=true (6 T k0=v0) (7 T k1=v1) (8 T k2=v2)]
+produce-old: append fetch v4 [m2 lz4 9-11 LogAppendTime max=T pid=-1 txn=false ctl=false seq=-1 valid=true (9 T k0=v0) (10 T k1=v1) (11 T k2=v2)]
+produce-old: append fetch v4 [m2 none 12-14 LogAppendTime max=T pid=-1 txn=false ctl=false seq=-1 valid=true (12 T k0=v0) (13 T k1=v1) (14 T k2=v2)]
+produce-old: append fetch v4 [m2 gzip 15-17 LogAppendTime max=T pid=-1 txn=false ctl=false seq=-1 valid=true (15 T k0=v0) (16 T k1=v1) (17 T k2=v2)]
+produce-old: append fetch v4 [m2 snappy 18-20 LogAppendTime max=T pid=-1 txn=false ctl=false seq=-1 valid=true (18 T k0=v0) (19 T k1=v1) (20 T k2=v2)]
+produce-old: append fetch v4 [m2 lz4 21-23 LogAppendTime max=T pid=-1 txn=false ctl=false seq=-1 valid=true (21 T k0=v0) (22 T k1=v1) (23 T k2=v2)]
+produce-old: append fetch v4 [m2 none 24-25 LogAppendTime max=T pid=-1 txn=false ctl=false seq=-1 valid=true (24 T k0=v0 h1) (25 T k1=v1 h1)]
+produce-old: append fetch v4 [m2 gzip 26-27 LogAppendTime max=T pid=-1 txn=false ctl=false seq=-1 valid=true (26 T k0=v0 h1) (27 T k1=v1 h1)]
+produce-old: append fetch v4 [m2 none 28-30 LogAppendTime max=T pid=-1 txn=false ctl=false seq=-1 valid=true (28 T k0=v0) (29 T k0=v0) (30 T k1=v1)]
+produce-old: append fetch v4 [m2 gzip 31-33 LogAppendTime max=T pid=-1 txn=false ctl=false seq=-1 valid=true (31 T k0=v0) (32 T k1=v1) (33 T k0=v0)]
+produce-old: append fetch v4 [m2 none 34-35 LogAppendTime max=T pid=-1 txn=false ctl=false seq=-1 valid=true (34 T k0=v0) (35 T k0=v0 h1)]
+produce-old: append fetch v4 [m2 none 36-38 LogAppendTime max=T pid=-1 txn=false ctl=false seq=-1 valid=true (36 T k0=v0) (37 T k1=v1) (38 T k2=v2)]
+produce-old: append fetch v4 [m2 gzip 39-41 LogAppendTime max=T pid=-1 txn=false ctl=false seq=-1 valid=true (39 T k0=v0) (40 T k1=v1) (41 T k2=v2)]
+produce-old: append fetch v4 [m2 snappy 42-44 LogAppendTime max=T pid=-1 txn=false ctl=false seq=-1 valid=true (42 T k0=v0) (43 T k1=v1) (44 T k2=v2)]
+produce-old: append fetch v4 [m2 lz4 45-47 LogAppendTime max=T pid=-1 txn=false ctl=false seq=-1 valid=true (45 T k0=v0) (46 T k1=v1) (47 T k2=v2)]
+produce-old: append fetch v4 [m2 none 48-50 LogAppendTime max=T pid=-1 txn=false ctl=false seq=-1 valid=true (48 T k0=v0) (49 T k1=v1) (50 T k2=v2)]
+produce-old: append fetch v4 [m2 gzip 51-53 LogAppendTime max=T pid=-1 txn=false ctl=false seq=-1 valid=true (51 T k0=v0) (52 T k1=v1) (53 T k2=v2)]
+produce-old: append fetch v4 [m2 snappy 54-56 LogAppendTime max=T pid=-1 txn=false ctl=false seq=-1 valid=true (54 T k0=v0) (55 T k1=v1) (56 T k2=v2)]
+produce-old: append fetch v4 [m2 lz4 57-59 LogAppendTime max=T pid=-1 txn=false ctl=false seq=-1 valid=true (57 T k0=v0) (58 T k1=v1) (59 T k2=v2)]
+produce-old: append fetch v4 [m2 none 60-61 LogAppendTime max=T pid=-1 txn=false ctl=false seq=-1 valid=true (60 T k0=v0 h1) (61 T k1=v1 h1)]
+produce-old: append fetch v4 [m2 gzip 62-63 LogAppendTime max=T pid=-1 txn=false ctl=false seq=-1 valid=true (62 T k0=v0 h1) (63 T k1=v1 h1)]
+produce-old: append fetch v4 [m2 none 64-66 LogAppendTime max=T pid=-1 txn=false ctl=false seq=-1 valid=true (64 T k0=v0) (65 T k0=v0) (66 T k1=v1)]
+produce-old: append fetch v4 [m2 gzip 67-69 LogAppendTime max=T pid=-1 txn=false ctl=false seq=-1 valid=true (67 T k0=v0) (68 T k1=v1) (69 T k0=v0)]
+produce-old: append fetch v4 [m2 none 70-71 LogAppendTime max=T pid=-1 txn=false ctl=false seq=-1 valid=true (70 T k0=v0) (71 T k0=v0 h1)]
+produce-old: append fetch v4 [m2 none 72-74 LogAppendTime max=T pid=-1 txn=false ctl=false seq=-1 valid=true (72 T k0=v0) (73 T k1=v1) (74 T k2=v2)]
+produce-old: append fetch v4 [m2 gzip 75-77 LogAppendTime max=T pid=-1 txn=false ctl=false seq=-1 valid=true (75 T k0=v0) (76 T k1=v1) (77 T k2=v2)]
+produce-old: append fetch v4 [m2 snappy 78-80 LogAppendTime max=T pid=-1 txn=false ctl=false seq=-1 valid=true (78 T k0=v0) (79 T k1=v1) (80 T k2=v2)]
+produce-old: append fetch v4 [m2 lz4 81-83 LogAppendTime max=T pid=-1 txn=false ctl=false seq=-1 valid=true (81 T k0=v0) (82 T k1=v1) (83 T k2=v2)]
+produce-old: append fetch v4 [m2 none 84-86 LogAppendTime max=T pid=-1 txn=false ctl=false seq=-1 valid=true (84 T k0=v0) (85 T k1=v1) (86 T k2=v2)]
+produce-old: append fetch v4 [m2 gzip 87-89 LogAppendTime max=T pid=-1 txn=false ctl=false seq=-1 valid=true (87 T k0=v0) (88 T k1=v1) (89 T k2=v2)]
+produce-old: append fetch v4 [m2 snappy 90-92 LogAppendTime max=T pid=-1 txn=false ctl=false seq=-1 valid=true (90 T k0=v0) (91 T k1=v1) (92 T k2=v2)]
+produce-old: append fetch v4 [m2 lz4 93-95 LogAppendTime max=T pid=-1 txn=false ctl=false seq=-1 valid=true (93 T k0=v0) (94 T k1=v1) (95 T k2=v2)]
+produce-old: append fetch v4 [m2 none 96-97 LogAppendTime max=T pid=-1 txn=false ctl=false seq=-1 valid=true (96 T k0=v0 h1) (97 T k1=v1 h1)]
+produce-old: append fetch v4 [m2 gzip 98-99 LogAppendTime max=T pid=-1 txn=false ctl=false seq=-1 valid=true (98 T k0=v0 h1) (99 T k1=v1 h1)]
+produce-old: append fetch v4 [m2 none 100-102 LogAppendTime max=T pid=-1 txn=false ctl=false seq=-1 valid=true (100 T k0=v0) (101 T k0=v0) (102 T k1=v1)]
+produce-old: append fetch v4 [m2 gzip 103-105 LogAppendTime max=T pid=-1 txn=false ctl=false seq=-1 valid=true (103 T k0=v0) (104 T k1=v1) (105 T k0=v0)]
+produce-old: append fetch v4 [m2 none 106-107 LogAppendTime max=T pid=-1 txn=false ctl=false seq=-1 valid=true (106 T k0=v0) (107 T k0=v0 h1)]
+produce-old-refused: v0 bad crc m1 err=2 base=-1
+produce-old-refused: v0 bad crc m0 err=2 base=-1
+produce-old-refused: v0 bad crc m1 gzip err=2 base=-1
+produce-old-refused: v0 m1 zstd wrapper err=-1 base=-1
+produce-old-refused: v0 truncated err=0 base=0
+produce-old-refused: v1 bad crc m1 err=2 base=-1
+produce-old-refused: v1 bad crc m0 err=2 base=-1
+produce-old-refused: v1 bad crc m1 gzip err=2 base=-1
+produce-old-refused: v1 m1 zstd wrapper err=-1 base=-1
+produce-old-refused: v1 truncated err=0 base=1
+produce-old-refused: v2 bad crc m1 err=2 base=-1 appendTime=-1
+produce-old-refused: v2 bad crc m0 err=2 base=-1 appendTime=-1
+produce-old-refused: v2 bad crc m1 gzip err=2 base=-1 appendTime=-1
+produce-old-refused: v2 m1 zstd wrapper err=-1 base=-1 appendTime=-1
+produce-old-refused: v2 truncated err=0 base=2 appendTime=-1
+produce-old-refused: v0 compact no key err=2 base=-1
+produce-old-refused: v1 compact no key err=2 base=-1
+produce-old-refused: v2 compact no key err=2 base=-1 appendTime=-1
+produce-old-refused: v0 future err=0 base=3
+produce-old-refused: v1 future err=0 base=4
+produce-old-refused: v2 future err=0 base=5 appendTime=-1
+fetch-old: create v0 @0 err=0 hw=10 bytes=~ [m0 none 0-0 NoTimestampType max=-1 valid=true (0 -1 k0=v0)] [m0 none 1-1 NoTimestampType max=-1 valid=true (1 -1 k1=v1)] [m0 none 2-2 NoTimestampType max=-1 valid=true (2 -1 k2=v2)] [m0 gzip 3-5 NoTimestampType max=-1 valid=true (3 -1 k0=v0) (4 -1 k1=v1) (5 -1 k2=v2)] [m0 snappy 6-7 NoTimestampType max=-1 valid=true (6 -1 k0=v0) (7 -1 k1=v1)] [m0 lz4 8-9 NoTimestampType max=-1 valid=true (8 -1 k0=v0) (9 -1 k1=v1)]
+fetch-old: create v0 @1 err=0 hw=10 bytes=~ [m0 none 1-1 NoTimestampType max=-1 valid=true (1 -1 k1=v1)] [m0 none 2-2 NoTimestampType max=-1 valid=true (2 -1 k2=v2)] [m0 gzip 3-5 NoTimestampType max=-1 valid=true (3 -1 k0=v0) (4 -1 k1=v1) (5 -1 k2=v2)] [m0 snappy 6-7 NoTimestampType max=-1 valid=true (6 -1 k0=v0) (7 -1 k1=v1)] [m0 lz4 8-9 NoTimestampType max=-1 valid=true (8 -1 k0=v0) (9 -1 k1=v1)]
+fetch-old: create v0 @4 err=0 hw=10 bytes=~ [m0 gzip 3-5 NoTimestampType max=-1 valid=true (3 -1 k0=v0) (4 -1 k1=v1) (5 -1 k2=v2)] [m0 snappy 6-7 NoTimestampType max=-1 valid=true (6 -1 k0=v0) (7 -1 k1=v1)] [m0 lz4 8-9 NoTimestampType max=-1 valid=true (8 -1 k0=v0) (9 -1 k1=v1)]
+fetch-old: create v0 @6 err=0 hw=10 bytes=~ [m0 snappy 6-7 NoTimestampType max=-1 valid=true (6 -1 k0=v0) (7 -1 k1=v1)] [m0 lz4 8-9 NoTimestampType max=-1 valid=true (8 -1 k0=v0) (9 -1 k1=v1)]
+fetch-old: create v0 @9 err=0 hw=10 bytes=~ [m0 lz4 8-9 NoTimestampType max=-1 valid=true (8 -1 k0=v0) (9 -1 k1=v1)]
+fetch-old: create v0 @10 err=0 hw=10 bytes=0
+fetch-old: create v0 @11 err=1 hw=-1 bytes=0
+fetch-old: create v1 @0 err=0 hw=10 bytes=~ [m0 none 0-0 NoTimestampType max=-1 valid=true (0 -1 k0=v0)] [m0 none 1-1 NoTimestampType max=-1 valid=true (1 -1 k1=v1)] [m0 none 2-2 NoTimestampType max=-1 valid=true (2 -1 k2=v2)] [m0 gzip 3-5 NoTimestampType max=-1 valid=true (3 -1 k0=v0) (4 -1 k1=v1) (5 -1 k2=v2)] [m0 snappy 6-7 NoTimestampType max=-1 valid=true (6 -1 k0=v0) (7 -1 k1=v1)] [m0 lz4 8-9 NoTimestampType max=-1 valid=true (8 -1 k0=v0) (9 -1 k1=v1)]
+fetch-old: create v1 @1 err=0 hw=10 bytes=~ [m0 none 1-1 NoTimestampType max=-1 valid=true (1 -1 k1=v1)] [m0 none 2-2 NoTimestampType max=-1 valid=true (2 -1 k2=v2)] [m0 gzip 3-5 NoTimestampType max=-1 valid=true (3 -1 k0=v0) (4 -1 k1=v1) (5 -1 k2=v2)] [m0 snappy 6-7 NoTimestampType max=-1 valid=true (6 -1 k0=v0) (7 -1 k1=v1)] [m0 lz4 8-9 NoTimestampType max=-1 valid=true (8 -1 k0=v0) (9 -1 k1=v1)]
+fetch-old: create v1 @4 err=0 hw=10 bytes=~ [m0 gzip 3-5 NoTimestampType max=-1 valid=true (3 -1 k0=v0) (4 -1 k1=v1) (5 -1 k2=v2)] [m0 snappy 6-7 NoTimestampType max=-1 valid=true (6 -1 k0=v0) (7 -1 k1=v1)] [m0 lz4 8-9 NoTimestampType max=-1 valid=true (8 -1 k0=v0) (9 -1 k1=v1)]
+fetch-old: create v1 @6 err=0 hw=10 bytes=~ [m0 snappy 6-7 NoTimestampType max=-1 valid=true (6 -1 k0=v0) (7 -1 k1=v1)] [m0 lz4 8-9 NoTimestampType max=-1 valid=true (8 -1 k0=v0) (9 -1 k1=v1)]
+fetch-old: create v1 @9 err=0 hw=10 bytes=~ [m0 lz4 8-9 NoTimestampType max=-1 valid=true (8 -1 k0=v0) (9 -1 k1=v1)]
+fetch-old: create v1 @10 err=0 hw=10 bytes=0
+fetch-old: create v1 @11 err=1 hw=-1 bytes=0
+fetch-old: create v2 @0 err=0 hw=10 bytes=~ [m1 none 0-0 CreateTime max=B+0 valid=true (0 B+0 k0=v0)] [m1 none 1-1 CreateTime max=B+1 valid=true (1 B+1 k1=v1)] [m1 none 2-2 CreateTime max=B+2 valid=true (2 B+2 k2=v2)] [m1 gzip 3-5 CreateTime max=B+2 valid=true (3 B+0 k0=v0) (4 B+1 k1=v1) (5 B+2 k2=v2)] [m1 snappy 6-7 CreateTime max=B+1 valid=true (6 B+0 k0=v0) (7 B+1 k1=v1)] [m1 lz4 8-9 CreateTime max=B+1 valid=true (8 B+0 k0=v0) (9 B+1 k1=v1)]
+fetch-old: create v2 @1 err=0 hw=10 bytes=~ [m1 none 1-1 CreateTime max=B+1 valid=true (1 B+1 k1=v1)] [m1 none 2-2 CreateTime max=B+2 valid=true (2 B+2 k2=v2)] [m1 gzip 3-5 CreateTime max=B+2 valid=true (3 B+0 k0=v0) (4 B+1 k1=v1) (5 B+2 k2=v2)] [m1 snappy 6-7 CreateTime max=B+1 valid=true (6 B+0 k0=v0) (7 B+1 k1=v1)] [m1 lz4 8-9 CreateTime max=B+1 valid=true (8 B+0 k0=v0) (9 B+1 k1=v1)]
+fetch-old: create v2 @4 err=0 hw=10 bytes=~ [m1 gzip 3-5 CreateTime max=B+2 valid=true (3 B+0 k0=v0) (4 B+1 k1=v1) (5 B+2 k2=v2)] [m1 snappy 6-7 CreateTime max=B+1 valid=true (6 B+0 k0=v0) (7 B+1 k1=v1)] [m1 lz4 8-9 CreateTime max=B+1 valid=true (8 B+0 k0=v0) (9 B+1 k1=v1)]
+fetch-old: create v2 @6 err=0 hw=10 bytes=~ [m1 snappy 6-7 CreateTime max=B+1 valid=true (6 B+0 k0=v0) (7 B+1 k1=v1)] [m1 lz4 8-9 CreateTime max=B+1 valid=true (8 B+0 k0=v0) (9 B+1 k1=v1)]
+fetch-old: create v2 @9 err=0 hw=10 bytes=~ [m1 lz4 8-9 CreateTime max=B+1 valid=true (8 B+0 k0=v0) (9 B+1 k1=v1)]
+fetch-old: create v2 @10 err=0 hw=10 bytes=0
+fetch-old: create v2 @11 err=1 hw=-1 bytes=0
+fetch-old: create v3 @0 err=0 hw=10 bytes=~ [m1 none 0-0 CreateTime max=B+0 valid=true (0 B+0 k0=v0)] [m1 none 1-1 CreateTime max=B+1 valid=true (1 B+1 k1=v1)] [m1 none 2-2 CreateTime max=B+2 valid=true (2 B+2 k2=v2)] [m1 gzip 3-5 CreateTime max=B+2 valid=true (3 B+0 k0=v0) (4 B+1 k1=v1) (5 B+2 k2=v2)] [m1 snappy 6-7 CreateTime max=B+1 valid=true (6 B+0 k0=v0) (7 B+1 k1=v1)] [m1 lz4 8-9 CreateTime max=B+1 valid=true (8 B+0 k0=v0) (9 B+1 k1=v1)]
+fetch-old: create v3 @1 err=0 hw=10 bytes=~ [m1 none 1-1 CreateTime max=B+1 valid=true (1 B+1 k1=v1)] [m1 none 2-2 CreateTime max=B+2 valid=true (2 B+2 k2=v2)] [m1 gzip 3-5 CreateTime max=B+2 valid=true (3 B+0 k0=v0) (4 B+1 k1=v1) (5 B+2 k2=v2)] [m1 snappy 6-7 CreateTime max=B+1 valid=true (6 B+0 k0=v0) (7 B+1 k1=v1)] [m1 lz4 8-9 CreateTime max=B+1 valid=true (8 B+0 k0=v0) (9 B+1 k1=v1)]
+fetch-old: create v3 @4 err=0 hw=10 bytes=~ [m1 gzip 3-5 CreateTime max=B+2 valid=true (3 B+0 k0=v0) (4 B+1 k1=v1) (5 B+2 k2=v2)] [m1 snappy 6-7 CreateTime max=B+1 valid=true (6 B+0 k0=v0) (7 B+1 k1=v1)] [m1 lz4 8-9 CreateTime max=B+1 valid=true (8 B+0 k0=v0) (9 B+1 k1=v1)]
+fetch-old: create v3 @6 err=0 hw=10 bytes=~ [m1 snappy 6-7 CreateTime max=B+1 valid=true (6 B+0 k0=v0) (7 B+1 k1=v1)] [m1 lz4 8-9 CreateTime max=B+1 valid=true (8 B+0 k0=v0) (9 B+1 k1=v1)]
+fetch-old: create v3 @9 err=0 hw=10 bytes=~ [m1 lz4 8-9 CreateTime max=B+1 valid=true (8 B+0 k0=v0) (9 B+1 k1=v1)]
+fetch-old: create v3 @10 err=0 hw=10 bytes=0
+fetch-old: create v3 @11 err=1 hw=-1 bytes=0
+fetch-old: create v4 @0 err=0 hw=10 lso=-1 aborted=null bytes=~ [m2 none 0-2 CreateTime max=B+2 pid=-1 txn=false ctl=false seq=-1 valid=true (0 B+0 k0=v0 h1) (1 B+1 k1=v1 h1) (2 B+2 k2=v2 h1)] [m2 gzip 3-5 CreateTime max=B+2 pid=-1 txn=false ctl=false seq=-1 valid=true (3 B+0 k0=v0 h1) (4 B+1 k1=v1 h1) (5 B+2 k2=v2 h1)] [m2 snappy 6-7 CreateTime max=B+1 pid=-1 txn=false ctl=false seq=-1 valid=true (6 B+0 k0=v0 h1) (7 B+1 k1=v1 h1)] [m2 lz4 8-9 CreateTime max=B+1 pid=-1 txn=false ctl=false seq=-1 valid=true (8 B+0 k0=v0 h1) (9 B+1 k1=v1 h1)]
+fetch-old: create v4 @1 err=0 hw=10 lso=-1 aborted=null bytes=~ [m2 none 0-2 CreateTime max=B+2 pid=-1 txn=false ctl=false seq=-1 valid=true (0 B+0 k0=v0 h1) (1 B+1 k1=v1 h1) (2 B+2 k2=v2 h1)] [m2 gzip 3-5 CreateTime max=B+2 pid=-1 txn=false ctl=false seq=-1 valid=true (3 B+0 k0=v0 h1) (4 B+1 k1=v1 h1) (5 B+2 k2=v2 h1)] [m2 snappy 6-7 CreateTime max=B+1 pid=-1 txn=false ctl=false seq=-1 valid=true (6 B+0 k0=v0 h1) (7 B+1 k1=v1 h1)] [m2 lz4 8-9 CreateTime max=B+1 pid=-1 txn=false ctl=false seq=-1 valid=true (8 B+0 k0=v0 h1) (9 B+1 k1=v1 h1)]
+fetch-old: create v4 @4 err=0 hw=10 lso=-1 aborted=null bytes=~ [m2 gzip 3-5 CreateTime max=B+2 pid=-1 txn=false ctl=false seq=-1 valid=true (3 B+0 k0=v0 h1) (4 B+1 k1=v1 h1) (5 B+2 k2=v2 h1)] [m2 snappy 6-7 CreateTime max=B+1 pid=-1 txn=false ctl=false seq=-1 valid=true (6 B+0 k0=v0 h1) (7 B+1 k1=v1 h1)] [m2 lz4 8-9 CreateTime max=B+1 pid=-1 txn=false ctl=false seq=-1 valid=true (8 B+0 k0=v0 h1) (9 B+1 k1=v1 h1)]
+fetch-old: create v4 @6 err=0 hw=10 lso=-1 aborted=null bytes=~ [m2 snappy 6-7 CreateTime max=B+1 pid=-1 txn=false ctl=false seq=-1 valid=true (6 B+0 k0=v0 h1) (7 B+1 k1=v1 h1)] [m2 lz4 8-9 CreateTime max=B+1 pid=-1 txn=false ctl=false seq=-1 valid=true (8 B+0 k0=v0 h1) (9 B+1 k1=v1 h1)]
+fetch-old: create v4 @9 err=0 hw=10 lso=-1 aborted=null bytes=~ [m2 lz4 8-9 CreateTime max=B+1 pid=-1 txn=false ctl=false seq=-1 valid=true (8 B+0 k0=v0 h1) (9 B+1 k1=v1 h1)]
+fetch-old: create v4 @10 err=0 hw=10 lso=-1 aborted=null bytes=0
+fetch-old: create v4 @11 err=1 hw=-1 lso=-1 aborted=null bytes=0
+fetch-old: create v0 @0 max 40 err=0 hw=10 bytes=40 tail=40 tailOffset=0 tailLen=94
+fetch-old: create v0 @0 max 100 err=0 hw=10 bytes=100 tail=100 tailOffset=0 tailLen=94
+fetch-old: create v0 @0 max 150 err=0 hw=10 bytes=90 [m0 none 0-0 NoTimestampType max=-1 valid=true (0 -1 k0=v0)] [m0 none 1-1 NoTimestampType max=-1 valid=true (1 -1 k1=v1)] [m0 none 2-2 NoTimestampType max=-1 valid=true (2 -1 k2=v2)]
+fetch-old: create v0 @0 max 250 err=0 hw=10 bytes=~ [m0 none 0-0 NoTimestampType max=-1 valid=true (0 -1 k0=v0)] [m0 none 1-1 NoTimestampType max=-1 valid=true (1 -1 k1=v1)] [m0 none 2-2 NoTimestampType max=-1 valid=true (2 -1 k2=v2)] [m0 gzip 3-5 NoTimestampType max=-1 valid=true (3 -1 k0=v0) (4 -1 k1=v1) (5 -1 k2=v2)]
+fetch-old: create v1 @0 max 40 err=0 hw=10 bytes=40 tail=40 tailOffset=0 tailLen=94
+fetch-old: create v1 @0 max 100 err=0 hw=10 bytes=100 tail=100 tailOffset=0 tailLen=94
+fetch-old: create v1 @0 max 150 err=0 hw=10 bytes=90 [m0 none 0-0 NoTimestampType max=-1 valid=true (0 -1 k0=v0)] [m0 none 1-1 NoTimestampType max=-1 valid=true (1 -1 k1=v1)] [m0 none 2-2 NoTimestampType max=-1 valid=true (2 -1 k2=v2)]
+fetch-old: create v1 @0 max 250 err=0 hw=10 bytes=~ [m0 none 0-0 NoTimestampType max=-1 valid=true (0 -1 k0=v0)] [m0 none 1-1 NoTimestampType max=-1 valid=true (1 -1 k1=v1)] [m0 none 2-2 NoTimestampType max=-1 valid=true (2 -1 k2=v2)] [m0 gzip 3-5 NoTimestampType max=-1 valid=true (3 -1 k0=v0) (4 -1 k1=v1) (5 -1 k2=v2)]
+fetch-old: create v2 @0 max 40 err=0 hw=10 bytes=40 tail=40 tailOffset=0 tailLen=94
+fetch-old: create v2 @0 max 100 err=0 hw=10 bytes=100 tail=100 tailOffset=0 tailLen=94
+fetch-old: create v2 @0 max 150 err=0 hw=10 bytes=114 [m1 none 0-0 CreateTime max=B+0 valid=true (0 B+0 k0=v0)] [m1 none 1-1 CreateTime max=B+1 valid=true (1 B+1 k1=v1)] [m1 none 2-2 CreateTime max=B+2 valid=true (2 B+2 k2=v2)]
+fetch-old: create v2 @0 max 250 err=0 hw=10 bytes=~ [m1 none 0-0 CreateTime max=B+0 valid=true (0 B+0 k0=v0)] [m1 none 1-1 CreateTime max=B+1 valid=true (1 B+1 k1=v1)] [m1 none 2-2 CreateTime max=B+2 valid=true (2 B+2 k2=v2)] [m1 gzip 3-5 CreateTime max=B+2 valid=true (3 B+0 k0=v0) (4 B+1 k1=v1) (5 B+2 k2=v2)]
+fetch-old: create v3 @0 max 40 err=0 hw=10 bytes=114 [m1 none 0-0 CreateTime max=B+0 valid=true (0 B+0 k0=v0)] [m1 none 1-1 CreateTime max=B+1 valid=true (1 B+1 k1=v1)] [m1 none 2-2 CreateTime max=B+2 valid=true (2 B+2 k2=v2)]
+fetch-old: create v3 @0 max 100 err=0 hw=10 bytes=114 [m1 none 0-0 CreateTime max=B+0 valid=true (0 B+0 k0=v0)] [m1 none 1-1 CreateTime max=B+1 valid=true (1 B+1 k1=v1)] [m1 none 2-2 CreateTime max=B+2 valid=true (2 B+2 k2=v2)]
+fetch-old: create v3 @0 max 150 err=0 hw=10 bytes=114 [m1 none 0-0 CreateTime max=B+0 valid=true (0 B+0 k0=v0)] [m1 none 1-1 CreateTime max=B+1 valid=true (1 B+1 k1=v1)] [m1 none 2-2 CreateTime max=B+2 valid=true (2 B+2 k2=v2)]
+fetch-old: create v3 @0 max 250 err=0 hw=10 bytes=~ [m1 none 0-0 CreateTime max=B+0 valid=true (0 B+0 k0=v0)] [m1 none 1-1 CreateTime max=B+1 valid=true (1 B+1 k1=v1)] [m1 none 2-2 CreateTime max=B+2 valid=true (2 B+2 k2=v2)] [m1 gzip 3-5 CreateTime max=B+2 valid=true (3 B+0 k0=v0) (4 B+1 k1=v1) (5 B+2 k2=v2)]
+fetch-old: append v0 @0 err=0 hw=10 bytes=~ [m0 none 0-0 NoTimestampType max=-1 valid=true (0 -1 k0=v0)] [m0 none 1-1 NoTimestampType max=-1 valid=true (1 -1 k1=v1)] [m0 none 2-2 NoTimestampType max=-1 valid=true (2 -1 k2=v2)] [m0 gzip 3-5 NoTimestampType max=-1 valid=true (3 -1 k0=v0) (4 -1 k1=v1) (5 -1 k2=v2)] [m0 snappy 6-7 NoTimestampType max=-1 valid=true (6 -1 k0=v0) (7 -1 k1=v1)] [m0 lz4 8-9 NoTimestampType max=-1 valid=true (8 -1 k0=v0) (9 -1 k1=v1)]
+fetch-old: append v0 @1 err=0 hw=10 bytes=~ [m0 none 1-1 NoTimestampType max=-1 valid=true (1 -1 k1=v1)] [m0 none 2-2 NoTimestampType max=-1 valid=true (2 -1 k2=v2)] [m0 gzip 3-5 NoTimestampType max=-1 valid=true (3 -1 k0=v0) (4 -1 k1=v1) (5 -1 k2=v2)] [m0 snappy 6-7 NoTimestampType max=-1 valid=true (6 -1 k0=v0) (7 -1 k1=v1)] [m0 lz4 8-9 NoTimestampType max=-1 valid=true (8 -1 k0=v0) (9 -1 k1=v1)]
+fetch-old: append v0 @4 err=0 hw=10 bytes=~ [m0 gzip 3-5 NoTimestampType max=-1 valid=true (3 -1 k0=v0) (4 -1 k1=v1) (5 -1 k2=v2)] [m0 snappy 6-7 NoTimestampType max=-1 valid=true (6 -1 k0=v0) (7 -1 k1=v1)] [m0 lz4 8-9 NoTimestampType max=-1 valid=true (8 -1 k0=v0) (9 -1 k1=v1)]
+fetch-old: append v0 @6 err=0 hw=10 bytes=~ [m0 snappy 6-7 NoTimestampType max=-1 valid=true (6 -1 k0=v0) (7 -1 k1=v1)] [m0 lz4 8-9 NoTimestampType max=-1 valid=true (8 -1 k0=v0) (9 -1 k1=v1)]
+fetch-old: append v0 @9 err=0 hw=10 bytes=~ [m0 lz4 8-9 NoTimestampType max=-1 valid=true (8 -1 k0=v0) (9 -1 k1=v1)]
+fetch-old: append v0 @10 err=0 hw=10 bytes=0
+fetch-old: append v0 @11 err=1 hw=-1 bytes=0
+fetch-old: append v1 @0 err=0 hw=10 bytes=~ [m0 none 0-0 NoTimestampType max=-1 valid=true (0 -1 k0=v0)] [m0 none 1-1 NoTimestampType max=-1 valid=true (1 -1 k1=v1)] [m0 none 2-2 NoTimestampType max=-1 valid=true (2 -1 k2=v2)] [m0 gzip 3-5 NoTimestampType max=-1 valid=true (3 -1 k0=v0) (4 -1 k1=v1) (5 -1 k2=v2)] [m0 snappy 6-7 NoTimestampType max=-1 valid=true (6 -1 k0=v0) (7 -1 k1=v1)] [m0 lz4 8-9 NoTimestampType max=-1 valid=true (8 -1 k0=v0) (9 -1 k1=v1)]
+fetch-old: append v1 @1 err=0 hw=10 bytes=~ [m0 none 1-1 NoTimestampType max=-1 valid=true (1 -1 k1=v1)] [m0 none 2-2 NoTimestampType max=-1 valid=true (2 -1 k2=v2)] [m0 gzip 3-5 NoTimestampType max=-1 valid=true (3 -1 k0=v0) (4 -1 k1=v1) (5 -1 k2=v2)] [m0 snappy 6-7 NoTimestampType max=-1 valid=true (6 -1 k0=v0) (7 -1 k1=v1)] [m0 lz4 8-9 NoTimestampType max=-1 valid=true (8 -1 k0=v0) (9 -1 k1=v1)]
+fetch-old: append v1 @4 err=0 hw=10 bytes=~ [m0 gzip 3-5 NoTimestampType max=-1 valid=true (3 -1 k0=v0) (4 -1 k1=v1) (5 -1 k2=v2)] [m0 snappy 6-7 NoTimestampType max=-1 valid=true (6 -1 k0=v0) (7 -1 k1=v1)] [m0 lz4 8-9 NoTimestampType max=-1 valid=true (8 -1 k0=v0) (9 -1 k1=v1)]
+fetch-old: append v1 @6 err=0 hw=10 bytes=~ [m0 snappy 6-7 NoTimestampType max=-1 valid=true (6 -1 k0=v0) (7 -1 k1=v1)] [m0 lz4 8-9 NoTimestampType max=-1 valid=true (8 -1 k0=v0) (9 -1 k1=v1)]
+fetch-old: append v1 @9 err=0 hw=10 bytes=~ [m0 lz4 8-9 NoTimestampType max=-1 valid=true (8 -1 k0=v0) (9 -1 k1=v1)]
+fetch-old: append v1 @10 err=0 hw=10 bytes=0
+fetch-old: append v1 @11 err=1 hw=-1 bytes=0
+fetch-old: append v2 @0 err=0 hw=10 bytes=~ [m1 none 0-0 LogAppendTime max=T valid=true (0 T k0=v0)] [m1 none 1-1 LogAppendTime max=T valid=true (1 T k1=v1)] [m1 none 2-2 LogAppendTime max=T valid=true (2 T k2=v2)] [m1 gzip 3-5 LogAppendTime max=T valid=true (3 T k0=v0) (4 T k1=v1) (5 T k2=v2)] [m1 snappy 6-7 LogAppendTime max=T valid=true (6 T k0=v0) (7 T k1=v1)] [m1 lz4 8-9 LogAppendTime max=T valid=true (8 T k0=v0) (9 T k1=v1)]
+fetch-old: append v2 @1 err=0 hw=10 bytes=~ [m1 none 1-1 LogAppendTime max=T valid=true (1 T k1=v1)] [m1 none 2-2 LogAppendTime max=T valid=true (2 T k2=v2)] [m1 gzip 3-5 LogAppendTime max=T valid=true (3 T k0=v0) (4 T k1=v1) (5 T k2=v2)] [m1 snappy 6-7 LogAppendTime max=T valid=true (6 T k0=v0) (7 T k1=v1)] [m1 lz4 8-9 LogAppendTime max=T valid=true (8 T k0=v0) (9 T k1=v1)]
+fetch-old: append v2 @4 err=0 hw=10 bytes=~ [m1 gzip 3-5 LogAppendTime max=T valid=true (3 T k0=v0) (4 T k1=v1) (5 T k2=v2)] [m1 snappy 6-7 LogAppendTime max=T valid=true (6 T k0=v0) (7 T k1=v1)] [m1 lz4 8-9 LogAppendTime max=T valid=true (8 T k0=v0) (9 T k1=v1)]
+fetch-old: append v2 @6 err=0 hw=10 bytes=~ [m1 snappy 6-7 LogAppendTime max=T valid=true (6 T k0=v0) (7 T k1=v1)] [m1 lz4 8-9 LogAppendTime max=T valid=true (8 T k0=v0) (9 T k1=v1)]
+fetch-old: append v2 @9 err=0 hw=10 bytes=~ [m1 lz4 8-9 LogAppendTime max=T valid=true (8 T k0=v0) (9 T k1=v1)]
+fetch-old: append v2 @10 err=0 hw=10 bytes=0
+fetch-old: append v2 @11 err=1 hw=-1 bytes=0
+fetch-old: append v3 @0 err=0 hw=10 bytes=~ [m1 none 0-0 LogAppendTime max=T valid=true (0 T k0=v0)] [m1 none 1-1 LogAppendTime max=T valid=true (1 T k1=v1)] [m1 none 2-2 LogAppendTime max=T valid=true (2 T k2=v2)] [m1 gzip 3-5 LogAppendTime max=T valid=true (3 T k0=v0) (4 T k1=v1) (5 T k2=v2)] [m1 snappy 6-7 LogAppendTime max=T valid=true (6 T k0=v0) (7 T k1=v1)] [m1 lz4 8-9 LogAppendTime max=T valid=true (8 T k0=v0) (9 T k1=v1)]
+fetch-old: append v3 @1 err=0 hw=10 bytes=~ [m1 none 1-1 LogAppendTime max=T valid=true (1 T k1=v1)] [m1 none 2-2 LogAppendTime max=T valid=true (2 T k2=v2)] [m1 gzip 3-5 LogAppendTime max=T valid=true (3 T k0=v0) (4 T k1=v1) (5 T k2=v2)] [m1 snappy 6-7 LogAppendTime max=T valid=true (6 T k0=v0) (7 T k1=v1)] [m1 lz4 8-9 LogAppendTime max=T valid=true (8 T k0=v0) (9 T k1=v1)]
+fetch-old: append v3 @4 err=0 hw=10 bytes=~ [m1 gzip 3-5 LogAppendTime max=T valid=true (3 T k0=v0) (4 T k1=v1) (5 T k2=v2)] [m1 snappy 6-7 LogAppendTime max=T valid=true (6 T k0=v0) (7 T k1=v1)] [m1 lz4 8-9 LogAppendTime max=T valid=true (8 T k0=v0) (9 T k1=v1)]
+fetch-old: append v3 @6 err=0 hw=10 bytes=~ [m1 snappy 6-7 LogAppendTime max=T valid=true (6 T k0=v0) (7 T k1=v1)] [m1 lz4 8-9 LogAppendTime max=T valid=true (8 T k0=v0) (9 T k1=v1)]
+fetch-old: append v3 @9 err=0 hw=10 bytes=~ [m1 lz4 8-9 LogAppendTime max=T valid=true (8 T k0=v0) (9 T k1=v1)]
+fetch-old: append v3 @10 err=0 hw=10 bytes=0
+fetch-old: append v3 @11 err=1 hw=-1 bytes=0
+fetch-old: append v4 @0 err=0 hw=10 lso=-1 aborted=null bytes=~ [m2 none 0-2 LogAppendTime max=T pid=-1 txn=false ctl=false seq=-1 valid=true (0 T k0=v0 h1) (1 T k1=v1 h1) (2 T k2=v2 h1)] [m2 gzip 3-5 LogAppendTime max=T pid=-1 txn=false ctl=false seq=-1 valid=true (3 T k0=v0 h1) (4 T k1=v1 h1) (5 T k2=v2 h1)] [m2 snappy 6-7 LogAppendTime max=T pid=-1 txn=false ctl=false seq=-1 valid=true (6 T k0=v0 h1) (7 T k1=v1 h1)] [m2 lz4 8-9 LogAppendTime max=T pid=-1 txn=false ctl=false seq=-1 valid=true (8 T k0=v0 h1) (9 T k1=v1 h1)]
+fetch-old: append v4 @1 err=0 hw=10 lso=-1 aborted=null bytes=~ [m2 none 0-2 LogAppendTime max=T pid=-1 txn=false ctl=false seq=-1 valid=true (0 T k0=v0 h1) (1 T k1=v1 h1) (2 T k2=v2 h1)] [m2 gzip 3-5 LogAppendTime max=T pid=-1 txn=false ctl=false seq=-1 valid=true (3 T k0=v0 h1) (4 T k1=v1 h1) (5 T k2=v2 h1)] [m2 snappy 6-7 LogAppendTime max=T pid=-1 txn=false ctl=false seq=-1 valid=true (6 T k0=v0 h1) (7 T k1=v1 h1)] [m2 lz4 8-9 LogAppendTime max=T pid=-1 txn=false ctl=false seq=-1 valid=true (8 T k0=v0 h1) (9 T k1=v1 h1)]
+fetch-old: append v4 @4 err=0 hw=10 lso=-1 aborted=null bytes=~ [m2 gzip 3-5 LogAppendTime max=T pid=-1 txn=false ctl=false seq=-1 valid=true (3 T k0=v0 h1) (4 T k1=v1 h1) (5 T k2=v2 h1)] [m2 snappy 6-7 LogAppendTime max=T pid=-1 txn=false ctl=false seq=-1 valid=true (6 T k0=v0 h1) (7 T k1=v1 h1)] [m2 lz4 8-9 LogAppendTime max=T pid=-1 txn=false ctl=false seq=-1 valid=true (8 T k0=v0 h1) (9 T k1=v1 h1)]
+fetch-old: append v4 @6 err=0 hw=10 lso=-1 aborted=null bytes=~ [m2 snappy 6-7 LogAppendTime max=T pid=-1 txn=false ctl=false seq=-1 valid=true (6 T k0=v0 h1) (7 T k1=v1 h1)] [m2 lz4 8-9 LogAppendTime max=T pid=-1 txn=false ctl=false seq=-1 valid=true (8 T k0=v0 h1) (9 T k1=v1 h1)]
+fetch-old: append v4 @9 err=0 hw=10 lso=-1 aborted=null bytes=~ [m2 lz4 8-9 LogAppendTime max=T pid=-1 txn=false ctl=false seq=-1 valid=true (8 T k0=v0 h1) (9 T k1=v1 h1)]
+fetch-old: append v4 @10 err=0 hw=10 lso=-1 aborted=null bytes=0
+fetch-old: append v4 @11 err=1 hw=-1 lso=-1 aborted=null bytes=0
+fetch-old: append v0 @0 max 40 err=0 hw=10 bytes=40 tail=40 tailOffset=0 tailLen=94
+fetch-old: append v0 @0 max 100 err=0 hw=10 bytes=100 tail=100 tailOffset=0 tailLen=94
+fetch-old: append v0 @0 max 150 err=0 hw=10 bytes=90 [m0 none 0-0 NoTimestampType max=-1 valid=true (0 -1 k0=v0)] [m0 none 1-1 NoTimestampType max=-1 valid=true (1 -1 k1=v1)] [m0 none 2-2 NoTimestampType max=-1 valid=true (2 -1 k2=v2)]
+fetch-old: append v0 @0 max 250 err=0 hw=10 bytes=~ [m0 none 0-0 NoTimestampType max=-1 valid=true (0 -1 k0=v0)] [m0 none 1-1 NoTimestampType max=-1 valid=true (1 -1 k1=v1)] [m0 none 2-2 NoTimestampType max=-1 valid=true (2 -1 k2=v2)] [m0 gzip 3-5 NoTimestampType max=-1 valid=true (3 -1 k0=v0) (4 -1 k1=v1) (5 -1 k2=v2)]
+fetch-old: append v1 @0 max 40 err=0 hw=10 bytes=40 tail=40 tailOffset=0 tailLen=94
+fetch-old: append v1 @0 max 100 err=0 hw=10 bytes=100 tail=100 tailOffset=0 tailLen=94
+fetch-old: append v1 @0 max 150 err=0 hw=10 bytes=90 [m0 none 0-0 NoTimestampType max=-1 valid=true (0 -1 k0=v0)] [m0 none 1-1 NoTimestampType max=-1 valid=true (1 -1 k1=v1)] [m0 none 2-2 NoTimestampType max=-1 valid=true (2 -1 k2=v2)]
+fetch-old: append v1 @0 max 250 err=0 hw=10 bytes=~ [m0 none 0-0 NoTimestampType max=-1 valid=true (0 -1 k0=v0)] [m0 none 1-1 NoTimestampType max=-1 valid=true (1 -1 k1=v1)] [m0 none 2-2 NoTimestampType max=-1 valid=true (2 -1 k2=v2)] [m0 gzip 3-5 NoTimestampType max=-1 valid=true (3 -1 k0=v0) (4 -1 k1=v1) (5 -1 k2=v2)]
+fetch-old: append v2 @0 max 40 err=0 hw=10 bytes=40 tail=40 tailOffset=0 tailLen=94
+fetch-old: append v2 @0 max 100 err=0 hw=10 bytes=100 tail=100 tailOffset=0 tailLen=94
+fetch-old: append v2 @0 max 150 err=0 hw=10 bytes=114 [m1 none 0-0 LogAppendTime max=T valid=true (0 T k0=v0)] [m1 none 1-1 LogAppendTime max=T valid=true (1 T k1=v1)] [m1 none 2-2 LogAppendTime max=T valid=true (2 T k2=v2)]
+fetch-old: append v2 @0 max 250 err=0 hw=10 bytes=~ [m1 none 0-0 LogAppendTime max=T valid=true (0 T k0=v0)] [m1 none 1-1 LogAppendTime max=T valid=true (1 T k1=v1)] [m1 none 2-2 LogAppendTime max=T valid=true (2 T k2=v2)] [m1 gzip 3-5 LogAppendTime max=T valid=true (3 T k0=v0) (4 T k1=v1) (5 T k2=v2)]
+fetch-old: append v3 @0 max 40 err=0 hw=10 bytes=114 [m1 none 0-0 LogAppendTime max=T valid=true (0 T k0=v0)] [m1 none 1-1 LogAppendTime max=T valid=true (1 T k1=v1)] [m1 none 2-2 LogAppendTime max=T valid=true (2 T k2=v2)]
+fetch-old: append v3 @0 max 100 err=0 hw=10 bytes=114 [m1 none 0-0 LogAppendTime max=T valid=true (0 T k0=v0)] [m1 none 1-1 LogAppendTime max=T valid=true (1 T k1=v1)] [m1 none 2-2 LogAppendTime max=T valid=true (2 T k2=v2)]
+fetch-old: append v3 @0 max 150 err=0 hw=10 bytes=114 [m1 none 0-0 LogAppendTime max=T valid=true (0 T k0=v0)] [m1 none 1-1 LogAppendTime max=T valid=true (1 T k1=v1)] [m1 none 2-2 LogAppendTime max=T valid=true (2 T k2=v2)]
+fetch-old: append v3 @0 max 250 err=0 hw=10 bytes=~ [m1 none 0-0 LogAppendTime max=T valid=true (0 T k0=v0)] [m1 none 1-1 LogAppendTime max=T valid=true (1 T k1=v1)] [m1 none 2-2 LogAppendTime max=T valid=true (2 T k2=v2)] [m1 gzip 3-5 LogAppendTime max=T valid=true (3 T k0=v0) (4 T k1=v1) (5 T k2=v2)]
+fetch-old-txn: commit produce err=0 base=0 appendTime=-1
+fetch-old-txn: commit end 0
+fetch-old-txn: only the marker v0 @2 err=0 hw=3 bytes=78 [m2 none 2-2 CreateTime max=T pid=P txn=true ctl=true seq=-1 valid=true (2 T ....=......)]
+fetch-old-txn: only the marker v1 @2 err=0 hw=3 bytes=78 [m2 none 2-2 CreateTime max=T pid=P txn=true ctl=true seq=-1 valid=true (2 T ....=......)]
+fetch-old-txn: only the marker v2 @2 err=0 hw=3 bytes=78 [m2 none 2-2 CreateTime max=T pid=P txn=true ctl=true seq=-1 valid=true (2 T ....=......)]
+fetch-old-txn: only the marker v3 @2 err=0 hw=3 bytes=78 [m2 none 2-2 CreateTime max=T pid=P txn=true ctl=true seq=-1 valid=true (2 T ....=......)]
+fetch-old-txn: abort produce err=0 base=3 appendTime=-1
+fetch-old-txn: abort end 0
+fetch-old-txn: idempotent err=0 base=6 appendTime=-1
+fetch-old-txn: v0 @0 err=0 hw=7 bytes=161 [m0 none 0-0 NoTimestampType max=-1 valid=true (0 -1 k=committed)] [m0 none 1-1 NoTimestampType max=-1 valid=true (1 -1 k=two)] [m0 none 3-3 NoTimestampType max=-1 valid=true (3 -1 k=aborted)] [m0 none 4-4 NoTimestampType max=-1 valid=true (4 -1 k=two)] [m0 none 6-6 NoTimestampType max=-1 valid=true (6 -1 i=idem)]
+fetch-old-txn: v0 @2 err=0 hw=7 bytes=95 [m0 none 3-3 NoTimestampType max=-1 valid=true (3 -1 k=aborted)] [m0 none 4-4 NoTimestampType max=-1 valid=true (4 -1 k=two)] [m0 none 6-6 NoTimestampType max=-1 valid=true (6 -1 i=idem)]
+fetch-old-txn: v0 @3 err=0 hw=7 bytes=95 [m0 none 3-3 NoTimestampType max=-1 valid=true (3 -1 k=aborted)] [m0 none 4-4 NoTimestampType max=-1 valid=true (4 -1 k=two)] [m0 none 6-6 NoTimestampType max=-1 valid=true (6 -1 i=idem)]
+fetch-old-txn: v0 @5 err=0 hw=7 bytes=31 [m0 none 6-6 NoTimestampType max=-1 valid=true (6 -1 i=idem)]
+fetch-old-txn: v0 @6 err=0 hw=7 bytes=31 [m0 none 6-6 NoTimestampType max=-1 valid=true (6 -1 i=idem)]
+fetch-old-txn: v1 @0 err=0 hw=7 bytes=161 [m0 none 0-0 NoTimestampType max=-1 valid=true (0 -1 k=committed)] [m0 none 1-1 NoTimestampType max=-1 valid=true (1 -1 k=two)] [m0 none 3-3 NoTimestampType max=-1 valid=true (3 -1 k=aborted)] [m0 none 4-4 NoTimestampType max=-1 valid=true (4 -1 k=two)] [m0 none 6-6 NoTimestampType max=-1 valid=true (6 -1 i=idem)]
+fetch-old-txn: v1 @2 err=0 hw=7 bytes=95 [m0 none 3-3 NoTimestampType max=-1 valid=true (3 -1 k=aborted)] [m0 none 4-4 NoTimestampType max=-1 valid=true (4 -1 k=two)] [m0 none 6-6 NoTimestampType max=-1 valid=true (6 -1 i=idem)]
+fetch-old-txn: v1 @3 err=0 hw=7 bytes=95 [m0 none 3-3 NoTimestampType max=-1 valid=true (3 -1 k=aborted)] [m0 none 4-4 NoTimestampType max=-1 valid=true (4 -1 k=two)] [m0 none 6-6 NoTimestampType max=-1 valid=true (6 -1 i=idem)]
+fetch-old-txn: v1 @5 err=0 hw=7 bytes=31 [m0 none 6-6 NoTimestampType max=-1 valid=true (6 -1 i=idem)]
+fetch-old-txn: v1 @6 err=0 hw=7 bytes=31 [m0 none 6-6 NoTimestampType max=-1 valid=true (6 -1 i=idem)]
+fetch-old-txn: v2 @0 err=0 hw=7 bytes=201 [m1 none 0-0 CreateTime max=B+0 valid=true (0 B+0 k=committed)] [m1 none 1-1 CreateTime max=B+1 valid=true (1 B+1 k=two)] [m1 none 3-3 CreateTime max=B+0 valid=true (3 B+0 k=aborted)] [m1 none 4-4 CreateTime max=B+1 valid=true (4 B+1 k=two)] [m1 none 6-6 CreateTime max=B+0 valid=true (6 B+0 i=idem)]
+fetch-old-txn: v2 @2 err=0 hw=7 bytes=119 [m1 none 3-3 CreateTime max=B+0 valid=true (3 B+0 k=aborted)] [m1 none 4-4 CreateTime max=B+1 valid=true (4 B+1 k=two)] [m1 none 6-6 CreateTime max=B+0 valid=true (6 B+0 i=idem)]
+fetch-old-txn: v2 @3 err=0 hw=7 bytes=119 [m1 none 3-3 CreateTime max=B+0 valid=true (3 B+0 k=aborted)] [m1 none 4-4 CreateTime max=B+1 valid=true (4 B+1 k=two)] [m1 none 6-6 CreateTime max=B+0 valid=true (6 B+0 i=idem)]
+fetch-old-txn: v2 @5 err=0 hw=7 bytes=39 [m1 none 6-6 CreateTime max=B+0 valid=true (6 B+0 i=idem)]
+fetch-old-txn: v2 @6 err=0 hw=7 bytes=39 [m1 none 6-6 CreateTime max=B+0 valid=true (6 B+0 i=idem)]
+fetch-old-txn: v3 @0 err=0 hw=7 bytes=201 [m1 none 0-0 CreateTime max=B+0 valid=true (0 B+0 k=committed)] [m1 none 1-1 CreateTime max=B+1 valid=true (1 B+1 k=two)] [m1 none 3-3 CreateTime max=B+0 valid=true (3 B+0 k=aborted)] [m1 none 4-4 CreateTime max=B+1 valid=true (4 B+1 k=two)] [m1 none 6-6 CreateTime max=B+0 valid=true (6 B+0 i=idem)]
+fetch-old-txn: v3 @2 err=0 hw=7 bytes=119 [m1 none 3-3 CreateTime max=B+0 valid=true (3 B+0 k=aborted)] [m1 none 4-4 CreateTime max=B+1 valid=true (4 B+1 k=two)] [m1 none 6-6 CreateTime max=B+0 valid=true (6 B+0 i=idem)]
+fetch-old-txn: v3 @3 err=0 hw=7 bytes=119 [m1 none 3-3 CreateTime max=B+0 valid=true (3 B+0 k=aborted)] [m1 none 4-4 CreateTime max=B+1 valid=true (4 B+1 k=two)] [m1 none 6-6 CreateTime max=B+0 valid=true (6 B+0 i=idem)]
+fetch-old-txn: v3 @5 err=0 hw=7 bytes=39 [m1 none 6-6 CreateTime max=B+0 valid=true (6 B+0 i=idem)]
+fetch-old-txn: v3 @6 err=0 hw=7 bytes=39 [m1 none 6-6 CreateTime max=B+0 valid=true (6 B+0 i=idem)]
+fetch-old-txn: v4 @0 err=0 hw=7 lso=-1 aborted=null bytes=405 [m2 none 0-1 CreateTime max=B+1 pid=P txn=true ctl=false seq=0 valid=true (0 B+0 k=committed) (1 B+1 k=two)] [m2 none 2-2 CreateTime max=T pid=P txn=true ctl=true seq=-1 valid=true (2 T ....=......)] [m2 none 3-4 CreateTime max=B+1 pid=P txn=true ctl=false seq=2 valid=true (3 B+0 k=aborted) (4 B+1 k=two)] [m2 none 5-5 CreateTime max=T pid=P txn=true ctl=true seq=-1 valid=true (5 T ....=......)] [m2 none 6-6 CreateTime max=B+0 pid=P txn=false ctl=false seq=0 valid=true (6 B+0 i=idem)]
+fetch-old-txn: v4 @2 err=0 hw=7 lso=-1 aborted=null bytes=316 [m2 none 2-2 CreateTime max=T pid=P txn=true ctl=true seq=-1 valid=true (2 T ....=......)] [m2 none 3-4 CreateTime max=B+1 pid=P txn=true ctl=false seq=2 valid=true (3 B+0 k=aborted) (4 B+1 k=two)] [m2 none 5-5 CreateTime max=T pid=P txn=true ctl=true seq=-1 valid=true (5 T ....=......)] [m2 none 6-6 CreateTime max=B+0 pid=P txn=false ctl=false seq=0 valid=true (6 B+0 i=idem)]
+fetch-old-txn: v4 @3 err=0 hw=7 lso=-1 aborted=null bytes=238 [m2 none 3-4 CreateTime max=B+1 pid=P txn=true ctl=false seq=2 valid=true (3 B+0 k=aborted) (4 B+1 k=two)] [m2 none 5-5 CreateTime max=T pid=P txn=true ctl=true seq=-1 valid=true (5 T ....=......)] [m2 none 6-6 CreateTime max=B+0 pid=P txn=false ctl=false seq=0 valid=true (6 B+0 i=idem)]
+fetch-old-txn: v4 @5 err=0 hw=7 lso=-1 aborted=null bytes=151 [m2 none 5-5 CreateTime max=T pid=P txn=true ctl=true seq=-1 valid=true (5 T ....=......)] [m2 none 6-6 CreateTime max=B+0 pid=P txn=false ctl=false seq=0 valid=true (6 B+0 i=idem)]
+fetch-old-txn: v4 @6 err=0 hw=7 lso=-1 aborted=null bytes=73 [m2 none 6-6 CreateTime max=B+0 pid=P txn=false ctl=false seq=0 valid=true (6 B+0 i=idem)]
+zstd: EXCEPTION java.lang.IllegalStateException: create old-R-z: -1 Invalid value zstd for configuration compression.type: String must be one of: uncompressed, snappy, lz4, gzip, producer
+produce-fetch: produce v3 err=0 base=0 appendTime=-1
+produce-fetch: produce v4 err=0 base=1 appendTime=-1
+produce-fetch: produce v5 err=0 base=2 appendTime=-1 logStart=0
+produce-fetch: fetch v4 err=0 hw=3 lso=-1 aborted=null bytes=228 [m2 none 0-0 CreateTime max=B+0 pid=-1 txn=false ctl=false seq=-1 valid=true (0 B+0 k0=v0 h1)] [m2 none 1-1 CreateTime max=B+0 pid=-1 txn=false ctl=false seq=-1 valid=true (1 B+0 k0=v0 h1)] [m2 none 2-2 CreateTime max=B+0 pid=-1 txn=false ctl=false seq=-1 valid=true (2 B+0 k0=v0 h1)]
+produce-fetch: fetch v5 err=0 hw=3 lso=-1 aborted=null logStart=0 bytes=228 [m2 none 0-0 CreateTime max=B+0 pid=-1 txn=false ctl=false seq=-1 valid=true (0 B+0 k0=v0 h1)] [m2 none 1-1 CreateTime max=B+0 pid=-1 txn=false ctl=false seq=-1 valid=true (1 B+0 k0=v0 h1)] [m2 none 2-2 CreateTime max=B+0 pid=-1 txn=false ctl=false seq=-1 valid=true (2 B+0 k0=v0 h1)]
+produce-fetch: fetch v6 err=0 hw=3 lso=-1 aborted=null logStart=0 bytes=228 [m2 none 0-0 CreateTime max=B+0 pid=-1 txn=false ctl=false seq=-1 valid=true (0 B+0 k0=v0 h1)] [m2 none 1-1 CreateTime max=B+0 pid=-1 txn=false ctl=false seq=-1 valid=true (1 B+0 k0=v0 h1)] [m2 none 2-2 CreateTime max=B+0 pid=-1 txn=false ctl=false seq=-1 valid=true (2 B+0 k0=v0 h1)]
+produce-fetch: fetch v7 err=0 hw=3 lso=-1 aborted=null logStart=0 bytes=228 [m2 none 0-0 CreateTime max=B+0 pid=-1 txn=false ctl=false seq=-1 valid=true (0 B+0 k0=v0 h1)] [m2 none 1-1 CreateTime max=B+0 pid=-1 txn=false ctl=false seq=-1 valid=true (1 B+0 k0=v0 h1)] [m2 none 2-2 CreateTime max=B+0 pid=-1 txn=false ctl=false seq=-1 valid=true (2 B+0 k0=v0 h1)]
+produce-fetch: fetch v4 past end err=1 hw=-1 lso=-1 aborted=null bytes=0
+produce-fetch: fetch v5 past end err=1 hw=-1 lso=-1 aborted=null logStart=-1 bytes=0
+produce-fetch: fetch v6 past end err=1 hw=-1 lso=-1 aborted=null logStart=-1 bytes=0
+produce-fetch: fetch v7 past end err=1 hw=-1 lso=-1 aborted=null logStart=-1 bytes=0
+list-offsets: v0 full ts=-1 n=1 err=0 offsets=[5]
+list-offsets: v0 empty ts=-1 n=1 err=0 offsets=[0]
+list-offsets: v0 full ts=-1 n=2 err=0 offsets=[5, 0]
+list-offsets: v0 empty ts=-1 n=2 err=0 offsets=[0]
+list-offsets: v0 full ts=-1 n=10 err=0 offsets=[5, 0]
+list-offsets: v0 empty ts=-1 n=10 err=0 offsets=[0]
+list-offsets: v0 full ts=-1 n=0 err=0 offsets=[]
+list-offsets: v0 empty ts=-1 n=0 err=0 offsets=[]
+list-offsets: v0 full ts=-2 n=1 err=0 offsets=[0]
+list-offsets: v0 empty ts=-2 n=1 err=0 offsets=[0]
+list-offsets: v0 full ts=-2 n=2 err=0 offsets=[0]
+list-offsets: v0 empty ts=-2 n=2 err=0 offsets=[0]
+list-offsets: v0 full ts=-2 n=10 err=0 offsets=[0]
+list-offsets: v0 empty ts=-2 n=10 err=0 offsets=[0]
+list-offsets: v0 full ts=-2 n=0 err=0 offsets=[]
+list-offsets: v0 empty ts=-2 n=0 err=0 offsets=[]
+list-offsets: v0 full ts=0 n=1 err=0 offsets=[]
+list-offsets: v0 empty ts=0 n=1 err=0 offsets=[]
+list-offsets: v0 full ts=0 n=2 err=0 offsets=[]
+list-offsets: v0 empty ts=0 n=2 err=0 offsets=[]
+list-offsets: v0 full ts=0 n=10 err=0 offsets=[]
+list-offsets: v0 empty ts=0 n=10 err=0 offsets=[]
+list-offsets: v0 full ts=0 n=0 err=0 offsets=[]
+list-offsets: v0 empty ts=0 n=0 err=0 offsets=[]
+list-offsets: v0 full ts=B+1 n=1 err=0 offsets=[]
+list-offsets: v0 empty ts=B+1 n=1 err=0 offsets=[]
+list-offsets: v0 full ts=B+1 n=2 err=0 offsets=[]
+list-offsets: v0 empty ts=B+1 n=2 err=0 offsets=[]
+list-offsets: v0 full ts=B+1 n=10 err=0 offsets=[]
+list-offsets: v0 empty ts=B+1 n=10 err=0 offsets=[]
+list-offsets: v0 full ts=B+1 n=0 err=0 offsets=[]
+list-offsets: v0 empty ts=B+1 n=0 err=0 offsets=[]
+list-offsets: v0 full ts=B+100000 n=1 err=0 offsets=[5]
+list-offsets: v0 empty ts=B+100000 n=1 err=0 offsets=[0]
+list-offsets: v0 full ts=B+100000 n=2 err=0 offsets=[5, 0]
+list-offsets: v0 empty ts=B+100000 n=2 err=0 offsets=[0]
+list-offsets: v0 full ts=B+100000 n=10 err=0 offsets=[5, 0]
+list-offsets: v0 empty ts=B+100000 n=10 err=0 offsets=[0]
+list-offsets: v0 full ts=B+100000 n=0 err=0 offsets=[]
+list-offsets: v0 empty ts=B+100000 n=0 err=0 offsets=[]
+list-offsets: v0 full ts=B+10000000 n=1 err=0 offsets=[5]
+list-offsets: v0 empty ts=B+10000000 n=1 err=0 offsets=[0]
+list-offsets: v0 full ts=B+10000000 n=2 err=0 offsets=[5, 0]
+list-offsets: v0 empty ts=B+10000000 n=2 err=0 offsets=[0]
+list-offsets: v0 full ts=B+10000000 n=10 err=0 offsets=[5, 0]
+list-offsets: v0 empty ts=B+10000000 n=10 err=0 offsets=[0]
+list-offsets: v0 full ts=B+10000000 n=0 err=0 offsets=[]
+list-offsets: v0 empty ts=B+10000000 n=0 err=0 offsets=[]
+list-offsets: v1 full ts=-1 err=0 offset=5 time=-1
+list-offsets: v1 empty ts=-1 err=0 offset=0 time=-1
+list-offsets: v1 full ts=-2 err=0 offset=0 time=-1
+list-offsets: v1 empty ts=-2 err=0 offset=0 time=-1
+list-offsets: v1 full ts=0 err=0 offset=0 time=B+0
+list-offsets: v1 empty ts=0 err=0 offset=-1 time=-1
+list-offsets: v1 full ts=B+1 err=0 offset=1 time=B+1
+list-offsets: v1 empty ts=B+1 err=0 offset=-1 time=-1
+list-offsets: v1 full ts=B+100000 err=0 offset=3 time=B+100000
+list-offsets: v1 empty ts=B+100000 err=0 offset=-1 time=-1
+list-offsets: v1 full ts=B+10000000 err=0 offset=-1 time=-1
+list-offsets: v1 empty ts=B+10000000 err=0 offset=-1 time=-1
+list-offsets: v2 full ts=-1 err=0 offset=5 time=-1
+list-offsets: v2 empty ts=-1 err=0 offset=0 time=-1
+list-offsets: v2 full ts=-2 err=0 offset=0 time=-1
+list-offsets: v2 empty ts=-2 err=0 offset=0 time=-1
+list-offsets: v2 full ts=0 err=0 offset=0 time=B+0
+list-offsets: v2 empty ts=0 err=0 offset=-1 time=-1
+list-offsets: v2 full ts=B+1 err=0 offset=1 time=B+1
+list-offsets: v2 empty ts=B+1 err=0 offset=-1 time=-1
+list-offsets: v2 full ts=B+100000 err=0 offset=3 time=B+100000
+list-offsets: v2 empty ts=B+100000 err=0 offset=-1 time=-1
+list-offsets: v2 full ts=B+10000000 err=0 offset=-1 time=-1
+list-offsets: v2 empty ts=B+10000000 err=0 offset=-1 time=-1
+list-offsets: v0 old-R-lo-3 ListOffsetsResponseData(throttleTimeMs=_, topics=[ListOffsetsTopicResponse(name='old-R-lo', partitions=[ListOffsetsPartitionResponse(partitionIndex=3, errorCode=3, oldStyleOffsets=[], timestamp=-1, offset=-1, leaderEpoch=-1)])])
+list-offsets: v0 old-R-nothing-0 ListOffsetsResponseData(throttleTimeMs=_, topics=[ListOffsetsTopicResponse(name='old-R-nothing', partitions=[ListOffsetsPartitionResponse(partitionIndex=0, errorCode=3, oldStyleOffsets=[], timestamp=-1, offset=-1, leaderEpoch=-1)])])
+list-offsets: v1 old-R-lo-3 ListOffsetsResponseData(throttleTimeMs=_, topics=[ListOffsetsTopicResponse(name='old-R-lo', partitions=[ListOffsetsPartitionResponse(partitionIndex=3, errorCode=3, oldStyleOffsets=[], timestamp=-1, offset=-1, leaderEpoch=-1)])])
+list-offsets: v1 old-R-nothing-0 ListOffsetsResponseData(throttleTimeMs=_, topics=[ListOffsetsTopicResponse(name='old-R-nothing', partitions=[ListOffsetsPartitionResponse(partitionIndex=0, errorCode=3, oldStyleOffsets=[], timestamp=-1, offset=-1, leaderEpoch=-1)])])
+offsets-old: commit v0 OffsetCommitResponseData(throttleTimeMs=_, topics=[OffsetCommitResponseTopic(name='old-R-oc', partitions=[OffsetCommitResponsePartition(partitionIndex=0, errorCode=0)])])
+offsets-old:   fetch v0 err=0 old-R-oc-0=0@100'' old-R-oc-1=3@-1''
+offsets-old:   fetch v1 err=0 old-R-oc-0=0@-1'' old-R-oc-1=0@-1''
+offsets-old:   fetch v2 err=0 old-R-oc-0=0@-1'' old-R-oc-1=0@-1''
+offsets-old:   fetch v3 err=0 old-R-oc-0=0@-1'' old-R-oc-1=0@-1''
+offsets-old:   fetch v2 all err=0 
+offsets-old: commit v1 OffsetCommitResponseData(throttleTimeMs=_, topics=[OffsetCommitResponseTopic(name='old-R-oc', partitions=[OffsetCommitResponsePartition(partitionIndex=1, errorCode=0)])])
+offsets-old:   fetch v0 err=0 old-R-oc-0=0@100'' old-R-oc-1=3@-1''
+offsets-old:   fetch v1 err=0 old-R-oc-0=0@-1'' old-R-oc-1=0@101'm1'
+offsets-old:   fetch v2 err=0 old-R-oc-0=0@-1'' old-R-oc-1=0@101'm1'
+offsets-old:   fetch v3 err=0 old-R-oc-0=0@-1'' old-R-oc-1=0@101'm1'
+offsets-old:   fetch v2 all err=0 old-R-oc-1=0@101'm1'
+offsets-old: commit v2 OffsetCommitResponseData(throttleTimeMs=_, topics=[OffsetCommitResponseTopic(name='old-R-oc', partitions=[OffsetCommitResponsePartition(partitionIndex=0, errorCode=0)])])
+offsets-old:   fetch v0 err=0 old-R-oc-0=0@100'' old-R-oc-1=3@-1''
+offsets-old:   fetch v1 err=0 old-R-oc-0=0@102'm2' old-R-oc-1=0@101'm1'
+offsets-old:   fetch v2 err=0 old-R-oc-0=0@102'm2' old-R-oc-1=0@101'm1'
+offsets-old:   fetch v3 err=0 old-R-oc-0=0@102'm2' old-R-oc-1=0@101'm1'
+offsets-old:   fetch v2 all err=0 old-R-oc-0=0@102'm2' old-R-oc-1=0@101'm1'
+offsets-old: commit v3 OffsetCommitResponseData(throttleTimeMs=_, topics=[OffsetCommitResponseTopic(name='old-R-oc', partitions=[OffsetCommitResponsePartition(partitionIndex=1, errorCode=0)])])
+offsets-old:   fetch v0 err=0 old-R-oc-0=0@100'' old-R-oc-1=3@-1''
+offsets-old:   fetch v1 err=0 old-R-oc-0=0@102'm2' old-R-oc-1=0@103'm3'
+offsets-old:   fetch v2 err=0 old-R-oc-0=0@102'm2' old-R-oc-1=0@103'm3'
+offsets-old:   fetch v3 err=0 old-R-oc-0=0@102'm2' old-R-oc-1=0@103'm3'
+offsets-old:   fetch v2 all err=0 old-R-oc-0=0@102'm2' old-R-oc-1=0@103'm3'
+offsets-old: fetch v0 unknown group err=0 old-R-oc-0=3@-1''
+offsets-old: fetch v1 unknown group err=0 old-R-oc-0=0@-1''
+offsets-old: v0 only commit OffsetCommitResponseData(throttleTimeMs=_, topics=[OffsetCommitResponseTopic(name='old-R-oc', partitions=[OffsetCommitResponsePartition(partitionIndex=0, errorCode=0)])])
+offsets-old: v0 only fetch v0 err=0 old-R-oc-0=0@5''
+offsets-old: v0 only fetch v1 err=0 old-R-oc-0=0@-1''
+offsets-old: v0 only describe DescribeGroupsResponseData(throttleTimeMs=_, groups=[DescribedGroup(errorCode=0, groupId='old-R-g0', groupState='Dead', protocolType='', protocolData='', members=[], authorizedOperations=-2147483648)])
+offsets-old: v0 only listed false
+offsets-old: v0 member commit OffsetCommitResponseData(throttleTimeMs=_, topics=[OffsetCommitResponseTopic(name='old-R-oc', partitions=[OffsetCommitResponsePartition(partitionIndex=0, errorCode=0)])])
+offsets-old: v1 member commit OffsetCommitResponseData(throttleTimeMs=_, topics=[OffsetCommitResponseTopic(name='old-R-oc', partitions=[OffsetCommitResponsePartition(partitionIndex=0, errorCode=22)])])
+offsets-old: v0 unknown topic OffsetCommitResponseData(throttleTimeMs=_, topics=[OffsetCommitResponseTopic(name='old-R-nothing', partitions=[OffsetCommitResponsePartition(partitionIndex=0, errorCode=3)])])
+offsets-old: v1 unknown topic OffsetCommitResponseData(throttleTimeMs=_, topics=[OffsetCommitResponseTopic(name='old-R-nothing', partitions=[OffsetCommitResponsePartition(partitionIndex=0, errorCode=3)])])
+admin-old: create v0 CreateTopicsResponseData(throttleTimeMs=_, topics=[CreatableTopicResult(name='old-R-ct0', topicId=ID, errorCode=0, errorMessage='', topicConfigErrorCode=0, numPartitions=-1, replicationFactor=-1, configs=[]), CreatableTopicResult(name='old-R-bad0', topicId=ID, errorCode=37, errorMessage='', topicConfigErrorCode=0, numPartitions=-1, replicationFactor=-1, configs=[]), CreatableTopicResult(name='old-R-cfg0', topicId=ID, errorCode=40, errorMessage='', topicConfigErrorCode=0, numPartitions=-1, replicationFactor=-1, configs=[])])
+admin-old: create v0 again CreateTopicsResponseData(throttleTimeMs=_, topics=[CreatableTopicResult(name='old-R-ct0', topicId=ID, errorCode=36, errorMessage='', topicConfigErrorCode=0, numPartitions=-1, replicationFactor=-1, configs=[]), CreatableTopicResult(name='old-R-bad0', topicId=ID, errorCode=37, errorMessage='', topicConfigErrorCode=0, numPartitions=-1, replicationFactor=-1, configs=[]), CreatableTopicResult(name='old-R-cfg0', topicId=ID, errorCode=40, errorMessage='', topicConfigErrorCode=0, numPartitions=-1, replicationFactor=-1, configs=[])])
+admin-old: create v1 CreateTopicsResponseData(throttleTimeMs=_, topics=[CreatableTopicResult(name='old-R-ct1', topicId=ID, errorCode=0, errorMessage=null, topicConfigErrorCode=0, numPartitions=-1, replicationFactor=-1, configs=[]), CreatableTopicResult(name='old-R-cfg1', topicId=ID, errorCode=40, errorMessage='Unknown topic config name: no.such.config', topicConfigErrorCode=0, numPartitions=-1, replicationFactor=-1, configs=[]), CreatableTopicResult(name='old-R-bad1', topicId=ID, errorCode=37, errorMessage='Number of partitions must be larger than 0.', topicConfigErrorCode=0, numPartitions=-1, replicationFactor=-1, configs=[])])
+admin-old: create v2 CreateTopicsResponseData(throttleTimeMs=_, topics=[CreatableTopicResult(name='old-R-ct2', topicId=ID, errorCode=0, errorMessage=null, topicConfigErrorCode=0, numPartitions=-1, replicationFactor=-1, configs=[]), CreatableTopicResult(name='old-R-bad2', topicId=ID, errorCode=37, errorMessage='Number of partitions must be larger than 0.', topicConfigErrorCode=0, numPartitions=-1, replicationFactor=-1, configs=[]), CreatableTopicResult(name='old-R-cfg2', topicId=ID, errorCode=40, errorMessage='Unknown topic config name: no.such.config', topicConfigErrorCode=0, numPartitions=-1, replicationFactor=-1, configs=[])])
+admin-old: delete v0 DeleteTopicsResponseData(throttleTimeMs=_, responses=[DeletableTopicResult(name='old-R-nothing', topicId=ID, errorCode=3, errorMessage=null), DeletableTopicResult(name='old-R-ct0', topicId=ID, errorCode=0, errorMessage=null)])
+admin-old: delete v1 DeleteTopicsResponseData(throttleTimeMs=_, responses=[DeletableTopicResult(name='old-R-nothing', topicId=ID, errorCode=3, errorMessage=null), DeletableTopicResult(name='old-R-ct2', topicId=ID, errorCode=0, errorMessage=null)])
+admin-old: describe v0 err=0 old-R-nothing cleanup.policy=delete ro=false default=true sens=false compression.type=producer ro=false default=true sens=false delete.retention.ms=86400000 ro=false default=true sens=false file.delete.delay.ms=60000 ro=false default=true sens=false flush.messages=9223372036854775807 ro=false default=true sens=false flush.ms=9223372036854775807 ro=false default=true sens=false follower.replication.throttled.replicas= ro=false default=true sens=false index.interval.bytes=4096 ro=false default=true sens=false leader.replication.throttled.replicas= ro=false default=true sens=false max.message.bytes=1000012 ro=false default=true sens=false message.format.version=1.1-IV0 ro=false default=true sens=false message.timestamp.difference.max.ms=9223372036854775807 ro=false default=true sens=false message.timestamp.type=CreateTime ro=false default=true sens=false min.cleanable.dirty.ratio=0.5 ro=false default=true sens=false min.compaction.lag.ms=0 ro=false default=true sens=false min.insync.replicas=1 ro=false default=true sens=false preallocate=false ro=false default=true sens=false retention.bytes=-1 ro=false default=true sens=false retention.ms=604800000 ro=false default=true sens=false segment.bytes=1073741824 ro=false default=true sens=false segment.index.bytes=10485760 ro=false default=true sens=false segment.jitter.ms=0 ro=false default=true sens=false segment.ms=604800000 ro=false default=true sens=false unclean.leader.election.enable=false ro=false default=true sens=false
+admin-old: describe v0 err=0 old-R-dc cleanup.policy=compact ro=false default=false sens=false min.insync.replicas=1 ro=false default=true sens=false retention.ms=1234567 ro=false default=false sens=false segment.bytes=1073741824 ro=false default=true sens=false
+admin-old: describe v1 err=0 old-R-nothing cleanup.policy=delete ro=false src=5 sens=false compression.type=producer ro=false src=5 sens=false delete.retention.ms=86400000 ro=false src=5 sens=false file.delete.delay.ms=60000 ro=false src=5 sens=false flush.messages=9223372036854775807 ro=false src=5 sens=false flush.ms=9223372036854775807 ro=false src=5 sens=false follower.replication.throttled.replicas= ro=false src=5 sens=false index.interval.bytes=4096 ro=false src=5 sens=false leader.replication.throttled.replicas= ro=false src=5 sens=false max.message.bytes=1000012 ro=false src=5 sens=false message.format.version=1.1-IV0 ro=false src=5 sens=false message.timestamp.difference.max.ms=9223372036854775807 ro=false src=5 sens=false message.timestamp.type=CreateTime ro=false src=5 sens=false min.cleanable.dirty.ratio=0.5 ro=false src=5 sens=false min.compaction.lag.ms=0 ro=false src=5 sens=false min.insync.replicas=1 ro=false src=5 sens=false preallocate=false ro=false src=5 sens=false retention.bytes=-1 ro=false src=5 sens=false retention.ms=604800000 ro=false src=5 sens=false segment.bytes=1073741824 ro=false src=5 sens=false segment.index.bytes=10485760 ro=false src=5 sens=false segment.jitter.ms=0 ro=false src=5 sens=false segment.ms=604800000 ro=false src=5 sens=false unclean.leader.election.enable=false ro=false src=5 sens=false
+admin-old: describe v1 err=0 old-R-dc cleanup.policy=compact ro=false src=1 sens=false min.insync.replicas=1 ro=false src=5 sens=false retention.ms=1234567 ro=false src=1 sens=false segment.bytes=1073741824 ro=false src=5 sens=false
+admin-old: describe v1 synonyms err=0 old-R-nothing cleanup.policy=delete ro=false src=5 sens=false syn=1 compression.type=producer ro=false src=5 sens=false syn=1 delete.retention.ms=86400000 ro=false src=5 sens=false syn=1 file.delete.delay.ms=60000 ro=false src=5 sens=false syn=1 flush.messages=9223372036854775807 ro=false src=5 sens=false syn=1 flush.ms=9223372036854775807 ro=false src=5 sens=false syn=0 follower.replication.throttled.replicas= ro=false src=5 sens=false syn=0 index.interval.bytes=4096 ro=false src=5 sens=false syn=1 leader.replication.throttled.replicas= ro=false src=5 sens=false syn=0 max.message.bytes=1000012 ro=false src=5 sens=false syn=1 message.format.version=1.1-IV0 ro=false src=5 sens=false syn=1 message.timestamp.difference.max.ms=9223372036854775807 ro=false src=5 sens=false syn=1 message.timestamp.type=CreateTime ro=false src=5 sens=false syn=1 min.cleanable.dirty.ratio=0.5 ro=false src=5 sens=false syn=1 min.compaction.lag.ms=0 ro=false src=5 sens=false syn=1 min.insync.replicas=1 ro=false src=5 sens=false syn=1 preallocate=false ro=false src=5 sens=false syn=1 retention.bytes=-1 ro=false src=5 sens=false syn=1 retention.ms=604800000 ro=false src=5 sens=false syn=0 segment.bytes=1073741824 ro=false src=5 sens=false syn=1 segment.index.bytes=10485760 ro=false src=5 sens=false syn=1 segment.jitter.ms=0 ro=false src=5 sens=false syn=0 segment.ms=604800000 ro=false src=5 sens=false syn=0 unclean.leader.election.enable=false ro=false src=5 sens=false syn=1
+admin-old: describe v1 synonyms err=0 old-R-dc cleanup.policy=compact ro=false src=1 sens=false syn=2 min.insync.replicas=1 ro=false src=5 sens=false syn=1 retention.ms=1234567 ro=false src=1 sens=false syn=1 segment.bytes=1073741824 ro=false src=5 sens=false syn=1
+admin-old: describe v0 all 24 [cleanup.policy*, compression.type, delete.retention.ms, file.delete.delay.ms, flush.messages, flush.ms, follower.replication.throttled.replicas, index.interval.bytes, leader.replication.throttled.replicas, max.message.bytes, message.format.version, message.timestamp.difference.max.ms, message.timestamp.type, min.cleanable.dirty.ratio, min.compaction.lag.ms, min.insync.replicas, preallocate, retention.bytes, retention.ms*, segment.bytes, segment.index.bytes, segment.jitter.ms, segment.ms, unclean.leader.election.enable]
+admin-old: describe v0 broker log.retention.hours=168 ro=false default=true sens=false
+admin-old: describe v0 broker message.max.bytes=1000012 ro=false default=true sens=false
+admin-old: describe v0 broker num.partitions=1 ro=true default=true sens=false
+metadata: v0 brokers=1 rack=null controller=-1 cluster=null [old-R-absent-md0=5 internal=false parts=0, old-R-md=0 internal=false parts=2 [0 e=0 l=1 ep=-1 r=[1] isr=[1] off=[]] [1 e=0 l=1 ep=-1 r=[1] isr=[1] off=[]]]
+metadata: v1 brokers=1 rack=null controller=1 cluster=null [old-R-absent-md1=5 internal=false parts=0, old-R-md=0 internal=false parts=2 [0 e=0 l=1 ep=-1 r=[1] isr=[1] off=[]] [1 e=0 l=1 ep=-1 r=[1] isr=[1] off=[]]]
+metadata: v2 brokers=1 rack=null controller=1 cluster=C [old-R-absent-md2=5 internal=false parts=0, old-R-md=0 internal=false parts=2 [0 e=0 l=1 ep=-1 r=[1] isr=[1] off=[]] [1 e=0 l=1 ep=-1 r=[1] isr=[1] off=[]]]
+metadata: v3 brokers=1 rack=null controller=1 cluster=C [old-R-absent-md3=5 internal=false parts=0, old-R-md=0 internal=false parts=2 [0 e=0 l=1 ep=-1 r=[1] isr=[1] off=[]] [1 e=0 l=1 ep=-1 r=[1] isr=[1] off=[]]]
+metadata: v4 brokers=1 rack=null controller=1 cluster=C [old-R-absent-md4=3 internal=false parts=0, old-R-md=0 internal=false parts=2 [0 e=0 l=1 ep=-1 r=[1] isr=[1] off=[]] [1 e=0 l=1 ep=-1 r=[1] isr=[1] off=[]]]
+metadata: v5 brokers=1 rack=null controller=1 cluster=C [old-R-absent-md5=3 internal=false parts=0, old-R-md=0 internal=false parts=2 [0 e=0 l=1 ep=-1 r=[1] isr=[1] off=[]] [1 e=0 l=1 ep=-1 r=[1] isr=[1] off=[]]]
+metadata: v0 all has topic true internal listed false
+metadata: v1 all has topic true internal listed true
+metadata: v1 empty list 0
+metadata: v0 auto 5
+metadata: v1 auto 5
+metadata: v2 auto 5
+metadata: v3 auto 5
+metadata: v4 auto 5
+groups: join v0 JoinGroupResponseData(throttleTimeMs=_, errorCode=0, generationId=1, protocolType=null, protocolName='range', leader='M', skipAssignment=false, memberId='M', members=[JoinGroupResponseMember(memberId='M', groupInstanceId=null, metadata=[0, 0, 0, 0, 0, 0, 0, 0])])
+groups:   sync v0 SyncGroupResponseData(throttleTimeMs=_, errorCode=0, protocolType=null, protocolName=null, assignment=[0, 1])
+groups:   sync v1 SyncGroupResponseData(throttleTimeMs=_, errorCode=0, protocolType=null, protocolName=null, assignment=[0, 1])
+groups:   heartbeat v0 HeartbeatResponseData(throttleTimeMs=_, errorCode=0)
+groups:   heartbeat v0 bad gen HeartbeatResponseData(throttleTimeMs=_, errorCode=22)
+groups:   heartbeat v1 HeartbeatResponseData(throttleTimeMs=_, errorCode=0)
+groups:   heartbeat v1 bad gen HeartbeatResponseData(throttleTimeMs=_, errorCode=22)
+groups:   describe v0 DescribeGroupsResponseData(throttleTimeMs=_, groups=[DescribedGroup(errorCode=0, groupId='old-R-gj0', groupState='Stable', protocolType='consumer', protocolData='range', members=[DescribedGroupMember(memberId='M', groupInstanceId=null, clientId='probe', clientHost=H, memberMetadata=[0, 0, 0, 0, 0, 0, 0, 0], memberAssignment=[0, 1])], authorizedOperations=-2147483648), DescribedGroup(errorCode=0, groupId='old-R-nothing', groupState='Dead', protocolType='', protocolData='', members=[], authorizedOperations=-2147483648)])
+groups:   describe v1 DescribeGroupsResponseData(throttleTimeMs=_, groups=[DescribedGroup(errorCode=0, groupId='old-R-gj0', groupState='Stable', protocolType='consumer', protocolData='range', members=[DescribedGroupMember(memberId='M', groupInstanceId=null, clientId='probe', clientHost=H, memberMetadata=[0, 0, 0, 0, 0, 0, 0, 0], memberAssignment=[0, 1])], authorizedOperations=-2147483648), DescribedGroup(errorCode=0, groupId='old-R-nothing', groupState='Dead', protocolType='', protocolData='', members=[], authorizedOperations=-2147483648)])
+groups:   list v0 [ListedGroup(groupId='old-R-gj0', protocolType='consumer', groupState='', groupType='')]
+groups:   list v1 [ListedGroup(groupId='old-R-gj0', protocolType='consumer', groupState='', groupType='')]
+groups:   leave v0 LeaveGroupResponseData(throttleTimeMs=_, errorCode=0, members=[])
+groups: join v1 JoinGroupResponseData(throttleTimeMs=_, errorCode=0, generationId=1, protocolType=null, protocolName='range', leader='M', skipAssignment=false, memberId='M', members=[JoinGroupResponseMember(memberId='M', groupInstanceId=null, metadata=[0, 0, 0, 0, 0, 0, 0, 0])])
+groups:   sync v0 SyncGroupResponseData(throttleTimeMs=_, errorCode=0, protocolType=null, protocolName=null, assignment=[0, 1])
+groups:   sync v1 SyncGroupResponseData(throttleTimeMs=_, errorCode=0, protocolType=null, protocolName=null, assignment=[0, 1])
+groups:   heartbeat v0 HeartbeatResponseData(throttleTimeMs=_, errorCode=0)
+groups:   heartbeat v0 bad gen HeartbeatResponseData(throttleTimeMs=_, errorCode=22)
+groups:   heartbeat v1 HeartbeatResponseData(throttleTimeMs=_, errorCode=0)
+groups:   heartbeat v1 bad gen HeartbeatResponseData(throttleTimeMs=_, errorCode=22)
+groups:   describe v0 DescribeGroupsResponseData(throttleTimeMs=_, groups=[DescribedGroup(errorCode=0, groupId='old-R-gj1', groupState='Stable', protocolType='consumer', protocolData='range', members=[DescribedGroupMember(memberId='M', groupInstanceId=null, clientId='probe', clientHost=H, memberMetadata=[0, 0, 0, 0, 0, 0, 0, 0], memberAssignment=[0, 1])], authorizedOperations=-2147483648), DescribedGroup(errorCode=0, groupId='old-R-nothing', groupState='Dead', protocolType='', protocolData='', members=[], authorizedOperations=-2147483648)])
+groups:   describe v1 DescribeGroupsResponseData(throttleTimeMs=_, groups=[DescribedGroup(errorCode=0, groupId='old-R-gj1', groupState='Stable', protocolType='consumer', protocolData='range', members=[DescribedGroupMember(memberId='M', groupInstanceId=null, clientId='probe', clientHost=H, memberMetadata=[0, 0, 0, 0, 0, 0, 0, 0], memberAssignment=[0, 1])], authorizedOperations=-2147483648), DescribedGroup(errorCode=0, groupId='old-R-nothing', groupState='Dead', protocolType='', protocolData='', members=[], authorizedOperations=-2147483648)])
+groups:   list v0 [ListedGroup(groupId='old-R-gj1', protocolType='consumer', groupState='', groupType='')]
+groups:   list v1 [ListedGroup(groupId='old-R-gj1', protocolType='consumer', groupState='', groupType='')]
+groups:   leave v1 LeaveGroupResponseData(throttleTimeMs=_, errorCode=0, members=[])
+groups: join v2 JoinGroupResponseData(throttleTimeMs=_, errorCode=0, generationId=1, protocolType=null, protocolName='range', leader='M', skipAssignment=false, memberId='M', members=[JoinGroupResponseMember(memberId='M', groupInstanceId=null, metadata=[0, 0, 0, 0, 0, 0, 0, 0])])
+groups:   sync v0 SyncGroupResponseData(throttleTimeMs=_, errorCode=0, protocolType=null, protocolName=null, assignment=[0, 1])
+groups:   sync v1 SyncGroupResponseData(throttleTimeMs=_, errorCode=0, protocolType=null, protocolName=null, assignment=[0, 1])
+groups:   heartbeat v0 HeartbeatResponseData(throttleTimeMs=_, errorCode=0)
+groups:   heartbeat v0 bad gen HeartbeatResponseData(throttleTimeMs=_, errorCode=22)
+groups:   heartbeat v1 HeartbeatResponseData(throttleTimeMs=_, errorCode=0)
+groups:   heartbeat v1 bad gen HeartbeatResponseData(throttleTimeMs=_, errorCode=22)
+groups:   describe v0 DescribeGroupsResponseData(throttleTimeMs=_, groups=[DescribedGroup(errorCode=0, groupId='old-R-gj2', groupState='Stable', protocolType='consumer', protocolData='range', members=[DescribedGroupMember(memberId='M', groupInstanceId=null, clientId='probe', clientHost=H, memberMetadata=[0, 0, 0, 0, 0, 0, 0, 0], memberAssignment=[0, 1])], authorizedOperations=-2147483648), DescribedGroup(errorCode=0, groupId='old-R-nothing', groupState='Dead', protocolType='', protocolData='', members=[], authorizedOperations=-2147483648)])
+groups:   describe v1 DescribeGroupsResponseData(throttleTimeMs=_, groups=[DescribedGroup(errorCode=0, groupId='old-R-gj2', groupState='Stable', protocolType='consumer', protocolData='range', members=[DescribedGroupMember(memberId='M', groupInstanceId=null, clientId='probe', clientHost=H, memberMetadata=[0, 0, 0, 0, 0, 0, 0, 0], memberAssignment=[0, 1])], authorizedOperations=-2147483648), DescribedGroup(errorCode=0, groupId='old-R-nothing', groupState='Dead', protocolType='', protocolData='', members=[], authorizedOperations=-2147483648)])
+groups:   list v0 [ListedGroup(groupId='old-R-gj2', protocolType='consumer', groupState='', groupType='')]
+groups:   list v1 [ListedGroup(groupId='old-R-gj2', protocolType='consumer', groupState='', groupType='')]
+groups:   leave v1 LeaveGroupResponseData(throttleTimeMs=_, errorCode=0, members=[])
+groups: delete groups v0 DeleteGroupsResponseData(throttleTimeMs=_, results=[DeletableGroupResult(groupId='old-R-nothing', errorCode=69), DeletableGroupResult(groupId='old-R-gj0', errorCode=0)])
+find-coordinator: v0 type 0 FindCoordinatorResponseData(throttleTimeMs=_, errorCode=0, errorMessage='', nodeId=1, host=H, port=N, coordinators=[])
+find-coordinator: v1 type 0 FindCoordinatorResponseData(throttleTimeMs=_, errorCode=0, errorMessage=null, nodeId=1, host=H, port=N, coordinators=[])
+find-coordinator: v1 type 1 FindCoordinatorResponseData(throttleTimeMs=_, errorCode=0, errorMessage=null, nodeId=1, host=H, port=N, coordinators=[])
+txn: init v0 InitProducerIdResponseData(throttleTimeMs=_, errorCode=0, producerId=P, producerEpoch=0)
+txn:   add partitions v0 AddPartitionsToTxnResponseData(throttleTimeMs=_, errorCode=0, resultsByTransaction=[], resultsByTopicV3AndBelow=[AddPartitionsToTxnTopicResult(name='old-R-tx', resultsByPartition=[AddPartitionsToTxnPartitionResult(partitionIndex=0, partitionErrorCode=0)])])
+txn:   add offsets v0 AddOffsetsToTxnResponseData(throttleTimeMs=_, errorCode=0)
+txn:   txn offset commit v0 TxnOffsetCommitResponseData(throttleTimeMs=_, topics=[TxnOffsetCommitResponseTopic(name='old-R-tx', partitions=[TxnOffsetCommitResponsePartition(partitionIndex=0, errorCode=0)])])
+txn:   end v0 EndTxnResponseData(throttleTimeMs=_, errorCode=0)
+txn:   committed err=0 old-R-tx-0=0@3'x'
+txn: fenced add v0 AddPartitionsToTxnResponseData(throttleTimeMs=_, errorCode=0, resultsByTransaction=[], resultsByTopicV3AndBelow=[AddPartitionsToTxnTopicResult(name='old-R-tx', resultsByPartition=[AddPartitionsToTxnPartitionResult(partitionIndex=0, partitionErrorCode=47)])])
+txn: fenced end v0 EndTxnResponseData(throttleTimeMs=_, errorCode=47)
+txn: no txn end v0 EndTxnResponseData(throttleTimeMs=_, errorCode=48)
+admin-more: delete records v0 [0=0@1, 4=3@-1]
+admin-more: create partitions v0 CreatePartitionsResponseData(throttleTimeMs=_, results=[CreatePartitionsTopicResult(name='old-R-nothing', errorCode=3, errorMessage='The topic 'old-R-nothing' does not exist.'), CreatePartitionsTopicResult(name='old-R-am', errorCode=0, errorMessage=null)])
+admin-more: describe acls v0 DescribeAclsResponseData(throttleTimeMs=_, errorCode=54, errorMessage='No Authorizer is configured on the broker', resources=[])
+admin-more: create acls v0 CreateAclsResponseData(throttleTimeMs=_, results=[AclCreationResult(errorCode=54, errorMessage='No Authorizer is configured on the broker.')])
+consumer-groups: not listed

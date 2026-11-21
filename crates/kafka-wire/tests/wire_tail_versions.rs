@@ -37,12 +37,13 @@ const ID: Uuid = Uuid::from_u128(0x0123_4567_89ab_cdef_0123_4567_89ab_cdef);
 #[test]
 fn the_keys_are_at_kafka_4_4_versions() {
     let range = |k: ApiKey| (k.valid_versions().min, k.valid_versions().max);
-    assert_eq!(range(ApiKey::ListOffsets), (1, 11));
+    // From v0 since patch 8 (the older profiles).
+    assert_eq!(range(ApiKey::ListOffsets), (0, 11));
     assert_eq!(range(ApiKey::ApiVersions), (0, 5));
     assert_eq!(range(ApiKey::DeleteGroups), (0, 3));
     assert_eq!(range(ApiKey::DescribeLogDirs), (0, 5));
-    assert_eq!(range(ApiKey::OffsetCommit), (2, 10));
-    assert_eq!(range(ApiKey::OffsetFetch), (1, 10));
+    assert_eq!(range(ApiKey::OffsetCommit), (0, 10));
+    assert_eq!(range(ApiKey::OffsetFetch), (0, 10));
 }
 
 #[test]

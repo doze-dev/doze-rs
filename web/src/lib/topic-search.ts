@@ -33,6 +33,8 @@ export type MessagesSearch = TopicSearch & {
   key?: string;
   isolation?: "read_committed";
   limit?: number;
+  /** Records older than these, partition by partition (`0:1200,1:880`): the pages past 200 records. */
+  before?: string;
   /** The record Sheet: `partition:offset`. */
   record?: string;
   /** The Live tail. */
@@ -61,6 +63,7 @@ export function messagesSearch(s: Record<string, unknown>): MessagesSearch {
     key: shortText(typeof s.key === "number" ? String(s.key) : s.key, 512),
     isolation: s.isolation === "read_committed" ? "read_committed" : undefined,
     limit: limit && limit > 0 && limit <= 200 ? limit : undefined,
+    before: typeof s.before === "string" && /^\d{1,9}:\d{1,18}(,\d{1,9}:\d{1,18}){0,255}$/.test(s.before) ? s.before : undefined,
     record,
     mode: s.mode === "tail" ? "tail" : undefined,
   };
@@ -81,6 +84,7 @@ export function messagesQuery(s: MessagesSearch): string {
   if (s.key) q.set("key", s.key);
   if (s.isolation) q.set("isolation", s.isolation);
   if (s.limit) q.set("limit", String(s.limit));
+  if (s.before) q.set("before", s.before);
   return q.toString();
 }
 
@@ -97,4 +101,15 @@ export type PartitionSearch = TopicSearch & { partition?: number };
 export function partitionSearch(s: Record<string, unknown>): PartitionSearch {
   const p = whole(s.partition);
   return { ...topicSearch(s), partition: p };
+}
+
+/** A From time as the server reads it (format/read.rs parse_time): milliseconds, or a UTC `YYYY-MM-DD[ HH:MM[:SS]]`. */
+export function timeMs(text: string): number | null {
+  const t = text.trim().replace(/Z$/, "");
+  if (/^\d{1,15}$/.test(t)) return Number(t);
+  const m = /^(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{2}):(\d{2})(?::(\d{2}))?)?$/.exec(t);
+  if (!m) return null;
+  const [y, mo, d, h, mi, se] = [m[1], m[2], m[3], m[4] ?? "0", m[5] ?? "0", m[6] ?? "0"].map(Number) as [number, number, number, number, number, number];
+  if (y < 1970 || mo < 1 || mo > 12 || d < 1 || d > 31 || h > 23 || mi > 59 || se > 59) return null;
+  return Date.UTC(y, mo - 1, d, h, mi, se);
 }

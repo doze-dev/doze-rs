@@ -78,6 +78,9 @@ pub struct Durability {
     pub last_stop: LastStop,
     /// `--fsync-interval`: appends that did not ask to be durable are flushed this long after the first.
     pub fsync_ms: i64,
+    /// Every record before this offset is on disk (the end of the log at its last completed flush); `None` for a log
+    /// read back from a stop that did not vouch for it, until its first flush, or one that is not open.
+    pub flushed_through: Option<i64>,
 }
 
 /// One partition's log.
@@ -154,9 +157,10 @@ impl<F: Fs> ConsoleView<'_, F> {
             facts.partial = walk.partial;
             facts.tombstones = walk.tombstones.clone();
             facts.durability.offline = reader.offline_cause();
+            facts.durability.flushed_through = reader.flushed_through().map(|o| o.get());
             let dir = partition_dir(&b.config.data_dir, &found.name, id);
             facts.checkpoint = self.checkpoint(&dir, &walk);
-            facts.compaction = self.compaction(&found, &walk, &facts, id);
+            facts.compaction = self.compaction(&found, &walk, &facts, (id, p.planner_stable()));
             facts.retention = self.retention(&found, &walk, &facts);
             facts.segments = walk.segments;
             facts.never_written = false;
@@ -206,6 +210,7 @@ impl<F: Fs> ConsoleView<'_, F> {
                 offline: None,
                 last_stop: self.last_stop(),
                 fsync_ms: i64::try_from(b.config.fsync_interval.as_millis()).unwrap_or(i64::MAX),
+                flushed_through: None,
             },
         }
     }
@@ -236,7 +241,7 @@ impl<F: Fs> ConsoleView<'_, F> {
         topic: &kafka_meta::Topic,
         walk: &kafka_storage::Walk,
         facts: &LogFacts,
-        id: PartitionId,
+        (id, stable): (PartitionId, i64),
     ) -> Option<Compaction> {
         let b = self.broker;
         if !topic_config::compacts(&topic.config) {
@@ -249,20 +254,8 @@ impl<F: Fs> ConsoleView<'_, F> {
             b.config.cleaner_map_bytes,
         );
         let (sealed, active_base) = walk.planner_facts();
-        let read = reading(
-            &sealed,
-            facts.checkpoint,
-            facts.last_stable,
-            active_base,
-            &params,
-        );
-        let verdict = judge(
-            &sealed,
-            facts.checkpoint,
-            facts.last_stable,
-            active_base,
-            &params,
-        );
+        let read = reading(&sealed, facts.checkpoint, stable, active_base, &params);
+        let verdict = judge(&sealed, facts.checkpoint, stable, active_base, &params);
         let note: CleanerNote = b
             .log_notes
             .cleaner_of(topic.id, id.get())

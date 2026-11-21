@@ -335,7 +335,10 @@ impl Render for LogsView {
         root.when(self.mode == LogsMode::All, |d| {
             d.child(toolbar::head(&t, self, cx))
         })
-        .children(input.map(|i| toolbar::toolbar(&t, self, i, cx)))
+        .children(input.map(|i| {
+            let on = crate::widgets::has_keys(&i, window, cx);
+            toolbar::toolbar(&t, self, (i, on), cx)
+        }))
         .child(toolbar::dock(&t, self, cx))
         .child(toolbar::keys(&t, self))
         .into_any_element()

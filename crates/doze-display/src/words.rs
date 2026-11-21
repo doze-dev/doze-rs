@@ -2,7 +2,7 @@
 
 use std::time::SystemTime;
 
-use crate::format::{ago_nanos, clock_nanos, plural};
+use crate::format::{ago_nanos, countdown_nanos, plural};
 use crate::gotime::{self, MILLISECOND, SECOND};
 use crate::look::{awake_now, troubled};
 use crate::model::{Holder, Instance, Kind, Snapshot, State, TaskRecord};
@@ -48,7 +48,7 @@ pub fn what(v: &Instance, snap: &Snapshot, now: SystemTime) -> String {
         && !v.always_on
         && let Some(left) = sleeps_in(v, snap, now)
     {
-        extra = format!("sleeps in {}", clock_nanos(left));
+        extra = format!("sleeps in {}", countdown_nanos(left));
     }
     match (base.is_empty(), extra.is_empty()) {
         (true, _) => extra,
@@ -127,9 +127,9 @@ fn trouble_because(v: &Instance, now: SystemTime) -> String {
         return first_line(&v.last_error).to_owned();
     }
     let mut out = format!("try {} of {}", v.restart_count, v.restart_max);
-    let left = gotime::round(gotime::until(v.next_restart, now), SECOND);
-    if left > 0 {
-        out.push_str(&format!(" · next in {}s", gotime::whole_seconds(left)));
+    let raw = gotime::until(v.next_restart, now);
+    if gotime::round(raw, SECOND) > 0 {
+        out.push_str(&format!(" · next in {}", crate::grain::seconds_left(raw)));
     }
     out
 }
@@ -181,7 +181,7 @@ pub fn hint(v: &Instance, snap: &Snapshot, now: SystemTime) -> Option<String> {
             .map(|n| format!("waiting on {n}"))
             .or_else(|| holder_named(v).map(|by| format!("woken by {by}"))),
         State::Idle if v.idle_since.is_some() => {
-            sleeps_in(v, snap, now).map(|left| format!("sleeps in {}", clock_nanos(left)))
+            sleeps_in(v, snap, now).map(|left| format!("sleeps in {}", countdown_nanos(left)))
         }
         _ => None,
     }

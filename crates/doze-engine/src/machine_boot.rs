@@ -43,8 +43,12 @@ impl Machine {
             .is_some_and(|c| c.boot.is_some() || c.timer.is_some() || c.restart_now)
     }
 
-    /// Start `boot` of `name` woke `need` and holds it now.
+    /// Start `boot` of `name` woke `need` and holds it now. A task is not held: it ran to its end, there is nothing
+    /// to keep awake, and a hold showed as a connection on its view for as long as the dependant ran.
     pub fn need_held(&mut self, name: &str, boot: u64, need: &str) {
+        if self.tasks.contains(need) {
+            return;
+        }
         self.table.acquire(need);
         if self.current_boot(name, boot) {
             self.ctl(name).held.push(need.into());

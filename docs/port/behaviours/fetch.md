@@ -83,6 +83,21 @@ is UNKNOWN_LEADER_EPOCH (a single node has only epoch 0). A special time asked b
 tiered storage (wire.md W37).
 Test: `list_offsets_refuses_*`, `list_offsets_holds_the_isolation_level_and_the_leader_epoch_*`
 
+### L3. ListOffsets v0 answers from segments (debt K2, 2026-11-19)
+v0 (`max_num_offsets`, a list of offsets newest first) is Kafka's `Log.legacyFetchOffsetsBefore`: not records but segments.
+Each segment's first offset (no lower than the log start) stands with the time its file was last written, and the end with
+now if the last segment holds anything; LATEST counts back from the end, EARLIEST is the first alone, a time counts back from
+the last whose time is at or before it (none: an empty list). A partition never written is one empty segment as old as now.
+Test: recorded `old-offsets` (tools/kafka-replay, Apache Kafka 3.9.1); `tools/old-profiles-oracle` `list-offsets` (1.1, 2.8, 3.9.1)
+
+### F12. Fetch v0 to v3 read message formats v0 and v1
+Down-converted from the v2 batches the log holds, cut and filled as the release the broker stands for does (wire.md W38):
+Kafka's slice of the log (a hard limit up to v2, the first batch whole from v3), control batches dropped, overflow filler from
+Kafka 2.0, zstd refused. From Kafka 2.0 a zstd topic is UNSUPPORTED_COMPRESSION_TYPE below v10 and one with
+`message.downconversion.enable=false` UNSUPPORTED_VERSION below v4, refused with the release's shape (2.8: empty records, no
+list of aborted transactions; 3.9 on: null records). Kafka 1.1 gives a read-uncommitted v4 to v7 no last stable offset.
+Test: `batch::legacy::tests`, recorded `old-formats-fetch`, `tools/old-profiles-oracle` `fetch-old`, `fetch-old-txn`, `zstd`
+
 ### Known cost
 A timestamp lookup reads the log from its start (no time index). Fine for a development broker's logs; a time index is
 a Phase 7 candidate if the weight baseline shows it matters. ListOffsets does not open a partition whose directory is empty. A response is held to 50 MiB whatever the client asks

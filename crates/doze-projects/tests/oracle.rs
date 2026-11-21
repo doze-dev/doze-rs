@@ -92,7 +92,7 @@ fn every_slug_is_the_one_go_gives() {
 fn oracle() -> Option<(PathBuf, PathBuf)> {
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
     let doze = root.join("../doze");
-    let go = Command::new("go")
+    let go = go_command()
         .arg("version")
         .output()
         .is_ok_and(|o| o.status.success());
@@ -120,4 +120,14 @@ fn lists_projects_go_records_now() {
         String::from_utf8_lossy(&out.stderr)
     );
     agree(home.path(), &String::from_utf8(out.stdout).unwrap());
+}
+
+/// The Go toolchain, without the variables an AI agent's shell sets: with them, Go adds an "AI agent environment" line
+/// to the oracle's stdout, which the test reads.
+fn go_command() -> Command {
+    let mut c = Command::new("go");
+    for v in ["AI_AGENT", "CLAUDECODE", "CLAUDE_CODE_ENTRYPOINT"] {
+        c.env_remove(v);
+    }
+    c
 }

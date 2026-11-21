@@ -29,6 +29,12 @@ pub enum Request {
         target: String,
         expected_sha: Option<String>,
     },
+    /// What a service's `download` URL serves, checked against the lock's pin when there is one (the caller pins a
+    /// first fetch). Answers the folder it runs in as `bin_dir`, and the digest.
+    Download {
+        url: String,
+        expected_sha: Option<String>,
+    },
     /// A module build for the engine `majors`, pinned in the lock at `lock` (saved only when `persist`).
     Module {
         source: String,
@@ -89,7 +95,7 @@ pub fn serve(req: &Request, place: &Place) -> Reply {
             target,
             ..
         } => vec![engine, full, target],
-        Request::Module { .. } => Vec::new(),
+        Request::Module { .. } | Request::Download { .. } => Vec::new(),
     };
     if let Some(bad) = names.iter().find(|n| !crate::lock::plain(n)) {
         return Reply::failed(format!("refused: {bad:?} is not a plain name"));
@@ -133,6 +139,16 @@ pub fn serve(req: &Request, place: &Place) -> Reply {
             lock,
             persist,
         } => module(place, source, majors, lock.as_deref(), *persist),
+        Request::Download { url, expected_sha } => {
+            match crate::download::ensure(&place.modules.home, url, expected_sha.as_deref()) {
+                Ok((dir, digest)) => Reply {
+                    bin_dir: dir.display().to_string(),
+                    digest,
+                    ..Reply::default()
+                },
+                Err(e) => Reply::failed(e),
+            }
+        }
     }
 }
 
@@ -260,8 +276,13 @@ pub fn run(
     output.flush()
 }
 
-/// What `req` is about to do that takes a while, in a line for the log: an engine build not yet on this machine.
+/// What `req` is about to do that takes a while, in a line for the log: an engine build or a download not yet on this
+/// machine.
 fn starting(req: &Request, place: &Place) -> Option<String> {
+    if let Request::Download { url, .. } = req {
+        let cached = archive_cached(&place.modules.home, url);
+        return (!cached).then(|| format!("downloading {url}…"));
+    }
     let Request::Ensure {
         engine,
         full,
@@ -277,6 +298,10 @@ fn starting(req: &Request, place: &Place) -> Option<String> {
             place.mirror.source(engine)
         )
     })
+}
+
+fn archive_cached(home: &Path, url: &str) -> bool {
+    crate::archive::recorded_sha(&crate::download::content_dir(home, url)).is_some()
 }
 
 /// The longest a child may take: the download budget, and a little to start and unpack.
@@ -329,6 +354,21 @@ impl ChildDownloads {
                 format!("the fetch answered {out:?}: {e}"),
             )
         })
+    }
+
+    /// What a service's `download` URL serves, present and checked against `expected` (the lock's pin): the folder it
+    /// runs in, and the digest to pin when there was none.
+    pub async fn download(
+        &self,
+        url: &str,
+        expected: Option<&str>,
+    ) -> Result<(PathBuf, String), Error> {
+        let req = Request::Download {
+            url: url.into(),
+            expected_sha: expected.map(str::to_owned),
+        };
+        let r = self.ok(&req).await?;
+        Ok((PathBuf::from(r.bin_dir), r.digest))
     }
 
     async fn ok(&self, req: &Request) -> Result<Reply, Error> {

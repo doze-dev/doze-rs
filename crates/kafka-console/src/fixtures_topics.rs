@@ -38,6 +38,7 @@ fn topic(
         retention_ms: None,
         segments: Some(1),
         read_by: read_by.iter().map(|s| (*s).to_owned()).collect(),
+        written_by: Vec::new(),
         bytes: Some(bytes),
         last_write_ms: ago_ms.map(|a| now() - a),
         offline: 0,
@@ -53,6 +54,7 @@ fn rows() -> Vec<TopicRow> {
         &["payments-workers"],
     );
     orders.txn_open = true;
+    orders.written_by = vec!["orders-svc".to_owned()];
     let mut clicks = topic(
         "clickstream",
         6,

@@ -22,6 +22,8 @@ mod admin;
 mod check;
 mod client;
 mod converge;
+mod godata;
+mod hints;
 #[cfg(test)]
 mod tests;
 
@@ -30,7 +32,7 @@ use std::ffi::OsString;
 use std::path::Path;
 
 use doze_module::proto::msg::error::{Diagnostic, Error, ErrorKind};
-use doze_module::proto::msg::hello::{Detect, Type};
+use doze_module::proto::msg::hello::Type;
 use doze_module::proto::msg::instance::{Address, Connection, Instance, Listener, Toolchain};
 use doze_module::proto::msg::run::{Pin, Plan, Process, Provisioned, Ready, Resolved, StopHow};
 use doze_module::proto::msg::value::{Node, Value};
@@ -272,7 +274,15 @@ pub(crate) fn broker_args(
     }
     if registry {
         match tcp_backend(instance, REGISTRY)? {
-            Some(addr) => args.extend(["--schema-registry-addr".into(), addr]),
+            Some(addr) => {
+                args.extend(["--schema-registry-addr".into(), addr]);
+                // The registry answers to the console's allowed names: doze routes it by a name of its own
+                // (`registry.events.shop.doze`), which must be one of them or every request is refused (403).
+                let hosts = instance.listeners.get(REGISTRY).map(|g| g.hosts.clone());
+                for h in hosts.unwrap_or_default() {
+                    args.extend(["--console-allow-host".into(), h]);
+                }
+            }
             None => args.push("--schema-registry=false".into()),
         }
     }
@@ -333,7 +343,8 @@ impl Module for Kafka {
             source: Some("doze/kafka".into()),
             example_label: Some("events".into()),
             default_version: Some("4".into()),
-            detect: Some(detect()),
+            client: Some(hints::client()),
+            detect: Some(hints::detect()),
             ..About::default()
         }
     }
@@ -382,7 +393,9 @@ impl Module for Kafka {
     }
 
     async fn provision(&self, cx: &Cx<KafkaSpec>, _tc: &Toolchain) -> Result<Provisioned> {
-        help::empty_data_dir(&cx.instance.data_dir)
+        let made = help::empty_data_dir(&cx.instance.data_dir)?;
+        godata::say(cx, godata::take_over(Path::new(&cx.instance.data_dir)))?;
+        Ok(made)
     }
 
     async fn plan(&self, cx: &Cx<KafkaSpec>, _tc: &Toolchain) -> Result<Plan> {
@@ -405,36 +418,5 @@ impl Module for Kafka {
                 stop: Some(StopHow::Terminate),
             }],
         })
-    }
-}
-
-/// How `doze init` recognises a project that uses Kafka (protocol 1's core, `internal/detect/detect.go`).
-fn detect() -> Detect {
-    let list = |v: &[&str]| v.iter().map(ToString::to_string).collect::<Vec<_>>();
-    Detect {
-        packages: BTreeMap::from([
-            (
-                "go".into(),
-                list(&[
-                    "github.com/twmb/franz-go",
-                    "github.com/segmentio/kafka-go",
-                    "github.com/IBM/sarama",
-                    "github.com/Shopify/sarama",
-                    "github.com/confluentinc/confluent-kafka-go",
-                ]),
-            ),
-            ("npm".into(), list(&["kafkajs", "node-rdkafka"])),
-        ]),
-        images: list(&[
-            "confluentinc/cp-kafka",
-            "bitnami/kafka",
-            "apache/kafka",
-            "redpandadata/redpanda",
-        ]),
-        env: BTreeMap::from([
-            ("KAFKA_BROKERS".into(), "address".into()),
-            ("KAFKA_BOOTSTRAP_SERVERS".into(), "address".into()),
-            ("KAFKA_URL".into(), "address".into()),
-        ]),
     }
 }

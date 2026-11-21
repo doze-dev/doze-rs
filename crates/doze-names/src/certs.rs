@@ -108,3 +108,16 @@ impl ResolvesServerCert for Certs {
         self.for_name(hello.server_name()?)
     }
 }
+
+/// A certificate and its key from PEM files, as DER (the first certificate, the key in the form the file has it): for
+/// a host that hands them to another process, a module terminating TLS for its clients.
+pub fn pem_pair_der(cert: &Path, key: &Path) -> Result<(Vec<u8>, Vec<u8>), String> {
+    let first = CertificateDer::pem_file_iter(cert)
+        .map_err(|e| format!("{}: {e}", cert.display()))?
+        .next()
+        .ok_or_else(|| format!("{}: no certificate in it", cert.display()))?
+        .map_err(|e| format!("{}: {e}", cert.display()))?;
+    let k = PrivateKeyDer::from_pem_file(key).map_err(|e| format!("{}: {e}", key.display()))?;
+    any_supported_type(&k).map_err(|e| format!("{}: {e}", key.display()))?;
+    Ok((first.to_vec(), k.secret_der().to_vec()))
+}

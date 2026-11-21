@@ -23,6 +23,9 @@ pub struct LogSegment {
     pub exact: bool,
     /// It is the one being written.
     pub active: bool,
+    /// How many entries its index has, and its first few as (offset, byte position in the log file).
+    pub index_entries: u64,
+    pub index_first: Vec<(i64, u64)>,
 }
 
 impl LogSegment {
@@ -139,6 +142,8 @@ pub struct LogMoved {
     pub partition: i32,
     pub from: i64,
     pub to: i64,
+    /// How many whole segments the pass removed.
+    pub segments: usize,
 }
 
 /// The last retention pass.
@@ -182,6 +187,8 @@ pub struct LogDurability {
     pub offline: Option<String>,
     pub stop: LogStop,
     pub fsync_ms: i64,
+    /// Every record before this offset is on disk (the end at the last completed flush), if known.
+    pub flushed_through: Option<i64>,
 }
 
 /// Where the Log page of another topic is, and what is worth saying of it.

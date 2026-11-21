@@ -1,5 +1,5 @@
 import { useNavigate } from "@tanstack/react-router";
-import { ClockIcon, Rows3Icon, UsersIcon } from "lucide-react";
+import { ClockIcon, CornerDownRightIcon, LoaderCircleIcon, Rows3Icon, UsersIcon } from "lucide-react";
 import { useDeferredValue, useEffect, useMemo, useState } from "react";
 import { useJump } from "@/api/queries";
 import { CommandDialog, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, CommandSeparator } from "@/components/ui/command";
@@ -7,6 +7,16 @@ import { loadRecents, type Recent, saveRecent } from "@/lib/recents";
 import { PAGES } from "./nav";
 
 const segment = (s: string) => encodeURIComponent(s);
+
+/** A topic's tabs, offered as second-level jumps once the text names one topic (J383). */
+const TOPIC_TABS: { tab: string; label: string }[] = [
+  { tab: "messages", label: "Messages" },
+  { tab: "partitions", label: "Partitions" },
+  { tab: "consumers", label: "Consumers" },
+  { tab: "log", label: "Log" },
+  { tab: "producers", label: "Producers" },
+  { tab: "config", label: "Config" },
+];
 
 /** The ⌘K palette: Recents, Pages, Topics, Groups. Names come from `/api/v1/jump?q=` (the server filters); pages and recents
  * are filtered here. Choosing one goes there and remembers it. */
@@ -44,6 +54,9 @@ export function CommandPalette({ open, onOpenChange, returnFocus }: { open: bool
   const match = (n: string) => !needle || n.toLowerCase().includes(needle);
   const topics = (jump.data?.topics ?? []).filter(match);
   const groups = (jump.data?.groups ?? []).filter(match);
+  // The one topic the text names: exactly, or the only one that matches.
+  const one = needle ? (topics.find((t) => t.toLowerCase() === needle) ?? (topics.length === 1 ? topics[0] : undefined)) : undefined;
+  const looking = jump.isFetching && !jump.data && deferred.length > 0;
   return (
     <CommandDialog open={open} onOpenChange={onOpen} title="Jump to a topic or group" description="Type a name, then Enter" className="top-[18%] translate-y-0 sm:max-w-xl" showCloseButton={false} shouldFilter={false} onCloseAutoFocus={(e) => {
         // Safari and Firefox on macOS do not focus a button that is clicked, so "the element focused before" can be the body:
@@ -90,6 +103,23 @@ export function CommandPalette({ open, onOpenChange, returnFocus }: { open: bool
               ))}
             </CommandGroup>
           </>
+        )}
+        {one && (
+          <CommandGroup heading={`In ${one}`} data-testid="palette-tabs">
+            {TOPIC_TABS.map((t) => (
+              <CommandItem key={`tab:${t.tab}`} value={`tab:${one}:${t.tab}`} onSelect={() => go({ kind: "topic", label: `${one} · ${t.label}`, to: `/topics/${segment(one)}/${t.tab}` })}>
+                <CornerDownRightIcon />
+                <span className="truncate">
+                  <span className="font-mono text-[13px]">{one}</span> <span className="text-muted-foreground">·</span> {t.label}
+                </span>
+              </CommandItem>
+            ))}
+          </CommandGroup>
+        )}
+        {looking && (
+          <div className="flex items-center gap-2 px-3 py-2 text-[13px] text-muted-foreground" role="status" data-testid="palette-looking">
+            <LoaderCircleIcon className="size-4 animate-spin" aria-hidden /> Looking for topics and groups…
+          </div>
         )}
         {groups.length > 0 && (
           <CommandGroup heading="Groups">

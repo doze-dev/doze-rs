@@ -1,0 +1,12 @@
+[package]
+name = "doze-bolt"
+version = "0.0.0"
+description = "Reading a bbolt file, read-only: the metadata a Go doze-kafka or doze-aws left in a data directory"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true

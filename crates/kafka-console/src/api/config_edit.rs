@@ -49,7 +49,18 @@ pub struct ConfigSavedAnswer {
     pub effect: Option<String>,
     pub when: Option<String>,
     pub reader: Option<String>,
+    /// For a key the cleaner reads: what its planner makes of partition 0 now, under the new value (`3 segments, 61 % dirty:
+    /// not due`), the same line as the Log tab's (J121).
+    pub cleaner_now: Option<String>,
 }
+
+/// The keys whose change the cleaner's planner reads at its next look.
+const CLEANER_KEYS: [&str; 4] = [
+    "cleanup.policy",
+    "min.cleanable.dirty.ratio",
+    "min.compaction.lag.ms",
+    "max.compaction.lag.ms",
+];
 
 /// What Save or Check came to (200).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -193,6 +204,7 @@ fn saved_answer(saved: ConfigSaved) -> ConfigSavedAnswer {
         effect: m.map(|m| sentence(m, saved.pace)),
         when: m.map(|m| when_label(m, saved.pace)),
         reader: m.map(|m| reader(m).to_owned()),
+        cleaner_now: None,
         sentence: out,
         saved,
     }
@@ -245,9 +257,25 @@ async fn edit(State(s): State<Shared>, Path(topic): Path<String>, body: Bytes) -
     };
     let check = field(&f, "check") == Some("1");
     match s.source.config_save(&topic, fields, check).await {
-        ConfigResult::Saved(v) => done(&ConfigEditAnswer::Saved {
-            answer: Box::new(saved_answer(*v)),
-        }),
+        ConfigResult::Saved(v) => {
+            let mut answer = saved_answer(*v);
+            if answer
+                .saved
+                .changes
+                .iter()
+                .any(|c| CLEANER_KEYS.contains(&c.name.as_str()))
+            {
+                answer.cleaner_now = s
+                    .source
+                    .log(&topic, 0)
+                    .await
+                    .filter(|l| l.compaction.is_some())
+                    .map(|l| crate::gather::log_other(&l).line);
+            }
+            done(&ConfigEditAnswer::Saved {
+                answer: Box::new(answer),
+            })
+        }
         ConfigResult::Checked(v) => done(&ConfigEditAnswer::Checked {
             form: Box::new(edit_form_of(*v)),
         }),
@@ -274,6 +302,8 @@ pub struct ConfigResetForm {
     pub now_gloss: Option<String>,
     pub after_gloss: Option<String>,
     pub takes_effect: Option<String>,
+    /// What happens to the segments there are, for the keys that decide when one rolls.
+    pub segments_note: Option<String>,
 }
 
 /// A reset the broker took (200).
@@ -283,11 +313,36 @@ pub struct ConfigResetDone {
     pub key: String,
 }
 
+/// `segment.bytes` and `segment.ms` act on the active segment only: what that means for this log.
+fn segments_note(key: &str, s: crate::model::SegmentsNow) -> String {
+    let sealed = match s.sealed {
+        0 => "No segment is sealed yet".to_owned(),
+        1 => "Its 1 sealed segment keeps its size".to_owned(),
+        n => format!("Its {n} sealed segments keep their size"),
+    };
+    let rule = if key == "segment.ms" {
+        "once it is older than the value after"
+    } else {
+        "once it passes the value after"
+    };
+    let size = crate::format::bytes(s.largest_active);
+    let each = if s.partitions == 1 {
+        format!("The active segment ({size})")
+    } else {
+        format!(
+            "The active segment of each of the {} partitions (the largest is {size})",
+            s.partitions
+        )
+    };
+    format!("{sealed}. {each} rolls {rule}.")
+}
+
 fn reset_form_of(v: ConfigResetView) -> ConfigResetForm {
     ConfigResetForm {
         now_gloss: gloss(&v.row.name, &v.row.value),
         after_gloss: v.after.as_ref().and_then(|a| gloss(&v.row.name, &a.value)),
         takes_effect: moment(&v.row.name).map(|m| takes_effect(m, v.pace)),
+        segments_note: v.segments.map(|s| segments_note(&v.row.name, s)),
         view: v,
     }
 }
@@ -338,4 +393,27 @@ pub(super) fn routes(web: &crate::base::Base) -> Router<Shared> {
             &web.url("/api/v1/topics/{topic}/config/reset"),
             get(reset_form).post(reset),
         )
+}
+
+#[cfg(test)]
+mod segments_tests {
+    use super::segments_note;
+    use crate::model::SegmentsNow;
+
+    #[test]
+    fn the_segments_note_counts_the_sealed_and_names_the_largest_active_one() {
+        let s = |partitions, sealed| SegmentsNow {
+            partitions,
+            sealed,
+            largest_active: 5 << 20,
+        };
+        assert_eq!(
+            segments_note("segment.bytes", s(3, 4)),
+            "Its 4 sealed segments keep their size. The active segment of each of the 3 partitions (the largest is 5.0 MiB) rolls once it passes the value after."
+        );
+        assert_eq!(
+            segments_note("segment.ms", s(1, 1)),
+            "Its 1 sealed segment keeps its size. The active segment (5.0 MiB) rolls once it is older than the value after."
+        );
+    }
 }

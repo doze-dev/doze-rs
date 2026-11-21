@@ -24,10 +24,34 @@ impl Tray {
     }
 
     pub(super) fn open_menu(&self) {}
+
+    pub(super) fn close_menu(&self) {}
+
+    pub(super) fn menu_text(&self) -> String {
+        String::new()
+    }
+
+    pub(super) fn choose(&self, _: &[&str]) -> Result<String, String> {
+        Err("no menu-bar item on this system yet".to_owned())
+    }
+
+    pub(super) fn shown_icon(&self) -> Option<(TrayIcon, [f64; 2])> {
+        None
+    }
 }
 
 pub(super) fn dock_badge(_: Option<&str>) {}
 
 pub(super) fn dock_badge_now() -> Option<String> {
     None
+}
+
+pub(super) fn ask_notifications() {}
+
+pub(super) fn hands_off() -> usize {
+    0
+}
+
+pub(super) fn holds_input() -> (bool, usize) {
+    (false, 0)
 }

@@ -29,11 +29,12 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { number } from "@/lib/format";
 import { bytes, clockMs } from "@/lib/kafka";
-import { type MessagesSearch, messagesQuery, partitionParam, partitionsOf, recordAt } from "@/lib/topic-search";
+import { type MessagesSearch, messagesQuery, partitionParam, partitionsOf, recordAt, timeMs } from "@/lib/topic-search";
 import { useTailOwnsRefresh } from "@/lib/refresh";
 import { shellWord } from "@/lib/shell";
 import { cn } from "@/lib/utils";
 import { PageError } from "../page-error";
+import { UtcCalendar } from "@/components/app/utc-datetime-picker";
 import { WireDock } from "../live/wire-dock";
 import { Explainers } from "./explain";
 import { useTopicDialog } from "./frame";
@@ -112,7 +113,8 @@ function columns(open: (r: RecordRow) => void, wide: boolean): DataColumn<Record
     { id: "key", accessorFn: (r) => r.key.preview, header: "Key", size: wide ? 170 : 104, meta: { mono: true }, cell: ({ row: { original: r } }) => cellOf(r.key, "key") },
     {
       id: "value",
-      accessorFn: (r) => r.value.schema?.preview ?? r.value.preview,
+      // The hover is the value as far as the table read it (J385); one cut short says so and where the whole of it is.
+      accessorFn: (r) => r.value.schema?.preview ?? (r.value.kind === "binary" || !r.value.text ? r.value.preview : r.value.text + (r.value.clipped ? ` … (${bytes(r.value.bytes)} in all: open the record for the whole value)` : "")),
       header: "Value",
       meta: { mono: true },
       cell: ({ row: { original: r } }) => <span className={r.value.kind === "binary" ? "text-muted-foreground" : "text-foreground"}>{cellOf(r.value, "value")}</span>,
@@ -180,6 +182,12 @@ export function utcMinute(ms: number): string {
   return `${d.getUTCFullYear()}-${two(d.getUTCMonth() + 1)}-${two(d.getUTCDate())} ${two(d.getUTCHours())}:${two(d.getUTCMinutes())}`;
 }
 
+/** `2026-11-13 14:30:05`: what the calendar writes into the field. */
+function utcSecond(ms: number): string {
+  const d = new Date(ms);
+  return `${utcMinute(ms)}:${two(d.getUTCSeconds())}`;
+}
+
 /** From time: a Popover with a field (UTC, as the console writes times), the quick choices, Apply and Clear. */
 function TimePick({ search, set }: { search: MessagesSearch; set: (p: Patch) => void }) {
   const [open, setOpen] = useState(false);
@@ -203,15 +211,16 @@ function TimePick({ search, set }: { search: MessagesSearch; set: (p: Patch) => 
           <span className="truncate">{search.time ? `From ${search.time}` : "From time"}</span>
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-80" align="start">
+      <PopoverContent className="w-[min(40rem,calc(100vw-2rem))]" align="start">
         <form
-          className="flex flex-col gap-3"
+          className="grid gap-x-5 gap-y-3 sm:grid-cols-[minmax(0,1fr)_19rem]"
           onSubmit={(e) => {
             e.preventDefault();
             set({ time: text.trim() || undefined, mode: undefined });
             setOpen(false);
           }}
         >
+          <div className="flex min-w-0 flex-col gap-3">
           <Label htmlFor="from-time">From time, UTC</Label>
           <Input id="from-time" value={text} onChange={(e) => setText(e.target.value)} placeholder="2026-11-13 14:30" className="font-mono text-[13px]" autoComplete="off" spellCheck={false} maxLength={40} data-testid="time-input" autoFocus />
           <div className="flex flex-wrap gap-1.5">
@@ -239,6 +248,11 @@ function TimePick({ search, set }: { search: MessagesSearch; set: (p: Patch) => 
                 Clear
               </Button>
             )}
+          </div>
+          </div>
+          {/* J387: the same moment chosen on a UTC calendar; typing and choosing write the one field. */}
+          <div className="sm:border-l sm:pl-5">
+            <UtcCalendar value={timeMs(text)} onChange={(ms) => setText(utcSecond(ms))} id="from-time-calendar" />
           </div>
         </form>
       </PopoverContent>
@@ -287,6 +301,8 @@ function FilterLine({ search, set, tailable, conn, refresh, held }: { search: Me
   if (search.time) chips.push({ id: "time", label: `from ${search.time}`, off: { time: undefined } });
   if (search.key) chips.push({ id: "key", label: `key ${search.key}`, off: { key: undefined } });
   if (search.limit) chips.push({ id: "limit", label: `${search.limit} records`, off: { limit: undefined } });
+  // Past 200 records: the page reads before where the last one stopped (one place per partition).
+  if (search.before) chips.push({ id: "before", label: `before ${search.before.split(",").map((pair) => { const [p, o] = pair.split(":"); return `${p}:${number(Number(o))}`; }).join(", ")}`, off: { before: undefined } });
   const tail = search.mode === "tail" && tailable;
   return (
     <div className="flex min-h-9 flex-wrap items-center justify-between gap-x-4 gap-y-2" data-testid="filter-line">
@@ -305,7 +321,7 @@ function FilterLine({ search, set, tailable, conn, refresh, held }: { search: Me
                 </button>
               </Badge>
             ))}
-            <Button variant="link" size="sm" className="h-7 px-1.5 text-[12.5px]" onClick={() => set({ partition: undefined, offset: undefined, time: undefined, key: undefined, limit: undefined })}>
+            <Button variant="link" size="sm" className="h-7 px-1.5 text-[12.5px]" onClick={() => set({ partition: undefined, offset: undefined, time: undefined, key: undefined, limit: undefined, before: undefined })}>
               Clear all
             </Button>
           </>
@@ -454,11 +470,11 @@ function Records({ topic, r, frame, tail, tailable, search, set, open, children 
       />
       <div className="mt-3 flex min-h-9 items-center justify-end gap-3 text-[13px] text-muted-foreground tabular-nums" data-testid="pager">
         <span>
-          Newest first · {number(rows.length)}
-          {filtered ? (rows.length === 1 ? " record" : " records") : ` of ${number(frame.records)}`}
+          {search.before ? "Older records, newest first" : "Newest first"} · {number(rows.length)}
+          {filtered || search.before ? (rows.length === 1 ? " record" : " records") : ` of ${number(frame.records)}`}
         </span>
-        {!tail && r.older !== null && (
-          <Button variant="outline" size="sm" className="bg-card" onClick={() => set({ limit: r.older ?? undefined })} data-testid="older">
+        {!tail && (r.older !== null || r.earlier !== null) && (
+          <Button variant="outline" size="sm" className="bg-card" onClick={() => set(r.older !== null ? { limit: r.older } : { before: r.earlier ?? undefined })} data-testid="older">
             Older
           </Button>
         )}
@@ -551,6 +567,10 @@ function Offline({ frame }: { frame: TopicFrame }) {
         </button>
         .
       </p>
+      {/* Board topic-offline: "What the wire recorded" (J159): the refused writes are on the tape with their code. */}
+      <div className="mt-4">
+        <WireDock topic={h.name} />
+      </div>
     </div>
   );
 }
@@ -588,7 +608,7 @@ export function MessagesPage() {
   else if (f.offline.length > 0 && !filtered && !committed) body = <Offline frame={f} />;
   else {
     const r = m.data;
-    const tailable = !search.key && search.offset === undefined && !search.time;
+    const tailable = !search.key && search.offset === undefined && !search.time && !search.before;
     body = (
       <div className="flex flex-col gap-3" data-testid="messages">
         <Toolbar frame={f} search={search} set={set} />

@@ -118,7 +118,7 @@ impl StackState {
                 row.ram = st.ram;
                 row.cpu = st.cpu;
                 row.conns = st.conns;
-                parts |= Parts::INSTANCES;
+                parts |= Parts::STATS;
             }
         }
         parts

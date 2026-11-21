@@ -106,23 +106,8 @@ package = "gpui-pre-util"
 
 [target.'cfg(any(target_os = "macos", target_os = "ios"))'.dependencies.image]
 version = "0.25.1"
-features = [
-    "bmp",
-    "dds",
-    "exr",
-    "ff",
-    "gif",
-    "hdr",
-    "ico",
-    "jpeg",
-    "png",
-    "pnm",
-    "qoi",
-    "rayon",
-    "tga",
-    "tiff",
-    "webp",
-]
+# PATCH (vendor/gpui-pre/PATCHES.md): PNG only; upstream turns on every format.
+features = ["png"]
 default-features = false
 
 [target.'cfg(any(target_os = "macos", target_os = "ios"))'.dependencies.libc]

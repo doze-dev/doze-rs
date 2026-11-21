@@ -35,6 +35,14 @@ pub(super) const ROWS: &[Row] = &[
         "The topic or partition does not exist on this broker.",
         "Create the topic first, or turn on auto topic creation in the producer's metadata request.",
     ),
+    r(
+        5,
+        "LEADER_NOT_AVAILABLE",
+        Warn,
+        "There is no leader for this topic-partition as we are in the middle of a leadership election.",
+        "The topic is being made (a Metadata request asked for it at --kafka-version 1 or 2, as ZooKeeper's Kafka answered).",
+        "Ask again in a moment: the topic is there on the next request.",
+    ),
     // 6 and 7 are answers only the Lab makes up (a broker with one node never says them): the wire names them as clients do.
     r(
         6,

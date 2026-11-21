@@ -30,7 +30,7 @@ pub const VERSION_LINUX: &str = "2";
 pub const VERSION_DARWIN: &str = "4";
 
 /// The file beside the registry naming the daemon that serves it.
-pub const SERVING_FILE: &str = "netd.pid";
+pub const SERVING_FILE: &str = crate::listen::NETD_SERVING_FILE;
 
 const MTU: u16 = 16384;
 /// For what the registry cannot say: a service that died without writing.

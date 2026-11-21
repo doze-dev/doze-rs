@@ -150,7 +150,16 @@ fn a_fixtures_settings_touch_nothing_on_this_machine(cx: &mut TestAppContext) {
             .collect()
     });
     assert!(
-        said.iter().any(|t| t.contains("a fixture repairs nothing")),
+        said.iter().any(|t| t.contains("a fixture clears nothing")),
         "{said:?}"
+    );
+    // Repair opens the run sheet, which shows what would run and runs nothing: a fixture's machine is set up, so
+    // there is nothing to do; were there, its Run would say a fixture runs nothing.
+    let sheet = vcx.update(|_, cx| root.read(cx).pages.admin.clone());
+    let sheet = sheet.unwrap_or_else(|| panic!("Repair opened no run sheet"));
+    let phase = vcx.update(|_, cx| sheet.read(cx).phase.clone());
+    assert_eq!(
+        phase,
+        crate::overlays::admin::Phase::Done("nothing to do: every part is in place".into(), false)
     );
 }

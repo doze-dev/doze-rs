@@ -10,7 +10,7 @@ use crate::overlays::shadow;
 use crate::overview::OverviewView;
 use crate::overview::tiles::row_dot;
 use crate::theme::{Tokens, mix, ty};
-use crate::widgets::{MONO_FAMILY, tracked};
+use crate::widgets::{Mono as _, tracked};
 
 /// A cell's box: its width, its line on the left when it starts a group, the column's light.
 pub(super) fn cell_box(t: &Tokens, v: &OverviewView, ci: usize, c: &GridCol) -> gpui::Div {
@@ -91,6 +91,7 @@ pub(super) fn col_head(t: &Tokens, v: &OverviewView, ci: usize, c: &GridCol) -> 
                     .text_size(px(ty::XS))
                     .line_height(px(ty::LH_14))
                     .text_color(t.dim)
+                    .font_features(ty::tabular())
                     .child(s(
                         r.map_or(" ", |r| if r.mem.is_empty() { " " } else { &r.mem })
                     )),
@@ -142,7 +143,7 @@ pub(super) fn row_head(t: &Tokens, v: &OverviewView, ri: usize, row: &GridRow) -
                 .rounded(px(3.))
                 .border_1()
                 .border_color(t.line2)
-                .font_family(MONO_FAMILY)
+                .mono_face()
                 .text_size(px(ty::MICRO))
                 .line_height(px(ty::LH_13))
                 .text_color(t.dim)
@@ -156,6 +157,7 @@ pub(super) fn row_head(t: &Tokens, v: &OverviewView, ri: usize, row: &GridRow) -
                 .text_size(px(ty::SM_UP))
                 .font_weight(ty::SEMIBOLD)
                 .text_color(t.dim)
+                .font_features(ty::tabular())
                 .child(s(m)),
         );
     }
@@ -211,10 +213,12 @@ pub(super) fn cell(
     }
     if let (true, Some(tip)) = (cross, &cell.tip) {
         // Anchored at the cell's top left (a centred flex child would centre the tip on the cell instead), its arrow on
-        // the cell's middle.
+        // the cell's middle: under the cell, or above it when it would run past the bottom of the table (Go: `top =
+        // t.top - h - 8`).
+        let top = tip_top(ri, v.grid.y, v.grid.port.get().1);
         let tip = deferred(
             anchored()
-                .offset(point(px(col_w(c) / 2. - 28.), px(ROW_H + 8.)))
+                .offset(point(px(col_w(c) / 2. - 28.), px(top)))
                 .snap_to_window_with_margin(px(8.))
                 .child(tooltip(t, tip)),
         )
@@ -259,7 +263,7 @@ fn tooltip(t: &Tokens, tip: &GridTip) -> impl IntoElement {
                 .gap(px(4.))
                 .child(
                     div()
-                        .font_family(MONO_FAMILY)
+                        .mono_face()
                         .text_color(mix(t.accent, t.bg, 45.))
                         .child(s(&tip.reference)),
                 )
@@ -302,4 +306,37 @@ pub(super) fn foot_cell(
                 .child(s(f)),
         )
         .into_any_element()
+}
+
+/// The tooltip's height as Go guesses it before it is measured (`offsetHeight ?? 70`); three lines of 18 and their
+/// padding come to about this.
+const TIP_H: f32 = 74.;
+
+/// Where the tooltip's top goes, from the top of row `ri`'s cell: 8 px under the cell, or, when that would run past
+/// the bottom of the part that scrolls (`port_h` tall, scrolled `scroll_y` down), 8 px over it.
+pub(super) fn tip_top(ri: usize, scroll_y: f32, port_h: f32) -> f32 {
+    #[allow(clippy::cast_precision_loss)] // WHY: a row index, far under 2^24
+    let cell_top = ri as f32 * ROW_H - scroll_y;
+    let under = ROW_H + 8.;
+    if port_h > 0. && cell_top + under + TIP_H > port_h - 4. {
+        -(TIP_H + 8.)
+    } else {
+        under
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{ROW_H, TIP_H, tip_top};
+
+    /// Go's tooltip sits under its cell and flips above it near the bottom of the box.
+    #[test]
+    fn the_tip_flips_above_near_the_bottom() {
+        assert_eq!(tip_top(0, 0., 400.), ROW_H + 8.);
+        assert_eq!(tip_top(8, 0., 400.), -(TIP_H + 8.));
+        // Scrolled so row 8 is near the top again: under it.
+        assert_eq!(tip_top(8, 8. * ROW_H, 400.), ROW_H + 8.);
+        // Not measured yet: under.
+        assert_eq!(tip_top(8, 0., 0.), ROW_H + 8.);
+    }
 }

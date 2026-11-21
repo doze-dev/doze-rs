@@ -11,6 +11,7 @@
 
 pub mod archive;
 pub mod child;
+pub mod download;
 pub mod http;
 pub mod lock;
 pub mod mirror;

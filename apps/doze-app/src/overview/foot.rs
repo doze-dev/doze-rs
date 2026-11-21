@@ -8,14 +8,14 @@ use super::OverviewView;
 use crate::kit::s;
 use crate::outward::Probe as _;
 use crate::theme::{Tokens, ty};
-use crate::widgets::{MONO_FAMILY, icon};
+use crate::widgets::{Mono as _, icon};
 
 /// The foot: memory and the address with its copy mark; or, in trouble, what it last said.
 pub(super) fn tile_foot(t: &Tokens, r: &Row, cx: &mut Context<OverviewView>) -> gpui::Div {
     if !r.err.is_empty() {
         return div()
             .mt_auto()
-            .font_family(MONO_FAMILY)
+            .mono_face()
             .text_size(px(ty::XS_UP))
             .text_color(t.bad)
             .whitespace_nowrap()
@@ -43,7 +43,7 @@ pub(super) fn tile_foot(t: &Tokens, r: &Row, cx: &mut Context<OverviewView>) -> 
         });
     if r.kind == "task" {
         return f.when(r.engine != "task", |d| {
-            d.child(div().font_family(MONO_FAMILY).child(s(&r.engine)))
+            d.child(div().mono_face().child(s(&r.engine)))
         });
     }
     f.when(!r.address.is_empty(), |d| {

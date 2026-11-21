@@ -99,3 +99,38 @@ fn a_count_that_did_not_look_at_everything_is_a_floor_and_says_so() {
         Some("5 open transactions were not checked.")
     );
 }
+
+#[test]
+fn the_advertised_ledes_say_where_a_client_reconnects_and_whether_it_answers() {
+    let mut p = crate::fixtures::probe_ok();
+    p.same = true;
+    let home = home_advertised_lede(&p);
+    assert!(
+        home.starts_with("A client asks for Metadata and then reconnects"),
+        "{home}"
+    );
+    assert!(
+        home.ends_with(&format!(
+            "Here that is {}, the address the listener binds.",
+            p.advertised
+        )),
+        "{home}"
+    );
+    assert_eq!(
+        plain(&connect_advertised_lede(&p)),
+        format!(
+            "After Metadata a client reconnects to the advertised address. This broker advertises {}, which is the address it listens on, and answers there.",
+            p.advertised
+        )
+    );
+    p.same = false;
+    p.verdict = Verdict::NotReachable;
+    assert!(home_advertised_lede(&p).ends_with(&format!(
+        "not the address the listener binds ({}).",
+        p.listen
+    )));
+    assert!(plain(&connect_advertised_lede(&p)).ends_with(&format!(
+        "not the address it listens on ({}), and does not answer there.",
+        p.listen
+    )));
+}

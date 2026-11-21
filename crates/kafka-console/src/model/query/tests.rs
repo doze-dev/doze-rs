@@ -117,3 +117,17 @@ fn several_partitions_are_a_repeated_field_ascending_once_each_and_bounded() {
         64 // the form reader keeps 64 fields
     );
 }
+
+#[test]
+fn a_before_cursor_is_partition_and_offset_pairs_sorted_once_each_and_written_back() {
+    let (query, notes) = q("before=1%3A880%2C0%3A1200&limit=200");
+    assert!(notes.is_empty(), "{notes:?}");
+    assert_eq!(query.before, [(0, 1200), (1, 880)]);
+    assert!(!query.filtered(), "a cursor is a page, not a filter");
+    assert_eq!(query.to_query(), "?limit=200&before=0:1200,1:880");
+    for bad in ["x", "0:", ":5", "0:1,0:2", "-1:4", "0:-4", "0:1;1:2"] {
+        let (query, notes) = q(&format!("before={bad}"));
+        assert!(query.before.is_empty(), "{bad}");
+        assert_eq!(notes.len(), 1, "{bad}: {notes:?}");
+    }
+}

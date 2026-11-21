@@ -14,6 +14,11 @@ pub enum Install {
     Manual,
 }
 
+/// Where doze's releases are published: the Rust doze goes to doze-dev/doze, as Go's did (owner, 2026-11-19;
+/// `.github/workflows/release.yml`). The app's update check (doze-desk `settings::update::LATEST_URL`) asks the same
+/// repository.
+pub const REPO: &str = "doze-dev/doze";
+
 /// The releases page, for an install doze cannot update itself.
 pub const RELEASES: &str = "https://github.com/doze-dev/doze/releases";
 
@@ -50,5 +55,20 @@ impl Install {
             Install::App => "the app",
             Install::Manual => "a download",
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{RELEASES, REPO};
+
+    #[test]
+    fn the_releases_page_is_the_repository_the_release_workflow_publishes_to() {
+        assert_eq!(RELEASES, format!("https://github.com/{REPO}/releases"));
+        let workflow = include_str!("../../../.github/workflows/release.yml");
+        assert!(
+            workflow.contains(&format!("-R {REPO} ")),
+            "release.yml publishes to {REPO}"
+        );
     }
 }

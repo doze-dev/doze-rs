@@ -4,4 +4,8 @@ import type { ConfigResetView } from "./ConfigResetView";
 /**
  * `GET /api/v1/topics/{topic}/config/reset?key=`.
  */
-export type ConfigResetForm = { view: ConfigResetView, now_gloss: string | null, after_gloss: string | null, takes_effect: string | null, };
+export type ConfigResetForm = { view: ConfigResetView, now_gloss: string | null, after_gloss: string | null, takes_effect: string | null, 
+/**
+ * What happens to the segments there are, for the keys that decide when one rolls.
+ */
+segments_note: string | null, };

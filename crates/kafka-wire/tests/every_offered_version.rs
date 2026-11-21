@@ -159,7 +159,12 @@ fn offered() -> Vec<(Profile, Advertised, i16)> {
     for major in KafkaMajor::RANGE {
         let profile = Profile::new(KafkaMajor::new(major).unwrap());
         for adv in profile.advertised(ALL) {
-            out.extend((adv.min..=adv.max).map(|v| (profile, adv, v)));
+            // Listed and read (Kafka 4 lists Produce v0 to v2 and closes the connection on them, as 4.4.0 does).
+            out.extend(
+                (adv.min..=adv.max)
+                    .filter(|&v| profile.check(adv.key, v, ALL).is_ok())
+                    .map(|v| (profile, adv, v)),
+            );
         }
     }
     out

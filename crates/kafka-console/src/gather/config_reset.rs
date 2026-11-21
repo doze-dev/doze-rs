@@ -6,7 +6,7 @@ use super::config::{ConfigMissing, pace, rows};
 use super::config_edit::send;
 use crate::backend::Backend;
 use crate::config_calls;
-use crate::model::{ConfigOp, ConfigResetResult, ConfigResetView, ConfigValue};
+use crate::model::{ConfigOp, ConfigResetResult, ConfigResetView, ConfigValue, SegmentsNow};
 use crate::refusal::refusal;
 
 async fn view(b: &Backend, topic: &str, key: &str) -> Result<ConfigResetView, ConfigMissing> {
@@ -24,6 +24,10 @@ async fn view(b: &Backend, topic: &str, key: &str) -> Result<ConfigResetView, Co
         topic,
         &[(row.name.clone(), ConfigOp::Delete, None)],
     );
+    let segments = matches!(key, "segment.bytes" | "segment.ms")
+        .then(|| b.partition_files(topic))
+        .flatten()
+        .map(|files| segments_now(&files));
     Ok(ConfigResetView {
         topic: topic.to_owned(),
         row,
@@ -31,7 +35,18 @@ async fn view(b: &Backend, topic: &str, key: &str) -> Result<ConfigResetView, Co
         pace: pace(b),
         call,
         refusal: None,
+        segments,
     })
+}
+
+/// The segments of a topic now, from its files (nothing is opened).
+#[must_use]
+fn segments_now(files: &[kafka_broker::PartitionFiles]) -> SegmentsNow {
+    SegmentsNow {
+        partitions: files.len(),
+        sealed: files.iter().map(|f| f.segments.saturating_sub(1)).sum(),
+        largest_active: files.iter().map(|f| f.active_bytes).max().unwrap_or(0),
+    }
 }
 
 /// The reset dialog for a config of a topic.

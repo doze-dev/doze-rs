@@ -20,6 +20,10 @@ pub(crate) struct Row {
     /// The engine line of a module (`postgres 18`).
     pub(crate) engine: String,
     pub(crate) trouble: bool,
+    /// Awake now (Go `display.AwakeNow`): only then does a card say its memory.
+    pub(crate) awake: bool,
+    /// Pinned awake (`keep_awake`): the card's pin.
+    pub(crate) pinned: bool,
 }
 
 /// The vitals strip over the page.
@@ -42,10 +46,12 @@ pub(crate) struct Vitals {
 }
 
 /// A setup task's mark on the card that needs it.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct Fold {
     pub(crate) glyph: &'static str,
     pub(crate) tone: Tone,
+    /// Its title (Go `MapFold.Title`): "before it: migrate ✓ 16m ago · seed not run yet".
+    pub(crate) title: String,
 }
 
 /// The stack page.
@@ -91,6 +97,8 @@ pub(crate) fn page(v: &StackView, now: SystemTime) -> Page {
             // With its version (`postgres 18`), as the Map's module card says it.
             engine: engine_version(i),
             trouble: words::troubled(i),
+            awake: words::awake_now(i),
+            pinned: i.keep_awake,
         })
         .collect();
     let up = v
@@ -104,7 +112,7 @@ pub(crate) fn page(v: &StackView, now: SystemTime) -> Page {
         up: if v.running { up } else { String::new() },
         running: v.running,
         map: v.instances.iter().map(map_instance).collect(),
-        folds: folds(&snap),
+        folds: folds(&snap, now),
         vitals: vitals(v, &snap),
         said: crate::map::said::said_of(&snap, now),
         rows,
@@ -132,42 +140,72 @@ fn map_instance(v: &doze_control::InstanceView) -> doze_map::Instance {
     i
 }
 
-/// The mark each card gets for the setup tasks it needs: ✗ when one failed, … while one runs, ✓ when all ran.
-fn folds(snap: &words::Snapshot) -> HashMap<String, Fold> {
+/// The mark each card gets for the setup tasks it needs that are not drawn as cards of their own (Go `flow.fold`; a
+/// task that runs or failed is a card): ✓ in good when every one has run, ▸ in dim otherwise, titled with each
+/// task's line.
+fn folds(snap: &words::Snapshot, now: SystemTime) -> HashMap<String, Fold> {
     let mut out = HashMap::new();
     for v in &snap.instances {
+        let mut seen: Vec<&str> = Vec::new();
         let tasks: Vec<&words::Instance> = v
             .needs
             .iter()
             .filter_map(|n| snap.find(n))
-            .filter(|t| t.kind == Kind::Task)
+            .filter(|t| t.kind == Kind::Task && t.name != v.name)
+            .filter(|t| {
+                let fresh = !seen.contains(&t.name.as_str());
+                seen.push(&t.name);
+                fresh
+            })
+            // Carded: running, or its last run failed (`map_instance`'s `busy`).
+            .filter(|t| {
+                t.state != words::State::Booting
+                    && !t
+                        .task
+                        .as_ref()
+                        .is_some_and(|r| r.outcome == words::Outcome::Failed)
+            })
             .collect();
         if tasks.is_empty() {
             continue;
         }
-        let fold = if tasks.iter().any(|t| {
-            t.task
-                .as_ref()
-                .is_some_and(|r| r.outcome == words::Outcome::Failed)
-        }) {
-            Fold {
-                glyph: "✗",
-                tone: Tone::Bad,
-            }
-        } else if tasks.iter().any(|t| t.state == words::State::Booting) {
-            Fold {
-                glyph: "…",
-                tone: Tone::Cool,
-            }
+        let ran = tasks.iter().all(|t| t.task.is_some());
+        let title = format!(
+            "before it: {}",
+            tasks
+                .iter()
+                .map(|t| task_line(t, now))
+                .collect::<Vec<_>>()
+                .join(" · ")
+        );
+        let (glyph, tone) = if ran {
+            ("✓", Tone::Good)
         } else {
-            Fold {
-                glyph: "✓",
-                tone: Tone::Good,
-            }
+            ("▸", Tone::Dim)
         };
-        out.insert(v.name.clone(), fold);
+        out.insert(v.name.clone(), Fold { glyph, tone, title });
     }
     out
+}
+
+/// A task as its fold's title says it (Go `taskLine`): "migrate ✓ 16m ago".
+fn task_line(t: &words::Instance, now: SystemTime) -> String {
+    let ago = || {
+        t.task
+            .as_ref()
+            .and_then(|r| r.ran_at)
+            .and_then(|a| now.duration_since(a).ok())
+            .map(words::ago)
+            .unwrap_or_else(|| words::ago(std::time::Duration::ZERO))
+    };
+    match &t.task {
+        _ if t.state == words::State::Booting => format!("{} running", t.name),
+        None => format!("{} not run yet", t.name),
+        Some(r) if r.outcome == words::Outcome::Failed => {
+            format!("{} failed {} ago", t.name, ago())
+        }
+        Some(_) => format!("{} ✓ {} ago", t.name, ago()),
+    }
 }
 
 fn vitals(v: &StackView, snap: &words::Snapshot) -> Vitals {
@@ -266,12 +304,4 @@ pub(crate) fn state_index(r: Option<&Row>) -> u8 {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::mb_figure;
-
-    #[test]
-    fn megabytes_round() {
-        assert_eq!(mb_figure(64_487_424), 62);
-        assert_eq!(mb_figure(0), 0);
-    }
-}
+mod tests;

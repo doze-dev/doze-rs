@@ -68,7 +68,11 @@ impl<F: Fs> Broker<F> {
         let deadline = Instant::now() + waits;
         loop {
             let budget = Budget::new(req.max_bytes);
-            let round = blocking_round(&wanted, &req, budget);
+            let how = round::How {
+                version,
+                kafka: self.config.kafka_major,
+            };
+            let round = blocking_round(&wanted, &req, how, budget);
             // An error is an answer: the client has to act on it, and making it wait would cost a consumer's offset
             // reset a whole wait.
             if round.failed
@@ -121,7 +125,7 @@ impl<F: Fs> Broker<F> {
             let mut places = Vec::new();
             for p in &t.partitions {
                 places.push(if allowed {
-                    self.place(topic.as_deref(), t, p.partition).await
+                    self.place(version, topic.as_deref(), t, p.partition).await
                 } else {
                     Place::Error(ResponseError::TopicAuthorizationFailed)
                 });
@@ -155,7 +159,13 @@ impl<F: Fs> Broker<F> {
         self.meta.topic(&TopicName::parse(&t.topic.0).ok()?)
     }
 
-    async fn place(&self, topic: Option<&Topic>, t: &FetchTopic, index: i32) -> Place<F> {
+    async fn place(
+        &self,
+        version: i16,
+        topic: Option<&Topic>,
+        t: &FetchTopic,
+        index: i32,
+    ) -> Place<F> {
         // A topic asked for by an id (the name is empty) that stands for none is UNKNOWN_TOPIC_ID; a partition the topic
         // has not is UNKNOWN_TOPIC_OR_PARTITION however the topic was named (Kafka 4.4.0, `tools/wire-tail-oracle`, `fetch`).
         let Some(topic) = topic else {
@@ -169,6 +179,9 @@ impl<F: Fs> Broker<F> {
         else {
             return Place::Error(ResponseError::UnknownTopicOrPartition);
         };
+        if let Some(code) = self.refused_to_old_consumer(version, topic) {
+            return Place::Error(code);
+        }
         match self.partitions.get(topic, id).await {
             Ok(partition) => Place::Open(partition),
             Err(e) => {
@@ -179,12 +192,35 @@ impl<F: Fs> Broker<F> {
     }
 }
 
+impl<F: Fs> Broker<F> {
+    /// Kafka's look at a topic an older consumer reads (`KafkaApis.maybeConvertFetchedData`, from Kafka 2.0): a topic
+    /// that stores zstd is not read below Fetch v10, the first a consumer that knows zstd sends (KIP-110); and one whose
+    /// `message.downconversion.enable` is false is not read below v4, which would need its records converted (KIP-283).
+    fn refused_to_old_consumer(&self, version: i16, topic: &Topic) -> Option<ResponseError> {
+        if self.config.kafka_major.get() < 2 {
+            return None;
+        }
+        let settings = topic.settings();
+        if version < ZSTD_READERS_FROM
+            && settings.compression == Some(kafka_wire::batch::Compression::Zstd)
+        {
+            return Some(ResponseError::UnsupportedCompressionType);
+        }
+        (version < round::BATCHES_FROM && !settings.down_conversion)
+            .then_some(ResponseError::UnsupportedVersion)
+    }
+}
+
+/// The first Fetch version a consumer that reads zstd sends (KIP-110).
+const ZSTD_READERS_FROM: i16 = 10;
+
 fn blocking_round<F: Fs>(
     wanted: &[Wanted<'_, F>],
     req: &FetchRequest,
+    how: round::How,
     budget: Budget,
 ) -> round::Round {
-    crate::blocking::run(|| round::read(wanted, req, budget))
+    crate::blocking::run(|| round::read(wanted, req, how, budget))
 }
 
 #[cfg(test)]

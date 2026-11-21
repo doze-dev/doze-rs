@@ -29,6 +29,9 @@ pub struct TopicRow {
     pub segments: Option<usize>,
     /// The groups that have committed offsets on it.
     pub read_by: Vec<String>,
+    /// The clients the request recorder saw write to it (a Produce it answered), newest first, at most three; empty when the
+    /// tape holds none (it keeps the last 2,000 requests) or the console has no recorder.
+    pub written_by: Vec<String>,
     pub bytes: Option<u64>,
     /// When it was last written (the newest segment file), in milliseconds since the epoch.
     pub last_write_ms: Option<i64>,
@@ -51,6 +54,7 @@ impl TopicRow {
             retention_ms: None,
             segments: None,
             read_by: Vec::new(),
+            written_by: Vec::new(),
             bytes: None,
             last_write_ms: None,
             offline: 0,
