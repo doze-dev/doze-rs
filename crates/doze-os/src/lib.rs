@@ -15,6 +15,7 @@
 //! - [`home`]: where doze keeps its state.
 //! - [`net`]: dial an engine's backend, a Unix socket or loopback TCP, as one stream type.
 //! - [`detach`]: start the daemon so it outlives its starter (and can still stop engines gently).
+//! - [`foreground`]: run a command in the foreground as a job-control shell does (its signals, the terminal).
 //! - [`local`]: the daemon's control socket as blocking I/O, for clients that run no async runtime.
 //! - `ui` (feature `ui`): the desktop app's menu-bar item and Dock badge.
 //! - [`browse`]: open a web page in the person's browser.
@@ -26,6 +27,7 @@ pub mod autostart;
 pub mod browse;
 pub mod channel;
 pub mod detach;
+pub mod foreground;
 pub mod fs;
 pub mod home;
 pub mod interrupt;

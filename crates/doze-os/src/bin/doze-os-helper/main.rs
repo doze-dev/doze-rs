@@ -29,6 +29,7 @@ fn main() {
         "ignore-stop" => rt.block_on(ignore_stop()),
         "host-tree" => rt.block_on(host_tree()),
         "orphan" => orphan(),
+        "foreground" => foreground(args.get(1..).unwrap_or_default()),
         "privilege" => doze_os::privilege::is_privileged().map(|p| println!("privileged={p}")),
         "relaunch-privilege" => relaunch_then(|| {
             doze_os::privilege::is_privileged().map(|p| println!("privileged={p}"))
@@ -257,4 +258,13 @@ fn free_port() -> std::io::Result<String> {
         .local_addr()?
         .port()
         .to_string())
+}
+
+/// `foreground <script>`: runs `sh -c <script>` as `doze run` runs a command (`doze_os::foreground`), then exits with
+/// its code.
+fn foreground(args: &[String]) -> std::io::Result<()> {
+    let mut cmd = std::process::Command::new("/bin/sh");
+    cmd.arg("-c").args(args);
+    let status = doze_os::foreground::run(cmd)?;
+    std::process::exit(i32::from(doze_os::process::exit_code(&status)));
 }

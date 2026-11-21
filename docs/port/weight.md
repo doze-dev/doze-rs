@@ -1505,3 +1505,10 @@ Re-applied on main, with the take-over of a Go module's data (`module/godata`, b
 binary: `doze-bolt`, a read-only bbolt reader of about 300 lines with no dependencies. The package lines move to **293** for
 doze-aws (280 on main, +12 for the module SDK as CI counted on 2026-11-15, +1) and **183** for doze-kafka (+1). The kafka
 face's other new code (the importer, `serde` and `serde_json`, already in its tree) runs only in `kafka-plugin`'s provision.
+
+### The finished CLI inside the app (cli-finish, 2026-11-21)
+
+Measured on darwin arm64 (`cargo build --profile release-app -p doze-app`, CI's method) on cli-finish with main at
+#112 merged: **16,958,368 B**, **657** packages. Main's line was 16,563,000 B (the app as landed, 2026-11-19); the
+rise, about +395 KB, is the CLI's finished commands, which the app carries for its own `doze` (one binary, no Go).
+The line moves to the measure plus 5%, **17,806,000 B**, under the owner's 20 MB ceiling; packages stay at most 660.
