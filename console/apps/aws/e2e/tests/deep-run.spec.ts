@@ -223,9 +223,9 @@ test("a stack says where it stands, and shows its events, template and change se
   expect(cli(["cloudformation", "create-stack", "--stack-name", stack, "--template-body", template]).code).toBe(0);
   await expect(async () => {
     await open(page, `/resources/cloudformation/stacks/${stack}`, stack);
-    await expect(page.getByTestId("stack-sentence")).toContainText("CREATE_COMPLETE", { timeout: 1000 });
+    await expect(page.getByTestId("detail-badge")).toHaveText("CREATE_COMPLETE", { timeout: 1000 });
   }).toPass({ timeout: 15_000 });
-  await expect(page.getByTestId("stack-sentence")).toContainText("not updated since");
+  await expect(page.getByTestId("stack-sentence")).toContainText("owns 1 resource in 1 service and has been stable since");
   await page.getByTestId("tab-events").click();
   const events = page.getByTestId("stack-events").locator("tbody tr");
   await expect(events.first()).toContainText(stack);
@@ -249,19 +249,19 @@ test("a stack whose create failed holds nothing and says which resource failed; 
   expect(cli(["cloudformation", "create-stack", "--stack-name", stack, "--template-body", template]).code).toBe(0);
   await expect(async () => {
     await open(page, `/resources/cloudformation/stacks/${stack}`, stack);
-    await expect(page.getByTestId("stack-sentence")).toContainText("ROLLBACK_COMPLETE", { timeout: 1000 });
+    await expect(page.getByTestId("detail-badge")).toHaveText("ROLLBACK_COMPLETE", { timeout: 1000 });
   }).toPass({ timeout: 15_000 });
-  await expect(page.getByTestId("stack-sentence")).toContainText("holds nothing");
+  await expect(page.getByTestId("stack-sentence")).toContainText("It holds no resources.");
   await expect(page.getByTestId("stack-sentence")).not.toContainText("held before");
-  await expect(page.getByTestId("stack-cause")).toContainText("Taken (AWS::SSM::Parameter) failed to create");
+  await expect(page.getByTestId("stack-sentence")).toContainText("Taken could not be made");
   // Deleted: its name is no longer answered; the page says it was deleted, not "ValidationError".
   expect(cli(["cloudformation", "delete-stack", "--stack-name", stack]).code).toBe(0);
   await expect(async () => {
     await open(page, `/resources/cloudformation/stacks/${stack}`, stack);
-    await expect(page.getByTestId("stack-deleted")).toContainText("was deleted", { timeout: 1000 });
+    await expect(page.getByTestId("stack-deleted")).toContainText("A deleted stack is hidden from the list", { timeout: 1000 });
   }).toPass({ timeout: 15_000 });
   await expect(page.getByTestId("detail-error")).toHaveCount(0);
-  await open(page, `/resources/cloudformation/stacks/${stack}-never`, `${stack}-never`);
+  await open(page, `/resources/cloudformation/stacks/${stack}-never`, "Stack not found");
   await expect(page.getByTestId("stack-none")).toContainText("There is no stack named");
 });
 });

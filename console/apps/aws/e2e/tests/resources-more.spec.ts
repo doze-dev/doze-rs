@@ -76,13 +76,14 @@ test("a stack made with the CLI shows the resources it made and its outputs", as
   expect(cli(["cloudformation", "create-stack", "--stack-name", stack, "--template-body", template]).code).toBe(0);
   await expect(async () => {
     await open(page, `/resources/cloudformation/stacks/${stack}`, stack);
-    await expect(page.getByTestId("field-Status")).toHaveText("CREATE_COMPLETE", { timeout: 1000 });
+    await expect(page.getByTestId("detail-badge")).toHaveText("CREATE_COMPLETE", { timeout: 1000 });
   }).toPass({ timeout: 15_000 });
-  await expect(page.getByTestId("sub-Resources")).toContainText("AWS::SQS::Queue");
-  const outputs = page.getByTestId("sub-Outputs");
+  await page.getByTestId("tab-resources").click();
+  await expect(page.getByTestId("stack-resources")).toContainText("AWS::SQS::Queue");
+  await page.getByTestId("tab-outputs").click();
+  const outputs = page.getByTestId("stack-outputs");
   await expect(outputs).toContainText("InboxUrl");
   await expect(outputs).toContainText(queue);
-  await expect(outputs).toContainText("Read with DescribeStacks");
 });
 
 test("Live hides this console's own calls until asked, and the map leaves them out", async ({ page, cli, browserName }) => {

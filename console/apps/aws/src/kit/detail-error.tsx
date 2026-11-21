@@ -23,11 +23,11 @@ const sentence = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
 /** The page of a resource that could not be read. `service` and `kind` are the ids of the address (`dynamodb`, `tables`); the words
  * (`table`, `Tables`, `DynamoDB`) come from the catalogue. `header: false` when the page has drawn its own header already. */
-export function DetailError({ service, kind, name, what, error, onRetry, retrying = false, header = true, testId = "detail-error" }: { service: string; kind: string; name: string; /** `This table could not be read`, for an error that is not a missing name. */ what?: string; error: unknown; onRetry?: () => void; retrying?: boolean; header?: boolean; testId?: string }) {
+export function DetailError({ service, kind, name, what, error, onRetry, retrying = false, header = true, testId = "detail-error", noun, back }: { /** What the thing is called when the catalogue has no kind for it (`change set`). */ noun?: string; /** Where the way back goes and what it says, when it is not the kind's list (`{ to: "/resources/cloudformation/stacks/x", label: "Back to the stack" }`). */ back?: { to: string; label: string }; service: string; kind: string; name: string; /** `This table could not be read`, for an error that is not a missing name. */ what?: string; error: unknown; onRetry?: () => void; retrying?: boolean; header?: boolean; testId?: string }) {
   const catalogue = useCatalogue().data;
   const s = catalogue?.services.find((x) => x.name === service);
   const k = s?.kinds.find((x) => x.id === kind);
-  const one = k?.one ?? kind.replace(/s$/, "");
+  const one = noun ?? k?.one ?? kind.replace(/s$/, "");
   if (!isMissing(error)) return <ErrorBlock what={what ?? `This ${one} could not be read`} error={error} hint={HINT} onRetry={onRetry} retrying={retrying} testId={testId} />;
   const { message, code } = errorWords(error);
   const list = `/resources/${service}/${kind}`;
@@ -36,7 +36,7 @@ export function DetailError({ service, kind, name, what, error, onRetry, retryin
     <>
       {header && <PageHeader title={`${sentence(one)} not found`} crumbs={crumbs} />}
       <div role="alert" data-testid={testId} data-missing="">
-        <EmptyState icon={SearchXIcon} title={`There is no ${one} named ${name}`} action={<Button asChild variant="outline" className="bg-card"><Link to={list}>Back to {(k?.title ?? sentence(kind)).toLowerCase()}</Link></Button>}>
+        <EmptyState icon={SearchXIcon} title={`There is no ${one} named ${name}`} action={<Button asChild variant="outline" className="bg-card"><Link to={back?.to ?? list}>{back?.label ?? `Back to ${(k?.title ?? sentence(kind)).toLowerCase()}`}</Link></Button>}>
           <p data-slot="error-message">{message}</p>
           <p className="mt-1">There is no {one} of that name in this account and Region. Choose one from the list, or create it.</p>
           {code && <p className="mt-2 font-mono text-[12px]" data-slot="error-code">{code}</p>}
