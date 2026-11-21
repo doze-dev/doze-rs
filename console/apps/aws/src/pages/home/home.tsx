@@ -49,11 +49,12 @@ function Connected({ callers, now }: { callers: CallerSeen[]; now: number }) {
 
 function recentColumns(names: ReadonlyMap<string, KeyPrincipal>): DataColumn<CallRecord>[] {
   return [
-    { id: "time", header: "Time", size: 130, accessorKey: "at_ms", meta: { mono: true }, cell: (c) => clockMsUtc(c.getValue<number>()) },
+    { id: "time", header: "Time", size: 130, min: 122, accessorKey: "at_ms", meta: { mono: true }, cell: (c) => clockMsUtc(c.getValue<number>()) },
     {
       id: "caller",
       header: "Caller",
       size: 200,
+      min: 140,
       accessorFn: (r) => r.caller ?? "",
       cell: (c) => {
         const key = c.getValue<string>();
@@ -67,9 +68,9 @@ function recentColumns(names: ReadonlyMap<string, KeyPrincipal>): DataColumn<Cal
         );
       },
     },
-    { id: "action", header: "Operation", size: 190, accessorFn: (r) => r.action ?? "", meta: { mono: true } },
+    { id: "action", header: "Operation", size: 190, min: 140, accessorFn: (r) => r.action ?? "", meta: { mono: true } },
     { id: "resource", header: "Resource", accessorFn: (r) => r.resource ?? "", meta: { mono: true } },
-    { id: "result", header: "Result", size: 220, enableSorting: false, accessorFn: (r) => r.outcome, cell: (c) => <Result call={c.row.original} /> },
+    { id: "result", header: "Result", size: 220, min: 140, enableSorting: false, accessorFn: (r) => r.outcome, cell: (c) => <Result call={c.row.original} /> },
   ];
 }
 
@@ -122,7 +123,8 @@ export function HomePage() {
       <div className="mb-10 grid gap-6 lg:grid-cols-2">
         <Card testId="card-connect" title="Where your app connects" lede="Every service answers on this one address. Point an AWS SDK or the AWS CLI at it.">
           {a ? (
-            <div className="grid">
+            // grid-cols-1: a track of minmax(0, 1fr), so a long value is cut with an ellipsis instead of pushing Copy out of the card.
+            <div className="grid grid-cols-1">
               <CopyRow label="Endpoint" value={a.endpoint} testId="endpoint" />
               <CopyRow label="As an environment variable" value={`AWS_ENDPOINT_URL=${a.endpoint}`} testId="endpoint-env" />
             </div>

@@ -145,7 +145,9 @@ export function Shell() {
   );
   return (
     // 184 px, the boards' rail. The shared Sidebar sets its width inline, so it is given as a style, not a class.
-    <SidebarProvider style={{ "--sidebar-width": "11.5rem" } as React.CSSProperties} open={sidebar} onOpenChange={setSidebar}>
+    // bg-sidebar on the wrapper: the rail is fixed to the window, so a page taller than the window (a full-page capture) shows the
+    // wrapper beside the inset below it; in the rail's colour, the rail reads as reaching the bottom.
+    <SidebarProvider className="bg-sidebar" style={{ "--sidebar-width": "11.5rem" } as React.CSSProperties} open={sidebar} onOpenChange={setSidebar}>
       <Rail />
       <SidebarInset className="min-w-0 bg-background">
         <TopBar onPalette={() => openPalette(true)} paletteLabel="Jump to a space or a resource">

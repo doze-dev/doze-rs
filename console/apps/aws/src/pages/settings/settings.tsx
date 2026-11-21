@@ -83,7 +83,7 @@ export function SettingsPage() {
                 <Fact label="IAM" testId="fact-iam" note={iamWords(a.iam).sentence}>
                   <span className={mono}>{a.iam}</span>
                 </Fact>
-                <Fact label="Console" testId="fact-console" note="This page's own address. It has no login and answers this machine only.">
+                <Fact label="Console" testId="fact-console" note="This page's own address. It has no login and answers this machine only. Its calls use the key console, which acts as the account root: IAM allows them in every mode.">
                   <span className={mono}>{a.console}</span>
                 </Fact>
                 <Fact label="Process" testId="fact-process" note={`Started ${dateTimeUtc(a.started * 1000)}.`}>
@@ -106,7 +106,7 @@ export function SettingsPage() {
               </label>
             }
           >
-            <DataTable aria-label="Settings" data={flags} columns={FLAG_COLUMNS} rowId={(f) => f.name} maxHeight={520} empty={changedOnly ? "Every setting is its default." : "This doze-aws did not hand its settings to the console."} />
+            <DataTable aria-label="Settings" data={flags} columns={FLAG_COLUMNS} rowId={(f) => f.name} maxHeight={4000} empty={changedOnly ? "Every setting is its default." : "This doze-aws did not hand its settings to the console."} />
           </Card>
 
           <Card

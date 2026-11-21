@@ -16,11 +16,12 @@ const percent = (r: ServiceRow) => (r.total > 0 ? Math.round((r.built / r.total)
 function columns(now: number): DataColumn<Row>[] {
   return [
     { id: "title", header: "Service", accessorKey: "title", cell: (c) => <span className="font-medium text-bright">{c.getValue<string>()}</span> },
-    { id: "name", header: "Name", size: 150, accessorKey: "name", meta: { mono: true } },
+    { id: "name", header: "Name", size: 150, min: 110, accessorKey: "name", meta: { mono: true } },
     {
       id: "state",
       header: "This run",
       size: 130,
+      min: 112,
       accessorFn: (r) => (r.served ? "Served" : "Not served"),
       cell: (c) => <StatusDot tone={c.row.original.served ? "ok" : "idle"}>{c.getValue<string>()}</StatusDot>,
     },
@@ -28,6 +29,7 @@ function columns(now: number): DataColumn<Row>[] {
       id: "called",
       header: "Apps last called",
       size: 170,
+      min: 130,
       sortDescFirst: true,
       accessorFn: (r) => r.seen?.last_ms ?? 0,
       cell: (c) => {
@@ -37,7 +39,7 @@ function columns(now: number): DataColumn<Row>[] {
     },
     { id: "built", header: "Operations built", size: 170, accessorKey: "built", sortDescFirst: true, meta: { numeric: true }, cell: (c) => `${number(c.row.original.built)} of ${number(c.row.original.total)}` },
     { id: "share", header: "Share", size: 90, accessorFn: percent, sortDescFirst: true, meta: { numeric: true }, cell: (c) => `${c.getValue<number>()}%` },
-    { id: "apis", header: "APIs", size: 220, enableSorting: false, accessorFn: (r) => r.apis.map((a) => a.sdk_id).join(", ") },
+    { id: "apis", header: "APIs", size: 220, min: 76, enableSorting: false, accessorFn: (r) => r.apis.map((a) => a.sdk_id).join(", ") },
   ];
 }
 

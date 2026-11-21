@@ -253,4 +253,7 @@ doze-kafka 13676328 182 11880 --listen 127.0.0.1:{port} --data-dir {data}
 # (its fuzzed host guard, reused, not copied) with arc-swap. Measured 291 packages, +166,912 B and +~256 KB idle with the console off
 # (code pages; live heap unchanged). Nothing new in Cargo.lock: all of it was there through doze-kafka. Package line = 291 plus room
 # for the view-model slices to come = 300.
+# 2026-11-21: the console is on by default (loopback, the gateway's port + 1), so this line measures it listening, unopened: 10,641,728 B,
+# 291 packages, idle 7,392 KB; with DOZE_AWS_CONSOLE=off the same binary idles at 7,296 KB (the listener and its empty Live ring:
+# about 96 KB). macOS, release-aws, median of three.
 doze-aws 20000000 300 16384 --listen 127.0.0.1:{port} --data-dir {data}

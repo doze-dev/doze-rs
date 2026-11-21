@@ -34,6 +34,9 @@ describe("DynamoDB JSON", () => {
     expect(parseItem('{"pk": {"S": "a"}, "sk": {"S": "1"}}', "dynamodb", KEYS)).toEqual({ error: "sk is a key of type N; this gives it S." });
     expect(parseItem('{"pk": "a", "sk": 1}', "dynamodb", KEYS)).toHaveProperty("error");
     expect(parseItem('{"pk": {"S": "a"}, "sk": {"N": "x"}}', "dynamodb", KEYS)).toHaveProperty("error");
+    expect(parseItem('{"pk": "", "sk": 1}', "plain", KEYS)).toEqual({ error: "pk is a key, and a key cannot be empty: give it a value." });
+    expect(parseItem('{"pk": {"S": ""}, "sk": {"N": "1"}}', "dynamodb", KEYS)).toHaveProperty("error");
+    expect(parseItem('{"pk": "a", "sk": 1, "note": ""}', "plain", KEYS)).toEqual({ item: { pk: { S: "a" }, sk: { N: "1" }, note: { S: "" } } });
     expect(parseItem("[1]", "plain", KEYS)).toEqual({ error: "An item is a JSON object of its attributes." });
     expect("error" in parseItem("{", "plain", KEYS)).toBe(true);
   });

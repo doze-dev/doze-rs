@@ -85,7 +85,18 @@ built bundle must be byte-identical or explained), agreed with that session befo
 
 Total about 14.5 to 16.5 agent sessions. Weight is measured at every slice against the 20 MB ceiling (line = measured + 5%).
 
+### Where the slices ended (2026-11-21)
+
+| Slice | Built | Not built, and why |
+|---|---|---|
+| W0, A-R0 | `console/` workspace (`packages/ui`, `apps/aws`, `apps/gallery`); `aws-console` on its own listener (decided in R0: the gateway's port stays AWS's alone), embedded bundle, CSP, host guard, origin proof, ts-rs contract, shell | Kafka's move into `console/apps/kafka`: last, by the owner's order (2026-11-19) |
+| A-R1 Live | map, wire, both; filters in the URL; repeats folded; cause chains (`via`) from the peer bus; copy as CLI and curl; console calls hidden by default | replay: the record keeps no request bodies (weight, and secrets), so there is nothing to send again |
+| A-R2 Resources | a descriptor for every service with resources (STS has none); generic list, detail, create, delete; Reveal for secrets and SecureStrings | create where AWS needs code or a template (functions, stacks, state machines): the page says to use the CLI |
+| A-R3 Deep pages | SQS messages, redrive, settings; S3 objects, upload (25 MiB), download; DynamoDB items; Lambda test, configuration, versions, invocations; Step Functions executions with the graph; Logs streams, search, Live Tail (SSE); CloudFormation events, template, change sets. One mechanism: `Kind.deep` with bound operations | |
+| A-R4 | Home, Connect (path-style S3 only: the gateway serves no virtual-host names), Access (would be denied, make this pass, who is who), Lab (any built operation), Settings (facts, every setting and its source, data reset) | Lab's fault rules and checkpoints: doze-aws has no fault injection to drive |
+| A-R5 Close | security audit with fixes (a move task cancelled only from its own queue's page; no `DescribeLogGroups` before a log group's own operations; every GET's calls checked to be reads); the Live record lets the console's own calls go first once they pass a quarter of it (browsing the console had pushed every app call out of Live); UX sweep (`console/apps/aws/e2e/audit.ts`) in three browsers at 1024, 1280, 1440 and 1920, light and dark, with fixes (tables give up width before scrolling, cards never widen past the page, focus rings); the console on by default at the gateway's port + 1, `--no-console` to turn it off | serving the console beyond loopback (refused at start: it has no login); Kafka's conversion |
+
 ## Open before W0
 
 - Kafka session's agreement to the workspace move (or the owner's word that it may proceed).
-- Console on the gateway's port under a path, or its own port (Kafka uses its own listener).
+- Console on the gateway's port under a path, or its own port (Kafka uses its own listener). Decided: its own listener (A-R0), on by default at the gateway's port + 1 (A-R5).

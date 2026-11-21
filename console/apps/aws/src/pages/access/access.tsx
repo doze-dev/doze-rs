@@ -85,16 +85,16 @@ function Group({ g, now, soft }: { g: DenialGroup; now: number; soft: boolean })
 }
 
 const REFUSAL_COLUMNS: DataColumn<Refusal>[] = [
-  { id: "principal", header: "Principal", size: 320, accessorKey: "principal", cell: (c) => <Holder arn={c.getValue<string>()} /> },
-  { id: "action", header: "Action", size: 200, accessorKey: "action", meta: { mono: true } },
-  { id: "resource", header: "Resource", size: 260, accessorKey: "resource", meta: { mono: true } },
+  { id: "principal", header: "Principal", size: 320, min: 170, accessorKey: "principal", cell: (c) => <Holder arn={c.getValue<string>()} /> },
+  { id: "action", header: "Action", size: 200, min: 140, accessorKey: "action", meta: { mono: true } },
+  { id: "resource", header: "Resource", size: 260, min: 130, accessorKey: "resource", meta: { mono: true } },
   { id: "decision", header: "Decision", size: 130, accessorKey: "decision" },
   { id: "reason", header: "IAM's reason", accessorKey: "reason" },
   { id: "count", header: "Times", size: 80, accessorKey: "count", meta: { numeric: true } },
 ];
 
 const PRINCIPAL_COLUMNS: DataColumn<KeyPrincipal>[] = [
-  { id: "key", header: "Access key", size: 240, accessorKey: "key", meta: { mono: true } },
+  { id: "key", header: "Access key", size: 240, min: 190, accessorKey: "key", meta: { mono: true } },
   {
     id: "who",
     header: "Who",
@@ -105,7 +105,7 @@ const PRINCIPAL_COLUMNS: DataColumn<KeyPrincipal>[] = [
       return <span title={who(p).title}>{p.kind === "root" ? "The account root (a key IAM did not issue)" : p.kind === "session" ? "A temporary session key" : "This console"}</span>;
     },
   },
-  { id: "arn", header: "ARN", size: 340, accessorFn: (p) => p.arn ?? "", meta: { mono: true } },
+  { id: "arn", header: "ARN", size: 340, min: 180, accessorFn: (p) => p.arn ?? "", meta: { mono: true } },
 ];
 
 /** Access: IAM as the person meets it locally. The mode and how to change it; the calls IAM refused or would have, by caller and

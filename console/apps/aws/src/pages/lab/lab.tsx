@@ -69,21 +69,21 @@ export function LabPage() {
     <>
       <PageHeader title="Lab" sub="Try any operation doze-aws has built: an input started from AWS's model, sent as this console, the answer here and in Live." />
       {lab.isError && !lab.data ? (
-        <ErrorBlock what="The operations could not be read" error={lab.error} hint="Check that doze-aws is still running." onRetry={() => void lab.refetch()} retrying={lab.isFetching} testId="lab-error" />
+        <ErrorBlock what="The operations could not be read" error={lab.error} hint="Check that doze-aws is still running." onRetry={() => void lab.refetch()} retrying={lab.isFetching} className="mb-10" testId="lab-error" />
       ) : !lab.data ? (
         <CardSkeleton rows={4} />
       ) : (
         <div className="mb-10 grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
           <Card testId="lab-compose" title="Send a call" lede="Calls go through the service's own model and IAM, as the caller console (the account root: allowed everything).">
             <form onSubmit={go} className="grid gap-5">
-              <div className="grid gap-4 sm:grid-cols-2">
+              <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
                 <div className="grid gap-1.5">
                   <Label htmlFor="lab-api">Service</Label>
-                  <Combobox id="lab-api" aria-label="Service" options={apis} value={api || null} onChange={(v) => pick({ api: v ?? undefined, op: undefined })} placeholder="Choose a service" search="Search services" />
+                  <Combobox id="lab-api" aria-label="Service" options={apis} value={api || null} onChange={(v) => pick({ api: v ?? undefined, op: undefined })} placeholder="Choose a service" search="Search services" className="w-full min-w-0" />
                 </div>
                 <div className="grid gap-1.5">
                   <Label htmlFor="lab-op">Operation</Label>
-                  <Combobox id="lab-op" aria-label="Operation" options={ops} value={op || null} onChange={(v) => pick({ api, op: v ?? undefined })} placeholder={api ? "Choose an operation" : "Choose a service first"} search="Search operations" />
+                  <Combobox id="lab-op" aria-label="Operation" options={ops} value={op || null} onChange={(v) => pick({ api, op: v ?? undefined })} placeholder={api ? "Choose an operation" : "Choose a service first"} search="Search operations" className="w-full min-w-0" />
                 </div>
               </div>
               {target && !target.served && (

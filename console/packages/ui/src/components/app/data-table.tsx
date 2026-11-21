@@ -23,8 +23,34 @@ export function headerWidth(header: unknown, sortable: boolean): number {
 export type DataColumn<T> = ColumnDef<T> & {
   /** Fixed width in px; one column may leave it out and take the rest. */
   size?: number;
+  /** px: when the box is narrower than the table, a sized column gives up width down to this (never below its header) before
+   * the table scrolls in its box; the column that takes the rest keeps at least this. */
+  min?: number;
   meta?: { numeric?: boolean; mono?: boolean };
 };
+
+/** The widths of the columns (px; `undefined` for the one that takes the rest) and the least the table may be, in a box `box` px
+ * wide (0: not known yet). A sized column is at least its header; the column that takes the rest at least its header, its
+ * `min` and {@link FILL_MIN}. When they add up to more than the box, the sized columns with a `min` give up width, each in
+ * proportion to what it can spare, down to their `min`; past that the table scrolls in its box. */
+export function columnWidths(cols: { size?: number; min?: number; header: number }[], box: number): { widths: (number | undefined)[]; minWidth: number | undefined } {
+  const widths = cols.map((c) => (c.size ? Math.max(c.size, c.header) : undefined));
+  const fill = widths.findIndex((w) => w === undefined);
+  const fillMin = fill >= 0 ? Math.max(FILL_MIN, cols[fill]!.header, cols[fill]!.min ?? 0) : 0;
+  const total = widths.reduce<number>((a, w) => a + (w ?? 0), 0) + fillMin;
+  if (box > 0 && total > box) {
+    const spare = cols.map((c, i) => (widths[i] !== undefined && c.min !== undefined ? Math.max(0, widths[i]! - Math.max(c.min, c.header)) : 0));
+    const room = spare.reduce((a, b) => a + b, 0);
+    if (room > 0) {
+      const give = Math.min(room, total - box);
+      spare.forEach((sp, i) => {
+        if (sp > 0) widths[i] = Math.floor(widths[i]! - (give * sp) / room);
+      });
+    }
+  }
+  if (fill < 0) return { widths, minWidth: undefined };
+  return { widths, minWidth: widths.reduce<number>((a, w) => a + (w ?? 0), 0) + fillMin };
+}
 
 /** A table whose layout never depends on its rows (CON-808): fixed column widths, one line per cell with an ellipsis and the
  * whole value on hover (`title`), a sticky header, stable row ids (React keys), numbers right-aligned in tabular figures,
@@ -78,14 +104,23 @@ export function DataTable<T>({ data, columns, rowId, empty, maxHeight = 560, cla
     const top = firstId ? sc.querySelector<HTMLElement>(`tr[data-row="${CSS.escape(firstId)}"]`) : null;
     anchor.current = firstId && top ? { id: firstId, top: top.offsetTop } : null;
   }, [anchorTop, firstId]);
+  // The box's width (not the rows'): the layout still never depends on what the rows hold.
+  const [box, setBox] = useState(0);
+  useLayoutEffect(() => {
+    const sc = scroller.current;
+    if (!sc || typeof ResizeObserver === "undefined") return;
+    const seen = new ResizeObserver(() => setBox(sc.clientWidth));
+    seen.observe(sc);
+    return () => seen.disconnect();
+  }, []);
   const cols = table.getVisibleLeafColumns();
-  const widths = cols.map((c) => {
-    const size = (c.columnDef as DataColumn<T>).size;
-    return size ? Math.max(size, headerWidth(c.columnDef.header, c.getCanSort())) : undefined;
-  });
-  // The column that takes the rest never collapses below its header (or FILL_MIN): past that the table scrolls in its box.
-  const fill = cols.findIndex((_, i) => widths[i] === undefined);
-  const minWidth = fill >= 0 ? widths.reduce<number>((a, w) => a + (w ?? 0), 0) + Math.max(FILL_MIN, headerWidth(cols[fill]!.columnDef.header, cols[fill]!.getCanSort())) : undefined;
+  const { widths, minWidth } = columnWidths(
+    cols.map((c) => {
+      const def = c.columnDef as DataColumn<T>;
+      return { size: def.size, min: def.min, header: headerWidth(c.columnDef.header, c.getCanSort()) };
+    }),
+    box,
+  );
   return (
     <div ref={scroller} className={cn("relative overflow-auto rounded-xl border bg-card", className)} style={{ maxHeight }} data-slot="data-table" data-virtual={virtual || undefined}>
       <table className="w-full table-fixed border-separate border-spacing-0 text-[13.5px]" style={{ minWidth }} aria-label={ariaLabel} aria-rowcount={virtual ? rows.length + 1 : undefined}>

@@ -19,7 +19,7 @@ import type { SubList } from "../../api/types/SubList";
 import { Result } from "../live/outcome";
 import { DeleteDialog } from "./delete-dialog";
 import { HINT } from "./index-page";
-import { columnSizes, isDocument, sortKey, titleOf } from "./model";
+import { columnLeast, columnSizes, isDocument, sortKey, titleOf } from "./model";
 import { isConsole } from "../live/search";
 import { CreateDialog } from "./create-dialog";
 import { ResourceTo, Value } from "./value";
@@ -102,10 +102,12 @@ function Fields({ d }: { d: ResourceDetail }) {
 function Sub({ sub, service }: { sub: SubList; service: string }) {
   const [adding, setAdding] = useState(false);
   const sizes = columnSizes(sub);
+  const least = columnLeast(sub);
   const columns: DataColumn<ResourceRow>[] = sub.columns.map((col, i) => ({
     id: `c${i}`,
     header: col.title,
     size: sizes[i],
+    min: least[i],
     accessorFn: (r) => sortKey(r.cells[i] ?? null, col.format),
     meta: { numeric: col.format === "number" || col.format === "bytes", mono: col.format === "mono" },
     cell: (c) => {
@@ -147,9 +149,9 @@ function Sub({ sub, service }: { sub: SubList; service: string }) {
 
 const CALL_COLUMNS: DataColumn<CallRecord>[] = [
   { id: "time", header: "Time", size: 120, accessorKey: "at_ms", meta: { mono: true }, cell: (c) => `${clockUtc(c.row.original.at_ms)}` },
-  { id: "caller", header: "Caller", size: 220, accessorFn: (r) => r.caller ?? "", meta: { mono: true }, cell: (c) => <span className="font-mono text-[13px]">{c.row.original.caller ?? "–"}{c.row.original.via?.by ? <span className="text-muted-foreground"> via {c.row.original.via.by}</span> : null}</span> },
+  { id: "caller", header: "Caller", size: 220, min: 140, accessorFn: (r) => r.caller ?? "", meta: { mono: true }, cell: (c) => <span className="font-mono text-[13px]">{c.row.original.caller ?? "–"}{c.row.original.via?.by ? <span className="text-muted-foreground"> via {c.row.original.via.by}</span> : null}</span> },
   { id: "call", header: "Call", accessorFn: (r) => r.action ?? "", meta: { mono: true }, cell: (c) => <span className="font-mono text-[13px] font-medium text-bright">{c.row.original.action ?? "–"}</span> },
-  { id: "result", header: "Result", size: 260, accessorFn: (r) => r.status, cell: (c) => <Result call={c.row.original} /> },
+  { id: "result", header: "Result", size: 260, min: 140, accessorFn: (r) => r.status, cell: (c) => <Result call={c.row.original} /> },
 ];
 
 function Calls({ d }: { d: ResourceDetail }) {

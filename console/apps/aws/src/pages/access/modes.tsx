@@ -14,7 +14,7 @@ export function Modes({ mode }: { mode: string }) {
       <h2 id="iam-mode-title" className="text-[17px] leading-6 font-semibold tracking-[-0.01em] text-bright">
         IAM mode
       </h2>
-      <p className="mt-1.5 text-[13.5px] text-muted-foreground">Keys IAM issued (AKIA…) and role sessions are checked; any other key is the account root, allowed everything.</p>
+      <p className="mt-1.5 text-[13.5px] text-muted-foreground">Keys IAM issued (AKIA…) and role sessions are checked; any other key is the account root, allowed everything. That includes this console: it calls with the key <span className="font-mono">console</span>, so what you do here is allowed in every mode (and shows in Live as the console's).</p>
       <div className="mt-5 grid gap-4 md:grid-cols-3" role="list">
         {MODES.map((m) => (
           <div key={m.mode} role="listitem" className={cn("rounded-xl border px-5 py-4", m.mode === mode ? "border-primary bg-accent/40 ring-2 ring-primary/15" : "bg-card")} data-testid={`mode-${m.mode}`} aria-current={m.mode === mode ? "true" : undefined}>

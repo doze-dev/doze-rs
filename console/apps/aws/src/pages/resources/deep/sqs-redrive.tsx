@@ -54,10 +54,10 @@ export function QueueRedrive({ d }: DeepProps) {
   };
   const columns: DataColumn<Task>[] = [
     { id: "status", header: "Status", size: 140, accessorKey: "Status", cell: (c) => <span className={cn("font-medium", TONE[c.row.original.Status])}>{c.row.original.Status.toLowerCase()}</span> },
-    { id: "started", header: "Started (UTC)", size: 190, accessorFn: (r) => r.StartedTimestamp ?? 0, cell: (c) => (c.row.original.StartedTimestamp ? dateTimeUtc(c.row.original.StartedTimestamp) : "–") },
+    { id: "started", header: "Started (UTC)", size: 190, min: 160, accessorFn: (r) => r.StartedTimestamp ?? 0, cell: (c) => (c.row.original.StartedTimestamp ? dateTimeUtc(c.row.original.StartedTimestamp) : "–") },
     { id: "to", header: "To", accessorFn: (r) => tail(r.DestinationArn), meta: { mono: true }, cell: (c) => tail(c.row.original.DestinationArn) || <span className="text-muted-foreground">their source queues</span> },
-    { id: "moved", header: "Moved", size: 150, meta: { numeric: true }, accessorFn: (r) => r.ApproximateNumberOfMessagesMoved ?? 0, cell: (c) => `${number(c.row.original.ApproximateNumberOfMessagesMoved ?? 0)} of ${number(c.row.original.ApproximateNumberOfMessagesToMove ?? 0)}` },
-    { id: "why", header: "Failure", size: 220, accessorFn: (r) => r.FailureReason ?? "", cell: (c) => c.row.original.FailureReason ?? "–" },
+    { id: "moved", header: "Moved", size: 150, min: 110, meta: { numeric: true }, accessorFn: (r) => r.ApproximateNumberOfMessagesMoved ?? 0, cell: (c) => `${number(c.row.original.ApproximateNumberOfMessagesMoved ?? 0)} of ${number(c.row.original.ApproximateNumberOfMessagesToMove ?? 0)}` },
+    { id: "why", header: "Failure", size: 220, min: 110, accessorFn: (r) => r.FailureReason ?? "", cell: (c) => c.row.original.FailureReason ?? "–" },
     {
       id: "act",
       header: "",

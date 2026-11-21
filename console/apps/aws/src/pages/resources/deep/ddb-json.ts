@@ -132,6 +132,8 @@ export function parseItem(text: string, mode: "dynamodb" | "plain", keys: KeyPar
     const v = item[k.name];
     if (!v) return { error: `Every item needs its ${k.role === "HASH" ? "partition" : "sort"} key, ${k.name}.` };
     if (typeOf(v) !== k.type) return { error: `${k.name} is a key of type ${k.type}; this gives it ${typeOf(v)}.` };
+    // DynamoDB refuses an empty string or binary as a key attribute (other attributes may be empty).
+    if ((k.type === "S" || k.type === "B") && Object.values(v)[0] === "") return { error: `${k.name} is a key, and a key cannot be empty: give it a value.` };
   }
   return { item };
 }

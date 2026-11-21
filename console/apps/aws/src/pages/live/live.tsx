@@ -125,7 +125,8 @@ export function LivePage() {
 
   const columns = useMemo<DataColumn<Line>[]>(
     () => [
-      // The widths add up to what a 1440 px window leaves beside the rail, with the rest for Resource. The time is never cut; a
+      // The widths add up to what a 1440 px window leaves beside the rail, with the rest for Resource; in a narrower window the
+      // columns with a `min` give up width before the table scrolls (1024 px fits). The time is never cut; a
       // long service title, operation or error code is, with the whole value on hover and in the drawer.
       {
         id: "time",
@@ -136,11 +137,12 @@ export function LivePage() {
         meta: { mono: true },
         cell: (c) => <span className={c.row.original.kind === "member" ? "pl-3 text-muted-foreground/80" : "text-muted-foreground"}>{c.getValue<string>()}</span>,
       },
-      { id: "service", header: "Service", size: 124, enableSorting: false, accessorFn: (l) => serviceTitle(l.call.service, titles) ?? "", cell: (c) => c.getValue<string>() || dim },
+      { id: "service", header: "Service", size: 124, min: 96, enableSorting: false, accessorFn: (l) => serviceTitle(l.call.service, titles) ?? "", cell: (c) => c.getValue<string>() || dim },
       {
         id: "operation",
         header: "Operation",
         size: 214,
+        min: 150,
         enableSorting: false,
         accessorFn: (l) => l.call.action ?? "",
         cell: (c) => {
@@ -171,8 +173,8 @@ export function LivePage() {
         },
       },
       { id: "resource", header: "Resource", enableSorting: false, accessorFn: (l) => resourceShown(l.call), meta: { mono: true }, cell: (c) => (c.getValue<string>() ? <span title={c.row.original.call.resource ?? undefined}>{c.getValue<string>()}</span> : dim) },
-      { id: "caller", header: "Caller", size: 186, enableSorting: false, accessorFn: (l) => callerOf(l.call), meta: { mono: true }, cell: (c) => <Caller call={c.row.original.call} titles={titles} names={names} /> },
-      { id: "result", header: "Result", size: 214, enableSorting: false, accessorFn: (l) => `${l.call.outcome} ${l.call.status}${l.call.error_code ? ` ${l.call.error_code}` : ""}`, cell: (c) => <Result call={c.row.original.call} /> },
+      { id: "caller", header: "Caller", size: 186, min: 130, enableSorting: false, accessorFn: (l) => callerOf(l.call), meta: { mono: true }, cell: (c) => <Caller call={c.row.original.call} titles={titles} names={names} /> },
+      { id: "result", header: "Result", size: 214, min: 140, enableSorting: false, accessorFn: (l) => `${l.call.outcome} ${l.call.status}${l.call.error_code ? ` ${l.call.error_code}` : ""}`, cell: (c) => <Result call={c.row.original.call} /> },
       { id: "latency", header: "Latency", size: 84, enableSorting: false, accessorFn: (l) => micros(l.call.duration_us), meta: { numeric: true, mono: true } },
       { id: "actions", header: () => <span className="sr-only">Actions</span>, size: 44, enableSorting: false, cell: (c) => <RowMenu call={c.row.original.call} /> },
     ],
@@ -188,8 +190,10 @@ export function LivePage() {
         sub="Every AWS API call this doze-aws answers, and every call one service makes to another, as it happens. Kept in memory: only the newest calls."
         actions={
           <>
-            <HeldPill count={tape.paused ? tape.held.length : 0} onShow={resume} />
-            <StatusDot tone={status.tone} className="min-w-[6.75rem] justify-end" data-testid="live-status" aria-live="polite">
+            {/* The pill and the status keep their room beside the h1 (nothing jumps as they change); under it, from the left (below
+                1280 px), an empty room would read as an indent, so it is not kept there. */}
+            <HeldPill count={tape.paused ? tape.held.length : 0} onShow={resume} className={tape.paused ? undefined : "max-xl:hidden"} />
+            <StatusDot tone={status.tone} className="xl:min-w-[6.75rem] xl:justify-end" data-testid="live-status" aria-live="polite">
               {status.word}
             </StatusDot>
             <ToggleGroup type="single" variant="outline" size="sm" value={view} onValueChange={(v) => v && set({ view: v === "both" ? undefined : (v as View) })} aria-label="View" className="bg-card" data-testid="live-view">

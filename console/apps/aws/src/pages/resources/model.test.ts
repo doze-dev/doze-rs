@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import type { ResourcesIndex } from "../../api/types/ResourcesIndex";
-import { columnSizes, isDocument, resolve, seconds, shown, sortKey, timeMs, titleOf } from "./model";
+import { columnLeast, columnSizes, isDocument, resolve, seconds, shown, sortKey, timeMs, titleOf } from "./model";
 
 const kind = (id: string, members: string[]) => ({ id, title: id, one: id, members, count: null, more: false, names: [], error: null, others: null });
 const INDEX: ResourcesIndex = {
@@ -64,4 +64,17 @@ test("a related list's longest values take the room left", () => {
   });
   expect(sizes[1]).toBeUndefined();
   expect(sizes[0]).toBe(110);
+});
+
+test("in a narrow window the column people read a row by keeps its values' width, a time its own", () => {
+  const list = {
+    columns: [
+      { title: "Name", format: "mono" as const },
+      { title: "Created", format: "time" as const },
+    ],
+    rows: [{ cells: ["d579d966-1700-4d1b-9e5a-5c1c3a3a0e11", "2026-11-20T23:41:38Z"] }],
+  };
+  const [name, created] = columnLeast(list);
+  expect(name).toBe(190);
+  expect(created).toBeCloseTo(229.8);
 });

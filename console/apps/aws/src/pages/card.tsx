@@ -7,7 +7,7 @@ import { cn } from "@doze/ui/lib/utils";
 
 export function Card({ title, lede, children, testId, className, actions }: { title: React.ReactNode; lede?: React.ReactNode; children: React.ReactNode; testId: string; className?: string; actions?: React.ReactNode }) {
   return (
-    <section className={cn("rounded-[14px] border bg-card p-6 lg:p-7", className)} aria-labelledby={`${testId}-title`} data-testid={testId}>
+    <section className={cn("min-w-0 rounded-[14px] border bg-card p-6 lg:p-7", className)} aria-labelledby={`${testId}-title`} data-testid={testId}>
       <div className="flex items-start justify-between gap-4">
         <h2 id={`${testId}-title`} className="text-[17px] leading-6 font-semibold tracking-[-0.01em] text-bright">
           {title}

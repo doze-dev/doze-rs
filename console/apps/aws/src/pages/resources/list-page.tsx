@@ -17,15 +17,18 @@ import type { ResourceList } from "../../api/types/ResourceList";
 import type { ResourceRow } from "../../api/types/ResourceRow";
 import { CreateDialog } from "./create-dialog";
 import { HINT } from "./index-page";
-import { columnSizes, iconOf, sortKey } from "./model";
+import { columnLeast, columnSizes, iconOf, sortKey } from "./model";
 import { ResourceTo, Value } from "./value";
 
 function columnsOf(page: ResourceList, rows: ResourceRow[]): DataColumn<ResourceRow>[] {
-  const sizes = columnSizes({ columns: [{ title: "Name", format: "mono" }, ...page.columns], rows: rows.map((r) => ({ cells: [r.label, ...r.cells] })) });
+  const list = { columns: [{ title: "Name", format: "mono" as const }, ...page.columns], rows: rows.map((r) => ({ cells: [r.label, ...r.cells] })) };
+  const sizes = columnSizes(list);
+  const least = columnLeast(list);
   const name: DataColumn<ResourceRow> = {
     id: "name",
     header: "Name",
     size: sizes[0],
+    min: least[0],
     accessorFn: (r) => r.label.toLowerCase(),
     meta: { mono: true },
     cell: (c) =>
@@ -47,6 +50,7 @@ function columnsOf(page: ResourceList, rows: ResourceRow[]): DataColumn<Resource
         id: `c${i}`,
         header: col.title,
         size: sizes[i + 1],
+        min: least[i + 1],
         accessorFn: (r) => sortKey(r.cells[i] ?? null, col.format),
         meta: { numeric, mono: col.format === "mono" },
         sortDescFirst: numeric,

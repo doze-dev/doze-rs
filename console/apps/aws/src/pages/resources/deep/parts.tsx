@@ -12,7 +12,8 @@ import { timeMs } from "../model";
 /** A card with a title and, under it, what it is for. */
 export function Card({ title, lede, actions, children, className, testId }: { title: React.ReactNode; lede?: React.ReactNode; actions?: React.ReactNode; children?: React.ReactNode; className?: string; testId?: string }) {
   return (
-    <section className={cn("rounded-[14px] border bg-card p-6 lg:p-7", className)} data-testid={testId}>
+    // min-w-0: in a grid or flex column, a wide table inside scrolls in its own box instead of widening the card past the page.
+    <section className={cn("min-w-0 rounded-[14px] border bg-card p-6 lg:p-7", className)} data-testid={testId}>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <h2 className="text-[17px] leading-6 font-semibold tracking-[-0.01em] text-bright">{title}</h2>

@@ -21,7 +21,7 @@ function Overview({ a }: { a: About }) {
   const creds = credsFor(a.auth);
   const h = home.data;
   return (
-    <div className="grid gap-8">
+    <div className="grid grid-cols-1 gap-8">
       <Card testId="connect-address" title="One address, every service" lede="doze-aws tells services apart by the request, so one endpoint serves them all. This doze-aws knows this one address.">
         <CopyRow label="Endpoint" value={a.endpoint} testId="connect-endpoint" />
       </Card>

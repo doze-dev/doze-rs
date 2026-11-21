@@ -34,7 +34,7 @@ export function RefreshControl({ updatedAt, fetching, onRefresh, className, inte
     <div className={cn("flex items-center gap-2", className)} data-slot="refresh-control">
       <Tooltip>
         <TooltipTrigger asChild>
-          <span tabIndex={0} className={cn("inline-block text-right text-[12.5px] whitespace-nowrap text-muted-foreground tabular-nums outline-none", withInterval && "min-w-[9.5rem]")} data-testid="refresh-stamp">
+          <span tabIndex={0} className={cn("inline-block text-right text-[12.5px] whitespace-nowrap text-muted-foreground tabular-nums outline-none focus-visible:rounded-sm focus-visible:ring-[3px] focus-visible:ring-ring/50", withInterval && "min-w-[9.5rem]")} data-testid="refresh-stamp">
             {updatedAt > 0 ? `Updated ${clockUtc(updatedAt)} UTC` : "Not loaded yet"}
           </span>
         </TooltipTrigger>

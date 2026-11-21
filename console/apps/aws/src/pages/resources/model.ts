@@ -86,7 +86,15 @@ export const isDocument = (value: string | null): boolean => value !== null && /
 
 /** The widths of a related list's columns, by what they hold: each as wide as its longest value needs (within bounds), and
  * the one with the longest values takes what is left (`undefined`), so an output's value or an ARN is not the one cut. */
-export function columnSizes(list: { columns: { title: string; format: ValueFormat }[]; rows: { cells: (string | null)[] }[] }): (number | undefined)[] {
+export function columnSizes(list: Sized): (number | undefined)[] {
+  const { longest, grow } = measured(list);
+  return longest.map((l, i) => (i === grow ? undefined : Math.min(340, Math.max(110, l.title * 9 + 40, l.most * 8.6 + 32))));
+}
+
+type Sized = { columns: { title: string; format: ValueFormat }[]; rows: { cells: (string | null)[] }[] };
+
+/** Each column's longest value and title (letters), and the column with the longest values (it takes the rest). */
+function measured(list: Sized): { longest: { most: number; title: number }[]; grow: number } {
   const longest = list.columns.map((col, i) => {
     const values = list.rows.map((r) => r.cells[i] ?? "");
     const most = Math.max(0, ...values.map((v) => (col.format === "time" && v ? 23 : v.length)));
@@ -96,7 +104,22 @@ export function columnSizes(list: { columns: { title: string; format: ValueForma
   longest.forEach((l, i) => {
     if (l.most > longest[grow]!.most) grow = i;
   });
-  return longest.map((l, i) => (i === grow ? undefined : Math.min(340, Math.max(110, l.title * 9 + 40, l.most * 8.6 + 32))));
+  return { longest, grow };
+}
+
+const KEEP: ValueFormat[] = ["time", "number", "bytes", "seconds"];
+
+/** The least each column of {@link columnSizes} keeps when the window is narrow (`DataColumn.min`): 110 px for a sized one of
+ * words or names (it gives up the rest, with the whole value on hover), its whole size for a time or a number, and for the one that takes the rest its values' width (up to 190 px), so
+ * the column people read a row by is the last to be cut. */
+export function columnLeast(list: Sized): number[] {
+  const { longest, grow } = measured(list);
+  const sizes = columnSizes(list);
+  return longest.map((l, i) => {
+    if (i === grow) return Math.min(190, Math.max(110, l.most * 8.6 + 32));
+    // A time, a number or a size is read whole or not at all: it keeps its width; words and names give theirs up.
+    return KEEP.includes(list.columns[i]!.format) ? (sizes[i] ?? 110) : 110;
+  });
 }
 
 /** The value a column sorts by: a number for numbers, sizes and times, the text otherwise. */
