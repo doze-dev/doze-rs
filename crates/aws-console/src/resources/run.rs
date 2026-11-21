@@ -74,14 +74,22 @@ impl<'a> Fill<'a> {
     }
 }
 
+/// The body of `step` with its placeholders filled.
+///
+/// # Errors
+/// A descriptor whose body is not JSON (a fault of the build).
+pub fn body(step: &Step, fill: &Fill<'_>) -> Result<Value, ApiError> {
+    let template: Value = serde_json::from_str(step.body)
+        .map_err(|e| ApiError::internal(format!("a descriptor's body is not JSON: {e}")))?;
+    Ok(path::fill(&template, fill))
+}
+
 /// Makes `step` for descriptor `d` with its placeholders filled.
 ///
 /// # Errors
 /// The service's refusal.
 pub async fn call(d: &Descriptor, step: &Step, fill: &Fill<'_>) -> Result<Value, ApiError> {
-    let template: Value = serde_json::from_str(step.body)
-        .map_err(|e| ApiError::internal(format!("a descriptor's body is not JSON: {e}")))?;
-    let body = path::fill(&template, fill);
+    let body = body(step, fill)?;
     fill.bus
         .call(step.service.unwrap_or(d.target), step.op, &body)
         .await
@@ -94,7 +102,8 @@ pub fn merge(out: &mut Value, answer: Value) {
     }
 }
 
-/// One page of `kind`: its rows as the answer gives them (each an object), and the next page's token.
+/// One page of `kind`: its rows as the answer gives them (each an object), and the next page's token. `applied` are the members
+/// the list's parameters ([`super::params`]) set over the call's body.
 ///
 /// # Errors
 /// The service's refusal.
@@ -103,13 +112,24 @@ pub async fn page(
     d: &Descriptor,
     kind: &Kind,
     token: Option<&str>,
+    applied: &Map<String, Value>,
 ) -> Result<(Vec<Value>, Option<String>), ApiError> {
     let (out, form) = (Value::Null, Map::new());
     let fill = Fill {
         token,
         ..Fill::bare(bus, &out, &form)
     };
-    let answer = call(d, &kind.list.step, &fill).await?;
+    let mut body = body(&kind.list.step, &fill)?;
+    if let Value::Object(m) = &mut body {
+        m.extend(applied.iter().map(|(k, v)| (k.clone(), v.clone())));
+    }
+    let answer = bus
+        .call(
+            kind.list.step.service.unwrap_or(d.target),
+            kind.list.step.op,
+            &body,
+        )
+        .await?;
     let items = items_of(&answer, kind.list.items, kind.list.item_as);
     let next = (!kind.list.token_out.is_empty())
         .then(|| path::text(&answer, kind.list.token_out))
@@ -119,7 +139,7 @@ pub async fn page(
 }
 
 /// The list at `items` in `answer`, each a bare value made an object with the one member `item_as`.
-fn items_of(answer: &Value, items: &str, item_as: &str) -> Vec<Value> {
+pub fn items_of(answer: &Value, items: &str, item_as: &str) -> Vec<Value> {
     let Some(Value::Array(list)) = path::get(answer, items) else {
         return Vec::new();
     };

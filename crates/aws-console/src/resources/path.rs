@@ -34,6 +34,21 @@ pub fn get(value: &Value, path: &str) -> Option<Value> {
     Some(at)
 }
 
+/// `value` set at the dotted `at` of `input`, the objects on the way made (`Delete.Objects`).
+pub fn put_at(input: &mut Map<String, Value>, at: &str, value: Value) {
+    match at.split_once('.') {
+        None => drop(input.insert(at.to_owned(), value)),
+        Some((head, rest)) => {
+            let inner = input
+                .entry(head.to_owned())
+                .or_insert_with(|| Value::Object(Map::new()));
+            if let Value::Object(m) = inner {
+                put_at(m, rest, value);
+            }
+        }
+    }
+}
+
 /// The value at `path` as text: a text as it is, a number or a true/false written out, nothing for an absent or null value,
 /// and a list or object as JSON.
 #[must_use]

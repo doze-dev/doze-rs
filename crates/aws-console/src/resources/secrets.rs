@@ -3,9 +3,12 @@
 
 use super::Format::{Flag, Mono, Text as Plain, Time};
 use super::{
-    Create, Delete, Descriptor, Field, Id, Input, InputKind, Kind, LinkTo, List, Reveal, Step,
-    Text, col, field, input,
+    Apply, Create, Delete, Descriptor, Field, Id, Input, InputKind, Kind, LinkTo, List, Options,
+    Param, ParamKind, Reveal, Shape, Step, Tags, Text, Write, col, field, input, op,
 };
+
+/// What a tag call names: this secret.
+const SECRET: &str = r#"{"SecretId":"{id}"}"#;
 
 pub(super) static SECRETS: Descriptor = Descriptor {
     service: "secretsmanager",
@@ -110,5 +113,27 @@ pub(super) static SECRETS: Descriptor = Descriptor {
             path: "SecretString|SecretBinary",
         }),
         deep: &[],
+        // A secret's tags come with its description.
+        tags: Some(Tags::new(
+            Step::new("DescribeSecret", SECRET),
+            "Tags",
+            Shape::KEY_VALUE,
+            Write::Delta {
+                add: op("TagResource", SECRET),
+                at: "Tags",
+                remove: op("UntagResource", SECRET),
+                keys: "TagKeys",
+            },
+        )),
+        // ListSecrets' `name` filter matches the beginning of a name.
+        params: &[Param {
+            key: "name",
+            label: "Name",
+            input: ParamKind::Text,
+            options: Options::None,
+            default: "",
+            apply: Apply::Template(r#"{"Filters":[{"Key":"name","Values":["{value}"]}]}"#),
+        }],
+        ..Kind::BARE
     }],
 };

@@ -2,8 +2,8 @@
 
 use super::Format::{Bytes, Flag, Json, Mono, Number, Seconds, Tail, Time};
 use super::{
-    Create, Deep, Delete, Descriptor, Field, Id, Input, InputKind, Kind, LinkTo, List, Step, Sub,
-    Text, col, deep, field, input, op,
+    Create, Deep, Delete, Descriptor, Field, Id, Input, InputKind, Kind, LinkTo, List, Shape, Step,
+    Sub, Tags, Text, Write, col, deep, field, input, op, ops, says,
 };
 
 const ATTRIBUTES: Step = Step::new(
@@ -278,5 +278,19 @@ pub(super) static SQS: Descriptor = Descriptor {
                 ops: &[op("SetQueueAttributes", QUEUE)],
             },
         ],
+        ops: &[ops::free("CreateQueue")],
+        tags: Some(Tags::new(
+            Step::new("ListQueueTags", QUEUE),
+            "Tags",
+            Shape::Map,
+            Write::Delta {
+                add: op("TagQueue", QUEUE),
+                at: "Tags",
+                remove: op("UntagQueue", QUEUE),
+                keys: "TagKeys",
+            },
+        )),
+        page: says::sqs::QUEUE,
+        ..Kind::BARE
     }],
 };

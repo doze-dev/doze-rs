@@ -20,14 +20,19 @@ use crate::state::Shared;
 
 pub mod about;
 pub mod access;
+pub mod blockers;
 pub mod calls;
 pub mod copy;
 pub mod deep;
 pub mod flows;
 pub mod home;
 pub mod lab;
+pub mod ops;
+pub mod preview;
+pub mod render;
 pub mod resources;
 pub mod settings;
+pub mod tags;
 #[cfg(test)]
 mod types;
 
@@ -57,6 +62,7 @@ pub fn routes() -> Router<Shared> {
             "/api/v1/lab/{target}/{operation}",
             get(lab::operation).post(lab::send),
         )
+        .route("/api/v1/preview", post(preview::preview))
         .route("/api/v1/resources", get(resources::index))
         .route(
             "/api/v1/resources/{service}/{kind}",
@@ -67,8 +73,20 @@ pub fn routes() -> Router<Shared> {
             get(resources::detail).delete(resources::delete),
         )
         .route(
+            "/api/v1/resources/{service}/{kind}/op/{operation}",
+            post(ops::op),
+        )
+        .route(
             "/api/v1/resources/{service}/{kind}/{name}/reveal",
             post(resources::reveal),
+        )
+        .route(
+            "/api/v1/resources/{service}/{kind}/{name}/tags",
+            get(tags::get).put(tags::put),
+        )
+        .route(
+            "/api/v1/resources/{service}/{kind}/{name}/blockers",
+            get(blockers::get),
         )
         .route(
             "/api/v1/resources/{service}/{kind}/{name}/op/{operation}",

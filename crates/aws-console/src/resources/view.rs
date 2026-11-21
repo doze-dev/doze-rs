@@ -1,10 +1,13 @@
 //! The view-models of the Resources pages, from a descriptor and what its calls answer.
 
+use std::collections::BTreeMap;
+
 use aws_wire::ApiError;
+use serde_json::Map;
 
 use super::bus::{Bus, CONSOLE};
 use super::run::{self, MOST_COUNTED, PAGES_COUNTED};
-use super::{Column, Descriptor, Format, InputKind, Kind, catalog};
+use super::{Column, Descriptor, Format, InputKind, Kind, Read, catalog, page, params};
 use crate::facts::Facts;
 use crate::model::{
     CallRecord, ColumnSpec, CreateSpec, DeleteSpec, FormInput, KindCount, ResourceDetail,
@@ -38,6 +41,7 @@ pub fn columns(columns: &[Column]) -> Vec<ColumnSpec> {
         .map(|c| ColumnSpec {
             title: c.title.to_owned(),
             format: format(c.format),
+            badge: c.badge.then(|| "state".to_owned()),
         })
         .collect()
 }
@@ -142,7 +146,7 @@ async fn count(bus: &Bus, d: &Descriptor, kind: &Kind, k: &mut KindCount) {
     let mut token: Option<String> = None;
     let mut others = 0;
     for _ in 0..PAGES_COUNTED {
-        match run::page(bus, d, kind, token.as_deref()).await {
+        match run::page(bus, d, kind, token.as_deref(), &Map::new()).await {
             Ok((items, next)) => {
                 if kind.list.split.is_some() {
                     // What sets a row aside is read by its own calls (a key's manager): made for these rows only.
@@ -192,10 +196,14 @@ pub async fn list(
     bus: &Bus,
     facts: &Facts,
     (d, kind): (&Descriptor, &Kind),
-    (token, all): (Option<&str>, bool),
+    (token, all, given): (Option<&str>, bool, &BTreeMap<String, String>),
 ) -> Result<ResourceList, ApiError> {
-    let (items, next) = run::page(bus, d, kind, token).await?;
+    let applied = params::applied(kind, given);
+    let (items, next) = run::page(bus, d, kind, token, &applied).await?;
+    let specs = params::specs(bus, d, kind, given, &items).await?;
+    let items = params::filtered(kind, given, items);
     let (rows, others) = run::rows(bus, (d, kind), items, all).await;
+    let sentence = kind.page.summary.and_then(|say| say(&rows));
     Ok(ResourceList {
         service: d.service.to_owned(),
         service_title: title_of(facts, d.service),
@@ -214,6 +222,8 @@ pub async fn list(
         others: set_aside(kind, others),
         all: all && kind.list.split.is_some(),
         create_elsewhere: (!kind.elsewhere.is_empty()).then(|| kind.elsewhere.to_owned()),
+        params: specs,
+        sentence,
     })
 }
 
@@ -259,6 +269,15 @@ pub async fn detail(
         });
         subs.push(list);
     }
+    let fields = run::fields(kind, &out);
+    let (sentence, badges, verbs) = page::speak(
+        kind,
+        &Read {
+            out: &out,
+            name,
+            subs: &subs,
+        },
+    );
     Ok(ResourceDetail {
         service: d.service.to_owned(),
         service_title: title_of(facts, d.service),
@@ -266,12 +285,17 @@ pub async fn detail(
         kind: kind.id.to_owned(),
         kind_title: kind.title.to_owned(),
         one: kind.one.to_owned(),
-        fields: run::fields(kind, &out),
+        wired: page::wired(&fields, &subs),
+        fields,
         subs,
         calls: calls(facts, recorder, d.service, (&id, &called_as(kind, name))),
         reveal: kind.reveal.as_ref().map(|r| r.label.to_owned()),
         delete: delete_spec(kind),
         deep: super::deep::tabs(kind),
+        sentence,
+        badges,
+        tags: kind.tags.is_some(),
+        verbs,
         operations,
         name: name.to_owned(),
         id,

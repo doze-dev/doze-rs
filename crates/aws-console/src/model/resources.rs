@@ -2,7 +2,7 @@
 
 use serde::Serialize;
 
-use super::CallRecord;
+use super::{Badge, CallRecord, ParamSpec, VerbSpec, Wired};
 
 /// `GET /api/v1/resources`: every service, by group, with its kinds and how many of each there are now.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -81,6 +81,8 @@ pub enum ValueFormat {
 pub struct ColumnSpec {
     pub title: String,
     pub format: ValueFormat,
+    /// `state` when the cells are states, shown as badges; `null` otherwise.
+    pub badge: Option<String>,
 }
 
 /// One resource in a list.
@@ -173,6 +175,10 @@ pub struct ResourceList {
     pub all: bool,
     /// Why the console does not create one (a function needs its code), when it does not.
     pub create_elsewhere: Option<String>,
+    /// The filters and selectors of the list, with what each holds now.
+    pub params: Vec<ParamSpec>,
+    /// One line on what the list holds now, when the kind says one.
+    pub sentence: Option<String>,
 }
 
 /// A field of a detail page.
@@ -242,6 +248,14 @@ pub struct ResourceDetail {
     pub delete: Option<DeleteSpec>,
     /// Its pages of its own, shown as tabs beside its details.
     pub deep: Vec<DeepTab>,
+    /// One line on what it is doing now, built from its real fields; `null` when the kind says none.
+    pub sentence: Option<String>,
+    pub badges: Vec<Badge>,
+    /// What it is wired to: the resources its links and lists point at.
+    pub wired: Vec<Wired>,
+    /// Whether `GET …/tags` answers for it.
+    pub tags: bool,
+    pub verbs: Vec<VerbSpec>,
 }
 
 /// A page of one resource that the console's app draws (a queue's messages), and the operations it may make on it.
@@ -288,4 +302,6 @@ pub struct Revealed {
 pub struct Deleted {
     pub name: String,
     pub operation: String,
+    /// What `?clear=yes` cleared first (`Detached AdminAccess`); empty for a plain delete.
+    pub cleared: Vec<String>,
 }

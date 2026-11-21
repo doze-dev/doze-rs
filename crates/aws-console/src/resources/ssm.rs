@@ -2,9 +2,12 @@
 
 use super::Format::{Mono, Number, Text as Plain, Time};
 use super::{
-    Create, Delete, Descriptor, Field, Id, Input, InputKind, Kind, List, Reveal, Step, Text, col,
-    field, input,
+    Apply, Create, Delete, Descriptor, Field, Id, Input, InputKind, Kind, List, Options, Param,
+    ParamKind, Reveal, Shape, Step, Tags, Text, Write, col, field, input, op,
 };
+
+/// What a tag call names: this parameter.
+const PARAMETER: &str = r#"{"ResourceType":"Parameter","ResourceId":"{id}"}"#;
 
 pub(super) static SSM: Descriptor = Descriptor {
     service: "ssm",
@@ -111,5 +114,27 @@ pub(super) static SSM: Descriptor = Descriptor {
             path: "Parameter.Value",
         }),
         deep: &[],
+        tags: Some(Tags::new(
+            Step::new("ListTagsForResource", PARAMETER),
+            "TagList",
+            Shape::KEY_VALUE,
+            Write::Delta {
+                add: op("AddTagsToResource", PARAMETER),
+                at: "Tags",
+                remove: op("RemoveTagsFromResource", PARAMETER),
+                keys: "TagKeys",
+            },
+        )),
+        params: &[Param {
+            key: "begins-with",
+            label: "Name begins with",
+            input: ParamKind::Text,
+            options: Options::None,
+            default: "",
+            apply: Apply::Template(
+                r#"{"ParameterFilters":[{"Key":"Name","Option":"BeginsWith","Values":["{value}"]}]}"#,
+            ),
+        }],
+        ..Kind::BARE
     }],
 };

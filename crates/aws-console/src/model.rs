@@ -11,9 +11,11 @@ use crate::facts::Facts;
 use crate::ring::{Call, Flow};
 
 mod deep;
+mod extras;
 mod resources;
 mod spaces;
 pub use deep::*;
+pub use extras::*;
 pub use resources::*;
 pub use spaces::*;
 

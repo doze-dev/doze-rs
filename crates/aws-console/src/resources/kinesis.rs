@@ -2,9 +2,12 @@
 
 use super::Format::{Mono, Number, Text as Plain, Time};
 use super::{
-    Create, Delete, Descriptor, Field, Id, Input, InputKind, Kind, LinkTo, List, Step, Sub, Text,
-    col, field, input,
+    Create, Delete, Descriptor, Field, Id, Input, InputKind, Kind, LinkTo, List, Shape, Step, Sub,
+    Tags, Text, Write, col, field, input, op, state,
 };
+
+/// What a tag call names: this stream.
+const STREAM: &str = r#"{"StreamName":"{id}"}"#;
 
 const SUMMARY: Step = Step::new("DescribeStreamSummary", r#"{"StreamName":"{id}"}"#);
 
@@ -30,7 +33,7 @@ pub(super) static KINESIS: Descriptor = Descriptor {
         elsewhere: "",
         each: &[SUMMARY],
         columns: &[
-            col("Status", "StreamDescriptionSummary.StreamStatus", Plain),
+            state("Status", "StreamDescriptionSummary.StreamStatus", Plain),
             col(
                 "Capacity mode",
                 "StreamDescriptionSummary.StreamModeDetails.StreamMode",
@@ -162,5 +165,21 @@ pub(super) static KINESIS: Descriptor = Descriptor {
         }),
         reveal: None,
         deep: &[],
+        // Kinesis answers a stream's tags as pairs and takes them as a map.
+        tags: Some(
+            Tags::new(
+                Step::new("ListTagsForStream", STREAM),
+                "Tags",
+                Shape::KEY_VALUE,
+                Write::Delta {
+                    add: op("AddTagsToStream", STREAM),
+                    at: "Tags",
+                    remove: op("RemoveTagsFromStream", STREAM),
+                    keys: "TagKeys",
+                },
+            )
+            .sent(Shape::Map),
+        ),
+        ..Kind::BARE
     }],
 };

@@ -3,9 +3,12 @@
 
 use super::Format::{Json, Mono, Tail, Text as Plain, Time};
 use super::{
-    Deep, Delete, Descriptor, Field, Id, Kind, LinkTo, List, Step, Text, col, field, op, op_within,
-    or,
+    Deep, Delete, Descriptor, Field, Id, Kind, LinkTo, List, Shape, Step, Tags, Text, Write, col,
+    field, op, op_within, or, says,
 };
+
+/// What a tag call names: this machine.
+const MACHINE: &str = r#"{"resourceArn":"{id}"}"#;
 
 /// What its executions' ARNs begin with: an execution page acts only on an execution of this machine.
 const EXECUTION: &str = "arn:aws:states:{region}:{account}:execution:{name}:";
@@ -95,5 +98,21 @@ pub(super) static STEPFUNCTIONS: Descriptor = Descriptor {
                 op_within("StopExecution", "executionArn", EXECUTION),
             ],
         }],
+        tags: Some(Tags::new(
+            Step::new("ListTagsForResource", MACHINE),
+            "tags",
+            Shape::Pairs("key", "value"),
+            Write::Delta {
+                add: op("TagResource", MACHINE),
+                at: "tags",
+                remove: op("UntagResource", MACHINE),
+                keys: "tagKeys",
+            },
+        )),
+        page: super::Page {
+            badges: Some(says::machine),
+            ..super::Page::NONE
+        },
+        ..Kind::BARE
     }],
 };

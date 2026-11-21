@@ -2,11 +2,14 @@
 
 use super::Format::{Bytes, Json, Mono, Number, Seconds, Tail, Text as Plain, Time};
 use super::{
-    Deep, Delete, Descriptor, Field, Id, Kind, LinkTo, List, Step, Sub, Text, col, field, op, or,
+    Blocker, Deep, Delete, Descriptor, Field, Id, Kept, Kind, LinkTo, List, Shape, Step, Sub, Tags,
+    Text, Write, col, field, op, or,
 };
 
 /// What every call of its pages names: this function.
 const FUNCTION: &str = r#"{"FunctionName":"{id}"}"#;
+/// What a tag call names: this function, by its ARN.
+const ARN: &str = r#"{"Resource":"arn:aws:lambda:{region}:{account}:function:{id}"}"#;
 
 pub(super) static LAMBDA: Descriptor = Descriptor {
     service: "lambda",
@@ -130,5 +133,35 @@ pub(super) static LAMBDA: Descriptor = Descriptor {
                 ops: &[],
             },
         ],
+        tags: Some(Tags::new(
+            Step::new("ListTags", ARN),
+            "Tags",
+            Shape::Map,
+            Write::Delta {
+                add: op("TagResource", ARN),
+                at: "Tags",
+                remove: op("UntagResource", ARN),
+                keys: "TagKeys",
+            },
+        )),
+        // Lambda deletes a function and leaves the mappings that fed it: they are listed so the person knows, and are not cleared.
+        blockers: &[Blocker {
+            title: "Event source mappings",
+            list: Step::new("ListEventSourceMappings", FUNCTION),
+            items: "EventSourceMappings",
+            item_as: "UUID",
+            name: Text::tail("EventSourceArn"),
+            link: None,
+            except: None,
+            blocks: false,
+            clear: None,
+        }],
+        kept: &[
+            Kept::Text("Its log group /aws/lambda/{name} and the logs in it stay."),
+            Kept::Text(
+                "Event source mappings are not deleted with a function: remove them from the trigger's page.",
+            ),
+        ],
+        ..Kind::BARE
     }],
 };

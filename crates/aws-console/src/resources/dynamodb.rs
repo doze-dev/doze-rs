@@ -2,12 +2,15 @@
 
 use super::Format::{Bytes, Flag, Mono, Number, Text as Plain, Time};
 use super::{
-    Create, Deep, Delete, Descriptor, Id, Input, InputKind, Kind, List, Step, Text, col, field,
-    input, op,
+    Create, Deep, Delete, Descriptor, Id, Input, InputKind, Kind, List, Shape, Step, Tags, Text,
+    Write, col, field, input, op, ops, says, state,
 };
 
 const DESCRIBE: Step = Step::new("DescribeTable", r#"{"TableName":"{id}"}"#);
 const TYPES: &[&str] = &["S", "N", "B"];
+
+/// What a tag call names: this table, by its ARN.
+const ARN: &str = r#"{"ResourceArn":"arn:aws:dynamodb:{region}:{account}:table/{id}"}"#;
 
 /// What every item call names: this table.
 const TABLE: &str = r#"{"TableName":"{id}"}"#;
@@ -37,7 +40,7 @@ pub(super) static DYNAMODB: Descriptor = Descriptor {
         elsewhere: "",
         each: &[DESCRIBE],
         columns: &[
-            col("Status", "Table.TableStatus", Plain),
+            state("Status", "Table.TableStatus", Plain),
             col("Partition key", "Table.KeySchema.0.AttributeName", Mono),
             col("Sort key", "Table.KeySchema.1.AttributeName", Mono),
             col("Items", "Table.ItemCount", Number),
@@ -177,5 +180,22 @@ pub(super) static DYNAMODB: Descriptor = Descriptor {
                 op("DeleteItem", TABLE),
             ],
         }],
+        ops: &[ops::free("CreateTable")],
+        page: super::Page {
+            badges: Some(says::table),
+            ..super::Page::NONE
+        },
+        tags: Some(Tags::new(
+            Step::new("ListTagsOfResource", ARN),
+            "Tags",
+            Shape::KEY_VALUE,
+            Write::Delta {
+                add: op("TagResource", ARN),
+                at: "Tags",
+                remove: op("UntagResource", ARN),
+                keys: "TagKeys",
+            },
+        )),
+        ..Kind::BARE
     }],
 };

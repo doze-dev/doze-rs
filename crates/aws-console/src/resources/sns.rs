@@ -2,11 +2,14 @@
 
 use super::Format::{Flag, Json, Mono, Number, Tail, Text as Plain};
 use super::{
-    Create, Delete, Descriptor, Field, Id, Input, InputKind, Kind, LinkTo, List, Step, Sub, Text,
-    col, field, input,
+    Create, Delete, Descriptor, Field, Id, Input, InputKind, Kind, LinkTo, List, Shape, Step, Sub,
+    Tags, Text, Write, col, field, input, op, ops, says,
 };
 
 const TOPIC_ARN: &str = "arn:aws:sns:{region}:{account}:{name}";
+
+/// What a tag call names: this topic, by its ARN.
+const RESOURCE: &str = r#"{"ResourceArn":"{id}"}"#;
 
 /// Where a subscription's endpoint is in this console, by its protocol.
 const ENDPOINT: &[LinkTo] = &[
@@ -140,6 +143,20 @@ const TOPICS: Kind = Kind {
     }),
     reveal: None,
     deep: &[],
+    ops: &[ops::free("CreateTopic")],
+    tags: Some(Tags::new(
+        Step::new("ListTagsForResource", RESOURCE),
+        "Tags",
+        Shape::KEY_VALUE,
+        Write::Delta {
+            add: op("TagResource", RESOURCE),
+            at: "Tags",
+            remove: op("UntagResource", RESOURCE),
+            keys: "TagKeys",
+        },
+    )),
+    page: says::sns::TOPIC,
+    ..Kind::BARE
 };
 
 const SUBSCRIPTIONS: Kind = Kind {
@@ -258,6 +275,9 @@ const SUBSCRIPTIONS: Kind = Kind {
     }),
     reveal: None,
     deep: &[],
+    ops: &[ops::free("Subscribe")],
+    page: says::sns::SUBSCRIPTION,
+    ..Kind::BARE
 };
 
 pub(super) static SNS: Descriptor = Descriptor {

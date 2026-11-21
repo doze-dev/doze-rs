@@ -3,9 +3,12 @@
 
 use super::Format::{Bytes, Mono, Number, Tail, Text as Plain, Time};
 use super::{
-    Create, Deep, Delete, Descriptor, Id, Input, InputKind, Kind, List, Step, Sub, Text, col,
-    field, input, op, or,
+    Create, Deep, Delete, Descriptor, Id, Input, InputKind, Kind, List, Shape, Step, Sub, Tags,
+    Text, Write, col, field, input, op, or,
 };
+
+/// What a tag call names: this group, by its ARN.
+const ARN: &str = r#"{"resourceArn":"arn:aws:logs:{region}:{account}:log-group:{name}"}"#;
 
 /// What a read of its streams names: this group, and no other by `logGroupIdentifier`. By its name as the address gives it, so
 /// no `DescribeLogGroups` is made first to find it (Logs itself refuses a group that is not there).
@@ -139,5 +142,17 @@ pub(super) static LOGS: Descriptor = Descriptor {
                 )],
             },
         ],
+        tags: Some(Tags::new(
+            Step::new("ListTagsForResource", ARN),
+            "tags",
+            Shape::Map,
+            Write::Delta {
+                add: op("TagResource", ARN),
+                at: "tags",
+                remove: op("UntagResource", ARN),
+                keys: "tagKeys",
+            },
+        )),
+        ..Kind::BARE
     }],
 };

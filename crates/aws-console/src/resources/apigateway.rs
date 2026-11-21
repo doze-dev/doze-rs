@@ -112,6 +112,7 @@ const REST: Kind = Kind {
     }),
     reveal: None,
     deep: &[],
+    ..Kind::BARE
 };
 
 const HTTP: Kind = Kind {
@@ -232,4 +233,5 @@ const HTTP: Kind = Kind {
     }),
     reveal: None,
     deep: &[],
+    ..Kind::BARE
 };

@@ -5,8 +5,60 @@
 
 use super::Format::{Bytes, Json, Mono, Number, Tail, Text as Plain, Time};
 use super::{
-    Create, Delete, Descriptor, Field, Id, Input, InputKind, Kind, LinkTo, List, Step, Sub, Text,
-    col, field, input, or,
+    Batch, Blocker, Clear, Create, Delete, Descriptor, Field, Id, Input, InputKind, Kind, LinkTo,
+    List, Options, Param, ParamKind, Shape, Step, Sub, Tags, Text, Write, col, field, input, op,
+    or, says, state,
+};
+
+/// What a tag call names: a rule, by its ARN (`rule/<bus>/<name>`, or `rule/<name>` on the default bus).
+const RULE_ARN: &str = r#"{"ResourceARN":"arn:aws:events:{region}:{account}:rule/{name}"}"#;
+/// The same for a bus.
+const BUS_ARN: &str = r#"{"ResourceARN":"arn:aws:events:{region}:{account}:event-bus/{id}"}"#;
+
+/// A rule's targets, removed ten at a time (what `RemoveTargets` takes).
+const TARGETS: Blocker = Blocker {
+    title: "Targets",
+    list: Step::new(
+        "ListTargetsByRule",
+        r#"{"Rule":"{name:last}","EventBusName":"{name:head}"}"#,
+    ),
+    items: "Targets",
+    item_as: "Id",
+    name: Text::at("Id"),
+    link: None,
+    except: None,
+    blocks: true,
+    clear: Some(Clear::Batch(Batch {
+        step: Step::new(
+            "RemoveTargets",
+            r#"{"Rule":"{name:last}","EventBusName":"{name:head}"}"#,
+        ),
+        at: "Ids",
+        pick: &["Id"],
+        size: 10,
+        flat: true,
+        said: "Removed {count} targets",
+    })),
+};
+
+/// The targets of one rule of a bus, under the rule's own members (`{form:Name}`).
+const TARGETS_OF_RULE: Blocker = Blocker {
+    list: Step::new(
+        "ListTargetsByRule",
+        r#"{"Rule":"{form:Name}","EventBusName":"{id}"}"#,
+    ),
+    clear: Some(Clear::Batch(Batch {
+        step: Step::new(
+            "RemoveTargets",
+            r#"{"Rule":"{form:Name}","EventBusName":"{id}"}"#,
+        ),
+        at: "Ids",
+        pick: &["Id"],
+        size: 10,
+        flat: true,
+        said: "Removed {count} targets",
+    })),
+    ..TARGETS
 };
 
 pub(super) static EVENTBRIDGE: Descriptor = Descriptor {
@@ -37,7 +89,7 @@ const RULES: Kind = Kind {
     elsewhere: "",
     each: &[],
     columns: &[
-        col("State", "State", Plain),
+        state("State", "State", Plain),
         col("Schedule", "ScheduleExpression", Mono),
         col("Description", "Description", Plain),
     ],
@@ -150,6 +202,37 @@ const RULES: Kind = Kind {
     }),
     reveal: None,
     deep: &[],
+    tags: Some(Tags::new(
+        Step::new("ListTagsForResource", RULE_ARN),
+        "Tags",
+        Shape::KEY_VALUE,
+        Write::Delta {
+            add: op("TagResource", RULE_ARN),
+            at: "Tags",
+            remove: op("UntagResource", RULE_ARN),
+            keys: "TagKeys",
+        },
+    )),
+    // EventBridge refuses to delete a rule that still has targets.
+    blockers: &[TARGETS],
+    params: &[Param {
+        key: "bus",
+        label: "Event bus",
+        input: ParamKind::Select,
+        options: Options::Listed {
+            step: Step::new("ListEventBuses", r#"{"Limit":100}"#),
+            items: "EventBuses",
+            item_as: "Name",
+            value: Text::at("Name"),
+        },
+        default: "",
+        apply: super::Apply::Member("EventBusName"),
+    }],
+    page: super::Page {
+        badges: Some(says::rule),
+        ..super::Page::NONE
+    },
+    ..Kind::BARE
 };
 
 const BUSES: Kind = Kind {
@@ -227,6 +310,37 @@ const BUSES: Kind = Kind {
     }),
     reveal: None,
     deep: &[],
+    tags: Some(Tags::new(
+        Step::new("ListTagsForResource", BUS_ARN),
+        "Tags",
+        Shape::KEY_VALUE,
+        Write::Delta {
+            add: op("TagResource", BUS_ARN),
+            at: "Tags",
+            remove: op("UntagResource", BUS_ARN),
+            keys: "TagKeys",
+        },
+    )),
+    // A bus is deleted with its rules, which are removed with their targets first.
+    blockers: &[Blocker {
+        title: "Rules",
+        list: Step::new("ListRules", r#"{"EventBusName":"{id}","Limit":100}"#),
+        items: "Rules",
+        item_as: "Name",
+        name: Text::at("Name"),
+        link: None,
+        except: None,
+        blocks: true,
+        clear: Some(Clear::Cascade {
+            under: &[TARGETS_OF_RULE],
+            step: Step::new(
+                "DeleteRule",
+                r#"{"Name":"{form:Name}","EventBusName":"{id}"}"#,
+            ),
+            said: "Deleted rule {name}",
+        }),
+    }],
+    ..Kind::BARE
 };
 
 const ARCHIVES: Kind = Kind {
@@ -285,4 +399,5 @@ const ARCHIVES: Kind = Kind {
     }),
     reveal: None,
     deep: &[],
+    ..Kind::BARE
 };

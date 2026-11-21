@@ -2,12 +2,53 @@
 
 use super::Format::{Bytes, Json, Mono, Text as Plain, Time};
 use super::{
-    Create, Deep, Delete, Descriptor, Id, Input, InputKind, Kind, List, Step, Sub, Text, col,
-    field, input, op, or,
+    Batch, Blocker, Clear, Create, Deep, Delete, Descriptor, Id, Input, InputKind, Kind, List,
+    Shape, Step, Sub, Tags, Text, Write, col, field, input, op, ops, or,
 };
 
 /// What every object call names: this bucket.
 const BUCKET: &str = r#"{"Bucket":"{id}"}"#;
+
+/// What a bucket holds, listed as versions (a bucket with no versioning lists its objects as versions `null`).
+const VERSIONS: Blocker = Blocker {
+    title: "Objects",
+    list: Step::new("ListObjectVersions", r#"{"Bucket":"{id}","MaxKeys":1000}"#),
+    items: "Versions",
+    item_as: "Key",
+    name: Text::at("Key"),
+    link: None,
+    except: None,
+    blocks: true,
+    clear: Some(Clear::Batch(Batch {
+        step: Step::new(
+            "DeleteObjects",
+            r#"{"Bucket":"{id}","Delete":{"Quiet":true}}"#,
+        ),
+        at: "Delete.Objects",
+        pick: &["Key", "VersionId"],
+        size: 1000,
+        flat: false,
+        said: "Deleted {count} objects",
+    })),
+};
+
+/// A versioned bucket's delete markers.
+const MARKERS: Blocker = Blocker {
+    title: "Delete markers",
+    items: "DeleteMarkers",
+    clear: Some(Clear::Batch(Batch {
+        step: Step::new(
+            "DeleteObjects",
+            r#"{"Bucket":"{id}","Delete":{"Quiet":true}}"#,
+        ),
+        at: "Delete.Objects",
+        pick: &["Key", "VersionId"],
+        size: 1000,
+        flat: false,
+        said: "Deleted {count} delete markers",
+    })),
+    ..VERSIONS
+};
 
 pub(super) static S3: Descriptor = Descriptor {
     service: "s3",
@@ -113,5 +154,23 @@ pub(super) static S3: Descriptor = Descriptor {
                 op("DeleteObjects", BUCKET),
             ],
         }],
+        ops: &[ops::free("CreateBucket")],
+        // S3 writes a bucket's tags whole: a change reads the set, changes it and puts it back (an empty set is a delete).
+        tags: Some(
+            Tags::new(
+                Step::new("GetBucketTagging", BUCKET),
+                "TagSet",
+                Shape::KEY_VALUE,
+                Write::Replace {
+                    put: op("PutBucketTagging", BUCKET),
+                    at: "Tagging.TagSet",
+                    clear: Some(op("DeleteBucketTagging", BUCKET)),
+                },
+            )
+            .none("NoSuchTagSet"),
+        ),
+        // S3 refuses to delete a bucket that holds anything, versions and delete markers included; emptying clears them.
+        blockers: &[VERSIONS, MARKERS],
+        ..Kind::BARE
     }],
 };

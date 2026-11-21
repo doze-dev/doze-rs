@@ -2,9 +2,14 @@
 
 use super::Format::{Flag, Json, Mono, Number, Seconds, Text as Plain, Time};
 use super::iam::{PATH, attached};
+use super::iam_blockers::{POLICY_BLOCKERS, ROLE_BLOCKERS};
 use super::{
-    Create, Delete, Id, Input, InputKind, Kind, List, Step, Sub, Text, col, field, input, or,
+    Apply, Create, Delete, Id, Input, InputKind, Kind, List, Options, Param, ParamKind, Shape,
+    Step, Sub, Tags, Text, Write, col, field, input, op, or,
 };
+
+/// What a role call names: this role.
+const ROLE: &str = r#"{"RoleName":"{id}"}"#;
 
 /// The trust policy a role starts from: Lambda may assume it. The person changes the service, or the principal, before
 /// creating.
@@ -132,6 +137,19 @@ pub(super) const ROLES: Kind = Kind {
     }),
     reveal: None,
     deep: &[],
+    tags: Some(Tags::new(
+        Step::new("ListRoleTags", ROLE),
+        "Tags",
+        Shape::KEY_VALUE,
+        Write::Delta {
+            add: op("TagRole", ROLE),
+            at: "Tags",
+            remove: op("UntagRole", ROLE),
+            keys: "TagKeys",
+        },
+    )),
+    blockers: ROLE_BLOCKERS,
+    ..Kind::BARE
 };
 
 /// The entities a policy is attached to, from its detail's `ListEntitiesForPolicy`.
@@ -260,4 +278,19 @@ pub(super) const POLICIES: Kind = Kind {
     }),
     reveal: None,
     deep: &[],
+    blockers: POLICY_BLOCKERS,
+    // Customer managed policies (the default), AWS managed ones, or both.
+    params: &[Param {
+        key: "scope",
+        label: "Scope",
+        input: ParamKind::Chips,
+        options: Options::Fixed(&[
+            ("Local", "Customer managed"),
+            ("AWS", "AWS managed"),
+            ("All", "All"),
+        ]),
+        default: "Local",
+        apply: Apply::Member("Scope"),
+    }],
+    ..Kind::BARE
 };

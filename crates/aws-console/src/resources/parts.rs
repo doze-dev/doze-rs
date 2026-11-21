@@ -33,6 +33,7 @@ pub(crate) const fn or(
 #[must_use]
 pub(crate) const fn col(title: &'static str, path: &'static str, format: Format) -> Column {
     Column {
+        badge: false,
         title,
         path,
         format,
@@ -55,5 +56,14 @@ pub(crate) const fn input(
         required: false,
         placeholder: "",
         value: "",
+    }
+}
+
+/// A column of states, shown as badges.
+#[must_use]
+pub(crate) const fn state(title: &'static str, path: &'static str, format: Format) -> Column {
+    Column {
+        badge: true,
+        ..col(title, path, format)
     }
 }

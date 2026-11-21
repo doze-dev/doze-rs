@@ -21,6 +21,10 @@ use crate::model::{
     SignalKind,
 };
 use crate::model::{
+    Badge, BlockerGroup, BlockerItem, Blockers, Needs, ParamKind, ParamOption, ParamSpec, Preview,
+    PreviewRequest, Tag, TagsChange, TagsView, Tone, VerbSpec, Wired,
+};
+use crate::model::{
     ColumnSpec, CreateSpec, Created, DeepTab, DeleteSpec, Deleted, FieldValue, FormInput,
     KindCount, ResourceDetail, ResourceLink, ResourceList, ResourceRow, ResourceService,
     ResourcesIndex, Revealed, SetAside, SubAdd, SubList, Uploaded, ValueFormat,
@@ -106,7 +110,29 @@ fn all() -> BTreeMap<String, String> {
     one::<LabOperation>(&cfg, &mut out);
     one::<LabError>(&cfg, &mut out);
     one::<LabAnswer>(&cfg, &mut out);
+    page_types(&cfg, &mut out);
     out
+}
+
+/// What a resource page adds: a call's preview, tags, what stands in the way of a delete, a list's parameters, and how a
+/// detail speaks of its resource.
+fn page_types(cfg: &Config, out: &mut BTreeMap<String, String>) {
+    one::<PreviewRequest>(cfg, out);
+    one::<Preview>(cfg, out);
+    one::<Tag>(cfg, out);
+    one::<TagsView>(cfg, out);
+    one::<TagsChange>(cfg, out);
+    one::<BlockerItem>(cfg, out);
+    one::<BlockerGroup>(cfg, out);
+    one::<Blockers>(cfg, out);
+    one::<ParamKind>(cfg, out);
+    one::<ParamOption>(cfg, out);
+    one::<ParamSpec>(cfg, out);
+    one::<Tone>(cfg, out);
+    one::<Badge>(cfg, out);
+    one::<Needs>(cfg, out);
+    one::<VerbSpec>(cfg, out);
+    one::<Wired>(cfg, out);
 }
 
 #[test]

@@ -2,7 +2,13 @@
 //! own; its data points are a query, which the console does not make yet).
 
 use super::Format::{Flag, Json, Mono, Number, Pairs, Seconds, Text as Plain, Time};
-use super::{Delete, Descriptor, Id, Kind, List, Step, Text, col, field, or};
+use super::{
+    Apply, Delete, Descriptor, Id, Kind, List, Options, Param, ParamKind, Shape, Step, Tags, Text,
+    Write, col, field, op, or, says, state,
+};
+
+/// What a tag call names: this alarm, by its ARN.
+const ARN: &str = r#"{"ResourceARN":"arn:aws:cloudwatch:{region}:{account}:alarm:{id}"}"#;
 
 /// One alarm among those `DescribeAlarms` answered for its name.
 macro_rules! alarm {
@@ -39,7 +45,7 @@ const ALARMS: Kind = Kind {
     elsewhere: "An alarm is made with its metric, statistic, threshold and actions: use aws cloudwatch put-metric-alarm, or your deploy tool.",
     each: &[],
     columns: &[
-        col("State", "StateValue", Plain),
+        state("State", "StateValue", Plain),
         col("Metric", "MetricName", Mono),
         col("Namespace", "Namespace", Mono),
         col("Threshold", "Threshold", Number),
@@ -87,6 +93,48 @@ const ALARMS: Kind = Kind {
     }),
     reveal: None,
     deep: &[],
+    tags: Some(Tags::new(
+        Step::new("ListTagsForResource", ARN),
+        "Tags",
+        Shape::KEY_VALUE,
+        Write::Delta {
+            add: op("TagResource", ARN),
+            at: "Tags",
+            remove: op("UntagResource", ARN),
+            keys: "TagKeys",
+        },
+    )),
+    params: &[
+        Param {
+            key: "state",
+            label: "State",
+            input: ParamKind::Chips,
+            options: Options::Fixed(&[
+                ("", "All"),
+                ("ALARM", "In alarm"),
+                ("INSUFFICIENT_DATA", "Insufficient data"),
+                ("OK", "OK"),
+            ]),
+            default: "",
+            apply: Apply::Member("StateValue"),
+        },
+        Param {
+            key: "type",
+            label: "Type",
+            input: ParamKind::Select,
+            options: Options::Fixed(&[
+                ("MetricAlarm", "Metric alarms"),
+                ("CompositeAlarm", "Composite alarms"),
+            ]),
+            default: "",
+            apply: Apply::Template(r#"{"AlarmTypes":["{value}"]}"#),
+        },
+    ],
+    page: super::Page {
+        badges: Some(says::alarm),
+        ..super::Page::NONE
+    },
+    ..Kind::BARE
 };
 
 const METRICS: Kind = Kind {
@@ -120,4 +168,5 @@ const METRICS: Kind = Kind {
     delete: None,
     reveal: None,
     deep: &[],
+    ..Kind::BARE
 };
