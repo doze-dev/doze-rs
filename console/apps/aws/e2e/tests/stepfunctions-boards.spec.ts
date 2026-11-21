@@ -97,6 +97,33 @@ test("stepfunctions__machines-list and machine-create-name: the machines, what r
 test("stepfunctions__machine-create-code, create-config, create-role and machine-created: the studio makes the role, then the machine", async ({ page }) => {
   await go(page, "/resources/stepfunctions/machines?do=create&name=stock-reorder", "stock-reorder");
   await expect(page.getByTestId("studio-draft")).toHaveText("Draft");
+  // Design mode: states are dragged from the browser onto an edge of the canvas, and the inspector shows the chosen one.
+  await expect(page.getByTestId("studio-sub")).toContainText("Workflow Studio, Design mode. Until now this is a draft: no resources have been created yet. Name and type are set in Config mode.");
+  await expect(page.getByTestId("states-browser")).toContainText("Drag a state onto the canvas. Flow states control the order of steps.");
+  await expect(page.getByTestId("browser-offers").locator("[data-testid^=offer-]")).toHaveText(["Choice", "Parallel", "Map", "Pass", "Wait", "Success", "Fail"]);
+  await expect(page.getByTestId("browser-note")).toContainText("The Actions tab lists only what doze-aws can run: Lambda, SQS, SNS, EventBridge, DynamoDB, S3, Step Functions and the other services it serves.");
+  await expect(page.getByTestId("browser-note")).toContainText("Not available in doze-aws: the .sync pattern for any service but Step Functions");
+  await expect(page.getByTestId("canvas")).toContainText("The workflow graph updates the definition as you edit it.");
+  const zone = (edge: string) => page.locator(`[data-testid=drop-zone][data-edge="${edge}"]`);
+  await page.getByTestId("offer-choice").dragTo(zone("Hello>end"));
+  await expect(page.getByTestId("inspector-name")).toHaveText("Choice");
+  await page.getByTestId("inspector-rename").fill("CheckLevel");
+  await page.getByTestId("inspector-rename").press("Enter");
+  await expect(page.getByTestId("inspector-name")).toHaveText("CheckLevel");
+  await page.getByTestId("browser-tabs").getByRole("radio", { name: "Actions" }).click();
+  // Below the fold a drag cannot reach: a state chosen in the browser is put on an edge by choosing the edge's mark.
+  await page.getByTestId("offer-sqs-send").click();
+  await expect(page.getByTestId("armed-note")).toContainText("Choose where SQS SendMessage goes");
+  await zone("CheckLevel>Pass").click({ force: true });
+  await expect(page.getByTestId("inspector-name")).toHaveText("SQS SendMessage");
+  await page.getByTestId("inspector-rename").fill("QueueReorder");
+  await page.getByTestId("inspector-rename").press("Enter");
+  await expect(page.getByTestId("inspector")).toContainText("Becomes Resource arn:aws:states:::sqs:sendMessage and its Parameters.");
+  await expect(page.locator("[data-state=QueueReorder]")).toContainText("SQS SendMessage");
+  await page.getByTestId("inspector-definition").click();
+  await expect(page.getByTestId("inspector-json")).toContainText('"Resource": "arn:aws:states:::sqs:sendMessage"');
+  await page.getByTestId("browser-tabs").getByRole("radio", { name: "Flow" }).click();
+  await shot(page, "stepfunctions__machine-create-design");
   await page.getByTestId("mode-code").click();
   // The definition points QueueReorder at a state that is not there: the graph pauses and the modes are locked.
   const queue = `${server.endpoint}/${server.account}/inventory-queue`;

@@ -9,7 +9,7 @@
 
 import { taskTarget, taskWords } from "./model";
 
-export type Rule = { Next?: string; Variable?: string; Condition?: string };
+export type Rule = { Next?: string; Variable?: string; Condition?: string; [more: string]: unknown };
 export type AslState = {
   Type?: string;
   Next?: string;

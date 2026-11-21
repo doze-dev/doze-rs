@@ -51,7 +51,7 @@ export function taskResource(resource: string | undefined): TaskResource | null 
   if (activity) return { service: "states", title: "Activity", action: activity[1] ?? "", pattern: "", activity: activity[1] };
   const fn = /^arn:aws:lambda:[^:]*:[^:]*:function:([^:]+)/.exec(resource);
   if (fn) return { service: "lambda", title: "Lambda", action: "Invoke", pattern: "" };
-  const m = /^arn:aws:states:::([a-z0-9]+):([A-Za-z0-9]+)(\.[A-Za-z]+)?$/.exec(resource);
+  const m = /^arn:aws:states:::(?:aws-sdk:)?([a-z0-9]+):([A-Za-z0-9]+)(\.[A-Za-z]+)?$/.exec(resource);
   if (!m) return null;
   const service = m[1] ?? "";
   return { service, title: SERVICE_WORDS[service]?.title ?? service, action: upper(m[2] ?? ""), pattern: m[3] ?? "" };
