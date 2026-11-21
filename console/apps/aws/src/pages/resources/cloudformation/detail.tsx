@@ -13,7 +13,7 @@ import { DetailError, FlowStrip, PlainConfirm, ResourcePage, ResourcePageSkeleto
 import { HINT } from "../index-page";
 import { at } from "../deep/parts";
 import type { OwnProps } from "../deep/registry";
-import { templateText, useCfnRead, useCfnWrite, useImporters, usePoll, useResources, useStack, useTemplate } from "./api";
+import { templateText, useCfnRead, useCfnWrite, useEvents, useImporters, usePoll, useResources, useStack, useTemplate } from "./api";
 import { DeleteStackDialog } from "./delete-dialog";
 import { DeletedStack } from "./deleted";
 import { type Stack, inProgress, isGone, resourceTarget, retainedIn } from "./model";
@@ -50,6 +50,7 @@ function StackView({ d, updatedAt, fetching, refetch }: { d: ResourceDetail; upd
   const stack: Stack | undefined = stackQ.data?.Stacks?.[0];
   const status = stack?.StackStatus ?? "";
   const resources = useResources(nm, Boolean(stack));
+  const events = useEvents(nm, undefined, status === "ROLLBACK_COMPLETE");
   const exportNames = (stack?.Outputs ?? []).flatMap((o) => (o.ExportName ? [o.ExportName] : []));
   const importers = useImporters(exportNames);
   const template = useTemplate(nm, "Original", deleting || asked === "resources");
@@ -81,7 +82,8 @@ function StackView({ d, updatedAt, fetching, refetch }: { d: ResourceDetail; upd
     <FlowStrip groups={[{ label: "Owns", chips: [{ label: nm, self: true }] }, { chips: owned.map((r) => ({ label: resourceTarget(r)?.name ?? r.LogicalResourceId, to: resourceTarget(r) ?? undefined, title: `${r.LogicalResourceId} (${r.ResourceType})` })) }]} />
   );
   const created = stack.CreationTime ? at(stack.CreationTime) : "";
-  const meta = status === "REVIEW_IN_PROGRESS" ? `Created ${created}. It has no resources yet: it waits for you to execute its change set.` : stack.LastUpdatedTime ? `Created ${created}. Updated ${at(stack.LastUpdatedTime)}.` : `Created ${created}. Not updated since.`;
+  const rolledAt = events.data?.StackEvents?.[0]?.Timestamp;
+  const meta = status === "ROLLBACK_COMPLETE" ? `Created ${created}.${rolledAt ? ` Rolled back ${at(rolledAt)}.` : ""}` : status === "REVIEW_IN_PROGRESS" ? `Created ${created}. It has no resources yet: it waits for you to execute its change set.` : stack.LastUpdatedTime ? `Created ${created}. Updated ${at(stack.LastUpdatedTime)}.` : `Created ${created}. Not updated since.`;
   const onVerb = (v: Verb) => {
     if (v.id === "update") update();
     else if (v.id === "delete") setDeleting(true);
@@ -110,7 +112,7 @@ function StackView({ d, updatedAt, fetching, refetch }: { d: ResourceDetail; upd
         detail={shown}
         meta={meta}
         banner={banner}
-        overview={view === "tabs" ? <><Lede said={said} />{strip}</> : states}
+        overview={view === "tabs" ? ((asked ?? "info") === "info" ? <><Lede said={said} />{strip}</> : undefined) : states}
         tabs={view === "tabs" ? tabs : []}
         details={false}
         tab={asked ?? "info"}

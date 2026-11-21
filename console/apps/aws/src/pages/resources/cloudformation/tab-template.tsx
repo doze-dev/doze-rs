@@ -28,7 +28,7 @@ export function TemplateTab({ name }: { name: string }) {
         </>
       }
     >
-      <Loaded q={q} what="The template">{() => <CodeBlock text={json ? pretty(body) : body} wrap={wrap} testId="template-body" max="max-h-[640px]" />}</Loaded>
+      <Loaded q={q} what="The template">{() => <CodeBlock text={json ? pretty(body) : body} wrap={wrap} testId="template-body" max="max-h-[1600px]" />}</Loaded>
       <RuleHelp className="max-w-[56rem]">
         This is the {stage.toLowerCase()} stage{json ? " (JSON, indented here)" : ""}. A template with a transform (AWS::Serverless, AWS::Include) differs between the two stages; the processed one is what CloudFormation deploys. With none, the processed template is the same one in JSON.
       </RuleHelp>

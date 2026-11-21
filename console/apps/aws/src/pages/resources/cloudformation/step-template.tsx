@@ -59,6 +59,7 @@ export function StepTemplate({ w, set, problem, stackName }: { w: Wizard; set: (
             </Field>
           )}
           {w.source === "file" && <RuleHelp>The file must be {(BODY_MAX / 1024).toFixed(1).replace(/\.0$/, "")} KB or less: it goes to CloudFormation as the call's TemplateBody, which the API limits to {BODY_MAX.toLocaleString("en-US")} bytes. {w.file && bytes <= BODY_MAX ? `This one is ${(bytes / 1024).toFixed(1)} KB, so the size is not the problem.` : "A bigger template goes in an S3 bucket and is read from its URL."}</RuleHelp>}
+          {update && <Note testId="update-note">Properties that can't be updated must keep their current values, and changing some properties interrupts or replaces a resource. The last step previews the changes.</Note>}
           <Note testId="check-note">When you choose Next, CloudFormation checks the file as JSON first and, if that fails, as YAML; it also catches some semantic mistakes such as circular dependencies. If both fail you get a template validation error before the wizard continues.{w.source === "url" && bucket ? ` The file is read from the ${bucket} bucket of this doze-aws's S3.` : ""}</Note>
         </FormSection>
       )}

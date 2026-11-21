@@ -106,7 +106,7 @@ function WizardPage({ mode, service, kind, stack }: { mode: Mode; service: strin
   };
   const makeChangeSet = (name: string) => makeSet.mutate(changeSetInput(w, summary, name), { onSuccess: () => { setAsking(false); void navigate({ to: "/resources/$service/$kind/$name", params: { service, kind, name: stackName }, search: update ? { do: "changeset", name } : {} }); } });
   const lead = [
-    "Step 1 of 4. Choose the template that describes the resources. Nothing is created until you submit on the last step.",
+    update ? `Step 1 of 4 for ${stackName}. Keep the template or replace it. The last step previews the update as a change set before you deploy it.` : "Step 1 of 4. Choose the template that describes the resources. Nothing is created until you submit on the last step.",
     update ? `Step 2 of 4 for ${stackName}. Each parameter starts at the value the stack has now. Change the ones you want to change.` : "Step 2 of 4. Name the stack and answer the parameters its template declares.",
     update ? `Step 3 of 4 for ${stackName}. The same options as at creation, except the ones that only apply when a stack is first made.` : "Step 3 of 4. Tags, permissions, what to do when creation fails, and termination protection. Every option here has a default; you can go straight on.",
     update ? `Step 4 of 4. Check what you chose and what it would change. Choose Edit on a section to change it.` : "Step 4 of 4. Check what you chose. Choose Edit on a section to change it before you submit.",

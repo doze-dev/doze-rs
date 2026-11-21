@@ -82,7 +82,7 @@ const eventColumns: DataColumn<StackEvent>[] = [
       </span>
     ),
   },
-  { id: "s", header: "Status", size: 230, accessorFn: (r) => r.ResourceStatus ?? "", cell: (c) => <Status status={c.row.original.ResourceStatus ?? ""} /> },
+  { id: "s", header: "Status", size: 300, accessorFn: (r) => r.ResourceStatus ?? "", cell: (c) => <Status status={c.row.original.ResourceStatus ?? ""} /> },
   { id: "r", header: "Status reason", accessorFn: (r) => r.ResourceStatusReason ?? "", cell: (c) => <span className="text-[13px] break-words whitespace-normal">{c.row.original.ResourceStatusReason || <span className="text-muted-foreground">–</span>}</span> },
 ];
 

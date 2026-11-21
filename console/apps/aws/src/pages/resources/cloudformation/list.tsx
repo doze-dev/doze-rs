@@ -79,7 +79,6 @@ export function StacksList({ service, kind }: { service: string; kind: string })
         <ErrorBlock what="The stacks could not be listed" error={list.error} hint={HINT} onRetry={refresh} retrying={list.isFetching} testId="list-error" />
       ) : none ? (
         <div data-testid="list-empty">
-          <Nav active="stacks" />
           <EmptyState icon={LayersIcon} title="No stacks" action={<Button variant="outline" className="bg-card" onClick={create}><PlusIcon /> Create stack</Button>}>
             You have no stacks in this region. Create a stack from a template to provision resources together.
           </EmptyState>

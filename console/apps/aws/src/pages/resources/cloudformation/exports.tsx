@@ -98,7 +98,7 @@ export function ExportPage({ service, kind, name }: OwnProps) {
       />
       {said && <Lede said={{ text: said, names: [stack, ...(users ?? [])] }} testId="export-sentence" bold={[/^\d+ stacks?/]} />}
       <div className="grid gap-8">
-        <Facts title="Export" testId="export-facts" rows={[{ label: "Export Name", value: exportName, mono: true }, { label: "Exporting stack", value: <StackTo name={stack} /> }, { label: "Value", value: found.Value, mono: true }]} />
+        <Facts title="Export" testId="export-facts" wide={[{ label: "Export Name", value: exportName, mono: true }, { label: "Exporting stack", value: <StackTo name={stack} /> }, { label: "Value", value: found.Value, mono: true }]} rows={[]} />
         <section className="grid gap-3" aria-label="Importing stacks" data-testid="importers">
           <div><h2 className="text-[17px] leading-6 font-semibold tracking-[-0.01em] text-bright">Importing stacks</h2><p className="mt-1 text-[13.5px] text-muted-foreground">Stacks whose templates use Fn::ImportValue on this name.</p></div>
           {users === undefined ? <Skeleton className="h-24 rounded-[12px]" /> : rows.length === 0 ? <EmptyTab title="No stack imports this export" testId="importers-none">Nothing uses {exportName} yet.</EmptyTab> : <DataTable aria-label="Importing stacks" data={rows} columns={columns} rowId={(r) => r.stack} rowHeight={48} maxHeight={320} />}
