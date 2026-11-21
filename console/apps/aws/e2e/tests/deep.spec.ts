@@ -156,6 +156,9 @@ test("a table's item is created in plain JSON, scanned, queried by its key, edit
   await page.getByTestId("item-delete-dialog-submit").click();
   await expect(sheet).toHaveCount(0);
   await expect(rows).toHaveCount(0);
+  // A query that returned none says so, and does not tell to choose an item.
+  await expect(page.getByTestId("items-card")).toContainText("No items match");
+  await expect(page.getByTestId("items-card")).not.toContainText("Choose an item");
   const left = JSON.parse(cli(["dynamodb", "scan", "--table-name", table]).out) as { Count: number };
   expect(left.Count).toBe(1);
   for (const op of ["PutItem", "Query", "DeleteItem"]) expect((await mine(page, op)).some((c) => c.outcome === "ok"), op).toBe(true);

@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { cell, exactInJson, fromPlain, type Item, itemPlainBlocker, itemText, keyOf, type KeyPart, parseItem, toPlain } from "./ddb-json";
 import { crumbsOf, rowsOf } from "./s3-objects";
 import { folderWrong } from "./s3-dialogs";
+import { afterRead } from "./ddb-request";
 import { sendInput } from "./sqs-send";
 import { changed } from "./sqs-settings";
 
@@ -89,5 +90,12 @@ describe("SQS", () => {
     expect(changed(was, { ...was, dlq: "dlq", maxReceives: "3" }, arn, false)).toEqual({ RedrivePolicy: JSON.stringify({ deadLetterTargetArn: arn("dlq"), maxReceiveCount: 3 }) });
     expect(changed({ ...was, dlq: "dlq", maxReceives: "3" }, was, arn, false)).toEqual({ RedrivePolicy: "" });
     expect(changed(was, { ...was, dedup: "true" }, arn, true)).toEqual({ ContentBasedDeduplication: "true" });
+  });
+});
+
+describe("DynamoDB items", () => {
+  test("a read that returned none says none match, not to choose an item", () => {
+    expect(afterRead(0)).toBe("No items match.");
+    expect(afterRead(3)).toContain("Choose an item");
   });
 });

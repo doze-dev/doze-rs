@@ -14,7 +14,7 @@ import { number, plural } from "@doze/ui/lib/format";
 import { useOpQuery } from "./api";
 import { ItemDialog, ItemSheet } from "./ddb-item-dialog";
 import { type Item, type KeyPart, cell } from "./ddb-json";
-import { type Described, type Form, request, SORT_OPS, type SortOp, START, sourcesOf } from "./ddb-request";
+import { afterRead, type Described, type Form, request, SORT_OPS, type SortOp, START, sourcesOf } from "./ddb-request";
 import type { DeepProps } from "./pages";
 import { Card, JsonBlock, Refused } from "./parts";
 
@@ -169,7 +169,7 @@ export function TableItems({ d }: DeepProps) {
       </div>
       <Card
         title={items.data ? `Items returned (${number(items.data.Count ?? rows.length)})` : "Items"}
-        lede={items.data ? <>{op} read {plural(items.data.ScannedCount ?? 0, "item")} for this page{items.data.LastEvaluatedKey ? "; there is more" : ""}. Choose an item to see its JSON, edit or delete it.</> : undefined}
+        lede={items.data ? <>{op} read {plural(items.data.ScannedCount ?? 0, "item")} for this page{items.data.LastEvaluatedKey ? "; there is more" : ""}. {afterRead(rows.length)}</> : undefined}
         actions={
           <Button variant="outline" className="bg-card" disabled={!table} onClick={() => setCreating(true)} data-testid="item-create">
             <PlusIcon /> Create item
@@ -179,7 +179,7 @@ export function TableItems({ d }: DeepProps) {
       >
         <div className="grid gap-4">
           <Refused operation={op} error={items.error} />
-          <DataTable aria-label="Items" data={rows} columns={columns} rowId={(r) => JSON.stringify(keys.map((k) => r[k.name]))} onRowClick={setOpen} maxHeight={560} empty={items.isFetching ? "Reading…" : ran.mode === "query" ? "No item matches this query." : "This table holds no item yet."} />
+          <DataTable aria-label="Items" data={rows} columns={columns} rowId={(r) => JSON.stringify(keys.map((k) => r[k.name]))} onRowClick={setOpen} maxHeight={560} empty={items.isFetching ? "Reading…" : ran.mode === "query" ? "No items match this query." : "This table holds no item yet."} />
           <div className="flex items-center justify-end gap-2 text-[13px] text-muted-foreground">
             <span>Page {starts.length + 1}</span>
             <Button variant="outline" size="sm" className="bg-card" aria-label="Previous page" disabled={starts.length === 0} onClick={() => setStarts((s) => s.slice(0, -1))} data-testid="items-prev">
