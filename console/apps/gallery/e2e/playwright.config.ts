@@ -15,7 +15,8 @@ export default defineConfig({
   testDir: "./tests",
   fullyParallel: false,
   workers: 1,
-  retries: 0,
+  // On CI one retry: a test that passes on it is reported "flaky" in the list, never hidden. Locally none (a flake is a bug to find).
+  retries: process.env.CI ? 1 : 0,
   timeout: 45_000,
   expect: { timeout: 8_000 },
   reporter: [["list"]],

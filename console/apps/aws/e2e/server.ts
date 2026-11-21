@@ -1,7 +1,7 @@
 // A real doze-aws for the browser tests: started on ports of its own with an empty data directory, called with the real AWS
 // CLI, and stopped by its pid. Nothing here is a fixture: the pages under test read what this process answers.
 import { type ChildProcess, execFileSync, spawn } from "node:child_process";
-import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { closeSync, existsSync, mkdtempSync, openSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -27,37 +27,83 @@ async function until(what: string, probe: () => Promise<boolean>, ms = 15_000): 
   }
 }
 
+/** How long one start may take before it is tried again, and how many tries (a loaded CI runner has been seen not to answer
+ * within 15 s once; the output of every try is kept so a hang is diagnosable). */
+const START_MS = 30_000;
+const START_TRIES = 2;
+
 /** Starts doze-aws with its console on the two ports and waits until both answer. `dataDir`: start again over the same
- * state (a restart); otherwise a new, empty directory that `stop` removes. */
+ * state (a restart); otherwise a new, empty directory that `stop` removes. A start that never answers is killed by its pid and
+ * tried once more; when the last try fails the error carries what the process printed. */
 export async function start(listenPort: number, consolePort: number, options: { dataDir?: string; args?: string[] } = {}): Promise<Running> {
   const own = options.dataDir === undefined;
   const dataDir = options.dataDir ?? mkdtempSync(join(tmpdir(), "doze-aws-e2e-"));
   const endpoint = `http://127.0.0.1:${listenPort}`;
   const consoleUrl = `http://127.0.0.1:${consolePort}`;
-  const child: ChildProcess = spawn(binary(), ["--listen", `127.0.0.1:${listenPort}`, "--console", `127.0.0.1:${consolePort}`, "--data-dir", dataDir, "--account", ACCOUNT, ...(options.args ?? [])], { stdio: "ignore" });
-  const pid = child.pid;
-  if (pid === undefined) throw new Error("doze-aws did not start");
-  let exited = false;
-  child.once("exit", () => (exited = true));
-  await until(`doze-aws on ${consoleUrl}`, async () => {
-    if (exited) throw new Error(`doze-aws exited at start (are ports ${listenPort} and ${consolePort} free?)`);
-    return (await fetch(`${consoleUrl}/healthz`)).ok;
-  });
-  return {
-    pid,
-    endpoint,
-    console: consoleUrl,
-    dataDir,
-    account: ACCOUNT,
-    async stop() {
-      // By its pid, never by its name: other doze-aws processes on this machine are not this test's.
+  const argv = ["--listen", `127.0.0.1:${listenPort}`, "--console", `127.0.0.1:${consolePort}`, "--data-dir", dataDir, "--account", ACCOUNT, ...(options.args ?? [])];
+  // Something already answering on the console port is another process: its answers would be taken for this one's.
+  if (await fetch(`${consoleUrl}/healthz`, { signal: AbortSignal.timeout(1_000) }).then(() => true, () => false)) throw new Error(`${consoleUrl} is already served by another process: pick free ports`);
+  const notes: string[] = [];
+  for (let attempt = 1; attempt <= START_TRIES; attempt++) {
+    const logPath = join(mkdtempSync(join(tmpdir(), "doze-aws-e2e-log-")), "out.log");
+    const fd = openSync(logPath, "w");
+    const child: ChildProcess = spawn(binary(), argv, { stdio: ["ignore", fd, fd] });
+    closeSync(fd);
+    const pid = child.pid;
+    if (pid === undefined) throw new Error("doze-aws did not start");
+    let exited = false;
+    child.once("exit", () => (exited = true));
+    const began = Date.now();
+    try {
+      await ready(consoleUrl, START_MS, () => (exited ? `it exited at start (are ports ${listenPort} and ${consolePort} free?)` : undefined));
+    } catch (e) {
+      notes.push(`try ${attempt} (${Date.now() - began} ms, ${exited ? "exited" : "still running"}): ${(e as Error).message}; it printed: ${tail(logPath)}`);
       if (!exited) {
-        process.kill(pid, "SIGTERM");
-        await until("doze-aws stopping", async () => exited, 10_000).catch(() => process.kill(pid, "SIGKILL"));
+        process.kill(pid, "SIGKILL");
+        await until("doze-aws killed", async () => exited, 5_000).catch(() => undefined);
       }
-      if (own) rmSync(dataDir, { recursive: true, force: true });
-    },
-  };
+      continue;
+    }
+    return {
+      pid,
+      endpoint,
+      console: consoleUrl,
+      dataDir,
+      account: ACCOUNT,
+      async stop() {
+        // By its pid, never by its name: other doze-aws processes on this machine are not this test's.
+        if (!exited) {
+          process.kill(pid, "SIGTERM");
+          await until("doze-aws stopping", async () => exited, 10_000).catch(() => process.kill(pid, "SIGKILL"));
+        }
+        if (own) rmSync(dataDir, { recursive: true, force: true });
+      },
+    };
+  }
+  if (own) rmSync(dataDir, { recursive: true, force: true });
+  throw new Error(`doze-aws on ${consoleUrl} did not start in ${START_TRIES} tries:\n${notes.join("\n")}`);
+}
+
+/** Polls the console's /healthz until it answers; a probe that fails is only "not yet", but `gone` (the process is dead) ends the wait at once. */
+async function ready(consoleUrl: string, ms: number, gone: () => string | undefined): Promise<void> {
+  const end = Date.now() + ms;
+  for (;;) {
+    const why = gone();
+    if (why !== undefined) throw new Error(why);
+    if (await fetch(`${consoleUrl}/healthz`, { signal: AbortSignal.timeout(2_000) }).then((r) => r.ok, () => false)) return;
+    if (Date.now() > end) throw new Error(`no answer from ${consoleUrl}/healthz in ${ms} ms`);
+    await new Promise((r) => setTimeout(r, 100));
+  }
+}
+
+/** The last 1,500 bytes of what the process printed (its log is the only evidence a hung start leaves). */
+function tail(path: string): string {
+  try {
+    const text = readFileSync(path, "utf8");
+    return text.length === 0 ? "(nothing)" : text.slice(-1_500);
+  } catch {
+    return "(no log)";
+  }
 }
 
 /** Fails when the binary serves another bundle than the one in web-dist (a binary built before the last `bun run build`),
