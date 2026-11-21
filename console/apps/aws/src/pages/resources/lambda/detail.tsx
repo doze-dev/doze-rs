@@ -9,6 +9,7 @@ import { Callout } from "@doze/ui/components/app/callout";
 import { Alert } from "@doze/ui/components/app/alert";
 import { RefreshControl } from "@doze/ui/components/app/refresh-control";
 import { ResultBanner } from "@doze/ui/components/app/result-banner";
+import { Emphasis } from "@doze/ui/components/app/emphasis";
 import { TypedConfirm } from "@doze/ui/components/app/typed-confirm";
 import { Skeleton } from "@doze/ui/components/ui/skeleton";
 import { dateTimeUtc } from "@doze/ui/lib/format";
@@ -118,6 +119,7 @@ function FunctionView({ d, updatedAt, fetching, refresh }: { d: ResourceDetail; 
       },
     });
   const failed = del.error ? errorWords(del.error) : null;
+  const mapped = blockers.data?.blockers.find((b) => b.title === "Event source mappings")?.items.map((i) => i.name) ?? [];
   return (
     <>
       <ResourcePage
@@ -147,16 +149,16 @@ function FunctionView({ d, updatedAt, fetching, refresh }: { d: ResourceDetail; 
         }}
         title="Delete function"
         words={blockers.data?.words ?? "confirm"}
-        prompt={<>To confirm, type <span className="font-mono">{blockers.data?.words ?? "confirm"}</span></>}
+        prompt={<>To confirm, type <span className="font-mono font-semibold text-bright">{blockers.data?.words ?? "confirm"}</span></>}
         verb="Delete"
         pending={del.isPending}
         onConfirm={confirmDelete}
         testId="delete-dialog"
-        description={deleteWords(d.name, blockers.data)}
+        description={<Emphasis text={deleteWords(d.name, blockers.data)} names={[d.name]} />}
         refusal={failed && <Alert tone="bad" title={`DeleteFunction was refused${failed.code ? `: ${failed.code}` : ""}`} testId="delete-error">{failed.message}</Alert>}
       >
-        {blockers.data && blockers.data.blockers.find((b) => b.title === "Event source mappings")?.items.length ? (
-          <Callout tone="warn" testId="delete-mappings">{mappingWords(blockers.data.blockers.find((b) => b.title === "Event source mappings")?.items.map((i) => i.name) ?? [])}</Callout>
+        {mapped.length > 0 ? (
+          <Callout tone="warn" testId="delete-mappings"><Emphasis text={mappingWords(mapped)} names={mapped} bold={[/\bnot\b/]} /></Callout>
         ) : null}
       </TypedConfirm>
     </>

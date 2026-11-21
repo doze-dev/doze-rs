@@ -15,7 +15,8 @@ import { useResourceList } from "../../../api/resources";
 import type { ResourceDetail } from "../../../api/types/ResourceDetail";
 import { Card } from "../deep/parts";
 import { type Go, usePolicy, useWhere } from "./hooks";
-import { conditionOf, type Fn, type Trigger, principalOf } from "./model";
+import { type Fn, type Trigger, urlAuthNote } from "./model";
+import { PolicyTable } from "./policy-table";
 
 export const SECTIONS = [
   ["general", "General configuration"],
@@ -111,14 +112,6 @@ function Triggers({ d, sel, go, triggers }: { d: ResourceDetail; sel?: string; g
 function Permissions({ d, f, go }: { d: ResourceDetail; f: Fn; go: (to: Go) => void }) {
   const policy = usePolicy(d.name);
   const add = <Button type="button" onClick={() => go({ tab: "configuration", p: "permissions", view: "permission-add" })} data-testid="permission-add"><PlusIcon /> Add permissions</Button>;
-  type S = (typeof policy.statements)[number];
-  const columns: DataColumn<S>[] = [
-    { id: "sid", header: "SID", size: 160, accessorFn: (s) => s.Sid ?? "", meta: { mono: true }, cell: (c) => <span className="font-mono text-[13px] font-medium text-bright">{c.row.original.Sid ?? "–"}</span> },
-    { id: "effect", header: "Effect", size: 90, accessorFn: (s) => s.Effect ?? "" },
-    { id: "principal", header: "Principal", size: 220, min: 140, accessorFn: (s) => principalOf(s), meta: { mono: true }, cell: (c) => <span className="font-mono text-[13px]">{principalOf(c.row.original)}</span> },
-    { id: "action", header: "Action", size: 200, accessorFn: (s) => String(s.Action ?? ""), meta: { mono: true }, cell: (c) => <span className="font-mono text-[13px]">{[c.row.original.Action].flat().join(", ")}</span> },
-    { id: "condition", header: "Condition", accessorFn: (s) => conditionOf(s), meta: { mono: true }, cell: (c) => <span className="font-mono text-[13px]">{conditionOf(c.row.original) || "–"}</span> },
-  ];
   return (
     <div className="grid gap-6" data-testid="permissions-section">
       <Card title="Execution role" lede="The role Lambda assumes to run the function." testId="role-card">
@@ -133,7 +126,7 @@ function Permissions({ d, f, go }: { d: ResourceDetail; f: Fn; go: (to: Go) => v
           <EmptyTab icon={ShieldIcon} title="No resource-based policy statements" action={<Button type="button" variant="outline" className="bg-card" onClick={() => go({ tab: "configuration", p: "permissions", view: "permission-add" })}>Add permissions</Button>} testId="policy-none">No other service or account has been given permission to invoke {d.name}.</EmptyTab>
         ) : (
           <>
-            <DataTable aria-label="Resource-based policy statements" data={policy.statements} columns={columns} rowId={(s) => s.Sid ?? JSON.stringify(s)} maxHeight={360} />
+            <PolicyTable statements={policy.statements} />
             <p className="mt-3 text-[13px] text-muted-foreground">The columns are the elements of the policy statements that GetPolicy returns.</p>
           </>
         )}
@@ -171,7 +164,7 @@ function FunctionUrl({ d, f, go }: { d: ResourceDetail; f: Fn; go: (to: Go) => v
           </Rows>
           <div className="mt-5"><CopyButton text={f.url} label="Copy URL" what="URL copied" className="bg-card" /></div>
           <p className="mt-4 max-w-[46rem] border-l-2 pl-3.5 text-[13px] leading-5 text-foreground" data-testid="url-teach">
-            Once you create a function URL, its URL endpoint never changes. Any HTTP client can invoke the function through it. <span className="text-muted-foreground">Locally an AWS_IAM URL is served unsigned.</span>
+            Once you create a function URL, its URL endpoint never changes. Any HTTP client can invoke the function through it. <span className="text-muted-foreground">{urlAuthNote(f.urlAuth)}</span>
           </p>
         </>
       )}

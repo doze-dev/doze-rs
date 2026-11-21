@@ -127,7 +127,7 @@ export function sourceWords(arn: string): { kind: string; words: string; to: Wir
   return { kind: "Event source", words: `${service || "source"} ${name}`, to: null };
 }
 
-type Statement = { Sid?: string; Effect?: string; Principal?: unknown; Action?: string | string[]; Condition?: Record<string, Record<string, string>> };
+export type Statement = { Sid?: string; Effect?: string; Principal?: unknown; Action?: string | string[]; Condition?: Record<string, Record<string, string>> };
 
 /** The statements of a function's resource-based policy (GetPolicy's `Policy` text); none when there is none. */
 export function statementsOf(policy: string | undefined | null): Statement[] {
@@ -210,4 +210,12 @@ export function wiredOf(f: Fn, triggers: readonly Trigger[]): Wired[] {
 export function chipWords(w: Pick<Wired, "label" | "to">, triggers: readonly Trigger[]): string {
   if (w.label === "Runs as") return `role ${w.to.name}`;
   return triggers.find((t) => t.to?.service === w.to.service && t.to.name === w.to.name)?.words ?? w.to.name;
+}
+
+/** What the URL's auth type means in doze-aws, in a sentence (true to `crates/aws-lambda/src/web.rs`): an `AWS_IAM` URL wants a SigV4
+ * signature for `lambda` and answers an unsigned request `403 Forbidden`; a `NONE` one is open when the function's policy allows it. */
+export function urlAuthNote(auth: string | null): string {
+  return auth === "NONE"
+    ? "A NONE URL answers anyone, as long as the function's resource-based policy allows public access."
+    : "An AWS_IAM URL needs a SigV4 signature for lambda, as on AWS; a request with no signature gets 403 Forbidden.";
 }

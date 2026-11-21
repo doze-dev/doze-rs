@@ -299,7 +299,9 @@ impl Core {
     pub(crate) fn list_versions(&self, r: &Req) -> Result<Out, ApiError> {
         let f = r.function()?;
         let function = self.find(r, &f)?;
-        let mut rows = vec![self.shown(r, &f.name, &function.latest, LATEST, None)];
+        // AWS lists `$LATEST` with its own qualifier on the ARN (the CLI reference's example shows `...:function:my-function:$LATEST`), where
+        // GetFunctionConfiguration of the unqualified name has none.
+        let mut rows = vec![self.shown(r, &f.name, &function.latest, LATEST, Some(LATEST))];
         for v in &function.versions {
             rows.push(self.shown(r, &f.name, &v.snap, &v.number.to_string(), None));
         }

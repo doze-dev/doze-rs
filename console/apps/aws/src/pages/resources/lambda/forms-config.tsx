@@ -81,11 +81,11 @@ export function EnvEdit(p: FormProps) {
       request={{ service: "lambda", operation: "UpdateFunctionConfiguration", input }} refusal={save.error} callNote="The whole Variables map is replaced, so every variable you keep is sent again."
       submitLabel="Save" pending={save.isPending} disabled={tried && bad} disabledWhy={problems[""] ?? Object.values(problems)[0]} onSubmit={submit} testId="env-edit-form">
       <FormSection title="Environment variables" testId="section-env">
-        <KeyValueEditor rows={rows} onChange={setRows} addLabel="Add environment variable" keyLabel="Key" valueLabel="Value" showErrors={tried} testId="env-kv" />
+        <KeyValueEditor rows={rows} onChange={setRows} addLabel="Add environment variable" removeLabel="Remove" keyLabel="Key" valueLabel="Value" showErrors={tried} testId="env-kv" />
         {tried && Object.entries(problems).filter(([i]) => i !== "").map(([i, why]) => <Alert key={i} tone="bad" title={`Row ${Number(i) + 1}`} testId={`env-problem-${i}`}>{why}</Alert>)}
         {problems[""] && <Alert tone="bad" title="Too large" testId="env-size">{problems[""]}</Alert>}
         <p className="border-l-2 pl-3 text-[13px] leading-5 text-muted-foreground" data-testid="env-rules">
-          A key starts with a letter, has at least two characters, and holds only letters, digits and underscores. <b className="font-semibold text-foreground">All keys and values together can be at most 4 KB.</b> Keys Lambda reserves, such as AWS_REGION and _HANDLER, are refused.{added.length ? <> {added.join(", ")} {added.length === 1 ? "is the new variable" : "are the new variables"}.</> : null}
+          A key starts with a letter, has at least two characters, and holds only letters, digits and underscores. <b className="font-semibold text-foreground">All keys and values together can be at most 4 KB.</b> Keys Lambda reserves, such as AWS_REGION and _HANDLER, are refused.{added.length ? <> <b className="font-mono font-semibold text-foreground">{added.join(", ")}</b> {added.length === 1 ? "is the new variable" : "are the new variables"}.</> : null}
         </p>
       </FormSection>
     </FnFormPage>

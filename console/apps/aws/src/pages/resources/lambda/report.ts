@@ -19,3 +19,10 @@ export function reportOf(log: string): [string, string][] {
     })
     .map(([k, v]) => [k === "RequestId" ? "Request ID" : k, v] as [string, string]);
 }
+
+/** A trace without the long front of its file paths: doze-aws unpacks a function's code under its own data directory
+ * (`<data>/lambda/code/<id>/root/lambda_function.py`), which AWS's traces never show (`/var/task/…`). The start up to and including
+ * `/code/<id>/root/` is left out (`…/lambda_function.py`); a path that is not in a code directory is kept. */
+export function tidyPaths(text: string): string {
+  return text.replace(/\/[^"\\\s]*?\/code\/[\w-]+\/root\//g, "…/");
+}

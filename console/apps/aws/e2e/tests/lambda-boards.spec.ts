@@ -8,7 +8,7 @@ import { CUT, expect, test } from "./fixtures";
 import { invoke, seedLarder, zipOf } from "./lambda-seed";
 
 const SHOTS = process.env.SHOTS_DIR ?? join(import.meta.dirname, "../../../../../shots-lambda");
-const BASE = 44940;
+const BASE = Number(process.env.E2E_BASE_PORT ?? 44940);
 const at = (b: string) => BASE + ({ firefox: 10, webkit: 20, chromium: 30 }[b] ?? 40);
 
 test.describe.configure({ mode: "serial" });
@@ -140,6 +140,10 @@ test("lambda__function-delete: the dialog says what goes with the function and w
   await expect(dialog).toContainText("Deleting send-email permanently deletes the function, its 3 versions and its 2 aliases (live, staging). A deleted function cannot be recovered.");
   await expect(page.getByTestId("delete-mappings")).toContainText("The event source mapping that reads email-outbox is not deleted with the function. Delete it separately.");
   await expect(dialog).toContainText("To confirm, type confirm");
+  // As the board sets them: the name, the queue the mapping reads, "not" and the word to type are bold.
+  await expect(dialog.locator("[data-slot=dialog-description] [data-slot=emphasis-name]")).toHaveText(["send-email"]);
+  await expect(page.getByTestId("delete-mappings").locator("[data-slot=emphasis-name]")).toHaveText(["email-outbox"]);
+  await expect(page.getByTestId("delete-mappings").locator("[data-slot=emphasis-bold]")).toHaveText(["not"]);
   await expect(page.getByTestId("delete-dialog-submit")).toBeDisabled();
   await page.getByTestId("delete-dialog-input").fill("confirm");
   await expect(page.getByTestId("delete-dialog-submit")).toBeEnabled();
@@ -149,11 +153,16 @@ test("lambda__function-delete: the dialog says what goes with the function and w
 
 test("lambda__function-test and lambda__test-result-ok: an event shaped like its trigger, and what ran", async ({ page }) => {
   await go(page, fn("send-email", "?tab=test"), "send-email");
-  await expect(page.getByTestId("invoke-template")).toContainText("SNS topic alerts");
+  // As the board: no template is picked ("Choose a template"), and the event already has the shape of the function's trigger.
+  await expect(page.getByTestId("invoke-template")).toContainText("Choose a template");
   await expect(page.getByText("The event below has the shape the alerts topic sends to send-email.")).toBeVisible();
   await expect(page.getByTestId("invoke-event")).toHaveValue(/"EventSource": "aws:sns"/);
   await expect(page.getByTestId("invoke-call-code")).toContainText('"InvocationType": "RequestResponse"');
   await expect(page.getByTestId("invoke-call-code")).toContainText('"LogType": "Tail"');
+  // The call is the right-hand column, beside the Test event card.
+  const [card, panel] = await Promise.all([page.getByTestId("lambda-test").boundingBox(), page.getByTestId("invoke-call").boundingBox()]);
+  expect(panel!.x).toBeGreaterThan(card!.x + card!.width);
+  expect(Math.abs(panel!.y - card!.y)).toBeLessThan(4);
   await shot(page, "lambda__function-test");
   await page.getByTestId("invoke-run").click();
   await expect(page.getByTestId("invoke-status")).toContainText("Status: Succeeded");
@@ -170,13 +179,19 @@ test("lambda__function-test and lambda__test-result-ok: an event shaped like its
 test("lambda__test-result-error: the function threw, the call still answered 200", async ({ page }) => {
   await go(page, fn("send-email", "?tab=test"), "send-email");
   // The template is read from the function's triggers: wait for it, so nothing re-draws the editor under the typing.
-  await expect(page.getByTestId("invoke-template")).toContainText("SNS topic alerts");
+  await expect(page.getByTestId("invoke-event")).toHaveValue(/"EventSource": "aws:sns"/);
   await page.getByTestId("invoke-event").fill("{}");
   await expect(page.getByTestId("invoke-event")).toHaveValue("{}");
   await expect(page.getByTestId("invoke-run")).toBeEnabled();
   await page.getByTestId("invoke-run").click();
   await expect(page.getByTestId("invoke-status")).toHaveText("The function returned an error. The response is an error object instead of a result.");
   await expect(page.getByTestId("invoke-payload")).toContainText('"errorType": "KeyError"');
+  // The trace is the handler's frame alone: no frame of the runtime shim, and the data directory the code was unpacked under is left out.
+  await expect(page.getByTestId("invoke-payload")).toContainText('File \\"…/lambda_function.py\\", line 8, in lambda_handler');
+  await expect(page.getByTestId("invoke-payload")).not.toContainText("bootstrap");
+  await expect(page.getByTestId("invoke-log")).toContainText('File "…/lambda_function.py", line 8, in lambda_handler');
+  await expect(page.getByTestId("invoke-log")).not.toContainText("bootstrap");
+  await expect(page.getByTestId("invoke-log")).not.toContainText(server.dataDir);
   await expect(page.getByTestId("invoke-error-teach")).toContainText("X-Amz-Function-Error");
   await expect(page.getByTestId("invoke-error-teach")).toContainText("Unhandled");
   await expect(page.getByTestId("invoke-report")).toContainText("FunctionErrorUnhandled");
@@ -266,6 +281,8 @@ test("lambda__function-env, lambda__env-edit and lambda__env-none: the variables
   await page.getByTestId("env-kv-value-3").fill("3");
   await expect(code(page)).toContainText('"RETRY_LIMIT": "3"');
   await expect(code(page)).toContainText('"LOG_LEVEL": "INFO"');
+  // Each row's remove button says "Remove", as the board's does (not an icon alone).
+  await expect(page.locator('[data-testid^="env-kv-remove-"]')).toHaveText(["Remove", "Remove", "Remove", "Remove"]);
   await expect(page.getByTestId("env-rules")).toContainText("RETRY_LIMIT is the new variable.");
   await expect(page.getByTestId("env-rules")).toContainText("AWS_REGION and _HANDLER, are refused");
   await shot(page, "lambda__env-edit");
@@ -324,6 +341,9 @@ test("lambda__trigger-add: an SQS mapping, with the visibility timeout it needs"
   await go(page, fn("send-email", "?tab=configuration&p=triggers"), "send-email");
   await page.getByTestId("trigger-add").click();
   await expect(page.locator("h1").first()).toHaveText("Add trigger");
+  // The crumbs keep the section the form was opened from, as the board's do.
+  await expect(page.getByRole("navigation", { name: "Breadcrumb" }).getByRole("link")).toContainText(["Resources", "Compute and flow", "Lambda", "Event Functions", "send-email", "Configuration", "Triggers"]);
+  await expect(page.getByRole("navigation", { name: "Breadcrumb" })).toContainText("Add trigger");
   await expect(page.getByTestId("trigger-type")).toContainText("SQS");
   await choose(page, "Choose a queue", "invoice-queue");
   await expect(page.getByTestId("queue-hint")).toContainText("invoice-queue is a standard queue that the SNS topic orders-created delivers to.");
@@ -393,6 +413,10 @@ test("lambda__function-permissions, lambda__permission-add and lambda__permissio
   await expect(row).toContainText("sns.amazonaws.com");
   await expect(row).toContainText("lambda:InvokeFunction");
   await expect(row).toContainText("ArnLike aws:SourceArn arn:aws:sns:us-east-1");
+  // The condition is the whole ARN, wrapped: nothing in the cell is cut with an ellipsis.
+  const condition = row.locator("td").last();
+  await expect(condition).toContainText(`arn:aws:sns:us-east-1:${server.account}:alerts`);
+  expect(await condition.evaluate((el) => el.scrollWidth <= el.clientWidth && getComputedStyle(el).textOverflow !== "ellipsis")).toBe(true);
   await expect(page.getByTestId("policy-teach")).toContainText("aws:PrincipalOrgID");
   await shot(page, "lambda__function-permissions");
   await page.getByTestId("permission-add").click();
@@ -432,6 +456,8 @@ test("lambda__function-url, lambda__url-create and lambda__function-url-created:
   await page.getByTestId("url-headers").fill("content-type");
   await page.getByTestId("url-max-age").fill("5");
   await expect(code(page)).toContainText('"AuthType": "AWS_IAM"');
+  await expect(page.getByTestId("url-form")).toContainText("An AWS_IAM URL needs a SigV4 signature for lambda, as on AWS; a request with no signature gets 403 Forbidden.");
+  await expect(page.getByTestId("url-form")).not.toContainText("served unsigned");
   await expect(code(page)).toContainText('"AllowOrigins": [');
   await expect(code(page)).toContainText('"https://admin.larder.dev"');
   await expect(code(page)).toContainText('"MaxAge": 5');
@@ -447,11 +473,13 @@ test("lambda__function-url, lambda__url-create and lambda__function-url-created:
   await expect(card).toContainText("5 seconds");
   await expect(card).toContainText(`${server.endpoint}/_aws/lambda-url/us-east-1/`);
   await expect(page.getByTestId("url-teach")).toContainText("Once you create a function URL, its URL endpoint never changes.");
+  await expect(page.getByTestId("url-teach")).toContainText("needs a SigV4 signature for lambda, as on AWS; a request with no signature gets 403 Forbidden.");
   await shot(page, "lambda__function-url-created");
-  // The "also at" address answers, signed or not: it is how a client that cannot set the Host header reaches it.
+  // The "also at" address is how a client that cannot set the Host header reaches the URL; the copy says an AWS_IAM URL refuses a
+  // request with no signature, so it must: a request with none is 403 Forbidden.
   const also = (await card.getByText(`${server.endpoint}/_aws/lambda-url/us-east-1/`).first().textContent()) ?? "";
   const res = await fetch(also.trim());
-  expect([200, 403, 502]).toContain(res.status);
+  expect(res.status).toBe(403);
 });
 
 test("lambda__function-aliases, lambda__alias-create and lambda__aliases-none: the aliases, the form, and a function with none", async ({ page }) => {
@@ -494,6 +522,8 @@ test("lambda__function-versions and lambda__version-publish: the versions, and t
   await expect(rows).toHaveCount(4);
   await expect(rows.nth(0)).toContainText("$LATEST");
   await expect(rows.nth(0)).toContainText("Send alert and invoice emails");
+  // The $LATEST row's ARN ends in its qualifier, as AWS lists it.
+  await expect(rows.nth(0)).toContainText(`arn:aws:lambda:us-east-1:${server.account}:function:send-email:$LATEST`);
   await expect(rows.nth(1)).toContainText("html alert template");
   await expect(rows.nth(3)).toContainText("first deploy");
   await expect(rows.nth(1)).toContainText(`arn:aws:lambda:us-east-1:${server.account}:function:send-email:3`);
@@ -576,6 +606,8 @@ test("lambda__layer-create: a name, a .zip, its compatibility, and the call", as
   await expect(page.getByTestId("field-name")).toContainText("Publishing under the name larder-shared again would make version 4.");
   await page.getByTestId("layer-name").fill("mail-templates");
   await page.getByTestId("layer-description").fill("HTML and text templates for outgoing mail");
+  // "Upload a .zip file" is said once (the radio), not again over the button.
+  await expect(page.getByText("Upload a .zip file", { exact: true })).toHaveCount(1);
   await page.getByTestId("layer-file").setInputFiles(zipOf("mail.py", "# templates\n"));
   await expect(page.getByTestId("layer-file-name")).toContainText("fn.zip");
   await page.getByTestId("layer-arch-x86_64").click();
