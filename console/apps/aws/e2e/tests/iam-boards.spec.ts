@@ -225,10 +225,12 @@ test("iam__groups-list, group-detail, group-members-none and group-create: the g
 
 test("iam__roles-list, role-detail, role-trust and role-policies-none: the roles, what each may do, and who may assume it", async ({ page }) => {
   await go(page, iam("roles"), "Roles");
-  await expect(page.getByTestId("list-sentence")).toContainText("4 roles. report-job was assumed 2 times in the last hour, each time with ci-bot's key");
+  await expect(page.getByTestId("list-sentence")).toContainText("4 roles. report-job was assumed 2 times in the last hour, each time with ci-bot's key; dispatch-role is for Step Functions; lambda-exec is for Lambda functions; larder-admin was not assumed in the Live record.");
   await expect(page.getByRole("row", { name: /report-job AWS account: / })).toBeVisible();
   await expect(page.getByRole("row", { name: /lambda-exec AWS service: lambda/ })).toBeVisible();
+  await page.getByTestId("select-larder-admin").click();
   await shot(page, "iam__roles-list");
+  await page.getByTestId("select-larder-admin").click();
   await go(page, iam("roles", "report-job"), "report-job");
   await expect(page.getByTestId("detail-sentence")).toContainText("report-job was assumed 2 times in the last hour, all with ci-bot's key. Its only permission is s3:GetObject on reports/*, through report-job-readonly.");
   await expect(page.getByTestId("wired-strip")).toContainText("reports bucket");

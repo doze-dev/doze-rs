@@ -15,7 +15,7 @@ describe("lists", () => {
   });
   test("the roles say which were assumed, with whose key, and which are for a service", () => {
     const roles = [{ name: "lambda-exec", trusted: ["AWS service: lambda"], assumed: 0, inLastHour: 0, assumedBy: [] }, { name: "report-job", trusted: ["AWS account: 1"], assumed: 7, inLastHour: 7, assumedBy: ["ci-bot"] }];
-    expect(rolesSentence(roles)).toBe("2 roles. report-job was assumed 7 times in the last hour, each time with ci-bot's key; lambda-exec is for lambda.");
+    expect(rolesSentence(roles)).toBe("2 roles. report-job was assumed 7 times in the last hour, each time with ci-bot's key; lambda-exec is for Lambda functions.");
     expect(rolesSentence([{ name: "x", trusted: [], assumed: 2, inLastHour: 1, assumedBy: [] }])).toContain("in the Live record");
   });
   test("the policies say what each customer managed one is attached to", () => {

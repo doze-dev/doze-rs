@@ -61,7 +61,7 @@ export function PolicyCreate() {
   const columns: DataColumn<Permission>[] = [
     { id: "service", header: "Service", size: 180, accessorFn: (r) => r.service, cell: (c) => c.row.original.service },
     { id: "actions", header: "Actions", size: 320, accessorFn: (r) => r.actions, cell: (c) => <span className="font-mono text-[13px] break-all">{c.row.original.actions}</span> },
-    { id: "resource", header: "Resource", accessorFn: (r) => r.resource, cell: (c) => <span className="font-mono text-[13px] break-all">{c.row.original.resource}</span> },
+    { id: "resource", header: "Resource", accessorFn: (r) => r.resource, cell: (c) => <span className="block font-mono text-[13px] break-all whitespace-normal" title={c.row.original.resource}>{c.row.original.resource}</span> },
   ];
   const blockedPanel = (
     <aside className="min-w-0 rounded-[14px] border bg-card p-5" aria-label="Nothing was created" data-testid="nothing-created">

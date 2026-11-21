@@ -39,6 +39,9 @@ export function groupsSentence(groups: readonly GroupFacts[]): string {
   return `${count(groups.length, "group")}: ${shown.join("; ")}${more}.`;
 }
 
+/** What a service principal is, said as the roles' sentence says it. */
+const SERVICE_WORDS: Record<string, string> = { lambda: "Lambda functions", states: "Step Functions", events: "EventBridge", scheduler: "EventBridge Scheduler", sns: "SNS", apigateway: "API Gateway", cloudformation: "CloudFormation" };
+
 export type RoleFacts = { name: string; trusted: string[]; assumed: number; inLastHour: number; assumedBy: string[] };
 
 /** `3 roles. report-job was assumed 7 times in the last hour...`: what the record says of who took a session, and for which service the role is. */
@@ -46,13 +49,13 @@ export function rolesSentence(roles: readonly RoleFacts[]): string {
   if (roles.length === 0) return "There are no roles in this account.";
   // The roles with sessions first: they are what the sentence is about.
   const busy = [...roles].sort((a, b) => b.assumed - a.assumed);
-  const clauses = busy.slice(0, 3).map((r) => {
+  const clauses = busy.slice(0, 5).map((r) => {
     if (r.assumed > 0) return `${r.name} was assumed ${count(r.assumed, "time")}${r.inLastHour === r.assumed ? " in the last hour" : " in the Live record"}${r.assumedBy.length === 1 ? `, each time with ${r.assumedBy[0]}'s key` : r.assumedBy.length > 1 ? `, with the keys of ${list(r.assumedBy)}` : ""}`;
-    const svc = r.trusted.filter((t) => t.startsWith("AWS service: ")).map((t) => t.slice("AWS service: ".length));
+    const svc = r.trusted.filter((t) => t.startsWith("AWS service: ")).map((t) => SERVICE_WORDS[t.slice("AWS service: ".length)] ?? t.slice("AWS service: ".length));
     if (svc.length > 0) return `${r.name} is for ${list(svc)}`;
     return `${r.name} was not assumed in the Live record`;
   });
-  return `${count(roles.length, "role")}. ${clauses.join("; ")}${roles.length > 3 ? `; ${roles.length - 3} more` : ""}.`;
+  return `${count(roles.length, "role")}. ${clauses.join("; ")}${roles.length > 5 ? `; ${roles.length - 5} more` : ""}.`;
 }
 
 export type PolicyFacts = { name: string; attached: { kind: "user" | "role" | "group"; name: string }[] };
