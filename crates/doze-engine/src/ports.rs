@@ -1,43 +1,36 @@
 //! Loopback ports for the processes the engine starts.
 
-use std::collections::VecDeque;
 use std::io;
 use std::net::TcpListener;
-use std::sync::{Mutex, PoisonError};
-use std::time::{Duration, Instant};
+use std::sync::atomic::{AtomicU32, Ordering};
 
-/// How long a port handed out is not handed out again: long enough for the process given it to bind it.
-const HOLD: Duration = Duration::from_secs(30);
+/// Where ports come from: below every system's ephemeral range (Linux starts at 32768, macOS and Windows at 49152).
+/// A port from `bind(0)` is one the system hands out by itself, so between the probe and the service's own bind an
+/// outgoing connection, or another program probing the same way, could be given it: "Address already in use" for a
+/// service that had done nothing wrong (doze-engine's catalogue test on macOS, PR #111; os error 10048 on Windows,
+/// CI run 44499950273). Nothing is handed a port from this range unless it asks for that port by number.
+const PORTS: std::ops::Range<u32> = 20_000..32_000;
 
-/// How many ports are tried before giving up (each try is held open, so the system cannot offer it again).
-const TRIES: usize = 32;
+static NEXT: AtomicU32 = AtomicU32::new(0);
 
-/// A loopback port nothing listens on now (Go's `netutil.FreePort`), and not one this process handed out in the last
-/// 30 seconds. Windows' `bind(0)` offers a port again as soon as it is released, so two services started together
-/// could be given one port, and the second failed with "address in use" (os error 10048, CI run 44499950273).
+/// A loopback port nothing listens on now (Go's `netutil.FreePort`), from below the ephemeral range, and not one this
+/// process handed out until it has gone through the whole range (12,000 ports). Each process starts at its own
+/// offset, so two daemons starting at once rarely probe the same ports.
 pub(crate) fn free_port() -> io::Result<u16> {
-    static RECENT: Mutex<VecDeque<(u16, Instant)>> = Mutex::new(VecDeque::new());
-    let mut recent = RECENT.lock().unwrap_or_else(PoisonError::into_inner);
-    let now = Instant::now();
-    while recent
-        .front()
-        .is_some_and(|(_, at)| now.duration_since(*at) > HOLD)
-    {
-        recent.pop_front();
-    }
-    let mut held = Vec::new();
-    for _ in 0..TRIES {
-        let l = TcpListener::bind(("127.0.0.1", 0))?;
-        let port = l.local_addr()?.port();
-        if !recent.iter().any(|(p, _)| *p == port) {
-            recent.push_back((port, now));
+    let span = PORTS.end - PORTS.start;
+    let start = std::process::id().wrapping_mul(97) % span;
+    for _ in 0..span {
+        let n = NEXT.fetch_add(1, Ordering::Relaxed);
+        let Ok(port) = u16::try_from(PORTS.start + (start.wrapping_add(n)) % span) else {
+            continue;
+        };
+        if TcpListener::bind(("127.0.0.1", port)).is_ok() {
             return Ok(port);
         }
-        held.push(l);
     }
     Err(io::Error::new(
         io::ErrorKind::AddrInUse,
-        "every free loopback port offered was handed out in the last 30 seconds",
+        "no free loopback port between 20000 and 32000",
     ))
 }
 
@@ -53,5 +46,14 @@ mod tests {
         sorted.sort_unstable();
         sorted.dedup();
         assert_eq!(sorted.len(), ports.len(), "{ports:?}");
+    }
+
+    /// A port handed out is never one the system would hand out by itself.
+    #[test]
+    fn a_port_is_below_the_ephemeral_range() {
+        for _ in 0..64 {
+            let p = free_port().unwrap();
+            assert!((20_000..32_000).contains(&p), "{p}");
+        }
     }
 }
