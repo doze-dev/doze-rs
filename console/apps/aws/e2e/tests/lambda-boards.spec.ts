@@ -5,7 +5,7 @@ import { join } from "node:path";
 import type { Page } from "@playwright/test";
 import { start, type Running, aws } from "../server";
 import { CUT, expect, test } from "./fixtures";
-import { invoke, seedLarder } from "./lambda-seed";
+import { invoke, seedLarder, zipOf } from "./lambda-seed";
 
 const SHOTS = process.env.SHOTS_DIR ?? join(import.meta.dirname, "../../../../../shots-lambda");
 const BASE = 44940;
@@ -527,4 +527,103 @@ test("lambda__function-code: an edit is deployed with the files it did not touch
   const out = invoke(server.endpoint, "send-email", { Records: [{ Sns: { Subject: "after-deploy" } }] });
   expect(out).toContain('"StatusCode": 200');
   expect(out).not.toContain("FunctionError");
+});
+
+test("lambda__layers-list: the account's layers and whether a function uses one", async ({ page }) => {
+  await go(page, "/resources/lambda/layers", "Layers");
+  await expect(page.getByTestId("list-sentence")).toHaveText("1 layer here, larder-shared, with 3 versions. No function uses it yet.");
+  const row = page.getByRole("table", { name: "Layers" }).locator("tr[data-row]");
+  await expect(row).toHaveCount(1);
+  await expect(row).toContainText("larder-shared");
+  await expect(row).toContainText("Logging and mail helpers");
+  await expect(row).toContainText("python3.13, nodejs22.x");
+  await expect(row).toContainText("x86_64");
+  await expect(page.getByTestId("create-open")).toHaveText("Create layer");
+  await expect(page.getByTestId("page-line")).toHaveText("1 to 1 of 1 layer");
+  await shot(page, "lambda__layers-list");
+});
+
+test("lambda__layer-add: a layer of this account and one of its versions, set on the function", async ({ page }) => {
+  await go(page, fn("send-email"), "send-email");
+  await page.getByTestId("layer-add").click();
+  await expect(page.locator("h1").first()).toHaveText("Add a layer");
+  await expect(page.getByTestId("layer-aws-off")).toContainText("Not available in doze-aws: AWS-managed extension layers are hosted by AWS.");
+  await expect(page.getByTestId("field-layer")).toContainText("larder-shared is the only layer in this account.");
+  await expect(page.getByTestId("layer-version")).toContainText("3");
+  await expect(page.getByTestId("field-version")).toContainText("Version 3 is the newest of larder-shared.");
+  await expect(code(page)).toContainText(`"arn:aws:lambda:us-east-1:${server.account}:layer:larder-shared:3"`);
+  await expect(code(page)).toContainText('"Layers": [');
+  await expect(page.getByTestId("layer-limits")).toContainText("up to five layers");
+  await shot(page, "lambda__layer-add");
+  await page.getByTestId("form-submit").click();
+  await expect(page.getByTestId("done-banner")).toContainText("Layer added.");
+  await expect(page.getByTestId("layers-list")).toContainText("larder-shared");
+  await expect(page.getByTestId("layers-list")).toContainText("version 3");
+  // A function that uses a layer says so in the list of layers.
+  await go(page, "/resources/lambda/layers", "Layers");
+  await expect(page.getByTestId("list-sentence")).toContainText("1 function uses it.");
+});
+
+test("lambda__layer-create: a name, a .zip, its compatibility, and the call", async ({ page }) => {
+  await go(page, "/resources/lambda/layers?create=yes", "Create layer");
+  await page.getByTestId("layer-name").fill("larder-shared");
+  await expect(page.getByTestId("field-name")).toContainText("Publishing under the name larder-shared again would make version 4.");
+  await page.getByTestId("layer-name").fill("mail-templates");
+  await page.getByTestId("layer-description").fill("HTML and text templates for outgoing mail");
+  await page.getByTestId("layer-file").setInputFiles(zipOf("mail.py", "# templates\n"));
+  await expect(page.getByTestId("layer-file-name")).toContainText("fn.zip");
+  await page.getByTestId("layer-arch-x86_64").click();
+  await page.getByLabel("Compatible runtimes", { exact: true }).click();
+  await page.getByRole("option", { name: "python3.13" }).click();
+  await page.getByRole("option", { name: "nodejs22.x" }).click();
+  await page.keyboard.press("Escape");
+  await page.getByTestId("layer-license").fill("MIT");
+  await expect(code(page)).toContainText('"LayerName": "mail-templates"');
+  await expect(code(page)).toContainText('"CompatibleArchitectures": [');
+  await expect(code(page)).toContainText('"python3.13"');
+  await expect(code(page)).toContainText('"LicenseInfo": "MIT"');
+  await expect(code(page)).toContainText("<fn.zip>");
+  await shot(page, "lambda__layer-create");
+  await page.getByTestId("form-submit").click();
+  await expect(page.getByTestId("published-banner")).toContainText("mail-templates version 1 was published.");
+  expect(cli(["lambda", "list-layers", "--query", "Layers[].LayerName", "--output", "text"])).toContain("mail-templates");
+});
+
+test("lambda__layers-none: the empty list once every layer version is deleted", async ({ page }) => {
+  // The last version of a layer is deleted from its own page, and the list it lands on says the layer is gone.
+  await go(page, "/resources/lambda/layers/mail-templates", "mail-templates");
+  await page.getByTestId("layer-version-delete").click();
+  await page.getByRole("button", { name: "Delete", exact: true }).click();
+  await expect(page.getByTestId("deleted-banner")).toContainText("mail-templates was deleted.");
+  for (const v of ["1", "2", "3"]) cli(["lambda", "delete-layer-version", "--layer-name", "larder-shared", "--version-number", v]);
+  await go(page, "/resources/lambda/layers", "Layers");
+  await expect(page.getByTestId("list-empty")).toContainText("No layers");
+  await expect(page.getByTestId("list-empty")).toContainText("A layer packages libraries or data that functions share.");
+  await expect(page.getByTestId("list-empty").getByRole("button", { name: "Create layer" })).toBeVisible();
+  await shot(page, "lambda__layers-none");
+});
+
+test("lambda__function-deleted and lambda__functions-none: the list after a delete, what it left behind, and the empty list", async ({ page }) => {
+  await go(page, fn("send-email"), "send-email");
+  await page.getByTestId("verb-delete").click();
+  await expect(page.getByTestId("delete-dialog")).toContainText("its 4 versions and its 3 aliases (live, smoke, staging)");
+  await page.getByTestId("delete-dialog-input").fill("confirm");
+  await page.getByTestId("delete-dialog-submit").click();
+  await expect(page.getByTestId("deleted-banner")).toContainText("send-email was deleted.");
+  await expect(page.locator("h1").first()).toHaveText("Event Functions");
+  await expect(page.getByTestId("list-sentence")).toContainText("3 functions run here: dispatch-hook, export-report, resize-product-image, weekly-digest.".replace("3 functions", "4 functions"));
+  await expect(page.getByTestId("list-sentence")).toContainText("The alerts topic still points at the deleted function; remove that subscription in SNS.");
+  await expect(page.getByTestId("left-behind")).toContainText("Event source mappings are separate resources: the mapping for email-outbox");
+  await expect(page.getByTestId("left-behind")).toContainText("still exists. Delete it with DeleteEventSourceMapping.");
+  await expect(page.getByRole("table", { name: "Functions" }).locator("tbody tr[data-row]")).toHaveCount(4);
+  const mapping = cli(["lambda", "list-event-source-mappings", "--query", "EventSourceMappings[].UUID", "--output", "text"]);
+  expect(mapping.trim().length).toBeGreaterThan(0);
+  await shot(page, "lambda__function-deleted");
+  for (const name of ["dispatch-hook", "export-report", "resize-product-image", "weekly-digest"]) cli(["lambda", "delete-function", "--function-name", name]);
+  await go(page, "/resources/lambda/functions", "Event Functions");
+  await expect(page.getByTestId("list-empty")).toContainText("No functions");
+  await expect(page.getByTestId("list-empty")).toContainText("You have no functions in this region. Create a function to run code without managing servers.");
+  await expect(page.getByTestId("list-empty").getByRole("button", { name: "Create function" })).toBeVisible();
+  await expect(page.getByTestId("create-open")).toHaveText("Create Event Function");
+  await shot(page, "lambda__functions-none");
 });

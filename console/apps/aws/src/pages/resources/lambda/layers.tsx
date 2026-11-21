@@ -99,7 +99,7 @@ export function LayerCreate() {
   const hasCode = source === "zip" ? Boolean(file) : Boolean(s3.bucket && s3.key);
   const problems = layerProblems(l, hasCode);
   const content = (zip: string) => (source === "zip" ? { ZipFile: zip } : { S3Bucket: s3.bucket, S3Key: s3.key });
-  const shown = { ...layerInput(l, ""), Content: content(file ? `<>` : "<the .zip file>") };
+  const shown = { ...layerInput(l, ""), Content: content(file ? `<${file.name}>` : "<the .zip file>") };
   const refused = refusalOf(publish.error);
   const pick = async (f: File | undefined) => {
     if (!f) return;
