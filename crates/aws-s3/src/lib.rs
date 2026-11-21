@@ -278,6 +278,11 @@ impl Service for S3 {
         Some(self)
     }
 
+    /// The AWS CLI's downloads send `x-amz-checksum-mode: enabled`; S3 takes it in any case (the model's one value is `ENABLED`).
+    fn case_blind_headers(&self) -> &'static [&'static str] {
+        &["x-amz-checksum-mode"]
+    }
+
     /// S3 words a request that breaks the model's rules as `InvalidArgument`.
     fn invalid(&self, violation: &Violation) -> ApiError {
         let member = |ix: u32| TABLES.member(ix).map_or("", |m| m.name);
