@@ -79,7 +79,7 @@ export function PolicyCreate() {
       callNote={step === 0 ? "Nothing is created until Create policy on the review step. A customer managed policy keeps up to five versions." : "The new policy starts at version v1, which is its default version. Attach it afterwards from the policy's Actions menu or from a user, group or role."}
       refusal={failed ? { code: failed.code, message: failed.message } : null}
       banner={failed ? <Alert tone="bad" title={`CreatePolicy was refused: ${failed.code}`} testId="create-refused">{failed.message}</Alert> : undefined}
-      wizard={{ steps: STEPS, current: step, furthest: step, onStep: (i) => { if (i < step) setStep(i); }, onBack: () => setStep(0), onNext: () => { setTried(true); if (errors.length > 0 || doc.trim() === "") return; setTried(false); setStep(1); } }}
+      wizard={{ steps: STEPS, current: step, furthest: step, nextDisabled: blocked, onStep: (i) => { if (i < step) setStep(i); }, onBack: () => setStep(0), onNext: () => { setTried(true); if (errors.length > 0 || doc.trim() === "") return; setTried(false); setStep(1); } }}
       backLabel="Previous"
       submitLabel="Create policy"
       pending={pending}

@@ -127,3 +127,12 @@ export function policySentence(name: string, entities: { users: string[]; roles:
   const to = parts.length === 0 ? `${name} is not attached to anything.` : `${name} is attached to ${list(parts)}.`;
   return `${to} Its default version is ${version}; ${aws ? "doze-aws makes its document from its name." : edited ? "the policy has been edited since it was created." : "the policy has not been edited since it was created."}`;
 }
+
+/** `dev has 1 access key, and it is active.` (the Security credentials tab). */
+export function keysSentence(name: string, keys: readonly { Status: string }[]): string {
+  if (keys.length === 0) return `${name} has no access keys.`;
+  const active = keys.filter((k) => k.Status === "Active").length;
+  const inactive = keys.length - active;
+  const state = keys.length === 1 ? (active === 1 ? "it is active" : "it is inactive") : `${active === 0 ? "none" : count(active, "is", "are")} ${active === 0 ? "is active" : "active"}${inactive > 0 && active > 0 ? ` and ${inactive} inactive` : ""}`;
+  return `${name} has ${count(keys.length, "access key")}, and ${state}.`;
+}

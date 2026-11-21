@@ -19,7 +19,7 @@ import { Field, FormPage, FormSection, PolicyPicker, TAG_RULES, callKindOp } fro
 import { ROLES, USERS, useRead, useRefresh } from "./api";
 import { awsArn, list, SERVICES, sameIgnoringCase, trustDocument } from "./model";
 import { CardChoice, crumbs, KINDS, Note, ReviewBlock, RowChoice } from "./parts";
-import { PolicyChooser } from "./policy-chooser";
+import { PolicyChooser, usePolicyOptions } from "./policy-chooser";
 import { PolicyJson } from "./policy-json";
 import { blankRole, roleCalls, type RoleForm, stepProblem } from "./role-create-model";
 import { TrustNote } from "./trust-note";
@@ -46,6 +46,7 @@ export function RoleCreate() {
   const [failed, setFailed] = useState<{ operation: string; code: string; message: string } | null>(null);
   const aliases = useRead<{ AccountAliases: string[] }>(USERS, "ListAccountAliases", {});
   const alias = aliases.data?.AccountAliases[0];
+  const policyCount = usePolicyOptions().options.length;
   const roles = useResourceList("iam", "roles");
   const taken = useMemo(() => roles.data?.pages.flatMap((p) => p.rows).map((r) => r.name) ?? [], [roles.data]);
   const set = (patch: Partial<RoleForm>) => { setF((x) => ({ ...x, ...patch })); setFailed(null); };
@@ -155,7 +156,7 @@ export function RoleCreate() {
       )}
       {step === 1 && (
         <>
-          <FormSection title="Permissions policies" description="Select one or more policies to attach to the role." testId="section-policies">
+          <FormSection title={`Permissions policies (${policyCount})`} description="Select one or more policies to attach to the role." testId="section-policies">
             <PolicyChooser value={f.policies} onChange={(policies) => set({ policies })} entities filter footnote={<p className="max-w-[46rem] text-[13.5px] leading-[21px] text-muted-foreground" data-testid="policy-note">By default a role has no permissions. Selecting none is allowed; attach policies to the role later. IAM lists a customer managed policy always, and an AWS managed one once something has it attached; the other AWS managed names are ones doze-aws makes a document for when they are attached by ARN, so they show 0.</p>} />
           </FormSection>
           <FormSection title="Set permissions boundary" optional collapsible defaultOpen={false} summary="An advanced feature. Open it to use a policy as the most the role can ever do." description="A boundary sets the most the role can ever do, and grants nothing by itself." testId="section-boundary">

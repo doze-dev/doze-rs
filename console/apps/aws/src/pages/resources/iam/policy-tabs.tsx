@@ -17,7 +17,7 @@ export type Entities = { PolicyUsers?: { UserName: string }[]; PolicyRoles?: { R
 export type Versions = { Versions: { VersionId: string; IsDefaultVersion: boolean; CreateDate: number }[] };
 
 export function PermissionsTab({ doc, version, aws }: { doc: Doc; version: string; aws: boolean }) {
-  const [view, setView] = useState<"summary" | "json">("summary");
+  const [view, setView] = useState<"summary" | "json">("json");
   const text = docText(doc);
   const pretty = (() => { try { return JSON.stringify(JSON.parse(text), null, 2); } catch { return text; } })();
   const columns: DataColumn<Permission>[] = [

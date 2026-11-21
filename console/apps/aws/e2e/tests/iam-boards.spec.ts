@@ -63,9 +63,9 @@ test.afterAll(async () => {
 test("iam__dashboard and iam__alias-edit: the counts, the account, and the alias form with its rule and its calls", async ({ page }) => {
   await go(page, "/resources/iam", "IAM Dashboard");
   await expect(page.getByTestId("dashboard-sentence")).toContainText("larder-dev has 4 users, 2 groups, 4 roles and 2 customer managed policies.");
-  await expect(page.getByTestId("count-users")).toContainText("4");
+  await expect(page.getByTestId("count-users-n")).toHaveText("4 in this account");
   await expect(page.getByTestId("count-policies")).toContainText("customer managed");
-  await expect(page.getByTestId("count-providers")).toContainText("0 OpenID Connect, 0 SAML");
+  await expect(page.getByTestId("count-providers")).toContainText("0 OpenID Connect and 0 SAML in this account");
   await expect(page.getByTestId("fact-Account Alias")).toContainText("larder-dev");
   await expect(page.getByTestId("alias-note")).toContainText("only one alias");
   await shot(page, "iam__dashboard");
@@ -102,6 +102,8 @@ test("iam__users-list and iam__user-delete: the keys by user, the sentence, and 
   await expect(page.getByTestId("delete-keys")).toContainText("No access keys. temp-auditor has none, so nothing signs requests as this user.");
   await expect(page.getByTestId("delete-how")).toContainText("DeleteUser answers DeleteConflict");
   await expect(page.getByTestId("delete-dialog-submit")).toBeDisabled();
+  await page.getByTestId("delete-dialog-input").fill("temp-auditor");
+  await expect(page.getByTestId("delete-dialog-submit")).toBeEnabled();
   await shot(page, "iam__user-delete");
   await page.getByTestId("delete-dialog-input").fill("temp-auditor");
   await page.getByTestId("delete-dialog-submit").click();
@@ -303,6 +305,7 @@ test("iam__role-delete: the dialog names what is detached, and the role goes wit
   await expect(page.getByTestId("delete-dialog")).toContainText("This deletes larder-admin.");
   await expect(page.getByTestId("delete-group-Attached policies")).toContainText("1 policy will be detached. AdministratorAccess is attached to larder-admin; the policy itself stays.");
   await expect(page.getByTestId("delete-how")).toContainText("DeleteRole answers DeleteConflict while a managed policy is still attached.");
+  await page.getByTestId("delete-dialog-input").fill("larder-admin");
   await shot(page, "iam__role-delete");
   await page.getByTestId("delete-dialog-input").fill("larder-admin");
   await page.getByTestId("delete-dialog-submit").click();
@@ -324,11 +327,11 @@ test("iam__policies-list, policy-detail: the policies, the filter, what each is 
   await go(page, iam("policies", policyArn("report-job-readonly")), "report-job-readonly");
   await expect(page.getByTestId("detail-sentence")).toContainText("report-job-readonly is attached to 1 role, report-job. Its default version is v1; the policy has not been edited since it was created.");
   await expect(page.getByTestId("wired-strip")).toContainText("reports bucket");
-  await expect(page.getByTestId("summary-card")).toContainText("s3:GetObject");
+  await expect(page.getByTestId("policy-json")).toContainText('"Action": "s3:GetObject"');
   await expect(page.getByTestId("recent-calls")).toContainText("AttachRolePolicy");
   await shot(page, "iam__policy-detail");
-  await page.getByTestId("policy-view-json").click();
-  await expect(page.getByTestId("policy-json")).toContainText('"Action": "s3:GetObject"');
+  await page.getByTestId("policy-view-summary").click();
+  await expect(page.getByTestId("summary-card")).toContainText("s3:GetObject");
   await page.getByTestId("tab-entities").click();
   await expect(page.getByTestId("entities-card")).toContainText("report-job");
   await page.getByTestId("tab-versions").click();

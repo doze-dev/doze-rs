@@ -9,7 +9,7 @@ import { focusFirstProblem } from "./form-parts";
 import type { PreviewRequest } from "./contract";
 
 /** A wizard's position and moves. On the last step the submit button takes the place of Next. */
-export type Wizard = { steps: Step[]; current: number; furthest?: number; onStep: (index: number) => void; onBack: () => void; onNext: () => void; nextLabel?: string };
+export type Wizard = { steps: Step[]; current: number; furthest?: number; onStep: (index: number) => void; onBack: () => void; onNext: () => void; nextLabel?: string; /** Next is off (the step's problem is on screen); the footer says nothing more. */ nextDisabled?: boolean };
 
 /** A full page for a create or an edit: the header, an optional banner (a refusal, or what was just done), the sections of the
  * form (children: {@link FormSection}s) with the footer, and the CallPanel docked at the right, so what will be sent is in view
@@ -53,7 +53,7 @@ export function FormPage({ title, sub, crumbs, banner, request, requests, refusa
                 <ArrowLeftIcon /> {backLabel}
               </Button>
             )}
-            <Button type="submit" disabled={last ? disabled || pending : false} data-testid="form-submit" className={cn(!last && "pr-3")}>
+            <Button type="submit" disabled={last ? disabled || pending : Boolean(wizard?.nextDisabled)} data-testid="form-submit" className={cn(!last && "pr-3")}>
               {last ? (pending ? "Working…" : submitLabel) : (
                 <>
                   {wizard?.nextLabel ?? "Next"} <ArrowRightIcon />

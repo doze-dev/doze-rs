@@ -45,3 +45,13 @@ describe("a resource", () => {
     expect(policySentence("p", { users: [], roles: [], groups: [] }, "v2", true, false)).toBe("p is not attached to anything. Its default version is v2; the policy has been edited since it was created.");
   });
 });
+
+describe("keys", () => {
+  test("the Security credentials tab says how many keys and which are active", async () => {
+    const { keysSentence } = await import("./sentences");
+    expect(keysSentence("dev", [{ Status: "Active" }])).toBe("dev has 1 access key, and it is active.");
+    expect(keysSentence("dev", [{ Status: "Inactive" }])).toBe("dev has 1 access key, and it is inactive.");
+    expect(keysSentence("tester", [])).toBe("tester has no access keys.");
+    expect(keysSentence("dev", [{ Status: "Active" }, { Status: "Inactive" }])).toBe("dev has 2 access keys, and 1 is active and 1 inactive.");
+  });
+});

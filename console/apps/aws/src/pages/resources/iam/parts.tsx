@@ -3,6 +3,7 @@
 import { Link } from "@tanstack/react-router";
 import { type DataColumn, DataTable } from "@doze/ui/components/app/data-table";
 import { Emphasis } from "@doze/ui/components/app/emphasis";
+import { Button } from "@doze/ui/components/ui/button";
 import { Label } from "@doze/ui/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@doze/ui/components/ui/radio-group";
 import { ToggleGroup, ToggleGroupItem } from "@doze/ui/components/ui/toggle-group";
@@ -47,9 +48,9 @@ export function Note({ children, className, testId }: { children: React.ReactNod
 
 export type Fact = { label: string; value: React.ReactNode; testId?: string };
 
-/** The Summary card: label and value rows, in two columns when there are more than three. */
-export function Summary({ facts, title = "Summary" }: { facts: Fact[]; title?: string }) {
-  const half = facts.length > 3 ? Math.ceil(facts.length / 2) : facts.length;
+/** The Summary card: label and value rows, in the two columns of the boards that draw them so. */
+export function Summary({ facts, title = "Summary", columns = 1 }: { facts: Fact[]; title?: string; columns?: 1 | 2 }) {
+  const half = columns === 2 ? Math.ceil(facts.length / 2) : facts.length;
   const col = (rows: Fact[]) => (
     <dl className="grid grid-cols-[minmax(8rem,12rem)_minmax(0,1fr)] content-start [&>div:last-child>*]:border-b-0">
       {rows.map((f) => (
@@ -63,9 +64,9 @@ export function Summary({ facts, title = "Summary" }: { facts: Fact[]; title?: s
   return (
     <section className="mb-10 rounded-[14px] border bg-card p-6 lg:p-7" aria-label={title} data-testid="summary">
       <h2 className="text-[17px] leading-6 font-semibold tracking-[-0.01em] text-bright">{title}</h2>
-      <div className={cn("mt-4 grid", facts.length > 3 && "lg:grid-cols-2 lg:gap-x-12")}>
+      <div className={cn("mt-4 grid", columns === 2 && "lg:grid-cols-2 lg:gap-x-12")}>
         {col(facts.slice(0, half))}
-        {facts.length > 3 && col(facts.slice(half))}
+        {columns === 2 && col(facts.slice(half))}
       </div>
     </section>
   );
@@ -195,7 +196,7 @@ export function ReviewBlock({ title, onEdit, children, testId }: { title: string
     <section className="min-w-0 rounded-[14px] border bg-card p-6 lg:p-7" aria-label={title} data-testid={testId}>
       <div className="flex items-start justify-between gap-3">
         <h2 className="text-[17px] leading-6 font-semibold tracking-[-0.01em] text-bright">{title}</h2>
-        {onEdit && <button type="button" className="rounded-sm text-[13px] font-medium text-link hover:underline focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none" onClick={onEdit} data-testid={`review-edit-${testId ?? title}`}>Edit</button>}
+        {onEdit && <Button type="button" variant="outline" size="sm" className="bg-card" onClick={onEdit} data-testid={`review-edit-${testId ?? title}`}>Edit</Button>}
       </div>
       <div className="mt-3 grid gap-3">{children}</div>
     </section>
