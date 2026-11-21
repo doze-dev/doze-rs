@@ -108,7 +108,8 @@ doze-cli 9000000 240 0
 # written out, the codecs are the batch's), idle 7,184 KB (samples 7,168, 7,232, 7,184). The bytes are the conversions, the
 # regenerated codecs of eight messages' oldest versions and the release rules of the handlers. Bytes: times CI's 1.3747 is 13,025,074 B
 # on ubuntu x86_64, plus 5% = 13,676,328 B until CI measures it (ceiling 15 MB). Idle unchanged: 11,880 KB.
-doze-kafka 13676328 182 11880 --listen 127.0.0.1:{port} --data-dir {data}
+# 2026-11-21, core M3: doze-bolt (+1 package), the bbolt reader the module face takes a Go module's data over with.
+doze-kafka 13676328 183 11880 --listen 127.0.0.1:{port} --data-dir {data}
 # 2026-11-14, with the schema registry too (Phase 10a, docs/port/phase10.md): 6,791,104 B on darwin arm64 (+216,800 B over the module's 6,574,304 B),
 # 171 packages (no third-party package), 7,248 KB idle. Times 1.36: about 9.24 MB on ubuntu x86_64, under this line (9,386,171 B), which does not move.
 # 2026-11-14, with Protobuf (Phase 10b, written here, no Protobuf crate): 6,857,840 B on darwin arm64 (+66,736 B), 171 packages (none added), 7,376 KB idle.
@@ -256,4 +257,8 @@ doze-kafka 13676328 182 11880 --listen 127.0.0.1:{port} --data-dir {data}
 # 2026-11-21: the console is on by default (loopback, the gateway's port + 1), so this line measures it listening, unopened: 10,641,728 B,
 # 291 packages, idle 7,392 KB; with DOZE_AWS_CONSOLE=off the same binary idles at 7,296 KB (the listener and its empty Live ring:
 # about 96 KB). macOS, release-aws, median of three.
-doze-aws 20000000 300 16384 --listen 127.0.0.1:{port} --data-dir {data}
+# 2026-11-21, core M3 (the aws module face, PR #57 re-applied on main): the module SDK (+12 packages, CI run 43641162106) and
+# doze-bolt, the bbolt reader that carries a Go module's data over (+1): 293 packages. Bytes and idle stay under the ceilings.
+# 2026-11-21: both together (console on by default + module face): 10,908,496 B, 305 packages, idle 7,696 KB (macOS,
+# release-aws, median of three). Package line = 305 plus room = 310.
+doze-aws 20000000 310 16384 --listen 127.0.0.1:{port} --data-dir {data}

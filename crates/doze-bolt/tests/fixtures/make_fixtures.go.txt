@@ -1,0 +1,49 @@
+package main
+
+import (
+	"fmt"
+	"os"
+	"strings"
+
+	bolt "go.etcd.io/bbolt"
+)
+
+func main() {
+	path := os.Args[1]
+	os.Remove(path)
+	db, err := bolt.Open(path, 0o600, &bolt.Options{PageSize: 1024})
+	if err != nil {
+		panic(err)
+	}
+	err = db.Update(func(tx *bolt.Tx) error {
+		s, _ := tx.CreateBucket([]byte("small"))
+		s.Put([]byte("a"), []byte("1"))
+		s.Put([]byte("b"), []byte(""))
+		s.Put([]byte("c"), []byte(strings.Repeat("x", 5000)))
+		big, _ := tx.CreateBucket([]byte("big"))
+		for i := 0; i < 600; i++ {
+			big.Put([]byte(fmt.Sprintf("k%05d", i)), []byte(fmt.Sprintf("v%d", i*7)))
+		}
+		o, _ := tx.CreateBucket([]byte("outer"))
+		in, _ := o.CreateBucket([]byte("inner"))
+		in.Put([]byte("deep"), []byte("value"))
+		lg, _ := o.CreateBucket([]byte("large"))
+		for i := 0; i < 120; i++ {
+			lg.Put([]byte(fmt.Sprintf("n%04d", i)), []byte(strings.Repeat("y", 20)))
+		}
+		o.Put([]byte("plain"), []byte("here"))
+		tx.CreateBucket([]byte("empty"))
+		sc, _ := tx.CreateBucket([]byte("_schema"))
+		sc.Put([]byte("version"), []byte{0, 0, 0, 1})
+		return nil
+	})
+	if err != nil {
+		panic(err)
+	}
+	// A second transaction, so the newer meta is page 1's or 0's by turns.
+	db.Update(func(tx *bolt.Tx) error { return tx.Bucket([]byte("small")).Put([]byte("d"), []byte("later")) })
+	db.Close()
+	db2, _ := bolt.Open(os.Args[2], 0o600, &bolt.Options{PageSize: 1024})
+	db2.Update(func(tx *bolt.Tx) error { tx.CreateBucket([]byte("_schema")); tx.CreateBucket([]byte("queues")); return nil })
+	db2.Close()
+}

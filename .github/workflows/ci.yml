@@ -507,6 +507,11 @@ jobs:
         run: |
           mkdir -p corpus/fuzz_ps
           cargo fuzz run fuzz_ps corpus/fuzz_ps -- -max_total_time=30 -max_len=65536
+      - name: Fuzz the bbolt reader (a Go doze's metadata, taken over) for 30 seconds
+        working-directory: crates/doze-bolt/fuzz
+        run: |
+          mkdir -p corpus/fuzz_bolt
+          cargo fuzz run fuzz_bolt corpus/fuzz_bolt seeds/fuzz_bolt -- -max_total_time=30 -max_len=131072
       - name: Fuzz the module protocol's frame decoder for 30 seconds
         working-directory: crates/doze-module-proto/fuzz
         run: |

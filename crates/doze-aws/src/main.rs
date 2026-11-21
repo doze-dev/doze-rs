@@ -22,6 +22,8 @@ mod export;
 mod instance;
 mod keys;
 mod locate;
+#[cfg(feature = "module")]
+mod module;
 mod probe;
 mod ready;
 mod run;
@@ -47,6 +49,11 @@ pub(crate) const VERSION: &str = match option_env!("DOZE_AWS_VERSION") {
 
 fn main() -> ExitCode {
     let started = Instant::now();
+    // Started by doze as its aws module (`aws-plugin`), or as `doze-aws module`: src/module/mod.rs.
+    #[cfg(feature = "module")]
+    if module::invoked() {
+        return module::run();
+    }
     let matches = cli::command().get_matches();
     let parsed = match Cli::from_arg_matches(&matches) {
         Ok(p) => p,

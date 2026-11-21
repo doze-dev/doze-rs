@@ -1180,3 +1180,41 @@ behaviour the module uses.
 `doze-module-ferret` **1,006,976 B**, 49 packages (mariadb 922,288 B and 44 on the same build): +85 KB over mariadb for
 the BSON, the OP_MSG client and serde_json, which reads the seed files. Under the 1 MiB (1,048,576 B) line a module of
 this kind has until the modules plan sets per-module lines.
+
+## Core M3: doze-aws's module face, measured 2026-11-15, release-aws, darwin/arm64
+
+The module face (`crates/doze-aws/src/module`, feature `module`, on by default as kafka's is) adds the module SDK to doze-aws:
+`doze-module`, its derive, `doze-module-proto`, `doze-os`, `minicbor` and its derive, `hex`, `rustix`, `errno`, `bitflags` (13
+`cargo tree` lines). The template, the checks and the CloudFormation calls are doze-aws's own code (its `cfn` client).
+
+| darwin arm64, `release-aws` | `--no-default-features` | default (module) |
+|---|---|---|
+| doze-aws binary | 8,375,808 B | **8,592,624 B** (+216,816 B, +2.6%) |
+| packages (`cargo tree`, unique lines) | 271 | **284** |
+| idle | | unchanged: the module code runs only as `aws-plugin`, never in the server |
+
+On ubuntu x86_64 (CI's measured ratio for doze-aws, 1.54) that is about +334 KB on CI's 13,128,520 B, about 13.46 MB, inside the
+13,900,000 B line and the owner's 20 MB ceiling. The package line goes from 280 to **287** (CI's 274 plus the 13), a small
+justified rise recorded here; CI's next run on this branch measures it exactly. doze-kafka gains only its `client` declaration
+(kcat), a few strings.
+
+### Core M3: CI's measurement (2026-11-15, PR #57, run 43641162106, ubuntu x86_64)
+
+CI measured `doze-aws` with the module face: **13,507,440 B** (+378,920 B over main's 13,128,520 B; the estimate was about
++334 KB), **286** packages (+12), and an idle median of **10,716 KB** (samples 10,716, 10,632 and 11,016). That is over the
+10,526 KB line. In the same week main measured 10,104 KB (samples 9,940, 10,176 and 10,104).
+
+The earlier "idle unchanged" was wrong. An A/B on darwin, with five starts each and the same tree with and without the
+feature, measured medians of 6,544 KB and 6,656 KB: the module face costs about **+112 KB** idle. Those are the pages of its
+code, because the server never calls it. The rest of CI's +612 KB is within the run-to-run spread that issue #36 records:
+several hundred KB between runs of one commit.
+
+Those lines were for the branch as it stood on 2026-11-15. Since then main moved doze-aws's lines to the owner's ceilings
+(20,000,000 B and 16,384 KB idle, 2026-11-19), so the face fits without a new byte or idle line.
+
+### Core M3 landed on main (2026-11-21)
+
+Re-applied on main, with the take-over of a Go module's data (`module/godata`, both modules). That adds one package to each
+binary: `doze-bolt`, a read-only bbolt reader of about 300 lines with no dependencies. The package lines move to **293** for
+doze-aws (280 on main, +12 for the module SDK as CI counted on 2026-11-15, +1) and **183** for doze-kafka (+1). The kafka
+face's other new code (the importer, `serde` and `serde_json`, already in its tree) runs only in `kafka-plugin`'s provision.
