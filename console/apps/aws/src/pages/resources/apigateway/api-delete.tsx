@@ -11,32 +11,30 @@ import type { AnyApi } from "./types";
 import { apiKind, count, list } from "./words";
 
 /** The words of what goes with a REST API, from what it holds now. */
-function RestImpact({ id, name }: { id: string; name: string }) {
-  const tree = useResources(id).data?.item ?? [];
-  const stages = useStages(id).data?.item ?? [];
-  const plans = useRestPlans().data?.item ?? [];
+function useRestImpact(id: string, name: string, on: boolean): { words: React.ReactNode; plans: React.ReactNode } {
+  const tree = useResources(id, on).data?.item ?? [];
+  const stages = useStages(id, on).data?.item ?? [];
+  const all = useRestPlans().data?.item ?? [];
   const methods = tree.reduce((n, r) => n + Object.keys(r.resourceMethods ?? {}).length, 0);
-  const using = plans.filter((p) => p.apiStages?.some((s) => s.apiId === id));
-  return (
-    <>
-      <p data-testid="delete-impact">Its <b className="font-semibold text-bright">{count(tree.length, "resource")}</b>, <b className="font-semibold text-bright">{count(methods, "method")}</b>{stages.length > 0 ? <> and {stages.length === 1 ? "the stage" : "the stages"} <b className="font-mono font-semibold text-bright">{list(stages.map((s) => s.stageName))}</b></> : " and deployments"} go with it{stages.length > 0 ? <>, and its invoke URL stops answering</> : null}.</p>
-      {using.length > 0 && (
-        <p className="mt-2" data-testid="delete-plans">
-          The usage {using.length === 1 ? "plan" : "plans"} <b className="font-mono font-semibold text-bright">{list(using.map((p) => p.name))}</b> {using.length === 1 ? "lists" : "list"} <b className="font-mono font-semibold text-bright">{list(using.flatMap((p) => (p.apiStages ?? []).filter((s) => s.apiId === id).map((s) => `${name}:${s.stage}`)))}</b>. The plan keeps its keys; the stage leaves it.
-        </p>
-      )}
-    </>
-  );
+  const using = all.filter((p) => p.apiStages?.some((s) => s.apiId === id));
+  return {
+    words: (
+      <span data-testid="delete-impact">Its <b className="font-semibold text-bright">{count(tree.length, "resource")}</b>, <b className="font-semibold text-bright">{count(methods, "method")}</b>{stages.length > 0 ? <> and {stages.length === 1 ? "the stage" : "the stages"} <b className="font-mono font-semibold text-bright">{list(stages.map((s) => s.stageName))}</b></> : " and deployments"} go with it{stages.length > 0 ? ", and its invoke URL stops answering" : ""}.</span>
+    ),
+    plans: using.length > 0 && (
+      <p data-testid="delete-plans">The usage {using.length === 1 ? "plan" : "plans"} <b className="font-mono font-semibold text-bright">{list(using.map((p) => p.name))}</b> {using.length === 1 ? "lists" : "list"} <b className="font-mono font-semibold text-bright">{list(using.flatMap((p) => (p.apiStages ?? []).filter((s) => s.apiId === id).map((s) => `${name}:${s.stage}`)))}</b>. The plan keeps its keys; the stage leaves it.</p>
+    ),
+  };
 }
 
 /** The words of what goes with an HTTP or WebSocket API. */
-function HttpImpact({ id }: { id: string }) {
-  const routes = useRoutes(id).data?.items ?? [];
-  const integrations = useIntegrations(id).data?.items ?? [];
-  const authorizers = useHttpAuthorizers(id).data?.items ?? [];
-  const stages = useHttpStages(id).data?.items ?? [];
+function useHttpImpact(id: string, on: boolean): React.ReactNode {
+  const routes = useRoutes(id, on).data?.items ?? [];
+  const integrations = useIntegrations(id, on).data?.items ?? [];
+  const authorizers = useHttpAuthorizers(id, on).data?.items ?? [];
+  const stages = useHttpStages(id, on).data?.items ?? [];
   const parts = [count(routes.length, "route"), ...(integrations.length > 0 ? ["the integrations behind them"] : []), ...(authorizers.length > 0 ? [authorizers.length === 1 ? `the ${authorizers[0]!.authorizerType === "JWT" ? "JWT" : "Lambda"} authorizer` : `the ${count(authorizers.length, "authorizer")}`] : []), ...(stages.length > 0 ? [`the ${list(stages.map((s) => s.stageName))} ${stages.length === 1 ? "stage" : "stages"}`] : [])];
-  return <p data-testid="delete-impact">Its {list(parts)} go with it.</p>;
+  return <span data-testid="delete-impact">Its {list(parts)} go with it.</span>;
 }
 
 /** The delete of an API: the generic endpoint, then what was read of it is marked stale (not read again). */
@@ -44,13 +42,14 @@ export function ApiDelete({ api, open, onOpenChange, onDone }: { api: Pick<AnyAp
   const forget = useForget();
   const kind = apiKind(api.protocol);
   const del = useMutation({ mutationFn: () => client.api(RESOURCE_PATHS.one("apigateway", kind, api.id), { method: "DELETE" }) });
+  const rest = useRestImpact(api.id, api.name, api.protocol === "REST");
+  const http = useHttpImpact(api.id, api.protocol !== "REST");
   const words = (
     <>
-      Delete <b className="font-mono font-semibold text-bright">{api.name}</b> (<span className="font-mono">{api.id}</span>)?
+      Delete <b className="font-mono font-semibold text-bright">{api.name}</b> (<span className="font-mono">{api.id}</span>)? {api.protocol === "REST" ? rest.words : http}
     </>
   );
   const confirm = () => del.mutate(undefined, { onSuccess: () => { forget(api.id); onDone(api.name); } });
-  const impact = api.protocol === "REST" ? <RestImpact id={api.id} name={api.name} /> : <HttpImpact id={api.id} />;
   const failed = del.error ? errorWords(del.error) : null;
   if (api.protocol === "REST") {
     return (
@@ -67,13 +66,12 @@ export function ApiDelete({ api, open, onOpenChange, onDone }: { api: Pick<AnyAp
         onConfirm={confirm}
         testId="api-delete"
       >
-        <div className="text-[13.5px] leading-[21px] text-foreground">{impact}</div>
+        <div className="text-[13.5px] leading-[21px] text-foreground">{rest.plans}</div>
       </TypedConfirm>
     );
   }
   return (
     <PlainConfirm open={open} onOpenChange={(o) => { onOpenChange(o); if (!o) del.reset(); }} title="Delete API" description={words} call="DeleteApi" pending={del.isPending} error={del.error} onConfirm={confirm} testId="api-delete">
-      <div className="text-[13.5px] leading-[21px] text-foreground">{impact}</div>
     </PlainConfirm>
   );
 }

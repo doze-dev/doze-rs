@@ -97,20 +97,29 @@ export function restSentence(name: string, resources: readonly RestResource[], s
   return `${head}, and ${count(stages.length, "stage")}: ${list(stages.map((s) => s.stageName))}.`;
 }
 
-/** `larder-admin has 3 routes on one stage, $default. Two routes run … ` The route and integration counts come from the lists. */
-export function routesSentence(name: string, routes: readonly { routeKey: string; target?: string; authorizationType?: string }[], stages: readonly HttpStage[], integrationOf: (target: string | undefined) => string | null): string {
+const NUMBER_WORDS = ["no", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten"];
+/** A small number as a word (`two`), a larger one as figures. */
+export const numberWord = (n: number): string => NUMBER_WORDS[n] ?? String(n);
+const capital = (t: string): string => t.charAt(0).toUpperCase() + t.slice(1);
+
+/** `larder-admin has 3 routes on one stage, $default. Two routes run the Lambda function export-report behind the Lambda authorizer admin-request-auth; ANY /orders/{proxy+} has no integration yet.` */
+export function routesSentence(name: string, routes: readonly { routeKey: string; target?: string; authorizerId?: string }[], stages: readonly HttpStage[], info: { fn: (target: string | undefined) => string | null; authorizer: (id: string | undefined) => string | null }): string {
   const names = stages.map((s) => s.stageName);
-  const stagesWords = names.length === 0 ? "no stage" : names.length === 1 ? `one stage, ${names[0]}` : `${count(names.length, "stage")}, ${list(names)}`;
-  const head = `${name} has ${count(routes.length, "route")} on ${stagesWords}.`;
-  const bare = routes.filter((r) => !r.target);
-  const byFunction = new Map<string, number>();
+  const where = names.length === 0 ? "no stage" : names.length === 1 ? `one stage, ${names[0]}` : `${numberWord(names.length)} stages, ${list(names)}`;
+  const head = `${name} has ${count(routes.length, "route")} on ${where}.`;
+  const groups = new Map<string, number>();
   for (const r of routes) {
-    const fn = r.target ? integrationOf(r.target) : null;
-    if (fn) byFunction.set(fn, (byFunction.get(fn) ?? 0) + 1);
+    const fn = r.target ? info.fn(r.target) : null;
+    if (!fn) continue;
+    const by = info.authorizer(r.authorizerId);
+    const key = `the Lambda function ${fn}${by ? ` behind ${by}` : ""}`;
+    groups.set(key, (groups.get(key) ?? 0) + 1);
   }
-  const parts = [...byFunction].map(([fn, n]) => `${n === 1 ? "One route runs" : `${count(n, "route")} run`} ${fn}`);
-  const open = bare.length > 0 ? `${list(bare.map((r) => r.routeKey))} ${bare.length === 1 ? "has" : "have"} no integration yet.` : "";
-  return [head, parts.length > 0 ? `${parts.join(" and ")}.` : "", open].filter(Boolean).join(" ");
+  const parts = [...groups].map(([what, n]) => `${n === 1 ? "One route runs" : `${capital(numberWord(n))} routes run`} ${what}`);
+  const bare = routes.filter((r) => !r.target);
+  const open = bare.length > 0 ? `${list(bare.map((r) => r.routeKey))} ${bare.length === 1 ? "has" : "have"} no integration yet` : "";
+  const tail = [parts.join(" and "), open].filter(Boolean).join("; ");
+  return tail ? `${head} ${tail}.` : head;
 }
 
 /** The two addresses a stage answers at: AWS's, and this doze-aws's. */

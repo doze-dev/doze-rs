@@ -5,6 +5,7 @@ import { PlusIcon, RouteIcon, Trash2Icon } from "lucide-react";
 import { useState } from "react";
 import { ErrorBlock } from "@doze/ui/components/app/alert";
 import { type DataColumn, DataTable } from "@doze/ui/components/app/data-table";
+import { StatusDot } from "@doze/ui/components/app/status-dot";
 import { EmptyState } from "@doze/ui/components/app/empty-state";
 import { Button } from "@doze/ui/components/ui/button";
 import type { CallRecord } from "../../../api/types/CallRecord";
@@ -13,7 +14,7 @@ import { HINT } from "../index-page";
 import { HTTP, useHttpAuthorizers, useHttpStages, useIntegrations, useRoutes, useWrite } from "./api";
 import { sampleOf } from "./http-model";
 import { HTTP_SECTIONS } from "./sections";
-import { ApiChips, ApiLink, Caption, Card, Mono, Rows, Said } from "./parts";
+import { ApiChips, ApiLink, Caption, Mono, Rows, Said } from "./parts";
 import type { HttpApi, HttpIntegration, Route } from "./types";
 import { authorizationWords, httpTarget, lambdaName, routesSentence } from "./words";
 
@@ -46,20 +47,24 @@ export function HttpRoutes({ id, api, calls, selected }: { id: string; api: Http
   const authorizer = authorizers.find((a) => a.authorizerId === chosen.authorizerId);
   const columns: DataColumn<Route>[] = [
     { id: "key", header: "Route key", min: 200, accessorFn: (r) => r.routeKey, cell: (c) => <span className="font-mono text-[13.5px] font-medium text-bright" data-testid="route-key">{c.row.original.routeKey}</span> },
-    { id: "integration", header: "Integration", size: 260, accessorFn: (r) => name(r) ?? "", cell: (c) => name(c.row.original) ?? <span className="text-muted-foreground">None</span> },
+    { id: "integration", header: "Integration", size: 260, accessorFn: (r) => name(r) ?? "", cell: (c) => name(c.row.original) ?? <StatusDot tone="warn">None</StatusDot> },
     { id: "auth", header: "Authorization type", size: 200, accessorFn: (r) => r.authorizationType ?? "NONE" },
     { id: "delete", header: "", size: 72, enableSorting: false, cell: (c) => <Button variant="ghost" size="icon" aria-label={`Delete route ${c.row.original.routeKey}`} onClick={(e) => { e.stopPropagation(); setDeleting(c.row.original); }} data-testid={`delete-${c.row.original.routeKey}`}><Trash2Icon /></Button> },
   ];
-  const sentence = routesSentence(api.name, all, stages, (t) => { const i = byId(t); return i ? lambdaName(i.integrationUri) : null; });
+  const sentence = routesSentence(api.name, all, stages, { fn: (t) => { const i = byId(t); return i ? lambdaName(i.integrationUri) : null; }, authorizer: (aid) => { const a = authorizers.find((x) => x.authorizerId === aid); return a ? `the ${a.authorizerType === "JWT" ? "JWT" : "Lambda"} authorizer ${a.name}` : null; } });
   const auth = chosen.authorizationType ?? "NONE";
   return (
     <>
       <Said text={sentence} names={[api.name, ...stages.map((s) => s.stageName), ...authorizers.map((a) => a.name), ...all.map((r) => r.routeKey), ...ints.flatMap((i) => (lambdaName(i.integrationUri) ? [lambdaName(i.integrationUri)!] : []))]} bold={[/\b\d+ routes\b/]} />
       {chips}
+      <div className="grid items-start gap-x-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,30rem)]">
+      <div className="min-w-0">
       <Caption title="Routes" action={create} />
       <DataTable<Route> aria-label="Routes" data={all} columns={columns} rowId={(r) => r.routeId} onRowClick={(r) => go({ key: r.routeId })} rowClassName={(r) => (r.routeId === chosen.routeId ? "[&>td]:bg-pick/50" : undefined)} />
-      <div className="mt-8" />
-      <Card title="Selected route" testId="selected-route">
+      </div>
+      <div className="min-w-0">
+      <Caption title="Selected route" />
+      <section className="rounded-[14px] border bg-card p-6 lg:p-7" aria-label="Selected route" data-testid="selected-route">
         <Rows rows={[
           { label: "Route key", value: <Mono>{chosen.routeKey}</Mono> },
           { label: "Route ID", value: <Mono>{chosen.routeId}</Mono> },
@@ -67,7 +72,9 @@ export function HttpRoutes({ id, api, calls, selected }: { id: string; api: Http
           { label: "Authorization type", value: auth === "NONE" ? <>NONE: no authorizer, the route is open.</> : <>{auth}: {authorizationWords(auth)}{authorizer ? <> <span className="font-mono">{authorizer.name}</span></> : null}</> },
         ]} />
         <RuleHelp className="mt-6">A request takes the most specific route: a full route and method, then a greedy path such as <span className="font-mono">{"{proxy+}"}</span>, then <span className="font-mono">$default</span>.{/\{[^}]+\+\}/.test(chosen.routeKey) && <> <span className="font-mono">{chosen.routeKey.split(" ")[0] === "ANY" ? "POST" : chosen.routeKey.split(" ")[0]} {sampleOf(chosen.routeKey)}</span> would land on this route.</>}</RuleHelp>
-      </Card>
+      </section>
+      </div>
+      </div>
       <RecentCalls className="mt-12" calls={calls} noun="API" title="Recent calls" scope={api.name} />
       <PlainConfirm open={deleting !== null} onOpenChange={(o) => { if (!o) { setDeleting(null); del.reset(); } }} title="Delete route?" description={<>Delete <b className="font-mono font-semibold text-bright">{deleting?.routeKey}</b>? Requests that matched it then fall to a less specific route, or get 404.</>} call="DeleteRoute" pending={del.isPending} error={del.error} onConfirm={() => deleting && del.mutate({ ApiId: id, RouteId: deleting.routeId } as never, { onSuccess: () => { setDeleting(null); go({}); } })} testId="route-delete" />
     </>

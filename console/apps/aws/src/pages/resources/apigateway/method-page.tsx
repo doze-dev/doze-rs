@@ -50,7 +50,7 @@ export function MethodPage({ api, apiName, resource, method, mode, crumbs, go }:
   const response = current === "iresponse" || current === "mresponse";
   const at = (id: string) => ({ label: id === "request" ? "Method request" : id === "integration" ? "Integration request" : id === "iresponse" ? "Integration response" : "Method response", self: id === current, id });
   const stripe: FlowGroup[] = response
-    ? [{ label: "Response path", chips: [{ label: backend }] }, { chips: [at("iresponse")] }, { chips: [at("mresponse")] }, { chips: [{ label: "Client" }] }]
+    ? current === "mresponse" ? [{ label: "Response path", chips: [at("iresponse")] }, { chips: [at("mresponse")] }, { chips: [{ label: "Client" }] }] : [{ label: "Response path", chips: [{ label: backend }] }, { chips: [at("iresponse")] }, { chips: [at("mresponse")] }, { chips: [{ label: "Client" }] }]
     : [{ label: "Request path", chips: [{ label: "Client" }] }, { chips: [at("request")] }, { chips: [at("integration")] }, { chips: [{ label: backend }] }];
   const authorizer = authorizers.find((a) => a.id === m.authorizerId)?.name;
   const here = `${m.httpMethod} ${res.path}`;
@@ -64,7 +64,7 @@ export function MethodPage({ api, apiName, resource, method, mode, crumbs, go }:
         sub={SUB[current]}
         actions={<Button onClick={() => go({ dialog: "deploy" })} data-testid="deploy-open"><UploadIcon /> Deploy API</Button>}
       />
-      {current === "request" && <Said text={methodSentence(m, res.path, authorizer)} names={[m.httpMethod, res.path, ...(Object.keys(m.requestParameters ?? {}).map((k) => k.split(".").pop() ?? ""))]} bold={[]} />}
+      {current === "request" && <Said text={methodSentence(m, res.path, authorizer)} names={[m.httpMethod, res.path, backend, ...(Object.keys(m.requestParameters ?? {}).map((k) => k.split(".").pop() ?? ""))]} bold={[]} />}
       <FlowStrip groups={stripe} className="mb-10" />
       <Tabs value={current} onValueChange={(v) => go({ do: "method", key: res.id, sel: m.httpMethod, mode: v })} className="gap-0">
         <TabsList variant="line" className="h-11 w-full justify-start gap-4 rounded-none border-b p-0" aria-label={`${here} pages`}>

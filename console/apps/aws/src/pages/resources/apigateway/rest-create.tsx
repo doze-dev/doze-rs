@@ -60,7 +60,7 @@ export function RestCreate() {
         <Field label="Description" optional>{(id) => <Input id={id} value={f.description} onChange={(e) => set({ description: e.target.value })} autoComplete="off" data-testid="api-description" />}</Field>
         <div className="grid gap-2">
           <span className="text-[14px] leading-none font-medium text-bright">API endpoint type</span>
-          <RadioCards<"regional" | "edge" | "private"> name="endpoint" label="API endpoint type" value="regional" onChange={() => undefined} className="sm:grid-cols-1" options={[
+          <RadioCards<"regional" | "edge" | "private"> name="endpoint" label="API endpoint type" value="regional" onChange={() => undefined} className="sm:grid-cols-3" options={[
             { value: "regional", title: "Regional", body: "For clients in the same Region." },
             { value: "edge", title: <>Edge-optimized <span className="ml-1 text-[12px] font-normal text-muted-foreground">Not available</span></>, body: "Not available in doze-aws: there is no CloudFront locally.", disabled: true },
             { value: "private", title: <>Private <span className="ml-1 text-[12px] font-normal text-muted-foreground">Not available</span></>, body: "Not available in doze-aws: there is no VPC locally.", disabled: true },

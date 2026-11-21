@@ -50,9 +50,11 @@ describe("the sentences", () => {
   });
   test("an HTTP API's routes say which ones have no integration", () => {
     const routes = [{ routeKey: "GET /reports", target: "integrations/a" }, { routeKey: "POST /reports/run", target: "integrations/a" }, { routeKey: "ANY /orders/{proxy+}" }];
-    expect(routesSentence("larder-admin", routes, [{ stageName: "$default" }], (t) => (t ? "export-report" : null))).toBe(
-      "larder-admin has 3 routes on one stage, $default. 2 routes run export-report. ANY /orders/{proxy+} has no integration yet.",
+    const info = { fn: (t: string | undefined) => (t ? "export-report" : null), authorizer: (id: string | undefined) => (id ? "the Lambda authorizer admin-request-auth" : null) };
+    expect(routesSentence("larder-admin", routes.map((r) => ({ ...r, authorizerId: r.target ? "a1" : undefined })), [{ stageName: "$default" }], info)).toBe(
+      "larder-admin has 3 routes on one stage, $default. Two routes run the Lambda function export-report behind the Lambda authorizer admin-request-auth; ANY /orders/{proxy+} has no integration yet.",
     );
+    expect(routesSentence("x", [{ routeKey: "GET /a", target: "i" }], [], { ...info, authorizer: () => null })).toBe("x has 1 route on no stage. One route runs the Lambda function export-report.");
   });
   test("an HTTP API's stages say what is automatic", () => {
     const s = httpStagesSentence("larder-admin", [{ stageName: "$default", autoDeploy: true, deploymentId: "f6k" }, { stageName: "beta", deploymentId: "b7w" }], [{ deploymentId: "f6k", createdDate: "1970-01-01T00:16:40Z" }]);

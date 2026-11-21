@@ -1,6 +1,7 @@
 // What the API Gateway pages share: a sentence with its names in bold, the chip navigation of the boards (`ACCOUNT  APIs  Usage plans`,
 // `LARDER-PUBLIC  Resources  Stages  Authorizers`), a section's heading, the details card, and where the console is.
 import { Link } from "@tanstack/react-router";
+import { ChartNoAxesColumnIcon, Share2Icon } from "lucide-react";
 import { Emphasis } from "@doze/ui/components/app/emphasis";
 import { Badge } from "@doze/ui/components/ui/badge";
 import { cn } from "@doze/ui/lib/utils";
@@ -42,7 +43,7 @@ export function Caption({ title, action, className }: { title: string; action?: 
   );
 }
 
-export type Chip = { label: string; to: { kind: string; name?: string; search?: Record<string, string | undefined> }; id: string };
+export type Chip = { icon?: React.ReactNode; label: string; to: { kind: string; name?: string; search?: Record<string, string | undefined> }; id: string };
 
 /** The chip navigation of a page's sections: a small-capitals label, then one chip per section, the one on screen marked. */
 export function ChipNav({ label, chips, current, testId = "section-chips" }: { label: string; chips: readonly Chip[]; current: string; testId?: string }) {
@@ -51,11 +52,11 @@ export function ChipNav({ label, chips, current, testId = "section-chips" }: { l
       <span className="mr-1 text-[12px] font-medium tracking-[0.08em] text-muted-foreground uppercase">{label}</span>
       {chips.map((c) => {
         const on = c.id === current;
-        const cls = cn("inline-flex h-9 items-center rounded-full border px-4 text-[14px] outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50", on ? "border-primary/30 bg-pick font-medium text-bright" : "bg-card text-foreground hover:bg-accent");
+        const cls = cn("inline-flex h-9 items-center gap-2 rounded-full border px-4 text-[14px] outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50", on ? "border-primary/30 bg-pick font-medium text-bright" : "bg-card text-foreground hover:bg-accent");
         return c.to.name ? (
-          <Link key={c.id} to="/resources/$service/$kind/$name" params={{ service: "apigateway", kind: c.to.kind, name: c.to.name }} search={(c.to.search ?? {}) as never} aria-current={on ? "page" : undefined} className={cls} data-testid={`chip-${c.id}`}>{c.label}</Link>
+          <Link key={c.id} to="/resources/$service/$kind/$name" params={{ service: "apigateway", kind: c.to.kind, name: c.to.name }} search={(c.to.search ?? {}) as never} aria-current={on ? "page" : undefined} className={cls} data-testid={`chip-${c.id}`}>{c.icon}{c.label}</Link>
         ) : (
-          <Link key={c.id} to="/resources/$service/$second" params={{ service: "apigateway", second: c.to.kind }} search={(c.to.search ?? {}) as never} aria-current={on ? "page" : undefined} className={cls} data-testid={`chip-${c.id}`}>{c.label}</Link>
+          <Link key={c.id} to="/resources/$service/$second" params={{ service: "apigateway", second: c.to.kind }} search={(c.to.search ?? {}) as never} aria-current={on ? "page" : undefined} className={cls} data-testid={`chip-${c.id}`}>{c.icon}{c.label}</Link>
         );
       })}
     </nav>
@@ -64,7 +65,7 @@ export function ChipNav({ label, chips, current, testId = "section-chips" }: { l
 
 /** `ACCOUNT  APIs  Usage plans`. */
 export function AccountNav({ current }: { current: "apis" | "usageplans" }) {
-  return <ChipNav label="Account" current={current} testId="account-nav" chips={[{ id: "apis", label: "APIs", to: { kind: "restapis" } }, { id: "usageplans", label: "Usage plans", to: { kind: "usageplans" } }]} />;
+  return <ChipNav label="Account" current={current} testId="account-nav" chips={[{ id: "apis", label: "APIs", icon: <Share2Icon aria-hidden className="size-4" />, to: { kind: "restapis" } }, { id: "usageplans", label: "Usage plans", icon: <ChartNoAxesColumnIcon aria-hidden className="size-4" />, to: { kind: "usageplans" } }]} />;
 }
 
 /** What an API is, beside its name in the header: its name, its kind and where it is reachable from. */

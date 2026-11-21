@@ -4,9 +4,10 @@ import { useMemo, useState } from "react";
 import { Alert } from "@doze/ui/components/app/alert";
 import { Input } from "@doze/ui/components/ui/input";
 import { Label } from "@doze/ui/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@doze/ui/components/ui/select";
 import { Switch } from "@doze/ui/components/ui/switch";
 import { ApiFailure } from "@doze/ui/lib/api";
-import { Field, FormPage, FormSection, FunctionPicker, RadioCards, RuleHelp, Segmented } from "../../../kit";
+import { Field, FormPage, FormSection, FunctionPicker, RadioCards, RuleHelp } from "../../../kit";
 import { HTTP, useHttpAuthorizers, useWrite } from "./api";
 import { type HttpAuthorizerForm, emptyHttp, httpAuthorizerInput, httpAuthorizerProblem } from "./authorizer-model";
 import { ListEditor } from "./list-editor";
@@ -30,7 +31,7 @@ export function HttpAuthorizerCreate({ api, apiName, crumbs, onClose }: { api: s
       title="Create authorizer"
       sub={lambda ? "Have API Gateway ask a Lambda function whether a request may pass. You attach the authorizer to a route afterwards." : "Have API Gateway check a token against its issuer before a request may pass. You attach the authorizer to a route afterwards."}
       titleExtra={<span className="font-mono text-[13px] text-muted-foreground">{apiName}</span>}
-      crumbs={[...crumbs, { label: "Authorization", to: `/resources/apigateway/apis/${api}?tab=authorization` }, { label: "Create authorizer", to: `/resources/apigateway/apis/${api}?do=create-authorizer` }]}
+      crumbs={[...crumbs, { label: "Authorization", to: `/resources/apigateway/apis/${api}?tab=authorization` }, { label: "Manage authorizers", to: `/resources/apigateway/apis/${api}?tab=authorization&mode=manage` }, { label: "Create authorizer", to: `/resources/apigateway/apis/${api}?do=create-authorizer` }]}
       request={{ service: "apigatewayv2", operation: "CreateAuthorizer", input }}
       showInput
       refusal={failure}
@@ -60,7 +61,7 @@ export function HttpAuthorizerCreate({ api, apiName, crumbs, onClose }: { api: s
             <Field label="Lambda function" error={tried && !f.fn ? "Choose the Lambda function." : undefined} hint={<>API Gateway must be allowed to invoke the function, through its resource policy or an IAM role.</>}>
               {(id) => <FunctionPicker id={id} by="name" value={f.fn} onChange={(fn) => set({ fn })} />}
             </Field>
-            <div className="grid gap-2"><span className="text-[14px] leading-none font-medium text-bright">Payload format version</span><Segmented<"2.0" | "1.0"> value={f.version} onChange={(version) => set({ version, simple: version === "2.0" ? f.simple : false })} label="Payload format version" testId="payload-version" options={[{ value: "2.0", label: "2.0" }, { value: "1.0", label: "1.0" }]} className="w-fit" /><p className="text-[13px] leading-5 text-muted-foreground">The shape of the event the function receives. The console uses the latest, 2.0, when you do not choose; use 1.0 for compatibility with REST APIs.</p></div>
+            <div className="grid gap-2"><span className="text-[14px] leading-none font-medium text-bright">Payload format version</span><Select value={f.version} onValueChange={(version) => set({ version: version as "2.0" | "1.0", simple: version === "2.0" ? f.simple : false })}><SelectTrigger className="w-64 bg-card" aria-label="Payload format version" data-testid="payload-version"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="2.0">2.0</SelectItem><SelectItem value="1.0">1.0</SelectItem></SelectContent></Select><p className="text-[13px] leading-5 text-muted-foreground">The shape of the event the function receives. The console uses the latest, 2.0, when you do not choose; use 1.0 for compatibility with REST APIs.</p></div>
             {f.version === "2.0" && (
               <div className="flex items-start gap-3"><Switch id="simple" checked={f.simple} onCheckedChange={(simple) => set({ simple })} className="mt-0.5" data-testid="authorizer-simple" /><div className="grid gap-0.5"><Label htmlFor="simple">Enable simple responses</Label><p className="text-[13px] text-muted-foreground">With 2.0, the function may answer <span className="font-mono">{"{\"isAuthorized\": true}"}</span> instead of an IAM policy. Turn it off for per-route permissions in a policy.</p></div></div>
             )}

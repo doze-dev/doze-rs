@@ -58,13 +58,14 @@ export function HttpCors({ id, api }: { id: string; api: HttpApi }) {
               <Button type="submit" disabled={save.isPending} data-testid="cors-save">{save.isPending ? "Saving…" : "Save"}</Button>
             </div>
           </section>
-          <section className="grid max-w-3xl gap-2 text-[13.5px] leading-[21px] text-muted-foreground" aria-label="When CORS is on">
-            <h2 className="text-[17px] leading-6 font-semibold text-bright">When CORS is on</h2>
-            <RuleHelp>API Gateway replies to preflight OPTIONS requests on its own, even with no OPTIONS route, and adds the CORS headers to integration responses.</RuleHelp>
-            <RuleHelp>A request must carry an origin header to get CORS headers back; a preflight also needs Access-Control-Request-Method. doze-aws answers a preflight with 204 (<span className="font-mono">crates/aws-apigateway/src/plane/cors.rs</span>).</RuleHelp>
-          </section>
         </form>
-        <div className="xl:sticky xl:top-6"><CallPanel request={{ service: "apigatewayv2", operation: "UpdateApi", input }} showInput note="The CORS block is part of the API itself, not of a route or a stage." /></div>
+        <div className="grid gap-6 xl:sticky xl:top-6"><CallPanel request={{ service: "apigatewayv2", operation: "UpdateApi", input }} showInput note="The CORS block is part of the API itself, not of a route or a stage." />
+          <section className="grid gap-3 rounded-[14px] border bg-card p-5" aria-label="When CORS is on">
+            <h2 className="text-[17px] leading-6 font-semibold text-bright">When CORS is on</h2>
+            <RuleHelp>API Gateway replies to preflight <span className="font-mono">OPTIONS</span> requests on its own, even with no OPTIONS route, and adds the CORS headers to integration responses.</RuleHelp>
+            <RuleHelp>A request must carry an <span className="font-mono">origin</span> header to get CORS headers back; a preflight also needs Access-Control-Request-Method. doze-aws answers a preflight with 204 (<span className="font-mono break-all">crates/aws-apigateway/src/plane/cors.rs</span>).</RuleHelp>
+          </section>
+        </div>
       </div>
     </>
   );

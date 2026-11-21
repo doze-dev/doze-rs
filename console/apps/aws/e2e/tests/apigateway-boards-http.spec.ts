@@ -25,12 +25,13 @@ test("apigateway__http-create (and its routes, stage and review steps): four ste
   await next(page);
   await expect(page.locator("h1")).toHaveText("Configure routes");
   await expect(page.getByTestId("route-path")).toHaveValue("/export-report");
-  await expect(page.getByTestId("section-routes")).toContainText("How routes match.");
+  await expect(page.getByTestId("section-match")).toContainText("The console names the first route after the Lambda function.");
+  await expect(page.getByTestId("section-match")).toContainText("larder-admin already has GET /reports and POST /reports/run; this new API is separate.");
   await shot(page, "http-create-routes");
   await next(page);
   await expect(page.locator("h1")).toHaveText("Stage");
   await expect(page.getByTestId("stage-name")).toHaveValue("$default");
-  await expect(page.getByTestId("section-stage")).toContainText("This API will answer at https://<api-id>.execute-api.us-east-1.amazonaws.com/export-report.");
+  await expect(page.getByTestId("section-stage-help")).toContainText("This API will answer at https://<api-id>.execute-api.us-east-1.amazonaws.com/export-report.");
   await shot(page, "http-create-stages");
   await next(page);
   await expect(page.locator("h1")).toHaveText("Review and create");
@@ -61,7 +62,7 @@ test("apigateway__http-routes: the routes with their integration and authorizati
   await go(page, apiPath("apis", http()), "Routes");
   await expect(page.getByTestId("chip-kind")).toHaveText("HTTP");
   const sentence = page.getByTestId("list-sentence");
-  await expect(sentence).toContainText("larder-admin has 3 routes on 2 stages, $default and beta. 2 routes run export-report. ANY /orders/{proxy+} has no integration yet.");
+  await expect(sentence).toContainText("larder-admin has 3 routes on two stages, $default and beta. Two routes run the Lambda function export-report behind the Lambda authorizer admin-request-auth; ANY /orders/{proxy+} has no integration yet.");
   const table = page.getByRole("table", { name: "Routes" });
   await expect(table).toContainText("GET /reports");
   await expect(table).toContainText("CUSTOM");

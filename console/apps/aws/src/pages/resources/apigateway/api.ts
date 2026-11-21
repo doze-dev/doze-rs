@@ -3,6 +3,7 @@
 // one takes its path members capitalised (`ApiId`, `RouteId`) and writes its bodies in camelCase. Reads are made when a page opens
 // and when the person asks.
 import { useQueryClient } from "@tanstack/react-query";
+import { useResourceDetail } from "../../../api/resources";
 import { type Kind, callKindOp, useKindOp, useKindOpRead } from "../../../kit";
 import type { Authorizers, Deployments, HttpApi, HttpApis, HttpAuthorizers, HttpDeployments, HttpIntegrations, HttpStages, Resources, RestApi, RestApis, Routes, Stages, UsagePlans, ApiKeys, PlanKeys } from "./types";
 
@@ -16,17 +17,17 @@ export const useRestApi = (id: string) => useKindOpRead<RestApi>(REST, "GetRestA
 export const useHttpApi = (id: string) => useKindOpRead<HttpApi>(HTTP, "GetApi", { ApiId: id });
 
 /** The whole tree of a REST API in one read, each resource with its methods (and their integrations and responses). */
-export const useResources = (id: string) => useKindOpRead<Resources>(REST, "GetResources", { restApiId: id, embed: ["methods"], limit: 500 });
-export const useStages = (id: string) => useKindOpRead<Stages>(REST, "GetStages", { restApiId: id });
+export const useResources = (id: string, enabled = true) => useKindOpRead<Resources>(REST, "GetResources", { restApiId: id, embed: ["methods"], limit: 500 }, enabled);
+export const useStages = (id: string, enabled = true) => useKindOpRead<Stages>(REST, "GetStages", { restApiId: id }, enabled);
 export const useDeployments = (id: string) => useKindOpRead<Deployments>(REST, "GetDeployments", { restApiId: id, limit: 500 });
 export const useAuthorizers = (id: string) => useKindOpRead<Authorizers>(REST, "GetAuthorizers", { restApiId: id, limit: 500 });
 /** The plans of the account, for what names an API (a delete says which plan covers it). */
 export const useRestPlans = () => useKindOpRead<UsagePlans>(REST, "GetUsagePlans", { limit: 500 });
 
-export const useRoutes = (id: string) => useKindOpRead<Routes>(HTTP, "GetRoutes", { ApiId: id });
-export const useIntegrations = (id: string) => useKindOpRead<HttpIntegrations>(HTTP, "GetIntegrations", { ApiId: id });
-export const useHttpAuthorizers = (id: string) => useKindOpRead<HttpAuthorizers>(HTTP, "GetAuthorizers", { ApiId: id });
-export const useHttpStages = (id: string) => useKindOpRead<HttpStages>(HTTP, "GetStages", { ApiId: id });
+export const useRoutes = (id: string, enabled = true) => useKindOpRead<Routes>(HTTP, "GetRoutes", { ApiId: id }, enabled);
+export const useIntegrations = (id: string, enabled = true) => useKindOpRead<HttpIntegrations>(HTTP, "GetIntegrations", { ApiId: id }, enabled);
+export const useHttpAuthorizers = (id: string, enabled = true) => useKindOpRead<HttpAuthorizers>(HTTP, "GetAuthorizers", { ApiId: id }, enabled);
+export const useHttpStages = (id: string, enabled = true) => useKindOpRead<HttpStages>(HTTP, "GetStages", { ApiId: id }, enabled);
 export const useHttpDeployments = (id: string) => useKindOpRead<HttpDeployments>(HTTP, "GetDeployments", { ApiId: id });
 
 export const usePlans = () => useKindOpRead<UsagePlans>(PLANS, "GetUsagePlans", { limit: 500 });
@@ -83,4 +84,9 @@ export async function runCalls(k: Kind, calls: readonly { operation: string; inp
     onStep?.(c.operation);
     await callKindOp(k, c.operation, c.input);
   }
+}
+
+/** What Lambda says of a function (`export-report runs python3.13 with 128 MB and a 3 second timeout.`), once one is chosen. */
+export function useFunctionSentence(name: string | null): string | null {
+  return useResourceDetail("lambda", "functions", name ?? "", Boolean(name)).data?.sentence ?? null;
 }

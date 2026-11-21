@@ -8,7 +8,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@doze/ui/components/ui/switch";
 import { ApiFailure } from "@doze/ui/lib/api";
 import { Field, FormPage, FormSection, FunctionPicker, RadioCards, RolePicker, RuleHelp } from "../../../kit";
-import { REST, runCalls, useAuthorizers, useRefreshReads, useResources } from "./api";
+import { Emphasis } from "@doze/ui/components/app/emphasis";
+import { REST, runCalls, useFunctionSentence, useAuthorizers, useRefreshReads, useResources } from "./api";
 import { sdkShown } from "./calls";
 import { type IntegrationKind, type MethodForm, METHODS, SERVICES, emptyMethod, methodCalls, methodProblem, settingsSummary } from "./method-model";
 import { useWhere } from "./parts";
@@ -23,6 +24,7 @@ export function MethodCreate({ api, apiName, resource, crumbs, onClose }: { api:
   const taken = res ? methodsOf(res).map((m) => m.httpMethod) : [];
   const first = METHODS.find((m) => !taken.includes(m)) ?? "GET";
   const [f, setF] = useState<MethodForm>({ ...emptyMethod, method: first });
+  const sentence = useFunctionSentence(f.fn);
   const [tried, setTried] = useState(false);
   const [error, setError] = useState<{ code: string; message: string; after: string | null } | null>(null);
   const [working, setWorking] = useState(false);
@@ -97,7 +99,7 @@ export function MethodCreate({ api, apiName, resource, crumbs, onClose }: { api:
           </div>
         )}
         {lambda && (
-          <Field label="Lambda function" error={tried && !f.fn ? "Choose the Lambda function." : undefined} hint={<>The function&apos;s name, in {where.region}. API Gateway must be allowed to invoke it, through its resource policy or an IAM role.</>}>
+          <Field label="Lambda function" error={tried && !f.fn ? "Choose the Lambda function." : undefined} hint={<>The function&apos;s name, in {where.region}.{sentence && <> <Emphasis text={sentence} names={[f.fn ?? ""]} /></>} API Gateway must be allowed to invoke it, through its resource policy or an IAM role.</>}>
             {(id) => <FunctionPicker id={id} by="name" value={f.fn} onChange={(fn) => set({ fn })} />}
           </Field>
         )}

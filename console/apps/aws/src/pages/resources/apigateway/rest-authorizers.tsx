@@ -7,7 +7,7 @@ import { ErrorBlock } from "@doze/ui/components/app/alert";
 import { type DataColumn, DataTable } from "@doze/ui/components/app/data-table";
 import { EmptyState } from "@doze/ui/components/app/empty-state";
 import { Button } from "@doze/ui/components/ui/button";
-import { PlainConfirm } from "../../../kit";
+import { PlainConfirm, RuleHelp } from "../../../kit";
 import { HINT } from "../index-page";
 import { REST, useAuthorizers, useResources, useWrite } from "./api";
 import { ApiChips, Said } from "./parts";
@@ -38,7 +38,7 @@ export function RestAuthorizers({ id, name }: { id: string; name: string }) {
     { id: "payload", header: "Lambda event payload", size: 190, accessorFn: payload },
     { id: "fn", header: "Lambda function", size: 190, accessorFn: (a) => lambdaName(a.authorizerUri) ?? a.providerARNs?.[0] ?? "", cell: (c) => <span className="font-mono text-[13px]">{lambdaName(c.row.original.authorizerUri) ?? c.row.original.providerARNs?.map((p) => p.split("/").pop()).join(", ") ?? "–"}</span> },
     { id: "source", header: "Identity source", size: 190, accessorFn: source },
-    { id: "ttl", header: "TTL", size: 130, accessorFn: (a) => a.authorizerResultTtlInSeconds ?? 0, cell: (c) => `${c.row.original.authorizerResultTtlInSeconds ?? 0} seconds` },
+    { id: "ttl", header: "TTL", size: 130, meta: { numeric: true }, accessorFn: (a) => a.authorizerResultTtlInSeconds ?? 0, cell: (c) => `${c.row.original.authorizerResultTtlInSeconds ?? 0} seconds` },
     { id: "delete", header: "", size: 60, enableSorting: false, cell: (c) => <Button variant="ghost" size="icon" aria-label={`Delete authorizer ${c.row.original.name}`} onClick={() => setDeleting(c.row.original)} data-testid={`delete-${c.row.original.name}`}><Trash2Icon /></Button> },
   ];
   return (
@@ -50,9 +50,9 @@ export function RestAuthorizers({ id, name }: { id: string; name: string }) {
       ) : (
         <>
           <DataTable<Authorizer> aria-label="Authorizers" data={all} columns={columns} rowId={(a) => a.id} />
-          <div className="mt-5 grid max-w-3xl gap-2 text-[13.5px] leading-[21px] text-muted-foreground">
-            <p>A <b className="font-semibold text-foreground">token</b> authorizer reads one header, such as a JWT or an OAuth token. A <b className="font-semibold text-foreground">request</b> authorizer reads headers, query strings, stage variables and context variables, and the developer guide recommends it over the token type.</p>
-            <p>Whatever the type, the Lambda function returns an IAM policy and a principal identifier; without both, the call fails. A Cognito authorizer checks the token&apos;s claims; doze-aws does not check its signature, because no user pool is served here.</p>
+          <div className="mt-6 grid max-w-3xl gap-3">
+            <RuleHelp>A <b className="font-semibold text-foreground">token</b> authorizer reads one header, such as a JWT or an OAuth token. A <b className="font-semibold text-foreground">request</b> authorizer reads headers, query strings, stage variables and context variables, and the developer guide recommends it over the token type.</RuleHelp>
+            <RuleHelp>Whatever the type, the Lambda function returns an IAM policy and a principal identifier; without both, the call fails. A Cognito authorizer checks the token&apos;s claims; doze-aws does not check its signature, because no user pool is served here.</RuleHelp>
           </div>
         </>
       )}

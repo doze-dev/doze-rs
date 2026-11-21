@@ -5,6 +5,7 @@ import { PlusIcon, UploadIcon, PencilIcon, Layers3Icon } from "lucide-react";
 import { useState } from "react";
 import { Alert, ErrorBlock, errorWords } from "@doze/ui/components/app/alert";
 import { type DataColumn, DataTable } from "@doze/ui/components/app/data-table";
+import { StatusDot } from "@doze/ui/components/app/status-dot";
 import { EmptyState } from "@doze/ui/components/app/empty-state";
 import { Button } from "@doze/ui/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@doze/ui/components/ui/dialog";
@@ -15,7 +16,7 @@ import type { CallRecord } from "../../../api/types/CallRecord";
 import { Field, RecentCalls, RuleHelp } from "../../../kit";
 import { HINT } from "../index-page";
 import { HTTP, useHttpDeployments, useHttpStages, useWrite } from "./api";
-import { ApiChips, Card, Mono, Rows, Said, useWhere } from "./parts";
+import { ApiChips, Caption, Card, Mono, Rows, Said, useWhere } from "./parts";
 import { HTTP_SECTIONS } from "./sections";
 import type { HttpApi, HttpStage } from "./types";
 import { httpStagesSentence, invokeUrls, stageNameProblem, when } from "./words";
@@ -82,7 +83,7 @@ export function HttpStages({ id, api, calls, selected }: { id: string; api: Http
   const dep = deps.find((d) => d.deploymentId === chosen.deploymentId);
   const columns: DataColumn<HttpStage>[] = [
     { id: "name", header: "Stage name", min: 160, accessorFn: (s) => s.stageName, cell: (c) => <span className="font-mono text-[13.5px] font-medium text-bright" data-testid="stage-name-cell">{c.row.original.stageName}</span> },
-    { id: "auto", header: "Automatic deployment", size: 230, accessorFn: (s) => (s.autoDeploy ? "On" : "Off") },
+    { id: "auto", header: "Automatic deployment", size: 230, accessorFn: (s) => (s.autoDeploy ? "On" : "Off"), cell: (c) => <StatusDot tone={c.row.original.autoDeploy ? "ok" : "idle"}>{c.row.original.autoDeploy ? "On" : "Off"}</StatusDot> },
     { id: "deployment", header: "Deployment", size: 200, accessorFn: (s) => s.deploymentId ?? "", cell: (c) => (c.row.original.deploymentId ? <span className="font-mono text-[13px]">{c.row.original.deploymentId}</span> : <span className="text-muted-foreground">None</span>) },
   ];
   const failed = deploy.error ? errorWords(deploy.error) : null;
@@ -90,10 +91,14 @@ export function HttpStages({ id, api, calls, selected }: { id: string; api: Http
     <>
       <Said text={httpStagesSentence(api.name, all, deps)} names={[...all.map((s) => s.stageName), ...deps.map((d) => d.deploymentId)]} />
       {chips}
-      <div className="mb-3 flex justify-end">{create}</div>
+      <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,34rem)]">
+      <div className="min-w-0">
+      <Caption title="Stages" action={create} />
       <DataTable<HttpStage> aria-label="Stages" data={all} columns={columns} rowId={(s) => s.stageName} onRowClick={(s) => go({ tab: "stages", name: s.stageName })} rowClassName={(s) => (s.stageName === chosen.stageName ? "[&>td]:bg-pick/50" : undefined)} />
-      <div className="mt-8" />
-      <Card title="Stage details" sub={<span className="font-mono">{chosen.stageName}</span>} action={<div className="flex flex-wrap gap-2">{!chosen.autoDeploy && <Button variant="outline" size="sm" className="bg-card" disabled={deploy.isPending} onClick={() => deploy.mutate({ ApiId: id, stageName: chosen.stageName } as never)} data-testid="deploy-stage"><UploadIcon /> Deploy</Button>}<Button variant="outline" size="sm" className="bg-card" onClick={() => setForm({ stage: chosen })} data-testid="edit-stage"><PencilIcon /> Edit</Button></div>} testId="stage-details">
+      </div>
+      <div className="min-w-0">
+      <Caption title="Stage details" />
+      <Card title={chosen.stageName} action={<div className="flex flex-wrap gap-2">{!chosen.autoDeploy && <Button variant="outline" size="sm" className="bg-card" disabled={deploy.isPending} onClick={() => deploy.mutate({ ApiId: id, stageName: chosen.stageName } as never)} data-testid="deploy-stage"><UploadIcon /> Deploy</Button>}<Button variant="outline" size="sm" className="bg-card" onClick={() => setForm({ stage: chosen })} data-testid="edit-stage"><PencilIcon /> Edit</Button></div>} testId="stage-details">
         <Rows rows={[
           { label: "Invoke URL", value: <Mono>{urls.aws}</Mono>, note: <>Also at <span className="font-mono break-all">{urls.local}</span></> },
           { label: "Automatic deployment", value: chosen.autoDeploy ? "On" : "Off" },
@@ -106,6 +111,8 @@ export function HttpStages({ id, api, calls, selected }: { id: string; api: Http
           <RuleHelp>With automatic deployment on, a change to the API is released for you; with it off, you publish with a deployment. doze-aws serves an automatic stage from the live API; a stage deployed by hand is served from its deployment&apos;s snapshot (<span className="font-mono">crates/aws-apigateway/src/plane/find.rs</span>).</RuleHelp>
         </div>
       </Card>
+      </div>
+      </div>
       <RecentCalls className="mt-12" calls={calls.filter((c) => c.action !== null && ACTIONS.includes(c.action))} noun="stage" title="Recent calls" scope={`the stages of ${api.name}`} />
       {form && <StageForm api={id} stage={form.stage} onClose={() => setForm(null)} />}
     </>
