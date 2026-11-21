@@ -43,7 +43,7 @@ export function Sentence({ text, name, also, bold }: { text: string; name: strin
 /** What the resource is connected to, as a row of links: each says how (`Publishes to`) and what. With `self` the resource's own name is a
  * chip of the row too, at position `at` (what comes before it flows in, what comes after flows out). `chipText` gives a chip its own
  * words (`payment-settled rule, bus larder`) in place of the `label` and name; the label is then on hover. */
-export function WiredStrip({ wired, className, self, chipText }: { wired: Wired[]; className?: string; self?: { name: string; at: number }; chipText?: (w: Wired) => string }) {
+export function WiredStrip({ wired, className, self, chipText, lead = "Wired to" }: { wired: Wired[]; className?: string; /** The strip's first words (`Triggered by`). */ lead?: string; self?: { name: string; at: number }; chipText?: (w: Wired) => string }) {
   if (wired.length === 0) return null;
   const chip = (w: Wired) => (
     <Link to={resourceHref(w.to) as never} title={w.note ?? (chipText ? w.label : undefined)} className="inline-flex min-w-0 max-w-full items-center gap-2 rounded-lg border bg-well px-3 py-1.5 text-[13px] outline-none hover:bg-accent focus-visible:ring-[3px] focus-visible:ring-ring/50" data-testid="wired-link">
@@ -54,7 +54,7 @@ export function WiredStrip({ wired, className, self, chipText }: { wired: Wired[
   if (self) items.splice(Math.min(self.at, items.length), 0, <span key="self" aria-current="page" className="inline-flex items-center rounded-lg border border-primary/40 bg-pick px-3 py-1.5 font-mono text-[13px] text-bright" data-testid="wired-self">{self.name}</span>);
   return (
     <nav aria-label="Wired to" className={cn("mb-8 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-[14px] border bg-card px-5 py-4", className)} data-testid="wired-strip">
-      <span className="text-[13.5px] text-muted-foreground">Wired to</span>
+      <span className="text-[13.5px] text-muted-foreground">{lead}</span>
       {items.map((it, i) => (
         <Fragment key={i}>
           {i > 0 && <ArrowRightIcon aria-hidden className="size-3.5 text-input" />}
