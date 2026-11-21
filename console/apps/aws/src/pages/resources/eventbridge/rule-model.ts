@@ -83,6 +83,7 @@ export function attemptsProblem(text: string): string | null {
 /** What is wrong with a target's settings, said where it is; `null` when it can be sent. */
 export function targetProblem(t: TargetDraft): string | null {
   if (!t.arn) return "Choose where the target sends.";
+  if (t.dlq !== null && t.dlq.endsWith(":")) return "Choose the dead-letter queue.";
   if (t.input === "path" && !/^\$/.test(t.path)) return "A path starts with $.";
   if (t.input === "constant") {
     try {

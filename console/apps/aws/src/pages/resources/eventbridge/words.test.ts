@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import type { RuleItem, TargetItem } from "./types";
-import { archivesSentence, ageWords, destsSentence, inputWords, patternWords, replaysSentence, retentionWords, retryWords, rulesSentence, targetWords, windowWords } from "./words";
+import { prettyPattern, archivesSentence, ageWords, destsSentence, inputWords, patternWords, replaysSentence, retentionWords, retryWords, rulesSentence, targetWords, windowWords } from "./words";
 
 const A = "arn:aws:events:us-east-1:111122223333";
 
@@ -54,7 +54,7 @@ describe("the sentences over the lists", () => {
   });
   test("archives, replays, destinations", () => {
     const base = { ArchiveName: "all", EventSourceArn: `${A}:event-bus/larder`, EventCount: 10 };
-    expect(archivesSentence([base, { ...base, ArchiveName: "pay", EventCount: 5, RetentionDays: 90, EventPattern: "{}" }])).toBe("2 archives hold 15 events from larder. pay keeps only the events its pattern names, for 90 days.");
+    expect(archivesSentence([base, { ...base, ArchiveName: "pay", EventCount: 5, RetentionDays: 90, EventPattern: '{"source":["larder.payments"]}' }])).toBe("2 archives hold 15 events from larder. pay keeps only larder.payments events, for 90 days.");
     expect(replaysSentence([{ ReplayName: "a", EventSourceArn: "x", State: "COMPLETED" }, { ReplayName: "b", EventSourceArn: "x", State: "COMPLETED" }])).toBe("2 replays, all completed.");
     expect(replaysSentence([{ ReplayName: "a", EventSourceArn: "x", State: "COMPLETED" }, { ReplayName: "b", EventSourceArn: "x", State: "RUNNING" }])).toBe("2 replays: 1 completed and 1 running.");
     const d = { Name: "finance-webhook", ApiDestinationArn: "x", ConnectionArn: `${A}:connection/finance-api/2f8c9a31-0000-0000-0000-000000000000`, InvocationEndpoint: "https://x", HttpMethod: "POST", ApiDestinationState: "ACTIVE" };
@@ -69,5 +69,12 @@ describe("the line over the buses", () => {
     const archives = [1, 2, 3].map((n) => ({ ArchiveName: `a${n}`, EventSourceArn: `${A}:event-bus/larder` }));
     expect(busesSentence(["default", "larder", "larder-audit"], rules, archives)).toBe("3 event buses. default runs the schedule rule nightly-export; larder has 2 rules and 3 archives; larder-audit has no rules yet.");
     expect(busesSentence([], {}, [])).toBe("");
+  });
+});
+
+describe("a pattern as the boards print it", () => {
+  test("objects over lines, lists on one", () => {
+    expect(prettyPattern('{"source":["larder.orders"],"detail":{"total_cents":[{"numeric":[">",0]}]}}')).toBe('{\n  "source": ["larder.orders"],\n  "detail": {\n    "total_cents": [{ "numeric": [">", 0] }]\n  }\n}');
+    expect(prettyPattern("nope")).toBe("nope");
   });
 });

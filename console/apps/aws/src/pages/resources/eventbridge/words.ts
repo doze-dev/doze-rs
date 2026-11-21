@@ -19,23 +19,29 @@ export const connectionName = (arn: string): string => arn.split("connection/")[
 /** The bus an archive takes events from, by its ARN. */
 export const busOfArn = (arn: string): string => arnName(arn);
 
-/** A target ARN as a person says it: `SNS topic orders-created`, `SQS queue pick-lists`, `Lambda function notify`. */
-export function targetWords(arn: string): string {
+/** A target ARN as a table shows it: what it is (`SNS topic`) and its name. */
+export function targetParts(arn: string): { kind: string; name: string } {
   const [, , service = "", , , ...rest] = arn.split(":");
   const resource = rest.join(":");
   const name = (r: string) => r.split("/")[1] ?? r;
   switch (service) {
-    case "sqs": return `SQS queue ${resource}`;
-    case "sns": return `SNS topic ${resource}`;
-    case "lambda": return `Lambda function ${resource.replace(/^function:/, "").split(":")[0]}`;
-    case "logs": return `Log group ${resource.replace(/^log-group:/, "").replace(/:\*$/, "")}`;
-    case "kinesis": return `Kinesis stream ${name(resource)}`;
-    case "states": return `State machine ${resource.replace(/^stateMachine:/, "")}`;
+    case "sqs": return { kind: "SQS queue", name: resource };
+    case "sns": return { kind: "SNS topic", name: resource };
+    case "lambda": return { kind: "Lambda function", name: resource.replace(/^function:/, "").split(":")[0] ?? resource };
+    case "logs": return { kind: "Log group", name: resource.replace(/^log-group:/, "").replace(/:\*$/, "") };
+    case "kinesis": return { kind: "Kinesis stream", name: name(resource) };
+    case "states": return { kind: "State machine", name: resource.replace(/^stateMachine:/, "") };
     case "events":
-      return resource.startsWith("api-destination/") ? `API destination ${name(resource)}` : resource.startsWith("event-bus/") ? `Event bus ${name(resource)}` : arnName(arn);
-    default: return arnName(arn);
+      return resource.startsWith("api-destination/") ? { kind: "API destination", name: name(resource) } : resource.startsWith("event-bus/") ? { kind: "Event bus", name: name(resource) } : { kind: "Target", name: arnName(arn) };
+    default: return { kind: "Target", name: arnName(arn) };
   }
 }
+
+/** A target ARN as a person says it: `SNS topic orders-created`, `SQS queue pick-lists`, `Lambda function notify`. */
+export const targetWords = (arn: string): string => {
+  const p = targetParts(arn);
+  return `${p.kind} ${p.name}`;
+};
 
 /** The line a rule's pattern is in a table: the sources and detail types it names (`larder.orders OrderPlaced`), the schedule of a schedule rule,
  * or `Custom pattern` for one that names neither. */
@@ -56,6 +62,24 @@ export function patternWords(pattern: string | undefined, schedule?: string): st
 export function prettyJson(text: string): string {
   try {
     return JSON.stringify(JSON.parse(text), null, 2);
+  } catch {
+    return text;
+  }
+}
+
+/** A pattern as the boards print it: objects over several lines, a list on one line (`"source": ["larder.orders"]`). */
+export function prettyPattern(text: string): string {
+  const inline = (v: unknown): string => (Array.isArray(v) ? `[${v.map(inline).join(", ")}]` : v !== null && typeof v === "object" ? `{ ${Object.entries(v).map(([k, x]) => `${JSON.stringify(k)}: ${inline(x)}`).join(", ")} }` : JSON.stringify(v));
+  const show = (v: unknown, pad: string): string => {
+    if (Array.isArray(v)) return inline(v);
+    if (v !== null && typeof v === "object") {
+      const rows = Object.entries(v).map(([k, x]) => `${pad}  ${JSON.stringify(k)}: ${show(x, `${pad}  `)}`);
+      return rows.length === 0 ? "{}" : `{\n${rows.join(",\n")}\n${pad}}`;
+    }
+    return JSON.stringify(v);
+  };
+  try {
+    return show(JSON.parse(text), "");
   } catch {
     return text;
   }
@@ -104,10 +128,10 @@ const nameList = (names: readonly string[], most = 2): string => (names.length <
 export function rulesSentence(bus: string, rules: readonly RuleItem[], targets: Readonly<Record<string, readonly TargetItem[]>>): string {
   if (rules.length === 0) return `The ${bus} bus has no rules. Events sent to it are accepted and then match nothing.`;
   const on = rules.filter((r) => r.State === "ENABLED").length;
-  const state = on === rules.length ? (rules.length === 1 ? "enabled" : "both enabled") : on === 0 ? (rules.length === 1 ? "disabled" : "all disabled") : `${on} enabled`;
+  const state = on === rules.length ? (rules.length === 1 ? "enabled" : rules.length === 2 ? "both enabled" : "all enabled") : on === 0 ? (rules.length === 1 ? "disabled" : "all disabled") : `${on} enabled`;
   const read = rules.filter((r) => targets[r.Name] !== undefined);
   const n = read.reduce((sum, r) => sum + (targets[r.Name]?.length ?? 0), 0);
-  const head = `The ${bus} bus has ${count(rules.length, "rule")}${rules.length === 2 && on === 2 ? ", both enabled" : `, ${state}`}${read.length === rules.length ? `, with ${count(n, "target")}${rules.length > 1 ? " between them" : ""}` : ""}.`;
+  const head = `The ${bus} bus has ${count(rules.length, "rule")}${`, ${state}`}${read.length === rules.length ? `, with ${count(n, "target")}${rules.length > 1 ? " between them" : ""}` : ""}.`;
   const first = rules.find((r) => (targets[r.Name]?.length ?? 0) > 0);
   const to = first ? targets[first.Name]?.[0] : undefined;
   return first && to ? `${head} ${first.Name} sends to ${targetWords(to.Arn).replace(/^(\S+ \S+) /, "the $1 ")}.` : head;
@@ -120,7 +144,9 @@ export function archivesSentence(archives: readonly ArchiveItem[]): string {
   const buses = [...new Set(archives.map((a) => busOfArn(a.EventSourceArn)))];
   const head = `${count(archives.length, "archive")} ${archives.length === 1 ? "holds" : "hold"} ${count(events, "event")} from ${nameList(buses)}.`;
   const filtered = archives.find((a) => a.EventPattern);
-  return filtered ? `${head} ${filtered.ArchiveName} keeps only the events its pattern names${filtered.RetentionDays ? `, for ${retentionWords(filtered.RetentionDays)}` : ""}.` : head;
+  const what = filtered ? patternWords(filtered.EventPattern) : "";
+  const named = what === "Custom pattern" || what === "–" ? "the events its pattern names" : `${what} events`;
+  return filtered ? `${head} ${filtered.ArchiveName} keeps only ${named}${filtered.RetentionDays ? `, for ${retentionWords(filtered.RetentionDays)}` : ""}.` : head;
 }
 
 /** The line over the replays: how many, and what state they are in. */
