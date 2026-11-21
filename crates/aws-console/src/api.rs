@@ -21,6 +21,7 @@ use crate::state::Shared;
 pub mod about;
 pub mod access;
 pub mod blockers;
+pub mod code;
 pub mod calls;
 pub mod copy;
 pub mod deep;
@@ -102,6 +103,10 @@ pub fn routes() -> Router<Shared> {
         .route(
             "/api/v1/resources/{service}/{kind}/{name}/presign",
             post(objects::presign),
+        )
+        .route(
+            "/api/v1/resources/{service}/{kind}/{name}/code",
+            get(code::code),
         )
         .route(
             "/api/v1/resources/{service}/{kind}/{name}/tail",

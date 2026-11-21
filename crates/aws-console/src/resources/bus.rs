@@ -121,6 +121,32 @@ impl Bus {
         )
         .await
     }
+
+    /// An unsigned GET of an address `target` owns (Lambda's package download), made without the network: the service answers it as it
+    /// would the gateway's request. `None` when `target` runs no such service.
+    pub async fn web_get(&self, target: &str, path: &str) -> Option<aws_wire::service::WebReply> {
+        let service = self
+            .peers
+            .targets()
+            .into_iter()
+            .find_map(|(name, s)| (name == target).then_some(s))?;
+        let endpoint = self.caller.endpoint.clone();
+        let host = endpoint.split_once("://").map_or(endpoint.as_str(), |(_, h)| h).to_owned();
+        let web = service.web()?;
+        Some(
+            web.serve(aws_wire::service::WebRequest {
+                method: "GET".to_owned(),
+                host,
+                path: path.to_owned(),
+                query: String::new(),
+                headers: Vec::new(),
+                body: Bytes::new(),
+                endpoint,
+                signature: aws_wire::service::WebSignature::Unsigned,
+            })
+            .await,
+        )
+    }
 }
 
 /// A request payload held whole, handed to the service as one piece.

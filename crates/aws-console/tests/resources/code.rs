@@ -49,3 +49,25 @@ pub(crate) async fn function(w: &World, name: &str) -> bool {
     .await;
     true
 }
+
+/// Another function `name` in a world whose first ([`function`]) made the role.
+pub(crate) async fn function_again(w: &World, name: &str) -> bool {
+    let dir = tempfile::tempdir().unwrap();
+    let file = dir.path().join("bootstrap");
+    std::fs::write(&file, "#!/bin/sh\n").unwrap();
+    let zip = dir.path().join("f.zip");
+    let ok = std::process::Command::new("zip")
+        .args(["-qj", zip.to_str().unwrap(), file.to_str().unwrap()])
+        .status()
+        .unwrap();
+    assert!(ok.success());
+    w.app(
+        "lambda",
+        "CreateFunction",
+        &json!({"FunctionName": name, "Runtime": "provided.al2023", "Handler": "x",
+            "Role": "arn:aws:iam::000000000000:role/fn-role",
+            "Code": {"ZipFile": aws_core::base64::encode(&std::fs::read(&zip).unwrap())}}),
+    )
+    .await;
+    true
+}

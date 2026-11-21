@@ -217,7 +217,7 @@ async fn a_function_is_invoked_with_its_log_and_configured() {
         .iter()
         .map(|t| t["id"].as_str().unwrap())
         .collect();
-    assert_eq!(tabs, ["test", "configuration", "versions", "invocations"]);
+    assert_eq!(tabs, ["code", "test", "monitor", "configuration", "aliases", "versions"]);
     assert_eq!(field(&detail, "Memory (MB)")["value"], "256");
 }
 
