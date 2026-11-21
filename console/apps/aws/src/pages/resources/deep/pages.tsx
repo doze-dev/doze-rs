@@ -14,6 +14,7 @@ import "../lambda";
 import "../logs";
 import "../s3";
 import "../secretsmanager";
+import "../sns";
 import "../sqs";
 import "../stepfunctions";
 

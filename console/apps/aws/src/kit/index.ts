@@ -1,6 +1,7 @@
 // The AWS-specific kit: pieces that talk to the console's contract (contract.ts). The generic ones are in @doze/ui.
 export * from "./blockers";
 export * from "./call-panel";
+export * from "./calls-panel";
 export * from "./contract";
 export * from "./deletion-window";
 export * from "./form-page";
