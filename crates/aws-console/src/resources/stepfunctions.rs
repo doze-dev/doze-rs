@@ -71,7 +71,7 @@ pub(super) static STEPFUNCTIONS: Descriptor = Descriptor {
         delete: Some(Delete {
             verb: "Delete",
             step: Step::new("DeleteStateMachine", r#"{"stateMachineArn":"{id}"}"#),
-            words: "The machine is marked DELETING and no execution can start; it goes once its running executions end.",
+            words: "Deleting removes the machine at once, and no execution can start on it. (AWS marks it DELETING until its running executions end; doze-aws does not wait.)",
         }),
         reveal: None,
         // Its executions are a page of their own, not a list on its details; each execution's page (addressed by its ARN)
