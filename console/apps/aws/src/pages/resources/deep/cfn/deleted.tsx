@@ -19,7 +19,7 @@ export function DeletedStack({ name }: { name: string }) {
   return (
     <div className="grid gap-3" data-testid="stack-gone">
       {record ? (
-        <Alert tone="info" title={`${name} was deleted${record.deleted ? ` on ${at(record.deleted)} UTC` : ""}`} action={back} testId="stack-deleted">
+        <Alert tone="info" title={`${name} was deleted${record.deleted ? ` on ${at(record.deleted)}` : ""}`} action={back} testId="stack-deleted">
           CloudFormation no longer answers to its name; the record stays readable by its stack ID for 90 days: <span className="font-mono text-[13px] break-all">{record.id}</span>
         </Alert>
       ) : (

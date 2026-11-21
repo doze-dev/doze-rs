@@ -24,7 +24,7 @@ export function SecretMarked({ d }: { d: ResourceDetail }) {
     <div className="mb-6" data-testid="secret-marked">
       <Alert
         tone="warn"
-        title={`${d.name} was marked for deletion on ${at(marked)} UTC`}
+        title={`${d.name} was marked for deletion on ${at(marked)}`}
         action={
           <Button size="sm" disabled={restore.isPending} onClick={() => restore.mutate({}, { onSuccess: () => toast.success("Deletion cancelled", { description: `${d.name} can be read again.` }) })} data-testid="restore-secret">
             <Undo2Icon /> {restore.isPending ? "Cancelling…" : "Cancel deletion"}
