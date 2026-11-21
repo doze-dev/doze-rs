@@ -6,7 +6,7 @@ import { StatusDot } from "@doze/ui/components/app/status-dot";
 import { Segmented } from "../../../kit";
 import { cn } from "@doze/ui/lib/utils";
 import { Button } from "@doze/ui/components/ui/button";
-import { at, Card, CodeBlock, pretty } from "../deep/parts";
+import { Card, CodeBlock, pretty } from "../deep/parts";
 import { durationWords, clockMs } from "./execution-model";
 import type { AslState } from "./graph";
 import { failureOf, type HistoryEvent, STATUS, type Step, tsMs } from "./history";
@@ -158,7 +158,7 @@ export function EventsView({ events, startMs }: { events: HistoryEvent[]; startM
   const shown = sorted.slice(page * PAGE, page * PAGE + PAGE);
   const last = Math.min(events.length, page * PAGE + PAGE);
   return (
-    <Card title="Event view" lede={startMs !== null ? <>Timestamps are {at(startMs).slice(0, 12)}, in UTC.</> : undefined} testId="execution-events">
+    <Card title="Event view" lede={startMs !== null ? <>Timestamps are {new Date(startMs).toISOString().slice(0, 10)}, in UTC.</> : undefined} testId="execution-events">
       <div className="overflow-auto rounded-[12px] border" data-testid="history">
         <table className="w-full border-collapse text-left">
           <thead className="bg-well">

@@ -85,7 +85,7 @@ export function ExecutionPage({ arn }: { arn: string }) {
   };
   const shownStep = selected ?? (failedStep ? failedStep.name : (current ?? undefined));
   const activityName = current && states[current] ? taskResource(states[current]?.Resource)?.activity : undefined;
-  const pollers = useFeeders((workers.data?.calls ?? []).filter((c) => c.service === "states" && (c.resource ?? "").endsWith(`:activity:${activityName ?? "\u0000"}`)).reverse(), ["GetActivityTask"]);
+  const pollers = useFeeders((workers.data?.calls ?? []).filter((c) => c.service === "stepfunctions" && (c.resource ?? "").endsWith(`:activity:${activityName ?? "\u0000"}`)).reverse(), ["GetActivityTask"]);
   const startMs = msOf(e?.startDate);
   const stopMs = msOf(e?.stopDate);
   const redrivable = e?.redriveStatus === "REDRIVABLE";

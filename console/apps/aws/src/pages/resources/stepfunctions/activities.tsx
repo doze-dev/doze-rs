@@ -63,7 +63,7 @@ export function ActivitiesList({ service, kind, search }: OwnProps) {
   const { refetch } = list;
   const first = list.data?.pages[0];
   const all = useMemo(() => list.data?.pages.flatMap((p) => p.rows) ?? [], [list.data]);
-  const mine = useMemo(() => (calls.data?.calls ?? []).filter((c) => c.service === "states" && c.action !== null && WORKER_CALLS.includes(c.action)).reverse(), [calls.data]);
+  const mine = useMemo(() => (calls.data?.calls ?? []).filter((c) => c.service === "stepfunctions" && c.action !== null && WORKER_CALLS.includes(c.action)).reverse(), [calls.data]);
   const users = useUsers((machines.data?.pages.flatMap((p) => p.rows) ?? []).filter((r) => r.cells[0] !== "EXPRESS").map((r) => r.name), all.length > 0);
   const pollers = useFeeders(mine as CallRecord[], ["GetActivityTask"]);
   const refresh = useCallback(() => {
