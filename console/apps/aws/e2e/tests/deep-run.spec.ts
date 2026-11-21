@@ -238,6 +238,10 @@ test("a stack says where it stands, and shows its events, template and change se
   await expect(page.getByTestId("changesets-none")).toBeVisible();
 });
 
+test.describe("a stack that is gone", () => {
+  // The page of a deleted stack's name reads a refused DescribeStacks (400), which the browser logs.
+  test.use({ allowErrors: /status of 400|400 \(Bad Request\)/ });
+
 test("a stack whose create failed holds nothing and says which resource failed; a deleted stack's name says it was deleted", async ({ page, cli, browserName }) => {
   const stack = unique("deep-failed", browserName);
   const clash = `/e2e/${unique("clash", browserName)}`;
@@ -260,4 +264,5 @@ test("a stack whose create failed holds nothing and says which resource failed; 
   await expect(page.getByTestId("detail-error")).toHaveCount(0);
   await open(page, `/resources/cloudformation/stacks/${stack}-never`, `${stack}-never`);
   await expect(page.getByTestId("stack-none")).toContainText("There is no stack named");
+});
 });
