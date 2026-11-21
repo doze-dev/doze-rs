@@ -8,6 +8,7 @@ pub mod logs;
 pub mod s3;
 pub mod sns;
 pub mod sqs;
+pub mod stepfunctions;
 
 use super::Read;
 use crate::model::{Badge, Tone};
@@ -59,7 +60,6 @@ status_badge!(stack, "Stacks.0.StackStatus");
 status_badge!(rule, "State");
 status_badge!(key, "KeyMetadata.KeyState");
 status_badge!(function, "Configuration.State");
-status_badge!(machine, "status");
 
 #[cfg(test)]
 mod tests {
