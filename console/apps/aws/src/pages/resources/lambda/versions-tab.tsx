@@ -27,6 +27,9 @@ const when = (v?: string) => {
 const mono = (s: string | undefined) => <span className="font-mono text-[13px]">{s || "–"}</span>;
 
 /** What a version holds that publishing copies: its code and settings (not its description, which each version has of its own). */
+/** $LATEST first, then the published versions, the newest first. */
+export const newestFirst = (versions: readonly Version[]): Version[] => [...versions].sort((a, b) => (a.Version === "$LATEST" ? -1 : b.Version === "$LATEST" ? 1 : Number(b.Version) - Number(a.Version)));
+
 export const sameSettings = (a: Version, b: Version): boolean => a.CodeSha256 === b.CodeSha256 && JSON.stringify([a.MemorySize, a.Timeout, a.Runtime, a.Handler, a.Role, a.Environment, a.EphemeralStorage, a.Layers]) === JSON.stringify([b.MemorySize, b.Timeout, b.Runtime, b.Handler, b.Role, b.Environment, b.EphemeralStorage, b.Layers]);
 
 const VERSION_COLUMNS: DataColumn<Version>[] = [
@@ -53,7 +56,7 @@ export function VersionsTab({ d, f, go }: { d: ResourceDetail; f: Fn; go: (to: G
         <Loaded q={versions} what="The versions">
           {(v) => (
             <>
-              <DataTable aria-label="Versions" data={v.Versions ?? []} columns={VERSION_COLUMNS} rowId={(r) => r.Version} maxHeight={420} empty="No versions." />
+              <DataTable aria-label="Versions" data={newestFirst(v.Versions ?? [])} columns={VERSION_COLUMNS} rowId={(r) => r.Version} maxHeight={420} empty="No versions." />
               <p className="mt-3 text-[13px] text-muted-foreground">The columns are fields of ListVersionsByFunction: Version, Description, LastModified and FunctionArn.</p>
             </>
           )}
