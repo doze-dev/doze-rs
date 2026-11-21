@@ -109,6 +109,28 @@ test("cloudformation__stack-detail: the sentence, what it owns, the verbs, the o
   await expect(page.locator("h1").first()).toHaveText("pick-lists");
 });
 
+test("cloudformation__stack-detail: termination protection is turned on from Actions, and a delete is then refused in words", async ({ page }) => {
+  await go(page, stack("larder-sandbox"), "larder-sandbox");
+  await page.getByTestId("actions-menu").click();
+  await page.getByRole("menuitem", { name: "Turn on termination protection" }).click();
+  await expect(page.getByTestId("protection-dialog")).toContainText("will fail and leave the stack as it is");
+  await page.getByTestId("protection-dialog-submit").click();
+  await expect(async () => {
+    await page.getByTestId("tab-info").click();
+    await expect(page.getByTestId("field-Termination protection")).toHaveText("Enabled", { timeout: 1000 });
+  }).toPass({ timeout: 10_000 });
+  await page.getByTestId("verb-delete").click();
+  await expect(page.getByTestId("delete-refusal")).toContainText("Termination protection is on for larder-sandbox");
+  await expect(page.getByTestId("delete-stack-submit")).toBeDisabled();
+  await page.keyboard.press("Escape");
+  await page.getByTestId("actions-menu").click();
+  await page.getByRole("menuitem", { name: "Turn off termination protection" }).click();
+  await page.getByTestId("protection-dialog-submit").click();
+  await expect(async () => {
+    await expect(page.getByTestId("field-Termination protection")).toHaveText("Disabled", { timeout: 1000 });
+  }).toPass({ timeout: 10_000 });
+});
+
 test("cloudformation__stack-events: newest first, the whole history of a stack that was only created", async ({ page }) => {
   await tab(page, "larder-core", "events");
   const rows = page.getByTestId("stack-events").locator("tbody tr");
@@ -301,10 +323,10 @@ test("cloudformation__stack-create-details, options, review and changeset: the w
   await page.getByTestId("form-submit").click();
   await expect(page.locator("h1").first()).toHaveText("Configure stack options");
   const tags = page.getByTestId("tags");
-  await page.getByTestId("section-tags").getByRole("button", { name: "Add new tag" }).click();
+  await page.getByTestId("section-tags").getByRole("button", { name: "Add tag" }).click();
   await tags.getByRole("textbox").nth(0).fill("app");
   await tags.getByRole("textbox").nth(1).fill("larder");
-  await page.getByTestId("section-tags").getByRole("button", { name: "Add new tag" }).click();
+  await page.getByTestId("section-tags").getByRole("button", { name: "Add tag" }).click();
   await tags.getByRole("textbox").nth(2).fill("stage");
   await tags.getByRole("textbox").nth(3).fill("prod");
   await page.getByRole("combobox", { name: /Choose a topic|topic/i }).first().click();

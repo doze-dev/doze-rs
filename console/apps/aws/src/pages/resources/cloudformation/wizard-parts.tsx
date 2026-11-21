@@ -6,7 +6,19 @@ import { cn } from "@doze/ui/lib/utils";
 export type Choice<T extends string> = { value: T; title: React.ReactNode; body?: React.ReactNode; /** Off: the words say why. */ off?: boolean };
 
 /** Choices side by side, each a card with a radio, a title and what it means; one that is `off` cannot be chosen. */
-export function Choices<T extends string>({ value, onChange, options, label, name, columns = 2 }: { value: T; onChange: (v: T) => void; options: readonly Choice<T>[]; label: string; name: string; columns?: 2 | 3 }) {
+export function Choices<T extends string>({ value, onChange, options, label, name, columns = 2, rows = false }: { value: T; onChange: (v: T) => void; options: readonly Choice<T>[]; label: string; name: string; columns?: 2 | 3; /** The board draws these as a plain list of radios, not as cards. */ rows?: boolean }) {
+  if (rows) {
+    return (
+      <RadioGroup value={value} onValueChange={(v) => onChange(v as T)} className="gap-4" aria-label={label}>
+        {options.map((o) => (
+          <Label key={o.value} htmlFor={`${name}-${o.value}`} className={cn("flex items-start gap-3 font-normal leading-5", o.off ? "cursor-not-allowed" : "cursor-pointer")} data-testid={`${name}-card-${o.value}`}>
+            <RadioGroupItem id={`${name}-${o.value}`} value={o.value} disabled={o.off} className="mt-0.5" data-testid={`${name}-${o.value}`} />
+            <span className="grid gap-0.5"><span className={cn("font-medium", o.off ? "text-muted-foreground" : "text-bright")}>{o.title}</span>{o.body && <span className="text-[13px] text-muted-foreground">{o.body}</span>}</span>
+          </Label>
+        ))}
+      </RadioGroup>
+    );
+  }
   return (
     <RadioGroup value={value} onValueChange={(v) => onChange(v as T)} className={cn("grid gap-3", columns === 3 ? "sm:grid-cols-3" : "sm:grid-cols-2")} aria-label={label}>
       {options.map((o) => (

@@ -104,6 +104,25 @@ async fn a_template_is_validated_summarised_and_made_into_a_stack_by_the_wizards
             .unwrap()
             .contains("Update:*")
     );
+    // Termination protection is changed from the stack's page, and DeleteStack is then refused.
+    let (status, set) = op(
+        &w,
+        "stacks",
+        "UpdateTerminationProtection",
+        &json!({"StackName": "wiz", "EnableTerminationProtection": false}),
+    )
+    .await;
+    assert_eq!(status, 200, "{set}");
+    let (_, d) = op(&w, "stacks", "DescribeStacks", &json!({"StackName": "wiz"})).await;
+    assert_eq!(d["Stacks"][0]["EnableTerminationProtection"], false);
+    let (_, on) = op(
+        &w,
+        "stacks",
+        "UpdateTerminationProtection",
+        &json!({"StackName": "wiz", "EnableTerminationProtection": true}),
+    )
+    .await;
+    assert!(on["StackId"].is_string(), "{on}");
     // A name that is taken is refused with AlreadyExistsException.
     let (status, again) = op(
         &w,

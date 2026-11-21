@@ -31,7 +31,7 @@ export function DeleteStackDialog({ open, onOpenChange, stack, resources, retain
             {deleted.length > 0 ? <><b className="font-mono text-[13px] text-bright">{nameList(deleted.map((r) => r.LogicalResourceId))}</b> {deleted.length === 1 ? "is" : "are"} deleted with it.</> : "None is deleted with it."}</p>
         )}
         {kept.map((r) => (
-          <p key={r.LogicalResourceId} data-testid="delete-kept"><b className="font-mono text-[13px] text-bright">{r.LogicalResourceId}</b> is kept. Its template says DeletionPolicy: Retain, so <b className="font-mono text-[13px] text-bright">{physicalName(r)}</b> stays in {serviceOf(r.ResourceType)}{r.ResourceType === "AWS::S3::Bucket" ? " with its objects" : ""}.</p>
+          <Callout key={r.LogicalResourceId} tone="info" lead={`${r.LogicalResourceId} is kept.`} testId="delete-kept">Its template says DeletionPolicy: Retain, so <b className="font-mono text-[13px] text-bright">{physicalName(r)}</b> stays in {serviceOf(r.ResourceType)}{r.ResourceType === "AWS::S3::Bucket" ? " with its objects" : ""}.</Callout>
         ))}
         {refusal ? (
           <Callout tone="bad" lead="Delete would not be carried out." testId="delete-refusal">{refusal}</Callout>

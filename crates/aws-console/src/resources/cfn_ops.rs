@@ -27,7 +27,9 @@ pub(super) const STACK_OPS: &[Op] = &[
     free("ListStackResources"),
     free("GetTemplate"),
     free("GetStackPolicy"),
+    // Termination protection, the one setting of a made stack the Actions menu changes.
     // Who imports what: the delete dialog and the exports.
+    free("UpdateTerminationProtection"),
     free("ListImports"),
     free("ListExports"),
     // The deleted stacks (CloudFormation keeps a deleted stack's record by its id), and only those.

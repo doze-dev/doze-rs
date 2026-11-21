@@ -35,9 +35,9 @@ export function DeletedStack({ name }: { name: string }) {
       <Lede said={said} testId="stack-deleted-sentence" />
       <Callout tone="info" lead="A deleted stack is hidden from the list by default." className="mb-8" testId="stack-deleted">Choose Deleted in Filter status to see it. CloudFormation keeps the record by its stack ID, <span className="font-mono text-[12.5px] break-all">{record.id}</span>; by name it is gone.</Callout>
       <div className="grid gap-8">
-        <Section title="Resources" lede={left.length === 0 ? "ListStackResources returns nothing for a deleted stack." : "What ListStackResources still returns for the stack."} testId="gone-resources">
+        <Section title="Resources" lede={left.length === 0 ? "ListStackResources returns nothing for this deleted stack." : "What ListStackResources returns for the deleted stack, read by its ID."} testId="gone-resources">
           <RuleHelp className="max-w-[56rem]">
-            {left.length > 0 ? `${left.length} ${left.length === 1 ? "resource is" : "resources are"} still listed. ` : "The stack record keeps its events and gives up its resource list: what it deleted is gone. "}
+            {left.length > 0 ? `ListStackResources still answers by the stack ID: ${left.length} ${left.length === 1 ? "resource" : "resources"}, ${left.every((r) => r.ResourceStatus === "DELETE_COMPLETE") ? "each DELETE_COMPLETE" : "with their last statuses"}. ` : "The stack record keeps its events and gives up its resource list: what it deleted is gone. "}
             {kept.length > 0 ? <>{nameList(kept)} {kept.length === 1 ? "is" : "are"} no longer managed by CloudFormation: its template said DeletionPolicy Retain, so it was left in place. Delete {kept.length === 1 ? "it" : "them"} yourself when you no longer want {kept.length === 1 ? "it" : "them"}.</> : "Nothing was kept: no resource of its template had DeletionPolicy Retain."}
           </RuleHelp>
         </Section>

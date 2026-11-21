@@ -9,7 +9,7 @@ import { RefreshControl } from "@doze/ui/components/app/refresh-control";
 import { useUrlParam } from "@doze/ui/hooks/use-url-param";
 import { useDelete, useResourceDetail } from "../../../api/resources";
 import type { ResourceDetail } from "../../../api/types/ResourceDetail";
-import { DetailError, FlowStrip, ResourcePage, ResourcePageSkeleton, type Verb } from "../../../kit";
+import { DetailError, FlowStrip, PlainConfirm, ResourcePage, ResourcePageSkeleton, type Verb } from "../../../kit";
 import { HINT } from "../index-page";
 import { at } from "../deep/parts";
 import type { OwnProps } from "../deep/registry";
@@ -44,6 +44,8 @@ function StackView({ d, updatedAt, fetching, refetch }: { d: ResourceDetail; upd
   const search = useSearch({ strict: false }) as { done?: string };
   const [asked, setTab] = useUrlParam("tab");
   const [deleting, setDeleting] = useState(false);
+  const [protecting, setProtecting] = useState(false);
+  const protect = useCfnWrite<unknown>("UpdateTerminationProtection");
   const stackQ = useStack(nm);
   const stack: Stack | undefined = stackQ.data?.Stacks?.[0];
   const status = stack?.StackStatus ?? "";
@@ -114,10 +116,23 @@ function StackView({ d, updatedAt, fetching, refetch }: { d: ResourceDetail; upd
         tab={asked ?? "info"}
         onTab={(id) => setTab(id === "info" ? undefined : id)}
         primary={view === "review" ? "execute" : "update"}
+        actions={stack.ParentId ? [] : [{ label: stack.EnableTerminationProtection ? "Turn off termination protection" : "Turn on termination protection", onSelect: () => setProtecting(true) }]}
         verbStates={{ update: { disabled: updatable ? undefined : `a stack in ${status} cannot be updated`, quiet: true } }}
         onVerb={onVerb}
         refresh={<RefreshControl updatedAt={updatedAt} fetching={fetching} onRefresh={refresh} interval={false} />}
         testId="stack-page"
+      />
+      <PlainConfirm
+        open={protecting}
+        onOpenChange={(o) => { setProtecting(o); if (!o) protect.reset(); }}
+        title={stack.EnableTerminationProtection ? "Turn off termination protection?" : "Turn on termination protection?"}
+        description={stack.EnableTerminationProtection ? <>DeleteStack on <b className="font-mono text-[13px] text-bright">{nm}</b> will be carried out again.</> : <>DeleteStack on <b className="font-mono text-[13px] text-bright">{nm}</b> will fail and leave the stack as it is, until you turn it off.</>}
+        verb={stack.EnableTerminationProtection ? "Turn off" : "Turn on"}
+        call="UpdateTerminationProtection"
+        pending={protect.isPending}
+        error={protect.error}
+        onConfirm={() => protect.mutate({ StackName: nm, EnableTerminationProtection: !stack.EnableTerminationProtection }, { onSuccess: () => { setProtecting(false); refresh(); } })}
+        testId="protection-dialog"
       />
       <DeleteStackDialog
         open={deleting}

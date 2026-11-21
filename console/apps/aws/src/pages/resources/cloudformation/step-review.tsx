@@ -3,6 +3,7 @@
 import { Callout } from "@doze/ui/components/app/callout";
 import { type DataColumn, DataTable } from "@doze/ui/components/app/data-table";
 import { ReviewSection } from "@doze/ui/components/app/stepper";
+import { Badge } from "@doze/ui/components/ui/badge";
 import { Skeleton } from "@doze/ui/components/ui/skeleton";
 import { RuleHelp } from "../../../kit";
 import { filled } from "@doze/ui/components/app/key-values";
@@ -20,9 +21,9 @@ export function StepReview({ w, summary, edit, preview, previewError, stackName 
   const params = summary.Parameters ?? [];
   const rows = preview?.data ? changeRows(preview.data) : [];
   const columns: DataColumn<(typeof rows)[number]>[] = [
-    { id: "a", header: "Action", size: 130, accessorKey: "Action", cell: (c) => <StatusDot tone={c.row.original.Action === "Add" ? "ok" : c.row.original.Action === "Remove" ? "bad" : "info"}>{c.row.original.Action}</StatusDot> },
-    { id: "l", header: "Logical ID", size: 260, accessorKey: "LogicalResourceId", cell: (c) => <span className={`${mono} font-medium text-bright`}>{c.row.original.LogicalResourceId}</span> },
-    { id: "t", header: "Resource type", size: 260, accessorKey: "ResourceType", cell: (c) => <span className={mono}>{c.row.original.ResourceType}</span> },
+    { id: "a", header: "Action", size: 110, accessorKey: "Action", cell: (c) => <StatusDot tone={c.row.original.Action === "Add" ? "ok" : c.row.original.Action === "Remove" ? "bad" : "info"}>{c.row.original.Action}</StatusDot> },
+    { id: "l", header: "Logical ID", size: 200, accessorKey: "LogicalResourceId", cell: (c) => <span className={`${mono} font-medium text-bright`}>{c.row.original.LogicalResourceId}</span> },
+    { id: "t", header: "Resource type", size: 200, accessorKey: "ResourceType", cell: (c) => <span className={mono}>{c.row.original.ResourceType}</span> },
     { id: "r", header: "Replacement", accessorFn: (r) => r.Replacement ?? "", cell: (c) => c.row.original.Replacement ?? <span className="text-muted-foreground">–</span> },
   ];
   const refused = previewError ? errorWords(previewError) : null;
@@ -38,7 +39,7 @@ export function StepReview({ w, summary, edit, preview, previewError, stackName 
         ...params.map((d) => ({ label: d.ParameterKey, value: update && w.keep[d.ParameterKey] ? "Use existing value" : d.NoEcho ? "****" : <span className={`${mono} break-all`}>{valueOf(w, d)}</span> })),
       ]} />
       <ReviewSection title="Configure stack options" onEdit={() => edit(2)} rows={[
-        { label: "Tags", value: tags.length === 0 ? "None" : tags.map((t) => `${t.key}: ${t.value}`).join(", ") },
+        { label: "Tags", value: tags.length === 0 ? "None" : <span className="flex flex-wrap gap-2">{tags.map((t) => <Badge key={t.key} variant="outline" className="font-mono font-normal">{t.key}: {t.value}</Badge>)}</span> },
         { label: update ? "Behavior on provisioning failure" : "Stack failure options", value: w.failure === "rollback" ? "Roll back all stack resources" : "Preserve successfully provisioned resources" },
         ...(w.role ? [{ label: "IAM role", value: <span className={`${mono} break-all`}>{w.role}</span> }] : []),
         { label: "Notification options", value: w.topic.trim() ? <span className={`${mono} break-all`}>{w.topic.trim()}</span> : "None" },

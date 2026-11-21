@@ -1,6 +1,7 @@
 // Step 3 (cloudformation__stack-create-options, stack-update-options): tags, the IAM role, what to do when a resource fails, the topic that
 // receives the stack's events, the rollback configuration, the stack policy, and (a new stack only) the timeout and termination protection.
 // What doze-aws does with each is said where it is asked, from the crate: see the notes on `tab-info.tsx`.
+import { Callout } from "@doze/ui/components/app/callout";
 import { Checkbox } from "@doze/ui/components/ui/checkbox";
 import { Input } from "@doze/ui/components/ui/input";
 import { Textarea } from "@doze/ui/components/ui/textarea";
@@ -17,7 +18,7 @@ export function StepOptions({ w, set, summary, tried }: { w: Wizard; set: (p: Pa
   return (
     <>
       <FormSection title="Tags" optional description={update ? "The stack's current tags. Changing them is itself an update." : "Key-value pairs on the stack. Up to 50."} testId="section-tags">
-        <KeyValueEditor rows={w.tags} onChange={(tags) => set({ tags })} rules={TAG_RULES} showErrors={tried} testId="tags" />
+        <KeyValueEditor rows={w.tags} onChange={(tags) => set({ tags })} rules={TAG_RULES} showErrors={tried} addLabel="Add tag" removeLabel="Remove" testId="tags" />
         <Note lead="Applied locally." testId="tags-note">The stack's tags are added to each resource it makes whose type takes tags; a tag the template sets itself wins. Up to 50 tags.</Note>
       </FormSection>
       <FormSection title="Permissions" optional description="An existing IAM service role that CloudFormation can assume." testId="section-permissions">
@@ -27,7 +28,7 @@ export function StepOptions({ w, set, summary, tried }: { w: Wizard; set: (p: Pa
         <LocalStatus state="stored" reason="The call keeps the role and DescribeStacks returns it; CloudFormation here does not assume it, so resources are made with the caller's own permissions." />
       </FormSection>
       <FormSection title={update ? "Behavior on provisioning failure" : "Stack failure options"} description={update ? "What happens if a resource fails to update." : "What happens to the resources if one of them fails to create."} testId="section-failure">
-        <Choices name="failure" label="Stack failure options" value={w.failure} onChange={(failure) => set({ failure })}
+        <Choices rows name="failure" label="Stack failure options" value={w.failure} onChange={(failure) => set({ failure })}
           options={[
             { value: "rollback", title: "Roll back all stack resources", body: update ? "The stack returns to its last working state, UPDATE_ROLLBACK_COMPLETE." : "CloudFormation deletes what it created and the stack ends in ROLLBACK_COMPLETE." },
             { value: "preserve", title: "Preserve successfully provisioned resources", body: update ? "What the update changed stays as it is and the failed resource stays failed: the stack ends UPDATE_FAILED." : "Resources that were created stay as they are, and the failed one stays failed: the stack ends CREATE_FAILED." },
@@ -35,7 +36,7 @@ export function StepOptions({ w, set, summary, tried }: { w: Wizard; set: (p: Pa
         <Note testId="failure-note">Choosing to preserve sends DisableRollback true; the default is to roll back. {update ? "" : "A rolled-back stack can only be deleted, so a failed trial costs one delete before the name is free again."}</Note>
       </FormSection>
       <FormSection title="Notification options" optional description={update ? "Topics that receive this update's events." : "Where CloudFormation publishes stack events."} testId="section-notify">
-        <Choices name="notify" label="Notification options" value="existing" onChange={() => undefined}
+        <Choices rows name="notify" label="Notification options" value="existing" onChange={() => undefined}
           options={[
             { value: "existing", title: "Existing Amazon SNS topic" },
             { value: "new", off: true, title: "New Amazon SNS topic", body: "Not available in doze-aws: it asks for an email address to notify, and doze-aws stores email subscriptions without sending anything." },
@@ -62,12 +63,13 @@ export function StepOptions({ w, set, summary, tried }: { w: Wizard; set: (p: Pa
           <LocalStatus state="stored" reason="TimeoutInMinutes is kept and returned by DescribeStacks, but nothing times a stack out: its resources are made in the background and the stack ends when they do." />
           <Field label="Termination protection" testId="field-protect">
             {() => (
-              <Choices name="protect" label="Termination protection" value={w.protect ? "on" : "off"} onChange={(v) => set({ protect: v === "on" })}
+              <Choices rows name="protect" label="Termination protection" value={w.protect ? "on" : "off"} onChange={(v) => set({ protect: v === "on" })}
                 options={[{ value: "off", title: "Disable", body: "Disabled is the default." }, { value: "on", title: "Enable", body: "DeleteStack then fails and leaves the stack as it is, until you turn it off." }]} />
             )}
           </Field>
         </FormSection>
       )}
+      {update && <Callout tone="info" lead="Timeout and termination protection are stack creation options." testId="creation-only-note">They are not part of a stack update. Termination protection is changed from the stack page, Actions, Turn on termination protection.</Callout>}
       {(caps.length > 0 || update) && <FormSection title="Capabilities" description={caps.length > 0 ? "Acknowledge what this template needs." : "What the template needs acknowledged."} testId="section-capabilities">
         {caps.length > 0 ? (
           <label className="flex items-start gap-3 text-[13.5px] leading-5"><Checkbox checked={w.capabilities} onCheckedChange={(c) => set({ capabilities: c === true })} className="mt-0.5" data-testid="capabilities" /><span>I acknowledge that CloudFormation may create IAM resources: <span className="font-mono text-[12.5px]">{caps.join(", ")}</span>. {summary.CapabilitiesReason}</span></label>

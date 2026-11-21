@@ -118,11 +118,11 @@ function WizardPage({ mode, service, kind, stack }: { mode: Mode; service: strin
     : step === 1 && !update ? req("GetTemplateSummary", summaryInput(w) ?? {})
     : req(update ? "UpdateStack" : "CreateStack", stackInput(w, summary));
   const asideStep = step === 1 && !update && summary ? (
-    <section className="min-w-0 rounded-[14px] border bg-card p-5" aria-label="What the template says" data-testid="summary-panel">
-      <h2 className="text-[12px] font-medium tracking-[0.08em] text-muted-foreground uppercase">returns</h2>
-      <div className="mt-3"><JsonBlock value={{ ...(summary.Description ? { Description: summary.Description } : {}), ResourceTypes: summary.ResourceTypes ?? [] }} testId="summary-json" /></div>
-      <p className="mt-3 text-[13px] text-muted-foreground">{(summary.Parameters ?? []).length === 0 ? "No parameters are declared." : `${(summary.Parameters ?? []).length} parameter${(summary.Parameters ?? []).length === 1 ? " is" : "s are"} declared.`} The template makes {summary.ResourceTypes?.length ?? 0} resource type{(summary.ResourceTypes?.length ?? 0) === 1 ? "" : "s"}.</p>
-    </section>
+    <div className="grid gap-2" data-testid="summary-panel">
+      <span className="font-mono text-[12.5px] text-muted-foreground">returns</span>
+      <div><JsonBlock value={{ ...(summary.Description ? { Description: summary.Description } : {}), ResourceTypes: summary.ResourceTypes ?? [] }} testId="summary-json" /></div>
+      <p className="text-[13px] text-muted-foreground">{(summary.Parameters ?? []).length === 0 ? "No parameters are declared." : `${(summary.Parameters ?? []).length} parameter${(summary.Parameters ?? []).length === 1 ? " is" : "s are"} declared.`} The template makes {summary.ResourceTypes?.length ?? 0} resource type{(summary.ResourceTypes?.length ?? 0) === 1 ? "" : "s"}.</p>
+    </div>
   ) : undefined;
   return (
     <>
@@ -131,14 +131,14 @@ function WizardPage({ mode, service, kind, stack }: { mode: Mode; service: strin
         sub={lead}
         crumbs={[{ label: "Resources", to: "/resources" }, { label: "Infrastructure", to: "/resources" }, { label: "CloudFormation", to: `/resources/${service}` }, ...(update ? [{ label: stackName, to: `/resources/${service}/${kind}/${encodeURIComponent(stackName)}` }] : [{ label: "Stacks", to: `/resources/${service}/${kind}` }]), { label: titles[step]!, to: "#" }]}
         stepsAfterTitle
+        backLabel="Previous"
         showInput
         wizard={{ steps: labels.map((label, i) => ({ id: String(i), label })), current: step, furthest, onStep: go, onBack: () => go(step - 1), onNext: () => void next() }}
         banner={refusal ? <Alert tone="bad" title={refusal.op === "ValidateTemplate" ? "Template validation error." : `${refusal.op} was refused.`} testId="wizard-refused">{refusal.code}: {refusal.message}</Alert> : undefined}
         request={step === 3 ? call : call}
         callTitle={refusal ? "The call that was refused" : step === 1 && !update ? "The call that reads the template" : step >= 1 && step < 3 ? `The ${update ? "UpdateStack" : "CreateStack"} call so far` : undefined}
         refusal={reached}
-        callNote={step === 0 ? (update && w.keepTemplate ? "Choosing Use existing template sends UsePreviousTemplate true to UpdateStack instead of a URL. Never both." : "Next reads the template and lists its parameters. Making the stack is the last step, and the call is shown there.") : step === 2 ? "Left blank, the role, the rollback configuration and the stack policy are left out of the call." : step === 3 ? (summary && (summary.Capabilities ?? []).length > 0 ? `Capabilities sent: ${(summary.Capabilities ?? []).join(", ")}.` : "No capabilities are sent: the template holds no IAM resources.") : undefined}
-        aside={asideStep}
+        callNote={step === 1 && !update && summary ? asideStep : step === 0 ? (update && w.keepTemplate ? "Choosing Use existing template sends UsePreviousTemplate true to UpdateStack instead of a URL. Never both." : "Next reads the template and lists its parameters. Making the stack is the last step, and the call is shown there.") : step === 2 ? "Left blank, the role, the rollback configuration and the stack policy are left out of the call." : step === 3 ? (summary && (summary.Capabilities ?? []).length > 0 ? `Capabilities sent: ${(summary.Capabilities ?? []).join(", ")}.` : "No capabilities are sent: the template holds no IAM resources.") : undefined}
         submitLabel={update ? (mode === "changeset" ? "Create change set" : "Update stack") : "Submit"}
         onSubmit={mode === "changeset" ? () => setAsking(true) : submit}
         onCancel={back}
