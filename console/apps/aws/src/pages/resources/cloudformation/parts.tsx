@@ -69,7 +69,7 @@ export const statusBadge = (status: string): DetailBadge => ({ text: status, ton
 export const Status = ({ status }: { status: string }) => <StatusDot tone={stackTone(status)}>{status}</StatusDot>;
 
 const eventColumns: DataColumn<StackEvent>[] = [
-  { id: "t", header: "Timestamp", size: 190, accessorFn: (r) => String(r.Timestamp), cell: (c) => <span className="font-mono text-[13px] tabular-nums">{at(c.row.original.Timestamp)}</span> },
+  { id: "t", header: "Timestamp", size: 240, accessorFn: (r) => String(r.Timestamp), cell: (c) => <span className="font-mono text-[13px] tabular-nums">{at(c.row.original.Timestamp)}</span> },
   {
     id: "l",
     header: "Logical ID",

@@ -18,12 +18,12 @@ describe("a stack's sentence", () => {
   });
   test("a stack waiting for its change set says what it would add, never that it is being worked on", () => {
     const s = stackSaid({ ...base, name: "s", status: "REVIEW_IN_PROGRESS", resources: [], waiting: { name: "initial", adds: [{ logical: "T", type: "AWS::DynamoDB::Table" }] } });
-    expect(s.text).toContain("s is waiting for review. Its change set initial would add 1 resource: T (AWS::DynamoDB::Table).");
+    expect(s.text).toContain("s is waiting for review. Its change set initial would add 1 resource: T (DynamoDB table).");
     expect(s.text).not.toContain("being worked on");
   });
   test("a create that was rolled back holds nothing and names the resource that failed", () => {
     const s = stackSaid({ ...base, name: "s", status: "ROLLBACK_COMPLETE", resources: [], failed: { resource: "Taken", type: "AWS::SSM::Parameter", reason: "already exists" } });
-    expect(s.text).toBe("s failed to create and CloudFormation undid it. Taken could not be made: already exists It holds no resources.");
+    expect(s.text).toBe("s failed to create and CloudFormation undid it. Taken could not be made: already exists. It holds no resources.");
     expect(s.text).not.toContain("held before");
   });
   test("a stack in progress says it follows", () => {

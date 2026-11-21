@@ -35,15 +35,15 @@ export function stackSaid(f: StackFacts): Said {
   const since = f.updated ?? f.created ?? "";
   if (status === "REVIEW_IN_PROGRESS") {
     const w = f.waiting;
-    const adds = w ? ` Its change set ${w.name} would add ${plural(w.adds.length, "resource")}: ${nameList(w.adds.map((a) => `${a.logical} (${a.type})`))}.` : "";
-    return { text: `${name} is waiting for review.${adds} Nothing is deployed yet: REVIEW_IN_PROGRESS is the status CloudFormation gives a stack made from a change set that has not been executed.`, names: [name, ...(w ? [w.name, ...w.adds.map((a) => a.logical)] : [])] };
+    const adds = w ? ` Its change set ${w.name} would add ${plural(w.adds.length, "resource")}: ${nameList(w.adds.map((a) => `${a.logical} (${typeWords(a.type)})`))}.` : "";
+    return { text: `${name} is waiting for review.${adds}`, names: [name, ...(w ? [w.name, ...w.adds.map((a) => a.logical)] : [])] };
   }
   if (status === "ROLLBACK_COMPLETE") {
-    const why = f.failed ? ` ${f.failed.resource} could not be made${f.failed.reason ? `: ${f.failed.reason}` : "."}` : "";
+    const why = f.failed ? ` ${f.failed.resource} could not be made${f.failed.reason ? `: ${dot(plainReason(f.failed.reason))}` : "."}` : "";
     return { text: `${name} failed to create and CloudFormation undid it.${why} It holds no resources.`, names: f.failed ? [name, f.failed.resource] : names };
   }
   if (status === "CREATE_FAILED") {
-    const why = f.failed ? ` ${f.failed.resource} could not be made${f.failed.reason ? `: ${f.failed.reason}` : "."}` : "";
+    const why = f.failed ? ` ${f.failed.resource} could not be made${f.failed.reason ? `: ${dot(plainReason(f.failed.reason))}` : "."}` : "";
     return { text: `${name} failed to create and was not rolled back, so what was made before the failure is still there.${why}`, names: f.failed ? [name, f.failed.resource] : names };
   }
   if (status === "UPDATE_ROLLBACK_COMPLETE") return { text: `${name} was rolled back: its last update failed, and the stack holds what it held before that update.${f.reason ? ` Reason: ${f.reason}` : ""}`, names };
@@ -92,3 +92,14 @@ export function exportsSaid(exports: readonly { name: string; stack: string }[],
   const lead = n === 1 ? "It is imported:" : used.length === 1 ? "Only one is imported:" : `${count(used.length)} are imported:`;
   return { text: `${head} ${lead} ${lines.join("; ")}, ${tail}`, names: [...stacks, ...used.map((e) => e.name), ...used.flatMap((e) => importers[e.name] ?? [])] };
 }
+
+const dot = (s: string): string => (/[.!?]$/.test(s) ? s : `${s}.`);
+
+/** A resource type as words: `AWS::DynamoDB::Table` is `DynamoDB table`. */
+export function typeWords(type: string): string {
+  const [, service, thing] = type.split("::");
+  return service && thing ? `${service} ${thing.replace(/([a-z])([A-Z])/g, "$1 $2").toLowerCase()}` : type;
+}
+
+/** A failure reason without the request token and handler code CloudFormation appends: `already exists.`. */
+export const plainReason = (reason: string): string => reason.replace(/\s*\(RequestToken:[^)]*\)\.?\s*$/, "").replace(/^Resource handler returned message: "?/, "").replace(/"$/, "").trim();

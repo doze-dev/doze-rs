@@ -19,7 +19,7 @@ import { HINT } from "../index-page";
 import type { OwnProps } from "../deep/registry";
 import { ResourceTo } from "../value";
 import { useCfnRead, useImporters } from "./api";
-import { count, nameList, stackNameOf } from "./model";
+import { nameList, stackNameOf } from "./model";
 import { Nav } from "./nav";
 import { Facts, Lede, StackTo } from "./parts";
 import { exportsSaid } from "./sentences";
@@ -87,7 +87,7 @@ export function ExportPage({ service, kind, name }: OwnProps) {
   const others = (all.data?.Exports ?? []).filter((e) => e.Name !== exportName);
   const rows = (users ?? []).map((s) => ({ stack: s }));
   const columns: DataColumn<{ stack: string }>[] = [{ id: "s", header: "Stack name", accessorKey: "stack", cell: (c) => <StackTo name={c.row.original.stack} /> }];
-  const said = users === undefined ? null : users.length === 0 ? `No stack imports this export, so ${stack} can be deleted and the output changed freely.` : `${count(users.length)} ${users.length === 1 ? "stack imports" : "stacks import"} this export: ${nameList(users)}. Until ${users.length === 1 ? "it stops" : "they stop"}, the output can't change and ${stack} can't be deleted.`;
+  const said = users === undefined ? null : users.length === 0 ? `No stack imports this export, so ${stack} can be deleted and the output changed freely.` : `${users.length} ${users.length === 1 ? "stack imports" : "stacks import"} this export: ${nameList(users)}. Until ${users.length === 1 ? "it stops" : "they stop"}, the output can't change and ${stack} can't be deleted.`;
   return (
     <div data-testid="export-page">
       <PageHeader
@@ -96,7 +96,7 @@ export function ExportPage({ service, kind, name }: OwnProps) {
         crumbs={[{ label: "Resources", to: "/resources" }, { label: "Infrastructure", to: "/resources" }, { label: "CloudFormation", to: `/resources/${service}` }, { label: "Exports", to: `/resources/${service}/${kind}` }]}
         sub={<>An exported output of <StackTo name={stack} className="font-sans text-[15px] font-normal text-foreground no-underline" />, read by other stacks with Fn::ImportValue.</>}
       />
-      {said && <Lede said={{ text: said, names: [stack, ...(users ?? [])] }} testId="export-sentence" bold={[/^\w+ stacks? imports?/]} />}
+      {said && <Lede said={{ text: said, names: [stack, ...(users ?? [])] }} testId="export-sentence" bold={[/^\d+ stacks?/]} />}
       <div className="grid gap-8">
         <Facts title="Export" testId="export-facts" rows={[{ label: "Export Name", value: exportName, mono: true }, { label: "Exporting stack", value: <StackTo name={stack} /> }, { label: "Value", value: found.Value, mono: true }]} />
         <section className="grid gap-3" aria-label="Importing stacks" data-testid="importers">
