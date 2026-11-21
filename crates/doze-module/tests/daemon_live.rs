@@ -90,10 +90,13 @@ async fn an_added_block_is_fronted_woken_and_removed_with_its_data() {
     .await;
     assert_eq!(r["ok"], true, "{r}");
     assert!(d.engine().get("late").is_none() && !data.exists());
-    assert!(
-        tokio::net::TcpStream::connect(&addr).await.is_err(),
-        "its front is closed"
-    );
+    // The front's listener is dropped by its own task once the remove returns, so a busy runner may still accept for a
+    // moment (seen on ubuntu-24.04-arm): it must be closed within two seconds.
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(2);
+    while tokio::net::TcpStream::connect(&addr).await.is_ok() {
+        assert!(std::time::Instant::now() < deadline, "its front is closed");
+        tokio::time::sleep(std::time::Duration::from_millis(20)).await;
+    }
     gone_from_the_wire(&sock).await;
     s.stop();
     front.close();
