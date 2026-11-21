@@ -1,4 +1,5 @@
 import { ArrowLeftIcon, ArrowRightIcon } from "lucide-react";
+import { useLayoutEffect, useRef, useState } from "react";
 import { PageHeader, type Crumb } from "@doze/ui/components/app/page-header";
 import { type Step, Stepper } from "@doze/ui/components/app/stepper";
 import { Button } from "@doze/ui/components/ui/button";
@@ -17,6 +18,15 @@ export type Wizard = { steps: Step[]; current: number; furthest?: number; onStep
  * footer says why the button is off (`disabledWhy`) rather than leaving a person to guess. */
 export function FormPage({ title, sub, crumbs, banner, request, requests, refusal, callNote, callTitle, stepsAfterTitle = false, titleExtra, backLabel = "Back", hideFooter = false, panel, callService = false, showInput = false, aside, children, submitLabel, onSubmit, onCancel, cancelLabel = "Cancel", pending = false, disabled = false, disabledWhy, wizard, mono = false, noCall = false, testId = "form-page" }: { title: string; sub?: React.ReactNode; crumbs?: Crumb[]; banner?: React.ReactNode; /** The call the form makes; `null` until there is something to send. */ request: PreviewRequest | null; /** The calls, when the form makes more than one (they are shown in order, in place of `request`). */ requests?: PreviewRequest[]; /** The service's refusal of the last submit: shown on the panel as what came back. */ refusal?: { code: string; message: string } | null; callNote?: React.ReactNode; /** The panel’s heading, when it is not `The call this will make` (`The call the test makes`). */ callTitle?: string; /** Draw a wizard’s Stepper after the title and its sentence (where some boards draw it), not above the title. */ stepsAfterTitle?: boolean; /** Beside the title: the name of the resource the form is of (a chip). */ titleExtra?: React.ReactNode; /** The wizard's button to the step before. */ backLabel?: string; /** The page has its own buttons (the result of a wizard): no footer. */ hideFooter?: boolean; /** Another panel in the place of the call panel (what a step builds, when it is not a call). */ panel?: React.ReactNode; /** Name the service in the call panel (the call is to another service than the page's). */ callService?: boolean; /** See CallPanel. */ showInput?: boolean; /** More panels under the CallPanel (what the existing resource already has). */ aside?: React.ReactNode; children: React.ReactNode; submitLabel: string; onSubmit: () => void; onCancel: () => void; cancelLabel?: string; pending?: boolean; disabled?: boolean; disabledWhy?: React.ReactNode; wizard?: Wizard; mono?: boolean; /** No call panel (a wizard step that makes no call of its own): the form takes the whole width. */ noCall?: boolean; testId?: string }) {
   const last = !wizard || wizard.current === wizard.steps.length - 1;
+  // The field a submit found a problem on, or the service refused, is brought into view in the commit that draws the problem:
+  // not on a timer after the click, which scrolled the page under a pointer that was still down when the answer came quickly,
+  // and did nothing at all when the answer came slowly.
+  const form = useRef<HTMLFormElement>(null);
+  const [attempts, setAttempts] = useState(0);
+  const refused = refusal ? `${refusal.code}: ${refusal.message}` : "";
+  useLayoutEffect(() => {
+    if (attempts > 0 || refused) focusFirstProblem(form.current);
+  }, [attempts, refused]);
   return (
     <div data-testid={testId}>
       <PageHeader title={title} sub={sub} crumbs={crumbs} mono={mono} titleExtra={titleExtra} belowCrumbs={wizard && !stepsAfterTitle ? <Stepper steps={wizard.steps} current={wizard.current} furthest={wizard.furthest} onStep={wizard.onStep} /> : undefined} />
@@ -24,16 +34,15 @@ export function FormPage({ title, sub, crumbs, banner, request, requests, refusa
       {banner && <div className="mb-6">{banner}</div>}
       <div className={cn("grid items-start gap-6", !noCall && "xl:grid-cols-[minmax(0,1fr)_22.5rem]")}>
         <form
+          ref={form}
           className="grid min-w-0 gap-6"
           noValidate
           onSubmit={(e) => {
             e.preventDefault();
             if (last) {
               if (!disabled && !pending) {
-                const form = e.currentTarget;
                 onSubmit();
-                // The problems a submit finds are said on their fields once the page has drawn them.
-                setTimeout(() => focusFirstProblem(form), 80);
+                setAttempts((n) => n + 1);
               }
             } else wizard?.onNext();
           }}
