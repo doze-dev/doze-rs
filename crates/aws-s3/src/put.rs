@@ -31,7 +31,7 @@ pub(crate) fn meta_of(req: &Req<'_>) -> Meta {
         content_type: text("ContentType"),
         cache_control: text("CacheControl"),
         content_disposition: text("ContentDisposition"),
-        content_encoding: text("ContentEncoding"),
+        content_encoding: req.s("ContentEncoding").and_then(without_aws_chunked),
         content_language: text("ContentLanguage"),
         expires: text("ExpiresString").or_else(|| text("Expires")),
         website_redirect: text("WebsiteRedirectLocation"),
@@ -40,6 +40,22 @@ pub(crate) fn meta_of(req: &Req<'_>) -> Meta {
         sse_kms_key: text("SSEKMSKeyId"),
         user,
     }
+}
+
+/// A `Content-Encoding` as S3 keeps it: `aws-chunked` describes how the upload was framed, not the object, so the token is dropped
+/// (`aws-chunked, gzip` keeps `gzip`; `aws-chunked` alone keeps nothing). The other encodings stay, as written.
+fn without_aws_chunked(encoding: &str) -> Option<String> {
+    let chunked = |t: &str| t.trim().eq_ignore_ascii_case("aws-chunked");
+    if !encoding.split(',').any(chunked) {
+        return Some(encoding.to_owned());
+    }
+    let kept: Vec<&str> = encoding
+        .split(',')
+        .filter(|t| !chunked(t))
+        .map(str::trim)
+        .filter(|t| !t.is_empty())
+        .collect();
+    (!kept.is_empty()).then(|| kept.join(", "))
 }
 
 /// `k=v&k2=v2` (the `x-amz-tagging` header) as pairs.
@@ -246,3 +262,28 @@ pub(crate) fn algo_name(c: Option<&Checksum>) -> Vec<&'static str> {
 /// Unused algorithms are listed here so the set stays whole when one is added.
 #[allow(dead_code)]
 const _ALL: [Algo; 5] = Algo::ALL;
+
+#[cfg(test)]
+mod tests {
+    use super::without_aws_chunked;
+
+    #[test]
+    fn aws_chunked_is_dropped_from_a_content_encoding_and_the_rest_kept() {
+        assert_eq!(without_aws_chunked("aws-chunked"), None);
+        assert_eq!(without_aws_chunked(" AWS-Chunked "), None);
+        assert_eq!(
+            without_aws_chunked("aws-chunked, gzip").as_deref(),
+            Some("gzip")
+        );
+        assert_eq!(
+            without_aws_chunked("gzip,aws-chunked").as_deref(),
+            Some("gzip")
+        );
+        assert_eq!(
+            without_aws_chunked("br, aws-chunked, gzip").as_deref(),
+            Some("br, gzip")
+        );
+        // Without the token the value is kept exactly as sent.
+        assert_eq!(without_aws_chunked("gzip,br").as_deref(), Some("gzip,br"));
+    }
+}

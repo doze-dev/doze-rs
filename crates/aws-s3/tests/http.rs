@@ -430,3 +430,33 @@ async fn a_lower_case_checksum_mode_is_taken_as_s3_takes_it() {
     );
     srv.stop().await;
 }
+
+#[tokio::test]
+async fn a_content_encoding_keeps_its_encodings_but_not_aws_chunked() {
+    let dir = temp("encoding");
+    let srv = start(&dir).await;
+    call(&srv, "PUT", "/bkt", &[], b"").await;
+    let framed = chunked(&[b"hello world"], "x-amz-checksum-crc32:DUoRhQ==");
+    for (key, sent, kept) in [
+        ("a", "aws-chunked", None),
+        ("b", "aws-chunked, gzip", Some("gzip")),
+        ("c", "gzip", Some("gzip")),
+    ] {
+        let mut headers = vec![("Content-Encoding", sent)];
+        let body: &[u8] = if sent.contains("aws-chunked") {
+            headers.extend([
+                ("x-amz-content-sha256", "STREAMING-UNSIGNED-PAYLOAD-TRAILER"),
+                ("x-amz-decoded-content-length", "11"),
+                ("x-amz-trailer", "x-amz-checksum-crc32"),
+            ]);
+            &framed
+        } else {
+            b"hello world"
+        };
+        let put = call(&srv, "PUT", &format!("/bkt/{key}"), &headers, body).await;
+        assert_eq!(put.status, 200, "{}", put.text());
+        let head = call(&srv, "HEAD", &format!("/bkt/{key}"), &[], b"").await;
+        assert_eq!(head.header("Content-Encoding"), kept, "{sent}");
+    }
+    srv.stop().await;
+}
