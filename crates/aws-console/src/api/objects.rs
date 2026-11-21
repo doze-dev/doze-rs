@@ -111,7 +111,7 @@ const PUT_MEMBERS: &[&str] = &[
 /// The most a `props` text may be (metadata may be 2 KB; tags 10 of 128 and 256 characters).
 const PROPS_MAX: usize = 16 * 1024;
 
-/// The members `?props=` of an upload sets: a JSON object of the [`PUT_MEMBERS`].
+/// The members `?props=` of an upload sets: a JSON object of the members an upload may set (`PUT_MEMBERS`).
 ///
 /// # Errors
 /// A message that says what is wrong with `props`: not an object, too long, or a member the upload may not set.

@@ -7,12 +7,12 @@ import { ResultBanner } from "@doze/ui/components/app/result-banner";
 import { Button } from "@doze/ui/components/ui/button";
 import { Skeleton } from "@doze/ui/components/ui/skeleton";
 import { cn } from "@doze/ui/lib/utils";
-import { type Flash, takeFlash } from "./flash";
+import { dismissFlash, type Flash, takeFlash } from "./flash";
 
-/** The result the previous page left (`Bucket created.`), taken once when this page is first drawn. */
+/** The result the previous page left (`Bucket created.`), read when this page is first drawn. */
 export function useFlash(): [Flash | null, () => void] {
   const [flash, setFlash] = useState<Flash | null>(() => takeFlash());
-  return [flash, () => setFlash(null)];
+  return [flash, () => (dismissFlash(), setFlash(null))];
 }
 
 export function FlashBanner({ flash, dismiss }: { flash: Flash | null; dismiss: () => void }) {

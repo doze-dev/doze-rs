@@ -151,7 +151,7 @@ test("s3__bucket-objects, -objects-empty, -objects-versions: folders, a prefix w
   await page.getByTestId("object-search").click();
   // Versions.
   await page.getByTestId("show-versions").click();
-  await expect(page.getByText("Delete marker")).toBeVisible();
+  await expect(page.getByText("Delete marker", { exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "sku-FV-TOM-V.jpg" })).toHaveCount(3);
   await expect(page.getByTestId("objects-card")).toContainText("Objects (9)");
   await shot(page, "s3__bucket-objects-versions", browserName);

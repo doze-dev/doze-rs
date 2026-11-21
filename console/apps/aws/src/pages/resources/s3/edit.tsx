@@ -41,8 +41,10 @@ export function SettingForm({ name, tab, title, sub, operation, input, saved, re
         if (!input) return;
         setError(null);
         const done = () => (setFlash({ title: saved, returned: returned ?? `${operation} answered.` }), back());
-        if (save) (setBusy(true), void save().then(done, setError).finally(() => setBusy(false)));
-        else put.mutate({ ...input }, { onSuccess: done, onError: setError });
+        if (save) {
+          setBusy(true);
+          void save().then(done, setError).finally(() => setBusy(false));
+        } else put.mutate({ ...input }, { onSuccess: done, onError: setError });
       }}
     >
       {children}
