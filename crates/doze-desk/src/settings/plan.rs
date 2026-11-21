@@ -238,7 +238,7 @@ mod tests {
 
     #[test]
     fn a_repair_plans_its_commands_and_says_which_ask() {
-        let cli = Cli::go("/x/doze".into());
+        let cli = Cli::at("/x/doze".into());
         let job = Job::Repair(vec![
             step("the .doze names", &["dns-setup"], ""),
             step("put doze on your PATH", &[], "ln -sf a b"),

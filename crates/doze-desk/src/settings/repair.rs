@@ -8,7 +8,7 @@
 
 use std::path::PathBuf;
 
-use super::cli::{self, Flavour, Verb};
+use super::cli::{self, Verb};
 use super::machine::{PATH_LINK, Part};
 use crate::view::StackView;
 
@@ -107,7 +107,7 @@ fn doze_step(what: String, dir: Option<PathBuf>, args: &[&str]) -> Step {
 }
 
 /// The steps that put the failing parts in place (Go `repairSteps`). `link` is the `doze` to put on the `PATH`, when
-/// the app found one a terminal does not.
+/// a terminal does not find the app's own (`DozeAt::own`).
 pub fn steps(stacks: &[StackView], parts: &[Part], link: Option<&std::path::Path>) -> Vec<Step> {
     let need = |s: &str| {
         parts
@@ -119,7 +119,7 @@ pub fn steps(stacks: &[StackView], parts: &[Part], link: Option<&std::path::Path
         out.push(doze_step(
             "the .doze names".into(),
             None,
-            cli::words(Flavour::default(), Verb::Names),
+            cli::words(Verb::Names),
         ));
     }
     if need("domains") {
@@ -132,7 +132,7 @@ pub fn steps(stacks: &[StackView], parts: &[Part], link: Option<&std::path::Path
                 out.push(doze_step(
                     what,
                     Some(PathBuf::from(&st.dir)),
-                    cli::words(Flavour::default(), Verb::Trust),
+                    cli::words(Verb::Trust),
                 ));
             }
         }

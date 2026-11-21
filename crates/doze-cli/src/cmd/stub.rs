@@ -24,5 +24,5 @@ pub(crate) fn not_built(command: &str, needs: Needs) -> Diagnostic {
         ids::NOT_BUILT,
         format!("`{command}` is not built yet: {}", needs.why()),
     )
-    .fix("the Go doze does this today")
+    .fix("run it on macOS or Linux for now")
 }

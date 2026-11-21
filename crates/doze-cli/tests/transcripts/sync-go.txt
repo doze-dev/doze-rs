@@ -1,49 +1,12 @@
-# sync against a Go daemon (no plan op, "unknown op"): it asks every time, as there is no list to show, and --dry-run
-# says it cannot be answered there.
+# sync against an older daemon, the Go one (no plan op, "unknown op"): refused every way, -y included; it is never
+# driven, and the fix moves the stack onto this doze.
 @ project bare
 @ daemon sync-go
 
 $ doze sync
-exit 9
-stderr:
-| error[DZ0705]: sync needs confirmation and no one can answer here
-|   it drops what was applied before and is no longer declared
-|   fix: doze sync -y
-json exit 9
-json:
-| {
-|   "schema": "doze/v1",
-|   "command": "doze sync",
-|   "ok": false,
-|   "error": {
-|     "code": "needs_confirmation",
-|     "message": "sync needs confirmation and no one can answer here",
-|     "exit": 9,
-|     "id": "DZ0705",
-|     "notes": [
-|       "it drops what was applied before and is no longer declared"
-|     ],
-|     "fix": "doze sync -y"
-|   }
-| }
-
-$ doze sync -y
-exit 0
-stdout:
-| ✓ sync complete
-json exit 0
-json:
-| {
-|   "schema": "doze/v1",
-|   "command": "doze sync",
-|   "ok": true
-| }
-
-$ doze sync --dry-run
 exit 1
 stderr:
-| error[DZ0703]: this stack's daemon cannot say what sync would change (it has no plan op: a Go doze daemon)
-|   doze sync -y applies without the list
+| error[DZ0703]: this stack's daemon is an older doze (it has no plan op); sync does not drive it
 |   fix: doze down && doze up runs the stack on this doze
 json exit 1
 json:
@@ -53,12 +16,49 @@ json:
 |   "ok": false,
 |   "error": {
 |     "code": "failed",
-|     "message": "this stack's daemon cannot say what sync would change (it has no plan op: a Go doze daemon)",
+|     "message": "this stack's daemon is an older doze (it has no plan op); sync does not drive it",
 |     "exit": 1,
 |     "id": "DZ0703",
-|     "notes": [
-|       "doze sync -y applies without the list"
-|     ],
+|     "fix": "doze down \u0026\u0026 doze up runs the stack on this doze"
+|   }
+| }
+
+$ doze sync -y
+exit 1
+stderr:
+| error[DZ0703]: this stack's daemon is an older doze (it has no plan op); sync does not drive it
+|   fix: doze down && doze up runs the stack on this doze
+json exit 1
+json:
+| {
+|   "schema": "doze/v1",
+|   "command": "doze sync",
+|   "ok": false,
+|   "error": {
+|     "code": "failed",
+|     "message": "this stack's daemon is an older doze (it has no plan op); sync does not drive it",
+|     "exit": 1,
+|     "id": "DZ0703",
+|     "fix": "doze down \u0026\u0026 doze up runs the stack on this doze"
+|   }
+| }
+
+$ doze sync --dry-run
+exit 1
+stderr:
+| error[DZ0703]: this stack's daemon is an older doze (it has no plan op); sync does not drive it
+|   fix: doze down && doze up runs the stack on this doze
+json exit 1
+json:
+| {
+|   "schema": "doze/v1",
+|   "command": "doze sync",
+|   "ok": false,
+|   "error": {
+|     "code": "failed",
+|     "message": "this stack's daemon is an older doze (it has no plan op); sync does not drive it",
+|     "exit": 1,
+|     "id": "DZ0703",
 |     "fix": "doze down \u0026\u0026 doze up runs the stack on this doze"
 |   }
 | }

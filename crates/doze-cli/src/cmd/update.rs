@@ -83,8 +83,9 @@ pub(crate) fn run(ctx: &mut Ctx<'_>, dry_run: bool) -> Outcome {
     })
 }
 
-/// Hands the running stacks over to the doze brew installed (the `doze` on the PATH, else this program's path); a
-/// diagnostic (exit 11) naming those that keep the old doze.
+/// Hands the running stacks over to the doze brew installed (the `doze` on the PATH, else this program's path), only
+/// when it is this doze (`handover::all` refuses an older one); a diagnostic (exit 11) naming those that keep the old
+/// doze.
 fn hand_over(ctx: &mut Ctx<'_>, done: &mut Updated) -> Option<Diagnostic> {
     if done.running == 0 {
         return None;

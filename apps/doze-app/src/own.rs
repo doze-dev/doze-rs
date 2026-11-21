@@ -1,6 +1,6 @@
 //! The doze this app is. Doze.app carries the whole CLI (owner decision, 2026-11-14), so `doze-app <command> …` is the
 //! CLI, and the app runs itself for every doze command it needs (status, doctor, up, the machine's setup): a `doze`
-//! on the `PATH` may be another, older one (the Go doze), whose words and answers are not this app's.
+//! on the `PATH` may be another, older one, whose words and answers are not this app's, and is never run.
 
 use std::ffi::OsString;
 use std::path::{Path, PathBuf};

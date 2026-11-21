@@ -129,7 +129,8 @@ Where the M0 build differs from this plan:
 - **Nothing carries a "new" tag**: the whole app is new (the Grid's tag is gone).
 - **Privileged actions run from the app** (Repair, a clean-up that needs root, `doze doctor`) in the run sheet: the
   steps shown before any password is asked, one system prompt per action, the output streamed, the outcome in words.
-  The commands come from one place (`doze-desk/src/settings/cli.rs`, `DOZE_APP_CLI`): today the Go CLI's.
+  The commands come from one place (`doze-desk/src/settings/cli.rs`): always the app's own CLI (`DOZE_APP_CLI` names
+  a stand-in for check scripts only; nothing is looked up on the `PATH`).
 
 The owner's brief: "make the GUI as best as you can make it! Leave no stone
 unturned! It's got to squeeze the best out of GPUI and its components. Check
