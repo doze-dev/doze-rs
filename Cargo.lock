@@ -1211,6 +1211,7 @@ version = "0.0.0"
 dependencies = [
  "aws-core",
  "aws-kms",
+ "aws-model-eventbridge",
  "aws-schema",
  "aws-seal",
  "aws-wire",

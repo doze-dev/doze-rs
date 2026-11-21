@@ -12,7 +12,7 @@ import { Result } from "../pages/live/outcome";
 import { isConsole } from "../pages/live/search";
 import { callerWords, namedKeys, tookWords } from "./calls";
 
-function columns(titles: ReadonlyMap<string, string>, names: ReadonlyMap<string, KeyPrincipal>): DataColumn<CallRecord>[] {
+function columns(titles: ReadonlyMap<string, string>, names: ReadonlyMap<string, KeyPrincipal>, note?: (c: CallRecord) => string | null): DataColumn<CallRecord>[] {
   return [
     { id: "time", header: "Time", size: 120, accessorKey: "at_ms", meta: { mono: true }, cell: (c) => clockUtc(c.row.original.at_ms) },
     {
@@ -35,7 +35,7 @@ function columns(titles: ReadonlyMap<string, string>, names: ReadonlyMap<string,
     {
       id: "result",
       header: "Result",
-      size: 260,
+      size: note ? 380 : 260,
       min: 140,
       accessorFn: (r) => r.status,
       cell: (c) => {
@@ -44,6 +44,7 @@ function columns(titles: ReadonlyMap<string, string>, names: ReadonlyMap<string,
           <span className="flex min-w-0 items-center gap-2">
             <Result call={c.row.original} />
             {took && <span className="truncate text-[12px] text-muted-foreground tabular-nums" data-testid="call-took">{took}</span>}
+            {note?.(c.row.original) && <span className="truncate text-[13px]" data-testid="call-note">{note(c.row.original)}</span>}
           </span>
         );
       },
@@ -56,7 +57,7 @@ function columns(titles: ReadonlyMap<string, string>, names: ReadonlyMap<string,
  * unless asked for, as on Live. `noun` is what the resource is (`queue`). The one place every kind's recent calls are drawn.
  * Optional: `scope` is what the calls acted on when that is not `this {noun}` (`SNS`); `pin` names the operations whose calls this
  * console made that stay in view (a page that has just published or subscribed shows that call); `limit` cuts the table. */
-export function RecentCalls({ calls, noun, title = "Recent calls", className, scope, pin, limit }: { calls: readonly CallRecord[]; noun: string; title?: string; className?: string; scope?: string; pin?: readonly string[]; limit?: number }) {
+export function RecentCalls({ calls, noun, title = "Recent calls", className, scope, pin, limit, note }: { calls: readonly CallRecord[]; noun: string; title?: string; className?: string; scope?: string; pin?: readonly string[]; limit?: number; /** What a call's result says beyond its status and time (`1 event, matched order-placed`), where the page knows it. */ note?: (c: CallRecord) => string | null }) {
   const [mine, setMine] = useState(false);
   const kept = calls.filter((c) => !isConsole(c) || (c.action !== null && (pin ?? []).includes(c.action)));
   const theirs = kept.slice(0, limit);
@@ -66,8 +67,8 @@ export function RecentCalls({ calls, noun, title = "Recent calls", className, sc
   const principals = usePrincipals(useMemo(() => namedKeys(calls), [calls]));
   const about = useAbout().data;
   const cols = useMemo(
-    () => columns(new Map((about?.services ?? []).map((s) => [s.name, s.title])), new Map((principals.data?.principals ?? []).map((p) => [p.key, p]))),
-    [about, principals.data],
+    () => columns(new Map((about?.services ?? []).map((s) => [s.name, s.title])), new Map((principals.data?.principals ?? []).map((p) => [p.key, p])), note),
+    [about, principals.data, note],
   );
   return (
     <section className={className} aria-labelledby="calls-title" data-testid="recent-calls">

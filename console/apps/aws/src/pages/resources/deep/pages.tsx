@@ -10,6 +10,7 @@ import type { ResourceDetail } from "../../../api/types/ResourceDetail";
 import { GONE, LEADS, pageOf } from "./registry";
 import "../cloudformation";
 import "../dynamodb";
+import "../eventbridge";
 import "../kinesis";
 import "../lambda";
 import "../logs";

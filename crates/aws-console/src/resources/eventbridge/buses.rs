@@ -110,6 +110,7 @@ pub(super) const BUSES: Kind = Kind {
         ops::free("CreateEventBus"),
         ops::free("CreateArchive"),
         ops::free("PutEvents"),
+        ops::free("ListEventBuses"),
         ops::free("ListRules"),
         ops::free("ListArchives"),
         ops::free("ListAliases").of("kms"),
