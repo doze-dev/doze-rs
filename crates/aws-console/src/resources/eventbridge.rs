@@ -4,62 +4,17 @@
 //! `orders` (`{name:head}` and `{name:last}` in the bodies).
 
 use super::Format::{Bytes, Json, Mono, Number, Tail, Text as Plain, Time};
+use super::eventbridge_blockers::{TARGETS, TARGETS_OF_RULE};
 use super::{
-    Batch, Blocker, Clear, Create, Delete, Descriptor, Field, Id, Input, InputKind, Kind, LinkTo,
-    List, Options, Param, ParamKind, Shape, Step, Sub, Tags, Text, Write, col, field, input, op,
-    or, says, state,
+    Blocker, Clear, Create, Delete, Descriptor, Field, Id, Input, InputKind, Kind, LinkTo, List,
+    Options, Param, ParamKind, Shape, Step, Sub, Tags, Text, Write, col, field, input, op, or,
+    says, state,
 };
 
 /// What a tag call names: a rule, by its ARN (`rule/<bus>/<name>`, or `rule/<name>` on the default bus).
 const RULE_ARN: &str = r#"{"ResourceARN":"arn:aws:events:{region}:{account}:rule/{name}"}"#;
 /// The same for a bus.
 const BUS_ARN: &str = r#"{"ResourceARN":"arn:aws:events:{region}:{account}:event-bus/{id}"}"#;
-
-/// A rule's targets, removed ten at a time (what `RemoveTargets` takes).
-const TARGETS: Blocker = Blocker {
-    title: "Targets",
-    list: Step::new(
-        "ListTargetsByRule",
-        r#"{"Rule":"{name:last}","EventBusName":"{name:head}"}"#,
-    ),
-    items: "Targets",
-    item_as: "Id",
-    name: Text::at("Id"),
-    link: None,
-    except: None,
-    blocks: true,
-    clear: Some(Clear::Batch(Batch {
-        step: Step::new(
-            "RemoveTargets",
-            r#"{"Rule":"{name:last}","EventBusName":"{name:head}"}"#,
-        ),
-        at: "Ids",
-        pick: &["Id"],
-        size: 10,
-        flat: true,
-        said: "Removed {count} targets",
-    })),
-};
-
-/// The targets of one rule of a bus, under the rule's own members (`{form:Name}`).
-const TARGETS_OF_RULE: Blocker = Blocker {
-    list: Step::new(
-        "ListTargetsByRule",
-        r#"{"Rule":"{form:Name}","EventBusName":"{id}"}"#,
-    ),
-    clear: Some(Clear::Batch(Batch {
-        step: Step::new(
-            "RemoveTargets",
-            r#"{"Rule":"{form:Name}","EventBusName":"{id}"}"#,
-        ),
-        at: "Ids",
-        pick: &["Id"],
-        size: 10,
-        flat: true,
-        said: "Removed {count} targets",
-    })),
-    ..TARGETS
-};
 
 pub(super) static EVENTBRIDGE: Descriptor = Descriptor {
     service: "eventbridge",

@@ -45,6 +45,7 @@ mod cloudformation;
 mod cloudwatch;
 mod dynamodb;
 mod eventbridge;
+mod eventbridge_blockers;
 mod iam;
 mod iam_blockers;
 mod iam_roles;
