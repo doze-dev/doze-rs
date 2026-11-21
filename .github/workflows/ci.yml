@@ -374,7 +374,10 @@ jobs:
           # 2026-11-18, share groups: CI read 7,192 then 7,380 KB (main 7,104). In the doze-ubuntu VM (aarch64, lean, 6 starts each) main
           # idles at 5,272-5,288 KB and share groups at 5,476-5,484 KB with heap (188 KB) and anonymous memory (456-460 KB) the same:
           # the +196 KB is the bigger binary's resident code pages, nothing held. Line: 7,380 KB plus 5%.
-          [ "$rss" -le 7749 ] || { echo "idle resident memory over 7,749 KB in the lean build"; exit 1; }
+          # 2026-11-22, runner noise: one lean binary (7,104,784 B) idled at medians of 7,104 to 7,832 KB over 35 CI runs (median
+          # 7,404 KB; samples 7,040 to 7,900), and 7,832 KB failed run 44946494610. Line: the median plus 5% plus that 728 KB spread
+          # (weight.md, "The lean idle line and runner noise").
+          [ "$rss" -le 8502 ] || { echo "idle resident memory over 8,502 KB in the lean build"; exit 1; }
           ! cargo tree -p doze-kafka --no-default-features --prefix none --edges normal | grep -E "^(axum|hyper|tower|kafka-console) " || { echo "the lean build contains the console"; exit 1; }
 
   # TLS is in the default build since 2026-11-14 (the owner: one build), so its size and packages are the `weight` job's (xtask/weight-limits.txt).
