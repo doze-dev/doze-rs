@@ -63,7 +63,7 @@ test.afterAll(async () => {
 test("lambda__functions-list: the functions, a sentence of what ran, Create and Layers", async ({ page }) => {
   await go(page, "/resources/lambda/functions", "Event Functions");
   await expect(page.getByTestId("list-sentence")).toContainText("4 functions run here.");
-  await expect(page.getByTestId("list-sentence")).toContainText("send-email was invoked 3 times in the last hour");
+  await expect(page.getByTestId("list-sentence")).toContainText("resize-product-image was invoked 4 times in the last hour, send-email 3 times, and export-report once.");
   const table = page.getByRole("table", { name: "Functions" });
   await expect(table.locator("tbody tr[data-row]")).toHaveCount(4);
   await expect(table.locator("tr[data-row]", { hasText: "send-email" })).toContainText("Send alert and invoice emails");
@@ -156,7 +156,7 @@ test("lambda__function-test and lambda__test-result-ok: an event shaped like its
   await expect(page.getByTestId("invoke-call-code")).toContainText('"LogType": "Tail"');
   await shot(page, "lambda__function-test");
   await page.getByTestId("invoke-run").click();
-  await expect(page.getByTestId("invoke-status")).toHaveText("Status: Succeeded");
+  await expect(page.getByTestId("invoke-status")).toContainText("Status: Succeeded");
   await expect(page.getByTestId("invoke-payload")).toContainText('"sent": 1');
   await expect(page.getByTestId("invoke-log")).toContainText("START RequestId:");
   await expect(page.getByTestId("invoke-log")).toContainText("REPORT RequestId:");
@@ -229,6 +229,7 @@ test("lambda__function-config and lambda__config-edit: the general settings, and
   await expect(code(page)).not.toContainText("Timeout");
   await expect(page.getByTestId("field-memory")).toContainText("Changed from 256 MB. Stored, not applied locally.");
   await expect(page.getByTestId("field-timeout")).toContainText("The SQS queue email-outbox must hide a message for at least as long as this.");
+  await expect(page.getByTestId("field-role")).toContainText("dispatch-hook, resize-product-image and weekly-digest use lambda-exec too.");
   await expect(page.getByTestId("field-ephemeral")).toContainText("Stored, not applied locally");
   await shot(page, "lambda__config-edit");
   // A value out of range is said and not sent.
@@ -252,7 +253,7 @@ test("lambda__function-env, lambda__env-edit and lambda__env-none: the variables
   await expect(page.getByTestId("env-key")).toHaveText(["LOG_LEVEL", "MAIL_FROM", "SMTP_HOST"]);
   await expect(page.getByTestId("env-value")).toHaveText(["INFO", "alerts@larder.dev", "smtp.larder.dev"]);
   await expect(page.getByTestId("env-teach")).toContainText("locked when you publish");
-  await expect(page.getByTestId("env-teach")).toContainText("Keep secrets in Secrets Manager");
+  await expect(page.getByTestId("env-teach")).toContainText("Keep secrets in Secrets Manager, such as larder/prod/stripe-key, rather than here.");
   await shot(page, "lambda__function-env");
   await page.getByTestId("env-edit").click();
   await expect(page.locator("h1").first()).toHaveText("Edit environment variables");
@@ -421,6 +422,7 @@ test("lambda__function-url, lambda__url-create and lambda__function-url-created:
   await page.getByTestId("url-create").click();
   await expect(page.locator("h1").first()).toHaveText("Create function URL");
   await expect(page.getByTestId("auth-AWS_IAM")).toBeChecked();
+  await page.getByTestId("url-cors").click();
   await page.getByTestId("url-origins").fill("https://admin.larder.dev");
   await page.getByTestId("url-methods").fill("POST");
   await page.getByTestId("url-headers").fill("content-type");

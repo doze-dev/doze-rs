@@ -1,6 +1,7 @@
 // Add a layer (lambda__layer-add): a layer version of this account, or any layer's ARN, set on the function with
 // UpdateFunctionConfiguration (the function's whole list of layers, each by its ARN with the version on the end).
 import { useState } from "react";
+import { Callout } from "@doze/ui/components/app/callout";
 import { Combobox } from "@doze/ui/components/app/combobox";
 import { Input } from "@doze/ui/components/ui/input";
 import { Label } from "@doze/ui/components/ui/label";
@@ -45,10 +46,10 @@ export function LayerAdd(p: FormProps) {
       <FormSection title="Function layer" testId="section-layer">
         <div className="grid gap-1.5">
           <Label>Choose a layer</Label>
-          <RadioGroup value={mode} onValueChange={(v) => setMode(v as "custom" | "arn")} className="grid gap-2" aria-label="Where the layer comes from">
-            <div className="rounded-lg border border-dashed px-4 py-3 text-[13.5px] text-muted-foreground opacity-80" data-testid="layer-aws-off"><span className="font-medium text-foreground">AWS layers</span><br />Not available in doze-aws: AWS-managed extension layers are hosted by AWS.</div>
+          <RadioGroup value={mode} onValueChange={(v) => setMode(v as "custom" | "arn")} className="grid gap-3" aria-label="Where the layer comes from">
+            <div className="flex items-start gap-3 text-[13.5px] opacity-70" data-testid="layer-aws-off"><RadioGroupItem value="aws" disabled className="mt-0.5" /><span className="grid gap-0.5"><span className="text-bright">AWS layers</span><span className="text-muted-foreground">Not available in doze-aws: AWS-managed extension layers are hosted by AWS.</span></span></div>
             {[["custom", "Custom layers", "Layers created in this account."], ["arn", "Specify an ARN", "Use a layer from a different AWS account by its Amazon Resource Name (ARN)."]].map(([v, t, text]) => (
-              <Label key={v} htmlFor={`mode-${v}`} className="flex cursor-pointer items-start gap-3 rounded-lg border bg-card px-4 py-3 font-normal has-[[data-state=checked]]:border-primary has-[[data-state=checked]]:bg-pick/40">
+              <Label key={v} htmlFor={`mode-${v}`} className="flex cursor-pointer items-start gap-3 font-normal leading-5">
                 <RadioGroupItem id={`mode-${v}`} value={v!} className="mt-0.5" data-testid={`layer-mode-${v}`} />
                 <span className="grid gap-0.5"><span className="font-medium text-bright">{t}</span><span className="text-[13px] text-muted-foreground">{text}</span></span>
               </Label>
@@ -74,8 +75,8 @@ export function LayerAdd(p: FormProps) {
             {(id) => <Input id={id} value={arn} onChange={(e) => setArn(e.target.value)} placeholder="arn:aws:lambda:us-east-1:111122223333:layer:larder-shared:3" autoComplete="off" spellCheck={false} className="font-mono" data-testid="layer-arn" />}
           </Field>
         )}
-        <p className="border-l-2 pl-3 text-[13px] leading-5 text-muted-foreground" data-testid="layer-limits">You can add up to five layers to a function. <Muted>The unzipped size of the function and all its layers together cannot exceed 250 MB.</Muted></p>
       </FormSection>
+      <Callout tone="note" testId="layer-limits">You can add up to <b className="font-semibold text-bright">five</b> layers to a function. The unzipped size of the function and all its layers together cannot exceed <b className="font-semibold text-bright">250 MB</b>.</Callout>
     </FnFormPage>
   );
 }

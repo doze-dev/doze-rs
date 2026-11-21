@@ -10,7 +10,9 @@ import { Field, FormSection, RolePicker } from "../../../kit";
 import { on, useOp } from "../deep/api";
 import { envInput, envProblems, generalChange, generalOf, generalProblems, RESERVED_KEYS } from "./forms";
 import { FnFormPage, type FormProps, Muted, UnitInput } from "./form-bits";
-import { roleArn, tailOf } from "./model";
+import { list, roleArn, tailOf } from "./model";
+import { rowsOf } from "./list-model";
+import { useResourceList } from "../../../api/resources";
 import { useTriggers } from "./hooks";
 
 export function ConfigEdit(p: FormProps) {
@@ -22,7 +24,8 @@ export function ConfigEdit(p: FormProps) {
   const problems = generalProblems(g);
   const change = useMemo(() => generalChange(f, g), [f, g]);
   const queue = p.triggers.find((t) => t.how === "mapping" && t.kind === "SQS queue");
-  const other = useOtherWithRole(d.name, g.role);
+  const users = rowsOf(useResourceList("lambda", "functions").data?.pages.flatMap((x) => x.rows) ?? []).filter((r) => r.role === g.role && r.name !== d.name).map((r) => r.name);
+  const other = users.length ? list(users) : null;
   const submit = () => {
     setTried(true);
     if (Object.keys(problems).length > 0 || Object.keys(change).length === 0) return;
@@ -46,19 +49,12 @@ export function ConfigEdit(p: FormProps) {
         <Field label="Timeout" error={tried ? problems.timeout : undefined} help={<>Default <b>3 seconds</b>, at most <b>900 seconds</b>.{queue ? <Muted> The SQS queue {queue.name} must hide a message for at least as long as this.{changed(f.timeout, g.timeout, "seconds")}</Muted> : <Muted>{changed(f.timeout, g.timeout, "seconds")}</Muted>}</>} testId="field-timeout">
           {(id) => <UnitInput id={id} value={g.timeout} onChange={(timeout) => set({ timeout })} unit="seconds" testId="cfg-timeout" />}
         </Field>
-        <Field label="Execution role" error={tried ? problems.role : undefined} help={<>The role Lambda assumes to run the function.{other ? <Muted> {other} uses {g.role.split("/").pop()} too.</Muted> : null} <Muted>The function&apos;s process gets this role&apos;s credentials, so IAM judges what it calls.</Muted></>} testId="field-role">
+        <Field label="Execution role" error={tried ? problems.role : undefined} help={<>The role Lambda assumes to run the function.{other ? <Muted> {other} {users.length === 1 ? "uses" : "use"} {g.role.split("/").pop()} too.</Muted> : null} <Muted>The function&apos;s process gets this role&apos;s credentials, so IAM judges what it calls.</Muted></>} testId="field-role">
           {(id) => <RolePicker id={id} value={g.role ? tailOf(g.role) : null} onChange={(role) => set({ role: role ? roleArn(p.where.account, role) : "" })} by="id" className="max-w-[24rem]" />}
         </Field>
       </FormSection>
     </FnFormPage>
   );
-}
-
-/** Another function that runs as the same role, when there is one (the form says so under the role). */
-function useOtherWithRole(self: string, role: string): string | null {
-  void self;
-  void role;
-  return null;
 }
 
 export function EnvEdit(p: FormProps) {

@@ -1,7 +1,7 @@
 // Lambda's list of functions (lambda__functions-list, functions-none, function-deleted): the functions with their description,
 // package type, runtime and when they were last modified, a sentence of what ran in the last hour, and Create Event Function.
 import { useNavigate, useSearch, Link } from "@tanstack/react-router";
-import { LayersIcon, PlusIcon, SearchIcon, ZapIcon } from "lucide-react";
+import { PlusIcon, SearchIcon, ZapIcon } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 import { ErrorBlock } from "@doze/ui/components/app/alert";
 import { Callout } from "@doze/ui/components/app/callout";
@@ -64,6 +64,7 @@ function FunctionsList({ service, kind, q, gone, sel }: { service: string; kind:
   const sentence = first?.sentence ? `${gone && all.length ? `${all.length} ${all.length === 1 ? "function runs" : "functions run"} here: ${all.map((r) => r.name).join(", ")}.` : first.sentence}${!gone && ran ? ` ${ran}` : ""}${left[0]?.includes("still point") ? ` ${left[0]}` : ""}` : null;
   return (
     <>
+      {gone && <ResultBanner className="mb-6" title={`${gone} was deleted.`} returned="DeleteFunction removed the function, its versions and its aliases." onDismiss={() => go({})} testId="deleted-banner" />}
       <PageHeader
         title="Event Functions"
         crumbs={[{ label: "Resources", to: "/resources" }, ...(first ? [{ label: first.group, to: "/resources" }, { label: first.service_title, to: `/resources/${service}` }] : [])]}
@@ -71,20 +72,23 @@ function FunctionsList({ service, kind, q, gone, sel }: { service: string; kind:
         refresh={<RefreshControl updatedAt={list.dataUpdatedAt} fetching={list.isFetching} onRefresh={refresh} interval={false} />}
         actions={create}
       />
-      {gone && <ResultBanner className="mb-6" title={`${gone} was deleted.`} returned="DeleteFunction removed the function, its versions and its aliases." onDismiss={() => go({})} testId="deleted-banner" />}
       {list.isError && !first ? (
         <ErrorBlock what="The functions could not be listed" error={list.error} hint={HINT} onRetry={refresh} retrying={list.isFetching} testId="list-error" />
       ) : !first ? (
         <div className="grid gap-3" data-testid="list-loading"><Skeleton className="h-9 w-80" /><Skeleton className="h-64 rounded-xl" /></div>
       ) : none ? (
         <div data-testid="list-empty">
-          <EmptyState icon={ZapIcon} title="No functions" action={<Button onClick={() => go({ create: "yes" })} data-testid="create-empty"><PlusIcon /> Create function</Button>}>
+          <EmptyState icon={ZapIcon} title="No functions" action={<Button variant="outline" className="bg-card" onClick={() => go({ create: "yes" })} data-testid="create-empty">Create function</Button>}>
             You have no functions in this region. Create a function to run code without managing servers.
           </EmptyState>
         </div>
       ) : (
         <>
           {sentence && <p className="mb-5 max-w-[62rem] text-[15px] leading-6 text-muted-foreground" data-testid="list-sentence"><Emphasis text={sentence} names={names} bold={[/\b\d+ (?=functions? run)/]} /></p>}
+          <nav aria-label="Other pages of the Lambda console" className="mb-4 flex items-center gap-2 text-[13.5px]">
+            <span className="text-muted-foreground">Other pages of the Lambda console</span>
+            <Link to="/resources/$service/$second" params={{ service: "lambda", second: "layers" }} search={{}} className="rounded-sm font-medium text-link hover:underline focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none" data-testid="layers-link">Layers</Link>
+          </nav>
           <div className="mb-4 flex flex-wrap items-center gap-x-3 gap-y-2">
             <form className="flex items-center gap-3" role="search" onSubmit={(e) => { e.preventDefault(); go(typed.trim() ? { q: typed.trim() } : {}); }}>
               <div className="relative w-full min-w-[16rem] max-w-[22rem]">
@@ -94,10 +98,6 @@ function FunctionsList({ service, kind, q, gone, sel }: { service: string; kind:
               <Button type="submit" variant="outline" className="bg-card" data-testid="list-search-go">Search</Button>
               {q && <Button type="button" variant="ghost" onClick={() => { setTyped(""); go({}); }} data-testid="search-clear">Clear search</Button>}
             </form>
-            <nav aria-label="Other pages of the Lambda console" className="ml-auto flex items-center gap-2 text-[13.5px]">
-              <span className="text-muted-foreground">Other pages of the Lambda console</span>
-              <Button asChild variant="outline" size="sm" className="bg-card"><Link to="/resources/$service/$second" params={{ service: "lambda", second: "layers" }} search={{}} data-testid="layers-link"><LayersIcon /> Layers</Link></Button>
-            </nav>
           </div>
           {rows.length === 0 ? (
             <div data-testid="list-no-match"><EmptyState icon={SearchIcon} title="No function matches" action={<Button variant="outline" className="bg-card" onClick={() => { setTyped(""); go({}); }}>Show all {all.length}</Button>}>No function name contains <span className="font-mono text-foreground">“{q}”</span>.</EmptyState></div>

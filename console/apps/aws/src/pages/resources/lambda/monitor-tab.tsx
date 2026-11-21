@@ -9,20 +9,22 @@ import { Skeleton } from "@doze/ui/components/ui/skeleton";
 import type { ResourceDetail } from "../../../api/types/ResourceDetail";
 import { type MetricQuery, useMetricData } from "../../../kit";
 import { Card } from "../deep/parts";
-import { HOUR, lastHour, linePath, mean, milliseconds, total } from "./monitor-model";
+import { HOUR, lastHour, linePath, mean, milliseconds, pointsAt, total } from "./monitor-model";
 
 const SPAN = 3 * HOUR;
 const W = 280;
 const H = 56;
 
-function Tile({ label, value, note, path, testId }: { label: string; value: string; note: React.ReactNode; path: string; testId: string }) {
+function Tile({ label, value, note, path, dots, testId }: { label: string; value: string; note: React.ReactNode; path: string; dots: { x: number; y: number }[]; testId: string }) {
   return (
     <div className="rounded-[14px] border bg-card p-6" data-testid={testId}>
       <p className="text-[12px] font-medium tracking-[0.08em] text-muted-foreground uppercase">{label}</p>
       <p className="mt-2 text-[22px] leading-8 font-semibold text-bright tabular-nums" data-testid={`${testId}-value`}>{value}</p>
       <p className="mt-1 text-[13.5px] text-muted-foreground">{note}</p>
       <svg role="img" aria-label={`${label} over the last 3 hours`} viewBox={`0 0 ${W} ${H}`} width={W} height={H} className="mt-4 block max-w-full text-primary">
+        <path d={`M0 ${H - 3} L${W} ${H - 3}`} fill="none" stroke="currentColor" strokeWidth="1" opacity="0.25" />
         <path d={path} fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" strokeLinecap="round" />
+        {dots.map((d, i) => <circle key={i} cx={d.x} cy={d.y} r="2.5" fill="currentColor" />)}
       </svg>
     </div>
   );
@@ -45,6 +47,7 @@ export function MonitorTab({ d }: { d: ResourceDetail }) {
   const m = useMetricData(queries, range);
   const by = (id: string) => m.series.find((s) => s.id === id)?.points ?? [];
   const path = (id: string) => linePath(by(id), range.from, range.to, W, H);
+  const dots = (id: string) => pointsAt(by(id), range.from, range.to, W, H);
   const inv = total(by("inv"));
   const err = total(by("err"));
   const thr = total(by("thr"));
@@ -61,10 +64,10 @@ export function MonitorTab({ d }: { d: ResourceDetail }) {
           <Skeleton className="mt-5 h-72 rounded-[14px]" data-testid="metrics-loading" />
         ) : (
           <div className="mt-5 grid gap-4 md:grid-cols-2">
-            <Tile testId="metric-invocations" label="Invocations" value={n(inv)} note={<>Sum. {n(hour)} in the last hour.</>} path={path("inv")} />
-            <Tile testId="metric-duration" label="Duration" value={dur === null ? "–" : milliseconds(dur)} note="Average. Cold start time is not included." path={path("dur")} />
-            <Tile testId="metric-errors" label="Errors" value={n(err)} note={<>Sum. {n(err)} {err === 1 ? "error" : "errors"} in {n(inv)} {inv === 1 ? "invocation" : "invocations"}.</>} path={path("err")} />
-            <Tile testId="metric-throttles" label="Throttles" value={n(thr)} note="Sum." path={path("thr")} />
+            <Tile testId="metric-invocations" label="Invocations" value={n(inv)} note={<>Sum. {n(hour)} in the last hour.</>} path={path("inv")} dots={dots("inv")} />
+            <Tile testId="metric-duration" label="Duration" value={dur === null ? "–" : milliseconds(dur)} note="Average. Cold start time is not included." path={path("dur")} dots={dots("dur")} />
+            <Tile testId="metric-errors" label="Errors" value={n(err)} note={<>Sum. {n(err)} {err === 1 ? "error" : "errors"} in {n(inv)} {inv === 1 ? "invocation" : "invocations"}.</>} path={path("err")} dots={dots("err")} />
+            <Tile testId="metric-throttles" label="Throttles" value={n(thr)} note="Sum." path={path("thr")} dots={dots("thr")} />
           </div>
         )}
         <p className="mt-4 max-w-[46rem] border-l-2 pl-3.5 text-[13px] leading-5 text-foreground" data-testid="metrics-words">

@@ -201,7 +201,8 @@ export const madeSentence = (name: string, roleName: string, triggers: number): 
 /** The strip under the sentence: what triggers it, then (after the function) the role it runs as. */
 export function wiredOf(f: Fn, triggers: readonly Trigger[]): Wired[] {
   const out: Wired[] = triggers.filter((t) => t.to).map((t) => ({ label: "Triggered by", to: t.to as Wired["to"], note: null }));
-  if (f.role) out.push({ label: "Runs as", to: { service: "iam", kind: "roles", name: f.roleName }, note: null });
+  // A function nothing triggers has no strip: the role it runs as is on its Configuration tab.
+  if (out.length > 0 && f.role) out.push({ label: "Runs as", to: { service: "iam", kind: "roles", name: f.roleName }, note: null });
   return out;
 }
 

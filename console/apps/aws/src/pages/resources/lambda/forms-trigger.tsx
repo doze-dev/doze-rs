@@ -14,7 +14,7 @@ import { Field, FormSection, FunctionPicker, QueuePicker, TopicPicker } from "..
 import { on, useOp, useOpRead } from "../deep/api";
 import { queueOf } from "../sqs/queue-model";
 import { batchMost, type Destination, destinationInput, destinationProblems, mappingCreate, mappingUpdate, triggerProblems, visibilityFor } from "./forms";
-import { FnFormPage, type FormProps, Muted } from "./form-bits";
+import { FnFormPage, type FormProps, Muted, NotHere } from "./form-bits";
 import { notFound } from "./hooks";
 
 const arnOf = (where: FormProps["where"], name: string | null) => (name ? `arn:aws:sqs:${where.region}:${where.account}:${name}` : null);
@@ -125,6 +125,7 @@ export function TriggerAdd(p: FormProps) {
         </Field>
       </FormSection>
       <More window={win} setWindow={setWin} partial={partial} setPartial={setPartial} concurrency={concurrency} setConcurrency={setConcurrency} filter={filter} setFilter={setFilter} problems={tried ? more.problems : {}} />
+      <NotHere title="Provisioned Mode" optional why="Not available in doze-aws: it allocates dedicated polling resources, which only exist in the cloud." testId="provisioned-off" />
       <Callout tone="warn" testId="visibility-note">
         Set the queue&apos;s visibility timeout to at least <b className="font-semibold text-bright">six times</b> the function&apos;s timeout ({visibilityFor(f.timeout)} seconds for the {f.timeout} second timeout of {d.name}). Lambda also refuses the mapping when the function&apos;s timeout is longer than the queue&apos;s visibility timeout.{visibility !== null && visibility < visibilityFor(f.timeout) ? <> {queue} hides a message for {visibility} {visibility === 1 ? "second" : "seconds"}{short ? ", which is shorter than the timeout: Lambda refuses the mapping." : `, less than the ${visibilityFor(f.timeout)} seconds that six times the timeout asks.`}</> : null} On AWS the execution role also needs <span className="font-mono">AWSLambdaSQSQueueExecutionRole</span>; doze-aws does not enforce it.
       </Callout>
@@ -208,13 +209,13 @@ export function DestinationAdd(p: FormProps) {
       submitLabel="Save" pending={update.isPending || put.isPending} disabled={tried && Object.keys(problems).length > 0} disabledWhy={Object.values(problems)[0]} onSubmit={submit} testId="destination-form">
       <FormSection title="Destination configuration" testId="section-destination">
         <Field label="Source" help={<>Async events come from SNS, S3 and EventBridge. {p.triggers.some((t) => t.kind === "SNS topic") ? <Muted>The {p.triggers.find((t) => t.kind === "SNS topic")?.name} topic invokes {d.name} this way.</Muted> : null}</>} testId="field-source">
-          {() => <p className="text-[14px] text-bright">Asynchronous invocation</p>}
+          {() => <div className="flex h-9 w-full max-w-[22rem] items-center rounded-md border bg-card px-3 text-[14px] text-bright" data-testid="dsource">Asynchronous invocation</div>}
         </Field>
         <div className="grid gap-1.5">
           <Label>Condition</Label>
-          <RadioGroup value={condition} onValueChange={(v) => setCondition(v as Destination["condition"])} className="grid gap-3 sm:grid-cols-2" aria-label="Condition">
+          <RadioGroup value={condition} onValueChange={(v) => setCondition(v as Destination["condition"])} className="grid gap-3" aria-label="Condition">
             {[["OnFailure", "On failure", "Send a record when the event fails all processing attempts or exceeds the maximum age."], ["OnSuccess", "On success", "Send a record when the function successfully processes an asynchronous invocation."]].map(([v, t, text]) => (
-              <Label key={v} htmlFor={`cond-${v}`} className="flex cursor-pointer items-start gap-3 rounded-xl border bg-card p-4 font-normal leading-5 has-[[data-state=checked]]:border-primary has-[[data-state=checked]]:bg-pick/40">
+              <Label key={v} htmlFor={`cond-${v}`} className="flex cursor-pointer items-start gap-3 font-normal leading-5">
                 <RadioGroupItem id={`cond-${v}`} value={v!} className="mt-0.5" data-testid={`condition-${v}`} />
                 <span className="grid gap-0.5"><span className="font-medium text-bright">{t}</span><span className="text-[13px] text-muted-foreground">{text}</span></span>
               </Label>
@@ -225,12 +226,12 @@ export function DestinationAdd(p: FormProps) {
           <Label>Destination type</Label>
           <RadioGroup value={type} onValueChange={(v) => { setType(v as Type); setTarget(null); }} className="grid gap-2" aria-label="Destination type">
             {TYPES.map((t) => (
-              <Label key={t.id} htmlFor={`type-${t.id}`} className="flex cursor-pointer items-center gap-3 rounded-lg border bg-card px-4 py-3 font-normal has-[[data-state=checked]]:border-primary has-[[data-state=checked]]:bg-pick/40">
+              <Label key={t.id} htmlFor={`type-${t.id}`} className="flex cursor-pointer items-center gap-3 font-normal">
                 <RadioGroupItem id={`type-${t.id}`} value={t.id} data-testid={`dtype-${t.id}`} />{t.label}
               </Label>
             ))}
             {[["EventBridge", "Not available in doze-aws: Lambda does not deliver invocation records to an event bus here."], [`Amazon S3 bucket (on failure only)`, "Not available in doze-aws: Lambda does not deliver invocation records to S3 here."]].map(([t, why]) => (
-              <div key={t} className="rounded-lg border border-dashed px-4 py-3 text-[13.5px] text-muted-foreground opacity-80" data-testid="dtype-off"><span className="font-medium text-foreground">{t}</span><br />{why}</div>
+              <div key={t} className="flex items-start gap-3 text-[13.5px] opacity-70" data-testid="dtype-off"><RadioGroupItem value={`off-${t}`} disabled className="mt-0.5" /><span className="grid gap-0.5"><span className="text-bright">{t}</span><span className="text-muted-foreground">{why}</span></span></div>
             ))}
           </RadioGroup>
         </div>

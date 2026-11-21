@@ -12,6 +12,7 @@ describe("the figures of the Monitor tab", () => {
   });
   test("durations in the unit that reads best", () => {
     expect(milliseconds(41.4)).toBe("41 ms");
+    expect(milliseconds(0.584)).toBe("0.58 ms");
     expect(milliseconds(1250)).toBe("1.3 s");
     expect(milliseconds(12_000)).toBe("12 s");
   });

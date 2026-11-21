@@ -20,7 +20,8 @@ export const lastHour = (points: readonly Point[], now: number): number | null =
 
 /** `41 ms`, `1.2 s` for a duration given in milliseconds. */
 export function milliseconds(v: number): string {
-  return v >= 1000 ? `${(v / 1000).toFixed(v >= 10_000 ? 0 : 1)} s` : `${Math.round(v)} ms`;
+  if (v >= 1000) return `${(v / 1000).toFixed(v >= 10_000 ? 0 : 1)} s`;
+  return v < 10 ? `${v.toFixed(2)} ms` : `${Math.round(v)} ms`;
 }
 
 /** The points as an SVG path in a `width` by `height` box (a flat line along the bottom for no data); the values are spread over the box's height. */
@@ -32,4 +33,12 @@ export function linePath(points: readonly Point[], from: number, to: number, wid
   const x = (t: number) => ((t - from) / Math.max(1, to - from)) * width;
   const y = (v: number) => height - pad - (v / top) * (height - 2 * pad);
   return have.map((p, i) => `${i === 0 ? "M" : "L"}${x(p.t).toFixed(1)} ${y(p.v ?? 0).toFixed(1)}`).join(" ");
+}
+
+/** Where each point is drawn in the same box as {@link linePath}. */
+export function pointsAt(points: readonly Point[], from: number, to: number, width: number, height: number): { x: number; y: number }[] {
+  const have = points.filter((p) => p.v !== null);
+  const top = Math.max(...have.map((p) => p.v ?? 0), 1e-9);
+  const pad = 3;
+  return have.map((p) => ({ x: ((p.t - from) / Math.max(1, to - from)) * width, y: height - pad - ((p.v ?? 0) / top) * (height - 2 * pad) }));
 }

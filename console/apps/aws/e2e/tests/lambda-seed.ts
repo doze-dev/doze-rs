@@ -55,6 +55,7 @@ export function seedLarder(endpoint: string, account: string): void {
 
   for (const q of ["email-outbox", "invoice-queue", "analytics-queue"]) cli(["sqs", "create-queue", "--queue-name", q, ...(q === "email-outbox" ? ["--attributes", JSON.stringify({ VisibilityTimeout: "180" })] : [])]);
   cli(["sqs", "create-queue", "--queue-name", "orders-events.fifo", "--attributes", JSON.stringify({ FifoQueue: "true", ContentBasedDeduplication: "true" })]);
+  cli(["secretsmanager", "create-secret", "--name", "larder/prod/stripe-key", "--secret-string", "sk_test_larder"]);
   const topic = (n: string) => (JSON.parse(cli(["sns", "create-topic", "--name", n])) as { TopicArn: string }).TopicArn;
   const alerts = topic("alerts");
   const created = topic("orders-created");
@@ -96,6 +97,9 @@ export function seedLarder(endpoint: string, account: string): void {
   cli(["sns", "publish", "--topic-arn", alerts, "--subject", "dlq-not-empty", "--message", "pick-lists-dlq has 1 message waiting"]);
   invoke(endpoint, "send-email", { Records: [{ Sns: { Subject: "dlq-not-empty" } }] });
   invoke(endpoint, "send-email", {});
+  // The other rows of the list have run too: the sentence over it says by how much.
+  for (let i = 0; i < 4; i++) invoke(endpoint, "resize-product-image", { key: `photo-${i}.jpg` });
+  invoke(endpoint, "export-report", {});
 }
 
 /** Invokes `name` with `event` through the CLI; the CLI's own output (the status and the function error). */

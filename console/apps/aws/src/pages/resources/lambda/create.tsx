@@ -3,10 +3,11 @@
 // console with the example zipped in the page; a URL asked for is a second call (CreateFunctionUrlConfig) once the function exists.
 import { useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
-import { BoxIcon, FileArchiveIcon, LayoutTemplateIcon } from "lucide-react";
+import { BoxIcon, ChevronDownIcon, ChevronRightIcon, FileArchiveIcon, LayoutTemplateIcon } from "lucide-react";
+import { Button } from "@doze/ui/components/ui/button";
 import { Alert } from "@doze/ui/components/app/alert";
 import { KeyValueEditor } from "@doze/ui/components/app/key-value-editor";
-import { newRow, type KeyValueRow } from "@doze/ui/components/app/key-values";
+import { type KeyValueRow } from "@doze/ui/components/app/key-values";
 import { Input } from "@doze/ui/components/ui/input";
 import { Label } from "@doze/ui/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@doze/ui/components/ui/radio-group";
@@ -17,6 +18,7 @@ import { callOp } from "../deep/api";
 import { Field, FormPage, FormSection, RolePicker, useKindOp } from "../../../kit";
 import { type Create, createProblems } from "./forms";
 import { FUNCTIONS, refusalOf, useWhere } from "./hooks";
+import { rowsOf } from "./list-model";
 import { familyOf, HELLO, roleArn, runtimeName, RUNTIMES, tailOf } from "./model";
 import { buildZip, toBase64 } from "./zip";
 
@@ -29,6 +31,25 @@ const OFF = [
 export function helloZip(runtime: string): string {
   const h = HELLO[familyOf(runtime)];
   return toBase64(buildZip([{ path: h.file, data: new TextEncoder().encode(h.source), mode: 0o644 }]));
+}
+
+/** One of the advanced settings: its name, what it holds while shut, and a button that opens it. */
+function Expander({ title, summary, children, disabled = false, testId }: { title: string; summary: React.ReactNode; children?: React.ReactNode; disabled?: boolean; testId: string }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="py-4 first:pt-0 last:pb-0" data-testid={testId}>
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h3 className="text-[15px] font-semibold text-bright">{title}</h3>
+          <div className="mt-0.5 text-[13.5px] text-muted-foreground">{summary}</div>
+        </div>
+        <Button type="button" variant="outline" size="sm" className="bg-card" disabled={disabled} aria-expanded={open} onClick={() => setOpen(!open)} data-testid={`${testId}-toggle`}>
+          {open ? <ChevronDownIcon /> : <ChevronRightIcon />} {open ? "Collapse" : "Expand"}
+        </Button>
+      </div>
+      {open && !disabled && <div className="mt-4 grid gap-4">{children}</div>}
+    </div>
+  );
 }
 
 export function FunctionCreate() {
@@ -44,6 +65,7 @@ export function FunctionCreate() {
   const functions = useResourceList("lambda", "functions");
   const rows = functions.data?.pages.flatMap((p) => p.rows) ?? [];
   const taken = rows.map((r) => r.name);
+  const roleUsers = rowsOf(rows).filter((r) => r.role === c.role).map((r) => r.name).slice(0, 3);
   const make = useKindOp<{ FunctionName: string }>(FUNCTIONS, "CreateFunction");
   const problems = createProblems(c, taken);
   const handler = HELLO[familyOf(c.runtime)].handler;
@@ -89,17 +111,21 @@ export function FunctionCreate() {
       onSubmit={submit}
       testId="function-create"
     >
-      <FormSection title="Author from scratch" description="Start with a Hello world example. The package is a .zip file archive." testId="section-author">
-        <div className="grid gap-3 md:grid-cols-2">
+      <section className="min-w-0 rounded-[14px] border bg-card p-6 lg:p-7" aria-label="How the function is made" data-testid="section-author">
+        <div className="grid gap-4 md:grid-cols-3">
+          <div className="flex gap-3 rounded-xl border border-primary bg-pick/40 p-4 text-[13.5px]" data-testid="author-scratch">
+            <span aria-hidden className="mt-1 size-3.5 shrink-0 rounded-full border-[4px] border-primary bg-card" />
+            <div><p className="font-medium text-bright">Author from scratch</p><p className="mt-0.5 text-muted-foreground">Start with a Hello world example. The package is a .zip file archive.</p></div>
+          </div>
           {OFF.map((o) => (
-            <div key={o.title} className="flex gap-3 rounded-xl border border-dashed p-4 text-[13.5px] opacity-80" data-testid="author-off">
-              <o.icon aria-hidden className="mt-0.5 size-5 shrink-0 text-muted-foreground" />
+            <div key={o.title} className="flex gap-3 rounded-xl border p-4 text-[13.5px] opacity-70" data-testid="author-off">
+              <span aria-hidden className="mt-1 size-3.5 shrink-0 rounded-full border bg-card" />
               <div><p className="font-medium text-bright">{o.title}</p><p className="mt-0.5 text-muted-foreground">{o.why}</p></div>
             </div>
           ))}
         </div>
-        <p className="flex items-center gap-2 border-l-2 pl-3 text-[13px] leading-5 text-muted-foreground"><FileArchiveIcon aria-hidden className="size-4" />The package type cannot be changed after the function exists: a .zip function stays .zip.</p>
-      </FormSection>
+        <p className="mt-4 flex items-center gap-2 border-l-2 pl-3 text-[13px] leading-5 text-muted-foreground"><FileArchiveIcon aria-hidden className="size-4 shrink-0" />The package type cannot be changed after the function exists: a .zip function stays .zip.</p>
+      </section>
       <FormSection title="Basic information" testId="section-basic">
         <Field label="Function name" error={tried || taken.includes(c.name) ? problems.name : undefined} help={<>Function names are limited to <b>64</b> characters.{used.length ? <span className="text-muted-foreground"> {used.map((r) => r.name).join(", ")} already exist{used.length === 1 ? "s" : ""} in this Region.</span> : null}</>} testId="field-name">
           {(id) => <Input id={id} value={c.name} onChange={(e) => set({ name: e.target.value })} placeholder="weekly-digest" autoComplete="off" spellCheck={false} className="font-mono" data-testid="fn-name" />}
@@ -123,41 +149,43 @@ export function FunctionCreate() {
         </div>
       </FormSection>
       <FormSection title="Permissions" description="Choose the execution role Lambda assumes to run the function." testId="section-permissions">
-        <div className="grid gap-2">
-          <div className="rounded-lg border border-dashed px-4 py-3 text-[13.5px] text-muted-foreground opacity-80" data-testid="role-create-off"><span className="font-medium text-foreground">Create default role</span><br />Not in this form: create the role in IAM, then choose it here.</div>
-          <div className="rounded-lg border border-primary bg-pick/40 px-4 py-3 text-[13.5px] font-medium text-bright">Use another role</div>
+        <div className="grid gap-1.5">
+          <Label>Change default execution role</Label>
+          <RadioGroup value="another" className="grid gap-2" aria-label="Change default execution role">
+            <Label htmlFor="role-default" className="flex items-start gap-3 font-normal opacity-60" data-testid="role-create-off"><RadioGroupItem id="role-default" value="default" disabled className="mt-0.5" /><span className="grid gap-0.5"><span className="text-bright">Create default role</span><span className="text-[13px] text-muted-foreground">Not in this form: create the role in IAM, then choose it here.</span></span></Label>
+            <Label htmlFor="role-another" className="flex items-center gap-3 font-normal"><RadioGroupItem id="role-another" value="another" data-testid="role-another" /><span className="text-bright">Use another role</span></Label>
+          </RadioGroup>
         </div>
-        <Field label="Execution role" error={tried ? problems.role : undefined} help={<>The role&apos;s ARN is sent as <span className="font-mono">Role</span>, which CreateFunction requires. <span className="text-muted-foreground">{c.role ? <><span className="font-mono">{tailOf(c.role)}</span> becomes the role the function&apos;s process gets credentials for.</> : "The function’s process gets credentials for this role."}</span></>} testId="field-role">
+        <Field label="Execution role" error={tried ? problems.role : undefined} help={<>The role&apos;s ARN is sent as <span className="font-mono">Role</span>, which CreateFunction requires. <span className="text-muted-foreground">{c.role ? <><span className="font-mono">{tailOf(c.role)}</span> {roleUsers.length ? `is already the execution role of ${roleUsers.join(", ")}.` : "becomes the role the function\u2019s process gets credentials for."} The function&apos;s process gets that role&apos;s credentials.</> : "The function’s process gets credentials for this role."}</span></>} testId="field-role">
           {(id) => <RolePicker id={id} value={c.role ? tailOf(c.role) : null} onChange={(role) => set({ role: role ? roleArn(where.account, role) : null })} by="id" className="w-full max-w-[22rem] font-mono" />}
         </Field>
       </FormSection>
-      <section className="rounded-[14px] border bg-card p-6 lg:p-7" data-testid="section-advanced">
+      <section className="min-w-0 rounded-[14px] border bg-card p-6 lg:p-7" data-testid="section-advanced">
         <h2 className="text-[17px] leading-6 font-semibold tracking-[-0.01em] text-bright">Advanced settings</h2>
         <p className="mt-1 text-[13.5px] text-muted-foreground">Open a section to configure it while you create the function.</p>
-      </section>
-      <FormSection title="Function URL" collapsible defaultOpen={false} description={<>Gives the function its own HTTPS endpoint. {urlOn ? `On, with ${urlAuth}.` : "Off."}</>} testId="section-url">
-        <div className="flex items-center gap-3">
-          <Switch id="fn-url" checked={urlOn} onCheckedChange={setUrlOn} data-testid="fn-url" />
-          <Label htmlFor="fn-url" className="font-normal">Enable function URL</Label>
-        </div>
-        {urlOn && (
-          <Field label="Auth type" help="AWS_IAM lets only authenticated users and roles invoke the function; NONE lets anyone. CORS can be set on the function's Function URL section." testId="field-auth">
-            {(id) => (
-              <Select value={urlAuth} onValueChange={(v) => setUrlAuth(v as "AWS_IAM" | "NONE")}>
-                <SelectTrigger id={id} className="w-full max-w-[16rem] bg-card font-mono" data-testid="fn-url-auth"><SelectValue /></SelectTrigger>
-                <SelectContent><SelectItem value="AWS_IAM" className="font-mono">AWS_IAM</SelectItem><SelectItem value="NONE" className="font-mono">NONE</SelectItem></SelectContent>
-              </Select>
+        <div className="mt-5 grid divide-y">
+          <Expander title="Function URL" summary={<>Gives the function its own HTTPS endpoint. {urlOn ? `On, with ${urlAuth}.` : "Off."}</>} testId="section-url">
+            <div className="flex items-center gap-3">
+              <Switch id="fn-url" checked={urlOn} onCheckedChange={setUrlOn} data-testid="fn-url" />
+              <Label htmlFor="fn-url" className="font-normal">Enable function URL</Label>
+            </div>
+            {urlOn && (
+              <Field label="Auth type" help="AWS_IAM lets only authenticated users and roles invoke the function; NONE lets anyone. CORS can be set on the function's Function URL section." testId="field-auth">
+                {(id) => (
+                  <Select value={urlAuth} onValueChange={(v) => setUrlAuth(v as "AWS_IAM" | "NONE")}>
+                    <SelectTrigger id={id} className="w-full max-w-[16rem] bg-card font-mono" data-testid="fn-url-auth"><SelectValue /></SelectTrigger>
+                    <SelectContent><SelectItem value="AWS_IAM" className="font-mono">AWS_IAM</SelectItem><SelectItem value="NONE" className="font-mono">NONE</SelectItem></SelectContent>
+                  </Select>
+                )}
+              </Field>
             )}
-          </Field>
-        )}
-      </FormSection>
-      <FormSection title="Enable tags" collapsible defaultOpen={false} description={filled.length ? `${filled.length} ${filled.length === 1 ? "tag" : "tags"}.` : "No tags."} testId="section-tags">
-        <KeyValueEditor rows={tags} onChange={setTags} rules={{ maxKey: 128, maxValue: 256, maxRows: 50 }} addLabel="Add new tag" testId="fn-tags" />
-        {tags.length === 0 && <button type="button" className="w-fit rounded-md border bg-card px-3 py-1.5 text-[13px] hover:bg-accent" onClick={() => setTags([newRow()])} data-testid="fn-tags-start">Add new tag</button>}
-      </FormSection>
-      <FormSection title="Enable VPC" collapsible defaultOpen={false} description="Not available in doze-aws: there is no VPC network to attach a function to." testId="section-vpc">
-        <p className="text-[13.5px] text-muted-foreground">A function runs as a process on this machine, so it has no subnets or security groups to be placed in.</p>
-      </FormSection>
+          </Expander>
+          <Expander title="Enable tags" summary={filled.length ? `${filled.length} ${filled.length === 1 ? "tag" : "tags"}.` : "No tags."} testId="section-tags">
+            <KeyValueEditor rows={tags} onChange={setTags} rules={{ maxKey: 128, maxValue: 256, maxRows: 50 }} addLabel="Add new tag" testId="fn-tags" />
+          </Expander>
+          <Expander title="Enable VPC" summary="Not available in doze-aws: there is no VPC network to attach a function to." disabled testId="section-vpc" />
+        </div>
+      </section>
     </FormPage>
   );
 }

@@ -99,23 +99,21 @@ export function CodeTab({ d, f, go }: { d: ResourceDetail; f: Fn; go: (to: Go) =
                     })}
                   </ul>
                 </div>
+                {envs.length > 0 && (
                 <div>
                   <h3 className="mb-2 text-[12px] font-medium tracking-[0.08em] text-muted-foreground uppercase">Environment variables</h3>
-                  {envs.length === 0 ? (
-                    <p className="text-[13.5px] text-muted-foreground" data-testid="code-env-none">None.</p>
-                  ) : (
-                    <dl className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] [&>div:last-child>*]:border-b-0" data-testid="code-env">
+                  <dl className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] [&>div:last-child>*]:border-b-0" data-testid="code-env">
                       {envs.map(([k, v]) => (
                         <div key={k} className="contents">
                           <dt className="truncate border-b py-2 pr-2 font-mono text-[12.5px] text-muted-foreground" title={k}>{k}</dt>
                           <dd className="truncate border-b py-2 font-mono text-[12.5px] text-bright" title={v}>{v}</dd>
                         </div>
                       ))}
-                    </dl>
-                  )}
+                  </dl>
                   <p className="mt-3 text-[13px] leading-5 text-muted-foreground">A read-only list. Change values on the{" "}
                     <button type="button" className="rounded-sm font-semibold text-link hover:underline focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none" onClick={() => go({ tab: "configuration", p: "env" })} data-testid="code-env-link">Environment variables</button> page.</p>
                 </div>
+                )}
               </div>
             </div>
             <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-t pt-5">

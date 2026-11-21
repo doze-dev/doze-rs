@@ -48,6 +48,7 @@ pub(super) const FUNCTIONS: Kind = Kind {
         col("Memory (MB)", "MemorySize", Number),
         col("Code size", "CodeSize", Bytes),
         col("Layers", "Layers", Json),
+        col("Execution role", "Role", Mono),
     ],
     id_of: Id::Name,
     detail: &[

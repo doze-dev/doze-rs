@@ -15,7 +15,7 @@ import { useResourceList } from "../../../api/resources";
 import type { ResourceDetail } from "../../../api/types/ResourceDetail";
 import { Card } from "../deep/parts";
 import { type Go, usePolicy, useWhere } from "./hooks";
-import { conditionOf, type Fn, type Trigger, principalOf, runtimeName } from "./model";
+import { conditionOf, type Fn, type Trigger, principalOf } from "./model";
 
 export const SECTIONS = [
   ["general", "General configuration"],
@@ -66,7 +66,6 @@ function General({ f, go }: { f: Fn; go: (to: Go) => void }) {
         <Row k="Memory" v={`${f.memory} MB`} />
         <Row k="Ephemeral storage" v={`${f.ephemeral} MB`} />
         <Row k="Timeout" v={`${f.timeout} ${f.timeout === 1 ? "second" : "seconds"}`} />
-        <Row k="Runtime" v={runtimeName(f.runtime) || "–"} />
         <Row k="Execution role" v={<Link to="/resources/$service/$kind/$name" params={{ service: "iam", kind: "roles", name: f.roleName }} className="text-link hover:underline">{f.roleName}</Link>} sub={<span className="font-mono">{f.role}</span>} />
       </Rows>
       <p className="mt-4 max-w-[46rem] border-l-2 pl-3.5 text-[13px] leading-5 text-foreground" data-testid="general-note">

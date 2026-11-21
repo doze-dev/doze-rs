@@ -1,5 +1,6 @@
 // Pieces the function's forms share: the page's frame (crumbs, back, the call it makes), a number with its unit inside the field,
 // and the words under a field that say what Lambda does with the setting here.
+import { Button } from "@doze/ui/components/ui/button";
 import { Input } from "@doze/ui/components/ui/input";
 import type { ResourceDetail } from "../../../api/types/ResourceDetail";
 import { FormPage } from "../../../kit";
@@ -47,3 +48,18 @@ export function FnFormPage({ p, title, label, sub, children, request, refusal, c
 
 /** The muted words after a rule (`Changed from 256 MB. Stored, not applied locally.`). */
 export const Muted = ({ children }: { children: React.ReactNode }) => <span className="text-muted-foreground">{children}</span>;
+
+/** A setting doze-aws does not have: its title, why, and an Expand that is off. */
+export function NotHere({ title, why, optional = false, testId }: { title: string; why: React.ReactNode; optional?: boolean; testId: string }) {
+  return (
+    <section className="min-w-0 rounded-[14px] border bg-card p-6 opacity-80 lg:p-7" data-testid={testId}>
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h2 className="flex flex-wrap items-center gap-2.5 text-[17px] leading-6 font-semibold tracking-[-0.01em] text-bright">{title}{optional && <span className="rounded-md bg-secondary px-2 py-0.5 text-[12px] font-normal text-muted-foreground">Optional</span>}</h2>
+          <p className="mt-1 text-[13.5px] text-muted-foreground">{why}</p>
+        </div>
+        <Button type="button" variant="outline" size="sm" className="bg-card" disabled>Expand</Button>
+      </div>
+    </section>
+  );
+}

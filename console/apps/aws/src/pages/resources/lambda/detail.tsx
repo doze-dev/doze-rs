@@ -5,6 +5,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { lazy, Suspense, useMemo, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { ErrorBlock, errorWords } from "@doze/ui/components/app/alert";
+import { Callout } from "@doze/ui/components/app/callout";
 import { Alert } from "@doze/ui/components/app/alert";
 import { RefreshControl } from "@doze/ui/components/app/refresh-control";
 import { ResultBanner } from "@doze/ui/components/app/result-banner";
@@ -130,6 +131,7 @@ function FunctionView({ d, updatedAt, fetching, refresh }: { d: ResourceDetail; 
         wiredSelf={wired.filter((w) => w.label === "Triggered by").length}
         wiredText={(w) => chipWords(w, triggers)}
         wiredLead="Triggered by"
+        bannerAbove
         sentenceBold={[/\b\d{2}:\d{2}:\d{2}\b/]}
         details={false}
         refresh={<RefreshControl updatedAt={updatedAt} fetching={fetching} onRefresh={refresh} interval={false} />}
@@ -154,9 +156,7 @@ function FunctionView({ d, updatedAt, fetching, refresh }: { d: ResourceDetail; 
         refusal={failed && <Alert tone="bad" title={`DeleteFunction was refused${failed.code ? `: ${failed.code}` : ""}`} testId="delete-error">{failed.message}</Alert>}
       >
         {blockers.data && blockers.data.blockers.find((b) => b.title === "Event source mappings")?.items.length ? (
-          <p className="border-l-2 border-input pl-3.5 text-[13px] leading-5 text-foreground" data-testid="delete-mappings">
-            {mappingWords(blockers.data.blockers.find((b) => b.title === "Event source mappings")?.items.map((i) => i.name) ?? [])}
-          </p>
+          <Callout tone="warn" testId="delete-mappings">{mappingWords(blockers.data.blockers.find((b) => b.title === "Event source mappings")?.items.map((i) => i.name) ?? [])}</Callout>
         ) : null}
       </TypedConfirm>
     </>

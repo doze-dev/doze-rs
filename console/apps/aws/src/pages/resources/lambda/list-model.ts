@@ -2,13 +2,13 @@
 import type { ResourceRow } from "../../../api/types/ResourceRow";
 import { runtimeName } from "./model";
 
-export type FunctionRow = { name: string; description: string; pkg: string; runtime: string; runtimeText: string; modified: string | null; layers: string[] };
+export type FunctionRow = { name: string; description: string; pkg: string; runtime: string; runtimeText: string; modified: string | null; layers: string[]; role: string };
 
 /** The rows of the list: the columns the descriptor reads are Description, Package type, Runtime, Last modified, Handler, Memory, Code size, Layers. */
 export function rowsOf(rows: readonly ResourceRow[]): FunctionRow[] {
   return rows.map((r) => {
     const layers = layerArns(r.cells[7]);
-    return { name: r.name, description: r.cells[0] ?? "", pkg: r.cells[1] ?? "Zip", runtime: r.cells[2] ?? "", runtimeText: runtimeName(r.cells[2]), modified: r.cells[3], layers };
+    return { name: r.name, description: r.cells[0] ?? "", pkg: r.cells[1] ?? "Zip", runtime: r.cells[2] ?? "", runtimeText: runtimeName(r.cells[2]), modified: r.cells[3], layers, role: r.cells[8] ?? "" };
   });
 }
 

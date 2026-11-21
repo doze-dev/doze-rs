@@ -5,6 +5,7 @@ import { LayersIcon, PlusIcon, Trash2Icon } from "lucide-react";
 import { useRef, useState } from "react";
 import { Alert, ErrorBlock } from "@doze/ui/components/app/alert";
 import { type DataColumn, DataTable } from "@doze/ui/components/app/data-table";
+import { Emphasis } from "@doze/ui/components/app/emphasis";
 import { EmptyState } from "@doze/ui/components/app/empty-state";
 import { PageHeader } from "@doze/ui/components/app/page-header";
 import { Pagination } from "@doze/ui/components/app/pagination";
@@ -35,7 +36,7 @@ const crumbs = [{ label: "Resources", to: "/resources" }, { label: "Compute and 
 
 const COLUMNS: DataColumn<LayerRow>[] = [
   { id: "name", header: "Layer name", min: 160, accessorFn: (r) => r.name, meta: { mono: true }, cell: (c) => <ResourceTo to={{ service: "lambda", kind: "layers", name: c.row.original.name }} className="font-mono text-[13px] font-medium" testId="row-link">{c.row.original.name}</ResourceTo> },
-  { id: "latest", header: "Latest version", size: 140, fit: 112, accessorFn: (r) => Number(r.latest), meta: { numeric: true } },
+  { id: "latest", header: "Latest version", size: 140, fit: 112, accessorFn: (r) => Number(r.latest) },
   { id: "description", header: "Description", size: 260, min: 140, accessorFn: (r) => r.description, cell: (c) => c.row.original.description || <span className="text-muted-foreground">-</span> },
   { id: "runtimes", header: "Compatible runtimes", size: 220, fit: 160, accessorFn: (r) => r.runtimes.join(", "), meta: { mono: true }, cell: (c) => <span className="font-mono text-[13px]">{c.row.original.runtimes.join(", ") || "-"}</span> },
   { id: "archs", header: "Compatible architectures", size: 210, fit: 190, accessorFn: (r) => r.archs.join(", "), meta: { mono: true }, cell: (c) => <span className="font-mono text-[13px]">{c.row.original.archs.join(", ") || "-"}</span> },
@@ -62,8 +63,8 @@ function Layers({ service, kind, gone }: { service: string; kind: string; gone?:
   const create = <Button onClick={() => go({ create: "yes" })} data-testid="create-open"><PlusIcon /> Create layer</Button>;
   return (
     <>
-      <PageHeader title="Layers" crumbs={[...crumbs]} sub="Layers in this account. A layer is a .zip file archive that contains supplementary code or data." refresh={<RefreshControl updatedAt={list.dataUpdatedAt} fetching={list.isFetching} onRefresh={() => void list.refetch()} interval={false} />} actions={create} />
       {gone && <ResultBanner className="mb-6" title={`${gone} was deleted.`} returned="DeleteLayerVersion removed its last version, so the layer is gone." onDismiss={() => go({})} testId="deleted-banner" />}
+      <PageHeader title="Layers" crumbs={[...crumbs]} sub="Layers in this account. A layer is a .zip file archive that contains supplementary code or data." refresh={<RefreshControl updatedAt={list.dataUpdatedAt} fetching={list.isFetching} onRefresh={() => void list.refetch()} interval={false} />} actions={create} />
       {list.isError && !first ? (
         <ErrorBlock what="The layers could not be listed" error={list.error} hint={HINT} onRetry={() => void list.refetch()} retrying={list.isFetching} testId="list-error" />
       ) : !first ? (
@@ -72,7 +73,7 @@ function Layers({ service, kind, gone }: { service: string; kind: string; gone?:
         <div data-testid="list-empty"><EmptyState icon={LayersIcon} title="No layers" action={create}>A layer packages libraries or data that functions share.</EmptyState></div>
       ) : (
         <>
-          {sentence && <p className="mb-5 max-w-[62rem] text-[15px] leading-6 text-muted-foreground" data-testid="list-sentence">{sentence}</p>}
+          {sentence && <p className="mb-5 max-w-[62rem] text-[15px] leading-6 text-muted-foreground" data-testid="list-sentence"><Emphasis text={sentence} names={rows.map((r) => r.name)} bold={[/^\d+ layers?/]} /></p>}
           <DataTable aria-label="Layers" data={rows} columns={COLUMNS} rowId={(r) => r.name} maxHeight={680} />
           <p className="mt-3 text-[13px] text-muted-foreground">The columns are fields of ListLayers: LayerName and, from LatestMatchingVersion, Version, Description, CompatibleRuntimes, CompatibleArchitectures and CreatedDate.</p>
           <Pagination className="mt-3" shown={rows.length} total={rows.length} more={list.hasNextPage} onMore={() => void list.fetchNextPage()} loading={list.isFetchingNextPage} noun={rows.length === 1 ? "layer" : "layers"} />
@@ -123,11 +124,11 @@ export function LayerCreate() {
         <Field label={<>Description <span className="font-normal text-muted-foreground">Optional</span></>} error={tried ? problems.description : undefined} help="Up to 256 characters." testId="field-description">
           {(id) => <Input id={id} value={l.description} onChange={(e) => set({ description: e.target.value })} autoComplete="off" data-testid="layer-description" />}
         </Field>
-      </FormSection>
-      <FormSection title="Layer code" testId="section-code">
-        <RadioGroup value={source} onValueChange={(v) => setSource(v as "zip" | "s3")} className="grid gap-2" aria-label="Where the code comes from">
+        <div className="grid gap-1.5" data-testid="section-code">
+          <Label>Layer code</Label>
+        <RadioGroup value={source} onValueChange={(v) => setSource(v as "zip" | "s3")} className="grid gap-3" aria-label="Where the code comes from">
           {[["zip", "Upload a .zip file"], ["s3", "Upload a file from Amazon S3"]].map(([v, t]) => (
-            <Label key={v} htmlFor={`src-${v}`} className="flex cursor-pointer items-center gap-3 rounded-lg border bg-card px-4 py-3 font-normal has-[[data-state=checked]]:border-primary has-[[data-state=checked]]:bg-pick/40"><RadioGroupItem id={`src-${v}`} value={v!} data-testid={`layer-source-${v}`} />{t}</Label>
+            <Label key={v} htmlFor={`src-${v}`} className="flex cursor-pointer items-start gap-3 font-normal leading-5"><RadioGroupItem id={`src-${v}`} value={v!} className="mt-0.5" data-testid={`layer-source-${v}`} /><span className="grid gap-0.5"><span className="text-bright">{t}</span><span className="text-[13px] text-muted-foreground">{v === "zip" ? (file ? `${file.name}, ${sizeOf(file.size)}` : "No file chosen.") : "Give an Amazon S3 link URL."}</span></span></Label>
           ))}
         </RadioGroup>
         {source === "zip" ? (
@@ -136,7 +137,7 @@ export function LayerCreate() {
               <div className="flex flex-wrap items-center gap-3">
                 <input ref={input} type="file" accept=".zip,application/zip" className="sr-only" onChange={(e) => void pick(e.target.files?.[0])} data-testid="layer-file" aria-label="Upload a .zip file" />
                 <Button type="button" variant="outline" className="bg-card" onClick={() => input.current?.click()}>Choose file</Button>
-                <span className="text-[13.5px] text-muted-foreground" data-testid="layer-file-name">{file ? `${file.name}, ${sizeOf(file.size)}` : "No file chosen."}</span>
+                <span className="sr-only" data-testid="layer-file-name">{file ? `${file.name}, ${sizeOf(file.size)}` : "No file chosen."}</span>
               </div>
             )}
           </Field>
@@ -147,8 +148,7 @@ export function LayerCreate() {
           </div>
         )}
         <p className="border-l-2 pl-3 text-[13px] leading-5 text-muted-foreground">Lambda extracts the archive into /opt when it sets up the execution environment. A layer version never changes; to change the content you publish a new version. Locally the layer&apos;s folders go onto the interpreter search paths instead of /opt.</p>
-      </FormSection>
-      <FormSection title="Compatibility" testId="section-compat">
+        </div>
         <div className="grid gap-1.5">
           <Label>Compatible architectures <span className="font-normal text-muted-foreground">Optional</span></Label>
           <div className="flex gap-6">
@@ -158,7 +158,7 @@ export function LayerCreate() {
           </div>
         </div>
         <Field label={<>Compatible runtimes <span className="font-normal text-muted-foreground">Optional</span></>} error={tried ? problems.runtimes : undefined} help="Up to 15 runtimes. They are used to filter ListLayers and ListLayerVersions." testId="field-runtimes">
-          {() => <MultiSelect options={RUNTIMES.map((r) => ({ value: r.id, label: r.id }))} value={l.runtimes} onChange={(runtimes) => set({ runtimes })} noun="runtimes" triggerClassName="w-72" aria-label="Compatible runtimes" />}
+          {() => <MultiSelect options={RUNTIMES.map((r) => ({ value: r.id, label: r.id }))} value={l.runtimes} onChange={(runtimes) => set({ runtimes })} noun="runtimes" triggerClassName="w-full max-w-[24rem]" chips={false} aria-label="Compatible runtimes" />}
         </Field>
         <Field label={<>License <span className="font-normal text-muted-foreground">Optional</span></>} error={tried ? problems.license : undefined} help="An SPDX identifier, a URL, or the license text; up to 512 characters." testId="field-license">
           {(id) => <Input id={id} value={l.license} onChange={(e) => set({ license: e.target.value })} autoComplete="off" className="max-w-[24rem] font-mono" data-testid="layer-license" />}
