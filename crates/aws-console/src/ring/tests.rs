@@ -286,3 +286,37 @@ fn flows_count_each_caller_to_each_service_and_keep_the_most_recent() {
     assert_eq!(dropped, 3);
     assert!(flows.iter().all(|f| f.caller.starts_with('k')));
 }
+
+#[test]
+fn the_consoles_own_calls_are_let_go_before_an_apps_once_past_their_share() {
+    let r = Recorder::holding(8);
+    let console = |n| Finished {
+        access_key_id: crate::resources::bus::CONSOLE,
+        ..call(n)
+    };
+    // Two of the app's, then the console reading page after page.
+    r.record(&call(1), 1);
+    r.record(&call(2), 2);
+    for n in 3..=20 {
+        r.record(&console(n), n);
+    }
+    let held = r.newest(100);
+    let callers: Vec<&str> = held.calls.iter().map(|c| &*c.caller).collect();
+    // The app's two stay; the console keeps the rest of the ring (its share is the most it holds when an app's call is let go).
+    assert_eq!(seqs(&held), [1, 2, 15, 16, 17, 18, 19, 20]);
+    assert_eq!(callers[..2], ["test", "test"]);
+    // Numbers have gaps now; a reader is given what is held after its number, and one call is found by its number.
+    assert_eq!(seqs(&r.after(2, 3)), [15, 16, 17]);
+    assert_eq!(seqs(&r.after(5, 100)), [15, 16, 17, 18, 19, 20]);
+    assert_eq!(seqs(&r.newest(3)), [18, 19, 20]);
+    assert_eq!(r.get(16).map(|c| c.seq), Some(16));
+    assert!(r.get(5).is_none());
+    // Within its share, the oldest call goes, whoever made it.
+    let r = Recorder::holding(8);
+    for n in 1..=8 {
+        r.record(&call(n), n);
+    }
+    r.record(&console(9), 9);
+    r.record(&call(10), 10);
+    assert_eq!(seqs(&r.newest(100)), [3, 4, 5, 6, 7, 8, 9, 10]);
+}

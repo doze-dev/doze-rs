@@ -1,9 +1,10 @@
 // The Live tape: the calls on screen, newest first, kept current by pages of `/api/v1/calls` and the `calls` events of
 // `/api/v1/tail/live`. Pure: the page feeds it what the server sent and what the person pressed, and draws what it holds.
 //
-// - A call is on the tape once (the server numbers them 1, 2, 3 with no gaps: one at or under the newest seen is a repeat).
+// - A call is on the tape once (the server numbers them in order: one at or under the newest seen is a repeat).
 // - While paused the stream stays open and its calls are held aside, counted; Resume puts them on the tape.
 // - The tape and the hold are bounded by the record's own capacity: what the server no longer holds, the page does not either.
+//   The server lets this console's own calls go first once they pass a quarter of it (ring.rs): the tape does the same ({@link admit}).
 // - `reset` (doze-aws restarted: the cursor was another run's) drops everything held from the old run.
 import type { CallRecord } from "../../api/types/CallRecord";
 import type { CallsPage } from "../../api/types/CallsPage";
@@ -41,6 +42,30 @@ export function newestSeq(t: Tape): number {
 
 const cap = (t: Tape) => t.ring?.capacity ?? DEFAULT_CAP;
 
+/** The console's own calls, which the record lets go first past a quarter of it. */
+const CONSOLE = "console";
+export const CONSOLE_SHARE = 4;
+
+/** `fresh` (newest first) put on `calls` (newest first) one by one, oldest first, as the record takes them: past `most`, the
+ * oldest of this console's own calls leaves while they are more than a quarter of `most`, else the oldest call. */
+export function admit(calls: CallRecord[], fresh: CallRecord[], most: number): CallRecord[] {
+  const out = [...calls];
+  let own = out.filter((c) => c.caller === CONSOLE).length;
+  for (let i = fresh.length - 1; i >= 0; i--) {
+    const c = fresh[i]!;
+    // As the record does: a full one first lets one go (judged before the new call is counted), then takes the new one.
+    if (out.length >= most) {
+      let at = out.length - 1;
+      if (own > Math.floor(most / CONSOLE_SHARE)) while (at > 0 && out[at]!.caller !== CONSOLE) at--;
+      const [gone] = out.splice(at, 1);
+      if (gone?.caller === CONSOLE) own--;
+    }
+    out.unshift(c);
+    if (c.caller === CONSOLE) own++;
+  }
+  return out;
+}
+
 /** `page.calls` (oldest first) as the tape keeps them (newest first), without those at or under `after`. */
 function arrivals(page: CallsPage, after: number): CallRecord[] {
   return page.calls.filter((c) => c.seq > after).reverse();
@@ -67,14 +92,14 @@ export function reduce(t: Tape, a: TapeAction): Tape {
         return { ...next, held: held.slice(0, most), missed: next.missed + Math.max(0, held.length - most) };
       }
       if (fresh.length === 0) return next;
-      return { ...next, calls: [...fresh, ...base.calls].slice(0, most), freshAfter: seen };
+      return { ...next, calls: admit(base.calls, fresh, most), freshAfter: seen };
     }
     case "pause":
       return t.paused ? t : { ...t, paused: true };
     case "resume": {
       if (!t.paused) return t;
       if (t.held.length === 0) return { ...t, paused: false };
-      return { ...t, paused: false, held: [], calls: [...t.held, ...t.calls].slice(0, cap(t)), freshAfter: t.calls[0]?.seq ?? 0 };
+      return { ...t, paused: false, held: [], calls: admit(t.calls, t.held, cap(t)), freshAfter: t.calls[0]?.seq ?? 0 };
     }
   }
 }

@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import type { CallRecord } from "../../api/types/CallRecord";
 import type { CallsPage } from "../../api/types/CallsPage";
-import { EMPTY, findCall, newestSeq, reduce, retryDelayMs, type Tape } from "./tape";
+import { admit, EMPTY, findCall, newestSeq, reduce, retryDelayMs, type Tape } from "./tape";
 
 const call = (seq: number): CallRecord => ({ seq, at_ms: 1_800_000_000_000 + seq, service: "sqs", api: "SQS", action: "SendMessage", resource: null, member: null, caller: "test", region: "us-east-1", status: 200, error_code: null, outcome: "ok", would_be_denied: false, duration_us: 100, request_id: `r-${seq}`, via: null, sdk: null });
 
@@ -125,4 +125,17 @@ describe("the Live tape", () => {
 test("the stream is tried again after 1 s, 2 s, 5 s, then every 10 s", () => {
   expect([1, 2, 3, 4, 5, 50].map(retryDelayMs)).toEqual([1_000, 2_000, 5_000, 10_000, 10_000, 10_000]);
   expect(retryDelayMs(0)).toBe(1_000);
+});
+
+test("past the cap the console's own calls go first, as the record lets them go (ring.rs)", () => {
+  const own = (seq: number): CallRecord => ({ ...call(seq), caller: "console" });
+  // The same case as the record's own test: two of an app's, then the console reading page after page, in a ring of 8.
+  let calls: CallRecord[] = [];
+  for (const c of [call(1), call(2), ...Array.from({ length: 18 }, (_, i) => own(i + 3))]) calls = admit(calls, [c], 8);
+  expect(calls.map((c) => c.seq)).toEqual([20, 19, 18, 17, 16, 15, 2, 1]);
+  // In one batch it is the same.
+  expect(admit([], [call(1), call(2), ...Array.from({ length: 18 }, (_, i) => own(i + 3))].reverse(), 8).map((c) => c.seq)).toEqual([20, 19, 18, 17, 16, 15, 2, 1]);
+  // Within its share, the oldest goes, whoever made it.
+  const apps = Array.from({ length: 8 }, (_, i) => call(i + 1)).reverse();
+  expect(admit(apps, [call(10), own(9)], 8).map((c) => c.seq)).toEqual([10, 9, 8, 7, 6, 5, 4, 3]);
 });

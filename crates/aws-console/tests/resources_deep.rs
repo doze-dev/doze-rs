@@ -167,8 +167,18 @@ async fn a_move_task_is_cancelled_only_from_the_page_of_the_queue_it_moves_from(
     }
     let orders = "/api/v1/resources/sqs/queues/orders-dlq";
     let billing = "/api/v1/resources/sqs/queues/billing-dlq";
-    ok(&w, orders, "SendMessage", &json!({"MessageBody": "a"})).await;
-    let started = ok(&w, orders, "StartMessageMoveTask", &json!({})).await;
+    // Three at one a second, to a named queue (sent straight here, they have no source to go back to): the move is still
+    // running when it is cancelled (only a running one lists its handle).
+    for body in ["a", "b", "c"] {
+        ok(&w, orders, "SendMessage", &json!({"MessageBody": body})).await;
+    }
+    let started = ok(
+        &w,
+        orders,
+        "StartMessageMoveTask",
+        &json!({"DestinationArn": arn("orders"), "MaxNumberOfMessagesPerSecond": 1}),
+    )
+    .await;
     let handle = started["TaskHandle"].as_str().unwrap().to_owned();
     // From another queue's page the handle is refused before SQS is asked to cancel anything.
     let (status, answer) = op(
@@ -189,15 +199,15 @@ async fn a_move_task_is_cancelled_only_from_the_page_of_the_queue_it_moves_from(
         !w.live()
             .contains(&"console sqs CancelMessageMoveTask".to_owned())
     );
-    // From its own page it reaches SQS (which may say the move is over: it is a small one).
-    let (_, answer) = op(
+    // From its own page it is cancelled.
+    let (status, answer) = op(
         &w,
         orders,
         "CancelMessageMoveTask",
         &json!({"TaskHandle": handle}),
     )
     .await;
-    assert_ne!(answer["code"], "NOT_THIS_RESOURCE", "{answer}");
+    assert_eq!(status, 200, "{answer}");
     assert!(
         w.live()
             .contains(&"console sqs CancelMessageMoveTask".to_owned())

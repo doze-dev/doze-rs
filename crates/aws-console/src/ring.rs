@@ -12,6 +12,10 @@
 //!
 //! Every record has a sequence number, 1 for the first call of this process. A reader says the last one it has and is given what
 //! came after ([`Recorder::after`]), and is told how many it missed if the ring has moved past it.
+//!
+//! The console's own calls (caller [`CONSOLE`](crate::resources::bus::CONSOLE): every page read is several) are let go first: once they are more than
+//! [`CONSOLE_SHARE`] of a full ring, the oldest of them leaves instead of the oldest call, so browsing the console never pushes
+//! an app's calls out of Live. Numbers then have gaps; a reader is given what is held after its number all the same.
 
 use std::collections::VecDeque;
 use std::sync::{Mutex, PoisonError};
@@ -27,6 +31,8 @@ mod flows;
 
 /// The most calls held.
 pub const CAPACITY: usize = 1024;
+/// The part of a full ring the console's own calls may hold before they, not an app's, are let go: a quarter.
+pub const CONSOLE_SHARE: usize = 4;
 /// The most bytes of each text of a record that are kept.
 pub const MOST_REQUEST_ID: usize = 64;
 /// See [`MOST_REQUEST_ID`].
@@ -168,6 +174,8 @@ pub struct Fill {
 #[derive(Debug, Default)]
 struct Ring {
     calls: VecDeque<Call>,
+    /// How many of `calls` are the console's own.
+    console: usize,
     flows: flows::Flows,
     /// The number of the newest call ever recorded.
     newest: u64,
@@ -300,12 +308,20 @@ impl Recorder {
             let mut ring = self.ring.lock().unwrap_or_else(PoisonError::into_inner);
             ring.newest += 1;
             made.seq = ring.newest;
-            if ring.calls.len() >= self.capacity
-                && let Some(old) = ring.calls.pop_front()
-            {
-                ring.bytes -= old.bytes();
+            if ring.calls.len() >= self.capacity {
+                // The console's own first, past its share; else the oldest.
+                let at = if ring.console > self.capacity / CONSOLE_SHARE {
+                    ring.calls.iter().position(is_console).unwrap_or(0)
+                } else {
+                    0
+                };
+                if let Some(old) = ring.calls.remove(at) {
+                    ring.bytes -= old.bytes();
+                    ring.console -= usize::from(is_console(&old));
+                }
             }
             ring.bytes += made.bytes();
+            ring.console += usize::from(is_console(&made));
             ring.flows.count(&made);
             ring.calls.push_back(made);
             ring.newest
@@ -321,8 +337,8 @@ impl Recorder {
         let ring = self.ring.lock().unwrap_or_else(PoisonError::into_inner);
         let oldest = ring.calls.front().map_or(ring.newest + 1, |c| c.seq);
         let missed = oldest.saturating_sub(after + 1);
-        // Numbers are consecutive in the ring, so the first wanted call is at a known place.
-        let skip = usize::try_from((after + 1).saturating_sub(oldest)).unwrap_or(usize::MAX);
+        // Numbers rise through the ring (with gaps where the console's own calls were let go): the first wanted is found by halves.
+        let skip = ring.calls.partition_point(|c| c.seq <= after);
         let calls: Vec<Call> = ring.calls.iter().skip(skip).take(limit).cloned().collect();
         let last = calls.last().map_or(after.max(oldest - 1), |c| c.seq);
         Page {
@@ -336,9 +352,13 @@ impl Recorder {
     /// The newest `limit` calls, oldest first.
     #[must_use]
     pub fn newest(&self, limit: usize) -> Page {
-        let from = self
-            .newest_seq()
-            .saturating_sub(u64::try_from(limit).unwrap_or(u64::MAX));
+        let from = {
+            let ring = self.ring.lock().unwrap_or_else(PoisonError::into_inner);
+            let n = ring.calls.len();
+            ring.calls
+                .get(n.saturating_sub(limit))
+                .map_or(ring.newest, |c| c.seq.saturating_sub(1))
+        };
         Page {
             missed: 0,
             ..self.after(from, limit)
@@ -366,8 +386,7 @@ impl Recorder {
     #[must_use]
     pub fn get(&self, seq: u64) -> Option<Call> {
         let ring = self.ring.lock().unwrap_or_else(PoisonError::into_inner);
-        let oldest = ring.calls.front()?.seq;
-        let at = usize::try_from(seq.checked_sub(oldest)?).ok()?;
+        let at = ring.calls.binary_search_by_key(&seq, |c| c.seq).ok()?;
         ring.calls.get(at).cloned()
     }
 
@@ -383,6 +402,11 @@ impl Recorder {
     pub fn watch(&self) -> watch::Receiver<u64> {
         self.newest.subscribe()
     }
+}
+
+/// Whether `call` is one the console made for its own pages.
+fn is_console(call: &Call) -> bool {
+    &*call.caller == crate::resources::bus::CONSOLE
 }
 
 fn now_ms() -> u64 {
