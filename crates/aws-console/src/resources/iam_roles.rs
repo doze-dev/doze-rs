@@ -3,6 +3,7 @@
 use super::Format::{Flag, Json, Mono, Number, Seconds, Text as Plain, Time};
 use super::iam::{PATH, attached};
 use super::iam_blockers::{POLICY_BLOCKERS, ROLE_BLOCKERS};
+use super::iam_ops::{POLICY_OPS, ROLE_OPS};
 use super::{
     Apply, Create, Delete, Id, Input, InputKind, Kind, List, Options, Param, ParamKind, Shape,
     Step, Sub, Tags, Text, Write, col, field, input, op, or,
@@ -149,6 +150,7 @@ pub(super) const ROLES: Kind = Kind {
         },
     )),
     blockers: ROLE_BLOCKERS,
+    ops: ROLE_OPS,
     ..Kind::BARE
 };
 
@@ -279,6 +281,7 @@ pub(super) const POLICIES: Kind = Kind {
     reveal: None,
     deep: &[],
     blockers: POLICY_BLOCKERS,
+    ops: POLICY_OPS,
     // Customer managed policies (the default), AWS managed ones, or both.
     params: &[Param {
         key: "scope",
