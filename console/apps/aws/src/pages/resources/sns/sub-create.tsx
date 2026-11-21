@@ -3,14 +3,14 @@
 import { useNavigate, useSearch } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { Alert } from "@doze/ui/components/app/alert";
-import { DataTable } from "@doze/ui/components/app/data-table";
 import { Badge } from "@doze/ui/components/ui/badge";
 import { Button } from "@doze/ui/components/ui/button";
 import { ApiFailure } from "@doze/ui/lib/api";
+import { cn } from "@doze/ui/lib/utils";
 import { useResourceList } from "../../../api/resources";
 import { FormPage, useKindOp } from "../../../kit";
 import { Rich } from "./parts";
-import { PROTOCOLS, protocolOf, type Protocol } from "./protocols";
+import { countWord, disabledCount, PROTOCOLS, protocolOf, type Protocol } from "./protocols";
 import { b, type Part } from "./sentences";
 import { emptySubForm, problems, subscribeInput, type SubForm } from "./sub-form-model";
 import { Details, FilterPolicy, Redrive } from "./sub-form-sections";
@@ -22,16 +22,16 @@ function sentenceOf(f: SubForm): Part[] {
   const topic = tail(f.topic) || "the topic";
   const fifo = f.topic.endsWith(".fifo");
   const end = f.endpoint ? tail(f.endpoint) : "";
-  if (f.protocol === "sqs") return ["This subscribes ", fifo ? "the FIFO queue " : "the queue ", b(end || "…"), fifo ? " to the FIFO topic " : " to ", b(topic), ". The queue is in your account, so the subscription is ", b("confirmed at once"), "."];
+  if (f.protocol === "sqs") return ["This subscribes ", ...(end ? [fifo ? "the FIFO queue " : "the queue ", b(end)] : [fifo ? "a FIFO queue" : "a queue"]), fifo ? " to the FIFO topic " : " to ", b(topic), ". The queue is in your account, so the subscription is ", b("confirmed at once"), "."];
   if (f.protocol === "lambda") return ["This subscribes the function ", b(end || "…"), " to ", b(topic), ". The function is in your account, so the subscription is confirmed at once and every publish invokes it."];
   if (f.protocol === "http" || f.protocol === "https") return ["This subscribes the webhook ", b(f.endpoint || "…"), " to ", b(topic), ". SNS will send a confirmation message to it, and nothing is delivered until the endpoint confirms."];
   return ["This subscribes ", b(f.endpoint || "…"), " to ", b(topic), `. ${protocolOf(f.protocol)?.about ?? ""}`];
 }
 
-const TABLE: { protocol: Protocol | "http+https" | "mail"; names: string; endpoint: string; confirm: string; raw: string; form?: Protocol }[] = [
-  { protocol: "http+https", names: "HTTP, HTTPS", endpoint: "A URL beginning with http:// or https://. A local URL works", confirm: "Pending until the endpoint confirms, by an HTTP GET to the SubscribeURL", raw: "Yes", form: "http" },
-  { protocol: "sqs", names: "Amazon SQS", endpoint: "The ARN of a queue. The choice for a FIFO topic", confirm: "Same account: at once", raw: "Yes" },
-  { protocol: "lambda", names: "AWS Lambda", endpoint: "The ARN of a function", confirm: "Same account: at once", raw: "No", form: "lambda" },
+const TABLE: { names: string; endpoint: string; confirm: string; raw: string; form?: Protocol }[] = [
+  { names: "HTTP, HTTPS", endpoint: "A URL beginning with http:// or https://. A local URL works", confirm: "Pending until the endpoint confirms, by an HTTP GET to the SubscribeURL", raw: "Yes", form: "http" },
+  { names: "Amazon SQS", endpoint: "The ARN of a queue. The choice for a FIFO topic", confirm: "Same account: at once", raw: "Yes" },
+  { names: "AWS Lambda", endpoint: "The ARN of a function", confirm: "Same account: at once", raw: "No", form: "lambda" },
 ];
 
 export function SubCreate() {
@@ -85,19 +85,35 @@ export function SubCreate() {
 
 /** What each protocol changes: what Endpoint is, who confirms, whether raw delivery is offered; the ones doze-aws does not deliver to say why. */
 export function ProtocolTable({ open }: { open: (p: Protocol) => void }) {
-  const off = PROTOCOLS.filter((p) => !p.active);
+  const off: { names: string; about: string }[] = [
+    { names: "Email, Email-JSON", about: PROTOCOLS.find((x) => x.id === "email")!.about },
+    ...PROTOCOLS.filter((x) => !x.active && !["email", "email-json"].includes(x.id)).map((x) => ({ names: x.label, about: x.about })),
+  ];
+  const th = "px-4 py-3 text-left text-[12px] font-medium tracking-[0.06em] text-muted-foreground uppercase";
+  const td = "px-4 py-3.5 align-top text-[13.5px] leading-5";
   return (
     <section className="mt-12 grid gap-3" aria-label="What each protocol changes" data-testid="protocol-table">
       <h2 className="text-[17px] font-semibold tracking-[-0.01em] text-bright">What each protocol changes</h2>
-      <p className="text-[13.5px] text-muted-foreground">The Protocol you pick decides what Endpoint means and whether the endpoint owner must confirm. Four of the nine AWS protocols deliver here; the other five are disabled, with the reason.</p>
-      <DataTable aria-label="What each protocol changes" data={[...TABLE.map((r) => ({ ...r, off: null as string | null })), ...[{ protocol: "mail" as const, names: "Email, Email-JSON", off: off.find((x) => x.id === "email")!.about }, ...off.filter((x) => !["email", "email-json"].includes(x.id)).map((x) => ({ protocol: x.id, names: x.label, off: x.about }))].map((r) => ({ ...r, endpoint: "", confirm: "", raw: "", form: undefined as Protocol | undefined }))]} rowId={(r) => r.names} maxHeight={640} rowHeight={56}
-        columns={[
-          { id: "protocol", header: "Protocol", size: 220, accessorKey: "names", cell: (c) => <span className="flex items-center gap-2 text-[13.5px] font-medium text-bright">{c.row.original.names}{c.row.original.off && <Badge variant="secondary" className="font-normal text-muted-foreground">Disabled</Badge>}</span> },
-          { id: "endpoint", header: "Endpoint is", size: 300, min: 200, accessorKey: "endpoint", cell: (c) => c.row.original.off ? <span className="text-muted-foreground">{c.row.original.off}</span> : c.row.original.endpoint },
-          { id: "confirm", header: "Confirmation", size: 300, min: 200, accessorKey: "confirm" },
-          { id: "raw", header: "Raw delivery", size: 130, accessorKey: "raw" },
-          { id: "form", header: "Form", size: 180, enableSorting: false, accessorKey: "form", cell: (c) => c.row.original.form ? <Button type="button" variant="outline" size="sm" className="bg-card" onClick={() => open(c.row.original.form!)} data-testid={`open-${c.row.original.form}`}>Open the {c.row.original.form === "http" ? "HTTP" : "Lambda"} form</Button> : c.row.original.protocol === "sqs" ? <span className="text-[13px] text-muted-foreground">This form</span> : null },
-        ]} />
+      <p className="max-w-[56rem] text-[13.5px] text-muted-foreground">The Protocol you pick decides what Endpoint means and whether the endpoint owner must confirm. {countWord(disabledCount())} of the nine AWS protocols are disabled here, with the reason.</p>
+      <div className="overflow-x-auto rounded-[14px] border bg-card">
+        <table className="w-full min-w-[56rem] border-collapse">
+          <thead className="bg-muted/50"><tr><th className={th}>Protocol</th><th className={th}>Endpoint is</th><th className={th}>Confirmation</th><th className={th}>Raw delivery</th><th className={th}>Form</th></tr></thead>
+          <tbody className="divide-y">
+            {TABLE.map((r) => (
+              <tr key={r.names}>
+                <td className={cn(td, "font-medium text-bright")}>{r.names}</td><td className={td}>{r.endpoint}</td><td className={td}>{r.confirm}</td><td className={td}>{r.raw}</td>
+                <td className={td}>{r.form ? <Button type="button" variant="outline" size="sm" className="bg-card" onClick={() => open(r.form!)} data-testid={`open-${r.form}`}>Open the {r.form === "http" ? "HTTP" : "Lambda"} form</Button> : <span className="text-muted-foreground">This form</span>}</td>
+              </tr>
+            ))}
+            {off.map((r) => (
+              <tr key={r.names}>
+                <td className={cn(td, "font-medium text-bright")}><span className="grid gap-1">{r.names}<Badge variant="secondary" className="w-fit font-normal text-muted-foreground">Disabled</Badge></span></td>
+                <td className={cn(td, "text-muted-foreground")} colSpan={4}>{r.about}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
       <p className="border-l-2 border-input pl-3.5 text-[13px] leading-5 text-muted-foreground"><b className="font-semibold text-foreground">HTTP(S) endpoints, email addresses, and resources in other AWS accounts require confirmation.</b> An Amazon SQS queue or Lambda function in your own account needs none. Raw delivery is offered for Amazon SQS and HTTP/S.</p>
     </section>
   );

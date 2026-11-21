@@ -56,13 +56,13 @@ function EndpointField({ f, set, p, show }: SubFieldProps) {
   const fifoTopic = f.topic.endsWith(".fifo");
   const arnOf = (kind: "sqs" | "lambda", name: string) => (kind === "sqs" ? `arn:aws:sqs:${region}:${account}:${name}` : `arn:aws:lambda:${region}:${account}:function:${name}`);
   const options = f.protocol === "sqs" ? queues.rows.map((r) => ({ value: arnOf("sqs", r.name), label: r.name })) : f.protocol === "lambda" ? fns.rows.map((r) => ({ value: arnOf("lambda", r.name), label: r.name })) : null;
-  const fifo = queues.rows.filter((r) => r.cells[0] === "FIFO").map((r) => r.name);
-  const standard = queues.rows.filter((r) => r.cells[0] !== "FIFO").map((r) => r.name);
+  const chosen = queues.rows.find((r) => r.name === (f.endpoint.split(":").pop() ?? ""));
+  const misfits = queues.rows.filter((r) => (r.cells[0] === "FIFO") !== fifoTopic && r.name !== chosen?.name).map((r) => r.name);
   const name = f.endpoint.split(":").pop() ?? "";
   const used = f.protocol === "lambda" ? subs.rows.filter((r) => r.cells[2] === f.endpoint).map((r) => r.cells[0] ?? "") : [];
   const info = protocolOf(f.protocol);
   const hint =
-    f.protocol === "sqs" && queues.rows.length > 0 ? <><b className="font-semibold text-foreground">FIFO topics use FIFO queues.</b> {fifo.length > 0 ? `${list(fifo)} ${fifo.length === 1 ? "is a FIFO queue" : "are FIFO queues"}.` : "SQS has no FIFO queue."}{standard.length > 0 ? ` ${list(standard.slice(0, 3))} ${standard.length === 1 ? "is a standard queue and fits" : "are standard queues and fit"} standard topics only.` : ""}{fifoTopic ? "" : ""}</>
+    f.protocol === "sqs" && queues.rows.length > 0 ? <><b className="font-semibold text-foreground">{fifoTopic ? "FIFO topics use FIFO queues." : "Standard topics use standard queues."}</b>{chosen ? ` ${name} is a ${chosen.cells[0] === "FIFO" ? "FIFO" : "standard"} queue${(chosen.cells[0] === "FIFO") === fifoTopic ? "" : " and does not fit this topic"}.` : ""}{misfits.length > 0 ? ` ${list(misfits.slice(0, 3))} ${misfits.length === 1 ? "is a" : "are"} ${fifoTopic ? "standard" : "FIFO"} ${misfits.length === 1 ? "queue and fits" : "queues and fit"} ${fifoTopic ? "standard" : "FIFO"} topics only.` : ""}</>
     : f.protocol === "lambda" ? <>String.Array and Number message attributes reach Lambda as String in the JSON payload.{used.length > 0 ? ` ${name} is already subscribed to ${list(used)}.` : ""}</>
     : f.protocol === "http" || f.protocol === "https" ? <>For the {f.protocol} protocol the endpoint is a URL beginning with {f.protocol}://. The webhook can be a local server.</>
     : undefined;

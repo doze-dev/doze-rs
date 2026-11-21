@@ -53,13 +53,9 @@ export function Details({ f, set, p, show, create, hints, refusal, mono }: Field
         </Field>
       )}
       <Field label="Display name" optional error={show ? p.display : undefined} help={<>For email and email-json subscriptions, the sender name of regular notification messages. Attribute: <span className="font-mono">DisplayName</span>.</>} hint={undefined} testId="field-display">
-        {(id) => (
-          <>
-            <Input id={id} value={f.display} onChange={(e) => set({ display: e.target.value })} placeholder="Add a display name" autoComplete="off" className="bg-card" data-testid="topic-display" />
-            <LocalStatus className="mt-2" state="stored" reason="doze-aws sends no email." />
-          </>
-        )}
+        {(id) => <Input id={id} value={f.display} onChange={(e) => set({ display: e.target.value })} placeholder="Add a display name" autoComplete="off" className="bg-card" data-testid="topic-display" />}
       </Field>
+      <LocalStatus state="stored" reason="doze-aws sends no email." className="-mt-3" />
     </FormSection>
   );
 }

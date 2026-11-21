@@ -18,7 +18,7 @@ import { HINT } from "../index-page";
 import { RadioRows, Rich, ServiceTabs } from "./parts";
 import { subscriptionsSentence } from "./sentences";
 import { DeleteSubscription } from "./sub-dialogs";
-import { subRow } from "./sub-model";
+import { orderSubs, subRow } from "./sub-model";
 import { subColumns } from "./subs-table";
 import { SubCreate } from "./sub-create";
 import { countWord } from "./protocols";
@@ -41,7 +41,7 @@ function Subs({ service, kind, gone }: { service: string; kind: string; gone?: s
   const { refetch } = q;
   const refresh = useCallback(() => void refetch(), [refetch]);
   const first = q.data?.pages[0];
-  const rows = useMemo(() => (q.data?.pages.flatMap((p) => p.rows) ?? []).map(subRow), [q.data]);
+  const rows = useMemo(() => orderSubs((q.data?.pages.flatMap((p) => p.rows) ?? []).map(subRow)), [q.data]);
   const pick = rows.find((r) => r.name === chosen) ?? null;
   const none = rows.length === 0;
   const waiting = [...new Set(rows.filter((r) => r.pending).map((r) => r.topic))].map((t) => [t, rows.filter((r) => r.pending && r.topic === t).length] as const);

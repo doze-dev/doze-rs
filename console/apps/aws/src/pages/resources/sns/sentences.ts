@@ -20,6 +20,9 @@ function pendingWho(s: SubRow): Part[] {
   return url ? ["the webhook ", b(s.endpoint)] : mail ? ["the stored email ", b(s.endpoint)] : ["the ", s.protocol, " endpoint ", b(endpointName(s.protocol, s.endpoint))];
 }
 
+/** Webhooks first, then addresses: the order a person thinks of what is waiting. */
+const byKind = (rows: SubRow[]): SubRow[] => [...rows].sort((a, b) => Number(a.protocol.startsWith("email")) - Number(b.protocol.startsWith("email")));
+
 const join = (lists: Part[][], last = " and "): Part[] => lists.flatMap((l, i) => (i === 0 ? l : [i === lists.length - 1 ? last : ", ", ...l]));
 
 /** Where the pending ones are: `, both on alerts`. */
@@ -33,7 +36,7 @@ function where(pending: readonly SubRow[]): Part[] {
 /** The topics list: `3 topics and 7 subscriptions in us-east-1. 2 are pending, both on alerts: …. Last publish: orders-created at 08:13:58.` */
 export function topicsSentence(topics: number, subs: readonly SubRow[], region: string, lastPublish: { topic: string; at: string } | null): Part[] {
   if (topics === 0) return [`No topics in ${region}: ListTopics returned an empty list. A publish needs a topic, and a topic needs a subscription before anything is delivered.`];
-  const pending = subs.filter((s) => s.pending);
+  const pending = byKind(subs.filter((s) => s.pending));
   const out: Part[] = [b(noun(topics, "topic", "topics")), " and ", b(noun(subs.length, "subscription", "subscriptions")), ` in ${region}.`];
   if (pending.length > 0) {
     out.push(" ", b(String(pending.length)), pending.length === 1 ? " is pending" : " are pending", ...where(pending), ": ", ...join(pending.map(pendingWho)));
@@ -46,7 +49,7 @@ export function topicsSentence(topics: number, subs: readonly SubRow[], region: 
 
 /** The subscriptions list: `7 subscriptions, 5 confirmed and 2 pending, both on alerts: …`. */
 export function subscriptionsSentence(subs: readonly SubRow[]): Part[] {
-  const pending = subs.filter((s) => s.pending);
+  const pending = byKind(subs.filter((s) => s.pending));
   const out: Part[] = [b(noun(subs.length, "subscription", "subscriptions")), ", "];
   if (pending.length === 0) return [...out, subs.length === 1 ? "confirmed." : "all confirmed."];
   out.push(`${subs.length - pending.length} confirmed and ${pending.length} pending`, ...where(pending), ": ");

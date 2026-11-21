@@ -31,7 +31,7 @@ export function subscriptionOf(d: ResourceDetail): Subscription {
     return v === undefined || v === "" ? null : v;
   };
   const pending = f("Pending confirmation") === "Yes";
-  return { name: d.name, arn: pending ? null : (f("ARN") ?? d.id), topicArn: f("Topic ARN") ?? "", protocol: f("Protocol") ?? "", endpoint: f("Endpoint") ?? "", pending, raw: f("Raw message delivery") === "Enabled", filter: f("Filter policy"), scope: f("Filter policy scope") === "MessageBody" ? "MessageBody" : "MessageAttributes", redrive: f("Redrive policy"), owner: f("Owner") };
+  return { name: d.name, arn: d.id.startsWith("arn:") ? (f("ARN") ?? d.id) : null, topicArn: f("Topic ARN") ?? "", protocol: f("Protocol") ?? "", endpoint: f("Endpoint") ?? "", pending, raw: f("Raw message delivery") === "Enabled", filter: f("Filter policy"), scope: f("Filter policy scope") === "MessageBody" ? "MessageBody" : "MessageAttributes", redrive: f("Redrive policy"), owner: f("Owner") };
 }
 
 const norm = (text: string): string => {

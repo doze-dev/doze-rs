@@ -203,20 +203,24 @@ export function changes(f: TopicForm, t: Topic, region: string, account: string)
   return out;
 }
 
-/** `the maximum message size goes to 512 KiB and the tag owner is added`: what an edit is about to do, in words. */
-export function changeWords(c: readonly Change[], tagWords: string): string {
-  const label: Record<string, string> = { DisplayName: "the display name", ContentBasedDeduplication: "content-based deduplication", FifoThroughputScope: "the throughput scope", MaximumMessageSize: "the maximum message size", KmsMasterKeyId: "the encryption key", Policy: "the access policy", DeliveryPolicy: "the delivery retry policy", TracingConfig: "active tracing", ArchivePolicy: "the archive policy" };
-  const words = new Set<string>();
-  const ordered: string[] = [];
+/** What each setting an edit changes does, in words: `the maximum message size goes to 512 KiB`. A protocol's logging attributes are one phrase. */
+export function changePhrases(c: readonly Change[]): string[] {
+  const out: string[] = [];
+  const add = (p: string) => out.includes(p) || out.push(p);
   for (const x of c) {
-    const l = label[x.name] ?? (x.name.endsWith("FeedbackRoleArn") || x.name.endsWith("FeedbackSampleRate") ? "delivery status logging" : x.name);
-    if (!words.has(l)) {
-      words.add(l);
-      ordered.push(l);
-    }
+    if (x.name === "MaximumMessageSize") add(`the maximum message size goes to ${Number(x.value) / 1024} KiB`);
+    else if (x.name === "DisplayName") add(x.value ? `the display name becomes ${x.value}` : "the display name is removed");
+    else if (x.name === "ContentBasedDeduplication") add(`content-based deduplication is turned ${x.value === "true" ? "on" : "off"}`);
+    else if (x.name === "FifoThroughputScope") add(`the throughput scope becomes ${x.value}`);
+    else if (x.name === "KmsMasterKeyId") add(x.value ? `the encryption key becomes ${x.value}` : "encryption is turned off");
+    else if (x.name === "Policy") add("the access policy is replaced");
+    else if (x.name === "DeliveryPolicy") add("the delivery retry policy changes");
+    else if (x.name === "TracingConfig") add(`active tracing is turned ${x.value === "Active" ? "on" : "off"}`);
+    else if (x.name === "ArchivePolicy") add(x.value === "{}" ? "the archive policy is removed" : "the archive policy changes");
+    else if (x.name.endsWith("FeedbackRoleArn") || x.name.endsWith("FeedbackSampleRate")) add("delivery status logging changes");
+    else add(`${x.name} changes`);
   }
-  if (tagWords) ordered.push(tagWords);
-  return ordered.join(", ");
+  return out;
 }
 
 /** Whether the policy text is the service's default for this topic (or empty, which leaves the default). */

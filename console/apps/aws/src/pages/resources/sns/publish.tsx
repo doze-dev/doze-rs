@@ -1,6 +1,7 @@
 // Publish message (sns__publish-message, publish-fifo, publish-fifo-refused; topic-published is where it lands): the message, its subject, group,
 // deduplication ID and attributes, the call it will make beside it, who gets what, and (for a subscription with a filter policy) whether the message
 // passes. The service's refusal is said on the field and in the call.
+import { useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { PlusIcon, XIcon } from "lucide-react";
 import { Alert } from "@doze/ui/components/app/alert";
@@ -31,6 +32,7 @@ export function Publish({ d, t, subs, back, done }: TopicProps) {
   const [tried, setTried] = useState(false);
   const set = (patch: Partial<PublishForm>) => setF((x) => ({ ...x, ...patch }));
   const send = useOp<{ MessageId: string; SequenceNumber?: string }>(target, "Publish", { keep: true });
+  const qc = useQueryClient();
   const read = useSubscriptions(subs);
   const confirmed = subs.filter((s) => !s.pending);
   const p = problems(f, t);
@@ -45,6 +47,7 @@ export function Publish({ d, t, subs, back, done }: TopicProps) {
     send.mutate(publishInput(f), {
       onSuccess: (r) => {
         remember(d.name, { messageId: r.MessageId, sequenceNumber: r.SequenceNumber ?? null, group: f.group.trim() || null, dedup: f.dedup.trim() || null, attributes: attrs, custom: f.structure === "custom", at: Date.now() });
+        void qc.invalidateQueries({ queryKey: ["resources", "one", d.service, d.kind, d.name] });
         done("published");
       },
     });

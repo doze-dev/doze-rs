@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { newRow } from "@doze/ui/components/app/key-values";
 import type { ResourceDetail } from "../../../api/types/ResourceDetail";
-import { changes, createInput, defaultPolicy, deliveryPolicy, DEFAULT_RETRY, emptyTopicForm, formOfTopic, problems, retryOf } from "./topic-form-model";
+import { changePhrases, changes, createInput, defaultPolicy, deliveryPolicy, DEFAULT_RETRY, emptyTopicForm, formOfTopic, problems, retryOf } from "./topic-form-model";
 import { topicOf } from "./topic-model";
 
 const R = "us-east-1";
@@ -42,4 +42,8 @@ test("the form sees a missing name, a bad size, encryption without a key, and a 
   expect(problems({ ...emptyTopicForm(), name: "a", maxKib: "2000" }, true).maxKib).toContain("1,024");
   expect(problems({ ...emptyTopicForm(), name: "a", sse: true }, true).kms).toContain("KMS");
   expect(problems({ ...emptyTopicForm(), name: "a", retry: { ...DEFAULT_RETRY, numRetries: "101" } }, true).retry).toContain("0 to 100");
+});
+
+test("an edit says what each change does", () => {
+  expect(changePhrases([{ name: "MaximumMessageSize", value: "524288" }, { name: "SQSSuccessFeedbackRoleArn", value: "" }, { name: "SQSFailureFeedbackRoleArn", value: "" }, { name: "KmsMasterKeyId", value: "" }])).toEqual(["the maximum message size goes to 512 KiB", "delivery status logging changes", "encryption is turned off"]);
 });

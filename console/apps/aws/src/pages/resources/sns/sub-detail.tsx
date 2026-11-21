@@ -72,7 +72,7 @@ function SubView({ d, updatedAt, fetching, refresh }: { d: ResourceDetail; updat
   const [mine, setMine] = useState(false);
   const go = (view?: string, done?: string) => void navigate({ to: "/resources/$service/$kind/$name", params: { service: d.service, kind: d.kind, name: d.name }, search: { ...(view ? { view } : {}), ...(done ? { done } : {}) } });
   const pending = isPending(d.name) || s.pending;
-  if (search.view === "edit" && !pending) return <Suspense fallback={<Skeleton className="h-96 rounded-[14px]" />}><Edit d={d} s={s} back={() => go()} done={(done) => go(undefined, done)} /></Suspense>;
+  if (search.view === "edit" && s.arn) return <Suspense fallback={<Skeleton className="h-96 rounded-[14px]" />}><Edit d={d} s={s} back={() => go()} done={(done) => go(undefined, done)} /></Suspense>;
   const id = s.arn ? tail(s.arn) : null;
   const title = shortId(id);
   const topic = tail(s.topicArn);
@@ -89,7 +89,7 @@ function SubView({ d, updatedAt, fetching, refresh }: { d: ResourceDetail; updat
   const shown: ResourceDetail = { ...d, name: title, sentence: null, wired: [] };
   const mail = s.protocol === "email" || s.protocol === "email-json";
   const rows: [string, React.ReactNode][] = [
-    ["Subscription ARN", pending ? <span className="text-muted-foreground">None yet: SNS gives a subscription its ARN when it is confirmed</span> : <span className="flex items-center gap-2 font-mono" data-testid="field-arn">{s.arn}<CopyButton text={s.arn ?? ""} what="ARN copied" iconOnly variant="ghost" label="Copy ARN" /></span>],
+    ["Subscription ARN", !s.arn ? <span className="text-muted-foreground">None yet: SNS gives a subscription its ARN when it is confirmed</span> : <span className="flex items-center gap-2 font-mono" data-testid="field-arn">{s.arn}<CopyButton text={s.arn ?? ""} what="ARN copied" iconOnly variant="ghost" label="Copy ARN" /></span>],
     ["Endpoint", <span key="e" className="font-mono">{s.protocol === "sqs" ? <ResourceTo to={{ service: "sqs", kind: "queues", name: endpointName("sqs", s.endpoint) }}>{s.endpoint}</ResourceTo> : s.protocol === "lambda" ? <ResourceTo to={{ service: "lambda", kind: "functions", name: endpointName("lambda", s.endpoint) }}>{s.endpoint}</ResourceTo> : s.endpoint}{mail && pending ? <span className="ml-3 font-sans text-[12.5px] text-muted-foreground">Stored: doze-aws sends no email</span> : null}</span>],
     ["Topic ARN", <span key="t" className="font-mono"><Link to={resourceHref({ service: "sns", kind: "topics", name: topic }) as never} className="text-link hover:underline">{s.topicArn}</Link></span>],
     ["Protocol", protocolLabel(s.protocol)],
@@ -125,7 +125,7 @@ function SubView({ d, updatedAt, fetching, refresh }: { d: ResourceDetail; updat
             </div>
           </>
         }
-        verbStates={pending ? { edit: { disabled: "A subscription waiting for its endpoint has no ARN to change yet." }, delete: { disabled: "You can't delete a subscription that's pending confirmation. It is confirmed from its topic, or SNS deletes it after 48 hours on AWS." } } : undefined}
+        verbStates={pending ? { ...(s.arn ? {} : { edit: { disabled: "A subscription waiting for its endpoint has no ARN to change yet." } }), delete: { disabled: "You can't delete a subscription that's pending confirmation. It is confirmed from its topic, or SNS deletes it after 48 hours on AWS." } } : undefined}
         onVerb={onVerb}
         refresh={<RefreshControl updatedAt={updatedAt} fetching={fetching} onRefresh={refresh} interval={false} />}
         testId="sub-page"

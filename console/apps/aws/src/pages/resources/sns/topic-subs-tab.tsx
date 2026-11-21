@@ -10,9 +10,9 @@ import type { ResourceDetail } from "../../../api/types/ResourceDetail";
 import { Block } from "../sqs/parts";
 import { RadioRows } from "./parts";
 import { subColumns } from "./subs-table";
-import { topicSubRow, type SubRow } from "./sub-model";
+import { orderSubs, topicSubRow, type SubRow } from "./sub-model";
 
-export const topicSubs = (d: ResourceDetail, arn: string): SubRow[] => (d.subs.find((s) => s.title === "Subscriptions")?.rows ?? []).map((r) => topicSubRow(r, arn));
+export const topicSubs = (d: ResourceDetail, arn: string): SubRow[] => orderSubs((d.subs.find((s) => s.title === "Subscriptions")?.rows ?? []).map((r) => topicSubRow(r, arn)));
 
 export function SubscriptionsTab({ d, arn, fifo, create, confirm }: { d: ResourceDetail; arn: string; fifo: boolean; create: () => void; confirm: (s: SubRow) => void }) {
   const rows = useMemo(() => topicSubs(d, arn), [d, arn]);

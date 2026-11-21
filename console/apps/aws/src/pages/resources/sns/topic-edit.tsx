@@ -1,5 +1,6 @@
 // Edit topic (sns__topic-edit): the topic's settings in the same fields as Create, saved one SetTopicAttributes call for each setting that changed,
 // and its tags with TagResource and UntagResource. The type and the name cannot change.
+import { useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { Alert } from "@doze/ui/components/app/alert";
 import { rowsValid } from "@doze/ui/components/app/key-values";
@@ -10,12 +11,12 @@ import { diffTags, FormPage, noChange, type PreviewRequest, TAG_RULES, useSetTag
 import { useOp } from "../deep/api";
 import { Rich } from "./parts";
 import { b } from "./sentences";
-import { changes, changeWords, formOfTopic, problems, type TopicForm } from "./topic-form-model";
+import { changePhrases, changes, formOfTopic, problems, type TopicForm } from "./topic-form-model";
 import { Logging, RetryPolicy, TagsSection, Tracing } from "./topic-form-delivery";
 import { AccessPolicy, Details, Encryption, FifoOptions, MaxSize } from "./topic-form-fields";
 import type { TopicProps } from "./topic-props";
 import { archiveOf, daysWords } from "./topic-model";
-import { count } from "./words";
+import { count, list } from "./words";
 import { Field, FormSection, LocalStatus } from "../../../kit";
 import { Input } from "@doze/ui/components/ui/input";
 
@@ -34,6 +35,7 @@ function EditForm({ d, t, subs, back, done, tags }: TopicProps & { tags: { key: 
   const [tried, setTried] = useState(false);
   const set = (patch: Partial<TopicForm>) => setF((x) => ({ ...x, ...patch }));
   const save = useOp(target, "SetTopicAttributes", { keep: true });
+  const qc = useQueryClient();
   const setTags = useSetTags(target);
   const pr = problems(f, false);
   const changed = useMemo(() => changes(f, t, region, account), [f, t, region, account]);
@@ -53,14 +55,17 @@ function EditForm({ d, t, subs, back, done, tags }: TopicProps & { tags: { key: 
     try {
       for (const c of changed) await save.mutateAsync({ AttributeName: c.name, AttributeValue: c.value });
       if (!noChange(tagChange)) await setTags.mutateAsync(tagChange);
+      await qc.invalidateQueries({ queryKey: ["resources", "one", d.service, d.kind, d.name] });
+      void qc.invalidateQueries({ queryKey: ["resources", "list", d.service, d.kind] });
       done("updated");
     } catch {
       /* the refusal is shown */
     }
   };
-  const tagWords = [tagChange.set.length > 0 && `the tag${tagChange.set.length === 1 ? "" : "s"} ${tagChange.set.map((x) => x.key).join(", ")} ${tagChange.set.length === 1 ? "is" : "are"} set`, tagChange.remove.length > 0 && `${count(tagChange.remove.length, "tag")} removed`].filter(Boolean).join(" and ");
+  const had = new Set(tags.map((x) => x.key));
+  const tagPhrases = [...tagChange.set.map((x) => `the tag ${x.key} is ${had.has(x.key) ? "changed" : "added"}`), ...tagChange.remove.map((k) => `the tag ${k} is removed`)];
+  const phrases = [...changePhrases(changed), ...tagPhrases];
   const own = { total: subs.length, sqsOrLambda: subs.filter((s) => s.protocol === "sqs" || s.protocol === "lambda").length };
-  const calls = count(changed.length + (tagChange.set.length > 0 ? 1 : 0) + (tagChange.remove.length > 0 ? 1 : 0), "call");
   return (
     <FormPage
       title={`Edit ${d.name}`}
@@ -74,7 +79,7 @@ function EditForm({ d, t, subs, back, done, tags }: TopicProps & { tags: { key: 
       banner={
         <div className="grid gap-4">
           {refused ? <Alert tone="bad" title="The changes were not saved." testId="edit-refused">{refused.code}: {refused.message}</Alert> : null}
-          <Rich testId="edit-sentence" parts={nothing ? ["Nothing has changed yet."] : ["You changed ", b(count(changed.length + (noChange(tagChange) ? 0 : 1), "setting")), ": ", changeWords(changed, tagWords), `. Nothing else will be sent (${calls}).`]} />
+          <Rich testId="edit-sentence" parts={nothing ? ["Nothing has changed yet."] : ["You changed ", b(count(phrases.length, "setting")), `: ${list(phrases)}. Nothing else will be sent.`]} />
         </div>
       }
       submitLabel="Save changes"

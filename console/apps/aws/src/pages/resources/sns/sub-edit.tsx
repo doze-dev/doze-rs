@@ -1,5 +1,6 @@
 // Edit subscription (sns__subscription-edit): raw message delivery, the filter policy and the redrive policy, saved one SetSubscriptionAttributes call for each
 // setting that changed. The topic, the protocol and the endpoint cannot change.
+import { useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { Alert } from "@doze/ui/components/app/alert";
 import { ApiFailure } from "@doze/ui/lib/api";
@@ -18,6 +19,7 @@ export function SubEdit({ d, s, back, done }: { d: ResourceDetail; s: Subscripti
   const [tried, setTried] = useState(false);
   const set = (patch: Partial<SubForm>) => setF((x) => ({ ...x, ...patch }));
   const save = useOp(target, "SetSubscriptionAttributes", { keep: true });
+  const qc = useQueryClient();
   const p = problems(f, false);
   const changed = useMemo(() => changes(f, s), [f, s]);
   const nothing = changed.length === 0;
@@ -29,6 +31,8 @@ export function SubEdit({ d, s, back, done }: { d: ResourceDetail; s: Subscripti
     if (bad || nothing) return;
     try {
       for (const c of changed) await save.mutateAsync({ AttributeName: c.name, AttributeValue: c.value });
+      await qc.invalidateQueries({ queryKey: ["resources", "one", d.service, d.kind, d.name] });
+      void qc.invalidateQueries({ queryKey: ["resources", "list", d.service, d.kind] });
       done("updated");
     } catch {
       /* the refusal is shown */
@@ -65,8 +69,8 @@ export function SubEdit({ d, s, back, done }: { d: ResourceDetail; s: Subscripti
           {s.protocol === "sqs" && <RuleHelp>With raw delivery on, an SQS subscription carries at most 10 message attributes. A message with more is discarded as a client-side error. Turn raw delivery off to send more than 10.</RuleHelp>}
         </>
       } />
-      <FilterPolicy f={f} set={set} p={p} show={tried} collapsed={!f.filterOn} />
-      <Redrive f={f} set={set} p={p} show={tried} collapsed={!f.redriveOn} />
+      <FilterPolicy f={f} set={set} p={p} show={tried} collapsed={false} />
+      <Redrive f={f} set={set} p={p} show={tried} collapsed={false} />
     </FormPage>
   );
 }

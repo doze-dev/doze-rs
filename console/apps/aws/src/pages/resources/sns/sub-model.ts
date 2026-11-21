@@ -67,3 +67,9 @@ export function pendingWhy(protocol: string): string {
   if (protocol === "http" || protocol === "https") return "Waiting for the endpoint to confirm";
   return "Waiting for confirmation";
 }
+
+/** Confirmed first, then the ones that wait (a webhook before an address, which never confirms here), each as the service listed them. */
+export function orderSubs<T extends Pick<SubRow, "pending" | "protocol">>(rows: readonly T[]): T[] {
+  const rank = (s: T): number => (s.pending ? (s.protocol.startsWith("email") ? 2 : 1) : 0);
+  return [...rows].sort((a, b) => rank(a) - rank(b));
+}

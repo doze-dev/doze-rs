@@ -2,7 +2,7 @@
 // topic-delivery-policy, topic-logging, topic-encryption, topic-tags, topic-archive, topic-created). Built from what the page has read;
 // what doze-aws stores and does not act on is said so. Pure.
 import { b, type Part } from "./sentences";
-import { endpointName, type SubRow } from "./sub-model";
+import { endpointName, orderSubs, type SubRow } from "./sub-model";
 import { archiveOf, daysWords, hasOwnDelivery, LOGGED, type Logged, roleName, type Topic } from "./topic-model";
 import { count, list } from "./words";
 
@@ -37,7 +37,7 @@ export function topicSentence(t: Pick<Topic, "name" | "fifo">, subs: readonly Su
     if (raw) out.push(` ${raw}`);
     return out;
   }
-  const ordered = [...confirmed, ...subs.filter((s) => s.pending)];
+  const ordered = orderSubs(subs);
   const reach = confirmed.length === 0 ? "A publish reaches nobody yet." : confirmed.length === 1 ? "A publish reaches only the confirmed one." : `A publish reaches only the ${confirmed.length} confirmed ones.`;
   return [b(t.name), ` has ${count(subs.length, "subscription")}: `, ...join(ordered.map(who), ", and "), `. ${reach}`];
 }
