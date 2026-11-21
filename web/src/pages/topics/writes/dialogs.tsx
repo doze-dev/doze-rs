@@ -1,8 +1,9 @@
-// The four write dialogs of a topic, one open at a time. Each body is keyed by the time it was opened, so a dialog opened
+// The five write dialogs of a topic, one open at a time. Each body is keyed by the time it was opened, so a dialog opened
 // again starts fresh; the body of the one closing stays until its exit animation ends.
 import { useState } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { DeleteTopicBody } from "./delete-topic";
+import { EmptyTopicBody } from "./empty";
 import type { TopicDialog } from "./overlays";
 import { AddPartitionsBody, DeleteRecordsBody } from "./partitions";
 import { ProduceBody } from "./produce";
@@ -31,6 +32,14 @@ const TITLES: Record<TopicDialog, { title: (t: string, p?: number) => React.Reac
       </>
     ),
     description: "Moves a partition's log start forward. Earlier records are no longer served.",
+  },
+  empty: {
+    title: (t) => (
+      <>
+        Empty <code className="font-mono">{t}</code>?
+      </>
+    ),
+    description: "Every record of every partition, up to its high watermark, in one DeleteRecords. The topic stays.",
   },
   delete: {
     title: (t) => (
@@ -64,6 +73,7 @@ export default function Dialogs({ topic, dialog, partition, onClose }: { topic: 
           {shown.d === "produce" && <ProduceBody key={shown.at} topic={topic} open={open} />}
           {shown.d === "add-partitions" && <AddPartitionsBody key={shown.at} topic={topic} open={open} />}
           {shown.d === "delete-records" && <DeleteRecordsBody key={shown.at} topic={topic} partition={partition} open={open} />}
+          {shown.d === "empty" && <EmptyTopicBody key={shown.at} topic={topic} open={open} />}
           {shown.d === "delete" && <DeleteTopicBody key={shown.at} topic={topic} open={open} />}
         </div>
       </DialogContent>

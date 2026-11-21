@@ -77,14 +77,18 @@ export function useMessages(topic: string, qs: string) {
   });
 }
 
-export function useRecord(topic: string, at: { partition: number; offset: number } | null) {
-  return useQuery({
+/** One record, as the Sheet reads it (and the Live tail's copy commands, from the same cache). */
+export function recordQuery(topic: string, at: { partition: number; offset: number } | null) {
+  return {
     queryKey: topicKeys.record(topic, at?.partition ?? -1, at?.offset ?? -1),
-    queryFn: ({ signal }) => lookup<RecordView>(`/api/v1/topics/${seg(topic)}/records/${at!.partition}/${at!.offset}`, signal),
+    queryFn: ({ signal }: { signal: AbortSignal }) => lookup<RecordView>(`/api/v1/topics/${seg(topic)}/records/${at!.partition}/${at!.offset}`, signal),
     staleTime: Infinity,
-    enabled: !!at,
     retry: false,
-  });
+  } as const;
+}
+
+export function useRecord(topic: string, at: { partition: number; offset: number } | null) {
+  return useQuery({ ...recordQuery(topic, at), enabled: !!at });
 }
 
 export function useConsumers(topic: string) {

@@ -9,6 +9,7 @@ pub mod consumers;
 mod create;
 pub mod data;
 mod delete;
+mod empty_records;
 mod forms;
 pub mod group;
 pub mod group_read;
@@ -44,6 +45,7 @@ pub use create::{
     template_values, view_at as create_view,
 };
 pub use delete::{DeleteResult, LIST_MOST, delete, form as delete_form};
+pub use empty_records::{empty as empty_records, form as empty_records_form};
 pub use partitions::{AddResult, add, form as add_form};
 pub use produce::{form as produce_form, send as produce};
 pub use records::{RecordsResult, delete as delete_records, form as delete_records_form};
@@ -54,6 +56,7 @@ mod meta;
 mod read;
 mod readers;
 mod record;
+mod tail;
 mod topic;
 mod topics;
 mod txns;
@@ -61,6 +64,7 @@ mod walk;
 
 pub use messages::page as messages;
 pub use record::one as record;
+pub use tail::look as tail_look;
 pub use topic::head as topic_head;
 pub use topics::list as topics;
 

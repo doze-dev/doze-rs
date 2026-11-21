@@ -1,5 +1,5 @@
 import { useNavigate } from "@tanstack/react-router";
-import { ClockIcon, CornerDownRightIcon, LoaderCircleIcon, Rows3Icon, UsersIcon } from "lucide-react";
+import { ClockIcon, CornerDownRightIcon, EraserIcon, LoaderCircleIcon, RadioIcon, Rows3Icon, UsersIcon } from "lucide-react";
 import { useDeferredValue, useEffect, useMemo, useState } from "react";
 import { useJump } from "@/api/queries";
 import { CommandDialog, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, CommandSeparator } from "@/components/ui/command";
@@ -41,10 +41,13 @@ export function CommandPalette({ open, onOpenChange, returnFocus }: { open: bool
     if (!o) setQ("");
     onOpenChange(o);
   };
-  const go = (r: Recent) => {
-    saveRecent(r);
+  // An action (a Live tail, Empty…) goes where it says and is not kept as a recent place.
+  const go = (r: Recent, remember = true) => {
+    if (remember) saveRecent(r);
     onOpen(false);
-    void navigate({ to: r.to });
+    // A place with a query (an action: `/tail?topic=`, `?dialog=empty`) goes with its search params.
+    const [path, query = ""] = r.to.split("?");
+    void navigate({ to: path, search: query ? (Object.fromEntries(new URLSearchParams(query)) as never) : undefined });
   };
   const needle = q.trim().toLowerCase();
   const pages = PAGES.filter((p) => !needle || p.label.toLowerCase().includes(needle) || (p.keywords ?? "").includes(needle));
@@ -114,6 +117,22 @@ export function CommandPalette({ open, onOpenChange, returnFocus }: { open: bool
                 </span>
               </CommandItem>
             ))}
+          </CommandGroup>
+        )}
+        {one && (
+          <CommandGroup heading={`Do with ${one}`} data-testid="palette-actions">
+            <CommandItem value={`act:${one}:tail`} onSelect={() => go({ kind: "topic", label: `${one} · Live tail`, to: `/tail?topic=${encodeURIComponent(one)}` }, false)} data-testid="palette-tail">
+              <RadioIcon />
+              <span className="truncate">
+                Live tail of <span className="font-mono text-[13px]">{one}</span>
+              </span>
+            </CommandItem>
+            <CommandItem value={`act:${one}:empty`} onSelect={() => go({ kind: "topic", label: `${one} · Empty…`, to: `/topics/${segment(one)}?dialog=empty` }, false)} data-testid="palette-empty">
+              <EraserIcon />
+              <span className="truncate">
+                Empty <span className="font-mono text-[13px]">{one}</span>…
+              </span>
+            </CommandItem>
           </CommandGroup>
         )}
         {looking && (

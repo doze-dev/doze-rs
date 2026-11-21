@@ -1,4 +1,4 @@
-//! The event streams of the two tails (`/api/v1/tail/live` and `/messages`, CON-809, CON-810), on a real listener: a tail
+//! The event streams of the tails (`/api/v1/tail/live`, `/messages` and `/topics`, CON-809, CON-810, CON-1580), on a real listener: a tail
 //! opens at once with `ready`, nothing else is a tail, ends at once when the console stops, and has a cap.
 #![allow(
     clippy::unwrap_used,
@@ -68,7 +68,7 @@ async fn a_tail_opens_at_once_with_ready_and_sends_nothing_while_nothing_is_adde
 }
 
 #[tokio::test]
-async fn only_the_two_tails_can_be_followed() {
+async fn only_the_three_tails_can_be_followed() {
     let c = console().await;
     for path in [
         "/api/v1/tail/home",
@@ -83,6 +83,18 @@ async fn only_the_two_tails_can_be_followed() {
     // The messages tail follows one topic: the fixtures' `orders` opens.
     let mut s = open(c.local_addr(), "/api/v1/tail/messages?topic=orders").await;
     read_until(&mut s, "event: ready", Duration::from_secs(2)).await;
+    // The Live tail page's follows topics by name or pattern (CON-1580): over the fixtures it opens, names what it follows,
+    // and then says nothing (the fixtures never change).
+    let mut s = open(c.local_addr(), "/api/v1/tail/topics?pattern=ord*&pace=1").await;
+    let seen = read_until(&mut s, "\"name\":\"orders\"", Duration::from_secs(2)).await;
+    assert!(seen.contains("event: ready"), "{seen}");
+    let mut more = [0_u8; 512];
+    let quiet = tokio::time::timeout(Duration::from_millis(2200), s.read(&mut more)).await;
+    assert!(
+        quiet.is_err(),
+        "an idle tail of topics sent {:?}",
+        &more[..8]
+    );
     c.shutdown().await;
 }
 
