@@ -104,7 +104,7 @@ function FunctionView({ d, updatedAt, fetching, refresh }: { d: ResourceDetail; 
     render: () =>
       id === "code" ? <CodeTab d={d} f={f} go={go} />
       : id === "test" ? <><TestTab d={d} f={f} triggers={triggers} where={where} />{calls}</>
-      : id === "monitor" ? <MonitorTab d={d} f={f} />
+      : id === "monitor" ? <MonitorTab d={d} />
       : id === "configuration" ? <><ConfigTab d={d} f={f} section={search.p ?? "general"} sel={search.sel} go={go} triggers={triggers} />{calls}</>
       : id === "aliases" ? <><AliasesTab d={d} go={go} />{calls}</>
       : <><VersionsTab d={d} f={f} go={go} />{calls}</>,

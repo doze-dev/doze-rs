@@ -16,8 +16,8 @@ import { useResourceList } from "../../../api/resources";
 import { callOp } from "../deep/api";
 import { Field, FormPage, FormSection, RolePicker, useKindOp } from "../../../kit";
 import { type Create, createProblems } from "./forms";
-import { FUNCTIONS, refusalOf } from "./hooks";
-import { familyOf, HELLO, runtimeName, RUNTIMES, tailOf } from "./model";
+import { FUNCTIONS, refusalOf, useWhere } from "./hooks";
+import { familyOf, HELLO, roleArn, runtimeName, RUNTIMES, tailOf } from "./model";
 import { buildZip, toBase64 } from "./zip";
 
 const OFF = [
@@ -33,6 +33,7 @@ export function helloZip(runtime: string): string {
 
 export function FunctionCreate() {
   const navigate = useNavigate();
+  const where = useWhere();
   const [c, setC] = useState<Create>({ name: "", runtime: "python3.13", arch: "x86_64", role: null });
   const [urlOn, setUrlOn] = useState(false);
   const [urlAuth, setUrlAuth] = useState<"AWS_IAM" | "NONE">("AWS_IAM");
@@ -127,7 +128,7 @@ export function FunctionCreate() {
           <div className="rounded-lg border border-primary bg-pick/40 px-4 py-3 text-[13.5px] font-medium text-bright">Use another role</div>
         </div>
         <Field label="Execution role" error={tried ? problems.role : undefined} help={<>The role&apos;s ARN is sent as <span className="font-mono">Role</span>, which CreateFunction requires. <span className="text-muted-foreground">{c.role ? <><span className="font-mono">{tailOf(c.role)}</span> becomes the role the function&apos;s process gets credentials for.</> : "The function’s process gets credentials for this role."}</span></>} testId="field-role">
-          {(id) => <RolePicker id={id} value={c.role} onChange={(role) => set({ role })} by="id" className="w-full max-w-[22rem] font-mono" />}
+          {(id) => <RolePicker id={id} value={c.role ? tailOf(c.role) : null} onChange={(role) => set({ role: role ? roleArn(where.account, role) : null })} by="id" className="w-full max-w-[22rem] font-mono" />}
         </Field>
       </FormSection>
       <section className="rounded-[14px] border bg-card p-6 lg:p-7" data-testid="section-advanced">

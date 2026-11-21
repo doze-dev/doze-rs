@@ -110,6 +110,8 @@ pub(super) const FUNCTIONS: Kind = Kind {
             col("State", "State", Plain),
             col("Batch size", "BatchSize", Number),
             col("Mapping", "UUID", Mono),
+            // The whole ARN, which the Source column shows only the name of: the page names the kind of source by it.
+            col("Source ARN", "EventSourceArn", Mono),
         ],
         link: None,
         more: "NextMarker",

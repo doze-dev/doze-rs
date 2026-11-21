@@ -9,7 +9,6 @@ import { Skeleton } from "@doze/ui/components/ui/skeleton";
 import type { ResourceDetail } from "../../../api/types/ResourceDetail";
 import { type MetricQuery, useMetricData } from "../../../kit";
 import { Card } from "../deep/parts";
-import type { Fn } from "./model";
 import { HOUR, lastHour, linePath, mean, milliseconds, total } from "./monitor-model";
 
 const SPAN = 3 * HOUR;
@@ -29,7 +28,7 @@ function Tile({ label, value, note, path, testId }: { label: string; value: stri
   );
 }
 
-export function MonitorTab({ d, f }: { d: ResourceDetail; f: Fn }) {
+export function MonitorTab({ d }: { d: ResourceDetail }) {
   const [now] = useState(() => Date.now());
   const range = useMemo(() => ({ from: now - SPAN, to: now }), [now]);
   const dimensions = { FunctionName: d.name };
@@ -69,8 +68,8 @@ export function MonitorTab({ d, f }: { d: ResourceDetail; f: Fn }) {
           </div>
         )}
         <p className="mt-4 max-w-[46rem] border-l-2 pl-3.5 text-[13px] leading-5 text-foreground" data-testid="metrics-words">
-          doze-aws publishes these four metrics to the <span className="font-mono">AWS/Lambda</span> namespace, by function name.{" "}
-          <span className="text-muted-foreground">Other Lambda metrics, such as ConcurrentExecutions and DestinationDeliveryFailures, are not published.</span>
+          doze-aws publishes these four metrics to the <span className="font-mono">AWS/Lambda</span> namespace, by function name, and ConcurrentExecutions beside them (read it by Maximum).{" "}
+          <span className="text-muted-foreground">Other Lambda metrics, such as DestinationDeliveryFailures, are not published. Throttles has data only once a call has been throttled.</span>
         </p>
       </div>
       <Card title="Logs" lede="Each execution environment writes its own log stream." actions={<Button asChild variant="outline" className="bg-card"><Link to="/resources/$service/$kind/$name" params={{ service: "logs", kind: "groups", name: group }} data-testid="view-logs"><ScrollTextIcon /> View CloudWatch logs</Link></Button>} testId="logs-card">
@@ -84,7 +83,6 @@ export function MonitorTab({ d, f }: { d: ResourceDetail; f: Fn }) {
         </dl>
         <Callout tone="note" className="mt-5" testId="logs-note">Metrics and logs are kept by CloudWatch, so this tab changes nothing in Lambda. View CloudWatch logs opens the log group on its own page.</Callout>
       </Card>
-      <p className="hidden">{f.name}</p>
     </div>
   );
 }

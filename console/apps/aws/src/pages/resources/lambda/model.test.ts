@@ -26,7 +26,7 @@ describe("what a function is called and what triggers it", () => {
     expect(statementsOf("not json")).toEqual([]);
   });
   test("the sentence says what runs it, what triggers it and when it last ran", () => {
-    const t = triggersOf([{ name: "u1", cells: ["arn:aws:sqs:us-east-1:1:email-outbox", "Enabled", "10", "u1"] }], statementsOf(POLICY));
+    const t = triggersOf([{ name: "u1", cells: ["email-outbox", "Enabled", "10", "u1", "arn:aws:sqs:us-east-1:1:email-outbox"] }], statementsOf(POLICY));
     expect(t.map((x) => x.words)).toEqual(["SNS topic alerts", "SQS queue email-outbox"]);
     expect(sentenceOf(fn, t, "08:13:58")).toBe("send-email runs Python 3.13 with 256 MB and a 30 second timeout. SNS topic alerts and SQS queue email-outbox trigger it; it last ran at 08:13:58.");
     expect(sentenceOf(fn, [], null)).toContain("Nothing triggers it yet.");

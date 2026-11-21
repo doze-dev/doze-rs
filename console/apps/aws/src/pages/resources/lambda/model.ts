@@ -82,6 +82,8 @@ const json = <T>(v: string | null): T | null => {
 };
 
 /** The last part of an ARN (`arn:aws:iam::1:role/path/lambda-exec` is `lambda-exec`). */
+export const roleArn = (account: string, name: string): string => `arn:aws:iam::${account}:role/${name}`;
+
 export const tailOf = (arn: string): string => arn.split(/[/:]/).filter(Boolean).pop() ?? arn;
 
 export function fnOf(d: ResourceDetail): Fn {
@@ -171,9 +173,9 @@ export function policyTrigger(s: Statement): Trigger | null {
  * policy lets invoke it. */
 export function triggersOf(mappings: { name: string; cells: (string | null)[] }[], statements: Statement[]): Trigger[] {
   const fromMappings = mappings.map((m): Trigger => {
-    const arn = m.cells[0] ?? "";
+    const arn = m.cells[4] ?? m.cells[0] ?? "";
     const s = sourceWords(arn);
-    return { how: "mapping", kind: s.kind, name: tailOf(arn), words: s.words, to: s.to, id: m.name, enabled: m.cells[1] !== "Disabled", batch: Number(m.cells[2] ?? 0), source: arn };
+    return { how: "mapping", kind: s.kind, name: tailOf(arn), words: s.words, to: s.to, id: m.cells[3] ?? m.name, enabled: m.cells[1] !== "Disabled", batch: Number(m.cells[2] ?? 0), source: arn };
   });
   return [...statements.flatMap((s) => policyTrigger(s) ?? []), ...fromMappings];
 }

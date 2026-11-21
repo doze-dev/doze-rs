@@ -10,6 +10,7 @@ import { Field, FormSection, RolePicker } from "../../../kit";
 import { on, useOp } from "../deep/api";
 import { envInput, envProblems, generalChange, generalOf, generalProblems, RESERVED_KEYS } from "./forms";
 import { FnFormPage, type FormProps, Muted, UnitInput } from "./form-bits";
+import { roleArn, tailOf } from "./model";
 import { useTriggers } from "./hooks";
 
 export function ConfigEdit(p: FormProps) {
@@ -46,7 +47,7 @@ export function ConfigEdit(p: FormProps) {
           {(id) => <UnitInput id={id} value={g.timeout} onChange={(timeout) => set({ timeout })} unit="seconds" testId="cfg-timeout" />}
         </Field>
         <Field label="Execution role" error={tried ? problems.role : undefined} help={<>The role Lambda assumes to run the function.{other ? <Muted> {other} uses {g.role.split("/").pop()} too.</Muted> : null} <Muted>The function&apos;s process gets this role&apos;s credentials, so IAM judges what it calls.</Muted></>} testId="field-role">
-          {(id) => <RolePicker id={id} value={g.role || null} onChange={(role) => set({ role: role ?? "" })} by="id" className="max-w-[24rem]" />}
+          {(id) => <RolePicker id={id} value={g.role ? tailOf(g.role) : null} onChange={(role) => set({ role: role ? roleArn(p.where.account, role) : "" })} by="id" className="max-w-[24rem]" />}
         </Field>
       </FormSection>
     </FnFormPage>
