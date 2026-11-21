@@ -1,6 +1,7 @@
 // Create bucket: a page, not a dialog. The name and its rules, a bucket to copy settings from, Object Ownership, Block Public
 // Access, versioning, tags, default encryption and Object Lock, with the call it will make at the right. CreateBucket takes the
 // name, the ownership and Object Lock; the rest are the calls that follow it, made in turn, and a refusal of any says which.
+import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Alert, errorWords } from "@doze/ui/components/app/alert";
 import { KeyValueEditor } from "@doze/ui/components/app/key-value-editor";
@@ -29,6 +30,7 @@ export function madeWords(f: { versioning: boolean; bpa: Bpa; lock: boolean }): 
 
 export function BucketCreate() {
   const about = useAbout();
+  const qc = useQueryClient();
   const go = useListNav();
   const existing = useResourceList("s3", "buckets");
   const names = (existing.data?.pages.flatMap((p) => p.rows) ?? []).map((r) => r.name);
@@ -76,6 +78,7 @@ export function BucketCreate() {
     let step = "CreateBucket";
     try {
       await callKindOp(KIND, "CreateBucket", input);
+      void qc.invalidateQueries({ queryKey: ["resources", "list", "s3", "buckets"] });
       const kept = filled(tags);
       if (bpaOn(bpa) !== 4) await callOp(t, (step = "PutPublicAccessBlock"), { PublicAccessBlockConfiguration: bpa });
       if (versioning) await callOp(t, (step = "PutBucketVersioning"), { VersioningConfiguration: { Status: "Enabled" } });

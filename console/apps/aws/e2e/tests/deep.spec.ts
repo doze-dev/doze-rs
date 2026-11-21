@@ -89,40 +89,7 @@ test("a message sent straight to a dead-letter queue has no queue to return to: 
   await expect(page.getByTestId("moves-card").locator("tbody tr").first()).toContainText("0 of 1");
 });
 
-test("a bucket's folder is made and opened, a file uploaded into it, opened, downloaded and deleted", async ({ page, cli, browserName }) => {
-  const bucket = unique("images", browserName);
-  expect(cli(["s3api", "create-bucket", "--bucket", bucket]).code).toBe(0);
-  await open(page, `/resources/s3/buckets/${bucket}?tab=objects`, bucket);
-  await expect(page.getByTestId("objects-card")).toContainText("holds no object yet");
-  await page.getByTestId("folder-open").click();
-  await page.getByTestId("folder-name").fill("a/b");
-  await expect(page.getByTestId("folder-submit")).toBeDisabled();
-  await page.getByTestId("folder-name").fill("banners");
-  await page.getByTestId("folder-submit").click();
-  await expect(page.getByTestId("folder-dialog")).toHaveCount(0);
-  await page.getByTestId("objects-card").locator("tbody tr", { hasText: "banners/" }).click();
-  await expect(page).toHaveURL(/p=banners%2F|p=banners\//);
-  await expect(page.getByTestId("object-crumbs")).toContainText("banners");
-  await expect(page.getByTestId("objects-card")).toContainText("This folder is empty.");
-  await page.getByTestId("upload-open").click();
-  await page.getByTestId("upload-files").setInputFiles({ name: "hero.txt", mimeType: "text/plain", buffer: Buffer.from("hello, bucket") });
-  await page.getByTestId("upload-submit").click();
-  await expect(page.getByTestId("upload-dialog")).toHaveCount(0);
-  const row = page.getByTestId("objects-card").locator("tbody tr", { hasText: "hero.txt" });
-  await row.click();
-  const sheet = page.getByTestId("object-sheet");
-  await expect(sheet.getByTestId("object-head")).toContainText("text/plain");
-  await expect(sheet.getByTestId("object-head")).toContainText("13 B");
-  const [download] = await Promise.all([page.waitForEvent("download"), sheet.getByTestId("object-download").click()]);
-  expect(download.suggestedFilename()).toBe("hero.txt");
-  await sheet.getByTestId("object-delete").click();
-  await page.getByTestId("object-delete-dialog-submit").click();
-  await expect(sheet).toHaveCount(0);
-  await expect(row).toHaveCount(0);
-  const head = cli(["s3api", "list-objects-v2", "--bucket", bucket]);
-  expect(head.out).not.toContain("hero.txt");
-  expect((await mine(page, "PutObject")).length).toBeGreaterThanOrEqual(2);
-});
+// (A bucket's folders, uploads, objects and deletes are s3-boards.spec.ts.)
 
 test("a table's item is created in plain JSON, scanned, queried by its key, edited and deleted", async ({ page, cli, browserName }) => {
   const table = unique("orders", browserName);

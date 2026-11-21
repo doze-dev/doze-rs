@@ -9,7 +9,7 @@ import { useQuery } from "@tanstack/react-query";
 import { BlockersList, useBlockers, useDeleteClearing } from "../../../kit";
 import { callOp } from "../deep/api";
 import type { OwnProps } from "../deep/registry";
-import { bucketOf, crumbs, useBucket, useListNav } from "./api";
+import { bucketOf, crumbs, useBucket, useListNav, useStale } from "./api";
 import { type Emptied, emptiedOf, setEmptied, setFlash } from "./flash";
 import { ActionPage, Footer, Mono, Rows } from "./parts";
 import { Card } from "../deep/parts";
@@ -100,6 +100,7 @@ export function BucketDelete({ search }: OwnProps) {
 export function BucketEmpty({ search }: OwnProps) {
   const name = search.name ?? "";
   const list = useListNav();
+  const stale = useStale(name);
   const bucket = useBucket(name);
   const holding = useHolding(name);
   const [typed, setTyped] = useState("");
@@ -112,6 +113,7 @@ export function BucketEmpty({ search }: OwnProps) {
     setError(null);
     try {
       setEmptied(name, await emptyBucket(name));
+      stale();
       list({ do: "empty-status", name });
     } catch (e) {
       setError(e);

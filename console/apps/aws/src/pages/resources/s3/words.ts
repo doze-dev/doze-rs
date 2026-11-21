@@ -143,7 +143,7 @@ export function nameRefusal(name: string): { why: string; suggestion?: string } 
 }
 
 /** `s3://product-images/a/b.jpg`. */
-export const s3Uri = (bucket: string, key = ""): string => `s3://${bucket}/${key}`;
+export const s3Uri = (bucket: string, key = ""): string => (key ? `s3://${bucket}/${key}` : `s3://${bucket}`);
 export const bucketArn = (bucket: string): string => `arn:aws:s3:::${bucket}`;
 export const objectArn = (bucket: string, key: string): string => `arn:aws:s3:::${bucket}/${key}`;
 

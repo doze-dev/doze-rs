@@ -12,7 +12,7 @@ import { Field, FormPage, FormSection, ResourcePicker, TAG_RULES, callKindOp } f
 import { useOpQuery } from "../deep/api";
 import { callOp } from "../deep/api";
 import type { OwnProps } from "../deep/registry";
-import { bucketOf, crumbs, NONE, useBucketNav, useSetting } from "./api";
+import { bucketOf, crumbs, NONE, useBucketNav, useSetting, useStale } from "./api";
 import { encryptionOf, SSE_WORDS } from "./config";
 import { RadioCards } from "./controls";
 import { setFlash } from "./flash";
@@ -32,6 +32,7 @@ export function ObjectCopy({ name, search }: OwnProps) {
   const key = search.key ?? "";
   const mode = (search.mode === "move" || search.mode === "rename" ? search.mode : "copy") as keyof typeof MODES;
   const go = useBucketNav(name!);
+  const stale = useStale(name!);
   const folder = key.includes("/") ? key.slice(0, key.lastIndexOf("/") + 1) : "";
   const head = useOpQuery<Head>(bucketOf(name!), "HeadObject", { Key: key }, ["head", key]);
   const [dest, setDest] = useState(s3Uri(name!, folder));
@@ -60,6 +61,7 @@ export function ObjectCopy({ name, search }: OwnProps) {
     try {
       await callKindOp({ service: "s3", kind: "buckets" }, "CopyObject", input);
       if (mode !== "copy") await callOp(bucketOf(name!), "DeleteObject", { Key: key });
+      stale();
       setFlash({ title: `${mode === "copy" ? "Copied" : mode === "move" ? "Moved" : "Renamed"} ${baseName(key)} to ${s3Uri(input.Bucket, input.Key)}.`, returned: mode === "copy" ? "CopyObject answered with the new object's ETag." : "CopyObject, then DeleteObject of the source." });
       back();
     } catch (e) {

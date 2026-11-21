@@ -300,8 +300,17 @@ async fn one_version_of_an_object_is_downloaded_by_its_id() {
     raw(&w.app, upload("v.txt", "text/plain", b"two".to_vec())).await;
     let get = |q: String| support::get(&format!("{BASE}/object?key=v.txt{q}"));
     for (query, want) in [(String::new(), "two"), (format!("&versionId={id}"), "one")] {
-        let (parts, body) = w.app.clone().oneshot(get(query)).await.unwrap().into_parts();
+        let (parts, body) = w
+            .app
+            .clone()
+            .oneshot(get(query))
+            .await
+            .unwrap()
+            .into_parts();
         assert_eq!(parts.status, 200);
-        assert_eq!(body.collect().await.unwrap().to_bytes().as_ref(), want.as_bytes());
+        assert_eq!(
+            body.collect().await.unwrap().to_bytes().as_ref(),
+            want.as_bytes()
+        );
     }
 }

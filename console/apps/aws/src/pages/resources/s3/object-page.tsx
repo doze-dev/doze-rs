@@ -24,7 +24,7 @@ import { Calls } from "../detail-page";
 import { bucketOf, crumbs, useBucket, useBucketNav, useSetting } from "./api";
 import { notificationRules, SSE_WORDS, isSse } from "./config";
 import { rowId, type Versions, versionRowsOf, type Row, selToText } from "./listing";
-import { ActionPage, Mono, Reading, Rows } from "./parts";
+import { ActionPage, FlashBanner, Mono, Reading, Rows, useFlash } from "./parts";
 import { baseName, bucketArn, clock, count, listWords, longDate, s3Uri, shortDate, size, storageWords } from "./words";
 
 type Head = { ContentType?: string; ContentLength?: number; ETag?: string; LastModified?: string | number; StorageClass?: string; VersionId?: string; CacheControl?: string; ContentEncoding?: string; ContentDisposition?: string; ContentLanguage?: string; ServerSideEncryption?: string; Metadata?: Record<string, string> };
@@ -76,6 +76,7 @@ export function PresignDialog({ name, objectKey, versionId, open, onClose }: { n
 export function ObjectPage({ name, search }: OwnProps) {
   const key = search.key ?? "";
   const go = useBucketNav(name!);
+  const [flash, dismiss] = useFlash();
   const t = bucketOf(name!);
   const bucket = useBucket(name!);
   const about = useAbout();
@@ -107,7 +108,7 @@ export function ObjectPage({ name, search }: OwnProps) {
   const sentence = h ? `${baseName(key)} is ${size(h.ContentLength)}, last modified ${clock(h.LastModified)} UTC. ${versions.length > 1 ? `It has ${count(versions.length, "version")}${notified.length ? ` and ${listWords(notified)} is notified when an object is created in the bucket` : ""}.` : notified.length ? `${listWords(notified)} is notified when an object is created in the bucket.` : ""}`.trim() : null;
   const meta = (m: Record<string, string> | undefined) => [...(h?.ContentType ? [["System defined", "Content-Type", h.ContentType]] : []), ...(h?.CacheControl ? [["System defined", "Cache-Control", h.CacheControl]] : []), ...(h?.ContentDisposition ? [["System defined", "Content-Disposition", h.ContentDisposition]] : []), ...(h?.ContentEncoding ? [["System defined", "Content-Encoding", h.ContentEncoding]] : []), ...Object.entries(m ?? {}).map(([k, v]) => ["User defined", `x-amz-meta-${k}`, v])] as [string, string, string][];
   return (
-    <ActionPage title={baseName(key)} mono crumbs={[...crumbs(name!), { label: baseName(key), to: `/resources/s3/buckets/${encodeURIComponent(name!)}` }]} testId="object-page"
+    <ActionPage title={baseName(key)} mono crumbs={[...crumbs(name!), { label: baseName(key), to: `/resources/s3/buckets/${encodeURIComponent(name!)}` }]} testId="object-page" banner={flash ? <FlashBanner flash={flash} dismiss={dismiss} /> : undefined}
       actions={<><Button variant="outline" className="bg-card" onClick={() => void dl()} data-testid="object-download"><DownloadIcon /> Download</Button>{menu}</>}
       sub={sentence ? <span data-testid="object-sentence">{sentence}</span> : undefined}>
       {error ? <Alert tone="bad" title="The download failed">{errorWords(error).message}</Alert> : null}

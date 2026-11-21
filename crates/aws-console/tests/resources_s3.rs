@@ -171,10 +171,11 @@ async fn each_tab_of_a_bucket_asks_only_what_it_lists_and_only_of_its_own_bucket
     let read = ok(&w, &mine, "GetBucketPolicy", &json!({})).await;
     assert_eq!(read["Policy"], policy);
     ok(&w, &mine, "DeleteBucketPolicy", &json!({})).await;
+    // A setting the bucket does not have is an answer that says so, not a failed request.
     let (status, gone) = op(&w, &mine, "GetBucketPolicy", &json!({})).await;
     assert_eq!(
-        (status, gone["code"].as_str()),
-        (404, Some("NoSuchBucketPolicy")),
+        (status, gone["Absent"].as_str()),
+        (200, Some("NoSuchBucketPolicy")),
         "{gone}"
     );
     // Properties: encryption, the website, versioning.
@@ -231,9 +232,16 @@ async fn each_tab_of_a_bucket_asks_only_what_it_lists_and_only_of_its_own_bucket
     .await;
     let (status, none) = op(&w, &format!("{BASE}/theirs"), "GetBucketCors", &json!({})).await;
     assert_eq!(
-        (status, none["code"].as_str()),
-        (404, Some("NoSuchCORSConfiguration")),
+        (status, none["Absent"].as_str()),
+        (200, Some("NoSuchCORSConfiguration")),
         "{none}"
+    );
+    // Any other refusal is still a refusal.
+    let (status, no) = op(&w, &format!("{BASE}/nobody"), "GetBucketCors", &json!({})).await;
+    assert_eq!(
+        (status, no["code"].as_str()),
+        (404, Some("NoSuchBucket")),
+        "{no}"
     );
     // A call no tab lists is not made.
     let (status, refused) = op(&w, &mine, "DeleteBucket", &json!({})).await;

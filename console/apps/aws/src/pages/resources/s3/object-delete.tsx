@@ -10,7 +10,7 @@ import { Label } from "@doze/ui/components/ui/label";
 import { callOp, type Target } from "../deep/api";
 import { Card } from "../deep/parts";
 import type { OwnProps } from "../deep/registry";
-import { bucketOf, crumbs, useBucket, useBucketNav, useSetting } from "./api";
+import { bucketOf, crumbs, useBucket, useBucketNav, useSetting, useStale } from "./api";
 import { notificationRules } from "./config";
 import { setFlash } from "./flash";
 import { selFromText } from "./listing";
@@ -35,12 +35,13 @@ async function under(t: Target, prefix: string): Promise<string[]> {
 
 export function ObjectDelete({ name, search, permanent }: OwnProps & { permanent?: boolean }) {
   const go = useBucketNav(name!);
+  const stale = useStale(name!);
   const t = bucketOf(name!);
   const bucket = useBucket(name!);
   const notes = useSetting(name!, "GetBucketNotificationConfiguration", []);
   const items: Item[] = selFromText(search.sel);
   const versionMode = permanent === true;
-  const heads = useQueries({ queries: items.slice(0, 50).map((i) => ({ queryKey: ["s3", "delete-head", name, i.key, i.versionId ?? ""], retry: false, enabled: !i.key.endsWith("/"), queryFn: () => callOp<Head>(t, "HeadObject", { Key: i.key, ...(i.versionId ? { VersionId: i.versionId } : {}) }) })) });
+  const heads = useQueries({ queries: items.slice(0, 50).map((i) => ({ queryKey: ["delete-head", name, i.key, i.versionId ?? ""], retry: false, enabled: !i.key.endsWith("/"), queryFn: () => callOp<Head>(t, "HeadObject", { Key: i.key, ...(i.versionId ? { VersionId: i.versionId } : {}) }) })) });
   const siblings = useSetting<Listing>(name!, "ListObjectVersions", [], { Prefix: items[0]?.key ?? "", MaxKeys: 1000 }, versionMode);
   const [typed, setTyped] = useState("");
   const [busy, setBusy] = useState(false);
@@ -68,6 +69,7 @@ export function ObjectDelete({ name, search, permanent }: OwnProps & { permanent
         first ||= a.Errors?.[0] ? `${a.Errors[0].Key} (${a.Errors[0].Code})` : "";
       }
       if (failed > 0) throw new Error(`${failed} of ${doomed.length} could not be deleted: ${first}.`);
+      stale();
       setFlash({ title: hard ? `${count(doomed.length, "object")} permanently deleted.` : `${count(doomed.length, "object")} deleted.`, returned: hard ? "DeleteObjects named the key and the version ID." : "Each key now has a delete marker as its current version; the older versions stay." });
       back();
     } catch (e) {

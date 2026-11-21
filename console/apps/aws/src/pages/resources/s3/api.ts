@@ -1,11 +1,12 @@
 // The S3 pages' calls: a bucket's settings read through the operations its tabs list (crates/aws-console/src/resources/s3_ops.rs),
 // and the address helpers that move between the pages of one bucket.
+import { useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { ApiFailure } from "@doze/ui/lib/api";
 import { useResourceDetail } from "../../../api/resources";
 import type { ResourceDetail } from "../../../api/types/ResourceDetail";
 import type { OwnSearch } from "../search";
-import { type Target, useOp, useOpRead } from "../deep/api";
+import { deepKey, type Target, useOp, useOpRead } from "../deep/api";
 import { versioningOf, type Versioning } from "./words";
 
 export const bucketOf = (name: string): Target => ({ service: "s3", kind: "buckets", name });
@@ -24,9 +25,12 @@ export const NONE = {
 
 /** One read of a bucket setting. `absent` is the refusal that says it was never set; `failed` is any other. */
 export function useSetting<T>(name: string, operation: string, none: string[], input: object = {}, enabled = true) {
-  const q = useOpRead<T>(bucketOf(name), operation, input, enabled);
-  const absent = q.error instanceof ApiFailure && none.includes(q.error.code);
-  return { ...q, absent, failed: q.error && !absent ? q.error : null };
+  const q = useOpRead<T & { Absent?: string }>(bucketOf(name), operation, input, enabled);
+  // The console answers a setting that was never set as `{Absent: <code>}` (a refusal of S3's, not of the page); `none` also names the
+  // codes that mean it, should a refusal come as one.
+  const absent = (q.data?.Absent !== undefined) || (q.error instanceof ApiFailure && none.includes(q.error.code));
+  const data = (q.data?.Absent !== undefined ? undefined : q.data) as T | undefined;
+  return { ...q, data, absent, isSuccess: q.isSuccess && !absent, failed: q.error && !absent ? q.error : null };
 }
 
 /** A bucket's own facts: what the page header says, from the descriptor's detail. */
@@ -66,4 +70,14 @@ export function useListNav() {
 export function crumbs(name: string | null, group = "Storage and data"): { label: string; to: string }[] {
   const base = [{ label: "Resources", to: "/resources" }, { label: group, to: "/resources" }, { label: "S3", to: "/resources/s3/buckets" }];
   return name ? [...base, { label: name, to: `/resources/s3/buckets/${encodeURIComponent(name)}` }] : base;
+}
+
+/** After a write that bypasses a hook (an upload, a copy, a delete of many): everything read of the bucket is stale. */
+export function useStale(name: string) {
+  const qc = useQueryClient();
+  return () => {
+    void qc.invalidateQueries({ queryKey: deepKey(bucketOf(name)) });
+    void qc.invalidateQueries({ queryKey: ["resources", "one", "s3", "buckets", name] });
+    void qc.invalidateQueries({ queryKey: ["s3"] });
+  };
 }

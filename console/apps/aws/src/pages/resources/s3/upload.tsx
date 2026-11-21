@@ -14,7 +14,7 @@ import { Field, FormSection, FormPage, LocalStatus, TAG_RULES } from "../../../k
 import { UPLOAD_MAX, putObject } from "../deep/api";
 import type { OwnProps } from "../deep/registry";
 import { Calls } from "../detail-page";
-import { crumbs, useBucket, useBucketNav } from "./api";
+import { crumbs, useBucket, useBucketNav, useStale } from "./api";
 import { RadioCards } from "./controls";
 import { setFlash } from "./flash";
 import { ActionPage, Mono } from "./parts";
@@ -27,6 +27,7 @@ type Chosen = { file: File; key: string };
 export function Upload({ name, search }: OwnProps) {
   const prefix = search.p ?? "";
   const go = useBucketNav(name!);
+  const stale = useStale(name!);
   const bucket = useBucket(name!);
   const filesIn = useRef<HTMLInputElement>(null);
   const folderIn = useRef<HTMLInputElement>(null);
@@ -60,6 +61,7 @@ export function Upload({ name, search }: OwnProps) {
       }
     }
     setSent(name!, rows);
+    stale();
     setBusy(null);
     go({ do: "upload-status", ...(prefix ? { p: prefix } : {}) });
   };
@@ -147,6 +149,7 @@ export function UploadStatus({ name, search }: OwnProps) {
 export function FolderCreate({ name, search }: OwnProps) {
   const prefix = search.p ?? "";
   const go = useBucketNav(name!);
+  const stale = useStale(name!);
   const [folder, setFolder] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
@@ -159,7 +162,7 @@ export function FolderCreate({ name, search }: OwnProps) {
       callNote="There is no folder in S3. The console writes a 0-byte object whose key is the folder name plus a trailing slash, and shows any key that ends in a slash as a folder."
       refusal={said ? { code: said.code?.split(" · ")[0] ?? "Error", message: said.message } : null}
       submitLabel="Create folder" pending={busy} disabled={!folder.trim() || Boolean(wrong)} disabledWhy={wrong ?? "Name the folder."} onCancel={() => go(prefix ? { tab: "objects", p: prefix } : {})}
-      onSubmit={() => { setBusy(true); setError(null); void putObject(name!, key, new Blob([]), "application/x-directory").then(() => (setFlash({ title: `Folder ${key} created.`, returned: "PutObject wrote a 0-byte object whose key ends in a slash." }), go({ tab: "objects", p: prefix || undefined })), (e) => (setError(e), setBusy(false))); }}>
+      onSubmit={() => { setBusy(true); setError(null); void putObject(name!, key, new Blob([]), "application/x-directory").then(() => (stale(), setFlash({ title: `Folder ${key} created.`, returned: "PutObject wrote a 0-byte object whose key ends in a slash." }), go({ tab: "objects", p: prefix || undefined })), (e) => (setError(e), setBusy(false))); }}>
       <FormSection title="Folder">
         <Field label="Folder name" error={wrong ?? undefined} help="The folder name becomes part of every key inside it, and a key is limited to 1,024 bytes. Folders can be created and deleted but cannot be renamed." hint={folder.trim() ? <>The key will be <Mono>{key}</Mono></> : undefined}>
           {(id) => <Input id={id} value={folder} onChange={(e) => setFolder(e.target.value)} placeholder="seasonal" className="font-mono" autoComplete="off" spellCheck={false} data-testid="folder-name" />}

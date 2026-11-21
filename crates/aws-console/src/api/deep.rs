@@ -1,7 +1,8 @@
 //! The API of a resource's own pages (a queue's messages, a bucket's objects, a table's items, a function's test, a log
 //! group's tail), each call made through the peer bus as the caller `console`, when the page asks:
 //!
-//! - `POST /api/v1/resources/<service>/<kind>/<name>/op/<Operation>`: one of the operations the kind's pages make
+//! - `POST /api/v1/resources/<service>/<kind>/<name>/op/<Operation>`: one of the operations the kind's pages make (an S3 read of a
+//!   setting the bucket never had answers `{"Absent": <code>, "Message": <words>}` with 200, not the refusal)
 //!   ([`crate::resources::Deep`]), with the page's input (a JSON object); the service's answer as it gave it (Lambda's
 //!   `Invoke`: [`crate::model::Invoked`], the payload and log tail as text).
 //! - `POST /api/v1/resources/s3/buckets/<name>/object?key=<key>[&props=<json>]`: the request's body put as the object `key`
@@ -61,9 +62,33 @@ pub async fn op(
     };
     match deep::call(&bus, (d, k), &name, &operation, input).await {
         Ok(answer) => json(StatusCode::OK, &answer),
+        // A bucket's setting that was never set is an error of S3's, not of the page: said as an answer, so the browser logs no
+        // failed request for a bucket without a policy.
+        Err(e)
+            if service == "s3"
+                && operation.starts_with("Get")
+                && UNSET.iter().any(|c| *c == e.code) =>
+        {
+            json(
+                StatusCode::OK,
+                &json!({ "Absent": e.code, "Message": e.message }),
+            )
+        }
         Err(e) => refused(&e),
     }
 }
+
+/// What S3 refuses a read of a setting the bucket never had (`GetBucketPolicy` on a bucket with no policy).
+const UNSET: &[&str] = &[
+    "NoSuchBucketPolicy",
+    "NoSuchCORSConfiguration",
+    "ServerSideEncryptionConfigurationNotFoundError",
+    "NoSuchLifecycleConfiguration",
+    "NoSuchWebsiteConfiguration",
+    "NoSuchPublicAccessBlockConfiguration",
+    "OwnershipControlsNotFoundError",
+    "ObjectLockConfigurationNotFoundError",
+];
 
 /// The bucket and key an object address names, or the answer that says why it names none.
 fn object_of(service: &str, kind: &str, query: Option<&str>) -> Result<String, Box<Response>> {
@@ -149,8 +174,10 @@ pub async fn download(
     };
     let mut input = json!({ "Bucket": name, "Key": key });
     // `&versionId=` downloads one version of a versioned bucket's object.
-    if let (Some(v), Some(o)) = (param(query.as_deref(), "versionId").map(decode), input.as_object_mut())
-        && !v.is_empty()
+    if let (Some(v), Some(o)) = (
+        param(query.as_deref(), "versionId").map(decode),
+        input.as_object_mut(),
+    ) && !v.is_empty()
     {
         o.insert("VersionId".to_owned(), Value::String(v));
     }

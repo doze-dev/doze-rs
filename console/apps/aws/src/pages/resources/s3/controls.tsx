@@ -114,7 +114,7 @@ export function EncryptionChoice({ value, onChange }: { value: Encryption; onCha
             </RadioGroup>
           </div>
           <Field label="KMS key">
-            {(id) => (value.keyMode === "list" ? <KeyPicker id={id} value={value.key || null} onChange={(k) => set({ key: k ?? "" })} /> : <Input id={id} value={value.key} onChange={(e) => set({ key: e.target.value })} placeholder="arn:aws:kms:us-east-1:111122223333:key/…" className="font-mono" spellCheck={false} data-testid="kms-arn" />)}
+            {(id) => (value.keyMode === "list" ? <KeyPicker id={id} value={value.key || null} onChange={(k) => set({ key: k ?? "" })} /> : <Input id={id} value={value.key} onChange={(e) => set({ key: e.target.value })} placeholder="arn:aws:kms:us-east-1:111122223333:key/…" className="font-mono" spellCheck={false} data-testid="kms-arn-input" />)}
           </Field>
           {value.algorithm === "aws:kms" && (
             <div className="grid gap-1.5">
