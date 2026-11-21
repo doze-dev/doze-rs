@@ -129,8 +129,10 @@ Until the first Rust release, "latest" is Go's v0.1.1 (same file names), which i
 
 ## Modules
 
-`.github/workflows/modules-release.yml` releases one of the six cut-over modules (postgres, mariadb, ferret, valkey,
-kvrocks, temporal; kafka and aws are not part of the cut-over):
+`.github/workflows/modules-release.yml` releases one module: postgres, mariadb, ferret, valkey, kvrocks, temporal, and
+kafka and aws, which are the module faces of the doze-kafka and doze-aws binaries (their acceptance is the binary's unit
+tests and `tests/module_boot.rs`; they need no engine from doze-binaries, and answer `--describe` under their plugin
+name):
 
 - trigger: a tag `module/<name>/v<X.Y.Z>`, or a manual run with `module`, `version` and `dry_run` (default true);
 - on each target (x86_64 and aarch64 Linux on 22.04, aarch64 macOS) it downloads the engine builds from
@@ -144,26 +146,20 @@ kvrocks, temporal; kafka and aws are not part of the cut-over):
 
 ### The hand-off to doze-registry
 
-doze-registry signs; doze-rs only uploads. Its `scripts/publish.mjs` reads a module's release from
-`--release-base <url>` (`index.yaml`, `meta.yaml` and the archives under it), defaulting to doze-modules. For a Rust
-module that base is
+doze-registry signs; doze-rs only uploads. Since doze-registry #7 (2026-11-21) its `publish.yml` reads each module from
+its rolling release here (`https://github.com/doze-dev/doze-rs/releases/download/<name>`: `index.yaml`, `meta.yaml` and
+the archives), and its hourly schedule is back: it lists this repository's bare-name releases, so a new module or a
+new version is signed within the hour with no token in doze-rs. To sign at once:
 
-    https://github.com/doze-dev/doze-rs/releases/download/<name>
+    gh workflow run publish.yml -R doze-dev/doze-registry -f modules="<name> ..."
 
-and the registry's `publish.yml` derives it from `registry/doze/<name>/source` containing `doze-dev/doze-rs`, or from
-a `modules-published` dispatch whose payload's `sources` map says so (it then writes that file itself).
+The commented dispatch step at the end of the `publish` job is the faster path; it needs `REGISTRY_DISPATCH_TOKEN`
+(owner), which does not exist.
 
-Publishing is off on purpose: doze-registry's hourly schedule is commented out (2026-11-18) while the Go modules are
-replaced. So `modules-release.yml` does **not** dispatch to it; the dispatch step is written out, commented, at the end
-of the `publish` job. To turn the path on (owner):
-
-1. add `REGISTRY_DISPATCH_TOKEN` to doze-rs;
-2. uncomment the dispatch step (it sends `modules`, `versions` and `sources: {<name>: "doze-dev/doze-rs"}`);
-3. or, without the dispatch, write `registry/doze/<name>/source` = `doze-dev/doze-rs` in doze-registry and restore its
-   schedule, which pulls new versions on its own.
-
-Until then a module release can be signed by hand from doze-registry:
-`node scripts/publish.mjs doze/<name> --release-base https://github.com/doze-dev/doze-rs/releases/download/<name>`.
+Versions: each Rust module starts above every withdrawn Go-built version of that module: **0.3.0** for postgres,
+valkey, kvrocks, temporal, mariadb, ferret and aws (Go reached postgres 0.2.4, aws 0.2.0), **0.2.0** for kafka (Go reached
+0.1.2). Those Go versions are withdrawn (doze-registry `withdrawn.yaml`, which now names versions) and may never be
+published again. Every Rust release is protocol 2; the Go doze takes only protocol-1 releases, so it never selects one.
 
 ## Testing the pipeline
 
