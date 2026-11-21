@@ -38,7 +38,7 @@ committed, both checked stale by a Rust test, as Kafka's is today.
 2. **Density and motion.** Also variables, not code: `--row-h`, `--control-h`, `--gap`, `--dur-in`, `--dur-out`, `--ease`. AWS
    lists can be denser than Kafka's without forking the table.
 3. **Variants.** Components keep shadcn's `cva` variants; an app may add its own variant (`<Badge tone="denied">` for AWS's
-   Denied, distinct from Refused) by extending the variant map it passes in, not by editing the shared file.
+   Denied, distinct from Error) by extending the variant map it passes in, not by editing the shared file.
 4. **Override.** When a component must look or behave differently in one product, the app keeps its own file and imports that
    one; the shared one is untouched. Used sparingly, and each override is listed in `apps/<app>/OVERRIDES.md` with its reason.
 
@@ -66,7 +66,7 @@ built bundle must be byte-identical or explained), agreed with that session befo
   proof, CSP `default-src 'self'` as Kafka's.
 - View-models in Rust with `serde` + `ts-rs` (a test writes `apps/aws/src/api/types/*.ts`; stale fails), so the UI cannot drift
   from the backend.
-- Live: the call record the gateway already sees (service, action, resource, caller, status, refused/denied, duration, cause
+- Live: the call record the gateway already sees (service, action, resource, caller, status, outcome (ok, error, denied, not-built, decided 2026-11-21) and whether `--iam soft` would have denied it, duration, cause
   chain) kept in a bounded ring, buckets updated on the request path (no timer: zero idle wake-ups stays true).
 - Resources: each service exposes a small descriptor (lists, columns, detail fields, actions mapped to its own operations, deep
   page if any); the generic Resources pages render any descriptor, so a service joins without new chrome.
@@ -77,15 +77,26 @@ built bundle must be byte-identical or explained), agreed with that session befo
 |---|---|---|
 | W0 Workspace | `web/` → workspace; `packages/ui` extracted; Kafka unchanged (its suite green, bundle identical); colour lint and theme-completeness tests | 1 |
 | A-R0 Foundation | `aws-console` crate, embed + SPA fallback + CSP, ts-rs contract, AWS theme (Paper), shell with the six spaces, palette, RefreshControl, gallery under both themes | 2 |
-| A-R1 Live | the transit-line map (flows, one bead per call), the call tape (SSE, aggregated repeats, refused vs denied), the call Sheet with its cause chain | 2 to 3 |
+| A-R1 Live | the transit-line map (flows, one bead per call), the call tape (SSE, aggregated repeats, error vs denied vs not built, the would-be-denied marker), the call Sheet with its cause chain | 2 to 3 |
 | A-R2 Resources | descriptors for all 17 services, the generic list and detail pages, create/delete through the bus | 3 |
 | A-R3 Deep pages | SQS messages, S3 objects, Lambda invocations and logs, Step Functions executions (graph + events), DynamoDB items, Logs tail, CloudFormation stack events | 3 to 4 |
-| A-R4 Access, Lab, Settings, Home | IAM views and the "would be refused" log, Connect with both URL kinds, Lab, settings | 2 |
+| A-R4 Access, Lab, Settings, Home | IAM views and the "would be denied" log, Connect with both URL kinds, Lab, settings | 2 |
 | A-R5 Close | two independent audits (security; UX in three browsers at four widths), fixes, weight measured and argued | 1.5 |
 
 Total about 14.5 to 16.5 agent sessions. Weight is measured at every slice against the 20 MB ceiling (line = measured + 5%).
 
+### Where the slices ended (2026-11-21)
+
+| Slice | Built | Not built, and why |
+|---|---|---|
+| W0, A-R0 | `console/` workspace (`packages/ui`, `apps/aws`, `apps/gallery`); `aws-console` on its own listener (decided in R0: the gateway's port stays AWS's alone), embedded bundle, CSP, host guard, origin proof, ts-rs contract, shell | Kafka's move into `console/apps/kafka`: last, by the owner's order (2026-11-19) |
+| A-R1 Live | map, wire, both; filters in the URL; repeats folded; cause chains (`via`) from the peer bus; copy as CLI and curl; console calls hidden by default | replay: the record keeps no request bodies (weight, and secrets), so there is nothing to send again |
+| A-R2 Resources | a descriptor for every service with resources (STS has none); generic list, detail, create, delete; Reveal for secrets and SecureStrings | create where AWS needs code or a template (functions, stacks, state machines): the page says to use the CLI |
+| A-R3 Deep pages | SQS messages, redrive, settings; S3 objects, upload (25 MiB), download; DynamoDB items; Lambda test, configuration, versions, invocations; Step Functions executions with the graph; Logs streams, search, Live Tail (SSE); CloudFormation events, template, change sets. One mechanism: `Kind.deep` with bound operations | |
+| A-R4 | Home, Connect (path-style S3 only: the gateway serves no virtual-host names), Access (would be denied, make this pass, who is who), Lab (any built operation), Settings (facts, every setting and its source, data reset) | Lab's fault rules and checkpoints: doze-aws has no fault injection to drive |
+| A-R5 Close | security audit with fixes (a move task cancelled only from its own queue's page; no `DescribeLogGroups` before a log group's own operations; every GET's calls checked to be reads); the Live record lets the console's own calls go first once they pass a quarter of it (browsing the console had pushed every app call out of Live); UX sweep (`console/apps/aws/e2e/audit.ts`) in three browsers at 1024, 1280, 1440 and 1920, light and dark, with fixes (tables give up width before scrolling, cards never widen past the page, focus rings); the console on by default at the gateway's port + 1, `--no-console` to turn it off | serving the console beyond loopback (refused at start: it has no login); Kafka's conversion |
+
 ## Open before W0
 
 - Kafka session's agreement to the workspace move (or the owner's word that it may proceed).
-- Console on the gateway's port under a path, or its own port (Kafka uses its own listener).
+- Console on the gateway's port under a path, or its own port (Kafka uses its own listener). Decided: its own listener (A-R0), on by default at the gateway's port + 1 (A-R5).

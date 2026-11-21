@@ -1,0 +1,25 @@
+/* The doze-aws console's stylesheet: the shared base and the doze-aws theme, light and dark. Every colour, face, density and
+   duration is a role the theme sets (the navy frame too: the theme scopes roles to the top bar and the sidebar by their
+   data-slot); this app adds none of its own. */
+@import "@doze/ui/styles/base.css";
+@import "@doze/ui/themes/aws.css";
+
+/* Settings: compact tables, chosen in this browser (src/density.ts). Every DataTable reads the row height when it opens. */
+:root[data-density="compact"] {
+  --row-h: 30px;
+}
+
+/* Live's map with reduced motion: a call does not travel along its line, the service's station pulses once (opacity only). */
+@keyframes live-pulse {
+  0% {
+    stroke-opacity: 1;
+    fill: var(--primary);
+  }
+  100% {
+    stroke-opacity: 1;
+    fill: var(--background);
+  }
+}
+.live-pulse {
+  animation: live-pulse 700ms var(--ease) 1;
+}

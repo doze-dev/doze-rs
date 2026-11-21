@@ -1,0 +1,4 @@
+/* The gallery's stylesheet: the shared base and nothing of a product. The product's theme (themes/kafka.css or
+   themes/aws.css) is a second stylesheet, put in the page by src/product.ts and swapped by the switch in the top bar: that
+   is the proof that a theme file is all that differs between the two consoles. */
+@import "@doze/ui/styles/base.css";

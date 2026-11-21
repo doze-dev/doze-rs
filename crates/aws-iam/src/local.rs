@@ -1,6 +1,8 @@
-//! IAM's local addresses (doze only, not AWS): `GET /_doze/iam/DozeAccessLog` (`?Reset=true` clears it) and
-//! `GET /_doze/iam/DozeGeneratePolicy?Principal=<arn>&ScopeToResources=true` (see `accesslog`). IAM's own endpoint answers AWS's
-//! actions alone: an `Action` outside the model is AWS's `InvalidAction`. Guarded by the gateway as every `/_doze/` address is.
+//! IAM's local addresses (doze only, not AWS): `GET /_doze/iam/DozeAccessLog` (`?Reset=true` clears it),
+//! `GET /_doze/iam/DozeGeneratePolicy?Principal=<arn>&ScopeToResources=true` (see `accesslog`) and
+//! `GET /_doze/iam/DozePrincipals?AccessKeyIds=<id>,<id>` (the user each access key IAM issued belongs to: the console names a
+//! caller by it). IAM's own endpoint answers AWS's actions alone: an `Action` outside the model is AWS's `InvalidAction`.
+//! Guarded by the gateway as every `/_doze/` address is.
 
 use aws_peers::Mode;
 use aws_wire::service::{BoxFuture, Web, WebReply, WebRequest};
@@ -71,9 +73,47 @@ impl Shared {
             }
             other => web_reply(
                 404,
-                &json!({"Code": "UnknownOperation", "Message": format!("doze has no IAM extension called {other:?}: there are DozeAccessLog and DozeGeneratePolicy.")}),
+                &json!({"Code": "UnknownOperation", "Message": format!("doze has no IAM extension called {other:?}: there are DozeAccessLog, DozeGeneratePolicy and DozePrincipals.")}),
             ),
         }
+    }
+}
+
+/// The most keys one `DozePrincipals` question names: a page's worth of callers.
+const MOST_KEYS: usize = 200;
+
+impl Shared {
+    /// `DozePrincipals`: of the comma-separated access key ids in `asked`, those IAM issued, each with its user. A key that does
+    /// not look issued by IAM (`AKIA...`) is not looked up, so asking about `test` or the console's own key wakes nothing. A
+    /// read: no last use is noted, nothing is logged or written.
+    async fn principals(&self, asked: &str) -> Value {
+        let keys: Vec<String> = asked
+            .split(',')
+            .map(str::trim)
+            .filter(|k| k.starts_with("AKIA"))
+            .take(MOST_KEYS)
+            .map(str::to_owned)
+            .collect();
+        if keys.is_empty() {
+            return json!({"Principals": []});
+        }
+        let owners = match self
+            .actor
+            .call(crate::core::Ask::Owners(keys.clone()))
+            .await
+        {
+            Ok(crate::core::Answer::Owners(found)) => found,
+            _ => Vec::new(),
+        };
+        let principals: Vec<Value> = keys
+            .iter()
+            .zip(owners)
+            .filter_map(|(key, owner)| {
+                let (name, arn) = owner?;
+                Some(json!({"AccessKeyId": key, "UserName": name, "Arn": arn}))
+            })
+            .collect();
+        json!({"Principals": principals})
     }
 }
 
@@ -99,6 +139,13 @@ impl Web for Iam {
     }
 
     fn serve(&self, request: WebRequest) -> BoxFuture<'_, WebReply> {
-        Box::pin(async move { self.0.doze(&request) })
+        Box::pin(async move {
+            if request.path.trim_start_matches(DOZE_PATH) == "DozePrincipals" {
+                let form = aws_wire::query::parse_form(&request.query);
+                let asked = form.get("AccessKeyIds").map_or("", String::as_str);
+                return web_reply(200, &self.0.principals(asked).await);
+            }
+            self.0.doze(&request)
+        })
     }
 }

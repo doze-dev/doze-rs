@@ -54,6 +54,8 @@ pub(crate) enum Ask {
     Data(Box<crate::storage::DataCall>),
     /// Before a web identity token's keys are fetched: whether a provider is registered for its issuer (`crate::oidc`).
     Issuer(String),
+    /// From the console: the user each access key belongs to, when IAM issued it (a read: nothing is noted or written).
+    Owners(Vec<String>),
 }
 
 /// What the actor answers. A call and a question both come back with the authorization questions they raised, for the access log.
@@ -73,6 +75,8 @@ pub(crate) enum Answer {
     Data,
     /// Whether the issuer has a provider.
     Issuer(bool),
+    /// For each key asked about, in order: its user's name and ARN, or `None` for a key IAM did not issue.
+    Owners(Vec<Option<(String, String)>>),
 }
 
 /// All of the account's identities. Owned by one task, so no operation needs a lock.
@@ -138,6 +142,7 @@ impl doze_runtime::Service for Core {
                 return Answer::Data;
             }
             Ask::Issuer(url) => return Answer::Issuer(self.has_issuer(&url)),
+            Ask::Owners(keys) => return Answer::Owners(self.owners(&keys)),
             Ask::Call { which, call } => (which, call),
         };
         let mut reply = self.dispatch(which, &call);
@@ -306,6 +311,17 @@ impl Core {
             Which::Iam => reply_json(&aws_model_iam::tables::TABLES, &self.iam, call.op, &value),
             Which::Sts => reply_json(&aws_model_sts::tables::TABLES, &self.sts, call.op, &value),
         }
+    }
+
+    /// For each of `keys`, the name and ARN of the user it belongs to, when IAM issued it.
+    pub(crate) fn owners(&self, keys: &[String]) -> Vec<Option<(String, String)>> {
+        keys.iter()
+            .map(|id| {
+                let user = &self.keys.get(id)?.user;
+                let entity = self.entity(Kind::User, user).ok()?;
+                Some((entity.name.clone(), entity.arn.clone()))
+            })
+            .collect()
     }
 
     /// The entity of kind `kind` called `name`.

@@ -23,7 +23,10 @@ pub(crate) async fn handle(
     claim: Claim,
 ) -> Result<Out, Fail> {
     let (meta, tables) = (entry.service.meta(), entry.service.tables());
-    let fail = |e: &ApiError| -> Fail { Box::new(query::failure(meta, tables, id, e)) };
+    let fail = |e: &ApiError| -> Fail {
+        crate::observe::failed(parts, e);
+        Box::new(query::failure(meta, tables, id, e))
+    };
     let authed = authenticate(shared, parts, claim.service.as_str())
         .await
         .map_err(|e| fail(&from_auth(&e, Family::Query)))?;
@@ -67,7 +70,10 @@ pub(crate) async fn unsigned(
     parts: &Parts,
     body: Incoming,
 ) -> Result<Out, Fail> {
-    let missing = || early(id, &from_auth(&aws_auth::AuthError::Missing, Family::Coral));
+    let missing = || {
+        let e = from_auth(&aws_auth::AuthError::Missing, Family::Coral);
+        early(id, parts, &e)
+    };
     let form_post = parts
         .headers
         .get(http::header::CONTENT_TYPE)
@@ -78,8 +84,8 @@ pub(crate) async fn unsigned(
     }
     let bytes = read_body(body, shared.max_body_bytes())
         .await
-        .map_err(|e| early(id, &e))?;
-    let form = form_of(parts, &bytes).map_err(|e| early(id, &e))?;
+        .map_err(|e| early(id, parts, &e))?;
+    let form = form_of(parts, &bytes).map_err(|e| early(id, parts, &e))?;
     let action = query::action(&form).unwrap_or_default();
     let entry = shared
         .entries()
@@ -98,6 +104,7 @@ pub(crate) async fn unsigned(
         entry.service.meta().signing_name,
         &shared.config.default_region,
     );
+    crate::observe::service(parts, entry, &claim);
     answer(shared, entry, id, parts, claim, &form).await
 }
 
@@ -111,7 +118,10 @@ async fn answer(
     form: &std::collections::BTreeMap<String, String>,
 ) -> Result<Out, Fail> {
     let (meta, tables) = (entry.service.meta(), entry.service.tables());
-    let fail = |e: &ApiError| -> Fail { Box::new(query::failure(meta, tables, id, e)) };
+    let fail = |e: &ApiError| -> Fail {
+        crate::observe::failed(parts, e);
+        Box::new(query::failure(meta, tables, id, e))
+    };
     let name = query::action(form).ok_or_else(|| {
         fail(&ApiError::new(
             400,
@@ -131,6 +141,7 @@ async fn answer(
             ),
         ))
     })?;
+    crate::observe::operation(parts, entry, op);
     if !entry.service.serves(op) {
         return Err(fail(&ApiError::new(
             501,
@@ -140,6 +151,7 @@ async fn answer(
     }
     let call =
         decode_call(entry, op, id, caller(shared, parts, claim), form).map_err(|e| fail(&e))?;
+    crate::observe::input(parts, entry, &call);
     let output = entry.service.call(call).await.map_err(|e| fail(&e))?;
     let json = output_json(entry, op, &output.arena, output.root).map_err(|e| fail(&e))?;
     Ok(query::success(meta, tables, op, &json, id))
