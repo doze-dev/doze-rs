@@ -264,6 +264,9 @@ fn down_strip(t: &Tokens, st: &Stopped, tight: bool) -> impl IntoElement {
             .flex_1()
             .min_w_0()
             .child(v)
+            // Where a running stack's memory figure has its share bar (6 px, and the gap): the strip is as tall stopped
+            // as running, so the services under it stay where they are when the stack goes up or down.
+            .child(div().h(px(6.)).flex_none())
             .child(under(t, &line)),
     )
 }

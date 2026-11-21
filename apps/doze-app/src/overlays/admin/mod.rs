@@ -124,7 +124,7 @@ impl AdminView {
         let cli = if fixture {
             Some(Cli::go(PathBuf::from("doze")))
         } else {
-            Cli::from_env()
+            Cli::from_env(crate::own::program())
         };
         let mut v = AdminView {
             job,

@@ -1,7 +1,9 @@
 //! The stack page's verbs (Go `overview.tsx`: `Switch`, `toggle`, the head's switch, the keys): a row's switch wakes,
 //! sleeps (asking when in use) or turns a service back on; a task's button runs it; a stopped stack's row starts the
 //! stack with that one; the head's switch is Up as last time or Down. `w`, `s`, `r`, `p` act on the selected row, `u`
-//! and `c` start a stopped stack. Busy and failed show as banners over the strip ([`banners`]).
+//! and `c` start a stopped stack; `s` with no service selected, or the head's moon, puts every service to sleep. A busy
+//! stack says so in place, in the head's status line and on the row it was asked from, never by pushing the page
+//! down; a failed action is a banner over the strip, kept until dismissed or tried again ([`banners`]).
 
 use doze_control::Verb;
 use doze_desk::act::{Busy, Failure, StackAction};
@@ -27,6 +29,49 @@ impl OverviewView {
         };
         let a = a.read(cx);
         (a.busy_of(&k), a.failed.get(&k).cloned())
+    }
+
+    /// What the stack shown is busy doing once it has been for a moment (what the words and spinners say), the
+    /// services its action was asked to start by name, and whether every service is being put to sleep.
+    pub(super) fn busy_shown(&self, cx: &gpui::App) -> (Option<Busy>, Vec<String>, bool) {
+        let Some((a, k)) = self.acts(cx) else {
+            return (None, Vec::new(), false);
+        };
+        let a = a.read(cx);
+        (a.busy_shown(&k), a.touched(&k).to_vec(), a.sleeping_all(&k))
+    }
+
+    /// Sleep everything in the stack shown (the head's moon, its menu, `s` with no service selected).
+    pub(crate) fn sleep_all(&mut self, cx: &mut Context<Self>) {
+        if let Some((a, k)) = self.acts(cx) {
+            a.update(cx, |a, cx| a.sleep_all(&k, cx));
+        }
+    }
+
+    /// What Sleep all can do now: nothing for a stopped stack; off while the stack is busy, connecting, or already all
+    /// asleep; turning while every service goes to sleep.
+    pub(super) fn moon(&self, cx: &gpui::App) -> crate::library::menu::Moon {
+        use crate::library::menu::Moon;
+        let (busy, _) = self.busy(cx);
+        let live = self.stack.as_ref().is_some_and(|s| s.link.is_live());
+        if !self.home.running {
+            Moon::Hidden
+        } else if self.busy_shown(cx).2 {
+            Moon::Working
+        } else if busy.is_some() || !live || self.home.asleep {
+            Moon::Off
+        } else {
+            Moon::Ready
+        }
+    }
+
+    /// `s`: the selected service to sleep; with none selected, the stack is what is selected, so all of it.
+    pub(super) fn sleep_key(&mut self, cx: &mut Context<Self>) {
+        if self.selected.is_some() {
+            self.selected_verb(Verb::Sleep, cx);
+        } else if self.home.running {
+            self.sleep_all(cx);
+        }
     }
 
     /// A whole-stack action on the stack shown.
@@ -177,49 +222,19 @@ fn banner(t: &Tokens, tone: gpui::Hsla) -> gpui::Div {
         .bg(mix(tone, t.panel, 10.))
 }
 
-/// "Starting shop…" while the stack's action runs; the failure, kept until dismissed or tried again.
+/// The failure of the stack's last action, kept until dismissed or tried again. An action under way is no banner: an
+/// insert over the strip pushed the page down and back on every quick up or down, so it is said in place, in the
+/// head's status line (`head::status`) and on the row it was asked from.
 pub(super) fn banners(
     t: &Tokens,
     v: &OverviewView,
     cx: &mut Context<OverviewView>,
 ) -> Vec<AnyElement> {
     let (busy, failed) = v.busy(cx);
-    if let Some(b) = busy {
-        let mut word = b.word().to_owned();
-        if let Some(first) = word.get_mut(..1) {
-            first.make_ascii_uppercase();
-        }
-        let ring = div()
-            .mt(px(6.))
-            .size(px(8.))
-            .flex_none()
-            .rounded_full()
-            .border_2()
-            .border_color(t.cool);
-        let words = div()
-            .flex()
-            .flex_col()
-            .gap(px(1.))
-            .child(
-                div()
-                    .font_weight(ty::SEMIBOLD)
-                    .text_color(t.bright)
-                    .child(format!("{word} {}…", v.home.stack)),
-            )
-            .child(
-                div()
-                    .text_size(px(ty::SM))
-                    .text_color(t.dim)
-                    .child(b.detail()),
-            );
-        return vec![crate::motion::settle(
-            "banner-busy",
-            banner(t, t.cool).child(ring).child(words),
-            240,
-        )];
+    match (busy, failed) {
+        (None, Some(f)) => vec![failed_banner(t, v, &f, cx)],
+        _ => Vec::new(),
     }
-    let Some(f) = failed else { return Vec::new() };
-    vec![failed_banner(t, v, &f, cx)]
 }
 
 /// The doze.hcl a failure is about, and its file name.
@@ -407,6 +422,12 @@ impl crate::library::menu::MenuHost for OverviewView {
     fn menu_act(&mut self, _: &str, action: StackAction, cx: &mut Context<Self>) {
         self.menu = false;
         self.stack_act(action, cx);
+    }
+
+    fn menu_sleep(&mut self, _: &str, cx: &mut Context<Self>) {
+        self.menu = false;
+        self.sleep_all(cx);
+        cx.notify();
     }
 
     fn menu_choose(&mut self, _: &str, cx: &mut Context<Self>) {

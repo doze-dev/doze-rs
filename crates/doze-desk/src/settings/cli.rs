@@ -1,10 +1,11 @@
 //! The command source: which `doze` the app runs for the machine's setup and for doctor, and with which words. One
 //! place, so that when the Rust CLI takes over from the Go one only this file changes.
 //!
-//! Today the daemon and the CLI are Go's (`doze dns-setup`, `doze trust`, `doze doctor`, each with `--print` for the
-//! script it would run as root, and `DOZE_ADMIN_PROMPT=1` to ask with the system's prompt instead of sudo). The
-//! program is found as a terminal would find it, unless [`CLI_ENV`] names one: a later Rust CLI, or a stand-in that
-//! echoes for a test.
+//! The app carries the Rust CLI, so the program it runs is itself ([`Cli::find`]'s `own`): a `doze` on the `PATH`
+//! may be another, older one (the Go doze). [`CLI_ENV`] still names one in its place (a stand-in that echoes, for a
+//! test), and the `PATH` is looked at only when the app cannot name itself. The words are `doze dns-setup`,
+//! `doze trust` and `doze doctor`, with `DOZE_ADMIN_PROMPT=1` to ask with the system's prompt instead of sudo; the
+//! flag that prints the root script and runs nothing is Go's `--print` and the Rust CLI's `--dry-run`.
 
 use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
@@ -17,9 +18,11 @@ pub const CLI_ENV: &str = "DOZE_APP_CLI";
 /// Whose command line it is: the words differ between CLIs, the actions do not.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum Flavour {
-    /// The Go `doze` (today's daemon and CLI).
+    /// The Go `doze`: one found on the `PATH`, or named by [`CLI_ENV`].
     #[default]
     Go,
+    /// The Rust CLI the app carries.
+    Rust,
 }
 
 /// What the app asks the CLI for.
@@ -33,12 +36,12 @@ pub enum Verb {
     Doctor,
 }
 
-/// The words that do `verb` in a CLI of this flavour.
-pub fn words(flavour: Flavour, verb: Verb) -> &'static [&'static str] {
-    match (flavour, verb) {
-        (Flavour::Go, Verb::Names) => &["dns-setup"],
-        (Flavour::Go, Verb::Trust) => &["trust"],
-        (Flavour::Go, Verb::Doctor) => &["doctor"],
+/// The words that do `verb`: the same in both flavours (the Rust CLI kept Go's).
+pub fn words(_flavour: Flavour, verb: Verb) -> &'static [&'static str] {
+    match verb {
+        Verb::Names => &["dns-setup"],
+        Verb::Trust => &["trust"],
+        Verb::Doctor => &["doctor"],
     }
 }
 
@@ -50,10 +53,19 @@ pub struct Cli {
 }
 
 impl Cli {
-    /// The CLI: [`CLI_ENV`] when it is set, else the first `doze` on `path`, then where installers put it.
-    pub fn find(named: Option<&OsStr>, path: Option<&OsStr>, home: Option<&Path>) -> Option<Cli> {
+    /// The CLI: [`CLI_ENV`] when it is set, else the app's `own` program (it carries the CLI), else the first `doze` on
+    /// `path`, then where installers put it.
+    pub fn find(
+        named: Option<&OsStr>,
+        own: Option<PathBuf>,
+        path: Option<&OsStr>,
+        home: Option<&Path>,
+    ) -> Option<Cli> {
         if let Some(p) = named.filter(|p| !p.is_empty()) {
             return Some(Cli::go(PathBuf::from(p)));
+        }
+        if let Some(p) = own {
+            return Some(Cli::own(p));
         }
         let mut dirs: Vec<PathBuf> = path
             .map(|p| std::env::split_paths(p).collect())
@@ -69,14 +81,23 @@ impl Cli {
             .map(Cli::go)
     }
 
-    /// The CLI from this process's environment.
-    pub fn from_env() -> Option<Cli> {
+    /// The CLI from this process's environment, `own` being the program the app runs as its CLI (itself).
+    pub fn from_env(own: Option<PathBuf>) -> Option<Cli> {
         let home = std::env::var_os("HOME").map(PathBuf::from);
         Cli::find(
             std::env::var_os(CLI_ENV).as_deref(),
+            own,
             std::env::var_os("PATH").as_deref(),
             home.as_deref(),
         )
+    }
+
+    /// The Rust CLI at `program` (the app itself).
+    pub fn own(program: PathBuf) -> Cli {
+        Cli {
+            program,
+            flavour: Flavour::Rust,
+        }
     }
 
     /// Go's `doze` at `program`.
@@ -102,12 +123,15 @@ impl Cli {
     /// authority before it prints, so it is not run before the person presses Run.
     pub fn print_args(&self, args: &[String]) -> Option<Vec<String>> {
         let first = args.first()?.as_str();
-        let quiet = match self.flavour {
-            Flavour::Go => first == "dns-setup",
-        };
-        quiet.then(|| {
+        (first == "dns-setup").then(|| {
             let mut a = args.to_vec();
-            a.push("--print".into());
+            a.push(
+                match self.flavour {
+                    Flavour::Go => "--print",
+                    Flavour::Rust => "--dry-run",
+                }
+                .into(),
+            );
             a
         })
     }
@@ -115,9 +139,7 @@ impl Cli {
     /// Whether the command's privileged step asks for the password (once, with the system's prompt).
     pub fn asks_root(&self, args: &[String]) -> bool {
         let first = args.first().map(String::as_str).unwrap_or_default();
-        match self.flavour {
-            Flavour::Go => matches!(first, "dns-setup" | "trust"),
-        }
+        matches!(first, "dns-setup" | "trust")
     }
 
     /// The environment every command the app runs gets: no colour, and the system's prompt in place of sudo.
@@ -172,13 +194,37 @@ mod tests {
         let dir = tempfile::tempdir().unwrap_or_else(|e| panic!("{e}"));
         let on_path = dir.path().join("doze");
         std::fs::write(&on_path, "").unwrap_or_else(|e| panic!("{e}"));
-        let found = Cli::find(None, Some(dir.path().as_os_str()), None);
+        let found = Cli::find(None, None, Some(dir.path().as_os_str()), None);
         assert_eq!(found.map(|c| c.program), Some(on_path));
         let named = Cli::find(
             Some("/fake/doze".as_ref()),
+            Some("/app/doze".into()),
             Some(dir.path().as_os_str()),
             None,
         );
         assert_eq!(named.map(|c| c.program), Some("/fake/doze".into()));
+    }
+
+    #[test]
+    fn the_app_runs_itself_before_any_doze_on_the_path() {
+        let dir = tempfile::tempdir().unwrap_or_else(|e| panic!("{e}"));
+        std::fs::write(dir.path().join("doze"), "").unwrap_or_else(|e| panic!("{e}"));
+        let own = Cli::find(
+            None,
+            Some("/Applications/Doze.app/Contents/MacOS/doze".into()),
+            Some(dir.path().as_os_str()),
+            None,
+        )
+        .unwrap_or_else(|| panic!("no cli"));
+        assert_eq!(
+            own,
+            Cli::own("/Applications/Doze.app/Contents/MacOS/doze".into())
+        );
+        assert_eq!(
+            own.print_args(&own.args(Verb::Names)).unwrap_or_default(),
+            ["dns-setup", "--dry-run"]
+        );
+        assert_eq!(own.print_args(&own.args(Verb::Trust)), None);
+        assert!(own.asks_root(&own.args(Verb::Names)));
     }
 }

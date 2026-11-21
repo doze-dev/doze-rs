@@ -176,7 +176,7 @@ pub(super) fn view(
         .flex_1()
         .min_h_0();
     if !v.query.is_empty() {
-        out = out.child(filter(t, v));
+        out = out.child(filter(t, v, None, cx));
     }
     out.child(boxed)
 }

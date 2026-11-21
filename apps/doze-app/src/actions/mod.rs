@@ -46,6 +46,7 @@ actions!(
         Quit,
         OpenStack,
         ToggleStack,
+        SleepStack,
         RemoveStack,
         OpenService,
         ToggleService,

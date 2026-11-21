@@ -127,7 +127,21 @@ impl Acts {
             return;
         }
         self.busy.insert(key.clone(), action.busy());
+        let named = match &action {
+            StackAction::Up(names) => names.clone(),
+            _ => Vec::new(),
+        };
+        self.begun
+            .insert(key.clone(), (std::time::Instant::now(), named));
+        // The daemon starts or exits under this action: its connection dropping is the action's own doing.
+        self.hub.set_acting(key, true);
         self.failed.remove(key);
+        // The busy state shows once the action has lasted a moment: one redraw then, none if it is already over.
+        cx.spawn(async move |this, cx| {
+            cx.background_executor().timer(super::SHOW_BUSY_AFTER).await;
+            let _ = this.update(cx, |_, cx| cx.notify());
+        })
+        .detach();
         // "bringing acme up…" says it is under way, and stays its usual time whenever the action ends (Go: the
         // service's say, a toast like any other).
         self.say(action.said(&st.name), false, cx);
@@ -146,6 +160,8 @@ impl Acts {
             let done = job.await;
             let _ = this.update(cx, |a, cx| {
                 a.busy.remove(&k);
+                a.begun.remove(&k);
+                a.hub.set_acting(&k, false);
                 a.hub.refresh();
                 match done {
                     Ok(said) if !said.is_empty() => a.say(said, false, cx),

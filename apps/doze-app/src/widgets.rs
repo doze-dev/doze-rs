@@ -21,6 +21,26 @@ pub(crate) trait Mono: Styled + Sized {
 
 impl<T: Styled> Mono for T {}
 
+/// An action under way, where it was asked for (a row's or a tile's switch, the head's status line): a ring with a lit
+/// quarter, turning once every 900 ms; a still ring when motion is reduced. It draws frames only while it shows.
+pub(crate) fn spinner(id: impl Into<gpui::ElementId>, size: f32, color: Hsla) -> AnyElement {
+    use gpui::AnimationExt as _;
+    let ring = svg()
+        .path("icons/spin.svg")
+        .size(px(size))
+        .flex_none()
+        .text_color(color);
+    if crate::motion::reduced() {
+        return ring.into_any_element();
+    }
+    ring.with_animation(
+        id,
+        gpui::Animation::new(std::time::Duration::from_millis(900)).repeat(),
+        |s, p| s.with_transformation(gpui::Transformation::rotate(gpui::percentage(p))),
+    )
+    .into_any_element()
+}
+
 /// An SVG icon (assets.rs) in a colour, `size` square.
 pub(crate) fn icon(path: &'static str, size: f32, color: Hsla) -> impl IntoElement {
     svg()

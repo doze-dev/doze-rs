@@ -1,6 +1,7 @@
 //! The hub: every stack on this machine, running or stopped, and the one way the rest of the app reads them (Go
 //! `internal/desk/hub`). Nothing else in the app talks to a daemon's subscription.
 
+mod acting;
 mod refresh;
 mod verbs;
 mod watch;
@@ -18,7 +19,7 @@ use crate::view::StackView;
 use async_channel::{Receiver, Sender};
 use doze_control::{Backoff, Client, LogFrame, Topic};
 use doze_projects::{Project, StackKey};
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::fmt;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
@@ -100,6 +101,8 @@ struct Inner {
     /// No window shows (closed, minimised, behind another, on a sleeping display): the meters are not streamed,
     /// whatever pages watch (Go: a hidden page blurs). Logs are, into the ring the pages read.
     hidden: bool,
+    /// The stacks this app has an action in flight on ([`Hub::set_acting`]).
+    acting: BTreeSet<StackKey>,
 }
 
 impl Hub {
@@ -195,8 +198,18 @@ impl Hub {
     /// Every stack known, running ones first, each group by name (Go `Stacks`).
     pub fn stacks(&self) -> Vec<StackView> {
         let inner = lock(&self.shared.inner);
-        let mut out: Vec<StackView> = inner.stacks.values().map(running_view).collect();
-        out.extend(inner.stopped.iter().map(|(key, p)| stopped_view(key, p)));
+        let acting = |k: &StackKey| inner.acting.contains(k);
+        let mut out: Vec<StackView> = inner
+            .stacks
+            .values()
+            .map(|s| running_view(s, &acting))
+            .collect();
+        out.extend(
+            inner
+                .stopped
+                .iter()
+                .map(|(key, p)| stopped_view(key, p, acting(key))),
+        );
         drop(inner);
         out.sort_by(|a, b| {
             b.running
@@ -210,10 +223,14 @@ impl Hub {
     /// One stack, running or stopped.
     pub fn stack(&self, key: &StackKey) -> Option<StackView> {
         let inner = lock(&self.shared.inner);
+        let acting = |k: &StackKey| inner.acting.contains(k);
         if let Some(s) = inner.stacks.get(key) {
-            return Some(running_view(s));
+            return Some(running_view(s, &acting));
         }
-        inner.stopped.get(key).map(|p| stopped_view(key, p))
+        inner
+            .stopped
+            .get(key)
+            .map(|p| stopped_view(key, p, acting(key)))
     }
 
     /// Reads a running stack's log ring; `None` for a stack that is not running.
@@ -235,8 +252,9 @@ impl Hub {
     }
 }
 
-fn running_view(s: &Stack) -> StackView {
+fn running_view(s: &Stack, acting: &dyn Fn(&StackKey) -> bool) -> StackView {
     let mut v = s.view();
+    v.acting = acting(&v.key);
     if v.name.is_empty() && v.dir.is_empty() {
         // A daemon from an older doze says neither: its state folder still carries the name.
         v.name = name_from_key(v.key.dir());
@@ -244,8 +262,9 @@ fn running_view(s: &Stack) -> StackView {
     v
 }
 
-fn stopped_view(key: &StackKey, p: &Project) -> StackView {
+fn stopped_view(key: &StackKey, p: &Project, acting: bool) -> StackView {
     let mut v = StackView::new(key.clone());
+    v.acting = acting;
     v.name.clone_from(&p.name);
     v.dir = Path::new(&p.config)
         .parent()

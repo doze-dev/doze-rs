@@ -93,9 +93,13 @@ fn build_with_nothing_running() {
     assert!(!m.needs_you && m.lines.is_empty() && m.tooltip == "doze");
     let mut st = stack("k", "shop", true, json!([]));
     st.link.conn = Conn::Down;
-    let m = super::build(&[st], now());
+    st.link.down_since = Some(now() - crate::LOST_AFTER);
+    let m = super::build(std::slice::from_ref(&st), now());
     assert_eq!(m.lines.len(), 1);
     assert_eq!(m.lines[0].sub, "daemon not answering");
+    // A drop a moment old (a down or an up under way) is still connecting.
+    st.link.down_since = Some(now());
+    assert_eq!(super::build(&[st], now()).lines[0].sub, "connecting…");
     let mut st = stack("k", "shop", true, json!([]));
     st.link.conn = Conn::Connecting;
     assert_eq!(super::build(&[st], now()).lines[0].sub, "connecting…");
@@ -414,4 +418,34 @@ fn open_url_takes_the_registrys_address_when_there_is_one() {
     let fronted = |h: &str| (h == "front.web.doze").then(|| "http://front.web.doze".to_owned());
     let e = menu(&m, &Attention::default(), &stacks, &fronted);
     assert_eq!(titles(sub(&e, "●  web"))[1], "Open http://front.web.doze");
+}
+
+#[test]
+fn a_stack_up_with_everything_asleep_says_it_wakes_on_use() {
+    let asleep = json!([
+        {"name": "api", "kind": "app", "state": "stopped"},
+        {"name": "db", "kind": "service", "state": "stopped"},
+        {"name": "seed", "kind": "task", "state": "stopped"}
+    ]);
+    let st = stack("k", "shop", true, asleep);
+    assert!(st.all_asleep());
+    assert_eq!(super::build(&[st], now()).lines[0].sub, crate::ALL_ASLEEP);
+    let one_up = json!([
+        {"name": "api", "kind": "app", "state": "active"},
+        {"name": "db", "kind": "service", "state": "stopped"}
+    ]);
+    let st = stack("k", "shop", true, one_up);
+    assert!(!st.all_asleep());
+    assert_eq!(super::build(&[st], now()).lines[0].sub, "1 awake");
+    // Stopped is not asleep, and neither is a stack whose daemon is not answering (what it shows is old).
+    let mut st = stack(
+        "k",
+        "shop",
+        false,
+        json!([{"name": "api", "kind": "app", "state": "stopped"}]),
+    );
+    assert!(!st.all_asleep());
+    st.running = true;
+    st.link.conn = Conn::Connecting;
+    assert!(!st.all_asleep());
 }
