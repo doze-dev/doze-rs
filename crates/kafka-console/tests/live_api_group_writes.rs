@@ -108,6 +108,37 @@ async fn deleting_offsets_forgets_them_and_a_subscribed_topic_is_refused() {
     w.stop().await;
 }
 
+/// A reset of an empty group is done on a Kafka 4 broker that offers OffsetCommit and OffsetFetch v10 (topics by id): the
+/// console names its topics, so it asks at v9, as Kafka's Admin client does without ids. And the Delete topic dialog names the
+/// group that has commits on the topic (its OffsetFetch names the topic too).
+#[tokio::test]
+async fn a_reset_and_the_topics_in_use_work_where_offsets_go_by_topic_id() {
+    let w = with_orders("ag-reset-v10", |_| {}).await;
+    commit(&w, "analytics", "orders", &[(0, 1), (1, 1), (2, 1)]).await;
+    let app = api(&w);
+    let (s, r) = post(
+        &app,
+        "/api/v1/groups/analytics/reset",
+        r#"{"topic":"orders","to":"latest","value":""}"#,
+    )
+    .await;
+    assert_eq!(s, StatusCode::OK, "{r}");
+    assert_eq!(r["outcome"], "done", "{r}");
+    let mut now = committed(&w, "analytics").await;
+    now.sort();
+    assert_eq!(
+        now,
+        vec![
+            ("orders".to_owned(), 0, 4),
+            ("orders".to_owned(), 1, 3),
+            ("orders".to_owned(), 2, 2)
+        ]
+    );
+    let form = ok(&app, "/api/v1/topics/orders/delete").await;
+    assert!(form["in_use"].to_string().contains("analytics"), "{form}");
+    w.stop().await;
+}
+
 /// CON-210: with ACLs on, a caller that may only DESCRIBE a group is refused a reset and a delete with
 /// GROUP_AUTHORIZATION_FAILED (30), and a group it may not describe is the 404 of no group.
 #[tokio::test]

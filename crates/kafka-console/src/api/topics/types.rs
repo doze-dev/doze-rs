@@ -30,6 +30,7 @@ pub(crate) fn all(cfg: &Config, out: &mut BTreeMap<String, String>) {
     one::<CompactDone>(cfg, out);
     one::<ProducersResponse>(cfg, out);
     one::<TxnResponse>(cfg, out);
+    one::<super::log::HeldReader>(cfg, out);
     one::<TailRows>(cfg, out);
     one::<Cleanup>(cfg, out);
     one::<TopicRow>(cfg, out);
@@ -51,7 +52,7 @@ pub(crate) fn all(cfg: &Config, out: &mut BTreeMap<String, String>) {
     one::<RecordTxn>(cfg, out);
     one::<RecordView>(cfg, out);
     one::<Reading>(cfg, out);
-    one::<MessageQuery>(cfg, out);
+    one::<crate::model::MessageQuery>(cfg, out);
     log_and_producers(cfg, out);
 }
 
@@ -77,6 +78,8 @@ fn log_and_producers(cfg: &Config, out: &mut BTreeMap<String, String>) {
     one::<ProdBatch>(cfg, out);
     one::<ProdTxn>(cfg, out);
     one::<ProdRow>(cfg, out);
+    one::<crate::model::ProdEpoch>(cfg, out);
+    one::<crate::model::AbortBy>(cfg, out);
     one::<ProdAborted>(cfg, out);
     one::<ProdCell>(cfg, out);
     one::<ProdTail>(cfg, out);

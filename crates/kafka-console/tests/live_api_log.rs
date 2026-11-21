@@ -219,11 +219,17 @@ async fn retention_is_named_before_and_after_a_pass() {
     let pass = &after["view"]["retention"]["last_pass"];
     assert_eq!(
         pass["moved"],
-        serde_json::json!([{"topic": "orders", "partition": 0, "from": start, "to": moved}]),
+        serde_json::json!([{"topic": "orders", "partition": 0, "from": start, "to": moved, "segments": would}]),
         "{pass}"
     );
     assert_eq!(after["view"]["retention"]["moved_total"], 1);
     assert_eq!(after["view"]["start"], moved);
+    // J234, J235: the durability card says how far the log is on disk (acks=all: to its end), and a segment its index.
+    let d = &after["view"]["durability"]["flushed_through"];
+    assert_eq!(d, &after["view"]["end"], "{d}");
+    let seg = &after["view"]["segments"][0];
+    assert!(seg["index_entries"].as_u64().unwrap() > 0, "{seg}");
+    assert!(!seg["index_first"].as_array().unwrap().is_empty(), "{seg}");
     w.stop().await;
 }
 
@@ -358,5 +364,45 @@ async fn a_get_of_these_answers_reads_and_changes_nothing() {
         before,
         "the log was not compacted, nothing was written"
     );
+    w.stop().await;
+}
+
+/// J244: "Other logs on this broker" lists the logs with something to say first: many segments before one written to before
+/// an empty one, whatever their names.
+#[tokio::test]
+async fn other_logs_with_a_story_come_first() {
+    let w = world("al-others", |_, _| {}).await;
+    w.create_topic("here", 1, &[]).await;
+    w.create_topic("a-empty", 1, &[]).await;
+    w.create_topic("b-written", 1, &[]).await;
+    w.create_topic("z-rolled", 1, &[("segment.bytes", "1024")])
+        .await;
+    assert_eq!(w.produce_batch("b-written", 0, records(1), None).await.0, 0);
+    for _ in 0..20 {
+        assert_eq!(w.produce_batch("z-rolled", 0, records(5), None).await.0, 0);
+    }
+    let app = api(&w);
+    let v = ok(&app, "/api/v1/topics/here/log").await;
+    let names: Vec<&str> = v["view"]["others"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|o| o["topic"].as_str().unwrap())
+        .collect();
+    assert_eq!(names, ["z-rolled", "b-written", "a-empty"]);
+    assert_eq!(v["view"]["others"][2]["line"], "empty: no records yet");
+    // The policy each log is drawn as (mutants of `view_of`).
+    w.create_topic("both", 1, &[("cleanup.policy", "compact,delete")])
+        .await;
+    w.create_topic("only-compact", 1, &[("cleanup.policy", "compact")])
+        .await;
+    for (t, want) in [
+        ("both", "both"),
+        ("only-compact", "compact"),
+        ("here", "delete"),
+    ] {
+        let v = ok(&app, &format!("/api/v1/topics/{t}/log")).await;
+        assert_eq!(v["view"]["cleanup"], want, "{t}");
+    }
     w.stop().await;
 }

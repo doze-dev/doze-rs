@@ -10,10 +10,38 @@ impl Source {
         match self {
             Self::Live(l) => {
                 let _ = hint;
-                gather::topics(&l.backend, filter, internal).await
+                let mut view = gather::topics(&l.backend, filter, internal).await;
+                if let Some(rec) = &l.recorder {
+                    let names: Vec<String> = view.rows.iter().map(|r| r.name.clone()).collect();
+                    let mut by = rec.writers(&names);
+                    for r in &mut view.rows {
+                        r.written_by = by.remove(&r.name).unwrap_or_default();
+                    }
+                }
+                view
             }
             #[cfg(any(test, feature = "examples"))]
             Self::Fixture => crate::fixtures_topics::topics(filter, internal, hint),
+        }
+    }
+
+    /// The clients the request recorder saw write to `topic`, newest first, at most three (none without a recorder).
+    #[must_use]
+    pub fn writers(&self, topic: &str) -> Vec<String> {
+        match self {
+            Self::Live(l) => l.recorder.as_ref().map_or_else(Vec::new, |r| {
+                r.writers(&[topic.to_owned()])
+                    .remove(topic)
+                    .unwrap_or_default()
+            }),
+            #[cfg(any(test, feature = "examples"))]
+            Self::Fixture => {
+                if topic == "orders" {
+                    vec!["orders-svc".to_owned()]
+                } else {
+                    Vec::new()
+                }
+            }
         }
     }
 

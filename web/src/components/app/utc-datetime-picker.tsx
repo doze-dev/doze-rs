@@ -24,10 +24,8 @@ export function parseClock(text: string): number | null {
   return h < 24 && mi < 60 && s < 60 ? h * 3600 + mi * 60 + s : null;
 }
 
-/** A moment in UTC, chosen with a month grid and a time field in a Popover: never the browser's own date widget, which
- * differs in every engine and speaks the local zone (the console speaks UTC). */
-export function UtcDateTimePicker({ value, onChange, className, "aria-label": ariaLabel = "Time, UTC", id }: { value: number | null; onChange: (ms: number) => void; className?: string; "aria-label"?: string; id?: string }) {
-  const [open, setOpen] = useState(false);
+/** A UTC month grid and a time field, with no Popover of its own: for a form that already is one (Messages' From time). */
+export function UtcCalendar({ value, onChange, id, footer }: { value: number | null; onChange: (ms: number) => void; id?: string; footer?: (ok: boolean) => React.ReactNode }) {
   const [base] = useState(() => value ?? Date.now());
   const [view, setView] = useState(() => {
     const d = new Date(base);
@@ -37,25 +35,97 @@ export function UtcDateTimePicker({ value, onChange, className, "aria-label": ar
     const d = new Date(base);
     return `${two(d.getUTCHours())}:${two(d.getUTCMinutes())}:${two(d.getUTCSeconds())}`;
   });
+  // A value set from outside (a quick choice, typed text) moves the grid to its month and the clock to its time.
+  const [seen, setSeen] = useState(value);
+  if (value !== seen) {
+    setSeen(value);
+    if (value !== null) {
+      const d = new Date(value);
+      setView({ y: d.getUTCFullYear(), m: d.getUTCMonth() });
+      setClock(`${two(d.getUTCHours())}:${two(d.getUTCMinutes())}:${two(d.getUTCSeconds())}`);
+    }
+  }
   const secs = parseClock(clock);
   const chosen = value !== null ? new Date(value) : null;
   const first = new Date(Date.UTC(view.y, view.m, 1));
   const lead = (first.getUTCDay() + 6) % 7;
   const days = new Date(Date.UTC(view.y, view.m + 1, 0)).getUTCDate();
   const today = new Date();
-  const pick = (day: number) => onChange(Date.UTC(view.y, view.m, day) + (secs ?? 0) * 1000);
+  const emit = (ms: number) => {
+    setSeen(ms);
+    onChange(ms);
+  };
+  const pick = (day: number) => emit(Date.UTC(view.y, view.m, day) + (secs ?? 0) * 1000);
   const step = (by: number) => setView((v) => ({ y: v.y + Math.floor((v.m + by) / 12), m: (((v.m + by) % 12) + 12) % 12 }));
   const setTime = (text: string) => {
     setClock(text);
     const s = parseClock(text);
-    if (s !== null && chosen) onChange(Date.UTC(chosen.getUTCFullYear(), chosen.getUTCMonth(), chosen.getUTCDate()) + s * 1000);
-  };
-  const onOpen = (o: boolean) => {
-    if (o && chosen) setView({ y: chosen.getUTCFullYear(), m: chosen.getUTCMonth() });
-    setOpen(o);
+    if (s !== null && chosen) emit(Date.UTC(chosen.getUTCFullYear(), chosen.getUTCMonth(), chosen.getUTCDate()) + s * 1000);
   };
   return (
-    <Popover open={open} onOpenChange={onOpen}>
+    <div data-testid="datetime-calendar">
+      <div className="mb-2 flex items-center justify-between">
+        <Button type="button" variant="ghost" size="icon-sm" aria-label="Previous month" onClick={() => step(-1)}>
+          <ChevronLeftIcon />
+        </Button>
+        <span className="text-[13.5px] font-medium text-bright" aria-live="polite">
+          {MONTHS[view.m]} {view.y}
+        </span>
+        <Button type="button" variant="ghost" size="icon-sm" aria-label="Next month" onClick={() => step(1)}>
+          <ChevronRightIcon />
+        </Button>
+      </div>
+      <div className="grid grid-cols-7 gap-0.5 text-center" role="grid" aria-label={`${MONTHS[view.m]} ${view.y}`}>
+        {DAYS.map((d) => (
+          <span key={d} className="py-1 text-[11.5px] text-muted-foreground">
+            {d}
+          </span>
+        ))}
+        {Array.from({ length: lead }, (_, i) => (
+          <span key={`x${i}`} />
+        ))}
+        {Array.from({ length: days }, (_, i) => {
+          const day = i + 1;
+          const on = chosen && chosen.getUTCFullYear() === view.y && chosen.getUTCMonth() === view.m && chosen.getUTCDate() === day;
+          const isToday = today.getUTCFullYear() === view.y && today.getUTCMonth() === view.m && today.getUTCDate() === day;
+          return (
+            <button
+              key={day}
+              type="button"
+              onClick={() => pick(day)}
+              aria-pressed={!!on}
+              aria-label={`${day} ${MONTHS[view.m]} ${view.y}`}
+              className={cn(
+                "h-8 rounded-md text-[13px] tabular-nums hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none",
+                on && "bg-primary text-primary-foreground hover:bg-primary",
+                !on && isToday && "font-semibold text-link",
+              )}
+            >
+              {day}
+            </button>
+          );
+        })}
+      </div>
+      <div className="mt-3 flex items-end gap-2">
+        <div className="flex flex-1 flex-col gap-1.5">
+          <Label htmlFor={`${id ?? "dt"}-clock`} className="text-[12px] text-muted-foreground">
+            Time, UTC
+          </Label>
+          <Input id={`${id ?? "dt"}-clock`} value={clock} onChange={(e) => setTime(e.target.value)} inputMode="numeric" placeholder="14:30:00" aria-invalid={secs === null} className="font-mono" data-testid="datetime-clock" />
+        </div>
+        {footer?.(value !== null && secs !== null)}
+      </div>
+      {secs === null && <p className="mt-1.5 text-[12px] text-bad">A time is hours and minutes, like 14:30 or 14:30:05.</p>}
+    </div>
+  );
+}
+
+/** A moment in UTC, chosen with a month grid and a time field in a Popover: never the browser's own date widget, which
+ * differs in every engine and speaks the local zone (the console speaks UTC). */
+export function UtcDateTimePicker({ value, onChange, className, "aria-label": ariaLabel = "Time, UTC", id }: { value: number | null; onChange: (ms: number) => void; className?: string; "aria-label"?: string; id?: string }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <Button id={id} variant="outline" aria-label={ariaLabel} className={cn("w-72 justify-start bg-card font-mono font-normal", value === null && "text-muted-foreground", className)} data-testid="datetime-trigger">
           <CalendarClockIcon className="opacity-60" />
@@ -63,60 +133,16 @@ export function UtcDateTimePicker({ value, onChange, className, "aria-label": ar
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-[19rem] p-3" align="start" data-testid="datetime-popover">
-        <div className="mb-2 flex items-center justify-between">
-          <Button variant="ghost" size="icon-sm" aria-label="Previous month" onClick={() => step(-1)}>
-            <ChevronLeftIcon />
-          </Button>
-          <span className="text-[13.5px] font-medium text-bright" aria-live="polite">
-            {MONTHS[view.m]} {view.y}
-          </span>
-          <Button variant="ghost" size="icon-sm" aria-label="Next month" onClick={() => step(1)}>
-            <ChevronRightIcon />
-          </Button>
-        </div>
-        <div className="grid grid-cols-7 gap-0.5 text-center" role="grid" aria-label={`${MONTHS[view.m]} ${view.y}`}>
-          {DAYS.map((d) => (
-            <span key={d} className="py-1 text-[11.5px] text-muted-foreground">
-              {d}
-            </span>
-          ))}
-          {Array.from({ length: lead }, (_, i) => (
-            <span key={`x${i}`} />
-          ))}
-          {Array.from({ length: days }, (_, i) => {
-            const day = i + 1;
-            const on = chosen && chosen.getUTCFullYear() === view.y && chosen.getUTCMonth() === view.m && chosen.getUTCDate() === day;
-            const isToday = today.getUTCFullYear() === view.y && today.getUTCMonth() === view.m && today.getUTCDate() === day;
-            return (
-              <button
-                key={day}
-                type="button"
-                onClick={() => pick(day)}
-                aria-pressed={!!on}
-                aria-label={`${day} ${MONTHS[view.m]} ${view.y}`}
-                className={cn(
-                  "h-8 rounded-md text-[13px] tabular-nums hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none",
-                  on && "bg-primary text-primary-foreground hover:bg-primary",
-                  !on && isToday && "font-semibold text-link",
-                )}
-              >
-                {day}
-              </button>
-            );
-          })}
-        </div>
-        <div className="mt-3 flex items-end gap-2">
-          <div className="flex flex-1 flex-col gap-1.5">
-            <Label htmlFor={`${id ?? "dt"}-clock`} className="text-[12px] text-muted-foreground">
-              Time, UTC
-            </Label>
-            <Input id={`${id ?? "dt"}-clock`} value={clock} onChange={(e) => setTime(e.target.value)} inputMode="numeric" placeholder="14:30:00" aria-invalid={secs === null} className="font-mono" data-testid="datetime-clock" />
-          </div>
-          <Button size="sm" className="mb-0.5" onClick={() => setOpen(false)} disabled={value === null || secs === null} data-testid="datetime-done">
-            Done
-          </Button>
-        </div>
-        {secs === null && <p className="mt-1.5 text-[12px] text-bad">A time is hours and minutes, like 14:30 or 14:30:05.</p>}
+        <UtcCalendar
+          value={value}
+          onChange={onChange}
+          id={id}
+          footer={(ok) => (
+            <Button size="sm" className="mb-0.5" onClick={() => setOpen(false)} disabled={!ok} data-testid="datetime-done">
+              Done
+            </Button>
+          )}
+        />
       </PopoverContent>
     </Popover>
   );

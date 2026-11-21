@@ -11,11 +11,7 @@ use std::net::SocketAddr;
 use std::path::PathBuf;
 use std::time::Duration;
 
-use anyhow::{Result, bail};
 use clap::{Parser, ValueEnum};
-use kafka_broker::Config as BrokerConfig;
-use kafka_server::{Config as ServerConfig, Timeouts};
-use kafka_wire::profile::{KafkaMajor, Profile};
 
 use crate::duration;
 
@@ -121,39 +117,9 @@ pub(crate) struct Args {
     /// Log format.
     #[arg(long, value_enum, default_value = "text")]
     pub(crate) log_format: LogFormat,
-    /// SASL mechanisms to offer, comma separated (PLAIN, SCRAM-SHA-256, SCRAM-SHA-512; a SCRAM mechanism is
-    /// derived from each user's password at start). With it somebody must be able to log in: give --sasl-user,
-    /// --sasl-users-file or DOZE_KAFKA_SASL_USERS, or start on a data directory that holds users made over the API.
-    /// Without it, no client is asked to log in.
-    #[arg(long, value_delimiter = ',')]
-    sasl_mechanisms: Vec<String>,
-    /// A user that may log in, as user:password (split at the first colon; repeatable). Needs
-    /// --sasl-mechanisms. Passwords are ASCII and are never printed. They show in `ps`: see --sasl-users-file.
-    #[arg(long, value_name = "USER:PASSWORD")]
-    sasl_user: Vec<sasl::Login>,
-    /// A file of users that may log in, one user:password a line (split at the first colon; blank lines and lines that
-    /// start with # are skipped), so that passwords stay out of `ps`. Warns at start if group or others can read it.
-    /// The variable DOZE_KAFKA_SASL_USERS (comma-separated user:password, no comma in a password) is read too. Users
-    /// from these are re-applied at every start, never stored, and cannot be changed over the API.
-    #[arg(long, value_name = "FILE")]
-    sasl_users_file: Option<PathBuf>,
-    /// How long a failed login waits before it is answered, to make guessing passwords slow (Kafka's
-    /// connection.failed.authentication.delay.ms, 100ms; 0 = at once; at most 10s). Applies to every login that is
-    /// refused. The connection is then closed after at most 250ms more, outside the 30s a login is given.
-    #[arg(long, default_value = "100ms", value_parser = duration::failed_login_delay)]
-    sasl_failed_login_delay: Duration,
-
-    /// What a resource that no ACL covers allows: allow (the default, so that a broker with no ACLs refuses nothing)
-    /// or deny (Kafka's own default). ACLs you create are enforced either way. With SASL on, allow means every
-    /// logged-in user may do everything, including managing users and ACLs (only the credentials of --acl-super-user
-    /// principals are kept from them): use deny with ACLs for a broker that is shared.
-    #[arg(long, default_value = "allow")]
-    acl_default: acl::AclDefault,
-    /// A principal that ACLs never refuse, as Type:name such as User:admin (repeatable, or separated by commas or semicolons).
-    /// Only a super user may set or delete the SCRAM credential of a super user over the API: with --acl-default allow,
-    /// naming the administrators here is what stops any other login from taking their place.
-    #[arg(long, value_name = "PRINCIPAL")]
-    acl_super_user: Vec<String>,
+    /// Who may log in and what they may do (`cli/login_flags.rs`).
+    #[command(flatten)]
+    pub(crate) login: login_flags::LoginFlags,
 
     /// The key delegation tokens are signed with (Kafka's delegation.token.secret.key); tokens are off without it. It shows in
     /// `ps`: DOZE_KAFKA_DELEGATION_TOKEN_SECRET_KEY is read too. Tokens are used over SASL only; a new key voids them all.
@@ -174,35 +140,9 @@ pub(crate) struct Args {
     // Accepted and ignored until the phase that has it.
     #[arg(long, hide = true)]
     meta_db: Option<String>,
-    /// The web console: on unless `--console=false`. It listens beside the broker, in the same process, and shows what the
-    /// broker holds. It has no login and acts as a super user: on a shared machine any local process can use it without the
-    /// broker's password or past its ACLs (it is a tool for one developer), so turn it off there with `--console=false`. A
-    /// build without the `console` feature accepts the flag and serves none.
-    #[arg(long, num_args = 0..=1, default_missing_value = "true", value_name = "BOOL")]
-    console: Option<String>,
-    /// Where the console listens (default 127.0.0.1:9093: the Kafka port plus one, on this machine only). If the default
-    /// port is busy the broker runs without a console and says so; an address you give that cannot be bound stops the start.
-    #[arg(long, value_name = "HOST:PORT")]
-    console_addr: Option<String>,
-    /// The path the console is served under, for a proxy that forwards it as it is (default `/`; every link follows it).
-    #[arg(long, value_name = "PATH", default_value = "/")]
-    console_prefix: String,
-    /// A host name the console answers to besides localhost and IP addresses (repeatable, or comma separated; `*`
-    /// turns the check off). It guards against DNS rebinding: a request for any other `Host` is refused with 403.
-    #[arg(long, value_name = "HOST", value_delimiter = ',')]
-    console_allow_host: Vec<String>,
-    /// Accept serving the console beyond loopback although that makes it a wider door than the broker: SASL or TLS is on, ACLs
-    /// are in force (--acl-default deny, or ACLs stored), or --listen keeps Kafka on loopback. The console has no login, is plain
-    /// HTTP and acts as a super user, so without this that start is refused. Every page then says it is served beyond loopback.
-    /// Without it, a console beyond loopback in front of an open broker stops answering other machines while the broker has
-    /// any ACL (made after the start, over Kafka or from the console), and answers them again once none is left.
-    #[arg(long)]
-    console_unprotected: bool,
-    /// The Lab of the console: rules that delay, fail or drop requests on purpose, made from the console only and kept in memory.
-    /// On unless `--lab=false`; off when the console is off, and off by default when the console is served beyond loopback
-    /// (`--lab=true` switches it on there). Anyone who can reach the console can inject faults.
-    #[arg(long, num_args = 0..=1, default_missing_value = "true", value_name = "BOOL")]
-    lab: Option<String>,
+    /// The console flags (`cli/console_flags.rs`).
+    #[command(flatten)]
+    pub(crate) console: console_flags::ConsoleFlags,
 
     /// PEM certificate chain (leaf first) to serve TLS with. Needs --tls-key.
     #[cfg(feature = "tls")]
@@ -227,186 +167,19 @@ pub(crate) struct Args {
     pub(crate) registry: registry::RegistryArgs,
 }
 
-/// What the command line comes to once it has been checked.
-#[derive(Debug)]
-pub(crate) struct Settings {
-    pub(crate) broker: BrokerConfig,
-    pub(crate) server: ServerConfig,
-    /// The console flags (`web.rs` serves the console they describe).
-    pub(crate) console: Console,
-    /// The schema registry's flags (`registry.rs` serves the registry they describe).
-    #[cfg_attr(not(feature = "registry"), allow(dead_code))]
-    pub(crate) registry: Registry,
-    /// What the operator chose that leaves something open, to be said once at start.
-    pub(crate) warnings: Vec<String>,
-}
-
-impl Args {
-    /// Checks the arguments and turns them into the configuration of the broker and the server.
-    pub(crate) fn settings(&self) -> Result<Settings> {
-        self.settings_in(&|name| std::env::var_os(name))
-    }
-
-    /// [`Args::settings`] with the environment given, so that a test need not change the process's own.
-    pub(crate) fn settings_in(
-        &self,
-        env: &dyn Fn(&str) -> Option<std::ffi::OsString>,
-    ) -> Result<Settings> {
-        // Without the feature this refuses the flags, and a value that is `()` is all that is left of them.
-        #[cfg_attr(not(feature = "tls"), allow(clippy::let_unit_value, unused_variables))]
-        let tls = tls::load(self.tls_cert.as_ref(), self.tls_key.as_ref())?;
-        // Both flags are set or neither (and without the feature neither is accepted).
-        let tls_on = self.tls_cert.is_some();
-        let Some(major) = KafkaMajor::new(self.kafka_version) else {
-            bail!(
-                "--kafka-version must be 1, 2, 3 or 4, not {}",
-                self.kafka_version
-            );
-        };
-        self.check_numbers()?;
-        let mut broker = BrokerConfig::new(self.data_dir.clone());
-        broker.auto_create_topics = self.auto_create_topics;
-        broker.default_partitions = self.default_partitions;
-        broker.max_partitions = self.max_partitions;
-        broker.fsync_interval = self.fsync_interval;
-        broker.group_initial_rebalance_delay = self.group_initial_rebalance_delay;
-        broker.consumer_session_timeout = self.consumer_session_timeout;
-        // A test knob no flag covers: the least time between two computations of a consumer group's assignment.
-        if let Some(v) = env("DOZE_KAFKA_TEST_ASSIGNMENT_INTERVAL") {
-            broker.consumer_assignment_interval = duration::parse(&v.to_string_lossy())
-                .map_err(|e| anyhow::anyhow!("DOZE_KAFKA_TEST_ASSIGNMENT_INTERVAL: {e}"))?;
-        }
-        broker.offsets_retention = self.offsets_retention;
-        broker.log_retention_check_every = self.log_retention_check_interval;
-        broker.log_cleaner_every = self.log_cleaner_interval;
-        broker.log_cleaner_enable = self.log_cleaner_enable;
-        broker.client_telemetry = self.client_telemetry;
-        broker.unstable_api_versions = self.unstable_api_versions;
-        broker.transaction_two_phase_commit = self.transaction_two_phase_commit;
-        self.major_and_tokens(&mut broker, major, env)?;
-        broker.max_open_partitions = self.max_open_partitions;
-        broker.acl_default_allow = self.acl_default == acl::AclDefault::Allow;
-        broker.super_users = acl::super_users(&self.acl_super_user)?;
-        broker.defaults = self.topic_defaults();
-        let sasl = sasl::setup(&sasl::Input {
-            mechanisms: &self.sasl_mechanisms,
-            users: &self.sasl_user,
-            users_file: self.sasl_users_file.as_deref(),
-            env: sasl::users_from_env(env)?,
-            data_dir: &self.data_dir,
-        })?;
-        broker.users = sasl.users;
-        let (console, registry, mut warnings) =
-            self.web_rules(sasl.authenticator.is_some(), tls_on)?;
-        warnings.extend(tls::key_warning(self.tls_key.as_ref()));
-        let server = ServerConfig {
-            sasl: sasl.authenticator,
-            #[cfg(feature = "tls")]
-            tls,
-            listen: self.listen,
-            advertised_host: self.advertised_host.clone(),
-            advertised_port: self.advertised_port,
-            profile: Profile::new(major),
-            timeouts: Timeouts {
-                failed_login: self.sasl_failed_login_delay,
-                ..Timeouts::default()
-            },
-            ..ServerConfig::default()
-        };
-        Ok(Settings {
-            broker,
-            server,
-            console,
-            registry,
-            warnings,
-        })
-    }
-
-    /// The console's and the schema registry's flags, and what they leave open.
-    fn web_rules(&self, sasl: bool, tls: bool) -> Result<(Console, Registry, Vec<String>)> {
-        let (console, mut warnings) = self.console_rule(sasl, tls)?;
-        let names: Vec<String> = self
-            .console_allow_host
-            .iter()
-            .chain(&self.advertised_host)
-            .cloned()
-            .collect();
-        let (registry, notes) = registry::setup(&self.registry, self.listen, tls, sasl, &names)?;
-        warnings.extend(notes);
-        Ok((console, registry, warnings))
-    }
-
-    /// The console flags, and the start-up rule between them and what protects the broker.
-    fn console_rule(&self, sasl: bool, tls: bool) -> Result<(Console, Vec<String>)> {
-        console::setup(&console::Input {
-            console: self.console.as_deref(),
-            addr: self.console_addr.as_deref(),
-            prefix: &self.console_prefix,
-            allow_hosts: &self.console_allow_host,
-            unprotected: self.console_unprotected,
-            lab: self.lab.as_deref(),
-            sasl,
-            tls,
-            listen: self.listen,
-            acl_allow: self.acl_default == acl::AclDefault::Allow,
-        })
-    }
-
-    /// The flags of later parts that were given a value and are being ignored, for a warning. A build without the
-    /// `console` feature has no console, so it names the console flags that were given.
-    pub(crate) fn ignored(&self) -> Vec<&'static str> {
-        let mut out = self.registry_ignored();
-        if cfg!(feature = "console") {
-            return out;
-        }
-        let given = [
-            (
-                self.console
-                    .as_deref()
-                    .is_some_and(|v| console::switch(v) != Some(false)),
-                "--console",
-            ),
-            (self.console_addr.is_some(), "--console-addr"),
-            (self.console_prefix != "/", "--console-prefix"),
-            (!self.console_allow_host.is_empty(), "--console-allow-host"),
-            (self.console_unprotected, "--console-unprotected"),
-            (self.lab.is_some(), "--lab"),
-        ];
-        out.extend(
-            given
-                .into_iter()
-                .filter(|(on, _)| *on)
-                .map(|(_, name)| name),
-        );
-        out
-    }
-
-    /// The registry flags that were given, in a build without the `registry` feature.
-    fn registry_ignored(&self) -> Vec<&'static str> {
-        if cfg!(feature = "registry") {
-            return Vec::new();
-        }
-        let r = &self.registry;
-        [
-            (r.schema_registry_addr.is_some(), "--schema-registry-addr"),
-            (!r.schema_registry_tls, "--schema-registry-tls"),
-        ]
-        .into_iter()
-        .filter(|(on, _)| *on)
-        .map(|(_, name)| name)
-        .collect()
-    }
-}
-
 mod acl;
 mod console;
+mod console_flags;
 mod derived;
+mod login_flags;
 mod major;
+mod settings;
 pub(crate) use console::Console;
 #[cfg(feature = "console")]
 pub(crate) use console::DEFAULT_ADDR as DEFAULT_CONSOLE_ADDR;
 #[cfg(feature = "console")]
 pub(crate) use console::stored_acls;
+pub(crate) use settings::Settings;
 mod sasl;
 pub(crate) use sasl::NO_USERS;
 mod registry;

@@ -307,17 +307,17 @@ function Refused({ r }: { r: RequestResponse }) {
       {!denied && !closed && topic && (
         <Actions>
           <Button asChild>
-            <Link to="/topics/$topic" params={{ topic }} search={{ produce: 1 } as never}>
+            <Link to="/topics/$topic/messages" params={{ topic }} search={{ dialog: "produce" }} data-testid="refused-produce">
               <SendIcon /> Produce with a key
             </Link>
           </Button>
           <Button variant="outline" asChild className="bg-card">
-            <Link to="/topics/$topic" params={{ topic }} search={{ tab: "config" } as never}>
+            <Link to="/topics/$topic/config" params={{ topic }}>
               Config
             </Link>
           </Button>
           <Button variant="outline" asChild className="bg-card">
-            <Link to="/topics/$topic" params={{ topic }} search={{ tab: "log" } as never}>
+            <Link to="/topics/$topic/log" params={{ topic }} data-testid="refused-log">
               The log
             </Link>
           </Button>
@@ -373,7 +373,7 @@ function Fenced({ r }: { r: RequestResponse }) {
       {topic && (
         <Actions>
           <Button asChild>
-            <Link to="/topics/$topic" params={{ topic }} search={{ tab: "producers" } as never}>
+            <Link to="/topics/$topic/producers" params={{ topic }} data-testid="fenced-producers">
               {d.producer ? `How fencing works: the epoch of producer ${d.producer[0]}` : "How fencing works: the producers of this topic"}
             </Link>
           </Button>
@@ -409,7 +409,7 @@ function TooLarge({ r }: { r: RequestResponse }) {
       {topic && (
         <Actions>
           <Button asChild>
-            <Link to="/topics/$topic" params={{ topic }} search={{ tab: "config" } as never}>
+            <Link to="/topics/$topic/config" params={{ topic }} search={{ edit: "max.message.bytes" }} data-testid="raise-limit">
               Raise max.message.bytes
             </Link>
           </Button>

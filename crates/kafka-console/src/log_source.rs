@@ -28,8 +28,13 @@ impl Source {
                 if let Some(r) = &l.recorder {
                     let ids: Vec<i64> = v.producers.iter().map(|p| p.id).collect();
                     let mut seen = r.seen_as(&ids);
+                    let mut epochs = r.epochs(&ids);
                     for p in &mut v.producers {
                         p.seen_as = seen.remove(&p.id).unwrap_or_default();
+                        p.epochs = epochs.remove(&p.id).unwrap_or_default();
+                    }
+                    for a in &mut v.aborted {
+                        a.by = a.at_ms.and_then(|at| r.abort_by(a.producer, at));
                     }
                 }
                 Some(v)

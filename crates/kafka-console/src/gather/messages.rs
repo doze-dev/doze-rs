@@ -61,6 +61,8 @@ struct Found {
     reached_end: bool,
     scanned: Option<(u64, bool)>,
     error: Option<i16>,
+    /// A newest-first read left offsets older than the oldest it read on some partition.
+    older_left: bool,
 }
 
 async fn latest(
@@ -77,6 +79,12 @@ async fn latest(
     let n = i64::try_from(q.limit).unwrap_or(25);
     for &p in parts {
         let (start, end) = stop(head, q.reading, p);
+        // `before`: the page after the last one "Older" could reach, partition by partition.
+        let end = q
+            .before
+            .iter()
+            .find(|(bp, _)| *bp == p)
+            .map_or(end, |(_, o)| (*o).clamp(start, end));
         let mut from = (end - n).max(start);
         loop {
             let w = read::forward(b, t, (p, from, end), q.reading, (TABLE, None)).await;
@@ -84,6 +92,7 @@ async fn latest(
             out.reached_end &= w.reached;
             let enough = w.rows.len() >= q.limit || from <= start;
             if enough {
+                out.older_left |= from > start;
                 out.rows.extend(w.rows);
                 break;
             }
@@ -292,7 +301,11 @@ pub async fn page(
     newest_first(&mut found.rows, parts.len() == 1);
     let more = found.rows.len() > q.limit
         || (!q.filtered()
-            && head.records() > i64::try_from(found.rows.len().min(q.limit)).unwrap_or(0));
+            && if q.before.is_empty() {
+                head.records() > i64::try_from(found.rows.len().min(q.limit)).unwrap_or(0)
+            } else {
+                found.older_left
+            });
     found.rows.truncate(q.limit);
     let rows: Vec<RecordRow> = found.rows.iter().map(row).collect();
     let reach = reach(&rows, &found, more);
