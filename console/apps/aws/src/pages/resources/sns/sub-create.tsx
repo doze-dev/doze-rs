@@ -75,8 +75,8 @@ export function SubCreate() {
       testId="sub-create-form"
     >
       <Details f={f} set={set} p={p} show={tried} />
-      <FilterPolicy f={f} set={set} p={p} show={tried} collapsed />
-      <Redrive f={f} set={set} p={p} show={tried} collapsed />
+      <FilterPolicy key={`filter-${f.protocol}`} f={f} set={set} p={p} show={tried} collapsed={f.protocol !== "sqs"} />
+      <Redrive key={`redrive-${f.protocol}`} f={f} set={set} p={p} show={tried} collapsed={f.protocol !== "sqs"} />
     </FormPage>
     <ProtocolTable open={(protocol) => { set({ protocol, endpoint: "", raw: false }); window.scrollTo({ top: 0 }); }} />
     </>

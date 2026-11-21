@@ -170,8 +170,7 @@ test("sns__subscription-create and sns__subscription-detail: a FIFO queue subscr
   await page.getByRole("option", { name: FIFO }).click();
   await expect(page.getByTestId("field-endpoint")).toContainText("FIFO topics use FIFO queues. orders-events.fifo is a FIFO queue.");
   await expect(page.getByTestId("create-sentence")).toHaveText("This subscribes the FIFO queue orders-events.fifo to the FIFO topic orders-events.fifo. The queue is in your account, so the subscription is confirmed at once.");
-  await page.getByTestId("section-filter-toggle").click();
-  await page.getByTestId("filter-on").click();
+  await expect(page.getByTestId("section-redrive")).toContainText("Attribute: RedrivePolicy.");
   await page.getByTestId("filter-json").fill('{\n  "event": ["order_placed", "order_cancelled"]\n}');
   await expect(page.getByTestId("section-filter")).toContainText("A policy has at most 5 keys and 150 combinations of values");
   await expect(page.getByTestId("protocol-table")).toContainText("Five of the nine AWS protocols are disabled here, with the reason.");
@@ -416,7 +415,7 @@ test("sns__publish-fifo, sns__publish-fifo-refused and sns__topic-published: a g
   await shot(page, "sns__publish-fifo");
   await page.getByTestId("form-submit").click();
   await expect(page.getByTestId("published-banner")).toContainText("Message published.");
-  await expect(page.getByTestId("published-sentence")).toHaveText("The message went to 1 of 1 confirmed subscription: orders-events.fifo. It matched the filter policy (event in [order_placed, order_cancelled]).");
+  await expect(page.getByTestId("detail-sentence")).toHaveText("The message went to 1 of 1 confirmed subscription: orders-events.fifo. It matched the filter policy (event in [order_placed, order_cancelled]).");
   await expect(page.getByTestId("published-message-id")).not.toBeEmpty();
   await expect(page.getByTestId("published-sequence")).toContainText(/^\d+$/);
   await shot(page, "sns__topic-published");

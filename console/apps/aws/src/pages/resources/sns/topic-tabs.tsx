@@ -8,7 +8,7 @@ import { Badge } from "@doze/ui/components/ui/badge";
 import { Button } from "@doze/ui/components/ui/button";
 import { useResourceDetail } from "../../../api/resources";
 import { LocalStatus } from "../../../kit";
-import { Block } from "../sqs/parts";
+import { Block } from "./parts";
 import { ResourceTo } from "../value";
 import { deliveryRows, hasOwnDelivery, type Logged, archiveOf, daysWords, roleName, type PolicyRow, type Topic } from "./topic-model";
 

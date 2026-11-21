@@ -77,7 +77,7 @@ export function FifoOptions({ f, set }: Pick<FieldProps, "f" | "set">) {
           {([["Topic", "The scope of message deduplication is across the entire topic. Default. A maximum throughput of 3,000 messages per second or 20 MB per second, whichever comes first."], ["MessageGroup", "The scope of deduplication is within each individual message group, which enables higher throughput per topic, subject to regional quotas."]] as const).map(([v, text]) => (
             <Label key={v} htmlFor={`scope-${v}`} className="flex cursor-pointer items-start gap-3 rounded-xl border bg-card p-3.5 font-normal leading-5 has-[[data-state=checked]]:border-primary has-[[data-state=checked]]:bg-pick/40">
               <RadioGroupItem id={`scope-${v}`} value={v} className="mt-0.5" data-testid={`scope-${v}`} />
-              <span className="grid gap-0.5"><span className="font-mono text-[13.5px] font-medium text-bright">{v}</span><span className="text-[13px] text-muted-foreground">{text}</span></span>
+              <span className="grid gap-0.5"><span className="font-medium text-bright">{v}</span><span className="text-[13px] text-muted-foreground">{text}</span></span>
             </Label>
           ))}
         </RadioGroup>

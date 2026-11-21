@@ -1,7 +1,7 @@
 // SNS's subscriptions: the list across all topics (sns__subscriptions-list, subscriptions-none, subscription-delete). A subscription is chosen with its
 // radio, and Edit and Delete act on it; one waiting for its endpoint cannot be deleted. `?create=yes` is Create subscription, as a page.
 import { Link, useNavigate, useSearch } from "@tanstack/react-router";
-import { LinkIcon, PencilIcon, PlusIcon, TrashIcon } from "lucide-react";
+import { ChevronLeftIcon, ChevronRightIcon, LinkIcon, PencilIcon, PlusIcon, TrashIcon } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { ErrorBlock } from "@doze/ui/components/app/alert";
@@ -80,12 +80,9 @@ function Subs({ service, kind, gone }: { service: string; kind: string; gone?: s
             <Button type="button" variant="outline" className="border-bad/40 bg-card text-bad hover:text-bad" disabled={!pick || pick.pending} title={why} onClick={() => setAsking(true)} data-testid="action-delete"><TrashIcon /> Delete</Button>
           </div>
           <RadioRows value={chosen} onChange={setChosen}>
-            <DataTable aria-label="Subscriptions" data={rows} columns={COLUMNS} rowId={(r) => r.name} maxHeight={680} rowHeight={56} rowClassName={(r) => (r.name === chosen ? "[&>td]:bg-pick/50" : undefined)} onRowClick={(r) => setChosen(r.name)} />
+            <DataTable aria-label="Subscriptions" data={rows} columns={COLUMNS} rowId={(r) => r.name} maxHeight={680} rowHeight={56} rowClassName={(r) => (r.name === chosen ? "[&>td]:bg-accent" : undefined)} onRowClick={(r) => setChosen(r.name)} />
           </RadioRows>
-          <div className="mt-4 flex flex-wrap items-center justify-end gap-3 text-[13px] text-muted-foreground">
-            <span data-testid="page-line">{q.hasNextPage ? `1 to ${rows.length} subscriptions, more to load` : `${rows.length} ${rows.length === 1 ? "subscription" : "subscriptions"}, one ListSubscriptions page (a page holds up to 100)`}</span>
-            {q.hasNextPage && <Button type="button" variant="outline" size="sm" className="bg-card" onClick={() => void q.fetchNextPage()} disabled={q.isFetchingNextPage} data-testid="load-more">Load more</Button>}
-          </div>
+          <div className="mt-4 flex flex-wrap items-center justify-end gap-3 text-[13px] text-muted-foreground"><span data-testid="page-line">{q.hasNextPage ? `1 to ${rows.length} subscriptions, more to load` : `${rows.length} ${rows.length === 1 ? "subscription" : "subscriptions"}, one ListSubscriptions page (a page holds up to 100)`}</span><Button type="button" variant="outline" size="sm" className="bg-card" disabled aria-label="Previous page" data-testid="page-previous"><ChevronLeftIcon /> Previous</Button><Button type="button" variant="outline" size="sm" className="bg-card" disabled={!q.hasNextPage || q.isFetchingNextPage} onClick={() => void q.fetchNextPage()} data-testid="load-more">Next <ChevronRightIcon /></Button></div>
           <p className="mt-4 max-w-[48rem] border-l-2 border-input pl-3.5 text-[13px] leading-5 text-muted-foreground" data-testid="delete-help">
             <b className="font-semibold text-foreground">You can't delete a subscription that's pending confirmation.</b> Select a subscription with a status of Confirmed.{waiting.length > 0 ? <> A pending one is confirmed from its topic's page: {waiting.map(([t, n], i) => <span key={t}>{i > 0 ? "; " : ""}<Link to="/resources/$service/$kind/$name" params={{ service: "sns", kind: "topics", name: t }} search={{ tab: "subscriptions" }} className="text-link hover:underline">{t}</Link> has {countWord(n).toLowerCase()}</span>)}.</> : null} On AWS, SNS deletes unconfirmed subscriptions after 48 hours.
           </p>

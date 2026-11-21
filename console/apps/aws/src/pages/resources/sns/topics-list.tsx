@@ -1,7 +1,7 @@
 // SNS's topics: the list (sns__topics-list, topics-none, and the list a deletion lands on, topic-deleted). A topic is chosen with its
 // radio, and Edit, Delete and Publish message act on it. `?create=yes` is Create topic, as a page.
 import { useNavigate, useSearch } from "@tanstack/react-router";
-import { PencilIcon, PlusIcon, SearchIcon, SendIcon, TrashIcon, WaypointsIcon } from "lucide-react";
+import { ChevronLeftIcon, ChevronRightIcon, PencilIcon, PlusIcon, SearchIcon, SendIcon, TrashIcon, WaypointsIcon } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { ErrorBlock } from "@doze/ui/components/app/alert";
@@ -110,12 +110,12 @@ function Topics({ service, kind, gone }: { service: string; kind: string; gone?:
             </div>
           </div>
           <RadioRows value={chosen} onChange={setChosen}>
-            <DataTable aria-label="Topics" data={rows} columns={COLUMNS} rowId={(r) => r.name} maxHeight={680} rowClassName={(r) => (r.name === chosen ? "[&>td]:bg-pick/50" : undefined)} onRowClick={(r) => setChosen(r.name)} empty={`No topic's name contains “${typed}”.`} />
+            <DataTable aria-label="Topics" data={rows} columns={COLUMNS} rowId={(r) => r.name} maxHeight={680} rowClassName={(r) => (r.name === chosen ? "[&>td]:bg-accent" : undefined)} onRowClick={(r) => setChosen(r.name)} empty={`No topic's name contains “${typed}”.`} />
           </RadioRows>
           <p className="mt-3 max-w-[40rem] text-[13px] leading-5 text-muted-foreground" data-testid="publish-help">
             Publish message acts on the selected topic.{fifo ? <> With <ResourceTo to={{ service, kind, name: fifo.name }}>{fifo.name}</ResourceTo> selected instead, it opens the Publish message page of the FIFO topic.</> : null}
           </p>
-          <div className="mt-4 flex flex-wrap items-center justify-end gap-3 text-[13px] text-muted-foreground"><span data-testid="page-line">{list.hasNextPage ? `1 to ${rows.length} topics, more to load` : `${rows.length} ${rows.length === 1 ? "topic" : "topics"}, one ListTopics page (a page holds up to 100)`}</span>{list.hasNextPage && <Button type="button" variant="outline" size="sm" className="bg-card" onClick={() => void list.fetchNextPage()} disabled={list.isFetchingNextPage} data-testid="load-more">Load more</Button>}</div>
+          <div className="mt-4 flex flex-wrap items-center justify-end gap-3 text-[13px] text-muted-foreground"><span data-testid="page-line">{list.hasNextPage ? `1 to ${rows.length} topics, more to load` : `${rows.length} ${rows.length === 1 ? "topic" : "topics"}, one ListTopics page (a page holds up to 100)`}</span><Button type="button" variant="outline" size="sm" className="bg-card" disabled aria-label="Previous page" data-testid="page-previous"><ChevronLeftIcon /> Previous</Button><Button type="button" variant="outline" size="sm" className="bg-card" disabled={!list.hasNextPage || list.isFetchingNextPage} onClick={() => void list.fetchNextPage()} data-testid="load-more">Next <ChevronRightIcon /></Button></div>
           <div className="mt-12"><LastCalls calls={recent} /></div>
         </>
       )}

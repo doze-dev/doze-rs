@@ -66,9 +66,8 @@ export function SubEdit({ d, s, back, done }: { d: ResourceDetail; s: Subscripti
             <dt className="text-muted-foreground">Endpoint</dt><dd className="font-mono break-all text-bright">{s.endpoint}</dd>
             <dt className="text-muted-foreground">Protocol</dt><dd className="text-bright">{protocolLabel(s.protocol)}</dd>
           </dl>
-          {s.protocol === "sqs" && <RuleHelp>With raw delivery on, an SQS subscription carries at most 10 message attributes. A message with more is discarded as a client-side error. Turn raw delivery off to send more than 10.</RuleHelp>}
         </>
-      } />
+      } after={s.protocol === "sqs" ? <RuleHelp><b>With raw delivery on, an SQS subscription carries at most 10 message attributes.</b> A message with more is discarded as a client-side error. Turn raw delivery off to send more than 10.</RuleHelp> : undefined} />
       <FilterPolicy f={f} set={set} p={p} show={tried} collapsed={false} />
       <Redrive f={f} set={set} p={p} show={tried} collapsed={false} />
     </FormPage>

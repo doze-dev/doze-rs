@@ -17,7 +17,7 @@ import { ResourcePage, ResourcePageSkeleton, TagsTab, type Verb, useTags } from 
 import { HINT } from "../index-page";
 import { ConfirmSubscription } from "./confirm-dialog";
 import { Rich, TopicCalls } from "./parts";
-import { lastPublished } from "./publish-result";
+import { lastPublished, publishedSentence } from "./publish-result";
 import { rawWords } from "./sentences";
 import { useSubscriptions } from "./sub-reads";
 import { DeleteTopic } from "./topic-dialogs";
@@ -25,7 +25,7 @@ import { DetailsCard, Pipeline } from "./topic-parts";
 import { accessSentence, archiveSentence, encryptionSentence, loggingSentence, retrySentence, tagsSentence, topicSentence } from "./topic-sentences";
 import { SubscriptionsTab, topicSubs } from "./topic-subs-tab";
 import { AccessTab, ArchiveTab, EncryptionTab, LoggingTab, RetryTab } from "./topic-tabs";
-import { PublishedPanel } from "./published-panel";
+import { PublishedCall } from "./published-panel";
 import { topicOf } from "./topic-model";
 
 const Edit = lazy(() => import("./topic-edit").then((m) => ({ default: m.TopicEdit })));
@@ -71,15 +71,16 @@ function TopicView({ d, updatedAt, fetching, refresh }: { d: ResourceDetail; upd
   const rawText = raw.ready ? rawWords(raw.subs.map((s) => s.raw), raw.subs.map((s) => s.protocol)) : null;
   const fifoQueue = t.fifo ? ((queues.data?.pages.flatMap((p) => p.rows) ?? []).find((r) => r.name === t.name)?.name ?? null) : null;
   const tab = asked ?? "subscriptions";
+  const published = search.done === "published" ? lastPublished(d.name) : null;
   const sentence =
-    tab === "access" ? accessSentence(t.name, t.policy, account)
+    published ? publishedSentence(published, subs, raw.subs)
+    : tab === "access" ? accessSentence(t.name, t.policy, account)
     : tab === "retry" ? retrySentence(t.name, t.own, subs.filter((s) => s.protocol === "http" || s.protocol === "https").length)
     : tab === "logging" ? loggingSentence(t)
     : tab === "encryption" ? encryptionSentence(t.name, t.kms)
     : tab === "tags" ? tagsSentence(t.name, (tags.data?.tags ?? []).map((x) => x.key))
     : tab === "archive" ? archiveSentence(t.name, t.archive)
     : topicSentence(t, subs, rawText, search.done === "created" ? { queue: fifoQueue } : null);
-  const published = search.done === "published" ? lastPublished(d.name) : null;
   const banner =
     search.done === "created" ? <ResultBanner title={`Topic ${t.name} created.`} returned="CreateTopic returned its ARN, and the topic's page opens. The Name, ARN, Display name and Topic owner are in the Details section." onDismiss={() => go()} testId="created-banner" />
     : search.done === "updated" ? <ResultBanner title={`Topic ${t.name} updated.`} returned="SetTopicAttributes saved each setting that changed, one call each; tags went through TagResource and UntagResource." onDismiss={() => go()} testId="updated-banner" />
@@ -113,8 +114,10 @@ function TopicView({ d, updatedAt, fetching, refresh }: { d: ResourceDetail; upd
         overview={<>
           {sentence && <Rich parts={sentence} className="mb-6" testId="detail-sentence" />}
           <Pipeline name={t.name} calls={d.calls} subs={subs} />
-          <DetailsCard t={t} />
-          {published && <PublishedPanel topic={t.name} published={published} subs={subs} details={raw.subs} />}
+          <div className={published ? "mb-10 grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]" : "mb-10"}>
+            <DetailsCard t={t} />
+            {published && <PublishedCall published={published} />}
+          </div>
         </>}
         tabs={tabs}
         tab={tab}

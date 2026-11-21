@@ -99,3 +99,12 @@ export function policyWords(policy: string): string {
     return policy;
   }
 }
+
+/** A JSON document indented two spaces with the arrays of plain values kept on one line, as a filter policy is written: `"event": ["a", "b"]`. */
+export function inlineJson(text: string): string {
+  try {
+    return JSON.stringify(JSON.parse(text), null, 2).replace(/\[\s+([^[\]{}]*?)\s+\]/g, (_, inner: string) => `[${inner.split(/,\s+/).join(", ")}]`);
+  } catch {
+    return text;
+  }
+}

@@ -56,7 +56,7 @@ export function TopicCreate() {
               CreateTopic returned {refused.code}: {refused.message}.{badFifoName ? " For a FIFO topic, the name must end with the .fifo suffix." : ""}
             </Alert>
           ) : (
-            <Rich testId="create-sentence" parts={f.fifo ? ["This creates a FIFO topic named ", b(named), `. Publishers must send a message group ID and${f.dedup ? "" : ", because deduplication is by ID, a deduplication ID"} on every message.`] : ["This creates a ", b("standard"), " topic named ", b(named), ` in ${region}, with no subscriptions yet.`]} />
+            <Rich testId="create-sentence" parts={f.fifo ? ["This creates a ", b("FIFO"), " topic named ", b(named), ". Publishers must send a ", b("message group ID"), ...(f.dedup ? [" on every message."] : [" and, because deduplication is by ID, a ", b("deduplication ID"), " on every message."])] : ["This creates a ", b("standard"), " topic named ", b(named), ` in ${region}, with no subscriptions yet.`]} />
           )}
         </div>
       }
@@ -64,7 +64,8 @@ export function TopicCreate() {
       pending={make.isPending}
       disabled={tried && Object.keys(p).length > 0}
       disabledWhy={Object.values(p)[0]}
-      onCancel={back}
+      onCancel={refused ? () => make.reset() : back}
+      cancelLabel={refused ? "Back to the form" : "Cancel"}
       onSubmit={submit}
       testId="topic-create"
     >

@@ -7,8 +7,7 @@ import { EmptyTab } from "@doze/ui/components/app/empty-tab";
 import { Button } from "@doze/ui/components/ui/button";
 import { Input } from "@doze/ui/components/ui/input";
 import type { ResourceDetail } from "../../../api/types/ResourceDetail";
-import { Block } from "../sqs/parts";
-import { RadioRows } from "./parts";
+import { Block, RadioRows } from "./parts";
 import { subColumns } from "./subs-table";
 import { orderSubs, topicSubRow, type SubRow } from "./sub-model";
 
@@ -22,7 +21,7 @@ export function SubscriptionsTab({ d, arn, fifo, create, confirm }: { d: Resourc
   const shown = rows.filter((r) => `${r.endpoint} ${r.id ?? ""} ${r.protocol}`.toLowerCase().includes(typed.trim().toLowerCase()));
   const waiting = rows.some((r) => r.pending);
   const sub = d.subs.find((s) => s.title === "Subscriptions");
-  const make = <Button type="button" variant="outline" className="bg-card" onClick={create} data-testid="sub-create"><PlusIcon /> Create subscription</Button>;
+  const make = <Button type="button" variant={rows.length === 0 ? "default" : "outline"} className={rows.length === 0 ? undefined : "bg-card"} onClick={create} data-testid="sub-create"><PlusIcon /> Create subscription</Button>;
   if (sub?.error) return <p className="text-[13.5px] text-bad">The subscriptions could not be read: {sub.error}</p>;
   if (rows.length === 0) {
     return (
@@ -46,7 +45,7 @@ export function SubscriptionsTab({ d, arn, fifo, create, confirm }: { d: Resourc
         </div>
       </div>
       <RadioRows value={chosen} onChange={setChosen}>
-        <DataTable aria-label="Subscriptions" data={shown} columns={subColumns({ radio: true, topic: false })} rowId={(r) => r.name} maxHeight={420} rowHeight={56} rowClassName={(r) => (r.name === chosen ? "[&>td]:bg-pick/50" : undefined)} onRowClick={(r) => setChosen(r.name)} empty="No subscription matches." />
+        <DataTable aria-label="Subscriptions" data={shown} columns={subColumns({ radio: true, topic: false })} rowId={(r) => r.name} maxHeight={420} rowHeight={56} rowClassName={(r) => (r.name === chosen ? "[&>td]:bg-accent" : undefined)} onRowClick={(r) => setChosen(r.name)} empty="No subscription matches." />
       </RadioRows>
       {sub?.more && <p className="text-[13px] text-muted-foreground">The first page only; there are more.</p>}
     </Block>

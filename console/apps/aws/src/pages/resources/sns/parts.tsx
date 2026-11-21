@@ -14,7 +14,6 @@ import type { CallsPage } from "../../../api/types/CallsPage";
 import type { ResourceDetail } from "../../../api/types/ResourceDetail";
 import { Result } from "../../live/outcome";
 import { isConsole } from "../../live/search";
-import { Block } from "../sqs/parts";
 import type { Part } from "./sentences";
 
 /** The two kinds of the service as the pills under the title. */
@@ -68,10 +67,12 @@ export function LastCalls({ calls }: { calls: CallRecord[] }) {
 export function TopicCalls({ d, mine, onMine, what }: { d: ResourceDetail; mine: boolean; onMine: (v: boolean) => void; /** What the calls touched, when it is not the resource by its name (`this subscription`). */ what?: string }) {
   const label = what ?? d.name;
   const theirs = d.calls.filter((c) => !isConsole(c));
-  const hidden = d.calls.length - theirs.length;
+  // With nobody else on record the table would be empty: the console's own are shown.
+  const alone = theirs.length === 0;
+  const hidden = alone ? 0 : d.calls.length - theirs.length;
   return (
     <Block title={`Last calls that touched ${label}`} testId="recent-calls" lede={<>Newest first, as doze recorded them. Times are UTC.{(hidden > 0 || mine) && <span data-testid="calls-console-hidden"> {mine ? "This console's own are shown." : `${hidden} made by this console ${hidden === 1 ? "is" : "are"} hidden.`} <button type="button" className="font-medium text-link hover:underline" onClick={() => onMine(!mine)} data-testid="calls-console-toggle">{mine ? "Hide them" : "Show"}</button></span>}</>}>
-      <DataTable aria-label="Recent calls" data={(mine ? d.calls : theirs).slice(0, 8)} columns={CALLS} rowId={(r) => String(r.seq)} maxHeight={420} empty={hidden > 0 && !mine ? `Only this console has acted on ${label} so far.` : `No call in the Live record acted on ${label} yet.`} />
+      <DataTable aria-label="Recent calls" data={(mine || alone ? d.calls : theirs).slice(0, 8)} columns={CALLS} rowId={(r) => String(r.seq)} maxHeight={420} empty={hidden > 0 && !mine ? `Only this console has acted on ${label} so far.` : `No call in the Live record acted on ${label} yet.`} />
     </Block>
   );
 }
@@ -84,4 +85,20 @@ export function RadioRows({ value, onChange, children }: { value: string | null;
 /** The radio column of a table of rows chosen one at a time. */
 export function radioColumn<T>(id: (r: T) => string, noun: string): DataColumn<T> {
   return { id: "choose", size: 44, enableSorting: false, header: () => <span className="sr-only">Choose</span>, cell: (c) => <RadioGroupItem value={id(c.row.original)} aria-label={`Choose ${noun} ${id(c.row.original)}`} data-testid={`choose-${id(c.row.original)}`} /> };
+}
+
+/** A titled block of a page: the title and its sentence at the left, the block's own action at the right on the title's row. */
+export function Block({ title, lede, children, testId, actions }: { title: string; lede?: React.ReactNode; children?: React.ReactNode; testId?: string; actions?: React.ReactNode }) {
+  return (
+    <section className="grid gap-3" aria-label={title} data-testid={testId}>
+      <div className="flex items-start justify-between gap-4">
+        <div className="min-w-0 max-w-[46rem]">
+          <h2 className="text-[17px] leading-6 font-semibold tracking-[-0.01em] text-bright">{title}</h2>
+          {lede && <p className="mt-1 text-[13.5px] text-muted-foreground">{lede}</p>}
+        </div>
+        {actions && <div className="shrink-0">{actions}</div>}
+      </div>
+      {children}
+    </section>
+  );
 }

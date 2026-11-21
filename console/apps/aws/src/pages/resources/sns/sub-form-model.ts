@@ -1,14 +1,16 @@
 // Create subscription and Edit subscription: the form's state and the calls it makes. Pure.
 // Subscribe takes the attributes with it; SetSubscriptionAttributes sets one attribute a call, so an edit is the list of those that changed.
 import type { ResourceDetail } from "../../../api/types/ResourceDetail";
+import { inlineJson } from "./filter-match";
 import { protocolOf, type Protocol } from "./protocols";
 import { tail } from "./sub-model";
 
 export type Scope = "MessageAttributes" | "MessageBody";
 
-export type SubForm = { topic: string; protocol: Protocol; endpoint: string; raw: boolean; filterOn: boolean; filter: string; scope: Scope; redriveOn: boolean; dlq: string };
+/** `filter` is the filter policy JSON; empty is none. */
+export type SubForm = { topic: string; protocol: Protocol; endpoint: string; raw: boolean; filter: string; scope: Scope; redriveOn: boolean; dlq: string };
 
-export const emptySubForm = (topic = ""): SubForm => ({ topic, protocol: "sqs", endpoint: "", raw: false, filterOn: false, filter: '{\n  "event": ["order_placed"]\n}', scope: "MessageAttributes", redriveOn: false, dlq: "" });
+export const emptySubForm = (topic = ""): SubForm => ({ topic, protocol: "sqs", endpoint: "", raw: false, filter: "", scope: "MessageAttributes", redriveOn: false, dlq: "" });
 
 /** A subscription as its page reads it. */
 export type Subscription = {
@@ -57,7 +59,7 @@ export const redrivePolicy = (arn: string): string => JSON.stringify({ deadLette
 
 /** The form of an existing subscription, for its edit page. */
 export function formOfSubscription(s: Subscription): SubForm {
-  return { topic: s.topicArn, protocol: (protocolOf(s.protocol)?.id ?? "sqs") as Protocol, endpoint: s.endpoint, raw: s.raw, filterOn: s.filter !== null, filter: s.filter ? JSON.stringify(JSON.parse(s.filter), null, 2) : emptySubForm().filter, scope: s.scope, redriveOn: redriveTarget(s.redrive) !== null, dlq: redriveTarget(s.redrive) ?? "" };
+  return { topic: s.topicArn, protocol: (protocolOf(s.protocol)?.id ?? "sqs") as Protocol, endpoint: s.endpoint, raw: s.raw, filter: s.filter ? inlineJson(s.filter) : "", scope: s.scope, redriveOn: redriveTarget(s.redrive) !== null, dlq: redriveTarget(s.redrive) ?? "" };
 }
 
 export type Problems = Partial<Record<"topic" | "endpoint" | "filter" | "dlq", string>>;
@@ -77,7 +79,7 @@ export function problems(f: SubForm, create: boolean): Problems {
     if (f.endpoint.trim() === "") p.endpoint = "Enter the endpoint.";
     else if (rule && !rule[0].test(f.endpoint.trim())) p.endpoint = rule[1];
   }
-  if (f.filterOn) {
+  if (f.filter.trim() !== "") {
     try {
       const doc: unknown = JSON.parse(f.filter);
       if (typeof doc !== "object" || doc === null || Array.isArray(doc)) p.filter = "A filter policy is a JSON object.";
@@ -93,7 +95,7 @@ export function problems(f: SubForm, create: boolean): Problems {
 export function subscribeInput(f: SubForm): Record<string, unknown> {
   const attrs: Record<string, string> = {};
   if (f.raw && protocolOf(f.protocol)?.raw) attrs.RawMessageDelivery = "true";
-  if (f.filterOn) {
+  if (f.filter.trim() !== "") {
     attrs.FilterPolicy = norm(f.filter);
     if (f.scope === "MessageBody") attrs.FilterPolicyScope = "MessageBody";
   }
@@ -108,9 +110,9 @@ export function changes(f: SubForm, s: Subscription): Change[] {
   const out: Change[] = [];
   if (f.raw !== s.raw) out.push({ name: "RawMessageDelivery", value: String(f.raw) });
   const was = s.filter ? norm(s.filter) : "";
-  const now = f.filterOn ? norm(f.filter) : "";
+  const now = f.filter.trim() !== "" ? norm(f.filter) : "";
   if (now !== was) out.push({ name: "FilterPolicy", value: now });
-  if (f.filterOn && f.scope !== s.scope) out.push({ name: "FilterPolicyScope", value: f.scope });
+  if (now !== "" && f.scope !== s.scope) out.push({ name: "FilterPolicyScope", value: f.scope });
   const dlq = f.redriveOn ? f.dlq.trim() : "";
   if (dlq !== (redriveTarget(s.redrive) ?? "")) out.push({ name: "RedrivePolicy", value: dlq ? redrivePolicy(dlq) : "" });
   return out;

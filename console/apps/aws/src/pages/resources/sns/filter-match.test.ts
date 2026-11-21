@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { matches, policyWords } from "./filter-match";
+import { inlineJson, matches, policyWords } from "./filter-match";
 
 const s = (value: string) => ({ type: "String" as const, value });
 
@@ -28,4 +28,8 @@ test("a policy this does not read is unknown, never a guess", () => {
 test("a policy of plain values is said short", () => {
   expect(policyWords('{"event":["order_placed","order_cancelled"]}')).toBe("event in [order_placed, order_cancelled]");
   expect(policyWords('{"a":[{"prefix":"x"}]}')).toBe('{"a":[{"prefix":"x"}]}');
+});
+
+test("arrays of plain values stay on one line", () => {
+  expect(inlineJson('{"event":["order_placed","order_cancelled"]}')).toBe('{\n  "event": ["order_placed", "order_cancelled"]\n}');
 });

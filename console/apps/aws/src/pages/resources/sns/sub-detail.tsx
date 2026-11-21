@@ -6,7 +6,7 @@ import { ArrowRightIcon } from "lucide-react";
 import { lazy, Suspense, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { ErrorBlock } from "@doze/ui/components/app/alert";
-import { CodeBlock, pretty } from "@doze/ui/components/app/code-block";
+import { CodeBlock } from "@doze/ui/components/app/code-block";
 import { CopyButton } from "@doze/ui/components/app/copy-button";
 import { RefreshControl } from "@doze/ui/components/app/refresh-control";
 import { ResultBanner } from "@doze/ui/components/app/result-banner";
@@ -14,11 +14,10 @@ import { Skeleton } from "@doze/ui/components/ui/skeleton";
 import { useDelete, useResourceDetail } from "../../../api/resources";
 import type { ResourceDetail } from "../../../api/types/ResourceDetail";
 import { resourceHref, ResourcePage, ResourcePageSkeleton, type Verb } from "../../../kit";
-import { Block } from "../sqs/parts";
 import { HINT } from "../index-page";
 import { ResourceTo } from "../value";
-import { policyWords } from "./filter-match";
-import { Rich, TopicCalls } from "./parts";
+import { inlineJson, policyWords } from "./filter-match";
+import { Block, Rich, TopicCalls } from "./parts";
 import { protocolLabel } from "./protocols";
 import { b, type Part } from "./sentences";
 import { redriveTarget, subscriptionOf, type Subscription } from "./sub-form-model";
@@ -86,7 +85,7 @@ function SubView({ d, updatedAt, fetching, refresh }: { d: ResourceDetail; updat
     else if (v.id === "confirm") setConfirming(true);
     else if (v.id === "delete") setAsking(true);
   };
-  const shown: ResourceDetail = { ...d, name: title, sentence: null, wired: [] };
+  const shown: ResourceDetail = { ...d, name: title, sentence: null, wired: [], badges: [{ text: pending ? "Pending confirmation" : "Confirmed", tone: pending ? "warn" : "good" }, { text: protocolLabel(s.protocol), tone: "neutral" }] };
   const mail = s.protocol === "email" || s.protocol === "email-json";
   const rows: [string, React.ReactNode][] = [
     ["Subscription ARN", !s.arn ? <span className="text-muted-foreground">None yet: SNS gives a subscription its ARN when it is confirmed</span> : <span className="flex items-center gap-2 font-mono" data-testid="field-arn">{s.arn}<CopyButton text={s.arn ?? ""} what="ARN copied" iconOnly variant="ghost" label="Copy ARN" /></span>],
@@ -119,7 +118,7 @@ function SubView({ d, updatedAt, fetching, refresh }: { d: ResourceDetail; updat
             </section>
             <div className="grid gap-10">
               <Block title="Subscription filter policy" testId="filter-section" lede={s.filter ? <>Scope: <b className="font-semibold text-foreground">{s.scope === "MessageBody" ? "payload-based filtering" : "attribute-based filtering"}</b> (FilterPolicyScope = {s.scope}). Only messages whose {s.scope === "MessageBody" ? "body" : "attributes"} satisfy the policy are delivered.</> : "No filter policy: every message published to the topic is delivered."}>
-                {s.filter && (<><CodeBlock text={pretty(s.filter)} max="max-h-72" testId="filter-json" /><p className="border-l-2 border-input pl-3.5 text-[13px] leading-5 text-muted-foreground"><b className="font-semibold text-foreground">Only String, String.Array and Number attributes are matched.</b> Binary attributes are ignored, and string matching is case-sensitive. To match the message body instead, set the filter policy scope to MessageBody (payload-based filtering).</p></>)}
+                {s.filter && (<><CodeBlock text={inlineJson(s.filter)} max="max-h-72" testId="filter-json" /><p className="border-l-2 border-input pl-3.5 text-[13px] leading-5 text-muted-foreground"><b className="font-semibold text-foreground">Only String, String.Array and Number attributes are matched.</b> Binary attributes are ignored, and string matching is case-sensitive. To match the message body instead, set the filter policy scope to MessageBody (payload-based filtering).</p></>)}
               </Block>
               <Block title="Redrive policy (dead-letter queue)" testId="redrive-section" lede={target ? <>Messages SNS cannot deliver are sent to <ResourceTo to={{ service: "sqs", kind: "queues", name: tail(target) }} className="font-mono">{tail(target)}</ResourceTo> (<span className="font-mono">deadLetterTargetArn</span> {target}). Applied by doze-aws.</> : "Not set. Messages that cannot be delivered are not held in a dead-letter queue."}>{null}</Block>
             </div>

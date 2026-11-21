@@ -15,7 +15,7 @@ export function DeleteTopic({ open, onOpenChange, name, arn, pending, error, onC
   const confirmed = rows.filter((r) => !r.pending);
   const waiting = rows.filter((r) => r.pending);
   const failed = error ? errorWords(error) : null;
-  const names = confirmed.map((r) => endpointName(r.protocol, r.endpoint));
+  const names = confirmed.map((r) => endpointName(r.protocol, r.endpoint)).sort();
   const kind = confirmed.length > 0 && confirmed.every((r) => r.protocol === "sqs") ? "queues" : confirmed.length > 0 && confirmed.every((r) => r.protocol === "lambda") ? "functions" : "endpoints";
   const mine = !d.data ? "Reading its subscriptions…" : rows.length === 0 ? <>{name} has no subscriptions.</> : <><b className="font-mono font-semibold text-bright">{name}</b> has {confirmed.length} confirmed {confirmed.length === 1 ? "one" : "ones"}{names.length > 0 ? <>: {list(names)}</> : null}{waiting.length > 0 ? <>, and {waiting.length} waiting to be confirmed</> : null}. The {kind === "endpoints" ? "endpoints" : kind} stay, and the subscriptions are deleted with the topic, at once.</>;
   return (

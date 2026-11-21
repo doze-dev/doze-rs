@@ -55,7 +55,7 @@ function EndpointField({ f, set, p, show }: SubFieldProps) {
   const subs = useRows("sns", "subscriptions");
   const fifoTopic = f.topic.endsWith(".fifo");
   const arnOf = (kind: "sqs" | "lambda", name: string) => (kind === "sqs" ? `arn:aws:sqs:${region}:${account}:${name}` : `arn:aws:lambda:${region}:${account}:function:${name}`);
-  const options = f.protocol === "sqs" ? queues.rows.map((r) => ({ value: arnOf("sqs", r.name), label: r.name })) : f.protocol === "lambda" ? fns.rows.map((r) => ({ value: arnOf("lambda", r.name), label: r.name })) : null;
+  const options = f.protocol === "sqs" ? queues.rows.map((r) => ({ value: arnOf("sqs", r.name), label: arnOf("sqs", r.name) })) : f.protocol === "lambda" ? fns.rows.map((r) => ({ value: arnOf("lambda", r.name), label: arnOf("lambda", r.name) })) : null;
   const chosen = queues.rows.find((r) => r.name === (f.endpoint.split(":").pop() ?? ""));
   const misfits = queues.rows.filter((r) => (r.cells[0] === "FIFO") !== fifoTopic && r.name !== chosen?.name).map((r) => r.name);
   const name = f.endpoint.split(":").pop() ?? "";
@@ -77,7 +77,7 @@ function EndpointField({ f, set, p, show }: SubFieldProps) {
 }
 
 /** Topic, protocol, endpoint, raw delivery. `create`: the topic and the protocol can be chosen; an edit shows them fixed (`fixed`). */
-export function Details({ f, set, p, show, topicHint, locked }: SubFieldProps & { topicHint?: React.ReactNode; locked?: React.ReactNode }) {
+export function Details({ f, set, p, show, topicHint, locked, after }: SubFieldProps & { topicHint?: React.ReactNode; locked?: React.ReactNode; /** Under the raw delivery choice. */ after?: React.ReactNode }) {
   const topics = useRows("sns", "topics");
   const info = protocolOf(f.protocol);
   return (
@@ -100,6 +100,7 @@ export function Details({ f, set, p, show, topicHint, locked }: SubFieldProps & 
           </div>
         </div>
       )}
+      {after}
     </FormSection>
   );
 }
@@ -108,12 +109,8 @@ export function Details({ f, set, p, show, topicHint, locked }: SubFieldProps & 
  * (crates/aws-sns/src/filter.rs: the policy is parsed for the scope it has). */
 export function FilterPolicy({ f, set, p, collapsed }: SubFieldProps & { collapsed: boolean }) {
   return (
-    <FormSection title="Subscription filter policy" collapsible defaultOpen={!collapsed} description="Optional. Deliver only the messages that match." summary={f.filterOn ? "A filter policy: only the messages that match are delivered." : "No filter policy: every message published to the topic is delivered"} testId="section-filter">
-      <div className="flex items-center gap-3">
-        <Switch id="filter-on" checked={f.filterOn} onCheckedChange={(filterOn) => set({ filterOn })} data-testid="filter-on" />
-        <Label htmlFor="filter-on">{f.filterOn ? "Enabled" : "Disabled"}</Label>
-      </div>
-      {f.filterOn && (
+    <FormSection title="Subscription filter policy" collapsible defaultOpen={!collapsed} description="Optional. Deliver only the messages that match." summary={f.filter.trim() !== "" ? "A filter policy: only the messages that match are delivered." : "No filter policy: every message published to the topic is delivered"} testId="section-filter">
+      {(
         <>
           <div className="grid gap-1.5">
             <Label>Filter policy scope</Label>
@@ -127,7 +124,7 @@ export function FilterPolicy({ f, set, p, collapsed }: SubFieldProps & { collaps
             </RadioGroup>
             <RuleHelp>Attribute: <span className="font-mono">FilterPolicyScope</span>.</RuleHelp>
           </div>
-          <JsonEditor value={f.filter} onChange={(filter) => set({ filter })} label="JSON editor" rows={8} testId="filter-json" help={<><b className="font-semibold text-foreground">A policy has at most 5 keys and 150 combinations of values</b> (multiply the number of values in each array), and at most 256 KB. String matching is case-sensitive. On AWS a change can take up to 15 minutes to take full effect.</>} />
+          <JsonEditor value={f.filter} onChange={(filter) => set({ filter })} label="JSON editor" rows={8} placeholder={'{\n  "event": ["order_placed", "order_cancelled"]\n}'} testId="filter-json" help={<><b className="font-semibold text-foreground">A policy has at most 5 keys and 150 combinations of values</b> (multiply the number of values in each array), and at most 256 KB. String matching is case-sensitive. On AWS a change can take up to 15 minutes to take full effect.</>} />
           {p.filter && <p className="text-[13px] text-bad" role="alert">{p.filter}</p>}
         </>
       )}

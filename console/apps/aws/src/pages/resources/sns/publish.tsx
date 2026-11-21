@@ -110,7 +110,10 @@ export function Publish({ d, t, subs, back, done }: TopicProps) {
       </FormSection>
       <FormSection title="Message attributes" description="Optional metadata that subscription filter policies can match." testId="section-attributes">
         {f.structure === "custom" ? (
-          <RuleHelp><b>Message attributes are sent only when the message structure is String, not JSON.</b> With a custom payload they would be dropped, so this publish carries none.</RuleHelp>
+          <>
+            <Alert tone="warn" title="Message attributes are sent only when the message structure is String, not JSON." testId="attrs-dropped">With a custom payload they would be dropped, so this publish carries none.</Alert>
+            <RuleHelp>Types: String, String.Array, Number, Binary. A name uses A-Z, a-z, 0-9, underscore, hyphen and period, is at most 256 characters, and cannot start with AWS. or Amazon. Attributes count toward the message size limit.</RuleHelp>
+          </>
         ) : (
           <>
             {f.attrs.map((a) => (
