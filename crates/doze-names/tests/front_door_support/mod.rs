@@ -26,14 +26,27 @@ pub(crate) fn scratch(tag: &str) -> PathBuf {
     d
 }
 
-/// Two free loopback ports, distinct: both are held while the second is picked, because Windows hands a port just
-/// released straight back, and a door whose plain and tls ports match never binds.
+/// A loopback port nobody holds, below every system's ephemeral range (Linux starts at 32768, macOS and Windows at
+/// 49152), and never the same one twice in this process: a port from `bind(":0")` can be handed straight back to a
+/// test running alongside (Windows does), as doze-module-test's `free_port` found on Linux.
+fn free_port() -> u16 {
+    use std::sync::atomic::{AtomicU32, Ordering};
+    static NEXT: AtomicU32 = AtomicU32::new(0);
+    let start = std::process::id().wrapping_mul(97) % 12_000;
+    loop {
+        let n = NEXT.fetch_add(1, Ordering::Relaxed);
+        let port = u16::try_from(20_000 + (start + n) % 12_000).unwrap();
+        if std::net::TcpListener::bind(("127.0.0.1", port)).is_ok() {
+            return port;
+        }
+    }
+}
+
+/// Two such ports, for the door's plain and tls listeners.
 pub(crate) fn free_pair() -> (String, String) {
-    let a = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
-    let b = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
     (
-        a.local_addr().unwrap().to_string(),
-        b.local_addr().unwrap().to_string(),
+        format!("127.0.0.1:{}", free_port()),
+        format!("127.0.0.1:{}", free_port()),
     )
 }
 
