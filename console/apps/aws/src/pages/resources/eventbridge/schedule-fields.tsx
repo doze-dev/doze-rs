@@ -30,7 +30,9 @@ export function ScheduleFields({ value, onChange, tried }: { value: string; onCh
   const cron = parseCron(value) ?? FIRST;
   const rate = /^rate\((\d+) (\w+)\)$/.exec(value);
   const problem = scheduleProblem(value);
-  const runs = useMemo(() => (mode === "cron" && parseCron(value) && !cronProblem(parseCron(value)!) ? nextRuns(parseCron(value)!, Date.now(), 10) : null), [mode, value]);
+  // The dates are counted from the moment the form opened: they do not move while it is typed.
+  const [opened] = useState(() => Date.now());
+  const runs = useMemo(() => (mode === "cron" && parseCron(value) && !cronProblem(parseCron(value)!) ? nextRuns(parseCron(value)!, opened, 10) : null), [mode, value, opened]);
   const pick = (m: ScheduleMode) => {
     setMode(m);
     onChange(m === "cron" ? cronText(FIRST) : "rate(5 minutes)");

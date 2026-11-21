@@ -1,7 +1,7 @@
 // The start-replay form: the rules of its fields and StartReplay's input (times are epoch seconds, as the JSON protocol writes a timestamp).
 
 export type ReplayForm = { name: string; description: string; archive: string | null; all: boolean; rules: string[]; startMs: number | null; endMs: number | null };
-export const emptyReplay = (archive: string | null, now = Date.now()): ReplayForm => ({ name: "", description: "", archive, all: true, rules: [], startMs: Math.floor(now / 60000) * 60000 - 3600_000, endMs: Math.floor(now / 60000) * 60000, });
+export const emptyReplay = (archive: string | null, now = Date.now()): ReplayForm => ({ name: "", description: "", archive, all: true, rules: [], startMs: Math.floor(now / 1000) * 1000 - 3600_000, endMs: Math.floor(now / 1000) * 1000 });
 
 /** A replay's name: 1 to 64 letters, digits, dot, hyphen and underscore. */
 export function nameProblem(name: string): string | null {

@@ -3,9 +3,9 @@ import { emptyReplay, nameProblem, replayProblem, startReplayInput, windowProble
 
 describe("the start-replay form", () => {
   const f = { ...emptyReplay("payments-90d", Date.UTC(2026, 10, 8, 8, 13, 41)), name: "payments-redo" };
-  test("the window is the last hour, to the minute", () => {
-    expect(new Date(f.endMs!).toISOString()).toBe("2026-11-08T08:13:00.000Z");
-    expect(new Date(f.startMs!).toISOString()).toBe("2026-11-08T07:13:00.000Z");
+  test("the window is the last hour, to the second", () => {
+    expect(new Date(f.endMs!).toISOString()).toBe("2026-11-08T08:13:41.000Z");
+    expect(new Date(f.startMs!).toISOString()).toBe("2026-11-08T07:13:41.000Z");
   });
   test("its problems", () => {
     expect(nameProblem("")).toBe("Name the replay.");

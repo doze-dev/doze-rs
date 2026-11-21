@@ -38,7 +38,7 @@ function Replays({ service, kind }: { service: string; kind: string }) {
   const [typed, setTyped] = useState("");
   const [chosen, setChosen] = useState<Set<string>>(new Set());
   const [error, setError] = useState<string | null>(null);
-  const all = q.data?.Replays ?? [];
+  const all = useMemo(() => q.data?.Replays ?? [], [q.data]);
   const rows = useMemo(() => all.filter((r) => r.ReplayName.startsWith(typed.trim())), [all, typed]);
   const picked = all.filter((r) => chosen.has(r.ReplayName));
   const go = (search: { create?: "yes" }) => void navigate({ to: "/resources/$service/$second", params: { service, second: kind }, search });
@@ -57,8 +57,8 @@ function Replays({ service, kind }: { service: string; kind: string }) {
     { id: "source", header: "Source", size: 180, accessorFn: (r) => arnName(r.EventSourceArn), cell: (c) => <ResourceTo to={{ service, kind: "archives", name: arnName(c.row.original.EventSourceArn) }} className="font-mono text-[13px]">{arnName(c.row.original.EventSourceArn)}</ResourceTo> },
     { id: "state", header: "State", size: 130, accessorFn: (r) => r.State ?? "", cell: (c) => <State state={c.row.original.State} /> },
     { id: "window", header: "Event window (UTC)", size: 250, accessorFn: (r) => r.EventStartTime ?? 0, cell: (c) => windowWords(c.row.original.EventStartTime, c.row.original.EventEndTime) },
-    { id: "last", header: "Last event replayed", size: 200, accessorFn: (r) => r.EventLastReplayedTime ?? 0, cell: (c) => when(c.row.original.EventLastReplayedTime) },
-    { id: "started", header: "Started", size: 200, accessorFn: (r) => r.ReplayStartTime ?? 0, cell: (c) => when(c.row.original.ReplayStartTime) },
+    { id: "last", header: "Last event replayed", size: 220, accessorFn: (r) => r.EventLastReplayedTime ?? 0, cell: (c) => when(c.row.original.EventLastReplayedTime) },
+    { id: "started", header: "Started", size: 230, accessorFn: (r) => r.ReplayStartTime ?? 0, cell: (c) => when(c.row.original.ReplayStartTime) },
   ];
   return (
     <>

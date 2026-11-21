@@ -43,7 +43,7 @@ function Rules({ service, kind, bus: asked, gone }: { service: string; kind: str
   const bus = asked && (names.length === 0 || names.includes(asked)) ? asked : (names.includes("default") ? "default" : (names[0] ?? "default"));
   const rules = useRulesOf(bus);
   const archives = useArchives(busArn(region, account, bus));
-  const items = rules.data?.Rules ?? [];
+  const items = useMemo(() => rules.data?.Rules ?? [], [rules.data]);
   const targets = useTargetsOf(bus, items);
   const [chosen, setChosen] = useState<Set<string>>(new Set());
   const [asking, setAsking] = useState(false);

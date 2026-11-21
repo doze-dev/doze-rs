@@ -39,7 +39,7 @@ function Dests({ service, kind, gone }: { service: string; kind: string; gone?: 
   const [typed, setTyped] = useState("");
   const [chosen, setChosen] = useState<Set<string>>(new Set());
   const [asking, setAsking] = useState(false);
-  const all = q.data?.ApiDestinations ?? [];
+  const all = useMemo(() => q.data?.ApiDestinations ?? [], [q.data]);
   const rows = useMemo(() => all.filter((d) => d.Name.startsWith(typed.trim())), [all, typed]);
   const one = all.find((d) => chosen.has(d.Name));
   const refresh = useRefreshReads();

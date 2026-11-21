@@ -39,7 +39,7 @@ function Buses({ service, kind, gone }: { service: string; kind: string; gone?: 
   const buses = useBuses();
   const archives = useArchives();
   const [typed, setTyped] = useState("");
-  const all = buses.data?.EventBuses ?? [];
+  const all = useMemo(() => buses.data?.EventBuses ?? [], [buses.data]);
   const names = all.map((b) => b.Name);
   const reads = useQueries({ queries: names.map((n) => ({ queryKey: ["resources", "kindop", "eventbridge", "rules", "ListRules", n, "page"], queryFn: () => callKindOp<Rules>(RULES, "ListRules", { EventBusName: n, Limit: 100 }), retry: false })) });
   const rulesBy = Object.fromEntries(names.flatMap((n, i) => (reads[i]?.data ? [[n, reads[i]?.data?.Rules ?? []] as const] : [])));

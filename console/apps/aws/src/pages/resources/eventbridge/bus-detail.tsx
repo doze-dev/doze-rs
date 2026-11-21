@@ -42,7 +42,7 @@ function BusView({ d, updatedAt, fetching, refetch }: { d: ResourceDetail; updat
   const archives = useArchives(arn);
   const record = useRecord();
   const item = useBuses().data?.EventBuses?.find((b) => b.Name === bus);
-  const ruleItems = rules.data?.Rules ?? [];
+  const ruleItems = useMemo(() => rules.data?.Rules ?? [], [rules.data]);
   const targets = useTargetsOf(bus, ruleItems);
   const feeders = useFeeders(d.calls, ["PutEvents"]);
   const calls = useMemo(() => busCalls(d.calls, record.data?.calls ?? [], ruleItems.map((r) => r.Name)), [d.calls, record.data, ruleItems]);

@@ -38,7 +38,7 @@ function Archives({ service, kind, gone }: { service: string; kind: string; gone
   const [typed, setTyped] = useState("");
   const [chosen, setChosen] = useState<Set<string>>(new Set());
   const [asking, setAsking] = useState(false);
-  const all = q.data?.Archives ?? [];
+  const all = useMemo(() => q.data?.Archives ?? [], [q.data]);
   const patterns = useArchivePatterns(all);
   const rows = useMemo(() => all.filter((a) => a.ArchiveName.startsWith(typed.trim())), [all, typed]);
   const picked = all.filter((a) => chosen.has(a.ArchiveName));
