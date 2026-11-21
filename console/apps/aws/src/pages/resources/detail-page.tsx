@@ -24,7 +24,7 @@ import { isConsole } from "../live/search";
 import { CreateDialog } from "./create-dialog";
 import { ResourceTo, Value } from "./value";
 import { deepKey } from "./deep/api";
-import { DeepPage, DeepTabs, DetailLead } from "./deep/pages";
+import { DeepPage, DeepTabs, DetailLead, GonePage, hasGonePage } from "./deep/pages";
 
 /** The hidden value of a field: Reveal makes the one call that reads it (Live shows it); Hide forgets it. */
 function Hidden({ service, kind, name, label }: { service: string; kind: string; name: string; label: string }) {
@@ -221,7 +221,9 @@ export function ResourceDetailPage({ service, kind, name, tab }: { service: stri
           )
         }
       />
-      {detail.isError && !d ? (
+      {detail.isError && !d && hasGonePage(service, kind, errorWords(detail.error).message) ? (
+        <GonePage service={service} kind={kind} name={name} />
+      ) : detail.isError && !d ? (
         <ErrorBlock what={`This ${oneOf(kind)} could not be read`} error={detail.error} hint={HINT} onRetry={refresh} retrying={detail.isFetching} testId="detail-error" />
       ) : !d ? (
         <Skeleton className="h-80 rounded-[14px]" data-testid="detail-loading" />

@@ -37,6 +37,8 @@ const PAGES: Record<string, Page> = {
   "cloudformation/template": { page: lazy(() => import("./cfn/stack-tabs").then((m) => ({ default: ({ d }: DeepProps) => <m.StackTemplate name={d.name} /> }))) },
   // Never listed as a tab (`when` is never true): the descriptor names RestoreSecret on this kind so that the banner on the details may make it.
   "secretsmanager/restore": { page: lazy(() => import("./secret-marked").then((m) => ({ default: m.SecretMarked }))), when: () => false },
+  // Never listed as a tab: the descriptor names ListStacks (deleted stacks only) so that the page of a name that is gone may read it.
+  "cloudformation/deleted": { page: lazy(() => import("./cfn/deleted").then((m) => ({ default: ({ d }: DeepProps) => <m.DeletedStack name={d.name} /> }))), when: () => false },
   "cloudformation/changesets": { page: lazy(() => import("./cfn/stack-tabs").then((m) => ({ default: ({ d }: DeepProps) => <m.StackChangeSets name={d.name} /> }))) },
 };
 
@@ -45,6 +47,25 @@ const LEADS: Record<string, React.LazyExoticComponent<(p: { d: ResourceDetail })
   "cloudformation/stacks": lazy(() => import("./cfn/stack-tabs").then((m) => ({ default: m.StackSentence }))),
   "secretsmanager/secrets": lazy(() => import("./secret-marked").then((m) => ({ default: m.SecretMarked }))),
 };
+
+/** What a kind says in place of "could not be read" when the resource is not there at its name: where the console can tell more. */
+const GONE: Record<string, React.LazyExoticComponent<(p: { name: string }) => React.ReactNode>> = {
+  "cloudformation/stacks": lazy(() => import("./cfn/deleted").then((m) => ({ default: m.DeletedStack }))),
+};
+
+/** Whether the kind has a page for a name that is gone, and the refusal says it is (CloudFormation: ValidationError, "does not exist"). */
+export const hasGonePage = (service: string, kind: string, message: string): boolean => `${service}/${kind}` in GONE && /does not exist/i.test(message);
+
+/** The page of a name that is gone. */
+export function GonePage({ service, kind, name }: { service: string; kind: string; name: string }) {
+  const Gone = GONE[`${service}/${kind}`];
+  if (!Gone) return null;
+  return (
+    <Suspense fallback={<Skeleton className="h-28 rounded-[14px]" />}>
+      <Gone name={name} />
+    </Suspense>
+  );
+}
 
 /** The lead of `d`'s details, if its kind has one. */
 export function DetailLead({ d }: { d: ResourceDetail }) {

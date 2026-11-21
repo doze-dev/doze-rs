@@ -8,9 +8,11 @@ import { Button } from "@doze/ui/components/ui/button";
 import { on, useOpRead } from "../api";
 import type { ResourceDetail } from "../../../../api/types/ResourceDetail";
 import { at, Card, CodeBlock, Loaded, Made, pretty } from "../parts";
+import { failureOf, failureSentence, stackSentence } from "./sentence";
 
 /** How a CloudFormation status is coloured: failed red, in progress blue, a rollback or a deletion amber, done green. */
 export function stackTone(status: string): Tone {
+  if (status === "REVIEW_IN_PROGRESS") return "idle";
   if (/FAILED$/.test(status)) return "bad";
   if (/IN_PROGRESS$/.test(status)) return "info";
   if (/ROLLBACK|^DELETE_COMPLETE$|SKIPPED/.test(status)) return "warn";
@@ -18,22 +20,13 @@ export function stackTone(status: string): Tone {
   return "idle";
 }
 
-/** One sentence on where the stack stands, from its status, its reason and its times. */
-export function stackSentence(name: string, status: string, why: string, created: string | null, updated: string | null): string {
-  const since = updated ? `last updated ${updated}` : created ? `created ${created} and not updated since` : "";
-  const head = /IN_PROGRESS$/.test(status)
-    ? `${name} is being worked on (${status}).`
-    : /FAILED$/.test(status)
-      ? `${name} is in ${status}: the last operation did not finish.`
-      : /ROLLBACK_COMPLETE$/.test(status)
-        ? `${name} was rolled back (${status}): it holds what it held before the operation that failed.`
-        : `${name} is ${status}.`;
-  return [head, since && `It was ${since}.`, why && `Reason: ${why}`].filter(Boolean).join(" ");
-}
-
 export function StackSentence({ d }: { d: ResourceDetail }) {
   const value = (label: string) => d.fields.find((f) => f.label === label)?.value ?? null;
   const status = value("Status") ?? "";
+  // A create that failed: the stack's own reason names the resource; the resource's event says what was wrong with it.
+  const failed = status === "ROLLBACK_COMPLETE" || status === "CREATE_FAILED";
+  const events = useOpRead<{ StackEvents?: StackEvent[] }>(on.stack(d.name), "DescribeStackEvents", { StackName: d.name }, failed);
+  const cause = failed ? failureOf(events.data?.StackEvents ?? []) : null;
   const time = (label: string) => {
     const v = value(label);
     return v ? at(v) : null;
@@ -41,7 +34,10 @@ export function StackSentence({ d }: { d: ResourceDetail }) {
   return (
     <div className="mb-6 flex flex-wrap items-start gap-3 rounded-[14px] border bg-card px-6 py-5" data-testid="stack-sentence">
       <StatusDot tone={stackTone(status)} className="mt-0.5">{status || "Unknown"}</StatusDot>
-      <p className="min-w-0 flex-1 text-[14.5px] leading-[22px] text-foreground">{stackSentence(d.name, status, value("Why") ?? "", time("Created"), time("Updated"))}</p>
+      <p className="min-w-0 flex-1 text-[14.5px] leading-[22px] text-foreground">
+        {stackSentence(d.name, status, value("Why") ?? "", time("Created"), time("Updated"))}
+        {cause && <span data-testid="stack-cause"> {failureSentence(cause)}</span>}
+      </p>
     </div>
   );
 }

@@ -237,3 +237,27 @@ test("a stack says where it stands, and shows its events, template and change se
   await page.getByTestId("tab-changesets").click();
   await expect(page.getByTestId("changesets-none")).toBeVisible();
 });
+
+test("a stack whose create failed holds nothing and says which resource failed; a deleted stack's name says it was deleted", async ({ page, cli, browserName }) => {
+  const stack = unique("deep-failed", browserName);
+  const clash = `/e2e/${unique("clash", browserName)}`;
+  expect(cli(["ssm", "put-parameter", "--name", clash, "--type", "String", "--value", "x"]).code).toBe(0);
+  const template = JSON.stringify({ Resources: { Taken: { Type: "AWS::SSM::Parameter", Properties: { Name: clash, Type: "String", Value: "y" } } } });
+  expect(cli(["cloudformation", "create-stack", "--stack-name", stack, "--template-body", template]).code).toBe(0);
+  await expect(async () => {
+    await open(page, `/resources/cloudformation/stacks/${stack}`, stack);
+    await expect(page.getByTestId("stack-sentence")).toContainText("ROLLBACK_COMPLETE", { timeout: 1000 });
+  }).toPass({ timeout: 15_000 });
+  await expect(page.getByTestId("stack-sentence")).toContainText("holds nothing");
+  await expect(page.getByTestId("stack-sentence")).not.toContainText("held before");
+  await expect(page.getByTestId("stack-cause")).toContainText("Taken (AWS::SSM::Parameter) failed to create");
+  // Deleted: its name is no longer answered; the page says it was deleted, not "ValidationError".
+  expect(cli(["cloudformation", "delete-stack", "--stack-name", stack]).code).toBe(0);
+  await expect(async () => {
+    await open(page, `/resources/cloudformation/stacks/${stack}`, stack);
+    await expect(page.getByTestId("stack-deleted")).toContainText("was deleted", { timeout: 1000 });
+  }).toPass({ timeout: 15_000 });
+  await expect(page.getByTestId("detail-error")).toHaveCount(0);
+  await open(page, `/resources/cloudformation/stacks/${stack}-never`, `${stack}-never`);
+  await expect(page.getByTestId("stack-none")).toContainText("There is no stack named");
+});
