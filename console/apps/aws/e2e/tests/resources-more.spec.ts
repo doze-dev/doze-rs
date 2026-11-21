@@ -59,14 +59,13 @@ test("a state machine lists its executions, the newest first", async ({ page, cl
   // Its executions are a tab of their own, not a list on its details as well.
   await expect(page.getByTestId("sub-Executions")).toHaveCount(0);
   await page.getByTestId("tab-executions").click();
-  const executions = page.getByTestId("machine-executions").locator("tbody tr");
+  const executions = page.getByRole("table", { name: "Executions" }).locator("tbody tr[data-row]");
   await expect(executions).toHaveCount(2);
   await expect(executions.first()).toContainText("two");
   await expect(executions.last()).toContainText("one");
-  // The console does not make one: it says what does.
+  // The console makes one, in Workflow Studio (the boards' spec, stepfunctions-boards.spec.ts, walks it).
   await open(page, "/resources/stepfunctions/machines", "State machines");
-  await expect(page.getByTestId("create-open")).toHaveCount(0);
-  await expect(page.getByTestId("create-elsewhere")).toContainText("create-state-machine");
+  await expect(page.getByTestId("create-open")).toHaveText("Create state machine");
 });
 
 test("a stack made with the CLI shows the resources it made and its outputs", async ({ page, cli, browserName }) => {
