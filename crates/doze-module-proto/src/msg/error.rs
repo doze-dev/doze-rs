@@ -84,4 +84,77 @@ impl Error {
     pub fn kind(&self) -> ErrorKind {
         self.kind.unwrap_or(ErrorKind::Internal)
     }
+
+    /// The message, then each diagnostic on a line of its own: where in the block (`role[0].password`), what is
+    /// wrong, and what to do about it. What a host says when a call fails: the message alone ("the postgres block
+    /// `x` is not valid") names no problem.
+    pub fn describe(&self) -> String {
+        let mut out = self.message.clone();
+        for d in &self.diagnostics {
+            out.push('\n');
+            let at = path(&d.path);
+            if !at.is_empty() {
+                out.push_str(&at);
+                out.push_str(": ");
+            }
+            out.push_str(&d.message);
+            if let Some(h) = d.hint.as_deref().filter(|h| !h.is_empty()) {
+                out.push_str(" (");
+                out.push_str(h);
+                out.push(')');
+            }
+        }
+        out
+    }
+}
+
+/// A path into a block as it reads in HCL: `role[0].connection_limit`.
+fn path(p: &[PathSeg]) -> String {
+    let mut out = String::new();
+    for seg in p {
+        match seg {
+            PathSeg::Key(k) => {
+                if !out.is_empty() {
+                    out.push('.');
+                }
+                out.push_str(k);
+            }
+            PathSeg::Index(i) => out.push_str(&format!("[{i}]")),
+        }
+    }
+    out
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn describe_names_each_problem_where_it_is() {
+        let e = Error::invalid(
+            "the db block `x` is not valid",
+            vec![
+                Diagnostic {
+                    path: vec![],
+                    message: "the block is wrong".into(),
+                    hint: Some("pick another label".into()),
+                },
+                Diagnostic {
+                    path: vec![
+                        PathSeg::Key("role".into()),
+                        PathSeg::Index(1),
+                        PathSeg::Key("connection_limit".into()),
+                    ],
+                    message: "a limit is -1 or more".into(),
+                    hint: None,
+                },
+            ],
+        );
+        assert_eq!(
+            e.describe(),
+            "the db block `x` is not valid\nthe block is wrong (pick another label)\nrole[1].connection_limit: a limit is -1 or more"
+        );
+        let plain = Error::new(ErrorKind::Unavailable, "down");
+        assert_eq!(plain.describe(), "down");
+    }
 }

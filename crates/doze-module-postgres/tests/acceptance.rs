@@ -320,3 +320,115 @@ fn removed_from_the_role_is_cleared(b: &Booted) {
         assert_eq!(q(query), want, "{query}");
     }
 }
+
+/// Larder's block: an instance named after the server's own database, its tables in a schema per service.
+const ADMIN: &str = r#"postgres "postgres" {
+  version = 17
+  role "identity" { password = "identity" }
+  role "catalog" { password = "catalog" }
+  role "orders" { password = "orders" }
+  schema "identity" { owner = "identity" }
+  schema "catalog" { owner = "catalog" }
+  schema "orders" { owner = "orders" }
+  grant {
+    role       = "orders"
+    privileges = ["USAGE"]
+    schema     = "catalog"
+  }
+}
+"#;
+
+/// An instance named `postgres` works in the server's own database, as Go's did: its roles, schemas and grants converge
+/// there, each service's unqualified tables land in its schema, a second converge changes nothing, its owner and comment
+/// follow the block, and a destroy takes the structure back without dropping the database.
+#[tokio::test(flavor = "current_thread")]
+async fn an_instance_named_postgres_converges_in_the_servers_own_database() {
+    let Some(h) = harness() else { return };
+    let b = h.boot(&on_build(&h, ADMIN)).await.unwrap();
+    let q = |q: &str| sql(&b, "postgres", "postgres", q).unwrap();
+    for svc in ["identity", "catalog", "orders"] {
+        assert_eq!(
+            q(&format!(
+                "SELECT nspowner::regrole FROM pg_namespace WHERE nspname = '{svc}'"
+            )),
+            svc
+        );
+        // Larder's migrations: the service's own role, on database postgres, an unqualified table.
+        let made = format!("CREATE TABLE {svc}_t (v int); INSERT INTO {svc}_t VALUES (1)");
+        sql(&b, svc, "postgres", &made).unwrap();
+        assert_eq!(
+            q(&format!(
+                "SELECT schemaname FROM pg_tables WHERE tablename = '{svc}_t'"
+            )),
+            svc
+        );
+    }
+    assert_eq!(
+        q("SELECT has_schema_privilege('orders', 'catalog', 'USAGE')"),
+        "t"
+    );
+    assert_eq!(
+        q("SELECT has_schema_privilege('orders', 'identity', 'USAGE')"),
+        "f"
+    );
+    assert_eq!(
+        q(STATE),
+        "postgres|true|default administrative connection database"
+    );
+    // The console lists the instance's database, though it is the server's own.
+    let rs = b.module.resources(&b.instance).await.unwrap();
+    assert!(
+        rs.iter()
+            .any(|r| r.kind == "database" && r.name == "postgres"),
+        "{rs:?}"
+    );
+    // Converged again: nothing is removed, the data stays.
+    assert!(reconverge(&b, &on_build(&h, ADMIN)).await.is_empty());
+    // Its owner and comment follow the block.
+    let owned = ADMIN.replacen(
+        "version = 17\n",
+        "version = 17\n  owner = \"identity\"\n  comment = \"larder\"\n",
+        1,
+    );
+    assert!(reconverge(&b, &on_build(&h, &owned)).await.is_empty());
+    assert_eq!(q(STATE), "identity|true|larder");
+    assert_eq!(q("SELECT count(*) FROM identity.identity_t"), "1");
+    destroyed_gives_the_database_back(&b, &on_build(&h, &owned)).await;
+    graceful(&b.stop(Duration::from_secs(20)).await);
+}
+
+/// The server's own database: its owner, whether it takes connections, its comment.
+const STATE: &str = "SELECT pg_get_userbyid(datdba) || '|' || datallowconn || '|' || shobj_description(oid, 'pg_database') \
+                     FROM pg_database WHERE datname = 'postgres'";
+
+/// A destroy (every object pruned, in reverse) gives the database back as initdb made it and never drops it. A schema
+/// that holds data is not dropped with it, so the tables go first, as a person would.
+async fn destroyed_gives_the_database_back(b: &Booted, hcl: &str) {
+    let q = |q: &str| sql(b, "postgres", "postgres", q).unwrap();
+    for svc in ["identity", "catalog", "orders"] {
+        q(&format!("DROP TABLE {svc}.{svc}_t"));
+    }
+    let all = b.module.objects(&b.instance).await.unwrap();
+    let mut inst = b.instance.clone();
+    inst.spec = doze_module_test::hcl::parse_block(hcl, &b.module.manifest.schema)
+        .unwrap()
+        .spec;
+    let args = doze_module_proto::msg::calls::PruneArgs {
+        instance: inst,
+        toolchain: b.toolchain.clone(),
+        removed: all.into_iter().rev().collect(),
+    };
+    b.module.prune(&args).await.unwrap();
+    assert_eq!(
+        q(STATE),
+        "postgres|true|default administrative connection database"
+    );
+    assert_eq!(
+        q("SELECT count(*) FROM pg_roles WHERE rolname IN ('identity', 'catalog', 'orders')"),
+        "0"
+    );
+    assert_eq!(
+        q("SELECT count(*) FROM pg_namespace WHERE nspname IN ('identity', 'catalog', 'orders')"),
+        "0"
+    );
+}

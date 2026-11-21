@@ -141,12 +141,24 @@ pub(crate) fn down(what: &str) -> Diagnostic {
     .fix("doze up")
 }
 
-/// What the daemon said, as a diagnostic: its words, its kind as the exit class.
+/// What the daemon said, as a diagnostic: its words, its kind as the exit class. Its first line is the message and
+/// each further line a note: a module that refuses a block names each problem on a line of its own.
 pub(crate) fn daemon_error(e: &Error, subject: Option<&str>) -> Diagnostic {
+    let text = e.to_string();
+    let mut lines = text.lines();
+    let first = lines.next().unwrap_or_default();
+    let d = refusal(e, subject, first);
+    lines
+        .map(str::trim_end)
+        .filter(|l| !l.is_empty())
+        .fold(d, Diagnostic::note)
+}
+
+fn refusal(e: &Error, subject: Option<&str>, first: &str) -> Diagnostic {
     let what = subject.map_or_else(|| "this".to_owned(), str::to_owned);
     let words = match subject {
-        Some(s) => format!("{s}: {e}"),
-        None => e.to_string(),
+        Some(s) => format!("{s}: {first}"),
+        None => first.to_owned(),
     };
     match e.code() {
         Some(fault::NOT_FOUND) => Diagnostic::new(ids::NO_SUCH_SERVICE, words).fix("doze status"),
@@ -238,4 +250,32 @@ pub(crate) fn check_offline(stack: &Stack, names: &[String]) -> Result<Vec<Strin
     let all = crate::cmd::declared::names(&cfg);
     check_declared(&all, names)?;
     Ok(all)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn each_line_after_the_daemons_first_is_a_note() {
+        let e = Error::Daemon {
+            message:
+                "the postgres block `postgres` is not valid\nencoding: it is fixed (leave it out)\n"
+                    .into(),
+            code: String::new(),
+        };
+        let d = daemon_error(&e, Some("postgres"));
+        assert_eq!(d.id, ids::DAEMON_REFUSED);
+        assert_eq!(
+            d.message,
+            "postgres: the postgres block `postgres` is not valid"
+        );
+        assert_eq!(d.notes, ["encoding: it is fixed (leave it out)"]);
+        let one = Error::Daemon {
+            message: "no such thing".into(),
+            code: String::new(),
+        };
+        let d = daemon_error(&one, None);
+        assert_eq!((d.message.as_str(), d.notes.len()), ("no such thing", 0));
+    }
 }
