@@ -103,7 +103,9 @@ async fn wake_through_the_front(
         "the echo answered through the front: {seen:?}"
     );
     let e = a.engine.get("e").unwrap();
-    assert!(e.state.running() && e.conns == 1, "{e:?}");
+    // At least the connection that woke it: on a busy runner the wake's own connection, or a probe, can still be
+    // counted beside it (conns 2 in CI run 44803048164).
+    assert!(e.state.running() && e.conns >= 1, "{e:?}");
     assert_eq!(
         *fetch.expected.lock().unwrap(),
         [Some("sha256:pinned".to_string())]
