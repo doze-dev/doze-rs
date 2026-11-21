@@ -33,12 +33,13 @@ type Answer = { Items?: Item[]; Count?: number; ScannedCount?: number; LastEvalu
 const MEMORY = new Map<string, { form: Form; ran: Form }>();
 
 /** The columns of a page of items: the keys first, then the other attributes the page holds, by name. */
-export function columnsOf(items: Item[], keys: KeyPart[]): { name: string; sub: string; numeric: boolean }[] {
-  const seen = new Set(keys.map((k) => k.name));
+export function columnsOf(items: Item[], keys: KeyPart[], others: KeyPart[] = []): { name: string; sub: string; numeric: boolean }[] {
+  const seen = new Set([...keys, ...others].map((k) => k.name));
   const rest = [...new Set(items.flatMap((i) => Object.keys(i)))].filter((n) => !seen.has(n)).sort();
   const numeric = (n: string) => items.some((i) => i[n]) && items.every((i) => !i[n] || "N" in i[n]!);
   return [
     ...keys.map((k) => ({ name: k.name, sub: k.role === "HASH" ? "Partition key" : "Sort key", numeric: k.type === "N" })),
+    ...others.map((k) => ({ name: k.name, sub: TYPE_WORDS[k.type], numeric: k.type === "N" })),
     ...rest.slice(0, MOST_COLUMNS).map((name) => ({ name, sub: items.map((i) => i[name]).find(Boolean) ? (TYPE_WORDS[Object.keys(items.map((i) => i[name]).find(Boolean)!)[0] as keyof typeof TYPE_WORDS] ?? "") : "", numeric: numeric(name) })),
   ];
 }
@@ -65,9 +66,12 @@ export function Explore({ name, search }: OwnProps) {
   const input = ok ? { ...ok.input, Limit: PAGE, ...(start ? { ExclusiveStartKey: start } : {}) } : {};
   const op = ok?.op ?? "Scan";
   const items = useOpQuery<Answer>(t, op, input, ["items", JSON.stringify(input)], ok !== null);
-  const keys = base ? [...base.keys, ...(ranSource?.keys ?? []).filter((k) => !base.keys.some((x) => x.name === k.name))] : [];
+  // The queried source's keys come first (an index's), then the table's own; an item is chosen by the table's.
+  const first = ranSource?.keys ?? [];
+  const others = base ? base.keys.filter((k) => !first.some((x) => x.name === k.name)) : [];
+  const keys = [...first, ...others];
   const rows = items.data?.Items ?? [];
-  const id = (r: Item) => JSON.stringify(keys.map((k) => r[k.name]));
+  const id = (r: Item) => JSON.stringify((base?.keys ?? []).map((k) => r[k.name]));
   const chosen = selected.size === 1 ? rows.find((r) => id(r) === [...selected][0]) : undefined;
   const set = (patch: Partial<Form>) => setForm((f) => (MEMORY.set(table, { form: { ...f, ...patch }, ran }), { ...f, ...patch }));
   const run = () => {
@@ -78,7 +82,7 @@ export function Explore({ name, search }: OwnProps) {
     setSelected(new Set());
     if (JSON.stringify(form) === JSON.stringify(ran)) void items.refetch();
   };
-  const cols = columnsOf(rows, keys);
+  const cols = columnsOf(rows, first, others);
   const columns: DataColumn<Item>[] = cols.map((c, i) => ({
     id: `c${i}`,
     header: () => (
@@ -97,7 +101,7 @@ export function Explore({ name, search }: OwnProps) {
   if (!read.table || !base) return <Skeleton className="h-80 rounded-[14px]" />;
   const count = items.data?.Count ?? rows.length;
   const scanned = items.data?.ScannedCount ?? 0;
-  const pkWords = ran.mode === "query" && ran.pk ? `${ranSource?.keys[0]?.name} ${ran.pk}` : "";
+  const pkWords = ran.mode === "query" && ran.pk ? `${(ranSource?.keys[0]?.name ?? "").replace(/_id$/, "")} ${ran.pk}` : "";
   const lede = !items.data ? undefined : ran.mode === "query" ? (count === 0 ? `Nothing the query found for ${pkWords}.` : `Everything the query found for ${pkWords}${items.data.LastEvaluatedKey ? " so far" : ""}.`) : ran.filter ? `Scanned ${number(scanned)} ${scanned === 1 ? "item" : "items"}; ${count} ${count === 1 ? "matches" : "match"} the filter.` : count === 0 ? "Nothing the scan found." : `Everything the scan read${items.data.LastEvaluatedKey ? " so far" : ""}.`;
   const gone = search.dialog === "item-deleted";
   const banner = search.dialog === "item-saved" ? "Item saved." : search.dialog === "item-created" ? "Item created." : null;
@@ -121,7 +125,7 @@ export function Explore({ name, search }: OwnProps) {
       <Card className="mt-6" title={items.data ? `Items returned (${number(count)})` : "Items returned"} lede={lede} testId="items-card">
         <div className="grid gap-4">
           <Refused operation={op} error={items.error} />
-          <SelectableTable
+          {rows.length > 0 && <SelectableTable
             aria-label="Items"
             data={rows}
             columns={columns}
@@ -148,7 +152,14 @@ export function Explore({ name, search }: OwnProps) {
                 )}
               </>
             }
-          />
+          />}
+          {rows.length === 0 && (
+            <div>
+              <Button variant="outline" className="bg-card" onClick={() => go({ do: "item-create" })} data-testid="item-create">
+                <PlusIcon /> Create item
+              </Button>
+            </div>
+          )}
           {items.data && rows.length === 0 && (
             <EmptyTab icon={SearchIcon} title="No items returned" testId="items-none">
               {ran.mode === "query" ? "The query found no items for this key. Change the key or the index." : ran.filter ? "No item matches the filter. Change it, or scan without one." : "This table holds no item yet. Create an item to start."}

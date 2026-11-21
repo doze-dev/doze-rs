@@ -4,12 +4,12 @@
 import { UploadIcon } from "lucide-react";
 import { useState } from "react";
 import { type DataColumn, DataTable } from "@doze/ui/components/app/data-table";
-import { EmptyTab } from "@doze/ui/components/app/empty-tab";
 import { ResultBanner } from "@doze/ui/components/app/result-banner";
 import { Button } from "@doze/ui/components/ui/button";
 import { Skeleton } from "@doze/ui/components/ui/skeleton";
 import { useOp, useOpRead } from "../deep/api";
 import { Card } from "../deep/parts";
+import { NoneYet } from "../s3/parts";
 import { ExportToS3, KinesisOn, StreamOn } from "./exports-dialogs";
 import type { TableInfo } from "./model";
 import { Ask, Said, tableTarget } from "./parts";
@@ -70,7 +70,7 @@ export function ExportsTab({ t }: { t: TableInfo }) {
           {exports.isPending ? (
             <Skeleton className="h-20 rounded-xl" />
           ) : listed.length === 0 ? (
-            <EmptyTab title="No exports" testId="exports-none">{t.name} has not been exported. An export writes the table&apos;s data to S3.</EmptyTab>
+            <NoneYet title="No exports" testId="exports-none">{t.name} has not been exported. An export writes the table&apos;s data to S3.</NoneYet>
           ) : (
             <DataTable aria-label="Exports" data={listed} columns={EXPORTS} rowId={(r) => r.ExportArn} />
           )}
@@ -91,6 +91,7 @@ export function ExportsTab({ t }: { t: TableInfo }) {
               ["DestinationStatus", live?.DestinationStatus ?? Dash],
             ]}
           />
+          <Said>While the destination is ACTIVE, every change of an item is put on the Kinesis stream as a record, whatever the table's own stream view is.</Said>
         </div>
       </Card>
       {open === "stream" && <StreamOn table={t.name} onClose={close} onDone={finished(`The DynamoDB stream of ${t.name} is on.`)} />}

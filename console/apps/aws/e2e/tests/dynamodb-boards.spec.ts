@@ -109,7 +109,6 @@ test("dynamodb__table-create-custom and table-created: capacity, encryption and 
   await page.getByTestId("settings-custom").click();
   await expect(page.getByTestId("section-Read/write capacity settings")).toContainText("Stored, not applied locally.");
   await expect(page.getByTestId("section-Encryption at rest")).toContainText("Owned by Amazon DynamoDB");
-  await page.getByTestId("create-tags-add").click();
   await page.getByTestId("create-tags-key-0").fill("app");
   await page.getByTestId("create-tags-value-0").fill("larder");
   await page.getByTestId("create-tags-add").click();
@@ -305,7 +304,7 @@ test("dynamodb__items-explore, items-scan and items-none: a query by key and ind
   const rows = page.getByRole("table", { name: "Items" }).locator("tbody tr[data-row]");
   await expect(rows).toHaveCount(3);
   await expect(page.getByTestId("items-card")).toContainText("Items returned (3)");
-  await expect(page.getByTestId("items-card")).toContainText("Everything the query found for customer_id cus-1042.");
+  await expect(page.getByTestId("items-card")).toContainText("Everything the query found for customer cus-1042.");
   await expect(page.getByTestId("items-note")).toContainText("there is nothing to continue");
   await rows.first().getByRole("checkbox").click();
   await shot(page, "dynamodb__items-explore");
@@ -400,7 +399,7 @@ test("dynamodb__partiql and partiql-error: a statement run, and a write that fin
   await page.getByTestId("partiql-run").click();
   await expect(page.getByTestId("partiql-error")).toContainText("Nothing was changed.");
   await expect(page.getByTestId("partiql-error")).toContainText("ConditionalCheckFailedException");
-  await expect(page.getByTestId("partiql-error")).toContainText("DuplicateItemException");
+  await expect(page.getByTestId("partiql-outcomes")).toContainText("DuplicateItemException");
   await shot(page, "dynamodb__partiql-error");
   await page.getByTestId("partiql-statement").fill(`SELECT order_id, status FROM "orders-table" WHERE order_id = 'ord-20261107-0372'`);
   await page.getByTestId("partiql-run").click();

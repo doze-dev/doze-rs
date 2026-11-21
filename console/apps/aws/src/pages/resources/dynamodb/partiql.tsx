@@ -1,6 +1,6 @@
 // The PartiQL editor (dynamodb__partiql, partiql-error): a statement, run with ExecuteStatement, and what it returned as a table or as
 // JSON. Choose a table and Query table writes a starting statement. A refused write says nothing was changed, in the service's words.
-import { CodeIcon, PlayIcon } from "lucide-react";
+import { PlayIcon } from "lucide-react";
 import { useState } from "react";
 import { Alert, errorWords } from "@doze/ui/components/app/alert";
 import { type DataColumn, DataTable } from "@doze/ui/components/app/data-table";
@@ -12,7 +12,7 @@ import { Tabs, TabsList, TabsTrigger } from "@doze/ui/components/ui/tabs";
 import { Textarea } from "@doze/ui/components/ui/textarea";
 import { ApiFailure } from "@doze/ui/lib/api";
 import { useResourceList } from "../../../api/resources";
-import { CallPanel, Field, useKindOp } from "../../../kit";
+import { CallPanel, useKindOp } from "../../../kit";
 import { Card, JsonBlock } from "../deep/parts";
 import { type Item, cell, toPlain } from "./json";
 import { crumbs, KIND, Said } from "./parts";
@@ -53,10 +53,9 @@ export function Partiql() {
           <Card title="Statement" lede="Choose a table and Query table writes a starting statement; edit it, then Run." testId="statement-card">
             <form className="grid gap-4" onSubmit={(e) => (e.preventDefault(), submit())}>
               <div className="flex flex-wrap items-end gap-3">
-                <Field label="Table" className="min-w-64">
-                  {(id) => (
+                <div className="min-w-64">
                     <Select value={chosen ?? ""} onValueChange={setTable}>
-                      <SelectTrigger id={id} className="w-full bg-card font-mono text-[13px]" data-testid="partiql-table">
+                      <SelectTrigger aria-label="Table" className="w-full bg-card font-mono text-[13px]" data-testid="partiql-table">
                         <SelectValue placeholder={tables.isPending ? "Reading tables…" : "No tables"} />
                       </SelectTrigger>
                       <SelectContent>
@@ -67,10 +66,9 @@ export function Partiql() {
                         ))}
                       </SelectContent>
                     </Select>
-                  )}
-                </Field>
+                </div>
                 <Button type="button" variant="outline" className="bg-card" disabled={!chosen} onClick={() => chosen && setStatement(startStatement(chosen))} data-testid="partiql-start">
-                  <CodeIcon /> Query table
+                  Query table
                 </Button>
               </div>
               <Textarea value={statement} onChange={(e) => (setStatement(e.target.value), run.reset())} rows={5} spellCheck={false} aria-label="Statement" placeholder={`UPDATE "orders-table" SET status = 'cancelled' WHERE order_id = 'ord-1' AND created_at = '2026-11-08T08:01:00Z'`} className="bg-card font-mono text-[13px] leading-6" data-testid="partiql-statement" />
@@ -84,10 +82,14 @@ export function Partiql() {
           {failed && (
             <Alert tone="bad" title={ran && writes(ran) ? "Nothing was changed." : "The statement was not run."} testId="partiql-error">
               <span className="font-mono text-[13px]">{code || failed.code}</span> {failed.message}
-              <span className="mt-2 block text-foreground">Other single-item outcomes: an INSERT of a key that exists returns <span className="font-mono">DuplicateItemException</span>; a DELETE of a missing item succeeds with 0 items deleted. The WHERE clause must name one primary key.</span>
             </Alert>
           )}
-          <Card
+          {failed && ran && writes(ran) && (
+            <Said testId="partiql-outcomes">
+              Other single-item outcomes: an INSERT of a key that exists returns <span className="font-mono">DuplicateItemException</span>; a DELETE of a missing item succeeds with 0 items deleted. The WHERE clause must name one primary key.
+            </Said>
+          )}
+          {!failed && <Card
             title="Results"
             lede="What the statement returns appears here."
             actions={
@@ -110,7 +112,7 @@ export function Partiql() {
               <JsonBlock value={items.map((i) => Object.fromEntries(Object.entries(i).map(([k, v]) => [k, toPlain(v)])))} className="max-h-[480px]" testId="results-json" />
             )}
             {run.data && items.length > 0 && <Said testId="results-count">{items.length} {items.length === 1 ? "item" : "items"} returned.{run.data.NextToken ? " There are more; the console shows the first page." : ""}</Said>}
-          </Card>
+          </Card>}
         </div>
         <CallPanel request={request} refusal={failed ? { code: code || failed.code || "Error", message: failed.message } : null} />
       </div>

@@ -81,6 +81,7 @@ export function TablePage({ name, search }: OwnProps) {
           { label: "Delete table", onSelect: () => setDeleting(true) },
           { label: "PartiQL editor", onSelect: () => toList({ do: "partiql" }) },
         ]}
+        trail={[{ label: table, to: `/resources/dynamodb/tables/${encodeURIComponent(table)}` }, ...(over ? [] : [{ label: ({ indexes: "Indexes", monitor: "Monitor", exports: "Exports and streams", settings: "Additional settings" } as Record<string, string>)[tab] ?? tab, to: "" }])]}
         sentenceBold={[/\d[\d,]*(?= items?\.)/]}
         wiredSelf={0}
         wiredText={(w) => `${w.to.name} index`}

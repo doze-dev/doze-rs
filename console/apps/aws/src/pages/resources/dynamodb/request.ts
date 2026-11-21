@@ -34,9 +34,11 @@ function object(text: string, what: string): Record<string, unknown> | string {
 /** The operation and input the form asks for (without paging), or the words of what is wrong. */
 export function request(form: Form, source: Source): { op: "Scan" | "Query"; input: Record<string, unknown> } | string {
   const input: Record<string, unknown> = form.index ? { IndexName: form.index } : {};
-  const names = object(form.names, "ExpressionAttributeNames");
+  // The filter is the scan's: a query is by key alone (the form shows no filter for it).
+  const scan = form.mode === "scan";
+  const names = scan ? object(form.names, "ExpressionAttributeNames") : {};
   if (typeof names === "string") return names;
-  const values = object(form.values, "ExpressionAttributeValues");
+  const values = scan ? object(form.values, "ExpressionAttributeValues") : {};
   if (typeof values === "string") return values;
   const ownNames: Record<string, string> = {};
   const ownValues: Record<string, AttributeValue> = {};
@@ -64,7 +66,7 @@ export function request(form: Form, source: Source): { op: "Scan" | "Query"; inp
     }
     input.KeyConditionExpression = cond;
   }
-  if (form.filter.trim()) input.FilterExpression = form.filter.trim();
+  if (scan && form.filter.trim()) input.FilterExpression = form.filter.trim();
   const allNames = { ...names, ...ownNames };
   const allValues = { ...values, ...ownValues };
   if (Object.keys(allNames).length > 0) input.ExpressionAttributeNames = allNames;

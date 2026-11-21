@@ -56,7 +56,7 @@ export function MonitorTab({ name, indexes }: { name: string; indexes: string[] 
             <thead>
               <tr className="text-left text-[12px] font-medium tracking-[0.04em] text-muted-foreground uppercase">
                 <th className="h-10 rounded-l-lg bg-well px-4">Resource</th>
-                <th className="h-10 rounded-r-lg bg-well px-4">ContributorInsightsStatus</th>
+                <th className="h-10 rounded-r-lg bg-well px-4 font-mono tracking-normal normal-case">ContributorInsightsStatus</th>
               </tr>
             </thead>
             <tbody>
