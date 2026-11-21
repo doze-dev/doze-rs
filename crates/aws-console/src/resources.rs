@@ -44,6 +44,7 @@ pub use tags::{Shape, Tags, Write};
 
 mod apigateway;
 mod cfn_kept;
+mod cfn_ops;
 mod cloudformation;
 mod cloudwatch;
 mod dynamodb;

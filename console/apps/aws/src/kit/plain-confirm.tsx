@@ -4,7 +4,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 
 /** A confirm that asks nothing to be typed: the board's `Delete log group(s)` and `Delete clickstream?`, where the words say what
  * goes and the button is the confirmation. `error` is the service's refusal, said in place under the words and named by `call`. */
-export function PlainConfirm({ open, onOpenChange, title, description, children, verb = "Delete", call, pending = false, error, onConfirm, testId = "confirm-dialog" }: { open: boolean; onOpenChange: (open: boolean) => void; title: React.ReactNode; description?: React.ReactNode; children?: React.ReactNode; verb?: string; /** The operation that was refused, for the refusal's title (`DeleteLogGroup`). */ call?: string; pending?: boolean; error?: unknown; onConfirm: () => void; testId?: string }) {
+export function PlainConfirm({ open, onOpenChange, title, description, children, verb = "Delete", call, pending = false, disabled = false, error, onConfirm, testId = "confirm-dialog" }: { /** The confirmation is off (the delete would be refused): the words say why. */ disabled?: boolean; open: boolean; onOpenChange: (open: boolean) => void; title: React.ReactNode; description?: React.ReactNode; children?: React.ReactNode; verb?: string; /** The operation that was refused, for the refusal's title (`DeleteLogGroup`). */ call?: string; pending?: boolean; error?: unknown; onConfirm: () => void; testId?: string }) {
   const failed = error ? errorWords(error) : null;
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -29,7 +29,7 @@ export function PlainConfirm({ open, onOpenChange, title, description, children,
             <Button type="button" variant="outline" className="bg-card" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
-            <Button type="submit" variant="destructive" disabled={pending} data-testid={`${testId}-submit`}>
+            <Button type="submit" variant="destructive" disabled={pending || disabled} data-testid={`${testId}-submit`}>
               {pending ? "Working…" : verb}
             </Button>
           </DialogFooter>
