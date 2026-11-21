@@ -84,11 +84,23 @@ async fn the_studio_checks_a_definition_makes_a_role_and_makes_the_machine() {
     )
     .await;
     assert_eq!(status, 200, "{put}");
+    // A log level needs a log group: the studio makes the one Step Functions names by default.
+    let group = "/aws/vendedlogs/states/stock-reorder-Logs";
+    let (status, logs) = op(
+        &w,
+        "machines",
+        "CreateLogGroup",
+        &json!({"logGroupName": group}),
+    )
+    .await;
+    assert_eq!(status, 200, "{logs}");
     let (status, made) = op(
         &w,
         "machines",
         "CreateStateMachine",
         &json!({"name": "stock-reorder", "definition": DEFINITION, "roleArn": arn, "type": "STANDARD",
+            "loggingConfiguration": {"level": "ERROR", "includeExecutionData": false, "destinations": [
+                {"cloudWatchLogsLogGroup": {"logGroupArn": format!("arn:aws:logs:us-east-1:000000000000:log-group:{group}:*")}}]},
             "tags": [{"key": "app", "value": "fulfilment"}], "publish": true, "versionDescription": "First release"}),
     )
     .await;

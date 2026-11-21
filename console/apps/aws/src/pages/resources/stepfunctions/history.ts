@@ -13,7 +13,14 @@ export type HistoryEvent = {
 };
 
 export type StepStatus = "succeeded" | "failed" | "running" | "cancelled";
-export type Step = { name: string; status: StepStatus; input?: string; output?: string; error?: string; cause?: string; entered: number; events: number[] };
+export type Step = { name: string; status: StepStatus; input?: string; output?: string; error?: string; cause?: string; entered: number; events: number[]; /** When the state was entered and when it ended (its last event), ms since 1970. */ startMs?: number; endMs?: number; /** The types of its events. */ types: string[] };
+
+/** An event's time as ms since 1970 (the service answers seconds with a fraction, or ms, or ISO text). */
+export function tsMs(v: number | string): number {
+  if (typeof v === "number") return v > 1e12 ? v : v * 1000;
+  const n = Number(v);
+  return Number.isFinite(n) ? (n > 1e12 ? n : n * 1000) : Date.parse(v);
+}
 export type Run = { steps: Map<string, Step>; taken: Set<string> };
 
 /** The error and cause an event carries in its details, if any (`taskFailedEventDetails`, `executionFailedEventDetails`…). */
@@ -48,7 +55,7 @@ export function readRun(events: HistoryEvent[], status: string): Run {
       if (from) taken.add(`${from}>${entered.name}`);
       else if (firstEntered) taken.add(`__start>${entered.name}`);
       firstEntered = false;
-      steps.set(entered.name, { name: entered.name, status: "running", input: entered.input, entered: e.id, events: [e.id] });
+      steps.set(entered.name, { name: entered.name, status: "running", input: entered.input, entered: e.id, events: [e.id], startMs: tsMs(e.timestamp), types: [e.type] });
       open.push(entered.name);
     } else if (exited) {
       exitedBy.set(e.id, exited.name);
@@ -57,6 +64,8 @@ export function readRun(events: HistoryEvent[], status: string): Run {
         s.status = "succeeded";
         s.output = exited.output;
         s.events.push(e.id);
+        s.types.push(e.type);
+        s.endMs = tsMs(e.timestamp);
       }
       const at = open.lastIndexOf(exited.name);
       if (at >= 0) open.splice(at, 1);
@@ -66,6 +75,8 @@ export function readRun(events: HistoryEvent[], status: string): Run {
       const s = name ? steps.get(name) : undefined;
       if (s) {
         s.events.push(e.id);
+        s.types.push(e.type);
+        if (!e.type.startsWith("Execution")) s.endMs = tsMs(e.timestamp);
         const f = failureOf(e);
         if (f && /Failed|TimedOut|Aborted/.test(e.type) && !e.type.startsWith("Execution")) {
           s.error = f.error;

@@ -150,6 +150,8 @@ pub(super) const MACHINES: Kind = Kind {
         ops::free("ValidateStateMachineDefinition"),
         ops::free("CreateRole").of("iam"),
         ops::free("PutRolePolicy").of("iam"),
+        // A log level other than OFF needs a log group to write to: the studio makes the one Step Functions names by default.
+        ops::free("CreateLogGroup").of("logs"),
     ],
     tags: Some(Tags::new(
         Step::new("ListTagsForResource", MACHINE),

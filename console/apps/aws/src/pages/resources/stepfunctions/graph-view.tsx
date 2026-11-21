@@ -105,7 +105,7 @@ function StateBox({ b, run, selected, onSelect }: { b: Box } & Look) {
           {b.name}
         </text>
         <text x={b.x + 14} y={b.y + (container ? 19 : 36)} dx={container ? b.name.length * 7.6 + 10 : 0} className={cn("text-[11px]", step ? tone.text : "fill-muted-foreground")}>
-          {b.type}
+          {b.label ?? b.type}
           {step ? ` · ${WORD[step.status]}` : ""}
         </text>
       </g>
@@ -132,8 +132,8 @@ function GraphBody({ g, ...look }: { g: Graph } & Look) {
 }
 
 /** The drawing: as wide as it needs, scaled down to its card, never up. */
-export function GraphView({ definition, ...look }: { definition: Definition } & Look) {
-  const g = useMemo(() => layout(definition), [definition]);
+export function GraphView({ definition, targets = false, ...look }: { definition: Definition; targets?: boolean } & Look) {
+  const g = useMemo(() => layout(definition, "", { targets }), [definition, targets]);
   const pad = 12;
   return (
     <div className="overflow-x-auto" data-testid="sfn-graph">

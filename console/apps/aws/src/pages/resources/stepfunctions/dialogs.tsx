@@ -1,36 +1,40 @@
-// Start an execution (a name, optional, and its input as JSON) and stop a running one: each a dialog over its page, each one
-// call as the console (StartExecution, StopExecution) that Live shows.
+// Start an execution (a name, optional, and its input as JSON), stop a running one and redrive a failed one: each a dialog over its
+// page, each one call as the console (StartExecution, StopExecution, RedriveExecution) that Live shows.
 import { useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { toast } from "sonner";
+import { Callout } from "@doze/ui/components/app/callout";
+import { Emphasis } from "@doze/ui/components/app/emphasis";
 import { JsonEditor, checkJson } from "@doze/ui/components/app/json-editor";
 import { Button } from "@doze/ui/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@doze/ui/components/ui/dialog";
 import { Input } from "@doze/ui/components/ui/input";
-import { Label } from "@doze/ui/components/ui/label";
+import { Field } from "../../../kit";
 import { machineOf, on, useOp } from "../deep/api";
 import { Refused } from "../deep/parts";
+import { NAME, nameProblem } from "./model";
 
-/** A name StartExecution takes: 1 to 80 characters, none of the ones AWS refuses (whitespace, brackets, wildcards, punctuation it reserves). */
-export const NAME = /^[^\s<>{}[\]?*"#%\\^|~`$&,;:/]{1,80}$/;
+export { NAME };
 
-export function StartDialog({ machine, name, open, onOpenChange, input: first = "{}" }: { machine: string; name: string; open: boolean; onOpenChange: (o: boolean) => void; input?: string }) {
+/** What an execution is started from: the machine's current revision, one of its versions, or an alias. */
+export type StartTarget = { arn: string; words: React.ReactNode };
+
+export function StartDialog({ machine, name, open, onOpenChange, input: first = "{}", target, startAt }: { machine: string; name: string; open: boolean; onOpenChange: (o: boolean) => void; input?: string; target?: StartTarget; /** The state the execution begins at, which the input is for. */ startAt?: string }) {
   const [run, setRun] = useState("");
   const [input, setInput] = useState(first);
   const start = useOp<{ executionArn: string; startDate: number }>(on.machine(name), "StartExecution");
   const navigate = useNavigate();
   const check = checkJson(input, "invalid");
-  const named = run.trim() === "" || NAME.test(run.trim());
+  const named = run.trim() === "" || nameProblem(run.trim()) === null;
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!check.ok || !named || start.isPending) return;
     start.mutate(
-      { stateMachineArn: machine, input, ...(run.trim() ? { name: run.trim() } : {}) },
+      { stateMachineArn: target?.arn ?? machine, input, ...(run.trim() ? { name: run.trim() } : {}) },
       {
         onSuccess: (r) => {
           onOpenChange(false);
-          toast.success("Execution started");
-          void navigate({ to: "/resources/$service/$kind/$name", params: { service: "stepfunctions", kind: "executions", name: r.executionArn }, search: {} });
+          void navigate({ to: "/resources/$service/$kind/$name", params: { service: "stepfunctions", kind: "executions", name: r.executionArn }, search: { done: "started" } });
         },
       },
     );
@@ -41,18 +45,14 @@ export function StartDialog({ machine, name, open, onOpenChange, input: first = 
         <form onSubmit={submit} className="grid gap-5">
           <DialogHeader>
             <DialogTitle className="text-[21px] font-semibold">Start execution</DialogTitle>
-            <DialogDescription>
-              Starts the current revision of <span className="font-mono text-foreground">{name}</span>.
+            <DialogDescription className="text-[14px] leading-[22px] text-foreground" data-testid="start-words">
+              {target ? target.words : <>Starts the current revision of <span className="font-mono font-semibold text-bright">{name}</span>. To start a version or an alias instead, choose it on the <b className="font-semibold">Versions</b> or <b className="font-semibold">Aliases</b> tab.</>}
             </DialogDescription>
           </DialogHeader>
-          <div className="grid gap-1.5">
-            <Label htmlFor="start-name">
-              Name <span className="ml-1 font-normal text-muted-foreground">optional</span>
-            </Label>
-            <Input id="start-name" value={run} onChange={(e) => setRun(e.target.value)} placeholder="e.g. order-0421" aria-invalid={!named} className="bg-card font-mono" spellCheck={false} data-testid="start-name" />
-            <p className={named ? "text-[12.5px] text-muted-foreground" : "text-[12.5px] text-bad"}>Leave it empty for a generated name. Up to 80 characters, no spaces, brackets or wildcards; unique among the machine's executions.</p>
-          </div>
-          <JsonEditor label="Input" value={input} onChange={setInput} empty="invalid" rows={8} testId="start-input" help="The JSON the first state receives. Send {} when there is none. Up to 256 KiB." />
+          <Field label="Name" optional error={named ? undefined : (nameProblem(run.trim()) ?? undefined)} hint="Leave it empty for a generated name. A name is unique per state machine and can be used again 90 days after its execution closes. Starting the same name with the same input while it runs returns that run instead of a second one.">
+            {(id) => <Input id={id} value={run} onChange={(e) => setRun(e.target.value)} placeholder="e.g. order-0421" aria-invalid={!named} className="bg-card font-mono" spellCheck={false} data-testid="start-name" />}
+          </Field>
+          <JsonEditor label="Input" value={input} onChange={setInput} empty="invalid" rows={8} testId="start-input" help={<>The JSON that {startAt ? <b className="font-mono font-semibold">{startAt}</b> : "the first state"} receives. Send <span className="font-mono">{"{}"}</span> when there is no input. Up to 256 KiB as UTF-8.</>} />
           <Refused error={start.error} operation="StartExecution" testId="write-error" />
           <DialogFooter>
             <Button type="button" variant="outline" className="bg-card" onClick={() => onOpenChange(false)}>Cancel</Button>
@@ -64,7 +64,9 @@ export function StartDialog({ machine, name, open, onOpenChange, input: first = 
   );
 }
 
-export function StopDialog({ arn, name, open, onOpenChange }: { arn: string; name: string; open: boolean; onOpenChange: (o: boolean) => void }) {
+/** Stop an execution while it runs (stepfunctions__execution-stop): what stopping does and does not undo. `sent` is what the steps
+ * that already ran left behind (a pick list in a queue). */
+export function StopDialog({ arn, name, open, onOpenChange, left }: { arn: string; name: string; open: boolean; onOpenChange: (o: boolean) => void; left?: { text: string; names: string[] } }) {
   const [cause, setCause] = useState("");
   const stop = useOp<{ stopDate: number }>(on.machine(machineOf(arn)), "StopExecution");
   const submit = (e: React.FormEvent) => {
@@ -79,18 +81,16 @@ export function StopDialog({ arn, name, open, onOpenChange }: { arn: string; nam
           <DialogHeader>
             <DialogTitle className="text-[21px] font-semibold">Stop execution</DialogTitle>
             <DialogDescription className="text-[14px] leading-[22px] text-foreground">
-              Stop <b className="font-mono font-semibold break-all text-bright">{name}</b> while it runs? It ends with the status Aborted.
+              Stop <b className="font-mono font-semibold break-all text-bright">{name}</b> while it runs? The execution ends with the status <b className="font-semibold">Aborted</b>.
             </DialogDescription>
           </DialogHeader>
+          {left && <Callout tone="warn" testId="stop-left"><Emphasis text={left.text} names={left.names} /></Callout>}
           <p className="border-l-2 border-input pl-3.5 text-[13px] leading-5 text-foreground">
-            Stopping does not undo what finished states already did: a message sent stays sent. <span className="text-muted-foreground">Called as <span className="font-mono">StopExecution</span>; Live shows it.</span>
+            Only Standard executions can be stopped, and only while they run. An aborted execution can be redriven for 14 days after it ends. Stop does not undo what finished steps already did.
           </p>
-          <div className="grid gap-1.5">
-            <Label htmlFor="stop-cause">
-              Cause <span className="ml-1 font-normal text-muted-foreground">optional</span>
-            </Label>
-            <Input id="stop-cause" value={cause} onChange={(e) => setCause(e.target.value)} placeholder="e.g. stopped by hand" className="bg-card" />
-          </div>
+          <Field label="Cause" optional>
+            {(id) => <Input id={id} value={cause} onChange={(e) => setCause(e.target.value)} placeholder="e.g. stopped by hand" className="bg-card" />}
+          </Field>
           <Refused error={stop.error} operation="StopExecution" testId="write-error" />
           <DialogFooter>
             <Button type="button" variant="outline" className="bg-card" onClick={() => onOpenChange(false)}>Cancel</Button>
