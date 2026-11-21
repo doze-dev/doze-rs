@@ -236,3 +236,33 @@ Open, with reasons:
 - With a broken doze.hcl, `down` looks at the default state folder. A stack that moved it is not found there.
 - The fuzz target checks a stable round trip, not each kept field against its source bytes.
 - doze.hcl is read twice per command (`Stack::find`, then the command).
+
+## Session 14 (branch `cli-finish`: the CLI's loose ends)
+
+| # | Behaviour | Held by |
+|---|---|---|
+| 33 | **`run` and `connect` run their command as a shell's foreground job** (`doze_os::foreground`): a process group of its own, and the terminal when doze has it (`tcsetpgrp`), so Ctrl-C, Ctrl-\ and a hang-up from the terminal reach the command alone. A SIGINT, SIGTERM, SIGHUP or SIGQUIT sent to doze by another process (`kill -INT <doze>`, an IDE's stop, or doze's whole group) is passed to the command's group, once, and doze goes on waiting and exits with its code. Before, a SIGINT to doze alone was taken and the command never heard it, and one sent to the group reached it from both sides. Ctrl-Z stops the command and then doze (its shell sees the job stopped); `fg` hands the terminal back and continues it. Windows: as before (Ctrl-C is the console's) | `doze-os tests/foreground.rs` (to doze alone, to doze's group, Ctrl-C typed on a pseudo-terminal that is the session's controlling terminal: each heard once; the command reads the terminal); `doze-cli tests/up.rs a_sigint_sent_to_doze_run_alone_reaches_the_command` (the built doze, a real daemon, `kill -INT <doze>`: exit 41 = 40 + one SIGINT) |
+| 34 | `sync` stops only a daemon it spawned itself (`up::start_for_spawned`; a daemon another doze started while this one waited for the stack lock is not "started for this sync"), and "started the doze daemon for …" is said only then. With that daemon, Ctrl-C at the question reads as "no" (`Host::ask_or`: the answer is read on a thread, the interrupt looked at every 50 ms) and Ctrl-C while the plan is made cancels before asking; either way the daemon is stopped before doze exits. A second Ctrl-C still ends doze at once | `process::tests::ctrl_c_at_a_question_is_no`; `tests/up.rs sync_stops_only_the_daemon_it_started` (the built doze: stopped after a sync that started it, left running after one that did not) |
+| 35 | `doctor` and `bug` find the stack's state folder as every other command does (`stack::key_of`: the loaded config's `data_dir`, else the default place): `bug` quotes the moved folder's `run/doze.log`, `doctor` asks the daemon on the moved socket | `tests/bug.rs bug_and_doctor_follow_a_moved_state_folder` |
+| 36 | Block drift sees inside a module block: the shape pass prints a module block's own body (`module_body::print`: each argument as it evaluates there, as written where it does not, the nested blocks in order) into `Instance::body_print`, and the shape fingerprint hashes it. `sync`'s section and `migrate`'s restart decision now see a database, role or setting edited inside the block; a comment or spacing is not a change. A daemon started by an older doze recorded prints without it: its module blocks with a body read as changed once, until it restarts | `doze-config tests/differences.rs a_modules_shape_fingerprint_sees_inside_its_block` |
+| 37 | The embedding entry point owns the hidden words: `process::main` runs `__daemon` (it was only in the `doze` binary's `main`) as well as `__fetch` and `__doze-netd`, and `is_command` recognises all three (`HIDDEN_WORDS`), so a program that embeds the CLI (the desktop app, `daemon_exe()` = its own path) hosts its own daemon and download child | `tests/embed.rs` (`harness = false`: the test binary is the embedding; it serves a stack as `<it> __daemon` until SIGTERM and answers a `__fetch` resolve from a `file://` mirror) |
+| 38 | `doze --json version` is the stable machine answer: `version`, `commit` (`DOZE_COMMIT` at build time, `null` when unset), `os`, `arch`, `protocol` (the module protocol) and `control_protocol` (what the CLI, the app and the daemon speak). Fields are only added. Go's had `version`, `os`, `arch`, `go`: no protocol, which is how a program tells a Go doze from this one. The human line is unchanged (the website parses it) | transcripts `version`, `update-*`; `cmd/version.rs` doc |
+| 39 | The `__fetch` child keeps doze.lock as it is when its environment has `DOZE_LOCK_READ_ONLY` (`Place::lock_writes` off): a module resolves, nothing is pinned. This is the CLI's half of `sync --dry-run` writing nothing; the daemon's half (below) is open | `doze-fetch child::tests::a_read_only_lock_is_never_written` |
+
+Open, for the daemon (Builder A's crates):
+
+- `sync --dry-run` with doze stopped still starts a daemon whose module catalog can pin modules in doze.lock. The CLI half
+  is there (row 39). What remains: `ctl::Start` carries "for a dry run" and sets `DOZE_LOCK_READ_ONLY=1` on the daemon
+  it spawns (its `__fetch` children inherit it), and `sync --dry-run` (and the other dry runs that start a daemon) asks
+  for it through `up::start_for`.
+- `blocks.json` is written once, when the daemon starts. A block the `add` op adds at run time (`live::add`) is not
+  recorded, so `sync` names it "new" until the next start, and a removed one stays. The record is the daemon's: after
+  a successful `add` (and on removal) it should merge that block's *shape* print (`doze_config::parse(block, …, true)`,
+  not the full parse, whose module prints differ) into `run/blocks.json` under its own lock. Nothing in the CLI changes.
+
+For the owner (unchanged, as called): row 13, `down` with a doze.hcl that does not load stops the stack and exits 0
+with a warning, where Go exited 5 and left it running.
+
+Closed from the lists above: the SIGINT sent to doze alone (fourth audit), Ctrl-C at `sync`'s question and the
+`started` check taken before the start (fourth audit), `doctor` and `bug` at the default place (second audit), block
+drift inside a module block (fifth audit and session 13).
