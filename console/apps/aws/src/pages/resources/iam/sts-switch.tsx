@@ -34,9 +34,12 @@ export function SwitchRole() {
   const [color, setColor] = useState<SessionColor | "">("");
   const [pending, setPending] = useState(false);
   const [tried, setTried] = useState(false);
-  const [done, setDone] = useState<string | null>(null);
+  const [switched, setSwitched] = useState<{ name: string; inputs: string } | null>(null);
   const [failed, setFailed] = useState<unknown>(null);
   const account_ = acct ?? alias ?? account;
+  // The banner says the form's last answer: it goes when the form is changed.
+  const inputs = [acct, role, display, color].join("|");
+  const done = switched?.inputs === inputs ? switched.name : null;
   const id = /^\d{12}$/.test(account_.trim()) ? account_.trim() : account_.trim() === alias ? account : null;
   const known = (roles.data?.Roles ?? []).find((r) => `${r.Path === "/" ? "" : r.Path.slice(1)}${r.RoleName}` === role.trim() || r.RoleName === role.trim());
   const external = known ? needsExternalId(known.AssumeRolePolicyDocument) : false;
@@ -58,10 +61,10 @@ export function SwitchRole() {
       const out = (await callKindOp(ROLES, "AssumeRole", input)) as { Credentials: { AccessKeyId: string; SecretAccessKey: string; SessionToken: string; Expiration: number } };
       const c = out.Credentials;
       switchTo({ roleArn, role: role.trim(), account: id, display: shownName, color: color || null, accessKeyId: c.AccessKeyId, secretAccessKey: c.SecretAccessKey, sessionToken: c.SessionToken, expiresAt: c.Expiration * 1000 });
-      setDone(shownName);
+      setSwitched({ name: shownName, inputs });
     } catch (e) {
       setFailed(e);
-      setDone(null);
+      setSwitched(null);
     } finally {
       setPending(false);
     }
@@ -95,7 +98,7 @@ export function SwitchRole() {
           {(fid) => <Input id={fid} value={shownName} onChange={(e) => setDisplay(e.target.value)} autoComplete="off" className="bg-card" data-testid="switch-display" />}
         </Field>
         <Field label="Display color" optional help="A color highlights the display name in the top bar and reminds you that your permissions have changed, for example green for a test role and red for production." testId="field-color">
-          <Segmented value={color} onChange={setColor} label="Display color" options={[{ value: "red", label: "Red" }, { value: "green", label: "Green" }]} testId="switch-color" />
+          <Segmented value={color} onChange={setColor} label="Display color" options={[{ value: "red", label: "Red", dot: "bg-bad" }, { value: "green", label: "Green", dot: "bg-good" }]} testId="switch-color" />
         </Field>
       </FormSection>
       <Callout tone="info" lead="Roles that cannot be switched to here." testId="external-note">The console cannot switch to a role whose trust policy requires an external ID; call AssumeRole with <span className="font-mono">ExternalId</span> from the CLI or an SDK instead.</Callout>

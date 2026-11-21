@@ -45,7 +45,7 @@ function RoleView({ d, updatedAt, fetching, refresh }: { d: Parameters<Parameter
   const about = useAbout().data;
   const toList = useToList("roles");
   const navigate = useNavigate();
-  const [tab, setTab] = useUrlParam("tab");
+  const [tab] = useUrlParam("tab");
   const [deleting, setDeleting] = useState(false);
   const [dialog, setDialog] = useState<"attach" | "inline" | null>(null);
   const attached = useRead<{ AttachedPolicies: AttachedPolicy[] }>(ROLES, "ListAttachedRolePolicies", { RoleName: name });
@@ -143,7 +143,7 @@ function RoleView({ d, updatedAt, fetching, refresh }: { d: Parameters<Parameter
         }
         tabs={tabs}
         tab={tab ?? "permissions"}
-        onTab={(id) => setTab(id === "permissions" ? undefined : id)}
+        onTab={(id) => void navigate({ to: "/resources/$service/$kind/$name", params: { service: "iam", kind: "roles", name }, search: id === "permissions" ? {} : { tab: id } })}
         details={false}
         testId="role-page"
       />

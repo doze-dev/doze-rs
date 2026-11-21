@@ -70,18 +70,19 @@ test("iam__dashboard and iam__alias-edit: the counts, the account, and the alias
   await expect(page.getByTestId("alias-note")).toContainText("only one alias");
   await shot(page, "iam__dashboard");
   await page.getByTestId("alias-edit").click();
-  await expect(page.locator("h1").first()).toHaveText("Account alias");
+  await expect(page.getByTestId("alias-edit-dialog")).toBeVisible();
+  await expect(page.locator("h1").first()).toHaveText("IAM Dashboard");
   await expect(page.getByTestId("field-alias")).toContainText("3 to 63 characters");
   await expect(page.getByTestId("field-alias")).toContainText("overwrites larder-dev");
   await shot(page, "iam__alias-edit");
   // The rule is said before any call; a valid new alias deletes the old and makes the new.
   await page.getByTestId("alias-input").fill("Larder");
   await expect(page.getByTestId("field-alias")).toContainText("only lowercase letters");
-  await expect(page.getByTestId("form-submit")).toBeDisabled();
+  await expect(page.getByTestId("alias-edit-dialog-save")).toBeDisabled();
   await page.getByTestId("alias-input").fill("larder-dev-2");
-  await expect(page.getByTestId("call-panel")).toContainText("DeleteAccountAlias");
-  await page.getByTestId("form-submit").click();
-  await expect(page.locator("h1").first()).toHaveText("IAM Dashboard");
+  await expect(page.getByTestId("alias-edit-dialog-call")).toContainText("CreateAccountAlias");
+  await page.getByTestId("alias-edit-dialog-save").click();
+  await expect(page.getByTestId("alias-edit-dialog")).toHaveCount(0);
   await expect(page.getByTestId("fact-Account Alias")).toContainText("larder-dev-2");
   expect(JSON.parse(cli(["iam", "list-account-aliases"])).AccountAliases).toEqual(["larder-dev-2"]);
   cli(["iam", "delete-account-alias", "--account-alias", "larder-dev-2"]);

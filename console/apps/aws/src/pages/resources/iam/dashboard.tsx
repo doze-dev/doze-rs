@@ -12,7 +12,7 @@ import { useAbout } from "../../../api/queries";
 import { usePrincipals } from "../../../api/spaces";
 import { HINT } from "../index-page";
 import { USERS, useIamCalls, useRead, useRefresh } from "./api";
-import { AliasEdit } from "./alias-edit";
+import { AliasDialog } from "./alias-edit";
 import { count, hhmm } from "./model";
 import { Card, crumbs, Say, Summary } from "./parts";
 import { clientName } from "../../../people";
@@ -21,8 +21,13 @@ type Totals = { SummaryMap: { Users: number; Groups: number; Roles: number; Poli
 
 export function Dashboard() {
   const search = useSearch({ strict: false }) as { edit?: string };
-  if (search.edit === "alias") return <AliasEdit />;
-  return <DashboardPage />;
+  const navigate = useNavigate();
+  return (
+    <>
+      <DashboardPage />
+      <AliasDialog open={search.edit === "alias"} onOpenChange={(o) => !o && void navigate({ to: "/resources/$service", params: { service: "iam" }, search: {} as never })} />
+    </>
+  );
 }
 
 function DashboardPage() {

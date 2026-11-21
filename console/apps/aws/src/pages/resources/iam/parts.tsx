@@ -73,11 +73,12 @@ export function Summary({ facts, title = "Summary", columns = 1 }: { facts: Fact
 }
 
 /** Two or three choices side by side in one box, one on at a time (the board's AWS managed / Customer managed). */
-export function Segmented<T extends string>({ value, onChange, options, label, testId }: { value: T | ""; onChange: (v: T | "") => void; options: { value: T; label: string }[]; label: string; testId?: string }) {
+export function Segmented<T extends string>({ value, onChange, options, label, testId }: { value: T | ""; onChange: (v: T | "") => void; options: { value: T; label: string; /** A colour dot before the label (`bg-good`). */ dot?: string }[]; label: string; testId?: string }) {
   return (
     <ToggleGroup type="single" value={value} onValueChange={(v) => onChange(v as T | "")} aria-label={label} className="rounded-[10px] border bg-muted p-1" data-testid={testId}>
       {options.map((o) => (
         <ToggleGroupItem key={o.value} value={o.value} aria-label={o.label} className="h-8 rounded-[7px] px-4 text-[13.5px] font-normal data-[state=on]:bg-card data-[state=on]:font-medium data-[state=on]:text-bright data-[state=on]:shadow-sm" data-testid={`${testId ?? "segment"}-${o.value}`}>
+          {o.dot && <span aria-hidden className={cn("mr-2 size-2 rounded-full", o.dot)} />}
           {o.label}
         </ToggleGroupItem>
       ))}
