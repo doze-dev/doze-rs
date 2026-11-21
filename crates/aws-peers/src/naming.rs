@@ -76,6 +76,41 @@ pub fn resource_of<'a>(
         at = node.next;
     }
     best.map(|(_, member, value)| (member, value))
+        .or_else(|| events_bus(tables, arena, body, first))
+}
+
+/// What `PutEvents` acts on: it has no member of its own at the top, only `Entries`, so its first entry names it, by the bus it is
+/// put on (`default` for an entry that names none). An input that has other members of `MEMBERS` never comes here.
+fn events_bus<'a>(
+    tables: &'static Tables,
+    arena: &'a Arena,
+    body: &'a str,
+    first: u32,
+) -> Option<(&'static str, &'a str)> {
+    let mut at = first;
+    while at != NIL {
+        let node = arena.node(at)?;
+        if tables.member(node.member)?.name == "Entries"
+            && let Val::Seq(entry) = node.val
+            && let Val::Obj(mut field) = arena.node(entry)?.val
+        {
+            let mut seen = false;
+            while field != NIL {
+                let f = arena.node(field)?;
+                let name = tables.member(f.member)?.name;
+                if name == "EventBusName"
+                    && let Some(bus) = arena.str_of(body, f.val).filter(|b| !b.is_empty())
+                {
+                    return Some(("EventBusName", bus));
+                }
+                seen |= name == "DetailType";
+                field = f.next;
+            }
+            return seen.then_some(("EventBusName", "default"));
+        }
+        at = node.next;
+    }
+    None
 }
 
 #[cfg(test)]
@@ -117,5 +152,34 @@ mod tests {
         // An input that names nothing names nothing.
         assert_eq!(named("ListKeys", "{}"), None);
         assert_eq!(named("CreateKey", r#"{"Description":"x"}"#), None);
+    }
+
+    fn put(body: &str) -> Option<(&'static str, String)> {
+        let tables = &aws_model_eventbridge::tables::TABLES;
+        let shape = tables
+            .op(tables.find_op("PutEvents").unwrap())
+            .unwrap()
+            .input
+            .unwrap();
+        let mut arena = Arena::new();
+        let root = decode(tables, &Patterns::new(tables), shape, body, &mut arena).unwrap();
+        resource_of(tables, &arena, body, root).map(|(m, v)| (m, v.to_owned()))
+    }
+
+    #[test]
+    fn events_put_on_a_bus_are_the_buss() {
+        let entry = r#""Source":"a","DetailType":"b","Detail":"{}""#;
+        assert_eq!(
+            put(&format!(
+                r#"{{"Entries":[{{"EventBusName":"larder",{entry}}}]}}"#
+            )),
+            Some(("EventBusName", "larder".to_owned()))
+        );
+        // An entry that names no bus is put on the default one.
+        assert_eq!(
+            put(&format!(r#"{{"Entries":[{{{entry}}}]}}"#)),
+            Some(("EventBusName", "default".to_owned()))
+        );
+        assert_eq!(put(r#"{"Entries":[{"Source":"a"}]}"#), None);
     }
 }
