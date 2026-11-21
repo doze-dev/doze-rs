@@ -11,6 +11,7 @@ import { GONE, LEADS, pageOf } from "./registry";
 import "../cloudformation";
 import "../dynamodb";
 import "../iam";
+import "../apigateway";
 import "../eventbridge";
 import "../kinesis";
 import "../lambda";
