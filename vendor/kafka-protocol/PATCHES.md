@@ -81,3 +81,84 @@ v1 and OffsetForLeaderEpoch at v2 (KIP-896). Kafka 1.1 has only v0 of all five, 
 
 Regression test: `crates/kafka-wire/tests/old_versions.rs` (each version against bytes written by hand from the schema),
 `tests/every_offered_version.rs`, and the recorded `acl-v0` scenario of `tools/kafka-replay` (Apache Kafka 3.9.1).
+
+## 6. Wire tail: the versions Kafka 4.4.0 added to the APIs served (2026-11-18 and -19)
+
+0.18.0 is generated from Kafka 4.1.0's schemas. Kafka 4.4.0 serves more versions of eight APIs the broker serves, and of two
+4.1.0 marked `latestVersionUnstable`, which the generator skips (debt K1). Two kinds of change, each tested:
+
+**Regenerated** as patch 4 was, by upstream's generator (`protocol_codegen` at the head of `tychedelia/kafka-protocol-rs`), from
+patch 4's input (Kafka 4.1.0's schemas with 4.4.0's six `StreamsGroup*.json`) with these 4.4.0 schemas put in their place,
+then `rustfmt`; the files taken whole, unmarked:
+
+- `TxnOffsetCommitRequest.json`, `TxnOffsetCommitResponse.json`: v6 (topics named by id, KIP-516: `TopicId` from v6, `Name`
+  to v5 only and ignorable; the request's `GenerationId` is renamed `GenerationIdOrMemberEpoch`, the one source change it asks
+  of the workspace).
+- `InitProducerIdRequest.json`: v6 (KIP-939: `Enable2Pc` and `KeepPreparedTxn`), unstable in 4.1.0 and in 4.4.0 alike. One
+  change was made to the input, `"latestVersionUnstable": true` set to `false`, so that v6 is generated; whether it is offered
+  is the broker's decision (only with `--unstable-api-versions`, as 4.4.0 only with `unstable.api.versions.enable`). The
+  response was already generated to v6.
+- `OffsetCommitRequest.json`, `OffsetFetchRequest.json`: v10 (topics by id, KIP-848), unstable in 4.1.0 and stable in 4.4.0.
+  0.18.0 had the `TopicId` fields but stopped the requests at v9; the responses were already generated to v10.
+
+Against the vendored files the output differs in exactly those five files; the generated `TxnOffsetCommitResponse` and the
+two v10 responses are byte for byte what was vendored, which checks the pipeline. In `messages.rs` only
+`ApiKey::TxnOffsetCommit`'s range (0-6) is applied, marked `PATCH 6`.
+
+**By hand** from the 4.4.0 schemas, each change marked `PATCH 6` (the version checks, `VERSIONS`, `ApiKey::valid_versions`):
+
+- `ListOffsetsRequest` and `ListOffsetsResponse` 1-11 (KIP-1023: a new special time, no new field).
+- `ApiVersionsRequest` and `ApiVersionsResponse` 0-5: the request's `ClusterId` (nullable compact string, default null) and
+  `NodeId` (int32, default -1), both ignorable, after `ClientSoftwareVersion` (KIP-1242).
+- `DeleteGroupsRequest` and `DeleteGroupsResponse` 0-3: each result's `ErrorMessage` (nullable, ignorable) after `ErrorCode`.
+- `DescribeLogDirsRequest` and `DescribeLogDirsResponse` to 5 (on top of patch 5's v0): each directory's `IsCordoned` (bool,
+  ignorable, default false) after `UsableBytes` (KIP-1066).
+
+Regression test: `crates/kafka-wire/tests/kip516_kip939_versions.rs` (TxnOffsetCommit v6, InitProducerId v6),
+`tests/every_offered_version.rs` (every offered version of every served API written and read back), and the requests
+and answers of `tools/wire-tail-oracle` against a real Kafka 4.4.0.
+
+## 7. Admin APIs: v0 of AlterReplicaLogDirs and of the four delegation-token APIs (2026-11-19)
+
+(Patch 6 is the wire tail's, branch kafka-wire-tail.) Kafka 4.1.0's schemas start AlterReplicaLogDirs and the four
+delegation-token APIs (CreateDelegationToken, RenewDelegationToken, ExpireDelegationToken, DescribeDelegationToken) at v1
+(KIP-896). Kafka 1.1 has only v0 of all five, and 2.8 and 3.9 start them at 0
+(`crates/kafka-wire/tests/data/api-versions.json`), so `--kafka-version 1` to `3` could not offer them as recorded (debt
+K3). In the 3.9.1 schemas every one of the ten messages says "Version 1 is the same as version 0" (the responses bumped
+the version for the throttle behaviour only), so v0 is v1 on the wire. Patched by hand, each change marked `PATCH 7`: the
+version checks of the ten messages and their structs, their `VERSIONS`, and `ApiKey::valid_versions` start at 0.
+
+Regression test: `crates/kafka-wire/tests/old_versions.rs` (v0 against bytes written by hand from the schema) and
+`tests/every_offered_version.rs`.
+
+## 8. The oldest versions of eight APIs, for the older profiles (2026-11-19)
+
+Kafka 4.1.0's schemas start Produce at v3, Fetch at v4, ListOffsets, OffsetFetch and DeleteTopics and DescribeConfigs at v1,
+OffsetCommit and CreateTopics at v2 (KIP-896). Kafka 1.1, 2.8 and 3.9 list all of them from v0
+(`crates/kafka-wire/tests/data/api-versions.json`), and the profiles that stand for them serve every version their recorded
+broker lists (debt K2), so the crate reads and writes them again.
+
+**Regenerated** as patches 4 and 6 were, by upstream's generator (`protocol_codegen` at the head of `tychedelia/kafka-protocol-rs`,
+37fed76, whose generator is unchanged since 0.18.0), then `rustfmt`; the sixteen files taken whole, unmarked:
+`produce_request.rs`, `produce_response.rs`, `fetch_request.rs`, `fetch_response.rs`, `list_offsets_request.rs`,
+`list_offsets_response.rs`, `offset_commit_request.rs`, `offset_commit_response.rs`, `offset_fetch_request.rs`,
+`offset_fetch_response.rs`, `create_topics_request.rs`, `create_topics_response.rs`, `delete_topics_request.rs`,
+`delete_topics_response.rs`, `describe_configs_request.rs`, `describe_configs_response.rs`. The input of each is the schema the
+vendored file was generated from (Kafka 4.1.0's; OffsetCommitRequest and OffsetFetchRequest less `latestVersionUnstable`, as
+patch 6 took them from 4.4.0), with its `validVersions` starting at 0 (ListOffsets: 0-11, for patch 6's v11) and the fields
+only the old versions have put back, each exactly as Kafka 3.9.1's schema has it:
+
+- ListOffsetsRequest `MaxNumOffsets` (int32, v0, default 1) after `Timestamp`; ListOffsetsResponse `OldStyleOffsets` (`[]int64`,
+  v0) before `Timestamp`.
+- OffsetCommitRequest `CommitTimestamp` (int64, v1 only, default -1) before `CommittedMetadata`.
+- DescribeConfigsResponse `IsDefault` (bool, v0) after `ReadOnly`.
+
+Every other field of the eight messages was already in the 4.1.0 schemas with its version range (`TransactionalId` 3+,
+`ThrottleTimeMs` 1+, `LogAppendTimeMs` 2+ and the like); with the floor lowered the generator writes the checks for them that it
+left out while every version had them. The pipeline was checked first: the unmodified inputs generate fourteen of the sixteen
+files byte for byte as vendored, and ListOffsets differs only by patch 6's v11 (its version checks). In `messages.rs` the eight
+ranges of `ApiKey::valid_versions` start at 0, marked `PATCH 8`.
+
+Regression test: `crates/kafka-wire/tests/old_versions.rs` (the restored versions against bytes written by hand from the 3.9.1
+schemas), `tests/every_offered_version.rs` (every offered version of every served API written and read back), and the raw
+requests of `tools/old-profiles-oracle` against real Kafka 1.1, 2.8 and 3.9.1.

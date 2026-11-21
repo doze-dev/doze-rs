@@ -1,0 +1,3 @@
+{"id":3,"op":"wake","db":"nosuch"}
+{"id":4,"op":"sleep"}
+{"id":5,"op":"logs","db":"x","follow":true}

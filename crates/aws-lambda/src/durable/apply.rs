@@ -19,6 +19,10 @@ impl Execution {
         });
         if let Some(op) = op {
             crate::set(&mut e, "Id", json!(op.id));
+            // Recorded 2026-11-19: an execution's own events carry the execution's name.
+            if op.kind == "EXECUTION" && op.name.is_none() {
+                crate::set(&mut e, "Name", json!(self.name));
+            }
             for (k, v) in [
                 ("SubType", &op.sub),
                 ("Name", &op.name),

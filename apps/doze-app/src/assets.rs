@@ -81,8 +81,44 @@ pub(crate) const FONTS: [&[u8]; 10] = [
     include_bytes!("../assets/fonts/GeistMono-700.ttf"),
 ];
 
-/// The menu-bar item's template images (the Go app's bat), 44 × 44 for a 22 pt bar.
+/// The menu-bar item's template images: the brand bat cropped to its outline, 20 pt tall in the 22 pt menu
+/// bar (Apple suggests 18; at 18 the bat read too small), drawn at 1x and 2x by `tools/tray-icons`.
 pub(crate) const TRAY: doze_os::ui::Icons = doze_os::ui::Icons {
-    calm: include_bytes!("../assets/tray/bat-44.png"),
-    alert: include_bytes!("../assets/tray/bat-alert-44.png"),
+    calm: doze_os::ui::Icon {
+        x1: include_bytes!("../assets/tray/bat-1x.png"),
+        x2: include_bytes!("../assets/tray/bat-2x.png"),
+    },
+    alert: doze_os::ui::Icon {
+        x1: include_bytes!("../assets/tray/bat-alert-1x.png"),
+        x2: include_bytes!("../assets/tray/bat-alert-2x.png"),
+    },
 };
+
+#[cfg(test)]
+mod tests {
+    /// A PNG's width and height, from its header.
+    fn size(png: &[u8]) -> (u32, u32) {
+        assert_eq!(png.get(..8), Some(&b"\x89PNG\r\n\x1a\n"[..]), "a PNG");
+        let n = |at: usize| {
+            png.get(at..at + 4)
+                .and_then(|b| b.try_into().ok())
+                .map(u32::from_be_bytes)
+        };
+        (n(16).unwrap_or(0), n(20).unwrap_or(0))
+    }
+
+    #[test]
+    fn the_bar_icons_are_20_points_tall_pixel_exact_at_each_scale_and_the_same_frame() {
+        let t = super::TRAY;
+        let (w, h) = size(t.calm.x1);
+        assert_eq!(h, 20, "the bat's height in the 22 pt bar");
+        assert!(
+            (8..=16).contains(&w),
+            "as wide as the bat, not a padded square: {w}"
+        );
+        assert_eq!(size(t.calm.x2), (2 * w, 40), "2x drawn at twice the pixels");
+        // The alert picture shares the frame, so the item keeps its width and the bat its place when it turns.
+        assert_eq!(size(t.alert.x1), (w, h));
+        assert_eq!(size(t.alert.x2), (2 * w, 40));
+    }
+}

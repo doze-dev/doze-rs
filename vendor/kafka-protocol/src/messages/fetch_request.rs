@@ -17,13 +17,13 @@ use crate::protocol::{
     Encodable, Encoder, HeaderVersion, Message, StrBytes, VersionRange,
 };
 
-/// Valid versions: 4-18
+/// Valid versions: 0-18
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq)]
 pub struct FetchPartition {
     /// The partition index.
     ///
-    /// Supported API versions: 4-18
+    /// Supported API versions: 0-18
     pub partition: i32,
 
     /// The current leader epoch of the partition.
@@ -33,7 +33,7 @@ pub struct FetchPartition {
 
     /// The message offset.
     ///
-    /// Supported API versions: 4-18
+    /// Supported API versions: 0-18
     pub fetch_offset: i64,
 
     /// The epoch of the last fetched record or -1 if there is none.
@@ -48,7 +48,7 @@ pub struct FetchPartition {
 
     /// The maximum bytes to fetch from this partition.  See KIP-74 for cases where this limit may not be honored.
     ///
-    /// Supported API versions: 4-18
+    /// Supported API versions: 0-18
     pub partition_max_bytes: i32,
 
     /// The directory id of the follower fetching.
@@ -70,7 +70,7 @@ impl FetchPartition {
     ///
     /// The partition index.
     ///
-    /// Supported API versions: 4-18
+    /// Supported API versions: 0-18
     pub fn with_partition(mut self, value: i32) -> Self {
         self.partition = value;
         self
@@ -88,7 +88,7 @@ impl FetchPartition {
     ///
     /// The message offset.
     ///
-    /// Supported API versions: 4-18
+    /// Supported API versions: 0-18
     pub fn with_fetch_offset(mut self, value: i64) -> Self {
         self.fetch_offset = value;
         self
@@ -115,7 +115,7 @@ impl FetchPartition {
     ///
     /// The maximum bytes to fetch from this partition.  See KIP-74 for cases where this limit may not be honored.
     ///
-    /// Supported API versions: 4-18
+    /// Supported API versions: 0-18
     pub fn with_partition_max_bytes(mut self, value: i32) -> Self {
         self.partition_max_bytes = value;
         self
@@ -153,7 +153,7 @@ impl FetchPartition {
 #[cfg(feature = "client")]
 impl Encodable for FetchPartition {
     fn encode<B: ByteBufMut>(&self, buf: &mut B, version: i16) -> Result<()> {
-        if version < 4 || version > 18 {
+        if version < 0 || version > 18 {
             bail!("specified version not supported by this message type");
         }
         types::Int32.encode(buf, &self.partition)?;
@@ -297,7 +297,7 @@ impl Encodable for FetchPartition {
 #[cfg(feature = "broker")]
 impl Decodable for FetchPartition {
     fn decode<B: ByteBuf>(buf: &mut B, version: i16) -> Result<Self> {
-        if version < 4 || version > 18 {
+        if version < 0 || version > 18 {
             bail!("specified version not supported by this message type");
         }
         let partition = types::Int32.decode(buf)?;
@@ -379,11 +379,11 @@ impl Default for FetchPartition {
 }
 
 impl Message for FetchPartition {
-    const VERSIONS: VersionRange = VersionRange { min: 4, max: 18 };
+    const VERSIONS: VersionRange = VersionRange { min: 0, max: 18 };
     const DEPRECATED_VERSIONS: Option<VersionRange> = None;
 }
 
-/// Valid versions: 4-18
+/// Valid versions: 0-18
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq)]
 pub struct FetchRequest {
@@ -394,7 +394,7 @@ pub struct FetchRequest {
 
     /// The broker ID of the follower, of -1 if this request is from a consumer.
     ///
-    /// Supported API versions: 4-14
+    /// Supported API versions: 0-14
     pub replica_id: super::BrokerId,
 
     /// The state of the replica in the follower.
@@ -404,17 +404,17 @@ pub struct FetchRequest {
 
     /// The maximum time in milliseconds to wait for the response.
     ///
-    /// Supported API versions: 4-18
+    /// Supported API versions: 0-18
     pub max_wait_ms: i32,
 
     /// The minimum bytes to accumulate in the response.
     ///
-    /// Supported API versions: 4-18
+    /// Supported API versions: 0-18
     pub min_bytes: i32,
 
     /// The maximum bytes to fetch.  See KIP-74 for cases where this limit may not be honored.
     ///
-    /// Supported API versions: 4-18
+    /// Supported API versions: 3-18
     pub max_bytes: i32,
 
     /// This setting controls the visibility of transactional records. Using READ_UNCOMMITTED (isolation_level = 0) makes all records visible. With READ_COMMITTED (isolation_level = 1), non-transactional and COMMITTED transactional records are visible. To be more concrete, READ_COMMITTED returns all data from offsets smaller than the current LSO (last stable offset), and enables the inclusion of the list of aborted transactions in the result, which allows consumers to discard ABORTED transactional records.
@@ -434,7 +434,7 @@ pub struct FetchRequest {
 
     /// The topics to fetch.
     ///
-    /// Supported API versions: 4-18
+    /// Supported API versions: 0-18
     pub topics: Vec<FetchTopic>,
 
     /// In an incremental fetch request, the partitions to remove.
@@ -465,7 +465,7 @@ impl FetchRequest {
     ///
     /// The broker ID of the follower, of -1 if this request is from a consumer.
     ///
-    /// Supported API versions: 4-14
+    /// Supported API versions: 0-14
     pub fn with_replica_id(mut self, value: super::BrokerId) -> Self {
         self.replica_id = value;
         self
@@ -483,7 +483,7 @@ impl FetchRequest {
     ///
     /// The maximum time in milliseconds to wait for the response.
     ///
-    /// Supported API versions: 4-18
+    /// Supported API versions: 0-18
     pub fn with_max_wait_ms(mut self, value: i32) -> Self {
         self.max_wait_ms = value;
         self
@@ -492,7 +492,7 @@ impl FetchRequest {
     ///
     /// The minimum bytes to accumulate in the response.
     ///
-    /// Supported API versions: 4-18
+    /// Supported API versions: 0-18
     pub fn with_min_bytes(mut self, value: i32) -> Self {
         self.min_bytes = value;
         self
@@ -501,7 +501,7 @@ impl FetchRequest {
     ///
     /// The maximum bytes to fetch.  See KIP-74 for cases where this limit may not be honored.
     ///
-    /// Supported API versions: 4-18
+    /// Supported API versions: 3-18
     pub fn with_max_bytes(mut self, value: i32) -> Self {
         self.max_bytes = value;
         self
@@ -537,7 +537,7 @@ impl FetchRequest {
     ///
     /// The topics to fetch.
     ///
-    /// Supported API versions: 4-18
+    /// Supported API versions: 0-18
     pub fn with_topics(mut self, value: Vec<FetchTopic>) -> Self {
         self.topics = value;
         self
@@ -575,7 +575,7 @@ impl FetchRequest {
 #[cfg(feature = "client")]
 impl Encodable for FetchRequest {
     fn encode<B: ByteBufMut>(&self, buf: &mut B, version: i16) -> Result<()> {
-        if version < 4 || version > 18 {
+        if version < 0 || version > 18 {
             bail!("specified version not supported by this message type");
         }
         if version <= 14 {
@@ -587,8 +587,12 @@ impl Encodable for FetchRequest {
         }
         types::Int32.encode(buf, &self.max_wait_ms)?;
         types::Int32.encode(buf, &self.min_bytes)?;
-        types::Int32.encode(buf, &self.max_bytes)?;
-        types::Int8.encode(buf, &self.isolation_level)?;
+        if version >= 3 {
+            types::Int32.encode(buf, &self.max_bytes)?;
+        }
+        if version >= 4 {
+            types::Int8.encode(buf, &self.isolation_level)?;
+        }
         if version >= 7 {
             types::Int32.encode(buf, &self.session_id)?;
         }
@@ -678,8 +682,12 @@ impl Encodable for FetchRequest {
         }
         total_size += types::Int32.compute_size(&self.max_wait_ms)?;
         total_size += types::Int32.compute_size(&self.min_bytes)?;
-        total_size += types::Int32.compute_size(&self.max_bytes)?;
-        total_size += types::Int8.compute_size(&self.isolation_level)?;
+        if version >= 3 {
+            total_size += types::Int32.compute_size(&self.max_bytes)?;
+        }
+        if version >= 4 {
+            total_size += types::Int8.compute_size(&self.isolation_level)?;
+        }
         if version >= 7 {
             total_size += types::Int32.compute_size(&self.session_id)?;
         }
@@ -765,7 +773,7 @@ impl Encodable for FetchRequest {
 #[cfg(feature = "broker")]
 impl Decodable for FetchRequest {
     fn decode<B: ByteBuf>(buf: &mut B, version: i16) -> Result<Self> {
-        if version < 4 || version > 18 {
+        if version < 0 || version > 18 {
             bail!("specified version not supported by this message type");
         }
         let mut cluster_id = None;
@@ -777,8 +785,16 @@ impl Decodable for FetchRequest {
         let mut replica_state = Default::default();
         let max_wait_ms = types::Int32.decode(buf)?;
         let min_bytes = types::Int32.decode(buf)?;
-        let max_bytes = types::Int32.decode(buf)?;
-        let isolation_level = types::Int8.decode(buf)?;
+        let max_bytes = if version >= 3 {
+            types::Int32.decode(buf)?
+        } else {
+            0x7fffffff
+        };
+        let isolation_level = if version >= 4 {
+            types::Int8.decode(buf)?
+        } else {
+            0
+        };
         let session_id = if version >= 7 {
             types::Int32.decode(buf)?
         } else {
@@ -875,17 +891,17 @@ impl Default for FetchRequest {
 }
 
 impl Message for FetchRequest {
-    const VERSIONS: VersionRange = VersionRange { min: 4, max: 18 };
+    const VERSIONS: VersionRange = VersionRange { min: 0, max: 18 };
     const DEPRECATED_VERSIONS: Option<VersionRange> = None;
 }
 
-/// Valid versions: 4-18
+/// Valid versions: 0-18
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq)]
 pub struct FetchTopic {
     /// The name of the topic to fetch.
     ///
-    /// Supported API versions: 4-12
+    /// Supported API versions: 0-12
     pub topic: super::TopicName,
 
     /// The unique topic ID.
@@ -895,7 +911,7 @@ pub struct FetchTopic {
 
     /// The partitions to fetch.
     ///
-    /// Supported API versions: 4-18
+    /// Supported API versions: 0-18
     pub partitions: Vec<FetchPartition>,
 
     /// Other tagged fields
@@ -907,7 +923,7 @@ impl FetchTopic {
     ///
     /// The name of the topic to fetch.
     ///
-    /// Supported API versions: 4-12
+    /// Supported API versions: 0-12
     pub fn with_topic(mut self, value: super::TopicName) -> Self {
         self.topic = value;
         self
@@ -925,7 +941,7 @@ impl FetchTopic {
     ///
     /// The partitions to fetch.
     ///
-    /// Supported API versions: 4-18
+    /// Supported API versions: 0-18
     pub fn with_partitions(mut self, value: Vec<FetchPartition>) -> Self {
         self.partitions = value;
         self
@@ -945,7 +961,7 @@ impl FetchTopic {
 #[cfg(feature = "client")]
 impl Encodable for FetchTopic {
     fn encode<B: ByteBufMut>(&self, buf: &mut B, version: i16) -> Result<()> {
-        if version < 4 || version > 18 {
+        if version < 0 || version > 18 {
             bail!("specified version not supported by this message type");
         }
         if version <= 12 {
@@ -1014,7 +1030,7 @@ impl Encodable for FetchTopic {
 #[cfg(feature = "broker")]
 impl Decodable for FetchTopic {
     fn decode<B: ByteBuf>(buf: &mut B, version: i16) -> Result<Self> {
-        if version < 4 || version > 18 {
+        if version < 0 || version > 18 {
             bail!("specified version not supported by this message type");
         }
         let topic = if version <= 12 {
@@ -1067,11 +1083,11 @@ impl Default for FetchTopic {
 }
 
 impl Message for FetchTopic {
-    const VERSIONS: VersionRange = VersionRange { min: 4, max: 18 };
+    const VERSIONS: VersionRange = VersionRange { min: 0, max: 18 };
     const DEPRECATED_VERSIONS: Option<VersionRange> = None;
 }
 
-/// Valid versions: 4-18
+/// Valid versions: 0-18
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq)]
 pub struct ForgottenTopic {
@@ -1137,7 +1153,7 @@ impl ForgottenTopic {
 #[cfg(feature = "client")]
 impl Encodable for ForgottenTopic {
     fn encode<B: ByteBufMut>(&self, buf: &mut B, version: i16) -> Result<()> {
-        if version < 4 || version > 18 {
+        if version < 0 || version > 18 {
             bail!("specified version not supported by this message type");
         }
         if version >= 7 && version <= 12 {
@@ -1217,7 +1233,7 @@ impl Encodable for ForgottenTopic {
 #[cfg(feature = "broker")]
 impl Decodable for ForgottenTopic {
     fn decode<B: ByteBuf>(buf: &mut B, version: i16) -> Result<Self> {
-        if version < 4 || version > 18 {
+        if version < 0 || version > 18 {
             bail!("specified version not supported by this message type");
         }
         let topic = if version >= 7 && version <= 12 {
@@ -1274,11 +1290,11 @@ impl Default for ForgottenTopic {
 }
 
 impl Message for ForgottenTopic {
-    const VERSIONS: VersionRange = VersionRange { min: 4, max: 18 };
+    const VERSIONS: VersionRange = VersionRange { min: 0, max: 18 };
     const DEPRECATED_VERSIONS: Option<VersionRange> = None;
 }
 
-/// Valid versions: 4-18
+/// Valid versions: 0-18
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq)]
 pub struct ReplicaState {
@@ -1330,7 +1346,7 @@ impl ReplicaState {
 #[cfg(feature = "client")]
 impl Encodable for ReplicaState {
     fn encode<B: ByteBufMut>(&self, buf: &mut B, version: i16) -> Result<()> {
-        if version < 4 || version > 18 {
+        if version < 0 || version > 18 {
             bail!("specified version not supported by this message type");
         }
         if version >= 15 {
@@ -1396,7 +1412,7 @@ impl Encodable for ReplicaState {
 #[cfg(feature = "broker")]
 impl Decodable for ReplicaState {
     fn decode<B: ByteBuf>(buf: &mut B, version: i16) -> Result<Self> {
-        if version < 4 || version > 18 {
+        if version < 0 || version > 18 {
             bail!("specified version not supported by this message type");
         }
         let replica_id = if version >= 15 {
@@ -1438,7 +1454,7 @@ impl Default for ReplicaState {
 }
 
 impl Message for ReplicaState {
-    const VERSIONS: VersionRange = VersionRange { min: 4, max: 18 };
+    const VERSIONS: VersionRange = VersionRange { min: 0, max: 18 };
     const DEPRECATED_VERSIONS: Option<VersionRange> = None;
 }
 

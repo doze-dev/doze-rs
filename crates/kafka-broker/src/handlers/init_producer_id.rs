@@ -5,7 +5,7 @@ use kafka_storage::fs::Fs;
 use kafka_wire::ResponseError;
 use kafka_wire::messages::{InitProducerIdRequest, InitProducerIdResponse, ProducerId};
 
-use crate::txn::rules;
+use crate::txn::rules::{self, Timeout};
 use crate::{Broker, Caller, blocking};
 
 /// The longest transactional id kept (it is kept for good, in memory and on disk).
@@ -19,6 +19,13 @@ impl<F: Fs> Broker<F> {
     /// Before anything else is looked at, the caller must be allowed: to WRITE the transactional id (53 if not); or,
     /// with no id, to IDEMPOTENT_WRITE on the cluster or WRITE to at least one topic (31 if not). The second is
     /// Kafka's rule since KIP-679: a producer that may write somewhere may be given a producer id.
+    ///
+    /// v6 (KIP-939, offered only with `Config::unstable_api_versions`, as Kafka 4.4.0 offers it) may ask for a two-phase
+    /// commit (`Enable2Pc`): the caller must also be allowed TWO_PHASE_COMMIT on the id, the broker must allow it
+    /// (`Config::transaction_two_phase_commit`, else TRANSACTIONAL_ID_AUTHORIZATION_FAILED), and the transaction then
+    /// has no timeout (any timeout asked is accepted and the transaction never expires). Keeping a prepared transaction
+    /// (`KeepPreparedTxn`) is UNSUPPORTED_VERSION, as Kafka 4.4.0 has not built it; the answer's ongoing-transaction
+    /// fields are -1, as Kafka leaves them (`TransactionCoordinator.handleInitProducerId`).
     pub(crate) async fn init_producer_id(
         &self,
         version: i16,
@@ -46,8 +53,19 @@ impl<F: Fs> Broker<F> {
                 (-1, _) | (_, -1) => return refuse(resp, ResponseError::InvalidRequest),
                 (producer, epoch) => Some((producer, epoch)),
             };
+            if req.enable_2_pc && !self.config.transaction_two_phase_commit {
+                return refuse(resp, ResponseError::TransactionalIdAuthorizationFailed);
+            }
+            if req.keep_prepared_txn {
+                return refuse(resp, ResponseError::UnsupportedVersion);
+            }
+            let timeout = if req.enable_2_pc {
+                Timeout::TwoPhase
+            } else {
+                Timeout::Ms(req.transaction_timeout_ms)
+            };
             return match self
-                .init_txn_producer(id.0.as_str(), req.transaction_timeout_ms, expected)
+                .init_txn_producer(id.0.as_str(), timeout, expected)
                 .await
             {
                 Ok((producer, epoch)) => {

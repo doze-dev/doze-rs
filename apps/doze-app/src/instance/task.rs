@@ -8,17 +8,17 @@ use gpui::{AnyElement, Context, IntoElement, div, prelude::*, px, relative};
 use super::InstanceView;
 use super::ui::{self, card, heading, step_num, text};
 use crate::theme::{Tokens, ty};
-use crate::widgets::MONO_FAMILY;
+use crate::widgets::Mono as _;
 
 pub(crate) fn task(t: &Tokens, v: &mut InstanceView, cx: &mut Context<InstanceView>) -> AnyElement {
     if v.page.runs.is_empty() {
-        not_run(t, v)
+        not_run(t, v, cx)
     } else {
         last_run(t, v, cx)
     }
 }
 
-fn not_run(t: &Tokens, v: &InstanceView) -> AnyElement {
+fn not_run(t: &Tokens, v: &InstanceView, cx: &mut Context<InstanceView>) -> AnyElement {
     let list = step_list(t, run_steps(&v.page));
     let left = div()
         .flex()
@@ -37,9 +37,9 @@ fn not_run(t: &Tokens, v: &InstanceView) -> AnyElement {
                 .text_color(t.dim)
                 .items_baseline()
                 .child("From a terminal: ")
-                .child(div().font_family(MONO_FAMILY).text_color(t.bright).child(text(&format!("doze task {}", v.name))))
+                .child(div().mono_face().text_color(t.bright).child(text(&format!("doze task {}", v.name))))
                 .child(". From a script: the same, with ")
-                .child(div().font_family(MONO_FAMILY).child("--json"))
+                .child(div().mono_face().child("--json"))
                 .child("."),
         );
     let right = div()
@@ -48,7 +48,7 @@ fn not_run(t: &Tokens, v: &InstanceView) -> AnyElement {
         .gap(px(14.))
         .flex_1()
         .min_w_0()
-        .children(command(t, v))
+        .children(command(t, v, doze_desk::copied::row("run"), cx))
         .child(
             card(t).child(heading(t, "Output", None)).child(
                 ui::code(t)
@@ -153,23 +153,36 @@ fn two(left: gpui::Div, right: gpui::Div, grow: f32) -> AnyElement {
         .into_any_element()
 }
 
-/// The command card: what it runs and what it needs; nothing when it says neither.
-fn command(t: &Tokens, v: &InstanceView) -> Option<AnyElement> {
+/// The command card: what it runs (with a Copy that toasts `what`: Go's card row says "the value" before the first
+/// run, its Command card "the command" after) and what it needs; nothing when it says neither.
+fn command(
+    t: &Tokens,
+    v: &InstanceView,
+    what: &'static str,
+    cx: &mut Context<InstanceView>,
+) -> Option<AnyElement> {
     let p = &v.page;
     if p.run.is_empty() && p.needs.is_empty() {
         return None;
     }
     let mut c = card(t).child(heading(t, "Command", None));
     if !p.run.is_empty() {
-        c = c.child(row(
-            t,
-            "run",
-            div()
-                .font_family(MONO_FAMILY)
-                .text_size(px(ty::SM))
-                .text_color(t.bright)
-                .child(text(&p.run)),
-        ));
+        c = c.child(
+            row(
+                t,
+                "run",
+                div()
+                    .mono_face()
+                    .text_size(px(ty::SM))
+                    .text_color(t.bright)
+                    .child(text(&p.run)),
+            )
+            .child({
+                let (run, copied) = (p.run.clone(), v.is_copied("copy-run"));
+                ui::copy_link(t, "copy-run", if copied { "Copied" } else { "Copy" })
+                    .on_click(cx.listener(move |v, _, _, cx| v.copy("copy-run", &run, what, cx)))
+            }),
+        );
     }
     if !p.needs.is_empty() {
         let names: Vec<&str> = p.needs.iter().map(|n| n.name.as_str()).collect();
@@ -274,7 +287,7 @@ fn last_run(t: &Tokens, v: &mut InstanceView, cx: &mut Context<InstanceView>) ->
         .flex_1()
         .min_w_0()
         .child(card(t).child(heading(t, "Runs", Some("· kept for this stack, newest first"))).child(table))
-        .children(command(t, v))
+        .children(command(t, v, doze_desk::copied::THE_COMMAND, cx))
         .child(div().text_size(px(ty::SM_UP)).text_color(t.dim).child("A task keeps nothing awake once it ends. A failed run shows a notification and the row goes red until the next run."));
     let left = div().flex().flex_col().flex_1().min_w_0().child(output);
     two(left, right, 1.3)
@@ -335,11 +348,7 @@ fn run_row(
         .border_t_1()
         .border_color(t.line)
         .when(on, |d| d.bg(t.pick))
-        .child(
-            a.font_family(MONO_FAMILY)
-                .text_size(px(ty::SM))
-                .child(text(&r.when)),
-        )
+        .child(a.mono_face().text_size(px(ty::SM)).child(text(&r.when)))
         .child(
             b.flex()
                 .items_center()
@@ -412,6 +421,6 @@ impl InstanceView {
                     .join("\n")
             })
             .unwrap_or_default();
-        self.copy("output", &text, cx);
+        self.copy("output", &text, doze_desk::copied::THE_OUTPUT, cx);
     }
 }

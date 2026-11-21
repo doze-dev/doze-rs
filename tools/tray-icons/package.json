@@ -1,0 +1,9 @@
+{
+  "name": "tray-icons",
+  "private": true,
+  "type": "module",
+  "description": "Draws the menu-bar template images (apps/doze-app/assets/tray) from the brand bat. Run by hand when the mark changes.",
+  "dependencies": {
+    "@resvg/resvg-js": "^2.6.2"
+  }
+}

@@ -9,7 +9,7 @@
 use aws_schema::tables::{K_BLOB, K_STR, K_STREAM, K_STRUCT, K_UNION, MemberRef, Tables};
 use serde_json::{Map, Value};
 
-use super::request::{Parts, header, prefixed, query, scalar};
+use super::request::{Parts, header, prefixed, query, query_params, scalar};
 
 /// What stops a request from being read.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -60,6 +60,7 @@ pub fn to_json(tables: &Tables, shape: u32, p: &Parts<'_>) -> Result<Value, Read
                 .find(|(l, _)| l == ix)
                 .map(|(_, v)| scalar(m.kind, v)),
             2 => query(m, p.query),
+            3 => query_params(tables, m, &members, p.query),
             4 => header(m, p.headers),
             5 => prefixed(m, p.headers),
             6 => payload(m, p.body, body.as_ref()),

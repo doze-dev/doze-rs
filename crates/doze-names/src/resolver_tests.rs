@@ -103,6 +103,44 @@ async fn a_peer_takes_over_when_the_holder_exits() {
     standby.close().await;
 }
 
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn a_holder_letting_go_leaves_its_successors_record() {
+    // The crossing behind the take-over test's failures on windows-11-arm, made to happen every time instead of once
+    // in a few hundred runs: the successor's record is written while the holder still serves (as when a peer binds
+    // in the instant the holder's socket closes), then the holder lets go. Both peers have this process's pid, so
+    // only the record's owner and address say whose it is; released by pid alone, the successor's record went.
+    let (h, addr) = (home(), free_udp_addr().unwrap());
+    let kafka = reg(&h, "doze-kafka");
+    let mut holder = serve(config(&kafka, addr, Upstreams::fixed(vec![])));
+    assert!(holder.bound(RETRY * 3).await);
+    let aws = reg(&h, "doze-aws");
+    aws.claim_holder(RESOLVER_KEY, &addr.to_string()).unwrap();
+    holder.close().await;
+    assert_eq!(
+        aws.resolver_holder().map(|e| e.owner).as_deref(),
+        Some("doze-aws"),
+        "the holder's release erased its successor's record"
+    );
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn a_holder_that_exits_takes_its_record_with_it() {
+    let (h, addr) = (home(), free_udp_addr().unwrap());
+    let kafka = reg(&h, "doze-kafka");
+    let mut holder = serve(config(&kafka, addr, Upstreams::fixed(vec![])));
+    assert!(holder.bound(RETRY * 3).await);
+    assert_eq!(
+        kafka.resolver_holder().map(|e| e.owner).as_deref(),
+        Some("doze-kafka")
+    );
+    holder.close().await;
+    assert_eq!(
+        kafka.resolver_holder(),
+        None,
+        "a holder that left is still named"
+    );
+}
+
 /// A stand-in upstream: answers every query with one A record (TTL an hour).
 async fn upstream_server() -> SocketAddr {
     let sock = UdpSocket::bind("127.0.0.1:0").await.unwrap();

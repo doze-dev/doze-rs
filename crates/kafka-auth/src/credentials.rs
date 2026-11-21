@@ -17,6 +17,12 @@ use crate::scram::{Kind, Verifier};
 pub struct Secret(Box<[u8]>);
 
 impl Secret {
+    /// A secret of `bytes` (a key or a password set at start).
+    #[must_use]
+    pub fn new(bytes: impl Into<Box<[u8]>>) -> Self {
+        Self(bytes.into())
+    }
+
     /// The password's bytes.
     #[must_use]
     pub fn expose(&self) -> &[u8] {

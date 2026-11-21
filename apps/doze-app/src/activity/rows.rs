@@ -189,6 +189,11 @@ fn name_cell(
         .when(alone, |d| d.font_weight(ty::SEMIBOLD))
         .cursor_pointer()
         .hover(|s| s.text_color(t.bright))
+        .tooltip({
+            // Go's title: what a click does.
+            let say = name_title(&r.name, alone);
+            move |window, cx| gpui_component::tooltip::Tooltip::new(say.clone()).build(window, cx)
+        })
         .on_click(click)
         .child(dot(look_color(t, &r.look)))
         .child(
@@ -244,7 +249,8 @@ fn asleep(t: &Tokens, r: &doze_desk::activity::Row) -> impl IntoElement {
         })
 }
 
-/// How often it crashed (first, so it is never cut), then what woke it, cut with an ellipsis; the whole list on hover.
+/// What woke it, then how often it crashed in red (Go: `{wokenBy} · N crashed`); what woke it is cut with an
+/// ellipsis, the crashes kept; the whole list on hover.
 fn woken(t: &Tokens, r: &doze_desk::activity::Row) -> impl IntoElement {
     let by = if r.woken_by.is_empty() {
         "—".to_owned()
@@ -255,20 +261,11 @@ fn woken(t: &Tokens, r: &doze_desk::activity::Row) -> impl IntoElement {
     div()
         .id(gpui::SharedString::from(format!("act-woken-{}", r.name)))
         .flex()
-        .gap(px(6.))
         .flex_1()
         .max_w(px(COLS[3]))
         .min_w_0()
         .whitespace_nowrap()
         .text_color(t.dim)
-        .when(r.crashes > 0, |d| {
-            d.child(
-                div()
-                    .flex_none()
-                    .text_color(t.bad)
-                    .child(text(&format!("{} crashed ·", r.crashes))),
-            )
-        })
         .child(
             div()
                 .min_w_0()
@@ -276,6 +273,14 @@ fn woken(t: &Tokens, r: &doze_desk::activity::Row) -> impl IntoElement {
                 .text_ellipsis()
                 .child(text(&by)),
         )
+        .when(r.crashes > 0, |d| {
+            d.child(
+                div()
+                    .flex_none()
+                    .text_color(t.bad)
+                    .child(text(&format!(" · {} crashed", r.crashes))),
+            )
+        })
         .tooltip(move |window, cx| {
             gpui_component::tooltip::Tooltip::new(tip.clone()).build(window, cx)
         })
@@ -305,5 +310,25 @@ fn narrowed(m: &doze_desk::activity::Activity, find: &str) -> doze_desk::activit
         empty: events.is_empty(),
         events,
         ..Default::default()
+    }
+}
+
+/// The name's title (Go `activity.tsx`): a click shows only it, or, when it is shown alone, every service again.
+fn name_title(name: &str, alone: bool) -> gpui::SharedString {
+    if alone {
+        "Every service".into()
+    } else {
+        format!("Only {name}").into()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::name_title;
+
+    #[test]
+    fn the_name_says_what_a_click_does() {
+        assert_eq!(name_title("api", false).as_ref(), "Only api");
+        assert_eq!(name_title("api", true).as_ref(), "Every service");
     }
 }

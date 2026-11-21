@@ -1,0 +1,7 @@
+services:
+  search:
+    image: bitnami/kafka
+  store:
+    image: minio/minio
+  db:
+    image: nats:2

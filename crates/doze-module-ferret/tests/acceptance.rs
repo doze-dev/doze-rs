@@ -166,7 +166,16 @@ async fn the_example_answers_a_mongodb_hello_with_its_collections_and_index() {
         .output()
         .unwrap();
     assert_eq!(String::from_utf8_lossy(&out.stdout).trim(), "", "{out:?}");
-    assert!(!b.log("ferretdb").contains("8088"), "{}", b.log("ferretdb"));
+    // No debug server on FerretDB's default port: ":8088" as a whole port. The log's connection ids are random
+    // 19-digit numbers, and one with "8088" inside it failed a plain substring check (CI run 44793844933).
+    let log = b.log("ferretdb");
+    let port_8088 = log.match_indices(":8088").any(|(i, m)| {
+        !log[i + m.len()..]
+            .chars()
+            .next()
+            .is_some_and(|c| c.is_ascii_digit())
+    });
+    assert!(!port_8088, "{log}");
     graceful(&b.stop(Duration::from_secs(30)).await);
 }
 

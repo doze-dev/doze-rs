@@ -260,6 +260,9 @@ pub(crate) fn v1(core: &mut Core, r: &Req) -> Res {
             t.clone(),
         );
     }
+    if wanted.contains("documentation") {
+        with_docs(&mut out, doc, stage);
+    }
     let yaml = r.opt("accepts").is_some_and(|a| a.contains("yaml"));
     Ok(payload(
         &out,
@@ -267,6 +270,70 @@ pub(crate) fn v1(core: &mut Core, r: &Req) -> Res {
         &format!("{}_{stage}", if oas3 { "oas30" } else { "swagger" }),
     )
     .into())
+}
+
+/// `extensions=documentation`: the stage's documentation version, as AWS's extension and in the document's own fields.
+fn with_docs(out: &mut Value, doc: &Value, stage: &str) {
+    if let Some(d) = crate::v1::documentation(doc, stage) {
+        documented(out, &d);
+        crate::doc::put(out, "x-amazon-apigateway-documentation", d);
+    }
+}
+
+/// The OpenAPI fields of the published parts written where they belong: an `API` part's `description` (and `title`, `version`) on
+/// `info`, a `METHOD` part's `summary`, `description` and `tags` on its operation (`*` applies to every method of the path). The
+/// whole parts stay in the extension, as the model says.
+fn documented(out: &mut Value, d: &Value) {
+    const OPENAPI: [&str; 3] = ["summary", "description", "tags"];
+    for p in d
+        .get("documentationParts")
+        .and_then(Value::as_array)
+        .into_iter()
+        .flatten()
+    {
+        let Some(props) = p.get("properties").and_then(Value::as_object) else {
+            continue;
+        };
+        let kind = p.pointer("/location/type").and_then(Value::as_str);
+        if kind == Some("API") {
+            if let Some(info) = out.get_mut("info") {
+                for k in ["description", "title", "version"] {
+                    if let Some(v) = props.get(k) {
+                        crate::doc::put(info, k, v.clone());
+                    }
+                }
+            }
+            continue;
+        }
+        if kind != Some("METHOD") {
+            continue;
+        }
+        let path = p
+            .pointer("/location/path")
+            .and_then(Value::as_str)
+            .unwrap_or("/");
+        let method = p
+            .pointer("/location/method")
+            .and_then(Value::as_str)
+            .unwrap_or("*");
+        let Some(item) = out
+            .get_mut("paths")
+            .and_then(|ps| ps.get_mut(path))
+            .and_then(Value::as_object_mut)
+        else {
+            continue;
+        };
+        for (verb, op) in item.iter_mut() {
+            let matches = method == "*" || *verb == verb_key(method);
+            if matches && op.is_object() {
+                for k in OPENAPI {
+                    if let Some(v) = props.get(k) {
+                        crate::doc::put(op, k, v.clone());
+                    }
+                }
+            }
+        }
+    }
 }
 
 fn payload(doc: &Value, yaml: bool, name: &str) -> Value {

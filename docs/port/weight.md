@@ -743,7 +743,6 @@ reach GitHub. When the Rust CLI has `doze version --check`, the app asks it inst
 Activity at rest: it reads the journal again every ten seconds while shown (as Go's page did), off the UI thread, and
 redraws only when a figure changed; the strips are painted, so a 2,000-service stack builds only the rows in view
 (`doze-desk` lays out 2,000 services over 10,000 events in a few milliseconds, `tests/activity.rs`).
-**doze-aws with every Go service (2026-11-13, release-aws): 7,444,224 B (7.10 MiB) on darwin/arm64, 258 packages, idle 5,344 KB; 11,764,560 B on x86_64 Linux (musl), 10,561,264 B with JSONata off.** Over the "z" base (4,867,344 B / 233 on macOS, 7,481,552 B on Linux): Step Functions, API Gateway and CloudFormation together add 2.58 MB on macOS and 4.28 MB on Linux (1.66 times). The owner raised doze-aws's ceiling to 20 MB the same day; the CI line is 12,400,000 B (musl plus 5%) and 264 packages. Cross-building now needs a C compiler and an ELF archiver for the target (JSONata's `psm`): a `clang --target=x86_64-unknown-linux-musl` wrapper as `CC_x86_64_unknown_linux_musl` and `llvm-ar` as `AR_x86_64_unknown_linux_musl`.
 
 **The app carries the CLI (core C1, 2026-11-14).** Owner decision: Doze.app holds the GUI and the full CLI in one
 binary, `doze-app <command>` being the doze CLI (`doze` alone stays CLI-only, under 10 MB). Linking `doze-cli` into
@@ -768,48 +767,55 @@ separate netd binary would save the CLI those bytes but would be a second progra
 Go's model, which the plan keeps, is one binary.
 
 | | Line | Before (C1 + app, 10e18e80) | P1 |
-The registry (Avro, every REST route, storage in `meta.redb`) on by default behind the `registry` feature. The libraries weighed for
-it and not taken (apache-avro, protox with prost-reflect, jsonschema, boon) are in `phase10.md`, "Weight first".
+|---|---|---|---|
+| `doze`, darwin/arm64, `release` | 9 MB (ceiling 10) | about 3.8 MB | 4,592,176 B (+0.79 MB) |
+| `doze`, Linux aarch64 (Lima VM), `release` | 9 MB | not measured | 4,986,168 B, 185 packages |
+| `doze-app`, darwin/arm64, `release-app` | 16 MB | 15,137,792 B | 15,654,752 B (+517 KB) |
+| `doze-app` packages (CI's count) | was 640, now 650 | 631 | 640 |
 
-| | main (2f1bb66) | 10a |
-|---|---|---|
-| doze-kafka binary | 6,011,568 B | **6,244,864 B** (+233,296 B; +413,984 B before the crate was built at `opt-level = "z"`) |
-| packages (`cargo xtask weight`) | 155 | **156** (a repeated `cargo tree` line; no third-party package added) |
-| idle | 6,960 KB | 7,184 KB (the registry listens on 127.0.0.1:8081) |
-| with `--features tls` | | 7,039,920 B, 168 `cargo tree` lines |
+New packages: `doze-doctor`, `tun-rs`, `nix`, `route_manager`, `getifaddrs`, `ipnet`, `memoffset` (the network
+daemon), `privesc` (UAC on Windows; on macOS and Linux the system's prompt is `doze-os`'s). The app's package line
+moves to 650: the measured 640 plus the room the C1 line had. **The app's byte room is now 345 KB under 16 MB**: the
+next core crates that join the CLI (the daemon, the engine, config) will not fit in the app without the lever §6.3 names
+(one HTTP and TLS stack for the registry client and the front door; ureq + rustls-native-certs is the obvious
+duplicate) or a size profile change; this has to be decided before D1 joins the CLI. CI now holds `doze` to 9 MB and
+200 packages (the `weight` job).
+**doze-aws with every Go service (2026-11-13, release-aws): 7,444,224 B (7.10 MiB) on darwin/arm64, 258 packages, idle 5,344 KB; 11,764,560 B on x86_64 Linux (musl), 10,561,264 B with JSONata off.** Over the "z" base (4,867,344 B / 233 on macOS, 7,481,552 B on Linux): Step Functions, API Gateway and CloudFormation together add 2.58 MB on macOS and 4.28 MB on Linux (1.66 times). The owner raised doze-aws's ceiling to 20 MB the same day; the CI line is 12,400,000 B (musl plus 5%) and 264 packages. Cross-building now needs a C compiler and an ELF archiver for the target (JSONata's `psm`): a `clang --target=x86_64-unknown-linux-musl` wrapper as `CC_x86_64_unknown_linux_musl` and `llvm-ar` as `AR_x86_64_unknown_linux_musl`.
 
-No limit moved (7,800,000 B, 161 packages, 8,192 KB; TLS job 8,750,000 B and 173 lines). On the Linux estimate (darwin times 1.216)
-the default build is about 7.59 MB (97% of its limit) and the TLS build about 8.56 MB (98%): 10b and 10c are to be measured against
-that before they merge.
 
-**10a on top of the module face (merged with main at Phase 11, 2026-11-14):** the default build 6,791,104 B on darwin arm64 (+216,800 B over
-the module's 6,574,304 B), 171 packages, 7,248 KB idle. With `--features tls`: 7,586,144 B and 183 `cargo tree` lines.
+## Core F1 (`doze` with doze-fetch), measured 2026-11-14, release, darwin/arm64
 
-**The ceiling, with CI's measured ratio (2026-11-14).** CI measured ubuntu x86_64 at 1.36 times darwin (8,174,048 B against
-6,011,568 B), not the 1.216 used above. On that scale: the default build with the module face and 10a is about 9.24 MB, under main's
-line of 9,386,171 B (which does not move) and 0.76 MB under the owner's 10 MB ceiling; 10a itself is about 0.29 MB of it. **The TLS
-build does not fit:** 7,586,144 B times 1.36 is about 10.32 MB, over the 10 MB ceiling, and the module face alone already puts it at
-about 10.0 MB (main's TLS line, 9,279,000 B and 173, was measured before the module; the module adds 13 packages). No limit was raised;
-the CI TLS job will fail on main with or without the registry until the owner decides (leave the module or the registry out of the
-`tls` release, or take a size lever such as `opt-level = "z"` on more of the tree).
+The `doze` CLI (package `doze-cli`) gets its first line in `xtask/weight-limits.txt`. F1 links the registry client: ureq,
+rustls with ring, rustls-native-certs, tar and flate2, ed25519-dalek and yaml-rust2. With the F1 audit fixes (cross-process
+locks from doze-os, which `doze` already linked): **3,148,064 B, 169 packages**. The F1 audit measured 3.05 MB before
+them; the fixes cost about 100 KB (the capped unpack, the lock merge, the platform list), which is the judgement call
+the owner leaves to the builder.
 
-## The TLS build over 10 MB: the owner raised its ceiling (2026-11-14)
+- Limit: 4,300,000 B (the macOS size times 1.3 for an x86_64 Linux build, plus 5%, the rule of the doze-aws line) and
+  175 packages (six of room). It is re-based from the first Linux CI run.
+- Idle memory is not weighed: the CLI serves nothing by itself (the line's `0`; the daemon gets its own line when it
+  exists). Downloads run in `doze __fetch` children, so none of this is resident in a daemon.
+- The 10 MB ceiling (owner, 2026-11-12) stands far above.
 
-With the module face (Phase 11) and the schema registry's foundation (Phase 10a), `--features tls` is 7,586,144 B on darwin arm64, about
-10.32 MB on ubuntu x86_64 at CI's measured ratio of 1.36. Asked whether to make room (module face opt-in, no module or no registry in the
-TLS build, or a higher ceiling), the owner chose to raise the ceiling. The `weight-tls` job's limit is now 10,833,014 B (that estimate
-plus 5%) and 186 packages, until CI's next run on main measures it; Protobuf (10b) and JSON Schema (10c) will move it again, each with
-its numbers. The default build's limit (9,386,171 B, 174 packages) is unchanged.
+## Core C2b (`doze`: init, add, modules upgrade, bug, open, update), measured 2026-11-14, release, darwin/arm64
 
-## One build: TLS in the default (2026-11-14, owner decision)
+| | Line | C2a (#51) | C2a + F1 merged | C2b |
+|---|---|---|---|---|
+| `doze` bytes | 9,000,000 | 6,207,024 | 6,505,152 (+298,128) | 6,802,928 (+297,776) |
+| `doze` packages (CI's count) | 230 | 210 | not counted | 221 (210 without `tls`) |
 
-Asked whether to keep a separate TLS build "for a few MB", the owner chose one build, and raised the ceiling to 15 MB the same day. `tls` is
-now a default feature of `doze-kafka`; `--no-default-features` (no console, registry, module or TLS) stays only as an internal check that the
-broker core needs none of them. CI: the `weight-tls` size job is gone; its size and packages are the `weight` job's single line
-(`xtask/weight-limits.txt`), and a `weight-tls-idle` job keeps the one thing it measured that the default job does not: idle memory with a
-certificate loaded (10,610 KB). The single build, with the module face and the registry's Avro and JSON Schema, is 7,669,200 B on darwin
-arm64, 183 packages, 7,472 KB idle; about 10.43 MB on ubuntu x86_64 at CI's 1.36. Limit 10,951,617 B, 186 packages, 9,996 KB, estimates
-until CI measures them. Building from source needs a C compiler and an assembler (ring); release binaries are unaffected.
+- **F1 merged in (+298 KB).** doze-fetch replaces doze-cli's registry code (the same bytes) and brings what `doze` did not
+  have: the `__fetch` child (module resolve, the engine mirror, archive unpacking with tar and flate2, tokio's process
+  support) and the `doze.lock` writer. These are F1's design (downloads run in `doze __fetch`, never in a daemon), and
+  `modules upgrade` needs them in `doze` itself.
+- **C2b's commands (+298 KB).** doze-detect (Go's detector without its engine table; regex and yaml-rust2 were already
+  linked), `init`, `add`, `modules upgrade` (resolving and verifying a module build), `bug`, `open`, `update`, and
+  the examples in their help.
+- **One HTTP stack.** `doze_cli::http` is doze-fetch's client: ureq over rustls in `doze` (feature `tls`), the system's
+  curl without it. The app can build doze-cli with `default-features = false` to drop ureq and rustls; that is the app
+  owner's change (its size profile is being worked on separately).
+- Over C2a in all: +595,904 B, under the 9 MB line by 2.2 MB. xtask's `doze-cli` line, which F1 had set at 4.3 MB for the
+  registry client alone, is now the CLI's: 9,000,000 B and 230 packages, as the `weight-doze` job.
 
 ## Idle (2026-11-15, branch `fix-idle`), release, darwin/arm64 and the Linux aarch64 VM
 
@@ -916,6 +922,137 @@ packages, inside the 13,900,000 B / 280 lines its stage set; idle 9,964 / 10,036
 **10,526 KB** (was 9,413). That is +1.06 MB over the median of 8,964 KB measured before those merges; added to issue #36 beside the A14 to
 A16 step. In the same run doze-kafka's idle median was 10,648 KB, inside its new 11,013 KB.
 
+## doze's profile: room for the daemon (2026-11-15, core C2b), `doze` on darwin/arm64 and x86_64 Linux
+
+At C2b `doze` was 8,948,248 B on CI's x86_64 Linux, 52 KB under its 9 MB line, with the daemon, the engine and the module host
+still to come. Each lever was measured on the C2b head (284d2ff7). Linux numbers are a cross build (`x86_64-unknown-linux-gnu`,
+zig as the linker), within 0.3% of CI's (8,924,224 B here against CI's 8,948,248 B for the same code). `doze status` is warm, with
+the daemon down, on examples/shop's doze.hcl, median of 80 after 5 warm-ups, on the reference Mac.
+
+| Option | x86_64 Linux | darwin/arm64 | `status` warm (darwin) |
+|---|---|---|---|
+| C2b as it was (`release`, the broker's profile) | 8,924,224 B | 6,802,944 B | 7.65 / 8.06 ms (two runs) |
+| doze's own crates at "s" (doze-*, yaml-rust2, ureq, x509-cert, der, tar, jiff, clap_complete, num-bigint, flate2, winnow) | 7,522,720 B (−1.40 MB) | not measured | |
+| the same at "z" | 7,257,776 B (−1.67 MB) | | |
+| the same without the crates the broker or doze-aws link (flate2, miniz_oxide, der, doze-os, doze-module-proto), "z" | 7,263,136 B (−1.66 MB) | 7,109,168 B (**+306 KB**) | |
+| the same at "s" | | 7,226,160 B (**+423 KB**) | |
+| **the whole build at "s": profile `release-doze`** | **7,123,432 B (−1.80 MB)** | **5,531,712 B (−1.27 MB)** | 8.29 / 8.20 ms |
+| the whole build at "z" | 6,901,448 B (−2.02 MB) | | |
+
+- **Chosen: `release-doze`**, `inherits = "release"`, `opt-level = "s"`, the same move as the app's `release-app`. It is the only
+  option that shrinks both platforms: per-package levels on doze's crates shrank Linux but grew darwin (fat LTO with mixed levels;
+  measured twice, the baseline rebuilt to the byte). The broker's profile and its hot path are untouched, since `release` is unchanged.
+  The workspace's per-package overrides (clap and regex at "z") are inherited: `release-doze` measures the same as `release`
+  with `opt-level` overridden.
+- **Headroom**: 1.88 MB under the 9 MB line on x86_64 Linux (target 1.5 MB), 3.47 MB on darwin. CI confirmed it on bc68fd9b: `doze` 7,086,496 B on ubuntu x86_64 (from 8,948,248 B, so 1.91 MB under the line), 219 packages, and a warm `doze status` with a median of 11.15 ms on the shared runner (no earlier CI figure to compare with; the darwin before and after is above).
+- **Cost**: about 0.3 ms on a warm `doze status` (7.65–8.06 to 8.20–8.29 ms), inside run-to-run noise and half the 15 ms budget.
+  CI's weight-doze job now also reports the x86_64 Linux number (not gated). "z" saves 0.22 MB more on Linux but turns off loop
+  vectorisation for the daemon to come (log store, proxy); not worth it with this headroom.
+- **Not levers**:
+  - Duplicate dependencies (`cargo tree -d`): only getrandom 0.2/0.3/0.4 (ring, doze-names, crypto-bigint), a few KB, and syn 2/3
+    (build time only).
+  - tokio: 96 KB of `.text`; the daemon needs `net`, `time`, `process`, `signal` and `io-util` anyway.
+  - jiff: 104 KB with jiff-core; `tzdb-bundle-platform` bundles only on Windows. chrono with a zone database would not be smaller.
+  - Linux carries `.eh_frame` (489 KB) and `.rela.dyn` (352 KB) that Mach-O does not; dropping them needs RUSTFLAGS
+    (`-C force-unwind-tables=no`, a static relocation model), which CI's own `RUSTFLAGS` would override, so they are left.
+  - What is heavy and linked once (cargo-bloat, Linux `.text`): yaml-rust2 236 KB (doze-fetch's meta.yaml), the regex stack
+    about 520 KB (doze-hcl's `regex`), rustls and ring about 600 KB (ureq, the front door). Each is needed; yaml-rust2 is the
+    one candidate for a small owned parser later.
+- **Builds**: CI's weight-doze job and `cargo xtask weight` build `--profile release-doze` (binary at `target/release-doze/doze`).
+  Release tooling for `doze` must use the same profile; `--release` still builds a working, bigger `doze`.
+- **The app** (`release-app`, already "s" throughout) is not changed by this: its 16 MB line has been red since C2a
+  (16,733,040 B at #51, 17,064,576 B at #53); that is the app's size profile, worked on separately.
+
+## C2c: the daemon inside `doze` (2026-11-15)
+
+With D1's `doze __daemon` merged into C2c (the daemon, the engine, doze-config's full load and the control server are now in the
+CLI's binary, as Go's were), `doze` in `release-doze` on darwin/arm64 is 6,211,408 B (C2b: 5,531,712 B, +680 KB) and 234 packages
+(C2b: 221). Bytes stay 2.8 MB under the 9 MB line (x86_64 Linux, about 1.29 times darwin, should be near 8.0 MB; CI's weight-doze
+job reports it). The package line moves from 230 to 240: the daemon's own crates, a small rise with its reason, under the owner's
+delegation of 2026-11-14.
+
+Session 10 (D1's session 9 merged: converge on start, meters, the data ops and the console topic, the plan op; and `connect`):
+`doze` in `release-doze` on darwin/arm64 is 6,725,008 B (+514 KB over the line above), about 8.7 MB on x86_64 Linux at CI's
+1.29; CI's weight-doze job gives the measured Linux number on this push. Under the 9 MB line, with less room than before:
+most of the rise is the daemon's (the console topic and meters), not the CLI's.
+
+Session 11 (D1's session 10 merged: add and remove at run time, `migrate` and `lint` as daemon calls, per-major builds;
+and C2c's migrate, lint's module pass, the verbs that start the daemon, sync's block drift, the fetch child's progress line).
+Measured 2026-11-15 on the C2c head, `release-doze`; x86_64 Linux is a cross build with zig as the linker (within 0.3% of
+CI's, above):
+
+| | x86_64 Linux | darwin/arm64 | packages |
+|---|---|---|---|
+| session 10 as CI measured it (5328d9e9) | 8,505,920 B | 6,725,008 B | 233 |
+| D1 session 10 merged, and this session's work | **8,994,120 B** (5,880 B under the line) | 6,940,192 B | 235 |
+| `regex` without its `perf` engines (doze-hcl, doze-detect) | **8,607,968 B** (392 KB under) | **6,723,920 B** | 233 |
+
+- **The lever: `regex` with `default-features = false, features = ["std", "unicode"]`** in doze-hcl and doze-detect, the only
+  two users in `doze`. The `perf` features (the lazy DFA, the one-pass and bounded backtracker engines, aho-corasick and
+  memchr literal search) make matching faster, never different: the same matches come out of the PikeVM. −386 KB on Linux,
+  −216 KB on darwin, two packages fewer (aho-corasick and memchr). Cost: `doze init --dry-run` over a 14,725-file Go
+  project (doze-detect's scans) is 12 ms before and 14 ms after (median of four, warm); HCL's `regex` functions run on
+  config values of a few bytes. A side effect is closer parity: without the DFA the compiled-size limit no longer refuses
+  three `\pL{0,1000}` that Go accepts (`fn2.regex3.07` matches Go now; it was a known difference, hcl-values.md F22).
+- Where the rest of the rise went (cargo-bloat, darwin `.text`): doze-daemon 373 KB, doze-engine 398 KB, doze-cli 564 KB,
+  doze-config 251 KB. D1 session 10 (add/remove, migrate, lint, per-major builds) is most of +215 KB on darwin; the CLI's
+  share this session is migrate, lint's pass and the block drift, a few tens of KB.
+- Not taken: `opt-level = "z"` for the whole build (−0.22 MB on Linux at C2b, but no loop vectorisation for the log store
+  and the front); `regex-lite` in doze-hcl (Go's `\w` is ASCII in both, but `regex-lite` has no Unicode classes, which
+  HCL's `regex` must take). doze-engine's `regex-lite` (31 KB) stays: its log patterns are Go's RE2 and need nothing more.
+- The 9 MB line is unchanged; the package line stays 240.
+
+## D2: names, the front door, TLS and downloads in the daemon; `release-doze` at "z" (2026-11-19)
+
+D2 put the zone into the daemon: `doze-bind`, doze-names' resolver and front door (hyper's server and client, rustls'
+server side, the CA's leaves), the hand-off to modules, the download fetch. x86_64 Linux is a cross build with zig as
+the linker (the base measured 8,652,824 B here against CI's 8,607,968 B, +0.5%), `release-doze`:
+
+| | x86_64 Linux | darwin/arm64 | packages |
+|---|---|---|---|
+| core-land (4ae41117), "s" | 8,652,824 B | | 233 |
+| D2, "s" | **9,192,984 B** (193 KB over the 9 MB line) | 7,171,888 B | 234 (doze-bind) |
+| D2, "s" with "z" on doze's own crates, rustls, yaml-rust2, hcl-edit, ureq | 8,729,016 B | **9,009,552 B** (+1.84 MB) | |
+| **D2, the whole build at "z"** | **8,754,344 B** | **6,031,248 B** | 234 |
+
+- Where the +540 KB went (cargo-bloat, Linux `.text`, D2 against the base): doze-names +199 KB (the front door, the
+  resolver with its upstream relay, the certificate resolver), doze-daemon +87 KB, rustls +65 KB (the server side),
+  hyper +28 KB (the server), doze-bind +18 KB, std +19 KB.
+- **Chosen: `release-doze` at "z"** (Cargo.toml, dated comment). Per-package levels grew darwin by 1.8 MB again (fat LTO
+  with mixed levels, as C2b found), so only the whole build moves. Cost measured on darwin: a warm `doze status` on the
+  acme fixture, median of 60, 31.55/30.70 ms at "s" and 31.80/31.24 ms at "z" (both runs include the timer's own process
+  start), so about 0.4 ms; the wake bench below is on the "z" build. C2b's reason not to take it (no loop vectorisation
+  for the log store and the front) is the price for staying under the line; the splice is tokio's copy either way.
+- Headroom: about 250 KB under the 9 MB line on Linux, before CI confirms it.
+- Wake, on the "z" build (darwin/arm64, a scratch bench after Go's `test/bench`: boot then down five times over the
+  control socket, the journal's `ready` times; postgres 16 and valkey 8 from a local signed registry): names off, db
+  median 35.0 ms (32.0–38.8), cache 18.8 ms (17.2–22.6), a valkey PING through the front after a sleep 19.3 ms to its
+  PONG; names on (Shared, a private zone): 36.8 ms, 19.5 ms, 20.7 ms. Go's budget (`budget.json`) is 250 ms.
+
+## Core D1 with the module catalog (`doze` carries the daemon), measured 2026-11-15, release, darwin/arm64
+
+| | bytes | packages (normal, unique) |
+|---|---|---|
+| D1 `__daemon` and `ctl` (b51674d3) | 6,219,760 | 168 |
+| + E2's CI fixes, the module catalog, the front, pins in doze.lock, the reaper (96c9137b) | 6,832,160 | 168 |
+
++612 KB, no new package: doze-module-host and doze-module-proto were already linked through the engine; the cost is the
+catalog's and the front's code, F1's module path now reached from the daemon, and E2's merge. Under the 8.5 MB line
+(the owner's ceiling for `doze` is 9 MB). Measured with `--release`: the `release-doze` profile is on #53/#56, not on
+this branch; Linux with it is measured once D1 and C2c meet (CI's weight job measures x86_64 on each push).
+## The app's ceiling raised to 20 MB (2026-11-15, branches `core-c2b`, `core-c2c`)
+
+The owner set the doze app's hard ceiling to **20 MB** on 2026-11-15: `doze-app` carries the GUI, the full CLI and the
+daemon, so the old 16 MB line (set when the app was the GUI alone) no longer fits what it is. CI measured doze-app at
+17,064,576 B and 662 packages at #53, which failed the 16 MB / 650 line. The CI lines are now:
+
+| | Ceiling | CI line | Measured (#53) |
+|---|---|---|---|
+| `doze-app`, darwin/arm64, `release-app` | 20 MB | 17,918,000 B (measured + 5%) | 17,064,576 B |
+| `doze-app` packages (CI's count) | | 700 | 662 |
+
+Branch `app-size-profile` (#55, merged into `app-finish`) separately brings the app down to about 14.5 MB with a size
+profile; when that meets these branches the byte line tightens again to its measured + 5%.
 ## The lean line after the efficiency pass (2026-11-15)
 
 Main's runs on 3636c3d2 (43665814939) and 1f182947 (43696911937) measured the lean build (`weight-lean`) at **5,450,072 B**, over the exact
@@ -1030,7 +1167,6 @@ CLI joined the app) and the update check's system `curl` (Settings › About, Q6
 built one of two ways by the `doze-cli` feature `tls`:
 
 | Binary | Client | Before (core-m1, b2c73a09) | After |
-|---|---|---|---|
 | `doze-app` | the system's `curl` (no `tls`): the registry and the update check | 15,654,736 B, 640 packages | **14,792,432 B (−862,304 B), 634 packages** |
 | `doze` | ureq + rustls in the process (`tls`, the default) | 4,608,720 B | 4,608,720 B (unchanged) |
 
@@ -1071,3 +1207,301 @@ behaviour the module uses.
 `doze-module-ferret` **1,006,976 B**, 49 packages (mariadb 922,288 B and 44 on the same build): +85 KB over mariadb for
 the BSON, the OP_MSG client and serde_json, which reads the seed files. Under the 1 MiB (1,048,576 B) line a module of
 this kind has until the modules plan sets per-module lines.
+
+### app-finish (full parity, privileged actions), measured 2026-11-14
+
+Same machine and method (`release-app`; `doze-app bench --fixture larder`, `footprint` of that pid; menu bar only is
+`doze-app --menu-bar` on an empty throwaway `DOZE_HOME`). The base is `app-try` at a112aa29, built the same way.
+
+| | Budget | app-try (a112aa29) | app-finish |
+|---|---|---|---|
+| Binary, `release-app`, no capture | ≤ 16 MB | — | 13,447,312 B at the end of the branch (13,430,736 B before the audit's fixes) |
+| Binary with `fixtures` | | 13,530,368 B | 13,712,704 B (+182 KB: the run sheet, the command source and plan, the streaming hands, the parity rows) |
+| Packages (`cargo tree -p doze-app --edges normal --prefix none`, unique) | limit 560 | 407 | 407 (none added: `objc2-user-notifications` and `block2`, now named by `doze-os` for the notification question at start, were in the tree through gpui) |
+| Menu bar ready | ≤ 100 ms | 81–145 ms | 77–180 ms (interleaved runs, same spread; the machine was building in another worktree) |
+| First frame after the tray click | ≤ 100 ms | 43–68 ms | 40–96 ms |
+| Window open and idle (larder's page) | ≤ 85 MB | **224–226 MB** | **225–226 MB** (0.0 % CPU) |
+| After the window closes | ≤ 35 MB | — | 38 MB (two runs, 10 s after the close) |
+| Menu bar only, footprint | ≤ 18 MB | — | 19 MB, 0.0 % CPU |
+
+**The open window is over its budget, and was before this branch.** Of the 225 MB, 147 MB is one category,
+"Owned physical footprint (unmapped) (graphics)" in 30 regions (GPU memory), against 4 MB in the M3 and Map 150
+builds; the rest is in line with those (IOSurface 32 MB, Malloc Small 26 MB). The window is static (0.0 % CPU), so it
+is a held allocation, not a redraw loop. Bisected on release builds of the merges into `app-preview`:
+
+| build | open and idle | graphics |
+|---|---|---|
+| db499759 (M2, before the merges) | 57 MB | 4 MB |
+| 8e36b742 (+ app-type) | 56 MB | 4 MB |
+| 902ddd0d (+ app-states) | 226 MB | 147 MB |
+| 59e22ed2 (+ app-map-150) | 56 MB | 4 MB |
+| 4792f2ae (+ app-m3-tray), ebe7d11b (Geist), a112aa29 (app-try) | 224–226 MB | 147 MB |
+
+It is not monotonic in the merge order, so it is an interaction (a texture held for something app-states draws, which
+the Map-150 merge happened to avoid and the tray merge brought back), not one commit's cost. Not fixed here: it predates
+this branch and needs its own look (Metal's allocation trace in Instruments on the larder page). After the close it
+drops to 38 MB, 3 MB over that line (35–36 MB at M3).
+
+What this branch adds at rest: nothing that wakes. The run sheet exists only while open; the config look stamps the
+known stacks' files every two seconds (a `stat` each) and redraws only on a change; doctor and the leftovers look keep
+their old cadence. Notifications ask for leave once at start, from a bundle only.
+
+### The idle window (app-finish, follow-up), measured 2026-11-14
+
+**Root cause of the 225 MB.** The idle stack page drew one frame a second, and while frames keep coming, even one a
+second, the GPU driver keeps about 147 MB of "Owned physical footprint (unmapped) (graphics)" for the process (the
+redraw floor described above). The frames came from `shell/clock.rs` (added by `app-states`): while a page shows text
+that changes with time alone, it is read again every second, and larder has a dozing instance whose "sleeps in 0:48"
+changes every second, so every read was a frame. Evidence, same binary (the renderer's frame counter, vendor
+PATCHES.md §3, read by `doze-app bench`): on the external display 27 frames in 27 s of idling, 223–225 MB, 147 MB
+graphics; with a log line per read, "sleeps in 0:48" → "0:47" → … once a second.
+
+**Why the bisect was not monotonic.** It measured where the window landed, not the code. `bench` centred the window on
+the main display; on this Mac the built-in display's copy of it was hidden (the window reported `Hidden` and the page
+still changed every second, but no frames were delivered), so builds measured while it landed there read 56–57 MB
+(4 MB graphics) and the rest 224–226 MB. Re-run here: the pre-fix build reads 57 MB on display 0 and 225 MB on display 1.
+`bench --display N` now chooses the display, so a reading is never taken from a window the system hides.
+
+**The fix.** Time-driven reads need the person (`shell/attention.rs`): the window counts as in use while it is key and
+was touched (a key, a click, the pointer, the wheel; becoming key counts) in the last 30 s. The clock, the instance
+page's tick and Activity's ten-second read run only then, and the hub streams the meters only while the window is on
+screen and in use (`Root::sync_hub`: a real daemon sends meters every second, so a page showing changing figures would
+otherwise draw a frame a second too). Left alone, the page still hears every change of state, at most once a second;
+a touch reads everything again at once. Also fixed: the instance page's tick started a second loop on each of its own
+reads, so loops doubled every second while a countdown showed (4,092 reads in 10 s in the test).
+
+**Measured** (`release-app`, `doze-app bench --fixture larder --display 1 --check --budget 85`, the window on screen;
+footprint at 12 s and 27 s after launch, and 42 s, which is about 10 s after the close; two runs):
+
+| | Budget | before (app-finish b55487cf) | after |
+|---|---|---|---|
+| Window open and idle (larder, on screen) | ≤ 85 MB | 223–225 MB (147 MB graphics), 27 frames in 27 s | **61 / 57 MB** and 61 / 57 MB (4 MB graphics), **0 frames** |
+| The same on the main display (where it was hidden) | | 57 MB | 61 / 57 MB, 0 frames |
+| Window in use (`--in-use`: counted as touched at open), then left alone | | — | 224 MB while the countdown ticks (28 frames, the last at 31 s), 78 MB 9 s after the last frame, 73 MB from then on |
+| After the window closes | ≤ 35 MB | 38 MB | 37–38 MB |
+| Menu bar only (empty home, `--menu-bar`) | ≤ 18 MB | 19 MB | 19 MB, 0.0 % CPU |
+| CPU, window open and idle | ≤ 0.3 % | 0.0 % | 0.0 % |
+| Binary, `release-app`, no capture | ≤ 16 MB | 13,447,312 B | 13,464,000 B (+16,688 B: attention, hands-off, the bench's check) |
+| Binary with `fixtures` | | 13,712,704 B | 13,745,968 B |
+| Packages (CI's count, `--target aarch64-apple-darwin`) | limit 560 | 538 | 539 (`gpui-pre-apple`, already in the tree, now named directly for its frame count) |
+
+What a window in use costs is the redraw floor, as before: about 225 MB while something on it moves, back to about
+75 MB within ten seconds of the last frame. The open window over the 85 MB line is now the window someone is using,
+not one left open.
+
+**The guard.** `shell/idle_tests.rs` (gpui test windows over the fixture daemon, the app's time and the hub's clock run
+on together): an untouched window draws 0 frames in 30 s while its countdown runs; a window in use draws, then stops
+once left alone, and a touch draws again; a pointer over a window that is not key draws nothing; the meters stream
+only while in use; the instance page reads once a second, not more. Without the gate the first two fail, and the
+instance test reports 4,092 reads. `doze-app bench --check [--budget MB]` exits 1 when a window left alone drew a frame
+or passed the budget (checked: an `--in-use` run with `--budget 85` exits 1 at 223 MB); CI's app job runs it on larder.
+
+Not covered: a window left alone while All logs follows still draws (that is following), and an untouched window's
+countdown and "last update Ns ago" show the figure of the last batch until a touch.
+
+### A truthful idle window (app-finish, follow-up), measured 2026-11-14
+
+**What was wrong with the fix above.** Stopping every time-driven read on an untouched window kept it at ~57 MB, but a
+window someone was *looking at* without touching froze: "sleeps in 0:48" stayed 0:48, the meters stopped, and a
+daemon that froze never got its "last update Ns ago" banner (the page asked for no meters, so it was not even
+metered). That is the "untrue dashboard" the banner exists to prevent.
+
+**The rule now** (`shell/attention.rs` `Mode`, `shell/clock.rs`):
+
+| The window is | Words that move with time | Changes of state | Meters | Frames of its own |
+|---|---|---|---|---|
+| hidden (minimised, covered, another Space, display asleep: the platform's occlusion state) | not read | kept, taken in when shown | not streamed | none |
+| on screen, not in use ("glanced at") | to the minute: "sleeps in 4m", "<1m", "up <1m", "last update <1m ago", "next in <1m" | at most once a second | streamed, taken in at most every 10 s | one when a word to the minute changes |
+| in use (key, touched in the last 30 s) | to the second, as before | as they come | as they come | as before |
+
+- The words come from doze-display (`doze_display::coarse`, `grain.rs`): fine is Go's and the default everywhere, so
+  the CLI and the oracle are unchanged; coarse uses Go's `Ago` units (`4m`, `3h`) and `<1m` for the last minute.
+  Every coarse word also notes when it will next read differently, and `coarse` returns the soonest; the window
+  schedules one wake for that moment (`arm_next`) instead of ticking. A wake whose words read the same draws nothing
+  (the views are `PartialEq`). Needs you and Activity build their words off the UI thread, so they carry the grain
+  into the job; the instance page's countdown ring moves when its words do.
+- The stale banner: one wake at the shown stack's `last_frame + STALE_AFTER`, put off by every frame; a frozen
+  daemon's banner shows in one frame. Entrances (the banner's 240 ms settle) are skipped on a window glanced at, so
+  each change is one frame.
+- doze-desk: a meters frame now reports `Parts::STATS` only (it reported `INSTANCES` too for each row's ram/cpu/
+  connections), so a window can tell the meters moving from a change of state.
+
+**Tests** (`shell/idle_tests.rs`, gpui test windows over the fixture daemon; the daemon's meters arrive every second of
+the test's time, `Source::beat`):
+
+- glanced at for 180 s on larder: 4 frames, each one a change of what the page says (at 48.0 s the dozing countdown
+  ran out; at 57.7, 117.8 and 177.5 s the rows' "up 18m" turned 19m, 20m, 21m); no frame with nothing changed;
+- hidden for 150 s: 0 frames and the page not read; shown again, it catches up at once;
+- larder-stale glanced at: the banner "last update <1m ago" in exactly 1 frame, about 3 s after the last frame, then
+  "1m ago" at the minute;
+- in use: the countdown to the second (a frame a second); left alone, it goes to the minute in one frame, then
+  nothing while the words hold;
+- `grain.rs`: the coarse words and their next change; fine words are Go's (`last update 5s ago`, `0:48`, `12s`).
+
+`bench --check` now allows a window glanced at `--per-minute N` frames a minute (default 2), and a `--hidden` one
+(the app hides once the window is open, as ⌘H) none; CI runs both on larder. `--at 12,30,60` prints the footprint at
+those seconds after the window opens.
+
+**Measured** (`release-app` with `fixtures`, `doze-app bench --fixture larder --display 1 --idle 63 --at 12,30,60`).
+This Mac's displays were asleep and the session locked while it ran (`pmset -g log`: display off since 18:38), and the
+platform reported the window `Hidden` on both displays, so every reading below is a hidden window's:
+
+| | before (1e486a31) | after |
+|---|---|---|
+| Hidden, footprint at 12 / 30 / 60 s | 60 / 57 / 57 MB | 57 / 57 / 57 MB |
+| Hidden, frames in 60 s | 0 | 0 (`--check --hidden`: ok) |
+
+**Not measured yet, for the owner, at the screen:** the visible readings. Untouched for 60 s, expect at most about two
+frames in 60 s and ~57–60 MB most of the time, with a spike towards ~200 MB for ~10 s after each frame; in use, the
+redraw floor (~225 MB) as before:
+
+```
+DOZE_HOME=$(mktemp -d) doze-app bench --fixture larder --display 1 --idle 63 --at 12,30,60 --check --budget 85
+DOZE_HOME=$(mktemp -d) doze-app bench --fixture larder --display 1 --idle 63 --at 12,30,60 --in-use
+```
+
+**Open: the meters' 10 s.** The fixture sends the same meters frame every second, so the page never changes for
+them here. A real daemon's meters do change: a glanced-at stack page then takes them in every 10 s, and if a figure
+it shows moves (a row's MB, the vitals), that is a frame every 10 s, the same span as the driver's ~10 s hold, so the
+~147 MB would stay. The `--per-minute 2` check would fail for such a page. Options: a longer cadence (30–60 s) or
+meters only in use. It needs a decision and a measurement against a live stack.
+
+## The app's size profile: small core, fast GUI (measured 2026-11-15)
+
+The app carries the whole CLI (owner decision) and, with core C2a, doze-config and the HCL crates. Measured on a branch
+that merges PR #49 (`app-finish-http`), PR #51 (`core-c2a`) and core step 0 (47276b53, "One HTTP stack", from
+core-m1: #49 is only its app half), the `release-app` build with everything at `opt-level = "s"` was **16,102,720 B and
+650 packages**, over its 16,000,000 B line. The engine and the daemon have still to join.
+
+**Method.** darwin/arm64 (M5 Max), each option a cargo profile inheriting `release-app` with per-package
+`opt-level` overrides (fat LTO, one codegen unit). Size: the plain build, as CI builds it. Timings: the same profile with
+`capture`, `doze-app bench` on the external display (`--display 1`; the built-in display hides the window and sends it no
+frames): `--fixture larder` (menu bar ready, first frame), `--fixture medium-150 --map` (Map frames drawn in full
+offscreen, layout), `--fixture shop --logs` (100k lines: fill, scroll on screen, each frame drawn offscreen). The CLI:
+`doze-app status` against `doze-app fixture-serve larder` (a real round trip on the control socket) and `doze-app
+version`, 40 runs after 3 warm-ups, median. Options interleaved, rounds in both orders; medians of 3 to 8 rounds. The
+machine was shared with other builds (load average 14 to 21), so differences under about 5% are noise. The package
+count (650) does not depend on the profile.
+
+| Option | What is at which level | Binary | Map layout | Map pan, median / p99 | Logs: fill 100k; draw, median | First frame | `status` / `version` |
+|---|---|---|---|---|---|---|---|
+| A (before) | everything "s" | 16,102,720 B | 0.87 ms | 10.5 / 11.4 ms | 389 ms; 7.3 ms | 82 ms | 9.62 / 8.96 ms |
+| B | everything "z" | 12,224,112 B | 1.31 ms | 10.6 / 11.3 ms | **990 ms**; 6.8 ms | 74 ms | 9.79 / 9.00 ms |
+| C | GUI 3, the core "z" | 17,963,600 B | 1.13 ms | 9.5 / 10.5 ms | 357 ms; 6.8 ms | 73 ms | 9.19 / 8.33 ms |
+| D | GUI "s", the core "z" | 15,074,752 B | 1.13 ms | 9.8 / 10.6 ms | 398 ms; 6.8 ms | 69 ms | 9.00 / 8.40 ms |
+| E | base "z", the GUI's frame path "s" | 20,966,320 B | | | | | |
+| F | base "z", the GUI's frame path 3 | 22,955,248 B | | | | | |
+| G | D, and the GUI tree's cold parsers "z" | 14,880,272 B | 1.12 ms | 9.8 / 10.5 ms | 398 ms; 7.1 ms | 74 ms | 9.76 / 8.96 ms |
+| H | D, and the GUI's frame path 3 | 22,865,632 B | | | | | |
+| **I (taken)** | G, with doze-desk and doze-map back at "s" | **15,240,704 B** | **0.82 ms** | 10.0 / 10.7 ms | 394 ms; 7.2 ms | 76 ms | 9.86 / 9.18 ms |
+
+"The core" is the 124 packages the app links only for the CLI and what it runs (the doze-* core crates, clap, the HCL
+and YAML readers, jiff and time, tokio, hyper, rustls, ring, the CA's and netd's crates), serde_json and the regex
+crates. "The GUI's frame path" is gpui and its platform crates, gpui-component, the app, taffy, font-kit, core-text,
+lyon, etagere, ropey and the text-segmentation crates. "The GUI tree's cold parsers" are what GPUI links but reads once:
+the image decoders, markdown and HTML, TOML, the i18n tables, file watching. Logs scroll on screen at the display's
+pace in every option (33.3 ms a frame, the external display at 30 Hz), so the offscreen draw time is the figure that
+compares.
+
+What the numbers say:
+- **"z" everywhere (B) costs the GUI**: the 100k-line fill takes 2.5 times as long and the Map's layout 50% longer.
+- **GPUI at opt-level 3 does not fit**: C is 1.9 MB over the line. H and F, which raise only the frame path to 3, and E, which
+  lowers everything else to "z", are bigger still (20.9 to 23.0 MB). Mixing opt levels across GPUI's own crates
+  inflates the binary under fat LTO. The mechanism was not chased; the measurement rules those options out.
+- **The core at "z" costs the GUI nothing**, except that doze-desk and doze-map are the app's own crates on the
+  page's path: at "z" (D, G) the Map's layout is 30% slower (0.87 to 1.13 ms). Kept at "s" (I), it is back (0.82 ms).
+- **The CLI through the app is within noise**: `status` +2.5% and `version` +2.5% for I against A. A command's time is
+  mostly the process starting (dyld and the GUI frameworks), not the CLI's code.
+
+**Taken: I**, 15,240,704 B (−862,016 B, −5.4%), 650 packages; `Cargo.toml`'s `release-app` lists the packages, grouped.
+No measurable GUI regression; the CLI under 10%.
+
+**The engine and the daemon.** A probe built from core-d1 as it stands (doze-engine and doze-daemon, serving the control
+socket, over a base of tokio and serde_json; fat LTO) adds 619,600 B at "z", 748,912 B at "s" and 1,062,336 B at 3.
+At "z", as the core is here, that projects the app to about **15.86 MB**, under 16 MB with about 140 KB of room. Both
+crates are still in progress (D1 and E2 are open PRs), so this is a floor. If they grow by more than about a fifth, the
+app no longer fits 16 MB. The levers left are a patched gpui-component without the image formats (about 0.55 MB,
+above) and the CLI's clock on chrono instead of jiff (about 120 KB). After that, the 16 MB ceiling itself is an owner
+question.
+
+**The CI line** first moved to 15,500,000 B, this build plus about 260 KB. It now follows the 20 MB ceiling below.
+
+**The image formats (vendor/gpui-pre/PATCHES.md).** gpui-pre, gpui-pre-macos and gpui-pre-apple each hard-code
+`image` with every format it decodes. The app decodes none of them: its tray PNGs go through AppKit, and everything
+else is SVG through resvg. All three are now vendored with `features = ["png"]`, and GIF and WebP decoding return an
+error. Result: **14,526,560 B (−730,768 B), 634 packages** (was 650). The shots of library, tiles, map, palette, about
+and instance (the bat mark and the icons) were compared with the build before the patch and draw the same.
+
+**The ceiling is now 20 MB (owner decision, 2026-11-15).** The app is one binary with the GUI, the whole CLI and,
+soon, the daemon, so the 16 MB budget, set for a GUI alone, no longer describes it. The CI line follows the rule the
+other binaries use: **the measured size plus 5%, 15,252,888 B**, and the measured package count, 634. With the engine
+and the daemon as they stand (+0.62 MB at "z") the app projects to about 15.15 MB, 4.85 MB under the ceiling.
+
+**opt-level 3, checked again with the room** (same method, the machine quieter; medians of 5 interleaved rounds; P is
+the profile above with the image patch):
+
+| | Binary | Map layout | Map pan / zoom / hover / fly, median | First frame | `status` / `version` |
+|---|---|---|---|---|---|
+| P (taken) | 14,526,560 B | 0.56 ms | 5.1 / 5.4 / 5.5 / 6.1 ms | 45 ms | 7.56 / 7.32 ms |
+| J: P with doze-desk and doze-map at 3 | 14,806,928 B | 0.79 ms | 6.8 / 6.7 / 8.0 / 8.1 ms | 59 ms | 10.07 / 8.18 ms |
+| K: P with the base at 3 (all of GPUI and the app) | 17,348,784 B | 0.70 ms | 5.2 / 4.9 / 5.5 / 5.2 ms | 50 ms | 9.02 / 8.83 ms |
+
+Neither is a real gain. J is no faster anywhere, and reads slower in every figure on this shared machine (the cause
+was not chased; it is not a gain either way). K costs 2.8 MB and moves the Map's frames by under a millisecond either way. So P stays. The
+logs bench could not run in this round: the window got no frames from the display, as before `--display` existed, so
+the logs figures are the ones above.
+
+`doze-app bench --logs` now takes `--display N` as the open bench does. Without it, on a Mac whose built-in display
+hides the window, the scroll step waits for frames that never come.
+
+
+## The app lands on main (2026-11-19, branch `app-land`), release-app, darwin/arm64
+
+app-finish, its one-HTTP-path follow-up and the size profile above, merged over the Rust core (core-land, PR #84). The
+core now carries doze-daemon, doze-detect, doze-engine, doze-fetch and doze-module-host into the CLI the app links; by
+the profile's own rule (built for size what the app carries but does not draw) they join the "z" list.
+
+| | Line | core-land alone (weight.md, "The app's ceiling raised to 20 MB") | app-land, profile as merged | app-land, new core crates at "z" |
+|---|---|---|---|---|
+| `doze-app` bytes | 17,918,000 → 16,563,000 | 17,064,576 | 15,922,064 | 15,774,480 |
+| `doze-app` packages (CI's count) | 700 → 660 | | 656 | 656 |
+
+The CI line is the measured size plus 5% (16,563,000 B) and the package count plus four, under the owner's 20 MB ceiling.
+
+## Core M3: doze-aws's module face, measured 2026-11-15, release-aws, darwin/arm64
+
+The module face (`crates/doze-aws/src/module`, feature `module`, on by default as kafka's is) adds the module SDK to doze-aws:
+`doze-module`, its derive, `doze-module-proto`, `doze-os`, `minicbor` and its derive, `hex`, `rustix`, `errno`, `bitflags` (13
+`cargo tree` lines). The template, the checks and the CloudFormation calls are doze-aws's own code (its `cfn` client).
+
+| darwin arm64, `release-aws` | `--no-default-features` | default (module) |
+|---|---|---|
+| doze-aws binary | 8,375,808 B | **8,592,624 B** (+216,816 B, +2.6%) |
+| packages (`cargo tree`, unique lines) | 271 | **284** |
+| idle | | unchanged: the module code runs only as `aws-plugin`, never in the server |
+
+On ubuntu x86_64 (CI's measured ratio for doze-aws, 1.54) that is about +334 KB on CI's 13,128,520 B, about 13.46 MB, inside the
+13,900,000 B line and the owner's 20 MB ceiling. The package line goes from 280 to **287** (CI's 274 plus the 13), a small
+justified rise recorded here; CI's next run on this branch measures it exactly. doze-kafka gains only its `client` declaration
+(kcat), a few strings.
+
+### Core M3: CI's measurement (2026-11-15, PR #57, run 43641162106, ubuntu x86_64)
+
+CI measured `doze-aws` with the module face: **13,507,440 B** (+378,920 B over main's 13,128,520 B; the estimate was about
++334 KB), **286** packages (+12), and an idle median of **10,716 KB** (samples 10,716, 10,632 and 11,016). That is over the
+10,526 KB line. In the same week main measured 10,104 KB (samples 9,940, 10,176 and 10,104).
+
+The earlier "idle unchanged" was wrong. An A/B on darwin, with five starts each and the same tree with and without the
+feature, measured medians of 6,544 KB and 6,656 KB: the module face costs about **+112 KB** idle. Those are the pages of its
+code, because the server never calls it. The rest of CI's +612 KB is within the run-to-run spread that issue #36 records:
+several hundred KB between runs of one commit.
+
+Those lines were for the branch as it stood on 2026-11-15. Since then main moved doze-aws's lines to the owner's ceilings
+(20,000,000 B and 16,384 KB idle, 2026-11-19), so the face fits without a new byte or idle line.
+
+### Core M3 landed on main (2026-11-21)
+
+Re-applied on main, with the take-over of a Go module's data (`module/godata`, both modules). That adds one package to each
+binary: `doze-bolt`, a read-only bbolt reader of about 300 lines with no dependencies. The package lines move to **293** for
+doze-aws (280 on main, +12 for the module SDK as CI counted on 2026-11-15, +1) and **183** for doze-kafka (+1). The kafka
+face's other new code (the importer, `serde` and `serde_json`, already in its tree) runs only in `kafka-plugin`'s provision.

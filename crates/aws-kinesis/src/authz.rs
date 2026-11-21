@@ -29,7 +29,7 @@ pub(crate) fn needs(call: &Call) -> Vec<Need> {
                 || format!("arn:aws:kinesis:{region}:{account}:stream/*"),
                 |name| stream_arn(region, account, &name),
             ),
-        O::DescribeStreamConsumer | O::DeregisterStreamConsumer
+        O::DescribeStreamConsumer | O::DeregisterStreamConsumer | O::SubscribeToShard
             if text("ConsumerARN").is_some() =>
         {
             text("ConsumerARN").unwrap_or_default().to_owned()

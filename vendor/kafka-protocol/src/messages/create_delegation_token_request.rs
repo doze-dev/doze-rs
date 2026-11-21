@@ -69,7 +69,7 @@ impl CreatableRenewers {
 #[cfg(feature = "client")]
 impl Encodable for CreatableRenewers {
     fn encode<B: ByteBufMut>(&self, buf: &mut B, version: i16) -> Result<()> {
-        if version < 1 || version > 3 {
+        if version < 0 || version > 3 { // PATCH 7: v0 (Kafka 1 to 3)
             bail!("specified version not supported by this message type");
         }
         if version >= 2 {
@@ -127,7 +127,7 @@ impl Encodable for CreatableRenewers {
 #[cfg(feature = "broker")]
 impl Decodable for CreatableRenewers {
     fn decode<B: ByteBuf>(buf: &mut B, version: i16) -> Result<Self> {
-        if version < 1 || version > 3 {
+        if version < 0 || version > 3 { // PATCH 7: v0 (Kafka 1 to 3)
             bail!("specified version not supported by this message type");
         }
         let principal_type = if version >= 2 {
@@ -169,7 +169,7 @@ impl Default for CreatableRenewers {
 }
 
 impl Message for CreatableRenewers {
-    const VERSIONS: VersionRange = VersionRange { min: 1, max: 3 };
+    const VERSIONS: VersionRange = VersionRange { min: 0, max: 3 } /* PATCH 7 */;
     const DEPRECATED_VERSIONS: Option<VersionRange> = None;
 }
 
@@ -253,7 +253,7 @@ impl CreateDelegationTokenRequest {
 #[cfg(feature = "client")]
 impl Encodable for CreateDelegationTokenRequest {
     fn encode<B: ByteBufMut>(&self, buf: &mut B, version: i16) -> Result<()> {
-        if version < 1 || version > 3 {
+        if version < 0 || version > 3 { // PATCH 7: v0 (Kafka 1 to 3)
             bail!("specified version not supported by this message type");
         }
         if version >= 3 {
@@ -352,7 +352,7 @@ impl Encodable for CreateDelegationTokenRequest {
 #[cfg(feature = "broker")]
 impl Decodable for CreateDelegationTokenRequest {
     fn decode<B: ByteBuf>(buf: &mut B, version: i16) -> Result<Self> {
-        if version < 1 || version > 3 {
+        if version < 0 || version > 3 { // PATCH 7: v0 (Kafka 1 to 3)
             bail!("specified version not supported by this message type");
         }
         let owner_principal_type = if version >= 3 {
@@ -404,7 +404,7 @@ impl Default for CreateDelegationTokenRequest {
 }
 
 impl Message for CreateDelegationTokenRequest {
-    const VERSIONS: VersionRange = VersionRange { min: 1, max: 3 };
+    const VERSIONS: VersionRange = VersionRange { min: 0, max: 3 } /* PATCH 7 */;
     const DEPRECATED_VERSIONS: Option<VersionRange> = None;
 }
 

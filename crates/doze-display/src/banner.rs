@@ -27,21 +27,24 @@ pub fn banner(
         return Some("connecting to the daemon…".to_owned());
     }
     if down {
-        let left = gotime::round(gotime::nanos(retry_in), SECOND);
-        return Some(if left > 0 {
+        let raw = gotime::nanos(retry_in);
+        return Some(if gotime::round(raw, SECOND) > 0 {
             format!(
-                "daemon not answering · retrying in {}s",
-                gotime::whole_seconds(left)
+                "daemon not answering · retrying in {}",
+                crate::grain::seconds_left(raw)
             )
         } else {
             "daemon not answering · retrying".to_owned()
         });
     }
+    // Coarse (a window looked at, not used): "last update <1m ago", then Go's `Ago` minutes.
     (since_frame > STALE_AFTER).then(|| {
-        format!(
-            "last update {}s ago",
-            gotime::whole_seconds(gotime::nanos(since_frame))
-        )
+        let d = gotime::nanos(since_frame);
+        if crate::grain::is_coarse() {
+            format!("last update {} ago", crate::format::ago_nanos(d))
+        } else {
+            format!("last update {}s ago", gotime::whole_seconds(d))
+        }
     })
 }
 

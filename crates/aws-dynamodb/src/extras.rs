@@ -76,8 +76,9 @@ pub(crate) struct Destination {
     /// `ENABLING`, `ACTIVE`, `DISABLING`, `DISABLED`, `ENABLE_FAILED` or `UPDATING`.
     pub(crate) status: String,
     pub(crate) description: Option<String>,
-    /// `MILLISECOND` or `MICROSECOND`.
-    pub(crate) precision: String,
+    /// `MILLISECOND` or `MICROSECOND`, when the caller set one (records are in milliseconds otherwise).
+    #[serde(default)]
+    pub(crate) precision: Option<String>,
 }
 
 pub(crate) fn backup_key(id: &str) -> String {

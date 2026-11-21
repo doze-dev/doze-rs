@@ -1,0 +1,238 @@
+# Release one Rust module (docs/port/core/RELEASE.md, "Modules"; docs/port/modules/PLAN.md step 6).
+#
+# - A tag `module/<name>/v<version>` (module/valkey/v1.2.0) pushed here releases that module at that version.
+# - A manual run (`gh workflow run modules-release --ref <branch> -f module=valkey -f version=1.2.0 -f dry_run=true`)
+#   builds and packages it and keeps the result as this run's artifacts. `dry_run` defaults to true.
+#
+# Each target the module declares (aarch64-apple-darwin, x86_64- and aarch64-unknown-linux-gnu) runs the module's
+# tests with DOZE_ACCEPTANCE=1 against the engine builds doze-binaries publishes, then builds the module; only that job's
+# binary is packaged, with `--accepted` (PLAN.md D12: a release's `--accepted` comes only from the job that ran them).
+# doze-module-release then writes the archives, the merged index.yaml and meta.yaml, starting from the index already
+# published, so older versions stay resolvable for pinned doze.lock files.
+#
+# Where it goes: the module's rolling release in THIS repository, tag = the module's name (doze-dev/doze-rs, release
+# `valkey`), as doze-modules did for the Go modules. doze-registry's publish.mjs reads
+#   --release-base https://github.com/doze-dev/doze-rs/releases/download/<name>
+# (index.yaml, meta.yaml and the archives under it), which its publish.yml derives from registry/doze/<name>/source
+# (`doze-dev/doze-rs`) or from a dispatch's `sources` map. Publishing there (signing) is off on purpose while the
+# registry's schedule is commented out; this workflow does not dispatch to it. The hand-off is written in RELEASE.md.
+#
+# The kafka and aws modules are not part of the core cut-over and are not offered here.
+name: modules-release
+
+on:
+  push:
+    tags: ["module/*/v*"]
+  # The label `modules-release-dry-run` on a pull request: a dry run of valkey from that pull request's code (a manual
+  # run can only start a workflow that is already on main).
+  pull_request:
+    types: [labeled]
+  workflow_dispatch:
+    inputs:
+      module:
+        description: "The module"
+        type: choice
+        options: [postgres, mariadb, ferret, valkey, kvrocks, temporal]
+      version:
+        description: "Its version, without the v (1.2.0)"
+        required: true
+      dry_run:
+        description: "Build, test and package; keep it as this run's artifacts; publish nothing"
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: modules-release-${{ github.ref }}-${{ github.event.label.name || 'run' }}
+  cancel-in-progress: false
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  plan:
+    if: github.event_name != 'pull_request' || github.event.label.name == 'modules-release-dry-run'
+    runs-on: ubuntu-24.04
+    outputs:
+      module: ${{ steps.plan.outputs.module }}
+      version: ${{ steps.plan.outputs.version }}
+      dry_run: ${{ steps.plan.outputs.dry_run }}
+    steps:
+      - id: plan
+        env:
+          EVENT: ${{ github.event_name }}
+          REF_NAME: ${{ github.ref_name }}
+          INPUT_MODULE: ${{ inputs.module }}
+          INPUT_VERSION: ${{ inputs.version }}
+          INPUT_DRY_RUN: ${{ inputs.dry_run }}
+          RUN_NUMBER: ${{ github.run_number }}
+        run: |
+          if [ "$EVENT" = push ]; then
+            # module/<name>/v<version>
+            rest=${REF_NAME#module/}; module=${rest%%/*}; version=${rest#*/v}; dry_run=false
+          elif [ "$EVENT" = pull_request ]; then
+            module=valkey; version=0.0.$RUN_NUMBER; dry_run=true
+          else
+            module=$INPUT_MODULE; version=${INPUT_VERSION#v}; dry_run=$INPUT_DRY_RUN
+          fi
+          case "$module" in
+            postgres|mariadb|ferret|valkey|kvrocks|temporal) ;;
+            *) echo "::error::'$module' is not a module this workflow releases (postgres mariadb ferret valkey kvrocks temporal)"; exit 1 ;;
+          esac
+          echo "$version" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$' || { echo "::error::version '$version' is not X.Y.Z"; exit 1; }
+          { echo "module=$module"; echo "version=$version"; echo "dry_run=$dry_run"; } >> "$GITHUB_OUTPUT"
+          echo "$module $version · dry run: $dry_run"
+
+  # Acceptance, then the build, on each target.
+  build:
+    needs: plan
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - { os: ubuntu-22.04, target: x86_64-unknown-linux-gnu }
+          - { os: ubuntu-22.04-arm, target: aarch64-unknown-linux-gnu }
+          - { os: macos-latest, target: aarch64-apple-darwin }
+    runs-on: ${{ matrix.os }}
+    env:
+      MODULE: ${{ needs.plan.outputs.module }}
+      TARGET: ${{ matrix.target }}
+      DOZE_ACCEPTANCE: "1"
+      # The engine builds the acceptance runs against: keep these in step with ci.yml's `modules` job.
+      VALKEY: "9.1.1"
+      KVROCKS: "2.16.0"
+      TEMPORAL: "1.8.2"
+      MARIADB: "11.4.13"
+      FERRETDB: "2.7.0"
+      DOCUMENTDB: "0.112-0"
+      POSTGRES: "18.7.0"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          cache-key: modules-release
+      - name: The engine builds from doze-binaries
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # <variable>:<release>:<file prefix>:<version>: the variable names where that build's bin/ is.
+          case "$MODULE" in
+            valkey) engines="DOZE_VALKEY_BINDIR:valkey:valkey:$VALKEY" ;;
+            kvrocks) engines="DOZE_KVROCKS_BINDIR:kvrocks:kvrocks:$KVROCKS" ;;
+            temporal) engines="DOZE_TEMPORAL_BINDIR:temporal:temporal:$TEMPORAL" ;;
+            mariadb) engines="DOZE_MARIADB_BINDIR:mariadb:mariadb:$MARIADB" ;;
+            ferret) engines="DOZE_FERRET_BINDIR:ferretdb:ferretdb:$FERRETDB DOZE_DOCUMENTDB_BINDIR:documentdb:documentdb:$DOCUMENTDB" ;;
+            postgres) engines="DOZE_POSTGRES_BINDIR:postgres:postgresql:$POSTGRES" ;;
+          esac
+          for e in $engines; do
+            IFS=: read -r var release prefix v <<< "$e"
+            dir="$RUNNER_TEMP/engines/$prefix-$v"; art="$prefix-$v-$TARGET.tar.gz"
+            mkdir -p "$dir"
+            gh release download "$release" -R doze-dev/doze-binaries -p "$art" -p "$art.sha256" -D "$dir"
+            (cd "$dir" && shasum -a 256 -c "$art.sha256")
+            tar -xzf "$dir/$art" -C "$dir"
+            echo "$var=$dir/$prefix-$v-$TARGET/bin" >> "$GITHUB_ENV"
+          done
+      - name: The module's tests, acceptance included
+        run: cargo test --locked -p "doze-module-$MODULE" --no-fail-fast -- --nocapture
+      - name: The module (release)
+        run: |
+          cargo build --locked --release -p "doze-module-$MODULE"
+          mkdir -p dist
+          cp "target/release/doze-module-$MODULE" "dist/doze-module-$MODULE-$TARGET"
+          ls -l dist
+      - uses: actions/upload-artifact@v4
+        with:
+          name: module-${{ matrix.target }}
+          path: dist/doze-module-*
+          if-no-files-found: error
+
+  # The registry release directory: the published index.yaml (if any) plus each accepted target.
+  package:
+    needs: [plan, build]
+    runs-on: ubuntu-24.04
+    env:
+      MODULE: ${{ needs.plan.outputs.module }}
+      VERSION: ${{ needs.plan.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          cache-key: modules-release-package
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: module-*
+          merge-multiple: true
+          path: bin
+      - name: The published index, so the new one keeps every older version
+        run: |
+          mkdir -p "dist/$MODULE"
+          # A module never released here has no index (404): start fresh. Anything else stops the release, or the new
+          # index would drop the versions pinned doze.lock files need.
+          code=$(curl -sL --retry 3 --retry-all-errors -w "%{http_code}" \
+            "https://github.com/${{ github.repository }}/releases/download/$MODULE/index.yaml" -o "dist/$MODULE/index.yaml")
+          case "$code" in
+            200) echo "starting from the published index"; cat "dist/$MODULE/index.yaml" ;;
+            404) rm -f "dist/$MODULE/index.yaml"; echo "no published index: a first release" ;;
+            *) echo "::error::could not fetch the published index for $MODULE (HTTP $code)"; exit 1 ;;
+          esac
+      - name: doze-module-release, once per target
+        run: |
+          chmod 0755 bin/*
+          cargo build --locked --release -p doze-module-release
+          # The x86_64 Linux build answers --describe here; each target's own binary goes into its archive.
+          for t in x86_64-unknown-linux-gnu aarch64-unknown-linux-gnu aarch64-apple-darwin; do
+            target/release/doze-module-release --binary "bin/doze-module-$MODULE-$t" \
+              --describe-with "bin/doze-module-$MODULE-x86_64-unknown-linux-gnu" \
+              --target "$t" --version "$VERSION" --out dist --accepted
+          done
+          ls -l "dist/$MODULE"
+          cat "dist/$MODULE/index.yaml"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.MODULE }}-${{ env.VERSION }}
+          path: dist/${{ env.MODULE }}
+          if-no-files-found: error
+
+  # The module's rolling release in this repository (tag = its name). Real runs only.
+  publish:
+    needs: [plan, package]
+    if: needs.plan.outputs.dry_run != 'true'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    env:
+      MODULE: ${{ needs.plan.outputs.module }}
+      VERSION: ${{ needs.plan.outputs.version }}
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: ${{ env.MODULE }}-${{ env.VERSION }}
+          path: release
+      - name: Upload to ${{ github.repository }} release ${{ env.MODULE }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          gh release view "$MODULE" -R "$REPO" > /dev/null 2>&1 || \
+            gh release create "$MODULE" -R "$REPO" --title "$MODULE module" \
+              --notes "The doze $MODULE module (protocol 2): index.yaml, meta.yaml and an archive per target. doze-registry signs from here."
+          for attempt in 1 2 3; do
+            gh release upload "$MODULE" -R "$REPO" release/* --clobber && break
+            [ "$attempt" = 3 ] && exit 1
+            echo "upload failed (attempt $attempt), retrying in 15s"
+            sleep 15
+          done
+          echo "::notice::$MODULE $VERSION is on $REPO's '$MODULE' release. doze-registry signs it only when its publishing is turned on (RELEASE.md, 'Modules')."
+      # The registry hook goes here, once doze-registry's publish.yml is turned back on (its hourly schedule is commented
+      # out on purpose). It needs REGISTRY_DISPATCH_TOKEN (contents:write on doze-registry) and tells the signer which
+      # version to expect and where the release lives:
+      # - run: |
+      #     jq -n --arg m "$MODULE" --arg v "$VERSION" --arg s "$GITHUB_REPOSITORY" \
+      #       '{event_type: "modules-published", client_payload: {modules: [$m], versions: {($m): $v}, sources: {($m): $s}}}' \
+      #     | gh api repos/doze-dev/doze-registry/dispatches --input -
+      #   env:
+      #     GH_TOKEN: ${{ secrets.REGISTRY_DISPATCH_TOKEN }}

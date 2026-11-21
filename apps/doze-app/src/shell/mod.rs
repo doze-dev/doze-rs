@@ -4,9 +4,13 @@
 //! only when what it shows changed (the views are `PartialEq`), which is what keeps an idle window at zero redraws.
 
 mod acting;
+mod admin;
+pub(crate) mod attention;
 pub(crate) mod attn;
 mod clock;
 mod history;
+#[cfg(all(test, feature = "capture"))]
+mod idle_tests;
 mod inside;
 mod nav;
 mod needs;
@@ -133,7 +137,7 @@ impl Root {
             map,
             tabs: Vec::new(),
             opened: Vec::new(),
-            hidden: Vec::new(),
+            hidden: Root::closed_tabs(),
             overlay: None,
             inside: None,
             acts: acts.clone(),
@@ -147,6 +151,7 @@ impl Root {
             pages: pages::Pages::new(facts.clone(), fixture),
         };
         root.rebuild_attention(cx);
+        root.follow_use(window, cx);
         root.hear(&acts, window, cx);
         // A fixture or a link names the stack; else the page the window last showed, when Settings › General's
         // "Reopen the page I had" is on (Go: reopen where I was).
@@ -158,8 +163,9 @@ impl Root {
         root
     }
 
-    /// A batch from the hub: re-read what is shown if the batch touches it; the tabs when the list or a stack moved.
-    pub(crate) fn apply(&mut self, batch: &Batch, cx: &mut Context<Self>) {
+    /// A batch taken in (see `clock` for when): re-read what is shown if the batch touches it; the tabs when the list or
+    /// a stack moved.
+    pub(crate) fn apply_now(&mut self, batch: &Batch, cx: &mut Context<Self>) {
         self.refresh_tabs(cx);
         self.report_tasks(cx);
         self.rebuild_attention(cx);
@@ -186,8 +192,12 @@ impl Root {
         self.wind(cx);
     }
 
-    /// Reads what is shown again; redraws only what changed.
+    /// Reads what is shown again, its words as the window is looked at (`clock`); redraws only what changed.
     pub(crate) fn refresh(&mut self, cx: &mut Context<Self>) {
+        self.timed(cx, Self::refresh_shown);
+    }
+
+    pub(super) fn refresh_shown(&mut self, cx: &mut Context<Self>) {
         self.refresh_tabs(cx);
         match &self.screen {
             Screen::Library => self.library.update(cx, |l, cx| l.refresh(cx)),
@@ -214,6 +224,7 @@ impl Root {
         let Some(v) = self.hub.stacks().into_iter().find(|s| s.name == name) else {
             return false;
         };
+        crate::prefs::note_dir(&v.dir);
         self.go(Screen::Stack(v.key), window, cx);
         if let Some(card) = show {
             self.select(card, cx);
@@ -223,6 +234,9 @@ impl Root {
 
     /// Shows the stack `key`.
     pub(crate) fn show_key(&mut self, key: StackKey, window: &mut Window, cx: &mut Context<Self>) {
+        if let Some(st) = self.hub.stack(&key) {
+            crate::prefs::note_dir(&st.dir);
+        }
         self.go(Screen::Stack(key), window, cx);
     }
 
@@ -241,7 +255,8 @@ impl Root {
         }
     }
 
-    /// The stack doze runs from `dir`, and the card `show` on it.
+    /// The stack doze runs from `dir`, and the instance `show` on it: its page, as Go's `OpenAt` (the card selected when
+    /// the stack has no such instance).
     pub(crate) fn open_dir(
         &mut self,
         dir: &std::path::Path,
@@ -254,6 +269,7 @@ impl Root {
         } else {
             dir.parent().map(PathBuf::from).unwrap_or_default()
         };
+        crate::prefs::note_dir(&dir.to_string_lossy());
         match self
             .hub
             .stacks()
@@ -263,10 +279,29 @@ impl Root {
             Some(s) => {
                 self.go(Screen::Stack(s.key), window, cx);
                 if let Some(name) = show {
-                    self.select(name, cx);
+                    self.open_or_select(name, window, cx);
                 }
             }
             None => self.open_new(&dir, window, cx),
+        }
+    }
+
+    /// The instance `name` of the stack shown: its page when the stack has it, else the card, selected (which says it
+    /// is not there).
+    pub(crate) fn open_or_select(
+        &mut self,
+        name: &str,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let has = self
+            .key()
+            .and_then(|k| self.hub.stack(k))
+            .is_some_and(|s| s.instance(name).is_some());
+        if has {
+            self.open_instance(name, window, cx);
+        } else {
+            self.select(name, cx);
         }
     }
 
@@ -284,6 +319,12 @@ impl Root {
     }
 }
 
+#[cfg(test)]
+thread_local! {
+    /// How many times the window was drawn (the root renders once a frame), for the idle tests.
+    pub(crate) static RENDERS: std::cell::Cell<u64> = const { std::cell::Cell::new(0) };
+}
+
 impl Focusable for Root {
     fn focus_handle(&self, _: &gpui::App) -> FocusHandle {
         self.focus.clone()
@@ -294,7 +335,11 @@ impl Render for Root {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         #[cfg(feature = "fixtures")]
         crate::driver::frame();
-        crate::motion::set_reduced(cx.reduce_motion());
+        #[cfg(test)]
+        RENDERS.with(|r| r.set(r.get() + 1));
+        // A window glanced at draws each change in one frame: no entrance runs on it (see `clock`).
+        let glanced = attention::mode(cx.background_executor().now()) == attention::Mode::Glance;
+        crate::motion::set_reduced(cx.reduce_motion() || glanced);
         crate::motion::frame();
         self.follow_system(window, cx);
         let t = tokens(cx);
@@ -354,8 +399,9 @@ impl Render for Root {
             .on_drop(cx.listener(|this, paths: &ExternalPaths, window, cx| {
                 this.dropped(paths, window, cx)
             }))
+            .child(self.touches(cx))
             .child(page)
             .child(self.foot_column(cx))
-            .children(self.overlay_el(cx))
+            .children(self.overlay_el(f32::from(window.viewport_size().height), cx))
     }
 }

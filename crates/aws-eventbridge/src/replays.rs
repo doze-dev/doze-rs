@@ -106,12 +106,12 @@ impl Core {
         let now = self.now_ms();
         let Some(run) = self.runs.get_mut(&k) else {
             if self.replays.get(&k).is_some() {
-                return Err(not_cancellable(name, "COMPLETED"));
+                return Err(not_cancellable(name));
             }
             return Err(no_replay(name));
         };
         if !matches!(run.state, RunState::Starting | RunState::Running) {
-            return Err(not_cancellable(name, run.state.as_str()));
+            return Err(not_cancellable(name));
         }
         run.state = RunState::Cancelling;
         run.due_ms = now;
@@ -205,13 +205,11 @@ fn no_replay(name: &str) -> ApiError {
     not_found(format!("Replay {name} does not exist."))
 }
 
-/// (memory) The model: "a replay can be canceled only when the state is Running or Starting".
-fn not_cancellable(name: &str, state: &str) -> ApiError {
+/// The model: "a replay can be canceled only when the state is Running or Starting". Words recorded 2026-11-19.
+fn not_cancellable(name: &str) -> ApiError {
     ApiError::modeled(
         "IllegalStatusException",
-        format!(
-            "Replay {name} cannot be cancelled: it is {state}, and only a STARTING or RUNNING replay can be."
-        ),
+        format!("Replay {name} is not in a valid state for this operation."),
     )
 }
 

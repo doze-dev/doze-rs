@@ -149,6 +149,32 @@ const kinds: Kind[] = [
     },
   },
   {
+    // On-demand backups outlive their table and bill for storage.
+    name: "dynamodb-backups",
+    list: async () => arr<any>((await aws(["dynamodb", "list-backups"]))?.BackupSummaries)
+      .filter((b) => ours(b.TableName) && b.BackupStatus !== "DELETED").map((b) => ({ id: b.BackupArn, label: `${b.TableName}/${b.BackupName}` })),
+    remove: async (i) => { await aws(["dynamodb", "delete-backup", "--backup-arn", i.id]); },
+  },
+  {
+    // A client certificate has no name: the recorder's carry the prefix in their description.
+    name: "apigateway-client-certificates",
+    list: async () => arr<any>((await aws(["apigateway", "get-client-certificates"]))?.items)
+      .filter((c) => ours(String(c.description ?? ""))).map((c) => ({ id: c.clientCertificateId, label: c.description })),
+    remove: async (i) => { await aws(["apigateway", "delete-client-certificate", "--client-certificate-id", i.id]); },
+  },
+  {
+    name: "logs-destinations",
+    list: async () => arr<any>((await aws(["logs", "describe-destinations", "--destination-name-prefix", PREFIX]))?.destinations)
+      .map((d) => ({ id: d.destinationName, label: d.destinationName })),
+    remove: async (i) => { await aws(["logs", "delete-destination", "--destination-name", i.id]); },
+  },
+  {
+    name: "logs-scheduled-queries",
+    list: async () => arr<any>((await aws(["logs", "list-scheduled-queries"]))?.scheduledQueries)
+      .filter((q) => ours(String(q.name ?? ""))).map((q) => ({ id: q.scheduledQueryArn ?? q.name, label: q.name })),
+    remove: async (i) => { await aws(["logs", "delete-scheduled-query", "--identifier", i.id]); },
+  },
+  {
     name: "sqs",
     list: async () => arr<string>((await aws(["sqs", "list-queues", "--queue-name-prefix", PREFIX]))?.QueueUrls).map((u) => ({ id: u, label: tail(u) })),
     remove: async (i) => { await aws(["sqs", "delete-queue", "--queue-url", i.id]); },
@@ -181,8 +207,8 @@ const kinds: Kind[] = [
   {
     name: "cloudwatch-alarms",
     list: async () => {
-      const r = await aws(["cloudwatch", "describe-alarms", "--alarm-name-prefix", PREFIX, "--alarm-types", "CompositeAlarm", "MetricAlarm"]);
-      return [...arr<any>(r?.CompositeAlarms), ...arr<any>(r?.MetricAlarms)].map((a) => ({ id: a.AlarmName, label: a.AlarmName }));
+      const r = await aws(["cloudwatch", "describe-alarms", "--alarm-name-prefix", PREFIX, "--alarm-types", "CompositeAlarm", "MetricAlarm", "LogAlarm"]);
+      return [...arr<any>(r?.CompositeAlarms), ...arr<any>(r?.MetricAlarms), ...arr<any>(r?.LogAlarms)].map((a) => ({ id: a.AlarmName, label: a.AlarmName }));
     },
     remove: async (i) => { await aws(["cloudwatch", "delete-alarms", "--alarm-names", i.id]); },
   },
@@ -236,6 +262,14 @@ const kinds: Kind[] = [
       for (const p of arr<string>((await aws(["iam", "list-user-policies", ...u]))?.PolicyNames)) await aws(["iam", "delete-user-policy", ...u, "--policy-name", p]);
       for (const g of arr<any>((await aws(["iam", "list-groups-for-user", ...u]))?.Groups)) await aws(["iam", "remove-user-from-group", ...u, "--group-name", g.GroupName]);
       await attempt(() => aws(["iam", "delete-login-profile", ...u]));
+      // A user keeps these too, and IAM refuses to delete a user that still has any of them.
+      for (const c of arr<any>((await aws(["iam", "list-signing-certificates", ...u]))?.Certificates)) await aws(["iam", "delete-signing-certificate", ...u, "--certificate-id", c.CertificateId]);
+      for (const k of arr<any>((await aws(["iam", "list-ssh-public-keys", ...u]))?.SSHPublicKeys)) await aws(["iam", "delete-ssh-public-key", ...u, "--ssh-public-key-id", k.SSHPublicKeyId]);
+      for (const c of arr<any>((await aws(["iam", "list-service-specific-credentials", ...u]))?.ServiceSpecificCredentials)) await aws(["iam", "delete-service-specific-credential", ...u, "--service-specific-credential-id", c.ServiceSpecificCredentialId]);
+      for (const d of arr<any>((await aws(["iam", "list-mfa-devices", ...u]))?.MFADevices)) {
+        await aws(["iam", "deactivate-mfa-device", ...u, "--serial-number", d.SerialNumber]);
+        await attempt(() => aws(["iam", "delete-virtual-mfa-device", "--serial-number", d.SerialNumber]));
+      }
       await aws(["iam", "delete-user", ...u]);
     },
   },
@@ -287,6 +321,23 @@ const kinds: Kind[] = [
     name: "iam-saml-providers",
     list: async () => arr<any>((await aws(["iam", "list-saml-providers"]))?.SAMLProviderList).filter((p) => ours(tail(p.Arn))).map((p) => ({ id: p.Arn, label: tail(p.Arn) })),
     remove: async (i) => { await aws(["iam", "delete-saml-provider", "--saml-provider-arn", i.id]); },
+  },
+  {
+    name: "iam-server-certificates",
+    list: async () => arr<any>((await aws(["iam", "list-server-certificates"]))?.ServerCertificateMetadataList)
+      .filter((c) => ours(c.ServerCertificateName)).map((c) => ({ id: c.ServerCertificateName, label: c.ServerCertificateName })),
+    remove: async (i) => { await aws(["iam", "delete-server-certificate", "--server-certificate-name", i.id]); },
+  },
+  {
+    // Unassigned ones (an assigned one goes with its user).
+    name: "iam-virtual-mfa-devices",
+    list: async () => arr<any>((await aws(["iam", "list-virtual-mfa-devices"]))?.VirtualMFADevices)
+      .filter((d) => ours(tail(d.SerialNumber))).map((d) => ({ id: d.SerialNumber, label: tail(d.SerialNumber) })),
+    remove: async (i) => {
+      const user = (await aws(["iam", "list-virtual-mfa-devices"]))?.VirtualMFADevices?.find((d: any) => d.SerialNumber === i.id)?.User?.UserName;
+      if (user) await attempt(() => aws(["iam", "deactivate-mfa-device", "--user-name", user, "--serial-number", i.id]));
+      await aws(["iam", "delete-virtual-mfa-device", "--serial-number", i.id]);
+    },
   },
 ];
 

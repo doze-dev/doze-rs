@@ -1,0 +1,9 @@
+services:
+  cache:
+    image: mongo:7
+  es:
+    image: bitnami/kafka
+  mail:
+    image: nats:2
+  queue:
+    image: minio/minio

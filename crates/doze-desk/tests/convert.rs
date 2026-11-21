@@ -75,6 +75,10 @@ fn wire_instance() -> wire::InstanceView {
         url: "postgres://x".into(),
         resource: "arn:x".into(),
         env_var: "API_URL".into(),
+        // The Rust daemon's additive fields (the desk does not show them yet).
+        env: Default::default(),
+        client: String::new(),
+        connect: None,
         data_dir: "/data/api".into(),
         last_error: "panic: boom".into(),
         tainted: true,

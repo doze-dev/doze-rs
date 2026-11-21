@@ -51,6 +51,7 @@ json:
 |     "blocks": [],
 |     "cached_seconds_ago": {n},
 |     "category": "cache",
+|     "default_version": "9",
 |     "description": "A local Valkey server, the open-source Redis fork. Any redis client works.",
 |     "engine": "valkey",
 |     "engines": [
@@ -59,6 +60,7 @@ json:
 |     ],
 |     "example": "valkey \"cache\" {\n  version   = 9\n  maxmemory = \"256mb\"\n}",
 |     "homepage": "",
+|     "label": "cache",
 |     "module": "doze/valkey",
 |     "pinned": false,
 |     "port": 6379,

@@ -66,8 +66,8 @@ impl<F: Fs> Broker<F> {
             Request::SyncGroup(r) => self.sync_group(head.version, caller, &r).await,
             Request::Heartbeat(r) => self.heartbeat(caller, &r).await,
             Request::LeaveGroup(r) => self.leave_group(head.version, caller, &r).await,
-            Request::OffsetCommit(r) => self.offset_commit(head.version, caller, &r).await,
-            Request::OffsetFetch(r) => self.offset_fetch(head.version, caller, &r).await,
+            Request::OffsetCommit(r) => self.offset_commit(head.version, caller, r).await,
+            Request::OffsetFetch(r) => self.offset_fetch(head.version, caller, r).await,
             Request::OffsetDelete(r) => self.offset_delete(caller, &r).await,
             Request::DescribeGroups(r) => self.describe_groups(head.version, caller, &r).await,
             Request::ListGroups(r) => self.list_groups(caller, &r).await,
@@ -102,7 +102,7 @@ impl<F: Fs> Broker<F> {
             }
             Request::DeleteRecords(r) => self.delete_records(caller, &r).await,
             Request::CreatePartitions(r) => self.create_partitions(caller, &r, mutations).await,
-            Request::DescribeConfigs(r) => self.describe_configs(caller, &r),
+            Request::DescribeConfigs(r) => self.describe_configs(head.version, caller, &r),
             Request::AlterConfigs(r) => self.alter_configs(caller, &r).await,
             Request::IncrementalAlterConfigs(r) => self.incremental_alter_configs(caller, &r).await,
             Request::DescribeProducers(r) => self.describe_producers(caller, &r).await,
@@ -114,7 +114,7 @@ impl<F: Fs> Broker<F> {
             }
             Request::AddOffsetsToTxn(r) => self.add_offsets_to_txn(head.version, caller, &r).await,
             Request::EndTxn(r) => self.end_txn_request(head.version, caller, &r).await,
-            Request::TxnOffsetCommit(r) => self.txn_offset_commit(head.version, caller, &r).await,
+            Request::TxnOffsetCommit(r) => self.txn_offset_commit(head.version, caller, r).await,
             Request::DescribeTransactions(r) => self.describe_transactions(caller, &r).await,
             Request::ListTransactions(r) => self.list_transactions(caller, &r).await,
             Request::DescribeAcls(r) => self.describe_acls(caller, &r),
@@ -141,6 +141,45 @@ impl<F: Fs> Broker<F> {
             Request::DescribeCluster(r) => {
                 self.describe_cluster(listener, caller, &r, head.version)
             }
+            Request::DescribeTopicPartitions(r) => respond(Response::DescribeTopicPartitions(
+                self.describe_topic_partitions(caller, &r),
+            )),
+            Request::ElectLeaders(r) => respond(Response::ElectLeaders(self.elect_leaders(
+                caller,
+                &r,
+                head.version,
+            ))),
+            Request::AlterPartitionReassignments(r) => {
+                respond(Response::AlterPartitionReassignments(
+                    self.alter_partition_reassignments(caller, &r),
+                ))
+            }
+            Request::ListPartitionReassignments(r) => respond(
+                Response::ListPartitionReassignments(self.list_partition_reassignments(caller, &r)),
+            ),
+            Request::AlterReplicaLogDirs(r) => respond(Response::AlterReplicaLogDirs(
+                self.alter_replica_log_dirs(caller, &r),
+            )),
+            Request::ListConfigResources(r) => respond(Response::ListConfigResources(
+                self.list_config_resources(caller, &r, head.version),
+            )),
+            Request::UpdateFeatures(r) => respond(Response::UpdateFeatures(self.update_features(
+                caller,
+                &r,
+                head.version,
+            ))),
+            Request::CreateDelegationToken(r) => respond(Response::CreateDelegationToken(
+                Box::new(self.create_delegation_token(caller, &r, head.version).await),
+            )),
+            Request::RenewDelegationToken(r) => respond(Response::RenewDelegationToken(
+                self.renew_delegation_token(caller, &r).await,
+            )),
+            Request::ExpireDelegationToken(r) => respond(Response::ExpireDelegationToken(
+                self.expire_delegation_token(caller, &r).await,
+            )),
+            Request::DescribeDelegationToken(r) => respond(Response::DescribeDelegationToken(
+                self.describe_delegation_token(caller, &r, head.version),
+            )),
             // Telemetry is served only when `Config::client_telemetry` is on: the connection refuses the two
             // otherwise (they are neither advertised nor accepted), so these arms see them only then.
             Request::GetTelemetrySubscriptions(r) => self.get_telemetry_subscriptions(&r),

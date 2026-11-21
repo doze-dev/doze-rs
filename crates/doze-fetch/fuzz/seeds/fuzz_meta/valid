@@ -1,0 +1,5 @@
+title: Valkey
+engine: valkey
+port: 6379
+client:
+  program: valkey-cli

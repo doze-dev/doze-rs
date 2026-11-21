@@ -1,0 +1,108 @@
+//! Instances added to and removed from a running engine (Go's `AddInstance`, `RemoveInstance`): checked as at build
+//! time, woken like any other, refused while something needs them, stopped and forgotten on remove.
+
+mod common;
+
+use common::*;
+use doze_engine::error::BuildError;
+use doze_engine::{Cause, Engine};
+use std::time::Duration;
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn an_added_service_is_checked_wakes_its_needs_and_is_watched() {
+    let d = Dir::new("live-add");
+    let e = Engine::builder("t", d.path())
+        .service(svc("db", listener(&d, 0)))
+        .build()
+        .unwrap();
+    let mut changes = e.changes();
+    changes.borrow_and_update();
+    assert_eq!(
+        e.add(svc("db", listener(&d, 0))),
+        Err(BuildError::Duplicate("db".into()))
+    );
+    assert_eq!(
+        e.add(svc("api", listener(&d, 0)).needs("zz")),
+        Err(BuildError::UnknownNeed {
+            service: "api".into(),
+            need: "zz".into()
+        })
+    );
+    assert!(e.get("api").is_none(), "a refused add leaves nothing");
+    e.add(svc("api", listener(&d, 0)).needs("db")).unwrap();
+    assert!(changes.has_changed().unwrap(), "watchers see the add");
+    assert!(e.stack().service("api").is_some());
+    e.wake("api", Cause::Command).await.unwrap();
+    assert!(e.get("db").unwrap().state.running(), "its need woke first");
+    let pids = [pid_of(&e, "api"), pid_of(&e, "db")];
+    e.shutdown().await;
+    assert!(all_gone(&pids).await);
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn remove_is_refused_while_needed_then_stops_and_forgets() {
+    let d = Dir::new("live-remove");
+    let e = Engine::builder("t", d.path())
+        .service(svc("db", listener(&d, 0)))
+        .service(svc("api", listener(&d, 0)).needs("db"))
+        .build()
+        .unwrap();
+    e.wake("api", Cause::Command).await.unwrap();
+    let err = e.remove("db").await.unwrap_err().to_string();
+    assert_eq!(err, "instance \"db\" is needed by \"api\"; remove it first");
+    assert!(
+        e.get("db").unwrap().state.running(),
+        "a refused remove stops nothing"
+    );
+    let api = pid_of(&e, "api");
+    e.remove("api").await.unwrap();
+    assert!(e.get("api").is_none() && e.stack().service("api").is_none());
+    assert!(
+        all_gone(&[api]).await,
+        "removing a running service stops it"
+    );
+    assert!(
+        e.wake("api", Cause::Command).await.is_err(),
+        "a removed name is not declared"
+    );
+    // What it held is released: db can go now, and a name can come back.
+    let db = pid_of(&e, "db");
+    e.remove("db").await.unwrap();
+    assert!(all_gone(&[db]).await);
+    assert!(e.snapshot().is_empty());
+    e.add(svc("db", listener(&d, 0))).unwrap();
+    let ep = tokio::time::timeout(Duration::from_secs(10), e.wake("db", Cause::Command))
+        .await
+        .unwrap()
+        .unwrap();
+    assert!(ep.backend.starts_with("127.0.0.1:"));
+    let pid = pid_of(&e, "db");
+    e.shutdown().await;
+    assert!(all_gone(&[pid]).await);
+}
+
+/// A connection that outlives a remove and an add of the same name gives back nothing of the new instance's (D1 audit
+/// item 3, the stale release).
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn a_connection_to_a_removed_instance_does_not_count_against_one_added_under_its_name() {
+    let d = Dir::new("live-hold");
+    let e = Engine::builder("t", d.path())
+        .service(svc("db", listener(&d, 0)))
+        .build()
+        .unwrap();
+    let old = e.hold("db").expect("declared");
+    e.remove("db").await.unwrap();
+    assert!(e.hold("db").is_none(), "nothing to hold once removed");
+    e.add(svc("db", listener(&d, 0))).unwrap();
+    let new = e.hold("db").expect("declared again");
+    assert_eq!(e.get("db").unwrap().conns, 1);
+    drop(old);
+    assert_eq!(
+        e.get("db").unwrap().conns,
+        1,
+        "the old connection's end is not the new one's"
+    );
+    drop(new);
+    assert_eq!(e.get("db").unwrap().conns, 0);
+    e.shutdown().await;
+}

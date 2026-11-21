@@ -33,7 +33,7 @@ pub struct Final<'a> {
 
 impl First<'_> {
     /// Whether the client asked to log in with a delegation token (`tokenauth=true`, the last one sent, any
-    /// case of `true`). There are no tokens here, so the answer to it is an unknown user.
+    /// case of `true`).
     #[must_use]
     pub fn is_token_auth(&self) -> bool {
         let last = self

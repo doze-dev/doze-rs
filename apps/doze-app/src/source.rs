@@ -81,6 +81,37 @@ impl Source {
         }
     }
 
+    /// Moves the hub's clock on by `ms`, as the app's own (faked) time moves in a test.
+    #[cfg(all(test, feature = "capture"))]
+    pub(crate) fn skew(&self, ms: u64) {
+        if let Some(fx) = &self._fixture {
+            fx.skew(ms);
+        }
+    }
+
+    /// Has the fixture daemon send its meters now and waits (a moment of the wall clock at most) until the hub has
+    /// them, so a daemon that is not stale stays fresh in a test's time; whether it sent any.
+    #[cfg(all(test, feature = "capture"))]
+    pub(crate) fn beat(&self) -> bool {
+        let Some(fx) = &self._fixture else {
+            return false;
+        };
+        let Some(key) = &self.first else {
+            return false;
+        };
+        let last = || self.hub.stack(key).and_then(|s| s.link.last_frame);
+        let before = last();
+        // Only a stream that asked for the meters gets them.
+        if !self.hub.stack(key).is_some_and(|s| s.metered) || !fx.beat() {
+            return false;
+        }
+        let start = std::time::Instant::now();
+        while last() == before && start.elapsed() < Duration::from_secs(2) {
+            std::thread::sleep(Duration::from_millis(1));
+        }
+        true
+    }
+
     /// The verbs the fixture daemon was asked, as `op target` (`sleep db`).
     #[cfg(all(test, feature = "capture"))]
     pub(crate) fn verbs(&self) -> Vec<String> {

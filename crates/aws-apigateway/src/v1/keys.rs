@@ -1,6 +1,6 @@
 //! API keys, usage plans and the keys in them, the account settings, custom domain names (stored, nothing served at them), and tags.
 //! A usage plan's keys are kept on the plan (`_keys`), so a key in a plan and the plan-key views come from one list. Throttle and
-//! quota are stored and returned, never enforced: nothing is metered locally.
+//! quota are enforced on the plane and usage is metered (`crate::usage`); keys can be imported from CSV (`import_keys`).
 
 use aws_model_api_gateway::Operation;
 use aws_wire::ApiError;
@@ -30,8 +30,12 @@ pub(super) fn dispatch(core: &mut Core, op: Operation, r: &Req) -> Option<Res> {
         Operation::DeleteUsagePlan => core
             .plans
             .remove(r.s("usagePlanId"))
-            .map(|_| Default::default())
+            .map(|_| crate::usage::forget(core, Some(r.s("usagePlanId")), None))
+            .map(|()| Default::default())
             .ok_or_else(no_plan),
+        Operation::GetUsage => crate::usage::get(core, r),
+        Operation::UpdateUsage => crate::usage::update(core, r),
+        Operation::ImportApiKeys => super::import_keys::import(core, r),
         Operation::CreateUsagePlanKey => create_plan_key(core, r),
         Operation::GetUsagePlanKey => plan_key(core, r, r.s("keyId")).map(Into::into),
         Operation::GetUsagePlanKeys => plan_keys(core, r),
@@ -194,6 +198,7 @@ fn delete_key(core: &mut Core, r: &Req) -> Res {
             keys.retain(|k| k.as_str() != Some(id));
         }
     }
+    crate::usage::forget(core, None, Some(id));
     none()
 }
 
@@ -369,6 +374,7 @@ fn delete_plan_key(core: &mut Core, r: &Req) -> Res {
     {
         keys.retain(|k| k.as_str() != Some(r.s("keyId")));
     }
+    crate::usage::forget(core, Some(r.s("usagePlanId")), Some(r.s("keyId")));
     none()
 }
 

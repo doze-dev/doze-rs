@@ -1,221 +1,99 @@
-//! Running a module's plan the way the core will: processes in `after` order as doze-os trees, each gated on its
-//! readiness check, then its hooks; stopped in reverse order with the module's declared stop. Output goes to log files,
-//! never pipes (W0: a tool that leaves a server behind keeps captured pipes open forever).
+//! Running a module's plan the way the core does, with the core's own executor (`doze_engine::exec`, promoted from
+//! here in E1): processes in `after` order as doze-os trees, each gated on its readiness check, then its hooks; stopped
+//! in reverse order with the module's declared stop. Output goes to one run of the log store, as the core keeps it.
 
-use doze_module_proto::msg::run::{Plan, Process, Ready, StopHow};
-use doze_os::tree::{Stop, Stopped, Tree};
-use std::path::{Path, PathBuf};
-use std::process::Stdio;
-use std::time::{Duration, Instant};
+use doze_engine::exec::{self, Unit};
+use doze_engine::logs::RunLog;
+use doze_module_proto::msg::run::Plan;
+use doze_os::tree::Stopped;
+use std::path::Path;
+use std::time::Duration;
 
 /// The running processes of one plan.
 #[derive(Debug)]
 pub struct Started {
-    procs: Vec<(Process, Tree)>,
-    logs: PathBuf,
+    unit: Unit,
+    log: RunLog,
 }
 
-/// The order processes start in: each after the ones it names.
-fn order(plan: &Plan) -> Result<Vec<&Process>, String> {
-    let mut done: Vec<&Process> = Vec::new();
-    while done.len() < plan.processes.len() {
-        let next = plan.processes.iter().find(|p| {
-            !done.iter().any(|d| d.name == p.name)
-                && p.after.iter().all(|a| done.iter().any(|d| &d.name == a))
-        });
-        match next {
-            Some(p) => done.push(p),
-            None => {
-                return Err("the plan's `after` names a missing process or makes a cycle".into());
-            }
-        }
-    }
-    Ok(done)
-}
-
-fn log_file(logs: &Path, name: &str) -> Result<std::fs::File, String> {
-    std::fs::OpenOptions::new()
-        .create(true)
-        .append(true)
-        .open(logs.join(format!("{name}.log")))
-        .map_err(|e| e.to_string())
-}
-
-async fn run_to_end(argv: &[String]) -> Result<bool, String> {
-    let (prog, args) = argv.split_first().ok_or("an empty command")?;
-    let st = tokio::process::Command::new(prog)
-        .args(args)
-        .stdin(Stdio::null())
-        .stdout(Stdio::null())
-        .stderr(Stdio::null())
-        .status()
-        .await;
-    st.map(|s| s.success()).map_err(|e| format!("{prog}: {e}"))
-}
-
-async fn http_ok(url: &str) -> bool {
-    let rest = url.strip_prefix("http://").unwrap_or(url);
-    let (host, path) = rest
-        .split_once('/')
-        .map_or((rest, "/".to_string()), |(h, p)| (h, format!("/{p}")));
-    let Ok(mut s) = tokio::net::TcpStream::connect(host).await else {
-        return false;
-    };
-    use tokio::io::{AsyncReadExt, AsyncWriteExt};
-    if s.write_all(format!("GET {path} HTTP/1.0\r\nHost: {host}\r\n\r\n").as_bytes())
-        .await
-        .is_err()
-    {
-        return false;
-    }
-    let mut head = [0u8; 12];
-    s.read_exact(&mut head).await.is_ok()
-        && head.starts_with(b"HTTP/1.")
-        && matches!(head.get(9), Some(b'2' | b'3'))
-}
-
-async fn ready_now(r: &Ready, log: &Path) -> Result<bool, String> {
-    Ok(match r {
-        Ready::Tcp(addr) => tokio::net::TcpStream::connect(addr).await.is_ok(),
-        #[cfg(unix)]
-        Ready::Socket(path) => tokio::net::UnixStream::connect(path).await.is_ok(),
-        #[cfg(not(unix))]
-        Ready::Socket(_) => {
-            return Err(
-                "a socket readiness check on a system without Unix sockets (use Tcp, PLAN.md D13)"
-                    .into(),
-            );
-        }
-        Ready::Http(url) => http_ok(url).await,
-        Ready::Exec(argv) => run_to_end(argv).await?,
-        Ready::LogLine(text) => {
-            std::fs::read_to_string(log).is_ok_and(|s| s.contains(text.as_str()))
-        }
-    })
-}
-
-/// What a log says about an exit: from a Go panic's first line (its message, which a stack's tail never has),
-/// else the last lines, in order.
-fn why_it_exited(text: &str) -> String {
-    let lines: Vec<&str> = text.lines().collect();
-    let from = lines
-        .iter()
-        .rposition(|l| {
-            l.starts_with("panic:") || l.starts_with("fatal error:") || l.starts_with("Error:")
-        })
-        .unwrap_or(lines.len().saturating_sub(5));
-    lines
-        .iter()
-        .skip(from)
-        .take(8)
-        .copied()
-        .collect::<Vec<_>>()
-        .join(" | ")
-}
-
-async fn wait_ready(
-    p: &Process,
-    tree: &mut Tree,
-    log: &Path,
-    limit: Duration,
-) -> Result<(), String> {
-    let Some(ready) = &p.ready else {
-        // No check: it must at least stay up a moment.
-        tokio::time::sleep(Duration::from_millis(200)).await;
-        return match tree.try_wait().map_err(|e| e.to_string())? {
-            Some(st) => Err(format!("{} exited at once: {st}", p.name)),
-            None => Ok(()),
-        };
-    };
-    let t0 = Instant::now();
-    loop {
-        if let Some(st) = tree.try_wait().map_err(|e| e.to_string())? {
-            let text = std::fs::read_to_string(log).unwrap_or_default();
-            return Err(format!(
-                "{} exited before it was ready ({st}): {}",
-                p.name,
-                why_it_exited(&text)
-            ));
-        }
-        if ready_now(ready, log).await? {
-            return Ok(());
-        }
-        if t0.elapsed() > limit {
-            return Err(format!("{} not ready within {limit:?}", p.name));
-        }
-        tokio::time::sleep(Duration::from_millis(50)).await;
-    }
-}
-
-/// How long a process that started but failed the boot is given to stop the way its module declared.
+/// How long a process that started but failed the boot is given to stop the way its module declared (a killed
+/// PostgreSQL leaves its System V shared memory segment behind; ci-health.md, "Landing core M1").
 pub(crate) const FAILED_BOOT_GRACE: Duration = Duration::from_secs(30);
 
-/// Starts every process of `plan`, each ready before the next, running hooks after each. On a failure the processes
-/// already started are stopped the way their module declared, not killed: a killed PostgreSQL leaves its System V
-/// shared memory segment behind, and the machine has few of those (macOS: 32).
+/// Starts every process of `plan`, each ready (within `limit`) before the next, running hooks after each. On a
+/// failure `exec::start` has already stopped the processes it started, each the way its module declared.
 pub async fn start(plan: &Plan, logs: &Path, limit: Duration) -> Result<Started, String> {
-    let mut started = Started {
-        procs: Vec::new(),
-        logs: logs.to_path_buf(),
-    };
-    if let Err(e) = start_into(plan, logs, limit, &mut started).await {
-        started.stop(FAILED_BOOT_GRACE).await;
-        return Err(e);
-    }
-    Ok(started)
-}
-
-async fn start_into(
-    plan: &Plan,
-    logs: &Path,
-    limit: Duration,
-    started: &mut Started,
-) -> Result<(), String> {
-    for p in order(plan)? {
-        let log = logs.join(format!("{}.log", p.name));
-        let (out, err) = (log_file(logs, &p.name)?, log_file(logs, &p.name)?);
-        let mut cmd = tokio::process::Command::new(&p.program);
-        cmd.args(&p.args)
-            .envs(&p.env)
-            .stdin(Stdio::null())
-            .stdout(Stdio::from(out))
-            .stderr(Stdio::from(err));
-        if let Some(d) = &p.dir {
-            cmd.current_dir(d);
-        }
-        let mut tree =
-            Tree::spawn(cmd).map_err(|e| format!("starting {} ({}): {e}", p.name, p.program))?;
-        let r = wait_ready(p, &mut tree, &log, limit).await;
-        started.procs.push((p.clone(), tree));
-        r?;
-        for hook in &p.hooks {
-            if !run_to_end(hook).await? {
-                return Err(format!("{}: hook {hook:?} failed", p.name));
-            }
-        }
-    }
-    Ok(())
+    let log = RunLog::open(logs, "plan").map_err(|e| e.to_string())?;
+    let unit = exec::start(plan, &log, limit, None)
+        .await
+        .map_err(|e| e.message)?;
+    Ok(Started { unit, log })
 }
 
 impl Started {
-    /// The log of one process so far.
-    pub fn log(&self, name: &str) -> String {
-        std::fs::read_to_string(self.logs.join(format!("{name}.log"))).unwrap_or_default()
+    /// What the plan's processes printed so far (one log for the plan, as the core keeps it).
+    pub fn log(&self, _process: &str) -> String {
+        self.log.text()
     }
 
-    /// Stops every process in reverse order, each the way its module declared; how each ended.
+    /// Stops every process in reverse order, each the way its module declared; how each ended. A stop that was not
+    /// graceful prints the plan's log: what the engine said while it would not stop is the only evidence of why, and
+    /// the sandbox holding it is gone with the test (ferret's postgres, forced on macOS CI on 2026-11-20, left none).
     pub async fn stop(mut self, grace: Duration) -> Vec<(String, std::io::Result<Stopped>)> {
-        let mut out = Vec::new();
-        while let Some((p, mut tree)) = self.procs.pop() {
-            let how = match &p.stop {
-                Some(StopHow::Interrupt) => Stop::Interrupt,
-                Some(StopHow::Command(argv)) => {
-                    Stop::Command(argv.iter().map(Into::into).collect())
-                }
-                Some(StopHow::Terminate) | None => Stop::Terminate,
-            };
-            out.push((p.name.clone(), tree.stop(&how, grace).await));
+        let stops = self.unit.stop(grace).await;
+        if let Some(report) = not_graceful(&stops, &self.log.text()) {
+            eprintln!("{report}");
         }
-        out
+        stops
+    }
+}
+
+/// The most lines of the plan's log a stop that was not graceful quotes (its end: the stop is there).
+const QUOTED: usize = 200;
+
+/// For stops that were not all graceful successes, what they were and the end of the plan's log.
+fn not_graceful(stops: &[(String, std::io::Result<Stopped>)], log: &str) -> Option<String> {
+    let clean = stops
+        .iter()
+        .all(|(_, r)| matches!(r, Ok(Stopped::Graceful(st)) if st.success()));
+    if clean {
+        return None;
+    }
+    let lines: Vec<&str> = log.lines().collect();
+    let tail = lines
+        .get(lines.len().saturating_sub(QUOTED)..)
+        .unwrap_or_default();
+    Some(format!(
+        "not every process stopped gracefully: {stops:?}\nthe plan's log, its last {} lines:\n{}",
+        tail.len(),
+        tail.join("\n")
+    ))
+}
+
+#[cfg(all(test, unix))]
+mod tests {
+    use super::*;
+    use std::os::unix::process::ExitStatusExt;
+    use std::process::ExitStatus;
+
+    #[test]
+    fn only_a_stop_that_was_not_graceful_quotes_the_end_of_the_log() {
+        let ok = |code| Ok(Stopped::Graceful(ExitStatus::from_raw(code)));
+        let log: String = (1..=250).map(|n| format!("line {n}\n")).collect();
+        assert_eq!(not_graceful(&[("a".into(), ok(0))], &log), None);
+        let forced = [
+            ("ferretdb".into(), ok(0)),
+            (
+                "postgres".into(),
+                Ok(Stopped::Forced(ExitStatus::from_raw(9))),
+            ),
+        ];
+        let report = not_graceful(&forced, &log).unwrap();
+        assert!(report.contains("Forced"), "{report}");
+        assert!(report.contains("its last 200 lines"), "{report}");
+        assert!(report.ends_with("line 250") && report.contains("\nline 51\n"));
+        assert!(!report.contains("\nline 50\n"), "{report}");
+        // A graceful exit that failed is reported too.
+        assert!(not_graceful(&[("a".into(), ok(256))], "x").is_some());
     }
 }

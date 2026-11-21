@@ -23,13 +23,18 @@ fn refused(config: &Value) -> String {
     e.message
 }
 
+/// What refusing `processor` says when it comes after a parser (a transformer must begin with one).
+fn later(processor: Value) -> String {
+    refused(&json!([{"parseJSON": {}}, processor]))
+}
+
 #[test]
 fn parse_json_then_keys_are_added_copied_moved_renamed_and_deleted() {
     let config = json!([
         {"parseJSON": {}},
         {"addKeys": {"entries": [{"key": "env", "value": "dev"}, {"key": "level", "value": "x"}]}},
         {"copyValue": {"entries": [{"source": "@logGroupName", "target": "meta.group"}, {"source": "@regionName", "target": "meta.region"}]}},
-        {"moveKeys": {"entries": [{"source": "user.id", "target": "uid"}]}},
+        {"moveKeys": {"entries": [{"source": "user.id", "target": "meta"}]}},
         {"renameKeys": {"entries": [{"key": "msg", "renameTo": "text"}]}},
         {"deleteKeys": {"withKeys": ["drop"]}},
     ]);
@@ -40,7 +45,7 @@ fn parse_json_then_keys_are_added_copied_moved_renamed_and_deleted() {
     .unwrap();
     assert_eq!(
         out,
-        json!({"level": "info", "text": "hi", "user": {}, "uid": 7, "env": "dev", "meta": {"group": "/app", "region": "eu-west-1"}})
+        json!({"level": "info", "text": "hi", "user": {}, "env": "dev", "meta": {"group": "/app", "region": "eu-west-1", "id": 7}})
     );
 }
 
@@ -79,8 +84,10 @@ fn csv_and_key_values_are_taken_apart() {
 }
 
 #[test]
-fn grok_extracts_named_and_typed_fields() {
-    let config = json!([{"grok": {"match": "%{IPV4:ip} %{WORD:verb} %{URIPATHPARAM:path} %{NUMBER:status:int} %{NUMBER:secs:float}"}}]);
+fn grok_extracts_named_fields_as_text() {
+    // No `:int` in the pattern (refused, as AWS refuses it): a typeConverter after it makes numbers.
+    let config = json!([{"grok": {"match": "%{IPV4:ip} %{WORD:verb} %{URIPATHPARAM:path} %{NUMBER:status} %{NUMBER:secs}"}},
+        {"typeConverter": {"entries": [{"key": "status", "type": "integer"}, {"key": "secs", "type": "double"}]}}]);
     let out = run(&config, "10.0.0.1 GET /a/b?c=1 200 0.25").unwrap();
     assert_eq!(
         out,
@@ -198,7 +205,12 @@ fn bad_configurations_are_refused() {
     assert!(refused(&json!(vec![json!({"parseJSON": {}}); 21])).contains("between 1 and 20"));
     assert!(refused(&json!([{}])).contains("exactly one"));
     assert!(refused(&json!([{"parseJSON": {}, "csv": {}}])).contains("exactly one"));
-    assert!(refused(&json!([{"nope": {}}])).contains("Unknown processor"));
+    assert!(later(json!({"nope": {}})).contains("Unknown processor"));
+    // Recorded 2026-11-19.
+    assert_eq!(
+        refused(&json!([{"addKeys": {"entries": [{"key": "a", "value": "b"}]}}, {"parseVPC": {}}])),
+        "Transformer config should begin with parser. Allowed parsers are parsePostgres, parseWAF, parseCloudfront, parseCloudfrontOCSF, parseRoute53, parseLambda, parseVPC, parseSyslog, parseRDS, parseCiscoFTD, parseF5BigIP, parseCiscoISE, parseForescoutNac, parseInfobloxDDI, parseToOCSF, parseJSON, grok, csv, parseKeyValue"
+    );
     assert!(refused(&json!([{"parseJSON": {}}, {"parseVPC": {}}])).contains("first processor"));
     assert!(refused(&json!([{"parseVPC": {"source": "x"}}])).contains("only be @message"));
     for name in [
@@ -217,25 +229,44 @@ fn bad_configurations_are_refused() {
 #[test]
 fn bad_processor_settings_are_refused() {
     assert!(refused(&json!([{"grok": {"match": "%{NOPE:x}"}}])).contains("not known"));
-    assert!(refused(&json!([{"grok": {"match": "%{INT:x:long}"}}])).contains("int or float"));
+    assert_eq!(
+        refused(&json!([{"grok": {"match": "%{INT:x:int}"}}])),
+        "Grok parser doesn't support type conversions for any grok patterns"
+    );
     assert!(refused(&json!([{"grok": {"match": "(unclosed"}}])).contains("not a valid"));
-    assert!(refused(&json!([{"dateTimeConverter": {"source": "a", "target": "b", "matchPatterns": ["yyyy-QQ"]}}])).contains("not valid"));
-    assert!(refused(&json!([{"dateTimeConverter": {"source": "a", "target": "b", "matchPatterns": ["yyyy"], "sourceTimezone": "Mars/Base"}}])).contains("time zone"));
+    assert!(later(json!({"dateTimeConverter": {"source": "a", "target": "b", "matchPatterns": ["yyyy-QQ"]}})).contains("not valid"));
+    assert!(later(json!({"dateTimeConverter": {"source": "a", "target": "b", "matchPatterns": ["yyyy"], "sourceTimezone": "Mars/Base"}})).contains("time zone"));
     assert!(
-        refused(&json!([{"typeConverter": {"entries": [{"key": "a", "type": "long"}]}}]))
+        later(json!({"typeConverter": {"entries": [{"key": "a", "type": "long"}]}}))
             .contains("integer, double")
     );
     assert!(
-        refused(&json!([{"listToMap": {"source": "a", "key": "k", "flatten": true}}]))
+        later(json!({"listToMap": {"source": "a", "key": "k", "flatten": true}}))
             .contains("first or last")
     );
-    assert!(refused(&json!([{"addKeys": {"entries": []}}])).contains("required"));
+    assert!(later(json!({"addKeys": {"entries": []}})).contains("required"));
     assert!(
-        refused(
-            &json!([{"substituteString": {"entries": [{"source": "a", "from": "[", "to": ""}]}}])
-        )
-        .contains("not valid")
+        later(json!({"substituteString": {"entries": [{"source": "a", "from": "[", "to": ""}]}}))
+            .contains("not valid")
     );
     assert!(super::check(r#"[{"parseJSON":{}}]"#, r#"{"a":1}"#));
     assert!(!super::check("not json", "x"));
+}
+
+/// Recorded 2026-11-19: moveKeys puts the source into a target the event already has, and refuses one it does not.
+#[test]
+fn move_keys_moves_into_an_existing_key() {
+    let meta = META;
+    let t = |target: &str, overwrite: bool| {
+        Transformer::parse(&json!([{"parseJSON": {}},
+            {"moveKeys": {"entries": [{"source": "c", "target": target, "overwriteIfExists": overwrite}]}}]))
+        .unwrap()
+        .test(r#"{"a":1,"c":2}"#, &meta)
+    };
+    assert_eq!(
+        t("d", false).unwrap_err(),
+        "No corresponding field. Field Name: 'd', Processor: 'MoveKeysProcessor'"
+    );
+    let moved: Value = serde_json::from_str(&t("a", true).unwrap().unwrap()).unwrap();
+    assert_eq!(moved, json!({"a": {"c": 2}}));
 }

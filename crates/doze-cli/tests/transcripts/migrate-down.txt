@@ -1,0 +1,45 @@
+# migrate with doze stopped: the daemon would be started for the move (Go's wanted the stack down; here the daemon
+# runs the move, so it is started). A dry run starts nothing.
+@ project shop
+
+$ doze migrate --dry-run db
+exit 0
+stdout:
+| doze
+|   → start the daemon  for the move, and stopped again after it
+| db
+|   → migrate           its module moves the data to postgres 16, as doze.hcl declares; db is stopped meanwhile
+|   dry run: nothing was changed · doze migrate db applies this
+json exit 0
+json:
+| {
+|   "schema": "doze/v1",
+|   "command": "doze migrate",
+|   "ok": true,
+|   "data": {
+|     "applies_with": "doze migrate db",
+|     "dry_run": true,
+|     "plan": [
+|       {
+|         "changes": [
+|           {
+|             "detail": "for the move, and stopped again after it",
+|             "op": "→",
+|             "subject": "start the daemon"
+|           }
+|         ],
+|         "title": "doze"
+|       },
+|       {
+|         "changes": [
+|           {
+|             "detail": "its module moves the data to postgres 16, as doze.hcl declares; db is stopped meanwhile",
+|             "op": "→",
+|             "subject": "migrate"
+|           }
+|         ],
+|         "title": "db"
+|       }
+|     ]
+|   }
+| }

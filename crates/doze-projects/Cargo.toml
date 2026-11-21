@@ -1,7 +1,7 @@
 [package]
 name = "doze-projects"
 version = "0.0.0"
-description = "Read-only reader of the Go doze project records (projects/*/project.json), stack keys, daemon discovery and the stale-pid check"
+description = "Reader and writer of the Go doze project records (projects/*/project.json), stack keys, daemon discovery and the stale-pid check"
 edition.workspace = true
 license.workspace = true
 repository.workspace = true

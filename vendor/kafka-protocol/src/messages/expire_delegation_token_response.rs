@@ -83,7 +83,7 @@ impl ExpireDelegationTokenResponse {
 #[cfg(feature = "broker")]
 impl Encodable for ExpireDelegationTokenResponse {
     fn encode<B: ByteBufMut>(&self, buf: &mut B, version: i16) -> Result<()> {
-        if version < 1 || version > 2 {
+        if version < 0 || version > 2 { // PATCH 7: v0 (Kafka 1 to 3)
             bail!("specified version not supported by this message type");
         }
         types::Int16.encode(buf, &self.error_code)?;
@@ -127,7 +127,7 @@ impl Encodable for ExpireDelegationTokenResponse {
 #[cfg(feature = "client")]
 impl Decodable for ExpireDelegationTokenResponse {
     fn decode<B: ByteBuf>(buf: &mut B, version: i16) -> Result<Self> {
-        if version < 1 || version > 2 {
+        if version < 0 || version > 2 { // PATCH 7: v0 (Kafka 1 to 3)
             bail!("specified version not supported by this message type");
         }
         let error_code = types::Int16.decode(buf)?;
@@ -164,7 +164,7 @@ impl Default for ExpireDelegationTokenResponse {
 }
 
 impl Message for ExpireDelegationTokenResponse {
-    const VERSIONS: VersionRange = VersionRange { min: 1, max: 2 };
+    const VERSIONS: VersionRange = VersionRange { min: 0, max: 2 } /* PATCH 7 */;
     const DEPRECATED_VERSIONS: Option<VersionRange> = None;
 }
 

@@ -2,7 +2,7 @@
   "_recorded": {
     "boto3": "1.43.107",
     "botocore": "1.43.107",
-    "on": "2026-11-15",
+    "on": "2026-11-19",
     "region": "us-east-1",
     "target": "aws"
   },
@@ -897,6 +897,110 @@
       "Error": {
         "Code": "AccessDeniedException",
         "Message": "No access to reserved parameter name: awsome-dzc/x."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    }
+  },
+  "test_resource_policy_on_a_parameter": {
+    "change": {
+      "PolicyHash": "<PolicyHash:2>",
+      "PolicyId": "<PolicyId:1>",
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "delete": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "delete-stale-hash": {
+      "Error": {
+        "Code": "ResourcePolicyNotFoundException",
+        "Message": "Resource policy for resource arn:aws:ssm:us-east-1:<account>:parameter/<name:param>/shared with policy ID <uuid:1> and policy hash <name:first-hash> does not exist"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "get": {
+      "Policies": [
+        {
+          "Policy": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Sid\":\"share\",\"Effect\":\"Allow\",\"Principal\":{\"AWS\":\"arn:aws:iam::<account>:root\"},\"Action\":\"ssm:GetParameter\",\"Resource\":\"arn:aws:ssm:us-east-1:<account>:parameter/<name:param>/shared\"}]}",
+          "PolicyHash": "<PolicyHash:1>",
+          "PolicyId": "<PolicyId:1>"
+        }
+      ],
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "none-left": {
+      "Policies": [],
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "put": {
+      "PolicyHash": "<PolicyHash:1>",
+      "PolicyId": "<PolicyId:1>",
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "stale-hash": {
+      "Error": {
+        "Code": "ResourcePolicyNotFoundException",
+        "Message": "Resource policy for resource arn:aws:ssm:us-east-1:<account>:parameter/<name:param>/shared with policy ID <uuid:1> and policy hash <name:first-hash> does not exist"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "unknown-account": {
+      "Error": {
+        "Code": "ValidationException",
+        "Message": "Resource policy for parameter arn:aws:ssm:us-east-1:<account>:parameter/<name:param>/shared already exists"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    }
+  },
+  "test_resource_policy_refusals": {
+    "no-such-parameter": {
+      "Error": {
+        "Code": "ResourceNotFoundException",
+        "Message": "Parameter arn:aws:ssm:us-east-1:<account>:parameter/<name:param>/standard-absent not found"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "not-a-policy": {
+      "Error": {
+        "Code": "ValidationException",
+        "Message": "Only advanced parameters can be shared"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "standard-tier": {
+      "Error": {
+        "Code": "ValidationException",
+        "Message": "Only advanced parameters can be shared"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "unknown-policy-id": {
+      "Error": {
+        "Code": "ResourcePolicyNotFoundException",
+        "Message": "Resource policy for resource arn:aws:ssm:us-east-1:<account>:parameter/<name:param>/standard with policy ID 0123456789abcdef and policy hash 0123456789abcdef does not exist"
       },
       "ResponseMetadata": {
         "HTTPStatusCode": 400

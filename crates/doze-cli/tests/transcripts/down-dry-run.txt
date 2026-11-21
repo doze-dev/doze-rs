@@ -1,0 +1,44 @@
+# A daemon answers but its pid file names no process doze started (here the fixture daemon writes none): down refuses,
+# dry run or not, and says why (exit 1), never "not running" while it runs (Go said exit 0 and left it running).
+@ project bare
+@ daemon verbs
+
+$ doze down --dry-run
+exit 1
+stderr:
+| error[DZ0703]: a doze daemon answers for this stack, but its pid file (run/doze.pid in the stack's state folder) names no process doze started
+|   fix: doze bug writes a report with the daemon's log
+json exit 1
+json:
+| {
+|   "schema": "doze/v1",
+|   "command": "doze down",
+|   "ok": false,
+|   "error": {
+|     "code": "failed",
+|     "message": "a doze daemon answers for this stack, but its pid file (run/doze.pid in the stack's state folder) names no process doze started",
+|     "exit": 1,
+|     "id": "DZ0703",
+|     "fix": "doze bug writes a report with the daemon's log"
+|   }
+| }
+
+$ doze down
+exit 1
+stderr:
+| error[DZ0703]: a doze daemon answers for this stack, but its pid file (run/doze.pid in the stack's state folder) names no process doze started
+|   fix: doze bug writes a report with the daemon's log
+json exit 1
+json:
+| {
+|   "schema": "doze/v1",
+|   "command": "doze down",
+|   "ok": false,
+|   "error": {
+|     "code": "failed",
+|     "message": "a doze daemon answers for this stack, but its pid file (run/doze.pid in the stack's state folder) names no process doze started",
+|     "exit": 1,
+|     "id": "DZ0703",
+|     "fix": "doze bug writes a report with the daemon's log"
+|   }
+| }

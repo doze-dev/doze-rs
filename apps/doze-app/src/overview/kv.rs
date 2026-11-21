@@ -6,13 +6,13 @@ use gpui::{AnyElement, Context, IntoElement, div, prelude::*, px};
 use super::OverviewView;
 use crate::kit::s;
 use crate::theme::{Tokens, ty};
-use crate::widgets::MONO_FAMILY;
+use crate::widgets::Mono as _;
 
 /// `.kv`: the key, the value, and Copy when there is something to copy.
 pub(super) struct Kv<'a> {
     pub(super) k: &'a str,
     pub(super) v: &'a str,
-    pub(super) copy: Option<String>,
+    pub(super) copy: Option<(String, String)>,
     /// The value is the thing itself (`.v.b`), not a word about it.
     pub(super) bright: bool,
     /// A sentence, wrapped, in the page's face; else one mono line.
@@ -36,8 +36,8 @@ impl<'a> Kv<'a> {
         }
     }
 
-    pub(super) fn copy(mut self, c: &str) -> Kv<'a> {
-        self.copy = Some(c.to_owned());
+    pub(super) fn copy(mut self, c: &str, what: String) -> Kv<'a> {
+        self.copy = Some((c.to_owned(), what));
         self.bright = true;
         self
     }
@@ -75,7 +75,7 @@ impl<'a> Kv<'a> {
             value
         } else {
             value
-                .font_family(MONO_FAMILY)
+                .mono_face()
                 .whitespace_nowrap()
                 .overflow_hidden()
                 .text_ellipsis()
@@ -102,23 +102,30 @@ impl<'a> Kv<'a> {
                 ))
                 .into_any_element();
         }
-        let Some(c) = self.copy else {
+        let Some((c, what)) = self.copy else {
             return row.into_any_element();
         };
-        let what = self.k.to_lowercase();
+        // Go's `Copy`: "Copied" for 1200 ms, and "copied the address of api to the clipboard": each Copy names its text.
+        let id = gpui::SharedString::from(format!("copy-{}", self.k));
+        let word = if crate::kit::says_copied(&id, cx) {
+            "Copied"
+        } else {
+            "Copy"
+        };
         row.child(
             div()
-                .id(gpui::SharedString::from(format!("copy-{}", self.k)))
+                .id(id.clone())
                 .flex_none()
                 .text_size(px(ty::XS))
                 .font_weight(ty::MEDIUM)
                 .text_color(t.accent)
                 .cursor_pointer()
                 .hover(|d| d.underline())
-                .child("Copy")
+                .child(word)
                 .on_click(cx.listener(move |this, _, _, cx| {
                     crate::outward::copy(cx, &c);
-                    this.say(&format!("Copied the {what}"), cx);
+                    crate::kit::flip_copied(id.clone(), cx);
+                    this.say(&doze_desk::copied::copied(&what), cx);
                 })),
         )
         .into_any_element()

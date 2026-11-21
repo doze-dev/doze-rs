@@ -170,7 +170,30 @@ impl Harness {
     /// into the data directory before provision, as the core does for a first boot); converge runs on a fresh or a
     /// cloned data directory.
     pub async fn boot_with(&self, hcl: &str, how: Boot) -> Result<Booted, String> {
+        self.boot_inner(hcl, how, None).await
+    }
+
+    /// Boots one block on a data directory that already holds `seed`'s files (copied in before provision), as an
+    /// instance whose folder another build left: provision finds it there, so converge does not run.
+    pub async fn boot_seeded(
+        &self,
+        hcl: &str,
+        how: Boot,
+        seed: &std::path::Path,
+    ) -> Result<Booted, String> {
+        self.boot_inner(hcl, how, Some(seed)).await
+    }
+
+    async fn boot_inner(
+        &self,
+        hcl: &str,
+        how: Boot,
+        seed: Option<&std::path::Path>,
+    ) -> Result<Booted, String> {
         let (module, sandbox, mut instance) = self.prepare(hcl, how.tcp).await?;
+        if let Some(seed) = seed {
+            copy_tree(seed, std::path::Path::new(&instance.data_dir)).map_err(|e| e.to_string())?;
+        }
         let args = ResolveArgs {
             instance: instance.clone(),
             target: target(),
@@ -324,4 +347,19 @@ async fn checked_network(module: &Running, instance: &Instance) -> Result<Vec<Li
         return Err(format!("invalid listeners: {}", errs.join("; ")));
     }
     Ok(listeners)
+}
+
+/// Copies the files and folders under `from` into `to` (made if missing).
+fn copy_tree(from: &std::path::Path, to: &std::path::Path) -> std::io::Result<()> {
+    std::fs::create_dir_all(to)?;
+    for e in std::fs::read_dir(from)? {
+        let e = e?;
+        let dest = to.join(e.file_name());
+        if e.file_type()?.is_dir() {
+            copy_tree(&e.path(), &dest)?;
+        } else {
+            std::fs::copy(e.path(), dest)?;
+        }
+    }
+    Ok(())
 }

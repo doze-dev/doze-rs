@@ -1,0 +1,78 @@
+# connect runs the module's own client on an instance (InstanceView.connect: program, arguments and variables with the
+# address and password filled in, fallbacks), woken first; the client is the engine build's own (path), else the
+# program on PATH, else a fallback. No module is named in the CLI. Its password goes in its variable, never argv.
+@ file project/doze.hcl module valkey "cache" { version = 9 }\nmodule postgres "db" { version = 17 }\nmodule meili "search" { version = 1 }\nmodule minio "files" { version = 1 }\napp "web" {\n  run  = "npm start"\n  port = 3000\n}\nmodule valkey "broken" { version = 9 }\n
+@ daemon connect
+@ env PATH={sandbox}/bin
+@ exe bin/redis-cli
+@ exe engines/pg/bin/psql
+@ no-json
+
+$ doze connect db
+exit 0
+stderr:
+| → db waking…
+| → psql on db (127.0.0.1:5432)
+spawned:
+| env PGPASSWORD=pw
+| run psql postgres://doze@127.0.0.1:5432/db
+
+$ doze connect cache
+exit 0
+stderr:
+| → cache waking…
+| → redis-cli on cache (127.0.0.1:6379) · valkey-cli is not installed here
+spawned:
+| env REDISCLI_AUTH=s3cret
+| run redis-cli -h 127.0.0.1 -p 6379
+
+$ doze connect search
+exit 1
+stderr:
+| → search waking…
+| error[DZ0711]: the client for search is not installed here: no meili-cli on PATH
+|   the engine's own build has none for this platform, or it has not been fetched
+|   fix: install meili-cli, or use doze url search with another client
+
+$ doze connect files
+exit 1
+stderr:
+| error[DZ0709]: nothing to connect with: the module that runs files declares no client
+|   fix: doze url files gives its address
+
+$ doze connect web
+exit 1
+stderr:
+| error[DZ0709]: nothing to connect with: web is an app: only a module's instance has a client
+|   fix: doze url web gives its address
+
+$ doze connect cach
+exit 4
+stderr:
+| error[DZ0702]: the stack has no service called "cach"
+|   did you mean "cache"?
+|   it has cache, db, search, files, web, broken
+|   fix: doze status
+
+$ doze connect broken
+exit 1
+stderr:
+| → broken waking…
+| error[DZ0703]: broken: broken did not become ready: valkey exited (status 1)
+|   fix: doze logs broken
+
+$ doze connect cache --json
+exit 2
+stdout:
+| {
+|   "schema": "doze/v1",
+|   "command": "doze connect",
+|   "ok": false,
+|   "error": {
+|     "code": "usage",
+|     "message": "this command has no JSON result",
+|     "exit": 2,
+|     "id": "DZ0103",
+|     "fix": "drop --json"
+|   }
+| }

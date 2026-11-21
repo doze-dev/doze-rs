@@ -6,6 +6,18 @@ use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 
 fn main() -> std::process::ExitCode {
     let args: Vec<String> = std::env::args().collect();
+    // The engine's own client (what the module declares for `doze connect`): `client HOST PORT`.
+    if let [_, mode, host, port] = args.as_slice()
+        && mode == "client"
+    {
+        return match client(host, port) {
+            Ok(()) => std::process::ExitCode::SUCCESS,
+            Err(e) => {
+                eprintln!("echo-engine client: {e}");
+                std::process::ExitCode::FAILURE
+            }
+        };
+    }
     let Some(listen) = args
         .iter()
         .position(|a| a == "--listen")
@@ -30,6 +42,35 @@ fn main() -> std::process::ExitCode {
     }
 }
 
+/// Sends stdin to `host:port` and prints what comes back, until stdin ends and the engine has answered. A password, when
+/// the instance has one, comes in `ECHO_PASSWORD` (never argv); it is said, not shown.
+fn client(host: &str, port: &str) -> std::io::Result<()> {
+    use std::io::{Read, Write};
+    if std::env::var_os("ECHO_PASSWORD").is_some() {
+        eprintln!("echo-engine client: signed in");
+    }
+    let mut conn = std::net::TcpStream::connect(format!("{host}:{port}"))?;
+    let mut back = conn.try_clone()?;
+    let reader = std::thread::spawn(move || -> std::io::Result<()> {
+        let mut buf = [0u8; 4096];
+        let mut out = std::io::stdout();
+        loop {
+            let n = back.read(&mut buf)?;
+            let Some(got) = buf.get(..n).filter(|b| !b.is_empty()) else {
+                return Ok(());
+            };
+            out.write_all(got)?;
+            out.flush()?;
+        }
+    });
+    std::io::copy(&mut std::io::stdin(), &mut conn)?;
+    // Half-closed: the engine answers what was sent, then ends the line, which ends the reader.
+    conn.shutdown(std::net::Shutdown::Write)?;
+    reader
+        .join()
+        .map_err(|_| std::io::Error::other("the reader panicked"))?
+}
+
 async fn echo<S: tokio::io::AsyncRead + tokio::io::AsyncWrite + Unpin>(s: S) {
     let mut s = BufReader::new(s);
     let mut line = String::new();
@@ -44,6 +85,7 @@ async fn echo<S: tokio::io::AsyncRead + tokio::io::AsyncWrite + Unpin>(s: S) {
 async fn serve(listen: &str) -> std::io::Result<()> {
     if let Some(addr) = listen.strip_prefix("tcp:") {
         let l = tokio::net::TcpListener::bind(addr).await?;
+        eprintln!("echo-engine: listening");
         loop {
             let (s, _) = l.accept().await?;
             tokio::spawn(echo(s));
@@ -53,6 +95,7 @@ async fn serve(listen: &str) -> std::io::Result<()> {
     if let Some(path) = listen.strip_prefix("unix:") {
         let _ = std::fs::remove_file(path);
         let l = tokio::net::UnixListener::bind(path)?;
+        eprintln!("echo-engine: listening");
         loop {
             let (s, _) = l.accept().await?;
             tokio::spawn(echo(s));

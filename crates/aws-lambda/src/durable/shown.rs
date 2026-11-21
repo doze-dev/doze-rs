@@ -128,6 +128,26 @@ pub(crate) fn function_arn(e: &Execution) -> String {
         .map_or_else(|| e.arn.clone(), |(head, _)| head.to_owned())
 }
 
+/// The execution's X-Ray trace header, in X-Ray's format: `Root=1-<start, 8 hex epoch seconds>-<24 hex>;Parent=<16 hex>;Sampled=0`
+/// (recorded 2026-11-19: AWS answers one on every `GetDurableExecution`, the same for the life of the execution). The hex digits
+/// come from the execution's id and its `EXECUTION` operation's id, two random UUIDs, so the header is fixed without being stored.
+pub(crate) fn trace_id(e: &Execution) -> String {
+    let hex = |s: &str| -> String { s.chars().filter(char::is_ascii_hexdigit).collect() };
+    let pad = |mut h: String, n: usize| {
+        while h.len() < n {
+            h.push('0');
+        }
+        h.truncate(n);
+        h
+    };
+    let root = pad(hex(&e.id), 24);
+    let parent = pad(hex(e.ops.first().map_or("", |o| o.id.as_str())), 16);
+    format!(
+        "Root=1-{:08x}-{root};Parent={parent};Sampled=0",
+        e.start_ms.div_euclid(1000)
+    )
+}
+
 /// `GetDurableExecution`'s answer.
 pub(crate) fn execution(e: &Execution, data: bool) -> Value {
     let mut o = Map::new();
@@ -140,6 +160,7 @@ pub(crate) fn execution(e: &Execution, data: bool) -> Value {
     o.insert("Version".into(), json!(e.version));
     o.insert("DurableConfig".into(), config(e));
     o.insert("ExecutionDataIncluded".into(), json!(data));
+    o.insert("TraceHeader".into(), json!({"XAmznTraceId": trace_id(e)}));
     if data {
         o.insert("InputPayload".into(), json!(e.input));
         put(&mut o, "Result", text(e.result.as_ref()));
@@ -171,11 +192,13 @@ pub(crate) fn event_error(e: Option<&str>) -> Value {
     error_value(e).map_or_else(|| json!({}), |p| json!({"Payload": p}))
 }
 
-/// The members an event's details hold that are execution data, removed when `IncludeExecutionData` is false (memory: which members
-/// AWS removes is not recorded; these are the payloads the model names).
+/// The members an event's details hold that are execution data (`EventInput`, `EventResult`, `EventError`: a `Payload` and a
+/// `Truncated` flag each).
 const DATA: &[&str] = &["Input", "Result", "Error"];
 
-/// An event with its execution data removed.
+/// An event with its execution data withheld when `IncludeExecutionData` is false: the member stays and its `Payload` is replaced by
+/// `"Truncated": true` (recorded 2026-11-19 for `ExecutionSucceededDetails.Result`; `Input` and `Error` have the same shape and are
+/// treated alike). A member that carried no payload is left as it is.
 pub(crate) fn without_data(mut event: Value) -> Value {
     if let Some(o) = event.as_object_mut() {
         for (k, v) in o.iter_mut() {
@@ -183,7 +206,11 @@ pub(crate) fn without_data(mut event: Value) -> Value {
                 && let Some(d) = v.as_object_mut()
             {
                 for key in DATA {
-                    d.remove(*key);
+                    if let Some(m) = d.get_mut(*key).and_then(Value::as_object_mut)
+                        && m.remove("Payload").is_some()
+                    {
+                        m.insert("Truncated".into(), json!(true));
+                    }
                 }
             }
         }
@@ -201,6 +228,44 @@ mod tests {
         assert_eq!(
             Ts::Iso.of(1_700_000_000_250),
             json!("2023-11-14T22:13:20.250Z")
+        );
+    }
+
+    #[test]
+    fn the_trace_header_is_in_xrays_format_and_fixed_for_the_execution() {
+        let e = Execution {
+            id: "0f1e2d3c-4b5a-6978-8796-a5b4c3d2e1f0".into(),
+            start_ms: 1_700_000_000_250,
+            ops: vec![Op {
+                id: "11223344-5566-7788-99aa-bbccddeeff00".into(),
+                kind: "EXECUTION".into(),
+                ..Op::default()
+            }],
+            ..Execution::default()
+        };
+        assert_eq!(
+            trace_id(&e),
+            "Root=1-6553f100-0f1e2d3c4b5a69788796a5b4;Parent=1122334455667788;Sampled=0"
+        );
+        assert_eq!(
+            execution(&e, false)["TraceHeader"]["XAmznTraceId"],
+            json!(trace_id(&e))
+        );
+    }
+
+    #[test]
+    fn without_data_a_payload_becomes_truncated() {
+        let event = json!({"EventType": "ExecutionSucceeded",
+            "ExecutionSucceededDetails": {"Result": {"Payload": "42"}},
+            "ExecutionStartedDetails": {"Input": {}, "ExecutionTimeout": 600}});
+        let v = without_data(event);
+        assert_eq!(
+            v["ExecutionSucceededDetails"],
+            json!({"Result": {"Truncated": true}})
+        );
+        assert_eq!(
+            v["ExecutionStartedDetails"],
+            json!({"Input": {}, "ExecutionTimeout": 600})
         );
     }
 

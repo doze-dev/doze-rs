@@ -16,7 +16,7 @@ CONFORMANCE_BIN=$CARGO_TARGET_DIR/release/doze-kafka GOWORK=off \
   go test . -run 'TestReplay$' -count=1 -v -timeout 30m
 ```
 
-The full replay takes about four and a half minutes and passes 61 of 61 scenarios (2026-11-18). Narrow it with:
+The full replay takes about four and a half minutes and passes 64 of 64 scenarios (2026-11-19). Narrow it with:
 
 - `CONFORMANCE_ONLY=<prefix>,<prefix>`: only the scenarios whose names start with one of the prefixes.
 - `-args -only <name>`: one scenario by exact name.
@@ -33,7 +33,7 @@ values a broker makes up are replaced by placeholders). The replay starts the bi
 the answers the same way and compares. A difference fails unless the scenario lists it under `Known` (a written-down
 difference); a `Known` entry that matches nothing is not reported, since that list is the Go edition's.
 
-Of the 84 recordings, 61 are replayed. The others are skipped by `TestReplay` without a subtest:
+Of the 87 recordings, 64 are replayed. The others are skipped by `TestReplay` without a subtest:
 
 - `DiskMiB` scenarios (`full-disk-*`): recorded on a size-limited volume; the broker's side is its own `SimFs` tests.
 - `NoReplay` scenarios: evidence only, recorded from Kafka and never replayed.
@@ -68,7 +68,7 @@ has no way to start.
 - `wire.go`, `normalize.go`, `produce_batches.go`: raw connection, normalisation, record batches.
 - `scenarios*.go`: the scripts. `version-matrix` uses a fixed API table (`matrixAPIs`), copied from the Go edition's
   Kafka 4 profile, because that is what its recording was made from.
-- `recordings/`: the 84 recordings. `claims/`: the Go repository's claims, each citing recordings; kept as data.
+- `recordings/`: the 87 recordings. `claims/`: the Go repository's claims, each citing recordings; kept as data.
 
 ## Record
 
@@ -80,8 +80,9 @@ GOWORK=off go test . -run 'TestRecord$' -count=1 -v -args -record              #
 GOWORK=off go test . -run 'TestRecord$' -count=1 -v -args -record -only <name> # one
 ```
 
-A scenario is recorded against `KafkaImage` unless it names another `Image` (`acl-v0` is recorded against `apache/kafka:3.9.1`, the
-last release that serves the ACL APIs at v0, and replayed with `KafkaVersion: 3`, that is `--kafka-version 3`). Two step kinds go past
+A scenario is recorded against `KafkaImage` unless it names another `Image` (`acl-v0`, `old-formats-produce`, `old-formats-fetch` and `old-offsets` (debt K2) are recorded against `apache/kafka:3.9.1`, the
+last release that serves the ACL APIs at v0, and replayed with `KafkaVersion: 3`, that is `--kafka-version 3`); the two `apiversions-*` scenarios are recorded against `apache/kafka:4.4.0`, which serves ApiVersions to v5 (KIP-1242), as the
+Kafka 4 profile does since 2026-11-19). Two step kinds go past
 the Kafka framing: `Env.Raw` (a raw SASL token after a SaslHandshake v0, `sasl-handshake-v0`) and `Env.DoOrSilence` (a request Kafka may
 leave unanswered, recorded as `no answer`).
 

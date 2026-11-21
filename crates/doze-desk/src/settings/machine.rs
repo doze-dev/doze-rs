@@ -87,6 +87,33 @@ pub fn parts(doctor: &Doctor, at: &DozeAt, version: &str) -> Vec<Part> {
     out
 }
 
+/// Needs you's machine parts (Go `MachineItems` reads the same doctor as Settings): doctor's names and domains, each with
+/// the command that sets it up (none for names switched off), then the app's own part, whose fix is the `ln -s` that
+/// puts doze on the PATH.
+pub fn attention_parts(
+    doctor: &Doctor,
+    at: &DozeAt,
+    version: &str,
+) -> Vec<crate::attention::MachinePart> {
+    let part = |section: &str, name: &str, ok: bool, text: &str, fix: &str| {
+        crate::attention::MachinePart {
+            section: section.into(),
+            name: name.into(),
+            ok,
+            text: text.into(),
+            fix: fix.into(),
+        }
+    };
+    let mut out: Vec<_> = doctor
+        .checks
+        .iter()
+        .map(|c| part(c.section, &c.name, c.ok, &c.text, crate::library::fix_of(c)))
+        .collect();
+    let app = app_part(at, version);
+    out.push(part(app.section, &app.name, app.ok, &app.text, &app.fix));
+    out
+}
+
 fn app_part(at: &DozeAt, version: &str) -> Part {
     let mut p = Part {
         section: "app",
@@ -138,8 +165,9 @@ pub fn fixable(parts: &[Part]) -> bool {
 }
 
 /// The sidebar's word for Machine: "2 to do", "all good".
-pub fn side_word(parts: &[Part]) -> String {
+pub fn side_word(parts: &[Part], left: usize) -> String {
     match to_do(parts) {
+        0 if left > 0 => format!("{left} left behind"),
         0 => "all good".into(),
         n => format!("{n} to do"),
     }
@@ -165,6 +193,34 @@ pub fn banner(parts: &[Part], can_repair: bool) -> (String, String) {
             .into(),
         ),
     }
+}
+
+/// The banner once the look for leftovers is in: with every part in place but stacks' leftovers on the machine, it
+/// does not say all is well (an owner's call past Go, whose banner looked at the parts alone). `left` is how many
+/// things were left behind, of which `safe` Clean up clears (data is never cleared that way). The third value is
+/// whether the banner warns.
+pub fn banner_with(
+    parts: &[Part],
+    can_repair: bool,
+    left: usize,
+    safe: usize,
+) -> (String, String, bool) {
+    let n = to_do(parts);
+    if n > 0 || left == 0 {
+        let (a, b) = banner(parts, can_repair);
+        return (a, b, n > 0);
+    }
+    let things = if left == 1 { "thing" } else { "things" };
+    (
+        format!("Every part is in place, but stacks left {left} {things} behind."),
+        if safe > 0 {
+            "Left behind, below, says what each is; Clean up stops the strays and removes stale routes, and data goes only one folder at a time."
+        } else {
+            "Left behind, below, says what each is; data goes only one folder at a time, after asking."
+        }
+        .into(),
+        true,
+    )
 }
 
 /// The report Copy report puts on the clipboard (Go `copyReport`).
@@ -193,6 +249,43 @@ pub fn report(parts: &[Part]) -> String {
 mod tests {
     use super::*;
     use crate::library::{Check, Doctor};
+
+    #[test]
+    fn needs_you_gets_the_app_part_with_its_link_command() {
+        let d = Doctor {
+            checks: vec![
+                check("names", "network", false),
+                check("domains", "route a.example", false),
+            ],
+        };
+        let at = DozeAt {
+            on_path: None,
+            elsewhere: Some(PathBuf::from("/Users/me/go/bin/doze")),
+        };
+        let p = attention_parts(&d, &at, "v0.2.0");
+        let fixes: Vec<(&str, &str)> = p
+            .iter()
+            .map(|p| (p.section.as_str(), p.fix.as_str()))
+            .collect();
+        assert_eq!(
+            fixes,
+            [
+                ("names", "doze dns-setup"),
+                ("domains", "doze trust"),
+                ("app", "ln -s /Users/me/go/bin/doze /usr/local/bin/doze"),
+            ]
+        );
+        assert_eq!(
+            p[2].text,
+            "not on your PATH: a terminal and scripts cannot find doze"
+        );
+        let found = DozeAt {
+            on_path: Some(PathBuf::from("/opt/homebrew/bin/doze")),
+            elsewhere: None,
+        };
+        let app = attention_parts(&Doctor::default(), &found, "v0.2.0");
+        assert!(app[0].ok && app[0].fix.is_empty());
+    }
 
     fn check(section: &'static str, name: &str, ok: bool) -> Check {
         Check {
@@ -223,7 +316,7 @@ mod tests {
         assert_eq!(p[2].fix, "doze trust");
         assert_eq!(p[3].fix, "ln -s /Users/x/go/bin/doze /usr/local/bin/doze");
         assert_eq!(to_do(&p), 3);
-        assert_eq!(side_word(&p), "3 to do");
+        assert_eq!(side_word(&p, 0), "3 to do");
         assert!(fixable(&p));
         assert_eq!(
             banner(&p, true).0,
@@ -247,7 +340,15 @@ mod tests {
         };
         let p = parts(&Doctor::default(), &at, "v0.2.0");
         assert_eq!(p[0].text, "/opt/homebrew/bin/doze · v0.2.0");
-        assert_eq!(side_word(&p), "all good");
+        assert_eq!(side_word(&p, 0), "all good");
+        assert_eq!(side_word(&p, 3), "3 left behind");
         assert_eq!(banner(&p, false).0, "Everything is in place.");
+        let (line, _, warn) = banner_with(&p, false, 2, 1);
+        assert_eq!(
+            line,
+            "Every part is in place, but stacks left 2 things behind."
+        );
+        assert!(warn);
+        assert_eq!(banner_with(&p, false, 0, 0).0, "Everything is in place.");
     }
 }

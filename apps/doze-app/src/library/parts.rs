@@ -4,9 +4,11 @@ use doze_desk::library::{Check, Other, Step};
 use gpui::{Context, IntoElement, div, img, prelude::*, px};
 
 use super::LibraryView;
-use crate::kit::{Btn, btn, chip_of, density, heading, mono, s};
+use doze_desk::titles;
+
+use crate::kit::{Btn, btn, btn_led, chip_of, density, heading, mono, s};
 use crate::theme::{Tokens, mix, ty};
-use crate::widgets::{MONO_FAMILY, dot};
+use crate::widgets::{Mono as _, dot, tip};
 
 /// `.head.brandhead`: the mark, `doze` large, the tagline and the counts; density, Open folder, Settings.
 pub(super) fn head(t: &Tokens, v: &LibraryView, cx: &mut Context<LibraryView>) -> impl IntoElement {
@@ -54,22 +56,28 @@ pub(super) fn head(t: &Tokens, v: &LibraryView, cx: &mut Context<LibraryView>) -
         };
         row = row.child(density(t, v.density, pick));
     }
-    row.child(btn(
-        t,
-        "open-folder",
-        "Open folder…",
-        &chip_of("Open folder…"),
-        Btn::Plain,
-        Some(dispatch(&crate::actions::OpenFolder)),
-    ))
-    .child(btn(
-        t,
-        "settings",
-        "Settings",
-        &chip_of("Settings…"),
-        Btn::Quiet,
-        Some(dispatch(&crate::actions::Settings)),
-    ))
+    row.child(
+        btn(
+            t,
+            "open-folder",
+            "Open folder…",
+            &chip_of("Open folder…"),
+            Btn::Plain,
+            Some(dispatch(&crate::actions::OpenFolder)),
+        )
+        .tooltip(tip(titles::OPEN_FOLDER)),
+    )
+    .child(
+        btn(
+            t,
+            "settings",
+            "Settings",
+            &chip_of("Settings…"),
+            Btn::Quiet,
+            Some(dispatch(&crate::actions::Settings)),
+        )
+        .tooltip(tip(titles::SETTINGS)),
+    )
 }
 
 /// The few lines the empty library shows (library.tsx).
@@ -98,7 +106,7 @@ fn step(t: &Tokens, i: usize, last: bool, st: &Step) -> impl IntoElement {
         .flex()
         .items_center()
         .justify_center()
-        .font_family(MONO_FAMILY)
+        .mono_face()
         .text_size(px(ty::SM))
         .font_weight(ty::SEMIBOLD)
         .text_color(fg)
@@ -310,10 +318,13 @@ pub(super) fn others(t: &Tokens, others: &[Other]) -> impl IntoElement {
         }))
 }
 
-/// `.machine`: each part of the setup and whether it is in place; Machine… opens Settings › Machine.
+/// `.machine`: each part of the setup and whether it is in place; what stacks left behind (Clean up… opens Settings ›
+/// Machine); Set up (one password) when Repair has something to do and the app can ask; Machine… opens Settings ›
+/// Machine.
 pub(super) fn machine_line(
     t: &Tokens,
     checks: &[Check],
+    (left, repairable, repairing): (usize, bool, bool),
     _cx: &mut Context<LibraryView>,
 ) -> impl IntoElement {
     let mut line = div()
@@ -344,8 +355,9 @@ pub(super) fn machine_line(
     if checks.is_empty() {
         line = line.child("checking…");
     }
-    for c in checks {
+    for (i, c) in checks.iter().enumerate() {
         let mut it = div()
+            .id(("check", i))
             .flex()
             .flex_shrink(1.)
             .min_w_0()
@@ -368,9 +380,54 @@ pub(super) fn machine_line(
                     .child(s(&format!(" · {}", c.text))),
             );
         }
+        if let Some(title) = titles::check(&c.text) {
+            it = it.tooltip(tip(title.to_owned()));
+        }
         line = line.child(it);
     }
-    line.child(div().flex_1()).child(
+    machine_buttons(t, line.child(div().flex_1()), (left, repairable, repairing))
+}
+
+/// The machine line's buttons: what was left behind, Set up, Machine….
+fn machine_buttons(
+    t: &Tokens,
+    mut line: gpui::Div,
+    (left, repairable, repairing): (usize, bool, bool),
+) -> gpui::Div {
+    if left > 0 {
+        line = line.child(
+            btn_led(
+                t,
+                "left-behind",
+                (
+                    Some(dot(t.warn).into_any_element()),
+                    &format!("{left} left behind · Clean up…"),
+                ),
+                "",
+                Btn::Plain,
+                Some(dispatch(&crate::actions::MachineSettings)),
+            )
+            .h(px(26.))
+            .tooltip(tip(titles::LEFT_BEHIND)),
+        );
+    }
+    if repairable || repairing {
+        let label = if repairing {
+            "Setting up…"
+        } else {
+            "Set up (one password)"
+        };
+        let mut b = btn(t, "set-up", label, "", Btn::Primary, None)
+            .h(px(26.))
+            .tooltip(tip(titles::SET_UP));
+        b = if repairing {
+            b.opacity(0.6)
+        } else {
+            b.on_click(dispatch(&crate::actions::RepairMachine))
+        };
+        line = line.child(b);
+    }
+    line.child(
         btn(
             t,
             "machine",
@@ -379,6 +436,7 @@ pub(super) fn machine_line(
             Btn::Plain,
             Some(dispatch(&crate::actions::MachineSettings)),
         )
-        .h(px(26.)),
+        .h(px(26.))
+        .tooltip(tip(titles::MACHINE)),
     )
 }

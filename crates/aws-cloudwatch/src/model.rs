@@ -236,10 +236,10 @@ pub(crate) enum Kind {
     Metric,
     /// Metrics combined by an expression, judged on its value (`math_alarm`).
     Math,
-    /// Alarms combined by a rule: stored, not evaluated.
+    /// Alarms combined by a rule (`composite`).
     Composite,
-    /// A CloudWatch Logs scheduled query against a threshold (`PutLogAlarm`): stored, not evaluated. New variants go last: a
-    /// stored alarm names its kind by position.
+    /// A CloudWatch Logs scheduled query against a threshold (`PutLogAlarm`, `log_eval`). New variants go last: a stored alarm names
+    /// its kind by position.
     Log,
 }
 

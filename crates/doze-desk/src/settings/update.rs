@@ -198,6 +198,14 @@ impl Kept {
 mod tests {
     use super::*;
 
+    #[test]
+    fn the_update_check_asks_the_repository_the_release_workflow_publishes_to() {
+        // The CLI's releases link (doze-cli install.rs) names the same repository.
+        assert!(LATEST_URL.starts_with("https://api.github.com/repos/doze-dev/doze/releases/"));
+        let workflow = include_str!("../../../../.github/workflows/release.yml");
+        assert!(workflow.contains("-R doze-dev/doze "));
+    }
+
     fn at(s: &str) -> SystemTime {
         rfc3339(s).unwrap()
     }
