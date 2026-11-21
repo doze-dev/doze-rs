@@ -10,7 +10,7 @@ import { CUT, expect, test } from "./fixtures";
 import { seedLarder } from "./logskinesis-seed";
 
 const SHOTS = process.env.SHOTS_DIR ?? join(import.meta.dirname, "../../../../../shots-logskinesis");
-const BASE = 45000;
+const BASE = Number(process.env.E2E_BASE_PORT ?? 45000);
 const at = (b: string) => BASE + ({ firefox: 10, webkit: 20, chromium: 30 }[b] ?? 40);
 
 test.describe.configure({ mode: "serial" });
