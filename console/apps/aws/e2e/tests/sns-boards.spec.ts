@@ -238,6 +238,9 @@ test("sns__topic-alerts: a function confirmed, a webhook and an address waiting,
   await expect(table.locator("tr[data-row]", { hasText: "ops@larder.example" })).toContainText("Pending confirmation");
   await expect(table.locator("tr[data-row]", { hasText: "send-email" })).toContainText("AWS Lambda");
   await expect(page.getByTestId("sub-confirm")).toBeDisabled();
+  // The webhook's row chosen, as the board has it: Confirm subscription is on.
+  await page.getByTestId(`choose-pending|${ARN("alerts")}|http|${hook.url}`).click();
+  await expect(page.getByTestId("sub-confirm")).toBeEnabled();
   await shot(page, "sns__topic-alerts");
 });
 
@@ -425,7 +428,7 @@ test("sns__publish-fifo, sns__publish-fifo-refused and sns__topic-published: a g
 
 test("sns__topic-edit: only what changed is sent, one call each, and the tags in their own", async ({ page }) => {
   await go(page, topicPath("orders-created", "?view=edit"), "Edit orders-created");
-  await expect(page.getByTestId("edit-type")).toHaveText("Standard");
+  await expect(page.getByTestId("edit-type")).toHaveValue("Standard");
   await expect(page.getByTestId("edit-sentence")).toHaveText("Nothing has changed yet.");
   await expect(page.getByTestId("form-submit")).toBeDisabled();
   await page.getByTestId("topic-max-size").fill("512");

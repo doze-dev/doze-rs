@@ -4,7 +4,6 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate, useSearch } from "@tanstack/react-router";
 import { ArrowRightIcon } from "lucide-react";
 import { lazy, Suspense, useMemo, useState } from "react";
-import { toast } from "sonner";
 import { ErrorBlock } from "@doze/ui/components/app/alert";
 import { CodeBlock } from "@doze/ui/components/app/code-block";
 import { CopyButton } from "@doze/ui/components/app/copy-button";
@@ -131,7 +130,7 @@ function SubView({ d, updatedAt, fetching, refresh }: { d: ResourceDetail; updat
       />
       <div className="mt-12"><TopicCalls d={d} mine={mine} onMine={setMine} what="this subscription" /></div>
       <DeleteSubscription open={asking} onOpenChange={(o) => { setAsking(o); if (!o) del.reset(); }} protocol={s.protocol} endpoint={s.endpoint} topic={topic} pending={del.isPending} error={del.error}
-        onConfirm={() => del.mutate(d.name, { onSuccess: () => { setAsking(false); toast.success("Subscription deleted"); void navigate({ to: "/resources/$service/$second", params: { service: "sns", second: "subscriptions" }, search: { gone: title } }); } })} />
+        onConfirm={() => del.mutate(d.name, { onSuccess: () => { setAsking(false); void navigate({ to: "/resources/$service/$second", params: { service: "sns", second: "subscriptions" }, search: { gone: title } }); } })} />
       <ConfirmSubscription sub={confirming ? { name: d.name, pending: true, topicArn: s.topicArn, topic, protocol: s.protocol, endpoint: s.endpoint, id: null } : null} topic={topic} onClose={() => setConfirming(false)} onDone={() => { setConfirming(false); void navigate({ to: "/resources/$service/$kind/$name", params: { service: "sns", kind: "topics", name: topic }, search: { done: "confirmed", tab: "subscriptions" } }); }} />
     </>
   );

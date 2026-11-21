@@ -4,7 +4,6 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useSearch } from "@tanstack/react-router";
 import { lazy, Suspense, useMemo, useState } from "react";
-import { toast } from "sonner";
 import { ErrorBlock } from "@doze/ui/components/app/alert";
 import { RefreshControl } from "@doze/ui/components/app/refresh-control";
 import { ResultBanner } from "@doze/ui/components/app/result-banner";
@@ -127,7 +126,7 @@ function TopicView({ d, updatedAt, fetching, refresh }: { d: ResourceDetail; upd
         testId="topic-page"
       />
       <DeleteTopic open={dialog === "delete"} onOpenChange={(o) => { if (!o) { setDialog(null); del.reset(); } }} name={t.name} arn={t.arn} pending={del.isPending} error={del.error}
-        onConfirm={() => del.mutate(d.name, { onSuccess: () => { setDialog(null); toast.success(`${d.name} deleted`); void navigate({ to: "/resources/$service/$second", params: { service: d.service, second: d.kind }, search: { gone: d.name } }); } })} />
+        onConfirm={() => del.mutate(d.name, { onSuccess: () => { setDialog(null); void navigate({ to: "/resources/$service/$second", params: { service: d.service, second: d.kind }, search: { gone: d.name } }); } })} />
       <ConfirmSubscription sub={confirming} topic={t.name} onClose={() => setConfirming(null)} onDone={() => { setConfirming(null); refresh(); go(undefined, "confirmed", "subscriptions"); }} />
     </>
   );

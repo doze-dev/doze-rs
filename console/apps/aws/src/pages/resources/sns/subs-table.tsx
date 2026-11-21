@@ -40,6 +40,6 @@ export function subColumns({ radio, topic }: { radio: boolean; topic: boolean })
     { id: "endpoint", header: "Endpoint", size: 360, min: 220, accessorFn: (r) => r.endpoint, cell: (c) => <EndpointCell s={c.row.original} /> },
     { id: "status", header: "Status", size: 210, accessorFn: (r) => (r.pending ? 1 : 0), cell: (c) => <Status s={c.row.original} /> },
     { id: "protocol", header: "Protocol", size: 220, accessorFn: (r) => protocolLabel(r.protocol), cell: (c) => <span className="text-[13.5px]">{protocolLabel(c.row.original.protocol)}</span> },
-    ...(topic ? [{ id: "topic", header: "Topic ARN", accessorFn: (r: SubRow) => r.topicArn, meta: { mono: true }, cell: (c: { row: { original: SubRow } }) => <span className="font-mono text-[13px]" title={c.row.original.topicArn}>arn:…:{c.row.original.topic}</span> }] : []),
+    ...(topic ? [{ id: "topic", header: "Topic ARN", size: 240, min: 200, accessorFn: (r: SubRow) => r.topicArn, meta: { mono: true }, cell: (c: { row: { original: SubRow } }) => <span className="font-mono text-[13px]" title={c.row.original.topicArn}>arn:…:{c.row.original.topic}</span> }] : []),
   ];
 }

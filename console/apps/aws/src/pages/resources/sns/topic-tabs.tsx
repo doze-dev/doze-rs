@@ -76,15 +76,22 @@ export function LoggingTab({ t, edit }: TabProps) {
     { protocol: "Platform application endpoint", rate: "", roles: "", off: "Not available in doze-aws: mobile push needs the platform push services. Messages to an application endpoint are accepted and sent nowhere." },
     row("SQS"),
   ];
-  const cols: DataColumn<LogRow>[] = [
-    { id: "protocol", header: "Protocol", size: 360, accessorKey: "protocol", cell: (c) => { const r = c.row.original; return r.off ? <span className="grid leading-5"><span className="text-muted-foreground">{r.protocol} <Badge variant="secondary" className="ml-1 font-normal text-muted-foreground">Disabled</Badge></span><span className="text-[12px] whitespace-normal text-muted-foreground">{r.off}</span></span> : r.protocol; } },
-    { id: "rate", header: "Success sample rate", size: 220, accessorKey: "rate" },
-    { id: "roles", header: "IAM roles", accessorKey: "protocol", cell: (c) => c.row.original.roles },
-  ];
   return (
     <div className="grid gap-4" data-testid="logging-tab">
       <Block title="Delivery status logging" lede="Delivery results written to CloudWatch Logs, per protocol. Read from the topic's SuccessFeedbackRoleArn, SuccessFeedbackSampleRate and FailureFeedbackRoleArn attributes." actions={<EditButton onClick={edit} />}>
-        <DataTable aria-label="Delivery status logging" data={rows} columns={cols} rowId={(r) => r.protocol} maxHeight={420} rowHeight={64} />
+        <div className="overflow-x-auto rounded-[14px] border bg-card">
+          <table className="w-full min-w-[40rem] border-collapse" aria-label="Delivery status logging">
+            <thead className="bg-muted/50"><tr>{["Protocol", "Success sample rate", "IAM roles"].map((h) => <th key={h} className="px-4 py-3 text-left text-[12px] font-medium tracking-[0.06em] text-muted-foreground uppercase">{h}</th>)}</tr></thead>
+            <tbody className="divide-y">
+              {rows.map((r) => (
+                <tr key={r.protocol} data-row>
+                  <td className="w-[22rem] px-4 py-3.5 align-top text-[13.5px] font-medium text-bright"><span className={r.off ? "text-bright" : undefined}>{r.protocol}</span>{r.off && <Badge variant="secondary" className="ml-2 font-normal text-muted-foreground">Disabled</Badge>}</td>
+                  {r.off ? <td colSpan={2} className="px-4 py-3.5 align-top text-[13.5px] text-muted-foreground">{r.off}</td> : <><td className="px-4 py-3.5 align-top text-[13.5px] text-muted-foreground">{r.rate}</td><td className="px-4 py-3.5 align-top text-[13.5px] text-muted-foreground">{r.roles}</td></>}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </Block>
       <LocalStatus state="stored" reason="Setting a role is the switch on AWS: a success role writes one record per successful delivery, sampled by the success sample rate (0 to 100), and a failure role writes every failed attempt. doze-aws records the roles and rates and returns them; it writes no delivery logs." />
     </div>
@@ -121,12 +128,21 @@ export function ArchiveTab({ t, edit }: TabProps) {
     <div className="grid gap-4" data-testid="archive-tab">
       <Block title="Archive policy" lede="Message archiving keeps a single copy of all messages published to the topic, for a minimum of one day to a maximum of 365 days. Read from the ArchivePolicy attribute." actions={<EditButton onClick={edit} />}>
         <dl className="grid grid-cols-[minmax(11rem,15rem)_minmax(0,1fr)] rounded-[14px] border bg-card px-6 py-2 text-[13.5px] [&>*]:border-b [&>*]:py-3 [&>:nth-last-child(-n+2)]:border-b-0">
-          <dt className="text-muted-foreground">Status</dt><dd className="text-bright" data-testid="field-Status">{a.active ? "active" : "inactive"}</dd>
+          <dt className="text-muted-foreground">Status</dt><dd className={a.active ? "text-link" : "text-muted-foreground"} data-testid="field-Status"><span className="inline-flex items-center gap-2"><span aria-hidden className="size-2 rounded-full bg-current" />{a.active ? "active" : "inactive"}</span></dd>
           {a.days !== null && (<><dt className="text-muted-foreground">Message retention period</dt><dd className="text-bright" data-testid="field-retention">{daysWords(a.days)}</dd></>)}
         </dl>
-        {t.archive && (<div className="grid gap-1.5"><span className="text-[12px] font-medium tracking-[0.08em] text-muted-foreground uppercase">JSON preview</span><CodeBlock text={pretty(t.archive)} max="max-h-40" testId="archive-json" /></div>)}
+        {t.archive && (<div className="grid gap-1.5"><span className="text-[12px] font-medium tracking-[0.08em] text-muted-foreground uppercase">JSON preview</span><CodeBlock text={oneLine(t.archive)} max="max-h-40" testId="archive-json" /></div>)}
       </Block>
       <LocalStatus state="stored" reason="The status shows inactive when the archive policy is an empty JSON object. Nothing is archived and nothing can be replayed locally." />
     </div>
   );
+}
+
+/** A small JSON object on one line, as the board shows it: `{ "MessageRetentionPeriod": "7" }`. */
+function oneLine(text: string): string {
+  try {
+    return JSON.stringify(JSON.parse(text)).replace(/^\{(.)/, "{ $1").replace(/(.)\}$/, "$1 }").replace(/":/g, '": ');
+  } catch {
+    return text;
+  }
 }

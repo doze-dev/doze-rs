@@ -3,7 +3,6 @@
 import { useNavigate, useSearch } from "@tanstack/react-router";
 import { ChevronLeftIcon, ChevronRightIcon, PencilIcon, PlusIcon, SearchIcon, SendIcon, TrashIcon, WaypointsIcon } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
-import { toast } from "sonner";
 import { ErrorBlock } from "@doze/ui/components/app/alert";
 import { type DataColumn, DataTable } from "@doze/ui/components/app/data-table";
 import { EmptyState } from "@doze/ui/components/app/empty-state";
@@ -121,7 +120,7 @@ function Topics({ service, kind, gone }: { service: string; kind: string; gone?:
       )}
       {pick && (
         <DeleteTopic open={asking} onOpenChange={(o) => { setAsking(o); if (!o) del.reset(); }} name={pick.name} arn={pick.id} pending={del.isPending} error={del.error}
-          onConfirm={() => del.mutate(pick.name, { onSuccess: () => { setAsking(false); setChosen(null); toast.success(`${pick.name} deleted`); void navigate({ to: "/resources/$service/$second", params: { service, second: kind }, search: { gone: pick.name } }); } })} />
+          onConfirm={() => del.mutate(pick.name, { onSuccess: () => { setAsking(false); setChosen(null); void navigate({ to: "/resources/$service/$second", params: { service, second: kind }, search: { gone: pick.name } }); } })} />
       )}
     </>
   );

@@ -72,7 +72,8 @@ export function Publish({ d, t, subs, back, done }: TopicProps) {
       pending={send.isPending}
       disabled={tried && Object.keys(p).length > 0}
       disabledWhy={Object.values(p)[0]}
-      onCancel={back}
+      onCancel={refused ? () => send.reset() : back}
+      cancelLabel={refused ? "Back to the form" : "Cancel"}
       onSubmit={submit}
       testId="publish-form"
     >

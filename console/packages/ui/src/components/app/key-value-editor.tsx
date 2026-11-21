@@ -8,7 +8,7 @@ import { type KeyValueRow, type KeyValueRules, newRow, validateRows } from "./ke
 /** Rows of key and value that a person adds to and removes from (tags, message attributes, environment variables). A row's
  * problem (an empty key, a key another row has) is said under it once the person has left the field or tried to save
  * (`showErrors`); until then the row is only a row. The editor owns nothing: the rows are the caller's. */
-export function KeyValueEditor({ rows, onChange, rules, addLabel = "Add new tag", keyLabel = "Key", valueLabel = "Value", showErrors = false, disabled = false, className, testId = "kv" }: { rows: KeyValueRow[]; onChange: (rows: KeyValueRow[]) => void; rules?: KeyValueRules; addLabel?: string; keyLabel?: string; valueLabel?: string; showErrors?: boolean; disabled?: boolean; className?: string; testId?: string }) {
+export function KeyValueEditor({ rows, onChange, rules, addLabel = "Add new tag", removeLabel, keyLabel = "Key", valueLabel = "Value", showErrors = false, disabled = false, className, testId = "kv" }: { rows: KeyValueRow[]; onChange: (rows: KeyValueRow[]) => void; rules?: KeyValueRules; addLabel?: string; /** Words on the remove button, in place of the bin icon (`Remove tag`). */ removeLabel?: string; keyLabel?: string; valueLabel?: string; showErrors?: boolean; disabled?: boolean; className?: string; testId?: string }) {
   const [touched, setTouched] = useState<ReadonlySet<string>>(new Set());
   const errors = validateRows(rows, rules);
   const full = rules?.maxRows !== undefined && rows.length >= rules.maxRows;
@@ -42,8 +42,8 @@ export function KeyValueEditor({ rows, onChange, rules, addLabel = "Add new tag"
                     </p>
                   )}
                 </div>
-                <Button type="button" variant="ghost" size="icon-sm" onClick={() => onChange(rows.filter((x) => x.id !== r.id))} disabled={disabled} aria-label={`Remove ${keyLabel.toLowerCase()} ${r.key || i + 1}`} data-testid={`${testId}-remove-${i}`}>
-                  <Trash2Icon />
+                <Button type="button" variant={removeLabel ? "outline" : "ghost"} size={removeLabel ? "sm" : "icon-sm"} className={removeLabel ? "bg-card" : undefined} onClick={() => onChange(rows.filter((x) => x.id !== r.id))} disabled={disabled} aria-label={`Remove ${keyLabel.toLowerCase()} ${r.key || i + 1}`} data-testid={`${testId}-remove-${i}`}>
+                  {removeLabel ?? <Trash2Icon />}
                 </Button>
               </div>
             );

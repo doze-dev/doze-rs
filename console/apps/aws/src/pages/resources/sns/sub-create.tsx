@@ -24,7 +24,7 @@ function sentenceOf(f: SubForm): Part[] {
   const end = f.endpoint ? tail(f.endpoint) : "";
   if (f.protocol === "sqs") return ["This subscribes ", ...(end ? [fifo ? "the FIFO queue " : "the queue ", b(end)] : [fifo ? "a FIFO queue" : "a queue"]), fifo ? " to the FIFO topic " : " to ", b(topic), ". The queue is in your account, so the subscription is ", b("confirmed at once"), "."];
   if (f.protocol === "lambda") return ["This subscribes the function ", b(end || "…"), " to ", b(topic), ". The function is in your account, so the subscription is confirmed at once and every publish invokes it."];
-  if (f.protocol === "http" || f.protocol === "https") return ["This subscribes the webhook ", b(f.endpoint || "…"), " to ", b(topic), ". SNS will send a confirmation message to it, and nothing is delivered until the endpoint confirms."];
+  if (f.protocol === "http" || f.protocol === "https") return ["This subscribes the webhook ", b(f.endpoint || "…"), " to ", b(topic), ". SNS will send a confirmation message to it, and ", b("nothing is delivered"), " until the endpoint confirms."];
   return ["This subscribes ", b(f.endpoint || "…"), " to ", b(topic), `. ${protocolOf(f.protocol)?.about ?? ""}`];
 }
 
@@ -78,7 +78,7 @@ export function SubCreate() {
       <FilterPolicy key={`filter-${f.protocol}`} f={f} set={set} p={p} show={tried} collapsed={f.protocol !== "sqs"} />
       <Redrive key={`redrive-${f.protocol}`} f={f} set={set} p={p} show={tried} collapsed={f.protocol !== "sqs"} />
     </FormPage>
-    <ProtocolTable open={(protocol) => { set({ protocol, endpoint: "", raw: false }); window.scrollTo({ top: 0 }); }} />
+    {f.protocol === "sqs" && <ProtocolTable open={(protocol) => { set({ protocol, endpoint: "", raw: false }); window.scrollTo({ top: 0 }); }} />}
     </>
   );
 }

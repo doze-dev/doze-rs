@@ -143,7 +143,7 @@ export function TagsSection({ f, set, show, collapsed }: Pick<FieldProps, "f" | 
   const n = filled(f.tags).length;
   return (
     <FormSection title="Tags" collapsible defaultOpen={!collapsed} description="Metadata for cost allocation, access control and search. Do not put sensitive data in tags." summary={n > 0 ? `${n} ${n === 1 ? "tag" : "tags"}` : "No tags"} testId="section-tags">
-      <KeyValueEditor rows={f.tags} onChange={(tags) => set({ tags })} rules={TAG_RULES} addLabel="Add tag" showErrors={show} testId="form-tags" />
+      <KeyValueEditor rows={f.tags} onChange={(tags) => set({ tags })} rules={TAG_RULES} addLabel="Add tag" removeLabel="Remove tag" showErrors={show} testId="form-tags" />
       <RuleHelp>Key 1 to 128 characters, value 0 to 256. More than 50 tags on a topic is refused with TagLimitExceeded. Tags change nothing about delivery.</RuleHelp>
     </FormSection>
   );

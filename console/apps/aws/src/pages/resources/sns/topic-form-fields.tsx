@@ -42,10 +42,10 @@ export function Details({ f, set, p, show, create, hints, refusal, mono }: Field
           <RuleHelp><b>The type and the name are fixed.</b> After the topic exists you cannot change either. An account can create at most 100,000 standard topics and 1,000 FIFO topics.</RuleHelp>
         </div>
       ) : (
-        <dl className="grid grid-cols-[8rem_minmax(0,1fr)] gap-y-2 text-[13.5px]">
-          <dt className="text-muted-foreground">Type</dt><dd className="text-bright" data-testid="edit-type">{f.fifo ? "FIFO" : "Standard"}</dd>
-          <dt className="text-muted-foreground">Name</dt><dd className={mono ? "font-mono text-bright" : "text-bright"} data-testid="edit-name">{f.name}</dd>
-        </dl>
+        <>
+          <Field label="Type" testId="field-type">{(id) => <Input id={id} value={f.fifo ? "FIFO" : "Standard"} readOnly className="bg-muted text-muted-foreground" data-testid="edit-type" />}</Field>
+          <Field label="Name" testId="field-name-fixed">{(id) => <Input id={id} value={f.name} readOnly className={mono ? "bg-muted font-mono text-muted-foreground" : "bg-muted text-muted-foreground"} data-testid="edit-name" />}</Field>
+        </>
       )}
       {create && (
         <Field label="Name" refusal={refusal} error={show ? p.name : undefined} help={f.fifo ? "1 to 256 characters: letters, numbers, underscores and hyphens. A FIFO name must end with .fifo." : "1 to 256 characters: uppercase and lowercase ASCII letters, numbers, underscores and hyphens."} hint={f.fifo && f.name.endsWith(".fifo") ? <>The .fifo suffix is part of the name. The ARN is <span className="font-mono text-foreground">{`arn:aws:sns:${hints?.region ?? "us-east-1"}:…:${f.name}`}</span>.</> : hints && hints.topics.length > 0 ? <><b className="font-semibold text-foreground">Creating a name you already own is not an error.</b> CreateTopic returns the existing topic's ARN. {list(hints.topics.slice(0, 3))} already {hints.topics.length === 1 ? "exists" : "exist"} in {hints.region}.</> : undefined} testId="field-name">
