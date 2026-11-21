@@ -397,5 +397,15 @@ async fn no_planted_secret_reaches_the_recorder_the_stream_or_a_page() {
             "{plant:?} reached the messages tail"
         );
     }
+    // So is the Live tail page's (CON-1580), which carries headers too: the same secrets, never.
+    let topics = first_frames(
+        &lab_app,
+        "/api/v1/tail/topics?topic=orders&from=last&last=50&pace=1",
+    )
+    .await;
+    assert!(topics.contains("event: batch"), "{topics:.400}");
+    for plant in [PASSWORD, WRONG, CONFIG, SALTED] {
+        assert!(!topics.contains(plant), "{plant:?} reached the topics tail");
+    }
     w.stop().await;
 }

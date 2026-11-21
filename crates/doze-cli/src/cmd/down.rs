@@ -101,9 +101,9 @@ fn decide(stack: &Stack) -> Result<Found, Diagnostic> {
     }
     if stack.read()?.is_some() {
         // A daemon that has just started answers a moment before its pid file is written; a pid file that names
-        // another process is not waited for.
+        // another process is not waited for. A file that exists but names nothing yet is one being written.
         let waited = Instant::now();
-        while waited.elapsed() < PID_WAIT && !stack.key.pid_file().exists() {
+        while waited.elapsed() < PID_WAIT && doze_projects::daemon_pid(&stack.key).is_none() {
             std::thread::sleep(POLL);
             if let Some(pid) = identify(&stack.key) {
                 return Ok(Found::Daemon(pid));

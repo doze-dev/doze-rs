@@ -48,3 +48,13 @@ The script reads these names, all defined in `ui/client.rs` and checked by a tes
 ## Where it is built
 
 `ui/overlay.rs` (kinds, `frame`, `over`, `close`), `ui/dialog.rs` (the dialog's form), `ui/shell.rs` (`document_over`: `inert` and the overlay after the page), `handlers/overlays.rs` (`Parent`, `fragment`, `over_parent`), `assets/console.js` (open, close, history, focus, form answers, page swap), `design/console.css` (overlay, view transitions, states), tests: `tests/overlays.rs`, `tools/dom/overlay.test.ts`.
+
+## In the React console (since R5): a topic's dialogs by `?dialog=`
+
+The recipe above is the classic one. In the React app a topic's write dialogs are one lazily loaded chunk
+(`web/src/pages/topics/writes/`), mounted on every page of the topic by `TopicOverlays` (`pages/topics/overlays.tsx`) and chosen by the
+`dialog` search param: `produce`, `add-partitions`, `delete-records`, `empty` and `delete`. Opening one pushes the address (Back closes
+it, Forward opens it again); a deep link opens it over the page; closing replaces the address when there is nothing of ours to go back
+to. To add one: a name in `TOPIC_DIALOGS` (`writes/overlays.tsx`), a title and a body in `writes/dialogs.tsx`, an opener that calls
+`useTopicDialog().open(name)`, and a form GET and POST in the API whose words are the server's. **Empty** (`?dialog=empty`, CON-1590)
+is the newest: opened from the topic's actions and from the palette (`Empty <topic>…` under the topic the text names).
