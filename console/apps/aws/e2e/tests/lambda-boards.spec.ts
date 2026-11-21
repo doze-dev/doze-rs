@@ -169,7 +169,11 @@ test("lambda__function-test and lambda__test-result-ok: an event shaped like its
 
 test("lambda__test-result-error: the function threw, the call still answered 200", async ({ page }) => {
   await go(page, fn("send-email", "?tab=test"), "send-email");
+  // The template is read from the function's triggers: wait for it, so nothing re-draws the editor under the typing.
+  await expect(page.getByTestId("invoke-template")).toContainText("SNS topic alerts");
   await page.getByTestId("invoke-event").fill("{}");
+  await expect(page.getByTestId("invoke-event")).toHaveValue("{}");
+  await expect(page.getByTestId("invoke-run")).toBeEnabled();
   await page.getByTestId("invoke-run").click();
   await expect(page.getByTestId("invoke-status")).toHaveText("The function returned an error. The response is an error object instead of a result.");
   await expect(page.getByTestId("invoke-payload")).toContainText('"errorType": "KeyError"');

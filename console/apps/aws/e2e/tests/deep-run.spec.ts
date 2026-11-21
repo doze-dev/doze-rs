@@ -114,6 +114,7 @@ test("a function is tested, configured on pages of its own, and its runs' logs o
   await page.reload();
   await page.getByTestId("tab-monitor").click();
   await page.getByTestId("view-logs").click();
+  await page.getByTestId("tab-streams").click();
   const stream = page.getByTestId("group-streams").getByTestId("stream-link").first();
   await stream.click();
   await expect(page.getByTestId("stream-viewer")).toBeVisible();
