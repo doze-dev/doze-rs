@@ -220,12 +220,15 @@ async fn a_topic_says_where_it_delivers_and_a_subscription_how() {
 #[tokio::test]
 async fn a_kind_with_nothing_to_say_says_nothing_and_a_status_is_a_badge() {
     let w = world("page-none", Mode::Soft, &[]);
-    w.app("s3", "CreateBucket", &json!({"Bucket": "images"}))
-        .await;
-    let (_, d) = w.get(&format!("{BASE}/s3/buckets/images")).await;
+    w.app(
+        "kinesis",
+        "CreateStream",
+        &json!({"StreamName": "clicks", "ShardCount": 1}),
+    )
+    .await;
+    let (_, d) = w.get(&format!("{BASE}/kinesis/streams/clicks")).await;
     assert_eq!(d["sentence"], Value::Null);
-    assert_eq!((badges(&d), verbs(&d)), (vec![], vec![]));
-    assert_eq!(d["wired"], json!([]));
+    assert_eq!(verbs(&d), Vec::<String>::new());
     w.app(
         "dynamodb",
         "CreateTable",

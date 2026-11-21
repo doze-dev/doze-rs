@@ -142,8 +142,13 @@ async fn a_bucket_shows_its_objects_and_a_table_its_keys() {
     )
     .await;
     let (_, detail) = w.get("/api/v1/resources/s3/buckets/photos").await;
-    // Its objects are its Objects tab, not a flat list repeated under the details.
-    assert_eq!(detail["subs"], json!([]));
+    // Its objects are its Objects tab, not a flat list repeated under the details: the only lists are what it notifies (none yet).
+    let subs = detail["subs"].as_array().unwrap();
+    assert!(
+        subs.iter().all(
+            |s| s["title"].as_str().unwrap().starts_with("Notifies ") && s["rows"] == json!([])
+        )
+    );
     assert_eq!(detail["deep"][0]["id"], "objects");
     w.delete("/api/v1/resources/s3/buckets", "photos").await;
     let form = json!({"TableName": "orders", "PartitionKey": "id", "PartitionKeyType": "S", "SortKey": "", "SortKeyType": "S"});

@@ -227,8 +227,8 @@ async fn bucket_and_key_checks(w: &World) {
     .await;
     let (_, detail) = w.get("/api/v1/resources/s3/buckets/photos").await;
     assert_eq!(field(&detail, "Region")["value"], "us-east-1");
-    assert_eq!(field(&detail, "Bucket policy")["value"], "None");
-    assert_eq!(field(&detail, "CORS rules")["value"], "None");
+    assert_eq!(field(&detail, "Versioning")["value"], "Disabled");
+    assert_ne!(field(&detail, "Created")["value"], Value::Null);
     w.app("s3", "HeadBucket", &json!({"Bucket": "photos"}))
         .await;
     let (_, detail) = w.get("/api/v1/resources/s3/buckets/photos").await;
