@@ -55,7 +55,7 @@ pub(crate) fn run(ctx: &mut Ctx<'_>, mode: &Mode) -> Outcome {
         }
     }));
     if let Some(p) = &found {
-        checks.push(daemon(ctx, p));
+        checks.push(daemon(ctx, mode, p));
         let stack = StackDomains::recorded(m.home(), &p.dir);
         checks.extend(doze_doctor::domains::checks(&m, Some(&stack)));
     }
@@ -88,8 +88,9 @@ pub(crate) fn run(ctx: &mut Ctx<'_>, mode: &Mode) -> Outcome {
 }
 
 /// Whether this stack's daemon answers on its socket (stopped is fine: it starts on first use).
-fn daemon(ctx: &Ctx<'_>, p: &project::Project) -> Check {
-    let key = doze_projects::StackKey::for_config(&ctx.home, &p.config);
+fn daemon(ctx: &Ctx<'_>, mode: &Mode, p: &project::Project) -> Check {
+    let shape = crate::config::shape_of(ctx, mode, p).ok();
+    let key = crate::stack::key_of(ctx, p, shape.as_ref());
     let client = doze_control::Client::socket(key.socket())
         .named("cli")
         .with_timeout(Some(std::time::Duration::from_secs(2)));

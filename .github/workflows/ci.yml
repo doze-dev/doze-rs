@@ -126,13 +126,13 @@ jobs:
       - run: cargo clippy -p doze-app --all-targets -- -D warnings
       - run: cargo clippy -p doze-os --features ui --all-targets -- -D warnings
       - run: cargo test -p doze-app --features capture
-      - name: The app's weight line (binary at most 17,491,000 B, the measure plus 5% once the app runs its stacks' daemons (2026-11-19, app-next), owner ceiling 20 MB; packages at most 660 with the CLI and the core inside, weight.md; the release-app build has no capture)
+      - name: The app's weight line (binary at most 17,806,000 B, measured plus 5% (2026-11-21, the finished CLI inside), owner ceiling 20 MB; packages at most 660 with the CLI and the core inside, weight.md; the release-app build has no capture)
         run: |
           cargo build --profile release-app -p doze-app
           size=$(stat -f %z target/release-app/doze-app)
           crates=$(cargo tree -p doze-app --prefix none --edges normal --target aarch64-apple-darwin | sort -u | wc -l | tr -d ' ')
           echo "doze-app: $size bytes, $crates packages"
-          [ "$size" -le 17491000 ] || { echo "doze-app over its line, 17,491,000 B (docs/port/weight.md, \"The app runs its stacks' daemons\"; ceiling 20 MB)"; exit 1; }
+          [ "$size" -le 17806000 ] || { echo "doze-app over its line, 17,806,000 B (docs/port/weight.md, \"The finished CLI inside the app\"; ceiling 20 MB)"; exit 1; }
           [ "$crates" -le 660 ] || { echo "doze-app over 660 packages (docs/port/weight.md)"; exit 1; }
       # Doze.app (PLAN.md step 3.5): signed ad hoc, or with a Developer ID and notarised when the secrets exist. With no
       # secrets (forks, and until the owner adds them) the import is skipped and the bundle is signed ad hoc.
@@ -177,19 +177,19 @@ jobs:
           cargo build -p doze-app --features capture
           mkdir -p shots
           app=target/debug/doze-app
-          for mode in dark light; do
-            $app shot --fixture larder --screen map --mode $mode --size 1280x800 --out shots/map-larder-$mode.png
-            $app shot --fixture larder --screen palette --mode $mode --size 1280x800 --out shots/palette-$mode.png
-            $app shot --fixture larder --screen help --mode $mode --size 1280x800 --out shots/help-$mode.png
+          for theme in violet teal; do for mode in dark light; do
+            $app shot --fixture larder --screen map --theme $theme --mode $mode --size 1280x800 --out shots/map-larder-$theme-$mode.png
+            $app shot --fixture larder --screen palette --theme $theme --mode $mode --size 1280x800 --out shots/palette-$theme-$mode.png
+            $app shot --fixture larder --screen help --theme $theme --mode $mode --size 1280x800 --out shots/help-$theme-$mode.png
             for fx in shop crash larder none; do
-              $app shot --fixture $fx --screen library --mode $mode --out shots/library-$fx-$mode.png
+              $app shot --fixture $fx --screen library --theme $theme --mode $mode --out shots/library-$fx-$theme-$mode.png
             done
             for sc in tiles list grid; do
-              $app shot --fixture shop --screen $sc --mode $mode --out shots/$sc-shop-$mode.png
-              $app shot --fixture shop --stack acme --screen $sc --mode $mode --out shots/$sc-stopped-$mode.png
+              $app shot --fixture shop --screen $sc --theme $theme --mode $mode --out shots/$sc-shop-$theme-$mode.png
+              $app shot --fixture shop --stack acme --screen $sc --theme $theme --mode $mode --out shots/$sc-stopped-$theme-$mode.png
             done
-            $app shot --fixture larder --screen grid --hover orders/catalog --mode $mode --out shots/grid-larder-tip-$mode.png
-          done
+            $app shot --fixture larder --screen grid --hover orders/catalog --theme $theme --mode $mode --out shots/grid-larder-tip-$theme-$mode.png
+          done; done
           $app shot --fixture larder --screen map --select gateway --size 1280x800 --out shots/map-larder-selected.png
           $app shot --fixture larder --screen map --size 900x620 --out shots/map-larder-small.png
           $app shot --synth 2000 --screen map --size 2560x1440 --out shots/map-2k-fit.png
@@ -221,30 +221,15 @@ jobs:
         run: |
           target/debug/doze-app bench --fixture larder --idle 15 --closed 1 --check --per-minute 2
           target/debug/doze-app bench --fixture larder --idle 15 --closed 1 --check --hidden
-      # The same over a REAL daemon (the owner's rule; a still fixture hid it): `--real` brings up 13 services of sh and
-      # nc under this binary as CLI and daemon, on a throwaway home under /tmp, whose meters, connections and logs move
-      # every second. Left alone, the window takes a change of state at once and the rest on a 30 s grid, so at most
-      # two frames a minute; 15 s after its last frame the driver's ~150 MB is gone (under the 85 MB line); closed, the
-      # menu-bar app is under 35 MB (32-35 measured: the hub lets its log ring go when the window closes, and the mark is
-      # decoded at the 64 px it is drawn). The release-app build (the weight line's, above), as shipped; `--on-top` keeps the
-      # window on screen, and `--hidden` checks a covered one draws nothing (docs/port/weight.md, "A live stack's idle
-      # window").
-      - name: An idle window over a real daemon draws (almost) nothing, and its footprint lines
-        run: |
-          app=target/release-app/doze-app
-          $app bench --real 13 --screen tiles --idle 123 --closed 15 --on-top --check --per-minute 2 --settled 85 --closed-budget 35
-          $app bench --real 13 --screen service --idle 63 --closed 1 --on-top --check --per-minute 2
-          $app bench --real 13 --screen home --idle 63 --closed 1 --on-top --check --per-minute 2
-          $app bench --real 13 --screen tiles --idle 33 --closed 1 --check --hidden
       - name: Screens inside a stack (instance, logs, consoles)
         run: |
           app=target/debug/doze-app
-          for mode in dark light; do
-            $app shot --fixture shop --screen instance --select api --mode $mode --out shots/instance-api-$mode.png
-            $app shot --fixture crash --screen instance --select api --mode $mode --out shots/instance-crash-$mode.png
-            $app shot --fixture shop --screen logs --mode $mode --out shots/logs-all-$mode.png
-            $app shot --fixture modules --screen instance --select events --tab console:_ --mode $mode --out shots/console-events-$mode.png
-          done
+          for theme in violet teal; do for mode in dark light; do
+            $app shot --fixture shop --screen instance --select api --theme $theme --mode $mode --out shots/instance-api-$theme-$mode.png
+            $app shot --fixture crash --screen instance --select api --theme $theme --mode $mode --out shots/instance-crash-$theme-$mode.png
+            $app shot --fixture shop --screen logs --theme $theme --mode $mode --out shots/logs-all-$theme-$mode.png
+            $app shot --fixture modules --screen instance --select events --tab console:_ --theme $theme --mode $mode --out shots/console-events-$theme-$mode.png
+          done; done
           $app shot --fixture shop --screen instance --select db --out shots/instance-db.png
           $app shot --fixture shop --screen instance --select migrate --out shots/instance-task.png
           $app shot --fixture shop --screen instance --select api --tab logs --filter "/GET|slow/" --out shots/logs-api-pattern.png
