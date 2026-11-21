@@ -91,7 +91,13 @@ fn client_name(sdk_id: &str) -> String {
 #[must_use]
 pub fn boto3(sdk_id: &str, op: &str, at: Target<'_>, args: &[(&MemberRef<'_>, &Value)]) -> String {
     let client = client_name(sdk_id);
-    let call = |inner: String| format!("response = {client}.{}({inner})", snake(op));
+    // `lambda` is a Python keyword: the client of Lambda is held in `lambda_client`.
+    let var = if client == "lambda" {
+        "lambda_client"
+    } else {
+        client.as_str()
+    };
+    let call = |inner: String| format!("response = {var}.{}({inner})", snake(op));
     let pairs: Vec<String> = args
         .iter()
         .map(|(m, v)| format!("{}={}", m.name, python(v)))
@@ -103,7 +109,7 @@ pub fn boto3(sdk_id: &str, op: &str, at: Target<'_>, args: &[(&MemberRef<'_>, &V
         call(format!("\n    {}\n", pairs.join(",\n    ")))
     };
     format!(
-        "import boto3\n\n{client} = boto3.client(\n    {},\n    endpoint_url={},\n    region_name={},\n)\n{call}\n",
+        "import boto3\n\n{var} = boto3.client(\n    {},\n    endpoint_url={},\n    region_name={},\n)\n{call}\n",
         python(&Value::String(client.clone())),
         python(&Value::String(at.endpoint.to_owned())),
         python(&Value::String(at.region.to_owned())),

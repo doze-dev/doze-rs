@@ -2,7 +2,7 @@
 //! group's tail), each call made through the peer bus as the caller `console`, when the page asks:
 //!
 //! - `POST /api/v1/resources/<service>/<kind>/<name>/op/<Operation>`: one of the operations the kind's pages make (an S3 read of a
-//!   setting the bucket never had answers `{"Absent": <code>, "Message": <words>}` with 200, not the refusal)
+//!   setting the bucket never had, and Lambda's read of a policy, a URL or an asynchronous configuration the function never had, answers `{"Absent": <code>, "Message": <words>}` with 200, not the refusal)
 //!   ([`crate::resources::Deep`]), with the page's input (a JSON object); the service's answer as it gave it (Lambda's
 //!   `Invoke`: [`crate::model::Invoked`], the payload and log tail as text).
 //! - `POST /api/v1/resources/s3/buckets/<name>/object?key=<key>[&props=<json>]`: the request's body put as the object `key`
@@ -65,9 +65,12 @@ pub async fn op(
         // A bucket's setting that was never set is an error of S3's, not of the page: said as an answer, so the browser logs no
         // failed request for a bucket without a policy.
         Err(e)
-            if service == "s3"
+            if (service == "s3"
                 && operation.starts_with("Get")
-                && UNSET.iter().any(|c| *c == e.code) =>
+                && UNSET.iter().any(|c| *c == e.code))
+                || (service == "lambda"
+                    && LAMBDA_UNSET.contains(&operation.as_str())
+                    && e.code == "ResourceNotFoundException") =>
         {
             json(
                 StatusCode::OK,
@@ -77,6 +80,14 @@ pub async fn op(
         Err(e) => refused(&e),
     }
 }
+
+/// The reads of a Lambda function's settings it may never have had (no policy, no URL, no asynchronous configuration): the
+/// service refuses each with `ResourceNotFoundException`, which the page treats as an answer.
+const LAMBDA_UNSET: &[&str] = &[
+    "GetPolicy",
+    "GetFunctionUrlConfig",
+    "GetFunctionEventInvokeConfig",
+];
 
 /// What S3 refuses a read of a setting the bucket never had (`GetBucketPolicy` on a bucket with no policy).
 const UNSET: &[&str] = &[

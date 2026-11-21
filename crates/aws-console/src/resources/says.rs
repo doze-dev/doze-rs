@@ -1,6 +1,7 @@
 //! What each kind says of its resource ([`super::Page`]): a sentence, badges, verbs. One file a service, as its descriptor.
 
 pub mod dynamodb;
+pub mod lambda;
 pub mod s3;
 pub mod sns;
 pub mod sqs;

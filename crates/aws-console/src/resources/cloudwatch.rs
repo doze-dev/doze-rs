@@ -4,7 +4,7 @@
 use super::Format::{Flag, Json, Mono, Named, Number, Pairs, Seconds, Text as Plain, Time};
 use super::{
     Apply, Delete, Descriptor, Id, Kind, List, Options, Param, ParamKind, Shape, Step, Tags, Text,
-    Write, col, field, op, or, says, state,
+    Write, col, field, op, ops, or, says, state,
 };
 
 /// What a tag call names: this alarm, by its ARN.
@@ -180,5 +180,7 @@ const METRICS: Kind = Kind {
     delete: None,
     reveal: None,
     deep: &[],
+    // The data points are a query the pages make (a function's Monitor tab, a chart): CloudWatch's own GetMetricData.
+    ops: &[ops::free("GetMetricData")],
     ..Kind::BARE
 };
