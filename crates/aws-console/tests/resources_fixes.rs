@@ -12,7 +12,7 @@ mod world;
 
 use aws_peers::Mode;
 use serde_json::json;
-use world::{encode, field, world};
+use world::{encode, field, sub, world};
 
 #[tokio::test]
 async fn two_subscriptions_not_yet_confirmed_are_two_rows_with_their_own_pages() {
@@ -183,4 +183,65 @@ async fn composite_alarms_are_listed_beside_metric_alarms_and_open() {
     let (_, metric) = w.get(&format!("{base}/cpu-high")).await;
     assert_eq!(field(&metric, "Metric")["value"], "CPU");
     assert!(field(&metric, "Rule")["value"].is_null());
+}
+
+#[tokio::test]
+async fn an_event_pattern_a_target_transformer_and_an_open_ended_archive_read_as_they_are() {
+    let w = world("events", Mode::Soft, &[]);
+    w.app(
+        "events",
+        "PutRule",
+        &json!({"Name": "on-order", "EventPattern": r#"{"source":["larder.orders"],"detail-type":["OrderPlaced"]}"#}),
+    )
+    .await;
+    w.app("sqs", "CreateQueue", &json!({"QueueName": "inbox"}))
+        .await;
+    w.app(
+        "events",
+        "PutTargets",
+        &json!({"Rule": "on-order", "Targets": [
+            {"Id": "t1", "Arn": "arn:aws:sqs:us-east-1:000000000000:inbox",
+             "InputTransformer": {"InputPathsMap": {"id": "$.detail.id"}, "InputTemplate": "{\"order\": <id>}"}},
+            {"Id": "t2", "Arn": "arn:aws:sqs:us-east-1:000000000000:inbox", "Input": "{\"fixed\":true}"}
+        ]}),
+    )
+    .await;
+    let (status, rule) = w.get("/api/v1/resources/eventbridge/rules/on-order").await;
+    assert_eq!(status, 200, "{rule}");
+    // The pattern: one member to a line, each short list on its line.
+    assert_eq!(
+        field(&rule, "Event pattern")["value"],
+        "{\n  \"source\": [\"larder.orders\"],\n  \"detail-type\": [\"OrderPlaced\"]\n}"
+    );
+    let targets = &sub(&rule, "Targets")["rows"];
+    let input_at = sub(&rule, "Targets")["columns"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .position(|c| c["title"] == "Input")
+        .unwrap();
+    let inputs: Vec<&str> = targets
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|r| r["cells"][input_at].as_str().unwrap())
+        .collect();
+    assert_eq!(inputs, ["{\"order\": <id>}", "{\"fixed\":true}"]);
+    // An archive that keeps its events without end says so, in the list and on its page.
+    w.app(
+        "events",
+        "CreateArchive",
+        &json!({"ArchiveName": "all", "EventSourceArn": "arn:aws:events:us-east-1:000000000000:event-bus/default"}),
+    )
+    .await;
+    let (_, list) = w.get("/api/v1/resources/eventbridge/archives").await;
+    let at = list["columns"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .position(|c| c["title"] == "Retention (days)")
+        .unwrap();
+    assert_eq!(list["rows"][0]["cells"][at], "Indefinite");
+    let (_, archive) = w.get("/api/v1/resources/eventbridge/archives/all").await;
+    assert_eq!(field(&archive, "Retention (days)")["value"], "Indefinite");
 }

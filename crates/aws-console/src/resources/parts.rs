@@ -37,6 +37,21 @@ pub(crate) const fn col(title: &'static str, path: &'static str, format: Format)
         title,
         path,
         format,
+        empty: "",
+    }
+}
+
+/// A column whose absence means `empty` (`Indefinite`).
+#[must_use]
+pub(crate) const fn col_or(
+    title: &'static str,
+    path: &'static str,
+    format: Format,
+    empty: &'static str,
+) -> Column {
+    Column {
+        empty,
+        ..col(title, path, format)
     }
 }
 

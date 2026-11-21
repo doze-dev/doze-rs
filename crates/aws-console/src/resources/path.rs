@@ -200,7 +200,7 @@ pub fn shown(value: &Value, path: &str, format: Format) -> Option<String> {
                 Value::Array(a) if a.is_empty() => None,
                 Value::Object(m) if m.is_empty() => None,
                 Value::String(s) => Some(s),
-                other => serde_json::to_string_pretty(&other).ok(),
+                other => Some(super::pretty::pretty(&other)),
             }
         }
         _ => text(value, path).filter(|t| !t.is_empty()),

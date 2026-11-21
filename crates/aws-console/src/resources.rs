@@ -23,10 +23,12 @@ pub mod run;
 pub mod view;
 
 mod parts;
-pub(crate) use parts::{col, field, input, or};
+pub(crate) use parts::{col, col_or, field, input, or};
 
 mod pending;
 pub use pending::Pending;
+
+mod pretty;
 
 mod apigateway;
 mod cloudformation;
@@ -322,6 +324,8 @@ pub struct Column {
     pub title: &'static str,
     pub path: &'static str,
     pub format: Format,
+    /// What an absent value means, shown in its place (`Indefinite`); empty for a dash.
+    pub empty: &'static str,
 }
 
 /// A field of a detail page.

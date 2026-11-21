@@ -5,7 +5,7 @@ use serde_json::{Map, Value, json};
 
 use super::bus::Bus;
 use super::path::{self, Vars};
-use super::{Descriptor, Id, Kind, LinkTo, Step, Sub};
+use super::{Column, Descriptor, Id, Kind, LinkTo, Step, Sub};
 use crate::model::{FieldValue, ResourceLink, ResourceRow, SubList};
 
 /// The most of one kind the index counts: past it, it says "at least".
@@ -185,11 +185,7 @@ pub async fn rows(
                 .unwrap_or_else(|| name.clone()),
         };
         rows.push(ResourceRow {
-            cells: kind
-                .columns
-                .iter()
-                .map(|c| path::shown(&item, c.path, c.format))
-                .collect(),
+            cells: kind.columns.iter().map(|c| cell(&item, c)).collect(),
             link: None,
             name,
             label,
@@ -197,6 +193,12 @@ pub async fn rows(
         });
     }
     (rows, others)
+}
+
+/// What a column shows of a row: its value, else what its absence means.
+fn cell(item: &Value, c: &Column) -> Option<String> {
+    path::shown(item, c.path, c.format)
+        .or_else(|| (!c.empty.is_empty()).then(|| c.empty.to_owned()))
 }
 
 /// A listed row's id and name, and whether it is one the service lists without an id ([`super::Pending`]).
@@ -384,11 +386,7 @@ pub async fn sub(
 }
 
 fn sub_row(d: &Descriptor, sub: &Sub, item: &Value) -> ResourceRow {
-    let cells: Vec<Option<String>> = sub
-        .columns
-        .iter()
-        .map(|c| path::shown(item, c.path, c.format))
-        .collect();
+    let cells: Vec<Option<String>> = sub.columns.iter().map(|c| cell(item, c)).collect();
     let first = cells.first().cloned().flatten().unwrap_or_default();
     let link = sub.link.and_then(|(service, kind, at)| {
         // A row the service lists without an id is named as its own kind's list names it.
