@@ -118,15 +118,26 @@ pub async fn page(
     Ok((items, next))
 }
 
-/// The list at `items` in `answer`, each a bare value made an object with the one member `item_as`.
+/// The list at `items` in `answer`, each a bare value made an object with the one member `item_as`. `a|b` is both lists, one
+/// after the other, each row saying which it came from (`$from`, a metric alarm or a composite one).
 fn items_of(answer: &Value, items: &str, item_as: &str) -> Vec<Value> {
-    let Some(Value::Array(list)) = path::get(answer, items) else {
-        return Vec::new();
-    };
-    list.into_iter()
-        .map(|item| match item {
-            Value::Object(_) => item,
-            bare => json!({ item_as: bare }),
+    let several = items.contains('|');
+    items
+        .split('|')
+        .filter_map(|at| match path::get(answer, at) {
+            Some(Value::Array(list)) => Some((at, list)),
+            _ => None,
+        })
+        .flat_map(|(at, list)| {
+            list.into_iter().map(move |item| match item {
+                Value::Object(mut m) => {
+                    if several {
+                        m.insert("$from".to_owned(), json!(at));
+                    }
+                    Value::Object(m)
+                }
+                bare => json!({ item_as: bare }),
+            })
         })
         .collect()
 }

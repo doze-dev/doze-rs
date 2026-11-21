@@ -130,3 +130,57 @@ async fn a_secret_marked_for_deletion_offers_neither_reveal_nor_delete_but_a_way
     assert_eq!(back["reveal"], "Reveal value");
     assert!(field(&back, "Marked for deletion")["value"].is_null());
 }
+
+/// Model `DescribeAlarms.AlarmTypes`: "If you omit this parameter, only metric alarms are returned, even if composite alarms
+/// exist": the console names both, and reads the two lists the answer has.
+#[tokio::test]
+async fn composite_alarms_are_listed_beside_metric_alarms_and_open() {
+    let w = world("alarms", Mode::Soft, &[]);
+    w.app(
+        "monitoring",
+        "PutMetricAlarm",
+        &json!({"AlarmName": "cpu-high", "MetricName": "CPU", "Namespace": "app", "Statistic": "Average",
+            "Period": 60, "EvaluationPeriods": 1, "Threshold": 80.0, "ComparisonOperator": "GreaterThanThreshold"}),
+    )
+    .await;
+    w.app(
+        "monitoring",
+        "PutCompositeAlarm",
+        &json!({"AlarmName": "either", "AlarmRule": "ALARM(cpu-high)"}),
+    )
+    .await;
+    let base = "/api/v1/resources/cloudwatch/alarms";
+    let (_, list) = w.get(base).await;
+    assert_eq!(list["columns"][0]["title"], "Type");
+    let rows: Vec<(String, String)> = list["rows"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|r| {
+            (
+                r["name"].as_str().unwrap().to_owned(),
+                r["cells"][0].as_str().unwrap().to_owned(),
+            )
+        })
+        .collect();
+    assert_eq!(
+        rows,
+        [
+            ("cpu-high".to_owned(), "Metric".to_owned()),
+            ("either".to_owned(), "Composite".to_owned())
+        ]
+    );
+    let (status, detail) = w.get(&format!("{base}/either")).await;
+    assert_eq!(status, 200, "{detail}");
+    assert_eq!(field(&detail, "Rule")["value"], "ALARM(cpu-high)");
+    assert!(
+        field(&detail, "ARN")["value"]
+            .as_str()
+            .unwrap()
+            .ends_with(":alarm:either")
+    );
+    // A metric alarm still opens as it did.
+    let (_, metric) = w.get(&format!("{base}/cpu-high")).await;
+    assert_eq!(field(&metric, "Metric")["value"], "CPU");
+    assert!(field(&metric, "Rule")["value"].is_null());
+}
