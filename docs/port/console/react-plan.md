@@ -298,7 +298,7 @@ Access, Create ACL, the Lab, a rule's sheet, New rehearsal on Slow and Expire; F
 
 **Left for later.** The weight's package count is a build-time figure the binary cannot read, so Settings shows the binary's size and
 the open partitions but not the packages. The client and group fields of a rule choose from the apps and groups there are; a glob
-(`orders-*`) is taken by the engine but the form has no free-text entry for it yet.
+(`orders-*`) is taken by the engine but the form has no free-text entry for it yet. **Closed since:** the client and group fields are Comboboxes with `pattern`, which take what is typed as a glob or a name (gallery.spec "Combobox and MultiSelect with a pattern: what is typed is chosen as it is, a glob or a name, and can be unticked").
 
 ## R5 done (2026-11-13, branch `react-r5`): the classic console removed
 
@@ -336,7 +336,7 @@ green.
 **Found.** The React Home reads `/api/v1/home`, which runs the advertised-listener check when the cached result is older than 30 s: a Home
 left open with a refresh interval dials at most once in 30 s, and against an address that does not answer such a read waits up to the
 check's deadline (1.5 s). The classic page's fragment never dialled. Not changed here (it needs a Home page change; the polish pass owns
-`web/src/pages`). The classic test `crates/kafka-console/tests/live_tail.rs` flaked once under load (a timeout); it went with the classic
+`web/src/pages`). **Closed since:** a read of Home never dials; only Check again does (`a_read_of_home_never_dials_and_check_now_dials_every_time`). The classic test `crates/kafka-console/tests/live_tail.rs` flaked once under load (a timeout); it went with the classic
 tail.
 
 **Gate.** fmt; clippy `-D warnings` default, lean (`-p doze-kafka -p kafka-console --no-default-features`) and `--features tls`;

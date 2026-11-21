@@ -13,7 +13,7 @@ use gpui::{
 use super::LogsView;
 use crate::instance::ui::{self, text};
 use crate::theme::{Tokens, ty};
-use crate::widgets::MONO_FAMILY;
+use crate::widgets::Mono as _;
 
 /// A row's height.
 pub(crate) const ROW: f32 = 24.;
@@ -52,7 +52,7 @@ pub(crate) fn list(t: &Tokens, v: &mut LogsView, cx: &mut Context<LogsView>) -> 
         .flex_col()
         .flex_1()
         .min_h_0()
-        .font_family(MONO_FAMILY)
+        .mono_face()
         .text_size(px(ty::SM))
         .on_scroll(cx.listener(|v, e: &ScrollEvent, window, cx| v.wheel(e, window, cx)))
         .child(rows)

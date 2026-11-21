@@ -158,7 +158,8 @@ pub fn instance_page(
     if words::has_web(v) {
         out.web = words::web_url(v).to_owned();
     }
-    let console = st.consoles.get(name);
+    // Console tabs and extension blocks are a module's alone (the owner's rule): any other kind is the standard page.
+    let console = st.consoles.get(name).filter(|_| v.kind == Kind::Module);
     out.tabs = tabs(v, console.and_then(|c| c.words.as_deref()));
     out.connect = parts::with_direct(wire, parts::connect_rows(wire, v));
     out.extend = console

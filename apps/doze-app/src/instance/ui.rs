@@ -10,7 +10,7 @@ use gpui::{
 };
 
 use crate::theme::{Tokens, mix, ty};
-use crate::widgets::{MONO_FAMILY, dot, tracked};
+use crate::widgets::{Mono as _, dot, tracked};
 
 /// A colour class as a colour.
 pub(crate) fn ink(t: &Tokens, i: Ink) -> Hsla {
@@ -86,7 +86,7 @@ pub(crate) fn kv_row(
         .text_ellipsis()
         .whitespace_nowrap()
         .text_color(if r.dim { t.dim } else { t.bright })
-        .when(r.mono, |d| d.font_family(MONO_FAMILY).text_size(px(ty::SM)))
+        .when(r.mono, |d| d.mono_face().text_size(px(ty::SM)))
         .child(text(&r.v));
     let mut row = div()
         .flex()
@@ -167,7 +167,7 @@ pub(crate) fn button(
     }
     b.child(
         div()
-            .font_family(MONO_FAMILY)
+            .mono_face()
             .text_size(px(ty::XS))
             .text_color(kfg)
             .child(text(key)),
@@ -308,7 +308,7 @@ pub(crate) fn step_num(t: &Tokens, n: usize) -> Div {
         .flex()
         .items_center()
         .justify_center()
-        .font_family(MONO_FAMILY)
+        .mono_face()
         .text_size(px(ty::XS))
         .font_weight(ty::SEMIBOLD)
         .text_color(t.dim)
@@ -327,8 +327,14 @@ pub(crate) fn code(t: &Tokens) -> Div {
         .border_1()
         .border_color(t.line)
         .bg(t.well)
-        .font_family(MONO_FAMILY)
+        .mono_face()
         .text_size(px(ty::SM))
         .line_height(px(ty::LH_19))
         .text_color(t.text)
+}
+
+/// The person's zone now: the clock times on the page.
+pub(crate) fn zone() -> doze_desk::page::time::Zone {
+    use chrono::Offset as _;
+    doze_desk::page::time::Zone(chrono::Local::now().offset().fix().local_minus_utc())
 }

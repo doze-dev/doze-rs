@@ -95,6 +95,7 @@ fn orders_rows_plain(n: i64) -> Vec<ProdRow> {
         txn,
         batches: batches(rows),
         seen_as: Vec::new(),
+        epochs: Vec::new(),
     };
     let open = ProdTxn {
         id: "orders-eos".to_owned(),
@@ -184,6 +185,7 @@ pub fn producers(topic: &str, partition: i32, opened: Vec<i64>) -> Option<Produc
                 first: 12_877,
                 marker: 12_881,
                 at_ms: Some(at("2026-11-09 17:14")),
+                by: Some(crate::model::AbortBy::Broker),
             },
             ProdAborted {
                 producer: 3996,
@@ -191,6 +193,7 @@ pub fn producers(topic: &str, partition: i32, opened: Vec<i64>) -> Option<Produc
                 first: 9310,
                 marker: 9316,
                 at_ms: Some(at("2026-11-08 09:40")),
+                by: None,
             },
         ],
         tail: tail(),

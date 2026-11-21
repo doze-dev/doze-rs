@@ -197,3 +197,20 @@ fn one_service_asks_only_when_its_port_is_held() {
             .is_empty()
     );
 }
+
+#[test]
+fn domains_not_set_up_offer_set_up_only_where_the_app_can_ask() {
+    let (dir, shape) = acme();
+    let mut looked = Looked {
+        untrusted: vec!["dev.acme.com".into()],
+        ..Looked::default()
+    };
+    let p = preflight("acme", dir.path(), &shape, &[], ("up-last", &[]), &looked);
+    let warn = p.checks.iter().find(|c| c.tone == Tone::Warn).unwrap();
+    assert!(warn.fixes.is_empty());
+    looked.admin = true;
+    let p = preflight("acme", dir.path(), &shape, &[], ("up-last", &[]), &looked);
+    let warn = p.checks.iter().find(|c| c.tone == Tone::Warn).unwrap();
+    let fixes: Vec<&str> = warn.fixes.iter().map(|f| f.label.as_str()).collect();
+    assert_eq!(fixes, ["Set up (one password)"]);
+}

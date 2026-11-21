@@ -47,6 +47,11 @@ fn seg(base: i64, next: i64, bytes: u64, newest: &str, kept: Option<i64>) -> Log
         unplaced: 0,
         exact: true,
         active: false,
+        index_entries: bytes / 4096,
+        index_first: (0..3)
+            .filter(|i| i * 4096 < bytes)
+            .map(|i| (base + i64::try_from(i).unwrap_or(0) * 31, i * 4096))
+            .collect(),
     }
 }
 
@@ -60,6 +65,7 @@ fn durability() -> LogDurability {
         offline: None,
         stop: LogStop::Clean,
         fsync_ms: 500,
+        flushed_through: Some(16_098),
     }
 }
 

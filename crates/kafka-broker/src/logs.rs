@@ -53,7 +53,8 @@ impl<F: Fs> Broker<F> {
                         }
                         note.looked += 1;
                         retained.map(|r| {
-                            note_move(&mut note, topic.name.as_ref(), n, (from, r.start.get()));
+                            let moved = (from, r.start.get(), r.segments);
+                            note_move(&mut note, topic.name.as_ref(), n, moved);
                             upkeep.note(
                                 Chore::Retain,
                                 Verdict {
@@ -139,7 +140,7 @@ fn note_move(
     note: &mut crate::log_notes::PassNote,
     topic: &str,
     partition: i32,
-    (from, to): (i64, i64),
+    (from, to, segments): (i64, i64, usize),
 ) {
     if to <= from {
         return;
@@ -150,6 +151,7 @@ fn note_move(
             partition,
             from,
             to,
+            segments,
         });
     } else {
         note.more += 1;

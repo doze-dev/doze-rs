@@ -21,4 +21,9 @@ cursor: number,
 /**
  * "Older" is offered: more matched and the page is under the most it shows; it asks for this limit.
  */
-older: number | null, };
+older: number | null, 
+/**
+ * "Older" past the most a page shows: the `before` cursor of the next page (`0:1200,1:880`), records older than the
+ * oldest shown on each partition.
+ */
+earlier: string | null, };

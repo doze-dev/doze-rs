@@ -80,7 +80,7 @@ fn why(t: &Tokens, r: &Row) -> gpui::Div {
 fn row(
     t: &Tokens,
     r: &Row,
-    selected: bool,
+    (selected, keys): (bool, (Option<&gpui::FocusHandle>, bool)),
     density: Density,
     this: &WeakEntity<OverviewView>,
     cx: &mut App,
@@ -121,7 +121,11 @@ fn row(
         .when(selected, |d| d.bg(t.pick))
         .when(!selected, |d| d.hover(|d| d.bg(t.sel)))
         .child(div().w(px(10.)).flex_none().child(row_dot(t, r)))
-        .child(title)
+        .child(
+            super::choose::name_ring(t, title, keys)
+                .flex_1()
+                .min_w(px(110.)),
+        )
         .child(why(t, r).flex_grow(2.))
         .child(mem)
         .child(
@@ -164,12 +168,19 @@ pub(super) fn view(
         v.density,
         cx.entity().downgrade(),
     );
+    let (handles, keys) = v.names.clone();
     let rows = list(v.list.clone(), move |ix, _, cx| match data.get(ix) {
         Some(Item::Head(title)) => head(&t2, title),
         Some(Item::Row(r)) => row(
             &t2,
             r,
-            sel.as_deref() == Some(r.name.as_str()),
+            (
+                sel.as_deref() == Some(r.name.as_str()),
+                (
+                    handles.get(&r.name),
+                    keys.as_deref() == Some(r.name.as_str()),
+                ),
+            ),
             density,
             &weak,
             cx,

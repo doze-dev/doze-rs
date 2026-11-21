@@ -27,6 +27,15 @@ pub struct Labels {
     pub client: String,
     /// The client command, rendered for this instance (additive).
     pub connect: Option<doze_control::ClientView>,
+    /// Where it really listens (its own address, or 127.0.0.1), when doze fronts it.
+    pub bind: String,
+    /// An app's own domains, and the https URL of the first (names on).
+    pub domains: Vec<String>,
+    pub https: String,
+    /// An app with an address of its own that could not also have 127.0.0.1 at its port.
+    pub name_only: bool,
+    /// Which of its names another program holds, said for status and doctor.
+    pub name_held: String,
     /// `enabled = false` in the config.
     pub paused: bool,
     pub group: String,
@@ -69,7 +78,12 @@ pub(crate) fn view(e: &Engine, i: &Instance, l: Option<&Labels>) -> InstanceView
         idle_after: i.idle_after.map_or(GoDuration(0), go_duration),
         always_on: i.always_on,
         endpoint: l.endpoint,
+        bind: l.bind,
         domain: l.domain,
+        domains: l.domains,
+        https: l.https,
+        name_only: l.name_only,
+        name_held: l.name_held,
         url: l.url,
         env_var: l.env_var,
         env: l.env,

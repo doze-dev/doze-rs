@@ -199,6 +199,29 @@ impl Menu {
     pub(crate) fn open(&self) {
         self.tray.open_menu();
     }
+
+    /// Closes the menu if it is open.
+    #[cfg(feature = "fixtures")]
+    pub(crate) fn close(&self) {
+        self.tray.close_menu();
+    }
+
+    /// Chooses the line at `path` the way a click does (the script driver's `menu` step).
+    #[cfg(feature = "fixtures")]
+    pub(crate) fn choose(&self, path: &[&str]) -> Result<String, String> {
+        self.tray.choose(path)
+    }
+
+    /// The native menu read back, with the picture shown and its size (the script driver's `menu-dump` step).
+    #[cfg(feature = "fixtures")]
+    pub(crate) fn dump(&self) -> String {
+        let icon = self
+            .tray
+            .shown_icon()
+            .map(|(i, [w, h])| format!("icon={i:?} {w}x{h}pt"))
+            .unwrap_or_default();
+        format!("{icon}\n{}", self.tray.menu_text())
+    }
 }
 
 /// The menu as text, to `$DOZE_APP_TRAY_TEXT` when it is set: what the native menu shows, as evidence a status

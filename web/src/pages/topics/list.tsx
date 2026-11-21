@@ -37,6 +37,7 @@ export function subLine(r: TopicRow): string | null {
   const parts: string[] = [];
   if (r.segments !== null && r.segments > 1) parts.push(`${r.segments} segments`);
   if (r.retention_ms !== null) parts.push(`retention ${retention(r.retention_ms)}`);
+  if (r.written_by.length) parts.push(`written by ${r.written_by.join(", ")}`);
   if (r.read_by.length) parts.push(`read by ${r.read_by.join(", ")}`);
   return parts.length ? parts.join(" · ") : null;
 }

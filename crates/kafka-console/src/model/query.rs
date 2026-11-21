@@ -47,6 +47,9 @@ pub struct MessageQuery {
     pub key: Option<String>,
     pub reading: Reading,
     pub limit: usize,
+    /// Records older than these, partition by partition (`before=0:1200,1:880`): the page after the last "Older" at
+    /// [`MOST_LIMIT`] records. A partition not named is read from its end.
+    pub before: Vec<(i32, i64)>,
 }
 
 impl Default for MessageQuery {
@@ -58,6 +61,7 @@ impl Default for MessageQuery {
             key: None,
             reading: Reading::Uncommitted,
             limit: DEFAULT_LIMIT,
+            before: Vec::new(),
         }
     }
 }
@@ -163,6 +167,15 @@ impl MessageQuery {
                 clip(other)
             )),
         }
+        if let Some(b) = get(fields, "before") {
+            match parse_before(b) {
+                Some(cursor) => q.before = cursor,
+                None => notes.push(format!(
+                    "{:?} is not a place to read before (partition:offset, comma separated), so the newest records are shown.",
+                    clip(b)
+                )),
+            }
+        }
         if let Some(l) = get(fields, "limit") {
             match l.trim().parse::<usize>().ok().filter(|n| *n >= 1) {
                 Some(n) if n > MOST_LIMIT => {
@@ -202,12 +215,41 @@ impl MessageQuery {
         if self.limit != DEFAULT_LIMIT {
             parts.push(format!("limit={}", self.limit));
         }
+        if !self.before.is_empty() {
+            parts.push(format!("before={}", before_text(&self.before)));
+        }
         if parts.is_empty() {
             String::new()
         } else {
             format!("?{}", parts.join("&"))
         }
     }
+}
+
+/// `0:1200,1:880`: a partition and an offset each, at most one each, every one a whole number. Anything else is `None`.
+fn parse_before(text: &str) -> Option<Vec<(i32, i64)>> {
+    let mut out: Vec<(i32, i64)> = Vec::new();
+    for pair in text.split(',') {
+        let (p, o) = pair.trim().split_once(':')?;
+        let p = i32::try_from(whole(p)?).ok()?;
+        let o = whole(o)?;
+        if out.iter().any(|(q, _)| *q == p) || out.len() >= MOST_PARTITIONS {
+            return None;
+        }
+        out.push((p, o));
+    }
+    out.sort_unstable();
+    Some(out)
+}
+
+/// The cursor as the address writes it: `0:1200,1:880`.
+#[must_use]
+pub fn before_text(before: &[(i32, i64)]) -> String {
+    before
+        .iter()
+        .map(|(p, o)| format!("{p}:{o}"))
+        .collect::<Vec<_>>()
+        .join(",")
 }
 
 /// A value of the address, shortened for a sentence.

@@ -334,6 +334,18 @@ impl Engine {
         self.update(|c| c.m.release(name, Now::current()));
     }
 
+    /// One more client connection to `name`, given back when the [`Hold`] drops; `None` when `name` is not declared.
+    /// Unlike [`Engine::release`] by name, a hold that outlives a remove and an add of the same name gives back
+    /// nothing of the new instance's.
+    pub fn hold(&self, name: &str) -> Option<Hold> {
+        let generation = self.update(|c| c.m.acquire_held(name))?;
+        Some(Hold {
+            engine: self.clone(),
+            name: name.to_owned(),
+            generation,
+        })
+    }
+
     /// Flips the pin; returns the new value.
     pub fn toggle_pin(&self, name: &str) -> Result<bool, Error> {
         let (on, fx) = self.update(|c| c.m.toggle_pin(name))?;
@@ -355,3 +367,19 @@ impl Engine {
 mod live;
 #[path = "engine_wake.rs"]
 mod wake;
+
+/// A client connection counted against one declaration of an instance (see [`Engine::hold`]).
+#[derive(Debug)]
+pub struct Hold {
+    engine: Engine,
+    name: String,
+    generation: u64,
+}
+
+impl Drop for Hold {
+    fn drop(&mut self) {
+        let (name, generation) = (&self.name, self.generation);
+        self.engine
+            .update(|c| c.m.release_held(name, generation, Now::current()));
+    }
+}

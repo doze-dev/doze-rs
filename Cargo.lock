@@ -2785,7 +2785,9 @@ dependencies = [
  "doze-projects",
  "gpui-component",
  "gpui-pre",
+ "gpui-pre-apple",
  "gpui-pre-platform",
+ "log",
  "lyon",
  "serde",
  "serde_json",
@@ -2845,6 +2847,7 @@ version = "0.0.0"
 dependencies = [
  "doze-module-proto",
  "doze-names",
+ "serde_json",
 ]
 
 [[package]]
@@ -2916,6 +2919,7 @@ dependencies = [
 name = "doze-daemon"
 version = "0.0.0"
 dependencies = [
+ "doze-bind",
  "doze-config",
  "doze-control",
  "doze-engine",
@@ -3290,10 +3294,12 @@ dependencies = [
 name = "doze-os"
 version = "0.0.0"
 dependencies = [
+ "block2 0.6.2",
  "libc",
  "objc2 0.6.5",
  "objc2-app-kit 0.3.2",
  "objc2-foundation 0.3.2",
+ "objc2-user-notifications",
  "rustix",
  "tempfile",
  "tokio",
@@ -4255,8 +4261,6 @@ dependencies = [
 [[package]]
 name = "gpui-pre"
 version = "0.3.12"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "29db89613527079737f53752eab27fb65c9a7dd94979256c65a0e590c9fd34d8"
 dependencies = [
  "accesskit",
  "anyhow",
@@ -4467,8 +4471,6 @@ dependencies = [
 [[package]]
 name = "gpui-pre-macos"
 version = "0.3.12"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2de7d3f4ad51ac387e822495db363fcc1188d349793365731d054444c4cb06ee"
 dependencies = [
  "accesskit",
  "accesskit_macos",

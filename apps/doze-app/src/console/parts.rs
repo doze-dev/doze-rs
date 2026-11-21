@@ -8,7 +8,7 @@ use gpui::{AnyElement, Div, IntoElement, SharedString, div, prelude::*, px, unif
 use super::blocks::{Draw, share};
 use crate::instance::ui::{self, card, heading, text};
 use crate::theme::ty;
-use crate::widgets::{MONO_FAMILY, tracked};
+use crate::widgets::{Mono as _, tracked};
 
 /// A table's row height.
 const ROW_H: f32 = 34.;
@@ -233,6 +233,7 @@ impl Draw<'_> {
                     .child(
                         div()
                             .text_size(px(ty::FIGURE))
+                            .font_features(ty::tabular())
                             .font_weight(ty::SEMIBOLD)
                             .text_color(match s.ink {
                                 doze_desk::page::Ink::Text => t.bright,
@@ -263,7 +264,7 @@ impl Draw<'_> {
                 c = c
                     .child(
                         div()
-                            .font_family(MONO_FAMILY)
+                            .mono_face()
                             .text_size(px(ty::SM))
                             .line_height(px(ty::LH_19))
                             .text_color(t.bright)
@@ -321,7 +322,7 @@ impl Draw<'_> {
                                 .min_h(px(28.))
                                 .border_t_1()
                                 .border_color(t.line)
-                                .font_family(MONO_FAMILY)
+                                .mono_face()
                                 .text_size(px(ty::SM))
                         })
                         .collect::<Vec<_>>()

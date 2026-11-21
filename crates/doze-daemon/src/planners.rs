@@ -16,13 +16,23 @@ use doze_module_proto::network::MAIN;
 use std::collections::BTreeMap;
 use std::sync::Arc;
 
+/// What doze grants an instance it fronts (D2): its name in the zone (empty with names off) and each listener as the
+/// zone placed it, with where its engine listens.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct Grant {
+    pub host: String,
+    pub listeners: BTreeMap<String, doze_module_proto::msg::instance::Granted>,
+}
+
 /// The planner of module instance `i`, and the instance itself for its data, console and client (`None` with a
-/// planner that says why it cannot run when its module was not found).
+/// planner that says why it cannot run when its module was not found). `grant` is what the zone placed for it; without
+/// one (it is not fronted) its main listener is its declared address.
 pub fn module(
     cat: &Arc<Catalog>,
     i: &Instance,
     target: &str,
     run_dir: &std::path::Path,
+    grant: Option<&Grant>,
 ) -> (Arc<dyn Planner>, Option<Arc<ModuleInstance>>) {
     let Some(m) = cat.manifest_for(&i.ty, &i.version) else {
         let why = doze_config::modules::Modules::lookup_error(cat.as_ref(), &i.ty)
@@ -36,6 +46,13 @@ pub fn module(
         doze_config::Spec::Module(b) => crate::spec_tree::tree(b, &m.schema),
         _ => crate::spec_tree::tree(&Default::default(), &m.schema),
     };
+    let (host, listeners) = match grant {
+        Some(g) => (g.host.clone(), g.listeners.clone()),
+        None => (
+            String::new(),
+            BTreeMap::from([(MAIN.to_string(), catalog::granted(addr, backend))]),
+        ),
+    };
     let base = ModInstance {
         name: i.name.clone(),
         engine: i.ty.clone(),
@@ -43,8 +60,8 @@ pub fn module(
         data_dir: String::new(),
         socket_dir: String::new(),
         spec,
-        host: String::new(),
-        listeners: BTreeMap::from([(MAIN.to_string(), catalog::granted(addr, backend))]),
+        host,
+        listeners,
         deps: Vec::new(),
         toolchain: None,
         dir: i.dir.clone(),
@@ -94,7 +111,22 @@ pub fn backend(
     }
 }
 
-/// The instance as its module sees it once planned (for what it publishes), if it is a module instance.
+/// The instance as its module sees it once planned (for what it publishes), if it is a module instance: with the
+/// zone's grant where it has one (its name, each listener).
+pub fn as_module_sees_it_granted(
+    cat: &Catalog,
+    i: &Instance,
+    grant: Option<&Grant>,
+) -> Option<ModInstance> {
+    let mut mi = as_module_sees_it(cat, i)?;
+    if let Some(g) = grant {
+        mi.host = g.host.clone();
+        mi.listeners = g.listeners.clone();
+    }
+    Some(mi)
+}
+
+/// The instance as its module sees it before the zone placed it (its declared address), if it is a module instance.
 pub fn as_module_sees_it(cat: &Catalog, i: &Instance) -> Option<ModInstance> {
     let m = cat.manifest_for(&i.ty, &i.version)?;
     let addr = doze_config::instance_addr(i, cat).ok()?;
@@ -120,7 +152,7 @@ pub fn as_module_sees_it(cat: &Catalog, i: &Instance) -> Option<ModInstance> {
 
 /// The longest socket path every Unix binds (macOS's `sun_path` holds 104 bytes with its nul); a longer one gets a
 /// loopback port instead.
-const SOCKET_PATH_MAX: usize = 104;
+pub(crate) const SOCKET_PATH_MAX: usize = 104;
 
 /// A module instance this daemon cannot run: its module could not be had.
 #[derive(Debug)]

@@ -81,6 +81,13 @@ async fn a_service_waits_for_the_task_it_needs() {
     assert_eq!(e.get("migrate").unwrap().state, State::Done);
     let rec = e.task_record("migrate").unwrap();
     assert_eq!(rec.why, "first run (needed by api)");
+    // A task that ran is not held by what needed it: its view shows no connection (D1's open item, conns=1).
+    assert_eq!(e.get("migrate").unwrap().conns, 0);
+    assert!(
+        e.holders("migrate").is_empty(),
+        "{:?}",
+        e.holders("migrate")
+    );
     e.shutdown().await;
 }
 

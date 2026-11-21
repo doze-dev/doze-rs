@@ -16,12 +16,18 @@ impl Root {
             DoKind::Page => self.open_page(d, window, cx),
             DoKind::Copy => {
                 crate::outward::copy(cx, &d.text);
-                self.say(format!("Copied {}", d.text), cx);
+                self.say(
+                    format!("copied the connect line of {} to the clipboard", d.target),
+                    cx,
+                );
             }
-            DoKind::Open => match d.text.strip_prefix("file://") {
-                Some(path) => crate::outward::open_path(cx, std::path::Path::new(path)),
-                None => crate::outward::open_url(cx, &d.text),
-            },
+            DoKind::Open => {
+                match d.text.strip_prefix("file://") {
+                    Some(path) => crate::outward::open_path(cx, std::path::Path::new(path)),
+                    None => crate::outward::open_url(cx, &d.text),
+                }
+                self.say(format!("opened {}", d.text), cx);
+            }
             DoKind::Terminal => self.terminal(&d.text, cx),
             DoKind::Verb => {
                 let v = Verb {
@@ -57,9 +63,13 @@ impl Root {
             ("home", _) => self.go(Screen::Stack(key), window, cx),
             ("instance", false) => self.go(Screen::Instance(key, d.target.clone()), window, cx),
             ("logs", true) => self.go(Screen::Logs(key), window, cx),
+            // One service's logs are the merged page with it ticked alone in the sidebar (Go `pick`).
             ("logs", false) => {
-                self.go(Screen::Instance(key, d.target.clone()), window, cx);
-                self.open_tab(Some("logs"), window, cx);
+                self.go(Screen::Logs(key), window, cx);
+                if let Some(super::inside::Inside::Logs(l)) = &self.inside {
+                    let only = std::collections::BTreeSet::from([d.target.clone()]);
+                    l.update(cx, |l, cx| l.set_show(Some(only), cx));
+                }
             }
             ("activity", _) => {
                 self.go(Screen::Activity(key), window, cx);
@@ -100,15 +110,22 @@ impl Root {
         }
     }
 
-    /// A terminal in a folder.
+    /// A terminal in a folder: Terminal on macOS, the desktop's own elsewhere (Go `OpenTerminal`).
     fn terminal(&mut self, dir: &str, cx: &mut Context<Self>) {
+        if !std::path::Path::new(dir).is_dir() {
+            self.say(format!("{dir} is not a folder"), cx);
+            return;
+        }
         #[cfg(target_os = "macos")]
         let ok = std::process::Command::new("open")
             .args(["-a", "Terminal", dir])
             .spawn()
             .is_ok();
         #[cfg(not(target_os = "macos"))]
-        let ok = false;
+        let ok = std::process::Command::new("x-terminal-emulator")
+            .current_dir(dir)
+            .spawn()
+            .is_ok();
         if !ok {
             self.say(format!("No terminal could be opened in {dir}."), cx);
         }
@@ -130,7 +147,7 @@ impl Root {
             "new" => self.pick_folder(true, cx),
             "version" => {
                 crate::outward::copy(cx, crate::VERSION);
-                self.say(format!("Copied doze's version, {}", crate::VERSION), cx);
+                self.say(doze_desk::copied::copied(doze_desk::copied::VERSION), cx);
             }
             "mode" => {
                 if let Some(mode) = Mode::parse(arg) {

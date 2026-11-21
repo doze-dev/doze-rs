@@ -15,17 +15,21 @@ pub mod catalog;
 mod client;
 mod console;
 pub mod ctl;
+pub mod downloads;
 pub mod entry;
 pub mod front;
 pub mod lint;
 pub mod live;
 mod meters;
+pub mod names;
 pub mod planners;
 mod session;
 pub mod spec_tree;
+pub mod tls;
 mod topics;
 mod unary;
 pub mod view;
+mod wire;
 
 pub use view::Labels;
 
@@ -135,6 +139,12 @@ impl Daemon {
             inner.live = Some(live);
         }
         self
+    }
+
+    /// Has `front` ask this daemon what a connection needs: a module's other listeners, and a module that takes its
+    /// clients itself (handed them with `tls`, the stack's client TLS).
+    pub fn answer_front(&self, front: &front::Front, tls: Option<tls::WireTls>) {
+        front.set_targets(std::sync::Arc::new(wire::Targets::new(self, tls)));
     }
 
     /// What the config says of `name`.

@@ -29,6 +29,7 @@ pub mod phrase;
 pub mod ring;
 pub mod row;
 pub mod summary;
+mod topics;
 mod view;
 
 use clients::Conns;
@@ -308,3 +309,5 @@ fn fold_key(row: &Row) -> u64 {
 mod tests;
 #[cfg(test)]
 mod tests_facets;
+#[cfg(test)]
+mod tests_topics;

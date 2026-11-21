@@ -95,3 +95,44 @@ fn what_is_read_back_at_open_is_flushed_log_index_and_directory_each_by_itself()
     assert_eq!(fs2.ops(), before);
     assert!(!fsynced(&fs2, ".index"));
 }
+
+/// Console debt J234: how far the log is known to be on disk is the end at the last completed flush; an append moves it only
+/// once flushed; a log read back from a stop that did not vouch for it has none until its first flush, and one that did has
+/// its end.
+#[test]
+fn the_offset_flushed_through_is_the_end_at_the_last_completed_flush() {
+    let (fs, dir, mut log) = fresh(NEVER);
+    assert_eq!(log.reader().flushed_through(), Some(offset(0)));
+    log.append(&ones(3, 0), NOW, TimestampType::Create).unwrap();
+    assert_eq!(
+        log.reader().flushed_through(),
+        Some(offset(0)),
+        "not yet flushed"
+    );
+    log.sync().unwrap();
+    assert_eq!(log.reader().flushed_through(), Some(offset(3)));
+    log.append(&ones(2, 0), NOW, TimestampType::Create).unwrap();
+    fs.fail(Op::Fsync, 1, Failure::Io);
+    assert!(log.sync().is_err());
+    assert_eq!(
+        log.reader().flushed_through(),
+        Some(offset(3)),
+        "a failed flush covers nothing"
+    );
+    drop(log);
+    let fs = fs.process_restart();
+    let doubted = open(&fs, &dir, NEVER, Trust::Unvouched);
+    assert_eq!(doubted.reader().flushed_through(), None);
+    let mut doubted = doubted;
+    doubted.sync().unwrap();
+    assert_eq!(
+        doubted.reader().flushed_through(),
+        Some(doubted.end_offset())
+    );
+    drop(doubted);
+    let vouched = open(&fs, &dir, NEVER, Trust::Vouched);
+    assert_eq!(
+        vouched.reader().flushed_through(),
+        Some(vouched.end_offset())
+    );
+}

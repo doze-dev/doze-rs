@@ -9,6 +9,7 @@
 mod commands;
 mod find;
 mod instance;
+mod needs;
 mod recent;
 mod stack;
 mod verbs;
@@ -21,6 +22,7 @@ use crate::view::StackView;
 
 pub use commands::filter_rows;
 pub use instance::{client_line, instance_commands};
+pub use needs::{broken_up, stack_needs};
 pub use recent::{RECENT_KEPT, RecentCommand, RecentService, opened, remember};
 pub use stack::{app_commands, stack_commands};
 pub use verbs::{ALIASES, VERBS, edit_distance};

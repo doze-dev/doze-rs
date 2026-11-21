@@ -123,7 +123,7 @@ pub fn menu(m: &Model, a: &Attention, stacks: &[StackView], names: &Urls<'_>) ->
     out.push(keyed(Cmd::Palette, "Search or do…", "k"));
     out.push(keyed(Cmd::Settings, "Settings…", ","));
     out.push(item(Cmd::Updates, "Check for Updates…"));
-    out.push(Entry::Separator);
+    // Quit follows at once, as in Go's menu: no line between.
     out.push(keyed(Cmd::Quit, "Quit doze   ·   stacks keep running", "q"));
     out
 }

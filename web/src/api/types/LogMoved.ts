@@ -3,4 +3,8 @@
 /**
  * A partition whose start retention moved.
  */
-export type LogMoved = { topic: string, partition: number, from: number, to: number, };
+export type LogMoved = { topic: string, partition: number, from: number, to: number, 
+/**
+ * How many whole segments the pass removed.
+ */
+segments: number, };

@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=doze
+GenericName=Local services
+Comment=Real databases and services on your machine, asleep until you need them
+Exec=doze-app %u
+Icon=doze
+Terminal=false
+Categories=Development;
+Keywords=database;postgres;mariadb;valkey;temporal;dev;
+StartupWMClass=doze
+MimeType=x-scheme-handler/doze;

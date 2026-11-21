@@ -30,6 +30,9 @@ pub const CLIENT_ID: &str = "console";
 /// The correlation id of every request: nothing is matched on it, the call is awaited.
 const CORRELATION_ID: i32 = 1;
 
+/// The last version of OffsetCommit and OffsetFetch that names topics by name (v10 names them by id, KIP-848).
+const NAMED_TOPICS_UNTIL: i16 = 9;
+
 /// Why a call did not come back with an answer.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CallError {
@@ -106,10 +109,17 @@ impl Backend {
         self.broker.acl_changes()
     }
 
-    /// The highest version of an API the profile offers.
+    /// The version the console puts an API at: the highest the profile offers, except that OffsetCommit and OffsetFetch stop
+    /// at v9, the last that names topics by name. The console names its topics, as Kafka's Admin client does when it has no
+    /// topic ids (`OffsetCommitRequest.Builder` without ids stops at v9 too); at v10 a named topic is UNKNOWN_TOPIC_ID.
     #[must_use]
     pub fn version(&self, key: kafka_wire::messages::ApiKey) -> i16 {
-        self.profile.range(key).map_or(0, |(_, highest)| highest)
+        use kafka_wire::messages::ApiKey;
+        let highest = self.profile.range(key).map_or(0, |(_, highest)| highest);
+        match key {
+            ApiKey::OffsetCommit | ApiKey::OffsetFetch => highest.min(NAMED_TOPICS_UNTIL),
+            _ => highest,
+        }
     }
 
     /// Puts `request` to the broker, at the highest version, and waits for the answer.
@@ -145,6 +155,12 @@ impl Backend {
         self.broker
             .console_view()
             .partition_files(&self.caller, topic)
+    }
+
+    /// The partitions a failed flush took offline, as (topic, partition, cause), of the topics the console may describe.
+    #[must_use]
+    pub fn offline_partitions(&self) -> Vec<(String, i32, String)> {
+        self.broker.console_view().offline_partitions(&self.caller)
     }
 
     /// What the protocol hides about one group (leader, timeouts, last heartbeat, when the sweep takes its commits), if the

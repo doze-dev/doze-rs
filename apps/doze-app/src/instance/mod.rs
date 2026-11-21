@@ -10,14 +10,16 @@ mod overview;
 pub(crate) mod side;
 mod snippets;
 mod task;
+pub(crate) mod tick;
 pub(crate) mod ui;
 mod verbs;
+
+pub(crate) use ui::zone;
 
 use std::time::{Duration, Instant};
 
 use doze_control::Topic;
 use doze_desk::page::instance::{InstancePage, instance_page};
-use doze_desk::page::time::Zone;
 use doze_desk::{Batch, ConsoleWatch, Hub, Parts, StackKey, Watch, ports};
 use doze_display as words;
 use gpui::{
@@ -42,12 +44,8 @@ pub(crate) enum InstanceEvent {
     Home,
     /// Say something at the foot.
     Say(SharedString),
-}
-
-/// The person's zone now: the clock times on the page.
-pub(crate) fn zone() -> Zone {
-    use chrono::Offset as _;
-    Zone(chrono::Local::now().offset().fix().local_minus_utc())
+    /// The page turned to another tab (the window title says "api logs" on Logs).
+    Tab,
 }
 
 /// An instance's page.
@@ -73,6 +71,8 @@ pub(crate) struct InstanceView {
     ticking: bool,
     /// The stack's daemon is not answering, or has gone quiet: the banner's words.
     stale: Option<String>,
+    /// Its stack's doze.hcl does not load: `doze.hcl does not load (line 9)` (set by the window, from the facts).
+    pub(crate) broken: Option<String>,
     /// Its meters are watched, so a frame is due every second: the page reads the hub again each second.
     metered: bool,
     _watches: (Watch, Watch, Option<ConsoleWatch>),
@@ -104,6 +104,7 @@ impl InstanceView {
             copied: None,
             ticking: false,
             stale: None,
+            broken: None,
             metered: false,
             _watches: watches,
             focus: cx.focus_handle(),
@@ -165,7 +166,10 @@ impl InstanceView {
             })
             .unwrap_or_else(|| instance_page(&st, &self.name, None, now, zone()));
         self.dir.clone_from(&st.dir);
-        let has_console = st.instance(&self.name).is_some_and(|v| v.has_console);
+        // A console is a module's alone (the owner's rule): no other kind's page subscribes to one.
+        let has_console = st
+            .instance(&self.name)
+            .is_some_and(|v| v.has_console && v.kind == "module");
         if has_console && self._watches.2.is_none() {
             self._watches.2 = Some(self.hub.watch_console(&self.key, &self.name));
         }
@@ -186,39 +190,6 @@ impl InstanceView {
         self.look_up_holder(port, cx);
         self.tick(cx);
         cx.notify();
-    }
-
-    /// Repaints once a second while a countdown shows (dozing, the next try), and only then.
-    fn tick(&mut self, cx: &mut Context<Self>) {
-        let counting = self.page.dozing.is_some()
-            || self.metered
-            || self
-                .page
-                .crash
-                .as_ref()
-                .is_some_and(|c| !c.next_in.is_empty());
-        if !counting || self.ticking {
-            return;
-        }
-        self.ticking = true;
-        cx.spawn(async move |this, cx| {
-            loop {
-                cx.background_executor().timer(Duration::from_secs(1)).await;
-                let more = this.update(cx, |v, cx| {
-                    v.ticking = false;
-                    v.refresh(cx);
-                    let more = v.page.dozing.is_some()
-                        || v.metered
-                        || v.page.crash.as_ref().is_some_and(|c| !c.next_in.is_empty());
-                    v.ticking = more;
-                    more
-                });
-                if !matches!(more, Ok(true)) {
-                    return;
-                }
-            }
-        })
-        .detach();
     }
 
     /// Makes the open tab's view: the logs (or a task's runs), a module's console.
@@ -244,6 +215,7 @@ impl InstanceView {
             self.console = None;
         }
         self.sync_run(cx);
+        cx.emit(InstanceEvent::Tab);
     }
 
     /// A task's output follows the run picked in the runs table (the newest until another is).
@@ -298,9 +270,11 @@ impl InstanceView {
         }
     }
 
-    /// Copies `what`, and has the link named `id` say so for a moment.
-    pub(crate) fn copy(&mut self, id: &str, what: &str, cx: &mut Context<Self>) {
-        crate::outward::copy(cx, what);
+    /// Copies `text`, has the link named `id` say so for a moment, and toasts what went (Go's `copy(text, what)`:
+    /// "copied the output to the clipboard").
+    pub(crate) fn copy(&mut self, id: &str, text: &str, what: &str, cx: &mut Context<Self>) {
+        crate::outward::copy(cx, text);
+        self.say(doze_desk::copied::copied(what), cx);
         self.copied = Some((id.to_owned(), Instant::now()));
         cx.notify();
         cx.spawn(async move |this, cx| {
@@ -399,6 +373,10 @@ impl Render for InstanceView {
                     .when(self.stale.is_some(), |d| d.opacity(0.55))
                     .child(head::head(&t, self, cx)),
             )
+            .children(self.broken.as_deref().map(|b| {
+                let home = cx.listener(|_, _, _, cx| cx.emit(InstanceEvent::Home));
+                crate::overview::broken_banner(&t, (b, &self.page.stack), Box::new(home))
+            }))
             .child(head::tabs(&t, self, cx))
             .child(body)
             .when(!console && self.tab != words::TAB_LOGS, |d| {

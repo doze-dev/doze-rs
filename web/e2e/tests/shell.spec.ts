@@ -106,6 +106,21 @@ test("the palette goes to a page with the arrow keys and Enter, and says when no
   await expect(page.getByTestId("palette-list")).toContainText("Nothing is called");
 });
 
+test("the palette offers a topic's tabs once the text names one topic, and goes to the tab (J383)", async ({ page }) => {
+  await page.keyboard.press("ControlOrMeta+k");
+  await page.getByTestId("palette-input").fill("orders");
+  const tabs = page.getByRole("group", { name: "In orders" });
+  await expect(tabs.getByRole("option")).toHaveCount(6);
+  await tabs.getByRole("option", { name: /Config/ }).click();
+  await expect(page).toHaveURL(/\/topics\/orders\/config$/);
+  // Several topics match: no tabs until the text names one.
+  await page.keyboard.press("ControlOrMeta+k");
+  await page.getByTestId("palette-input").fill("o");
+  await expect(page.getByRole("group", { name: "Topics" })).toBeVisible();
+  await expect(page.getByRole("group", { name: /^In / })).toHaveCount(0);
+  await page.keyboard.press("Escape");
+});
+
 test("the refresh interval is chosen with the mouse, remembered across a reload, and Off stops the timer", async ({ page }) => {
   const trigger = page.getByTestId("refresh-interval");
   await expect(trigger).toHaveText("Refresh: Off");

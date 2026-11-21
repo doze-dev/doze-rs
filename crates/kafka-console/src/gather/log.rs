@@ -27,6 +27,8 @@ fn segment(s: &SegmentWalk, active: bool) -> LogSegment {
         unplaced: s.unplaced,
         exact: s.walked,
         active,
+        index_entries: s.index_entries,
+        index_first: s.index_first.clone(),
     }
 }
 
@@ -89,6 +91,7 @@ fn retention(r: kafka_broker::LogRetention) -> LogRetentionView {
                     partition: d.partition,
                     from: d.from,
                     to: d.to,
+                    segments: d.segments,
                 })
                 .collect(),
             more: p.more,
@@ -150,6 +153,7 @@ pub fn view_of(f: LogFacts) -> LogView {
                 kafka_broker::LastStop::Unclean => LogStop::Unclean,
             },
             fsync_ms: f.durability.fsync_ms,
+            flushed_through: f.durability.flushed_through,
         },
         others: Vec::new(),
     }
@@ -226,13 +230,39 @@ pub async fn view(b: &Backend, topic: &str, partition: i32) -> Option<LogView> {
     Some(v)
 }
 
+/// How many other topics are weighed for the "Other logs" list (their files are read, nothing is opened).
+const MOST_WEIGHED: usize = 50;
+
+/// What a log has to say, from its partition 0's files: offline, then more than one segment (cleaning or retention has
+/// acted or will), then written to, then empty.
+fn story(files: Option<&kafka_broker::PartitionFiles>) -> u8 {
+    match files {
+        Some(f) if f.offline.is_some() => 3,
+        Some(f) if f.segments > 1 => 2,
+        Some(f) if f.bytes > 0 => 1,
+        _ => 0,
+    }
+}
+
+/// The other logs with a story first (J244): of the first [`MOST_WEIGHED`] other topics, the [`MOST_OTHERS`] whose files
+/// say the most, by name within a kind.
 async fn others(b: &Backend, topic: &str) -> Vec<LogOther> {
     let all = meta::all(b).await.unwrap_or_default();
-    let mut out = Vec::new();
-    for t in all
+    let mut weighed: Vec<(u8, &str)> = all
         .iter()
         .filter(|t| !t.internal && t.name != topic)
+        .take(MOST_WEIGHED)
+        .map(|t| {
+            let files = b.partition_files(&t.name).unwrap_or_default();
+            (story(files.first()), t.name.as_str())
+        })
+        .collect();
+    weighed.sort_by(|a, b| b.0.cmp(&a.0).then_with(|| a.1.cmp(b.1)));
+    let mut out = Vec::new();
+    for t in weighed
+        .iter()
         .take(MOST_OTHERS)
+        .filter_map(|(_, name)| all.iter().find(|t| t.name == *name))
     {
         if let Some(f) = b.log_facts(&t.name, 0).await {
             out.push(other_of(&view_of(f)));

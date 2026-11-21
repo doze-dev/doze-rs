@@ -14,7 +14,7 @@ use gpui::{
 use crate::act::Acts;
 use crate::kit::s;
 use crate::theme::{Motion, Tokens, tokens, ty};
-use crate::widgets::{MONO_FAMILY, UI_FAMILY, icon, kbd_plain};
+use crate::widgets::{Mono as _, UI_FAMILY, icon, kbd_plain};
 
 /// The toast stack and the Recent popover.
 pub(crate) struct ToastsView {
@@ -112,7 +112,7 @@ fn line(t: &Tokens, n: &Notice) -> AnyElement {
             div()
                 .w(px(58.))
                 .flex_none()
-                .font_family(MONO_FAMILY)
+                .mono_face()
                 .text_size(px(ty::XS_UP))
                 .text_color(t.dim)
                 .child(clock(n.at)),
