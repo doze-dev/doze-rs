@@ -26,12 +26,15 @@ pub(crate) fn scratch(tag: &str) -> PathBuf {
     d
 }
 
-pub(crate) fn free() -> String {
-    std::net::TcpListener::bind("127.0.0.1:0")
-        .unwrap()
-        .local_addr()
-        .unwrap()
-        .to_string()
+/// Two free loopback ports, distinct: both are held while the second is picked, because Windows hands a port just
+/// released straight back, and a door whose plain and tls ports match never binds.
+pub(crate) fn free_pair() -> (String, String) {
+    let a = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+    let b = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+    (
+        a.local_addr().unwrap().to_string(),
+        b.local_addr().unwrap().to_string(),
+    )
 }
 
 /// A backend that answers "<who> <Host header>", and on an upgrade request switches and echoes.
@@ -112,8 +115,7 @@ pub(crate) async fn https_get(
 
 pub(crate) fn config(reg: &Registry, ca_dir: &Path) -> FrontConfig {
     let mut cfg = FrontConfig::for_zone(reg, ca_dir);
-    cfg.plain = free();
-    cfg.tls = free();
+    (cfg.plain, cfg.tls) = free_pair();
     cfg.ca_check_every = Duration::ZERO;
     cfg
 }
