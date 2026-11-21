@@ -120,15 +120,14 @@ export function seedLarder(endpoint: string, account: string): Larder {
   const failed = `arn:aws:states:us-east-1:${account}:execution:${machine}:ord-20261108-0417`;
   // One is stopped while it waits for a worker; two are left waiting.
   const aborted = start(prod, "ord-20261107-1893", true);
-  waitForTask(cli, activity, false);
+  waitForTask(cli, activity);
   cli(["stepfunctions", "stop-execution", "--execution-arn", aborted, "--cause", "stopped by hand"]);
   const running = [start(v3, "ord-20261108-0418", true), start(prod, "ord-20261108-0415", true)];
   return { machine, versions: [created.stateMachineVersionArn, v2, v3], running, failed, account };
 }
 
-/** Waits until an execution has scheduled a task for the activity (a worker's poll would then be answered at once). With `leave`
- * false the task is left where it is (the poll that finds it is not made). */
-function waitForTask(cli: Cli, activity: string, _take = true): void {
+/** Waits until an execution has scheduled a task for the activity (a worker's poll would then be answered at once). */
+function waitForTask(cli: Cli, activity: string): void {
   for (let i = 0; i < 100; i++) {
     const out = JSON.parse(cli(["stepfunctions", "list-executions", "--state-machine-arn", activity.replace(":activity:pack-order", ":stateMachine:order-fulfilment"), "--status-filter", "RUNNING"])) as { executions: { executionArn: string }[] };
     for (const e of out.executions) {

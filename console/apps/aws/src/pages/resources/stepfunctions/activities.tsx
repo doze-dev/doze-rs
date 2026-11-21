@@ -14,6 +14,7 @@ import { ResultBanner } from "@doze/ui/components/app/result-banner";
 import { Button } from "@doze/ui/components/ui/button";
 import { Input } from "@doze/ui/components/ui/input";
 import { Skeleton } from "@doze/ui/components/ui/skeleton";
+import { Switch } from "@doze/ui/components/ui/switch";
 import { client } from "../../../api/client";
 import { RESOURCE_PATHS, useResourceList } from "../../../api/resources";
 import type { CallRecord } from "../../../api/types/CallRecord";
@@ -126,7 +127,7 @@ export function ActivitiesList({ service, kind, search }: OwnProps) {
 }
 
 /** Create activity (stepfunctions__activity-create): a name, with CreateActivity drawn as it is typed. */
-export function ActivityCreate(_p: OwnProps) {
+export function ActivityCreate() {
   const go = useGoTo();
   const qc = useQueryClient();
   const base = useServiceCrumbs("stepfunctions");
@@ -164,7 +165,11 @@ export function ActivityCreate(_p: OwnProps) {
           </Field>
           <div className="grid gap-1.5" data-testid="activity-encryption">
             <span className="text-sm leading-none font-medium">Encryption</span>
-            <p className="text-[13.5px]">Customer managed KMS key <span className="font-mono text-[12.5px] text-muted-foreground">encryptionConfiguration</span> <span className="rounded-full border px-2 py-0.5 text-[12px] text-muted-foreground">Disabled</span></p>
+            <div className="flex items-center gap-3 text-[13.5px]">
+              <Switch checked={false} disabled aria-label="Customer managed KMS key encryption" data-testid="activity-kms" />
+              <span>Customer managed KMS key <span className="font-mono text-[12.5px] text-muted-foreground">encryptionConfiguration</span></span>
+              <span className="rounded-full border px-2 py-0.5 text-[12px] text-muted-foreground">Disabled</span>
+            </div>
             <p className="border-l-2 pl-3 text-[13px] text-muted-foreground"><b className="font-semibold text-foreground">Not available in doze-aws:</b> there is no KMS wrapping to apply to an activity's task input.</p>
           </div>
         </div>
