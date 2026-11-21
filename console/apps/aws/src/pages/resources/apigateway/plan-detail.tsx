@@ -40,7 +40,9 @@ function AddKey({ plan, have, onClose }: { plan: UsagePlan; have: string[]; onCl
   const refresh = useRefreshReads();
   const keys = useApiKeys().data?.item ?? [];
   const free = keys.filter((k) => !have.includes(k.id));
-  const [mode, setMode] = useState<"existing" | "new">(free.length > 0 ? "existing" : "new");
+  const [chosenMode, setMode] = useState<"existing" | "new" | null>(null);
+  // Until the person chooses, the key that exists is offered when there is one (the list may still be on its way).
+  const mode = chosenMode ?? (free.length > 0 ? "existing" : "new");
   const [pick, setPick] = useState("");
   const [newName, setNewName] = useState("");
   const [tried, setTried] = useState(false);

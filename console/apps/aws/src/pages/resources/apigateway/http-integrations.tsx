@@ -44,7 +44,7 @@ export function HttpIntegrations({ id, api, selected }: { id: string; api: HttpA
   const input = chosen && pick ? { ApiId: id, RouteId: chosen.routeId, target: `integrations/${pick}` } : null;
   const failed = attach.error ? errorWords(attach.error) : null;
   const routeColumns: DataColumn<Route>[] = [
-    { id: "key", header: "Route key", min: 220, accessorFn: (r) => r.routeKey, cell: (c) => <span className="font-mono text-[13.5px] font-medium text-bright">{c.row.original.routeKey}</span> },
+    { id: "key", header: "Route key", min: 220, accessorFn: (r) => r.routeKey, cell: (c) => <span className="font-mono text-[13.5px] font-medium text-bright" data-testid="route-key">{c.row.original.routeKey}</span> },
     { id: "integration", header: "Integration", accessorFn: (r) => (bound(r) ? words(bound(r)!) : ""), cell: (c) => (bound(c.row.original) ? words(bound(c.row.original)!) : <span className="text-muted-foreground">None</span>) },
   ];
   const intColumns: DataColumn<HttpIntegration>[] = [

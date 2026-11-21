@@ -65,7 +65,10 @@ export function useRefreshReads(): () => void {
 export function useForget(): (id: string) => void {
   const qc = useQueryClient();
   return (id) => {
-    void qc.invalidateQueries({ predicate: (q) => q.queryKey[0] === "resources" && JSON.stringify(q.queryKey).includes(id), refetchType: "none" });
+    const names = (q: { queryKey: readonly unknown[] }) => q.queryKey[0] === "resources" && JSON.stringify(q.queryKey).includes(id);
+    // What names the deleted resource is marked stale and not read again; what does not (the lists) is read afresh.
+    void qc.invalidateQueries({ predicate: names, refetchType: "none" });
+    void qc.invalidateQueries({ predicate: (q) => q.queryKey[0] === "resources" && q.queryKey[1] === "kindop" && q.queryKey[2] === "apigateway" && !names(q) });
     void qc.invalidateQueries({ queryKey: ["resources", "list", "apigateway"] });
     void qc.invalidateQueries({ queryKey: ["resources", "index"] });
   };

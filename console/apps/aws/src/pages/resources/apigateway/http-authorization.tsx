@@ -34,7 +34,9 @@ export function HttpAuthorization({ id, api, mode }: { id: string; api: HttpApi;
   const route = rs.find((r) => r.routeId === routeId) ?? rs[0];
   const manage = mode === "manage";
   const go = (search: Record<string, string | undefined>) => void navigate({ to: "/resources/$service/$kind/$name", params: { service: "apigateway", kind: "apis", name: id }, search: search as never });
-  useEffect(() => { setPick(route?.authorizerId ?? NONE); attach.reset(); }, [route?.routeId, route?.authorizerId]); // eslint-disable-line react-hooks/exhaustive-deps
+  // A new route starts from its own authorizer; the answer of an attach stays on screen while the route is read again.
+  useEffect(() => { setPick(route?.authorizerId ?? NONE); attach.reset(); }, [route?.routeId]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { setPick(route?.authorizerId ?? NONE); }, [route?.authorizerId]);
   if (routes.isError || authorizers.isError) return <ErrorBlock what="The authorizers could not be read" error={routes.error ?? authorizers.error} hint={HINT} onRetry={() => { void routes.refetch(); void authorizers.refetch(); }} retrying={routes.isFetching} testId="authorization-error" />;
   if (!routes.data || !authorizers.data) return null;
   const chosen = all.find((a) => a.authorizerId === pick);

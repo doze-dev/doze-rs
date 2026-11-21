@@ -23,7 +23,7 @@ export function PlanCreate() {
   const problem = planProblem(f);
   const input = useMemo(() => planInput(f), [f]);
   const failure = make.error instanceof ApiFailure ? { code: make.error.code, message: make.error.message } : null;
-  const example = have[0];
+  const example = [...have].sort((a, b) => a.name.localeCompare(b.name)).find((p) => p.throttle?.rateLimit !== undefined && p.quota?.limit !== undefined);
   return (
     <FormPage
       title="Create usage plan"
