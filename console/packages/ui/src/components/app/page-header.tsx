@@ -11,7 +11,7 @@ export type Crumb = { label: string; to: string };
  * One shape for every page, so no page has an empty band: the breadcrumb row exists only on a page that has ancestors, and
  * the RefreshControl sits at the right of the header's first row: the breadcrumb row when there is one, the h1's row (above
  * the actions) when there is not. A page without a RefreshControl simply has nothing there. */
-export function PageHeader({ title, sub, crumbs = [], actions, refresh, mono = false }: { title: string; sub?: React.ReactNode; crumbs?: Crumb[]; actions?: React.ReactNode; refresh?: React.ReactNode; mono?: boolean }) {
+export function PageHeader({ title, sub, crumbs = [], actions, refresh, mono = false, titleExtra, belowCrumbs }: { title: string; sub?: React.ReactNode; crumbs?: Crumb[]; actions?: React.ReactNode; refresh?: React.ReactNode; mono?: boolean; /** Beside the h1: the badges of a resource (its type, its state). */ titleExtra?: React.ReactNode; /** Between the breadcrumb and the title: a wizard's steps. */ belowCrumbs?: React.ReactNode }) {
   const top = crumbs.length > 0;
   const side = top ? actions : (refresh || actions) && (
     <>
@@ -40,9 +40,17 @@ export function PageHeader({ title, sub, crumbs = [], actions, refresh, mono = f
           {refresh}
         </div>
       )}
+      {belowCrumbs && <div className="mb-6">{belowCrumbs}</div>}
       <div className="flex flex-wrap items-start justify-between gap-x-8 gap-y-4">
         <div className="min-w-0 flex-1 basis-[28rem]">
-          <h1 className={cn("text-[34px] leading-[42px] font-light tracking-[-0.03em] break-words text-bright", mono && "font-mono text-[27px] leading-[34px] font-medium tracking-[-0.01em]")}>{title}</h1>
+          {titleExtra ? (
+            <div className="flex flex-wrap items-center gap-x-3.5 gap-y-2">
+              <h1 className={cn("text-[34px] leading-[42px] font-light tracking-[-0.03em] break-words text-bright", mono && "font-mono text-[27px] leading-[34px] font-medium tracking-[-0.01em]")}>{title}</h1>
+              {titleExtra}
+            </div>
+          ) : (
+            <h1 className={cn("text-[34px] leading-[42px] font-light tracking-[-0.03em] break-words text-bright", mono && "font-mono text-[27px] leading-[34px] font-medium tracking-[-0.01em]")}>{title}</h1>
+          )}
           {sub && <div className="mt-2 max-w-[46rem] text-[14.5px] leading-[22px] text-muted-foreground">{sub}</div>}
         </div>
         {/* Beside the h1 from 1280 px; under it (from the left, in one row) when the window is narrower. */}

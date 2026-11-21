@@ -2,3 +2,6 @@
    themes/aws.css) is a second stylesheet, put in the page by src/product.ts and swapped by the switch in the top bar: that
    is the proof that a theme file is all that differs between the two consoles. */
 @import "@doze/ui/styles/base.css";
+
+/* The AWS console's kit (apps/aws/src/kit) is drawn here as well: its classes are found in its own files. */
+@source "../../aws/src/kit";

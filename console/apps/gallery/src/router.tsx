@@ -2,6 +2,11 @@ import { createRootRoute, createRoute, createRouter } from "@tanstack/react-rout
 import { shortText } from "@doze/ui/lib/search";
 import { parseSearch, stringifySearch } from "@doze/ui/lib/search-params";
 import { ActionsPage } from "./pages/actions";
+import { ChartsPage } from "./pages/charts";
+import { CreatePage } from "./pages/create";
+import { FieldsPage } from "./pages/fields";
+import { ListsPage } from "./pages/lists";
+import { ResourcePageGallery } from "./pages/resource";
 import { DataPage } from "./pages/data";
 import { FormsPage } from "./pages/forms";
 import { FoundationsPage } from "./pages/foundations";
@@ -21,7 +26,7 @@ export const overlaysRoute = createRoute({
   validateSearch: (s: Record<string, unknown>): { record?: string } => ({ record: shortText(s.record, 16) }),
 });
 
-const tree = root.addChildren([page("/", FoundationsPage), page("/actions", ActionsPage), page("/forms", FormsPage), overlaysRoute, page("/data", DataPage), page("/states", StatesPage), page("/frame", FramePage)]);
+const tree = root.addChildren([page("/", FoundationsPage), page("/actions", ActionsPage), page("/forms", FormsPage), overlaysRoute, page("/data", DataPage), page("/states", StatesPage), page("/frame", FramePage), page("/create", CreatePage), page("/fields", FieldsPage), page("/resource", ResourcePageGallery), page("/lists", ListsPage), page("/charts", ChartsPage)]);
 
 export const router = createRouter({ routeTree: tree, parseSearch, stringifySearch, scrollRestoration: true });
 
