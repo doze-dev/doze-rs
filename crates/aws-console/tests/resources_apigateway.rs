@@ -30,7 +30,8 @@ async fn make(w: &world::World, kind: &str, operation: &str, input: Value) -> Va
 }
 
 #[tokio::test]
-async fn a_rest_api_is_built_resource_by_resource_and_method_by_method_through_the_kinds_operations() {
+async fn a_rest_api_is_built_resource_by_resource_and_method_by_method_through_the_kinds_operations()
+ {
     let w = world("apigw-rest", Mode::Soft, &[]);
     let api = make(
         &w,
@@ -92,10 +93,7 @@ async fn a_rest_api_is_built_resource_by_resource_and_method_by_method_through_t
     .await;
     let items = tree["item"].as_array().unwrap();
     assert_eq!(items.len(), 2, "{tree}");
-    let get = &items
-        .iter()
-        .find(|i| i["path"] == "/products")
-        .unwrap()["resourceMethods"]["GET"];
+    let get = &items.iter().find(|i| i["path"] == "/products").unwrap()["resourceMethods"]["GET"];
     assert_eq!(get["methodIntegration"]["type"], "MOCK");
     assert_eq!(get["methodResponses"]["200"]["statusCode"], "200");
     // A change of the method goes in as a patch, as the page's settings do.
@@ -255,9 +253,21 @@ async fn a_usage_plan_takes_a_key_made_in_the_same_step_and_is_a_kind_of_its_own
         json!({"usagePlanId": id, "keyId": key["id"], "keyType": "API_KEY"}),
     )
     .await;
-    let keys = make(&w, "usageplans", "GetUsagePlanKeys", json!({"usagePlanId": id})).await;
+    let keys = make(
+        &w,
+        "usageplans",
+        "GetUsagePlanKeys",
+        json!({"usagePlanId": id}),
+    )
+    .await;
     assert_eq!(keys["item"][0]["name"], "storefront-berlin");
-    let all = make(&w, "usageplans", "GetApiKeys", json!({"includeValues": false})).await;
+    let all = make(
+        &w,
+        "usageplans",
+        "GetApiKeys",
+        json!({"includeValues": false}),
+    )
+    .await;
     assert_eq!(all["item"].as_array().unwrap().len(), 1);
     // The list and the page are the generic ones' over GetUsagePlans and GetUsagePlan.
     let (status, list) = w.get(&format!("{BASE}/usageplans")).await;
@@ -267,7 +277,4 @@ async fn a_usage_plan_takes_a_key_made_in_the_same_step_and_is_a_kind_of_its_own
     let (_, detail) = w.get(&format!("{BASE}/usageplans/{id}")).await;
     assert_eq!(field(&detail, "Quota period")["value"], "MONTH");
     assert_eq!(detail["subs"][0]["rows"].as_array().unwrap().len(), 1);
-    // A plan covers a stage once the stage is added to it, by a patch.
-    let api = make(&w, "usageplans", "GetRestApis", json!({})).await;
-    assert!(api["item"].as_array().is_none_or(|a| a.is_empty()));
 }

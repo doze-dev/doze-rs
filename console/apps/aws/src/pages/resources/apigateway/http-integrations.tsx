@@ -2,7 +2,7 @@
 // integration to the route chosen (UpdateRoute), the integrations there are, and Create integration.
 import { useNavigate } from "@tanstack/react-router";
 import { PlugIcon, PlusIcon, Trash2Icon } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Alert, ErrorBlock, errorWords } from "@doze/ui/components/app/alert";
 import { type DataColumn, DataTable } from "@doze/ui/components/app/data-table";
 import { EmptyState } from "@doze/ui/components/app/empty-state";
@@ -28,14 +28,15 @@ export function HttpIntegrations({ id, api, selected }: { id: string; api: HttpA
   const integrations = useIntegrations(id);
   const attach = useWrite(HTTP, "UpdateRoute");
   const del = useWrite(HTTP, "DeleteIntegration");
-  const [pick, setPick] = useState<string>("");
+  const [picked, setPicked] = useState<{ route: string; value: string } | null>(null);
   const [deleting, setDeleting] = useState<HttpIntegration | null>(null);
   const go = (search: Record<string, string | undefined>) => void navigate({ to: "/resources/$service/$kind/$name", params: { service: "apigateway", kind: "apis", name: id }, search: search as never });
   const all = routes.data?.items ?? [];
   const ints = integrations.data?.items ?? [];
   const chosen = all.find((r) => r.routeId === selected) ?? all.find((r) => !r.target) ?? all[0];
   const current = ints.find((i) => chosen?.target === `integrations/${i.integrationId}`);
-  useEffect(() => { setPick(current?.integrationId ?? ints.find((i) => i.integrationId !== current?.integrationId)?.integrationId ?? ""); attach.reset(); }, [chosen?.routeId, ints.length]); // eslint-disable-line react-hooks/exhaustive-deps
+  // What is chosen belongs to the route it was chosen for; another route starts from what it calls, or the first integration.
+  const pick = picked && picked.route === chosen?.routeId ? picked.value : (current?.integrationId ?? ints[0]?.integrationId ?? "");
   if (routes.isError || integrations.isError) return <ErrorBlock what="The integrations could not be read" error={routes.error ?? integrations.error} hint={HINT} onRetry={() => { void routes.refetch(); void integrations.refetch(); }} retrying={routes.isFetching} testId="integrations-error" />;
   if (!routes.data || !integrations.data) return null;
   const chips = <ApiChips kind="apis" id={id} name={api.name} sections={HTTP_SECTIONS} current="integrations" />;
@@ -76,14 +77,14 @@ export function HttpIntegrations({ id, api, selected }: { id: string; api: HttpA
               <form className="mt-5 grid gap-5" onSubmit={(e) => { e.preventDefault(); if (input) attach.mutate(input as never); }}>
                 <Field label="Choose an existing integration" hint={pick && options.find((i) => i.integrationId === pick) ? explain(options.find((i) => i.integrationId === pick)!) : undefined}>
                   {(fid) => (
-                    <Select value={pick} onValueChange={(v) => { setPick(v); attach.reset(); }}>
+                    <Select value={pick} onValueChange={(v) => { setPicked({ route: chosen.routeId, value: v }); attach.reset(); }}>
                       <SelectTrigger id={fid} className="w-full bg-card font-mono" data-testid="attach-pick"><SelectValue placeholder="Choose an integration" /></SelectTrigger>
                       <SelectContent>{options.map((i) => <SelectItem key={i.integrationId} value={i.integrationId} className="font-mono">{lambdaName(i.integrationUri) ? `${lambdaName(i.integrationUri)} (${i.integrationId})` : `${i.integrationUri} (${i.integrationId})`}</SelectItem>)}</SelectContent>
                     </Select>
                   )}
                 </Field>
                 {failed && <Alert tone="bad" title={`UpdateRoute was refused${failed.code ? `: ${failed.code}` : ""}`} testId="attach-error">{failed.message}</Alert>}
-                {attach.isSuccess && <p className="text-[13.5px] text-good" role="status" data-testid="attach-done">Attached: {chosen.routeKey} now calls {words(options.find((i) => i.integrationId === pick) ?? options[0]!)}.</p>}
+                {attach.isSuccess && (attach.variables as { RouteId?: string } | undefined)?.RouteId === chosen.routeId && <p className="text-[13.5px] text-good" role="status" data-testid="attach-done">Attached: {chosen.routeKey} now calls {words(options.find((i) => i.integrationId === pick) ?? options[0]!)}.</p>}
                 <div><Button type="submit" disabled={!input || attach.isPending || (current?.integrationId === pick)} data-testid="attach-submit">{attach.isPending ? "Attaching…" : "Attach integration"}</Button></div>
               </form>
             </section>

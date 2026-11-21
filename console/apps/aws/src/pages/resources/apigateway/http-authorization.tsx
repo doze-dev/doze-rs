@@ -2,7 +2,7 @@
 // (Create authorizer). A Lambda authorizer makes the route's type CUSTOM, a JWT one JWT.
 import { useNavigate } from "@tanstack/react-router";
 import { PlusIcon, ShieldCheckIcon, Trash2Icon } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Alert, ErrorBlock, errorWords } from "@doze/ui/components/app/alert";
 import { type DataColumn, DataTable } from "@doze/ui/components/app/data-table";
 import { EmptyState } from "@doze/ui/components/app/empty-state";
@@ -27,16 +27,15 @@ export function HttpAuthorization({ id, api, mode }: { id: string; api: HttpApi;
   const attach = useWrite(HTTP, "UpdateRoute");
   const del = useWrite(HTTP, "DeleteAuthorizer");
   const [routeId, setRouteId] = useState("");
-  const [pick, setPick] = useState(NONE);
+  const [picked, setPicked] = useState<{ route: string; value: string } | null>(null);
   const [deleting, setDeleting] = useState<HttpAuthorizer | null>(null);
   const all = authorizers.data?.items ?? [];
   const rs = routes.data?.items ?? [];
   const route = rs.find((r) => r.routeId === routeId) ?? rs[0];
   const manage = mode === "manage";
+  // What is chosen belongs to the route it was chosen for; another route starts from its own authorizer.
+  const pick = picked && picked.route === route?.routeId ? picked.value : (route?.authorizerId ?? NONE);
   const go = (search: Record<string, string | undefined>) => void navigate({ to: "/resources/$service/$kind/$name", params: { service: "apigateway", kind: "apis", name: id }, search: search as never });
-  // A new route starts from its own authorizer; the answer of an attach stays on screen while the route is read again.
-  useEffect(() => { setPick(route?.authorizerId ?? NONE); attach.reset(); }, [route?.routeId]); // eslint-disable-line react-hooks/exhaustive-deps
-  useEffect(() => { setPick(route?.authorizerId ?? NONE); }, [route?.authorizerId]);
   if (routes.isError || authorizers.isError) return <ErrorBlock what="The authorizers could not be read" error={routes.error ?? authorizers.error} hint={HINT} onRetry={() => { void routes.refetch(); void authorizers.refetch(); }} retrying={routes.isFetching} testId="authorization-error" />;
   if (!routes.data || !authorizers.data) return null;
   const chosen = all.find((a) => a.authorizerId === pick);
@@ -81,7 +80,7 @@ export function HttpAuthorization({ id, api, mode }: { id: string; api: HttpApi;
               <form className="mt-5 grid gap-5" onSubmit={(e) => { e.preventDefault(); if (input) attach.mutate(input as never); }}>
                 <Field label="Route">
                   {(fid) => (
-                    <Select value={route?.routeId ?? ""} onValueChange={setRouteId}>
+                    <Select value={route?.routeId ?? ""} onValueChange={(v) => { setRouteId(v); attach.reset(); }}>
                       <SelectTrigger id={fid} className="w-full bg-card font-mono" data-testid="attach-route"><SelectValue /></SelectTrigger>
                       <SelectContent>{rs.map((r: Route) => <SelectItem key={r.routeId} value={r.routeId} className="font-mono">{r.routeKey} {r.authorizationType && r.authorizationType !== "NONE" ? `(${r.authorizationType})` : ""}</SelectItem>)}</SelectContent>
                     </Select>
@@ -89,7 +88,7 @@ export function HttpAuthorization({ id, api, mode }: { id: string; api: HttpApi;
                 </Field>
                 <Field label="Authorizer" hint={all.length === 0 ? <>{api.name} has no authorizer yet. Make one on the Manage authorizers page.</> : <>The route&apos;s authorization type becomes <span className="font-mono">{chosen ? input?.authorizationType : "NONE"}</span>.{chosen && usedBy(chosen).length > 0 && <> {list(usedBy(chosen))} already {usedBy(chosen).length === 1 ? "uses" : "use"} it.</>}</>}>
                   {(fid) => (
-                    <Select value={pick} onValueChange={(v) => { setPick(v); attach.reset(); }}>
+                    <Select value={pick} onValueChange={(v) => { setPicked({ route: route!.routeId, value: v }); attach.reset(); }}>
                       <SelectTrigger id={fid} className="w-full bg-card font-mono" data-testid="attach-authorizer-pick"><SelectValue /></SelectTrigger>
                       <SelectContent><SelectItem value={NONE} className="font-sans">None: the route is open</SelectItem>{all.map((a) => <SelectItem key={a.authorizerId} value={a.authorizerId} className="font-mono">{a.name}</SelectItem>)}</SelectContent>
                     </Select>
