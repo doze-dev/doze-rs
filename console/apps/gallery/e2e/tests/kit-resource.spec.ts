@@ -115,7 +115,7 @@ test("TagsView: none says what that means and offers to add; one that cannot be 
   await expect(sec.getByTestId("tags-loading")).toBeVisible();
   await expect(sec.getByTestId("tags-error")).toContainText("The tags could not be read");
   // The kind that cannot be tagged: the count and the table, and no way to edit.
-  await expect(sec.getByText("1 tag", { exact: true })).toBeVisible();
+  await expect(sec.getByText("1 tag The console reads these but cannot change them.")).toBeVisible();
   await expect(sec.getByTestId("tags-edit-open")).toHaveCount(1);
 });
 

@@ -6,7 +6,7 @@ import { cn } from "../../lib/utils";
  * a place with a way on, not a gap. Quieter than a page's EmptyState: it sits under a resource's tabs. */
 export function EmptyTab({ icon: Icon, title, children, action, className, testId = "empty-tab" }: { icon?: LucideIcon; title: string; children?: React.ReactNode; action?: React.ReactNode; className?: string; testId?: string }) {
   return (
-    <div className={cn("flex min-h-[16rem] flex-col items-center justify-center gap-2 rounded-[14px] border border-dashed bg-card/60 px-6 py-10 text-center", className)} data-slot="empty-tab" data-testid={testId}>
+    <div className={cn("flex min-h-[16rem] w-full flex-col items-center justify-center gap-2 rounded-[14px] border border-dashed bg-card/60 px-6 py-10 text-center", className)} data-slot="empty-tab" data-testid={testId}>
       {Icon && (
         <span className="mb-2 flex size-12 items-center justify-center rounded-xl bg-muted text-muted-foreground">
           <Icon className="size-5" aria-hidden />

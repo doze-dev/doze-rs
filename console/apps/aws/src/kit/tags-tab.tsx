@@ -22,7 +22,7 @@ const COLUMNS: DataColumn<Tag>[] = [
 export function TagsView({ answer, saving = false, error, saved, onSave, noun = "tag", subject, explain, emptyAction, loading = false, loadError, onRetry }: { answer: TagsAnswer | undefined; saving?: boolean; /** The service's refusal of the save. */ error?: unknown; /** What the last save did, said: shown until the next edit. */ saved?: string | null; onSave: (change: TagsChange) => Promise<unknown> | void; /** `cost allocation tag`. */ noun?: string; /** The resource's name, for the sentence when there are none (`email-outbox has no tags.`). */ subject?: string; /** What a tag is for, said when there are none. */ explain?: React.ReactNode; /** The way on from nothing, when it is not the inline Add (the board sends a queue to its Edit page). */ emptyAction?: React.ReactNode; loading?: boolean; loadError?: unknown; onRetry?: () => void }) {
   const [rows, setRows] = useState<KeyValueRow[] | null>(null);
   const [tried, setTried] = useState(false);
-  if (loadError && !answer) return <ErrorBlock what="The tags could not be read" error={loadError} onRetry={onRetry} testId="tags-error" />;
+  if (loadError && !answer) return <ErrorBlock what="The tags could not be read" error={loadError} onRetry={onRetry} className="w-full" testId="tags-error" />;
   if (loading || !answer) return <Skeleton className="h-40 w-full rounded-[14px]" data-testid="tags-loading" />;
   const tags = answer.tags;
   const edit = () => {
@@ -76,6 +76,7 @@ export function TagsView({ answer, saving = false, error, saved, onSave, noun = 
           <div className="flex flex-wrap items-center justify-between gap-3">
             <p className="text-[13.5px] text-muted-foreground" data-testid="tags-count">
               {tagWords(tags.length, noun)}
+              {!answer.editable && " The console reads these but cannot change them."}
             </p>
             {answer.editable && (
               <Button type="button" variant="outline" className="bg-card" onClick={edit} data-testid="tags-edit-open">
