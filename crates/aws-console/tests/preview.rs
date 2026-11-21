@@ -149,7 +149,13 @@ async fn a_rest_call_is_the_members_that_are_not_in_its_address() {
             .contains(" lambda invoke --function-name echo --log-type Tail --payload ")
     );
     // `lambda` is a Python keyword: the client is not held in a variable of that name.
-    assert!(p["boto3"].as_str().unwrap().contains("lambda_client = boto3.client("), "{p}");
+    assert!(
+        p["boto3"]
+            .as_str()
+            .unwrap()
+            .contains("lambda_client = boto3.client("),
+        "{p}"
+    );
     assert_eq!(p["missing"], json!([]));
     // A service is also found by its name in --services.
     let (status, p) = preview(

@@ -131,7 +131,10 @@ impl Bus {
             .into_iter()
             .find_map(|(name, s)| (name == target).then_some(s))?;
         let endpoint = self.caller.endpoint.clone();
-        let host = endpoint.split_once("://").map_or(endpoint.as_str(), |(_, h)| h).to_owned();
+        let host = endpoint
+            .split_once("://")
+            .map_or(endpoint.as_str(), |(_, h)| h)
+            .to_owned();
         let web = service.web()?;
         Some(
             web.serve(aws_wire::service::WebRequest {

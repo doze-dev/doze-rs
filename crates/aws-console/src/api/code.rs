@@ -65,9 +65,13 @@ pub async fn code(
         );
     }
     let mut res = (StatusCode::OK, Body::from(reply.body)).into_response();
-    res.headers_mut()
-        .insert(CONTENT_TYPE, axum::http::HeaderValue::from_static("application/zip"));
-    res.headers_mut()
-        .insert(CACHE_CONTROL, axum::http::HeaderValue::from_static("no-store"));
+    res.headers_mut().insert(
+        CONTENT_TYPE,
+        axum::http::HeaderValue::from_static("application/zip"),
+    );
+    res.headers_mut().insert(
+        CACHE_CONTROL,
+        axum::http::HeaderValue::from_static("no-store"),
+    );
     res
 }

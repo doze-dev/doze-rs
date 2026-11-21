@@ -64,7 +64,11 @@ pub(super) const FUNCTIONS: Kind = Kind {
         field("Package type", "Configuration.PackageType", Plain),
         field("Architecture", "Configuration.Architectures.0", Mono),
         field("Memory (MB)", "Configuration.MemorySize", Number),
-        field("Ephemeral storage (MB)", "Configuration.EphemeralStorage.Size", Number),
+        field(
+            "Ephemeral storage (MB)",
+            "Configuration.EphemeralStorage.Size",
+            Number,
+        ),
         field("Timeout", "Configuration.Timeout", Seconds),
         field("Code size", "Configuration.CodeSize", Bytes),
         Field {
@@ -152,7 +156,11 @@ pub(super) const FUNCTIONS: Kind = Kind {
                 op("UpdateFunctionConfiguration", FUNCTION),
                 // Triggers: a mapping, changed only when it is this function's.
                 op("CreateEventSourceMapping", FUNCTION),
-                deep::op_owned("UpdateEventSourceMapping", FUNCTION, &MAPPING_OF_THIS_FUNCTION),
+                deep::op_owned(
+                    "UpdateEventSourceMapping",
+                    FUNCTION,
+                    &MAPPING_OF_THIS_FUNCTION,
+                ),
                 // Permissions: the resource-based policy.
                 op("GetPolicy", FUNCTION),
                 op("AddPermission", FUNCTION),

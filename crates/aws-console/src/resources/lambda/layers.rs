@@ -28,21 +28,44 @@ pub(super) const LAYERS: Kind = Kind {
     columns: &[
         col("Latest version", "LatestMatchingVersion.Version", Number),
         col("Description", "LatestMatchingVersion.Description", Plain),
-        col("Compatible runtimes", "LatestMatchingVersion.CompatibleRuntimes", Json),
-        col("Compatible architectures", "LatestMatchingVersion.CompatibleArchitectures", Json),
+        col(
+            "Compatible runtimes",
+            "LatestMatchingVersion.CompatibleRuntimes",
+            Json,
+        ),
+        col(
+            "Compatible architectures",
+            "LatestMatchingVersion.CompatibleArchitectures",
+            Json,
+        ),
         col("Created", "LatestMatchingVersion.CreatedDate", Time),
         col("ARN", "LayerArn", Mono),
     ],
     id_of: Id::Name,
-    detail: &[Step::new("ListLayerVersions", r#"{"LayerName":"{id}","MaxItems":50}"#)],
+    detail: &[Step::new(
+        "ListLayerVersions",
+        r#"{"LayerName":"{id}","MaxItems":50}"#,
+    )],
     fields: &[
         field("Latest version", "LayerVersions.0.Version", Number),
         field("Description", "LayerVersions.0.Description", Plain),
-        field("Compatible runtimes", "LayerVersions.0.CompatibleRuntimes", Json),
-        field("Compatible architectures", "LayerVersions.0.CompatibleArchitectures", Json),
+        field(
+            "Compatible runtimes",
+            "LayerVersions.0.CompatibleRuntimes",
+            Json,
+        ),
+        field(
+            "Compatible architectures",
+            "LayerVersions.0.CompatibleArchitectures",
+            Json,
+        ),
         field("License", "LayerVersions.0.LicenseInfo", Plain),
         field("Created", "LayerVersions.0.CreatedDate", Time),
-        field("Latest version ARN", "LayerVersions.0.LayerVersionArn", Mono),
+        field(
+            "Latest version ARN",
+            "LayerVersions.0.LayerVersionArn",
+            Mono,
+        ),
     ],
     subs: &[Sub {
         title: "Versions",
@@ -62,10 +85,16 @@ pub(super) const LAYERS: Kind = Kind {
     deep: &[Deep {
         id: "versions",
         title: "Versions",
-        ops: &[op("ListLayerVersions", LAYER), op("DeleteLayerVersion", LAYER)],
+        ops: &[
+            op("ListLayerVersions", LAYER),
+            op("DeleteLayerVersion", LAYER),
+        ],
     }],
     // A new layer is its first version: no layer exists to name. `ListLayerVersions` is read by the page that adds a layer to a
     // function, which names the layer itself.
-    ops: &[ops::free("PublishLayerVersion"), ops::free("ListLayerVersions")],
+    ops: &[
+        ops::free("PublishLayerVersion"),
+        ops::free("ListLayerVersions"),
+    ],
     ..Kind::BARE
 };

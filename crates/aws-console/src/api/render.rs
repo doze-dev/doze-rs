@@ -92,7 +92,11 @@ fn client_name(sdk_id: &str) -> String {
 pub fn boto3(sdk_id: &str, op: &str, at: Target<'_>, args: &[(&MemberRef<'_>, &Value)]) -> String {
     let client = client_name(sdk_id);
     // `lambda` is a Python keyword: the client of Lambda is held in `lambda_client`.
-    let var = if client == "lambda" { "lambda_client" } else { client.as_str() };
+    let var = if client == "lambda" {
+        "lambda_client"
+    } else {
+        client.as_str()
+    };
     let call = |inner: String| format!("response = {var}.{}({inner})", snake(op));
     let pairs: Vec<String> = args
         .iter()

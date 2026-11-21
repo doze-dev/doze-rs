@@ -59,7 +59,7 @@ function zipped(): { file: string; done: () => void } {
 
 const TRUST = JSON.stringify({ Version: "2012-10-17", Statement: [{ Effect: "Allow", Principal: { Service: "lambda.amazonaws.com" }, Action: "sts:AssumeRole" }] });
 
-test("a function is tested, configured in dialogs, and its runs' logs open in the stream viewer", async ({ page, cli, browserName }) => {
+test("a function is tested, configured on pages of its own, and its runs' logs open in the stream viewer", async ({ page, cli, browserName }) => {
   const fn = unique("echo", browserName);
   const role = unique("fn-role", browserName);
   expect(cli(["iam", "create-role", "--role-name", role, "--assume-role-policy-document", TRUST]).code).toBe(0);
@@ -75,7 +75,7 @@ test("a function is tested, configured in dialogs, and its runs' logs open in th
   await expect(page).toHaveURL(/tab=test/);
   await page.getByTestId("invoke-event").fill('{"n": 1}');
   await page.getByTestId("invoke-run").click();
-  await expect(page.getByTestId("invoke-status")).toHaveText("Succeeded", { timeout: 20_000 });
+  await expect(page.getByTestId("invoke-status")).toContainText("Status: Succeeded", { timeout: 20_000 });
   await expect(page.getByTestId("invoke-payload")).toContainText('"n": 1');
   await expect(page.getByTestId("invoke-log")).toContainText("START RequestId");
   await expect(page.getByTestId("invoke-report")).toContainText("Billed Duration");
@@ -85,36 +85,36 @@ test("a function is tested, configured in dialogs, and its runs' logs open in th
   await expect(page.getByTestId("invoke-run")).toBeDisabled();
   await page.getByTestId("invoke-event").fill('{"fail": true}');
   await page.getByTestId("invoke-run").click();
-  await expect(page.getByTestId("invoke-status")).toHaveText("Function error: Unhandled");
+  await expect(page.getByTestId("invoke-status")).toContainText("The function returned an error.");
   await expect(page.getByTestId("invoke-payload")).toContainText("asked to fail");
 
   await page.getByTestId("tab-configuration").click();
   await page.getByTestId("config-edit").click();
-  const general = page.getByTestId("config-dialog");
-  await general.getByTestId("cfg-memory").fill("256");
-  await general.getByTestId("config-save").click();
-  await expect(general).toHaveCount(0);
-  await expect(page.getByTestId("cfg-memory-value")).toHaveText("256 MB");
+  await page.getByTestId("cfg-memory").fill("256");
+  await page.getByTestId("form-submit").click();
+  await expect(page.getByTestId("done-banner")).toContainText("was saved");
+  await expect(page.getByTestId("general-card")).toContainText("256 MB");
+  await page.getByTestId("section-env").click();
   await page.getByTestId("env-edit").click();
-  const env = page.getByTestId("env-dialog");
-  await env.getByTestId("env-add").click();
-  await env.getByTestId("env-key").fill("1BAD");
-  await expect(env.getByTestId("env-save")).toBeDisabled();
-  await env.getByTestId("env-key").fill("MODE");
-  await env.getByTestId("env-value").fill("blue");
-  await env.getByTestId("env-save").click();
-  await expect(env).toHaveCount(0);
-  await expect(page.getByTestId("env-list")).toContainText("blue");
+  await page.getByRole("button", { name: "Add environment variable" }).click();
+  await page.getByTestId("env-kv-key-0").fill("1BAD");
+  await page.getByTestId("form-submit").click();
+  await expect(page.getByTestId("env-problem-0")).toContainText("A key starts with a letter");
+  await page.getByTestId("env-kv-key-0").fill("MODE");
+  await page.getByTestId("env-kv-value-0").fill("blue");
+  await page.getByTestId("form-submit").click();
+  await expect(page.getByTestId("done-banner")).toContainText("environment variables");
+  await expect(page.getByTestId("env-card")).toContainText("blue");
 
   await page.getByTestId("tab-versions").click();
   await expect(page.getByTestId("lambda-versions")).toContainText("$LATEST");
+  await page.getByTestId("tab-aliases").click();
   await expect(page.getByTestId("aliases-none")).toBeVisible();
 
   await page.reload();
-  await page.getByTestId("tab-invocations").click();
-  await page.getByTestId("invokes-console-toggle").click();
-  await expect(page.getByTestId("lambda-invocations").locator("tbody tr")).toHaveCount(2);
-  const stream = page.getByTestId("lambda-streams").getByTestId("stream-link").first();
+  await page.getByTestId("tab-monitor").click();
+  await page.getByTestId("view-logs").click();
+  const stream = page.getByTestId("group-streams").getByTestId("stream-link").first();
   await stream.click();
   await expect(page.getByTestId("stream-viewer")).toBeVisible();
   await expect(page.getByTestId("log-event").first()).toBeVisible();

@@ -32,7 +32,14 @@ async fn a_function_says_what_it_is_and_what_can_be_done_to_it() {
         return;
     }
     let (_, list) = w.get(FN).await;
-    let names = |l: &Value| l["rows"].as_array().unwrap().iter().map(|r| r["name"].as_str().unwrap().to_owned()).collect::<Vec<_>>();
+    let names = |l: &Value| {
+        l["rows"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|r| r["name"].as_str().unwrap().to_owned())
+            .collect::<Vec<_>>()
+    };
     assert_eq!(names(&list), ["echo"]);
     let columns: Vec<&str> = list["columns"]
         .as_array()
@@ -114,7 +121,13 @@ async fn versions_aliases_permissions_and_a_url_are_the_functions_own_calls() {
     if !code::function(&w, "echo").await {
         return;
     }
-    let (s, v) = op(&w, "echo", "PublishVersion", &json!({"Description": "first deploy"})).await;
+    let (s, v) = op(
+        &w,
+        "echo",
+        "PublishVersion",
+        &json!({"Description": "first deploy"}),
+    )
+    .await;
     assert_eq!((s, v["Version"].clone()), (200, json!("1")), "{v}");
     let (s, a) = op(
         &w,
@@ -136,7 +149,10 @@ async fn versions_aliases_permissions_and_a_url_are_the_functions_own_calls() {
     .await;
     assert_eq!(s, 200, "{p}");
     let (_, policy) = op(&w, "echo", "GetPolicy", &json!({})).await;
-    assert!(policy["Policy"].as_str().unwrap().contains("sns-alerts"), "{policy}");
+    assert!(
+        policy["Policy"].as_str().unwrap().contains("sns-alerts"),
+        "{policy}"
+    );
     let (s, u) = op(
         &w,
         "echo",
@@ -147,7 +163,12 @@ async fn versions_aliases_permissions_and_a_url_are_the_functions_own_calls() {
     assert_eq!(s, 200, "{u}");
     let (_, d) = w.get(&format!("{FN}/echo")).await;
     assert_eq!(field(&d, "Function URL auth")["value"], "NONE");
-    assert!(field(&d, "Function URL CORS")["value"].as_str().unwrap().contains("AllowOrigins"));
+    assert!(
+        field(&d, "Function URL CORS")["value"]
+            .as_str()
+            .unwrap()
+            .contains("AllowOrigins")
+    );
     let (s, e) = op(
         &w,
         "echo",
@@ -157,7 +178,13 @@ async fn versions_aliases_permissions_and_a_url_are_the_functions_own_calls() {
     .await;
     assert_eq!(s, 200, "{e}");
     // The call is bound to this function whatever the page names.
-    let (_, other) = op(&w, "echo", "GetPolicy", &json!({"FunctionName": "elsewhere"})).await;
+    let (_, other) = op(
+        &w,
+        "echo",
+        "GetPolicy",
+        &json!({"FunctionName": "elsewhere"}),
+    )
+    .await;
     assert!(other["Policy"].is_string(), "{other}");
 }
 
@@ -167,7 +194,8 @@ async fn a_trigger_is_changed_only_by_the_function_it_belongs_to() {
     if !code::function(&w, "echo").await || !code::function_again(&w, "other").await {
         return;
     }
-    w.app("sqs", "CreateQueue", &json!({"QueueName": "inbox"})).await;
+    w.app("sqs", "CreateQueue", &json!({"QueueName": "inbox"}))
+        .await;
     let (s, made) = op(
         &w,
         "echo",
@@ -177,10 +205,30 @@ async fn a_trigger_is_changed_only_by_the_function_it_belongs_to() {
     .await;
     assert_eq!(s, 200, "{made}");
     let uuid = made["UUID"].as_str().unwrap();
-    let (s, edited) = op(&w, "echo", "UpdateEventSourceMapping", &json!({"UUID": uuid, "BatchSize": 5})).await;
-    assert_eq!((s, edited["BatchSize"].clone()), (200, json!(5)), "{edited}");
-    let (s, refused) = op(&w, "other", "UpdateEventSourceMapping", &json!({"UUID": uuid, "BatchSize": 1})).await;
-    assert_eq!((s, refused["code"].clone()), (400, json!("NOT_THIS_RESOURCE")), "{refused}");
+    let (s, edited) = op(
+        &w,
+        "echo",
+        "UpdateEventSourceMapping",
+        &json!({"UUID": uuid, "BatchSize": 5}),
+    )
+    .await;
+    assert_eq!(
+        (s, edited["BatchSize"].clone()),
+        (200, json!(5)),
+        "{edited}"
+    );
+    let (s, refused) = op(
+        &w,
+        "other",
+        "UpdateEventSourceMapping",
+        &json!({"UUID": uuid, "BatchSize": 1}),
+    )
+    .await;
+    assert_eq!(
+        (s, refused["code"].clone()),
+        (400, json!("NOT_THIS_RESOURCE")),
+        "{refused}"
+    );
     let (_, d) = w.get(&format!("{FN}/echo")).await;
     assert_eq!(firsts(sub(&d, "Event source mappings")), ["inbox"]);
 }
@@ -193,11 +241,23 @@ async fn a_delete_says_what_goes_with_the_function_and_what_stays() {
     }
     op(&w, "echo", "PublishVersion", &json!({})).await;
     // Lambda publishes a new version only when something changed since the last.
-    let (s, c) = op(&w, "echo", "UpdateFunctionConfiguration", &json!({"MemorySize": 256})).await;
+    let (s, c) = op(
+        &w,
+        "echo",
+        "UpdateFunctionConfiguration",
+        &json!({"MemorySize": 256}),
+    )
+    .await;
     assert_eq!(s, 200, "{c}");
     let (s, v2) = op(&w, "echo", "PublishVersion", &json!({})).await;
     assert_eq!((s, v2["Version"].clone()), (200, json!("2")), "{v2}");
-    let (s, a) = op(&w, "echo", "CreateAlias", &json!({"Name": "live", "FunctionVersion": "2"})).await;
+    let (s, a) = op(
+        &w,
+        "echo",
+        "CreateAlias",
+        &json!({"Name": "live", "FunctionVersion": "2"}),
+    )
+    .await;
     assert_eq!(s, 200, "{a}");
     let (_, b) = w.get(&format!("{FN}/echo/blockers")).await;
     let titles: Vec<&str> = b["blockers"]
@@ -224,7 +284,10 @@ async fn layers_are_published_listed_and_read_with_their_versions() {
         let res = tower::ServiceExt::oneshot(w.app.clone(), get(&format!("{FN}/echo/code")))
             .await
             .unwrap();
-        http_body_util::BodyExt::collect(res.into_body()).await.unwrap().to_bytes()
+        http_body_util::BodyExt::collect(res.into_body())
+            .await
+            .unwrap()
+            .to_bytes()
     };
     for description in ["one", "two"] {
         let (s, v) = w
@@ -252,7 +315,10 @@ async fn layers_are_published_listed_and_read_with_their_versions() {
             &json!({"LayerName": "larder-shared"}),
         )
         .await;
-    assert_eq!((s, versions["LayerVersions"].as_array().unwrap().len()), (200, 2));
+    assert_eq!(
+        (s, versions["LayerVersions"].as_array().unwrap().len()),
+        (200, 2)
+    );
     let (s, gone) = w
         .send(
             "POST",
