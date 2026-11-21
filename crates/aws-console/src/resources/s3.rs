@@ -1,6 +1,6 @@
 //! S3: buckets, and a bucket's objects (the first page) on its page.
 
-use super::Format::{Bytes, Json, Mono, Text as Plain, Time};
+use super::Format::{Json, Mono, Text as Plain, Time};
 use super::{
     Create, Deep, Delete, Descriptor, Id, Input, InputKind, Kind, List, Step, Text, col, field,
     input, op, or,
