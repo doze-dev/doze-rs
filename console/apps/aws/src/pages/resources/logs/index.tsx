@@ -1,9 +1,9 @@
-// CloudWatch Logs' pages of a log group: its streams, search, Live Tail.
+// CloudWatch Logs' pages: the log groups' list and one group's page (drawn by the console's app in place of the generic ones), and a
+// stream's events, which is a page of its own (`deep/routes.tsx`).
 import { lazy } from "react";
-import { type DeepProps, register } from "../deep/registry";
+import { registerKind } from "../deep/registry";
 
-register("logs", {
-  streams: { page: lazy(() => import("./streams-tab").then((m) => ({ default: ({ d }: DeepProps) => <m.GroupStreams group={d.name} /> }))) },
-  search: { page: lazy(() => import("./search-tab").then((m) => ({ default: ({ d }: DeepProps) => <m.GroupSearch group={d.name} /> }))) },
-  tail: { page: lazy(() => import("./tail-tab").then((m) => ({ default: ({ d }: DeepProps) => <m.GroupTail group={d.name} /> }))) },
+registerKind("logs", "groups", {
+  list: lazy(() => import("./list").then((m) => ({ default: m.LogsList }))),
+  detail: lazy(() => import("./detail").then((m) => ({ default: m.GroupDetail }))),
 });

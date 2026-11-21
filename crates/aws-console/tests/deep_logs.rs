@@ -182,15 +182,15 @@ async fn a_stream_is_read_both_ways_a_group_searched_and_tailed() {
     )
     .await;
     assert_eq!(status, 200, "{found}");
+    // The group's own page lists its streams (the tab's rows and its count), of this group alone.
     let (_, detail) = w.get("/api/v1/resources/logs/groups/%2Fapp%2Fapi").await;
-    assert!(
-        detail["subs"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .all(|s| s["title"] != "Log streams"),
-        "{detail}"
-    );
+    let streams = detail["subs"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|s| s["title"] == "Log streams")
+        .unwrap();
+    assert_eq!(streams["rows"].as_array().unwrap().len(), 2, "{detail}");
 }
 
 #[tokio::test]

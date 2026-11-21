@@ -189,23 +189,21 @@ test("a log stream is read and paged, its group searched, and tailed live", asyn
   await open(page, `/resources/logs/groups/${encodeURIComponent(group)}?tab=streams`, group);
   await page.getByTestId("group-streams").getByTestId("stream-link").click();
   await expect(page.locator("h1")).toHaveText("web-1");
-  // The newest page first: 100 of 120, ending with the last line.
+  // The first 100 of 120 in the last hour, oldest first; the rest are loaded when asked for.
   await expect(page.getByTestId("log-event")).toHaveCount(100);
+  await expect(page.getByTestId("log-events")).toContainText("line 0");
+  await page.getByTestId("stream-more").click();
+  await expect(page.getByTestId("log-event")).toHaveCount(120);
   await expect(page.getByTestId("log-events")).toContainText("line 119");
-  await page.getByTestId("stream-older").click();
-  await expect(page.getByTestId("log-event")).toHaveCount(20);
-  await expect(page.getByTestId("log-events")).toContainText("line 0");
-  await page.getByTestId("stream-start").click();
-  await expect(page.getByTestId("log-events")).toContainText("line 0");
   await expect(page.locator('[data-testid="log-event"][data-level="bad"]')).toHaveCount(1);
 
-  await open(page, `/resources/logs/groups/${encodeURIComponent(group)}?tab=search`, group);
+  await open(page, `/resources/logs/groups/${encodeURIComponent(group)}?view=search`, "Search log group");
   await page.getByTestId("search-pattern").fill("ERROR");
   await page.getByTestId("search-run").click();
-  await expect(page.getByTestId("search-count")).toContainText("1 event matches");
+  await expect(page.getByTestId("search-count")).toContainText("1 event in the last hour matches the pattern");
   await expect(page.getByTestId("search-events")).toContainText("web-1");
 
-  await page.getByTestId("tab-tail").click();
+  await open(page, `/resources/logs/groups/${encodeURIComponent(group)}?view=tail`, "Live Tail");
   await page.getByTestId("tail-start").click();
   await expect(page.getByTestId("tail-status")).toHaveText("Tailing");
   const live = [{ timestamp: Date.now(), message: `live ${browserName}` }];

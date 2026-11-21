@@ -1,7 +1,9 @@
 //! What each kind says of its resource ([`super::Page`]): a sentence, badges, verbs. One file a service, as its descriptor.
 
 pub mod dynamodb;
+pub mod kinesis;
 pub mod lambda;
+pub mod logs;
 pub mod s3;
 pub mod sns;
 pub mod sqs;
@@ -54,7 +56,6 @@ macro_rules! status_badge {
 status_badge!(alarm, "MetricAlarms.@AlarmName.StateValue");
 status_badge!(stack, "Stacks.0.StackStatus");
 status_badge!(rule, "State");
-status_badge!(stream, "StreamDescriptionSummary.StreamStatus");
 status_badge!(key, "KeyMetadata.KeyState");
 status_badge!(function, "Configuration.State");
 status_badge!(machine, "status");
