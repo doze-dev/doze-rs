@@ -31,11 +31,16 @@ async function shot(page: Page, board: string) {
   mkdirSync(SHOTS, { recursive: true });
   await page.evaluate(() => document.fonts.ready);
   await page.waitForTimeout(250);
-  await page.screenshot({ path: join(SHOTS, `${board}.light.png`), fullPage: true });
+  // The whole page as one tall viewport: a full-page capture of a page with a fixed sidebar repeats the sidebar.
+  const height = await page.evaluate(() => Math.max(document.documentElement.scrollHeight, window.innerHeight));
+  await page.setViewportSize({ width: 1440, height });
+  await page.waitForTimeout(150);
+  await page.screenshot({ path: join(SHOTS, `${board}.light.png`) });
   await page.evaluate(() => document.documentElement.classList.add("dark"));
   await page.waitForTimeout(250);
-  await page.screenshot({ path: join(SHOTS, `${board}.dark.png`), fullPage: true });
+  await page.screenshot({ path: join(SHOTS, `${board}.dark.png`) });
   await page.evaluate(() => document.documentElement.classList.remove("dark"));
+  await page.setViewportSize({ width: 1440, height: 900 });
 }
 
 const go = async (page: Page, path: string, title: string | RegExp) => {

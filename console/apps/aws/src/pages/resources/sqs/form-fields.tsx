@@ -90,6 +90,7 @@ export function TypeAndName({ f, set, p, show, create, hints, refusal }: FieldPr
 export function Configuration({ f, set, p, show, create, hints }: FieldProps & { create: boolean; hints?: Hints }) {
   return (
     <FormSection title="Configuration" description={create ? "The console sets default values for the queue configuration parameters." : "Update the queue's configuration parameters."}>
+      <div className="grid gap-x-8 gap-y-6 md:grid-cols-2">
       <Setting label="Visibility timeout" name="visibility" problem={show ? p.visibility : undefined} hint={hints?.visibility} testId="field-visibility" rule={<>How long a received message stays hidden from other consumers. Range <b>0 seconds</b> to <b>12 hours</b>, default <b>30 seconds</b>.</>}>
         {(id) => <TimeInput id={id} value={f.visibility} onChange={(visibility) => set({ visibility })} units={timeUnits("visibility")} label="Visibility timeout" testId="queue-visibility" />}
       </Setting>
@@ -110,6 +111,7 @@ export function Configuration({ f, set, p, show, create, hints }: FieldProps & {
       <Setting label="Receive message wait time" name="wait" problem={show ? p.wait : undefined} testId="field-wait" rule={<>0 is short polling; any value above 0 is long polling. Range <b>0 to 20 seconds</b>, default <b>0 seconds</b>.{create ? " Long polling means fewer empty responses." : ""}</>}>
         {(id) => <TimeInput id={id} value={f.wait} onChange={(wait) => set({ wait })} units={timeUnits("wait")} label="Receive message wait time" testId="queue-wait" />}
       </Setting>
+      </div>
       {f.fifo && <FifoSettings f={f} set={set} />}
     </FormSection>
   );

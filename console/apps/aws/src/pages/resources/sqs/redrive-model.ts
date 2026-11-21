@@ -21,7 +21,7 @@ export const latest = (tasks: readonly Task[] | undefined): Task | null => tasks
 export const destinationWords = (t: Task): string => (t.DestinationArn ? tail(t.DestinationArn) : "Source queue(s)");
 
 /** `System optimized`, or the rate that was set. */
-export const rateWords = (t: Task): string => (t.MaxNumberOfMessagesPerSecond ? `${t.MaxNumberOfMessagesPerSecond.toLocaleString("en-US")} messages per second` : "System optimized");
+export const rateWords = (t: Task): string => (t.MaxNumberOfMessagesPerSecond ? `${t.MaxNumberOfMessagesPerSecond.toLocaleString("en-US")} ${t.MaxNumberOfMessagesPerSecond === 1 ? "message" : "messages"} per second` : "System optimized");
 
 const n = (v: number): string => `${v.toLocaleString("en-US")} ${v === 1 ? "message" : "messages"}`;
 

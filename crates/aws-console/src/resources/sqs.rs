@@ -164,11 +164,7 @@ pub(super) static SQS: Descriptor = Descriptor {
                 "Attributes.KmsDataKeyReusePeriodSeconds",
                 Seconds,
             ),
-            field(
-                "Deduplication scope",
-                "Attributes.DeduplicationScope",
-                Mono,
-            ),
+            field("Deduplication scope", "Attributes.DeduplicationScope", Mono),
             field(
                 "FIFO throughput limit",
                 "Attributes.FifoThroughputLimit",
@@ -339,13 +335,11 @@ pub(super) static SQS: Descriptor = Descriptor {
             Deep {
                 id: "triggers",
                 title: "Lambda triggers",
-                ops: &[
-                    op(
-                        "CreateEventSourceMapping",
-                        r#"{"EventSourceArn":"arn:aws:sqs:{region}:{account}:{name}"}"#,
-                    )
-                    .of("lambda"),
-                ],
+                ops: &[op(
+                    "CreateEventSourceMapping",
+                    r#"{"EventSourceArn":"arn:aws:sqs:{region}:{account}:{name}"}"#,
+                )
+                .of("lambda")],
             },
             // The queue subscribes to a topic of this account and Region; the endpoint is this queue.
             Deep {

@@ -158,7 +158,7 @@ export function SqsMessages({ d, q, back }: SubProps) {
             <Refused operation="ReceiveMessage" error={poll.error} testId="poll-error" />
           </div>
           {polled && polled.ms.length > 0 ? (
-            <div className="grid gap-3" data-testid="polled">
+            <div className="mt-4 grid gap-3" data-testid="polled">
               <h3 className="text-[17px] font-semibold text-bright">Messages ({polled.ms.length})</h3>
               <Refused operation="DeleteMessage" error={delError} testId="delete-message-error" />
               <SelectableTable aria-label="Messages" data={polled.ms} columns={columns} rowId={(m) => m.MessageId} selected={picked} onSelectedChange={setPicked} noun="message" hint="Choose a message to delete it." maxHeight={440}

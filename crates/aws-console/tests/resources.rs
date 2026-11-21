@@ -42,7 +42,10 @@ async fn a_queue_is_created_listed_opened_and_deleted_as_the_console_and_live_sh
             "Messages available",
             "In flight",
             "Dead-letter queue",
-            "Created"
+            "Created",
+            "SQS-managed encryption",
+            "KMS key",
+            "Content-based deduplication"
         ]
     );
     let (_, detail) = w.get(&format!("{base}/orders")).await;
@@ -60,6 +63,7 @@ async fn a_queue_is_created_listed_opened_and_deleted_as_the_console_and_live_sh
             "GetQueueUrl",
             "GetQueueAttributes",
             "ListEventSourceMappings",
+            "ListSubscriptions",
             "ListDeadLetterSourceQueues"
         ])
     );

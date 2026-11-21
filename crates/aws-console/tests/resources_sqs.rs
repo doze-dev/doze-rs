@@ -10,9 +10,9 @@
     clippy::cognitive_complexity
 )]
 
-mod support;
 #[path = "resources/code.rs"]
 mod code;
+mod support;
 #[path = "resources/world.rs"]
 mod world;
 
@@ -129,7 +129,10 @@ async fn a_queue_lists_the_topics_that_deliver_to_it_and_no_others() {
     assert_eq!(subs["rows"][0]["link"]["kind"], "topics");
     // A queue nothing delivers to has none, though the account has a subscription.
     let (_, other) = w.get(&format!("{BASE}/sqs/queues/pick-lists")).await;
-    assert_eq!(firsts(sub(&other, "SNS subscriptions")), Vec::<String>::new());
+    assert_eq!(
+        firsts(sub(&other, "SNS subscriptions")),
+        Vec::<String>::new()
+    );
     // The page also reads what a FIFO queue and a KMS-encrypted queue say about themselves.
     w.app(
         "sqs",
@@ -206,7 +209,10 @@ async fn the_pages_cross_service_operations_act_on_this_queue_and_no_other() {
     let (_, mine) = w.get(&format!("{BASE}/sqs/queues/pick-lists")).await;
     assert_eq!(firsts(sub(&mine, "SNS subscriptions")), ["orders-created"]);
     let (_, other) = w.get(&format!("{BASE}/sqs/queues/other")).await;
-    assert_eq!(firsts(sub(&other, "SNS subscriptions")), Vec::<String>::new());
+    assert_eq!(
+        firsts(sub(&other, "SNS subscriptions")),
+        Vec::<String>::new()
+    );
     let (status, refused) = post(
         "Subscribe",
         json!({"TopicArn": "arn:aws:sns:eu-west-1:000000000000:alerts"}),
@@ -216,7 +222,11 @@ async fn the_pages_cross_service_operations_act_on_this_queue_and_no_other() {
         (status, refused["code"].as_str()),
         (400, Some("NOT_THIS_RESOURCE"))
     );
-    let (status, refused) = post("Subscribe", json!({"TopicArn": "arn:aws:sns:us-east-1:1:x"})).await;
+    let (status, refused) = post(
+        "Subscribe",
+        json!({"TopicArn": "arn:aws:sns:us-east-1:1:x"}),
+    )
+    .await;
     assert_eq!(
         (status, refused["code"].as_str()),
         (400, Some("NOT_THIS_RESOURCE"))

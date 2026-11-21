@@ -87,7 +87,7 @@ export function RecentCalls({ d }: { d: ResourceDetail }) {
   const theirs = d.calls.filter((c) => !isConsole(c));
   const hidden = d.calls.length - theirs.length;
   return (
-    <Block title="Recent calls" testId="recent-calls" lede={<>The last calls that touched this queue, newest first. Times are UTC.{(hidden > 0 || mine) && <> {mine ? "This console's own are shown." : `${hidden} made by this console ${hidden === 1 ? "is" : "are"} hidden.`} <button type="button" className="font-medium text-link hover:underline" onClick={() => setMine(!mine)} data-testid="calls-console-toggle">{mine ? "Hide them" : "Show"}</button></>}</>} actions={<Button asChild variant="outline" size="sm" className="bg-card"><Link to="/live"><RadioIcon /> Open Live</Link></Button>}>
+    <Block title="Recent calls" testId="recent-calls" lede={<>The last calls that touched this queue, newest first. Times are UTC.{(hidden > 0 || mine) && <span data-testid="calls-console-hidden"> {mine ? "This console's own are shown." : `${hidden} made by this console ${hidden === 1 ? "is" : "are"} hidden.`} <button type="button" className="font-medium text-link hover:underline" onClick={() => setMine(!mine)} data-testid="calls-console-toggle">{mine ? "Hide them" : "Show"}</button></span>}</>} actions={<Button asChild variant="outline" size="sm" className="bg-card"><Link to="/live"><RadioIcon /> Open Live</Link></Button>}>
       <DataTable aria-label="Recent calls" data={mine ? d.calls : theirs} columns={CALLS} rowId={(r) => String(r.seq)} maxHeight={420} empty={hidden > 0 && !mine ? "Only this console has acted on this queue so far." : "No call in the Live record acted on this queue yet."} />
     </Block>
   );

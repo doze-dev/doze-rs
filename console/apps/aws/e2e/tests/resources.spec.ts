@@ -51,9 +51,18 @@ test("the index groups the services and counts what each holds", async ({ page, 
   await expect(page.getByTestId("row-link").filter({ hasText: q })).toBeVisible();
 });
 
-test("a queue is created in a dialog, listed, opened, and deleted, each call in Live as the console", async ({ page, browserName }) => {
+/** Creates a queue on its own page (Create queue); lands on its page. */
+async function createQueue(page: Page, name: string, consoleUrl = "") {
+  await page.goto(`${consoleUrl}/resources/sqs/queues`);
+  await expect(page.locator("h1")).toHaveText("Queues");
+  await page.getByTestId("create-open").click();
+  await page.getByTestId("queue-name").fill(name);
+  await page.getByTestId("form-submit").click();
+}
+
+test("a queue is created on its page, listed, opened, and deleted, each call in Live as the console", async ({ page, browserName }) => {
   const q = unique("orders", browserName);
-  await create(page, "/resources/sqs/queues", "Queues", { QueueName: q });
+  await createQueue(page, q);
   await expect(page.locator("h1")).toHaveText(q);
   await expect(page.getByTestId("field-Type")).toHaveText("Standard");
   await expect(page.getByTestId("field-Visibility timeout")).toHaveText("30 seconds");
@@ -67,11 +76,15 @@ test("a queue is created in a dialog, listed, opened, and deleted, each call in 
   // Listed, and found by the search.
   await open(page, "/resources/sqs/queues", "Queues");
   await page.getByTestId("list-search").fill(q);
+  await page.getByTestId("list-search-go").click();
   await expect(page.getByTestId("row-link")).toHaveText([q]);
   await page.getByTestId("row-link").click();
   await expect(page.locator("h1")).toHaveText(q);
-  await remove(page, q);
+  await page.getByTestId("verb-delete").click();
+  await page.getByTestId("delete-dialog-input").fill("delete");
+  await page.getByTestId("delete-dialog-submit").click();
   await expect(page.locator("h1")).toHaveText("Queues");
+  await expect(page.getByTestId("deleted-banner")).toContainText(`Queue ${q} deleted.`);
   await expect(page.getByTestId("row-link").filter({ hasText: q })).toHaveCount(0);
   expect((await consoleCalls(page, "DeleteQueue")).length).toBeGreaterThan(0);
 });
@@ -168,11 +181,7 @@ test("under --iam enforce the console is allowed: it calls as the account root",
   const server = await start(Number(process.env.DOZE_AWS_E2E_PORT ?? 42101) + 2, Number(process.env.DOZE_AWS_E2E_CONSOLE_PORT ?? 42102) + 2, { args: ["--iam", "enforce"] });
   try {
     const q = unique("enforced", browserName);
-    await page.goto(`${server.console}/resources/sqs/queues`);
-    await expect(page.locator("h1")).toHaveText("Queues");
-    await page.getByTestId("create-open").click();
-    await page.getByTestId("field-QueueName").fill(q);
-    await page.getByTestId("create-submit").click();
+    await createQueue(page, q, server.console);
     await expect(page.locator("h1")).toHaveText(q);
     const made = (await consoleCalls(page, "CreateQueue", server.console)).pop();
     expect(made?.outcome).toBe("ok");
