@@ -240,6 +240,7 @@ pub async fn detail(
         _ => Vec::new(),
     };
     operations.extend(run::read_detail(bus, d, kind, (&id, name), &mut out).await?);
+    let retired = run::retired(kind, &out);
     let mut subs = Vec::new();
     for sub in kind.subs {
         let mut list = run::sub(bus, d, sub, (&id, name), &out).await;
@@ -269,8 +270,12 @@ pub async fn detail(
         fields: run::fields(kind, &out),
         subs,
         calls: calls(facts, recorder, d.service, (&id, &called_as(kind, name))),
-        reveal: kind.reveal.as_ref().map(|r| r.label.to_owned()),
-        delete: delete_spec(kind),
+        reveal: kind
+            .reveal
+            .as_ref()
+            .filter(|_| !retired)
+            .map(|r| r.label.to_owned()),
+        delete: delete_spec(kind).filter(|_| !retired),
         deep: super::deep::tabs(kind),
         operations,
         name: name.to_owned(),

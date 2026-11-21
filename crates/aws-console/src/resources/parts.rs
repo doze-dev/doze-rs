@@ -12,6 +12,7 @@ pub(crate) const fn field(label: &'static str, path: &'static str, format: Forma
         link: &[],
         hide_when: None,
         empty: "",
+        retires: false,
     }
 }
 

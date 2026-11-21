@@ -123,6 +123,24 @@ test("a secret's value is hidden until Reveal, which is one GetSecretValue in Li
   await expect(page.locator("h1")).toHaveText("Secrets");
 });
 
+test("a secret marked for deletion is listed, cannot be revealed or deleted again, and its deletion can be cancelled", async ({ page, cli, browserName }) => {
+  const name = `larder/${unique("marked", browserName)}`;
+  expect(cli(["secretsmanager", "create-secret", "--name", name, "--secret-string", "sk_marked"]).code).toBe(0);
+  expect(cli(["secretsmanager", "delete-secret", "--secret-id", name, "--recovery-window-in-days", "7"]).code).toBe(0);
+  await open(page, "/resources/secretsmanager/secrets", "Secrets");
+  await expect(page.getByTestId("row-link").filter({ hasText: name })).toHaveCount(1);
+  await open(page, `/resources/secretsmanager/secrets/${encodeURIComponent(name)}`, name);
+  await expect(page.getByTestId("secret-marked")).toContainText("marked for deletion");
+  await expect(page.getByTestId("reveal-value")).toHaveCount(0);
+  await expect(page.getByTestId("delete-open")).toHaveCount(0);
+  await expect(page.getByTestId("detail")).toContainText("Not readable while the secret is marked for deletion");
+  await expect(page.getByTestId("detail")).not.toContainText("Scheduled for deletion");
+  await page.getByTestId("restore-secret").click();
+  await expect(page.getByTestId("secret-marked")).toHaveCount(0);
+  await expect(page.getByTestId("reveal-value")).toBeVisible();
+  await expect(page.getByTestId("delete-open")).toBeVisible();
+});
+
 test("Live's link to what a call acted on opens its page in Resources", async ({ page, cli, browserName }) => {
   const q = unique("linked", browserName);
   expect(cli(["sqs", "create-queue", "--queue-name", q]).code).toBe(0);

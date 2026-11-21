@@ -35,12 +35,15 @@ const PAGES: Record<string, Page> = {
   "logs/tail": { page: lazy(() => import("./logs/tail-tab").then((m) => ({ default: ({ d }: DeepProps) => <m.GroupTail group={d.name} /> }))) },
   "cloudformation/events": { page: lazy(() => import("./cfn/stack-tabs").then((m) => ({ default: ({ d }: DeepProps) => <m.StackEvents name={d.name} /> }))) },
   "cloudformation/template": { page: lazy(() => import("./cfn/stack-tabs").then((m) => ({ default: ({ d }: DeepProps) => <m.StackTemplate name={d.name} /> }))) },
+  // Never listed as a tab (`when` is never true): the descriptor names RestoreSecret on this kind so that the banner on the details may make it.
+  "secretsmanager/restore": { page: lazy(() => import("./secret-marked").then((m) => ({ default: m.SecretMarked }))), when: () => false },
   "cloudformation/changesets": { page: lazy(() => import("./cfn/stack-tabs").then((m) => ({ default: ({ d }: DeepProps) => <m.StackChangeSets name={d.name} /> }))) },
 };
 
 /** What a resource's details open with, for the kinds that have something to say first (a stack's status, as a sentence). */
 const LEADS: Record<string, React.LazyExoticComponent<(p: { d: ResourceDetail }) => React.ReactNode>> = {
   "cloudformation/stacks": lazy(() => import("./cfn/stack-tabs").then((m) => ({ default: m.StackSentence }))),
+  "secretsmanager/secrets": lazy(() => import("./secret-marked").then((m) => ({ default: m.SecretMarked }))),
 };
 
 /** The lead of `d`'s details, if its kind has one. */

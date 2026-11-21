@@ -338,6 +338,9 @@ pub struct Field {
     /// What an absent value means, shown in its place (`None` for a bucket with no policy, `us-east-1` for a bucket's empty
     /// location); empty for a dash.
     pub empty: &'static str,
+    /// A value here means the resource is on its way out (a secret marked for deletion): its page offers neither reveal nor
+    /// delete, and a value that was to be revealed is not hidden but said to be unreadable (`empty`).
+    pub retires: bool,
 }
 
 /// A link from a value to a resource of the console: the name is the value's tail.

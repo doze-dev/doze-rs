@@ -3,8 +3,8 @@
 
 use super::Format::{Flag, Mono, Text as Plain, Time};
 use super::{
-    Create, Delete, Descriptor, Field, Id, Input, InputKind, Kind, LinkTo, List, Reveal, Step,
-    Text, col, field, input,
+    Create, Deep, Delete, Descriptor, Field, Id, Input, InputKind, Kind, LinkTo, List, Reveal,
+    Step, Text, col, field, input, op,
 };
 
 pub(super) static SECRETS: Descriptor = Descriptor {
@@ -17,7 +17,11 @@ pub(super) static SECRETS: Descriptor = Descriptor {
         about: "Secrets and their rotation. A value is shown only when you reveal it.",
         members: &["SecretId"],
         list: List {
-            step: Step::new("ListSecrets", r#"{"MaxResults":100,"NextToken":"{token}"}"#),
+            // A secret marked for deletion is listed too: it is still there, and its page is where its deletion is cancelled.
+            step: Step::new(
+                "ListSecrets",
+                r#"{"MaxResults":100,"IncludePlannedDeletion":true,"NextToken":"{token}"}"#,
+            ),
             items: "SecretList",
             item_as: "Name",
             token_out: "NextToken",
@@ -33,6 +37,7 @@ pub(super) static SECRETS: Descriptor = Descriptor {
             col("Rotation", "RotationEnabled", Flag("On", "Off")),
             col("Last changed", "LastChangedDate", Time),
             col("Last retrieved", "LastAccessedDate", Time),
+            col("Marked for deletion", "DeletedDate", Time),
         ],
         id_of: Id::Name,
         detail: &[Step::new("DescribeSecret", r#"{"SecretId":"{id}"}"#)],
@@ -41,6 +46,7 @@ pub(super) static SECRETS: Descriptor = Descriptor {
             field("Description", "Description", Plain),
             Field {
                 hide_when: Some(("", "")),
+                empty: "Not readable while the secret is marked for deletion.",
                 ..field("Value", "$hidden", Mono)
             },
             Field {
@@ -61,7 +67,11 @@ pub(super) static SECRETS: Descriptor = Descriptor {
             field("Last rotated", "LastRotatedDate", Time),
             field("Last changed", "LastChangedDate", Time),
             field("Last retrieved", "LastAccessedDate", Time),
-            field("Scheduled for deletion on", "DeletedDate", Time),
+            // DescribeSecret says when the deletion was asked for. The end of the recovery window is only in DeleteSecret's answer.
+            Field {
+                retires: true,
+                ..field("Marked for deletion", "DeletedDate", Time)
+            },
             field("Created", "CreatedDate", Time),
         ],
         subs: &[],
@@ -109,6 +119,11 @@ pub(super) static SECRETS: Descriptor = Descriptor {
             step: Step::new("GetSecretValue", r#"{"SecretId":"{id}"}"#),
             path: "SecretString|SecretBinary",
         }),
-        deep: &[],
+        // Cancelling a deletion is drawn on the page itself when the secret is marked; the tab is never listed.
+        deep: &[Deep {
+            id: "restore",
+            title: "Cancel deletion",
+            ops: &[op("RestoreSecret", r#"{"SecretId":"{id}"}"#)],
+        }],
     }],
 };

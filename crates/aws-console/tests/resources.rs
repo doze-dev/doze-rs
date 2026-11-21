@@ -201,8 +201,9 @@ async fn a_secret_and_a_secure_parameter_stay_hidden_until_revealed() {
             "console secretsmanager GetSecretValue"
         ]
     );
-    w.delete("/api/v1/resources/secretsmanager/secrets", &name)
-        .await;
+    // A secret is marked for deletion, not removed: it stays listed, with the day it was marked.
+    let (status, _) = w.send("DELETE", &one, &json!({})).await;
+    assert_eq!(status, 200);
 
     let form = json!({"Name": "/larder/db", "Type": "SecureString", "Value": "hunter2"});
     let name = w

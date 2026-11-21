@@ -283,15 +283,25 @@ pub async fn read_detail(
     Ok(made)
 }
 
+/// Whether the resource is on its way out: a field that says so ([`super::Field::retires`]) has a value.
+#[must_use]
+pub fn retired(kind: &Kind, out: &Value) -> bool {
+    kind.fields
+        .iter()
+        .any(|f| f.retires && path::text(out, f.path).is_some())
+}
+
 /// The fields of a detail page, read out of `out`.
 #[must_use]
 pub fn fields(kind: &Kind, out: &Value) -> Vec<FieldValue> {
+    let retired = retired(kind, out);
     kind.fields
         .iter()
         .map(|f| {
-            let hidden = f
-                .hide_when
-                .is_some_and(|(p, eq)| p.is_empty() || path::text(out, p).is_some_and(|v| v == eq));
+            let hidden = !retired
+                && f.hide_when.is_some_and(|(p, eq)| {
+                    p.is_empty() || path::text(out, p).is_some_and(|v| v == eq)
+                });
             let value = path::shown(out, f.path, f.format)
                 .or_else(|| (!f.empty.is_empty()).then(|| f.empty.to_owned()));
             let link = value
