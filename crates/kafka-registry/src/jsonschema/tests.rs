@@ -340,6 +340,18 @@ fn a_number_past_the_clamp_is_one_value_however_it_is_written() {
     let tiny = read(r#"{"minimum":-1e-2147483649}"#);
     assert_eq!(tiny.canonical(false), r#"{"minimum":-0.0}"#);
     assert_eq!(tiny.canonical(true), r#"{"minimum":0.0}"#);
+    // `-0.0` stored and read again is a BigDecimal, which has no negative zero: Confluent stores it the second time as
+    // `0.0`, and from then on the text stays as it is.
+    let again = read(&tiny.canonical(false));
+    assert_eq!(again.canonical(false), r#"{"minimum":0.0}"#);
+    assert_eq!(
+        read(&again.canonical(false)).canonical(false),
+        r#"{"minimum":0.0}"#
+    );
+    // A keyword the registry does not know keeps its number the same way.
+    let unknown = read(r#"{"mult7eipleOf":-1e-2147483649}"#).canonical(false);
+    assert_eq!(unknown, r#"{"mult7eipleOf":-0.0}"#);
+    assert_eq!(read(&unknown).canonical(false), r#"{"mult7eipleOf":0.0}"#);
     assert!(reasons(r#"{"minimum":0}"#, r#"{"minimum":1e-2147483649}"#).is_empty());
 }
 
