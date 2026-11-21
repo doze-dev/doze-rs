@@ -1,4 +1,5 @@
 // Add target (eventbridge__rule-targets-none's way on): one target put on a rule that exists, with the call it makes.
+import { useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { Alert } from "@doze/ui/components/app/alert";
@@ -12,6 +13,7 @@ import type { TargetItem } from "./types";
 
 export function TargetAdd({ bus, rule, taken, back }: { bus: string; rule: string; taken: readonly string[]; back: () => void }) {
   const navigate = useNavigate();
+  const qc = useQueryClient();
   const crumbs = useServiceCrumbs("eventbridge");
   const { region, account } = useWhere();
   const [t, setT] = useState<TargetDraft>(newTarget());
@@ -37,7 +39,7 @@ export function TargetAdd({ bus, rule, taken, back }: { bus: string; rule: strin
       onCancel={back}
       onSubmit={() => {
         setTried(true);
-        if (!problem) put.mutate(input as never, { onSuccess: () => void navigate({ to: "/resources/$service/$kind/$name", params: { service: "eventbridge", kind: "rules", name: ruleAddress(bus, rule) }, search: { done: "target" } }) });
+        if (!problem) put.mutate(input as never, { onSuccess: () => { void qc.invalidateQueries({ queryKey: ["resources", "kindop", "eventbridge", "rules"] }); void qc.invalidateQueries({ queryKey: ["resources", "one", "eventbridge", "rules"] }); void navigate({ to: "/resources/$service/$kind/$name", params: { service: "eventbridge", kind: "rules", name: ruleAddress(bus, rule) }, search: { done: "target" } }); } });
       }}
       testId="target-add"
     >

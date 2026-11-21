@@ -68,6 +68,7 @@ pub(super) const ARCHIVES: Kind = Kind {
     ops: &[
         ops::free("CreateArchive"),
         ops::free("DeleteArchive"),
+        ops::free("DescribeArchive"),
         ops::free("ListArchives"),
         ops::free("ListEventBuses"),
     ],

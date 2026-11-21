@@ -59,7 +59,7 @@ function Buses({ service, kind, gone }: { service: string; kind: string; gone?: 
   ];
   return (
     <>
-      {gone && <ResultBanner className="mb-8" title="Event bus deleted." returned={<>Deleted <b className="font-mono font-semibold text-bright">{gone}</b> with its rules and their targets. An app that keeps sending to it by name still gets a 200 from PutEvents, and the event is dropped.</>} onDismiss={() => go({})} testId="deleted-banner" />}
+      {gone && <ResultBanner className="mb-8" title="Event bus deleted." returned={<>Deleted <b className="font-mono font-semibold text-bright">{gone}</b> with its rules and their targets. An app that keeps sending to it by name now gets ResourceNotFoundException from PutEvents.</>} onDismiss={() => go({})} testId="deleted-banner" />}
       <PageHeader
         title="Event buses"
         crumbs={[...crumbs]}

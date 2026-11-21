@@ -26,7 +26,8 @@ export function SendEvents({ bus }: { bus: string }) {
   const buses = useBuses();
   const others = (buses.data?.EventBuses ?? []).map((b) => b.Name).filter((n) => n !== f.bus);
   const otherRules = useQueries({ queries: others.map((n) => ({ queryKey: ["resources", "kindop", "eventbridge", "rules", "ListRules", n, "page"], queryFn: () => callKindOp<{ Rules?: RuleItem[] }>(RULES, "ListRules", { EventBusName: n, Limit: 100 }), retry: false })) });
-  const elsewhere = others.flatMap((n, i) => (otherRules[i]?.data?.Rules ?? []).filter((r) => !r.ScheduleExpression).map((r) => ({ bus: n, rule: r.Name })));
+  // The rules of other buses whose pattern names this source come first: they are the ones this event would have reached there.
+  const elsewhere = others.flatMap((n, i) => (otherRules[i]?.data?.Rules ?? []).filter((r) => !r.ScheduleExpression).map((r) => ({ bus: n, rule: r.Name, likely: (r.EventPattern ?? "").includes(JSON.stringify(f.source)) }))).sort((a, b) => Number(b.likely) - Number(a.likely));
   const onBus = (rules.data?.Rules ?? []).filter((r) => !r.ScheduleExpression && r.EventPattern);
   const event = useDebounced(wholeEvent(f, account, region), 300).value;
   const tests = useQueries({ queries: onBus.map((r) => ({ queryKey: ["eventbridge", "test", r.EventPattern, event], queryFn: () => callKindOp<TestAnswer>(RULES, "TestEventPattern", { EventPattern: r.EventPattern, Event: event }), retry: false, enabled: bad === null })) });

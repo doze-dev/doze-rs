@@ -11,8 +11,8 @@ import { Input } from "@doze/ui/components/ui/input";
 import { Label } from "@doze/ui/components/ui/label";
 import { ApiFailure } from "@doze/ui/lib/api";
 import { Combobox } from "@doze/ui/components/app/combobox";
-import { Field, FormPage, FormSection, RadioCards, RuleHelp, useKindOp, useServiceCrumbs } from "../../../kit";
-import { DESTS, useConnections } from "./api";
+import { Field, FormPage, FormSection, RadioCards, RuleHelp, useServiceCrumbs } from "../../../kit";
+import { DESTS, useConnections, useEbOp } from "./api";
 import { type AuthType, type ConnForm, type HttpParam, type ParamKind, METHODS, connProblem, createConnInput, emptyConn, nameProblem } from "./dest-model";
 import { list } from "./words";
 
@@ -23,7 +23,7 @@ export function ConnectionCreate() {
   const crumbs = useServiceCrumbs("eventbridge");
   const [f, setF] = useState<ConnForm>(emptyConn);
   const [tried, setTried] = useState(false);
-  const make = useKindOp<{ ConnectionArn: string }>(DESTS, "CreateConnection");
+  const make = useEbOp<{ ConnectionArn: string }>(DESTS, "CreateConnection");
   const others = (useConnections().data?.Connections ?? []).map((c) => c.Name);
   const problem = connProblem(f, others);
   const set = (p: Partial<ConnForm>) => { setF((x) => ({ ...x, ...p })); make.reset(); };

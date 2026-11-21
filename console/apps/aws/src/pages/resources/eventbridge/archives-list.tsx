@@ -18,7 +18,7 @@ import { bytes, number } from "@doze/ui/lib/format";
 import { PlainConfirm, RuleHelp, useDeleteClearing, useServiceCrumbs } from "../../../kit";
 import { HINT } from "../index-page";
 import { ResourceTo } from "../value";
-import { useArchives } from "./api";
+import { useArchivePatterns, useArchives, useRefreshReads } from "./api";
 import { ArchiveCreate } from "./archive-create";
 import { Said, State } from "./parts";
 import { SectionStrip } from "./strip";
@@ -39,9 +39,11 @@ function Archives({ service, kind, gone }: { service: string; kind: string; gone
   const [chosen, setChosen] = useState<Set<string>>(new Set());
   const [asking, setAsking] = useState(false);
   const all = q.data?.Archives ?? [];
+  const patterns = useArchivePatterns(all);
   const rows = useMemo(() => all.filter((a) => a.ArchiveName.startsWith(typed.trim())), [all, typed]);
   const picked = all.filter((a) => chosen.has(a.ArchiveName));
   const one = picked[0];
+  const refresh = useRefreshReads();
   const del = useDeleteClearing({ service, kind, name: one?.ArchiveName ?? "" });
   const go = (search: { create?: "yes"; name?: string; gone?: string }) => void navigate({ to: "/resources/$service/$second", params: { service, second: kind }, search });
   const columns: DataColumn<ArchiveItem>[] = [
@@ -73,7 +75,7 @@ function Archives({ service, kind, gone }: { service: string; kind: string; gone
         </div>
       ) : (
         <>
-          <Said text={archivesSentence(all)} names={[...new Set(all.flatMap((a) => [a.ArchiveName, busOfArn(a.EventSourceArn)]))]} bold={[/\b\d[\d,]*(?= (?:archives?|events?|days?)\b)/]} />
+          <Said text={archivesSentence(all, patterns)} names={[...new Set(all.flatMap((a) => [a.ArchiveName, busOfArn(a.EventSourceArn)]))]} bold={[/\b\d[\d,]*(?= (?:archives?|events?|days?)\b)/]} />
           <SelectableTable<ArchiveItem>
             aria-label="Archives"
             data={rows}
@@ -106,7 +108,7 @@ function Archives({ service, kind, gone }: { service: string; kind: string; gone
         </>
       )}
       {one && (
-        <PlainConfirm open={asking} onOpenChange={(o) => { setAsking(o); if (!o) del.reset(); }} title="Delete archive?" description={<>Delete <b className="font-mono font-semibold text-bright">{one.ArchiveName}</b>, which holds {number(one.EventCount ?? 0)} {one.EventCount === 1 ? "event" : "events"} from <b className="font-mono font-semibold text-bright">{busOfArn(one.EventSourceArn)}</b>? Its events and its pattern are deleted with it, and they can no longer be replayed.</>} call="DeleteArchive" pending={del.isPending} error={del.error} onConfirm={() => del.mutate({ clear: false }, { onSuccess: () => { setAsking(false); setChosen(new Set()); go({ gone: one.ArchiveName }); } })} testId="archive-delete" />
+        <PlainConfirm open={asking} onOpenChange={(o) => { setAsking(o); if (!o) del.reset(); }} title="Delete archive?" description={<>Delete <b className="font-mono font-semibold text-bright">{one.ArchiveName}</b>, which holds {number(one.EventCount ?? 0)} {one.EventCount === 1 ? "event" : "events"} from <b className="font-mono font-semibold text-bright">{busOfArn(one.EventSourceArn)}</b>? Its events and its pattern are deleted with it, and they can no longer be replayed.</>} call="DeleteArchive" pending={del.isPending} error={del.error} onConfirm={() => del.mutate({ clear: false }, { onSuccess: () => { refresh(); setAsking(false); setChosen(new Set()); go({ gone: one.ArchiveName }); } })} testId="archive-delete" />
       )}
     </>
   );

@@ -138,13 +138,15 @@ export function rulesSentence(bus: string, rules: readonly RuleItem[], targets: 
 }
 
 /** The line over the archives: how many, how many events they hold, and which buses they take from. */
-export function archivesSentence(archives: readonly ArchiveItem[]): string {
+export function archivesSentence(archives: readonly ArchiveItem[], patterns: Readonly<Record<string, string | undefined>> = {}): string {
   if (archives.length === 0) return "";
   const events = archives.reduce((s, a) => s + (a.EventCount ?? 0), 0);
   const buses = [...new Set(archives.map((a) => busOfArn(a.EventSourceArn)))];
   const head = `${count(archives.length, "archive")} ${archives.length === 1 ? "holds" : "hold"} ${count(events, "event")} from ${nameList(buses)}.`;
-  const filtered = archives.find((a) => a.EventPattern);
-  const what = filtered ? patternWords(filtered.EventPattern) : "";
+  const patternOf = (a: ArchiveItem) => patterns[a.ArchiveName] ?? a.EventPattern;
+  // The filtered archive that holds the most is the one worth naming.
+  const filtered = [...archives].sort((a, b) => (b.EventCount ?? 0) - (a.EventCount ?? 0)).find((a) => patternOf(a));
+  const what = filtered ? patternWords(patternOf(filtered)) : "";
   const named = what === "Custom pattern" || what === "–" ? "the events its pattern names" : `${what} events`;
   return filtered ? `${head} ${filtered.ArchiveName} keeps only ${named}${filtered.RetentionDays ? `, for ${retentionWords(filtered.RetentionDays)}` : ""}.` : head;
 }
