@@ -30,6 +30,8 @@ const cli = (args: string[], key?: string) => {
 async function shot(page: Page, board: string) {
   if (browserKind !== "chromium") return;
   mkdirSync(SHOTS, { recursive: true });
+  // The focus ring of what was just clicked is not part of the page's look.
+  await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
   await page.evaluate(() => document.fonts.ready);
   await page.waitForTimeout(250);
   const height = await page.evaluate(() => Math.max(document.documentElement.scrollHeight, window.innerHeight));
