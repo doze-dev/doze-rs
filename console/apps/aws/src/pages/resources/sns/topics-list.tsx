@@ -19,7 +19,8 @@ import { useDelete, useResourceList } from "../../../api/resources";
 import type { ResourceRow } from "../../../api/types/ResourceRow";
 import { HINT } from "../index-page";
 import { ResourceTo } from "../value";
-import { LastCalls, RadioRows, radioColumn, Rich, ServiceTabs, snsCalls, useSnsCalls } from "./parts";
+import { RecentCalls } from "../../../kit";
+import { RadioRows, radioColumn, Rich, ServiceTabs, snsCalls, useSnsCalls } from "./parts";
 import { topicsLeftSentence, topicsSentence } from "./sentences";
 import { subRow } from "./sub-model";
 import { TopicCreate } from "./topic-create";
@@ -116,7 +117,7 @@ function Topics({ service, kind, gone }: { service: string; kind: string; gone?:
             Publish message acts on the selected topic.{fifo ? <> With <ResourceTo to={{ service, kind, name: fifo.name }}>{fifo.name}</ResourceTo> selected instead, it opens the Publish message page of the FIFO topic.</> : null}
           </p>
           <div className="mt-4 flex flex-wrap items-center justify-end gap-3 text-[13px] text-muted-foreground"><span data-testid="page-line">{list.hasNextPage ? `1 to ${rows.length} topics, more to load` : `${rows.length} ${rows.length === 1 ? "topic" : "topics"}, one ListTopics page (a page holds up to 100)`}</span><Button type="button" variant="outline" size="sm" className="bg-card" disabled aria-label="Previous page" data-testid="page-previous"><ChevronLeftIcon /> Previous</Button><Button type="button" variant="outline" size="sm" className="bg-card" disabled={!list.hasNextPage || list.isFetchingNextPage} onClick={() => void list.fetchNextPage()} data-testid="load-more">Next <ChevronRightIcon /></Button></div>
-          <div className="mt-12"><LastCalls calls={recent} /></div>
+          <div className="mt-12"><div data-testid="last-calls"><RecentCalls calls={recent} noun="topic" title="Last calls in SNS" scope="SNS" limit={20} /></div></div>
         </>
       )}
       {pick && (

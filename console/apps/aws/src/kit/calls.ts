@@ -20,6 +20,8 @@ export type CallerWords = {
  * an IAM user is shown by name; any other key by the client that signed with it (`AWS CLI`, `boto3`), the key beside it. */
 export function callerWords(call: Pick<CallRecord, "caller" | "via" | "sdk">, titles: ReadonlyMap<string, string>, names: ReadonlyMap<string, KeyPrincipal>): CallerWords {
   const key = call.caller;
+  // The console's own calls go over the services' bus, so they carry a `via` that names no service: they are the console's, not "a service".
+  if (key === "console" && call.via && !call.via.by) return { label: "This console", key: null, title: who({ key, kind: "console", name: null, arn: null }).title };
   if (call.via) {
     const by = call.via.by ? (serviceTitle(call.via.by, titles) ?? call.via.by) : "A service, as the caller's role";
     const label = call.via.name ? `${by} ${call.via.name}` : by;

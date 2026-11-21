@@ -26,7 +26,7 @@ export function AccessTab({ t, edit }: TabProps) {
   return (
     <div className="grid gap-4" data-testid="access-tab">
       <Block title="Access policy" lede="Who can publish to this topic and who can subscribe to it. This is the topic's Policy attribute." actions={<EditButton onClick={edit} />}>
-        {t.policy ? <CodeBlock text={pretty(t.policy)} max="max-h-[460px]" testId="policy-json" /> : <p className="text-[13.5px] text-muted-foreground">No policy is set.</p>}
+        {t.policy ? <CodeBlock text={pretty(t.policy)} max="max-h-none" testId="policy-json" /> : <p className="text-[13.5px] text-muted-foreground">No policy is set.</p>}
       </Block>
       <p className="max-w-[56rem] text-[13.5px] leading-[21px] text-muted-foreground">By default, only the topic owner can publish or subscribe to the topic. When you create a topic in the console, the default policy uses the aws:SourceOwner condition key. To change it, choose Edit and replace the JSON; the API can also add or remove one statement at a time with AddPermission and RemovePermission.</p>
     </div>
@@ -51,6 +51,10 @@ export function RetryTab({ t, edit, http }: TabProps & { http: number }) {
         <p className="flex flex-wrap items-center gap-2 text-[13px] leading-5 text-muted-foreground">
           <Badge variant="outline" className="font-normal" data-testid="retry-applied">Applied locally</Badge>
           {own ? "This topic's own policy is in force" : "No policy of its own: the defaults are in force"}. doze-aws retries a failed HTTP or HTTPS POST under these attributes ({http === 0 ? "none of this topic's subscriptions is one" : `${http} of this topic's subscriptions ${http === 1 ? "is" : "are"} one`}); a backoffFunction other than linear is approximated by linear. The total policy retry time for an HTTP/S endpoint cannot be greater than 3,600 seconds. A subscription can carry its own policy; a topic-level one applies to all HTTP/S subscriptions of the topic.
+        </p>
+        <p className="flex flex-wrap items-center gap-2 text-[13px] leading-5 text-muted-foreground" data-testid="retry-stored">
+          <Badge variant="outline" className="font-normal">Stored, not applied</Badge>
+          <span><span className="font-mono text-[12.5px]">maxReceivesPerSecond</span> and <span className="font-mono text-[12.5px]">headerContentType</span> are kept and read back, but doze-aws does not throttle deliveries and always posts as text/plain; charset=UTF-8.</span>
         </p>
       </Block>
       <Block title="What SNS does on AWS for the endpoints this topic has" lede="Amazon SQS and AWS Lambda are AWS managed endpoints. Except for HTTP/S, you can't change Amazon SNS-defined delivery policies. doze-aws makes one synchronous attempt for them and does not follow this schedule.">

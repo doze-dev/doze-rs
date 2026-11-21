@@ -12,10 +12,10 @@ import { useUrlParam } from "@doze/ui/hooks/use-url-param";
 import { useAbout } from "../../../api/queries";
 import { useDelete, useResourceDetail, useResourceList } from "../../../api/resources";
 import type { ResourceDetail } from "../../../api/types/ResourceDetail";
-import { ResourcePage, ResourcePageSkeleton, TagsTab, type Verb, useTags } from "../../../kit";
-import { HINT } from "../index-page";
+import { RecentCalls, ResourcePage, ResourcePageSkeleton, TagsTab, type Verb, useTags } from "../../../kit";
+import { hintFor } from "../index-page";
 import { ConfirmSubscription } from "./confirm-dialog";
-import { Block, Rich, TopicCalls } from "./parts";
+import { Block, Rich } from "./parts";
 import { lastPublished, publishedSentence } from "./publish-result";
 import { rawWords } from "./sentences";
 import { useSubscriptions } from "./sub-reads";
@@ -39,7 +39,7 @@ export function TopicDetail({ service, kind, name }: { service: string; kind: st
     void qc.invalidateQueries({ queryKey: ["resources", "tags", service, kind, name] });
     void qc.invalidateQueries({ queryKey: ["resources", "one", "sns", "subscriptions"] });
   };
-  if (detail.isError && !detail.data) return <ErrorBlock what="This topic could not be read" error={detail.error} hint={HINT} onRetry={refresh} retrying={detail.isFetching} testId="detail-error" />;
+  if (detail.isError && !detail.data) return <ErrorBlock what="This topic could not be read" error={detail.error} hint={hintFor(detail.error, "topic")} onRetry={refresh} retrying={detail.isFetching} testId="detail-error" />;
   if (!detail.data) return <ResourcePageSkeleton />;
   return <TopicView d={detail.data} updatedAt={detail.dataUpdatedAt} fetching={detail.isFetching} refresh={refresh} />;
 }
@@ -60,7 +60,6 @@ function TopicView({ d, updatedAt, fetching, refresh }: { d: ResourceDetail; upd
   const [asked, setTab] = useUrlParam("tab");
   const [dialog, setDialog] = useState<Dialog>(null);
   const [confirming, setConfirming] = useState<ReturnType<typeof topicSubs>[number] | null>(null);
-  const [mine, setMine] = useState(false);
   const del = useDelete("sns", "topics");
   const go = (view?: string, done?: string, tab?: string) => void navigate({ to: "/resources/$service/$kind/$name", params: { service: d.service, kind: d.kind, name: d.name }, search: { ...(view ? { view } : {}), ...(done ? { done } : {}), ...(tab ? { tab } : {}) } });
   if (search.view === "edit" || search.view === "publish") {
@@ -95,7 +94,7 @@ function TopicView({ d, updatedAt, fetching, refresh }: { d: ResourceDetail; upd
   const edit = () => go("edit");
   const http = subs.filter((s) => s.protocol === "http" || s.protocol === "https").length;
   const tabs = [
-    { id: "subscriptions", label: "Subscriptions", render: () => <><SubscriptionsTab d={d} arn={t.arn} fifo={t.fifo} create={() => void navigate({ to: "/resources/$service/$second", params: { service: "sns", second: "subscriptions" }, search: { create: "yes", from: t.arn } })} confirm={setConfirming} /><div className="mt-12"><TopicCalls d={d} mine={mine} onMine={setMine} /></div></> },
+    { id: "subscriptions", label: "Subscriptions", render: () => <><SubscriptionsTab d={d} arn={t.arn} fifo={t.fifo} create={() => void navigate({ to: "/resources/$service/$second", params: { service: "sns", second: "subscriptions" }, search: { create: "yes", from: t.arn } })} confirm={setConfirming} /><div className="mt-12"><RecentCalls calls={d.calls} noun="topic" title={`Last calls that touched ${d.name}`} scope={d.name} pin={search.done === "published" ? ["Publish"] : search.done === "subscribed" ? ["Subscribe"] : undefined} /></div></> },
     { id: "access", label: "Access policy", render: () => <AccessTab t={t} edit={edit} /> },
     ...(t.fifo ? [] : [{ id: "retry", label: "Delivery retry policy (HTTP/S)", render: () => <RetryTab t={t} edit={edit} http={http} /> }]),
     { id: "logging", label: "Delivery status logging", render: () => <LoggingTab t={t} edit={edit} /> },

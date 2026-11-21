@@ -109,7 +109,7 @@ export function Details({ f, set, p, show, topicHint, locked, after }: SubFieldP
  * (crates/aws-sns/src/filter.rs: the policy is parsed for the scope it has). */
 export function FilterPolicy({ f, set, p, collapsed }: SubFieldProps & { collapsed: boolean }) {
   return (
-    <FormSection title="Subscription filter policy" collapsible defaultOpen={!collapsed} description="Optional. Deliver only the messages that match." summary={f.filter.trim() !== "" ? "A filter policy: only the messages that match are delivered." : "No filter policy: every message published to the topic is delivered"} testId="section-filter">
+    <FormSection title="Subscription filter policy" collapsible={collapsed} defaultOpen={!collapsed} description="Optional. Deliver only the messages that match." summary={f.filter.trim() !== "" ? "A filter policy: only the messages that match are delivered." : "No filter policy: every message published to the topic is delivered"} testId="section-filter">
       {(
         <>
           <div className="grid gap-1.5">
@@ -142,7 +142,7 @@ export function Redrive({ f, set, p, show, collapsed }: SubFieldProps & { collap
   const chosen = f.dlq.split(":").pop() ?? "";
   const kind = queues.rows.find((r) => r.name === chosen)?.cells[0] === "FIFO" ? "a FIFO queue" : "a standard queue";
   return (
-    <FormSection title="Redrive policy (dead-letter queue)" collapsible defaultOpen={!collapsed} description="Optional. Where messages go when they cannot be delivered." summary={f.redriveOn ? `Enabled: ${chosen || "no queue chosen"}.` : "Disabled."} testId="section-redrive">
+    <FormSection title="Redrive policy (dead-letter queue)" collapsible={collapsed} defaultOpen={!collapsed} description="Optional. Where messages go when they cannot be delivered." summary={f.redriveOn ? `Enabled: ${chosen || "no queue chosen"}.` : "Disabled."} testId="section-redrive">
       <div className="flex items-center gap-3">
         <Switch id="redrive-on" checked={f.redriveOn} onCheckedChange={(redriveOn) => set({ redriveOn })} data-testid="redrive-on" />
         <div className="grid"><Label htmlFor="redrive-on">{f.redriveOn ? "Enabled" : "Disabled"}</Label><span className="text-[13px] text-muted-foreground">Attribute: RedrivePolicy.</span></div>

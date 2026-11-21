@@ -3,7 +3,7 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate, useSearch } from "@tanstack/react-router";
 import { ArrowRightIcon } from "lucide-react";
-import { lazy, Suspense, useMemo, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import { Callout } from "@doze/ui/components/app/callout";
 import { ErrorBlock } from "@doze/ui/components/app/alert";
 import { CodeBlock } from "@doze/ui/components/app/code-block";
@@ -13,11 +13,11 @@ import { ResultBanner } from "@doze/ui/components/app/result-banner";
 import { Skeleton } from "@doze/ui/components/ui/skeleton";
 import { useDelete, useResourceDetail } from "../../../api/resources";
 import type { ResourceDetail } from "../../../api/types/ResourceDetail";
-import { resourceHref, ResourcePage, ResourcePageSkeleton, type Verb } from "../../../kit";
-import { HINT } from "../index-page";
+import { RecentCalls, resourceHref, ResourcePage, ResourcePageSkeleton, type Verb } from "../../../kit";
+import { hintFor } from "../index-page";
 import { ResourceTo } from "../value";
 import { inlineJson, policyWords } from "./filter-match";
-import { Block, Rich, TopicCalls } from "./parts";
+import { Block, Rich } from "./parts";
 import { protocolLabel } from "./protocols";
 import { b, type Part } from "./sentences";
 import { redriveTarget, subscriptionOf, type Subscription } from "./sub-form-model";
@@ -36,7 +36,7 @@ export function SubDetail({ service, kind, name }: { service: string; kind: stri
     void refetch();
     void qc.invalidateQueries({ queryKey: ["resources", "one", "sns", "topics"] });
   };
-  if (detail.isError && !detail.data) return <ErrorBlock what="This subscription could not be read" error={detail.error} hint={HINT} onRetry={refresh} retrying={detail.isFetching} testId="detail-error" />;
+  if (detail.isError && !detail.data) return <ErrorBlock what="This subscription could not be read" error={detail.error} hint={hintFor(detail.error, "subscription")} onRetry={refresh} retrying={detail.isFetching} testId="detail-error" />;
   if (!detail.data) return <ResourcePageSkeleton />;
   return <SubView d={detail.data} updatedAt={detail.dataUpdatedAt} fetching={detail.isFetching} refresh={refresh} />;
 }
@@ -68,9 +68,16 @@ function SubView({ d, updatedAt, fetching, refresh }: { d: ResourceDetail; updat
   const del = useDelete("sns", "subscriptions");
   const [asking, setAsking] = useState(false);
   const [confirming, setConfirming] = useState(false);
-  const [mine, setMine] = useState(false);
   const go = (view?: string, done?: string) => void navigate({ to: "/resources/$service/$kind/$name", params: { service: d.service, kind: d.kind, name: d.name }, search: { ...(view ? { view } : {}), ...(done ? { done } : {}) } });
   const pending = isPending(d.name) || s.pending;
+  // A Subscribe names the topic, not the subscription it made; just after creating one, the topic's newest Subscribe is the one that made it.
+  const asked = search.done === "created" && s.topicArn !== "";
+  const made = useResourceDetail("sns", "topics", tail(s.topicArn), asked);
+  const { refetch: reread } = made;
+  // The topic's page may be cached from before the Subscribe: read it again.
+  useEffect(() => { if (asked) void reread(); }, [asked, reread]);
+  const subscribe = search.done === "created" ? made.data?.calls.find((c) => c.action === "Subscribe" && c.status < 400) : undefined;
+  const calls = subscribe ? [subscribe, ...d.calls].sort((x, y) => y.at_ms - x.at_ms) : d.calls;
   if (search.view === "edit" && s.arn) return <Suspense fallback={<Skeleton className="h-96 rounded-[14px]" />}><Edit d={d} s={s} back={() => go()} done={(done) => go(undefined, done)} /></Suspense>;
   const id = s.arn ? tail(s.arn) : null;
   const title = shortId(id);
@@ -129,7 +136,7 @@ function SubView({ d, updatedAt, fetching, refresh }: { d: ResourceDetail; updat
         refresh={<RefreshControl updatedAt={updatedAt} fetching={fetching} onRefresh={refresh} interval={false} />}
         testId="sub-page"
       />
-      <div className="mt-12"><TopicCalls d={d} mine={mine} onMine={setMine} what="this subscription" /></div>
+      <div className="mt-12"><RecentCalls calls={calls} noun="subscription" title="Last calls that touched this subscription" pin={["Subscribe"]} /></div>
       <DeleteSubscription open={asking} onOpenChange={(o) => { setAsking(o); if (!o) del.reset(); }} protocol={s.protocol} endpoint={s.endpoint} topic={topic} pending={del.isPending} error={del.error}
         onConfirm={() => del.mutate(d.name, { onSuccess: () => { setAsking(false); void navigate({ to: "/resources/$service/$second", params: { service: "sns", second: "subscriptions" }, search: { gone: title } }); } })} />
       <ConfirmSubscription sub={confirming ? { name: d.name, pending: true, topicArn: s.topicArn, topic, protocol: s.protocol, endpoint: s.endpoint, id: null } : null} topic={topic} onClose={() => setConfirming(false)} onDone={() => { setConfirming(false); void navigate({ to: "/resources/$service/$kind/$name", params: { service: "sns", kind: "topics", name: topic }, search: { done: "confirmed", tab: "subscriptions" } }); }} />

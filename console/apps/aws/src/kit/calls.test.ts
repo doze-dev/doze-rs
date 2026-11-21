@@ -21,6 +21,9 @@ describe("callerWords", () => {
   test("the console and a call with no key say so", () => {
     expect(callerWords({ caller: "console", sdk: null, via: null }, titles, names).label).toBe("This console");
     expect(callerWords({ caller: null, sdk: null, via: null }, titles, names).label).toBe("–");
+    // The console's calls ride the bus, so they carry a via with no service; a service acting for the console is still a service.
+    expect(callerWords({ caller: "console", sdk: null, via: { by: null, name: null, request_id: null } }, titles, names).label).toBe("This console");
+    expect(callerWords({ caller: "console", sdk: null, via: { by: "sns", name: null, request_id: null } }, titles, names).label).toBe("SNS");
   });
 });
 
