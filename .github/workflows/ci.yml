@@ -599,7 +599,9 @@ jobs:
         run: |
           for t in json_node avro_schema protobuf_schema json_schema registry_api wire codec; do
             mkdir -p "corpus/$t"
-            cargo fuzz run "$t" "corpus/$t" -- -max_total_time=30 -max_len=65536
+            seeds=""
+            if [ -d "seeds/$t" ]; then seeds="seeds/$t"; fi
+            cargo fuzz run "$t" "corpus/$t" $seeds -- -max_total_time=30 -max_len=65536
           done
       - name: Fuzz the allowed-hosts guard for 30 seconds
         working-directory: crates/kafka-auth/fuzz

@@ -102,6 +102,12 @@ doze-cli 9000000 240 0
 # regex-lite already linked), idle 7,248 KB (samples 7,248, 7,248, 7,232). The bytes are the regenerated and patched message codecs and
 # the handlers' new versions. Bytes: times CI's 1.3747 is 12,911,336 B on ubuntu x86_64, plus 5% = 13,556,903 B until CI measures it (ceiling
 # 15 MB). Idle unchanged: 11,880 KB.
+# 2026-11-19, the registry gaps (branch kafka-registry-gaps: data contracts kept with a schema, Protobuf normalized as Confluent
+# normalizes it, JSON Schema numbers past BigDecimal), measured with `cargo xtask weight doze-kafka` on darwin arm64: 9,492,256 B
+# (+100,144 B, +1.07%, over the wire tail's 9,392,112 B), 182 packages (no new package), idle 7,232 KB (samples 7,184, 7,232, 7,248).
+# The bytes are Rust code in kafka-registry: the port of Confluent's ProtobufSchemaUtils normalizer, the contract model with its
+# merging, checking and Jackson-style reading, and the metadata route. Bytes: times CI's 1.3747 is 13,049,004 B on ubuntu x86_64,
+# plus 5% = 13,701,455 B until CI measures it (ceiling 15 MB). Idle unchanged: 11,880 KB.
 # 2026-11-19, the console debt cleared (branch kafka-debt-console: written by, the before cursor, Home's offline partitions, the held
 # readers, the tape's facts of producers and transactions, flushed through, the index head, the cleaner's verdict on save): the release
 # binary on darwin arm64 was 9,126,832 B against 9,093,488 B at its base (+33,344 B, Rust code and the larger bundle), no new package;
@@ -117,16 +123,28 @@ doze-cli 9000000 240 0
 # written out, the codecs are the batch's), idle 7,184 KB (samples 7,168, 7,232, 7,184). The bytes are the conversions, the
 # regenerated codecs of eight messages' oldest versions and the release rules of the handlers. Bytes: times CI's 1.3747 is 13,025,074 B
 # on ubuntu x86_64, plus 5% = 13,676,328 B until CI measures it (ceiling 15 MB). Idle unchanged: 11,880 KB.
+# 2026-11-21, the registry gaps and the older profiles together (kafka-registry-gaps over main at e8fca6b2a), measured with
+# `cargo xtask weight doze-kafka` on darwin arm64: 9,575,040 B (+100,192 B over the older profiles' 9,474,848 B, the gaps' own +100,144 B
+# as before), 182 packages (none added), idle 7,168 KB (samples 7,120, 7,168, 7,168). Bytes: times CI's 1.3747 is 13,162,807 B on
+# ubuntu x86_64, plus 5% = 13,820,948 B until CI measures it (ceiling 15 MB). Idle unchanged: 11,880 KB.
+# 2026-11-21, core M3: doze-bolt (+1 package), the bbolt reader the module face takes a Go module's data over with.
+# 2026-11-21, the registry gaps over core M3 (kafka-registry-gaps over main at 738f7332f), measured with `cargo xtask weight doze-kafka`
+# on darwin arm64: 9,624,864 B (+49,824 B over the gaps with the older profiles, 9,575,040 B: core M3's Go-data import), 183 packages,
+# idle 7,264 KB (samples 7,264, 7,312, 7,184). Bytes: times CI's 1.3747 is 13,231,301 B on ubuntu x86_64, plus 5% = 13,892,866 B until
+# CI measures it (ceiling 15 MB). Idle unchanged: 11,880 KB.
 # 2026-11-21, the console debt and the older profiles together (kafka-debt-console over main at e8fca6b2a), measured
 # with `cargo xtask weight doze-kafka` on darwin arm64: 9,508,192 B (+33,344 B over the older profiles' 9,474,848 B, the debt's own
 # +33,312 B as before), 182 packages (none added), idle 7,312 KB (samples 7,296, 7,328, 7,312). Bytes: times CI's 1.3747 is 13,070,912 B
 # on ubuntu x86_64, plus 5% = 13,724,457 B until CI measures it (ceiling 15 MB). Idle unchanged: 11,880 KB.
-# 2026-11-21, core M3: doze-bolt (+1 package), the bbolt reader the module face takes a Go module's data over with.
 # 2026-11-21, the console debt over core M3 (kafka-debt-console over main at 738f7332f), measured with `cargo xtask weight doze-kafka`
 # on darwin arm64: 9,558,032 B (+49,840 B over the debt with the older profiles, 9,508,192 B: core M3's Go-data import), 183 packages,
 # idle 7,216 KB (samples 7,168, 7,216, 7,248). Bytes: times CI's 1.3747 is 13,139,427 B on ubuntu x86_64, plus 5% = 13,796,398 B until
 # CI measures it (ceiling 15 MB). Idle unchanged: 11,880 KB.
-doze-kafka 13796398 183 11880 --listen 127.0.0.1:{port} --data-dir {data}
+# 2026-11-21, the registry gaps over the console debt (kafka-registry-gaps over main after #105), measured with `cargo xtask weight
+# doze-kafka` on darwin arm64: 9,674,656 B (+116,624 B over the debt's 9,558,032 B: the gaps, and what main took in since #57), 183
+# packages, idle 7,216 KB. Bytes: times CI's 1.3747 is 13,299,750 B on ubuntu x86_64, plus 5% = 13,964,737 B until CI measures it
+# (ceiling 15 MB). Idle unchanged: 11,880 KB.
+doze-kafka 13964737 183 11880 --listen 127.0.0.1:{port} --data-dir {data}
 # 2026-11-14, with the schema registry too (Phase 10a, docs/port/phase10.md): 6,791,104 B on darwin arm64 (+216,800 B over the module's 6,574,304 B),
 # 171 packages (no third-party package), 7,248 KB idle. Times 1.36: about 9.24 MB on ubuntu x86_64, under this line (9,386,171 B), which does not move.
 # 2026-11-14, with Protobuf (Phase 10b, written here, no Protobuf crate): 6,857,840 B on darwin arm64 (+66,736 B), 171 packages (none added), 7,376 KB idle.

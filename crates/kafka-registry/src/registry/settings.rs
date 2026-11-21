@@ -1,7 +1,7 @@
 //! Compatibility levels and modes, of a subject and of the whole registry (the empty subject). A subject without its own
 //! has the global one; the global level is BACKWARD and the global mode READWRITE until set.
 
-use super::{Registry, State, check_subject};
+use super::{ContractConfig, Registry, State, check_subject};
 use crate::error::{RegistryError, code};
 use crate::store::{Batch, Key, Setting};
 
@@ -113,9 +113,9 @@ impl Mode {
     }
 }
 
-/// The settings Confluent keeps beside a level (`ConfigUpdateRequest`): each one set or not. `normalize` is applied (a
-/// registration, lookup or check normalizes when its subject's, or else the global, setting says so); the others are kept
-/// and answered as Confluent answers them but change nothing here (REG-D26). The metadata and rule sets are their JSON.
+/// The settings Confluent keeps beside a level (`ConfigUpdateRequest`): each one set or not. `normalize`, the group and
+/// the default and override metadata and rule sets act as Confluent's do (REG-42, REG-47); `alias` and `validateFields`
+/// are kept and answered but change nothing. The metadata and rule sets are their JSON as this registry writes them.
 #[derive(Debug, Clone, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct ConfigExtra {
     pub alias: Option<String>,
@@ -181,13 +181,44 @@ impl State {
             .unwrap_or(Mode::ReadWrite)
     }
 
-    /// Whether a subject's schemas are normalized when a request does not ask: its own setting, else the global one.
+    /// The settings in force for a subject: its own configuration, whole, when it has one, else the global one, as
+    /// Confluent's `getConfigInScope` takes them (recorded: data-contracts/config-defaults-and-overrides, where a subject's
+    /// own level hides the global default metadata).
+    pub(super) fn extra_in_scope(&self, subject: &str) -> Option<&ConfigExtra> {
+        if !subject.is_empty()
+            && (self.levels.contains_key(subject) || self.extras.contains_key(subject))
+        {
+            return self.extras.get(subject);
+        }
+        self.extras.get("")
+    }
+
+    /// Whether a subject's schemas are normalized when a request does not ask: the `normalize` of its configuration in
+    /// scope.
     pub(super) fn normalizes(&self, subject: &str) -> bool {
-        let own = (!subject.is_empty())
-            .then(|| self.extras.get(subject).and_then(|e| e.normalize))
-            .flatten();
-        own.or_else(|| self.extras.get("").and_then(|e| e.normalize))
+        self.extra_in_scope(subject)
+            .and_then(|e| e.normalize)
             .unwrap_or(false)
+    }
+
+    /// The defaults and overrides of a contract in scope for a subject.
+    pub(super) fn contract_config(&self, subject: &str) -> ContractConfig {
+        use super::contract::read::{stored_metadata, stored_rule_set};
+        let Some(e) = self.extra_in_scope(subject) else {
+            return ContractConfig::default();
+        };
+        ContractConfig {
+            default_metadata: stored_metadata(e.default_metadata.as_deref()),
+            override_metadata: stored_metadata(e.override_metadata.as_deref()),
+            default_rule_set: stored_rule_set(e.default_rule_set.as_deref()),
+            override_rule_set: stored_rule_set(e.override_rule_set.as_deref()),
+        }
+    }
+
+    /// The metadata property that parts a subject's versions into groups compared only among themselves.
+    pub(super) fn compatibility_group(&self, subject: &str) -> Option<String> {
+        self.extra_in_scope(subject)
+            .and_then(|e| e.compatibility_group.clone())
     }
 
     /// The configuration a subject has of its own (`""`: the global one, which always has one).

@@ -1,0 +1,1871 @@
+[
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/u-value/versions",
+   "b": "{\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"}]}\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":1}",
+    "ms": 138
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":1,\"version\":1,\"guid\":\"4b14778e-4b95-583f-33ff-e549c9adc1d2\",\"schemaType\":\"AVRO\",\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"}]}\"}",
+    "ms": 148
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":1}",
+    "ms": 5
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/u-value/versions",
+   "b": "{\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"}]}\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":1}",
+    "ms": 8
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":1,\"version\":1,\"guid\":\"4b14778e-4b95-583f-33ff-e549c9adc1d2\",\"schemaType\":\"AVRO\",\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"}]}\"}",
+    "ms": 10
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":1}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/u-value/versions",
+   "b": "{\"schema\":\"{\\n  \\\"type\\\": \\\"record\\\",\\n  \\\"name\\\": \\\"User\\\",\\n  \\\"namespace\\\": \\\"com.example\\\",\\n  \\\"fields\\\": [\\n    {\\n      \\\"name\\\": \\\"id\\\",\\n      \\\"type\\\": \\\"long\\\"\\n    }\\n  ]\\n}\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":1}",
+    "ms": 7
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":1,\"version\":1,\"guid\":\"4b14778e-4b95-583f-33ff-e549c9adc1d2\",\"schemaType\":\"AVRO\",\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"}]}\"}",
+    "ms": 3
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":1}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/u-value/versions",
+   "b": "{\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"}]}\",\"schemaType\":\"AVRO\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":1}",
+    "ms": 5
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":1,\"version\":1,\"guid\":\"4b14778e-4b95-583f-33ff-e549c9adc1d2\",\"schemaType\":\"AVRO\",\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"}]}\"}",
+    "ms": 2
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":1}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/u-value/versions",
+   "b": "{\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"},{\\\"name\\\":\\\"email\\\",\\\"type\\\":[\\\"null\\\",\\\"string\\\"],\\\"default\\\":null}]}\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":2}",
+    "ms": 12
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":2,\"version\":2,\"guid\":\"bce0f3a1-ec82-ea9c-3aa0-db62f02a5d68\",\"schemaType\":\"AVRO\",\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"},{\\\"name\\\":\\\"email\\\",\\\"type\\\":[\\\"null\\\",\\\"string\\\"],\\\"default\\\":null}]}\"}",
+    "ms": 30
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":2}",
+    "ms": 5
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "GET",
+   "p": "/subjects"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "[\"u-value\"]",
+    "ms": 17
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "[\"u-value\"]",
+    "ms": 8
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "[\"u-value\"]",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "GET",
+   "p": "/subjects/u-value/versions"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "[1,2]",
+    "ms": 7
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "[1,2]",
+    "ms": 8
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "[1,2]",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "GET",
+   "p": "/subjects/u-value/versions/1"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"u-value\",\"version\":1,\"id\":1,\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"}]}\"}",
+    "ms": 7
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"u-value\",\"version\":1,\"id\":1,\"guid\":\"4b14778e-4b95-583f-33ff-e549c9adc1d2\",\"schemaType\":\"AVRO\",\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"}]}\",\"ts\":1795104619917,\"deleted\":false}",
+    "ms": 7
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"u-value\",\"version\":1,\"id\":1,\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"}]}\"}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "GET",
+   "p": "/subjects/u-value/versions/2"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"u-value\",\"version\":2,\"id\":2,\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"},{\\\"name\\\":\\\"email\\\",\\\"type\\\":[\\\"null\\\",\\\"string\\\"],\\\"default\\\":null}]}\"}",
+    "ms": 3
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"u-value\",\"version\":2,\"id\":2,\"guid\":\"bce0f3a1-ec82-ea9c-3aa0-db62f02a5d68\",\"schemaType\":\"AVRO\",\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"},{\\\"name\\\":\\\"email\\\",\\\"type\\\":[\\\"null\\\",\\\"string\\\"],\\\"default\\\":null}]}\",\"ts\":1795104620001,\"deleted\":false}",
+    "ms": 2
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"u-value\",\"version\":2,\"id\":2,\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"},{\\\"name\\\":\\\"email\\\",\\\"type\\\":[\\\"null\\\",\\\"string\\\"],\\\"default\\\":null}]}\"}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "GET",
+   "p": "/subjects/u-value/versions/latest"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"u-value\",\"version\":2,\"id\":2,\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"},{\\\"name\\\":\\\"email\\\",\\\"type\\\":[\\\"null\\\",\\\"string\\\"],\\\"default\\\":null}]}\"}",
+    "ms": 4
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"u-value\",\"version\":2,\"id\":2,\"guid\":\"bce0f3a1-ec82-ea9c-3aa0-db62f02a5d68\",\"schemaType\":\"AVRO\",\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"},{\\\"name\\\":\\\"email\\\",\\\"type\\\":[\\\"null\\\",\\\"string\\\"],\\\"default\\\":null}]}\",\"ts\":1795104620001,\"deleted\":false}",
+    "ms": 3
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"u-value\",\"version\":2,\"id\":2,\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"},{\\\"name\\\":\\\"email\\\",\\\"type\\\":[\\\"null\\\",\\\"string\\\"],\\\"default\\\":null}]}\"}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "GET",
+   "p": "/subjects/u-value/versions/-1"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"u-value\",\"version\":2,\"id\":2,\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"},{\\\"name\\\":\\\"email\\\",\\\"type\\\":[\\\"null\\\",\\\"string\\\"],\\\"default\\\":null}]}\"}",
+    "ms": 3
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"u-value\",\"version\":2,\"id\":2,\"guid\":\"bce0f3a1-ec82-ea9c-3aa0-db62f02a5d68\",\"schemaType\":\"AVRO\",\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"},{\\\"name\\\":\\\"email\\\",\\\"type\\\":[\\\"null\\\",\\\"string\\\"],\\\"default\\\":null}]}\",\"ts\":1795104620001,\"deleted\":false}",
+    "ms": 2
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"u-value\",\"version\":2,\"id\":2,\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"},{\\\"name\\\":\\\"email\\\",\\\"type\\\":[\\\"null\\\",\\\"string\\\"],\\\"default\\\":null}]}\"}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "GET",
+   "p": "/subjects/u-value/versions/0"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42202,\"message\":\"The specified version '0' is not a valid version id. Allowed values are between [1, 2^31-1] and the string \\\"latest\\\"\"}",
+    "ms": 5
+   },
+   "confluent-8": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42202,\"message\":\"The specified version '0' is not a valid version id. Allowed values are between [1, 2^31-1] and the string \\\"latest\\\"\"}",
+    "ms": 6
+   },
+   "doze": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42202,\"message\":\"The specified version '0' is not a valid version id. Allowed values are between [1, 2^31-1] and the string \\\"latest\\\"\"}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "GET",
+   "p": "/subjects/u-value/versions/-2"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42202,\"message\":\"The specified version '-2' is not a valid version id. Allowed values are between [1, 2^31-1] and the string \\\"latest\\\"\"}",
+    "ms": 3
+   },
+   "confluent-8": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42202,\"message\":\"The specified version '-2' is not a valid version id. Allowed values are between [1, 2^31-1] and the string \\\"latest\\\"\"}",
+    "ms": 3
+   },
+   "doze": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42202,\"message\":\"The specified version '-2' is not a valid version id. Allowed values are between [1, 2^31-1] and the string \\\"latest\\\"\"}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "GET",
+   "p": "/subjects/u-value/versions/3"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 404,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":40402,\"message\":\"Version 3 not found.\"}",
+    "ms": 1
+   },
+   "confluent-8": {
+    "status": 404,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":40402,\"message\":\"Version 3 not found.\"}",
+    "ms": 2
+   },
+   "doze": {
+    "status": 404,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":40402,\"message\":\"Version 3 not found.\"}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "GET",
+   "p": "/subjects/u-value/versions/abc"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42202,\"message\":\"The specified version 'abc' is not a valid version id. Allowed values are between [1, 2^31-1] and the string \\\"latest\\\"\"}",
+    "ms": 5
+   },
+   "confluent-8": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42202,\"message\":\"The specified version 'abc' is not a valid version id. Allowed values are between [1, 2^31-1] and the string \\\"latest\\\"\"}",
+    "ms": 1
+   },
+   "doze": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42202,\"message\":\"The specified version 'abc' is not a valid version id. Allowed values are between [1, 2^31-1] and the string \\\"latest\\\"\"}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "GET",
+   "p": "/subjects/u-value/versions/2147483648"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42202,\"message\":\"The specified version '2147483648' is not a valid version id. Allowed values are between [1, 2^31-1] and the string \\\"latest\\\"\"}",
+    "ms": 3
+   },
+   "confluent-8": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42202,\"message\":\"The specified version '2147483648' is not a valid version id. Allowed values are between [1, 2^31-1] and the string \\\"latest\\\"\"}",
+    "ms": 3
+   },
+   "doze": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42202,\"message\":\"The specified version '2147483648' is not a valid version id. Allowed values are between [1, 2^31-1] and the string \\\"latest\\\"\"}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "GET",
+   "p": "/subjects/u-value/versions/01"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"u-value\",\"version\":1,\"id\":1,\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"}]}\"}",
+    "ms": 1
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"u-value\",\"version\":1,\"id\":1,\"guid\":\"4b14778e-4b95-583f-33ff-e549c9adc1d2\",\"schemaType\":\"AVRO\",\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"}]}\",\"ts\":1795104619917,\"deleted\":false}",
+    "ms": 2
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"u-value\",\"version\":1,\"id\":1,\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"}]}\"}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "GET",
+   "p": "/subjects/u-value/versions/1/schema"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"type\":\"record\",\"name\":\"User\",\"namespace\":\"com.example\",\"fields\":[{\"name\":\"id\",\"type\":\"long\"}]}",
+    "ms": 3
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"type\":\"record\",\"name\":\"User\",\"namespace\":\"com.example\",\"fields\":[{\"name\":\"id\",\"type\":\"long\"}]}",
+    "ms": 4
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"type\":\"record\",\"name\":\"User\",\"namespace\":\"com.example\",\"fields\":[{\"name\":\"id\",\"type\":\"long\"}]}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "GET",
+   "p": "/subjects/u-value/versions/latest/schema"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"type\":\"record\",\"name\":\"User\",\"namespace\":\"com.example\",\"fields\":[{\"name\":\"id\",\"type\":\"long\"},{\"name\":\"email\",\"type\":[\"null\",\"string\"],\"default\":null}]}",
+    "ms": 1
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"type\":\"record\",\"name\":\"User\",\"namespace\":\"com.example\",\"fields\":[{\"name\":\"id\",\"type\":\"long\"},{\"name\":\"email\",\"type\":[\"null\",\"string\"],\"default\":null}]}",
+    "ms": 5
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"type\":\"record\",\"name\":\"User\",\"namespace\":\"com.example\",\"fields\":[{\"name\":\"id\",\"type\":\"long\"},{\"name\":\"email\",\"type\":[\"null\",\"string\"],\"default\":null}]}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "GET",
+   "p": "/subjects/u-value/versions/9/schema"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 404,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":40402,\"message\":\"Version 9 not found.\"}",
+    "ms": 2
+   },
+   "confluent-8": {
+    "status": 404,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":40402,\"message\":\"Version 9 not found.\"}",
+    "ms": 2
+   },
+   "doze": {
+    "status": 404,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":40402,\"message\":\"Version 9 not found.\"}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "GET",
+   "p": "/subjects/u-value/versions/1/referencedby"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "[]",
+    "ms": 3
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "[]",
+    "ms": 5
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "[]",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "GET",
+   "p": "/subjects/nobody/versions"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 404,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":40401,\"message\":\"Subject 'nobody' not found.\"}",
+    "ms": 3
+   },
+   "confluent-8": {
+    "status": 404,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":40401,\"message\":\"Subject 'nobody' not found.\"}",
+    "ms": 2
+   },
+   "doze": {
+    "status": 404,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":40401,\"message\":\"Subject 'nobody' not found.\"}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "GET",
+   "p": "/subjects/nobody/versions/1"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 404,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":40401,\"message\":\"Subject 'nobody' not found.\"}",
+    "ms": 1
+   },
+   "confluent-8": {
+    "status": 404,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":40401,\"message\":\"Subject 'nobody' not found.\"}",
+    "ms": 1
+   },
+   "doze": {
+    "status": 404,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":40401,\"message\":\"Subject 'nobody' not found.\"}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "GET",
+   "p": "/subjects/nobody/versions/latest/schema"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 404,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":40401,\"message\":\"Subject 'nobody' not found.\"}",
+    "ms": 3
+   },
+   "confluent-8": {
+    "status": 404,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":40401,\"message\":\"Subject 'nobody' not found.\"}",
+    "ms": 2
+   },
+   "doze": {
+    "status": 404,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":40401,\"message\":\"Subject 'nobody' not found.\"}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "GET",
+   "p": "/schemas/ids/@1"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"}]}\"}",
+    "ms": 2
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"u-value\",\"version\":1,\"guid\":\"4b14778e-4b95-583f-33ff-e549c9adc1d2\",\"schemaType\":\"AVRO\",\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"}]}\",\"ts\":1795104619917,\"deleted\":false}",
+    "ms": 7
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"}]}\"}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "GET",
+   "p": "/schemas/ids/@2"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"},{\\\"name\\\":\\\"email\\\",\\\"type\\\":[\\\"null\\\",\\\"string\\\"],\\\"default\\\":null}]}\"}",
+    "ms": 1
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"u-value\",\"version\":2,\"guid\":\"bce0f3a1-ec82-ea9c-3aa0-db62f02a5d68\",\"schemaType\":\"AVRO\",\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"},{\\\"name\\\":\\\"email\\\",\\\"type\\\":[\\\"null\\\",\\\"string\\\"],\\\"default\\\":null}]}\",\"ts\":1795104620001,\"deleted\":false}",
+    "ms": 3
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"},{\\\"name\\\":\\\"email\\\",\\\"type\\\":[\\\"null\\\",\\\"string\\\"],\\\"default\\\":null}]}\"}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "GET",
+   "p": "/schemas/ids/@1?fetchMaxId=true"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"}]}\",\"maxId\":2}",
+    "ms": 3
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"u-value\",\"version\":1,\"guid\":\"4b14778e-4b95-583f-33ff-e549c9adc1d2\",\"schemaType\":\"AVRO\",\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"}]}\",\"maxId\":2,\"ts\":1795104619917,\"deleted\":false}",
+    "ms": 3
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"}]}\",\"maxId\":2}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "GET",
+   "p": "/schemas/ids/@1?subject=u-value"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"}]}\"}",
+    "ms": 3
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"u-value\",\"version\":1,\"guid\":\"4b14778e-4b95-583f-33ff-e549c9adc1d2\",\"schemaType\":\"AVRO\",\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"}]}\",\"ts\":1795104619917,\"deleted\":false}",
+    "ms": 2
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"}]}\"}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "GET",
+   "p": "/schemas/ids/@1?subject=nobody"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"}]}\"}",
+    "ms": 4
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"u-value\",\"version\":1,\"guid\":\"4b14778e-4b95-583f-33ff-e549c9adc1d2\",\"schemaType\":\"AVRO\",\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"}]}\",\"ts\":1795104619917,\"deleted\":false}",
+    "ms": 5
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"}]}\"}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "GET",
+   "p": "/schemas/ids/@1?format=resolved"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"}]}\"}",
+    "ms": 3
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"u-value\",\"version\":1,\"guid\":\"4b14778e-4b95-583f-33ff-e549c9adc1d2\",\"schemaType\":\"AVRO\",\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"}]}\",\"ts\":1795104619917,\"deleted\":false}",
+    "ms": 5
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"}]}\"}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "GET",
+   "p": "/schemas/ids/@1/schema"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"type\":\"record\",\"name\":\"User\",\"namespace\":\"com.example\",\"fields\":[{\"name\":\"id\",\"type\":\"long\"}]}",
+    "ms": 5
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"type\":\"record\",\"name\":\"User\",\"namespace\":\"com.example\",\"fields\":[{\"name\":\"id\",\"type\":\"long\"}]}",
+    "ms": 6
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"type\":\"record\",\"name\":\"User\",\"namespace\":\"com.example\",\"fields\":[{\"name\":\"id\",\"type\":\"long\"}]}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "GET",
+   "p": "/schemas/ids/@1/subjects"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "[\"u-value\"]",
+    "ms": 4
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "[\"u-value\"]",
+    "ms": 6
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "[\"u-value\"]",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "GET",
+   "p": "/schemas/ids/@1/versions"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "[{\"subject\":\"u-value\",\"version\":1}]",
+    "ms": 2
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "[{\"subject\":\"u-value\",\"version\":1}]",
+    "ms": 4
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "[{\"subject\":\"u-value\",\"version\":1}]",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "GET",
+   "p": "/schemas/ids/999999"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 404,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":40403,\"message\":\"Schema 999999 not found\"}",
+    "ms": 2
+   },
+   "confluent-8": {
+    "status": 404,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":40403,\"message\":\"Schema 999999 not found\"}",
+    "ms": 3
+   },
+   "doze": {
+    "status": 404,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":40403,\"message\":\"Schema 999999 not found\"}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "GET",
+   "p": "/schemas/ids/999999/schema"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 500,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":500,\"message\":\"Internal Server Error\"}",
+    "ms": 3
+   },
+   "confluent-8": {
+    "status": 500,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":500,\"message\":\"Internal Server Error\"}",
+    "ms": 4
+   },
+   "doze": {
+    "status": 404,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":40403,\"message\":\"Schema 999999 not found\"}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "GET",
+   "p": "/schemas/ids/999999/subjects"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 404,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":40403,\"message\":\"Schema not found\"}",
+    "ms": 1
+   },
+   "confluent-8": {
+    "status": 404,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":40403,\"message\":\"Schema not found\"}",
+    "ms": 4
+   },
+   "doze": {
+    "status": 404,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":40403,\"message\":\"Schema not found\"}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "GET",
+   "p": "/schemas/ids/999999/versions"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 404,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":40403,\"message\":\"Schema not found\"}",
+    "ms": 2
+   },
+   "confluent-8": {
+    "status": 404,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":40403,\"message\":\"Schema not found\"}",
+    "ms": 4
+   },
+   "doze": {
+    "status": 404,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":40403,\"message\":\"Schema not found\"}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "GET",
+   "p": "/schemas/ids/abc"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 404,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":404,\"message\":\"HTTP 404 Not Found\"}",
+    "ms": 2
+   },
+   "confluent-8": {
+    "status": 404,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":404,\"message\":\"HTTP 404 Not Found\"}",
+    "ms": 2
+   },
+   "doze": {
+    "status": 404,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":404,\"message\":\"HTTP 404 Not Found\"}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "GET",
+   "p": "/schemas/ids/-1"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 404,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":40403,\"message\":\"Schema -1 not found\"}",
+    "ms": 2
+   },
+   "confluent-8": {
+    "status": 404,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":40403,\"message\":\"Schema -1 not found\"}",
+    "ms": 2
+   },
+   "doze": {
+    "status": 404,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":40403,\"message\":\"Schema -1 not found\"}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "GET",
+   "p": "/schemas/ids/0"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 404,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":40403,\"message\":\"Schema 0 not found\"}",
+    "ms": 2
+   },
+   "confluent-8": {
+    "status": 404,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":40403,\"message\":\"Schema 0 not found\"}",
+    "ms": 2
+   },
+   "doze": {
+    "status": 404,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":40403,\"message\":\"Schema 0 not found\"}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "GET",
+   "p": "/schemas"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "[{\"subject\":\"u-value\",\"version\":1,\"id\":1,\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"}]}\"},{\"subject\":\"u-value\",\"version\":2,\"id\":2,\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"},{\\\"name\\\":\\\"email\\\",\\\"type\\\":[\\\"null\\\",\\\"string\\\"],\\\"default\\\":null}]}\"}]",
+    "ms": 3
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "[{\"subject\":\"u-value\",\"version\":1,\"id\":1,\"guid\":\"4b14778e-4b95-583f-33ff-e549c9adc1d2\",\"schemaType\":\"AVRO\",\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"}]}\",\"ts\":1795104619917,\"deleted\":false},{\"subject\":\"u-value\",\"version\":2,\"id\":2,\"guid\":\"bce0f3a1-ec82-ea9c-3aa0-db62f02a5d68\",\"schemaType\":\"AVRO\",\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"},{\\\"name\\\":\\\"email\\\",\\\"type\\\":[\\\"null\\\",\\\"string\\\"],\\\"default\\\":null}]}\",\"ts\":1795104620001,\"deleted\":false}]",
+    "ms": 6
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "[{\"subject\":\"u-value\",\"version\":1,\"id\":1,\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"}]}\"},{\"subject\":\"u-value\",\"version\":2,\"id\":2,\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"},{\\\"name\\\":\\\"email\\\",\\\"type\\\":[\\\"null\\\",\\\"string\\\"],\\\"default\\\":null}]}\"}]",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "GET",
+   "p": "/schemas?subjectPrefix=u-"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "[{\"subject\":\"u-value\",\"version\":1,\"id\":1,\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"}]}\"},{\"subject\":\"u-value\",\"version\":2,\"id\":2,\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"},{\\\"name\\\":\\\"email\\\",\\\"type\\\":[\\\"null\\\",\\\"string\\\"],\\\"default\\\":null}]}\"}]",
+    "ms": 3
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "[{\"subject\":\"u-value\",\"version\":1,\"id\":1,\"guid\":\"4b14778e-4b95-583f-33ff-e549c9adc1d2\",\"schemaType\":\"AVRO\",\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"}]}\",\"ts\":1795104619917,\"deleted\":false},{\"subject\":\"u-value\",\"version\":2,\"id\":2,\"guid\":\"bce0f3a1-ec82-ea9c-3aa0-db62f02a5d68\",\"schemaType\":\"AVRO\",\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"},{\\\"name\\\":\\\"email\\\",\\\"type\\\":[\\\"null\\\",\\\"string\\\"],\\\"default\\\":null}]}\",\"ts\":1795104620001,\"deleted\":false}]",
+    "ms": 2
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "[{\"subject\":\"u-value\",\"version\":1,\"id\":1,\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"}]}\"},{\"subject\":\"u-value\",\"version\":2,\"id\":2,\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"},{\\\"name\\\":\\\"email\\\",\\\"type\\\":[\\\"null\\\",\\\"string\\\"],\\\"default\\\":null}]}\"}]",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "GET",
+   "p": "/schemas?subjectPrefix=zz"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "[]",
+    "ms": 3
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "[]",
+    "ms": 2
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "[]",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "GET",
+   "p": "/schemas?latestOnly=true"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "[{\"subject\":\"u-value\",\"version\":2,\"id\":2,\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"},{\\\"name\\\":\\\"email\\\",\\\"type\\\":[\\\"null\\\",\\\"string\\\"],\\\"default\\\":null}]}\"}]",
+    "ms": 3
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "[{\"subject\":\"u-value\",\"version\":2,\"id\":2,\"guid\":\"bce0f3a1-ec82-ea9c-3aa0-db62f02a5d68\",\"schemaType\":\"AVRO\",\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"},{\\\"name\\\":\\\"email\\\",\\\"type\\\":[\\\"null\\\",\\\"string\\\"],\\\"default\\\":null}]}\",\"ts\":1795104620001,\"deleted\":false}]",
+    "ms": 2
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "[{\"subject\":\"u-value\",\"version\":2,\"id\":2,\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"},{\\\"name\\\":\\\"email\\\",\\\"type\\\":[\\\"null\\\",\\\"string\\\"],\\\"default\\\":null}]}\"}]",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "GET",
+   "p": "/schemas?offset=1&limit=1"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "[{\"subject\":\"u-value\",\"version\":2,\"id\":2,\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"},{\\\"name\\\":\\\"email\\\",\\\"type\\\":[\\\"null\\\",\\\"string\\\"],\\\"default\\\":null}]}\"}]",
+    "ms": 2
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "[{\"subject\":\"u-value\",\"version\":2,\"id\":2,\"guid\":\"bce0f3a1-ec82-ea9c-3aa0-db62f02a5d68\",\"schemaType\":\"AVRO\",\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"},{\\\"name\\\":\\\"email\\\",\\\"type\\\":[\\\"null\\\",\\\"string\\\"],\\\"default\\\":null}]}\",\"ts\":1795104620001,\"deleted\":false}]",
+    "ms": 3
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "[{\"subject\":\"u-value\",\"version\":2,\"id\":2,\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"},{\\\"name\\\":\\\"email\\\",\\\"type\\\":[\\\"null\\\",\\\"string\\\"],\\\"default\\\":null}]}\"}]",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "GET",
+   "p": "/schemas?limit=0"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "[{\"subject\":\"u-value\",\"version\":1,\"id\":1,\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"}]}\"},{\"subject\":\"u-value\",\"version\":2,\"id\":2,\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"},{\\\"name\\\":\\\"email\\\",\\\"type\\\":[\\\"null\\\",\\\"string\\\"],\\\"default\\\":null}]}\"}]",
+    "ms": 3
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "[{\"subject\":\"u-value\",\"version\":1,\"id\":1,\"guid\":\"4b14778e-4b95-583f-33ff-e549c9adc1d2\",\"schemaType\":\"AVRO\",\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"}]}\",\"ts\":1795104619917,\"deleted\":false},{\"subject\":\"u-value\",\"version\":2,\"id\":2,\"guid\":\"bce0f3a1-ec82-ea9c-3aa0-db62f02a5d68\",\"schemaType\":\"AVRO\",\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"},{\\\"name\\\":\\\"email\\\",\\\"type\\\":[\\\"null\\\",\\\"string\\\"],\\\"default\\\":null}]}\",\"ts\":1795104620001,\"deleted\":false}]",
+    "ms": 3
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "[{\"subject\":\"u-value\",\"version\":1,\"id\":1,\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"}]}\"},{\"subject\":\"u-value\",\"version\":2,\"id\":2,\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"},{\\\"name\\\":\\\"email\\\",\\\"type\\\":[\\\"null\\\",\\\"string\\\"],\\\"default\\\":null}]}\"}]",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "GET",
+   "p": "/schemas?offset=-3"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "[{\"subject\":\"u-value\",\"version\":1,\"id\":1,\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"}]}\"},{\"subject\":\"u-value\",\"version\":2,\"id\":2,\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"},{\\\"name\\\":\\\"email\\\",\\\"type\\\":[\\\"null\\\",\\\"string\\\"],\\\"default\\\":null}]}\"}]",
+    "ms": 3
+   },
+   "confluent-8": {
+    "status": 500,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":500,\"message\":\"Internal Server Error\"}",
+    "ms": 4
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "[{\"subject\":\"u-value\",\"version\":1,\"id\":1,\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"}]}\"},{\"subject\":\"u-value\",\"version\":2,\"id\":2,\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"},{\\\"name\\\":\\\"email\\\",\\\"type\\\":[\\\"null\\\",\\\"string\\\"],\\\"default\\\":null}]}\"}]",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "GET",
+   "p": "/schemas?offset=x&limit=y"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 404,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":404,\"message\":\"HTTP 404 Not Found\"}",
+    "ms": 2
+   },
+   "confluent-8": {
+    "status": 404,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":404,\"message\":\"HTTP 404 Not Found\"}",
+    "ms": 2
+   },
+   "doze": {
+    "status": 404,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":404,\"message\":\"HTTP 404 Not Found\"}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "GET",
+   "p": "/subjects?subjectPrefix=u"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "[\"u-value\"]",
+    "ms": 2
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "[\"u-value\"]",
+    "ms": 3
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "[\"u-value\"]",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "GET",
+   "p": "/subjects?subjectPrefix=x"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "[]",
+    "ms": 2
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "[]",
+    "ms": 4
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "[]",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/u-value",
+   "b": "{\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"}]}\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"u-value\",\"version\":1,\"id\":1,\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"}]}\"}",
+    "ms": 5
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"u-value\",\"version\":1,\"id\":1,\"guid\":\"4b14778e-4b95-583f-33ff-e549c9adc1d2\",\"schemaType\":\"AVRO\",\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"}]}\"}",
+    "ms": 4
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"u-value\",\"version\":1,\"id\":1,\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"}]}\"}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/u-value",
+   "b": "{\"schema\":\"{\\n    \\\"type\\\": \\\"record\\\",\\n    \\\"name\\\": \\\"User\\\",\\n    \\\"namespace\\\": \\\"com.example\\\",\\n    \\\"fields\\\": [\\n        {\\n            \\\"name\\\": \\\"id\\\",\\n            \\\"type\\\": \\\"long\\\"\\n        }\\n    ]\\n}\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"u-value\",\"version\":1,\"id\":1,\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"}]}\"}",
+    "ms": 5
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"u-value\",\"version\":1,\"id\":1,\"guid\":\"4b14778e-4b95-583f-33ff-e549c9adc1d2\",\"schemaType\":\"AVRO\",\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"}]}\"}",
+    "ms": 4
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"u-value\",\"version\":1,\"id\":1,\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"}]}\"}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/u-value",
+   "b": "{\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"string\\\"}]}\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 404,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":40403,\"message\":\"Schema not found\"}",
+    "ms": 4
+   },
+   "confluent-8": {
+    "status": 404,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":40403,\"message\":\"Schema not found\"}",
+    "ms": 6
+   },
+   "doze": {
+    "status": 404,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":40403,\"message\":\"Schema not found\"}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/nobody",
+   "b": "{\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"}]}\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 404,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":40401,\"message\":\"Subject 'nobody' not found.\"}",
+    "ms": 5
+   },
+   "confluent-8": {
+    "status": 404,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":40401,\"message\":\"Subject 'nobody' not found.\"}",
+    "ms": 3
+   },
+   "doze": {
+    "status": 404,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":40401,\"message\":\"Subject 'nobody' not found.\"}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/u-value",
+   "b": "{\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"}]}\",\"schemaType\":\"PROTOBUF\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42201,\"message\":\"Invalid schema {subject=u-value,version=0,id=-1,schemaType=PROTOBUF,references=[],metadata=null,ruleSet=null,schema={\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"}]},schemaTags=null} with refs [] of type PROTOBUF, details: Could not parse Protobuf - Syntax error in :1:1: expected a word\"}",
+    "ms": 83
+   },
+   "confluent-8": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42201,\"message\":\"Invalid schema of type PROTOBUF, details: Invalid schema of type PROTOBUF, details: Could not parse Protobuf - Syntax error in :1:1: expected a word\"}",
+    "ms": 71
+   },
+   "doze": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42201,\"message\":\"Invalid schema {subject=u-value,version=0,id=-1,schemaType=PROTOBUF,references=[],metadata=null,ruleSet=null,schema={\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"}]},schemaTags=null} with refs [] of type PROTOBUF, details: Could not parse Protobuf - Syntax error in :1:1: expected a declaration, found \\\"{\\\"\"}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/u-value?normalize=true",
+   "b": "{\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"}]}\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"u-value\",\"version\":1,\"id\":1,\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"}]}\"}",
+    "ms": 15
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"u-value\",\"version\":1,\"id\":1,\"guid\":\"4b14778e-4b95-583f-33ff-e549c9adc1d2\",\"schemaType\":\"AVRO\",\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"}]}\"}",
+    "ms": 6
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"u-value\",\"version\":1,\"id\":1,\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"}]}\"}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/u-value?verbose=true",
+   "b": "{\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"}]}\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"u-value\",\"version\":1,\"id\":1,\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"}]}\"}",
+    "ms": 4
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"u-value\",\"version\":1,\"id\":1,\"guid\":\"4b14778e-4b95-583f-33ff-e549c9adc1d2\",\"schemaType\":\"AVRO\",\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"}]}\"}",
+    "ms": 2
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"u-value\",\"version\":1,\"id\":1,\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"}]}\"}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/u-value/versions?normalize=true",
+   "b": "{\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"}]}\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":1}",
+    "ms": 6
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":1,\"version\":1,\"guid\":\"4b14778e-4b95-583f-33ff-e549c9adc1d2\",\"schemaType\":\"AVRO\",\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"}]}\"}",
+    "ms": 4
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":1}",
+    "ms": 0
+   }
+  }
+ }
+]

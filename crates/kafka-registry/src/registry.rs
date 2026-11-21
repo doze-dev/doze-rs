@@ -7,6 +7,7 @@
 
 mod check;
 mod codec;
+mod contract;
 mod delete;
 mod doze;
 mod erase;
@@ -22,6 +23,10 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
 pub use check::CompatFinding;
+pub use contract::{
+    CONFLUENT_VERSION, Contract, ContractConfig, Metadata, Rule, RuleKind, RuleMode, RuleSet,
+    json as contract_json, read as contract_read,
+};
 pub(crate) use doze::rfc3339_now;
 pub use doze::{Overview, Resolved, ResolvedSchema, SubjectState, VersionInfo};
 pub use erase::Erased;
@@ -59,6 +64,9 @@ pub struct SchemaInput {
     pub id: Option<i64>,
     /// The version to register it as: in IMPORT mode any; otherwise, when positive, it must be the next one.
     pub version: Option<i64>,
+    /// The metadata and rule set it is registered (or looked up) with.
+    #[serde(skip)]
+    pub contract: Contract,
 }
 
 impl SchemaInput {
@@ -106,6 +114,17 @@ pub struct SchemaView {
     pub schema_type: Option<SchemaType>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub references: Vec<Reference>,
+    #[serde(
+        skip_serializing_if = "Option::is_none",
+        serialize_with = "contract::json::metadata"
+    )]
+    pub metadata: Option<Metadata>,
+    #[serde(
+        rename = "ruleSet",
+        skip_serializing_if = "Option::is_none",
+        serialize_with = "contract::json::rule_set"
+    )]
+    pub rule_set: Option<RuleSet>,
     pub schema: String,
 }
 
@@ -159,7 +178,9 @@ fn now_ms() -> i64 {
         .map_or(0, |d| i64::try_from(d.as_millis()).unwrap_or(i64::MAX))
 }
 
-fn fingerprint(kind: SchemaType, text: &str, refs: &[Reference]) -> [u8; 32] {
+/// A schema's identity: its language, stored text, references and contract (Confluent's MD5 of a schema counts its
+/// metadata and rule set, so the same text with another contract is another schema).
+fn fingerprint(kind: SchemaType, text: &str, refs: &[Reference], contract: &Contract) -> [u8; 32] {
     let mut h = Sha256::new();
     h.update(kind.name().as_bytes());
     h.update([0]);
@@ -167,7 +188,17 @@ fn fingerprint(kind: SchemaType, text: &str, refs: &[Reference]) -> [u8; 32] {
     for r in refs {
         h.update(format!("\0{}\0{}\0{}", r.name, r.subject, r.version).as_bytes());
     }
+    if !contract.is_none() {
+        h.update([1]);
+        h.update(postcard::to_allocvec(contract).unwrap_or_default());
+    }
     h.finalize().into()
+}
+
+impl SchemaRecord {
+    fn print(&self) -> [u8; 32] {
+        fingerprint(self.kind, &self.text, &self.refs, &self.contract)
+    }
 }
 
 impl Registry {
@@ -200,9 +231,8 @@ impl Registry {
             };
             match Key::decode(&raw) {
                 Some(Key::Schema(id)) => {
-                    let rec: SchemaRecord = decode(&value).map_err(bad)?;
-                    s.by_print
-                        .insert(fingerprint(rec.kind, &rec.text, &rec.refs), id);
+                    let rec = SchemaRecord::decode(&value).map_err(bad)?;
+                    s.by_print.insert(rec.print(), id);
                     s.schemas.insert(id, rec);
                 }
                 Some(Key::Version(subject, number)) => {
@@ -309,6 +339,8 @@ impl State {
             id: v.rec.id,
             schema_type: s.and_then(|s| type_field(s.kind)),
             references: s.map(|s| s.refs.clone()).unwrap_or_default(),
+            metadata: s.and_then(|s| s.contract.metadata.clone()),
+            rule_set: s.and_then(|s| s.contract.rule_set.clone()),
             schema: s.map(|s| s.text.clone()).unwrap_or_default(),
         }
     }

@@ -1,0 +1,460 @@
+[
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/pn-names/versions?normalize=true",
+   "b": "{\"schema\":\"syntax = \\\"proto3\\\";\\npackage a.b;\\nmessage Outer {\\n  message Inner { message Leaf { int32 x = 1; } Leaf leaf = 1; }\\n  Inner.Leaf direct = 1;\\n  .a.b.Outer.Inner absolute = 2;\\n  b.Outer up = 3;\\n  repeated Inner inners = 4;\\n}\\nmessage Other { Outer.Inner.Leaf l = 1; a.b.Other self = 2; }\\nservice S {\\n  rpc R (Outer) returns (b.Other) { option idempotency_level = NO_SIDE_EFFECTS; option deprecated = true; }\\n  rpc Q (stream .a.b.Other) returns (Other);\\n}\\n\",\"schemaType\":\"PROTOBUF\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":55}",
+    "ms": 7
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":54,\"version\":1,\"guid\":\"e57c4c9d-3581-ddc0-0b78-08449d6ff881\",\"schemaType\":\"PROTOBUF\",\"schema\":\"syntax = \\\"proto3\\\";\\npackage a.b;\\n\\nmessage Outer {\\n  .a.b.Outer.Inner.Leaf direct = 1;\\n  .a.b.Outer.Inner absolute = 2;\\n  .a.b.Outer up = 3;\\n  repeated .a.b.Outer.Inner inners = 4;\\n\\n  message Inner {\\n    .a.b.Outer.Inner.Leaf leaf = 1;\\n  \\n    message Leaf {\\n      int32 x = 1;\\n    }\\n  }\\n}\\nmessage Other {\\n  .a.b.Outer.Inner.Leaf l = 1;\\n  .a.b.Other self = 2;\\n}\\n\\nservice S {\\n  rpc R (.a.b.Outer) returns (.a.b.Other) {\\n    option deprecated = true;\\n    option idempotency_level = NO_SIDE_EFFECTS;\\n  };\\n  rpc Q (stream .a.b.Other) returns (.a.b.Other);\\n}\\n\"}",
+    "ms": 10
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":56}",
+    "ms": 5
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "GET",
+   "p": "/subjects/pn-names/versions/latest/schema"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "syntax = \"proto3\";\npackage a.b;\n\nmessage Outer {\n  .a.b.Outer.Inner.Leaf direct = 1;\n  .a.b.Outer.Inner absolute = 2;\n  .a.b.Outer up = 3;\n  repeated .a.b.Outer.Inner inners = 4;\n\n  message Inner {\n    .a.b.Outer.Inner.Leaf leaf = 1;\n  \n    message Leaf {\n      int32 x = 1;\n    }\n  }\n}\nmessage Other {\n  .a.b.Outer.Inner.Leaf l = 1;\n  .a.b.Other self = 2;\n}\n\nservice S {\n  rpc R (.a.b.Outer) returns (.a.b.Other) {\n    option deprecated = true;\n    option idempotency_level = NO_SIDE_EFFECTS;\n  };\n  rpc Q (stream .a.b.Other) returns (.a.b.Other);\n}\n",
+    "ms": 1
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "syntax = \"proto3\";\npackage a.b;\n\nmessage Outer {\n  .a.b.Outer.Inner.Leaf direct = 1;\n  .a.b.Outer.Inner absolute = 2;\n  .a.b.Outer up = 3;\n  repeated .a.b.Outer.Inner inners = 4;\n\n  message Inner {\n    .a.b.Outer.Inner.Leaf leaf = 1;\n  \n    message Leaf {\n      int32 x = 1;\n    }\n  }\n}\nmessage Other {\n  .a.b.Outer.Inner.Leaf l = 1;\n  .a.b.Other self = 2;\n}\n\nservice S {\n  rpc R (.a.b.Outer) returns (.a.b.Other) {\n    option deprecated = true;\n    option idempotency_level = NO_SIDE_EFFECTS;\n  };\n  rpc Q (stream .a.b.Other) returns (.a.b.Other);\n}\n",
+    "ms": 1
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "syntax = \"proto3\";\npackage a.b;\n\nmessage Outer {\n  .a.b.Outer.Inner.Leaf direct = 1;\n  .a.b.Outer.Inner absolute = 2;\n  .a.b.Outer up = 3;\n  repeated .a.b.Outer.Inner inners = 4;\n\n  message Inner {\n    .a.b.Outer.Inner.Leaf leaf = 1;\n  \n    message Leaf {\n      int32 x = 1;\n    }\n  }\n}\nmessage Other {\n  .a.b.Outer.Inner.Leaf l = 1;\n  .a.b.Other self = 2;\n}\n\nservice S {\n  rpc R (.a.b.Outer) returns (.a.b.Other) {\n    option deprecated = true;\n    option idempotency_level = NO_SIDE_EFFECTS;\n  };\n  rpc Q (stream .a.b.Other) returns (.a.b.Other);\n}\n",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/pn-names?normalize=true",
+   "b": "{\"schema\":\"syntax = \\\"proto3\\\";\\npackage a.b;\\nmessage Outer {\\n  message Inner { message Leaf { int32 x = 1; } Leaf leaf = 1; }\\n  Inner.Leaf direct = 1;\\n  .a.b.Outer.Inner absolute = 2;\\n  b.Outer up = 3;\\n  repeated Inner inners = 4;\\n}\\nmessage Other { Outer.Inner.Leaf l = 1; a.b.Other self = 2; }\\nservice S {\\n  rpc R (Outer) returns (b.Other) { option idempotency_level = NO_SIDE_EFFECTS; option deprecated = true; }\\n  rpc Q (stream .a.b.Other) returns (Other);\\n}\\n\",\"schemaType\":\"PROTOBUF\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"pn-names\",\"version\":1,\"id\":55,\"schemaType\":\"PROTOBUF\",\"schema\":\"syntax = \\\"proto3\\\";\\npackage a.b;\\n\\nmessage Outer {\\n  .a.b.Outer.Inner.Leaf direct = 1;\\n  .a.b.Outer.Inner absolute = 2;\\n  .a.b.Outer up = 3;\\n  repeated .a.b.Outer.Inner inners = 4;\\n\\n  message Inner {\\n    .a.b.Outer.Inner.Leaf leaf = 1;\\n  \\n    message Leaf {\\n      int32 x = 1;\\n    }\\n  }\\n}\\nmessage Other {\\n  .a.b.Outer.Inner.Leaf l = 1;\\n  .a.b.Other self = 2;\\n}\\n\\nservice S {\\n  rpc R (.a.b.Outer) returns (.a.b.Other) {\\n    option deprecated = true;\\n    option idempotency_level = NO_SIDE_EFFECTS;\\n  };\\n  rpc Q (stream .a.b.Other) returns (.a.b.Other);\\n}\\n\"}",
+    "ms": 4
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"pn-names\",\"version\":1,\"id\":54,\"guid\":\"e57c4c9d-3581-ddc0-0b78-08449d6ff881\",\"schemaType\":\"PROTOBUF\",\"schema\":\"syntax = \\\"proto3\\\";\\npackage a.b;\\n\\nmessage Outer {\\n  .a.b.Outer.Inner.Leaf direct = 1;\\n  .a.b.Outer.Inner absolute = 2;\\n  .a.b.Outer up = 3;\\n  repeated .a.b.Outer.Inner inners = 4;\\n\\n  message Inner {\\n    .a.b.Outer.Inner.Leaf leaf = 1;\\n  \\n    message Leaf {\\n      int32 x = 1;\\n    }\\n  }\\n}\\nmessage Other {\\n  .a.b.Outer.Inner.Leaf l = 1;\\n  .a.b.Other self = 2;\\n}\\n\\nservice S {\\n  rpc R (.a.b.Outer) returns (.a.b.Other) {\\n    option deprecated = true;\\n    option idempotency_level = NO_SIDE_EFFECTS;\\n  };\\n  rpc Q (stream .a.b.Other) returns (.a.b.Other);\\n}\\n\"}",
+    "ms": 2
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"pn-names\",\"version\":1,\"id\":56,\"schemaType\":\"PROTOBUF\",\"schema\":\"syntax = \\\"proto3\\\";\\npackage a.b;\\n\\nmessage Outer {\\n  .a.b.Outer.Inner.Leaf direct = 1;\\n  .a.b.Outer.Inner absolute = 2;\\n  .a.b.Outer up = 3;\\n  repeated .a.b.Outer.Inner inners = 4;\\n\\n  message Inner {\\n    .a.b.Outer.Inner.Leaf leaf = 1;\\n  \\n    message Leaf {\\n      int32 x = 1;\\n    }\\n  }\\n}\\nmessage Other {\\n  .a.b.Outer.Inner.Leaf l = 1;\\n  .a.b.Other self = 2;\\n}\\n\\nservice S {\\n  rpc R (.a.b.Outer) returns (.a.b.Other) {\\n    option deprecated = true;\\n    option idempotency_level = NO_SIDE_EFFECTS;\\n  };\\n  rpc Q (stream .a.b.Other) returns (.a.b.Other);\\n}\\n\"}",
+    "ms": 1
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/pn-names",
+   "b": "{\"schema\":\"syntax = \\\"proto3\\\";\\npackage a.b;\\nmessage Outer {\\n  message Inner { message Leaf { int32 x = 1; } Leaf leaf = 1; }\\n  Inner.Leaf direct = 1;\\n  .a.b.Outer.Inner absolute = 2;\\n  b.Outer up = 3;\\n  repeated Inner inners = 4;\\n}\\nmessage Other { Outer.Inner.Leaf l = 1; a.b.Other self = 2; }\\nservice S {\\n  rpc R (Outer) returns (b.Other) { option idempotency_level = NO_SIDE_EFFECTS; option deprecated = true; }\\n  rpc Q (stream .a.b.Other) returns (Other);\\n}\\n\",\"schemaType\":\"PROTOBUF\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 404,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":40403,\"message\":\"Schema not found\"}",
+    "ms": 2
+   },
+   "confluent-8": {
+    "status": 404,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":40403,\"message\":\"Schema not found\"}",
+    "ms": 3
+   },
+   "doze": {
+    "status": 404,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":40403,\"message\":\"Schema not found\"}",
+    "ms": 1
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/compatibility/subjects/pn-names/versions/latest?normalize=true&verbose=true",
+   "b": "{\"schema\":\"syntax = \\\"proto3\\\";\\npackage a.b;\\nmessage Outer {\\n  message Inner { message Leaf { int32 x = 1; } Leaf leaf = 1; }\\n  Inner.Leaf direct = 1;\\n  .a.b.Outer.Inner absolute = 2;\\n  b.Outer up = 3;\\n  repeated Inner inners = 4;\\n}\\nmessage Other { Outer.Inner.Leaf l = 1; a.b.Other self = 2; }\\nservice S {\\n  rpc R (Outer) returns (b.Other) { option idempotency_level = NO_SIDE_EFFECTS; option deprecated = true; }\\n  rpc Q (stream .a.b.Other) returns (Other);\\n}\\n\",\"schemaType\":\"PROTOBUF\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"is_compatible\":true,\"messages\":[]}",
+    "ms": 2
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"is_compatible\":true,\"messages\":[]}",
+    "ms": 4
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"is_compatible\":true,\"messages\":[]}",
+    "ms": 1
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "GET",
+   "p": "/schemas/ids/@1?format=serialized"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"schemaType\":\"PROTOBUF\",\"schema\":\"CgdkZWZhdWx0EgNhLmIiuQEKBU91dGVyEiEKBmRpcmVjdBgBMhUuYS5iLk91dGVyLklubmVyLkxlYWYSHgoIYWJzb2x1dGUYAjIQLmEuYi5PdXRlci5Jbm5lchISCgJ1cBgDMgouYS5iLk91dGVyEh4KBmlubmVycxgEIAMyEC5hLmIuT3V0ZXIuSW5uZXIaOQoFSW5uZXISHwoEbGVhZhgBMhUuYS5iLk91dGVyLklubmVyLkxlYWYaDwoETGVhZhIHCgF4GAEoBSI7CgVPdGhlchIcCgFsGAEyFS5hLmIuT3V0ZXIuSW5uZXIuTGVhZhIUCgRzZWxmGAIyCi5hLmIuT3RoZXIyTQoBUxInCgFSEgouYS5iLk91dGVyGgouYS5iLk90aGVyIgaIAgGQAgEoADAAEh8KAVESCi5hLmIuT3RoZXIaCi5hLmIuT3RoZXIoATAAYgZwcm90bzM=\"}",
+    "ms": 4
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"pn-names\",\"version\":1,\"guid\":\"e57c4c9d-3581-ddc0-0b78-08449d6ff881\",\"schemaType\":\"PROTOBUF\",\"schema\":\"CgdkZWZhdWx0EgNhLmIiwwEKBU91dGVyEiMKBmRpcmVjdBgBKAsyFS5hLmIuT3V0ZXIuSW5uZXIuTGVhZhIgCghhYnNvbHV0ZRgCKAsyEC5hLmIuT3V0ZXIuSW5uZXISFAoCdXAYAygLMgouYS5iLk91dGVyEiAKBmlubmVycxgEIAMoCzIQLmEuYi5PdXRlci5Jbm5lcho7CgVJbm5lchIhCgRsZWFmGAEoCzIVLmEuYi5PdXRlci5Jbm5lci5MZWFmGg8KBExlYWYSBwoBeBgBKAUiPwoFT3RoZXISHgoBbBgBKAsyFS5hLmIuT3V0ZXIuSW5uZXIuTGVhZhIWCgRzZWxmGAIoCzIKLmEuYi5PdGhlcjJNCgFTEicKAVISCi5hLmIuT3V0ZXIaCi5hLmIuT3RoZXIiBogCAZACASgAMAASHwoBURIKLmEuYi5PdGhlchoKLmEuYi5PdGhlcigBMABiBnByb3RvMw==\",\"ts\":1795104624700,\"deleted\":false}",
+    "ms": 9
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"schemaType\":\"PROTOBUF\",\"schema\":\"CgdkZWZhdWx0EgNhLmIiuQEKBU91dGVyEiEKBmRpcmVjdBgBMhUuYS5iLk91dGVyLklubmVyLkxlYWYSHgoIYWJzb2x1dGUYAjIQLmEuYi5PdXRlci5Jbm5lchISCgJ1cBgDMgouYS5iLk91dGVyEh4KBmlubmVycxgEIAMyEC5hLmIuT3V0ZXIuSW5uZXIaOQoFSW5uZXISHwoEbGVhZhgBMhUuYS5iLk91dGVyLklubmVyLkxlYWYaDwoETGVhZhIHCgF4GAEoBSI7CgVPdGhlchIcCgFsGAEyFS5hLmIuT3V0ZXIuSW5uZXIuTGVhZhIUCgRzZWxmGAIyCi5hLmIuT3RoZXIyTQoBUxInCgFSEgouYS5iLk91dGVyGgouYS5iLk90aGVyIgaIAgGQAgEoADAAEh8KAVESCi5hLmIuT3RoZXIaCi5hLmIuT3RoZXIoATAAYgZwcm90bzM=\"}",
+    "ms": 1
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/pp-names/versions",
+   "b": "{\"schema\":\"syntax = \\\"proto3\\\";\\npackage a.b;\\nmessage Outer {\\n  message Inner { message Leaf { int32 x = 1; } Leaf leaf = 1; }\\n  Inner.Leaf direct = 1;\\n  .a.b.Outer.Inner absolute = 2;\\n  b.Outer up = 3;\\n  repeated Inner inners = 4;\\n}\\nmessage Other { Outer.Inner.Leaf l = 1; a.b.Other self = 2; }\\nservice S {\\n  rpc R (Outer) returns (b.Other) { option idempotency_level = NO_SIDE_EFFECTS; option deprecated = true; }\\n  rpc Q (stream .a.b.Other) returns (Other);\\n}\\n\",\"schemaType\":\"PROTOBUF\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":56}",
+    "ms": 6
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":55,\"version\":1,\"guid\":\"94c10b14-a7bc-412b-1bf4-000008228664\",\"schemaType\":\"PROTOBUF\",\"schema\":\"syntax = \\\"proto3\\\";\\npackage a.b;\\n\\nmessage Outer {\\n  Inner.Leaf direct = 1;\\n  .a.b.Outer.Inner absolute = 2;\\n  b.Outer up = 3;\\n  repeated Inner inners = 4;\\n\\n  message Inner {\\n    Leaf leaf = 1;\\n  \\n    message Leaf {\\n      int32 x = 1;\\n    }\\n  }\\n}\\nmessage Other {\\n  Outer.Inner.Leaf l = 1;\\n  a.b.Other self = 2;\\n}\\n\\nservice S {\\n  rpc R (Outer) returns (b.Other) {\\n    option idempotency_level = NO_SIDE_EFFECTS;\\n    option deprecated = true;\\n  };\\n  rpc Q (stream .a.b.Other) returns (Other);\\n}\\n\"}",
+    "ms": 13
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":57}",
+    "ms": 13
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/pp-names?normalize=true",
+   "b": "{\"schema\":\"syntax = \\\"proto3\\\";\\npackage a.b;\\nmessage Outer {\\n  message Inner { message Leaf { int32 x = 1; } Leaf leaf = 1; }\\n  Inner.Leaf direct = 1;\\n  .a.b.Outer.Inner absolute = 2;\\n  b.Outer up = 3;\\n  repeated Inner inners = 4;\\n}\\nmessage Other { Outer.Inner.Leaf l = 1; a.b.Other self = 2; }\\nservice S {\\n  rpc R (Outer) returns (b.Other) { option idempotency_level = NO_SIDE_EFFECTS; option deprecated = true; }\\n  rpc Q (stream .a.b.Other) returns (Other);\\n}\\n\",\"schemaType\":\"PROTOBUF\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 404,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":40403,\"message\":\"Schema not found\"}",
+    "ms": 4
+   },
+   "confluent-8": {
+    "status": 404,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":40403,\"message\":\"Schema not found\"}",
+    "ms": 4
+   },
+   "doze": {
+    "status": 404,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":40403,\"message\":\"Schema not found\"}",
+    "ms": 1
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/pp-names/versions?normalize=true",
+   "b": "{\"schema\":\"syntax = \\\"proto3\\\";\\npackage a.b;\\nmessage Outer {\\n  message Inner { message Leaf { int32 x = 1; } Leaf leaf = 1; }\\n  Inner.Leaf direct = 1;\\n  .a.b.Outer.Inner absolute = 2;\\n  b.Outer up = 3;\\n  repeated Inner inners = 4;\\n}\\nmessage Other { Outer.Inner.Leaf l = 1; a.b.Other self = 2; }\\nservice S {\\n  rpc R (Outer) returns (b.Other) { option idempotency_level = NO_SIDE_EFFECTS; option deprecated = true; }\\n  rpc Q (stream .a.b.Other) returns (Other);\\n}\\n\",\"schemaType\":\"PROTOBUF\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":55}",
+    "ms": 9
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":54,\"version\":2,\"guid\":\"e57c4c9d-3581-ddc0-0b78-08449d6ff881\",\"schemaType\":\"PROTOBUF\",\"schema\":\"syntax = \\\"proto3\\\";\\npackage a.b;\\n\\nmessage Outer {\\n  .a.b.Outer.Inner.Leaf direct = 1;\\n  .a.b.Outer.Inner absolute = 2;\\n  .a.b.Outer up = 3;\\n  repeated .a.b.Outer.Inner inners = 4;\\n\\n  message Inner {\\n    .a.b.Outer.Inner.Leaf leaf = 1;\\n  \\n    message Leaf {\\n      int32 x = 1;\\n    }\\n  }\\n}\\nmessage Other {\\n  .a.b.Outer.Inner.Leaf l = 1;\\n  .a.b.Other self = 2;\\n}\\n\\nservice S {\\n  rpc R (.a.b.Outer) returns (.a.b.Other) {\\n    option deprecated = true;\\n    option idempotency_level = NO_SIDE_EFFECTS;\\n  };\\n  rpc Q (stream .a.b.Other) returns (.a.b.Other);\\n}\\n\"}",
+    "ms": 11
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":56}",
+    "ms": 6
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "GET",
+   "p": "/subjects/pp-names/versions"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "[1,2]",
+    "ms": 1
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "[1,2]",
+    "ms": 2
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "[1,2]",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "PUT",
+   "p": "/config/pc-names",
+   "b": "{\"normalize\":true}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"normalize\":true}",
+    "ms": 4
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"normalize\":true}",
+    "ms": 9
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"normalize\":true}",
+    "ms": 4
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/pc-names/versions",
+   "b": "{\"schema\":\"syntax = \\\"proto3\\\";\\npackage a.b;\\nmessage Outer {\\n  message Inner { message Leaf { int32 x = 1; } Leaf leaf = 1; }\\n  Inner.Leaf direct = 1;\\n  .a.b.Outer.Inner absolute = 2;\\n  b.Outer up = 3;\\n  repeated Inner inners = 4;\\n}\\nmessage Other { Outer.Inner.Leaf l = 1; a.b.Other self = 2; }\\nservice S {\\n  rpc R (Outer) returns (b.Other) { option idempotency_level = NO_SIDE_EFFECTS; option deprecated = true; }\\n  rpc Q (stream .a.b.Other) returns (Other);\\n}\\n\",\"schemaType\":\"PROTOBUF\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":55}",
+    "ms": 15
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":54,\"version\":1,\"guid\":\"e57c4c9d-3581-ddc0-0b78-08449d6ff881\",\"schemaType\":\"PROTOBUF\",\"schema\":\"syntax = \\\"proto3\\\";\\npackage a.b;\\n\\nmessage Outer {\\n  .a.b.Outer.Inner.Leaf direct = 1;\\n  .a.b.Outer.Inner absolute = 2;\\n  .a.b.Outer up = 3;\\n  repeated .a.b.Outer.Inner inners = 4;\\n\\n  message Inner {\\n    .a.b.Outer.Inner.Leaf leaf = 1;\\n  \\n    message Leaf {\\n      int32 x = 1;\\n    }\\n  }\\n}\\nmessage Other {\\n  .a.b.Outer.Inner.Leaf l = 1;\\n  .a.b.Other self = 2;\\n}\\n\\nservice S {\\n  rpc R (.a.b.Outer) returns (.a.b.Other) {\\n    option deprecated = true;\\n    option idempotency_level = NO_SIDE_EFFECTS;\\n  };\\n  rpc Q (stream .a.b.Other) returns (.a.b.Other);\\n}\\n\"}",
+    "ms": 17
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":56}",
+    "ms": 7
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "GET",
+   "p": "/subjects/pc-names/versions/latest/schema"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "syntax = \"proto3\";\npackage a.b;\n\nmessage Outer {\n  .a.b.Outer.Inner.Leaf direct = 1;\n  .a.b.Outer.Inner absolute = 2;\n  .a.b.Outer up = 3;\n  repeated .a.b.Outer.Inner inners = 4;\n\n  message Inner {\n    .a.b.Outer.Inner.Leaf leaf = 1;\n  \n    message Leaf {\n      int32 x = 1;\n    }\n  }\n}\nmessage Other {\n  .a.b.Outer.Inner.Leaf l = 1;\n  .a.b.Other self = 2;\n}\n\nservice S {\n  rpc R (.a.b.Outer) returns (.a.b.Other) {\n    option deprecated = true;\n    option idempotency_level = NO_SIDE_EFFECTS;\n  };\n  rpc Q (stream .a.b.Other) returns (.a.b.Other);\n}\n",
+    "ms": 2
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "syntax = \"proto3\";\npackage a.b;\n\nmessage Outer {\n  .a.b.Outer.Inner.Leaf direct = 1;\n  .a.b.Outer.Inner absolute = 2;\n  .a.b.Outer up = 3;\n  repeated .a.b.Outer.Inner inners = 4;\n\n  message Inner {\n    .a.b.Outer.Inner.Leaf leaf = 1;\n  \n    message Leaf {\n      int32 x = 1;\n    }\n  }\n}\nmessage Other {\n  .a.b.Outer.Inner.Leaf l = 1;\n  .a.b.Other self = 2;\n}\n\nservice S {\n  rpc R (.a.b.Outer) returns (.a.b.Other) {\n    option deprecated = true;\n    option idempotency_level = NO_SIDE_EFFECTS;\n  };\n  rpc Q (stream .a.b.Other) returns (.a.b.Other);\n}\n",
+    "ms": 1
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "syntax = \"proto3\";\npackage a.b;\n\nmessage Outer {\n  .a.b.Outer.Inner.Leaf direct = 1;\n  .a.b.Outer.Inner absolute = 2;\n  .a.b.Outer up = 3;\n  repeated .a.b.Outer.Inner inners = 4;\n\n  message Inner {\n    .a.b.Outer.Inner.Leaf leaf = 1;\n  \n    message Leaf {\n      int32 x = 1;\n    }\n  }\n}\nmessage Other {\n  .a.b.Outer.Inner.Leaf l = 1;\n  .a.b.Other self = 2;\n}\n\nservice S {\n  rpc R (.a.b.Outer) returns (.a.b.Other) {\n    option deprecated = true;\n    option idempotency_level = NO_SIDE_EFFECTS;\n  };\n  rpc Q (stream .a.b.Other) returns (.a.b.Other);\n}\n",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/pc-names",
+   "b": "{\"schema\":\"syntax = \\\"proto3\\\";\\npackage a.b;\\nmessage Outer {\\n  message Inner { message Leaf { int32 x = 1; } Leaf leaf = 1; }\\n  Inner.Leaf direct = 1;\\n  .a.b.Outer.Inner absolute = 2;\\n  b.Outer up = 3;\\n  repeated Inner inners = 4;\\n}\\nmessage Other { Outer.Inner.Leaf l = 1; a.b.Other self = 2; }\\nservice S {\\n  rpc R (Outer) returns (b.Other) { option idempotency_level = NO_SIDE_EFFECTS; option deprecated = true; }\\n  rpc Q (stream .a.b.Other) returns (Other);\\n}\\n\",\"schemaType\":\"PROTOBUF\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"pc-names\",\"version\":1,\"id\":55,\"schemaType\":\"PROTOBUF\",\"schema\":\"syntax = \\\"proto3\\\";\\npackage a.b;\\n\\nmessage Outer {\\n  .a.b.Outer.Inner.Leaf direct = 1;\\n  .a.b.Outer.Inner absolute = 2;\\n  .a.b.Outer up = 3;\\n  repeated .a.b.Outer.Inner inners = 4;\\n\\n  message Inner {\\n    .a.b.Outer.Inner.Leaf leaf = 1;\\n  \\n    message Leaf {\\n      int32 x = 1;\\n    }\\n  }\\n}\\nmessage Other {\\n  .a.b.Outer.Inner.Leaf l = 1;\\n  .a.b.Other self = 2;\\n}\\n\\nservice S {\\n  rpc R (.a.b.Outer) returns (.a.b.Other) {\\n    option deprecated = true;\\n    option idempotency_level = NO_SIDE_EFFECTS;\\n  };\\n  rpc Q (stream .a.b.Other) returns (.a.b.Other);\\n}\\n\"}",
+    "ms": 4
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"pc-names\",\"version\":1,\"id\":54,\"guid\":\"e57c4c9d-3581-ddc0-0b78-08449d6ff881\",\"schemaType\":\"PROTOBUF\",\"schema\":\"syntax = \\\"proto3\\\";\\npackage a.b;\\n\\nmessage Outer {\\n  .a.b.Outer.Inner.Leaf direct = 1;\\n  .a.b.Outer.Inner absolute = 2;\\n  .a.b.Outer up = 3;\\n  repeated .a.b.Outer.Inner inners = 4;\\n\\n  message Inner {\\n    .a.b.Outer.Inner.Leaf leaf = 1;\\n  \\n    message Leaf {\\n      int32 x = 1;\\n    }\\n  }\\n}\\nmessage Other {\\n  .a.b.Outer.Inner.Leaf l = 1;\\n  .a.b.Other self = 2;\\n}\\n\\nservice S {\\n  rpc R (.a.b.Outer) returns (.a.b.Other) {\\n    option deprecated = true;\\n    option idempotency_level = NO_SIDE_EFFECTS;\\n  };\\n  rpc Q (stream .a.b.Other) returns (.a.b.Other);\\n}\\n\"}",
+    "ms": 4
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"pc-names\",\"version\":1,\"id\":56,\"schemaType\":\"PROTOBUF\",\"schema\":\"syntax = \\\"proto3\\\";\\npackage a.b;\\n\\nmessage Outer {\\n  .a.b.Outer.Inner.Leaf direct = 1;\\n  .a.b.Outer.Inner absolute = 2;\\n  .a.b.Outer up = 3;\\n  repeated .a.b.Outer.Inner inners = 4;\\n\\n  message Inner {\\n    .a.b.Outer.Inner.Leaf leaf = 1;\\n  \\n    message Leaf {\\n      int32 x = 1;\\n    }\\n  }\\n}\\nmessage Other {\\n  .a.b.Outer.Inner.Leaf l = 1;\\n  .a.b.Other self = 2;\\n}\\n\\nservice S {\\n  rpc R (.a.b.Outer) returns (.a.b.Other) {\\n    option deprecated = true;\\n    option idempotency_level = NO_SIDE_EFFECTS;\\n  };\\n  rpc Q (stream .a.b.Other) returns (.a.b.Other);\\n}\\n\"}",
+    "ms": 1
+   }
+  }
+ }
+]

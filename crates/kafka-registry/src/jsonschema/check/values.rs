@@ -16,11 +16,26 @@ pub(super) fn expected(shape: Shape) -> &'static str {
     }
 }
 
-pub(super) fn number(shape: Shape, raw: &str) -> Result<(), &'static str> {
+/// A keyword's number. Before 2019-09 a count is read by Confluent's loader (everit) as a Java `Integer`: written as an
+/// integer (`1.0` and `1e1` are not) that fits 32 bits, and a `multipleOf` must be above zero as a Java double (`1e-400`
+/// is not; recorded by tools/registry-diff, `json-schema-huge-numbers`).
+pub(super) fn number(shape: Shape, raw: &str, draft: Draft) -> Result<(), &'static str> {
     let n = Dec::parse(raw).ok_or("must be a number")?;
+    if matches!(shape, Shape::Count)
+        && draft < Draft::D2019
+        && (crate::json::java_reads(raw) != Some(crate::json::JavaRead::Integer)
+            || raw.parse::<i32>().is_err())
+    {
+        return Err(
+            "must be an integer no larger than 2147483647, written without a fraction or exponent",
+        );
+    }
     match shape {
         Shape::Count if !n.is_integer() || n.is_negative() => Err("must be a non-negative integer"),
         Shape::Positive if n.is_negative() || n.is_zero() => Err("must be greater than 0"),
+        Shape::Positive if draft < Draft::D2019 && n.to_f64() == 0.0 => {
+            Err("must be greater than 0 as a Java double")
+        }
         _ => Ok(()),
     }
 }

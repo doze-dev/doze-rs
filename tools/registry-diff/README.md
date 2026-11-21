@@ -35,10 +35,15 @@ and `REGDIFF_DOZE` point the comparison elsewhere.
   registry (every subject deleted for good, the global level and mode reset).
 - `scenarios.ts`: every Confluent route, its query parameters and errors, bodies of every shape, references, soft and hard
   delete and re-register, IMPORT, the three languages' stored text and refusals, `format=serialized` descriptors.
+- `gaps.ts`: the scenarios of the gaps closed on 2026-11-19 (REG-46 to REG-50): `protobuf-normalize/*` (tricky `.proto` schemas
+  registered normalized, read back, looked up and checked, by parameter and by setting), `json-schema-huge-numbers`, and
+  `data-contracts/*` (metadata and rule sets with a schema, inheritance, defaults and overrides, groups, the latest with metadata,
+  Jackson's refusals, IMPORT).
 - `corpus.ts`: chains of three schemas per format (v1, v2, v3, each a random change of the one before, seeded), each run at all
   seven levels: v1 and v2 registered at NONE, the level set, v3 checked against the subject (`/versions` and `/versions/latest`,
   verbose), then registered at one level; for Protobuf the three descriptors are fetched too.
-- `known.ts`: the steps where doze differs on purpose or by a recorded gap, each with its REG-D. Any other difference fails.
+- `known.ts`: the steps where doze differs on purpose or by a recorded gap, each with its REG-D (`scenario/*` for a whole scenario).
+  Any other difference fails.
 - `diff.ts`: runs them, prints a line per scenario, writes `summary.json`, `dozeVsRef.json` (doze against 7.7.1),
   `ref8VsRef.json` (8.x against 7.7.1), `dozeVsRef8.json` and each route scenario's exchanges to `--out`
   (default `results/latest`). Exit 1 on a difference `known.ts` does not list.
@@ -53,6 +58,8 @@ and `REGDIFF_DOZE` point the comparison elsewhere.
 
 ## Results
 
+`results/2026-11-19/` holds the run that closed the gaps (REG-46 to REG-50) on a fresh stack: `routes/` (794 steps, 74 known
+differences, none unexplained), `corpus/` (8,400 steps, none), `persist.log`; the clients were not run again.
 `results/2026-11-18/` holds the audit's final run on a fresh stack: `routes/` and `corpus/` (`summary.json`, `dozeVsRef.json` with
 each difference's REG-D, `routes/ref8VsRef.json`, the route exchanges), `routes.log`, `corpus.log`, `persist.log`, `clients.log`
 and `clients/`. What each difference was and what was done about it is in `docs/port/behaviours/registry.md` (the rules marked

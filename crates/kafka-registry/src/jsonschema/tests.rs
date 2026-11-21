@@ -60,7 +60,18 @@ fn what_is_not_a_schema_of_its_draft_is_refused() {
         ),
         (r#"{"properties":[]}"#, "must be an object"),
         (r#"{"minLength":-1}"#, "non-negative integer"),
-        (r#"{"maxItems":1.5}"#, "non-negative integer"),
+        (r#"{"maxItems":1.5}"#, "without a fraction or exponent"),
+        (r#"{"minItems":1e1}"#, "without a fraction or exponent"),
+        (r#"{"maxLength":2147483648}"#, "no larger than 2147483647"),
+        (
+            r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","maxItems":1.5}"#,
+            "non-negative integer",
+        ),
+        (
+            r#"{"minimum":1e2147483648}"#,
+            "#/minimum: 1e2147483648 is past the largest",
+        ),
+        (r#"{"x":[-0.5e+000011999153157185615783]}"#, "#/x/0: -0.5e"),
         (r#"{"multipleOf":0}"#, "greater than 0"),
         (r#"{"required":["a","a"]}"#, "named twice"),
         (r#"{"required":[1]}"#, "array of strings"),
@@ -320,9 +331,16 @@ fn a_number_past_the_clamp_is_one_value_however_it_is_written() {
     );
     assert_eq!(d("5E99999999999999999999"), d("50E99999999999999999998"));
     assert!(d("-1E99999999999999999999") < d("1E-99999999999999999999"));
-    let items = r#"{ "minItems":2060002E888888888880744044}"#;
+    // A limit at the edge of what Java holds reads back as itself once stored.
+    let items = r#"{ "minimum":2060002E2147483641}"#;
     let stored = read(items).canonical(false);
+    assert_eq!(stored, r#"{"minimum":2.060002E+2147483647}"#);
     assert!(reasons(items, &stored).is_empty(), "{stored}");
+    // Past it, a small one is Java's double zero, compared and stored as Confluent does.
+    let tiny = read(r#"{"minimum":-1e-2147483649}"#);
+    assert_eq!(tiny.canonical(false), r#"{"minimum":-0.0}"#);
+    assert_eq!(tiny.canonical(true), r#"{"minimum":0.0}"#);
+    assert!(reasons(r#"{"minimum":0}"#, r#"{"minimum":1e-2147483649}"#).is_empty());
 }
 
 /// Found by fuzz_json_schema: an `enum` or `const` number written with an exponent (`-77e0`) is stored as Java writes it
@@ -337,4 +355,31 @@ fn an_enum_number_is_the_same_value_once_stored() {
         let stored = read(text).canonical(false);
         assert!(reasons(text, &stored).is_empty(), "{text} -> {stored}");
     }
+}
+
+/// Found by fuzz json_schema (CI run 44575277081): ` {"const":7e2}` is stored as `{"const":7E+2}` and must read its own
+/// data. A number in `const` or `enum` is the value Java's `BigDecimal` writes, as cp-schema-registry 8.3.2 compares
+/// them (recorded by tools/registry-diff, `json-schema-enum-numbers`): `7e2` and `7E+2` are one value, `10e-1` and
+/// `1.0` are one, `-77e0` and `-77` are one (7.7.1 says not, REG-D31), `7e2` and `700` are two, `1` and `1.0` are two.
+#[test]
+fn a_const_number_is_the_same_value_however_java_writes_it() {
+    let s = read(r#" {"const":7e2}"#);
+    let stored = s.canonical(false);
+    assert_eq!(stored, r#"{"const":7E+2}"#);
+    assert!(reasons(r#" {"const":7e2}"#, &stored).is_empty());
+    assert!(reasons(r#"{"enum":[7e2,1]}"#, r#"{"enum":[7E+2,1]}"#).is_empty());
+    assert!(reasons(r#"{"const":10e-1}"#, r#"{"const":1.0}"#).is_empty());
+    assert!(reasons(r#"{"const":-77}"#, r#"{"const":-77e0}"#).is_empty());
+    assert_eq!(
+        reasons(r#"{"const":7e2}"#, r#"{"const":700}"#),
+        ["ENUM_ARRAY_CHANGED"]
+    );
+    assert_eq!(
+        reasons(r#"{"const":1}"#, r#"{"const":1.0}"#),
+        ["ENUM_ARRAY_CHANGED"]
+    );
+    assert_eq!(
+        reasons(r#"{"enum":[1,2]}"#, r#"{"enum":[1.0,2]}"#),
+        ["ENUM_ARRAY_CHANGED"]
+    );
 }

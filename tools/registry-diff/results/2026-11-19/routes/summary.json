@@ -1,0 +1,298 @@
+[
+ {
+  "scenario": "root-and-unknown-routes",
+  "steps": 25,
+  "dozeVsRef": 2,
+  "unknown": 0,
+  "ref8VsRef": 4,
+  "dozeVsRef8": 4
+ },
+ {
+  "scenario": "register-and-read-avro",
+  "steps": 58,
+  "dozeVsRef": 2,
+  "unknown": 0,
+  "ref8VsRef": 28,
+  "dozeVsRef8": 29
+ },
+ {
+  "scenario": "register-errors",
+  "steps": 32,
+  "dozeVsRef": 1,
+  "unknown": 0,
+  "ref8VsRef": 21,
+  "dozeVsRef8": 21
+ },
+ {
+  "scenario": "metadata-and-rules-in-a-registration",
+  "steps": 6,
+  "dozeVsRef": 3,
+  "unknown": 0,
+  "ref8VsRef": 6,
+  "dozeVsRef8": 6
+ },
+ {
+  "scenario": "soft-and-hard-delete",
+  "steps": 44,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 8,
+  "dozeVsRef8": 8
+ },
+ {
+  "scenario": "re-register-after-delete-and-id-reuse",
+  "steps": 23,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 11,
+  "dozeVsRef8": 11
+ },
+ {
+  "scenario": "config",
+  "steps": 41,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 18,
+  "dozeVsRef8": 18
+ },
+ {
+  "scenario": "mode",
+  "steps": 30,
+  "dozeVsRef": 1,
+  "unknown": 0,
+  "ref8VsRef": 7,
+  "dozeVsRef8": 8
+ },
+ {
+  "scenario": "compatibility-route",
+  "steps": 28,
+  "dozeVsRef": 1,
+  "unknown": 0,
+  "ref8VsRef": 4,
+  "dozeVsRef8": 4
+ },
+ {
+  "scenario": "references-avro",
+  "steps": 24,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 14,
+  "dozeVsRef8": 14
+ },
+ {
+  "scenario": "protobuf",
+  "steps": 30,
+  "dozeVsRef": 3,
+  "unknown": 0,
+  "ref8VsRef": 25,
+  "dozeVsRef8": 25
+ },
+ {
+  "scenario": "protobuf-serialized",
+  "steps": 9,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 9,
+  "dozeVsRef8": 9
+ },
+ {
+  "scenario": "json-schema",
+  "steps": 27,
+  "dozeVsRef": 5,
+  "unknown": 0,
+  "ref8VsRef": 22,
+  "dozeVsRef8": 22
+ },
+ {
+  "scenario": "avro-text-forms",
+  "steps": 25,
+  "dozeVsRef": 1,
+  "unknown": 0,
+  "ref8VsRef": 25,
+  "dozeVsRef8": 25
+ },
+ {
+  "scenario": "readonly-and-global-mode",
+  "steps": 13,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 6,
+  "dozeVsRef8": 6
+ },
+ {
+  "scenario": "large-and-odd-bodies",
+  "steps": 9,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 5,
+  "dozeVsRef8": 5
+ },
+ {
+  "scenario": "subject-names",
+  "steps": 16,
+  "dozeVsRef": 2,
+  "unknown": 0,
+  "ref8VsRef": 11,
+  "dozeVsRef8": 11
+ },
+ {
+  "scenario": "protobuf-normalize/mixed",
+  "steps": 17,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 9,
+  "dozeVsRef8": 9
+ },
+ {
+  "scenario": "protobuf-normalize/proto2",
+  "steps": 14,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 7,
+  "dozeVsRef8": 7
+ },
+ {
+  "scenario": "protobuf-normalize/names",
+  "steps": 14,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 7,
+  "dozeVsRef8": 7
+ },
+ {
+  "scenario": "protobuf-normalize/options",
+  "steps": 14,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 7,
+  "dozeVsRef8": 7
+ },
+ {
+  "scenario": "protobuf-normalize/merge",
+  "steps": 14,
+  "dozeVsRef": 4,
+  "unknown": 0,
+  "ref8VsRef": 9,
+  "dozeVsRef8": 7
+ },
+ {
+  "scenario": "protobuf-normalize/numbers",
+  "steps": 14,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 7,
+  "dozeVsRef8": 7
+ },
+ {
+  "scenario": "protobuf-normalize/enums",
+  "steps": 14,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 7,
+  "dozeVsRef8": 7
+ },
+ {
+  "scenario": "protobuf-normalize/nosyntax",
+  "steps": 14,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 7,
+  "dozeVsRef8": 7
+ },
+ {
+  "scenario": "protobuf-normalize/nopkg",
+  "steps": 14,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 7,
+  "dozeVsRef8": 7
+ },
+ {
+  "scenario": "protobuf-normalize/references",
+  "steps": 5,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 5,
+  "dozeVsRef8": 5
+ },
+ {
+  "scenario": "protobuf-normalize/descriptor",
+  "steps": 3,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 2,
+  "dozeVsRef8": 2
+ },
+ {
+  "scenario": "protobuf-normalize/compatibility",
+  "steps": 6,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 3,
+  "dozeVsRef8": 3
+ },
+ {
+  "scenario": "json-schema-huge-numbers",
+  "steps": 65,
+  "dozeVsRef": 18,
+  "unknown": 0,
+  "ref8VsRef": 45,
+  "dozeVsRef8": 44
+ },
+ {
+  "scenario": "data-contracts/register-and-read",
+  "steps": 34,
+  "dozeVsRef": 1,
+  "unknown": 0,
+  "ref8VsRef": 25,
+  "dozeVsRef8": 25
+ },
+ {
+  "scenario": "data-contracts/latest-with-metadata",
+  "steps": 25,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 15,
+  "dozeVsRef8": 15
+ },
+ {
+  "scenario": "data-contracts/config-defaults-and-overrides",
+  "steps": 21,
+  "dozeVsRef": 2,
+  "unknown": 0,
+  "ref8VsRef": 13,
+  "dozeVsRef8": 13
+ },
+ {
+  "scenario": "data-contracts/compatibility-group",
+  "steps": 13,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 7,
+  "dozeVsRef8": 7
+ },
+ {
+  "scenario": "data-contracts/errors",
+  "steps": 14,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 3,
+  "dozeVsRef8": 3
+ },
+ {
+  "scenario": "data-contracts/rule-sets",
+  "steps": 29,
+  "dozeVsRef": 28,
+  "unknown": 0,
+  "ref8VsRef": 24,
+  "dozeVsRef8": 28
+ },
+ {
+  "scenario": "data-contracts/import",
+  "steps": 10,
+  "dozeVsRef": 0,
+  "unknown": 0,
+  "ref8VsRef": 7,
+  "dozeVsRef8": 7
+ }
+]

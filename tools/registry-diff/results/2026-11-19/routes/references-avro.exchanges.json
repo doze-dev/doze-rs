@@ -1,0 +1,780 @@
+[
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/addr/versions",
+   "b": "{\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"Address\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"city\\\",\\\"type\\\":\\\"string\\\"}]}\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":18}",
+    "ms": 6
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":18,\"version\":1,\"guid\":\"2c201bfd-4f2c-6439-9f5e-1482cef3d963\",\"schemaType\":\"AVRO\",\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"Address\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"city\\\",\\\"type\\\":\\\"string\\\"}]}\"}",
+    "ms": 11
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":19}",
+    "ms": 5
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/cust/versions",
+   "b": "{\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"Customer\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"home\\\",\\\"type\\\":\\\"com.example.Address\\\"}]}\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42201,\"message\":\"Invalid schema {subject=cust,version=0,id=-1,schemaType=AVRO,references=[],metadata=null,ruleSet=null,schema={\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"Customer\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"home\\\",\\\"type\\\":\\\"com.example.Address\\\"}]},schemaTags=null} with refs [] of type AVRO, details: \\\"com.example.Address\\\" is not a defined name. The type of the \\\"home\\\" field must be a defined name or a {\\\"type\\\": ...} expression.\"}",
+    "ms": 2
+   },
+   "confluent-8": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42201,\"message\":\"Invalid schema of type AVRO, details: Invalid schema {subject=cust,version=null,id=null,guid=2fd06adb-4d54-0efd-3a8b-8369595b26b7,schemaType=AVRO,references=[],metadata=null,ruleSet=null,schema={\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"Customer\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"home\\\",\\\"type\\\":\\\"com.example.Address\\\"}]},schemaTags=null,ts=null,deleted=null} with refs [] of type AVRO, details: Undefined schema: com.example.Address\"}",
+    "ms": 3
+   },
+   "doze": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42201,\"message\":\"Invalid schema {subject=cust,version=0,id=-1,schemaType=AVRO,references=[],metadata=null,ruleSet=null,schema={\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"Customer\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"home\\\",\\\"type\\\":\\\"com.example.Address\\\"}]},schemaTags=null} with refs [] of type AVRO, details: \\\"com.example.Address\\\" is not a defined name. The type of the \\\"home\\\" field must be a defined name or a {\\\"type\\\": ...} expression.\"}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/cust/versions",
+   "b": "{\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"Customer\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"home\\\",\\\"type\\\":\\\"com.example.Address\\\"}]}\",\"references\":[{\"name\":\"com.example.Address\",\"subject\":\"addr\",\"version\":1}]}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":19}",
+    "ms": 7
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":19,\"version\":1,\"guid\":\"0c59173c-49ee-fe82-583d-8b3060d36f3f\",\"schemaType\":\"AVRO\",\"references\":[{\"name\":\"com.example.Address\",\"subject\":\"addr\",\"version\":1}],\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"Customer\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"home\\\",\\\"type\\\":\\\"Address\\\"}]}\"}",
+    "ms": 14
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":20}",
+    "ms": 4
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/cust/versions",
+   "b": "{\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"Customer\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"home\\\",\\\"type\\\":\\\"com.example.Address\\\"}]}\",\"references\":[{\"name\":\"com.example.Address\",\"subject\":\"addr\",\"version\":-1}]}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":19}",
+    "ms": 3
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":19,\"version\":1,\"guid\":\"0c59173c-49ee-fe82-583d-8b3060d36f3f\",\"schemaType\":\"AVRO\",\"references\":[{\"name\":\"com.example.Address\",\"subject\":\"addr\",\"version\":1}],\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"Customer\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"home\\\",\\\"type\\\":\\\"Address\\\"}]}\"}",
+    "ms": 2
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":20}",
+    "ms": 1
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/cust/versions",
+   "b": "{\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"Customer\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"home\\\",\\\"type\\\":\\\"com.example.Address\\\"}]}\",\"references\":[{\"name\":\"com.example.Address\",\"subject\":\"addr\",\"version\":2}]}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42201,\"message\":\"Invalid schema {subject=cust,version=0,id=-1,schemaType=AVRO,references=[{name='com.example.Address', subject='addr', version=2}],metadata=null,ruleSet=null,schema={\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"Customer\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"home\\\",\\\"type\\\":\\\"com.example.Address\\\"}]},schemaTags=null} with refs [{name='com.example.Address', subject='addr', version=2}] of type AVRO, details: No schema reference found for subject \\\"addr\\\" and version 2\"}",
+    "ms": 3
+   },
+   "confluent-8": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42201,\"message\":\"Invalid schema of type AVRO, details: Invalid schema {subject=cust,version=null,id=null,guid=fd8a0070-d7e3-5043-1c6e-3bd699540f78,schemaType=AVRO,references=[{name='com.example.Address', subject='addr', version=2}],metadata=null,ruleSet=null,schema={\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"Customer\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"home\\\",\\\"type\\\":\\\"com.example.Address\\\"}]},schemaTags=null,ts=null,deleted=null} with refs [{name='com.example.Address', subject='addr', version=2}] of type AVRO, details: No schema reference found for subject \\\"addr\\\" and version 2\"}",
+    "ms": 2
+   },
+   "doze": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42201,\"message\":\"Invalid schema {subject=cust,version=0,id=-1,schemaType=AVRO,references=[{name='com.example.Address', subject='addr', version=2}],metadata=null,ruleSet=null,schema={\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"Customer\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"home\\\",\\\"type\\\":\\\"com.example.Address\\\"}]},schemaTags=null} with refs [{name='com.example.Address', subject='addr', version=2}] of type AVRO, details: No schema reference found for subject \\\"addr\\\" and version 2\"}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "GET",
+   "p": "/subjects/cust/versions/1"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"cust\",\"version\":1,\"id\":19,\"references\":[{\"name\":\"com.example.Address\",\"subject\":\"addr\",\"version\":1}],\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"Customer\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"home\\\",\\\"type\\\":\\\"Address\\\"}]}\"}",
+    "ms": 2
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"cust\",\"version\":1,\"id\":19,\"guid\":\"0c59173c-49ee-fe82-583d-8b3060d36f3f\",\"schemaType\":\"AVRO\",\"references\":[{\"name\":\"com.example.Address\",\"subject\":\"addr\",\"version\":1}],\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"Customer\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"home\\\",\\\"type\\\":\\\"Address\\\"}]}\",\"ts\":1795104622051,\"deleted\":false}",
+    "ms": 4
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"cust\",\"version\":1,\"id\":20,\"references\":[{\"name\":\"com.example.Address\",\"subject\":\"addr\",\"version\":1}],\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"Customer\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"home\\\",\\\"type\\\":\\\"Address\\\"}]}\"}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "GET",
+   "p": "/schemas/ids/@2"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"Customer\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"home\\\",\\\"type\\\":\\\"Address\\\"}]}\",\"references\":[{\"name\":\"com.example.Address\",\"subject\":\"addr\",\"version\":1}]}",
+    "ms": 2
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"cust\",\"version\":1,\"guid\":\"0c59173c-49ee-fe82-583d-8b3060d36f3f\",\"schemaType\":\"AVRO\",\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"Customer\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"home\\\",\\\"type\\\":\\\"Address\\\"}]}\",\"references\":[{\"name\":\"com.example.Address\",\"subject\":\"addr\",\"version\":1}],\"ts\":1795104622051,\"deleted\":false}",
+    "ms": 1
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"Customer\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"home\\\",\\\"type\\\":\\\"Address\\\"}]}\",\"references\":[{\"name\":\"com.example.Address\",\"subject\":\"addr\",\"version\":1}]}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "GET",
+   "p": "/schemas/ids/@2?format=resolved"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"Customer\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"home\\\",\\\"type\\\":{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"Address\\\",\\\"fields\\\":[{\\\"name\\\":\\\"city\\\",\\\"type\\\":\\\"string\\\"}]}}]}\",\"references\":[{\"name\":\"com.example.Address\",\"subject\":\"addr\",\"version\":1}]}",
+    "ms": 1
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"cust\",\"version\":1,\"guid\":\"0c59173c-49ee-fe82-583d-8b3060d36f3f\",\"schemaType\":\"AVRO\",\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"Customer\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"home\\\",\\\"type\\\":{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"Address\\\",\\\"fields\\\":[{\\\"name\\\":\\\"city\\\",\\\"type\\\":\\\"string\\\"}]}}]}\",\"references\":[{\"name\":\"com.example.Address\",\"subject\":\"addr\",\"version\":1}],\"ts\":1795104622051,\"deleted\":false}",
+    "ms": 2
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"Customer\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"home\\\",\\\"type\\\":{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"Address\\\",\\\"fields\\\":[{\\\"name\\\":\\\"city\\\",\\\"type\\\":\\\"string\\\"}]}}]}\",\"references\":[{\"name\":\"com.example.Address\",\"subject\":\"addr\",\"version\":1}]}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "GET",
+   "p": "/subjects/addr/versions/1/referencedby"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "[19]",
+    "ms": 3
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "[19]",
+    "ms": 3
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "[20]",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "GET",
+   "p": "/subjects/addr/versions/latest/referencedby"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "[19]",
+    "ms": 1
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "[19]",
+    "ms": 1
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "[20]",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "DELETE",
+   "p": "/subjects/addr/versions/1"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42206,\"message\":\"One or more references exist to the schema {magic=1,keytype=SCHEMA,subject=addr,version=1}.\"}",
+    "ms": 1
+   },
+   "confluent-8": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42206,\"message\":\"One or more references exist to the schema {magic=1,keytype=SCHEMA,subject=addr,version=1}.\"}",
+    "ms": 1
+   },
+   "doze": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42206,\"message\":\"One or more references exist to the schema {magic=1,keytype=SCHEMA,subject=addr,version=1}.\"}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "DELETE",
+   "p": "/subjects/addr"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42206,\"message\":\"One or more references exist to the schema {magic=1,keytype=SCHEMA,subject=addr,version=1}.\"}",
+    "ms": 2
+   },
+   "confluent-8": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42206,\"message\":\"One or more references exist to the schema {magic=1,keytype=SCHEMA,subject=addr,version=1}.\"}",
+    "ms": 1
+   },
+   "doze": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42206,\"message\":\"One or more references exist to the schema {magic=1,keytype=SCHEMA,subject=addr,version=1}.\"}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "DELETE",
+   "p": "/subjects/cust/versions/1"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "1",
+    "ms": 6
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "1",
+    "ms": 9
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "1",
+    "ms": 4
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "GET",
+   "p": "/subjects/addr/versions/1/referencedby"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "[]",
+    "ms": 3
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "[]",
+    "ms": 3
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "[]",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "DELETE",
+   "p": "/subjects/addr/versions/1"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "1",
+    "ms": 5
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "1",
+    "ms": 8
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "1",
+    "ms": 4
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "DELETE",
+   "p": "/subjects/cust/versions/1?permanent=true"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "1",
+    "ms": 5
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "1",
+    "ms": 10
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "1",
+    "ms": 5
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "GET",
+   "p": "/subjects/addr/versions/1/referencedby"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "[]",
+    "ms": 1
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "[]",
+    "ms": 1
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "[]",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "DELETE",
+   "p": "/subjects/addr/versions/1"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 404,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":40406,\"message\":\"Subject 'addr' Version 1 was soft deleted.Set permanent=true to delete permanently\"}",
+    "ms": 1
+   },
+   "confluent-8": {
+    "status": 404,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":40406,\"message\":\"Subject 'addr' Version 1 was soft deleted.Set permanent=true to delete permanently\"}",
+    "ms": 1
+   },
+   "doze": {
+    "status": 404,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":40406,\"message\":\"Subject 'addr' Version 1 was soft deleted.Set permanent=true to delete permanently\"}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/cust/versions",
+   "b": "{\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"Customer\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"home\\\",\\\"type\\\":\\\"com.example.Address\\\"}]}\",\"references\":[{\"name\":\"com.example.Address\",\"subject\":\"addr\",\"version\":1}]}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":20}",
+    "ms": 5
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":20,\"version\":1,\"guid\":\"0c59173c-49ee-fe82-583d-8b3060d36f3f\",\"schemaType\":\"AVRO\",\"references\":[{\"name\":\"com.example.Address\",\"subject\":\"addr\",\"version\":1}],\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"Customer\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"home\\\",\\\"type\\\":\\\"Address\\\"}]}\"}",
+    "ms": 9
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":21}",
+    "ms": 5
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/addr/versions",
+   "b": "{\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"Address\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"city\\\",\\\"type\\\":\\\"string\\\"}]}\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":18}",
+    "ms": 10
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":18,\"version\":2,\"guid\":\"2c201bfd-4f2c-6439-9f5e-1482cef3d963\",\"schemaType\":\"AVRO\",\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"Address\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"city\\\",\\\"type\\\":\\\"string\\\"}]}\"}",
+    "ms": 10
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":19}",
+    "ms": 4
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/cust/versions",
+   "b": "{\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"Customer\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"home\\\",\\\"type\\\":\\\"com.example.Address\\\"}]}\",\"references\":[{\"name\":\"com.example.Address\",\"subject\":\"addr\",\"version\":2}]}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42201,\"message\":\"Invalid schema {subject=cust,version=1,id=20,schemaType=AVRO,references=[{name='com.example.Address', subject='addr', version=1}],metadata=null,ruleSet=null,schema={\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"Customer\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"home\\\",\\\"type\\\":\\\"Address\\\"}]},schemaTags=null} with refs [{name='com.example.Address', subject='addr', version=1}] of type AVRO, details: No schema reference found for subject \\\"addr\\\" and version 1\"}",
+    "ms": 6
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":21,\"version\":2,\"guid\":\"b2416163-e922-7170-f87c-86644cd5df03\",\"schemaType\":\"AVRO\",\"references\":[{\"name\":\"com.example.Address\",\"subject\":\"addr\",\"version\":2}],\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"Customer\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"home\\\",\\\"type\\\":\\\"Address\\\"}]}\"}",
+    "ms": 13
+   },
+   "doze": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42201,\"message\":\"Invalid schema {subject=cust,version=1,id=21,schemaType=AVRO,references=[{name='com.example.Address', subject='addr', version=1}],metadata=null,ruleSet=null,schema={\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"Customer\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"home\\\",\\\"type\\\":\\\"Address\\\"}]},schemaTags=null} with refs [{name='com.example.Address', subject='addr', version=1}] of type AVRO, details: No schema reference found for subject \\\"addr\\\" and version 1\"}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/cust",
+   "b": "{\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"Customer\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"home\\\",\\\"type\\\":\\\"com.example.Address\\\"}]}\",\"references\":[{\"name\":\"com.example.Address\",\"subject\":\"addr\",\"version\":2}]}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 404,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":40403,\"message\":\"Schema not found\"}",
+    "ms": 2
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"cust\",\"version\":2,\"id\":21,\"guid\":\"b2416163-e922-7170-f87c-86644cd5df03\",\"schemaType\":\"AVRO\",\"references\":[{\"name\":\"com.example.Address\",\"subject\":\"addr\",\"version\":2}],\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"Customer\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"home\\\",\\\"type\\\":\\\"Address\\\"}]}\"}",
+    "ms": 2
+   },
+   "doze": {
+    "status": 404,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":40403,\"message\":\"Schema not found\"}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/cust",
+   "b": "{\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"Customer\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"home\\\",\\\"type\\\":\\\"com.example.Address\\\"}]}\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42201,\"message\":\"Invalid schema {subject=cust,version=0,id=-1,schemaType=AVRO,references=[],metadata=null,ruleSet=null,schema={\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"Customer\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"home\\\",\\\"type\\\":\\\"com.example.Address\\\"}]},schemaTags=null} with refs [] of type AVRO, details: \\\"com.example.Address\\\" is not a defined name. The type of the \\\"home\\\" field must be a defined name or a {\\\"type\\\": ...} expression.\"}",
+    "ms": 2
+   },
+   "confluent-8": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42201,\"message\":\"Invalid schema of type AVRO, details: Invalid schema {subject=cust,version=null,id=null,guid=2fd06adb-4d54-0efd-3a8b-8369595b26b7,schemaType=AVRO,references=[],metadata=null,ruleSet=null,schema={\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"Customer\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"home\\\",\\\"type\\\":\\\"com.example.Address\\\"}]},schemaTags=null,ts=null,deleted=null} with refs [] of type AVRO, details: Undefined schema: com.example.Address\"}",
+    "ms": 2
+   },
+   "doze": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42201,\"message\":\"Invalid schema {subject=cust,version=0,id=-1,schemaType=AVRO,references=[],metadata=null,ruleSet=null,schema={\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"Customer\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"home\\\",\\\"type\\\":\\\"com.example.Address\\\"}]},schemaTags=null} with refs [] of type AVRO, details: \\\"com.example.Address\\\" is not a defined name. The type of the \\\"home\\\" field must be a defined name or a {\\\"type\\\": ...} expression.\"}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "GET",
+   "p": "/schemas"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "[{\"subject\":\"addr\",\"version\":2,\"id\":18,\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"Address\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"city\\\",\\\"type\\\":\\\"string\\\"}]}\"},{\"subject\":\"cust\",\"version\":1,\"id\":20,\"references\":[{\"name\":\"com.example.Address\",\"subject\":\"addr\",\"version\":1}],\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"Customer\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"home\\\",\\\"type\\\":\\\"Address\\\"}]}\"}]",
+    "ms": 2
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "[{\"subject\":\"addr\",\"version\":2,\"id\":18,\"guid\":\"2c201bfd-4f2c-6439-9f5e-1482cef3d963\",\"schemaType\":\"AVRO\",\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"Address\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"city\\\",\\\"type\\\":\\\"string\\\"}]}\",\"ts\":1795104622125,\"deleted\":false},{\"subject\":\"cust\",\"version\":1,\"id\":20,\"guid\":\"0c59173c-49ee-fe82-583d-8b3060d36f3f\",\"schemaType\":\"AVRO\",\"references\":[{\"name\":\"com.example.Address\",\"subject\":\"addr\",\"version\":1}],\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"Customer\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"home\\\",\\\"type\\\":\\\"Address\\\"}]}\",\"ts\":1795104622114,\"deleted\":false},{\"subject\":\"cust\",\"version\":2,\"id\":21,\"guid\":\"b2416163-e922-7170-f87c-86644cd5df03\",\"schemaType\":\"AVRO\",\"references\":[{\"name\":\"com.example.Address\",\"subject\":\"addr\",\"version\":2}],\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"Customer\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"home\\\",\\\"type\\\":\\\"Address\\\"}]}\",\"ts\":1795104622137,\"deleted\":false}]",
+    "ms": 3
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "[{\"subject\":\"addr\",\"version\":2,\"id\":19,\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"Address\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"city\\\",\\\"type\\\":\\\"string\\\"}]}\"},{\"subject\":\"cust\",\"version\":1,\"id\":21,\"references\":[{\"name\":\"com.example.Address\",\"subject\":\"addr\",\"version\":1}],\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"Customer\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"home\\\",\\\"type\\\":\\\"Address\\\"}]}\"}]",
+    "ms": 0
+   }
+  }
+ }
+]
