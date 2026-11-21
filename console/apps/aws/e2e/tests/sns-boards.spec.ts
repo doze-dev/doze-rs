@@ -10,7 +10,7 @@ import { queueArn, seedLarder, startWebhook, topicArn, type Webhook } from "./sn
 import { CUT, expect, test } from "./fixtures";
 
 const SHOTS = process.env.SHOTS_DIR ?? join(import.meta.dirname, "../../../../../shots-sns");
-const BASE = 44700;
+const BASE = 45200;
 const at = (b: string) => BASE + ({ firefox: 10, webkit: 20, chromium: 30 }[b] ?? 40);
 
 test.describe.configure({ mode: "serial" });
@@ -78,6 +78,9 @@ test("sns__topic-create: every setting of a topic, the sentence, and the call it
   await expect(page.getByTestId("section-encryption")).toContainText("Stored, not applied locally.");
   // Delivery retry policy says it is applied to HTTP/S; delivery logging says it is only stored; Firehose and mobile push are off with their reasons.
   await expect(page.getByTestId("section-retry")).toContainText("Applied to HTTP and HTTPS subscriptions.");
+  await expect(page.getByTestId("section-retry")).toContainText("Stored, not applied: maxReceivesPerSecond (there is no throttling) and headerContentType");
+  // The boards fold only the FIFO form: a standard one has no Collapse buttons, and its Remove tag button is whole inside the card.
+  await expect(page.getByRole("button", { name: "Collapse" })).toHaveCount(0);
   await expect(page.getByTestId("logging-Firehose")).toContainText("Not available in doze-aws");
   await expect(page.getByTestId("logging-Application")).toContainText("Disabled");
   await expect(page.getByTestId("section-logging")).toContainText("writes no delivery logs");
@@ -125,13 +128,37 @@ test("sns__topic-create-refused: a FIFO name without .fifo is refused, and the f
   await page.getByTestId("type-fifo").click();
   await page.getByTestId("topic-name").fill("orders-events");
   await page.getByTestId("form-submit").click();
-  await expect(page.getByTestId("create-refused")).toContainText("CreateTopic returned InvalidParameter");
+  await expect(page.getByTestId("create-refused")).toContainText("CreateTopic returned InvalidParameter:");
+  await expect(page.getByTestId("create-refused")).not.toContainText("Exception");
   await expect(page.getByTestId("create-refused")).toContainText("For a FIFO topic, the name must end with the .fifo suffix.");
   await expect(page.getByTestId("field-name")).toContainText("For a FIFO topic, the name must end with the .fifo suffix.");
   await expect(page.getByTestId("call-panel-came-back")).toContainText("InvalidParameter");
   await expect(page.getByText("Nothing was created. Fix the name and try again.")).toBeVisible();
   await shot(page, "sns__topic-create-refused");
   expect(aws(server.endpoint, ["sns", "get-topic-attributes", "--topic-arn", ARN("orders-events")]).code).not.toBe(0);
+});
+
+test("an invalid name is marked on its field and brought into view, and a missing topic is not a down server", async ({ page }) => {
+  await go(page, "/resources/sns/topics?create=yes", "Create topic");
+  await page.getByTestId("topic-name").fill("bad name!");
+  await page.getByTestId("form-submit").click();
+  await expect(page.getByTestId("field-name")).toContainText("1 to 256 characters: letters, numbers, underscores and hyphens.");
+  await expect(page.getByTestId("field-name")).toHaveAttribute("data-refused", "");
+  await expect(page.getByTestId("topic-name")).toBeFocused();
+  await expect(page.getByTestId("topic-name")).toBeInViewport();
+  await go(page, "/resources/sns/topics?create=yes", "Create topic");
+  await page.getByTestId("topic-name").fill("n".repeat(257));
+  await page.getByTestId("form-submit").click();
+  await expect(page.getByTestId("topic-name")).toBeFocused();
+  await expect(page.getByTestId("disabled-why")).toContainText("1 to 256 characters");
+  // A topic that is not there: the service's own words and code, and no advice to check that doze-aws runs (it answered).
+  await page.goto(`${server.console}${topicPath("no-such-topic")}`);
+  const err = page.getByTestId("detail-error");
+  await expect(err).toContainText("Topic does not exist");
+  await expect(err).toContainText("NotFound · HTTP 404");
+  await expect(err).not.toContainText("Exception");
+  await expect(err).not.toContainText("Check that doze-aws is still running");
+  await expect(err).toContainText("There is no topic of that name in this account and Region.");
 });
 
 test("sns__topic-created and sns__topic-subscriptions-none: the FIFO topic is made and says what to do next", async ({ page }) => {
@@ -187,6 +214,8 @@ test("sns__subscription-create and sns__subscription-detail: a FIFO queue subscr
   await expect(page.getByTestId("filter-section")).toContainText("Scope: attribute-based filtering (FilterPolicyScope = MessageAttributes)");
   await expect(page.getByTestId("redrive-section")).toContainText("Not set. Messages that cannot be delivered are not held in a dead-letter queue.");
   await shot(page, "sns__subscription-detail");
+  // The Subscribe that made it is among its calls (a Subscribe names the topic, so the page borrows it from the topic just after creating).
+  await expect(page.getByTestId("recent-calls")).toContainText("Subscribe");
 });
 
 test("sns__subscription-create-http: a webhook must confirm, and the answer is pending", async ({ page }) => {
@@ -278,6 +307,9 @@ test("sns__topics-list and sns__subscriptions-list: three topics, seven subscrip
   await expect(page.getByTestId("page-line")).toHaveText("3 topics, one ListTopics page (a page holds up to 100)");
   await expect(page.getByTestId("last-calls")).toContainText("Publish");
   await expect(page.getByTestId("last-calls")).toContainText("Last calls in SNS");
+  // The feed is the same as the pages of a topic: the app's calls by their caller's name, this console's own reads hidden until asked for.
+  await expect(page.getByTestId("last-calls").getByTestId("call-caller").first()).toContainText("AWS CLI");
+  await expect(page.getByTestId("last-calls").getByTestId("calls-console-hidden")).toContainText("made by this console");
   await shot(page, "sns__topics-list");
 
   await page.getByTestId("sns-tab-subscriptions").click();
@@ -320,6 +352,9 @@ test("sns__topic-access: the policy, who it lets in, and Edit", async ({ page })
   await go(page, topicPath("orders-created", "?tab=access"), "orders-created");
   await expect(page.getByTestId("detail-sentence")).toHaveText(`orders-created is open to its owner only: one statement allows any principal in account ${server.account} to publish, subscribe and manage the topic.`);
   await expect(page.getByTestId("policy-json")).toContainText("__default_policy_ID");
+  // The whole policy is shown: its Condition block is not below a scrolling box.
+  await expect(page.getByTestId("policy-json")).toContainText("AWS:SourceOwner");
+  expect(await page.getByTestId("policy-json").evaluate((e) => e.scrollHeight <= e.clientHeight + 1)).toBe(true);
   await expect(page.getByTestId("access-tab")).toContainText("AddPermission and RemovePermission");
   await expect(page.getByTestId("tab-edit")).toBeVisible();
   await shot(page, "sns__topic-access");
@@ -333,6 +368,8 @@ test("sns__topic-delivery-policy: each attribute, its value and its rule; what d
   await expect(table.locator("tr[data-row]", { hasText: "minDelayTarget" })).toContainText("20 seconds");
   await expect(table.locator("tr[data-row]", { hasText: "maxReceivesPerSecond" })).toContainText("No throttling");
   await expect(page.getByTestId("retry-applied")).toHaveText("Applied locally");
+  await expect(page.getByTestId("retry-stored")).toContainText("Stored, not applied");
+  await expect(page.getByTestId("retry-stored")).toContainText("maxReceivesPerSecond and headerContentType are kept and read back");
   await expect(page.getByTestId("retry-tab")).toContainText("100,015 attempts");
   await shot(page, "sns__topic-delivery-policy");
 });
@@ -422,6 +459,10 @@ test("sns__publish-fifo, sns__publish-fifo-refused and sns__topic-published: a g
   await expect(page.getByTestId("published-message-id")).not.toBeEmpty();
   await expect(page.getByTestId("published-sequence")).toContainText(/^\d+$/);
   await shot(page, "sns__topic-published");
+  // The publish just made is in view, as this console's own, though the console's reads stay hidden.
+  await expect(page.getByTestId("recent-calls")).toContainText("Publish");
+  await expect(page.getByTestId("recent-calls").getByTestId("call-caller").first()).toContainText("This console");
+  await expect(page.getByTestId("calls-console-hidden")).toContainText("made by this console");
   const got = JSON.parse(cli(["sqs", "receive-message", "--queue-url", `${server.endpoint}/${server.account}/${FIFO}`, "--attribute-names", "All"])) as { Messages: { Body: string }[] };
   expect(JSON.parse(got.Messages[0]!.Body).Message).toContain("order_placed");
 });

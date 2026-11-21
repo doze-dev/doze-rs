@@ -17,7 +17,7 @@ export function KeyValueEditor({ rows, onChange, rules, addLabel = "Add new tag"
   return (
     <div className={cn("grid gap-3", className)} data-slot="key-value-editor" data-testid={testId}>
       {rows.length > 0 && (
-        <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_2rem] items-start gap-x-3 gap-y-2">
+        <div className={cn("grid items-start gap-x-3 gap-y-2", removeLabel ? "grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]" : "grid-cols-[minmax(0,1fr)_minmax(0,1fr)_2rem]")}>
           <span className="text-[12px] font-medium tracking-[0.04em] text-muted-foreground uppercase">{keyLabel}</span>
           <span className="text-[12px] font-medium tracking-[0.04em] text-muted-foreground uppercase">{valueLabel}</span>
           <span />

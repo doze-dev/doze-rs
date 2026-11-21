@@ -66,10 +66,13 @@ export function DlqTab({ d, q, go, dead }: TabProps) {
   );
 }
 
+/** The key manager as the board words it: `Customer managed`, `AWS managed`. */
+const managed = (v: string | null | undefined): string | null | undefined => (v === "Customer" ? "Customer managed" : v === "AWS" ? "AWS managed" : v);
+
 export function EncryptionTab({ q }: TabProps) {
   const key = useResourceDetail("kms", "keys", q.kms ?? "", q.kms !== null);
   const f = (l: string) => key.data?.fields.find((x) => x.label === l)?.value;
-  const kind = key.data ? [f("Managed by"), f("Key spec") === "SYMMETRIC_DEFAULT" ? "symmetric" : f("Key spec")?.toLowerCase(), f("State")?.toLowerCase()].filter(Boolean).join(", ") : null;
+  const kind = key.data ? [managed(f("Managed by")), f("Key spec") === "SYMMETRIC_DEFAULT" ? "symmetric" : f("Key spec")?.toLowerCase(), f("State")?.toLowerCase()].filter(Boolean).join(", ") : null;
   const on = q.sse !== "none";
   return (
     <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]" data-testid="encryption-tab">

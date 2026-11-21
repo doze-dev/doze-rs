@@ -124,7 +124,7 @@ export function SubscribeTopic({ d, q, back, done }: SubProps) {
       testId="subscribe-form"
     >
       <FormSection title="Amazon SNS topic">
-        <Field label="Specify an Amazon SNS topic available for this queue" hint={topicHint(others)} testId="field-topic">
+        <Field label="Specify an Amazon SNS topic available for this queue" hint={topicHint(others, mine)} testId="field-topic">
           {(id) => <div className="grid gap-2"><ListPicker id={id} service="sns" kind="topics" noun="topic" value={topic} onChange={setTopic} by="id" />{topic && <p className="font-mono text-[12.5px] break-all text-muted-foreground" data-testid="topic-arn">{topic}</p>}</div>}
         </Field>
         {plan && (

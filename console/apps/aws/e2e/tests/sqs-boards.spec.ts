@@ -8,7 +8,7 @@ import { deadLettered, queueUrl, seedLarder } from "./sqs-seed";
 import { CUT, expect, test } from "./fixtures";
 
 const SHOTS = process.env.SHOTS_DIR ?? join(import.meta.dirname, "../../../../../shots-sqs");
-const BASE = 44800;
+const BASE = 45240;
 const at = (b: string) => BASE + ({ firefox: 10, webkit: 20, chromium: 30 }[b] ?? 40);
 
 test.describe.configure({ mode: "serial" });
@@ -92,6 +92,10 @@ test("sqs__queue-create and sqs__queue-create-refused: the form, its call, and t
   await page.getByTestId("queue-name").fill("pick-lists");
   await expect(page.getByText("pick-lists already exists in this Region.")).toBeVisible();
   await expect(page.getByText("pick-lists uses 30 seconds.")).toBeVisible();
+  // Retention names its neighbour, the dead-letter queue; the dead-letter hint names queues that are one, and what the first keeps.
+  await expect(page.getByText(/pick-lists keeps 4 days\./)).toContainText("pick-lists-dlq keeps 14 days.");
+  await expect(page.getByTestId("section-dlq")).toContainText("pick-lists-dlq is one; pick-lists-dlq keeps messages for 14 days.");
+  await expect(page.getByTestId("section-dlq")).not.toContainText("invoice-queue");
   await page.getByTestId("queue-visibility").fill("60");
   await expect(page.getByTestId("call-panel-code")).toContainText('"VisibilityTimeout": "60"');
   await expect(page.getByTestId("call-panel-code")).toContainText('"QueueName": "pick-lists"');
@@ -132,6 +136,8 @@ test("sqs__queue-create-fifo and sqs__queue-created: a FIFO queue with its own s
   await expect(page.getByTestId("call-panel-code")).toContainText('"ContentBasedDeduplication": "true"');
   await expect(page.getByTestId("call-panel-code")).toContainText('"stack": "larder"');
   await expect(page.getByText("FIFO throughput limit is validated and returned; nothing is throttled.")).toBeVisible();
+  // No FIFO queue is a dead-letter queue yet: the note says there is no good target.
+  await expect(page.getByTestId("section-dlq")).toContainText("none is a dead-letter queue yet, so there is no good target. Create one first; SQS does not create it for you.");
   await shot(page, "sqs__queue-create-fifo");
   await page.getByTestId("form-submit").click();
   await expect(page.getByTestId("created-banner")).toContainText("Queue stock-moves.fifo created. CreateQueue returned its URL");
@@ -175,7 +181,7 @@ test("sqs__queue-access-policy and sqs__queue-encryption: what the policy lets i
   await expect(page.getByTestId("sse-state")).toContainText("Enabled");
   await expect(page.getByTestId("sse-state")).toContainText("AWS Key Management Service key (SSE-KMS)");
   await expect(page.getByTestId("encryption-tab")).toContainText("alias/larder-app");
-  await expect(page.getByTestId("encryption-tab")).toContainText("Customer, symmetric, enabled");
+  await expect(page.getByTestId("encryption-tab")).toContainText("Customer managed, symmetric, enabled");
   await expect(page.getByTestId("encryption-tab")).toContainText("5 minutes");
   await expect(page.getByTestId("encryption-tab")).toContainText("Stored, not applied locally.");
   await expect(page.getByRole("complementary", { name: "Stored, not applied" })).toBeVisible();
@@ -219,6 +225,7 @@ test("sqs__queue-sns-subscriptions and sqs__queue-sns-subscribe: no subscription
   await expect(page.locator("h1")).toHaveText("Subscribe to Amazon SNS topic");
   // The topic with the most deliveries is chosen already, with its ARN under the picker.
   await expect(page.getByTestId("topic-arn")).toContainText(":orders-created");
+  await expect(page.getByTestId("field-topic")).toContainText("orders-created already has 3 subscriptions");
   await expect(page.getByTestId("call-panel-code")).toContainText('"Protocol": "sqs"');
   await expect(page.getByTestId("subscribe-form")).toContainText("pick-lists has 1 statement today and would have 2.");
   await shot(page, "sqs__queue-sns-subscribe");
@@ -290,6 +297,11 @@ test("sqs__queue-messages, -message-sent, -messages-polled, message-detail, mess
   await page.getByTestId("poll").click();
   const polled = page.getByTestId("polled");
   await expect(polled).toContainText("Messages (");
+  // As the boards show a poll: the Receive card is its one line, and the Send form is not on the page (a small button brings it back).
+  await expect(page.getByTestId("receive-card")).toHaveAttribute("data-compact", "");
+  await expect(page.getByTestId("receive-card")).not.toContainText("Polling counts as receiving");
+  await expect(page.getByTestId("send-body")).toHaveCount(0);
+  await expect(page.getByTestId("send-folded")).toHaveCount(0);
   await expect(page.getByRole("table", { name: "Messages" }).locator("tbody tr[data-row]")).not.toHaveCount(0);
   await expect(page.getByRole("table", { name: "Messages" })).toContainText("bytes");
   const before = await page.getByRole("table", { name: "Messages" }).locator("tbody tr[data-row]").count();
@@ -314,6 +326,8 @@ test("sqs__queue-messages, -message-sent, -messages-polled, message-detail, mess
   await expect(page.getByText(/messages are left from the last poll\./)).toBeVisible();
   await expect(page.getByRole("table", { name: "Messages" }).locator("tbody tr[data-row]")).toHaveCount(before - 1);
   await shot(page, "sqs__message-deleted");
+  await page.getByTestId("send-show").click();
+  await expect(page.getByTestId("send-body")).toBeVisible();
 });
 
 test("sqs__queue-messages-fifo: a FIFO queue needs a group, takes no per-message delay and starts empty", async ({ page }) => {
@@ -368,6 +382,10 @@ test("sqs__dlq-redrive-running and -cancelled: a slow redrive is RUNNING, then c
   await expect(page.getByTestId("redrive-fields")).toHaveAttribute("data-status", "RUNNING");
   await expect(page.getByTestId("redrive-Task handle")).toContainText("…");
   await expect(page.getByTestId("detail-sentence")).toContainText("slow-dlq is moving");
+  // A running task is read again on its own (no Refresh), and the header's Start is greyed while it runs.
+  await expect(page.getByTestId("verb-redrive")).toBeDisabled();
+  const first = await page.getByTestId("redrive-Messages moved").innerText();
+  await expect(page.getByTestId("redrive-Messages moved")).not.toHaveText(first, { timeout: 12_000 });
   await shot(page, "sqs__dlq-redrive-running");
   await page.getByTestId("redrive-cancel").click();
   await expect(page.getByTestId("redrive-fields")).toHaveAttribute("data-status", "CANCELLED");

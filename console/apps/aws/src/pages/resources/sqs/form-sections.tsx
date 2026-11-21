@@ -12,6 +12,7 @@ import { RadioGroup, RadioGroupItem } from "@doze/ui/components/ui/radio-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@doze/ui/components/ui/select";
 import { Switch } from "@doze/ui/components/ui/switch";
 import { Textarea } from "@doze/ui/components/ui/textarea";
+import { listRows } from "./list-model";
 import { Field, FormSection, LocalStatus, RuleHelp, TAG_RULES, callKindOp } from "../../../kit";
 import { useResourceDetail, useResourceList } from "../../../api/resources";
 import { basicPolicy, LIMITS, type AllowMode, type QueueForm, type Who } from "./form-model";
@@ -173,6 +174,11 @@ export function DeadLetter({ f, set, p, show, self, region, account, empty }: Fi
   const name = f.dlq ? f.dlq.split(":").pop()! : "";
   const picked = useResourceDetail("sqs", "queues", name, name !== "");
   const retention = name && picked.data ? queueOf(picked.data).retention : null;
+  // The queues of this type that are already somebody's dead-letter queue (the list's Dead-letter queue column names them).
+  const targets = new Set(listRows(list.data?.pages.flatMap((pg) => pg.rows) ?? []).map((r) => r.dlq?.split(":").pop()).filter(Boolean));
+  const real = rows.filter((r) => targets.has(r.name));
+  const sample = useResourceDetail("sqs", "queues", real[0]?.name ?? "", real.length > 0 && !f.dlqOn);
+  const keeps = sample.data ? queueOf(sample.data).retention : null;
   const summary = f.dlqOn ? `Enabled: ${name || "no queue chosen"} after ${f.maxReceives || "?"} receives.` : "Disabled.";
   return (
     <FormSection title="Dead-letter queue" optional collapsible defaultOpen={!useContext(FoldedStart)} description="Receives messages that could not be processed from this queue." summary={summary} testId="section-dlq">
@@ -182,7 +188,7 @@ export function DeadLetter({ f, set, p, show, self, region, account, empty }: Fi
       </div>
       {!f.dlqOn && (
         <RuleHelp>
-          {f.fifo ? <>The dead-letter queue of a FIFO queue must also be a FIFO queue. {rows.length === 0 ? "There is no FIFO queue to use yet. Create one first; SQS does not create it for you." : `${rows.map((r) => r.name).join(", ")} ${rows.length === 1 ? "is the only other FIFO queue" : "are the other FIFO queues"} in this Region.`}</> : <>Turn this on to move messages that keep failing to a dead-letter queue. Create the queue first; SQS does not create it, and a standard queue needs a standard dead-letter queue.{rows.length > 0 && !empty ? ` ${rows.slice(0, 3).map((r) => r.name).join(", ")} ${rows.length === 1 ? "is one" : "are some"}.` : ""}</>}
+          {f.fifo ? <>The dead-letter queue of a FIFO queue must also be a FIFO queue. {rows.length === 0 ? "There is no FIFO queue to use yet. Create one first; SQS does not create it for you." : `${rows.map((r) => r.name).join(", ")} ${rows.length === 1 ? "is the only other FIFO queue" : "are the other FIFO queues"} in this Region${real.length === 0 ? ", and none is a dead-letter queue yet, so there is no good target. Create one first; SQS does not create it for you." : "."}`}</> : <>Turn this on to move messages that keep failing to a dead-letter queue. Create the queue first; SQS does not create it, and a standard queue needs a standard dead-letter queue.{real.length > 0 && !empty ? ` ${real.slice(0, 3).map((r) => r.name).join(", ")} ${real.length === 1 ? "is one" : "are some"}${keeps !== null ? `; ${real[0]!.name} keeps messages for ${wait(keeps)}` : ""}.` : ""}</>}
         </RuleHelp>
       )}
       {f.dlqOn && (

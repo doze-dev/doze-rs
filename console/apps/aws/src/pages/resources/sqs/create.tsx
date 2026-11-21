@@ -20,12 +20,13 @@ import { mismatched, nameTaken, whatItHas } from "./refusal";
 const QUEUES = { service: "sqs", kind: "queues" };
 
 /** What the queue named in the form already has, said under the fields it is a neighbour of. */
-function hintsFor(existing: ReturnType<typeof queueOf> | null, name: string): Hints {
+function hintsFor(existing: ReturnType<typeof queueOf> | null, name: string, neighbour: { name: string; retention: number } | null): Hints {
   if (!existing) return {};
   return {
     name: `${name} already exists in this Region.`,
     visibility: `${name} uses ${seconds(String(existing.visibility))}.`,
-    retention: `${name} keeps ${seconds(String(existing.retention))}.`,
+    // Its dead-letter queue is a neighbour of the retention: a dead-letter queue should keep messages longer than the queue that feeds it.
+    retention: `${name} keeps ${seconds(String(existing.retention))}.${neighbour ? ` ${neighbour.name} keeps ${seconds(String(neighbour.retention))}.` : ""}`,
   };
 }
 
@@ -44,6 +45,9 @@ export function SqsCreate() {
   const exists = known.has(f.name);
   const neighbour = useResourceDetail("sqs", "queues", f.name, exists);
   const existing = exists && neighbour.data ? queueOf(neighbour.data) : null;
+  const deadName = existing?.dlq ?? null;
+  const dead = useResourceDetail("sqs", "queues", deadName ?? "", deadName !== null);
+  const deadHolds = deadName && dead.data ? { name: deadName, retention: queueOf(dead.data).retention } : null;
   const p = problems(f, { create: true });
   const input = useMemo(() => createInput(f, arn), [f, arn]);
   const refused = make.error instanceof ApiFailure ? { code: make.error.code, message: make.error.message } : make.error ? { code: "Error", message: String((make.error as Error).message) } : null;
@@ -90,8 +94,8 @@ export function SqsCreate() {
       onSubmit={submit}
       testId="queue-create"
     >
-      <TypeAndName f={f} set={set} p={p} show={tried} create hints={taken ? { ...hintsFor(existing, f.name), name: undefined } : hintsFor(existing, f.name)} refusal={taken ? { why: "A queue with this name already exists, with different attributes.", suggestion: "Choose another name, or send the same attributes the queue has." } : null} />
-      <Configuration f={f} set={set} p={p} show={tried} create hints={hintsFor(existing, f.name)} />
+      <TypeAndName f={f} set={set} p={p} show={tried} create hints={taken ? { ...hintsFor(existing, f.name, deadHolds), name: undefined } : hintsFor(existing, f.name, deadHolds)} refusal={taken ? { why: "A queue with this name already exists, with different attributes.", suggestion: "Choose another name, or send the same attributes the queue has." } : null} />
+      <Configuration f={f} set={set} p={p} show={tried} create hints={hintsFor(existing, f.name, deadHolds)} />
       <FoldedStart.Provider value={taken} key={taken ? "refused" : "open"}>
         <AccessPolicy f={f} set={set} p={p} show={tried} queueArn={arn} basic />
         <RedriveAllow f={f} set={set} p={p} show={tried} name={f.name} />

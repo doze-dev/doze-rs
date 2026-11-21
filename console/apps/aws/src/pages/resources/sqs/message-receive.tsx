@@ -17,7 +17,22 @@ import { messages as words, type Queue } from "./queue-model";
 const card = "rounded-[14px] border bg-card p-6 lg:p-7";
 const heading = "text-[17px] leading-6 font-semibold tracking-[-0.01em] text-bright";
 
-export function ReceiveCard({ q, count, setCount, countProblem, primary, pending, error, empty, onPoll }: { q: Queue; count: string; setCount: (v: string) => void; countProblem: string | undefined; primary: boolean; pending: boolean; error: unknown; empty: React.ReactNode; onPoll: () => void }) {
+export function ReceiveCard({ q, count, setCount, countProblem, primary, pending, error, empty, onPoll, onSend }: { q: Queue; count: string; setCount: (v: string) => void; countProblem: string | undefined; primary: boolean; pending: boolean; error: unknown; empty: React.ReactNode; onPoll: () => void; /** Set once a poll is on the page: the card is the one-line bar of the boards, and this brings the Send form back. */ onSend?: () => void }) {
+  if (onSend) {
+    return (
+      <section className={`${card} grid gap-3`} aria-label="Receive messages" data-testid="receive-card" data-compact="">
+        <h2 className={heading}>Receive messages</h2>
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+          <Button type="button" variant={primary ? "default" : "outline"} className={primary ? "" : "bg-card"} onClick={onPoll} disabled={pending || countProblem !== undefined} data-testid="poll">{pending ? "Polling…" : "Poll for messages"}</Button>
+          <label className="flex items-center gap-2 text-[13px] text-muted-foreground">Maximum message count<Input inputMode="numeric" value={count} onChange={(e) => setCount(e.target.value)} aria-invalid={countProblem ? true : undefined} className="h-8 w-16 bg-background font-mono text-[13px] text-foreground" data-testid="poll-count" /></label>
+          {countProblem && <span className="text-[13px] text-bad" role="alert">{countProblem}</span>}
+          <Button type="button" variant="ghost" size="sm" className="ml-auto text-muted-foreground" onClick={onSend} data-testid="send-show">Send a message</Button>
+        </div>
+        <Refused operation="ReceiveMessage" error={error} testId="poll-error" />
+        {empty}
+      </section>
+    );
+  }
   return (
     <section className={`${card} grid gap-4`} aria-label="Receive messages" data-testid="receive-card">
       <h2 className={heading}>Receive messages</h2>

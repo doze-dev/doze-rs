@@ -44,7 +44,7 @@ export function CallsPanel({ requests, note, refusal, title = "The call this wil
         ) : (
           <div className="relative grid gap-3">
             <CopyButton text={all(view)} label={`Copy ${VIEWS.find((v) => v.id === view)!.label}`} what="Copied" iconOnly variant="ghost" className="absolute top-1.5 right-1.5 z-10" />
-            {texts.map((t, i) => <pre key={i} tabIndex={0} className={cn("max-h-[22rem] overflow-auto rounded-[10px] bg-well py-3 pr-11 pl-4 font-mono text-[12.5px] leading-[21px] text-foreground outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50", view !== "json" && "whitespace-pre-wrap break-all")} data-testid={`${testId}-code`}>{t}</pre>)}
+            {texts.map((t, i) => <pre key={i} tabIndex={0} className={cn("max-h-[22rem] overflow-auto rounded-[10px] bg-well py-3 pr-11 pl-4 font-mono text-[12.5px] leading-[21px] text-foreground outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50", "whitespace-pre-wrap break-all")} data-testid={`${testId}-code`}>{t}</pre>)}
           </div>
         )}
       </div>

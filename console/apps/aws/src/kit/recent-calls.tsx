@@ -53,11 +53,16 @@ function columns(titles: ReadonlyMap<string, string>, names: ReadonlyMap<string,
 
 /** The Recent calls of a resource, newest first: when, who (an IAM user by name, a service by what it made the call for, any other
  * key by its client), what, and how it ended with how long it took. This console's own calls are noise beside an app's, hidden
- * unless asked for, as on Live. `noun` is what the resource is (`queue`). The one place every kind's recent calls are drawn. */
-export function RecentCalls({ calls, noun, title = "Recent calls", className }: { calls: readonly CallRecord[]; noun: string; title?: string; className?: string }) {
+ * unless asked for, as on Live. `noun` is what the resource is (`queue`). The one place every kind's recent calls are drawn.
+ * Optional: `scope` is what the calls acted on when that is not `this {noun}` (`SNS`); `pin` names the operations whose calls this
+ * console made that stay in view (a page that has just published or subscribed shows that call); `limit` cuts the table. */
+export function RecentCalls({ calls, noun, title = "Recent calls", className, scope, pin, limit }: { calls: readonly CallRecord[]; noun: string; title?: string; className?: string; scope?: string; pin?: readonly string[]; limit?: number }) {
   const [mine, setMine] = useState(false);
-  const theirs = calls.filter((c) => !isConsole(c));
-  const hidden = calls.length - theirs.length;
+  const kept = calls.filter((c) => !isConsole(c) || (c.action !== null && (pin ?? []).includes(c.action)));
+  const theirs = kept.slice(0, limit);
+  const everything = calls.slice(0, limit);
+  const what = scope ?? `this ${noun}`;
+  const hidden = calls.length - kept.length;
   const principals = usePrincipals(useMemo(() => namedKeys(calls), [calls]));
   const about = useAbout().data;
   const cols = useMemo(
@@ -70,7 +75,7 @@ export function RecentCalls({ calls, noun, title = "Recent calls", className }: 
         <div>
           <h2 id="calls-title" className="text-[17px] leading-6 font-semibold tracking-[-0.01em] text-bright">{title}</h2>
           <p className="mt-1 mb-4 text-[13.5px] text-muted-foreground">
-            The last calls in the Live record that acted on this {noun}, newest first. Times are UTC.
+            The last calls in the Live record that acted on {what}, newest first. Times are UTC.
             {(hidden > 0 || mine) && (
               <span data-testid="calls-console-hidden">
                 {" "}
@@ -88,7 +93,7 @@ export function RecentCalls({ calls, noun, title = "Recent calls", className }: 
           </Link>
         </Button>
       </div>
-      <DataTable aria-label={title} data={mine ? [...calls] : theirs} columns={cols} rowId={(r) => String(r.seq)} maxHeight={420} empty={hidden > 0 && !mine ? `Only this console has acted on this ${noun} so far.` : `No call in the Live record acted on this ${noun} yet.`} />
+      <DataTable aria-label={title} data={mine ? everything : theirs} columns={cols} rowId={(r) => String(r.seq)} maxHeight={420} empty={hidden > 0 && !mine ? `Only this console has acted on ${what} so far.` : `No call in the Live record acted on ${what} yet.`} />
     </section>
   );
 }

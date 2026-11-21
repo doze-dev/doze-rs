@@ -25,4 +25,7 @@ test("a statement the queue has stays, and one for the same topic is not added t
 test("the other topics are named with what they already deliver", () => {
   expect(topicHint([])).toBe("The topics in this account and Region are listed. If yours isn't, enter its ARN.");
   expect(topicHint([{ name: "alerts", cells: ["Standard", "0"] }, { name: "orders-created", cells: ["Standard", "3"] }])).toContain("alerts, orders-created are the other topics here; orders-created already has 3 subscriptions.");
+  // The topic chosen says what it already delivers too, before the others do.
+  expect(topicHint([{ name: "alerts", cells: ["Standard", "1"] }], { name: "orders-created", cells: ["Standard", "3"] })).toContain("alerts is the other topic here; orders-created already has 3 subscriptions; alerts already has 1 subscription.");
+  expect(topicHint([], { name: "orders-created", cells: ["Standard", "3"] })).toBe("The topics in this account and Region are listed. If yours isn't, enter its ARN. orders-created already has 3 subscriptions.");
 });

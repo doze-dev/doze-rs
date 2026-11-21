@@ -49,6 +49,15 @@ export function Field({ label, optional = false, help, hint, error, refusal, chi
   );
 }
 
+/** After a submit that found problems: brings the first field they are said on into view and puts the cursor in it (a person who
+ * pressed the button at the foot of a long form would otherwise see only a grey button). Does nothing when no field is marked. */
+export function focusFirstProblem(form: HTMLElement | null): void {
+  const field = form?.querySelector<HTMLElement>("[data-slot=field][data-refused]");
+  if (!field) return;
+  field.scrollIntoView({ block: "center", behavior: "auto" });
+  field.querySelector<HTMLElement>("input, textarea, [role=combobox]")?.focus({ preventScroll: true });
+}
+
 /** A card of a form: a title, `Optional` when it is, a sentence, and its fields. A collapsible one opens and closes (`Expand`
  * and `Collapse`), and says in `summary` what it holds while shut (`Disabled.`, `No tags.`): a closed section is never blank. */
 export function FormSection({ title, optional = false, description, collapsible = false, defaultOpen = true, summary, children, className, testId }: { title: string; optional?: boolean; description?: React.ReactNode; collapsible?: boolean; defaultOpen?: boolean; summary?: React.ReactNode; children: React.ReactNode; className?: string; testId?: string }) {

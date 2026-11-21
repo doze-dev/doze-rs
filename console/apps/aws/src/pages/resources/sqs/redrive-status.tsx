@@ -14,14 +14,18 @@ import { useOp, useOpQuery } from "../deep/api";
 import { Refused } from "../deep/parts";
 import { Pair } from "./parts";
 import type { Queue } from "./queue-model";
-import { allowWords, destinationWords, latest, rateWords, RUNNING, statusNote, statusTone, type Task } from "./redrive-model";
+import { allowWords, cancellable, destinationWords, latest, rateWords, RUNNING, statusNote, statusTone, type Task } from "./redrive-model";
 
 export const TASKS_INPUT = { MaxResults: 10 };
 
-/** The newest move tasks of the queue, read when the page opens and when Refresh is pressed. */
+/** How often a task that is running is read again. */
+export const TASK_POLL_MS = 2000;
+
+/** The newest move tasks of the queue, read when the page opens and when Refresh is pressed; while the newest is RUNNING, every
+ * `TASK_POLL_MS` too, so its count moves and its end shows without a click. */
 export function useTasks(d: ResourceDetail, enabled = true) {
   const t = { service: d.service, kind: d.kind, name: d.name };
-  return useOpQuery<{ Results?: Task[] }>(t, "ListMessageMoveTasks", TASKS_INPUT, ["tasks"], enabled);
+  return useOpQuery<{ Results?: Task[] }>(t, "ListMessageMoveTasks", TASKS_INPUT, ["tasks"], enabled, (data) => (latest(data?.Results)?.Status === RUNNING ? TASK_POLL_MS : false));
 }
 
 const grid = "grid content-start [&>div:last-child>*]:border-b-0";
@@ -38,6 +42,13 @@ export function RedriveStatus({ d, q, sources, go }: { d: ResourceDetail; q: Que
   const refresh = () => {
     void tasks.refetch();
     void qc.invalidateQueries({ queryKey: ["resources", "one", d.service, d.kind, d.name] });
+  };
+  // A task can end between the last read and the click: read it again first, and cancel only one that is still running (AWS refuses the
+  // cancel of a finished one, and a refusal for something the person did right is noise).
+  const stop = async (handle: string | undefined) => {
+    const again = latest((await tasks.refetch()).data?.Results);
+    if (!cancellable(again, handle)) return;
+    cancel.mutate({ TaskHandle: handle }, { onSuccess: () => void tasks.refetch() });
   };
   const row = (label: string, v: React.ReactNode) => <Pair key={label} label={label} testId={`redrive-${label}`}>{v}</Pair>;
   const left = task
@@ -77,7 +88,7 @@ export function RedriveStatus({ d, q, sources, go }: { d: ResourceDetail; q: Que
       {note && <Callout tone={task?.Status === "FAILED" ? "bad" : "note"} lead={note.lead} className="mt-5" testId="redrive-note">{note.text}</Callout>}
       <div className="mt-6 flex flex-wrap gap-2 border-t pt-6">
         {running && task?.TaskHandle && (
-          <Button type="button" variant="outline" className="border-bad/40 bg-card text-bad hover:text-bad" disabled={cancel.isPending} data-testid="redrive-cancel" onClick={() => cancel.mutate({ TaskHandle: task.TaskHandle }, { onSuccess: () => void tasks.refetch() })}>Cancel DLQ redrive</Button>
+          <Button type="button" variant="outline" className="border-bad/40 bg-card text-bad hover:text-bad" disabled={cancel.isPending} data-testid="redrive-cancel" onClick={() => void stop(task.TaskHandle)}>Cancel DLQ redrive</Button>
         )}
         <Button type="button" variant="outline" className="bg-card" onClick={() => go("redrive")} disabled={running} title={running ? "Only one task can run on a queue at a time" : undefined} data-testid="redrive-start">Start DLQ redrive</Button>
         <Button type="button" variant="outline" className="bg-card" onClick={refresh} disabled={tasks.isFetching} data-testid="redrive-refresh"><RefreshCwIcon className={tasks.isFetching ? "animate-spin" : ""} /> Refresh</Button>

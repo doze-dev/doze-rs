@@ -83,7 +83,7 @@ export function CallPanel({ request, refusal, note, title, className, showServic
         ) : (
           <div className="relative">
             <CopyButton text={viewText(p, request.operation, view, showService ? request.service : undefined, showInput ? request.input : undefined)} label={`Copy ${VIEWS.find((v) => v.id === view)!.label}`} what="Copied" iconOnly variant="ghost" className="absolute top-1.5 right-1.5 z-10" />
-          <pre tabIndex={0} className={cn("max-h-[22rem] overflow-auto rounded-[10px] bg-well py-3 pr-11 pl-4 font-mono text-[12.5px] leading-[21px] text-foreground transition-opacity outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50", preview.settling && "opacity-60", view !== "json" && "whitespace-pre-wrap break-all")} data-testid={`${testId}-code`}>
+          <pre tabIndex={0} className={cn("max-h-[22rem] overflow-auto rounded-[10px] bg-well py-3 pr-11 pl-4 font-mono text-[12.5px] leading-[21px] text-foreground transition-opacity outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50", preview.settling && "opacity-60", "whitespace-pre-wrap break-all")} data-testid={`${testId}-code`}>
             {viewText(p, request.operation, view, showService ? request.service : undefined, showInput ? request.input : undefined)}
           </pre>
           </div>

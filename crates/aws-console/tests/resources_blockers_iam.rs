@@ -70,13 +70,13 @@ async fn a_role_with_policies_is_cleared_and_then_deleted() {
     assert_eq!(b["words"], "runner");
     assert_eq!(names(&b, "Inline policies"), ["inline"]);
     assert_eq!(names(&b, "Instance profiles"), ["ip"]);
-    // A plain delete is the service's own refusal.
+    // A plain delete is the service's own refusal, worded as IAM's Query wire words it (what the AWS CLI prints: `DeleteConflict`, 409).
     let (status, refused) = w
         .send("DELETE", &format!("{BASE}/iam/roles/runner"), &json!({}))
         .await;
     assert_eq!(
         (status, refused["code"].as_str()),
-        (400, Some("DeleteConflictException")),
+        (409, Some("DeleteConflict")),
         "{refused}"
     );
     // Clearing detaches, deletes and removes, then deletes the role.

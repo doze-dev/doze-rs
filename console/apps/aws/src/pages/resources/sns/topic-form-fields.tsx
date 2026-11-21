@@ -94,7 +94,7 @@ export function MaxSize({ f, set, p, show, collapsed, own }: FieldProps & { coll
   const summary = f.maxKib.trim() === "256" ? "256 KiB (default)" : `${f.maxKib} KiB`;
   const big = kib > 256;
   return (
-    <FormSection title="Maximum message size" collapsible defaultOpen={!collapsed} summary={summary} testId="section-size">
+    <FormSection title="Maximum message size" collapsible={collapsed} defaultOpen={!collapsed} summary={summary} testId="section-size">
       <Field label="Maximum message size" optional error={show ? p.maxKib : undefined} help={<><span className="font-mono">MaximumMessageSize</span>: 1 KiB to 1,024 KiB. The default is 256 KiB (262,144 bytes).</>} testId="field-max-size">
         {(id) => (
           <div className="flex items-center gap-2">
@@ -126,7 +126,7 @@ export function Encryption({ f, set, p, show, collapsed }: FieldProps & { collap
   const fact = (label: string) => key.data?.fields.find((x) => x.label === label)?.value;
   const facts = key.data ? [fact("Key spec") === "SYMMETRIC_DEFAULT" ? "symmetric" : fact("Key spec")?.toLowerCase(), fact("State")?.toLowerCase()].filter(Boolean).join(" and ") : null;
   return (
-    <FormSection title="Encryption" collapsible defaultOpen={!collapsed} description="Server-side encryption with AWS KMS." summary={f.sse ? `On, with ${f.kms || "no key chosen"}.` : "Off"} testId="section-encryption">
+    <FormSection title="Encryption" collapsible={collapsed} defaultOpen={!collapsed} description="Server-side encryption with AWS KMS." summary={f.sse ? `On, with ${f.kms || "no key chosen"}.` : "Off"} testId="section-encryption">
       <div className="flex items-start gap-3">
         <Switch id="sse-on" checked={f.sse} onCheckedChange={(sse) => set({ sse })} className="mt-0.5" data-testid="sse-on" />
         <div className="grid gap-0.5">
@@ -151,7 +151,7 @@ export function AccessPolicy({ f, set, p, name, region, account, collapsed }: Fi
   const standard = defaultPolicy(name, region, account);
   const same = isDefaultPolicy(f.policy, standard);
   return (
-    <FormSection title="Access policy" collapsible defaultOpen={!collapsed} description="By default, only the topic owner can publish or subscribe." summary={same ? "Default: only the topic owner can publish or subscribe" : "A custom policy."} testId="section-access">
+    <FormSection title="Access policy" collapsible={collapsed} defaultOpen={!collapsed} description="By default, only the topic owner can publish or subscribe." summary={same ? "Default: only the topic owner can publish or subscribe" : "A custom policy."} testId="section-access">
       <JsonEditor value={f.policy === "" ? standard : f.policy} onChange={(policy) => set({ policy })} label="Policy optional" rows={18} testId="policy-json" help={<>When you create a topic in the console, the default policy uses the aws:SourceOwner condition key, similar to aws:SourceAccount. Attribute: <span className="font-mono">Policy</span>.</>} />
       {p.policy && <p className="text-[13px] text-bad" role="alert">{p.policy}</p>}
     </FormSection>

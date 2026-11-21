@@ -11,6 +11,7 @@
 use std::sync::Arc;
 
 use aws_peers::Peers;
+use aws_schema::meta::Protocol;
 use aws_wire::ApiError;
 use aws_wire::rest::{RestReply, Upload};
 use aws_wire::service::Caller;
@@ -60,14 +61,14 @@ impl Bus {
     /// is called on its REST side; its streamed body (an object's bytes) is not read: no page asks for one.
     ///
     /// # Errors
-    /// The target's refusal, IAM's included.
+    /// The target's refusal, IAM's included, with the code and status a client of its wire sees (Query-only services are worded as their wire words them).
     pub async fn call(
         &self,
         target: &str,
         operation: &str,
         body: &Value,
     ) -> Result<Value, ApiError> {
-        aws_peers::seen::asked(async {
+        let answered = aws_peers::seen::asked(async {
             if self.peers.speaks_rest(target) {
                 self.peers
                     .call_rest_as(&self.caller, target, operation, body, None)
@@ -79,7 +80,33 @@ impl Bus {
                     .await
             }
         })
-        .await
+        .await;
+        answered.map_err(|e| self.on_the_wire(target, e))
+    }
+
+    /// A refusal of a service whose only wire is the Query protocol (SNS, IAM, STS, CloudFormation), worded as that wire words it: the
+    /// model's Query code and status (`InvalidParameter`, `NotFound` with 404), not the shape's name (`InvalidParameterException`).
+    /// What a person reads in the console is then what the AWS CLI prints. Every other service keeps its own code.
+    fn on_the_wire(&self, target: &str, mut e: ApiError) -> ApiError {
+        let Some(shape) = e.shape.clone() else {
+            return e;
+        };
+        let all = self.peers.targets();
+        let Some((_, api)) = all.iter().find(|(name, _)| *name == target) else {
+            return e;
+        };
+        if api.meta().protocols != [Protocol::AwsQuery] {
+            return e;
+        }
+        let tables = api.tables();
+        let found = (0..tables.n_errs())
+            .filter_map(|i| tables.err(i))
+            .find(|m| tables.shape(m.shape).is_some_and(|s| s.name == shape));
+        if let Some(m) = found {
+            e.code = m.code.to_owned().into();
+            e.status = m.status;
+        }
+        e
     }
 
     /// Calls `operation` of the REST service `target` with `body` and the request payload `payload` (an object's bytes, held

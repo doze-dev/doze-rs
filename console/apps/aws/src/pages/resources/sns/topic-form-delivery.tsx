@@ -30,7 +30,7 @@ export function RetryPolicy({ f, set, p, show, collapsed, note }: FieldProps & {
   const r = f.retry;
   const put = (patch: Partial<Retry>) => set({ retry: { ...r, ...patch } });
   return (
-    <FormSection title="Delivery retry policy (HTTP/S)" collapsible defaultOpen={!collapsed} description={<>How SNS retries failed deliveries to HTTP/S endpoints. Attribute: <span className="font-mono">DeliveryPolicy</span>.</>} summary="The defaults: 3 retries, 20 seconds apart." testId="section-retry">
+    <FormSection title="Delivery retry policy (HTTP/S)" collapsible={collapsed} defaultOpen={!collapsed} description={<>How SNS retries failed deliveries to HTTP/S endpoints. Attribute: <span className="font-mono">DeliveryPolicy</span>.</>} summary="The defaults: 3 retries, 20 seconds apart." testId="section-retry">
       {note && <p className="text-[13.5px] text-muted-foreground" data-testid="retry-note">{note}</p>}
       <div className="grid gap-x-8 gap-y-6 md:grid-cols-2">
         {RETRY.map((x) => (
@@ -51,7 +51,7 @@ export function RetryPolicy({ f, set, p, show, collapsed, note }: FieldProps & {
             </Select>
           )}
         </Field>
-        <Field label="maxReceivesPerSecond" optional help="The maximum average number of message deliveries per second, per subscription. 1 or greater; default no throttling." testId="field-maxReceives">
+        <Field label="maxReceivesPerSecond" optional help="The maximum average number of message deliveries per second, per subscription. 1 or greater; default no throttling. Stored, not applied: doze-aws does not throttle." testId="field-maxReceives">
           {(id) => (
             <div className="flex items-center gap-2">
               <Input id={id} value={r.maxReceives} onChange={(e) => put({ maxReceives: e.target.value })} inputMode="numeric" placeholder="No limit" className="bg-card font-mono" autoComplete="off" data-testid="retry-maxReceives" />
@@ -61,7 +61,7 @@ export function RetryPolicy({ f, set, p, show, collapsed, note }: FieldProps & {
         </Field>
       </div>
       {show && p.retry && <p className="text-[13px] text-bad" role="alert">{p.retry}</p>}
-      <RuleHelp><b>Applied to HTTP and HTTPS subscriptions.</b> doze-aws retries a failed POST under this policy; a backoffFunction other than linear is approximated by linear. Amazon SQS and AWS Lambda deliveries are one synchronous attempt. On AWS the total retry time for an HTTP/S endpoint cannot exceed 3,600 seconds.</RuleHelp>
+      <RuleHelp><b>Applied to HTTP and HTTPS subscriptions.</b> doze-aws retries a failed POST under this policy; a backoffFunction other than linear is approximated by linear. <b>Stored, not applied:</b> maxReceivesPerSecond (there is no throttling) and headerContentType (the POST is always text/plain; charset=UTF-8). Amazon SQS and AWS Lambda deliveries are one synchronous attempt. On AWS the total retry time for an HTTP/S endpoint cannot exceed 3,600 seconds.</RuleHelp>
     </FormSection>
   );
 }
@@ -84,7 +84,7 @@ export function Logging({ f, set, p, show, collapsed, account }: FieldProps & { 
   const on = LOGGED.filter((l) => f.logging[l].on).map((l) => NAMES[l]);
   const put = (l: Logged, patch: Partial<TopicLog>) => set({ logging: { ...f.logging, [l]: { ...f.logging[l], ...patch } } });
   return (
-    <FormSection title="Delivery status logging" collapsible defaultOpen={!collapsed} description="Write delivery results to CloudWatch Logs." summary={on.length > 0 ? `On for ${on.join(", ")}.` : "Off"} testId="section-logging">
+    <FormSection title="Delivery status logging" collapsible={collapsed} defaultOpen={!collapsed} description="Write delivery results to CloudWatch Logs." summary={on.length > 0 ? `On for ${on.join(", ")}.` : "Off"} testId="section-logging">
       {(["Firehose", "HTTP", "Lambda", "Application", "SQS"] as const).map((l) => {
         const off = l === "Firehose" || l === "Application";
         const g = off ? null : f.logging[l as Logged];
@@ -125,7 +125,7 @@ type TopicLog = FieldProps["f"]["logging"]["HTTP"];
 /** Active tracing: standard topics only. Stored, not applied. */
 export function Tracing({ f, set, collapsed }: Pick<FieldProps, "f" | "set"> & { collapsed: boolean }) {
   return (
-    <FormSection title="Active tracing" collapsible defaultOpen={!collapsed} summary={f.tracing ? "On" : "Off"} testId="section-tracing">
+    <FormSection title="Active tracing" collapsible={collapsed} defaultOpen={!collapsed} summary={f.tracing ? "On" : "Off"} testId="section-tracing">
       <div className="flex items-start gap-3">
         <Switch id="tracing-on" checked={f.tracing} onCheckedChange={(tracing) => set({ tracing })} className="mt-0.5" data-testid="tracing-on" />
         <div className="grid gap-0.5">
@@ -142,7 +142,7 @@ export function Tracing({ f, set, collapsed }: Pick<FieldProps, "f" | "set"> & {
 export function TagsSection({ f, set, show, collapsed }: Pick<FieldProps, "f" | "set" | "show"> & { collapsed: boolean }) {
   const n = filled(f.tags).length;
   return (
-    <FormSection title="Tags" collapsible defaultOpen={!collapsed} description="Metadata for cost allocation, access control and search. Do not put sensitive data in tags." summary={n > 0 ? `${n} ${n === 1 ? "tag" : "tags"}` : "No tags"} testId="section-tags">
+    <FormSection title="Tags" collapsible={collapsed} defaultOpen={!collapsed} description="Metadata for cost allocation, access control and search. Do not put sensitive data in tags." summary={n > 0 ? `${n} ${n === 1 ? "tag" : "tags"}` : "No tags"} testId="section-tags">
       <KeyValueEditor rows={f.tags} onChange={(tags) => set({ tags })} rules={TAG_RULES} addLabel="Add tag" removeLabel="Remove tag" showErrors={show} testId="form-tags" />
       <RuleHelp>Key 1 to 128 characters, value 0 to 256. More than 50 tags on a topic is refused with TagLimitExceeded. Tags change nothing about delivery.</RuleHelp>
     </FormSection>

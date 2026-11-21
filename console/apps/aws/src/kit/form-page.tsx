@@ -5,6 +5,7 @@ import { Button } from "@doze/ui/components/ui/button";
 import { cn } from "@doze/ui/lib/utils";
 import { CallPanel } from "./call-panel";
 import { CallsPanel } from "./calls-panel";
+import { focusFirstProblem } from "./form-parts";
 import type { PreviewRequest } from "./contract";
 
 /** A wizard's position and moves. On the last step the submit button takes the place of Next. */
@@ -27,7 +28,12 @@ export function FormPage({ title, sub, crumbs, banner, request, requests, refusa
           onSubmit={(e) => {
             e.preventDefault();
             if (last) {
-              if (!disabled && !pending) onSubmit();
+              if (!disabled && !pending) {
+                const form = e.currentTarget;
+                onSubmit();
+                // The problems a submit finds are said on their fields once the page has drawn them.
+                setTimeout(() => focusFirstProblem(form), 80);
+              }
             } else wizard?.onNext();
           }}
         >
