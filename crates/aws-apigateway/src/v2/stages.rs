@@ -100,6 +100,13 @@ fn create_stage(core: &mut Core, r: &Req) -> Res {
         // WHY: the record and the answer are two values.
         stages.insert(name.to_owned(), s.clone());
     }
+    if s.get("autoDeploy").and_then(Value::as_bool) == Some(true) && r.opt("deploymentId").is_none()
+    {
+        auto_deploy(doc, &r.now_iso());
+        // The answer says which deployment the stage has now.
+        let kept = obj(doc, "stages").and_then(|m| m.get(name)).map(public);
+        return Ok(kept.unwrap_or(s).into());
+    }
     Ok(s.into())
 }
 
@@ -220,4 +227,49 @@ fn delete_deployment(core: &mut Core, r: &Req) -> Res {
         .and_then(|m| m.remove(id))
         .ok_or_else(|| missing("Deployment", id))?;
     none()
+}
+
+/// What an auto-deploying stage says of its last deployment (AWS's own words).
+const AUTO_MESSAGE: &str = "Automatic deployment triggered by changes to the Api configuration";
+
+/// A change to an API deploys it to every stage with `autoDeploy` (model: "updates to an API automatically trigger a new
+/// deployment"): one deployment of the API as it is now, which those stages then name. The deployment an earlier change made
+/// and no stage names any more is dropped, so a script that makes fifty routes keeps one snapshot, not fifty.
+pub(super) fn auto_deploy(doc: &mut Value, now: &str) {
+    let live: Vec<String> = obj(doc, "stages")
+        .into_iter()
+        .flatten()
+        .filter(|(_, s)| s.get("autoDeploy").and_then(Value::as_bool) == Some(true))
+        .map(|(name, _)| name.clone())
+        .collect();
+    if live.is_empty() {
+        return;
+    }
+    let id = new_id(6);
+    let dep = json!({
+        "deploymentId": id, "deploymentStatus": "DEPLOYED", "createdDate": now, "autoDeployed": true,
+        "_snapshot": snapshot(doc),
+    });
+    if let Some(m) = child(doc, "deployments") {
+        m.insert(id.clone(), dep);
+    }
+    if let Some(stages) = child(doc, "stages") {
+        for name in &live {
+            if let Some(s) = stages.get_mut(name).and_then(Value::as_object_mut) {
+                s.insert("deploymentId".into(), json!(id));
+                s.insert("lastDeploymentStatusMessage".into(), json!(AUTO_MESSAGE));
+                s.insert("lastUpdatedDate".into(), json!(now));
+            }
+        }
+    }
+    let named: Vec<String> = obj(doc, "stages")
+        .into_iter()
+        .flatten()
+        .filter_map(|(_, s)| text(s, "deploymentId").map(str::to_owned))
+        .collect();
+    if let Some(m) = child(doc, "deployments") {
+        m.retain(|k, d| {
+            d.get("autoDeployed").and_then(Value::as_bool) != Some(true) || named.contains(k)
+        });
+    }
 }
