@@ -47,6 +47,7 @@ mod cfn_kept;
 mod cloudformation;
 mod cloudwatch;
 mod dynamodb;
+mod dynamodb_ops;
 mod eventbridge;
 mod eventbridge_blockers;
 mod iam;
