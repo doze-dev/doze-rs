@@ -60,7 +60,8 @@ export async function tabTo(page: Page, browserName: string, target: ReturnType<
  * ring in (transition-all), so the ring is waited for, for as long as a transition may take. */
 export async function ringOf(target: ReturnType<Page["locator"]>): Promise<{ shadow: string; outline: string; visible: boolean }> {
   let last = await ringNow(target);
-  for (let i = 0; i < 20 && !last.visible; i++) {
+  // Up to 3 s: under CI load a transition (and WebKit's focus) can start late; a ring that is there returns at once.
+  for (const deadline = Date.now() + 3000; Date.now() < deadline && !last.visible; ) {
     await target.page().waitForTimeout(50);
     last = await ringNow(target);
   }
