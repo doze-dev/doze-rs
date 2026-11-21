@@ -4,6 +4,7 @@
 import type { LazyExoticComponent, ReactNode } from "react";
 import type { DeepTab } from "../../../api/types/DeepTab";
 import type { ResourceDetail } from "../../../api/types/ResourceDetail";
+import type { OwnSearch } from "../search";
 
 export type DeepProps = { d: ResourceDetail; tab: DeepTab };
 
@@ -42,3 +43,17 @@ export function registerGone(service: string, kind: string, gone: Gone): void {
 }
 
 export const pageOf = (service: string, id: string): TabPage | undefined => PAGES.get(`${service}/${id}`);
+
+/** The pages a service draws itself in place of the generic ones: a kind's list, one resource's page, and the full-page forms and
+ * results of `?do=<id>` (a create, a delete, an upload's status). A kind that registers none gets the generic pages. */
+export type OwnProps = { service: string; kind: string; name: string | null; search: OwnSearch & { tab?: string; p?: string } };
+export type OwnPage = LazyExoticComponent<(p: OwnProps) => ReactNode>;
+export type Own = { list?: OwnPage; one?: OwnPage; actions?: Record<string, OwnPage> };
+const OWN = new Map<string, Own>();
+
+/** Registers the pages a service draws itself for one kind (`buckets`). */
+export function registerOwn(service: string, kind: string, own: Own): void {
+  OWN.set(`${service}/${kind}`, own);
+}
+
+export const ownOf = (service: string, kind: string): Own | undefined => OWN.get(`${service}/${kind}`);

@@ -13,6 +13,7 @@ import { ResourceDetailPage } from "./detail-page";
 import { HINT } from "./index-page";
 import { ResourceListPage } from "./list-page";
 import { resolve } from "./model";
+import { type OwnProps, ownOf } from "./deep/registry";
 
 // An execution and a log stream are pages of their own, in a chunk of their own.
 const DeepRoute = lazy(() => import("./deep/routes").then((m) => ({ default: m.DeepRoute })));
@@ -62,18 +63,40 @@ export function ServicePage() {
   return <Navigate to="/resources/$service/$second" params={{ service, second: r.kind }} search={{}} replace />;
 }
 
+/** The page a service draws itself for this address, when its kind registered one (`registerOwn`). */
+const ownPage = (service: string, kind: string, name: string | null, search: OwnProps["search"]) => {
+  const own = ownOf(service, kind);
+  return (search.do && own?.actions?.[search.do]) || (name === null ? own?.list : own?.one);
+};
+
+function Own({ Page, props }: { Page: NonNullable<ReturnType<typeof ownPage>>; props: OwnProps }) {
+  return (
+    <Suspense fallback={<Skeleton className="h-80 rounded-[14px]" />}>
+      <Page {...props} />
+    </Suspense>
+  );
+}
+
+const ownKey = (p: OwnProps) => [p.service, p.kind, p.name ?? "", p.search.do ?? "", p.search.key ?? "", p.search.dialog ?? ""].join("/");
+
 export function SecondPage() {
   const { service, second } = secondRoute.useParams();
-  const { m, all } = secondRoute.useSearch();
+  const { m, all, ...more } = secondRoute.useSearch();
   const r = useResolved(service, second, m);
   if ("page" in r) return r.page;
+  const props: OwnProps = { service, kind: r.kind, name: r.name, search: more };
+  const Page = ownPage(service, r.kind, r.name, more);
+  if (Page) return <Own key={ownKey(props)} Page={Page} props={props} />;
   if (r.name === null) return <ResourceListPage key={`${service}/${r.kind}`} service={service} kind={r.kind} all={all === "yes"} />;
   return <ResourceDetailPage key={`${service}/${r.kind}/${r.name}`} service={service} kind={r.kind} name={r.name} />;
 }
 
 export function OnePage() {
   const { service, kind, name } = oneRoute.useParams();
-  const { tab, group } = oneRoute.useSearch();
+  const { tab, group, ...more } = oneRoute.useSearch();
+  const props: OwnProps = { service, kind, name, search: { tab, ...more } };
+  const Page = ownPage(service, kind, name, props.search);
+  if (Page) return <Own key={ownKey(props)} Page={Page} props={props} />;
   if (isDeepRoute(service, kind)) {
     return (
       <Suspense fallback={<Skeleton className="h-80 rounded-[14px]" />}>

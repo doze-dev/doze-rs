@@ -3,155 +3,221 @@
 /// Every file of the bundle.
 pub const FILES: &[(&str, Served)] = &[
     (
-        "assets/access-CBgVuZN3.js",
+        "assets/access-t5VGy55x.js",
         Served {
             content_type: "text/javascript; charset=utf-8",
             bytes: include_bytes!(concat!(
                 env!("CARGO_MANIFEST_DIR"),
-                "/web-dist/assets/access-CBgVuZN3.js.gz"
+                "/web-dist/assets/access-t5VGy55x.js.gz"
             )),
             gzip: true,
         },
     ),
     (
-        "assets/check-BcWQ5HPH.js",
+        "assets/bucket-create-B_bsTPRl.js",
         Served {
             content_type: "text/javascript; charset=utf-8",
             bytes: include_bytes!(concat!(
                 env!("CARGO_MANIFEST_DIR"),
-                "/web-dist/assets/check-BcWQ5HPH.js.gz"
+                "/web-dist/assets/bucket-create-B_bsTPRl.js.gz"
             )),
             gzip: true,
         },
     ),
     (
-        "assets/checkbox-BNLs4yV5.js",
+        "assets/bucket-page-DPxyhg2E.js",
         Served {
             content_type: "text/javascript; charset=utf-8",
             bytes: include_bytes!(concat!(
                 env!("CARGO_MANIFEST_DIR"),
-                "/web-dist/assets/checkbox-BNLs4yV5.js.gz"
+                "/web-dist/assets/bucket-page-DPxyhg2E.js.gz"
             )),
             gzip: true,
         },
     ),
     (
-        "assets/chevron-left-D5XK2pTZ.js",
+        "assets/buckets-list-CDEM_MCE.js",
         Served {
             content_type: "text/javascript; charset=utf-8",
             bytes: include_bytes!(concat!(
                 env!("CARGO_MANIFEST_DIR"),
-                "/web-dist/assets/chevron-left-D5XK2pTZ.js.gz"
+                "/web-dist/assets/buckets-list-CDEM_MCE.js.gz"
             )),
             gzip: true,
         },
     ),
     (
-        "assets/chevron-right-BouS2K4H.js",
+        "assets/check-DO1RUWuo.js",
         Served {
             content_type: "text/javascript; charset=utf-8",
             bytes: include_bytes!(concat!(
                 env!("CARGO_MANIFEST_DIR"),
-                "/web-dist/assets/chevron-right-BouS2K4H.js.gz"
+                "/web-dist/assets/check-DO1RUWuo.js.gz"
             )),
             gzip: true,
         },
     ),
     (
-        "assets/circle-stop-CO6feLnT.js",
+        "assets/checkbox-_9wrmzjS.js",
         Served {
             content_type: "text/javascript; charset=utf-8",
             bytes: include_bytes!(concat!(
                 env!("CARGO_MANIFEST_DIR"),
-                "/web-dist/assets/circle-stop-CO6feLnT.js.gz"
+                "/web-dist/assets/checkbox-_9wrmzjS.js.gz"
             )),
             gzip: true,
         },
     ),
     (
-        "assets/code-block-CAxCy2bm.js",
+        "assets/chevron-down-C2jaSw72.js",
         Served {
             content_type: "text/javascript; charset=utf-8",
             bytes: include_bytes!(concat!(
                 env!("CARGO_MANIFEST_DIR"),
-                "/web-dist/assets/code-block-CAxCy2bm.js.gz"
+                "/web-dist/assets/chevron-down-C2jaSw72.js.gz"
             )),
             gzip: true,
         },
     ),
     (
-        "assets/config-tab-BNPyqshZ.js",
+        "assets/chevron-left-VAdwnYz-.js",
         Served {
             content_type: "text/javascript; charset=utf-8",
             bytes: include_bytes!(concat!(
                 env!("CARGO_MANIFEST_DIR"),
-                "/web-dist/assets/config-tab-BNPyqshZ.js.gz"
+                "/web-dist/assets/chevron-left-VAdwnYz-.js.gz"
             )),
             gzip: true,
         },
     ),
     (
-        "assets/connect-pGbOL-4v.js",
+        "assets/chevron-right-B6auZq6i.js",
         Served {
             content_type: "text/javascript; charset=utf-8",
             bytes: include_bytes!(concat!(
                 env!("CARGO_MANIFEST_DIR"),
-                "/web-dist/assets/connect-pGbOL-4v.js.gz"
+                "/web-dist/assets/chevron-right-B6auZq6i.js.gz"
             )),
             gzip: true,
         },
     ),
     (
-        "assets/deleted-CPrT04Qj.js",
+        "assets/circle-stop-Dw-1o6u2.js",
         Served {
             content_type: "text/javascript; charset=utf-8",
             bytes: include_bytes!(concat!(
                 env!("CARGO_MANIFEST_DIR"),
-                "/web-dist/assets/deleted-CPrT04Qj.js.gz"
+                "/web-dist/assets/circle-stop-Dw-1o6u2.js.gz"
             )),
             gzip: true,
         },
     ),
     (
-        "assets/dist-C0mHASpl.js",
+        "assets/code-block-DxGmV5vP.js",
         Served {
             content_type: "text/javascript; charset=utf-8",
             bytes: include_bytes!(concat!(
                 env!("CARGO_MANIFEST_DIR"),
-                "/web-dist/assets/dist-C0mHASpl.js.gz"
+                "/web-dist/assets/code-block-DxGmV5vP.js.gz"
             )),
             gzip: true,
         },
     ),
     (
-        "assets/dist-CHZKJ9Q0.js",
+        "assets/combobox-BH3lWmok.js",
         Served {
             content_type: "text/javascript; charset=utf-8",
             bytes: include_bytes!(concat!(
                 env!("CARGO_MANIFEST_DIR"),
-                "/web-dist/assets/dist-CHZKJ9Q0.js.gz"
+                "/web-dist/assets/combobox-BH3lWmok.js.gz"
             )),
             gzip: true,
         },
     ),
     (
-        "assets/dist-CNYnjnse.js",
+        "assets/config-CrUyLB7S.js",
         Served {
             content_type: "text/javascript; charset=utf-8",
             bytes: include_bytes!(concat!(
                 env!("CARGO_MANIFEST_DIR"),
-                "/web-dist/assets/dist-CNYnjnse.js.gz"
+                "/web-dist/assets/config-CrUyLB7S.js.gz"
             )),
             gzip: true,
         },
     ),
     (
-        "assets/dist-DYWaTxbh.js",
+        "assets/config-tab-DRqyntE5.js",
         Served {
             content_type: "text/javascript; charset=utf-8",
             bytes: include_bytes!(concat!(
                 env!("CARGO_MANIFEST_DIR"),
-                "/web-dist/assets/dist-DYWaTxbh.js.gz"
+                "/web-dist/assets/config-tab-DRqyntE5.js.gz"
+            )),
+            gzip: true,
+        },
+    ),
+    (
+        "assets/connect-Bs9N4tGB.js",
+        Served {
+            content_type: "text/javascript; charset=utf-8",
+            bytes: include_bytes!(concat!(
+                env!("CARGO_MANIFEST_DIR"),
+                "/web-dist/assets/connect-Bs9N4tGB.js.gz"
+            )),
+            gzip: true,
+        },
+    ),
+    (
+        "assets/deleted-Czj7zi9T.js",
+        Served {
+            content_type: "text/javascript; charset=utf-8",
+            bytes: include_bytes!(concat!(
+                env!("CARGO_MANIFEST_DIR"),
+                "/web-dist/assets/deleted-Czj7zi9T.js.gz"
+            )),
+            gzip: true,
+        },
+    ),
+    (
+        "assets/dist-DASeXP9X.js",
+        Served {
+            content_type: "text/javascript; charset=utf-8",
+            bytes: include_bytes!(concat!(
+                env!("CARGO_MANIFEST_DIR"),
+                "/web-dist/assets/dist-DASeXP9X.js.gz"
+            )),
+            gzip: true,
+        },
+    ),
+    (
+        "assets/dist-DdyZwvQz.js",
+        Served {
+            content_type: "text/javascript; charset=utf-8",
+            bytes: include_bytes!(concat!(
+                env!("CARGO_MANIFEST_DIR"),
+                "/web-dist/assets/dist-DdyZwvQz.js.gz"
+            )),
+            gzip: true,
+        },
+    ),
+    (
+        "assets/dist-kQsruhYx.js",
+        Served {
+            content_type: "text/javascript; charset=utf-8",
+            bytes: include_bytes!(concat!(
+                env!("CARGO_MANIFEST_DIR"),
+                "/web-dist/assets/dist-kQsruhYx.js.gz"
+            )),
+            gzip: true,
+        },
+    ),
+    (
+        "assets/dist-pnzQM4PM.js",
+        Served {
+            content_type: "text/javascript; charset=utf-8",
+            bytes: include_bytes!(concat!(
+                env!("CARGO_MANIFEST_DIR"),
+                "/web-dist/assets/dist-pnzQM4PM.js.gz"
             )),
             gzip: true,
         },
@@ -168,78 +234,111 @@ pub const FILES: &[(&str, Served)] = &[
         },
     ),
     (
-        "assets/es2015-Bwi7NpcN.js",
+        "assets/dropdown-menu-qpi_OPzr.js",
         Served {
             content_type: "text/javascript; charset=utf-8",
             bytes: include_bytes!(concat!(
                 env!("CARGO_MANIFEST_DIR"),
-                "/web-dist/assets/es2015-Bwi7NpcN.js.gz"
+                "/web-dist/assets/dropdown-menu-qpi_OPzr.js.gz"
             )),
             gzip: true,
         },
     ),
     (
-        "assets/events-CuX1eCmU.js",
+        "assets/es2015-DjSOEObe.js",
         Served {
             content_type: "text/javascript; charset=utf-8",
             bytes: include_bytes!(concat!(
                 env!("CARGO_MANIFEST_DIR"),
-                "/web-dist/assets/events-CuX1eCmU.js.gz"
+                "/web-dist/assets/es2015-DjSOEObe.js.gz"
             )),
             gzip: true,
         },
     ),
     (
-        "assets/executions-tab-DdrY9HT1.js",
+        "assets/events-B6e5uD2L.js",
         Served {
             content_type: "text/javascript; charset=utf-8",
             bytes: include_bytes!(concat!(
                 env!("CARGO_MANIFEST_DIR"),
-                "/web-dist/assets/executions-tab-DdrY9HT1.js.gz"
+                "/web-dist/assets/events-B6e5uD2L.js.gz"
             )),
             gzip: true,
         },
     ),
     (
-        "assets/index-0PVWO0Px.css",
+        "assets/executions-tab-CEVtE5Xf.js",
+        Served {
+            content_type: "text/javascript; charset=utf-8",
+            bytes: include_bytes!(concat!(
+                env!("CARGO_MANIFEST_DIR"),
+                "/web-dist/assets/executions-tab-CEVtE5Xf.js.gz"
+            )),
+            gzip: true,
+        },
+    ),
+    (
+        "assets/eye-CQ8eVWwy.js",
+        Served {
+            content_type: "text/javascript; charset=utf-8",
+            bytes: include_bytes!(concat!(
+                env!("CARGO_MANIFEST_DIR"),
+                "/web-dist/assets/eye-CQ8eVWwy.js.gz"
+            )),
+            gzip: true,
+        },
+    ),
+    (
+        "assets/flash-C1ZY0YKo.js",
+        Served {
+            content_type: "text/javascript; charset=utf-8",
+            bytes: include_bytes!(concat!(
+                env!("CARGO_MANIFEST_DIR"),
+                "/web-dist/assets/flash-C1ZY0YKo.js.gz"
+            )),
+            gzip: true,
+        },
+    ),
+    (
+        "assets/index-D585MW9G.js",
+        Served {
+            content_type: "text/javascript; charset=utf-8",
+            bytes: include_bytes!(concat!(
+                env!("CARGO_MANIFEST_DIR"),
+                "/web-dist/assets/index-D585MW9G.js.gz"
+            )),
+            gzip: true,
+        },
+    ),
+    (
+        "assets/index-DhYim9YV.css",
         Served {
             content_type: "text/css; charset=utf-8",
             bytes: include_bytes!(concat!(
                 env!("CARGO_MANIFEST_DIR"),
-                "/web-dist/assets/index-0PVWO0Px.css.gz"
+                "/web-dist/assets/index-DhYim9YV.css.gz"
             )),
             gzip: true,
         },
     ),
     (
-        "assets/index-BiGJlH3P.js",
+        "assets/index-page-B4xr-k63.js",
         Served {
             content_type: "text/javascript; charset=utf-8",
             bytes: include_bytes!(concat!(
                 env!("CARGO_MANIFEST_DIR"),
-                "/web-dist/assets/index-BiGJlH3P.js.gz"
+                "/web-dist/assets/index-page-B4xr-k63.js.gz"
             )),
             gzip: true,
         },
     ),
     (
-        "assets/index-page-WuanvpK-.js",
+        "assets/input-D1i3NvK3.js",
         Served {
             content_type: "text/javascript; charset=utf-8",
             bytes: include_bytes!(concat!(
                 env!("CARGO_MANIFEST_DIR"),
-                "/web-dist/assets/index-page-WuanvpK-.js.gz"
-            )),
-            gzip: true,
-        },
-    ),
-    (
-        "assets/input-DZocoCpM.js",
-        Served {
-            content_type: "text/javascript; charset=utf-8",
-            bytes: include_bytes!(concat!(
-                env!("CARGO_MANIFEST_DIR"),
-                "/web-dist/assets/input-DZocoCpM.js.gz"
+                "/web-dist/assets/input-D1i3NvK3.js.gz"
             )),
             gzip: true,
         },
@@ -256,12 +355,12 @@ pub const FILES: &[(&str, Served)] = &[
         },
     ),
     (
-        "assets/items-B6MMXBDY.js",
+        "assets/items-DUG4LD98.js",
         Served {
             content_type: "text/javascript; charset=utf-8",
             bytes: include_bytes!(concat!(
                 env!("CARGO_MANIFEST_DIR"),
-                "/web-dist/assets/items-B6MMXBDY.js.gz"
+                "/web-dist/assets/items-DUG4LD98.js.gz"
             )),
             gzip: true,
         },
@@ -289,210 +388,221 @@ pub const FILES: &[(&str, Served)] = &[
         },
     ),
     (
-        "assets/json-editor-CVeUwU6W.js",
+        "assets/json-editor-Bg58K2oe.js",
         Served {
             content_type: "text/javascript; charset=utf-8",
             bytes: include_bytes!(concat!(
                 env!("CARGO_MANIFEST_DIR"),
-                "/web-dist/assets/json-editor-CVeUwU6W.js.gz"
+                "/web-dist/assets/json-editor-Bg58K2oe.js.gz"
             )),
             gzip: true,
         },
     ),
     (
-        "assets/lab-QMupVB4f.js",
+        "assets/lab-Bu5dg-sA.js",
         Served {
             content_type: "text/javascript; charset=utf-8",
             bytes: include_bytes!(concat!(
                 env!("CARGO_MANIFEST_DIR"),
-                "/web-dist/assets/lab-QMupVB4f.js.gz"
+                "/web-dist/assets/lab-Bu5dg-sA.js.gz"
             )),
             gzip: true,
         },
     ),
     (
-        "assets/label-BBtFhc9-.js",
+        "assets/label-BUlalTlP.js",
         Served {
             content_type: "text/javascript; charset=utf-8",
             bytes: include_bytes!(concat!(
                 env!("CARGO_MANIFEST_DIR"),
-                "/web-dist/assets/label-BBtFhc9-.js.gz"
+                "/web-dist/assets/label-BUlalTlP.js.gz"
             )),
             gzip: true,
         },
     ),
     (
-        "assets/link-Baixn2_t.js",
+        "assets/link-DDpBbFH_.js",
         Served {
             content_type: "text/javascript; charset=utf-8",
             bytes: include_bytes!(concat!(
                 env!("CARGO_MANIFEST_DIR"),
-                "/web-dist/assets/link-Baixn2_t.js.gz"
+                "/web-dist/assets/link-DDpBbFH_.js.gz"
             )),
             gzip: true,
         },
     ),
     (
-        "assets/lists-L5JMi3ht.js",
+        "assets/lists-Era0WNlZ.js",
         Served {
             content_type: "text/javascript; charset=utf-8",
             bytes: include_bytes!(concat!(
                 env!("CARGO_MANIFEST_DIR"),
-                "/web-dist/assets/lists-L5JMi3ht.js.gz"
+                "/web-dist/assets/lists-Era0WNlZ.js.gz"
             )),
             gzip: true,
         },
     ),
     (
-        "assets/live-DWsfqJWy.js",
+        "assets/live-BHjy1-Rl.js",
         Served {
             content_type: "text/javascript; charset=utf-8",
             bytes: include_bytes!(concat!(
                 env!("CARGO_MANIFEST_DIR"),
-                "/web-dist/assets/live-DWsfqJWy.js.gz"
+                "/web-dist/assets/live-BHjy1-Rl.js.gz"
             )),
             gzip: true,
         },
     ),
     (
-        "assets/marked-DkpKOtI-.js",
+        "assets/marked-DDmllxnr.js",
         Served {
             content_type: "text/javascript; charset=utf-8",
             bytes: include_bytes!(concat!(
                 env!("CARGO_MANIFEST_DIR"),
-                "/web-dist/assets/marked-DkpKOtI-.js.gz"
+                "/web-dist/assets/marked-DDmllxnr.js.gz"
             )),
             gzip: true,
         },
     ),
     (
-        "assets/messages-C3Cfcqyd.js",
+        "assets/messages-DHxlZrYY.js",
         Served {
             content_type: "text/javascript; charset=utf-8",
             bytes: include_bytes!(concat!(
                 env!("CARGO_MANIFEST_DIR"),
-                "/web-dist/assets/messages-C3Cfcqyd.js.gz"
+                "/web-dist/assets/messages-DHxlZrYY.js.gz"
             )),
             gzip: true,
         },
     ),
     (
-        "assets/objects-BSYVFcce.js",
+        "assets/parts-BRCw-lW1.js",
         Served {
             content_type: "text/javascript; charset=utf-8",
             bytes: include_bytes!(concat!(
                 env!("CARGO_MANIFEST_DIR"),
-                "/web-dist/assets/objects-BSYVFcce.js.gz"
+                "/web-dist/assets/parts-BRCw-lW1.js.gz"
             )),
             gzip: true,
         },
     ),
     (
-        "assets/parts-HwFLZDta.js",
+        "assets/pencil-CU-P_c60.js",
         Served {
             content_type: "text/javascript; charset=utf-8",
             bytes: include_bytes!(concat!(
                 env!("CARGO_MANIFEST_DIR"),
-                "/web-dist/assets/parts-HwFLZDta.js.gz"
+                "/web-dist/assets/pencil-CU-P_c60.js.gz"
             )),
             gzip: true,
         },
     ),
     (
-        "assets/pencil-CKLFjOBq.js",
+        "assets/play-BcaVqMer.js",
         Served {
             content_type: "text/javascript; charset=utf-8",
             bytes: include_bytes!(concat!(
                 env!("CARGO_MANIFEST_DIR"),
-                "/web-dist/assets/pencil-CKLFjOBq.js.gz"
+                "/web-dist/assets/play-BcaVqMer.js.gz"
             )),
             gzip: true,
         },
     ),
     (
-        "assets/play-BbQeUBKL.js",
+        "assets/popover-zx7WoF-j.js",
         Served {
             content_type: "text/javascript; charset=utf-8",
             bytes: include_bytes!(concat!(
                 env!("CARGO_MANIFEST_DIR"),
-                "/web-dist/assets/play-BbQeUBKL.js.gz"
+                "/web-dist/assets/popover-zx7WoF-j.js.gz"
             )),
             gzip: true,
         },
     ),
     (
-        "assets/popover-BIaCJt7f.js",
+        "assets/radio-group-RxwsJned.js",
         Served {
             content_type: "text/javascript; charset=utf-8",
             bytes: include_bytes!(concat!(
                 env!("CARGO_MANIFEST_DIR"),
-                "/web-dist/assets/popover-BIaCJt7f.js.gz"
+                "/web-dist/assets/radio-group-RxwsJned.js.gz"
             )),
             gzip: true,
         },
     ),
     (
-        "assets/redrive-QA1u4eU3.js",
+        "assets/redrive-DFYBH7M3.js",
         Served {
             content_type: "text/javascript; charset=utf-8",
             bytes: include_bytes!(concat!(
                 env!("CARGO_MANIFEST_DIR"),
-                "/web-dist/assets/redrive-QA1u4eU3.js.gz"
+                "/web-dist/assets/redrive-DFYBH7M3.js.gz"
             )),
             gzip: true,
         },
     ),
     (
-        "assets/routes-CVC3nycb.js",
+        "assets/routes-BKAigqX9.js",
         Served {
             content_type: "text/javascript; charset=utf-8",
             bytes: include_bytes!(concat!(
                 env!("CARGO_MANIFEST_DIR"),
-                "/web-dist/assets/routes-CVC3nycb.js.gz"
+                "/web-dist/assets/routes-BKAigqX9.js.gz"
             )),
             gzip: true,
         },
     ),
     (
-        "assets/routes-D-1Xb_2m.js",
+        "assets/routes-CH6-nyRm.js",
         Served {
             content_type: "text/javascript; charset=utf-8",
             bytes: include_bytes!(concat!(
                 env!("CARGO_MANIFEST_DIR"),
-                "/web-dist/assets/routes-D-1Xb_2m.js.gz"
+                "/web-dist/assets/routes-CH6-nyRm.js.gz"
             )),
             gzip: true,
         },
     ),
     (
-        "assets/search-tab-C6_I8RBG.js",
+        "assets/search-tab-DaE4q3ip.js",
         Served {
             content_type: "text/javascript; charset=utf-8",
             bytes: include_bytes!(concat!(
                 env!("CARGO_MANIFEST_DIR"),
-                "/web-dist/assets/search-tab-C6_I8RBG.js.gz"
+                "/web-dist/assets/search-tab-DaE4q3ip.js.gz"
             )),
             gzip: true,
         },
     ),
     (
-        "assets/search-x-BTQD8TTG.js",
+        "assets/search-x-b6lk3ezM.js",
         Served {
             content_type: "text/javascript; charset=utf-8",
             bytes: include_bytes!(concat!(
                 env!("CARGO_MANIFEST_DIR"),
-                "/web-dist/assets/search-x-BTQD8TTG.js.gz"
+                "/web-dist/assets/search-x-b6lk3ezM.js.gz"
             )),
             gzip: true,
         },
     ),
     (
-        "assets/send-BbrO4AXB.js",
+        "assets/selectable-table-lJjkCD1y.js",
         Served {
             content_type: "text/javascript; charset=utf-8",
             bytes: include_bytes!(concat!(
                 env!("CARGO_MANIFEST_DIR"),
-                "/web-dist/assets/send-BbrO4AXB.js.gz"
+                "/web-dist/assets/selectable-table-lJjkCD1y.js.gz"
+            )),
+            gzip: true,
+        },
+    ),
+    (
+        "assets/send-7Mti7TQ8.js",
+        Served {
+            content_type: "text/javascript; charset=utf-8",
+            bytes: include_bytes!(concat!(
+                env!("CARGO_MANIFEST_DIR"),
+                "/web-dist/assets/send-7Mti7TQ8.js.gz"
             )),
             gzip: true,
         },
@@ -509,144 +619,144 @@ pub const FILES: &[(&str, Served)] = &[
         },
     ),
     (
-        "assets/settings-BAfwkNn5.js",
+        "assets/settings-JGD_KOKx.js",
         Served {
             content_type: "text/javascript; charset=utf-8",
             bytes: include_bytes!(concat!(
                 env!("CARGO_MANIFEST_DIR"),
-                "/web-dist/assets/settings-BAfwkNn5.js.gz"
+                "/web-dist/assets/settings-JGD_KOKx.js.gz"
             )),
             gzip: true,
         },
     ),
     (
-        "assets/settings-C3gqi9mX.js",
+        "assets/settings-oFXu6hVI.js",
         Served {
             content_type: "text/javascript; charset=utf-8",
             bytes: include_bytes!(concat!(
                 env!("CARGO_MANIFEST_DIR"),
-                "/web-dist/assets/settings-C3gqi9mX.js.gz"
+                "/web-dist/assets/settings-oFXu6hVI.js.gz"
             )),
             gzip: true,
         },
     ),
     (
-        "assets/skeleton-BVpFnHKd.js",
+        "assets/skeleton-CUijfxp8.js",
         Served {
             content_type: "text/javascript; charset=utf-8",
             bytes: include_bytes!(concat!(
                 env!("CARGO_MANIFEST_DIR"),
-                "/web-dist/assets/skeleton-BVpFnHKd.js.gz"
+                "/web-dist/assets/skeleton-CUijfxp8.js.gz"
             )),
             gzip: true,
         },
     ),
     (
-        "assets/stack-tabs-DWbaCgi9.js",
+        "assets/stack-tabs-81jvSSXz.js",
         Served {
             content_type: "text/javascript; charset=utf-8",
             bytes: include_bytes!(concat!(
                 env!("CARGO_MANIFEST_DIR"),
-                "/web-dist/assets/stack-tabs-DWbaCgi9.js.gz"
+                "/web-dist/assets/stack-tabs-81jvSSXz.js.gz"
             )),
             gzip: true,
         },
     ),
     (
-        "assets/streams-tab-1gcbi39l.js",
+        "assets/streams-tab-DvGiljaf.js",
         Served {
             content_type: "text/javascript; charset=utf-8",
             bytes: include_bytes!(concat!(
                 env!("CARGO_MANIFEST_DIR"),
-                "/web-dist/assets/streams-tab-1gcbi39l.js.gz"
+                "/web-dist/assets/streams-tab-DvGiljaf.js.gz"
             )),
             gzip: true,
         },
     ),
     (
-        "assets/switch-CJ_BkpKt.js",
+        "assets/switch-BhkSE0u2.js",
         Served {
             content_type: "text/javascript; charset=utf-8",
             bytes: include_bytes!(concat!(
                 env!("CARGO_MANIFEST_DIR"),
-                "/web-dist/assets/switch-CJ_BkpKt.js.gz"
+                "/web-dist/assets/switch-BhkSE0u2.js.gz"
             )),
             gzip: true,
         },
     ),
     (
-        "assets/tabs-CbakOo5C.js",
+        "assets/tabs-gt4A6p0N.js",
         Served {
             content_type: "text/javascript; charset=utf-8",
             bytes: include_bytes!(concat!(
                 env!("CARGO_MANIFEST_DIR"),
-                "/web-dist/assets/tabs-CbakOo5C.js.gz"
+                "/web-dist/assets/tabs-gt4A6p0N.js.gz"
             )),
             gzip: true,
         },
     ),
     (
-        "assets/tail-tab-_MeZcfej.js",
+        "assets/tail-tab-DSJt91Pc.js",
         Served {
             content_type: "text/javascript; charset=utf-8",
             bytes: include_bytes!(concat!(
                 env!("CARGO_MANIFEST_DIR"),
-                "/web-dist/assets/tail-tab-_MeZcfej.js.gz"
+                "/web-dist/assets/tail-tab-DSJt91Pc.js.gz"
             )),
             gzip: true,
         },
     ),
     (
-        "assets/terminal-fOjFVi5Q.js",
+        "assets/terminal-BNm7ml5U.js",
         Served {
             content_type: "text/javascript; charset=utf-8",
             bytes: include_bytes!(concat!(
                 env!("CARGO_MANIFEST_DIR"),
-                "/web-dist/assets/terminal-fOjFVi5Q.js.gz"
+                "/web-dist/assets/terminal-BNm7ml5U.js.gz"
             )),
             gzip: true,
         },
     ),
     (
-        "assets/test-tab-CBtk7esc.js",
+        "assets/test-tab-C9d5XQcr.js",
         Served {
             content_type: "text/javascript; charset=utf-8",
             bytes: include_bytes!(concat!(
                 env!("CARGO_MANIFEST_DIR"),
-                "/web-dist/assets/test-tab-CBtk7esc.js.gz"
+                "/web-dist/assets/test-tab-C9d5XQcr.js.gz"
             )),
             gzip: true,
         },
     ),
     (
-        "assets/textarea-BSJ_4EZx.js",
+        "assets/textarea-wBen8XIA.js",
         Served {
             content_type: "text/javascript; charset=utf-8",
             bytes: include_bytes!(concat!(
                 env!("CARGO_MANIFEST_DIR"),
-                "/web-dist/assets/textarea-BSJ_4EZx.js.gz"
+                "/web-dist/assets/textarea-wBen8XIA.js.gz"
             )),
             gzip: true,
         },
     ),
     (
-        "assets/toggle-group-KMXRRIH5.js",
+        "assets/toggle-group-BGKm2lDr.js",
         Served {
             content_type: "text/javascript; charset=utf-8",
             bytes: include_bytes!(concat!(
                 env!("CARGO_MANIFEST_DIR"),
-                "/web-dist/assets/toggle-group-KMXRRIH5.js.gz"
+                "/web-dist/assets/toggle-group-BGKm2lDr.js.gz"
             )),
             gzip: true,
         },
     ),
     (
-        "assets/undo-2-By0gy5S_.js",
+        "assets/undo-2-C8HXK687.js",
         Served {
             content_type: "text/javascript; charset=utf-8",
             bytes: include_bytes!(concat!(
                 env!("CARGO_MANIFEST_DIR"),
-                "/web-dist/assets/undo-2-By0gy5S_.js.gz"
+                "/web-dist/assets/undo-2-C8HXK687.js.gz"
             )),
             gzip: true,
         },

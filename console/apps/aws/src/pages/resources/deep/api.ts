@@ -71,9 +71,9 @@ export function putObject(bucket: string, key: string, body: Blob, type: string)
   return client.api<Uploaded>(objectPath(bucket, key), { method: "POST", body, headers: { "Content-Type": type || "application/octet-stream" } });
 }
 
-/** GetObject, saved as a file. The console's API answers only requests that carry its proof header, which a plain link cannot
+/** GetObject, saved as a file (named `saveAs`, else by the last part of the key). The console's API answers only requests that carry its proof header, which a plain link cannot
  * send: the bytes are fetched (the server streams them from S3) and handed to the browser to save. */
-export async function downloadObject(bucket: string, key: string): Promise<void> {
+export async function downloadObject(bucket: string, key: string, saveAs?: string): Promise<void> {
   const res = await fetch(`${client.basePath}${objectPath(bucket, key)}`, { headers: { "X-Console": "1" }, credentials: "same-origin" });
   if (!res.ok) {
     const body = (await res.json().catch(() => null)) as { code?: string; message?: string } | null;
@@ -83,7 +83,7 @@ export async function downloadObject(bucket: string, key: string): Promise<void>
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = key.split("/").filter(Boolean).pop() ?? "object";
+  a.download = saveAs ?? key.split("/").filter(Boolean).pop() ?? "object";
   document.body.append(a);
   a.click();
   a.remove();
