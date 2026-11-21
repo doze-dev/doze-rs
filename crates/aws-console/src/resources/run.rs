@@ -142,8 +142,7 @@ pub async fn rows(
     let mut rows = Vec::with_capacity(items.len());
     let mut others = 0;
     for (i, mut item) in items.into_iter().enumerate() {
-        let id = path::text(&item, kind.list.id).unwrap_or_default();
-        let name = kind.list.name.read(&item).unwrap_or_else(|| id.clone());
+        let (id, name, pending) = identity(kind, &item);
         if i < MOST_EACH {
             for step in kind.each {
                 let form = Map::new();
@@ -166,11 +165,14 @@ pub async fn rows(
                 continue;
             }
         }
-        let label = kind
-            .list
-            .label
-            .and_then(|l| l.read(&item))
-            .unwrap_or_else(|| name.clone());
+        let label = match (&kind.id_of, pending) {
+            (Id::Pending(p), true) => p.label(&name),
+            _ => kind
+                .list
+                .label
+                .and_then(|l| l.read(&item))
+                .unwrap_or_else(|| name.clone()),
+        };
         rows.push(ResourceRow {
             cells: kind
                 .columns
@@ -186,6 +188,18 @@ pub async fn rows(
     (rows, others)
 }
 
+/// A listed row's id and name, and whether it is one the service lists without an id ([`super::Pending`]).
+fn identity(kind: &Kind, item: &Value) -> (String, String, bool) {
+    let id = path::text(item, kind.list.id).unwrap_or_default();
+    if let Id::Pending(p) = &kind.id_of
+        && let Some(name) = p.name(item)
+    {
+        return (name.clone(), name, true);
+    }
+    let name = kind.list.name.read(item).unwrap_or_else(|| id.clone());
+    (id, name, false)
+}
+
 /// What the calls of a resource named `name` take, and what was answered on the way (SQS's `GetQueueUrl`).
 ///
 /// # Errors
@@ -199,7 +213,7 @@ pub async fn id_of(
     let mut out = json!({ "$name": name });
     let form = Map::new();
     let id = match &kind.id_of {
-        Id::Name => name.to_owned(),
+        Id::Name | Id::Pending(_) => name.to_owned(),
         Id::Template(t) => {
             let snapshot = out.clone();
             let fill = Fill {
@@ -243,6 +257,13 @@ pub async fn read_detail(
 ) -> Result<Vec<String>, ApiError> {
     let mut made = Vec::new();
     let form = Map::new();
+    if let Id::Pending(p) = &kind.id_of
+        && p.names(name)
+    {
+        made.push(p.step.op.to_owned());
+        p.read(bus, d, name, out).await?;
+        return Ok(made);
+    }
     for step in kind.detail {
         let snapshot = out.clone();
         let fill = Fill {
@@ -325,7 +346,7 @@ pub async fn sub(
             let more = !sub.more.is_empty()
                 && path::text(&answer, sub.more)
                     .is_some_and(|m| m == "true" || (!m.is_empty() && m != "false"));
-            let rows = items.iter().map(|item| sub_row(sub, item)).collect();
+            let rows = items.iter().map(|item| sub_row(d, sub, item)).collect();
             (rows, more, None)
         }
         Err(e) => (Vec::new(), false, Some(e.message)),
@@ -341,7 +362,7 @@ pub async fn sub(
     }
 }
 
-fn sub_row(sub: &Sub, item: &Value) -> ResourceRow {
+fn sub_row(d: &Descriptor, sub: &Sub, item: &Value) -> ResourceRow {
     let cells: Vec<Option<String>> = sub
         .columns
         .iter()
@@ -349,10 +370,19 @@ fn sub_row(sub: &Sub, item: &Value) -> ResourceRow {
         .collect();
     let first = cells.first().cloned().flatten().unwrap_or_default();
     let link = sub.link.and_then(|(service, kind, at)| {
+        // A row the service lists without an id is named as its own kind's list names it.
+        let pending = d
+            .kinds
+            .iter()
+            .find(|k| service == d.service && k.id == kind)
+            .and_then(|k| match &k.id_of {
+                Id::Pending(p) => p.name(item),
+                _ => None,
+            });
         Some(ResourceLink {
             service: service.to_owned(),
             kind: kind.to_owned(),
-            name: at.read(item)?,
+            name: pending.or_else(|| at.read(item))?,
         })
     });
     ResourceRow {

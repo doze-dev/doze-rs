@@ -51,10 +51,10 @@ pub(crate) fn entity(e: &Entity, full: bool) -> Value {
 /// a listing leaves out: `PermissionsBoundary`, `RoleLastUsed` and `Tags`. `Description` is not among them.)
 pub(crate) fn listed(e: &Entity) -> Value {
     let mut shown = entity(e, false);
-    if let (Some(d), Some(m)) = (&e.description, shown.as_object_mut()) {
-        if e.kind == Kind::Role {
-            m.insert("Description".into(), json!(d));
-        }
+    if e.kind == Kind::Role
+        && let (Some(d), Some(m)) = (&e.description, shown.as_object_mut())
+    {
+        m.insert("Description".into(), json!(d));
     }
     shown
 }

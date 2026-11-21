@@ -2,8 +2,8 @@
 
 use super::Format::{Flag, Json, Mono, Number, Tail, Text as Plain};
 use super::{
-    Create, Delete, Descriptor, Field, Id, Input, InputKind, Kind, LinkTo, List, Step, Sub, Text,
-    col, field, input,
+    Create, Delete, Descriptor, Field, Id, Input, InputKind, Kind, LinkTo, List, Pending, Step,
+    Sub, Text, col, field, input,
 };
 
 const TOPIC_ARN: &str = "arn:aws:sns:{region}:{account}:{name}";
@@ -142,6 +142,22 @@ const TOPICS: Kind = Kind {
     deep: &[],
 };
 
+/// A subscription not yet confirmed is listed as `PendingConfirmation`, whatever its topic: it is named by its topic, protocol and
+/// endpoint, and read from its topic's list.
+static PENDING: Pending = Pending {
+    id: "SubscriptionArn",
+    value: "PendingConfirmation",
+    by: &["TopicArn", "Protocol", "Endpoint"],
+    step: Step::new(
+        "ListSubscriptionsByTopic",
+        r#"{"TopicArn":"{out:TopicArn}","NextToken":"{token}"}"#,
+    ),
+    items: "Subscriptions",
+    token_out: "NextToken",
+    into: "Attributes",
+    flag: "PendingConfirmation",
+};
+
 const SUBSCRIPTIONS: Kind = Kind {
     id: "subscriptions",
     title: "Subscriptions",
@@ -165,7 +181,7 @@ const SUBSCRIPTIONS: Kind = Kind {
         col("Protocol", "Protocol", Plain),
         col("Endpoint", "Endpoint", Mono),
     ],
-    id_of: Id::Name,
+    id_of: Id::Pending(&PENDING),
     detail: &[Step::new(
         "GetSubscriptionAttributes",
         r#"{"SubscriptionArn":"{id}"}"#,

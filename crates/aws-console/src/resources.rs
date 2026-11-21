@@ -25,6 +25,9 @@ pub mod view;
 mod parts;
 pub(crate) use parts::{col, field, input, or};
 
+mod pending;
+pub use pending::Pending;
+
 mod apigateway;
 mod cloudformation;
 mod cloudwatch;
@@ -229,6 +232,8 @@ impl Text {
 pub enum Id {
     /// They are the same.
     Name,
+    /// They are the same, but for the rows the service lists without an id of their own ([`Pending`]).
+    Pending(&'static Pending),
     /// Written from the name (`arn:aws:sns:{region}:{account}:{name}`).
     Template(&'static str),
     /// Asked for (SQS's `GetQueueUrl`), at `path` in the answer.
