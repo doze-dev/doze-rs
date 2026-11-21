@@ -7,7 +7,8 @@
 //! - `POST /api/v1/resources/s3/buckets/<name>/object?key=<key>[&props=<json>]`: the request's body put as the object `key`
 //!   (PutObject), at most [`UPLOAD_MAX`]; its `Content-Type` is the object's; `props` sets its metadata, tags, encryption and
 //!   the like ([`super::objects::put_props`]).
-//! - `GET /api/v1/resources/s3/buckets/<name>/object?key=<key>`: the object, streamed as GetObject answers it.
+//! - `GET /api/v1/resources/s3/buckets/<name>/object?key=<key>[&versionId=<id>]`: the object (a version of it), streamed as GetObject
+//!   answers it.
 //! - `GET /api/v1/resources/logs/groups/<name>/tail[?stream=<name>…][&pattern=<text>]`: a Live Tail of the group as
 //!   server-sent events ([`deep::tail`]), its request bound to the group as any operation's is; one of the console's event
 //!   streams ([`crate::limits::Limits::max_streams`]).
@@ -146,7 +147,13 @@ pub async fn download(
         Ok(found) => found,
         Err(res) => return *res,
     };
-    let input = json!({ "Bucket": name, "Key": key });
+    let mut input = json!({ "Bucket": name, "Key": key });
+    // `&versionId=` downloads one version of a versioned bucket's object.
+    if let (Some(v), Some(o)) = (param(query.as_deref(), "versionId").map(decode), input.as_object_mut())
+        && !v.is_empty()
+    {
+        o.insert("VersionId".to_owned(), Value::String(v));
+    }
     let reply = match bus.call_rest(d.target, "GetObject", &input, None).await {
         Ok(reply) => reply,
         Err(e) => return refused(&e),

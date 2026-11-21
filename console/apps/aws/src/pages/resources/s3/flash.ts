@@ -14,3 +14,9 @@ export function takeFlash(): Flash | null {
   pending = null;
   return f;
 }
+
+/** What emptying a bucket did, kept for its Status page (by bucket): objects removed, their size, and what could not be. */
+export type Emptied = { deleted: number; bytes: number; failed: { key: string; code: string; message?: string }[] };
+const emptied = new Map<string, Emptied>();
+export const setEmptied = (bucket: string, e: Emptied): void => void emptied.set(bucket, e);
+export const emptiedOf = (bucket: string): Emptied | undefined => emptied.get(bucket);

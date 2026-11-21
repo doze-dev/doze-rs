@@ -276,3 +276,32 @@ async fn a_presigned_link_is_made_to_an_object_that_is_there_and_for_at_most_twe
         .await;
     assert_eq!(status, 404);
 }
+
+#[tokio::test]
+async fn one_version_of_an_object_is_downloaded_by_its_id() {
+    let w = bucket("deep-s3-version").await;
+    ok(
+        &w,
+        "/api/v1/resources/s3/buckets/product-images",
+        "ListObjectVersions",
+        &json!({}),
+    )
+    .await;
+    w.app(
+        "s3",
+        "PutBucketVersioning",
+        &json!({"Bucket": "product-images", "VersioningConfiguration": {"Status": "Enabled"}}),
+    )
+    .await;
+    let (res, text) = raw(&w.app, upload("v.txt", "text/plain", b"one".to_vec())).await;
+    assert_eq!(res.status(), 201, "{text}");
+    let first: Value = serde_json::from_str(&text).unwrap();
+    let id = first["version_id"].as_str().unwrap().to_owned();
+    raw(&w.app, upload("v.txt", "text/plain", b"two".to_vec())).await;
+    let get = |q: String| support::get(&format!("{BASE}/object?key=v.txt{q}"));
+    for (query, want) in [(String::new(), "two"), (format!("&versionId={id}"), "one")] {
+        let (parts, body) = w.app.clone().oneshot(get(query)).await.unwrap().into_parts();
+        assert_eq!(parts.status, 200);
+        assert_eq!(body.collect().await.unwrap().to_bytes().as_ref(), want.as_bytes());
+    }
+}
