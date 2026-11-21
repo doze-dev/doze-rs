@@ -142,7 +142,9 @@ export function layout(def: Definition, scope = "", opts: { targets?: boolean } 
     const subs: Definition[] = s.Branches ?? (s.ItemProcessor ? [s.ItemProcessor] : s.Iterator ? [s.Iterator] : []);
     const inner: Placed[] = subs.map((d, i) => ({ graph: layout(d, `${id}/${i}/`, opts), x: 0, y: 0, title: type === "Parallel" ? `Branch ${i + 1}` : "Each item" }));
     const label = type === "Task" ? words(s, opts.targets === true) : undefined;
-    const { w, h } = boxSize(n, label ?? type, inner);
+    const sizeOf = boxSize(n, label ?? type, inner);
+    // An execution's graph says how each state ended at the right of its box: room for the word.
+    const { w, h } = opts.targets && inner.length === 0 ? { w: sizeOf.w + 84, h: sizeOf.h } : sizeOf;
     sized.set(n, { id, name: n, type, label, x: 0, y: 0, w, h, resource: s.Resource, inner });
   }
   // Rows: Start, the layers, End.

@@ -12,7 +12,12 @@ fn badges(r: &Read<'_>) -> Vec<Badge> {
         _ => "Standard",
     };
     let mut out = vec![Badge::new(kind, Tone::Neutral)];
-    out.extend(status(r.text("status")));
+    // `ACTIVE` as the boards say it, `Active`; the tone is the status word's.
+    out.extend(
+        status(r.text("status"))
+            .into_iter()
+            .map(|b| Badge::new(sentence_case(&b.text), b.tone)),
+    );
     out
 }
 
@@ -25,3 +30,14 @@ pub const MACHINE: Page = Page {
     ],
     ..Page::NONE
 };
+
+/// `ACTIVE` as `Active`.
+fn sentence_case(word: &str) -> String {
+    let mut chars = word.chars();
+    chars.next().map_or_else(String::new, |first| {
+        first
+            .to_uppercase()
+            .chain(chars.flat_map(char::to_lowercase))
+            .collect()
+    })
+}

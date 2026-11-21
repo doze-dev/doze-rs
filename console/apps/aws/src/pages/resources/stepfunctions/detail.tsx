@@ -17,6 +17,7 @@ import { StartDialog } from "./dialogs";
 import { DefinitionTab } from "./definition-tab";
 import { DetailsCard, fieldOf } from "./details-card";
 import { MachineExecutions } from "./executions-tab";
+import { at } from "../deep/parts";
 import { useGoTo, useMachineRuns } from "./hooks";
 import { machineSentence, wiresOf } from "./model";
 import { parseDefinition } from "./graph";
@@ -79,7 +80,7 @@ function MachineView({ d, updatedAt, fetching, refresh }: { d: ResourceDetail; u
   };
   const chips = (names: string[]): FlowChip[] => names.map((label) => ({ label }));
   const targets: FlowChip[] = wires.map((w) => ({ label: w.name, to: w }));
-  const meta = <>Created <span data-testid="header-created">{fieldOf(d, "Creation date") ?? "–"}</span>. Revision <span className="font-mono" data-testid="header-revision">{(fieldOf(d, "Revision ID") ?? "").slice(0, 8)}</span>.</>;
+  const meta = <>Created <span data-testid="header-created">{at(fieldOf(d, "Creation date"))}</span>. Revision <span className="font-mono" data-testid="header-revision">{(fieldOf(d, "Revision ID") ?? "").slice(0, 8)}</span>.</>;
   const shown: ResourceDetail = { ...d, sentence: null, wired: [] };
   const tabs = [
     { id: "executions", label: "Executions", render: () => <MachineExecutions d={d} /> },

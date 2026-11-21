@@ -106,8 +106,13 @@ function StateBox({ b, run, selected, onSelect }: { b: Box } & Look) {
         </text>
         <text x={b.x + 14} y={b.y + (container ? 19 : 36)} dx={container ? b.name.length * 7.6 + 10 : 0} className={cn("text-[11px]", step ? tone.text : "fill-muted-foreground")}>
           {b.label ?? b.type}
-          {step ? ` · ${WORD[step.status]}` : ""}
+          {step && container ? ` · ${WORD[step.status]}` : ""}
         </text>
+        {step && !container && (
+          <text x={b.x + b.w - 14} y={b.y + b.h / 2 + 4} textAnchor="end" className={cn("text-[12px] font-semibold", tone.text)} data-testid="state-status">
+            <tspan>● </tspan>{WORD[step.status]}
+          </text>
+        )}
       </g>
       {b.inner.map((p) => (
         <g key={p.title} transform={`translate(${p.x},${p.y})`}>

@@ -1,11 +1,16 @@
-// A chosen state's details (its status, input, output, error, and its events), and the execution's event history as a list
-// that opens each event's details.
-import { ChevronRightIcon } from "lucide-react";
-import { useState } from "react";
+// What a chosen state did (stepfunctions__execution-running, execution-failed): its input, output, details, definition, Retry rules
+// and events, in the card under the graph or the table; and the execution's event history as a table (execution-events).
+import { ArrowDownIcon, ArrowUpIcon, ChevronRightIcon } from "lucide-react";
+import { useMemo, useState } from "react";
 import { StatusDot } from "@doze/ui/components/app/status-dot";
+import { Segmented } from "../../../kit";
 import { cn } from "@doze/ui/lib/utils";
+import { Button } from "@doze/ui/components/ui/button";
 import { at, Card, CodeBlock, pretty } from "../deep/parts";
-import { failureOf, type HistoryEvent, STATUS, type Step } from "./history";
+import { durationWords, clockMs } from "./execution-model";
+import type { AslState } from "./graph";
+import { failureOf, type HistoryEvent, STATUS, type Step, tsMs } from "./history";
+import { taskResource, taskTarget } from "./model";
 
 /** An event's details: the members of its `…EventDetails`, as JSON (inputs and outputs that are JSON read as such). */
 export function detailsOf(e: HistoryEvent): string {
@@ -27,43 +32,86 @@ export function detailsOf(e: HistoryEvent): string {
   return Object.keys(out).length === 0 ? "" : JSON.stringify(out, null, 2);
 }
 
-export function StepDetails({ step, name, events }: { step?: Step; name?: string; events: HistoryEvent[] }) {
-  const [view, setView] = useState<"input" | "output" | "events">("input");
-  if (!name) {
-    return (
-      <Card title="State details" lede="Choose a state in the graph to see what it took, what it gave and why it failed." testId="step-details" />
-    );
+type View = "input" | "output" | "details" | "definition" | "retry" | "events";
+const VIEWS: { value: View; label: string }[] = [
+  { value: "input", label: "Input" },
+  { value: "output", label: "Output" },
+  { value: "details", label: "Details" },
+  { value: "definition", label: "Definition" },
+  { value: "retry", label: "Retry" },
+  { value: "events", label: "Events" },
+];
+
+const KIND_WORD: Record<string, string> = { lambda: "Function", sqs: "Queue", sns: "Topic", dynamodb: "Table", s3: "Bucket", states: "State machine" };
+
+/** The message a Lambda error's cause carries (`{"errorMessage": "'email'", …}`), or the cause as it is. */
+export function causeWords(cause: string | undefined): { main: string; more?: string } | null {
+  if (!cause) return null;
+  try {
+    const c = JSON.parse(cause) as { errorMessage?: unknown };
+    if (typeof c.errorMessage === "string") return { main: c.errorMessage };
+  } catch {
+    // As it is.
   }
-  if (!step) {
-    return (
-      <Card title={<span>State details: <span className="font-mono">{name}</span></span>} lede="This execution has not entered this state." testId="step-details" />
-    );
-  }
+  return { main: cause };
+}
+
+function Pair({ label, children, testId }: { label: string; children: React.ReactNode; testId?: string }) {
+  return (
+    <div className="contents">
+      <dt className="border-b py-3 pr-4 text-[13.5px] text-muted-foreground">{label}</dt>
+      <dd className="min-w-0 border-b py-3 text-[13.5px] break-words text-bright" data-testid={testId}>{children}</dd>
+    </div>
+  );
+}
+
+export function StepDetails({ step, name, state, events, first }: { step?: Step; name?: string; state?: AslState; events: HistoryEvent[]; first?: View }) {
+  const [asked, setView] = useState<View | null>(null);
+  const view = asked ?? first ?? "input";
+  if (!name) return <Card title="Step details" lede="Choose a state in the graph to see what it took, what it gave and why it failed." testId="step-details" />;
+  if (!step) return <Card title={<span>Step details: <span className="font-mono">{name}</span></span>} lede="This execution has not entered this state." testId="step-details" />;
   const s = STATUS[step.status] ?? { word: step.status, tone: "idle" as const };
   const own = events.filter((e) => step.events.includes(e.id));
+  const t = taskResource(state?.Resource);
+  const target = state ? taskTarget(state) : null;
+  const took = step.startMs !== undefined && step.endMs !== undefined && step.status !== "running" ? step.endMs - step.startMs : null;
+  const cause = causeWords(step.cause);
   return (
-    <Card title={<span>State details: <span className="font-mono">{name}</span></span>} actions={<StatusDot tone={s.tone}>{s.word}</StatusDot>} testId="step-details">
-      {step.error && (
-        <div className="mb-4 rounded-[10px] border border-bad/40 bg-bad/5 px-4 py-3 text-[13px]" data-testid="step-error">
-          <b className="font-semibold text-bright">{step.error}</b>
-          {step.cause && <p className="mt-1 break-words text-foreground">{step.cause}</p>}
-        </div>
-      )}
-      <div className="mb-3 inline-flex gap-0.5 rounded-[10px] bg-track p-[3px]" role="tablist" aria-label="State details">
-        {(["input", "output", "events"] as const).map((v) => (
-          <button key={v} type="button" role="tab" aria-selected={view === v} onClick={() => setView(v)} className={cn("h-7 rounded-[8px] px-3 text-[13px] font-medium capitalize", view === v ? "bg-card text-bright shadow-sm" : "text-foreground")} data-testid={`step-${v}`}>
-            {v}
-          </button>
-        ))}
-      </div>
+    <Card title={<span>Step details: <span className="font-mono" data-testid="step-name">{name}</span></span>} actions={<Segmented value={view} onChange={setView} options={VIEWS} label="Step details" testId="step-views" />} testId="step-details">
       {view === "input" && <CodeBlock text={pretty(step.input) || "None."} max="max-h-80" testId="step-input" />}
       {view === "output" && <CodeBlock text={step.output !== undefined ? pretty(step.output) : step.status === "running" ? "Not yet: the state is running." : "None."} max="max-h-80" testId="step-output" />}
+      {view === "details" && (
+        <div className="grid lg:grid-cols-2 lg:gap-x-12" data-testid="step-info">
+          <dl className="grid grid-cols-[minmax(7rem,10rem)_minmax(0,1fr)] content-start">
+            <Pair label="Type">{state?.Type ?? "–"}</Pair>
+            <Pair label="Status"><StatusDot tone={s.tone}>{s.word}</StatusDot></Pair>
+            {state?.Resource && <Pair label="Resource"><span className="font-mono text-[13px]">{state.Resource}</span>{target && t && !t.activity ? <span className="block text-[12.5px] text-muted-foreground">{KIND_WORD[t.service] ?? "Resource"} {target}</span> : null}</Pair>}
+            <Pair label="Duration">{durationWords(took)}</Pair>
+          </dl>
+          <dl className="grid grid-cols-[minmax(7rem,10rem)_minmax(0,1fr)] content-start">
+            {step.error ? <Pair label="Error"><span className="font-mono text-[13px]">{step.error}</span></Pair> : null}
+            {cause ? <Pair label="Cause"><span className="font-mono text-[13px]">{cause.main}</span></Pair> : null}
+          </dl>
+        </div>
+      )}
+      {view === "definition" && <CodeBlock text={state ? JSON.stringify(state, null, 2) : "This state is not in the definition the execution ran."} max="max-h-80" testId="step-definition" />}
+      {view === "retry" && (
+        state?.Retry && state.Retry.length > 0 ? (
+          <div className="overflow-auto rounded-[12px] border" data-testid="step-retry">
+            <table className="w-full border-collapse text-left text-[13px]">
+              <thead className="bg-well"><tr className="border-b text-[11.5px] font-medium tracking-[0.07em] text-muted-foreground uppercase"><th className="px-4 py-2.5 font-medium">Errors</th><th className="px-4 py-2.5 font-medium">Interval</th><th className="px-4 py-2.5 font-medium">Max attempts</th><th className="px-4 py-2.5 font-medium">Backoff rate</th></tr></thead>
+              <tbody>{state.Retry.map((r, i) => <tr key={i} className="border-b last:border-b-0"><td className="px-4 py-2.5 font-mono">{(r.ErrorEquals ?? []).join(", ")}</td><td className="px-4 py-2.5">{r.IntervalSeconds ?? 1} s</td><td className="px-4 py-2.5">{r.MaxAttempts ?? 3}</td><td className="px-4 py-2.5">{r.BackoffRate ?? 2}</td></tr>)}</tbody>
+            </table>
+          </div>
+        ) : <p className="text-[13.5px] text-muted-foreground" data-testid="step-retry">{name} has no Retry rule.</p>
+      )}
       {view === "events" && (
-        <ul className="grid gap-1 text-[13px]">
+        <ul className="grid gap-1 text-[13px]" data-testid="step-events">
           {own.map((e) => (
             <li key={e.id} className="flex gap-3">
               <span className="w-8 text-right font-mono text-muted-foreground tabular-nums">{e.id}</span>
               <span className={cn("font-mono", failureOf(e) ? "text-bad" : "text-bright")}>{e.type}</span>
+              <span className="font-mono text-muted-foreground">{clockMs(tsMs(e.timestamp))}</span>
             </li>
           ))}
         </ul>
@@ -72,63 +120,74 @@ export function StepDetails({ step, name, events }: { step?: Step; name?: string
   );
 }
 
-function EventRow({ e, start }: { e: HistoryEvent; start: number }) {
-  const [open, setOpen] = useState(false);
+const PAGE = 25;
+
+function EventRow({ e, open, toggle }: { e: HistoryEvent; open: boolean; toggle: () => void }) {
   const details = detailsOf(e);
   const failed = /Failed|TimedOut|Aborted/.test(e.type);
-  const ms = typeof e.timestamp === "number" ? (e.timestamp > 1e12 ? e.timestamp : e.timestamp * 1000) : Date.parse(e.timestamp);
-  const name = e.stateEnteredEventDetails?.name ?? e.stateExitedEventDetails?.name;
   return (
     <>
-      <tr className="border-b align-top" data-testid="history-event">
-        <td className="w-8 py-2.5 pl-3">
+      <tr className="border-b align-top" data-testid="history-event" data-event={e.id}>
+        <td className="w-10 py-2.5 pl-3">
           {details && (
-            <button type="button" onClick={() => setOpen(!open)} aria-expanded={open} aria-label={open ? `Close event ${e.id}` : `Open event ${e.id}`} className="rounded-sm text-muted-foreground hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none" data-testid="history-open">
+            <button type="button" onClick={toggle} aria-expanded={open} aria-label={open ? `Close event ${e.id}` : `Open event ${e.id}`} className="rounded-sm text-muted-foreground hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none" data-testid="history-open">
               <ChevronRightIcon className={cn("size-4 transition-transform duration-150", open && "rotate-90")} />
             </button>
           )}
         </td>
-        <td className="py-2.5 pr-4 text-right font-mono text-[12.5px] text-muted-foreground tabular-nums">{e.id}</td>
-        <td className={cn("py-2.5 pr-4 font-mono text-[13px] font-medium", failed ? "text-bad" : e.type.endsWith("Succeeded") ? "text-good" : "text-bright")}>{e.type}</td>
-        <td className="py-2.5 pr-4 font-mono text-[13px]">{name ?? <span className="text-muted-foreground">–</span>}</td>
-        <td className="py-2.5 pr-4 text-[13px] tabular-nums">{at(e.timestamp)}</td>
-        <td className="py-2.5 pr-4 text-right font-mono text-[12.5px] text-muted-foreground tabular-nums">{Number.isNaN(ms) ? "" : `+${Math.max(0, ms - start)} ms`}</td>
+        <td className="w-16 py-2.5 pr-4 font-mono text-[12.5px] text-muted-foreground tabular-nums">{e.id}</td>
+        <td className={cn("py-2.5 pr-4 font-mono text-[13px] font-medium", failed ? "text-bad" : "text-bright")}>{e.type}</td>
+        <td className="py-2.5 pr-4 font-mono text-[13px] tabular-nums">{clockMs(tsMs(e.timestamp))}</td>
       </tr>
       {open && (
         <tr className="border-b">
           <td />
-          <td colSpan={5} className="pr-4 pb-3">
-            <CodeBlock text={details} max="max-h-72" />
-          </td>
+          <td colSpan={3} className="pr-4 pb-3"><CodeBlock text={details} max="max-h-72" /></td>
         </tr>
       )}
     </>
   );
 }
 
-export function EventsTable({ events }: { events: HistoryEvent[] }) {
-  const first = events[0];
-  const start = first ? (typeof first.timestamp === "number" ? (first.timestamp > 1e12 ? first.timestamp : first.timestamp * 1000) : Date.parse(first.timestamp)) : 0;
-  const newest = [...events].reverse();
+/** The event history, 25 events a page, oldest first until the Timestamp header is chosen; an event opens for its details. */
+export function EventsView({ events, startMs }: { events: HistoryEvent[]; startMs: number | null }) {
+  const [newest, setNewest] = useState(false);
+  const [page, setPage] = useState(0);
+  const [open, setOpen] = useState<number | null>(null);
+  const sorted = useMemo(() => (newest ? [...events].reverse() : events), [events, newest]);
+  const shown = sorted.slice(page * PAGE, page * PAGE + PAGE);
+  const last = Math.min(events.length, page * PAGE + PAGE);
   return (
-    <div className="max-h-[640px] overflow-auto rounded-[12px] border" data-testid="history">
-      <table className="w-full border-collapse text-left">
-        <thead className="sticky top-0 z-[1] bg-well">
-          <tr className="border-b text-[11.5px] font-medium tracking-[0.07em] text-muted-foreground uppercase">
-            <th className="w-8 py-2.5 pl-3" aria-label="Open" />
-            <th className="py-2.5 pr-4 text-right font-medium">ID</th>
-            <th className="py-2.5 pr-4 font-medium">Type</th>
-            <th className="py-2.5 pr-4 font-medium">State</th>
-            <th className="py-2.5 pr-4 font-medium">Time (UTC)</th>
-            <th className="py-2.5 pr-4 text-right font-medium">Since start</th>
-          </tr>
-        </thead>
-        <tbody>
-          {newest.map((e) => (
-            <EventRow key={e.id} e={e} start={start} />
-          ))}
-        </tbody>
-      </table>
-    </div>
+    <Card title="Event view" lede={startMs !== null ? <>Timestamps are {at(startMs).slice(0, 12)}, in UTC.</> : undefined} testId="execution-events">
+      <div className="overflow-auto rounded-[12px] border" data-testid="history">
+        <table className="w-full border-collapse text-left">
+          <thead className="bg-well">
+            <tr className="border-b text-[11.5px] font-medium tracking-[0.07em] text-muted-foreground uppercase">
+              <th className="w-10 py-2.5 pl-3" aria-label="Open" />
+              <th className="w-16 py-2.5 pr-4 font-medium">ID</th>
+              <th className="py-2.5 pr-4 font-medium">Type</th>
+              <th className="py-2.5 pr-4 font-medium">
+                <button type="button" onClick={() => { setNewest(!newest); setPage(0); }} className="inline-flex items-center gap-1 rounded-sm font-medium uppercase hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none" aria-label={`Timestamp, sorted ${newest ? "newest" : "oldest"} first`} data-testid="history-sort">
+                  Timestamp {newest ? <ArrowDownIcon className="size-3.5" /> : <ArrowUpIcon className="size-3.5" />}
+                </button>
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {shown.map((e) => <EventRow key={e.id} e={e} open={open === e.id} toggle={() => setOpen(open === e.id ? null : e.id)} />)}
+          </tbody>
+        </table>
+      </div>
+      <div className="mt-4 flex items-center justify-between gap-3 text-[13px] text-muted-foreground">
+        <span data-testid="history-line">{events.length} {events.length === 1 ? "event" : "events"}, {events.length === 0 ? 0 : page * PAGE + 1} to {last}</span>
+        <span className="flex gap-2">
+          <Button variant="outline" size="sm" className="bg-card" disabled={page === 0} onClick={() => setPage(page - 1)} data-testid="history-prev">Previous</Button>
+          <Button variant="outline" size="sm" className="bg-card" disabled={last >= events.length} onClick={() => setPage(page + 1)} data-testid="history-next">Next</Button>
+        </span>
+      </div>
+      <p className="mt-5 max-w-[46rem] border-l-2 border-input pl-3.5 text-[13px] leading-5 text-muted-foreground" data-testid="history-note">
+        A page shows up to 25 events, and an execution's history is limited to 25,000 events. Events are sorted by Timestamp, oldest first; choose the Timestamp header to reverse the order. Choose the arrow beside an ID to see an event's input, output and resource invocation.
+      </p>
+    </Card>
   );
 }
