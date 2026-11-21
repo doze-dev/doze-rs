@@ -115,7 +115,7 @@ test("eventbridge__rule-create: Create rule's five steps, each reached in turn, 
   await expect(dialog.getByTestId("transformer-problem")).toContainText("The template names <nope>, which no input path defines.");
   await dialog.getByTestId("transformer-template").fill('{\n  "order_id": "<order_id>",\n  "customer": "<customer>"\n}');
   await dialog.getByTestId("transformer-confirm").click();
-  await expect(page.getByTestId("transformer-set-1")).toContainText("Transformer set: 2 variables, order_id, customer, shape the message sent to orders-created.");
+  await expect(page.getByTestId("transformer-set-1")).toContainText("Transformer set: 2 variables, order_id and customer, shape the message published to orders-created.");
   await page.getByTestId("age-hours-1").fill("1");
   await page.getByTestId("age-minutes-1").fill("0");
   await page.getByTestId("age-seconds-1").fill("0");

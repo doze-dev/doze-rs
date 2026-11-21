@@ -93,7 +93,7 @@ function Rules({ service, kind, bus: asked, gone }: { service: string; kind: str
         <div className="grid gap-3" data-testid="list-loading"><Skeleton className="h-9 w-80" /><Skeleton className="h-64 rounded-xl" /></div>
       ) : (
         <>
-          <Said text={sentence} names={[bus, ...items.map((r) => r.Name)]} bold={[/\b\d+(?= (?:rules?|targets?)\b)/]} />
+          <Said text={sentence} names={[bus, ...items.map((r) => r.Name)]} bold={[/\b\d+(?= (?:rules?|targets?)\b)/, /\bno rules\b/]} />
           <div className="mb-4 flex flex-wrap items-center gap-3" data-testid="bus-chips">
             <span className="text-[13.5px] text-muted-foreground">Event bus</span>
             <FilterChips chips={names.map((n) => ({ value: n, label: n }))} value={bus} onChange={(n) => { setChosen(new Set()); go({ name: n }); }} label="Event bus" />

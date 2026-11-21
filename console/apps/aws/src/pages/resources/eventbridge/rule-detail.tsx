@@ -53,7 +53,7 @@ function RuleView({ d, bus, rule, targets, reload, updatedAt, fetching }: { d: R
   const record = useRecord();
   const busCalls = useFeeders(record.data?.calls.filter((c) => c.resource === bus && c.action === "PutEvents") ?? [], ["PutEvents"]);
   const calls = useMemo(() => ruleCalls(d.calls, record.data?.calls ?? [], rule), [d.calls, record.data, rule]);
-  const note = useMemo(() => (c: Parameters<typeof resultNote>[0]) => resultNote(c, record.data?.calls ?? []), [record.data]);
+  const note = useMemo(() => (c: Parameters<typeof resultNote>[0]) => (c.action === "PutEvents" ? "matched this rule" : resultNote(c, record.data?.calls ?? [])), [record.data]);
   const state = field(d, "State");
   const schedule = field(d, "Schedule");
   const pattern = field(d, "Event pattern");

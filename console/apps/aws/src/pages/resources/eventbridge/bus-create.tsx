@@ -89,12 +89,14 @@ export function BusCreate() {
       </FormSection>
       <FormSection key={`enc-${collapsed}`} title="Encryption" description="Which KMS key protects the events stored on this bus." collapsible={collapsed} defaultOpen={!collapsed} summary={encryptionSummary(f)} testId="section-encryption">
         <RadioCards<"aws" | "cmk"> name="enc" label="Encryption key" value={f.cmk ? "cmk" : "aws"} onChange={(v) => set({ cmk: v === "cmk" })} options={[{ value: "aws", title: "Use AWS owned key", body: "EventBridge owns and manages the key. This is the default." }, { value: "cmk", title: "Use customer managed key", body: "A KMS key in your account, which you control." }]} />
+        <div className={f.cmk ? "grid items-start gap-4 md:grid-cols-2" : "grid gap-4"}>
         {f.cmk && (
           <Field label="Customer managed key" testId="field-kms" hint={f.kms ? <>Key status: <b className="font-semibold text-foreground">{fact("State") ?? "reading"}</b>. Alias <span className="font-mono">{f.kms}</span>.</> : undefined}>
             {(id) => <Combobox id={id} options={(aliases.data ?? []).map((a) => ({ value: a, label: a }))} value={f.kms} onChange={(kms) => set({ kms })} placeholder={aliases.isPending ? "Reading keys…" : "Choose a key"} search="Search keys…" empty="No key alias matches." aria-label="Customer managed key" className="w-full" />}
           </Field>
         )}
         <Field label="Dead-letter queue" optional testId="field-dlq">{(id) => <QueuePicker id={id} by="name" value={f.dlq ? f.dlq.split(":").pop()! : null} onChange={(n) => set({ dlq: n ? `arn:aws:sqs:${region}:${account}:${n}` : null })} />}</Field>
+        </div>
         <LocalStatus state="stored" reason={<>On AWS, events that can't be encrypted go to the dead-letter queue, if you set one. doze-aws keeps both settings and does not encrypt anything, and parks nothing in the queue (<span className="font-mono">crates/aws-eventbridge/src/buses.rs</span>).</>} />
       </FormSection>
       <FormSection key={`arc-${collapsed}`} title="Archives" optional description="Keep events so you can replay them later." collapsible={collapsed} defaultOpen={!collapsed} summary={archiveSummary(f)} testId="section-archives">

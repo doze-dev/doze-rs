@@ -9,7 +9,7 @@ import { Field, FormSection, FunctionPicker, QueuePicker, ResourcePicker, RadioC
 import { busArn, useDests } from "./api";
 import { type InputMode, type TargetDraft, type TargetKind, attemptsProblem, ageSeconds, targetProblem } from "./rule-model";
 import { TransformerDialog } from "./transformer-dialog";
-import { arnName, targetParts } from "./words";
+import { arnName, list, targetParts } from "./words";
 
 type Group = "event-bus" | "api-destination" | "aws-service";
 const SERVICES: { value: TargetKind; label: string }[] = [
@@ -53,7 +53,7 @@ function Where({ t, set, region, account }: { t: TargetDraft; set: (p: Partial<T
   }
 }
 
-export function TargetForm({ t, index, set, remove, region, account, tried }: { t: TargetDraft; index: number; set: (p: Partial<TargetDraft>) => void; remove?: () => void; region: string; account: string; tried: boolean }) {
+export function TargetForm({ t, index, set, remove, region, account, tried, single = false }: { t: TargetDraft; index: number; single?: boolean; set: (p: Partial<TargetDraft>) => void; remove?: () => void; region: string; account: string; tried: boolean }) {
   const [dialog, setDialog] = useState(false);
   const group = groupOf(t.kind);
   const problem = targetProblem(t);
@@ -64,7 +64,7 @@ export function TargetForm({ t, index, set, remove, region, account, tried }: { 
   const dlqName = t.dlq ? arnName(t.dlq) : null;
   const retry = (p: Partial<TargetDraft>) => set({ ...p, retry: true });
   return (
-    <FormSection title={`Target ${index + 1}`} description={index === 0 ? "A rule can have up to 5 targets." : undefined} testId={`section-target-${index + 1}`}>
+    <FormSection title={single ? "Target" : `Target ${index + 1}`} description={index === 0 ? "A rule can have up to 5 targets." : undefined} testId={`section-target-${index + 1}`}>
       <div className="grid gap-1.5">
         <Label>Target types</Label>
         <RadioCards<Group> name={`group-${index}`} label="Target types" value={group} onChange={(g) => set({ kind: g === "aws-service" ? (group === "aws-service" ? t.kind : "sns") : g, arn: null })} options={[{ value: "event-bus", title: "EventBridge event bus", body: "Another bus of this Region: its own rules see the event." }, { value: "api-destination", title: "EventBridge API destination", body: "An HTTP endpoint. Delivered, including to localhost." }, { value: "aws-service", title: "AWS service", body: "SQS queue, SNS topic, Lambda function, CloudWatch log group, Kinesis stream or Step Functions state machine." }]} className="sm:grid-cols-3" />
@@ -92,7 +92,7 @@ export function TargetForm({ t, index, set, remove, region, account, tried }: { 
         {t.input === "transformer" && (
           <div className="grid gap-2">
             <div><Button type="button" variant="outline" className="bg-card" onClick={() => setDialog(true)} data-testid={`transformer-open-${index + 1}`}>Configure input transformer</Button></div>
-            {t.template ? <p className="text-[13.5px]" data-testid={`transformer-set-${index + 1}`}>Transformer set: <b className="font-semibold text-bright">{names.length} {names.length === 1 ? "variable" : "variables"}</b>{names.length > 0 ? `, ${names.join(", ")},` : ""} shape the message sent to <span className="font-mono font-semibold text-bright">{parts?.name ?? "the target"}</span>.</p> : tried && <p className="text-[13px] text-bad" role="alert">Write the template.</p>}
+            {t.template ? <p className="text-[13.5px]" data-testid={`transformer-set-${index + 1}`}>Transformer set: <b className="font-semibold text-bright">{names.length} {names.length === 1 ? "variable" : "variables"}</b>{names.length > 0 ? `, ${list(names)},` : ""} shape the message {t.kind === "sns" ? "published" : "sent"} to <span className="font-mono font-semibold text-bright">{parts?.name ?? "the target"}</span>.</p> : tried && <p className="text-[13px] text-bad" role="alert">Write the template.</p>}
           </div>
         )}
         <div className="grid gap-3" data-testid={`retry-${index + 1}`}>

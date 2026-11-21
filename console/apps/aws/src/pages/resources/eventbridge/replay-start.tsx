@@ -57,12 +57,14 @@ export function ReplayStart({ archive }: { archive?: string }) {
           {(id) => <Input id={id} value={f.name} onChange={(e) => set({ name: e.target.value })} placeholder="payments-redo" autoComplete="off" spellCheck={false} className="font-mono" data-testid="replay-name" />}
         </Field>
         <Field label="Description" optional>{(id) => <Input id={id} value={f.description} onChange={(e) => set({ description: e.target.value })} autoComplete="off" data-testid="replay-description" />}</Field>
+        <div className="grid items-start gap-4 md:grid-cols-2">
         <Field label="Source" testId="field-archive" error={tried && !f.archive ? "Choose the archive to replay." : undefined} hint={chosen ? <><b className="font-mono font-semibold text-foreground">{chosen.ArchiveName}</b> holds {count(chosen.EventCount ?? 0, "event")}.</> : undefined}>
           {(id) => <Combobox id={id} options={archives.map((a) => ({ value: a.ArchiveName, label: a.ArchiveName, hint: busOfArn(a.EventSourceArn) }))} value={f.archive} onChange={(archive) => set({ archive, rules: [] })} placeholder={archives.length === 0 ? "There are no archives yet" : "Choose an archive"} search="Search archives…" empty="No archive matches." aria-label="Source archive" className="w-full" />}
         </Field>
         <Field label="Destination" testId="field-destination" help="Events can only go back to the bus that emitted them, so the destination is fixed by the archive.">
           {(id) => <Input id={id} value={bus ?? ""} readOnly placeholder="Chosen with the archive" className="bg-muted font-mono text-muted-foreground" data-testid="replay-destination" />}
         </Field>
+        </div>
         <div className="grid gap-3" data-testid="field-rules">
           <p className="text-[14px] font-medium text-bright">Which rules receive the replayed events.</p>
           <RadioCards<"all" | "some"> name="rules" label="Which rules" value={f.all ? "all" : "some"} onChange={(v) => set({ all: v === "all" })} options={[{ value: "all", title: "All rules", body: bus ? `Every rule on ${bus} that matches.` : "Every rule on the bus that matches." }, { value: "some", title: "Specify rules", body: "Only the rules you pick." }]} />

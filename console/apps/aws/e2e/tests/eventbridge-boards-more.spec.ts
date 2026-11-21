@@ -172,7 +172,7 @@ test("eventbridge__connection-create and api-destination-create: a connection ma
   await expect(page.locator("h1").first()).toHaveText("Create API destination");
   await expect(page.getByTestId("dest-name")).toHaveValue("status-page");
   await expect(page.getByTestId("dest-endpoint")).toHaveValue("https://status.larder.example/v1/incidents/*");
-  await expect(page.getByTestId("field-connection")).toContainText("status-key is Authorized.");
+  await expect(page.getByTestId("connection-state")).toContainText("status-key is Authorized.");
   await page.getByTestId("dest-description").fill("Post incident updates");
   await page.getByTestId("dest-rate").fill("300");
   await expect(page.getByTestId("call-panel-code")).toContainText("CreateApiDestination");

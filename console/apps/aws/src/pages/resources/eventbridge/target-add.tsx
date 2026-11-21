@@ -43,7 +43,7 @@ export function TargetAdd({ bus, rule, taken, back }: { bus: string; rule: strin
       }}
       testId="target-add"
     >
-      <TargetForm t={t} index={0} set={(p) => setT((x) => ({ ...x, ...p }))} region={region} account={account} tried={tried} />
+      <TargetForm t={t} index={0} single set={(p) => setT((x) => ({ ...x, ...p }))} region={region} account={account} tried={tried} />
     </FormPage>
   );
 }

@@ -3,13 +3,13 @@
 import { useNavigate } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { Alert } from "@doze/ui/components/app/alert";
+import { Callout } from "@doze/ui/components/app/callout";
 import { Combobox } from "@doze/ui/components/app/combobox";
 import { Input } from "@doze/ui/components/ui/input";
 import { ApiFailure } from "@doze/ui/lib/api";
 import { Field, FormPage, FormSection, LocalStatus, RadioCards, RuleHelp, useServiceCrumbs } from "../../../kit";
 import { DESTS, useConnections, useDests, useEbOp } from "./api";
 import { type DestForm, METHODS, createDestInput, destProblem, emptyDest, endpointProblem, nameProblem, rateProblem } from "./dest-model";
-import { State } from "./parts";
 import { list } from "./words";
 
 /** What was typed, kept when the person goes to Create connection and comes back. */
@@ -58,18 +58,20 @@ export function DestCreate({ connection }: { connection?: string }) {
         <Field label="API destination endpoint" error={tried ? (endpointProblem(f.endpoint) ?? undefined) : undefined} help={<>AWS requires <span className="font-mono">https</span>; doze-aws also accepts <span className="font-mono">http</span> so a server on localhost can be a destination. A <span className="font-mono">*</span> is a path wildcard that each target fills in from its HTTP parameters.</>}>
           {(id) => <Input id={id} value={f.endpoint} onChange={(e) => set({ endpoint: e.target.value })} placeholder="https://status.larder.example/v1/incidents/*" autoComplete="off" spellCheck={false} className="font-mono" data-testid="dest-endpoint" />}
         </Field>
+        <div className="grid items-start gap-4 md:grid-cols-2">
         <Field label="HTTP method" help={<>Any method except CONNECT and TRACE. <b>POST</b> and <b>PUT</b> are the common ones.</>}>{(id) => <Combobox id={id} options={METHODS.map((m) => ({ value: m, label: m }))} value={f.method} onChange={(m) => m && set({ method: m })} aria-label="HTTP method" className="w-full max-w-xs" />}</Field>
         <Field label="Invocation rate limit per second" optional error={tried ? (rateProblem(f.rate) ?? undefined) : undefined} help={<>Greater than <b>0</b>. The default is <b>300</b>.</>}>
           {(id) => <Input id={id} value={f.rate} onChange={(e) => set({ rate: e.target.value })} placeholder="300" inputMode="numeric" className="max-w-[12rem]" data-testid="dest-rate" />}
         </Field>
+        </div>
         <LocalStatus state="stored" reason={<>doze-aws keeps the limit and does not enforce it (<span className="font-mono">crates/aws-eventbridge/src/destinations.rs</span>).</>} />
       </FormSection>
       <FormSection title="Connection" description="The authorization type and credentials EventBridge uses for the endpoint." testId="section-connection">
         <RadioCards<"existing" | "new"> name="conn" label="Connection" value="existing" onChange={(v) => { if (v === "new") void navigate({ to: "/resources/$service/$second", params: { service: "eventbridge", second: "api-destinations" }, search: { do: "connection" } }); }} options={[{ value: "existing", title: "Use an existing connection", body: "Pick one from this account." }, { value: "new", title: "Create a new connection", body: "Enter its name, destination type and authorization." }]} />
-        <Field label="Connection" error={tried && !f.connection ? "Choose the connection." : undefined} testId="field-connection" hint={chosen ? <>If the connection is new, wait until it reaches the Authorized state before you create the destination. <b className="font-mono font-semibold text-foreground">{chosen.Name}</b> is <b className="font-semibold text-foreground">{chosen.ConnectionState === "AUTHORIZED" ? "Authorized" : (chosen.ConnectionState ?? "unknown")}</b>.</> : undefined}>
+        <Field label="Connection" error={tried && !f.connection ? "Choose the connection." : undefined} testId="field-connection">
           {(id) => <Combobox id={id} options={conns.map((c) => ({ value: c.Name, label: c.Name, hint: c.AuthorizationType }))} value={f.connection} onChange={(connection) => set({ connection })} placeholder={conns.length === 0 ? "There are no connections yet: create one" : "Choose a connection"} search="Search connections…" empty="No connection matches." aria-label="Connection" className="w-full" />}
         </Field>
-        {chosen && <div className="flex items-center gap-2 text-[13px]"><State state={chosen.ConnectionState} /></div>}
+        {chosen && <Callout tone="warn" testId="connection-state">If the connection is new, wait until it reaches the <b className="font-semibold text-bright">Authorized</b> state before you create the destination. <span className="font-mono font-semibold text-bright">{chosen.Name}</span> is <b className="font-semibold text-bright">{chosen.ConnectionState === "AUTHORIZED" ? "Authorized" : (chosen.ConnectionState ?? "unknown")}</b>.</Callout>}
         <RuleHelp>The endpoint must accept the connection's authorization type.{others.length > 0 ? ` ${list(others)} ${others.length === 1 ? "is" : "are"} the other connection${others.length === 1 ? "" : "s"}.` : ""}</RuleHelp>
       </FormSection>
     </FormPage>

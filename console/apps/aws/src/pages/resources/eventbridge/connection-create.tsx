@@ -70,6 +70,7 @@ export function ConnectionCreate() {
         </div>
         {f.auth === "API_KEY" && (
           <div className="grid gap-4 md:grid-cols-2">
+            <RuleHelp className="md:order-last md:col-span-2">EventBridge sends the value in the header you name.</RuleHelp>
             <Field label="API key name" error={tried && !f.keyName ? "Give the header's name." : undefined}>{(id) => <Input id={id} value={f.keyName} onChange={(e) => set({ keyName: e.target.value })} autoComplete="off" className="font-mono" data-testid="conn-key-name" />}</Field>
             <Field label="Value" error={tried && !f.keyValue ? "Give the value." : undefined}>{(id) => <Input id={id} type="password" value={f.keyValue} onChange={(e) => set({ keyValue: e.target.value })} autoComplete="off" data-testid="conn-key-value" />}</Field>
           </div>

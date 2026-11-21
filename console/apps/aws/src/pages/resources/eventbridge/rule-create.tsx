@@ -89,6 +89,7 @@ export function RuleCreate({ schedule, bus }: { schedule: boolean; bus?: string 
       titleExtra={schedule ? <span className="rounded-full border px-2.5 py-0.5 text-[12px] text-muted-foreground">Legacy</span> : undefined}
       crumbs={[...crumbs, { label: "Rules", to: "/resources/eventbridge/rules" }, ...(id !== "detail" || schedule ? [{ label: schedule ? "Create scheduled rule (legacy)" : "Create rule", to: "/resources/eventbridge/rules?create=yes" }] : [])]}
       stepsAfterTitle
+      backLabel="Previous"
       wizard={{ steps, current: step, furthest, onStep: (i) => i <= furthest && move(i), onBack: () => move(Math.max(0, step - 1)), onNext: next }}
       noCall={id !== "review"}
       request={requests[0] ?? null}
@@ -109,7 +110,7 @@ export function RuleCreate({ schedule, bus }: { schedule: boolean; bus?: string 
       {id === "pattern" && <RulePatternStep pattern={d.pattern} onPattern={(pattern) => set({ pattern })} tried={tried} />}
       {id === "targets" && (
         <>
-          {d.targets.map((t, i) => <TargetForm key={t.key} t={t} index={i} set={(p) => setTarget(t.key, p)} remove={d.targets.length > 1 ? () => set({ targets: d.targets.filter((x) => x.key !== t.key) }) : undefined} region={region} account={account} tried={tried} />)}
+          {d.targets.map((t, i) => <TargetForm key={t.key} t={t} index={i} set={(p) => setTarget(t.key, p)} remove={d.targets.length > 1 ? () => set({ targets: d.targets.filter((x) => x.key !== t.key) }) : undefined} single={d.targets.length === 1} region={region} account={account} tried={tried} />)}
           <div className="flex flex-wrap items-center gap-3">
             <Button type="button" variant="outline" className="bg-card" disabled={d.targets.length >= MOST_TARGETS} onClick={() => set({ targets: [...d.targets, newTarget()] })} data-testid="add-target">Add another target</Button>
             <span className="text-[13px] text-muted-foreground">{d.targets.length} of {MOST_TARGETS}</span>

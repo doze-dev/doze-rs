@@ -26,10 +26,10 @@ export function busCalls(own: readonly CallRecord[], record: readonly CallRecord
   return [...own, ...more].sort((a, b) => b.seq - a.seq);
 }
 
-/** The deliveries a rule made, and the calls to EventBridge that named it, newest first. */
+/** The deliveries a rule made, the PutEvents it matched, and the calls to EventBridge that named it, newest first. */
 export function ruleCalls(own: readonly CallRecord[], record: readonly CallRecord[], rule: string): CallRecord[] {
   const seen = new Set(own.map((c) => c.seq));
-  const made = record.filter((c) => ruleOf(c) === rule && !seen.has(c.seq));
+  const made = record.filter((c) => !seen.has(c.seq) && (ruleOf(c) === rule || (c.action === "PutEvents" && matchedRules(c, record).includes(rule))));
   return [...own, ...made].sort((a, b) => b.seq - a.seq);
 }
 

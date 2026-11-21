@@ -40,6 +40,7 @@ export function SendEvents({ bus }: { bus: string }) {
   return (
     <FormPage
       title="Send events"
+      titleExtra={<span className="rounded-full border px-2.5 py-0.5 font-mono text-[12px] text-muted-foreground" data-testid="send-bus">{f.bus}</span>}
       sub={<>Put one test event on the <b className="font-mono font-semibold text-foreground">{f.bus}</b> bus. It is a PutEvents call with a single entry.</>}
       crumbs={[...crumbs, { label: "Event buses", to: "/resources/eventbridge/buses" }]}
       request={{ service: "events", operation: "PutEvents", input }}

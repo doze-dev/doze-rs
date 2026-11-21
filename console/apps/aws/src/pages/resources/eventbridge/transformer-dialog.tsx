@@ -5,9 +5,9 @@ import { Button } from "@doze/ui/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@doze/ui/components/ui/dialog";
 import { Label } from "@doze/ui/components/ui/label";
 import { Textarea } from "@doze/ui/components/ui/textarea";
-import { RuleHelp } from "../../../kit";
+import { RuleHelp, Segmented } from "../../../kit";
 import { JsonBox } from "./json-box";
-import { SAMPLE_OWN } from "./pattern-model";
+import { SAMPLE_AWS, SAMPLE_OWN } from "./pattern-model";
 import { transform } from "./transform";
 import { prettyJson } from "./words";
 
@@ -28,6 +28,7 @@ export function TransformerDialog({ open, onOpenChange, paths, template, target,
   const [p, setP] = useState(paths || EXAMPLE_PATHS);
   const [t, setT] = useState(template || EXAMPLE_TEMPLATE);
   const [sample, setSample] = useState(SAMPLE_OWN);
+  const [kind, setKind] = useState<"aws" | "own">("own");
   const [out, setOut] = useState<ReturnType<typeof generate> | null>(null);
   const names = Object.keys((checkJson(p, "ok") as { value?: Record<string, string> }).value ?? {}).length;
   return (
@@ -37,7 +38,12 @@ export function TransformerDialog({ open, onOpenChange, paths, template, target,
           <DialogTitle className="text-[21px] font-semibold">Configure input transformer</DialogTitle>
           <DialogDescription>Shape what <span className="font-mono font-semibold text-bright">{target || "the target"}</span> receives from the matched event.</DialogDescription>
         </DialogHeader>
-        <JsonBox value={sample} onChange={(v) => { setSample(v); setOut(null); }} label="Sample event" rows={8} testId="transformer-sample" />
+        <div className="grid gap-1.5">
+          <Label>Sample event</Label>
+          <Segmented<"aws" | "own"> label="Sample event type" value={kind} onChange={(k) => { setKind(k); setSample(k === "aws" ? SAMPLE_AWS : SAMPLE_OWN); setOut(null); }} options={[{ value: "aws", label: "AWS events" }, { value: "own", label: "Enter your own" }]} className="w-fit" testId="transformer-kind" />
+          <p className="text-[12.5px] text-muted-foreground">EventBridge partner events are not available in doze-aws.</p>
+        </div>
+        <JsonBox value={sample} onChange={(v) => { setSample(v); setOut(null); }} label="Sample event" hideLabel rows={8} testId="transformer-sample" />
         <JsonBox value={p} onChange={(v) => { setP(v); setOut(null); }} label="Input path" rows={5} testId="transformer-paths" />
         <div className="grid gap-1.5">
           <Label htmlFor="transformer-template">Template</Label>

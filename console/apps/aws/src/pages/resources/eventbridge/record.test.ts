@@ -20,7 +20,9 @@ describe("what the record says of a bus and a rule", () => {
     expect(busCalls([put], record, ["order-placed"]).map((c) => c.seq)).toEqual([5, 2]);
   });
   test("a rule page adds the deliveries it made", () => {
-    expect(ruleCalls([putRule], record, "order-placed").map((c) => c.seq)).toEqual([6, 2]);
+    // The PutEvents it matched is among them; the one the other rule matched is not.
+    expect(ruleCalls([putRule], record, "order-placed").map((c) => c.seq)).toEqual([6, 5, 2]);
+    expect(ruleCalls([], record, "payment-settled").map((c) => c.seq)).toEqual([8, 7]);
   });
   test("a PutEvents matched the rules that delivered after it and before the next PutEvents", () => {
     expect(matchedRules(put, record)).toEqual(["order-placed"]);

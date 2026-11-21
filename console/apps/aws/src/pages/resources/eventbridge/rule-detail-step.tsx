@@ -19,6 +19,7 @@ export function RuleDetailStep({ d, set, tried }: { d: RuleDraft; set: (p: Parti
   const problem = nameProblem(d.name) ?? (taken.includes(d.name) ? `${d.name} is already on ${d.bus}.` : null);
   return (
     <>
+      {schedule && <Callout tone="note" testId="legacy-note">Scheduled rules are a legacy feature. AWS recommends EventBridge Scheduler for new schedules, which doze-aws has too; this form stays for rules on the default bus.</Callout>}
       <FormSection title="Rule detail" testId="section-detail">
         <Field label="Name" error={tried ? (problem ?? undefined) : undefined} hint={taken.length > 0 ? <><b className="font-mono font-semibold text-foreground">{list(taken.slice(0, 2))}</b> {taken.length === 1 ? "is" : "are"} already on {d.bus}{taken.length > 2 ? `, with ${taken.length - 2} more` : ""}.</> : undefined} help={<><b>1 to 64</b> characters: letters, digits, dot, hyphen and underscore. Two rules on the same bus can't share a name.</>}>
           {(id) => <Input id={id} value={d.name} onChange={(e) => set({ name: e.target.value })} autoComplete="off" spellCheck={false} className="font-mono" data-testid="rule-name" />}
