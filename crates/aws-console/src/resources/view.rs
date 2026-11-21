@@ -330,7 +330,11 @@ pub fn calls(
     page.calls
         .iter()
         .rev()
-        .filter(|c| facts.service_named(c.signing_name) == service && !c.resource.is_empty())
+        // A role is also acted on by STS: `AssumeRole` names it.
+        .filter(|c| {
+            let by = facts.service_named(c.signing_name);
+            (by == service || (service == "iam" && by == "sts")) && !c.resource.is_empty()
+        })
         .filter(|c| {
             let r: &str = &c.resource;
             r == id

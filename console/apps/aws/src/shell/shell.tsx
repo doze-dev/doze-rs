@@ -16,6 +16,7 @@ import { iconOf } from "../pages/resources/model";
 import { isActive, RECENTS_KEY, SPACES, type SpacePath } from "../nav";
 import { iamWords } from "../words";
 import { Logo, Wordmark } from "./brand";
+import { IdentityChip } from "./identity-chip";
 
 /** The rail: the mark, and the six spaces. */
 function Rail() {
@@ -81,6 +82,7 @@ function Chips() {
         </TooltipTrigger>
         <TooltipContent>The default region (--region).</TooltipContent>
       </Tooltip>
+      <IdentityChip />
       <Tooltip>
         <TooltipTrigger asChild>
           <span tabIndex={0} className={cn(topBarChip, "hidden outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 lg:inline-flex")} data-testid="chip-iam">

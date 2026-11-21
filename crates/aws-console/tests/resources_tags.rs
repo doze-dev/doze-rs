@@ -174,6 +174,21 @@ async fn config_identity_and_flow_resources_are_tagged_through_their_own_calls()
     round_trip(&w, "iam/roles/runner").await;
     w.app("iam", "CreateUser", &json!({"UserName": "ci"})).await;
     round_trip(&w, "iam/users/ci").await;
+    let doc = json!({"Version": "2012-10-17", "Statement": [{"Effect": "Allow", "Action": "s3:GetObject", "Resource": "*"}]});
+    w.app(
+        "iam",
+        "CreatePolicy",
+        &json!({"PolicyName": "readonly", "PolicyDocument": doc.to_string()}),
+    )
+    .await;
+    round_trip(
+        &w,
+        &format!(
+            "iam/policies/{}",
+            encode("arn:aws:iam::000000000000:policy/readonly")
+        ),
+    )
+    .await;
 }
 
 #[tokio::test]

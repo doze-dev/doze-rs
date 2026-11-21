@@ -1,30 +1,33 @@
-// Resources' second part against a real doze-aws: an IAM role made from its trust template in a dialog and deleted, a log
+// Resources' second part against a real doze-aws: an IAM role made in three steps from the service it is for and deleted, a log
 // group's streams, a state machine's executions (newest first), a CloudFormation stack's resources and outputs made with the
 // AWS CLI, and Live hiding this console's own calls until asked.
 import { calls, CONSOLE, expect, open, openLive, rows, test, unique } from "./fixtures";
 
-test("a role is made from its trust template in a dialog, opened, and deleted", async ({ page, browserName }) => {
+test("a role is made in three steps from the service it is for, opened, and deleted", async ({ page, browserName }) => {
   const role = unique("handler", browserName);
   await open(page, "/resources/iam/roles", "Roles");
   await page.getByTestId("create-open").click();
-  const dialog = page.getByTestId("create-dialog");
-  // The trust policy starts filled in; the name is the field to fill first, its example said as one.
-  await expect(dialog.getByTestId("field-AssumeRolePolicyDocument")).toHaveValue(/lambda\.amazonaws\.com/);
-  await expect(dialog.getByTestId("field-RoleName")).toBeFocused();
-  await expect(dialog.getByTestId("field-RoleName")).toHaveAttribute("placeholder", /^e\.g\. /);
-  await dialog.getByTestId("field-RoleName").fill(role);
-  await dialog.getByTestId("create-submit").click();
-  await expect(dialog).toHaveCount(0);
+  await expect(page.locator("h1").first()).toHaveText("Select trusted entity");
+  // The trusted entity becomes the trust policy, shown as it is built; the name is the last step's.
+  await page.getByTestId("type-service").click();
+  await expect(page.getByTestId("trust-json")).toContainText("lambda.amazonaws.com");
+  await page.getByTestId("form-submit").click();
+  await page.getByTestId("form-submit").click();
+  await page.getByTestId("role-name").fill(role);
+  await page.getByTestId("form-submit").click();
+  await expect(page.getByTestId("created-banner")).toContainText(`Role ${role} created.`);
+  await page.getByTestId("view-created").click();
   await expect(page.locator("h1")).toHaveText(role);
-  await expect(page.getByTestId("field-Trust policy")).toContainText("sts:AssumeRole");
-  await expect(page.getByTestId("field-Last used")).toHaveText("Never");
-  await page.getByTestId("delete-open").click();
+  await page.getByTestId("tab-trust").click();
+  await expect(page.getByTestId("trust-json")).toContainText("sts:AssumeRole");
+  await page.getByTestId("actions-menu").click();
+  await page.getByRole("menuitem", { name: "Delete role" }).click();
   const confirm = page.getByTestId("delete-dialog");
   await expect(confirm).toContainText(role);
-  await confirm.getByTestId("confirm-delete").fill("delete");
-  await confirm.getByTestId("delete-submit").click();
-  await expect(page.locator("h1")).toHaveText("Roles");
-  await expect(page.getByTestId("row-link").filter({ hasText: role })).toHaveCount(0);
+  await confirm.getByTestId("delete-dialog-input").fill(role);
+  await confirm.getByTestId("delete-dialog-submit").click();
+  await expect(page.getByTestId("deleted-banner")).toContainText(`Role ${role} deleted.`);
+  await expect(page.getByRole("link", { name: role, exact: true })).toHaveCount(0);
   const made = (await calls(page)).calls.filter((c) => c.caller === "console" && c.action === "CreateRole" && c.resource === role);
   expect(made.map((c) => c.outcome)).toEqual(["ok"]);
 });

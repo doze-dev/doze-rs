@@ -30,10 +30,12 @@ pub const MEMBERS: &[&str] = &[
     "ExecutionArn",
     "SecretId",
     "KeyId",
-    "RoleName",
-    "UserName",
-    "GroupName",
+    // `AttachRolePolicy` and its kin name a policy and who it goes to: the call is the policy's (its page lists what attached it). A group
+    // membership (`AddUserToGroup`) is the group's.
     "PolicyArn",
+    "RoleName",
+    "GroupName",
+    "UserName",
     "StackName",
     "RestApiId",
     "ApiId",
@@ -43,6 +45,9 @@ pub const MEMBERS: &[&str] = &[
     "Bucket",
     "Name",
     "EventBusName",
+    // STS's `AssumeRole` acts on the role it names; last, because other inputs carry a role's ARN beside what they act on
+    // (`CreateStack`'s `RoleARN`).
+    "RoleArn",
 ];
 
 /// The member of `MEMBERS` that names the resource of a call with input `root` (decoded from `body` into `arena`), and its
