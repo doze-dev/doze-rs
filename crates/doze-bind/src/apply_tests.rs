@@ -26,12 +26,24 @@ fn sock(inst: &str, l: &ListenerPlan) -> Address {
     Address::Unix(format!("/run/{inst}/{}.sock", l.name))
 }
 
+/// A free loopback port this test binary has not handed out before: Windows hands a just-released port straight
+/// back, so two calls in a row could name the same one.
 fn free_port() -> u16 {
-    TcpListener::bind("127.0.0.1:0")
-        .unwrap()
-        .local_addr()
-        .unwrap()
-        .port()
+    static GIVEN: std::sync::Mutex<Vec<u16>> = std::sync::Mutex::new(Vec::new());
+    let mut given = GIVEN
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
+    loop {
+        let port = std::net::TcpListener::bind("127.0.0.1:0")
+            .unwrap()
+            .local_addr()
+            .unwrap()
+            .port();
+        if !given.contains(&port) {
+            given.push(port);
+            return port;
+        }
+    }
 }
 
 #[test]
