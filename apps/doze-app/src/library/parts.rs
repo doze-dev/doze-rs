@@ -10,12 +10,16 @@ use crate::kit::{Btn, btn, btn_led, chip_of, density, heading, mono, s};
 use crate::theme::{Tokens, mix, ty};
 use crate::widgets::{Mono as _, dot, tip};
 
-/// `.head.brandhead`: the mark, `doze` large, the tagline and the counts; density, Open folder, Settings.
+/// `.head.brandhead`: the mark (32 px), `doze` at a page title's 20 px, then the tagline and the counts on the same
+/// line, as every page's head has its title and a dim line; density, Open folder, Settings. (Go's was a 40 px wordmark
+/// beside a 64 px mark: a marketing header on a tool page, the design pass of 2026-11-19 found.)
 pub(super) fn head(t: &Tokens, v: &LibraryView, cx: &mut Context<LibraryView>) -> impl IntoElement {
     let tagline = div()
         .flex()
+        .flex_1()
         .min_w_0()
         .overflow_hidden()
+        .text_ellipsis()
         .whitespace_nowrap()
         .text_color(t.dim)
         .child("starts a service when something connects, and puts it to sleep when nothing does")
@@ -25,30 +29,22 @@ pub(super) fn head(t: &Tokens, v: &LibraryView, cx: &mut Context<LibraryView>) -
                 .child(s(&format!(" · {}", v.lib.counts))),
         );
     let brand = div()
-        .flex()
-        .flex_col()
-        .gap(px(4.))
-        .min_w_0()
-        .child(
-            div()
-                .text_size(px(ty::BRAND))
-                .line_height(px(ty::LH_44))
-                .font_weight(ty::BRAND_WEIGHT)
-                .text_color(t.bright)
-                .child("doze"),
-        )
-        .child(tagline);
+        .flex_none()
+        .text_size(px(ty::XL))
+        .font_weight(ty::HEADING)
+        .text_color(t.bright)
+        .child("doze");
     let mut row = div()
         .flex()
         .flex_none()
         .items_center()
-        .gap(px(16.))
+        .gap(px(12.))
         .px(px(28.))
-        .pt(px(28.))
-        .pb(px(26.))
-        .child(img("brand/doze.svg").size(px(64.)).flex_none())
+        .pt(px(20.))
+        .pb(px(18.))
+        .child(img("brand/doze.svg").size(px(32.)).flex_none())
         .child(brand)
-        .child(div().flex_1());
+        .child(tagline);
     if !v.lib.stacks.is_empty() {
         let pick = |d| -> crate::kit::Click {
             let e = cx.entity();

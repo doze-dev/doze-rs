@@ -239,20 +239,20 @@ fn show_list<T: 'static>(
     )
 }
 
-/// A checkbox, ticked or not.
+/// A checkbox, ticked or not: ticked wears a switch's neutral "on" (the accent is not "on"), its tick in the knob's ink.
 fn tick(t: &Tokens, on: bool) -> impl IntoElement {
     div()
         .size(px(14.))
         .flex_none()
         .rounded(px(4.))
         .border_1()
-        .border_color(if on { t.accent } else { t.line2 })
-        .bg(if on { t.accent } else { t.well })
+        .border_color(if on { t.on } else { t.line2 })
+        .bg(if on { t.on } else { t.well })
         .flex()
         .items_center()
         .justify_center()
         .text_size(px(ty::MICRO))
         .font_weight(ty::BOLD)
-        .text_color(t.ink)
+        .text_color(t.on_knob)
         .when(on, |d| d.child("✓"))
 }

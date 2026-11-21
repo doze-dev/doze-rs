@@ -1,8 +1,8 @@
 //! doze's desktop app: a native GPUI window over the doze daemon, and the menu-bar item (docs/port/app/PLAN.md).
 //!
 //! This is M0: the shell (activation, the one window and its frame, single instance with argument forwarding, the
-//! menu-bar item, `doze://` links, folders dropped on the window), the theme (five palettes, dark and light, from
-//! the Go app's tokens), the action table (keymap, menus, ⌘K, the help sheet and every key chip from one table), the
+//! menu-bar item, `doze://` links, folders dropped on the window), the look (Graphite, dark and light, from
+//! doze's own tokens), the action table (keymap, menus, ⌘K, the help sheet and every key chip from one table), the
 //! Map, and `shot` and `bench`. Every screen reads the doze-desk hub (`source`).
 //!
 //! Lint carve-outs, written down (docs/port/app/PLAN.md step 0.1): none in this crate. It keeps the workspace's lints,
@@ -40,6 +40,7 @@ mod open;
 mod outward;
 mod overlays;
 mod overview;
+mod own;
 mod prefs;
 mod settings;
 mod shell;
@@ -81,25 +82,22 @@ fn source_for(from: &cli::From, home: PathBuf) -> anyhow::Result<Source> {
     }
 }
 
-/// The app's own first words; every other doze command is the CLI's.
-const APP_WORDS: &[&str] = &["open", "shot", "bench", "fixture-serve"];
-
-/// `doze-app <command> …` is the doze CLI, whole (owner decision, 2026-11-14: Doze.app carries the full CLI, so the app
-/// needs no second binary to run `doze status`). The first argument decides: a doze command (or alias) that is not one
-/// of the app's own words runs the CLI and exits with its code.
-fn as_cli() -> Option<u8> {
-    let argv: Vec<std::ffi::OsString> = std::env::args_os().collect();
-    routes(argv.get(1)?.to_str()?).then(|| doze_cli::process::main(argv))
-}
-
-/// Whether a command line starting with `first` is the CLI's.
-fn routes(first: &str) -> bool {
-    !APP_WORDS.contains(&first) && doze_cli::is_command(first)
-}
-
 fn main() -> ExitCode {
     let launched = Instant::now();
-    if let Some(code) = as_cli() {
+    // `doze-app __daemon --config <path>`: a stack's daemon. The CLI the app carries starts its stacks' daemons as
+    // this program (doze-cli's `daemon_exe` is the running program), as the `doze` binary's main does; without this the
+    // app's Up started a daemon that exited at once ("unknown flag --config").
+    if std::env::args_os()
+        .nth(1)
+        .is_some_and(|a| a == doze_daemon::ctl::ARG)
+    {
+        let args: Vec<String> = std::env::args_os()
+            .skip(2)
+            .map(|a| a.to_string_lossy().into_owned())
+            .collect();
+        return doze_daemon::entry::main(&args, doze_cli::ctx::VERSION);
+    }
+    if let Some(code) = own::as_cli() {
         return ExitCode::from(code);
     }
     stderr_log::init();
@@ -125,44 +123,9 @@ fn main() -> ExitCode {
         }
         Err(e) => {
             eprintln!(
-                "doze-app: {e}\n\nusage: doze-app [FOLDER | doze://…] [--show NAME] [--menu-bar] [--fixture NAME | --synth N]\n       doze-app shot --fixture NAME --screen library|tiles|list|map|grid|palette|help|instance|logs [--stack NAME] --theme T --mode dark|light --size WxH --out FILE\n                     [--select NAME] [--tab ID] [--filter TEXT] [--find-mode] [--level 0-3] [--hold PORT] [--density D]\n       doze-app bench [--fixture NAME | --synth N] [--idle SECONDS] [--display N] [--in-use] [--check [--budget MB]] [--logs [--follow SECONDS]]\n       doze-app <doze command> …   the doze CLI itself: status, logs, wake, … (doze-app help)"
+                "doze-app: {e}\n\nusage: doze-app [FOLDER | doze://…] [--show NAME] [--menu-bar] [--fixture NAME | --synth N]\n       doze-app shot --fixture NAME --screen library|tiles|list|map|grid|palette|help|instance|logs [--stack NAME] --mode dark|light --size WxH --out FILE\n                     [--select NAME] [--tab ID] [--filter TEXT] [--find-mode] [--level 0-3] [--hold PORT] [--density D]\n       doze-app bench [--fixture NAME | --synth N] [--idle SECONDS] [--display N] [--in-use] [--check [--budget MB]] [--logs [--follow SECONDS]]\n       doze-app <doze command> …   the doze CLI itself: status, logs, wake, … (doze-app help)"
             );
             ExitCode::from(2)
-        }
-    }
-}
-
-#[cfg(test)]
-mod cli_tests {
-    /// The CLI's commands and aliases go to the CLI; the app's own words, folders and links stay the app's.
-    #[test]
-    fn doze_commands_run_the_cli() {
-        for w in [
-            "status",
-            "ps",
-            "logs",
-            "wake",
-            "boot",
-            "why",
-            "help",
-            "version",
-            "__refresh",
-            "dns-setup",
-        ] {
-            assert!(super::routes(w), "{w}");
-        }
-        for w in [
-            "open",
-            "shot",
-            "bench",
-            "fixture-serve",
-            ".",
-            "/Users/me/shop",
-            "doze://shop",
-            "--menu-bar",
-            "nosuch",
-        ] {
-            assert!(!super::routes(w), "{w}");
         }
     }
 }

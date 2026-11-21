@@ -71,7 +71,7 @@ pub(crate) const VERBS: &[Spec] = &[
     row!("Remove the stack from doze…", "it stops; every file stays", RemoveShown, [], Global, Some(File), false),
     row!("Edit doze.hcl", "in your editor", EditConfig, ["cmd-e"], Global, Some(File), false),
     row!("Wake", "the service selected", WakeIt, ["w"], Overview, None, false),
-    row!("Sleep", "the service selected (asks when in use)", SleepIt, ["s"], Overview, None, false),
+    row!("Sleep", "the service selected (asks when in use); none selected, every one", SleepIt, ["s"], Overview, None, false),
     row!("Restart", "the selected one; a task runs", RestartIt, ["r"], Overview, None, false),
     row!("Pin awake", "the selected one stays up", PinIt, ["p"], Overview, None, false),
     row!("Try again", "a start that failed", TryAgain, [], Overview, None, true),

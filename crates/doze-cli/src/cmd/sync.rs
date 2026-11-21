@@ -5,8 +5,8 @@
 //! As Go: the change list first (the daemon's `plan` op: each module's own objects against what was applied, nothing
 //! woken or written), then "no changes" and exit 0 when it is empty, else the question (a terminal; exit 9 with no
 //! one to answer and no `-y`). `--dry-run` is the list. With doze stopped the daemon is started for it and stopped
-//! after, as Go's own runtime was. A Go daemon has no `plan` op ("unknown op"): then every sync asks, and `--dry-run`
-//! says it cannot be answered there.
+//! after, as Go's own runtime was. A daemon with no `plan` op ("unknown op") is an older doze (the Go one): sync does
+//! not drive it, and says that `doze down && doze up` moves the stack onto this doze.
 //!
 //! First of all, as Go's `renderBlocks`: which blocks of doze.hcl differ from what the running daemon started with
 //! (its `run/blocks.json`), and what applying them does. The daemon reads doze.hcl once, when it starts, so a changed
@@ -87,23 +87,7 @@ fn synced(
                 return Ok(cancelled(ctx));
             }
         }
-        None if a.dry.dry_run => return Err(go_daemon()),
-        None => {
-            let what = if target.is_empty() {
-                "the stack"
-            } else {
-                &target
-            };
-            let question = format!(
-                "Sync {what} with doze.hcl? What is new is created, what changed is updated, and what is no longer declared is dropped."
-            );
-            if interrupt.raised()
-                || (!mode.yes && !confirm(ctx, mode, &target, &question, &interrupt)?)
-                || interrupt.raised()
-            {
-                return Ok(cancelled(ctx));
-            }
-        }
+        None => return Err(older_daemon()),
     }
     conn.run_verb(Verb::Sync, &target)
         .map_err(|e| stack::daemon_error(&e, subject))?;
@@ -264,13 +248,12 @@ fn cancelled(ctx: &mut Ctx<'_>) -> Done {
     Done::ok(View::Silent)
 }
 
-/// `--dry-run` against a daemon that cannot say what would change.
-fn go_daemon() -> Diagnostic {
+/// A daemon that cannot say what would change (no `plan` op): an older doze, which sync does not drive.
+fn older_daemon() -> Diagnostic {
     Diagnostic::new(
         ids::DAEMON_REFUSED,
-        "this stack's daemon cannot say what sync would change (it has no plan op: a Go doze daemon)",
+        "this stack's daemon is an older doze (it has no plan op); sync does not drive it",
     )
-    .note("doze sync -y applies without the list")
     .fix("doze down && doze up runs the stack on this doze")
 }
 

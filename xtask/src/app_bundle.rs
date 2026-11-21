@@ -6,10 +6,11 @@
 //!                        [--no-build] [--features F] [--cli PATH]
 //! ```
 //!
-//! - The binary is `doze-app`, built with `--profile` (default `release-app`) unless `--no-build`.
-//! - `--cli PATH` puts that `doze` (the CLI-only binary, `release-doze`) beside it as `Contents/MacOS/doze`, signed
-//!   first and the same way, so the cask can link it onto the PATH (core PLAN.md §3.2: "Doze.app bundles the Rust
-//!   `doze` and `doze-app`"; the release workflow passes it).
+//! - The binary is `doze-app`, built with `--profile` (default `release-app`) unless `--no-build`; `doze` beside it is
+//!   a link to it, the CLI the app runs (apps/doze-app/src/own.rs).
+//! - `--cli PATH` puts that `doze` (the CLI-only binary, `release-doze`) there instead of the link, signed first and
+//!   the same way, so the cask can link it onto the PATH (core PLAN.md §3.2: "Doze.app bundles the Rust `doze` and
+//!   `doze-app`"; the release workflow passes it).
 //! - `Info.plist` comes from `apps/doze-app/bundle/` (LSUIElement: a menu-bar app until a window opens; the `doze://`
 //!   scheme unless `--no-scheme`); the icon is the doze mark (`apps/doze-app/assets/brand/doze.svg`) rendered by `sips`
 //!   at every size `iconutil` wants.
@@ -149,8 +150,15 @@ fn make(o: &Opts) -> Result<PathBuf, String> {
         std::fs::create_dir_all(d).map_err(|e| format!("{}: {e}", d.display()))?;
     }
     std::fs::copy(&bin, macos.join("doze-app")).map_err(|e| format!("{}: {e}", bin.display()))?;
-    if let Some(cli) = &o.cli {
-        std::fs::copy(cli, macos.join("doze")).map_err(|e| format!("{}: {e}", cli.display()))?;
+    // The CLI the bundle carries: the `doze` of `--cli`, or else a link to the app, which is the whole CLI when run
+    // under that name (apps/doze-app/src/own.rs). The app runs it for every doze command, never a `doze` on the PATH.
+    // A link and not a copy: the binary is one, so is its size.
+    match &o.cli {
+        Some(cli) => {
+            std::fs::copy(cli, macos.join("doze"))
+                .map_err(|e| format!("{}: {e}", cli.display()))?;
+        }
+        None => link_cli(&macos)?,
     }
     let plist = info_plist(o, &root())?;
     write(&app.join("Contents/Info.plist"), &plist)?;
@@ -161,6 +169,18 @@ fn make(o: &Opts) -> Result<PathBuf, String> {
         .arg(app.join("Contents/Info.plist")))?;
     sign(&app)?;
     Ok(app)
+}
+
+/// `Contents/MacOS/doze`, a relative link to `doze-app` beside it.
+#[cfg(unix)]
+fn link_cli(macos: &Path) -> Result<(), String> {
+    let link = macos.join("doze");
+    std::os::unix::fs::symlink("doze-app", &link).map_err(|e| format!("{}: {e}", link.display()))
+}
+
+#[cfg(not(unix))]
+fn link_cli(_: &Path) -> Result<(), String> {
+    Err("Doze.app is a macOS bundle".into())
 }
 
 /// Only a bundle this task made is replaced: one with `doze-app` inside. Any other (the Go app's Doze.app runs `doze`;
@@ -226,7 +246,9 @@ fn sign(app: &Path) -> Result<(), String> {
     // A second program in Contents/MacOS (the `doze` of `--cli`) is signed before the bundle: codesign refuses a
     // bundle whose nested code is unsigned, and `--deep` is not how Apple wants nested code signed.
     let cli = app.join("Contents/MacOS/doze");
-    let targets: Vec<&Path> = if cli.is_file() {
+    // The link to the app is not a second program: it is signed as the bundle's own executable.
+    let own_file = cli.symlink_metadata().is_ok_and(|m| m.is_file());
+    let targets: Vec<&Path> = if own_file {
         vec![cli.as_path(), app]
     } else {
         vec![app]

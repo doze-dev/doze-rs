@@ -105,6 +105,7 @@ fn step_list(t: &Tokens, steps: Vec<(String, String)>) -> impl IntoElement {
         .border_1()
         .border_color(t.line)
         .bg(t.panel)
+        .shadow(t.lift())
         .children(steps.into_iter().enumerate().map(|(i, (what, how))| {
             div()
                 .flex()

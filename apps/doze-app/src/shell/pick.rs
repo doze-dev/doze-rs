@@ -7,7 +7,7 @@ use gpui::{Context, Window};
 
 use super::{Root, Screen};
 use crate::actions::{OpenBell, ShowHelp, StackVerb, Verb};
-use crate::theme::{Choice, Density, Mode, Palette as Colors};
+use crate::theme::{Choice, Density, Mode};
 
 impl Root {
     /// Does what a row of ⌘K (or a fix of Needs you) says.
@@ -131,10 +131,9 @@ impl Root {
         }
     }
 
-    /// One of the app's own commands, by Go's id (`home`, `theme:teal`, …).
+    /// One of the app's own commands, by Go's id (`home`, `mode:dark`, …). Go's `theme:NAME` is gone with the palettes.
     fn app_command(&mut self, id: &str, window: &mut Window, cx: &mut Context<Self>) {
         let (what, arg) = id.split_once(':').unwrap_or((id, ""));
-        let c = *cx.global::<Choice>();
         match what {
             "home" => self.go(Screen::Library, window, cx),
             "do" => {
@@ -151,12 +150,7 @@ impl Root {
             }
             "mode" => {
                 if let Some(mode) = Mode::parse(arg) {
-                    self.set_theme(Choice { mode, ..c }, window, cx);
-                }
-            }
-            "theme" => {
-                if let Some(palette) = Colors::parse(arg) {
-                    self.set_theme(Choice { palette, ..c }, window, cx);
+                    self.set_theme(Choice { mode }, window, cx);
                 }
             }
             "density" => {

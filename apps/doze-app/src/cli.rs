@@ -4,7 +4,7 @@
 //! doze-app [FOLDER | doze://…] [--show NAME] [--menu-bar]      the app (a second launch hands these to the first)
 //! doze-app open [FOLDER | doze://…] [--show NAME]               hand over to the running app, or start it on its own
 //!          [--fixture NAME | --synth N]                         a fixture stack instead of the doze home (dev builds)
-//! doze-app shot --fixture larder --screen map --theme teal --mode light --size 1280x800 --out x.png
+//! doze-app shot --fixture larder --screen map --mode light --size 1280x800 --out x.png
 //!          [--select NAME] [--hover NAME] [--zoom Z] [--at X,Y] [--find TEXT] [--synth N] [--reduce-motion] [--wait MS]
 //!          --screen instance --select api [--tab logs|console:ID|last run] [--hold PORT]
 //!          --screen logs [--filter TEXT] [--find-mode] [--level 0-3]
@@ -16,13 +16,15 @@
 //! doze-app bench --fixture medium-150 --map                         the Map: frames while it pans, zooms and hovers
 //! doze-app bench [--idle S] [--closed S]                         with no fixture: $DOZE_HOME (a fixture served apart)
 //!          [--display N] [--in-use | --hidden] [--at 12,30,60] [--check [--budget MB] [--per-minute N]]
+//!          [--real [N]] [--screen home|tiles|list|map|grid|service|logs|activity] [--select NAME] [--on-top]
+//!          [--settled MB] [--closed-budget MB]      a real stack of N services under its own daemon (bench/real.rs)
 //! doze-app fixture-serve NAME ROOT                               a fixture daemon alone, on its own socket under ROOT/home
 //! doze-app status | logs | wake | …                              the doze CLI, whole (main.rs `as_cli`)
 //! ```
 
 use std::path::PathBuf;
 
-use crate::theme::{Mode, Palette};
+use crate::theme::Mode;
 
 /// Where the stacks come from.
 #[derive(Debug, Clone, Default, PartialEq)]
@@ -71,7 +73,6 @@ pub(crate) enum Screen {
 pub(crate) struct Shot {
     pub(crate) from: From,
     pub(crate) screen: Screen,
-    pub(crate) palette: Palette,
     pub(crate) mode: Mode,
     pub(crate) size: (f32, f32),
     pub(crate) out: PathBuf,
@@ -137,6 +138,19 @@ pub(crate) struct Bench {
     pub(crate) hidden: bool,
     /// Footprint readings this many seconds after the window opens (`--at 12,30,60`), as `footprint_at_s S MB`.
     pub(crate) at: Vec<u64>,
+    /// The page the idle window is left on (`--screen home|tiles|list|map|grid|service|logs|activity`), and the
+    /// service a service's page shows (`--select NAME`).
+    pub(crate) screen: crate::bench::stage::Screen,
+    pub(crate) select: Option<String>,
+    /// A real stack of this many services under its own daemon, on a throwaway home (`--real [N]`, 13 by default).
+    pub(crate) real: Option<usize>,
+    /// `--check`: the footprint the window must fall back under by the end of the idle time (`--settled MB`), the
+    /// redraw floor gone, and the closed window's (`--closed-budget MB`), read at the end of `--closed`.
+    pub(crate) settled: Option<f64>,
+    pub(crate) closed_budget: Option<f64>,
+    /// The window floats over the others, on every Space (`--on-top`), so a reading on a busy screen is an on-screen
+    /// window's, not a covered one's.
+    pub(crate) on_top: bool,
 }
 
 /// What to do.
@@ -277,9 +291,6 @@ fn shot(mut args: impl Iterator<Item = String>) -> Result<Shot, String> {
                     }
                 }
             }
-            "--theme" => {
-                s.palette = Palette::parse(&v).ok_or(format!("--theme: no palette {v}"))?
-            }
             "--mode" => {
                 s.mode =
                     Mode::parse(&v).ok_or(format!("--mode: {v} is not dark, light or system"))?
@@ -312,7 +323,8 @@ fn shot(mut args: impl Iterator<Item = String>) -> Result<Shot, String> {
     Ok(s)
 }
 
-fn bench(mut args: impl Iterator<Item = String>) -> Result<Bench, String> {
+fn bench(args: impl Iterator<Item = String>) -> Result<Bench, String> {
+    let mut args = args.peekable();
     let mut b = Bench {
         idle: 20,
         follow: 30,
@@ -341,6 +353,26 @@ fn bench(mut args: impl Iterator<Item = String>) -> Result<Bench, String> {
             "--budget" => b.budget = Some(number(&value(&mut args, &a)?, "--budget")?),
             "--display" => b.display = Some(number(&value(&mut args, &a)?, "--display")?),
             "--follow" => b.follow = number(&value(&mut args, &a)?, "--follow")?,
+            "--screen" => {
+                let v = value(&mut args, &a)?;
+                b.screen = crate::bench::stage::Screen::parse(&v)
+                    .ok_or_else(|| format!("bench: no screen {v}"))?;
+            }
+            "--select" => b.select = Some(value(&mut args, &a)?),
+            "--on-top" => b.on_top = true,
+            "--real" => {
+                b.real = Some(match args.peek().and_then(|n| n.parse().ok()) {
+                    Some(n) => {
+                        args.next();
+                        n
+                    }
+                    None => 13,
+                });
+            }
+            "--settled" => b.settled = Some(number(&value(&mut args, &a)?, "--settled")?),
+            "--closed-budget" => {
+                b.closed_budget = Some(number(&value(&mut args, &a)?, "--closed-budget")?);
+            }
             _ => return Err(format!("bench: unknown flag {a}")),
         }
     }
@@ -350,7 +382,7 @@ fn bench(mut args: impl Iterator<Item = String>) -> Result<Bench, String> {
 #[cfg(test)]
 mod tests {
     use super::{Cmd, Screen, parse};
-    use crate::theme::{Mode, Palette};
+    use crate::theme::Mode;
 
     fn args(s: &str) -> Vec<String> {
         s.split_whitespace().map(str::to_owned).collect()
@@ -359,14 +391,14 @@ mod tests {
     #[test]
     fn a_shot_reads_every_flag() {
         let Ok(Cmd::Shot(s)) = parse(args(
-            "shot --fixture larder --screen help --theme teal --mode light --size 900x620 --out /tmp/x.png --select api --zoom 0.25 --at 10,20",
+            "shot --fixture larder --screen help --mode light --size 900x620 --out /tmp/x.png --select api --zoom 0.25 --at 10,20",
         )) else {
             panic!("a shot")
         };
         assert_eq!(s.from.fixture.as_deref(), Some("larder"));
         assert_eq!(
-            (s.screen, s.palette, s.mode, s.size),
-            (Screen::Help, Palette::Teal, Mode::Light, (900., 620.))
+            (s.screen, s.mode, s.size),
+            (Screen::Help, Mode::Light, (900., 620.))
         );
         assert_eq!(
             (s.select.as_deref(), s.zoom, s.at),

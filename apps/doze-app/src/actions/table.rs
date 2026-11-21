@@ -94,7 +94,7 @@ pub(crate) const TABLE: &[Spec] = &[
     ),
     spec!(
         "Settings…",
-        "theme, density, the machine",
+        "mode, density, the machine",
         Settings,
         ["cmd-,"],
         Global,
@@ -157,16 +157,6 @@ pub(crate) const TABLE: &[Spec] = &[
         "services by what they use",
         ViewGrid,
         ["4"],
-        Global,
-        Some(View),
-        true,
-        true
-    ),
-    spec!(
-        "Next colour theme",
-        "violet, teal, burgundy, amber, slate",
-        NextPalette,
-        ["cmd-shift-t"],
         Global,
         Some(View),
         true,

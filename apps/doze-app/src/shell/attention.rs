@@ -22,7 +22,8 @@ pub(crate) const FOR: Duration = Duration::from_secs(30);
 pub(crate) enum Mode {
     /// Not on screen: no frames of its own.
     Hidden,
-    /// On screen, not in use: words to the minute, changes of state at most once a second, the meters every ten.
+    /// On screen, not in use: words to the minute, changes of state at most once a second, the rest (meters,
+    /// connections, logs, the words) on a grid of 30 s (`shell::clock::glance`).
     Glance,
     /// In use: everything to the second, as it happens.
     Use,
@@ -81,7 +82,7 @@ pub(crate) fn visible() -> bool {
 }
 
 /// Whether the hub should stream the meters: while the window is on screen, in use or not (glanced at, the page
-/// takes them in every ten seconds; and a page that hears none could not say its daemon went quiet).
+/// takes them in on its 30 s grid; and a page that hears none could not say its daemon went quiet).
 pub(crate) fn wants_meters() -> bool {
     visible()
 }

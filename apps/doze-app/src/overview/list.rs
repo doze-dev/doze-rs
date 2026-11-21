@@ -12,7 +12,7 @@ use gpui::{
 
 use super::OverviewView;
 use super::tiles::{filter, row_dot, row_switch, word_tone};
-use crate::kit::{s, word_line};
+use crate::kit::s;
 use crate::theme::{Density, Tokens, ty};
 use crate::widgets::tracked;
 
@@ -57,6 +57,9 @@ fn head(t: &Tokens, title: &str) -> AnyElement {
         .into_any_element()
 }
 
+/// Below this window width the list drops its memory column: the name, the state word and the switch come first.
+const MEMORY_FROM: f32 = 900.;
+
 /// The word in its tone, why, and what it last said while in trouble.
 fn why(t: &Tokens, r: &Row) -> gpui::Div {
     // What it last said, unless that is already why (a failed one's reason is its error: once is enough).
@@ -65,15 +68,34 @@ fn why(t: &Tokens, r: &Row) -> gpui::Div {
     } else {
         r.err.as_str()
     };
-    let line = word_line(r.look.word, word_tone(t, r), &[&r.because, err]);
+    let rest: Vec<&str> = [r.because.as_str(), err]
+        .into_iter()
+        .filter(|x| !x.is_empty())
+        .collect();
+    // The word is whole, always ("awake", "waking", "asleep"): only why after it gives way, cut with an ellipsis, so
+    // in a narrow window the switch stays in its column under Sleep all and the state still reads.
     div()
+        .flex()
         .flex_1()
-        .min_w(px(170.))
-        .overflow_hidden()
+        .min_w_0()
         .whitespace_nowrap()
-        .text_ellipsis()
         .text_color(if r.trouble { t.bad } else { t.dim })
-        .child(line)
+        .child(
+            div()
+                .flex_none()
+                .font_weight(ty::SEMIBOLD)
+                .text_color(word_tone(t, r))
+                .child(s(r.look.word)),
+        )
+        .when(!rest.is_empty(), |d| {
+            d.child(
+                div()
+                    .min_w_0()
+                    .overflow_hidden()
+                    .text_ellipsis()
+                    .child(s(&format!(" · {}", rest.join(" · ")))),
+            )
+        })
 }
 
 /// `.qr.narrow`: dot, name, the word and why, memory, the switch.
@@ -87,9 +109,15 @@ fn row(
 ) -> AnyElement {
     let off = !r.on && r.kind != "task";
     let (name, weak) = (r.name.clone(), this.clone());
-    let switch = this
-        .update(cx, |this, cx| row_switch(t, r, &this.home.key, cx))
-        .unwrap_or_else(|_| div().into_any_element());
+    let (switch, narrow) = this
+        .update(cx, |this, cx| {
+            let turning = this.turning.contains(&r.name);
+            (
+                row_switch(t, r, (&this.home.key, turning), cx),
+                this.width < MEMORY_FROM,
+            )
+        })
+        .unwrap_or_else(|_| (div().into_any_element(), false));
     let title = div()
         .flex_1()
         .min_w(px(110.))
@@ -118,7 +146,11 @@ fn row(
         .h(px(density.row()))
         .px(px(14.))
         .rounded(px(if density == Density::Compact { 6. } else { 9. }))
-        .when(selected, |d| d.bg(t.pick))
+        // Selected: `sel` and the accent bar at the left edge (not a `pick` block); hovered: `sel`.
+        .relative()
+        .when(selected, |d| {
+            d.bg(t.sel).child(crate::widgets::sel_bar(t, 8.))
+        })
         .when(!selected, |d| d.hover(|d| d.bg(t.sel)))
         .child(div().w(px(10.)).flex_none().child(row_dot(t, r)))
         .child(
@@ -127,7 +159,7 @@ fn row(
                 .min_w(px(110.)),
         )
         .child(why(t, r).flex_grow(2.))
-        .child(mem)
+        .when(!narrow, |d| d.child(mem))
         .child(
             div()
                 .w(px(34.))
@@ -195,7 +227,7 @@ pub(super) fn view(
         .flex_1()
         .min_w_0()
         .pt(px(28.))
-        .child(filter(t, v))
+        .child(filter(t, v, Some(super::tiles::LIST_SWITCH_IN), cx))
         .child(
             div()
                 .flex()
@@ -211,5 +243,5 @@ pub(super) fn view(
         .flex_1()
         .min_h_0()
         .child(main)
-        .child(super::pane::pane(t, v, cx))
+        .children(super::pane::pane(t, v, cx))
 }

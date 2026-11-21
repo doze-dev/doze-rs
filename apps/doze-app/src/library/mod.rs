@@ -19,7 +19,9 @@ use gpui::{
     prelude::*, px,
 };
 
-use crate::actions::{CloseOverlay, MoveDown, MoveUp, OpenStack, RemoveStack, ToggleStack};
+use crate::actions::{
+    CloseOverlay, MoveDown, MoveUp, OpenStack, RemoveStack, SleepStack, ToggleStack,
+};
 use crate::facts::Facts;
 use crate::kit::{chip_of, keys_bar};
 use crate::theme::{Density, tokens};
@@ -69,7 +71,11 @@ impl Focusable for LibraryView {
 
 impl LibraryView {
     pub(crate) fn new(hub: Hub, facts: Entity<Facts>, cx: &mut Context<Self>) -> LibraryView {
-        cx.observe(&facts, |this, _, cx| this.refresh(cx)).detach();
+        // A row says "starting…" once its action has run a moment, and its moon turns while everything goes to sleep:
+        // both are read from acts when the row is drawn.
+        if let Some(a) = crate::act::acts(cx) {
+            cx.observe(&a, |_, _, cx| cx.notify()).detach();
+        }
         let (dismissed, connected) = crate::prefs::hints();
         let mut v = LibraryView {
             hub,
@@ -264,6 +270,7 @@ impl Render for LibraryView {
                 "move",
             ),
             (chip_of("Up or down"), "up / down"),
+            (chip_of("Sleep everything"), "sleep all"),
             (chip_of("Open the stack"), "open"),
             (chip_of("Open folder…"), "open folder"),
             (chip_of("Remove from doze…"), "remove"),
@@ -290,6 +297,7 @@ impl Render for LibraryView {
                 }
             }))
             .on_action(cx.listener(|this, _: &ToggleStack, _, cx| this.toggle_selected(cx)))
+            .on_action(cx.listener(|this, _: &SleepStack, _, cx| this.sleep_selected(cx)))
             .on_action(cx.listener(|this, _: &RemoveStack, _, cx| this.remove_selected(cx)))
             .child(parts::head(&t, self, cx))
             .child(body)

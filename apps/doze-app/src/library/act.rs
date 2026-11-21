@@ -14,6 +14,16 @@ pub(super) fn busy(key: &str, cx: &App) -> Option<Busy> {
     a.read(cx).busy_of(&StackKey::new(key))
 }
 
+/// What the stack keyed `key` is busy doing, once it has been for a moment (the words: an instant action never
+/// blinks), and whether every service is being put to sleep.
+pub(super) fn busy_shown(key: &str, cx: &App) -> (Option<Busy>, bool) {
+    let Some(a) = crate::act::acts(cx) else {
+        return (None, false);
+    };
+    let (a, k) = (a.read(cx), StackKey::new(key));
+    (a.busy_shown(&k), a.sleeping_all(&k))
+}
+
 impl LibraryView {
     /// The stack keyed `key`, as the hub keys it.
     fn stack_key(&self, key: &str) -> Option<StackKey> {
@@ -69,6 +79,24 @@ impl LibraryView {
         self.toggle(&k, cx);
     }
 
+    /// Sleep everything in the stack keyed `key` (its moon, its menu, `s`): the daemon stays up.
+    pub(crate) fn sleep_all(&mut self, key: &str, cx: &mut Context<Self>) {
+        self.selected = Some(key.to_owned());
+        self.menu = None;
+        cx.notify();
+        let (Some(k), Some(acts)) = (self.stack_key(key), crate::act::acts(cx)) else {
+            return;
+        };
+        acts.update(cx, |a, cx| a.sleep_all(&k, cx));
+    }
+
+    /// `s`: Sleep everything in the selected stack, when it is up.
+    pub(super) fn sleep_selected(&mut self, cx: &mut Context<Self>) {
+        if let Some(k) = self.selected.clone() {
+            self.sleep_all(&k, cx);
+        }
+    }
+
     /// ⌫: removes the selected stack from doze, after asking.
     pub(super) fn remove_selected(&mut self, cx: &mut Context<Self>) {
         if let Some(k) = self.selected.clone() {
@@ -94,6 +122,10 @@ impl super::menu::MenuHost for LibraryView {
 
     fn menu_choose(&mut self, key: &str, cx: &mut Context<Self>) {
         self.choose_start(key, cx);
+    }
+
+    fn menu_sleep(&mut self, key: &str, cx: &mut Context<Self>) {
+        self.sleep_all(key, cx);
     }
 
     fn menu_reveal(&mut self, dir: &str, file: bool, cx: &mut Context<Self>) {

@@ -4,6 +4,7 @@
 //! reading from outside: `footprint`, Activity Monitor's figure), closes the window, waits ten seconds and quits.
 //! It never touches the doze home: its stack is a fixture.
 
+use std::cell::Cell;
 use std::path::PathBuf;
 use std::process::ExitCode;
 use std::rc::Rc;
@@ -11,20 +12,65 @@ use std::time::{Duration, Instant};
 
 use gpui::{ActivationPolicy, App, AppContext as _, AsyncApp, QuitMode};
 
+mod measure;
+pub(crate) mod real;
+pub(crate) mod stage;
+
+pub(crate) use measure::footprint;
+use measure::{checked, idle_frames, settled_footprint};
+
 use crate::cli::Bench;
 use crate::shell::Root;
 use crate::theme::Choice;
 
-pub(crate) fn run(b: Bench, launched: Instant) -> ExitCode {
-    // No fixture: `$DOZE_HOME` when it is set (a fixture served from another process), else an empty folder; never the
-    // real home by default.
-    let home = std::env::var_os("DOZE_HOME").map_or_else(std::env::temp_dir, PathBuf::from);
-    let source = match crate::source_for(&b.from, home) {
-        Ok(s) => Rc::new(s),
+thread_local! {
+    /// The bench's window while it is open: the batches go to it.
+    static WINDOW: Cell<Option<gpui::WindowHandle<Root>>> = const { Cell::new(None) };
+}
+
+/// The stacks the bench shows: a fixture's, `$DOZE_HOME`'s, or (`--real`) a stack of its own under a daemon of its
+/// own, on a throwaway home (bench/real.rs). No fixture and no `--real`: `$DOZE_HOME` when it is set (a fixture
+/// served from another process), else an empty folder; never the real home by default.
+fn source(b: &Bench) -> Result<(Rc<crate::source::Source>, Option<Rc<real::Real>>), ExitCode> {
+    let real = match b.real.map(real::Real::up).transpose() {
+        Ok(r) => r.map(Rc::new),
+        Err(e) => {
+            eprintln!("doze-app bench --real: {e:#}");
+            return Err(ExitCode::FAILURE);
+        }
+    };
+    let home = match &real {
+        Some(r) => r.home.clone(),
+        None => std::env::var_os("DOZE_HOME").map_or_else(std::env::temp_dir, PathBuf::from),
+    };
+    match crate::source_for(&b.from, home) {
+        Ok(s) => Ok((Rc::new(s), real)),
         Err(e) => {
             eprintln!("doze-app bench: {e:#}");
-            return ExitCode::FAILURE;
+            if let Some(r) = &real {
+                r.down();
+            }
+            Err(ExitCode::FAILURE)
         }
+    }
+}
+
+/// As a launch takes the hub's batches (`app::take`): the menu bar, and the window while it is open. (Until
+/// 2026-11-21 the bench's window heard none, so a live stack never moved it and the bench passed a window that, on a
+/// real daemon, drew every second or two.)
+fn pump(hub: doze_desk::Hub, cx: &mut App) {
+    cx.spawn(async move |cx: &mut AsyncApp| {
+        while let Ok(batch) = hub.updates().recv().await {
+            cx.update(|cx| crate::app::take(&hub, &batch, WINDOW.with(Cell::get), cx));
+        }
+    })
+    .detach();
+}
+
+pub(crate) fn run(b: Bench, launched: Instant) -> ExitCode {
+    let (source, real) = match source(&b) {
+        Ok(s) => s,
+        Err(code) => return code,
     };
     // The bench's window sits on the owner's screen: it never takes their input (`crate::handsoff`).
     crate::handsoff::set();
@@ -41,13 +87,7 @@ pub(crate) fn run(b: Bench, launched: Instant) -> ExitCode {
             cx.set_activation_policy(ActivationPolicy::Accessory);
             // The menu-bar item, Needs you and the notifications, as a launch has them, following the hub.
             crate::around::start(cx, &source.hub, &source.facts);
-            let updates = source.hub.clone();
-            cx.spawn(async move |cx: &mut AsyncApp| {
-                while updates.updates().recv().await.is_ok() {
-                    cx.update(crate::around::on_batch);
-                }
-            })
-            .detach();
+            pump(source.hub.clone(), cx);
             println!("menu_bar_ready_ms {}", launched.elapsed().as_millis());
             // As a launch does: the window's libraries after the item is up.
             crate::app::boot_ui(cx, Choice::default());
@@ -58,18 +98,7 @@ pub(crate) fn run(b: Bench, launched: Instant) -> ExitCode {
                 (source.first.clone(), source.facts.clone()),
             );
             let (logs, follow) = (b.logs, b.follow);
-            let watch = Watch {
-                idle: b.idle,
-                closed: b.closed.unwrap_or(10),
-                map: b.map,
-                display: b.display,
-                in_use: b.in_use,
-                check: b.check,
-                budget: b.budget,
-                per_minute: b.per_minute,
-                hidden: b.hidden,
-                at: b.at.clone(),
-            };
+            let watch = Watch::of(&b, real.clone());
             cx.spawn(async move |cx: &mut AsyncApp| {
                 let _keep = src.clone();
                 cx.background_executor().timer(Duration::from_secs(2)).await;
@@ -106,16 +135,80 @@ struct Watch {
     /// Counts the window as in use when it opens (`--in-use`), as a click on it would: its clocks run for
     /// `shell::attention::FOR`, then it is left alone.
     in_use: bool,
+    /// The page the window is left on, and the service it shows.
+    screen: stage::Screen,
+    select: Option<String>,
+    /// `--check`: the footprint at the end of the idle time, and at the end of `closed`, at most these.
+    settled: Option<f64>,
+    closed_budget: Option<f64>,
+    /// The window floats over the others (`--on-top`).
+    on_top: bool,
+    /// The real stack, taken down before the run ends.
+    real: Option<Rc<real::Real>>,
 }
 
-/// The window opened as a tray click opens it, timed to its first frame and to its first frame with the stack.
+impl Watch {
+    fn of(b: &Bench, real: Option<Rc<real::Real>>) -> Watch {
+        Watch {
+            idle: b.idle,
+            closed: b.closed.unwrap_or(10),
+            map: b.map,
+            display: b.display,
+            in_use: b.in_use,
+            check: b.check,
+            budget: b.budget,
+            per_minute: b.per_minute,
+            hidden: b.hidden,
+            at: b.at.clone(),
+            screen: b.screen,
+            select: b.select.clone(),
+            settled: b.settled,
+            closed_budget: b.closed_budget,
+            real,
+            on_top: b.on_top,
+        }
+    }
+
+    /// Ends the run: the real stack down, then `code` (the platform's quit would exit 0).
+    fn end(&self, code: i32) -> ! {
+        if let Some(r) = &self.real {
+            r.down();
+        }
+        std::process::exit(code)
+    }
+}
+
+/// The window opened as a tray click opens it, timed to its first frame and to its first frame with the stack; then
+/// left alone on its page and watched, then closed and watched again.
 async fn time_open(
     cx: &mut AsyncApp,
     hub: doze_desk::Hub,
-    (first, facts): (Option<doze_desk::StackKey>, crate::facts::Mode),
+    first: (Option<doze_desk::StackKey>, crate::facts::Mode),
     w: Watch,
 ) {
     let t = Instant::now();
+    let Some(h) = open(cx, &hub, first, &w, t).await else {
+        return;
+    };
+    idle(cx, h, &w, t).await;
+    WINDOW.with(|w| w.set(None));
+    let _ = h.update(cx, |_, w, _| w.remove_window());
+    hub.set_visible(false);
+    cx.update(crate::app::window_gone);
+    closed(cx, &w).await;
+    if let Some(r) = &w.real {
+        r.down();
+    }
+}
+
+/// Opens the window, waits for what its page shows, and leaves it on `--screen`.
+async fn open(
+    cx: &mut AsyncApp,
+    hub: &doze_desk::Hub,
+    (first, facts): (Option<doze_desk::StackKey>, crate::facts::Mode),
+    w: &Watch,
+    t: Instant,
+) -> Option<gpui::WindowHandle<Root>> {
     let opened = cx.update(|cx| {
         let on = w.display.and_then(|i| cx.displays().get(i).map(|d| d.id()));
         let bounds = gpui::Bounds::centered(on, gpui::size(gpui::px(1280.), gpui::px(800.)), cx);
@@ -125,14 +218,25 @@ async fn time_open(
             cx.new(|cx| Root::new(hub.clone(), first.clone(), facts.clone(), window, cx))
         })
     });
-    let Ok(h) = opened else { return };
+    let Ok(h) = opened else { return None };
+    WINDOW.with(|w| w.set(Some(h)));
     cx.update(|cx| crate::handsoff::after_open(h.into(), cx));
+    if w.on_top {
+        println!("on_top {}", doze_os::ui::float_over());
+    }
     hub.set_visible(true);
+    // A page inside a stack waits for a running stack (a live hub reads its daemons after it starts).
+    let wants_stack = !matches!(w.screen, stage::Screen::Opened | stage::Screen::Home);
     loop {
         let has = h.update(cx, |root, _, cx| {
             root.refresh(cx);
             // The page it opens on has what it shows: a stack's page its stack, the Library (no stack named) at once.
-            root.key().is_some() || root.screen == crate::shell::Screen::Library
+            (root.key().is_some() || root.screen == crate::shell::Screen::Library)
+                && (!wants_stack
+                    || hub
+                        .stacks()
+                        .iter()
+                        .any(|s| s.running && !s.instances.is_empty()))
         });
         if has.unwrap_or(true) || t.elapsed() > Duration::from_secs(10) {
             break;
@@ -148,6 +252,15 @@ async fn time_open(
         });
         w.refresh();
     });
+    let _ = h.update(cx, |root, window, cx| {
+        stage::go(root, hub, w.screen, w.select.as_deref(), window, cx);
+        println!("screen {:?}", root.screen);
+    });
+    Some(h)
+}
+
+/// The window left alone (in use first with `--in-use`, hidden with `--hidden`): its frames and footprint, checked.
+async fn idle(cx: &mut AsyncApp, h: gpui::WindowHandle<Root>, w: &Watch, t: Instant) {
     if w.in_use {
         // As a click on it: the window counts as key and touched, so its clocks run.
         let _ = h.update(cx, |root, _, cx| {
@@ -163,118 +276,41 @@ async fn time_open(
     if w.map {
         map_bench(cx, h).await;
     }
-    let drawn = idle_frames(cx, if w.map { 0 } else { w.idle }, t, &w.at).await;
+    let (drawn, last) = idle_frames(cx, if w.map { 0 } else { w.idle }, t, &w.at).await;
     let fp = cx.background_executor().spawn(async { footprint() }).await;
     if let Some(mb) = fp {
         println!("idle_footprint_mb {mb:.0}");
     }
+    let settled = match w.settled {
+        Some(_) => settled_footprint(cx, last).await,
+        None => None,
+    };
     let _ = h.update(cx, |_, w, cx| {
         let mode = crate::shell::attention::mode(cx.background_executor().now());
         println!("window_mode {mode:?} visible={}", w.is_visible());
     });
     println!("idle_done");
     if w.check {
-        checked(drawn, fp, &w);
+        checked(drawn, (fp, settled), w);
     }
-    let _ = h.update(cx, |_, w, _| w.remove_window());
-    hub.set_visible(false);
+}
+
+/// The window closed, as the menu-bar app goes on: its footprint after `--closed`, checked.
+async fn closed(cx: &mut AsyncApp, w: &Watch) {
     cx.background_executor()
         .timer(Duration::from_secs(if w.map { 0 } else { w.closed }))
         .await;
+    let closed = cx.background_executor().spawn(async { footprint() }).await;
+    if let Some(mb) = closed {
+        println!("closed_footprint_mb {mb:.0}");
+    }
     println!("closed_done");
-}
-
-/// Idles for `secs`, counting the frames drawn after the first three seconds (the page settling: its first batch, a
-/// fade in): `idle_frames N`, and `idle_frame_ms T` for each of the first twenty, from the window's open. An idle
-/// window draws none; one glanced at, a frame when a word to the minute changes. `footprint_at_s S MB` at each of
-/// `samples` seconds after `opened`.
-async fn idle_frames(cx: &mut AsyncApp, secs: u64, opened: Instant, samples: &[u64]) -> u64 {
-    let t = Instant::now();
-    let settle = Duration::from_secs(3).min(Duration::from_secs(secs));
-    cx.background_executor().timer(settle).await;
-    let start = crate::app::frames_drawn();
-    let (mut last, mut shown, mut at) = (start, 0, 0);
-    let mut samples: Vec<u64> = samples.to_vec();
-    samples.sort_unstable();
-    while t.elapsed() < Duration::from_secs(secs) {
-        cx.background_executor()
-            .timer(Duration::from_millis(50))
-            .await;
-        while samples
-            .first()
-            .is_some_and(|s| opened.elapsed() >= Duration::from_secs(*s))
-        {
-            let s = samples.remove(0);
-            let fp = cx.background_executor().spawn(async { footprint() }).await;
-            if let Some(mb) = fp {
-                println!("footprint_at_s {s} {mb:.0}");
-            }
-        }
-        let now = crate::app::frames_drawn();
-        if now != last {
-            at = t.elapsed().as_millis();
-            if shown < 20 {
-                println!("idle_frame_ms {at}");
-                shown += 1;
-            }
-        }
-        last = now;
-    }
-    println!("idle_frames {}", last - start);
-    println!("last_idle_frame_ms {at}");
-    last - start
-}
-
-/// `--check`: a window left alone draws nothing, and stays under its budget. A failure ends the run with exit 1 (the
-/// platform's quit would exit 0).
-fn checked(drawn: u64, fp: Option<f64>, w: &Watch) {
-    let mut bad = Vec::new();
-    // Hidden, nothing; glanced at (on screen, untouched), a frame when a word to the minute changes: `per_minute` for
-    // each minute (or part of one) counted; in use, what moves.
-    let counted = w.idle.saturating_sub(3);
-    let allowed = if w.hidden {
-        0
-    } else {
-        w.per_minute * counted.div_ceil(60).max(1)
-    };
-    if drawn > allowed && (w.hidden || !w.in_use) {
-        let how = if w.hidden { "hidden" } else { "glanced at" };
-        bad.push(format!(
-            "{drawn} frames drawn by a window {how} in {counted} s ({allowed} allowed)"
-        ));
-    }
-    if let (Some(limit), Some(mb)) = (w.budget, fp)
+    if w.check
+        && let (Some(limit), Some(mb)) = (w.closed_budget, closed)
         && mb > limit
     {
-        bad.push(format!(
-            "idle footprint {mb:.0} MB over the {limit:.0} MB budget"
-        ));
-    }
-    if bad.is_empty() {
-        println!("check ok");
-        return;
-    }
-    for b in &bad {
-        eprintln!("doze-app bench: {b}");
-    }
-    std::process::exit(1);
-}
-
-/// The process's footprint in megabytes, as `footprint` reads it.
-pub(crate) fn footprint() -> Option<f64> {
-    let out = std::process::Command::new("footprint")
-        .arg(std::process::id().to_string())
-        .output()
-        .ok()?;
-    let text = String::from_utf8_lossy(&out.stdout);
-    let after = text.split("Footprint:").nth(1)?;
-    let mut it = after.split_whitespace();
-    let n: f64 = it.next()?.parse().ok()?;
-    match it.next()? {
-        "KB" => Some(n / 1024.),
-        "MB" => Some(n),
-        "GB" => Some(n * 1024.),
-        _ => None,
+        eprintln!("doze-app bench: closed footprint {mb:.0} MB over the {limit:.0} MB budget");
+        w.end(1);
     }
 }
 

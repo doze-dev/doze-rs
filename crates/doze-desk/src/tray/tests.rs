@@ -93,9 +93,13 @@ fn build_with_nothing_running() {
     assert!(!m.needs_you && m.lines.is_empty() && m.tooltip == "doze");
     let mut st = stack("k", "shop", true, json!([]));
     st.link.conn = Conn::Down;
-    let m = super::build(&[st], now());
+    st.link.down_since = Some(now() - crate::LOST_AFTER);
+    let m = super::build(std::slice::from_ref(&st), now());
     assert_eq!(m.lines.len(), 1);
     assert_eq!(m.lines[0].sub, "daemon not answering");
+    // A drop a moment old (a down or an up under way) is still connecting.
+    st.link.down_since = Some(now());
+    assert_eq!(super::build(&[st], now()).lines[0].sub, "connecting…");
     let mut st = stack("k", "shop", true, json!([]));
     st.link.conn = Conn::Connecting;
     assert_eq!(super::build(&[st], now()).lines[0].sub, "connecting…");
@@ -396,22 +400,5 @@ fn the_text_indents_submenus_and_spells_the_keys() {
     assert!(t.contains("Settings…    ⌘,\n"));
 }
 
-#[test]
-fn open_url_takes_the_registrys_address_when_there_is_one() {
-    let st = stack(
-        "k-web",
-        "web",
-        true,
-        json!([{"name": "front", "kind": "app", "state": "active", "domain": "front.web.doze", "bind": "127.0.0.9:3000"}]),
-    );
-    let stacks = vec![st];
-    let m = super::build(&stacks, now());
-    let plain = menu(&m, &Attention::default(), &stacks, &|_| None);
-    assert_eq!(
-        titles(sub(&plain, "●  web"))[1],
-        "Open http://front.web.doze:3000"
-    );
-    let fronted = |h: &str| (h == "front.web.doze").then(|| "http://front.web.doze".to_owned());
-    let e = menu(&m, &Attention::default(), &stacks, &fronted);
-    assert_eq!(titles(sub(&e, "●  web"))[1], "Open http://front.web.doze");
-}
+/// The menu's words for an address and a stack all asleep.
+mod words;

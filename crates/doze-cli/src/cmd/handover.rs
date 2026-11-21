@@ -17,6 +17,30 @@ use std::time::Duration;
 
 const ASK: Duration = Duration::from_secs(30);
 
+/// Why `exe` is not handed the stacks, or `None` when it runs and is this doze: `doze --json version` answers with
+/// the envelope and a version. An older doze cannot (the Go one exits with "unknown flag: --json").
+fn refused(exe: &Path) -> Option<String> {
+    let answer = std::process::Command::new(exe)
+        .args(["--json", "version"])
+        .stdin(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .output()
+        .ok()
+        .filter(|o| o.status.success())
+        .and_then(|o| serde_json::from_slice::<serde_json::Value>(&o.stdout).ok());
+    let this_doze = answer.is_some_and(|v| {
+        v.get("ok") == Some(&serde_json::Value::Bool(true))
+            && v.pointer("/data/version")
+                .is_some_and(serde_json::Value::is_string)
+    });
+    (!this_doze).then(|| {
+        format!(
+            "{} does not run as this doze (doze --json version did not answer; an older doze cannot); nothing was stopped",
+            exe.display()
+        )
+    })
+}
+
 /// One stack's hand-over.
 #[derive(Debug, Serialize)]
 pub struct Moved {
@@ -35,18 +59,12 @@ enum Woke {
     Partly(String),
 }
 
-/// Moves every running stack under `home` to the doze at `exe`. Nothing is stopped unless `exe` runs (`doze version`
-/// exits 0): a broken install must not take the stacks down. After a stack whose new daemon did not start, the rest
-/// are left on the old doze.
+/// Moves every running stack under `home` to the doze at `exe`. Nothing is stopped unless `exe` runs and is this
+/// doze (`doze --json version` answers with its envelope): a broken install must not take the stacks down, and an
+/// older doze (the Go one cannot answer `--json`) is never handed a stack. After a stack whose new daemon did not
+/// start, the rest are left on the old doze.
 pub(crate) fn all(home: &Path, exe: &Path) -> Vec<Moved> {
-    let runs = std::process::Command::new(exe)
-        .arg("version")
-        .stdout(std::process::Stdio::null())
-        .stderr(std::process::Stdio::null())
-        .status()
-        .is_ok_and(|s| s.success());
-    let mut halted: Option<String> =
-        (!runs).then(|| format!("{} does not run; nothing was stopped", exe.display()));
+    let mut halted = refused(exe);
     let mut out = Vec::new();
     for r in doze_projects::running(home) {
         let stack = doze_projects::load(r.key.dir())

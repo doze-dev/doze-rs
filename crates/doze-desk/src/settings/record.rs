@@ -92,7 +92,7 @@ mod repair_tests {
         let s = steps(
             &[shop()],
             &parts,
-            Some(std::path::Path::new("/Users/x/go/bin/doze")),
+            Some(std::path::Path::new("/x/Doze.app/Contents/MacOS/doze")),
         );
         let what: Vec<&str> = s.iter().map(|s| s.what.as_str()).collect();
         assert_eq!(
@@ -102,7 +102,9 @@ mod repair_tests {
         assert_eq!(s[1].args, ["trust"]);
         assert_eq!(
             s[2].script,
-            format!("mkdir -p /usr/local/bin\nln -sf '/Users/x/go/bin/doze' {PATH_LINK}")
+            format!(
+                "mkdir -p /usr/local/bin\nln -sf '/x/Doze.app/Contents/MacOS/doze' {PATH_LINK}"
+            )
         );
         // With no stack declaring domains, stale routes are pruned by the app itself.
         let stale = [part("domains", "stale route old.test", false)];

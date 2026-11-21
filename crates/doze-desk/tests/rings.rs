@@ -214,3 +214,32 @@ fn a_series_keeps_four_minutes() {
     );
     assert_eq!(s.ram.first(), Some(&10.0));
 }
+
+#[test]
+fn a_released_ring_holds_nothing_and_takes_the_backlog_again() {
+    let mut r = LogRing::new();
+    for i in 0..5_000 {
+        assert!(r.push(&line("api", &format!("GET /orders/{i} 200"), i, 1)));
+    }
+    let (next, added) = (r.next_seq(), r.added("api"));
+    assert!(r.heap_bytes() > 100_000);
+    r.release();
+    assert_eq!(r.len(), 0);
+    assert!(r.heap_bytes() < 4_096, "{} bytes kept", r.heap_bytes());
+    assert_eq!((r.first_seq(), r.next_seq()), (next, next), "numbers go on");
+    assert_eq!(r.added("api"), added, "the count of lines added goes on");
+    // A page that watches again is sent the daemon's backlog: its lines are taken, numbered after the old ones.
+    for i in 4_600..5_000 {
+        assert!(r.push(&line("api", &format!("GET /orders/{i} 200"), i, 1)));
+    }
+    assert_eq!(r.len(), 400);
+    assert_eq!(r.first_seq(), next);
+    assert_eq!(
+        r.at(next).map(|l| l.line.to_owned()).as_deref(),
+        Some("GET /orders/4600 200")
+    );
+    assert_eq!(
+        r.tail("api", 1).first().map(|l| l.line.as_str()),
+        Some("GET /orders/4999 200")
+    );
+}

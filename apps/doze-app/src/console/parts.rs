@@ -153,6 +153,7 @@ impl Draw<'_> {
             .border_1()
             .border_color(if focused { t.line2 } else { t.line })
             .bg(t.panel)
+            .shadow(t.lift())
             .overflow_hidden()
             .child(self.header(n, &Self::widths(n)))
             .child(body)
@@ -229,6 +230,7 @@ impl Draw<'_> {
                     .border_1()
                     .border_color(t.line)
                     .bg(t.panel)
+                    .shadow(t.lift())
                     .child(tracked(&s.label, ty::XS, ty::REGULAR, t.dim, 0.66))
                     .child(
                         div()
@@ -344,6 +346,7 @@ impl Draw<'_> {
             .border_1()
             .border_color(t.line)
             .bg(t.panel)
+            .shadow(t.lift())
             .overflow_hidden()
             .child(title)
             .child(self.header(n, &Self::widths(n)))

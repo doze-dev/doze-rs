@@ -112,7 +112,7 @@ impl Bell {
         };
         let mut text = Self::words(t, it);
         if !it.fixed {
-            text = text.child(self.fixes(t, it, i, cx));
+            text = text.child(self.fixes(t, it, tone, i, cx));
         }
         let right = if it.fixed {
             div().text_color(t.good).child("fixed ✓")
@@ -189,13 +189,24 @@ impl Bell {
         text
     }
 
-    /// An item's buttons: its fixes, Show when no fix shows it, Not now.
-    fn fixes(&self, t: &Tokens, it: &Item, i: usize, cx: &mut Context<Self>) -> AnyElement {
+    /// An item's buttons: its fixes, Show when no fix shows it, Not now. The first fix wears the item's tone (red for
+    /// a broken one), so the action and the alarm are one colour, not the accent inside a red item.
+    fn fixes(
+        &self,
+        t: &Tokens,
+        it: &Item,
+        tone: gpui::Hsla,
+        i: usize,
+        cx: &mut Context<Self>,
+    ) -> AnyElement {
         let mut row = div().flex().items_center().gap(px(6.)).mt(px(4.));
         for (k, f) in it.fixes.iter().enumerate() {
             let (item, fix) = (it.clone(), f.clone());
             let kind = if f.primary { Btn::Primary } else { Btn::Plain };
             let b = btn(t, ("fix", i * 16 + k), &f.label, "", kind, None)
+                .when(f.primary, |b| {
+                    b.bg(tone).border_color(tone).text_color(t.ink)
+                })
                 .h(px(24.))
                 .px(px(10.))
                 .on_click(cx.listener(move |_, _, _, cx| {

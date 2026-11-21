@@ -22,9 +22,10 @@ pub(super) fn charts(t: &Tokens, p: &InstancePage) -> Vec<AnyElement> {
         ];
     };
     let mut out = vec![
-        chart_card(t, "Memory", "ram", &v.ram, t.cool, 90.),
-        chart_card(t, "CPU", "cpu", &v.cpu, t.accent, 90.),
-        chart_card(t, "Connections", "conns", &v.conns, t.good, 70.),
+        // The ramp's first three: a count is a category of line, not a status (green read as "healthy").
+        chart_card(t, "Memory", "ram", &v.ram, t.cat(0), 90.),
+        chart_card(t, "CPU", "cpu", &v.cpu, t.cat(1), 90.),
+        chart_card(t, "Connections", "conns", &v.conns, t.cat(2), 70.),
     ];
     out.extend(extends(t, p, "vitals"));
     out
@@ -47,7 +48,7 @@ fn chart_card(
     };
     let data: Vec<(usize, f64)> = c.points.iter().copied().enumerate().collect();
     let area_el = if n > 1 {
-        AreaChart::new(data)
+        calm(AreaChart::new(data))
             .id(id)
             .x(move |(i, _)| SharedString::from(ago(n - 1 - i)))
             .y(|(_, v)| *v)
@@ -166,4 +167,12 @@ fn area(points: std::rc::Rc<Vec<f64>>, lo: f64, hi: f64, color: Hsla) -> AnyElem
     .left(px(0.))
     .size_full()
     .into_any_element()
+}
+
+/// Glanced at, a chart neither draws its data in nor answers the pointer (`motion::still`).
+fn calm(
+    c: AreaChart<(usize, f64), SharedString, f64>,
+) -> AreaChart<(usize, f64), SharedString, f64> {
+    let still = crate::motion::still();
+    c.interactive(!still).appear(!still)
 }

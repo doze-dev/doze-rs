@@ -144,6 +144,19 @@ impl LogRing {
         }
     }
 
+    /// Lets every line go (the window that showed them closed): their text and records go back to the allocator. The
+    /// line numbers and the counts of lines added go on from where they were, so nothing that remembered them reads a
+    /// line it did not mean, and a reconnect's backlog fills the ring again.
+    pub fn release(&mut self) {
+        self.evicted += self.lines.len() as u64;
+        self.first_arena += u32::try_from(self.arenas.len()).unwrap_or(u32::MAX);
+        self.lines = VecDeque::new();
+        self.arenas = VecDeque::new();
+        self.text = 0;
+        self.held.iter_mut().for_each(|n| *n = 0);
+        self.recent = HashMap::new();
+    }
+
     fn evict(&mut self) {
         let Some(m) = self.lines.pop_front() else {
             return;

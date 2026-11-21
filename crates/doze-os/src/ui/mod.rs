@@ -206,6 +206,21 @@ pub fn hands_off() -> usize {
     imp::hands_off()
 }
 
+/// Gives the heap's free pages back to the system (`malloc_zone_pressure_relief`): after the window closes, what it
+/// freed (its views, text layouts, a page's log lines) stays counted against the app until the allocator returns it.
+/// Returns how many bytes went back. A no-op where there is no such call.
+pub fn give_back_memory() -> usize {
+    imp::give_back_memory()
+}
+
+/// A measuring run (`doze-app bench --on-top`): every titled window of this app floats over the others, on every
+/// Space and over a full-screen app, and is brought to the front without activating the app, so the system counts it
+/// on screen (a covered window is sent no frames, and its reading would be a hidden one's). Returns how many windows
+/// it set. A no-op where there is no AppKit.
+pub fn float_over() -> usize {
+    imp::float_over()
+}
+
 /// Whether this app holds the person's input: it is the active app (it gets the keyboard), and how many of its
 /// windows are key. A hands-off run checks both are none.
 #[must_use]

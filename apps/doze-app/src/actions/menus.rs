@@ -98,7 +98,6 @@ const BAR: [(MenuName, &str, &[Place]); 6] = [
             Row("Neighbourhood"),
             Row("Only trouble"),
             Sep,
-            Row("Next colour theme"),
             Row("Dark, light or system"),
             Row("Row density"),
             Sep,

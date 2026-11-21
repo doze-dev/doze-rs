@@ -4,16 +4,16 @@
 
 use doze_desk::overview::Row;
 use gpui::{AnyElement, Context, IntoElement, div, prelude::*, px};
-use gpui_component::input::Input;
 
 use super::OverviewView;
+pub(super) use super::toolbar::{LIST_SWITCH_IN, TILE_SWITCH_IN, filter};
 use doze_display::Look;
 
 use crate::instance::ui::state_mark;
-use crate::kit::{chip_of, s, word_line};
+use crate::kit::{s, word_line};
 use crate::outward::Probe as _;
 use crate::theme::{Tokens, mix, ty};
-use crate::widgets::{Mono as _, dot, icon, switch, tip, tracked};
+use crate::widgets::{dot, icon, switch, tip, tracked};
 use doze_desk::overview::titles;
 
 /// Tiles to a row at the window's width.
@@ -56,10 +56,13 @@ pub(super) fn word_tone(t: &Tokens, r: &Row) -> gpui::Hsla {
 pub(super) fn row_switch(
     t: &Tokens,
     r: &Row,
-    stack: &str,
+    (stack, turning): (&str, bool),
     cx: &mut Context<OverviewView>,
 ) -> AnyElement {
     let n = r.name.clone();
+    if turning {
+        return turning_switch(t, r);
+    }
     // The switch is not a press on the tile: it neither selects it nor counts towards a double click (Go stops it).
     let say = cx.listener(move |this, _, _, cx| {
         cx.stop_propagation();
@@ -116,45 +119,24 @@ pub(super) fn row_switch(
         .into_any_element()
 }
 
-/// `.toolbar .filter`: the filter box and its key. With the keys in it, its frame takes the accent's tint, easing
-/// over 120 ms (Go `.filter:focus-within`, `transition: border-color 120ms`).
-pub(super) fn filter(t: &Tokens, v: &OverviewView) -> impl IntoElement {
-    let (frame, moving) = crate::widgets::input_frame(t, "overview/filter", v.filter_on);
-    div().flex().flex_none().px(px(28.)).pb(px(14.)).child(
-        div()
-            .flex()
-            .items_center()
-            .gap(px(8.))
-            .h(px(28.))
-            .w(px(260.))
-            .pl(px(2.))
-            .pr(px(8.))
-            .rounded(px(7.))
-            .border_1()
-            .border_color(frame)
-            .bg(t.well)
-            .child(crate::motion::tick(moving))
-            .child(
-                div().flex_1().child(
-                    Input::new(&v.filter)
-                        .appearance(false)
-                        .text_size(px(ty::SM)),
-                ),
-            )
-            // `.filter kbd`: a quiet chip, dim on the selection colour.
-            .child(
-                div()
-                    .px(px(5.))
-                    .rounded(px(4.))
-                    .bg(t.sel)
-                    .mono_face()
-                    .text_size(px(ty::XS))
-                    .line_height(px(ty::LH_15))
-                    .font_weight(ty::SEMIBOLD)
-                    .text_color(t.dim)
-                    .child(s(&chip_of("Filter"))),
-            ),
-    )
+/// The stack's action this row asked for (a stopped stack's switch: up, with this one) is under way: a spinner where
+/// the switch is, the switch's size, so nothing beside it moves.
+fn turning_switch(t: &Tokens, r: &Row) -> AnyElement {
+    div()
+        .id(gpui::SharedString::from(format!("sw-{}", r.name)))
+        .flex_none()
+        .w(px(34.))
+        .h(px(18.))
+        .flex()
+        .items_center()
+        .justify_center()
+        .child(crate::widgets::spinner(
+            gpui::SharedString::from(format!("spin-{}", r.name)),
+            14.,
+            t.cool,
+        ))
+        .probe(format!("sw-{}", r.name), format!("{} is starting", r.name))
+        .into_any_element()
 }
 
 /// A group's heading over its tiles (`.gl`): the title and what it is.
@@ -184,7 +166,7 @@ fn group_head(t: &Tokens, title: &str, what: &str) -> impl IntoElement {
 fn tile_top(
     t: &Tokens,
     r: &Row,
-    (dim, stack, keys): (bool, &str, (Option<&gpui::FocusHandle>, bool)),
+    (dim, stack, keys, turning): (bool, &str, (Option<&gpui::FocusHandle>, bool), bool),
     cx: &mut Context<OverviewView>,
 ) -> impl IntoElement {
     let name = div()
@@ -205,7 +187,7 @@ fn tile_top(
         .when(r.pinned, |d| d.child(icon("icons/pin.svg", 13., t.accent)))
         // The lock stands where the switch would (the mark by the name already says ⊘).
         .child(div().flex_1())
-        .child(row_switch(t, r, stack, cx))
+        .child(row_switch(t, r, (stack, turning), cx))
 }
 
 /// The word, in its tone, and why.
@@ -222,24 +204,18 @@ fn tile_state(t: &Tokens, r: &Row) -> impl IntoElement {
 fn tile(
     t: &Tokens,
     r: &Row,
-    (selected, stack, keys): (bool, &str, (Option<&gpui::FocusHandle>, bool)),
+    (selected, stack, keys, turning): (bool, &str, (Option<&gpui::FocusHandle>, bool), bool),
     cx: &mut Context<OverviewView>,
 ) -> impl IntoElement {
     let off = !r.on && r.kind != "task";
     // As shell.css orders them: in trouble, then off (no fill, a dashed frame, even when selected), then selected. A
     // failed one is both: its red frame, dashed, and no fill (doze stopped trying; it waits for you).
     let (border, bg) = if r.trouble {
-        let fill = if off {
-            gpui::transparent_black()
-        } else {
-            mix(t.bad, t.panel, 7.)
-        };
+        // An unfilled tile is the page's own ground, opaque, so the shadow it lets go does not show through it.
+        let fill = if off { t.bg } else { mix(t.bad, t.panel, 7.) };
         (mix(t.bad, t.line, 55.), fill)
     } else if off {
-        (
-            if selected { t.line2 } else { t.line },
-            gpui::transparent_black(),
-        )
+        (if selected { t.line2 } else { t.line }, t.bg)
     } else if selected {
         (t.line2, mix(t.accent, t.panel, 7.))
     } else {
@@ -254,6 +230,8 @@ fn tile(
     };
     let (border, b_moving) = crate::motion::colour(&format!("{hid}/border"), border);
     let (bg, g_moving) = crate::motion::colour(&format!("{hid}/bg"), bg);
+    // Awake is lifted, asleep is flat: the shadow eases away as the tile falls asleep (120 ms, as a hover does).
+    let (k, l_moving) = crate::motion::lift(&hid, if off { 0.0 } else { 1.0 });
     let name = r.name.clone();
     let el = div()
         .id(gpui::SharedString::from(format!("tile-{}", r.name)))
@@ -270,9 +248,10 @@ fn tile(
         .border_1()
         .border_color(border)
         .bg(bg)
+        .shadow(t.lift_at(k))
         .when(off, |d| d.border_dashed())
-        .child(crate::motion::tick(b_moving || g_moving))
-        .child(tile_top(t, r, (off && !selected, stack, keys), cx))
+        .child(crate::motion::tick(b_moving || g_moving || l_moving))
+        .child(tile_top(t, r, (off && !selected, stack, keys, turning), cx))
         .child(tile_state(t, r))
         .child(super::foot::tile_foot(t, r, cx))
         .probe(format!("tile-{}", r.name), r.name.clone())
@@ -327,6 +306,7 @@ pub(super) fn view(
                         v.selected.as_deref() == Some(r.name.as_str()),
                         v.home.key.as_str(),
                         v.name_keys(&r.name),
+                        v.turning.contains(&r.name),
                     ),
                     cx,
                 ));
@@ -351,7 +331,7 @@ pub(super) fn view(
         .flex_col()
         .flex_1()
         .min_h_0()
-        .child(filter(t, v))
+        .child(filter(t, v, Some(TILE_SWITCH_IN), cx))
         .child(body)
 }
 

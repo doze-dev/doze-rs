@@ -110,16 +110,16 @@ fn palette(
 #[gpui::test]
 fn palette_finds_moves_and_does(cx: &mut TestAppContext) {
     let (p, cx, seen) = palette(cx);
-    cx.simulate_input("theme te");
+    cx.simulate_input("mode da");
     cx.update(|_, cx| {
         let m = &p.read(cx).model;
         assert_eq!(
             m.rows().next().map(|r| r.label.as_str()),
-            Some("Theme: teal")
+            Some("Mode: dark")
         );
     });
     cx.simulate_keystrokes("enter");
-    assert_eq!(*seen.borrow(), ["App theme:teal"]);
+    assert_eq!(*seen.borrow(), ["App mode:dark"]);
     // Esc (the root's CloseOverlay asks the palette first) clears the box; the palette stays, at hand again.
     cx.update(|window, cx| assert!(p.update(cx, |p, cx| p.escape(window, cx))));
     cx.update(|_, cx| {

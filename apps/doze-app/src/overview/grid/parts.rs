@@ -187,7 +187,8 @@ pub(super) fn cell(
             }
         }));
     if cell.dot {
-        let dot = div().size(px(12.)).rounded_full().bg(t.accent);
+        // A need is a mark in ink: the accent is kept for the crosshair, the current cell (the design pass, 2026-11-19).
+        let dot = div().size(px(12.)).rounded_full().bg(t.text);
         // Under the crosshair, a halo round the dot (`box-shadow: 0 0 0 4px`), the dot itself unchanged.
         let halo = div()
             .size(px(20.))

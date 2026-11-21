@@ -343,6 +343,7 @@ impl Render for ConsoleTabView {
                     .border_1()
                     .border_color(t.line)
                     .bg(t.well)
+                    .shadow(t.lift())
                     .overflow_hidden()
                     .child(top)
                     .child(body),

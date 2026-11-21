@@ -1,6 +1,9 @@
-//! The look: five palettes, each dark and light, from the Go app's design tokens (`themes/tokens.css`, converted by
+//! The look: Graphite, one look in dark and light, from doze's own design tokens (`themes/tokens.css`, converted by
 //! `cargo xtask themes` into `themes/doze.json`). gpui-component's own theme is set from the same file, so its inputs,
 //! menus and dialogs wear doze's colors, and doze's own painting reads [`Tokens`] by the names the React app used.
+//!
+//! The Go app had five palettes; the owner dropped them on 2026-11-19 (docs/port/app/PLAN.md, the theme rows of the
+//! parity checklist). A saved palette name is read and ignored: every one of them is the one look now.
 //!
 //! The mode follows the system unless the user picked one; [`Choice`] is what the user picked.
 
@@ -18,45 +21,6 @@ use serde::Deserialize;
 
 /// The theme set `cargo xtask themes` writes.
 const THEMES: &str = include_str!("../../themes/doze.json");
-
-/// A color family.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
-pub(crate) enum Palette {
-    /// The default.
-    #[default]
-    Violet,
-    Teal,
-    Burgundy,
-    Amber,
-    Slate,
-}
-
-impl Palette {
-    /// Every palette, in the Settings order.
-    pub(crate) const ALL: [Palette; 5] = [
-        Palette::Violet,
-        Palette::Teal,
-        Palette::Burgundy,
-        Palette::Amber,
-        Palette::Slate,
-    ];
-
-    /// Its name in the theme file and in prefs.
-    pub(crate) fn name(self) -> &'static str {
-        match self {
-            Palette::Violet => "violet",
-            Palette::Teal => "teal",
-            Palette::Burgundy => "burgundy",
-            Palette::Amber => "amber",
-            Palette::Slate => "slate",
-        }
-    }
-
-    /// The palette called `name`.
-    pub(crate) fn parse(name: &str) -> Option<Palette> {
-        Palette::ALL.into_iter().find(|p| p.name() == name)
-    }
-}
 
 /// Dark, light, or whatever the system is.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -95,7 +59,6 @@ impl Mode {
 /// What the user picked.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub(crate) struct Choice {
-    pub(crate) palette: Palette,
     pub(crate) mode: Mode,
 }
 
@@ -118,12 +81,21 @@ pub(crate) struct Tokens {
     pub(crate) warn: Hsla,
     pub(crate) cool: Hsla,
     pub(crate) bad: Hsla,
-    pub(crate) extra: Hsla,
     pub(crate) sel: Hsla,
     pub(crate) pick: Hsla,
     pub(crate) track: Hsla,
     pub(crate) ink: Hsla,
     pub(crate) on_accent: Hsla,
+    /// A switch's fill and knob when on: neutral, so the accent is not "on".
+    pub(crate) on: Hsla,
+    pub(crate) on_knob: Hsla,
+    /// The categorical ramp (teal, violet, magenta, stone): log service names, the memory strip, chart lines. No
+    /// status hue is in it, so a category never reads as awake, dozing or broken.
+    pub(crate) cat: [Hsla; 4],
+    /// How strongly cards lift off the page with a soft shadow.
+    pub(crate) lift: f32,
+    /// The scrim's opacity under ⌘K and the bell.
+    pub(crate) scrim_top: f32,
     /// The theme is dark.
     pub(crate) dark: bool,
 }
@@ -151,12 +123,19 @@ struct Raw {
     warn: String,
     cool: String,
     bad: String,
-    extra: String,
     sel: String,
     pick: String,
     track: String,
     ink: String,
     on_accent: String,
+    on: String,
+    on_knob: String,
+    cat_1: String,
+    cat_2: String,
+    cat_3: String,
+    cat_4: String,
+    lift: f32,
+    scrim: f32,
 }
 
 fn color(s: &str) -> anyhow::Result<Hsla> {
@@ -180,19 +159,58 @@ impl Tokens {
             warn: color(&r.warn)?,
             cool: color(&r.cool)?,
             bad: color(&r.bad)?,
-            extra: color(&r.extra)?,
             sel: color(&r.sel)?,
             pick: color(&r.pick)?,
             track: color(&r.track)?,
             ink: color(&r.ink)?,
             on_accent: color(&r.on_accent)?,
+            on: color(&r.on)?,
+            on_knob: color(&r.on_knob)?,
+            cat: [
+                color(&r.cat_1)?,
+                color(&r.cat_2)?,
+                color(&r.cat_3)?,
+                color(&r.cat_4)?,
+            ],
+            lift: r.lift,
+            scrim_top: r.scrim,
             dark,
         })
     }
 
-    /// The scrim under the palette: Go `.scrim.top`, rgba(9, 8, 14, .35), the same in every theme and mode.
+    /// The scrim under ⌘K and the bell: Go's ink, rgba(9, 8, 14), at the theme's `scrim` (Go's `.scrim.top` was .35;
+    /// Graphite's is .5 dark, .3 light, so a popover parts from what is behind it).
     pub(crate) fn scrim(&self) -> Hsla {
-        scrim(0.35)
+        scrim(self.scrim_top)
+    }
+
+    /// The soft shadow an awake card casts: it lifts off the page.
+    pub(crate) fn lift(&self) -> Vec<gpui::BoxShadow> {
+        self.lift_at(1.0)
+    }
+
+    /// The card shadow at `k` of its strength, 0 flat to 1 lifted: a tile eases between them as it sleeps or wakes.
+    pub(crate) fn lift_at(&self, k: f32) -> Vec<gpui::BoxShadow> {
+        let a = self.lift * k.clamp(0.0, 1.0);
+        if a <= 0.0 {
+            return Vec::new();
+        }
+        let shade = |a: f32, y: f32, blur: f32| gpui::BoxShadow {
+            color: alpha(gpui::black(), a),
+            offset: gpui::point(gpui::px(0.), gpui::px(y)),
+            blur_radius: gpui::px(blur),
+            spread_radius: gpui::px(0.),
+            inset: false,
+        };
+        vec![shade(a, 1.0, 2.0), shade(a * 0.7, 6.0, 18.0)]
+    }
+
+    /// Category `i` of the ramp, cycling.
+    pub(crate) fn cat(&self, i: usize) -> Hsla {
+        self.cat
+            .get(i % self.cat.len())
+            .copied()
+            .unwrap_or(self.text)
     }
 
     /// The scrim under a dialog: Go `.scrim`, rgba(9, 8, 14, .62), the same in every theme and mode.
@@ -213,14 +231,10 @@ impl Tokens {
     }
 }
 
-/// One theme of the file: gpui-component's config and doze's tokens.
-pub(crate) fn load(palette: Palette, dark: bool) -> anyhow::Result<(ThemeConfig, Tokens)> {
+/// The theme of a mode: gpui-component's config and doze's tokens.
+pub(crate) fn load(dark: bool) -> anyhow::Result<(ThemeConfig, Tokens)> {
     let set: Set = serde_json::from_str(THEMES).context("themes/doze.json")?;
-    let name = format!(
-        "doze {} {}",
-        palette.name(),
-        if dark { "dark" } else { "light" }
-    );
+    let name = format!("doze {}", if dark { "dark" } else { "light" });
     let v = set
         .themes
         .into_iter()
@@ -233,12 +247,12 @@ pub(crate) fn load(palette: Palette, dark: bool) -> anyhow::Result<(ThemeConfig,
     Ok((config, tokens))
 }
 
-/// Puts the palette on: doze's tokens and gpui-component's theme, both modes registered so a system switch lands on
+/// Puts the look on in the chosen mode: doze's tokens and gpui-component's theme, both modes registered so a system switch lands on
 /// doze's other mode rather than the component default.
 pub(crate) fn apply(cx: &mut App, choice: Choice, system: WindowAppearance) -> anyhow::Result<()> {
     let dark = choice.mode.dark(system);
-    let (other, _) = load(choice.palette, !dark)?;
-    let (config, tokens) = load(choice.palette, dark)?;
+    let (other, _) = load(!dark)?;
+    let (config, tokens) = load(dark)?;
     cx.set_global(choice);
     cx.set_global(tokens);
     let (other, config) = (Rc::new(other), Rc::new(config));
@@ -247,21 +261,6 @@ pub(crate) fn apply(cx: &mut App, choice: Choice, system: WindowAppearance) -> a
         t.apply_config(&config);
     });
     Ok(())
-}
-
-/// A palette's tokens in a mode, for Settings' swatches; read once from the theme file.
-pub(crate) fn swatch(palette: Palette, dark: bool) -> Option<Tokens> {
-    static ALL: std::sync::OnceLock<Vec<(Palette, bool, Tokens)>> = std::sync::OnceLock::new();
-    let all = ALL.get_or_init(|| {
-        Palette::ALL
-            .into_iter()
-            .flat_map(|p| [true, false].map(move |d| (p, d)))
-            .filter_map(|(p, d)| load(p, d).ok().map(|(_, t)| (p, d, t)))
-            .collect()
-    });
-    all.iter()
-        .find(|(p, d, _)| *p == palette && *d == dark)
-        .map(|(_, _, t)| *t)
 }
 
 /// The tokens in force.
@@ -300,40 +299,82 @@ pub(crate) fn alpha(c: Hsla, a: f32) -> Hsla {
 
 #[cfg(test)]
 mod tests {
-    use super::{Palette, load};
+    use super::load;
 
     #[test]
-    fn the_scrims_are_gos_one_ink_in_every_theme() {
-        for p in Palette::ALL {
-            for dark in [true, false] {
-                let (_, t) = load(p, dark).unwrap();
-                let (s, d) = (
-                    gpui::Rgba::from(t.scrim()),
-                    gpui::Rgba::from(t.dialog_scrim()),
-                );
-                assert_eq!(
-                    (
-                        (s.r * 255.).round(),
-                        (s.g * 255.).round(),
-                        (s.b * 255.).round()
-                    ),
-                    (9., 8., 14.)
-                );
-                assert!((s.a - 0.35).abs() < 1e-3 && (d.a - 0.62).abs() < 1e-3);
-                assert_eq!(((d.r * 255.).round(), (d.b * 255.).round()), (9., 14.));
-            }
+    fn the_scrims_are_gos_one_ink_in_both_modes() {
+        for dark in [true, false] {
+            let (_, t) = load(dark).unwrap();
+            let (s, d) = (
+                gpui::Rgba::from(t.scrim()),
+                gpui::Rgba::from(t.dialog_scrim()),
+            );
+            assert_eq!(
+                (
+                    (s.r * 255.).round(),
+                    (s.g * 255.).round(),
+                    (s.b * 255.).round()
+                ),
+                (9., 8., 14.)
+            );
+            let top = if dark { 0.5 } else { 0.3 };
+            assert!((s.a - top).abs() < 1e-3 && (d.a - 0.62).abs() < 1e-3);
+            assert_eq!(((d.r * 255.).round(), (d.b * 255.).round()), (9., 14.));
         }
     }
 
     #[test]
-    fn every_palette_loads_in_both_modes() {
-        for p in Palette::ALL {
-            for dark in [true, false] {
-                let (config, t) = load(p, dark).unwrap();
-                assert_eq!(config.mode.is_dark(), dark, "{}", p.name());
-                assert!(t.dark == dark);
-                // Text reads on the background: well apart in lightness.
-                assert!((t.text.l - t.bg.l).abs() > 0.4, "{} {dark}", p.name());
+    fn the_look_loads_in_both_modes() {
+        for dark in [true, false] {
+            let (config, t) = load(dark).unwrap();
+            assert_eq!(config.mode.is_dark(), dark);
+            assert!(t.dark == dark);
+            // Text reads on the background: well apart in lightness.
+            assert!((t.text.l - t.bg.l).abs() > 0.4, "{dark}");
+            // Awake lifts, asleep lies flat, and the ease runs between them.
+            assert_eq!(t.lift().len(), 2);
+            assert!(t.lift_at(0.0).is_empty());
+            assert!(t.lift_at(0.5)[0].color.a < t.lift()[0].color.a);
+        }
+    }
+
+    /// The categorical ramp keeps clear of the status set: no category is within 60 RGB units of a status colour or
+    /// the accent (the design pass's "hard to tell apart at dot size"), and each reads at 3:1 on every surface.
+    #[test]
+    fn the_ramp_is_not_a_status_colour() {
+        fn rgb(c: gpui::Hsla) -> [f32; 3] {
+            let c = gpui::Rgba::from(c);
+            [c.r * 255., c.g * 255., c.b * 255.]
+        }
+        fn lum(c: gpui::Hsla) -> f32 {
+            let l = |v: f32| {
+                let v = v / 255.;
+                if v <= 0.03928 {
+                    v / 12.92
+                } else {
+                    ((v + 0.055) / 1.055).powf(2.4)
+                }
+            };
+            let [r, g, b] = rgb(c);
+            0.2126 * l(r) + 0.7152 * l(g) + 0.0722 * l(b)
+        }
+        for dark in [true, false] {
+            let (_, t) = load(dark).unwrap();
+            for c in t.cat {
+                for s in [t.good, t.warn, t.cool, t.bad, t.accent] {
+                    let (a, b) = (rgb(c), rgb(s));
+                    let d = ((a[0] - b[0]).powi(2) + (a[1] - b[1]).powi(2) + (a[2] - b[2]).powi(2))
+                        .sqrt();
+                    assert!(d > 60., "{dark}: a category {d:.0} from a status colour");
+                }
+                for s in [t.bg, t.side, t.panel, t.well, t.sel] {
+                    let (x, y) = (lum(c), lum(s));
+                    let ratio = (x.max(y) + 0.05) / (x.min(y) + 0.05);
+                    assert!(
+                        ratio >= 3.0,
+                        "{dark}: a category at {ratio:.2} on a surface"
+                    );
+                }
             }
         }
     }

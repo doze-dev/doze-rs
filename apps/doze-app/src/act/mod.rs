@@ -12,7 +12,7 @@ mod run;
 
 use std::collections::HashMap;
 use std::path::PathBuf;
-use std::time::{Instant, SystemTime};
+use std::time::{Duration, Instant, SystemTime};
 
 use doze_desk::act::{Busy, Cli, Dialog, Failure, Notices, Preflight, StackAction, StartSheet};
 use doze_desk::{Hub, StackKey};
@@ -62,6 +62,9 @@ pub(crate) struct Acts {
     pub(crate) notices: Notices,
     /// The stacks with an action in flight.
     pub(crate) busy: HashMap<StackKey, Busy>,
+    /// When each stack's action began, and the services it was asked to start by name (a stopped stack's row
+    /// switched on): what the busy state is drawn on, once it has lasted [`SHOW_BUSY_AFTER`].
+    pub(crate) begun: HashMap<StackKey, (Instant, Vec<String>)>,
     /// The last stack action that did not work, by stack, until dismissed.
     pub(crate) failed: HashMap<StackKey, Failure>,
     /// Services with a verb in flight.
@@ -74,6 +77,9 @@ pub(crate) struct Acts {
 }
 
 impl EventEmitter<ActsEvent> for Acts {}
+
+/// How long an action runs before it is shown as running: under it, the page does not change at all.
+pub(crate) const SHOW_BUSY_AFTER: Duration = Duration::from_millis(150);
 
 struct Handle(Entity<Acts>);
 
@@ -104,6 +110,7 @@ pub(crate) fn ensure(hub: &Hub, mode: &crate::facts::Mode, cx: &mut App) -> Enti
         mode: mode.clone(),
         notices: Notices::default(),
         busy: HashMap::new(),
+        begun: HashMap::new(),
         failed: HashMap::new(),
         doing: HashMap::new(),
         recent: false,
@@ -170,6 +177,39 @@ impl Acts {
     /// What the stack is busy doing, if anything.
     pub(crate) fn busy_of(&self, key: &StackKey) -> Option<Busy> {
         self.busy.get(key).copied()
+    }
+
+    /// What the stack is busy doing, once it has been for [`SHOW_BUSY_AFTER`]: what the words and the spinners say, so
+    /// an action over at once never blinks. (The switch moves at once, and stays off while busy: [`Acts::busy_of`].)
+    pub(crate) fn busy_shown(&self, key: &StackKey) -> Option<Busy> {
+        let b = self.busy_of(key)?;
+        let (at, _) = self.begun.get(key)?;
+        (at.elapsed() >= SHOW_BUSY_AFTER).then_some(b)
+    }
+
+    /// The services a stack's action in flight was asked to start by name, once it shows ([`Acts::busy_shown`]).
+    pub(crate) fn touched(&self, key: &StackKey) -> &[String] {
+        match (self.busy_shown(key), self.begun.get(key)) {
+            (Some(_), Some((_, names))) => names,
+            _ => &[],
+        }
+    }
+
+    /// Every service of the stack is being put to sleep (Sleep everything, in flight).
+    pub(crate) fn sleeping_all(&self, key: &StackKey) -> bool {
+        self.doing.contains_key(&(key.clone(), String::new()))
+    }
+
+    /// Sleep everything (the moon, its menu item, `s` with the stack selected): the daemon puts every service to sleep
+    /// and stays up, so the next connection wakes what it needs (`doze sleep` with no names). Down stops the daemon.
+    pub(crate) fn sleep_all(&mut self, key: &StackKey, cx: &mut Context<Self>) {
+        let Some(st) = self.hub.stack(key) else {
+            return;
+        };
+        if !st.running || self.busy_of(key).is_some() || self.sleeping_all(key) {
+            return;
+        }
+        self.verb(key, "", doze_control::Verb::Sleep, cx);
     }
 
     /// Puts a failed stack action away.

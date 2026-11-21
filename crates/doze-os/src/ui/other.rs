@@ -52,6 +52,14 @@ pub(super) fn hands_off() -> usize {
     0
 }
 
+pub(super) fn give_back_memory() -> usize {
+    0
+}
+
+pub(super) fn float_over() -> usize {
+    0
+}
+
 pub(super) fn holds_input() -> (bool, usize) {
     (false, 0)
 }

@@ -174,7 +174,7 @@ pub(crate) fn stop(pid: u32) -> Result<bool, Diagnostic> {
                 ids::NOT_BUILT,
                 "`doze down` cannot stop the daemon on Windows yet: that comes with the Rust daemon's named pipe (core plan W)",
             )
-            .fix("the Go doze does this today")),
+            .fix("run it on macOS or Linux for now")),
             std::io::ErrorKind::PermissionDenied => Ok(false),
             _ if !doze_os::process::alive(pid) => Ok(true),
             _ => Err(Diagnostic::new(

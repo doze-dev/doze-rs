@@ -20,7 +20,9 @@ enum Mark {
     Ring,
 }
 
-/// `.banner`: the mark, a bold line and a dim one, tinted by its tone; buttons at the right.
+/// `.banner`: the mark, a bold line and a dim one, tinted by its tone; buttons at the right. A note (the cool tone:
+/// a domain to set up, doze.hcl changed) is drawn at note weight, a plain card with its dot and no coloured frame, so
+/// it is not the strongest box on the page; a warning or a failure keeps its tinted frame.
 fn banner(
     t: &Tokens,
     id: &'static str,
@@ -49,8 +51,14 @@ fn banner(
         .py(px(10.))
         .rounded(px(10.))
         .border_1()
-        .border_color(mix(tone, t.panel, 50.))
-        .bg(mix(tone, t.panel, 10.))
+        .map(|d| {
+            if tone == t.cool {
+                d.border_color(t.line).bg(t.panel)
+            } else {
+                d.border_color(mix(tone, t.panel, 50.))
+                    .bg(mix(tone, t.panel, 10.))
+            }
+        })
         .child(mark)
         .child(
             div()
@@ -75,10 +83,15 @@ fn banner(
 }
 
 /// The daemon is not answering, or has gone quiet (Go: `app.tsx`'s warn banner over every stack page, a ring and
-/// the words alone).
+/// the words alone). Connecting is no banner: it is every start's first moment (and a drop's, until it lasts), and an
+/// insert at the top pushed the whole page down and back; the head's status line says "connecting…" in place.
 pub(super) fn stale(t: &Tokens, v: &OverviewView) -> Option<AnyElement> {
     let b = &v.home.banner;
-    (!b.ok && !b.text.is_empty()).then(|| stale_banner(t, &b.text))
+    let connecting = v
+        .stack
+        .as_ref()
+        .is_some_and(|s| s.running && s.conn_shown(v.hub.now()) == doze_desk::Conn::Connecting);
+    (!b.ok && !b.text.is_empty() && !connecting).then(|| stale_banner(t, &b.text))
 }
 
 /// The warn banner of a daemon not answering, with its words (the stack page's and an instance page's).
@@ -178,7 +191,39 @@ pub(super) fn banners(
     if let Some(su) = &v.home.setup {
         out.push(setup(t, su, cx));
     }
+    if let Some(sk) = &v.home.skew {
+        out.push(skew(t, sk, cx));
+    }
     out
+}
+
+/// An older doze than the app's own (doze-desk `skew`): a daemon's is fixed by restarting the stack, which brings it
+/// up on the app's doze; the CLI's by what the detail says.
+fn skew(t: &Tokens, sk: &doze_desk::skew::Skew, cx: &mut Context<OverviewView>) -> AnyElement {
+    let mut buttons = Vec::new();
+    if sk.whose == doze_desk::skew::Whose::Daemon {
+        buttons.push(
+            btn(
+                t,
+                "restart-on-own",
+                "Restart the stack",
+                "",
+                Btn::Primary,
+                Some(Box::new(cx.listener(|this, _, _, cx| {
+                    this.stack_act(StackAction::Restart, cx);
+                }))),
+            )
+            .probe("restart-on-own", "Restart the stack")
+            .into_any_element(),
+        );
+    }
+    banner(
+        t,
+        "banner-skew",
+        (t.warn, Mark::Dot(t.warn)),
+        (&sk.text, &sk.detail),
+        buttons,
+    )
 }
 
 /// The domains' setup (Go `home.setup`): what is not reachable yet and what is missing; Set up the machine (one

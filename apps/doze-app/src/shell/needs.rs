@@ -193,9 +193,11 @@ impl Root {
         );
     }
 
-    /// The panel, under the bell, over the page; a click outside it closes it.
+    /// The panel, under the bell, over the page dimmed by the palette's scrim (so it parts from what is behind it, as
+    /// ⌘K does); a click outside it closes it.
     pub(super) fn bell_el(&self, b: Entity<Bell>, cx: &mut Context<Self>) -> AnyElement {
         let motion = Motion::of(cx);
+        let scrim = tokens(cx).scrim();
         let panel = div().absolute().top(px(44.)).right(px(184.)).child(b);
         let panel = if motion.moves() {
             // Go `.np`: `settle`, 160 ms from 6 px above.
@@ -207,23 +209,33 @@ impl Root {
         } else {
             panel.into_any_element()
         };
+        let outside = div()
+            .id("bell-outside")
+            .absolute()
+            .top(px(0.))
+            .left(px(0.))
+            .size_full()
+            .bg(scrim)
+            .on_mouse_down(
+                gpui::MouseButton::Left,
+                cx.listener(|r, _, window, cx| r.shut_bell(window, cx)),
+            );
+        // The scrim fades in as ⌘K's does (Go `fade`, 160 ms ease-out).
+        let outside = if motion.moves() {
+            outside
+                .with_animation("bell-scrim", crate::motion::scrim_anim(), |d, p| {
+                    d.opacity(p)
+                })
+                .into_any_element()
+        } else {
+            outside.into_any_element()
+        };
         div()
             .absolute()
             .top(px(0.))
             .left(px(0.))
             .size_full()
-            .child(
-                div()
-                    .id("bell-outside")
-                    .absolute()
-                    .top(px(0.))
-                    .left(px(0.))
-                    .size_full()
-                    .on_mouse_down(
-                        gpui::MouseButton::Left,
-                        cx.listener(|r, _, window, cx| r.shut_bell(window, cx)),
-                    ),
-            )
+            .child(outside)
             .child(panel)
             .into_any_element()
     }

@@ -1,11 +1,11 @@
-//! Settings › General (Go `settings.tsx`, the General part): the mode, the rows, the colour theme (each of the five
-//! drawn in the mode on screen: its ground, its accent, good and cool), Startup, and where it is all saved.
+//! Settings › General (Go `settings.tsx`, the General part): the mode, the rows, Startup, and where it is all saved.
+//! Go's colour theme row (the five palettes as swatches) is gone: doze has one look, Graphite, since 2026-11-19.
 
 use gpui::{AnyElement, Context, IntoElement, Window, div, prelude::*, px};
 
 use super::{SettingsEvent, SettingsView};
 use crate::instance::ui::text;
-use crate::theme::{Choice, Density, Mode, Palette, Tokens, swatch, tokens, ty};
+use crate::theme::{Choice, Density, Mode, Tokens, tokens, ty};
 use crate::widgets::{icon, seg, switch};
 
 /// The head of a part: its name, and a line after it.
@@ -121,12 +121,6 @@ pub(super) fn page(
         ))
         .child(set_row(
             t,
-            "Colour theme",
-            "the terminal's five, each in light and dark",
-            swatches(t, choice, dark, cx),
-        ))
-        .child(set_row(
-            t,
             "Startup",
             "the bat is light; the window is not kept",
             div()
@@ -165,7 +159,7 @@ fn modes(t: &Tokens, choice: Choice, cx: &mut Context<SettingsView>) -> impl Int
     .into_iter()
     .map(|(m, word)| {
         let click: crate::widgets::OnClick = Box::new(cx.listener(move |_, _, _, cx| {
-            cx.emit(SettingsEvent::Choose(Choice { mode: m, ..choice }));
+            cx.emit(SettingsEvent::Choose(Choice { mode: m }));
         }));
         (
             div().child(word).into_any_element(),
@@ -210,62 +204,6 @@ fn capital(word: &str) -> String {
     c.next()
         .map(|f| f.to_uppercase().chain(c).collect())
         .unwrap_or_default()
-}
-
-/// `.swatches`: each palette as a little window in the mode on screen, the chosen one ringed in the accent.
-fn swatches(
-    t: &Tokens,
-    choice: Choice,
-    dark: bool,
-    cx: &mut Context<SettingsView>,
-) -> impl IntoElement {
-    div()
-        .flex()
-        .flex_wrap()
-        .gap(px(10.))
-        .children(Palette::ALL.into_iter().map(|p| {
-            let on = choice.palette == p;
-            let look = swatch(p, dark).unwrap_or(*t);
-            let bar = |c: gpui::Hsla, pct: f32| {
-                div().h(px(6.)).rounded(px(3.)).w(gpui::relative(pct)).bg(c)
-            };
-            div()
-                .id(p.name())
-                .w(px(110.))
-                .rounded(px(9.))
-                .border_1()
-                .border_color(if on { t.accent } else { t.line2 })
-                .when(on, |d| d.border_2())
-                .bg(t.panel)
-                .overflow_hidden()
-                .cursor_pointer()
-                .on_click(cx.listener(move |_, _, _, cx| {
-                    cx.emit(SettingsEvent::Choose(Choice {
-                        palette: p,
-                        ..choice
-                    }));
-                }))
-                .child(
-                    div()
-                        .h(px(54.))
-                        .flex()
-                        .flex_col()
-                        .gap(px(4.))
-                        .p(px(8.))
-                        .bg(look.bg)
-                        .child(bar(look.accent, 0.7))
-                        .child(bar(look.good, 0.4))
-                        .child(bar(look.cool, 0.55)),
-                )
-                .child(
-                    div()
-                        .px(px(8.))
-                        .py(px(5.))
-                        .text_size(px(ty::SM))
-                        .text_color(t.text)
-                        .child(capital(p.name())),
-                )
-        }))
 }
 
 /// `.radio` with a switch: the switch, then what it does.

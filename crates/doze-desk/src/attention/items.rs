@@ -141,9 +141,11 @@ fn ended_item(base: Item, st: &StackView, name: &str, now: SystemTime) -> Option
     }
 }
 
-/// A running stack whose daemon stopped answering.
+/// A running stack whose daemon stopped answering: for [`crate::LOST_AFTER`], with no action of this app on it (a
+/// daemon exits on every down and starts on every up, and the connection drops a moment before the stack is seen
+/// stopped, or comes a moment after it is seen running).
 fn daemon_item(base: Item, st: &StackView, name: &str, now: SystemTime) -> Option<Item> {
-    (st.running && st.link.conn == Conn::Down).then(|| Item {
+    st.daemon_lost(now).then(|| Item {
         print: "down".into(),
         red: true,
         title: format!("{name}'s daemon is not answering"),
