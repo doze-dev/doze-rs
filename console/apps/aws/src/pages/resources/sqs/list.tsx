@@ -5,6 +5,7 @@ import { PlusIcon, RowsIcon, SearchIcon } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 import { ErrorBlock } from "@doze/ui/components/app/alert";
 import { type DataColumn, DataTable } from "@doze/ui/components/app/data-table";
+import { Emphasis } from "@doze/ui/components/app/emphasis";
 import { EmptyState } from "@doze/ui/components/app/empty-state";
 import { PageHeader } from "@doze/ui/components/app/page-header";
 import { Pagination } from "@doze/ui/components/app/pagination";
@@ -22,14 +23,17 @@ import { SqsCreate } from "./create";
 import { deletedWords, listRows, type QueueRow } from "./list-model";
 import { remainWords } from "./queue-model";
 
+/** The counts a list sentence is about (`58 messages waiting`, `6 in flight`), set in bold. */
+const FIGURES = [/\d[\d,]*(?= messages? waiting| in flight)/];
+
 const COLUMNS: DataColumn<QueueRow>[] = [
-  { id: "name", header: "Name", accessorFn: (r) => r.name.toLowerCase(), meta: { mono: true }, cell: (c) => <ResourceTo to={{ service: "sqs", kind: "queues", name: c.row.original.name }} className="font-mono text-[13px] font-medium" testId="row-link">{c.row.original.name}</ResourceTo> },
-  { id: "type", header: "Type", accessorKey: "type", size: 90, enableSorting: false },
-  { id: "created", header: "Created", accessorFn: (r) => r.createdMs ?? 0, size: 190, min: 170, cell: (c) => <Value value={c.row.original.created} format="time" /> },
-  { id: "available", header: "Messages available", accessorKey: "available", size: 190, meta: { numeric: true } },
-  { id: "inFlight", header: "Messages in flight", accessorKey: "inFlight", size: 190, meta: { numeric: true } },
-  { id: "encryption", header: "Encryption", accessorFn: (r) => (r.encrypted ? 1 : 0), size: 120, enableSorting: false, cell: (c) => (c.row.original.encrypted ? "Enabled" : <span className="text-muted-foreground">–</span>) },
-  { id: "dedup", header: "Content-based deduplication", accessorFn: (r) => (r.dedup ? 1 : 0), size: 270, enableSorting: false, cell: (c) => (c.row.original.dedup ? "Enabled" : <span className="text-muted-foreground">–</span>) },
+  { id: "name", header: "Name", min: 168, accessorFn: (r) => r.name.toLowerCase(), meta: { mono: true }, cell: (c) => <ResourceTo to={{ service: "sqs", kind: "queues", name: c.row.original.name }} className="font-mono text-[13px] font-medium" testId="row-link">{c.row.original.name}</ResourceTo> },
+  { id: "type", header: "Type", accessorKey: "type", size: 84, fit: 60, enableSorting: false },
+  { id: "created", header: "Created", accessorFn: (r) => r.createdMs ?? 0, size: 190, fit: 90, cell: (c) => <Value value={c.row.original.created} format="time" /> },
+  { id: "available", header: "Messages available", accessorKey: "available", size: 176, fit: 176, meta: { numeric: true } },
+  { id: "inFlight", header: "Messages in flight", accessorKey: "inFlight", size: 176, fit: 176, meta: { numeric: true } },
+  { id: "encryption", header: "Encryption", accessorFn: (r) => (r.encrypted ? 1 : 0), size: 108, fit: 108, enableSorting: false, cell: (c) => (c.row.original.encrypted ? "Enabled" : <span className="text-muted-foreground">–</span>) },
+  { id: "dedup", header: "Content-based deduplication", accessorFn: (r) => (r.dedup ? 1 : 0), size: 238, fit: 232, enableSorting: false, cell: (c) => (c.row.original.dedup ? "Enabled" : <span className="text-muted-foreground">–</span>) },
 ];
 
 /** The queues' list page; with `?create=yes` the Create queue page in its place. */
@@ -78,11 +82,11 @@ function QueuesList({ service, kind, q, gone, from }: { service: string; kind: s
         </div>
       ) : (
         <>
-          {(sentence || orphan) && <p className="mb-5 max-w-[62rem] text-[15px] leading-6 text-muted-foreground" data-testid="list-sentence">{[sentence, orphan].filter(Boolean).join(" ")}</p>}
+          {(sentence || orphan) && <p className="mb-5 max-w-[62rem] text-[15px] leading-6 text-muted-foreground" data-testid="list-sentence"><Emphasis text={[sentence, orphan].filter(Boolean).join(" ")} names={[...new Set(rows.flatMap((r: QueueRow) => (r.dlq ? [r.dlq] : [])).concat(from ? [from] : []))]} bold={FIGURES} /></p>}
           <form className="mb-4 flex flex-wrap items-center gap-3" role="search" onSubmit={(e) => { e.preventDefault(); go(typed.trim() ? { q: typed.trim() } : {}); }}>
             <div className="relative w-full max-w-[22rem]">
               <SearchIcon aria-hidden className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
-              <Input value={typed} onChange={(e) => setTyped(e.target.value)} placeholder="Search queues by name prefix" aria-label="Search queues by name prefix" className="bg-card pl-9 font-mono text-[13px]" data-testid="list-search" />
+              <Input value={typed} onChange={(e) => setTyped(e.target.value)} placeholder="Search queues by prefix" aria-label="Search queues by prefix" className="bg-card pl-9 font-mono text-[13px]" data-testid="list-search" />
             </div>
             <Button type="submit" variant="outline" className="bg-card" data-testid="list-search-go">Search</Button>
             {q && <Button type="button" variant="ghost" onClick={() => { setTyped(""); go({}); }} data-testid="search-clear">Clear search</Button>}

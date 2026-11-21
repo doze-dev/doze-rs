@@ -2,6 +2,7 @@
 // on the queue's Dead-letter queue tab (./redrive-status.tsx).
 import { useState } from "react";
 import { Alert } from "@doze/ui/components/app/alert";
+import { Callout } from "@doze/ui/components/app/callout";
 import { Combobox } from "@doze/ui/components/app/combobox";
 import { Input } from "@doze/ui/components/ui/input";
 import { Label } from "@doze/ui/components/ui/label";
@@ -9,7 +10,7 @@ import { RadioGroup, RadioGroupItem } from "@doze/ui/components/ui/radio-group";
 import { ApiFailure } from "@doze/ui/lib/api";
 import { useAbout } from "../../../api/queries";
 import { useResourceList } from "../../../api/resources";
-import { Field, FormPage, FormSection, RuleHelp } from "../../../kit";
+import { Field, FormPage, FormSection } from "../../../kit";
 import { useOp } from "../deep/api";
 import { Link } from "@tanstack/react-router";
 import { MAX_RATE, startInput, startProblem } from "./redrive-form";
@@ -22,6 +23,7 @@ export function SqsRedrive({ d, q, back, done }: SubProps) {
   const [dest, setDest] = useState<string | null>(null);
   const [rate, setRate] = useState<"system" | "custom">("system");
   const [per, setPer] = useState("");
+  const [example, setExample] = useState(false);
   const start = useOp<{ TaskHandle?: string }>(t, "StartMessageMoveTask");
   const list = useResourceList("sqs", "queues");
   const sources = d.subs.find((s) => s.title.includes("dead-letter queue"))?.rows.map((r) => r.name) ?? [];
@@ -37,7 +39,6 @@ export function SqsRedrive({ d, q, back, done }: SubProps) {
       title="Start DLQ redrive"
       sub={`Move the messages out of ${q.name}. SQS starts a task that receives them from this queue and sends them on.`}
       crumbs={[{ label: "Resources", to: "/resources" }, { label: d.group, to: "/resources" }, { label: d.service_title, to: `/resources/${d.service}` }, { label: d.name, to: `/resources/${d.service}/${d.kind}/${encodeURIComponent(d.name)}` }]}
-      mono
       request={{ service: "sqs", operation: "StartMessageMoveTask", input }}
       refusal={refused}
       callNote={<>{where === "source" ? "No DestinationArn, so each message returns to its original source queue." : "A DestinationArn, so every message goes there."} {rate === "system" ? "No rate, so it moves at the system's pace (doze-aws moves 500 a second)." : `At most ${per || "?"} messages a second.`}</>}
@@ -64,11 +65,17 @@ export function SqsRedrive({ d, q, back, done }: SubProps) {
             {(id) => <Combobox id={id} options={peers.map((r) => ({ value: arn(r.name), label: r.label }))} value={dest} onChange={setDest} placeholder="Choose a queue" search="Search queues, or enter an ARN…" empty="No queue matches." className="w-full font-mono" pattern aria-label="Destination queue" />}
           </Field>
         )}
-        <p className="text-[13.5px] text-muted-foreground" data-testid="redrive-sources">
-          Source queues{" "}
-          {sources.length > 0 ? sources.map((s, i) => <span key={s}>{i > 0 && ", "}<Link to="/resources/$service/$kind/$name" params={{ service: "sqs", kind: "queues", name: s }} className="font-mono text-link hover:underline">{s}</Link></span>) : "none"}
-          . A message sent straight to this queue has no source queue to return to, and the task fails. Choose a custom destination for those; it must be the same type as this queue.
-        </p>
+        <div className="grid gap-2 text-[13.5px] text-muted-foreground" data-testid="redrive-sources">
+          <div className="flex flex-wrap items-center gap-2">
+            <span>Source queues</span>
+            {sources.length > 0 ? sources.map((s) => <Link key={s} to="/resources/$service/$kind/$name" params={{ service: "sqs", kind: "queues", name: s }} className="rounded-full border bg-well px-2.5 py-0.5 font-mono text-[12.5px] text-bright hover:bg-accent">{s}</Link>) : <span>none</span>}
+          </div>
+          <p className="border-l-2 pl-3.5 leading-5 text-foreground">
+            A message sent straight to this queue has no source queue to return to, and the task fails. Choose a custom destination for those; it must be the same type as this queue.{" "}
+            <button type="button" className="font-medium text-link hover:underline" onClick={() => setExample(!example)} aria-expanded={example} data-testid="failed-example-toggle">{example ? "Hide the failed task." : "See what a failed task looks like."}</button>
+          </p>
+          {example && <Callout tone="bad" lead="Failed: CouldNotDetermineMessageSource." testId="failed-example">SQS could not tell which queue the message came from, because it was sent straight to the dead-letter queue. Nothing was moved, and the task's status shows this failure reason.</Callout>}
+        </div>
       </FormSection>
       <FormSection title="Velocity control settings">
         <RadioGroup value={rate} onValueChange={(v) => setRate(v as "system" | "custom")} className="grid gap-2" aria-label="Velocity">
@@ -79,15 +86,13 @@ export function SqsRedrive({ d, q, back, done }: SubProps) {
             </Label>
           ))}
         </RadioGroup>
-        {rate === "custom" && (
-          <Field label="Custom max velocity" help="Start with a small value, check that the queue receiving the messages is not overwhelmed, then raise it gradually. Used only with Custom max velocity." testId="field-velocity">
-            {(id) => (
-              <div className="flex items-center gap-2"><Input id={id} value={per} onChange={(ev) => setPer(ev.target.value)} inputMode="numeric" className="w-32 font-mono" autoComplete="off" data-testid="redrive-rate" /><span className="text-[13.5px] text-muted-foreground">messages per second</span></div>
-            )}
-          </Field>
-        )}
-        <RuleHelp><b>Before you start.</b> You can't filter or change messages while redriving. Only one task can run on a queue at a time, and what a task has moved stays moved if you cancel it.</RuleHelp>
-        <RuleHelp>On AWS the caller needs sqs:StartMessageMoveTask, sqs:ReceiveMessage, sqs:DeleteMessage and sqs:GetQueueAttributes on the dead-letter queue, and sqs:SendMessage on the destination queue. doze-aws consults IAM according to its mode: soft (the default) records a missing permission and enforce refuses.</RuleHelp>
+        <Field label="Custom max velocity" help="Start with a small value, check that the queue receiving the messages is not overwhelmed, then raise it gradually. Used only with Custom max velocity." testId="field-velocity">
+          {(id) => (
+            <div className="flex items-center gap-2"><Input id={id} value={per} onChange={(ev) => setPer(ev.target.value)} inputMode="numeric" disabled={rate !== "custom"} placeholder={`1 to ${MAX_RATE}`} className="w-44 font-mono" autoComplete="off" data-testid="redrive-rate" /><span className="text-[13.5px] text-muted-foreground">messages per second</span></div>
+          )}
+        </Field>
+        <Callout tone="warn" lead="Before you start." testId="redrive-before"> You can't filter or change messages while redriving. Only one task can run on a queue at a time, and what a task has moved stays moved if you cancel it.</Callout>
+        <Callout tone="note" testId="redrive-iam">On AWS the caller needs sqs:StartMessageMoveTask, sqs:ReceiveMessage, sqs:DeleteMessage and sqs:GetQueueAttributes on the dead-letter queue, and sqs:SendMessage on the destination queue. doze-aws consults IAM according to its mode: soft (the default) records a missing permission and enforce refuses.</Callout>
       </FormSection>
     </FormPage>
   );

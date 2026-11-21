@@ -95,7 +95,8 @@ pub const QUEUE: Page = Page {
         Verb::ui("delete", "Delete").danger(),
         Verb::call("purge", "Purge", "PurgeQueue", Needs::Confirm).danger(),
         Verb::ui("messages", "Send and receive messages"),
-        Verb::ui("redrive", "Start DLQ redrive").when(is_dead_letter),
+        // Always listed: a queue that is no one's dead-letter queue shows it off, with the reason (the page says it).
+        Verb::ui("redrive", "Start DLQ redrive"),
     ],
     summary: Some(summary),
 };

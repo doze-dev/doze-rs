@@ -1,5 +1,6 @@
 // The fields of Create queue and Edit queue (sqs__queue-create, queue-create-fifo, queue-edit): the type and name, and the
 // configuration with each setting's rule in SQS's own numbers. The optional sections are in ./form-sections.tsx.
+import { Checkbox } from "@doze/ui/components/ui/checkbox";
 import { Input } from "@doze/ui/components/ui/input";
 import { Label } from "@doze/ui/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@doze/ui/components/ui/radio-group";
@@ -124,15 +125,15 @@ function FifoSettings({ f, set }: Pick<FieldProps, "f" | "set">) {
       <div className="flex items-start gap-3" data-testid="field-dedup">
         <Switch id="queue-dedup" checked={f.dedup} onCheckedChange={(dedup) => set({ dedup })} className="mt-0.5" data-testid="queue-dedup" />
         <div className="grid gap-1">
-          <Label htmlFor="queue-dedup">Content-based deduplication {f.dedup ? "Enabled" : "Disabled"}</Label>
+          <Label htmlFor="queue-dedup">Content-based deduplication {f.dedup ? "Enabled" : "Disabled"} <span className="rounded-full bg-muted px-2 py-px text-[11.5px] font-normal text-muted-foreground">Optional</span></Label>
           <RuleHelp>When on, SQS derives the deduplication ID from a SHA-256 hash of the message body, so a message with an identical body inside the 5-minute deduplication interval is accepted but not delivered. Default off.</RuleHelp>
         </div>
       </div>
       <div className="grid gap-3">
         <div className="flex items-start gap-3" data-testid="field-high-throughput">
-          <Switch id="queue-high" checked={f.highThroughput} onCheckedChange={(on) => set({ highThroughput: on, ...(on ? { scope: "messageGroup", limit: "perMessageGroupId" } : { scope: "queue", limit: "perQueue" }) })} className="mt-0.5" data-testid="queue-high" />
+          <Checkbox id="queue-high" checked={f.highThroughput} onCheckedChange={(on) => set({ highThroughput: on === true, ...(on === true ? { scope: "messageGroup", limit: "perMessageGroupId" } : { scope: "queue", limit: "perQueue" }) })} className="mt-0.5" data-testid="queue-high" />
           <div className="grid gap-1">
-            <Label htmlFor="queue-high">High throughput FIFO {f.highThroughput ? "Enabled" : "Disabled"}</Label>
+            <Label htmlFor="queue-high">Enable high throughput FIFO</Label>
             <RuleHelp>Sets <b>Deduplication scope</b> to messageGroup and <b>FIFO throughput limit</b> to perMessageGroupId. If you change either related option, normal throughput is in effect.</RuleHelp>
           </div>
         </div>
@@ -156,9 +157,9 @@ function FifoSettings({ f, set }: Pick<FieldProps, "f" | "set">) {
                 <SelectItem value="perMessageGroupId">perMessageGroupId</SelectItem>
               </SelectContent>
             </Select>
+            <LocalStatus state="stored" reason="FIFO throughput limit is validated and returned; nothing is throttled." />
           </div>
         </div>
-        <LocalStatus state="stored" reason="FIFO throughput limit is validated and returned; nothing is throttled." />
       </div>
     </>
   );

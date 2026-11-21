@@ -8,7 +8,7 @@ import { deadLettered, queueUrl, seedLarder } from "./sqs-seed";
 import { CUT, expect, test } from "./fixtures";
 
 const SHOTS = process.env.SHOTS_DIR ?? join(import.meta.dirname, "../../../../../shots-sqs");
-const BASE = 44500;
+const BASE = 44800;
 const at = (b: string) => BASE + ({ firefox: 10, webkit: 20, chromium: 30 }[b] ?? 40);
 
 test.describe.configure({ mode: "serial" });
@@ -145,11 +145,16 @@ test("sqs__queue-create-fifo and sqs__queue-created: a FIFO queue with its own s
 test("sqs__queue-detail: the sentence, what the queue is wired to, its verbs, details and the dead-letter queue", async ({ page }) => {
   await go(page, "/resources/sqs/queues/pick-lists", "pick-lists");
   await expect(page.getByTestId("detail-sentence")).toContainText("pick-lists has 2 messages waiting and 1 in flight. A message received more than 5 times moves to pick-lists-dlq, which holds 1 now.");
-  await expect(page.getByTestId("wired-strip")).toContainText("larder/payment-settled");
+  await expect(page.getByTestId("wired-strip")).toContainText("payment-settled rule, bus larder");
   await expect(page.getByTestId("wired-strip")).toContainText("pick-lists-dlq");
-  await expect(page.getByTestId("wired-strip")).toContainText("alias/larder-app");
+  await expect(page.getByTestId("wired-strip")).toContainText("alias/larder-app key");
+  await expect(page.getByTestId("wired-self")).toHaveText("pick-lists");
   for (const verb of ["edit", "delete", "purge", "messages"]) await expect(page.getByTestId(`verb-${verb}`)).toBeVisible();
-  await expect(page.getByTestId("verb-redrive")).toHaveCount(0);
+  // Start DLQ redrive is there, greyed: pick-lists is no one's dead-letter queue.
+  await expect(page.getByTestId("verb-redrive")).toBeDisabled();
+  await expect(page.getByTestId("verb-reasons")).toHaveCount(0);
+  // The whole name is bold in the sentence, never half of it (pick-lists-dlq is another name).
+  await expect(page.getByTestId("detail-sentence").locator("span.font-mono")).toHaveText(["pick-lists", "pick-lists-dlq"]);
   await expect(page.getByTestId("field-ARN")).toContainText(`arn:aws:sqs:us-east-1:${server.account}:pick-lists`);
   await expect(page.getByTestId("field-Approx. messages")).toHaveText("2 available, 1 in flight, 0 delayed");
   await expect(page.getByTestId("dlq-words")).toContainText("which holds 1 message now and keeps messages for 14 days");
@@ -167,22 +172,26 @@ test("sqs__queue-access-policy and sqs__queue-encryption: what the policy lets i
   await expect(rows.nth(1)).toContainText("SendMessage, only from the rule payment-settled");
   await shot(page, "sqs__queue-access-policy");
   await page.goto(`${server.console}/resources/sqs/queues/pick-lists?tab=encryption`);
-  await expect(page.getByTestId("encryption-tab")).toContainText("Enabled · AWS Key Management Service key (SSE-KMS)");
+  await expect(page.getByTestId("sse-state")).toContainText("Enabled");
+  await expect(page.getByTestId("sse-state")).toContainText("AWS Key Management Service key (SSE-KMS)");
   await expect(page.getByTestId("encryption-tab")).toContainText("alias/larder-app");
   await expect(page.getByTestId("encryption-tab")).toContainText("Customer, symmetric, enabled");
   await expect(page.getByTestId("encryption-tab")).toContainText("5 minutes");
   await expect(page.getByTestId("encryption-tab")).toContainText("Stored, not applied locally.");
+  await expect(page.getByRole("complementary", { name: "Stored, not applied" })).toBeVisible();
   await shot(page, "sqs__queue-encryption");
 });
 
 test("sqs__queue-lambda-triggers and sqs__queue-lambda-configure: no trigger, then one made with the function's timeout checked", async ({ page }) => {
   await go(page, "/resources/sqs/queues/pick-lists?tab=lambda", "pick-lists");
   await expect(page.getByTestId("lambda-empty")).toContainText("No Lambda function polls pick-lists.");
+  await expect(page.getByTestId("lambda-triggers").getByRole("heading", { name: "Lambda triggers (0)" })).toBeVisible();
+  await expect(page.getByTestId("lambda-configure-open")).toHaveCount(2);
   await shot(page, "sqs__queue-lambda-triggers");
   await page.getByTestId("lambda-configure-open").first().click();
   await expect(page.locator("h1")).toHaveText("Configure Lambda function trigger");
-  await page.getByRole("combobox", { name: "Choose a function" }).click();
-  await page.getByRole("option", { name: "export-report" }).click();
+  // The first function is chosen already, with its ARN under the picker; its timeout is checked at once.
+  await expect(page.getByTestId("function-arn")).toContainText("function:export-report");
   await expect(page.getByTestId("visibility-check")).toContainText("export-report has a timeout of 2 minutes, longer than this queue's visibility timeout.");
   await page.getByTestId("form-submit").click();
   await expect(page.getByTestId("trigger-refused")).toContainText("visibility");
@@ -203,12 +212,13 @@ test("sqs__queue-lambda-triggers and sqs__queue-lambda-configure: no trigger, th
 test("sqs__queue-sns-subscriptions and sqs__queue-sns-subscribe: no subscription, then one made and the policy that lets the topic send", async ({ page }) => {
   await go(page, "/resources/sqs/queues/pick-lists?tab=sns", "pick-lists");
   await expect(page.getByTestId("sns-empty")).toContainText("pick-lists is not subscribed to any Amazon SNS topic");
-  await expect(page.getByTestId("sns-empty")).toContainText("The topic orders-created delivers to 3 subscriptions today.");
+  await expect(page.getByTestId("sns-empty")).toContainText("The topic orders-created delivers to analytics-queue, inventory-queue and invoice-queue today.");
+  await expect(page.getByTestId("sns-subscriptions").getByRole("heading", { name: "Subscriptions (0)" })).toBeVisible();
   await shot(page, "sqs__queue-sns-subscriptions");
   await page.getByTestId("sns-subscribe-open").first().click();
   await expect(page.locator("h1")).toHaveText("Subscribe to Amazon SNS topic");
-  await page.getByRole("combobox", { name: "Choose a topic" }).click();
-  await page.getByRole("option", { name: "orders-created" }).click();
+  // The topic with the most deliveries is chosen already, with its ARN under the picker.
+  await expect(page.getByTestId("topic-arn")).toContainText(":orders-created");
   await expect(page.getByTestId("call-panel-code")).toContainText('"Protocol": "sqs"');
   await expect(page.getByTestId("subscribe-form")).toContainText("pick-lists has 1 statement today and would have 2.");
   await shot(page, "sqs__queue-sns-subscribe");
@@ -259,6 +269,11 @@ test("sqs__queue-messages, -message-sent, -messages-polled, message-detail, mess
   await expect(page.getByTestId("messages-page")).toContainText("Polling counts as receiving.");
   await shot(page, "sqs__queue-messages");
   await page.getByTestId("send-body").fill('{"pick_list":"PL-4472","order":"ord-20419","lines":7}');
+  await page.getByTestId("send-delay").fill("1");
+  await page.getByTestId("send-delay-unit").click();
+  await page.getByRole("option", { name: "minutes" }).click();
+  await expect(page.getByTestId("send-submit")).toBeEnabled();
+  await page.getByTestId("send-delay").fill("");
   await page.getByTestId("send-add-attr").click();
   await page.getByLabel("Attribute name").fill("order_channel");
   await page.getByLabel("Attribute value").fill("web");
@@ -266,24 +281,37 @@ test("sqs__queue-messages, -message-sent, -messages-polled, message-detail, mess
   await expect(page.getByTestId("sent-banner")).toContainText("Message sent. SendMessage returned MessageId");
   await expect(page.getByTestId("send-result")).toContainText("MD5OfMessageBody");
   await expect(page.getByTestId("send-result")).toContainText("MD5OfMessageAttributes");
+  // The result is in the form's place, and Poll is the main button now.
+  await expect(page.getByTestId("send-body")).toHaveCount(0);
+  await expect(page.getByTestId("poll")).toHaveClass(/bg-primary/);
   await shot(page, "sqs__queue-message-sent");
+  // Two more are waiting, so the poll returns several and a delete leaves some of them, as the boards show.
+  for (const n of [1, 2]) cli(["sqs", "send-message", "--queue-url", url("pick-lists"), "--message-body", `pick list ${n}`]);
   await page.getByTestId("poll").click();
   const polled = page.getByTestId("polled");
   await expect(polled).toContainText("Messages (");
   await expect(page.getByRole("table", { name: "Messages" }).locator("tbody tr[data-row]")).not.toHaveCount(0);
+  await expect(page.getByRole("table", { name: "Messages" })).toContainText("bytes");
   const before = await page.getByRole("table", { name: "Messages" }).locator("tbody tr[data-row]").count();
+  // Choose one, as the board does: the bar says so and Delete (at its right) is live.
+  await expect(page.getByTestId("delete-picked")).toBeDisabled();
+  await page.getByRole("table", { name: "Messages" }).locator("tbody tr[data-row]").last().getByRole("checkbox").click();
+  await expect(page.getByTestId("selected-count")).toHaveText("1 selected");
   await shot(page, "sqs__queue-messages-polled");
   // Open one: its body, its attributes and the ReceiveMessage answer with the receipt handle.
   await page.getByTestId("message-open").last().click();
   await expect(page.getByTestId("message-sheet")).toContainText("Message details");
   await expect(page.getByTestId("message-answer")).toContainText("ReceiptHandle");
   await shot(page, "sqs__message-detail");
-  await page.getByTestId("message-delete").click();
+  await page.getByTestId("message-close").click();
+  await page.getByTestId("delete-picked").click();
   await expect(page.getByTestId("delete-message-dialog")).toContainText("Delete 1 message from pick-lists?");
   await expect(page.getByTestId("delete-message-dialog")).toContainText("receipt handle");
   await shot(page, "sqs__message-delete");
   await page.getByTestId("delete-message-confirm").click();
   await expect(page.getByTestId("deleted-banner")).toContainText("Deleted 1 message from pick-lists. It is gone for good");
+  await expect(page.getByTestId("deleted-note")).toContainText("Deleting needs the receipt handle");
+  await expect(page.getByText(/messages are left from the last poll\./)).toBeVisible();
   await expect(page.getByRole("table", { name: "Messages" }).locator("tbody tr[data-row]")).toHaveCount(before - 1);
   await shot(page, "sqs__message-deleted");
 });
@@ -318,9 +346,11 @@ test("sqs__dlq-detail and sqs__dlq-redrive-failed: a message sent straight to th
   await expect(page.getByTestId("call-panel-code")).not.toContainText("DestinationArn");
   await shot(page, "sqs__dlq-redrive");
   await page.getByTestId("form-submit").click();
-  await expect(page.getByTestId("redrive-started-banner")).toContainText("Redrive task started.");
   await page.getByTestId("redrive-refresh").click();
   await expect(page.getByTestId("redrive-fields")).toHaveAttribute("data-status", "FAILED");
+  // The start's banner does not stay over a task that failed.
+  await expect(page.getByTestId("redrive-started-banner")).toHaveCount(0);
+  await expect(page.getByTestId("redrive-note")).toContainText("Failed: CouldNotDetermineMessageSource.");
   await expect(page.getByTestId("redrive-Failure reason")).toHaveText("CouldNotDetermineMessageSource");
   await expect(page.getByTestId("detail-sentence")).toContainText("still holds 1 message. The last redrive failed because SQS has no source queue to return that message to.");
   await expect(page.getByTestId("redrive-note")).toContainText("custom destination");
@@ -340,8 +370,9 @@ test("sqs__dlq-redrive-running and -cancelled: a slow redrive is RUNNING, then c
   await expect(page.getByTestId("detail-sentence")).toContainText("slow-dlq is moving");
   await shot(page, "sqs__dlq-redrive-running");
   await page.getByTestId("redrive-cancel").click();
-  await expect(page.getByTestId("redrive-cancelled")).toContainText("Redrive cancelled.");
   await expect(page.getByTestId("redrive-fields")).toHaveAttribute("data-status", "CANCELLED");
+  await expect(page.getByTestId("redrive-note")).toContainText("Status CANCELLED.");
+  await expect(page.getByTestId("redrive-started-banner")).toHaveCount(0);
   await expect(page.getByTestId("redrive-Task handle")).toHaveText("Not returned (only while RUNNING)");
   await expect(page.getByTestId("detail-sentence")).toContainText("You cancelled the redrive");
   await shot(page, "sqs__dlq-redrive-cancelled");
@@ -351,9 +382,9 @@ test("sqs__dlq-redrive-completed: a message that was dead-lettered goes back to 
   deadLettered(server.endpoint, server.account, "moved-source", "moved-dlq", 1);
   await go(page, "/resources/sqs/queues/moved-dlq?view=redrive", "Start DLQ redrive");
   await page.getByTestId("form-submit").click();
-  await expect(page.getByTestId("redrive-started-banner")).toBeVisible();
   await page.getByTestId("redrive-refresh").click();
   await expect(page.getByTestId("redrive-fields")).toHaveAttribute("data-status", "COMPLETED");
+  await expect(page.getByTestId("redrive-completed-banner")).toContainText("Status COMPLETED. 1 message moved from moved-dlq to moved-source.");
   await expect(page.getByTestId("redrive-Messages moved")).toHaveText("1 of 1");
   await expect(page.getByTestId("detail-sentence")).toContainText("moved-dlq is empty. Its message went back to their source queues");
   expect(cli(["sqs", "get-queue-attributes", "--queue-url", url("moved-source"), "--attribute-names", "ApproximateNumberOfMessages"])).toContain('"1"');
@@ -371,7 +402,8 @@ test("sqs__queue-purge and sqs__queue-purged: the count in the confirm, then the
   await page.getByTestId("purge-dialog-input").fill("purge");
   await page.getByTestId("purge-dialog-submit").click();
   await expect(page.getByTestId("purged-banner")).toContainText("pick-lists purged.");
-  await expect(page.getByTestId("purged-banner")).toContainText("The rule payment-settled still delivers to pick-lists");
+  await expect(page.getByTestId("purged-feeding")).toContainText("The rule payment-settled still delivers to pick-lists");
+  await expect(page.getByTestId("purged-banner")).toContainText(/(are|is) gone\./);
   await expect(page.getByTestId("detail-sentence")).toContainText("pick-lists was purged: 0 messages waiting and 0 in flight. The queue and its settings are unchanged.");
   await shot(page, "sqs__queue-purged");
   // A second purge inside 60 seconds is refused as AWS refuses it.

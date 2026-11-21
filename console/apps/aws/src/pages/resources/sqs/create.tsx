@@ -2,7 +2,9 @@
 // with the call it will make beside it, and the service's own refusal said on the field and in the call.
 import { useNavigate } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
+import { RowsIcon } from "lucide-react";
 import { Alert } from "@doze/ui/components/app/alert";
+import { Button } from "@doze/ui/components/ui/button";
 import { ApiFailure } from "@doze/ui/lib/api";
 import { Link } from "@tanstack/react-router";
 import { useAbout } from "../../../api/queries";
@@ -11,7 +13,7 @@ import { FormPage, useKindOp } from "../../../kit";
 import { seconds } from "../model";
 import { Configuration, type Hints, TypeAndName } from "./form-fields";
 import { createInput, emptyForm, type QueueForm, problems } from "./form-model";
-import { AccessPolicy, DeadLetter, Encryption, RedriveAllow, TagsSection } from "./form-sections";
+import { AccessPolicy, DeadLetter, Encryption, FoldedStart, RedriveAllow, TagsSection } from "./form-sections";
 import { queueOf } from "./queue-model";
 import { mismatched, nameTaken, whatItHas } from "./refusal";
 
@@ -76,7 +78,7 @@ export function SqsCreate() {
             <h2 className="text-[12px] font-medium tracking-[0.08em] text-muted-foreground uppercase">What {f.name} already has</h2>
             <p className="mt-2 text-[13.5px] text-muted-foreground">{had ? "The attribute the request does not match." : "The existing queue's settings."}</p>
             {had && <p className="mt-2 font-mono text-[13.5px] text-bright">{had.name} {had.value}</p>}
-            <Link to="/resources/$service/$kind/$name" params={{ service: "sqs", kind: "queues", name: f.name }} className="mt-3 inline-block text-[13.5px] font-medium text-link hover:underline" data-testid="open-existing">Open {f.name}</Link>
+            <Button asChild variant="outline" size="sm" className="mt-4 bg-card"><Link to="/resources/$service/$kind/$name" params={{ service: "sqs", kind: "queues", name: f.name }} data-testid="open-existing"><RowsIcon /> Open {f.name}</Link></Button>
           </section>
         ) : undefined
       }
@@ -88,13 +90,15 @@ export function SqsCreate() {
       onSubmit={submit}
       testId="queue-create"
     >
-      <TypeAndName f={f} set={set} p={p} show={tried} create hints={hintsFor(existing, f.name)} refusal={taken ? { why: "A queue with this name already exists, with different attributes.", suggestion: "Choose another name, or send the same attributes the queue has." } : null} />
+      <TypeAndName f={f} set={set} p={p} show={tried} create hints={taken ? { ...hintsFor(existing, f.name), name: undefined } : hintsFor(existing, f.name)} refusal={taken ? { why: "A queue with this name already exists, with different attributes.", suggestion: "Choose another name, or send the same attributes the queue has." } : null} />
       <Configuration f={f} set={set} p={p} show={tried} create hints={hintsFor(existing, f.name)} />
-      <AccessPolicy f={f} set={set} p={p} show={tried} queueArn={arn} basic />
-      <RedriveAllow f={f} set={set} p={p} show={tried} name={f.name} />
-      <Encryption f={f} set={set} p={p} show={tried} edit={false} />
-      <DeadLetter f={f} set={set} p={p} show={tried} self={f.name} region={region} account={account} />
-      <TagsSection f={f} set={set} show={tried} />
+      <FoldedStart.Provider value={taken} key={taken ? "refused" : "open"}>
+        <AccessPolicy f={f} set={set} p={p} show={tried} queueArn={arn} basic />
+        <RedriveAllow f={f} set={set} p={p} show={tried} name={f.name} />
+        <Encryption f={f} set={set} p={p} show={tried} edit={false} />
+        <DeadLetter f={f} set={set} p={p} show={tried} self={f.name} region={region} account={account} />
+        <TagsSection f={f} set={set} show={tried} />
+      </FoldedStart.Provider>
     </FormPage>
   );
 }

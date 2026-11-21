@@ -244,7 +244,7 @@ export function attributes(f: QueueForm, base: Base, queueArn: string): Record<s
   const allow = allowPolicy(f);
   if (!same(allow, was.allow)) out.RedriveAllowPolicy = allow ?? "";
   if (f.sse !== was.sse || (f.sse === "kms" && f.kms.trim() !== was.kms)) {
-    if (f.sse === "kms") out.KmsMasterKeyId = f.kms.trim();
+    if (f.sse === "kms") { if (f.kms.trim()) out.KmsMasterKeyId = f.kms.trim(); }
     else if (f.sse === "sqs") Object.assign(out, was.sse === "kms" ? { KmsMasterKeyId: "", SqsManagedSseEnabled: "true" } : { SqsManagedSseEnabled: "true" });
     else Object.assign(out, was.sse === "kms" ? { KmsMasterKeyId: "", SqsManagedSseEnabled: "false" } : { SqsManagedSseEnabled: "false" });
   }

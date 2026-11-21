@@ -4,9 +4,10 @@
 import { useNavigate, useSearch } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
-import { toast } from "sonner";
 import { ErrorBlock } from "@doze/ui/components/app/alert";
 import { RefreshControl } from "@doze/ui/components/app/refresh-control";
+import { Callout } from "@doze/ui/components/app/callout";
+import { Emphasis } from "@doze/ui/components/app/emphasis";
 import { ResultBanner } from "@doze/ui/components/app/result-banner";
 import { Button } from "@doze/ui/components/ui/button";
 import { useUrlParam } from "@doze/ui/hooks/use-url-param";
@@ -22,16 +23,17 @@ import { timeMs } from "../model";
 import { DeleteQueue, feeding, PurgeQueue } from "./dialogs";
 import { ruleName, useFeeders } from "./feeders";
 import { DetailsCard } from "./parts";
-import { messages, queueOf, queueSentence } from "./queue-model";
-import { latest, taskSentence } from "./redrive-model";
+import { goneWords, queueOf, queueSentence } from "./queue-model";
+import { latest, redriveBanner, taskSentence } from "./redrive-model";
 import { useTasks } from "./redrive-status";
-import { madeSentence, purgedSentence, sourceSentence } from "./sentences";
-import { DlqTab, EncryptionTab, LambdaTab, PolicyTab, SnsTab, type TabProps } from "./tabs";
+import { chipWords, madeSentence, purgedSentence, sourceSentence, UPSTREAM } from "./sentences";
+import { LambdaTab, PolicyTab, SnsTab, type TabProps } from "./tabs";
+import { DlqTab, EncryptionTab } from "./tabs-dlq";
 import { SubPage } from "./sub-pages";
 
 const SOURCES = "Queues that use it as their dead-letter queue";
 
-type Notice = { kind: "purged"; count: number } | { kind: "redrive-cancelled" };
+type Notice = { kind: "purged"; count: number };
 
 export function SqsDetail({ service, kind, name }: { service: string; kind: string; name: string }) {
   const detail = useResourceDetail(service, kind, name);
@@ -81,13 +83,14 @@ function QueueView({ d, updatedAt, fetching, refresh }: { d: ResourceDetail; upd
   ];
   const shown: ResourceDetail = { ...d, sentence, wired };
   const tabProps: TabProps = { d, q, go: (v) => go(v), account: about?.account ?? "", dead };
+  const redrive = redriveBanner(search.done, tasks.isPending ? null : task, q.name, dead);
   const banner =
     search.done === "created" ? <ResultBanner title={`Queue ${q.name} created.`} returned="CreateQueue returned its URL, and the queue's Details page opens." onDismiss={() => go()} testId="created-banner" />
     : search.done === "updated" ? <ResultBanner title={`Queue ${q.name} updated.`} returned="SetQueueAttributes saved the settings that changed; tags went through TagQueue and UntagQueue." onDismiss={() => go()} testId="updated-banner" />
     : search.done === "trigger-created" ? <ResultBanner title="Lambda trigger configured." returned={`CreateEventSourceMapping made a mapping that polls ${q.name}.`} onDismiss={() => go(undefined, undefined, "lambda")} testId="trigger-banner" />
     : search.done === "subscribed" ? <ResultBanner title="Subscribed to the topic." returned={`Subscribe returned a subscription for ${q.name}, and the topic may send to it.`} onDismiss={() => go(undefined, undefined, "sns")} testId="subscribed-banner" />
-    : search.done === "redrive-started" ? <ResultBanner title="Redrive task started." returned="StartMessageMoveTask returned a task handle; it is listed while the task is RUNNING, and CancelMessageMoveTask takes it." onDismiss={() => go()} testId="redrive-started-banner" />
-    : notice?.kind === "purged" ? <ResultBanner title={`${q.name} purged.`} returned={`All ${messages(notice.count)} are gone.`} left={<>AWS refuses a second purge inside 60 seconds (PurgeQueueInProgress); doze-aws does the same unless started with <span className="font-mono">--sqs-skip-60s-waits</span>.{feeding(fed, "emptied", q.name) ? ` ${feeding(fed, "emptied", q.name)}` : ""}</>} tone="good" onDismiss={() => setNotice(null)} testId="purged-banner" />
+    : redrive ? <ResultBanner title={redrive.title} returned={redrive.returned} onDismiss={() => go()} testId={redrive.title === "Redrive task started." ? "redrive-started-banner" : "redrive-completed-banner"} />
+    : notice?.kind === "purged" ? <ResultBanner title={`${q.name} purged.`} returned={goneWords(notice.count)} left={<>AWS refuses a second purge inside 60 seconds (PurgeQueueInProgress); doze-aws does the same unless started with <span className="font-mono">--sqs-skip-60s-waits</span>.</>} tone="good" onDismiss={() => setNotice(null)} testId="purged-banner" />
     : undefined;
   const onVerb = (v: Verb) => {
     if (v.id === "edit") go("edit");
@@ -110,17 +113,20 @@ function QueueView({ d, updatedAt, fetching, refresh }: { d: ResourceDetail; upd
         detail={shown}
         meta={q.created ? <>Created {when(q.created)}. Last modified {when(q.modified ?? q.created)}.</> : undefined}
         banner={banner}
-        overview={<DetailsCard q={q} />}
+        overview={<><DetailsCard q={q} />{notice?.kind === "purged" && feeding(fed, "emptied", q.name) && <Callout tone="warn" className="mt-6" testId="purged-feeding"><Emphasis text={feeding(fed, "emptied", q.name) ?? ""} bold={fed.map((f) => f.rule)} /></Callout>}</>}
         tabs={tabs}
         tab={asked ?? "dlq"}
         onTab={(id) => setTab(id)}
         onVerb={onVerb}
+        wiredSelf={wired.filter((w) => UPSTREAM.some((u) => w.label.startsWith(u))).length}
+        wiredText={chipWords}
+        verbStates={dead.length === 0 ? { redrive: { disabled: `${q.name} is not the dead-letter queue of any queue, so there is nothing to redrive.`, quiet: true } } : undefined}
         primary="messages"
         refresh={<RefreshControl updatedAt={updatedAt} fetching={fetching} onRefresh={refresh} interval={false} />}
         testId="queue-page"
       />
       <DeleteQueue open={dialog === "delete"} onOpenChange={(o) => { if (!o) { setDialog(null); del.reset(); } }} q={q} feeders={fed} dlqHolds={holds} pending={del.isPending} error={del.error}
-        onConfirm={() => del.mutate(d.name, { onSuccess: () => { setDialog(null); toast.success(`${d.name} deleted`); void navigate({ to: "/resources/$service/$second", params: { service: d.service, second: d.kind }, search: { gone: d.name, ...(q.dlq ? { from: q.dlq } : {}) } }); } })} />
+        onConfirm={() => del.mutate(d.name, { onSuccess: () => { setDialog(null); void navigate({ to: "/resources/$service/$second", params: { service: d.service, second: d.kind }, search: { gone: d.name, ...(q.dlq ? { from: q.dlq } : {}) } }); } })} />
       <PurgeQueue open={dialog === "purge"} onOpenChange={(o) => { if (!o) { setDialog(null); purge.reset(); } }} q={q} pending={purge.isPending} error={purge.error}
         onConfirm={() => purge.mutate({}, { onSuccess: () => { setDialog(null); setNotice({ kind: "purged", count: total }); } })} />
     </>

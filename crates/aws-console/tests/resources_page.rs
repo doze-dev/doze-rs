@@ -92,7 +92,11 @@ async fn a_queue_says_what_it_holds_where_it_sends_what_fails_and_what_can_be_do
     assert_eq!(badges(&d), ["Standard"]);
     assert_eq!(keys(&d["badges"][0]), ts_keys("Badge"));
     assert_eq!(d["badges"][0]["tone"], "neutral");
-    assert_eq!(verbs(&d), ["edit", "delete", "purge", "messages"]);
+    // Start DLQ redrive is always listed; the page turns it off for a queue that is no one's dead-letter queue.
+    assert_eq!(
+        verbs(&d),
+        ["edit", "delete", "purge", "messages", "redrive"]
+    );
     assert_eq!(keys(&d["verbs"][0]), ts_keys("VerbSpec"));
     let purge = &d["verbs"][2];
     assert_eq!(

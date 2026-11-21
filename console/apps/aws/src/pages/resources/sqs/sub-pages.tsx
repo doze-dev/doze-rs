@@ -2,11 +2,12 @@
 // Lambda (sqs__queue-lambda-configure) and SNS (sqs__queue-sns-subscribe).
 import { lazy, Suspense, useState } from "react";
 import { Alert } from "@doze/ui/components/app/alert";
+import { Callout } from "@doze/ui/components/app/callout";
 import { Combobox } from "@doze/ui/components/app/combobox";
 import { Skeleton } from "@doze/ui/components/ui/skeleton";
 import { useResourceDetail, useResourceList } from "../../../api/resources";
 import type { ResourceDetail } from "../../../api/types/ResourceDetail";
-import { Field, FormPage, FormSection, RuleHelp } from "../../../kit";
+import { Field, FormPage, FormSection } from "../../../kit";
 import { useOp } from "../deep/api";
 import { ApiFailure } from "@doze/ui/lib/api";
 import { wait, type Queue } from "./queue-model";
@@ -43,10 +44,12 @@ function failure(e: unknown): { code: string; message: string } | null {
 
 export function ConfigureTrigger({ d, q, back, done }: SubProps) {
   const t = { service: d.service, kind: d.kind, name: d.name };
-  const [fn, setFn] = useState<string | null>(null);
+  const [chose, setFn] = useState<string | null | undefined>(undefined);
   const make = useOp(t, "CreateEventSourceMapping");
   const functions = useResourceList("lambda", "functions");
-  const names = (functions.data?.pages.flatMap((p) => p.rows) ?? []).map((r) => r.name);
+  const names = (functions.data?.pages.flatMap((p) => p.rows) ?? []).map((r) => r.name).sort();
+  // The first function is chosen until the person chooses another (or clears the choice).
+  const fn = chose === undefined ? (names[0] ?? null) : chose;
   const fname = fn?.startsWith("arn:") ? fn.split(":").pop()! : fn;
   const chosen = useResourceDetail("lambda", "functions", fname ?? "", Boolean(fname) && names.includes(fname ?? ""));
   const timeout = Number(chosen.data?.fields.find((f) => f.label === "Timeout")?.value);
@@ -73,12 +76,12 @@ export function ConfigureTrigger({ d, q, back, done }: SubProps) {
     >
       <FormSection title="Lambda trigger">
         <Field label="Lambda function" hint={others.length > 0 ? `Choose an existing function, or enter the ARN of one that isn't listed. Also here: ${others.join(", ")}.` : "Choose an existing function, or enter the ARN of one that isn't listed."} testId="field-function">
-          {(id) => <ListPicker id={id} service="lambda" kind="functions" noun="function" value={fn} onChange={setFn} by="name" />}
+          {(id) => <div className="grid gap-2"><ListPicker id={id} service="lambda" kind="functions" noun="function" value={fn} onChange={(v) => { make.reset(); setFn(v); }} by="name" />{chosen.data && <p className="font-mono text-[12.5px] break-all text-muted-foreground" data-testid="function-arn">{chosen.data.fields.find((f) => f.label === "ARN")?.value}</p>}</div>}
         </Field>
-        <Alert tone={tooLong ? "warn" : "info"} title={tooLong ? `${fname} has a timeout of ${wait(timeout)}, longer than this queue's visibility timeout.` : "Check the visibility timeout first."} testId="visibility-check">
+        <Callout tone="warn" lead={tooLong ? `${fname} has a timeout of ${wait(timeout)}, longer than this queue's visibility timeout.` : "Check the visibility timeout first."} testId="visibility-check">
           The queue's visibility timeout must be at least the function's timeout, or the trigger is refused; AWS recommends six times it. {q.name} uses {wait(q.visibility)}, so a function with a longer timeout is refused here.
-        </Alert>
-        <RuleHelp>The function's execution role needs sqs:ReceiveMessage, sqs:DeleteMessage and sqs:GetQueueAttributes on the queue. Whoever saves this needs lambda:CreateEventSourceMapping, lambda:ListEventSourceMappings and lambda:ListFunctions.</RuleHelp>
+        </Callout>
+        <Callout tone="note" testId="trigger-role-note">The function's execution role needs sqs:ReceiveMessage, sqs:DeleteMessage and sqs:GetQueueAttributes on the queue. Whoever saves this needs lambda:CreateEventSourceMapping, lambda:ListEventSourceMappings and lambda:ListFunctions.</Callout>
       </FormSection>
     </FormPage>
   );
@@ -86,11 +89,13 @@ export function ConfigureTrigger({ d, q, back, done }: SubProps) {
 
 export function SubscribeTopic({ d, q, back, done }: SubProps) {
   const t = { service: d.service, kind: d.kind, name: d.name };
-  const [topic, setTopic] = useState<string | null>(null);
+  const [picked, setTopic] = useState<string | null | undefined>(undefined);
   const subscribe = useOp(t, "Subscribe");
   const settings = useOp(t, "SetQueueAttributes");
   const topics = useResourceList("sns", "topics");
   const rows = topics.data?.pages.flatMap((p) => p.rows) ?? [];
+  // The topic with the most deliveries is chosen until the person chooses another (or clears the choice).
+  const topic = picked === undefined ? ([...rows].sort((a, b) => Number(b.cells[1]) - Number(a.cells[1]) || a.name.localeCompare(b.name))[0]?.id ?? null) : picked;
   const mine = rows.find((r) => r.id === topic);
   const others = rows.filter((r) => r.id !== topic);
   const plan = topic ? withTopic(q.policy, q.arn, topic) : null;
@@ -120,12 +125,12 @@ export function SubscribeTopic({ d, q, back, done }: SubProps) {
     >
       <FormSection title="Amazon SNS topic">
         <Field label="Specify an Amazon SNS topic available for this queue" hint={topicHint(others)} testId="field-topic">
-          {(id) => <ListPicker id={id} service="sns" kind="topics" noun="topic" value={topic} onChange={setTopic} by="id" />}
+          {(id) => <div className="grid gap-2"><ListPicker id={id} service="sns" kind="topics" noun="topic" value={topic} onChange={setTopic} by="id" />{topic && <p className="font-mono text-[12.5px] break-all text-muted-foreground" data-testid="topic-arn">{topic}</p>}</div>}
         </Field>
         {plan && (
-          <RuleHelp>
-            {plan.added ? <>This adds a statement to the access policy of <span className="font-mono text-foreground">{q.name}</span>, so the topic may send to it; {q.name} has {statementCount(q.policy)} {statementCount(q.policy) === 1 ? "statement" : "statements"} today and would have {plan.count}.</> : <>The access policy of {q.name} already lets {mine?.name ?? "the topic"} send to it, so it is left as it is.</>} The queue owner is creating the subscription, so it is confirmed automatically.
-          </RuleHelp>
+          <Callout tone="info" lead={plan.added ? `This adds a statement to the access policy of ${q.name}.` : "The access policy already allows it."} testId="policy-statement">
+            {plan.added ? <>The topic may send to it; {q.name} has {statementCount(q.policy)} {statementCount(q.policy) === 1 ? "statement" : "statements"} today and would have {plan.count}.</> : <>The access policy of {q.name} already lets {mine?.name ?? "the topic"} send to it, so it is left as it is.</>} The queue owner is creating the subscription, so it is confirmed automatically.
+          </Callout>
         )}
       </FormSection>
     </FormPage>

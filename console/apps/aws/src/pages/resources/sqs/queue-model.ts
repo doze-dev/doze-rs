@@ -79,6 +79,9 @@ export const kib = (bytes: number): string => `${(bytes / 1024).toLocaleString("
 
 export const messages = (n: number): string => `${n.toLocaleString("en-US")} ${n === 1 ? "message" : "messages"}`;
 
+/** What a purge left: `All 3 messages are gone.`, `The 1 message is gone.`, `No message was left to remove.` */
+export const goneWords = (n: number): string => (n === 0 ? "No message was left to remove." : n === 1 ? "The 1 message is gone." : `All ${messages(n)} are gone.`);
+
 /** What the encryption setting is, in words. */
 export function encryptionWords(q: Pick<Queue, "sse" | "kms">): string {
   return q.sse === "kms" ? `Enabled with an AWS Key Management Service key (SSE-KMS), ${q.kms}.` : q.sse === "sqs" ? "Enabled with an Amazon SQS key (SSE-SQS)." : "Disabled.";

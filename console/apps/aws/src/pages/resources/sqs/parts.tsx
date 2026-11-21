@@ -1,15 +1,5 @@
 // What a queue's page is made of beyond its tabs: the Details card (sqs__queue-detail) and the recent calls.
-import { Link } from "@tanstack/react-router";
-import { RadioIcon } from "lucide-react";
-import { useState } from "react";
 import { CopyButton } from "@doze/ui/components/app/copy-button";
-import { type DataColumn, DataTable } from "@doze/ui/components/app/data-table";
-import { Button } from "@doze/ui/components/ui/button";
-import { clockUtc } from "@doze/ui/lib/format";
-import type { CallRecord } from "../../../api/types/CallRecord";
-import type { ResourceDetail } from "../../../api/types/ResourceDetail";
-import { isConsole } from "../../live/search";
-import { Result } from "../../live/outcome";
 import { ResourceTo } from "../value";
 import { kib, messages, type Queue, wait } from "./queue-model";
 
@@ -71,25 +61,6 @@ export function DetailsCard({ q }: { q: Queue }) {
         <dl className={col}>{right.map(([l, v]) => <Pair key={l} label={l}>{v}</Pair>)}</dl>
       </div>
     </section>
-  );
-}
-
-const CALLS: DataColumn<CallRecord>[] = [
-  { id: "time", header: "Time", size: 120, accessorKey: "at_ms", meta: { mono: true }, cell: (c) => clockUtc(c.row.original.at_ms) },
-  { id: "caller", header: "Caller", size: 220, min: 140, accessorFn: (r) => r.caller ?? "", meta: { mono: true }, cell: (c) => <span className="font-mono text-[13px]">{c.row.original.caller ?? "–"}{c.row.original.via?.by ? <span className="text-muted-foreground"> via {c.row.original.via.by}</span> : null}</span> },
-  { id: "call", header: "Call", accessorFn: (r) => r.action ?? "", meta: { mono: true }, cell: (c) => <span className="font-mono text-[13px] font-medium text-bright">{c.row.original.action ?? "–"}</span> },
-  { id: "result", header: "Result", size: 260, min: 140, accessorFn: (r) => r.status, cell: (c) => <Result call={c.row.original} /> },
-];
-
-/** The last calls that touched the queue, newest first; this console's own reads are hidden unless asked for, as on Live. */
-export function RecentCalls({ d }: { d: ResourceDetail }) {
-  const [mine, setMine] = useState(false);
-  const theirs = d.calls.filter((c) => !isConsole(c));
-  const hidden = d.calls.length - theirs.length;
-  return (
-    <Block title="Recent calls" testId="recent-calls" lede={<>The last calls that touched this queue, newest first. Times are UTC.{(hidden > 0 || mine) && <span data-testid="calls-console-hidden"> {mine ? "This console's own are shown." : `${hidden} made by this console ${hidden === 1 ? "is" : "are"} hidden.`} <button type="button" className="font-medium text-link hover:underline" onClick={() => setMine(!mine)} data-testid="calls-console-toggle">{mine ? "Hide them" : "Show"}</button></span>}</>} actions={<Button asChild variant="outline" size="sm" className="bg-card"><Link to="/live"><RadioIcon /> Open Live</Link></Button>}>
-      <DataTable aria-label="Recent calls" data={mine ? d.calls : theirs} columns={CALLS} rowId={(r) => String(r.seq)} maxHeight={420} empty={hidden > 0 && !mine ? "Only this console has acted on this queue so far." : "No call in the Live record acted on this queue yet."} />
-    </Block>
   );
 }
 

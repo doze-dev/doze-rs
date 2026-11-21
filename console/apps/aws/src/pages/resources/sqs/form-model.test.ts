@@ -24,6 +24,16 @@ describe("a new queue", () => {
   });
 });
 
+describe("SSE-KMS before a key is chosen", () => {
+  test("the call carries no empty KmsMasterKeyId, and the form still says a key is needed", () => {
+    const f = { ...emptyForm(), name: "q", sse: "kms" as const, kms: "  " };
+    const call = createInput(f, ARN) as { Attributes?: Record<string, string> };
+    expect(call.Attributes?.KmsMasterKeyId).toBeUndefined();
+    expect(JSON.stringify(call)).not.toContain("KmsMasterKeyId");
+    expect(problems(f, { create: true }).kms).toContain("Choose a KMS key");
+  });
+});
+
 describe("the rules", () => {
   test("a name", () => {
     expect(nameProblem("", false)).toContain("name");

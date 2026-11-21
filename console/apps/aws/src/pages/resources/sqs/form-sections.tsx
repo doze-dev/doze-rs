@@ -1,5 +1,6 @@
 // The optional sections of Create queue and Edit queue: access policy, redrive allow policy, encryption, dead-letter queue, tags.
 import { useQuery } from "@tanstack/react-query";
+import { createContext, useContext } from "react";
 import { KeyValueEditor } from "@doze/ui/components/app/key-value-editor";
 import { filled } from "@doze/ui/components/app/key-values";
 import { Combobox } from "@doze/ui/components/app/combobox";
@@ -16,6 +17,9 @@ import { useResourceDetail, useResourceList } from "../../../api/resources";
 import { basicPolicy, LIMITS, type AllowMode, type QueueForm, type Who } from "./form-model";
 import { type FieldProps, TimeInput, timeUnits } from "./form-fields";
 import { queueOf, wait } from "./queue-model";
+
+/** The optional sections start folded to their one-line summaries when the form is read again after a refusal (the board's Expand rows). */
+export const FoldedStart = createContext(false);
 
 const WHO: [Who, string][] = [["owner", "Only the queue owner"], ["accounts", "Only the specified AWS accounts, IAM users and roles"], ["everyone", "Everyone (public)"]];
 const QUEUES = { service: "sqs", kind: "queues" };
@@ -39,7 +43,7 @@ export function AccessPolicy({ f, set, p, queueArn, basic }: FieldProps & { queu
   const owned = f.send === "owner" && f.receive === "owner";
   const summary = f.policyMode === "basic" || !basic ? (resulting && basic ? "A policy is written for the choices made." : f.policy.trim() ? "A custom policy." : "Only the queue owner can send and receive messages (the default).") : "A custom policy.";
   return (
-    <FormSection title="Access policy" optional collapsible description={basic ? "Defines which accounts, users and roles can reach the queue, and which actions they may take." : "Edit the access policy statements."} summary={summary} testId="section-access">
+    <FormSection title="Access policy" optional collapsible defaultOpen={!useContext(FoldedStart)} description={basic ? "Defines which accounts, users and roles can reach the queue, and which actions they may take." : "Edit the access policy statements."} summary={summary} testId="section-access">
       {basic && (
         <RadioGroup value={mode} onValueChange={(v) => set({ policyMode: v as QueueForm["policyMode"], ...(v === "advanced" && f.policy.trim() === "" && resulting ? { policy: resulting } : {}) })} className="flex gap-2" aria-label="Access policy mode">
           {[["basic", "Basic"], ["advanced", "Advanced"]].map(([v, t]) => (
@@ -81,7 +85,7 @@ const ALLOW: [AllowMode, string, string][] = [["allowAll", "Allow all", "Any sou
 export function RedriveAllow({ f, set, p, show, name, note }: FieldProps & { name: string; note?: React.ReactNode }) {
   const shown = f.allowOn ? (f.allowMode === "allowAll" ? "Allow all source queues." : f.allowMode === "byQueue" ? "Only the queues named by ARN." : "Deny all.") : "Disabled. When enabled, the default allows every source queue in this account and Region.";
   return (
-    <FormSection title="Redrive allow policy" collapsible description="Says which source queues may name THIS queue as their dead-letter queue." summary={shown} testId="section-allow">
+    <FormSection title="Redrive allow policy" collapsible defaultOpen={!useContext(FoldedStart)} description="Says which source queues may name THIS queue as their dead-letter queue." summary={shown} testId="section-allow">
       <div className="flex items-center gap-3">
         <Switch id="allow-on" checked={f.allowOn} onCheckedChange={(allowOn) => set({ allowOn })} data-testid="allow-on" />
         <Label htmlFor="allow-on">{f.allowOn ? "Enabled" : "Disabled"}</Label>
@@ -128,7 +132,7 @@ export function Encryption({ f, set, p, show, edit }: FieldProps & { edit: boole
   const on = f.sse !== "none";
   const summary = f.sse === "kms" ? `Enabled with an AWS Key Management Service key (SSE-KMS), ${f.kms || "no key chosen"}.` : f.sse === "sqs" ? "Enabled with an Amazon SQS key (SSE-SQS)." : "Disabled.";
   return (
-    <FormSection title="Encryption" optional={edit} collapsible description="The server-side encryption settings of the queue." summary={summary} testId="section-encryption">
+    <FormSection title="Encryption" optional={edit} collapsible defaultOpen={!useContext(FoldedStart)} description="The server-side encryption settings of the queue." summary={summary} testId="section-encryption">
       <div className="flex items-center gap-3">
         <Switch id="sse-on" checked={on} onCheckedChange={(v) => set({ sse: v ? "sqs" : "none" })} data-testid="sse-on" />
         <Label htmlFor="sse-on">Server-side encryption {on ? "Enabled" : "Disabled"}</Label>
@@ -171,7 +175,7 @@ export function DeadLetter({ f, set, p, show, self, region, account, empty }: Fi
   const retention = name && picked.data ? queueOf(picked.data).retention : null;
   const summary = f.dlqOn ? `Enabled: ${name || "no queue chosen"} after ${f.maxReceives || "?"} receives.` : "Disabled.";
   return (
-    <FormSection title="Dead-letter queue" optional collapsible description="Receives messages that could not be processed from this queue." summary={summary} testId="section-dlq">
+    <FormSection title="Dead-letter queue" optional collapsible defaultOpen={!useContext(FoldedStart)} description="Receives messages that could not be processed from this queue." summary={summary} testId="section-dlq">
       <div className="flex items-center gap-3">
         <Switch id="dlq-on" checked={f.dlqOn} onCheckedChange={(dlqOn) => set({ dlqOn })} data-testid="dlq-on" />
         <Label htmlFor="dlq-on">{f.dlqOn ? "Enabled" : "Disabled"}</Label>
@@ -199,7 +203,7 @@ export function DeadLetter({ f, set, p, show, self, region, account, empty }: Fi
 export function TagsSection({ f, set, show, note }: Pick<FieldProps, "f" | "set" | "show"> & { note?: React.ReactNode }) {
   const n = filled(f.tags).length;
   return (
-    <FormSection title="Tags" optional collapsible description="Cost allocation tags. Tags are case-sensitive, and a new tag with an existing key overwrites it. Adding more than 50 tags to a queue isn't recommended." summary={n > 0 ? `${n} ${n === 1 ? "tag" : "tags"}.` : "No tags."} testId="section-tags">
+    <FormSection title="Tags" optional collapsible defaultOpen={!useContext(FoldedStart)} description="Cost allocation tags. Tags are case-sensitive, and a new tag with an existing key overwrites it. Adding more than 50 tags to a queue isn't recommended." summary={n > 0 ? `${n} ${n === 1 ? "tag" : "tags"}.` : "No tags."} testId="section-tags">
       <KeyValueEditor rows={f.tags} onChange={(tags) => set({ tags })} rules={TAG_RULES} showErrors={show} testId="form-tags" />
       {note}
     </FormSection>
