@@ -154,7 +154,7 @@ const CALL_COLUMNS: DataColumn<CallRecord>[] = [
   { id: "result", header: "Result", size: 260, min: 140, accessorFn: (r) => r.status, cell: (c) => <Result call={c.row.original} /> },
 ];
 
-function Calls({ d }: { d: ResourceDetail }) {
+export function Calls({ d }: { d: ResourceDetail }) {
   // This console's own reads of the resource are noise beside an app's calls: hidden unless asked for, as on Live.
   const [mine, setMine] = useState(false);
   const theirs = d.calls.filter((c) => !isConsole(c));

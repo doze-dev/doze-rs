@@ -1,13 +1,11 @@
 //! S3: buckets, and a bucket's objects (the first page) on its page.
 
 use super::Format::{Json, Mono, Text as Plain, Time};
+use super::s3_ops::{BUCKET, PAGES};
 use super::{
-    Batch, Blocker, Clear, Create, Deep, Delete, Descriptor, Id, Input, InputKind, Kind, List,
-    Shape, Step, Tags, Text, Write, col, field, input, op, ops, or,
+    Batch, Blocker, Clear, Column, Create, Delete, Descriptor, Id, Input, InputKind, Kind, List,
+    Shape, Step, Sub, Tags, Text, Write, col, field, input, op, ops, or, says,
 };
-
-/// What every object call names: this bucket.
-const BUCKET: &str = r#"{"Bucket":"{id}"}"#;
 
 /// What a bucket holds, listed as versions (a bucket with no versioning lists its objects as versions `null`).
 const VERSIONS: Blocker = Blocker {
@@ -50,6 +48,32 @@ const MARKERS: Blocker = Blocker {
     ..VERSIONS
 };
 
+const RULE: &[Column] = &[
+    col("Event name", "Id", Plain),
+    col("Events", "Events", Json),
+];
+
+/// One of the three lists of what a bucket notifies: its rows are the rules of one destination kind, each linking to the
+/// resource it names.
+const fn notifies(
+    title: &'static str,
+    items: &'static str,
+    service: &'static str,
+    kind: &'static str,
+    arn: &'static str,
+) -> Sub {
+    Sub {
+        title,
+        step: Step::answered("GetBucketNotificationConfiguration"),
+        items,
+        item_as: "Id",
+        columns: RULE,
+        link: Some((service, kind, Text::tail(arn))),
+        more: "",
+        add: None,
+    }
+}
+
 pub(super) static S3: Descriptor = Descriptor {
     service: "s3",
     target: "s3",
@@ -80,32 +104,49 @@ pub(super) static S3: Descriptor = Descriptor {
         ],
         id_of: Id::Name,
         detail: &[
-            Step::new("GetBucketLocation", r#"{"Bucket":"{id}"}"#),
-            Step::new("GetBucketVersioning", r#"{"Bucket":"{id}"}"#).optional(),
-            // Each of these answers a refusal (NoSuchBucketPolicy, ServerSideEncryptionConfigurationNotFoundError,
-            // NoSuchCORSConfiguration, NoSuchLifecycleConfiguration) when the bucket has none: shown as "None".
-            Step::new("GetBucketPolicy", r#"{"Bucket":"{id}"}"#).optional(),
-            Step::new("GetBucketEncryption", r#"{"Bucket":"{id}"}"#).optional(),
-            Step::new("GetBucketCors", r#"{"Bucket":"{id}"}"#).optional(),
-            Step::new("GetBucketLifecycleConfiguration", r#"{"Bucket":"{id}"}"#).optional(),
+            // The creation date is the list's: the one bucket whose name begins with this name (its own name sorts first).
+            Step::new("ListBuckets", r#"{"Prefix":"{id}","MaxBuckets":10}"#),
+            Step::new("GetBucketLocation", BUCKET),
+            Step::new("GetBucketVersioning", BUCKET).optional(),
+            Step::new("GetBucketNotificationConfiguration", BUCKET).optional(),
+            // The top level, for the sentence: how many objects and folders are at it.
+            Step::new(
+                "ListObjectsV2",
+                r#"{"Bucket":"{id}","Delimiter":"/","MaxKeys":1000}"#,
+            )
+            .optional(),
         ],
         fields: &[
             field("Name", "$id", Mono),
             // AWS's rule: a bucket in us-east-1 answers an empty LocationConstraint.
             or("Region", "LocationConstraint", Mono, "us-east-1"),
             or("Versioning", "Status", Plain, "Disabled"),
-            or(
-                "Default encryption",
-                "ServerSideEncryptionConfiguration.Rules.0.ApplyServerSideEncryptionByDefault.SSEAlgorithm",
-                Mono,
-                "None",
-            ),
-            or("Bucket policy", "Policy", Json, "None"),
-            or("CORS rules", "CORSRules", Json, "None"),
-            or("Lifecycle rules", "Rules", Json, "None"),
+            field("Created", "Buckets.0.CreationDate", Time),
         ],
-        // The objects are the Objects tab, not a flat list under the details.
-        subs: &[],
+        // What a bucket tells of where it sends events: the strip of what it is wired to (an object created, a Lambda function).
+        subs: &[
+            notifies(
+                "Notifies Lambda function",
+                "LambdaFunctionConfigurations",
+                "lambda",
+                "functions",
+                "LambdaFunctionArn",
+            ),
+            notifies(
+                "Notifies SQS queue",
+                "QueueConfigurations",
+                "sqs",
+                "queues",
+                "QueueArn",
+            ),
+            notifies(
+                "Notifies SNS topic",
+                "TopicConfigurations",
+                "sns",
+                "topics",
+                "TopicArn",
+            ),
+        ],
         create: Some(Create {
             inputs: &[Input {
                 required: true,
@@ -129,19 +170,12 @@ pub(super) static S3: Descriptor = Descriptor {
         reveal: None,
         // Its objects; an upload (a folder too: an empty object whose key ends in `/`) and a download are the console's own
         // addresses (`api/deep.rs`), each one PutObject or GetObject.
-        deep: &[Deep {
-            id: "objects",
-            title: "Objects",
-            ops: &[
-                op("ListObjectsV2", BUCKET),
-                op("ListObjectVersions", BUCKET),
-                op("HeadObject", BUCKET),
-                op("GetObjectTagging", BUCKET),
-                op("DeleteObject", BUCKET),
-                op("DeleteObjects", BUCKET),
-            ],
-        }],
-        ops: &[ops::free("CreateBucket")],
+        // Its pages: the objects, and what is set on the bucket (each page's operations are in `s3_ops`). An upload (a folder too: an
+        // empty object whose key ends in `/`), a download and a presigned link are the console's own addresses (`api/deep.rs`,
+        // `api/objects.rs`), each one PutObject or GetObject.
+        deep: PAGES,
+        // A copy is to any bucket (the destination and the source are in the call).
+        ops: &[ops::free("CreateBucket"), ops::free("CopyObject")],
         // S3 writes a bucket's tags whole: a change reads the set, changes it and puts it back (an empty set is a delete).
         tags: Some(
             Tags::new(
@@ -159,6 +193,7 @@ pub(super) static S3: Descriptor = Descriptor {
         ),
         // S3 refuses to delete a bucket that holds anything, versions and delete markers included; emptying clears them.
         blockers: &[VERSIONS, MARKERS],
+        page: says::s3::BUCKET,
         ..Kind::BARE
     }],
 };

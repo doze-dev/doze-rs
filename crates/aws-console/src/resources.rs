@@ -57,6 +57,7 @@ mod kms;
 mod lambda;
 mod logs;
 mod s3;
+mod s3_ops;
 mod scheduler;
 mod secrets;
 mod sns;

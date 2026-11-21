@@ -1,44 +1,8 @@
-// The resource pages of their own against a real doze-aws: a bucket's folders, an upload, an object's drawer, a download, a
-// delete; a table's items created, scanned, queried, edited and deleted. Each call is the console's, and Live has it. (A queue's
-// pages are in sqs-boards.spec.ts.)
+// The resource pages of their own against a real doze-aws: a table's items created, scanned, queried, edited and deleted. Each
+// call is the console's, and Live has it. (A queue's pages are in sqs-boards.spec.ts, a bucket's in s3-boards.spec.ts.)
 import { calls, CONSOLE, expect, open, test, unique } from "./fixtures";
 
 const mine = async (page: Parameters<typeof calls>[0], action: string) => (await calls(page, CONSOLE)).calls.filter((c) => c.caller === "console" && c.action === action);
-
-test("a bucket's folder is made and opened, a file uploaded into it, opened, downloaded and deleted", async ({ page, cli, browserName }) => {
-  const bucket = unique("images", browserName);
-  expect(cli(["s3api", "create-bucket", "--bucket", bucket]).code).toBe(0);
-  await open(page, `/resources/s3/buckets/${bucket}?tab=objects`, bucket);
-  await expect(page.getByTestId("objects-card")).toContainText("holds no object yet");
-  await page.getByTestId("folder-open").click();
-  await page.getByTestId("folder-name").fill("a/b");
-  await expect(page.getByTestId("folder-submit")).toBeDisabled();
-  await page.getByTestId("folder-name").fill("banners");
-  await page.getByTestId("folder-submit").click();
-  await expect(page.getByTestId("folder-dialog")).toHaveCount(0);
-  await page.getByTestId("objects-card").locator("tbody tr", { hasText: "banners/" }).click();
-  await expect(page).toHaveURL(/p=banners%2F|p=banners\//);
-  await expect(page.getByTestId("object-crumbs")).toContainText("banners");
-  await expect(page.getByTestId("objects-card")).toContainText("This folder is empty.");
-  await page.getByTestId("upload-open").click();
-  await page.getByTestId("upload-files").setInputFiles({ name: "hero.txt", mimeType: "text/plain", buffer: Buffer.from("hello, bucket") });
-  await page.getByTestId("upload-submit").click();
-  await expect(page.getByTestId("upload-dialog")).toHaveCount(0);
-  const row = page.getByTestId("objects-card").locator("tbody tr", { hasText: "hero.txt" });
-  await row.click();
-  const sheet = page.getByTestId("object-sheet");
-  await expect(sheet.getByTestId("object-head")).toContainText("text/plain");
-  await expect(sheet.getByTestId("object-head")).toContainText("13 B");
-  const [download] = await Promise.all([page.waitForEvent("download"), sheet.getByTestId("object-download").click()]);
-  expect(download.suggestedFilename()).toBe("hero.txt");
-  await sheet.getByTestId("object-delete").click();
-  await page.getByTestId("object-delete-dialog-submit").click();
-  await expect(sheet).toHaveCount(0);
-  await expect(row).toHaveCount(0);
-  const head = cli(["s3api", "list-objects-v2", "--bucket", bucket]);
-  expect(head.out).not.toContain("hero.txt");
-  expect((await mine(page, "PutObject")).length).toBeGreaterThanOrEqual(2);
-});
 
 test("a table's item is created in plain JSON, scanned, queried by its key, edited and deleted", async ({ page, cli, browserName }) => {
   const table = unique("orders", browserName);

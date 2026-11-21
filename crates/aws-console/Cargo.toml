@@ -20,6 +20,8 @@ aws-wire = { path = "../aws-wire" }
 aws-peers = { path = "../aws-peers" }
 # base64, for the payload and log of a function invoked from its page.
 aws-core = { path = "../aws-core" }
+# SigV4's primitives, to sign an object's presigned link (already in the binary through the gateway).
+aws-auth = { path = "../aws-auth" }
 # A model's protocol, operations and addresses, for a call written out as a command (`api/copy.rs`).
 aws-schema = { path = "../aws-schema" }
 # Only `hostguard` (the DNS-rebinding guard on the Host header): generic, and fuzzed there. It should move to a crate both

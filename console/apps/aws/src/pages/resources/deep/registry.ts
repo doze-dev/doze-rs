@@ -4,6 +4,7 @@
 import type { LazyExoticComponent, ReactNode } from "react";
 import type { DeepTab } from "../../../api/types/DeepTab";
 import type { ResourceDetail } from "../../../api/types/ResourceDetail";
+import type { OwnSearch } from "../search";
 
 export type DeepProps = { d: ResourceDetail; tab: DeepTab };
 
@@ -41,19 +42,32 @@ export function registerGone(service: string, kind: string, gone: Gone): void {
   GONE[`${service}/${kind}`] = gone;
 }
 
-/** A kind that draws its own pages: its list (and the create page that opens from it) and its resource's page, in place of the
- * generic ones. What a kind registers here it owns completely; the others keep the generic pages. */
+export const pageOf = (service: string, id: string): TabPage | undefined => PAGES.get(`${service}/${id}`);
+
+/** The pages a service draws itself in place of the generic ones: a kind's list, one resource's page, and the full-page forms and
+ * results of `?do=<id>` (a create, a delete, an upload's status). A kind that registers none gets the generic pages. What a kind
+ * registers here it owns completely; the others keep the generic pages. */
+export type OwnProps = { service: string; kind: string; name: string | null; search: OwnSearch & { tab?: string; p?: string } };
+export type OwnPage = LazyExoticComponent<(p: OwnProps) => ReactNode>;
+export type Own = { list?: OwnPage; one?: OwnPage; actions?: Record<string, OwnPage> };
+const OWN = new Map<string, Own>();
+
+/** Registers the pages a service draws itself for one kind (`buckets`). */
+export function registerOwn(service: string, kind: string, own: Own): void {
+  OWN.set(`${service}/${kind}`, own);
+}
+
+export const ownOf = (service: string, kind: string): Own | undefined => OWN.get(`${service}/${kind}`);
+
+/** The shorter form of {@link registerOwn}, for a kind with only a list and a resource page that read their address themselves
+ * (`sqs`, `queues`): `list` takes `{ service, kind }`, `detail` also the `name`. Both are served through the same lookup, `ownOf`. */
 export type KindPages = {
   list?: LazyExoticComponent<(p: { service: string; kind: string }) => ReactNode>;
   detail?: LazyExoticComponent<(p: { service: string; kind: string; name: string }) => ReactNode>;
 };
-const KINDS = new Map<string, KindPages>();
 
 /** Registers the pages of one kind (`sqs`, `queues`). */
 export function registerKind(service: string, kind: string, pages: KindPages): void {
-  KINDS.set(`${service}/${kind}`, pages);
+  // `one` is drawn only for an address with a name, so a page that takes the name as a string is the one it asks for.
+  registerOwn(service, kind, { list: pages.list, one: pages.detail as unknown as OwnPage | undefined });
 }
-
-export const kindPagesOf = (service: string, kind: string): KindPages | undefined => KINDS.get(`${service}/${kind}`);
-
-export const pageOf = (service: string, id: string): TabPage | undefined => PAGES.get(`${service}/${id}`);

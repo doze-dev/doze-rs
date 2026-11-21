@@ -93,7 +93,7 @@ test.describe("a refusal", () => {
   // The refused create is a 400 the browser logs.
   test.use({ allowErrors: /status of 400|400 \(Bad Request\)/ });
 
-test("a table and a bucket are created and deleted the same way; a refusal is shown in the dialog", async ({ page, browserName }) => {
+test("a table is created and deleted; a refusal is shown in the dialog", async ({ page, browserName }) => {
   const t = unique("events", browserName);
   await create(page, "/resources/dynamodb/tables", "Tables", { TableName: t, PartitionKey: "pk" });
   await expect(page.locator("h1")).toHaveText(t);
@@ -112,13 +112,7 @@ test("a table and a bucket are created and deleted the same way; a refusal is sh
   await remove(page, t);
   await expect(page.getByTestId("row-link").filter({ hasText: t })).toHaveCount(0);
 
-  const b = unique("photos", browserName).toLowerCase();
-  await create(page, "/resources/s3/buckets", "Buckets", { Bucket: b });
-  await expect(page.locator("h1")).toHaveText(b);
-  await expect(page.getByTestId("tab-objects")).toBeVisible();
-  await expect(page.getByTestId("sub-Objects")).toHaveCount(0);
-  await remove(page, b);
-  await expect(page.getByTestId("row-link").filter({ hasText: b })).toHaveCount(0);
+  // (A bucket's own pages, its create and its delete, are s3-boards.spec.ts.)
 });
 });
 
