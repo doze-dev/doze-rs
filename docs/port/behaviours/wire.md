@@ -42,7 +42,8 @@ Test: `header::tests::an_unknown_key_is_an_error`; `tests/no_panics.rs::arbitrar
 ## Versions and ApiVersions
 
 ### W8. Four profiles, one table
-`--kafka-version` 1 to 4 selects the ranges advertised per API. The table lists every served API once with
+`--kafka-version` 1 to 4 selects the ranges advertised per API. Each major stands for the newest release of it there is a
+recording of: Kafka 1.1, 2.8, 3.9 and 4.4 (owner's decision, 2026-11-19; `KafkaMajor::release`, the CLI's help says so). The table lists every served API once with
 its range in each profile (none where the profile does not offer it). SASL APIs are offered only when SASL
 is configured; telemetry APIs only when client telemetry is on. The advertised list is sorted by API key.
 Test: `profile::tests::advertised_is_sorted_and_conditional`
@@ -52,17 +53,14 @@ Held to the recorded ApiVersions of a real broker of each major
 (`conformance/recordings/api-versions.json`).
 Test: `tests/recorded_api_versions.rs::no_profile_offers_more_than_a_real_broker`. Narrower is held too: W36.
 
-### W10. Floors are the crate's where the crate's are higher
-Kafka 4.0 removed the oldest versions of nine APIs (KIP-896) and the wire crate does not decode them. A
-profile never advertises below what the crate can decode. (Deviation from Go, which advertised v0 of these
-at majors 1 to 3: no client of the last eight years negotiates them.) The raised floors are ListOffsets v0, OffsetCommit
-v0 and v1, OffsetFetch v0, CreateTopics v0 and v1, DeleteTopics v0 and DescribeConfigs v0 at majors 1 to 3, besides the
-record-format floors (Produce v3, Fetch v4). Where a removal would leave a profile without an API, the crate reads the
-version again instead (vendor/kafka-protocol PATCHES.md 5, 2026-11-18): v0 of DescribeAcls, CreateAcls and DeleteAcls (all
-Kafka 1.x has; a pattern type is LITERAL there, and a PREFIXED one cannot be written at v0), v0 and v1 of
-OffsetForLeaderEpoch and v0 of DescribeLogDirs, so `--kafka-version 1` offers all five as Kafka 1.1 does and majors 2 and 3
-start them at 0 as 2.8 and 3.9 do (debt I2). No API is dropped from a profile for want of a decoder.
-Test: `tests/every_offered_version.rs::every_offered_request_is_read` (every advertised version is decoded), `profile::tests::the_apis_dropped_because_the_crate_cannot_decode_them_are_known` (none), `tests/old_versions.rs` (each restored version against bytes written from Kafka's schema), recorded `acl-v0` (tools/kafka-replay, Apache Kafka 3.9.1)
+### W10. Every profile starts where its recorded broker starts
+Every API of every profile starts at the recorded broker's floor (debt K2, 2026-11-19; before it the crate's floors raised
+eight at majors 1 to 3). The crate reads what Kafka 4.0 removed (KIP-896) again: v0 of the ACL APIs, OffsetForLeaderEpoch,
+DescribeLogDirs (vendor/kafka-protocol PATCHES.md 5), AlterReplicaLogDirs and the token APIs (7), and the oldest versions of
+Produce, Fetch, ListOffsets, OffsetCommit, OffsetFetch, CreateTopics, DeleteTopics and DescribeConfigs (8, regenerated with
+the fields only those versions have). Produce v0 to v2 and Fetch v0 to v3 carry message formats v0 and v1 (W38). Kafka 4
+lists Produce from v0 and closes the connection on v0 to v2, as 4.4.0 does (its schema starts at v3): `Profile::check`.
+Test: `tests/every_offered_version.rs::every_offered_request_is_read`, `tests/recorded_api_versions.rs::every_profile_starts_where_the_real_broker_starts`, `profile::tests::each_major_offers_what_it_should`, `tests/old_versions.rs`, recorded `acl-v0` (tools/kafka-replay, Apache Kafka 3.9.1)
 
 ### W11. A request outside the advertised range closes the connection
 An API outside the profile, or a version outside its range, is refused (the connection is closed). The one
@@ -108,11 +106,11 @@ Test: `tests/recorded_api_versions.rs::telemetry_apis_are_the_only_extension`
 ### W36. Every recorded API and range is offered as recorded, or is a written-down deviation
 W9 is one direction; this is both. For each major, every API the recorded broker lists is offered at exactly its range,
 and nothing else is offered, unless the pair (major, API) is in the deviations table of the test with its reason and its
-row: the floors of W10; inter-broker and controller APIs real brokers list on the client listener (LeaderAndIsr,
+row: inter-broker and controller APIs real brokers list on the client listener (LeaderAndIsr,
 StopReplica, UpdateMetadata, ControlledShutdown, WriteTxnMarkers, AlterPartition, UnregisterBroker, DescribeQuorum, the
 Raft voter APIs, UnregisterController and the share-state APIs 83 to 87), left out by the owner's decision of 2026-11-18: clients never
-send them, a single node has no other broker, and serving them would only make the list match (debt K4); and the older columns
-written for an earlier release than the one recorded (K2). A table entry that no longer differs fails as well, so the list cannot go
+send them, a single node has no other broker, and serving them would only make the list match (debt K4). Nothing else: the
+older columns and the floors left the table on 2026-11-19 (K2, W10, W38). A table entry that no longer differs fails as well, so the list cannot go
 stale. The admin APIs of debt K3 left the table on 2026-11-19: every one is offered as recorded (ADM-10 to ADM-17); and so did the
 newer versions at Kafka 4 (K1, W37): Kafka 4 serves every version 4.4.0 lists of every API it serves. SaslHandshake is 0 to 1 in
 every major, as every recorded broker lists it
@@ -169,6 +167,63 @@ partition and so the run's random names: no other line differs (2026-11-19).
 
 - **W37-D1.** A ListTransactions v2 pattern is `regex-lite` syntax, not `java.util.regex`: the common syntax matches alike;
   look-around, back-references and possessive quantifiers are refused with 128 where Kafka accepts them.
+
+### W38. Message formats v0 and v1, converted as each release converts them (debt K2, 2026-11-19)
+The log stores record batch format v2 only. `kafka_wire::batch::legacy` converts between it and the older formats:
+
+- **Up, Produce v0 to v2** (`legacy::up`, Kafka's `Log.analyzeAndValidateRecords` and `LogValidator`). The request's
+  records are not held to one batch (Kafka checks that only from v3). Each whole entry is looked at first: over
+  `max.message.bytes` is MESSAGE_TOO_LARGE, a CRC-32 (v0, v1) or CRC-32C (v2) that is not its contents' CORRUPT_MESSAGE, a
+  size under 14 or an unknown magic CORRUPT_MESSAGE; a codec number Kafka does not know is UNKNOWN_SERVER_ERROR. A last
+  entry cut short is not read; no whole entry appends nothing and is answered 0 with offset -1. From Kafka 2.0 (profiles 2
+  and 3) a compressed set, or one led by a v2 batch, must be one entry, and every entry must have the first one's format
+  (INVALID_RECORD); Kafka 1.1 converts any mix into one batch, in the codec of its compressed entries. One v2 batch is taken
+  as from v3 (zstd's v7 floor is not asked). Otherwise each message (a wrapper's inner messages through its codec: each of
+  the wrapper's format, with no codec of its own, INVALID_RECORD, and a valid CRC, CORRUPT_MESSAGE; zstd in a wrapper is
+  INVALID_RECORD, unknown to 1.1) becomes a record of one uncompressed v2 batch: the broker's offsets, no producer, no
+  headers, v0's time -1 (exempt from the timestamp bounds), v1's own (a LogAppendTime wrapper's time for its inner messages).
+  That batch is then held to the topic's rules as any is (keys on a compacted topic, the timestamp bounds), written in the
+  topic's codec or under `producer` the set's, and held to `max.message.bytes` as stored. An LZ4 frame of format v0 has
+  Kafka's mistaken header checksum (KAFKA-3160), put right before it is read.
+- **Down, Fetch v0 to v3** (`legacy::down`, `RecordsUtil.downConvert`). v0 and v1 read format v0, v2 and v3 format v1.
+  The read is Kafka's slice of the log: from the batch that holds the offset, the partition's limit in bytes (up to v2 a hard
+  limit, the first batch possibly cut; from v3, KIP-74, at least the first batch whole), the last batch cut where the slice
+  ends. A control batch has no form there and is dropped; an aborted transaction's records are not told apart (an old
+  consumer reads uncommitted); zstd cannot be written (UNSUPPORTED_COMPRESSION_TYPE). An uncompressed batch becomes one
+  message per record from the fetch offset on; a compressed one one wrapper of all its records in its codec (v1 numbers its
+  inner messages from 0, v0 by offset; the wrapper's offset is the last record's). Headers are lost; under LogAppendTime the
+  batch's time is every message's and the type is marked. How the answer is filled is the release's: Kafka 1.1 converts it
+  all and answers with what came out, or with the read as it is if nothing converts; from 2.0 (KIP-283,
+  `LazyDownConversionRecords`) the answer is as long as the read, or as the first batch that converts if that is longer,
+  what is converted past that is cut, what falls short is filled with overflow messages (offset -1, a length one past the
+  end), the first batch that converts is converted twice when a batch that did not came before it (Kafka's iterator steps past
+  one batch for it), and one that converts to nothing is one 12-byte overflow message; a read with no whole batch is answered
+  as read by 2.8 and with nothing by 3.9. From Kafka 2.0 a topic that stores zstd is UNSUPPORTED_COMPRESSION_TYPE below
+  Fetch v10, and one with `message.downconversion.enable=false` UNSUPPORTED_VERSION below v4.
+- **Kafka 1.1 alone** closes the connection of a Produce v3 to v5 whose records are not one v2 batch (it fails the read of
+  the request), answers INVALID_RECORD as CORRUPT_MESSAGE (INVALID_RECORD came with 2.4) and gives a read-uncommitted Fetch v4
+  to v7 no last stable offset (-1).
+
+Test: `batch::legacy::tests` (the down-conversion of an uncompressed batch byte for byte as Kafka's own `RecordsUtil` wrote it,
+`tests/data/legacy-vectors.txt`; Kafka's message sets of every codec read up), recorded `old-formats-produce` and
+`old-formats-fetch` (tools/kafka-replay, Apache Kafka 3.9.1), `tools/old-profiles-oracle` against Kafka 1.1, 2.8 and 3.9.1
+(`produce-old`, `produce-old-refused`, `fetch-old`, `fetch-old-txn`, `zstd`), and old clients (interop/README.md).
+
+What `tools/old-profiles-oracle` still finds different from the real brokers (2026-11-19), each decided here:
+
+- **W38-D1.** A wrapper this broker writes is compressed by its own codecs, not Java's, so its bytes and size differ; where an
+  answer is cut at its length, the cut falls elsewhere (a consumer fetches the rest next time). The records are the same.
+- **W38-D2.** Every profile has Kafka 4.4's topic configs and their defaults (`compression.type=zstd` is taken at 1.1, 
+  DescribeConfigs lists 4.4's set, `segment.bytes` is this broker's own); only `message.timestamp.after.max.ms`'s default
+  is the release's (no bound before 4.0, KIP-937), as it decides which records are refused.
+- **W38-D3.** Kafka 2.8 and 3.9 start a new generation when a static member is replaced while its group waits for SyncGroup
+  (3.9 not on every run: it is a race with the join it completes); this broker answers with the current one.
+- **W38-D6.** DescribeProducers v0 at Kafka 3.9 gives an idempotent producer coordinator epoch -1 and its batch's own time, and an
+  unknown topic the text "This server does not host this topic-partition."; this broker answers as at Kafka 4 (0, its clock, no text).
+- **W38-D4.** As at Kafka 4 (and decided elsewhere): no internal topics in Metadata, an authorizer is always there (the
+  recorded brokers have none and answer the ACL APIs SECURITY_DISABLED), member ids are `doze-…`, and DescribeGroups,
+  DeleteGroups and DeleteRecords answer in the order asked, where Kafka's follows its hash maps.
+- **W38-D5.** The inter-broker APIs (K4).
 
 ## Hostile input
 

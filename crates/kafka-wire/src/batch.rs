@@ -15,6 +15,7 @@ mod header;
 mod inflate;
 mod iter;
 mod layout;
+pub mod legacy;
 mod look;
 mod marker;
 mod peek;

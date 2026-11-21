@@ -70,7 +70,42 @@ pub struct ProcessSpec {
     pub stop: Vec<Step>,
     /// Declared as a `service` block rather than an `app` (Go's `Config.Service`): only the words of errors.
     pub service: bool,
+    /// Fetched before each start (a `service`'s `download`).
+    pub download: Option<Download>,
 }
+
+/// What fetches a command's `download`: the host's (the engine opens no connection of its own).
+pub trait Fetch: Send + Sync {
+    /// Makes what `url` serves present and checked; the folder it runs in.
+    fn fetch<'a>(&'a self, url: &'a str) -> crate::stack::BoxFuture<'a, Result<PathBuf, String>>;
+}
+
+/// A command something fetches before each start (Go's `runspec.Downloader`): present once, checked every time; it runs
+/// in what was fetched unless its block set `dir`.
+#[derive(Clone)]
+pub struct Download {
+    pub url: String,
+    /// The block set `dir` itself: it runs there, not in the download.
+    pub dir_set: bool,
+    pub fetch: std::sync::Arc<dyn Fetch>,
+}
+
+impl std::fmt::Debug for Download {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Download")
+            .field("url", &self.url)
+            .field("dir_set", &self.dir_set)
+            .finish_non_exhaustive()
+    }
+}
+
+impl PartialEq for Download {
+    fn eq(&self, other: &Download) -> bool {
+        self.url == other.url && self.dir_set == other.dir_set
+    }
+}
+
+impl Eq for Download {}
 
 impl ProcessSpec {
     /// A command run in `dir`.
@@ -92,6 +127,7 @@ impl ProcessSpec {
             on_ready: Vec::new(),
             stop: Vec::new(),
             service: false,
+            download: None,
         }
     }
 

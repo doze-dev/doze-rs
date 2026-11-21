@@ -102,7 +102,14 @@ doze-cli 9000000 240 0
 # regex-lite already linked), idle 7,248 KB (samples 7,248, 7,248, 7,232). The bytes are the regenerated and patched message codecs and
 # the handlers' new versions. Bytes: times CI's 1.3747 is 12,911,336 B on ubuntu x86_64, plus 5% = 13,556,903 B until CI measures it (ceiling
 # 15 MB). Idle unchanged: 11,880 KB.
-doze-kafka 13556903 182 11880 --listen 127.0.0.1:{port} --data-dir {data}
+# 2026-11-19, the older profiles (branch kafka-old-profiles, debt K2: profiles 1 to 3 are Kafka 1.1, 2.8 and 3.9 with every version
+# they serve; message formats v0 and v1 converted up and down, vendor patch 8), measured with `cargo xtask weight doze-kafka` on darwin
+# arm64 over main (the wire tail): 9,474,848 B (+82,736 B, +0.88%, over 9,392,112 B), 182 packages (none added: CRC-32 and xxHash32 are
+# written out, the codecs are the batch's), idle 7,184 KB (samples 7,168, 7,232, 7,184). The bytes are the conversions, the
+# regenerated codecs of eight messages' oldest versions and the release rules of the handlers. Bytes: times CI's 1.3747 is 13,025,074 B
+# on ubuntu x86_64, plus 5% = 13,676,328 B until CI measures it (ceiling 15 MB). Idle unchanged: 11,880 KB.
+# 2026-11-21, core M3: doze-bolt (+1 package), the bbolt reader the module face takes a Go module's data over with.
+doze-kafka 13676328 183 11880 --listen 127.0.0.1:{port} --data-dir {data}
 # 2026-11-14, with the schema registry too (Phase 10a, docs/port/phase10.md): 6,791,104 B on darwin arm64 (+216,800 B over the module's 6,574,304 B),
 # 171 packages (no third-party package), 7,248 KB idle. Times 1.36: about 9.24 MB on ubuntu x86_64, under this line (9,386,171 B), which does not move.
 # 2026-11-14, with Protobuf (Phase 10b, written here, no Protobuf crate): 6,857,840 B on darwin arm64 (+66,736 B), 171 packages (none added), 7,376 KB idle.
@@ -242,4 +249,6 @@ doze-kafka 13556903 182 11880 --listen 127.0.0.1:{port} --data-dir {data}
 # The owner, the same day: "Keep the size more generous... it's gonna be 20 MB. People will not fight over using software because of a few KBs
 # and MBs." So the byte line is now the 20 MB ceiling itself (20,000,000 B), and idle gets the same room: 16,384 KB (16 MB). The table still prints
 # every measurement, so growth stays visible; it just no longer blocks merges below those marks.
-doze-aws 20000000 280 16384 --listen 127.0.0.1:{port} --data-dir {data}
+# 2026-11-21, core M3 (the aws module face, PR #57 re-applied on main): the module SDK (+12 packages, CI run 43641162106) and
+# doze-bolt, the bbolt reader that carries a Go module's data over (+1): 293 packages. Bytes and idle stay under the ceilings.
+doze-aws 20000000 293 16384 --listen 127.0.0.1:{port} --data-dir {data}

@@ -299,6 +299,8 @@ jobs:
       # (docs/port/weight.md, "doze's profile").
       # C2c with D1 (`__daemon` in this binary): 6,211,408 B and 234 packages on darwin; the package line moves to 240.
       # Session 11: regex without its perf engines (weight.md, "Session 11"): 8,607,968 B on x86_64 Linux (cross build), 233 packages.
+      # 2026-11-19, D2 (names, the front door, TLS, downloads): 9,192,984 B at "s" (zig cross build), over the line; release-doze moved
+      # to opt-level "z": 8,754,344 B, 234 packages (weight.md, "D2"). The line is unchanged.
       - name: doze (the CLI) under 9 MB
         run: |
           cargo build --profile release-doze -p doze-cli
@@ -364,7 +366,10 @@ jobs:
           # 6,090,240 B (+607,664 B, +10.0%): the three streams APIs' generated codecs, topology configuration, the sticky
           # assignor and reconciliation are protocol, so the lean build has them too (+446,816 B in the darwin default build).
           # Idle there 7,272 KB, under the line. Line: that plus 5%.
-          [ "$size" -le 7032799 ] || { echo "lean binary over 7,032,799 B"; exit 1; }
+          # 2026-11-20, the old profiles (K2) on the admin APIs (K3) and the wire tail (K1): CI measured 7,096,312 B (run
+          # 44591856919) against streams' 6,697,904 B (+398,408 B, +5.9%): eleven admin APIs, the Kafka 4.4 versions, and the
+          # v0/v1 message-format conversions are protocol, so the lean build has them too. Idle 7,548 KB. Line: that plus 5%.
+          [ "$size" -le 7451128 ] || { echo "lean binary over 7,451,128 B"; exit 1; }
           [ "$crates" -le 130 ] || { echo "more than 130 packages in the lean build"; exit 1; }
           # 2026-11-18, share groups: CI read 7,192 then 7,380 KB (main 7,104). In the doze-ubuntu VM (aarch64, lean, 6 starts each) main
           # idles at 5,272-5,288 KB and share groups at 5,476-5,484 KB with heap (188 KB) and anonymous memory (456-460 KB) the same:
@@ -399,7 +404,9 @@ jobs:
           rss=$(echo $samples | tr ' ' '\n' | sort -n | sed -n 2p)
           echo "idle $rss KB with TLS configured"
           # CI's measurement with TLS configured on 2026-11-14 (median 10,104 KB) plus 5% (weight.md, "Limits raised to the measured values").
-          [ "$rss" -le 11479 ] || { echo "idle resident memory over 11,479 KB with TLS configured"; exit 1; }
+          # 2026-11-20, with the admin APIs, the wire tail and the old profiles: CI measured median 11,516 KB (samples 11,516, 11,564,
+          # 11,324; run 44602805454), right at the old line, which the previous run of the same code passed. Line: that plus 5%.
+          [ "$rss" -le 12092 ] || { echo "idle resident memory over 12,092 KB with TLS configured"; exit 1; }
 
   # The React console (web/, docs/port/console/react-plan.md): its built bundle is committed in crates/kafka-console/web-dist
   # so that `cargo build` needs no bun. This rebuilds it from the locked dependencies and fails if the result differs from what
@@ -467,6 +474,11 @@ jobs:
         run: |
           mkdir -p corpus/fuzz_ps
           cargo fuzz run fuzz_ps corpus/fuzz_ps -- -max_total_time=30 -max_len=65536
+      - name: Fuzz the bbolt reader (a Go doze's metadata, taken over) for 30 seconds
+        working-directory: crates/doze-bolt/fuzz
+        run: |
+          mkdir -p corpus/fuzz_bolt
+          cargo fuzz run fuzz_bolt corpus/fuzz_bolt seeds/fuzz_bolt -- -max_total_time=30 -max_len=131072
       - name: Fuzz the module protocol's frame decoder for 30 seconds
         working-directory: crates/doze-module-proto/fuzz
         run: |

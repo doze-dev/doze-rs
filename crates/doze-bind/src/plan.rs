@@ -67,6 +67,21 @@ impl InstancePlan {
         format!("http://{host}:{}", l.port)
     }
 
+    /// What the module is told of a listener, before anything is bound: its address, URL and routed hosts, and
+    /// `backend`, where its engine listens.
+    pub fn granted(
+        &self,
+        l: &ListenerPlan,
+        backend: doze_module_proto::msg::instance::Address,
+    ) -> doze_module_proto::msg::instance::Granted {
+        doze_module_proto::msg::instance::Granted {
+            addr: self.addr(l),
+            url: self.url(l),
+            hosts: l.routes.iter().map(|r| r.host.clone()).collect(),
+            backend,
+        }
+    }
+
     /// `host:port` for a listener: what a client connects to.
     pub fn addr(&self, l: &ListenerPlan) -> String {
         let host = self
@@ -77,32 +92,68 @@ impl InstancePlan {
     }
 }
 
+/// Where a stack's instances are put.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Addressing {
+    /// Names off: every listener on 127.0.0.1, told apart by port.
+    Off,
+    /// Names on, but this machine cannot give a name an address of its own (it is not set up, or on a Mac the
+    /// network daemon serves another zone): each instance is still `<name>.<stack>.doze`, resolving to 127.0.0.1, and
+    /// its ports must differ from every other's.
+    Shared,
+    /// Names on and the machine set up: each instance on an address of its own, so many hold one canonical port.
+    Own,
+}
+
+impl Addressing {
+    /// Whether instances are named.
+    pub fn named(self) -> bool {
+        self != Addressing::Off
+    }
+}
+
 /// The whole stack, placed.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Plan {
     pub stack: String,
-    /// Each instance on an address of its own (names on and the machine set up); else all on 127.0.0.1.
-    pub names: bool,
+    pub addressing: Addressing,
     pub instances: Vec<InstancePlan>,
 }
 
-/// Places every instance of `stack`. `names` is whether names are on and the machine can give addresses (the caller
-/// asks [`doze_names::pool_usable`]). Every problem is returned at once, each naming what is involved.
-pub fn plan(stack: &str, decls: &[Decl], names: bool) -> Result<Plan, Vec<String>> {
+impl Plan {
+    /// The same stack with only `name` in it: what binding one instance (added at run time) takes.
+    pub fn only(&self, name: &str) -> Plan {
+        Plan {
+            stack: self.stack.clone(),
+            addressing: self.addressing,
+            instances: self
+                .instances
+                .iter()
+                .filter(|i| i.name == name)
+                .cloned()
+                .collect(),
+        }
+    }
+}
+
+/// Places every instance of `stack`. `addressing` is whether names are on and whether the machine can give
+/// addresses (the caller asks [`doze_names::pool_usable`]). Every problem is returned at once, each naming what is
+/// involved.
+pub fn plan(stack: &str, decls: &[Decl], addressing: Addressing) -> Result<Plan, Vec<String>> {
     let mut errs = Vec::new();
     let mut instances = Vec::new();
     for d in decls {
-        match place(stack, d, names) {
+        match place(stack, d, addressing.named()) {
             Ok(p) => instances.push(p),
             Err(e) => errs.extend(e.into_iter().map(|e| format!("{}: {e}", d.name))),
         }
     }
-    errs.extend(collisions(&instances, names));
+    errs.extend(collisions(&instances, addressing == Addressing::Own));
     if errs.is_empty() {
         let stack = stack.to_string();
         Ok(Plan {
             stack,
-            names,
+            addressing,
             instances,
         })
     } else {
@@ -187,8 +238,8 @@ fn route_hosts(l: &Listener, host: &str) -> Result<Vec<RouteHost>, Vec<String>> 
 }
 
 /// What two instances of one stack can both want: a host (a sibling route `sync-@` of `cloud` is `sync-cloud`'s own
-/// name), or, without names, a port on 127.0.0.1.
-fn collisions(instances: &[InstancePlan], names: bool) -> Vec<String> {
+/// name), or, without addresses of their own, a port on 127.0.0.1.
+fn collisions(instances: &[InstancePlan], own: bool) -> Vec<String> {
     let mut errs = Vec::new();
     let mut hosts: BTreeMap<String, String> = BTreeMap::new();
     for i in instances {
@@ -207,7 +258,7 @@ fn collisions(instances: &[InstancePlan], names: bool) -> Vec<String> {
                     ));
                 }
             }
-            if !names {
+            if !own {
                 let what = describe(i, l);
                 if let Some(other) = ports.insert(l.port, what.clone()) {
                     errs.push(format!(

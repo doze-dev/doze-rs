@@ -40,7 +40,11 @@ const ID: Uuid = Uuid::from_u128(0x0123_4567_89ab_cdef_0123_4567_89ab_cdef);
 #[test]
 fn the_keys_are_at_kafka_4_4_versions() {
     let range = |k: ApiKey| (k.valid_versions().min, k.valid_versions().max);
-    assert_eq!(range(ApiKey::Produce), (3, 13));
+    assert_eq!(
+        range(ApiKey::Produce),
+        (0, 13),
+        "v0 to v2 since patch 8, for the older profiles"
+    );
     assert_eq!(range(ApiKey::TxnOffsetCommit), (0, 6));
     assert_eq!(range(ApiKey::InitProducerId), (0, 6));
 }

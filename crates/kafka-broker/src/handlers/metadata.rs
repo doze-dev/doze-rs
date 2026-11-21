@@ -182,17 +182,23 @@ impl<F: Fs> Broker<F> {
         if let Some(topic) = self.meta.topic(&name) {
             return (Place::Listed, self.described(&topic));
         }
+        let mut code = ResponseError::UnknownTopicOrPartition;
         if may_create && self.config.auto_create_topics {
             if !self.can_create(caller, raw) {
                 let denied = failed(Some(raw), ResponseError::TopicAuthorizationFailed);
                 return (Place::CreateDenied, denied);
             }
             wanted.push(name);
+            // Kafka 1.1 and 2.8 (ZooKeeper) answer the topic they are making LEADER_NOT_AVAILABLE; a KRaft broker (3 and
+            // 4) as not known yet (recorded, `tools/old-profiles-oracle`, `metadata`).
+            if self.config.kafka_major.get() <= 2 {
+                code = ResponseError::LeaderNotAvailable;
+            }
         }
         // Kafka creates the topic after it has answered: the request that asked for it is told it does not exist
         // and the next one finds it. Answering with the new topic would hide, from a client that cannot cope
         // with that first answer, what it will meet there.
-        let missing = failed(Some(raw), ResponseError::UnknownTopicOrPartition);
+        let missing = failed(Some(raw), code);
         (Place::Listed, missing)
     }
 

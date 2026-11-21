@@ -42,10 +42,10 @@ mod ports;
 mod short;
 mod stop;
 
-pub use engine::{Builder, Engine};
+pub use engine::{Builder, Engine, Hold};
 pub use error::{BuildError, Error};
 pub use events::{Cause, Event};
-pub use process::{Probe, ProcessSpec, Step};
+pub use process::{Download, Fetch, Probe, ProcessSpec, Step};
 pub use reaper::Background;
 pub use restart::{Policy, Restart};
 pub use stack::{Endpoint, Need, PlanCtx, Planned, Planner, Service, Sleep, Stack, When};

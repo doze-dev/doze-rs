@@ -143,6 +143,16 @@ subscribes to is GROUP_SUBSCRIBED_TO_TOPIC (86), an unknown topic or partition 3
 Subscriptions are read from the consumer protocol (versions 0-3); an unreadable one subscribes to nothing assumed.
 Test: `group_admin::offsets_are_deleted_unless_*`, `offset_delete_of_a_group_with_nothing_*`, `groups::subscription::tests`
 
+### G11. OffsetCommit and OffsetFetch v0 are ZooKeeper's (debt K2, 2026-11-19)
+Kafka 1.1 and 2.8 keep a v0 commit in ZooKeeper, apart from every other: the group is not asked (v0 names no member), only
+the offset is kept, and only OffsetFetch v0 reads it back, 3 with no metadata where there is none (`MetaStore::commit_zk_offsets`,
+kept across restarts); nothing a later version commits is seen by v0, nor v0's by them. Kafka 3.9 has no ZooKeeper: v0 is
+UNSUPPORTED_VERSION on every partition (a request whose every partition is refused first, an unknown topic say, is answered
+with that). v1's commit time is when the offset's retention counts from. Kafka 3.9 lists ConsumerGroupHeartbeat and
+ConsumerGroupDescribe v0 and, as installed, answers both UNSUPPORTED_VERSION before anything else; a share coordinator key is
+COORDINATOR_NOT_AVAILABLE. DescribeGroups' authorized operations before Kafka 4 are READ, DELETE and DESCRIBE (328).
+Test: `store::zk_offsets::tests`, recorded `old-offsets`, `tools/old-profiles-oracle` `offsets-old`, `consumer-groups`, `groups`
+
 ## Retention
 
 ### R1. Committed offsets expire (`--offsets-retention`, 168 h; 0 keeps them for ever)

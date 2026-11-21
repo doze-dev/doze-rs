@@ -7,13 +7,11 @@
 //! doze-config asks synchronously while it loads (on a blocking thread of the daemon's runtime), so each question is
 //! the module's answer awaited on the runtime's handle.
 
-use crate::spec_tree;
-use doze_config::modules::{Attributes, Call, Endpoint, Listener, ModuleInfo, Modules};
 use doze_fetch::child::{ChildDownloads, Request};
 use doze_module_host::BoxFuture;
 use doze_module_host::{Locate, Pool, Running, Services};
 use doze_module_proto::msg::hello::{Manifest, caps};
-use doze_module_proto::msg::instance::{Address, Granted, Instance};
+use doze_module_proto::msg::instance::{Address, Instance};
 use doze_module_proto::network::MAIN;
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
@@ -35,6 +33,50 @@ pub struct Catalog {
     exes: Arc<Mutex<BTreeMap<String, PathBuf>>>,
     manifests: Mutex<BTreeMap<String, Manifest>>,
     failed: Mutex<BTreeMap<String, String>>,
+    /// The engine a module taking its own connections boots and counts them through, once it exists.
+    wire: Arc<WireHost>,
+    /// What fetches a service's `download` (none: a block with one says nothing fetches it).
+    service_downloads: Option<Arc<dyn doze_engine::Fetch>>,
+}
+
+/// The host's side of `wire.accept` (D2): a module handed a client connection asks the engine to boot the instance
+/// when the client's first packets call for it, and counts the connection while it is spliced.
+#[derive(Debug, Default)]
+pub struct WireHost {
+    engine: std::sync::OnceLock<doze_engine::Engine>,
+}
+
+impl doze_module_host::Backends for WireHost {
+    fn boot<'a>(
+        &'a self,
+        instance: &'a str,
+    ) -> BoxFuture<'a, Result<Address, doze_module_proto::msg::error::Error>> {
+        Box::pin(async move {
+            use doze_module_proto::msg::error::{Error, ErrorKind};
+            let e = self
+                .engine
+                .get()
+                .ok_or_else(|| Error::new(ErrorKind::Unavailable, "the daemon is starting"))?;
+            let ep = e
+                .wake(instance, doze_engine::Cause::Connection)
+                .await
+                .map_err(|err| Error::new(ErrorKind::Unavailable, err.to_string()))?;
+            Ok(match ep.backend.strip_prefix("unix:") {
+                Some(p) => Address::Unix(p.to_string()),
+                None => Address::Tcp(ep.backend),
+            })
+        })
+    }
+    fn acquire(&self, instance: &str) {
+        if let Some(e) = self.engine.get() {
+            e.acquire(instance);
+        }
+    }
+    fn release(&self, instance: &str) {
+        if let Some(e) = self.engine.get() {
+            e.release(instance);
+        }
+    }
 }
 
 impl std::fmt::Debug for Catalog {
@@ -58,9 +100,10 @@ impl Catalog {
         let exes: Arc<Mutex<BTreeMap<String, PathBuf>>> = Arc::default();
         let found = exes.clone();
         let locate: Locate = Arc::new(move |engine| crate::lock(&found).get(engine).cloned());
+        let wire = Arc::new(WireHost::default());
         let services = Services {
             downloads,
-            backends: None,
+            backends: Some(wire.clone()),
             notices: None,
         };
         Catalog {
@@ -72,7 +115,40 @@ impl Catalog {
             exes,
             manifests: Mutex::default(),
             failed: Mutex::default(),
+            wire,
+            service_downloads: None,
         }
+    }
+
+    /// Services' downloads fetched by `f`. Before the catalog is shared.
+    #[must_use]
+    pub fn with_service_downloads(mut self, f: Arc<dyn doze_engine::Fetch>) -> Catalog {
+        self.service_downloads = Some(f);
+        self
+    }
+
+    /// What fetches a service's `download`.
+    pub fn service_downloads(&self) -> Option<Arc<dyn doze_engine::Fetch>> {
+        self.service_downloads.clone()
+    }
+
+    /// The engine modules taking their own connections boot and count them through (once; before the first
+    /// connection).
+    pub fn attach(&self, engine: &doze_engine::Engine) {
+        let _ = self.wire.engine.set(engine.clone());
+    }
+
+    /// Every listener the instance's module declares (`network`), the main one included; empty where it declares none.
+    pub fn network(&self, i: &Instance) -> Vec<doze_module_proto::msg::instance::Listener> {
+        let Some(r) = self.running(&i.engine, &i.version) else {
+            return Vec::new();
+        };
+        self.rt.block_on(r.network(i)).unwrap_or_default()
+    }
+
+    /// The running module for a type (and major), if it is one this catalog found.
+    pub async fn module_of(&self, key: &str) -> Option<Arc<Running>> {
+        self.pool.get(key).await.ok()
     }
 
     /// The manifest of a type already looked up.
@@ -222,203 +298,13 @@ pub struct Published {
     pub client: String,
 }
 
-/// Every engine pin of the lock at `path`, as the module protocol carries them (none when there is no lock).
-pub fn lock_pins(path: &Path) -> Vec<doze_module_proto::msg::run::Pin> {
-    let Ok(lock) = doze_fetch::lock::Lock::load(path) else {
-        return Vec::new();
-    };
-    lock.engines
-        .into_iter()
-        .flat_map(|(engine, specs)| {
-            specs
-                .into_iter()
-                .map(move |(spec, p)| doze_module_proto::msg::run::Pin {
-                    engine: engine.clone(),
-                    spec,
-                    resolved: p.resolved,
-                    hashes: p.hashes,
-                })
-        })
-        .collect()
-}
+#[path = "catalog_lock.rs"]
+mod lock;
+pub use lock::{lock_pins, record_pins};
 
-/// Records engine pins a module reported in the lock at `path` (Go's `up` wrote them), so the next start resolves
-/// offline. A lock that cannot be read or written is said in the log and left alone: the start goes on.
-#[allow(clippy::print_stderr)] // the daemon's stderr is its log file
-pub fn record_pins(path: &Path, pins: &[doze_module_proto::msg::run::Pin]) {
-    // One writer at a time: two instances starting at once would each read, change and save, one losing the other's
-    // pins (and the save's temporary file is named by the pid, so the second rename found it gone).
-    static WRITING: Mutex<()> = Mutex::new(());
-    let _one = crate::lock(&WRITING);
-    let mut lock = if path.exists() {
-        match doze_fetch::lock::Lock::load(path) {
-            Ok(l) => l,
-            Err(e) => {
-                eprintln!("doze daemon: {} not updated: {e}", path.display());
-                return;
-            }
-        }
-    } else {
-        doze_fetch::lock::Lock::default()
-    };
-    for p in pins {
-        let pin = doze_fetch::lock::EnginePin {
-            resolved: p.resolved.clone(),
-            source: "mirror".into(),
-            hashes: p.hashes.clone(),
-        };
-        lock.record_engine(&p.engine, &p.spec, pin);
-    }
-    if let Err(e) = lock.save(path, None) {
-        eprintln!("doze daemon: {} not updated: {e}", path.display());
-    }
-}
-
-/// The instance a module is asked about while the config loads: reached at `endpoint`, its backend there too.
-pub fn instance_for(call: &Call<'_>, manifest: &Manifest) -> Instance {
-    let addr = match call.endpoint {
-        Endpoint::Tcp(a) => a.clone(),
-        Endpoint::Unix(p) => format!("unix:{p}"),
-    };
-    let backend = match call.endpoint {
-        Endpoint::Tcp(a) => Address::Tcp(a.clone()),
-        Endpoint::Unix(p) => Address::Unix(p.clone()),
-    };
-    Instance {
-        name: call.name.to_string(),
-        engine: call.ty.to_string(),
-        version: call.version.to_string(),
-        data_dir: String::new(),
-        socket_dir: String::new(),
-        spec: spec_tree::tree(call.body, &manifest.schema),
-        host: String::new(),
-        listeners: BTreeMap::from([(MAIN.to_string(), granted(addr, backend))]),
-        deps: Vec::new(),
-        toolchain: None,
-        dir: call.dir.to_string(),
-    }
-}
-
-/// A listener granted at `addr` whose engine listens at `backend`.
-pub fn granted(addr: String, backend: Address) -> Granted {
-    Granted {
-        addr,
-        url: String::new(),
-        hosts: Vec::new(),
-        backend,
-    }
-}
-
-impl Modules for Catalog {
-    fn lookup(&self, ty: &str, version: &str) -> Option<ModuleInfo> {
-        if let Some(m) = self.manifest(ty) {
-            return Some(info(&self.another_build(ty, version, m)));
-        }
-        if crate::lock(&self.failed).contains_key(ty) {
-            return None;
-        }
-        match self.resolve(ty, ty, version) {
-            Ok(m) => {
-                let i = info(&m);
-                crate::lock(&self.manifests).insert(ty.to_string(), m);
-                Some(i)
-            }
-            Err(e) => {
-                crate::lock(&self.failed).insert(ty.to_string(), e);
-                None
-            }
-        }
-    }
-
-    fn cached(&self, ty: &str) -> Option<ModuleInfo> {
-        self.manifest(ty).map(|m| info(&m))
-    }
-
-    fn lookup_error(&self, ty: &str) -> Option<String> {
-        crate::lock(&self.failed).get(ty).cloned()
-    }
-
-    fn names(&self) -> Vec<String> {
-        let mut names = doze_fetch::registry::Cache::new(&self.home)
-            .modules(doze_fetch::registry::source::DEFAULT_NAMESPACE);
-        names.extend(crate::lock(&self.manifests).keys().cloned());
-        names.sort();
-        names.dedup();
-        names
-    }
-
-    fn check_support(&self, ty: &str, version: &str) -> Result<(), String> {
-        let Some(m) = self.manifest_for(ty, version) else {
-            return Ok(());
-        };
-        supports(ty, &m, version)
-    }
-
-    fn attributes(&self, call: &Call<'_>) -> Attributes {
-        let Some(m) = self.manifest_for(call.ty, call.version) else {
-            return Attributes::default();
-        };
-        let Some(p) = self.published(&instance_for(call, &m)) else {
-            return Attributes::default();
-        };
-        Attributes {
-            env_var: p.env_var,
-            url: p.url,
-            extras: p
-                .extras
-                .iter()
-                .map(|(k, v)| (k.clone(), spec_tree::back(v)))
-                .collect(),
-        }
-    }
-
-    fn listeners(&self, call: &Call<'_>, _port: u16) -> Vec<Listener> {
-        let Some(m) = self.manifest_for(call.ty, call.version) else {
-            return Vec::new();
-        };
-        let Some(r) = self.running(call.ty, call.version) else {
-            return Vec::new();
-        };
-        let i = instance_for(call, &m);
-        self.rt
-            .block_on(r.network(&i))
-            .unwrap_or_default()
-            .into_iter()
-            .filter(|l| l.name != MAIN)
-            .map(|l| Listener {
-                name: l.name,
-                port: l.port,
-            })
-            .collect()
-    }
-}
-
-/// What the config needs of a manifest.
-pub fn info(m: &Manifest) -> ModuleInfo {
-    ModuleInfo {
-        versionless: m.versions.is_empty(),
-        default_port: m.default_port,
-        supervised: m.supervised,
-    }
-}
-
-/// Whether the module serves `version`: one of its majors, or an exact version under one.
-pub fn supports(ty: &str, m: &Manifest, version: &str) -> Result<(), String> {
-    if m.versions.is_empty() || version.is_empty() {
-        return Ok(());
-    }
-    let served = m
-        .versions
-        .iter()
-        .any(|v| version == v || version.starts_with(&format!("{v}.")));
-    if served {
-        return Ok(());
-    }
-    Err(format!(
-        "{ty} {version:?} is not a version the {ty} module serves (it serves {})",
-        m.versions.join(", ")
-    ))
-}
+#[path = "catalog_config.rs"]
+mod config;
+pub use config::{granted, info, instance_for, supports};
 
 #[cfg(test)]
 #[path = "catalog_tests.rs"]

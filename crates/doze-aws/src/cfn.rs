@@ -168,6 +168,23 @@ impl Cfn {
         self.call("CreateStack", form).map(|_| ())
     }
 
+    /// Creates the stack so that a failed create deletes what it made, `Retain` or not (`RetainExceptOnCreate`): the
+    /// module face's first converge, which must not leave retained resources that block the next try.
+    pub(crate) fn create_stack_clean(&self, name: &str, body: &str) -> R<()> {
+        let form = vec![
+            field("StackName", name),
+            field("TemplateBody", body),
+            field("RetainExceptOnCreate", "true"),
+        ];
+        self.call("CreateStack", form).map(|_| ())
+    }
+
+    /// One of the calls that move a stuck stack on (`RollbackStack`, `ContinueUpdateRollback`).
+    pub(crate) fn stack_call(&self, action: &str, name: &str) -> R<()> {
+        self.call(action, vec![field("StackName", name)])
+            .map(|_| ())
+    }
+
     /// Makes an `UPDATE` change set and answers its id.
     pub(crate) fn create_change_set(
         &self,
