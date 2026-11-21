@@ -201,11 +201,11 @@ export function Explore({ name, search }: OwnProps) {
           <p>
             This removes the ticked item from <span className="font-mono">{table}</span> by its primary key:
           </p>
-          <dl className="grid gap-1 rounded-xl border bg-well px-4 py-3 font-mono text-[13px]" data-testid="item-key">
+          <dl className="grid grid-cols-[minmax(7rem,10rem)_minmax(0,1fr)] font-mono text-[13px] [&>div:last-child>*]:border-b-0" data-testid="item-key">
             {base.keys.map((k) => (
-              <div key={k.name}>
-                <dt className="text-muted-foreground">{k.name}</dt>
-                <dd className="text-bright">{cell(chosen[k.name])}</dd>
+              <div key={k.name} className="contents">
+                <dt className="border-b py-2.5 pr-4 text-muted-foreground">{k.name}</dt>
+                <dd className="border-b py-2.5 break-all text-bright">{cell(chosen[k.name])}</dd>
               </div>
             ))}
           </dl>

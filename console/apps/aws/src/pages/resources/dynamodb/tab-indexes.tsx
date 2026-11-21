@@ -70,7 +70,7 @@ export function IndexesTab({ name, global, local, onCreate, onDeleted }: { name:
             <div>{create}</div>
             <DataTable aria-label="Global secondary indexes" data={global} columns={columns(setAsked)} rowId={(r) => r.name} />
             <Said>
-              <b>20 global secondary indexes</b> per table by default.{global.length > 1 ? ` Every write to ${name} now also updates the ${global.length} indexes.` : ""}
+              <b>20 global secondary indexes</b> per table by default.{global.length > 1 ? ` Every write to ${name} now also updates ${global.length === 2 ? "both indexes" : `the ${global.length} indexes`}.` : ""}
             </Said>
           </div>
         )}

@@ -106,7 +106,7 @@ export function TtlEdit({ name }: OwnProps) {
           {(id) => <Input id={id} value={attribute} onChange={(e) => (setAttribute(e.target.value), update.reset())} placeholder="expires_at" autoComplete="off" spellCheck={false} className="bg-card font-mono" data-testid="ttl-attribute" />}
         </Field>
         <RuleHelp>
-          On AWS it takes about an hour for TTL to be on across all partitions, and an expired item is deleted some time after it expires, typically within a few days. A second <span className="font-mono">UpdateTimeToLive</span> that asks for the state the table is already in is refused with a <span className="font-mono">ValidationException</span>.
+          On AWS it takes about an hour for TTL to be on across all partitions, and an expired item is deleted some time after it expires, typically within a few days. doze-aws deletes an expired item as soon as it falls due (at the next call, or when its timer runs), not days later. A second <span className="font-mono">UpdateTimeToLive</span> that asks for the state the table is already in is refused with a <span className="font-mono">ValidationException</span>.
         </RuleHelp>
       </FormSection>
     </FormPage>

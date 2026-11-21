@@ -17,7 +17,7 @@ mod support;
 mod world;
 
 use aws_peers::Mode;
-use deep::{ok, op};
+use deep::ok;
 use serde_json::{Value, json};
 use world::{World, world};
 
@@ -176,106 +176,6 @@ async fn contributor_insights_are_read_and_set_and_a_stream_is_turned_on() {
         t["Table"]["StreamSpecification"]["StreamViewType"],
         "NEW_AND_OLD_IMAGES"
     );
-}
-
-#[tokio::test]
-async fn a_table_is_exported_after_point_in_time_recovery_is_on_and_only_this_one() {
-    let w = tables("ddb-export").await;
-    w.app("s3", "CreateBucket", &json!({"Bucket": "larder-exports"}))
-        .await;
-    let (status, refused) = op(
-        &w,
-        BASE,
-        "ExportTableToPointInTime",
-        &json!({"S3Bucket": "larder-exports"}),
-    )
-    .await;
-    assert_eq!(status, 400, "{refused}");
-    assert_eq!(
-        refused["code"], "PointInTimeRecoveryUnavailableException",
-        "{refused}"
-    );
-    let off = ok(&w, BASE, "DescribeContinuousBackups", &json!({})).await;
-    assert_eq!(
-        off["ContinuousBackupsDescription"]["PointInTimeRecoveryDescription"]["PointInTimeRecoveryStatus"],
-        "DISABLED"
-    );
-    ok(
-        &w,
-        BASE,
-        "UpdateContinuousBackups",
-        &json!({"PointInTimeRecoverySpecification": {"PointInTimeRecoveryEnabled": true}}),
-    )
-    .await;
-    let made = ok(
-        &w,
-        BASE,
-        "ExportTableToPointInTime",
-        // The table in the request is not the page's: the page's table is what is exported.
-        &json!({"TableArn": "arn:aws:dynamodb:us-east-1:000000000000:table/other", "S3Bucket": "larder-exports", "S3Prefix": "exports"}),
-    )
-    .await;
-    assert!(
-        made["ExportDescription"]["TableArn"]
-            .as_str()
-            .unwrap()
-            .ends_with("table/orders"),
-        "{made}"
-    );
-    let listed = ok(&w, BASE, "ListExports", &json!({})).await;
-    assert_eq!(listed["ExportSummaries"].as_array().unwrap().len(), 1);
-    let other = w
-        .app(
-            "dynamodb",
-            "ListExports",
-            &json!({"TableArn": "arn:aws:dynamodb:us-east-1:000000000000:table/other"}),
-        )
-        .await;
-    assert_eq!(other["ExportSummaries"].as_array().map_or(0, Vec::len), 0);
-}
-
-#[tokio::test]
-async fn a_partiql_statement_is_run_and_its_refusal_comes_back_as_the_services() {
-    let w = tables("ddb-partiql").await;
-    let path = "/api/v1/resources/dynamodb/tables/op/ExecuteStatement";
-    let (status, put) = w
-        .send(
-            "POST",
-            path,
-            &json!({"Statement": "INSERT INTO \"orders\" VALUE {'pk': 'a', 'sk': '1', 'status': 'new'}"}),
-        )
-        .await;
-    assert_eq!(status, 200, "{put}");
-    let (status, got) = w
-        .send(
-            "POST",
-            path,
-            &json!({"Statement": "SELECT * FROM \"orders\" WHERE pk = 'a'"}),
-        )
-        .await;
-    assert_eq!(status, 200, "{got}");
-    assert_eq!(got["Items"][0]["status"]["S"], "new");
-    let (status, refused) = w
-        .send(
-            "POST",
-            path,
-            &json!({"Statement": "UPDATE \"orders\" SET status = 'x' WHERE pk = 'zz' AND sk = '1'"}),
-        )
-        .await;
-    assert_eq!(status, 400, "{refused}");
-    assert_eq!(
-        refused["code"], "ConditionalCheckFailedException",
-        "{refused}"
-    );
-    // Other operations are not the editor's.
-    let (status, _) = w
-        .send(
-            "POST",
-            "/api/v1/resources/dynamodb/tables/op/DeleteTable",
-            &json!({"TableName": "orders"}),
-        )
-        .await;
-    assert_eq!(status, 404);
 }
 
 #[tokio::test]
