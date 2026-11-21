@@ -171,7 +171,7 @@ test("logs__log-group-search: every stream for a pattern, and the call it makes"
   await page.getByTestId("search-pattern").fill('{ $.level = "error" }');
   await expect(page.getByTestId("call-panel")).toContainText("FilterLogEvents");
   await page.getByTestId("search-run").click();
-  await expect(page.getByTestId("search-count")).toContainText("2 events in the last 1 hour match the pattern, in 2 of 5 streams.");
+  await expect(page.getByTestId("search-count")).toContainText("2 events in the last hour match the pattern, in 2 of 5 streams.");
   await expect(page.getByTestId("search-end")).toContainText("nextToken");
   await expect(page.getByTestId("search-examples")).toContainText("both terms");
   await shot(page, "logs__log-group-search");
@@ -251,7 +251,7 @@ test("logs__log-group-delete, log-group-deleted, log-groups-none: delete from th
   const all = json<{ logGroups: { logGroupName: string }[] }>(["logs", "describe-log-groups"]).logGroups.map((g) => g.logGroupName);
   cli(["logs", "put-log-group-deletion-protection", "--log-group-identifier", "/larder/keep", "--no-deletion-protection-enabled"]);
   for (const g of all) cli(["logs", "delete-log-group", "--log-group-name", g]);
-  await page.reload();
+  await go(page, "/resources/logs/groups", "Log groups");
   await expect(page.getByTestId("list-empty")).toContainText("No log groups");
   await shot(page, "logs__log-groups-none");
 });
@@ -434,7 +434,7 @@ test("kinesis__stream-delete, stream-deleted, streams-none: delete from the list
   await expect(page.getByTestId("list-sentence")).toContainText("3 data streams remain. Anything still writing to clickstream now gets ResourceNotFoundException.");
   await shot(page, "kinesis__stream-deleted");
   for (const n of ["orders-feed", "inventory-feed", "audit-feed"]) cli(["kinesis", "delete-stream", "--stream-name", n]);
-  await page.reload();
+  await go(page, "/resources/kinesis/streams", "Data streams");
   await expect(page.getByTestId("list-empty")).toContainText("Create a data stream to start ingesting records.");
   await shot(page, "kinesis__streams-none");
 });

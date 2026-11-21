@@ -86,8 +86,8 @@ function GroupView({ d, updatedAt, fetching, refresh }: { d: ResourceDetail; upd
     { chips: [...filters.map((f) => ({ label: `metric ${f.namespace} ${f.metric}` })), ...subs.map((s) => destinationChip(s.destination))] },
   ];
   const tabs = [
-    { id: "streams", label: "Log streams", count: streams.length, render: () => <><StreamsTab g={g} streams={streams} more={streamsMore} justMade={created} retention={() => setRetention(true)} group={d.name} /><div className="mt-12"><RecentCalls calls={d.calls} noun="log group" title="Recent calls" scope={d.name} /></div></> },
-    { id: "metric-filters", label: "Metric filters", count: filters.length, render: () => <><FiltersTab group={d.name} filters={filters} create={() => go({ view: "metric-filter" })} /><div className="mt-12"><RecentCalls calls={d.calls} noun="log group" title="Recent calls" scope={d.name} /></div></> },
+    { id: "streams", label: "Log streams", count: streams.length, render: () => <><StreamsTab g={g} streams={streams} more={streamsMore} justMade={created} retention={() => setRetention(true)} group={d.name} back={() => void navigate({ to: "/resources/$service/$second", params: { service: d.service, second: d.kind }, search: {} })} />{streams.length > 0 && <div className="mt-12"><RecentCalls calls={d.calls} noun="log group" title="Recent calls" scope={d.name} /></div>}</> },
+    { id: "metric-filters", label: "Metric filters", count: filters.length, render: () => <><FiltersTab group={d.name} filters={filters} create={() => go({ view: "metric-filter" })} />{filters.length > 0 && <div className="mt-12"><RecentCalls calls={d.calls} noun="log group" title="Recent calls" scope={d.name} /></div>}</> },
     ...(subs.length > 0 ? [{ id: "subscription-filters", label: "Subscription filters", count: subs.length, render: () => <SubscriptionsTab group={d.name} subs={subs} create={() => go({ view: "subscription" })} /> }] : []),
   ];
   const onVerb = (v: Verb) => { if (v.id === "search") go({ view: "search" }); };
@@ -99,7 +99,7 @@ function GroupView({ d, updatedAt, fetching, refresh }: { d: ResourceDetail; upd
         banner={banner}
         overview={<>
           <p className="mb-6 max-w-[62rem] text-[15px] leading-6 text-muted-foreground" data-testid="detail-sentence"><Emphasis text={sentence} names={[d.name, ...streams.map((s) => s.name)]} bold={[/\d[\d,]*\+? events?(?= in the last hour)/, /\d+ streams?/]} /></p>
-          <FlowStrip groups={strip} />
+          {(feeders.length > 0 || filters.length > 0 || subs.length > 0) && <FlowStrip groups={strip} />}
         </>}
         details={false}
         tabs={tabs}

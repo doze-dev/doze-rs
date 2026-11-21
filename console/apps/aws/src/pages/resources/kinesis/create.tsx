@@ -10,27 +10,30 @@ import { Label } from "@doze/ui/components/ui/label";
 import { ApiFailure } from "@doze/ui/lib/api";
 import { useAbout } from "../../../api/queries";
 import { useResourceList } from "../../../api/resources";
-import { Field, FormPage, FormSection, RadioCards, RuleHelp, TAG_RULES, useKindOp, useTags } from "../../../kit";
+import { Field, FormPage, FormSection, RadioCards, RuleHelp, TAG_RULES, useKindOp, useServiceCrumbs, useTags } from "../../../kit";
 import { STREAMS } from "./api";
 import { type CreateForm, type Mode, capacityWords, createInput, emptyCreate, estimate, list, nameProblem, shardsProblem } from "./model";
 
 export function KinesisCreate() {
   const navigate = useNavigate();
+  const base = useServiceCrumbs("kinesis");
   const [f, setF] = useState<CreateForm>(emptyCreate);
   const [rows, setRows] = useState<KeyValueRow[]>([newRow()]);
   const [est, setEst] = useState({ size: "2", rate: "3000", apps: "2" });
   const [tried, setTried] = useState(false);
-  const set = (patch: Partial<CreateForm>) => setF((x) => ({ ...x, ...patch }));
+  const set = (patch: Partial<CreateForm>) => {
+    setF((x) => ({ ...x, ...patch }));
+    // A refusal belongs to the form it answered: a new name or another mode is a new try.
+    if ("name" in patch || "mode" in patch) make.reset();
+  };
   const make = useKindOp<Record<string, never>>(STREAMS, "CreateStream");
   const lister = useResourceList("kinesis", "streams");
   const about = useAbout().data;
-  const first = lister.data?.pages[0];
   const existing = useMemo(() => (lister.data?.pages.flatMap((p) => p.rows) ?? []).map((r) => r.name), [lister.data]);
   const sample = existing[0] ?? "";
   const sampleTags = useTags({ service: "kinesis", kind: "streams", name: sample }, sample !== "");
   const estimated = estimate(Number(est.size), Number(est.rate), Number(est.apps));
-  const form = { ...f, tags: rows };
-  const input = useMemo(() => createInput(form), [f, rows]); // eslint-disable-line react-hooks/exhaustive-deps
+  const input = useMemo(() => createInput({ ...f, tags: rows }), [f, rows]);
   const problems = { name: nameProblem(f.name), shards: f.mode === "PROVISIONED" ? shardsProblem(f.shards) : null };
   const bad = Object.values(problems).find(Boolean) ?? (rowsValid(rows, TAG_RULES) ? null : "Fix the tags first.");
   const refused = make.error instanceof ApiFailure ? { code: make.error.code, message: make.error.message } : make.error ? { code: "Error", message: String((make.error as Error).message) } : null;
@@ -46,7 +49,7 @@ export function KinesisCreate() {
     <FormPage
       title="Create data stream"
       sub={f.mode === "PROVISIONED" ? <>With the provisioned mode you set the number of shards. <span className="text-muted-foreground">The estimator below sizes it from your traffic.</span></> : <>Name the stream and choose how its capacity is managed. <span className="text-muted-foreground">On-demand is selected by default.</span></>}
-      crumbs={[{ label: "Resources", to: "/resources" }, ...(first ? [{ label: first.group, to: "/resources" }, { label: first.service_title, to: "/resources/kinesis" }] : []), { label: "Data streams", to: "/resources/kinesis/streams" }, ...(f.mode === "PROVISIONED" ? [{ label: "Create data stream: Provisioned", to: "/resources/kinesis/streams?create=yes" }] : [])]}
+      crumbs={[...base, { label: "Data streams", to: "/resources/kinesis/streams" }, ...(f.mode === "PROVISIONED" ? [{ label: "Create data stream: Provisioned", to: "/resources/kinesis/streams?create=yes" }] : [])]}
       request={f.name ? { service: "kinesis", operation: "CreateStream", input } : null}
       refusal={refused}
       callNote={inUse ? "A duplicate name is refused with ResourceInUseException." : f.mode === "PROVISIONED" ? "A provisioned stream is created with the shard count you give." : "CreateStream names the stream, its capacity mode and its tags."}
@@ -96,7 +99,7 @@ export function KinesisCreate() {
         </FormSection>
       )}
       <FormSection title="Tags" description="Tags are labels you define to organise and track costs. They are added when the stream is created." testId="section-tags">
-        <KeyValueEditor rows={rows} onChange={setRows} rules={TAG_RULES} showErrors={tried} valueLabel="Value" testId="form-tags" />
+        <KeyValueEditor rows={rows} onChange={setRows} rules={TAG_RULES} showErrors={tried} removeLabel="Remove" testId="form-tags" />
         <RuleHelp>A tag has a key and an optional value; keys and values are case-sensitive.{sample && tagNames.length > 0 ? <> <span className="text-muted-foreground">{sample} carries {list(tagNames)}.</span></> : null}</RuleHelp>
       </FormSection>
     </FormPage>

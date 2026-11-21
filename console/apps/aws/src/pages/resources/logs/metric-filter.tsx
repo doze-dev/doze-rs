@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@doze/ui/components/ui/textarea";
 import { Button } from "@doze/ui/components/ui/button";
 import { ApiFailure } from "@doze/ui/lib/api";
-import { Field, FormPage, FormSection, RuleHelp, callKindOp, useKindOpRead } from "../../../kit";
+import { Field, FormPage, FormSection, RuleHelp, callKindOp, useKindOpRead, useServiceCrumbs } from "../../../kit";
 import { useGroupWrite } from "./api";
 import { type MetricForm, UNITS, emptyMetric, filterNameProblem, holding, messagesOf, metricInput, metricNameProblem, namespaceProblem, patternProblem, valueProblem } from "./model";
 
@@ -22,6 +22,7 @@ type Filters = { metricFilters?: { filterName: string; metricTransformations?: {
 
 export function MetricFilterCreate({ group }: { group: string }) {
   const navigate = useNavigate();
+  const base = useServiceCrumbs("logs");
   const [step, setStep] = useState(0);
   const [furthest, setFurthest] = useState(0);
   const [pattern, setPattern] = useState("");
@@ -45,13 +46,14 @@ export function MetricFilterCreate({ group }: { group: string }) {
   const results = test.data?.matches;
   const tested = test.error ? errorWords(test.error) : null;
   const input = metricInput(group, pattern, f);
-  const crumbs = [{ label: "Resources", to: "/resources" }, { label: "CloudWatch Logs", to: "/resources/logs" }, { label: "Log groups", to: "/resources/logs/groups" }, { label: group, to: `/resources/logs/groups/${encodeURIComponent(group)}` }, ...(step === 1 ? [{ label: "Create metric filter", to: `/resources/logs/groups/${encodeURIComponent(group)}?view=metric-filter` }] : [])];
+  const crumbs = [...base, { label: group, to: `/resources/logs/groups/${encodeURIComponent(group)}` }, ...(step === 1 ? [{ label: "Create metric filter", to: `/resources/logs/groups/${encodeURIComponent(group)}?view=metric-filter` }] : [])];
   const go = (i: number) => { setStep(i); setFurthest((x) => Math.max(x, i)); setTried(false); };
   return (
     <FormPage
       title={step === 0 ? "Create metric filter" : "Metric details"}
       sub={step === 0 ? <>Turn matching log events into a CloudWatch metric. <span className="text-muted-foreground">Step 1 sets the filter pattern for <span className="font-mono">{group}</span> and can test it against log event messages.</span></> : <>Name the filter and say what it publishes. <span className="text-muted-foreground">A matching log event adds the metric value to a CloudWatch metric.</span></>}
       crumbs={crumbs}
+      stepsAfterTitle
       wizard={{ steps: [{ id: "pattern", label: "Filter pattern" }, { id: "metric", label: "Metric details" }], current: step, furthest, onStep: go, onBack: () => go(0), onNext: () => { if (!p1) go(1); }, nextLabel: "Next" }}
       request={step === 0 ? { service: "logs", operation: "TestMetricFilter", input: { filterPattern: pattern, logEventMessages: messages } } : { service: "logs", operation: "PutMetricFilter", input }}
       callTitle={step === 0 ? "The call the test makes" : undefined}

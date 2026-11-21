@@ -23,8 +23,8 @@ pub(super) static KINESIS: Descriptor = Descriptor {
     target: "kinesis",
     kinds: &[Kind {
         id: "streams",
-        title: "Streams",
-        one: "stream",
+        title: "Data streams",
+        one: "data stream",
         about: "Ordered records split across shards, kept for the retention period and read by many consumers.",
         members: &["StreamName", "StreamARN"],
         list: List {

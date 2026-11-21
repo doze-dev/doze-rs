@@ -29,6 +29,14 @@ export function rangeWords(r: Range, zone: Zone = "utc"): string {
   return `${r.from === null ? "the start" : minutes(r.from, zone)} to ${r.to === null ? "now" : minutes(r.to, zone)}`;
 }
 
+/** `the last hour`, `the last 15 minutes`, `the whole group`: a range as a sentence says it. */
+export function spanWords(r: Range): string {
+  if (r.mode === "absolute") return rangeWords(r);
+  if (r.id === "1h") return "the last hour";
+  const w = RANGES.find((x) => x.id === r.id);
+  return !w || w.ms === null ? "the whole group" : w.label.toLowerCase().replace(/^last /, "the last ");
+}
+
 const two = (n: number) => String(n).padStart(2, "0");
 /** The fields of a moment in the zone. */
 function parts(ms: number, zone: Zone) {

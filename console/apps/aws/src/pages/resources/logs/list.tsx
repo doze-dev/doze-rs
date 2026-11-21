@@ -111,7 +111,7 @@ function Groups({ service, kind, gone }: { service: string; kind: string; gone?:
             hint=" "
             toolbar={
               <form className="flex min-w-0 flex-1 flex-wrap items-center gap-3" role="search" onSubmit={(e) => { e.preventDefault(); setShown(typed); }}>
-                <div className="relative w-full max-w-[22rem]">
+                <div className="relative w-[22rem] max-w-full">
                   <SearchIcon aria-hidden className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
                   <Input value={typed} onChange={(e) => { setTyped(e.target.value); setShown(e.target.value); }} placeholder="Filter log groups by name" aria-label="Filter log groups by name" className="bg-card pl-9" data-testid="list-search" />
                 </div>

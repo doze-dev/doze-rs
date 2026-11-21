@@ -6,11 +6,12 @@ import { Alert, errorWords } from "@doze/ui/components/app/alert";
 import { KeyValueEditor } from "@doze/ui/components/app/key-value-editor";
 import { newRow, rowsFrom, rowsValid, type KeyValueRow } from "@doze/ui/components/app/key-values";
 import { Skeleton } from "@doze/ui/components/ui/skeleton";
-import { FormPage, FormSection, RuleHelp, TAG_RULES, diffTags, noChange, useSetTags, useTags } from "../../../kit";
+import { FormPage, FormSection, RuleHelp, TAG_RULES, diffTags, noChange, useServiceCrumbs, useSetTags, useTags } from "../../../kit";
 import { count } from "./model";
 
 export function ManageTags({ name }: { name: string }) {
   const navigate = useNavigate();
+  const base = useServiceCrumbs("kinesis");
   const target = { service: "kinesis", kind: "streams", name };
   const tags = useTags(target);
   const set = useSetTags(target);
@@ -31,9 +32,9 @@ export function ManageTags({ name }: { name: string }) {
   return (
     <FormPage
       title="Manage tags"
-      mono={false}
-      sub={<span className="font-mono">{name}</span>}
-      crumbs={[{ label: "Resources", to: "/resources" }, { label: "Messaging and events", to: "/resources" }, { label: "Kinesis", to: "/resources/kinesis" }, { label: name, to: `/resources/kinesis/streams/${encodeURIComponent(name)}` }]}
+      titleExtra={<span className="rounded-full border bg-secondary px-2.5 py-0.5 font-mono text-[12.5px] text-secondary-foreground">{name}</span>}
+      sub={<>Add, change or remove tags. <span className="text-muted-foreground">Changes are saved when you choose Save changes.</span></>}
+      crumbs={[...base, { label: name, to: `/resources/kinesis/streams/${encodeURIComponent(name)}` }]}
       request={requests[0] ?? null}
       requests={requests.length > 1 ? requests : undefined}
       callNote="Removing a row calls RemoveTagsFromStream with that key."
@@ -46,8 +47,8 @@ export function ManageTags({ name }: { name: string }) {
       onSubmit={() => { setTried(true); if (valid && !noChange(change)) set.mutate(change, { onSuccess: () => back("tags") }); }}
       testId="manage-tags-page"
     >
-      <FormSection title="Tags" description={<>{count(saved.length, "tag")} {saved.length === 1 ? "is" : "are"} saved on this stream.{added.length > 0 ? ` The ${added.map((t) => t.key).join(", ")} ${added.length === 1 ? "row is" : "rows are"} new.` : ""} Changes are saved when you choose Save changes.</>}>
-        <KeyValueEditor rows={live} onChange={setRows} rules={TAG_RULES} showErrors={tried} testId="tags-kv" />
+      <FormSection title="Tags" description={<>{count(saved.length, "tag")} {saved.length === 1 ? "is" : "are"} saved on this stream.{added.length > 0 ? ` The ${added.map((t) => t.key).join(", ")} ${added.length === 1 ? "row is" : "rows are"} new.` : ""}</>}>
+        <KeyValueEditor rows={live} onChange={setRows} rules={TAG_RULES} showErrors={tried} removeLabel="Remove" testId="tags-kv" />
         <RuleHelp>Keys and values are case-sensitive. Each key is unique: adding a key that exists overwrites its value.</RuleHelp>
       </FormSection>
     </FormPage>

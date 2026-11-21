@@ -4,6 +4,7 @@ export * from "./call-panel";
 export * from "./calls";
 export * from "./calls-panel";
 export * from "./contract";
+export * from "./crumbs";
 export * from "./deletion-window";
 export * from "./flow-strip";
 export * from "./form-page";

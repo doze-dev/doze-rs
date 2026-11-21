@@ -10,7 +10,7 @@ import { Button } from "@doze/ui/components/ui/button";
 import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuTrigger } from "@doze/ui/components/ui/dropdown-menu";
 import { Input } from "@doze/ui/components/ui/input";
 import { useResourceDetail } from "../../../api/resources";
-import { RuleHelp, Segmented } from "../../../kit";
+import { RuleHelp, Segmented, useServiceCrumbs } from "../../../kit";
 import { callOp, on } from "../deep/api";
 import { Loaded, Made } from "../deep/parts";
 import { useQuery } from "@tanstack/react-query";
@@ -25,6 +25,7 @@ type Page = { events?: LogEvent[]; nextToken?: string };
 export const PAGE = 100;
 
 export function StreamPage({ group, stream }: { group: string; stream: string }) {
+  const base = useServiceCrumbs("logs");
   const [typed, setTyped] = useState("");
   const [applied, setApplied] = useState("");
   const [range, setRange] = useState<Range>(DEFAULT_RANGE);
@@ -48,7 +49,7 @@ export function StreamPage({ group, stream }: { group: string; stream: string })
         title={stream}
         mono
         titleExtra={<Badge variant="outline" className="px-2.5 text-[12.5px] font-normal text-muted-foreground">Log stream</Badge>}
-        crumbs={[{ label: "Resources", to: "/resources" }, { label: "CloudWatch Logs", to: "/resources/logs" }, { label: "Log groups", to: "/resources/logs/groups" }, { label: group, to: `/resources/logs/groups/${encodeURIComponent(group)}` }]}
+        crumbs={[...base, { label: group, to: `/resources/logs/groups/${encodeURIComponent(group)}` }]}
         sub={<>In <span className="font-mono text-foreground">{group}</span>.{last !== null ? ` Last event at ${clock(last, zone).slice(0, 8)}.` : ""} Choose an arrow to expand one event.</>}
         refresh={<RefreshControl updatedAt={q.dataUpdatedAt} fetching={q.isFetching} onRefresh={refresh} />}
         actions={

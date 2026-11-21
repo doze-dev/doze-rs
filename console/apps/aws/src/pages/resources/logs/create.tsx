@@ -7,7 +7,7 @@ import { Input } from "@doze/ui/components/ui/input";
 import { Label } from "@doze/ui/components/ui/label";
 import { ApiFailure } from "@doze/ui/lib/api";
 import { useResourceList } from "../../../api/resources";
-import { Field, FormPage, FormSection, RadioCards, RuleHelp, useKindOp } from "../../../kit";
+import { Field, FormPage, FormSection, RadioCards, RuleHelp, useKindOp, useServiceCrumbs } from "../../../kit";
 import { type CreateForm, createInput, emptyCreate, groupNameProblem, kmsProblem } from "./model";
 
 const GROUPS = { service: "logs", kind: "groups" };
@@ -24,12 +24,12 @@ export function namingOf(names: readonly string[]): string[] {
 
 export function LogsCreate() {
   const navigate = useNavigate();
+  const base = useServiceCrumbs("logs");
   const [f, setF] = useState<CreateForm>(emptyCreate);
   const [tried, setTried] = useState(false);
   const set = (patch: Partial<CreateForm>) => setF((x) => ({ ...x, ...patch }));
   const make = useKindOp<Record<string, never>>(GROUPS, "CreateLogGroup");
   const list = useResourceList("logs", "groups");
-  const first = list.data?.pages[0];
   const names = useMemo(() => (list.data?.pages.flatMap((p) => p.rows) ?? []).map((r) => r.name), [list.data]);
   const problems = { name: groupNameProblem(f.name), kms: kmsProblem(f.kms) };
   const bad = Object.values(problems).find(Boolean) ?? null;
@@ -46,7 +46,7 @@ export function LogsCreate() {
     <FormPage
       title="Create log group"
       sub="Name the log group. You can't rename an existing log group; to use a different name, create a new one."
-      crumbs={[{ label: "Resources", to: "/resources" }, ...(first ? [{ label: first.group, to: "/resources" }, { label: first.service_title, to: "/resources/logs" }] : []), { label: "Log groups", to: "/resources/logs/groups" }]}
+      crumbs={[...base, { label: "Log groups", to: "/resources/logs/groups" }]}
       request={f.name ? { service: "logs", operation: "CreateLogGroup", input } : null}
       refusal={refused}
       callNote="Left at their defaults, the KMS key and the deletion protection are left out."

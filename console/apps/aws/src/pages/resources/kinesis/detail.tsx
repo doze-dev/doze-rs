@@ -120,7 +120,7 @@ function StreamView({ d, updatedAt, fetching, refresh }: { d: ResourceDetail; up
         banner={banner}
         overview={<>
           {tab === "configuration" && <p className="mb-6 max-w-[62rem] text-[15px] leading-6 text-muted-foreground" data-testid="detail-sentence"><Emphasis text={sentence} names={[d.name, ...consumers]} bold={[/\d[\d,]* (open shards?|registered consumers?)/]} /></p>}
-          {tab === "configuration" && <FlowStrip groups={[{ label: "Wired to", chips: feeders.map((label) => ({ label: `${label} (producer)` })) }, { chips: [{ label: d.name, self: true }] }, { chips: consumers.map((label) => ({ label })) }]} />}
+          {tab === "configuration" && (feeders.length > 0 || consumers.length > 0) && <FlowStrip groups={[{ label: "Wired to", chips: feeders.map((label) => ({ label: `${label} (producer)` })) }, { chips: [{ label: d.name, self: true }] }, { chips: consumers.map((label) => ({ label })) }]} />}
           {tab !== "sharing" && <Summary s={s} />}
         </>}
         details={false}

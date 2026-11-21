@@ -18,3 +18,8 @@ export const EXAMPLES: [string, string][] = [
   ["ERROR -ARGUMENTS", "without the second term"],
   ['{ $.level = "error" }', "a JSON field"],
 ];
+
+/** The note under the search page's examples. */
+export const EXAMPLES_NOTE = (
+  <>Patterns are case-sensitive. <span className="text-muted-foreground">Regular expressions ({code("%…%")}) and space-delimited patterns ({code("[…]")}) work in doze-aws within AWS's limits.</span></>
+);

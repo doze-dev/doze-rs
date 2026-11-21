@@ -1,0 +1,1 @@
+export{t as SharingCreate}from"./detail-C23_5Yhe.js";

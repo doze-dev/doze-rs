@@ -13,7 +13,7 @@ import { Button } from "@doze/ui/components/ui/button";
 import { Input } from "@doze/ui/components/ui/input";
 import { Label } from "@doze/ui/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@doze/ui/components/ui/select";
-import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from "@doze/ui/components/ui/sheet";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@doze/ui/components/ui/dialog";
 import { clockMsUtc, dateTimeUtc } from "@doze/ui/lib/format";
 import { Segmented, RuleHelp } from "../../../kit";
 import { callOp } from "../deep/api";
@@ -32,7 +32,7 @@ export function ViewerTab({ s, oldest }: { s: Stream; oldest: { shard: string; a
   const [shard, setShard] = useState<string | null>(null);
   const [position, setPosition] = useState<Position>("TRIM_HORIZON");
   const [sequence, setSequence] = useState("");
-  const [at, setAt] = useState<number | null>(Date.now() - 3_600_000);
+  const [at, setAt] = useState<number | null>(() => Date.now() - 3_600_000);
   const [got, setGot] = useState<{ shard: string; records: KRecord[]; next: string | null } | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
@@ -55,7 +55,7 @@ export function ViewerTab({ s, oldest }: { s: Stream; oldest: { shard: string; a
     { id: "seq", header: "Sequence number", size: 190, accessorFn: (r) => r.SequenceNumber, meta: { mono: true }, cell: (c) => <button type="button" onClick={() => setLooking(c.row.original)} className="rounded-sm font-mono text-[13px] text-link hover:underline focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none" title={c.row.original.SequenceNumber} data-testid="record-open">{shortSequence(c.row.original.SequenceNumber)}</button> },
     { id: "key", header: "Partition key", size: 150, accessorFn: (r) => r.PartitionKey, meta: { mono: true } },
     { id: "at", header: "Approximate arrival timestamp", size: 250, accessorFn: (r) => r.ApproximateArrivalTimestamp ?? 0, cell: (c) => { const ms = arrivalMs(c.row.original); return ms === null ? "–" : <span className="tabular-nums">{stamp(ms)}</span>; } },
-    { id: "data", header: "Data", accessorFn: (r) => dataText(r.Data) ?? "", meta: { mono: true }, cell: (c) => <span className="block max-w-[34rem] truncate font-mono text-[13px]" title={dataText(c.row.original.Data) ?? "(binary)"}>{dataText(c.row.original.Data) ?? "(binary data)"}</span> },
+    { id: "data", header: "Data", accessorFn: (r) => dataText(r.Data) ?? "", meta: { mono: true }, cell: (c) => <span className="block max-w-[22rem] truncate font-mono text-[13px]" title={dataText(c.row.original.Data) ?? "(binary)"}>{dataText(c.row.original.Data) ?? "(binary data)"}</span> },
   ];
   const failed = error ? errorWords(error) : null;
   return (
@@ -103,27 +103,27 @@ export function ViewerTab({ s, oldest }: { s: Stream; oldest: { shard: string; a
           )}
         </section>
       )}
-      <RecordDrawer r={looking} onClose={() => setLooking(null)} />
+      <RecordDialog r={looking} onClose={() => setLooking(null)} />
     </div>
   );
 }
 
 /** One record (kinesis__record-detail): its payload as raw data or as JSON, and the fields of the Record beside it. */
-function RecordDrawer({ r, onClose }: { r: KRecord | null; onClose: () => void }) {
+function RecordDialog({ r, onClose }: { r: KRecord | null; onClose: () => void }) {
   const [view, setView] = useState<"raw" | "json">("raw");
   const text = r ? dataText(r.Data) : null;
   const json = text === null ? null : prettyJson(text);
   const ms = r ? arrivalMs(r) : null;
   return (
-    <Sheet open={r !== null} onOpenChange={(o) => !o && onClose()}>
-      <SheetContent className="w-full gap-0 overflow-y-auto sm:max-w-[560px]" data-testid="record-drawer">
+    <Dialog open={r !== null} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-h-[90vh] gap-0 overflow-y-auto sm:max-w-[600px]" data-testid="record-drawer">
         {r && (
           <>
-            <SheetHeader className="pb-4">
-              <SheetTitle className="text-[21px] font-semibold">Record</SheetTitle>
-              <SheetDescription className="font-mono text-[12.5px] break-all">{r.PartitionKey}</SheetDescription>
-            </SheetHeader>
-            <div className="grid gap-6 px-4 pb-4">
+            <DialogHeader className="pb-5">
+              <DialogTitle className="text-[21px] font-semibold">Record</DialogTitle>
+              <DialogDescription className="font-mono text-[12.5px] break-all">{r.PartitionKey}</DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-6">
               <section className="grid gap-3">
                 <div className="flex items-center justify-between gap-3"><h3 className="text-[12px] font-medium tracking-[0.06em] text-muted-foreground uppercase">Payload</h3><div className="flex items-center gap-2"><Segmented label="Payload view" testId="record-view" value={view} onChange={setView} options={[{ value: "raw", label: "Raw data" }, { value: "json", label: "JSON" }]} />{text !== null && <CopyButton text={text} what="Data copied" className="bg-card" />}</div></div>
                 {text === null ? <p className="text-[13.5px] text-muted-foreground" data-testid="record-binary">The data is not text, so it cannot be shown. It is {r.Data?.length ?? 0} characters of base64.</p> : view === "json" && json === null ? <p className="text-[13.5px] text-muted-foreground" data-testid="record-not-json">The data is not JSON, so it is shown as it is.</p> : null}
@@ -137,11 +137,11 @@ function RecordDrawer({ r, onClose }: { r: KRecord | null; onClose: () => void }
                   ))}
                 </dl>
               </section>
+              <div className="flex justify-end border-t pt-5"><Button onClick={onClose} data-testid="record-done">Done</Button></div>
             </div>
-            <SheetFooter><Button onClick={onClose} data-testid="record-done">Done</Button></SheetFooter>
           </>
         )}
-      </SheetContent>
-    </Sheet>
+      </DialogContent>
+    </Dialog>
   );
 }

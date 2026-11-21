@@ -61,6 +61,7 @@ function Streams({ service, kind, gone }: { service: string; kind: string; gone?
   const sentence = gone && !none ? `${count(all.length, "data stream")} ${all.length === 1 ? "remains" : "remain"}. Anything still writing to ${gone} now gets ResourceNotFoundException.` : listSentence(all, names);
   return (
     <>
+      {gone && <ResultBanner className="mb-8" title="Stream deleted." returned={<>Deleted <b className="font-mono font-semibold text-bright">{gone}</b>. Its shards, its records and its tags are gone{left && left.consumers.length > 0 ? <>, and the {left.consumers.length === 1 ? "consumer" : "consumers"} <b className="font-mono font-semibold text-bright">{list(left.consumers)}</b> {left.consumers.length === 1 ? "was" : "were"} deregistered with it</> : null}.</>} onDismiss={() => go({})} testId="deleted-banner" />}
       <PageHeader
         title="Data streams"
         crumbs={[{ label: "Resources", to: "/resources" }, ...(first ? [{ label: first.group, to: "/resources" }, { label: first.service_title, to: `/resources/${service}` }] : [])]}
@@ -68,7 +69,6 @@ function Streams({ service, kind, gone }: { service: string; kind: string; gone?
         refresh={<RefreshControl updatedAt={lister.dataUpdatedAt} fetching={lister.isFetching} onRefresh={refresh} interval={false} />}
         actions={<Button onClick={() => go({ create: "yes" })} data-testid="create-open"><PlusIcon /> Create data stream</Button>}
       />
-      {gone && <ResultBanner className="mb-6" title="Stream deleted." returned={<>Deleted <b className="font-mono font-semibold text-bright">{gone}</b>. Its shards, its records and its tags are gone{left && left.consumers.length > 0 ? <>, and the {left.consumers.length === 1 ? "consumer" : "consumers"} <b className="font-mono font-semibold text-bright">{list(left.consumers)}</b> {left.consumers.length === 1 ? "was" : "were"} deregistered with it</> : null}.</>} onDismiss={() => go({})} testId="deleted-banner" />}
       {lister.isError && !first ? (
         <ErrorBlock what="The data streams could not be listed" error={lister.error} hint={HINT} onRetry={refresh} retrying={lister.isFetching} testId="list-error" />
       ) : !first ? (
@@ -95,7 +95,7 @@ function Streams({ service, kind, gone }: { service: string; kind: string; gone?
             hint=" "
             toolbar={
               <form className="flex flex-wrap items-center gap-3" role="search" onSubmit={(e) => e.preventDefault()}>
-                <div className="relative w-full max-w-[22rem]">
+                <div className="relative w-[22rem] max-w-full">
                   <SearchIcon aria-hidden className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
                   <Input value={typed} onChange={(e) => setTyped(e.target.value)} placeholder="Search data streams by name" aria-label="Search data streams by name" className="bg-card pl-9" data-testid="list-search" />
                 </div>

@@ -3,15 +3,17 @@
 import { useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { Alert } from "@doze/ui/components/app/alert";
+import { Callout } from "@doze/ui/components/app/callout";
 import { Input } from "@doze/ui/components/ui/input";
 import { ApiFailure } from "@doze/ui/lib/api";
 import { useAbout } from "../../../api/queries";
-import { Field, FormPage, FormSection, FunctionPicker } from "../../../kit";
+import { Field, FormPage, FormSection, FunctionPicker, useServiceCrumbs } from "../../../kit";
 import { useGroupWrite } from "./api";
 import { filterNameProblem, functionArn, isOwnGroup, patternProblem, subscriptionInput } from "./model";
 
 export function SubscriptionCreate({ group }: { group: string }) {
   const navigate = useNavigate();
+  const base = useServiceCrumbs("logs");
   const about = useAbout().data;
   const [fn, setFn] = useState<string | null>(null);
   const [pattern, setPattern] = useState("");
@@ -29,7 +31,7 @@ export function SubscriptionCreate({ group }: { group: string }) {
     <FormPage
       title="Subscription filter (Lambda)"
       sub={<>Send matching events from <span className="font-mono text-foreground">{group}</span> to a Lambda function as they arrive. <span className="text-muted-foreground">Choose the function, the pattern and a name.</span></>}
-      crumbs={[{ label: "Resources", to: "/resources" }, { label: "CloudWatch Logs", to: "/resources/logs" }, { label: "Log groups", to: "/resources/logs/groups" }, { label: group, to: `/resources/logs/groups/${encodeURIComponent(group)}` }]}
+      crumbs={[...base, { label: group, to: `/resources/logs/groups/${encodeURIComponent(group)}` }]}
       request={fn ? { service: "logs", operation: "PutSubscriptionFilter", input } : null}
       callNote="No roleArn: a Lambda destination doesn't need one."
       refusal={refused}
@@ -59,9 +61,9 @@ export function SubscriptionCreate({ group }: { group: string }) {
           {(id) => <Input id={id} value={name} onChange={(e) => setName(e.target.value)} placeholder="errors-to-email" autoComplete="off" spellCheck={false} className="font-mono" data-testid="sub-name" />}
         </Field>
       </FormSection>
-      <p className="max-w-[44rem] text-[13px] leading-5 text-muted-foreground" data-testid="sub-teaching">
+      <Callout tone="note" className="max-w-[44rem]" testId="sub-teaching">
         Lambda receives each batch gzip-compressed and base64-encoded in <span className="font-mono">awslogs.data</span>. Delivery to a destination is one attempt in doze-aws; a failure is logged with the group, the filter and the destination.
-      </p>
+      </Callout>
     </FormPage>
   );
 }

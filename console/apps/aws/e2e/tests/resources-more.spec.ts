@@ -34,10 +34,9 @@ test("a log group made with the CLI shows its streams", async ({ page, cli, brow
   expect(cli(["logs", "create-log-group", "--log-group-name", group]).code).toBe(0);
   for (const s of ["first", "second"]) expect(cli(["logs", "create-log-stream", "--log-group-name", group, "--log-stream-name", s]).code).toBe(0);
   await open(page, `/resources/logs/groups/${encodeURIComponent(group)}`, group);
-  await expect(page.getByTestId("field-Retention (days)")).toHaveText("Never expire");
-  // Its streams are a tab of their own, not a list on its details as well.
-  await expect(page.getByTestId("sub-Log streams")).toHaveCount(0);
-  await page.getByTestId("tab-streams").click();
+  await expect(page.getByTestId("field-Retention")).toHaveText("Never Expire");
+  // Its streams are the page's first tab, with the count on it.
+  await expect(page.getByTestId("tab-streams")).toContainText("2");
   const streams = page.getByTestId("group-streams");
   await expect(streams).toContainText("DescribeLogStreams");
   await expect(streams.locator("tbody tr")).toHaveCount(2);

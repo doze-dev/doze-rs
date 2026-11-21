@@ -14,7 +14,7 @@ import { Input } from "@doze/ui/components/ui/input";
 import { Label } from "@doze/ui/components/ui/label";
 import { ApiFailure } from "@doze/ui/lib/api";
 import { useResourceDetail } from "../../../api/resources";
-import { Field, FormPage, FormSection, PlainConfirm, PolicyEditor, RuleHelp } from "../../../kit";
+import { Field, FormPage, FormSection, PlainConfirm, PolicyEditor, RuleHelp, useServiceCrumbs } from "../../../kit";
 import { callOp } from "../deep/api";
 import { on, useStreamWrite } from "./api";
 import { READ_ACTIONS, SHARE_ACTIONS, noPolicy, principalProblem, sharePolicy, statementsOf, type Stream } from "./model";
@@ -32,9 +32,12 @@ export function SharingTab({ s, create }: { s: Stream; create: () => void }) {
   if (!q.data) return <p className="text-[13.5px] text-muted-foreground">Reading the policy…</p>;
   if (noPolicy(q.data.Policy)) {
     return (
+      <div className="grid gap-4">
+      <h2 className="text-[17px] leading-6 font-semibold tracking-[-0.01em] text-bright">Data stream sharing</h2>
       <EmptyTab icon={ShareIcon} title="No resource policy" testId="sharing-empty" action={<Button type="button" variant="outline" className="bg-card" onClick={create} data-testid="sharing-create"><PlusIcon /> Create sharing policy</Button>}>
         No resource policy is attached, so no other account or principal has been given access to this stream.
       </EmptyTab>
+      </div>
     );
   }
   const policy = q.data.Policy ?? "";
@@ -69,6 +72,7 @@ export function SharingTab({ s, create }: { s: Stream; create: () => void }) {
 /** Visual policy editor: a principal and the actions shared, written as the guide's read-access policy; the JSON may be written directly. */
 export function SharingCreate({ s }: { s: Stream }) {
   const navigate = useNavigate();
+  const base = useServiceCrumbs("kinesis");
   const [principal, setPrincipal] = useState("");
   const [actions, setActions] = useState<string[]>([...READ_ACTIONS]);
   const [json, setJson] = useState<string | null>(null);
@@ -84,8 +88,9 @@ export function SharingCreate({ s }: { s: Stream }) {
   return (
     <FormPage
       title="Visual policy editor"
+      titleExtra={<span className="rounded-full border bg-secondary px-2.5 py-0.5 font-mono text-[12.5px] text-secondary-foreground">{s.name}</span>}
       sub={<>Specify the principal and the exact actions you are sharing access to. <span className="text-muted-foreground">You can also write the JSON policy directly.</span></>}
-      crumbs={[{ label: "Resources", to: "/resources" }, { label: "Messaging and events", to: "/resources" }, { label: "Kinesis", to: "/resources/kinesis" }, { label: s.name, to: `/resources/kinesis/streams/${encodeURIComponent(s.name)}` }, { label: "Data stream sharing", to: `/resources/kinesis/streams/${encodeURIComponent(s.name)}?tab=sharing` }]}
+      crumbs={[...base, { label: s.name, to: `/resources/kinesis/streams/${encodeURIComponent(s.name)}` }, { label: "Data stream sharing", to: `/resources/kinesis/streams/${encodeURIComponent(s.name)}?tab=sharing` }]}
       request={{ service: "kinesis", operation: "PutResourcePolicy", input: { ResourceARN: s.arn, Policy: policy } }}
       callNote="The policy goes in as a JSON string. GetResourcePolicy reads it back."
       refusal={refused}

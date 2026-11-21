@@ -1,13 +1,14 @@
 // The tabs of a log group's page: its streams (logs__log-group-detail, log-streams-none, and the empty landing of log-group-created) and its
 // metric filters (logs__metric-filters, metric-filters-none, metric-filter-delete); a group that has subscription filters also shows them.
 import { Link } from "@tanstack/react-router";
-import { FilterIcon, PlusIcon, ScrollTextIcon, TrashIcon } from "lucide-react";
+import { FilterIcon, PlusIcon, ScrollTextIcon, SearchIcon, TrashIcon } from "lucide-react";
 import { useState } from "react";
 import { CopyButton } from "@doze/ui/components/app/copy-button";
 import { type DataColumn, DataTable } from "@doze/ui/components/app/data-table";
 import { EmptyTab } from "@doze/ui/components/app/empty-tab";
 import { SelectableTable } from "@doze/ui/components/app/selectable-table";
 import { Button } from "@doze/ui/components/ui/button";
+import { Input } from "@doze/ui/components/ui/input";
 import { PlainConfirm } from "../../../kit";
 import { Value } from "../value";
 import { useGroupWrite } from "./api";
@@ -42,10 +43,10 @@ export function GroupCard({ g, retention }: { g: Group; retention: () => void })
   );
 }
 
-export function StreamsTab({ g, streams, more, justMade, retention, group }: { g: Group; streams: Stream[]; more: boolean; justMade: boolean; retention: () => void; group: string }) {
+export function StreamsTab({ g, streams, more, justMade, retention, group, back }: { g: Group; streams: Stream[]; more: boolean; justMade: boolean; retention: () => void; group: string; back: () => void }) {
   if (streams.length === 0) {
     return justMade ? (
-      <EmptyTab icon={ScrollTextIcon} title="DescribeLogStreams returned no log streams" testId="streams-empty">
+      <EmptyTab icon={ScrollTextIcon} title="DescribeLogStreams returned no log streams" testId="streams-empty" action={<Button type="button" variant="outline" className="bg-card" onClick={back} data-testid="back-to-groups">Back to log groups</Button>}>
         A log stream is a sequence of log events that share the same source. Streams are created by whatever writes to the group, with CreateLogStream and PutLogEvents. Nothing has written to this group yet.
       </EmptyTab>
     ) : (
@@ -72,6 +73,7 @@ export function StreamsTab({ g, streams, more, justMade, retention, group }: { g
 export function FiltersTab({ group, filters, create }: { group: string; filters: MetricFilter[]; create: () => void }) {
   const [chosen, setChosen] = useState<Set<string>>(new Set());
   const [asking, setAsking] = useState(false);
+  const [prefix, setPrefix] = useState("");
   const del = useGroupWrite("DeleteMetricFilter");
   if (filters.length === 0) {
     return (
@@ -103,7 +105,8 @@ export function FiltersTab({ group, filters, create }: { group: string; filters:
   };
   return (
     <div data-testid="group-filters">
-      <SelectableTable<MetricFilter> aria-label="Metric filters" data={filters} columns={columns} rowId={(r) => r.name} selected={chosen} onSelectedChange={setChosen} noun="metric filter" hint=" " actionsAlways actionsEnd
+      <SelectableTable<MetricFilter> aria-label="Metric filters" data={filters.filter((f) => f.name.startsWith(prefix.trim()))} empty={`No metric filter's name begins with “${prefix}”.`} columns={columns} rowId={(r) => r.name} selected={chosen} onSelectedChange={setChosen} noun="metric filter" hint=" " actionsAlways actionsEnd
+        toolbar={<div className="relative w-[18rem] max-w-full"><SearchIcon aria-hidden className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" /><Input value={prefix} onChange={(e) => setPrefix(e.target.value)} placeholder="Filter name prefix" aria-label="Filter name prefix" className="bg-card pl-9" data-testid="filter-prefix" /></div>}
         actions={(sel) => <Button type="button" variant="outline" className="border-bad/40 bg-card text-bad hover:text-bad" disabled={sel.length === 0} onClick={() => { del.reset(); setAsking(true); }} data-testid="filter-delete"><TrashIcon /> Delete</Button>} />
       <p className={teaching}>
         A metric filter turns the events that match its pattern into a CloudWatch metric. “The metric won't be visible until there are some data points for it.” One log group holds up to 100 metric filters. The columns are fields that DescribeMetricFilters returns. To add a filter, choose <b className="font-medium text-foreground">Create metric filter</b> in the log group's Actions.
