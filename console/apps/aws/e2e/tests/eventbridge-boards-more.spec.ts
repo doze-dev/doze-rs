@@ -165,7 +165,7 @@ test("eventbridge__connection-create and api-destination-create: a connection ma
   await expect(call).toContainText('"AuthorizationType": "API_KEY"');
   await expect(call).toContainText('"ApiKeyName": "X-Api-Key"');
   await expect(call).toContainText('"Key": "X-Source"');
-  await expect(page.getByTestId("section-detail")).toContainText("Private is not available in doze-aws");
+  await expect(page.getByTestId("section-detail")).toContainText("Not available in doze-aws: private APIs need VPC Lattice.");
   await shot(page, "eventbridge__connection-create");
   await submit(page);
   // Back on the destination, what was typed kept and the new connection chosen.

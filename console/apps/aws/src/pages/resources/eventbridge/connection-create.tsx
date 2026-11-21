@@ -58,8 +58,7 @@ export function ConnectionCreate() {
         <Field label="Description" optional help={<>Up to <b>512</b> characters.</>}>{(id) => <Input id={id} value={f.description} onChange={(e) => set({ description: e.target.value })} autoComplete="off" data-testid="conn-description" />}</Field>
         <div className="grid gap-1.5">
           <Label>Destination type</Label>
-          <RadioCards<"public" | "private"> name="dest-type" label="Destination type" value="public" onChange={() => undefined} options={[{ value: "public", title: "Public", body: "A public HTTPS endpoint." }]} className="sm:grid-cols-1" />
-          <p className="text-[13px] text-muted-foreground">Private is not available in doze-aws: private APIs need VPC Lattice.</p>
+          <RadioCards<"public" | "private"> name="dest-type" label="Destination type" value="public" onChange={() => undefined} options={[{ value: "public", title: "Public", body: "A public HTTPS endpoint." }, { value: "private", title: "Private", body: "Not available in doze-aws: private APIs need VPC Lattice.", disabled: true }]} />
         </div>
       </FormSection>
       <FormSection title="Authorization" description="EventBridge builds the authorization headers for Basic and API key. For OAuth it also swaps the client ID and secret for a token and keeps it fresh." testId="section-auth">

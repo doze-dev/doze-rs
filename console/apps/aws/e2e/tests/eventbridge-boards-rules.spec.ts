@@ -120,7 +120,7 @@ test("eventbridge__rule-create: Create rule's five steps, each reached in turn, 
   await page.getByTestId("age-minutes-1").fill("0");
   await page.getByTestId("age-seconds-1").fill("0");
   await page.getByTestId("attempts-1").fill("20");
-  await page.getByTestId("dlq-queue-1").click();
+  await page.getByTestId("dlq1-queue").click();
   await pick(page, "Dead-letter queue", "pick-lists-dlq");
   await expect(page.getByTestId("section-settings-1")).toContainText("Applied here:");
   await page.getByTestId("add-target").click();

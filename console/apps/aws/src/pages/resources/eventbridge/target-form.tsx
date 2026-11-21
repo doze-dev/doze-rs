@@ -4,7 +4,6 @@ import { Combobox } from "@doze/ui/components/app/combobox";
 import { Button } from "@doze/ui/components/ui/button";
 import { Input } from "@doze/ui/components/ui/input";
 import { Label } from "@doze/ui/components/ui/label";
-import { RadioGroup, RadioGroupItem } from "@doze/ui/components/ui/radio-group";
 import { Field, FormSection, FunctionPicker, QueuePicker, ResourcePicker, RadioCards, RuleHelp, TopicPicker, BusPicker } from "../../../kit";
 import { busArn, useDests } from "./api";
 import { type InputMode, type TargetDraft, type TargetKind, attemptsProblem, ageSeconds, targetProblem } from "./rule-model";
@@ -111,11 +110,7 @@ export function TargetForm({ t, index, set, remove, region, account, tried, sing
         </div>
         <div className="grid gap-2" data-testid={`dlq-${index + 1}`}>
           <Label>Dead-letter queue</Label>
-          <RadioGroup value={t.dlq ? "queue" : "none"} onValueChange={(v) => set({ dlq: v === "none" ? null : (t.dlq ?? `arn:aws:sqs:${region}:${account}:`) })} aria-label="Dead-letter queue" className="gap-2.5">
-            <Label htmlFor={`dlq-none-${index}`} className="font-normal"><RadioGroupItem id={`dlq-none-${index}`} value="none" data-testid={`dlq-none-${index + 1}`} /> None</Label>
-            <Label htmlFor={`dlq-queue-${index}`} className="font-normal"><RadioGroupItem id={`dlq-queue-${index}`} value="queue" data-testid={`dlq-queue-${index + 1}`} /> Select an Amazon SQS queue in the current AWS account to use as the dead-letter queue</Label>
-            <Label className="font-normal opacity-60"><RadioGroupItem value="other" disabled /> Select an Amazon SQS queue in another AWS account as a dead-letter queue <span className="text-muted-foreground">Not available in doze-aws: one account.</span></Label>
-          </RadioGroup>
+          <RadioCards<"none" | "queue" | "other"> name={`dlq${index + 1}`} label="Dead-letter queue" value={t.dlq ? "queue" : "none"} onChange={(v) => set({ dlq: v === "none" ? null : (t.dlq ?? `arn:aws:sqs:${region}:${account}:`) })} className="sm:grid-cols-3" options={[{ value: "none", title: "None" }, { value: "queue", title: "Select an Amazon SQS queue in the current AWS account to use as the dead-letter queue" }, { value: "other", title: "Select an Amazon SQS queue in another AWS account as a dead-letter queue", body: "Not available in doze-aws: one account.", disabled: true }]} />
           {t.dlq !== null && <div className="max-w-md"><QueuePicker by="name" value={dlqName || null} onChange={(n) => set({ dlq: n ? `arn:aws:sqs:${region}:${account}:${n}` : `arn:aws:sqs:${region}:${account}:` })} aria-label="Dead-letter queue" /></div>}
           <RuleHelp>Only standard queues work as a dead-letter queue. On AWS each failed event arrives with the attributes <span className="font-mono">RULE_ARN</span>, <span className="font-mono">TARGET_ARN</span>, <span className="font-mono">ERROR_CODE</span>, <span className="font-mono">ERROR_MESSAGE</span>, <span className="font-mono">RETRY_ATTEMPTS</span> and <span className="font-mono">EXHAUSTED_RETRY_CONDITION</span>. <b>Applied here:</b> doze-aws sends an event that ran out of tries to the queue with those attributes.</RuleHelp>
         </div>
