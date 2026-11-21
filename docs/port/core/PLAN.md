@@ -253,12 +253,17 @@ in; they are not extra on top of that plan.
 
 ### 3.2 The cut-over
 
-**When:** after C2, D2, P1, M1 and M3 are done and audited. With three builders this is about day 95, or about day 83
-with the two shortcuts in section 6.2.
+**When:** after C2, D2, P1 and M1 are done and audited, and the Linux desktop app runs. With three builders this is about
+day 95, or about day 83 with the two shortcuts in section 6.2.
+
+**Amended by the owner, 2026-11-19:** the kafka and aws modules are **not** part of the cut-over (M3 no longer gates it;
+see O9), and the **Linux desktop app is**: it ships at the cut-over, as deb and rpm packages beside the CLI's
+(docs/port/core/RELEASE.md). The Rust releases are published to doze-dev/doze, the repository and URLs Go's used.
 
 **Gates (all against the Rust binary, on macOS and Linux):**
 1. `test/integration`: all 18 tests (`DOZE_BIN`, Rust modules).
-2. The app's 286-row real-daemon checklist with the Rust daemon and Rust CLI underneath: as many rows as Go (285).
+2. The app's 286-row real-daemon checklist with the Rust daemon and Rust CLI underneath: as many rows as Go (285), on
+   macOS and on Linux (the Linux app, 2026-11-19), the kafka and aws rows excepted.
 3. `ground.ts`: every command, flag and doze.hcl field the docs name exists.
 4. `test/bench` budgets; `weight.md` gates (section 6.3); zero leftover processes after every scenario.
 5. The owner's day: `examples/shop` and Larder up, used, slept, woken, down, on his Mac, with names and trust.
@@ -268,6 +273,10 @@ with the two shortcuts in section 6.2.
 - `Doze.app` bundles the Rust `doze` and `doze-app`. The app's `doze-control` client needs **no change** (2.4.1); its
   subprocess calls (`doze -y up`, `--json doctor|lint|status`) now hit the Rust CLI (2.4.2).
 - Homebrew formula and `install.sh` point at the Rust release; release tooling extends `doze-module-release` to `doze`.
+  Built (2026-11-19): `.github/workflows/release.yml` (tarballs, Doze.app as a dmg, deb/rpm with the Linux app behind a
+  gate until it runs, checksums, the formula and cask as a tap pull request), `modules-release.yml` and
+  `scripts/install.sh`; how to cut one and the owner's steps are in docs/port/core/RELEASE.md.
+- The release ships the Linux desktop app (`doze-app` deb and rpm, depending on the `doze` package).
 - Upgrade with a Go daemon running: Rust `doze` speaks protocol 2 to it, so `doze update` (and the first Rust `up`) asks
   the Go daemon to `down`, waits for its socket to go, and starts its own; data dirs, `project.json`, logs, journal and
   state are the same formats, so nothing is lost.
@@ -462,7 +471,7 @@ yes; O3, O4, O6 and O8 to O12 as recommended.
 | **O6** | Diagnostic wording: match Go's text, or re-baseline to the CLI proposal's rustc-style messages? | **Re-baseline the wording; keep positions exact.** Line, column and the offending span must match Go; the words follow the proposal's rules (whose problem, a fix) | as recommended |
 | **O7** | Merge and push `pgext` (11 commits, +2,577 lines) in Go before the postgres port (modules plan D9) | **Yes, now.** The oracle must be the code that ships; M2 is blocked without it | **Yes, now.** Done 2026-11-14: rebased on main, vet and `go test -race` green, doze-modules main `a8500e0` |
 | **O8** | The registry hostname: `registry.doze-dev.com` still has no DNS answer (CLI proposal F1, checked again 2026-11-14) | **Fix the DNS now** (a Cloudflare record), or every fresh Go install stays broken; the Rust fetch tests use a local registry until then | as recommended |
-| **O9** | Module scope at cut-over | **postgres, mariadb, ferret, valkey, kvrocks, temporal, kafka, aws** (the registry's eight). Mailpit, minio, nats and friends stay `service` recipes in `doze-detect`; real modules for them are a later plan | as recommended |
+| **O9** | Module scope at cut-over | **postgres, mariadb, ferret, valkey, kvrocks, temporal, kafka, aws** (the registry's eight). Mailpit, minio, nats and friends stay `service` recipes in `doze-detect`; real modules for them are a later plan | as recommended; **amended 2026-11-19**: kafka and aws are dropped from the cut-over gate (the six others remain), and the Linux desktop app is in it (section 3.2) |
 | **O10** | Windows at cut-over or after? | **After** (phase W, right after). macOS and Linux are what Go supports today; Windows has no oracle and gets its own gate | as recommended |
 | **O11** | `doze fmt` byte-identical to Go's `hclwrite.Format`? | **Yes.** People run `fmt --check` in CI; a different formatter would fail their builds on upgrade | as recommended |
 | **O12** | Three builders in parallel (L, E, M tracks) | **Yes.** One builder is about 211 days; three is about 95 to cut-over (83 with the HCL split) | as recommended |
