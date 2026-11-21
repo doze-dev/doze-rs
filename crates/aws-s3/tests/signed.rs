@@ -106,6 +106,35 @@ async fn send(
     )
 }
 
+/// The `Content-Encoding` the answer to a signed HEAD of `path` carries, if any.
+async fn stored_encoding(addr: SocketAddr, path: &str) -> Option<String> {
+    let hash = sha256_hex(b"");
+    let h = [
+        ("x-amz-content-sha256", hash.as_str()),
+        ("x-amz-date", AMZ_DATE),
+    ];
+    let s = sign(addr, "HEAD", path, &h, &hash);
+    let mut c = TcpStream::connect(addr).await.unwrap();
+    let mut head = format!(
+        "HEAD {path} HTTP/1.1\r\nHost: {addr}\r\nAuthorization: {}\r\nConnection: close\r\n",
+        s.auth
+    );
+    for (k, v) in h {
+        head.push_str(&format!("{k}: {v}\r\n"));
+    }
+    head.push_str("\r\n");
+    c.write_all(head.as_bytes()).await.unwrap();
+    let mut raw = Vec::new();
+    c.read_to_end(&mut raw).await.unwrap();
+    let text = String::from_utf8_lossy(&raw).into_owned();
+    assert!(text.starts_with("HTTP/1.1 200"), "{text}");
+    text.lines().find_map(|l| {
+        let (k, v) = l.split_once(": ")?;
+        k.eq_ignore_ascii_case("content-encoding")
+            .then(|| v.to_owned())
+    })
+}
+
 /// The body cut into signed chunks, each signature chained to the one before (the seed first), ending in the empty chunk.
 fn signed_chunks(seed: &str, parts: &[&[u8]], tamper: bool) -> Vec<u8> {
     let key = SigningKey::derive(SECRET, DATE, "us-east-1", "s3").unwrap();
@@ -225,6 +254,35 @@ async fn a_signed_put_and_signed_chunks_are_checked() {
     )
     .await;
     assert_eq!(ok.0, 200, "{}", ok.1);
+    // The framing is not the object's encoding: `aws-chunked` is not kept, another encoding beside it is.
+    let both = [
+        ("x-amz-content-sha256", "STREAMING-AWS4-HMAC-SHA256-PAYLOAD"),
+        ("x-amz-date", AMZ_DATE),
+        ("content-encoding", "aws-chunked, gzip"),
+        ("x-amz-decoded-content-length", len.as_str()),
+    ];
+    let s = sign(
+        addr,
+        "PUT",
+        "/bkt/chunked-gzip",
+        &both,
+        "STREAMING-AWS4-HMAC-SHA256-PAYLOAD",
+    );
+    let ok = send(
+        addr,
+        "PUT",
+        "/bkt/chunked-gzip",
+        &both,
+        &s.auth,
+        &signed_chunks(&s.seed, &parts, false),
+    )
+    .await;
+    assert_eq!(ok.0, 200, "{}", ok.1);
+    assert_eq!(stored_encoding(addr, "/bkt/chunked").await, None);
+    assert_eq!(
+        stored_encoding(addr, "/bkt/chunked-gzip").await.as_deref(),
+        Some("gzip")
+    );
     let s = sign(
         addr,
         "PUT",

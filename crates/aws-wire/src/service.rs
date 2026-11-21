@@ -271,6 +271,13 @@ pub trait Service: Send + Sync + 'static {
         None
     }
 
+    /// The headers (lower-case) whose enum value the service takes in any case (S3's `x-amz-checksum-mode: enabled`, which the AWS
+    /// CLI's downloads send). The gateway rewrites such a value to the model's spelling before it checks it; every other enum is
+    /// compared exactly. The default is none.
+    fn case_blind_headers(&self) -> &'static [&'static str] {
+        &[]
+    }
+
     /// How a request that fails its model's checks is answered. The default is the Coral front end's
     /// `ValidationException`; a service whose real answer differs (SQS says `InvalidParameterValue` or `MissingParameter`)
     /// overrides it.

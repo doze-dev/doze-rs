@@ -8,6 +8,7 @@ use aws_schema::arena::{Arena, NIL};
 use aws_schema::json::decode;
 use aws_schema::meta::Protocol;
 use aws_schema::tables::{K_STREAM, Tables};
+use aws_wire::rest::fold::fold_enum_headers;
 use aws_wire::rest::jsonin;
 use aws_wire::rest::jsonout;
 use aws_wire::rest::request::{Parts as Input, ReadError, to_json};
@@ -311,6 +312,11 @@ fn decode_call(entry: &Entry, h: &Head<'_>, claim: Claim) -> Result<Call, ApiErr
                     )
                 })?
             };
+            let mut value = value;
+            let blind = entry.service.case_blind_headers();
+            if !blind.is_empty() {
+                fold_enum_headers(tables, shape, blind, &mut value);
+            }
             let text = value.to_string();
             let root = decode(tables, &entry.patterns, shape, &text, &mut arena)
                 .map_err(|v| entry.service.invalid(&v))?;
