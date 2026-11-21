@@ -15,7 +15,7 @@ import { HTTP, runCalls, useHttpApis, useRefreshReads, useRestApis } from "./api
 import { type Wizard, ROUTE_METHODS, defaultPath, emptyWizard, wizardCalls, wizardProblem } from "./http-model";
 import { useWhere } from "./parts";
 import { callKindOp } from "../../../kit";
-import { invokeUrls, list } from "./words";
+import { haveApis, invokeUrls } from "./words";
 
 const STEPS = [{ id: "integration", label: "Integrations" }, { id: "routes", label: "Configure routes" }, { id: "stage", label: "Stage" }, { id: "review", label: "Review and create" }];
 const TITLES = [["Create HTTP API", "Step 1 of 4. Add the backend, then name the API. The console builds a route and a stage from it, which you review in the next steps."], ["Configure routes", "Step 2 of 4. Review the route the console made for your integration. A route is an HTTP method and a path; it sends matching requests to an integration."], ["Stage", "Step 3 of 4. Review the stage the console made. A stage is a named reference to a deployment of the API, and callers reach the API through it."], ["Review and create", "Step 4 of 4. Check what will be created. To work, an HTTP API needs at least one route, integration, stage and deployment."]] as const;
@@ -107,7 +107,7 @@ export function HttpWizard() {
             )}
           </FormSection>
           <FormSection title="API details" testId="section-api">
-            <Field label="API name" error={tried && w.name.trim() === "" ? "Enter an API name." : undefined} help={<><b>Required</b>, 1 to 128 characters.</>} hint={rest.length + http.length > 0 ? <>This Region already has {list([...rest.map((a) => `a REST API, ${a.name}`), ...http.map((a) => `an HTTP API, ${a.name}`)])}.</> : undefined}>{(id) => <Input id={id} value={w.name} onChange={(e) => set({ name: e.target.value })} placeholder="larder-reports" className="font-mono" autoComplete="off" spellCheck={false} data-testid="api-name" />}</Field>
+            <Field label="API name" error={tried && w.name.trim() === "" ? "Enter an API name." : undefined} help={<><b>Required</b>, 1 to 128 characters.</>} hint={rest.length + http.length > 0 ? <>This Region already has {haveApis(rest.map((a) => a.name), http.map((a) => a.name))}.</> : undefined}>{(id) => <Input id={id} value={w.name} onChange={(e) => set({ name: e.target.value })} placeholder="larder-reports" className="font-mono" autoComplete="off" spellCheck={false} data-testid="api-name" />}</Field>
             <div className="grid gap-2"><span className="text-[14px] leading-none font-medium text-bright">IP address type</span><Segmented<"ipv4" | "dualstack"> value={w.ip} onChange={(ip) => set({ ip })} label="IP address type" testId="ip-type" options={[{ value: "ipv4", label: "IPv4" }, { value: "dualstack", label: "Dualstack" }]} className="w-fit" /><p className="text-[13px] leading-5 text-muted-foreground">Which addresses can invoke the API. <b className="font-semibold text-foreground">Stored, not applied locally.</b> doze-aws keeps the setting and serves one local address (<span className="font-mono">crates/aws-apigateway/src/v2/apis.rs</span>).</p></div>
           </FormSection>
         </>

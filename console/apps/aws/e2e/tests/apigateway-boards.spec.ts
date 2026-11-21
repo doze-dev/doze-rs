@@ -55,7 +55,7 @@ test("apigateway__api-create-type: HTTP, REST and WebSocket as cards, and how th
   await go(page, "/resources/apigateway/restapis", "APIs");
   await page.getByTestId("create-open").click();
   await expect(page.locator("h1")).toHaveText("Create API");
-  await expect(page.getByTestId("type-websocket")).toContainText("Route selection");
+  await expect(page.getByTestId("type-websocket")).toContainText("route selection expression");
   await expect(page.getByTestId("type-websocket")).not.toContainText("Not available");
   await expect(page.getByTestId("expect-table")).toContainText("Lambda (request), JWT");
   await expect(page.getByTestId("expect-table")).toContainText("Yes, enforced here");
@@ -66,8 +66,7 @@ test("apigateway__rest-create: Regional, the IP address type, the call beside it
   await go(page, "/resources/apigateway/restapis?do=create", "Create API");
   await page.getByTestId("build-rest").click();
   await expect(page.locator("h1")).toHaveText("Create REST API");
-  await expect(page.getByTestId("section-details")).toContainText("This Region already has a REST API, larder-public");
-  await expect(page.getByTestId("section-details")).toContainText("an HTTP API, larder-admin");
+  await expect(page.getByTestId("section-details")).toContainText("This Region already has 2 REST APIs, larder-internal and larder-public, and 2 HTTP APIs, larder-admin and larder-hooks.");
   await expect(page.getByTestId("endpoint-edge")).toBeDisabled();
   await page.getByTestId("api-name").fill("larder-orders");
   await page.getByTestId("api-description").fill("Order intake for partner storefronts");
@@ -111,9 +110,9 @@ test("apigateway__rest-resource-create: a path parameter under /products with CO
   await expect(page.getByTestId("section-details")).toContainText("/products has a GET and an OPTIONS method");
   await page.getByTestId("resource-cors").click();
   const call = page.getByTestId("call-panel");
-  await expect(call.first()).toContainText("CreateResource");
-  await expect(call.first()).toContainText('"pathPart": "{sku}"');
-  await expect(call.first()).toContainText("PutIntegrationResponse");
+  await expect(call).toContainText("CreateResource");
+  await expect(call).toContainText('"pathPart": "{sku}"');
+  await expect(call).toContainText("PutIntegrationResponse");
   await page.getByTestId("resource-cors").click();
   await shot(page, "rest-resource-create");
   await page.getByTestId("resource-cors").click();
@@ -134,12 +133,12 @@ test("apigateway__rest-method-create: a Lambda proxy method, with the two calls 
   await pick(page, /Choose a function/, "resize-product-image");
   await expect(page.getByTestId("section-details")).toContainText("Lambda proxy integration");
   await expect(page.getByTestId("section-settings-summary")).toContainText("Authorization None, API key not required.");
-  const call = page.getByTestId("call-panel");
-  await expect(call.first()).toContainText("PutMethod");
-  await expect(call.nth(1)).toContainText("PutIntegration");
-  await expect(call.nth(1)).toContainText('"integrationHttpMethod": "POST"');
-  await expect(call.nth(1)).toContainText('"type": "AWS_PROXY"');
-  await expect(page.getByTestId("call-panel-code").nth(1)).toContainText("function:resize-product-image/invocations");
+  const code = page.getByTestId("call-panel-code");
+  await expect(code.first()).toContainText("PutMethod");
+  await expect(code.nth(1)).toContainText("PutIntegration");
+  await expect(code.nth(1)).toContainText('"integrationHttpMethod": "POST"');
+  await expect(code.nth(1)).toContainText('"type": "AWS_PROXY"');
+  await expect(code.nth(1)).toContainText("function:resize-product-image/invocations");
   await shot(page, "rest-method-create");
   await page.getByTestId("form-submit").click();
   await expect(page.getByTestId("method-banner")).toContainText("Method POST /products created.");
@@ -182,13 +181,15 @@ test("apigateway__rest-integration-response: the default response, its regex, an
   await expect(first).toContainText("Empty: this is the default response");
   await expect(page.getByTestId("integration-mappings")).toContainText("the backend's answer is returned as it is");
   await shot(page, "rest-integration-response");
+  cli(["apigateway", "put-method-response", "--rest-api-id", rest(), "--resource-id", ctx.ids.products, "--http-method", "GET", "--status-code", "400"]);
+  await page.reload();
   await page.getByTestId("create-response").click();
-  await page.getByTestId("response-status").fill("404");
+  await choose(page, "response-status", "400");
   await page.getByTestId("response-pattern").fill("4\\d\\d");
   await expect(page.getByTestId("integration-response-dialog")).toContainText("PutIntegrationResponse");
   await page.getByTestId("integration-response-dialog-submit").click();
   await expect(page.getByTestId("integration-response")).toHaveCount(2);
-  expect(cli(["apigateway", "get-integration-response", "--rest-api-id", rest(), "--resource-id", ctx.ids.products, "--http-method", "GET", "--status-code", "404"])).toContain("4\\\\d\\\\d");
+  expect(cli(["apigateway", "get-integration-response", "--rest-api-id", rest(), "--resource-id", ctx.ids.products, "--http-method", "GET", "--status-code", "400"])).toContain("4\\\\d\\\\d");
 });
 
 test("apigateway__rest-method-response: the status codes the method can return, and what a missing one does here", async ({ page }) => {
@@ -203,7 +204,7 @@ test("apigateway__rest-method-response: the status codes the method can return, 
   await page.getByTestId("response-status").fill("404");
   await page.getByTestId("response-headers").fill("X-Why");
   await page.getByTestId("method-response-dialog-submit").click();
-  await expect(page.getByTestId("method-response")).toHaveCount(2);
+  await expect(page.getByTestId("method-response")).toHaveCount(3);
   expect(cli(["apigateway", "get-method-response", "--rest-api-id", rest(), "--resource-id", ctx.ids.products, "--http-method", "GET", "--status-code", "404"])).toContain("X-Why");
 });
 
@@ -276,7 +277,7 @@ test("apigateway__rest-stage: a second stage is made from a deployment of the hi
 
 test("apigateway__rest-stages-none: an API never deployed has no stages, and says where to deploy", async ({ page }) => {
   await go(page, apiPath("restapis", ctx.ids.internal, "?tab=stages"), "Stages");
-  await expect(page.getByText("No stages")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "No stages" })).toBeVisible();
   await expect(page.getByTestId("rest-page")).toContainText("larder-internal has never been deployed, so it has no stages. Deploy the API to create one.");
   await shot(page, "rest-stages-none");
 });
@@ -316,7 +317,7 @@ test("apigateway__rest-authorizers and rest-authorizers-none: what the authorize
     await page.getByTestId("authorizer-delete-submit").click();
     await expect(page.getByTestId(`delete-${name}`)).toBeHidden();
   }
-  await expect(page.getByText("No authorizers")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "No authorizers" })).toBeVisible();
   await expect(page.getByText("An authorizer checks a caller's identity before a method runs.")).toBeVisible();
   await shot(page, "rest-authorizers-none");
 });

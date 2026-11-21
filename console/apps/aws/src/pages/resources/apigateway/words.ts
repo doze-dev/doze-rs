@@ -179,7 +179,7 @@ export function apisSentence(apis: readonly AnyApi[], by: Readonly<Record<string
       return `${a.name} answers through its ${list(names)} ${names.length === 1 ? "stage" : "stages"}${when1}.`;
     }
     const first = st.find((s) => s.auto) ?? st[0]!;
-    return `${a.name} answers at its ${first.stage} stage${first.auto ? ", which deploys every change you save" : ", deployed by hand"}${st.length > 1 ? `, and ${count(st.length - 1, "other stage")}` : ""}.`;
+    return `${a.name} answers at its ${first.stage} stage${first.auto ? ", which deploys every change you save" : ", deployed by hand"}.`;
   };
   const said = apis.map(one).filter(Boolean);
   return said.slice(0, most).join(" ") + (said.length > most ? ` ${count(said.length - most, "more API")} answer too.` : "");
@@ -217,3 +217,12 @@ export function methodSentence(m: RestMethod, path: string, authorizer: string |
   const answers = !i ? "no backend is attached yet" : i.type === "MOCK" ? "API Gateway answers it itself" : lambdaName(i.uri) ? `the function ${backendName(i)} answers` : `the ${backendName(i)} backend answers`;
   return `A ${m.httpMethod} to ${path} ${auth}${m.apiKeyRequired ? " and an API key" : " and no API key"}. ${q}, and ${answers}.`;
 }
+
+/** What the Region already has, as the create forms say it: `a REST API, larder-public, and an HTTP API, larder-admin`. */
+export function haveApis(rest: readonly string[], http: readonly string[]): string {
+  const one = (all: readonly string[], a: string, many: string) => { const names = [...all].sort(); return (names.length === 0 ? "" : names.length === 1 ? `${a}, ${names[0]}` : `${names.length} ${many}, ${list(names)}`); };
+  return [one(rest, "a REST API", "REST APIs"), one(http, "an HTTP API", "HTTP APIs")].filter(Boolean).join(", and ");
+}
+
+/** `a GET and an OPTIONS method` (a verb with the article it is spoken with). */
+export const methodPhrase = (verbs: readonly string[]): string => (verbs.length === 0 ? "no method" : `${list(verbs.map((v) => `${/^[AEIOU]/.test(v) ? "an" : "a"} ${v}`))} method`);

@@ -64,7 +64,8 @@ export function CreateMethodResponse({ base, have, onClose }: { base: Base; have
 }
 
 export function CreateIntegrationResponse({ base, have, statuses, onClose }: { base: Base; have: string[]; statuses: string[]; onClose: () => void }) {
-  const [f, setF] = useState<IntegrationResponseForm>({ status: statuses.find((s) => !have.includes(s)) ?? "", pattern: "", headers: [], template: "", contentType: "application/json" });
+  const free = statuses.filter((st) => !have.includes(st));
+  const [f, setF] = useState<IntegrationResponseForm>({ status: free[0] ?? "", pattern: "", headers: [], template: "", contentType: "application/json" });
   const [rows, setRows] = useState<KeyValueRow[]>([newRow()]);
   const make = useWrite(REST, "PutIntegrationResponse");
   const form = { ...f, headers: filled(rows).map((r) => ({ name: r.key, value: r.value })) };
@@ -72,7 +73,14 @@ export function CreateIntegrationResponse({ base, have, statuses, onClose }: { b
   const failed = make.error ? errorWords(make.error) : null;
   return (
     <Frame title="Create integration response" description="Each response maps a backend result to a method response status code." onClose={onClose} call={{ operation: "PutIntegrationResponse", input }} problem={integrationResponseProblem(form, have)} pending={make.isPending} onSubmit={() => make.mutate(input as never, { onSuccess: onClose })} failed={failed ? { code: failed.code || "Error", message: failed.message } : null} testId="integration-response-dialog">
-      <Field label="Method response status" help={statuses.length > 0 ? <>The method has {statuses.join(", ")} as a method response.</> : "Create a method response for the status first."}>{(id) => <Input id={id} value={f.status} onChange={(e) => setF({ ...f, status: e.target.value })} placeholder="200" inputMode="numeric" className="font-mono" autoComplete="off" data-testid="response-status" />}</Field>
+      <Field label="Method response status" hint={free.length === 0 ? "Every method response of this method has an integration response already. Create a method response for another status first." : "An integration response maps to a method response of the method: create the method response first."}>
+        {(id) => (
+          <Select value={f.status} onValueChange={(status) => setF({ ...f, status })} disabled={free.length === 0}>
+            <SelectTrigger id={id} className="w-full bg-card font-mono" data-testid="response-status"><SelectValue placeholder="No method response is free" /></SelectTrigger>
+            <SelectContent>{free.map((st) => <SelectItem key={st} value={st} className="font-mono">{st}</SelectItem>)}</SelectContent>
+          </Select>
+        )}
+      </Field>
       <Field label="HTTP status regex" optional help="Matched against the backend's status code (an HTTP or mock backend) or error message (a Lambda function). Empty: this is the default response.">{(id) => <Input id={id} value={f.pattern} onChange={(e) => setF({ ...f, pattern: e.target.value })} placeholder="4\d\d" className="font-mono" autoComplete="off" data-testid="response-pattern" />}</Field>
       <div className="grid gap-2"><span className="text-[14px] leading-none font-medium text-bright">Header mappings <span className="font-normal text-muted-foreground">optional</span></span><KeyValueEditor rows={rows} onChange={setRows} keyLabel="Header name" valueLabel="Mapped from" addLabel="Add header" removeLabel="Remove" testId="response-header-rows" /><RuleHelp>A value is a constant in single quotes, or <span className="font-mono">integration.response.header.X</span>.</RuleHelp></div>
       <Field label="Body mapping template" optional help="A Velocity template for the response body, for the content type below.">{(id) => <Textarea id={id} value={f.template} onChange={(e) => setF({ ...f, template: e.target.value })} rows={3} className="font-mono text-[13px]" data-testid="response-template" />}</Field>

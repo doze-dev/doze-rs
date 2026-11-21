@@ -9,7 +9,7 @@ import { Field, FormPage, FormSection, LocalStatus, RadioCards, RuleHelp, useSer
 import { REST, useHttpApis, useRestApis, useWrite } from "./api";
 import { useWhere } from "./parts";
 import type { RestApi } from "./types";
-import { apiNameProblem, list } from "./words";
+import { apiNameProblem, haveApis } from "./words";
 
 export type RestForm = { name: string; description: string; ip: "ipv4" | "dualstack" };
 
@@ -29,7 +29,7 @@ export function RestCreate() {
   const problem = apiNameProblem(f.name);
   const input = useMemo(() => createRestInput(f), [f]);
   const failure = make.error instanceof ApiFailure ? { code: make.error.code, message: make.error.message } : make.error ? { code: "Error", message: String((make.error as Error).message) } : null;
-  const have = [...rest.map((a) => `a REST API, ${a.name}`), ...http.map((a) => `an HTTP API, ${a.name}`)];
+  const have = haveApis(rest.map((a) => a.name), http.map((a) => a.name));
   const submit = () => {
     setTried(true);
     if (problem) return;
@@ -54,7 +54,7 @@ export function RestCreate() {
       testId="rest-create"
     >
       <FormSection title="API details" testId="section-details">
-        <Field label="API name" error={tried ? (problem ?? undefined) : undefined} hint={have.length > 0 ? <>This Region already has {list(have)}.</> : undefined} help={<><b>Required.</b> Names need not be unique: an API is found by its ID.</>}>
+        <Field label="API name" error={tried ? (problem ?? undefined) : undefined} hint={have !== "" ? <>This Region already has {have}.</> : undefined} help={<><b>Required.</b> Names need not be unique: an API is found by its ID.</>}>
           {(id) => <Input id={id} value={f.name} onChange={(e) => set({ name: e.target.value })} placeholder="larder-orders" autoComplete="off" spellCheck={false} className="font-mono" data-testid="api-name" />}
         </Field>
         <Field label="Description" optional>{(id) => <Input id={id} value={f.description} onChange={(e) => set({ description: e.target.value })} autoComplete="off" data-testid="api-description" />}</Field>

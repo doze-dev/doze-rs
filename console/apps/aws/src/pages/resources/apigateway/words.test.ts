@@ -123,3 +123,15 @@ describe("a method in words", () => {
     expect(methodSentence({ httpMethod: "POST", authorizationType: "CUSTOM", apiKeyRequired: true, methodIntegration: { type: "MOCK" } }, "/x", "tok")).toBe("A POST to /x is checked by the authorizer tok and an API key. It accepts no query string, and API Gateway answers it itself.");
   });
 });
+
+import { haveApis } from "./words";
+test("what the Region already has", () => {
+  expect(haveApis(["larder-public"], ["larder-admin"])).toBe("a REST API, larder-public, and an HTTP API, larder-admin");
+  expect(haveApis(["a", "b"], [])).toBe("2 REST APIs, a and b");
+});
+
+import { methodPhrase } from "./words";
+test("a resource's methods in words", () => {
+  expect(methodPhrase(["GET", "OPTIONS"])).toBe("a GET and an OPTIONS method");
+  expect(methodPhrase([])).toBe("no method");
+});

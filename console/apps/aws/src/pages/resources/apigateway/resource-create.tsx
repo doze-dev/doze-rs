@@ -12,7 +12,7 @@ import { sdkShown } from "./calls";
 import { REST, useRefreshReads, useResources, useWrite } from "./api";
 import { corsCalls, createResourceInput, fullPath, partOf, proxyName, resourceProblem, type ResourceForm } from "./resource-model";
 import type { RestResource } from "./types";
-import { count, flattenTree, list, methodsOf } from "./words";
+import { flattenTree, methodPhrase, methodsOf } from "./words";
 
 export function ResourceCreate({ api, apiName, parent, crumbs, onClose }: { api: string; apiName: string; parent: string | undefined; crumbs: { label: string; to: string }[]; onClose: (created?: string) => void }) {
   const tree = useResources(api).data?.item ?? [];
@@ -73,7 +73,7 @@ export function ResourceCreate({ api, apiName, parent, crumbs, onClose }: { api:
           <Switch id="proxy" checked={f.proxy} onCheckedChange={(proxy) => set({ proxy })} className="mt-0.5" data-testid="resource-proxy" />
           <div className="grid gap-0.5"><Label htmlFor="proxy">Proxy resource</Label><p className="text-[13px] text-muted-foreground">{f.proxy ? <>On. The resource is <span className="font-mono">{proxyName}</span>, and catches every child path.</> : <>Off. A proxy resource uses a greedy path parameter, such as <span className="font-mono">{proxyName}</span>, that catches every child path.</>}</p></div>
         </div>
-        <Field label="Resource path" hint={parentRes ? <>The parent of the new resource. <span className="font-mono">{parentRes.path}</span> {methodsOf(parentRes).length === 0 ? "has no method" : <>has {list(methodsOf(parentRes).map((m) => `a ${m.httpMethod}`))} {count(methodsOf(parentRes).length, "method").replace(/^\d+ /, "")}</>}; the new resource is its child.</> : undefined}>
+        <Field label="Resource path" hint={parentRes ? <>The parent of the new resource. <span className="font-mono">{parentRes.path}</span> has {methodPhrase(methodsOf(parentRes).map((m) => m.httpMethod))}; the new resource is its child.</> : undefined}>
           {(id) => (
             <Select value={where} onValueChange={(v) => set({ parent: v })}>
               <SelectTrigger id={id} className="w-full bg-card font-mono" data-testid="resource-parent"><SelectValue /></SelectTrigger>

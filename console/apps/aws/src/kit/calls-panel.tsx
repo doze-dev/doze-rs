@@ -19,11 +19,12 @@ const VIEWS: { id: CallView; label: string }[] = [
 /** The calls a form makes when it makes more than one (an edit that sets one attribute a call, then the tags): each as the panel of one
  * call draws it, in the order they are made, with one Copy as for them all. `refusal` is the service's refusal of the one that failed. */
 export function CallsPanel({ requests, note, refusal, title = "The call this will make", testId = "call-panel", showInput = false, shown }: { requests: PreviewRequest[]; note?: React.ReactNode; refusal?: { code: string; message: string } | null; title?: string; testId?: string; /** The JSON tab shows each request's own input, as the SDK takes it (see CallPanel). */ showInput?: boolean; /** What the JSON tab shows of a request's input, where the input names a member as the wire does and the SDK does not. */ shown?: (operation: string, input: unknown) => unknown }) {
-  const view_input = (i: number) => (showInput ? (shown ? shown(requests[i]!.operation, requests[i]!.input) : requests[i]!.input) : undefined);
   const [view, setView] = useState<CallView>("json");
   const key = JSON.stringify(requests.map((r) => [r.service, r.operation, r.input]));
   const pause = useDebounced(key, PREVIEW_PAUSE);
   const asked = JSON.parse(pause.value || "[]") as [string, string, unknown][];
+  // What the JSON tab shows of the i-th call asked (the requests may have changed since the pause).
+  const view_input = (i: number) => (showInput ? (shown ? shown(asked[i]![1], asked[i]![2]) : asked[i]![2]) : undefined);
   const answers = useQueries({ queries: asked.map((a) => ({ queryKey: ["preview", JSON.stringify(a)], queryFn: ({ signal }: { signal: AbortSignal }) => fetchPreview({ service: a[0], operation: a[1], input: a[2] }, signal), retry: false, staleTime: Number.POSITIVE_INFINITY, placeholderData: keepPreviousData })) });
   const done = answers.length > 0 && answers.every((a) => a.data);
   const texts = answers.map((a, i) => (a.data ? viewText(a.data, asked[i]![1], view, undefined, view_input(i)) : ""));

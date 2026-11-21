@@ -1,0 +1,1 @@
+function e(e,t){if(e!==`PutIntegration`||typeof t!=`object`||!t)return t;let n={};for(let[e,r]of Object.entries(t))e===`requestHttpMethod`?n.httpMethod=r:e===`httpMethod`?n.integrationHttpMethod=r:n[e]=r;let{restApiId:r,resourceId:i,httpMethod:a,...o}=n;return{restApiId:r,resourceId:i,httpMethod:a,...o}}export{e as t};

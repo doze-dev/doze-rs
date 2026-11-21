@@ -41,7 +41,6 @@ export function RestStages({ id, name, stage: asked, calls, region }: { id: stri
   if (!stage) {
     return (
       <>
-        <Said text={`${name} has never been deployed, so it has no stages. Deploy the API to create one.`} names={[name]} />
         {chips}
         <EmptyState icon={Layers3Icon} title="No stages" action={<Button onClick={() => go({ tab: "stages", dialog: "deploy" })} data-testid="deploy-empty"><UploadIcon /> Deploy API</Button>}>{name} has never been deployed, so it has no stages. Deploy the API to create one.</EmptyState>
       </>
