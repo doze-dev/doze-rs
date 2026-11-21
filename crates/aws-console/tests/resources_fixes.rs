@@ -245,3 +245,38 @@ async fn an_event_pattern_a_target_transformer_and_an_open_ended_archive_read_as
     let (_, archive) = w.get("/api/v1/resources/eventbridge/archives/all").await;
     assert_eq!(field(&archive, "Retention (days)")["value"], "Indefinite");
 }
+
+/// A REST API made from the console asks for a regional endpoint (the form's default); API Gateway's own default is EDGE.
+#[tokio::test]
+async fn a_rest_api_made_from_the_form_is_regional_and_titled_by_its_name() {
+    let w = world("rest", Mode::Soft, &[]);
+    let base = "/api/v1/resources/apigateway/restapis";
+    let form = w.get(base).await.1;
+    let input = form["create"]["inputs"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|i| i["key"] == "endpointType")
+        .unwrap()
+        .clone();
+    assert_eq!(input["value"], "REGIONAL");
+    let id = w
+        .round_trip(
+            base,
+            &json!({"name": "orders-api", "endpointType": input["value"]}),
+            "orders-api",
+        )
+        .await;
+    let (_, detail) = w.get(&format!("{base}/{id}")).await;
+    assert_eq!(field(&detail, "Endpoint")["value"], "REGIONAL");
+    assert_eq!(field(&detail, "Name")["value"], "orders-api");
+    // The form is refused without it, rather than making an API with no endpoint type at all.
+    let (status, refused) = w.send("POST", base, &json!({"name": "edge-api"})).await;
+    assert_eq!(status, 400, "{refused}");
+    assert!(
+        refused["message"]
+            .as_str()
+            .unwrap()
+            .contains("Endpoint type is required")
+    );
+}

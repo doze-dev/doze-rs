@@ -156,3 +156,10 @@ export function oneOf(kind: string): string {
   if (/(ss|us|x|ch|sh)es$/.test(kind)) return kind.slice(0, -2);
   return kind.replace(/s$/, "");
 }
+
+/** What a resource's page is titled by the details the server read: the name it has (an API's, which its address gives as an id), else
+ * [titleOf] its address. */
+export function titleFor(name: string, fields: { label: string; value: string | null }[] | undefined): string {
+  const named = fields?.find((f) => f.label === "Name")?.value;
+  return named && !name.startsWith("arn:") ? named : titleOf(name);
+}

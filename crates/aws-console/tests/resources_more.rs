@@ -127,7 +127,7 @@ async fn apis_of_both_kinds_show_their_stages_and_a_stack_its_resources_and_outp
     let id = w
         .round_trip(
             "/api/v1/resources/apigateway/restapis",
-            &json!({"name": "orders-api"}),
+            &json!({"name": "orders-api", "endpointType": "REGIONAL"}),
             "orders-api",
         )
         .await;

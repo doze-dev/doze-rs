@@ -19,7 +19,7 @@ import type { SubList } from "../../api/types/SubList";
 import { Result } from "../live/outcome";
 import { DeleteDialog } from "./delete-dialog";
 import { HINT } from "./index-page";
-import { columnLeast, columnSizes, isDocument, oneOf, sortKey, titleOf } from "./model";
+import { columnLeast, columnSizes, isDocument, oneOf, sortKey, titleFor } from "./model";
 import { isConsole } from "../live/search";
 import { CreateDialog } from "./create-dialog";
 import { ResourceTo, Value } from "./value";
@@ -208,7 +208,7 @@ export function ResourceDetailPage({ service, kind, name, tab }: { service: stri
   return (
     <>
       <PageHeader
-        title={titleOf(name)}
+        title={titleFor(name, d?.fields)}
         mono
         crumbs={crumbs}
         sub={d ? <>Read with {d.operations.map((o, i) => <span key={`${o}${i}`}>{i > 0 && ", "}<span className="font-mono text-foreground">{o}</span></span>)} as the caller <span className="font-mono text-foreground">console</span>.</> : undefined}
