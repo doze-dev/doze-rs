@@ -122,8 +122,7 @@ fn prepare(
     };
     let module = std::cell::RefCell::new(None);
     let planner = |i: &Instance| {
-        let (p, mi) =
-            crate::planners::module(cat, i, &doze_fetch::triple(), run_dir, grant.as_ref());
+        let (p, mi) = crate::planners::module(cat, i, &doze_fetch::triple(), grant.as_ref());
         *module.borrow_mut() = mi;
         p
     };

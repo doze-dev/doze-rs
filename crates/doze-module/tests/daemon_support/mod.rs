@@ -15,6 +15,8 @@ pub struct Find {
     pub asked: Mutex<Vec<(String, Vec<String>)>>,
     /// A build that serves engine 1 only, found for major 1 (else the echo serves 1 and 2).
     pub only1: Option<PathBuf>,
+    /// Another build of echo found for every major (a copy named `…-supervised`).
+    pub echo: Option<PathBuf>,
 }
 
 impl Finder for Find {
@@ -28,7 +30,11 @@ impl Finder for Find {
             .lock()
             .unwrap()
             .push((ty.to_string(), majors.to_vec()));
-        let only1 = self.only1.clone().filter(|_| majors == ["1"]);
+        let only1 = self
+            .only1
+            .clone()
+            .filter(|_| majors == ["1"])
+            .or_else(|| self.echo.clone());
         let found = (ty == "echo")
             .then(|| only1.unwrap_or_else(|| PathBuf::from(env!("CARGO_BIN_EXE_doze-module-echo"))))
             .ok_or_else(|| {

@@ -199,10 +199,10 @@ fn stack(
     catalog: &Arc<Catalog>,
     grants: &BTreeMap<String, Grant>,
 ) -> (doze_engine::stack::Stack, Modules) {
-    let (target, run_dir) = (doze_fetch::triple(), Path::new(&cfg.data_dir).join("run"));
+    let target = doze_fetch::triple();
     let modules = std::sync::Mutex::new(Modules::new());
     let planner = |i: &Instance| -> Arc<dyn Planner> {
-        let (p, mi) = crate::planners::module(catalog, i, &target, &run_dir, grants.get(&i.name));
+        let (p, mi) = crate::planners::module(catalog, i, &target, grants.get(&i.name));
         if let Some(mi) = mi {
             crate::lock(&modules).insert(i.name.clone(), mi);
         }

@@ -11,7 +11,7 @@ use doze_config::Instance;
 use doze_engine::modules::{ANY_LOOPBACK, ModuleInstance};
 use doze_engine::stack::{BoxFuture, PlanCtx, Planned, Planner};
 use doze_module_proto::msg::hello::caps;
-use doze_module_proto::msg::instance::{Address, Instance as ModInstance};
+use doze_module_proto::msg::instance::{Address, Granted, Instance as ModInstance};
 use doze_module_proto::network::MAIN;
 use std::collections::BTreeMap;
 use std::sync::Arc;
@@ -26,12 +26,11 @@ pub struct Grant {
 
 /// The planner of module instance `i`, and the instance itself for its data, console and client (`None` with a
 /// planner that says why it cannot run when its module was not found). `grant` is what the zone placed for it; without
-/// one (it is not fronted) its main listener is its declared address.
+/// one (it is not fronted) every listener its module declares is where it was declared ([`unfronted`]).
 pub fn module(
     cat: &Arc<Catalog>,
     i: &Instance,
     target: &str,
-    run_dir: &std::path::Path,
     grant: Option<&Grant>,
 ) -> (Arc<dyn Planner>, Option<Arc<ModuleInstance>>) {
     let Some(m) = cat.manifest_for(&i.ty, &i.version) else {
@@ -39,19 +38,13 @@ pub fn module(
             .unwrap_or_else(|| format!("no module for {:?}", i.ty));
         return (Arc::new(NoModule { why }), None);
     };
-    let addr = doze_config::instance_addr(i, cat.as_ref()).unwrap_or_default();
-    let tcp_only = as_module_sees_it(cat, i).is_some_and(|mi| cat.main_is_tcp(&mi));
-    let backend = backend(&addr, &i.name, &m, tcp_only, run_dir);
     let spec = match &i.spec {
         doze_config::Spec::Module(b) => crate::spec_tree::tree(b, &m.schema),
         _ => crate::spec_tree::tree(&Default::default(), &m.schema),
     };
     let (host, listeners) = match grant {
         Some(g) => (g.host.clone(), g.listeners.clone()),
-        None => (
-            String::new(),
-            BTreeMap::from([(MAIN.to_string(), catalog::granted(addr, backend))]),
-        ),
+        None => (String::new(), unfronted(cat, i)),
     };
     let base = ModInstance {
         name: i.name.clone(),
@@ -77,6 +70,25 @@ pub fn module(
             .with_pin_sink(sink),
     );
     (mi.clone(), Some(mi))
+}
+
+/// Every listener of an instance nothing fronts (a supervised module, `listen = "unix:…"`), each where it was declared
+/// and its engine listening there itself: the main one at the declared address (nothing holds it, so the engine does
+/// not dial itself; a loopback port chosen at each start when there is none), the others at their declared ports
+/// ([`Catalog::declared`]). Granting the main one alone left a module that needs another (temporal's `ui`) unable
+/// to boot: "no backend granted for \"ui\"".
+pub fn unfronted(cat: &Catalog, i: &Instance) -> BTreeMap<String, Granted> {
+    let addr = doze_config::instance_addr(i, cat).unwrap_or_default();
+    let mut listeners = as_module_sees_it(cat, i)
+        .map(|mi| mi.listeners)
+        .unwrap_or_default();
+    let main = match addr.strip_prefix("unix:") {
+        Some(p) => Address::Unix(p.to_string()),
+        None if addr.is_empty() => Address::Tcp(ANY_LOOPBACK.into()),
+        None => Address::Tcp(addr.clone()),
+    };
+    listeners.insert(MAIN.to_string(), catalog::granted(addr, main));
+    listeners
 }
 
 /// Where the engine listens for the main listener: the declared socket itself for `listen = "unix:…"` (nothing fronts
@@ -147,7 +159,7 @@ pub fn as_module_sees_it(cat: &Catalog, i: &Instance) -> Option<ModInstance> {
         body,
         dir: &i.dir,
     };
-    Some(catalog::instance_for(&call, &m))
+    Some(cat.declared(&call, &m))
 }
 
 /// The longest socket path every Unix binds (macOS's `sun_path` holds 104 bytes with its nul); a longer one gets a
