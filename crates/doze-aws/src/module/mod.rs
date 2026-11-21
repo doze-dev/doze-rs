@@ -143,6 +143,9 @@ pub(crate) fn backend(instance: &Instance) -> Result<String> {
 }
 
 /// doze-aws's command line for an instance: where it listens and keeps its data, the region the module signs for.
+///
+/// Without its console: the console's default address (the backend's port + 1) is not one doze granted, and another
+/// instance may hold it. Under doze the console waits for a listener of its own declared in `network`.
 pub(crate) fn server_args(instance: &Instance) -> Result<Vec<String>> {
     Ok(vec![
         "--listen".into(),
@@ -151,6 +154,7 @@ pub(crate) fn server_args(instance: &Instance) -> Result<Vec<String>> {
         instance.data_dir.clone(),
         "--region".into(),
         REGION.into(),
+        "--no-console".into(),
     ])
 }
 

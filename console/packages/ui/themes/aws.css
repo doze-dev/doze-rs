@@ -1,0 +1,273 @@
+/* The doze-aws theme: every role of @doze/ui, for light and for dark. Values only; no component is named here but two (the
+   frame, at the end).
+
+   Built on the logo's two colours, Navy #1F2A44 and Sky #5BB8E8 (doze-website/public/brand/doze-aws.svg), the way doze-kafka's
+   is built on its bat yellow and ink (owner, 2026-11-21). The navy is within a shade of the AWS console's own top bar, so the
+   FRAME (top bar and sidebar) is navy in light and in dark: that is the recognisable part. Sky is the accent: a FILL (the
+   primary button, the active item, selection) with navy text on it, and the focus ring. Sky is too light for text or a ring on
+   a white ground, so in light those are a deeper sky (--link, --ring); in dark and on the navy frame the sky itself is used.
+   AWS's orange is deliberately not used: the navy-and-orange pair is AWS's own trade dress, and doze-aws must not look like
+   an AWS product.
+
+   Contrast (WCAG, measured on the values below): navy on sky 6.6, --link on white 5.1, --ring on white 3.6, --muted-foreground
+   on the page 5.4; on the navy frame its text 10, its dim text 6.9, sky 6.6.
+
+   Replaced the violet "Paper" values of the first gallery (2026-11-19), which matched neither the logo nor AWS. The status
+   hues (good, warn, bad, refused) are kept from it. */
+
+@font-face {
+  font-family: "Inter";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url("./fonts/inter-latin-wght-normal.woff2") format("woff2");
+}
+@font-face {
+  font-family: "JetBrains Mono";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 400;
+  src: url("./fonts/jetbrains-mono-latin-400-normal.woff2") format("woff2");
+}
+@font-face {
+  font-family: "JetBrains Mono";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 500;
+  src: url("./fonts/jetbrains-mono-latin-500-normal.woff2") format("woff2");
+}
+
+:root {
+  --radius: 0.625rem;
+
+  /* Type: Inter for text, JetBrains Mono for names, numbers and times. */
+  --font-sans: "Inter", -apple-system, "Helvetica Neue", Arial, sans-serif;
+  --font-display: "Inter", -apple-system, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --body-size: 13.5px;
+  --body-leading: 1.5;
+
+  /* Density: a little tighter than doze-kafka. */
+  --control-h: 2rem;
+  --row-h: 36px;
+
+  /* Motion. */
+  --dur-in: 200ms;
+  --dur-out: 160ms;
+  --ease: cubic-bezier(0.2, 0, 0, 1);
+  --dur-highlight: 1.5s;
+
+  --background: #f7f9fc;
+  --foreground: #2a3550;
+  --card: #ffffff;
+  --card-foreground: #2a3550;
+  --popover: #ffffff;
+  --popover-foreground: #2a3550;
+  --primary: #5bb8e8; /* logo: Sky */
+  --primary-foreground: #1f2a44; /* logo: Navy */
+  --secondary: #eef3f9;
+  --secondary-foreground: #1f2a44;
+  --muted: #f1f5fa;
+  --muted-foreground: #5a6680;
+  --accent: #e3f2fb;
+  --accent-foreground: #1f2a44;
+  --destructive: #cc3550;
+  --destructive-foreground: #ffffff;
+  --border: #dfe5ee;
+  --input: #cbd4e1;
+  --ring: #2b8ec4;
+  --scrim: rgba(15, 22, 38, 0.42);
+
+  --bright: #1f2a44;
+  --link: #1f74a8;
+  --good: #17773f;
+  --warn: #9a6400;
+  --cool: #1f74a8;
+  --bad: #cc3550;
+  --refused: #a3279a;
+  --pick: #dff0fa;
+  --track: #e8edf4;
+  --well: #f1f5fa;
+
+  --tint-good: #e8f4ec;
+  --tint-good-line: #b7dbc4;
+  --tint-warn: #fbf1dc;
+  --tint-warn-line: #e8cf96;
+  --tint-brand: #e8f5fc;
+  --tint-brand-line: #b9def3;
+  --tint-cool: #e6f0f8;
+  --tint-cool-line: #c3d9ec;
+
+  --sidebar: #1f2a44; /* the navy frame */
+  --sidebar-foreground: #d6deeb;
+  --sidebar-primary: #5bb8e8;
+  --sidebar-primary-foreground: #1f2a44;
+  --sidebar-accent: #2c3a5c;
+  --sidebar-accent-foreground: #ffffff;
+  --sidebar-border: #2c3a5c;
+  --sidebar-ring: #5bb8e8;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not(.light) {
+    --background: #0f1626;
+    --foreground: #c9d3e3;
+    --card: #151e31;
+    --card-foreground: #c9d3e3;
+    --popover: #1a2439;
+    --popover-foreground: #dde4ef;
+    --primary: #5bb8e8;
+    --primary-foreground: #0f1626;
+    --secondary: #1a2439;
+    --secondary-foreground: #f2f6fb;
+    --muted: #172034;
+    --muted-foreground: #8794ad;
+    --accent: #1d3048;
+    --accent-foreground: #f2f6fb;
+    --destructive: #ff7a93;
+    --destructive-foreground: #ffffff;
+    --border: #243049;
+    --input: #33415e;
+    --ring: #5bb8e8;
+    --scrim: rgba(5, 8, 15, 0.6);
+
+    --bright: #f2f6fb;
+    --link: #7cc8f0;
+    --good: #7ee787;
+    --warn: #f2c879;
+    --cool: #7cc8f0;
+    --bad: #ff7a93;
+    --refused: #e386dc;
+    --pick: #1f3550;
+    --track: #1c263b;
+    --well: #121a2b;
+
+    --tint-good: #16291e;
+    --tint-good-line: #2c5a3f;
+    --tint-warn: #2c2413;
+    --tint-warn-line: #655021;
+    --tint-brand: #13283a;
+    --tint-brand-line: #245170;
+    --tint-cool: #142338;
+    --tint-cool-line: #2a4a70;
+
+    --sidebar: #0b111e;
+    --sidebar-foreground: #c9d3e3;
+    --sidebar-primary: #5bb8e8;
+    --sidebar-primary-foreground: #0b111e;
+    --sidebar-accent: #1a2742;
+    --sidebar-accent-foreground: #ffffff;
+    --sidebar-border: #1c263b;
+    --sidebar-ring: #5bb8e8;
+    color-scheme: dark;
+  }
+}
+:root.dark {
+  --background: #0f1626;
+  --foreground: #c9d3e3;
+  --card: #151e31;
+  --card-foreground: #c9d3e3;
+  --popover: #1a2439;
+  --popover-foreground: #dde4ef;
+  --primary: #5bb8e8;
+  --primary-foreground: #0f1626;
+  --secondary: #1a2439;
+  --secondary-foreground: #f2f6fb;
+  --muted: #172034;
+  --muted-foreground: #8794ad;
+  --accent: #1d3048;
+  --accent-foreground: #f2f6fb;
+  --destructive: #ff7a93;
+  --destructive-foreground: #ffffff;
+  --border: #243049;
+  --input: #33415e;
+  --ring: #5bb8e8;
+  --scrim: rgba(5, 8, 15, 0.6);
+
+  --bright: #f2f6fb;
+  --link: #7cc8f0;
+  --good: #7ee787;
+  --warn: #f2c879;
+  --cool: #7cc8f0;
+  --bad: #ff7a93;
+  --refused: #e386dc;
+  --pick: #1f3550;
+  --track: #1c263b;
+  --well: #121a2b;
+
+  --tint-good: #16291e;
+  --tint-good-line: #2c5a3f;
+  --tint-warn: #2c2413;
+  --tint-warn-line: #655021;
+  --tint-brand: #13283a;
+  --tint-brand-line: #245170;
+  --tint-cool: #142338;
+  --tint-cool-line: #2a4a70;
+
+  --sidebar: #0b111e;
+  --sidebar-foreground: #c9d3e3;
+  --sidebar-primary: #5bb8e8;
+  --sidebar-primary-foreground: #0b111e;
+  --sidebar-accent: #1a2742;
+  --sidebar-accent-foreground: #ffffff;
+  --sidebar-border: #1c263b;
+  --sidebar-ring: #5bb8e8;
+  color-scheme: dark;
+}
+
+/* The navy frame. The top bar and the sidebar hold ordinary components (the palette's button, chips, the theme switch, a
+   section label) that read the page's roles; inside the frame those roles are the frame's, so every one of them is legible on
+   navy without the library knowing. (The library's Tailwind theme is inline, so a role set here reaches the utilities.) */
+[data-slot="top-bar"],
+[data-slot="sidebar"] {
+  --background: #1f2a44;
+  --foreground: #d6deeb;
+  --card: #2a3756;
+  --card-foreground: #d6deeb;
+  --muted: #2a3756;
+  --muted-foreground: #aab6cb;
+  --secondary: #2a3756;
+  --secondary-foreground: #ffffff;
+  --accent: #2c3a5c;
+  --accent-foreground: #ffffff;
+  --border: #44547a;
+  --input: #56678f;
+  --ring: #5bb8e8;
+  --bright: #ffffff;
+  --link: #7cc8f0;
+  --track: #18223a;
+  --pick: #2c3a5c;
+  --well: #18223a;
+  color-scheme: dark;
+  /* Text that sets no colour of its own inherits the body's, worked out from the page's --foreground: work it out again here
+     (the gallery's inactive product toggle was page ink on navy without this). */
+  color: var(--foreground);
+}
+:root.dark [data-slot="top-bar"],
+:root.dark [data-slot="sidebar"] {
+  --background: #0b111e;
+  --card: #16203a;
+  --muted: #16203a;
+  --secondary: #16203a;
+  --accent: #1a2742;
+  --border: #26334f;
+  --input: #2c3a5c;
+  --track: #121a2b;
+  --pick: #1a2742;
+  --well: #121a2b;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not(.light) [data-slot="top-bar"],
+  :root:not(.light) [data-slot="sidebar"] {
+    --background: #0b111e;
+    --card: #16203a;
+    --muted: #16203a;
+    --secondary: #16203a;
+    --accent: #1a2742;
+    --border: #26334f;
+    --input: #2c3a5c;
+    --track: #121a2b;
+    --pick: #1a2742;
+    --well: #121a2b;
+  }
+}

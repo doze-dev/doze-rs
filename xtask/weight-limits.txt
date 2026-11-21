@@ -266,6 +266,16 @@ doze-kafka 13796398 183 11880 --listen 127.0.0.1:{port} --data-dir {data}
 # The owner, the same day: "Keep the size more generous... it's gonna be 20 MB. People will not fight over using software because of a few KBs
 # and MBs." So the byte line is now the 20 MB ceiling itself (20,000,000 B), and idle gets the same room: 16,384 KB (16 MB). The table still prints
 # every measurement, so growth stays visible; it just no longer blocks merges below those marks.
+# 2026-11-20: the console's own listener (crate aws-console, --console, off unless given) brings axum and what it stands on into
+# doze-aws: aws-console, axum, axum-core, matchit, mime, rustversion, sync_wrapper, tower, tower-layer, tower-service, and kafka-auth
+# (its fuzzed host guard, reused, not copied) with arc-swap. Measured 291 packages, +166,912 B and +~256 KB idle with the console off
+# (code pages; live heap unchanged). Nothing new in Cargo.lock: all of it was there through doze-kafka. Package line = 291 plus room
+# for the view-model slices to come = 300.
+# 2026-11-21: the console is on by default (loopback, the gateway's port + 1), so this line measures it listening, unopened: 10,641,728 B,
+# 291 packages, idle 7,392 KB; with DOZE_AWS_CONSOLE=off the same binary idles at 7,296 KB (the listener and its empty Live ring:
+# about 96 KB). macOS, release-aws, median of three.
 # 2026-11-21, core M3 (the aws module face, PR #57 re-applied on main): the module SDK (+12 packages, CI run 43641162106) and
 # doze-bolt, the bbolt reader that carries a Go module's data over (+1): 293 packages. Bytes and idle stay under the ceilings.
-doze-aws 20000000 293 16384 --listen 127.0.0.1:{port} --data-dir {data}
+# 2026-11-21: both together (console on by default + module face): 10,908,496 B, 305 packages, idle 7,696 KB (macOS,
+# release-aws, median of three). Package line = 305 plus room = 310.
+doze-aws 20000000 310 16384 --listen 127.0.0.1:{port} --data-dir {data}

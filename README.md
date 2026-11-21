@@ -45,6 +45,19 @@ beyond loopback without the flag; if ACLs are made later (over Kafka or from the
 answering other machines while there are any, says why on the page, and answers them again once every ACL is
 deleted. It still answers this machine at a loopback address. With `--console-unprotected` it never closes.
 
+### The doze-aws web console
+
+`doze-aws` serves a web console beside its endpoint, on loopback at the endpoint's port + 1 (`127.0.0.1:4567`
+beside the default `127.0.0.1:4566`), and prints its address when it starts. It shows the calls your app makes
+(Live), every resource the services hold, IAM as your app meets it (Access), a Lab to send any built operation,
+and the settings. It has no login: it is served on this machine only, even when `--listen` serves the endpoint
+wider, and an address beyond loopback (`--console 0.0.0.0:4567`) is refused at start. Its own calls use the key
+`console`, which is not one IAM issued, so they act as the account root and are allowed in every IAM mode.
+
+Name another address with `--console 127.0.0.1:<port>`; turn it off with `--no-console`, `--console off`,
+`DOZE_AWS_CONSOLE=off` or `console = "off"` in `doze-aws.toml`. When the default port is taken, doze-aws says so
+and runs without the console; an address you named that is taken stops the start.
+
 ## License
 
 Apache License 2.0. See [LICENSE](LICENSE) and [NOTICE](NOTICE). Vendored third-party code under

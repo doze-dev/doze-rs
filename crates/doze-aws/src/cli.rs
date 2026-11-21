@@ -237,9 +237,24 @@ fn setting_args(shown: &[&str]) -> Vec<Arg> {
             arg = arg.visible_alias("account-id");
         }
         args.push(arg);
+        if key.name == "console" {
+            // The console is on by default; this is the switch that turns it off (as `--console off`).
+            args.push(
+                Arg::new(NO_CONSOLE)
+                    .long(NO_CONSOLE)
+                    .action(ArgAction::SetTrue)
+                    .conflicts_with("console")
+                    .help("Run without the web console (as --console off)")
+                    .help_heading(key.group)
+                    .hide(hide("console")),
+            );
+        }
     }
     args
 }
+
+/// The flag that turns the console off.
+const NO_CONSOLE: &str = "no-console";
 
 fn with_default(help: &str, default: &str) -> String {
     if default.is_empty() {
@@ -277,6 +292,9 @@ pub(crate) fn given(top: &ArgMatches, sub: Option<&ArgMatches>) -> (Given, Optio
                     .unwrap_or_default()
             };
             given.insert(key.name, (value, source));
+        }
+        if m.try_get_one::<bool>(NO_CONSOLE).ok().flatten() == Some(&true) {
+            given.insert("console", (vec!["off".to_owned()], Source::Flag));
         }
     }
     (given, file)

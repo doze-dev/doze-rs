@@ -48,6 +48,12 @@ pub struct Config {
     /// The secret key a request to a service's local address (`/_doze/iam/...`, [`aws_wire::service::Web::local`]) must carry in
     /// `X-Doze-Key`: set under `--auth verify`, `None` when signatures are taken on trust.
     pub local_key: Option<String>,
+    /// Told about every finished AWS API request (the console's Live ring). `None`, the default, costs a request nothing.
+    pub observer: Option<Arc<dyn crate::Observer>>,
+    /// With an observer: the requests in flight, which IAM's let-through refusals under `--iam soft` are marked on
+    /// ([`crate::Finished::would_be_denied`]) and which a call between services is matched to as its cause
+    /// ([`crate::WouldDeny::request_of`]). `None`, the default, costs a request nothing.
+    pub would_deny: Option<Arc<crate::WouldDeny>>,
 }
 
 impl Config {
@@ -67,6 +73,8 @@ impl Config {
             anonymous: false,
             hooks: Hooks::default(),
             local_key: None,
+            observer: None,
+            would_deny: None,
         }
     }
 }

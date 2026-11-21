@@ -429,6 +429,48 @@ jobs:
       - run: bun run typecheck && bun run lint && bun test
         working-directory: web
 
+  # The console workspace (console/: @doze/ui, the gallery, the doze-aws console; docs/port/aws/console-react-plan.md). The
+  # doze-aws bundle is committed in crates/aws-console/web-dist so that `cargo build` needs no bun, and the `check` job's Rust
+  # tests fail when it is stale against the console/ sources (aws-console's source-hash test). This job rebuilds it from the
+  # locked dependencies and fails if the result differs from what is committed, runs the lint and the unit tests, then the
+  # Playwright gate in Firefox, WebKit and Chromium: the gallery, and the doze-aws console against a real doze-aws (a debug
+  # build, made here) called with the real AWS CLI (on the runner image).
+  console:
+    needs: gate
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.0
+      - run: bun install --frozen-lockfile
+        working-directory: console
+      - run: bun run build
+        working-directory: console
+      - name: The committed bundle and types are the ones the sources build
+        run: git diff --exit-code --stat -- crates/aws-console/web-dist console/apps/aws/src/api/types
+      - run: bun run lint && bun run test
+        working-directory: console
+      - name: doze-aws for the browser tests (debug, no debug info)
+        run: cargo build -p doze-aws
+        env:
+          CARGO_PROFILE_DEV_DEBUG: 0
+      - name: The Playwright version (the browsers' cache key)
+        id: playwright
+        working-directory: console/apps/aws
+        run: echo "version=$(bun -e 'console.log(require("@playwright/test/package.json").version)')" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ runner.arch }}-${{ steps.playwright.outputs.version }}
+      # The browsers come from the cache when it hit; their system libraries are installed every time (apt, not cached).
+      - run: bunx --bun playwright install --with-deps firefox webkit chromium
+        working-directory: console/apps/aws
+      - run: aws --version
+      - run: bun run e2e
+        working-directory: console
+
   # deny.toml sets `all-features = true`, so this checks the `tls` feature's crates (ring, rustls) too.
   supply-chain:
     needs: gate
@@ -638,7 +680,7 @@ jobs:
   # was skipped (a label other than `ci` skips them all), so a skipped run never counts as green.
   all-green:
     if: always()
-    needs: [gate, check, os, modules, windows, macos, weight, weight-doze, weight-lean, weight-tls-idle, web, supply-chain, fuzz]
+    needs: [gate, check, os, modules, windows, macos, weight, weight-doze, weight-lean, weight-tls-idle, web, console, supply-chain, fuzz]
     runs-on: ubuntu-24.04
     steps:
       - name: Every job passed

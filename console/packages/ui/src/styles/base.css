@@ -1,0 +1,121 @@
+/* The shared base of every doze console: the Tailwind v4 setup and the mapping from ROLE variables to utilities.
+   Nothing of a product is in this file: no colour, no font name, no size, no duration. Every `var(--…)` read here (and in
+   src/**) is a role that the app's theme must set, for light and for dark (themes/kafka.css, themes/aws.css; the test
+   tests/roles.test.ts lists the reads and checks both themes).
+
+   An app's stylesheet:
+     @import "@doze/ui/styles/base.css";
+     @import "@doze/ui/themes/kafka.css";   (or its own theme file) */
+
+@import "tailwindcss";
+@import "tw-animate-css";
+
+/* The library's own classes: an app that imports this file needs no @source line for the package. */
+@source "../";
+
+/* The theme is a class on <html> (lib/theme.ts). */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* Roles whose utility reads a variable of the same family. `--font-sans` and `--font-mono` are Tailwind's own names: the
+   theme sets them on :root and `font-sans` / `font-mono` follow. The display face falls back to the text face. */
+@theme {
+  --font-display: var(--font-sans);
+}
+
+@theme inline {
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-scrim: var(--scrim);
+
+  --color-bright: var(--bright);
+  --color-link: var(--link);
+  --color-good: var(--good);
+  --color-warn: var(--warn);
+  --color-cool: var(--cool);
+  --color-bad: var(--bad);
+  --color-refused: var(--refused);
+  --color-pick: var(--pick);
+  --color-track: var(--track);
+  --color-well: var(--well);
+  --color-tint-good: var(--tint-good);
+  --color-tint-warn: var(--tint-warn);
+  --color-tint-brand: var(--tint-brand);
+  --color-tint-cool: var(--tint-cool);
+
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  html {
+    /* The scrollbar's gutter is always kept, so an overlay that locks the scroll does not shift the page. */
+    scrollbar-gutter: stable;
+  }
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-family: var(--font-sans);
+    font-size: var(--body-size);
+    line-height: var(--body-leading);
+    font-optical-sizing: auto;
+  }
+  h1, h2, h3 {
+    text-wrap: balance;
+  }
+  p {
+    text-wrap: pretty;
+  }
+  code, kbd, samp, pre {
+    font-family: var(--font-mono);
+  }
+}
+
+/* Motion is the theme's (--dur-in, --dur-out, --ease: read by the overlays), and a person who asked for less gets none. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* A row a tail just added: a background highlight in the theme's pick colour, once (DataTable's `rowClassName`). Paint only:
+   nothing changes size, and no row that was already there is touched. */
+@keyframes doze-row-new {
+  from { background-color: var(--pick); }
+  to { background-color: transparent; }
+}
+.row-new > td {
+  animation: doze-row-new var(--dur-highlight) ease-out;
+}
