@@ -70,6 +70,9 @@ use doze_fs::fs::RealFs;
 use doze_runtime::{Clock, Ctx, Keyed, Tasks};
 
 use crate::blob::Blobs;
+/// Whether `name` is a bucket name S3 accepts: the rule `CreateBucket` holds a name to, for a caller (doze.hcl's check) that wants
+/// to refuse a bad one before anything is made.
+pub use crate::buckets::valid_name as valid_bucket_name;
 use crate::checksum::Algo;
 use crate::core::Core;
 use crate::janitor::Janitor;

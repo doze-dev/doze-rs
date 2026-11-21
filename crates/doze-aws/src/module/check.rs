@@ -66,6 +66,17 @@ pub(crate) fn check(s: &AwsSpec, dir: &str) -> Vec<Diagnostic> {
     duplicates(s, &mut f);
     queues(s, &names, &mut f);
     for (i, b) in s.bucket.iter().enumerate() {
+        if !aws_s3::valid_bucket_name(&b.name) {
+            f.at(
+                vec![key("bucket"), idx(i)],
+                format!(
+                    "{:?} is not a bucket name S3 accepts: 3 to 63 characters, lowercase letters, digits, dots and hyphens, \
+                     starting and ending with a letter or digit",
+                    b.name
+                ),
+                Some("S3 also refuses \"..\", an IP address, and the prefixes xn--, sthree- and amzn-s3-demo-"),
+            );
+        }
         for (j, n) in b.notify.iter().enumerate() {
             let here = vec![key("bucket"), idx(i), key("notify"), idx(j)];
             one_target(
