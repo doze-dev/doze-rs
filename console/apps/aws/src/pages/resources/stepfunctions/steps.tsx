@@ -1,11 +1,12 @@
 // What a chosen state did (stepfunctions__execution-running, execution-failed): its input, output, details, definition, Retry rules
 // and events, in the card under the graph or the table; and the execution's event history as a table (execution-events).
-import { ArrowDownIcon, ArrowUpIcon, ChevronRightIcon } from "lucide-react";
+import { ArrowDownIcon, ArrowUpIcon, ChevronRightIcon, SearchIcon } from "lucide-react";
 import { useMemo, useState } from "react";
 import { StatusDot } from "@doze/ui/components/app/status-dot";
 import { Segmented } from "../../../kit";
 import { cn } from "@doze/ui/lib/utils";
 import { Button } from "@doze/ui/components/ui/button";
+import { Input } from "@doze/ui/components/ui/input";
 import { Card, CodeBlock, pretty } from "../deep/parts";
 import { durationWords, clockMs } from "./execution-model";
 import type { AslState } from "./graph";
@@ -154,11 +155,17 @@ export function EventsView({ events, startMs }: { events: HistoryEvent[]; startM
   const [newest, setNewest] = useState(false);
   const [page, setPage] = useState(0);
   const [open, setOpen] = useState<number | null>(null);
-  const sorted = useMemo(() => (newest ? [...events].reverse() : events), [events, newest]);
+  const [filter, setFilter] = useState("");
+  const found = useMemo(() => events.filter((e) => `${e.id} ${e.type}`.toLowerCase().includes(filter.trim().toLowerCase())), [events, filter]);
+  const sorted = useMemo(() => (newest ? [...found].reverse() : found), [found, newest]);
   const shown = sorted.slice(page * PAGE, page * PAGE + PAGE);
-  const last = Math.min(events.length, page * PAGE + PAGE);
+  const last = Math.min(found.length, page * PAGE + PAGE);
   return (
     <Card title="Event view" lede={startMs !== null ? <>Timestamps are {new Date(startMs).toISOString().slice(0, 10)}, in UTC.</> : undefined} testId="execution-events">
+      <div className="relative mb-4 w-full max-w-[22rem]">
+        <SearchIcon aria-hidden className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+        <Input value={filter} onChange={(e) => { setFilter(e.target.value); setPage(0); }} placeholder="Filter by properties or search by keyword" aria-label="Filter events" className="bg-card pl-9" data-testid="events-filter" />
+      </div>
       <div className="overflow-auto rounded-[12px] border" data-testid="history">
         <table className="w-full border-collapse text-left">
           <thead className="bg-well">
@@ -179,10 +186,10 @@ export function EventsView({ events, startMs }: { events: HistoryEvent[]; startM
         </table>
       </div>
       <div className="mt-4 flex items-center justify-between gap-3 text-[13px] text-muted-foreground">
-        <span data-testid="history-line">{events.length} {events.length === 1 ? "event" : "events"}, {events.length === 0 ? 0 : page * PAGE + 1} to {last}</span>
+        <span data-testid="history-line">{found.length} {found.length === 1 ? "event" : "events"}, {found.length === 0 ? 0 : page * PAGE + 1} to {last}</span>
         <span className="flex gap-2">
           <Button variant="outline" size="sm" className="bg-card" disabled={page === 0} onClick={() => setPage(page - 1)} data-testid="history-prev">Previous</Button>
-          <Button variant="outline" size="sm" className="bg-card" disabled={last >= events.length} onClick={() => setPage(page + 1)} data-testid="history-next">Next</Button>
+          <Button variant="outline" size="sm" className="bg-card" disabled={last >= found.length} onClick={() => setPage(page + 1)} data-testid="history-next">Next</Button>
         </span>
       </div>
       <p className="mt-5 max-w-[46rem] border-l-2 border-input pl-3.5 text-[13px] leading-5 text-muted-foreground" data-testid="history-note">

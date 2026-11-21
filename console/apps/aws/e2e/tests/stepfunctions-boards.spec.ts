@@ -406,6 +406,10 @@ test("stepfunctions__execution-table and execution-events: each step as a row, a
   await expect(table.nth(3)).toContainText("Lambda Invoke");
   await expect(page.getByRole("columnheader", { name: "Started After" })).toBeVisible();
   await expect(page.getByRole("columnheader", { name: "Duration" })).toBeVisible();
+  await page.getByTestId("steps-filter").fill("lambda");
+  await expect(table).toHaveCount(1);
+  await page.getByTestId("steps-filter").fill("");
+  await expect(table).toHaveCount(4);
   await table.nth(3).click();
   await expect(page.getByTestId("step-name")).toHaveText("NotifyCustomer");
   await shot(page, "stepfunctions__execution-table");
@@ -413,6 +417,9 @@ test("stepfunctions__execution-table and execution-events: each step as a row, a
   await expect(page.getByTestId("history-event").first()).toContainText("ExecutionStarted");
   await expect(page.getByTestId("history-line")).toContainText("events, 1 to");
   await expect(page.getByTestId("history-note")).toContainText("A page shows up to 25 events, and an execution's history is limited to 25,000 events.");
+  await page.getByTestId("events-filter").fill("ActivityScheduled");
+  await expect(page.getByTestId("history-event")).toHaveCount(1);
+  await page.getByTestId("events-filter").fill("");
   const before = await page.getByTestId("history-event").first().innerText();
   await page.getByTestId("history-sort").click();
   expect(await page.getByTestId("history-event").first().innerText()).not.toBe(before);
