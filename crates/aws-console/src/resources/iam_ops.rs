@@ -15,6 +15,7 @@ pub(super) const USER_OPS: &[Op] = &[
     free("CreateAccessKey"),
     free("UpdateAccessKey"),
     free("DeleteAccessKey"),
+    free("TagUser"),
     free("ListGroupsForUser"),
     free("ListAttachedUserPolicies"),
     free("ListUserPolicies"),
@@ -43,6 +44,7 @@ pub(super) const GROUP_OPS: &[Op] = &[
 /// A role's pages: the wizard (`CreateRole` and the policies attached after), the trust policy, and the session Switch Role takes.
 pub(super) const ROLE_OPS: &[Op] = &[
     free("CreateRole"),
+    free("ListRoles"),
     free("ListAttachedRolePolicies"),
     free("AttachRolePolicy"),
     free("DetachRolePolicy"),
@@ -54,6 +56,7 @@ pub(super) const ROLE_OPS: &[Op] = &[
 pub(super) const POLICY_OPS: &[Op] = &[
     free("CreatePolicy"),
     free("ListPolicies"),
+    free("GetPolicy"),
     free("ListPolicyVersions"),
     free("GetPolicyVersion"),
     free("CreatePolicyVersion"),

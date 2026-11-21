@@ -43,6 +43,9 @@ pub const MEMBERS: &[&str] = &[
     "Bucket",
     "Name",
     "EventBusName",
+    // STS's `AssumeRole` acts on the role it names; last, because other inputs carry a role's ARN beside what they act on
+    // (`CreateStack`'s `RoleARN`).
+    "RoleArn",
 ];
 
 /// The member of `MEMBERS` that names the resource of a call with input `root` (decoded from `body` into `arena`), and its

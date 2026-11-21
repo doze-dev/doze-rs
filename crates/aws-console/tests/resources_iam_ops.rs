@@ -213,6 +213,9 @@ async fn a_role_is_made_with_its_trust_and_policies_and_the_trust_can_be_replace
     )
     .await;
     assert_eq!(made["Role"]["RoleName"], "report-job");
+    let listed = ok(&w, "roles", "ListRoles", json!({})).await;
+    assert_eq!(listed["Roles"][0]["RoleName"], "report-job");
+    assert!(listed["Roles"][0]["AssumeRolePolicyDocument"].is_object() || listed["Roles"][0]["AssumeRolePolicyDocument"].is_string());
     ok(
         &w,
         "roles",
@@ -455,4 +458,43 @@ async fn the_account_alias_is_the_users_kinds_and_a_kind_makes_only_what_it_list
             "{kind} {name}: {refused}"
         );
     }
+}
+
+#[tokio::test]
+async fn a_role_page_counts_the_sessions_taken_of_it_among_its_calls() {
+    let w = world("iam-ops-assumed", Mode::Soft, &[]);
+    for name in ["report-job", "other"] {
+        ok(
+            &w,
+            "roles",
+            "CreateRole",
+            json!({"RoleName": name, "AssumeRolePolicyDocument": trust(&json!({"AWS": "arn:aws:iam::000000000000:root"}))}),
+        )
+        .await;
+    }
+    w.app(
+        "sts",
+        "AssumeRole",
+        &json!({"RoleArn": "arn:aws:iam::000000000000:role/report-job", "RoleSessionName": "report-job-py"}),
+    )
+    .await;
+    let (status, role) = w.get(&format!("{BASE}/roles/report-job")).await;
+    assert_eq!(status, 200, "{role}");
+    let acted: Vec<(&str, &str)> = role["calls"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|c| (c["caller"].as_str().unwrap(), c["action"].as_str().unwrap()))
+        .filter(|(caller, _)| *caller == "app")
+        .collect();
+    assert_eq!(acted, vec![("app", "AssumeRole")], "{role}");
+    let (_, other) = w.get(&format!("{BASE}/roles/other")).await;
+    assert!(
+        other["calls"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .all(|c| c["action"] != "AssumeRole"),
+        "{other}"
+    );
 }
