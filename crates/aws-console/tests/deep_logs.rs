@@ -259,7 +259,8 @@ async fn a_stack_shows_its_events_template_and_change_sets() {
         .iter()
         .map(|t| t["id"].as_str().unwrap())
         .collect();
-    assert_eq!(tabs, ["events", "template", "changesets"]);
+    // (`deleted` is never drawn as a tab: it is the op the page of a deleted stack reads.)
+    assert_eq!(tabs, ["events", "template", "deleted", "changesets"]);
     // Its events are a tab, not a list on its details as well.
     assert!(
         detail["subs"]

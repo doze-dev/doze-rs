@@ -4,7 +4,7 @@ import { childrenOf, madeBy, parentOf } from "./cause";
 import { flowKeyOf, fromServer, layout, lineWidth, withCalls, withoutConsole } from "./flows";
 import { beadColour } from "./map";
 import { lineId, lines } from "./repeats";
-import { nameIn, resourceHref, resourceName } from "./resource";
+import { nameIn, resourceHref, resourceName, resourceShown } from "./resource";
 import { callerOf, consoleShown, filtering, isConsole, liveSearch, matches } from "./search";
 
 const call = (seq: number, more: Partial<CallRecord> = {}): CallRecord => ({ seq, at_ms: 1_800_000_000_000 + seq, service: "sqs", api: "SQS", action: "SendMessage", resource: "orders", member: "QueueName", caller: "AKIA1", region: "us-east-1", status: 200, error_code: null, outcome: "ok", would_be_denied: false, duration_us: 100, request_id: `r-${seq}`, via: null, sdk: null, ...more });
@@ -76,6 +76,12 @@ describe("resource names", () => {
     expect(resourceName({ service: "sns", member: "SubscriptionArn", resource: sub })).toBe(sub);
     expect(resourceName({ service: "secretsmanager", member: "SecretId", resource: "arn:aws:secretsmanager:us-east-1:000000000000:secret:larder/prod/key-AbC123" })).toBe("larder/prod/key");
     expect(resourceName({ service: "secretsmanager", member: "SecretId", resource: "larder/prod/key" })).toBe("larder/prod/key");
+  });
+
+  test("Home and Live show a queue by its name, not its URL; an S3 path whole", () => {
+    expect(resourceShown({ service: "sqs", member: "QueueUrl", resource: "http://127.0.0.1:4566/000000000000/pick-lists" })).toBe("pick-lists");
+    expect(resourceShown({ service: "s3", member: null, resource: "photos/2026/a.jpg" })).toBe("photos/2026/a.jpg");
+    expect(resourceShown({ service: "sqs", member: null, resource: null })).toBe("");
   });
 });
 

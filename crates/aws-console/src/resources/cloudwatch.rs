@@ -1,7 +1,7 @@
 //! CloudWatch: metric alarms, and the metrics that have data (a list only: a metric has nothing more to read on a page of its
 //! own; its data points are a query, which the console does not make yet).
 
-use super::Format::{Flag, Json, Mono, Number, Pairs, Seconds, Text as Plain, Time};
+use super::Format::{Flag, Json, Mono, Named, Number, Pairs, Seconds, Text as Plain, Time};
 use super::{
     Apply, Delete, Descriptor, Id, Kind, List, Options, Param, ParamKind, Shape, Step, Tags, Text,
     Write, col, field, op, or, says, state,
@@ -10,10 +10,15 @@ use super::{
 /// What a tag call names: this alarm, by its ARN.
 const ARN: &str = r#"{"ResourceARN":"arn:aws:cloudwatch:{region}:{account}:alarm:{id}"}"#;
 
-/// One alarm among those `DescribeAlarms` answered for its name.
+/// One alarm among those `DescribeAlarms` answered for its name: a metric alarm, or else a composite one.
 macro_rules! alarm {
     ($member:literal) => {
-        concat!("MetricAlarms.@AlarmName.", $member)
+        concat!(
+            "MetricAlarms.@AlarmName.",
+            $member,
+            "|CompositeAlarms.@AlarmName.",
+            $member
+        )
     };
 }
 
@@ -27,14 +32,14 @@ const ALARMS: Kind = Kind {
     id: "alarms",
     title: "Alarms",
     one: "alarm",
-    about: "Metric alarms: a metric watched against a threshold, and what is done when it crosses it.",
+    about: "Metric alarms (a metric watched against a threshold) and composite alarms (a rule over other alarms), and what is done when they fire.",
     members: &["AlarmName", "AlarmNames"],
     list: List {
         step: Step::new(
             "DescribeAlarms",
-            r#"{"AlarmTypes":["MetricAlarm"],"MaxRecords":100,"NextToken":"{token}"}"#,
+            r#"{"AlarmTypes":["MetricAlarm","CompositeAlarm"],"MaxRecords":100,"NextToken":"{token}"}"#,
         ),
-        items: "MetricAlarms",
+        items: "MetricAlarms|CompositeAlarms",
         item_as: "AlarmName",
         token_out: "NextToken",
         id: "AlarmName",
@@ -45,6 +50,11 @@ const ALARMS: Kind = Kind {
     elsewhere: "An alarm is made with its metric, statistic, threshold and actions: use aws cloudwatch put-metric-alarm, or your deploy tool.",
     each: &[],
     columns: &[
+        col(
+            "Type",
+            "$from",
+            Named(&[("MetricAlarms", "Metric"), ("CompositeAlarms", "Composite")]),
+        ),
         state("State", "StateValue", Plain),
         col("Metric", "MetricName", Mono),
         col("Namespace", "Namespace", Mono),
@@ -55,7 +65,7 @@ const ALARMS: Kind = Kind {
     id_of: Id::Call(
         Step::new(
             "DescribeAlarms",
-            r#"{"AlarmNames":["{name}"],"AlarmTypes":["MetricAlarm"]}"#,
+            r#"{"AlarmNames":["{name}"],"AlarmTypes":["MetricAlarm","CompositeAlarm"]}"#,
         ),
         alarm!("AlarmName"),
     ),
@@ -65,6 +75,8 @@ const ALARMS: Kind = Kind {
         field("Description", alarm!("AlarmDescription"), Plain),
         field("State", alarm!("StateValue"), Plain),
         field("Why", alarm!("StateReason"), Plain),
+        // A composite alarm has a rule over other alarms in place of a metric and a threshold.
+        field("Rule", "CompositeAlarms.@AlarmName.AlarmRule", Mono),
         field("Metric", alarm!("MetricName"), Mono),
         field("Namespace", alarm!("Namespace"), Mono),
         field("Dimensions", alarm!("Dimensions"), Pairs),

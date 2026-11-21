@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { cell, exactInJson, fromPlain, type Item, itemPlainBlocker, itemText, keyOf, type KeyPart, parseItem, toPlain } from "./json";
+import { afterRead } from "./request";
 
 const KEYS: KeyPart[] = [
   { name: "pk", type: "S", role: "HASH" },
@@ -42,5 +43,12 @@ describe("DynamoDB JSON", () => {
     expect([cell(item.pk), cell(item.sk), cell(item.l), cell(undefined)]).toEqual(["a", "2", '["x"]', ""]);
     expect(keyOf(item, KEYS)).toEqual({ pk: { S: "a" }, sk: { N: "2" } });
     expect(JSON.parse(itemText(item, "plain"))).toEqual({ pk: "a", sk: 2, l: ["x"] });
+  });
+});
+
+describe("DynamoDB items", () => {
+  test("a read that returned none says none match, not to choose an item", () => {
+    expect(afterRead(0)).toBe("No items match.");
+    expect(afterRead(3)).toContain("Choose an item");
   });
 });

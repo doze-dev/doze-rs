@@ -30,12 +30,15 @@ pub mod view;
 
 mod bare;
 mod parts;
+mod pending;
+pub use pending::Pending;
+mod pretty;
 mod shape;
 pub use crate::model::Needs;
 pub use blockers::{Batch, Blocker, Clear, Kept};
 pub use page::{Page, Read, Verb};
 pub use params::{Apply, Options, Param, ParamKind};
-pub(crate) use parts::{col, field, input, or, state};
+pub(crate) use parts::{col, col_or, field, input, or, state};
 pub use shape::*;
 pub use tags::{Shape, Tags, Write};
 

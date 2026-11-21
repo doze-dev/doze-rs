@@ -83,3 +83,8 @@ export function request(form: Form, source: Source): { op: "Scan" | "Query"; inp
   if (Object.keys(allValues).length > 0) input.ExpressionAttributeValues = allValues;
   return { op: form.mode === "query" ? "Query" : "Scan", input };
 }
+
+/** What follows the count of items a page read: how to use the ones returned, or that none matched. */
+export function afterRead(returned: number): string {
+  return returned === 0 ? "No items match." : "Choose an item to see its JSON, edit or delete it.";
+}

@@ -203,8 +203,9 @@ async fn alarms_are_listed_by_state_and_type_and_stacks_by_a_group_of_statuses_w
         .await;
     assert_eq!(row_names(&composite), Vec::<String>::new());
     // The state column is of states, shown as badges.
-    assert_eq!(list["columns"][0]["badge"], "state");
-    assert_eq!(list["columns"][1]["badge"], Value::Null);
+    assert_eq!(list["columns"][0]["badge"], Value::Null);
+    assert_eq!(list["columns"][1]["badge"], "state");
+    assert_eq!(list["columns"][2]["badge"], Value::Null);
 
     let template =
         json!({"Resources": {"Q": {"Type": "AWS::SQS::Queue", "Properties": {"QueueName": "q"}}}});
@@ -254,5 +255,5 @@ async fn alarms_are_listed_by_state_and_type_and_stacks_by_a_group_of_statuses_w
 
 /// The alarm's state as its row shows it.
 fn row_state(list: &Value) -> String {
-    list["rows"][0]["cells"][0].as_str().unwrap().to_owned()
+    list["rows"][0]["cells"][1].as_str().unwrap().to_owned()
 }

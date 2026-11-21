@@ -1,7 +1,7 @@
 //! The leaf types of a descriptor: how a text is read, how an id is had, a call, a column, a field, a form and its actions.
 //! [`super::Descriptor`], [`super::Kind`] and what a kind's pages may call stay in the parent module.
 
-use super::path;
+use super::{Pending, path};
 
 /// A text read from an answer.
 #[derive(Debug, Clone, Copy)]
@@ -66,6 +66,8 @@ impl Text {
 pub enum Id {
     /// They are the same.
     Name,
+    /// They are the same, but for the rows the service lists without an id of their own ([`Pending`]).
+    Pending(&'static Pending),
     /// Written from the name (`arn:aws:sns:{region}:{account}:{name}`).
     Template(&'static str),
     /// Asked for (SQS's `GetQueueUrl`), at `path` in the answer.
@@ -156,6 +158,8 @@ pub struct Column {
     pub format: Format,
     /// The cells are states (`ACTIVE`, `ALARM`): the page shows them as badges.
     pub badge: bool,
+    /// What an absent value means, shown in its place (`Indefinite`); empty for a dash.
+    pub empty: &'static str,
 }
 
 /// A field of a detail page.
@@ -172,6 +176,9 @@ pub struct Field {
     /// What an absent value means, shown in its place (`None` for a bucket with no policy, `us-east-1` for a bucket's empty
     /// location); empty for a dash.
     pub empty: &'static str,
+    /// A value here means the resource is on its way out (a secret marked for deletion): its page offers neither reveal nor
+    /// delete, and a value that was to be revealed is not hidden but said to be unreadable (`empty`).
+    pub retires: bool,
 }
 
 /// A link from a value to a resource of the console: the name is the value's tail.

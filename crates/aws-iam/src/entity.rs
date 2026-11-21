@@ -109,7 +109,7 @@ impl Core {
             .with_prefix(&format!("{}/", kind.word()))
             .map(|(_, e)| e)
             .filter(|e| e.path.starts_with(prefix))
-            .map(|e| view::entity(e, false))
+            .map(view::listed)
             .collect();
         page(r, items, &format!("{}s", kind.title()))
     }

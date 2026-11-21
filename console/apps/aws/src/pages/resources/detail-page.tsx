@@ -19,12 +19,12 @@ import type { SubList } from "../../api/types/SubList";
 import { Result } from "../live/outcome";
 import { DeleteDialog } from "./delete-dialog";
 import { HINT } from "./index-page";
-import { columnLeast, columnSizes, isDocument, sortKey, titleOf } from "./model";
+import { columnLeast, columnSizes, isDocument, oneOf, sortKey, titleFor } from "./model";
 import { isConsole } from "../live/search";
 import { CreateDialog } from "./create-dialog";
 import { ResourceTo, Value } from "./value";
 import { deepKey } from "./deep/api";
-import { DeepPage, DeepTabs, DetailLead } from "./deep/pages";
+import { DeepPage, DeepTabs, DetailLead, GonePage, hasGonePage } from "./deep/pages";
 
 /** The hidden value of a field: Reveal makes the one call that reads it (Live shows it); Hide forgets it. */
 function Hidden({ service, kind, name, label }: { service: string; kind: string; name: string; label: string }) {
@@ -208,7 +208,7 @@ export function ResourceDetailPage({ service, kind, name, tab }: { service: stri
   return (
     <>
       <PageHeader
-        title={titleOf(name)}
+        title={titleFor(name, d?.fields)}
         mono
         crumbs={crumbs}
         sub={d ? <>Read with {d.operations.map((o, i) => <span key={`${o}${i}`}>{i > 0 && ", "}<span className="font-mono text-foreground">{o}</span></span>)} as the caller <span className="font-mono text-foreground">console</span>.</> : undefined}
@@ -221,8 +221,10 @@ export function ResourceDetailPage({ service, kind, name, tab }: { service: stri
           )
         }
       />
-      {detail.isError && !d ? (
-        <ErrorBlock what={`This ${kind.replace(/s$/, "")} could not be read`} error={detail.error} hint={HINT} onRetry={refresh} retrying={detail.isFetching} testId="detail-error" />
+      {detail.isError && !d && hasGonePage(service, kind, errorWords(detail.error).message) ? (
+        <GonePage service={service} kind={kind} name={name} />
+      ) : detail.isError && !d ? (
+        <ErrorBlock what={`This ${oneOf(kind)} could not be read`} error={detail.error} hint={HINT} onRetry={refresh} retrying={detail.isFetching} testId="detail-error" />
       ) : !d ? (
         <Skeleton className="h-80 rounded-[14px]" data-testid="detail-loading" />
       ) : (

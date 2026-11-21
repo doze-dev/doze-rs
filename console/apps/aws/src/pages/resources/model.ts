@@ -149,3 +149,17 @@ export function titleOf(name: string): string {
   const resource = name.split(":").slice(5).join(":");
   return resource.split("/").filter(Boolean).pop() ?? name;
 }
+
+/** The singular of a kind's address, for a sentence said before the server has named it (`policies` is a policy, `buckets` a bucket). */
+export function oneOf(kind: string): string {
+  if (kind.endsWith("ies")) return `${kind.slice(0, -3)}y`;
+  if (/(ss|us|x|ch|sh)es$/.test(kind)) return kind.slice(0, -2);
+  return kind.replace(/s$/, "");
+}
+
+/** What a resource's page is titled by the details the server read: the name it has (an API's, which its address gives as an id), else
+ * [titleOf] its address. */
+export function titleFor(name: string, fields: { label: string; value: string | null }[] | undefined): string {
+  const named = fields?.find((f) => f.label === "Name")?.value;
+  return named && !name.startsWith("arn:") ? named : titleOf(name);
+}

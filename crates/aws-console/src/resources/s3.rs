@@ -1,9 +1,9 @@
 //! S3: buckets, and a bucket's objects (the first page) on its page.
 
-use super::Format::{Bytes, Json, Mono, Text as Plain, Time};
+use super::Format::{Json, Mono, Text as Plain, Time};
 use super::{
     Batch, Blocker, Clear, Create, Deep, Delete, Descriptor, Id, Input, InputKind, Kind, List,
-    Shape, Step, Sub, Tags, Text, Write, col, field, input, op, ops, or,
+    Shape, Step, Tags, Text, Write, col, field, input, op, ops, or,
 };
 
 /// What every object call names: this bucket.
@@ -104,21 +104,8 @@ pub(super) static S3: Descriptor = Descriptor {
             or("CORS rules", "CORSRules", Json, "None"),
             or("Lifecycle rules", "Rules", Json, "None"),
         ],
-        subs: &[Sub {
-            title: "Objects",
-            step: Step::new("ListObjectsV2", r#"{"Bucket":"{id}","MaxKeys":100}"#),
-            items: "Contents",
-            item_as: "Key",
-            columns: &[
-                col("Key", "Key", Mono),
-                col("Size", "Size", Bytes),
-                col("Last modified", "LastModified", Time),
-                col("Storage class", "StorageClass", Plain),
-            ],
-            link: None,
-            more: "IsTruncated",
-            add: None,
-        }],
+        // The objects are the Objects tab, not a flat list under the details.
+        subs: &[],
         create: Some(Create {
             inputs: &[Input {
                 required: true,

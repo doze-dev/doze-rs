@@ -17,6 +17,7 @@ import type { KeyPrincipal } from "../../api/types/KeyPrincipal";
 import { ago, clientName, who } from "../../people";
 import { iamWords } from "../../words";
 import { Result } from "../live/outcome";
+import { resourceShown } from "../live/resource";
 import { Card, CardSkeleton, CopyRow, Section, useNow } from "../card";
 import { BuildServices } from "./services";
 import { Signals } from "./signals";
@@ -69,7 +70,8 @@ function recentColumns(names: ReadonlyMap<string, KeyPrincipal>): DataColumn<Cal
       },
     },
     { id: "action", header: "Operation", size: 190, min: 140, accessorFn: (r) => r.action ?? "", meta: { mono: true } },
-    { id: "resource", header: "Resource", accessorFn: (r) => r.resource ?? "", meta: { mono: true } },
+    // The name Live shows (a queue's, not its whole URL); the value as the caller wrote it is the cell's title.
+    { id: "resource", header: "Resource", accessorFn: (r) => resourceShown(r), meta: { mono: true }, cell: (c) => <span title={c.row.original.resource ?? undefined}>{c.getValue<string>()}</span> },
     { id: "result", header: "Result", size: 220, min: 140, enableSorting: false, accessorFn: (r) => r.outcome, cell: (c) => <Result call={c.row.original} /> },
   ];
 }

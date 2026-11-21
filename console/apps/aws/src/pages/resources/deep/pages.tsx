@@ -7,16 +7,31 @@ import { Skeleton } from "@doze/ui/components/ui/skeleton";
 import { cn } from "@doze/ui/lib/utils";
 import type { DeepTab } from "../../../api/types/DeepTab";
 import type { ResourceDetail } from "../../../api/types/ResourceDetail";
-import { LEADS, pageOf } from "./registry";
+import { GONE, LEADS, pageOf } from "./registry";
 import "../cloudformation";
 import "../dynamodb";
 import "../lambda";
 import "../logs";
 import "../s3";
+import "../secretsmanager";
 import "../sqs";
 import "../stepfunctions";
 
 export type { DeepProps } from "./registry";
+
+/** Whether the kind has a page for a name that is gone, and the refusal says it is (CloudFormation: ValidationError, "does not exist"). */
+export const hasGonePage = (service: string, kind: string, message: string): boolean => `${service}/${kind}` in GONE && /does not exist/i.test(message);
+
+/** The page of a name that is gone. */
+export function GonePage({ service, kind, name }: { service: string; kind: string; name: string }) {
+  const Gone = GONE[`${service}/${kind}`];
+  if (!Gone) return null;
+  return (
+    <Suspense fallback={<Skeleton className="h-28 rounded-[14px]" />}>
+      <Gone name={name} />
+    </Suspense>
+  );
+}
 
 /** The lead of `d`'s details, if its kind has one. */
 export function DetailLead({ d }: { d: ResourceDetail }) {

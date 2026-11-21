@@ -97,10 +97,22 @@ const REST: Kind = Kind {
                 ..input("name", "Name", "Need not be unique.", InputKind::Text)
             },
             input("description", "Description", "", InputKind::Text),
+            // API Gateway makes an edge-optimised API (a CloudFront front) when none is said; locally there is no edge, so the
+            // console says regional.
+            Input {
+                required: true,
+                value: "REGIONAL",
+                ..input(
+                    "endpointType",
+                    "Endpoint type",
+                    "Regional is what local use wants: doze-aws has no edge network.",
+                    InputKind::Select(&["REGIONAL", "EDGE", "PRIVATE"]),
+                )
+            },
         ],
         steps: &[Step::new(
             "CreateRestApi",
-            r#"{"name":"{form:name}","description":"{form:description}"}"#,
+            r#"{"name":"{form:name}","description":"{form:description}","endpointConfiguration":{"types":["{form:endpointType}"]}}"#,
         )],
         name: Text::at("id"),
         key: "name",

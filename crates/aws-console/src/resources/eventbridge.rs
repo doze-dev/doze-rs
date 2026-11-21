@@ -3,12 +3,12 @@
 //! A rule is named in the console's addresses as its ARN names it: `on-order` on the default bus, `orders/on-order` on the bus
 //! `orders` (`{name:head}` and `{name:last}` in the bodies).
 
-use super::Format::{Bytes, Json, Mono, Number, Tail, Text as Plain, Time};
+use super::Format::{Bytes, Json, Mono, Named, Number, Tail, Text as Plain, Time};
 use super::eventbridge_blockers::{TARGETS, TARGETS_OF_RULE};
 use super::{
     Blocker, Clear, Create, Delete, Descriptor, Field, Id, Input, InputKind, Kind, LinkTo, List,
-    Options, Param, ParamKind, Shape, Step, Sub, Tags, Text, Write, col, field, input, op, or,
-    says, state,
+    Options, Param, ParamKind, Shape, Step, Sub, Tags, Text, Write, col, col_or, field, input, op,
+    or, says, state,
 };
 
 /// What a tag call names: a rule, by its ARN (`rule/<bus>/<name>`, or `rule/<name>` on the default bus).
@@ -82,7 +82,12 @@ const RULES: Kind = Kind {
             col("Target", "Arn", Tail),
             col("ID", "Id", Mono),
             col("ARN", "Arn", Mono),
-            col("Input", "Input", Mono),
+            // What is sent: the event as it is (nothing set), a constant, a part of it, or a template over its parts.
+            col(
+                "Input",
+                "Input|InputPath|InputTransformer.InputTemplate",
+                Mono,
+            ),
             col("Dead-letter queue", "DeadLetterConfig.Arn", Tail),
         ],
         link: None,
@@ -321,7 +326,13 @@ const ARCHIVES: Kind = Kind {
         col("State", "State", Plain),
         col("Events", "EventCount", Number),
         col("Size", "SizeBytes", Bytes),
-        col("Retention (days)", "RetentionDays", Number),
+        // 0 days is how EventBridge says the events are kept indefinitely.
+        col_or(
+            "Retention (days)",
+            "RetentionDays",
+            Named(&[("0", "Indefinite")]),
+            "Indefinite",
+        ),
         col("Created", "CreationTime", Time),
     ],
     id_of: Id::Name,
@@ -341,7 +352,12 @@ const ARCHIVES: Kind = Kind {
         field("Why", "StateReason", Plain),
         field("Events", "EventCount", Number),
         field("Size", "SizeBytes", Bytes),
-        or("Retention (days)", "RetentionDays", Plain, "Forever"),
+        or(
+            "Retention (days)",
+            "RetentionDays",
+            Named(&[("0", "Indefinite")]),
+            "Indefinite",
+        ),
         field("Created", "CreationTime", Time),
         or("Event pattern", "EventPattern", Json, "Every event"),
     ],

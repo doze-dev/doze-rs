@@ -98,6 +98,7 @@ fn create(core: &mut Core, r: &Req) -> Res {
     let (id, mut doc) = new_api(r, r.s("protocolType"))?;
     if let Some(target) = r.opt("target") {
         quick_create(&mut doc, r, target)?;
+        super::stages::auto_deploy(&mut doc, &r.now_iso());
     }
     let shown = view(&doc);
     core.http.insert(id, Doc(doc));

@@ -31,4 +31,14 @@ export function registerLead(service: string, kind: string, lead: Lead): void {
   LEADS[`${service}/${kind}`] = lead;
 }
 
+/** What a kind says in place of "could not be read" when the resource is not there at its name: where the console can tell more. */
+export type Gone = LazyExoticComponent<(p: { name: string }) => ReactNode>;
+/** By `service/kind`. */
+export const GONE: Record<string, Gone> = {};
+
+/** Registers the page of a name that is gone, for one kind (`stacks`) of a service. */
+export function registerGone(service: string, kind: string, gone: Gone): void {
+  GONE[`${service}/${kind}`] = gone;
+}
+
 export const pageOf = (service: string, id: string): TabPage | undefined => PAGES.get(`${service}/${id}`);

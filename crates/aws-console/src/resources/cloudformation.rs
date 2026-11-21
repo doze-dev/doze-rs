@@ -183,6 +183,15 @@ pub(super) static CLOUDFORMATION: Descriptor = Descriptor {
                     r#"{"StackName":"{id}","ChangeSetName":null}"#,
                 )],
             },
+            // Never a tab: the page of a name CloudFormation no longer answers to reads the deleted stacks, to say it was one.
+            Deep {
+                id: "deleted",
+                title: "Deleted",
+                ops: &[op(
+                    "ListStacks",
+                    r#"{"StackStatusFilter":["DELETE_COMPLETE"]}"#,
+                )],
+            },
             Deep {
                 id: "changesets",
                 title: "Change sets",
