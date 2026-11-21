@@ -1,5 +1,10 @@
 # Schema registry (Phase 10)
 
+**Gaps closed 2026-11-19** (branch `kafka-registry-gaps`, REG-46 to REG-50): data contracts, Protobuf normalization and JSON
+Schema numbers past Java's `BigDecimal`, each held to cp-schema-registry 7.7.1 and 8.3.2 by `tools/registry-diff` (`gaps.ts`;
+results in `tools/registry-diff/results/2026-11-19/`); REG-D26 and REG-D28 are retired, REG-D29 to REG-D32 say what still
+differs and why.
+
 **Audited 2026-11-18** (branch `kafka-registry-audit`) against cp-schema-registry 7.7.1 and 8.3.2 live, with real Kafka, by
 `tools/registry-diff` (README there): every route answer compared byte for byte, a generated corpus of schema evolutions
 in all three languages at all seven levels, Confluent's own Java serializers and console tools end to end, and restarts and
@@ -29,7 +34,7 @@ Deviations: where this registry answers otherwise than Confluent's, or than the 
 - **REG-D2** a subject of up to 16 KiB is taken (Confluent's HTTP server refuses a path past 8 KiB; as in Go).
 - **REG-D3** contexts are not offered: `:.ctx:name` and `:*:` are subjects of those names; `GET /contexts` is `["."]`.
 - **REG-D4** bodies past their limit are 413 (as in Go).
-- **REG-D5** the metadata endpoints and the other routes listed as not served are 404 (as in Go).
+- **REG-D5** `/v1/metadata/*` and the other routes listed as not served are 404 (as in Go).
 - **REG-D6** where Confluent answers 500, a proper answer (as in Go).
 - **REG-D7** a refused PUT or DELETE carries the JSON error (as in Go).
 - **REG-D8** no special case for `.doze` names (Rust edition).
@@ -50,14 +55,19 @@ Deviations: where this registry answers otherwise than Confluent's, or than the 
 - **REG-D23** the codec shows an Avro logical type as its underlying type (Rust edition).
 - **REG-D24** a JSON Schema value is not checked against `pattern` or `format` (Rust edition).
 - **REG-D25** Protobuf well-known types read and write as plain messages, not protojson's special forms (Rust edition).
-- **REG-D26** a registration's metadata and rule set are read past; the settings beside a level other than `normalize` are kept and answered but change nothing (audit).
+- **REG-D26** retired: data contracts are kept since 2026-11-19 (REG-47 to REG-49).
 - **REG-D27** a refusal's details (the parser's own words after `details:`) are doze's, naming the place (audit).
-- **REG-D28** `?normalize=true` does not normalize a Protobuf schema (audit).
+- **REG-D28** retired: Protobuf is normalized as Confluent normalizes it since 2026-11-19 (REG-46).
+- **REG-D29** JSON Schema keywords are checked against the draft's meta-schema where Confluent's loaders take more (gaps).
+- **REG-D30** rule sets are kept and checked as Confluent Enterprise and Cloud do; the community image drops them (gaps).
+- **REG-D31** where 7.7.1 and 8.x differ on data contracts and normalizing, 8.x is followed (gaps).
+- **REG-D32** Protobuf normalization: the edges where doze's text is not Confluent's (gaps).
 
 ## The API
 
 ### REG-1. One table of routes; misses answer in the registry's JSON
-Every route is one row of `api/route.rs` (`ROUTES`): Confluent's 30 (`GET /contexts` among them, REG-D3) and doze's five under
+Every route is one row of `api/route.rs` (`ROUTES`): Confluent's 31 (`GET /contexts` among them, REG-D3; `GET
+/subjects/{s}/metadata` since REG-48) and doze's five under
 `/_doze/`. A path that matches a route under another method is 405, any other path 404, both as
 `{"error_code":404,"message":"HTTP 404 Not Found"}` with no `Content-Type` (Confluent's framework answers those itself). HEAD is
 answered as GET; OPTIONS lists the path's methods in Jersey's order (`HEAD, POST, GET, OPTIONS`, `text/plain`, and in `Allow`). A
@@ -256,7 +266,8 @@ unknown or unseen type (a type of a file imported by an import is seen only thro
 innermost scope that has their first part (as protoc: no looking outward after a miss), a name defined twice (enum values are
 siblings of their enum), field numbers out of range, in 19000 to 19999, reused, reserved or in an extension range, reserved names,
 a missing label in proto2, `required`, defaults, groups and extension ranges in proto3, a proto2 enum used in proto3, map keys that
-are not integers, bools or strings, labels in a oneof, an empty oneof or enum, a proto3 enum not starting at zero, aliases without
+are not integers, bools or strings, labels in a oneof, an empty oneof or enum, a proto3 enum with no value numbered zero (protoc wants it
+first; Confluent's normalized text sorts values by number, so a negative one may come first, gaps), aliases without
 `allow_alias` (and `allow_alias` without aliases), conflicting JSON names in proto3, `packed` on what cannot be packed, a default
 that does not fit its field, built-in options by name and value type, and custom options naming no extension. Nesting past 100
 levels is refused, so hostile text cannot exhaust the stack.
@@ -267,7 +278,7 @@ Syntax and package; the imports; the file options; every message, then every enu
 options, fields, oneofs, groups, nested messages then enums, extends, extension ranges, each section after a blank line (padded to
 the indent in a nested message); a field's options inline when one, one to a line when several (its own, then `default`, then
 `json_name`); comments dropped; tokens as written with white space collapsed. What is stored reads back as itself.
-`?normalize=true` changes nothing for Protobuf (REG-D28). A missing import or type is `Could not resolve type: shop.Money` with no
+`?normalize=true` is REG-46. A missing import or type is `Could not resolve type: shop.Money` with no
 position, and `required` in proto3 is Confluent's syntax error (`'required' label forbidden in proto3 field declarations`); `packed =
 false` is taken on any field, as protoc takes it (audit).
 Tests: `every_recorded_scenario_answers_as_confluent_did` (protobuf-canonical-forms), `what_the_language_allows_is_read_and_stored`,
@@ -305,13 +316,15 @@ Drafts 4, 6, 7, 2019-09 and 2020-12, named by `$schema` (http or https, an empty
 default, and for a `$schema` that names no draft: 7.7.1 takes `http://example.com/nope`, audit). Each keyword the draft has is checked against the draft's meta-schema (a type that is not
 one, a count that is not a non-negative integer, a `multipleOf` of 0, a repeated `required` name, an empty or repeated `enum`
 before 2019-09, an empty `allOf`, a boolean schema in draft 4, an array `items` in 2020-12, ...), and every `$ref` the schema uses
-must reach something; a reference inside an unused definition is not followed, as Go's library does not compile it. Keywords a
+must reach something; a reference inside an unused definition is not followed, as Go's library does not compile it.
+Numbers, counts and `multipleOf` are read as Confluent's Jackson and loaders read them (REG-50); where its loaders take what the
+meta-schema refuses, this registry refuses it (REG-D29). Keywords a
 draft does not have are annotations. The refusal is 42201 and names the place (`#/properties/a/type: "nonsense" is not a type`).
 Tests: `what_is_not_a_schema_of_its_draft_is_refused`, `what_its_draft_allows_is_accepted`.
 
 ### REG-35. The stored text is the schema compacted
 Spaces go, keys keep their order, an integer keeps its text and a number with a fraction or exponent is written as Java's
-`BigDecimal` writes it (`1e2` is `1E+2`, `1.50` stays; audit), strings take Jackson's escapes (REG-D9), and a key written twice is
+`BigDecimal` writes it (`1e2` is `1E+2`, `1.50` stays; audit; one a `BigDecimal` cannot hold as REG-50 says), strings take Jackson's escapes (REG-D9), and a key written twice is
 kept once with its last value where it first was, as Jackson reads it. With `?normalize=true` every object's keys are sorted, as
 Confluent normalizes (audit: the Go edition changed nothing). The same schema spaced two ways is one schema with one id
 (recorded: canonical-forms).
@@ -415,9 +428,12 @@ Tests: `json_schema_values_are_checked_and_shown_as_they_are`, `an_unknown_id_is
 `compatibilityGroup`, `defaultMetadata`, `overrideMetadata`, `defaultRuleSet`, `overrideRuleSet`. What a PUT gives is laid over what
 was set (the rest stays), echoed in Confluent's order (`alias, normalize, validateFields, compatibility, compatibilityGroup, ...`),
 and `GET /config` answers `compatibilityLevel` then the others; a rule set with no rules is not written. A subject's first
-configuration without a level takes BACKWARD; `DELETE` answers the configuration as it was. `normalize` is applied: a subject's
-(else the global) `normalize` normalizes every registration, lookup and check as `?normalize=true` does. The others are kept
-(stored under their own key, `k`, read back after a restart) but change nothing (REG-D26).
+configuration without a level takes BACKWARD; `DELETE` answers the configuration as it was. The configuration in force for a
+subject is its own, whole, when it has one, else the global one (Confluent's `getConfigInScope`; gaps: a subject's own level
+hides the global default metadata): its `normalize` normalizes every registration, lookup and check as `?normalize=true` does,
+its group and contract settings act as REG-47 and REG-48 say. Metadata and rule sets are read as Jackson binds them (REG-47) and a
+rule set is checked (REG-49) before anything is kept. `alias` and `validateFields` are kept (under their own key, `k`, read
+back after a restart) and answered but change nothing.
 Tests: `settings_bodies_are_read_as_jackson_reads_them`, `every_key_reads_back_as_itself_and_strangers_are_none`.
 
 ### REG-43. A schema in another form
@@ -427,12 +443,13 @@ protoc's: the file is named `default`, type names stay as written, a message or 
 proto3 field without a label has none, oneof fields come first, a map is a nested `<field>Entry` after the declared nested
 messages, a proto3 `optional` has a synthetic oneof, groups are left out, ranges end one past their last number.
 `?format=resolved` writes an Avro schema's referenced types out where they are first used, then as Avro writes a schema. The
-version routes ignore `format`, as 7.7.1 does. A schema by id is `schemaType, schema, references, maxId` in that order.
+version routes ignore `format`, as 7.7.1 does. A schema by id is `schemaType, schema, references, metadata, ruleSet, maxId` in that order (REG-47).
 Tests: `every_recorded_scenario_answers_as_confluent_did` and tools/registry-diff's `protobuf-serialized` scenario and corpus.
 
 ### REG-44. A refused schema is quoted as Confluent quotes it
 `Invalid schema {subject=s,version=0,id=-1,schemaType=AVRO,references=[{name='x', subject='y', version=1}],metadata=null,
-ruleSet=null,schema=<text>,schemaTags=null} with refs [...] of type AVRO, details: <why>` for a schema its parser refuses; without
+ruleSet=null,schema=<text>,schemaTags=null} with refs [...] of type AVRO, details: <why>` (a contract written as its Java
+`toString`: `metadata=Metadata{tags={}, properties={owner=a}, sensitive=[]}`) for a schema its parser refuses; without
 `with refs ... of type` for one refused after reading (a JSON Schema not valid for its draft, a Protobuf type not resolved). A
 `schemaType` must be `AVRO`, `PROTOBUF` or `JSON` exactly (`avro` and `""` are `Invalid schema type avro`); an empty schema is
 `Empty schema` on every route.
@@ -447,6 +464,90 @@ READONLY that, set globally, no subject's own mode lifts. A PUT echoes the mode 
 subject with no mode of its own is 40401. The recorded readonly-subject and modes scripts pass whole.
 Test: `every_recorded_scenario_answers_as_confluent_did`.
 
+## What closing the gaps added (2026-11-19)
+
+### REG-46. Protobuf is normalized as Confluent normalizes it
+`?normalize=true` (or the `normalize` setting, REG-42) stores `protobuf/normalize.rs`'s text, a port of Confluent's
+`ProtobufSchemaUtils.toNormalizedString` (8.3.2's source, the same as 7.7.1's but where REG-D31 says): no `syntax` line for proto2;
+imports and public imports sorted, each once; every type name qualified with its leading dot (`.shop.v1.Money`), found as
+Confluent's `Context.resolveFull` finds it (the main file's package and the enclosing names tried innermost first, among the types
+of the file, its references and the well-known files), a map's value type too, and a field typed by a descriptor's map-entry
+message written as its `map<,>` (the entry message left out); options sorted by name, a custom one named by its extension's full
+name, a dotted one (`(rule).min = 1`) made a message literal, a message literal's keys sorted, an extension key qualified, a
+one-item list written as its item, an empty list dropped; numbers in options and defaults as Java's `DecimalFormat` writes what
+commons-lang's `createNumber` reads (`0x10` is `16`, `010` is `8`, `2.50` is `2.5`, at most three decimals half to even, `1e20`
+as the float it is read as, `inf` as written); a field's `default` and `json_name` sorted among its options; fields, a oneof's
+fields, groups and an extend's fields by number; oneofs by their first field (an empty one dropped); enum values by number, then
+name; reserved and extension ranges one to a statement by start (names after numbers, by name), a range of one number as the
+number, `max` from the largest field number; the extends of one type made one. Messages, enums, services and rpcs keep their
+order (a client numbers messages by place). The normalized text is stored as it is, and every language's references are sorted
+by subject, then version, each kept once. As Confluent's `validate()` normalizes every schema, a type its resolution does not
+find refuses the schema whether or not it is normalized. The descriptor of a normalized proto2 schema has no `syntax`, and an
+enum's reserved `max` ends at Wire's largest field number, as Confluent's do.
+Tests: `a_schema_normalizes_as_confluent_normalizes_it`, `numbers_are_written_as_javas_decimal_format_writes_what_commons_lang_reads`,
+`indenting_drops_trailing_empty_lines_as_java_splits`, `strings_are_read_as_wire_reads_them`, and tools/registry-diff's
+`protobuf-normalize/*` (eleven schemas: options of every kind, proto2 with groups and extensions, names in nested scopes, custom
+options merged, numbers, enums, a descriptor with maps, references, compatibility).
+
+### REG-47. A schema's contract is part of it
+A registration's `metadata` (`tags`, `properties`, `sensitive`) and `ruleSet` (`migrationRules`, `domainRules`, and 8.x's
+`encodingRules`) are read as Jackson binds Confluent's classes (unknown keys read past, a number or boolean as its text, kinds and
+modes defaulted to `TRANSFORM` and `WRITEREAD`, Jackson's 400 for anything else: `Cannot deserialize value of type \`Metadata\`
+from Array value ...`, `... \`RuleKind\` from String "NOPE": not one of the values accepted for Enum class: [CONDITION,
+TRANSFORM]`), sorted as its Java collections sort them, and stored with the schema (a schema record of format 2, `store.rs`; one
+without a contract keeps the first format). They count in the schema's identity: the same text with other metadata is another
+schema, with its own id and version, and the same schema and contract under another subject has the same id. Outside IMPORT the
+contract is Confluent's `maybeSetMetadataRuleSet`: the registration's own metadata and rule set, else the subject's latest live
+version's, merged over the configuration's `defaultMetadata`/`defaultRuleSet` and under its `overrideMetadata`/`overrideRuleSet`
+(a key, a property, a tag or a rule of the same name from the later one wins; `sensitive` is the union), and `confluent:version`
+set to the version taken when the registration asks for a version or the metadata already has one. A registration whose schema
+then has a contract is answered with it (`{"id","version","metadata","ruleSet","schema"}`, 7.7.1's `RegisterSchemaResponse`); one
+without, or one found as sent (Confluent's `registerOrForward` looks up first, unless defaults or overrides are set), with
+`{"id"}`. Every read answers the contract: `/subjects/{s}/versions/{v}` and `GET /schemas` beside the references, `/schemas/ids/{id}`
+after them. A lookup finds the version holding the schema with the contract sent, or else with the one a registration would give
+it (REG-D31). IMPORT stores the contract given; the same id with another contract is `Overwrite new schema with id 7000 is not
+permitted.` `metadata: {}` is kept and answered as `{}`.
+Tests: `a_contract_is_part_of_the_schema_and_survives_a_restart`, `defaults_lie_under_and_overrides_over_what_a_registration_gives`,
+`a_rule_of_the_same_name_replaces_the_older_one`, and tools/registry-diff's `data-contracts/*`.
+
+### REG-48. Compatibility groups and the latest with metadata
+With `compatibilityGroup` set, a schema is compared only with the live versions whose metadata property of that name has the same
+value as its own (absent matching absent), the level then choosing among those; a registration without metadata inherits the latest
+version's, so its group. `GET /subjects/{s}/metadata?key=k&value=v&...` is the newest version (a soft-deleted one too with
+`deleted=true`) whose metadata has every pair given, keys and values paired in order as far as both go; a version with no metadata
+is never one. None is `40403 Schema not found`, and a subject with no version to look at `40401`.
+Tests: `a_contract_is_part_of_the_schema_and_survives_a_restart`, tools/registry-diff's `data-contracts/compatibility-group` and
+`data-contracts/latest-with-metadata`.
+
+### REG-49. Rule sets are checked as Confluent checks them
+A registration's rule set, and a configuration's default and override, are checked by `RuleSet.validate` before anything else
+(422 42210): `Found rule with duplicate name 'a'` (across the lists), `Missing rule name`, `Empty rule name`, `Rule name too long`
+(past 64 UTF-16 units), `Illegal initial character in rule name: 1abc`, `Illegal character in rule name: a.b`, `Missing rule type`,
+`Multiple actions only valid with WRITEREAD and UPDOWN`, `Migration rules can only be UPGRADE, DOWNGRADE, UPDOWN`, `Domain rules
+can only be WRITE, READ, WRITEREAD`, `Encoding rules can only be WRITE, READ, WRITEREAD`. A rule is written as Confluent writes one
+(`name, doc, kind, mode, type, tags, params, expr, onSuccess, onFailure, disabled`). REG-D30 says why the reference cannot show it.
+Test: `rule_sets_are_checked_as_confluent_checks_them`.
+
+### REG-50. JSON Schema numbers past Java's BigDecimal
+Confluent's Jackson reads a number with a fraction or exponent as a `BigDecimal` when Java 17's `BigDecimal(String)` takes it (at
+most ten exponent digits after leading zeros, the exponent and the scale within a 32-bit `int`), else as a `double` (`json/java.rs`,
+`java_reads`): a zero one is stored as `0.0` or `-0.0` (`0.0` once normalized, as the text is read again) and compares as zero; an
+infinite one, anywhere in the schema, refuses it (`Invalid JSON Schema`, 42201, the check stage). So `1e2147483647` is
+`1E+2147483647`, `12e2147483647` is `1.2E+2148483648`, `1e2147483648` and `0.5555e+000011999153157185615783` are refused, and
+`1e-2147483648` is `0.0`. Before 2019-09 a count is read by everit as a Java `Integer`: written as an integer (`1.0`, `1e1`, `1E0`
+are refused) no larger than 2147483647, and a `multipleOf` must be above zero as a double (`1e-400` is refused). A number's bounds
+(`minimum`, `maximum`, the exclusive ones) are compared as doubles, as Confluent's `NumberSchemaDiff` compares them. 8.3.2's newer
+Jackson differs (it takes `1e2147483648` and refuses `1e-2147483648` with `Exponent overflow.` in another sentence); this registry
+follows 7.7.1, the reference of every other rule here.
+A number in `const` or `enum` is compared as the text Java's `BigDecimal` writes for it (an integer as written), as 8.3.2
+compares them; Confluent compares the new schema's Java values with the old one's read again from its stored text (recorded:
+`json-schema-enum-numbers`): `7e2` and `7E+2` are one value and `10e-1` and `1.0` are one in both releases, `7e2` and `700`, `1`
+and `1.0`, `1.0` and `1.00` are two in both (scale counts), and `-77e0` and `-77` are one in 8.3.2 but two in 7.7.1, where
+`{"const":-77e0}` does not read its own data once stored as `-77` (REG-D31; found by fuzz json_schema with `-77e0` and `7e2`).
+Tests: `a_const_number_is_the_same_value_however_java_writes_it`, `an_enum_number_is_the_same_value_once_stored`,
+`a_number_too_large_to_rewrite_is_kept_as_sent`, `a_number_past_the_clamp_is_one_value_however_it_is_written`,
+`what_is_not_a_schema_of_its_draft_is_refused`, and tools/registry-diff's `json-schema-huge-numbers`.
+
 ## Deviations
 
 - **REG-D1.** Retired by the audit (2026-11-18): IMPORT and READONLY_OVERRIDE are offered as Confluent offers them (REG-45). It
@@ -460,7 +561,8 @@ Test: `every_recorded_scenario_answers_as_confluent_did`.
 - **REG-D4.** A schema body past 20 MiB is 413 where Confluent's JSON parser answers 400; a level or mode body is at most 64 KiB
   (413) where Confluent reads 20 MiB of padding and ignores it. As Go.
 - **REG-D5.** Not served (404): `/exporters`, `DELETE /mode` (405, as it is not a Confluent route either), the
-  metadata endpoints (`/v1/metadata/id`, `/v1/metadata/version`), subject metadata and rules, the DEK registry. As Go.
+  `/v1/metadata/id` and `/v1/metadata/version` endpoints, the DEK registry. As Go. (`GET /subjects/{s}/metadata` is served since
+  REG-48.)
 - **REG-D6.** Where Confluent answers 500 this registry answers properly: `format=serialized` on an id is ignored; a lookup in a
   soft-deleted subject is its 40401; `GET /schemas/ids/{unknown}/schema` is 404 40403; `format=serialized` on a JSON schema is the
   stored text; a mode body without a mode is 42204; a normalized lookup of an Avro schema with properties is answered. As Go.
@@ -523,21 +625,40 @@ Test: `every_recorded_scenario_answers_as_confluent_did`.
   is linked: `regex-lite` would add a package to doze-kafka for one keyword); Go's validator checked them.
 - **REG-D25.** Protobuf's well-known types (`Timestamp`, `Duration`, the wrappers, `Any`, `Struct`) read and write as the messages
   they are, not in protojson's special forms (`"2026-11-14T00:00:00Z"`, `"3s"`).
-- **REG-D26.** Data contracts are not kept: a registration's `metadata` and `ruleSet` are read past (Confluent stores them with the
-  schema, answers them on every read, carries them to the next version, counts them in the schema's identity, and answers a
-  registration that has them, or a `version`, with `{"id","version","metadata","schema"}` and a `confluent:version` property), and of
-  the settings beside a level (REG-42) only `normalize` acts: `alias`, `validateFields`, `compatibilityGroup` and the default and
-  override metadata and rule sets are kept and answered but change nothing. This is a gap the audit found and did not close (a store
-  format, identity and inheritance of their own), not a choice: a client using data contracts (`use.latest.with.metadata`, CEL
-  rules) against doze sees its metadata vanish. The owner's call is whether to build it.
+- **REG-D26.** Retired 2026-11-19: data contracts are kept (REG-47 to REG-49). It said a registration's metadata and rule set
+  were read past and the settings beside a level other than `normalize` changed nothing, a gap the audit found.
 - **REG-D27.** A refusal's details, the parser's own words after `details:`, are doze's where Confluent's are a Java library's
   exception text (`com.fasterxml.jackson.core.io.JsonEOFException: Unexpected end-of-input ... [Source: REDACTED ...]`, Wire's
   `expected a word`) or say nothing (`Invalid JSON Schema`, `Invalid JSON {`): doze names the place (`#/type: "nonsense" is not a
   type`, `expected a key at byte 1`). Everything before `details:`, the status and the code are Confluent's (REG-44), and the
   fixed sentences of Avro's parser are Confluent's word for word (REG-20). The conformance test compares messages up to
   `, details:`.
-- **REG-D28.** `?normalize=true` (and the `normalize` setting) does not normalize a Protobuf schema. Confluent sorts the imports,
-  the options, the fields (by number), the enum values and a field's options, writes each reserved range on its own line and
-  qualifies every type name (`.google.protobuf.Timestamp`); so two orderings of one Protobuf schema are one id there and two here,
-  and a normalized lookup of a reordered schema finds nothing. A gap the audit recorded (it needs the linker's resolved names in
-  the printer), not a choice.
+- **REG-D28.** Retired 2026-11-19: `?normalize=true` normalizes a Protobuf schema as Confluent does (REG-46). It said two
+  orderings of one Protobuf schema were two ids here and one there.
+- **REG-D29.** JSON Schema: this registry checks each keyword against its draft's meta-schema (REG-34) where Confluent's loaders
+  (everit before 2019-09, jsonsKema after) take more, found by `json-schema-huge-numbers`: a negative count (`minItems: -1`), a
+  repeated `enum` value (`[1, 1]`, and `[0.0, 0]` from a number past `BigDecimal`), a count that is not an integer in 2019-09 and
+  2020-12 (`1.5`), a `multipleOf` of zero in them, and a number past a `double` in them (Confluent stores the string `"Infinity"`
+  in its place, which changes what the schema says). Such a schema is no schema of its draft and no validator would read it as
+  written; refusing it says so at registration, where Confluent would store it. The checks Confluent does make are made as it
+  makes them (REG-50).
+- **REG-D30.** Rule sets (REG-49) are kept, checked and answered as Confluent Enterprise and Confluent Cloud keep them. The
+  community `cp-schema-registry` image, the reference `tools/registry-diff` runs, drops every rule set, a registration's and a
+  configuration's, with `RuleSets are only supported by Confluent Enterprise and Confluent Cloud` (its `RuleSetHandler`), so it
+  checks none either. A local registry for data-contract development has to keep them (a CEL rule a client runs comes from the
+  registry); so `data-contracts/rule-sets` and the rule set steps of `metadata-and-rules-in-a-registration` differ from the
+  reference by design. What is kept follows Confluent's classes and its source; it is not recorded from a live Enterprise.
+- **REG-D31.** Where 7.7.1 and 8.x differ on what this round built, 8.x is followed: a lookup that finds nothing with the contract
+  sent tries again with the contract a registration would give (the latest version's, the configuration's), as 8.x's
+  `lookUpSchemaUnderSubject` does (7.7.1 answers 40403); a non-repeated custom Protobuf option given twice is merged as 8.x merges it
+  (a singular message field deep, a singular scalar the last value; 7.7.1 makes every repeated key a list); encoding rules are kept
+  (7.7.1 reads past them); a rule set's `toString` in a refusal is 8.x's; a `const` or `enum` number with no fraction written with an exponent
+  (`-77e0`) is the integer it is stored as (7.7.1 compares a `BigDecimal` with the integer read back, and a schema does not read its
+  own data; REG-50). 8.x's other answers (a registration always answered
+  with the schema, `guid`, `ts`, `deleted`, `in context .` in sentences) are not taken: the rest of this catalogue is 7.7.1's.
+- **REG-D32.** Protobuf normalization (REG-46) differs from Confluent's at its edges: a `bytes` default stays quoted (Confluent writes
+  it bare, `[default = abc]`, which no parser reads back); `google/type/*.proto` and `confluent/meta.proto` are not in the
+  resolution's scope unless referenced (Confluent always has them; it matters only for a name that resolves to one of them without
+  importing it, which protoc refuses); whether commons-lang reads a number as a `float` is decided by comparing the shortest
+  digits of the float and the double (Java 17's `toString` sometimes prints more); a weak import is sorted with the plain ones; an
+  extension range's options are written (8.x does, 7.7.1 drops them).

@@ -111,9 +111,9 @@ impl Linker<'_> {
                 Ok(())
             }
             Work::Extend(e, scope) => self.link_extend(u, e, scope, check),
-            Work::Enum(e, i) => {
+            Work::Enum(e, i, full) => {
                 if check {
-                    self.check_enum(u, e, *i)?;
+                    self.check_enum(u, e, *i, full)?;
                 }
                 Ok(())
             }

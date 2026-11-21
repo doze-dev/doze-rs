@@ -34,8 +34,21 @@ fuzz_target!(|data: &[u8]| {
     };
     let stored = s.canonical(false);
     let again = parse(&stored, &refs).expect("the stored text reads again");
-    assert_eq!(again.canonical(false), stored);
-    assert!(s.can_read(&again, Role::New, Role::Old).is_empty(), "a schema reads its own data");
+    let restored = again.canonical(false);
+    let stable = (restored != stored).then(|| {
+        // As in Confluent: a number too small for a BigDecimal is Java's double zero, written `-0.0` when negative, and
+        // `-0.0` read again is a BigDecimal, which has no negative zero (`0.0`). One more reading changes nothing.
+        assert!(stored.contains("-0.0"), "{stored} was stored, {restored} once read again");
+        let third = parse(&restored, &refs).expect("the text stored again reads again");
+        assert_eq!(third.canonical(false), restored);
+        third
+    });
+    // A `-0.0` constant is not the `0.0` it reads again as, so then the text that reads the same is checked against itself.
+    let (old, new) = match &stable {
+        Some(third) => (&again, third),
+        None => (&s, &again),
+    };
+    assert!(old.can_read(new, Role::New, Role::Old).is_empty(), "a schema reads its own data");
     if let Ok(o) = parse(other, &refs) {
         let _ = o.can_read(&s, Role::New, Role::Old);
         let _ = s.can_read(&o, Role::Old, Role::New);

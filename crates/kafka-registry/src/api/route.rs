@@ -19,6 +19,7 @@ pub enum Route {
     Versions,
     Register,
     Lookup,
+    LatestWithMetadata,
     DeleteSubject,
     Version,
     VersionSchema,
@@ -66,6 +67,11 @@ pub const ROUTES: &[RouteDef] = &[
     def("GET", "/subjects/{subject}/versions", Route::Versions),
     def("POST", "/subjects/{subject}/versions", Route::Register),
     def("POST", "/subjects/{subject}", Route::Lookup),
+    def(
+        "GET",
+        "/subjects/{subject}/metadata",
+        Route::LatestWithMetadata,
+    ),
     def("DELETE", "/subjects/{subject}", Route::DeleteSubject),
     def(
         "GET",

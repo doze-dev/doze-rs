@@ -65,16 +65,44 @@ fn numbers_are_written_as_javas_big_decimal_writes_them() {
 }
 
 /// Found by fuzz json_schema: an exponent past i64 was read as 0, so `0.5e+<huge>` was stored as `0.5`, a different
-/// number. One that can't be held, or whose scale can't, is kept as it was sent.
+/// number. What Confluent does instead (cp-schema-registry 7.7.1, tools/registry-diff `json-schema-huge-numbers`): a
+/// number a `BigDecimal` cannot hold (its exponent or scale past a 32-bit int) is Jackson's `double`, so a small one is
+/// stored as `0.0` or `-0.0`; an infinite one is kept as it was sent here, and the schema is refused.
 #[test]
 fn a_number_too_large_to_rewrite_is_kept_as_sent() {
     for raw in [
         "0.555500000000000000005e+000011999153157185615783",
         "1e99999999999999999999",
-        "-1.5e-99999999999999999999",
-        "1.5e-9223372036854775808",
         "125e9223372036854775807",
+        "1e2147483648",
+        "-0.12e2147483649",
     ] {
         assert_eq!(java_number(raw), raw, "{raw}");
+        assert!(
+            matches!(java_reads(raw), Some(JavaRead::Infinite { .. })),
+            "{raw}"
+        );
     }
+    for (raw, want) in [
+        ("-1.5e-99999999999999999999", "-0.0"),
+        ("1.5e-9223372036854775808", "0.0"),
+        ("1e-2147483649", "0.0"),
+        ("0.1e-2147483648", "0.0"),
+        ("1e-00000000000000000002147483648", "0.0"),
+        ("-1e-2147483649", "-0.0"),
+    ] {
+        assert_eq!(java_number(raw), want, "{raw}");
+    }
+    // At the limits a BigDecimal holds, it is one (recorded).
+    for (raw, want) in [
+        ("1e2147483647", "1E+2147483647"),
+        ("12e2147483647", "1.2E+2147483648"),
+        ("1e-2147483647", "1E-2147483647"),
+        ("1e+00000000000000000005", "1E+5"),
+    ] {
+        assert_eq!(java_reads(raw), Some(JavaRead::Decimal), "{raw}");
+        assert_eq!(java_number(raw), want, "{raw}");
+    }
+    assert_eq!(java_reads("99999999999999999999"), Some(JavaRead::Integer));
+    assert_eq!(java_reads("true"), None);
 }

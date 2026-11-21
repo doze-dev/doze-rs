@@ -1,0 +1,951 @@
+[
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/rs/versions",
+   "b": "{\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"}]}\",\"ruleSet\":{\"domainRules\":[{\"name\":\"a\",\"kind\":\"CONDITION\",\"mode\":\"WRITE\",\"type\":\"CEL\",\"expr\":\"true\"},{\"name\":\"a\",\"kind\":\"CONDITION\",\"mode\":\"WRITE\",\"type\":\"CEL\",\"expr\":\"true\"}]}}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":106}",
+    "ms": 5
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":105,\"version\":1,\"guid\":\"4b14778e-4b95-583f-33ff-e549c9adc1d2\",\"schemaType\":\"AVRO\",\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"}]}\"}",
+    "ms": 9
+   },
+   "doze": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42210,\"message\":\"Found rule with duplicate name 'a'\"}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/rs/versions",
+   "b": "{\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"}]}\",\"ruleSet\":{\"domainRules\":[{\"name\":\"a\",\"kind\":\"CONDITION\",\"mode\":\"WRITE\",\"type\":\"CEL\",\"expr\":\"true\"}],\"migrationRules\":[{\"name\":\"a\",\"kind\":\"CONDITION\",\"mode\":\"UPGRADE\",\"type\":\"CEL\",\"expr\":\"true\"}]}}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":106}",
+    "ms": 1
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":105,\"version\":1,\"guid\":\"4b14778e-4b95-583f-33ff-e549c9adc1d2\",\"schemaType\":\"AVRO\",\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"}]}\"}",
+    "ms": 2
+   },
+   "doze": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42210,\"message\":\"Found rule with duplicate name 'a'\"}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/rs/versions",
+   "b": "{\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"}]}\",\"ruleSet\":{\"domainRules\":[{\"kind\":\"CONDITION\",\"mode\":\"WRITE\",\"type\":\"CEL\"}]}}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":106}",
+    "ms": 1
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":105,\"version\":1,\"guid\":\"4b14778e-4b95-583f-33ff-e549c9adc1d2\",\"schemaType\":\"AVRO\",\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"}]}\"}",
+    "ms": 2
+   },
+   "doze": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42210,\"message\":\"Missing rule name\"}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/rs/versions",
+   "b": "{\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"}]}\",\"ruleSet\":{\"domainRules\":[{\"name\":\"\",\"kind\":\"CONDITION\",\"mode\":\"WRITE\",\"type\":\"CEL\",\"expr\":\"true\"}]}}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":106}",
+    "ms": 1
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":105,\"version\":1,\"guid\":\"4b14778e-4b95-583f-33ff-e549c9adc1d2\",\"schemaType\":\"AVRO\",\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"}]}\"}",
+    "ms": 1
+   },
+   "doze": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42210,\"message\":\"Empty rule name\"}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/rs/versions",
+   "b": "{\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"}]}\",\"ruleSet\":{\"domainRules\":[{\"name\":\"1abc\",\"kind\":\"CONDITION\",\"mode\":\"WRITE\",\"type\":\"CEL\",\"expr\":\"true\"}]}}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":106}",
+    "ms": 1
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":105,\"version\":1,\"guid\":\"4b14778e-4b95-583f-33ff-e549c9adc1d2\",\"schemaType\":\"AVRO\",\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"}]}\"}",
+    "ms": 1
+   },
+   "doze": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42210,\"message\":\"Illegal initial character in rule name: 1abc\"}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/rs/versions",
+   "b": "{\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"}]}\",\"ruleSet\":{\"domainRules\":[{\"name\":\"a.b\",\"kind\":\"CONDITION\",\"mode\":\"WRITE\",\"type\":\"CEL\",\"expr\":\"true\"}]}}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":106}",
+    "ms": 1
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":105,\"version\":1,\"guid\":\"4b14778e-4b95-583f-33ff-e549c9adc1d2\",\"schemaType\":\"AVRO\",\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"}]}\"}",
+    "ms": 1
+   },
+   "doze": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42210,\"message\":\"Illegal character in rule name: a.b\"}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/rs/versions",
+   "b": "{\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"}]}\",\"ruleSet\":{\"domainRules\":[{\"name\":\"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\",\"kind\":\"CONDITION\",\"mode\":\"WRITE\",\"type\":\"CEL\",\"expr\":\"true\"}]}}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":106}",
+    "ms": 1
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":105,\"version\":1,\"guid\":\"4b14778e-4b95-583f-33ff-e549c9adc1d2\",\"schemaType\":\"AVRO\",\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"}]}\"}",
+    "ms": 2
+   },
+   "doze": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42210,\"message\":\"Rule name too long\"}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/rs/versions",
+   "b": "{\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"}]}\",\"ruleSet\":{\"domainRules\":[{\"name\":\"nt\",\"kind\":\"CONDITION\",\"mode\":\"WRITE\"}]}}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":106}",
+    "ms": 1
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":105,\"version\":1,\"guid\":\"4b14778e-4b95-583f-33ff-e549c9adc1d2\",\"schemaType\":\"AVRO\",\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"}]}\"}",
+    "ms": 2
+   },
+   "doze": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42210,\"message\":\"Missing rule type\"}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/rs/versions",
+   "b": "{\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"}]}\",\"ruleSet\":{\"domainRules\":[{\"name\":\"ma\",\"kind\":\"CONDITION\",\"mode\":\"WRITE\",\"type\":\"CEL\",\"expr\":\"true\",\"onFailure\":\"ERROR,NONE\"}]}}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":106}",
+    "ms": 2
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":105,\"version\":1,\"guid\":\"4b14778e-4b95-583f-33ff-e549c9adc1d2\",\"schemaType\":\"AVRO\",\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"}]}\"}",
+    "ms": 1
+   },
+   "doze": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42210,\"message\":\"Multiple actions only valid with WRITEREAD and UPDOWN\"}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/rs/versions",
+   "b": "{\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"}]}\",\"ruleSet\":{\"domainRules\":[{\"name\":\"mc\",\"kind\":\"CONDITION\",\"mode\":\"UPGRADE\",\"type\":\"CEL\",\"expr\":\"true\"}]}}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":106}",
+    "ms": 1
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":105,\"version\":1,\"guid\":\"4b14778e-4b95-583f-33ff-e549c9adc1d2\",\"schemaType\":\"AVRO\",\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"}]}\"}",
+    "ms": 1
+   },
+   "doze": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42210,\"message\":\"Domain rules can only be WRITE, READ, WRITEREAD\"}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/rs/versions",
+   "b": "{\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"}]}\",\"ruleSet\":{\"migrationRules\":[{\"name\":\"md\",\"kind\":\"CONDITION\",\"mode\":\"WRITE\",\"type\":\"CEL\",\"expr\":\"true\"}]}}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":106}",
+    "ms": 1
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":105,\"version\":1,\"guid\":\"4b14778e-4b95-583f-33ff-e549c9adc1d2\",\"schemaType\":\"AVRO\",\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"}]}\"}",
+    "ms": 1
+   },
+   "doze": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42210,\"message\":\"Migration rules can only be UPGRADE, DOWNGRADE, UPDOWN\"}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/rs/versions",
+   "b": "{\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"}]}\",\"ruleSet\":{\"encodingRules\":[{\"name\":\"me\",\"kind\":\"CONDITION\",\"mode\":\"UPGRADE\",\"type\":\"CEL\",\"expr\":\"true\"}]}}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":106}",
+    "ms": 2
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":105,\"version\":1,\"guid\":\"4b14778e-4b95-583f-33ff-e549c9adc1d2\",\"schemaType\":\"AVRO\",\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"}]}\"}",
+    "ms": 2
+   },
+   "doze": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42210,\"message\":\"Encoding rules can only be WRITE, READ, WRITEREAD\"}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/rs/versions",
+   "b": "{\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"}]}\",\"metadata\":{\"properties\":{\"owner\":\"a\"}},\"ruleSet\":{\"domainRules\":[{\"name\":\"r1\",\"kind\":\"CONDITION\",\"mode\":\"WRITE\",\"type\":\"CEL\",\"expr\":\"true\",\"params\":{\"z\":\"1\",\"a\":\"2\"},\"tags\":[\"t2\",\"t1\"],\"unknown\":1},{\"name\":\"dflt\",\"type\":\"CEL\"}]}}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":107,\"version\":2,\"metadata\":{\"properties\":{\"owner\":\"a\"}},\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"}]}\"}",
+    "ms": 5
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":106,\"version\":2,\"guid\":\"d23d3545-ee57-56e8-192f-7f4bd4a4c5a5\",\"schemaType\":\"AVRO\",\"metadata\":{\"properties\":{\"owner\":\"a\"}},\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"}]}\"}",
+    "ms": 10
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":106,\"version\":1,\"metadata\":{\"properties\":{\"owner\":\"a\"}},\"ruleSet\":{\"domainRules\":[{\"name\":\"r1\",\"kind\":\"CONDITION\",\"mode\":\"WRITE\",\"type\":\"CEL\",\"tags\":[\"t1\",\"t2\"],\"params\":{\"a\":\"2\",\"z\":\"1\"},\"expr\":\"true\",\"disabled\":false},{\"name\":\"dflt\",\"kind\":\"TRANSFORM\",\"mode\":\"WRITEREAD\",\"type\":\"CEL\",\"disabled\":false}]},\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"}]}\"}",
+    "ms": 5
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "GET",
+   "p": "/subjects/rs/versions/latest"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"rs\",\"version\":2,\"id\":107,\"metadata\":{\"properties\":{\"owner\":\"a\"}},\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"}]}\"}",
+    "ms": 1
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"rs\",\"version\":2,\"id\":106,\"guid\":\"d23d3545-ee57-56e8-192f-7f4bd4a4c5a5\",\"schemaType\":\"AVRO\",\"metadata\":{\"properties\":{\"owner\":\"a\"}},\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"}]}\",\"ts\":1795104627897,\"deleted\":false}",
+    "ms": 1
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"rs\",\"version\":1,\"id\":106,\"metadata\":{\"properties\":{\"owner\":\"a\"}},\"ruleSet\":{\"domainRules\":[{\"name\":\"r1\",\"kind\":\"CONDITION\",\"mode\":\"WRITE\",\"type\":\"CEL\",\"tags\":[\"t1\",\"t2\"],\"params\":{\"a\":\"2\",\"z\":\"1\"},\"expr\":\"true\",\"disabled\":false},{\"name\":\"dflt\",\"kind\":\"TRANSFORM\",\"mode\":\"WRITEREAD\",\"type\":\"CEL\",\"disabled\":false}]},\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"}]}\"}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "GET",
+   "p": "/schemas/ids/@1"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"}]}\"}",
+    "ms": 1
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"rs\",\"version\":1,\"guid\":\"4b14778e-4b95-583f-33ff-e549c9adc1d2\",\"schemaType\":\"AVRO\",\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"}]}\",\"ts\":1795104627872,\"deleted\":false}",
+    "ms": 1
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"}]}\",\"metadata\":{\"properties\":{\"owner\":\"a\"}},\"ruleSet\":{\"domainRules\":[{\"name\":\"r1\",\"kind\":\"CONDITION\",\"mode\":\"WRITE\",\"type\":\"CEL\",\"tags\":[\"t1\",\"t2\"],\"params\":{\"a\":\"2\",\"z\":\"1\"},\"expr\":\"true\",\"disabled\":false},{\"name\":\"dflt\",\"kind\":\"TRANSFORM\",\"mode\":\"WRITEREAD\",\"type\":\"CEL\",\"disabled\":false}]}}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/rs/versions",
+   "b": "{\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"},{\\\"name\\\":\\\"email\\\",\\\"type\\\":[\\\"null\\\",\\\"string\\\"],\\\"default\\\":null}]}\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":108,\"version\":3,\"metadata\":{\"properties\":{\"owner\":\"a\"}},\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"},{\\\"name\\\":\\\"email\\\",\\\"type\\\":[\\\"null\\\",\\\"string\\\"],\\\"default\\\":null}]}\"}",
+    "ms": 4
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":107,\"version\":3,\"guid\":\"788818bf-0910-2e4f-6854-c1cb696fc4a8\",\"schemaType\":\"AVRO\",\"metadata\":{\"properties\":{\"owner\":\"a\"}},\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"},{\\\"name\\\":\\\"email\\\",\\\"type\\\":[\\\"null\\\",\\\"string\\\"],\\\"default\\\":null}]}\"}",
+    "ms": 8
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":107,\"version\":2,\"metadata\":{\"properties\":{\"owner\":\"a\"}},\"ruleSet\":{\"domainRules\":[{\"name\":\"r1\",\"kind\":\"CONDITION\",\"mode\":\"WRITE\",\"type\":\"CEL\",\"tags\":[\"t1\",\"t2\"],\"params\":{\"a\":\"2\",\"z\":\"1\"},\"expr\":\"true\",\"disabled\":false},{\"name\":\"dflt\",\"kind\":\"TRANSFORM\",\"mode\":\"WRITEREAD\",\"type\":\"CEL\",\"disabled\":false}]},\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"},{\\\"name\\\":\\\"email\\\",\\\"type\\\":[\\\"null\\\",\\\"string\\\"],\\\"default\\\":null}]}\"}",
+    "ms": 4
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "GET",
+   "p": "/subjects/rs/versions/latest"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"rs\",\"version\":3,\"id\":108,\"metadata\":{\"properties\":{\"owner\":\"a\"}},\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"},{\\\"name\\\":\\\"email\\\",\\\"type\\\":[\\\"null\\\",\\\"string\\\"],\\\"default\\\":null}]}\"}",
+    "ms": 1
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"rs\",\"version\":3,\"id\":107,\"guid\":\"788818bf-0910-2e4f-6854-c1cb696fc4a8\",\"schemaType\":\"AVRO\",\"metadata\":{\"properties\":{\"owner\":\"a\"}},\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"},{\\\"name\\\":\\\"email\\\",\\\"type\\\":[\\\"null\\\",\\\"string\\\"],\\\"default\\\":null}]}\",\"ts\":1795104627909,\"deleted\":false}",
+    "ms": 3
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"rs\",\"version\":2,\"id\":107,\"metadata\":{\"properties\":{\"owner\":\"a\"}},\"ruleSet\":{\"domainRules\":[{\"name\":\"r1\",\"kind\":\"CONDITION\",\"mode\":\"WRITE\",\"type\":\"CEL\",\"tags\":[\"t1\",\"t2\"],\"params\":{\"a\":\"2\",\"z\":\"1\"},\"expr\":\"true\",\"disabled\":false},{\"name\":\"dflt\",\"kind\":\"TRANSFORM\",\"mode\":\"WRITEREAD\",\"type\":\"CEL\",\"disabled\":false}]},\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"},{\\\"name\\\":\\\"email\\\",\\\"type\\\":[\\\"null\\\",\\\"string\\\"],\\\"default\\\":null}]}\"}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/rs",
+   "b": "{\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"},{\\\"name\\\":\\\"email\\\",\\\"type\\\":[\\\"null\\\",\\\"string\\\"],\\\"default\\\":null}]}\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 404,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":40403,\"message\":\"Schema not found\"}",
+    "ms": 2
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"rs\",\"version\":3,\"id\":107,\"guid\":\"788818bf-0910-2e4f-6854-c1cb696fc4a8\",\"schemaType\":\"AVRO\",\"metadata\":{\"properties\":{\"owner\":\"a\"}},\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"},{\\\"name\\\":\\\"email\\\",\\\"type\\\":[\\\"null\\\",\\\"string\\\"],\\\"default\\\":null}]}\"}",
+    "ms": 3
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"rs\",\"version\":2,\"id\":107,\"metadata\":{\"properties\":{\"owner\":\"a\"}},\"ruleSet\":{\"domainRules\":[{\"name\":\"r1\",\"kind\":\"CONDITION\",\"mode\":\"WRITE\",\"type\":\"CEL\",\"tags\":[\"t1\",\"t2\"],\"params\":{\"a\":\"2\",\"z\":\"1\"},\"expr\":\"true\",\"disabled\":false},{\"name\":\"dflt\",\"kind\":\"TRANSFORM\",\"mode\":\"WRITEREAD\",\"type\":\"CEL\",\"disabled\":false}]},\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"},{\\\"name\\\":\\\"email\\\",\\\"type\\\":[\\\"null\\\",\\\"string\\\"],\\\"default\\\":null}]}\"}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/rs/versions",
+   "b": "{\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"},{\\\"name\\\":\\\"email\\\",\\\"type\\\":[\\\"null\\\",\\\"string\\\"],\\\"default\\\":null}]}\",\"ruleSet\":{\"domainRules\":[{\"name\":\"r2\",\"kind\":\"CONDITION\",\"mode\":\"WRITEREAD\",\"type\":\"CEL\",\"expr\":\"true\",\"onFailure\":\"ERROR,NONE\",\"disabled\":true,\"doc\":\"d\"}]}}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":108,\"version\":3,\"metadata\":{\"properties\":{\"owner\":\"a\"}},\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"},{\\\"name\\\":\\\"email\\\",\\\"type\\\":[\\\"null\\\",\\\"string\\\"],\\\"default\\\":null}]}\"}",
+    "ms": 1
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":107,\"version\":3,\"guid\":\"788818bf-0910-2e4f-6854-c1cb696fc4a8\",\"schemaType\":\"AVRO\",\"metadata\":{\"properties\":{\"owner\":\"a\"}},\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"},{\\\"name\\\":\\\"email\\\",\\\"type\\\":[\\\"null\\\",\\\"string\\\"],\\\"default\\\":null}]}\"}",
+    "ms": 2
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":108,\"version\":3,\"metadata\":{\"properties\":{\"owner\":\"a\"}},\"ruleSet\":{\"domainRules\":[{\"name\":\"r2\",\"doc\":\"d\",\"kind\":\"CONDITION\",\"mode\":\"WRITEREAD\",\"type\":\"CEL\",\"expr\":\"true\",\"onFailure\":\"ERROR,NONE\",\"disabled\":true}]},\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"},{\\\"name\\\":\\\"email\\\",\\\"type\\\":[\\\"null\\\",\\\"string\\\"],\\\"default\\\":null}]}\"}",
+    "ms": 4
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "GET",
+   "p": "/subjects/rs/versions/latest"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"rs\",\"version\":3,\"id\":108,\"metadata\":{\"properties\":{\"owner\":\"a\"}},\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"},{\\\"name\\\":\\\"email\\\",\\\"type\\\":[\\\"null\\\",\\\"string\\\"],\\\"default\\\":null}]}\"}",
+    "ms": 1
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"rs\",\"version\":3,\"id\":107,\"guid\":\"788818bf-0910-2e4f-6854-c1cb696fc4a8\",\"schemaType\":\"AVRO\",\"metadata\":{\"properties\":{\"owner\":\"a\"}},\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"},{\\\"name\\\":\\\"email\\\",\\\"type\\\":[\\\"null\\\",\\\"string\\\"],\\\"default\\\":null}]}\",\"ts\":1795104627909,\"deleted\":false}",
+    "ms": 1
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"rs\",\"version\":3,\"id\":108,\"metadata\":{\"properties\":{\"owner\":\"a\"}},\"ruleSet\":{\"domainRules\":[{\"name\":\"r2\",\"doc\":\"d\",\"kind\":\"CONDITION\",\"mode\":\"WRITEREAD\",\"type\":\"CEL\",\"expr\":\"true\",\"onFailure\":\"ERROR,NONE\",\"disabled\":true}]},\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"},{\\\"name\\\":\\\"email\\\",\\\"type\\\":[\\\"null\\\",\\\"string\\\"],\\\"default\\\":null}]}\"}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/rs/versions",
+   "b": "{\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"}]}\",\"ruleSet\":{\"encodingRules\":[{\"name\":\"enc\",\"kind\":\"CONDITION\",\"mode\":\"WRITEREAD\",\"type\":\"ENCRYPT_PAYLOAD\",\"expr\":\"true\"}]}}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":106}",
+    "ms": 1
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":105,\"version\":1,\"guid\":\"4b14778e-4b95-583f-33ff-e549c9adc1d2\",\"schemaType\":\"AVRO\",\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"}]}\"}",
+    "ms": 1
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":109,\"version\":4,\"metadata\":{\"properties\":{\"owner\":\"a\"}},\"ruleSet\":{\"encodingRules\":[{\"name\":\"enc\",\"kind\":\"CONDITION\",\"mode\":\"WRITEREAD\",\"type\":\"ENCRYPT_PAYLOAD\",\"expr\":\"true\",\"disabled\":false}]},\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"}]}\"}",
+    "ms": 5
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "GET",
+   "p": "/subjects/rs/versions/latest"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"rs\",\"version\":3,\"id\":108,\"metadata\":{\"properties\":{\"owner\":\"a\"}},\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"},{\\\"name\\\":\\\"email\\\",\\\"type\\\":[\\\"null\\\",\\\"string\\\"],\\\"default\\\":null}]}\"}",
+    "ms": 1
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"rs\",\"version\":3,\"id\":107,\"guid\":\"788818bf-0910-2e4f-6854-c1cb696fc4a8\",\"schemaType\":\"AVRO\",\"metadata\":{\"properties\":{\"owner\":\"a\"}},\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"},{\\\"name\\\":\\\"email\\\",\\\"type\\\":[\\\"null\\\",\\\"string\\\"],\\\"default\\\":null}]}\",\"ts\":1795104627909,\"deleted\":false}",
+    "ms": 1
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"rs\",\"version\":4,\"id\":109,\"metadata\":{\"properties\":{\"owner\":\"a\"}},\"ruleSet\":{\"encodingRules\":[{\"name\":\"enc\",\"kind\":\"CONDITION\",\"mode\":\"WRITEREAD\",\"type\":\"ENCRYPT_PAYLOAD\",\"expr\":\"true\",\"disabled\":false}]},\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"}]}\"}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "PUT",
+   "p": "/config/rsc",
+   "b": "{\"defaultRuleSet\":{\"domainRules\":[{\"name\":\"d1\",\"kind\":\"CONDITION\",\"mode\":\"WRITE\",\"type\":\"CEL\",\"expr\":\"true\"},{\"name\":\"shared\",\"kind\":\"CONDITION\",\"mode\":\"WRITE\",\"type\":\"CEL\",\"expr\":\"1 == 1\"}]},\"overrideRuleSet\":{\"domainRules\":[{\"name\":\"shared\",\"kind\":\"CONDITION\",\"mode\":\"WRITE\",\"type\":\"CEL\",\"expr\":\"2 == 2\"}],\"migrationRules\":[{\"name\":\"m1\",\"kind\":\"TRANSFORM\",\"mode\":\"UPGRADE\",\"type\":\"JSONATA\",\"expr\":\"$\"}]}}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{}",
+    "ms": 3
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{}",
+    "ms": 11
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"defaultRuleSet\":{\"domainRules\":[{\"name\":\"d1\",\"kind\":\"CONDITION\",\"mode\":\"WRITE\",\"type\":\"CEL\",\"expr\":\"true\",\"disabled\":false},{\"name\":\"shared\",\"kind\":\"CONDITION\",\"mode\":\"WRITE\",\"type\":\"CEL\",\"expr\":\"1 == 1\",\"disabled\":false}]},\"overrideRuleSet\":{\"migrationRules\":[{\"name\":\"m1\",\"kind\":\"TRANSFORM\",\"mode\":\"UPGRADE\",\"type\":\"JSONATA\",\"expr\":\"$\",\"disabled\":false}],\"domainRules\":[{\"name\":\"shared\",\"kind\":\"CONDITION\",\"mode\":\"WRITE\",\"type\":\"CEL\",\"expr\":\"2 == 2\",\"disabled\":false}]}}",
+    "ms": 4
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "GET",
+   "p": "/config/rsc"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"compatibilityLevel\":\"BACKWARD\"}",
+    "ms": 1
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"compatibilityLevel\":\"BACKWARD\"}",
+    "ms": 1
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"compatibilityLevel\":\"BACKWARD\",\"defaultRuleSet\":{\"domainRules\":[{\"name\":\"d1\",\"kind\":\"CONDITION\",\"mode\":\"WRITE\",\"type\":\"CEL\",\"expr\":\"true\",\"disabled\":false},{\"name\":\"shared\",\"kind\":\"CONDITION\",\"mode\":\"WRITE\",\"type\":\"CEL\",\"expr\":\"1 == 1\",\"disabled\":false}]},\"overrideRuleSet\":{\"migrationRules\":[{\"name\":\"m1\",\"kind\":\"TRANSFORM\",\"mode\":\"UPGRADE\",\"type\":\"JSONATA\",\"expr\":\"$\",\"disabled\":false}],\"domainRules\":[{\"name\":\"shared\",\"kind\":\"CONDITION\",\"mode\":\"WRITE\",\"type\":\"CEL\",\"expr\":\"2 == 2\",\"disabled\":false}]}}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/rsc/versions",
+   "b": "{\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"}]}\",\"ruleSet\":{\"domainRules\":[{\"name\":\"own\",\"kind\":\"CONDITION\",\"mode\":\"WRITE\",\"type\":\"CEL\",\"expr\":\"true\"}]}}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":106}",
+    "ms": 6
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":105,\"version\":1,\"guid\":\"4b14778e-4b95-583f-33ff-e549c9adc1d2\",\"schemaType\":\"AVRO\",\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"}]}\"}",
+    "ms": 9
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":110,\"version\":1,\"ruleSet\":{\"migrationRules\":[{\"name\":\"m1\",\"kind\":\"TRANSFORM\",\"mode\":\"UPGRADE\",\"type\":\"JSONATA\",\"expr\":\"$\",\"disabled\":false}],\"domainRules\":[{\"name\":\"d1\",\"kind\":\"CONDITION\",\"mode\":\"WRITE\",\"type\":\"CEL\",\"expr\":\"true\",\"disabled\":false},{\"name\":\"own\",\"kind\":\"CONDITION\",\"mode\":\"WRITE\",\"type\":\"CEL\",\"expr\":\"true\",\"disabled\":false},{\"name\":\"shared\",\"kind\":\"CONDITION\",\"mode\":\"WRITE\",\"type\":\"CEL\",\"expr\":\"2 == 2\",\"disabled\":false}]},\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"}]}\"}",
+    "ms": 12
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "GET",
+   "p": "/subjects/rsc/versions/latest"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"rsc\",\"version\":1,\"id\":106,\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"}]}\"}",
+    "ms": 1
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"rsc\",\"version\":1,\"id\":105,\"guid\":\"4b14778e-4b95-583f-33ff-e549c9adc1d2\",\"schemaType\":\"AVRO\",\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"}]}\",\"ts\":1795104627946,\"deleted\":false}",
+    "ms": 2
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"rsc\",\"version\":1,\"id\":110,\"ruleSet\":{\"migrationRules\":[{\"name\":\"m1\",\"kind\":\"TRANSFORM\",\"mode\":\"UPGRADE\",\"type\":\"JSONATA\",\"expr\":\"$\",\"disabled\":false}],\"domainRules\":[{\"name\":\"d1\",\"kind\":\"CONDITION\",\"mode\":\"WRITE\",\"type\":\"CEL\",\"expr\":\"true\",\"disabled\":false},{\"name\":\"own\",\"kind\":\"CONDITION\",\"mode\":\"WRITE\",\"type\":\"CEL\",\"expr\":\"true\",\"disabled\":false},{\"name\":\"shared\",\"kind\":\"CONDITION\",\"mode\":\"WRITE\",\"type\":\"CEL\",\"expr\":\"2 == 2\",\"disabled\":false}]},\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"}]}\"}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "PUT",
+   "p": "/config/rsc",
+   "b": "{\"defaultRuleSet\":{\"domainRules\":[{\"name\":\"a\",\"kind\":\"CONDITION\",\"mode\":\"WRITE\",\"type\":\"CEL\",\"expr\":\"true\"},{\"name\":\"a\",\"kind\":\"CONDITION\",\"mode\":\"WRITE\",\"type\":\"CEL\",\"expr\":\"true\"}]}}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{}",
+    "ms": 3
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{}",
+    "ms": 9
+   },
+   "doze": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42210,\"message\":\"Found rule with duplicate name 'a'\"}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "PUT",
+   "p": "/config/rsc",
+   "b": "{\"defaultRuleSet\":{\"domainRules\":[]}}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{}",
+    "ms": 2
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{}",
+    "ms": 7
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{}",
+    "ms": 5
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "GET",
+   "p": "/config/rsc"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"compatibilityLevel\":\"BACKWARD\"}",
+    "ms": 1
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"compatibilityLevel\":\"BACKWARD\"}",
+    "ms": 1
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"compatibilityLevel\":\"BACKWARD\",\"overrideRuleSet\":{\"migrationRules\":[{\"name\":\"m1\",\"kind\":\"TRANSFORM\",\"mode\":\"UPGRADE\",\"type\":\"JSONATA\",\"expr\":\"$\",\"disabled\":false}],\"domainRules\":[{\"name\":\"shared\",\"kind\":\"CONDITION\",\"mode\":\"WRITE\",\"type\":\"CEL\",\"expr\":\"2 == 2\",\"disabled\":false}]}}",
+    "ms": 0
+   }
+  }
+ }
+]

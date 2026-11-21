@@ -291,7 +291,7 @@ impl Checker<'_> {
             (Shape::Any, _) | (Shape::Str, Json::Str(_)) => Ok(()),
             (Shape::Bool, Json::Raw(r)) if r == "true" || r == "false" => Ok(()),
             (Shape::Num | Shape::Count | Shape::Positive, Json::Raw(r)) => {
-                number(shape, r).map_or_else(bad, Ok)
+                number(shape, r, doc_draft(self, doc)).map_or_else(bad, Ok)
             }
             (Shape::Array, Json::Array(_)) => Ok(()),
             (Shape::Pattern, Json::Str(p)) => regex(p).map_or_else(|w| bad(&w), Ok),

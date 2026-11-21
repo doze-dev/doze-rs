@@ -1,0 +1,558 @@
+[
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/pn-mixed/versions?normalize=true",
+   "b": "{\"schema\":\"syntax = \\\"proto3\\\";\\npackage shop.v1;\\nimport \\\"google/protobuf/timestamp.proto\\\";\\nimport \\\"google/protobuf/descriptor.proto\\\";\\noption java_package = 'com.shop';\\noption go_package = \\\"x\\\";\\nextend google.protobuf.FieldOptions { Rule rule = 50001; repeated string tags = 50002; }\\nmessage Rule { int32 min = 1; int32 max = 2; Inner inner = 3; message Inner { string a = 1; } }\\nmessage Order {\\n  reserved 20 to 25, 9;\\n  reserved \\\"zz\\\", \\\"aa\\\";\\n  option deprecated = true;\\n  map<string, Line> lines = 5;\\n  string id = 1 [json_name = \\\"ID\\\", deprecated = true, (rule).min = 1, (rule).max = 0x10, (tags) = \\\"b\\\", (tags) = \\\"a\\\"];\\n  google.protobuf.Timestamp at = 3 [(rule) = { max: 2.50 min: 1 inner { a: \\\"q\\\" } }];\\n  oneof kind { string b = 12; int64 a = 11; }\\n  oneof other { bool z = 7; }\\n  double d = 2;\\n  message Line { Status s = 1; }\\n  enum Status { option allow_alias = true; reserved 9, 3 to 4; NEW = 0; DONE = 2; OK = 2; ALSO = 1; }\\n}\\nservice Svc { option deprecated = true; rpc Get (Order) returns (stream Order.Line); }\\n\",\"schemaType\":\"PROTOBUF\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":51}",
+    "ms": 24
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":50,\"version\":1,\"guid\":\"5075c123-368f-95f0-b0c9-afb7007aa389\",\"schemaType\":\"PROTOBUF\",\"schema\":\"syntax = \\\"proto3\\\";\\npackage shop.v1;\\n\\nimport \\\"google/protobuf/descriptor.proto\\\";\\nimport \\\"google/protobuf/timestamp.proto\\\";\\n\\noption go_package = \\\"x\\\";\\noption java_package = \\\"com.shop\\\";\\n\\nmessage Rule {\\n  int32 min = 1;\\n  int32 max = 2;\\n  .shop.v1.Rule.Inner inner = 3;\\n\\n  message Inner {\\n    string a = 1;\\n  }\\n}\\nmessage Order {\\n  reserved 9;\\n  reserved 20 to 25;\\n  reserved \\\"aa\\\";\\n  reserved \\\"zz\\\";\\n\\n  option deprecated = true;\\n\\n  string id = 1 [\\n    deprecated = true,\\n    json_name = \\\"ID\\\",\\n    (shop.v1.rule) = {\\n      max: 16,\\n      min: 1\\n    },\\n    (shop.v1.tags) = \\\"b\\\",\\n    (shop.v1.tags) = \\\"a\\\"\\n  ];\\n  double d = 2;\\n  .google.protobuf.Timestamp at = 3 [(shop.v1.rule) = {\\n    inner: {\\n      a: \\\"q\\\"\\n    },\\n    max: 2.5,\\n    min: 1\\n  }];\\n  map<string, .shop.v1.Order.Line> lines = 5;\\n\\n  oneof other {\\n    bool z = 7;\\n  }\\n  oneof kind {\\n    int64 a = 11;\\n    string b = 12;\\n  }\\n\\n  message Line {\\n    .shop.v1.Order.Status s = 1;\\n  }\\n  enum Status {\\n    reserved 3 to 4;\\n    reserved 9;\\n    option allow_alias = true;\\n    NEW = 0;\\n    ALSO = 1;\\n    DONE = 2;\\n    OK = 2;\\n  }\\n}\\n\\nextend .google.protobuf.FieldOptions {\\n  .shop.v1.Rule rule = 50001;\\n  repeated string tags = 50002;\\n}\\n\\nservice Svc {\\n  option deprecated = true;\\n\\n  rpc Get (.shop.v1.Order) returns (stream .shop.v1.Order.Line);\\n}\\n\"}",
+    "ms": 19
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":52}",
+    "ms": 6
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "GET",
+   "p": "/subjects/pn-mixed/versions/latest/schema"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "syntax = \"proto3\";\npackage shop.v1;\n\nimport \"google/protobuf/descriptor.proto\";\nimport \"google/protobuf/timestamp.proto\";\n\noption go_package = \"x\";\noption java_package = \"com.shop\";\n\nmessage Rule {\n  int32 min = 1;\n  int32 max = 2;\n  .shop.v1.Rule.Inner inner = 3;\n\n  message Inner {\n    string a = 1;\n  }\n}\nmessage Order {\n  reserved 9;\n  reserved 20 to 25;\n  reserved \"aa\";\n  reserved \"zz\";\n\n  option deprecated = true;\n\n  string id = 1 [\n    deprecated = true,\n    json_name = \"ID\",\n    (shop.v1.rule) = {\n      max: 16,\n      min: 1\n    },\n    (shop.v1.tags) = \"b\",\n    (shop.v1.tags) = \"a\"\n  ];\n  double d = 2;\n  .google.protobuf.Timestamp at = 3 [(shop.v1.rule) = {\n    inner: {\n      a: \"q\"\n    },\n    max: 2.5,\n    min: 1\n  }];\n  map<string, .shop.v1.Order.Line> lines = 5;\n\n  oneof other {\n    bool z = 7;\n  }\n  oneof kind {\n    int64 a = 11;\n    string b = 12;\n  }\n\n  message Line {\n    .shop.v1.Order.Status s = 1;\n  }\n  enum Status {\n    reserved 3 to 4;\n    reserved 9;\n    option allow_alias = true;\n    NEW = 0;\n    ALSO = 1;\n    DONE = 2;\n    OK = 2;\n  }\n}\n\nextend .google.protobuf.FieldOptions {\n  .shop.v1.Rule rule = 50001;\n  repeated string tags = 50002;\n}\n\nservice Svc {\n  option deprecated = true;\n\n  rpc Get (.shop.v1.Order) returns (stream .shop.v1.Order.Line);\n}\n",
+    "ms": 2
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "syntax = \"proto3\";\npackage shop.v1;\n\nimport \"google/protobuf/descriptor.proto\";\nimport \"google/protobuf/timestamp.proto\";\n\noption go_package = \"x\";\noption java_package = \"com.shop\";\n\nmessage Rule {\n  int32 min = 1;\n  int32 max = 2;\n  .shop.v1.Rule.Inner inner = 3;\n\n  message Inner {\n    string a = 1;\n  }\n}\nmessage Order {\n  reserved 9;\n  reserved 20 to 25;\n  reserved \"aa\";\n  reserved \"zz\";\n\n  option deprecated = true;\n\n  string id = 1 [\n    deprecated = true,\n    json_name = \"ID\",\n    (shop.v1.rule) = {\n      max: 16,\n      min: 1\n    },\n    (shop.v1.tags) = \"b\",\n    (shop.v1.tags) = \"a\"\n  ];\n  double d = 2;\n  .google.protobuf.Timestamp at = 3 [(shop.v1.rule) = {\n    inner: {\n      a: \"q\"\n    },\n    max: 2.5,\n    min: 1\n  }];\n  map<string, .shop.v1.Order.Line> lines = 5;\n\n  oneof other {\n    bool z = 7;\n  }\n  oneof kind {\n    int64 a = 11;\n    string b = 12;\n  }\n\n  message Line {\n    .shop.v1.Order.Status s = 1;\n  }\n  enum Status {\n    reserved 3 to 4;\n    reserved 9;\n    option allow_alias = true;\n    NEW = 0;\n    ALSO = 1;\n    DONE = 2;\n    OK = 2;\n  }\n}\n\nextend .google.protobuf.FieldOptions {\n  .shop.v1.Rule rule = 50001;\n  repeated string tags = 50002;\n}\n\nservice Svc {\n  option deprecated = true;\n\n  rpc Get (.shop.v1.Order) returns (stream .shop.v1.Order.Line);\n}\n",
+    "ms": 3
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "syntax = \"proto3\";\npackage shop.v1;\n\nimport \"google/protobuf/descriptor.proto\";\nimport \"google/protobuf/timestamp.proto\";\n\noption go_package = \"x\";\noption java_package = \"com.shop\";\n\nmessage Rule {\n  int32 min = 1;\n  int32 max = 2;\n  .shop.v1.Rule.Inner inner = 3;\n\n  message Inner {\n    string a = 1;\n  }\n}\nmessage Order {\n  reserved 9;\n  reserved 20 to 25;\n  reserved \"aa\";\n  reserved \"zz\";\n\n  option deprecated = true;\n\n  string id = 1 [\n    deprecated = true,\n    json_name = \"ID\",\n    (shop.v1.rule) = {\n      max: 16,\n      min: 1\n    },\n    (shop.v1.tags) = \"b\",\n    (shop.v1.tags) = \"a\"\n  ];\n  double d = 2;\n  .google.protobuf.Timestamp at = 3 [(shop.v1.rule) = {\n    inner: {\n      a: \"q\"\n    },\n    max: 2.5,\n    min: 1\n  }];\n  map<string, .shop.v1.Order.Line> lines = 5;\n\n  oneof other {\n    bool z = 7;\n  }\n  oneof kind {\n    int64 a = 11;\n    string b = 12;\n  }\n\n  message Line {\n    .shop.v1.Order.Status s = 1;\n  }\n  enum Status {\n    reserved 3 to 4;\n    reserved 9;\n    option allow_alias = true;\n    NEW = 0;\n    ALSO = 1;\n    DONE = 2;\n    OK = 2;\n  }\n}\n\nextend .google.protobuf.FieldOptions {\n  .shop.v1.Rule rule = 50001;\n  repeated string tags = 50002;\n}\n\nservice Svc {\n  option deprecated = true;\n\n  rpc Get (.shop.v1.Order) returns (stream .shop.v1.Order.Line);\n}\n",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/pn-mixed?normalize=true",
+   "b": "{\"schema\":\"syntax = \\\"proto3\\\";\\npackage shop.v1;\\nimport \\\"google/protobuf/timestamp.proto\\\";\\nimport \\\"google/protobuf/descriptor.proto\\\";\\noption java_package = 'com.shop';\\noption go_package = \\\"x\\\";\\nextend google.protobuf.FieldOptions { Rule rule = 50001; repeated string tags = 50002; }\\nmessage Rule { int32 min = 1; int32 max = 2; Inner inner = 3; message Inner { string a = 1; } }\\nmessage Order {\\n  reserved 20 to 25, 9;\\n  reserved \\\"zz\\\", \\\"aa\\\";\\n  option deprecated = true;\\n  map<string, Line> lines = 5;\\n  string id = 1 [json_name = \\\"ID\\\", deprecated = true, (rule).min = 1, (rule).max = 0x10, (tags) = \\\"b\\\", (tags) = \\\"a\\\"];\\n  google.protobuf.Timestamp at = 3 [(rule) = { max: 2.50 min: 1 inner { a: \\\"q\\\" } }];\\n  oneof kind { string b = 12; int64 a = 11; }\\n  oneof other { bool z = 7; }\\n  double d = 2;\\n  message Line { Status s = 1; }\\n  enum Status { option allow_alias = true; reserved 9, 3 to 4; NEW = 0; DONE = 2; OK = 2; ALSO = 1; }\\n}\\nservice Svc { option deprecated = true; rpc Get (Order) returns (stream Order.Line); }\\n\",\"schemaType\":\"PROTOBUF\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"pn-mixed\",\"version\":1,\"id\":51,\"schemaType\":\"PROTOBUF\",\"schema\":\"syntax = \\\"proto3\\\";\\npackage shop.v1;\\n\\nimport \\\"google/protobuf/descriptor.proto\\\";\\nimport \\\"google/protobuf/timestamp.proto\\\";\\n\\noption go_package = \\\"x\\\";\\noption java_package = \\\"com.shop\\\";\\n\\nmessage Rule {\\n  int32 min = 1;\\n  int32 max = 2;\\n  .shop.v1.Rule.Inner inner = 3;\\n\\n  message Inner {\\n    string a = 1;\\n  }\\n}\\nmessage Order {\\n  reserved 9;\\n  reserved 20 to 25;\\n  reserved \\\"aa\\\";\\n  reserved \\\"zz\\\";\\n\\n  option deprecated = true;\\n\\n  string id = 1 [\\n    deprecated = true,\\n    json_name = \\\"ID\\\",\\n    (shop.v1.rule) = {\\n      max: 16,\\n      min: 1\\n    },\\n    (shop.v1.tags) = \\\"b\\\",\\n    (shop.v1.tags) = \\\"a\\\"\\n  ];\\n  double d = 2;\\n  .google.protobuf.Timestamp at = 3 [(shop.v1.rule) = {\\n    inner: {\\n      a: \\\"q\\\"\\n    },\\n    max: 2.5,\\n    min: 1\\n  }];\\n  map<string, .shop.v1.Order.Line> lines = 5;\\n\\n  oneof other {\\n    bool z = 7;\\n  }\\n  oneof kind {\\n    int64 a = 11;\\n    string b = 12;\\n  }\\n\\n  message Line {\\n    .shop.v1.Order.Status s = 1;\\n  }\\n  enum Status {\\n    reserved 3 to 4;\\n    reserved 9;\\n    option allow_alias = true;\\n    NEW = 0;\\n    ALSO = 1;\\n    DONE = 2;\\n    OK = 2;\\n  }\\n}\\n\\nextend .google.protobuf.FieldOptions {\\n  .shop.v1.Rule rule = 50001;\\n  repeated string tags = 50002;\\n}\\n\\nservice Svc {\\n  option deprecated = true;\\n\\n  rpc Get (.shop.v1.Order) returns (stream .shop.v1.Order.Line);\\n}\\n\"}",
+    "ms": 6
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"pn-mixed\",\"version\":1,\"id\":50,\"guid\":\"5075c123-368f-95f0-b0c9-afb7007aa389\",\"schemaType\":\"PROTOBUF\",\"schema\":\"syntax = \\\"proto3\\\";\\npackage shop.v1;\\n\\nimport \\\"google/protobuf/descriptor.proto\\\";\\nimport \\\"google/protobuf/timestamp.proto\\\";\\n\\noption go_package = \\\"x\\\";\\noption java_package = \\\"com.shop\\\";\\n\\nmessage Rule {\\n  int32 min = 1;\\n  int32 max = 2;\\n  .shop.v1.Rule.Inner inner = 3;\\n\\n  message Inner {\\n    string a = 1;\\n  }\\n}\\nmessage Order {\\n  reserved 9;\\n  reserved 20 to 25;\\n  reserved \\\"aa\\\";\\n  reserved \\\"zz\\\";\\n\\n  option deprecated = true;\\n\\n  string id = 1 [\\n    deprecated = true,\\n    json_name = \\\"ID\\\",\\n    (shop.v1.rule) = {\\n      max: 16,\\n      min: 1\\n    },\\n    (shop.v1.tags) = \\\"b\\\",\\n    (shop.v1.tags) = \\\"a\\\"\\n  ];\\n  double d = 2;\\n  .google.protobuf.Timestamp at = 3 [(shop.v1.rule) = {\\n    inner: {\\n      a: \\\"q\\\"\\n    },\\n    max: 2.5,\\n    min: 1\\n  }];\\n  map<string, .shop.v1.Order.Line> lines = 5;\\n\\n  oneof other {\\n    bool z = 7;\\n  }\\n  oneof kind {\\n    int64 a = 11;\\n    string b = 12;\\n  }\\n\\n  message Line {\\n    .shop.v1.Order.Status s = 1;\\n  }\\n  enum Status {\\n    reserved 3 to 4;\\n    reserved 9;\\n    option allow_alias = true;\\n    NEW = 0;\\n    ALSO = 1;\\n    DONE = 2;\\n    OK = 2;\\n  }\\n}\\n\\nextend .google.protobuf.FieldOptions {\\n  .shop.v1.Rule rule = 50001;\\n  repeated string tags = 50002;\\n}\\n\\nservice Svc {\\n  option deprecated = true;\\n\\n  rpc Get (.shop.v1.Order) returns (stream .shop.v1.Order.Line);\\n}\\n\"}",
+    "ms": 12
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"pn-mixed\",\"version\":1,\"id\":52,\"schemaType\":\"PROTOBUF\",\"schema\":\"syntax = \\\"proto3\\\";\\npackage shop.v1;\\n\\nimport \\\"google/protobuf/descriptor.proto\\\";\\nimport \\\"google/protobuf/timestamp.proto\\\";\\n\\noption go_package = \\\"x\\\";\\noption java_package = \\\"com.shop\\\";\\n\\nmessage Rule {\\n  int32 min = 1;\\n  int32 max = 2;\\n  .shop.v1.Rule.Inner inner = 3;\\n\\n  message Inner {\\n    string a = 1;\\n  }\\n}\\nmessage Order {\\n  reserved 9;\\n  reserved 20 to 25;\\n  reserved \\\"aa\\\";\\n  reserved \\\"zz\\\";\\n\\n  option deprecated = true;\\n\\n  string id = 1 [\\n    deprecated = true,\\n    json_name = \\\"ID\\\",\\n    (shop.v1.rule) = {\\n      max: 16,\\n      min: 1\\n    },\\n    (shop.v1.tags) = \\\"b\\\",\\n    (shop.v1.tags) = \\\"a\\\"\\n  ];\\n  double d = 2;\\n  .google.protobuf.Timestamp at = 3 [(shop.v1.rule) = {\\n    inner: {\\n      a: \\\"q\\\"\\n    },\\n    max: 2.5,\\n    min: 1\\n  }];\\n  map<string, .shop.v1.Order.Line> lines = 5;\\n\\n  oneof other {\\n    bool z = 7;\\n  }\\n  oneof kind {\\n    int64 a = 11;\\n    string b = 12;\\n  }\\n\\n  message Line {\\n    .shop.v1.Order.Status s = 1;\\n  }\\n  enum Status {\\n    reserved 3 to 4;\\n    reserved 9;\\n    option allow_alias = true;\\n    NEW = 0;\\n    ALSO = 1;\\n    DONE = 2;\\n    OK = 2;\\n  }\\n}\\n\\nextend .google.protobuf.FieldOptions {\\n  .shop.v1.Rule rule = 50001;\\n  repeated string tags = 50002;\\n}\\n\\nservice Svc {\\n  option deprecated = true;\\n\\n  rpc Get (.shop.v1.Order) returns (stream .shop.v1.Order.Line);\\n}\\n\"}",
+    "ms": 1
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/pn-mixed",
+   "b": "{\"schema\":\"syntax = \\\"proto3\\\";\\npackage shop.v1;\\nimport \\\"google/protobuf/timestamp.proto\\\";\\nimport \\\"google/protobuf/descriptor.proto\\\";\\noption java_package = 'com.shop';\\noption go_package = \\\"x\\\";\\nextend google.protobuf.FieldOptions { Rule rule = 50001; repeated string tags = 50002; }\\nmessage Rule { int32 min = 1; int32 max = 2; Inner inner = 3; message Inner { string a = 1; } }\\nmessage Order {\\n  reserved 20 to 25, 9;\\n  reserved \\\"zz\\\", \\\"aa\\\";\\n  option deprecated = true;\\n  map<string, Line> lines = 5;\\n  string id = 1 [json_name = \\\"ID\\\", deprecated = true, (rule).min = 1, (rule).max = 0x10, (tags) = \\\"b\\\", (tags) = \\\"a\\\"];\\n  google.protobuf.Timestamp at = 3 [(rule) = { max: 2.50 min: 1 inner { a: \\\"q\\\" } }];\\n  oneof kind { string b = 12; int64 a = 11; }\\n  oneof other { bool z = 7; }\\n  double d = 2;\\n  message Line { Status s = 1; }\\n  enum Status { option allow_alias = true; reserved 9, 3 to 4; NEW = 0; DONE = 2; OK = 2; ALSO = 1; }\\n}\\nservice Svc { option deprecated = true; rpc Get (Order) returns (stream Order.Line); }\\n\",\"schemaType\":\"PROTOBUF\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 404,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":40403,\"message\":\"Schema not found\"}",
+    "ms": 14
+   },
+   "confluent-8": {
+    "status": 404,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":40403,\"message\":\"Schema not found\"}",
+    "ms": 8
+   },
+   "doze": {
+    "status": 404,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":40403,\"message\":\"Schema not found\"}",
+    "ms": 1
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/compatibility/subjects/pn-mixed/versions/latest?normalize=true&verbose=true",
+   "b": "{\"schema\":\"syntax = \\\"proto3\\\";\\npackage shop.v1;\\nimport \\\"google/protobuf/timestamp.proto\\\";\\nimport \\\"google/protobuf/descriptor.proto\\\";\\noption java_package = 'com.shop';\\noption go_package = \\\"x\\\";\\nextend google.protobuf.FieldOptions { Rule rule = 50001; repeated string tags = 50002; }\\nmessage Rule { int32 min = 1; int32 max = 2; Inner inner = 3; message Inner { string a = 1; } }\\nmessage Order {\\n  reserved 20 to 25, 9;\\n  reserved \\\"zz\\\", \\\"aa\\\";\\n  option deprecated = true;\\n  map<string, Line> lines = 5;\\n  string id = 1 [json_name = \\\"ID\\\", deprecated = true, (rule).min = 1, (rule).max = 0x10, (tags) = \\\"b\\\", (tags) = \\\"a\\\"];\\n  google.protobuf.Timestamp at = 3 [(rule) = { max: 2.50 min: 1 inner { a: \\\"q\\\" } }];\\n  oneof kind { string b = 12; int64 a = 11; }\\n  oneof other { bool z = 7; }\\n  double d = 2;\\n  message Line { Status s = 1; }\\n  enum Status { option allow_alias = true; reserved 9, 3 to 4; NEW = 0; DONE = 2; OK = 2; ALSO = 1; }\\n}\\nservice Svc { option deprecated = true; rpc Get (Order) returns (stream Order.Line); }\\n\",\"schemaType\":\"PROTOBUF\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"is_compatible\":true,\"messages\":[]}",
+    "ms": 10
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"is_compatible\":true,\"messages\":[]}",
+    "ms": 17
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"is_compatible\":true,\"messages\":[]}",
+    "ms": 2
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "GET",
+   "p": "/schemas/ids/@1?format=serialized"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"schemaType\":\"PROTOBUF\",\"schema\":\"CgdkZWZhdWx0EgdzaG9wLnYxGiBnb29nbGUvcHJvdG9idWYvZGVzY3JpcHRvci5wcm90bxofZ29vZ2xlL3Byb3RvYnVmL3RpbWVzdGFtcC5wcm90byJOCgRSdWxlEgkKA21pbhgBKAUSCQoDbWF4GAIoBRIeCgVpbm5lchgDMhMuc2hvcC52MS5SdWxlLklubmVyGhAKBUlubmVyEgcKAWEYASgJItECCgVPcmRlchILCgF6GAcgASgISAASCwoBYRgLIAEoA0gBEgsKAWIYDCABKAlIARIQCgJpZBgBKAlCAhgBUgJJRBIHCgFkGAIoARIiCgJhdBgDMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIXCgVsaW5lcxgFIAMyCmxpbmVzRW50cnkaJAoETGluZRIcCgFzGAEyFS5zaG9wLnYxLk9yZGVyLlN0YXR1cxo7CgpsaW5lc0VudHJ5EgkKA2tleRgBKAkSHgoFdmFsdWUYAjITLnNob3AudjEuT3JkZXIuTGluZToCOAEiPQoGU3RhdHVzEgcKA05FVxAAEggKBEFMU08QARIICgRET05FEAISBgoCT0sQAhoCEAEiBAgDEAQiBAgJEAk6AhgBQgcKBW90aGVyQgYKBGtpbmRKBAgJEApKBAgUEBpSAmFhUgJ6ejI6CgNTdmMSLgoDR2V0Eg4uc2hvcC52MS5PcmRlchoTLnNob3AudjEuT3JkZXIuTGluZSgAMAEaA4gCATo4CgRydWxlEh0uZ29vZ2xlLnByb3RvYnVmLkZpZWxkT3B0aW9ucxjRhgMyDS5zaG9wLnYxLlJ1bGU6LQoEdGFncxIdLmdvb2dsZS5wcm90b2J1Zi5GaWVsZE9wdGlvbnMY0oYDIAMoCUINCghjb20uc2hvcFoBeGIGcHJvdG8z\"}",
+    "ms": 14
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"pn-mixed\",\"version\":1,\"guid\":\"5075c123-368f-95f0-b0c9-afb7007aa389\",\"schemaType\":\"PROTOBUF\",\"schema\":\"CgdkZWZhdWx0EgdzaG9wLnYxGiBnb29nbGUvcHJvdG9idWYvZGVzY3JpcHRvci5wcm90bxofZ29vZ2xlL3Byb3RvYnVmL3RpbWVzdGFtcC5wcm90byJQCgRSdWxlEgkKA21pbhgBKAUSCQoDbWF4GAIoBRIgCgVpbm5lchgDKAsyEy5zaG9wLnYxLlJ1bGUuSW5uZXIaEAoFSW5uZXISBwoBYRgBKAki2wIKBU9yZGVyEgsKAXoYByABKAhIABILCgFhGAsgASgDSAESCwoBYhgMIAEoCUgBEhAKAmlkGAEoCUICGAFSAklEEgcKAWQYAigBEiQKAmF0GAMoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASFwoFbGluZXMYBSADMgpsaW5lc0VudHJ5GiYKBExpbmUSHgoBcxgBKA4yFS5zaG9wLnYxLk9yZGVyLlN0YXR1cxo9CgpsaW5lc0VudHJ5EgkKA2tleRgBKAkSIAoFdmFsdWUYAigLMhMuc2hvcC52MS5PcmRlci5MaW5lOgI4ASI9CgZTdGF0dXMSBwoDTkVXEAASCAoEQUxTTxABEggKBERPTkUQAhIGCgJPSxACGgIQASIECAMQBCIECAkQCToCGAFCCQoFb3RoZXISAEIICgRraW5kEgBKBAgJEApKBAgUEBpSAmFhUgJ6ejI6CgNTdmMSLgoDR2V0Eg4uc2hvcC52MS5PcmRlchoTLnNob3AudjEuT3JkZXIuTGluZSgAMAEaA4gCATo6CgRydWxlEh0uZ29vZ2xlLnByb3RvYnVmLkZpZWxkT3B0aW9ucxjRhgMoCzINLnNob3AudjEuUnVsZTotCgR0YWdzEh0uZ29vZ2xlLnByb3RvYnVmLkZpZWxkT3B0aW9ucxjShgMgAygJQg0KCGNvbS5zaG9wWgF4YgZwcm90bzM=\",\"ts\":1795104624184,\"deleted\":false}",
+    "ms": 19
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"schemaType\":\"PROTOBUF\",\"schema\":\"CgdkZWZhdWx0EgdzaG9wLnYxGiBnb29nbGUvcHJvdG9idWYvZGVzY3JpcHRvci5wcm90bxofZ29vZ2xlL3Byb3RvYnVmL3RpbWVzdGFtcC5wcm90byJOCgRSdWxlEgkKA21pbhgBKAUSCQoDbWF4GAIoBRIeCgVpbm5lchgDMhMuc2hvcC52MS5SdWxlLklubmVyGhAKBUlubmVyEgcKAWEYASgJItECCgVPcmRlchILCgF6GAcgASgISAASCwoBYRgLIAEoA0gBEgsKAWIYDCABKAlIARIQCgJpZBgBKAlCAhgBUgJJRBIHCgFkGAIoARIiCgJhdBgDMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIXCgVsaW5lcxgFIAMyCmxpbmVzRW50cnkaJAoETGluZRIcCgFzGAEyFS5zaG9wLnYxLk9yZGVyLlN0YXR1cxo7CgpsaW5lc0VudHJ5EgkKA2tleRgBKAkSHgoFdmFsdWUYAjITLnNob3AudjEuT3JkZXIuTGluZToCOAEiPQoGU3RhdHVzEgcKA05FVxAAEggKBEFMU08QARIICgRET05FEAISBgoCT0sQAhoCEAEiBAgDEAQiBAgJEAk6AhgBQgcKBW90aGVyQgYKBGtpbmRKBAgJEApKBAgUEBpSAmFhUgJ6ejI6CgNTdmMSLgoDR2V0Eg4uc2hvcC52MS5PcmRlchoTLnNob3AudjEuT3JkZXIuTGluZSgAMAEaA4gCATo4CgRydWxlEh0uZ29vZ2xlLnByb3RvYnVmLkZpZWxkT3B0aW9ucxjRhgMyDS5zaG9wLnYxLlJ1bGU6LQoEdGFncxIdLmdvb2dsZS5wcm90b2J1Zi5GaWVsZE9wdGlvbnMY0oYDIAMoCUINCghjb20uc2hvcFoBeGIGcHJvdG8z\"}",
+    "ms": 1
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/pp-mixed/versions",
+   "b": "{\"schema\":\"syntax = \\\"proto3\\\";\\npackage shop.v1;\\nimport \\\"google/protobuf/timestamp.proto\\\";\\nimport \\\"google/protobuf/descriptor.proto\\\";\\noption java_package = 'com.shop';\\noption go_package = \\\"x\\\";\\nextend google.protobuf.FieldOptions { Rule rule = 50001; repeated string tags = 50002; }\\nmessage Rule { int32 min = 1; int32 max = 2; Inner inner = 3; message Inner { string a = 1; } }\\nmessage Order {\\n  reserved 20 to 25, 9;\\n  reserved \\\"zz\\\", \\\"aa\\\";\\n  option deprecated = true;\\n  map<string, Line> lines = 5;\\n  string id = 1 [json_name = \\\"ID\\\", deprecated = true, (rule).min = 1, (rule).max = 0x10, (tags) = \\\"b\\\", (tags) = \\\"a\\\"];\\n  google.protobuf.Timestamp at = 3 [(rule) = { max: 2.50 min: 1 inner { a: \\\"q\\\" } }];\\n  oneof kind { string b = 12; int64 a = 11; }\\n  oneof other { bool z = 7; }\\n  double d = 2;\\n  message Line { Status s = 1; }\\n  enum Status { option allow_alias = true; reserved 9, 3 to 4; NEW = 0; DONE = 2; OK = 2; ALSO = 1; }\\n}\\nservice Svc { option deprecated = true; rpc Get (Order) returns (stream Order.Line); }\\n\",\"schemaType\":\"PROTOBUF\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":52}",
+    "ms": 17
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":51,\"version\":1,\"guid\":\"3684209b-d5be-84d9-bfc0-ec742d47faf5\",\"schemaType\":\"PROTOBUF\",\"schema\":\"syntax = \\\"proto3\\\";\\npackage shop.v1;\\n\\nimport \\\"google/protobuf/timestamp.proto\\\";\\nimport \\\"google/protobuf/descriptor.proto\\\";\\n\\noption java_package = \\\"com.shop\\\";\\noption go_package = \\\"x\\\";\\n\\nmessage Rule {\\n  int32 min = 1;\\n  int32 max = 2;\\n  Inner inner = 3;\\n\\n  message Inner {\\n    string a = 1;\\n  }\\n}\\nmessage Order {\\n  reserved 20 to 25, 9;\\n  reserved \\\"zz\\\", \\\"aa\\\";\\n\\n  option deprecated = true;\\n\\n  map<string, Line> lines = 5;\\n  string id = 1 [\\n    deprecated = true,\\n    (rule).min = 1,\\n    (rule).max = 0x10,\\n    (tags) = \\\"b\\\",\\n    (tags) = \\\"a\\\",\\n    json_name = \\\"ID\\\"\\n  ];\\n  google.protobuf.Timestamp at = 3 [(rule) = {\\n    max: 2.50,\\n    min: 1,\\n    inner: {\\n      a: \\\"q\\\"\\n    }\\n  }];\\n  double d = 2;\\n\\n  oneof kind {\\n    string b = 12;\\n    int64 a = 11;\\n  }\\n  oneof other {\\n    bool z = 7;\\n  }\\n\\n  message Line {\\n    Status s = 1;\\n  }\\n  enum Status {\\n    reserved 9, 3 to 4;\\n    option allow_alias = true;\\n    NEW = 0;\\n    DONE = 2;\\n    OK = 2;\\n    ALSO = 1;\\n  }\\n}\\n\\nextend google.protobuf.FieldOptions {\\n  Rule rule = 50001;\\n  repeated string tags = 50002;\\n}\\n\\nservice Svc {\\n  option deprecated = true;\\n\\n  rpc Get (Order) returns (stream Order.Line);\\n}\\n\"}",
+    "ms": 18
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":53}",
+    "ms": 6
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/pp-mixed?normalize=true",
+   "b": "{\"schema\":\"syntax = \\\"proto3\\\";\\npackage shop.v1;\\nimport \\\"google/protobuf/timestamp.proto\\\";\\nimport \\\"google/protobuf/descriptor.proto\\\";\\noption java_package = 'com.shop';\\noption go_package = \\\"x\\\";\\nextend google.protobuf.FieldOptions { Rule rule = 50001; repeated string tags = 50002; }\\nmessage Rule { int32 min = 1; int32 max = 2; Inner inner = 3; message Inner { string a = 1; } }\\nmessage Order {\\n  reserved 20 to 25, 9;\\n  reserved \\\"zz\\\", \\\"aa\\\";\\n  option deprecated = true;\\n  map<string, Line> lines = 5;\\n  string id = 1 [json_name = \\\"ID\\\", deprecated = true, (rule).min = 1, (rule).max = 0x10, (tags) = \\\"b\\\", (tags) = \\\"a\\\"];\\n  google.protobuf.Timestamp at = 3 [(rule) = { max: 2.50 min: 1 inner { a: \\\"q\\\" } }];\\n  oneof kind { string b = 12; int64 a = 11; }\\n  oneof other { bool z = 7; }\\n  double d = 2;\\n  message Line { Status s = 1; }\\n  enum Status { option allow_alias = true; reserved 9, 3 to 4; NEW = 0; DONE = 2; OK = 2; ALSO = 1; }\\n}\\nservice Svc { option deprecated = true; rpc Get (Order) returns (stream Order.Line); }\\n\",\"schemaType\":\"PROTOBUF\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 404,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":40403,\"message\":\"Schema not found\"}",
+    "ms": 10
+   },
+   "confluent-8": {
+    "status": 404,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":40403,\"message\":\"Schema not found\"}",
+    "ms": 14
+   },
+   "doze": {
+    "status": 404,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":40403,\"message\":\"Schema not found\"}",
+    "ms": 1
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/pp-mixed/versions?normalize=true",
+   "b": "{\"schema\":\"syntax = \\\"proto3\\\";\\npackage shop.v1;\\nimport \\\"google/protobuf/timestamp.proto\\\";\\nimport \\\"google/protobuf/descriptor.proto\\\";\\noption java_package = 'com.shop';\\noption go_package = \\\"x\\\";\\nextend google.protobuf.FieldOptions { Rule rule = 50001; repeated string tags = 50002; }\\nmessage Rule { int32 min = 1; int32 max = 2; Inner inner = 3; message Inner { string a = 1; } }\\nmessage Order {\\n  reserved 20 to 25, 9;\\n  reserved \\\"zz\\\", \\\"aa\\\";\\n  option deprecated = true;\\n  map<string, Line> lines = 5;\\n  string id = 1 [json_name = \\\"ID\\\", deprecated = true, (rule).min = 1, (rule).max = 0x10, (tags) = \\\"b\\\", (tags) = \\\"a\\\"];\\n  google.protobuf.Timestamp at = 3 [(rule) = { max: 2.50 min: 1 inner { a: \\\"q\\\" } }];\\n  oneof kind { string b = 12; int64 a = 11; }\\n  oneof other { bool z = 7; }\\n  double d = 2;\\n  message Line { Status s = 1; }\\n  enum Status { option allow_alias = true; reserved 9, 3 to 4; NEW = 0; DONE = 2; OK = 2; ALSO = 1; }\\n}\\nservice Svc { option deprecated = true; rpc Get (Order) returns (stream Order.Line); }\\n\",\"schemaType\":\"PROTOBUF\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":51}",
+    "ms": 11
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":50,\"version\":2,\"guid\":\"5075c123-368f-95f0-b0c9-afb7007aa389\",\"schemaType\":\"PROTOBUF\",\"schema\":\"syntax = \\\"proto3\\\";\\npackage shop.v1;\\n\\nimport \\\"google/protobuf/descriptor.proto\\\";\\nimport \\\"google/protobuf/timestamp.proto\\\";\\n\\noption go_package = \\\"x\\\";\\noption java_package = \\\"com.shop\\\";\\n\\nmessage Rule {\\n  int32 min = 1;\\n  int32 max = 2;\\n  .shop.v1.Rule.Inner inner = 3;\\n\\n  message Inner {\\n    string a = 1;\\n  }\\n}\\nmessage Order {\\n  reserved 9;\\n  reserved 20 to 25;\\n  reserved \\\"aa\\\";\\n  reserved \\\"zz\\\";\\n\\n  option deprecated = true;\\n\\n  string id = 1 [\\n    deprecated = true,\\n    json_name = \\\"ID\\\",\\n    (shop.v1.rule) = {\\n      max: 16,\\n      min: 1\\n    },\\n    (shop.v1.tags) = \\\"b\\\",\\n    (shop.v1.tags) = \\\"a\\\"\\n  ];\\n  double d = 2;\\n  .google.protobuf.Timestamp at = 3 [(shop.v1.rule) = {\\n    inner: {\\n      a: \\\"q\\\"\\n    },\\n    max: 2.5,\\n    min: 1\\n  }];\\n  map<string, .shop.v1.Order.Line> lines = 5;\\n\\n  oneof other {\\n    bool z = 7;\\n  }\\n  oneof kind {\\n    int64 a = 11;\\n    string b = 12;\\n  }\\n\\n  message Line {\\n    .shop.v1.Order.Status s = 1;\\n  }\\n  enum Status {\\n    reserved 3 to 4;\\n    reserved 9;\\n    option allow_alias = true;\\n    NEW = 0;\\n    ALSO = 1;\\n    DONE = 2;\\n    OK = 2;\\n  }\\n}\\n\\nextend .google.protobuf.FieldOptions {\\n  .shop.v1.Rule rule = 50001;\\n  repeated string tags = 50002;\\n}\\n\\nservice Svc {\\n  option deprecated = true;\\n\\n  rpc Get (.shop.v1.Order) returns (stream .shop.v1.Order.Line);\\n}\\n\"}",
+    "ms": 14
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":52}",
+    "ms": 7
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "GET",
+   "p": "/subjects/pp-mixed/versions"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "[1,2]",
+    "ms": 1
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "[1,2]",
+    "ms": 1
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "[1,2]",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "PUT",
+   "p": "/config/pc-mixed",
+   "b": "{\"normalize\":true}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"normalize\":true}",
+    "ms": 6
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"normalize\":true}",
+    "ms": 11
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"normalize\":true}",
+    "ms": 5
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/pc-mixed/versions",
+   "b": "{\"schema\":\"syntax = \\\"proto3\\\";\\npackage shop.v1;\\nimport \\\"google/protobuf/timestamp.proto\\\";\\nimport \\\"google/protobuf/descriptor.proto\\\";\\noption java_package = 'com.shop';\\noption go_package = \\\"x\\\";\\nextend google.protobuf.FieldOptions { Rule rule = 50001; repeated string tags = 50002; }\\nmessage Rule { int32 min = 1; int32 max = 2; Inner inner = 3; message Inner { string a = 1; } }\\nmessage Order {\\n  reserved 20 to 25, 9;\\n  reserved \\\"zz\\\", \\\"aa\\\";\\n  option deprecated = true;\\n  map<string, Line> lines = 5;\\n  string id = 1 [json_name = \\\"ID\\\", deprecated = true, (rule).min = 1, (rule).max = 0x10, (tags) = \\\"b\\\", (tags) = \\\"a\\\"];\\n  google.protobuf.Timestamp at = 3 [(rule) = { max: 2.50 min: 1 inner { a: \\\"q\\\" } }];\\n  oneof kind { string b = 12; int64 a = 11; }\\n  oneof other { bool z = 7; }\\n  double d = 2;\\n  message Line { Status s = 1; }\\n  enum Status { option allow_alias = true; reserved 9, 3 to 4; NEW = 0; DONE = 2; OK = 2; ALSO = 1; }\\n}\\nservice Svc { option deprecated = true; rpc Get (Order) returns (stream Order.Line); }\\n\",\"schemaType\":\"PROTOBUF\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":51}",
+    "ms": 13
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":50,\"version\":1,\"guid\":\"5075c123-368f-95f0-b0c9-afb7007aa389\",\"schemaType\":\"PROTOBUF\",\"schema\":\"syntax = \\\"proto3\\\";\\npackage shop.v1;\\n\\nimport \\\"google/protobuf/descriptor.proto\\\";\\nimport \\\"google/protobuf/timestamp.proto\\\";\\n\\noption go_package = \\\"x\\\";\\noption java_package = \\\"com.shop\\\";\\n\\nmessage Rule {\\n  int32 min = 1;\\n  int32 max = 2;\\n  .shop.v1.Rule.Inner inner = 3;\\n\\n  message Inner {\\n    string a = 1;\\n  }\\n}\\nmessage Order {\\n  reserved 9;\\n  reserved 20 to 25;\\n  reserved \\\"aa\\\";\\n  reserved \\\"zz\\\";\\n\\n  option deprecated = true;\\n\\n  string id = 1 [\\n    deprecated = true,\\n    json_name = \\\"ID\\\",\\n    (shop.v1.rule) = {\\n      max: 16,\\n      min: 1\\n    },\\n    (shop.v1.tags) = \\\"b\\\",\\n    (shop.v1.tags) = \\\"a\\\"\\n  ];\\n  double d = 2;\\n  .google.protobuf.Timestamp at = 3 [(shop.v1.rule) = {\\n    inner: {\\n      a: \\\"q\\\"\\n    },\\n    max: 2.5,\\n    min: 1\\n  }];\\n  map<string, .shop.v1.Order.Line> lines = 5;\\n\\n  oneof other {\\n    bool z = 7;\\n  }\\n  oneof kind {\\n    int64 a = 11;\\n    string b = 12;\\n  }\\n\\n  message Line {\\n    .shop.v1.Order.Status s = 1;\\n  }\\n  enum Status {\\n    reserved 3 to 4;\\n    reserved 9;\\n    option allow_alias = true;\\n    NEW = 0;\\n    ALSO = 1;\\n    DONE = 2;\\n    OK = 2;\\n  }\\n}\\n\\nextend .google.protobuf.FieldOptions {\\n  .shop.v1.Rule rule = 50001;\\n  repeated string tags = 50002;\\n}\\n\\nservice Svc {\\n  option deprecated = true;\\n\\n  rpc Get (.shop.v1.Order) returns (stream .shop.v1.Order.Line);\\n}\\n\"}",
+    "ms": 17
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":52}",
+    "ms": 6
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "GET",
+   "p": "/subjects/pc-mixed/versions/latest/schema"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "syntax = \"proto3\";\npackage shop.v1;\n\nimport \"google/protobuf/descriptor.proto\";\nimport \"google/protobuf/timestamp.proto\";\n\noption go_package = \"x\";\noption java_package = \"com.shop\";\n\nmessage Rule {\n  int32 min = 1;\n  int32 max = 2;\n  .shop.v1.Rule.Inner inner = 3;\n\n  message Inner {\n    string a = 1;\n  }\n}\nmessage Order {\n  reserved 9;\n  reserved 20 to 25;\n  reserved \"aa\";\n  reserved \"zz\";\n\n  option deprecated = true;\n\n  string id = 1 [\n    deprecated = true,\n    json_name = \"ID\",\n    (shop.v1.rule) = {\n      max: 16,\n      min: 1\n    },\n    (shop.v1.tags) = \"b\",\n    (shop.v1.tags) = \"a\"\n  ];\n  double d = 2;\n  .google.protobuf.Timestamp at = 3 [(shop.v1.rule) = {\n    inner: {\n      a: \"q\"\n    },\n    max: 2.5,\n    min: 1\n  }];\n  map<string, .shop.v1.Order.Line> lines = 5;\n\n  oneof other {\n    bool z = 7;\n  }\n  oneof kind {\n    int64 a = 11;\n    string b = 12;\n  }\n\n  message Line {\n    .shop.v1.Order.Status s = 1;\n  }\n  enum Status {\n    reserved 3 to 4;\n    reserved 9;\n    option allow_alias = true;\n    NEW = 0;\n    ALSO = 1;\n    DONE = 2;\n    OK = 2;\n  }\n}\n\nextend .google.protobuf.FieldOptions {\n  .shop.v1.Rule rule = 50001;\n  repeated string tags = 50002;\n}\n\nservice Svc {\n  option deprecated = true;\n\n  rpc Get (.shop.v1.Order) returns (stream .shop.v1.Order.Line);\n}\n",
+    "ms": 2
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "syntax = \"proto3\";\npackage shop.v1;\n\nimport \"google/protobuf/descriptor.proto\";\nimport \"google/protobuf/timestamp.proto\";\n\noption go_package = \"x\";\noption java_package = \"com.shop\";\n\nmessage Rule {\n  int32 min = 1;\n  int32 max = 2;\n  .shop.v1.Rule.Inner inner = 3;\n\n  message Inner {\n    string a = 1;\n  }\n}\nmessage Order {\n  reserved 9;\n  reserved 20 to 25;\n  reserved \"aa\";\n  reserved \"zz\";\n\n  option deprecated = true;\n\n  string id = 1 [\n    deprecated = true,\n    json_name = \"ID\",\n    (shop.v1.rule) = {\n      max: 16,\n      min: 1\n    },\n    (shop.v1.tags) = \"b\",\n    (shop.v1.tags) = \"a\"\n  ];\n  double d = 2;\n  .google.protobuf.Timestamp at = 3 [(shop.v1.rule) = {\n    inner: {\n      a: \"q\"\n    },\n    max: 2.5,\n    min: 1\n  }];\n  map<string, .shop.v1.Order.Line> lines = 5;\n\n  oneof other {\n    bool z = 7;\n  }\n  oneof kind {\n    int64 a = 11;\n    string b = 12;\n  }\n\n  message Line {\n    .shop.v1.Order.Status s = 1;\n  }\n  enum Status {\n    reserved 3 to 4;\n    reserved 9;\n    option allow_alias = true;\n    NEW = 0;\n    ALSO = 1;\n    DONE = 2;\n    OK = 2;\n  }\n}\n\nextend .google.protobuf.FieldOptions {\n  .shop.v1.Rule rule = 50001;\n  repeated string tags = 50002;\n}\n\nservice Svc {\n  option deprecated = true;\n\n  rpc Get (.shop.v1.Order) returns (stream .shop.v1.Order.Line);\n}\n",
+    "ms": 3
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "syntax = \"proto3\";\npackage shop.v1;\n\nimport \"google/protobuf/descriptor.proto\";\nimport \"google/protobuf/timestamp.proto\";\n\noption go_package = \"x\";\noption java_package = \"com.shop\";\n\nmessage Rule {\n  int32 min = 1;\n  int32 max = 2;\n  .shop.v1.Rule.Inner inner = 3;\n\n  message Inner {\n    string a = 1;\n  }\n}\nmessage Order {\n  reserved 9;\n  reserved 20 to 25;\n  reserved \"aa\";\n  reserved \"zz\";\n\n  option deprecated = true;\n\n  string id = 1 [\n    deprecated = true,\n    json_name = \"ID\",\n    (shop.v1.rule) = {\n      max: 16,\n      min: 1\n    },\n    (shop.v1.tags) = \"b\",\n    (shop.v1.tags) = \"a\"\n  ];\n  double d = 2;\n  .google.protobuf.Timestamp at = 3 [(shop.v1.rule) = {\n    inner: {\n      a: \"q\"\n    },\n    max: 2.5,\n    min: 1\n  }];\n  map<string, .shop.v1.Order.Line> lines = 5;\n\n  oneof other {\n    bool z = 7;\n  }\n  oneof kind {\n    int64 a = 11;\n    string b = 12;\n  }\n\n  message Line {\n    .shop.v1.Order.Status s = 1;\n  }\n  enum Status {\n    reserved 3 to 4;\n    reserved 9;\n    option allow_alias = true;\n    NEW = 0;\n    ALSO = 1;\n    DONE = 2;\n    OK = 2;\n  }\n}\n\nextend .google.protobuf.FieldOptions {\n  .shop.v1.Rule rule = 50001;\n  repeated string tags = 50002;\n}\n\nservice Svc {\n  option deprecated = true;\n\n  rpc Get (.shop.v1.Order) returns (stream .shop.v1.Order.Line);\n}\n",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/pc-mixed",
+   "b": "{\"schema\":\"syntax = \\\"proto3\\\";\\npackage shop.v1;\\nimport \\\"google/protobuf/timestamp.proto\\\";\\nimport \\\"google/protobuf/descriptor.proto\\\";\\noption java_package = 'com.shop';\\noption go_package = \\\"x\\\";\\nextend google.protobuf.FieldOptions { Rule rule = 50001; repeated string tags = 50002; }\\nmessage Rule { int32 min = 1; int32 max = 2; Inner inner = 3; message Inner { string a = 1; } }\\nmessage Order {\\n  reserved 20 to 25, 9;\\n  reserved \\\"zz\\\", \\\"aa\\\";\\n  option deprecated = true;\\n  map<string, Line> lines = 5;\\n  string id = 1 [json_name = \\\"ID\\\", deprecated = true, (rule).min = 1, (rule).max = 0x10, (tags) = \\\"b\\\", (tags) = \\\"a\\\"];\\n  google.protobuf.Timestamp at = 3 [(rule) = { max: 2.50 min: 1 inner { a: \\\"q\\\" } }];\\n  oneof kind { string b = 12; int64 a = 11; }\\n  oneof other { bool z = 7; }\\n  double d = 2;\\n  message Line { Status s = 1; }\\n  enum Status { option allow_alias = true; reserved 9, 3 to 4; NEW = 0; DONE = 2; OK = 2; ALSO = 1; }\\n}\\nservice Svc { option deprecated = true; rpc Get (Order) returns (stream Order.Line); }\\n\",\"schemaType\":\"PROTOBUF\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"pc-mixed\",\"version\":1,\"id\":51,\"schemaType\":\"PROTOBUF\",\"schema\":\"syntax = \\\"proto3\\\";\\npackage shop.v1;\\n\\nimport \\\"google/protobuf/descriptor.proto\\\";\\nimport \\\"google/protobuf/timestamp.proto\\\";\\n\\noption go_package = \\\"x\\\";\\noption java_package = \\\"com.shop\\\";\\n\\nmessage Rule {\\n  int32 min = 1;\\n  int32 max = 2;\\n  .shop.v1.Rule.Inner inner = 3;\\n\\n  message Inner {\\n    string a = 1;\\n  }\\n}\\nmessage Order {\\n  reserved 9;\\n  reserved 20 to 25;\\n  reserved \\\"aa\\\";\\n  reserved \\\"zz\\\";\\n\\n  option deprecated = true;\\n\\n  string id = 1 [\\n    deprecated = true,\\n    json_name = \\\"ID\\\",\\n    (shop.v1.rule) = {\\n      max: 16,\\n      min: 1\\n    },\\n    (shop.v1.tags) = \\\"b\\\",\\n    (shop.v1.tags) = \\\"a\\\"\\n  ];\\n  double d = 2;\\n  .google.protobuf.Timestamp at = 3 [(shop.v1.rule) = {\\n    inner: {\\n      a: \\\"q\\\"\\n    },\\n    max: 2.5,\\n    min: 1\\n  }];\\n  map<string, .shop.v1.Order.Line> lines = 5;\\n\\n  oneof other {\\n    bool z = 7;\\n  }\\n  oneof kind {\\n    int64 a = 11;\\n    string b = 12;\\n  }\\n\\n  message Line {\\n    .shop.v1.Order.Status s = 1;\\n  }\\n  enum Status {\\n    reserved 3 to 4;\\n    reserved 9;\\n    option allow_alias = true;\\n    NEW = 0;\\n    ALSO = 1;\\n    DONE = 2;\\n    OK = 2;\\n  }\\n}\\n\\nextend .google.protobuf.FieldOptions {\\n  .shop.v1.Rule rule = 50001;\\n  repeated string tags = 50002;\\n}\\n\\nservice Svc {\\n  option deprecated = true;\\n\\n  rpc Get (.shop.v1.Order) returns (stream .shop.v1.Order.Line);\\n}\\n\"}",
+    "ms": 3
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"pc-mixed\",\"version\":1,\"id\":50,\"guid\":\"5075c123-368f-95f0-b0c9-afb7007aa389\",\"schemaType\":\"PROTOBUF\",\"schema\":\"syntax = \\\"proto3\\\";\\npackage shop.v1;\\n\\nimport \\\"google/protobuf/descriptor.proto\\\";\\nimport \\\"google/protobuf/timestamp.proto\\\";\\n\\noption go_package = \\\"x\\\";\\noption java_package = \\\"com.shop\\\";\\n\\nmessage Rule {\\n  int32 min = 1;\\n  int32 max = 2;\\n  .shop.v1.Rule.Inner inner = 3;\\n\\n  message Inner {\\n    string a = 1;\\n  }\\n}\\nmessage Order {\\n  reserved 9;\\n  reserved 20 to 25;\\n  reserved \\\"aa\\\";\\n  reserved \\\"zz\\\";\\n\\n  option deprecated = true;\\n\\n  string id = 1 [\\n    deprecated = true,\\n    json_name = \\\"ID\\\",\\n    (shop.v1.rule) = {\\n      max: 16,\\n      min: 1\\n    },\\n    (shop.v1.tags) = \\\"b\\\",\\n    (shop.v1.tags) = \\\"a\\\"\\n  ];\\n  double d = 2;\\n  .google.protobuf.Timestamp at = 3 [(shop.v1.rule) = {\\n    inner: {\\n      a: \\\"q\\\"\\n    },\\n    max: 2.5,\\n    min: 1\\n  }];\\n  map<string, .shop.v1.Order.Line> lines = 5;\\n\\n  oneof other {\\n    bool z = 7;\\n  }\\n  oneof kind {\\n    int64 a = 11;\\n    string b = 12;\\n  }\\n\\n  message Line {\\n    .shop.v1.Order.Status s = 1;\\n  }\\n  enum Status {\\n    reserved 3 to 4;\\n    reserved 9;\\n    option allow_alias = true;\\n    NEW = 0;\\n    ALSO = 1;\\n    DONE = 2;\\n    OK = 2;\\n  }\\n}\\n\\nextend .google.protobuf.FieldOptions {\\n  .shop.v1.Rule rule = 50001;\\n  repeated string tags = 50002;\\n}\\n\\nservice Svc {\\n  option deprecated = true;\\n\\n  rpc Get (.shop.v1.Order) returns (stream .shop.v1.Order.Line);\\n}\\n\"}",
+    "ms": 6
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"pc-mixed\",\"version\":1,\"id\":52,\"schemaType\":\"PROTOBUF\",\"schema\":\"syntax = \\\"proto3\\\";\\npackage shop.v1;\\n\\nimport \\\"google/protobuf/descriptor.proto\\\";\\nimport \\\"google/protobuf/timestamp.proto\\\";\\n\\noption go_package = \\\"x\\\";\\noption java_package = \\\"com.shop\\\";\\n\\nmessage Rule {\\n  int32 min = 1;\\n  int32 max = 2;\\n  .shop.v1.Rule.Inner inner = 3;\\n\\n  message Inner {\\n    string a = 1;\\n  }\\n}\\nmessage Order {\\n  reserved 9;\\n  reserved 20 to 25;\\n  reserved \\\"aa\\\";\\n  reserved \\\"zz\\\";\\n\\n  option deprecated = true;\\n\\n  string id = 1 [\\n    deprecated = true,\\n    json_name = \\\"ID\\\",\\n    (shop.v1.rule) = {\\n      max: 16,\\n      min: 1\\n    },\\n    (shop.v1.tags) = \\\"b\\\",\\n    (shop.v1.tags) = \\\"a\\\"\\n  ];\\n  double d = 2;\\n  .google.protobuf.Timestamp at = 3 [(shop.v1.rule) = {\\n    inner: {\\n      a: \\\"q\\\"\\n    },\\n    max: 2.5,\\n    min: 1\\n  }];\\n  map<string, .shop.v1.Order.Line> lines = 5;\\n\\n  oneof other {\\n    bool z = 7;\\n  }\\n  oneof kind {\\n    int64 a = 11;\\n    string b = 12;\\n  }\\n\\n  message Line {\\n    .shop.v1.Order.Status s = 1;\\n  }\\n  enum Status {\\n    reserved 3 to 4;\\n    reserved 9;\\n    option allow_alias = true;\\n    NEW = 0;\\n    ALSO = 1;\\n    DONE = 2;\\n    OK = 2;\\n  }\\n}\\n\\nextend .google.protobuf.FieldOptions {\\n  .shop.v1.Rule rule = 50001;\\n  repeated string tags = 50002;\\n}\\n\\nservice Svc {\\n  option deprecated = true;\\n\\n  rpc Get (.shop.v1.Order) returns (stream .shop.v1.Order.Line);\\n}\\n\"}",
+    "ms": 1
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/pn-mixed?normalize=true",
+   "b": "{\"schema\":\"// reordered\\nsyntax = \\\"proto3\\\";\\npackage shop.v1;\\nimport \\\"google/protobuf/descriptor.proto\\\";\\nimport \\\"google/protobuf/timestamp.proto\\\";\\noption go_package = \\\"x\\\";\\noption java_package = \\\"com.shop\\\";\\nextend google.protobuf.FieldOptions { repeated string tags = 50002; Rule rule = 50001; }\\nmessage Rule { int32 max = 2; Inner inner = 3; int32 min = 1; message Inner { string a = 1; } }\\nmessage Order {\\n  reserved \\\"aa\\\", \\\"zz\\\";\\n  reserved 9, 20 to 25;\\n  option deprecated = true;\\n  double d = 2;\\n  string id = 1 [(tags) = \\\"b\\\", (rule).max = 16, deprecated = true, (tags) = \\\"a\\\", (rule).min = 1, json_name = \\\"ID\\\"];\\n  google.protobuf.Timestamp at = 3 [(rule) = { min: 1, inner: { a: \\\"q\\\" }, max: 2.5 }];\\n  map<string, Line> lines = 5;\\n  oneof other { bool z = 7; }\\n  oneof kind { int64 a = 11; string b = 12; }\\n  message Line { Status s = 1; }\\n  enum Status { option allow_alias = true; reserved 3 to 4, 9; NEW = 0; OK = 2; ALSO = 1; DONE = 2; }\\n}\\nservice Svc { option deprecated = true; rpc Get (.shop.v1.Order) returns (stream .shop.v1.Order.Line); }\\n\",\"schemaType\":\"PROTOBUF\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"pn-mixed\",\"version\":1,\"id\":51,\"schemaType\":\"PROTOBUF\",\"schema\":\"syntax = \\\"proto3\\\";\\npackage shop.v1;\\n\\nimport \\\"google/protobuf/descriptor.proto\\\";\\nimport \\\"google/protobuf/timestamp.proto\\\";\\n\\noption go_package = \\\"x\\\";\\noption java_package = \\\"com.shop\\\";\\n\\nmessage Rule {\\n  int32 min = 1;\\n  int32 max = 2;\\n  .shop.v1.Rule.Inner inner = 3;\\n\\n  message Inner {\\n    string a = 1;\\n  }\\n}\\nmessage Order {\\n  reserved 9;\\n  reserved 20 to 25;\\n  reserved \\\"aa\\\";\\n  reserved \\\"zz\\\";\\n\\n  option deprecated = true;\\n\\n  string id = 1 [\\n    deprecated = true,\\n    json_name = \\\"ID\\\",\\n    (shop.v1.rule) = {\\n      max: 16,\\n      min: 1\\n    },\\n    (shop.v1.tags) = \\\"b\\\",\\n    (shop.v1.tags) = \\\"a\\\"\\n  ];\\n  double d = 2;\\n  .google.protobuf.Timestamp at = 3 [(shop.v1.rule) = {\\n    inner: {\\n      a: \\\"q\\\"\\n    },\\n    max: 2.5,\\n    min: 1\\n  }];\\n  map<string, .shop.v1.Order.Line> lines = 5;\\n\\n  oneof other {\\n    bool z = 7;\\n  }\\n  oneof kind {\\n    int64 a = 11;\\n    string b = 12;\\n  }\\n\\n  message Line {\\n    .shop.v1.Order.Status s = 1;\\n  }\\n  enum Status {\\n    reserved 3 to 4;\\n    reserved 9;\\n    option allow_alias = true;\\n    NEW = 0;\\n    ALSO = 1;\\n    DONE = 2;\\n    OK = 2;\\n  }\\n}\\n\\nextend .google.protobuf.FieldOptions {\\n  .shop.v1.Rule rule = 50001;\\n  repeated string tags = 50002;\\n}\\n\\nservice Svc {\\n  option deprecated = true;\\n\\n  rpc Get (.shop.v1.Order) returns (stream .shop.v1.Order.Line);\\n}\\n\"}",
+    "ms": 6
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"pn-mixed\",\"version\":1,\"id\":50,\"guid\":\"5075c123-368f-95f0-b0c9-afb7007aa389\",\"schemaType\":\"PROTOBUF\",\"schema\":\"syntax = \\\"proto3\\\";\\npackage shop.v1;\\n\\nimport \\\"google/protobuf/descriptor.proto\\\";\\nimport \\\"google/protobuf/timestamp.proto\\\";\\n\\noption go_package = \\\"x\\\";\\noption java_package = \\\"com.shop\\\";\\n\\nmessage Rule {\\n  int32 min = 1;\\n  int32 max = 2;\\n  .shop.v1.Rule.Inner inner = 3;\\n\\n  message Inner {\\n    string a = 1;\\n  }\\n}\\nmessage Order {\\n  reserved 9;\\n  reserved 20 to 25;\\n  reserved \\\"aa\\\";\\n  reserved \\\"zz\\\";\\n\\n  option deprecated = true;\\n\\n  string id = 1 [\\n    deprecated = true,\\n    json_name = \\\"ID\\\",\\n    (shop.v1.rule) = {\\n      max: 16,\\n      min: 1\\n    },\\n    (shop.v1.tags) = \\\"b\\\",\\n    (shop.v1.tags) = \\\"a\\\"\\n  ];\\n  double d = 2;\\n  .google.protobuf.Timestamp at = 3 [(shop.v1.rule) = {\\n    inner: {\\n      a: \\\"q\\\"\\n    },\\n    max: 2.5,\\n    min: 1\\n  }];\\n  map<string, .shop.v1.Order.Line> lines = 5;\\n\\n  oneof other {\\n    bool z = 7;\\n  }\\n  oneof kind {\\n    int64 a = 11;\\n    string b = 12;\\n  }\\n\\n  message Line {\\n    .shop.v1.Order.Status s = 1;\\n  }\\n  enum Status {\\n    reserved 3 to 4;\\n    reserved 9;\\n    option allow_alias = true;\\n    NEW = 0;\\n    ALSO = 1;\\n    DONE = 2;\\n    OK = 2;\\n  }\\n}\\n\\nextend .google.protobuf.FieldOptions {\\n  .shop.v1.Rule rule = 50001;\\n  repeated string tags = 50002;\\n}\\n\\nservice Svc {\\n  option deprecated = true;\\n\\n  rpc Get (.shop.v1.Order) returns (stream .shop.v1.Order.Line);\\n}\\n\"}",
+    "ms": 5
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"pn-mixed\",\"version\":1,\"id\":52,\"schemaType\":\"PROTOBUF\",\"schema\":\"syntax = \\\"proto3\\\";\\npackage shop.v1;\\n\\nimport \\\"google/protobuf/descriptor.proto\\\";\\nimport \\\"google/protobuf/timestamp.proto\\\";\\n\\noption go_package = \\\"x\\\";\\noption java_package = \\\"com.shop\\\";\\n\\nmessage Rule {\\n  int32 min = 1;\\n  int32 max = 2;\\n  .shop.v1.Rule.Inner inner = 3;\\n\\n  message Inner {\\n    string a = 1;\\n  }\\n}\\nmessage Order {\\n  reserved 9;\\n  reserved 20 to 25;\\n  reserved \\\"aa\\\";\\n  reserved \\\"zz\\\";\\n\\n  option deprecated = true;\\n\\n  string id = 1 [\\n    deprecated = true,\\n    json_name = \\\"ID\\\",\\n    (shop.v1.rule) = {\\n      max: 16,\\n      min: 1\\n    },\\n    (shop.v1.tags) = \\\"b\\\",\\n    (shop.v1.tags) = \\\"a\\\"\\n  ];\\n  double d = 2;\\n  .google.protobuf.Timestamp at = 3 [(shop.v1.rule) = {\\n    inner: {\\n      a: \\\"q\\\"\\n    },\\n    max: 2.5,\\n    min: 1\\n  }];\\n  map<string, .shop.v1.Order.Line> lines = 5;\\n\\n  oneof other {\\n    bool z = 7;\\n  }\\n  oneof kind {\\n    int64 a = 11;\\n    string b = 12;\\n  }\\n\\n  message Line {\\n    .shop.v1.Order.Status s = 1;\\n  }\\n  enum Status {\\n    reserved 3 to 4;\\n    reserved 9;\\n    option allow_alias = true;\\n    NEW = 0;\\n    ALSO = 1;\\n    DONE = 2;\\n    OK = 2;\\n  }\\n}\\n\\nextend .google.protobuf.FieldOptions {\\n  .shop.v1.Rule rule = 50001;\\n  repeated string tags = 50002;\\n}\\n\\nservice Svc {\\n  option deprecated = true;\\n\\n  rpc Get (.shop.v1.Order) returns (stream .shop.v1.Order.Line);\\n}\\n\"}",
+    "ms": 1
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/pn-mixed/versions?normalize=true",
+   "b": "{\"schema\":\"// reordered\\nsyntax = \\\"proto3\\\";\\npackage shop.v1;\\nimport \\\"google/protobuf/descriptor.proto\\\";\\nimport \\\"google/protobuf/timestamp.proto\\\";\\noption go_package = \\\"x\\\";\\noption java_package = \\\"com.shop\\\";\\nextend google.protobuf.FieldOptions { repeated string tags = 50002; Rule rule = 50001; }\\nmessage Rule { int32 max = 2; Inner inner = 3; int32 min = 1; message Inner { string a = 1; } }\\nmessage Order {\\n  reserved \\\"aa\\\", \\\"zz\\\";\\n  reserved 9, 20 to 25;\\n  option deprecated = true;\\n  double d = 2;\\n  string id = 1 [(tags) = \\\"b\\\", (rule).max = 16, deprecated = true, (tags) = \\\"a\\\", (rule).min = 1, json_name = \\\"ID\\\"];\\n  google.protobuf.Timestamp at = 3 [(rule) = { min: 1, inner: { a: \\\"q\\\" }, max: 2.5 }];\\n  map<string, Line> lines = 5;\\n  oneof other { bool z = 7; }\\n  oneof kind { int64 a = 11; string b = 12; }\\n  message Line { Status s = 1; }\\n  enum Status { option allow_alias = true; reserved 3 to 4, 9; NEW = 0; OK = 2; ALSO = 1; DONE = 2; }\\n}\\nservice Svc { option deprecated = true; rpc Get (.shop.v1.Order) returns (stream .shop.v1.Order.Line); }\\n\",\"schemaType\":\"PROTOBUF\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":51}",
+    "ms": 5
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":50,\"version\":1,\"guid\":\"5075c123-368f-95f0-b0c9-afb7007aa389\",\"schemaType\":\"PROTOBUF\",\"schema\":\"syntax = \\\"proto3\\\";\\npackage shop.v1;\\n\\nimport \\\"google/protobuf/descriptor.proto\\\";\\nimport \\\"google/protobuf/timestamp.proto\\\";\\n\\noption go_package = \\\"x\\\";\\noption java_package = \\\"com.shop\\\";\\n\\nmessage Rule {\\n  int32 min = 1;\\n  int32 max = 2;\\n  .shop.v1.Rule.Inner inner = 3;\\n\\n  message Inner {\\n    string a = 1;\\n  }\\n}\\nmessage Order {\\n  reserved 9;\\n  reserved 20 to 25;\\n  reserved \\\"aa\\\";\\n  reserved \\\"zz\\\";\\n\\n  option deprecated = true;\\n\\n  string id = 1 [\\n    deprecated = true,\\n    json_name = \\\"ID\\\",\\n    (shop.v1.rule) = {\\n      max: 16,\\n      min: 1\\n    },\\n    (shop.v1.tags) = \\\"b\\\",\\n    (shop.v1.tags) = \\\"a\\\"\\n  ];\\n  double d = 2;\\n  .google.protobuf.Timestamp at = 3 [(shop.v1.rule) = {\\n    inner: {\\n      a: \\\"q\\\"\\n    },\\n    max: 2.5,\\n    min: 1\\n  }];\\n  map<string, .shop.v1.Order.Line> lines = 5;\\n\\n  oneof other {\\n    bool z = 7;\\n  }\\n  oneof kind {\\n    int64 a = 11;\\n    string b = 12;\\n  }\\n\\n  message Line {\\n    .shop.v1.Order.Status s = 1;\\n  }\\n  enum Status {\\n    reserved 3 to 4;\\n    reserved 9;\\n    option allow_alias = true;\\n    NEW = 0;\\n    ALSO = 1;\\n    DONE = 2;\\n    OK = 2;\\n  }\\n}\\n\\nextend .google.protobuf.FieldOptions {\\n  .shop.v1.Rule rule = 50001;\\n  repeated string tags = 50002;\\n}\\n\\nservice Svc {\\n  option deprecated = true;\\n\\n  rpc Get (.shop.v1.Order) returns (stream .shop.v1.Order.Line);\\n}\\n\"}",
+    "ms": 6
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":52}",
+    "ms": 1
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "GET",
+   "p": "/subjects/pn-mixed/versions"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "[1]",
+    "ms": 3
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "[1]",
+    "ms": 3
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "[1]",
+    "ms": 0
+   }
+  }
+ }
+]

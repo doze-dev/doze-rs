@@ -12,6 +12,7 @@ mod desc;
 mod encode;
 mod lex;
 mod link;
+mod normalize;
 mod print;
 mod serialize;
 mod wkt;
@@ -28,6 +29,8 @@ pub struct Protobuf;
 #[derive(Debug)]
 pub struct ProtobufSchema {
     stored: String,
+    /// The text normalized as Confluent normalizes it (`normalize`).
+    normalized: String,
     pool: link::Pool,
     /// The schema's own file among the pool's (its imports come before it).
     file: usize,
@@ -130,8 +133,17 @@ fn read(text: &str, sources: &[(&str, &str)]) -> Result<ProtobufSchema, String> 
         }
     })?;
     let file = pool.files.len().saturating_sub(1);
+    // Confluent normalizes every schema it checks (`ProtobufSchema.validate`), so a type its resolution does not find
+    // refuses the schema whether or not it is to be normalized.
+    let deps: Vec<ast::File> = sources
+        .iter()
+        .filter_map(|(_, t)| ast::parse(t).ok())
+        .chain(wkt::all().filter_map(|t| ast::parse(t).ok()))
+        .collect();
+    let normalized = normalize::normalize(text, &ast, &deps)?;
     Ok(ProtobufSchema {
         stored: print::print(text, &ast),
+        normalized,
         pool,
         file,
     })
@@ -164,9 +176,13 @@ impl ProtobufSchema {
 }
 
 impl ParsedSchema for ProtobufSchema {
-    /// Confluent's printing; `normalize` changes nothing for Protobuf here (as in the Go edition).
-    fn canonical(&self, _normalize: bool) -> String {
-        self.stored.clone()
+    /// Confluent's printing, or with `normalize` its normalized text (`normalize`).
+    fn canonical(&self, normalize: bool) -> String {
+        if normalize {
+            self.normalized.clone()
+        } else {
+            self.stored.clone()
+        }
     }
 
     fn can_read(

@@ -4,12 +4,14 @@ Status: **slices 10a to 10d done (2026-11-14: 10a, 10b and 10c on branches `p10-
 merged on branch `registry-merge`; 10d, the console's Schemas pages, on `p10d-console-schemas`, merged at 31d63f8e1); audited
 2026-11-18** (branch `kafka-registry-audit`, `tools/registry-diff`: live against cp-schema-registry 7.7.1 and 8.3.2 with real
 Kafka; results in `tools/registry-diff/results/2026-11-18/`; the rules it changed and REG-42 to REG-45, REG-D26 to REG-D28 are in
-the catalogue). The registry's model, its storage in the broker's metadata database, every REST route
+the catalogue); gaps closed 2026-11-19 (branch `kafka-registry-gaps`: data contracts, Protobuf normalization, JSON Schema numbers
+past `BigDecimal`; REG-46 to REG-50, REG-D26 and REG-D28 retired, REG-D29 to REG-D32; results in
+`tools/registry-diff/results/2026-11-19/`). The registry's model, its storage in the broker's metadata database, every REST route
 the Go edition serves, the host guard, basic authentication and TLS as the Go binary has them, the wire header, and all three
 languages whole (Avro, 10b Protobuf, 10c JSON Schema), wired into `doze-kafka` behind the `registry` feature (on by default, as
 `--schema-registry` is in Go), and (10d) the console's Schemas pages and schema-aware Messages/Produce, with the record-value codec
-they need. Nothing of the phase is left to build. The catalogue is `behaviours/registry.md` (REG-1 to REG-45, REG-D1 to REG-D28;
-REG-D1 and REG-D13 retired).
+they need. Nothing of the phase is left to build. The catalogue is `behaviours/registry.md` (REG-1 to REG-50, REG-D1 to REG-D32;
+REG-D1, REG-D13, REG-D26 and REG-D28 retired).
 
 Goal: a Confluent client (any serializer, `kafka-avro-console-producer`, Schema Registry's own Maven plugin) pointed at
 `http://127.0.0.1:8081` cannot tell this registry from Confluent's, except where `behaviours/registry.md` lists a deviation; and the
@@ -115,19 +117,23 @@ crates/kafka-registry/src/
   json.rs             ordered JSON (keys in order, numbers as written), Jackson's escapes, the depth scan
   format.rs           SchemaType, the SchemaFormat and ParsedSchema traits, ResolvedRef, CompatReason, Formats   <- the seam
   avro.rs             the Avro language: parse, stored text, can_read
+  protobuf/normalize.rs  Confluent's Protobuf normalization (REG-46)
+  json/java.rs        Java's HashMap order, BigDecimal text, and what Jackson reads a number as (REG-50)
     avro/schema.rs    the parser: an arena of named types, Confluent's checks
     avro/text.rs      the stored text (Avro Java's toString order), defined names
     avro/compat.rs    Avro's reader/writer rules, findings with paths, Confluent's sentences
     avro/inline.rs    the resolved view (referenced types written out)
   registry.rs         Registry: state behind one Mutex, open from Storage, fingerprint, subjects
     registry/prepare.rs   resolve references (each node once), prepare a submitted schema, parse a stored one
-    registry/write.rs     register, lookup
+    registry/write.rs     register, lookup (a schema's contract filled in and counted in its identity)
+    registry/contract.rs  data contracts: Metadata, RuleSet, Rule; merging, validate, Jackson's reading, Confluent's JSON
     registry/read.rs      versions, subjects, schemas by id, referencedby; VersionRef
     registry/delete.rs    soft and permanent deletes, orphaned schemas
     registry/settings.rs  Level, Mode; get, set and delete for a subject and globally
     registry/check.rs     the one compatibility engine (register's 409, the API's check, the console's check)
     registry/doze.rs      overview, version metadata, resolved view (the /_doze/ answers)
-  store.rs            Storage trait, MemoryStorage, MetaStorage (kafka-meta), typed keys, versioned postcard values
+  store.rs            Storage trait, MemoryStorage, MetaStorage (kafka-meta), typed keys, versioned postcard values (a schema
+                      with a contract is format 2)
   api.rs              Api::serve(Request) -> Response: host guard, sign-in and its back-off, body type, route, limits, log
     api/message.rs    Request, Body, Response, Options
     api/route.rs      the route table (the ledger) and the matcher

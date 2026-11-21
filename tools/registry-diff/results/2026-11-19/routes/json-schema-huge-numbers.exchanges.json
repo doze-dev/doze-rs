@@ -1,0 +1,2117 @@
+[
+ {
+  "step": {
+   "m": "PUT",
+   "p": "/config",
+   "b": "{\"compatibility\":\"NONE\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"compatibility\":\"NONE\"}",
+    "ms": 3
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"compatibility\":\"NONE\"}",
+    "ms": 7
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"compatibility\":\"NONE\"}",
+    "ms": 4
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/jh0/versions",
+   "b": "{\"schema\":\"{\\\"type\\\":\\\"number\\\",\\\"minimum\\\":0.5555e+000011999153157185615783}\",\"schemaType\":\"JSON\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42201,\"message\":\"Invalid schema {subject=jh0,version=0,id=-1,schemaType=JSON,references=[],metadata=null,ruleSet=null,schema={\\\"type\\\":\\\"number\\\",\\\"minimum\\\":0.5555e+000011999153157185615783},schemaTags=null}, details: Invalid JSON Schema\"}",
+    "ms": 3
+   },
+   "confluent-8": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42201,\"message\":\"Invalid schema of type JSON, details: Invalid schema of type JSON, details: Value \\\"0.5555e+000011999153157185615783\\\" can not be deserialized as `java.math.BigDecimal`, reason:  Too many nonzero exponent digits.\"}",
+    "ms": 1
+   },
+   "doze": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42201,\"message\":\"Invalid schema {subject=jh0,version=0,id=-1,schemaType=JSON,references=[],metadata=null,ruleSet=null,schema={\\\"type\\\":\\\"number\\\",\\\"minimum\\\":0.5555e+000011999153157185615783},schemaTags=null}, details: Invalid JSON Schema: #/minimum: 0.5555e+000011999153157185615783 is past the largest number a Java double holds\"}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "GET",
+   "p": "/subjects/jh0/versions/latest/schema"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 404,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":40401,\"message\":\"Subject 'jh0' not found.\"}",
+    "ms": 1
+   },
+   "confluent-8": {
+    "status": 404,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":40401,\"message\":\"Subject 'jh0' not found.\"}",
+    "ms": 1
+   },
+   "doze": {
+    "status": 404,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":40401,\"message\":\"Subject 'jh0' not found.\"}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/jh1/versions",
+   "b": "{\"schema\":\"{\\\"type\\\":\\\"number\\\",\\\"minimum\\\":1e2147483647}\",\"schemaType\":\"JSON\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":75}",
+    "ms": 4
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":74,\"version\":1,\"guid\":\"2abeb6f3-fad7-59da-45c8-9469f1521904\",\"schemaType\":\"JSON\",\"schema\":\"{\\\"type\\\":\\\"number\\\",\\\"minimum\\\":1E+2147483647}\"}",
+    "ms": 15
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":76}",
+    "ms": 10
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "GET",
+   "p": "/subjects/jh1/versions/latest/schema"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"type\":\"number\",\"minimum\":1E+2147483647}",
+    "ms": 1
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"type\":\"number\",\"minimum\":1E+2147483647}",
+    "ms": 2
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"type\":\"number\",\"minimum\":1E+2147483647}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/jh2/versions",
+   "b": "{\"schema\":\"{\\\"type\\\":\\\"number\\\",\\\"minimum\\\":1e2147483648}\",\"schemaType\":\"JSON\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42201,\"message\":\"Invalid schema {subject=jh2,version=0,id=-1,schemaType=JSON,references=[],metadata=null,ruleSet=null,schema={\\\"type\\\":\\\"number\\\",\\\"minimum\\\":1e2147483648},schemaTags=null}, details: Invalid JSON Schema\"}",
+    "ms": 4
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":75,\"version\":1,\"guid\":\"4b53c5c5-a399-45bd-d022-4343bfa9c5f0\",\"schemaType\":\"JSON\",\"schema\":\"{\\\"type\\\":\\\"number\\\",\\\"minimum\\\":1E+2147483648}\"}",
+    "ms": 13
+   },
+   "doze": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42201,\"message\":\"Invalid schema {subject=jh2,version=0,id=-1,schemaType=JSON,references=[],metadata=null,ruleSet=null,schema={\\\"type\\\":\\\"number\\\",\\\"minimum\\\":1e2147483648},schemaTags=null}, details: Invalid JSON Schema: #/minimum: 1e2147483648 is past the largest number a Java double holds\"}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "GET",
+   "p": "/subjects/jh2/versions/latest/schema"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 404,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":40401,\"message\":\"Subject 'jh2' not found.\"}",
+    "ms": 1
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"type\":\"number\",\"minimum\":1E+2147483648}",
+    "ms": 1
+   },
+   "doze": {
+    "status": 404,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":40401,\"message\":\"Subject 'jh2' not found.\"}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/jh3/versions",
+   "b": "{\"schema\":\"{\\\"type\\\":\\\"number\\\",\\\"minimum\\\":12e2147483647}\",\"schemaType\":\"JSON\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":76}",
+    "ms": 7
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":76,\"version\":1,\"guid\":\"d4760f2e-7f48-b7a6-0f61-c10ffdb90af9\",\"schemaType\":\"JSON\",\"schema\":\"{\\\"type\\\":\\\"number\\\",\\\"minimum\\\":1.2E+2147483648}\"}",
+    "ms": 12
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":77}",
+    "ms": 5
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "GET",
+   "p": "/subjects/jh3/versions/latest/schema"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"type\":\"number\",\"minimum\":1.2E+2147483648}",
+    "ms": 1
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"type\":\"number\",\"minimum\":1.2E+2147483648}",
+    "ms": 1
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"type\":\"number\",\"minimum\":1.2E+2147483648}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/jh4/versions",
+   "b": "{\"schema\":\"{\\\"type\\\":\\\"number\\\",\\\"minimum\\\":0.12e2147483649}\",\"schemaType\":\"JSON\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42201,\"message\":\"Invalid schema {subject=jh4,version=0,id=-1,schemaType=JSON,references=[],metadata=null,ruleSet=null,schema={\\\"type\\\":\\\"number\\\",\\\"minimum\\\":0.12e2147483649},schemaTags=null}, details: Invalid JSON Schema\"}",
+    "ms": 3
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":76,\"version\":1,\"guid\":\"d4760f2e-7f48-b7a6-0f61-c10ffdb90af9\",\"schemaType\":\"JSON\",\"schema\":\"{\\\"type\\\":\\\"number\\\",\\\"minimum\\\":1.2E+2147483648}\"}",
+    "ms": 11
+   },
+   "doze": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42201,\"message\":\"Invalid schema {subject=jh4,version=0,id=-1,schemaType=JSON,references=[],metadata=null,ruleSet=null,schema={\\\"type\\\":\\\"number\\\",\\\"minimum\\\":0.12e2147483649},schemaTags=null}, details: Invalid JSON Schema: #/minimum: 0.12e2147483649 is past the largest number a Java double holds\"}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "GET",
+   "p": "/subjects/jh4/versions/latest/schema"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 404,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":40401,\"message\":\"Subject 'jh4' not found.\"}",
+    "ms": 2
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"type\":\"number\",\"minimum\":1.2E+2147483648}",
+    "ms": 2
+   },
+   "doze": {
+    "status": 404,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":40401,\"message\":\"Subject 'jh4' not found.\"}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/jh5/versions",
+   "b": "{\"schema\":\"{\\\"type\\\":\\\"number\\\",\\\"minimum\\\":1e-2147483647}\",\"schemaType\":\"JSON\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":77}",
+    "ms": 5
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":77,\"version\":1,\"guid\":\"be0a92f0-5a75-a858-b871-d88b92ff6b65\",\"schemaType\":\"JSON\",\"schema\":\"{\\\"type\\\":\\\"number\\\",\\\"minimum\\\":1E-2147483647}\"}",
+    "ms": 10
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":78}",
+    "ms": 5
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "GET",
+   "p": "/subjects/jh5/versions/latest/schema"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"type\":\"number\",\"minimum\":1E-2147483647}",
+    "ms": 1
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"type\":\"number\",\"minimum\":1E-2147483647}",
+    "ms": 1
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"type\":\"number\",\"minimum\":1E-2147483647}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/jh6/versions",
+   "b": "{\"schema\":\"{\\\"type\\\":\\\"number\\\",\\\"minimum\\\":1e-2147483648}\",\"schemaType\":\"JSON\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":78}",
+    "ms": 4
+   },
+   "confluent-8": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42201,\"message\":\"Invalid schema of type JSON, details: Invalid schema of type JSON, details: Value \\\"1e-2147483648\\\" can not be deserialized as `java.math.BigDecimal`, reason:  Exponent overflow.\"}",
+    "ms": 4
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":79}",
+    "ms": 4
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "GET",
+   "p": "/subjects/jh6/versions/latest/schema"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"type\":\"number\",\"minimum\":0.0}",
+    "ms": 1
+   },
+   "confluent-8": {
+    "status": 404,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":40401,\"message\":\"Subject 'jh6' not found.\"}",
+    "ms": 2
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"type\":\"number\",\"minimum\":0.0}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/jh7/versions",
+   "b": "{\"schema\":\"{\\\"type\\\":\\\"number\\\",\\\"minimum\\\":-1e-2147483649}\",\"schemaType\":\"JSON\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":79}",
+    "ms": 3
+   },
+   "confluent-8": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42201,\"message\":\"Invalid schema of type JSON, details: Invalid schema of type JSON, details: Value \\\"-1e-2147483649\\\" can not be deserialized as `java.math.BigDecimal`, reason:  Exponent overflow.\"}",
+    "ms": 3
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":80}",
+    "ms": 4
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "GET",
+   "p": "/subjects/jh7/versions/latest/schema"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"type\":\"number\",\"minimum\":-0.0}",
+    "ms": 2
+   },
+   "confluent-8": {
+    "status": 404,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":40401,\"message\":\"Subject 'jh7' not found.\"}",
+    "ms": 1
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"type\":\"number\",\"minimum\":-0.0}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/jh8/versions",
+   "b": "{\"schema\":\"{\\\"type\\\":\\\"number\\\",\\\"minimum\\\":0.1e-2147483647}\",\"schemaType\":\"JSON\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":78}",
+    "ms": 3
+   },
+   "confluent-8": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42201,\"message\":\"Invalid schema of type JSON, details: Invalid schema of type JSON, details: Value \\\"0.1e-2147483647\\\" can not be deserialized as `java.math.BigDecimal`, reason:  Exponent overflow.\"}",
+    "ms": 2
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":79}",
+    "ms": 4
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "GET",
+   "p": "/subjects/jh8/versions/latest/schema"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"type\":\"number\",\"minimum\":0.0}",
+    "ms": 1
+   },
+   "confluent-8": {
+    "status": 404,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":40401,\"message\":\"Subject 'jh8' not found.\"}",
+    "ms": 1
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"type\":\"number\",\"minimum\":0.0}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/jh9/versions",
+   "b": "{\"schema\":\"{\\\"type\\\":\\\"number\\\",\\\"minimum\\\":1e-00000000000000000002147483648}\",\"schemaType\":\"JSON\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":78}",
+    "ms": 5
+   },
+   "confluent-8": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42201,\"message\":\"Invalid schema of type JSON, details: Invalid schema of type JSON, details: Value \\\"1e-00000000000000000002147483648\\\" can not be deserialized as `java.math.BigDecimal`, reason:  Exponent overflow.\"}",
+    "ms": 2
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":79}",
+    "ms": 4
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "GET",
+   "p": "/subjects/jh9/versions/latest/schema"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"type\":\"number\",\"minimum\":0.0}",
+    "ms": 1
+   },
+   "confluent-8": {
+    "status": 404,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":40401,\"message\":\"Subject 'jh9' not found.\"}",
+    "ms": 2
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"type\":\"number\",\"minimum\":0.0}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/jh10/versions",
+   "b": "{\"schema\":\"{\\\"type\\\":\\\"number\\\",\\\"minimum\\\":1e+00000000000000000005}\",\"schemaType\":\"JSON\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":80}",
+    "ms": 9
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":78,\"version\":1,\"guid\":\"e91c4eb5-d398-9abb-ed4a-4dbb1e83d2a8\",\"schemaType\":\"JSON\",\"schema\":\"{\\\"type\\\":\\\"number\\\",\\\"minimum\\\":1E+5}\"}",
+    "ms": 17
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":81}",
+    "ms": 4
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "GET",
+   "p": "/subjects/jh10/versions/latest/schema"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"type\":\"number\",\"minimum\":1E+5}",
+    "ms": 2
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"type\":\"number\",\"minimum\":1E+5}",
+    "ms": 2
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"type\":\"number\",\"minimum\":1E+5}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/jh11/versions",
+   "b": "{\"schema\":\"{\\\"type\\\":\\\"number\\\",\\\"minimum\\\":-1e2147483648}\",\"schemaType\":\"JSON\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42201,\"message\":\"Invalid schema {subject=jh11,version=0,id=-1,schemaType=JSON,references=[],metadata=null,ruleSet=null,schema={\\\"type\\\":\\\"number\\\",\\\"minimum\\\":-1e2147483648},schemaTags=null}, details: Invalid JSON Schema\"}",
+    "ms": 3
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":79,\"version\":1,\"guid\":\"e6533f11-e088-6787-4b2b-14b60a22ee6d\",\"schemaType\":\"JSON\",\"schema\":\"{\\\"type\\\":\\\"number\\\",\\\"minimum\\\":-1E+2147483648}\"}",
+    "ms": 14
+   },
+   "doze": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42201,\"message\":\"Invalid schema {subject=jh11,version=0,id=-1,schemaType=JSON,references=[],metadata=null,ruleSet=null,schema={\\\"type\\\":\\\"number\\\",\\\"minimum\\\":-1e2147483648},schemaTags=null}, details: Invalid JSON Schema: #/minimum: -1e2147483648 is past the largest number a Java double holds\"}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "GET",
+   "p": "/subjects/jh11/versions/latest/schema"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 404,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":40401,\"message\":\"Subject 'jh11' not found.\"}",
+    "ms": 2
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"type\":\"number\",\"minimum\":-1E+2147483648}",
+    "ms": 1
+   },
+   "doze": {
+    "status": 404,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":40401,\"message\":\"Subject 'jh11' not found.\"}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/jh12/versions",
+   "b": "{\"schema\":\"{\\\"type\\\":\\\"number\\\",\\\"default\\\":1e2147483648}\",\"schemaType\":\"JSON\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42201,\"message\":\"Invalid schema {subject=jh12,version=0,id=-1,schemaType=JSON,references=[],metadata=null,ruleSet=null,schema={\\\"type\\\":\\\"number\\\",\\\"default\\\":1e2147483648},schemaTags=null}, details: Invalid JSON Schema\"}",
+    "ms": 3
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":80,\"version\":1,\"guid\":\"1097e838-1cbf-cdfa-08e6-f277f4e5e475\",\"schemaType\":\"JSON\",\"schema\":\"{\\\"type\\\":\\\"number\\\",\\\"default\\\":1E+2147483648}\"}",
+    "ms": 20
+   },
+   "doze": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42201,\"message\":\"Invalid schema {subject=jh12,version=0,id=-1,schemaType=JSON,references=[],metadata=null,ruleSet=null,schema={\\\"type\\\":\\\"number\\\",\\\"default\\\":1e2147483648},schemaTags=null}, details: Invalid JSON Schema: #/default: 1e2147483648 is past the largest number a Java double holds\"}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "GET",
+   "p": "/subjects/jh12/versions/latest/schema"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 404,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":40401,\"message\":\"Subject 'jh12' not found.\"}",
+    "ms": 2
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"type\":\"number\",\"default\":1E+2147483648}",
+    "ms": 1
+   },
+   "doze": {
+    "status": 404,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":40401,\"message\":\"Subject 'jh12' not found.\"}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/jh13/versions",
+   "b": "{\"schema\":\"{\\\"type\\\":\\\"number\\\",\\\"x-big\\\":1e99999999999}\",\"schemaType\":\"JSON\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42201,\"message\":\"Invalid schema {subject=jh13,version=0,id=-1,schemaType=JSON,references=[],metadata=null,ruleSet=null,schema={\\\"type\\\":\\\"number\\\",\\\"x-big\\\":1e99999999999},schemaTags=null}, details: Invalid JSON Schema\"}",
+    "ms": 2
+   },
+   "confluent-8": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42201,\"message\":\"Invalid schema of type JSON, details: Invalid schema of type JSON, details: Value \\\"1e99999999999\\\" can not be deserialized as `java.math.BigDecimal`, reason:  Too many nonzero exponent digits.\"}",
+    "ms": 2
+   },
+   "doze": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42201,\"message\":\"Invalid schema {subject=jh13,version=0,id=-1,schemaType=JSON,references=[],metadata=null,ruleSet=null,schema={\\\"type\\\":\\\"number\\\",\\\"x-big\\\":1e99999999999},schemaTags=null}, details: Invalid JSON Schema: #/x-big: 1e99999999999 is past the largest number a Java double holds\"}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "GET",
+   "p": "/subjects/jh13/versions/latest/schema"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 404,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":40401,\"message\":\"Subject 'jh13' not found.\"}",
+    "ms": 2
+   },
+   "confluent-8": {
+    "status": 404,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":40401,\"message\":\"Subject 'jh13' not found.\"}",
+    "ms": 2
+   },
+   "doze": {
+    "status": 404,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":40401,\"message\":\"Subject 'jh13' not found.\"}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/jh14/versions",
+   "b": "{\"schema\":\"{\\\"type\\\":\\\"number\\\",\\\"multipleOf\\\":1e-2147483647}\",\"schemaType\":\"JSON\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42201,\"message\":\"Invalid schema {subject=jh14,version=0,id=-1,schemaType=JSON,references=[],metadata=null,ruleSet=null,schema={\\\"type\\\":\\\"number\\\",\\\"multipleOf\\\":1e-2147483647},schemaTags=null}, details: Invalid JSON Schema\"}",
+    "ms": 3
+   },
+   "confluent-8": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42201,\"message\":\"Invalid schema {subject=jh14,version=0,id=-1,guid=816d75f5-523d-7b26-7d23-e5ff0526a6fd,schemaType=JSON,references=[],metadata=null,ruleSet=null,schema={\\\"type\\\":\\\"number\\\",\\\"multipleOf\\\":1e-2147483647},schemaTags=null,ts=null,deleted=null}, details: Invalid JSON\"}",
+    "ms": 4
+   },
+   "doze": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42201,\"message\":\"Invalid schema {subject=jh14,version=0,id=-1,schemaType=JSON,references=[],metadata=null,ruleSet=null,schema={\\\"type\\\":\\\"number\\\",\\\"multipleOf\\\":1e-2147483647},schemaTags=null}, details: Invalid JSON Schema: #/multipleOf: must be greater than 0 as a Java double\"}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "GET",
+   "p": "/subjects/jh14/versions/latest/schema"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 404,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":40401,\"message\":\"Subject 'jh14' not found.\"}",
+    "ms": 1
+   },
+   "confluent-8": {
+    "status": 404,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":40401,\"message\":\"Subject 'jh14' not found.\"}",
+    "ms": 2
+   },
+   "doze": {
+    "status": 404,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":40401,\"message\":\"Subject 'jh14' not found.\"}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/jh15/versions",
+   "b": "{\"schema\":\"{\\\"type\\\":\\\"array\\\",\\\"minItems\\\":1e99999999999}\",\"schemaType\":\"JSON\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42201,\"message\":\"Invalid schema {subject=jh15,version=0,id=-1,schemaType=JSON,references=[],metadata=null,ruleSet=null,schema={\\\"type\\\":\\\"array\\\",\\\"minItems\\\":1e99999999999},schemaTags=null}, details: Invalid JSON Schema\"}",
+    "ms": 1
+   },
+   "confluent-8": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42201,\"message\":\"Invalid schema of type JSON, details: Invalid schema of type JSON, details: Value \\\"1e99999999999\\\" can not be deserialized as `java.math.BigDecimal`, reason:  Too many nonzero exponent digits.\"}",
+    "ms": 2
+   },
+   "doze": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42201,\"message\":\"Invalid schema {subject=jh15,version=0,id=-1,schemaType=JSON,references=[],metadata=null,ruleSet=null,schema={\\\"type\\\":\\\"array\\\",\\\"minItems\\\":1e99999999999},schemaTags=null}, details: Invalid JSON Schema: #/minItems: 1e99999999999 is past the largest number a Java double holds\"}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "GET",
+   "p": "/subjects/jh15/versions/latest/schema"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 404,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":40401,\"message\":\"Subject 'jh15' not found.\"}",
+    "ms": 1
+   },
+   "confluent-8": {
+    "status": 404,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":40401,\"message\":\"Subject 'jh15' not found.\"}",
+    "ms": 3
+   },
+   "doze": {
+    "status": 404,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":40401,\"message\":\"Subject 'jh15' not found.\"}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/jh16/versions",
+   "b": "{\"schema\":\"{\\\"type\\\":\\\"array\\\",\\\"minItems\\\":1e-2147483649}\",\"schemaType\":\"JSON\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42201,\"message\":\"Invalid schema {subject=jh16,version=0,id=-1,schemaType=JSON,references=[],metadata=null,ruleSet=null,schema={\\\"type\\\":\\\"array\\\",\\\"minItems\\\":1e-2147483649},schemaTags=null}, details: Invalid JSON Schema\"}",
+    "ms": 4
+   },
+   "confluent-8": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42201,\"message\":\"Invalid schema of type JSON, details: Invalid schema of type JSON, details: Value \\\"1e-2147483649\\\" can not be deserialized as `java.math.BigDecimal`, reason:  Exponent overflow.\"}",
+    "ms": 2
+   },
+   "doze": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42201,\"message\":\"Invalid schema {subject=jh16,version=0,id=-1,schemaType=JSON,references=[],metadata=null,ruleSet=null,schema={\\\"type\\\":\\\"array\\\",\\\"minItems\\\":1e-2147483649},schemaTags=null}, details: Invalid JSON Schema: #/minItems: must be an integer no larger than 2147483647, written without a fraction or exponent\"}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "GET",
+   "p": "/subjects/jh16/versions/latest/schema"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 404,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":40401,\"message\":\"Subject 'jh16' not found.\"}",
+    "ms": 1
+   },
+   "confluent-8": {
+    "status": 404,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":40401,\"message\":\"Subject 'jh16' not found.\"}",
+    "ms": 1
+   },
+   "doze": {
+    "status": 404,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":40401,\"message\":\"Subject 'jh16' not found.\"}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/jh17/versions",
+   "b": "{\"schema\":\"{\\\"type\\\":\\\"array\\\",\\\"minItems\\\":1e1}\",\"schemaType\":\"JSON\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42201,\"message\":\"Invalid schema {subject=jh17,version=0,id=-1,schemaType=JSON,references=[],metadata=null,ruleSet=null,schema={\\\"type\\\":\\\"array\\\",\\\"minItems\\\":1e1},schemaTags=null}, details: Invalid JSON Schema\"}",
+    "ms": 1
+   },
+   "confluent-8": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42201,\"message\":\"Invalid schema {subject=jh17,version=0,id=-1,guid=0e44d998-c305-a2e2-9d12-0680acaa3341,schemaType=JSON,references=[],metadata=null,ruleSet=null,schema={\\\"type\\\":\\\"array\\\",\\\"minItems\\\":1e1},schemaTags=null,ts=null,deleted=null}, details: Invalid JSON\"}",
+    "ms": 4
+   },
+   "doze": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42201,\"message\":\"Invalid schema {subject=jh17,version=0,id=-1,schemaType=JSON,references=[],metadata=null,ruleSet=null,schema={\\\"type\\\":\\\"array\\\",\\\"minItems\\\":1e1},schemaTags=null}, details: Invalid JSON Schema: #/minItems: must be an integer no larger than 2147483647, written without a fraction or exponent\"}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "GET",
+   "p": "/subjects/jh17/versions/latest/schema"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 404,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":40401,\"message\":\"Subject 'jh17' not found.\"}",
+    "ms": 2
+   },
+   "confluent-8": {
+    "status": 404,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":40401,\"message\":\"Subject 'jh17' not found.\"}",
+    "ms": 4
+   },
+   "doze": {
+    "status": 404,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":40401,\"message\":\"Subject 'jh17' not found.\"}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/jh18/versions",
+   "b": "{\"schema\":\"{\\\"type\\\":\\\"array\\\",\\\"minItems\\\":1.0}\",\"schemaType\":\"JSON\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42201,\"message\":\"Invalid schema {subject=jh18,version=0,id=-1,schemaType=JSON,references=[],metadata=null,ruleSet=null,schema={\\\"type\\\":\\\"array\\\",\\\"minItems\\\":1.0},schemaTags=null}, details: Invalid JSON Schema\"}",
+    "ms": 3
+   },
+   "confluent-8": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42201,\"message\":\"Invalid schema {subject=jh18,version=0,id=-1,guid=e6b9d48f-09ba-7967-692a-5f1c0566114d,schemaType=JSON,references=[],metadata=null,ruleSet=null,schema={\\\"type\\\":\\\"array\\\",\\\"minItems\\\":1.0},schemaTags=null,ts=null,deleted=null}, details: Invalid JSON\"}",
+    "ms": 2
+   },
+   "doze": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42201,\"message\":\"Invalid schema {subject=jh18,version=0,id=-1,schemaType=JSON,references=[],metadata=null,ruleSet=null,schema={\\\"type\\\":\\\"array\\\",\\\"minItems\\\":1.0},schemaTags=null}, details: Invalid JSON Schema: #/minItems: must be an integer no larger than 2147483647, written without a fraction or exponent\"}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "GET",
+   "p": "/subjects/jh18/versions/latest/schema"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 404,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":40401,\"message\":\"Subject 'jh18' not found.\"}",
+    "ms": 1
+   },
+   "confluent-8": {
+    "status": 404,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":40401,\"message\":\"Subject 'jh18' not found.\"}",
+    "ms": 2
+   },
+   "doze": {
+    "status": 404,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":40401,\"message\":\"Subject 'jh18' not found.\"}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/jh19/versions",
+   "b": "{\"schema\":\"{\\\"type\\\":\\\"array\\\",\\\"minItems\\\":2147483647}\",\"schemaType\":\"JSON\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":81}",
+    "ms": 13
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":81,\"version\":1,\"guid\":\"47c9a0d6-1e50-979c-4d84-d9584e743016\",\"schemaType\":\"JSON\",\"schema\":\"{\\\"type\\\":\\\"array\\\",\\\"minItems\\\":2147483647}\"}",
+    "ms": 12
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":82}",
+    "ms": 5
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "GET",
+   "p": "/subjects/jh19/versions/latest/schema"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"type\":\"array\",\"minItems\":2147483647}",
+    "ms": 2
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"type\":\"array\",\"minItems\":2147483647}",
+    "ms": 1
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"type\":\"array\",\"minItems\":2147483647}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/jh20/versions",
+   "b": "{\"schema\":\"{\\\"type\\\":\\\"array\\\",\\\"minItems\\\":2147483648}\",\"schemaType\":\"JSON\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42201,\"message\":\"Invalid schema {subject=jh20,version=0,id=-1,schemaType=JSON,references=[],metadata=null,ruleSet=null,schema={\\\"type\\\":\\\"array\\\",\\\"minItems\\\":2147483648},schemaTags=null}, details: Invalid JSON Schema\"}",
+    "ms": 2
+   },
+   "confluent-8": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42201,\"message\":\"Invalid schema {subject=jh20,version=0,id=-1,guid=8b320d5e-7a30-62c9-c864-9490dcdcbacb,schemaType=JSON,references=[],metadata=null,ruleSet=null,schema={\\\"type\\\":\\\"array\\\",\\\"minItems\\\":2147483648},schemaTags=null,ts=null,deleted=null}, details: Invalid JSON\"}",
+    "ms": 3
+   },
+   "doze": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42201,\"message\":\"Invalid schema {subject=jh20,version=0,id=-1,schemaType=JSON,references=[],metadata=null,ruleSet=null,schema={\\\"type\\\":\\\"array\\\",\\\"minItems\\\":2147483648},schemaTags=null}, details: Invalid JSON Schema: #/minItems: must be an integer no larger than 2147483647, written without a fraction or exponent\"}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "GET",
+   "p": "/subjects/jh20/versions/latest/schema"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 404,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":40401,\"message\":\"Subject 'jh20' not found.\"}",
+    "ms": 2
+   },
+   "confluent-8": {
+    "status": 404,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":40401,\"message\":\"Subject 'jh20' not found.\"}",
+    "ms": 3
+   },
+   "doze": {
+    "status": 404,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":40401,\"message\":\"Subject 'jh20' not found.\"}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/jh21/versions",
+   "b": "{\"schema\":\"{\\\"type\\\":\\\"string\\\",\\\"maxLength\\\":2.0}\",\"schemaType\":\"JSON\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42201,\"message\":\"Invalid schema {subject=jh21,version=0,id=-1,schemaType=JSON,references=[],metadata=null,ruleSet=null,schema={\\\"type\\\":\\\"string\\\",\\\"maxLength\\\":2.0},schemaTags=null}, details: Invalid JSON Schema\"}",
+    "ms": 3
+   },
+   "confluent-8": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42201,\"message\":\"Invalid schema {subject=jh21,version=0,id=-1,guid=01f8c906-e690-4537-b1a2-d0240b59daa4,schemaType=JSON,references=[],metadata=null,ruleSet=null,schema={\\\"type\\\":\\\"string\\\",\\\"maxLength\\\":2.0},schemaTags=null,ts=null,deleted=null}, details: Invalid JSON\"}",
+    "ms": 2
+   },
+   "doze": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42201,\"message\":\"Invalid schema {subject=jh21,version=0,id=-1,schemaType=JSON,references=[],metadata=null,ruleSet=null,schema={\\\"type\\\":\\\"string\\\",\\\"maxLength\\\":2.0},schemaTags=null}, details: Invalid JSON Schema: #/maxLength: must be an integer no larger than 2147483647, written without a fraction or exponent\"}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "GET",
+   "p": "/subjects/jh21/versions/latest/schema"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 404,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":40401,\"message\":\"Subject 'jh21' not found.\"}",
+    "ms": 1
+   },
+   "confluent-8": {
+    "status": 404,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":40401,\"message\":\"Subject 'jh21' not found.\"}",
+    "ms": 1
+   },
+   "doze": {
+    "status": 404,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":40401,\"message\":\"Subject 'jh21' not found.\"}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/jh22/versions",
+   "b": "{\"schema\":\"{\\\"type\\\":\\\"object\\\",\\\"minProperties\\\":1E0}\",\"schemaType\":\"JSON\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42201,\"message\":\"Invalid schema {subject=jh22,version=0,id=-1,schemaType=JSON,references=[],metadata=null,ruleSet=null,schema={\\\"type\\\":\\\"object\\\",\\\"minProperties\\\":1E0},schemaTags=null}, details: Invalid JSON Schema\"}",
+    "ms": 4
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":82,\"version\":1,\"guid\":\"2c7220ae-2252-d682-9504-5113643d6875\",\"schemaType\":\"JSON\",\"schema\":\"{\\\"type\\\":\\\"object\\\",\\\"minProperties\\\":1}\"}",
+    "ms": 12
+   },
+   "doze": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42201,\"message\":\"Invalid schema {subject=jh22,version=0,id=-1,schemaType=JSON,references=[],metadata=null,ruleSet=null,schema={\\\"type\\\":\\\"object\\\",\\\"minProperties\\\":1E0},schemaTags=null}, details: Invalid JSON Schema: #/minProperties: must be an integer no larger than 2147483647, written without a fraction or exponent\"}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "GET",
+   "p": "/subjects/jh22/versions/latest/schema"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 404,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":40401,\"message\":\"Subject 'jh22' not found.\"}",
+    "ms": 1
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"type\":\"object\",\"minProperties\":1}",
+    "ms": 2
+   },
+   "doze": {
+    "status": 404,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":40401,\"message\":\"Subject 'jh22' not found.\"}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/jh23/versions",
+   "b": "{\"schema\":\"{\\\"$schema\\\":\\\"http://json-schema.org/draft-04/schema#\\\",\\\"type\\\":\\\"array\\\",\\\"minItems\\\":1.0}\",\"schemaType\":\"JSON\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42201,\"message\":\"Invalid schema {subject=jh23,version=0,id=-1,schemaType=JSON,references=[],metadata=null,ruleSet=null,schema={\\\"$schema\\\":\\\"http://json-schema.org/draft-04/schema#\\\",\\\"type\\\":\\\"array\\\",\\\"minItems\\\":1.0},schemaTags=null}, details: Invalid JSON Schema\"}",
+    "ms": 3
+   },
+   "confluent-8": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42201,\"message\":\"Invalid schema {subject=jh23,version=0,id=-1,guid=606eb8fe-010a-a9ab-a444-edc77bdb0ef7,schemaType=JSON,references=[],metadata=null,ruleSet=null,schema={\\\"$schema\\\":\\\"http://json-schema.org/draft-04/schema#\\\",\\\"type\\\":\\\"array\\\",\\\"minItems\\\":1.0},schemaTags=null,ts=null,deleted=null}, details: Invalid JSON\"}",
+    "ms": 2
+   },
+   "doze": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42201,\"message\":\"Invalid schema {subject=jh23,version=0,id=-1,schemaType=JSON,references=[],metadata=null,ruleSet=null,schema={\\\"$schema\\\":\\\"http://json-schema.org/draft-04/schema#\\\",\\\"type\\\":\\\"array\\\",\\\"minItems\\\":1.0},schemaTags=null}, details: Invalid JSON Schema: #/minItems: must be an integer no larger than 2147483647, written without a fraction or exponent\"}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "GET",
+   "p": "/subjects/jh23/versions/latest/schema"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 404,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":40401,\"message\":\"Subject 'jh23' not found.\"}",
+    "ms": 1
+   },
+   "confluent-8": {
+    "status": 404,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":40401,\"message\":\"Subject 'jh23' not found.\"}",
+    "ms": 1
+   },
+   "doze": {
+    "status": 404,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":40401,\"message\":\"Subject 'jh23' not found.\"}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/jh24/versions",
+   "b": "{\"schema\":\"{\\\"$schema\\\":\\\"http://json-schema.org/draft-06/schema#\\\",\\\"type\\\":\\\"array\\\",\\\"maxItems\\\":3e0}\",\"schemaType\":\"JSON\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42201,\"message\":\"Invalid schema {subject=jh24,version=0,id=-1,schemaType=JSON,references=[],metadata=null,ruleSet=null,schema={\\\"$schema\\\":\\\"http://json-schema.org/draft-06/schema#\\\",\\\"type\\\":\\\"array\\\",\\\"maxItems\\\":3e0},schemaTags=null}, details: Invalid JSON Schema\"}",
+    "ms": 1
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":83,\"version\":1,\"guid\":\"b3901d9f-3f3b-2ea5-2900-ca13f8755ab3\",\"schemaType\":\"JSON\",\"schema\":\"{\\\"$schema\\\":\\\"http://json-schema.org/draft-06/schema#\\\",\\\"type\\\":\\\"array\\\",\\\"maxItems\\\":3}\"}",
+    "ms": 9
+   },
+   "doze": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42201,\"message\":\"Invalid schema {subject=jh24,version=0,id=-1,schemaType=JSON,references=[],metadata=null,ruleSet=null,schema={\\\"$schema\\\":\\\"http://json-schema.org/draft-06/schema#\\\",\\\"type\\\":\\\"array\\\",\\\"maxItems\\\":3e0},schemaTags=null}, details: Invalid JSON Schema: #/maxItems: must be an integer no larger than 2147483647, written without a fraction or exponent\"}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "GET",
+   "p": "/subjects/jh24/versions/latest/schema"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 404,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":40401,\"message\":\"Subject 'jh24' not found.\"}",
+    "ms": 1
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"$schema\":\"http://json-schema.org/draft-06/schema#\",\"type\":\"array\",\"maxItems\":3}",
+    "ms": 1
+   },
+   "doze": {
+    "status": 404,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":40401,\"message\":\"Subject 'jh24' not found.\"}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/jh25/versions",
+   "b": "{\"schema\":\"{\\\"$schema\\\":\\\"https://json-schema.org/draft/2020-12/schema\\\",\\\"type\\\":\\\"array\\\",\\\"minItems\\\":1.0}\",\"schemaType\":\"JSON\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":82}",
+    "ms": 16
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":84,\"version\":1,\"guid\":\"c1aaa1a1-2d2d-4821-497b-7f5360197f43\",\"schemaType\":\"JSON\",\"schema\":\"{\\\"$schema\\\":\\\"https://json-schema.org/draft/2020-12/schema\\\",\\\"type\\\":\\\"array\\\",\\\"minItems\\\":1.0}\"}",
+    "ms": 16
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":83}",
+    "ms": 5
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "GET",
+   "p": "/subjects/jh25/versions/latest/schema"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"$schema\":\"https://json-schema.org/draft/2020-12/schema\",\"type\":\"array\",\"minItems\":1.0}",
+    "ms": 1
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"$schema\":\"https://json-schema.org/draft/2020-12/schema\",\"type\":\"array\",\"minItems\":1.0}",
+    "ms": 2
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"$schema\":\"https://json-schema.org/draft/2020-12/schema\",\"type\":\"array\",\"minItems\":1.0}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/jh26/versions",
+   "b": "{\"schema\":\"{\\\"$schema\\\":\\\"https://json-schema.org/draft/2020-12/schema\\\",\\\"type\\\":\\\"array\\\",\\\"minItems\\\":99999999999}\",\"schemaType\":\"JSON\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":83}",
+    "ms": 7
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":85,\"version\":1,\"guid\":\"eddb4ca4-ef5f-448a-64b1-3fd1545e3d21\",\"schemaType\":\"JSON\",\"schema\":\"{\\\"$schema\\\":\\\"https://json-schema.org/draft/2020-12/schema\\\",\\\"type\\\":\\\"array\\\",\\\"minItems\\\":99999999999}\"}",
+    "ms": 15
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":84}",
+    "ms": 5
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "GET",
+   "p": "/subjects/jh26/versions/latest/schema"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"$schema\":\"https://json-schema.org/draft/2020-12/schema\",\"type\":\"array\",\"minItems\":99999999999}",
+    "ms": 1
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"$schema\":\"https://json-schema.org/draft/2020-12/schema\",\"type\":\"array\",\"minItems\":99999999999}",
+    "ms": 2
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"$schema\":\"https://json-schema.org/draft/2020-12/schema\",\"type\":\"array\",\"minItems\":99999999999}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/jh27/versions",
+   "b": "{\"schema\":\"{\\\"$schema\\\":\\\"https://json-schema.org/draft/2020-12/schema\\\",\\\"type\\\":\\\"number\\\",\\\"minimum\\\":1e-2147483649}\",\"schemaType\":\"JSON\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":84}",
+    "ms": 12
+   },
+   "confluent-8": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42201,\"message\":\"Invalid schema of type JSON, details: Invalid schema of type JSON, details: Value \\\"1e-2147483649\\\" can not be deserialized as `java.math.BigDecimal`, reason:  Exponent overflow.\"}",
+    "ms": 4
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":85}",
+    "ms": 4
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "GET",
+   "p": "/subjects/jh27/versions/latest/schema"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"$schema\":\"https://json-schema.org/draft/2020-12/schema\",\"type\":\"number\",\"minimum\":0.0}",
+    "ms": 1
+   },
+   "confluent-8": {
+    "status": 404,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":40401,\"message\":\"Subject 'jh27' not found.\"}",
+    "ms": 2
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"$schema\":\"https://json-schema.org/draft/2020-12/schema\",\"type\":\"number\",\"minimum\":0.0}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/jhn/versions?normalize=true",
+   "b": "{\"schema\":\"{\\\"type\\\":\\\"number\\\",\\\"minimum\\\":-1e-2147483649,\\\"a\\\":1}\",\"schemaType\":\"JSON\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":85}",
+    "ms": 4
+   },
+   "confluent-8": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42201,\"message\":\"Invalid schema of type JSON, details: Invalid schema of type JSON, details: Value \\\"-1e-2147483649\\\" can not be deserialized as `java.math.BigDecimal`, reason:  Exponent overflow.\"}",
+    "ms": 4
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":86}",
+    "ms": 5
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "GET",
+   "p": "/subjects/jhn/versions/latest/schema"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"a\":1,\"minimum\":0.0,\"type\":\"number\"}",
+    "ms": 1
+   },
+   "confluent-8": {
+    "status": 404,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":40401,\"message\":\"Subject 'jhn' not found.\"}",
+    "ms": 1
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"a\":1,\"minimum\":0.0,\"type\":\"number\"}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/jhc/versions",
+   "b": "{\"schema\":\"{\\\"type\\\":\\\"number\\\",\\\"minimum\\\":0}\",\"schemaType\":\"JSON\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":86}",
+    "ms": 4
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":86,\"version\":1,\"guid\":\"1ab548e3-831f-84f9-d052-6ec187c93fd2\",\"schemaType\":\"JSON\",\"schema\":\"{\\\"type\\\":\\\"number\\\",\\\"minimum\\\":0}\"}",
+    "ms": 11
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":87}",
+    "ms": 4
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "PUT",
+   "p": "/config/jhc",
+   "b": "{\"compatibility\":\"BACKWARD\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"compatibility\":\"BACKWARD\"}",
+    "ms": 3
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"compatibility\":\"BACKWARD\"}",
+    "ms": 9
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"compatibility\":\"BACKWARD\"}",
+    "ms": 5
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/compatibility/subjects/jhc/versions/latest?verbose=true",
+   "b": "{\"schema\":\"{\\\"type\\\":\\\"number\\\",\\\"minimum\\\":1e-2147483649}\",\"schemaType\":\"JSON\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"is_compatible\":true,\"messages\":[]}",
+    "ms": 3
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"is_compatible\":false,\"messages\":[\"Invalid schema of type JSON, details: Invalid schema of type JSON, details: Value \\\"1e-2147483649\\\" can not be deserialized as `java.math.BigDecimal`, reason:  Exponent overflow.\"]}",
+    "ms": 3
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"is_compatible\":true,\"messages\":[]}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/compatibility/subjects/jhc/versions/latest?verbose=true",
+   "b": "{\"schema\":\"{\\\"type\\\":\\\"number\\\",\\\"minimum\\\":1e-2147483647}\",\"schemaType\":\"JSON\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"is_compatible\":true,\"messages\":[]}",
+    "ms": 1
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"is_compatible\":true,\"messages\":[]}",
+    "ms": 5
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"is_compatible\":true,\"messages\":[]}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/jhe/versions",
+   "b": "{\"schema\":\"{\\\"type\\\":\\\"number\\\",\\\"enum\\\":[1e-2147483649, 0]}\",\"schemaType\":\"JSON\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":87}",
+    "ms": 5
+   },
+   "confluent-8": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42201,\"message\":\"Invalid schema of type JSON, details: Invalid schema of type JSON, details: Value \\\"1e-2147483649\\\" can not be deserialized as `java.math.BigDecimal`, reason:  Exponent overflow.\"}",
+    "ms": 3
+   },
+   "doze": {
+    "status": 422,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":42201,\"message\":\"Invalid schema {subject=jhe,version=0,id=-1,schemaType=JSON,references=[],metadata=null,ruleSet=null,schema={\\\"type\\\":\\\"number\\\",\\\"enum\\\":[1e-2147483649, 0]},schemaTags=null}, details: Invalid JSON Schema: #/enum: values must be distinct\"}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "GET",
+   "p": "/subjects/jhe/versions/latest/schema"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"type\":\"number\",\"enum\":[0.0,0]}",
+    "ms": 1
+   },
+   "confluent-8": {
+    "status": 404,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":40401,\"message\":\"Subject 'jhe' not found.\"}",
+    "ms": 2
+   },
+   "doze": {
+    "status": 404,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":40401,\"message\":\"Subject 'jhe' not found.\"}",
+    "ms": 0
+   }
+  }
+ }
+]
