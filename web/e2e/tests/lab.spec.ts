@@ -99,6 +99,16 @@ test("Lab: a Slow rule for one client slows its requests; the rule counts them; 
     await sw.click();
     await expect.poll(async () => (await apiGet(page.request, "/api/v1/lab")).home.active.find((r: { name: string }) => r.name === "Slow produce to orders")?.enabled).toBe(true);
 
+    // J156, J492: Live says a rehearsal is active, and shows its rows.
+    const ruleId = (await apiGet(page.request, "/api/v1/lab")).home.active.find((r: { name: string }) => r.name === "Slow produce to orders").id;
+    await page.goto("/live");
+    const banner = page.getByTestId("lab-active");
+    await expect(banner).toContainText("A rehearsal is active.");
+    await expect(banner).toContainText("Slow produce to orders");
+    await banner.getByTestId("lab-active-show").click();
+    await expect(page).toHaveURL(new RegExp(`lab=(${ruleId}|all)`));
+    await expect(page.getByTestId("lab-filter")).toBeVisible();
+    await page.goto("/lab");
     // Remove, with the confirm dialog; it moves to Ended.
     await row.getByTestId("rule-remove").click();
     await expect(page).toHaveURL(/remove=\d+/);

@@ -210,11 +210,21 @@ fn a_window_in_use_counts_down_to_the_second_and_to_the_minute_when_left(cx: &mu
             .iter()
             .find(|v| v.state == doze_display::State::Idle && v.idle_since.is_some())
             .unwrap();
-        ((), doze_display::because(v, &snap, r.hub.now()))
+        // The frame was drawn up to a second before this read: either second's words are the right ones.
+        let now = r.hub.now();
+        let earlier = now - std::time::Duration::from_secs(1);
+        (
+            (),
+            [
+                doze_display::because(v, &snap, now),
+                doze_display::because(v, &snap, earlier),
+            ],
+        )
     });
+    let text = shown(&root, vcx);
     assert!(
-        shown(&root, vcx).contains(&said),
-        "in use, to the second: {said}"
+        said.iter().any(|s| text.contains(s.as_str())),
+        "in use, to the second: {said:?}"
     );
     // Left alone: once no longer in use, the words go to the minute in one frame, then nothing while they hold.
     pass(&src, vcx, attention::FOR.as_millis() as u64);

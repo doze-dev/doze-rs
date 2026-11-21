@@ -130,12 +130,21 @@ pub(super) fn trim<F: Fs>(
     memory: &mut Memory,
     how: super::Trim,
 ) -> Result<Offset, StorageError> {
-    let start = match how {
+    trim_counted(log, memory, how).map(|(start, _)| start)
+}
+
+/// [`trim`], with how many whole segments it removed (retention says; DeleteRecords is counted as 0).
+pub(super) fn trim_counted<F: Fs>(
+    log: &mut PartitionLog<F>,
+    memory: &mut Memory,
+    how: super::Trim,
+) -> Result<(Offset, usize), StorageError> {
+    let (start, removed) = match how {
         super::Trim::Retention(policy, now) => {
-            log.enforce_retention(policy, now)?;
-            log.start_offset()
+            let removed = log.enforce_retention(policy, now)?;
+            (log.start_offset(), removed)
         }
-        super::Trim::Before(to) => log.delete_before(to)?,
+        super::Trim::Before(to) => (log.delete_before(to)?, 0),
     };
     memory
         .txns
@@ -143,7 +152,7 @@ pub(super) fn trim<F: Fs>(
         .unwrap_or_else(PoisonError::into_inner)
         .forget_before(start.get());
     memory.producers.forget_below(start.get());
-    Ok(start)
+    Ok((start, removed))
 }
 
 #[cfg(test)]

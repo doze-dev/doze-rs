@@ -60,10 +60,11 @@ failure was the harness's: the leader of `mixed` (see "What the clients taught")
 | SASL users made over the API (14 lines) | skip (b) | pass | pass | pass |
 | **SASL: passed / skipped / failed** | **12 / 1 / 0** | **26 / 0 / 0** | **26 / 0 / 0** | **26 / 0 / 0** |
 
-(a) `ConsumerGroupHeartbeat` is not advertised. Kafka 1 and 2 have no such API. The Kafka 3.9.1 broker the table was recorded from
+(a) `ConsumerGroupHeartbeat` is not offered. Kafka 1 and 2 have no such API. The Kafka 3.9.1 broker the table was recorded from
 lists it (v0), but KIP-848 was early access in 3.x: `group.coordinator.rebalance.protocols` defaults to `classic`
-(`GroupCoordinatorConfig` in 3.9.1), so a 3.9 broker as installed does not run consumer-protocol groups. `--kafka-version 3`
-leaves it out (`profile(3).offers_consumer_groups()` is false, pinned in `profile/tests.rs`).
+(`GroupCoordinatorConfig` in 3.9.1), so a 3.9 broker as installed answers it UNSUPPORTED_VERSION. Since debt K2 (2026-11-19)
+`--kafka-version 3` lists it and answers it so too; the Go suite asks one heartbeat after ApiVersions and takes a refused API as
+not offered (`askOffered`), and the Java client, told the major, leaves the two APIs out at Kafka 3.
 (b) `DescribeUserScramCredentials` and `AlterUserScramCredentials` came with Kafka 2.7 (KIP-554); the 1.1 broker does not list them.
 SCRAM itself is from 0.10.2, so the 12 SCRAM and PLAIN cells run at Kafka 1.
 
@@ -71,6 +72,17 @@ Transactions run at every major (they arrived in 0.11): at Kafka 1, every librar
 AddOffsetsToTxn, EndTxn and TxnOffsetCommit at v0, and sarama (`V1_1_0_0`) uses its oldest transactional requests. The three ACL APIs
 are not offered at Kafka 1 (the protocol crate dropped their only version there, KIP-896), but no scenario uses ACLs, so nothing is
 skipped for that. TLS is transport: `-tls` accepts `-kafka-version` (both brokers start with it), and is run at the default, 4.
+
+## Old clients (debt K2, `tools/old-profiles-oracle/clients.sh`)
+
+`--kafka-version` 1, 2 and 3 are Kafka 1.1, 2.8 and 3.9 and serve every version those releases did, the message formats of
+Produce v0 to v2 and Fetch v0 to v3 included (converted: wire.md W38). `tools/old-profiles-oracle/clients.sh <doze-kafka> <port>
+<out dir>` runs, at each of the three: librdkafka (kcat) with `api.version.request=false` and `broker.version.fallback`
+0.8.2.2 (Produce v0, Fetch v0 and ListOffsets v0, message format v0), 0.9.0.1 (Produce v1, Fetch v1, a balanced consumer with the
+group APIs) and 0.10.0.1 (Produce v2, Fetch v2, format v1), each with no codec, gzip, snappy and lz4; and Kafka 1.1's own tools
+from `confluentinc/cp-kafka:4.1.4` in Docker, the console producer and consumer (the Java client, which negotiates) and the
+SimpleConsumerShell (the old Scala consumer), each codec. Each produces five messages and reads them back. Run 2026-11-19: 66 of
+66 pass (22 at each version).
 
 ## The scenarios
 
@@ -135,6 +147,12 @@ summary of `-versions` counts it. `-only <scenario>` picks one.
   any login), and a scenario that needs an API the broker does not advertise, or advertises only below what the client speaks,
   is skipped with the API named.
 
+Since 2026-11-19 (debt K1) the Kafka 4 profile serves every version Kafka 4.4.0 lists, and the 4.4.0 client uses them: run with
+`NetworkClient` at debug (`group-classic`, `group-848`, `txn-send-offsets`) it sent Produce 13, Fetch 18, ListOffsets 11,
+Metadata 13, OffsetCommit and OffsetFetch 10 (by topic id; 9 as well, on the classic group's path), FindCoordinator 6,
+TxnOffsetCommit 6 and ApiVersions 5, and `interop/run.sh -java-also` passed every scenario (72 ok: the Go clients, then 49 of
+the Java client, share and streams groups included; none failed or skipped).
+
 The scenarios (plain mode):
 
 | Scenario | What it does |
@@ -147,6 +165,8 @@ The scenarios (plain mode):
 | `txn-v2-epochs` | `transaction.version` finalized at 2 (`describeFeatures`); commit, abort, commit raise the producer epoch by one each (`describeTransactions`); the partition's producer at the last end's epoch (`describeProducers`); `read_committed` 12 of 18 |
 | `txn-v2-fence` | a second producer of the transactional id takes it over while the first has a transaction open: the first's commit is refused (InvalidProducerEpochException), the new owner's commits |
 | `txn-v2-timeout` | a transaction that outlives its 1 s timeout is aborted by the broker (epoch raised); the next write is refused, the producer's abort is accepted (a retry of the broker's own) and it commits again at the new epoch |
+| `txn-topic-ids` | one transaction of 10 records and offsets 4 and 6 committed, one aborted (a record, offset 99): the client negotiated Produce v13 and TxnOffsetCommit v6 (topics by id, KIP-516); 10 read once with `read_committed`, the group at 4 and 6. Needs Produce 13 and TxnOffsetCommit 6 (Kafka 4) |
+| `txn-two-phase-commit-setting` | a producer with `transaction.two.phase.commit.enable=true` (KIP-939) commits 5 and aborts 1: the 4.4.0 client has no two-phase API, never sets `Enable2Pc` and sends InitProducerId v5 even where the broker offers v6 (`--unstable-api-versions`) |
 | `group-classic`, `group-848` | two members split four partitions (a rebalance), read and commit; one leaves and the other takes over; a new member resumes with exactly the records after the commit |
 | `rebalance-commits-classic`, `-848` | four members join and two leave while records flow; each commits asynchronously after every poll and synchronously in `onPartitionsRevoked`; no commit may be refused and no record read twice. Under KIP-848 a commit in flight when the member's epoch moves arrives at an older epoch (KIP-1251, doze G848-10) |
 | `group-848-regex` | `subscribe(SubscriptionPattern)`: the broker resolves the expression; a matching topic made later is picked up, one that does not match is left out |

@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { bytes, span, stamp, timeoutText } from "./kafka";
-import { messagesQuery, messagesSearch, partitionsOf, recordAt, topicsSearch, whole } from "./topic-search";
+import { messagesQuery, messagesSearch, partitionsOf, recordAt, timeMs, topicsSearch, whole } from "./topic-search";
 
 describe("the Topics search params", () => {
   test("a hand-edited address keeps only what can be used", () => {
@@ -28,6 +28,20 @@ describe("the Topics search params", () => {
     expect(messagesQuery({ partition: "0,2", isolation: "read_committed", key: "a b" })).toBe("partition=0&partition=2&key=a+b&isolation=read_committed");
     expect(partitionsOf(undefined)).toEqual([]);
     expect(recordAt("3:9")).toEqual({ partition: 3, offset: 9 });
+  });
+
+  test("a From time reads as the server reads it: milliseconds, or a UTC date with an optional time", () => {
+    expect(timeMs("1700000000000")).toBe(1_700_000_000_000);
+    expect(timeMs("2026-11-13 14:30")).toBe(Date.UTC(2026, 10, 13, 14, 30));
+    expect(timeMs("2026-11-13T14:30:05Z")).toBe(Date.UTC(2026, 10, 13, 14, 30, 5));
+    expect(timeMs("2026-11-13")).toBe(Date.UTC(2026, 10, 13));
+    for (const bad of ["", "yesterday", "2026-13-01", "2026-11-13 25:00", "1969-12-31"]) expect(timeMs(bad)).toBeNull();
+  });
+
+  test("a before cursor (the pages past 200 records) is pairs of partition:offset, or nothing", () => {
+    expect(messagesSearch({ before: "0:60,1:880" }).before).toBe("0:60,1:880");
+    for (const bad of ["0", "0:x", "0:1,", ":1", "0:-1", 5]) expect(messagesSearch({ before: bad }).before).toBeUndefined();
+    expect(messagesQuery({ limit: 200, before: "0:60" })).toBe("limit=200&before=0%3A60");
   });
 });
 

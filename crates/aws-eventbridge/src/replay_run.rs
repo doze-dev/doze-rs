@@ -19,8 +19,6 @@ const STEP_MS: i64 = 250;
 /// The most events a step puts back.
 const BATCH: usize = 100;
 
-/// (memory) AWS's reason for a cancelled replay.
-const CANCELLED: &str = "Replay was cancelled.";
 /// The reason given when the archive went while the replay read it (memory).
 const ARCHIVE_GONE: &str = "The archive of the replay was deleted.";
 
@@ -53,7 +51,7 @@ impl Core {
             return;
         };
         if run.state == RunState::Cancelling {
-            self.stop(k, RunState::Cancelled, CANCELLED, now);
+            self.stop(k, RunState::Cancelled, None, now);
             return;
         }
         if self
@@ -61,7 +59,7 @@ impl Core {
             .get(&key(&run.replay.account, &[&run.archive]))
             .is_none()
         {
-            self.stop(k, RunState::Failed, ARCHIVE_GONE, now);
+            self.stop(k, RunState::Failed, Some(ARCHIVE_GONE), now);
             return;
         }
         let (read, last) = self.put_back(&run).await;
@@ -122,10 +120,11 @@ impl Core {
         }
     }
 
-    fn stop(&mut self, k: &str, state: RunState, reason: &str, now: i64) {
+    /// Ends a run. A cancelled one has no reason (recorded 2026-11-19: AWS shows no StateReason for it).
+    fn stop(&mut self, k: &str, state: RunState, reason: Option<&str>, now: i64) {
         if let Some(run) = self.runs.get_mut(k) {
             run.state = state;
-            run.reason = Some(reason.to_owned());
+            run.reason = reason.map(str::to_owned);
             run.replay.ended_ms = now;
         }
     }

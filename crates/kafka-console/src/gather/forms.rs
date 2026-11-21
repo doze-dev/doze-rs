@@ -204,7 +204,8 @@ pub(crate) async fn in_use(b: &Backend, topic: &str, partitions: &[i32]) -> InUs
     out.groups = d
         .groups
         .into_iter()
-        .filter(|g| g.error_code == 0)
+        // (A group the classic API does not describe is Dead, from v6 with GROUP_ID_NOT_FOUND: shown as Dead either way.)
+        .filter(|g| matches!(g.error_code, 0 | 69))
         .map(|g| {
             (
                 g.group_id.0.to_string(),

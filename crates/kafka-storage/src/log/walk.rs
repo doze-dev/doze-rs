@@ -65,7 +65,13 @@ pub struct SegmentWalk {
     pub unplaced: u64,
     /// The transaction markers in it, the newest 256.
     pub markers: Vec<MarkerNote>,
+    /// How many entries its sparse index has, and the first few of them as (offset, byte position in the log file).
+    pub index_entries: u64,
+    pub index_first: Vec<(i64, u64)>,
 }
+
+/// How many of a segment's first index entries a walk reads.
+const INDEX_FIRST: u64 = 3;
 
 impl SegmentWalk {
     /// The offsets the segment spans.
@@ -184,6 +190,14 @@ fn one<F: Fs>(
         bytes: committed,
         modified_ms: view.log_file().modified_ms().ok(),
         walked: true,
+        index_entries: view.index().len(),
+        index_first: view
+            .index()
+            .first(INDEX_FIRST)
+            .unwrap_or_default()
+            .into_iter()
+            .map(|e| (e.offset, e.position))
+            .collect(),
         ..SegmentWalk::default()
     };
     let (mut pos, mut expect) = (0u64, seg.base);

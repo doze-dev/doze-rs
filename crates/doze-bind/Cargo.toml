@@ -14,3 +14,6 @@ workspace = true
 [dependencies]
 doze-names = { path = "../doze-names" }
 doze-module-proto = { path = "../doze-module-proto" }
+
+[dev-dependencies]
+serde_json = "1"

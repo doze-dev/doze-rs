@@ -175,3 +175,44 @@ fn an_empty_log_has_one_empty_active_segment_and_no_gaps() {
     assert_eq!((s.bytes, s.records, s.batches), (0, 0, 0));
     assert!(s.gaps.is_empty() && s.walked && s.newest_ms.is_none());
 }
+
+/// Console debt J235: the survey reads each segment's index head (its count and first entries) from the index file, the same
+/// entries a fetch seeks by.
+#[test]
+fn a_segment_says_how_many_index_entries_it_has_and_its_first_ones() {
+    let (_fs, _dir, mut log) = fresh(NEVER);
+    for _ in 0..20 {
+        log.append(&ones(1, 0), NOW, TimestampType::Create).unwrap();
+    }
+    let walk = log.reader().survey(Budget::default());
+    let s = &walk.segments[0];
+    // One entry per 150 bytes of log (the tests' index.interval.bytes), so twenty batches make several.
+    assert!(s.index_entries >= 3, "{}", s.index_entries);
+    assert_eq!(s.index_first.len(), 3);
+    assert!(
+        s.index_first
+            .windows(2)
+            .all(|w| w[0].0 < w[1].0 && w[0].1 < w[1].1),
+        "{:?}",
+        s.index_first
+    );
+    // One-record batches of the same size: entry offsets are inside the segment and each position is a whole number of
+    // batches into the file.
+    let size = one();
+    for (offset, position) in &s.index_first {
+        assert!((s.base..s.next).contains(offset));
+        assert_eq!(
+            *position % size,
+            0,
+            "{position} is not where a batch starts"
+        );
+        assert_eq!(*position / size, u64::try_from(*offset - s.base).unwrap());
+    }
+    let empty = fresh(NEVER).2.reader().survey(Budget::default());
+    assert!(
+        empty
+            .segments
+            .iter()
+            .all(|s| s.index_entries == 0 && s.index_first.is_empty())
+    );
+}

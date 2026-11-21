@@ -59,6 +59,8 @@ pub(crate) struct QueryRun {
     pub(crate) account: String,
     pub(crate) query: String,
     pub(crate) groups: Vec<String>,
+    /// The groups as the request named them (names or ARNs): what `ListLogGroupsForQuery` answers.
+    pub(crate) listed: Vec<String>,
     pub(crate) created_ms: i64,
     /// Set by `StopQuery`; the reader looks at it between events.
     pub(crate) cancel: AtomicBool,
@@ -80,7 +82,7 @@ impl QueryRun {
         id: String,
         (region, account): (&str, &str),
         query: &str,
-        groups: Vec<String>,
+        (groups, listed): (Vec<String>, Vec<String>),
         created_ms: i64,
     ) -> Self {
         Self {
@@ -89,6 +91,7 @@ impl QueryRun {
             account: account.to_owned(),
             query: query.to_owned(),
             groups,
+            listed,
             created_ms,
             cancel: AtomicBool::new(false),
             state: Mutex::new(State {

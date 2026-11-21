@@ -52,6 +52,7 @@ pub async fn list(b: &Backend, filter: &str, show_internal: bool) -> TopicsView 
                 .get(&t.name)
                 .map(|g| g.iter().cloned().collect())
                 .unwrap_or_default(),
+            written_by: Vec::new(),
             bytes: readable.then_some(bytes),
             last_write_ms: files.iter().filter_map(|f| f.last_write_ms).max(),
             offline: files.iter().filter(|f| f.offline.is_some()).count(),

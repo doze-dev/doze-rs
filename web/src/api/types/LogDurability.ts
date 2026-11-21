@@ -4,4 +4,8 @@ import type { LogStop } from "./LogStop";
 /**
  * How the log is kept on disk.
  */
-export type LogDurability = { offline: string | null, stop: LogStop, fsync_ms: number, };
+export type LogDurability = { offline: string | null, stop: LogStop, fsync_ms: number, 
+/**
+ * Every record before this offset is on disk (the end at the last completed flush), if known.
+ */
+flushed_through: number | null, };

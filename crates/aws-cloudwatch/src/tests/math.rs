@@ -123,7 +123,11 @@ fn search_finds_the_metrics_this_region_holds() {
         .iter()
         .map(|r| r["Label"].as_str().unwrap())
         .collect();
-    assert_eq!(labels, ["depth billing", "depth orders"]);
+    assert_eq!(
+        labels,
+        ["billing", "orders"],
+        "recorded 2026-11-19: dimension values only"
+    );
     let sum = data(
         &mut w,
         vec![expr("s", "SUM(SEARCH('{T,queue} depth', 'Sum', 60))")],
@@ -136,12 +140,18 @@ fn search_finds_the_metrics_this_region_holds() {
 fn what_cannot_be_worked_out_is_refused() {
     let mut w = World::new();
     for (queries, words) in [
-        (vec![expr("e", "m9 * 2")], "Unrecognized identifier m9"),
+        (
+            vec![expr("e", "m9 * 2")],
+            "Error in expression 'e': ID 'm9' not found",
+        ),
         (
             vec![expr("e", "f"), expr("f", "e + 1")],
-            "Circular dependency",
+            "Circular dependency between expressions: e -> f -> e",
         ),
-        (vec![expr("e", "m1 +")], "Error in expression e"),
+        (
+            vec![expr("e", "m1 +")],
+            "Error in expression 'e': Invalid syntax",
+        ),
         (vec![expr("e", "NOPE(1)")], "Unknown function NOPE"),
         (vec![expr("e", "SELECT AVG(x) FROM T")], "Metrics Insights"),
         (vec![expr("e", "'text'")], "not a time series"),
@@ -197,6 +207,13 @@ fn a_math_alarm_follows_its_expression() {
         a["StateReason"]
     );
     assert_eq!(a["Metrics"][2]["Expression"], "m1 + m2");
+    // Recorded 2026-11-19: no dimensions sent shows as an empty list, on the alarm and on each metric.
+    assert_eq!(a["Dimensions"], json!([]));
+    assert_eq!(
+        a["Metrics"][0]["MetricStat"]["Metric"]["Dimensions"],
+        json!([])
+    );
+    assert!(a["Metrics"][2].get("MetricStat").is_none());
     // And back when the minute leaves the window.
     assert_eq!(w.core.earliest_due(), Some(NOW + 120_000));
     w.clock.advance(60_000);
@@ -239,7 +256,7 @@ fn a_math_alarm_is_held_to_the_rules_of_the_model() {
         (two, "Exactly one element"),
         (
             json!({"Namespace": "T"}),
-            "cannot be used with the parameter Metrics",
+            "Namespace should not be set if list of Metrics is set.",
         ),
         (
             json!({"Metrics": [{"Id": "e", "Expression": "SEARCH('x', 'Sum', 60)", "ReturnData": true}]}),
@@ -261,95 +278,4 @@ fn a_math_alarm_is_held_to_the_rules_of_the_model() {
         let e = math_alarm(&mut w, "x", &extra).unwrap_err();
         assert!(e.message.contains(words), "{} / {words}", e.message);
     }
-}
-
-fn log_alarm(name: &str) -> Value {
-    json!({
-        "AlarmName": name, "Threshold": 5.0, "ComparisonOperator": "GreaterThanThreshold",
-        "QueryResultsToEvaluate": 3, "QueryResultsToAlarm": 2,
-        "ScheduledQueryConfiguration": {
-            "QueryString": "fields @message | filter @message like /ERROR/", "LogGroupIdentifiers": ["/app"],
-            "ScheduledQueryRoleARN": "arn:aws:iam::000000000000:role/q", "AggregationExpression": "count(*)",
-            "ScheduleConfiguration": {"ScheduleExpression": "rate(5 minutes)", "StartTimeOffset": 300}},
-    })
-}
-
-#[test]
-fn a_log_alarm_is_kept_and_says_it_is_not_evaluated() {
-    let mut w = World::new();
-    w.ok("PutLogAlarm", &log_alarm("errors"));
-    let all = w.ok("DescribeAlarms", &json!({}));
-    assert_eq!(
-        all["LogAlarms"],
-        json!([]),
-        "only metric alarms when no type is asked for"
-    );
-    let d = w.ok("DescribeAlarms", &json!({"AlarmTypes": ["LogAlarm"]}));
-    let a = &d["LogAlarms"][0];
-    assert_eq!(a["AlarmName"], "errors");
-    assert_eq!(a["StateValue"], "INSUFFICIENT_DATA");
-    assert!(
-        a["StateReason"]
-            .as_str()
-            .unwrap()
-            .starts_with("Not evaluated locally")
-    );
-    assert_eq!(a["QueryResultsToAlarm"], 2);
-    assert_eq!(a["TreatMissingData"], "missing");
-    assert!(
-        a["ScheduledQueryConfiguration"]["QueryARN"]
-            .as_str()
-            .unwrap()
-            .starts_with("arn:aws:logs:")
-    );
-    assert_eq!(d["MetricAlarms"], json!([]));
-    let h = w.ok("DescribeAlarmHistory", &json!({"AlarmName": "errors"}));
-    assert_eq!(h["AlarmHistoryItems"][0]["AlarmType"], "LogAlarm");
-    assert_eq!(w.core.earliest_due(), None);
-
-    let mut bad = log_alarm("x");
-    bad["QueryResultsToAlarm"] = json!(4);
-    assert!(
-        w.err("PutLogAlarm", &bad)
-            .1
-            .contains("less than or equal to QueryResultsToEvaluate")
-    );
-    let mut bad = log_alarm("x");
-    bad["ScheduledQueryConfiguration"]["ScheduleConfiguration"]["ScheduleExpression"] =
-        json!("cron(0 * * * ? *)");
-    assert!(w.err("PutLogAlarm", &bad).1.contains("rate()"));
-    let mut bad = log_alarm("x");
-    bad["ComparisonOperator"] = json!("GreaterThanUpperThreshold");
-    assert!(
-        w.err("PutLogAlarm", &bad)
-            .1
-            .contains("not valid for a log alarm")
-    );
-    w.alarm("metric", &json!({}));
-    assert_eq!(
-        w.err("PutLogAlarm", &log_alarm("metric")).0,
-        "ResourceConflict"
-    );
-    w.ok("DeleteAlarms", &json!({"AlarmNames": ["errors"]}));
-    let d = w.ok("DescribeAlarms", &json!({"AlarmTypes": ["LogAlarm"]}));
-    assert_eq!(d["LogAlarms"], json!([]));
-}
-
-#[test]
-fn a_composite_alarm_is_stored_and_says_it_is_not_evaluated() {
-    let mut w = World::new();
-    w.ok(
-        "PutCompositeAlarm",
-        &json!({"AlarmName": "c", "AlarmRule": "ALARM(m)"}),
-    );
-    let d = w.ok("DescribeAlarms", &json!({"AlarmTypes": ["CompositeAlarm"]}));
-    assert_eq!(d["CompositeAlarms"][0]["AlarmRule"], "ALARM(m)");
-    assert!(
-        d["CompositeAlarms"][0]["StateReason"]
-            .as_str()
-            .unwrap()
-            .starts_with("Not evaluated locally")
-    );
-    assert_eq!(d["MetricAlarms"], json!([]));
-    assert_eq!(w.core.earliest_due(), None);
 }

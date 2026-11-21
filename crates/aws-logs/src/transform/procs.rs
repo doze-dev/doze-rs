@@ -2,16 +2,20 @@
 
 use aws_cron::Zone;
 use aws_wire::ApiError;
-use regex_lite::{Regex, RegexBuilder};
+use regex_lite::Regex;
 use serde_json::{Map, Value};
 
-use super::datetime::{self, Pattern};
+use super::datetime::Pattern;
 use super::grok::{self, Grok};
+use super::procs_read::{
+    conversions, csv, date_time, entries, flag, key_value, list_to_map, moves, need, opt, strings,
+    substitutions,
+};
 
 /// The most processors a transformer has (the model's `Processors` length).
 pub(crate) const MAX_PROCESSORS: usize = 20;
 /// The most compiled size of a `substituteString` expression.
-const MAX_REGEX_BYTES: usize = 1 << 20;
+pub(super) const MAX_REGEX_BYTES: usize = 1 << 20;
 /// The parsers of AWS-vended logs, which must come first and read only `@message` (the model).
 const VENDED: [&str; 5] = [
     "parseCloudfront",
@@ -20,6 +24,67 @@ const VENDED: [&str; 5] = [
     "parseVPC",
     "parseWAF",
 ];
+
+/// The processors a transformer may begin with, in the order AWS lists them (recorded 2026-11-19).
+const PARSERS: [&str; 19] = [
+    "parsePostgres",
+    "parseWAF",
+    "parseCloudfront",
+    "parseCloudfrontOCSF",
+    "parseRoute53",
+    "parseLambda",
+    "parseVPC",
+    "parseSyslog",
+    "parseRDS",
+    "parseCiscoFTD",
+    "parseF5BigIP",
+    "parseCiscoISE",
+    "parseForescoutNac",
+    "parseInfobloxDDI",
+    "parseToOCSF",
+    "parseJSON",
+    "grok",
+    "csv",
+    "parseKeyValue",
+];
+
+/// The processor members the model gives a default, as AWS shows them in `GetTransformer` (recorded 2026-11-19 for `addKeys`
+/// and `renameKeys`; the others by the same model trait): `(processor, inside entries, member, default)`.
+const DEFAULTS: [(&str, bool, &str, bool); 6] = [
+    ("addKeys", true, "overwriteIfExists", false),
+    ("copyValue", true, "overwriteIfExists", false),
+    ("moveKeys", true, "overwriteIfExists", false),
+    ("renameKeys", true, "overwriteIfExists", false),
+    ("listToMap", false, "flatten", false),
+    ("parseKeyValue", false, "overwriteIfExists", false),
+];
+
+/// A stored `transformerConfig` with each member the model defaults filled in where the request left it out.
+pub(crate) fn with_defaults(config: &mut Value) {
+    let Some(list) = config.as_array_mut() else {
+        return;
+    };
+    for p in list.iter_mut().filter_map(Value::as_object_mut) {
+        for (name, in_entries, member, default) in DEFAULTS {
+            let Some(body) = p.get_mut(name).and_then(Value::as_object_mut) else {
+                continue;
+            };
+            let mut fill = |o: &mut Map<String, Value>| {
+                o.entry(member).or_insert(Value::Bool(default));
+            };
+            if in_entries {
+                body.get_mut("entries")
+                    .and_then(Value::as_array_mut)
+                    .into_iter()
+                    .flatten()
+                    .filter_map(Value::as_object_mut)
+                    .for_each(&mut fill);
+            } else {
+                fill(body);
+            }
+        }
+    }
+}
 
 /// One key moved, copied or renamed.
 #[derive(Clone, Debug)]
@@ -131,6 +196,13 @@ fn one(index: usize, p: &Value) -> Result<Proc, ApiError> {
     let body = body
         .as_object()
         .ok_or_else(|| invalid(format!("The {name} processor must be an object.")))?;
+    if index == 0 && !PARSERS.contains(&name) {
+        // Recorded 2026-11-19.
+        return Err(invalid(format!(
+            "Transformer config should begin with parser. Allowed parsers are {}",
+            PARSERS.join(", ")
+        )));
+    }
     if VENDED.contains(&name) {
         if index != 0 {
             return Err(invalid(format!(
@@ -194,194 +266,4 @@ fn build(name: &str, b: &Map<String, Value>) -> Result<Proc, ApiError> {
         }
         other => return Err(invalid(format!("Unknown processor type: {other}."))),
     })
-}
-
-fn opt(b: &Map<String, Value>, key: &str) -> Option<String> {
-    b.get(key).and_then(Value::as_str).map(str::to_owned)
-}
-
-fn need(b: &Map<String, Value>, key: &str) -> Result<String, ApiError> {
-    opt(b, key)
-        .filter(|s| !s.is_empty())
-        .ok_or_else(|| invalid(format!("{key} is required.")))
-}
-
-fn flag(b: &Map<String, Value>, key: &str) -> bool {
-    b.get(key).and_then(Value::as_bool).unwrap_or(false)
-}
-
-fn entries<'a>(
-    b: &'a Map<String, Value>,
-    key: &str,
-) -> Result<Vec<&'a Map<String, Value>>, ApiError> {
-    let list = b
-        .get(key)
-        .and_then(Value::as_array)
-        .filter(|a| !a.is_empty())
-        .ok_or_else(|| invalid(format!("{key} is required.")))?;
-    list.iter()
-        .map(|e| {
-            e.as_object()
-                .ok_or_else(|| invalid(format!("Each of {key} must be an object.")))
-        })
-        .collect()
-}
-
-fn strings(b: &Map<String, Value>, key: &str) -> Result<Vec<String>, ApiError> {
-    let list = b
-        .get(key)
-        .and_then(Value::as_array)
-        .filter(|a| !a.is_empty())
-        .ok_or_else(|| invalid(format!("{key} is required.")))?;
-    list.iter()
-        .map(|v| {
-            v.as_str()
-                .map(str::to_owned)
-                .ok_or_else(|| invalid(format!("Each of {key} must be a string.")))
-        })
-        .collect()
-}
-
-fn moves(b: &Map<String, Value>, from: &str, to: &str) -> Result<Vec<Move>, ApiError> {
-    entries(b, "entries")?
-        .iter()
-        .map(|e| {
-            Ok(Move {
-                source: need(e, from)?,
-                target: need(e, to)?,
-                overwrite: flag(e, "overwriteIfExists"),
-            })
-        })
-        .collect()
-}
-
-fn csv(b: &Map<String, Value>) -> Result<Csv, ApiError> {
-    let quote = opt(b, "quoteCharacter").unwrap_or_else(|| "\"".into());
-    let mut q = quote.chars();
-    let (Some(quote), None) = (q.next(), q.next()) else {
-        return Err(invalid("quoteCharacter must be one character."));
-    };
-    let delimiter = match opt(b, "delimiter").as_deref() {
-        None => ",".to_owned(),
-        // (memory) a tab may be written as the two characters `\t`.
-        Some("\\t") => "\t".to_owned(),
-        Some(d) => d.to_owned(),
-    };
-    if delimiter.is_empty() {
-        return Err(invalid("delimiter must not be empty."));
-    }
-    let columns = match b.get("columns") {
-        Some(_) => strings(b, "columns").or_else(|_| Ok::<_, ApiError>(Vec::new()))?,
-        None => Vec::new(),
-    };
-    Ok(Csv {
-        quote,
-        delimiter,
-        columns,
-        source: opt(b, "source"),
-        destination: opt(b, "destination"),
-    })
-}
-
-fn zone(b: &Map<String, Value>, key: &str) -> Result<Zone, ApiError> {
-    match opt(b, key) {
-        None => Ok(Zone::utc()),
-        Some(name) => Zone::named(&name)
-            .ok_or_else(|| invalid(format!("{key} {name} is not a known time zone."))),
-    }
-}
-
-fn date_time(b: &Map<String, Value>) -> Result<DateTime, ApiError> {
-    let read = |text: &str| {
-        datetime::pattern(text)
-            .ok_or_else(|| invalid(format!("The date time pattern {text} is not valid.")))
-    };
-    let patterns = strings(b, "matchPatterns")?
-        .iter()
-        .map(|p| read(p))
-        .collect::<Result<Vec<_>, _>>()?;
-    let target_format =
-        read(&opt(b, "targetFormat").unwrap_or_else(|| "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'".into()))?;
-    Ok(DateTime {
-        source: need(b, "source")?,
-        target: need(b, "target")?,
-        target_format,
-        patterns,
-        source_zone: zone(b, "sourceTimezone")?,
-        target_zone: zone(b, "targetTimezone")?,
-    })
-}
-
-fn list_to_map(b: &Map<String, Value>) -> Result<ListToMap, ApiError> {
-    let flatten = if flag(b, "flatten") {
-        match opt(b, "flattenedElement").as_deref() {
-            Some("first") => Some(true),
-            Some("last") => Some(false),
-            _ => {
-                return Err(invalid(
-                    "flattenedElement must be first or last when flatten is true.",
-                ));
-            }
-        }
-    } else {
-        None
-    };
-    Ok(ListToMap {
-        source: need(b, "source")?,
-        key: need(b, "key")?,
-        value_key: opt(b, "valueKey"),
-        target: opt(b, "target"),
-        flatten,
-    })
-}
-
-fn key_value(b: &Map<String, Value>) -> KeyValue {
-    let or = |key: &str, default: &str| {
-        opt(b, key)
-            .filter(|s| !s.is_empty())
-            .unwrap_or_else(|| default.to_owned())
-    };
-    KeyValue {
-        source: opt(b, "source"),
-        destination: opt(b, "destination"),
-        field_delimiter: or("fieldDelimiter", "&"),
-        kv_delimiter: or("keyValueDelimiter", "="),
-        prefix: opt(b, "keyPrefix").unwrap_or_default(),
-        non_match: opt(b, "nonMatchValue"),
-        overwrite: flag(b, "overwriteIfExists"),
-    }
-}
-
-fn substitutions(b: &Map<String, Value>) -> Result<Vec<(String, Regex, String)>, ApiError> {
-    entries(b, "entries")?
-        .iter()
-        .map(|e| {
-            let from = need(e, "from")?;
-            let re = RegexBuilder::new(&from)
-                .size_limit(MAX_REGEX_BYTES)
-                .build()
-                .map_err(|_| invalid(format!("The regular expression {from} is not valid.")))?;
-            Ok((need(e, "source")?, re, opt(e, "to").unwrap_or_default()))
-        })
-        .collect()
-}
-
-fn conversions(b: &Map<String, Value>) -> Result<Vec<(String, Kind)>, ApiError> {
-    entries(b, "entries")?
-        .iter()
-        .map(|e| {
-            let kind = match need(e, "type")?.as_str() {
-                "integer" => Kind::Integer,
-                "double" => Kind::Double,
-                "string" => Kind::Text,
-                "boolean" => Kind::Boolean,
-                other => {
-                    return Err(invalid(format!(
-                        "The type {other} is not valid. Valid values are integer, double, string and boolean."
-                    )));
-                }
-            };
-            Ok((need(e, "key")?, kind))
-        })
-        .collect()
 }

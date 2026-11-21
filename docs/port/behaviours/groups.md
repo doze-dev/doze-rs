@@ -119,7 +119,9 @@ Test: `offsets::a_commit_that_was_acknowledged_survives_*`, `deleting_a_topic_ta
 
 ### G7. DescribeGroups
 Groups are answered in the order Kafka answers them (not the request's), duplicates kept. A group never heard of, an empty
-id and an unusable id are Dead, not an error; one known only by its offsets is Empty. Only a Stable group shows its
+id and an unusable id are Dead, not an error up to v5; from v6 (KIP-1043) they are Dead with GROUP_ID_NOT_FOUND (69) and
+`Group <id> not found.`, and a consumer, share or streams group `Group <id> is not a classic group.` (wire.md W37). One known
+only by its offsets is Empty. Only a Stable group shows its
 protocol and its members' metadata. Member client host is a fixed `/127.0.0.1` (the peer address is not carried to the
 group APIs yet).
 Test: `group_admin::*`, `groups::order::tests` (13 orders recorded from Apache Kafka 4.3.1, past a resize of its map)
@@ -130,7 +132,9 @@ Test: `group_admin::groups_are_listed_by_id_*`
 
 ### G9. DeleteGroups
 In Kafka's order: a group with members NON_EMPTY_GROUP (68); an empty one goes with its offsets; nothing there and no
-offsets GROUP_ID_NOT_FOUND (69); an unusable id 24. A group deleted can be made again by a join.
+offsets GROUP_ID_NOT_FOUND (69), the empty id and any id no group can have included (Kafka 4.4.0 looks the empty one up like any
+other; it was 24 here before 2026-11-19). v3 adds an error message to each result: null, as Kafka sets one only for a streams
+group's topology description plugin (W37). A group deleted can be made again by a join.
 Test: `group_admin::deleting_a_group_needs_it_empty_*`
 
 ### G10. OffsetDelete
@@ -138,6 +142,16 @@ GROUP_ID_NOT_FOUND (69) for a group with no members and no offsets, 24 for an un
 subscribes to is GROUP_SUBSCRIBED_TO_TOPIC (86), an unknown topic or partition 3, otherwise the offset is forgotten.
 Subscriptions are read from the consumer protocol (versions 0-3); an unreadable one subscribes to nothing assumed.
 Test: `group_admin::offsets_are_deleted_unless_*`, `offset_delete_of_a_group_with_nothing_*`, `groups::subscription::tests`
+
+### G11. OffsetCommit and OffsetFetch v0 are ZooKeeper's (debt K2, 2026-11-19)
+Kafka 1.1 and 2.8 keep a v0 commit in ZooKeeper, apart from every other: the group is not asked (v0 names no member), only
+the offset is kept, and only OffsetFetch v0 reads it back, 3 with no metadata where there is none (`MetaStore::commit_zk_offsets`,
+kept across restarts); nothing a later version commits is seen by v0, nor v0's by them. Kafka 3.9 has no ZooKeeper: v0 is
+UNSUPPORTED_VERSION on every partition (a request whose every partition is refused first, an unknown topic say, is answered
+with that). v1's commit time is when the offset's retention counts from. Kafka 3.9 lists ConsumerGroupHeartbeat and
+ConsumerGroupDescribe v0 and, as installed, answers both UNSUPPORTED_VERSION before anything else; a share coordinator key is
+COORDINATOR_NOT_AVAILABLE. DescribeGroups' authorized operations before Kafka 4 are READ, DELETE and DESCRIBE (328).
+Test: `store::zk_offsets::tests`, recorded `old-offsets`, `tools/old-profiles-oracle` `offsets-old`, `consumer-groups`, `groups`
 
 ## Retention
 

@@ -107,6 +107,21 @@ pub(crate) fn invalid(message: impl Into<String>) -> ApiError {
     ApiError::modeled("InvalidParameterException", message)
 }
 
+/// The words of a refusal AWS's Logs Insights front end passes on from its back end, which carry that back end's exception
+/// (recorded 2026-11-19): `<words> (Service: AWSLogs; Status Code: 400; Error Code: <code>; Request ID: <id>; Proxy: null)`, the
+/// id one the back end minted for its own request.
+pub(crate) fn backend(code: &str, words: &str) -> String {
+    format!(
+        "{words} (Service: AWSLogs; Status Code: 400; Error Code: {code}; Request ID: {}; Proxy: null)",
+        aws_seal::uuid_v4().unwrap_or_default()
+    )
+}
+
+/// A refusal of AWS's Logs Insights back end, passed on with its code (see [`backend`]).
+pub(crate) fn backend_error(code: &'static str, words: &str) -> ApiError {
+    ApiError::modeled(code, backend(code, words))
+}
+
 /// Recorded on AWS (2026-11-09): the words of a missing group.
 pub(crate) fn no_group() -> ApiError {
     ApiError::modeled(

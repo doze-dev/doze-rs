@@ -42,8 +42,18 @@ impl<F: Fs> Broker<F> {
         caller: &Caller,
         req: &ConsumerGroupDescribeRequest,
     ) -> Outcome {
-        let guard = self.guard(caller);
         let mut resp = ConsumerGroupDescribeResponse::default();
+        if !self.consumer_groups_run() {
+            // Kafka 3.9 as installed: every group UNSUPPORTED_VERSION, before its right is asked.
+            for g in &req.group_ids {
+                let mut refused = DescribedGroup::default();
+                refused.group_id = g.clone();
+                refused.error_code = kafka_wire::ResponseError::UnsupportedVersion.code();
+                resp.groups.push(refused);
+            }
+            return Outcome::Respond(kafka_wire::api::Response::ConsumerGroupDescribe(resp));
+        }
+        let guard = self.guard(caller);
         let mut asked: Vec<String> = Vec::new();
         for g in &req.group_ids {
             if guard.group(Operation::Describe, g.0.as_str()) {

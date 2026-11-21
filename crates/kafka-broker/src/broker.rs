@@ -77,6 +77,17 @@ const SERVED: &[ApiKey] = &[
     ApiKey::StreamsGroupHeartbeat,
     ApiKey::StreamsGroupDescribe,
     ApiKey::StreamsGroupTopologyDescriptionUpdate,
+    ApiKey::DescribeTopicPartitions,
+    ApiKey::ElectLeaders,
+    ApiKey::AlterPartitionReassignments,
+    ApiKey::ListPartitionReassignments,
+    ApiKey::AlterReplicaLogDirs,
+    ApiKey::ListConfigResources,
+    ApiKey::UpdateFeatures,
+    ApiKey::CreateDelegationToken,
+    ApiKey::RenewDelegationToken,
+    ApiKey::ExpireDelegationToken,
+    ApiKey::DescribeDelegationToken,
 ];
 
 /// The APIs of client telemetry (KIP-714), served only when `Config::client_telemetry` is on.
@@ -127,6 +138,10 @@ pub struct Broker<F: Fs = RealFs> {
     /// Held for the whole of a change to the stored credentials, from the snapshot it starts from to the one swapped
     /// in, for the reason `acl_admin` is.
     pub(crate) user_admin: tokio::sync::Mutex<()>,
+    /// The delegation tokens in force (none while tokens are off).
+    pub(crate) tokens: crate::tokens::Tokens,
+    /// Held for the whole of a change to the tokens, for the reason `acl_admin` is.
+    pub(crate) token_admin: tokio::sync::Mutex<()>,
     /// The client quotas set, and what each client has used of them. Nothing is metered while none is set.
     pub(crate) quotas: crate::quotas::Quotas,
     /// Held for the whole of a change to the quotas, from the set it starts from to the one put in force, for the reason
@@ -162,6 +177,10 @@ impl<F: Fs> Broker<F> {
     ///
     /// # Errors
     /// The data directory or the metadata database cannot be made or read.
+    #[expect(
+        clippy::too_many_lines,
+        reason = "every part of the broker's state, opened in the order each needs the others"
+    )]
     pub fn open(fs: F, mut config: Config) -> Result<Self, BrokerError> {
         // The console's own principal is a super user of every broker (SEC-241); nobody else can be it (SEC-240).
         config
@@ -193,6 +212,7 @@ impl<F: Fs> Broker<F> {
         );
         let users = Arc::clone(&config.users);
         crate::users::load(&meta, &users)?;
+        let tokens = crate::tokens::load(&meta, &config.delegation_tokens, &users)?;
         let quotas = crate::quotas::Quotas::load(meta.quotas()?);
         let millis = |d: std::time::Duration| u64::try_from(d.as_millis()).unwrap_or(u64::MAX);
         let meta_txns = meta.txns()?;
@@ -230,6 +250,8 @@ impl<F: Fs> Broker<F> {
             acl_admin: tokio::sync::Mutex::new(()),
             users,
             user_admin: tokio::sync::Mutex::new(()),
+            tokens,
+            token_admin: tokio::sync::Mutex::new(()),
             quotas,
             quota_admin: tokio::sync::Mutex::new(()),
             stop_cleaning: Arc::default(),
@@ -304,6 +326,18 @@ impl<F: Fs> Broker<F> {
     #[must_use]
     pub fn client_telemetry(&self) -> bool {
         self.config.client_telemetry
+    }
+
+    /// This broker's cluster id and node id, which a v5 ApiVersions may name (KIP-1242).
+    #[must_use]
+    pub fn identity(&self) -> (&str, i32) {
+        (&self.config.cluster_id, self.config.node_id)
+    }
+
+    /// Whether the versions Kafka marks unstable are offered (`Config::unstable_api_versions`).
+    #[must_use]
+    pub fn unstable_api_versions(&self) -> bool {
+        self.config.unstable_api_versions
     }
 
     /// The metadata database, for what keeps its records beside the broker's: the schema registry (`kafka-registry`).

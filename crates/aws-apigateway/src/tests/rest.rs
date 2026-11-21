@@ -312,10 +312,7 @@ async fn keys_plans_account_tags_domains_and_parts() {
     assert_eq!(responses["item"].as_array().unwrap().len(), 21);
     let custom = w.rest("PutGatewayResponse", json!({"restApiId": api, "responseType": "MISSING_AUTHENTICATION_TOKEN", "statusCode": "404"})).await.unwrap();
     assert_eq!(custom["defaultResponse"], false);
-    let refused = w
-        .rest("GenerateClientCertificate", json!({}))
-        .await
-        .unwrap_err();
+    let refused = w.rest("GetSdkTypes", json!({})).await.unwrap_err();
     assert_eq!(refused.status, 501);
     assert!(!w.v1.serves(w.h1_op("GetSdk")));
 }

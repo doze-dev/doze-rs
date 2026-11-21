@@ -47,6 +47,18 @@ pub struct ProdRow {
     /// The clients the wire recorder saw write with this producer id, as `orders (go, sarama)`, newest first; empty where
     /// there is no recorder or it did not see the producer write.
     pub seen_as: Vec<String>,
+    /// The epochs the wire recorder saw InitProducerId give it, oldest first (at most five): its epoch history, as far as
+    /// the tape reaches; empty where there is no recorder or the tape holds none.
+    pub epochs: Vec<ProdEpoch>,
+}
+
+/// One epoch a producer was given, as the wire recorder saw the InitProducerId answer.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
+pub struct ProdEpoch {
+    pub epoch: i16,
+    pub at_ms: i64,
+    pub client: String,
 }
 
 /// A transaction that was aborted and that the partition still remembers.
@@ -59,6 +71,20 @@ pub struct ProdAborted {
     pub marker: i64,
     /// When the marker was written, where the log says.
     pub at_ms: Option<i64>,
+    /// Who wrote the abort, as the wire recorder saw it: `producer` (its own EndTxn), `broker` (no EndTxn from it while
+    /// the tape reached back past the marker: the timeout, or a new InitProducerId that fenced it); `None` when not known.
+    pub by: Option<AbortBy>,
+}
+
+/// Who wrote an abort marker.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum AbortBy {
+    /// The producer, with an EndTxn: its client id.
+    Producer { client: String },
+    /// The broker: the tape holds no EndTxn from the producer around the marker.
+    Broker,
 }
 
 /// What an offset in the tail of the partition is.

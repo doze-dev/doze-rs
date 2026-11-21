@@ -55,6 +55,8 @@ struct Prepared {
     labels: crate::Labels,
     module: Option<Arc<ModuleInstance>>,
     supervised: bool,
+    /// Where doze listens for it, if it fronts it.
+    fronted: Option<crate::front::Fronted>,
 }
 
 fn failed(error: String, code: &str) -> Response {
@@ -105,28 +107,40 @@ fn prepare(
     if declared.contains(&inst.name) {
         return Err(format!("an instance named {:?} already exists", inst.name));
     }
+    let supervised = inst.kind() == Kind::Module
+        && cat
+            .manifest_for(&inst.ty, &inst.version)
+            .is_some_and(|m| m.supervised);
+    let fronted = entry::fronted_one(&inst, cat, supervised, run_dir);
+    let zone = live.front.zone();
+    let grant = match &fronted {
+        Some(f) => {
+            let plan = zone.plan(std::slice::from_ref(f))?;
+            Some(zone.grant(&plan, f, run_dir))
+        }
+        None => None,
+    };
     let module = std::cell::RefCell::new(None);
     let planner = |i: &Instance| {
-        let (p, mi) = crate::planners::module(cat, i, &doze_fetch::triple(), run_dir);
+        let (p, mi) =
+            crate::planners::module(cat, i, &doze_fetch::triple(), run_dir, grant.as_ref());
         *module.borrow_mut() = mi;
         p
     };
     let wiring = doze_config::stack::Wiring {
         planner: &planner,
         extra_env: BTreeMap::new(),
+        fetch: cat.service_downloads(),
     };
     let names: BTreeSet<&str> = declared.iter().map(String::as_str).collect();
     let service = doze_config::stack::service(&inst, &wiring, &names);
-    let supervised = inst.kind() == Kind::Module
-        && cat
-            .manifest_for(&inst.ty, &inst.version)
-            .is_some_and(|m| m.supervised);
     Ok(Prepared {
-        labels: entry::label(&inst, cat),
+        labels: entry::label(&inst, cat, grant.as_ref()),
         inst,
         service,
         module: module.into_inner(),
         supervised,
+        fronted,
     })
 }
 
@@ -173,10 +187,18 @@ pub(crate) async fn add(d: &Daemon, block: &str) -> Response {
         undo(d, &name).await;
         return failed(err, "");
     }
-    if let Some(f) = entry::front_of(&p.inst, &p.labels, p.supervised) {
-        if let Err(err) = live.front.add(&f).await {
+    if let Some(f) = &p.fronted {
+        if let Err(err) = live.front.add(f, &stack.run_dir()).await {
             undo(d, &name).await;
             return failed(err, "");
+        }
+        if let Some(l) = crate::write(&d.inner.labels).get_mut(&name) {
+            if let Some(ep) = live.front.endpoint(&name).filter(|e| !e.is_empty()) {
+                l.bind = ep.clone();
+                l.endpoint = ep;
+            }
+            l.name_only = live.front.name_only(&name);
+            l.name_held = live.front.zone().held(&name).unwrap_or_default();
         }
     } else if starts_by_itself(&p.inst, p.supervised)
         && let Err(err) = e.wake(&name, Cause::Command).await
@@ -184,9 +206,10 @@ pub(crate) async fn add(d: &Daemon, block: &str) -> Response {
         undo(d, &name).await;
         return failed(format!("booting {name:?}: {err}"), "");
     }
+    let labels = d.label(&name);
     let view = e
         .get(&name)
-        .map(|i| crate::view::view(e, &i, Some(&p.labels)));
+        .map(|i| crate::view::view(e, &i, labels.as_ref()));
     Response {
         ok: true,
         instances: view.into_iter().collect(),

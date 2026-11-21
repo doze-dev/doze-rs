@@ -127,6 +127,7 @@ fn producer_row(
                 from: w.open_from,
             }),
         seen_as: Vec::new(),
+        epochs: Vec::new(),
         batches: w
             .batches
             .iter()
@@ -183,6 +184,7 @@ pub async fn producers(
                 first: a.first,
                 marker: a.marker,
                 at_ms: marker_time(facts.as_ref(), a.marker),
+                by: None,
             })
             .collect(),
         tail: tail(facts.as_ref(), (pp.start, pp.end, pp.last_stable)),

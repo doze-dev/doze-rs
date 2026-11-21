@@ -134,6 +134,12 @@ fn places(r: &ConfigRow) -> Vec<ConfigPlace> {
                 title: (*title).to_owned(),
                 detail: if *source == ConfigSource::DynamicTopic {
                     format!("{} {detail}", r.name)
+                } else if *source == ConfigSource::StaticFlag && syn.is_some() {
+                    // The broker config behind it is the start value of a command-line flag: name the flag a person typed.
+                    match crate::settings_words::dynamic_flag(name) {
+                        Some(flag) => format!("{flag} ({name}): {detail}"),
+                        None => format!("{name}: {detail}"),
+                    }
                 } else if syn.is_some() {
                     format!("{name}: {detail}")
                 } else {
@@ -235,4 +241,44 @@ async fn tab(State(s): State<Shared>, Path(topic): Path<String>) -> Response {
 /// The routes of the Config tab under `web`.
 pub(super) fn routes(web: &crate::base::Base) -> Router<Shared> {
     Router::new().route(&web.url("/api/v1/topics/{topic}/config"), get(tab))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn syn(name: &str, value: &str, source: ConfigSource) -> ConfigSynonym {
+        ConfigSynonym {
+            name: name.to_owned(),
+            value: value.to_owned(),
+            source,
+        }
+    }
+
+    #[test]
+    fn a_static_flag_place_names_the_command_line_flag_behind_the_broker_config() {
+        let row = ConfigRow {
+            name: "segment.bytes".to_owned(),
+            value: "1048576".to_owned(),
+            source: ConfigSource::StaticFlag,
+            kind: 3,
+            doc: String::new(),
+            allowed: String::new(),
+            synonyms: vec![
+                syn("log.segment.bytes", "1048576", ConfigSource::StaticFlag),
+                syn("log.segment.bytes", "1073741824", ConfigSource::Default),
+            ],
+        };
+        let p = places(&row);
+        let flag = p.iter().find(|p| p.wins).unwrap();
+        assert_eq!(
+            flag.detail,
+            "--segment-bytes (log.segment.bytes): a start flag that is not Kafka's default"
+        );
+        assert!(
+            p.iter()
+                .any(|p| p.detail == "log.segment.bytes: Kafka's own"),
+            "{p:?}"
+        );
+    }
 }

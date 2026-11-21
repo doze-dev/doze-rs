@@ -111,6 +111,49 @@ impl Client {
         self.exchange(&request, Duration::from_secs(60))
     }
 
+    /// Any signed request: `method` on `target` (an already-encoded path, with its query), with `headers` (lower-case
+    /// names, all signed) and `body`. S3's flavour of signing when `service` is `s3`.
+    pub(crate) fn signed(
+        &self,
+        service: &str,
+        method: &str,
+        target: &str,
+        headers: &[(String, String)],
+        body: &[u8],
+    ) -> Result<Reply, String> {
+        let amz_date = aws_core::time::format_amz_date(now_secs());
+        let payload = sha256_hex(body);
+        let mut all: Vec<(String, String)> = headers.to_vec();
+        all.push(("host".into(), self.host.clone()));
+        all.push(("x-amz-date".into(), amz_date.clone()));
+        all.push(("x-amz-content-sha256".into(), payload.clone()));
+        all.sort();
+        let mut request = http::Request::builder().method(method).uri(target);
+        for (name, value) in &all {
+            request = request.header(name.as_str(), value.as_str());
+        }
+        let (parts, ()) = request.body(()).map_err(|e| e.to_string())?.into_parts();
+        let names: Vec<String> = all.iter().map(|(n, _)| n.clone()).collect();
+        let flavor = Flavor {
+            s3: service == "s3",
+            presigned: false,
+        };
+        let canonical =
+            canonical_request(&parts, &names, &payload, flavor).map_err(|e| e.to_string())?;
+        let auth = self.authorization(service, &amz_date, &canonical, &names)?;
+        let mut head = format!("{method} {target} HTTP/1.1\r\n");
+        for (name, value) in &all {
+            head.push_str(&format!("{name}: {value}\r\n"));
+        }
+        head.push_str(&format!(
+            "Authorization: {auth}\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
+            body.len()
+        ));
+        let mut request = head.into_bytes();
+        request.extend_from_slice(body);
+        self.exchange(&request, Duration::from_secs(60))
+    }
+
     fn sign(
         &self,
         service: &str,
@@ -134,9 +177,20 @@ impl Client {
         };
         let canonical = canonical_request(&parts, &signed, &sha256_hex(body), flavor)
             .map_err(|e| e.to_string())?;
+        self.authorization(service, amz_date, &canonical, &signed)
+    }
+
+    /// The `Authorization` header for a canonical request signed over the headers `signed`.
+    fn authorization(
+        &self,
+        service: &str,
+        amz_date: &str,
+        canonical: &str,
+        signed: &[String],
+    ) -> Result<String, String> {
         let date = amz_date.get(..8).unwrap_or_default();
         let scope = format!("{date}/{}/{service}/aws4_request", self.region);
-        let to_sign = string_to_sign(amz_date, &scope, &canonical);
+        let to_sign = string_to_sign(amz_date, &scope, canonical);
         let signature = SigningKey::derive(&self.secret_key, date, &self.region, service)
             .and_then(|k| k.sign_hex(to_sign.as_bytes()))
             .ok_or("the request could not be signed")?;

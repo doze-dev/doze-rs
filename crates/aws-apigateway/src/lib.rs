@@ -12,16 +12,22 @@
 //! API keys, request validation, CORS, stage variables, gateway responses, binary media types, access logs, and WebSocket APIs. Their
 //! `@connections` management API is a third [`Service`] (`apigatewaymanagementapi`, signed as `execute-api`): [`Management`].
 //!
-//! **Stored, not active locally:** custom domain names and their mappings, usage plan throttles and quotas, stage caches, canary
-//! settings, method throttling. **Refused by name** (501): client certificates, VPC links, SDK generation, documentation parts and
-//! versions, usage reports, portals and routing rules, `TestInvoke*`.
+//! Usage plans meter their keys (quota and throttle enforced, `GetUsage`); `TestInvokeMethod` and `TestInvokeAuthorizer` run the
+//! live API through the plane; client certificates are real self-signed certificates; documentation parts and versions are kept and
+//! exported; `GetModelTemplate` writes the template of a model.
+//!
+//! **Stored, not active locally:** custom domain names and their mappings, VPC links (no VPC: an integration calls its URI
+//! directly), stage caches, canary settings, method throttling. **Refused by name** (501): SDK generation, domain-name access
+//! associations, portals and routing rules.
 
 mod authz;
+mod certs;
 mod core;
 mod doc;
 mod domains;
 mod errors;
 mod gwresp;
+mod links;
 mod management;
 mod openapi;
 mod patch;
@@ -29,6 +35,8 @@ mod plane;
 mod req;
 mod storage;
 mod tags;
+mod template;
+mod usage;
 mod v1;
 mod v2;
 
@@ -140,9 +148,15 @@ impl Inner {
         out
     }
 
-    async fn run(&self, api: Api, call: Call) -> Result<RestReply, ApiError> {
+    async fn run(&self, api: Api, mut call: Call) -> Result<RestReply, ApiError> {
         let region = call.caller.region.clone();
         let op = call.op;
+        if api == Api::V1
+            && aws_model_api_gateway::Operation::from_index(op)
+                == Some(aws_model_api_gateway::Operation::GenerateClientCertificate)
+        {
+            certs::prepare(&mut call, self.clock.now_ms().div_euclid(1000)).await;
+        }
         let answer = self.ask(&region, Ask::Call(api, Box::new(call))).await?;
         let Answer::Reply { reply, durable } = answer else {
             return Err(ApiError::internal(
@@ -154,8 +168,11 @@ impl Inner {
                 .await
                 .map_err(|e| ApiError::internal(format!("could not save: {e}")))?;
         }
-        let out = reply?;
+        let mut out = reply?;
         self.plane.after_change(api, op);
+        if let Some(test) = out.pending.take() {
+            out.json = plane::test::run(self, *test).await;
+        }
         Ok(RestReply {
             json: out.json,
             status: out.status,

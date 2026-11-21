@@ -4,7 +4,9 @@
 //! bucket's: an explicit deny in it refuses, and an allow in it is enough for a caller of the same account.
 //!
 //! AWS applies a policy eventually (a get right after a put may not see it); here it is in place when the call answers. The revision
-//! id is the time of the change in milliseconds, a string as the model says to compare it. The messages are `(memory)`.
+//! id is the time of the change in milliseconds, a string as the model says to compare it. AWS hands a policy back without the
+//! whitespace between its tokens (recorded 2026-11-19), so it is stored that way. A message marked `Recorded 2026-11-19` is AWS's;
+//! the rest are `(memory)`.
 
 use aws_peers::Need;
 use aws_wire::ApiError;
@@ -13,7 +15,7 @@ use serde_json::{Value as Json, json};
 
 use crate::core::{Core, Cx};
 use crate::extras::{Extra, Policy, policy_key};
-use crate::req::{str_of, table_arn, validation};
+use crate::req::{bad_param, str_of, table_arn, table_not_found, validation};
 
 /// The most a policy document may hold, whitespace counted (the model: 20 KB).
 const MAX_POLICY_BYTES: usize = 20 * 1024;
@@ -27,14 +29,49 @@ fn policy_not_found(arn: &str) -> ApiError {
     )
 }
 
-fn revision_mismatch(arn: &str, expected: &str, actual: Option<&str>) -> ApiError {
+fn revision_mismatch(arn: &str, table: &str, expected: &str, actual: Option<&str>) -> ApiError {
+    let Some(actual) = actual else {
+        // `(memory)`: a revision asked of a resource with no policy is a policy not found.
+        return policy_not_found(arn);
+    };
+    // Recorded 2026-11-19 (both).
+    let detail = if expected == NO_POLICY {
+        format!(
+            "Requested policy update expecting none to be present for table {table}, but a policy exists with revision id {actual}."
+        )
+    } else {
+        format!(
+            "Requested update for policy with revision id {expected}, but the policy associated to target table {table} has revision id {actual}."
+        )
+    };
     ApiError::modeled(
         "PolicyNotFoundException",
-        format!(
-            "Resource-based policy not found for the provided ResourceArn: Requested update for policy revision id {expected}, but the policy associated to target resource {arn} has revision id {}.",
-            actual.unwrap_or(NO_POLICY)
-        ),
+        format!("Resource-based policy not found for the provided ResourceArn: {detail}"),
     )
+}
+
+/// A JSON text without the whitespace between its tokens; strings are kept as written.
+fn compact(text: &str) -> String {
+    let mut out = String::with_capacity(text.len());
+    let (mut in_string, mut escaped) = (false, false);
+    for c in text.chars() {
+        if in_string {
+            out.push(c);
+            if escaped {
+                escaped = false;
+            } else if c == '\\' {
+                escaped = true;
+            } else if c == '"' {
+                in_string = false;
+            }
+        } else if c == '"' {
+            in_string = true;
+            out.push(c);
+        } else if !c.is_whitespace() {
+            out.push(c);
+        }
+    }
+    out
 }
 
 /// Checks a policy document as IAM checks one on a resource, and its size.
@@ -44,9 +81,15 @@ pub(crate) fn check_policy(text: &str) -> Result<(), ApiError> {
             "Resource-based policy document exceeds the maximum allowed size of {MAX_POLICY_BYTES} bytes"
         )));
     }
+    // Recorded 2026-11-19 for a document that is not JSON; the other refusals are taken to carry the same prefix.
+    if serde_json::from_str::<Json>(text).is_err() {
+        return Err(bad_param(
+            "Invalid policy document: This policy contains invalid Json",
+        ));
+    }
     aws_iam_policy::check(text, aws_iam_policy::Kind::Resource)
         .map(drop)
-        .map_err(|e| validation(format!("Invalid policy document: {}", e.0)))
+        .map_err(|e| bad_param(&format!("Invalid policy document: {}", e.0)))
 }
 
 impl Core {
@@ -65,7 +108,8 @@ impl Core {
             )));
         }
         let name = crate::req::table_name(arn, cx.region(), cx.account()).map_err(|_| missing())?;
-        let t = self.tables.get(name).ok_or_else(missing)?;
+        // Recorded 2026-11-19: a table that is not there is named.
+        let t = self.tables.get(name).ok_or_else(|| table_not_found(name))?;
         if let Some((_, label)) = arn.split_once("/stream/") {
             let current = t.stream.as_ref().is_some_and(|s| s.label == label);
             if !current {
@@ -87,7 +131,7 @@ impl Core {
     }
 
     pub(crate) fn put_resource_policy(&mut self, cx: &Cx<'_>) -> Result<Json, ApiError> {
-        let (_, arn) = self.policy_target(cx)?;
+        let (table, arn) = self.policy_target(cx)?;
         let text = str_of(&cx.body, "Policy").unwrap_or_default();
         check_policy(text)?;
         let current = self.policy(&arn).cloned();
@@ -99,7 +143,7 @@ impl Core {
                 actual == Some(expected)
             };
             if !matches {
-                return Err(revision_mismatch(&arn, expected, actual));
+                return Err(revision_mismatch(&arn, &table, expected, actual));
             }
         }
         let revision = self.store_policy(&arn, text, cx.now_ms);
@@ -108,6 +152,7 @@ impl Core {
 
     /// Stores a policy; the same document again keeps its revision.
     pub(crate) fn store_policy(&mut self, arn: &str, text: &str, now_ms: i64) -> String {
+        let text = compact(text);
         if let Some(p) = self.policy(arn).filter(|p| p.text == text) {
             return p.revision.clone();
         }
@@ -119,7 +164,7 @@ impl Core {
         self.extras.insert(
             policy_key(arn),
             Extra::Policy(Policy {
-                text: text.to_owned(),
+                text,
                 revision: revision.clone(),
             }),
         );
@@ -133,12 +178,17 @@ impl Core {
     }
 
     pub(crate) fn delete_resource_policy(&mut self, cx: &Cx<'_>) -> Result<Json, ApiError> {
-        let (_, arn) = self.policy_target(cx)?;
+        let (table, arn) = self.policy_target(cx)?;
         let current = self.policy(&arn).map(|p| p.revision.clone());
         if let Some(expected) = str_of(&cx.body, "ExpectedRevisionId")
             && current.as_deref() != Some(expected)
         {
-            return Err(revision_mismatch(&arn, expected, current.as_deref()));
+            return Err(revision_mismatch(
+                &arn,
+                &table,
+                expected,
+                current.as_deref(),
+            ));
         }
         self.extras.remove(&policy_key(&arn));
         // With no policy there, the call does nothing and says so with no revision (the model).

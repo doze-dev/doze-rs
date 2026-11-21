@@ -311,7 +311,23 @@ mod tests {
     fn script(dir: &std::path::Path, name: &str, body: &str) -> std::path::PathBuf {
         use std::os::unix::fs::PermissionsExt as _;
         let p = dir.join(name);
-        std::fs::write(&p, format!("#!/bin/sh\n{body}\n")).unwrap_or_else(|e| panic!("{e}"));
+        // Written by a child, not by this process: a test thread that forks while this process holds the file open for
+        // writing hands that descriptor to its child, and running the script then fails with "Text file busy" (ETXTBSY,
+        // CI run 44817619661).
+        let mut w = std::process::Command::new("/bin/sh")
+            .args(["-c", "cat > \"$0\""])
+            .arg(&p)
+            .stdin(std::process::Stdio::piped())
+            .spawn()
+            .unwrap_or_else(|e| panic!("{e}"));
+        {
+            use std::io::Write as _;
+            let mut stdin = w.stdin.take().unwrap_or_else(|| panic!("no stdin"));
+            stdin
+                .write_all(format!("#!/bin/sh\n{body}\n").as_bytes())
+                .unwrap_or_else(|e| panic!("{e}"));
+        }
+        assert!(w.wait().unwrap_or_else(|e| panic!("{e}")).success());
         std::fs::set_permissions(&p, std::fs::Permissions::from_mode(0o755))
             .unwrap_or_else(|e| panic!("{e}"));
         p

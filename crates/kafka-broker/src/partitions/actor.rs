@@ -79,6 +79,8 @@ pub(crate) enum Emptying {
 pub(crate) struct Retained {
     /// The log start now in force.
     pub(crate) start: Offset,
+    /// How many whole segments the pass removed.
+    pub(crate) segments: usize,
     /// When retention could next take something, if nothing is written (`PartitionLog::retention_due`).
     pub(crate) due_ms: Option<i64>,
     /// The writer's count of changes when that was judged.
@@ -280,12 +282,13 @@ fn retain<F: Fs>(
     now: TimestampMs,
 ) -> Result<Retained, StorageError> {
     let before = log.start_offset();
-    let start = trim(log, memory, Trim::Retention(policy, now))?;
+    let (start, segments) = transactions::trim_counted(log, memory, Trim::Retention(policy, now))?;
     if start != before {
         memory.upkeep.changed();
     }
     Ok(Retained {
         start,
+        segments,
         due_ms: log.retention_due(policy)?,
         changes: memory.upkeep.changes(),
     })

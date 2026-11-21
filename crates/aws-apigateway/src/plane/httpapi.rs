@@ -118,6 +118,12 @@ async fn proxy(
 /// An `HTTP_PROXY` integration: the request passed to the URL (its `{variables}` filled from the route's), with the integration's
 /// parameter mappings (`overwrite:path`, `append:`/`overwrite:`/`remove:` on `header.x` and `querystring.x`).
 async fn http(found: &Found, route: &Route, req: &Incoming, extra: &Context) -> WebReply {
+    if let Some(why) =
+        crate::links::unreachable(text(&route.integration, "integrationUri").unwrap_or_default())
+    {
+        tracing::warn!("execute-api {}: {why}", found.api_id());
+        return reply::message(500, "Internal Server Error");
+    }
     let out = request_of(found, route, req, extra);
     match client::call(&out).await {
         Ok(a) => reply::of(a.status, a.headers, a.body),

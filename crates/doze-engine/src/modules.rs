@@ -128,6 +128,28 @@ impl ModuleInstance {
         self
     }
 
+    /// Its module's key in the pool.
+    pub fn key(&self) -> &str {
+        &self.key
+    }
+
+    /// Where its engine listens for `listener` now: the loopback port chosen at its last start, else the grant.
+    pub fn listener_backend(&self, listener: &str) -> Option<Address> {
+        let chosen = self
+            .ports
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .get(listener)
+            .cloned();
+        chosen.or_else(|| {
+            self.base
+                .listeners
+                .get(listener)
+                .map(|g| g.backend.clone())
+                .filter(|b| *b != Address::Tcp(ANY_LOOPBACK.into()))
+        })
+    }
+
     /// The module is supervised: always on, never reaped when idle.
     #[must_use]
     pub fn supervised(mut self, on: bool) -> Self {
@@ -335,10 +357,8 @@ impl ModuleInstance {
             if !any {
                 continue;
             }
-            let port = std::net::TcpListener::bind(("127.0.0.1", 0))
-                .and_then(|s| s.local_addr())
-                .map_err(|e| format!("{}: no loopback port is free for its engine: {e}", i.name))?
-                .port();
+            let port = crate::ports::free_port()
+                .map_err(|e| format!("{}: no loopback port is free for its engine: {e}", i.name))?;
             l.backend = Address::Tcp(format!("127.0.0.1:{port}"));
             ports.insert(name.clone(), l.backend.clone());
         }

@@ -141,6 +141,7 @@ impl<F: Fs> PartitionLog<F> {
             log.active.mark_unflushed();
             log.dir_dirty = true;
             log.append_seq = 1; // one append nobody has flushed: what was read back
+            log.shared.sync.send_modify(|s| s.through = None);
         }
         Ok(log)
     }

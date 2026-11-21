@@ -391,6 +391,12 @@ lto = "fat"
 # shrank the x86_64 Linux build by 1.66 MB but grew the darwin one by 0.3 MB; the whole build at "s" shrinks both (8,924,224 to 7,123,432 B
 # on x86_64 Linux, 6,802,944 to 5,531,712 B on darwin/arm64) for about 0.3 ms on a warm `doze status` (docs/port/weight.md, "doze's profile").
 # CI's weight-doze job and `cargo xtask weight` build it with this profile; the release (`--release`) profile stays the broker's.
+#
+# 2026-11-19 (core D2: names, the front door, the resolver, TLS and the download fetch in the daemon): "z". At "s" D2 took x86_64
+# Linux from 8,652,824 to 9,192,984 B (zig cross build; CI measured the base at 8,607,968), over the 9 MB line. The whole build
+# at "z" is 8,754,344 B on Linux and 6,031,248 B on darwin/arm64 (7,171,888 B at "s"); a warm `doze status` moved by about
+# 0.4 ms (within noise). Per-package "z" on doze's own crates shrank Linux to 8,729,016 B but grew darwin to 9,009,552 B (fat
+# LTO with mixed levels, as C2b found), so the whole build moves (docs/port/weight.md, "D2").
 [profile.release-doze]
 inherits = "release"
-opt-level = "s"
+opt-level = "z"

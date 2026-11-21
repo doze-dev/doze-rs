@@ -2,6 +2,7 @@
 import type { DiskAlarm } from "./DiskAlarm";
 import type { HomeState } from "./HomeState";
 import type { InstanceView } from "./InstanceView";
+import type { OfflinePartition } from "./OfflinePartition";
 import type { ProbeView } from "./ProbeView";
 import type { SpokeView } from "./SpokeView";
 
@@ -21,4 +22,8 @@ spoke: SpokeView | null,
 /**
  * The disk needs someone: nearly full, a large share of it is the data directory, or a large topic keeps everything.
  */
-disk: DiskAlarm | null, };
+disk: DiskAlarm | null, 
+/**
+ * The partitions a failed flush took offline (their writes are refused until a restart), topic and partition.
+ */
+offline: Array<OfflinePartition>, };

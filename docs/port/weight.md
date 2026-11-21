@@ -1002,6 +1002,33 @@ CI's, above):
   HCL's `regex` must take). doze-engine's `regex-lite` (31 KB) stays: its log patterns are Go's RE2 and need nothing more.
 - The 9 MB line is unchanged; the package line stays 240.
 
+## D2: names, the front door, TLS and downloads in the daemon; `release-doze` at "z" (2026-11-19)
+
+D2 put the zone into the daemon: `doze-bind`, doze-names' resolver and front door (hyper's server and client, rustls'
+server side, the CA's leaves), the hand-off to modules, the download fetch. x86_64 Linux is a cross build with zig as
+the linker (the base measured 8,652,824 B here against CI's 8,607,968 B, +0.5%), `release-doze`:
+
+| | x86_64 Linux | darwin/arm64 | packages |
+|---|---|---|---|
+| core-land (4ae41117), "s" | 8,652,824 B | | 233 |
+| D2, "s" | **9,192,984 B** (193 KB over the 9 MB line) | 7,171,888 B | 234 (doze-bind) |
+| D2, "s" with "z" on doze's own crates, rustls, yaml-rust2, hcl-edit, ureq | 8,729,016 B | **9,009,552 B** (+1.84 MB) | |
+| **D2, the whole build at "z"** | **8,754,344 B** | **6,031,248 B** | 234 |
+
+- Where the +540 KB went (cargo-bloat, Linux `.text`, D2 against the base): doze-names +199 KB (the front door, the
+  resolver with its upstream relay, the certificate resolver), doze-daemon +87 KB, rustls +65 KB (the server side),
+  hyper +28 KB (the server), doze-bind +18 KB, std +19 KB.
+- **Chosen: `release-doze` at "z"** (Cargo.toml, dated comment). Per-package levels grew darwin by 1.8 MB again (fat LTO
+  with mixed levels, as C2b found), so only the whole build moves. Cost measured on darwin: a warm `doze status` on the
+  acme fixture, median of 60, 31.55/30.70 ms at "s" and 31.80/31.24 ms at "z" (both runs include the timer's own process
+  start), so about 0.4 ms; the wake bench below is on the "z" build. C2b's reason not to take it (no loop vectorisation
+  for the log store and the front) is the price for staying under the line; the splice is tokio's copy either way.
+- Headroom: about 250 KB under the 9 MB line on Linux, before CI confirms it.
+- Wake, on the "z" build (darwin/arm64, a scratch bench after Go's `test/bench`: boot then down five times over the
+  control socket, the journal's `ready` times; postgres 16 and valkey 8 from a local signed registry): names off, db
+  median 35.0 ms (32.0–38.8), cache 18.8 ms (17.2–22.6), a valkey PING through the front after a sleep 19.3 ms to its
+  PONG; names on (Shared, a private zone): 36.8 ms, 19.5 ms, 20.7 ms. Go's budget (`budget.json`) is 250 ms.
+
 ## Core D1 with the module catalog (`doze` carries the daemon), measured 2026-11-15, release, darwin/arm64
 
 | | bytes | packages (normal, unique) |
@@ -1575,3 +1602,41 @@ nothing. Locally, `shell/live_tests.rs` (gpui test windows over the fixture daem
 and its instances every third): a glanced stack page draws 3–7 frames in 180 s and its vitals still move; a service
 page at most 7; a hidden window none. `idle_tests`' frozen-daemon test now allows the banner's "1m ago" the grid
 step after the minute.
+
+## Core M3: doze-aws's module face, measured 2026-11-15, release-aws, darwin/arm64
+
+The module face (`crates/doze-aws/src/module`, feature `module`, on by default as kafka's is) adds the module SDK to doze-aws:
+`doze-module`, its derive, `doze-module-proto`, `doze-os`, `minicbor` and its derive, `hex`, `rustix`, `errno`, `bitflags` (13
+`cargo tree` lines). The template, the checks and the CloudFormation calls are doze-aws's own code (its `cfn` client).
+
+| darwin arm64, `release-aws` | `--no-default-features` | default (module) |
+|---|---|---|
+| doze-aws binary | 8,375,808 B | **8,592,624 B** (+216,816 B, +2.6%) |
+| packages (`cargo tree`, unique lines) | 271 | **284** |
+| idle | | unchanged: the module code runs only as `aws-plugin`, never in the server |
+
+On ubuntu x86_64 (CI's measured ratio for doze-aws, 1.54) that is about +334 KB on CI's 13,128,520 B, about 13.46 MB, inside the
+13,900,000 B line and the owner's 20 MB ceiling. The package line goes from 280 to **287** (CI's 274 plus the 13), a small
+justified rise recorded here; CI's next run on this branch measures it exactly. doze-kafka gains only its `client` declaration
+(kcat), a few strings.
+
+### Core M3: CI's measurement (2026-11-15, PR #57, run 43641162106, ubuntu x86_64)
+
+CI measured `doze-aws` with the module face: **13,507,440 B** (+378,920 B over main's 13,128,520 B; the estimate was about
++334 KB), **286** packages (+12), and an idle median of **10,716 KB** (samples 10,716, 10,632 and 11,016). That is over the
+10,526 KB line. In the same week main measured 10,104 KB (samples 9,940, 10,176 and 10,104).
+
+The earlier "idle unchanged" was wrong. An A/B on darwin, with five starts each and the same tree with and without the
+feature, measured medians of 6,544 KB and 6,656 KB: the module face costs about **+112 KB** idle. Those are the pages of its
+code, because the server never calls it. The rest of CI's +612 KB is within the run-to-run spread that issue #36 records:
+several hundred KB between runs of one commit.
+
+Those lines were for the branch as it stood on 2026-11-15. Since then main moved doze-aws's lines to the owner's ceilings
+(20,000,000 B and 16,384 KB idle, 2026-11-19), so the face fits without a new byte or idle line.
+
+### Core M3 landed on main (2026-11-21)
+
+Re-applied on main, with the take-over of a Go module's data (`module/godata`, both modules). That adds one package to each
+binary: `doze-bolt`, a read-only bbolt reader of about 300 lines with no dependencies. The package lines move to **293** for
+doze-aws (280 on main, +12 for the module SDK as CI counted on 2026-11-15, +1) and **183** for doze-kafka (+1). The kafka
+face's other new code (the importer, `serde` and `serde_json`, already in its tree) runs only in `kafka-plugin`'s provision.

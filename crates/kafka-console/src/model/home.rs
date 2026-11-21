@@ -92,4 +92,16 @@ pub struct HomeView {
     pub spoke: Option<super::SpokeView>,
     /// The disk needs someone: nearly full, a large share of it is the data directory, or a large topic keeps everything.
     pub disk: Option<super::DiskAlarm>,
+    /// The partitions a failed flush took offline (their writes are refused until a restart), topic and partition.
+    pub offline: Vec<OfflinePartition>,
+}
+
+/// A partition whose writes are refused because a flush failed.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
+pub struct OfflinePartition {
+    pub topic: String,
+    pub partition: i32,
+    /// The first failed flush, in the writer's words.
+    pub cause: String,
 }

@@ -24,7 +24,12 @@ retention_ms: number | null, segments: number | null,
 /**
  * The groups that have committed offsets on it.
  */
-read_by: Array<string>, bytes: number | null, 
+read_by: Array<string>, 
+/**
+ * The clients the request recorder saw write to it (a Produce it answered), newest first, at most three; empty when the
+ * tape holds none (it keeps the last 2,000 requests) or the console has no recorder.
+ */
+written_by: Array<string>, bytes: number | null, 
 /**
  * When it was last written (the newest segment file), in milliseconds since the epoch.
  */

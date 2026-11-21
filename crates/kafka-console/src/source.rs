@@ -122,6 +122,16 @@ impl Live {
             unchecked: looked.unchecked,
             spoke: self.recorder.as_ref().map(|r| r.spoke()),
             disk: gather::data::alarm(&self.backend, &self.growth).await,
+            offline: self
+                .backend
+                .offline_partitions()
+                .into_iter()
+                .map(|(topic, partition, cause)| crate::model::OfflinePartition {
+                    topic,
+                    partition,
+                    cause,
+                })
+                .collect(),
         }
     }
 }

@@ -6,7 +6,7 @@ use super::run::Engine;
 
 /// Runs `query` over `messages` (newest last; fed newest first, as the reader does), one a second from t=1,700,000,000,000.
 fn run(query: &str, messages: &[&str]) -> Vec<Vec<(String, String)>> {
-    let q = parse(query).unwrap_or_else(|e| panic!("{query}: {}", e.message));
+    let q = parse(query).unwrap_or_else(|e| panic!("{query}: {}", e.message(query, 0)));
     let mut engine = Engine::new(&q, 10_000);
     for (i, m) in messages.iter().enumerate().rev() {
         let e = Event {
@@ -17,6 +17,7 @@ fn run(query: &str, messages: &[&str]) -> Vec<Vec<(String, String)>> {
             stream: if i % 2 == 0 { "a" } else { "b" },
             group: "/app",
             account: "000000000000",
+            region: "us-east-1",
             ptr: format!("p{i}"),
             lambda: false,
         };
@@ -128,11 +129,17 @@ fn commands_after_stats_run_over_the_groups() {
 #[test]
 fn parse_takes_fields_out_with_a_glob_or_a_regular_expression() {
     let rows = run(
-        "parse @message 'user=* action=*' as user, action | filter ispresent(user) | fields user",
+        "parse @message 'user=* action=*' as user, action | filter ispresent(user) | display user, action",
         &LINES,
     );
     assert_eq!(rows[0][0], ("user".into(), "bob".into()));
     assert_eq!(rows[0][1], ("action".into(), "login".into()));
+    // Recorded 2026-11-19: a bare `fields` naming a field `parse` made is refused.
+    let q = "parse @message 'user=* action=*' as user, action | fields user, action";
+    assert_eq!(
+        super::parse(q).unwrap_err().message(q, 76),
+        "Ephemeral field is already defined: user ([127,145])"
+    );
     let rows = run(
         r"parse @message /user=(?<who>\w+)/ | filter ispresent(who)",
         &LINES,
@@ -188,12 +195,30 @@ fn malformed_queries_are_refused_with_a_place() {
         "pattern @message",
     ] {
         let e = parse(bad).expect_err(bad);
+        let m = e.message(bad, 0);
         assert!(
-            e.message.contains("at line 1 and position"),
-            "{bad}: {}",
-            e.message
+            m.contains("at line 1 and position") || m.ends_with(')'),
+            "{bad}: {m}"
         );
     }
+    // Recorded 2026-11-19, behind AWS's `SOURCE ... | ` of 76 characters.
+    let q = "fields | |";
+    assert_eq!(
+        parse(q).unwrap_err().message(q, 76),
+        "unexpected symbol found | at line 1 and position 83"
+    );
+    let q = "fields nosuch(@message)";
+    assert_eq!(
+        parse(q).unwrap_err().message(q, 76),
+        "Unrecognized function name: nosuch ([83,98])"
+    );
+    let q = "fields @message";
+    assert_eq!(
+        super::without_groups(q).message(q, 0),
+        "Invalid syntax while using query definition snippets: unexpected symbol found fields at line 1 and position 0"
+    );
+    let prefix = super::source_prefix(&["/g".into()], (1000, 2999));
+    assert_eq!(prefix, "SOURCE \"/g\" START=1000 END=2999 | ");
     assert!(parse("fields a # a comment\n| limit 1").is_ok());
     assert!(parse("").is_ok());
     let deep = format!("filter {}1{}", "(".repeat(500), ")".repeat(500));

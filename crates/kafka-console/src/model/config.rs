@@ -354,6 +354,20 @@ pub struct ConfigResetView {
     pub pace: Option<ConfigPace>,
     pub call: Lines,
     pub refusal: Option<Refusal>,
+    /// For the keys that decide when a segment rolls (`segment.bytes`, `segment.ms`): the log's segments now.
+    pub segments: Option<SegmentsNow>,
+}
+
+/// What a change of when segments roll does to the log there is: sealed segments keep their size, the active one of each
+/// partition rolls by the new rule.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
+pub struct SegmentsNow {
+    pub partitions: usize,
+    /// Segments that no longer take appends, over every partition.
+    pub sealed: usize,
+    /// The largest active segment, in bytes.
+    pub largest_active: u64,
 }
 
 /// What a save came to.
