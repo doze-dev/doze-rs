@@ -4,6 +4,7 @@ mod acls;
 mod broker_configs;
 mod credentials;
 mod group_configs;
+mod import;
 mod lives;
 mod offsets;
 mod producer_ids;

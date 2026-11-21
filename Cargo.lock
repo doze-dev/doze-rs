@@ -2778,6 +2778,10 @@ dependencies = [
  "aws-webhook",
  "aws-wire",
  "clap",
+ "doze-bolt",
+ "doze-module",
+ "doze-module-proto",
+ "doze-module-test",
  "doze-runtime",
  "http",
  "serde",
@@ -2796,6 +2800,10 @@ dependencies = [
  "doze-module-proto",
  "doze-names",
 ]
+
+[[package]]
+name = "doze-bolt"
+version = "0.0.0"
 
 [[package]]
 name = "doze-cli"
@@ -3010,6 +3018,7 @@ dependencies = [
  "anyhow",
  "bytes",
  "clap",
+ "doze-bolt",
  "doze-module",
  "doze-module-host",
  "doze-module-proto",
@@ -3019,6 +3028,7 @@ dependencies = [
  "kafka-auth",
  "kafka-broker",
  "kafka-console",
+ "kafka-meta",
  "kafka-protocol",
  "kafka-registry",
  "kafka-server",
@@ -3026,6 +3036,7 @@ dependencies = [
  "kafka-wire",
  "rlimit",
  "rustls",
+ "serde",
  "serde_json",
  "tokio",
  "tracing",
