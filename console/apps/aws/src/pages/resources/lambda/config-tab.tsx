@@ -88,7 +88,7 @@ function Triggers({ d, sel, go, triggers }: { d: ResourceDetail; sel?: string; g
   return (
     <Card title="Triggers" lede="Each trigger invokes the function on its own; an event carries data from one trigger only." actions={mappings.length > 0 ? <>{edit("Edit", () => chosen && go({ tab: "configuration", p: "triggers", view: "trigger-edit", sel: chosen.id }), "trigger-edit")}{add}</> : undefined} testId="triggers-card">
       {mappings.length === 0 ? (
-        <EmptyTab icon={WorkflowIcon} title="No triggers" action={add} testId="triggers-none">
+        <EmptyTab icon={WorkflowIcon} title="No triggers" action={<Button type="button" variant="outline" className="bg-card" onClick={() => go({ tab: "configuration", p: "triggers", view: "trigger-add" })} data-testid="trigger-add-empty">Add trigger</Button>} testId="triggers-none">
           Nothing invokes {d.name} automatically. Add a trigger such as a queue, a stream or a schedule.
         </EmptyTab>
       ) : (
@@ -130,7 +130,7 @@ function Permissions({ d, f, go }: { d: ResourceDetail; f: Fn; go: (to: Go) => v
         {policy.isPending ? (
           <Skeleton className="h-24 rounded-[12px]" />
         ) : policy.statements.length === 0 ? (
-          <EmptyTab icon={ShieldIcon} title="No resource-based policy statements" action={add} testId="policy-none">No other service or account has been given permission to invoke {d.name}.</EmptyTab>
+          <EmptyTab icon={ShieldIcon} title="No resource-based policy statements" action={<Button type="button" variant="outline" className="bg-card" onClick={() => go({ tab: "configuration", p: "permissions", view: "permission-add" })}>Add permissions</Button>} testId="policy-none">No other service or account has been given permission to invoke {d.name}.</EmptyTab>
         ) : (
           <>
             <DataTable aria-label="Resource-based policy statements" data={policy.statements} columns={columns} rowId={(s) => s.Sid ?? JSON.stringify(s)} maxHeight={360} />

@@ -25,6 +25,7 @@ export function refusalOf(e: unknown): { code: string; message: string } | null 
 export function usePolicy(name: string) {
   const q = useOpRead<{ Policy?: string }>(on.fn(name), "GetPolicy", {});
   const statements = useMemo(() => statementsOf(q.data?.Policy), [q.data]);
+  // A function with no policy answers `{ Absent }`, not a refusal (the browser would log a failed request for it).
   return { ...q, statements, none: notFound(q.error) || (q.data !== undefined && statements.length === 0) };
 }
 

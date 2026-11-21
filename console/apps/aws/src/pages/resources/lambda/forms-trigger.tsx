@@ -158,7 +158,7 @@ export function TriggerEdit(p: FormProps) {
       submitLabel="Save" pending={save.isPending} disabled={tried && (Object.keys(problems).length > 0 || nothing)} disabledWhy={Object.values(problems)[0] ?? (nothing ? "Nothing has changed." : undefined)} onSubmit={submit} testId="trigger-edit-form">
       <FormSection title="Event source mapping configuration" testId="section-trigger">
         <Field label="SQS queue" help={<>An existing mapping cannot change its source: UpdateEventSourceMapping takes no event source.{holds ? <Muted> {mapping.name} holds {holds.available.toLocaleString("en-US")} {holds.available === 1 ? "message" : "messages"}.</Muted> : null}</>} testId="field-queue">
-          {(id) => <Input id={id} value={mapping.name} readOnly disabled className="max-w-[22rem] font-mono" data-testid="trigger-queue" />}
+          {(id) => <Input id={id} value={mapping.source ?? mapping.name} readOnly disabled className="font-mono" data-testid="trigger-queue" />}
         </Field>
         <div className="flex items-start gap-3">
           <Switch id="trigger-enabled" checked={enabled} onCheckedChange={setEnabled} className="mt-1" data-testid="trigger-enabled" />
@@ -188,10 +188,10 @@ export function DestinationAdd(p: FormProps) {
   const [type, setType] = useState<Type>("sqs");
   const [target, setTarget] = useState<string | null>(null);
   const [tried, setTried] = useState(false);
-  const current = useOpRead<{ DestinationConfig?: Record<string, { Destination?: string }> }>(on.fn(d.name), "GetFunctionEventInvokeConfig", {});
+  const current = useOpRead<{ Absent?: string; DestinationConfig?: Record<string, { Destination?: string }> }>(on.fn(d.name), "GetFunctionEventInvokeConfig", {});
   const update = useOp(on.fn(d.name), "UpdateFunctionEventInvokeConfig");
   const put = useOp(on.fn(d.name), "PutFunctionEventInvokeConfig");
-  const exists = Boolean(current.data) && !notFound(current.error);
+  const exists = Boolean(current.data) && !current.data?.Absent && !notFound(current.error);
   const arn = target === null ? null : type === "sqs" ? arnOf(where, target) : type === "lambda" ? `arn:aws:lambda:${where.region}:${where.account}:function:${target}` : target;
   const dest: Destination = { condition, type, target: arn };
   const problems = destinationProblems(dest);

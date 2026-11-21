@@ -52,7 +52,7 @@ export function VersionsTab({ d, f, go }: { d: ResourceDetail; f: Fn; go: (to: G
   const list = versions.data?.Versions ?? [];
   return (
     <>
-      <Card title="Versions" lede="A version is an immutable copy of the code and settings. Numbers only go up and are never reused, even if you delete and re-create the function." actions={<Button type="button" onClick={() => setOpen(true)} data-testid="version-publish"><PlusIcon /> Publish new version</Button>} testId="lambda-versions">
+      <Card title="Versions" lede={<span className="block max-w-[44rem]">A version is an immutable copy of the code and settings. Numbers only go up and are never reused, even if you delete and re-create the function.</span>} actions={<Button type="button" onClick={() => setOpen(true)} data-testid="version-publish"><PlusIcon /> Publish new version</Button>} testId="lambda-versions">
         <Loaded q={versions} what="The versions">
           {(v) => (
             <>
@@ -109,9 +109,9 @@ export function AliasesTab({ d, go }: { d: ResourceDetail; go: (to: Go) => void 
     <Loaded q={aliases} what="The aliases">
       {(a) =>
         (a.Aliases ?? []).length === 0 ? (
-          <EmptyTab icon={TagIcon} title="No aliases" action={create} testId="aliases-none">{d.name} has no aliases. An alias is a pointer to a version that you can move without changing callers.</EmptyTab>
+          <EmptyTab icon={TagIcon} title="No aliases" action={<Button type="button" variant="outline" className="bg-card" onClick={make}>Create alias</Button>} testId="aliases-none">{d.name} has no aliases. An alias is a pointer to a version that you can move without changing callers.</EmptyTab>
         ) : (
-          <Card title="Aliases" lede="An alias is a pointer to a function version that you can update. Callers use the alias ARN and never change." actions={create} testId="lambda-aliases">
+          <Card title="Aliases" lede={<span className="block max-w-[44rem]">An alias is a pointer to a function version that you can update. Callers use the alias ARN and never change.</span>} actions={create} testId="lambda-aliases">
             <DataTable aria-label="Aliases" data={a.Aliases ?? []} columns={ALIAS_COLUMNS} rowId={(r) => r.Name} maxHeight={420} />
             <p className="mt-3 text-[13px] text-muted-foreground">The columns are fields of ListAliases: Name, Description, FunctionVersion and AliasArn.</p>
           </Card>

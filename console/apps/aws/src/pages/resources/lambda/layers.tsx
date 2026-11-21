@@ -61,6 +61,7 @@ function Layers({ service, kind, gone }: { service: string; kind: string; gone?:
   const sentence = layersSentence(rows.map((r, i) => ({ name: r.name, versions: counts[i]?.data ? (counts[i]?.data?.LayerVersions?.length ?? 0) : null })), used);
   const go = (next: { create?: "yes"; gone?: string }) => void navigate({ to: "/resources/$service/$second", params: { service, second: kind }, search: next });
   const create = <Button onClick={() => go({ create: "yes" })} data-testid="create-open"><PlusIcon /> Create layer</Button>;
+  const createQuiet = <Button variant="outline" className="bg-card" onClick={() => go({ create: "yes" })}>Create layer</Button>;
   return (
     <>
       {gone && <ResultBanner className="mb-6" title={`${gone} was deleted.`} returned="DeleteLayerVersion removed its last version, so the layer is gone." onDismiss={() => go({})} testId="deleted-banner" />}
@@ -70,7 +71,7 @@ function Layers({ service, kind, gone }: { service: string; kind: string; gone?:
       ) : !first ? (
         <div className="grid gap-3" data-testid="list-loading"><Skeleton className="h-64 rounded-xl" /></div>
       ) : rows.length === 0 ? (
-        <div data-testid="list-empty"><EmptyState icon={LayersIcon} title="No layers" action={create}>A layer packages libraries or data that functions share.</EmptyState></div>
+        <div data-testid="list-empty"><EmptyState icon={LayersIcon} title="No layers" action={createQuiet}>A layer packages libraries or data that functions share.</EmptyState></div>
       ) : (
         <>
           {sentence && <p className="mb-5 max-w-[62rem] text-[15px] leading-6 text-muted-foreground" data-testid="list-sentence"><Emphasis text={sentence} names={rows.map((r) => r.name)} bold={[/^\d+ layers?/]} /></p>}

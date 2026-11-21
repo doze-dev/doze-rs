@@ -298,7 +298,7 @@ test("lambda__function-triggers, lambda__trigger-edit and lambda__triggers-none:
   await shot(page, "lambda__function-triggers");
   await page.getByTestId("trigger-edit").click();
   await expect(page.locator("h1").first()).toHaveText("Edit trigger");
-  await expect(page.getByTestId("trigger-queue")).toHaveValue("email-outbox");
+  await expect(page.getByTestId("trigger-queue")).toHaveValue(`arn:aws:sqs:us-east-1:${server.account}:email-outbox`);
   await expect(page.getByTestId("field-queue")).toContainText("An existing mapping cannot change its source: UpdateEventSourceMapping takes no event source.");
   await expect(page.getByTestId("field-queue")).toContainText("email-outbox holds 0 messages.");
   await page.getByTestId("trigger-batch").fill("5");

@@ -328,3 +328,24 @@ async fn layers_are_published_listed_and_read_with_their_versions() {
         .await;
     assert_eq!(s, 200, "{gone}");
 }
+
+#[tokio::test]
+async fn a_setting_a_function_never_had_is_an_answer_and_not_a_failed_request() {
+    let w = world("lambda-absent", Mode::Enforce, &[]);
+    if !code::function(&w, "echo").await {
+        return;
+    }
+    for operation in [
+        "GetPolicy",
+        "GetFunctionEventInvokeConfig",
+        "GetFunctionUrlConfig",
+    ] {
+        let (status, absent) = op(&w, "echo", operation, &json!({})).await;
+        assert_eq!(status, 200, "{operation}: {absent}");
+        assert_eq!(absent["Absent"], "ResourceNotFoundException", "{operation}");
+    }
+    // And a read the function has an answer for is the answer.
+    op(&w, "echo", "PublishVersion", &json!({})).await;
+    let (status, got) = op(&w, "echo", "GetFunctionConfiguration", &json!({})).await;
+    assert_eq!((status, got["Absent"].clone()), (200, Value::Null));
+}
