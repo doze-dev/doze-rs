@@ -187,10 +187,12 @@ pub async fn serve_at(
         dir.join("home").to_string_lossy().into_owned(),
     )]);
     let config = dir.join("doze.hcl");
-    let a = doze_daemon::entry::assemble(&config, "0.0.0", cat.clone(), env.clone())
+    let mut a = doze_daemon::entry::assemble(&config, "0.0.0", cat.clone(), env.clone())
         .await
         .unwrap();
-    let front = Arc::new(doze_daemon::front::Front::open(&a.engine, &a.fronted()).await);
+    let front = Arc::new(a.open_front());
+    cat.attach(&a.engine);
+    let tls = a.tls.clone();
     let live = doze_daemon::live::Live::new(cat, &config, "0.0.0", env, front.clone());
     let d = doze_daemon::Daemon::at(
         a.engine,
@@ -200,6 +202,7 @@ pub async fn serve_at(
     )
     .with_modules(a.modules)
     .with_live(live);
+    d.answer_front(&front, tls);
     let s = d.serve();
     if let Err(e) = &s
         && e.kind() == std::io::ErrorKind::Unsupported

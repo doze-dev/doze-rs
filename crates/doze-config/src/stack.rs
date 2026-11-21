@@ -2,7 +2,8 @@
 //! `doze_engine::Service`, its needs from its dependencies (an `after` on a task included), its
 //! sleep, and doze's own variables.
 //!
-//! Gap: a service's `download` is not fetched here (its folder is its `dir`); the daemon wires it.
+//! A service's `download` is fetched by what the wiring gives (the daemon's `__fetch` child, pinned in doze.lock);
+//! the engine asks it before each start.
 
 use crate::model::{Command, Condition, Config, Instance, Kind, Probe, Sleep, Spec};
 use doze_engine::stack::{Need, Planner, Service, Sleep as EngineSleep, Stack, When};
@@ -18,6 +19,8 @@ pub struct Wiring<'a> {
     pub planner: &'a dyn Fn(&Instance) -> Arc<dyn Planner>,
     /// doze's own variables for everything it runs (see [`ca_env`]).
     pub extra_env: BTreeMap<String, String>,
+    /// What fetches a service's `download`; without it a block with one cannot start, and says why.
+    pub fetch: Option<Arc<dyn doze_engine::Fetch>>,
 }
 
 impl std::fmt::Debug for Wiring<'_> {
@@ -77,7 +80,9 @@ pub fn service(i: &Instance, w: &Wiring<'_>, names: &BTreeSet<&str>) -> Service 
     let (mut s, sleep) = match &i.spec {
         Spec::Command(c) if i.kind() == Kind::Task => (Service::task(&i.name, task(c)), c.sleep),
         Spec::Command(c) => {
-            let mut s = Service::process(&i.name, process(c, i.port));
+            let mut spec = process(c, i.port);
+            spec.download = download(c, w.fetch.as_ref());
+            let mut s = Service::process(&i.name, spec);
             if !c.watch.is_empty() {
                 let globs: Vec<&str> = c.watch.iter().map(String::as_str).collect();
                 s = s.watch(&c.dir, &globs);
@@ -108,6 +113,63 @@ fn engine_sleep(s: Sleep) -> EngineSleep {
         (false, _) => EngineSleep::Default,
         (true, true) => EngineSleep::Never,
         (true, false) => EngineSleep::After(s.after),
+    }
+}
+
+/// The key of the map form of `download` for this machine (Go's `platformKey`).
+pub fn platform_key() -> &'static str {
+    match (std::env::consts::OS, std::env::consts::ARCH) {
+        ("macos", "aarch64") => "mac",
+        ("macos", _) => "mac_intel",
+        (_, "aarch64") => "linux_arm",
+        _ => "linux",
+    }
+}
+
+/// A command's `download` for this machine, fetched by `fetch` (Go's `Download`).
+fn download(
+    c: &Command,
+    fetch: Option<&Arc<dyn doze_engine::Fetch>>,
+) -> Option<doze_engine::Download> {
+    if c.download.is_empty() {
+        return None;
+    }
+    let url = c
+        .download
+        .get("")
+        .or_else(|| c.download.get(platform_key()))
+        .cloned();
+    let refuse = |why: String| -> Arc<dyn doze_engine::Fetch> { Arc::new(Refuse(why)) };
+    let (url, fetch) = match (url, fetch) {
+        (Some(u), Some(f)) => (u, f.clone()),
+        (Some(u), None) => (u, refuse("nothing here fetches a download".into())),
+        (None, _) => {
+            let have: Vec<&str> = c.download.keys().map(String::as_str).collect();
+            let why = format!(
+                "download has no URL for this machine ({}); it has {}",
+                platform_key(),
+                have.join(", ")
+            );
+            (String::new(), refuse(why))
+        }
+    };
+    Some(doze_engine::Download {
+        url,
+        dir_set: c.dir_set,
+        fetch,
+    })
+}
+
+/// A download that cannot be had, and why: said when the block starts, as Go said it.
+struct Refuse(String);
+
+impl doze_engine::Fetch for Refuse {
+    fn fetch<'a>(
+        &'a self,
+        _url: &'a str,
+    ) -> doze_engine::stack::BoxFuture<'a, Result<PathBuf, String>> {
+        let why = self.0.clone();
+        Box::pin(async move { Err(why) })
     }
 }
 
@@ -159,6 +221,7 @@ fn process(c: &Command, port: u16) -> ProcessSpec {
         on_ready: steps(&c.on_ready),
         stop: steps(&c.stop),
         service: c.service,
+        download: None,
     }
 }
 

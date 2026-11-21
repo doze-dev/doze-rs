@@ -9,7 +9,7 @@
 use super::run::shell_quote;
 use super::who::job_outdated;
 use super::{Options, Plan, Setup, Shell, Status, Step};
-use crate::netd::{SERVING_FILE, VERSION_DARWIN};
+use crate::netd::VERSION_DARWIN;
 use crate::pool::Net;
 use crate::{Error, SUFFIX};
 use std::path::{Path, PathBuf};
@@ -78,11 +78,7 @@ fn resolver_installed(s: &Setup) -> bool {
 /// Whether a live daemon translates from this zone's registry (the one that wrote its pid beside it), and its interface
 /// holds the gateway: binding the gateway address succeeds only when an interface of this machine has it.
 fn gateway_up(s: &Setup) -> bool {
-    let serves = std::fs::read_to_string(s.home.join(SERVING_FILE))
-        .ok()
-        .and_then(|t| t.trim().parse::<u32>().ok())
-        .is_some_and(doze_os::process::alive);
-    serves && std::net::UdpSocket::bind((Net::native().gateway(), 0)).is_ok()
+    crate::listen::zone_usable(&s.home, Net::native())
 }
 
 pub(crate) fn check(s: &Setup) -> Status {

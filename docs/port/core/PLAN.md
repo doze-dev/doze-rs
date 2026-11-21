@@ -629,3 +629,16 @@ doze: `cmd/doze/*`, `internal/{config,runspec,runtime,registry,supervisor,health
   `Downloads` and the `doze.lock` pins as values, and D1 (the daemon) wires F1's `ChildDownloads` and loads the
   lock. Reason: the engine stays pure (no network, no registry, no lock file I/O) and lighter, and its tests keep
   using in-memory downloads. No days move: the wiring is a small part of D1's 12.
+- **2026-11-19, D2 (daemon: proxy and names), done**, PR `core-d2` (on #84's `core-land`). docs/port/core/behaviours/daemon.md has the
+  table and the evidence:
+  - names through `doze-bind` (three addressings; a Mac's own addresses only when the network daemon serves this zone), the stack's
+    name, twins, routes, domains with the doze CA, the resolver and the front door joined, live add and remove;
+  - every listener of a module fronted (kafka's console and registry), `wire.accept` (the postgres filter) and client TLS from the
+    doze CA;
+  - a service's `download` through the `__fetch` child, pinned in doze.lock;
+  - D1's open items (task conns, stale release, `type@major` reason) closed.
+  - Gates: Go's integration suites through `DOZE_BIN`: 13 pass on macOS (names, all nine service tests, both postgres), names and
+    service 12/12 in the Linux VM; mariadb fails on the module's version list (M1), ferret, temporal and the aws half of
+    module_names wait for tools or M3. Wake: postgres 35 ms, valkey 19 ms (Go's budget 250 ms).
+  - Weight: D2 at "s" was 9,192,984 B on x86_64 Linux; `release-doze` moved to "z": 8,754,344 B (darwin 6,031,248 B).
+  - Owner-run: `scripts/core-d2-names-e2e-darwin.sh` (the Rust netd, own addresses, the system resolver, :80 and :443).

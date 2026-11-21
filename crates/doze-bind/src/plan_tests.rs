@@ -69,7 +69,7 @@ fn listener_of<'a>(i: &'a InstancePlan, name: &str) -> &'a ListenerPlan {
 
 #[test]
 fn a_module_that_says_nothing_gets_its_name_and_its_port() {
-    let p = plan("shop", &[decl("db", None, 5432, vec![])], true).unwrap();
+    let p = plan("shop", &[decl("db", None, 5432, vec![])], Addressing::Own).unwrap();
     let db = only(&p, "db");
     assert_eq!(db.host.as_deref(), Some("db.shop.doze"));
     let main = listener_of(&db, "main");
@@ -81,7 +81,7 @@ fn a_module_that_says_nothing_gets_its_name_and_its_port() {
 
 #[test]
 fn kafka_gets_a_broker_a_routed_registry_and_a_portless_console() {
-    let p = plan("shop", &[kafka()], true).unwrap();
+    let p = plan("shop", &[kafka()], Addressing::Own).unwrap();
     let k = only(&p, "events");
     assert_eq!(k.addr(listener_of(&k, "main")), "events.shop.doze:9092");
     let registry = listener_of(&k, "registry");
@@ -98,7 +98,7 @@ fn kafka_gets_a_broker_a_routed_registry_and_a_portless_console() {
 
 #[test]
 fn aws_gets_its_name_every_host_under_it_and_the_sync_sibling() {
-    let p = plan("shop", &[aws("aws")], true).unwrap();
+    let p = plan("shop", &[aws("aws")], Addressing::Own).unwrap();
     let a = only(&p, "aws");
     let main = listener_of(&a, "main");
     let hosts: Vec<_> = main
@@ -117,14 +117,14 @@ fn aws_gets_its_name_every_host_under_it_and_the_sync_sibling() {
 fn the_person_can_turn_routes_off() {
     let mut d = aws("aws");
     d.routes = false;
-    let p = plan("shop", &[d], true).unwrap();
+    let p = plan("shop", &[d], Addressing::Own).unwrap();
     let a = only(&p, "aws");
     assert_eq!(a.url(listener_of(&a, "main")), "http://aws.shop.doze:4566");
 }
 
 #[test]
 fn without_names_everything_is_on_loopback_and_ports_must_differ() {
-    let p = plan("shop", &[aws("aws")], false).unwrap();
+    let p = plan("shop", &[aws("aws")], Addressing::Off).unwrap();
     let a = only(&p, "aws");
     assert_eq!(
         (a.host.clone(), a.url(listener_of(&a, "main"))),
@@ -136,7 +136,7 @@ fn without_names_everything_is_on_loopback_and_ports_must_differ() {
             decl("db", None, 5432, vec![]),
             decl("replica", None, 5432, vec![]),
         ],
-        false,
+        Addressing::Off,
     )
     .unwrap_err();
     assert_eq!(errs.len(), 1, "{errs:?}");
@@ -157,13 +157,13 @@ fn without_names_everything_is_on_loopback_and_ports_must_differ() {
             decl("db", None, 5432, vec![]),
             decl("replica", None, 5432, vec![]),
         ],
-        true,
+        Addressing::Own,
     )
     .unwrap();
     let errs = plan(
         "shop",
         &[kafka(), decl("schema", Some(8081), 0, vec![])],
-        false,
+        Addressing::Off,
     )
     .unwrap_err();
     assert!(
@@ -178,7 +178,7 @@ fn a_sibling_route_that_is_another_instances_name_is_refused_naming_both() {
     let errs = plan(
         "shop",
         &[aws("cloud"), decl("sync-cloud", None, 80, vec![])],
-        true,
+        Addressing::Own,
     )
     .unwrap_err();
     assert_eq!(errs.len(), 1, "{errs:?}");
@@ -193,7 +193,7 @@ fn a_sibling_route_that_is_another_instances_name_is_refused_naming_both() {
 fn the_persons_port_cannot_land_on_another_listener() {
     let mut k = kafka();
     k.port = Some(8081);
-    let errs = plan("shop", &[k], true).unwrap_err();
+    let errs = plan("shop", &[k], Addressing::Own).unwrap_err();
     assert!(
         errs[0].starts_with("events: listeners \"main\" and \"registry\" both use port 8081"),
         "{}",
@@ -203,7 +203,7 @@ fn the_persons_port_cannot_land_on_another_listener() {
 
 #[test]
 fn a_main_listener_with_no_port_anywhere_is_refused() {
-    let errs = plan("shop", &[decl("worker", None, 0, vec![])], true).unwrap_err();
+    let errs = plan("shop", &[decl("worker", None, 0, vec![])], Addressing::Own).unwrap_err();
     assert_eq!(
         errs,
         ["worker: the main listener has no port: set `port = …`"]
@@ -221,7 +221,7 @@ fn a_modules_bad_listeners_are_all_reported_with_the_instance() {
             listener("Console", 0, true, &[]),
         ],
     );
-    let errs = plan("shop", &[bad, decl("y", None, 0, vec![])], true).unwrap_err();
+    let errs = plan("shop", &[bad, decl("y", None, 0, vec![])], Addressing::Own).unwrap_err();
     assert!(errs.len() >= 3, "{errs:?}");
     assert!(
         errs.iter()
@@ -232,6 +232,30 @@ fn a_modules_bad_listeners_are_all_reported_with_the_instance() {
 
 #[test]
 fn the_plan_is_a_function_of_the_config() {
-    let a = plan("shop", &[kafka(), aws("aws")], true).unwrap();
-    assert_eq!(a, plan("shop", &[kafka(), aws("aws")], true).unwrap());
+    let a = plan("shop", &[kafka(), aws("aws")], Addressing::Own).unwrap();
+    assert_eq!(
+        a,
+        plan("shop", &[kafka(), aws("aws")], Addressing::Own).unwrap()
+    );
+}
+
+#[test]
+fn shared_addressing_names_everything_and_still_needs_distinct_ports() {
+    let p = plan("shop", &[aws("aws")], Addressing::Shared).unwrap();
+    let a = only(&p, "aws");
+    assert_eq!(a.host.as_deref(), Some("aws.shop.doze"));
+    assert_eq!(a.url(listener_of(&a, "main")), "http://aws.shop.doze");
+    let errs = plan(
+        "shop",
+        &[
+            decl("db", None, 5432, vec![]),
+            decl("replica", None, 5432, vec![]),
+        ],
+        Addressing::Shared,
+    )
+    .unwrap_err();
+    assert!(
+        errs[0].contains("\"db\" and \"replica\" both use port 5432"),
+        "on one address the ports must differ: {errs:?}"
+    );
 }

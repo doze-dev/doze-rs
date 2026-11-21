@@ -155,6 +155,23 @@ fn the_broker_listens_where_doze_grants_and_advertises_the_address_clients_dial(
     );
 }
 
+/// The registry is routed by a name of its own (`registry.events.shop.doze`): the broker must answer to it, or every
+/// request through the front door is refused (found running the module behind the Rust daemon's names, D2).
+#[test]
+fn the_registry_answers_to_the_name_doze_routes_it_by() {
+    let a = broker_args(&instance(""), &spec(), true, true).unwrap();
+    let tail: Vec<&str> = a.iter().map(String::as_str).skip(14).collect();
+    assert_eq!(
+        tail,
+        [
+            "--schema-registry-addr",
+            "127.0.0.1:40005",
+            "--console-allow-host",
+            "registry.events.shop.doze",
+        ]
+    );
+}
+
 #[test]
 fn the_block_becomes_the_brokers_flags_and_defaults_are_left_to_it() {
     let mut s = spec();
