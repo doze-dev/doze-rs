@@ -25,10 +25,12 @@ export function withTopic(policy: string | null, queueArn: string, topicArn: str
 }
 
 /** What the other topics are and what they already deliver, drawn from the list: `alerts is the other topic here; orders-created already has 3 subscriptions.` */
-export function topicHint(others: readonly { name: string; cells: (string | null)[] }[]): string {
+export function topicHint(others: readonly { name: string; cells: (string | null)[] }[], chosen?: { name: string; cells: (string | null)[] } | null): string {
   const base = "The topics in this account and Region are listed. If yours isn't, enter its ARN.";
-  if (others.length === 0) return base;
+  const count = (r: { cells: (string | null)[] }) => Number(r.cells[1]);
+  const has = (r: { name: string; cells: (string | null)[] }) => `${r.name} already has ${count(r)} ${count(r) === 1 ? "subscription" : "subscriptions"}`;
+  if (others.length === 0) return chosen && count(chosen) > 0 ? `${base} ${has(chosen)}.` : base;
   const names = others.map((r) => r.name);
-  const subs = others.filter((r) => Number(r.cells[1]) > 0).map((r) => `${r.name} already has ${Number(r.cells[1])} ${Number(r.cells[1]) === 1 ? "subscription" : "subscriptions"}`);
+  const subs = [...(chosen && count(chosen) > 0 ? [chosen] : []), ...others.filter((r) => count(r) > 0)].map(has);
   return `${base} ${names.join(", ")} ${names.length === 1 ? "is the other topic" : "are the other topics"} here${subs.length > 0 ? `; ${subs.join("; ")}` : ""}.`;
 }

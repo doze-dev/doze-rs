@@ -24,7 +24,7 @@ import { DeleteQueue, feeding, PurgeQueue } from "./dialogs";
 import { ruleName, useFeeders } from "./feeders";
 import { DetailsCard } from "./parts";
 import { goneWords, queueOf, queueSentence } from "./queue-model";
-import { latest, redriveBanner, taskSentence } from "./redrive-model";
+import { latest, redriveBanner, RUNNING, taskSentence } from "./redrive-model";
 import { useTasks } from "./redrive-status";
 import { chipWords, madeSentence, purgedSentence, sourceSentence, UPSTREAM } from "./sentences";
 import { LambdaTab, PolicyTab, SnsTab, type TabProps } from "./tabs";
@@ -120,7 +120,7 @@ function QueueView({ d, updatedAt, fetching, refresh }: { d: ResourceDetail; upd
         onVerb={onVerb}
         wiredSelf={wired.filter((w) => UPSTREAM.some((u) => w.label.startsWith(u))).length}
         wiredText={chipWords}
-        verbStates={dead.length === 0 ? { redrive: { disabled: `${q.name} is not the dead-letter queue of any queue, so there is nothing to redrive.`, quiet: true } } : undefined}
+        verbStates={dead.length === 0 ? { redrive: { disabled: `${q.name} is not the dead-letter queue of any queue, so there is nothing to redrive.`, quiet: true } } : task?.Status === RUNNING ? { redrive: { disabled: "Only one task can run on a queue at a time", quiet: true } } : undefined}
         primary="messages"
         refresh={<RefreshControl updatedAt={updatedAt} fetching={fetching} onRefresh={refresh} interval={false} />}
         testId="queue-page"

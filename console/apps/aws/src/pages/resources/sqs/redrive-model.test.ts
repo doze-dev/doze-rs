@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { destinationWords, latest, rateWords, redriveBanner, statusNote, statusTone, taskSentence, type Task } from "./redrive-model";
+import { cancellable, destinationWords, latest, rateWords, redriveBanner, statusNote, statusTone, taskSentence, type Task } from "./redrive-model";
 
 const task = (over: Partial<Task>): Task => ({ Status: "RUNNING", SourceArn: "arn:aws:sqs:us-east-1:1:pick-lists-dlq", ApproximateNumberOfMessagesMoved: 0, ApproximateNumberOfMessagesToMove: 1, ...over });
 
@@ -38,4 +38,13 @@ test("the start's banner stays only while it is true; a completed task earns its
   expect(redriveBanner(started, task({ Status: "CANCELLED" }), "d", [])).toBeNull();
   expect(redriveBanner(started, task({ Status: "FAILED" }), "d", [])).toBeNull();
   expect(redriveBanner(started, task({ Status: "COMPLETED", ApproximateNumberOfMessagesMoved: 1 }), "pick-lists-dlq", ["pick-lists"])).toEqual({ tone: "good", title: "Status COMPLETED.", returned: "1 message moved from pick-lists-dlq to pick-lists." });
+});
+
+test("a cancel is asked for only while the newest task is the one with that handle and is running", () => {
+  const run = task({ TaskHandle: "h1" });
+  expect(cancellable(run, "h1")).toBe(true);
+  expect(cancellable(task({ TaskHandle: "h1", Status: "COMPLETED" }), "h1")).toBe(false);
+  expect(cancellable(task({ TaskHandle: "h2" }), "h1")).toBe(false);
+  expect(cancellable(null, "h1")).toBe(false);
+  expect(cancellable(run, undefined)).toBe(false);
 });

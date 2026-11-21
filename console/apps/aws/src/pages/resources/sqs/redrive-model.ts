@@ -17,6 +17,10 @@ export const tail = (arn: string | undefined): string => arn?.split(":").pop() ?
 /** The newest task (SQS lists them newest first). */
 export const latest = (tasks: readonly Task[] | undefined): Task | null => tasks?.[0] ?? null;
 
+/** Whether cancelling `handle` is still something to ask SQS for: the newest task is that one and is still RUNNING. A task that ended since
+ * the page last read it is cancelled by no one (AWS refuses it), so the click only reads it again. */
+export const cancellable = (newest: Task | null, handle: string | undefined): boolean => handle !== undefined && handle !== "" && newest?.Status === RUNNING && newest.TaskHandle === handle;
+
 /** Where a task sends: the source queues, or the named destination. */
 export const destinationWords = (t: Task): string => (t.DestinationArn ? tail(t.DestinationArn) : "Source queue(s)");
 

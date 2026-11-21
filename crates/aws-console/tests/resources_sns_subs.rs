@@ -97,7 +97,7 @@ async fn a_subscription_is_made_with_its_attributes_changed_one_at_a_time_and_co
         )
         .await;
     assert_eq!(status, 400, "{refused}");
-    assert_eq!(refused["code"], "InvalidParameterException");
+    assert_eq!(refused["code"], "InvalidParameter");
     // The subscription's other operations are not the page's to make.
     let (status, gone) = w
         .send(

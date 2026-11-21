@@ -61,7 +61,7 @@ impl Bus {
     /// is called on its REST side; its streamed body (an object's bytes) is not read: no page asks for one.
     ///
     /// # Errors
-    /// The target's refusal, IAM's included, with the code and status a client of its wire sees (see [`Bus::on_the_wire`]).
+    /// The target's refusal, IAM's included, with the code and status a client of its wire sees (Query-only services are worded as their wire words them).
     pub async fn call(
         &self,
         target: &str,

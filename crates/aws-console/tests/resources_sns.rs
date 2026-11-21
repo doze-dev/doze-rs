@@ -115,7 +115,7 @@ async fn a_topic_is_made_with_its_attributes_and_tags_and_its_page_reads_them_ba
         )
         .await;
     assert_eq!(status, 400, "{refused}");
-    assert_eq!(refused["code"], "InvalidParameterException");
+    assert_eq!(refused["code"], "InvalidParameter");
     // CreateTopic is idempotent: the same name and attributes answer the topic that is there.
     let (status, again) = w
         .send(

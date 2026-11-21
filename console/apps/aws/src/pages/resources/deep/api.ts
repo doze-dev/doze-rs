@@ -33,12 +33,14 @@ export function callOp<T>(t: Target, operation: string, input: object = {}, sign
 export const deepKey = (t: Target, ...rest: unknown[]) => ["resources", "deep", t.service, t.kind, t.name, ...rest];
 
 /** A read made through an operation (a scan, a listing): once when the page opens with these inputs, then on asking. */
-export function useOpQuery<T>(t: Target, operation: string, input: object, key: unknown[], enabled = true) {
+export function useOpQuery<T>(t: Target, operation: string, input: object, key: unknown[], enabled = true, every?: (data: T | undefined) => number | false) {
   return useQuery({
     queryKey: deepKey(t, operation, ...key),
     queryFn: ({ signal }) => callOp<T>(t, operation, input, signal),
     enabled,
     retry: false,
+    // `every`: read again that often while the answer says so (a task still running); never otherwise.
+    refetchInterval: every ? (q) => every(q.state.data) : false,
   });
 }
 

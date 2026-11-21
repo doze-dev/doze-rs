@@ -9,7 +9,7 @@ import { ResultBanner } from "@doze/ui/components/app/result-banner";
 import { Button } from "@doze/ui/components/ui/button";
 import { callOp, useOp } from "../deep/api";
 import { DeleteMessages, NoMessages, Polled, ReceiveCard } from "./message-receive";
-import { type Sent, SendCard, SendFolded, SendResult } from "./message-send";
+import { type Sent, SendCard, SendResult } from "./message-send";
 import { MessageSheet } from "./message-sheet";
 import { countOf, deletedBanner, deletedNote, leftSentence, type Message, nearLimit, polledSentence, POLL, receives } from "./messages-model";
 import { messages as words } from "./queue-model";
@@ -22,7 +22,7 @@ export function SqsMessages({ d, q, back }: SubProps) {
   const t = { service: d.service, kind: d.kind, name: d.name };
   const [form, setForm] = useState(EMPTY);
   const [sent, setSent] = useState<Sent | null>(null);
-  // A poll folds the Send card to one line (the boards of a poll show the Receive card and what it returned); Show brings it back.
+  // A poll drops the Send form and shrinks the Receive card to its one-line bar (the boards of a poll show that and what it returned); "Send a message" on the bar brings the form back.
   const [folded, setFolded] = useState(false);
   const [polled, setPolled] = useState<{ ms: Message[]; waiting: number; inFlight: number } | null>(null);
   const [count, setCount] = useState("10");
@@ -83,8 +83,8 @@ export function SqsMessages({ d, q, back }: SubProps) {
       <div className="grid gap-6" data-testid="messages-page">
         {sent && <ResultBanner title="Message sent." returned={<>SendMessage returned MessageId <span className="font-mono">{sent.MessageId}</span>.</>} onDismiss={() => setSent(null)} testId="sent-banner" />}
         {banner && <ResultBanner title={banner.title} returned={banner.returned} onDismiss={() => setDeleted(null)} testId="deleted-banner" />}
-        {sent ? <SendResult sent={sent} onAgain={() => setSent(null)} /> : folded ? <SendFolded onShow={() => setFolded(false)} /> : <SendCard q={q} form={form} setForm={setForm} problem={typeof input === "string" ? input : null} error={send.error} pending={send.isPending} onSubmit={submit} />}
-        <ReceiveCard q={q} count={count} setCount={setCount} countProblem={typeof n === "string" ? n : undefined} primary={sent !== null} pending={poll.isPending} error={poll.error} empty={empty} onPoll={run} />
+        {sent ? <SendResult sent={sent} onAgain={() => setSent(null)} /> : folded ? null : <SendCard q={q} form={form} setForm={setForm} problem={typeof input === "string" ? input : null} error={send.error} pending={send.isPending} onSubmit={submit} />}
+        <ReceiveCard q={q} count={count} setCount={setCount} countProblem={typeof n === "string" ? n : undefined} primary={sent !== null} pending={poll.isPending} error={poll.error} empty={empty} onPoll={run} onSend={folded && !sent ? () => setFolded(false) : undefined} />
         {polled && (polled.ms.length > 0 || deleted) && (
           <Polled q={q} ms={polled.ms} picked={picked} setPicked={setPicked} near={nearLimit(polled.ms, q.dlq, q.maxReceives, q.name)} note={deleted ? deletedNote(deleted.received, q.dlq) : null} onOpen={setOpen} onDelete={setAsking} error={delError} />
         )}

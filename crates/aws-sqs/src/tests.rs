@@ -405,6 +405,7 @@ fn output_json(op: Operation, out: &aws_wire::service::Output) -> Value {
 }
 
 mod data;
+mod encryption;
 mod long_poll;
 mod moves;
 mod peek;

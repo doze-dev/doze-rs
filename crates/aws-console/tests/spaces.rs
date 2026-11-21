@@ -182,8 +182,8 @@ async fn make_this_pass_puts_the_drafted_policy_on_the_user_as_the_console() {
     // A role nobody made is IAM's refusal, in its words.
     let body = json!({"kind": "role", "name": "missing", "policy_name": "p", "document": "{}"});
     let (status, refused) = w.send("POST", "/api/v1/access/attach", &body).await;
-    assert_eq!(status, 400, "{refused}");
-    assert_eq!(refused["code"], "NoSuchEntityException");
+    assert_eq!(status, 404, "{refused}");
+    assert_eq!(refused["code"], "NoSuchEntity");
     let (status, _) = w
         .send("POST", "/api/v1/access/attach", &json!({"kind": "group"}))
         .await;

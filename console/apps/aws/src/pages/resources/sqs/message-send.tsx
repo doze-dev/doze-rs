@@ -92,13 +92,3 @@ export function SendResult({ sent, onAgain }: { sent: Sent; onAgain: () => void 
     </section>
   );
 }
-
-/** The Send card folded to its title once a poll is on the page. */
-export function SendFolded({ onShow }: { onShow: () => void }) {
-  return (
-    <section className={`${card} flex flex-wrap items-center justify-between gap-3 py-4 lg:py-4`} aria-label="Send message" data-testid="send-folded">
-      <h2 className={heading}>Send message</h2>
-      <Button type="button" variant="outline" size="sm" className="bg-card" onClick={onShow} data-testid="send-show"><SendIcon /> Show the form</Button>
-    </section>
-  );
-}
