@@ -1,1 +1,0 @@
-export{t as SharingCreate}from"./detail-BIm1bQMH.js";
