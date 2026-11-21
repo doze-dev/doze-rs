@@ -72,11 +72,17 @@ export function deletedSaid(f: StackFacts): Said {
   return stackSaid({ ...f, status: "DELETE_COMPLETE" });
 }
 
-/** What the page says after an update: the resources that are new or changed, from the events of the update. */
-export function updatedSaid(name: string, events: readonly { LogicalResourceId?: string; ResourceType?: string; ResourceStatus?: string; ResourceStatusReason?: string }[]): Said {
-  const done = events.filter((e) => e.ResourceStatus === "UPDATE_COMPLETE" && e.ResourceType !== "AWS::CloudFormation::Stack" && e.ResourceStatusReason !== "no change" && e.LogicalResourceId);
-  const ids = [...new Set(done.map((e) => e.LogicalResourceId as string))];
-  return { text: `${name} was updated${ids.length > 0 ? `: ${nameList(ids)} ${ids.length === 1 ? "was" : "were"} created or changed` : ""}.`, names: [name, ...ids] };
+/** What the page says after an update: the resources the last update made or changed, read from its events (newest first, up to the
+ * stack's own UPDATE_IN_PROGRESS that began it). A resource the update left alone has no event. */
+export function updatedSaid(name: string, events: readonly { LogicalResourceId?: string; ResourceType?: string; ResourceStatus?: string }[]): Said {
+  const start = events.findIndex((e) => e.ResourceType === "AWS::CloudFormation::Stack" && e.ResourceStatus === "UPDATE_IN_PROGRESS");
+  const last = start < 0 ? events : events.slice(0, start);
+  const of = (status: string) => [...new Set(last.filter((e) => e.ResourceStatus === status && e.ResourceType !== "AWS::CloudFormation::Stack" && e.LogicalResourceId).map((e) => e.LogicalResourceId as string))].reverse();
+  const made = of("CREATE_COMPLETE");
+  const changed = of("UPDATE_COMPLETE");
+  const was = (l: readonly string[]) => (l.length === 1 ? "was" : "were");
+  const parts = [made.length > 0 && `${nameList(made)} ${was(made)} created`, changed.length > 0 && `${nameList(changed)} ${was(changed)} changed`].filter(Boolean);
+  return { text: `${name} was updated${parts.length > 0 ? `: ${parts.join(" and ")}` : ""}.`, names: [name, ...made, ...changed] };
 }
 
 /** What the list of exports says: how many, from how many stacks, and which are imported by whom. */

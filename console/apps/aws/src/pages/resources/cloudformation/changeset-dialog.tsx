@@ -25,7 +25,7 @@ export function ChangeSetDialog({ open, onOpenChange, stack, creating, request, 
           </Field>
           {failed && <Alert tone="bad" title={`CreateChangeSet was refused${failed.code ? `: ${failed.code}` : ""}`} testId="changeset-error">{failed.message}</Alert>}
         </form>
-        <CallPanel request={tried && problem ? null : request(name || "<name>")} testId="changeset-call" />
+        <CallPanel request={tried && problem ? null : request(name || "<name>")} showInput testId="changeset-call" />
         <RuleHelp>{creating ? <>This makes the stack now, in REVIEW_IN_PROGRESS, together with a change set that lists what the template would create. Nothing is deployed until you execute it. The name {stack} is taken from this moment on.</> : <>This makes a change set on {stack} that lists what the update would do. Nothing changes until you execute it.</>}</RuleHelp>
         <DialogFooter>
           <Button type="button" variant="outline" className="bg-card" onClick={() => onOpenChange(false)}>Cancel</Button>

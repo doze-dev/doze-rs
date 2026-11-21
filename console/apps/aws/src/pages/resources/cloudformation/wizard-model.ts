@@ -165,3 +165,6 @@ export function changeSetNameProblem(name: string, taken: readonly string[]): st
 
 /** A change set the update review makes for its preview: named by the clock, so it is never one the person made. */
 export const previewName = (now: number): string => `console-preview-${now}`;
+
+/** A sentence that ends: the text with a full stop when it has none. */
+export const dot = (s: string): string => (/[.!?]$/.test(s.trim()) ? s.trim() : `${s.trim()}.`);

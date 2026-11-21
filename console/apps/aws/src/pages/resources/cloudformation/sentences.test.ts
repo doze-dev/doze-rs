@@ -38,13 +38,17 @@ describe("a stack's sentence", () => {
 });
 
 describe("what an update says", () => {
-  test("names the resources it made or changed, not those it left alone", () => {
+  test("names the resources the last update made and changed, not those of the creation", () => {
+    const stack = "AWS::CloudFormation::Stack";
     const events = [
-      { LogicalResourceId: "s", ResourceType: "AWS::CloudFormation::Stack", ResourceStatus: "UPDATE_COMPLETE" },
-      { LogicalResourceId: "Old", ResourceType: "AWS::SQS::Queue", ResourceStatus: "UPDATE_COMPLETE", ResourceStatusReason: "no change" },
-      { LogicalResourceId: "ReportsBucket", ResourceType: "AWS::S3::Bucket", ResourceStatus: "UPDATE_COMPLETE" },
+      { LogicalResourceId: "s", ResourceType: stack, ResourceStatus: "UPDATE_COMPLETE" },
+      { LogicalResourceId: "Queue", ResourceType: "AWS::SQS::Queue", ResourceStatus: "UPDATE_COMPLETE" },
+      { LogicalResourceId: "ReportsBucket", ResourceType: "AWS::S3::Bucket", ResourceStatus: "CREATE_COMPLETE" },
+      { LogicalResourceId: "s", ResourceType: stack, ResourceStatus: "UPDATE_IN_PROGRESS" },
+      { LogicalResourceId: "Old", ResourceType: "AWS::SQS::Queue", ResourceStatus: "CREATE_COMPLETE" },
     ];
-    expect(updatedSaid("s", events).text).toBe("s was updated: ReportsBucket was created or changed.");
+    expect(updatedSaid("s", events).text).toBe("s was updated: ReportsBucket was created and Queue was changed.");
+    expect(updatedSaid("s", []).text).toBe("s was updated.");
   });
 });
 

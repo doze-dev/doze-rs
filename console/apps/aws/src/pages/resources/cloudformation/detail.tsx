@@ -52,7 +52,7 @@ function StackView({ d, updatedAt, fetching, refetch }: { d: ResourceDetail; upd
   const importers = useImporters(exportNames);
   const template = useTemplate(nm, "Original", deleting || asked === "resources");
   const del = useDelete(d.service, d.kind);
-  const view = status === "REVIEW_IN_PROGRESS" ? "review" : status === "ROLLBACK_COMPLETE" ? "rolled" : search.done === "updated" ? "updated" : "tabs";
+  const view = status === "REVIEW_IN_PROGRESS" ? "review" : status === "ROLLBACK_COMPLETE" ? "rolled" : search.done === "updated" && status === "UPDATE_COMPLETE" ? "updated" : "tabs";
   const sets = useCfnRead<{ Summaries?: ChangeSetRow[] }>("ListChangeSets", { StackName: nm }, { enabled: view === "review" });
   const reviewSet = sets.data?.Summaries?.[0]?.ChangeSetName;
   const execute = useCfnWrite<unknown>("ExecuteChangeSet");
@@ -62,7 +62,9 @@ function StackView({ d, updatedAt, fetching, refetch }: { d: ResourceDetail; upd
     void stackQ.refetch();
     void resources.refetch();
   };
-  usePoll(inProgress(status), refetch);
+  // Just after a write (`?done=`) the page reads again for a while, for the work it started has not begun to show yet.
+  const [opened] = useState(() => Date.now());
+  usePoll(inProgress(status) || (Boolean(search.done) && Date.now() - opened < 15_000), refresh);
   if (stackQ.isError && isGone(stackQ.error)) return <DeletedStack name={nm} />;
   if (!stack) return stackQ.isError ? <ErrorBlock what="This stack could not be read" error={stackQ.error} hint={HINT} onRetry={refresh} retrying={stackQ.isFetching} testId="detail-error" /> : <ResourcePageSkeleton />;
   const rows = resources.data?.StackResourceSummaries ?? [];
@@ -86,6 +88,8 @@ function StackView({ d, updatedAt, fetching, refetch }: { d: ResourceDetail; upd
   };
   const banner =
     search.done === "created" ? <ResultBanner title={`Stack ${nm} is being created.`} returned="CreateStack returned its stack ID. The stack is made in the background; this page follows it until it settles." onDismiss={() => to({ tab: "events" })} testId="created-banner" />
+    : search.done === "executed" ? <ResultBanner title="Change set executed." returned="ExecuteChangeSet was accepted. The stack is built or changed in the background; this page follows it until it settles." onDismiss={() => to({ tab: "events" })} testId="executed-banner" />
+    : search.done === "updated" && view === "tabs" ? <ResultBanner tone={inProgress(status) ? "info" : "warn"} title={inProgress(status) ? `Stack ${nm} is being updated.` : `The update of ${nm} did not complete.`} returned={inProgress(status) ? "UpdateStack was accepted. The update runs in the background; this page follows it until it settles." : `The stack is ${status}: its events say why.`} onDismiss={() => to({ tab: "events" })} testId="updating-banner" />
     : search.done === "deleting" ? <ResultBanner tone="info" title={`Stack ${nm} is being deleted.`} returned="DeleteStack was accepted. The stack is DELETE_IN_PROGRESS until its resources are gone." onDismiss={() => to({})} testId="deleting-banner" />
     : undefined;
   const states = view !== "tabs" && <StackStates view={view} stack={stack} d={d} set={reviewSet} />;

@@ -6,7 +6,7 @@ import { Input } from "@doze/ui/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@doze/ui/components/ui/select";
 import { Field, FormSection } from "../../../kit";
 import { nameList } from "./model";
-import { type Declared, type Summary, type Wizard, nameProblem, parameterProblem, valueOf } from "./wizard-model";
+import { type Declared, type Summary, type Wizard, dot, nameProblem, parameterProblem, valueOf } from "./wizard-model";
 
 const words = (d: Declared) => `Type ${d.ParameterType ?? "String"}${d.DefaultValue !== undefined && d.DefaultValue !== "" ? `, default ${d.DefaultValue}` : ""}.`;
 
@@ -35,7 +35,7 @@ export function StepDetails({ w, set, summary, taken, tried, current }: { w: Wiz
           const was = current[key];
           const shown = update && !d.NoEcho ? (w.values[key] ?? was ?? d.DefaultValue ?? "") : valueOf(w, d);
           return (
-            <Field key={key} label={key} error={error ?? undefined} testId={`param-${key}`} hint={<>{d.Description ? `${d.Description} ` : ""}{words(d)}</>}>
+            <Field key={key} label={key} error={error ?? undefined} testId={`param-${key}`} hint={<>{d.Description ? `${dot(d.Description)} ` : ""}{words(d)}</>}>
               {(id) => d.NoEcho ? (
                 <div className="grid gap-2">
                   <Input id={id} type="password" value={keeping ? "" : (w.values[key] ?? "")} onChange={(e) => set({ values: { ...w.values, [key]: e.target.value } })} disabled={keeping} placeholder={keeping ? "Kept as it is" : ""} className="bg-card font-mono text-[13px]" autoComplete="off" data-testid={`param-input-${key}`} />
