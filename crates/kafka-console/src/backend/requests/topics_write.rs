@@ -98,6 +98,26 @@ pub fn delete_records(topic: &str, partition: i32, offset: i64) -> Request {
     Request::DeleteRecords(r)
 }
 
+/// Records of every partition of `partitions` deleted up to the high watermark (`-1`), in one request.
+#[must_use]
+pub fn delete_all_records(topic: &str, partitions: &[i32]) -> Request {
+    let mut t = DeleteRecordsTopic::default();
+    t.name = name(topic);
+    t.partitions = partitions
+        .iter()
+        .map(|&p| {
+            let mut x = DeleteRecordsPartition::default();
+            x.partition_index = p;
+            x.offset = -1;
+            x
+        })
+        .collect();
+    let mut r = DeleteRecordsRequest::default();
+    r.topics = vec![t];
+    r.timeout_ms = TIMEOUT_MS;
+    Request::DeleteRecords(r)
+}
+
 /// Delete one topic, by name.
 #[must_use]
 pub fn delete_topic(topic: &str) -> Request {

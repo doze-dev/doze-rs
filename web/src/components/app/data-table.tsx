@@ -28,7 +28,7 @@ export type DataColumn<T> = ColumnDef<T> & {
 /** A table whose layout never depends on its rows (CON-808): fixed column widths, one line per cell with an ellipsis and the
  * whole value on hover (`title`), a sticky header, stable row ids (React keys), numbers right-aligned in tabular figures,
  * a fixed row height, and a virtual body past {@link VIRTUAL_FROM} rows. */
-export function DataTable<T>({ data, columns, rowId, empty, maxHeight = 560, className, "aria-label": ariaLabel, onRowClick, rowHeight = ROW, rowClassName, anchorTop = false }: { data: T[]; columns: DataColumn<T>[]; rowId: (row: T) => string; empty?: React.ReactNode; maxHeight?: number; className?: string; "aria-label"?: string; onRowClick?: (row: T) => void; /** px; 40 unless a row holds two lines. */ rowHeight?: number; /** A class per row (a new row of a tail is highlighted). */ rowClassName?: (row: T) => string | undefined; /** A tail: rows prepended at the top do not push the rows on screen (see below). */ anchorTop?: boolean }) {
+export function DataTable<T>({ data, columns, rowId, empty, maxHeight = 560, className, "aria-label": ariaLabel, onRowClick, rowHeight = ROW, rowClassName, rowData, anchorTop = false, reserve = false }: { data: T[]; columns: DataColumn<T>[]; rowId: (row: T) => string; empty?: React.ReactNode; maxHeight?: number; className?: string; "aria-label"?: string; onRowClick?: (row: T) => void; /** px; 40 unless a row holds two lines. */ rowHeight?: number; /** A class per row (a new row of a tail is highlighted). */ rowClassName?: (row: T) => string | undefined; /** `data-` attributes per row (the Live tail's topic hue). */ rowData?: (row: T) => Record<`data-${string}`, string | number>; /** A tail: rows prepended at the top do not push the rows on screen (see below). */ anchorTop?: boolean; /** The box is `maxHeight` tall whatever it holds, so nothing below it moves as rows come; with `anchorTop`, a box not yet full scrolls too (a spacer under the rows), so the first rows of a tail glide in like the rest. */ reserve?: boolean }) {
   const [sorting, setSorting] = useState<SortingState>([]);
   // TanStack Table returns functions that change identity on purpose; the React compiler lint knows and says so.
   // `defaultColumn`: TanStack gives a column with no size 150 px; here no size means the column that takes the rest.
@@ -62,6 +62,12 @@ export function DataTable<T>({ data, columns, rowId, empty, maxHeight = 560, cla
       if (delta > 0) {
         sc.scrollTop = delta;
         const calm = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+        // `data-gliding` while the box returns to the top: a tail that holds when the reader scrolled away reads it, so the
+        // box's own glide does not hold the next batch.
+        sc.dataset.gliding = "1";
+        const done = () => delete sc.dataset.gliding;
+        sc.addEventListener("scrollend", done, { once: true });
+        setTimeout(done, 900);
         requestAnimationFrame(() => sc.scrollTo({ top: 0, behavior: calm ? "auto" : "smooth" }));
       }
     }
@@ -77,7 +83,7 @@ export function DataTable<T>({ data, columns, rowId, empty, maxHeight = 560, cla
   const fill = cols.findIndex((_, i) => widths[i] === undefined);
   const minWidth = fill >= 0 ? widths.reduce<number>((a, w) => a + (w ?? 0), 0) + Math.max(FILL_MIN, headerWidth(cols[fill]!.columnDef.header, cols[fill]!.getCanSort())) : undefined;
   return (
-    <div ref={scroller} className={cn("relative overflow-auto rounded-xl border bg-card", className)} style={{ maxHeight }} data-slot="data-table" data-virtual={virtual || undefined}>
+    <div ref={scroller} className={cn("relative overflow-auto rounded-xl border bg-card", className)} style={reserve ? { height: maxHeight } : { maxHeight }} data-slot="data-table" data-virtual={virtual || undefined}>
       <table className="w-full table-fixed border-separate border-spacing-0 text-[13.5px]" style={{ minWidth }} aria-label={ariaLabel} aria-rowcount={virtual ? rows.length + 1 : undefined}>
         <colgroup>
           {cols.map((c, i) => (
@@ -111,7 +117,7 @@ export function DataTable<T>({ data, columns, rowId, empty, maxHeight = 560, cla
           {/* aria-rowindex only when the body is virtual (rows missing from the DOM): otherwise a row prepended by a tail would
               rewrite the index of every row below it (R3, CON-1256). */}
           {shown.map(({ row: r, at }) => (
-            <tr key={r.id} id={`r-${r.id}`} data-row={r.id} aria-rowindex={virtual ? at + 2 : undefined} className={cn("group", onRowClick && "cursor-pointer", rowClassName?.(r.original))} style={{ height: rowHeight }} onClick={onRowClick ? () => onRowClick(r.original) : undefined}>
+            <tr key={r.id} {...rowData?.(r.original)} id={`r-${r.id}`} data-row={r.id} aria-rowindex={virtual ? at + 2 : undefined} className={cn("group", onRowClick && "cursor-pointer", rowClassName?.(r.original))} style={{ height: rowHeight }} onClick={onRowClick ? () => onRowClick(r.original) : undefined}>
 
               {r.getVisibleCells().map((c) => {
                 const meta = (c.column.columnDef as DataColumn<T>).meta;
@@ -126,9 +132,10 @@ export function DataTable<T>({ data, columns, rowId, empty, maxHeight = 560, cla
             </tr>
           ))}
           {padBottom > 0 && <tr aria-hidden style={{ height: padBottom }} />}
+          {reserve && anchorTop && rows.length > 0 && <tr aria-hidden data-spacer style={{ height: maxHeight }} />}
         </tbody>
       </table>
-      {rows.length === 0 && <div className="flex min-h-40 items-center justify-center p-6 text-[13.5px] text-muted-foreground">{empty ?? "Nothing to show."}</div>}
+      {rows.length === 0 && <div className={cn("flex min-h-40 items-center justify-center p-6 text-[13.5px] text-muted-foreground", reserve && "absolute inset-x-0 top-10 bottom-0")}>{empty ?? "Nothing to show."}</div>}
     </div>
   );
 }

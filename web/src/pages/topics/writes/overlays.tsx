@@ -1,12 +1,12 @@
-// The write overlays of a topic (slice R1b): Produce, Add partitions, Delete records, Delete topic. Each is a Dialog over
+// The write overlays of a topic (slice R1b): Produce, Add partitions, Delete records, Empty (CON-1590), Delete topic. Each is a Dialog over
 // the topic's page, routed by the `dialog` search param of the topic's frame (R1a's `TopicOverlays` mounts this). The
 // dialogs' code (react-hook-form, the previews) is its own chunk, fetched the first time one opens; once fetched it stays
 // mounted, so a dialog animates out when it closes.
 import { lazy, Suspense, useState } from "react";
 import { unlessLeaving } from "@/lib/leaving";
 
-export type TopicDialog = "produce" | "delete" | "add-partitions" | "delete-records";
-export const TOPIC_DIALOGS = ["produce", "delete", "add-partitions", "delete-records"] as const;
+export type TopicDialog = "produce" | "delete" | "add-partitions" | "delete-records" | "empty";
+export const TOPIC_DIALOGS = ["produce", "delete", "add-partitions", "delete-records", "empty"] as const;
 
 const Dialogs = lazy(unlessLeaving(() => import("./dialogs")));
 
