@@ -1,29 +1,17 @@
 // A table's key schema and indexes from DescribeTable, and the Scan or Query a page's form makes.
 import { type AttributeValue, type KeyPart, keyValue } from "./json";
-
-type KeySchema = { AttributeName: string; KeyType: "HASH" | "RANGE" }[];
-export type Described = {
-  Table?: {
-    KeySchema?: KeySchema;
-    AttributeDefinitions?: { AttributeName: string; AttributeType: "S" | "N" | "B" }[];
-    GlobalSecondaryIndexes?: { IndexName: string; KeySchema: KeySchema }[];
-    LocalSecondaryIndexes?: { IndexName: string; KeySchema: KeySchema }[];
-    ItemCount?: number;
-  };
-};
+import type { IndexInfo, KeyAttr, TableInfo } from "./model";
 
 /** The table (`index` empty) or one of its indexes, and its keys. */
-export type Source = { index: string; keys: KeyPart[]; global: boolean };
+export type Source = { index: string; keys: KeyPart[]; global: boolean; status: string };
+
+const part = (k: KeyAttr, role: KeyPart["role"]): KeyPart => ({ name: k.name, role, type: k.type });
+const keysOf = (hash: KeyAttr, range: KeyAttr | null): KeyPart[] => [part(hash, "HASH"), ...(range ? [part(range, "RANGE")] : [])];
 
 /** The table and each index, by what DescribeTable said. */
-export function sourcesOf(d: Described): Source[] {
-  const types = new Map((d.Table?.AttributeDefinitions ?? []).map((a) => [a.AttributeName, a.AttributeType]));
-  const keys = (s: KeySchema | undefined): KeyPart[] => (s ?? []).map((k) => ({ name: k.AttributeName, role: k.KeyType, type: types.get(k.AttributeName) ?? "S" }));
-  return [
-    { index: "", keys: keys(d.Table?.KeySchema), global: false },
-    ...(d.Table?.GlobalSecondaryIndexes ?? []).map((i) => ({ index: i.IndexName, keys: keys(i.KeySchema), global: true })),
-    ...(d.Table?.LocalSecondaryIndexes ?? []).map((i) => ({ index: i.IndexName, keys: keys(i.KeySchema), global: false })),
-  ];
+export function sourcesOf(t: TableInfo): Source[] {
+  const index = (i: IndexInfo): Source => ({ index: i.name, keys: keysOf(i.hash, i.range), global: i.global, status: i.status });
+  return [{ index: "", keys: keysOf(t.hash, t.range), global: false, status: t.status }, ...t.global.map(index), ...t.local.map(index)];
 }
 
 export const SORT_OPS = ["=", "<", "<=", ">", ">=", "between", "begins_with"] as const;
@@ -46,9 +34,11 @@ function object(text: string, what: string): Record<string, unknown> | string {
 /** The operation and input the form asks for (without paging), or the words of what is wrong. */
 export function request(form: Form, source: Source): { op: "Scan" | "Query"; input: Record<string, unknown> } | string {
   const input: Record<string, unknown> = form.index ? { IndexName: form.index } : {};
-  const names = object(form.names, "ExpressionAttributeNames");
+  // The filter is the scan's: a query is by key alone (the form shows no filter for it).
+  const scan = form.mode === "scan";
+  const names = scan ? object(form.names, "ExpressionAttributeNames") : {};
   if (typeof names === "string") return names;
-  const values = object(form.values, "ExpressionAttributeValues");
+  const values = scan ? object(form.values, "ExpressionAttributeValues") : {};
   if (typeof values === "string") return values;
   const ownNames: Record<string, string> = {};
   const ownValues: Record<string, AttributeValue> = {};
@@ -76,7 +66,7 @@ export function request(form: Form, source: Source): { op: "Scan" | "Query"; inp
     }
     input.KeyConditionExpression = cond;
   }
-  if (form.filter.trim()) input.FilterExpression = form.filter.trim();
+  if (scan && form.filter.trim()) input.FilterExpression = form.filter.trim();
   const allNames = { ...names, ...ownNames };
   const allValues = { ...values, ...ownValues };
   if (Object.keys(allNames).length > 0) input.ExpressionAttributeNames = allNames;

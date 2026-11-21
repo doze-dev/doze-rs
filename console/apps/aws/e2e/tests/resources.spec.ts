@@ -93,23 +93,26 @@ test.describe("a refusal", () => {
   // The refused create is a 400 the browser logs.
   test.use({ allowErrors: /status of 400|400 \(Bad Request\)/ });
 
-test("a table is created and deleted; a refusal is shown in the dialog", async ({ page, browserName }) => {
+test("a table is created and deleted; a refusal is shown on the page", async ({ page, browserName }) => {
   const t = unique("events", browserName);
-  await create(page, "/resources/dynamodb/tables", "Tables", { TableName: t, PartitionKey: "pk" });
-  await expect(page.locator("h1")).toHaveText(t);
-  await expect(page.getByTestId("field-Partition key")).toHaveText("pk");
-  // The same name again: DynamoDB's own refusal, in the dialog, which stays open with what was typed.
-  await open(page, "/resources/dynamodb/tables", "Tables");
+  await open(page, "/resources/dynamodb/tables?do=create", "Create table");
+  await page.getByTestId("table-name").fill(t);
+  await page.getByTestId("table-pk").fill("pk");
+  await page.getByTestId("form-submit").click();
+  await expect(page.getByTestId("created-banner")).toContainText(`${t} was created and is Active.`);
+  // The same name again: DynamoDB's own refusal, on the page, which keeps what was typed.
   await page.getByTestId("create-open").click();
-  await page.getByTestId("field-TableName").fill(t);
-  await page.getByTestId("field-PartitionKey").fill("pk");
-  await page.getByTestId("create-submit").click();
-  await expect(page.getByTestId("create-error")).toContainText("ResourceInUseException");
-  await expect(page.getByTestId("field-TableName")).toHaveValue(t);
-  await page.keyboard.press("Escape");
-  await expect(page.getByTestId("create-dialog")).toHaveCount(0);
-  await page.getByTestId("row-link").filter({ hasText: t }).click();
-  await remove(page, t);
+  await page.getByTestId("table-name").fill(t);
+  await page.getByTestId("table-pk").fill("pk");
+  await page.getByTestId("form-submit").click();
+  await expect(page.getByTestId("create-refused")).toContainText("ResourceInUseException");
+  await expect(page.getByTestId("table-name")).toHaveValue(t);
+  await page.getByTestId("form-cancel").click();
+  await expect(page.locator("h1")).toHaveText("Tables");
+  await page.getByTestId(`select-${t}`).click();
+  await page.getByTestId("table-delete").click();
+  await page.getByTestId("delete-dialog-submit").click();
+  await expect(page.getByTestId("deleted-banner")).toContainText(`${t}`);
   await expect(page.getByTestId("row-link").filter({ hasText: t })).toHaveCount(0);
 
   // (A bucket's own pages, its create and its delete, are s3-boards.spec.ts.)
