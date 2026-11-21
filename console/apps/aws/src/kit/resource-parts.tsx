@@ -43,10 +43,10 @@ export function Sentence({ text, name, also, bold }: { text: string; name: strin
 /** What the resource is connected to, as a row of links: each says how (`Publishes to`) and what. With `self` the resource's own name is a
  * chip of the row too, at position `at` (what comes before it flows in, what comes after flows out). `chipText` gives a chip its own
  * words (`payment-settled rule, bus larder`) in place of the `label` and name; the label is then on hover. */
-export function WiredStrip({ wired, className, self, chipText }: { wired: Wired[]; className?: string; self?: { name: string; at: number }; chipText?: (w: Wired) => string }) {
+export function WiredStrip({ wired, className, self, chipText, chipHref }: { wired: Wired[]; className?: string; self?: { name: string; at: number }; chipText?: (w: Wired) => string; /** Where a chip goes, when it is not the resource's own page (a table's index is a tab of the table). */ chipHref?: (w: Wired) => string | undefined }) {
   if (wired.length === 0) return null;
   const chip = (w: Wired) => (
-    <Link to={resourceHref(w.to) as never} title={w.note ?? (chipText ? w.label : undefined)} className="inline-flex min-w-0 max-w-full items-center gap-2 rounded-lg border bg-well px-3 py-1.5 text-[13px] outline-none hover:bg-accent focus-visible:ring-[3px] focus-visible:ring-ring/50" data-testid="wired-link">
+    <Link to={(chipHref?.(w) ?? resourceHref(w.to)) as never} title={w.note ?? (chipText ? w.label : undefined)} className="inline-flex min-w-0 max-w-full items-center gap-2 rounded-lg border bg-well px-3 py-1.5 text-[13px] outline-none hover:bg-accent focus-visible:ring-[3px] focus-visible:ring-ring/50" data-testid="wired-link">
       {chipText ? <span className="truncate font-mono text-bright">{chipText(w)}</span> : (<><span className="text-muted-foreground">{w.label}</span><span className="truncate font-mono text-bright">{w.to.name}</span></>)}
     </Link>
   );

@@ -80,7 +80,7 @@ export function itemPlainBlocker(item: Item): string | null {
 }
 
 /** Whether `v` is a well-formed attribute value (one known type, its value of the right shape). */
-function wellFormed(v: unknown): v is AttributeValue {
+export function wellFormed(v: unknown): v is AttributeValue {
   if (typeof v !== "object" || v === null || Array.isArray(v)) return false;
   const keys = Object.keys(v);
   if (keys.length !== 1) return false;

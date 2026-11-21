@@ -1,29 +1,17 @@
 // A table's key schema and indexes from DescribeTable, and the Scan or Query a page's form makes.
 import { type AttributeValue, type KeyPart, keyValue } from "./json";
-
-type KeySchema = { AttributeName: string; KeyType: "HASH" | "RANGE" }[];
-export type Described = {
-  Table?: {
-    KeySchema?: KeySchema;
-    AttributeDefinitions?: { AttributeName: string; AttributeType: "S" | "N" | "B" }[];
-    GlobalSecondaryIndexes?: { IndexName: string; KeySchema: KeySchema }[];
-    LocalSecondaryIndexes?: { IndexName: string; KeySchema: KeySchema }[];
-    ItemCount?: number;
-  };
-};
+import type { IndexInfo, KeyAttr, TableInfo } from "./model";
 
 /** The table (`index` empty) or one of its indexes, and its keys. */
-export type Source = { index: string; keys: KeyPart[]; global: boolean };
+export type Source = { index: string; keys: KeyPart[]; global: boolean; status: string };
+
+const part = (k: KeyAttr, role: KeyPart["role"]): KeyPart => ({ name: k.name, role, type: k.type });
+const keysOf = (hash: KeyAttr, range: KeyAttr | null): KeyPart[] => [part(hash, "HASH"), ...(range ? [part(range, "RANGE")] : [])];
 
 /** The table and each index, by what DescribeTable said. */
-export function sourcesOf(d: Described): Source[] {
-  const types = new Map((d.Table?.AttributeDefinitions ?? []).map((a) => [a.AttributeName, a.AttributeType]));
-  const keys = (s: KeySchema | undefined): KeyPart[] => (s ?? []).map((k) => ({ name: k.AttributeName, role: k.KeyType, type: types.get(k.AttributeName) ?? "S" }));
-  return [
-    { index: "", keys: keys(d.Table?.KeySchema), global: false },
-    ...(d.Table?.GlobalSecondaryIndexes ?? []).map((i) => ({ index: i.IndexName, keys: keys(i.KeySchema), global: true })),
-    ...(d.Table?.LocalSecondaryIndexes ?? []).map((i) => ({ index: i.IndexName, keys: keys(i.KeySchema), global: false })),
-  ];
+export function sourcesOf(t: TableInfo): Source[] {
+  const index = (i: IndexInfo): Source => ({ index: i.name, keys: keysOf(i.hash, i.range), global: i.global, status: i.status });
+  return [{ index: "", keys: keysOf(t.hash, t.range), global: false, status: t.status }, ...t.global.map(index), ...t.local.map(index)];
 }
 
 export const SORT_OPS = ["=", "<", "<=", ">", ">=", "between", "begins_with"] as const;
