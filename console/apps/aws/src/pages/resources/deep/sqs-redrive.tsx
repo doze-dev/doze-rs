@@ -4,6 +4,7 @@
 import { RefreshCwIcon, Undo2Icon } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
+import { Alert } from "@doze/ui/components/app/alert";
 import { type DataColumn, DataTable } from "@doze/ui/components/app/data-table";
 import { Button } from "@doze/ui/components/ui/button";
 import { Input } from "@doze/ui/components/ui/input";
@@ -14,19 +15,10 @@ import { cn } from "@doze/ui/lib/utils";
 import { useOp, useOpQuery } from "./api";
 import type { DeepProps } from "./pages";
 import { Card, Made, Refused } from "./parts";
+import { failedNote, type MoveTask } from "./sqs-redrive-note";
 import { fieldOf } from "./sqs-messages";
 
-type Task = {
-  TaskHandle?: string;
-  Status: string;
-  SourceArn: string;
-  DestinationArn?: string;
-  MaxNumberOfMessagesPerSecond?: number;
-  ApproximateNumberOfMessagesMoved?: number;
-  ApproximateNumberOfMessagesToMove?: number;
-  FailureReason?: string;
-  StartedTimestamp?: number;
-};
+type Task = MoveTask;
 
 const tail = (arn?: string) => (arn ? arn.slice(arn.lastIndexOf(":") + 1) : "");
 
@@ -52,6 +44,7 @@ export function QueueRedrive({ d }: DeepProps) {
     if (rate.trim()) input.MaxNumberOfMessagesPerSecond = Number(rate);
     start.mutate(input, { onSuccess: () => toast.success("Redrive started", { description: "Refresh the moves to follow it." }) });
   };
+  const failed = failedNote(tasks.data?.Results?.[0]);
   const columns: DataColumn<Task>[] = [
     { id: "status", header: "Status", size: 140, accessorKey: "Status", cell: (c) => <span className={cn("font-medium", TONE[c.row.original.Status])}>{c.row.original.Status.toLowerCase()}</span> },
     { id: "started", header: "Started (UTC)", size: 190, min: 160, accessorFn: (r) => r.StartedTimestamp ?? 0, cell: (c) => (c.row.original.StartedTimestamp ? dateTimeUtc(c.row.original.StartedTimestamp) : "–") },
@@ -120,6 +113,11 @@ export function QueueRedrive({ d }: DeepProps) {
         testId="moves-card"
       >
         <Refused operation="ListMessageMoveTasks" error={tasks.error} />
+        {failed ? (
+          <Alert tone="bad" title={failed.title} testId="move-failed">
+            {failed.body}
+          </Alert>
+        ) : null}
         <Refused operation="CancelMessageMoveTask" error={cancel.error} />
         <DataTable aria-label="Moves" data={tasks.data?.Results ?? []} columns={columns} rowId={(r) => r.TaskHandle ?? `${r.StartedTimestamp}`} maxHeight={360} empty={tasks.isPending ? "Reading…" : "No redrive of this queue in the last 14 days."} />
       </Card>

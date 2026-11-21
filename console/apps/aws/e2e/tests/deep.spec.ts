@@ -72,6 +72,23 @@ test("a dead-letter queue's messages are moved to another queue, and the move is
   await expect(page.getByTestId("moves-card").locator("tbody tr").first()).toContainText(source);
 });
 
+test("a message sent straight to a dead-letter queue has no queue to return to: the redrive fails and says why", async ({ page, cli, browserName }) => {
+  const dlq = unique("dlqf", browserName);
+  const source = unique("srcf", browserName);
+  expect(cli(["sqs", "create-queue", "--queue-name", dlq]).code).toBe(0);
+  const policy = JSON.stringify({ deadLetterTargetArn: `arn:aws:sqs:us-east-1:111122223333:${dlq}`, maxReceiveCount: 3 });
+  expect(cli(["sqs", "create-queue", "--queue-name", source, "--attributes", JSON.stringify({ RedrivePolicy: policy })]).code).toBe(0);
+  expect(cli(["sqs", "send-message", "--queue-url", `${process.env.DOZE_AWS_E2E_ENDPOINT}/111122223333/${dlq}`, "--message-body", "by hand"]).code).toBe(0);
+  await open(page, `/resources/sqs/queues/${dlq}?tab=redrive`, dlq);
+  await page.getByTestId("redrive-start").click();
+  await expect(async () => {
+    await page.getByTestId("moves-refresh").click();
+    await expect(page.getByTestId("move-failed")).toContainText("CouldNotDetermineMessageSource", { timeout: 1000 });
+  }).toPass({ timeout: 15_000 });
+  await expect(page.getByTestId("moves-card").locator("tbody tr").first()).toContainText("failed");
+  await expect(page.getByTestId("moves-card").locator("tbody tr").first()).toContainText("0 of 1");
+});
+
 test("a bucket's folder is made and opened, a file uploaded into it, opened, downloaded and deleted", async ({ page, cli, browserName }) => {
   const bucket = unique("images", browserName);
   expect(cli(["s3api", "create-bucket", "--bucket", bucket]).code).toBe(0);
