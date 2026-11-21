@@ -92,3 +92,15 @@ if (import.meta.main) {
   seedLarder(endpoint, account);
   console.log(`seeded ${endpoint}`);
 }
+
+/** A source queue and its dead-letter queue holding `n` messages that really were dead-lettered (each received twice with a limit
+ * of one), so a redrive has a source to return them to. */
+export function deadLettered(endpoint: string, account: string, source: string, dlq: string, n: number): void {
+  const cli = runner(endpoint);
+  const url = (q: string) => queueUrl(endpoint, account, q);
+  cli(["sqs", "create-queue", "--queue-name", dlq]);
+  const redrive = JSON.stringify({ deadLetterTargetArn: arn(account, dlq), maxReceiveCount: 1 });
+  cli(["sqs", "create-queue", "--queue-name", source, "--attributes", JSON.stringify({ RedrivePolicy: redrive })]);
+  for (let i = 0; i < n; i++) cli(["sqs", "send-message", "--queue-url", url(source), "--message-body", `failed ${i}`]);
+  for (let round = 0; round < 2; round++) cli(["sqs", "receive-message", "--queue-url", url(source), "--max-number-of-messages", "10", "--visibility-timeout", "0"]);
+}
