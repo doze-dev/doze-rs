@@ -90,7 +90,8 @@ export function useCfnWrite<T, I extends object = object>(operation: string) {
  * removes when the page is left, unless `keep.current` (the person went on to read it). `input` is `null` while there is nothing to preview. */
 export function useCfnPreview(stack: string, id: string, key: string, input: Record<string, unknown> | null, keep: React.RefObject<boolean>) {
   const q = useQuery({
-    queryKey: ["cfn", "preview", stack, id, key],
+    // Not under ["cfn"]: a write to the stack (the update the person submits) would re-make the preview just as the page goes.
+    queryKey: ["cfn-preview", stack, id, key],
     queryFn: async () => {
       await callKindOp(STACKS, "DeleteChangeSet", { StackName: stack, ChangeSetName: id }).catch(() => undefined);
       await callKindOp(STACKS, "CreateChangeSet", input ?? {});
