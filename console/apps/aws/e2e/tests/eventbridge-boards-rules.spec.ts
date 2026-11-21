@@ -117,9 +117,11 @@ test("eventbridge__rule-create: Create rule's five steps, each reached in turn, 
   await dialog.getByTestId("transformer-confirm").click();
   await expect(page.getByTestId("transformer-set-1")).toContainText("Transformer set: 2 variables, order_id and customer, shape the message published to orders-created.");
   await page.getByTestId("age-hours-1").fill("1");
+  await expect(page.getByTestId("age-hours-1")).toHaveValue("1");
   await page.getByTestId("age-minutes-1").fill("0");
   await page.getByTestId("age-seconds-1").fill("0");
   await page.getByTestId("attempts-1").fill("20");
+  await expect(page.getByTestId("age-hours-1")).toHaveValue("1");
   await page.getByTestId("dlq1-queue").click();
   await pick(page, "Dead-letter queue", "pick-lists-dlq");
   await expect(page.getByTestId("section-settings-1")).toContainText("Applied here:");
