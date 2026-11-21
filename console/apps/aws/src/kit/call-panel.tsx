@@ -43,7 +43,7 @@ export function missingWords(missing: string[]): string {
  * (asked after a pause, the last answer kept while the next is on its way). Copy takes the view shown; "Copy as" takes the
  * others without switching. `refusal` turns it into the call that was refused, with what came back under it; `note` is the
  * sentence under the code (what the call leaves out, what its answer carries). */
-export function CallPanel({ request, refusal, note, title, className, showService = false, showInput = false, testId = "call-panel" }: { request: PreviewRequest | null; /** Name the service before the operation (`sns Subscribe`), for a call to a service other than the page's own. */ showService?: boolean; /** The JSON tab shows the request's own input, as the SDK takes it, not the wire body the preview answers (they differ for REST services: S3's bucket is in the address). */ showInput?: boolean; /** The service's refusal of this call: its code and words. */ refusal?: { code: string; message: string } | null; note?: React.ReactNode; title?: string; className?: string; testId?: string }) {
+export function CallPanel({ request, refusal, note, title, className, showService = false, showInput = false, shown, testId = "call-panel" }: { /** What the JSON tab shows of the input, where the wire's name for a member is not the SDK's. */ shown?: (operation: string, input: unknown) => unknown; request: PreviewRequest | null; /** Name the service before the operation (`sns Subscribe`), for a call to a service other than the page's own. */ showService?: boolean; /** The JSON tab shows the request's own input, as the SDK takes it, not the wire body the preview answers (they differ for REST services: S3's bucket is in the address). */ showInput?: boolean; /** The service's refusal of this call: its code and words. */ refusal?: { code: string; message: string } | null; note?: React.ReactNode; title?: string; className?: string; testId?: string }) {
   const [view, setView] = useState<CallView>("json");
   const preview = usePreview(request);
   const p = preview.data;
@@ -82,9 +82,9 @@ export function CallPanel({ request, refusal, note, title, className, showServic
           <Skeleton className="h-44 rounded-[10px]" data-testid={`${testId}-loading`} />
         ) : (
           <div className="relative">
-            <CopyButton text={viewText(p, request.operation, view, showService ? request.service : undefined, showInput ? request.input : undefined)} label={`Copy ${VIEWS.find((v) => v.id === view)!.label}`} what="Copied" iconOnly variant="ghost" className="absolute top-1.5 right-1.5 z-10" />
+            <CopyButton text={viewText(p, request.operation, view, showService ? request.service : undefined, showInput ? (shown ? shown(request.operation, request.input) : request.input) : undefined)} label={`Copy ${VIEWS.find((v) => v.id === view)!.label}`} what="Copied" iconOnly variant="ghost" className="absolute top-1.5 right-1.5 z-10" />
           <pre tabIndex={0} className={cn("max-h-[22rem] overflow-auto rounded-[10px] bg-well py-3 pr-11 pl-4 font-mono text-[12.5px] leading-[21px] text-foreground transition-opacity outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50", preview.settling && "opacity-60", "whitespace-pre-wrap [overflow-wrap:anywhere]")} data-testid={`${testId}-code`}>
-            {viewText(p, request.operation, view, showService ? request.service : undefined, showInput ? request.input : undefined)}
+            {viewText(p, request.operation, view, showService ? request.service : undefined, showInput ? (shown ? shown(request.operation, request.input) : request.input) : undefined)}
           </pre>
           </div>
         )}
