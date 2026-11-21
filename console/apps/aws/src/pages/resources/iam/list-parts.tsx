@@ -19,10 +19,10 @@ export function SearchBox({ value, onChange, noun }: { value: string; onChange: 
 }
 
 /** `1 of 1 page, 3 users`: one ListX page holds up to 100; more is read on asking. */
-export function PageLine({ shown, noun, more, loading, onMore }: { shown: number; noun: string; more: boolean; loading: boolean; onMore: () => void }) {
+export function PageLine({ shown, noun, many, more, loading, onMore }: { shown: number; noun: string; many?: string; more: boolean; loading: boolean; onMore: () => void }) {
   return (
     <div className="mt-4 flex flex-wrap items-center justify-end gap-3 text-[13px] text-muted-foreground" data-testid="page-line">
-      <span>{more ? `${count(shown, noun)} so far, more to read` : `1 of 1 page, ${count(shown, noun)}`}</span>
+      <span>{more ? `${count(shown, noun, many)} so far, more to read` : `1 of 1 page, ${count(shown, noun, many)}`}</span>
       {more && (
         <Button type="button" variant="outline" size="sm" className="bg-card" onClick={onMore} disabled={loading} data-testid="load-more">
           Next
@@ -61,7 +61,7 @@ export function CreatedBanner({ kind, noun, name, kindId, returned, back }: { ki
   return (
     <ResultBanner
       className="mb-6"
-      title={`${kind} ${name} created.`}
+      title={`${kind} ${name.startsWith("arn:") ? (name.split("/").pop() ?? name) : name} created.`}
       returned={returned}
       actions={<Button asChild size="sm"><Link to="/resources/$service/$kind/$name" params={{ service: "iam", kind: kindId, name }} data-testid="view-created">View {noun}</Link></Button>}
       onDismiss={back}

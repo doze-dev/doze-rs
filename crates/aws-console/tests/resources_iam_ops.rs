@@ -501,3 +501,77 @@ async fn a_role_page_counts_the_sessions_taken_of_it_among_its_calls() {
         "{other}"
     );
 }
+
+#[tokio::test]
+async fn adding_a_user_to_a_group_is_a_call_on_the_group() {
+    let w = world("iam-ops-member", Mode::Soft, &[]);
+    w.app("iam", "CreateUser", &json!({"UserName": "dev"}))
+        .await;
+    w.app("iam", "CreateGroup", &json!({"GroupName": "developers"}))
+        .await;
+    w.app(
+        "iam",
+        "AddUserToGroup",
+        &json!({"UserName": "dev", "GroupName": "developers"}),
+    )
+    .await;
+    let acted = |detail: &Value| -> Vec<String> {
+        detail["calls"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter(|c| c["caller"] == "app")
+            .map(|c| c["action"].as_str().unwrap().to_owned())
+            .collect()
+    };
+    let (_, group) = w.get(&format!("{BASE}/groups/developers")).await;
+    assert!(
+        acted(&group).contains(&"AddUserToGroup".to_owned()),
+        "{group}"
+    );
+    let (_, user) = w.get(&format!("{BASE}/users/dev")).await;
+    assert!(
+        !acted(&user).contains(&"AddUserToGroup".to_owned()),
+        "{user}"
+    );
+}
+
+#[tokio::test]
+async fn attaching_a_policy_is_a_call_on_the_policy() {
+    let w = world("iam-ops-attach", Mode::Soft, &[]);
+    let made = w
+        .app(
+            "iam",
+            "CreatePolicy",
+            &json!({"PolicyName": "readonly", "PolicyDocument": json!({"Version": "2012-10-17",
+                "Statement": [{"Effect": "Allow", "Action": "s3:GetObject", "Resource": "*"}]}).to_string()}),
+        )
+        .await;
+    let arn = made["Policy"]["Arn"].as_str().unwrap().to_owned();
+    w.app(
+        "iam",
+        "CreateRole",
+        &json!({"RoleName": "report-job", "AssumeRolePolicyDocument": trust(&json!({"Service": "lambda.amazonaws.com"}))}),
+    )
+    .await;
+    w.app(
+        "iam",
+        "AttachRolePolicy",
+        &json!({"RoleName": "report-job", "PolicyArn": arn}),
+    )
+    .await;
+    let (_, policy) = w
+        .get(&format!(
+            "{BASE}/policies/{}",
+            arn.replace(':', "%3A").replace('/', "%2F")
+        ))
+        .await;
+    let actions: Vec<&str> = policy["calls"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|c| c["caller"] == "app")
+        .map(|c| c["action"].as_str().unwrap())
+        .collect();
+    assert!(actions.contains(&"AttachRolePolicy"), "{policy}");
+}

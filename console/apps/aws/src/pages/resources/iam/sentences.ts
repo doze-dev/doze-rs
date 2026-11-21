@@ -32,7 +32,9 @@ export function groupsSentence(groups: readonly GroupFacts[]): string {
     const p = g.policies.length === 0 ? "no attached policy" : `${spelled(g.policies.length)} attached ${g.policies.length === 1 ? "policy" : "policies"}${g.policies.length <= 3 ? `, ${list(g.policies)}` : ""}`;
     return `${g.name} has ${m} and ${p}`;
   };
-  const shown = groups.slice(0, 3).map(one);
+  // The groups that hold something first: they are what the sentence is about.
+  const busy = [...groups].sort((a, b) => b.members.length + b.policies.length - (a.members.length + a.policies.length) || a.name.localeCompare(b.name));
+  const shown = busy.slice(0, 3).map(one);
   const more = groups.length > 3 ? `; ${groups.length - 3} more` : "";
   return `${count(groups.length, "group")}: ${shown.join("; ")}${more}.`;
 }
@@ -42,7 +44,9 @@ export type RoleFacts = { name: string; trusted: string[]; assumed: number; inLa
 /** `3 roles. report-job was assumed 7 times in the last hour...`: what the record says of who took a session, and for which service the role is. */
 export function rolesSentence(roles: readonly RoleFacts[]): string {
   if (roles.length === 0) return "There are no roles in this account.";
-  const clauses = roles.slice(0, 3).map((r) => {
+  // The roles with sessions first: they are what the sentence is about.
+  const busy = [...roles].sort((a, b) => b.assumed - a.assumed);
+  const clauses = busy.slice(0, 3).map((r) => {
     if (r.assumed > 0) return `${r.name} was assumed ${count(r.assumed, "time")}${r.inLastHour === r.assumed ? " in the last hour" : " in the Live record"}${r.assumedBy.length === 1 ? `, each time with ${r.assumedBy[0]}'s key` : r.assumedBy.length > 1 ? `, with the keys of ${list(r.assumedBy)}` : ""}`;
     const svc = r.trusted.filter((t) => t.startsWith("AWS service: ")).map((t) => t.slice("AWS service: ".length));
     if (svc.length > 0) return `${r.name} is for ${list(svc)}`;

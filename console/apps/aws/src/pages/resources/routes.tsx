@@ -13,7 +13,8 @@ import { ResourceDetailPage } from "./detail-page";
 import { HINT } from "./index-page";
 import { ResourceListPage } from "./list-page";
 import { resolve } from "./model";
-import { type OwnProps, ownOf } from "./deep/registry";
+import { type OwnProps, ownOf, serviceOf } from "./deep/registry";
+import "./deep/pages";
 
 // An execution and a log stream are pages of their own, in a chunk of their own.
 const DeepRoute = lazy(() => import("./deep/routes").then((m) => ({ default: m.DeepRoute })));
@@ -58,7 +59,9 @@ const oneRoute = getRouteApi("/resources/$service/$kind/$name");
 
 export function ServicePage() {
   const { service } = serviceRoute.useParams();
+  const own = serviceOf(service);
   const r = useResolved(service, null);
+  if (own) return <Own Page={own as never} props={{ service, kind: "", name: null, search: {} }} />;
   if ("page" in r) return r.page;
   return <Navigate to="/resources/$service/$second" params={{ service, second: r.kind }} search={{}} replace />;
 }

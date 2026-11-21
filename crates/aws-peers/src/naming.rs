@@ -30,10 +30,12 @@ pub const MEMBERS: &[&str] = &[
     "ExecutionArn",
     "SecretId",
     "KeyId",
-    "RoleName",
-    "UserName",
-    "GroupName",
+    // `AttachRolePolicy` and its kin name a policy and who it goes to: the call is the policy's (its page lists what attached it). A group
+    // membership (`AddUserToGroup`) is the group's.
     "PolicyArn",
+    "RoleName",
+    "GroupName",
+    "UserName",
     "StackName",
     "RestApiId",
     "ApiId",

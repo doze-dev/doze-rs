@@ -9,7 +9,7 @@ import { checkPolicy, type PolicyKind } from "../../../kit";
 /** What a policy text has wrong with it, one sentence each: not JSON, or the shape (an Effect, an Action, a Resource or a Principal). */
 export function policyErrors(text: string, kind: PolicyKind | "trust"): string[] {
   const c = checkPolicy(text, kind === "trust" ? "resource" : kind);
-  const problems = c.problems.filter((p) => p !== "The policy is empty.");
+  const problems = c.problems.filter((p) => p !== "The policy is empty.").map((p) => (kind === "identity" && / needs a Resource\.$/.test(p) ? "Policy statement must contain resources." : p));
   if (kind === "trust" && c.statements.length > 0) {
     try {
       const doc = JSON.parse(text) as { Statement?: unknown };

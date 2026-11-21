@@ -28,6 +28,8 @@ pub(super) const USER_OPS: &[Op] = &[
     free("ListAccountAliases"),
     free("CreateAccountAlias"),
     free("DeleteAccountAlias"),
+    free("ListOpenIDConnectProviders"),
+    free("ListSAMLProviders"),
 ];
 
 /// A group's pages: the form (with its members and policies), and what each group holds.

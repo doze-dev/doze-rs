@@ -71,3 +71,13 @@ export function registerKind(service: string, kind: string, pages: KindPages): v
   // `one` is drawn only for an address with a name, so a page that takes the name as a string is the one it asks for.
   registerOwn(service, kind, { list: pages.list, one: pages.detail as unknown as OwnPage | undefined });
 }
+
+/** A page a service draws for its own address, `/resources/<service>` (IAM's dashboard, STS's Switch Role), in place of its first kind's list. */
+export type ServicePageComponent = LazyExoticComponent<() => ReactNode>;
+const SERVICE_PAGES = new Map<string, ServicePageComponent>();
+
+export function registerService(service: string, page: ServicePageComponent): void {
+  SERVICE_PAGES.set(service, page);
+}
+
+export const serviceOf = (service: string): ServicePageComponent | undefined => SERVICE_PAGES.get(service);
