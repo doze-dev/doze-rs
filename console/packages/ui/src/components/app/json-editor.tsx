@@ -22,7 +22,7 @@ export function formatJson(text: string): string {
 
 /** A JSON document typed by a person: monospace, checked as it is typed (the parser's words under it when it is not JSON), and
  * a Format button. The caller decides what an empty document means (`empty`). */
-export function JsonEditor({ value, onChange, label, help, empty = "ok", rows = 10, className, testId = "json-editor" }: { value: string; onChange: (v: string) => void; label: string; help?: React.ReactNode; empty?: "ok" | "invalid"; rows?: number; className?: string; testId?: string }) {
+export function JsonEditor({ value, onChange, label, help, placeholder, empty = "ok", rows = 10, className, testId = "json-editor" }: { value: string; onChange: (v: string) => void; label: string; help?: React.ReactNode; /** What an empty editor shows. */ placeholder?: string; empty?: "ok" | "invalid"; rows?: number; className?: string; testId?: string }) {
   const id = useId();
   const check = checkJson(value, empty);
   const bad = !check.ok;
@@ -38,6 +38,7 @@ export function JsonEditor({ value, onChange, label, help, empty = "ok", rows = 
         id={id}
         value={value}
         onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
         rows={rows}
         spellCheck={false}
         autoComplete="off"

@@ -2,6 +2,7 @@
 export * from "./blockers";
 export * from "./call-panel";
 export * from "./calls";
+export * from "./calls-panel";
 export * from "./contract";
 export * from "./deletion-window";
 export * from "./form-page";

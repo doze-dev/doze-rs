@@ -7,6 +7,7 @@ import { Tabs, TabsList, TabsTrigger } from "@doze/ui/components/ui/tabs";
 import { cn } from "@doze/ui/lib/utils";
 import type { Preview, PreviewRequest } from "./contract";
 import { usePreview } from "./preview";
+import { unflatten } from "./wire-json";
 
 export type CallView = "json" | "cli" | "boto3";
 const VIEWS: { id: CallView; label: string }[] = [
@@ -28,7 +29,7 @@ export function viewText(p: Preview, operation: string, view: CallView, service?
 export function withoutWire(json: unknown): unknown {
   if (typeof json !== "object" || json === null || Array.isArray(json)) return json;
   const { Action, Version, ...members } = json as Record<string, unknown>;
-  return typeof Action === "string" && typeof Version === "string" ? members : json;
+  return typeof Action === "string" && typeof Version === "string" ? unflatten(members) : json;
 }
 
 /** The members the call still needs, said as words: `Needs QueueName`, `Needs QueueName and Attributes`. */

@@ -32,12 +32,12 @@ export function RuleHelp({ children, className }: { children: React.ReactNode; c
 
 /** A label, the control, the rule (`help`), a hint drawn from what is really there (`hint`: `pick-lists already exists in this
  * Region.`), and the service's refusal of this field. `children` is the control, or a function of its id. */
-export function Field({ label, help, hint, error, refusal, children, className, testId }: { label: React.ReactNode; help?: React.ReactNode; hint?: React.ReactNode; /** A problem the form found itself. */ error?: string; refusal?: { why: React.ReactNode; suggestion?: React.ReactNode } | null; children: React.ReactNode | ((id: string) => React.ReactNode); className?: string; testId?: string }) {
+export function Field({ label, optional = false, help, hint, error, refusal, children, className, testId }: { label: React.ReactNode; /** The word `optional` after the label. */ optional?: boolean; help?: React.ReactNode; hint?: React.ReactNode; /** A problem the form found itself. */ error?: string; refusal?: { why: React.ReactNode; suggestion?: React.ReactNode } | null; children: React.ReactNode | ((id: string) => React.ReactNode); className?: string; testId?: string }) {
   const id = useId();
   const refused = Boolean(refusal) || Boolean(error);
   return (
     <div className={cn("grid min-w-0 gap-1.5", className)} data-slot="field" data-refused={refused ? "" : undefined} data-testid={testId}>
-      <Label htmlFor={id}>{label}</Label>
+      <Label htmlFor={id}>{label}{optional && <span className="font-normal text-muted-foreground">optional</span>}</Label>
       <div className="min-w-0 data-[refused]:[&_input]:border-bad data-[refused]:[&_textarea]:border-bad data-[refused]:[&_[role=combobox]]:border-bad" data-refused={refused ? "" : undefined}>
         {typeof children === "function" ? children(id) : children}
       </div>
