@@ -128,7 +128,7 @@ const REPORTS = json({ Resources: { Queue: { Type: "AWS::SQS::Queue", Properties
 export async function settled(cli: Cli, stack: string, ms = 30_000): Promise<string> {
   const end = Date.now() + ms;
   for (;;) {
-    let status = "";
+    let status: string;
     try {
       status = (JSON.parse(cli(["cloudformation", "describe-stacks", "--stack-name", stack])) as { Stacks: { StackStatus: string }[] }).Stacks[0]?.StackStatus ?? "";
     } catch {

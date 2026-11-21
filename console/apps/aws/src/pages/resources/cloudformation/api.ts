@@ -1,7 +1,7 @@
 // CloudFormation's reads and writes from the pages: each is one operation the stacks' kind lists (crates/aws-console/src/resources/
 // cfn_ops.rs), made through `POST /resources/cloudformation/stacks/op/<Operation>` as the caller `console`.
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { callKindOp } from "../../../kit";
 import type { ChangeSet } from "./changeset-parts";
 import { inProgress, nobodyImports, type Stack, type StackEvent, type StackResource } from "./model";
@@ -108,4 +108,15 @@ export function useCfnPreview(stack: string, id: string, key: string, input: Rec
     [stack, id, keep],
   );
   return { data: q.data, pending: input !== null && q.isPending, error: q.error };
+}
+
+/** Whether `on` has held for less than `ms`: true while it does, and false from `ms` after it began (a page that has just written). */
+export function useWhile(on: boolean, ms: number): boolean {
+  const [live, setLive] = useState(true);
+  useEffect(() => {
+    if (!on) return;
+    const t = setTimeout(() => setLive(false), ms);
+    return () => clearTimeout(t);
+  }, [on, ms]);
+  return on && live;
 }

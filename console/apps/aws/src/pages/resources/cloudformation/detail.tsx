@@ -13,7 +13,7 @@ import { DetailError, FlowStrip, PlainConfirm, ResourcePage, ResourcePageSkeleto
 import { HINT } from "../index-page";
 import { at } from "../deep/parts";
 import type { OwnProps } from "../deep/registry";
-import { templateText, useCfnRead, useCfnWrite, useEvents, useImporters, usePoll, useResources, useStack, useTemplate } from "./api";
+import { templateText, useCfnRead, useCfnWrite, useEvents, useImporters, usePoll, useResources, useStack, useTemplate, useWhile } from "./api";
 import { DeleteStackDialog } from "./delete-dialog";
 import { DeletedStack } from "./deleted";
 import { type Stack, inProgress, isGone, resourceTarget, retainedIn } from "./model";
@@ -66,8 +66,8 @@ function StackView({ d, updatedAt, fetching, refetch }: { d: ResourceDetail; upd
     void resources.refetch();
   };
   // Just after a write (`?done=`) the page reads again for a while, for the work it started has not begun to show yet.
-  const [opened] = useState(() => Date.now());
-  usePoll(inProgress(status) || (Boolean(search.done) && Date.now() - opened < 15_000), refresh);
+  const recent = useWhile(Boolean(search.done), 15_000);
+  usePoll(inProgress(status) || recent, refresh);
   if (stackQ.isError && isGone(stackQ.error)) return <DeletedStack name={nm} />;
   if (!stack) return stackQ.isError ? <ErrorBlock what="This stack could not be read" error={stackQ.error} hint={HINT} onRetry={refresh} retrying={stackQ.isFetching} testId="detail-error" /> : <ResourcePageSkeleton />;
   const rows = resources.data?.StackResourceSummaries ?? [];
