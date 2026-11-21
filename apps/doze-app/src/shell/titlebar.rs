@@ -8,7 +8,12 @@ use crate::actions::{OpenBell, OpenPalette, ShowHelp};
 use crate::kit::{chip_of, s};
 use crate::outward::Probe as _;
 use crate::theme::{Tokens, ty};
-use crate::widgets::{dot, icon, kbd_plain};
+use crate::widgets::{dot, icon, kbd_plain, tip};
+
+thread_local! {
+    /// A press on the bar itself, not yet moved: the next move drags the window.
+    static MOVE: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+}
 
 fn tab(
     t: &Tokens,
@@ -125,9 +130,10 @@ pub(crate) fn titlebar(t: &Tokens, root: &Root, cx: &mut Context<Root>) -> impl 
         .child(crate::motion::tick(bell_moving || help_moving))
         .probe("bell", format!("bell red={red} yellow={yellow}"))
         .when(root.bell_open(), |d| d.bg(t.sel))
-        // Something broken: the bell turns red, as Go's "hot" bell; open, it takes the accent (the count still says).
+        // Something broken: Go's "hot" bell, its border the bad colour 55% into the panel and no fill; open, it takes
+        // the accent (the count still says).
         .when(red > 0 && !root.bell_open(), |d| {
-            d.border_color(t.bad).bg(crate::theme::alpha(t.bad, 0.14))
+            d.border_color(crate::theme::mix(t.bad, t.panel, 55.))
         })
         .when(root.bell_open(), |d| d.border_color(t.accent))
         .child(icon("icons/bell.svg", 16., bell_ink))
@@ -135,21 +141,43 @@ pub(crate) fn titlebar(t: &Tokens, root: &Root, cx: &mut Context<Root>) -> impl 
             d.child(
                 div()
                     .absolute()
-                    .top(px(4.))
-                    .right(px(4.))
+                    .top(px(3.))
+                    .right(px(3.))
                     .size(px(8.))
                     .rounded_full()
-                    .bg(t.warn),
+                    .bg(t.warn)
+                    // Go `.bell .yd`: a 1.5 px ring of the panel round the dot (inside its 8 px).
+                    .border(px(1.5))
+                    .border_color(t.panel),
             )
         })
+        .occlude()
+        .tooltip(tip(format!("{}  ⌘⇧N", root.attn.list.bell_label())))
         .on_click(cx.listener(|this, _, window, cx| this.on_bell(&OpenBell, window, cx)));
     let help = square(t, "help")
         .text_size(px(ty::BASE))
         .font_weight(ty::SEMIBOLD)
         .text_color(help_ink)
         .child("?")
+        .occlude()
+        .tooltip(tip("Keyboard shortcuts  ?  ⌘/"))
         .on_click(cx.listener(|this, _, window, cx| this.on_help(&ShowHelp, window, cx)));
+    // Double-click zooms the window, as any title bar does; the strip itself is the drag region (Go titlebar.tsx).
+    // Tabs and buttons occlude it, so a press on them never moves the window.
     div()
+        .id("titlebar")
+        .on_click(|e, window, _| {
+            if e.click_count() == 2 {
+                window.zoom_window();
+            }
+        })
+        .on_mouse_down(gpui::MouseButton::Left, |_, _, _| MOVE.set(true))
+        .on_mouse_up(gpui::MouseButton::Left, |_, _, _| MOVE.set(false))
+        .on_mouse_move(|_, window, _| {
+            if MOVE.replace(false) {
+                window.start_window_move();
+            }
+        })
         .flex()
         .flex_none()
         .items_end()
@@ -189,6 +217,8 @@ fn search(t: &Tokens, cx: &mut Context<Root>) -> impl IntoElement {
         .text_color(t.text)
         .cursor_pointer()
         .hover(|s| s.bg(t.sel))
+        .occlude()
+        .tooltip(tip("Search a name, or type a verb and a name (⌘K)"))
         .on_click(cx.listener(|this, _, window, cx| this.on_palette(&OpenPalette, window, cx)))
         .child(kbd_plain(
             &chip_of("Search or do…"),
@@ -216,6 +246,8 @@ fn tabs(t: &Tokens, root: &Root, cx: &mut Context<Root>) -> impl IntoElement {
             div().child("Home").into_any_element(),
         ],
     )
+    .occlude()
+    .tooltip(tip("Home  ⌘0"))
     .on_click(cx.listener(|this, _, window, cx| this.go(Screen::Library, window, cx)));
     div()
         .flex()
@@ -264,13 +296,22 @@ fn pending_tab(t: &Tokens, root: &Root, cx: &mut Context<Root>) -> Option<AnyEle
             .into_any_element(),
         close.into_any_element(),
     ];
-    Some(tab(t, true, "tab-pending", body).into_any_element())
+    let tip_dir = dir.display().to_string();
+    Some(
+        tab(t, true, "tab-pending", body)
+            .occlude()
+            .tooltip(tip(tip_dir))
+            .into_any_element(),
+    )
 }
 
 fn stack_tab(t: &Tokens, root: &Root, i: usize, tb: &Tab, cx: &mut Context<Root>) -> AnyElement {
     let on = root.key() == Some(&tb.key);
     let tone = if tb.troubled > 0 {
         t.bad
+    } else if tb.broken {
+        // Go: a doze.hcl that does not load is the tab's yellow dot, on every page.
+        t.warn
     } else if tb.running && tb.live {
         t.good
     } else if tb.running {
@@ -290,30 +331,58 @@ fn stack_tab(t: &Tokens, root: &Root, i: usize, tb: &Tab, cx: &mut Context<Root>
     if tb.troubled > 0 {
         body.push(badge(t, tb.troubled).into_any_element());
     }
-    if on || !tb.running {
-        let k = tb.key.clone();
-        body.push(
-            div()
-                .id(("tab-close", i))
-                .size(px(16.))
-                .rounded(px(4.))
-                .flex()
-                .items_center()
-                .justify_center()
-                .text_color(t.dim)
-                .hover(|d| d.bg(t.line).text_color(t.bright))
-                .child(icon("icons/close.svg", 10., t.dim))
-                .on_click(cx.listener(move |this, _, window, cx| {
-                    cx.stop_propagation();
-                    this.close_tab(&k, window, cx);
-                }))
-                .into_any_element(),
-        );
-    }
+    // `.stabx`: on every tab, seen (opacity) while the tab is the one shown or under the pointer.
+    let id: gpui::ElementId = ("tab", i).into();
+    let over = crate::motion::hovered(&format!("stab/{id}"));
+    body.push(close_x(t, (i, tb), on || over, cx));
     let key = tb.key.clone();
-    tab(t, on, ("tab", i), body)
+    let title = format!(
+        "{}{}  ⌘{}",
+        tb.dir,
+        if tb.broken {
+            " · doze.hcl does not load"
+        } else if tb.running && !tb.live {
+            " · daemon not answering"
+        } else {
+            ""
+        },
+        i + 1
+    );
+    tab(t, on, id, body)
+        .occlude()
+        .tooltip(tip(title))
         .on_click(
             cx.listener(move |this, _, window, cx| this.go(Screen::Stack(key.clone()), window, cx)),
         )
+        .into_any_element()
+}
+
+/// `.stabx`: the tab's ×, seen while `shown`; under the pointer it turns bright on the line colour (`.stabx:hover`).
+fn close_x(t: &Tokens, (i, tb): (usize, &Tab), shown: bool, cx: &mut Context<Root>) -> AnyElement {
+    let k = tb.key.clone();
+    let xid = format!("stabx/{i}");
+    let x_ink = if crate::motion::hovered(&xid) {
+        t.bright
+    } else {
+        t.dim
+    };
+    crate::motion::track(div().id(("tab-close", i)), &xid)
+        .opacity(if shown { 1. } else { 0. })
+        .tooltip(tip(if tb.running {
+            "Close the tab. The stack keeps running; open it again from Home."
+        } else {
+            "Close the tab"
+        }))
+        .size(px(16.))
+        .rounded(px(4.))
+        .flex()
+        .items_center()
+        .justify_center()
+        .hover(|d| d.bg(t.line))
+        .child(icon("icons/close.svg", 10., x_ink))
+        .on_click(cx.listener(move |this, _, window, cx| {
+            cx.stop_propagation();
+            this.close_tab(&k, window, cx);
+        }))
         .into_any_element()
 }

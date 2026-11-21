@@ -347,7 +347,7 @@ function RetentionCards({ r }: { r: LogResponse }) {
               ["Looked at", <span className="font-mono">{looked}</span>, ret.last_pass ? `${ret.last_pass.looked} partitions in all, across every topic with a retention bound` : undefined],
               [
                 "Past retention",
-                mine.length === 0 ? <span className="font-mono">0 segments</span> : mine.map((m) => <span key={m.partition} className="block font-mono">{m.topic}-{m.partition}: log start {number(m.from)} to {number(m.to)}</span>),
+                mine.length === 0 ? <span className="font-mono">0 segments</span> : mine.map((m) => <span key={m.partition} className="block font-mono">{m.topic}-{m.partition}: {m.segments} {m.segments === 1 ? "segment" : "segments"}, log start {number(m.from)} to {number(m.to)}</span>),
                 mine.length === 0 ? "no sealed segment was past retention" : undefined,
               ],
               ["Deleted", ret.moved_total === 0 ? "Nothing since the broker started" : `${number(ret.moved_total)} log starts moved since the broker started`, ret.moved_total === 0 ? "retention keeps no record before that" : ret.moved_at_ms !== null ? `the last at ${dateTime(ret.moved_at_ms)}` : undefined],
@@ -435,6 +435,11 @@ function Durability({ v }: { v: LogView }) {
           ["Active log", <span className="font-mono">segment {active >= 0 ? active + 1 : 1}</span>, `from ${number(v.segments[v.segments.length - 1]?.base ?? v.start)}; flushed when an append asks, and on a timer for the rest`],
           ["Its index, the directory", "Kept with the log", "the index as the log grows; the directory holds the segment file names"],
           ["Sealed segments", sealed === 0 ? "none yet" : <span className="font-mono">1 to {sealed}</span>, "each flushed whole, with its name, when it was sealed"],
+          [
+            "Flushed through",
+            d.flushed_through === null ? "not known yet" : d.flushed_through >= v.end ? <span className="font-mono">the end ({number(v.end)})</span> : <span className="font-mono">offset {number(d.flushed_through - 1)}</span>,
+            d.flushed_through === null ? "read back from a stop that did not vouch for it: known once the next flush completes" : d.flushed_through >= v.end ? "every record is on disk" : `${number(v.end - d.flushed_through)} newer record${v.end - d.flushed_through === 1 ? "" : "s"} wait for the next flush`,
+          ],
           ["Last stop", <StatusDot tone={stop.tone}>{stop.word}</StatusDot>, stop.note],
           ["Vouched for", d.stop === "clean" ? "Yes" : "No", d.stop === "clean" ? "only the stretch after the last index entry was checked; if it were not, the whole active segment is read and every checksum verified" : "the whole active segment was read and every checksum verified when the partition was opened"],
         ]}
@@ -516,7 +521,10 @@ function Segments({ v }: { v: LogView }) {
                           ? ([["Cleaned", s.active ? "Never" : s.base < v.compaction.planner.dirty_start ? "Yes" : "Not yet", s.active ? "the active segment is left alone" : s.base < v.compaction.planner.dirty_start ? (removed > 0 && span > 0 ? `kept ${pct(1 - removed / span)} of its offsets` : "nothing was left to remove") : "no round has looked at its records"]] as [string, React.ReactNode, string][])
                           : []),
                         ["Files", <span className="font-mono">{name}.log</span>, `${name}.index`],
-                        ["Index", `about ${number(Math.max(1, Math.floor(s.bytes / Math.max(1, v.index_interval_bytes))))} entries`, `one for roughly every index.interval.bytes ${number(v.index_interval_bytes)} bytes`],
+                        ["Index", `${number(s.index_entries)} entr${s.index_entries === 1 ? "y" : "ies"}`, `one for roughly every index.interval.bytes ${number(v.index_interval_bytes)} bytes; a fetch seeks to the entry at or below its offset`],
+                        ...(s.index_first.length > 0
+                          ? ([["First entries", <span className="font-mono" data-testid="index-first">{s.index_first.map(([o, p]) => `${number(o)} at byte ${number(p)}`).join(" · ")}</span>, "offset and where its batch starts in the log file"]] as [string, React.ReactNode, string][])
+                          : []),
                       ]}
                     />
                   </div>

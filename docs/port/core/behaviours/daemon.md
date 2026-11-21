@@ -36,15 +36,62 @@ Nothing here names a module: everything comes from the module's own answers.
 | Engine pins | written by `up` | each pin a module's `resolve` reports is kept for the instance's later starts and written to doze.lock (`record_pins`) | `the_engine_pin_a_module_reports_is_written_to_the_lock` |
 | Pins in front of downloads | — | `Pinned<ChildDownloads>`: the lock's hash wins over the module's | `daemon_catalog` (`sha256:pinned`) |
 
-## The front (`front`, the plain-TCP part of D2)
+## The front (`front`, D2)
 
-Every module that is not supervised and every app or service with a port it does not bind itself gets a listener on its declared address. A connection wakes it (cause `connection`; what it needs wakes as `dependency`), is a holder while it lasts, and is spliced to the engine's endpoint (TCP or a socket file). No names, TLS or `wire.accept` yet (D2). Test: `wake_through_the_front` (conns 1 while open, 0 after).
+Every module that is not supervised and every app or service with a port it does not bind itself is fronted. Where each of its listeners goes comes from `doze-bind`'s plan (below, Names); a connection wakes it (cause `connection`; what it needs wakes as `dependency`), is a holder while it lasts, and is spliced: the main listener to the engine's endpoint (TCP or a socket file), another listener (kafka's console and registry) to the backend its module was granted for it (`ModuleInstance::listener_backend`, the loopback port chosen at that start). Tests: `wake_through_the_front` (conns 1 while open, 0 after), `daemon_live.rs`.
+
+A connection is counted against one declaration of its instance (`Engine::hold`): one that outlives a remove and an add of the same name gives back nothing of the new one's (D1 audit item 3). Test: `doze-engine tests/live.rs a_connection_to_a_removed_instance_does_not_count_against_one_added_under_its_name`.
+
+### `wire.accept` and client TLS
+
+| | Go | Rust | Test |
+|---|---|---|---|
+| A module that takes its clients (`WireProxy`) | the proxy hands it the connection with the TLS key and cert (DER) and `RequireTLS` | the same: a module whose manifest declares `wire` is handed each main-listener connection (`Running::wire_accept`); it boots, acquires and releases through the host's callbacks (`catalog::WireHost`, the engine attached once built) | Go's `TestPostgresConverge`, `TestPostgresReconvergeAddsRole` through `DOZE_BIN` (psql through the postgres filter) |
+| `tls { }` without files | a self-signed `localhost` certificate per project (`run/tls/doze.crt`), which no client can verify | a leaf minted from the machine's doze CA (`<home>/ca`): `*.<stack>.doze` with names on, `localhost` without; `doze trust` makes `sslmode=verify-full` pass | manual proof below |
+| `tls { cert, key }` | loaded | loaded (PEM, the first certificate and the key in its own form), relative to doze.hcl | |
+| `required = true` | a plain client refused | the same (the filter's words: `FATAL: doze: SSL connection required`) | manual proof below |
+
+Proof (2026-11-19, the debug `doze`, the Rust postgres module from a local signed registry, `tls { required = true }`, postgres 16): psql `sslmode=require` gets `SSL connection (protocol: TLSv1.3, cipher: TLS_AES_256_GCM_SHA384)`; `sslmode=disable` gets `FATAL: doze: SSL connection required`; `host=localhost sslmode=verify-full sslrootcert=<home>/ca/root.crt` answers.
+
+## Names (`names`, D2; Go's `bindplan.go`, `domains.go`, `ingress.go`, `listeners.go`, `dynamic.go`)
+
+With `defaults { names = true }` the daemon takes the stack's name in the shared registry (`<home>/names.json`, owner `doze`; a reserved stack name and one another project holds are refused with Go's words), plans every fronted instance with `doze-bind` and binds each one: its name claimed, its listeners opened through `Lease::listen` (bound where the system can, a private port the network daemon translates on a Mac), its route names twinned and routed, and the grant its module is told. Planning happens before the engine is built, because the grant (the instance's name on each listener) is what the module plans with: `KAFKA_BROKERS='events.mods.doze:<port>'`, a broker advertising `events.mods.doze`.
+
+| | Go | Rust | Test |
+|---|---|---|---|
+| Addressing | own address when names are on and `PoolUsable`; else 127.0.0.1, names still resolving to it | three, from `doze-bind`: `Off`, `Shared` (names on, 127.0.0.1, ports must differ), `Own`. On a Mac `Own` needs the network daemon to serve **this** zone (`zone_usable`: `<home>/netd.pid` alive and the gateway bindable): the machine's daemon serving `~/.doze` never translates a test zone's addresses | Go's `TestDozeAndAStandaloneToolShareTheZone` (macOS: Shared; Linux VM: Own), `TestANameAStandaloneToolHoldsStopsTheStack` (Linux VM) |
+| Its own name held by another program | `up` fails, naming the name and the holder | the same with `Own`; with `Shared` the name is noted (`name_held`) and the instance is reached by port, as Go's `noteHeld` | the same |
+| A route name held (`sync-aws`) | noted, the rest runs | the same (`BoundInstance::held`) | `doze-bind apply_tests a_route_name_another_program_holds_is_said_and_the_rest_is_bound` |
+| A routed listener's port taken, on a shared address | the start failed | listens on a free port; the front door still reaches it by name; said in the log (`events: console: events.mods.doze:9093 is taken; it is reached by its name only`) | `doze-bind apply_tests on_a_shared_address_a_routed_listener_whose_port_is_taken_is_reached_by_name` |
+| An app's port | the front door routes `<app>.<stack>.doze` (no port) to doze's listener; with an address of its own it is also on 127.0.0.1 at its port when free (`name_only` otherwise) | the same | `doze-cli tests/daemon_names.rs` |
+| An app's `domains` | twinned onto its name, the person's cert recorded on them, `RecordDomains`; the CA made and `caEnv` set when one has no cert | the same (`Zone::domains`, `names::ca_env`); D1's `ca_env` read `<home>/tls/ca.pem`, a path nothing writes, so it is gone | |
+| The resolver and the front door | joined (first-come, take-over) | the same: `doze_names::resolver::serve`, `front_door::serve`; left at shutdown, after the listeners close | `TestDozeAndAStandaloneToolShareTheZone` both orders |
+| add / remove | claims and releases the name (and its twins), republishes routes | the instance is planned and bound alone (`Front::add`); remove drops its `Bound` (sockets closed, twins then name released) | `daemon_names.rs` |
+| Views | `endpoint`/`bind` the real address, `domain` the zone name, `url` the front door's | the same; `domains`, `https`, `name_only`, `name_held` filled | `daemon_names.rs` |
+
+Private zones (tests, two zones side by side) move the resolver and the front door with `DOZE_ZONE_RESOLVER`, `DOZE_ZONE_INGRESS` and `DOZE_ZONE_INGRESS_TLS`, as Go's.
+
+Evidence (2026-11-19):
+- Go's `test/integration` through `DOZE_BIN` (rust-oracle 57aef16), private zones: macOS — `TestDozeAndAStandaloneToolShareTheZone` (both orders) pass, `TestANameAStandaloneToolHoldsStopsTheStack` skips (as for Go: a Mac private zone has no own addresses); the Lima VM (Ubuntu 24.04 arm64) — all three names tests pass, the held-name one included.
+- The kafka half of `TestModulesAnswerAtTheirNames` with the Rust kafka module (a scratch script, `bun kafka-names.ts`, its checks those of the Go test): `doze env` says `KAFKA_BROKERS='events.mods.doze:<port>'`; `events` and `registry.events` resolve; the broker advertises `events.mods.doze:<port>`; the console answers at `http://events.mods.doze`; a schema posted at `http://registry.events.mods.doze` is listed; asleep, the broker's port and the registry's name each wake it (15 ms, 25 ms). It found a kafka module bug, fixed: the registry refused the name doze routes it by (403).
+- The aws half needs a Rust aws module (M3); the Go test itself builds Go plugins, which the Rust doze does not run.
+- The macOS netd path (`Own` addressing, the system resolver, :80 and :443) needs root: `scripts/core-d2-names-e2e-darwin.sh` (owner-run).
+
+## A service's `download` (D2; Go's `runtime.fetchDownload`, `binaries.EnsureDownload`)
+
+| | Go | Rust | Test |
+|---|---|---|---|
+| The fetch | a `__fetch --url --sha` child | a `__fetch` child (`Request::Download`); the engine asks the wiring's `Fetch` before each start, and the command runs in the download unless its block set `dir` | Go's `TestADownloadedServiceIsPinnedAndAChangeIsRefused` through `DOZE_BIN` (macOS and the Linux VM) |
+| Cache | `<home>/downloads/<sha256(url)[:8]>`, `root/` and the digest | `<home>/downloads/<sha256(url)[:16 hex]>`, the same layout | `doze-fetch download::tests` |
+| Pin | doze.lock `downloads:`, first fetch pins, a changed source refused before unpacking | the same, written under the home's lock on the file | the same |
+| Formats | `.tar.gz`, `.zip`, a bare executable | `.tar.gz` and a bare executable; a `.zip` is refused with a word (the reader would weigh on every `doze`) | `a_bare_executable_gets_a_folder_and_a_zip_is_refused` |
+| By platform | `mac`, `mac_intel`, `linux`, `linux_arm`, or `""` | the same (`doze_config::stack::platform_key`); none for this machine says which it has at start | |
 
 ## The app on the Rust daemon (session 8 proof)
 
 A local registry signed with a throwaway key (a `dozetest` build reads `DOZE_TEST_REGISTRY_KEY`; release builds never do) served the Rust postgres and valkey modules (core-m1). A shop stack (web → api → postgres, valkey, a migration task) under its own DOZE_HOME, the unchanged app (app-finish `cf23b9bf`, release-app, fixtures for the driver) hands-off. Cold curl of web: 1.33 s, the whole chain woken through the fronts; everything slept after 45 s idle; env/URL/client from the modules on the tiles. kafka and aws faces were not part of it.
 
-Closed in session 9: converge on a fresh provision (below), stats (below). Still open: a task view shows `conns=1`.
+Closed in session 9: converge on a fresh provision (below), stats (below). Closed in D2: a task view showed `conns=1` (a task a running app needed was held by it as a need); a task is no longer held once it ran (`Machine::need_held`; `doze-engine tests/tasks.rs a_service_waits_for_the_task_it_needs`).
 
 ## Protocol 2: additive fields (Rust daemon only)
 
@@ -111,7 +158,7 @@ Tests added for the audit's untested paths: the endpoint taken from the grant (t
 
 1. Per-major builds and doze.lock (one pin per module source): the second build was resolved through the first's pin and failed. *Fixed: a second build (`type@major`) is resolved from the registry with no lock and recorded nowhere; pinning it needs a lock schema with a pin per source and major (F1's).*
 2. A dropped module call (a cancelled start, a plan timeout) left the module "in flight" for good, so it was never reaped. *Fixed: the count is an RAII guard (`Busy`).*
-3. A connection that outlived a remove recreated the instance on release. *Fixed: acquire and release do nothing for a name no longer declared.* A stale release after the same name is added again still counts against the new one (rare; open).
+3. A connection that outlived a remove recreated the instance on release. *Fixed: acquire and release do nothing for a name no longer declared.* A stale release after the same name is added again counted against the new one: *fixed in D2* (`Engine::hold`, per declaration; the front's splice holds one). A module's own `wire.release` callback is still by name.
 4. A remove that failed after taking the instance out of the run left it off. *Fixed: it goes back as it was; a failed take-back of an add is said in the log.*
 5. Two migrates (or an add/remove) of one name at once. *Fixed: one add, remove or migrate per name at a time (`Daemon::claim`).*
 6. `migrate` uses the block the running daemon loaded, not doze.hcl on disk. *By design for now: the CLI restarts the daemon after an edit before it asks (C2c), as Go's migrate needed the stack down.*
@@ -119,7 +166,7 @@ Tests added for the audit's untested paths: the endpoint taken from the grant (t
 8. Two daemons starting at once both passed the check. *Fixed: `run/doze.daemon.lock`, held for the daemon's life.*
 9. Concurrent add and remove of one name. *Fixed by 5.*
 10. A disabled block went into the run; a name disabled in doze.hcl could be added; a fronted module with no address was silently unfronted. *Fixed: a disabled block is added out of the run, names doze.hcl disables count as taken, and the portless module is refused with Go's words.*
-11. A failed `type@major` lookup reads as "not a version the module serves". *Open (low).*
+11. A failed `type@major` lookup reads as "not a version the module serves". *Fixed in D2*: `pg "14": the pg build for 14 could not be had: <why>` (`catalog_tests a_failed_lookup_of_a_majors_build_says_why`).
 12. A new call and a widened callback scope with no protocol minor. *Fixed: minor 1; `migrate` is since 1.*
 13. A remove then an immediate add on the same address can find it still bound. *Fixed: the bind is tried again for half a second while the address is in use (the busy-port refusal waits that long too).*
 14. The per-start port is chosen by binding port 0 and letting go. *Inherent; known.*
@@ -167,3 +214,31 @@ Not shown: a module console tab (neither registry build, postgres or valkey 0.9.
   - The types come from the catalog's failed lookups in this load, not from a second read of doze.hcl: that read stops at the knock-on unknown references.
 - **Flaky `a_stopped_task_is_asked_to_stop_and_ends_failed`:** its waits are 20 s under load, and its journal check waits for the events.
 - **Not done, for doze-config (H4):** in the shape pass, a reference into a module's attributes (`module.e.env.X`) is an "Unsupported attribute" error, not an unknown value. A lint whose module could not be had then reports that knock-on error. The daemon's lint no longer depends on it.
+
+## D2 gates (2026-11-19)
+
+Go's `test/integration` (doze `rust-oracle` 57aef16) against the Rust `doze` (debug build of core-d2) through `DOZE_BIN`, modules from a local
+registry signed with a throwaway key (`DOZE_REGISTRY`, `DOZE_TEST_REGISTRY_KEY`; the Rust postgres, valkey, mariadb, ferret, temporal and
+kafka modules built from this branch), `DOZE_ZONE_INGRESS_TLS` moved for the names tests so nothing binds :443.
+
+| Test | macOS (arm64) | Linux VM (Ubuntu 24.04 arm64) | Why, where not a pass |
+|---|---|---|---|
+| `TestDozeAndAStandaloneToolShareTheZone` (both orders) | pass | pass | |
+| `TestANameAStandaloneToolHoldsStopsTheStack` | skip | pass | a Mac private zone has no own addresses (Go skips the same way) |
+| `TestNamesThroughTheSystemResolver` | skip | not run | needs the machine's zone set up: `scripts/core-d2-names-e2e-darwin.sh` (owner-run) does the same checks on a throwaway zone |
+| `TestModulesAnswerAtTheirNames` | skip | not run | builds Go kafka and aws plugins; its kafka half passes against the Rust kafka module (above); the aws half waits for a Rust aws module (M3) |
+| `service_test.go`, all nine | pass | pass | `TestADownloadedServiceIsPinnedAndAChangeIsRefused` new in D2 |
+| `TestPostgresConverge`, `TestPostgresReconvergeAddsRole` | pass | not run | psql through the front and the postgres filter (`wire.accept`) |
+| `TestMariaDBConverge` | fail | not run | the test declares `version = 11`; the Rust mariadb module serves 11.4, 11.8, 12.2 (M1's, not the daemon's) |
+| `TestFerretConvergeAndSeed`, `TestTemporalNamespace` | skip | not run | no `mongosh`, no `temporal` CLI on this Mac |
+
+Wake latency and weight: docs/port/weight.md, "D2".
+
+Open after D2:
+- A module's own `wire.release` callback counts by name, so a hand-off that outlives a remove and a re-add of the same name still
+  releases against the new one (the front's splice holds per declaration).
+- `Serving::stop` wakes its accept loop by connecting to the socket path: if the path was replaced meanwhile (another daemon on the same
+  folder) the stop waits for ever. Found when a test deleted a running daemon's folder; D1's.
+- The CLI keys a project by `$PWD` when it names the working folder: run from `/tmp/x` and from `/private/tmp/x` (one folder on a Mac)
+  it finds two projects. Go's behaviour, kept.
+- `Labels.url` for an app is fixed at start: Go asked the registry at each view whether a doze program holds :80.

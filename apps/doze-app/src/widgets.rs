@@ -10,6 +10,17 @@ use crate::theme::{Tokens, ty};
 pub(crate) const MONO_FAMILY: &str = "Geist Mono";
 pub(crate) const UI_FAMILY: &str = "Geist";
 
+/// `.mono, code, kbd`: the mono face, its ligatures off (Go `font-variant-ligatures: none`), so `//`, `->` and `!=`
+/// in an address or a command read as typed. The words inside inherit both.
+pub(crate) trait Mono: Styled + Sized {
+    fn mono_face(self) -> Self {
+        self.font_family(MONO_FAMILY)
+            .font_features(gpui::FontFeatures::disable_ligatures())
+    }
+}
+
+impl<T: Styled> Mono for T {}
+
 /// An SVG icon (assets.rs) in a colour, `size` square.
 pub(crate) fn icon(path: &'static str, size: f32, color: Hsla) -> impl IntoElement {
     svg()
@@ -45,6 +56,62 @@ pub(crate) fn tracked(
                 })
                 .collect::<Vec<_>>(),
         )
+}
+
+/// A hover title (Go's `title=`): a tooltip with `words`, for `.tooltip(tip(...))` on an element with an id. GPUI has
+/// no accessibility tree, so Go's `aria-label`s have no counterpart; the title is what a pointer still gets.
+pub(crate) fn tip(
+    words: impl Into<SharedString>,
+) -> impl Fn(&mut gpui::Window, &mut gpui::App) -> gpui::AnyView + 'static {
+    let words: SharedString = words.into();
+    move |window, cx| gpui_component::tooltip::Tooltip::new(words.clone()).build(window, cx)
+}
+
+/// Go `.filter, .input` (`transition: border-color 120ms`, tinted `:focus-within`): the frame colour of the text box
+/// `key`, the accent 45% into line2 while it has the keys, easing over 120 ms; and whether it is still moving (the
+/// frame then carries a `motion::tick`).
+pub(crate) fn input_frame(t: &Tokens, key: &str, focused: bool) -> (Hsla, bool) {
+    let to = if focused {
+        crate::theme::mix(t.accent, t.line2, 45.)
+    } else {
+        t.line2
+    };
+    crate::motion::colour(&format!("{key}/border"), to)
+}
+
+/// A text box in Go's `.filter` frame: 28 high, the well, its border easing to the accent's tint with the keys in it.
+pub(crate) fn framed_input(
+    t: &Tokens,
+    key: &str,
+    focused: bool,
+    input: gpui_component::input::Input,
+) -> gpui::Div {
+    let (frame, moving) = input_frame(t, key, focused);
+    div()
+        .flex()
+        .items_center()
+        .h(px(28.))
+        .px(px(2.))
+        .rounded(px(7.))
+        .border_1()
+        .border_color(frame)
+        .bg(t.well)
+        .child(crate::motion::tick(moving))
+        .child(
+            div()
+                .flex_1()
+                .child(input.appearance(false).text_size(px(ty::SM))),
+        )
+}
+
+/// Whether the keys are in `input` (for [`input_frame`]).
+pub(crate) fn has_keys(
+    input: &gpui::Entity<gpui_component::input::InputState>,
+    window: &gpui::Window,
+    cx: &gpui::App,
+) -> bool {
+    use gpui::Focusable as _;
+    input.read(cx).focus_handle(cx).is_focused(window)
 }
 
 /// `.dot` (8px disc) and `.ring` (8px, 2px cool border).
@@ -134,7 +201,7 @@ pub(crate) fn kbd_plain(
         .flex()
         .flex_none()
         .items_center()
-        .font_family(MONO_FAMILY)
+        .mono_face()
         .text_size(px(size))
         .font_weight(weight)
         .text_color(color)
@@ -157,26 +224,13 @@ pub(crate) fn kbd_chip(
         .py(px(1.))
         .rounded(px(4.))
         .bg(t.sel)
-        .font_family(MONO_FAMILY)
+        .mono_face()
         // The chip keeps its height: a larger symbol sits in the same line.
         .line_height(px(size + ty::CHIP_LEAD))
         .text_size(px(size))
         .font_weight(weight)
         .text_color(t.bright)
         .children(key_runs(text, size))
-}
-
-/// `.tag`: the NEW pill, 9px/700, .08em tracking.
-pub(crate) fn tag(t: &Tokens, text: &str) -> impl IntoElement {
-    div()
-        .flex_none()
-        .px(px(4.))
-        .h(px(14.))
-        .flex()
-        .items_center()
-        .rounded(px(3.))
-        .bg(t.accent)
-        .child(tracked(text, ty::TAG, ty::BOLD, t.ink, 0.72))
 }
 
 /// What a segmented-control cell does when clicked.
@@ -229,4 +283,23 @@ pub(crate) fn seg(
                     }
                 }),
         )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::input_frame;
+    use crate::theme::{Palette, load, mix};
+
+    #[test]
+    fn a_text_box_frame_eases_to_the_accent_tint_with_the_keys() {
+        let (_, t) = load(Palette::ALL[0], true).unwrap();
+        assert_eq!(input_frame(&t, "test/a", false), (t.line2, false));
+        let (shown, moving) = input_frame(&t, "test/a", true);
+        assert!(moving, "the border eases, it does not switch");
+        assert_ne!(shown, mix(t.accent, t.line2, 45.));
+        assert_eq!(
+            input_frame(&t, "test/b", true).0,
+            mix(t.accent, t.line2, 45.)
+        );
+    }
 }

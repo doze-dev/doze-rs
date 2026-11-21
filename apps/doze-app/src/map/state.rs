@@ -1,5 +1,5 @@
 //! A card's state as every other screen draws it. The mark is the shared one (`instance::ui::state_mark`, drawn by
-//! `cards::state_dot`); here is the frame that goes with it and the word on the top row. A failed one has a red frame,
+//! `cards::state_dot`); here is the frame that goes with it and the memory on the top row. A failed one has a red frame,
 //! dashed, and no fill (doze stopped trying; it waits for you); off has a dashed frame and no fill; paused a dashed
 //! frame; crashing a red frame and a red tint.
 
@@ -50,11 +50,8 @@ pub(crate) fn frame(t: &Tokens, r: Option<&Row>, task: bool) -> Frame {
     }
 }
 
-/// What the top row's right says: an awake one's memory, else its state's word in its tone.
-pub(crate) fn word(t: &Tokens, r: Option<&Row>) -> Option<(String, Hsla)> {
-    let r = r?;
-    if r.look == Look::Awake {
-        return Some((r.mem.clone(), t.dim)).filter(|(m, _)| !m.is_empty() && m != "0");
-    }
-    Some((r.look.word().to_string(), t.tone(r.look.tone())))
+/// What the top row's right says (Go `r.mem`): the memory of one awake now, else nothing.
+pub(crate) fn mem(r: Option<&Row>) -> Option<String> {
+    r.filter(|r| r.awake && !r.mem.is_empty())
+        .map(|r| r.mem.clone())
 }

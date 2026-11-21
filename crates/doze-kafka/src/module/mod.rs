@@ -274,7 +274,15 @@ pub(crate) fn broker_args(
     }
     if registry {
         match tcp_backend(instance, REGISTRY)? {
-            Some(addr) => args.extend(["--schema-registry-addr".into(), addr]),
+            Some(addr) => {
+                args.extend(["--schema-registry-addr".into(), addr]);
+                // The registry answers to the console's allowed names: doze routes it by a name of its own
+                // (`registry.events.shop.doze`), which must be one of them or every request is refused (403).
+                let hosts = instance.listeners.get(REGISTRY).map(|g| g.hosts.clone());
+                for h in hosts.unwrap_or_default() {
+                    args.extend(["--console-allow-host".into(), h]);
+                }
+            }
             None => args.push("--schema-registry=false".into()),
         }
     }

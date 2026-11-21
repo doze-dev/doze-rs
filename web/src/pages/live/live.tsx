@@ -3,10 +3,13 @@
 // rule (live-design.md, CON-1250 to CON-1262): the header, the strip and the toolbar are never part of an update; the tape's
 // columns are fixed; a batch of new rows comes no faster than the pace, is prepended with a brief highlight on the new rows
 // only, and is held (a pill counts it) while the person scrolls, hovers, selects, types in the table or has an overlay open.
-import { useNavigate, useSearch } from "@tanstack/react-router";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import { Link, useNavigate, useSearch } from "@tanstack/react-router";
 import { ChevronLeftIcon, ChevronRightIcon, ChevronDownIcon, FilterIcon, FlaskConicalIcon, NetworkIcon, RadioIcon, SearchIcon, XIcon } from "lucide-react";
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { api } from "@/api/client";
 import { useLive } from "@/api/live";
+import type { LabResponse } from "@/api/types/LabResponse";
 import type { LiveResponse } from "@/api/types/LiveResponse";
 import type { WireRow } from "@/api/types/WireRow";
 import { MultiSelect } from "@/components/app/multi-select";
@@ -31,6 +34,31 @@ import { type LiveSearch, apiQuery, filtered } from "./search";
 import { type Conn, TAPE_MOST, type TapeRow, TailStream, hold, merge, newCount, speedSecs, useSpeed } from "./tail";
 import { type FilterBy, Tape } from "./tape";
 import { clockMs } from "./words";
+
+/** Board live-lab-rule (J156, J492): while a Lab rule is in force, the page says so and offers its rows. Read once with the
+ * page (and on Refresh); never on the shared interval, which Live does not follow. */
+function LabActive({ onShow, stamp }: { onShow: (rule: number) => void; stamp: number }) {
+  const q = useQuery({ queryKey: ["live", "lab-active", stamp], queryFn: ({ signal }) => api<LabResponse>("/api/v1/lab", {}, signal), staleTime: Infinity, placeholderData: keepPreviousData });
+  const h = q.data?.home;
+  if (!h || h.off || h.active.length === 0) return null;
+  const first = h.active[0]!;
+  const more = h.active.length - 1;
+  return (
+    <div className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-xl border border-primary/30 bg-primary/5 px-4 py-3 text-[13.5px]" role="status" data-testid="lab-active">
+      <FlaskConicalIcon className="size-4.5 shrink-0 text-link" aria-hidden />
+      <p className="min-w-0 flex-1 basis-80">
+        <b className="font-semibold text-bright">A rehearsal is active.</b> Rule {first.id}, <span className="font-mono">{first.name}</span>: {first.sentence}
+        {more > 0 && ` And ${more} more.`} The rows it touches carry the lab tag.
+      </p>
+      <Button variant="outline" size="sm" className="bg-card" onClick={() => onShow(more > 0 ? -1 : first.id)} data-testid="lab-active-show">
+        {more > 0 ? "Show the Lab's rows" : "Show its rows"}
+      </Button>
+      <Link to="/lab" search={{ rule: first.id }} className="font-medium text-link hover:underline">
+        Open the Lab
+      </Link>
+    </div>
+  );
+}
 
 /** The tape's height: a box of its own, so a batch never moves the page. */
 const TAPE_HEIGHT = 600;
@@ -386,6 +414,7 @@ export function LivePage() {
         <div className="flex flex-col gap-4" data-testid="live">
           <StatStrip stats={stats(r)} />
           <Refusals r={r} onOpen={(id) => openOverlay({ request: id })} />
+          <LabActive stamp={q.dataUpdatedAt} onShow={(rule) => set({ lab: rule < 0 ? "all" : rule, before: undefined }, false)} />
           <div className="flex flex-wrap items-center gap-2" data-testid="live-toolbar">
             <SearchBox value={search.q ?? ""} onChange={onSearch} />
             <MultiSelect options={opts(facets?.clients, search.client)} value={search.client ?? []} onChange={(v) => set({ client: v.length ? v : undefined, before: undefined }, false)} noun="apps" aria-label="Apps" triggerClassName="w-36" chips={false} />

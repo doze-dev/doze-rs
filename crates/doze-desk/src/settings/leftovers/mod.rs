@@ -15,7 +15,7 @@ use std::path::{Path, PathBuf};
 
 use serde::Serialize;
 
-pub use clear::{Cleared, clear, clear_all};
+pub use clear::{Cleared, chosen, clear, clear_all, clear_these, plan as plan_clear};
 pub use gather::{gather, gather_with, parse_ps};
 pub use routes::{forget_routes, parse_routes, read_routes, route_script, valid_domain};
 

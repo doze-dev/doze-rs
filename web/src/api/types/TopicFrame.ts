@@ -33,4 +33,8 @@ registry: boolean,
 /**
  * The subjects named for this topic.
  */
-schemas: number, };
+schemas: number, 
+/**
+ * The clients the request recorder saw write to it, newest first, at most three.
+ */
+written_by: Array<string>, };

@@ -70,6 +70,14 @@ export function TailRuler({ t, lastStable, end }: { t: ProdTail; lastStable: num
   );
 }
 
+/** How the producer came to its epoch, from the InitProducerId answers the wire recorder still holds (J236). */
+function epochHistory(p: ProdRow): string | null {
+  const e = p.epochs;
+  if (e.length === 0) return null;
+  const said = e.map((x, i) => (i === 0 ? `Given epoch ${x.epoch} at ${clock(x.at_ms)}` : `raised to ${x.epoch} at ${clock(x.at_ms)}`) + (x.client ? ` (${x.client})` : ""));
+  return `${said.join(", then ")} UTC, as far as the wire recorder reaches.`;
+}
+
 const GRID = "grid grid-cols-[6.5rem_4rem_7.5rem_5.5rem_minmax(0,1fr)_minmax(0,1fr)_6.5rem] items-center gap-4";
 
 function Producer({ v, p, open, toggle }: { v: ProducersView; p: ProdRow; open: boolean; toggle: () => void }) {
@@ -78,7 +86,9 @@ function Producer({ v, p, open, toggle }: { v: ProducersView; p: ProdRow; open: 
     <div className="border-b last:border-b-0" data-testid="producer" data-producer={p.id}>
       <div className={cn(GRID, "min-h-14 px-4 py-2 text-[13px]")}>
         <span className="font-mono font-medium text-bright">{p.id}</span>
-        <span className="font-mono">{p.epoch}</span>
+        <span className="font-mono" title={epochHistory(p) ?? undefined}>
+          {p.epoch}
+        </span>
         <span className="font-mono">{p.last_sequence === null ? "unknown" : number(p.last_sequence)}</span>
         <span className="font-mono" title={`last write ${dateTime(p.last_used_ms)}`}>
           {spanMs(Math.max(0, v.now_ms - p.last_used_ms))}
@@ -127,6 +137,9 @@ function Producer({ v, p, open, toggle }: { v: ProducersView; p: ProdRow; open: 
               {last && `last write ${clock(last.at_ms)}`}
             </span>
           </div>
+          <p className="mt-2 text-[13px] text-muted-foreground" data-testid="epochs">
+            <b className="font-medium text-foreground">Epoch {p.epoch}.</b> {epochHistory(p) ?? "The wire recorder holds no InitProducerId for this producer, so how it came to this epoch is not known."}
+          </p>
           <table className="mt-3 w-full table-fixed rounded-lg bg-card text-[13px]">
             <thead className="text-left text-[12px] tracking-[0.04em] text-muted-foreground uppercase">
               <tr>
@@ -288,8 +301,14 @@ export function ProducersPage() {
                       <span className="block text-[12px] text-muted-foreground">marker at {number(a.marker)}</span>
                     </td>
                     <td className="px-4 py-2.5">
-                      <StatusDot tone="idle">Abort</StatusDot>
-                      <span className="block text-[12.5px] text-muted-foreground">an abort marker ended it; the log does not say whether the producer or the timeout wrote it</span>
+                      {a.by?.kind === "broker" ? <StatusDot tone="warn">Timeout</StatusDot> : <StatusDot tone="idle">Abort</StatusDot>}
+                      <span className="block text-[12.5px] text-muted-foreground" data-testid="abort-by">
+                        {a.by === null
+                          ? "an abort marker ended it; the log does not say whether the producer or the timeout wrote it, and the wire recorder does not reach back to it"
+                          : a.by.kind === "producer"
+                            ? `the producer aborted it: an EndTxn from ${a.by.client || "a client with no id"}`
+                            : "the broker aborted it: no EndTxn came from the producer, so its timeout ran out or a new InitProducerId fenced it"}
+                      </span>
                     </td>
                   </tr>
                 ))}

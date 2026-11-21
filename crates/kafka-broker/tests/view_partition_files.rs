@@ -44,6 +44,11 @@ async fn each_partition_reports_its_size_and_a_partition_never_written_reports_n
         (0, 0, None)
     );
     assert!(files[0].open && files[2].open && !files[1].open);
+    // One segment each: the active one is all of it.
+    assert_eq!(
+        (files[0].active_bytes, files[1].active_bytes),
+        (files[0].bytes, 0)
+    );
     assert!(files[0].last_write_ms.is_some());
     assert!(files.iter().all(|f| f.offline.is_none() && !f.unreadable));
 }
@@ -69,6 +74,10 @@ async fn a_partition_that_was_closed_to_make_room_reports_the_same_from_its_dire
     assert!(!after[0].open && after[1].open, "{after:?}");
     assert_eq!(after[0].bytes, before[0].bytes);
     assert_eq!(after[0].segments, 1);
+    assert_eq!(
+        after[0].active_bytes, before[0].active_bytes,
+        "the same from the directory"
+    );
     // Looking at them opened nothing.
     assert_eq!(rig.broker.open_partitions(), 1);
 }
@@ -112,4 +121,45 @@ async fn a_topic_the_caller_may_not_describe_or_that_does_not_exist_is_nothing()
     );
     assert!(view.partition_files(&console(), "absent").is_none());
     assert!(view.partition_files(&console(), "bad name!").is_none());
+}
+
+/// Home's all-clear (console debt J2): every offline partition of the broker, read from the open writers only.
+#[tokio::test]
+async fn the_offline_partitions_of_the_broker_are_listed_with_their_cause_and_nothing_is_opened() {
+    let rig = rig_with(|c| c.acl_default_allow = false);
+    let mut req = kafka_wire::messages::CreateTopicsRequest::default();
+    req.topics = vec![topic("t", 2), topic("u", 1)];
+    rig.ask_as(&console(), 7, kafka_wire::api::Request::CreateTopics(req))
+        .await;
+    let view = rig.broker.console_view();
+    assert!(view.offline_partitions(&console()).is_empty());
+    let produce = || async {
+        let req = support::produce_request(-1, "t", &[(1, records(1))]);
+        match rig
+            .ask_as(&console(), 9, kafka_wire::api::Request::Produce(req))
+            .await
+        {
+            kafka_wire::api::Response::Produce(r) => {
+                r.responses[0].partition_responses[0].error_code
+            }
+            _ => panic!("not Produce"),
+        }
+    };
+    assert_eq!(produce().await, 0);
+    rig.fs.fail(Op::Fsync, 1, Failure::Io);
+    assert_eq!(produce().await, 56);
+    let down = rig.broker.console_view().offline_partitions(&console());
+    assert_eq!(down.len(), 1, "{down:?}");
+    assert_eq!((down[0].0.as_str(), down[0].1), ("t", 1));
+    assert!(!down[0].2.is_empty());
+    // A caller that may not describe the topic is told nothing of it.
+    let nobody = Caller::anonymous(Some("127.0.0.1".parse().unwrap()));
+    assert!(
+        rig.broker
+            .console_view()
+            .offline_partitions(&nobody)
+            .is_empty()
+    );
+    // Only what was open: t-0 and u-0 were never opened, and looking opened neither.
+    assert_eq!(rig.broker.open_partitions(), 1);
 }

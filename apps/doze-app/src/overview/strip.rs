@@ -149,7 +149,12 @@ fn figures(
         under(t, tasks),
         false,
     ))
-    .when(stale, |d| d.opacity(0.55))
+    .id("strip")
+    .when(stale, |d| {
+        d.opacity(0.55).tooltip(crate::widgets::tip(
+            doze_desk::overview::titles::STALE_STRIP,
+        ))
+    })
 }
 
 /// The memory figure's share bar (each instance its colour, biggest first) and the biggest few.

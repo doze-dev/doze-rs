@@ -186,6 +186,25 @@ impl Machine {
         }
     }
 
+    /// One more client connection, and the declaration it counts against (`None`: `name` is not declared).
+    pub fn acquire_held(&mut self, name: &str) -> Option<u64> {
+        if !self.declared.contains(name) {
+            return None;
+        }
+        self.table.acquire(name);
+        Some(self.generation.get(name).copied().unwrap_or(0))
+    }
+
+    /// One client connection fewer, if `name` is still the declaration it was acquired against: a connection that
+    /// outlived a remove and an add of the same name does not count against the new instance.
+    pub fn release_held(&mut self, name: &str, generation: u64, now: Now) {
+        if self.declared.contains(name)
+            && self.generation.get(name).copied().unwrap_or(0) == generation
+        {
+            self.table.release(name, now);
+        }
+    }
+
     /// Flips the pin; the new value and its journal event.
     pub fn toggle_pin(&mut self, name: &str) -> Result<(bool, Effect), Error> {
         self.declared(name)?;

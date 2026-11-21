@@ -206,7 +206,21 @@ export function TxnPage() {
                     </span>
                   ),
                 ],
-                ["Offsets staged", "not listed", "DescribeTransactions does not say whether a group was added; on commit staged offsets are applied to the group, on abort forgotten"],
+                [
+                  "Offsets staged",
+                  r.staged === null ? (
+                    "not listed"
+                  ) : r.staged.length === 0 ? (
+                    "none seen"
+                  ) : (
+                    <span className="font-mono" data-testid="txn-staged">
+                      {r.staged.join(", ")}
+                    </span>
+                  ),
+                  r.staged === null
+                    ? "DescribeTransactions does not say whether a group was added; on commit staged offsets are applied to the group, on abort forgotten"
+                    : "the groups an AddOffsetsToTxn added, as far as the wire recorder reaches; on commit their staged offsets are applied, on abort forgotten",
+                ],
               ]}
             />
           </div>
@@ -325,6 +339,48 @@ export function TxnHeldPage() {
             </tbody>
           </table>
         </div>
+      </section>
+      <section className="mt-8" data-testid="held-readers">
+        <h2 className="text-[17px] font-semibold text-bright">Who this holds back</h2>
+        <p className="mt-1 text-[13.5px] text-muted-foreground">
+          The groups that committed on {v.topic}-{v.tail_partition}. Held is what a read_committed consumer of the group cannot have until the transaction ends.
+        </p>
+        {r.readers.length === 0 ? (
+          <p className="mt-3 text-[13.5px] text-muted-foreground">No group has committed on {v.topic}-{v.tail_partition}.</p>
+        ) : (
+          <div className="mt-3 overflow-x-auto rounded-xl border bg-card">
+            <table className="w-full table-fixed text-[13px]">
+              <colgroup>
+                <col />
+                <col className="w-36" />
+                <col className="w-36" />
+                <col className="w-36" />
+              </colgroup>
+              <thead className="bg-well text-left text-[12px] tracking-[0.04em] text-muted-foreground uppercase">
+                <tr>
+                  <th className="h-10 px-4 font-medium">Group</th>
+                  <th className="px-4 text-right font-medium">Committed</th>
+                  <th className="px-4 text-right font-medium">Behind</th>
+                  <th className="px-4 text-right font-medium">Held</th>
+                </tr>
+              </thead>
+              <tbody className="tabular-nums">
+                {r.readers.map((g) => (
+                  <tr key={g.group} className="h-10 border-t" data-testid="held-reader">
+                    <td className="truncate px-4">
+                      <Link to="/groups/$group/lag" params={{ group: g.group }} className="font-mono text-link hover:underline" title={g.group}>
+                        {g.group}
+                      </Link>
+                    </td>
+                    <td className="px-4 text-right font-mono">{number(g.committed)}</td>
+                    <td className="px-4 text-right font-mono">{number(g.behind)}</td>
+                    <td className={g.held > 0 ? "px-4 text-right font-mono text-warn" : "px-4 text-right font-mono text-muted-foreground"}>{number(g.held)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </section>
       <div className="mt-6 flex gap-3 rounded-xl border bg-card p-4 text-[13.5px]">
         <InfoIcon className="mt-0.5 size-4.5 shrink-0 text-cool" aria-hidden />

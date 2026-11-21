@@ -8,7 +8,7 @@ use super::LibraryView;
 use crate::kit::{heading, need, pill, s, tone};
 use crate::outward::Probe as _;
 use crate::theme::{Tokens, ty};
-use crate::widgets::{MONO_FAMILY, dot, icon, switch};
+use crate::widgets::{Mono as _, dot, switch};
 
 /// The columns' widths: the dot, then name / running / addresses share the rest, then last and the controls.
 const DOT_W: f32 = 10.;
@@ -140,7 +140,7 @@ fn row(
     ];
     let mut r = cols(base, cells);
     if menu {
-        r = r.child(super::menu::menu(t, st, cx));
+        r = r.child(super::menu::menu(t, st, (52., busy.is_some()), cx));
     }
     r
 }
@@ -184,7 +184,7 @@ fn name(t: &Tokens, st: &LibStack, tight: bool) -> impl IntoElement {
                 .child(s(&st.name)),
         )
         .child(
-            dir.font_family(MONO_FAMILY)
+            dir.mono_face()
                 .text_size(px(ty::SM))
                 .text_color(t.dim)
                 .whitespace_nowrap()
@@ -229,17 +229,44 @@ fn pills(t: &Tokens, st: &LibStack, cx: &mut Context<LibraryView>) -> impl IntoE
         .into_iter()
         .find(|x| !x.is_empty());
     if let Some(r) = red {
-        p = p.child(need(t, r));
+        let mut pill = need(t, r);
+        if !st.missing.is_empty() {
+            // Go: the gone folder's pill carries "Remove…" (asks first), off while the stack is busy.
+            let busy = super::act::busy(&st.key, cx).is_some();
+            let k = st.key.clone();
+            pill = pill.child(
+                div()
+                    .id(gpui::SharedString::from(format!("remove-{}", st.key)))
+                    .flex_none()
+                    .text_color(t.cool)
+                    .underline()
+                    .text_decoration_color(crate::theme::alpha(t.cool, 0.4))
+                    .when(busy, |d| d.opacity(0.5))
+                    .when(!busy, |d| d.cursor_pointer())
+                    .child("Remove…")
+                    .on_click(cx.listener(move |this, _, _, cx| {
+                        cx.stop_propagation();
+                        if super::act::busy(&k, cx).is_none() {
+                            this.act(&k, doze_desk::act::StackAction::Remove, cx);
+                        }
+                    })),
+            );
+        }
+        p = p.child(pill);
     }
     // Each address opens in the browser and says so (Go `AddrPill`); one whose domain is not set up here is no link.
     for (i, a) in st.addresses.iter().enumerate() {
         let url = a.url.clone();
         let id = format!("pill-{}-{i}", st.name);
+        let title = gpui::SharedString::from(a.title());
         p = p.child(
             pill(t, &a.text, a.up, a.up && !a.url.is_empty())
                 .id(gpui::SharedString::from(id.clone()))
                 .when(!url.is_empty(), |d| d.cursor_pointer())
                 .probe(id, a.text.clone())
+                .tooltip(move |window, cx| {
+                    gpui_component::tooltip::Tooltip::new(title.clone()).build(window, cx)
+                })
                 .on_click(cx.listener(move |this, _, _, cx| {
                     cx.stop_propagation();
                     if !url.is_empty() {
@@ -278,37 +305,26 @@ fn act(
                     &format!("lib/{key}"),
                     busy.map_or(st.running, doze_desk::act::Busy::heading_up),
                     true,
-                    busy.is_some()
-                        || !st.missing.is_empty()
-                        || (!st.running && !st.broken.is_empty()),
+                    busy.is_some() || super::act::switch_off(st),
                 ))
+                .when_some(super::act::switch_title(st, busy), |d, w| {
+                    d.tooltip(crate::widgets::tip(w))
+                })
                 .on_click(cx.listener(move |this, _, _, cx| this.toggle(&k_sw, cx))),
         )
-        .child(
-            div()
-                .id(gpui::SharedString::from(format!("more-{key}")))
-                .size(px(28.))
-                .rounded(px(7.))
-                .flex()
-                .items_center()
-                .justify_center()
-                .cursor_pointer()
-                .when(menu, |d| d.bg(t.sel))
-                .hover(|d| d.bg(t.sel))
-                .child(icon(
-                    "icons/dots.svg",
-                    16.,
-                    if menu { t.accent } else { t.dim },
-                ))
-                .on_click(cx.listener(move |this, _, _, cx| {
-                    this.menu = if this.menu.as_deref() == Some(k.as_str()) {
-                        None
-                    } else {
-                        Some(k.clone())
-                    };
-                    cx.notify();
-                })),
-        )
+        .child(super::menu::more(
+            t,
+            gpui::SharedString::from(format!("more-{key}")),
+            menu,
+            move |this: &mut LibraryView, _| {
+                this.menu = if this.menu.as_deref() == Some(k.as_str()) {
+                    None
+                } else {
+                    Some(k.clone())
+                };
+            },
+            cx,
+        ))
 }
 
 /// Toned runs as one text, so the line is cut with an ellipsis where the column ends.

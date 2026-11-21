@@ -20,4 +20,9 @@ time: [number, string] | null,
 /**
  * Records whose key is exactly this text.
  */
-key: string | null, reading: Reading, limit: number, };
+key: string | null, reading: Reading, limit: number, 
+/**
+ * Records older than these, partition by partition (`before=0:1200,1:880`): the page after the last "Older" at
+ * [`MOST_LIMIT`] records. A partition not named is read from its end.
+ */
+before: Array<[number, number]>, };

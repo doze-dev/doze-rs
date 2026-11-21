@@ -53,7 +53,8 @@ impl OverviewView {
                 }
                 if let Some(err) = err {
                     let file = std::path::Path::new(&st.dir).join("doze.hcl");
-                    let saved = std::fs::metadata(&file).and_then(|m| m.modified()).ok();
+                    // When the config was saved: the newest of its files (Go's stamp), not doze.hcl alone.
+                    let saved = crate::facts::stamp(std::path::Path::new(&st.dir)).map(|s| s.0);
                     let now = self.hub.now();
                     h.config = Some(doze_desk::overview::config_error(&file, &err, saved, now));
                     h.changed = None;
@@ -63,6 +64,9 @@ impl OverviewView {
                 doze_desk::overview::fronted_down(h, front.as_deref());
             }
             h.setup = f.setup(st, &home, cx);
+            if let Some(su) = h.setup.as_mut() {
+                su.prompt = f.live() && doze_os::privilege::admin_supported();
+            }
         });
     }
 }

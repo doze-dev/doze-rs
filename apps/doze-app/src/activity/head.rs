@@ -8,12 +8,12 @@ use super::ActivityView;
 use crate::instance::ui::{card, heading, text};
 use crate::kit::{Btn, btn, tone};
 use crate::theme::{Tokens, mix, ty};
-use crate::widgets::{MONO_FAMILY, seg};
+use crate::widgets::{Mono as _, seg};
 
 /// `.head`: Activity, "shop · db · the last 24 hours", Every service, the span, Back to the stack.
 pub(super) fn head(
     t: &Tokens,
-    v: &ActivityView,
+    (v, find_on): (&ActivityView, bool),
     cx: &mut Context<ActivityView>,
 ) -> impl IntoElement {
     let stack = v.model.as_ref().map_or_else(
@@ -40,12 +40,14 @@ pub(super) fn head(
     let mut row = title(t, &path);
     if let Some(input) = &v.input {
         row = row.child(
-            div()
-                .w(px(200.))
-                .flex_none()
-                .child(gpui_component::Sizable::small(
-                    gpui_component::input::Input::new(input),
-                )),
+            crate::widgets::framed_input(
+                t,
+                "activity/find",
+                find_on,
+                gpui_component::input::Input::new(input),
+            )
+            .w(px(200.))
+            .flex_none(),
         );
     }
     row.when(!v.only.is_empty(), |d| {
@@ -82,20 +84,25 @@ pub(super) fn summary(t: &Tokens, a: &Activity) -> AnyElement {
     } else {
         s.freed.replacen("about ", "~", 1)
     };
+    // The ⓘ only when there is a note to read under it (Go `s.freedNote ? " ⓘ" : ""`).
+    let freed_label = if s.freed_note.is_empty() {
+        "memory left free by sleeping".to_owned()
+    } else {
+        "memory left free by sleeping ⓘ".to_owned()
+    };
     let stats = div()
         .flex()
         .gap(px(12.))
         .child(stat(t, &s.asleep, "asleep while the stack was up", false))
-        .child(
-            stat(t, &freed, "memory left free by sleeping ⓘ", false)
-                .id("act-freed")
-                .when(!s.freed_note.is_empty(), |d| {
-                    let note = s.freed_note.clone();
-                    d.tooltip(move |window, cx| {
-                        gpui_component::tooltip::Tooltip::new(note.clone()).build(window, cx)
-                    })
-                }),
-        )
+        .child(stat(t, &freed, &freed_label, false).id("act-freed").when(
+            !s.freed_note.is_empty(),
+            |d| {
+                let note = s.freed_note.clone();
+                d.tooltip(move |window, cx| {
+                    gpui_component::tooltip::Tooltip::new(note.clone()).build(window, cx)
+                })
+            },
+        ))
         .child(stat(t, &s.wakes.to_string(), "wakes", false))
         .child(stat(
             t,
@@ -140,6 +147,7 @@ fn stat(t: &Tokens, v: &str, s: &str, bad: bool) -> gpui::Div {
             div()
                 .text_size(px(ty::SUMMARY))
                 .line_height(px(ty::LH_30))
+                .font_features(ty::tabular())
                 .font_weight(ty::HEADING)
                 .whitespace_nowrap()
                 .text_color(if bad { t.bad } else { t.bright })
@@ -197,7 +205,7 @@ pub(super) fn lines(t: &Tokens, ls: &[Line]) -> impl IntoElement {
         .flex()
         .flex_col()
         .gap(px(3.))
-        .font_family(MONO_FAMILY)
+        .mono_face()
         .text_size(px(ty::SM))
         .children(ls.iter().map(|l| {
             div()

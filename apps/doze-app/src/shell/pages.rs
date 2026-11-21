@@ -16,10 +16,12 @@ use crate::settings::{Section, SettingsEvent, SettingsView};
 
 /// The pages, made on first visit; Settings is kept once made (its look at the machine and its update answer stay).
 pub(crate) struct Pages {
-    facts: Entity<Facts>,
-    fixture: bool,
+    pub(crate) facts: Entity<Facts>,
+    pub(crate) fixture: bool,
     pub(crate) activity: Option<Entity<ActivityView>>,
     pub(crate) settings: Option<Entity<SettingsView>>,
+    /// The last privileged job's sheet, kept while it runs even when hidden.
+    pub(crate) admin: Option<Entity<crate::overlays::admin::AdminView>>,
 }
 
 impl Pages {
@@ -29,6 +31,7 @@ impl Pages {
             fixture,
             activity: None,
             settings: None,
+            admin: None,
         }
     }
 }
@@ -50,11 +53,14 @@ impl Root {
             .on_action(cx.listener(|this, _: &CheckUpdates, window, cx| {
                 this.open_settings(Some(Section::About), true, window, cx);
             }))
+            // Repair from anywhere (Needs you, a stack's setup banner, the Library's machine line): the run sheet over
+            // the page it was asked from, as Go ran it in place.
             .on_action(cx.listener(|this, _: &RepairMachine, window, cx| {
-                this.open_settings(Some(Section::Machine), false, window, cx);
-                if let Some(s) = this.pages.settings.clone() {
-                    s.update(cx, |s, cx| s.repair(cx));
-                }
+                let s = this.settings_view(window, cx);
+                s.update(cx, |s, cx| {
+                    s.refresh(cx);
+                    s.repair(cx);
+                });
             }))
     }
 
@@ -130,33 +136,43 @@ impl Root {
 
     /// Makes Settings once, and gives it the keys.
     pub(super) fn enter_settings(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        if self.pages.settings.is_none() {
-            let (hub, facts, fixture) = (
-                self.hub.clone(),
-                self.pages.facts.clone(),
-                self.pages.fixture,
-            );
-            let v = cx.new(|cx| SettingsView::new(hub, facts, fixture, cx));
-            cx.subscribe_in(
-                &v,
-                window,
-                |this, _, ev: &SettingsEvent, window, cx| match ev {
-                    SettingsEvent::Say(s, bad) => {
-                        let (s, bad) = (s.clone(), *bad);
-                        this.acts.update(cx, |a, cx| a.say(s, bad, cx));
-                    }
-                    SettingsEvent::Choose(c) => this.set_theme(*c, window, cx),
-                    SettingsEvent::Density(d) => this.set_density(*d, cx),
-                    SettingsEvent::Back => this.leave_settings(window, cx),
-                },
-            )
-            .detach();
-            self.pages.settings = Some(v);
-        }
+        let s = self.settings_view(window, cx);
+        let f = s.read(cx).focus.clone();
+        window.focus(&f, cx);
+    }
+
+    /// Settings, made once (without going there).
+    pub(crate) fn settings_view(
+        &mut self,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> Entity<SettingsView> {
         if let Some(s) = &self.pages.settings {
-            let f = s.read(cx).focus.clone();
-            window.focus(&f, cx);
+            return s.clone();
         }
+        let (hub, facts, fixture) = (
+            self.hub.clone(),
+            self.pages.facts.clone(),
+            self.pages.fixture,
+        );
+        let v = cx.new(|cx| SettingsView::new(hub, facts, fixture, cx));
+        cx.subscribe_in(
+            &v,
+            window,
+            |this, _, ev: &SettingsEvent, window, cx| match ev {
+                SettingsEvent::Say(s, bad) => {
+                    let (s, bad) = (s.clone(), *bad);
+                    this.acts.update(cx, |a, cx| a.say(s, bad, cx));
+                }
+                SettingsEvent::Choose(c) => this.set_theme(*c, window, cx),
+                SettingsEvent::Density(d) => this.set_density(*d, cx),
+                SettingsEvent::Back => this.leave_settings(window, cx),
+                SettingsEvent::Run(job) => this.open_admin(job.clone(), window, cx),
+            },
+        )
+        .detach();
+        self.pages.settings = Some(v.clone());
+        v
     }
 
     /// Esc on Settings: back where the window was, or the Library.

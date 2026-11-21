@@ -53,6 +53,8 @@ pub struct DeletedNote {
     /// The log start before the pass and after it.
     pub from: i64,
     pub to: i64,
+    /// How many whole segments the pass removed.
+    pub segments: usize,
 }
 
 /// The last retention pass.
@@ -251,6 +253,7 @@ mod tests {
                 partition: 0,
                 from: 0,
                 to: 10,
+                segments: 1,
             }],
             more: 2,
         };

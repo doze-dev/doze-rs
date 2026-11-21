@@ -14,8 +14,8 @@ use gpui_component::input::{Input, InputEvent, InputState};
 use crate::act::Ask;
 use crate::actions::{Confirm, DialogNo, DialogYes, MoveLeft, MoveRight};
 use crate::kit::{mono, s, tone};
-use crate::theme::{Tokens, alpha, mix, tokens, ty};
-use crate::widgets::{MONO_FAMILY, UI_FAMILY, dot, kbd_plain};
+use crate::theme::{Tokens, alpha, tokens, ty};
+use crate::widgets::{Mono as _, UI_FAMILY, dot, kbd_plain};
 
 /// What the dialog ends with.
 #[derive(Debug, Clone)]
@@ -145,10 +145,7 @@ fn facts(t: &Tokens, v: &DialogView) -> Option<AnyElement> {
         let words = f.spans.iter().map(|sp| {
             let d = div().child(s(&sp.text));
             match (sp.strong, sp.mono) {
-                (_, true) => d
-                    .font_family(MONO_FAMILY)
-                    .font_weight(ty::SEMIBOLD)
-                    .text_color(t.bright),
+                (_, true) => d.mono_face().font_weight(ty::SEMIBOLD).text_color(t.bright),
                 (true, _) => d.font_weight(ty::SEMIBOLD).text_color(t.bright),
                 _ => d.text_color(tone(t, &f.tone)),
             }
@@ -205,8 +202,9 @@ fn sentence(t: &Tokens, v: &DialogView) -> Option<AnyElement> {
 }
 
 /// The box: a reset's "Type db to confirm", or an action's input.
-fn input(t: &Tokens, v: &DialogView) -> Option<AnyElement> {
+fn input(t: &Tokens, v: &DialogView, focused: bool) -> Option<AnyElement> {
     let i = v.input.as_ref()?;
+    let (frame, moving) = crate::widgets::input_frame(t, "dialog/input", focused);
     let field = div()
         .h(px(36.))
         .px(px(12.))
@@ -214,8 +212,9 @@ fn input(t: &Tokens, v: &DialogView) -> Option<AnyElement> {
         .items_center()
         .rounded(px(8.))
         .border_1()
-        .border_color(mix(t.accent, t.line2, 45.))
+        .border_color(frame)
         .bg(t.well)
+        .child(crate::motion::tick(moving))
         .child(
             div().flex_1().child(
                 Input::new(i)
@@ -225,9 +224,7 @@ fn input(t: &Tokens, v: &DialogView) -> Option<AnyElement> {
                     .px_0()
                     .text_size(px(ty::BASE))
                     .text_color(t.bright)
-                    .when(!v.c.dialog.type_name.is_empty(), |x| {
-                        x.font_family(MONO_FAMILY)
-                    }),
+                    .when(!v.c.dialog.type_name.is_empty(), |x| x.mono_face()),
             ),
         );
     let name = &v.c.dialog.type_name;
@@ -354,9 +351,13 @@ impl DialogView {
 }
 
 impl Render for DialogView {
-    fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let t = tokens(cx);
         let d = self.c.dialog.clone();
+        let focused = self
+            .input
+            .as_ref()
+            .is_some_and(|i| crate::widgets::has_keys(i, window, cx));
         let wide = d.buttons.len() >= 4;
         let buttons: Vec<AnyElement> = d
             .buttons
@@ -407,7 +408,7 @@ impl Render for DialogView {
             .children(sentence(&t, self))
             .children(rows(&t, self))
             .children(facts(&t, self))
-            .children(input(&t, self))
+            .children(input(&t, self, focused))
             .children(foot(&t, self))
             .child(
                 div()

@@ -1,9 +1,9 @@
-//! Around the drawing: the toolbar strip above it (zoom, find, overview, what the map holds, the legend), the
+//! Around the drawing: the toolbar strip above it (zoom, find, overview, what the map holds, a large map's hint), the
 //! minimap, the find box and the selected card's detail. The toolbar is a strip of its own, so it never covers a card
 //! and fitting needs to reserve nothing for it; the minimap and the detail card each take the corner the card in hand
 //! is not in.
 
-use doze_map::{Mode, Rect};
+use doze_map::Rect;
 use gpui::{
     Animation, AnimationExt as _, AnyElement, Context, IntoElement, SharedString, div, prelude::*,
     px,
@@ -97,8 +97,10 @@ pub(crate) fn strip(t: &Tokens, m: &MapView, cx: &mut Context<MapView>) -> AnyEl
             .whitespace_nowrap()
             .child(SharedString::from(stats)),
     );
-    // The legend gives way first when the window is narrow; the card in hand's breadcrumb takes its place.
-    let right = super::tools::crumbs(t, m, cx).unwrap_or_else(|| legend(t, m));
+    // The card in hand's breadcrumb, else a large map's hint; a small map's legend stands over the drawing, as Go's.
+    let right = super::tools::crumbs(t, m, cx)
+        .or_else(|| (!m.small()).then(|| hint(t, m)))
+        .unwrap_or_else(|| div().into_any_element());
     bar.child(
         div()
             .flex_1()
@@ -120,62 +122,76 @@ fn minimap_tool(t: &Tokens, m: &MapView, cx: &mut Context<MapView>) -> impl Into
         .on_click(cx.listener(|this, _, window, cx| this.on_minimap(&ToggleMinimap, window, cx)))
 }
 
-/// The small map's legend (flow.tsx), or, for a large one, how to see a card's calls.
-fn legend(t: &Tokens, m: &MapView) -> AnyElement {
-    let base = div()
+fn legend_row(t: &Tokens) -> gpui::Div {
+    div()
         .flex()
         .items_center()
         .gap(px(16.))
         .text_size(px(ty::SM))
+        .line_height(px(ty::LH_16))
         .text_color(t.dim)
-        .whitespace_nowrap();
-    if m.layout.mode != Mode::Classic || m.lens.is_some() {
-        let hint = match &m.lens {
-            Some(super::Lens::Hood { .. }) => {
-                "columns are steps of calls from the card · H on a card centres there · esc back"
-            }
-            Some(super::Lens::Trouble { .. }) => {
-                "laid out on their own · T or esc shows everything"
-            }
-            None if !m.layout.regions.is_empty() && !m.all_lines => {
-                "hover a region or a card for who it talks to · L every line"
-            }
-            None if super::paint::bundled(m) => {
-                "lines are bundled calls between regions · hover a card for its own"
-            }
-            None => "hover a card to see its calls · click to keep them",
-        };
-        return base.child(hint).into_any_element();
+        .whitespace_nowrap()
+}
+
+/// A large map's (or a focus view's) hint: how to see a card's calls.
+fn hint(t: &Tokens, m: &MapView) -> AnyElement {
+    let hint = match &m.lens {
+        Some(super::Lens::Hood { .. }) => {
+            "columns are steps of calls from the card · H on a card centres there · esc back"
+        }
+        Some(super::Lens::Trouble { .. }) => "laid out on their own · T or esc shows everything",
+        None if !m.layout.regions.is_empty() && !m.all_lines => {
+            "hover a region or a card for who it talks to · L every line"
+        }
+        None if super::paint::bundled(m) => {
+            "lines are bundled calls between regions · hover a card for its own"
+        }
+        None => "hover a card to see its calls · click to keep them",
+    };
+    legend_row(t).child(hint).into_any_element()
+}
+
+/// The small map's legend, over the drawing at its top right while nothing is selected (Go `.map .legend`: right
+/// 18, top 14; the selection's detail takes its place). In a window under 1000 px wide only its first item shows.
+pub(crate) fn legend(t: &Tokens, m: &MapView, window_w: f32) -> Option<AnyElement> {
+    if !m.small() || m.lit.is_some() || m.layout.cards.is_empty() {
+        return None;
     }
-    base.child(
-        div()
-            .flex()
-            .items_center()
+    let calls = div()
+        .flex()
+        .items_center()
+        .child(
+            div()
+                .w(px(24.))
+                .h(px(0.))
+                .mr(px(6.))
+                .border_t_2()
+                .border_color(t.accent),
+        )
+        .child("calls, from references in doze.hcl");
+    let mut row = legend_row(t)
+        .absolute()
+        .right(px(18.))
+        .top(px(14.))
+        .child(calls);
+    if window_w >= 1000. {
+        row = row
+            .child("chips · what it uses below")
             .child(
                 div()
-                    .w(px(24.))
-                    .h(px(0.))
-                    .mr(px(6.))
-                    .border_t_2()
-                    .border_color(t.accent),
+                    .flex()
+                    .child(
+                        div()
+                            .mr(px(4.))
+                            .font_weight(ty::BOLD)
+                            .text_color(t.good)
+                            .child("✓"),
+                    )
+                    .child("its setup tasks ran"),
             )
-            .child("calls, from references in doze.hcl"),
-    )
-    .child("chips · what it uses below")
-    .child(
-        div()
-            .flex()
-            .child(
-                div()
-                    .mr(px(4.))
-                    .font_weight(ty::BOLD)
-                    .text_color(t.good)
-                    .child("✓"),
-            )
-            .child("its setup tasks ran"),
-    )
-    .child("click a card to draw its lines")
-    .into_any_element()
+            .child("click a card to draw its lines");
+    }
+    Some(row.into_any_element())
 }
 
 /// Which corner of the viewport an overlay of `size` takes: the bottom (or top) right, unless the card in hand is

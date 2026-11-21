@@ -116,6 +116,10 @@ pub struct Machine {
     idle: Option<Duration>,
     shutting: bool,
     next: u64,
+    /// Each name's declaration: a name removed and added again is a new one, so a connection to the old one cannot
+    /// count against it.
+    generation: BTreeMap<String, u64>,
+    generations: u64,
 }
 
 impl Machine {
@@ -140,6 +144,8 @@ impl Machine {
             idle,
             shutting: false,
             next: 0,
+            generation: BTreeMap::new(),
+            generations: 0,
         }
     }
 

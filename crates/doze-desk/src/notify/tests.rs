@@ -321,6 +321,7 @@ fn outside_presses_only_what_asks_nothing() {
         Outside::Page
     );
     assert_eq!(press(Fix::new("Set up", FixKind::Repair)), Outside::Page);
+    assert_eq!(press(Fix::new("Clean up…", FixKind::Clean)), Outside::Clean);
 }
 
 #[test]

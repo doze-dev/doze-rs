@@ -332,6 +332,13 @@ pub fn reset_form(topic: &str, key: &str) -> Result<ConfigResetView, ConfigMissi
         pace: Some(PACE),
         call,
         refusal: None,
+        segments: matches!(key, "segment.bytes" | "segment.ms").then_some(
+            crate::model::SegmentsNow {
+                partitions: 3,
+                sealed: 4,
+                largest_active: 3_355_443,
+            },
+        ),
     })
 }
 

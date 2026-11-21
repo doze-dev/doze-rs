@@ -9,7 +9,9 @@ use super::InstanceView;
 use super::ui::{self, button, state_mark, text};
 use crate::actions;
 use crate::theme::{Tokens, ty};
-use crate::widgets::{kbd_chip, switch};
+use crate::widgets::{kbd_chip, switch, tip};
+use doze_desk::overview::titles as stitles;
+use doze_desk::titles;
 
 /// The first key of the table's row `label`, as a chip writes it.
 pub(crate) fn chip(label: &str) -> String {
@@ -80,7 +82,20 @@ fn act(
     f: Act,
     cx: &mut Context<InstanceView>,
 ) -> AnyElement {
+    titled(t, id, (label, key, ""), primary, f, cx)
+}
+
+/// [`act`] with Go's hover title (none when `title` is empty).
+fn titled(
+    t: &Tokens,
+    id: &'static str,
+    (label, key, title): (&str, &str, &'static str),
+    primary: bool,
+    f: Act,
+    cx: &mut Context<InstanceView>,
+) -> AnyElement {
     button(t, id, label, key, primary)
+        .when(!title.is_empty(), |b| b.tooltip(tip(title)))
         .on_click(cx.listener(move |v, _, w, cx| f(v, w, cx)))
         .into_any_element()
 }
@@ -91,19 +106,19 @@ fn verbs(t: &Tokens, v: &InstanceView, cx: &mut Context<InstanceView>) -> Vec<An
     if p.is_task() {
         let ran = !p.runs.is_empty();
         let first = if ran {
-            act(
+            titled(
                 t,
                 "copy-output",
-                ("Copy output", ""),
+                ("Copy output", "", titles::COPY_OUTPUT),
                 false,
                 |v, _, cx| v.copy_output(cx),
                 cx,
             )
         } else {
-            act(
+            titled(
                 t,
                 "edit",
-                ("Edit doze.hcl", ""),
+                ("Edit doze.hcl", "", titles::EDIT_TASK),
                 false,
                 |v, _, cx| v.edit_config(cx),
                 cx,
@@ -132,38 +147,38 @@ fn verbs(t: &Tokens, v: &InstanceView, cx: &mut Context<InstanceView>) -> Vec<An
             |v, _, cx| v.edit_config(cx),
             cx,
         ));
-    } else if let Some(c) = &p.crash {
-        out.extend(crash_verbs(t, c.gave_up, cx));
+    } else if p.crash.is_some() {
+        out.extend(crash_verbs(t, cx));
     } else {
         out.extend(service_verbs(t, v, cx));
     }
     out
 }
 
-/// A crashing one: stop trying, or try now. A failed one is not being tried again: nothing to stop, and Restart, as
-/// Needs you says it.
-fn crash_verbs(t: &Tokens, gave_up: bool, cx: &mut Context<InstanceView>) -> Vec<AnyElement> {
-    let mut out = Vec::new();
-    if !gave_up {
-        out.push(act(
+/// A crashing one, retrying or given up: Stop trying (turns it off for this run) and Try now, as Go's head keeps both.
+fn crash_verbs(t: &Tokens, cx: &mut Context<InstanceView>) -> Vec<AnyElement> {
+    vec![
+        titled(
             t,
             "stop",
-            ("Stop trying", &chip("Sleep / stop trying")),
+            (
+                "Stop trying",
+                &chip("Sleep / stop trying"),
+                titles::STOP_TRYING,
+            ),
             false,
             InstanceView::sleep,
             cx,
-        ));
-    }
-    let label = if gave_up { "Restart" } else { "Try now" };
-    out.push(act(
-        t,
-        "try",
-        (label, &chip("Restart / try now")),
-        true,
-        InstanceView::restart,
-        cx,
-    ));
-    out
+        ),
+        act(
+            t,
+            "try",
+            ("Try now", &chip("Restart / try now")),
+            true,
+            InstanceView::restart,
+            cx,
+        ),
+    ]
 }
 
 /// The word and the switch (a lock when doze.hcl paused it).
@@ -181,13 +196,15 @@ fn switch_el(t: &Tokens, v: &InstanceView, cx: &mut Context<InstanceView>) -> An
                 .child(p.look.map_or("", Look::word)),
         );
     if p.paused {
+        // The tiles' `.lock`: a dashed pill the size of a switch, titled as Go's.
         return sw
-            .child(div().text_color(t.dim).child("⊘"))
+            .child(crate::overview::lock(t, "lock", "⊘"))
             .into_any_element();
     }
     sw.child(
         div()
             .id("switch")
+            .tooltip(tip(stitles::flip(p.on, p.off)))
             .cursor_pointer()
             .on_click(cx.listener(|v, _, w, cx| v.flip(w, cx)))
             .child(switch(t, &format!("inst/{}", p.name), p.on, false, p.off)),
@@ -242,31 +259,35 @@ fn service_verbs(t: &Tokens, v: &InstanceView, cx: &mut Context<InstanceView>) -
         ));
     }
     if let (Some(u), true) = (url, serving) {
-        let shown = u
-            .trim_start_matches("https://")
-            .trim_start_matches("http://")
-            .to_owned();
-        out.push(
-            button(t, "open", "Open", "", true)
-                .child(
-                    div()
-                        .max_w(px(220.))
-                        .overflow_hidden()
-                        .text_ellipsis()
-                        .text_size(px(ty::SM))
-                        .child(text(&shown)),
-                )
-                .child(
-                    div()
-                        .text_size(px(ty::XS))
-                        .opacity(0.7)
-                        .child(text(&chip("Open in browser"))),
-                )
-                .on_click(cx.listener(|v, _, _, cx| v.open_address(cx)))
-                .into_any_element(),
-        );
+        out.push(open_button(t, &u, cx));
     }
     out
+}
+
+/// Open <address> o: the address without its scheme, titled with the whole URL as Go's.
+fn open_button(t: &Tokens, u: &str, cx: &mut Context<InstanceView>) -> AnyElement {
+    let shown = u
+        .trim_start_matches("https://")
+        .trim_start_matches("http://")
+        .to_owned();
+    button(t, "open", "Open", "", true)
+        .tooltip(tip(u.to_owned()))
+        .child(
+            div()
+                .max_w(px(220.))
+                .overflow_hidden()
+                .text_ellipsis()
+                .text_size(px(ty::SM))
+                .child(text(&shown)),
+        )
+        .child(
+            div()
+                .text_size(px(ty::XS))
+                .opacity(0.7)
+                .child(text(&chip("Open in browser"))),
+        )
+        .on_click(cx.listener(|v, _, _, cx| v.open_address(cx)))
+        .into_any_element()
 }
 
 /// `.ptabs`: the page's tabs, the open one underlined in the accent.
@@ -321,14 +342,9 @@ pub(crate) fn keys(t: &Tokens, v: &InstanceView) -> impl IntoElement {
         if p.url().is_some() && p.serving() {
             keys.push((chip("Open in browser"), "open in browser"));
         }
-        if let Some(c) = &p.crash {
-            keys.push((
-                chip("Restart / try now"),
-                if c.gave_up { "restart" } else { "try now" },
-            ));
-            if !c.gave_up {
-                keys.push((chip("Sleep / stop trying"), "stop trying"));
-            }
+        if p.crash.is_some() {
+            keys.push((chip("Restart / try now"), "try now"));
+            keys.push((chip("Sleep / stop trying"), "stop trying"));
         } else if p.serving() {
             keys.push((chip("Sleep / stop trying"), "sleep"));
             keys.push((chip("Restart / try now"), "restart"));

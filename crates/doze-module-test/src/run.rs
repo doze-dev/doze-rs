@@ -36,8 +36,64 @@ impl Started {
         self.log.text()
     }
 
-    /// Stops every process in reverse order, each the way its module declared; how each ended.
+    /// Stops every process in reverse order, each the way its module declared; how each ended. A stop that was not
+    /// graceful prints the plan's log: what the engine said while it would not stop is the only evidence of why, and
+    /// the sandbox holding it is gone with the test (ferret's postgres, forced on macOS CI on 2026-11-20, left none).
     pub async fn stop(mut self, grace: Duration) -> Vec<(String, std::io::Result<Stopped>)> {
-        self.unit.stop(grace).await
+        let stops = self.unit.stop(grace).await;
+        if let Some(report) = not_graceful(&stops, &self.log.text()) {
+            eprintln!("{report}");
+        }
+        stops
+    }
+}
+
+/// The most lines of the plan's log a stop that was not graceful quotes (its end: the stop is there).
+const QUOTED: usize = 200;
+
+/// For stops that were not all graceful successes, what they were and the end of the plan's log.
+fn not_graceful(stops: &[(String, std::io::Result<Stopped>)], log: &str) -> Option<String> {
+    let clean = stops
+        .iter()
+        .all(|(_, r)| matches!(r, Ok(Stopped::Graceful(st)) if st.success()));
+    if clean {
+        return None;
+    }
+    let lines: Vec<&str> = log.lines().collect();
+    let tail = lines
+        .get(lines.len().saturating_sub(QUOTED)..)
+        .unwrap_or_default();
+    Some(format!(
+        "not every process stopped gracefully: {stops:?}\nthe plan's log, its last {} lines:\n{}",
+        tail.len(),
+        tail.join("\n")
+    ))
+}
+
+#[cfg(all(test, unix))]
+mod tests {
+    use super::*;
+    use std::os::unix::process::ExitStatusExt;
+    use std::process::ExitStatus;
+
+    #[test]
+    fn only_a_stop_that_was_not_graceful_quotes_the_end_of_the_log() {
+        let ok = |code| Ok(Stopped::Graceful(ExitStatus::from_raw(code)));
+        let log: String = (1..=250).map(|n| format!("line {n}\n")).collect();
+        assert_eq!(not_graceful(&[("a".into(), ok(0))], &log), None);
+        let forced = [
+            ("ferretdb".into(), ok(0)),
+            (
+                "postgres".into(),
+                Ok(Stopped::Forced(ExitStatus::from_raw(9))),
+            ),
+        ];
+        let report = not_graceful(&forced, &log).unwrap();
+        assert!(report.contains("Forced"), "{report}");
+        assert!(report.contains("its last 200 lines"), "{report}");
+        assert!(report.ends_with("line 250") && report.contains("\nline 51\n"));
+        assert!(!report.contains("\nline 50\n"), "{report}");
+        // A graceful exit that failed is reported too.
+        assert!(not_graceful(&[("a".into(), ok(256))], "x").is_some());
     }
 }

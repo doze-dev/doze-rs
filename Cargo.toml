@@ -14,6 +14,10 @@ exclude = ["vendor"]
 kafka-protocol = { path = "vendor/kafka-protocol" }
 # GPUI's macOS renderer without MSAA for paths (vendor/gpui-pre-apple/PATCHES.md). Only the app links it.
 gpui-pre-apple = { path = "vendor/gpui-pre-apple" }
+# GPUI with the image crate built for PNG only (vendor/gpui-pre/PATCHES.md): the app ships PNG and SVG, never decodes
+# the other formats upstream turns on. Only the app links these.
+gpui-pre = { path = "vendor/gpui-pre" }
+gpui-pre-macos = { path = "vendor/gpui-pre-macos" }
 hcl-edit = { path = "vendor/hcl-edit" }
 
 [workspace.package]
@@ -101,13 +105,282 @@ opt-level = "z"
 # code (6.97 MB to 4.66 MB, 2026-11-13) and "z" a further 25% (6.50 MB to 4.87 MB at the Lambda stage), for 30 to 60% more server CPU per
 # request (0.2 to 0.7 ms) and about 0.4 MB more idle memory; wall time is unchanged. The owner chose "z" on 2026-11-13.
 # `cargo xtask weight` builds it with this profile.
-# The desktop app (apps/doze-app) is held to 16 MB (docs/port/weight.md). M1 took the release build to 16.38 MB; optimised
+# The desktop app (apps/doze-app) is held to its line (docs/port/weight.md; ceiling 20 MB). M1 took the release build to 16.38 MB; optimised
 # for size with fat LTO it is back under the line (see weight.md, "After M1 combined", for the binary, first frame and
 # idle memory each way). CI's weight line builds it with this profile.
 [profile.release-app]
 inherits = "release"
 opt-level = "s"
 lto = "fat"
+# Small core, fast GUI (weight.md, "The app's size profile"): what the app carries but does not draw with is built for
+# size ("z"); GPUI, gpui-component, the app, doze-desk and doze-map, and the text, layout and path crates stay at "s",
+# as before. 15,240,704 B against 16,102,720 B with everything at "s" (14,526,560 B with the PNG-only image patch,
+# vendor/gpui-pre/PATCHES.md); frame, layout and first-frame times unchanged, `doze-app status` within noise. GPUI at
+# opt-level 3 was measured too: 2.8 MB more for no measurable gain on the Map; doze-desk and doze-map at 3 gained nothing.
+# The doze core the app carries (the CLI and what it runs; not the app's own doze-desk and doze-map, which draw).
+[profile.release-app.package.doze-cli]
+opt-level = "z"
+[profile.release-app.package.doze-config]
+opt-level = "z"
+[profile.release-app.package.doze-hcl]
+opt-level = "z"
+[profile.release-app.package.doze-control]
+opt-level = "z"
+[profile.release-app.package.doze-display]
+opt-level = "z"
+[profile.release-app.package.doze-doctor]
+opt-level = "z"
+[profile.release-app.package.doze-journal]
+opt-level = "z"
+[profile.release-app.package.doze-logstore]
+opt-level = "z"
+[profile.release-app.package.doze-module-proto]
+opt-level = "z"
+[profile.release-app.package.doze-names]
+opt-level = "z"
+[profile.release-app.package.doze-os]
+opt-level = "z"
+[profile.release-app.package.doze-projects]
+opt-level = "z"
+# The core crates the CLI carries since core-land (2026-11-19, landing the app on main): the same rule, they do not draw.
+[profile.release-app.package.doze-daemon]
+opt-level = "z"
+[profile.release-app.package.doze-detect]
+opt-level = "z"
+[profile.release-app.package.doze-engine]
+opt-level = "z"
+[profile.release-app.package.doze-fetch]
+opt-level = "z"
+[profile.release-app.package.doze-module-host]
+opt-level = "z"
+# The CLI's own dependencies: arguments, HCL, YAML, the wall clock.
+[profile.release-app.package.clap]
+opt-level = "z"
+[profile.release-app.package.clap_builder]
+opt-level = "z"
+[profile.release-app.package.clap_complete]
+opt-level = "z"
+[profile.release-app.package.clap_lex]
+opt-level = "z"
+[profile.release-app.package.strsim]
+opt-level = "z"
+[profile.release-app.package.shlex]
+opt-level = "z"
+[profile.release-app.package.hcl-edit]
+opt-level = "z"
+[profile.release-app.package.hcl-primitives]
+opt-level = "z"
+[profile.release-app.package.pratt]
+opt-level = "z"
+[profile.release-app.package.vecmap-rs]
+opt-level = "z"
+[profile.release-app.package.ordered-float]
+opt-level = "z"
+[profile.release-app.package.yaml-rust2]
+opt-level = "z"
+[profile.release-app.package.hashlink]
+opt-level = "z"
+[profile.release-app.package.jiff]
+opt-level = "z"
+[profile.release-app.package.jiff-core]
+opt-level = "z"
+[profile.release-app.package.time]
+opt-level = "z"
+[profile.release-app.package.time-core]
+opt-level = "z"
+[profile.release-app.package.deranged]
+opt-level = "z"
+[profile.release-app.package.powerfmt]
+opt-level = "z"
+[profile.release-app.package.num-conv]
+opt-level = "z"
+[profile.release-app.package.flagset]
+opt-level = "z"
+[profile.release-app.package.is_executable]
+opt-level = "z"
+# Names, the front door and machine setup: tokio, hyper, TLS, the CA, the network daemon.
+[profile.release-app.package.tokio]
+opt-level = "z"
+[profile.release-app.package.mio]
+opt-level = "z"
+[profile.release-app.package.socket2]
+opt-level = "z"
+[profile.release-app.package.hyper]
+opt-level = "z"
+[profile.release-app.package.hyper-util]
+opt-level = "z"
+[profile.release-app.package.http-body-util]
+opt-level = "z"
+[profile.release-app.package.httparse]
+opt-level = "z"
+[profile.release-app.package.httpdate]
+opt-level = "z"
+[profile.release-app.package.try-lock]
+opt-level = "z"
+[profile.release-app.package.want]
+opt-level = "z"
+[profile.release-app.package.tokio-rustls]
+opt-level = "z"
+[profile.release-app.package.rustls]
+opt-level = "z"
+[profile.release-app.package.rustls-pki-types]
+opt-level = "z"
+[profile.release-app.package.rustls-webpki]
+opt-level = "z"
+[profile.release-app.package.ring]
+opt-level = "z"
+[profile.release-app.package.untrusted]
+opt-level = "z"
+[profile.release-app.package.x509-cert]
+opt-level = "z"
+[profile.release-app.package.der]
+opt-level = "z"
+[profile.release-app.package.spki]
+opt-level = "z"
+[profile.release-app.package.pkcs8]
+opt-level = "z"
+[profile.release-app.package.pem-rfc7468]
+opt-level = "z"
+[profile.release-app.package.sec1]
+opt-level = "z"
+[profile.release-app.package.p256]
+opt-level = "z"
+[profile.release-app.package.ecdsa]
+opt-level = "z"
+[profile.release-app.package.elliptic-curve]
+opt-level = "z"
+[profile.release-app.package.primefield]
+opt-level = "z"
+[profile.release-app.package.primeorder]
+opt-level = "z"
+[profile.release-app.package.ff]
+opt-level = "z"
+[profile.release-app.package.group]
+opt-level = "z"
+[profile.release-app.package.wnaf]
+opt-level = "z"
+[profile.release-app.package.rfc6979]
+opt-level = "z"
+[profile.release-app.package.crypto-bigint]
+opt-level = "z"
+[profile.release-app.package.cpubits]
+opt-level = "z"
+[profile.release-app.package.base16ct]
+opt-level = "z"
+[profile.release-app.package.base64ct]
+opt-level = "z"
+[profile.release-app.package.hmac]
+opt-level = "z"
+[profile.release-app.package.sha1]
+opt-level = "z"
+[profile.release-app.package.signature]
+opt-level = "z"
+[profile.release-app.package.ed25519]
+opt-level = "z"
+[profile.release-app.package.ed25519-dalek]
+opt-level = "z"
+[profile.release-app.package.curve25519-dalek]
+opt-level = "z"
+[profile.release-app.package.num-bigint]
+opt-level = "z"
+[profile.release-app.package.num-integer]
+opt-level = "z"
+[profile.release-app.package.hex]
+opt-level = "z"
+[profile.release-app.package.fnv]
+opt-level = "z"
+[profile.release-app.package.minicbor]
+opt-level = "z"
+[profile.release-app.package.memoffset]
+opt-level = "z"
+[profile.release-app.package.nix]
+opt-level = "z"
+[profile.release-app.package.getifaddrs]
+opt-level = "z"
+[profile.release-app.package.ipnet]
+opt-level = "z"
+[profile.release-app.package.route_manager]
+opt-level = "z"
+[profile.release-app.package.tun-rs]
+opt-level = "z"
+[profile.release-app.package.privesc]
+opt-level = "z"
+[profile.release-app.package.rstar]
+opt-level = "z"
+[profile.release-app.package.unicode-normalization]
+opt-level = "z"
+# Shared and heavy, used off the frame path: JSON, regular expressions.
+[profile.release-app.package.serde_json]
+opt-level = "z"
+[profile.release-app.package.regex]
+opt-level = "z"
+[profile.release-app.package.regex-automata]
+opt-level = "z"
+[profile.release-app.package.regex-syntax]
+opt-level = "z"
+[profile.release-app.package.aho-corasick]
+opt-level = "z"
+# GPUI's tree, read once and not per frame: image decoders, markdown and HTML, TOML, i18n tables, file watching.
+[profile.release-app.package.image]
+opt-level = "z"
+[profile.release-app.package.exr]
+opt-level = "z"
+[profile.release-app.package.tiff]
+opt-level = "z"
+[profile.release-app.package.gif]
+opt-level = "z"
+[profile.release-app.package.png]
+opt-level = "z"
+[profile.release-app.package.image-webp]
+opt-level = "z"
+[profile.release-app.package.zune-jpeg]
+opt-level = "z"
+[profile.release-app.package.zune-inflate]
+opt-level = "z"
+[profile.release-app.package.qoi]
+opt-level = "z"
+[profile.release-app.package.fdeflate]
+opt-level = "z"
+[profile.release-app.package.weezl]
+opt-level = "z"
+[profile.release-app.package.markdown]
+opt-level = "z"
+[profile.release-app.package.html5ever]
+opt-level = "z"
+[profile.release-app.package.markup5ever]
+opt-level = "z"
+[profile.release-app.package.markup5ever_rcdom]
+opt-level = "z"
+[profile.release-app.package.xml5ever]
+opt-level = "z"
+[profile.release-app.package.toml]
+opt-level = "z"
+[profile.release-app.package.toml_edit]
+opt-level = "z"
+[profile.release-app.package.toml_parser]
+opt-level = "z"
+[profile.release-app.package.schemars]
+opt-level = "z"
+[profile.release-app.package.lsp-types]
+opt-level = "z"
+[profile.release-app.package.rust-i18n]
+opt-level = "z"
+[profile.release-app.package.rust-i18n-support]
+opt-level = "z"
+[profile.release-app.package.serde-saphyr]
+opt-level = "z"
+[profile.release-app.package.granit-parser]
+opt-level = "z"
+[profile.release-app.package.globset]
+opt-level = "z"
+[profile.release-app.package.ignore]
+opt-level = "z"
+[profile.release-app.package.notify]
+opt-level = "z"
+[profile.release-app.package.url]
+opt-level = "z"
+[profile.release-app.package.idna]
+opt-level = "z"
 
 [profile.release-aws]
 inherits = "release"
@@ -118,6 +391,12 @@ lto = "fat"
 # shrank the x86_64 Linux build by 1.66 MB but grew the darwin one by 0.3 MB; the whole build at "s" shrinks both (8,924,224 to 7,123,432 B
 # on x86_64 Linux, 6,802,944 to 5,531,712 B on darwin/arm64) for about 0.3 ms on a warm `doze status` (docs/port/weight.md, "doze's profile").
 # CI's weight-doze job and `cargo xtask weight` build it with this profile; the release (`--release`) profile stays the broker's.
+#
+# 2026-11-19 (core D2: names, the front door, the resolver, TLS and the download fetch in the daemon): "z". At "s" D2 took x86_64
+# Linux from 8,652,824 to 9,192,984 B (zig cross build; CI measured the base at 8,607,968), over the 9 MB line. The whole build
+# at "z" is 8,754,344 B on Linux and 6,031,248 B on darwin/arm64 (7,171,888 B at "s"); a warm `doze status` moved by about
+# 0.4 ms (within noise). Per-package "z" on doze's own crates shrank Linux to 8,729,016 B but grew darwin to 9,009,552 B (fat
+# LTO with mixed levels, as C2b found), so the whole build moves (docs/port/weight.md, "D2").
 [profile.release-doze]
 inherits = "release"
-opt-level = "s"
+opt-level = "z"
