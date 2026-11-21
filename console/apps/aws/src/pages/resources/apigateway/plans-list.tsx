@@ -11,7 +11,7 @@ import { RefreshControl } from "@doze/ui/components/app/refresh-control";
 import { ResultBanner } from "@doze/ui/components/app/result-banner";
 import { Button } from "@doze/ui/components/ui/button";
 import { Skeleton } from "@doze/ui/components/ui/skeleton";
-import { PlainConfirm, useServiceCrumbs } from "../../../kit";
+import { PlainConfirm, RuleHelp, useServiceCrumbs } from "../../../kit";
 import { HINT } from "../index-page";
 import { client } from "../../../api/client";
 import { RESOURCE_PATHS } from "../../../api/resources";
@@ -70,9 +70,9 @@ function Plans({ service, kind, gone }: { service: string; kind: string; gone?: 
           <Said text={sentence} names={[...all.map((p) => p.name), ...covering.map((c) => c.stage)]} />
           <AccountNav current="usageplans" />
           <DataTable<UsagePlan> aria-label="Usage plans" data={all} columns={columns} rowId={(p) => p.id} rowHeight={56} />
-          <div className="mt-5 grid max-w-3xl gap-2 text-[13.5px] leading-[21px] text-muted-foreground">
-            <p><b className="font-semibold text-foreground">Enforced here.</b> doze-aws counts the requests of each key and answers 429 over the throttle or the quota (<span className="font-mono">crates/aws-apigateway/src/usage.rs</span>).</p>
-            <p>An API key can sit in several plans, but a given key can be in only one plan for each stage of an API.</p>
+          <div className="mt-6 grid max-w-3xl gap-3">
+            <RuleHelp><b className="font-semibold text-foreground">Enforced here.</b> doze-aws counts the requests of each key and answers 429 over the throttle or the quota (<span className="font-mono">crates/aws-apigateway/src/usage.rs</span>).</RuleHelp>
+            <RuleHelp>An API key can sit in several plans, but a given key can be in only one plan for each stage of an API.</RuleHelp>
           </div>
         </>
       )}

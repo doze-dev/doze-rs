@@ -24,7 +24,7 @@ import { PLANS, useApiKeys, useHttpApis, usePlanKeys, usePlans, useRefreshReads,
 import { Card, Mono, Rows, Said } from "./parts";
 import { addStagePatch, keyProblem, removeStagePatch } from "./plan-model";
 import type { PlanKey, UsagePlan } from "./types";
-import { count, list, quotaWords, stageWords, throttleWords } from "./words";
+import { count, list, stageWords } from "./words";
 
 export function PlanDetail({ service, kind, name }: { service: string; kind: string; name: string }) {
   const detail = useResourceDetail(service, kind, name);
@@ -158,7 +158,7 @@ function PlanView({ plan, updatedAt, fetching, refresh }: { plan: UsagePlan; upd
           { label: "Throttling", value: plan.throttle?.rateLimit === undefined ? "Not set" : `${plan.throttle.rateLimit.toLocaleString("en-US")} requests per second, burst ${(plan.throttle.burstLimit ?? 0).toLocaleString("en-US")}`, note: plan.throttle?.rateLimit === undefined ? undefined : "Enforced: a request over it gets 429." },
           { label: "Quota", value: plan.quota?.limit === undefined ? "Not set" : `${plan.quota.limit.toLocaleString("en-US")} requests per ${(plan.quota.period ?? "month").toLowerCase()}`, note: plan.quota?.limit === undefined ? undefined : "Enforced: once the quota is used, a request gets 429." },
         ]} />
-        <RuleHelp className="mt-5">{throttleWords(plan.throttle)}; {quotaWords(plan.quota)}. doze-aws counts per key (<span className="font-mono">crates/aws-apigateway/src/usage.rs</span>).</RuleHelp>
+        <RuleHelp className="mt-5">doze-aws counts the requests of each key by UTC day and answers 429 over the throttle or the quota (<span className="font-mono">crates/aws-apigateway/src/usage.rs</span>).</RuleHelp>
       </Card>
       <Tabs value={tab} onValueChange={(v) => go({ tab: v })} className="mt-10 gap-0">
         <TabsList variant="line" className="h-11 w-full justify-start gap-4 rounded-none border-b p-0" aria-label="Usage plan pages">
