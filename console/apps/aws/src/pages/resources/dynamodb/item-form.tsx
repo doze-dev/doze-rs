@@ -13,7 +13,7 @@ import { ApiFailure } from "@doze/ui/lib/api";
 import { FormPage, FormSection, RuleHelp } from "../../../kit";
 import { useOp, useOpRead } from "../deep/api";
 import type { OwnProps } from "../deep/registry";
-import { ATTRIBUTE_TYPES, type AttributeType, type AttrRow, blankRows, itemOf, newAttr, rowsOf, TYPE_NAMES } from "./item-rows";
+import { ATTRIBUTE_TYPES, type AttributeType, type AttrRow, blankRows, itemOf, newAttr, paramKey, rowsOf, TYPE_NAMES } from "./item-rows";
 import type { Item } from "./json";
 import { crumbs, tableTarget, useTable, useTableNav } from "./parts";
 
@@ -71,13 +71,7 @@ export function ItemForm({ name, search, edit }: OwnProps & { edit: boolean }) {
   const read = useTable(table);
   const go = useTableNav(table);
   const keys = useMemo(() => (read.table ? [{ name: read.table.hash.name, role: "HASH" as const, type: read.table.hash.type }, ...(read.table.range ? [{ name: read.table.range.name, role: "RANGE" as const, type: read.table.range.type }] : [])] : []), [read.table]);
-  const key = useMemo(() => {
-    try {
-      return search.key ? (JSON.parse(search.key) as Item) : null;
-    } catch {
-      return null;
-    }
-  }, [search.key]);
+  const key = useMemo(() => paramKey(search.key), [search.key]);
   const got = useOpRead<{ Item?: Item }>(t, "GetItem", { Key: key ?? {} }, edit && key !== null);
   const [rows, setRows] = useState<AttrRow[] | null>(null);
   const put = useOp<unknown>(t, "PutItem");

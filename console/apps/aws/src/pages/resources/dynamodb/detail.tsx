@@ -57,7 +57,7 @@ export function TablePage({ name, search }: OwnProps) {
   if ((detail.isError && !d) || (read.isError && !t)) return <ErrorBlock what="This table could not be read" error={detail.error ?? read.error} hint={HINT} onRetry={() => (void detail.refetch(), void read.refetch())} retrying={detail.isFetching} testId="detail-error" />;
   if (!d || !t) return <ResourcePageSkeleton />;
   const over = tab === "overview";
-  const wired: Wired[] = [...t.global.map((i) => ({ label: i.name, to: { service: "dynamodb", kind: "tables", name: table }, note: `The global secondary index ${i.name}` }))];
+  const wired: Wired[] = [...t.global.map((i) => ({ label: i.name, to: { service: "dynamodb", kind: "tables", name: i.name }, note: `The global secondary index ${i.name}` }))];
   const shown = { ...d, name: table, sentence: over ? d.sentence : null, wired: over ? wired : [], deep: [] };
   const refresh = () => {
     void detail.refetch();
@@ -81,8 +81,9 @@ export function TablePage({ name, search }: OwnProps) {
           { label: "Delete table", onSelect: () => setDeleting(true) },
           { label: "PartiQL editor", onSelect: () => toList({ do: "partiql" }) },
         ]}
+        sentenceBold={[/\d[\d,]*(?= items?\.)/]}
         wiredSelf={0}
-        wiredText={(w) => `${w.label} index`}
+        wiredText={(w) => `${w.to.name} index`}
         wiredHref={() => `/resources/dynamodb/tables/${encodeURIComponent(table)}?tab=indexes`}
         refresh={<RefreshControl updatedAt={detail.dataUpdatedAt} fetching={detail.isFetching} onRefresh={refresh} interval={false} />}
         tabs={[
@@ -93,7 +94,7 @@ export function TablePage({ name, search }: OwnProps) {
           { id: "settings", label: "Additional settings", render: () => <SettingsTab t={t} go={here} /> },
         ]}
       />
-      {deleting && <TableDelete name={table} open onOpenChange={(o) => !o && setDeleting(false)} onDone={(items) => toList({ dialog: "deleted", name: table, ...(items !== null ? { sel: String(items) } : {}) })} />}
+      {deleting && <TableDelete name={table} open onOpenChange={(o) => !o && setDeleting(false)} onDone={(items) => toList({ dialog: "deleted", name: table, ...(items !== null ? { sel: `n${items}` } : {}) })} />}
     </>
   );
 }

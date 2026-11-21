@@ -60,6 +60,8 @@ export function TablesList({ search }: OwnProps) {
   const one = selected.size === 1 ? [...selected][0] : undefined;
   const made = search.dialog === "created" && search.name ? rows.find((r) => r.name === search.name) : undefined;
   const gone = search.dialog === "deleted" && search.name ? search.name : undefined;
+  // The count of the items that went with it, written `n318` (the router reads a bare number as a number and drops it from a text member).
+  const wentWith = search.sel?.startsWith("n") ? Number(search.sel.slice(1)) : null;
   const create = (
     <Button onClick={() => go({ do: "create" })} data-testid="create-open">
       <PlusIcon /> Create table
@@ -90,7 +92,7 @@ export function TablesList({ search }: OwnProps) {
         }
       />
       {made && <ResultBanner className="mb-6" title={`${made.name} was created and is ${made.status.charAt(0) + made.status.slice(1).toLowerCase()}.`} returned="On AWS a new table is Creating for a while; here it is ready at once." onDismiss={() => go({})} testId="created-banner" />}
-      {gone && <ResultBanner className="mb-6" title={`${gone}${search.sel ? ` and its ${search.sel} ${search.sel === "1" ? "item" : "items"}` : ""} ${search.sel ? "are" : "is"} gone.`} returned="On AWS the table stays in the list as Deleting for a while; here it is removed at once." onDismiss={() => go({})} testId="deleted-banner" />}
+      {gone && <ResultBanner className="mb-6" title={`${gone}${wentWith !== null ? ` and its ${wentWith} ${wentWith === 1 ? "item" : "items"}` : ""} ${wentWith !== null ? "are" : "is"} gone.`} returned="On AWS the table stays in the list as Deleting for a while; here it is removed at once." onDismiss={() => go({})} testId="deleted-banner" />}
       {list.isError && !first ? (
         <ErrorBlock what="The tables could not be listed" error={list.error} hint={HINT} onRetry={() => void list.refetch()} retrying={list.isFetching} testId="list-error" />
       ) : !first ? (
@@ -122,7 +124,7 @@ export function TablesList({ search }: OwnProps) {
           <Pagination shown={rows.length} total={rows.length} more={list.hasNextPage} onMore={() => void list.fetchNextPage()} loading={list.isFetchingNextPage} noun={rows.length === 1 ? "table" : "tables"} className="mt-3" />
         </>
       )}
-      {deleting && <TableDelete name={deleting} open onOpenChange={(o) => !o && setDeleting(null)} onDone={(items) => (setDeleting(null), setSelected(new Set()), go({ dialog: "deleted", name: deleting, ...(items !== null ? { sel: String(items) } : {}) }))} />}
+      {deleting && <TableDelete name={deleting} open onOpenChange={(o) => !o && setDeleting(null)} onDone={(items) => (setDeleting(null), setSelected(new Set()), go({ dialog: "deleted", name: deleting, ...(items !== null ? { sel: `n${items}` } : {}) }))} />}
     </div>
   );
 }

@@ -98,3 +98,22 @@ export function itemOf(rows: readonly AttrRow[]): { item: Item } | { error: stri
   }
   return { item };
 }
+
+/** An item's key as an address member. The router reads a value that looks like JSON as JSON and drops it from a text member, so the key
+ * is written in base64 (URL-safe, no padding). */
+export function keyParam(key: Item): string {
+  const bytes = new TextEncoder().encode(JSON.stringify(key));
+  return btoa(String.fromCharCode(...bytes)).replaceAll("+", "-").replaceAll("/", "_").replaceAll("=", "");
+}
+
+/** The key an address names, or null when it is not one. */
+export function paramKey(text: string | undefined): Item | null {
+  if (!text) return null;
+  try {
+    const bin = atob(text.replaceAll("-", "+").replaceAll("_", "/"));
+    const v: unknown = JSON.parse(new TextDecoder().decode(Uint8Array.from(bin, (c) => c.charCodeAt(0))));
+    return typeof v === "object" && v !== null && !Array.isArray(v) ? (v as Item) : null;
+  } catch {
+    return null;
+  }
+}

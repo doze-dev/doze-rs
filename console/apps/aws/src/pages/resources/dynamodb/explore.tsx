@@ -17,6 +17,7 @@ import { useOp, useOpQuery } from "../deep/api";
 import type { OwnProps } from "../deep/registry";
 import { Card, Refused } from "../deep/parts";
 import { ExploreForm } from "./explore-form";
+import { keyParam } from "./item-rows";
 import { type Item, type KeyPart, cell, keyOf } from "./json";
 import { TYPE_WORDS } from "./model";
 import { Ask, crumbs, Said, tableTarget, useTable, useTableNav } from "./parts";
@@ -137,7 +138,7 @@ export function Explore({ name, search }: OwnProps) {
                 </Button>
                 {rows.length > 0 && (
                   <>
-                    <Button variant="outline" className="bg-card" disabled={!chosen} onClick={() => chosen && go({ do: "item-edit", key: JSON.stringify(keyOf(chosen, base.keys)) })} data-testid="item-edit">
+                    <Button variant="outline" className="bg-card" disabled={!chosen} onClick={() => chosen && go({ do: "item-edit", key: keyParam(keyOf(chosen, base.keys)) })} data-testid="item-edit">
                       <PencilIcon /> Edit item
                     </Button>
                     <Button variant="outline" className="border-bad/40 bg-card text-bad hover:text-bad" disabled={!chosen} onClick={() => setDeleting(true)} data-testid="item-delete">
