@@ -19,7 +19,7 @@ const COLUMNS: DataColumn<Tag>[] = [
 
 /** A resource's tags as a tab: what there are (or that there are none, and what to do), and the edit in place. Presentational:
  * the data and the save are given, so every state can be drawn without a server. {@link TagsTab} is it with the data. */
-export function TagsView({ answer, saving = false, error, saved, onSave, noun = "tag", subject, explain, emptyAction, loading = false, loadError, onRetry }: { answer: TagsAnswer | undefined; saving?: boolean; /** The service's refusal of the save. */ error?: unknown; /** What the last save did, said: shown until the next edit. */ saved?: string | null; onSave: (change: TagsChange) => Promise<unknown> | void; /** `cost allocation tag`. */ noun?: string; /** The resource's name, for the sentence when there are none (`email-outbox has no tags.`). */ subject?: string; /** What a tag is for, said when there are none. */ explain?: React.ReactNode; /** The way on from nothing, when it is not the inline Add (the board sends a queue to its Edit page). */ emptyAction?: React.ReactNode; loading?: boolean; loadError?: unknown; onRetry?: () => void }) {
+export function TagsView({ answer, saving = false, error, saved, onSave, noun = "tag", countNoun, note, subject, explain, emptyAction, loading = false, loadError, onRetry }: { answer: TagsAnswer | undefined; saving?: boolean; /** The service's refusal of the save. */ error?: unknown; /** What the last save did, said: shown until the next edit. */ saved?: string | null; onSave: (change: TagsChange) => Promise<unknown> | void; /** `cost allocation tag`. */ noun?: string; /** What the count of tags calls them, when it is not `noun` (`3 cost allocation tags` over an empty state that says `No tags`). */ countNoun?: string; /** Under the table, when there are tags. */ note?: React.ReactNode; /** The resource's name, for the sentence when there are none (`email-outbox has no tags.`). */ subject?: string; /** What a tag is for, said when there are none. */ explain?: React.ReactNode; /** The way on from nothing, when it is not the inline Add (the board sends a queue to its Edit page). */ emptyAction?: React.ReactNode; loading?: boolean; loadError?: unknown; onRetry?: () => void }) {
   const [rows, setRows] = useState<KeyValueRow[] | null>(null);
   const [tried, setTried] = useState(false);
   if (loadError && !answer) return <ErrorBlock what="The tags could not be read" error={loadError} onRetry={onRetry} className="w-full" testId="tags-error" />;
@@ -75,7 +75,7 @@ export function TagsView({ answer, saving = false, error, saved, onSave, noun = 
         <>
           <div className="flex flex-wrap items-center justify-between gap-3">
             <p className="text-[13.5px] text-muted-foreground" data-testid="tags-count">
-              {tagWords(tags.length, noun)}
+              {tagWords(tags.length, countNoun ?? noun)}
               {!answer.editable && " The console reads these but cannot change them."}
             </p>
             {answer.editable && (
@@ -85,6 +85,7 @@ export function TagsView({ answer, saving = false, error, saved, onSave, noun = 
             )}
           </div>
           <DataTable aria-label="Tags" data={tags} columns={COLUMNS} rowId={(t) => t.key} maxHeight={420} />
+          {note && <p className="text-[13px] leading-5 text-muted-foreground" data-testid="tags-note">{note}</p>}
         </>
       )}
     </div>
@@ -92,11 +93,11 @@ export function TagsView({ answer, saving = false, error, saved, onSave, noun = 
 }
 
 /** {@link TagsView} with a resource's tags read and saved through the console (contract §3). */
-export function TagsTab({ target, noun, explain, emptyAction }: { target: Target; noun?: string; explain?: React.ReactNode; emptyAction?: React.ReactNode }) {
+export function TagsTab({ target, noun, countNoun, note, explain, emptyAction }: { target: Target; noun?: string; countNoun?: string; note?: React.ReactNode; explain?: React.ReactNode; emptyAction?: React.ReactNode }) {
   const q = useTags(target);
   const set = useSetTags(target);
   const [saved, setSaved] = useState<string | null>(null);
-  return <TagsView answer={q.data} loading={q.isPending && !q.isError} loadError={q.error} onRetry={() => void q.refetch()} saving={set.isPending} error={set.error} saved={saved} noun={noun} subject={target.name} explain={explain} emptyAction={emptyAction} onSave={async (c) => {
+  return <TagsView answer={q.data} loading={q.isPending && !q.isError} loadError={q.error} onRetry={() => void q.refetch()} saving={set.isPending} error={set.error} saved={saved} noun={noun} countNoun={countNoun} note={note} subject={target.name} explain={explain} emptyAction={emptyAction} onSave={async (c) => {
       const a = await set.mutateAsync(c);
       setSaved(`The resource now has ${tagWords(a.tags.length, noun ?? "tag")}.`);
     }} />;

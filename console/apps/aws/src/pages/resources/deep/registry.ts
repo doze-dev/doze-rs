@@ -41,4 +41,19 @@ export function registerGone(service: string, kind: string, gone: Gone): void {
   GONE[`${service}/${kind}`] = gone;
 }
 
+/** A kind that draws its own pages: its list (and the create page that opens from it) and its resource's page, in place of the
+ * generic ones. What a kind registers here it owns completely; the others keep the generic pages. */
+export type KindPages = {
+  list?: LazyExoticComponent<(p: { service: string; kind: string }) => ReactNode>;
+  detail?: LazyExoticComponent<(p: { service: string; kind: string; name: string }) => ReactNode>;
+};
+const KINDS = new Map<string, KindPages>();
+
+/** Registers the pages of one kind (`sqs`, `queues`). */
+export function registerKind(service: string, kind: string, pages: KindPages): void {
+  KINDS.set(`${service}/${kind}`, pages);
+}
+
+export const kindPagesOf = (service: string, kind: string): KindPages | undefined => KINDS.get(`${service}/${kind}`);
+
 export const pageOf = (service: string, id: string): TabPage | undefined => PAGES.get(`${service}/${id}`);

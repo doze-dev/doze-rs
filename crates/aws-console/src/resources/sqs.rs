@@ -369,7 +369,8 @@ pub(super) static SQS: Descriptor = Descriptor {
             default: "",
             apply: Apply::Member("QueueNamePrefix"),
         }],
-        ops: &[ops::free("CreateQueue")],
+        // CreateQueue with every attribute; KMS's aliases for the encryption key field.
+        ops: &[ops::free("CreateQueue"), ops::free("ListAliases").of("kms")],
         tags: Some(Tags::new(
             Step::new("ListQueueTags", QUEUE),
             "Tags",

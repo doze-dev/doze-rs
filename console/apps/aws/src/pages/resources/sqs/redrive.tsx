@@ -1,126 +1,94 @@
-// A dead-letter queue's redrive: move its messages back to the queues they came from, or to another queue
-// (StartMessageMoveTask), and the moves of the last two weeks (ListMessageMoveTasks), a running one cancelled
-// (CancelMessageMoveTask). Shown on a queue that some queue uses as its dead-letter queue.
-import { RefreshCwIcon, Undo2Icon } from "lucide-react";
+// Start DLQ redrive (sqs__dlq-redrive): where the messages go and how fast, with the call it will make; the task it starts is shown
+// on the queue's Dead-letter queue tab (./redrive-status.tsx).
 import { useState } from "react";
-import { toast } from "sonner";
 import { Alert } from "@doze/ui/components/app/alert";
-import { type DataColumn, DataTable } from "@doze/ui/components/app/data-table";
-import { Button } from "@doze/ui/components/ui/button";
+import { Combobox } from "@doze/ui/components/app/combobox";
 import { Input } from "@doze/ui/components/ui/input";
 import { Label } from "@doze/ui/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@doze/ui/components/ui/radio-group";
-import { dateTimeUtc, number } from "@doze/ui/lib/format";
-import { cn } from "@doze/ui/lib/utils";
-import { useOp, useOpQuery } from "../deep/api";
-import type { DeepProps } from "../deep/registry";
-import { Card, Made, Refused } from "../deep/parts";
-import { failedNote, type MoveTask } from "./redrive-note";
-import { fieldOf } from "./messages";
+import { ApiFailure } from "@doze/ui/lib/api";
+import { useAbout } from "../../../api/queries";
+import { useResourceList } from "../../../api/resources";
+import { Field, FormPage, FormSection, RuleHelp } from "../../../kit";
+import { useOp } from "../deep/api";
+import { Link } from "@tanstack/react-router";
+import { MAX_RATE, startInput, startProblem } from "./redrive-form";
+import type { SubProps } from "./sub-pages";
 
-type Task = MoveTask;
-
-const tail = (arn?: string) => (arn ? arn.slice(arn.lastIndexOf(":") + 1) : "");
-
-const TONE: Record<string, string> = { RUNNING: "text-cool", COMPLETED: "text-good", CANCELLING: "text-warn", CANCELLED: "text-muted-foreground", FAILED: "text-bad" };
-
-export function QueueRedrive({ d }: DeepProps) {
+export function SqsRedrive({ d, q, back, done }: SubProps) {
   const t = { service: d.service, kind: d.kind, name: d.name };
+  const about = useAbout().data;
+  const [where, setWhere] = useState<"source" | "custom">("source");
+  const [dest, setDest] = useState<string | null>(null);
+  const [rate, setRate] = useState<"system" | "custom">("system");
+  const [per, setPer] = useState("");
+  const start = useOp<{ TaskHandle?: string }>(t, "StartMessageMoveTask");
+  const list = useResourceList("sqs", "queues");
   const sources = d.subs.find((s) => s.title.includes("dead-letter queue"))?.rows.map((r) => r.name) ?? [];
-  const [to, setTo] = useState<"source" | "custom">("source");
-  const [queue, setQueue] = useState("");
-  const [rate, setRate] = useState("");
-  const tasks = useOpQuery<{ Results?: Task[] }>(t, "ListMessageMoveTasks", { MaxResults: 10 }, ["tasks"]);
-  const start = useOp<{ TaskHandle: string }>(t, "StartMessageMoveTask");
-  const cancel = useOp(t, "CancelMessageMoveTask");
-  const arn = fieldOf(d, "ARN") ?? "";
-  const arnOf = (q: string) => `${arn.slice(0, arn.lastIndexOf(":") + 1)}${q}`;
-  const wrong = to === "custom" && !queue.trim() ? "Name the queue to move the messages to." : rate.trim() && !(Number.isInteger(Number(rate)) && Number(rate) >= 1 && Number(rate) <= 500) ? "Messages per second: a whole number from 1 to 500." : null;
-  const submit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (wrong || start.isPending) return;
-    const input: Record<string, unknown> = {};
-    if (to === "custom") input.DestinationArn = arnOf(queue.trim());
-    if (rate.trim()) input.MaxNumberOfMessagesPerSecond = Number(rate);
-    start.mutate(input, { onSuccess: () => toast.success("Redrive started", { description: "Refresh the moves to follow it." }) });
-  };
-  const failed = failedNote(tasks.data?.Results?.[0]);
-  const columns: DataColumn<Task>[] = [
-    { id: "status", header: "Status", size: 140, accessorKey: "Status", cell: (c) => <span className={cn("font-medium", TONE[c.row.original.Status])}>{c.row.original.Status.toLowerCase()}</span> },
-    { id: "started", header: "Started (UTC)", size: 190, min: 160, accessorFn: (r) => r.StartedTimestamp ?? 0, cell: (c) => (c.row.original.StartedTimestamp ? dateTimeUtc(c.row.original.StartedTimestamp) : "–") },
-    { id: "to", header: "To", accessorFn: (r) => tail(r.DestinationArn), meta: { mono: true }, cell: (c) => tail(c.row.original.DestinationArn) || <span className="text-muted-foreground">their source queues</span> },
-    { id: "moved", header: "Moved", size: 150, min: 110, meta: { numeric: true }, accessorFn: (r) => r.ApproximateNumberOfMessagesMoved ?? 0, cell: (c) => `${number(c.row.original.ApproximateNumberOfMessagesMoved ?? 0)} of ${number(c.row.original.ApproximateNumberOfMessagesToMove ?? 0)}` },
-    { id: "why", header: "Failure", size: 220, min: 110, accessorFn: (r) => r.FailureReason ?? "", cell: (c) => c.row.original.FailureReason ?? "–" },
-    {
-      id: "act",
-      header: "",
-      size: 110,
-      enableSorting: false,
-      cell: (c) =>
-        c.row.original.Status === "RUNNING" && c.row.original.TaskHandle ? (
-          <Button variant="outline" size="sm" className="bg-card" disabled={cancel.isPending} onClick={() => cancel.mutate({ TaskHandle: c.row.original.TaskHandle }, { onSuccess: () => toast.success("Cancelling the redrive") })} data-testid="cancel-move">
-            Cancel
-          </Button>
-        ) : null,
-    },
-  ];
+  const peers = (list.data?.pages.flatMap((p) => p.rows) ?? []).filter((r) => r.name !== d.name && (r.cells[0] === "FIFO") === q.fifo);
+  const arn = (n: string) => `arn:aws:sqs:${about?.region ?? "us-east-1"}:${about?.account ?? "000000000000"}:${n}`;
+  const form = { where, dest, rate, per };
+  const problem = startProblem(form);
+  const input = startInput(q.arn, form);
+  const e = start.error;
+  const refused = e instanceof ApiFailure ? { code: e.code, message: e.message } : e ? { code: "Error", message: (e as Error).message } : null;
   return (
-    <div className="grid gap-6">
-      <Card title="Start a redrive" lede={<>Messages in <span className="font-mono">{d.name}</span> move out at once, oldest first. Queues that use it as their dead-letter queue: <span className="font-mono">{sources.join(", ")}</span>.</>} testId="redrive-card">
-        <form onSubmit={submit} className="grid max-w-[720px] gap-5">
-          <RadioGroup value={to} onValueChange={(v) => setTo(v as "source" | "custom")} className="grid gap-3">
-            <div className="flex items-start gap-3">
-              <RadioGroupItem value="source" id="to-source" className="mt-0.5" />
-              <Label htmlFor="to-source" className="grid gap-0.5 leading-5 font-normal">
-                <span className="font-medium">Back to their source queues</span>
-                <span className="text-[12.5px] leading-[18px] text-muted-foreground">Each message returns to the queue it was dead-lettered from. A message sent straight to this queue has none, and the move fails.</span>
-              </Label>
-            </div>
-            <div className="flex items-start gap-3">
-              <RadioGroupItem value="custom" id="to-custom" className="mt-0.5" />
-              <Label htmlFor="to-custom" className="grid gap-0.5 leading-5 font-normal">
-                <span className="font-medium">To another queue</span>
-                <span className="text-[12.5px] leading-[18px] text-muted-foreground">A queue of this account and region.</span>
-              </Label>
-            </div>
-          </RadioGroup>
-          {to === "custom" && <Input aria-label="Destination queue" value={queue} onChange={(e) => setQueue(e.target.value)} placeholder={`e.g. ${sources[0] ?? "orders"}`} className="max-w-sm bg-card font-mono text-[13px]" data-testid="redrive-queue" />}
-          <div className="grid max-w-56 gap-1.5">
-            <Label htmlFor="redrive-rate">
-              Messages per second<span className="ml-1.5 font-normal text-muted-foreground">optional</span>
+    <FormPage
+      title="Start DLQ redrive"
+      sub={`Move the messages out of ${q.name}. SQS starts a task that receives them from this queue and sends them on.`}
+      crumbs={[{ label: "Resources", to: "/resources" }, { label: d.group, to: "/resources" }, { label: d.service_title, to: `/resources/${d.service}` }, { label: d.name, to: `/resources/${d.service}/${d.kind}/${encodeURIComponent(d.name)}` }]}
+      mono
+      request={{ service: "sqs", operation: "StartMessageMoveTask", input }}
+      refusal={refused}
+      callNote={<>{where === "source" ? "No DestinationArn, so each message returns to its original source queue." : "A DestinationArn, so every message goes there."} {rate === "system" ? "No rate, so it moves at the system's pace (doze-aws moves 500 a second)." : `At most ${per || "?"} messages a second.`}</>}
+      banner={refused ? <Alert tone="bad" title="The redrive was not started." testId="redrive-refused">{refused.code}: {refused.message}</Alert> : undefined}
+      submitLabel="Redrive messages"
+      pending={start.isPending}
+      disabled={problem !== null}
+      disabledWhy={problem}
+      onCancel={back}
+      onSubmit={() => start.mutate(input, { onSuccess: () => done("redrive-started") })}
+      testId="redrive-form"
+    >
+      <FormSection title="Redrive configuration" description="From ListDeadLetterSourceQueues.">
+        <RadioGroup value={where} onValueChange={(v) => setWhere(v as "source" | "custom")} className="grid gap-2" aria-label="Message destination">
+          {[["source", "Redrive to source queue(s)", "Each message goes back to the queue it came from."], ["custom", "Redrive to custom destination", "Enter the ARN of another queue of the same type."]].map(([v, title, text]) => (
+            <Label key={v} htmlFor={`where-${v}`} className="flex cursor-pointer items-start gap-3 rounded-xl border bg-card p-3.5 font-normal leading-5 has-[[data-state=checked]]:border-primary has-[[data-state=checked]]:bg-pick/40">
+              <RadioGroupItem id={`where-${v}`} value={v!} className="mt-0.5" data-testid={`where-${v}`} />
+              <span className="grid gap-0.5"><span className="font-medium text-bright">{title}</span><span className="text-[13px] text-muted-foreground">{text}</span></span>
             </Label>
-            <Input id="redrive-rate" inputMode="numeric" value={rate} onChange={(e) => setRate(e.target.value)} placeholder="e.g. 50" className="bg-card font-mono text-[13px]" />
-            <p className="text-[12.5px] text-muted-foreground">1 to 500. Default: as fast as the destination takes them.</p>
-          </div>
-          {wrong && (queue || rate) ? <p className="text-[13px] text-bad">{wrong}</p> : null}
-          <Refused operation="StartMessageMoveTask" error={start.error} testId="redrive-error" />
-          <div className="flex items-center justify-between gap-3 border-t pt-5">
-            <Made ops={["StartMessageMoveTask"]} />
-            <Button type="submit" disabled={!!wrong || start.isPending} data-testid="redrive-start">
-              <Undo2Icon /> {start.isPending ? "Starting…" : "Start redrive"}
-            </Button>
-          </div>
-        </form>
-      </Card>
-      <Card
-        title="Moves"
-        lede={<>The redrives of the last 14 days, newest first, read with <span className="font-mono">ListMessageMoveTasks</span> when this page opened or when refreshed.</>}
-        actions={
-          <Button variant="outline" size="sm" className="bg-card" onClick={() => void tasks.refetch()} disabled={tasks.isFetching} data-testid="moves-refresh">
-            <RefreshCwIcon className={cn(tasks.isFetching && "animate-spin")} /> Refresh
-          </Button>
-        }
-        testId="moves-card"
-      >
-        <Refused operation="ListMessageMoveTasks" error={tasks.error} />
-        {failed ? (
-          <Alert tone="bad" title={failed.title} testId="move-failed">
-            {failed.body}
-          </Alert>
-        ) : null}
-        <Refused operation="CancelMessageMoveTask" error={cancel.error} />
-        <DataTable aria-label="Moves" data={tasks.data?.Results ?? []} columns={columns} rowId={(r) => r.TaskHandle ?? `${r.StartedTimestamp}`} maxHeight={360} empty={tasks.isPending ? "Reading…" : "No redrive of this queue in the last 14 days."} />
-      </Card>
-    </div>
+          ))}
+        </RadioGroup>
+        {where === "custom" && (
+          <Field label="Destination queue" hint="Choose a queue, or enter the ARN of one that isn't listed. It must be the same type as this queue." testId="field-destination">
+            {(id) => <Combobox id={id} options={peers.map((r) => ({ value: arn(r.name), label: r.label }))} value={dest} onChange={setDest} placeholder="Choose a queue" search="Search queues, or enter an ARN…" empty="No queue matches." className="w-full font-mono" pattern aria-label="Destination queue" />}
+          </Field>
+        )}
+        <p className="text-[13.5px] text-muted-foreground" data-testid="redrive-sources">
+          Source queues{" "}
+          {sources.length > 0 ? sources.map((s, i) => <span key={s}>{i > 0 && ", "}<Link to="/resources/$service/$kind/$name" params={{ service: "sqs", kind: "queues", name: s }} className="font-mono text-link hover:underline">{s}</Link></span>) : "none"}
+          . A message sent straight to this queue has no source queue to return to, and the task fails. Choose a custom destination for those; it must be the same type as this queue.
+        </p>
+      </FormSection>
+      <FormSection title="Velocity control settings">
+        <RadioGroup value={rate} onValueChange={(v) => setRate(v as "system" | "custom")} className="grid gap-2" aria-label="Velocity">
+          {[["system", "System optimized", "Redrive at the maximum number of messages per second. AWS tunes the rate to the backlog; doze-aws moves 500 a second."], ["custom", "Custom max velocity", `Redrive at a rate you set. The most allowed is ${MAX_RATE} messages per second.`]].map(([v, title, text]) => (
+            <Label key={v} htmlFor={`rate-${v}`} className="flex cursor-pointer items-start gap-3 rounded-xl border bg-card p-3.5 font-normal leading-5 has-[[data-state=checked]]:border-primary has-[[data-state=checked]]:bg-pick/40">
+              <RadioGroupItem id={`rate-${v}`} value={v!} className="mt-0.5" data-testid={`rate-${v}`} />
+              <span className="grid gap-0.5"><span className="font-medium text-bright">{title}</span><span className="text-[13px] text-muted-foreground">{text}</span></span>
+            </Label>
+          ))}
+        </RadioGroup>
+        {rate === "custom" && (
+          <Field label="Custom max velocity" help="Start with a small value, check that the queue receiving the messages is not overwhelmed, then raise it gradually. Used only with Custom max velocity." testId="field-velocity">
+            {(id) => (
+              <div className="flex items-center gap-2"><Input id={id} value={per} onChange={(ev) => setPer(ev.target.value)} inputMode="numeric" className="w-32 font-mono" autoComplete="off" data-testid="redrive-rate" /><span className="text-[13.5px] text-muted-foreground">messages per second</span></div>
+            )}
+          </Field>
+        )}
+        <RuleHelp><b>Before you start.</b> You can't filter or change messages while redriving. Only one task can run on a queue at a time, and what a task has moved stays moved if you cancel it.</RuleHelp>
+        <RuleHelp>On AWS the caller needs sqs:StartMessageMoveTask, sqs:ReceiveMessage, sqs:DeleteMessage and sqs:GetQueueAttributes on the dead-letter queue, and sqs:SendMessage on the destination queue. doze-aws consults IAM according to its mode: soft (the default) records a missing permission and enforce refuses.</RuleHelp>
+      </FormSection>
+    </FormPage>
   );
 }

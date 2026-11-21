@@ -26,7 +26,7 @@ export function PageHeader({ title, sub, crumbs = [], actions, refresh, mono = f
           <nav aria-label="Breadcrumb" className="min-w-0">
             <ol className="flex flex-wrap items-center gap-2 text-[13px] text-muted-foreground">
               {crumbs.map((c, i) => (
-                <Fragment key={c.to}>
+                <Fragment key={`${i}-${c.to}`}>
                   {i > 0 && <ChevronRightIcon aria-hidden className="size-3.5 text-input" />}
                   <li>
                     <Link to={c.to} className="rounded-sm hover:text-link focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none">

@@ -15,8 +15,9 @@ const enc = encodeURIComponent;
 export const RESOURCE_PATHS = {
   index: "/api/v1/resources",
   catalogue: "/api/v1/resources?counts=no",
-  list: (service: string, kind: string, token?: string, all = false) => {
-    const q = [token ? `token=${enc(token)}` : "", all ? "all=yes" : ""].filter(Boolean).join("&");
+  list: (service: string, kind: string, token?: string, all = false, params: Record<string, string> = {}) => {
+    const p = Object.entries(params).filter(([, v]) => v !== "").map(([k, v]) => `p.${enc(k)}=${enc(v)}`);
+    const q = [token ? `token=${enc(token)}` : "", all ? "all=yes" : "", ...p].filter(Boolean).join("&");
     return `/api/v1/resources/${enc(service)}/${enc(kind)}${q ? `?${q}` : ""}`;
   },
   one: (service: string, kind: string, name: string) => `/api/v1/resources/${enc(service)}/${enc(kind)}/${enc(name)}`,
@@ -34,18 +35,18 @@ export function useCatalogue() {
 
 /** A kind's pages: the first when opened, the next when asked for (`fetchNextPage`), each by the token the one before gave.
  * `all`: with the rows the kind sets aside (AWS managed keys). */
-export function useResourceList(service: string, kind: string, all = false) {
+export function useResourceList(service: string, kind: string, all = false, params: Record<string, string> = {}) {
   return useInfiniteQuery({
-    queryKey: ["resources", "list", service, kind, all],
-    queryFn: ({ signal, pageParam }) => client.api<ResourceList>(RESOURCE_PATHS.list(service, kind, pageParam || undefined, all), {}, signal),
+    queryKey: ["resources", "list", service, kind, all, params],
+    queryFn: ({ signal, pageParam }) => client.api<ResourceList>(RESOURCE_PATHS.list(service, kind, pageParam || undefined, all, params), {}, signal),
     initialPageParam: "",
     getNextPageParam: (last) => last.next ?? undefined,
     retry: false,
   });
 }
 
-export function useResourceDetail(service: string, kind: string, name: string) {
-  return useQuery({ queryKey: ["resources", "one", service, kind, name], queryFn: ({ signal }) => client.api<ResourceDetail>(RESOURCE_PATHS.one(service, kind, name), {}, signal), retry: false });
+export function useResourceDetail(service: string, kind: string, name: string, enabled = true) {
+  return useQuery({ queryKey: ["resources", "one", service, kind, name], queryFn: ({ signal }) => client.api<ResourceDetail>(RESOURCE_PATHS.one(service, kind, name), {}, signal), retry: false, enabled });
 }
 
 const json = (body: unknown): RequestInit => ({ method: "POST", body: JSON.stringify(body), headers: { "Content-Type": "application/json" } });

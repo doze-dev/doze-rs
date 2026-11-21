@@ -8,7 +8,7 @@ import { confirmed } from "./typed-confirm-state";
 /** A dialog that asks for the resource's name before a change that cannot be undone. The button stays off until the name is
  * typed; the page's own words (what will be detached, what stays) go in `children`, between the description and the field.
  * Controlled; `error` shows a refusal in place (`refusal`), `pending` keeps a second click from making a second call. */
-export function TypedConfirm({ open, onOpenChange, title, description, words, noun = "name", verb, children, refusal, pending = false, onConfirm, testId = "typed-confirm" }: { open: boolean; onOpenChange: (open: boolean) => void; title: string; description?: React.ReactNode; /** What must be typed: the resource's name, or `delete`. */ words: string; /** `role name`: the field says `Enter the role name to confirm`. */ noun?: string; verb: string; children?: React.ReactNode; refusal?: React.ReactNode; pending?: boolean; onConfirm: () => void; testId?: string }) {
+export function TypedConfirm({ open, onOpenChange, title, description, words, noun = "name", prompt, verb, children, refusal, pending = false, onConfirm, testId = "typed-confirm" }: { open: boolean; onOpenChange: (open: boolean) => void; title: string; description?: React.ReactNode; /** What must be typed: the resource's name, or `delete`. */ words: string; /** `role name`: the field says `Enter the role name to confirm`. */ noun?: string; /** The label in full, when the board asks otherwise (`Type delete to confirm`). */ prompt?: React.ReactNode; verb: string; children?: React.ReactNode; refusal?: React.ReactNode; pending?: boolean; onConfirm: () => void; testId?: string }) {
   const [typed, setTyped] = useState("");
   const id = useId();
   const ok = confirmed(typed, words);
@@ -35,7 +35,7 @@ export function TypedConfirm({ open, onOpenChange, title, description, words, no
           }}
         >
           <div className="grid gap-1.5">
-            <Label htmlFor={id}>Enter the {noun} to confirm</Label>
+            <Label htmlFor={id}>{prompt ?? <>Enter the {noun} to confirm</>}</Label>
             <Input id={id} value={typed} onChange={(e) => setTyped(e.target.value)} placeholder={words} autoComplete="off" spellCheck={false} className="font-mono" data-testid={`${testId}-input`} />
           </div>
           <DialogFooter>

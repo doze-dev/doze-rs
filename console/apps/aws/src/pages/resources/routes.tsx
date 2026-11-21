@@ -13,6 +13,7 @@ import { ResourceDetailPage } from "./detail-page";
 import { HINT } from "./index-page";
 import { ResourceListPage } from "./list-page";
 import { resolve } from "./model";
+import { kindPagesOf } from "./deep/registry";
 
 // An execution and a log stream are pages of their own, in a chunk of their own.
 const DeepRoute = lazy(() => import("./deep/routes").then((m) => ({ default: m.DeepRoute })));
@@ -67,7 +68,12 @@ export function SecondPage() {
   const { m, all } = secondRoute.useSearch();
   const r = useResolved(service, second, m);
   if ("page" in r) return r.page;
-  if (r.name === null) return <ResourceListPage key={`${service}/${r.kind}`} service={service} kind={r.kind} all={all === "yes"} />;
+  const own = kindPagesOf(service, r.kind);
+  if (r.name === null) {
+    if (own?.list) return <Suspense fallback={<Skeleton className="h-80 rounded-[14px]" />}><own.list key={`${service}/${r.kind}`} service={service} kind={r.kind} /></Suspense>;
+    return <ResourceListPage key={`${service}/${r.kind}`} service={service} kind={r.kind} all={all === "yes"} />;
+  }
+  if (own?.detail) return <Suspense fallback={<Skeleton className="h-80 rounded-[14px]" />}><own.detail key={`${service}/${r.kind}/${r.name}`} service={service} kind={r.kind} name={r.name} /></Suspense>;
   return <ResourceDetailPage key={`${service}/${r.kind}/${r.name}`} service={service} kind={r.kind} name={r.name} />;
 }
 
@@ -81,5 +87,7 @@ export function OnePage() {
       </Suspense>
     );
   }
+  const own = kindPagesOf(service, kind);
+  if (own?.detail) return <Suspense fallback={<Skeleton className="h-80 rounded-[14px]" />}><own.detail key={`${service}/${kind}/${name}`} service={service} kind={kind} name={name} /></Suspense>;
   return <ResourceDetailPage key={`${service}/${kind}/${name}`} service={service} kind={kind} name={name} tab={tab} />;
 }
