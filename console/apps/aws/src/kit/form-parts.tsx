@@ -32,7 +32,7 @@ export function RuleHelp({ children, className }: { children: React.ReactNode; c
 
 /** A label, the control, the rule (`help`), a hint drawn from what is really there (`hint`: `pick-lists already exists in this
  * Region.`), and the service's refusal of this field. `children` is the control, or a function of its id. */
-export function Field({ label, help, hint, error, refusal, children, className, testId }: { label: string; help?: React.ReactNode; hint?: React.ReactNode; /** A problem the form found itself. */ error?: string; refusal?: { why: React.ReactNode; suggestion?: React.ReactNode } | null; children: React.ReactNode | ((id: string) => React.ReactNode); className?: string; testId?: string }) {
+export function Field({ label, help, hint, error, refusal, children, className, testId }: { label: React.ReactNode; help?: React.ReactNode; hint?: React.ReactNode; /** A problem the form found itself. */ error?: string; refusal?: { why: React.ReactNode; suggestion?: React.ReactNode } | null; children: React.ReactNode | ((id: string) => React.ReactNode); className?: string; testId?: string }) {
   const id = useId();
   const refused = Boolean(refusal) || Boolean(error);
   return (

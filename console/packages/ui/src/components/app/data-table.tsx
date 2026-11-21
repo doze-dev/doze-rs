@@ -26,6 +26,9 @@ export type DataColumn<T> = ColumnDef<T> & {
   /** px: when the box is narrower than the table, a sized column gives up width down to this (never below its header) before
    * the table scrolls in its box; the column that takes the rest keeps at least this. */
   min?: number;
+  /** px: what the header really needs on one line, when the page measured it (a long header that the 9 px a letter estimate counts
+   * wider than it is). Without it the estimate stands: a header is never cut. */
+  fit?: number;
   meta?: { numeric?: boolean; mono?: boolean };
 };
 
@@ -117,7 +120,7 @@ export function DataTable<T>({ data, columns, rowId, empty, maxHeight = 560, cla
   const { widths, minWidth } = columnWidths(
     cols.map((c) => {
       const def = c.columnDef as DataColumn<T>;
-      return { size: def.size, min: def.min, header: headerWidth(c.columnDef.header, c.getCanSort()) };
+      return { size: def.size, min: def.min, header: def.fit ?? headerWidth(c.columnDef.header, c.getCanSort()) };
     }),
     box,
   );

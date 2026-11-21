@@ -1,6 +1,8 @@
 import { Link } from "@tanstack/react-router";
 import { ArrowRightIcon } from "lucide-react";
 import { Fragment } from "react";
+import { Emphasis } from "@doze/ui/components/app/emphasis";
+import { emphasise } from "@doze/ui/lib/emphasis";
 import { Badge } from "@doze/ui/components/ui/badge";
 import { cn } from "@doze/ui/lib/utils";
 import { type BadgeTone, type DetailBadge, type ResourceDetail, resourceHref, type Wired } from "./contract";
@@ -22,50 +24,41 @@ export function DetailBadgeView({ badge }: { badge: DetailBadge }) {
   );
 }
 
-/** `text` cut into the parts that are `name` and the parts that are not, so a sentence can set the resource's name in type. */
+/** `text` cut into the parts that are `name` and the parts that are not, so a sentence can set the resource's name in type. The name is
+ * found whole: `pick-lists` is not found inside `pick-lists-dlq`. */
 export function splitName(text: string, name: string): { text: string; name: boolean }[] {
-  if (!name) return [{ text, name: false }];
-  const out: { text: string; name: boolean }[] = [];
-  let at = 0;
-  for (let i = text.indexOf(name); i >= 0; i = text.indexOf(name, at)) {
-    if (i > at) out.push({ text: text.slice(at, i), name: false });
-    out.push({ text: name, name: true });
-    at = i + name.length;
-  }
-  if (at < text.length) out.push({ text: text.slice(at), name: false });
-  return out;
+  return emphasise(text, { names: [name] }).map((p) => ({ text: p.text, name: p.kind === "name" }));
 }
 
-/** The live sentence under the header, the resource's own name in monospace. */
-export function Sentence({ text, name }: { text: string; name: string }) {
+/** The live sentence under the header: the resource's own name and every name `also` gives (what it is wired to) whole, in
+ * monospace and bold, and the figures `bold` gives (a pattern or a phrase) in bold. */
+export function Sentence({ text, name, also, bold }: { text: string; name: string; also?: readonly string[]; bold?: readonly (string | RegExp)[] }) {
   return (
     <p className="mb-6 max-w-[62rem] text-[15px] leading-6 text-muted-foreground" data-testid="detail-sentence">
-      {splitName(text, name).map((s, i) =>
-        s.name ? (
-          <span key={i} className="font-mono font-semibold text-bright">
-            {s.text}
-          </span>
-        ) : (
-          <Fragment key={i}>{s.text}</Fragment>
-        ),
-      )}
+      <Emphasis text={text} names={[name, ...(also ?? [])]} bold={bold} />
     </p>
   );
 }
 
-/** What the resource is connected to, as a row of links: each says how (`Publishes to`) and what. */
-export function WiredStrip({ wired, className }: { wired: Wired[]; className?: string }) {
+/** What the resource is connected to, as a row of links: each says how (`Publishes to`) and what. With `self` the resource's own name is a
+ * chip of the row too, at position `at` (what comes before it flows in, what comes after flows out). `chipText` gives a chip its own
+ * words (`payment-settled rule, bus larder`) in place of the `label` and name; the label is then on hover. */
+export function WiredStrip({ wired, className, self, chipText }: { wired: Wired[]; className?: string; self?: { name: string; at: number }; chipText?: (w: Wired) => string }) {
   if (wired.length === 0) return null;
+  const chip = (w: Wired) => (
+    <Link to={resourceHref(w.to) as never} title={w.note ?? (chipText ? w.label : undefined)} className="inline-flex min-w-0 max-w-full items-center gap-2 rounded-lg border bg-well px-3 py-1.5 text-[13px] outline-none hover:bg-accent focus-visible:ring-[3px] focus-visible:ring-ring/50" data-testid="wired-link">
+      {chipText ? <span className="truncate font-mono text-bright">{chipText(w)}</span> : (<><span className="text-muted-foreground">{w.label}</span><span className="truncate font-mono text-bright">{w.to.name}</span></>)}
+    </Link>
+  );
+  const items: React.ReactNode[] = wired.map((w) => <Fragment key={`${w.label}|${w.to.service}|${w.to.kind}|${w.to.name}`}>{chip(w)}</Fragment>);
+  if (self) items.splice(Math.min(self.at, items.length), 0, <span key="self" aria-current="page" className="inline-flex items-center rounded-lg border border-primary/40 bg-pick px-3 py-1.5 font-mono text-[13px] text-bright" data-testid="wired-self">{self.name}</span>);
   return (
     <nav aria-label="Wired to" className={cn("mb-8 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-[14px] border bg-card px-5 py-4", className)} data-testid="wired-strip">
       <span className="text-[13.5px] text-muted-foreground">Wired to</span>
-      {wired.map((w, i) => (
-        <Fragment key={`${w.label}|${w.to.service}|${w.to.kind}|${w.to.name}`}>
+      {items.map((it, i) => (
+        <Fragment key={i}>
           {i > 0 && <ArrowRightIcon aria-hidden className="size-3.5 text-input" />}
-          <Link to={resourceHref(w.to) as never} title={w.note ?? undefined} className="inline-flex min-w-0 max-w-full items-center gap-2 rounded-lg border bg-well px-3 py-1.5 text-[13px] outline-none hover:bg-accent focus-visible:ring-[3px] focus-visible:ring-ring/50" data-testid="wired-link">
-            <span className="text-muted-foreground">{w.label}</span>
-            <span className="truncate font-mono text-bright">{w.to.name}</span>
-          </Link>
+          {it}
         </Fragment>
       ))}
     </nav>

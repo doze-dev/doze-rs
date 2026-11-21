@@ -27,7 +27,7 @@ function HeaderCheck({ state, onClick, label }: { state: "none" | "some" | "all"
 /** A DataTable with a checkbox on every row: "N selected" and the bulk actions above it. The selection is the caller's (a set
  * of row ids), so a page can keep it in the address or clear it after a delete. The bar's height is reserved, so choosing a row
  * moves nothing. Clicking a checkbox does not open the row. */
-export function SelectableTable<T>({ data, columns, rowId, selected, onSelectedChange, actions, noun = "row", hint, toolbar, rowClassName, ...table }: Omit<React.ComponentProps<typeof DataTable<T>>, "columns"> & { columns: DataColumn<T>[]; selected: ReadonlySet<string>; onSelectedChange: (next: Set<string>) => void; /** The bulk actions, given the chosen rows (a Delete button). */ actions?: (chosen: T[]) => React.ReactNode; /** `parameter`: names the checkboxes (`Select parameter x`). */ noun?: string; /** What the bar says when nothing is chosen (not when there is a toolbar: that fills the bar). */ hint?: string; /** The list's own controls (a search field, FilterChips) at the left of the bar: the count and the bulk actions come to its right, so the bar is one row. */ toolbar?: React.ReactNode }) {
+export function SelectableTable<T>({ data, columns, rowId, selected, onSelectedChange, actions, noun = "row", hint, toolbar, rowClassName, actionsEnd = false, actionsAlways = false, selectedLabel, ...table }: Omit<React.ComponentProps<typeof DataTable<T>>, "columns"> & { columns: DataColumn<T>[]; selected: ReadonlySet<string>; onSelectedChange: (next: Set<string>) => void; /** The bulk actions, given the chosen rows (a Delete button). */ actions?: (chosen: T[]) => React.ReactNode; /** `parameter`: names the checkboxes (`Select parameter x`). */ noun?: string; /** What the bar says when nothing is chosen (not when there is a toolbar: that fills the bar). */ hint?: string; /** The list's own controls (a search field, FilterChips) at the left of the bar: the count and the bulk actions come to its right, so the bar is one row. */ toolbar?: React.ReactNode; /** The bulk actions are drawn with nothing chosen too (given no rows, so a page can show them off). */ actionsAlways?: boolean; /** The bulk actions at the right end of the bar, across from the count, instead of beside it. */ actionsEnd?: boolean; /** The count's words (`1 selected`) instead of `1 message selected`. */ selectedLabel?: (count: number) => string }) {
   const ids = useMemo(() => data.map(rowId), [data, rowId]);
   const state = allState(selected, ids);
   const chosen = data.filter((r) => selected.has(rowId(r)));
@@ -53,16 +53,19 @@ export function SelectableTable<T>({ data, columns, rowId, selected, onSelectedC
       <div className={cn("flex min-h-9 flex-wrap items-center gap-3 text-[13.5px]", chosen.length === 0 && "text-muted-foreground")} data-testid="selection-bar">
         {toolbar && <div className="flex min-w-0 flex-1 flex-wrap items-center gap-3">{toolbar}</div>}
         {chosen.length === 0 ? (
-          !toolbar && <span>{hint ?? `Choose ${noun}s to act on them together.`}</span>
+          <>
+            {!toolbar && <span>{hint ?? `Choose ${noun}s to act on them together.`}</span>}
+            {actionsAlways && actions && <div className={cn("flex flex-wrap items-center gap-2", actionsEnd && "ml-auto")}>{actions([])}</div>}
+          </>
         ) : (
           <>
             <span className={cn("font-medium text-bright", !toolbar && "mr-1")} data-testid="selected-count">
-              {selectedWords(chosen.length, noun)}
+              {selectedLabel ? selectedLabel(chosen.length) : selectedWords(chosen.length, noun)}
             </span>
             <Button type="button" variant="ghost" size="sm" onClick={() => onSelectedChange(new Set())} data-testid="selection-clear">
               <XIcon /> Clear
             </Button>
-            {actions && <div className="flex flex-wrap items-center gap-2">{actions(chosen)}</div>}
+            {actions && <div className={cn("flex flex-wrap items-center gap-2", actionsEnd && "ml-auto")}>{actions(chosen)}</div>}
           </>
         )}
       </div>

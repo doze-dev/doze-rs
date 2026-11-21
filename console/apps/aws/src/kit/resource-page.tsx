@@ -8,12 +8,12 @@ import { Tabs, TabsList, TabsTrigger } from "@doze/ui/components/ui/tabs";
 import { useUrlParam } from "@doze/ui/hooks/use-url-param";
 import { cn } from "@doze/ui/lib/utils";
 import { Link } from "@tanstack/react-router";
-import type { ResourceDetail, Verb } from "./contract";
+import type { ResourceDetail, Verb, Wired } from "./contract";
 import { DetailBadgeView, DetailFields, Sentence, WiredStrip } from "./resource-parts";
 
 export type ResourceTab = { id: string; label: string; /** Shown after the label (`Graphed metrics 2`). */ count?: number | null; render: () => React.ReactNode };
 /** A verb's state on this page: off, and why (the reason is its tooltip and the words under the row). */
-export type VerbState = { disabled?: string };
+export type VerbState = { disabled?: string; /** Off with the reason on hover only: no line of reasons under the header (the board's greyed button). */ quiet?: boolean };
 
 /** Which tab is shown: the one the address names when it is one of the tabs, else the first. */
 export function currentTab(tabs: readonly { id: string }[], asked: string | undefined): string {
@@ -24,13 +24,13 @@ export function currentTab(tabs: readonly { id: string }[], asked: string | unde
  * sentence, the Wired to strip, whatever `overview` the kind puts above its tabs, then the tabs (kept in the address as `?tab=`).
  * With no tab of its own a kind gets a Details tab of every field, so no resource is a blank page. Only the tab shown is drawn,
  * so a tab's reads are made when it is opened. */
-export function ResourcePage({ detail, meta, banner, overview, tabs = [], tab, onTab, onVerb, verbStates, primary, actions, renderValue, refresh, details = true, testId = "resource-page" }: { detail: ResourceDetail; /** Under the name: `Created Nov 6, 2026 18:42.` */ meta?: React.ReactNode; banner?: React.ReactNode; overview?: React.ReactNode; tabs?: ResourceTab[]; tab?: string; onTab?: (id: string) => void; onVerb?: (verb: Verb) => void; verbStates?: Record<string, VerbState>; /** The verb drawn as the main button. */ primary?: string; /** More items for the Actions menu. */ actions?: { label: string; onSelect: () => void }[]; renderValue?: React.ComponentProps<typeof DetailFields>["renderValue"]; refresh?: React.ReactNode; /** The fallback Details tab (every field the descriptor read) is added unless `false`: a kind whose tabs say it all leaves it out. */ details?: boolean; testId?: string }) {
+export function ResourcePage({ detail, meta, banner, overview, tabs = [], tab, onTab, onVerb, verbStates, primary, actions, renderValue, refresh, details = true, sentenceBold, wiredSelf, wiredText, testId = "resource-page" }: { detail: ResourceDetail; /** Under the name: `Created Nov 6, 2026 18:42.` */ meta?: React.ReactNode; banner?: React.ReactNode; overview?: React.ReactNode; tabs?: ResourceTab[]; tab?: string; onTab?: (id: string) => void; onVerb?: (verb: Verb) => void; verbStates?: Record<string, VerbState>; /** The verb drawn as the main button. */ primary?: string; /** More items for the Actions menu. */ actions?: { label: string; onSelect: () => void }[]; renderValue?: React.ComponentProps<typeof DetailFields>["renderValue"]; refresh?: React.ReactNode; /** The fallback Details tab (every field the descriptor read) is added unless `false`: a kind whose tabs say it all leaves it out. */ details?: boolean; /** Figures of the sentence to set in bold (a pattern: `/\\d+(?= messages)/`); the names it says are set apart already. */ sentenceBold?: readonly (string | RegExp)[]; /** Draw the resource itself in the Wired to strip, after this many of what flows in. */ wiredSelf?: number; /** A chip's own words in the strip. */ wiredText?: (w: Wired) => string; testId?: string }) {
   const [asked, setAsked] = useUrlParam("tab");
   const all: ResourceTab[] = overview || !details || tabs.some((t) => t.id === "details") ? tabs : [{ id: "details", label: "Details", render: () => <DetailFields detail={detail} renderValue={renderValue} /> }, ...tabs];
   const shown = currentTab(all, tab ?? asked);
   const choose = (id: string) => (onTab ? onTab(id) : setAsked(id === all[0]?.id ? undefined : id));
   const verbs = detail.verbs ?? [];
-  const off = verbs.filter((v) => verbStates?.[v.id]?.disabled);
+  const off = verbs.filter((v) => verbStates?.[v.id]?.disabled && !verbStates[v.id]?.quiet);
   return (
     <div data-testid={testId}>
       <PageHeader
@@ -64,8 +64,8 @@ export function ResourcePage({ detail, meta, banner, overview, tabs = [], tab, o
         </ul>
       )}
       {banner && <div className="mb-6">{banner}</div>}
-      {detail.sentence && <Sentence text={detail.sentence} name={detail.name} />}
-      {detail.wired && <WiredStrip wired={detail.wired} />}
+      {detail.sentence && <Sentence text={detail.sentence} name={detail.name} also={detail.wired?.map((w) => w.to.name)} bold={sentenceBold} />}
+      {detail.wired && <WiredStrip wired={detail.wired} self={wiredSelf === undefined ? undefined : { name: detail.name, at: wiredSelf }} chipText={wiredText} />}
       {overview}
       <Tabs value={shown} onValueChange={choose} className={cn("gap-0", overview && "mt-10")}>
         <TabsList variant="line" className="h-11 w-full justify-start gap-2 overflow-x-auto rounded-none border-b p-0" aria-label={`${detail.name}'s pages`}>
