@@ -103,9 +103,10 @@ export function EncryptionTab({ t, edit }: TabProps) {
   const f = (label: string) => key.data?.fields.find((x) => x.label === label)?.value;
   const alias = t.kms?.startsWith("alias/");
   const rows: [string, React.ReactNode][] = [
-    ["Encryption status", t.kms ? "Enabled" : "Disabled"],
+    ["Encryption status", t.kms ? <span key="st" className="inline-flex items-center gap-2 text-link"><span aria-hidden className="size-2 rounded-full bg-current" />Enabled</span> : "Disabled"],
     ...(t.kms ? ([
       [alias ? "Customer managed key" : "KMS key", <span key="k" className="font-mono">{key.data ? <ResourceTo to={{ service: "kms", kind: "keys", name: t.kms }}>{t.kms}</ResourceTo> : t.kms}</span>],
+      ["Account", <span key="ac" className="font-mono">{t.owner ?? "–"}</span>],
       ...(f("ARN") ? ([["Customer managed key ARN", <span key="a" className="font-mono break-all">{f("ARN")}</span>]] as [string, React.ReactNode][]) : []),
       ...(f("Description") ? ([["Description", f("Description")]] as [string, React.ReactNode][]) : []),
     ] as [string, React.ReactNode][]) : []),
@@ -113,6 +114,14 @@ export function EncryptionTab({ t, edit }: TabProps) {
   return (
     <div className="grid gap-4" data-testid="encryption-tab">
       <Block title="Encryption" lede="Server-side encryption with AWS KMS. Read from the topic's KmsMasterKeyId attribute." actions={<EditButton onClick={edit} />}>
+        {t.kms && (
+          <nav aria-label="Wired to" className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-[14px] border bg-card px-5 py-3" data-testid="kms-strip">
+            <span className="inline-flex rounded-lg border border-primary/30 bg-pick px-3 py-1.5 font-mono text-[13px] text-bright">{t.name}</span>
+            <span aria-hidden className="text-input">→</span>
+            <span className="text-[13.5px] text-muted-foreground">KMS key</span>
+            <span className="inline-flex rounded-lg border bg-well px-3 py-1.5 font-mono text-[13px] text-bright">{t.kms}</span>
+          </nav>
+        )}
         <dl className="grid grid-cols-[minmax(11rem,15rem)_minmax(0,1fr)] rounded-[14px] border bg-card px-6 py-2 text-[13.5px] [&>*]:border-b [&>*]:py-3 [&>:nth-last-child(-n+2)]:border-b-0">
           {rows.map(([l, v]) => (<span key={l} className="contents"><dt className="text-muted-foreground">{l}</dt><dd className="text-bright" data-testid={`field-${l}`}>{v}</dd></span>))}
         </dl>
