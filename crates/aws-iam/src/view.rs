@@ -47,6 +47,18 @@ pub(crate) fn entity(e: &Entity, full: bool) -> Value {
     Value::Object(m)
 }
 
+/// An entity as a `List` call shows it: a role also has its `Description`. (The model's `ListRoles` documentation names what
+/// a listing leaves out: `PermissionsBoundary`, `RoleLastUsed` and `Tags`. `Description` is not among them.)
+pub(crate) fn listed(e: &Entity) -> Value {
+    let mut shown = entity(e, false);
+    if let (Some(d), Some(m)) = (&e.description, shown.as_object_mut()) {
+        if e.kind == Kind::Role {
+            m.insert("Description".into(), json!(d));
+        }
+    }
+    shown
+}
+
 /// A managed policy. `full` is a `Get` (which has `Tags`).
 pub(crate) fn policy(p: &Managed, attachments: usize, boundary_uses: usize, full: bool) -> Value {
     let mut m = Map::new();

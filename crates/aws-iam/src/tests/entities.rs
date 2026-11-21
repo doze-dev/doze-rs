@@ -52,6 +52,11 @@ fn a_role_is_made_read_updated_listed_and_deleted() {
             .len(),
         1
     );
+    // A listing carries the description (the model's ListRoles note leaves out only PermissionsBoundary, RoleLastUsed, Tags).
+    assert_eq!(
+        w.ok("ListRoles", &json!({"PathPrefix": "/apps/"}))["Roles"][0]["Description"],
+        "new"
+    );
     assert_eq!(
         w.ok("ListRoles", &json!({"PathPrefix": "/other/"}))["Roles"],
         json!([])
