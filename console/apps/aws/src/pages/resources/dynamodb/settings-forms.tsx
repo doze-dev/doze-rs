@@ -1,12 +1,12 @@
 // The two full-page edits of a table's Additional settings: Edit read/write capacity (dynamodb__capacity-edit, UpdateTable) and Turn on
 // Time to Live (dynamodb__ttl-edit, UpdateTimeToLive). Each shows the call it will make and says what AWS and doze-aws do with it.
 import { useState } from "react";
-import { Alert, ErrorBlock, errorWords } from "@doze/ui/components/app/alert";
+import { Alert, errorWords } from "@doze/ui/components/app/alert";
 import { Callout } from "@doze/ui/components/app/callout";
 import { Input } from "@doze/ui/components/ui/input";
 import { Skeleton } from "@doze/ui/components/ui/skeleton";
 import { ApiFailure } from "@doze/ui/lib/api";
-import { Field, FormPage, FormSection, LocalStatus, type PreviewRequest } from "../../../kit";
+import { DetailError, Field, FormPage, FormSection, LocalStatus, type PreviewRequest } from "../../../kit";
 import { useOp } from "../deep/api";
 import type { OwnProps } from "../deep/registry";
 import { CardChoice } from "./controls";
@@ -24,7 +24,7 @@ export function CapacityEdit({ name }: OwnProps) {
   const [mode, setMode] = useState<"PROVISIONED" | "PAY_PER_REQUEST" | null>(null);
   const [read, setRead] = useState<string | null>(null);
   const [write, setWrite] = useState<string | null>(null);
-  if (isError && !t) return <ErrorBlock what="This table could not be read" error={error} onRetry={() => void refetch()} testId="detail-error" />;
+  if (isError && !t) return <DetailError service="dynamodb" kind="tables" name={table} error={error} onRetry={() => void refetch()} />;
   if (!t) return <Skeleton className="h-80 rounded-[14px]" />;
   const m = mode ?? t.mode;
   const r = read ?? String(t.read ?? 5);

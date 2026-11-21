@@ -3,16 +3,16 @@
 // typed is kept per table, so coming back from an item's page finds the query as it was.
 import { ArrowLeftIcon, ChevronLeftIcon, ChevronRightIcon, PencilIcon, PlusIcon, SearchIcon, Trash2Icon } from "lucide-react";
 import { useMemo, useState } from "react";
-import { ErrorBlock } from "@doze/ui/components/app/alert";
 import type { DataColumn } from "@doze/ui/components/app/data-table";
 import { EmptyTab } from "@doze/ui/components/app/empty-tab";
 import { PageHeader } from "@doze/ui/components/app/page-header";
 import { ResultBanner } from "@doze/ui/components/app/result-banner";
 import { SelectableTable } from "@doze/ui/components/app/selectable-table";
+import { StatusDot } from "@doze/ui/components/app/status-dot";
 import { Button } from "@doze/ui/components/ui/button";
 import { Skeleton } from "@doze/ui/components/ui/skeleton";
 import { number, plural } from "@doze/ui/lib/format";
-import { CallPanel } from "../../../kit";
+import { DetailError, CallPanel } from "../../../kit";
 import { useOp, useOpQuery } from "../deep/api";
 import type { OwnProps } from "../deep/registry";
 import { Card, Refused } from "../deep/parts";
@@ -22,6 +22,7 @@ import { type Item, type KeyPart, cell, keyOf } from "./json";
 import { TYPE_WORDS } from "./model";
 import { Ask, crumbs, Said, tableTarget, useTable, useTableNav } from "./parts";
 import { type Form, request, START, sourcesOf } from "./request";
+import { isStatusColumn, statusTone } from "./status";
 
 const PAGE = 50;
 /** The most attribute columns shown beside the keys; the rest are in an item's JSON. */
@@ -95,9 +96,13 @@ export function Explore({ name, search }: OwnProps) {
     min: 110,
     accessorFn: (r) => cell(r[c.name]),
     meta: { mono: true, numeric: c.numeric },
-    cell: (x) => cell(x.row.original[c.name]) || <span className="text-muted-foreground">–</span>,
+    cell: (x) => {
+      const text = cell(x.row.original[c.name]);
+      const tone = isStatusColumn(c.name) && "S" in (x.row.original[c.name] ?? {}) ? statusTone(text) : null;
+      return tone ? <StatusDot tone={tone} className="font-medium">{text}</StatusDot> : text || <span className="text-muted-foreground">–</span>;
+    },
   }));
-  if (read.isError && !read.table) return <ErrorBlock what="This table could not be read" error={read.error} onRetry={() => void read.refetch()} testId="detail-error" />;
+  if (read.isError && !read.table) return <DetailError service="dynamodb" kind="tables" name={table} error={read.error} onRetry={() => void read.refetch()} />;
   if (!read.table || !base) return <Skeleton className="h-80 rounded-[14px]" />;
   const count = items.data?.Count ?? rows.length;
   const scanned = items.data?.ScannedCount ?? 0;

@@ -8,7 +8,7 @@ import { deadLettered, queueUrl, seedLarder } from "./sqs-seed";
 import { CUT, expect, test } from "./fixtures";
 
 const SHOTS = process.env.SHOTS_DIR ?? join(import.meta.dirname, "../../../../../shots-sqs");
-const BASE = 45240;
+const BASE = Number(process.env.E2E_BASE_PORT ?? 45240);
 const at = (b: string) => BASE + ({ firefox: 10, webkit: 20, chromium: 30 }[b] ?? 40);
 
 test.describe.configure({ mode: "serial" });

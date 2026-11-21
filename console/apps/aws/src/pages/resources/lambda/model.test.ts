@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { aliasProblems, batchMost, destinationProblems, envInput, envProblems, generalChange, generalOf, generalProblems, mappingUpdate, nextVersion, permissionInput, permissionProblems, urlInput } from "./forms";
-import { type Fn, chipWords, policyTrigger, runtimeName, sentenceOf, sourceWords, statementsOf, tailOf, triggersOf, wiredOf } from "./model";
+import { type Fn, chipWords, policyTrigger, runtimeName, sentenceOf, sourceWords, statementsOf, tailOf, triggersOf, urlAuthNote, wiredOf } from "./model";
 import { firstEvent, templatesFor } from "./templates";
 
 const fn: Fn = { name: "send-email", arn: "arn:aws:lambda:us-east-1:1:function:send-email", description: "Send alert", runtime: "python3.13", handler: "lambda_function.lambda_handler", memory: 256, timeout: 30, ephemeral: 512, role: "arn:aws:iam::1:role/lambda-exec", roleName: "lambda-exec", state: "Active", pkg: "Zip", arch: "x86_64", layers: [], env: {}, reserved: null, url: null, urlAuth: null, cors: null, lastModified: "" };
@@ -69,5 +69,17 @@ describe("the forms' rules and what they send", () => {
     expect(templates[0]?.label).toBe("SNS topic alerts");
     expect(firstEvent(templates).text).toContain("arn:aws:sns:us-east-1:1:alerts");
     expect(firstEvent(templatesFor([], { region: "r", account: "a" })).id).toBe("hello");
+  });
+});
+
+describe("what the URL's auth type means here", () => {
+  test("an AWS_IAM URL is not served unsigned: it wants a signature and answers 403 without one", () => {
+    expect(urlAuthNote("AWS_IAM")).toContain("needs a SigV4 signature");
+    expect(urlAuthNote("AWS_IAM")).toContain("403 Forbidden");
+    expect(urlAuthNote("AWS_IAM")).not.toContain("unsigned");
+    expect(urlAuthNote(null)).toBe(urlAuthNote("AWS_IAM"));
+  });
+  test("a NONE URL answers anyone the policy allows", () => {
+    expect(urlAuthNote("NONE")).toContain("resource-based policy");
   });
 });

@@ -16,7 +16,7 @@ import { on, useOp } from "../deep/api";
 import { Card, CodeBlock, pretty, Refused } from "../deep/parts";
 import { notFound } from "./hooks";
 import type { Fn, Trigger } from "./model";
-import { reportOf } from "./report";
+import { reportOf, tidyPaths } from "./report";
 import { firstEvent, templatesFor } from "./templates";
 
 /** The most a page sends: the console takes a request body of at most 1 MiB (Lambda itself takes 6 MB). */
@@ -67,17 +67,17 @@ function Result({ r }: { r: Invoked }) {
       <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_22rem]">
         <div className="grid min-w-0 gap-5">
           <Card title="Response" testId="invoke-response-card">
-            {r.payload ? <CodeBlock text={pretty(r.payload)} testId="invoke-payload" max="max-h-80" /> : <p className="text-[13.5px] text-muted-foreground">The function answered with nothing.</p>}
+            {r.payload ? <CodeBlock text={tidyPaths(pretty(r.payload))} testId="invoke-payload" max="max-h-80" /> : <p className="text-[13.5px] text-muted-foreground">The function answered with nothing.</p>}
             {threw && (
               <p className="mt-4 max-w-[46rem] border-l-2 pl-3.5 text-[13px] leading-5 text-foreground" data-testid="invoke-error-teach">
                 The call itself succeeded: the HTTP status is still {r.status}, and the <span className="font-mono">FunctionError</span> header (<span className="font-mono">X-Amz-Function-Error</span>) says {r.function_error}.
-                {r.payload.includes("/code/") && <span className="text-muted-foreground"> The file path in the trace is where doze-aws unpacked the code on this machine.</span>}
+                {r.payload.includes("/code/") && <span className="text-muted-foreground"> Each file path in the trace starts where doze-aws unpacked the code on this machine; that start is left out here.</span>}
               </p>
             )}
           </Card>
           {r.log !== null && (
             <Card title="Function Logs" testId="invoke-log-card">
-              <CodeBlock text={r.log} testId="invoke-log" max="max-h-80" />
+              <CodeBlock text={tidyPaths(r.log)} testId="invoke-log" max="max-h-80" />
               <p className="mt-3 max-w-[46rem] text-[12.5px] text-muted-foreground">The last 4 KB of the log come back with the response. The REPORT line is the same line CloudWatch Logs keeps. Init Duration appears only on a cold start. Memory Size is the configured value; the function has no memory limit locally.</p>
             </Card>
           )}
@@ -107,26 +107,29 @@ export function TestTab({ d, f, triggers, where }: { d: ResourceDetail; f: Fn; t
   const [picked, setPicked] = useState<string | null>(null);
   const [typed, setTyped] = useState<string | null>(null);
   const [tail] = useState(true);
-  const chosen = picked ?? start.id;
   const event = typed ?? start.text;
   const invoke = useOp<Invoked, { Payload: string; LogType: "Tail" | "None" }>(on.fn(d.name), "Invoke", { keep: true });
   const check = checkJson(event);
   const big = new TextEncoder().encode(event).length > MOST;
-  const own = templates.find((t) => t.id === chosen);
+  // The event starts as the shape of the function's first trigger, but the select says "Choose a template" until one is picked (as the board).
+  const own = templates.find((t) => t.id === (picked ?? start.id));
   const run = (e: React.FormEvent) => {
     e.preventDefault();
     if (!check.ok || big || invoke.isPending) return;
     invoke.mutate({ Payload: event.trim() === "" ? "" : event, LogType: tail ? "Tail" : "None" });
   };
   const refused = invoke.error instanceof ApiFailure && !notFound(invoke.error) ? invoke.error : null;
+  // As the board: once there is an answer the call is no longer news, and the card takes the whole width.
+  const answered = Boolean(invoke.data) || refused !== null;
   const shape = own?.of ? `The event below has the shape the ${own.label.replace(/^\S+ \S+ /, "")} ${KIND_WORDS[own.of] ?? "source"} sends to ${d.name}.` : null;
   return (
     <>
+    <div className={`grid items-start gap-5 ${answered ? "" : "xl:grid-cols-[minmax(0,1fr)_22rem]"}`}>
     <Card title="Test event" lede="Lambda invokes the function synchronously with this event and shows the result below." testId="lambda-test">
       <form onSubmit={run} className="grid gap-5">
         <Field label={<>Template <span className="font-normal text-muted-foreground">Optional</span></>} help={<>An example event to start from.{shape ? ` ${shape}` : ""}</>} testId="field-template">
           {(id) => (
-            <Select value={chosen} onValueChange={(v) => { setPicked(v); const t = templates.find((x) => x.id === v); if (t) setTyped(JSON.stringify(t.event, null, 2)); }}>
+            <Select value={picked ?? ""} onValueChange={(v) => { setPicked(v); const t = templates.find((x) => x.id === v); if (t) setTyped(JSON.stringify(t.event, null, 2)); }}>
               <SelectTrigger id={id} className="w-full max-w-[22rem] bg-card" data-testid="invoke-template"><SelectValue placeholder="Choose a template" /></SelectTrigger>
               <SelectContent>{templates.map((t) => <SelectItem key={t.id} value={t.id}>{t.label}</SelectItem>)}</SelectContent>
             </Select>
@@ -141,12 +144,9 @@ export function TestTab({ d, f, triggers, where }: { d: ResourceDetail; f: Fn; t
         </div>
       </form>
       <div className="mt-4"><Refused error={refused ? null : invoke.error} operation="Invoke" testId="write-error" /></div>
-      {!invoke.data && !refused && (
-        <div className="mt-6">
-          <CallPanel request={{ service: "lambda", operation: "Invoke", input: { FunctionName: d.name, InvocationType: "RequestResponse", LogType: tail ? "Tail" : "None", Payload: "<the event JSON>" } }} showInput note="LogType Tail returns the last 4 KB of the execution log with the response." testId="invoke-call" />
-        </div>
-      )}
     </Card>
+    {!answered && <CallPanel request={{ service: "lambda", operation: "Invoke", input: { FunctionName: d.name, InvocationType: "RequestResponse", LogType: tail ? "Tail" : "None", Payload: "<the event JSON>" } }} showInput note="LogType Tail returns the last 4 KB of the execution log with the response." testId="invoke-call" />}
+    </div>
     {refused && !invoke.isPending && <Throttled error={refused} fn={f} />}
     {invoke.data && !invoke.isPending && <Result r={invoke.data} />}
     </>

@@ -1,6 +1,6 @@
 // A table's Indexes tab (dynamodb__table-indexes, indexes-none, index-created, index-delete): its global secondary indexes with
 // Create and Delete, and its local ones, which are only read (a local index is made with the table and never deleted).
-import { PlusIcon, Trash2Icon } from "lucide-react";
+import { PlusIcon, TableIcon, Trash2Icon } from "lucide-react";
 import { useState } from "react";
 import { type DataColumn, DataTable } from "@doze/ui/components/app/data-table";
 import { EmptyTab } from "@doze/ui/components/app/empty-tab";
@@ -52,7 +52,7 @@ export function IndexesTab({ name, global, local, onCreate, onDeleted }: { name:
   );
   if (global.length === 0 && local.length === 0) {
     return (
-      <EmptyTab title="No global secondary indexes" action={<Button variant="outline" className="bg-card" onClick={onCreate} data-testid="index-create-open"><PlusIcon /> Create index</Button>} testId="indexes-none">
+      <EmptyTab icon={TableIcon} title="No global secondary indexes" action={<Button variant="outline" className="bg-card" onClick={onCreate} data-testid="index-create-open"><PlusIcon /> Create index</Button>} testId="indexes-none">
         {name} is queried by its primary key only. A global secondary index adds another partition key and sort key to query by.
       </EmptyTab>
     );

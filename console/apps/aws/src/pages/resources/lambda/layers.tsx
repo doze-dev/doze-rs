@@ -21,10 +21,9 @@ import { Skeleton } from "@doze/ui/components/ui/skeleton";
 import { bytes as sizeOf } from "@doze/ui/lib/format";
 import { useResourceDetail, useResourceList } from "../../../api/resources";
 import type { ResourceList } from "../../../api/types/ResourceList";
-import { callKindOp, Field, FormPage, FormSection, useKindOp } from "../../../kit";
+import { DetailError, HINT, callKindOp, Field, FieldRefusal, FormPage, FormSection, useKindOp } from "../../../kit";
 import { callOp, useOp } from "../deep/api";
 import { Card, Confirm, Loaded } from "../deep/parts";
-import { HINT } from "../index-page";
 import { ResourceTo, Value } from "../value";
 import { type LayerForm, layerInput, layerProblems } from "./forms";
 import { LAYERS, refusalOf, useLayers, type LayerRow } from "./hooks";
@@ -32,7 +31,7 @@ import { layersSentence, rowsOf } from "./list-model";
 import { RUNTIMES } from "./model";
 import { toBase64 } from "./zip";
 
-const crumbs = [{ label: "Resources", to: "/resources" }, { label: "Compute and flow", to: "/resources" }, { label: "Lambda", to: "/resources/lambda" }];
+const crumbs = [{ label: "Resources", to: "/resources" }, { label: "Compute and flow", to: "/resources" }, { label: "Lambda", to: "/resources/lambda" }, { label: "Event Functions", to: "/resources/lambda/functions" }];
 
 const COLUMNS: DataColumn<LayerRow>[] = [
   { id: "name", header: "Layer name", min: 160, accessorFn: (r) => r.name, meta: { mono: true }, cell: (c) => <ResourceTo to={{ service: "lambda", kind: "layers", name: c.row.original.name }} className="font-mono text-[13px] font-medium" testId="row-link">{c.row.original.name}</ResourceTo> },
@@ -113,7 +112,7 @@ export function LayerCreate() {
     publish.mutate({ ...layerInput(l, ""), Content: content(file?.base64 ?? "") }, { onSuccess: (r) => void navigate({ to: "/resources/$service/$kind/$name", params: { service: "lambda", kind: "layers", name: l.name }, search: { done: `published-${r.Version}` } }) });
   };
   return (
-    <FormPage title="Create layer" sub="Upload an archive and name it. The first version of a new layer is version 1." crumbs={[...crumbs, { label: "Layers", to: "/resources/lambda/layers" }]}
+    <FormPage title="Create layer" sub="Upload an archive and name it. The first version of a new layer is version 1." crumbs={[...crumbs, { label: "Layers", to: "/resources/lambda/layers" }, { label: "Create layer", to: "#" }]}
       request={l.name ? { service: "lambda", operation: "PublishLayerVersion", input: shown } : null} showInput refusal={refused} callNote={null}
       banner={refused ? <Alert tone="bad" title="Layer not created." testId="create-refused">{refused.code}: {refused.message}</Alert> : undefined}
       submitLabel="Create" pending={publish.isPending} disabled={tried && Object.keys(problems).length > 0} disabledWhy={Object.values(problems)[0]}
@@ -129,25 +128,28 @@ export function LayerCreate() {
           <Label>Layer code</Label>
         <RadioGroup value={source} onValueChange={(v) => setSource(v as "zip" | "s3")} className="grid gap-3" aria-label="Where the code comes from">
           {[["zip", "Upload a .zip file"], ["s3", "Upload a file from Amazon S3"]].map(([v, t]) => (
-            <Label key={v} htmlFor={`src-${v}`} className="flex cursor-pointer items-start gap-3 font-normal leading-5"><RadioGroupItem id={`src-${v}`} value={v!} className="mt-0.5" data-testid={`layer-source-${v}`} /><span className="grid gap-0.5"><span className="text-bright">{t}</span><span className="text-[13px] text-muted-foreground">{v === "zip" ? (file ? `${file.name}, ${sizeOf(file.size)}` : "No file chosen.") : "Give an Amazon S3 link URL."}</span></span></Label>
+            <div key={v} className="grid gap-3">
+              <Label htmlFor={`src-${v}`} className="flex cursor-pointer items-start gap-3 font-normal leading-5"><RadioGroupItem id={`src-${v}`} value={v!} className="mt-0.5" data-testid={`layer-source-${v}`} /><span className="grid gap-0.5"><span className="text-bright">{t}</span><span className="text-[13px] text-muted-foreground">{v === "zip" ? (file ? `${file.name}, ${sizeOf(file.size)}` : "No file chosen.") : "Give an Amazon S3 link URL."}</span></span></Label>
+              {v === "zip" && source === "zip" && (
+                // The radio already says "Upload a .zip file" and names the file chosen: only the button is left to draw.
+                <div className="grid gap-1.5 pl-7" data-testid="field-file">
+                  <div className="flex flex-wrap items-center gap-3">
+                    <input ref={input} type="file" accept=".zip,application/zip" className="sr-only" onChange={(e) => void pick(e.target.files?.[0])} data-testid="layer-file" aria-label="Upload a .zip file" />
+                    <Button type="button" variant="outline" className="bg-card" onClick={() => input.current?.click()}>Choose file</Button>
+                    <span className="sr-only" data-testid="layer-file-name">{file ? `${file.name}, ${sizeOf(file.size)}` : "No file chosen."}</span>
+                  </div>
+                  {tried && problems.file && <FieldRefusal why={problems.file} />}
+                </div>
+              )}
+              {v === "s3" && source === "s3" && (
+                <div className="grid gap-4 pl-7 sm:grid-cols-2">
+                  <Field label="Bucket" help="The S3 bucket the archive is in." testId="field-bucket">{(id) => <Input id={id} value={s3.bucket} onChange={(e) => setS3({ ...s3, bucket: e.target.value })} className="font-mono" data-testid="layer-bucket" />}</Field>
+                  <Field label="Key" help="The archive's object key." testId="field-key">{(id) => <Input id={id} value={s3.key} onChange={(e) => setS3({ ...s3, key: e.target.value })} className="font-mono" data-testid="layer-key" />}</Field>
+                </div>
+              )}
+            </div>
           ))}
         </RadioGroup>
-        {source === "zip" ? (
-          <Field label="Upload a .zip file" error={tried ? problems.file : undefined} testId="field-file">
-            {() => (
-              <div className="flex flex-wrap items-center gap-3">
-                <input ref={input} type="file" accept=".zip,application/zip" className="sr-only" onChange={(e) => void pick(e.target.files?.[0])} data-testid="layer-file" aria-label="Upload a .zip file" />
-                <Button type="button" variant="outline" className="bg-card" onClick={() => input.current?.click()}>Choose file</Button>
-                <span className="sr-only" data-testid="layer-file-name">{file ? `${file.name}, ${sizeOf(file.size)}` : "No file chosen."}</span>
-              </div>
-            )}
-          </Field>
-        ) : (
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Bucket" help="The S3 bucket the archive is in." testId="field-bucket">{(id) => <Input id={id} value={s3.bucket} onChange={(e) => setS3({ ...s3, bucket: e.target.value })} className="font-mono" data-testid="layer-bucket" />}</Field>
-            <Field label="Key" help="The archive's object key." testId="field-key">{(id) => <Input id={id} value={s3.key} onChange={(e) => setS3({ ...s3, key: e.target.value })} className="font-mono" data-testid="layer-key" />}</Field>
-          </div>
-        )}
         <p className="border-l-2 pl-3 text-[13px] leading-5 text-muted-foreground">Lambda extracts the archive into /opt when it sets up the execution environment. A layer version never changes; to change the content you publish a new version. Locally the layer&apos;s folders go onto the interpreter search paths instead of /opt.</p>
         </div>
         <div className="grid gap-1.5">
@@ -185,7 +187,7 @@ export function LayerDetail({ service, kind, name }: { service: string; kind: st
     { id: "arn", header: "ARN", min: 260, accessorFn: (r) => r.cells[3] ?? "", meta: { mono: true }, cell: (c) => <span className="font-mono text-[13px]">{c.row.original.cells[3]}</span> },
     { id: "delete", header: "", size: 60, enableSorting: false, cell: (c) => <Button type="button" variant="ghost" size="icon-sm" aria-label={`Delete version ${c.row.original.cells[0]}`} onClick={() => setGone(Number(c.row.original.cells[0]))} data-testid="layer-version-delete"><Trash2Icon /></Button> },
   ];
-  if (detail.isError && !detail.data) return <ErrorBlock what="This layer could not be read" error={detail.error} hint={HINT} onRetry={() => void detail.refetch()} retrying={detail.isFetching} testId="detail-error" />;
+  if (detail.isError && !detail.data) return <DetailError service={service} kind={kind} name={name} error={detail.error} onRetry={() => void detail.refetch()} retrying={detail.isFetching} />;
   if (!detail.data) return <Skeleton className="h-72 rounded-[14px]" />;
   const last = rows.length <= 1;
   return (

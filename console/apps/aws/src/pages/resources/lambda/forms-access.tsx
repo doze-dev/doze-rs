@@ -11,6 +11,7 @@ import { on, useOp, useOpRead } from "../deep/api";
 import { type AliasForm, aliasInput, aliasProblems, permissionInput, permissionProblems, sourceHint, urlInput, urlProblems, type UrlForm } from "./forms";
 import { FnFormPage, type FormProps, Muted } from "./form-bits";
 import { usePolicy } from "./hooks";
+import { urlAuthNote } from "./model";
 import type { Alias, Version } from "./versions-tab";
 
 const ACTIONS = ["lambda:InvokeFunction", "lambda:InvokeFunctionUrl", "lambda:GetFunction"];
@@ -92,7 +93,7 @@ export function UrlCreate(p: FormProps) {
             ))}
           </RadioGroup>
         </div>
-        <p className="border-l-2 pl-3 text-[13px] leading-5 text-muted-foreground">The URL has the form https://&lt;url-id&gt;.lambda-url.&lt;region&gt;.on.aws and never changes. Function URLs are reached over the public internet only. <Muted>Locally an AWS_IAM URL is served unsigned.</Muted></p>
+        <p className="border-l-2 pl-3 text-[13px] leading-5 text-muted-foreground">The URL has the form https://&lt;url-id&gt;.lambda-url.&lt;region&gt;.on.aws and never changes. Function URLs are reached over the public internet only. <Muted>{urlAuthNote(u.auth)}</Muted></p>
         <div className="flex items-start gap-3">
           <Checkbox id="url-cors" checked={cors} onCheckedChange={(v) => setCors(v === true)} className="mt-0.5" data-testid="url-cors" />
           <Label htmlFor="url-cors" className="grid gap-0.5 font-normal"><span className="font-medium text-bright">Configure cross-origin resource sharing (CORS)</span><span className="text-[13px] text-muted-foreground">Choose which origins may call the URL from a browser.</span></Label>

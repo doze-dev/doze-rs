@@ -4,7 +4,6 @@
 import { useNavigate, useSearch } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
-import { ErrorBlock } from "@doze/ui/components/app/alert";
 import { RefreshControl } from "@doze/ui/components/app/refresh-control";
 import { Callout } from "@doze/ui/components/app/callout";
 import { Emphasis } from "@doze/ui/components/app/emphasis";
@@ -16,9 +15,8 @@ import { useAbout } from "../../../api/queries";
 import { useDelete, useResourceDetail } from "../../../api/resources";
 import type { ResourceDetail } from "../../../api/types/ResourceDetail";
 import type { Wired } from "../../../api/types/Wired";
-import { ResourcePage, ResourcePageSkeleton, TagsTab, type Verb } from "../../../kit";
+import { DetailError, ResourcePage, ResourcePageSkeleton, TagsTab, type Verb } from "../../../kit";
 import { useOp } from "../deep/api";
-import { hintFor } from "../index-page";
 import { timeMs } from "../model";
 import { DeleteQueue, feeding, PurgeQueue } from "./dialogs";
 import { ruleName, useFeeders } from "./feeders";
@@ -43,7 +41,7 @@ export function SqsDetail({ service, kind, name }: { service: string; kind: stri
     void refetch();
     void qc.invalidateQueries({ queryKey: ["resources", "deep", service, kind, name] });
   };
-  if (detail.isError && !detail.data) return <ErrorBlock what="This queue could not be read" error={detail.error} hint={hintFor(detail.error, "queue")} onRetry={refresh} retrying={detail.isFetching} testId="detail-error" />;
+  if (detail.isError && !detail.data) return <DetailError service={service} kind={kind} name={name} error={detail.error} onRetry={refresh} retrying={detail.isFetching} />;
   if (!detail.data) return <ResourcePageSkeleton />;
   return <QueueView d={detail.data} updatedAt={detail.dataUpdatedAt} fetching={detail.isFetching} refresh={refresh} />;
 }

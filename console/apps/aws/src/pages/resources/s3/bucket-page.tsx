@@ -1,13 +1,11 @@
 // A bucket: its header (Region, when it was made, versioning), a sentence for the tab on screen, what it is wired to, and four
 // tabs, Objects, Properties, Permissions and Management, each a page of what is set on it and each setting's Edit a page of its own.
-import { ErrorBlock } from "@doze/ui/components/app/alert";
 import { RefreshControl } from "@doze/ui/components/app/refresh-control";
 import { useQueryClient } from "@tanstack/react-query";
-import { ResourcePage, ResourcePageSkeleton } from "../../../kit";
+import { DetailError, ResourcePage, ResourcePageSkeleton } from "../../../kit";
 import { Calls } from "../detail-page";
 import { deepKey } from "../deep/api";
 import type { OwnProps } from "../deep/registry";
-import { HINT } from "../index-page";
 import { bucketOf, useBucket, useBucketNav } from "./api";
 import { ManagementTab, sentenceOf as managementSentenceOf, useManagement } from "./management";
 import { ObjectsTab } from "./objects";
@@ -29,7 +27,7 @@ export function BucketPage({ name, search }: OwnProps) {
   const perms = usePermissions(name!, tab === "permissions");
   const mgmt = useManagement(name!, tab === "management");
   const d = bucket.detail;
-  if (bucket.isError && !d) return <ErrorBlock what="This bucket could not be read" error={bucket.error} hint={HINT} onRetry={() => void bucket.refetch()} retrying={bucket.isFetching} testId="detail-error" />;
+  if (bucket.isError && !d) return <DetailError service="s3" kind="buckets" name={name!} error={bucket.error} onRetry={() => void bucket.refetch()} retrying={bucket.isFetching} />;
   if (!d || !bucket.versioning) return <ResourcePageSkeleton />;
   const sentence = tab === "properties" ? propertiesSentenceOf(name!, props) : tab === "permissions" ? permissionsSentenceOf(name!, perms) : tab === "management" ? managementSentenceOf(name!, mgmt, bucket.versioning) : d.sentence;
   const detail = { ...d, name: name!, sentence, badges: [{ text: regionWords(bucket.region), tone: "neutral" as const }], verbs: [], deep: [] };

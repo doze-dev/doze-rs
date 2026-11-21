@@ -6,6 +6,7 @@ export * from "./calls-panel";
 export * from "./contract";
 export * from "./crumbs";
 export * from "./deletion-window";
+export * from "./detail-error";
 export * from "./flow-strip";
 export * from "./form-page";
 export * from "./form-parts";

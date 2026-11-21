@@ -1,7 +1,7 @@
 // A table's Exports and streams tab (dynamodb__table-exports, exports-none): its DynamoDB stream (turned on and off with UpdateTable),
 // its exports to S3 (ExportTableToPointInTime, ListExports) and its Kinesis data stream destination. The boards call all three "not
 // available in doze-aws"; the service builds each (crates/aws-dynamodb/src/{tables_update,export,kinesis}.rs), so the tab does them.
-import { UploadIcon } from "lucide-react";
+import { TableIcon, UploadIcon } from "lucide-react";
 import { useState } from "react";
 import { type DataColumn, DataTable } from "@doze/ui/components/app/data-table";
 import { ResultBanner } from "@doze/ui/components/app/result-banner";
@@ -70,7 +70,7 @@ export function ExportsTab({ t }: { t: TableInfo }) {
           {exports.isPending ? (
             <Skeleton className="h-20 rounded-xl" />
           ) : listed.length === 0 ? (
-            <NoneYet title="No exports" testId="exports-none">{t.name} has not been exported. An export writes the table&apos;s data to S3.</NoneYet>
+            <NoneYet icon={TableIcon} title="No exports" testId="exports-none">{t.name} has not been exported. An export writes the table&apos;s data to S3.</NoneYet>
           ) : (
             <DataTable aria-label="Exports" data={listed} columns={EXPORTS} rowId={(r) => r.ExportArn} />
           )}

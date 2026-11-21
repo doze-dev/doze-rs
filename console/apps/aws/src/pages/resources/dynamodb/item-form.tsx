@@ -10,7 +10,7 @@ import { Input } from "@doze/ui/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@doze/ui/components/ui/select";
 import { Skeleton } from "@doze/ui/components/ui/skeleton";
 import { ApiFailure } from "@doze/ui/lib/api";
-import { FormPage, FormSection, RuleHelp } from "../../../kit";
+import { DetailError, FormPage, FormSection, RuleHelp } from "../../../kit";
 import { useOp, useOpRead } from "../deep/api";
 import type { OwnProps } from "../deep/registry";
 import { ATTRIBUTE_TYPES, type AttributeType, type AttrRow, blankRows, itemOf, newAttr, paramKey, rowsOf, TYPE_NAMES } from "./item-rows";
@@ -76,7 +76,7 @@ export function ItemForm({ name, search, edit }: OwnProps & { edit: boolean }) {
   const [rows, setRows] = useState<AttrRow[] | null>(null);
   const put = useOp<unknown>(t, "PutItem");
   const back = () => go({ do: "explore" });
-  if (read.isError && !read.table) return <ErrorBlock what="This table could not be read" error={read.error} onRetry={() => void read.refetch()} testId="detail-error" />;
+  if (read.isError && !read.table) return <DetailError service="dynamodb" kind="tables" name={table} error={read.error} onRetry={() => void read.refetch()} />;
   if (!read.table || (edit && got.isPending)) return <Skeleton className="h-80 rounded-[14px]" />;
   if (edit && !got.data?.Item) return <ErrorBlock what="This item could not be read" error={got.error ?? new Error("No item has this key any more. It may have been deleted.")} onRetry={() => void got.refetch()} testId="item-missing" />;
   const current = rows ?? (edit ? rowsOf(got.data!.Item!, keys) : blankRows(keys));
@@ -85,6 +85,8 @@ export function ItemForm({ name, search, edit }: OwnProps & { edit: boolean }) {
   const item = "item" in made ? made.item : null;
   const full = item !== null && keys.every((k) => item[k.name]);
   const input = item && full ? { TableName: table, Item: item } : null;
+  // Nothing typed yet: the form has not been wrong about anything, so it does not say so (the keys are described above the rows).
+  const untouched = !edit && current.every((r) => r.value === "");
   const said = put.error ? errorWords(put.error) : null;
   const words = keys.map((k) => k.name);
   const shownKey = edit && key && keys[0] && key[keys[0].name] ? String(Object.values(key[keys[0].name]!)[0]) : "";
@@ -99,7 +101,7 @@ export function ItemForm({ name, search, edit }: OwnProps & { edit: boolean }) {
       submitLabel={edit ? "Save and close" : "Create item"}
       pending={put.isPending}
       disabled={input === null}
-      disabledWhy={"error" in made ? made.error : `Give every key attribute a value (${words.join(", ")}).`}
+      disabledWhy={untouched ? undefined : "error" in made ? made.error : `Give every key attribute a value (${words.join(", ")}).`}
       onCancel={back}
       onSubmit={() => input && put.mutate({ Item: input.Item }, { onSuccess: () => go({ do: "explore", dialog: edit ? "item-saved" : "item-created" }) })}
     >

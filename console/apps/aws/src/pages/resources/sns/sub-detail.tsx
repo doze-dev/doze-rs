@@ -5,7 +5,6 @@ import { Link, useNavigate, useSearch } from "@tanstack/react-router";
 import { ArrowRightIcon } from "lucide-react";
 import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import { Callout } from "@doze/ui/components/app/callout";
-import { ErrorBlock } from "@doze/ui/components/app/alert";
 import { CodeBlock } from "@doze/ui/components/app/code-block";
 import { CopyButton } from "@doze/ui/components/app/copy-button";
 import { RefreshControl } from "@doze/ui/components/app/refresh-control";
@@ -13,8 +12,7 @@ import { ResultBanner } from "@doze/ui/components/app/result-banner";
 import { Skeleton } from "@doze/ui/components/ui/skeleton";
 import { useDelete, useResourceDetail } from "../../../api/resources";
 import type { ResourceDetail } from "../../../api/types/ResourceDetail";
-import { RecentCalls, resourceHref, ResourcePage, ResourcePageSkeleton, type Verb } from "../../../kit";
-import { hintFor } from "../index-page";
+import { DetailError, RecentCalls, resourceHref, ResourcePage, ResourcePageSkeleton, type Verb } from "../../../kit";
 import { ResourceTo } from "../value";
 import { inlineJson, policyWords } from "./filter-match";
 import { Block, Rich } from "./parts";
@@ -36,7 +34,7 @@ export function SubDetail({ service, kind, name }: { service: string; kind: stri
     void refetch();
     void qc.invalidateQueries({ queryKey: ["resources", "one", "sns", "topics"] });
   };
-  if (detail.isError && !detail.data) return <ErrorBlock what="This subscription could not be read" error={detail.error} hint={hintFor(detail.error, "subscription")} onRetry={refresh} retrying={detail.isFetching} testId="detail-error" />;
+  if (detail.isError && !detail.data) return <DetailError service={service} kind={kind} name={name} error={detail.error} onRetry={refresh} retrying={detail.isFetching} />;
   if (!detail.data) return <ResourcePageSkeleton />;
   return <SubView d={detail.data} updatedAt={detail.dataUpdatedAt} fetching={detail.isFetching} refresh={refresh} />;
 }

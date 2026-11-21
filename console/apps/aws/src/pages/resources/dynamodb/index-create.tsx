@@ -1,12 +1,12 @@
 // Create global secondary index (dynamodb__index-create): UpdateTable with GlobalSecondaryIndexUpdates. The key is defined here (its
 // attributes join the table's definitions), the projection says what the index copies, and the call is shown as it is filled in.
 import { useState } from "react";
-import { Alert, ErrorBlock, errorWords } from "@doze/ui/components/app/alert";
+import { Alert, errorWords } from "@doze/ui/components/app/alert";
 import { Callout } from "@doze/ui/components/app/callout";
 import { Input } from "@doze/ui/components/ui/input";
 import { Skeleton } from "@doze/ui/components/ui/skeleton";
 import { ApiFailure } from "@doze/ui/lib/api";
-import { Field, FormPage, FormSection, type PreviewRequest, RuleHelp } from "../../../kit";
+import { DetailError, Field, FormPage, FormSection, type PreviewRequest, RuleHelp } from "../../../kit";
 import { useOp } from "../deep/api";
 import type { OwnProps } from "../deep/registry";
 import { KeyRow, RowChoice } from "./controls";
@@ -21,7 +21,7 @@ export function IndexCreate({ name }: OwnProps) {
   const [f, setF] = useState<IndexForm>(blankIndex);
   const update = useOp<unknown>(tableTarget(table), "UpdateTable");
   const back = () => go({ tab: "indexes" });
-  if (isError && !t) return <ErrorBlock what="This table could not be read" error={error} onRetry={() => void refetch()} testId="detail-error" />;
+  if (isError && !t) return <DetailError service="dynamodb" kind="tables" name={table} error={error} onRetry={() => void refetch()} />;
   if (!t) return <Skeleton className="h-80 rounded-[14px]" />;
   const set = (patch: Partial<IndexForm>) => {
     setF((x) => ({ ...x, ...patch }));

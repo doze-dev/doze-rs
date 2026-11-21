@@ -4,7 +4,6 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useSearch } from "@tanstack/react-router";
 import { lazy, Suspense, useMemo, useState } from "react";
 import { CopyButton } from "@doze/ui/components/app/copy-button";
-import { ErrorBlock } from "@doze/ui/components/app/alert";
 import { Emphasis } from "@doze/ui/components/app/emphasis";
 import { RefreshControl } from "@doze/ui/components/app/refresh-control";
 import { ResultBanner } from "@doze/ui/components/app/result-banner";
@@ -13,9 +12,8 @@ import { Skeleton } from "@doze/ui/components/ui/skeleton";
 import { dateTimeUtc } from "@doze/ui/lib/format";
 import { useResourceDetail } from "../../../api/resources";
 import type { ResourceDetail } from "../../../api/types/ResourceDetail";
-import { FlowStrip, RecentCalls, ResourcePage, ResourcePageSkeleton, useFeeders, useTags } from "../../../kit";
+import { DetailError, FlowStrip, RecentCalls, ResourcePage, ResourcePageSkeleton, useFeeders, useTags } from "../../../kit";
 import { callOp } from "../deep/api";
-import { hintFor } from "../index-page";
 import { timeMs } from "../model";
 import { on, useConsumerNames } from "./api";
 import { ConfigTab } from "./config";
@@ -32,7 +30,7 @@ export function KinesisDetail({ service, kind, name }: { service: string; kind: 
   const { refetch } = detail;
   const qc = useQueryClient();
   const refresh = () => { void refetch(); void qc.invalidateQueries({ queryKey: ["resources", "deep", "kinesis", "streams", name] }); void qc.invalidateQueries({ queryKey: ["resources", "tags", service, kind, name] }); };
-  if (detail.isError && !detail.data) return <ErrorBlock what="This data stream could not be read" error={detail.error} hint={hintFor(detail.error, "data stream")} onRetry={refresh} retrying={detail.isFetching} testId="detail-error" />;
+  if (detail.isError && !detail.data) return <DetailError service={service} kind={kind} name={name} error={detail.error} onRetry={refresh} retrying={detail.isFetching} />;
   if (!detail.data) return <ResourcePageSkeleton />;
   return <StreamView d={detail.data} updatedAt={detail.dataUpdatedAt} fetching={detail.isFetching} refresh={refresh} />;
 }

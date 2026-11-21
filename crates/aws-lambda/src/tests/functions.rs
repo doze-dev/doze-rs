@@ -124,14 +124,24 @@ async fn an_alias_points_at_a_version_and_is_read_through() {
         (by_alias["Version"].clone(), by_alias["Timeout"].clone()),
         (json!("1"), json!(10))
     );
-    let versions: Vec<String> = w
+    let listed = w
         .ok("ListVersionsByFunction", json!({"FunctionName": "f"}))
-        .await["Versions"]
+        .await;
+    let versions: Vec<String> = listed["Versions"]
         .as_array()
         .unwrap()
         .iter()
         .map(|v| v["Version"].as_str().unwrap().to_owned())
         .collect();
+    // $LATEST carries its qualifier on the ARN here (as AWS lists it); a published version has its number.
+    assert_eq!(
+        listed["Versions"][0]["FunctionArn"],
+        "arn:aws:lambda:us-east-1:111122223333:function:f:$LATEST"
+    );
+    assert_eq!(
+        listed["Versions"][1]["FunctionArn"],
+        "arn:aws:lambda:us-east-1:111122223333:function:f:1"
+    );
     assert_eq!(versions, ["$LATEST", "1", "2"]);
     let twice = w
         .err(

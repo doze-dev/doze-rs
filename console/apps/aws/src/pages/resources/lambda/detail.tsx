@@ -4,18 +4,18 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { lazy, Suspense, useMemo, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
-import { ErrorBlock, errorWords } from "@doze/ui/components/app/alert";
+import { errorWords } from "@doze/ui/components/app/alert";
 import { Callout } from "@doze/ui/components/app/callout";
 import { Alert } from "@doze/ui/components/app/alert";
 import { RefreshControl } from "@doze/ui/components/app/refresh-control";
 import { ResultBanner } from "@doze/ui/components/app/result-banner";
+import { Emphasis } from "@doze/ui/components/app/emphasis";
 import { TypedConfirm } from "@doze/ui/components/app/typed-confirm";
 import { Skeleton } from "@doze/ui/components/ui/skeleton";
 import { dateTimeUtc } from "@doze/ui/lib/format";
 import { useDelete, useResourceDetail } from "../../../api/resources";
 import type { ResourceDetail } from "../../../api/types/ResourceDetail";
-import { RecentCalls, ResourcePage, ResourcePageSkeleton, useBlockers, type Verb } from "../../../kit";
-import { HINT } from "../index-page";
+import { DetailError, RecentCalls, ResourcePage, ResourcePageSkeleton, useBlockers, type Verb } from "../../../kit";
 import { timeMs } from "../model";
 import { ConfigTab } from "./config-tab";
 import { CodeTab } from "./code-tab";
@@ -57,7 +57,7 @@ export function FunctionDetail({ service, kind, name }: { service: string; kind:
     void refetch();
     void qc.invalidateQueries({ queryKey: ["resources", "deep", service, kind, name] });
   };
-  if (detail.isError && !detail.data) return <ErrorBlock what="This function could not be read" error={detail.error} hint={HINT} onRetry={refresh} retrying={detail.isFetching} testId="detail-error" />;
+  if (detail.isError && !detail.data) return <DetailError service={service} kind={kind} name={name} error={detail.error} onRetry={refresh} retrying={detail.isFetching} />;
   if (!detail.data) return <ResourcePageSkeleton />;
   return <FunctionView d={detail.data} updatedAt={detail.dataUpdatedAt} fetching={detail.isFetching} refresh={refresh} />;
 }
@@ -118,6 +118,7 @@ function FunctionView({ d, updatedAt, fetching, refresh }: { d: ResourceDetail; 
       },
     });
   const failed = del.error ? errorWords(del.error) : null;
+  const mapped = blockers.data?.blockers.find((b) => b.title === "Event source mappings")?.items.map((i) => i.name) ?? [];
   return (
     <>
       <ResourcePage
@@ -147,16 +148,16 @@ function FunctionView({ d, updatedAt, fetching, refresh }: { d: ResourceDetail; 
         }}
         title="Delete function"
         words={blockers.data?.words ?? "confirm"}
-        prompt={<>To confirm, type <span className="font-mono">{blockers.data?.words ?? "confirm"}</span></>}
+        prompt={<>To confirm, type <span className="font-mono font-semibold text-bright">{blockers.data?.words ?? "confirm"}</span></>}
         verb="Delete"
         pending={del.isPending}
         onConfirm={confirmDelete}
         testId="delete-dialog"
-        description={deleteWords(d.name, blockers.data)}
+        description={<Emphasis text={deleteWords(d.name, blockers.data)} names={[d.name]} />}
         refusal={failed && <Alert tone="bad" title={`DeleteFunction was refused${failed.code ? `: ${failed.code}` : ""}`} testId="delete-error">{failed.message}</Alert>}
       >
-        {blockers.data && blockers.data.blockers.find((b) => b.title === "Event source mappings")?.items.length ? (
-          <Callout tone="warn" testId="delete-mappings">{mappingWords(blockers.data.blockers.find((b) => b.title === "Event source mappings")?.items.map((i) => i.name) ?? [])}</Callout>
+        {mapped.length > 0 ? (
+          <Callout tone="warn" testId="delete-mappings"><Emphasis text={mappingWords(mapped)} names={mapped} bold={[/\bnot\b/]} /></Callout>
         ) : null}
       </TypedConfirm>
     </>

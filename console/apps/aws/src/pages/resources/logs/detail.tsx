@@ -4,7 +4,6 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useSearch } from "@tanstack/react-router";
 import { lazy, Suspense, useMemo, useState } from "react";
-import { ErrorBlock } from "@doze/ui/components/app/alert";
 import { Emphasis } from "@doze/ui/components/app/emphasis";
 import { RefreshControl } from "@doze/ui/components/app/refresh-control";
 import { ResultBanner } from "@doze/ui/components/app/result-banner";
@@ -12,9 +11,8 @@ import { Skeleton } from "@doze/ui/components/ui/skeleton";
 import { clockUtc, dateTimeUtc } from "@doze/ui/lib/format";
 import { useDelete, useResourceDetail } from "../../../api/resources";
 import type { ResourceDetail } from "../../../api/types/ResourceDetail";
-import { FlowStrip, type FlowChip, PlainConfirm, RecentCalls, ResourcePage, ResourcePageSkeleton, type Verb, useFeeders } from "../../../kit";
+import { DetailError, FlowStrip, type FlowChip, PlainConfirm, RecentCalls, ResourcePage, ResourcePageSkeleton, type Verb, useFeeders } from "../../../kit";
 import { callOp, on } from "../deep/api";
-import { hintFor } from "../index-page";
 import { timeMs } from "../model";
 import { FiltersTab, StreamsTab, SubscriptionsTab } from "./group-tabs";
 import { activityWords, filtersOf, groupOf, streamsOf, subscriptionsOf } from "./model";
@@ -31,7 +29,7 @@ export function GroupDetail({ service, kind, name }: { service: string; kind: st
   const { refetch } = detail;
   const qc = useQueryClient();
   const refresh = () => { void refetch(); void qc.invalidateQueries({ queryKey: ["resources", "deep", "logs", "groups", name] }); };
-  if (detail.isError && !detail.data) return <ErrorBlock what="This log group could not be read" error={detail.error} hint={hintFor(detail.error, "log group")} onRetry={refresh} retrying={detail.isFetching} testId="detail-error" />;
+  if (detail.isError && !detail.data) return <DetailError service={service} kind={kind} name={name} error={detail.error} onRetry={refresh} retrying={detail.isFetching} />;
   if (!detail.data) return <ResourcePageSkeleton />;
   return <GroupView d={detail.data} updatedAt={detail.dataUpdatedAt} fetching={detail.isFetching} refresh={refresh} />;
 }
