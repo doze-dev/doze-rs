@@ -57,7 +57,7 @@ fn every_name_gets_the_address_go_gives_it() {
 
 fn oracle_dir() -> Option<PathBuf> {
     let dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../tools/names-oracle");
-    let go = Command::new("go")
+    let go = go_command()
         .arg("version")
         .output()
         .is_ok_and(|o| o.status.success());
@@ -72,7 +72,7 @@ fn go_and_rust_share_one_registry_file() {
     };
     let home = scratch("file");
     // Go claims aws.doze and aws.harbour.doze (routed), and holds them while this test reads.
-    let mut go = Command::new("go")
+    let mut go = go_command()
         .args(["run", ".", "registry"])
         .arg(&home)
         .current_dir(&dir)
@@ -102,7 +102,7 @@ fn go_and_rust_share_one_registry_file() {
     let _kafka = rust.claim(&Name::apex("kafka")).unwrap();
     let _db = rust.claim(&Name::qualified("db", "shop")).unwrap();
 
-    let read = Command::new("go")
+    let read = go_command()
         .args(["run", ".", "read"])
         .arg(&home)
         .current_dir(&dir)
@@ -129,4 +129,14 @@ fn go_and_rust_share_one_registry_file() {
         line("sqs.ap-south-1.aws.harbour.doze").ends_with(&harbour.to_string()),
         "{text}"
     );
+}
+
+/// The Go toolchain, without the variables an AI agent's shell sets: with them, Go adds an "AI agent environment" line
+/// to the oracle's stdout, which the test reads.
+fn go_command() -> Command {
+    let mut c = Command::new("go");
+    for v in ["AI_AGENT", "CLAUDECODE", "CLAUDE_CODE_ENTRYPOINT"] {
+        c.env_remove(v);
+    }
+    c
 }
