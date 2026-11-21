@@ -35,13 +35,7 @@ impl Stack {
         // The state folder's slug comes from the config path as Go has it: the file, or the folder `-c` named (Go's
         // `projectSlug` then takes that folder's parent, so sibling folders share a stack; kept, to find Go's daemon).
         let loader = crate::config::Loader::new(ctx, mode);
-        let key = match loader.shape(&project) {
-            Ok(cfg) => state_of(ctx, &cfg),
-            Err(_) => StackKey::for_config(
-                &ctx.home,
-                project.source.as_ref().unwrap_or(&project.config),
-            ),
-        };
+        let key = key_of(ctx, &project, loader.shape(&project).ok().as_ref());
         Ok(Stack {
             project,
             key,
@@ -81,10 +75,21 @@ impl Stack {
     }
 }
 
-/// The state folder a loaded config names (the daemon's `data_dir`, a relative one from where doze runs, as the daemon
-/// started from here reads it).
-fn state_of(ctx: &Ctx<'_>, cfg: &doze_config::Config) -> StackKey {
-    StackKey::new(doze_config::paths::clean(&ctx.cwd.join(&cfg.data_dir)))
+/// The state folder of `project`: the one its loaded config names (the daemon's `data_dir`, a relative one from where
+/// doze runs, as the daemon started from here reads it), or the default place (`<home>/projects/<slug>`) when doze.hcl
+/// does not load. Every command that looks in the state folder (`doctor`, `bug` too) finds it here.
+pub(crate) fn key_of(
+    ctx: &Ctx<'_>,
+    project: &Project,
+    loaded: Option<&doze_config::Config>,
+) -> StackKey {
+    match loaded {
+        Some(cfg) => StackKey::new(doze_config::paths::clean(&ctx.cwd.join(&cfg.data_dir))),
+        None => StackKey::for_config(
+            &ctx.home,
+            project.source.as_ref().unwrap_or(&project.config),
+        ),
+    }
 }
 
 /// The stack lock (D1's `run/doze.ctl.lock`), held while `up` starts or boots the stack, `run` starts it and `down`

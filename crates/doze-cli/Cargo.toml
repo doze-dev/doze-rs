@@ -70,3 +70,8 @@ doze-control = { path = "../doze-control", features = ["words", "test-support"] 
 doze-module-release = { path = "../doze-module-release" }
 doze-module-proto = { path = "../doze-module-proto" }
 tokio = { version = "1.54", features = ["rt", "macros"] }
+
+[[test]]
+# Runs itself as `<program> __daemon` and `<program> __fetch` through the embedding entry point, so it has its own main.
+name = "embed"
+harness = false

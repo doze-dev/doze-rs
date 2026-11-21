@@ -13,6 +13,7 @@ fn place(m: Modules) -> Place {
             key: None,
         },
         modules: m,
+        lock_writes: true,
     }
 }
 
@@ -174,4 +175,31 @@ fn an_ensure_whose_names_are_paths_is_refused() {
             "{engine} {full}: {r:?}"
         );
     }
+}
+
+/// A child whose daemon was started for a dry run (`lock_writes` off) resolves as any other, and writes no pin.
+#[test]
+fn a_read_only_lock_is_never_written() {
+    let reg = registry("readonly", &[("0.3.0", 2, &["9"])], "");
+    let p = Place {
+        lock_writes: false,
+        ..place(modules(&reg))
+    };
+    let lock = reg.home.join("doze.lock");
+    let r = serve(
+        &Request::Module {
+            source: valkey().to_string(),
+            majors: majors(&["9"]),
+            lock: Some(lock.clone()),
+            persist: true,
+        },
+        &p,
+    );
+    assert_eq!(
+        (r.error.as_deref(), r.version.as_str()),
+        (None, "0.3.0"),
+        "{r:?}"
+    );
+    assert!(r.notes.iter().all(|n| !n.starts_with("pinned")), "{r:?}");
+    assert!(!lock.exists(), "a dry run's child never writes the lock");
 }

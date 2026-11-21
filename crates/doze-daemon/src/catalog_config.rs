@@ -34,6 +34,41 @@ pub fn instance_for(call: &Call<'_>, manifest: &Manifest) -> Instance {
     }
 }
 
+/// A listener other than the main one, granted where nothing fronts it: at its declared `port` on `host`, its engine
+/// listening there itself; a port of 0 is a loopback port the engine chooses at each start
+/// ([`doze_engine::modules::ANY_LOOPBACK`]).
+fn granted_at(host: &str, port: u16) -> Granted {
+    let addr = if port == 0 {
+        doze_engine::modules::ANY_LOOPBACK.to_string()
+    } else {
+        doze_config::join_host_port(host, &port.to_string())
+    };
+    granted(addr.clone(), Address::Tcp(addr))
+}
+
+impl Catalog {
+    /// [`instance_for`], with every other listener its module declares (`network`: temporal's `ui`, kafka's
+    /// `registry`) granted at its declared port: what the module sees before (or without) a front, so nothing it
+    /// declared is missing from its instance.
+    pub fn declared(&self, call: &Call<'_>, manifest: &Manifest) -> Instance {
+        let mut i = instance_for(call, manifest);
+        // The others are on the main one's host; loopback for a socket.
+        let host = match call.endpoint {
+            Endpoint::Tcp(a) => doze_config::split_host_port(a)
+                .map(|(h, _)| h)
+                .filter(|h| !h.is_empty()),
+            Endpoint::Unix(_) => None,
+        }
+        .unwrap_or_else(|| "127.0.0.1".into());
+        for l in self.network(&i) {
+            if l.name != MAIN {
+                i.listeners.insert(l.name, granted_at(&host, l.port));
+            }
+        }
+        i
+    }
+}
+
 /// A listener granted at `addr` whose engine listens at `backend`.
 pub fn granted(addr: String, backend: Address) -> Granted {
     Granted {
@@ -97,7 +132,7 @@ impl Modules for Catalog {
         let Some(m) = self.manifest_for(call.ty, call.version) else {
             return Attributes::default();
         };
-        let Some(p) = self.published(&instance_for(call, &m)) else {
+        let Some(p) = self.published(&self.declared(call, &m)) else {
             return Attributes::default();
         };
         Attributes {
