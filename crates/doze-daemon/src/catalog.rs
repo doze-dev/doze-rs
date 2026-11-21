@@ -182,7 +182,7 @@ impl Catalog {
         let m = self
             .rt
             .block_on(self.pool.get(key))
-            .map_err(|e| format!("module {ty}: {}", e.message))?;
+            .map_err(|e| format!("module {ty}: {}", e.describe()))?;
         Ok(m.manifest.clone())
     }
 
