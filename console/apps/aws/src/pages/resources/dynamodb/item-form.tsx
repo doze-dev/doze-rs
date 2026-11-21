@@ -87,7 +87,7 @@ export function ItemForm({ name, search, edit }: OwnProps & { edit: boolean }) {
   const input = item && full ? { TableName: table, Item: item } : null;
   const said = put.error ? errorWords(put.error) : null;
   const words = keys.map((k) => k.name);
-  const shownKey = edit && key ? keys.map((k) => (key[k.name] ? Object.values(key[k.name]!)[0] : "")).join(", ") : "";
+  const shownKey = edit && key && keys[0] && key[keys[0].name] ? String(Object.values(key[keys[0].name]!)[0]) : "";
   return (
     <FormPage
       title={edit ? "Edit item" : "Create item"}

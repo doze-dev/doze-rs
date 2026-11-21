@@ -2,10 +2,11 @@
 // Time to Live (dynamodb__ttl-edit, UpdateTimeToLive). Each shows the call it will make and says what AWS and doze-aws do with it.
 import { useState } from "react";
 import { Alert, ErrorBlock, errorWords } from "@doze/ui/components/app/alert";
+import { Callout } from "@doze/ui/components/app/callout";
 import { Input } from "@doze/ui/components/ui/input";
 import { Skeleton } from "@doze/ui/components/ui/skeleton";
 import { ApiFailure } from "@doze/ui/lib/api";
-import { Field, FormPage, FormSection, LocalStatus, type PreviewRequest, RuleHelp } from "../../../kit";
+import { Field, FormPage, FormSection, LocalStatus, type PreviewRequest } from "../../../kit";
 import { useOp } from "../deep/api";
 import type { OwnProps } from "../deep/registry";
 import { CardChoice } from "./controls";
@@ -105,10 +106,10 @@ export function TtlEdit({ name }: OwnProps) {
         <Field label="TTL attribute name" help={<><b>Case-sensitive</b>, and it must match what your writes use: a mismatch leaves expired items undeleted. To rename it later you turn TTL off and on again. The value is a Number in epoch seconds, for example <span className="font-mono">1794211092</span>; an item whose attribute is not a Number is ignored.</>}>
           {(id) => <Input id={id} value={attribute} onChange={(e) => (setAttribute(e.target.value), update.reset())} placeholder="expires_at" autoComplete="off" spellCheck={false} className="bg-card font-mono" data-testid="ttl-attribute" />}
         </Field>
-        <RuleHelp>
-          On AWS it takes about an hour for TTL to be on across all partitions, and an expired item is deleted some time after it expires, typically within a few days. doze-aws deletes an expired item as soon as it falls due (at the next call, or when its timer runs), not days later. A second <span className="font-mono">UpdateTimeToLive</span> that asks for the state the table is already in is refused with a <span className="font-mono">ValidationException</span>.
-        </RuleHelp>
       </FormSection>
+      <Callout tone="info" testId="ttl-note">
+        On AWS it takes <b className="font-semibold text-bright">about an hour</b> for TTL to be on across all partitions, and an expired item is deleted some time after it expires, typically within a few days. doze-aws deletes an expired item as soon as it falls due (at the next call, or when its timer runs). A second <span className="font-mono">UpdateTimeToLive</span> that asks for the state the table is already in is refused with a <span className="font-mono">ValidationException</span> (doze-aws: <span className="font-mono">TimeToLive is already enabled</span>).
+      </Callout>
     </FormPage>
   );
 }

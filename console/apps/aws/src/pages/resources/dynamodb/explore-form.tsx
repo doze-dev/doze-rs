@@ -81,12 +81,14 @@ export function ExploreForm({ table, form, set, sources, problem, onRun, running
             <Field label={<>FilterExpression <span className="font-normal text-muted-foreground">optional</span></>} hint="Applied after the items are read; the 1 MB limit applies before the filter.">
               {(id) => <Input id={id} value={form.filter} onChange={(e) => set({ filter: e.target.value })} placeholder="#s = :s" className="bg-card font-mono" autoComplete="off" data-testid="s-filter" />}
             </Field>
-            <Field label={<>ExpressionAttributeNames <span className="font-normal text-muted-foreground">optional</span></>}>
-              {(id) => <Input id={id} value={form.names} onChange={(e) => set({ names: e.target.value })} placeholder='{"#s": "status"}' className="bg-card font-mono" autoComplete="off" data-testid="s-names" />}
-            </Field>
-            <Field label={<>ExpressionAttributeValues <span className="font-normal text-muted-foreground">optional</span></>}>
-              {(id) => <Input id={id} value={form.values} onChange={(e) => set({ values: e.target.value })} placeholder='{":s": {"S": "shipped"}}' className="bg-card font-mono" autoComplete="off" data-testid="s-values" />}
-            </Field>
+            <div className="grid gap-5 sm:grid-cols-2">
+              <Field label={<>ExpressionAttributeNames <span className="font-normal text-muted-foreground">optional</span></>}>
+                {(id) => <Input id={id} value={form.names} onChange={(e) => set({ names: e.target.value })} placeholder='{"#s": "status"}' className="bg-card font-mono" autoComplete="off" data-testid="s-names" />}
+              </Field>
+              <Field label={<>ExpressionAttributeValues <span className="font-normal text-muted-foreground">optional</span></>}>
+                {(id) => <Input id={id} value={form.values} onChange={(e) => set({ values: e.target.value })} placeholder='{":s": {"S": "shipped"}}' className="bg-card font-mono" autoComplete="off" data-testid="s-values" />}
+              </Field>
+            </div>
           </>
         )}
         {inactive && <p className="text-[13px] text-warn">{form.index} is {source.status.toLowerCase()}: a query on it may not answer yet.</p>}
