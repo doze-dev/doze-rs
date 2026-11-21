@@ -25,11 +25,15 @@ export function useEach<T>(kind: Kind, operation: string, inputs: readonly objec
   });
 }
 
-/** Reads everything IAM again: the lists, the pages of resources, their tags, and what the pages read through operations. */
-export function useRefresh(): () => void {
+/** Reads everything IAM again: the lists, the pages of resources, their tags, and what the pages read through operations. `gone` is a
+ * resource that was just deleted: what is read about it is marked stale but not read again (IAM would answer NoSuchEntity). */
+export function useRefresh(): (gone?: string) => void {
   const qc = useQueryClient();
-  return () => {
-    for (const key of [["resources", "kindop", "iam"], ["resources", "list", "iam"], ["resources", "one", "iam"], ["resources", "tags", "iam"], ["resources", "blockers", "iam"], ["iam"]]) void qc.invalidateQueries({ queryKey: key });
+  return (gone) => {
+    const iam = (key: readonly unknown[]) => (key[0] === "resources" && key[2] === "iam") || key[0] === "iam";
+    const about = (key: readonly unknown[]) => gone !== undefined && key[1] !== "list" && JSON.stringify(key).includes(JSON.stringify(gone).slice(1, -1));
+    void qc.invalidateQueries({ predicate: (q) => iam(q.queryKey) && !about(q.queryKey) });
+    if (gone !== undefined) void qc.invalidateQueries({ predicate: (q) => iam(q.queryKey) && about(q.queryKey), refetchType: "none" });
   };
 }
 

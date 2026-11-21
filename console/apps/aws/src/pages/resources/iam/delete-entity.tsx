@@ -83,7 +83,7 @@ export function DeleteEntity({ kind, name, label, open, onOpenChange, onDeleted 
       noun={`${NOUN[kind]} name`}
       verb="Delete"
       pending={del.isPending}
-      onConfirm={() => del.mutate({ clear }, { onSuccess: () => { refresh(); onDeleted(); } })}
+      onConfirm={() => del.mutate({ clear }, { onSuccess: () => { refresh(name); onDeleted(); } })}
       testId="delete-dialog"
       refusal={refused ? <Alert tone="bad" title={`${OPERATION[kind]} was refused${code ? `: ${code}` : ""}`} testId="delete-refused">{refused instanceof Error ? refused.message : "No reason was given."}</Alert> : undefined}
     >
