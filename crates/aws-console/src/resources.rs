@@ -53,6 +53,7 @@ mod eventbridge_blockers;
 mod iam;
 mod iam_blockers;
 mod iam_ops;
+mod iam_policies;
 mod iam_roles;
 mod kinesis;
 mod kms;

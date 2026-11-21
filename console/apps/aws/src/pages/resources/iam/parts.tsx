@@ -162,7 +162,7 @@ export function PolicyTable({ rows, via = false, entities = false, label = "Perm
     { id: "name", header: "Policy name", accessorFn: (r) => r.PolicyName, size: 340, min: 200, cell: (c) => <PolicyLink policy={c.row.original} /> },
     { id: "type", header: "Type", size: 200, accessorFn: (r) => managedKind(r.PolicyArn), cell: (c) => managedKind(c.row.original.PolicyArn) },
     ...(via ? [{ id: "via", header: "Attached via", accessorFn: (r: PolicyRow) => String(r.via ?? ""), cell: (c: { row: { original: PolicyRow } }) => c.row.original.via }] : []),
-    ...(entities ? [{ id: "entities", header: "Attached entities", size: 220, accessorFn: (r: PolicyRow) => r.entities ?? 0, meta: { numeric: true }, cell: (c: { row: { original: PolicyRow } }) => c.row.original.entities ?? "–" }] : []),
+    ...(entities ? [{ id: "entities", header: "Attached entities", size: 220, accessorFn: (r: PolicyRow) => r.entities ?? 0, cell: (c: { row: { original: PolicyRow } }) => c.row.original.entities ?? "–" }] : []),
   ];
   return <DataTable aria-label={label} data={rows} columns={columns} rowId={(r) => `${r.PolicyArn}|${String(r.via ?? "")}`} maxHeight={420} />;
 }

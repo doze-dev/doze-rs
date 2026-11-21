@@ -14,6 +14,7 @@ export function useUserKeys(names: readonly string[]): { byUser: Map<string, Use
   const listed = lists.every((q) => q.isSuccess || q.isError);
   const done = listed && used.every((q) => q.isSuccess || q.isError);
   const stamp = lists.map((q) => q.dataUpdatedAt).join() + used.map((q) => q.dataUpdatedAt).join();
+  const key = names.join("\u0000");
   const byUser = useMemo(() => {
     const out = new Map<string, UserKeys>();
     names.forEach((n, i) => out.set(n, { keys: byUse(lists[i]?.data?.AccessKeyMetadata ?? []), used: new Map() }));
@@ -24,7 +25,7 @@ export function useUserKeys(names: readonly string[]): { byUser: Map<string, Use
     return out;
     // `stamp` stands for the answers: they change identity on each render.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [names.join("\u0000"), stamp]);
+  }, [key, stamp]);
   return { byUser, ready: names.length === 0 || done, error: lists.find((q) => q.isError)?.error };
 }
 
@@ -32,9 +33,9 @@ export function useUserKeys(names: readonly string[]): { byUser: Map<string, Use
 export function useGroupPolicies(groups: readonly string[]): { byGroup: Map<string, AttachedPolicy[]>; ready: boolean } {
   const held = useEach<{ AttachedPolicies: AttachedPolicy[] }>(GROUPS, "ListAttachedGroupPolicies", groups.map((GroupName) => ({ GroupName })));
   const stamp = held.map((q) => q.dataUpdatedAt).join();
-  const byGroup = useMemo(() => new Map(groups.map((g, i) => [g, held[i]?.data?.AttachedPolicies ?? []] as const)),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [groups.join("\u0000"), stamp]);
+  const key = groups.join("\u0000");
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const byGroup = useMemo(() => new Map(groups.map((g, i) => [g, held[i]?.data?.AttachedPolicies ?? []] as const)), [key, stamp]);
   return { byGroup, ready: groups.length === 0 || held.every((q) => q.isSuccess || q.isError) };
 }
 

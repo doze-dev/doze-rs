@@ -37,7 +37,7 @@ export function PolicyChooser({ value, onChange, entities = false, filter = fals
   const columns: DataColumn<PolicyOption>[] = [
     { id: "name", header: "Policy name", size: 360, min: 220, accessorFn: (r) => r.name, cell: (c) => <span className="font-mono text-[13px] font-medium text-bright">{c.row.original.name}</span> },
     { id: "type", header: "Type", size: 200, accessorFn: (r) => managedKind(r.arn), cell: (c) => managedKind(c.row.original.arn) },
-    ...(entities ? [{ id: "entities", header: "Attached entities", size: 220, accessorFn: (r: PolicyOption) => r.attached, meta: { numeric: true }, cell: (c: { row: { original: PolicyOption } }) => c.row.original.attached }] : []),
+    ...(entities ? [{ id: "entities", header: "Attached entities", size: 220, accessorFn: (r: PolicyOption) => r.attached, cell: (c: { row: { original: PolicyOption } }) => c.row.original.attached }] : []),
   ];
   return (
     <div className="grid gap-3" data-testid="policy-chooser">

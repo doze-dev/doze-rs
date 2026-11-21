@@ -9,6 +9,7 @@ import { Input } from "@doze/ui/components/ui/input";
 import { ApiFailure } from "@doze/ui/lib/api";
 import { useAbout } from "../../../api/queries";
 import { usePrincipals } from "../../../api/spaces";
+import { useNow } from "../../card";
 import { Field, FormPage, FormSection, callKindOp } from "../../../kit";
 import { assumedOf, ROLES, USERS, useIamCalls, useRead } from "./api";
 import { type Doc, needsExternalId } from "./model";
@@ -24,6 +25,7 @@ export function SwitchRole() {
   const aliases = useRead<{ AccountAliases: string[] }>(USERS, "ListAccountAliases", {});
   const roles = useRead<{ Roles: Role[] }>(ROLES, "ListRoles", { MaxItems: 1000 });
   const calls = useIamCalls();
+  const now = useNow();
   const principals = usePrincipals("all");
   const alias = aliases.data?.AccountAliases[0] ?? null;
   const [acct, setAcct] = useState<string | null>(search.account ?? null);
@@ -45,7 +47,7 @@ export function SwitchRole() {
   const roleArn = `arn:aws:iam::${id ?? "000000000000"}:role/${role.trim() || "(a role)"}`;
   const input = { RoleArn: roleArn, RoleSessionName: `doze-console-${(role.trim().split("/").pop() || "role").replace(/[^\w+=,.@-]/g, "-").slice(0, 40)}`, DurationSeconds: 3600 };
   const keyNames = new Map((principals.data?.principals ?? []).filter((p) => p.kind === "user" && p.name).map((p) => [p.key, p.name as string]));
-  const seen = role.trim() ? assumedOf(calls.data?.calls ?? [], role.trim().split("/").pop() ?? "", keyNames, Date.now()) : null;
+  const seen = role.trim() ? assumedOf(calls.data?.calls ?? [], role.trim().split("/").pop() ?? "", keyNames, now) : null;
   const last = seen && seen.count > 0 ? (calls.data?.calls ?? []).find((c) => c.service === "sts" && c.action === "AssumeRole" && c.caller !== "console" && (c.resource ?? "").endsWith(`/${role.trim()}`)) : null;
   const submit = async () => {
     setTried(true);

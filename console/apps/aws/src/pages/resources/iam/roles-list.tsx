@@ -11,6 +11,7 @@ import { SelectableTable } from "@doze/ui/components/app/selectable-table";
 import { Button } from "@doze/ui/components/ui/button";
 import { dateTimeUtc } from "@doze/ui/lib/format";
 import { usePrincipals } from "../../../api/spaces";
+import { useNow } from "../../card";
 import { assumedOf, ROLES, useIamCalls, useRead, useRefresh } from "./api";
 import { DeleteEntity } from "./delete-entity";
 import { CreatedBanner, GoneBanner, ListError, ListLoading, PageLine, SearchBox, useToList } from "./list-parts";
@@ -37,7 +38,7 @@ function Roles({ gone, created }: { gone?: string; created?: string }) {
   const [typed, setTyped] = useState("");
   const [chosen, setChosen] = useState<ReadonlySet<string>>(new Set());
   const [asking, setAsking] = useState(false);
-  const now = Date.now();
+  const now = useNow();
   const all = useMemo(() => read.data?.Roles ?? [], [read.data]);
   const rows = all.filter((r) => r.RoleName.toLowerCase().includes(typed.trim().toLowerCase()));
   const keyNames = useMemo(() => new Map((principals.data?.principals ?? []).filter((p) => p.kind === "user" && p.name).map((p) => [p.key, p.name as string])), [principals.data]);

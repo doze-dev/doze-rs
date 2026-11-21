@@ -6,8 +6,8 @@ import { useMemo, useState } from "react";
 import { Alert } from "@doze/ui/components/app/alert";
 import { type DataColumn } from "@doze/ui/components/app/data-table";
 import { KeyValueEditor } from "@doze/ui/components/app/key-value-editor";
-import { ReviewSection } from "@doze/ui/components/app/stepper";
 import { SelectableTable } from "@doze/ui/components/app/selectable-table";
+import { Button } from "@doze/ui/components/ui/button";
 import { Checkbox } from "@doze/ui/components/ui/checkbox";
 import { Input } from "@doze/ui/components/ui/input";
 import { ApiFailure } from "@doze/ui/lib/api";
@@ -16,7 +16,7 @@ import { useResourceList } from "../../../api/resources";
 import { Field, FormPage, FormSection, PolicyPicker, ResourcePicker, TAG_RULES, callKindOp } from "../../../kit";
 import { USERS, useRead, useRefresh } from "./api";
 import { list, sameIgnoringCase } from "./model";
-import { CardChoice, crumbs, KINDS, Note } from "./parts";
+import { CardChoice, crumbs, KINDS, Note, ReviewBlock } from "./parts";
 import { PolicyChooser } from "./policy-chooser";
 import { type UserForm, blankUser, permissionsOf, stepProblem, userCalls } from "./user-create-model";
 import { useGroupPolicies } from "./user-data";
@@ -101,7 +101,7 @@ export function UserCreate() {
       request={null}
       requests={shown}
       callTitle={step === 0 ? "The call this will make" : step === 1 ? "The call this will add" : "The calls this will make"}
-      callNote={step === 0 ? "The call runs when you choose Create user on the last step, not on Next." : step === 1 ? <>{perms.groups.length > 0 ? <>One AddUserToGroup call per selected group, after CreateUser.</> : perms.policies.length > 0 ? <>One AttachUserPolicy call per selected policy, after CreateUser.</> : <>Nothing is added: the user starts with no permissions.</>}{inherited.length > 0 && <> <b className="font-semibold text-foreground">{f.name || "The user"}</b> inherits {list([...new Set(inherited)])} through {list(perms.groups)}.</>}</> : "CreateUser first; then each membership and policy is its own call, in this order."}
+      callNote={step === 0 ? "The call runs when you choose Create user on the last step, not on Next." : step === 1 ? <>{perms.groups.length > 0 ? <>One AddUserToGroup call per selected group, after CreateUser.</> : perms.policies.length > 0 ? <>One AttachUserPolicy call per selected policy, after CreateUser.</> : <>Nothing is added: the user starts with no permissions.</>}{inherited.length > 0 && <> <b className="font-semibold text-foreground">{f.name || "The user"}</b> inherits {list([...new Set(inherited)])} through {list(perms.groups)}.</>}</> : "After it succeeds the console shows a notification and the new user in the Users list; View user opens its details."}
       refusal={failed ? { code: `${failed.operation}: ${failed.code}`, message: failed.message } : null}
       wizard={{ steps: STEPS, current: step, furthest, onStep: go, onBack: () => go(step - 1), onNext: next }}
       backLabel="Previous"
@@ -161,9 +161,11 @@ export function UserCreate() {
       )}
       {step === 2 && (
         <>
-          <ReviewSection title="User details" onEdit={() => go(0)} rows={[{ label: "User name", value: <span className="font-mono">{f.name}</span> }, ...(f.boundary ? [{ label: "Permissions boundary", value: <span className="font-mono">{f.boundary}</span> }] : [])]} />
+          <ReviewBlock title="User details" onEdit={() => go(0)} testId="review-details">
+            <dl className="grid grid-cols-[minmax(8rem,13rem)_minmax(0,1fr)] text-[13.5px]"><dt className="py-2 text-muted-foreground">User name</dt><dd className="py-2 font-mono text-bright" data-testid="review-name">{f.name}</dd>{f.boundary && <><dt className="py-2 text-muted-foreground">Permissions boundary</dt><dd className="py-2 font-mono text-bright">{f.boundary}</dd></>}</dl>
+          </ReviewBlock>
           <section className="rounded-[14px] border bg-card p-6 lg:p-7" aria-label="Permissions" data-testid="review-permissions">
-            <div className="flex items-start justify-between gap-3"><h2 className="text-[17px] leading-6 font-semibold tracking-[-0.01em] text-bright">{perms.groups.length > 0 || perms.policies.length === 0 ? "User group memberships" : "Permissions policies"}</h2><button type="button" className="rounded-sm text-[13px] font-medium text-link hover:underline" onClick={() => go(1)} data-testid="review-edit-Permissions">Edit</button></div>
+            <div className="flex items-start justify-between gap-3"><h2 className="text-[17px] leading-6 font-semibold tracking-[-0.01em] text-bright">{perms.groups.length > 0 || perms.policies.length === 0 ? "User group memberships" : "Permissions policies"}</h2><Button type="button" variant="outline" size="sm" className="bg-card" onClick={() => go(1)} data-testid="review-edit-Permissions">Edit</Button></div>
             <p className="mt-1 text-[13.5px] text-muted-foreground">{perms.groups.length > 0 ? "The user will be added to these user groups." : perms.policies.length > 0 ? "These policies will be attached to the user." : "The user has no permissions until you give it some."}</p>
             {(perms.groups.length > 0 || perms.policies.length > 0) && (
               <ul className="mt-3 divide-y rounded-lg border" data-testid="review-list">

@@ -11,6 +11,7 @@ import { RefreshControl } from "@doze/ui/components/app/refresh-control";
 import { SelectableTable } from "@doze/ui/components/app/selectable-table";
 import { Button } from "@doze/ui/components/ui/button";
 import { useResourceList } from "../../../api/resources";
+import { useNow } from "../../card";
 import type { ResourceRow } from "../../../api/types/ResourceRow";
 import { useRefresh } from "./api";
 import { DeleteEntity } from "./delete-entity";
@@ -39,7 +40,7 @@ function Users({ gone, created }: { gone?: string; created?: string }) {
   const [asking, setAsking] = useState(false);
   const names = useMemo(() => list.data?.pages.flatMap((p) => p.rows).map((r: ResourceRow) => r.name) ?? [], [list.data]);
   const { byUser, ready } = useUserKeys(names);
-  const now = Date.now();
+  const now = useNow();
   const rows: Row[] = names.filter((n) => n.toLowerCase().includes(typed.trim().toLowerCase())).map((name) => ({ name, keys: byUser.get(name) }));
   const first = list.data?.pages[0];
   const { refetch } = list;

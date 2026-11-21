@@ -47,7 +47,7 @@ function Groups({ gone, created }: { gone?: string; created?: string }) {
   const sentence = groupsSentence(names.map((name, i) => ({ name, members: (held[i]?.data?.Users ?? []).map((u) => u.UserName), policies: (byGroup.get(name) ?? []).map((p) => p.PolicyName) })));
   const columns: DataColumn<Row>[] = [
     { id: "name", header: "Group name", size: 320, min: 180, accessorFn: (r) => r.name.toLowerCase(), cell: (c) => <To kind="groups" name={c.row.original.name} /> },
-    { id: "users", header: "Users", size: 160, accessorFn: (r) => r.members ?? -1, meta: { numeric: true }, cell: (c) => c.row.original.members ?? <span className="text-muted-foreground">…</span> },
+    { id: "users", header: "Users", size: 160, accessorFn: (r) => r.members ?? -1, cell: (c) => c.row.original.members ?? <span className="text-muted-foreground">…</span> },
     { id: "created", header: "Created", accessorFn: (r) => r.created ?? 0, cell: (c) => (c.row.original.created ? dateTimeUtc(c.row.original.created * 1000) : <span className="text-muted-foreground">…</span>) },
   ];
   const none = names.length === 0 && first !== undefined;

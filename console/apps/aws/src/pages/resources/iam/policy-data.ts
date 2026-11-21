@@ -5,7 +5,9 @@ import { type Doc, docText, isAwsManaged } from "./model";
 
 /** The default version's document of each customer managed policy of `arns` (an AWS managed policy's is made by doze-aws from its name, and is not read). */
 export function usePolicyDocs(arns: readonly string[]): Map<string, Doc> {
-  const mine = useMemo(() => arns.filter((a) => !isAwsManaged(a)), [arns.join("\u0000")]); // eslint-disable-line react-hooks/exhaustive-deps
+  const key = arns.join("\u0000");
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const mine = useMemo(() => arns.filter((a) => !isAwsManaged(a)), [key]);
   const heads = useEach<{ Policy: { DefaultVersionId: string } }>(POLICIES, "GetPolicy", mine.map((PolicyArn) => ({ PolicyArn })));
   const versions = useEach<{ PolicyVersion: { Document: Doc } }>(POLICIES, "GetPolicyVersion", mine.flatMap((PolicyArn, i) => (heads[i]?.data ? [{ PolicyArn, VersionId: heads[i]!.data!.Policy.DefaultVersionId }] : [])));
   const out = new Map<string, Doc>();

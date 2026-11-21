@@ -14,6 +14,7 @@ import { Skeleton } from "@doze/ui/components/ui/skeleton";
 import { useUrlParam } from "@doze/ui/hooks/use-url-param";
 import { useAbout } from "../../../api/queries";
 import { usePrincipals } from "../../../api/spaces";
+import { useNow } from "../../card";
 import { RecentCalls, ResourcePage, TagsTab, WiredStrip, type Wired } from "../../../kit";
 import { assumedOf, ROLES, USERS, useIamCalls, useRead } from "./api";
 import { DeleteEntity } from "./delete-entity";
@@ -50,6 +51,7 @@ function RoleView({ d, updatedAt, fetching, refresh }: { d: Parameters<Parameter
   const attached = useRead<{ AttachedPolicies: AttachedPolicy[] }>(ROLES, "ListAttachedRolePolicies", { RoleName: name });
   const inline = useRead<{ PolicyNames: string[] }>(ROLES, "ListRolePolicies", { RoleName: name });
   const calls = useIamCalls();
+  const now = useNow();
   const principals = usePrincipals("all");
   const options = usePolicyOptions();
   const policies = attached.data?.AttachedPolicies ?? [];
@@ -57,7 +59,7 @@ function RoleView({ d, updatedAt, fetching, refresh }: { d: Parameters<Parameter
   const docs = usePolicyDocs(policies.map((p) => p.PolicyArn));
   const trust = fieldDoc(d);
   const keyNames = new Map((principals.data?.principals ?? []).filter((p) => p.kind === "user" && p.name).map((p) => [p.key, p.name as string]));
-  const seen = assumedOf(calls.data?.calls ?? [], name, keyNames, Date.now());
+  const seen = assumedOf(calls.data?.calls ?? [], name, keyNames, now);
   const ready = attached.isSuccess && inline.isSuccess;
   const rows = [...policies.map((p) => ({ ...p, entities: options.options.find((o) => o.arn === p.PolicyArn)?.attached ?? null })), ...inlines.map((n) => ({ PolicyName: n, PolicyArn: `inline:${n}`, entities: null }))];
   // The one permission of a role with one customer managed policy that grants one thing.
@@ -71,6 +73,8 @@ function RoleView({ d, updatedAt, fetching, refresh }: { d: Parameters<Parameter
     ...reaches.map((r) => ({ label: "resource", to: { service: r.service, kind: r.kind, name: r.name }, note: r.label })),
   ];
   const nUsers = Math.min(users.length, 3);
+  // The sentence is on every tab; the strip, the Summary and the calls are the Permissions tab's.
+  const main = (tab ?? "permissions") === "permissions";
   const sentence = tab === "trust" ? trustSentence(name, trust, about?.account ?? "") : roleSentence({ name, assumed: seen.count, inLastHour: seen.lastHour, by: seen.by, policies: [...policies.map((p) => p.PolicyName), ...inlines], only });
   const max = Number(d.fields.find((f) => f.label === "Maximum session")?.value ?? 3600);
   const alias = useRead<{ AccountAliases: string[] }>(USERS, "ListAccountAliases", {}).data?.AccountAliases[0] ?? about?.account ?? "";
@@ -128,13 +132,13 @@ function RoleView({ d, updatedAt, fetching, refresh }: { d: Parameters<Parameter
         overview={
           <>
             {ready && calls.isSuccess ? <Say text={sentence} names={[name, ...policies.map((p) => p.PolicyName), ...users.map((u) => u.label), ...seen.by, ...(only ? [only.resource] : []), ...(only ? [only.action] : [])]} bold={[/\b\d+ times?\b/, /\b(one|two|three|no) (principals?|actions?)\b/]} className="mb-6" testId="detail-sentence" /> : <Skeleton className="mb-6 h-6 w-2/3" />}
-            {wired.length > 0 && <WiredStrip wired={wired} self={{ name, at: nUsers }} chipText={(w) => (w.label === "user" ? `${w.to.name} user` : w.label === "policy" ? (w.note ?? w.to.name) : (w.note ?? w.to.name))} chipHref={(w) => (w.label === "policy" ? `/resources/iam/policies/${encodeURIComponent(w.to.name)}` : undefined)} />}
-            <Summary facts={[
+            {main && wired.length > 0 && <WiredStrip wired={wired} self={{ name, at: nUsers }} chipText={(w) => (w.label === "user" ? `${w.to.name} user` : w.label === "policy" ? (w.note ?? w.to.name) : (w.note ?? w.to.name))} chipHref={(w) => (w.label === "policy" ? `/resources/iam/policies/${encodeURIComponent(w.to.name)}` : undefined)} />}
+            {main && <Summary facts={[
               { label: "Created", value: created },
               { label: "Role ARN", value: <span className="font-mono">{fieldOf(d, "ARN")}</span> },
               { label: "Maximum session duration", value: sessionWords(max) },
               { label: "Role link", value: <a href={link} className="font-mono text-link hover:underline" data-testid="role-link">{`${window.location.origin}${link}`}</a> },
-            ]} />
+            ]} />}
           </>
         }
         tabs={tabs}
@@ -143,7 +147,7 @@ function RoleView({ d, updatedAt, fetching, refresh }: { d: Parameters<Parameter
         details={false}
         testId="role-page"
       />
-      <div className="mt-12"><RecentCalls calls={d.calls} noun="role" title="Recent calls" /></div>
+      {main && <div className="mt-12"><RecentCalls calls={d.calls} noun="role" title="Recent calls" /></div>}
       <AttachPolicies on="roles" name={name} attached={policies.map((p) => p.PolicyArn)} open={dialog === "attach"} onOpenChange={(o) => !o && setDialog(null)} />
       <InlinePolicy role={name} open={dialog === "inline"} onOpenChange={(o) => !o && setDialog(null)} />
       <DeleteEntity kind="roles" name={name} open={deleting} onOpenChange={setDeleting} onDeleted={() => { setDeleting(false); toList({ gone: name }); }} />

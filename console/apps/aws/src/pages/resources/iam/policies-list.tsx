@@ -54,7 +54,7 @@ function Policies({ gone, created }: { gone?: string; created?: string }) {
     { id: "choose", size: 44, enableSorting: false, header: () => <span className="sr-only">Choose</span>, cell: (c) => <RadioGroupItem value={c.row.original.Arn} aria-label={`Choose policy ${c.row.original.PolicyName}`} data-testid={`choose-${c.row.original.PolicyName}`} /> },
     { id: "name", header: "Policy name", size: 300, min: 190, accessorFn: (r) => r.PolicyName.toLowerCase(), cell: (c) => <To kind="policies" name={c.row.original.Arn} label={c.row.original.PolicyName} /> },
     { id: "type", header: "Type", size: 180, accessorFn: (r) => managedKind(r.Arn), cell: (c) => managedKind(c.row.original.Arn) },
-    { id: "attached", header: "Attached entities", size: 190, accessorFn: (r) => r.AttachmentCount ?? 0, meta: { numeric: true }, cell: (c) => c.row.original.AttachmentCount ?? 0 },
+    { id: "attached", header: "Attached entities", size: 190, accessorFn: (r) => r.AttachmentCount ?? 0, cell: (c) => c.row.original.AttachmentCount ?? 0 },
     { id: "description", header: "Description", accessorFn: (r) => r.Description ?? "", cell: (c) => c.row.original.Description || <span className="text-muted-foreground">–</span> },
   ];
   const none = read.isSuccess && all.length === 0;
@@ -68,13 +68,13 @@ function Policies({ gone, created }: { gone?: string; created?: string }) {
         refresh={<RefreshControl updatedAt={read.dataUpdatedAt} fetching={read.isFetching} onRefresh={refresh} interval={false} />}
         actions={
           <>
-            <DropdownMenu>
+            {!none && <DropdownMenu>
               <DropdownMenuTrigger asChild><Button type="button" variant="outline" className="bg-card" data-testid="actions-menu">Actions <ChevronDownIcon /></Button></DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="min-w-52">
                 <DropdownMenuItem disabled={!pick} onSelect={() => setDialog("attach")} data-testid="action-attach">Attach to a user, group or role</DropdownMenuItem>
                 <DropdownMenuItem disabled={!pick || managedKind(pick.Arn) === "AWS managed"} onSelect={() => setDialog("delete")} data-testid="action-delete">Delete</DropdownMenuItem>
               </DropdownMenuContent>
-            </DropdownMenu>
+            </DropdownMenu>}
             <Button onClick={create} data-testid="create-open"><PlusIcon /> Create policy</Button>
           </>
         }
@@ -89,7 +89,7 @@ function Policies({ gone, created }: { gone?: string; created?: string }) {
         <>
           {!none && <Say text={policiesSentence(facts, scope === "AWS" ? "AWS" : "Local")} names={all.map((p) => p.PolicyName)} bold={[/^\d[\d,]* (customer|AWS) managed polic(y|ies)/]} className="mb-6" testId="list-sentence" />}
           <div className="mb-3 flex flex-wrap items-center gap-3">
-            <div className="min-w-0 flex-1"><SearchBox value={typed} onChange={setTyped} noun="policies" /></div>
+            <div className="min-w-0 flex-1">{!none && <SearchBox value={typed} onChange={setTyped} noun="policies" />}</div>
             <Segmented value={scope === "All" ? "" : scope === "AWS" ? "aws" : "local"} onChange={(v) => setScope(v === "aws" ? "aws" : v === "local" ? undefined : "all")} label="Policy type" options={[{ value: "aws", label: "AWS managed" }, { value: "local", label: "Customer managed" }]} testId="policy-scope" />
           </div>
           {none ? (
