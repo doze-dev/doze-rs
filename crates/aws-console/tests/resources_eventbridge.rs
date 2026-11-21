@@ -232,7 +232,7 @@ async fn replays_and_api_destinations_are_kinds_with_pages_of_their_own() {
             "ACTIVE",
             "http://127.0.0.1:9/refunds",
             "POST",
-            "finance-api",
+            conn["ConnectionArn"],
             "300"
         ])
     );
