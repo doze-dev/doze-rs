@@ -74,6 +74,7 @@ test("a call enforced IAM refused is DENIED, told apart from an error", async ({
   } finally {
     // Off its page first: a page left open on a stopped doze-aws logs the stream's failed reconnects.
     await page.goto("about:blank");
+    await page.goto("about:blank"); // the page stops polling before its server goes (WebKit reports the refused poll)
     await server.stop();
   }
 });

@@ -160,6 +160,7 @@ test("under --iam enforce the console is allowed: it calls as the account root",
     const index = await (await page.request.get(`${server.console}/api/v1/resources/sqs/queues`, { headers: proof })).json();
     expect(JSON.stringify(index)).toContain(q);
   } finally {
+    await page.goto("about:blank"); // the page stops polling before its server goes (WebKit reports the refused poll)
     await server.stop();
   }
   expect(ENDPOINT).not.toBe("");

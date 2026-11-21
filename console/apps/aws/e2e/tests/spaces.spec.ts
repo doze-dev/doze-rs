@@ -35,6 +35,7 @@ test("Home turns to connected when an app's first call arrives, and names its cl
     await page.getByTestId("refresh-now").click();
     await expect(page.locator('[data-testid="signal"][data-kind="errors"]')).toContainText("3 SQS errors");
   } finally {
+    await page.goto("about:blank"); // the page stops polling before its server goes (WebKit reports the refused poll)
     await server.stop();
   }
 });
@@ -83,6 +84,7 @@ test("enforced IAM: a refused call is listed as denied", async ({ page, browserN
     await expect(group).toContainText("1 call denied");
     await expect(group.getByTestId("denial-caller")).toHaveText("nobody");
   } finally {
+    await page.goto("about:blank"); // the page stops polling before its server goes (WebKit reports the refused poll)
     await server.stop();
   }
 });
