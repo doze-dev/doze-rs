@@ -164,6 +164,19 @@ async fn a_pattern_is_tested_and_a_metric_filter_made_read_and_deleted_on_its_gr
     assert_eq!(filters["rows"][0]["cells"][2], "ApiErrors");
     assert_eq!(filters["rows"][0]["cells"][3], "Larder/Api");
     assert_eq!(filters["rows"][0]["cells"][5], "Count");
+    // The account's filters are read without a group (a new filter's namespace says what the others hold).
+    let (status, all) = w
+        .send(
+            "POST",
+            &format!("{BASE}/logs/groups/op/DescribeMetricFilters"),
+            &json!({}),
+        )
+        .await;
+    assert_eq!(status, 200, "{all}");
+    assert_eq!(
+        all["metricFilters"][0]["metricTransformations"][0]["metricNamespace"],
+        "Larder/Api"
+    );
     let (status, gone) = op(
         &w,
         &one,
@@ -302,6 +315,11 @@ async fn a_stream_is_made_with_its_tags_and_each_setting_is_its_own_call() {
     .await;
     assert_eq!(status, 200, "{r}");
     let (_, d) = w.get(&one).await;
+    // A list of names arrives as JSON text, which the page reads.
+    assert_eq!(
+        field(&d, "Shard-level metrics")["value"],
+        "[\"IncomingBytes\"]"
+    );
     assert_eq!(field(&d, "Open shards")["value"], "4");
     assert_eq!(field(&d, "Retention (hours)")["value"], "72");
     assert_eq!(field(&d, "Encryption")["value"], "KMS");
@@ -340,6 +358,15 @@ async fn a_stream_is_made_with_its_tags_and_each_setting_is_its_own_call() {
     assert_eq!(status, 200, "{r}");
     let (_, d) = w.get(&one).await;
     assert_eq!(field(&d, "Capacity mode")["value"], "ON_DEMAND");
+    // The encryption edit's keys: KMS's aliases, read through the kind.
+    let (status, aliases) = w
+        .send(
+            "POST",
+            &format!("{BASE}/kinesis/streams/op/ListAliases"),
+            &json!({}),
+        )
+        .await;
+    assert_eq!(status, 200, "{aliases}");
     // A call cannot be pointed at another stream: the one in the address is the one acted on.
     w.app(
         "kinesis",

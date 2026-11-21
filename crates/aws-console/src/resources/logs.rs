@@ -220,8 +220,13 @@ pub(super) static LOGS: Descriptor = Descriptor {
                 keys: "tagKeys",
             },
         )),
-        // The create with its own form (the KMS key, the deletion protection), and the test a metric filter's pattern gets.
-        ops: &[ops::free("CreateLogGroup"), ops::free("TestMetricFilter")],
+        // The create with its own form (the KMS key, the deletion protection), the test a metric filter's pattern gets, and the
+        // account's metric filters (a new filter's namespace says what the others already hold).
+        ops: &[
+            ops::free("CreateLogGroup"),
+            ops::free("TestMetricFilter"),
+            ops::free("DescribeMetricFilters"),
+        ],
         page: says::logs::GROUP,
         ..Kind::BARE
     }],

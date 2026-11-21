@@ -101,6 +101,12 @@ pub(super) static KINESIS: Descriptor = Descriptor {
                 "StreamDescriptionSummary.StreamCreationTimestamp",
                 Time,
             ),
+            // The metric names it keeps (nothing publishes them: crates/aws-kinesis/src/settings.rs).
+            field(
+                "Shard-level metrics",
+                "StreamDescriptionSummary.EnhancedMonitoring.0.ShardLevelMetrics",
+                Plain,
+            ),
         ],
         subs: &[Sub {
             title: "Shards",
@@ -209,7 +215,12 @@ pub(super) static KINESIS: Descriptor = Descriptor {
             },
         ],
         // The create with its form (the tags), and the consumers a stream's sentence and delete dialog name.
-        ops: &[ops::free("CreateStream"), ops::free("ListStreamConsumers")],
+        // The keys' aliases are the encryption edit's choices.
+        ops: &[
+            ops::free("CreateStream"),
+            ops::free("ListStreamConsumers"),
+            ops::free("ListAliases").of("kms"),
+        ],
         page: says::kinesis::STREAM,
         // Kinesis answers a stream's tags as pairs and takes them as a map.
         tags: Some(
