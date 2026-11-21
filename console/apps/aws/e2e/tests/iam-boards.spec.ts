@@ -109,6 +109,7 @@ test("iam__users-list and iam__user-delete: the keys by user, the sentence, and 
   await page.getByTestId("delete-dialog-input").fill("temp-auditor");
   await page.getByTestId("delete-dialog-submit").click();
   await expect(page.getByTestId("deleted-banner")).toContainText("User temp-auditor deleted.");
+  await expect(page.getByTestId("select-temp-auditor")).toHaveCount(0);
   await expect(page.getByTestId("list-sentence")).toContainText("3 users");
   cli(["iam", "create-user", "--user-name", "temp-auditor"]);
 });
@@ -313,6 +314,7 @@ test("iam__role-delete: the dialog names what is detached, and the role goes wit
   await page.getByTestId("delete-dialog-input").fill("larder-admin");
   await page.getByTestId("delete-dialog-submit").click();
   await expect(page.getByTestId("deleted-banner")).toContainText("Role larder-admin deleted.");
+  await expect(page.getByTestId("select-larder-admin")).toHaveCount(0);
   expect(aws(server.endpoint, ["iam", "get-role", "--role-name", "larder-admin"]).code).not.toBe(0);
 });
 
