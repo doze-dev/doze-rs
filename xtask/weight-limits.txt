@@ -107,6 +107,12 @@ doze-cli 9000000 240 0
 # binary on darwin arm64 was 9,126,832 B against 9,093,488 B at its base (+33,344 B, Rust code and the larger bundle), no new package;
 # on this main that is 9,160,032 + 33,344 = 9,193,376 B. Nothing new runs at idle (the facts are read when a page asks for them).
 # Bytes: times CI's 1.3747 is 12,638,234 B on ubuntu x86_64, plus 5% = 13,270,146 B until CI measures it (ceiling 15 MB). Idle unchanged.
+# 2026-11-19, the Live tail page and the topic page's Empty (branch kafka-live-tail: GET /api/v1/tail/topics, its filters and
+# reading, /api/v1/topics/{topic}/empty, the /tail page and the Empty dialog in the bundle), measured back to back on darwin arm64 with
+# the release build `cargo xtask weight` makes (by hand: its idle probe starts a console on 9093, outside this agent's ports):
+# 9,259,872 B against 9,193,408 B at its base daa22346c (+66,464 B, +0.72%: Rust code and the larger bundle), 182 packages (none
+# added), idle 7,920 KB against 7,952 KB (medians of three fresh starts; nothing runs without a client).
+# Bytes: times CI's 1.3747 is 12,729,546 B on ubuntu x86_64, plus 5% = 13,366,023 B until CI measures it (ceiling 15 MB). Idle unchanged.
 # 2026-11-19, the console debt merged with the admin APIs and the wire tail (kafka-debt-console over main at d51637d40), measured with
 # `cargo xtask weight doze-kafka` on darwin arm64: 9,425,424 B (+33,312 B, +0.35%, over the wire tail's 9,392,112 B; the debt alone
 # was +33,344 B), 182 packages (none added), idle 7,088 KB (samples 7,072, 7,104, 7,088). Bytes: times CI's 1.3747 is 12,957,130 B on
@@ -126,7 +132,11 @@ doze-cli 9000000 240 0
 # on darwin arm64: 9,558,032 B (+49,840 B over the debt with the older profiles, 9,508,192 B: core M3's Go-data import), 183 packages,
 # idle 7,216 KB (samples 7,168, 7,216, 7,248). Bytes: times CI's 1.3747 is 13,139,427 B on ubuntu x86_64, plus 5% = 13,796,398 B until
 # CI measures it (ceiling 15 MB). Idle unchanged: 11,880 KB.
-doze-kafka 13796398 183 11880 --listen 127.0.0.1:{port} --data-dir {data}
+# 2026-11-21, the Live tail over the console debt (kafka-live-tail over main after #105), measured with `cargo xtask weight doze-kafka`
+# on darwin arm64: 9,641,008 B (+82,976 B over the debt's 9,558,032 B: the tail's +66,464 B, and what main took in since #57), 183
+# packages, idle 7,152 KB. Bytes: times CI's 1.3747 is 13,253,494 B on ubuntu x86_64, plus 5% = 13,916,168 B until CI measures it
+# (ceiling 15 MB). Idle unchanged: 11,880 KB.
+doze-kafka 13916168 183 11880 --listen 127.0.0.1:{port} --data-dir {data}
 # 2026-11-14, with the schema registry too (Phase 10a, docs/port/phase10.md): 6,791,104 B on darwin arm64 (+216,800 B over the module's 6,574,304 B),
 # 171 packages (no third-party package), 7,248 KB idle. Times 1.36: about 9.24 MB on ubuntu x86_64, under this line (9,386,171 B), which does not move.
 # 2026-11-14, with Protobuf (Phase 10b, written here, no Protobuf crate): 6,857,840 B on darwin arm64 (+66,736 B), 171 packages (none added), 7,376 KB idle.

@@ -32,6 +32,19 @@ pub(crate) fn all(cfg: &Config, out: &mut BTreeMap<String, String>) {
     one::<TxnResponse>(cfg, out);
     one::<super::log::HeldReader>(cfg, out);
     one::<TailRows>(cfg, out);
+    one::<crate::tail::TailTopic>(cfg, out);
+    one::<crate::tail::TopicsTailReady>(cfg, out);
+    one::<crate::tail::TailCount>(cfg, out);
+    one::<crate::tail::TailRecord>(cfg, out);
+    one::<crate::tail::TopicsTailBatch>(cfg, out);
+    // The topic page's Empty (CON-1590).
+    one::<crate::api::topic_admin::EmptyRecordsForm>(cfg, out);
+    one::<crate::api::topic_admin::RecordsEmptiedAnswer>(cfg, out);
+    one::<crate::empty_records::EmptyRecordsView>(cfg, out);
+    one::<crate::empty_records::EmptyPart>(cfg, out);
+    one::<crate::empty_records::EmptyGroup>(cfg, out);
+    one::<crate::empty_records::GroupMoved>(cfg, out);
+    one::<crate::empty_records::RecordsEmptied>(cfg, out);
     one::<Cleanup>(cfg, out);
     one::<TopicRow>(cfg, out);
     one::<TopicsState>(cfg, out);

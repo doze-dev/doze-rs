@@ -10,8 +10,8 @@ import type { Option } from "./combobox";
 
 /** What the button says of a selection: `All topics`, `orders`, `orders, payments`, `3 topics`; with the chosen shown as chips
  * under it, only how many (`1 of 30 APIs`): a name is never said twice. */
-export function summary(chosen: string[], options: Option[], noun: string, chips = false): string {
-  if (chosen.length === 0) return `All ${noun}`;
+export function summary(chosen: string[], options: Option[], noun: string, chips = false, none?: string): string {
+  if (chosen.length === 0) return none ?? `All ${noun}`;
   if (chips) return `${chosen.length} of ${options.length} ${noun}`;
   const label = (v: string) => options.find((o) => o.value === v)?.label ?? v;
   if (chosen.length <= 2) return chosen.map(label).join(", ");
@@ -20,7 +20,7 @@ export function summary(chosen: string[], options: Option[], noun: string, chips
 
 /** Several values from a list (CON-851): a button that says the selection, a popup with a search field, a checkbox per
  * option with its count, Select all and Clear; the chosen show as chips under it, each removable. */
-export function MultiSelect({ options, value, onChange, noun = "items", className, triggerClassName = "w-64", "aria-label": ariaLabel, chips = true, pattern = false }: { options: Option[]; value: string[]; onChange: (v: string[]) => void; noun?: string; className?: string; triggerClassName?: string; "aria-label"?: string; chips?: boolean; /** What is typed can be added as it is (a name or a glob). */ pattern?: boolean }) {
+export function MultiSelect({ options, value, onChange, noun = "items", className, triggerClassName = "w-64", "aria-label": ariaLabel, chips = true, pattern = false, none, testId }: { options: Option[]; value: string[]; onChange: (v: string[]) => void; noun?: string; className?: string; triggerClassName?: string; "aria-label"?: string; chips?: boolean; /** What is typed can be added as it is (a name or a glob). */ pattern?: boolean; /** What the button says with nothing chosen (`All <noun>` by default: a filter). */ none?: string; testId?: string }) {
   const [open, setOpen] = useState(false);
   const [typed, setTyped] = useState("");
   const toggle = (v: string) => onChange(value.includes(v) ? value.filter((x) => x !== v) : [...value, v]);
@@ -34,9 +34,9 @@ export function MultiSelect({ options, value, onChange, noun = "items", classNam
       <div className="relative flex min-w-0 items-center">
         <Popover open={open} onOpenChange={setOpen}>
           <PopoverTrigger asChild>
-            <Button variant="outline" role="combobox" aria-expanded={open} aria-label={ariaLabel} className={cn("min-w-0 shrink justify-between bg-card font-normal", triggerClassName)}>
+            <Button variant="outline" role="combobox" aria-expanded={open} aria-label={ariaLabel} className={cn("min-w-0 shrink justify-between bg-card font-normal", triggerClassName, value.length === 0 && none && "text-muted-foreground")} data-testid={testId}>
               <span className="truncate" data-testid="multi-summary">
-                {summary(value, options, noun, chips)}
+                {summary(value, options, noun, chips, none)}
               </span>
               <ChevronsUpDownIcon className={cn("opacity-50", value.length > 0 && "invisible")} />
             </Button>

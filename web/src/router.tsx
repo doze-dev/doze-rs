@@ -15,6 +15,7 @@ import { parseSearch, stringifySearch } from "@/lib/search-params";
 import { messagesSearch, partitionSearch, topicSearch, topicsSearch } from "@/lib/topic-search";
 import { HomePage } from "@/pages/home";
 import { liveSearch } from "@/pages/live/search";
+import { tailSearch } from "@/pages/tail/search";
 import { NotFoundPage } from "@/pages/not-found";
 import { groupSearch, groupsSearch, lagSearch, membersSearch, storySearch } from "@/pages/groups/search";
 import { diffSearch, newSchemaSearch, schemasSearch, subjectSearch } from "@/pages/schemas/search";
@@ -69,6 +70,8 @@ const gallery = createRoute({ getParentRoute: () => root, path: "/gallery", vali
 
 // Live (R3): the tape, its tail and its Sheets; the page a new client lands on. Their own chunk, fetched when opened.
 const live = createRoute({ getParentRoute: () => root, path: "/live", validateSearch: liveSearch, component: lazyRouteComponent(() => import("@/pages/live/live"), "LivePage") });
+// The Live tail page (CON-1580): several topics, one stream. Its own chunk.
+const tailPage = createRoute({ getParentRoute: () => root, path: "/tail", validateSearch: tailSearch, component: lazyRouteComponent(() => import("@/pages/tail/tail"), "TailPage") });
 const firstRequest = createRoute({ getParentRoute: () => root, path: "/connect/first-request", component: lazyRouteComponent(() => import("@/pages/live/first-request"), "FirstRequestPage") });
 
 // R1a: the Topics pages, one lazily loaded chunk (pages/topics/pages.ts). The frame is a layout route; each tab is a child.
@@ -118,6 +121,7 @@ const tree = root.addChildren([
   connect,
   gallery,
   live,
+  tailPage,
   firstRequest,
   topics,
   topicsNew,

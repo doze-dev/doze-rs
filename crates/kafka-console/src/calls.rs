@@ -214,6 +214,27 @@ pub fn delete_records(version: i16, topic: &str, partition: i32, offset: &str) -
     ]
 }
 
+/// What the topic page's Empty sends: one DeleteRecords, every partition to the high watermark (`-1`).
+#[must_use]
+pub fn delete_all_records(version: i16, topic: &str, partitions: &[i32]) -> Lines {
+    let mut out = vec![
+        head("DeleteRecords", version, ""),
+        plain(1, "topics[0]"),
+        kv(2, "name", Tok::Str, &visible(topic, 80)),
+    ];
+    for (i, p) in partitions.iter().enumerate() {
+        out.push(plain(2, &format!("partitions[{i}]")));
+        out.push(kv(
+            3,
+            "partition_index",
+            Tok::Plain,
+            &format!("{p}  offset: -1 (the high watermark)"),
+        ));
+    }
+    out.push(num(1, "timeout_ms", 30_000));
+    out
+}
+
 /// What a DeleteRecords answered.
 #[must_use]
 pub fn delete_records_answer(

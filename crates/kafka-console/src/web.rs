@@ -8,7 +8,7 @@
 //!   the files at the top are `no-cache`.
 //! - Every GET under the console's root that is not `/api/`, `/assets/` or a file of the bundle answers
 //!   `index.html` (client routing: a deep link works). `index.html` is rewritten once at start: its two relative references
-//!   (`./assets/`, `./favicon.svg`) become absolute under the prefix, and a `<meta name="doze-base">` tells the client its root.
+//!   (`./assets/`, `./favicon*`, `./apple-touch-icon.png`) become absolute under the prefix, and a `<meta name="doze-base">` tells the client its root.
 //! - `web-dist/source-hash.txt` is the hash of the `web/` sources the bundle was built from; a test recomputes it and fails
 //!   when the bundle is stale.
 
@@ -108,9 +108,10 @@ pub fn rewrite_index(html: &str, web: &Base) -> String {
     };
     let out = html
         .replace("\"./assets/", &format!("\"{}/assets/", attr(root)))
+        .replace("\"./favicon", &format!("\"{}/favicon", attr(root)))
         .replace(
-            "\"./favicon.svg\"",
-            &format!("\"{}/favicon.svg\"", attr(root)),
+            "\"./apple-touch-icon",
+            &format!("\"{}/apple-touch-icon", attr(root)),
         );
     out.replacen(
         "<head>",

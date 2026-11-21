@@ -181,6 +181,80 @@ async fn records(State(s): State<Shared>, Path(topic): Path<String>, body: Bytes
     }
 }
 
+// ---- Empty (CON-1590) --------------------------------------------------------------------------------------------
+
+/// `GET /api/v1/topics/{topic}/empty`: what Empty removes, who falls below the new start, what stays.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
+pub struct EmptyRecordsForm {
+    pub view: crate::empty_records::EmptyRecordsView,
+    pub summary: Vec<Span>,
+    pub groups_warning: Vec<Span>,
+    pub keeps: Vec<String>,
+    /// The broker's refusal, known before the button (a topic that only compacts), else when it said no.
+    pub refusal: Option<Refusal>,
+    /// The sentence that goes with a refusal.
+    pub refused: Option<String>,
+    pub button: String,
+}
+
+/// The topic was emptied (200).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
+pub struct RecordsEmptiedAnswer {
+    pub emptied: crate::empty_records::RecordsEmptied,
+}
+
+fn empty_form_of(
+    view: crate::empty_records::EmptyRecordsView,
+    refusal: Option<Refusal>,
+) -> EmptyRecordsForm {
+    use crate::empty_records as w;
+    let refusal = refusal.or_else(|| {
+        view.compact_only
+            .then(|| crate::refusal::delete_records(44, None))
+    });
+    EmptyRecordsForm {
+        summary: w::summary(&view),
+        groups_warning: w::groups_warning(&view),
+        keeps: w::keeps(&view),
+        refused: refusal.as_ref().map(w::refused_sentence),
+        refusal,
+        button: w::button(&view),
+        view,
+    }
+}
+
+async fn empty_form(State(s): State<Shared>, Path(topic): Path<String>) -> Response {
+    match s.source.empty_records_form(&topic).await {
+        Some(view) => json(StatusCode::OK, &empty_form_of(view, None)),
+        None => no_topic(&topic),
+    }
+}
+
+async fn empty(State(s): State<Shared>, Path(topic): Path<String>, body: Bytes) -> Response {
+    use crate::empty_records::EmptyResult;
+    let f = parse_body(&body);
+    let groups: Vec<String> = f
+        .iter()
+        .filter(|(k, _)| k == "group")
+        .map(|(_, v)| v.clone())
+        .collect();
+    match s
+        .source
+        .empty_records(&topic, text(&f, "confirm"), &groups)
+        .await
+    {
+        EmptyResult::Done(d) => done(&RecordsEmptiedAnswer { emptied: d }),
+        EmptyResult::Refused(v, r) => kafka_refused(&r, &empty_form_of(*v, Some(r.clone()))),
+        EmptyResult::Invalid(v) => {
+            let first = v.error.clone().unwrap_or_default();
+            invalid(&first, &empty_form_of(*v, None))
+        }
+        EmptyResult::NoTopic => no_topic(&topic),
+    }
+}
+
 // ---- Delete topic -------------------------------------------------------------------------------------------------
 
 /// `GET /api/v1/topics/{topic}/delete`.
@@ -239,6 +313,10 @@ pub(super) fn routes(web: &crate::base::Base) -> Router<Shared> {
         .route(
             &web.url("/api/v1/topics/{topic}/delete-records"),
             get(records_form).post(records),
+        )
+        .route(
+            &web.url("/api/v1/topics/{topic}/empty"),
+            get(empty_form).post(empty),
         )
         .route(
             &web.url("/api/v1/topics/{topic}/delete"),

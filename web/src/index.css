@@ -90,6 +90,16 @@
   --sidebar-accent-foreground: #16150f;
   --sidebar-border: #e6e2d4;
   --sidebar-ring: #e0ad00;
+
+  /* The Live tail's topic colours (pages/tail): eight hues a name is given by its hash, each readable as text on a card. */
+  --topic-1: #2f62d9;
+  --topic-2: #17773f;
+  --topic-3: #b5530b;
+  --topic-4: #a3279a;
+  --topic-5: #0f7c86;
+  --topic-6: #7048c8;
+  --topic-7: #b0306a;
+  --topic-8: #6f7300;
   color-scheme: light;
 }
 @media (prefers-color-scheme: dark) {
@@ -142,6 +152,15 @@
     --sidebar-accent-foreground: #fff3b8;
     --sidebar-border: #2a2823;
     --sidebar-ring: #ffd60a;
+
+    --topic-1: #7aa5ff;
+    --topic-2: #52c98d;
+    --topic-3: #f29b4f;
+    --topic-4: #e386dc;
+    --topic-5: #4fd1d9;
+    --topic-6: #b79bff;
+    --topic-7: #ff86b4;
+    --topic-8: #c9cf4a;
     color-scheme: dark;
   }
 }
@@ -194,6 +213,15 @@
   --sidebar-accent-foreground: #fff3b8;
   --sidebar-border: #2a2823;
   --sidebar-ring: #ffd60a;
+
+  --topic-1: #7aa5ff;
+  --topic-2: #52c98d;
+  --topic-3: #f29b4f;
+  --topic-4: #e386dc;
+  --topic-5: #4fd1d9;
+  --topic-6: #b79bff;
+  --topic-7: #ff86b4;
+  --topic-8: #c9cf4a;
   color-scheme: dark;
 }
 
@@ -311,4 +339,29 @@
    on paper); dark keeps its tinted ground. */
 html:not(.dark) [data-sidebar="menu-button"][data-active="true"] {
   box-shadow: inset 3px 0 0 var(--primary);
+}
+
+/* The Live tail (pages/tail): a topic's hue, set on the row and on its chip by `data-hue`; the row carries it as a 3 px bar on
+   its first cell, so the merged stream reads by topic at a glance. Paint only: nothing changes size. */
+[data-hue="1"] { --hue: var(--topic-1); }
+[data-hue="2"] { --hue: var(--topic-2); }
+[data-hue="3"] { --hue: var(--topic-3); }
+[data-hue="4"] { --hue: var(--topic-4); }
+[data-hue="5"] { --hue: var(--topic-5); }
+[data-hue="6"] { --hue: var(--topic-6); }
+[data-hue="7"] { --hue: var(--topic-7); }
+[data-hue="8"] { --hue: var(--topic-8); }
+.tail-table tr[data-hue] > td:first-child {
+  box-shadow: inset 3px 0 0 var(--hue);
+}
+.tail-table tr.row-new > td {
+  animation: tail-arrive 1.5s ease-out 1;
+}
+@keyframes tail-arrive {
+  from {
+    background-color: color-mix(in oklab, var(--hue, var(--primary)) 11%, transparent);
+  }
+  to {
+    background-color: transparent;
+  }
 }
