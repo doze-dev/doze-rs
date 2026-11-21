@@ -86,6 +86,7 @@ fn all() -> BTreeMap<String, String> {
     one::<Deleted>(&cfg, &mut out);
     one::<DeepTab>(&cfg, &mut out);
     one::<Uploaded>(&cfg, &mut out);
+    one::<crate::api::objects::Presigned>(&cfg, &mut out);
     one::<KeyPrincipal>(&cfg, &mut out);
     one::<PrincipalKind>(&cfg, &mut out);
     one::<PrincipalsResponse>(&cfg, &mut out);

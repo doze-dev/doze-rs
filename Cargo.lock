@@ -716,6 +716,7 @@ name = "aws-console"
 version = "0.0.0"
 dependencies = [
  "aws-apigateway",
+ "aws-auth",
  "aws-cloudformation",
  "aws-cloudwatch",
  "aws-core",

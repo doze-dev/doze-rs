@@ -27,6 +27,7 @@ pub mod deep;
 pub mod flows;
 pub mod home;
 pub mod lab;
+pub mod objects;
 pub mod ops;
 pub mod preview;
 pub mod render;
@@ -97,6 +98,10 @@ pub fn routes() -> Router<Shared> {
             get(deep::download)
                 .post(deep::upload)
                 .layer(DefaultBodyLimit::max(deep::UPLOAD_MAX)),
+        )
+        .route(
+            "/api/v1/resources/{service}/{kind}/{name}/presign",
+            post(objects::presign),
         )
         .route(
             "/api/v1/resources/{service}/{kind}/{name}/tail",

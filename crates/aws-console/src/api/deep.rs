@@ -4,8 +4,9 @@
 //! - `POST /api/v1/resources/<service>/<kind>/<name>/op/<Operation>`: one of the operations the kind's pages make
 //!   ([`crate::resources::Deep`]), with the page's input (a JSON object); the service's answer as it gave it (Lambda's
 //!   `Invoke`: [`crate::model::Invoked`], the payload and log tail as text).
-//! - `POST /api/v1/resources/s3/buckets/<name>/object?key=<key>`: the request's body put as the object `key` (PutObject), at
-//!   most [`UPLOAD_MAX`]; its `Content-Type` is the object's.
+//! - `POST /api/v1/resources/s3/buckets/<name>/object?key=<key>[&props=<json>]`: the request's body put as the object `key`
+//!   (PutObject), at most [`UPLOAD_MAX`]; its `Content-Type` is the object's; `props` sets its metadata, tags, encryption and
+//!   the like ([`super::objects::put_props`]).
 //! - `GET /api/v1/resources/s3/buckets/<name>/object?key=<key>`: the object, streamed as GetObject answers it.
 //! - `GET /api/v1/resources/logs/groups/<name>/tail[?stream=<name>…][&pattern=<text>]`: a Live Tail of the group as
 //!   server-sent events ([`deep::tail`]), its request bound to the group as any operation's is; one of the console's event
@@ -98,8 +99,12 @@ pub async fn upload(
         Ok(found) => found,
         Err(res) => return *res,
     };
+    let props = match super::objects::put_props(query.as_deref(), decode) {
+        Ok(p) => p,
+        Err(why) => return error(StatusCode::BAD_REQUEST, "BAD_REQUEST", &why),
+    };
     let size = body.len() as u64;
-    let mut input = Map::new();
+    let mut input = props;
     input.insert("Bucket".to_owned(), Value::String(name));
     input.insert("Key".to_owned(), Value::String(key.clone()));
     input.insert("ContentLength".to_owned(), Value::from(size));
