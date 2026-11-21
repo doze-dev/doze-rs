@@ -21,7 +21,7 @@ import { AslEditor } from "./asl-editor";
 import { fieldOf } from "./details-card";
 import { type Definition, parseDefinition } from "./graph";
 import { GraphView } from "./graph-view";
-import { machineHref, useGoTo, useWhere } from "./hooks";
+import { machineHref, useGoTo, useVersions, useWhere } from "./hooks";
 import { LOG_NAME, TRUST, permissionsOf, pretty, roleNameOf } from "./model";
 import { PublishDialog } from "./publish-dialog";
 import { ConfigMode } from "./studio-config";
@@ -175,7 +175,7 @@ export function Studio(props: Props) {
         </TabsList>
       </Tabs>
       {mode === "design" && <DesignMode text={text} setText={setText} definition={definition} valid={valid} pending={pending} />}
-      {mode === "code" && <CodeMode text={text} setText={setText} validation={validation} valid={valid} pending={pending} definition={definition} />}
+      {mode === "code" && <CodeMode text={text} setText={setText} validation={validation} valid={valid} pending={pending} definition={definition} editing={props.editing} name={name} />}
       {mode === "config" && (
         <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_22.5rem]">
           <form className="grid min-w-0 gap-6" noValidate onSubmit={(e) => { e.preventDefault(); if (!props.editing) onCreate(); else if (valid) save.mutate(); }}>
@@ -197,33 +197,58 @@ export function Studio(props: Props) {
   );
 }
 
-function CodeMode({ text, setText, validation, valid, pending, definition }: { text: string; setText: (t: string) => void; validation: Validation | undefined; valid: boolean; pending: boolean; definition: Definition | null }) {
+function CodeMode({ text, setText, validation, valid, pending, definition, editing, name }: { text: string; setText: (t: string) => void; validation: Validation | undefined; valid: boolean; pending: boolean; definition: Definition | null; editing: boolean; name: string }) {
   const bad = !valid && !pending;
   const first = validation?.diagnostics.find((d) => d.severity === "ERROR");
   const marked = bad ? [lineOfLocation(text, first?.location)].filter((n): n is number => n !== null) : [];
-  return (
-    <div className="grid gap-6" data-testid="studio-code">
-      {bad && <Callout tone="bad" lead="The definition is invalid." testId="studio-invalid">You can't switch modes while it is. Fix the definition to switch modes.</Callout>}
+  const versions = useVersions(name, editing);
+  const newest = [...(versions.data ?? [])].sort((x, y) => Number(y.number) - Number(x.number))[0];
+  const graph = (
+    <section className="rounded-[14px] border bg-card p-6 lg:p-7" data-testid="studio-graph">
+      <h2 className="text-[17px] leading-6 font-semibold tracking-[-0.01em] text-bright">Graph</h2>
+      {editing && <p className="mt-1 text-[13.5px] text-muted-foreground">Redrawn as you edit.</p>}
+      <div className="mt-4">
+        {bad ? (
+          <Callout tone="note" testId="studio-graph-paused">Rendering of the graph is paused while the definition is invalid. It draws again once the definition is valid.</Callout>
+        ) : definition ? (
+          <GraphView definition={definition} />
+        ) : (
+          <Skeleton className="h-40 rounded-[12px]" />
+        )}
+      </div>
+    </section>
+  );
+  const editor = (
+    <>
       <AslEditor value={text} onChange={setText} marked={marked} testId="asl-editor" />
       {bad && (validation?.diagnostics.length ?? 0) > 0 && (
-        <ul className="grid gap-1 text-[13px]" data-testid="studio-diagnostics">
+        <ul className="mt-4 grid gap-1 text-[13px]" data-testid="studio-diagnostics">
           {validation?.diagnostics.map((d, i) => (
             <li key={i} className="flex gap-2"><span className={d.severity === "ERROR" ? "font-semibold text-bad" : "font-semibold text-warn"}>{d.severity === "ERROR" ? "Error" : "Warning"}</span><span className="min-w-0 break-words"><span className="font-mono text-[12.5px] text-muted-foreground">{d.code}</span> {d.message}{d.location && d.location !== "null" ? <> at <span className="font-mono text-[12.5px]">{d.location}</span></> : null}</span></li>
           ))}
         </ul>
       )}
-      <section className="rounded-[14px] border bg-card p-6 lg:p-7" data-testid="studio-graph">
-        <h2 className="text-[17px] leading-6 font-semibold tracking-[-0.01em] text-bright">Graph</h2>
-        <div className="mt-4">
-          {bad ? (
-            <Callout tone="note" testId="studio-graph-paused">Rendering of the graph is paused while the definition is invalid. It draws again once the definition is valid.</Callout>
-          ) : definition ? (
-            <GraphView definition={definition} />
-          ) : (
-            <Skeleton className="h-40 rounded-[12px]" />
-          )}
+    </>
+  );
+  return (
+    <div className="grid gap-6" data-testid="studio-code">
+      {bad && <Callout tone="bad" lead="The definition is invalid." testId="studio-invalid">You can't switch modes while it is. Fix the definition to switch modes.</Callout>}
+      {editing ? (
+        <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_22rem]">
+          <div className="min-w-0">{editor}</div>
+          <div className="grid min-w-0 gap-5">
+            {graph}
+            <p className="border-l-2 border-input pl-3.5 text-[13px] leading-5 text-muted-foreground" data-testid="studio-edit-note">
+              <b className="font-medium text-foreground">Save</b> calls UpdateStateMachine. On AWS, executions started in the next few seconds may still use the previous definition; doze-aws applies it at once. <b className="font-medium text-foreground">Publish version</b> snapshots the saved revision as a new version.{newest ? <> <b className="font-medium text-foreground">Version {newest.number}</b> is the newest, and keeps the definition it was published with.</> : null}
+            </p>
+          </div>
         </div>
-      </section>
+      ) : (
+        <>
+          {editor}
+          {graph}
+        </>
+      )}
     </div>
   );
 }

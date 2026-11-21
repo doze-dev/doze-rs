@@ -130,7 +130,7 @@ function NameDialog({ open, onOpenChange, taken }: { open: boolean; onOpenChange
               Start from a blank canvas and name it. You build the workflow in Workflow Studio, and nothing exists until you choose <b className="font-semibold">Create</b> there.
             </DialogDescription>
           </DialogHeader>
-          <RadioCards value="blank" onChange={() => undefined} label="How to start" name="start" options={[{ value: "blank", title: "Create from blank", body: "Design the workflow on a canvas, or write the Amazon States Language yourself." }]} />
+          <RadioCards value="blank" onChange={() => undefined} label="How to start" name="start" className="sm:grid-cols-1" options={[{ value: "blank", title: "Create from blank", body: "Design the workflow on a canvas, or write the Amazon States Language yourself." }]} />
           <Field label="State machine name" error={tried && problem && !problem.endsWith("already exists in this Region.") ? problem : undefined} refusal={tried && problem?.endsWith("already exists in this Region.") ? { why: problem } : null} help={<>1 to 80 characters. No whitespace, wildcard characters ( ? * ), brackets ( &lt; &gt; &#123; &#125; [ ] ) or special characters ( &quot; # % \ ^ | ~ ` $ &amp; , ; : / ). <b className="font-semibold">You can't rename it after you create it.</b></>} hint={existingWords(taken.slice(0, 4))}>
             {(id) => <Input id={id} value={name} onChange={(e) => setName(e.target.value)} autoFocus autoComplete="off" spellCheck={false} className="bg-card font-mono" data-testid="name-input" />}
           </Field>

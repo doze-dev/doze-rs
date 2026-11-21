@@ -86,9 +86,10 @@ export type VersionRow = { arn: string; number: string; description: string; cre
 export type AliasRow = { arn: string; name: string; description: string; routing: { stateMachineVersionArn: string; weight: number }[]; created: number | string; updated: number | string };
 
 /** A machine's versions, the newest first, each read for its description (a listing names only the ARN and the date). */
-export function useVersions(name: string) {
+export function useVersions(name: string, enabled = true) {
   return useQuery({
     queryKey: ["resources", "deep", "stepfunctions", "machines", name, "versions"],
+    enabled,
     retry: false,
     queryFn: async ({ signal }): Promise<VersionRow[]> => {
       const t = on.machine(name);

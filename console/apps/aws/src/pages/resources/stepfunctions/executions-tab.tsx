@@ -52,7 +52,6 @@ export function MachineExecutions({ d }: { d: ResourceDetail }) {
     return (
       <>
         <EmptyTab icon={PlayIcon} title="No execution history" testId="executions-express">{d.name} is an Express state machine. Express keeps no execution history: its runs are written to its log group.</EmptyTab>
-        {calls}
       </>
     );
   }
@@ -85,11 +84,11 @@ export function MachineExecutions({ d }: { d: ResourceDetail }) {
               <p className="mt-5 max-w-[46rem] border-l-2 border-input pl-3.5 text-[13px] leading-5 text-muted-foreground" data-testid="executions-note">
                 <b className="font-medium text-foreground">Version</b> and <b className="font-medium text-foreground">Alias</b> come from the ARN a run was started with. A run started with the plain state machine ARN has neither, even when a version holds the same revision. Running executions are listed by when they started; finished ones by when they stopped.
               </p>
+              {calls}
             </>
           );
         }}
       </Loaded>
-      {calls}
       {dialog}
     </>
   );
