@@ -8,7 +8,7 @@ use serde_json::{Value, json};
 
 use crate::core::Core;
 use crate::events::Incoming;
-use crate::model::{Doc, doc_key, group_arn};
+use crate::model::{Doc, doc_key};
 use crate::req::{Req, name_of_identifier, no_group};
 use crate::transform::{Meta, Transformer};
 
@@ -72,12 +72,20 @@ impl Core {
 
     pub(crate) fn get_transformer(&self, r: &Req<'_>) -> Result<Value, ApiError> {
         let name = self.identified(r)?;
-        let mut t = self.stored_transformer(&name).ok_or_else(no_transformer)?;
+        // Recorded 2026-11-19: after DeleteTransformer AWS answers an empty config, not a refusal (taken to hold for a group that
+        // never had one too).
+        let Some(mut t) = self.stored_transformer(&name) else {
+            return Ok(json!({"transformerConfig": []}));
+        };
+        // Recorded 2026-11-19: the identifier as the request gave it (a name stays a name).
         crate::req::Put::put(
             &mut t,
             "logGroupIdentifier",
-            json!(group_arn(r.region(), r.account(), &name)),
+            json!(r.s("logGroupIdentifier")),
         );
+        if let Some(c) = t.get_mut("transformerConfig") {
+            crate::transform::with_defaults(c);
+        }
         Ok(t)
     }
 
@@ -99,18 +107,15 @@ impl Core {
             account: r.account(),
             region: r.region(),
         };
-        let out: Vec<Value> = r
-            .strings("logEventMessages")
-            .iter()
-            .enumerate()
-            .map(|(i, m)| {
-                json!({
-                    "eventNumber": i + 1,
-                    "eventMessage": m,
-                    "transformedEventMessage": t.apply(m, &meta).unwrap_or_else(|| m.clone()),
-                })
-            })
-            .collect();
+        let mut out = Vec::new();
+        for (i, m) in r.strings("logEventMessages").iter().enumerate() {
+            let made = t.test(m, &meta).map_err(crate::transform::invalid)?;
+            out.push(json!({
+                "eventNumber": i + 1,
+                "eventMessage": m,
+                "transformedEventMessage": made.unwrap_or_else(|| m.clone()),
+            }));
+        }
         Ok(json!({"transformedLogs": out}))
     }
 

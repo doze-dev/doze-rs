@@ -2,7 +2,7 @@
   "_recorded": {
     "boto3": "1.43.107",
     "botocore": "1.43.107",
-    "on": "2026-11-15",
+    "on": "2026-11-19",
     "region": "us-east-1",
     "target": "aws"
   },
@@ -129,6 +129,57 @@
       "ResponseMetadata": {
         "HTTPStatusCode": 200
       }
+    }
+  },
+  "test_a_replay_is_cancelled_while_it_starts": {
+    "cancel": {
+      "ReplayArn": "arn:aws:events:us-east-1:<account>:replay/<name:replay>",
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "State": "CANCELLING"
+    },
+    "cancel-absent": {
+      "Error": {
+        "Code": "ResourceNotFoundException",
+        "Message": "Replay <name:absent> does not exist."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "cancel-again": {
+      "Error": {
+        "Code": "IllegalStatusException",
+        "Message": "Replay <name:replay> is not in a valid state for this operation."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "cancelled": {
+      "Destination": {
+        "Arn": "arn:aws:events:us-east-1:<account>:event-bus/<name:bus>"
+      },
+      "EventEndTime": "<EventEndTime:1>",
+      "EventSourceArn": "arn:aws:events:us-east-1:<account>:archive/<name:archive>",
+      "EventStartTime": "<EventStartTime:1>",
+      "ReplayArn": "arn:aws:events:us-east-1:<account>:replay/<name:replay>",
+      "ReplayEndTime": "<ReplayEndTime:1>",
+      "ReplayName": "<name:replay>",
+      "ReplayStartTime": "<ReplayStartTime:1>",
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "State": "CANCELLED"
+    },
+    "start": {
+      "ReplayArn": "arn:aws:events:us-east-1:<account>:replay/<name:replay>",
+      "ReplayStartTime": "<ReplayStartTime:1>",
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "State": "STARTING"
     }
   },
   "test_a_rule_with_targets_cannot_be_deleted": {

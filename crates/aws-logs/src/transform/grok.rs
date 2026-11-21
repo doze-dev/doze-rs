@@ -116,19 +116,11 @@ const PATTERNS: [(&str, &str); 60] = [
     ("NGUSER", "%{NGUSERNAME}"),
 ];
 
-/// What a captured value becomes.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(crate) enum Cast {
-    Text,
-    Int,
-    Float,
-}
-
-/// A compiled grok expression: the regular expression, and for each of its capture groups the field it fills.
+/// A compiled grok expression: the regular expression, and for each of its capture groups (by name) the field it fills.
 #[derive(Clone, Debug)]
 pub(crate) struct Grok {
     pub(crate) re: Regex,
-    pub(crate) fields: Vec<(String, String, Cast)>,
+    pub(crate) fields: Vec<(String, String)>,
 }
 
 /// Compiles a grok expression; the reason when it does not compile.
@@ -143,11 +135,7 @@ pub(crate) fn compile(source: &str) -> Result<Grok, String> {
     Ok(Grok { re, fields })
 }
 
-fn expand(
-    text: &str,
-    depth: usize,
-    fields: &mut Vec<(String, String, Cast)>,
-) -> Result<String, String> {
+fn expand(text: &str, depth: usize, fields: &mut Vec<(String, String)>) -> Result<String, String> {
     if depth > MAX_DEPTH {
         return Err("grok patterns nest too deeply".into());
     }
@@ -170,26 +158,19 @@ fn expand(
     Ok(out)
 }
 
-/// `NAME`, `NAME:field` or `NAME:field:type`, expanded.
+/// `NAME` or `NAME:field`, expanded (a third part, a type, is refused as AWS refuses it).
 fn reference(
     inner: &str,
     depth: usize,
-    fields: &mut Vec<(String, String, Cast)>,
+    fields: &mut Vec<(String, String)>,
 ) -> Result<String, String> {
     let mut parts = inner.splitn(3, ':');
     let name = parts.next().unwrap_or_default();
     let field = parts.next().filter(|f| !f.is_empty());
-    let cast = match parts.next() {
-        None => Cast::Text,
-        Some("int") => Cast::Int,
-        Some("float") => Cast::Float,
-        // (memory)
-        Some(other) => {
-            return Err(format!(
-                "the grok type '{other}' is not supported; use int or float"
-            ));
-        }
-    };
+    // Recorded 2026-11-19: CloudWatch Logs takes no `:type` in a grok pattern (a typeConverter processor does that job).
+    if parts.next().is_some() {
+        return Err("Grok parser doesn't support type conversions for any grok patterns".into());
+    }
     let def = PATTERNS
         .iter()
         .find(|(n, _)| *n == name)
@@ -199,6 +180,6 @@ fn reference(
         return Ok(format!("(?:{})", expand(def, depth + 1, fields)?));
     };
     let group = format!("dozeg{}", fields.len());
-    fields.push((group.clone(), field.to_owned(), cast));
+    fields.push((group.clone(), field.to_owned()));
     Ok(format!("(?P<{group}>{})", expand(def, depth + 1, fields)?))
 }

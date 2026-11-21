@@ -319,10 +319,41 @@ test("a refused request: Kafka's words, the rule behind them, what would pass", 
   await expect(sheet.getByTestId("kafka-words")).toContainText("Kafka's words");
   await expect(sheet.getByTestId("rules")).toContainText("cleanup.policy=compact");
   await expect(sheet.getByText("Give it a key")).toBeVisible();
+  // Its ways on go where they say (they named search params the topic routes do not have).
+  await expect(sheet.getByTestId("refused-log")).toHaveAttribute("href", /\/topics\/inventory\.levels\/log$/);
+  await sheet.getByTestId("refused-produce").click();
+  await expect(page).toHaveURL(/\/topics\/inventory\.levels\/messages\?dialog=produce$/);
+  await expect(page.getByRole("dialog")).toBeVisible();
+  await page.goBack();
+  await expect(page).toHaveURL(/\/live/);
+  await page.keyboard.press("Escape");
   // The refusals strip opens to one line per (code, client).
   await page.keyboard.press("Escape");
   await page.getByTestId("refusals").getByRole("button").first().click();
   await expect(page.getByTestId("refusal-lines")).toContainText("INVALID_RECORD (87)");
+});
+
+test("a record over the topic's limit: the Sheet's Raise max.message.bytes opens the topic's Config edit dialog for it (J158)", async ({ page, browserName }) => {
+  test.skip(!!process.env.E2E_URL, "makes its own topic");
+  const topic = `large-${browserName}-${Date.now()}`;
+  const k = new Kafka({ clientId: "e2e-large", brokers: [KAFKA], logLevel: logLevel.NOTHING, retry: { retries: 0 } });
+  const admin = k.admin();
+  await admin.connect();
+  await admin.createTopics({ topics: [{ topic, numPartitions: 1, configEntries: [{ name: "max.message.bytes", value: "2000" }] }], waitForLeaders: true });
+  await admin.disconnect();
+  const p = k.producer({ allowAutoTopicCreation: false });
+  await p.connect();
+  await p.send({ topic, messages: [{ key: "k", value: "x".repeat(5000) }] }).catch(() => {});
+  await p.disconnect();
+  await openLive(page, "?refused=1");
+  const row = rowsOf(page).filter({ hasText: "MESSAGE_TOO_LARGE" }).filter({ hasText: topic }).first();
+  await expect(row).toBeVisible();
+  await row.locator("td").nth(4).click();
+  const sheet = page.getByTestId("request-sheet");
+  await expect(sheet).toHaveAttribute("data-kind", "too_large");
+  await sheet.getByTestId("raise-limit").click();
+  await expect(page).toHaveURL(new RegExp(`/topics/${topic}/config\\?edit=max\\.message\\.bytes`));
+  await expect(page.getByRole("dialog")).toContainText("max.message.bytes");
 });
 
 test("the clients Sheet: who is connected, and a name filters the tape", async ({ page }) => {

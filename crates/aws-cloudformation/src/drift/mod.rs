@@ -212,13 +212,7 @@ impl Core {
     pub(crate) fn detect_stack_drift(&mut self, r: &Req<'_>) -> Result<Value, ApiError> {
         let s = self.drift_target(r)?;
         let only = r.strings("LogicalResourceIds");
-        if let Some(absent) = only.iter().find(|l| !s.resources.contains_key(*l)) {
-            // Recorded for DescribeStackResource (2026-11-12); taken to be the same here.
-            return Err(validation(format!(
-                "Resource {absent} does not exist for stack {}",
-                s.name
-            )));
-        }
+        // Recorded 2026-11-19: AWS starts the detection when a named resource does not exist; it has nothing to check for it.
         let id = aws_seal::uuid_v4().unwrap_or_default();
         let resources: Vec<(String, Res)> = s
             .resources

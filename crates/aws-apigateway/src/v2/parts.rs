@@ -78,6 +78,7 @@ pub(super) fn dispatch(core: &mut Core, op: Operation, r: &Req) -> Option<Res> {
         Operation::GetModels => list(core, r, MODEL.map),
         Operation::UpdateModel => update(core, r, &MODEL),
         Operation::DeleteModel => delete(core, r, &MODEL),
+        Operation::GetModelTemplate => model_template(core, r),
         _ => return responses(core, op, r),
     })
 }
@@ -90,6 +91,24 @@ fn get(core: &Core, r: &Req, p: &Part) -> Res {
         .cloned()
         .map(Into::into)
         .ok_or_else(|| missing(p.thing, id))
+}
+
+/// `GetModelTemplate`: the mapping template of the model's schema; a `$ref` names another model of the API by name.
+fn model_template(core: &Core, r: &Req) -> Res {
+    let doc = api(core, r)?;
+    let id = r.s("ModelId");
+    let models = obj(doc, "models");
+    let schema = models
+        .and_then(|m| m.get(id))
+        .ok_or_else(|| missing("Model", id))
+        .map(|m| text(m, "schema").unwrap_or("{}"))?;
+    let by_name = |n: &str| {
+        models?
+            .values()
+            .find(|m| text(m, "name") == Some(n))
+            .and_then(|m| serde_json::from_str(text(m, "schema")?).ok())
+    };
+    Ok(json!({"value": crate::template::generate(schema, &by_name)}).into())
 }
 
 fn list(core: &Core, r: &Req, map: &str) -> Res {
@@ -244,6 +263,7 @@ fn update_route(core: &mut Core, r: &Req) -> Res {
     Ok(crate::req::Out {
         json: route,
         status: Some(201),
+        pending: None,
     })
 }
 

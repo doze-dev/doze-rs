@@ -18,7 +18,7 @@ fn challenged() -> Session {
     Session::Challenged(awaiting)
 }
 
-const LOGGED_IN: fn() -> Session = || Session::Authenticated(Principal::user("alice"));
+const LOGGED_IN: fn() -> Session = || Session::Authenticated(Principal::user("alice"), false);
 
 fn others() -> impl Iterator<Item = ApiKey> {
     API_TABLE.iter().map(|r| r.key).filter(|k| {

@@ -23,6 +23,15 @@ fn slot<'a>(core: &'a mut Core, arn: &str) -> Result<&'a mut Value, ApiError> {
         ["apikeys", id] => core.keys.get_mut(id),
         ["usageplans", id] => core.plans.get_mut(id),
         ["domainnames", name] => core.domains.get_mut(name),
+        ["clientcertificates", id] => core.certs.get_mut(id),
+        ["vpclinks", id] => {
+            let key = if core.links.get(&format!("v1/{id}")).is_some() {
+                format!("v1/{id}")
+            } else {
+                format!("v2/{id}")
+            };
+            core.links.get_mut(&key)
+        }
         _ => None,
     };
     let Doc(doc) = doc.ok_or_else(missing)?;
@@ -32,7 +41,10 @@ fn slot<'a>(core: &'a mut Core, arn: &str) -> Result<&'a mut Value, ApiError> {
             .get_mut("stages")
             .and_then(|s| s.get_mut(*name))
             .ok_or_else(missing),
-        ["apikeys" | "usageplans" | "domainnames", _] => Ok(doc),
+        [
+            "apikeys" | "usageplans" | "domainnames" | "clientcertificates" | "vpclinks",
+            _,
+        ] => Ok(doc),
         _ => Err(missing()),
     }
 }

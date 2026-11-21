@@ -19,7 +19,7 @@ const MAX_BYTES: usize = 10 * 1024 * 1024;
 const CHUNK: usize = 100;
 
 /// What a read of a shard found: the records with their sequence numbers, where to read on from, and whether nothing more follows.
-type Read = (Vec<(u128, Record)>, u128, bool);
+pub(crate) type Read = (Vec<(u128, Record)>, u128, bool);
 
 /// Where an iterator points: the stream, the shard, the next sequence number to read, and when it was made.
 struct Cursor {
@@ -129,18 +129,7 @@ impl Core {
             .is_some_and(|s| s.kms_key.is_some());
         let records: Vec<Value> = found
             .iter()
-            .map(|(seq, rec)| {
-                let mut v = json!({
-                    "SequenceNumber": seq.to_string(),
-                    "ApproximateArrivalTimestamp": secs(rec.arrived_ms),
-                    "Data": aws_core::base64::encode(&rec.data),
-                    "PartitionKey": rec.partition_key,
-                });
-                if kms {
-                    v.put("EncryptionType", json!("KMS"));
-                }
-                v
-            })
+            .map(|(seq, rec)| record_json(*seq, rec, kms))
             .collect();
         // A closed shard that has been read to its last record has ended: no iterator to continue with, and the children to read
         // instead. (Recorded on AWS: a split closes the parent at once. The answer at its end is memory: the model says "If set to
@@ -163,6 +152,22 @@ impl Core {
             "NextShardIterator": make_iterator(&after),
             "MillisBehindLatest": behind,
         }))
+    }
+
+    /// The records of shard `shard` of stream `name` (row prefix `no`) from sequence number `next` on, as much as one read gives.
+    pub(crate) fn read_shard(
+        &self,
+        (no, name): (u32, &str),
+        shard: u32,
+        next: u128,
+    ) -> Result<Read, ApiError> {
+        let cursor = Cursor {
+            stream: name.to_owned(),
+            shard,
+            next,
+            issued_ms: 0,
+        };
+        self.read_from(no, &cursor, MAX_RECORDS)
     }
 
     /// The children a closed shard hands over to, if the read has reached its end.
@@ -269,6 +274,25 @@ impl Core {
     }
 }
 
+/// A record as `GetRecords` and a `SubscribeToShardEvent` show it.
+pub(crate) fn record_json(seq: u128, rec: &Record, kms: bool) -> Value {
+    let mut v = json!({
+        "SequenceNumber": seq.to_string(),
+        "ApproximateArrivalTimestamp": secs(rec.arrived_ms),
+        "Data": aws_core::base64::encode(&rec.data),
+        "PartitionKey": rec.partition_key,
+    });
+    if kms {
+        v.put("EncryptionType", json!("KMS"));
+    }
+    v
+}
+
+/// The sequence number of a timestamp member (seconds since the epoch), if it is one.
+pub(crate) fn seq_of_time(v: Option<&Value>) -> Option<u128> {
+    v.and_then(Value::as_f64).map(|s| ms_seq(millis_of(s)))
+}
+
 /// The sequence number a timestamp stands for.
 fn at_timestamp(r: &Req<'_>) -> Result<u128, ApiError> {
     let secs =
@@ -288,7 +312,7 @@ fn millis_of(secs: f64) -> i64 {
 }
 
 /// Milliseconds between the arrival of sequence number `from` and that of `tip`.
-fn millis_between(from: u128, tip: u128) -> i64 {
+pub(crate) fn millis_between(from: u128, tip: u128) -> i64 {
     (seq_ms(tip) - seq_ms(from)).max(0)
 }
 

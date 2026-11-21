@@ -22,11 +22,13 @@ const FEATURES: [Features; 2] = [
     Features {
         sasl: false,
         telemetry: false,
+        unstable: false,
         served: ApiSet::ALL,
     },
     Features {
         sasl: true,
         telemetry: true,
+        unstable: true,
         served: ApiSet::ALL,
     },
 ];

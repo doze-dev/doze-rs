@@ -117,7 +117,11 @@ impl<F: Fs> PartitionLog<F> {
         self.flush_active()?;
         self.flush_directory()?;
         self.synced_seq = upto;
-        self.shared.sync.send_modify(|s| s.synced = upto);
+        let end = self.end;
+        self.shared.sync.send_modify(|s| {
+            s.synced = upto;
+            s.through = Some(end);
+        });
         Ok(())
     }
 

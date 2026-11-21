@@ -23,6 +23,8 @@ pub struct PartitionFiles {
     pub bytes: u64,
     /// How many segments it has.
     pub segments: usize,
+    /// The bytes of its newest segment, the one appends go to (0 with none).
+    pub active_bytes: u64,
     /// When its newest segment was last written, in milliseconds since the epoch, where the system says.
     pub last_write_ms: Option<i64>,
     /// Why writes to it are refused: the first failed flush, in the writer's words. `None` while it is online.
@@ -35,6 +37,14 @@ fn summed(segments: &[SegmentInfo]) -> (u64, Option<i64>) {
     let bytes = segments.iter().map(|s| s.bytes).sum();
     let newest = segments.iter().filter_map(|s| s.modified_ms).max();
     (bytes, newest)
+}
+
+/// The bytes of the segment with the highest base offset: the active one.
+fn active(segments: &[SegmentInfo]) -> u64 {
+    segments
+        .iter()
+        .max_by_key(|s| s.base)
+        .map_or(0, |s| s.bytes)
 }
 
 impl<F: Fs> ConsoleView<'_, F> {
@@ -55,6 +65,30 @@ impl<F: Fs> ConsoleView<'_, F> {
         Some(out)
     }
 
+    /// Every partition whose writes are refused because a flush failed, as (topic, partition, the writer's words), of the
+    /// topics `caller` may DESCRIBE. Only open partitions can be offline (the cause lives with the writer), so nothing is
+    /// opened or read from disk for this.
+    #[must_use]
+    pub fn offline_partitions(&self, caller: &Caller) -> Vec<(String, i32, String)> {
+        let b = self.broker;
+        let mut out = Vec::new();
+        for topic in b.meta.topics() {
+            if !b.topic_allows(caller, topic.name.as_str(), Operation::Describe) {
+                continue;
+            }
+            for id in topic.partitions.ids() {
+                if let Some(cause) = b
+                    .partitions
+                    .peek(topic.id, id)
+                    .and_then(|p| p.reader().offline_cause())
+                {
+                    out.push((topic.name.as_str().to_owned(), id.get(), cause));
+                }
+            }
+        }
+        out
+    }
+
     fn one(&self, topic: &kafka_meta::Topic, id: PartitionId) -> PartitionFiles {
         let b = self.broker;
         let mut files = PartitionFiles {
@@ -62,6 +96,7 @@ impl<F: Fs> ConsoleView<'_, F> {
             open: false,
             bytes: 0,
             segments: 0,
+            active_bytes: 0,
             last_write_ms: None,
             offline: None,
             unreadable: false,
@@ -73,6 +108,7 @@ impl<F: Fs> ConsoleView<'_, F> {
             files.open = true;
             files.bytes = bytes;
             files.segments = segments.len();
+            files.active_bytes = active(&segments);
             files.last_write_ms = newest;
             files.offline = reader.offline_cause();
             return files;
@@ -83,6 +119,7 @@ impl<F: Fs> ConsoleView<'_, F> {
                 let (bytes, newest) = summed(&segments);
                 files.bytes = bytes;
                 files.segments = segments.len();
+                files.active_bytes = active(&segments);
                 files.last_write_ms = newest;
             }
             Err(_) => files.unreadable = true,

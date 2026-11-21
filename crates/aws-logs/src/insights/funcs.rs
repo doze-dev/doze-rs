@@ -44,13 +44,18 @@ const FUNCTIONS: [(&str, usize, usize); 32] = [
     ("isipv6insubnet", 2, 2),
 ];
 
+/// Whether `name` (lower case) is a function or an aggregate.
+pub(crate) fn known(name: &str) -> bool {
+    AggKind::of(name).is_some() || FUNCTIONS.iter().any(|(n, _, _)| *n == name)
+}
+
 /// The expression a call makes, or why it is refused.
 pub(crate) fn checked(name: &str, args: Vec<Expr>) -> Result<Expr, String> {
     if AggKind::of(name).is_some() {
         return Ok(Expr::Agg(name.to_owned(), args));
     }
     let Some((_, least, most)) = FUNCTIONS.iter().find(|(n, _, _)| *n == name) else {
-        return Err(format!("unknown function '{name}'"));
+        return Err(format!("Unrecognized function name: {name}"));
     };
     if args.len() < *least || args.len() > *most || args.iter().any(|a| matches!(a, Expr::Star)) {
         return Err(format!("wrong number of arguments to '{name}'"));

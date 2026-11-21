@@ -105,6 +105,12 @@ impl<R: io::Read> io::Read for Capped<R> {
     }
 }
 
+/// Unpacks `.tar.gz` bytes into `dest` as they are (no `bin/` asked for), under the same size cap: a service's
+/// download.
+pub fn untar_into(archive: &[u8], dest: &Path) -> io::Result<()> {
+    untar(archive, dest, UNPACKED_LIMIT)
+}
+
 fn untar(archive: &[u8], dest: &Path, cap: u64) -> io::Result<()> {
     std::fs::create_dir_all(dest)?;
     let gz = Capped {

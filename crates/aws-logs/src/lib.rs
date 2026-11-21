@@ -35,6 +35,7 @@ mod model;
 mod pattern;
 mod queries;
 mod query_ops;
+mod query_read;
 mod reading;
 mod req;
 mod scheduled;

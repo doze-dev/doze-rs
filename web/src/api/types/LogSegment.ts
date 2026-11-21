@@ -27,4 +27,8 @@ exact: boolean,
 /**
  * It is the one being written.
  */
-active: boolean, };
+active: boolean, 
+/**
+ * How many entries its index has, and its first few as (offset, byte position in the log file).
+ */
+index_entries: number, index_first: Array<[number, number]>, };

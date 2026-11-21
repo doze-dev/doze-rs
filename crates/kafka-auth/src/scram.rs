@@ -32,7 +32,7 @@ pub enum Why {
     BadFirst,
     /// The user has no verifier for this mechanism.
     UnknownUser,
-    /// The client asked to authenticate as a delegation token, and there are none.
+    /// The client asked to authenticate as a delegation token that there is not (`Invalid tokenId`).
     TokenAuth,
     /// The client-final message is not one Kafka's pattern matches.
     BadFinal,
@@ -90,7 +90,10 @@ impl std::error::Error for Refusal {}
 /// A login after its first message: the server nonce is out, and the client-final message is next.
 pub struct Awaiting {
     verifier: Arc<Verifier>,
-    user: String,
+    /// Who the login is for: the user, or a delegation token's owner.
+    principal: Principal,
+    /// Whether the login is with a delegation token.
+    token: bool,
     /// Client nonce followed by the server's: the nonce the final message must carry.
     nonce: String,
     /// `client-first-bare "," server-first ","`: the start of the `AuthMessage`.
@@ -128,18 +131,39 @@ pub fn first(
     server_nonce: &str,
     lookup: impl FnOnce(&str) -> Option<Arc<Verifier>>,
 ) -> Result<(Vec<u8>, Awaiting), Refusal> {
+    first_or_token(kind, token, server_nonce, lookup, |_| None)
+}
+
+/// [`first`], where a client-first message with `tokenauth=true` logs in with a delegation token: `token_lookup` finds the
+/// verifier of the token whose id is the user name, and its owner, who the login is for (`ScramSaslServer` with a
+/// `DelegationTokenCredentialCallback`). A token there is not is refused as an unknown user is.
+///
+/// # Errors
+/// As [`first`].
+pub fn first_or_token(
+    kind: Kind,
+    token: &[u8],
+    server_nonce: &str,
+    lookup: impl FnOnce(&str) -> Option<Arc<Verifier>>,
+    token_lookup: impl FnOnce(&str) -> Option<(Arc<Verifier>, Principal)>,
+) -> Result<(Vec<u8>, Awaiting), Refusal> {
     let rejected = |why| Refusal::Rejected {
         mechanism: kind.mechanism(),
         why,
     };
     let message = parse::first(token).ok_or(rejected(Why::BadFirst))?;
     let user = parse::unescape(message.saslname);
-    if message.is_token_auth() {
-        return Err(rejected(Why::TokenAuth));
-    }
-    let verifier = lookup(&user)
-        .filter(|v| v.kind() == kind)
-        .ok_or(rejected(Why::UnknownUser))?;
+    let by_token = message.is_token_auth();
+    let (verifier, principal) = if by_token {
+        token_lookup(&user)
+            .filter(|(v, _)| v.kind() == kind)
+            .ok_or(rejected(Why::TokenAuth))?
+    } else {
+        let verifier = lookup(&user)
+            .filter(|v| v.kind() == kind)
+            .ok_or(rejected(Why::UnknownUser))?;
+        (verifier, Principal::user(&user))
+    };
     // Kafka compares the id as the client wrote it, escapes and all, with the unescaped name.
     if message.authzid.is_some_and(|id| id != user) {
         return Err(Refusal::AuthzId);
@@ -153,7 +177,8 @@ pub fn first(
     let bare = message.bare();
     let awaiting = Awaiting {
         verifier,
-        user,
+        principal,
+        token: by_token,
         nonce,
         auth_message: format!("{bare},{server_first},"),
     };
@@ -193,7 +218,14 @@ impl Awaiting {
         }
         let signature = self.verifier.server_signature(auth_message.as_bytes());
         let reply = format!("v={}", base64::encode(&signature)).into_bytes();
-        Ok((reply, Principal::user(&self.user)))
+        Ok((reply, self.principal))
+    }
+
+    /// Whether the login is with a delegation token (its principal is then `tokenAuthenticated`, which may not ask for
+    /// tokens).
+    #[must_use]
+    pub fn by_token(&self) -> bool {
+        self.token
     }
 }
 

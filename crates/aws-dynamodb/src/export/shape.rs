@@ -101,7 +101,10 @@ pub(super) fn shown(
     match window {
         Window::Full(at) => {
             set(&mut out, "ExportTime", json!(seconds(*at)));
-            set(&mut out, "ExportType", json!("FULL_EXPORT"));
+            // Recorded 2026-11-19: a full export shows its type only when the request named it.
+            if let Some(kind) = str_of(body, "ExportType") {
+                set(&mut out, "ExportType", json!(kind));
+            }
         }
         Window::Incremental { from, to, new_only } => {
             set(&mut out, "ExportType", json!("INCREMENTAL_EXPORT"));

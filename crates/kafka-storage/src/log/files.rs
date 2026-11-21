@@ -48,6 +48,13 @@ impl<F: Fs> LogReader<F> {
         first_batch_ms(first.log_file().as_ref(), first.committed())
     }
 
+    /// Every record before this offset is on disk: the end of the log at its last completed flush, or at open when the stop
+    /// before vouched for it. `None` while a log read back from a stop that did not vouch has had no flush yet.
+    #[must_use]
+    pub fn flushed_through(&self) -> Option<Offset> {
+        self.shared.sync.borrow().through
+    }
+
     /// Why the partition is offline: the first failed flush, in the words the writer recorded it. `None` while it is
     /// online.
     #[must_use]

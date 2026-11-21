@@ -1,6 +1,6 @@
 {
   "scenario": "apiversions-client-software",
-  "kafka": "apache/kafka:4.3.1",
+  "kafka": "apache/kafka:4.4.0",
   "steps": [
     {
       "label": "v3-java-client",
@@ -16,7 +16,7 @@
         "ApiKeys": [
           {
             "ApiKey": 18,
-            "MaxVersion": 4,
+            "MaxVersion": 5,
             "MinVersion": 0
           }
         ],
@@ -38,7 +38,7 @@
         "ApiKeys": [
           {
             "ApiKey": 18,
-            "MaxVersion": 4,
+            "MaxVersion": 5,
             "MinVersion": 0
           }
         ],
@@ -60,7 +60,7 @@
         "ApiKeys": [
           {
             "ApiKey": 18,
-            "MaxVersion": 4,
+            "MaxVersion": 5,
             "MinVersion": 0
           }
         ],
@@ -82,7 +82,7 @@
         "ApiKeys": [
           {
             "ApiKey": 18,
-            "MaxVersion": 4,
+            "MaxVersion": 5,
             "MinVersion": 0
           }
         ],
@@ -104,7 +104,7 @@
         "ApiKeys": [
           {
             "ApiKey": 18,
-            "MaxVersion": 4,
+            "MaxVersion": 5,
             "MinVersion": 0
           }
         ],
@@ -126,7 +126,7 @@
         "ApiKeys": [
           {
             "ApiKey": 18,
-            "MaxVersion": 4,
+            "MaxVersion": 5,
             "MinVersion": 0
           }
         ],
@@ -148,7 +148,7 @@
         "ApiKeys": [
           {
             "ApiKey": 18,
-            "MaxVersion": 4,
+            "MaxVersion": 5,
             "MinVersion": 0
           }
         ],
@@ -170,7 +170,7 @@
         "ApiKeys": [
           {
             "ApiKey": 18,
-            "MaxVersion": 4,
+            "MaxVersion": 5,
             "MinVersion": 0
           }
         ],
@@ -387,6 +387,76 @@
       }
     },
     {
+      "label": "v5-no-cluster-and-no-node",
+      "api": "ApiVersions",
+      "version": 5,
+      "request": {
+        "ClientSoftwareName": "my-app",
+        "ClientSoftwareVersion": "1.0",
+        "ClusterID": null,
+        "NodeID": -1
+      },
+      "response": {
+        "ApiKeys": [
+          {
+            "ApiKey": 18,
+            "MaxVersion": 5,
+            "MinVersion": 0
+          }
+        ],
+        "ErrorCode": 0,
+        "OtherApiKeys": true
+      }
+    },
+    {
+      "label": "v5-another-cluster",
+      "api": "ApiVersions",
+      "version": 5,
+      "request": {
+        "ClientSoftwareName": "my-app",
+        "ClientSoftwareVersion": "1.0",
+        "ClusterID": "\u003ccluster\u003e",
+        "NodeID": "\u003cnode\u003e"
+      },
+      "response": {
+        "ApiKeys": [],
+        "ErrorCode": 129,
+        "OtherApiKeys": false
+      }
+    },
+    {
+      "label": "v5-a-cluster-and-no-node",
+      "api": "ApiVersions",
+      "version": 5,
+      "request": {
+        "ClientSoftwareName": "my-app",
+        "ClientSoftwareVersion": "1.0",
+        "ClusterID": "\u003ccluster\u003e",
+        "NodeID": -1
+      },
+      "response": {
+        "ApiKeys": [],
+        "ErrorCode": 42,
+        "OtherApiKeys": false
+      }
+    },
+    {
+      "label": "v5-a-node-and-no-cluster",
+      "api": "ApiVersions",
+      "version": 5,
+      "request": {
+        "ClientSoftwareName": "my-app",
+        "ClientSoftwareVersion": "1.0",
+        "ClusterID": null,
+        "NodeID": "\u003cnode\u003e"
+      },
+      "response": {
+        "ApiKeys": [],
+        "ErrorCode": 42,
+        "OtherApiKeys": false
+      }
+    },
+    {
       "label": "v3-valid-after-the-refusals",
       "api": "ApiVersions",
       "version": 3,
@@ -400,7 +470,7 @@
         "ApiKeys": [
           {
             "ApiKey": 18,
-            "MaxVersion": 4,
+            "MaxVersion": 5,
             "MinVersion": 0
           }
         ],
@@ -449,7 +519,7 @@
         "ApiKeys": [
           {
             "ApiKey": 18,
-            "MaxVersion": 4,
+            "MaxVersion": 5,
             "MinVersion": 0
           }
         ],
@@ -471,7 +541,7 @@
         "ApiKeys": [
           {
             "ApiKey": 18,
-            "MaxVersion": 4,
+            "MaxVersion": 5,
             "MinVersion": 0
           }
         ],
@@ -493,7 +563,7 @@
         "ApiKeys": [
           {
             "ApiKey": 18,
-            "MaxVersion": 4,
+            "MaxVersion": 5,
             "MinVersion": 0
           }
         ],

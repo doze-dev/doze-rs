@@ -136,6 +136,11 @@ function Words({ f }: { f: TopicFrame }) {
       ) : f.head.txns.length > 0 ? (
         <StatusDot tone="warn">Transaction open</StatusDot>
       ) : null}
+      {f.written_by.length > 0 && (
+        <span className="max-w-[28rem] truncate text-[13px] text-muted-foreground" title={`Written by ${f.written_by.join(", ")}: the clients the request recorder saw produce to it`} data-testid="written-by">
+          written by <span className="font-mono text-foreground">{f.written_by.join(", ")}</span>
+        </span>
+      )}
     </span>
   );
 }

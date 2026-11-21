@@ -69,7 +69,7 @@ impl ExpireDelegationTokenRequest {
 #[cfg(feature = "client")]
 impl Encodable for ExpireDelegationTokenRequest {
     fn encode<B: ByteBufMut>(&self, buf: &mut B, version: i16) -> Result<()> {
-        if version < 1 || version > 2 {
+        if version < 0 || version > 2 { // PATCH 7: v0 (Kafka 1 to 3)
             bail!("specified version not supported by this message type");
         }
         if version >= 2 {
@@ -119,7 +119,7 @@ impl Encodable for ExpireDelegationTokenRequest {
 #[cfg(feature = "broker")]
 impl Decodable for ExpireDelegationTokenRequest {
     fn decode<B: ByteBuf>(buf: &mut B, version: i16) -> Result<Self> {
-        if version < 1 || version > 2 {
+        if version < 0 || version > 2 { // PATCH 7: v0 (Kafka 1 to 3)
             bail!("specified version not supported by this message type");
         }
         let hmac = if version >= 2 {
@@ -157,7 +157,7 @@ impl Default for ExpireDelegationTokenRequest {
 }
 
 impl Message for ExpireDelegationTokenRequest {
-    const VERSIONS: VersionRange = VersionRange { min: 1, max: 2 };
+    const VERSIONS: VersionRange = VersionRange { min: 0, max: 2 } /* PATCH 7 */;
     const DEPRECATED_VERSIONS: Option<VersionRange> = None;
 }
 

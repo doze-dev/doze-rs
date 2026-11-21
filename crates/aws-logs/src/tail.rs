@@ -67,8 +67,9 @@ impl Core {
             r.strings("logStreamNamePrefixes"),
         );
         if !streams.is_empty() && !prefixes.is_empty() {
+            // Recorded 2026-11-19.
             return Err(invalid(
-                "logStreamNames and logStreamNamePrefixes cannot both be specified.",
+                "LogStreamNames provided with LogStreamPrefixes. LogStreamPrefixes is disabled if log stream names is provided.",
             ));
         }
         if (!streams.is_empty() || !prefixes.is_empty()) && ids.len() > 1 {

@@ -77,16 +77,8 @@ impl Core {
                 .to_owned()
         };
         let (region, account, name) = (text("_region"), text("_account"), text("name"));
-        let names: Vec<String> = v
-            .get("logGroupIdentifiers")
-            .and_then(Value::as_array)
-            .map(|a| {
-                a.iter()
-                    .filter_map(Value::as_str)
-                    .map(name_of_identifier)
-                    .collect()
-            })
-            .unwrap_or_default();
+        let listed = identifiers(&v);
+        let names: Vec<String> = listed.iter().map(|i| name_of_identifier(i)).collect();
         let offset = |k: &str| {
             v.get(k)
                 .and_then(Value::as_i64)
@@ -112,6 +104,7 @@ impl Core {
                     .map(|uri| target(uri, &name, &region, &account));
                 let plan = Plan {
                     names,
+                    listed,
                     text: text("queryString"),
                     query,
                     range,
@@ -141,6 +134,19 @@ impl Core {
         v.put("lastExecutionStatus", status);
         self.keep_scheduled(key, &v);
     }
+}
+
+/// A scheduled query's log groups as it names them.
+fn identifiers(v: &Value) -> Vec<String> {
+    v.get("logGroupIdentifiers")
+        .and_then(Value::as_array)
+        .map(|a| {
+            a.iter()
+                .filter_map(Value::as_str)
+                .map(str::to_owned)
+                .collect()
+        })
+        .unwrap_or_default()
 }
 
 /// The bucket and key a run's answer is written to: `s3://bucket/path` gives `path/<name>/<run>.json` (the run id is added later).

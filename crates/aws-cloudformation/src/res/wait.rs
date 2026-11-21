@@ -77,6 +77,10 @@ pub(crate) async fn create(rc: &Rc, p: &Value, creation: Option<&Value>) -> Done
         signal::close(&w.key);
     }
     match got {
+        // Recorded 2026-11-19: `SignalResource` carries no data, so a wait condition it completes has `Data` `{}`.
+        Ok(_) if w.by_policy => {
+            Ok(Made::new(super::generated_name(rc, 128, false)).with("Data", "{}"))
+        }
         Ok(data) => Ok(Made::new(super::generated_name(rc, 128, false))
             .with("Data", signal::data_attribute(&data))),
         Err(Ended::Cancelled) => Err(crate::cancel::cut_off(true)),

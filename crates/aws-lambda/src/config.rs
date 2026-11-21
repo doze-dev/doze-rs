@@ -114,22 +114,24 @@ pub(crate) fn check(config: &Map<String, Value>) -> Result<(), ApiError> {
 }
 
 /// A `DurableConfig` must name its `ExecutionTimeout` (developer guide, "Configure Lambda durable functions": "creating a function with
-/// a durable configuration but no execution timeout fails with an `InvalidParameterValueException`"; the words are (memory)).
+/// a durable configuration but no execution timeout fails with an `InvalidParameterValueException`").
 fn check_durable(config: &Map<String, Value>) -> Result<(), ApiError> {
     match config.get("DurableConfig") {
+        // Recorded 2026-11-19.
         Some(d) if d.get("ExecutionTimeout").and_then(Value::as_i64).is_none() => Err(invalid(
-            "DurableConfig.ExecutionTimeout is required: the most seconds a durable execution may run (1 to 31622400).",
+            "You cannot create a function with a durable configuration without an executionTimeout",
         )),
         _ => Ok(()),
     }
 }
 
 /// Durability is chosen when a function is made (developer guide: "You can only enable durable execution when creating a function.
-/// You cannot enable it on existing functions."). The words are (memory).
+/// You cannot enable it on existing functions.").
 pub(crate) fn check_durable_update(stored: &Map<String, Value>, r: &Req) -> Result<(), ApiError> {
     if r.value("DurableConfig").is_some() && !stored.contains_key("DurableConfig") {
+        // Recorded 2026-11-19.
         return Err(invalid(
-            "Durable execution can only be enabled when a function is created: create a new function with DurableConfig.",
+            "You cannot add a durable configuration to a function that was originally created with no durable configuration",
         ));
     }
     Ok(())

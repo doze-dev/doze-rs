@@ -1,7 +1,9 @@
 // A topic's frame and its Messages (slice R1a): tabs as routes; every filter in the address (partitions, offset or key,
 // time, isolation, Older); the record Sheet open, close, Esc, Back and a deep link; the Live tail on a broker with traffic.
 import { choose, cutHeaders, expect, overflowX, test } from "./fixtures";
-import { produce } from "./kafka";
+import { Kafka, logLevel } from "kafkajs";
+import { SEEDED } from "../playwright.config";
+import { produce, seeded } from "./kafka";
 
 /** Boxes in page coordinates (the viewport's plus the scroll), so a scroll is not a shift. */
 async function pageBoxes(page: import("@playwright/test").Page, selectors: string[]) {
@@ -116,6 +118,50 @@ test("partitions, key and time: each is in the address, shown as a chip with a w
   expect(await pageBoxes(page, ["[data-testid=toolbar]", "[data-testid=filter-line]"])).toEqual(toolbar);
 });
 
+test("From time has a UTC calendar: typing moves it, a day and a time chosen on it write the field (J387)", async ({ page }) => {
+  await page.goto("/topics/orders/messages");
+  await page.getByTestId("time-trigger").click();
+  await page.getByTestId("time-input").fill("2026-11-13 14:30");
+  const cal = page.getByTestId("datetime-calendar");
+  await expect(cal).toContainText("November 2026");
+  await expect(cal.getByRole("button", { name: "13 November 2026", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await expect(cal.getByTestId("datetime-clock")).toHaveValue("14:30:00");
+  // A day with the mouse, then the time with the keyboard.
+  await cal.getByRole("button", { name: "Previous month" }).click();
+  await expect(cal).toContainText("October 2026");
+  await cal.getByRole("button", { name: "2 October 2026", exact: true }).click();
+  await expect(page.getByTestId("time-input")).toHaveValue("2026-10-02 14:30:00");
+  await cal.getByTestId("datetime-clock").fill("09:05");
+  await expect(page.getByTestId("time-input")).toHaveValue("2026-10-02 09:05:00");
+  await page.getByTestId("time-apply").click();
+  await expect(page).toHaveURL(/time=2026-10-02(\+|%20| )09(%3A|:)05(%3A|:)00/);
+  await expect(page.getByTestId("chip-time")).toContainText("from 2026-10-02 09:05:00");
+  // Opened again, the calendar shows what is applied.
+  await page.getByTestId("time-trigger").click();
+  await expect(page.getByTestId("datetime-calendar").getByRole("button", { name: "2 October 2026", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await page.keyboard.press("Escape");
+});
+
+test("a value the table cut short says so on hover, and the record Sheet has all of it (J385)", async ({ page, browserName }) => {
+  test.skip(!seeded, "writes its own record");
+  const topic = `long-${browserName}-${Date.now()}`;
+  const kafka = new Kafka({ clientId: "e2e-long", brokers: [SEEDED.kafka], logLevel: logLevel.NOTHING });
+  const admin = kafka.admin();
+  await admin.connect();
+  await admin.createTopics({ topics: [{ topic, numPartitions: 1 }], waitForLeaders: true });
+  await admin.disconnect();
+  const p = kafka.producer({ allowAutoTopicCreation: false });
+  await p.connect();
+  const value = `start-${"x".repeat(3000)}-end`;
+  await p.send({ topic, messages: [{ key: "k", value }] });
+  await p.disconnect();
+  await page.goto(`/topics/${topic}/messages`);
+  const cell = rows(page).first().locator("td").nth(4);
+  await expect(cell).toHaveAttribute("title", /^start-x{400,} … \(2\.9 KiB in all: open the record for the whole value\)$/);
+  await rows(page).first().click();
+  await expect(page.getByRole("dialog")).toContainText("-end");
+});
+
 test("the record Sheet: a row opens it with its own address, Esc and Back close it, a deep link opens it", async ({ page }) => {
   await page.goto("/topics/orders/messages");
   const first = rows(page).first();
@@ -163,6 +209,29 @@ test("Older asks for more records, in the address", async ({ page }) => {
   await page.getByTestId("older").click();
   await expect(page).toHaveURL(/limit=10/);
   await expect(rows(page)).toHaveCount(10);
+});
+
+test("Older past 200 records reads before where the page stopped, in the address, down to the first record (J27)", async ({ page, browserName }) => {
+  test.skip(!seeded, "makes its own topic");
+  const topic = `older-${browserName}-${Date.now()}`;
+  const kafka = new Kafka({ clientId: "e2e-older", brokers: [SEEDED.kafka], logLevel: logLevel.NOTHING });
+  const admin = kafka.admin();
+  await admin.connect();
+  await admin.createTopics({ topics: [{ topic, numPartitions: 1 }], waitForLeaders: true });
+  await admin.disconnect();
+  await produce(topic, 260, "older");
+  await page.goto(`/topics/${topic}/messages?limit=200`);
+  await expect(rows(page)).toHaveCount(200);
+  await page.getByTestId("older").click();
+  await expect(page).toHaveURL(/before=0(%3A|:)60/);
+  await expect(rows(page)).toHaveCount(60);
+  await expect(page.getByTestId("chip-before")).toContainText("before 0:60");
+  await expect(page.getByTestId("older")).toHaveCount(0);
+  await expect(page.getByTestId("pager")).toContainText("Older records, newest first · 60 records");
+  // The way off the chip: the newest again.
+  await page.getByTestId("chip-before").getByRole("button").click();
+  await expect(page).not.toHaveURL(/before=/);
+  await expect(rows(page)).toHaveCount(200);
 });
 
 test("the Live tail: new rows at the top, no row rewritten, the header stable, held behind a pill while hovered", async ({ page, browserName }) => {

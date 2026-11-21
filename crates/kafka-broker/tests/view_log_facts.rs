@@ -261,6 +261,14 @@ async fn an_empty_partition_says_so_and_looking_opens_nothing() {
     let again = view.log_facts(&console(), "e", 1).await.unwrap();
     assert!(again.never_written);
     assert_eq!(rig.broker.open_partitions(), 1);
+    // J234: an append that asks to be durable is acknowledged after its flush, so the log is on disk to its end.
+    rig.produce(-1, "e", 0, records(1)).await;
+    let durable = view.log_facts(&console(), "e", 0).await.unwrap();
+    assert_eq!(durable.durability.flushed_through, Some(3));
+    assert_eq!(
+        again.durability.flushed_through, None,
+        "a partition not open says nothing"
+    );
 }
 
 /// CON-505b: a partition closed to make room is looked at from its files and let go again.
@@ -303,4 +311,33 @@ async fn the_view_obeys_describe_and_does_not_say_which_partitions_exist() {
     );
     assert!(view.log_facts(&console(), "nope", 0).await.is_none());
     assert!(view.producers(&console(), "s", -1).await.is_none());
+}
+
+/// J242: the verdict on a `compact,delete` log whose start DeleteRecords moved past an open transaction is the planner's own:
+/// the transaction's first offset, which lies before the log start, still holds cleaning back, as the cleaner reads it.
+#[tokio::test]
+async fn a_start_moved_past_an_open_transaction_is_judged_as_the_cleaner_judges_it() {
+    let rig = rig();
+    let t = with_config(compacting("0.01"), "cleanup.policy", "compact,delete");
+    rig.create(vec![t], false).await;
+    fill(&rig, 10, 5).await;
+    let txn = rig.init_txn("held", 60_000).await.unwrap();
+    assert_eq!(rig.add_partitions("held", txn, "c", &[0]).await, [0]);
+    let open = support::from(txn.producer, txn.epoch, 0, true, &[("k", "open")]);
+    let (code, first) = support::txn_produce(&rig, "held", open).await;
+    assert_eq!(code, 0);
+    fill(&rig, 60, 5).await;
+    let (code, _) = support::delete_records(&rig, first + 20).await;
+    assert_eq!(code, 0);
+    let (due, c) = agree(&rig).await;
+    assert!(!due, "{c:?}");
+    assert_eq!(
+        c.reading.limit,
+        kafka_storage::compact::Limit::Transaction,
+        "{c:?}"
+    );
+    assert_eq!(
+        c.reading.upto, first,
+        "the transaction's own first offset, before the start"
+    );
 }

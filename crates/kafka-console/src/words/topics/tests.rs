@@ -69,3 +69,25 @@ fn a_search_that_found_nothing_says_how_much_it_looked_at() {
             .contains("8,000 newest records the search looked at; it stopped at its limit")
     );
 }
+
+#[test]
+fn a_refused_read_is_said_in_kafkas_name_and_number_with_the_reason_it_has() {
+    assert_eq!(kafka_error(29), "TOPIC_AUTHORIZATION_FAILED (29)");
+    assert_eq!(kafka_error(0), "NONE (0)");
+    assert_eq!(
+        read_refused(29),
+        "The broker refused the read: TOPIC_AUTHORIZATION_FAILED (29). The console's principal may describe this topic but not read it."
+    );
+    assert_eq!(
+        read_refused(1),
+        "The broker refused the read: OFFSET_OUT_OF_RANGE (1). The offset asked for is outside the log."
+    );
+    assert_eq!(
+        read_refused(56),
+        "The broker refused the read: KAFKA_STORAGE_ERROR (56). The partition is offline after a failed flush."
+    );
+    assert_eq!(
+        read_refused(3),
+        "The broker refused the read: UNKNOWN_TOPIC_OR_PARTITION (3)."
+    );
+}

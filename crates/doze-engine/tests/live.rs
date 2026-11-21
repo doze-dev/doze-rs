@@ -80,3 +80,29 @@ async fn remove_is_refused_while_needed_then_stops_and_forgets() {
     e.shutdown().await;
     assert!(all_gone(&[pid]).await);
 }
+
+/// A connection that outlives a remove and an add of the same name gives back nothing of the new instance's (D1 audit
+/// item 3, the stale release).
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn a_connection_to_a_removed_instance_does_not_count_against_one_added_under_its_name() {
+    let d = Dir::new("live-hold");
+    let e = Engine::builder("t", d.path())
+        .service(svc("db", listener(&d, 0)))
+        .build()
+        .unwrap();
+    let old = e.hold("db").expect("declared");
+    e.remove("db").await.unwrap();
+    assert!(e.hold("db").is_none(), "nothing to hold once removed");
+    e.add(svc("db", listener(&d, 0))).unwrap();
+    let new = e.hold("db").expect("declared again");
+    assert_eq!(e.get("db").unwrap().conns, 1);
+    drop(old);
+    assert_eq!(
+        e.get("db").unwrap().conns,
+        1,
+        "the old connection's end is not the new one's"
+    );
+    drop(new);
+    assert_eq!(e.get("db").unwrap().conns, 0);
+    e.shutdown().await;
+}

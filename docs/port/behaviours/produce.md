@@ -34,8 +34,11 @@ answers log start -1; one made after it carries the log start.
 Test: `tests/produce_checks::*`; `kafka-wire::batch::produce::tests::*`
 
 ### P6. Unknown topics and partitions
-UNKNOWN_TOPIC_OR_PARTITION with base offset -1. From Produce v13 a topic is named by id.
-Test: `an_unknown_topic_or_partition_is_unknown_*`, `tests/produce_checks::from_v13_*`
+UNKNOWN_TOPIC_OR_PARTITION with base offset -1. From Produce v13 (KIP-516, offered at Kafka 4) a topic is named by id: an id that stands
+for no topic, the zero id included, is UNKNOWN_TOPIC_ID (100) on each of its partitions, before any right is asked; a partition the topic has not
+is UNKNOWN_TOPIC_OR_PARTITION as before; the answer names each topic by the id it was asked by (`KafkaApis.handleProduceRequest`, 4.4.0; TX-26,
+SEC-334) [wire-tail oracle `produce-ids`].
+Test: `an_unknown_topic_or_partition_is_unknown_*`, `tests/produce_checks::from_v13_*`, `tests/topic_ids_in_writes::produce_*`
 
 ### P7. Time
 A topic with `message.timestamp.type=LogAppendTime` has its batches stamped with the broker's clock and the answer says when.
@@ -86,6 +89,13 @@ Test: `tests/produce_records::*`, `scan::tests::*`
 The header's newest timestamp is rewritten to the latest of the records' (a producer may write anything there; retention,
 ListOffsets and the time lookups read it), and the checksum with it, without copying the body.
 Test: `produce_records::the_newest_timestamp_a_log_keeps_*`, `batch::tests::a_corrected_newest_timestamp_*`
+
+### P16. Produce v0 to v2 carry message sets of formats v0 and v1 (debt K2, 2026-11-19)
+Converted into one v2 batch with Kafka's checks, in the release's rules (wire.md W38), then held to everything a v3 batch is
+(P11 to P15). A set with no whole message appends nothing (0, offset -1). At Kafka 1.1 INVALID_RECORD is CORRUPT_MESSAGE, and
+a v3 to v5 request whose records are not one v2 batch closes the connection. `message.timestamp.after.max.ms` has no default
+bound before Kafka 4 (KIP-937).
+Test: `batch::legacy::tests`, recorded `old-formats-produce`, `tools/old-profiles-oracle` `produce-old`, `produce-old-refused`
 
 ### P15. A topic's `compression.type` writes the batch again
 When a topic stores a codec other than the producer's (`uncompressed`, `gzip`, `snappy`, `lz4`, `zstd`), the records are

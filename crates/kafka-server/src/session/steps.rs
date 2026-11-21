@@ -79,14 +79,15 @@ pub(crate) fn authenticate(
 ) -> Result<(SaslAuthenticateResponse, Fate), Hangup> {
     let token = &request.auth_bytes;
     if let Some(awaiting) = take_challenge(session) {
+        let by_token = awaiting.by_token();
         return match awaiting.finish(token) {
-            Ok((signature, principal)) => Ok(logged_in(session, principal, signature)),
+            Ok((signature, principal)) => Ok(logged_in(session, principal, by_token, signature)),
             Err(refusal) => refused(&refusal),
         };
     }
     match session {
         Session::Handshaken(Mechanism::Plain) => match auth.plain(token) {
-            Ok(principal) => Ok(logged_in(session, principal, Vec::new())),
+            Ok(principal) => Ok(logged_in(session, principal, false, Vec::new())),
             Err(refusal) => Ok((failed(&refusal.to_string()), Fate::Failed)),
         },
         Session::Handshaken(mechanism) => match auth.scram_first(*mechanism, token) {
@@ -96,7 +97,7 @@ pub(crate) fn authenticate(
             }
             Err(refusal) => refused(&refusal),
         },
-        Session::Authenticated(_) => Ok((after_login(), Fate::Open)),
+        Session::Authenticated(..) => Ok((after_login(), Fate::Open)),
         Session::Unauthenticated { .. }
         | Session::Challenged(_)
         | Session::RawHandshaken(_)
@@ -128,16 +129,19 @@ pub(crate) fn raw(
     token: &[u8],
 ) -> Result<Vec<u8>, RawEnd> {
     match std::mem::replace(session, Session::new()) {
-        Session::RawChallenged(awaiting) => match awaiting.finish(token) {
-            Ok((signature, principal)) => {
-                *session = Session::Authenticated(principal);
-                Ok(signature)
+        Session::RawChallenged(awaiting) => {
+            let by_token = awaiting.by_token();
+            match awaiting.finish(token) {
+                Ok((signature, principal)) => {
+                    *session = Session::Authenticated(principal, by_token);
+                    Ok(signature)
+                }
+                Err(refusal) => Err(raw_refused(&refusal)),
             }
-            Err(refusal) => Err(raw_refused(&refusal)),
-        },
+        }
         Session::RawHandshaken(Mechanism::Plain) => match auth.plain(token) {
             Ok(principal) => {
-                *session = Session::Authenticated(principal);
+                *session = Session::Authenticated(principal, false);
                 Ok(Vec::new())
             }
             Err(_) => Err(RawEnd::Failed),
@@ -180,9 +184,10 @@ fn take_challenge(session: &mut Session) -> Option<Awaiting> {
 fn logged_in(
     session: &mut Session,
     principal: Principal,
+    by_token: bool,
     reply: Vec<u8>,
 ) -> (SaslAuthenticateResponse, Fate) {
-    *session = Session::Authenticated(principal);
+    *session = Session::Authenticated(principal, by_token);
     (succeeded(reply), Fate::Open)
 }
 

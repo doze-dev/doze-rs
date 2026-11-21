@@ -110,18 +110,19 @@ pub(crate) fn resource_info(d: Option<&ResourceDrift>, res: &Res) -> Value {
     }
 }
 
-/// The refusal of `DetectStackResourceDrift` on a resource that is not checked. (memory) The words; the reason a local resource is
-/// not checked is added.
+/// The refusal of `DetectStackResourceDrift` on a resource that is not checked. A type that is not checked (one doze-aws did not
+/// make, or cannot read back) is refused in AWS's words for a type it does not check (recorded 2026-11-19). A resource not in a
+/// complete state: (memory) the words.
 pub(crate) fn not_supported(logical: &str, res: &Res) -> ApiError {
-    let why = if res.skipped {
-        "it was not made locally (doze-aws does not run its service)"
-    } else if !super::read::readable(&res.ty) {
-        "doze-aws cannot read this type back from its service"
-    } else {
-        "it is not in a complete state"
-    };
+    if res.skipped || !super::read::readable(&res.ty) {
+        // Recorded 2026-11-19.
+        return validation(format!(
+            "Drift detection is not supported for ResourceType {}",
+            res.ty
+        ));
+    }
     validation(format!(
-        "Drift detection is not supported for resource [{logical}] of type [{}]: {why}",
+        "Drift detection is not supported for resource [{logical}] of type [{}]: it is not in a complete state",
         res.ty
     ))
 }

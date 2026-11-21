@@ -16,8 +16,7 @@ use serde::Serialize;
 use super::{error, json};
 use crate::form::{get as field, parse};
 use crate::model::{
-    Cleanup, ConsumersView, MessageQuery, MessagesView, RecordView, Span, TopicHead, TopicsState,
-    TopicsView,
+    Cleanup, ConsumersView, MessagesView, RecordView, Span, TopicHead, TopicsState, TopicsView,
 };
 use crate::state::Shared;
 
@@ -77,6 +76,8 @@ pub struct TopicFrame {
     pub registry: bool,
     /// The subjects named for this topic.
     pub schemas: usize,
+    /// The clients the request recorder saw write to it, newest first, at most three.
+    pub written_by: Vec<String>,
 }
 
 impl TopicFrame {
@@ -108,6 +109,7 @@ impl TopicFrame {
             head,
             registry: false,
             schemas: 0,
+            written_by: Vec::new(),
         }
     }
 }
@@ -125,6 +127,9 @@ pub struct MessagesResponse {
     pub cursor: i64,
     /// "Older" is offered: more matched and the page is under the most it shows; it asks for this limit.
     pub older: Option<usize>,
+    /// "Older" past the most a page shows: the `before` cursor of the next page (`0:1200,1:880`), records older than the
+    /// oldest shown on each partition.
+    pub earlier: Option<String>,
 }
 
 /// One row of the Consumers tab: a partition of this topic as one group stands on it.
@@ -304,6 +309,7 @@ async fn frame(State(s): State<Shared>, Path(name): Path<String>) -> Response {
     match s.source.topic_head(&name).await {
         Some(h) => {
             let mut f = TopicFrame::new(h);
+            f.written_by = s.source.writers(&name);
             if let Some(r) = s.source.schemas().registry() {
                 f.registry = true;
                 let topic = [name.clone()];
@@ -317,41 +323,6 @@ async fn frame(State(s): State<Shared>, Path(name): Path<String>) -> Response {
         }
         None => no_such_topic(&name),
     }
-}
-
-async fn messages(
-    State(s): State<Shared>,
-    Path(name): Path<String>,
-    RawQuery(q): RawQuery,
-) -> Response {
-    if !valid(&name) {
-        return no_topic(&name);
-    }
-    let (query, notes) = MessageQuery::parse(&fields(q.as_deref()));
-    let Some(mut view) = s.source.messages(&name, query, notes).await else {
-        return no_topic(&name);
-    };
-    s.source.schemas().decorate_rows(&mut view.rows, &name);
-    let tailable =
-        view.query.key.is_none() && view.query.offset.is_none() && view.query.time.is_none();
-    let reach = if view.query.filtered() {
-        crate::words::reach_sentence(&view)
-    } else {
-        Vec::new()
-    };
-    let older = (view.reach.more && view.query.limit < crate::model::MOST_LIMIT)
-        .then(|| (view.query.limit * 2).min(crate::model::MOST_LIMIT));
-    let cursor = view.rows.iter().map(|r| r.timestamp_ms).max().unwrap_or(0);
-    json(
-        StatusCode::OK,
-        &MessagesResponse {
-            view,
-            reach,
-            tailable,
-            cursor,
-            older,
-        },
-    )
 }
 
 async fn record(
@@ -397,6 +368,7 @@ async fn consumers(State(s): State<Shared>, Path(name): Path<String>) -> Respons
 
 /// Whether the Lab is on: a live broker started with it.
 mod log;
+mod messages;
 pub mod schema;
 mod tail;
 #[cfg(test)]
@@ -413,7 +385,10 @@ pub fn routes(web: &crate::base::Base) -> Router<Shared> {
     Router::new()
         .route(&web.url("/api/v1/topics"), get(topics))
         .route(&web.url("/api/v1/topics/{topic}"), get(frame))
-        .route(&web.url("/api/v1/topics/{topic}/messages"), get(messages))
+        .route(
+            &web.url("/api/v1/topics/{topic}/messages"),
+            get(messages::messages),
+        )
         .route(
             &web.url("/api/v1/topics/{topic}/records/{partition}/{offset}"),
             get(record),

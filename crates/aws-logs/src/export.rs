@@ -127,10 +127,10 @@ impl Core {
             .and_then(Value::as_str)
             .unwrap_or_default();
         if code != "PENDING" && code != "RUNNING" {
-            // The model: "The task must be in the PENDING or RUNNING state." Wording (memory).
+            // The model: "The task must be in the PENDING or RUNNING state." Recorded 2026-11-19.
             return Err(ApiError::modeled(
                 "InvalidOperationException",
-                "The specified export task has already finished.",
+                "The specified export task has already finished",
             ));
         }
         self.set_status(id, "CANCELLED", "Cancelled by user");

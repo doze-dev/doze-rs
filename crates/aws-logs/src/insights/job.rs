@@ -128,6 +128,7 @@ impl Job {
             stream: &s.name,
             group: &s.group,
             account: &self.account,
+            region: &s.region,
             ptr: pointer(&s.region, &s.group, key),
             lambda: s.group.starts_with("/aws/lambda/"),
         };

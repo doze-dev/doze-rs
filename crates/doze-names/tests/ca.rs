@@ -101,7 +101,7 @@ fn rotation_makes_a_new_root_and_remembers_the_old_and_works_on_a_broken_one() {
 
 fn oracle() -> Option<PathBuf> {
     let dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../tools/names-oracle");
-    let go = Command::new("go")
+    let go = go_command()
         .arg("version")
         .output()
         .is_ok_and(|o| o.status.success());
@@ -109,7 +109,7 @@ fn oracle() -> Option<PathBuf> {
 }
 
 fn go(dir: &PathBuf, args: &[&str]) -> String {
-    let out = Command::new("go")
+    let out = go_command()
         .arg("run")
         .arg(".")
         .args(args)
@@ -161,4 +161,14 @@ fn go_and_rust_share_one_authority() {
         format!("verified {fp}"),
         "Go verifies a leaf Rust minted from Go's authority"
     );
+}
+
+/// The Go toolchain, without the variables an AI agent's shell sets: with them, Go adds an "AI agent environment" line
+/// to the oracle's stdout, which the test reads.
+fn go_command() -> Command {
+    let mut c = Command::new("go");
+    for v in ["AI_AGENT", "CLAUDECODE", "CLAUDE_CODE_ENTRYPOINT"] {
+        c.env_remove(v);
+    }
+    c
 }

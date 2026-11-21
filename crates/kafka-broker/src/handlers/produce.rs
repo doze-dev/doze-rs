@@ -11,7 +11,7 @@ use kafka_auth::authz::{Operation, ResourceType};
 use kafka_meta::Topic;
 use kafka_storage::fs::Fs;
 use kafka_wire::api::Response;
-use kafka_wire::batch::{Peek, TimestampType};
+use kafka_wire::batch::{Batch, Peek, TimestampType};
 use kafka_wire::ids::{PartitionId, TimestampMs, TopicId, TopicName};
 use kafka_wire::messages::produce_request::{PartitionProduceData, TopicProduceData};
 use kafka_wire::messages::produce_response::{
@@ -58,6 +58,13 @@ struct Txn<'a> {
 /// The first version of Produce that adds its partitions to the transaction (KIP-890's second part).
 const ADDS_PARTITIONS: i16 = 12;
 
+/// The first version of Produce that names its topics by id (KIP-516), and is answered with ids.
+const BY_ID: i16 = 13;
+
+/// Produce v0 to v2 carry message sets of formats v0 and v1 (and may carry v2 batches), which are converted into the one
+/// format the log stores (`batch::legacy`); from v3 a partition's records are one v2 batch.
+const OLD_FORMATS_TO: i16 = 3;
+
 /// What a Produce of v12 on adds to its transaction: the partitions, and the producer adding them.
 struct Adds {
     who: (i64, i16),
@@ -79,14 +86,39 @@ impl<F: Fs> Broker<F> {
         req: ProduceRequest,
     ) -> Outcome {
         let acks = req.acks;
+        let kafka_1 = self.config.kafka_major.get() == 1;
+        // Kafka 1.1 reads a v3 request's records as it reads the request (`ProduceRequest.validateRecords`): records that
+        // are not one v2 batch fail the read, and the connection is closed (2.0 on answer the partition INVALID_RECORD).
+        if kafka_1
+            && version >= OLD_FORMATS_TO
+            && req
+                .topic_data
+                .iter()
+                .flat_map(|t| &t.partition_data)
+                .any(|p| !Batch::is_one_v2_batch(p.records.as_ref().unwrap_or(&NO_RECORDS)))
+        {
+            return Outcome::Close;
+        }
         let may_write_txn = |id: &str| {
             self.authz
                 .allows(caller, ResourceType::TransactionalId, id, Operation::Write)
         };
-        let response = match request_refusal(&req, may_write_txn) {
+        let mut response = match request_refusal(&req, may_write_txn) {
             Some((code, message)) => refused_everywhere(&req, code, message.as_deref()),
             None => self.produce_partitions(version, caller, &req).await,
         };
+        if kafka_1 {
+            // INVALID_RECORD came with Kafka 2.4 (KIP-467); before it the same refusals were CORRUPT_MESSAGE
+            // (`InvalidRecordException` was a `CorruptRecordException`).
+            for p in response
+                .responses
+                .iter_mut()
+                .flat_map(|t| t.partition_responses.iter_mut())
+                .filter(|p| p.error_code == ResponseError::InvalidRecord.code())
+            {
+                p.error_code = ResponseError::CorruptMessage.code();
+            }
+        }
         if acks == 0 {
             // No answer can carry an error, so a refusal is told by dropping the connection, as Kafka does.
             let failed = response
@@ -178,7 +210,7 @@ impl<F: Fs> Broker<F> {
     ) -> bool {
         let name = match found {
             Some(topic) => topic.name.as_ref(),
-            None if version >= 13 => return true,
+            None if version >= BY_ID => return true,
             None => t.name.0.as_str(),
         };
         self.topic_allows(caller, name, Operation::Write)
@@ -198,7 +230,7 @@ impl<F: Fs> Broker<F> {
         id: kafka_wire::Uuid,
         name: &kafka_wire::messages::TopicName,
     ) -> Option<Arc<Topic>> {
-        if version >= 13 {
+        if version >= BY_ID {
             return self.meta.topic_by_id(TopicId::from_uuid(id)?);
         }
         self.meta.topic(&TopicName::parse(&name.0).ok()?)
@@ -213,28 +245,20 @@ impl<F: Fs> Broker<F> {
         topic: Option<&Topic>,
         p: &PartitionProduceData,
     ) -> Stage<F> {
-        let unknown = || {
-            Stage::Done(failed(
-                p.index,
-                ResponseError::UnknownTopicOrPartition,
-                None,
-            ))
+        let (topic, id) = match target(version, topic, p.index) {
+            Ok(found) => found,
+            Err(code) => return Stage::Done(failed(p.index, code, None)),
         };
-        let (Some(topic), Some(id)) = (topic, PartitionId::new(p.index)) else {
-            return unknown();
-        };
-        if id.get() >= topic.partitions.get() {
-            return unknown();
-        }
         let now = clock::now();
         let records = p.records.as_ref().unwrap_or(&NO_RECORDS);
+        let checked = blocking::run(|| self.checked(version, topic, id, records, now));
         let Accepted {
             batch,
             log_append_time,
-        } = match blocking::run(|| {
-            check::check(&self.defaults.get(), version, topic, id, records, now)
-        }) {
-            Ok(accepted) => accepted,
+        } = match checked {
+            Ok(Some(accepted)) => accepted,
+            // A message set with no whole message appends nothing: no error, and no offset.
+            Ok(None) => return Stage::Done(blank(p.index)),
             Err(refused) => return Stage::Done(self.refused(topic, id, refused).await),
         };
         // A transactional batch is part of a transaction that must be open for it. (A transactional bit on a batch with no
@@ -281,6 +305,27 @@ impl<F: Fs> Broker<F> {
                 appended_at: log_append_time.then_some(now),
             },
             Err(e) => Stage::Done(storage_fault(p.index, &e, self.deleted(topic.id))),
+        }
+    }
+
+    /// One partition's records held to the rules: a message set of v0 to v2 converted first, a v3 batch as it is.
+    fn checked(
+        &self,
+        version: i16,
+        topic: &Topic,
+        id: PartitionId,
+        records: &Bytes,
+        now: TimestampMs,
+    ) -> Result<Option<Accepted>, check::Refused> {
+        let defaults = self.defaults.get();
+        let at = check::At {
+            defaults: &defaults,
+            kafka: self.config.kafka_major,
+        };
+        if version < OLD_FORMATS_TO {
+            check::check_old(&at, topic, id, records, now)
+        } else {
+            check::check(&at, version, topic, id, records, now).map(Some)
         }
     }
 
@@ -358,6 +403,27 @@ fn add_refused(code: ResponseError) -> ResponseError {
         ResponseError::NotCoordinator => ResponseError::NotEnoughReplicas,
         code => crate::txn::rules::on_partition(code),
     }
+}
+
+/// The topic and partition an entry writes to, or why there is none. From v13 an id that stands for no topic is
+/// UNKNOWN_TOPIC_ID on each of its partitions, before anything else of them is looked at (`KafkaApis.handleProduceRequest`);
+/// a topic that exists without the partition is UNKNOWN_TOPIC_OR_PARTITION, as before.
+fn target(
+    version: i16,
+    topic: Option<&Topic>,
+    index: i32,
+) -> Result<(&Topic, PartitionId), ResponseError> {
+    let Some(topic) = topic else {
+        return Err(if version >= BY_ID {
+            ResponseError::UnknownTopicId
+        } else {
+            ResponseError::UnknownTopicOrPartition
+        });
+    };
+    PartitionId::new(index)
+        .filter(|id| id.get() < topic.partitions.get())
+        .map(|id| (topic, id))
+        .ok_or(ResponseError::UnknownTopicOrPartition)
 }
 
 #[cfg(test)]
