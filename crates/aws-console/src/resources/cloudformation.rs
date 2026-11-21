@@ -14,6 +14,30 @@ const STACK: &str = r#"{"StackName":"{id}"}"#;
 /// What a tag read names: this stack.
 const STACK_NAME: &str = r#"{"StackName":"{id}"}"#;
 
+/// What an update that only changes the tags must also say: each parameter as it is, and the capabilities the stack has.
+fn unchanged(read: &serde_json::Value) -> serde_json::Map<String, serde_json::Value> {
+    let stack = read.pointer("/Stacks/0");
+    let mut out = serde_json::Map::new();
+    let parameters: Vec<serde_json::Value> = stack
+        .and_then(|s| s.get("Parameters"))
+        .and_then(serde_json::Value::as_array)
+        .into_iter()
+        .flatten()
+        .filter_map(|p| p.get("ParameterKey"))
+        .map(|key| serde_json::json!({"ParameterKey": key, "UsePreviousValue": true}))
+        .collect();
+    if !parameters.is_empty() {
+        out.insert("Parameters".to_owned(), parameters.into());
+    }
+    if let Some(caps) = stack
+        .and_then(|s| s.get("Capabilities"))
+        .filter(|c| c.as_array().is_some_and(|a| !a.is_empty()))
+    {
+        out.insert("Capabilities".to_owned(), caps.clone());
+    }
+    out
+}
+
 /// Whether a stack's status is in the group of statuses `group` names.
 fn in_group(stack: &serde_json::Value, group: &str) -> bool {
     let status = stack
@@ -177,6 +201,7 @@ pub(super) static CLOUDFORMATION: Descriptor = Descriptor {
                 ),
                 at: "Tags",
                 clear: None,
+                carry: Some(unchanged),
             },
         )),
         // The list is of every stack that exists; the filter narrows a page to a group of statuses, with how many each has.

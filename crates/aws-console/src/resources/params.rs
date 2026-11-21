@@ -218,7 +218,7 @@ pub async fn specs(
 
 #[cfg(test)]
 mod tests {
-    use serde_json::json;
+    use serde_json::{Value, json};
 
     use super::{Apply, Options, Param, ParamKind};
 
@@ -256,5 +256,43 @@ mod tests {
         );
     }
 
-    use serde_json::Value;
+    #[test]
+    fn the_address_gives_only_the_parameters_a_kind_has_decoded() {
+        let ssm = crate::resources::catalog::descriptor("ssm").unwrap();
+        let kind = &ssm.kinds[0];
+        let given = super::given(
+            kind,
+            Some("token=x&p.begins-with=%2Fapp%2Fa+b&p.nope=1&p.begins-with.x=2"),
+        );
+        assert_eq!(given.len(), 1);
+        assert_eq!(given["begins-with"], "/app/a b");
+        assert!(super::given(kind, None).is_empty());
+        let set = super::applied(kind, &given);
+        assert_eq!(
+            Value::Object(set),
+            json!({"ParameterFilters": [{"Key": "Name", "Option": "BeginsWith", "Values": ["/app/a b"]}]})
+        );
+        assert!(super::applied(kind, &super::given(kind, Some("p.begins-with="))).is_empty());
+    }
+
+    #[test]
+    fn a_row_filter_narrows_the_rows_and_counts_what_each_choice_keeps() {
+        let cfn = crate::resources::catalog::descriptor("cloudformation").unwrap();
+        let kind = &cfn.kinds[0];
+        let rows = vec![
+            json!({"StackStatus": "CREATE_COMPLETE"}),
+            json!({"StackStatus": "UPDATE_COMPLETE"}),
+            json!({"StackStatus": "CREATE_FAILED"}),
+            json!({"StackStatus": "UPDATE_IN_PROGRESS"}),
+            json!({"StackStatus": "UPDATE_ROLLBACK_COMPLETE"}),
+        ];
+        let pick =
+            |q: &str| super::filtered(kind, &super::given(kind, Some(q)), rows.clone()).len();
+        assert_eq!(pick("p.status=COMPLETE"), 2);
+        assert_eq!(pick("p.status=FAILED"), 1);
+        assert_eq!(pick("p.status=IN_PROGRESS"), 1);
+        assert_eq!(pick("p.status=ROLLBACK"), 1);
+        assert_eq!(pick("p.status="), 5);
+        assert_eq!(pick(""), 5);
+    }
 }

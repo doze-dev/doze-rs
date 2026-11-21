@@ -165,6 +165,7 @@ pub(super) static S3: Descriptor = Descriptor {
                     put: op("PutBucketTagging", BUCKET),
                     at: "Tagging.TagSet",
                     clear: Some(op("DeleteBucketTagging", BUCKET)),
+                    carry: None,
                 },
             )
             .none("NoSuchTagSet"),

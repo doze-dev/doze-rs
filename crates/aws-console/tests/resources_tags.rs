@@ -228,11 +228,14 @@ async fn events_workflows_alarms_and_stacks_are_tagged_through_their_own_calls()
     )
     .await;
     round_trip(&w, "cloudwatch/alarms/queue-deep").await;
-    let template = json!({"Resources": {"Inbox": {"Type": "AWS::SQS::Queue", "Properties": {"QueueName": "stack-inbox"}}}});
+    // A stack with a parameter that has no default: its tags are set without asking for the value again.
+    let template = json!({"Parameters": {"Env": {"Type": "String"}},
+        "Resources": {"Inbox": {"Type": "AWS::SQS::Queue", "Properties": {"QueueName": {"Fn::Sub": "stack-${Env}"}}}}});
     w.app(
         "cloudformation",
         "CreateStack",
-        &json!({"StackName": "larder", "TemplateBody": template.to_string()}),
+        &json!({"StackName": "larder", "TemplateBody": template.to_string(),
+            "Parameters": [{"ParameterKey": "Env", "ParameterValue": "dev"}]}),
     )
     .await;
     for _ in 0..100 {

@@ -17,6 +17,9 @@ use crate::model::{Tag, TagsChange, TagsView};
 /// The most tags one resource holds (AWS allows 50 on most).
 pub const MOST_TAGS: usize = 50;
 
+/// The other members a write of the whole tag set takes, worked out from what the read answered.
+pub type Carry = fn(&Value) -> Map<String, Value>;
+
 /// How a service writes its tags.
 #[derive(Debug, Clone, Copy)]
 pub enum Shape {
@@ -89,11 +92,13 @@ pub enum Write {
         remove: Op,
         keys: &'static str,
     },
-    /// `put` takes the whole set at `at`; with `clear`, an empty set is written by that call instead.
+    /// `put` takes the whole set at `at`; with `clear`, an empty set is written by that call instead. `carry` works out, from
+    /// what the read answered, the other members the put needs to leave the rest as it is (a stack's parameters).
     Replace {
         put: Op,
         at: &'static str,
         clear: Option<Op>,
+        carry: Option<Carry>,
     },
 }
 
@@ -161,6 +166,18 @@ pub async fn read(
     tags: &Tags,
     name: &str,
 ) -> Result<TagsView, ApiError> {
+    fetch(bus, (d, kind), tags, name)
+        .await
+        .map(|(view, _)| view)
+}
+
+/// The tags, and the answer they were read from.
+async fn fetch(
+    bus: &Bus,
+    (d, kind): (&Descriptor, &Kind),
+    tags: &Tags,
+    name: &str,
+) -> Result<(TagsView, Value), ApiError> {
     let (id, out) = run::id_of(bus, d, kind, name).await?;
     let form = Map::new();
     let fill = Fill {
@@ -174,10 +191,11 @@ pub async fn read(
     };
     let mut held = path::get(&answer, tags.at).map_or_else(Vec::new, |v| tags.shape.read(&v));
     held.sort_by(|a, b| a.key.cmp(&b.key));
-    Ok(TagsView {
+    let view = TagsView {
         tags: held,
         editable: !matches!(tags.write, Write::Read),
-    })
+    };
+    Ok((view, answer))
 }
 
 /// The call `op` on the resource, with `input` bound to it.
@@ -232,8 +250,14 @@ pub async fn change(
                 make(bus, (d, kind), add, name, input).await?;
             }
         }
-        Write::Replace { put, at, clear } => {
-            let mut held = read(bus, (d, kind), tags, name).await?.tags;
+        Write::Replace {
+            put,
+            at,
+            clear,
+            carry,
+        } => {
+            let (view, answer) = fetch(bus, (d, kind), tags, name).await?;
+            let mut held = view.tags;
             held.retain(|t| {
                 !change.remove.contains(&t.key) && !change.set.iter().any(|s| s.key == t.key)
             });
@@ -247,7 +271,7 @@ pub async fn change(
             match clear.as_ref().filter(|_| held.is_empty()) {
                 Some(op) => make(bus, (d, kind), op, name, Map::new()).await?,
                 None => {
-                    let mut input = Map::new();
+                    let mut input = carry.map_or_else(Map::new, |f| f(&answer));
                     path::put_at(&mut input, at, tags.sent_shape().write(&held));
                     make(bus, (d, kind), put, name, input).await?;
                 }
