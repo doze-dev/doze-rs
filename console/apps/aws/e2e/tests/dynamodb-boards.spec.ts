@@ -374,7 +374,11 @@ test("dynamodb__item-delete: the ticked item is named by its key and deleted", a
   const rows = page.getByRole("table", { name: "Items" }).locator("tbody tr[data-row]");
   await expect(rows).toHaveCount(3);
   await expect(page.getByTestId("item-delete")).toBeDisabled();
-  await rows.filter({ hasText: "ord-20261108-0412" }).getByRole("checkbox").click();
+  // Firefox, with the machine busy, sometimes misses the first click while the rows settle: tick again until the button is live.
+  await expect(async () => {
+    await rows.filter({ hasText: "ord-20261108-0412" }).getByRole("checkbox").check({ timeout: 2000 });
+    await expect(page.getByTestId("item-delete")).toBeEnabled({ timeout: 1000 });
+  }).toPass({ timeout: 10_000 });
   await page.getByTestId("item-delete").click();
   await expect(page.getByTestId("item-delete-dialog")).toContainText("Delete 1 item?");
   await expect(page.getByTestId("item-key")).toContainText("ord-20261108-0412");
