@@ -105,7 +105,7 @@ pub fn release(a: &Args) -> Result<String, String> {
         archive: archive.clone(),
         sha256: sha.clone(),
         protocol: i64::from(doze_module_proto::version::CURRENT.major),
-        engines: m.versions.clone(),
+        engines: engine_majors(&m.versions),
         min_doze: MIN_DOZE.into(),
     };
     index::add(&mut idx, &addition)?;
@@ -118,8 +118,45 @@ pub fn release(a: &Args) -> Result<String, String> {
     ))
 }
 
+/// The index's `engines`: the engine majors a release supports, as doze resolves a declared version (`version = "11.4"`
+/// asks for major 11) and as the Go modtool wrote them. A module that names exact versions (mariadb: 11.4, 11.8, 12.2)
+/// still checks the exact one when it decodes the block; the index only says which majors it serves. In order, once each.
+fn engine_majors(versions: &[String]) -> Vec<String> {
+    let mut majors: Vec<String> = Vec::new();
+    for v in versions {
+        let major = v.split('.').next().unwrap_or_default();
+        if !major.is_empty() && !majors.iter().any(|m| m == major) {
+            majors.push(major.to_string());
+        }
+    }
+    majors
+}
+
 /// The `meta.yaml` a module's manifest publishes (its docs and the module contract's `client` and `detect`), for the
 /// tests that read it back as the CLI does.
 pub fn meta_yaml(m: &doze_module_proto::msg::hello::Manifest) -> Result<String, String> {
     meta::render(m)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::engine_majors;
+
+    fn s(v: &[&str]) -> Vec<String> {
+        v.iter().map(|x| (*x).to_string()).collect()
+    }
+
+    #[test]
+    fn engines_are_the_majors_doze_resolves_by() {
+        // mariadb 0.3.0 was published with 11.4, 11.8, 12.2, which no declared version could match.
+        assert_eq!(
+            engine_majors(&s(&["11.4", "11.8", "12.2"])),
+            s(&["11", "12"])
+        );
+        assert_eq!(
+            engine_majors(&s(&["14", "15", "18"])),
+            s(&["14", "15", "18"])
+        );
+        assert!(engine_majors(&[]).is_empty());
+    }
 }
