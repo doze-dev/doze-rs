@@ -102,7 +102,8 @@ test("a table and a bucket are created and deleted the same way; a refusal is sh
   const b = unique("photos", browserName).toLowerCase();
   await create(page, "/resources/s3/buckets", "Buckets", { Bucket: b });
   await expect(page.locator("h1")).toHaveText(b);
-  await expect(page.getByTestId("sub-Objects")).toContainText("ListObjectsV2");
+  await expect(page.getByTestId("tab-objects")).toBeVisible();
+  await expect(page.getByTestId("sub-Objects")).toHaveCount(0);
   await remove(page, b);
   await expect(page.getByTestId("row-link").filter({ hasText: b })).toHaveCount(0);
 });

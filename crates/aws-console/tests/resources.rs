@@ -142,8 +142,9 @@ async fn a_bucket_shows_its_objects_and_a_table_its_keys() {
     )
     .await;
     let (_, detail) = w.get("/api/v1/resources/s3/buckets/photos").await;
-    assert_eq!(detail["subs"][0]["title"], "Objects");
-    assert_eq!(detail["subs"][0]["rows"], json!([]));
+    // Its objects are its Objects tab, not a flat list repeated under the details.
+    assert_eq!(detail["subs"], json!([]));
+    assert_eq!(detail["deep"][0]["id"], "objects");
     w.delete("/api/v1/resources/s3/buckets", "photos").await;
     let form = json!({"TableName": "orders", "PartitionKey": "id", "PartitionKeyType": "S", "SortKey": "", "SortKeyType": "S"});
     w.round_trip("/api/v1/resources/dynamodb/tables", &form, "orders")
