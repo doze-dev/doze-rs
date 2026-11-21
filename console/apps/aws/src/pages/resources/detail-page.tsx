@@ -19,7 +19,7 @@ import type { SubList } from "../../api/types/SubList";
 import { Result } from "../live/outcome";
 import { DeleteDialog } from "./delete-dialog";
 import { HINT } from "./index-page";
-import { columnLeast, columnSizes, isDocument, sortKey, titleOf } from "./model";
+import { columnLeast, columnSizes, isDocument, oneOf, sortKey, titleOf } from "./model";
 import { isConsole } from "../live/search";
 import { CreateDialog } from "./create-dialog";
 import { ResourceTo, Value } from "./value";
@@ -222,7 +222,7 @@ export function ResourceDetailPage({ service, kind, name, tab }: { service: stri
         }
       />
       {detail.isError && !d ? (
-        <ErrorBlock what={`This ${kind.replace(/s$/, "")} could not be read`} error={detail.error} hint={HINT} onRetry={refresh} retrying={detail.isFetching} testId="detail-error" />
+        <ErrorBlock what={`This ${oneOf(kind)} could not be read`} error={detail.error} hint={HINT} onRetry={refresh} retrying={detail.isFetching} testId="detail-error" />
       ) : !d ? (
         <Skeleton className="h-80 rounded-[14px]" data-testid="detail-loading" />
       ) : (

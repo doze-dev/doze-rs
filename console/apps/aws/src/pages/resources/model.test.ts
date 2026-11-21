@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import type { ResourcesIndex } from "../../api/types/ResourcesIndex";
-import { columnLeast, columnSizes, isDocument, resolve, seconds, shown, sortKey, timeMs, titleOf } from "./model";
+import { columnLeast, columnSizes, isDocument, resolve, seconds, shown, oneOf, sortKey, timeMs, titleOf } from "./model";
 
 const kind = (id: string, members: string[]) => ({ id, title: id, one: id, members, count: null, more: false, names: [], error: null, others: null });
 const INDEX: ResourcesIndex = {
@@ -77,4 +77,10 @@ test("in a narrow window the column people read a row by keeps its values' width
   const [name, created] = columnLeast(list);
   expect(name).toBe(190);
   expect(created).toBeCloseTo(229.8);
+});
+
+describe("oneOf", () => {
+  test("is the kind as a person says one", () => {
+    expect(["policies", "buckets", "queues", "stacks", "machines", "classes", "parameters"].map(oneOf)).toEqual(["policy", "bucket", "queue", "stack", "machine", "class", "parameter"]);
+  });
 });
