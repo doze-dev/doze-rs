@@ -137,6 +137,11 @@ test("the wire says what came back, keeps a rule's name, and does not claim hour
   await expect(wire.locator("tr[data-row]", { hasText: "Publish" }).getByTestId("answer-words").filter({ hasText: /^· delivered to \d+/ }).first()).toBeVisible();
   // An operation the record reads nothing of keeps the size of its answer.
   await expect(wire.getByTestId("answer-words").filter({ hasText: /^· \d+ B$/ }).first()).toBeVisible();
+  // The drawer of a publish says it again, with what it is read from.
+  await wire.locator("tr[data-row]", { hasText: "Publish" }).getByTestId("open-call").first().click();
+  await expect(page.getByTestId("call-did")).toContainText("delivered to");
+  await expect(page.getByTestId("call-did")).toContainText("The record keeps no bodies");
+  await page.keyboard.press("Escape");
   // The rule that delivered a message is named, marked as a rule.
   const viaRule = wire.locator("tr[data-row]", { hasText: "pick-lists" }).filter({ hasText: "SendMessage" }).filter({ has: page.getByTestId("via-pill") }).first();
   await expect(viaRule).toContainText("payment-settled");
