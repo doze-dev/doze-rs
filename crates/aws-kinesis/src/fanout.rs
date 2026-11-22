@@ -88,7 +88,7 @@ impl Core {
         let pos = r.v.get("StartingPosition").cloned().unwrap_or(Value::Null);
         let kind = pos.get("Type").and_then(Value::as_str).unwrap_or_default();
         let number = pos.get("SequenceNumber").and_then(Value::as_str);
-        let parsed = number.map(str::parse::<u128>);
+        let parsed = number.map(|t| crate::model::seq_parse(t).ok_or(()));
         let next = match (kind, parsed) {
             ("AT_SEQUENCE_NUMBER", Some(Ok(n))) => n,
             ("AFTER_SEQUENCE_NUMBER", Some(Ok(n))) => n.saturating_add(1),
@@ -163,7 +163,10 @@ impl Core {
             // The last record read, or (nothing read) the number just before where the next read starts, so that
             // `AFTER_SEQUENCE_NUMBER` resumes at the same place.
             let at = last.unwrap_or_else(|| next.saturating_sub(1));
-            event.put("ContinuationSequenceNumber", json!(at.to_string()));
+            event.put(
+                "ContinuationSequenceNumber",
+                json!(crate::model::seq_wire(at)),
+            );
         }
         Ok(Batch {
             event,

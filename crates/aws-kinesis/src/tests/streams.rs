@@ -179,7 +179,7 @@ fn put_records_reports_each_record_and_how_many_failed() {
         .iter()
         .map(|r| r["SequenceNumber"].as_str().unwrap())
         .collect();
-    assert!(seqs[0].parse::<u128>().unwrap() < seqs[1].parse::<u128>().unwrap());
+    assert!(crate::model::seq_parse(seqs[0]).unwrap() < crate::model::seq_parse(seqs[1]).unwrap());
 }
 
 #[test]
@@ -282,4 +282,49 @@ fn an_append_is_flagged_for_whoever_waits_for_records() {
     assert!(!w.core.appended);
     w.put("s", "k", "x");
     assert!(w.core.appended);
+}
+
+#[test]
+fn a_sequence_number_is_56_digits_that_sort_as_text_and_read_back() {
+    // The model bounds a sequence number to 129 digits; AWS gives 56 (49, then 54 more). Checked in models/kinesis.json
+    // (SequenceNumber: pattern ^(0|([1-9]\d{0,128}))$), so any width up to that is legal and 56 is what clients are used to.
+    let mut w = World::new();
+    w.stream("s", 1);
+    let mut seqs = Vec::new();
+    for text in ["a", "b", "c"] {
+        w.clock.advance(1000);
+        seqs.push(
+            w.put("s", "k", text)["SequenceNumber"]
+                .as_str()
+                .unwrap()
+                .to_owned(),
+        );
+    }
+    for s in &seqs {
+        assert_eq!(s.len(), 56, "{s}");
+        assert!(
+            s.starts_with("49") && s.bytes().all(|b| b.is_ascii_digit()),
+            "{s}"
+        );
+    }
+    assert!(seqs[0] < seqs[1] && seqs[1] < seqs[2], "{seqs:?}");
+    // The record shows the same number, and the shard's range is as wide.
+    let it = w.ok(
+        "GetShardIterator",
+        &json!({"StreamName": "s", "ShardId": "shardId-000000000000", "ShardIteratorType": "TRIM_HORIZON"}),
+    )["ShardIterator"]
+        .clone();
+    let got = w.ok("GetRecords", &json!({"ShardIterator": it}));
+    assert_eq!(got["Records"][1]["SequenceNumber"], seqs[1].as_str());
+    let shards = w.ok("ListShards", &json!({"StreamName": "s"}));
+    let first = shards["Shards"][0]["SequenceNumberRange"]["StartingSequenceNumber"]
+        .as_str()
+        .unwrap();
+    assert_eq!(first.len(), 56);
+    assert!(first < seqs[0].as_str());
+    // A number written down before the width changed (digits only, a plain number) still reads; text that is not a number does not.
+    let n = crate::model::seq_parse(&seqs[1]).unwrap();
+    assert_eq!(crate::model::seq_parse(&n.to_string()), Some(n));
+    assert_eq!(crate::model::seq_parse("49x"), None);
+    assert_eq!(crate::model::seq_parse(""), None::<u128>);
 }

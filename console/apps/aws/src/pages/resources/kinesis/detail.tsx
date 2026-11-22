@@ -18,8 +18,8 @@ import { timeMs } from "../model";
 import { on, useConsumerNames } from "./api";
 import { ConfigTab } from "./config";
 import { DeleteStream } from "./delete";
-import { type KRecord, arrivalMs, hoursWords, modeWords, count, statusWords, streamOf, streamSentence } from "./model";
-import { SharingTab } from "./sharing";
+import { type KRecord, arrivalMs, hoursWords, modeWords, count, noPolicy, statusWords, streamOf, streamSentence } from "./model";
+import { SharingTab, usePolicy } from "./sharing";
 import { ViewerTab } from "./viewer";
 
 const Sharing = lazy(() => import("./sharing").then((m) => ({ default: ({ d }: { d: ResourceDetail }) => <m.SharingCreate s={streamOf(d.name, d.fields)} /> })));
@@ -89,6 +89,8 @@ function StreamView({ d, updatedAt, fetching, refresh }: { d: ResourceDetail; up
   const consumers = useConsumerNames(s.consumers > 0 ? { [d.name]: s.arn } : {})[d.name] ?? [];
   const feeders = useFeeders(d.calls, ["PutRecord", "PutRecords"]);
   const oldest = useOldest(d.name, s.shards);
+  const tab = search.tab === "viewer" || search.tab === "sharing" ? search.tab : "configuration";
+  const policy = usePolicy(d.name, tab === "sharing");
   const [deleting, setDeleting] = useState(false);
   const metrics = useMemo<string[]>(() => { try { const v = JSON.parse(d.fields.find((f) => f.label === "Shard-level metrics")?.value ?? "[]") as unknown; return Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : []; } catch { return []; } }, [d]);
   const go = (patch: { view?: string; tab?: string; done?: string }) => void navigate({ to: "/resources/$service/$kind/$name", params: { service: d.service, kind: d.kind, name: d.name }, search: patch });
@@ -96,7 +98,6 @@ function StreamView({ d, updatedAt, fetching, refresh }: { d: ResourceDetail; up
     const Page = search.view === "tags" ? Manage : Sharing;
     return <Suspense fallback={<Skeleton className="h-96 rounded-[14px]" />}><Page d={d} /></Suspense>;
   }
-  const tab = search.tab === "viewer" || search.tab === "sharing" ? search.tab : "configuration";
   const created = s.created && timeMs(s.created) ? dateTimeUtc(timeMs(s.created) ?? 0) : "";
   const meta = `${search.done === "created" ? "Created just now." : created ? `Created ${created}.` : ""} ${s.mode === "PROVISIONED" ? `Provisioned capacity with ${count(s.shards, "open shard")}.` : "On-demand capacity."}`.trim();
   const sentence = streamSentence(s, consumers);
@@ -119,7 +120,7 @@ function StreamView({ d, updatedAt, fetching, refresh }: { d: ResourceDetail; up
         overview={<>
           {tab === "configuration" && <p className="mb-6 max-w-[62rem] text-[15px] leading-6 text-muted-foreground" data-testid="detail-sentence"><Emphasis text={sentence} names={[d.name, ...consumers]} bold={[/\d[\d,]* (open shards?|registered consumers?)/]} /></p>}
           {tab === "configuration" && (feeders.length > 0 || consumers.length > 0) && <FlowStrip groups={[{ label: "Wired to", chips: feeders.map((label) => ({ label: `${label} (producer)` })) }, { chips: [{ label: d.name, self: true }] }, { chips: consumers.map((label) => ({ label })) }]} />}
-          {tab !== "sharing" && <Summary s={s} />}
+          {(tab !== "sharing" || (policy.data !== undefined && noPolicy(policy.data.Policy))) && <Summary s={s} />}
         </>}
         details={false}
         tabs={tabs}

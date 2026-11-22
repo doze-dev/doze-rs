@@ -16,7 +16,7 @@ import { Loaded, Made } from "../deep/parts";
 import { useQuery } from "@tanstack/react-query";
 import { EventList, type LogEvent } from "./events";
 import { PATTERN_TEACHING } from "./examples";
-import { type Range, DEFAULT_RANGE, type Zone, bounds, clock, spanLine } from "./range";
+import { type Range, DEFAULT_RANGE, type Zone, DEFAULT_ZONE, bounds, clock, spanLine } from "./range";
 import { RangeControls } from "./range-controls";
 import { streamsOf } from "./model";
 
@@ -29,7 +29,7 @@ export function StreamPage({ group, stream }: { group: string; stream: string })
   const [typed, setTyped] = useState("");
   const [applied, setApplied] = useState("");
   const [range, setRange] = useState<Range>(DEFAULT_RANGE);
-  const [zone, setZone] = useState<Zone>("utc");
+  const [zone, setZone] = useState<Zone>(DEFAULT_ZONE);
   const [wrap, setWrap] = useState(true);
   // The moment the range counts back from: fixed until the person searches or refreshes, so the same read is not made twice.
   const [now, setNow] = useState(() => Date.now());

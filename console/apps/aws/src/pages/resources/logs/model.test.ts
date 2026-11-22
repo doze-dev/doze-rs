@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import type { ResourceRow } from "../../../api/types/ResourceRow";
-import { activityWords, createInput, filterNameProblem, groupNameProblem, groupRows, isOwnGroup, kmsProblem, listSentence, messagesOf, metricInput, metricNameProblem, namespaceProblem, retentionWords, valueProblem } from "./model";
+import { activityWords, createInput, filterNameProblem, groupNameProblem, groupRows, isOwnGroup, kmsProblem, emptyMetric, listSentence, messagesOf, metricInput, metricNameProblem, namespaceProblem, retentionWords, valueProblem } from "./model";
 
 const row = (name: string, cls: string, days: string | null, filters: string): ResourceRow => ({ name, label: name, id: name, cells: [cls, days, filters, "1794000000000"], link: null });
 
@@ -73,6 +73,10 @@ describe("the requests", () => {
     expect(metricInput("/g", "ERROR", f)).toEqual({ logGroupName: "/g", filterName: "n", filterPattern: "ERROR", metricTransformations: [{ metricNamespace: "Larder/P", metricName: "M", metricValue: "1" }] });
     expect(metricInput("/g", "", { ...f, fallback: "0", unit: "Count" }).metricTransformations).toEqual([{ metricNamespace: "Larder/P", metricName: "M", metricValue: "1", defaultValue: 0, unit: "Count" }]);
     expect(metricInput("/g", "", { ...f, unit: "None" }).metricTransformations).toEqual([{ metricNamespace: "Larder/P", metricName: "M", metricValue: "1" }]);
+  });
+  test("a new metric filter counts: its unit starts as Count, and the call carries it", () => {
+    expect(emptyMetric.unit).toBe("Count");
+    expect(metricInput("/g", "", { ...emptyMetric, name: "n", namespace: "N", metric: "M" }).metricTransformations).toEqual([{ metricNamespace: "N", metricName: "M", metricValue: "1", unit: "Count" }]);
   });
   test("test messages are the non-empty lines", () => expect(messagesOf("a\n\n  b  \n")).toEqual(["a", "b"]));
 });

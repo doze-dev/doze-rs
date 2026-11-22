@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import type { ResourceRow } from "../../../api/types/ResourceRow";
-import { createInput, dataText, daysWords, emptyCreate, estimate, iteratorInput, listSentence, metricsDiff, nameProblem, noPolicy, principalProblem, retentionOp, retentionProblem, shardsProblem, sharePolicy, shortSequence, statementsOf, streamRows, streamSentence } from "./model";
+import { createInput, dataText, daysWords, emptyCreate, estimate, figure, iteratorInput, listSentence, metricsDiff, nameProblem, noPolicy, principalProblem, retentionOp, retentionProblem, shardsProblem, sharePolicy, shortSequence, statementsOf, streamRows, streamSentence } from "./model";
 
 const row = (name: string, mode: string, consumers: string): ResourceRow => ({ name, label: name, id: name, cells: ["ACTIVE", mode, "1794000000000", consumers], link: null });
 
@@ -96,5 +96,21 @@ describe("the sharing policy", () => {
     expect(noPolicy("{}")).toBe(true);
     expect(noPolicy(undefined)).toBe(true);
     expect(noPolicy("{\"Version\":\"2012-10-17\"}")).toBe(false);
+  });
+});
+
+describe("the list's order and the estimator's figures", () => {
+  const made = (name: string, at: string | null): ResourceRow => ({ name, label: name, id: name, cells: ["ACTIVE", "PROVISIONED", at, "0"], link: null });
+  test("streams come oldest first, not by name", () => {
+    const rows = streamRows([made("clickstream", "1794000000"), made("inventory-feed", "1794200000"), made("orders-feed", "1794100000")]);
+    expect(rows.map((r) => r.name)).toEqual(["clickstream", "orders-feed", "inventory-feed"]);
+  });
+  test("a stream with no time keeps its place after the others", () => {
+    expect(streamRows([made("a", null), made("b", "1794000000"), made("c", null)]).map((r) => r.name)).toEqual(["b", "a", "c"]);
+  });
+  test("a figure may carry thousands separators", () => {
+    expect(figure("3,000")).toBe(3000);
+    expect(figure("12")).toBe(12);
+    expect(estimate(figure("2"), figure("3,000"), figure("2"))?.shards).toBe(6);
   });
 });

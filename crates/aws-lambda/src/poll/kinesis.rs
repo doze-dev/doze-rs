@@ -62,7 +62,7 @@ fn kinesis_record(r: &Value, shard: &str, arn: &str, region: &str, role: &str) -
     }
     Rec {
         key: text("PartitionKey"),
-        seq: seq.parse().unwrap_or(0),
+        seq: aws_kinesis::sequence_value(&seq).unwrap_or(0),
         pos: seq,
         doc,
         filter,

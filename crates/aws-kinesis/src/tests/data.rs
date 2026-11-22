@@ -55,7 +55,7 @@ fn fill(w: &mut World, count: usize) -> u128 {
 }
 
 fn seq(v: &Value) -> u128 {
-    v["SequenceNumber"].as_str().unwrap().parse().unwrap()
+    crate::model::seq_parse(v["SequenceNumber"].as_str().unwrap()).unwrap()
 }
 
 #[test]

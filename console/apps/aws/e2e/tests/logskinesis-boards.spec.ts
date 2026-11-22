@@ -120,6 +120,9 @@ test("logs__log-group-detail, log-streams-none, metric-filters: a group's page, 
   await expect(page.getByTestId("wired-strip")).toContainText("metric Larder/Api ApiErrors");
   await expect(page.getByTestId("recent-calls")).toContainText("PutLogEvents");
   await expect(page.getByTestId("verb-search")).toHaveText("Search log group");
+  // The two creates the board draws as buttons beside Actions are buttons, and the menu has them too.
+  await expect(page.getByTestId("open-metric-filter")).toHaveText("Create metric filter");
+  await expect(page.getByTestId("open-subscription")).toHaveText("Subscription filters (Lambda)");
   await page.getByTestId("actions-menu").click();
   await expect(page.getByRole("menuitem", { name: "Create metric filter" })).toBeVisible();
   await expect(page.getByRole("menuitem", { name: "Subscription filters (Lambda)" })).toBeVisible();
@@ -148,9 +151,10 @@ test("logs__log-stream-events and events-none: a stream's events over a range, a
   await expect(page.getByTestId("log-event-open")).toContainText('"elapsed_ms": 10004');
   await expect(page.getByTestId("stream-viewer")).toContainText("a filter pattern");
   await shot(page, "logs__log-stream-events");
-  await page.getByTestId("zone-local").click();
+  // The events open in the person's own time zone, as the board has it; UTC is one click away.
   await expect(page.getByTestId("zone-local")).toHaveAttribute("data-state", "on");
   await page.getByTestId("zone-utc").click();
+  await expect(page.getByTestId("zone-utc")).toHaveAttribute("data-state", "on");
   // A pattern narrows it; one with no match says so and offers a wider range.
   await page.getByTestId("stream-filter").fill('{ $.level = "error" }');
   await page.getByTestId("stream-search").click();
@@ -189,8 +193,10 @@ test("logs__metric-filter-create, metric-filter-assign, metric-filter-delete: te
   await page.getByTestId("mf-namespace").fill("Larder/Payments");
   await page.getByTestId("mf-metric").fill("StripeTimeouts");
   await expect(page.getByTestId("metric-filter-create")).toContainText("Larder/Payments doesn't exist yet; Larder/Images already holds ResizeErrors");
-  await page.getByTestId("mf-unit").click();
-  await page.getByRole("option", { name: "Count", exact: true }).click();
+  // Step 2 goes back with Previous, and the unit starts as Count.
+  await expect(page.getByTestId("form-back")).toHaveText("Previous");
+  await expect(page.getByTestId("mf-unit")).toContainText("Count");
+  await expect(page.getByTestId("call-panel")).toContainText('"unit": "Count"');
   await expect(page.getByTestId("call-panel")).toContainText("PutMetricFilter");
   await shot(page, "logs__metric-filter-assign");
   await page.getByTestId("form-submit").click();
@@ -266,6 +272,8 @@ test("kinesis__streams-list: the data streams with their sentence and the consum
   await expect(row("clickstream")).toContainText("Active");
   await expect(row("clickstream")).toContainText("Provisioned");
   await expect(row("orders-feed")).toContainText("On-demand");
+  // Oldest first, not by name: clickstream was made first, and inventory-feed sorts before orders-feed only by name.
+  expect(await page.locator('[data-slot="data-table"] tbody tr[data-row]').first().textContent()).toContain("clickstream");
   await expect(page.getByTestId("action-delete")).toBeDisabled();
   await row("clickstream").getByRole("checkbox").click();
   await shot(page, "kinesis__streams-list");
@@ -292,7 +300,9 @@ test("kinesis__stream-create, stream-create-refused, stream-create-provisioned: 
   await settled(page);
   await page.getByTestId("mode-PROVISIONED").click();
   await page.getByTestId("stream-name").fill("audit-feed");
+  await expect(page.getByTestId("est-rate")).toHaveValue("3,000");
   await expect(page.getByTestId("est-shards")).toHaveText("6");
+  await expect(page.getByTestId("section-capacity")).toContainText("clickstream runs on 2 shards.");
   await expect(page.getByTestId("est-result")).toContainText("max(6,000 / 1,024, 12,000 / 2,048) = 5.86, rounded up");
   await expect(page.getByTestId("stream-shards")).toHaveValue("6");
   await expect(page.getByTestId("call-panel")).toContainText('"ShardCount": 6');
@@ -339,6 +349,9 @@ test("kinesis__stream-detail and the edits: capacity, retention, encryption, sha
   await page.getByTestId("sse-key").click();
   await page.getByRole("option", { name: "alias/larder-app" }).click();
   await expect(page.getByTestId("encryption-dialog-call")).toContainText("StartStreamEncryption");
+  // doze-aws does not look the key up, so the dialog must not say that a missing key is refused.
+  await expect(page.getByTestId("encryption-dialog")).not.toContainText("must exist and be enabled");
+  await expect(page.getByTestId("encryption-dialog")).toContainText("does not look the key up");
   await shot(page, "kinesis__stream-encryption-edit");
   await page.getByTestId("encryption-dialog-save").click();
   await expect(page.getByTestId("section-encryption")).toContainText("alias/larder-app");
@@ -386,6 +399,10 @@ test("kinesis__stream-data-viewer, data-viewer-none, record-detail: a shard from
 test("kinesis__stream-sharing, sharing-none, sharing-create: no policy, the visual editor, the policy kept", async ({ page }) => {
   await go(page, kstream("orders-feed", "?tab=sharing"), "orders-feed");
   await expect(page.getByTestId("sharing-empty")).toContainText("No resource policy is attached, so no other account or principal has been given access to this stream.");
+  // The Summary stays above the tabs, the policy is a field, and the note says what doze-aws does with a policy (stores it, evaluates nothing).
+  await expect(page.getByTestId("details")).toContainText("Stream ARN");
+  await expect(page.getByTestId("field-Resource-based policy")).toHaveText("None attached to orders-feed.");
+  await expect(page.getByTestId("sharing-empty")).toContainText("does not evaluate a stream's resource policy");
   await shot(page, "kinesis__stream-sharing-none");
   await page.getByTestId("sharing-create").click();
   await expect(page.locator("h1").first()).toHaveText("Visual policy editor");

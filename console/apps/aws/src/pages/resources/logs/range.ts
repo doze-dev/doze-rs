@@ -14,6 +14,8 @@ export const RANGES: { id: string; label: string; ms: number | null }[] = [
 export type Range = { mode: "relative"; id: string } | { mode: "absolute"; from: number | null; to: number | null };
 export const DEFAULT_RANGE: Range = { mode: "relative", id: "1h" };
 export type Zone = "utc" | "local";
+/** The time zone a stream's events open in: the person's own (the board's choice); UTC is one click away. */
+export const DEFAULT_ZONE: Zone = "local";
 
 /** FilterLogEvents' start and end for a range, at `now`. */
 export function bounds(r: Range, now: number): { startTime?: number; endTime?: number } {
