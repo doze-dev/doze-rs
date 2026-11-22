@@ -116,6 +116,7 @@ pub(crate) fn check(s: &AwsSpec, dir: &str) -> Vec<Diagnostic> {
         table(t, vec![key("table"), idx(i)], &mut f);
     }
     functions(s, &names, dir, &mut f);
+    super::check_more::region(s, &mut f);
     super::check_more::rules(s, &names, &mut f);
     super::check_more::rest(s, &mut f);
     f.0

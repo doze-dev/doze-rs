@@ -93,6 +93,18 @@ impl ApiError {
         self.extra.push((name.into(), value.into()));
         self
     }
+
+    /// Says that what was not found in the Region the request was signed for (`asked`) is in other Regions of this stack: doze keeps
+    /// each Region apart, and the usual cause is a client whose Region is not the one the resource was declared in. The code, the
+    /// status and the shape are unchanged.
+    pub fn note_other_regions(&mut self, what: &str, name: &str, found: &[String], asked: &str) {
+        let regions = found.join(", ");
+        let stop = if self.message.ends_with('.') { "" } else { "." };
+        self.message = format!(
+            "{}{stop} A {what} named \"{name}\" exists in {regions}; this client asked for {asked} (set `region` on the aws block or the client's region)",
+            self.message
+        );
+    }
 }
 
 /// The extra members of an awsJson error body, each a name and JSON text. Boxed in [`ApiError`] so the error stays small.

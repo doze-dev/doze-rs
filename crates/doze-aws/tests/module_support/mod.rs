@@ -67,19 +67,36 @@ pub(crate) fn have_cli() -> bool {
 
 /// The aws CLI against the instance, as a person would run it; its output as JSON.
 pub(crate) fn aws(b: &Booted, args: &[&str]) -> serde_json::Value {
-    let out = std::process::Command::new("aws")
+    aws_in(b, "us-east-1", args)
+}
+
+/// The aws CLI run for a client whose Region is `region`.
+pub(crate) fn run_in(b: &Booted, region: &str, args: &[&str]) -> std::process::Output {
+    std::process::Command::new("aws")
         .args(["--endpoint-url", &endpoint(b), "--output", "json"])
         .args(args)
         .env("AWS_ACCESS_KEY_ID", "test")
         .env("AWS_SECRET_ACCESS_KEY", "test")
-        .env("AWS_DEFAULT_REGION", "us-east-1")
+        .env("AWS_DEFAULT_REGION", region)
         .env("AWS_CONFIG_FILE", "/dev/null")
         .env("AWS_SHARED_CREDENTIALS_FILE", "/dev/null")
         .env("AWS_PAGER", "")
         .env_remove("AWS_PROFILE")
+        .env_remove("AWS_REGION")
         .env_remove("AWS_ENDPOINT_URL")
         .output()
-        .unwrap();
+        .unwrap()
+}
+
+/// What the aws CLI says on stderr when it fails for a client whose Region is `region`.
+pub(crate) fn aws_fails(b: &Booted, region: &str, args: &[&str]) -> String {
+    let out = run_in(b, region, args);
+    assert!(!out.status.success(), "aws {args:?} succeeded");
+    String::from_utf8_lossy(&out.stderr).into_owned()
+}
+
+pub(crate) fn aws_in(b: &Booted, region: &str, args: &[&str]) -> serde_json::Value {
+    let out = run_in(b, region, args);
     assert!(
         out.status.success(),
         "aws {args:?}: {}",

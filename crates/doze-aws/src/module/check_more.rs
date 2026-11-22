@@ -3,6 +3,18 @@
 use super::check::{Found, Names, idx, json, key};
 use super::spec::AwsSpec;
 
+/// The Region must be one AWS has: a typo would otherwise be a stack that boots and that no client finds.
+pub(super) fn region(s: &AwsSpec, f: &mut Found) {
+    let known = aws_s3::known_regions();
+    if !known.contains(&s.region()) {
+        f.at(
+            vec![key("region")],
+            format!("{:?} is not an AWS Region", s.region()),
+            Some(&format!("one of: {}", known.join(", "))),
+        );
+    }
+}
+
 pub(super) fn rules(s: &AwsSpec, names: &Names, f: &mut Found) {
     for (i, r) in s.rule.iter().enumerate() {
         let here = |k: &str| vec![key("rule"), idx(i), key(k)];

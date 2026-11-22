@@ -6,6 +6,7 @@ mod attrs;
 mod authz;
 mod batch;
 mod core;
+mod elsewhere;
 mod fifo;
 mod messages;
 mod model;
@@ -142,6 +143,7 @@ impl Sqs {
                 poll: None,
                 durable: None,
                 next_due: None,
+                missed: None,
             },
         }
     }
@@ -196,7 +198,9 @@ impl Service for Sqs {
         Box::pin(async move {
             let receive = aws_model_sqs::Operation::from_index(call.op)
                 == Some(aws_model_sqs::Operation::ReceiveMessage);
-            let first = self.ask(call.duplicate()).await;
+            let region = call.caller.region.clone();
+            let mut first = self.ask(call.duplicate()).await;
+            self.hint_regions(&region, &mut first).await;
             if !receive {
                 // A send, a visibility change, a purge, a redrive: something a waiting receive may now find.
                 self.arrived.notify_waiters();

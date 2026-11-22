@@ -26,6 +26,7 @@ mod cors;
 mod data;
 mod delete;
 mod download;
+mod elsewhere;
 mod errors;
 mod eventbridge;
 mod events;
@@ -45,6 +46,7 @@ mod notify;
 mod public;
 mod put;
 mod receive;
+mod regions;
 mod req;
 mod storage;
 mod store;
@@ -77,6 +79,7 @@ use crate::checksum::Algo;
 use crate::core::Core;
 use crate::janitor::Janitor;
 use crate::receive::{Declared, receive};
+pub use crate::regions::known as known_regions;
 use crate::req::{Answer, Ask};
 
 /// The region whose files are kept in the service's directory itself.
@@ -197,9 +200,13 @@ impl Inner {
         let op = Operation::from_index(call.op);
         let answer = match (op, upload) {
             (Some(Operation::PutObject | Operation::UploadPart), Some(mut upload)) => {
-                self.stream_in(&region, call, upload.as_mut()).await?
+                self.stream_in(&region, call, upload.as_mut()).await
             }
-            (_, _) => self.ask(&region, Ask::Call(call, None)).await?,
+            (_, _) => self.ask(&region, Ask::Call(call, None)).await,
+        };
+        let answer = match answer {
+            Err(e) if e.code == "NoSuchBucket" => return Err(self.hint_regions(&region, e).await),
+            other => other?,
         };
         if op == Some(Operation::PutBucketLifecycleConfiguration) {
             self.arm(&region);
