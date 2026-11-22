@@ -497,6 +497,8 @@ test("stepfunctions__activities-list and activity-create: the workers' tasks, an
 
 test("stepfunctions__machine-delete, machines-none and activities-none: the delete dialog, and what is left when everything is gone", async ({ page, refusals }) => {
   await go(page, machine("order-fulfilment"), "order-fulfilment");
+  // The seeded runs wait on an activity with a 120 second heartbeat and end by themselves a couple of minutes after the seed: two fresh ones make sure some are still open.
+  for (const n of ["late-1", "late-2"]) cli(["stepfunctions", "start-execution", "--state-machine-arn", `arn:aws:states:us-east-1:${server.account}:stateMachine:order-fulfilment`, "--name", n, "--input", JSON.stringify({ order_id: "ord-20261107-1893", created_at: "2026-11-08T08:00:00Z", email: "priya@example.com" })]);
   const running = (JSON.parse(cli(["stepfunctions", "list-executions", "--state-machine-arn", `arn:aws:states:us-east-1:${server.account}:stateMachine:order-fulfilment`, "--status-filter", "RUNNING"])) as { executions: unknown[] }).executions.length;
   expect(running).toBeGreaterThan(1);
   await page.getByTestId("actions-menu").click();
@@ -537,4 +539,61 @@ test("a state machine and an execution that are not there: the same page as ever
   await page.goto(`${server.console}${execution("no-such-run")}`);
   await expect(page.getByTestId("execution-error")).toContainText("There is no execution named no-such-run");
   expect(larder.machine).toBe("order-fulfilment");
+});
+
+test("the studio's Design mode: a pattern, the keyboard path, a state moved, undo and redo, and a Choice's rules", async ({ page }) => {
+  await go(page, "/resources/stepfunctions/machines?do=create&name=design-extras", "design-extras");
+  const zone = (edge: string) => page.locator(`[data-testid=drop-zone][data-edge="${edge}"]`);
+  const state = (name: string) => page.locator(`[data-state="${name}"]`);
+  // The keyboard path of a drag: choose the state in the browser with Enter, then reach a mark with Tab and choose it with Enter.
+  await page.getByTestId("offer-wait").focus();
+  await page.keyboard.press("Enter");
+  await expect(page.getByTestId("armed-note")).toContainText("Choose where Wait goes");
+  await zone("start>Hello").focus();
+  await page.keyboard.press("Enter");
+  await expect(state("Wait")).toBeVisible();
+  // Undo takes the drop back, Redo puts it back; Ctrl or Cmd with Z does the same outside a text field.
+  await expect(page.getByTestId("design-redo")).toBeDisabled();
+  await page.getByTestId("design-undo").click();
+  await expect(state("Wait")).toHaveCount(0);
+  await expect(page.getByTestId("design-undo")).toBeDisabled();
+  await page.getByTestId("design-redo").click();
+  await expect(state("Wait")).toBeVisible();
+  await page.getByTestId("design-undo").focus();
+  await page.keyboard.press("ControlOrMeta+z");
+  await expect(state("Wait")).toHaveCount(0);
+  await page.keyboard.press("ControlOrMeta+Shift+z");
+  await expect(state("Wait")).toBeVisible();
+  // A state is moved by choosing it, choosing Move state, and choosing the mark it goes to; next to itself is refused.
+  await state("Wait").click();
+  await page.getByTestId("inspector-move").click();
+  await expect(page.getByTestId("armed-note")).toContainText("Choose where Wait moves to");
+  await zone("start>Wait").click({ force: true });
+  await expect(page.getByTestId("design-problem")).toContainText("Wait is already there");
+  await zone("Hello>end").click({ force: true });
+  await expect(page.getByTestId("armed-note")).toHaveCount(0);
+  await page.getByTestId("mode-code").click();
+  const moved = JSON.parse(await page.getByTestId("asl-editor").inputValue()) as { StartAt: string; States: Record<string, { Next?: string; End?: boolean }> };
+  expect(moved.StartAt).toBe("Hello");
+  expect(moved.States.Hello?.Next).toBe("Wait");
+  expect(moved.States.Wait?.End).toBe(true);
+  // The modes switch once the definition has been checked (it is, a moment after the last change).
+  await expect(page.getByTestId("sfn-graph")).toBeVisible();
+  await page.getByTestId("mode-design").click();
+  await expect(page.getByTestId("studio-design")).toBeVisible();
+  // A pattern brings the states that go together: the Lambda with Retry and Catch brings the Fail it catches to.
+  await page.getByTestId("browser-tabs").getByRole("radio", { name: "Patterns" }).click();
+  await page.getByTestId("offer-retry-catch").click();
+  await zone("Hello>Wait").click({ force: true });
+  await expect(page.getByTestId("inspector-name")).toHaveText("Lambda Invoke");
+  await expect(state("Handle failure")).toBeVisible();
+  // A Choice's rules are edited in its inspector, and the definition takes them.
+  await page.getByTestId("browser-tabs").getByRole("radio", { name: "Flow" }).click();
+  await page.getByTestId("offer-choice").click();
+  await zone("Wait>end").click({ force: true });
+  await expect(page.getByTestId("inspector-name")).toHaveText("Choice");
+  await expect(page.getByTestId("inspector-move")).toHaveCount(0);
+  await page.getByTestId("inspector-choices").fill(JSON.stringify([{ Variable: "$.count", NumericGreaterThan: 3, Next: "Pass" }]));
+  await page.getByTestId("mode-code").click();
+  await expect(page.getByTestId("asl-editor")).toHaveValue(/"NumericGreaterThan": 3/);
 });

@@ -67,6 +67,11 @@ function DropZone({ e, edge, design }: { e: Edge; edge: EdgeRef; design: Design 
       onDragLeave={() => setOver(false)}
       onDrop={(ev) => { ev.preventDefault(); setOver(false); const id = ev.dataTransfer.getData("text/plain"); if (id) design.onDrop(edge, id); }}
       onClick={() => design.armed && design.onDrop(edge, design.armed)}
+      // With a state chosen, the marks are reached with Tab and chosen with Enter or Space: the keyboard path of a drag.
+      role="button"
+      tabIndex={design.armed ? 0 : -1}
+      aria-label={`Put it between ${edge.from ?? "Start"} and ${edge.to ?? "End"}`}
+      onKeyDown={(ev) => { if ((ev.key === "Enter" || ev.key === " ") && design.armed) { ev.preventDefault(); design.onDrop(edge, design.armed); } }}
     >
       <circle r={13} className={cn("stroke-primary", over ? "fill-primary" : "fill-card")} strokeWidth={1.5} strokeDasharray={over ? undefined : "3 3"} />
       <path d="M-5,0 H5 M0,-5 V5" className={over ? "stroke-primary-foreground" : "stroke-primary"} strokeWidth={1.75} strokeLinecap="round" />

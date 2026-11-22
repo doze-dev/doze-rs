@@ -2,8 +2,8 @@
 // with a drop zone on every edge), and the inspector (the properties of the chosen state). A state is dragged from the browser onto an edge,
 // or chosen in the browser and then put on an edge by a click; every change rewrites the definition text, which Code mode shows and the
 // studio checks. design-model.ts holds what a drop, a rename and a delete do to the definition.
-import { FilterIcon, GripVerticalIcon, TrashIcon } from "lucide-react";
-import { useMemo, useState } from "react";
+import { FilterIcon, GripVerticalIcon, MoveIcon, Redo2Icon, TrashIcon, Undo2Icon } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Callout } from "@doze/ui/components/app/callout";
 import { JsonEditor, checkJson } from "@doze/ui/components/app/json-editor";
 import { Button } from "@doze/ui/components/ui/button";
@@ -13,7 +13,7 @@ import { Switch } from "@doze/ui/components/ui/switch";
 import { cn } from "@doze/ui/lib/utils";
 import { Segmented } from "../../../kit";
 import { CodeBlock } from "../deep/parts";
-import { ACTIONS, FLOW, PATTERNS, type EdgeRef, type Offer, deleteState, insertOnEdge, offerOf, renameState, setState, stateOf } from "./design-model";
+import { ACTIONS, FLOW, NO_HISTORY, PATTERNS, type EdgeRef, type History, type Offer, changed, deleteState, insertOnEdge, moveState, offerOf, redo, renameState, setState, stateOf, undo } from "./design-model";
 import { type AslState, type Definition, parseDefinition } from "./graph";
 import { GraphView } from "./graph-view";
 import { useAbout } from "../../../api/queries";
@@ -65,16 +65,53 @@ export function DesignMode({ text, setText }: { text: string; setText: (t: strin
   const ctx = { ...where, endpoint: about?.endpoint ?? "http://127.0.0.1:4566" };
   const def = useMemo(() => parseDefinition(text), [text]);
   const empty = !def || Object.keys(def.States ?? {}).length === 0;
+  // Undo and redo of what Design mode wrote. A change made elsewhere (Code mode) is not Design's to take back: the history starts again.
+  const [hist, setHist] = useState<History>(NO_HISTORY);
+  const mine = useRef(text);
+  useEffect(() => {
+    if (text !== mine.current) {
+      mine.current = text;
+      setHist(NO_HISTORY);
+    }
+  }, [text]);
+  const show = (next: string) => {
+    mine.current = next;
+    setText(next);
+  };
   const write = (next: Definition | null, refused: string) => {
     if (!next) {
       setProblem(refused);
       return false;
     }
     setProblem(null);
-    setText(pretty(next));
+    const written = pretty(next);
+    setHist((h) => changed(h, text, written));
+    show(written);
     return true;
   };
+  const back = () => {
+    const r = undo(hist, text);
+    if (!r) return;
+    setHist(r.history);
+    setProblem(null);
+    show(r.text);
+  };
+  const forward = () => {
+    const r = redo(hist, text);
+    if (!r) return;
+    setHist(r.history);
+    setProblem(null);
+    show(r.text);
+  };
   const drop = (edge: EdgeRef, id: string) => {
+    if (id.startsWith("move:") && def) {
+      const name = id.slice(5);
+      if (!write(moveState(def, name, edge), `${name} is already there: choose another edge, one that is not next to it.`)) return;
+      setSelected(name);
+      setArmed(null);
+      setDragged(false);
+      return;
+    }
     const offer = offerOf(id);
     if (!offer || !def) return;
     const r = insertOnEdge(def, edge, offer, ctx);
@@ -90,9 +127,18 @@ export function DesignMode({ text, setText }: { text: string; setText: (t: strin
   const dropFirst = (id: string) => drop({ scope: "", from: null, to: null, kind: "start", nth: 0 }, id);
   const state = selected && def ? stateOf(def, selected) : undefined;
   const dragging = armed !== null || dragged;
+  const armedLabel = armed?.startsWith("move:") ? armed.slice(5) : (armed ? offerOf(armed)?.label : undefined);
+  const keys = (e: React.KeyboardEvent) => {
+    // Outside a text field, Ctrl or Cmd with Z takes the last change back, with Shift puts it back; a field keeps its own undo.
+    const field = (e.target as HTMLElement).closest("input, textarea, select, [contenteditable]");
+    if (field || !(e.metaKey || e.ctrlKey) || e.key.toLowerCase() !== "z") return;
+    e.preventDefault();
+    if (e.shiftKey) forward();
+    else back();
+  };
   const offers = tab === "flow" ? FLOW : tab === "actions" ? ACTIONS : PATTERNS;
   return (
-    <div className="grid gap-6" data-testid="studio-design">
+    <div className="grid gap-6" data-testid="studio-design" onKeyDown={keys}>
       <section className="rounded-[14px] border bg-card p-6 lg:p-7" data-testid="states-browser">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
@@ -107,12 +153,20 @@ export function DesignMode({ text, setText }: { text: string; setText: (t: strin
         {tab === "actions" && <p className="mt-3 flex items-center gap-1.5 text-[13px] text-muted-foreground"><FilterIcon aria-hidden className="size-3.5" />Task states built for the services doze-aws serves.</p>}
         <div className="mt-5">{NOTE}</div>
       </section>
-      {armed && <Callout tone="info" testId="armed-note">Choose where <b className="font-semibold">{offerOf(armed)?.label}</b> goes: one of the <span className="font-mono">+</span> marks on the canvas. <button type="button" className="font-medium text-link hover:underline" onClick={() => setArmed(null)}>Cancel</button></Callout>}
+      {armed && <Callout tone="info" testId="armed-note">Choose where <b className="font-semibold">{armedLabel}</b> {armed.startsWith("move:") ? "moves to" : "goes"}: one of the <span className="font-mono">+</span> marks on the canvas. <button type="button" className="font-medium text-link hover:underline" onClick={() => setArmed(null)}>Cancel</button></Callout>}
       {problem && <Callout tone="warn" testId="design-problem">{problem}</Callout>}
       <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_22rem]">
         <section className="min-w-0 rounded-[14px] border bg-card p-6 lg:p-7" data-testid="canvas">
-          <h2 className="text-[17px] leading-6 font-semibold tracking-[-0.01em] text-bright">Canvas</h2>
-          <p className="mt-1 text-[13.5px] text-muted-foreground">The workflow graph updates the definition as you edit it.</p>
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h2 className="text-[17px] leading-6 font-semibold tracking-[-0.01em] text-bright">Canvas</h2>
+              <p className="mt-1 text-[13.5px] text-muted-foreground">The workflow graph updates the definition as you edit it.</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button type="button" variant="outline" size="sm" className="bg-card" disabled={hist.past.length === 0} onClick={back} aria-keyshortcuts="Control+Z Meta+Z" data-testid="design-undo"><Undo2Icon /> Undo</Button>
+              <Button type="button" variant="outline" size="sm" className="bg-card" disabled={hist.future.length === 0} onClick={forward} aria-keyshortcuts="Control+Shift+Z Meta+Shift+Z" data-testid="design-redo"><Redo2Icon /> Redo</Button>
+            </div>
+          </div>
           <div className="mt-5">
             {!def ? (
               <Callout tone="bad" testId="design-unreadable">The definition is not JSON, so there is no graph to draw. Fix it in Code mode.</Callout>
@@ -131,13 +185,13 @@ export function DesignMode({ text, setText }: { text: string; setText: (t: strin
             )}
           </div>
         </section>
-        <Inspector def={def} name={selected} state={state} onChange={(next, refused) => write(next, refused)} onRename={(n) => setSelected(n)} onDelete={() => setSelected(undefined)} />
+        <Inspector def={def} name={selected} state={state} onChange={(next, refused) => write(next, refused)} onRename={(n) => setSelected(n)} onDelete={() => setSelected(undefined)} onMove={(n) => setArmed(`move:${n}`)} />
       </div>
     </div>
   );
 }
 
-function Inspector({ def, name, state, onChange, onRename, onDelete }: { def: Definition | null; name: string | undefined; state: AslState | undefined; onChange: (d: Definition | null, refused: string) => void; onRename: (name: string) => void; onDelete: () => void }) {
+function Inspector({ def, name, state, onChange, onRename, onDelete, onMove }: { def: Definition | null; name: string | undefined; state: AslState | undefined; onChange: (d: Definition | null, refused: string) => void; onRename: (name: string) => void; onDelete: () => void; onMove: (name: string) => void }) {
   const [showDefinition, setShowDefinition] = useState(false);
   return (
     <section className="min-w-0 rounded-[14px] border bg-card p-6 lg:p-7" data-testid="inspector">
@@ -153,6 +207,7 @@ function Inspector({ def, name, state, onChange, onRename, onDelete }: { def: De
             <Label htmlFor="inspector-definition">Definition</Label>
           </div>
           {showDefinition && <CodeBlock text={JSON.stringify(state, null, 2)} max="max-h-72" testId="inspector-json" />}
+          {state.Type !== "Choice" && <Button type="button" variant="outline" className="w-fit bg-card" onClick={() => onMove(name)} data-testid="inspector-move"><MoveIcon /> Move state</Button>}
           <Button type="button" variant="outline" className="w-fit border-bad/40 bg-card text-bad hover:text-bad" onClick={() => { if (deleteState(def, name)) { onChange(deleteState(def, name), ""); onDelete(); } }} data-testid="inspector-delete"><TrashIcon /> Delete state</Button>
         </div>
       )}
