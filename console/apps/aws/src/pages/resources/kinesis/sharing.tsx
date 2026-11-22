@@ -109,7 +109,7 @@ export function SharingCreate({ s }: { s: Stream }) {
     >
       <FormSection title="Principal">
         <Field label="Account ID, IAM user ARN or IAM role ARN" error={tried && json === null ? (principalProblem(principal) ?? undefined) : undefined} hint={role && known.data ? `The role ${role} already exists in this account.` : role && known.isError ? `No role named ${role} exists in this account yet; the policy is kept as written.` : undefined}>
-          {(id) => <Input id={id} value={principal} onChange={(e) => { setPrincipal(e.target.value); setJson(null); }} placeholder="arn:aws:iam::123456789012:role/report-job" autoComplete="off" spellCheck={false} className="font-mono" data-testid="share-principal" />}
+          {(id) => <Input id={id} value={principal} onChange={(e) => { setPrincipal(e.target.value); setJson(null); }} placeholder={`arn:aws:iam::${s.arn.split(":")[4] || "000000000000"}:role/report-job`} autoComplete="off" spellCheck={false} className="font-mono" data-testid="share-principal" />}
         </Field>
       </FormSection>
       <FormSection title="Actions" description="Kinesis Data Streams actions that can be shared on a data stream.">

@@ -67,7 +67,7 @@ export function KinesisCreate() {
     >
       <FormSection title="Data stream name" testId="section-name">
         <Field label="Name" error={tried ? (problems.name ?? undefined) : undefined} refusal={inUse && refused ? { why: `${refused.code}: ${refused.message}` } : null} help={<>1 to <b>128</b> characters: letters, digits, underscores, hyphens and periods. The name is unique in your account and Region.</>} hint={existing.length > 0 ? `${list(existing.slice(0, 2))} already ${existing.slice(0, 2).length === 1 ? "exists" : "exist"} in ${about?.region ?? "this Region"}.` : undefined}>
-          {(id) => <Input id={id} value={f.name} onChange={(e) => set({ name: e.target.value })} placeholder="orders-feed" autoComplete="off" spellCheck={false} className="font-mono" data-testid="stream-name" />}
+          {(id) => <Input id={id} value={f.name} onChange={(e) => set({ name: e.target.value })} placeholder="my-data-stream" autoComplete="off" spellCheck={false} className="font-mono" data-testid="stream-name" />}
         </Field>
       </FormSection>
       <FormSection title="Data stream capacity" description="The capacity mode decides how throughput is provided." testId="section-capacity">

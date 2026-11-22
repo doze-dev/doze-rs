@@ -46,6 +46,8 @@ export function ViewerTab({ s, oldest }: { s: Stream; oldest: { shard: string; a
       const r = await callOp<Got>(on(s.name), "GetRecords", { ShardIterator: iterator, Limit: LIMIT });
       setGot({ shard: chosen, records: r.Records ?? [], next: r.NextShardIterator ?? null });
     } catch (e) {
+      // A failed first read leaves nothing to show: the error stands alone, not above the last answer's records. A failed Next keeps what was read.
+      if (next === null) setGot(null);
       setError(e);
     } finally {
       setBusy(false);
@@ -74,7 +76,7 @@ export function ViewerTab({ s, oldest }: { s: Stream; oldest: { shard: string; a
             <p className="text-[13px] text-muted-foreground">Also: {POSITIONS.filter((p) => p.value !== position && p.value !== "TRIM_HORIZON").map((p) => p.label).join(", ")}.</p>
           </div>
           {(position === "AT_SEQUENCE_NUMBER" || position === "AFTER_SEQUENCE_NUMBER") && (
-            <div className="grid gap-1.5 md:col-span-2"><Label htmlFor="viewer-sequence">Sequence number</Label><Input id="viewer-sequence" value={sequence} onChange={(e) => setSequence(e.target.value)} placeholder="49668410…" autoComplete="off" spellCheck={false} className="bg-card font-mono" data-testid="viewer-sequence" /></div>
+            <div className="grid gap-1.5 md:col-span-2"><Label htmlFor="viewer-sequence">Sequence number</Label><Input id="viewer-sequence" value={sequence} onChange={(e) => setSequence(e.target.value)} placeholder="4900000000…" autoComplete="off" spellCheck={false} className="bg-card font-mono" data-testid="viewer-sequence" /></div>
           )}
           {position === "AT_TIMESTAMP" && (
             <div className="grid gap-1.5 md:col-span-2"><Label>Timestamp, UTC</Label><UtcDateTimePicker value={at} onChange={setAt} aria-label="Timestamp, UTC" className="max-w-[20rem]" /></div>
@@ -103,16 +105,18 @@ export function ViewerTab({ s, oldest }: { s: Stream; oldest: { shard: string; a
           )}
         </section>
       )}
-      <RecordDialog r={looking} onClose={() => setLooking(null)} />
+      <RecordDialog key={looking?.SequenceNumber ?? ""} r={looking} onClose={() => setLooking(null)} />
     </div>
   );
 }
 
 /** One record (kinesis__record-detail): its payload as raw data or as JSON, and the fields of the Record beside it. */
 function RecordDialog({ r, onClose }: { r: KRecord | null; onClose: () => void }) {
-  const [view, setView] = useState<"raw" | "json">("raw");
+  const [picked, setView] = useState<"raw" | "json" | null>(null);
   const text = r ? dataText(r.Data) : null;
   const json = text === null ? null : prettyJson(text);
+  // The board opens on JSON; data that is not JSON opens as it is, and Raw data is a click away either way.
+  const view = picked ?? (json !== null ? "json" : "raw");
   const ms = r ? arrivalMs(r) : null;
   return (
     <Dialog open={r !== null} onOpenChange={(o) => !o && onClose()}>

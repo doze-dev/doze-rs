@@ -50,7 +50,7 @@ export function StreamPage({ group, stream }: { group: string; stream: string })
         mono
         titleExtra={<Badge variant="outline" className="px-2.5 text-[12.5px] font-normal text-muted-foreground">Log stream</Badge>}
         crumbs={[...base, { label: group, to: `/resources/logs/groups/${encodeURIComponent(group)}` }]}
-        sub={<>In <span className="font-mono text-foreground">{group}</span>.{last !== null ? ` Last event at ${clock(last, zone).slice(0, 8)}.` : ""} Choose an arrow to expand one event.</>}
+        sub={<>In <span className="font-mono text-foreground">{group}</span>.{last !== null ? ` Last event at ${clock(last, zone).slice(0, 8)} ${zone === "utc" ? "UTC" : "local time"}.` : ""} Choose an arrow to expand one event.</>}
         refresh={<RefreshControl updatedAt={q.dataUpdatedAt} fetching={q.isFetching} onRefresh={refresh} />}
         actions={
           <DropdownMenu>

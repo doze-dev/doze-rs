@@ -180,3 +180,6 @@ export const isOwnGroup = (group: string, fn: string): boolean => group === `/aw
 export function holding(filters: readonly MetricFilter[], namespace: string): string[] {
   return [...new Set(filters.filter((f) => f.namespace === namespace).map((f) => f.metric))];
 }
+
+/** Search results newest first, as the board lists them (FilterLogEvents answers oldest first); events with the same time keep their order. */
+export const newestFirst = <T extends { timestamp?: number }>(events: readonly T[]): T[] => events.map((e, i) => ({ e, i })).sort((a, b) => (b.e.timestamp ?? 0) - (a.e.timestamp ?? 0) || a.i - b.i).map((x) => x.e);

@@ -227,6 +227,8 @@ test("logs__subscription-filter-create: a Lambda destination, a pattern, a name;
   await page.getByTestId("form-submit").click();
   await expect(page.getByTestId("subscription-created-banner")).toContainText("PutSubscriptionFilter returned 200");
   expect(json<{ subscriptionFilters: { filterName: string }[] }>(["logs", "describe-subscription-filters", "--log-group-name", "/larder/api"]).subscriptionFilters[0]?.filterName).toBe("errors-to-email");
+  // The group's strip names the destination by its kind, as the board does: Lambda send-email.
+  await expect(page.getByTestId("wired-strip")).toContainText("Lambda send-email");
   // Its own group: the console says no before the service is asked.
   await go(page, group("/aws/lambda/send-email", "?view=subscription"), "Subscription filter (Lambda)");
   await page.getByRole("combobox").first().click();
@@ -343,12 +345,16 @@ test("kinesis__stream-detail and the edits: capacity, retention, encryption, sha
   await page.getByTestId("retention-hours").fill("72");
   await expect(page.getByTestId("retention-dialog")).toContainText("That is 3 days. The API takes hours (RetentionPeriodHours).");
   await expect(page.getByTestId("retention-dialog-call")).toContainText("IncreaseStreamRetentionPeriod");
+  // doze-aws has no background sweep: records past the window go when the stream is next written to or read.
+  await expect(page.getByTestId("retention-dialog")).not.toContainText("background sweep");
+  await expect(page.getByTestId("retention-dialog")).toContainText("when the stream is next written to or read");
   await shot(page, "kinesis__stream-retention-edit");
   await page.getByTestId("retention-dialog-save").click();
   await expect(page.getByTestId("section-retention")).toContainText("72 hours");
   // Encryption: on, with a key.
   await page.getByTestId("edit-encryption").click();
   await page.getByTestId("sse-switch").click();
+  await expect(page.getByTestId("sse-key")).toContainText("alias/");
   await page.getByTestId("sse-key").click();
   await page.getByRole("option", { name: "alias/larder-app" }).click();
   await expect(page.getByTestId("encryption-dialog-call")).toContainText("StartStreamEncryption");
@@ -368,7 +374,7 @@ test("kinesis__stream-detail and the edits: capacity, retention, encryption, sha
   expect(json<{ StreamDescriptionSummary: { RetentionPeriodHours: number; EncryptionType: string; EnhancedMonitoring: { ShardLevelMetrics: string[] }[] } }>(["kinesis", "describe-stream-summary", "--stream-name", "clickstream"]).StreamDescriptionSummary).toMatchObject({ RetentionPeriodHours: 72, EncryptionType: "KMS", EnhancedMonitoring: [{ ShardLevelMetrics: ["IncomingBytes"] }] });
 });
 
-test("kinesis__stream-data-viewer, data-viewer-none, record-detail: a shard from its trim horizon, a position with nothing, one record opened", async ({ page }) => {
+test("kinesis__stream-data-viewer, data-viewer-none, record-detail: a shard from its trim horizon, a position with nothing, one record opened", async ({ page, refusals }) => {
   await go(page, kstream("clickstream", "?tab=viewer"), "clickstream");
   await expect(page.getByTestId("stream-viewer")).toContainText("Shows the records in one shard without a consumer application.");
   // Every shard is read until the one that holds records (the six were spread by partition key).
@@ -388,9 +394,22 @@ test("kinesis__stream-data-viewer, data-viewer-none, record-detail: a shard from
   await page.getByTestId("record-open").first().click();
   await expect(page.getByTestId("record-drawer")).toContainText("Encryption type");
   await expect(page.getByTestId("record-data")).toContainText("event");
+  // The board opens the record on JSON (the object, set out over lines), with Raw data one click away.
+  await expect(page.getByTestId("record-view-json")).toHaveAttribute("data-state", "on");
+  await expect(page.getByTestId("record-data")).toContainText(/\{\s*\n\s+"/);
+  await page.getByTestId("record-view-raw").click();
+  await expect(page.getByTestId("record-data")).not.toContainText(/\{\s*\n\s+"/);
   await page.getByTestId("record-view-json").click();
   await shot(page, "kinesis__record-detail");
   await page.getByTestId("record-done").click();
+  // A sequence number the service refuses shows its error alone: no "0 records" under it as if the read had answered.
+  refusals.allow(/400 POST .*\/kinesis\/streams\/clickstream\/op\/GetShardIterator$/);
+  await page.getByTestId("viewer-position").click();
+  await page.getByRole("option", { name: /^At sequence number/ }).click();
+  await page.getByTestId("viewer-sequence").fill("not-a-number");
+  await page.getByTestId("viewer-get").click();
+  await expect(page.getByTestId("viewer-error")).toContainText("The records could not be read");
+  await expect(page.getByTestId("viewer-records")).toHaveCount(0);
   // Latest starts after the newest record: nothing.
   await page.getByTestId("viewer-position").click();
   await page.getByRole("option", { name: "Latest" }).click();

@@ -1,7 +1,7 @@
 //! CloudWatch Logs: log groups, with their subscription filters on their page; their streams, search and Live Tail are pages of
 //! their own.
 
-use super::Format::{Bytes, Mono, Number, Tail, Text as Plain, Time};
+use super::Format::{Bytes, Mono, Number, Text as Plain, Time};
 use super::{
     Create, Deep, Delete, Descriptor, Id, Input, InputKind, Kind, List, Shape, Step, Sub, Tags,
     Text, Write, col, field, input, op, ops, or, says,
@@ -120,7 +120,8 @@ pub(super) static LOGS: Descriptor = Descriptor {
                 columns: &[
                     col("Filter", "filterName", Mono),
                     col("Pattern", "filterPattern", Mono),
-                    col("Destination", "destinationArn", Tail),
+                    // The whole ARN: the page names the kind (Lambda, Kinesis) from it and links the function or stream.
+                    col("Destination", "destinationArn", Mono),
                 ],
                 link: None,
                 more: "nextToken",

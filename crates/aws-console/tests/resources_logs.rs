@@ -241,6 +241,11 @@ async fn a_group_lists_its_streams_newest_first_and_takes_a_subscription_filter(
     let (_, d) = w.get(&one).await;
     let subs = sub(&d, "Subscription filters");
     assert_eq!(subs["rows"][0]["cells"][0], "errors-to-email");
+    // The destination is the whole ARN, so the page can say what kind it is ("Lambda send-email"), not only the name.
+    assert_eq!(
+        subs["rows"][0]["cells"][2],
+        "arn:aws:lambda:us-east-1:000000000000:function:send-email"
+    );
     let (status, gone) = op(
         &w,
         &one,

@@ -16,7 +16,7 @@ import { EventList, type LogEvent } from "./events";
 import { EXAMPLES, EXAMPLES_NOTE } from "./examples";
 import { DEFAULT_RANGE, type Range, bounds, spanWords } from "./range";
 import { RangeControls } from "./range-controls";
-import { streamsOf } from "./model";
+import { newestFirst, streamsOf } from "./model";
 
 type Found = { events: LogEvent[]; next?: string };
 
@@ -75,7 +75,7 @@ export function GroupSearch({ group }: { group: string }) {
               <p className="text-[14px] text-muted-foreground" data-testid="search-count">
                 <Emphasis text={found.events.length === 0 ? `No event in ${spanWords(found.range)} matches the pattern.` : `${found.events.length} ${found.events.length === 1 ? "event" : "events"} in ${spanWords(found.range)} ${found.events.length === 1 ? "matches" : "match"} the pattern, in ${hit}${streams ? ` of ${streams}` : ""} ${(streams || hit) === 1 ? "stream" : "streams"}.`} bold={[/^\d[\d,]* events?/, /\d+ of \d+ streams?/]} />
               </p>
-              <EventList events={found.events} group={group} wrap withStream empty="Nothing matched." testId="search-events" />
+              <EventList events={newestFirst(found.events)} group={group} wrap withStream empty="Nothing matched." testId="search-events" />
               {found.next ? (
                 <div className="flex justify-end">
                   <Button variant="outline" size="sm" className="bg-card" disabled={busy} onClick={() => void run({ ...found.asked, nextToken: found.next }, true, found.range)} data-testid="search-more">{busy ? "Searching…" : "Search further"}</Button>

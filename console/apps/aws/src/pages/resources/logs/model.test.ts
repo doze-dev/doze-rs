@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import type { ResourceRow } from "../../../api/types/ResourceRow";
-import { activityWords, createInput, filterNameProblem, groupNameProblem, groupRows, isOwnGroup, kmsProblem, emptyMetric, listSentence, messagesOf, metricInput, metricNameProblem, namespaceProblem, retentionWords, valueProblem } from "./model";
+import { activityWords, createInput, filterNameProblem, groupNameProblem, groupRows, isOwnGroup, kmsProblem, emptyMetric, listSentence, messagesOf, metricInput, newestFirst, metricNameProblem, namespaceProblem, retentionWords, valueProblem } from "./model";
 
 const row = (name: string, cls: string, days: string | null, filters: string): ResourceRow => ({ name, label: name, id: name, cells: [cls, days, filters, "1794000000000"], link: null });
 
@@ -79,4 +79,12 @@ describe("the requests", () => {
     expect(metricInput("/g", "", { ...emptyMetric, name: "n", namespace: "N", metric: "M" }).metricTransformations).toEqual([{ metricNamespace: "N", metricName: "M", metricValue: "1", unit: "Count" }]);
   });
   test("test messages are the non-empty lines", () => expect(messagesOf("a\n\n  b  \n")).toEqual(["a", "b"]));
+});
+
+describe("search results", () => {
+  test("come newest first, and events with the same time keep the order the service gave", () => {
+    const events = [{ timestamp: 10, message: "a" }, { timestamp: 30, message: "b" }, { timestamp: 30, message: "c" }, { timestamp: 20, message: "d" }];
+    expect(newestFirst(events).map((e) => e.message)).toEqual(["b", "c", "d", "a"]);
+    expect(events[0]?.message).toBe("a");
+  });
 });

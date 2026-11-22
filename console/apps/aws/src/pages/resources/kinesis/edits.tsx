@@ -42,7 +42,7 @@ export function ShardsEdit({ s, onClose }: Edit) {
         <Field label="New shard count" error={problem ?? undefined}>{(id) => <Input id={id} value={target} onChange={(e) => setTarget(e.target.value)} inputMode="numeric" autoComplete="off" className="font-mono" data-testid="shard-target" />}</Field>
       </div>
       <div className="grid gap-1.5"><Label htmlFor="sh-type">Scaling type</Label><Input id="sh-type" value="UNIFORM_SCALING" disabled className="bg-muted font-mono" /><p className="text-[13px] text-muted-foreground">The only value the API accepts.</p></div>
-      <RuleHelp>Uniform scaling closes every open shard and opens new ones that tile the whole hash range; each new shard names the shard that owned its starting hash. A closed shard keeps its records until the retention sweep drops them, and is reclaimed once it is empty.</RuleHelp>
+      <RuleHelp>Uniform scaling closes every open shard and opens new ones that tile the whole hash range; each new shard names the shard that owned its starting hash. A closed shard keeps its records for the retention period and is listed until then.</RuleHelp>
       <p className="text-[13.5px] text-muted-foreground" data-testid="shards-after">Open shards <b className="text-bright">{s.shards}</b> now, <b className="text-bright">{problem ? "–" : Number(target)}</b> after</p>
     </SectionEdit>
   );
@@ -64,7 +64,7 @@ export function RetentionEdit({ s, onClose }: Edit) {
       <Field label="Data retention period" error={problem ?? undefined} hint={!problem && daysWords(n) ? `That is ${daysWords(n)}. The API takes hours (RetentionPeriodHours).` : "The API takes hours (RetentionPeriodHours)."}>
         {(id) => <div className="relative max-w-[16rem]"><Input id={id} value={hours} onChange={(e) => setHours(e.target.value)} inputMode="numeric" autoComplete="off" className="pr-16 font-mono" data-testid="retention-hours" /><span className="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 text-[13px] text-muted-foreground">hours</span></div>}
       </Field>
-      <RuleHelp>From <b>24 hours</b> (the default) up to <b>8,760 hours</b> (365 days). Raising it calls IncreaseStreamRetentionPeriod, lowering it DecreaseStreamRetentionPeriod. Records past the window are dropped by a background sweep that runs about once a minute, and records that already expired do not come back.</RuleHelp>
+      <RuleHelp>From <b>24 hours</b> (the default) up to <b>8,760 hours</b> (365 days). Raising it calls IncreaseStreamRetentionPeriod, lowering it DecreaseStreamRetentionPeriod. Records past the window are dropped when the stream is next written to or read, checked at most once a minute, and records that already expired do not come back.</RuleHelp>
     </SectionEdit>
   );
 }
@@ -72,13 +72,15 @@ export function RetentionEdit({ s, onClose }: Edit) {
 /** Server-side encryption: on with a KMS key (StartStreamEncryption) or off (StopStreamEncryption). Stored, not applied. */
 export function EncryptionEdit({ s, onClose }: Edit) {
   const [on, setOn] = useState(s.encryption === "KMS");
-  const [key, setKey] = useState(s.kms ?? "");
+  const [picked, setKey] = useState(s.kms ?? "");
   const aliases = useQuery({ queryKey: ["kinesis", "aliases"], queryFn: async () => ((await callKindOp<{ Aliases?: { AliasName: string }[] }>(STREAMS, "ListAliases", {})).Aliases ?? []).map((a) => a.AliasName).sort(), retry: false });
   const start = useStreamWrite("StartStreamEncryption");
   const stop = useStreamWrite("StopStreamEncryption");
   const was = s.encryption === "KMS";
   const w = on ? start : stop;
   const options = [...new Set([...(aliases.data ?? []), ...(s.kms ? [s.kms] : [])])];
+  // As the board draws it, the first key is already chosen when encryption is turned on.
+  const key = picked || options[0] || "";
   const request = on ? { service: "kinesis", operation: "StartStreamEncryption", input: { StreamName: s.name, EncryptionType: "KMS", KeyId: key } } : { service: "kinesis", operation: "StopStreamEncryption", input: { StreamName: s.name, EncryptionType: "KMS", KeyId: s.kms ?? key } };
   return (
     <SectionEdit open onOpenChange={(o) => !o && onClose()} title="Edit server-side encryption" description={<>Choose a KMS key to use as the master key for the encryption of <b className="font-mono font-semibold text-bright">{s.name}</b>.</>}

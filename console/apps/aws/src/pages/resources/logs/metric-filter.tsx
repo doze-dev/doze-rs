@@ -126,7 +126,7 @@ export function MetricFilterCreate({ group }: { group: string }) {
               <Field label="Default value" optional error={tried ? (p2.fallback ?? undefined) : undefined} help="The value to emit when the filter pattern does not match a log event.">
                 {(id) => <Input id={id} value={f.fallback} onChange={(e) => set({ fallback: e.target.value })} placeholder="Not set" autoComplete="off" spellCheck={false} className="font-mono" data-testid="mf-default" />}
               </Field>
-              <Field label="Unit" optional help="Choose None to leave the unit unset.">
+              <Field label="Unit" optional help="Left unset, the unit is None. Count is chosen here to begin with.">
                 {(id) => <Select value={f.unit || "None"} onValueChange={(v) => set({ unit: v })}><SelectTrigger id={id} className="w-full bg-card" data-testid="mf-unit"><SelectValue /></SelectTrigger><SelectContent>{UNITS.map((u) => <SelectItem key={u} value={u}>{u}</SelectItem>)}</SelectContent></Select>}
               </Field>
             </div>
