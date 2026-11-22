@@ -34,3 +34,9 @@ export function topicHint(others: readonly { name: string; cells: (string | null
   const subs = [...(chosen && count(chosen) > 0 ? [chosen] : []), ...others.filter((r) => count(r) > 0)].map(has);
   return `${base} ${names.join(", ")} ${names.length === 1 ? "is the other topic" : "are the other topics"} here${subs.length > 0 ? `; ${subs.join("; ")}` : ""}.`;
 }
+
+/** Subscribe first and write the access-policy statement only once the subscription is made, so a refused Subscribe (a topic that does not exist) leaves the queue's policy as it was. */
+export async function subscribeThenAllow(subscribe: () => Promise<unknown>, allow: (() => Promise<unknown>) | null): Promise<void> {
+  await subscribe();
+  if (allow) await allow();
+}

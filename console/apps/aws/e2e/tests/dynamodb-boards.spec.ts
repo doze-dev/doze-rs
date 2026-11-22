@@ -448,9 +448,14 @@ test("dynamodb__partiql and partiql-error: a statement run, and a write that fin
   await expect(page.getByTestId("call-panel-came-back")).toHaveCount(0);
   await expect(page.getByTestId("partiql-outcomes")).toContainText("DuplicateItemException");
   await shot(page, "dynamodb__partiql-error");
+  await page.getByTestId("partiql-table").click();
+  await page.getByRole("option", { name: "deliveries" }).click();
   await page.getByTestId("partiql-statement").fill(`SELECT order_id, status FROM "orders-table" WHERE order_id = 'ord-20261107-0372'`);
   await page.getByTestId("partiql-run").click();
   await expect(page.getByRole("table", { name: "Results" })).toContainText("shipped");
+  // Attribute names are case-sensitive and are shown as written; the picker follows the table the statement names.
+  await expect(page.getByRole("table", { name: "Results" }).getByRole("columnheader", { name: "order_id" })).toBeVisible();
+  await expect(page.getByTestId("partiql-table")).toContainText("orders-table");
   await page.getByTestId("view-json").click();
   await expect(page.getByTestId("results-json")).toContainText('"status": "shipped"');
 });

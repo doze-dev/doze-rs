@@ -11,7 +11,7 @@ import { Field, FormPage, FormSection } from "../../../kit";
 import { useOp } from "../deep/api";
 import { ApiFailure } from "@doze/ui/lib/api";
 import { wait, type Queue } from "./queue-model";
-import { statementCount, topicHint, withTopic } from "./subscribe-model";
+import { statementCount, subscribeThenAllow, topicHint, withTopic } from "./subscribe-model";
 
 const Edit = lazy(() => import("./edit").then((m) => ({ default: m.SqsEdit })));
 const Messages = lazy(() => import("./messages").then((m) => ({ default: m.SqsMessages })));
@@ -102,8 +102,9 @@ export function SubscribeTopic({ d, q, back, done }: SubProps) {
   const refused = failure(subscribe.error ?? settings.error);
   const save = async () => {
     if (!topic || !plan) return;
-    if (plan.added) await settings.mutateAsync({ Attributes: { Policy: plan.policy } });
-    subscribe.mutate({ TopicArn: topic }, { onSuccess: () => done("subscribed", "sns") });
+    // Subscribe first: a topic that does not exist is refused there, and the queue's policy is then left as it was.
+    await subscribeThenAllow(() => subscribe.mutateAsync({ TopicArn: topic }), plan.added ? () => settings.mutateAsync({ Attributes: { Policy: plan.policy } }) : null);
+    done("subscribed", "sns");
   };
   return (
     <FormPage
@@ -114,7 +115,7 @@ export function SubscribeTopic({ d, q, back, done }: SubProps) {
       refusal={refused}
       callNote="Protocol sqs, with the queue's ARN as the endpoint. The access policy statement is written to the queue through SQS."
       callService
-      banner={refused ? <Alert tone="bad" title="The subscription was not made." testId="subscribe-refused">{refused.code}: {refused.message}</Alert> : undefined}
+      banner={refused ? <Alert tone="bad" title={subscribe.error ? "The subscription was not made." : "The subscription was made, but the access policy was not updated."} testId="subscribe-refused">{refused.code}: {refused.message}</Alert> : undefined}
       submitLabel="Save"
       pending={subscribe.isPending || settings.isPending}
       disabled={!topic}

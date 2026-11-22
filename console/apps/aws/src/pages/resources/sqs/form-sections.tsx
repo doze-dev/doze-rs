@@ -13,7 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@doze/ui/components/ui/switch";
 import { Textarea } from "@doze/ui/components/ui/textarea";
 import { listRows } from "./list-model";
-import { Field, FormSection, LocalStatus, RuleHelp, TAG_RULES, callKindOp } from "../../../kit";
+import { Field, FormSection, LocalStatus, RuleHelp, Segmented, TAG_RULES, callKindOp } from "../../../kit";
 import { useResourceDetail, useResourceList } from "../../../api/resources";
 import { basicPolicy, LIMITS, type AllowMode, type QueueForm, type Who } from "./form-model";
 import { type FieldProps, TimeInput, timeUnits } from "./form-fields";
@@ -46,13 +46,7 @@ export function AccessPolicy({ f, set, p, queueArn, basic }: FieldProps & { queu
   return (
     <FormSection title="Access policy" optional collapsible defaultOpen={!useContext(FoldedStart)} description={basic ? "Defines which accounts, users and roles can reach the queue, and which actions they may take." : "Edit the access policy statements."} summary={summary} testId="section-access">
       {basic && (
-        <RadioGroup value={mode} onValueChange={(v) => set({ policyMode: v as QueueForm["policyMode"], ...(v === "advanced" && f.policy.trim() === "" && resulting ? { policy: resulting } : {}) })} className="flex gap-2" aria-label="Access policy mode">
-          {[["basic", "Basic"], ["advanced", "Advanced"]].map(([v, t]) => (
-            <Label key={v} htmlFor={`policy-${v}`} className="flex cursor-pointer items-center gap-2 rounded-lg border bg-card px-3.5 py-2 font-normal has-[[data-state=checked]]:border-primary has-[[data-state=checked]]:bg-pick/40">
-              <RadioGroupItem id={`policy-${v}`} value={v!} data-testid={`policy-${v}`} /> {t}
-            </Label>
-          ))}
-        </RadioGroup>
+        <Segmented value={mode} onChange={(v) => set({ policyMode: v, ...(v === "advanced" && f.policy.trim() === "" && resulting ? { policy: resulting } : {}) })} options={[{ value: "basic", label: "Basic" }, { value: "advanced", label: "Advanced" }]} label="Access policy mode" testId="policy" />
       )}
       {mode === "basic" ? (
         <>
@@ -65,7 +59,7 @@ export function AccessPolicy({ f, set, p, queueArn, basic }: FieldProps & { queu
           )}
           <div className="grid gap-1.5" data-testid="resulting-policy">
             <Label>Resulting access policy</Label>
-            {resulting ? <CodeBlock text={resulting} max="max-h-64" /> : <p className="rounded-[10px] border border-dashed px-4 py-3 text-[13.5px] text-muted-foreground">No statement is needed: with both choices on Only the queue owner, nobody else can send or receive.</p>}
+            {resulting ? <CodeBlock text={resulting} max="max-h-64" /> : <p className="rounded-[10px] border border-dashed px-4 py-3 text-[13.5px] text-muted-foreground">No statement is needed: with both choices on Only the queue owner, nobody else can send or receive. The default policy lets only the queue owner send and receive. Anything else, such as letting a service principal send, is written in Advanced.</p>}
             <RuleHelp>Basic shows the resulting policy in a read-only JSON panel. Choose Advanced to edit the JSON directly and name a custom set of actions for each principal.</RuleHelp>
           </div>
         </>

@@ -161,6 +161,11 @@ pub(super) const FUNCTIONS: Kind = Kind {
                     FUNCTION,
                     &MAPPING_OF_THIS_FUNCTION,
                 ),
+                deep::op_owned(
+                    "DeleteEventSourceMapping",
+                    FUNCTION,
+                    &MAPPING_OF_THIS_FUNCTION,
+                ),
                 // Permissions: the resource-based policy.
                 op("GetPolicy", FUNCTION),
                 op("AddPermission", FUNCTION),

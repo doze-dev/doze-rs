@@ -29,8 +29,17 @@ export const rateWords = (t: Task): string => (t.MaxNumberOfMessagesPerSecond ? 
 
 const n = (v: number): string => `${v.toLocaleString("en-US")} ${v === 1 ? "message" : "messages"}`;
 
+/** Where the moved messages went, with the grammar of how many moved and how many queues they came from (`Its message went back to pick-lists, the queue it was dead-lettered from.`). */
+function wentBack(t: Task, moved: number, sources: readonly string[]): string {
+  const one = moved === 1;
+  const lead = one ? "Its message went back to" : "Its messages went back to";
+  if (t.DestinationArn) return `${lead} ${tail(t.DestinationArn)}.`;
+  if (sources.length === 1) return `${lead} ${sources[0]}, the queue ${one ? "it was" : "they were"} dead-lettered from.`;
+  return `${lead} ${one ? "its source queue" : "their source queues"}, the ${one ? "queue it was" : "queues they were"} dead-lettered from.`;
+}
+
 /** The sentence under the dead-letter queue's name once a task has been run, or null when the queue's own sentence stands. */
-export function taskSentence(t: Task | null, dlq: string, holds: number): string | null {
+export function taskSentence(t: Task | null, dlq: string, holds: number, sources: readonly string[] = []): string | null {
   if (!t) return null;
   const moved = t.ApproximateNumberOfMessagesMoved ?? 0;
   const total = t.ApproximateNumberOfMessagesToMove ?? 0;
@@ -39,7 +48,7 @@ export function taskSentence(t: Task | null, dlq: string, holds: number): string
     case "RUNNING":
       return `${dlq} is moving ${n(total)} back to ${to}${moved > 0 ? `; ${moved.toLocaleString("en-US")} ${moved === 1 ? "has" : "have"} moved so far` : ""}. Only one redrive can run on a queue at a time.`;
     case "COMPLETED":
-      return holds === 0 ? `${dlq} is empty. ${moved === 1 ? "Its message" : "Its messages"} went back to ${to}${t.DestinationArn ? "" : ", the queue they were dead-lettered from"}.` : `${dlq} holds ${n(holds)}. The last redrive moved ${n(moved)} to ${to}.`;
+      return holds === 0 ? `${dlq} is empty. ${wentBack(t, moved, sources)}` : `${dlq} holds ${n(holds)}. The last redrive moved ${n(moved)} to ${to}.`;
     case "CANCELLED":
       return `${dlq} still holds ${n(holds)}. You cancelled the redrive${moved === 0 ? " before it moved any" : ` after it moved ${n(moved)}`}; start another when you are ready.`;
     case "FAILED":
@@ -50,10 +59,10 @@ export function taskSentence(t: Task | null, dlq: string, holds: number): string
 }
 
 /** What a finished or failed task says in the panel: the bold lead (`Failed: CouldNotDetermineMessageSource.`) and the sentence after it. */
-export function statusNote(t: Task): { lead: string; text: string } | null {
+export function statusNote(t: Task, dlq = "the dead-letter queue"): { lead: string; text: string } | null {
   if (t.Status === "FAILED" && t.FailureReason === "CouldNotDetermineMessageSource") return { lead: `Failed: ${t.FailureReason}.`, text: "SQS could not tell which queue this message came from, because it was sent straight to the dead-letter queue with SendMessage. Nothing was moved. Start the redrive again and choose Redrive to custom destination, then enter the queue's ARN." };
   if (t.Status === "FAILED") return { lead: t.FailureReason ? `Failed: ${t.FailureReason}.` : "Status FAILED.", text: "Messages already moved stay at the destination." };
-  if (t.Status === "CANCELLED") return { lead: "Status CANCELLED.", text: "CancelMessageMoveTask stopped the task. Messages it had already moved stay at the destination; the rest stay in the dead-letter queue, and a new task can be started." };
+  if (t.Status === "CANCELLED") return { lead: "Status CANCELLED.", text: `CancelMessageMoveTask stopped the task. Messages it had already moved stay at the destination; the rest stay in ${dlq}, and a new task can be started.` };
   return null;
 }
 

@@ -63,7 +63,7 @@ export function ExploreForm({ table, form, set, sources, problem, onRun, running
                       <SelectContent>
                         {SORT_OPS.map((o) => (
                           <SelectItem key={o} value={o} className="font-mono text-[13px]">
-                            {o}
+                            {o === "between" ? "BETWEEN" : o}
                           </SelectItem>
                         ))}
                       </SelectContent>

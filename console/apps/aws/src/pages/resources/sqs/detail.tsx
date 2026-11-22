@@ -73,7 +73,7 @@ function QueueView({ d, updatedAt, fetching, refresh }: { d: ResourceDetail; upd
   const sentence =
     notice?.kind === "purged" ? purgedSentence(q.name, q.available, q.inFlight)
     : search.done === "created" && total === 0 ? madeSentence(q.name, q.fifo)
-    : dead.length > 0 ? (taskSentence(task, q.name, total) ?? fromSource)
+    : dead.length > 0 ? (taskSentence(task, q.name, total, dead) ?? fromSource)
     : queueSentence(d.sentence, q, holds);
   const wired: Wired[] = [
     ...fed.map((f) => ({ label: "Fed by", to: { service: "eventbridge", kind: "rules", name: ruleName(f) }, note: `The rule ${f.rule} on the ${f.bus} bus` })),

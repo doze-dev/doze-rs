@@ -12,7 +12,7 @@ export function NotActiveBanner({ protocols }: { protocols: readonly string[] })
   const kinds = [...new Set(stored)];
   return (
     <Alert tone="info" title={`${n} ${n === 1 ? "subscription was" : "subscriptions were"} created but ${n === 1 ? "is" : "are"} not active locally.`} className="mb-6" testId="not-active-banner">
-      A script created {n === 1 ? "it" : "them"}. {n === 1 ? "It is" : "They are"} stored and listed, and nothing will be delivered to {n === 1 ? "it" : "them"}.{" "}
+      {n === 1 ? "It was" : "They were"} made by an app or a script: the console does not offer {n === 1 ? "its" : "their"} protocol. {n === 1 ? "It is" : "They are"} stored and listed, and nothing will be delivered to {n === 1 ? "it" : "them"}.{" "}
       <button type="button" className="rounded-sm font-medium text-link hover:underline focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none" aria-expanded={why} onClick={() => setWhy(!why)} data-testid="not-active-why">
         Why?
       </button>

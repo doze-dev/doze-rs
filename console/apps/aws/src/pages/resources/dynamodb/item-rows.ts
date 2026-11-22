@@ -117,3 +117,6 @@ export function paramKey(text: string | undefined): Item | null {
     return null;
   }
 }
+
+/** The px a column header needs on one line: the attribute name (mono, 12.5 px) over its type, plus the cell's padding. */
+export const headerFit = (name: string, sub: string): number => Math.ceil(Math.max(name.length * 7.8, sub.length * 6.6)) + 36;

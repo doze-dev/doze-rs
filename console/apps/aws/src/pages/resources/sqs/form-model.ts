@@ -63,7 +63,7 @@ export function emptyForm(): QueueForm {
     retention: time(DEFAULTS.retention),
     delay: time(DEFAULTS.delay),
     wait: time(DEFAULTS.wait),
-    maxKib: String(DEFAULTS.maxKib),
+    maxKib: DEFAULTS.maxKib.toLocaleString("en-US"),
     dedup: false,
     highThroughput: false,
     scope: "queue",
@@ -109,7 +109,7 @@ export function formOf(q: Queue, tags: readonly { key: string; value: string }[]
     retention: time(q.retention),
     delay: time(q.delay),
     wait: time(q.wait),
-    maxKib: String(Math.round(q.maxSize / 1024)),
+    maxKib: Math.round(q.maxSize / 1024).toLocaleString("en-US"),
     dedup: q.dedup,
     highThroughput: q.scope === "messageGroup" && q.throughput === "perMessageGroupId",
     scope: q.scope === "messageGroup" ? "messageGroup" : "queue",
@@ -156,7 +156,7 @@ export function problems(f: QueueForm, existing: { create: boolean }): Problems 
   set("retention", range("The retention period", toSeconds(f.retention.value, f.retention.unit), LIMITS.retention.min, LIMITS.retention.max, "seconds (1 minute to 14 days)"));
   set("delay", range("The delivery delay", toSeconds(f.delay.value, f.delay.unit), LIMITS.delay.min, LIMITS.delay.max, "seconds (15 minutes)"));
   set("wait", range("The receive wait time", toSeconds(f.wait.value, f.wait.unit), LIMITS.wait.min, LIMITS.wait.max, "seconds"));
-  const kib = Number(f.maxKib);
+  const kib = Number(f.maxKib.replace(/,/g, ""));
   set("maxKib", range("The maximum message size", f.maxKib.trim() === "" || !Number.isInteger(kib) ? null : kib, LIMITS.maxKib.min, LIMITS.maxKib.max, "KiB"));
   if (f.dlqOn) {
     const n = Number(f.maxReceives);
@@ -229,7 +229,7 @@ export function attributes(f: QueueForm, base: Base, queueArn: string): Record<s
   put("MessageRetentionPeriod", toSeconds(f.retention.value, f.retention.unit), was.retention);
   put("DelaySeconds", toSeconds(f.delay.value, f.delay.unit), was.delay);
   put("ReceiveMessageWaitTimeSeconds", toSeconds(f.wait.value, f.wait.unit), was.wait);
-  const kib = Number(f.maxKib);
+  const kib = Number(f.maxKib.replace(/,/g, ""));
   if (Number.isInteger(kib) && kib * 1024 !== was.maxSize) out.MaximumMessageSize = String(kib * 1024);
   if (base.create && f.fifo) out.FifoQueue = "true";
   if (f.fifo) {

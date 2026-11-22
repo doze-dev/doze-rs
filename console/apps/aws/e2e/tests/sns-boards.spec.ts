@@ -243,7 +243,7 @@ test("sns__subscription-create-lambda: a function in the account is confirmed at
   await page.getByRole("combobox", { name: "Endpoint" }).click();
   await page.getByRole("option", { name: "send-email" }).click();
   await expect(page.getByTestId("create-sentence")).toHaveText("This subscribes the function send-email to orders-created. The function is in your account, so the subscription is confirmed at once and every publish invokes it.");
-  await expect(page.getByTestId("field-endpoint")).toContainText("send-email is already subscribed to alerts.");
+  await expect(page.getByTestId("field-endpoint")).toContainText(/send-email \(\S+\) is already triggered by the alerts topic\./);
   await expect(page.getByTestId("field-protocol")).toContainText("The endpoint is the ARN of a Lambda function");
   await expect(page.getByTestId("call-panel-code").first()).toContainText('"Protocol": "lambda"');
   await shot(page, "sns__subscription-create-lambda");
@@ -455,11 +455,14 @@ test("sns__publish-fifo, sns__publish-fifo-refused and sns__topic-published: a g
   await expect(page.getByTestId("call-panel-came-back")).toContainText("InvalidParameter");
   await shot(page, "sns__publish-fifo-refused");
   await page.getByTestId("publish-dedup").fill("order-10482-placed");
+  // Editing the form puts the refusal away: the banner and the "refused" label do not stay over a good call.
+  await expect(page.getByTestId("publish-refused")).toHaveCount(0);
+  await expect(page.getByTestId("call-panel-came-back")).toHaveCount(0);
   await expect(page.getByTestId("call-panel-code").first()).toContainText('"MessageDeduplicationId": "order-10482-placed"');
   await shot(page, "sns__publish-fifo");
   await page.getByTestId("form-submit").click();
   await expect(page.getByTestId("published-banner")).toContainText("Message published.");
-  await expect(page.getByTestId("detail-sentence")).toHaveText("The message went to 1 of 1 confirmed subscription: orders-events.fifo. It matched the filter policy (event in [order_placed, order_cancelled]).");
+  await expect(page.getByTestId("detail-sentence")).toHaveText("The message in group order-10482 went to 1 of 1 confirmed subscription: orders-events.fifo. It matched the filter policy (event in [order_placed, order_cancelled]).");
   await expect(page.getByTestId("published-message-id")).not.toBeEmpty();
   await expect(page.getByTestId("published-sequence")).toContainText(/^\d+$/);
   await shot(page, "sns__topic-published");

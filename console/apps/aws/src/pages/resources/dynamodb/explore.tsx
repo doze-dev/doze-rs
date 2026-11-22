@@ -17,7 +17,7 @@ import { useOp, useOpQuery } from "../deep/api";
 import type { OwnProps } from "../deep/registry";
 import { Card, Refused } from "../deep/parts";
 import { ExploreForm } from "./explore-form";
-import { keyParam } from "./item-rows";
+import { headerFit, keyParam } from "./item-rows";
 import { type Item, type KeyPart, cell, keyOf } from "./json";
 import { TYPE_WORDS } from "./model";
 import { Ask, crumbs, Said, tableTarget, useTable, useTableNav } from "./parts";
@@ -93,7 +93,9 @@ export function Explore({ name, search }: OwnProps) {
       </span>
     ),
     size: i < keys.length ? 200 : undefined,
-    min: 110,
+    // The header is a node, so the table cannot measure it: its width is said here (the name in mono at 12.5 px, the type under it, the cell padding), and a table with more columns than the box holds scrolls sideways instead of drawing one header over another.
+    fit: headerFit(c.name, c.sub),
+    min: Math.max(110, headerFit(c.name, c.sub)),
     accessorFn: (r) => cell(r[c.name]),
     meta: { mono: true, numeric: c.numeric },
     cell: (x) => {

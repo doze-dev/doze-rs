@@ -15,7 +15,8 @@ import { useResourceList } from "../../../api/resources";
 import { CallPanel, useKindOp } from "../../../kit";
 import { Card, JsonBlock } from "../deep/parts";
 import { type Item, cell, toPlain } from "./json";
-import { partiqlWords } from "./partiql-words";
+import { headerFit } from "./item-rows";
+import { partiqlWords, tableOf } from "./partiql-words";
 import { crumbs, KIND, Said } from "./parts";
 
 type Answer = { Items?: Item[]; NextToken?: string };
@@ -43,8 +44,14 @@ export function Partiql() {
   const plain = failed && ran ? partiqlWords(code, ran) : null;
   const items = run.data?.Items ?? [];
   const names2 = [...new Set(items.flatMap((i) => Object.keys(i)))];
-  const columns: DataColumn<Item>[] = names2.map((n) => ({ id: n, header: n, accessorFn: (r) => cell(r[n]), meta: { mono: true }, min: 110, cell: (c) => cell(c.row.original[n]) || <span className="text-muted-foreground">–</span> }));
+  const columns: DataColumn<Item>[] = names2.map((n) => ({ id: n, header: () => <span className="font-mono text-[12.5px] tracking-normal text-foreground normal-case">{n}</span>, fit: headerFit(n, ""), accessorFn: (r) => cell(r[n]), meta: { mono: true }, min: Math.max(110, headerFit(n, "")), cell: (c) => cell(c.row.original[n]) || <span className="text-muted-foreground">–</span> }));
   const request = statement.trim() ? { service: "dynamodb", operation: "ExecuteStatement", input: { Statement: statement } } : null;
+  // The table picker follows the statement: one that names a table of this account shows it in the picker.
+  const writeStatement = (text: string) => {
+    setStatement(text);
+    const named = tableOf(text);
+    if (named && names.includes(named)) setTable(named);
+  };
   const submit = () => {
     if (!statement.trim()) return;
     setRan(statement);
@@ -72,11 +79,11 @@ export function Partiql() {
                       </SelectContent>
                     </Select>
                 </div>
-                <Button type="button" variant="outline" className="bg-card" disabled={!chosen} onClick={() => chosen && setStatement(startStatement(chosen))} data-testid="partiql-start">
+                <Button type="button" variant="outline" className="bg-card" disabled={!chosen} onClick={() => chosen && writeStatement(startStatement(chosen))} data-testid="partiql-start">
                   Query table
                 </Button>
               </div>
-              <Textarea value={statement} onChange={(e) => (setStatement(e.target.value), run.reset())} rows={4} spellCheck={false} aria-label="Statement" placeholder={SAMPLE} className="bg-card font-mono text-[13px] leading-6" data-testid="partiql-statement" />
+              <Textarea value={statement} onChange={(e) => (writeStatement(e.target.value), run.reset())} rows={4} spellCheck={false} aria-label="Statement" placeholder={SAMPLE} className="bg-card font-mono text-[13px] leading-6" data-testid="partiql-statement" />
               <div>
                 <Button type="submit" disabled={!statement.trim() || run.isPending} data-testid="partiql-run">
                   <PlayIcon /> {run.isPending ? "Running…" : "Run"}

@@ -218,7 +218,8 @@ test("sqs__queue-lambda-triggers and sqs__queue-lambda-configure: no trigger, th
   for (const m of (JSON.parse(mappings) as { EventSourceMappings: { UUID: string }[] }).EventSourceMappings) cli(["lambda", "delete-event-source-mapping", "--uuid", m.UUID]);
 });
 
-test("sqs__queue-sns-subscriptions and sqs__queue-sns-subscribe: no subscription, then one made and the policy that lets the topic send", async ({ page }) => {
+test("sqs__queue-sns-subscriptions and sqs__queue-sns-subscribe: no subscription, then one made and the policy that lets the topic send", async ({ page, refusals }) => {
+  refusals.allow(/404 POST .*\/sqs\/queues\/pick-lists\/op\/Subscribe$/);
   await go(page, "/resources/sqs/queues/pick-lists?tab=sns", "pick-lists");
   await expect(page.getByTestId("sns-empty")).toContainText("pick-lists is not subscribed to any Amazon SNS topic");
   await expect(page.getByTestId("sns-empty")).toContainText("The topic orders-created delivers to analytics-queue, inventory-queue and invoice-queue today.");
@@ -232,6 +233,16 @@ test("sqs__queue-sns-subscriptions and sqs__queue-sns-subscribe: no subscription
   await expect(page.getByTestId("call-panel-code")).toContainText('"Protocol": "sqs"');
   await expect(page.getByTestId("subscribe-form")).toContainText("pick-lists has 1 statement today and would have 2.");
   await shot(page, "sqs__queue-sns-subscribe");
+  // A topic that does not exist is refused, and the queue's access policy is left exactly as it was (the statement is written only after the Subscribe).
+  const before = cli(["sqs", "get-queue-attributes", "--queue-url", url("pick-lists"), "--attribute-names", "Policy"]);
+  await page.getByRole("combobox", { name: "Choose a topic" }).click();
+  await page.getByPlaceholder("Search topics, or enter an ARN…").fill(`arn:aws:sns:us-east-1:${server.account}:not-there`);
+  await page.getByRole("option", { name: /Use arn:aws:sns/ }).click();
+  await page.getByTestId("form-submit").click();
+  await expect(page.getByTestId("subscribe-refused")).toContainText("The subscription was not made.");
+  expect(cli(["sqs", "get-queue-attributes", "--queue-url", url("pick-lists"), "--attribute-names", "Policy"])).toBe(before);
+  await page.getByRole("combobox", { name: "Choose a topic" }).click();
+  await page.getByRole("option", { name: /orders-created/ }).click();
   await page.getByTestId("form-submit").click();
   await expect(page.getByTestId("subscribed-banner")).toBeVisible();
   await expect(page.getByTestId("sns-subscriptions")).toContainText("orders-created");
@@ -407,7 +418,7 @@ test("sqs__dlq-redrive-completed: a message that was dead-lettered goes back to 
   await expect(page.getByTestId("redrive-fields")).toHaveAttribute("data-status", "COMPLETED");
   await expect(page.getByTestId("redrive-completed-banner")).toContainText("Status COMPLETED. 1 message moved from moved-dlq to moved-source.");
   await expect(page.getByTestId("redrive-Messages moved")).toHaveText("1 of 1");
-  await expect(page.getByTestId("detail-sentence")).toContainText("moved-dlq is empty. Its message went back to their source queues");
+  await expect(page.getByTestId("detail-sentence")).toContainText("moved-dlq is empty. Its message went back to moved-source, the queue it was dead-lettered from.");
   expect(cli(["sqs", "get-queue-attributes", "--queue-url", url("moved-source"), "--attribute-names", "ApproximateNumberOfMessages"])).toContain('"1"');
   await shot(page, "sqs__dlq-redrive-completed");
 });

@@ -43,3 +43,8 @@ function layerArns(cell: string | null | undefined): string[] {
     return [];
   }
 }
+
+/** The functions that use the layer `name` (any of its versions): the layer ARN of a function is `...:layer:<name>:<version>`. */
+export function usedBy(layer: string, functions: readonly FunctionRow[]): string[] {
+  return functions.filter((f) => f.layers.some((arn) => arn.split(":layer:")[1]?.split(":")[0] === layer)).map((f) => f.name);
+}
