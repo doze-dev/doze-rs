@@ -127,6 +127,9 @@ test("apigateway__rest-method-create: a Lambda proxy method, with the two calls 
   await page.getByTestId("create-method").click();
   await expect(page.locator("h1")).toHaveText("Create method");
   await expect(page.getByTestId("section-details")).toContainText("/products already has GET and OPTIONS");
+  // It opens on a verb the resource has not got (the resource is read after the form opens), so the form is not refused from the first look.
+  await expect(page.getByTestId("method-type")).toHaveText("POST");
+  await expect(page.getByTestId("section-details")).not.toContainText("already has a GET method");
   await choose(page, "method-type", "POST");
   await pick(page, /Choose a function/, "resize-product-image");
   await expect(page.getByTestId("section-details")).toContainText("Lambda proxy integration");

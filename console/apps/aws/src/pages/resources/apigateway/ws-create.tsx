@@ -10,6 +10,7 @@ import { Field, FormPage, FormSection, useServiceCrumbs } from "../../../kit";
 import { HTTP, useHttpApis, useWrite } from "./api";
 import type { HttpApi } from "./types";
 import { apiNameProblem } from "./words";
+import { sdkShown } from "./calls";
 
 export function WsCreate() {
   const navigate = useNavigate();
@@ -24,6 +25,7 @@ export function WsCreate() {
   const failure = make.error instanceof ApiFailure ? { code: make.error.code, message: make.error.message } : null;
   return (
     <FormPage
+      shown={sdkShown}
       title="Create WebSocket API"
       sub="Persistent connections for two-way communication. A client connects at the API's stage address; each message goes to the route its expression selects."
       crumbs={[...crumbs, { label: "APIs", to: "/resources/apigateway/restapis" }, { label: "Create API", to: "/resources/apigateway/restapis?do=create" }, { label: "Create WebSocket API", to: "/resources/apigateway/restapis?do=create-websocket" }]}

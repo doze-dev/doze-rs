@@ -233,6 +233,10 @@ test("apigateway__http-routes-none, http-integrations-none and http-stages-none:
 test("apigateway: a route and an integration are made on the pages, and a WebSocket API is built", async ({ page }) => {
   await go(page, apiPath("apis", ctx.ids.hooks), "Routes");
   await page.getByTestId("create-route-top").click();
+  // Until a path is typed the call says what is still to be given: no `ANY ` with a trailing space, and the camelCase an SDK writes.
+  await expect(page.getByTestId("call-panel")).toContainText('"routeKey": "ANY <path>"');
+  await expect(page.getByTestId("call-panel")).toContainText('"apiId"');
+  await expect(page.getByTestId("call-panel")).not.toContainText('"ApiId"');
   await choose(page, "route-method", "POST");
   await page.getByTestId("route-path").fill("/github");
   await expect(page.getByTestId("call-panel")).toContainText('"routeKey": "POST /github"');

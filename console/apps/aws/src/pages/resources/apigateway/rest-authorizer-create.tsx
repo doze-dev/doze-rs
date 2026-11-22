@@ -13,6 +13,7 @@ import { REST, useAuthorizers, useWrite } from "./api";
 import { useWhere } from "./parts";
 import type { Authorizer } from "./types";
 import { list } from "./words";
+import { sdkShown } from "./calls";
 
 export function AuthorizerCreate({ api, apiName, crumbs, onClose }: { api: string; apiName: string; crumbs: { label: string; to: string }[]; onClose: (created?: string) => void }) {
   const where = useWhere();
@@ -27,6 +28,7 @@ export function AuthorizerCreate({ api, apiName, crumbs, onClose }: { api: strin
   const lambda = f.kind === "lambda";
   return (
     <FormPage
+      shown={sdkShown}
       title="Create authorizer"
       sub={lambda ? "Point API Gateway at a Lambda function that decides who may call. You attach the authorizer to a method afterwards." : "Check the claims of a Cognito user pool token. You attach the authorizer to a method afterwards."}
       titleExtra={<span className="font-mono text-[13px] text-muted-foreground">{apiName}</span>}

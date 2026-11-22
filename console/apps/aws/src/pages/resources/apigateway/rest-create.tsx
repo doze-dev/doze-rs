@@ -10,6 +10,7 @@ import { REST, useHttpApis, useRestApis, useWrite } from "./api";
 import { useWhere } from "./parts";
 import type { RestApi } from "./types";
 import { apiNameProblem, haveApis } from "./words";
+import { sdkShown } from "./calls";
 
 export type RestForm = { name: string; description: string; ip: "ipv4" | "dualstack" };
 
@@ -37,6 +38,7 @@ export function RestCreate() {
   };
   return (
     <FormPage
+      shown={sdkShown}
       title="Create REST API"
       sub="Name the API and choose where it is reachable from. The new API starts with a root resource (/) and no methods."
       crumbs={[...crumbs, { label: "APIs", to: "/resources/apigateway/restapis" }, { label: "Create API", to: "/resources/apigateway/restapis?do=create" }]}

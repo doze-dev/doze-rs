@@ -10,6 +10,7 @@ import { HTTP, runCalls, useRefreshReads, useRoutes, useWrite } from "./api";
 import { type IntegrationForm, emptyIntegration, integrationInput, integrationProblem, ROUTE_METHODS } from "./http-model";
 import { useWhere } from "./parts";
 import type { HttpIntegration } from "./types";
+import { sdkShown } from "./calls";
 
 const NONE = "__none__";
 
@@ -42,6 +43,7 @@ export function IntegrationCreate({ api, apiName, route, crumbs, onClose }: { ap
   const set = (patch: Partial<IntegrationForm>) => { setF((x) => ({ ...x, ...patch })); make.reset(); setLate(null); };
   return (
     <FormPage
+      shown={sdkShown}
       title="Create integration"
       sub="An integration connects a route to a backend such as a Lambda function or an HTTP endpoint."
       titleExtra={<span className="font-mono text-[13px] text-muted-foreground">{apiName}</span>}

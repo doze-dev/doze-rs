@@ -15,6 +15,7 @@ import { ApiChips, Caption } from "./parts";
 import { httpSections } from "./sections";
 import type { HttpApi, HttpIntegration, Route } from "./types";
 import { httpTarget, lambdaName } from "./words";
+import { sdkShown } from "./calls";
 
 const words = (i: HttpIntegration): string => lambdaName(i.integrationUri) ? `${lambdaName(i.integrationUri)} Lambda` : (i.integrationUri ?? i.integrationType);
 const explain = (i: HttpIntegration): React.ReactNode =>
@@ -94,7 +95,7 @@ export function HttpIntegrations({ id, api, selected }: { id: string; api: HttpA
           <DataTable<HttpIntegration> aria-label="Existing integrations" data={ints} columns={intColumns} rowId={(i) => i.integrationId} />
           <RuleHelp className="mt-4">One integration can serve several routes. A new integration is made with Create integration, whose form has an &quot;Attach this integration to a route&quot; field.</RuleHelp>
         </div>
-        <div className="xl:sticky xl:top-6"><CallPanel request={input ? { service: "apigatewayv2", operation: "UpdateRoute", input } : null} showInput note={<>The route points at the integration by ID. The integrations here are <span className="font-mono">AWS_PROXY</span> (a Lambda function) and <span className="font-mono">HTTP_PROXY</span> (a URL).</>} /></div>
+        <div className="xl:sticky xl:top-6"><CallPanel request={input ? { service: "apigatewayv2", operation: "UpdateRoute", input } : null} shown={sdkShown} showInput note={<>The route points at the integration by ID. The integrations here are <span className="font-mono">AWS_PROXY</span> (a Lambda function) and <span className="font-mono">HTTP_PROXY</span> (a URL).</>} /></div>
       </div>
       <PlainConfirm open={deleting !== null} onOpenChange={(o) => { if (!o) { setDeleting(null); del.reset(); } }} title="Delete integration?" description={<>Delete integration <b className="font-mono font-semibold text-bright">{deleting?.integrationId}</b>? {all.filter((r) => r.target === `integrations/${deleting?.integrationId}`).length > 0 ? <>The routes that call it ({all.filter((r) => r.target === `integrations/${deleting?.integrationId}`).map((r) => r.routeKey).join(", ")}) name it, and the service refuses the delete while a route does: attach another integration to each first.</> : "No route calls it."}</>} call="DeleteIntegration" pending={del.isPending} error={del.error} onConfirm={() => deleting && del.mutate({ ApiId: id, IntegrationId: deleting.integrationId } as never, { onSuccess: () => setDeleting(null) })} testId="integration-delete" />
     </>

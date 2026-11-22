@@ -193,7 +193,7 @@ export function apisSentence(apis: readonly AnyApi[], by: Readonly<Record<string
     return `${a.name} answers at its ${first.stage} stage${first.auto ? ", which deploys every change you save" : ", deployed by hand"}.`;
   };
   const said = apis.map(one).filter(Boolean);
-  return said.slice(0, most).join(" ") + (said.length > most ? ` ${count(said.length - most, "more API")} answer too.` : "");
+  return said.slice(0, most).join(" ") + (said.length > most ? ` ${said.length - most === 1 ? "1 more API answers" : `${count(said.length - most, "more API")} answer`} too.` : "");
 }
 
 /** `Stage prod points at deployment m2c8q5, created … with the description "…". The one before it, d4h7n2 from …, is kept in the deployment history.` */
