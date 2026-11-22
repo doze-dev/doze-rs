@@ -5,6 +5,7 @@ use crate::catalog::Catalog;
 use crate::front::Fronted;
 use crate::planners::Grant;
 use doze_config::{Instance, Kind, Spec};
+use doze_module_proto::msg::console::ConsoleSpec;
 use std::collections::BTreeMap;
 use std::path::Path;
 
@@ -69,17 +70,25 @@ pub(crate) fn label(i: &Instance, cat: &Catalog, grant: Option<&Grant>) -> Label
     }
     if i.kind() == Kind::Module
         && let Some(spec) = cat.manifest_for(&i.ty, &i.version).and_then(|m| m.console)
-        && let Some(url) = spec.web_url.as_deref().and_then(|t| web_url(t, grant))
+        && let Some((url, front)) = console_link(&spec, grant)
     {
-        l.web_url = url;
-        l.console_front = spec.front.unwrap_or_default();
+        (l.web_url, l.console_front) = (url, front);
     }
     l
 }
 
+/// Where a module's web console is and the tab it opens on, when it declares one (a lean build declares none) and
+/// the listener it names was granted.
+fn console_link(spec: &ConsoleSpec, grant: Option<&Grant>) -> Option<(String, String)> {
+    let url = web_url(spec.web_url.as_deref()?, grant)?;
+    Some((url, spec.front.clone().unwrap_or_default()))
+}
+
 /// A module's `web_url` template with its address filled in: `{address}` is the instance's main listener,
-/// `{address:ui}` the listener named `ui`, each as doze granted it (the instance's name and port). Empty when
-/// the listener it names was not granted, so no link points at nothing.
+/// `{address:ui}` the listener named `ui`, each as a person reaches it: the name the instance is known by and the
+/// port the listener was granted (`http://events.shop.doze:9093`), never the backend the engine itself listens on
+/// (a console turns away a Host it was not told) and never the main listener's port for another's. Empty when the
+/// listener it names was not granted, so no link points at nothing.
 fn web_url(template: &str, grant: Option<&Grant>) -> Option<String> {
     let grant = grant?;
     let mut out = template.to_owned();
@@ -89,10 +98,22 @@ fn web_url(template: &str, grant: Option<&Grant>) -> Option<String> {
             Some(name) => name,
             None => doze_module_proto::network::MAIN,
         };
-        let addr = &grant.listeners.get(name)?.addr;
-        out.replace_range(at..=end, addr);
+        let addr = public_addr(grant.listeners.get(name)?)?;
+        out.replace_range(at..=end, &addr);
     }
     Some(out)
+}
+
+/// `host:port` of a granted listener as a person types it: the host its route gives (the instance's own name for
+/// `@`, `registry.events.shop.doze` for a child), else the host of the address it was granted (the instance's name,
+/// or 127.0.0.1 with names off), and that address's port. `None` for a listener with no port to name.
+fn public_addr(g: &doze_module_proto::msg::instance::Granted) -> Option<String> {
+    let (host, port) = doze_config::split_host_port(&g.addr)?;
+    if port.parse::<u16>().ok()? == 0 {
+        return None;
+    }
+    let host = g.hosts.first().map_or(host.as_str(), String::as_str);
+    Some(doze_config::join_host_port(host, &port))
 }
 
 /// Where doze listens for `i`, if it sits in front of it: every module that is not supervised, and every app or
@@ -157,43 +178,138 @@ mod tests {
     use super::*;
     use doze_module_proto::msg::instance::{Address, Granted};
 
-    fn grant(listeners: &[(&str, &str)]) -> Grant {
+    /// One listener as the zone grants it: where clients connect, and the hosts routed to it.
+    fn granted(addr: &str, hosts: &[&str]) -> Granted {
+        Granted {
+            addr: addr.into(),
+            url: String::new(),
+            hosts: hosts.iter().map(|h| (*h).to_owned()).collect(),
+            // Where the engine itself listens: never what a person is sent to.
+            backend: Address::Tcp("127.0.0.1:41999".into()),
+        }
+    }
+
+    fn grant(listeners: &[(&str, Granted)]) -> Grant {
         Grant {
-            host: "local.shop.doze".into(),
+            host: "events.shop.doze".into(),
             listeners: listeners
                 .iter()
-                .map(|(n, a)| {
-                    (
-                        (*n).to_owned(),
-                        Granted {
-                            addr: (*a).into(),
-                            url: String::new(),
-                            hosts: vec![],
-                            backend: Address::Tcp("127.0.0.1:1".into()),
-                        },
-                    )
-                })
+                .map(|(n, g)| ((*n).to_owned(), g.clone()))
                 .collect(),
         }
     }
 
+    /// Kafka's: the broker (TCP, no route) on 9092, the console (HTTP, routed to the instance's name) on 9093.
+    fn kafka() -> Grant {
+        grant(&[
+            ("main", granted("events.shop.doze:9092", &[])),
+            (
+                "console",
+                granted("events.shop.doze:9093", &["events.shop.doze"]),
+            ),
+        ])
+    }
+
+    const KAFKA: &str = "http://{address:console}";
+
     #[test]
-    fn a_web_url_takes_the_address_doze_granted_the_listener_it_names() {
-        let g = grant(&[
-            ("main", "local.shop.doze:4566"),
-            ("console", "local.shop.doze:4567"),
-        ]);
-        let url = |t: &str| web_url(t, Some(&g));
+    fn kafkas_console_link_is_its_name_and_the_console_port_not_the_brokers() {
         assert_eq!(
-            url("http://{address:console}").as_deref(),
+            web_url(KAFKA, Some(&kafka())).as_deref(),
+            Some("http://events.shop.doze:9093")
+        );
+        // The main listener is the broker's, 9092, only when a template asks for it.
+        assert_eq!(
+            web_url("http://{address}", Some(&kafka())).as_deref(),
+            Some("http://events.shop.doze:9092")
+        );
+    }
+
+    #[test]
+    fn awss_console_link_is_its_name_and_port_4567() {
+        let g = grant(&[
+            ("main", granted("local.shop.doze:4566", &[])),
+            (
+                "console",
+                granted("local.shop.doze:4567", &["local.shop.doze"]),
+            ),
+        ]);
+        assert_eq!(
+            web_url(KAFKA, Some(&g)).as_deref(),
             Some("http://local.shop.doze:4567")
         );
         assert_eq!(
-            url("http://{address}/_console").as_deref(),
-            Some("http://local.shop.doze:4566/_console")
+            web_url("http://{address:console}/ui", Some(&g)).as_deref(),
+            Some("http://local.shop.doze:4567/ui")
         );
-        // No link to a listener that was not granted, nor when nothing was.
-        assert_eq!(url("http://{address:ui}"), None);
-        assert_eq!(web_url("http://{address:console}", None), None);
+    }
+
+    #[test]
+    fn a_link_never_names_the_backend_the_engine_listens_on() {
+        let url = web_url(KAFKA, Some(&kafka())).unwrap();
+        assert!(
+            !url.contains("41999") && !url.contains("127.0.0.1"),
+            "{url}"
+        );
+    }
+
+    #[test]
+    fn a_routed_child_is_reached_by_its_own_name_and_the_granted_port() {
+        let g = grant(&[
+            ("main", granted("events.shop.doze:9092", &[])),
+            (
+                "registry",
+                granted("events.shop.doze:8081", &["registry.events.shop.doze"]),
+            ),
+        ]);
+        assert_eq!(
+            web_url("http://{address:registry}", Some(&g)).as_deref(),
+            Some("http://registry.events.shop.doze:8081")
+        );
+    }
+
+    #[test]
+    fn with_names_off_the_link_is_the_address_the_zone_granted() {
+        let g = Grant {
+            host: String::new(),
+            listeners: BTreeMap::from([("console".to_owned(), granted("127.0.0.1:9093", &[]))]),
+        };
+        assert_eq!(
+            web_url(KAFKA, Some(&g)).as_deref(),
+            Some("http://127.0.0.1:9093")
+        );
+    }
+
+    fn spec(web_url: Option<&str>) -> ConsoleSpec {
+        ConsoleSpec {
+            panels: vec![],
+            tabs: vec![],
+            web_url: web_url.map(str::to_owned),
+            front: Some("web".into()),
+            extend: vec![],
+        }
+    }
+
+    #[test]
+    fn no_console_declared_gives_no_link() {
+        // A lean kafka build declares no `web_url`: whatever the zone granted, there is no link.
+        assert_eq!(console_link(&spec(None), Some(&kafka())), None);
+        // One that declares it gets the link and the tab it opens on.
+        assert_eq!(
+            console_link(&spec(Some(KAFKA)), Some(&kafka())),
+            Some(("http://events.shop.doze:9093".into(), "web".into()))
+        );
+    }
+
+    #[test]
+    fn a_console_declared_but_not_granted_gives_no_link() {
+        let broker_only = grant(&[("main", granted("events.shop.doze:9092", &[]))]);
+        assert_eq!(web_url(KAFKA, Some(&broker_only)), None);
+        assert_eq!(console_link(&spec(Some(KAFKA)), Some(&broker_only)), None);
+        assert_eq!(web_url(KAFKA, Some(&Grant::default())), None);
+        assert_eq!(web_url(KAFKA, None), None);
+        // A listener without a port is nowhere a person can go.
+        let unbound = grant(&[("console", granted("127.0.0.1:0", &[]))]);
+        assert_eq!(web_url(KAFKA, Some(&unbound)), None);
     }
 }
