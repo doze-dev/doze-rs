@@ -10,7 +10,7 @@ describe("alarm words", () => {
   });
   test("a math alarm names the expression it returns", () => {
     const math: Alarm = { AlarmName: "m", StateValue: "OK", Metrics: [{ Id: "m1", ReturnData: false, MetricStat: { Metric: { Namespace: "N", MetricName: "A" }, Period: 300, Stat: "Sum" } }, { Id: "e1", Expression: "m1*2", Label: "Doubled" }], EvaluationPeriods: 1, Threshold: 4, ComparisonOperator: "GreaterThanThreshold" };
-    expect(conditionWords(math)).toBe("Doubled > 4 for 1 datapoints within 1 minute");
+    expect(conditionWords(math)).toBe("Doubled > 4 for 1 datapoints within 5 minutes");
   });
   test("periods and statistics", () => {
     expect(periodWords(30)).toBe("30 seconds");
@@ -51,5 +51,12 @@ describe("what the last change did", () => {
   });
   test("with no change it says so", () => {
     expect(actionsExplainer({ ...dlq, StateValue: "INSUFFICIENT_DATA" }, []).rest).toContain("has not changed state");
+  });
+});
+
+describe("an alarm on a band", () => {
+  const band: Alarm = { AlarmName: "b", StateValue: "OK", Metrics: [{ Id: "m1", MetricStat: { Metric: { Namespace: "N", MetricName: "Orders" }, Period: 300, Stat: "Average" }, ReturnData: true }, { Id: "ad1", Expression: "ANOMALY_DETECTION_BAND(m1, 2)", ReturnData: false }], ThresholdMetricId: "ad1", ComparisonOperator: "GreaterThanUpperThreshold", EvaluationPeriods: 2 };
+  test("is named by its metric and says which side of the band", () => {
+    expect(conditionWords(band)).toBe("Orders is above the band for 2 datapoints within 10 minutes");
   });
 });

@@ -7,7 +7,7 @@ import { Chart } from "@doze/ui/components/app/chart";
 import { EmptyState } from "@doze/ui/components/app/empty-state";
 import { PageHeader } from "@doze/ui/components/app/page-header";
 import { Button } from "@doze/ui/components/ui/button";
-import { Checkbox } from "@doze/ui/components/ui/checkbox";
+import { Switch } from "@doze/ui/components/ui/switch";
 import { Input } from "@doze/ui/components/ui/input";
 import { Label } from "@doze/ui/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@doze/ui/components/ui/select";
@@ -64,7 +64,7 @@ export function WidgetPage({ name, mode }: { name: string; mode: string | undefi
       <div className="mb-5 flex flex-wrap items-center gap-3">
         <RangeBar state={range} onChange={patchRange} compact />
         <Select value={kind} onValueChange={setKind}><SelectTrigger className="w-44 bg-card" aria-label="Widget type" data-testid="widget-kind"><SelectValue /></SelectTrigger><SelectContent>{Object.entries(KINDS).map(([id, x]) => <SelectItem key={id} value={id}>{x.label}</SelectItem>)}</SelectContent></Select>
-        <Label className="font-normal"><Checkbox checked={persist} onCheckedChange={(v) => setPersist(v === true)} data-testid="persist-range" /> Persist time range</Label>
+        <Label className="gap-3 font-normal"><Switch checked={persist} onCheckedChange={setPersist} data-testid="persist-range" /> Persist time range</Label>
       </div>
       <div className="mb-8 rounded-[14px] border bg-card p-6" data-testid="widget-preview">
         <Chart series={data.series.map((s) => ({ ...s, area: k.stacked === true || rows.length === 1 }))} from={span.from} to={span.to} height={240} loading={queries.length > 0 && data.isPending} aria-label="The widget over the range" empty={queries.length === 0 ? "No metrics selected." : "No data points in this range."} testId="widget-graph" />

@@ -74,6 +74,8 @@ export function Browse({ view, onView, rows, onRows, retry }: { view: View; onVi
       </section>
     );
   const open = (r: NsRow) => onView({ name: r.namespace, key: r.key });
+  // A search that finds nothing is the board's one empty state, under Custom namespaces.
+  if (groups.custom.length === 0 && groups.aws.length === 0) return <Namespaces testId="custom-namespaces" title="Custom namespaces" lede="Published with PutMetricData by your own code. Pick a dimension set to list its metrics." rows={[]} open={open} />;
   return (
     <div className="grid gap-8" data-testid="browse-tab">
       <Namespaces testId="custom-namespaces" title="Custom namespaces" lede="Published with PutMetricData by your own code. Pick a dimension set to list its metrics." rows={groups.custom} open={open} />

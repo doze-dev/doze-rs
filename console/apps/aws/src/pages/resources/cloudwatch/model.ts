@@ -68,11 +68,14 @@ export const PERIODS = [10, 30, 60, 300, 900, 3600, 21600, 86400];
 /** The query an alarm on metric math returns (the one with `ReturnData`), when it is one. */
 export const returned = (a: Pick<Alarm, "Metrics">): MetricDataQuery | undefined => a.Metrics?.find((m) => m.ReturnData !== false) ?? a.Metrics?.[0];
 
+/** The period an alarm is judged on: its own, else that of the metric behind its expression (the shortest, as AWS evaluates). */
+export const periodOf = (a: Alarm): number | undefined => a.Period ?? returned(a)?.MetricStat?.Period ?? returned(a)?.Period ?? a.Metrics?.flatMap((m) => (m.MetricStat ? [m.MetricStat.Period] : [])).sort((x, y) => x - y)[0];
+
 /** What the alarm watches, as a name: its metric, or the label (else the id) of the expression it returns. */
 export function metricName(a: Alarm): string {
   if (a.MetricName) return a.MetricName;
   const q = returned(a);
-  return q?.Label || q?.Expression || q?.Id || "";
+  return q?.Label || q?.MetricStat?.Metric.MetricName || q?.Expression || q?.Id || "";
 }
 
 const BAND_WORDS: Record<string, string> = { GreaterThanUpperThreshold: "above", LessThanLowerThreshold: "below", LessThanLowerOrGreaterThanUpperThreshold: "outside" };
@@ -80,7 +83,7 @@ const BAND_WORDS: Record<string, string> = { GreaterThanUpperThreshold: "above",
 /** `DlqMessages >= 1 for 1 datapoints within 1 minute`. */
 export function conditionWords(a: Alarm): string {
   const evals = a.EvaluationPeriods ?? 1;
-  const period = a.Period ?? returned(a)?.MetricStat?.Period ?? returned(a)?.Period ?? 60;
+  const period = periodOf(a) ?? 60;
   const inside = `${a.DatapointsToAlarm ?? evals} datapoints within ${periodWords(evals * period)}`;
   if (a.ThresholdMetricId) return `${metricName(a)} is ${BAND_WORDS[a.ComparisonOperator ?? ""] ?? "outside"} the band for ${inside}`;
   return `${metricName(a)} ${signOf(a.ComparisonOperator)} ${a.Threshold ?? ""} for ${inside}`;
@@ -89,7 +92,7 @@ export function conditionWords(a: Alarm): string {
 /** `Maximum, 1 minute`. */
 export function statisticWords(a: Alarm): string {
   const stat = a.Statistic ?? a.ExtendedStatistic ?? returned(a)?.MetricStat?.Stat ?? "";
-  const period = a.Period ?? returned(a)?.MetricStat?.Period;
+  const period = periodOf(a);
   return period ? `${stat}, ${periodWords(period)}` : stat;
 }
 

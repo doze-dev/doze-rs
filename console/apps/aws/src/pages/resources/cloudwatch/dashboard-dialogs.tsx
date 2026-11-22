@@ -5,6 +5,7 @@ import { Alert } from "@doze/ui/components/app/alert";
 import { JsonEditor, checkJson } from "@doze/ui/components/app/json-editor";
 import { Button } from "@doze/ui/components/ui/button";
 import { Checkbox } from "@doze/ui/components/ui/checkbox";
+import { Switch } from "@doze/ui/components/ui/switch";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@doze/ui/components/ui/dialog";
 import { Label } from "@doze/ui/components/ui/label";
 import { Textarea } from "@doze/ui/components/ui/textarea";
@@ -80,7 +81,7 @@ export function TextWidgetDialog({ body, onCreate, onClose }: { body: Body; onCr
       <DialogContent className="sm:max-w-[600px]" data-testid="text-widget-dialog">
         <DialogHeader><DialogTitle className="text-[21px] font-semibold">New text widget</DialogTitle><DialogDescription className="sr-only">A block of Markdown text for the dashboard.</DialogDescription></DialogHeader>
         <div className="grid gap-2"><Label htmlFor="md">Markdown</Label><Textarea id="md" value={markdown} onChange={(e) => setMarkdown(e.target.value)} rows={8} className="font-mono text-[13px]" placeholder="# Runbook" data-testid="widget-markdown" /><p className="text-[13px] text-muted-foreground">Format the text with Markdown.</p></div>
-        <Label className="font-normal"><Checkbox checked={clear} onCheckedChange={(v) => setClear(v === true)} data-testid="widget-transparent" /> Transparent background</Label>
+        <Label className="gap-3 font-normal"><Switch checked={clear} onCheckedChange={setClear} data-testid="widget-transparent" /> Transparent background</Label>
         <DialogFooter><Button type="button" variant="outline" className="bg-card" onClick={onClose}>Cancel</Button><Button type="button" disabled={markdown.trim() === ""} onClick={() => onCreate(withWidget(body, textWidget(markdown, clear ? "transparent" : "solid")))} data-testid="widget-create">Create widget</Button></DialogFooter>
       </DialogContent>
     </Dialog>

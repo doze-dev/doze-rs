@@ -62,3 +62,20 @@ describe("an alarm back into the wizard", () => {
     expect(dimensionText([{ Name: "a", Value: "b" }])).toBe("a=b");
   });
 });
+
+describe("an alarm on a band", () => {
+  test("is made of the metric, the band expression and the id that names the band", () => {
+    const i = metricInput(draft({ kind: "anomaly", band: "3", operator: "LessThanLowerOrGreaterThanUpperThreshold" })) as { Metrics: { Id: string; Expression?: string; ReturnData: boolean }[]; ThresholdMetricId: string; Threshold?: number };
+    expect(i.ThresholdMetricId).toBe("ad1");
+    expect(i.Metrics.map((m) => [m.Id, m.ReturnData])).toEqual([["m1", true], ["ad1", false]]);
+    expect(i.Metrics[1]?.Expression).toBe("ANOMALY_DETECTION_BAND(m1, 3)");
+    expect(i.Threshold).toBeUndefined();
+  });
+  test("comes back into the wizard as a band", () => {
+    const d = draft({ kind: "anomaly", band: "3", operator: "GreaterThanUpperThreshold" });
+    const a = { AlarmName: "x", StateValue: "OK", ...metricInput(d) } as Alarm;
+    const back = fromAlarm(a);
+    expect([back?.kind, back?.band, back?.operator]).toEqual(["anomaly", "3", "GreaterThanUpperThreshold"]);
+  });
+  test("a width of 0 stops the step", () => expect(problem(0, draft({ kind: "anomaly", band: "0" }), [], false)).toContain("width"));
+});
