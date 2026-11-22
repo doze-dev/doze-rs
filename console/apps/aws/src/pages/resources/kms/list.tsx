@@ -58,7 +58,8 @@ function Keys({ aws, scheduled }: { aws: boolean; scheduled: string[] }) {
   const [result, setResult] = useState<Done | null>(null);
   const words = aws ? WORDS.aws : WORDS.customer;
   const keys = useMemo(() => keyRows(list.rows, list.columns, aliases.rows.map((a) => ({ name: a.name, key: a.cells[aliases.columns.findIndex((c) => c.title === "Key")] ?? "" }))), [list.rows, list.columns, aliases.rows, aliases.columns]);
-  const mine = keys.filter((k) => k.managedByAws === aws);
+  // By alias, as the console lists them; a key with none comes last.
+  const mine = keys.filter((k) => k.managedByAws === aws).sort((a, b) => (a.aliases[0] === undefined ? 1 : 0) - (b.aliases[0] === undefined ? 1 : 0) || (a.aliases[0] ?? a.id).localeCompare(b.aliases[0] ?? b.id));
   const shown = mine.filter((k) => !typed.trim() || [...k.aliases, k.id].some((t) => t.toLowerCase().includes(typed.trim().toLowerCase())));
   const picked = mine.filter((k) => chosen.has(k.id));
   const go = (search: { mode?: string; create?: "yes"; do?: string; sel?: string }) => void navigate({ to: "/resources/$service/$second", params: { service: "kms", second: "keys" }, search });
