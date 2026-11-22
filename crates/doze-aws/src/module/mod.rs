@@ -111,6 +111,18 @@ pub(crate) fn run() -> std::process::ExitCode {
 
 struct Aws;
 
+/// What the app and `doze open --console` show of the instance: the web console on its own listener, and nothing else
+/// (the console is its own page; the app has no tables of it).
+fn console_spec() -> doze_module::proto::msg::console::ConsoleSpec {
+    doze_module::proto::msg::console::ConsoleSpec {
+        panels: vec![],
+        tabs: vec![],
+        web_url: Some(format!("http://{{address:{CONSOLE}}}")),
+        front: Some("web".into()),
+        extend: vec![],
+    }
+}
+
 /// Whether the block declares no resource at all.
 pub(crate) fn declared_nothing(s: &AwsSpec) -> bool {
     s.bucket.is_empty()
@@ -125,39 +137,71 @@ pub(crate) fn declared_nothing(s: &AwsSpec) -> bool {
         && s.state_machine.is_empty()
 }
 
-/// The main backend's `host:port`: doze-aws listens on TCP only.
-pub(crate) fn backend(instance: &Instance) -> Result<String> {
-    match instance
-        .listeners
-        .get(doze_module::proto::network::MAIN)
-        .map(|g| &g.backend)
-    {
-        Some(Address::Tcp(a)) => Ok(a.clone()),
+/// The console's listener: its web console, on the instance's own name (the Go module had none).
+pub(crate) const CONSOLE: &str = "console";
+/// The console's port on the instance's address: the gateway's default port + 1, where it listens by hand.
+const CONSOLE_PORT: u16 = 4567;
+
+/// The listeners: the gateway (`main`, the instance's port) and the web console on its own port, both HTTP on loopback TCP.
+pub(crate) fn listeners() -> Vec<Listener> {
+    let http = |name: &str, port: u16, routes: &[&str]| Listener {
+        name: name.into(),
+        port,
+        http: true,
+        routes: routes.iter().map(|r| (*r).into()).collect(),
+        tcp: true,
+    };
+    vec![
+        http(doze_module::proto::network::MAIN, 0, &[]),
+        http(CONSOLE, CONSOLE_PORT, &["@"]),
+    ]
+}
+
+/// A granted listener's backend `host:port`: doze-aws listens on TCP only. `None` when doze granted no such listener.
+fn tcp_backend(instance: &Instance, name: &str) -> Result<Option<String>> {
+    match instance.listeners.get(name).map(|g| &g.backend) {
+        Some(Address::Tcp(a)) => Ok(Some(a.clone())),
         Some(Address::Unix(_)) => Err(Error::new(
             ErrorKind::Unsupported,
-            "doze-aws cannot listen on a socket; the main listener needs a TCP backend",
+            format!(
+                "doze-aws cannot listen on a socket; the {name:?} listener needs a TCP backend"
+            ),
         )),
-        None => Err(Error::new(
-            ErrorKind::Unavailable,
-            "no backend granted for \"main\"",
-        )),
+        None => Ok(None),
     }
+}
+
+/// The main backend's `host:port`.
+pub(crate) fn backend(instance: &Instance) -> Result<String> {
+    tcp_backend(instance, doze_module::proto::network::MAIN)?
+        .ok_or_else(|| Error::new(ErrorKind::Unavailable, "no backend granted for \"main\""))
 }
 
 /// doze-aws's command line for an instance: where it listens and keeps its data, the Region it answers as.
 ///
-/// Without its console: the console's default address (the backend's port + 1) is not one doze granted, and another
-/// instance may hold it. Under doze the console waits for a listener of its own declared in `network`.
+/// Both addresses are ones doze granted. The console is served where its own listener was granted, and answers to the
+/// names doze gives it (its Host guard turns away any other); with no console listener granted it is left off, as the
+/// console's default address (the gateway's port + 1) is not one doze granted, and another instance may hold it.
 pub(crate) fn server_args(instance: &Instance, region: &str) -> Result<Vec<String>> {
-    Ok(vec![
+    let mut args = vec![
         "--listen".into(),
         backend(instance)?,
         "--data-dir".into(),
         instance.data_dir.clone(),
         "--region".into(),
         region.into(),
-        "--no-console".into(),
-    ])
+    ];
+    match tcp_backend(instance, CONSOLE)? {
+        Some(addr) => {
+            args.extend(["--console".into(), addr]);
+            let hosts = instance.listeners.get(CONSOLE).map(|g| g.hosts.clone());
+            for h in hosts.unwrap_or_default() {
+                args.extend(["--console-allow-host".into(), h]);
+            }
+        }
+        None => args.push("--no-console".into()),
+    }
+    Ok(args)
 }
 
 impl Module for Aws {
@@ -196,6 +240,7 @@ impl Module for Aws {
             default_version: None,
             client: Some(client()),
             detect: Some(detect()),
+            console: Some(console_spec()),
             ..About::default()
         }
     }
@@ -205,13 +250,7 @@ impl Module for Aws {
     }
 
     fn network(&self, _cx: &Cx<AwsSpec>) -> Vec<Listener> {
-        vec![Listener {
-            name: doze_module::proto::network::MAIN.into(),
-            port: 0,
-            http: true,
-            routes: vec![],
-            tcp: true,
-        }]
+        listeners()
     }
 
     fn connection(&self, cx: &Cx<AwsSpec>) -> Result<Connection> {

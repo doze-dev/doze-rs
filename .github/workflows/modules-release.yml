@@ -154,9 +154,15 @@ jobs:
           esac
       - name: The module (release)
         run: |
-          cargo build --locked --release -p "$CRATE"
+          # The profile the weight check measures (xtask/src/weight.rs, profile_of): doze-aws ships what its size
+          # line is held to (release-aws, opt-level "z" and fat LTO), not the larger plain release build.
+          case "$CRATE" in
+            doze-aws) profile=release-aws ;;
+            *) profile=release ;;
+          esac
+          cargo build --locked --profile "$profile" -p "$CRATE"
           mkdir -p dist
-          cp "target/release/$CRATE" "dist/doze-module-$MODULE-$TARGET"
+          cp "target/$profile/$CRATE" "dist/doze-module-$MODULE-$TARGET"
           ls -l dist
       - uses: actions/upload-artifact@v4
         with:
