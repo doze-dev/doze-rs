@@ -55,7 +55,7 @@ test("secretsmanager__secrets-list, secrets-none: the secrets, searched by the f
 });
 
 test("secretsmanager__create-type ... create-review: four steps, and the secret is stored with its tags, key, policy and rotation", async ({ page }) => {
-  await open(page, server.console, "/resources/secretsmanager/secrets?create=yes", "Choose secret type");
+  await open(page, server.console, "/resources/secretsmanager/secrets?create=yes", "Store a new secret");
   await expect(page.getByTestId("type-rds")).toBeDisabled();
   await page.getByTestId("value-rows").getByRole("button", { name: "Add row" }).click();
   await page.getByTestId("value-rows").getByRole("textbox").nth(0).fill("api_key");
@@ -66,7 +66,7 @@ test("secretsmanager__create-type ... create-review: four steps, and the secret 
   await expect(page.getByTestId("call-panel")).toContainText('"KmsKeyId": "alias/larder-app"');
   await shot(page, "secretsmanager__create-type");
   await page.getByTestId("form-submit").click();
-  await expect(page.locator("h1").first()).toHaveText("Configure secret");
+  await expect(page.getByTestId("section-name")).toBeVisible();
   await page.getByTestId("form-submit").click();
   await expect(page.getByTestId("field-name")).toContainText("Enter a name.");
   await page.getByTestId("secret-name").fill("larder/prod/stripe-key");
@@ -79,7 +79,7 @@ test("secretsmanager__create-type ... create-review: four steps, and the secret 
   await expect(page.getByTestId("call-panel")).toContainText("Search provider API key.");
   await shot(page, "secretsmanager__create-configure");
   await page.getByTestId("form-submit").click();
-  await expect(page.locator("h1").first()).toHaveText("Configure rotation");
+  await expect(page.getByTestId("section-rotation")).toBeVisible();
   await expect(page.getByTestId("call-panel")).toContainText("With rotation off, this step adds no call");
   await shot(page, "secretsmanager__create-rotation");
   await page.getByTestId("form-submit").click();

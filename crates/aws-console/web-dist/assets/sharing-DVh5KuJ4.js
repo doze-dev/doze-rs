@@ -1,1 +1,0 @@
-export{t as SharingCreate}from"./detail-xb_WM7Bl.js";

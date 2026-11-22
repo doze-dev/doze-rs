@@ -18,7 +18,7 @@ import { blankSecret, durationProblem, nameProblem, scheduleProblem, type Secret
 
 const STEPS = [{ id: "type", label: "Choose secret type" }, { id: "configure", label: "Configure secret" }, { id: "rotation", label: "Configure rotation", optional: true }, { id: "review", label: "Review" }];
 const SUBS = ["Step 1 of 4. Choose what kind of secret this is and which KMS key encrypts it.", "Step 2 of 4. Name the secret and, if you like, tag it or attach a policy.", "Step 3 of 4. Rotation is optional: keep it off for now and turn it on later if you want.", "Step 4 of 4. Check the details, then store the secret."];
-const TITLES = ["Choose secret type", "Configure secret", "Configure rotation", "Review"];
+const TITLES = ["Store a new secret", "Store a new secret", "Store a new secret", "Store a new secret"];
 const NOTES = [
   "Nothing is sent until you choose Store on step 4. The name, tags and the rest are added on the next steps; the value is masked here.",
   "Because the call carries tags, the caller also needs secretsmanager:TagResource.",
@@ -75,7 +75,7 @@ export function SecretCreate() {
       setPending(false);
     }
   };
-  const preview = secretCalls({ ...form, name: f.name || "(next step)" }, { masked: true });
+  const preview = secretCalls({ ...form, name: f.name || "(set on step 2)" }, { masked: true });
   // Step 1 sets only the value and the key: the name, tags and the rest come on the next steps.
   const calls = step === 0 ? preview.slice(0, 1).map((c) => ({ ...c, input: { Name: c.input.Name, SecretString: c.input.SecretString, ...(c.input.KmsKeyId ? { KmsKeyId: c.input.KmsKeyId } : {}) } })) : preview;
   const back = () => void navigate({ to: "/resources/$service/$second", params: { service: "secretsmanager", second: "secrets" }, search: {} });
