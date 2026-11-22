@@ -26,7 +26,7 @@ export function parseClock(text: string): number | null {
 
 /** A moment in UTC, chosen with a month grid and a time field in a Popover: never the browser's own date widget, which
  * differs in every engine and speaks the local zone (the console speaks UTC). */
-export function UtcDateTimePicker({ value, onChange, className, "aria-label": ariaLabel = "Time, UTC", id }: { value: number | null; onChange: (ms: number) => void; className?: string; "aria-label"?: string; id?: string }) {
+export function UtcDateTimePicker({ value, onChange, className, "aria-label": ariaLabel = "Time, UTC", id, placeholder = "Choose a time, UTC" }: { value: number | null; onChange: (ms: number) => void; className?: string; "aria-label"?: string; id?: string; /** What the field says while no time is chosen. */ placeholder?: string }) {
   const [open, setOpen] = useState(false);
   const [base] = useState(() => value ?? Date.now());
   const [view, setView] = useState(() => {
@@ -59,7 +59,7 @@ export function UtcDateTimePicker({ value, onChange, className, "aria-label": ar
       <PopoverTrigger asChild>
         <Button id={id} variant="outline" aria-label={ariaLabel} className={cn("w-72 justify-start bg-card font-mono font-normal", value === null && "text-muted-foreground", className)} data-testid="datetime-trigger">
           <CalendarClockIcon className="opacity-60" />
-          <span className="truncate">{value !== null ? utcText(value) : "Choose a time, UTC"}</span>
+          <span className="truncate">{value !== null ? utcText(value) : placeholder}</span>
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-[19rem] p-3" align="start" data-testid="datetime-popover">

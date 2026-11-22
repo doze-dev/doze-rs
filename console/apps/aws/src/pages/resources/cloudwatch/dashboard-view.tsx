@@ -97,7 +97,7 @@ function View({ name, saved, modified, calls, fetching, updatedAt, refresh }: { 
         <Widgets widgets={body.widgets} range={span} alarms={alarms.data} onRemove={(i) => change(withoutWidget(body, i))} />
       )}
       <div className="mt-8 grid gap-3">
-        <p className="max-w-[46rem] border-l-2 pl-3.5 text-[13px] leading-5 text-muted-foreground" data-testid="widget-count"><b className="font-semibold text-foreground">This dashboard has {count} {count === 1 ? "widget" : "widgets"};</b> a dashboard body holds 0 to 500 widgets laid out on a 24-column grid, each 1 to 24 columns wide.</p>
+        <p className="max-w-[46rem] border-l-2 pl-3.5 text-[13px] leading-5 text-muted-foreground" data-testid="widget-count"><b className="font-semibold text-foreground">This dashboard has {count} {count === 1 ? "widget" : "widgets"};</b> on AWS a dashboard body holds 0 to 500 widgets laid out on a 24-column grid, each 1 to 24 columns wide (doze-aws does not check).</p>
         <p className="max-w-[46rem] border-l-2 pl-3.5 text-[13px] leading-5 text-muted-foreground" data-testid="dashboard-local"><b className="font-semibold text-foreground">Stored, not applied locally.</b> doze-aws keeps the dashboard body exactly as written and never interprets it; this console draws it.</p>
       </div>
       <RecentCalls calls={calls} noun="dashboard" className="mt-10" />

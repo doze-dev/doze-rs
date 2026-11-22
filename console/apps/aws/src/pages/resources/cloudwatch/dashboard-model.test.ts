@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { alarmNames, numberLabel, parseBody, place, queriesOf, rulesBroken, textWidget, titleOf, withWidget, withoutWidget } from "./dashboard-model";
+import { headingSplit, alarmNames, numberLabel, parseBody, place, queriesOf, rulesBroken, textWidget, titleOf, withWidget, withoutWidget } from "./dashboard-model";
 
 const body = parseBody(JSON.stringify({ start: "-PT3H", widgets: [{ type: "metric", x: 0, y: 0, width: 12, height: 6, properties: { title: "Orders placed", stat: "Sum", period: 300, metrics: [["Larder/Orders", "OrdersPlaced", "Environment", "prod"], ["...", "OrdersFailed", "Environment", "prod", { label: "Failed", stat: "Maximum" }], [{ expression: "m1 / 2", label: "Half", id: "e1" }]] } }, { type: "alarm", properties: { alarms: ["arn:aws:cloudwatch:us-east-1:111122223333:alarm:dlq-not-empty"] } }] }))!;
 
@@ -60,5 +60,14 @@ describe("what a number widget names its value by", () => {
     expect(numberLabel("DlqMessages", { metric: "DlqMessages", dimensions: {} })).toBe("DlqMessages");
     expect(numberLabel("Backlog", { metric: "DlqMessages", dimensions: { QueueName: "pick-lists-dlq" } })).toBe("Backlog");
     expect(numberLabel("x", undefined)).toBe("x");
+  });
+});
+
+describe("a text widget's heading", () => {
+  test("a first-line heading is the card's title and the rest is the body", () => {
+    expect(headingSplit("# Runbook\n\nIf dlq-not-empty is in ALARM, redrive it.")).toEqual({ title: "Runbook", rest: "If dlq-not-empty is in ALARM, redrive it." });
+    expect(headingSplit("## Notes")).toEqual({ title: "Notes", rest: "" });
+    expect(headingSplit("Just words\n# later")).toBeNull();
+    expect(headingSplit("#nospace")).toBeNull();
   });
 });

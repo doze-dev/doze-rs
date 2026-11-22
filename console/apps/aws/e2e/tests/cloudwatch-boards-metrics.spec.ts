@@ -13,7 +13,9 @@ test("cloudwatch__metrics-all and metrics-none: namespaces by dimension set, the
   await expect(custom.locator("tr[data-row]", { hasText: "Larder/Orders" })).toContainText("2");
   await expect(custom.locator("tr[data-row]", { hasText: "Larder/Queues" })).toContainText("QueueName");
   await expect(page.getByRole("table", { name: "AWS namespaces" }).locator("tr[data-row]", { hasText: "AWS/Lambda" }).first()).toBeVisible();
-  await expect(page.getByTestId("metrics-graph-empty")).toHaveText("No metrics selected.");
+  // Nothing graphed: the axes are drawn all the same (a 0 to 40 scale), with the words over them.
+  await expect(page.getByTestId("metrics-graph-empty")).toContainText("No metrics selected.");
+  await expect(page.getByTestId("metrics-graph-empty").locator("svg text").filter({ hasText: /^40$/ })).toHaveCount(1);
   await expect(page.getByTestId("retention-note")).toContainText("Samples are kept for 24 hours.");
   await expect(page.getByTestId("no-metrics-note")).toContainText("publish no metrics");
   for (const r of ["1h", "3h", "12h", "1d", "3d", "1w", "custom"]) await expect(page.getByTestId(`range-${r}`)).toBeVisible();
@@ -68,6 +70,8 @@ test("cloudwatch__metrics-graph and metrics-add-to-dashboard: tick two metrics, 
   await expect(dialog.getByTestId("add-words")).toContainText("2 graphed metrics become one widget");
   await expect(dialog.getByText("Stored, not applied locally.")).toBeVisible();
   await shot(page, "cloudwatch__metrics-add-to-dashboard");
+  // The dashboard saved last is the one chosen to begin with.
+  await expect(page.getByTestId("dashboard-select")).toContainText("larder-ops");
   await page.getByTestId("dashboard-select").click();
   await page.getByRole("option", { name: "larder-api" }).click();
   await page.getByTestId("widget-stacked").click();
@@ -104,6 +108,8 @@ test("cloudwatch__dashboards-list, dashboard-create and dashboard-delete", async
   await expect(page.getByTestId("dashboards-scope")).toContainText("doze-aws keeps each one with the CloudWatch data of the Region it was made in");
   await expect(page.getByTestId("dashboards-scope")).not.toContainText("belongs to the Region");
   await expect(page.getByTestId("dashboards-local")).toContainText("Stored, not applied locally.");
+  // Newest saved first, as the board lists them: larder-ops was saved after larder-api.
+  await expect(table.locator("tr[data-row]").first()).toContainText("larder-ops");
   await table.locator("tr[data-row]", { hasText: "larder-api" }).getByRole("checkbox").check();
   await expect(page.getByTestId("selected-count")).toContainText("selected");
   await shot(page, "cloudwatch__dashboards-list");
@@ -134,7 +140,8 @@ test("cloudwatch__dashboards-list, dashboard-create and dashboard-delete", async
   const del = page.getByTestId("delete-dialog");
   await expect(del).toContainText("Delete dashboards?");
   await expect(del).toContainText("Delete scratch-board. The dashboard and its widgets are removed.");
-  await expect(del).toContainText("One call can delete up to 100 dashboards.");
+  // The limit is AWS's: the page says so and does not claim doze-aws counts them.
+  await expect(del).toContainText("DeleteDashboards takes up to 100 dashboards on AWS. doze-aws does not count them");
   await shot(page, "cloudwatch__dashboard-delete");
   await page.getByTestId("delete-dialog-submit").click();
   await expect(page.getByTestId("deleted-banner")).toContainText("Dashboard scratch-board deleted.");
@@ -168,6 +175,11 @@ test("cloudwatch__dashboard-view, dashboard-source and dashboard-add-widget: the
   await expect(page.getByTestId("widget-3")).toContainText("dlq-not-empty");
   await expect(page.getByTestId("widget-3")).toContainText("ALARM");
   await expect(page.getByTestId("widget-4")).toContainText("Dead-letter queue not empty");
+  // The text widget's `# Runbook` heading is the card's title, not body text; and the cards of a row are as tall as their cell.
+  await expect(page.getByTestId("widget-4").locator("h3")).toHaveText("Runbook");
+  const tall = async (id: string) => (await page.getByTestId(id).boundingBox())?.height ?? 0;
+  expect(Math.abs((await tall("widget-3")) - (await tall("widget-4")))).toBeLessThan(2);
+  expect(Math.abs((await tall("widget-2")) - (await tall("widget-3")))).toBeLessThan(2);
   await expect(page.getByTestId("widget-count")).toContainText("This dashboard has 5 widgets;");
   await expect(page.getByTestId("dashboard-local")).toContainText("Stored, not applied locally.");
   await expect(page.getByTestId("save-dashboard")).toBeDisabled();
@@ -176,7 +188,8 @@ test("cloudwatch__dashboard-view, dashboard-source and dashboard-add-widget: the
   const source = page.getByTestId("source-dialog");
   await expect(source).toContainText("View/edit source");
   await expect(source.getByTestId("source-editor")).toHaveValue(/"widgets"/);
-  await expect(source.getByTestId("source-rules-words")).toContainText("a body holds 0 to 500 widgets on a 24-column grid");
+  await expect(source.getByTestId("source-rules-words")).toContainText("on AWS a body holds 0 to 500 widgets on a 24-column grid");
+  await expect(source.getByTestId("source-rules-words")).toContainText("doze-aws checks none of this when it stores the body");
   await shot(page, "cloudwatch__dashboard-source");
   await source.getByRole("button", { name: "Cancel" }).click();
   await page.getByTestId("add-widget").click();

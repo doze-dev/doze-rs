@@ -35,8 +35,8 @@ export function AlarmHistory({ name }: { name: string }) {
       <div className="flex flex-wrap items-center gap-3">
         <FilterChips label="Filter the history by type" value={type} onChange={setType} chips={KINDS.map(([value, label]) => ({ value, label }))} />
         <div className="ml-auto flex flex-wrap items-center gap-3">
-          <UtcDateTimePicker value={start} onChange={setStart} aria-label="StartDate, UTC" className="w-[15rem]" />
-          <UtcDateTimePicker value={end} onChange={setEnd} aria-label="EndDate, UTC" className="w-[15rem]" />
+          <UtcDateTimePicker value={start} onChange={setStart} aria-label="StartDate, UTC" placeholder="StartDate" className="w-[15rem]" />
+          <UtcDateTimePicker value={end} onChange={setEnd} aria-label="EndDate, UTC" placeholder="EndDate" className="w-[15rem]" />
           {(start !== null || end !== null) && <Button type="button" variant="ghost" onClick={() => { setStart(null); setEnd(null); }} data-testid="history-window-clear">Clear window</Button>}
         </div>
       </div>

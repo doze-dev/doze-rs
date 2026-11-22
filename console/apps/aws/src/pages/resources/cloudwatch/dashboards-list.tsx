@@ -20,7 +20,7 @@ import { HINT } from "../index-page";
 import { ResourceTo } from "../value";
 import { type DashboardEntry, useDashboards, useDeleteDashboards } from "./api";
 import { CreateDashboard } from "./dashboard-create";
-import { toMs } from "./model";
+import { newestSavedFirst, toMs } from "./model";
 
 const COLUMNS: DataColumn<DashboardEntry>[] = [
   { id: "name", header: "Name", min: 200, accessorFn: (r) => r.DashboardName.toLowerCase(), meta: { mono: true }, cell: (c) => <ResourceTo to={{ service: "cloudwatch", kind: "dashboards", name: c.row.original.DashboardName }} className="font-mono text-[13px] font-medium" testId="row-link">{c.row.original.DashboardName}</ResourceTo> },
@@ -39,7 +39,7 @@ export function DashboardsList({ service, kind }: { service: string; kind: strin
   const [chosen, setChosen] = useState<Set<string>>(new Set());
   const [asking, setAsking] = useState(false);
   const [done, setDone] = useState<string[] | null>(null);
-  const all = useMemo(() => [...(q.data ?? [])].sort((a, b) => a.DashboardName.localeCompare(b.DashboardName)), [q.data]);
+  const all = useMemo(() => newestSavedFirst(q.data ?? []), [q.data]);
   const rows = all.filter((r) => r.DashboardName.toLowerCase().includes(typed.trim().toLowerCase()));
   const picked = all.filter((r) => chosen.has(r.DashboardName)).map((r) => r.DashboardName);
   const go = (s: { dialog?: string; gone?: string }) => void navigate({ to: "/resources/$service/$second", params: { service, second: kind }, search: s, replace: true });
@@ -107,7 +107,7 @@ export function DashboardsList({ service, kind }: { service: string; kind: strin
         testId="delete-dialog"
         onConfirm={() => del.mutate(picked, { onSuccess: () => { setAsking(false); setChosen(new Set()); setDone(picked); } })}
       >
-        <p className="text-[13.5px] text-muted-foreground">One call can delete up to 100 dashboards.</p>
+        <p className="text-[13.5px] text-muted-foreground">DeleteDashboards takes up to 100 dashboards on AWS. doze-aws does not count them; this page keeps to 100 so the call works there too.</p>
         {picked.length > 100 && <Alert tone="warn" title="Too many for one call" testId="delete-too-many">Choose 100 dashboards or fewer.</Alert>}
       </PlainConfirm>
     </>

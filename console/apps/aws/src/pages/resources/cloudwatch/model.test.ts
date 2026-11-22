@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { type Alarm, actionOf, actionsExplainer, awsService, byService, conditionWords, periodWords, recentFirst, statisticWords, toMs, transitionOf } from "./model";
+import { type Alarm, newestSavedFirst, actionOf, actionsExplainer, awsService, byService, conditionWords, periodWords, recentFirst, statisticWords, toMs, transitionOf } from "./model";
 
 const dlq: Alarm = { AlarmName: "dlq-not-empty", StateValue: "ALARM", MetricName: "DlqMessages", Namespace: "Larder/Queues", Statistic: "Maximum", Period: 60, EvaluationPeriods: 1, DatapointsToAlarm: 1, Threshold: 1, ComparisonOperator: "GreaterThanOrEqualToThreshold", StateUpdatedTimestamp: 1_762_588_333 };
 
@@ -28,8 +28,16 @@ describe("alarm words", () => {
 describe("alarm lists", () => {
   const rows: Alarm[] = [dlq, { ...dlq, AlarmName: "a", StateValue: "OK", Namespace: "AWS/Lambda", StateUpdatedTimestamp: 100 }, { ...dlq, AlarmName: "b", StateValue: "INSUFFICIENT_DATA", Namespace: "AWS/ApiGateway", StateUpdatedTimestamp: 200 }];
   test("services group the AWS namespaces only", () => {
-    expect(byService(rows)).toEqual([{ service: "AWS Lambda", ALARM: 0, INSUFFICIENT_DATA: 0, OK: 1 }, { service: "Amazon API Gateway", ALARM: 0, INSUFFICIENT_DATA: 1, OK: 0 }].sort((x, y) => x.service.localeCompare(y.service)));
+    expect(byService(rows)).toEqual([{ service: "AWS Lambda", ALARM: 0, INSUFFICIENT_DATA: 0, OK: 1 }, { service: "Amazon API Gateway", ALARM: 0, INSUFFICIENT_DATA: 1, OK: 0 }].reverse());
     expect(awsService("Larder/Orders")).toBeNull();
+  });
+  test("services: one in ALARM first, then the one that changed most recently, then by name", () => {
+    const lambda = { ...dlq, AlarmName: "l", StateValue: "OK", Namespace: "AWS/Lambda", StateUpdatedTimestamp: 300 };
+    const api = { ...dlq, AlarmName: "g", StateValue: "OK", Namespace: "AWS/ApiGateway", StateUpdatedTimestamp: 200 };
+    const sqs = { ...dlq, AlarmName: "q", StateValue: "ALARM", Namespace: "AWS/SQS", StateUpdatedTimestamp: 100 };
+    expect(byService([api, lambda]).map((r) => r.service)).toEqual(["AWS Lambda", "Amazon API Gateway"]);
+    expect(byService([api, lambda, sqs])[0]?.service).toBe("Amazon SQS");
+    expect(byService([{ ...api, StateUpdatedTimestamp: 1 }, { ...lambda, StateUpdatedTimestamp: 1 }]).map((r) => r.service)).toEqual(["Amazon API Gateway", "AWS Lambda"]);
   });
   test("ALARM first, then newest", () => {
     expect(recentFirst(rows).map((a) => a.AlarmName)).toEqual(["dlq-not-empty", "b", "a"]);
@@ -58,5 +66,12 @@ describe("an alarm on a band", () => {
   const band: Alarm = { AlarmName: "b", StateValue: "OK", Metrics: [{ Id: "m1", MetricStat: { Metric: { Namespace: "N", MetricName: "Orders" }, Period: 300, Stat: "Average" }, ReturnData: true }, { Id: "ad1", Expression: "ANOMALY_DETECTION_BAND(m1, 2)", ReturnData: false }], ThresholdMetricId: "ad1", ComparisonOperator: "GreaterThanUpperThreshold", EvaluationPeriods: 2 };
   test("is named by its metric and says which side of the band", () => {
     expect(conditionWords(band)).toBe("Orders is above the band for 2 datapoints within 10 minutes");
+  });
+});
+
+describe("dashboards", () => {
+  test("come newest saved first, then by name", () => {
+    const rows = [{ DashboardName: "b", LastModified: 100 }, { DashboardName: "c", LastModified: 300 }, { DashboardName: "a", LastModified: 100 }, { DashboardName: "z" }];
+    expect(newestSavedFirst(rows).map((r) => r.DashboardName)).toEqual(["c", "a", "b", "z"]);
   });
 });

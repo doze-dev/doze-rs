@@ -66,8 +66,9 @@ export function seedLarderCloudwatch(endpoint: string, account: string, region =
   for (const [name, state] of [["orders-error-rate", "OK"], ["resize-errors", "OK"], ["orders-placed-low", "OK"], ["dlq-not-empty", "OK"], ["dlq-not-empty", "ALARM"]] as const) {
     cli(["cloudwatch", "set-alarm-state", "--alarm-name", name, "--state-value", state, "--state-reason", state === "ALARM" ? "Threshold Crossed: 1 out of the last 1 datapoints were greater than or equal to the threshold (1) (minimum 1 datapoint for OK -> ALARM transition)." : "Threshold Crossed: no datapoints were breaching"]);
   }
-  cli(["cloudwatch", "put-dashboard", "--dashboard-name", "larder-ops", "--dashboard-body", larderOps(region, account)]);
+  // larder-api is saved first, so larder-ops is the newer: the list and the Add to dashboard choice put it on top, as the boards do.
   cli(["cloudwatch", "put-dashboard", "--dashboard-name", "larder-api", "--dashboard-body", JSON.stringify({ widgets: [{ type: "text", x: 0, y: 0, width: 24, height: 3, properties: { markdown: "# API\n\nThe orders API." } }] })]);
+  cli(["cloudwatch", "put-dashboard", "--dashboard-name", "larder-ops", "--dashboard-body", larderOps(region, account)]);
 }
 
 if (import.meta.main) {

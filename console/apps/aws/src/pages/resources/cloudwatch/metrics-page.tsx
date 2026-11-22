@@ -75,7 +75,7 @@ export function MetricsPage({ service, kind }: { service: string; kind: string }
         <RangeBar state={range} onChange={patchRange} compact={rows.length === 0} />
       </div>
       <div className="mb-8 rounded-[14px] border bg-card p-6" data-testid="metrics-chart">
-        <Chart series={data.series.map((s) => ({ ...s, area: rows.length === 1 }))} from={span.from} to={span.to} height={240} unit={unit} loading={queries.length > 0 && data.isPending} aria-label="The graphed metrics over the range" empty={queries.length === 0 ? "No metrics selected." : "No data points in this range. doze-aws keeps samples for 24 hours."} testId="metrics-graph" />
+        <Chart series={data.series.map((s) => ({ ...s, area: rows.length === 1 }))} from={span.from} to={span.to} height={240} unit={unit} loading={queries.length > 0 && data.isPending} aria-label="The graphed metrics over the range" emptyAxes empty={queries.length === 0 ? "No metrics selected." : "No data points in this range. doze-aws keeps samples for 24 hours."} testId="metrics-graph" />
       </div>
       <Tabs value={tab} onValueChange={(v) => set({ mode: v })} className="gap-0">
         <TabsList variant="line" className="h-11 w-full justify-start gap-2 overflow-x-auto rounded-none border-b p-0" aria-label="Metrics views">

@@ -136,3 +136,10 @@ export function numberLabel(label: string, query: { metric: string; dimensions?:
   const dims = Object.values(query?.dimensions ?? {});
   return query && label === query.metric && dims.length > 0 ? dims.join(", ") : label;
 }
+
+/** A text widget's first line, when it is a Markdown heading (`# Runbook`), is the card's title and the rest its body, as the board draws it;
+ * any other text has no title and is all body. */
+export function headingSplit(markdown: string): { title: string; rest: string } | null {
+  const hit = /^\s*#{1,6}[ \t]+(.+?)[ \t]*(?:\r?\n|$)/.exec(markdown);
+  return hit?.[1] ? { title: hit[1], rest: markdown.slice(hit[0].length).replace(/^\s*\n/, "") } : null;
+}

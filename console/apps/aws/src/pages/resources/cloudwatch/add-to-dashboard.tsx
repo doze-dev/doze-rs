@@ -13,6 +13,7 @@ import { callKindOp } from "../../../kit";
 import { type DashboardAnswer, DASHBOARDS, useDashboards, usePutDashboard } from "./api";
 import { parseBody, stringify, withWidget } from "./dashboard-model";
 import { type GM, metricWidget } from "./graph-model";
+import { newestSavedFirst } from "./model";
 
 export type WidgetKind = "line" | "stacked" | "number";
 
@@ -23,7 +24,8 @@ export function AddToDashboard({ rows, region, onClose }: { rows: GM[]; region: 
   const [name, setName] = useState<string | null>(null);
   const [kind, setKind] = useState<WidgetKind>("line");
   const [failure, setFailure] = useState<unknown>(null);
-  const names = (dashboards.data ?? []).map((x) => x.DashboardName).sort();
+  // The one saved last comes first, as the board has it (the list is sorted the same way), so it is the one chosen to begin with.
+  const names = newestSavedFirst(dashboards.data ?? []).map((x) => x.DashboardName);
   const chosen = name ?? names[0] ?? null;
   const add = async () => {
     if (!chosen) return;

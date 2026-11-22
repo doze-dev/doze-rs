@@ -137,17 +137,20 @@ export function awsService(namespace: string | undefined): string | null {
 /** The namespace of an alarm: its metric's, or that of the query it returns. */
 export const namespaceOf = (a: Alarm): string | undefined => a.Namespace ?? returned(a)?.MetricStat?.Metric.Namespace;
 
-/** The alarms of each AWS service and how many are in each state, services in order of name. */
+/** The alarms of each AWS service and how many are in each state: a service with an alarm in ALARM first (the most), then the one whose
+ * alarm changed state most recently, as the board lists them; by name where those tie. */
 export function byService(alarms: readonly Alarm[]): { service: string; ALARM: number; INSUFFICIENT_DATA: number; OK: number }[] {
   const out = new Map<string, { service: string; ALARM: number; INSUFFICIENT_DATA: number; OK: number }>();
+  const latest = new Map<string, number>();
   for (const a of alarms) {
     const s = awsService(namespaceOf(a));
     if (!s) continue;
+    latest.set(s, Math.max(latest.get(s) ?? 0, toMs(a.StateUpdatedTimestamp) ?? 0));
     const row = out.get(s) ?? { service: s, ALARM: 0, INSUFFICIENT_DATA: 0, OK: 0 };
     if (a.StateValue === "ALARM" || a.StateValue === "OK" || a.StateValue === "INSUFFICIENT_DATA") row[a.StateValue] += 1;
     out.set(s, row);
   }
-  return [...out.values()].sort((x, y) => x.service.localeCompare(y.service));
+  return [...out.values()].sort((x, y) => y.ALARM - x.ALARM || (latest.get(y.service) ?? 0) - (latest.get(x.service) ?? 0) || x.service.localeCompare(y.service));
 }
 
 const RANK: Record<string, number> = { ALARM: 0, INSUFFICIENT_DATA: 1, OK: 2 };
@@ -204,3 +207,7 @@ export function queriesOf(a: Alarm, label = metricName(a)): { id: string; label:
   if (!a.MetricName || !a.Namespace) return [];
   return [{ id: "m0", label, namespace: a.Namespace, metric: a.MetricName, dimensions: dims(a.Dimensions), stat: a.Statistic ?? a.ExtendedStatistic ?? "Average", period: a.Period }];
 }
+
+/** Dashboards by the time they were last saved, newest first, as the board lists them; by name where the times tie (or are unknown). */
+export const newestSavedFirst = <T extends { DashboardName: string; LastModified?: number | string }>(rows: readonly T[]): T[] =>
+  [...rows].sort((a, b) => (toMs(b.LastModified) ?? 0) - (toMs(a.LastModified) ?? 0) || a.DashboardName.localeCompare(b.DashboardName));

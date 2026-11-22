@@ -9,7 +9,7 @@ import { Button } from "@doze/ui/components/ui/button";
 import { cn } from "@doze/ui/lib/utils";
 import { type Range, useMetricData, useUnit } from "../../../kit";
 import { type Alarm } from "./model";
-import { type Placed, type Widget, alarmNames, numberLabel, ownRange, place, queriesOf, titleOf } from "./dashboard-model";
+import { type Placed, type Widget, alarmNames, headingSplit, numberLabel, ownRange, place, queriesOf, titleOf } from "./dashboard-model";
 import { Markdown } from "./markdown";
 import { SWATCH } from "./metrics-graphed";
 import { slicePath, slices, sparkPath } from "./shapes";
@@ -23,7 +23,7 @@ const prop = <T,>(w: Widget, k: string): T | undefined => w.properties?.[k] as T
 
 function Frame({ title, children, onRemove, source, testId }: { title: string; children: React.ReactNode; onRemove?: () => void; source: string; testId: string }) {
   return (
-    <section className="flex min-h-0 min-w-0 flex-col rounded-[14px] border bg-card p-5" data-testid={testId}>
+    <section className="flex min-h-0 min-w-0 flex-1 flex-col rounded-[14px] border bg-card p-5" data-testid={testId}>
       <div className="mb-3 flex items-start justify-between gap-2">
         <h3 className="min-w-0 truncate text-[14.5px] font-semibold text-bright">{title}</h3>
         <DropdownMenu>
@@ -120,12 +120,14 @@ export function Widgets({ widgets, range, alarms, onRemove }: { widgets: readonl
     <div className="grid grid-cols-1 gap-4 md:[grid-template-columns:repeat(24,minmax(0,1fr))] md:[grid-auto-rows:40px]" data-testid="dashboard-grid">
       {placed.map((p) => {
         const w = p.widget;
-        const title = w.type === "text" && !prop<string>(w, "title") ? "" : titleOf(w);
+        // A text widget with no title of its own takes its first Markdown heading as the card's title.
+        const split = w.type === "text" && !prop<string>(w, "title") ? headingSplit(prop<string>(w, "markdown") ?? "") : null;
+        const title = split ? split.title : w.type === "text" && !prop<string>(w, "title") ? "" : titleOf(w);
         const frame = { title, source: JSON.stringify(w, null, 2), onRemove: onRemove ? () => onRemove(p.index) : undefined, testId: `widget-${p.index}` };
         return (
-          <div key={p.index} className="min-w-0 md:[grid-column:var(--c)] md:[grid-row:var(--r)]" style={{ "--c": `${p.x + 1} / span ${p.w}`, "--r": `${p.y + 1} / span ${p.h}`, minHeight: px(p) } as React.CSSProperties}>
+          <div key={p.index} className="flex min-w-0 flex-col md:[grid-column:var(--c)] md:[grid-row:var(--r)]" style={{ "--c": `${p.x + 1} / span ${p.w}`, "--r": `${p.y + 1} / span ${p.h}`, minHeight: px(p) } as React.CSSProperties}>
             <Frame {...frame}>
-              {w.type === "metric" ? <MetricWidget w={w} range={range} height={px(p)} /> : w.type === "alarm" ? <AlarmWidget w={w} alarms={alarms} /> : w.type === "text" ? <Markdown source={prop<string>(w, "markdown") ?? ""} /> : <p className="text-[13.5px] text-muted-foreground" data-testid="widget-unknown">doze-aws keeps this <span className="font-mono">{w.type ?? "widget"}</span> widget in the body; the console does not draw this type.</p>}
+              {w.type === "metric" ? <MetricWidget w={w} range={range} height={px(p)} /> : w.type === "alarm" ? <AlarmWidget w={w} alarms={alarms} /> : w.type === "text" ? <Markdown source={split ? split.rest : (prop<string>(w, "markdown") ?? "")} /> : <p className="text-[13.5px] text-muted-foreground" data-testid="widget-unknown">doze-aws keeps this <span className="font-mono">{w.type ?? "widget"}</span> widget in the body; the console does not draw this type.</p>}
             </Frame>
           </div>
         );

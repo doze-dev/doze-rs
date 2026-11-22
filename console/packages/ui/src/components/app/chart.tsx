@@ -22,7 +22,7 @@ const MARGIN = { top: 12, right: 14, bottom: 28, left: 46 };
  * a y axis of round numbers, an x axis on UTC ticks, a legend, and a readout of the point nearest the pointer (or the arrow
  * keys: the chart takes the focus). It fades in; with `prefers-reduced-motion` it appears at once. Every size is the
  * container's width and `height`, so it reflows with the window. */
-export function Chart({ series, from, to, height = 260, threshold, unit, empty = "There are no data points in this range.", loading = false, "aria-label": ariaLabel, className, testId = "chart" }: { series: Series[]; /** The range drawn, ms; by default the first and last point. */ from?: number; to?: number; height?: number; threshold?: Threshold; /** After each value in the readout (`messages`, `ms`). */ unit?: string; empty?: React.ReactNode; loading?: boolean; "aria-label": string; className?: string; testId?: string }) {
+export function Chart({ series, from, to, height = 260, threshold, unit, empty = "There are no data points in this range.", loading = false, emptyAxes = false, "aria-label": ariaLabel, className, testId = "chart" }: { series: Series[]; /** The range drawn, ms; by default the first and last point. */ from?: number; to?: number; height?: number; threshold?: Threshold; /** After each value in the readout (`messages`, `ms`). */ unit?: string; empty?: React.ReactNode; loading?: boolean; /** With nothing to draw, draw the empty axes (a 0 to 40 scale and the time of the range) with `empty` over them, as the AWS console does, in the place of a bare dashed box. Needs `from` and `to`. */ emptyAxes?: boolean; "aria-label": string; className?: string; testId?: string }) {
   // With a unit, a row above the axis names it (`Count`, `Seconds`).
   const M = { ...MARGIN, top: unit ? 26 : MARGIN.top };
   const box = useRef<HTMLDivElement>(null);
@@ -42,7 +42,8 @@ export function Chart({ series, from, to, height = 260, threshold, unit, empty =
   const has = extent !== null && times.length > 0;
   const t0 = from ?? times[0] ?? 0;
   const t1 = to ?? times[times.length - 1] ?? t0 + 1;
-  const ticksY = has ? niceTicks(extent.min, extent.max, Math.max(3, Math.round(height / 60))) : [0, 1];
+  const bare = !has && emptyAxes && from !== undefined && to !== undefined;
+  const ticksY = has ? niceTicks(extent.min, extent.max, Math.max(3, Math.round(height / 60))) : bare ? [0, 20, 40] : [0, 1];
   const top = ticksY[ticksY.length - 1]!;
   const bottom = ticksY[0]!;
   const w = Math.max(width, 120);
@@ -77,6 +78,27 @@ export function Chart({ series, from, to, height = 260, threshold, unit, empty =
       <div ref={box} className="relative outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 rounded-lg" style={{ height }} tabIndex={has ? 0 : -1} onKeyDown={key} onBlur={() => setHover(null)} aria-label={`${ariaLabel}. Use the arrow keys to read each point.`} role="group">
         {loading ? (
           <div className="size-full animate-pulse rounded-lg bg-muted motion-reduce:animate-none" data-testid={`${testId}-loading`} />
+        ) : bare ? (
+          <div className="relative size-full" data-testid={`${testId}-empty`}>
+            <svg width={w} height={height} role="img" aria-label={ariaLabel}>
+              {ticksY.map((v) => (
+                <g key={v}>
+                  <line x1={M.left} x2={w - M.right} y1={y(v)} y2={y(v)} className="stroke-border" strokeWidth={1} />
+                  <text x={M.left - 8} y={y(v)} dy="0.32em" textAnchor="end" className="fill-muted-foreground text-[11.5px] tabular-nums">
+                    {axisNumber(v)}
+                  </text>
+                </g>
+              ))}
+              {ticks.map((t) => (
+                <text key={t} x={x(t)} y={height - 8} textAnchor="middle" className="fill-muted-foreground text-[11.5px] tabular-nums">
+                  {tickLabel(t, step)}
+                </text>
+              ))}
+            </svg>
+            <div className="absolute inset-0 flex items-center justify-center text-[13.5px] text-muted-foreground" style={{ paddingLeft: M.left, paddingBottom: M.bottom }}>
+              {empty}
+            </div>
+          </div>
         ) : !has ? (
           <div className="flex size-full items-center justify-center rounded-lg border border-dashed text-[13.5px] text-muted-foreground" data-testid={`${testId}-empty`}>
             {empty}
