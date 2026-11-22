@@ -145,6 +145,16 @@ test("s3__bucket-create, -create-refused, -created: a refused name says why, a g
   await shot(page, "s3__bucket-created", browserName);
   expect(cli(["s3api", "get-bucket-versioning", "--bucket", n.made]).out).toContain("Enabled");
   expect(cli(["s3api", "get-bucket-tagging", "--bucket", n.made]).out).toContain("dev");
+  // A bucket with Object Lock: made once the warning is acknowledged, and said to have versioning on with it.
+  await page.getByTestId("create-open").click();
+  await page.getByTestId("bucket-name").fill(`locked-${browserName}`);
+  await page.getByTestId("lock-on").click();
+  await page.getByTestId("lock-ack").click();
+  await page.getByTestId("form-submit").click();
+  await expect(page.getByTestId("flash")).toContainText(`Bucket locked-${browserName} created.`);
+  await expect(page.getByTestId("flash")).toContainText("versioning on, all four Block Public Access settings on and Object Lock on");
+  expect(cli(["s3api", "get-bucket-versioning", "--bucket", `locked-${browserName}`]).out).toContain("Enabled");
+  expect(cli(["s3api", "get-object-lock-configuration", "--bucket", `locked-${browserName}`]).out).toContain("Enabled");
 });
 
 });
