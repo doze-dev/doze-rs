@@ -34,14 +34,15 @@ use doze_module::proto::msg::error::{Diagnostic, Error, ErrorKind};
 use doze_module::proto::msg::hello::{ClientCommand, Detect};
 use doze_module::proto::msg::instance::{Address, Connection, Instance, Listener, Toolchain};
 use doze_module::proto::msg::run::{Pin, Plan, Process, Provisioned, Ready, Resolved, StopHow};
+use doze_module::proto::msg::value::Value;
 use doze_module::{About, Cx, Module, Result, help, serve};
 
 pub(crate) use spec::AwsSpec;
 
 /// The name a module release gives the binary (`bin/<engine>-plugin`), which doze starts with no arguments.
 const PLUGIN_SUFFIX: &str = "-plugin";
-/// The region the instance runs in and the module signs for.
-pub(crate) const REGION: &str = "us-east-1";
+/// The Region of a block that sets none: where the module's own clients sign and the server answers.
+pub(crate) const DEFAULT_REGION: &str = "us-east-1";
 
 /// The published example: the Go module's, less its function and state machine (they need code beside doze.hcl).
 const EXAMPLE: &str = r#"aws "local" {
@@ -104,6 +105,7 @@ pub(crate) fn run() -> std::process::ExitCode {
         .release(crate::VERSION)
         .converge()
         .objects()
+        .attributes()
         .run()
 }
 
@@ -142,15 +144,15 @@ pub(crate) fn backend(instance: &Instance) -> Result<String> {
     }
 }
 
-/// doze-aws's command line for an instance: where it listens and keeps its data, the region the module signs for.
-pub(crate) fn server_args(instance: &Instance) -> Result<Vec<String>> {
+/// doze-aws's command line for an instance: where it listens and keeps its data, the Region it answers as.
+pub(crate) fn server_args(instance: &Instance, region: &str) -> Result<Vec<String>> {
     Ok(vec![
         "--listen".into(),
         backend(instance)?,
         "--data-dir".into(),
         instance.data_dir.clone(),
         "--region".into(),
-        REGION.into(),
+        region.into(),
     ])
 }
 
@@ -209,6 +211,14 @@ impl Module for Aws {
     }
 
     fn connection(&self, cx: &Cx<AwsSpec>) -> Result<Connection> {
+        // A Region other than the default is what a client of this instance must be told; the default is what an SDK is
+        // already left to find, and an app that sets its own is not overridden.
+        let env = match cx.spec.region() {
+            DEFAULT_REGION => BTreeMap::new(),
+            region => ["AWS_REGION", "AWS_DEFAULT_REGION"]
+                .map(|k| (k.to_owned(), region.to_owned()))
+                .into(),
+        };
         let addr = cx
             .instance
             .listeners
@@ -217,7 +227,7 @@ impl Module for Aws {
         Ok(Connection {
             env_var: "AWS_ENDPOINT_URL".into(),
             url: format!("http://{addr}"),
-            env: BTreeMap::new(),
+            env,
         })
     }
 
@@ -263,7 +273,7 @@ impl Module for Aws {
     }
 
     async fn plan(&self, cx: &Cx<AwsSpec>, _tc: &Toolchain) -> Result<Plan> {
-        let args = server_args(&cx.instance)?;
+        let args = server_args(&cx.instance, cx.spec.region())?;
         let addr = backend(&cx.instance)?;
         let program = std::env::current_exe()
             .map_err(|e| Error::new(ErrorKind::Internal, format!("finding this binary: {e}")))?;
@@ -284,13 +294,24 @@ impl Module for Aws {
     }
 }
 
+impl doze_module::caps::Attributes for Aws {
+    /// What other blocks read: `module.<name>.region`.
+    fn attributes(&self, cx: &Cx<AwsSpec>) -> Result<BTreeMap<String, Value>> {
+        Ok(BTreeMap::from([(
+            "region".to_owned(),
+            Value::String(cx.spec.region().to_owned()),
+        )]))
+    }
+}
+
 /// The aws CLI pointed at the instance, in its prompt mode, with the keys doze-aws takes.
 fn client() -> ClientCommand {
     let env = [
         ("AWS_ENDPOINT_URL", "http://{host}:{port}"),
         ("AWS_ACCESS_KEY_ID", "test"),
         ("AWS_SECRET_ACCESS_KEY", "test"),
-        ("AWS_DEFAULT_REGION", REGION),
+        // Filled in with the instance's Region (`region` in its block) when doze connects.
+        ("AWS_DEFAULT_REGION", "{region}"),
     ];
     ClientCommand {
         program: "aws".into(),

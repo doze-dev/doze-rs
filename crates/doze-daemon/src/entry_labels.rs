@@ -64,7 +64,7 @@ pub(crate) fn label(i: &Instance, cat: &Catalog, grant: Option<&Grant>) -> Label
         l.connect = cat
             .manifest_for(&i.ty, &i.version)
             .and_then(|m| m.client)
-            .map(|c| crate::client::view(&c, &l.endpoint, &p.url));
+            .map(|c| crate::client::view(&c, &l.endpoint, &p.url, &p.extras));
         (l.url, l.env_var, l.env, l.client) = (p.url, p.env_var, p.env, p.client);
     }
     l

@@ -39,6 +39,8 @@ pub(crate) struct Core {
     pub(crate) peers: Option<Arc<Peers>>,
     /// `--sqs-skip-60s-waits`: a deleted queue's name is free at once and a queue may be purged again at once.
     pub(crate) skip_waits: bool,
+    /// The queue name the call being served looked for and did not find (`elsewhere.rs` looks for it in other regions).
+    pub(crate) missed: Option<String>,
 }
 
 /// What the host hands each region's actor: the bus, and the local settings.
@@ -56,6 +58,8 @@ pub(crate) struct Answer {
     pub(crate) poll: Option<u32>,
     pub(crate) durable: Option<Ack>,
     pub(crate) next_due: Option<i64>,
+    /// The queue name the call asked for and this region does not have.
+    pub(crate) missed: Option<String>,
 }
 
 /// What the actor is asked: a call, or (from the timer) to remove the messages whose retention has passed.
@@ -92,6 +96,7 @@ impl doze_runtime::Service for Core {
 
     async fn handle(&mut self, ask: Ask) -> Answer {
         self.poll = None;
+        self.missed = None;
         let call = match ask {
             Ask::Call(call) => *call,
             Ask::Tick => {
@@ -120,6 +125,7 @@ impl doze_runtime::Service for Core {
                 poll: None,
                 durable: None,
                 next_due: self.next_due(),
+                missed: None,
             };
         }
         let reply = self.dispatch(&call);
@@ -148,6 +154,7 @@ impl Core {
             written_meta: Vec::new(),
             peers: None,
             skip_waits: false,
+            missed: None,
         }
     }
 
@@ -177,6 +184,7 @@ impl Core {
             poll: self.poll.take(),
             durable,
             next_due: self.next_due(),
+            missed: self.missed.take(),
         }
     }
 
@@ -239,6 +247,9 @@ impl Core {
         let (account, name) = url::parse(queue_url).ok_or_else(|| invalid_address(call))?;
         if account != call.caller.account_id {
             return Err(invalid_address(call));
+        }
+        if !self.queues.contains_key(name) {
+            self.missed = Some(name.to_owned());
         }
         self.queue_named(name).ok_or_else(no_such_queue)
     }

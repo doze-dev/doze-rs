@@ -20,6 +20,13 @@ use doze_module::Spec;
 /// The `aws` block.
 #[derive(Debug, Default, Spec)]
 pub(crate) struct AwsSpec {
+    #[spec(
+        default = "us-east-1",
+        doc = "The AWS Region this stack lives in: its resources are made there, the server answers as that Region, and a client must use \
+               the same one (an SDK's region, AWS_REGION). Other modules read it as module.<name>.region. One of AWS's Region names, \
+               such as eu-west-2."
+    )]
+    pub(crate) region: String,
     #[spec(block, doc = "One S3 bucket (the label is the bucket name).")]
     pub(crate) bucket: Vec<Bucket>,
     #[spec(
@@ -58,6 +65,17 @@ pub(crate) struct AwsSpec {
         doc = "One Step Functions state machine, run locally against the stack's functions, queues and topics."
     )]
     pub(crate) state_machine: Vec<StateMachine>,
+}
+
+impl AwsSpec {
+    /// The Region of the block: `region`, or the default when a block was built without one.
+    pub(crate) fn region(&self) -> &str {
+        if self.region.is_empty() {
+            super::DEFAULT_REGION
+        } else {
+            &self.region
+        }
+    }
 }
 
 #[derive(Debug, Default, Spec)]
