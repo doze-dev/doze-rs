@@ -77,7 +77,7 @@ export function ScheduleDeletion({ ids }: { ids: string[] }) {
           <Checkbox id="confirm-deletion" checked={confirmed} onCheckedChange={(v) => setConfirmed(v === true)} className="mt-0.5" data-testid="confirm-deletion" />
           <Label htmlFor="confirm-deletion" className="grid gap-0.5 font-normal">
             <span className="font-medium text-bright">I confirm that I want to schedule {keys.length === 1 ? "this key" : "these keys"} for deletion.</span>
-            <span className="text-[13px] text-muted-foreground">The keys will become immediately unusable for cryptographic operations. After the {n ?? days} day waiting period, the keys will be permanently deleted.</span>
+            <span className="text-[13px] text-muted-foreground">{keys.length === 1 ? "The key" : "The keys"} will become immediately unusable for cryptographic operations. After the {n ?? days} day waiting period, {keys.length === 1 ? "the key" : "the keys"} will be permanently deleted.</span>
           </Label>
         </div>
         {tried && !confirmed && <p className="text-[13px] text-bad" role="alert" data-testid="confirm-problem">Confirm that you want to schedule the deletion.</p>}

@@ -152,6 +152,9 @@ test("kms__key-detail, kms__key-policy-edit, kms__key-crypto: a key's page, its 
   await page.getByTestId("policy-edit").click();
   await expect(page.getByTestId("key-policy-edit")).toBeVisible();
   await expect(page.getByTestId("statement-details")).toContainText("Principals");
+  // The select says which statement is chosen once, by its Sid ("Selected: Allow use of the key"), not the Effect and the Sid run together.
+  await expect(page.getByTestId("statement-select")).toHaveText(/^Selected: [^\n]+$/);
+  await expect(page.getByTestId("statement-select")).not.toContainText("Allow Allow");
   await page.getByTestId("statement-select").click();
   await page.getByRole("option", { name: /Allow use of the key/ }).click();
   await expect(page.getByTestId("statement-details")).toContainText("kms:Encrypt");

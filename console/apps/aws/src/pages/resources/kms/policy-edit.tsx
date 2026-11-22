@@ -60,6 +60,8 @@ function PolicyForm({ d, id, state, back, initial }: { d: ResourceDetail; id: st
       setPending(false);
     }
   };
+  // A statement is named by its Sid (`Allow use of the key`), or its place when it has none: the Effect is said below, in its details.
+  const nameOf = (s: { Sid?: string } | undefined, i: number) => s?.Sid ?? `Statement ${i + 1}`;
   const builder = (
     <section className="rounded-[14px] border bg-card p-6" aria-label="Statement builder" data-testid="statement-builder">
       <h2 className="text-[17px] font-semibold tracking-[-0.01em] text-bright">Statement builder</h2>
@@ -67,12 +69,13 @@ function PolicyForm({ d, id, state, back, initial }: { d: ResourceDetail; id: st
         <>
           <div className="mt-3">
             <Select value={String(Math.min(at, statements.length - 1))} onValueChange={(v) => setAt(Number(v))}>
-              <SelectTrigger className="w-full bg-card font-mono text-[13px]" aria-label="Selected statement" data-testid="statement-select"><SelectValue /></SelectTrigger>
-              <SelectContent>{statements.map((s, i) => <SelectItem key={i} value={String(i)} className="font-mono">{s.Effect ?? "?"} {s.Sid ?? `statement ${i + 1}`}</SelectItem>)}</SelectContent>
+              <SelectTrigger className="w-full bg-card font-mono text-[13px]" aria-label="Selected statement" data-testid="statement-select"><SelectValue>Selected: {nameOf(chosen, Math.min(at, statements.length - 1))}</SelectValue></SelectTrigger>
+              <SelectContent>{statements.map((s, i) => <SelectItem key={i} value={String(i)} className="font-mono">{nameOf(s, i)}</SelectItem>)}</SelectContent>
             </Select>
           </div>
           {chosen && (
             <div className="mt-4 grid gap-4 text-[13.5px]" data-testid="statement-details">
+              <div><h3 className="mb-1.5 font-medium text-bright">Effect</h3><span className="font-mono text-[12.5px]" data-testid="statement-effect">{chosen.Effect ?? "?"}</span></div>
               <div><h3 className="mb-1.5 font-medium text-bright">Principals</h3><div className="flex flex-wrap gap-1.5">{principalsOf(chosen).length === 0 ? <span className="text-muted-foreground">None</span> : principalsOf(chosen).map((p) => <span key={p} className="rounded-full border bg-well px-2.5 py-0.5 font-mono text-[12.5px]">{principalWords(p).name}</span>)}</div></div>
               <div><h3 className="mb-1.5 font-medium text-bright">Actions</h3><ul className="grid gap-0.5 font-mono text-[12.5px]">{list(chosen.Action).map((a) => <li key={a}>{a}</li>)}</ul></div>
               <div><h3 className="mb-1.5 font-medium text-bright">Conditions</h3>{chosen.Condition ? <pre className="font-mono text-[12.5px] whitespace-pre-wrap">{JSON.stringify(chosen.Condition)}</pre> : <span className="text-muted-foreground">None</span>}</div>
