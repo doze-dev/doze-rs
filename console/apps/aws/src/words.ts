@@ -9,7 +9,7 @@ export function iamWords(mode: string): { chip: string; sentence: string } {
     case "off":
       return { chip: "IAM off", sentence: "IAM is off: no request is checked against a policy." };
     case "soft":
-      return { chip: "IAM soft", sentence: "IAM is soft: a request its policies refuse is logged and let through." };
+      return { chip: "IAM soft · recording", sentence: "IAM is soft: a request its policies refuse is logged and let through." };
     case "enforce":
       return { chip: "IAM enforce", sentence: "IAM is enforced: a request its policies refuse is answered AccessDenied." };
     default:

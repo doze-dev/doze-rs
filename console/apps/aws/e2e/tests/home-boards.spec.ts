@@ -42,6 +42,17 @@ test("home: what is awake by group, who is connected, what needs a look, and the
   await expect(recent).not.toContainText("http://127.0.0.1");
   await expect(recent).toContainText("reports/2026-11.csv");
   await shot(page, "home");
+  // The chips open pages that exist: the dead-letter queue by its name (not its URL), the stored domain name's service.
+  await signals.getByText("1 message in a dead-letter queue").click();
+  await expect(page).toHaveURL(/\/resources\/sqs\/queues\/pick-lists-dlq$/);
+  await expect(page.locator("h1").first()).toHaveText("pick-lists-dlq");
+  await expect(page.getByTestId("detail-error")).toHaveCount(0);
+  await go(page, "/", "Home");
+  await page.getByTestId("needs-a-look").getByText("1 domain name stored").click();
+  await expect(page).toHaveURL(/\/resources\/apigateway$/);
+  // The index counts a service's rules on every bus (the seed's one is on larder, not the default bus).
+  await go(page, "/resources", "Resources");
+  await expect(page.getByTestId("count-eventbridge")).toContainText("1 rule");
 });
 
 test("home__home-services: where the list of services is set, and what this run left out", async ({ page }) => {

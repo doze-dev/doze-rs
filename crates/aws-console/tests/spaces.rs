@@ -291,9 +291,10 @@ async fn home_checks_find_a_dead_letter_queue_holding_messages() {
         (Some("dead-letters"), Some(1)),
         "{checks}"
     );
+    // The page opens a queue by its name: its URL is answered 400 ("Can only include alphanumeric characters").
     assert_eq!(
         found["resource"],
-        json!({"service": "sqs", "kind": "queues", "name": dlq})
+        json!({"service": "sqs", "kind": "queues", "name": "jobs-dlq"})
     );
 }
 

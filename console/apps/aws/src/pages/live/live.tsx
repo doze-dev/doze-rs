@@ -136,7 +136,7 @@ export function LivePage() {
   const shown = useMemo(() => lines(kept, runs), [kept, runs]);
   const attention = useMemo(() => looks(visible), [visible]);
   const checks = useHomeChecks();
-  const stored = useMemo(() => (checks.data?.signals ?? []).filter((s) => s.kind === "not-active").map((s) => ({ count: Number(s.count), detail: s.detail })), [checks.data]);
+  const stored = useMemo(() => (checks.data?.signals ?? []).filter((s) => s.kind === "not-active").map((s) => ({ count: Number(s.count), detail: s.detail, href: s.href ?? "/resources/sns/subscriptions" })), [checks.data]);
 
   const columns = useMemo<DataColumn<Line>[]>(
     () => [

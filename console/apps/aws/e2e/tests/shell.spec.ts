@@ -87,7 +87,7 @@ test("the top bar says where SDKs connect, the region and what IAM does, as the 
   const a = await about(page);
   await expect(page.getByTestId("chip-endpoint")).toHaveText(a.endpoint.replace("http://", ""));
   await expect(page.getByTestId("chip-region")).toHaveText(a.region);
-  await expect(page.getByTestId("chip-iam")).toHaveText(`IAM ${a.iam}`);
+  await expect(page.getByTestId("chip-iam")).toHaveText(`IAM ${a.iam}${a.iam === "soft" ? " · recording" : ""}`);
 });
 
 test("the endpoint chip copies the endpoint", async ({ page, browserName }) => {

@@ -22,7 +22,7 @@ export function ConnectPage() {
   const a = about.data;
   return (
     <>
-      <PageHeader title="Connect your app" crumbs={[{ label: "Home", to: "/" }]} sub="Point an AWS SDK or the AWS CLI at this doze-aws. Running on its own it has one address, and that one address serves every service." />
+      <PageHeader title="Connect your app" crumbs={[{ label: "Home", to: "/" }, { label: "Connect your app", to: "/connect" }]} sub="Point an AWS SDK or the AWS CLI at this doze-aws. Running on its own it has one address, and that one address serves every service." />
       {!a ? (
         <CardSkeleton rows={4} />
       ) : (

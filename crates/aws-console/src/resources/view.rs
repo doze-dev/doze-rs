@@ -173,11 +173,56 @@ async fn count(bus: &Bus, d: &Descriptor, kind: &Kind, k: &mut KindCount) {
     k.more = token.is_some();
     k.names.truncate(MOST_COUNTED);
     k.count = u32::try_from(k.names.len()).ok();
+    if d.service == "eventbridge" && kind.id == "rules" {
+        // The list is a bus at a time (the default bus without a choice): the count is every bus's, or the card says "0 rules"
+        // beside a rule on another bus.
+        let more = rules_on_other_buses(bus, d, kind).await;
+        k.count = k.count.map(|n| n.saturating_add(more));
+    }
     if kind.fields.is_empty() {
         // Nothing to open (a metric): the palette is not given them.
         k.names.clear();
     }
     k.others = set_aside(kind, others);
+}
+
+/// How many rules the buses other than the default one hold (each bus's pages read as a list of its own).
+async fn rules_on_other_buses(bus: &Bus, d: &Descriptor, kind: &Kind) -> u32 {
+    let Ok(buses) = bus
+        .call(
+            d.target,
+            "ListEventBuses",
+            &serde_json::json!({"Limit": 100}),
+        )
+        .await
+    else {
+        return 0;
+    };
+    let mut total = 0;
+    for name in buses
+        .get("EventBuses")
+        .and_then(serde_json::Value::as_array)
+        .into_iter()
+        .flatten()
+        .filter_map(|b| b.get("Name").and_then(serde_json::Value::as_str))
+        .filter(|n| *n != "default")
+    {
+        let mut applied = Map::new();
+        applied.insert("EventBusName".to_owned(), name.into());
+        let mut token: Option<String> = None;
+        for _ in 0..PAGES_COUNTED {
+            let Ok((items, next)) = run::page(bus, d, kind, token.as_deref(), &applied).await
+            else {
+                break;
+            };
+            total += u32::try_from(items.len()).unwrap_or(u32::MAX);
+            token = next;
+            if token.is_none() {
+                break;
+            }
+        }
+    }
+    total
 }
 
 /// What `kind` sets aside, `count` of them.

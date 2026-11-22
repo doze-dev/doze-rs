@@ -7,8 +7,9 @@ import type { Outcome } from "../../api/types/Outcome";
 export const VIEWS = ["map", "wire", "both"] as const;
 export type View = (typeof VIEWS)[number];
 
-/** The outcomes a filter can ask for: the contract's four, and the calls soft IAM let through that it would refuse. */
-export const OUTCOME_FILTERS = ["ok", "error", "denied", "not-built", "would-be-denied"] as const;
+/** The outcomes a filter can ask for: the contract's four, the calls the service refused (an error that is not the service's
+ * failing: the answer was under 500) and the calls soft IAM let through that it would refuse. */
+export const OUTCOME_FILTERS = ["ok", "error", "refused", "denied", "not-built", "would-be-denied"] as const;
 export type OutcomeFilter = (typeof OUTCOME_FILTERS)[number];
 
 export type LiveSearch = {
@@ -81,7 +82,7 @@ export function callerOf(c: Pick<CallRecord, "caller" | "via">): string {
 export function matches(c: CallRecord, f: LiveSearch): boolean {
   if (f.service !== undefined && c.service !== f.service) return false;
   if (f.outcome !== undefined) {
-    if (f.outcome === "would-be-denied" ? !c.would_be_denied : c.outcome !== (f.outcome as Outcome)) return false;
+    if (f.outcome === "would-be-denied" ? !c.would_be_denied : f.outcome === "refused" ? !(c.outcome === "error" && c.status < 500) : c.outcome !== (f.outcome as Outcome)) return false;
   }
   if (f.caller !== undefined && callerOf(c) !== f.caller && c.caller !== f.caller) return false;
   if (f.q !== undefined) {

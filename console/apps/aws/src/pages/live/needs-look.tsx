@@ -27,7 +27,7 @@ const ICON = { warn: AlertTriangleIcon, refused: BanIcon, bad: CircleXIcon, idle
 const INK = { warn: "text-warn", refused: "text-refused", bad: "text-bad", idle: "text-muted-foreground" };
 
 /** Needs a look: the newest calls that went wrong, one chip each, each opening its call. */
-export function NeedsLook({ items, callerName, onOpen, stored }: { items: Look[]; callerName: (c: CallRecord) => string; onOpen: (seq: number) => void; /** What the services keep and do nothing with (`1 subscription stored`), from Home's checks. */ stored?: { count: number; detail: string }[] }) {
+export function NeedsLook({ items, callerName, onOpen, stored }: { items: Look[]; callerName: (c: CallRecord) => string; onOpen: (seq: number) => void; /** What the services keep and do nothing with (`1 subscription stored`), from Home's checks. */ stored?: { count: number; detail: string; href: string }[] }) {
   if (items.length === 0 && !stored?.length) return null;
   return (
     <section className="mb-4 flex flex-wrap items-stretch gap-3" aria-label="Needs a look" data-testid="needs-look">
@@ -50,15 +50,29 @@ export function NeedsLook({ items, callerName, onOpen, stored }: { items: Look[]
           </button>
         );
       })}
-      {stored?.map((s) => (
-        <Link key={s.detail} to="/resources/$service/$second" params={{ service: "sns", second: "subscriptions" }} search={{}} className="flex min-w-0 items-center gap-2.5 rounded-xl border bg-card px-3.5 py-2 text-[12.5px] outline-none transition-colors hover:border-input focus-visible:ring-2 focus-visible:ring-ring" data-testid="look" data-word="NOT ACTIVE LOCALLY">
-          <CircleDashedIcon aria-hidden className="size-4 shrink-0 text-muted-foreground" />
-          <span>
-            <span className="font-bold tracking-[0.04em] text-muted-foreground">NOT ACTIVE LOCALLY</span>
-            <span className="text-muted-foreground"> · {s.detail}</span>
-          </span>
-        </Link>
-      ))}
+      {stored?.map((s) => {
+        // Where the check says the stored things are: `/resources/sns/subscriptions`, or a service's own page (`/resources/apigateway`).
+        const [, , service = "sns", second] = s.href.split("/");
+        const body = (
+          <>
+            <CircleDashedIcon aria-hidden className="size-4 shrink-0 text-muted-foreground" />
+            <span>
+              <span className="font-bold tracking-[0.04em] text-muted-foreground">NOT ACTIVE LOCALLY</span>
+              <span className="text-muted-foreground"> · {s.detail}</span>
+            </span>
+          </>
+        );
+        const cls = "flex min-w-0 items-center gap-2.5 rounded-xl border bg-card px-3.5 py-2 text-[12.5px] outline-none transition-colors hover:border-input focus-visible:ring-2 focus-visible:ring-ring";
+        return second ? (
+          <Link key={s.detail} to="/resources/$service/$second" params={{ service, second }} search={{}} className={cls} data-testid="look" data-word="NOT ACTIVE LOCALLY">
+            {body}
+          </Link>
+        ) : (
+          <Link key={s.detail} to="/resources/$service" params={{ service }} className={cls} data-testid="look" data-word="NOT ACTIVE LOCALLY">
+            {body}
+          </Link>
+        );
+      })}
     </section>
   );
 }
