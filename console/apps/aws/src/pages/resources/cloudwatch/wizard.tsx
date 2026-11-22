@@ -28,7 +28,7 @@ function subOf(step: number, editing: string | undefined): string {
 }
 
 export function CreateAlarm({ editing }: { editing?: string }) {
-  const search = useSearch({ strict: false }) as { sel?: string };
+  const search = useSearch({ strict: false }) as { ns?: string | number; metric?: string | number; dims?: string | string[]; stat?: string; period?: number };
   const existing = useAlarm(editing ?? "", editing !== undefined);
   if (editing !== undefined) {
     if (existing.alarm === undefined) return <Skeleton className="h-96 rounded-[14px]" data-testid="wizard-loading" />;
@@ -37,7 +37,7 @@ export function CreateAlarm({ editing }: { editing?: string }) {
     if (!draft) return <Alert tone="warn" title={`${editing} cannot be edited here`} testId="edit-unsupported">The wizard edits an alarm on one metric, or on one expression over it. Change this one with PutMetricAlarm or PutCompositeAlarm.</Alert>;
     return <Wizard initial={draft} editing={editing} />;
   }
-  return <Wizard initial={fromSel(search.sel) ?? empty()} />;
+  return <Wizard initial={fromSel(search) ?? empty()} />;
 }
 
 function Wizard({ initial, editing }: { initial: Draft; editing?: string }) {

@@ -7,13 +7,16 @@ import { StatusDot } from "@doze/ui/components/app/status-dot";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@doze/ui/components/ui/dropdown-menu";
 import { Button } from "@doze/ui/components/ui/button";
 import { cn } from "@doze/ui/lib/utils";
-import { type Range, useMetricData } from "../../../kit";
+import { type Range, useMetricData, useUnit } from "../../../kit";
 import { type Alarm } from "./model";
-import { type Placed, type Widget, alarmNames, ownRange, place, queriesOf, titleOf } from "./dashboard-model";
+import { type Placed, type Widget, alarmNames, numberLabel, ownRange, place, queriesOf, titleOf } from "./dashboard-model";
 import { Markdown } from "./markdown";
 import { SWATCH } from "./metrics-graphed";
+import { slicePath, slices, sparkPath } from "./shapes";
 import { stateTone } from "./words";
 
+// Static class names for the stylesheet: the colour of a pie's slice, in the order of the swatches beside it.
+const FILL = ["fill-cool", "fill-warn", "fill-good", "fill-refused", "fill-bad"];
 const fmt = (v: number): string => v.toLocaleString("en-US", { maximumFractionDigits: 2 });
 const latest = (s: Series): number | null => [...s.points].reverse().find((p) => p.v !== null)?.v ?? null;
 const prop = <T,>(w: Widget, k: string): T | undefined => w.properties?.[k] as T | undefined;
@@ -41,35 +44,54 @@ function MetricWidget({ w, range, height }: { w: Widget; range: Range; height: n
   const view = prop<string>(w, "view") ?? "timeSeries";
   const own = useMemo(() => ownRange(w, range.to), [w, range.to]);
   const data = useMetricData(queries, own ?? range, queries.length > 0);
+  const unit = useUnit(queries, own ?? range, queries.length > 0);
   const series = data.series;
   const stacked = prop<boolean>(w, "stacked") === true;
   if (queries.length === 0) return <p className="text-[13.5px] text-muted-foreground" data-testid="widget-no-metrics">This widget names no metric.</p>;
   if (view === "timeSeries")
-    return <Chart series={series.map((s) => ({ ...s, area: stacked || series.length === 1 }))} from={(own ?? range).from} to={(own ?? range).to} height={Math.max(120, height - 150)} loading={data.isPending} aria-label={`${titleOf(w)} over the range`} empty="No data points in this range." testId="widget-chart" />;
+    return <Chart series={series.map((s) => ({ ...s, area: stacked || series.length === 1 }))} from={(own ?? range).from} to={(own ?? range).to} height={Math.max(120, height - 150)} unit={unit} loading={data.isPending} aria-label={`${titleOf(w)} over the range`} empty="No data points in this range." testId="widget-chart" />;
   const values = series.map((s) => ({ label: s.label, v: latest(s) }));
   if (view === "singleValue" || view === "gauge") {
     const [first] = values;
     const min = prop<{ left?: { min?: number; max?: number } }>(w, "yAxis")?.left?.min ?? 0;
     const max = prop<{ left?: { min?: number; max?: number } }>(w, "yAxis")?.left?.max ?? 100;
+    const line = sparkPath(series[0]?.points ?? [], 240, 36);
     return (
       <div className="grid gap-2" data-testid="widget-number">
-        <span className="text-[44px] leading-[48px] font-light text-bright tabular-nums" data-testid="widget-value">{first?.v === null || first === undefined ? "–" : fmt(first.v)}</span>
-        <span className="text-[13.5px] text-muted-foreground">{first?.label}{queries[0]?.stat ? `, ${queries[0].stat}` : ""}</span>
+        <span className="text-[44px] leading-[48px] font-light text-bright tabular-nums" data-testid="widget-value">{first?.v === null || first === undefined ? "–" : fmt(first.v)}{unit && first?.v != null && <span className="ml-2 text-[15px] font-normal text-muted-foreground" data-testid="widget-unit">{unit}</span>}</span>
+        <span className="text-[13.5px] text-muted-foreground">{first ? numberLabel(first.label, queries[0]) : ""}{queries[0]?.stat ? `, ${queries[0].stat}` : ""}</span>
+        {line && view === "singleValue" && <svg viewBox="0 0 240 36" preserveAspectRatio="none" className="h-9 w-full" role="img" aria-label="The value over the range" data-testid="widget-spark"><path d={line} fill="none" className="stroke-cool" strokeWidth={1.5} strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke" /></svg>}
         {view === "gauge" && first?.v != null && <div className="h-2 overflow-hidden rounded-full bg-muted" role="img" aria-label={`${fmt(first.v)} between ${min} and ${max}`}><div className="h-full rounded-full bg-primary" style={{ width: `${Math.min(100, Math.max(0, ((first.v - min) / (max - min)) * 100))}%` }} /></div>}
       </div>
     );
   }
   const top = Math.max(...values.map((x) => x.v ?? 0), 1e-9);
   const sum = values.reduce((n, x) => n + (x.v ?? 0), 0) || 1;
+  const withUnit = (v: number) => (unit ? `${fmt(v)} ${unit}` : fmt(v));
+  if (view === "table")
+    return (
+      <table className="w-full border-collapse text-left text-[13px]" data-testid="widget-table">
+        <thead><tr className="border-b text-[11.5px] tracking-[0.07em] text-muted-foreground uppercase"><th className="py-2 pr-3 font-medium">Metric</th><th className="py-2 text-right font-medium">Latest value</th></tr></thead>
+        <tbody>{values.map((x, i) => <tr key={x.label + i} className="border-b last:border-b-0"><td className="py-2 pr-3"><span className="flex items-center gap-2"><span aria-hidden className={cn("size-2 rounded-full", SWATCH[i % SWATCH.length])} />{x.label}</span></td><td className="py-2 text-right font-medium text-bright tabular-nums">{x.v === null ? "–" : withUnit(x.v)}</td></tr>)}</tbody>
+      </table>
+    );
+  const cuts = view === "pie" ? slices(values.map((x) => x.v)) : [];
   return (
-    <ul className="grid gap-2.5" data-testid={`widget-${view}`}>
-      {values.map((x, i) => (
-        <li key={x.label + i} className="grid gap-1 text-[13px]">
-          <span className="flex items-center justify-between gap-3"><span className="flex items-center gap-2 truncate"><span aria-hidden className={cn("size-2 rounded-full", SWATCH[i % SWATCH.length])} /><span className="truncate">{x.label}</span></span><span className="font-medium text-bright tabular-nums">{x.v === null ? "–" : view === "pie" ? `${fmt(((x.v ?? 0) / sum) * 100)}%` : fmt(x.v)}</span></span>
-          {view === "bar" && <span className="h-2 overflow-hidden rounded-full bg-muted"><span className={cn("block h-full rounded-full", SWATCH[i % SWATCH.length])} style={{ width: `${((x.v ?? 0) / top) * 100}%` }} /></span>}
-        </li>
-      ))}
-    </ul>
+    <div className={view === "pie" ? "flex flex-wrap items-center gap-6" : undefined}>
+      {view === "pie" && cuts.length > 0 && (
+        <svg viewBox="0 0 100 100" className="size-32 shrink-0" role="img" aria-label="Each metric's share of the total" data-testid="widget-pie-chart">
+          {cuts.map((c, i) => c.to > c.from && <path key={i} d={slicePath(50, 50, 48, c.from, c.to)} className={cn(FILL[i % FILL.length], "stroke-card")} strokeWidth={1.5} />)}
+        </svg>
+      )}
+      <ul className="grid min-w-0 flex-1 gap-2.5" data-testid={`widget-${view}`}>
+        {values.map((x, i) => (
+          <li key={x.label + i} className="grid gap-1 text-[13px]">
+            <span className="flex items-center justify-between gap-3"><span className="flex items-center gap-2 truncate"><span aria-hidden className={cn("size-2 rounded-full", SWATCH[i % SWATCH.length])} /><span className="truncate">{x.label}</span></span><span className="font-medium text-bright tabular-nums">{x.v === null ? "–" : view === "pie" ? `${fmt(((x.v ?? 0) / sum) * 100)}%` : withUnit(x.v)}</span></span>
+            {view === "bar" && <span className="h-2 overflow-hidden rounded-full bg-muted"><span className={cn("block h-full rounded-full", SWATCH[i % SWATCH.length])} style={{ width: `${((x.v ?? 0) / top) * 100}%` }} /></span>}
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }
 

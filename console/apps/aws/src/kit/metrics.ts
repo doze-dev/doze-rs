@@ -1,7 +1,8 @@
 // Metric data for a Chart: CloudWatch's own GetMetricData, asked through the console (contract §7), read into the Chart's series.
 import type { Point } from "@doze/ui/components/app/chart-scale";
 import type { Series } from "@doze/ui/components/app/chart";
-import { useKindOpRead } from "./ops";
+import { useQueries } from "@tanstack/react-query";
+import { callKindOp, useKindOpRead } from "./ops";
 
 /** One query: a metric (`namespace`, `metric`), or metric math (`expression` over the ids of the other queries; `hide`: used by another query and not drawn). */
 export type MetricQuery = { id: string; label: string; namespace: string; metric: string; dimensions?: Record<string, string>; stat?: string; period?: number; expression?: string; hide?: boolean };
@@ -58,4 +59,33 @@ export function toSeries(answer: Answer | undefined, queries: MetricQuery[]): Se
 export function useMetricData(queries: MetricQuery[], range: Range, enabled = true) {
   const q = useKindOpRead<Answer>({ service: "cloudwatch", kind: "metrics" }, "GetMetricData", metricInput(queries, range), enabled && queries.length > 0);
   return { ...q, series: toSeries(q.data, queries) };
+}
+
+const METRICS = { service: "cloudwatch", kind: "metrics" } as const;
+
+/** The GetMetricStatistics input that tells a metric's unit: GetMetricData answers values only, no unit, so the unit is read from the
+ * data points of the metric itself, which carry the one it was put with. */
+export function unitInput(q: MetricQuery, range: Range) {
+  return { Namespace: q.namespace, MetricName: q.metric, Dimensions: Object.entries(q.dimensions ?? {}).map(([Name, Value]) => ({ Name, Value })), StartTime: Math.floor(range.from / 1000), EndTime: Math.floor(range.to / 1000), Period: periodFor(range.to - range.from), Statistics: ["SampleCount"] };
+}
+
+/** The one unit every answered metric is in (`Count`, `Milliseconds`), or undefined when they differ, when there is none ("None" is no unit)
+ * or when a metric has not answered yet. */
+export function sharedUnit(units: readonly (string | undefined)[]): string | undefined {
+  const named = new Set(units.map((u) => (u === undefined || u === "None" ? "" : u)));
+  const [only] = [...named];
+  return named.size === 1 && only ? only : undefined;
+}
+
+/** The unit of the metrics of `queries` (math has none): what the axis, the readout and a number say after a value. At most four metrics are asked. */
+export function useUnit(queries: MetricQuery[], range: Range, enabled = true): string | undefined {
+  const own = queries.filter((q) => q.expression === undefined && !q.hide).slice(0, 4);
+  const answers = useQueries({
+    queries: own.map((q) => {
+      const input = unitInput(q, range);
+      return { queryKey: ["resources", "kindop", "cloudwatch", "metrics", "GetMetricStatistics", input], queryFn: ({ signal }: { signal: AbortSignal }) => callKindOp<{ Datapoints?: { Unit?: string }[] }>(METRICS, "GetMetricStatistics", input, signal), enabled, retry: false, staleTime: 60_000 };
+    }),
+  });
+  if (!enabled || own.length === 0 || queries.some((q) => q.expression !== undefined && !q.hide)) return undefined;
+  return sharedUnit(answers.map((a) => (a.data ? (a.data.Datapoints?.[0]?.Unit ?? "None") : undefined)));
 }

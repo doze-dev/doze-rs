@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import type { Alarm } from "./model";
-import { type Draft, arnOf, dimensionText, empty, fromAlarm, metricInput, nextId, parseDimensions, problem, wholeInput } from "./wizard-model";
+import { type Draft, arnOf, dimensionText, empty, fromAlarm, fromSel, metricInput, nextId, parseDimensions, problem, selSearch, wholeInput } from "./wizard-model";
 
 const draft = (over: Partial<Draft> = {}): Draft => ({ ...empty(), metric: { namespace: "Larder/Queues", name: "DlqMessages", dimensions: [{ Name: "QueueName", Value: "pick-lists-dlq" }] }, stat: "Maximum", period: 60, name: "dlq-not-empty", ...over });
 
@@ -78,4 +78,24 @@ describe("an alarm on a band", () => {
     expect([back?.kind, back?.band, back?.operator]).toEqual(["anomaly", "3", "GreaterThanUpperThreshold"]);
   });
   test("a width of 0 stops the step", () => expect(problem(0, draft({ kind: "anomaly", band: "0" }), [], false)).toContain("width"));
+});
+
+describe("a metric handed to the wizard in the address", () => {
+  test("is plain parameters, nothing quoted inside anything, and comes back as the same metric", () => {
+    const search = selSearch({ ns: "Larder", m: "OrdersPlaced", d: [{ Name: "Queue", Value: "a=b, c" }, { Name: "Env", Value: "prod" }], stat: "Sum", period: 60 });
+    expect(search).toEqual({ ns: "Larder", metric: "OrdersPlaced", dims: ["Queue=a=b, c", "Env=prod"], stat: "Sum", period: 60 });
+    expect(JSON.stringify(search)).not.toContain("\\");
+    const d = fromSel(search);
+    expect(d?.metric).toEqual({ namespace: "Larder", name: "OrdersPlaced", dimensions: [{ Name: "Queue", Value: "a=b, c" }, { Name: "Env", Value: "prod" }] });
+    expect(d?.stat).toBe("Sum");
+    expect(d?.period).toBe(60);
+  });
+  test("a lone dimension, a name the router read as a number, and no metric at all", () => {
+    expect(fromSel({ ns: "N", metric: 404, dims: "A=1" })?.metric).toEqual({ namespace: "N", name: "404", dimensions: [{ Name: "A", Value: "1" }] });
+    expect(fromSel({ ns: "N", metric: "M" })?.stat).toBe("Average");
+    expect(fromSel({ ns: "N", metric: "M", stat: "Nonsense", period: -5 })?.period).toBe(300);
+    expect(fromSel({})).toBeNull();
+    expect(fromSel({ ns: "N" })).toBeNull();
+    expect(selSearch({ ns: "N", m: "M", d: [] })).toEqual({ ns: "N", metric: "M" });
+  });
 });

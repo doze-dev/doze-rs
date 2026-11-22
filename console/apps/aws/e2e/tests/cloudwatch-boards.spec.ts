@@ -81,6 +81,15 @@ test("cloudwatch__alarm-detail: the state, the graph with its threshold, the det
   await expect(page.locator('[data-slot="sentence"], p').filter({ hasText: "The dead-letter queue pick-lists-dlq holds a message. ALARM since" }).first()).toBeVisible();
   await expect(page.getByTestId("alarm-graph")).toBeVisible();
   await expect(page.getByTestId("alarm-chart")).toContainText("DlqMessages >= 1");
+  // The threshold's label is drawn above its line, in the band that is bad, with room over the line (the data peaks at the threshold).
+  await expect(page.getByTestId("alarm-graph-unit")).toHaveText("Count");
+  const band = page.getByTestId("alarm-graph-threshold");
+  const label = await band.locator("text").boundingBox();
+  const line = await band.locator("line").boundingBox();
+  const plot = await page.getByTestId("alarm-graph").locator("svg").boundingBox();
+  expect(label && line && plot).toBeTruthy();
+  expect(label!.y + label!.height).toBeLessThanOrEqual(line!.y + 2);
+  expect(line!.y - plot!.y).toBeGreaterThan(30);
   for (const r of ["1h", "3h", "12h", "1d", "3d", "1w", "custom"]) await expect(page.getByTestId(`range-${r}`)).toBeVisible();
   await page.getByTestId("range-12h").click();
   await expect(page.getByTestId("range-12h")).toHaveAttribute("data-state", "on");

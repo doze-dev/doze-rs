@@ -60,7 +60,7 @@ export function withoutWidget(body: Body, index: number): Body {
 
 const prop = <T>(w: Widget, key: string): T | undefined => w.properties?.[key] as T | undefined;
 
-export const titleOf = (w: Widget): string => prop<string>(w, "title") ?? (w.type === "text" ? "Text" : w.type === "alarm" ? "Alarm status" : w.type === "metric" ? "Metrics" : w.type ?? "Widget");
+export const titleOf = (w: Widget): string => prop<string>(w, "title") ?? (w.type === "text" ? "Text" : w.type === "alarm" ? "Alarm status" : w.type === "metric" ? (queriesOf(w)[0]?.label ?? "Metrics") : w.type ?? "Widget");
 
 type Options = { stat?: string; period?: number; label?: string; id?: string; expression?: string; visible?: boolean };
 
@@ -129,4 +129,10 @@ export function ownRange(w: Widget, now: number): { from: number; to: number } |
 /** `-PT3H` for a span of whole hours, `-P1D` for whole days. */
 export function startOf(spanMs: number): string {
   return spanMs % 86_400_000 === 0 ? `-P${spanMs / 86_400_000}D` : `-PT${Math.max(1, Math.round(spanMs / 3_600_000))}H`;
+}
+
+/** What a number widget names its value by: the value of the first dimension (`pick-lists-dlq`) when the metric has one and the row has no label of its own, else the label. */
+export function numberLabel(label: string, query: { metric: string; dimensions?: Record<string, string> } | undefined): string {
+  const dims = Object.values(query?.dimensions ?? {});
+  return query && label === query.metric && dims.length > 0 ? dims.join(", ") : label;
 }

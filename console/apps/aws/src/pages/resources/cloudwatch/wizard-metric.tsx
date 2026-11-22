@@ -6,7 +6,7 @@ import { Combobox } from "@doze/ui/components/app/combobox";
 import { Button } from "@doze/ui/components/ui/button";
 import { Input } from "@doze/ui/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@doze/ui/components/ui/select";
-import { Field, FormSection, RadioCards, RuleHelp, useMetricData } from "../../../kit";
+import { Field, FormSection, RadioCards, RuleHelp, useMetricData, useUnit } from "../../../kit";
 import { useMetrics } from "./api";
 import { OPERATORS, PERIODS, periodWords } from "./model";
 import { RangeBar, useRange } from "./range";
@@ -48,12 +48,13 @@ function MetricGraph({ d }: { d: Draft }) {
   const m = d.metric?.namespace && d.metric.name ? d.metric : null;
   const queries = m ? [{ id: "m1", label: d.math?.label || m.name, namespace: m.namespace, metric: m.name, dimensions: Object.fromEntries(m.dimensions.map((x) => [x.Name, x.Value])), stat: d.stat, period: Math.max(d.period, 60), ...(d.math ? { hide: true } : {}) }, ...(d.math ? [{ id: "e1", label: d.math.label || "e1", namespace: "", metric: "", expression: d.math.expression }] : [])] : [];
   const data = useMetricData(queries, range, Boolean(m) && (!d.math || d.math.expression.trim() !== ""));
+  const unit = useUnit(queries, range, Boolean(m) && !d.math);
   const t = Number(d.threshold);
   const threshold = d.kind === "static" && d.threshold.trim() !== "" && Number.isFinite(t) ? { value: t, label: "Threshold 1", bad: d.operator.startsWith("Greater") ? ("above" as const) : ("below" as const) } : undefined;
   return (
     <div className="grid gap-3">
       <RangeBar state={state} onChange={patch} compact />
-      <Chart series={data.series.map((s) => ({ ...s, area: true }))} from={range.from} to={range.to} height={220} threshold={threshold} loading={Boolean(m) && data.isPending} aria-label="Graph of the metric and statistic you chose" empty={m ? "No data points in this range yet. The alarm can be made without them." : "Choose a metric to graph it."} testId="wizard-graph" />
+      <Chart series={data.series.map((s) => ({ ...s, area: true }))} from={range.from} to={range.to} height={220} threshold={threshold} unit={unit} loading={Boolean(m) && data.isPending} aria-label="Graph of the metric and statistic you chose" empty={m ? "No data points in this range yet. The alarm can be made without them." : "Choose a metric to graph it."} testId="wizard-graph" />
     </div>
   );
 }

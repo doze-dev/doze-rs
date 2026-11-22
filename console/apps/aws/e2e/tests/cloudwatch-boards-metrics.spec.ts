@@ -22,6 +22,11 @@ test("cloudwatch__metrics-all and metrics-none: namespaces by dimension set, the
   await expect(page.getByText("No metrics found").first()).toBeVisible();
   await expect(page.getByText("ListMetrics returned nothing for this search.").first()).toBeVisible();
   await shot(page, "cloudwatch__metrics-none");
+  // A search that finds something in one section says so in the other, in a line: the one empty state is for a search that finds nothing.
+  await page.getByTestId("metric-search").fill("Orders");
+  await expect(page.getByTestId("custom-namespaces")).toContainText("Larder/Orders");
+  await expect(page.getByTestId("aws-namespaces-none")).toHaveText("No metric in these namespaces matches the search.");
+  await expect(page.getByText("No metrics found")).toHaveCount(0);
   await page.getByTestId("metric-search").fill("pick-lists");
   await expect(page.getByTestId("custom-namespaces")).toContainText("Larder/Queues");
   await expect(page.getByTestId("custom-namespaces")).not.toContainText("Larder/Orders");
@@ -81,6 +86,12 @@ test("cloudwatch__metrics-graph and metrics-add-to-dashboard: tick two metrics, 
   await page.getByTestId("alarm-m1").click();
   await expect(page.locator("h1").first()).toHaveText("Create alarm");
   await expect(page.getByTestId("metric-rows")).toContainText("DlqMessages");
+  // The metric is handed over in plain parameters of the address, nothing quoted inside anything.
+  const url = new URL(page.url());
+  expect(url.searchParams.get("ns")).toBe("Larder/Queues");
+  expect(url.searchParams.get("metric")).toBe("DlqMessages");
+  expect(url.searchParams.get("sel")).toBeNull();
+  expect(page.url()).not.toContain("%5C");
 });
 
 
@@ -89,7 +100,9 @@ test("cloudwatch__dashboards-list, dashboard-create and dashboard-delete", async
   const table = page.getByRole("table", { name: "Dashboards" });
   await expect(table.locator("tr[data-row]")).toHaveCount(2);
   await expect(table.locator("tr[data-row]", { hasText: "larder-ops" })).toContainText(/\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}/);
-  await expect(page.getByTestId("dashboards-scope")).toContainText("A dashboard belongs to the Region it was made in.");
+  await expect(page.getByTestId("dashboards-scope")).toContainText("On AWS a dashboard belongs to the account, in no Region.");
+  await expect(page.getByTestId("dashboards-scope")).toContainText("doze-aws keeps each one with the CloudWatch data of the Region it was made in");
+  await expect(page.getByTestId("dashboards-scope")).not.toContainText("belongs to the Region");
   await expect(page.getByTestId("dashboards-local")).toContainText("Stored, not applied locally.");
   await table.locator("tr[data-row]", { hasText: "larder-api" }).getByRole("checkbox").check();
   await expect(page.getByTestId("selected-count")).toContainText("selected");
@@ -144,7 +157,13 @@ test("cloudwatch__dashboard-view, dashboard-source and dashboard-add-widget: the
   await expect(page.getByTestId("widget-0").getByTestId("widget-chart")).toBeVisible();
   await expect(page.getByTestId("widget-1")).toContainText("resize-product-image errors");
   await expect(page.getByTestId("widget-2")).toContainText("DLQ depth");
-  await expect(page.getByTestId("widget-value")).toHaveText("1");
+  // A number says its unit, draws the line it came from, and is named by what it measures (the dimension value).
+  await expect(page.getByTestId("widget-value")).toHaveText("1Count");
+  await expect(page.getByTestId("widget-unit")).toHaveText("Count");
+  await expect(page.getByTestId("widget-spark")).toBeVisible();
+  await expect(page.getByTestId("widget-2")).toContainText("pick-lists-dlq, Maximum");
+  // A chart names its unit above the axis and in the readout.
+  await expect(page.getByTestId("widget-0").getByTestId("widget-chart-unit")).toHaveText("Count");
   await expect(page.getByTestId("widget-3")).toContainText("Alarm status");
   await expect(page.getByTestId("widget-3")).toContainText("dlq-not-empty");
   await expect(page.getByTestId("widget-3")).toContainText("ALARM");
@@ -269,4 +288,23 @@ test("cloudwatch__dashboards-none: deleting the last dashboard leaves the empty 
   await expect(page.getByTestId("list-empty")).toContainText("A dashboard is a saved arrangement of graphs and widgets.");
   await expect(page.getByTestId("empty-create")).toHaveText("Create dashboard");
   await shot(page, "cloudwatch__dashboards-none");
+});
+
+test("a dashboard of every view: a pie is drawn as a pie, a table as a table, a bar as bars, a widget with no title by its first metric", async ({ page }) => {
+  const metrics = [["Larder/Orders", "OrdersPlaced", "Environment", "prod"], ["Larder/Orders", "OrdersFailed", "Environment", "prod"]];
+  const widget = (view: string, x: number) => ({ type: "metric", x, y: 0, width: 8, height: 6, properties: { view, stat: "Sum", period: 300, metrics } });
+  cli(["cloudwatch", "put-dashboard", "--dashboard-name", "every-view", "--dashboard-body", JSON.stringify({ widgets: [widget("pie", 0), widget("table", 8), widget("bar", 16), { type: "metric", x: 0, y: 6, width: 8, height: 6, properties: { view: "singleValue", stat: "Sum", period: 300, metrics: [metrics[1]] } }] })]);
+  await go(page, dash("every-view"), "every-view");
+  // No title in the body: the first metric names the widget.
+  await expect(page.getByTestId("widget-0")).toContainText("OrdersPlaced");
+  await expect(page.getByTestId("widget-0")).not.toContainText("Metrics");
+  const pie = page.getByTestId("widget-0");
+  await expect(pie.getByTestId("widget-pie-chart")).toBeVisible();
+  await expect(pie.getByTestId("widget-pie-chart").locator("path")).toHaveCount(2);
+  await expect(pie.getByTestId("widget-pie")).toContainText("%");
+  await expect(page.getByTestId("widget-1").getByTestId("widget-table")).toContainText("Latest value");
+  await expect(page.getByTestId("widget-1").getByTestId("widget-table").locator("tbody tr")).toHaveCount(2);
+  await expect(page.getByTestId("widget-2").getByTestId("widget-bar")).toContainText("OrdersFailed");
+  await expect(page.getByTestId("widget-3").getByTestId("widget-number")).toContainText("prod, Sum");
+  await shot(page, "cloudwatch__dashboard-view-shapes");
 });

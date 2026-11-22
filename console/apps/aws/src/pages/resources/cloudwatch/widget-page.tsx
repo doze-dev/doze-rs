@@ -14,7 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsList, TabsTrigger } from "@doze/ui/components/ui/tabs";
 import { SearchIcon } from "lucide-react";
 import { useAbout } from "../../../api/queries";
-import { useMetricData, useServiceCrumbs } from "../../../kit";
+import { useMetricData, useServiceCrumbs, useUnit } from "../../../kit";
 import { useDashboard } from "./api";
 import { getDraft, setDraft } from "./dashboard-draft";
 import { parseBody, startOf, stringify, withWidget } from "./dashboard-model";
@@ -46,6 +46,7 @@ export function WidgetPage({ name, mode }: { name: string; mode: string | undefi
   const [range, patchRange, span] = useRange("3h");
   const queries = toQueries(rows);
   const data = useMetricData(queries, span, queries.length > 0);
+  const unit = useUnit(queries, span, queries.length > 0);
   const region = about?.region ?? "us-east-1";
   const back = () => void navigate({ to: "/resources/$service/$kind/$name", params: { service: "cloudwatch", kind: "dashboards", name }, search: {} });
   const k = KINDS[kind]!;
@@ -59,7 +60,7 @@ export function WidgetPage({ name, mode }: { name: string; mode: string | undefi
   };
   return (
     <>
-      <PageHeader title="Add metric graph" crumbs={[...crumbs, { label: "Dashboards", to: "/resources/cloudwatch/dashboards" }, { label: name, to: `/resources/cloudwatch/dashboards/${name}` }, { label: "Add metric graph", to: `/resources/cloudwatch/dashboards/${name}` }]} sub={<>New {k.label.toLowerCase()} widget on <b className="font-mono font-semibold text-bright">{name}</b>. Choose Create widget to add it to the dashboard, then Save dashboard.</>} />
+      <PageHeader title="Add metric graph" crumbs={[...crumbs, { label: "Dashboards", to: "/resources/cloudwatch/dashboards" }, { label: name, to: `/resources/cloudwatch/dashboards/${name}` }, { label: "Add metric graph", to: `/resources/cloudwatch/dashboards/${name}` }]} sub={<>Widget <b className="font-semibold text-bright">{title.trim() || (queries[0]?.label ?? `new ${k.label.toLowerCase()}`)}</b> on <b className="font-mono font-semibold text-bright">{name}</b>. Choose Create widget to add it to the dashboard, then Save dashboard.</>} />
       {dashboard.isError && <Alert tone="bad" title="The dashboard could not be read" testId="widget-dashboard-error" className="mb-6">The widget is added to the body of {name}, which has to be read first.</Alert>}
       <div className="mb-5 flex flex-wrap items-center gap-3">
         <RangeBar state={range} onChange={patchRange} compact />
@@ -67,7 +68,7 @@ export function WidgetPage({ name, mode }: { name: string; mode: string | undefi
         <Label className="gap-3 font-normal"><Switch checked={persist} onCheckedChange={setPersist} data-testid="persist-range" /> Persist time range</Label>
       </div>
       <div className="mb-8 rounded-[14px] border bg-card p-6" data-testid="widget-preview">
-        <Chart series={data.series.map((s) => ({ ...s, area: k.stacked === true || rows.length === 1 }))} from={span.from} to={span.to} height={240} loading={queries.length > 0 && data.isPending} aria-label="The widget over the range" empty={queries.length === 0 ? "No metrics selected." : "No data points in this range."} testId="widget-graph" />
+        <Chart series={data.series.map((s) => ({ ...s, area: k.stacked === true || rows.length === 1 }))} from={span.from} to={span.to} height={240} unit={unit} loading={queries.length > 0 && data.isPending} aria-label="The widget over the range" empty={queries.length === 0 ? "No metrics selected." : "No data points in this range."} testId="widget-graph" />
       </div>
       <Tabs value={tab} onValueChange={setTab} className="gap-0">
         <TabsList variant="line" className="h-11 w-full justify-start gap-2 rounded-none border-b p-0" aria-label="Widget views">
