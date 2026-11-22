@@ -42,22 +42,48 @@ fn arn(service: &str, name: &str) -> String {
 }
 
 async fn larder(w: &World) {
-    w.app("sqs", "CreateQueue", &json!({"QueueName": "jobs-dlq"})).await;
-    let policy = json!({"deadLetterTargetArn": arn("sqs", "jobs-dlq"), "maxReceiveCount": "5"}).to_string();
+    w.app("sqs", "CreateQueue", &json!({"QueueName": "jobs-dlq"}))
+        .await;
+    let policy =
+        json!({"deadLetterTargetArn": arn("sqs", "jobs-dlq"), "maxReceiveCount": "5"}).to_string();
     let jobs = w
-        .app("sqs", "CreateQueue", &json!({"QueueName": "jobs", "Attributes": {"RedrivePolicy": policy}}))
+        .app(
+            "sqs",
+            "CreateQueue",
+            &json!({"QueueName": "jobs", "Attributes": {"RedrivePolicy": policy}}),
+        )
         .await["QueueUrl"]
         .as_str()
         .unwrap()
         .to_owned();
-    w.app("sqs", "SendMessage", &json!({"QueueUrl": jobs, "MessageBody": "a"})).await;
-    w.app("sqs", "CreateQueue", &json!({"QueueName": "idle"})).await;
-    let topic = w.app("sns", "CreateTopic", &json!({"Name": "orders"})).await["TopicArn"].as_str().unwrap().to_owned();
-    w.app("sns", "Subscribe", &json!({"TopicArn": topic, "Protocol": "sqs", "Endpoint": arn("sqs", "jobs")})).await;
+    w.app(
+        "sqs",
+        "SendMessage",
+        &json!({"QueueUrl": jobs, "MessageBody": "a"}),
+    )
+    .await;
+    w.app("sqs", "CreateQueue", &json!({"QueueName": "idle"}))
+        .await;
+    let topic = w
+        .app("sns", "CreateTopic", &json!({"Name": "orders"}))
+        .await["TopicArn"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    w.app(
+        "sns",
+        "Subscribe",
+        &json!({"TopicArn": topic, "Protocol": "sqs", "Endpoint": arn("sqs", "jobs")}),
+    )
+    .await;
 }
 
 fn edge<'a>(v: &'a Value, from: &str, to: &str) -> Option<&'a Value> {
-    v["edges"].as_array().unwrap().iter().find(|e| e["from"] == from && e["to"] == to)
+    v["edges"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|e| e["from"] == from && e["to"] == to)
 }
 
 #[tokio::test]
@@ -70,19 +96,50 @@ async fn the_resources_apps_called_and_how_they_are_wired() {
     assert_eq!(status, 200, "{g}");
     assert_eq!(keys(&g), ts_keys("Wiring"));
     assert_eq!(g["looked"], json!(["sqs", "sns"]));
-    let jobs = g["nodes"].as_array().unwrap().iter().find(|n| n["id"] == "sqs/queues/jobs").unwrap();
+    let jobs = g["nodes"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|n| n["id"] == "sqs/queues/jobs")
+        .unwrap();
     assert_eq!(keys(jobs), ts_keys("WireNode"));
     assert_eq!(jobs["sentence"], "1 waiting · 0 in flight");
     // The queue its redrive policy names, with the limit.
     let dlq = edge(&g, "sqs/queues/jobs", "sqs/queues/jobs-dlq").unwrap();
     assert_eq!(keys(dlq), ts_keys("WireEdge"));
-    assert_eq!((dlq["label"].as_str(), dlq["note"].as_str()), (Some("redrive"), Some("after 5 receives")));
+    assert_eq!(
+        (dlq["label"].as_str(), dlq["note"].as_str()),
+        (Some("redrive"), Some("after 5 receives"))
+    );
     // A topic delivers to the queue it has a subscription for.
-    assert_eq!(edge(&g, "sns/topics/orders", "sqs/queues/jobs").unwrap()["label"], "subscription");
-    assert_eq!(g["nodes"].as_array().unwrap().iter().find(|n| n["id"] == "sns/topics/orders").unwrap()["sentence"], "1 subscription");
+    assert_eq!(
+        edge(&g, "sns/topics/orders", "sqs/queues/jobs").unwrap()["label"],
+        "subscription"
+    );
+    assert_eq!(
+        g["nodes"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|n| n["id"] == "sns/topics/orders")
+            .unwrap()["sentence"],
+        "1 subscription"
+    );
     // A queue nothing is wired to is a node with no line.
-    assert!(g["nodes"].as_array().unwrap().iter().any(|n| n["id"] == "sqs/queues/idle"));
-    assert!(g["edges"].as_array().unwrap().iter().all(|e| e["from"] != "sqs/queues/idle" && e["to"] != "sqs/queues/idle"));
+    assert!(
+        g["nodes"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|n| n["id"] == "sqs/queues/idle")
+    );
+    assert!(
+        g["edges"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .all(|e| e["from"] != "sqs/queues/idle" && e["to"] != "sqs/queues/idle")
+    );
 }
 
 #[tokio::test]
@@ -92,5 +149,12 @@ async fn a_service_no_app_called_is_not_looked_in() {
     larder(&w).await;
     let (_, g) = w.get("/api/v1/live/wiring").await;
     assert_eq!(g["looked"], json!(["sqs"]));
-    assert!(g["nodes"].as_array().unwrap().iter().all(|n| n["service"] == "sqs"), "{g}");
+    assert!(
+        g["nodes"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .all(|n| n["service"] == "sqs"),
+        "{g}"
+    );
 }

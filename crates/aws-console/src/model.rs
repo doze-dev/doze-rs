@@ -14,10 +14,12 @@ mod deep;
 mod extras;
 mod resources;
 mod spaces;
+mod wiring;
 pub use deep::*;
 pub use extras::*;
 pub use resources::*;
 pub use spaces::*;
+pub use wiring::*;
 
 /// A refusal: a stable code a script can match and the words a person reads.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
