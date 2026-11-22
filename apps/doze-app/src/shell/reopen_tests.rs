@@ -4,6 +4,7 @@
 
 use std::time::{Duration, Instant};
 
+use doze_desk::Hub;
 use gpui::{Entity, TestAppContext, VisualTestContext};
 
 use super::inside::Inside;
@@ -12,10 +13,10 @@ use super::{Root, Screen};
 
 /// The lines All logs shows once they have stopped coming: some, then the same count for a quarter of a second
 /// (the backlog may come in more than one batch).
-fn settled(root: &Entity<Root>, vcx: &mut VisualTestContext) -> usize {
+fn settled(hub: &Hub, root: &Entity<Root>, vcx: &mut VisualTestContext) -> usize {
     let (start, mut last, mut since) = (Instant::now(), 0, Instant::now());
     loop {
-        let n = shown(root, vcx, 1);
+        let n = shown(hub, root, vcx, 1);
         if n != last {
             (last, since) = (n, Instant::now());
         } else if n > 0 && since.elapsed() > Duration::from_millis(250) {
@@ -31,10 +32,10 @@ fn settled(root: &Entity<Root>, vcx: &mut VisualTestContext) -> usize {
 /// The lines All logs shows, once at least `want` have come (a moment of the wall clock at most: the hub's threads
 /// read the fixture daemon, and the backlog may come in more than one batch). More than `want` returns at once, so a
 /// line shown twice is still seen.
-fn shown(root: &Entity<Root>, vcx: &mut VisualTestContext, want: usize) -> usize {
+fn shown(hub: &Hub, root: &Entity<Root>, vcx: &mut VisualTestContext, want: usize) -> usize {
     let start = Instant::now();
     loop {
-        vcx.run_until_parked();
+        take(hub, root, vcx);
         let n = vcx.update(|_, cx| match &root.read(cx).inside {
             Some(Inside::Logs(l)) => l.read(cx).index.len(),
             _ => 0,
@@ -46,12 +47,24 @@ fn shown(root: &Entity<Root>, vcx: &mut VisualTestContext, want: usize) -> usize
     }
 }
 
+/// What the app's `pump` does for a window in use: the hub's batches handed to the window. A logs page reads the ring
+/// once when it opens and then only as batches say lines came, so without this a test sees only the lines that
+/// landed before the page opened (the backlog races the page: a loaded machine loses). The page takes lines in at
+/// most four times a second on the app's timer, so the test's clock is moved on past that.
+fn take(hub: &Hub, root: &Entity<Root>, vcx: &mut VisualTestContext) {
+    while let Ok(batch) = hub.updates().try_recv() {
+        vcx.update(|_, cx| root.update(cx, |r, cx| r.apply_now(&batch, cx)));
+    }
+    vcx.executor().advance_clock(Duration::from_millis(250));
+    vcx.run_until_parked();
+}
+
 #[gpui::test]
 fn reopened_after_a_close_all_logs_shows_the_lines_again(cx: &mut TestAppContext) {
     let (src, root, vcx) = window(cx, "shop");
     vcx.update(|window, cx| root.update(cx, |r, cx| r.open_logs(window, cx)));
     assert!(vcx.update(|_, cx| matches!(root.read(cx).screen, Screen::Logs(_))));
-    let before = settled(&root, vcx);
+    let before = settled(&src.hub, &root, vcx);
     assert!(before > 0, "All logs shows the fixture's lines");
     let key = src.first.clone().unwrap();
 
@@ -81,7 +94,7 @@ fn reopened_after_a_close_all_logs_shows_the_lines_again(cx: &mut TestAppContext
     src.hub.set_visible(true);
     vcx.update(|window, cx| root.update(cx, |r, cx| r.open_logs(window, cx)));
     assert_eq!(
-        shown(&root, vcx, before),
+        shown(&src.hub, &root, vcx, before),
         before,
         "the same lines, once each"
     );
