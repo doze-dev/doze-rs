@@ -426,6 +426,16 @@ async fn parameters_are_made_and_overwritten_listed_by_filter_labelled_and_delet
         .unwrap();
     assert_eq!(listed["rows"][0]["cells"][description], "d");
 
+    // A parameter's header offers Edit.
+    let (_, one) = w
+        .get(&format!(
+            "{BASE}/ssm/parameters/{}",
+            encode("/larder/prod/db/host")
+        ))
+        .await;
+    assert_eq!(one["verbs"][0]["id"], "edit");
+    assert_eq!(one["verbs"][0]["label"], "Edit");
+
     // DeleteParameters takes up to ten names and says which it could not delete.
     let gone = ok(
         &w,

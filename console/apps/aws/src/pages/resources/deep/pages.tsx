@@ -18,6 +18,7 @@ import "../kms";
 import "../lambda";
 import "../logs";
 import "../s3";
+import "../ssm";
 import "../secretsmanager";
 import "../sns";
 import "../sqs";

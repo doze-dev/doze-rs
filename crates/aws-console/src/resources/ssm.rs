@@ -4,7 +4,7 @@ use super::Format::{Mono, Number, Text as Plain, Time};
 use super::ssm_ops::{OPS, filters};
 use super::{
     Apply, Create, Delete, Descriptor, Field, Id, Input, InputKind, Kind, List, Options, Param,
-    ParamKind, Reveal, Shape, Step, Tags, Text, Write, col, field, input, op,
+    ParamKind, Reveal, Shape, Step, Tags, Text, Write, col, field, input, op, says,
 };
 
 /// What a tag call names: this parameter.
@@ -130,6 +130,7 @@ pub(super) static SSM: Descriptor = Descriptor {
             },
         )),
         ops: OPS,
+        page: says::ssm::PARAMETER,
         // The list's filter tokens (`Name:BeginsWith:/larder|Type:Equals:String`) are DescribeParameters' filters.
         params: &[Param {
             key: "filter",

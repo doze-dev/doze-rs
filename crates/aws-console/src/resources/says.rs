@@ -9,6 +9,7 @@ pub mod logs;
 pub mod s3;
 pub mod sns;
 pub mod sqs;
+pub mod ssm;
 pub mod stepfunctions;
 
 use super::Read;
