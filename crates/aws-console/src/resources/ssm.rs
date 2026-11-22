@@ -40,6 +40,7 @@ pub(super) static SSM: Descriptor = Descriptor {
             col("Version", "Version", Number),
             col("Last modified", "LastModifiedDate", Time),
             col("Description", "Description", Plain),
+            col("KMS key", "KeyId", Mono),
         ],
         id_of: Id::Name,
         detail: &[

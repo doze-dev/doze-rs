@@ -93,11 +93,11 @@ export function TagsView({ answer, saving = false, error, saved, onSave, noun = 
 }
 
 /** {@link TagsView} with a resource's tags read and saved through the console (contract §3). */
-export function TagsTab({ target, noun, countNoun, note, explain, emptyAction }: { target: Target; noun?: string; countNoun?: string; note?: React.ReactNode; explain?: React.ReactNode; emptyAction?: React.ReactNode }) {
+export function TagsTab({ target, noun, countNoun, note, explain, emptyAction, subject }: { target: Target; noun?: string; countNoun?: string; note?: React.ReactNode; explain?: React.ReactNode; emptyAction?: React.ReactNode; /** What the empty state calls the resource, when it is not its name (`This key`). */ subject?: string }) {
   const q = useTags(target);
   const set = useSetTags(target);
   const [saved, setSaved] = useState<string | null>(null);
-  return <TagsView answer={q.data} loading={q.isPending && !q.isError} loadError={q.error} onRetry={() => void q.refetch()} saving={set.isPending} error={set.error} saved={saved} noun={noun} countNoun={countNoun} note={note} subject={target.name} explain={explain} emptyAction={emptyAction} onSave={async (c) => {
+  return <TagsView answer={q.data} loading={q.isPending && !q.isError} loadError={q.error} onRetry={() => void q.refetch()} saving={set.isPending} error={set.error} saved={saved} noun={noun} countNoun={countNoun} note={note} subject={subject ?? target.name} explain={explain} emptyAction={emptyAction} onSave={async (c) => {
       const a = await set.mutateAsync(c);
       setSaved(`The resource now has ${tagWords(a.tags.length, noun ?? "tag")}.`);
     }} />;

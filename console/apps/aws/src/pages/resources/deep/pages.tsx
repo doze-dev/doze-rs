@@ -14,6 +14,7 @@ import "../iam";
 import "../apigateway";
 import "../eventbridge";
 import "../kinesis";
+import "../kms";
 import "../lambda";
 import "../logs";
 import "../s3";
