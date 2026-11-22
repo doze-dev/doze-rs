@@ -25,8 +25,13 @@ export function FormPage({ title, sub, crumbs, crumb, banner, request, requests,
   const form = useRef<HTMLFormElement>(null);
   const [attempts, setAttempts] = useState(0);
   const refused = refusal ? `${refusal.code}: ${refusal.message}` : "";
+  // A page that opens already showing a refusal (the gallery's, or a remount) does not take the focus from the person: only a
+  // problem that arrives after the page is drawn does.
+  const drawn = useRef(false);
   useLayoutEffect(() => {
-    if (attempts > 0 || refused) focusFirstProblem(form.current);
+    const first = !drawn.current;
+    drawn.current = true;
+    if (attempts > 0 || (refused && !first)) focusFirstProblem(form.current);
   }, [attempts, refused]);
   return (
     <div data-testid={testId}>
