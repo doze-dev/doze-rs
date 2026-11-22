@@ -208,7 +208,7 @@ fn the_server_under_doze_listens_only_where_doze_granted_so_without_its_console(
     };
     inst.listeners
         .insert(doze_module::proto::network::MAIN.into(), grant);
-    let args = super::server_args(&inst).unwrap();
+    let args = super::server_args(&inst, "us-east-1").unwrap();
     assert_eq!(args[..2], ["--listen", "127.0.0.1:41000"]);
     assert!(args.iter().any(|a| a == "--no-console"), "{args:?}");
 }
