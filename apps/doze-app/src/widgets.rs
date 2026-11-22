@@ -21,6 +21,26 @@ pub(crate) trait Mono: Styled + Sized {
 
 impl<T: Styled> Mono for T {}
 
+/// An action under way, where it was asked for (a row's or a tile's switch, the head's status line): a ring with a lit
+/// quarter, turning once every 900 ms; a still ring when motion is reduced. It draws frames only while it shows.
+pub(crate) fn spinner(id: impl Into<gpui::ElementId>, size: f32, color: Hsla) -> AnyElement {
+    use gpui::AnimationExt as _;
+    let ring = svg()
+        .path("icons/spin.svg")
+        .size(px(size))
+        .flex_none()
+        .text_color(color);
+    if crate::motion::reduced() {
+        return ring.into_any_element();
+    }
+    ring.with_animation(
+        id,
+        gpui::Animation::new(std::time::Duration::from_millis(900)).repeat(),
+        |s, p| s.with_transformation(gpui::Transformation::rotate(gpui::percentage(p))),
+    )
+    .into_any_element()
+}
+
 /// An SVG icon (assets.rs) in a colour, `size` square.
 pub(crate) fn icon(path: &'static str, size: f32, color: Hsla) -> impl IntoElement {
     svg()
@@ -114,6 +134,20 @@ pub(crate) fn has_keys(
     input.read(cx).focus_handle(cx).is_focused(window)
 }
 
+/// The selected row's mark: a 2 px accent bar at the row's left edge, over the row's `sel` fill (the design pass of
+/// 2026-11-19: a whole `pick` block made the cursor the loudest thing on the page). `inset` keeps it off a rounded
+/// row's corners. The row must be `relative`.
+pub(crate) fn sel_bar(t: &Tokens, inset: f32) -> gpui::Div {
+    div()
+        .absolute()
+        .left(px(0.))
+        .top(px(inset))
+        .bottom(px(inset))
+        .w(px(2.))
+        .when(inset > 0., |d| d.rounded_full())
+        .bg(t.accent)
+}
+
 /// `.dot` (8px disc) and `.ring` (8px, 2px cool border).
 pub(crate) fn dot(color: Hsla) -> impl IntoElement {
     div().size(px(8.)).flex_none().rounded_full().bg(color)
@@ -134,7 +168,7 @@ pub(crate) fn switch(
         (34., 18., 12., 18.)
     };
     let (bg, border, knob_bg) = if on {
-        (t.accent, t.accent, t.ink)
+        (t.on, t.on, t.on_knob)
     } else {
         (t.track, t.dim, t.dim)
     };
@@ -288,11 +322,11 @@ pub(crate) fn seg(
 #[cfg(test)]
 mod tests {
     use super::input_frame;
-    use crate::theme::{Palette, load, mix};
+    use crate::theme::{load, mix};
 
     #[test]
     fn a_text_box_frame_eases_to_the_accent_tint_with_the_keys() {
-        let (_, t) = load(Palette::ALL[0], true).unwrap();
+        let (_, t) = load(true).unwrap();
         assert_eq!(input_frame(&t, "test/a", false), (t.line2, false));
         let (shown, moving) = input_frame(&t, "test/a", true);
         assert!(moving, "the border eases, it does not switch");

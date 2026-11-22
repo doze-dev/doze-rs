@@ -63,13 +63,15 @@ async fn roles(p: &Psql, s: &PostgresSpec) -> Result<()> {
     Ok(())
 }
 
+/// The instance's database made if missing, and its options kept as declared. An instance named after
+/// [`sql::ADMIN`] works in the server's own database, which initdb made: it is never created here.
 async fn database(p: &Psql, name: &str, s: &PostgresSpec) -> Result<()> {
     let at = || wrap(format!("database {name:?}"));
     let q = format!(
         "SELECT EXISTS(SELECT 1 FROM pg_database WHERE datname = {})",
         sql::lit(name)
     );
-    if !p.yes("postgres", &q).await.map_err(at())? {
+    if name != sql::ADMIN && !p.yes("postgres", &q).await.map_err(at())? {
         match p.alone("postgres", &sql::create_database(name, s)).await {
             Err(e) if !raced(&e) => return Err(at()(e)),
             _ => {}

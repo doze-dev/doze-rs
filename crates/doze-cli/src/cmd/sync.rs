@@ -5,8 +5,8 @@
 //! As Go: the change list first (the daemon's `plan` op: each module's own objects against what was applied, nothing
 //! woken or written), then "no changes" and exit 0 when it is empty, else the question (a terminal; exit 9 with no
 //! one to answer and no `-y`). `--dry-run` is the list. With doze stopped the daemon is started for it and stopped
-//! after, as Go's own runtime was. A Go daemon has no `plan` op ("unknown op"): then every sync asks, and `--dry-run`
-//! says it cannot be answered there.
+//! after, as Go's own runtime was. A daemon with no `plan` op ("unknown op") is an older doze (the Go one): sync does
+//! not drive it, and says that `doze down && doze up` moves the stack onto this doze.
 //!
 //! First of all, as Go's `renderBlocks`: which blocks of doze.hcl differ from what the running daemon started with
 //! (its `run/blocks.json`), and what applying them does. The daemon reads doze.hcl once, when it starts, so a changed
@@ -27,10 +27,11 @@ pub(crate) fn run(ctx: &mut Ctx<'_>, mode: &Mode, a: &Sync) -> Outcome {
     // The names first, as every command checks them (and doze.hcl, exit 5), before anything is asked or started.
     let stack = Stack::find(ctx, mode)?;
     stack::check_offline(&stack, &names)?;
-    let started = stack.open(mode.timeout)?.is_none();
-    let done = synced(ctx, mode, a, &names);
-    if started {
-        // Started for this sync: stopped again, as Go's own runtime stopped everything it ran.
+    let mut spawned = false;
+    let done = synced(ctx, mode, a, &names, &mut spawned);
+    if spawned {
+        // Started by this sync (not one another doze started meanwhile): stopped again, as Go's own runtime stopped
+        // everything it ran. Also after a Ctrl-C at the question, which reads as "no".
         let stopped = stop(ctx, &stack);
         let done = done?;
         stopped?;
@@ -39,10 +40,26 @@ pub(crate) fn run(ctx: &mut Ctx<'_>, mode: &Mode, a: &Sync) -> Outcome {
     done
 }
 
-/// Everything after the daemon is there: the plan, the question, the apply.
-fn synced(ctx: &mut Ctx<'_>, mode: &Mode, a: &Sync, names: &[String]) -> Outcome {
+/// Everything after the daemon is there: the plan, the question, the apply. `spawned` says whether this run started
+/// the daemon, as soon as it is known.
+fn synced(
+    ctx: &mut Ctx<'_>,
+    mode: &Mode,
+    a: &Sync,
+    names: &[String],
+    spawned: &mut bool,
+) -> Outcome {
     let target = a.service.clone().unwrap_or_default();
-    let (stack, cfg, conn) = crate::cmd::env::opened(ctx, mode, names, "doze sync")?;
+    let (stack, cfg, conn, started) =
+        crate::cmd::env::opened_spawned(ctx, mode, names, "doze sync")?;
+    *spawned = started;
+    // With a daemon this run started, Ctrl-C (at the question, or while the plan is made) ends the sync, not doze: the
+    // daemon is stopped before doze exits. A second Ctrl-C still ends doze at once.
+    let interrupt = if started {
+        ctx.host.watch_interrupt()
+    } else {
+        doze_os::interrupt::Interrupt::never()
+    };
     let snap = stack::snapshot(&conn)?;
     let subject = (!target.is_empty()).then_some(target.as_str());
     match planned(&conn, &target).map_err(|e| stack::daemon_error(&e, subject))? {
@@ -63,24 +80,14 @@ fn synced(ctx: &mut Ctx<'_>, mode: &Mode, a: &Sync, names: &[String]) -> Outcome
                 let _ = write!(ctx.out, "{}", plan.steps(mode.out()));
                 let _ = ctx.out.flush();
             }
-            if !mode.yes && !confirm(ctx, mode, &target, "Apply these changes?")? {
+            if interrupt.raised()
+                || (!mode.yes && !confirm(ctx, mode, &target, "Apply these changes?", &interrupt)?)
+                || interrupt.raised()
+            {
                 return Ok(cancelled(ctx));
             }
         }
-        None if a.dry.dry_run => return Err(go_daemon()),
-        None => {
-            let what = if target.is_empty() {
-                "the stack"
-            } else {
-                &target
-            };
-            let question = format!(
-                "Sync {what} with doze.hcl? What is new is created, what changed is updated, and what is no longer declared is dropped."
-            );
-            if !mode.yes && !confirm(ctx, mode, &target, &question)? {
-                return Ok(cancelled(ctx));
-            }
-        }
+        None => return Err(older_daemon()),
     }
     conn.run_verb(Verb::Sync, &target)
         .map_err(|e| stack::daemon_error(&e, subject))?;
@@ -219,11 +226,12 @@ fn confirm(
     mode: &Mode,
     target: &str,
     question: &str,
+    interrupt: &doze_os::interrupt::Interrupt,
 ) -> Result<bool, Diagnostic> {
     if ctx.interactive() && !mode.json {
         let _ = write!(ctx.err, "{question} [y/N] ");
         let _ = ctx.err.flush();
-        if let Some(yes) = ctx.host.ask() {
+        if let Some(yes) = ctx.host.ask_or(interrupt) {
             return Ok(yes);
         }
     }
@@ -240,13 +248,12 @@ fn cancelled(ctx: &mut Ctx<'_>) -> Done {
     Done::ok(View::Silent)
 }
 
-/// `--dry-run` against a daemon that cannot say what would change.
-fn go_daemon() -> Diagnostic {
+/// A daemon that cannot say what would change (no `plan` op): an older doze, which sync does not drive.
+fn older_daemon() -> Diagnostic {
     Diagnostic::new(
         ids::DAEMON_REFUSED,
-        "this stack's daemon cannot say what sync would change (it has no plan op: a Go doze daemon)",
+        "this stack's daemon is an older doze (it has no plan op); sync does not drive it",
     )
-    .note("doze sync -y applies without the list")
     .fix("doze down && doze up runs the stack on this doze")
 }
 

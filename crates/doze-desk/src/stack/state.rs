@@ -86,12 +86,21 @@ impl StackState {
     fn instances(&mut self, f: &Frame) -> Parts {
         let list = Arc::make_mut(&mut self.view.instances);
         if f.snapshot {
-            list.clone_from(&f.instances);
+            let old = std::mem::take(list);
+            list.extend(f.instances.iter().map(|v| {
+                let mut n = v.clone();
+                keep_meters(&mut n, old.iter().find(|o| o.name == v.name));
+                n
+            }));
             list.sort_by(|a, b| a.name.cmp(&b.name));
         } else {
             for v in &f.instances {
                 match list.iter_mut().find(|x| x.name == v.name) {
-                    Some(slot) => slot.clone_from(v),
+                    Some(slot) => {
+                        let (ram, cpu, pid) = (slot.ram, slot.cpu, slot.pid);
+                        slot.clone_from(v);
+                        keep(slot, ram, cpu, pid);
+                    }
                     None => {
                         list.push(v.clone());
                         list.sort_by(|a, b| a.name.cmp(&b.name));
@@ -227,6 +236,23 @@ impl StackState {
     }
 }
 
+/// The Rust daemon's `instances` topic carries no meters (they come on `stats`, and only while a page watches them),
+/// so a row it sends would read 0 MB and 0% until the next reading, and keep reading so on a page that does not watch:
+/// the tiles and the sidebar showed 0 while the instance page's graph showed 12 MB. A row that says nothing of its
+/// meters keeps the last ones read for the same process.
+fn keep_meters(new: &mut InstanceView, old: Option<&InstanceView>) {
+    if let Some(o) = old {
+        keep(new, o.ram, o.cpu, o.pid);
+    }
+}
+
+fn keep(new: &mut InstanceView, ram: i64, cpu: f64, pid: i64) {
+    if new.ram == 0 && new.cpu <= 0.0 && new.pid != 0 && new.pid == pid {
+        new.ram = ram;
+        new.cpu = cpu;
+    }
+}
+
 /// The row of the instance a reading is for, if its meters differ from the reading's.
 fn row_of<'a>(
     list: &'a mut Arc<Vec<InstanceView>>,
@@ -240,4 +266,75 @@ fn row_of<'a>(
         return None;
     }
     Arc::make_mut(list).iter_mut().find(|v| v.name == name)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::StackState;
+    use doze_control::{Frame, InstanceView, StatView, Topic};
+    use doze_projects::StackKey;
+    use std::time::SystemTime;
+
+    fn row(name: &str, pid: i64) -> InstanceView {
+        InstanceView {
+            name: name.into(),
+            state: "running".into(),
+            pid,
+            ..InstanceView::default()
+        }
+    }
+
+    fn instances(snapshot: bool, rows: Vec<InstanceView>) -> Frame {
+        Frame {
+            topic: Topic::Instances.as_str().into(),
+            snapshot,
+            instances: rows,
+            ..Frame::default()
+        }
+    }
+
+    fn meters(st: &StackState, name: &str) -> (i64, f64) {
+        let v = st.view.instances.iter().find(|v| v.name == name);
+        v.map_or((-1, -1.0), |v| (v.ram, v.cpu))
+    }
+
+    #[test]
+    fn a_row_without_meters_keeps_the_last_reading_of_its_process() {
+        let now = SystemTime::now();
+        let mut st = StackState::new(StackKey::new("/x/shop"), now);
+        st.apply(&instances(true, vec![row("db", 7), row("api", 8)]), now);
+        let stats = Frame {
+            topic: Topic::Stats.as_str().into(),
+            stats: vec![StatView {
+                name: "db".into(),
+                pid: 7,
+                ram: 12 << 20,
+                cpu: 1.5,
+                ..StatView::default()
+            }],
+            ..Frame::default()
+        };
+        st.apply(&stats, now);
+        assert_eq!(meters(&st, "db"), (12 << 20, 1.5));
+
+        // A change of state or connections, with no meters: the reading stays.
+        let mut conns = row("db", 7);
+        conns.conns = 2;
+        st.apply(&instances(false, vec![conns]), now);
+        assert_eq!(meters(&st, "db"), (12 << 20, 1.5));
+        // A snapshot (a new subscription when a page starts watching) keeps it too.
+        st.apply(&instances(true, vec![row("db", 7), row("api", 8)]), now);
+        assert_eq!(meters(&st, "db"), (12 << 20, 1.5));
+        // A row that carries meters is taken whole (an idle process reads 0%).
+        let mut said = row("db", 7);
+        said.ram = 3 << 20;
+        st.apply(&instances(false, vec![said]), now);
+        assert_eq!(meters(&st, "db"), (3 << 20, 0.0));
+        // Another process, or none (asleep): the old reading is not its own.
+        st.apply(&instances(false, vec![row("db", 9)]), now);
+        assert_eq!(meters(&st, "db"), (0, 0.0));
+        st.apply(&stats, now);
+        st.apply(&instances(true, vec![row("db", 0)]), now);
+        assert_eq!(meters(&st, "db"), (0, 0.0));
+    }
 }

@@ -117,29 +117,15 @@ async fn start(e: &Engine, name: &str, boot: u64, when: When) -> Result<Endpoint
         run_dir: e.stack().run_dir().join(name),
         needs,
     };
-    let (planned, log) = prepare(e, &svc, &ctx).await.map_err(fail)?;
-    let pids = e.pids(name);
-    let unit =
-        match crate::exec::start(&planned.plan, &log, planned.ready_within, Some(&pids)).await {
-            Ok(u) => match crate::converge::after_ready(e, &svc, &ctx, u).await {
-                Ok(u) => u,
-                Err(err) => {
-                    pids.remove();
-                    log.close().await;
-                    return Err(fail(err));
-                }
-            },
-            Err(err) => {
-                pids.remove();
-                log.close().await;
-                let kind = if err.timeout {
-                    Error::Timeout
-                } else {
-                    Error::Failed
-                };
-                return Err(fail(kind(err.message)));
-            }
-        };
+    let (planned, log, pids, started_unit) = launch::launch(e, &svc, &ctx).await.map_err(fail)?;
+    let unit = match crate::converge::after_ready(e, &svc, &ctx, started_unit).await {
+        Ok(u) => u,
+        Err(err) => {
+            pids.remove();
+            log.close().await;
+            return Err(fail(err));
+        }
+    };
     register(
         e,
         &svc,
@@ -230,7 +216,11 @@ fn declared_endpoint(e: &Engine, name: &str) -> Endpoint {
 }
 
 /// The folders, the log, `setup` when this data folder needs it (before the plan's checks, as Go), then the plan.
-async fn prepare(e: &Engine, svc: &Service, ctx: &PlanCtx) -> Result<(Planned, RunLog), Error> {
+pub(super) async fn prepare(
+    e: &Engine,
+    svc: &Service,
+    ctx: &PlanCtx,
+) -> Result<(Planned, RunLog), Error> {
     let io = |what: &str, err: std::io::Error| {
         Error::Failed(format!("{what} for \"{}\": {err}", svc.name))
     };
@@ -444,3 +434,6 @@ async fn rerun_on_ready(e: &Engine, name: &str, boot: u64) -> Result<Endpoint, E
     });
     finish(e, name, boot, started, ep)
 }
+
+#[path = "boot_launch.rs"]
+mod launch;

@@ -368,6 +368,16 @@ fn queues_list_in_name_order_with_a_prefix_and_pages() {
 
 /// A request decoded against the model, as the gateway would hand it to a service.
 fn call_of(patterns: &Patterns, op: Operation, request: &Value) -> Result<Call, ApiError> {
+    call_in("us-east-1", patterns, op, request)
+}
+
+/// The same, signed for `region`.
+fn call_in(
+    region: &str,
+    patterns: &Patterns,
+    op: Operation,
+    request: &Value,
+) -> Result<Call, ApiError> {
     let body = request.to_string();
     let shape = TABLES.op(op.index()).unwrap().input.unwrap();
     let mut arena = Arena::new();
@@ -376,7 +386,7 @@ fn call_of(patterns: &Patterns, op: Operation, request: &Value) -> Result<Call, 
     let caller = Caller {
         access_key_id: "test".into(),
         account_id: "000000000000".into(),
-        region: "us-east-1".into(),
+        region: region.into(),
         endpoint: "http://localhost:4566".into(),
         service: None,
         session_token: None,
@@ -410,6 +420,7 @@ mod long_poll;
 mod moves;
 mod peek;
 mod persistence;
+mod regions;
 mod retention;
 mod waits;
 

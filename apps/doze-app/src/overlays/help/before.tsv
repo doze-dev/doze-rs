@@ -1,0 +1,156 @@
+Global	cmd-k	Search or do…
+Global	?	Keys and words
+Global	cmd-/	Keys and words
+Global	escape	Close
+Global	cmd-0	Home
+Global	cmd-o	Open folder…
+Global	cmd-l	All logs
+Global	shift-l	All logs
+Global	shift-a	Activity
+Global	cmd-,	Settings…
+Global	cmd-[	Back
+Global	cmd-]	Forward
+Global	1	Tiles
+Global	2	List
+Global	3	Map
+Global	4	Grid
+Global	cmd-shift-l	Dark, light or system
+Global	cmd-w	Close the window
+Global	cmd-q	Quit doze
+Global	cmd-n	New stack…
+Global	cmd-shift-m	Recent messages
+Global	cmd-e	Edit doze.hcl
+Global	cmd-shift-n	Needs you
+Global	cmd-1	Tab 1
+Global	cmd-2	Tab 2
+Global	cmd-3	Tab 3
+Global	cmd-4	Tab 4
+Global	cmd-5	Tab 5
+Global	cmd-6	Tab 6
+Global	cmd-7	Tab 7
+Global	cmd-8	Tab 8
+Global	cmd-9	Tab 9
+Library	enter	Open the stack
+Library	up	Stack above
+Library	k	Stack above
+Library	down	Stack below
+Library	j	Stack below
+Library	space	Up or down
+Library	s	Sleep everything
+Library	backspace	Remove from doze…
+Overview	up	Service above
+Overview	k	Service above
+Overview	down	Service below
+Overview	j	Service below
+Overview	left	Tile left
+Overview	right	Tile right
+Overview	/	Filter
+Overview	y	Copy the address
+Overview	enter	Open the service
+Overview	space	Wake or sleep
+Overview	u	Up as last time
+Overview	c	Choose what starts…
+Overview	shift-t	Activity
+Overview	w	Wake
+Overview	s	Sleep
+Overview	r	Restart
+Overview	p	Pin awake
+Overview	l	Its logs
+Grid	up	Cell above
+Grid	k	Cell above
+Grid	down	Cell below
+Grid	j	Cell below
+Grid	left	Cell left
+Grid	right	Cell right
+Grid	enter	Open what the cell names
+Grid	o	Open the row
+Grid	/	Filter rows
+Grid	l	Its logs
+Instance	r	Restart / try now
+Instance	s	Sleep / stop trying
+Instance	w	Wake
+Instance	p	Pin awake
+Instance	o	Open in browser
+Instance	y	Copy address
+Instance	l	Logs
+Instance	enter	Run the task
+Instance	tab	Next tab
+Logs	/	Filter the lines
+Logs	1	Debug and up
+Logs	2	Info and up
+Logs	3	Warnings and up
+Logs	4	Errors only
+Logs	c	Copy the lines
+Logs	t	Relative or clock
+Logs	space	Pause or follow
+Logs	[	Run before
+Logs	]	Run after
+Logs	f	Find or filter
+Logs	g	To the top
+Logs	home	To the top
+Logs	shift-g	To the end
+Logs	end	To the end
+Map	/	Find a card
+Map	cmd-f	Find a card
+Map	0	Fit the map
+Map	=	Zoom in
+Map	cmd-=	Zoom in
+Map	-	Zoom out
+Map	cmd--	Zoom out
+Map	shift-0	Actual size
+Map	m	Overview on or off
+Map	shift-l	Every line or on demand
+Map	shift-h	Neighbourhood
+Map	shift-t	Only trouble
+Map	up	Card above
+Map	k	Card above
+Map	down	Card below
+Map	j	Card below
+Map	left	Card left
+Map	h	Card left
+Map	right	Card right
+Map	l	Card right
+Map	enter	Open the card
+Console	down	Row below
+Console	j	Row below
+Console	up	Row above
+Console	k	Row above
+Activity	[	Shorter span
+Activity	]	Longer span
+Activity	up	Service above
+Activity	k	Service above
+Activity	down	Service below
+Activity	j	Service below
+Activity	enter	That service alone
+Activity	/	Find a service
+Settings	up	Part above
+Settings	k	Part above
+Settings	down	Part below
+Settings	j	Part below
+Settings	c	Copy report
+Palette	tab	Into it
+Palette	shift-tab	Step out
+Palette	backspace	Step out
+Palette	cmd-enter	Its first action
+Bell	down	Next item
+Bell	j	Next item
+Bell	up	Item above
+Bell	k	Item above
+Bell	enter	First fix
+Bell	cmd-enter	Show
+Bell	n	Not now
+Words		awake
+Words		dozing
+Words		waking
+Words		asleep
+Words		crashing
+Words		failed
+Words		off
+Words		paused
+Words		pinned
+Words		running
+Words		done
+Words		not run
+Words		stopped
+Words		the switch
+Words		calls

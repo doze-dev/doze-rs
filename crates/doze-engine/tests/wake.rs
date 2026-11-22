@@ -192,3 +192,63 @@ async fn off_refuses_every_start_until_on() {
         "daemon is shutting down; not booting \"db\""
     );
 }
+
+/// The engine probes a port and the process binds it a moment later: something else (another doze daemon, any app
+/// asking for that port by number) can take it in between, and the process dies with "address in use" through no fault
+/// of its own (CI: logs_and_journal on macOS, os error 48; sync on Windows, os error 10048). The start is made again on
+/// another port, and the wake succeeds.
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn a_port_taken_before_the_process_binds_it_is_chosen_again() {
+    let d = Dir::new("lostport");
+    let given = d.file("port");
+    let spec = listener(&d, 400)
+        .env("PORT_FILE", &given.to_string_lossy())
+        .ready(doze_engine::Probe::Log("listening on".into()));
+    let e = Engine::builder("t", d.path())
+        .service(svc("web", spec))
+        .build()
+        .unwrap();
+    let wake = {
+        let e = e.clone();
+        tokio::spawn(async move { e.wake("web", Cause::Command).await })
+    };
+    let read = || {
+        std::fs::read_to_string(&given)
+            .ok()
+            .and_then(|s| s.parse::<u16>().ok())
+    };
+    assert!(eventually(Duration::from_secs(5), || read().is_some()).await);
+    let first = read().unwrap();
+    let thief = std::net::TcpListener::bind(("127.0.0.1", first)).unwrap();
+    let ep = wake.await.unwrap().unwrap();
+    assert_eq!(lines(&d.file("starts")), 2, "started again once");
+    assert_eq!(
+        e.logs().runs("web").unwrap().len(),
+        2,
+        "the failed start's run is kept"
+    );
+    let second = read().unwrap();
+    assert_ne!(second, first);
+    assert_eq!(ep.backend, format!("127.0.0.1:{second}"));
+    drop(thief);
+    let pid = pid_of(&e, "web");
+    e.shutdown().await;
+    assert!(all_gone(&[pid]).await);
+}
+
+/// A process that dies while starting for a reason of its own (its port is free) is not started again.
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn a_process_that_dies_starting_with_its_port_free_is_not_started_again() {
+    let d = Dir::new("ownfault");
+    let spec = doze_engine::ProcessSpec::new(run(&["exit", "3", "200"]), d.path())
+        .port(1)
+        .ready(doze_engine::Probe::Tcp);
+    let e = Engine::builder("t", d.path())
+        .service(svc("web", spec))
+        .build()
+        .unwrap();
+    let err = e.wake("web", Cause::Command).await.unwrap_err().to_string();
+    assert!(err.contains("exited during startup"), "{err}");
+    assert_eq!(e.logs().runs("web").unwrap().len(), 1, "one start, one run");
+    e.shutdown().await;
+}

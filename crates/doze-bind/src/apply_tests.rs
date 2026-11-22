@@ -26,12 +26,22 @@ fn sock(inst: &str, l: &ListenerPlan) -> Address {
     Address::Unix(format!("/run/{inst}/{}.sock", l.name))
 }
 
+/// A loopback port nobody holds, below every system's ephemeral range (Linux starts at 32768, macOS and Windows at
+/// 49152), and never the same one twice in this process: a port from `bind(":0")` can be handed straight back to a
+/// test running alongside (Windows does), as doze-module-test's `free_port` found on Linux.
+/// From 10000..20000: the engine hands out 20000..32000 from the same per-process offset, so a shared range let the
+/// test's port and the engine's first one be the same (daemon_catalog on Linux, #110's queue run).
 fn free_port() -> u16 {
-    TcpListener::bind("127.0.0.1:0")
-        .unwrap()
-        .local_addr()
-        .unwrap()
-        .port()
+    use std::sync::atomic::{AtomicU32, Ordering};
+    static NEXT: AtomicU32 = AtomicU32::new(0);
+    let start = std::process::id().wrapping_mul(97) % 10_000;
+    loop {
+        let n = NEXT.fetch_add(1, Ordering::Relaxed);
+        let port = u16::try_from(10_000 + (start + n) % 10_000).unwrap();
+        if std::net::TcpListener::bind(("127.0.0.1", port)).is_ok() {
+            return port;
+        }
+    }
 }
 
 #[test]
@@ -49,7 +59,13 @@ fn a_stack_is_claimed_listened_routed_and_given_back() {
         main.granted.backend,
         Address::Unix("/run/aws/main.sock".into())
     );
-    let target = main.socket.local_addr().unwrap().to_string();
+    // Routed to the name's address and public port, which the network daemon translates, not to the socket.
+    let target = main.public.to_string();
+    assert_eq!(
+        target,
+        reg.resolve("aws.shop.doze").unwrap().to_string() + ":4566"
+    );
+    assert_ne!(main.public, main.socket.local_addr().unwrap());
     for host in [
         "aws.shop.doze",
         "sync-aws.shop.doze",
@@ -65,14 +81,10 @@ fn a_stack_is_claimed_listened_routed_and_given_back() {
     assert_eq!(k["main"].addr, "events.shop.doze:9092");
     assert_eq!(k["main"].url, "");
     let console = bound.instances["events"].listeners["console"]
-        .socket
-        .local_addr()
-        .unwrap()
+        .public
         .to_string();
     let registry = bound.instances["events"].listeners["registry"]
-        .socket
-        .local_addr()
-        .unwrap()
+        .public
         .to_string();
     assert_eq!(
         reg.front_target("events.shop.doze"),
@@ -104,6 +116,56 @@ fn a_stack_is_claimed_listened_routed_and_given_back() {
         doze_names::ports::read_ports(reg.path()).is_empty(),
         "ports left behind"
     );
+}
+
+/// A SYN from this machine to `to`, as the kernel hands it to the network daemon: from the daemon's own address.
+fn syn(from: [u8; 4], to: SocketAddrV4) -> Vec<u8> {
+    let mut p = vec![0u8; 40];
+    p[0] = 0x45;
+    p[2..4].copy_from_slice(&40u16.to_be_bytes());
+    p[8] = 64;
+    p[9] = 6;
+    p[12..16].copy_from_slice(&from);
+    p[16..20].copy_from_slice(&to.ip().octets());
+    // A source port no listener is on, so it is not taken for a service's answer.
+    p[20..22].copy_from_slice(&1u16.to_be_bytes());
+    p[22..24].copy_from_slice(&to.port().to_be_bytes());
+    p[32] = 5 << 4;
+    p[33] = 0x02;
+    p
+}
+
+/// Whoever holds the front door dials a route's target from this machine, so where addresses are translated the
+/// packet goes to the network daemon, which must turn it into the listener's socket. Routed to the socket itself (the
+/// daemon's own address and a private port) it was dropped, and `http://catalog.larder.doze` through :80 hung while
+/// `:8002` answered.
+#[test]
+fn a_route_dialled_through_the_network_daemon_reaches_its_listener() {
+    let reg = Registry::open(&home(), "doze").with_net(TRANSLATED_LOOPBACK);
+    let p = plan("shop", &[kafka(), aws("aws")], Addressing::Own).unwrap();
+    let bound = bind(&p, &reg, &sock).unwrap();
+    let table = doze_names::table::read_port_table(reg.path(), TRANSLATED_LOOPBACK);
+    let gw = TRANSLATED_LOOPBACK.gateway().octets();
+    for (inst, listener, host) in [
+        ("aws", "main", "aws.shop.doze"),
+        ("aws", "main", "sync-aws.shop.doze"),
+        ("events", "console", "events.shop.doze"),
+        ("events", "registry", "x.registry.events.shop.doze"),
+    ] {
+        let target: SocketAddrV4 = reg.front_target(host).unwrap().parse().unwrap();
+        let mut packet = syn(gw, target);
+        assert!(
+            doze_names::nat::translate(&mut packet, gw, &table),
+            "{host}: the network daemon drops a dial to {target}"
+        );
+        let ip: [u8; 4] = packet[16..20].try_into().unwrap();
+        let at = SocketAddrV4::new(ip.into(), u16::from_be_bytes([packet[22], packet[23]]));
+        let socket = bound.instances[inst].listeners[listener]
+            .socket
+            .local_addr()
+            .unwrap();
+        assert_eq!(std::net::SocketAddr::V4(at), socket, "{host}");
+    }
 }
 
 #[test]

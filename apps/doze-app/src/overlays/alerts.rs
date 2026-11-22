@@ -30,9 +30,11 @@ fn enter(el: gpui::Div, id: SharedString, motion: Motion) -> AnyElement {
     .into_any_element()
 }
 
-/// An alert's buttons: its first fix that is not Show, and Show unless its page is the one on screen.
+/// An alert's buttons: its first fix that is not Show, and Show unless its page is the one on screen. The fix wears the
+/// alert's tone, as the bell's does: the action and the alarm are one colour.
 fn alert_fixes(t: &Tokens, it: &Item, here: bool, cx: &mut Context<Root>) -> gpui::Div {
     let mut fx = div().flex().gap(px(6.)).mt(px(6.));
+    let tone = if it.red { t.bad } else { t.warn };
     if let Some(f) = it.fixes.iter().find(|f| f.kind != FixKind::Show).cloned() {
         let item = it.clone();
         fx = fx.child(
@@ -44,6 +46,9 @@ fn alert_fixes(t: &Tokens, it: &Item, here: bool, cx: &mut Context<Root>) -> gpu
                 Btn::Primary,
                 None,
             )
+            .bg(tone)
+            .border_color(tone)
+            .text_color(t.ink)
             .h(px(24.))
             .px(px(10.))
             .on_click(cx.listener(move |r, _, window, cx| r.fix_item(&item, &f, window, cx))),
@@ -71,8 +76,8 @@ fn alert_fixes(t: &Tokens, it: &Item, here: bool, cx: &mut Context<Root>) -> gpu
 fn alert(t: &Tokens, it: &Item, here: bool, cx: &mut Context<Root>) -> gpui::Div {
     let fx = alert_fixes(t, it, here, cx);
     let id = it.id.clone();
-    div()
-        .w(px(380.))
+    crate::outward::Probe::probe(div(), format!("alert-{}", it.id), it.title.clone())
+        .w(px(420.))
         .flex()
         .items_start()
         .gap(px(10.))

@@ -1,5 +1,13 @@
 # The interaction tests: driving the console in real Chrome
 
+**Since R5 the harness below is history**: `tools/ux` drove the classic (htmx) pages and was removed with them (7b791fd1c). The React
+console's browser gate is Playwright (`web/e2e`, three browsers); the live-design proofs of a tail are Playwright specs with the same
+numbers. For the Live tail page (`/tail`) they are in `web/e2e/tests/tail.spec.ts`: **stream-rate** (no request and no DOM mutation
+after load while nothing is chosen), **held while scrolled** and while hovered (the pill counts, `scrollTop` and `scrollY` unchanged,
+the boxes of the header, strip, bar, chips and table head identical), **table-stable** (batches at least a pace apart, no row replaced or
+rewritten, layout shift under 0.01 in Chromium, no row twice) and **reconnect** (a broker killed and started again: the tail says
+Reconnecting, then Live, and brings what was written meanwhile, once). What follows is the classic record.
+
 `tools/ux/drive.ts` drives the console the way a person does (real mouse and key events over the DevTools Protocol, `Input.dispatchMouseEvent` and `Input.dispatchKeyEvent`) and asserts **numbers**: `scrollY` before and after, bounding boxes before and after, the drawer's rectangle, `layout-shift` totals from a `PerformanceObserver`, the animation each element runs (`getAnimations()`), the element that has focus, the address and the history length, and every console error, warning, exception and CSP violation the page produced. The structure gate (`board-diff`) and the DOM tests cannot see any of these; the owner did, so this exists. It is **not in CI** (it needs Chrome).
 
 ## Run it

@@ -4,7 +4,7 @@
 /// The Library head's Open folder… (library.tsx).
 pub const OPEN_FOLDER: &str = "Open a project folder (⌘O)";
 /// The Library head's Settings (library.tsx).
-pub const SETTINGS: &str = "Themes, the machine, about (⌘,)";
+pub const SETTINGS: &str = "Mode, the machine, about (⌘,)";
 /// The machine line's "N left behind · Clean up…" (library.tsx Machine).
 pub const LEFT_BEHIND: &str =
     "Processes, data and routes stacks left behind, out of step with doze";
@@ -37,7 +37,7 @@ mod tests {
     #[test]
     fn the_titles_are_gos_words() {
         assert_eq!(OPEN_FOLDER, "Open a project folder (⌘O)");
-        assert_eq!(SETTINGS, "Themes, the machine, about (⌘,)");
+        assert_eq!(SETTINGS, "Mode, the machine, about (⌘,)");
         assert_eq!(
             LEFT_BEHIND,
             "Processes, data and routes stacks left behind, out of step with doze"

@@ -146,6 +146,42 @@ fn a_fingerprint_follows_the_spec() {
     assert_ne!(print(&a), print(&c));
 }
 
+/// The shape pass (what `doze sync` and the daemon's `blocks.json` compare) sees an edit inside a module block: a
+/// nested block, an argument, a variable it reads. Go fingerprinted the full load; the shape pass hashed only the
+/// header. A comment or spacing is not a change.
+#[test]
+fn a_modules_shape_fingerprint_sees_inside_its_block() {
+    let base = "variable \"owner\" {\n  default = \"app\"\n}\n\nmodule postgres \"db\" {\n  version = 16\n  database \"shop\" {\n    owner = var.owner\n  }\n}\n";
+    let s = Stack::new("fp-module", &[("doze.hcl", base)]);
+    let host = s.host(None);
+    let print = |src: &str| {
+        std::fs::write(s.dir.join("doze.hcl"), src).unwrap();
+        let c = doze_config::load_shape("doze.hcl", &opts(&host, &Fixtures)).unwrap();
+        c.block_fingerprints()["db"].fingerprint.clone()
+    };
+    let before = print(base);
+    assert_eq!(before, print(base));
+    assert_eq!(
+        before,
+        print(&base.replace("  database", "  # the shop's own\n  database")),
+        "a comment is not a change"
+    );
+    for edit in [
+        base.replace("\"shop\"", "\"store\""),
+        base.replace("default = \"app\"", "default = \"admin\""),
+        base.replace(
+            "  version = 16\n",
+            "  version = 16\n  max_connections = 50\n",
+        ),
+        base.replace(
+            "    owner = var.owner\n",
+            "    owner = var.owner\n  }\n  role \"app\" {\n",
+        ),
+    ] {
+        assert_ne!(before, print(&edit), "{edit}");
+    }
+}
+
 #[test]
 fn a_module_takes_its_override() {
     let s = Stack::new(

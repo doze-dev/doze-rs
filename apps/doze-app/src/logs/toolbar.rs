@@ -306,6 +306,7 @@ pub(crate) fn dock(t: &Tokens, v: &mut LogsView, cx: &mut Context<LogsView>) -> 
         .border_1()
         .border_color(t.line)
         .bg(t.well)
+        .shadow(t.lift())
         .overflow_hidden()
         .child(list::list(t, v, cx))
         .child(cap)

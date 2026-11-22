@@ -202,8 +202,7 @@ fn helper_process(name: &str, listen: &str, hooks: Vec<Vec<String>>) -> Process 
 
 #[allow(clippy::unwrap_used)] // test code
 fn free_addr() -> String {
-    let l = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
-    l.local_addr().unwrap().to_string()
+    format!("127.0.0.1:{}", doze_engine::ports::free_port().unwrap())
 }
 
 /// P3: hooks run after their process is ready, their output goes to the log, and a failing hook stops the plan and

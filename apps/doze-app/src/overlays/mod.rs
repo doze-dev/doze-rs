@@ -27,7 +27,7 @@ use crate::theme::{Motion, Tokens, alpha};
 /// What is open over the page.
 pub(crate) enum Overlay {
     Palette(gpui::Entity<palette::Palette>),
-    Help,
+    Help(gpui::Entity<help::HelpView>),
     Dialog(gpui::Entity<dialog::DialogView>),
     Preflight(gpui::Entity<preflight::PreflightView>),
     Start(gpui::Entity<start::StartView>),

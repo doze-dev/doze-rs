@@ -45,6 +45,10 @@ pub(crate) fn stage(root: &mut Root, window: &mut Window, cx: &mut Context<Root>
     }
     match s.over.as_deref() {
         Some("bell") => root.on_bell(&crate::actions::OpenBell, window, cx),
+        // The help sheet over whatever page the shot is on; `help-words` on its glossary; `--query` typed in.
+        Some(w @ ("help" | "help-words")) => {
+            help(root, w == "help-words", s.query.as_deref(), window, cx)
+        }
         Some("alerts") => {
             root.attn.alerts = root
                 .attn
@@ -74,6 +78,27 @@ pub(crate) fn stage(root: &mut Root, window: &mut Window, cx: &mut Context<Root>
         // The ⋯ menu: the selected Library row's (`--select` a stack by name), or the stack page head's.
         Some("menu") => menu(root, s, cx),
         _ => {}
+    }
+}
+
+/// The help sheet over the page, on its words or with a filter typed.
+fn help(
+    root: &mut Root,
+    on_words: bool,
+    q: Option<&str>,
+    window: &mut Window,
+    cx: &mut Context<Root>,
+) {
+    root.on_help(&crate::actions::ShowHelp, window, cx);
+    if let Some(Overlay::Help(h)) = root.overlay_now() {
+        h.update(cx, |h, cx| {
+            if on_words {
+                h.show(crate::overlays::help::model::Section::Words, window, cx);
+            }
+            if let Some(q) = q {
+                h.type_in(q, window, cx);
+            }
+        });
     }
 }
 

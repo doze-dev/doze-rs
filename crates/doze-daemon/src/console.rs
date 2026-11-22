@@ -237,7 +237,7 @@ fn stream(
                 },
                 Err(e) => ConsoleFrame {
                     panel: panel.clone(),
-                    error: e.message,
+                    error: e.describe(),
                     ..ConsoleFrame::default()
                 },
             };

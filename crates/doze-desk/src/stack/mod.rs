@@ -21,6 +21,10 @@ use std::thread;
 pub(crate) struct Wanted {
     pub(crate) stats: bool,
     pub(crate) logs: bool,
+    /// The log ring is kept: a page watches the logs, or the UI shows (a page that stopped watching may be gone back
+    /// to). Neither, the window has closed, and the ring lets its lines go (`LogRing::release`); a page that watches
+    /// again is sent the daemon's backlog.
+    pub(crate) keep_logs: bool,
 }
 
 /// What the hub tells a stack's thread.
@@ -56,6 +60,10 @@ pub(crate) struct Stack {
     state: Arc<Mutex<StackState>>,
     cmds: Sender<Cmd>,
     client: Client,
+    /// The daemon's pid when it was found: another pid on the same socket is a new daemon, followed afresh.
+    pub(crate) pid: Option<u32>,
+    /// Whether the last look found its daemon lost ([`crate::Link::lost`]): a change is said once, when it turns.
+    pub(crate) lost_seen: bool,
 }
 
 pub(crate) fn lock<T>(m: &Mutex<T>) -> MutexGuard<'_, T> {
@@ -92,7 +100,14 @@ impl Stack {
             state,
             cmds,
             client,
+            pid: None,
+            lost_seen: false,
         }
+    }
+
+    /// Runs `f` on the stack's state: the hub's own changes to it (an action of the app ending).
+    pub(crate) fn with_state<R>(&self, f: impl FnOnce(&mut StackState) -> R) -> R {
+        f(&mut lock(&self.state))
     }
 
     /// The stack as pages see it now.

@@ -61,8 +61,9 @@ impl Drop for Sandbox {
 /// Where handed-out ports come from: below every system's ephemeral range (Linux starts at 32768, macOS and
 /// Windows at 49152), so an outgoing connection made in the gap between this probe and the engine's bind cannot be
 /// given the same port. A port from the ephemeral range (`bind(":0")`) could be, and was: "events exited before it
-/// was ready: Address already in use" on Linux CI.
-const PORTS: std::ops::Range<u32> = 20_000..32_000;
+/// was ready: Address already in use" on Linux CI. Not 20000..32000: the engine hands those out from the same
+/// per-process offset, so a test and an engine in one process would be given the same port.
+const PORTS: std::ops::Range<u32> = 10_000..20_000;
 
 static NEXT_PORT: AtomicU32 = AtomicU32::new(0);
 

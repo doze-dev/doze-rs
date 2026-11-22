@@ -108,7 +108,7 @@ fn unset(admin: bool) -> Staged {
         }),
         at: Some(DozeAt {
             on_path: None,
-            elsewhere: Some("/Users/you/go/bin/doze".into()),
+            own: Some("/Applications/Doze.app/Contents/MacOS/doze".into()),
         }),
         machine: Some(Machine {
             home: "/Users/you/.doze".into(),
@@ -346,7 +346,7 @@ fn run_sheet(root: &mut Root, ran: bool, window: &mut Window, cx: &mut Context<R
             what: "put doze on your PATH".into(),
             dir: None,
             args: Vec::new(),
-            script: "mkdir -p /usr/local/bin\nln -sf '/Users/you/go/bin/doze' /usr/local/bin/doze"
+            script: "mkdir -p /usr/local/bin\nln -sf '/Applications/Doze.app/Contents/MacOS/doze' /usr/local/bin/doze"
                 .into(),
             prune: false,
         },

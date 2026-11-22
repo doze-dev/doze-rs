@@ -16,7 +16,8 @@ type Heard = Arc<Mutex<Vec<(Duration, Said)>>>;
 
 fn hands() -> (SystemHands, Heard) {
     let said = Arc::new(Mutex::new(Vec::new()));
-    let mut h = SystemHands::new(Cli::go("doze".into()), std::env::temp_dir());
+    // Only the admin scripts run here: no doze is.
+    let mut h = SystemHands::new(Cli::at("/nonexistent/doze".into()), std::env::temp_dir());
     let (s, t0) = (said.clone(), Instant::now());
     h.out = Some(Arc::new(move |l: Said| {
         println!("{:>6} ms  {l:?}", t0.elapsed().as_millis());

@@ -154,7 +154,7 @@ impl Linker<'_> {
             values,
             numbers,
         });
-        work.push(Work::Enum(e, i));
+        work.push(Work::Enum(e, i, full));
         Ok(())
     }
 

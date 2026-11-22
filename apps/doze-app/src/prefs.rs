@@ -1,5 +1,5 @@
 //! The app's preferences: `$DOZE_HOME/desk/prefs.json`, the Go app's file and keys (Go `internal/desk/prefs`), so
-//! moving between the two apps keeps the window's frame and the theme. A write changes only the keys this app owns
+//! moving between the two apps keeps the window's frame and the mode. A write changes only the keys this app owns
 //! and keeps every other key as it was. Written atomically (a temporary file renamed over it).
 //!
 //! Nothing is written until [`set_home`] names the home: a screenshot or a bench run has none.
@@ -10,7 +10,7 @@ use std::time::SystemTime;
 
 use serde_json::{Map, Value, json};
 
-use crate::theme::{Choice, Mode, Palette};
+use crate::theme::{Choice, Mode};
 
 pub(crate) mod page;
 pub(crate) mod recall;
@@ -110,20 +110,23 @@ pub(crate) fn save_frame(f: Frame) {
     });
 }
 
-/// The palette and mode last chosen (`theme`, `mode`).
+/// The mode last chosen (`mode`).
 pub(crate) fn theme() -> Choice {
-    let m = load();
-    let s = |k: &str| m.get(k).and_then(Value::as_str).unwrap_or("").to_owned();
+    choice_of(&load())
+}
+
+/// The choice a prefs file holds. Its `theme` (a palette's name, from the Go app or an older doze) is not read:
+/// every palette is the one look now, so an old name is no error and changes nothing.
+fn choice_of(m: &Map<String, Value>) -> Choice {
+    let mode = m.get("mode").and_then(Value::as_str).unwrap_or("");
     Choice {
-        palette: Palette::parse(&s("theme")).unwrap_or_default(),
-        mode: Mode::parse(&s("mode")).unwrap_or_default(),
+        mode: Mode::parse(mode).unwrap_or_default(),
     }
 }
 
-/// Keeps the palette and mode.
+/// Keeps the mode. The `theme` key is left as it is, for the Go app that still reads it.
 pub(crate) fn save_theme(c: Choice) {
     save(|m| {
-        m.insert("theme".into(), Value::String(c.palette.name().into()));
         let mode = match c.mode {
             Mode::System => "system",
             Mode::Dark => "dark",
@@ -238,8 +241,32 @@ mod chrono_free {
 
 #[cfg(test)]
 mod tests {
-    use super::frame_of;
+    use super::{choice_of, frame_of};
+    use crate::theme::Mode;
     use serde_json::json;
+
+    #[test]
+    fn an_old_palette_name_reads_as_the_one_look() {
+        for name in [
+            "violet",
+            "teal",
+            "burgundy",
+            "amber",
+            "slate",
+            "candidate-graphite",
+            "nonsense",
+            "",
+        ] {
+            let m = json!({"theme": name, "mode": "light"});
+            assert_eq!(
+                choice_of(m.as_object().unwrap()).mode,
+                Mode::Light,
+                "{name}"
+            );
+        }
+        let m = json!({"theme": 7});
+        assert_eq!(choice_of(m.as_object().unwrap()).mode, Mode::System);
+    }
 
     #[test]
     fn the_go_frame_reads_and_an_unplaced_one_does_not() {

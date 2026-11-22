@@ -274,6 +274,7 @@ async fn a_write_without_the_same_origin_proof_is_refused() {
         "/api/v1/topics/t/produce",
         "/api/v1/topics/t/add-partitions",
         "/api/v1/topics/t/delete-records",
+        "/api/v1/topics/t/empty",
         "/api/v1/topics/t/delete",
         "/api/v1/topics/t/config/edit",
         "/api/v1/topics/t/config/reset",

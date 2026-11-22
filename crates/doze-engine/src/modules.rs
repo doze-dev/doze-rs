@@ -201,11 +201,11 @@ impl ModuleInstance {
     }
 
     async fn plan_inner(&self, ctx: &PlanCtx) -> Result<Planned, String> {
-        let m = self.pool.get(&self.key).await.map_err(|e| e.message)?;
+        let m = self.pool.get(&self.key).await.map_err(|e| e.describe())?;
         let mut i = self.instance(ctx);
         self.choose_ports(&mut i)?;
         doze_os::fs::private_dir(&ctx.run_dir).map_err(|e| e.to_string())?;
-        m.decode(&i).await.map_err(|e| e.message)?;
+        m.decode(&i).await.map_err(|e| e.describe())?;
         let args = ResolveArgs {
             instance: i.clone(),
             target: self.target.clone(),
@@ -215,7 +215,7 @@ impl ModuleInstance {
                 .unwrap_or_else(PoisonError::into_inner)
                 .clone(),
         };
-        let resolved = m.resolve(&args).await.map_err(|e| e.message)?;
+        let resolved = m.resolve(&args).await.map_err(|e| e.describe())?;
         self.keep_pins(&resolved.pins);
         let toolchain = resolved.toolchain;
         *self
@@ -227,8 +227,8 @@ impl ModuleInstance {
             instance: i,
             toolchain,
         };
-        m.provision(&with).await.map_err(|e| e.message)?;
-        let plan = m.plan(&with).await.map_err(|e| e.message)?;
+        m.provision(&with).await.map_err(|e| e.describe())?;
+        let plan = m.plan(&with).await.map_err(|e| e.describe())?;
         // Where it is reached: the backend the host granted its main listener, else what its first process's check
         // waits on (a module whose check is a command or a log line still has its grant).
         let granted = with
@@ -283,20 +283,22 @@ impl Planner for ModuleInstance {
 impl Structure for ModuleInstance {
     fn objects<'a>(&'a self, ctx: &'a PlanCtx) -> BoxFuture<'a, Result<Vec<Object>, String>> {
         Box::pin(async move {
-            let m = self.pool.get(&self.key).await.map_err(|e| e.message)?;
-            m.objects(&self.instance(ctx)).await.map_err(|e| e.message)
+            let m = self.pool.get(&self.key).await.map_err(|e| e.describe())?;
+            m.objects(&self.instance(ctx))
+                .await
+                .map_err(|e| e.describe())
         })
     }
 
     fn converge<'a>(&'a self, ctx: &'a PlanCtx) -> BoxFuture<'a, Result<(), String>> {
         Box::pin(async move {
-            let m = self.pool.get(&self.key).await.map_err(|e| e.message)?;
+            let m = self.pool.get(&self.key).await.map_err(|e| e.describe())?;
             let caps = m.manifest.caps;
             if caps & doze_module_proto::msg::hello::caps::CONVERGE == 0 {
                 return Ok(());
             }
             let with = self.with_toolchain(ctx).await?;
-            m.converge(&with).await.map_err(|e| e.message)
+            m.converge(&with).await.map_err(|e| e.describe())
         })
     }
 
@@ -306,7 +308,7 @@ impl Structure for ModuleInstance {
         removed: &'a [Object],
     ) -> BoxFuture<'a, Result<(), String>> {
         Box::pin(async move {
-            let m = self.pool.get(&self.key).await.map_err(|e| e.message)?;
+            let m = self.pool.get(&self.key).await.map_err(|e| e.describe())?;
             if m.manifest.caps & doze_module_proto::msg::hello::caps::PRUNE == 0 {
                 return Ok(());
             }
@@ -316,7 +318,7 @@ impl Structure for ModuleInstance {
                 toolchain: with.toolchain,
                 removed: removed.to_vec(),
             };
-            m.prune(&args).await.map_err(|e| e.message)
+            m.prune(&args).await.map_err(|e| e.describe())
         })
     }
 

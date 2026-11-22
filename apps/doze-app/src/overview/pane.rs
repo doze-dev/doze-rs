@@ -56,18 +56,25 @@ fn sections() -> gpui::Stateful<gpui::Div> {
         .overflow_y_scroll()
 }
 
-/// The pane for the selection.
-pub(super) fn pane(t: &Tokens, v: &OverviewView, cx: &mut Context<OverviewView>) -> AnyElement {
+/// The pane for the selection, or none: with nothing selected the rows have the width (an empty pane was a third of
+/// the page saying nothing, the design pass of 2026-11-19 found); a row picked whose pane has not come yet keeps the
+/// frame, so the rows do not jump twice.
+pub(super) fn pane(
+    t: &Tokens,
+    v: &OverviewView,
+    cx: &mut Context<OverviewView>,
+) -> Option<AnyElement> {
     let row = v
         .selected
         .as_ref()
         .and_then(|n| all_rows(&v.home).into_iter().find(|r| &r.name == n))
         .cloned();
-    match (row, &v.pane) {
+    Some(match (row, &v.pane) {
+        (None, _) => return None,
         (Some(r), _) if r.down => down(t, &r, cx),
         (Some(r), Some(p)) if p.name == r.name => live(t, &r, p, cx),
         _ => frame(t).into_any_element(),
-    }
+    })
 }
 
 /// `.ih.stack`: the dot and name, what runs it, its word and why.

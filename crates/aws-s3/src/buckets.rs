@@ -11,7 +11,7 @@ use crate::req::{Answer, Out, Req};
 
 /// Whether `name` follows the bucket naming rules (3 to 63 characters of lower-case letters, digits, hyphens and dots; starts and
 /// ends with a letter or digit; no `..`; not an IP address; none of the reserved prefixes and suffixes).
-pub(crate) fn valid_name(name: &str) -> bool {
+pub fn valid_name(name: &str) -> bool {
     let ok_chars = name
         .bytes()
         .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'-' || b == b'.');

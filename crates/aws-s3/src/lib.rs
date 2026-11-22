@@ -26,6 +26,7 @@ mod cors;
 mod data;
 mod delete;
 mod download;
+mod elsewhere;
 mod errors;
 mod eventbridge;
 mod events;
@@ -45,6 +46,7 @@ mod notify;
 mod public;
 mod put;
 mod receive;
+mod regions;
 mod req;
 mod storage;
 mod store;
@@ -70,10 +72,14 @@ use doze_fs::fs::RealFs;
 use doze_runtime::{Clock, Ctx, Keyed, Tasks};
 
 use crate::blob::Blobs;
+/// Whether `name` is a bucket name S3 accepts: the rule `CreateBucket` holds a name to, for a caller (doze.hcl's check) that wants
+/// to refuse a bad one before anything is made.
+pub use crate::buckets::valid_name as valid_bucket_name;
 use crate::checksum::Algo;
 use crate::core::Core;
 use crate::janitor::Janitor;
 use crate::receive::{Declared, receive};
+pub use crate::regions::known as known_regions;
 use crate::req::{Answer, Ask};
 
 /// The region whose files are kept in the service's directory itself.
@@ -194,9 +200,13 @@ impl Inner {
         let op = Operation::from_index(call.op);
         let answer = match (op, upload) {
             (Some(Operation::PutObject | Operation::UploadPart), Some(mut upload)) => {
-                self.stream_in(&region, call, upload.as_mut()).await?
+                self.stream_in(&region, call, upload.as_mut()).await
             }
-            (_, _) => self.ask(&region, Ask::Call(call, None)).await?,
+            (_, _) => self.ask(&region, Ask::Call(call, None)).await,
+        };
+        let answer = match answer {
+            Err(e) if e.code == "NoSuchBucket" => return Err(self.hint_regions(&region, e).await),
+            other => other?,
         };
         if op == Some(Operation::PutBucketLifecycleConfiguration) {
             self.arm(&region);
@@ -276,6 +286,11 @@ impl Service for S3 {
 
     fn storage(&self) -> Option<&dyn aws_wire::storage::Storage> {
         Some(self)
+    }
+
+    /// The AWS CLI's downloads send `x-amz-checksum-mode: enabled`; S3 takes it in any case (the model's one value is `ENABLED`).
+    fn case_blind_headers(&self) -> &'static [&'static str] {
+        &["x-amz-checksum-mode"]
     }
 
     /// S3 words a request that breaks the model's rules as `InvalidArgument`.

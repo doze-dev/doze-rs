@@ -162,10 +162,18 @@ fn clap_error(ctx: &mut Ctx<'_>, e: &clap::Error, typed: &str, json: bool) -> Ex
     )
 }
 
-/// Whether `word` names a doze command (or one of its aliases, hidden ones included): what a program that carries the
-/// CLI beside its own face (the desktop app) checks to hand a command line to [`process::main`].
+/// The words [`process::main`] takes before the command line is parsed, which no person types: the network daemon
+/// dns-setup installs, the stack's daemon (`ctl::start` runs `<this program> __daemon`) and the daemon's download
+/// child (`__fetch`). A program that embeds the CLI runs them through [`process::main`] and so hosts its own daemon.
+pub const HIDDEN_WORDS: &[&str] = &[
+    doze_names::HELPER_ARG,
+    doze_daemon::ctl::ARG,
+    fetch_child::ARG,
+];
+
+/// Whether `word` names a doze command (or one of its aliases, hidden ones included, and [`HIDDEN_WORDS`]): what a
+/// program that carries the CLI beside its own face (the desktop app) checks to hand a command line to
+/// [`process::main`].
 pub fn is_command(word: &str) -> bool {
-    word == "help"
-        || word == doze_names::HELPER_ARG
-        || Cli::command().find_subcommand(word).is_some()
+    word == "help" || HIDDEN_WORDS.contains(&word) || Cli::command().find_subcommand(word).is_some()
 }

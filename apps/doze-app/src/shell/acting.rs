@@ -107,7 +107,7 @@ impl Root {
             Overlay::Preflight(v) => (v.clone().into_any_element(), "preflight"),
             Overlay::Start(v) => (v.clone().into_any_element(), "start"),
             Overlay::Admin(v) => (v.clone().into_any_element(), "admin"),
-            Overlay::Palette(_) | Overlay::Help | Overlay::Bell(_) => return None,
+            Overlay::Palette(_) | Overlay::Help(_) | Overlay::Bell(_) => return None,
         };
         Some(scrim::center(&t, panel, motion, id, cancel))
     }

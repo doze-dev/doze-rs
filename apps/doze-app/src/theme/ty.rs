@@ -41,8 +41,6 @@ pub(crate) const XL: f32 = 20.;
 pub(crate) const FIGURE: f32 = 22.;
 /// Activity's summary figures (`.act-sum .v`).
 pub(crate) const SUMMARY: f32 = 26.;
-/// The Library's wordmark.
-pub(crate) const BRAND: f32 = 40.;
 
 // ── line heights, px ──
 
@@ -58,7 +56,6 @@ pub(crate) const LH: f32 = 20.;
 pub(crate) const LH_21: f32 = 21.;
 pub(crate) const LH_26: f32 = 26.;
 pub(crate) const LH_30: f32 = 30.;
-pub(crate) const LH_44: f32 = 44.;
 /// A key chip's line is its glyph's size and this.
 pub(crate) const CHIP_LEAD: f32 = 5.;
 /// A one-line label set solid but for this (the minimap's names).
@@ -83,8 +80,6 @@ pub(crate) const SEMIBOLD: FontWeight = FontWeight(600.);
 pub(crate) const HEADING: FontWeight = FontWeight(650.);
 /// Group captions (`.gl`, `.qh`), tags, badges: Go's 700.
 pub(crate) const BOLD: FontWeight = FontWeight(700.);
-/// The wordmark: Go's 750.
-pub(crate) const BRAND_WEIGHT: FontWeight = FontWeight(750.);
 
 /// `font-variant-numeric: tabular-nums` (the strip, memory, tables): figures one width, so a number that changes
 /// does not shift what follows it.

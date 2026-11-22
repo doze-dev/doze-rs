@@ -8,12 +8,12 @@ use super::LibraryView;
 use crate::kit::{heading, need, pill, s, tone};
 use crate::outward::Probe as _;
 use crate::theme::{Tokens, ty};
-use crate::widgets::{Mono as _, dot, switch};
+use crate::widgets::{Mono as _, dot, sel_bar, switch};
 
 /// The columns' widths: the dot, then name / running / addresses share the rest, then last and the controls.
 const DOT_W: f32 = 10.;
 const WHEN_W: f32 = 96.;
-const ACT_W: f32 = 86.;
+const ACT_W: f32 = 118.;
 
 fn cols<E: ParentElement>(row: E, cells: [AnyElement; 6]) -> E {
     let [d, name, fig, pills, when, act] = cells;
@@ -64,6 +64,7 @@ pub(super) fn table(
         .border_1()
         .border_color(t.line)
         .bg(t.panel)
+        .shadow(t.lift())
         .child(header);
     let n = v.lib.stacks.len();
     for (i, st) in v.lib.stacks.iter().enumerate() {
@@ -81,6 +82,7 @@ fn row(
 ) -> impl IntoElement {
     let selected = v.selected.as_deref() == Some(st.key.as_str());
     let busy = super::act::busy(&st.key, cx);
+    let (shown, sleeping) = super::act::busy_shown(&st.key, cx);
     let menu = v.menu.as_deref() == Some(st.key.as_str());
     let pad = v.density.pad();
     let key = st.key.clone();
@@ -91,16 +93,15 @@ fn row(
         "y" => t.warn,
         _ => t.dim,
     };
-    // `.lrow`: the pick when selected, the hover colour under the pointer, easing over 120 ms.
+    // `.lrow`: selected is `sel` with the accent bar at its left edge, hovered `sel` alone, easing over 120 ms.
     let hid = format!("lrow/{key}");
-    let row_bg = if selected {
-        t.pick
-    } else if crate::motion::hovered(&hid) {
+    let row_bg = if selected || crate::motion::hovered(&hid) {
         t.sel
     } else {
         gpui::transparent_black()
     };
     let (row_bg, bg_moving) = crate::motion::colour(&hid, row_bg);
+    let bar = selected.then(|| sel_bar(t, 0.).when(last, |d| d.rounded_bl(px(10.))));
     let base = div()
         .id(gpui::SharedString::from(format!("lrow-{key}")))
         .relative()
@@ -114,6 +115,7 @@ fn row(
         .border_color(t.line)
         .when(last, |d| d.rounded_b(px(10.)))
         .bg(row_bg)
+        .children(bar)
         .child(crate::motion::tick(bg_moving))
         .on_click(cx.listener(move |this, e: &gpui::ClickEvent, _, cx| {
             if e.click_count() >= 2 {
@@ -132,11 +134,11 @@ fn row(
             .flex()
             .justify_end()
             .text_size(px(ty::SM))
-            .text_color(if busy.is_some() { t.cool } else { t.dim })
+            .text_color(if shown.is_some() { t.cool } else { t.dim })
             .whitespace_nowrap()
-            .child(busy.map_or_else(|| st.when.clone(), |b| format!("{}…", b.word())))
+            .child(shown.map_or_else(|| st.when.clone(), |b| format!("{}…", b.word())))
             .into_any_element(),
-        act(t, st, (menu, busy), &k2, cx).into_any_element(),
+        act(t, st, (menu, busy, sleeping), &k2, cx).into_any_element(),
     ];
     let mut r = cols(base, cells);
     if menu {
@@ -285,17 +287,35 @@ fn pills(t: &Tokens, st: &LibStack, cx: &mut Context<LibraryView>) -> impl IntoE
 fn act(
     t: &Tokens,
     st: &LibStack,
-    (menu, busy): (bool, Option<doze_desk::act::Busy>),
+    (menu, busy, sleeping): (bool, Option<doze_desk::act::Busy>, bool),
     key: &str,
     cx: &mut Context<LibraryView>,
 ) -> impl IntoElement {
+    use super::menu::Moon;
     let k = key.to_owned();
     let k_sw = key.to_owned();
+    let k_moon = key.to_owned();
+    let moon = if !st.running {
+        Moon::Hidden
+    } else if sleeping {
+        Moon::Working
+    } else if busy.is_some() || !st.live || st.dot == "z" {
+        Moon::Off
+    } else {
+        Moon::Ready
+    };
     div()
         .flex()
         .items_center()
         .justify_end()
         .gap(px(4.))
+        .child(super::menu::moon(
+            t,
+            &format!("moon-{key}"),
+            moon,
+            move |this: &mut LibraryView, cx| this.sleep_all(&k_moon, cx),
+            cx,
+        ))
         .child(
             div()
                 .id(gpui::SharedString::from(format!("sw-{key}")))

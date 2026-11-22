@@ -3,8 +3,8 @@
 //! page in another state: the same rows in the same places, each down, the strip saying what Up starts.
 //!
 //! Every word is doze-desk's ([`doze_desk::overview`]); this keeps the selection, the filter, the Grid's crosshair.
-//! The page watches the stack's meters while it shows, so its figures are the last second's; it redraws only when what
-//! it shows changed.
+//! It watches the stack's meters while it shows, read as the window is looked at (`shell::clock`); it redraws only
+//! when what it shows changed.
 
 mod act;
 mod addr;
@@ -19,6 +19,7 @@ mod list;
 mod pane;
 mod strip;
 mod tiles;
+mod toolbar;
 
 use std::collections::HashMap;
 use std::path::Path;
@@ -114,6 +115,9 @@ pub(crate) struct OverviewView {
     pub(crate) printed: bool,
     /// The head's ⋯ menu is open.
     pub(crate) menu: bool,
+    /// The rows whose switch asked for the stack's action under way (shown once it has lasted a moment): each
+    /// turns a spinner where its switch is. Read from acts at each render.
+    pub(super) turning: Vec<String>,
     /// The filter box has the keys (its frame takes the accent's tint).
     pub(crate) filter_on: bool,
     /// Where the Tiles are scrolled to: held here, so only the person (or a new stack) moves it, never a redraw.
@@ -139,7 +143,6 @@ impl OverviewView {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> OverviewView {
-        cx.observe(&facts, |this, _, cx| this.refresh(cx)).detach();
         act::observe_acts(cx);
         let filter = cx.new(|cx| InputState::new(window, cx).placeholder("Filter"));
         cx.subscribe(
@@ -185,6 +188,7 @@ impl OverviewView {
             width: 1280.,
             printed: false,
             menu: false,
+            turning: Vec::new(),
             filter_on: false,
             tiles_scroll: gpui::ScrollHandle::new(),
             items: std::rc::Rc::default(),
@@ -379,6 +383,7 @@ impl Render for OverviewView {
         self.width = width;
         self.filter_on = self.filter.read(cx).focus_handle(cx).is_focused(window);
         self.keep_names(window, cx);
+        self.turning = self.busy_shown(cx).1;
         let body = match self.view {
             View::Tiles => tiles::view(&t, self, cx).into_any_element(),
             View::List => list::view(&t, self, cx).into_any_element(),
@@ -420,7 +425,7 @@ impl Render for OverviewView {
             .on_action(cx.listener(|this, _: &UpAsLastTime, _, cx| this.up_last(cx)))
             .on_action(cx.listener(|this, _: &ChooseStart, _, cx| this.choose_start(cx)))
             .on_action(cx.listener(|this, _: &WakeIt, _, cx| this.selected_verb(Verb::Wake, cx)))
-            .on_action(cx.listener(|this, _: &SleepIt, _, cx| this.selected_verb(Verb::Sleep, cx)))
+            .on_action(cx.listener(|this, _: &SleepIt, _, cx| this.sleep_key(cx)))
             .on_action(
                 cx.listener(|this, _: &RestartIt, _, cx| this.selected_verb(Verb::Restart, cx)),
             )

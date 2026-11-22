@@ -1725,3 +1725,89 @@ Tests: `live_api_config::a_saved_cleaner_key_says_what_the_planner_makes_of_the_
 The held page lists each group that committed on the held partition: its commit, how far it is behind the high watermark, and how
 many of those a read_committed consumer of it cannot have until the transaction ends. Tests:
 `live_api_producers::a_transaction_answer_says_what_it_holds_back_and_what_the_timeout_will_do`.
+
+## The Live tail page (`/tail`, CON-1580 to CON-1585)
+
+"Did my service actually emit that event, and what was in it?": one stream of the records written to the topics a person
+chooses, by name or by pattern, filtered by the server as it reads. A tail in the sense of CON-809, with its rules; what is its
+own is below. Design: `docs/port/console/live-design.md` (the per-page table) and `docs/port/console/react-plan.md`.
+
+## CON-1580. A tail of topics: by name or glob, from now or the last N, a topic created later joins
+`GET /api/v1/tail/topics?topic=&pattern=&from=now|last&last=` (server-sent events). Names and patterns together, at most 32; a
+pattern is a glob (`*` any run, `?` one character) and never matches an internal topic. `ready` names the topics followed and
+the cursor they start from; a name that does not exist yet, or a pattern that matches nothing yet, is not refused: it says so
+and the topic joins when it is created, from its first record (`joined` in the batch); a deleted one leaves (`left`). "From
+now" reads only what is written after `ready`; "last N" (1 to 200) starts with the newest N of each partition. Entry points: the
+sidebar, "Live tail" on a topic, "Tail this group's input" on a group (its topics that exist), and the palette. Tests:
+`live_api_tail_topics::two_topics_from_now_merge_what_is_written_after_the_tail_opened`,
+`live_api_tail_topics::last_n_starts_with_the_newest_of_each_partition_newest_first`,
+`live_api_tail_topics::a_topic_created_later_that_matches_the_pattern_joins_from_its_start`,
+`tail_filter::tests::a_glob_is_star_and_question_mark`, `stream::only_the_three_tails_can_be_followed`. File:
+`web/e2e/tests/tail.spec.ts`.
+
+## CON-1581. Bounded per connection, and nothing runs without a client
+One tail follows at most 32 topics and 512 partitions (the rest are counted in a note). One look makes one ListOffsets a topic
+and at most 64 Fetches and 4 MiB of records, round robin over the partitions that have something new, starting where the last
+look left off, so a busy partition never starves the others; a partition more than 20,000 records behind is moved to its newest
+1,000 and the records passed over are counted (`skipped`, a figure on the page), never read. An event carries at most 200
+records, each key kept to 1 KiB, each value to 8 KiB for the filters and 512 bytes on the wire, at most 16 headers. The reads
+are the console's own calls into the broker, as every page's are: nothing is added to the produce path, and a stream is only
+read while it is being sent, so a client that went away costs nothing (its place in `max_streams` is given back). Tests:
+`live_api_tail_topics::a_partition_far_behind_is_moved_to_its_newest_and_what_it_passed_over_is_counted`,
+`stream::a_tail_that_goes_away_gives_its_place_back`.
+
+## CON-1582. The filters run on the server, and the page says what they matched of what was read
+Key contains, value contains (letters of either case), a header by name and optionally one whose value contains a text, a JSON
+field by a simple path (`customer.id`, `items[0].sku`, `$.a`) equal to a string or to its JSON text (`42`, `true`, `null`), or
+just present, the partitions, and read_committed. A value in the registry's wire format is matched as the JSON its schema reads
+(an Avro union, `{"string": "rush"}`, is seen through). Every look counts the records read and the records kept, in all and per
+topic; the page shows Matched and Read as figures and each filter as a chip that turns it off. Tests:
+`live_api_tail_topics::the_filters_run_on_the_server_and_say_what_they_matched_of_what_they_read`,
+`live_api_tail_topics::a_value_with_a_schema_is_filtered_and_shown_as_its_schema_reads_it`,
+`tail_filter::tests::a_json_field_equals_its_string_or_its_json_text`, `tail_filter::tests::key_value_and_header_filters_all_hold`,
+`tail_filter::tests::a_path_is_names_and_indexes_and_nothing_else`, `tail::tests::an_ask_reads_names_patterns_start_partitions_and_filters`.
+
+## CON-1583. One merged stream that never moves what is read
+Rows are keyed by topic, partition and offset (none twice, none rewritten), newest first by time, at most 200 on screen and 500
+held; each carries its topic's colour (a hash of the name, eight theme hues, two topics of one tail never on one hue) as a bar
+and a dot, its offset, time, key, value (schema-decoded as on Messages) and its headers a click away. At most one batch a pace
+(Realtime 1 s, Relaxed 3 s, Slow 10 s); held while the person is scrolled into the table, hovers it, has the focus or a
+selection in it, or has an overlay or a popup open, behind the `N new · Show` pill (key `n`); the table's box is its full height
+from the first row, so nothing below it moves, and rows prepended at the top glide in (CON-1350) whether or not the box is
+full; the box's own glide never holds a batch. A row opens the Messages page's record Sheet (`?record=topic:partition:offset`).
+File: `web/e2e/tests/tail.spec.ts`.
+
+## CON-1584. Pause, a hidden tab and a dropped connection all go on from the cursor
+The event id is the cursor of every partition followed (`orders:0=12,1=40;payments:0=3`). Pause (key `p`) closes the stream and
+reads nothing; Resume, a tab seen again, a change of speed, or a reconnect after a drop (backoff 1, 2, 4, 8, 15 s, said by the
+indicator) open it again with `Last-Event-ID`, so what was written meanwhile comes, once. Tests:
+`live_api_tail_topics::a_reconnect_with_the_cursor_brings_what_it_missed_and_nothing_twice`,
+`tail::tests::a_cursor_names_every_partition_and_reads_back`. File: `web/e2e/tests/tail.spec.ts` (Pause, a broker killed and
+started again).
+
+## CON-1585. A row is a command that writes it again
+A row's menu copies the record as a `kcat -P` command (its partition, key, value and every header, each word quoted for a shell)
+or a `kafka-console-producer` line (`parse.key`, `parse.headers`); a record that is not plain text (binary, longer than the
+console reads, in the wire format, with control characters, a deletion, or a tab for the console producer) says why instead. The
+page's keys: `p` pause, `n` show the new rows, `/` the filters, `c` clear the screen. Files: `web/src/pages/tail/tail.test.ts`,
+`web/e2e/tests/tail.spec.ts`.
+
+## CON-1590. Empty a topic from its page: every partition to its high watermark, in one DeleteRecords
+`?dialog=empty` on a topic (the actions beside Delete topic, and the palette's `Empty <topic>…`): `GET /api/v1/topics/{topic}/empty`
+says, in the server's words, the records and bytes that go per partition and in all, the groups whose commits fall below the new log
+start (with what they had not read and whether they have members), what stays (the id, the configs, the partitions; offsets carry on
+from each end; segments leave the disk as each log start passes them, where the Data page's Empty, CON-1519, frees it at once), and the
+call. `POST` with the name typed sends ONE DeleteRecords with every partition at offset -1, as `kafka-delete-records.sh` does; a name
+that is not the topic's sends nothing. A topic whose cleanup.policy is only `compact` is refused by the broker with POLICY_VIOLATION as
+Kafka refuses it; the dialog says so before the button (which stays shut) and points at the Data page's Empty. Tests:
+`live_api_topic_empty::emptying_takes_every_partition_to_its_end_in_one_call_and_moves_the_groups_asked_for`,
+`live_api_topic_empty::a_topic_that_only_compacts_is_refused_before_the_button_and_by_the_broker`,
+`empty_records::tests::the_dialog_says_what_goes_who_falls_behind_and_what_stays`,
+`gather::empty_records::tests::only_compact_without_delete_is_compact_only`. File: `web/e2e/tests/topic-empty.spec.ts`.
+
+## CON-1591. The groups below the new start can be moved to it with the same write
+Each group with a commit below the new start is listed with a checkbox, ticked when it has no members: after the delete, each ticked
+group is reset to the earliest offset of the topic (the new start) by the Reset offsets write the group page uses, so its consumers
+do not meet OFFSET_OUT_OF_RANGE. A group with members is refused by Kafka (UNKNOWN_MEMBER_ID) and the result says so in its words; a
+group not below the start is never asked. Tests: `live_api_topic_empty::emptying_takes_every_partition_to_its_end_in_one_call_and_moves_the_groups_asked_for`.
+File: `web/e2e/tests/topic-empty.spec.ts`.

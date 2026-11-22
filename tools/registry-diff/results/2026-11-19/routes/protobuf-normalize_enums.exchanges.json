@@ -1,0 +1,460 @@
+[
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/pn-enums/versions?normalize=true",
+   "b": "{\"schema\":\"syntax = \\\"proto3\\\";\\npackage en;\\nimport \\\"google/protobuf/descriptor.proto\\\";\\nextend google.protobuf.EnumValueOptions { int32 weight = 54000; }\\nenum E {\\n  option allow_alias = true;\\n  option deprecated = true;\\n  reserved \\\"OLD\\\", \\\"GONE\\\";\\n  reserved 10 to max, 5, 7 to 8;\\n  A = 0;\\n  C = 3 [deprecated = true, (weight) = 2];\\n  B = 1;\\n  BB = 1 [deprecated = true];\\n  NEG = -1;\\n}\\nmessage Holder { E e = 1; }\\n\",\"schemaType\":\"PROTOBUF\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":63}",
+    "ms": 8
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":62,\"version\":1,\"guid\":\"46948fbd-cbe9-3675-288c-e8437c7bd36f\",\"schemaType\":\"PROTOBUF\",\"schema\":\"syntax = \\\"proto3\\\";\\npackage en;\\n\\nimport \\\"google/protobuf/descriptor.proto\\\";\\n\\nmessage Holder {\\n  .en.E e = 1;\\n}\\nenum E {\\n  reserved 5;\\n  reserved 7 to 8;\\n  reserved 10 to max;\\n  reserved \\\"GONE\\\";\\n  reserved \\\"OLD\\\";\\n  option allow_alias = true;\\n  option deprecated = true;\\n  NEG = -1;\\n  A = 0;\\n  B = 1;\\n  BB = 1 [deprecated = true];\\n  C = 3 [\\n    deprecated = true,\\n    (en.weight) = 2\\n  ];\\n}\\n\\nextend .google.protobuf.EnumValueOptions {\\n  int32 weight = 54000;\\n}\\n\"}",
+    "ms": 11
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":64}",
+    "ms": 6
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "GET",
+   "p": "/subjects/pn-enums/versions/latest/schema"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "syntax = \"proto3\";\npackage en;\n\nimport \"google/protobuf/descriptor.proto\";\n\nmessage Holder {\n  .en.E e = 1;\n}\nenum E {\n  reserved 5;\n  reserved 7 to 8;\n  reserved 10 to max;\n  reserved \"GONE\";\n  reserved \"OLD\";\n  option allow_alias = true;\n  option deprecated = true;\n  NEG = -1;\n  A = 0;\n  B = 1;\n  BB = 1 [deprecated = true];\n  C = 3 [\n    deprecated = true,\n    (en.weight) = 2\n  ];\n}\n\nextend .google.protobuf.EnumValueOptions {\n  int32 weight = 54000;\n}\n",
+    "ms": 1
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "syntax = \"proto3\";\npackage en;\n\nimport \"google/protobuf/descriptor.proto\";\n\nmessage Holder {\n  .en.E e = 1;\n}\nenum E {\n  reserved 5;\n  reserved 7 to 8;\n  reserved 10 to max;\n  reserved \"GONE\";\n  reserved \"OLD\";\n  option allow_alias = true;\n  option deprecated = true;\n  NEG = -1;\n  A = 0;\n  B = 1;\n  BB = 1 [deprecated = true];\n  C = 3 [\n    deprecated = true,\n    (en.weight) = 2\n  ];\n}\n\nextend .google.protobuf.EnumValueOptions {\n  int32 weight = 54000;\n}\n",
+    "ms": 2
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "syntax = \"proto3\";\npackage en;\n\nimport \"google/protobuf/descriptor.proto\";\n\nmessage Holder {\n  .en.E e = 1;\n}\nenum E {\n  reserved 5;\n  reserved 7 to 8;\n  reserved 10 to max;\n  reserved \"GONE\";\n  reserved \"OLD\";\n  option allow_alias = true;\n  option deprecated = true;\n  NEG = -1;\n  A = 0;\n  B = 1;\n  BB = 1 [deprecated = true];\n  C = 3 [\n    deprecated = true,\n    (en.weight) = 2\n  ];\n}\n\nextend .google.protobuf.EnumValueOptions {\n  int32 weight = 54000;\n}\n",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/pn-enums?normalize=true",
+   "b": "{\"schema\":\"syntax = \\\"proto3\\\";\\npackage en;\\nimport \\\"google/protobuf/descriptor.proto\\\";\\nextend google.protobuf.EnumValueOptions { int32 weight = 54000; }\\nenum E {\\n  option allow_alias = true;\\n  option deprecated = true;\\n  reserved \\\"OLD\\\", \\\"GONE\\\";\\n  reserved 10 to max, 5, 7 to 8;\\n  A = 0;\\n  C = 3 [deprecated = true, (weight) = 2];\\n  B = 1;\\n  BB = 1 [deprecated = true];\\n  NEG = -1;\\n}\\nmessage Holder { E e = 1; }\\n\",\"schemaType\":\"PROTOBUF\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"pn-enums\",\"version\":1,\"id\":63,\"schemaType\":\"PROTOBUF\",\"schema\":\"syntax = \\\"proto3\\\";\\npackage en;\\n\\nimport \\\"google/protobuf/descriptor.proto\\\";\\n\\nmessage Holder {\\n  .en.E e = 1;\\n}\\nenum E {\\n  reserved 5;\\n  reserved 7 to 8;\\n  reserved 10 to max;\\n  reserved \\\"GONE\\\";\\n  reserved \\\"OLD\\\";\\n  option allow_alias = true;\\n  option deprecated = true;\\n  NEG = -1;\\n  A = 0;\\n  B = 1;\\n  BB = 1 [deprecated = true];\\n  C = 3 [\\n    deprecated = true,\\n    (en.weight) = 2\\n  ];\\n}\\n\\nextend .google.protobuf.EnumValueOptions {\\n  int32 weight = 54000;\\n}\\n\"}",
+    "ms": 3
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"pn-enums\",\"version\":1,\"id\":62,\"guid\":\"46948fbd-cbe9-3675-288c-e8437c7bd36f\",\"schemaType\":\"PROTOBUF\",\"schema\":\"syntax = \\\"proto3\\\";\\npackage en;\\n\\nimport \\\"google/protobuf/descriptor.proto\\\";\\n\\nmessage Holder {\\n  .en.E e = 1;\\n}\\nenum E {\\n  reserved 5;\\n  reserved 7 to 8;\\n  reserved 10 to max;\\n  reserved \\\"GONE\\\";\\n  reserved \\\"OLD\\\";\\n  option allow_alias = true;\\n  option deprecated = true;\\n  NEG = -1;\\n  A = 0;\\n  B = 1;\\n  BB = 1 [deprecated = true];\\n  C = 3 [\\n    deprecated = true,\\n    (en.weight) = 2\\n  ];\\n}\\n\\nextend .google.protobuf.EnumValueOptions {\\n  int32 weight = 54000;\\n}\\n\"}",
+    "ms": 3
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"pn-enums\",\"version\":1,\"id\":64,\"schemaType\":\"PROTOBUF\",\"schema\":\"syntax = \\\"proto3\\\";\\npackage en;\\n\\nimport \\\"google/protobuf/descriptor.proto\\\";\\n\\nmessage Holder {\\n  .en.E e = 1;\\n}\\nenum E {\\n  reserved 5;\\n  reserved 7 to 8;\\n  reserved 10 to max;\\n  reserved \\\"GONE\\\";\\n  reserved \\\"OLD\\\";\\n  option allow_alias = true;\\n  option deprecated = true;\\n  NEG = -1;\\n  A = 0;\\n  B = 1;\\n  BB = 1 [deprecated = true];\\n  C = 3 [\\n    deprecated = true,\\n    (en.weight) = 2\\n  ];\\n}\\n\\nextend .google.protobuf.EnumValueOptions {\\n  int32 weight = 54000;\\n}\\n\"}",
+    "ms": 1
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/pn-enums",
+   "b": "{\"schema\":\"syntax = \\\"proto3\\\";\\npackage en;\\nimport \\\"google/protobuf/descriptor.proto\\\";\\nextend google.protobuf.EnumValueOptions { int32 weight = 54000; }\\nenum E {\\n  option allow_alias = true;\\n  option deprecated = true;\\n  reserved \\\"OLD\\\", \\\"GONE\\\";\\n  reserved 10 to max, 5, 7 to 8;\\n  A = 0;\\n  C = 3 [deprecated = true, (weight) = 2];\\n  B = 1;\\n  BB = 1 [deprecated = true];\\n  NEG = -1;\\n}\\nmessage Holder { E e = 1; }\\n\",\"schemaType\":\"PROTOBUF\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 404,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":40403,\"message\":\"Schema not found\"}",
+    "ms": 3
+   },
+   "confluent-8": {
+    "status": 404,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":40403,\"message\":\"Schema not found\"}",
+    "ms": 4
+   },
+   "doze": {
+    "status": 404,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":40403,\"message\":\"Schema not found\"}",
+    "ms": 1
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/compatibility/subjects/pn-enums/versions/latest?normalize=true&verbose=true",
+   "b": "{\"schema\":\"syntax = \\\"proto3\\\";\\npackage en;\\nimport \\\"google/protobuf/descriptor.proto\\\";\\nextend google.protobuf.EnumValueOptions { int32 weight = 54000; }\\nenum E {\\n  option allow_alias = true;\\n  option deprecated = true;\\n  reserved \\\"OLD\\\", \\\"GONE\\\";\\n  reserved 10 to max, 5, 7 to 8;\\n  A = 0;\\n  C = 3 [deprecated = true, (weight) = 2];\\n  B = 1;\\n  BB = 1 [deprecated = true];\\n  NEG = -1;\\n}\\nmessage Holder { E e = 1; }\\n\",\"schemaType\":\"PROTOBUF\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"is_compatible\":true,\"messages\":[]}",
+    "ms": 3
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"is_compatible\":true,\"messages\":[]}",
+    "ms": 2
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"is_compatible\":true,\"messages\":[]}",
+    "ms": 1
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "GET",
+   "p": "/schemas/ids/@1?format=serialized"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"schemaType\":\"PROTOBUF\",\"schema\":\"CgdkZWZhdWx0EgJlbhogZ29vZ2xlL3Byb3RvYnVmL2Rlc2NyaXB0b3IucHJvdG8iFgoGSG9sZGVyEgwKAWUYATIFLmVuLkUqYQoBRRIQCgNORUcQ////////////ARIFCgFBEAASBQoBQhABEgoKAkJCEAEaAggBEgkKAUMQAxoCCAEaBBABGAEiBAgFEAUiBAgHEAgiCAgKEP////8BKgRHT05FKgNPTEQ6MQoGd2VpZ2h0EiEuZ29vZ2xlLnByb3RvYnVmLkVudW1WYWx1ZU9wdGlvbnMY8KUDKAViBnByb3RvMw==\"}",
+    "ms": 5
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"pn-enums\",\"version\":1,\"guid\":\"46948fbd-cbe9-3675-288c-e8437c7bd36f\",\"schemaType\":\"PROTOBUF\",\"schema\":\"CgdkZWZhdWx0EgJlbhogZ29vZ2xlL3Byb3RvYnVmL2Rlc2NyaXB0b3IucHJvdG8iGAoGSG9sZGVyEg4KAWUYASgOMgUuZW4uRSphCgFFEhAKA05FRxD///////////8BEgUKAUEQABIFCgFCEAESCgoCQkIQARoCCAESCQoBQxADGgIIARoEEAEYASIECAUQBSIECAcQCCIICAoQ/////wEqBEdPTkUqA09MRDoxCgZ3ZWlnaHQSIS5nb29nbGUucHJvdG9idWYuRW51bVZhbHVlT3B0aW9ucxjwpQMoBWIGcHJvdG8z\",\"ts\":1795104625568,\"deleted\":false}",
+    "ms": 6
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"schemaType\":\"PROTOBUF\",\"schema\":\"CgdkZWZhdWx0EgJlbhogZ29vZ2xlL3Byb3RvYnVmL2Rlc2NyaXB0b3IucHJvdG8iFgoGSG9sZGVyEgwKAWUYATIFLmVuLkUqYQoBRRIQCgNORUcQ////////////ARIFCgFBEAASBQoBQhABEgoKAkJCEAEaAggBEgkKAUMQAxoCCAEaBBABGAEiBAgFEAUiBAgHEAgiCAgKEP////8BKgRHT05FKgNPTEQ6MQoGd2VpZ2h0EiEuZ29vZ2xlLnByb3RvYnVmLkVudW1WYWx1ZU9wdGlvbnMY8KUDKAViBnByb3RvMw==\"}",
+    "ms": 1
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/pp-enums/versions",
+   "b": "{\"schema\":\"syntax = \\\"proto3\\\";\\npackage en;\\nimport \\\"google/protobuf/descriptor.proto\\\";\\nextend google.protobuf.EnumValueOptions { int32 weight = 54000; }\\nenum E {\\n  option allow_alias = true;\\n  option deprecated = true;\\n  reserved \\\"OLD\\\", \\\"GONE\\\";\\n  reserved 10 to max, 5, 7 to 8;\\n  A = 0;\\n  C = 3 [deprecated = true, (weight) = 2];\\n  B = 1;\\n  BB = 1 [deprecated = true];\\n  NEG = -1;\\n}\\nmessage Holder { E e = 1; }\\n\",\"schemaType\":\"PROTOBUF\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":64}",
+    "ms": 6
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":63,\"version\":1,\"guid\":\"162247e6-3a79-392b-9e62-9573fd2077c9\",\"schemaType\":\"PROTOBUF\",\"schema\":\"syntax = \\\"proto3\\\";\\npackage en;\\n\\nimport \\\"google/protobuf/descriptor.proto\\\";\\n\\nmessage Holder {\\n  E e = 1;\\n}\\nenum E {\\n  reserved \\\"OLD\\\", \\\"GONE\\\";\\n  reserved 10 to max, 5, 7 to 8;\\n  option allow_alias = true;\\n  option deprecated = true;\\n  A = 0;\\n  C = 3 [\\n    deprecated = true,\\n    (weight) = 2\\n  ];\\n  B = 1;\\n  BB = 1 [deprecated = true];\\n  NEG = -1;\\n}\\n\\nextend google.protobuf.EnumValueOptions {\\n  int32 weight = 54000;\\n}\\n\"}",
+    "ms": 11
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":65}",
+    "ms": 6
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/pp-enums?normalize=true",
+   "b": "{\"schema\":\"syntax = \\\"proto3\\\";\\npackage en;\\nimport \\\"google/protobuf/descriptor.proto\\\";\\nextend google.protobuf.EnumValueOptions { int32 weight = 54000; }\\nenum E {\\n  option allow_alias = true;\\n  option deprecated = true;\\n  reserved \\\"OLD\\\", \\\"GONE\\\";\\n  reserved 10 to max, 5, 7 to 8;\\n  A = 0;\\n  C = 3 [deprecated = true, (weight) = 2];\\n  B = 1;\\n  BB = 1 [deprecated = true];\\n  NEG = -1;\\n}\\nmessage Holder { E e = 1; }\\n\",\"schemaType\":\"PROTOBUF\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 404,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":40403,\"message\":\"Schema not found\"}",
+    "ms": 4
+   },
+   "confluent-8": {
+    "status": 404,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":40403,\"message\":\"Schema not found\"}",
+    "ms": 4
+   },
+   "doze": {
+    "status": 404,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":40403,\"message\":\"Schema not found\"}",
+    "ms": 1
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/pp-enums/versions?normalize=true",
+   "b": "{\"schema\":\"syntax = \\\"proto3\\\";\\npackage en;\\nimport \\\"google/protobuf/descriptor.proto\\\";\\nextend google.protobuf.EnumValueOptions { int32 weight = 54000; }\\nenum E {\\n  option allow_alias = true;\\n  option deprecated = true;\\n  reserved \\\"OLD\\\", \\\"GONE\\\";\\n  reserved 10 to max, 5, 7 to 8;\\n  A = 0;\\n  C = 3 [deprecated = true, (weight) = 2];\\n  B = 1;\\n  BB = 1 [deprecated = true];\\n  NEG = -1;\\n}\\nmessage Holder { E e = 1; }\\n\",\"schemaType\":\"PROTOBUF\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":63}",
+    "ms": 7
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":62,\"version\":2,\"guid\":\"46948fbd-cbe9-3675-288c-e8437c7bd36f\",\"schemaType\":\"PROTOBUF\",\"schema\":\"syntax = \\\"proto3\\\";\\npackage en;\\n\\nimport \\\"google/protobuf/descriptor.proto\\\";\\n\\nmessage Holder {\\n  .en.E e = 1;\\n}\\nenum E {\\n  reserved 5;\\n  reserved 7 to 8;\\n  reserved 10 to max;\\n  reserved \\\"GONE\\\";\\n  reserved \\\"OLD\\\";\\n  option allow_alias = true;\\n  option deprecated = true;\\n  NEG = -1;\\n  A = 0;\\n  B = 1;\\n  BB = 1 [deprecated = true];\\n  C = 3 [\\n    deprecated = true,\\n    (en.weight) = 2\\n  ];\\n}\\n\\nextend .google.protobuf.EnumValueOptions {\\n  int32 weight = 54000;\\n}\\n\"}",
+    "ms": 12
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":64}",
+    "ms": 6
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "GET",
+   "p": "/subjects/pp-enums/versions"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "[1,2]",
+    "ms": 2
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "[1,2]",
+    "ms": 2
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "[1,2]",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "PUT",
+   "p": "/config/pc-enums",
+   "b": "{\"normalize\":true}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"normalize\":true}",
+    "ms": 3
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"normalize\":true}",
+    "ms": 8
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"normalize\":true}",
+    "ms": 5
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/pc-enums/versions",
+   "b": "{\"schema\":\"syntax = \\\"proto3\\\";\\npackage en;\\nimport \\\"google/protobuf/descriptor.proto\\\";\\nextend google.protobuf.EnumValueOptions { int32 weight = 54000; }\\nenum E {\\n  option allow_alias = true;\\n  option deprecated = true;\\n  reserved \\\"OLD\\\", \\\"GONE\\\";\\n  reserved 10 to max, 5, 7 to 8;\\n  A = 0;\\n  C = 3 [deprecated = true, (weight) = 2];\\n  B = 1;\\n  BB = 1 [deprecated = true];\\n  NEG = -1;\\n}\\nmessage Holder { E e = 1; }\\n\",\"schemaType\":\"PROTOBUF\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":63}",
+    "ms": 6
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":62,\"version\":1,\"guid\":\"46948fbd-cbe9-3675-288c-e8437c7bd36f\",\"schemaType\":\"PROTOBUF\",\"schema\":\"syntax = \\\"proto3\\\";\\npackage en;\\n\\nimport \\\"google/protobuf/descriptor.proto\\\";\\n\\nmessage Holder {\\n  .en.E e = 1;\\n}\\nenum E {\\n  reserved 5;\\n  reserved 7 to 8;\\n  reserved 10 to max;\\n  reserved \\\"GONE\\\";\\n  reserved \\\"OLD\\\";\\n  option allow_alias = true;\\n  option deprecated = true;\\n  NEG = -1;\\n  A = 0;\\n  B = 1;\\n  BB = 1 [deprecated = true];\\n  C = 3 [\\n    deprecated = true,\\n    (en.weight) = 2\\n  ];\\n}\\n\\nextend .google.protobuf.EnumValueOptions {\\n  int32 weight = 54000;\\n}\\n\"}",
+    "ms": 12
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":64}",
+    "ms": 5
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "GET",
+   "p": "/subjects/pc-enums/versions/latest/schema"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "syntax = \"proto3\";\npackage en;\n\nimport \"google/protobuf/descriptor.proto\";\n\nmessage Holder {\n  .en.E e = 1;\n}\nenum E {\n  reserved 5;\n  reserved 7 to 8;\n  reserved 10 to max;\n  reserved \"GONE\";\n  reserved \"OLD\";\n  option allow_alias = true;\n  option deprecated = true;\n  NEG = -1;\n  A = 0;\n  B = 1;\n  BB = 1 [deprecated = true];\n  C = 3 [\n    deprecated = true,\n    (en.weight) = 2\n  ];\n}\n\nextend .google.protobuf.EnumValueOptions {\n  int32 weight = 54000;\n}\n",
+    "ms": 2
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "syntax = \"proto3\";\npackage en;\n\nimport \"google/protobuf/descriptor.proto\";\n\nmessage Holder {\n  .en.E e = 1;\n}\nenum E {\n  reserved 5;\n  reserved 7 to 8;\n  reserved 10 to max;\n  reserved \"GONE\";\n  reserved \"OLD\";\n  option allow_alias = true;\n  option deprecated = true;\n  NEG = -1;\n  A = 0;\n  B = 1;\n  BB = 1 [deprecated = true];\n  C = 3 [\n    deprecated = true,\n    (en.weight) = 2\n  ];\n}\n\nextend .google.protobuf.EnumValueOptions {\n  int32 weight = 54000;\n}\n",
+    "ms": 1
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "syntax = \"proto3\";\npackage en;\n\nimport \"google/protobuf/descriptor.proto\";\n\nmessage Holder {\n  .en.E e = 1;\n}\nenum E {\n  reserved 5;\n  reserved 7 to 8;\n  reserved 10 to max;\n  reserved \"GONE\";\n  reserved \"OLD\";\n  option allow_alias = true;\n  option deprecated = true;\n  NEG = -1;\n  A = 0;\n  B = 1;\n  BB = 1 [deprecated = true];\n  C = 3 [\n    deprecated = true,\n    (en.weight) = 2\n  ];\n}\n\nextend .google.protobuf.EnumValueOptions {\n  int32 weight = 54000;\n}\n",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/pc-enums",
+   "b": "{\"schema\":\"syntax = \\\"proto3\\\";\\npackage en;\\nimport \\\"google/protobuf/descriptor.proto\\\";\\nextend google.protobuf.EnumValueOptions { int32 weight = 54000; }\\nenum E {\\n  option allow_alias = true;\\n  option deprecated = true;\\n  reserved \\\"OLD\\\", \\\"GONE\\\";\\n  reserved 10 to max, 5, 7 to 8;\\n  A = 0;\\n  C = 3 [deprecated = true, (weight) = 2];\\n  B = 1;\\n  BB = 1 [deprecated = true];\\n  NEG = -1;\\n}\\nmessage Holder { E e = 1; }\\n\",\"schemaType\":\"PROTOBUF\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"pc-enums\",\"version\":1,\"id\":63,\"schemaType\":\"PROTOBUF\",\"schema\":\"syntax = \\\"proto3\\\";\\npackage en;\\n\\nimport \\\"google/protobuf/descriptor.proto\\\";\\n\\nmessage Holder {\\n  .en.E e = 1;\\n}\\nenum E {\\n  reserved 5;\\n  reserved 7 to 8;\\n  reserved 10 to max;\\n  reserved \\\"GONE\\\";\\n  reserved \\\"OLD\\\";\\n  option allow_alias = true;\\n  option deprecated = true;\\n  NEG = -1;\\n  A = 0;\\n  B = 1;\\n  BB = 1 [deprecated = true];\\n  C = 3 [\\n    deprecated = true,\\n    (en.weight) = 2\\n  ];\\n}\\n\\nextend .google.protobuf.EnumValueOptions {\\n  int32 weight = 54000;\\n}\\n\"}",
+    "ms": 3
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"pc-enums\",\"version\":1,\"id\":62,\"guid\":\"46948fbd-cbe9-3675-288c-e8437c7bd36f\",\"schemaType\":\"PROTOBUF\",\"schema\":\"syntax = \\\"proto3\\\";\\npackage en;\\n\\nimport \\\"google/protobuf/descriptor.proto\\\";\\n\\nmessage Holder {\\n  .en.E e = 1;\\n}\\nenum E {\\n  reserved 5;\\n  reserved 7 to 8;\\n  reserved 10 to max;\\n  reserved \\\"GONE\\\";\\n  reserved \\\"OLD\\\";\\n  option allow_alias = true;\\n  option deprecated = true;\\n  NEG = -1;\\n  A = 0;\\n  B = 1;\\n  BB = 1 [deprecated = true];\\n  C = 3 [\\n    deprecated = true,\\n    (en.weight) = 2\\n  ];\\n}\\n\\nextend .google.protobuf.EnumValueOptions {\\n  int32 weight = 54000;\\n}\\n\"}",
+    "ms": 2
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"pc-enums\",\"version\":1,\"id\":64,\"schemaType\":\"PROTOBUF\",\"schema\":\"syntax = \\\"proto3\\\";\\npackage en;\\n\\nimport \\\"google/protobuf/descriptor.proto\\\";\\n\\nmessage Holder {\\n  .en.E e = 1;\\n}\\nenum E {\\n  reserved 5;\\n  reserved 7 to 8;\\n  reserved 10 to max;\\n  reserved \\\"GONE\\\";\\n  reserved \\\"OLD\\\";\\n  option allow_alias = true;\\n  option deprecated = true;\\n  NEG = -1;\\n  A = 0;\\n  B = 1;\\n  BB = 1 [deprecated = true];\\n  C = 3 [\\n    deprecated = true,\\n    (en.weight) = 2\\n  ];\\n}\\n\\nextend .google.protobuf.EnumValueOptions {\\n  int32 weight = 54000;\\n}\\n\"}",
+    "ms": 1
+   }
+  }
+ }
+]

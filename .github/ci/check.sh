@@ -22,7 +22,7 @@ step cargo clippy -p kafka-server --all-targets --features tls -- -D warnings
 SIM_SEEDS=200 step cargo test -p kafka-storage -p kafka-meta --features kafka-storage/sim --release
 # The generated aws-model crates are what the models and overlays produce (docs/port/aws/PLAN.md, rule 11).
 step cargo xtask codegen --check
-# The desktop app's themes are what the Go app's tokens.css gives (apps/doze-app/themes).
+# The desktop app's look (Graphite, dark and light) is what its own tokens.css gives (apps/doze-app/themes).
 step cargo xtask themes --check
 # No file grows past the hard size limit (docs/port/PLAN.md, quality rule 1).
 step cargo xtask lint-size

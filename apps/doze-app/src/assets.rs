@@ -21,8 +21,23 @@ const COPY: &str = r#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16
 const PIN: &str = r#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><path d="M6 1.5h4l-.8 4.2L12 8.5V10H8.6V15H7.4V10H4V8.5l2.8-2.8z" fill="white"/></svg>"#;
 /// A tick (the start sheet's boxes).
 const CHECK: &str = r#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 8.5 6.5 11.5 12.5 4.5"/></svg>"#;
+/// A crescent moon: Sleep everything.
+const MOON: &str = r#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="none" stroke="white" stroke-width="1.5" stroke-linejoin="round"><path d="M13.2 9.6A5.6 5.6 0 0 1 6.4 2.8a5.6 5.6 0 1 0 6.8 6.8z"/></svg>"#;
+/// A quarter of a ring, turned by `widgets::spinner`: an action under way.
+const SPIN: &str = r#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="none" stroke="white" stroke-width="2" stroke-linecap="round"><circle cx="8" cy="8" r="6" stroke-opacity="0.25"/><path d="M8 2a6 6 0 0 1 6 6"/></svg>"#;
 /// The doze mark, whole (website/brand/doze.svg): the Library's head draws it in its own colours.
 const BRAND: &str = include_str!("../assets/brand/doze.svg");
+
+/// The mark as the window draws it: at most 32 px (64 device pixels on a 2× display). gpui decodes an `img` at the
+/// file's own size and keeps the pixels for the life of the app, so the file's 512 px (it is the app icon's source too)
+/// would hold megabytes for a 32 px mark; at 64 it is 16 KB.
+fn brand() -> String {
+    BRAND.replacen(
+        r#"width="512" height="512""#,
+        r#"width="64" height="64""#,
+        1,
+    )
+}
 
 /// Three bars `gap` apart, as density.tsx draws them.
 fn lines(gap: f32) -> String {
@@ -56,7 +71,9 @@ impl AssetSource for Assets {
             "icons/caret.svg" => CARET.into(),
             "icons/pin.svg" => PIN.into(),
             "icons/check.svg" => CHECK.into(),
-            "brand/doze.svg" => BRAND.into(),
+            "icons/moon.svg" => MOON.into(),
+            "icons/spin.svg" => SPIN.into(),
+            "brand/doze.svg" => brand().into(),
             _ => return Ok(None),
         };
         Ok(Some(Cow::Owned(svg.into_owned().into_bytes())))
@@ -120,5 +137,14 @@ mod tests {
         // The alert picture shares the frame, so the item keeps its width and the bat its place when it turns.
         assert_eq!(size(t.alert.x1), (w, h));
         assert_eq!(size(t.alert.x2), (2 * w, 40));
+    }
+
+    #[test]
+    fn the_mark_is_served_at_the_size_it_is_drawn() {
+        let svg = super::brand();
+        assert!(
+            svg.contains(r#"width="64" height="64""#),
+            "the file's size changed: update `brand`"
+        );
     }
 }

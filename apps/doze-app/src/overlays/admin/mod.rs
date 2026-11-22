@@ -122,9 +122,10 @@ impl AdminView {
         cx.observe(&facts, |v: &mut AdminView, _, cx| v.doctor_answered(cx))
             .detach();
         let cli = if fixture {
-            Some(Cli::go(PathBuf::from("doze")))
+            // A fixture runs nothing: the program is only named.
+            Some(Cli::at(PathBuf::from("doze")))
         } else {
-            Cli::from_env()
+            Cli::from_env(crate::own::program())
         };
         let mut v = AdminView {
             job,
@@ -317,7 +318,7 @@ impl AdminView {
 /// A shot's sheet: the steps the job plans (a fixture's: no CLI asked), and, when `ran`, a run that printed and ended.
 #[cfg(feature = "capture")]
 pub(crate) fn stage(v: &mut AdminView, ran: bool, cx: &mut Context<AdminView>) {
-    let cli = Cli::go(PathBuf::from("doze"));
+    let cli = Cli::at(PathBuf::from("doze"));
     let home = v.hub.home().to_path_buf();
     v.steps = v
         .job

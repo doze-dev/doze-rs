@@ -1,0 +1,8 @@
+ok doze-restart: every answer is the same
+ok doze-restart: the last registration is kept
+ok doze-restart: the next id is new 648
+ok doze-kill: every answer is the same
+ok doze-kill: the last registration is kept
+ok doze-kill: the next id is new 650
+ok a permanently deleted id is not given again
+all ok

@@ -1,0 +1,166 @@
+[
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/zz/versions",
+   "b": "{\"schema\":\"syntax = \\\"proto3\\\";\\npackage zed;\\nmessage Z { int32 z = 1; }\\n\",\"schemaType\":\"PROTOBUF\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":69}",
+    "ms": 11
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":68,\"version\":1,\"guid\":\"9c9b6983-1d61-e7c2-148f-5c928e05d461\",\"schemaType\":\"PROTOBUF\",\"schema\":\"syntax = \\\"proto3\\\";\\npackage zed;\\n\\nmessage Z {\\n  int32 z = 1;\\n}\\n\"}",
+    "ms": 13
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":70}",
+    "ms": 5
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/aa/versions",
+   "b": "{\"schema\":\"syntax = \\\"proto3\\\";\\npackage shop;\\nmessage Money { int64 units = 1; }\\n\",\"schemaType\":\"PROTOBUF\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":70}",
+    "ms": 8
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":69,\"version\":1,\"guid\":\"48cf3fca-5ab9-cd82-50db-9e08c0e19886\",\"schemaType\":\"PROTOBUF\",\"schema\":\"syntax = \\\"proto3\\\";\\npackage shop;\\n\\nmessage Money {\\n  int64 units = 1;\\n}\\n\"}",
+    "ms": 18
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":71}",
+    "ms": 5
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/refs/versions?normalize=true",
+   "b": "{\"schema\":\"syntax = \\\"proto3\\\";\\nimport \\\"z.proto\\\";\\nimport public \\\"m.proto\\\";\\nimport \\\"google/protobuf/timestamp.proto\\\";\\nmessage Paid { shop.Money amount = 1; google.protobuf.Timestamp at = 2; zed.Z z = 3; }\\n\",\"schemaType\":\"PROTOBUF\",\"references\":[{\"name\":\"z.proto\",\"subject\":\"zz\",\"version\":1},{\"name\":\"m.proto\",\"subject\":\"aa\",\"version\":1}]}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":71}",
+    "ms": 8
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":70,\"version\":1,\"guid\":\"9e899f13-a338-a030-2b98-e1861ecd3cc8\",\"schemaType\":\"PROTOBUF\",\"references\":[{\"name\":\"m.proto\",\"subject\":\"aa\",\"version\":1},{\"name\":\"z.proto\",\"subject\":\"zz\",\"version\":1}],\"schema\":\"syntax = \\\"proto3\\\";\\n\\nimport \\\"google/protobuf/timestamp.proto\\\";\\nimport \\\"z.proto\\\";\\nimport public \\\"m.proto\\\";\\n\\nmessage Paid {\\n  .shop.Money amount = 1;\\n  .google.protobuf.Timestamp at = 2;\\n  .zed.Z z = 3;\\n}\\n\"}",
+    "ms": 15
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":72}",
+    "ms": 5
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "GET",
+   "p": "/subjects/refs/versions/latest"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"refs\",\"version\":1,\"id\":71,\"schemaType\":\"PROTOBUF\",\"references\":[{\"name\":\"m.proto\",\"subject\":\"aa\",\"version\":1},{\"name\":\"z.proto\",\"subject\":\"zz\",\"version\":1}],\"schema\":\"syntax = \\\"proto3\\\";\\n\\nimport \\\"google/protobuf/timestamp.proto\\\";\\nimport \\\"z.proto\\\";\\nimport public \\\"m.proto\\\";\\n\\nmessage Paid {\\n  .shop.Money amount = 1;\\n  .google.protobuf.Timestamp at = 2;\\n  .zed.Z z = 3;\\n}\\n\"}",
+    "ms": 1
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"refs\",\"version\":1,\"id\":70,\"guid\":\"9e899f13-a338-a030-2b98-e1861ecd3cc8\",\"schemaType\":\"PROTOBUF\",\"references\":[{\"name\":\"m.proto\",\"subject\":\"aa\",\"version\":1},{\"name\":\"z.proto\",\"subject\":\"zz\",\"version\":1}],\"schema\":\"syntax = \\\"proto3\\\";\\n\\nimport \\\"google/protobuf/timestamp.proto\\\";\\nimport \\\"z.proto\\\";\\nimport public \\\"m.proto\\\";\\n\\nmessage Paid {\\n  .shop.Money amount = 1;\\n  .google.protobuf.Timestamp at = 2;\\n  .zed.Z z = 3;\\n}\\n\",\"ts\":1795104626130,\"deleted\":false}",
+    "ms": 6
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"refs\",\"version\":1,\"id\":72,\"schemaType\":\"PROTOBUF\",\"references\":[{\"name\":\"m.proto\",\"subject\":\"aa\",\"version\":1},{\"name\":\"z.proto\",\"subject\":\"zz\",\"version\":1}],\"schema\":\"syntax = \\\"proto3\\\";\\n\\nimport \\\"google/protobuf/timestamp.proto\\\";\\nimport \\\"z.proto\\\";\\nimport public \\\"m.proto\\\";\\n\\nmessage Paid {\\n  .shop.Money amount = 1;\\n  .google.protobuf.Timestamp at = 2;\\n  .zed.Z z = 3;\\n}\\n\"}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/refs?normalize=true",
+   "b": "{\"schema\":\"syntax = \\\"proto3\\\";\\nimport public \\\"m.proto\\\";\\nimport \\\"z.proto\\\";\\nimport \\\"google/protobuf/timestamp.proto\\\";\\nmessage Paid { zed.Z z = 3; .shop.Money amount = 1; google.protobuf.Timestamp at = 2; }\\n\",\"schemaType\":\"PROTOBUF\",\"references\":[{\"name\":\"m.proto\",\"subject\":\"aa\",\"version\":1},{\"name\":\"z.proto\",\"subject\":\"zz\",\"version\":1}]}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"refs\",\"version\":1,\"id\":71,\"schemaType\":\"PROTOBUF\",\"references\":[{\"name\":\"m.proto\",\"subject\":\"aa\",\"version\":1},{\"name\":\"z.proto\",\"subject\":\"zz\",\"version\":1}],\"schema\":\"syntax = \\\"proto3\\\";\\n\\nimport \\\"google/protobuf/timestamp.proto\\\";\\nimport \\\"z.proto\\\";\\nimport public \\\"m.proto\\\";\\n\\nmessage Paid {\\n  .shop.Money amount = 1;\\n  .google.protobuf.Timestamp at = 2;\\n  .zed.Z z = 3;\\n}\\n\"}",
+    "ms": 2
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"refs\",\"version\":1,\"id\":70,\"guid\":\"9e899f13-a338-a030-2b98-e1861ecd3cc8\",\"schemaType\":\"PROTOBUF\",\"references\":[{\"name\":\"m.proto\",\"subject\":\"aa\",\"version\":1},{\"name\":\"z.proto\",\"subject\":\"zz\",\"version\":1}],\"schema\":\"syntax = \\\"proto3\\\";\\n\\nimport \\\"google/protobuf/timestamp.proto\\\";\\nimport \\\"z.proto\\\";\\nimport public \\\"m.proto\\\";\\n\\nmessage Paid {\\n  .shop.Money amount = 1;\\n  .google.protobuf.Timestamp at = 2;\\n  .zed.Z z = 3;\\n}\\n\"}",
+    "ms": 4
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"refs\",\"version\":1,\"id\":72,\"schemaType\":\"PROTOBUF\",\"references\":[{\"name\":\"m.proto\",\"subject\":\"aa\",\"version\":1},{\"name\":\"z.proto\",\"subject\":\"zz\",\"version\":1}],\"schema\":\"syntax = \\\"proto3\\\";\\n\\nimport \\\"google/protobuf/timestamp.proto\\\";\\nimport \\\"z.proto\\\";\\nimport public \\\"m.proto\\\";\\n\\nmessage Paid {\\n  .shop.Money amount = 1;\\n  .google.protobuf.Timestamp at = 2;\\n  .zed.Z z = 3;\\n}\\n\"}",
+    "ms": 1
+   }
+  }
+ }
+]

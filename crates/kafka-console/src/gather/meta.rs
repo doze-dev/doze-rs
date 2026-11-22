@@ -37,6 +37,16 @@ pub(super) async fn all(b: &Backend) -> Option<Vec<TopicMeta>> {
     Some(out)
 }
 
+/// The topics of `names` that exist and the console may describe, by name.
+pub(super) async fn named(b: &Backend, names: &[String]) -> Option<Vec<TopicMeta>> {
+    let Ok(Response::Metadata(m)) = b.call(requests::metadata_topics(names)).await else {
+        return None;
+    };
+    let mut out: Vec<TopicMeta> = m.topics.iter().filter_map(from).collect();
+    out.sort_by(|a, b| a.name.cmp(&b.name));
+    Some(out)
+}
+
 /// One topic, if it exists and the console may describe it.
 pub(super) async fn one(b: &Backend, name: &str) -> Option<TopicMeta> {
     let Ok(Response::Metadata(m)) = b.call(requests::metadata_topics(&[name.to_owned()])).await

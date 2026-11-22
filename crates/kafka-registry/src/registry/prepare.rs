@@ -73,10 +73,20 @@ fn invalid(
 ) -> RegistryError {
     let refs = references_text(input.refs());
     let quoted = format!(
-        "{{subject={subject},version={},id={},schemaType={},references={refs},metadata=null,ruleSet=null,schema={},schemaTags=null}}",
+        "{{subject={subject},version={},id={},schemaType={},references={refs},metadata={},ruleSet={},schema={},schemaTags=null}}",
         input.version.unwrap_or(0),
         input.id.unwrap_or(-1),
         kind.name(),
+        input
+            .contract
+            .metadata
+            .as_ref()
+            .map_or_else(|| "null".to_owned(), super::Metadata::java),
+        input
+            .contract
+            .rule_set
+            .as_ref()
+            .map_or_else(|| "null".to_owned(), super::RuleSet::java),
         input.text(),
     );
     RegistryError::invalid_schema(match at {
@@ -230,12 +240,30 @@ impl Registry {
             )));
         }
         let read = |why: String| invalid(subject, input, kind, Stage::Read, &why);
-        let refs = s.concrete(input.refs()).map_err(read)?;
+        let mut refs = s.concrete(input.refs()).map_err(read)?;
         let resolved = s.resolve(&refs).map_err(read)?;
         let parsed = format
             .parse(text, &resolved)
             .map_err(|why| invalid(subject, input, kind, stage(kind, &why), &why))?;
-        let canonical = parsed.canonical(normalize || s.normalizes(subject));
+        let normalize = normalize || s.normalizes(subject);
+        if normalize {
+            // Every language's `normalize()` sorts its references by subject, then version, and keeps each once.
+            refs.sort_by(|a, b| {
+                a.subject
+                    .encode_utf16()
+                    .cmp(b.subject.encode_utf16())
+                    .then(a.version.cmp(&b.version))
+            });
+            let mut seen: Vec<Reference> = Vec::new();
+            refs.retain(|r| {
+                let first = !seen.contains(r);
+                if first {
+                    seen.push(r.clone());
+                }
+                first
+            });
+        }
+        let canonical = parsed.canonical(normalize);
         Ok((Prepared { kind, parsed, refs }, canonical))
     }
 
@@ -255,6 +283,7 @@ impl Registry {
             references: rec.map(|r| r.refs.clone()),
             id: Some(i64::from(v.rec.id)),
             version: Some(i64::from(v.number)),
+            contract: rec.map(|r| r.contract.clone()).unwrap_or_default(),
         };
         invalid(subject, &old, kind, stage(kind, why), why)
     }

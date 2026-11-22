@@ -1,44 +1,68 @@
 //! Loopback ports for the processes the engine starts.
+//!
+//! A port is chosen by probing it (bind, then let go), and the process binds it a moment later. No choice can close
+//! that gap for every program on the machine (another doze daemon starting its own services, any app that asks for a
+//! port by number), so a start whose process died because the port it was given was taken meanwhile is started again
+//! on another one (`lost`, used by `boot::start`).
 
-use std::collections::VecDeque;
+use std::collections::BTreeSet;
 use std::io;
 use std::net::TcpListener;
+use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::{Mutex, PoisonError};
-use std::time::{Duration, Instant};
 
-/// How long a port handed out is not handed out again: long enough for the process given it to bind it.
-const HOLD: Duration = Duration::from_secs(30);
+/// Where ports come from: below every system's ephemeral range (Linux starts at 32768, macOS and Windows at 49152).
+/// A port from `bind(0)` is one the system hands out by itself, so between the probe and the service's own bind an
+/// outgoing connection, or another program probing the same way, could be given it: "Address already in use" for a
+/// service that had done nothing wrong (doze-engine's catalogue test on macOS, PR #111; os error 10048 on Windows,
+/// CI run 44499950273). Nothing is handed a port from this range unless it asks for that port by number.
+const PORTS: std::ops::Range<u32> = 20_000..32_000;
 
-/// How many ports are tried before giving up (each try is held open, so the system cannot offer it again).
-const TRIES: usize = 32;
+static NEXT: AtomicU32 = AtomicU32::new(0);
 
-/// A loopback port nothing listens on now (Go's `netutil.FreePort`), and not one this process handed out in the last
-/// 30 seconds. Windows' `bind(0)` offers a port again as soon as it is released, so two services started together
-/// could be given one port, and the second failed with "address in use" (os error 10048, CI run 44499950273).
-pub(crate) fn free_port() -> io::Result<u16> {
-    static RECENT: Mutex<VecDeque<(u16, Instant)>> = Mutex::new(VecDeque::new());
-    let mut recent = RECENT.lock().unwrap_or_else(PoisonError::into_inner);
-    let now = Instant::now();
-    while recent
-        .front()
-        .is_some_and(|(_, at)| now.duration_since(*at) > HOLD)
-    {
-        recent.pop_front();
-    }
-    let mut held = Vec::new();
-    for _ in 0..TRIES {
-        let l = TcpListener::bind(("127.0.0.1", 0))?;
-        let port = l.local_addr()?.port();
-        if !recent.iter().any(|(p, _)| *p == port) {
-            recent.push_back((port, now));
+/// Every port this process handed out: only those are worth choosing again when they turn out taken (a port a plan
+/// fixed by number would be taken again).
+static HANDED: Mutex<BTreeSet<u16>> = Mutex::new(BTreeSet::new());
+
+/// A loopback port nothing listens on now (Go's `netutil.FreePort`), from below the ephemeral range, and not one this
+/// process handed out until it has gone through the whole range (12,000 ports). Each process starts at its own
+/// offset, so two daemons starting at once rarely probe the same ports.
+///
+/// Public for planners and tests that give a process a port of their own choosing: a port from `bind(0)` is one the
+/// system hands out again, to the next `bind(0)` in the same process (two test helpers given one port, macOS) or to an
+/// outgoing connection.
+pub fn free_port() -> io::Result<u16> {
+    let span = PORTS.end - PORTS.start;
+    let start = std::process::id().wrapping_mul(97) % span;
+    for _ in 0..span {
+        let n = NEXT.fetch_add(1, Ordering::Relaxed);
+        let Ok(port) = u16::try_from(PORTS.start + (start.wrapping_add(n)) % span) else {
+            continue;
+        };
+        if TcpListener::bind(("127.0.0.1", port)).is_ok() {
+            HANDED
+                .lock()
+                .unwrap_or_else(PoisonError::into_inner)
+                .insert(port);
             return Ok(port);
         }
-        held.push(l);
     }
     Err(io::Error::new(
         io::ErrorKind::AddrInUse,
-        "every free loopback port offered was handed out in the last 30 seconds",
+        "no free loopback port between 20000 and 32000",
     ))
+}
+
+/// Whether `port`, one this process handed out, is held by something else now: asked once the process given it is
+/// gone (so whatever holds it is not that process), it means the port was taken between the probe and the process's
+/// own bind, and another port will do.
+pub(crate) fn lost(port: u16) -> bool {
+    let ours = HANDED
+        .lock()
+        .unwrap_or_else(PoisonError::into_inner)
+        .contains(&port);
+    ours && TcpListener::bind(("127.0.0.1", port))
+        .is_err_and(|e| e.kind() == io::ErrorKind::AddrInUse)
 }
 
 #[cfg(test)]
@@ -53,5 +77,28 @@ mod tests {
         sorted.sort_unstable();
         sorted.dedup();
         assert_eq!(sorted.len(), ports.len(), "{ports:?}");
+    }
+
+    /// A port handed out is never one the system would hand out by itself.
+    #[test]
+    fn a_port_is_below_the_ephemeral_range() {
+        for _ in 0..64 {
+            let p = free_port().unwrap();
+            assert!((20_000..32_000).contains(&p), "{p}");
+        }
+    }
+
+    /// A port handed out and then taken by someone else is lost; free again, or never handed out, it is not.
+    #[test]
+    fn a_handed_out_port_taken_by_someone_else_is_lost() {
+        let p = free_port().unwrap();
+        assert!(!lost(p), "nothing holds it");
+        let holder = TcpListener::bind(("127.0.0.1", p)).unwrap();
+        assert!(lost(p));
+        drop(holder);
+        assert!(!lost(p));
+        let other = TcpListener::bind("127.0.0.1:0").unwrap();
+        let fixed = other.local_addr().unwrap().port();
+        assert!(!lost(fixed), "a port this process never handed out");
     }
 }

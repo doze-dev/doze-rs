@@ -390,7 +390,7 @@ impl Parser<'_> {
 }
 
 mod java;
-pub use java::java_number;
+pub use java::{JavaRead, java_number, java_reads};
 pub(crate) use java::{java_hash_inserted, java_hash_order};
 
 #[cfg(test)]

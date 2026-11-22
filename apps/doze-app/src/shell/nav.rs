@@ -150,6 +150,7 @@ impl Root {
         self.screen = screen;
         self.refresh_tabs(cx);
         self.keep_time(cx);
+        self.chrome(cx);
         cx.notify();
     }
 

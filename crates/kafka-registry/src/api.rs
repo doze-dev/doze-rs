@@ -3,6 +3,7 @@
 //! (before the credentials and the route: a request through a name somebody else controls learns nothing), then the
 //! credentials, then the body's type, then the route, then the body's size.
 
+mod answer;
 mod body;
 mod confluent;
 mod extension;
@@ -81,6 +82,10 @@ impl Call<'_> {
 
     pub(crate) fn query(&self, name: &str) -> Option<String> {
         text::query(&self.req.query, name)
+    }
+
+    pub(crate) fn query_all(&self, name: &str) -> Vec<String> {
+        text::query_all(&self.req.query, name)
     }
 
     pub(crate) fn origin(&self) -> Origin {

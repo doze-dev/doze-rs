@@ -1,7 +1,8 @@
 //! Test helper for doze-engine: one binary playing a supervised command or a host that runs an engine.
 //!
 //! - `listen [delay_ms]`: after the delay, serves HTTP 200 on `$PORT` until asked to stop (or `$STOP_FILE` appears),
-//!   then exits 0 (after `$LINGER_MS`, when asked). Each start appends a line to `$STARTS` when set.
+//!   then exits 0 (after `$LINGER_MS`, when asked). Each start appends a line to `$STARTS` when set, and writes the
+//!   `$PORT` it was given to `$PORT_FILE` (before the delay) when set.
 //! - `exit <code> [after_ms]`: exits with the code.
 //! - `grandchild <file>`: starts a child of its own (same tree), writes the child's pid to the file, then serves.
 //! - `forklisten`: starts a child that serves (and prints its port); the parent itself listens on nothing.
@@ -107,6 +108,9 @@ async fn listen_with(
             .append(true)
             .open(f)?;
         writeln!(f, "{}", std::process::id())?;
+    }
+    if let Ok(f) = std::env::var("PORT_FILE") {
+        std::fs::write(f, std::env::var("PORT").unwrap_or_default())?;
     }
     tokio::time::sleep(delay).await;
     // `LISTEN_ON` overrides `$PORT`: an app that ignores the port doze gave it (the port trap).

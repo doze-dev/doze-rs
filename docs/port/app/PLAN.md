@@ -88,8 +88,14 @@ Where the M0 build differs from this plan:
   fuzz target.
 - The tray follows the hub while the window is hidden through doze-desk's `Policy::hidden` (one batch a second); the
   window is dropped on close, so it hears nothing then.
-- The theme's xtask reads a copy of the Go app's `tokens.css` kept in `apps/doze-app/themes/` (CI has no Go checkout);
-  `cargo xtask themes --check` holds the JSON to it.
+- The theme's tokens are doze's own (`apps/doze-app/themes/tokens.css`): Graphite, one look in dark and light, chosen by
+  the design pass and the owner on 2026-11-19. They began as a copy of the Go app's `tokens.css` (five palettes);
+  `cargo xtask themes --check` holds the JSON to them. **A deliberate departure from Go** (the owner, 2026-11-19): the
+  five palettes are gone (Go's Settings colour row and swatches, ⌘K's `theme NAME`, Next colour theme ⌘⇧T, and
+  `shot --theme`). A saved `theme` in prefs is read without error and changes nothing, and is left in the file for
+  the Go app. Mode (System, Light, Dark) stays, in Settings and as ⌘K's `mode` commands and ⌘⇧L. Why: each palette's
+  accent collided with a status colour, and one look can be tuned and audited in two modes instead of ten
+  (proof/design-pass-2026-11-19, proof/graphite-2026-11-19).
 - doze-map gained `Layout::overview` (regions and weighted bundles) for the whole-map view.
 - Measurements against §6 are in `docs/port/weight.md`, "The desktop app".
 - M1 steps 1.1 (Library), 1.2 (overview: head, strip, Tiles, List and pane, density, the stopped page) and 1.4 (Grid)
@@ -123,7 +129,8 @@ Where the M0 build differs from this plan:
 - **Nothing carries a "new" tag**: the whole app is new (the Grid's tag is gone).
 - **Privileged actions run from the app** (Repair, a clean-up that needs root, `doze doctor`) in the run sheet: the
   steps shown before any password is asked, one system prompt per action, the output streamed, the outcome in words.
-  The commands come from one place (`doze-desk/src/settings/cli.rs`, `DOZE_APP_CLI`): today the Go CLI's.
+  The commands come from one place (`doze-desk/src/settings/cli.rs`): always the app's own CLI (`DOZE_APP_CLI` names
+  a stand-in for check scripts only; nothing is looked up on the `PATH`).
 
 The owner's brief: "make the GUI as best as you can make it! Leave no stone
 unturned! It's got to squeeze the best out of GPUI and its components. Check
@@ -424,7 +431,7 @@ The "Needs" column says what the feature depends on:
 |---|---|---|---|---|---|
 | 80 | Activity: last hour / 24 h / 7 d, summary (asleep while up, memory freed, wakes, crashes), per-service timeline with spans, wake-to-ready, crash marks, asleep %, woken by; What happened list; filter by service (`v/activity.go` 426, journal on disk) | read the Go journal files (`internal/journal` format, read-only port) + journal topic; timeline drawn on `canvas` | `plot`, gpui canvas | G+L | built (M3) |
 | 81 | Empty folder: found table (Found / Where / Becomes), 3 choice tiles (init / add one thing / empty), busy state (`v/empty.go`, `fe/pages/empty.tsx`) | `doze init`/`add` via the CLI subprocess | — | C | built (M2) |
-| 82 | Settings › General: Mode System/Light/Dark, density, 5 colour themes drawn in the mode, Open at login, Reopen the page I had, prefs path | `setting` page | `setting` | L | built (M3) |
+| 82 | Settings › General: Mode System/Light/Dark, density, 5 colour themes drawn in the mode, Open at login, Reopen the page I had, prefs path | `setting` page | `setting` | L | built (M3); the colour themes row removed on purpose (one look, Graphite: the owner, 2026-11-19; see the theme tokens note near the top) |
 | 83 | Settings › Machine: Repair banner, doctor table by names/domains/app with Copy fix; Left behind (daemons, engines, data, routes, CA) with Look again / Clean up N / per-item / danger asks inline / show all; Copy report (`s/leftovers.go` 427, `s/repair.go` 255) | `doze doctor --json` (C); leftovers ported (ps + globs, L); repair through `doze-os` privilege prompt running `doze dns-setup` / `doze trust` | `setting`, `table` | C+L | built (M3) |
 | 84 | Settings › About: version, update check (GitHub latest, cached 6 h), What's new, Copy `brew upgrade doze` (`s/update.go`) | the same (`ureq` or std + rustls is extra weight: see Q6) | — | L | built (M3) |
 
@@ -435,7 +442,7 @@ The "Needs" column says what the feature depends on:
 | 85 | Notification rules D8: priming, silent while on screen, episodes; crash loop, gave up, not ready, stuck waking (5 min + 2 min quiet), failed task (`notify/rules.go`) | port to `doze-desk::notify` with the same tests | — | G | — |
 | 86 | Native notification with a fix action (holder stop with pid re-check; restart; task), click → instance (`a/notify.go`) | `cx.show_system_notification` with actions; bundle only | gpui | G | — |
 | 87 | Prefs file `$DOZE_HOME/desk/prefs.json`: window, lastDir, hints, theme, mode, views, recent, notNow, commands, windowClosed (`prefs/prefs.go`) | the same file and keys (an app switch keeps settings) + new keys (§3) | serde | L | built (M3) |
-| 88 | Theme: violet/teal/burgundy/amber/slate × dark/light, system mode live (`fe/tokens.css`) | 10 gpui-component JSON themes generated from tokens.css; `watch_dir` for user themes | `theme` | L | built (ten themes, M0; the Settings swatches, M3); user themes (`watch_dir`) not yet |
+| 88 | Theme: violet/teal/burgundy/amber/slate × dark/light, system mode live (`fe/tokens.css`) | one look, Graphite, dark and light: 2 gpui-component JSON themes generated from doze's own tokens.css; system mode live; `watch_dir` for user themes | `theme` | L | **departs from Go on purpose** (the owner, 2026-11-19): the five palettes are dropped for one look; an old saved palette name maps silently to it. Built: Graphite both modes, the categorical ramp, lift. User themes (`watch_dir`) not yet |
 | 89 | `doze open [dir|doze://] [--show]`, detach from terminal, "✓ doze is open" (`cmd/doze/open.go`) | the Rust app binary takes the same args; until the Rust CLI exists, Go's `doze open` can launch the Rust bundle (Q2) | — | R for the single binary | — |
 | 90 | `doze open --serve --fixture …` dev server + Playwright | replaced by the Rust **fixture daemon** + offscreen shots (§5.6) | — | — | partial (ref JSON) |
 | 91 | Deskbench budgets in CI (`test/deskbench/budget.json`, `.github/workflows/deskbench.yml`) | `xtask app-bench` (§6) | — | — | partial (measure.ts) |
@@ -603,7 +610,7 @@ Each item states the test that proves it. Items marked ★ are the top ten.
     - Live announcements for crashing/failed.
     - Test: an accessibility-tree snapshot per screen in CI (no screen reader needed).
 24. **Screenshot suite with no browser.**
-    - Every screen × theme (10) × size (1280×800, 900×620) is rendered offscreen, about 400 PNGs.
+    - Every screen × mode (2) × size (1280×800, 900×620) is rendered offscreen (ten themes until 2026-11-19, when the palettes were dropped).
     - Compared numerically with references; the threshold per screen is written in a file.
     - Go needed Playwright with two browsers on one worker.
     - Test: it is the test.
@@ -748,7 +755,8 @@ boards (11 of them, on real doze-map output), the call made and built:
 
 ### 4.6 Theme
 
-- `tokens.css` (5 palettes × dark/light) is converted once by an xtask into 10 gpui-component theme JSON files, plus doze's own extra tokens (tones, the scrim, chart series).
+- `tokens.css` (Graphite, dark and light; doze's own since 2026-11-19, when the five Go palettes were dropped) is converted by an xtask into one gpui-component theme per mode, plus doze's own extra tokens: the switch-on colours, the categorical ramp (`cat-1..4`: log names, the memory strip, chart lines, never a status hue), the card lift and the scrim.
+- Depth is the lift: awake cards (tiles, map cards, the library table, the grid, settings blocks, the console, instance cards) cast a soft shadow; an asleep one lies flat, easing over 120 ms as it falls asleep (`motion::lift`).
 - Inter and JetBrains Mono ship as static TTF weights; a variable font loaded from memory is stuck at one weight.
 - Letter-spacing keeps the spike's `tracked` emulation, until gpui gains tracking.
 - Density changes the row height token. Mode follows the system live.
@@ -758,7 +766,7 @@ boards (11 of them, on real doze-map output), the call made and built:
 - **`doze-app shot`** (the spike's `shot.rs`, generalised):
 
   ```
-  doze-app shot --fixture shop --screen list --select api --theme teal --mode light --size 1280x800 --out x.png
+  doze-app shot --fixture shop --screen list --select api --mode light --size 1280x800 --out x.png
   ```
 
   - It renders offscreen through `render_to_image()`: no screen-recording permission and no window on screen.
@@ -807,7 +815,7 @@ These are measured by `xtask app-bench` (a port of deskbench) on a macOS CI runn
 | CPU, window open, static | — | ~0 % | **≤ 0.3 %** |
 | Frames > 16 ms while scrolling 100k log lines | — | — | **0** in a 5 s scroll |
 | 100k log lines held | — | — | **≤ 25 MB** |
-| App binary (macOS arm64, stripped, fonts included) | Go binary + webview assets | 12 MB | **≤ 20 MB** ceiling for `doze-app` (owner, 2026-11-15: it carries the GUI, the full CLI and the daemon; CI line 16,563,000 B since the size profile landed on 2026-11-19, weight.md) |
+| App binary (macOS arm64, stripped, fonts included) | Go binary + webview assets | 12 MB | **≤ 20 MB** ceiling for `doze-app` (owner, 2026-11-15: it carries the GUI, the full CLI and the daemon; CI line 17,491,000 B since the app runs its stacks' daemons, 2026-11-19, weight.md) |
 | Crate count | — | — | recorded in `weight.md`; gpui pulls in a few hundred crates, so the app gets **its own** limit line and does not move the kafka/aws gates |
 
 The 216 MB redraw peak is the OS compositor floor (a bare Metal view costs 168 MB), so the rules are:

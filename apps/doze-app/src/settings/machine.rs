@@ -96,6 +96,7 @@ fn repair_banner(t: &Tokens, v: &SettingsView, cx: &mut Context<SettingsView>) -
         } else {
             t.panel
         })
+        .shadow(t.lift())
         .child(dot(tone))
         .child(
             div()
@@ -189,10 +190,12 @@ pub(super) fn chk(t: &Tokens) -> gpui::Div {
         .border_1()
         .border_color(t.line)
         .bg(t.panel)
+        .shadow(t.lift())
         .overflow_hidden()
 }
 
-/// `.cr.sec`: a section's heading in the accent, its note after it.
+/// `.cr.sec`: a section's heading in the ink (Go drew it in the accent; Graphite keeps the accent for focus and the
+/// current thing, so a heading is not orange), its note after it.
 pub(super) fn sec_row(t: &Tokens, title: &str, note: &str, first: bool) -> impl IntoElement {
     div()
         .flex()
@@ -206,7 +209,7 @@ pub(super) fn sec_row(t: &Tokens, title: &str, note: &str, first: bool) -> impl 
             &title.to_uppercase(),
             ty::XS,
             ty::BOLD,
-            t.accent,
+            t.text,
             0.88,
         ))
         .child(div().flex_1())

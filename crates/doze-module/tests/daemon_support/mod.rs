@@ -15,6 +15,8 @@ pub struct Find {
     pub asked: Mutex<Vec<(String, Vec<String>)>>,
     /// A build that serves engine 1 only, found for major 1 (else the echo serves 1 and 2).
     pub only1: Option<PathBuf>,
+    /// Another build of echo found for every major (a copy named `…-supervised`).
+    pub echo: Option<PathBuf>,
 }
 
 impl Finder for Find {
@@ -28,7 +30,11 @@ impl Finder for Find {
             .lock()
             .unwrap()
             .push((ty.to_string(), majors.to_vec()));
-        let only1 = self.only1.clone().filter(|_| majors == ["1"]);
+        let only1 = self
+            .only1
+            .clone()
+            .filter(|_| majors == ["1"])
+            .or_else(|| self.echo.clone());
         let found = (ty == "echo")
             .then(|| only1.unwrap_or_else(|| PathBuf::from(env!("CARGO_BIN_EXE_doze-module-echo"))))
             .ok_or_else(|| {
@@ -83,12 +89,22 @@ impl Downloads for Shared {
     }
 }
 
+/// A loopback port nobody holds, below every system's ephemeral range (Linux starts at 32768, macOS and Windows at
+/// 49152), and never the same one twice in this process: a port from `bind(":0")` can be handed straight back to a
+/// test running alongside (Windows does), as doze-module-test's `free_port` found on Linux.
+/// From 10000..20000: the engine hands out 20000..32000 from the same per-process offset, so a shared range let the
+/// test's port and the engine's first one be the same (daemon_catalog on Linux, #110's queue run).
 pub fn free_port() -> u16 {
-    std::net::TcpListener::bind(("127.0.0.1", 0))
-        .unwrap()
-        .local_addr()
-        .unwrap()
-        .port()
+    use std::sync::atomic::{AtomicU32, Ordering};
+    static NEXT: AtomicU32 = AtomicU32::new(0);
+    let start = std::process::id().wrapping_mul(97) % 10_000;
+    loop {
+        let n = NEXT.fetch_add(1, Ordering::Relaxed);
+        let port = u16::try_from(10_000 + (start + n) % 10_000).unwrap();
+        if std::net::TcpListener::bind(("127.0.0.1", port)).is_ok() {
+            return port;
+        }
+    }
 }
 
 pub fn project(tag: &str) -> (PathBuf, u16) {

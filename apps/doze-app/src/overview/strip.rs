@@ -159,7 +159,9 @@ fn figures(
 
 /// The memory figure's share bar (each instance its colour, biggest first) and the biggest few.
 fn memory(t: &Tokens, v: &Vitals4) -> AnyElement {
-    let colors = [t.cool, t.accent, t.good, t.warn, t.extra, t.dim];
+    // The categorical ramp, not the status hues: a share is a category, never "good" or "warn".
+    let [c1, c2, c3, c4] = t.cat;
+    let colors = [c1, c2, c3, c4, t.dim];
     let parts = v.mem.shares.iter().zip(colors.iter().cycle());
     let bar = div()
         .flex()
@@ -264,6 +266,9 @@ fn down_strip(t: &Tokens, st: &Stopped, tight: bool) -> impl IntoElement {
             .flex_1()
             .min_w_0()
             .child(v)
+            // Where a running stack's memory figure has its share bar (6 px, and the gap): the strip is as tall stopped
+            // as running, so the services under it stay where they are when the stack goes up or down.
+            .child(div().h(px(6.)).flex_none())
             .child(under(t, &line)),
     )
 }
@@ -315,6 +320,7 @@ pub(super) fn source_card(t: &Tokens, c: &ConfigError) -> gpui::Div {
         .border_1()
         .border_color(t.line)
         .bg(t.panel)
+        .shadow(t.lift())
         .child(title)
         .when(!c.excerpt.is_empty(), |d| d.child(excerpt(t, c)))
         .child(

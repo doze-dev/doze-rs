@@ -161,6 +161,7 @@ fn found(t: &Tokens, e: &Empty) -> Option<AnyElement> {
             .border_1()
             .border_color(t.line)
             .bg(t.panel)
+            .shadow(t.lift())
             .overflow_hidden()
             .child(head)
             .children(rows)
@@ -343,8 +344,9 @@ fn banner(t: &Tokens, e: &Empty) -> impl IntoElement {
         .py(px(10.))
         .rounded(px(10.))
         .border_1()
-        .border_color(mix(t.cool, t.panel, 50.))
-        .bg(mix(t.cool, t.panel, 10.))
+        // At note weight (the design pass, 2026-11-19): a plain card and its dot, no coloured frame.
+        .border_color(t.line)
+        .bg(t.panel)
         .child(div().size(px(8.)).flex_none().rounded_full().bg(t.cool))
         .child(words)
 }

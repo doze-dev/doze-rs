@@ -1,7 +1,7 @@
 //! Finding stacks: running ones by their control sockets, stopped ones by their project records (Go `Refresh`).
 
 use super::{Hub, Inner};
-use crate::changed::Changed;
+use crate::changed::{Changed, Parts};
 use crate::stack::{Stack, Wanted, lock};
 use doze_control::Topic;
 use doze_projects::{Project, StackKey};
@@ -22,10 +22,33 @@ impl Hub {
         let mut list = false;
         let mut inner = lock(&self.shared.inner);
         for r in running {
-            if !inner.stacks.contains_key(&r.key) {
-                let stack = self.spawn(&inner, &r.key, &r.socket);
-                inner.stacks.insert(r.key, stack);
-                list = true;
+            // Another pid on the socket is a new daemon (a restart quicker than a look): it is followed afresh, so
+            // its connection starts at Connecting, not at the last one's Down.
+            let replaced = inner
+                .stacks
+                .get(&r.key)
+                .is_some_and(|s| matches!((s.pid, r.pid), (Some(a), Some(b)) if a != b));
+            if replaced || !inner.stacks.contains_key(&r.key) {
+                let mut stack = self.spawn(&inner, &r.key, &r.socket);
+                stack.pid = r.pid;
+                inner.stacks.insert(r.key.clone(), stack);
+                if replaced {
+                    changes.push(Changed::stack(&r.key, Parts::CONN | Parts::META));
+                } else {
+                    list = true;
+                }
+            } else if let Some(s) = inner.stacks.get_mut(&r.key) {
+                s.pid = s.pid.or(r.pid);
+            }
+        }
+        // A loss is counted once it lasts (crate::LOST_AFTER): say so when it turns, so the pages and Needs you
+        // hear of it then, not at the follower's next retry.
+        let now = self.shared.o.clock.now();
+        for (k, s) in &mut inner.stacks {
+            let lost = s.with_state(|st| st.view.link.lost(now));
+            if lost != s.lost_seen {
+                s.lost_seen = lost;
+                changes.push(Changed::stack(k, Parts::CONN));
             }
         }
         // The socket is gone: the daemon exited and cleaned up. What it last showed is dropped with it (its
@@ -54,7 +77,7 @@ impl Hub {
     }
 
     /// Starts following a stack that appeared, streaming what pages already watch.
-    fn spawn(&self, inner: &Inner, key: &StackKey, socket: &Path) -> Stack {
+    pub(super) fn spawn(&self, inner: &Inner, key: &StackKey, socket: &Path) -> Stack {
         let shown: Vec<String> = inner
             .consoles
             .get(key)
@@ -80,6 +103,7 @@ pub(super) fn wanted(inner: &Inner, key: &StackKey) -> Wanted {
         // Logs keep coming while hidden: the pages read the hub's ring (Go fetched its window again), so a line said
         // meanwhile must be in it.
         logs: n(Topic::Logs) > 0,
+        keep_logs: n(Topic::Logs) > 0 || !inner.hidden,
     }
 }
 

@@ -11,7 +11,7 @@ use doze_module::proto::msg::instance::{Object, Toolchain};
 use doze_module::{Cx, Result, help};
 
 use super::spec::AwsSpec;
-use super::{Aws, REGION, backend};
+use super::{Aws, backend};
 use crate::cfn::{Cfn, CfnError};
 use crate::client::Client;
 
@@ -29,8 +29,8 @@ fn failed(e: &CfnError) -> Error {
     Error::new(kind, format!("keeping the aws stack: {e}"))
 }
 
-fn cfn_of(addr: &str) -> Result<Cfn> {
-    let client = Client::new(&format!("http://{addr}"), REGION, "test", "test")
+fn cfn_of(addr: &str, region: &str) -> Result<Cfn> {
+    let client = Client::new(&format!("http://{addr}"), region, "test", "test")
         .map_err(|e| Error::new(ErrorKind::Internal, e))?;
     Ok(Cfn::new(client))
 }
@@ -40,12 +40,13 @@ impl Converge for Aws {
         let addr = backend(&cx.instance)?;
         let body = super::template::template(&cx.spec, &cx.instance.dir).to_string();
         let empty = super::declared_nothing(&cx.spec);
+        let region = cx.spec.region().to_owned();
         let data = std::path::PathBuf::from(&cx.instance.data_dir);
         let run = move || -> std::result::Result<_, Error> {
-            let cfn = cfn_of(&addr)?;
+            let cfn = cfn_of(&addr, &region)?;
             apply(&cfn, &body, empty)?;
             // After the stack, so what doze.hcl declares is the stack's; then what the Go module left (godata.rs).
-            let client = Client::new(&format!("http://{addr}"), REGION, "test", "test")
+            let client = Client::new(&format!("http://{addr}"), &region, "test", "test")
                 .map_err(|e| Error::new(ErrorKind::Internal, e))?;
             super::godata::replay(&data, &client).map_err(|why| {
                 Error::new(
