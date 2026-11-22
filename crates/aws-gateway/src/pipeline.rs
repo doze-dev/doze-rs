@@ -313,13 +313,8 @@ async fn handle(
     }
     let bytes = inflate(parts, bytes, shared.max_body_bytes()).map_err(|e| fail(&e))?;
     let caller = caller_of(shared, parts, claim);
-    // Bytes is counted, not copied: kept for a refusal, which names what the call acted on from the body as it came.
-    let sent = bytes.clone();
-    let call = decode_call(entry, op, id, caller, bytes).map_err(|e| {
-        crate::observe::refused_input(parts, &sent);
-        fail(&e)
-    })?;
-    crate::observe::input(parts, entry, &call);
+    let call =
+        crate::observe::decode(parts, entry, (op, id), caller, bytes).map_err(|e| fail(&e))?;
     answer(parts, entry, (op, version), call)
         .await
         .map_err(|e| fail(&e))

@@ -15,7 +15,9 @@ use std::time::{Duration, Instant};
 use aws_auth::claim::Claim;
 use aws_peers::summary::{self, Summary, TreeFields};
 use aws_schema::meta::ServiceMeta;
+use aws_wire::service::{Call, Caller};
 use aws_wire::{ApiError, RequestId};
+use bytes::Bytes;
 use http::request::Parts;
 
 use crate::pipeline::{Entry, Shared};
@@ -263,6 +265,23 @@ pub(crate) fn refused_input(parts: &Parts, body: &[u8]) {
             }
         }
     });
+}
+
+/// The request's body decoded ([`crate::pipeline::decode_call`]) and noted: what its input names is what the call acted on
+/// ([`input`]); when decoding refuses it, the member that names it is read from the body as it came (`Bytes` is counted, not
+/// copied), so a refusal still says what it was about.
+pub(crate) fn decode(
+    parts: &Parts,
+    entry: &Entry,
+    (op, id): (u32, &RequestId),
+    caller: Caller,
+    bytes: Bytes,
+) -> Result<Call, ApiError> {
+    let sent = bytes.clone();
+    let call = crate::pipeline::decode_call(entry, op, id, caller, bytes)
+        .inspect_err(|_| refused_input(parts, &sent))?;
+    input(parts, entry, &call);
+    Ok(call)
 }
 
 /// The request is answered with `error`.
