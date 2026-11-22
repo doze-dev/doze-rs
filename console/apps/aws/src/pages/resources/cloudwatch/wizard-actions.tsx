@@ -79,7 +79,7 @@ function Notification({ n, d, set, region, account, tried, problem }: Props & { 
           {(id) => <Input id={id} value={n.arn} onChange={(e) => patch({ arn: e.target.value })} placeholder={`arn:aws:sns:${region}:${account}:alerts`} className="font-mono" autoComplete="off" spellCheck={false} data-testid="topic-arn-input" />}
         </Field>
       )}
-      <TopicWords name={n.via === "new" ? "" : topicName} />
+      <TopicWords name={n.via === "existing" ? topicName : ""} />
       <div><Button type="button" variant="outline" className="bg-card" onClick={remove} data-testid="notification-remove"><Trash2Icon /> Remove</Button></div>
     </div>
   );
@@ -119,7 +119,7 @@ export function ActionsStep(p: Props) {
           <Button type="button" variant="outline" className="bg-card" onClick={() => set({ notify: [...d.notify, { id: nextId(), state: "ALARM", via: "lambda", arn: "", name: "" }] })} data-testid="lambda-add"><PlusIcon /> Add Lambda action</Button>
           {OFF.map((label) => <Button key={label} type="button" variant="outline" className="bg-card" disabled title="Not available in doze-aws">{label}</Button>)}
         </div>
-        <p className="text-[13px] leading-5 text-muted-foreground" data-testid="actions-off-reason"><b className="font-semibold text-foreground">Not available in doze-aws:</b> alarm actions are delivered to SNS topics and Lambda functions only (<span className="font-mono">crates/aws-cloudwatch/src/actions.rs</span>); an action it cannot deliver would look wired up and do nothing.</p>
+        <p className="text-[13px] leading-5 text-muted-foreground" data-testid="actions-off-reason"><b className="font-semibold text-foreground">Not available in doze-aws:</b> alarm actions are delivered to SNS topics and Lambda functions only; an action it cannot deliver would look wired up and do nothing.</p>
       </FormSection>
     </>
   );

@@ -17,7 +17,7 @@ import { Button } from "@doze/ui/components/ui/button";
 import { Input } from "@doze/ui/components/ui/input";
 import { Skeleton } from "@doze/ui/components/ui/skeleton";
 import { dateTimeUtc } from "@doze/ui/lib/format";
-import { PlainConfirm } from "../../../kit";
+import { PlainConfirm, useServiceCrumbs } from "../../../kit";
 import { HINT } from "../index-page";
 import { ResourceTo } from "../value";
 import { useAlarms, useDeleteAlarms } from "./api";
@@ -34,7 +34,7 @@ export const ALARM_COLUMNS: DataColumn<Alarm>[] = [
   ) },
   { id: "state", header: "State", size: 190, fit: 190, accessorFn: (r) => r.StateValue, cell: (c) => <StatusDot tone={stateTone(c.row.original.StateValue)}>{c.row.original.StateValue}</StatusDot> },
   { id: "updated", header: "State updated", size: 190, fit: 190, accessorFn: (r) => toMs(r.StateUpdatedTimestamp) ?? 0, cell: (c) => { const t = toMs(c.row.original.StateUpdatedTimestamp); return t === null ? "–" : dateTimeUtc(t); } },
-  { id: "condition", header: "Condition", min: 220, enableSorting: false, accessorFn: (r) => conditionWords(r), cell: (c) => <span className="text-[13.5px]" data-testid="condition">{c.row.original.AlarmRule ?? conditionWords(c.row.original)}</span> },
+  { id: "condition", header: "Condition", min: 220, enableSorting: false, accessorFn: (r) => conditionWords(r), cell: (c) => <span className="block py-1 text-[13.5px] leading-5 whitespace-normal" data-testid="condition">{c.row.original.AlarmRule ?? conditionWords(c.row.original)}</span> },
   { id: "actions", header: "Actions enabled", size: 150, fit: 150, enableSorting: false, accessorFn: (r) => (r.ActionsEnabled ? 1 : 0), cell: (c) => (c.row.original.ActionsEnabled ? "Yes" : "No") },
 ];
 
@@ -46,6 +46,7 @@ export function AlarmsList({ service, kind }: { service: string; kind: string })
 
 function Alarms({ service, kind, gone }: { service: string; kind: string; gone?: string }) {
   const navigate = useNavigate();
+  const crumbs = useServiceCrumbs(service);
   const q = useAlarms();
   const del = useDeleteAlarms();
   const [typed, setTyped] = useState("");
@@ -64,7 +65,7 @@ function Alarms({ service, kind, gone }: { service: string; kind: string; gone?:
     <>
       <PageHeader
         title="Alarms"
-        crumbs={[{ label: "Resources", to: "/resources" }, { label: "Observability", to: "/resources" }, { label: "CloudWatch Metrics", to: `/resources/${service}` }]}
+        crumbs={crumbs}
         sub="Alarms watch one metric and run actions when their state changes."
         refresh={<RefreshControl updatedAt={q.dataUpdatedAt} fetching={q.isFetching} onRefresh={refresh} interval={false} />}
         actions={<Button onClick={create} data-testid="create-open"><PlusIcon /> Create alarm</Button>}
@@ -90,6 +91,7 @@ function Alarms({ service, kind, gone }: { service: string; kind: string; gone?:
           onSelectedChange={setChosen}
           noun="alarm"
           maxHeight={680}
+          rowHeight={64}
           actionsEnd
           hint=" "
           selectedLabel={(n) => `${n} ${n === 1 ? "alarm" : "alarms"} selected`}

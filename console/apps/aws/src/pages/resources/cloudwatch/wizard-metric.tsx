@@ -16,7 +16,7 @@ type Props = { d: Draft; set: (patch: Partial<Draft>) => void; tried: boolean; p
 
 const mono = "font-mono text-[13px]";
 
-function Picker({ d, set }: Pick<Props, "d" | "set">) {
+function Picker({ d, set, tried }: Pick<Props, "d" | "set" | "tried">) {
   const q = useMetrics();
   const all = useMemo(() => q.data ?? [], [q.data]);
   const m = d.metric;
@@ -30,7 +30,7 @@ function Picker({ d, set }: Pick<Props, "d" | "set">) {
   const patch = (p: Partial<NonNullable<Draft["metric"]>>) => set({ metric: { namespace: "", name: "", dimensions: [], ...m, ...p } });
   return (
     <div className="grid gap-4" data-testid="metric-picker">
-      <Field label="Namespace" hint={q.isPending ? "Reading the metrics that have data…" : "Choose a namespace that has data, or type your own: an alarm may be made before its metric has any."}>
+      <Field label="Namespace" error={tried && !m?.namespace ? "Choose the metric to watch." : undefined} hint={q.isPending ? "Reading the metrics that have data…" : "Choose a namespace that has data, or type your own: an alarm may be made before its metric has any."}>
         {(id) => <Combobox id={id} pattern options={namespaces} value={m?.namespace || null} onChange={(v) => patch({ namespace: v ?? "", name: "", dimensions: [] })} placeholder="Choose a namespace" search="Search or type a namespace…" className="w-full" aria-label="Namespace" />}
       </Field>
       <Field label="Metric name">
@@ -45,7 +45,7 @@ function Picker({ d, set }: Pick<Props, "d" | "set">) {
 
 function MetricGraph({ d }: { d: Draft }) {
   const [state, patch, range] = useRange("3h");
-  const m = d.metric;
+  const m = d.metric?.namespace && d.metric.name ? d.metric : null;
   const queries = m ? [{ id: "m1", label: d.math?.label || m.name, namespace: m.namespace, metric: m.name, dimensions: Object.fromEntries(m.dimensions.map((x) => [x.Name, x.Value])), stat: d.stat, period: Math.max(d.period, 60), ...(d.math ? { hide: true } : {}) }, ...(d.math ? [{ id: "e1", label: d.math.label || "e1", namespace: "", metric: "", expression: d.math.expression }] : [])] : [];
   const data = useMetricData(queries, range, Boolean(m) && (!d.math || d.math.expression.trim() !== ""));
   const t = Number(d.threshold);
@@ -68,7 +68,7 @@ export function MetricStep({ d, set, tried, problem }: Props) {
         <MetricGraph d={d} />
         {picking || !m ? (
           <>
-            <Picker d={d} set={set} />
+            <Picker d={d} set={set} tried={tried} />
             {m && <div><Button type="button" variant="outline" className="bg-card" onClick={() => setPicking(false)} data-testid="metric-done">Done</Button></div>}
           </>
         ) : (

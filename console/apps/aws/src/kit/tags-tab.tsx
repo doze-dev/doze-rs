@@ -53,7 +53,7 @@ export function TagsView({ answer, saving = false, error, saved, onSave, noun = 
         ) : (
           <p className="text-[13.5px] text-muted-foreground">Tags are case-sensitive, and a new tag with an existing key overwrites it. Up to {TAG_RULES.maxRows} tags.</p>
         )}
-        <KeyValueEditor rows={rows} onChange={setRows} rules={TAG_RULES} showErrors={tried} disabled={saving} testId="tags-kv" />
+        <KeyValueEditor rows={rows} onChange={setRows} rules={TAG_RULES} showErrors={tried} disabled={saving} addLabel={manage ? "Add tag" : undefined} testId="tags-kv" />
         {manage && <p className="max-w-[46rem] border-l-2 pl-3.5 text-[13px] leading-5 text-muted-foreground" data-testid="tags-rules">{manage.rules}</p>}
         {failed && (
           <Alert tone="bad" title={`The tags were not saved${failed.code ? `: ${failed.code}` : ""}`} testId="tags-refused">

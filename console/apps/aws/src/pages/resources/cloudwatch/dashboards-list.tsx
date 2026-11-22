@@ -89,7 +89,7 @@ export function DashboardsList({ service, kind }: { service: string; kind: strin
           />
           <div className="mt-6 grid gap-3">
             <p className="max-w-[46rem] border-l-2 pl-3.5 text-[13px] leading-5 text-muted-foreground" data-testid="dashboards-scope"><b className="font-semibold text-foreground">A dashboard belongs to the Region it was made in.</b> AWS keeps dashboards for the account, in no Region; doze-aws keeps them with the Region's other CloudWatch data. A dashboard named <span className="font-mono">CloudWatch-Default</span> is drawn on the CloudWatch overview page.</p>
-            <p className="max-w-[46rem] border-l-2 pl-3.5 text-[13px] leading-5 text-muted-foreground" data-testid="dashboards-local"><b className="font-semibold text-foreground">Stored, not applied locally.</b> doze-aws keeps the dashboard body exactly as written and never interprets it (<span className="font-mono">crates/aws-cloudwatch/src/docs.rs</span>); this console draws it.</p>
+            <p className="max-w-[46rem] border-l-2 pl-3.5 text-[13px] leading-5 text-muted-foreground" data-testid="dashboards-local"><b className="font-semibold text-foreground">Stored, not applied locally.</b> doze-aws keeps the dashboard body exactly as written and never interprets it; this console draws it.</p>
           </div>
         </>
       )}

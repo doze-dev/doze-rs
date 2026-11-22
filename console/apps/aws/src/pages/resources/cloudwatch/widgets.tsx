@@ -45,7 +45,7 @@ function MetricWidget({ w, range, height }: { w: Widget; range: Range; height: n
   const stacked = prop<boolean>(w, "stacked") === true;
   if (queries.length === 0) return <p className="text-[13.5px] text-muted-foreground" data-testid="widget-no-metrics">This widget names no metric.</p>;
   if (view === "timeSeries")
-    return <Chart series={series.map((s) => ({ ...s, area: stacked || series.length === 1 }))} from={(own ?? range).from} to={(own ?? range).to} height={Math.max(140, height - 70)} loading={data.isPending} aria-label={`${titleOf(w)} over the range`} empty="No data points in this range." testId="widget-chart" />;
+    return <Chart series={series.map((s) => ({ ...s, area: stacked || series.length === 1 }))} from={(own ?? range).from} to={(own ?? range).to} height={Math.max(120, height - 150)} loading={data.isPending} aria-label={`${titleOf(w)} over the range`} empty="No data points in this range." testId="widget-chart" />;
   const values = series.map((s) => ({ label: s.label, v: latest(s) }));
   if (view === "singleValue" || view === "gauge") {
     const [first] = values;
@@ -98,7 +98,7 @@ export function Widgets({ widgets, range, alarms, onRemove }: { widgets: readonl
     <div className="grid grid-cols-1 gap-4 md:[grid-template-columns:repeat(24,minmax(0,1fr))] md:[grid-auto-rows:40px]" data-testid="dashboard-grid">
       {placed.map((p) => {
         const w = p.widget;
-        const title = titleOf(w);
+        const title = w.type === "text" && !prop<string>(w, "title") ? "" : titleOf(w);
         const frame = { title, source: JSON.stringify(w, null, 2), onRemove: onRemove ? () => onRemove(p.index) : undefined, testId: `widget-${p.index}` };
         return (
           <div key={p.index} className="min-w-0 md:[grid-column:var(--c)] md:[grid-row:var(--r)]" style={{ "--c": `${p.x + 1} / span ${p.w}`, "--r": `${p.y + 1} / span ${p.h}`, minHeight: px(p) } as React.CSSProperties}>

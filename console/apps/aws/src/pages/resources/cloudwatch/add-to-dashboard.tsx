@@ -60,7 +60,7 @@ export function AddToDashboard({ rows, region, onClose }: { rows: GM[]; region: 
             <p className="text-[13.5px] leading-5 text-foreground" data-testid="add-words">
               The {rows.length === 1 ? "graphed metric becomes" : `${rows.length} graphed metrics become`} one widget at the next free position of <b className="font-mono font-semibold text-bright">{chosen}</b> (a widget with no x and y takes the next available position). PutDashboard replaces the entire contents of a dashboard, so adding a widget writes the existing widgets back with the new one.
             </p>
-            <p className="text-[13px] text-muted-foreground"><b className="font-semibold text-foreground">Stored, not applied locally.</b> doze-aws keeps the dashboard body exactly as written and never interprets it (<span className="font-mono">crates/aws-cloudwatch/src/docs.rs</span>); this console draws it.</p>
+            <p className="text-[13px] text-muted-foreground"><b className="font-semibold text-foreground">Stored, not applied locally.</b> doze-aws keeps the dashboard body exactly as written and never interprets it; this console draws it.</p>
           </div>
         )}
         {failed && <Alert tone="bad" title={`The widget was not added${failed.code ? `: ${failed.code}` : ""}`} testId="add-refused">{failed.message}</Alert>}

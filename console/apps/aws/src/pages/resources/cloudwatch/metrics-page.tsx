@@ -84,7 +84,7 @@ export function MetricsPage({ service, kind }: { service: string; kind: string }
           {rows.length > 0 && <TabsTrigger value="source" className="h-11 flex-none px-3 text-[14px]" data-testid="tab-source">Source</TabsTrigger>}
         </TabsList>
         <div className="pt-6" role="tabpanel" data-testid="tab-panel">
-          {tab === "browse" && <Browse view={p} onView={(v) => set(v)} rows={rows} onRows={(next) => set({ sel: next.length ? encode(next) : undefined, mode: next.length && !rows.length ? "graphed" : p.mode })} retry={refresh} />}
+          {tab === "browse" && <Browse view={p} onView={(v) => set(v)} rows={rows} onRows={(next) => set({ sel: next.length ? encode(next) : undefined })} retry={refresh} />}
           {tab === "graphed" && (rows.length === 0 ? <EmptyState icon={SearchIcon} title="No metrics selected">Browse to a namespace and tick the metrics to graph them here.</EmptyState> : <GraphedTable rows={rows} onChange={(next) => set({ sel: next.length ? encode(next) : undefined })} onAlarm={alarmFrom} />)}
           {tab === "options" && (
             <div className="grid max-w-[46rem] gap-3 text-[14px]" data-testid="options-tab">

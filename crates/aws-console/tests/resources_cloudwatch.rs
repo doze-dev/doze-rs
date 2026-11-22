@@ -187,3 +187,19 @@ async fn the_metrics_page_lists_by_namespace_with_the_services_own_listmetrics()
     assert_eq!(status, 200, "{listed}");
     assert_eq!(listed["Metrics"][0]["MetricName"], "OrdersPlaced");
 }
+
+#[tokio::test]
+async fn the_dashboards_page_lists_with_the_services_own_listdashboards() {
+    let w = world("cw-dash-list", Mode::Soft, &[]);
+    op(
+        &w,
+        "dashboards",
+        "PutDashboard",
+        json!({"DashboardName": "larder-api", "DashboardBody": "{}"}),
+    )
+    .await;
+    let (status, listed) = op(&w, "dashboards", "ListDashboards", json!({})).await;
+    assert_eq!(status, 200, "{listed}");
+    assert_eq!(listed["DashboardEntries"][0]["DashboardName"], "larder-api");
+    assert!(listed["DashboardEntries"][0]["LastModified"].is_number());
+}

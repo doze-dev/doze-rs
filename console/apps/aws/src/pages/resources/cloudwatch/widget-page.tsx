@@ -79,7 +79,7 @@ export function WidgetPage({ name, mode }: { name: string; mode: string | undefi
           {tab === "browse" && (
             <div className="grid gap-5">
               <div className="relative w-full max-w-[35rem]"><SearchIcon aria-hidden className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" /><Input value={view.q ?? ""} onChange={(e) => setView({ ...view, q: e.target.value || undefined })} placeholder="Search for a metric, dimension or resource ID" aria-label="Search for a metric, dimension or resource ID" className="bg-card pl-9" data-testid="metric-search" /></div>
-              <Browse view={view} onView={(p) => setView({ ...view, ...p })} rows={rows} onRows={(next) => { setRows(next); if (!rows.length && next.length) setTab("graphed"); }} />
+              <Browse view={view} onView={(p) => setView({ ...view, ...p })} rows={rows} onRows={setRows} />
             </div>
           )}
           {tab === "graphed" && (rows.length === 0 ? <EmptyState icon={SearchIcon} title="No metrics selected">Browse to a namespace and tick the metrics to graph them here.</EmptyState> : <GraphedTable rows={rows} onChange={setRows} />)}

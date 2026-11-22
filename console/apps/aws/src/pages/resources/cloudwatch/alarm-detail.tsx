@@ -69,7 +69,7 @@ function AlarmView({ d, a, updatedAt, fetching, refresh }: { d: ResourceDetail; 
     <>
       <ResourcePage
         detail={shown}
-        banner={search.done === "updated" ? <ResultBanner title={`Alarm ${a.AlarmName} updated.`} returned="PutMetricAlarm replaced the alarm's settings; its state and history are kept." onDismiss={() => void navigate({ to: ".", search: {}, replace: true })} testId="updated-banner" /> : undefined}
+        banner={search.done === "updated" ? <ResultBanner title={`Alarm ${a.AlarmName} updated.`} returned="PutMetricAlarm replaced the alarm's settings; its state and history are kept." onDismiss={() => void navigate({ to: ".", search: {}, replace: true })} testId="updated-banner" /> : search.done === "created" ? <ResultBanner title={`Alarm ${a.AlarmName} created.`} returned="PutMetricAlarm made the alarm. Its state is INSUFFICIENT_DATA until the first evaluation." onDismiss={() => void navigate({ to: ".", search: {}, replace: true })} testId="created-banner" /> : undefined}
         bannerAbove
         tabs={tabs}
         details={false}

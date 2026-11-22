@@ -47,6 +47,7 @@ pub(super) const DASHBOARDS: Kind = Kind {
     deep: &[],
     // The pages read a dashboard's body to draw it, and write it back whole (PutDashboard replaces the entire body).
     ops: &[
+        ops::free("ListDashboards"),
         ops::free("GetDashboard"),
         ops::free("PutDashboard"),
         ops::free("DeleteDashboards"),
