@@ -1,6 +1,7 @@
 // The kit's calls: a kind-level operation (contract §2), a resource's tags (§3), what blocks a delete (§4).
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { client } from "../api/client";
+import { forgetDeleted, scopeOf } from "../api/forget";
 import { RESOURCE_PATHS } from "../api/resources";
 import type { Blockers, TagsAnswer, TagsChange } from "./contract";
 import type { Deleted } from "../api/types/Deleted";
@@ -58,14 +59,11 @@ export function useBlockers(t: Target, enabled = true) {
   return useQuery({ queryKey: ["resources", "blockers", t.service, t.kind, t.name], queryFn: ({ signal }) => client.api<Blockers>(blockersPath(t), {}, signal), enabled, retry: false, staleTime: 0, gcTime: 0 });
 }
 
-/** The delete itself, clearing the blockers that can be cleared first when `clear` (contract §4). */
+/** The delete itself (its reads are marked stale and not made again: `forgetDeleted`), clearing the blockers that can be cleared first when `clear` (contract §4). */
 export function useDeleteClearing(t: Target) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ clear }: { clear: boolean }) => client.api<Deleted>(`${RESOURCE_PATHS.one(t.service, t.kind, t.name)}${clear ? "?clear=yes" : ""}`, { method: "DELETE" }),
-    onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: ["resources", "list", t.service, t.kind] });
-      void qc.invalidateQueries({ queryKey: ["resources", "index"] });
-    },
+    onSuccess: () => forgetDeleted(qc, scopeOf(t.service), [t.name]),
   });
 }

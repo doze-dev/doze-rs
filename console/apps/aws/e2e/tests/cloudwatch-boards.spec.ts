@@ -1,6 +1,6 @@
 // The CloudWatch boards of the alarms (overview, list, delete, detail, history, tags, the four steps of the wizard, and none left): each reached against a real doze-aws and, in Chromium, photographed light and dark into SHOTS_DIR.
 // No test may log a console error.
-import { expect, test } from "./fixtures";
+import { expect, expectNoErrorAnswers, test } from "./fixtures";
 import { alarm, choose, cli, code, go, pick, shot, serveWorld, world } from "./cloudwatch-kit";
 
 serveWorld(0);
@@ -50,7 +50,7 @@ test("cloudwatch__alarms-list: the state chips with counts, the condition, a row
 });
 
 
-test("cloudwatch__alarm-delete: the dialog says what stops, then deleting leaves the list without it", async ({ page }) => {
+test("cloudwatch__alarm-delete: the dialog says what stops, then deleting leaves the list without it", async ({ page, refusals }) => {
   cli(["cloudwatch", "put-metric-alarm", "--alarm-name", "scratch-alarm", "--namespace", "Larder/Queues", "--metric-name", "DlqMessages", "--dimensions", "Name=QueueName,Value=pick-lists-dlq", "--statistic", "Maximum", "--period", "60", "--evaluation-periods", "1", "--threshold", "1", "--comparison-operator", "GreaterThanOrEqualToThreshold", "--alarm-actions", `arn:aws:sns:us-east-1:${world.server.account}:alerts`]);
   await go(page, "/resources/cloudwatch/alarms", "Alarms");
   const table = page.getByRole("table", { name: "Alarms" });
@@ -68,6 +68,7 @@ test("cloudwatch__alarm-delete: the dialog says what stops, then deleting leaves
   await expect(page.getByTestId("delete-dialog")).toContainText("Delete scratch-alarm.");
   await page.getByTestId("delete-dialog-submit").click();
   await expect(page.getByTestId("deleted-banner")).toContainText("Alarm scratch-alarm deleted.");
+  await expectNoErrorAnswers(page, refusals);
   await expect(table.locator("tr[data-row]", { hasText: "scratch-alarm" })).toHaveCount(0);
   expect(cli(["cloudwatch", "describe-alarms", "--alarm-names", "scratch-alarm"])).not.toContain("scratch-alarm");
 });
@@ -240,7 +241,7 @@ test("cloudwatch__alarm-step1 to step4: the wizard, the call each step makes, an
 });
 
 
-test("what the boards do not draw: an anomaly alarm from the wizard, a metric math alarm read back, and CloudWatch-Default on the overview", async ({ page }) => {
+test("what the boards do not draw: an anomaly alarm from the wizard, a metric math alarm read back, and CloudWatch-Default on the overview", async ({ page, refusals }) => {
   // A band worked out from the metric's own data in place of a threshold.
   await go(page, "/resources/cloudwatch/alarms", "Alarms");
   await page.getByTestId("create-open").click();
@@ -266,6 +267,7 @@ test("what the boards do not draw: an anomaly alarm from the wizard, a metric ma
   await page.getByRole("menuitem", { name: "Delete" }).click();
   await page.getByTestId("delete-dialog-submit").click();
   await expect(page.getByTestId("deleted-banner")).toContainText("Alarm orders-band deleted.");
+  await expectNoErrorAnswers(page, refusals);
   await expect(page.getByRole("table", { name: "Alarms" }).locator("tr[data-row]", { hasText: "orders-band" })).toHaveCount(0);
   // Metric math, made with the CLI: the page names the expression and draws the one it returns.
   cli(["cloudwatch", "put-metric-alarm", "--alarm-name", "failure-rate", "--metrics", JSON.stringify([{ Id: "m1", MetricStat: { Metric: { Namespace: "Larder/Orders", MetricName: "OrdersPlaced", Dimensions: [{ Name: "Environment", Value: "prod" }] }, Period: 300, Stat: "Sum" }, ReturnData: false }, { Id: "m2", MetricStat: { Metric: { Namespace: "Larder/Orders", MetricName: "OrdersFailed", Dimensions: [{ Name: "Environment", Value: "prod" }] }, Period: 300, Stat: "Sum" }, ReturnData: false }, { Id: "e1", Expression: "m2 / m1 * 100", Label: "Failure rate", ReturnData: true }]), "--evaluation-periods", "1", "--threshold", "10", "--comparison-operator", "GreaterThanThreshold"]);
@@ -281,7 +283,7 @@ test("what the boards do not draw: an anomaly alarm from the wizard, a metric ma
 });
 
 
-test("cloudwatch__alarms-none: deleting the last alarm leaves the empty state", async ({ page }) => {
+test("cloudwatch__alarms-none: deleting the last alarm leaves the empty state", async ({ page, refusals }) => {
   await go(page, "/resources/cloudwatch/alarms", "Alarms");
   await page.getByTestId("select-all").click();
   await expect(page.getByTestId("selected-count")).toContainText("alarm");
@@ -289,6 +291,7 @@ test("cloudwatch__alarms-none: deleting the last alarm leaves the empty state", 
   await expect(page.getByTestId("delete-dialog")).toContainText("alarms?");
   await page.getByTestId("delete-dialog-submit").click();
   await expect(page.getByTestId("list-empty")).toContainText("No alarms");
+  await expectNoErrorAnswers(page, refusals);
   await expect(page.getByTestId("list-empty")).toContainText("An alarm watches one metric and changes state when it crosses a threshold.");
   await expect(page.getByTestId("empty-create")).toHaveText("Create alarm");
   await shot(page, "cloudwatch__alarms-none");

@@ -1,11 +1,10 @@
 // The HTTP boards of API Gateway (the four-step create, routes, integrations, authorization, CORS, stages, and their empty states), each reached against
 // a real doze-aws (one per browser, seeded as the boards' "larder" world) and, in Chromium, photographed light and dark. The REST boards are
 // apigateway-boards.spec.ts, the usage plans apigateway-boards-plans.spec.ts.
-import { expect, test, CUT } from "./fixtures";
+import { expect, expectNoErrorAnswers, test } from "./fixtures";
 import { apiPath, begin, choose, cli, ctx, end, go, json, pick, shot } from "./apigateway-kit";
 
 test.describe.configure({ mode: "serial" });
-test.use({ allowErrors: CUT });
 
 test.beforeAll(async ({ browserName }) => begin(browserName));
 test.afterAll(end);
@@ -239,11 +238,12 @@ test("apigateway: a route and an integration are made on the pages, and a WebSoc
   await expect(page.getByTestId("chip-kind")).toHaveText("WebSocket");
 });
 
-test("apigateway__apis-none: with every API deleted the list says so, and a route is deleted from its row", async ({ page }) => {
+test("apigateway__apis-none: with every API deleted the list says so, and a route is deleted from its row", async ({ page, refusals }) => {
   await go(page, apiPath("apis", http()), "Routes");
   await page.getByTestId("delete-GET /reports").click();
   await page.getByTestId("route-delete-submit").click();
   await expect(page.getByTestId("delete-GET /reports")).toBeHidden();
+  await expectNoErrorAnswers(page, refusals);
   for (const a of json<{ Items: { ApiId: string }[] }>(["apigatewayv2", "get-apis"]).Items) cli(["apigatewayv2", "delete-api", "--api-id", a.ApiId]);
   for (const a of json<{ items: { id: string }[] }>(["apigateway", "get-rest-apis"]).items) cli(["apigateway", "delete-rest-api", "--rest-api-id", a.id]);
   await go(page, "/resources/apigateway/restapis", "APIs");

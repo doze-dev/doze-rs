@@ -6,7 +6,6 @@ import { TypedConfirm } from "@doze/ui/components/app/typed-confirm";
 import { Skeleton } from "@doze/ui/components/ui/skeleton";
 import { ApiFailure } from "@doze/ui/lib/api";
 import { type Blocker, useBlockers, useDeleteClearing } from "../../../kit";
-import { useRefresh } from "./api";
 import { list } from "./model";
 
 export type DeletedKind = "users" | "groups" | "roles" | "policies";
@@ -64,7 +63,6 @@ export function DeleteEntity({ kind, name, label, open, onOpenChange, onDeleted 
   const target = { service: "iam", kind, name };
   const blockers = useBlockers(target, open);
   const del = useDeleteClearing(target);
-  const refresh = useRefresh();
   const shown = label ?? name;
   const refused = del.error;
   const code = refused instanceof ApiFailure ? refused.code : "";
@@ -83,7 +81,7 @@ export function DeleteEntity({ kind, name, label, open, onOpenChange, onDeleted 
       noun={`${NOUN[kind]} name`}
       verb="Delete"
       pending={del.isPending}
-      onConfirm={() => del.mutate({ clear }, { onSuccess: () => { refresh(name); onDeleted(); } })}
+      onConfirm={() => del.mutate({ clear }, { onSuccess: onDeleted })}
       testId="delete-dialog"
       refusal={refused ? <Alert tone="bad" title={`${OPERATION[kind]} was refused${code ? `: ${code}` : ""}`} testId="delete-refused">{refused instanceof Error ? refused.message : "No reason was given."}</Alert> : undefined}
     >

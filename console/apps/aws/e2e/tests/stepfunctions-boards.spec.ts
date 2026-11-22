@@ -4,7 +4,7 @@ import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 import type { Page } from "@playwright/test";
 import { start, type Running, aws } from "../server";
-import { CUT, expect, test } from "./fixtures";
+import { expect, expectNoErrorAnswers, test } from "./fixtures";
 import { type Larder, seedLarder } from "./stepfunctions-seed";
 
 const SHOTS = process.env.SHOTS_DIR ?? join(import.meta.dirname, "../../../../../shots-stepfunctions");
@@ -12,8 +12,6 @@ const BASE = Number(process.env.E2E_BASE_PORT ?? 45800);
 const at = (b: string) => BASE + ({ firefox: 10, webkit: 20, chromium: 30 }[b] ?? 40);
 
 test.describe.configure({ mode: "serial" });
-// A few boards are the service's refusal or a read of what is gone: the browser logs each 4xx as a failed load.
-test.use({ allowErrors: CUT });
 
 let server: Running;
 let larder: Larder;
@@ -451,7 +449,7 @@ test("stepfunctions__activities-list and activity-create: the workers' tasks, an
   await expect(rows(page, "Activities")).toHaveCount(3);
 });
 
-test("stepfunctions__machine-delete, machines-none and activities-none: the delete dialog, and what is left when everything is gone", async ({ page }) => {
+test("stepfunctions__machine-delete, machines-none and activities-none: the delete dialog, and what is left when everything is gone", async ({ page, refusals }) => {
   await go(page, machine("order-fulfilment"), "order-fulfilment");
   const running = (JSON.parse(cli(["stepfunctions", "list-executions", "--state-machine-arn", `arn:aws:states:us-east-1:${server.account}:stateMachine:order-fulfilment`, "--status-filter", "RUNNING"])) as { executions: unknown[] }).executions.length;
   expect(running).toBeGreaterThan(1);
@@ -469,6 +467,7 @@ test("stepfunctions__machine-delete, machines-none and activities-none: the dele
   });
   await page.getByTestId("delete-dialog-submit").click();
   await expect(page.getByTestId("deleted-banner")).toContainText("State machine order-fulfilment deleted.");
+  await expectNoErrorAnswers(page, refusals);
   await expect(rows(page, "State machines")).toHaveCount(2);
   expect(refused).toEqual([]);
   expect(cli(["stepfunctions", "list-state-machines"])).not.toContain("order-fulfilment");
@@ -482,7 +481,10 @@ test("stepfunctions__machine-delete, machines-none and activities-none: the dele
   await shot(page, "stepfunctions__activities-none");
 });
 
-test("a state machine and an execution that are not there: the same page as every kind", async ({ page }) => {
+test("a state machine and an execution that are not there: the same page as every kind", async ({ page, refusals }) => {
+  // A page of what is not there asks the service, which refuses.
+  refusals.allow(/400 GET .*\/stepfunctions\/machines\/no-such-machine$/);
+  refusals.allow(/400 POST .*\/stepfunctions\/machines\/order-fulfilment\/op\/(DescribeExecution|DescribeStateMachineForExecution|GetExecutionHistory)$/);
   await page.goto(`${server.console}${machine("no-such-machine")}`);
   await expect(page.locator("h1").first()).toHaveText("State machine not found");
   await expect(page.getByTestId("detail-error")).toContainText("There is no state machine named no-such-machine");

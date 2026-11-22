@@ -7,15 +7,13 @@ import { join } from "node:path";
 import type { Page } from "@playwright/test";
 import { aws, start, type Running } from "../server";
 import { PATTERN, putEvent, seedLarder } from "./eventbridge-seed";
-import { CUT, expect, settled, test } from "./fixtures";
+import { expect, expectNoErrorAnswers, settled, test } from "./fixtures";
 
 const SHOTS = process.env.SHOTS_DIR ?? join(import.meta.dirname, "../../../../../shots-eventbridge");
 const BASE = Number(process.env.E2E_BASE_PORT ?? 45400);
 const at = (b: string) => BASE + ({ firefox: 0, webkit: 10, chromium: 20 }[b] ?? 30);
 
 test.describe.configure({ mode: "serial" });
-// Several boards are the service's refusal (a bus that exists, a pattern test): the browser logs each 400 as a failed load.
-test.use({ allowErrors: CUT });
 
 let server: Running;
 let browserKind = "";
@@ -103,7 +101,9 @@ test("eventbridge__bus-create: encryption, a dead-letter queue, an archive and t
   expect(cli(["events", "list-tags-for-resource", "--resource-arn", `arn:aws:events:us-east-1:${server.account}:event-bus/larder-audit`])).toContain("platform");
 });
 
-test("eventbridge__bus-create-refused: a name that exists is refused on the name, what was typed is kept, and CreateArchive is never sent", async ({ page }) => {
+test("eventbridge__bus-create-refused: a name that exists is refused on the name, what was typed is kept, and CreateArchive is never sent", async ({ page, refusals }) => {
+  // The name that exists is EventBridge's refusal, shown on the form.
+  refusals.allow(/400 POST .*\/eventbridge\/buses\/op\/CreateEventBus$/);
   await go(page, "/resources/eventbridge/buses?create=yes", "Create event bus");
   await fillBus(page, "larder-audit");
   await page.getByTestId("form-submit").click();
@@ -259,7 +259,7 @@ test("eventbridge__bus-detail: what feeds the bus and what its rules send to, it
   await shot(page, "eventbridge__bus-detail");
 });
 
-test("eventbridge__bus-delete: the rules that go with the bus are named, and an app that keeps sending is refused", async ({ page }) => {
+test("eventbridge__bus-delete: the rules that go with the bus are named, and an app that keeps sending is refused", async ({ page, refusals }) => {
   for (const r of ["a-rule", "b-rule"]) cli(["events", "put-rule", "--name", r, "--event-bus-name", "larder-audit", "--event-pattern", JSON.stringify({ source: ["x"] })]);
   cli(["events", "put-targets", "--rule", "a-rule", "--event-bus-name", "larder-audit", "--targets", JSON.stringify([{ Id: "t", Arn: `arn:aws:sqs:us-east-1:${server.account}:pick-lists` }])]);
   await go(page, "/resources/eventbridge/buses/larder-audit", "larder-audit");
@@ -272,6 +272,7 @@ test("eventbridge__bus-delete: the rules that go with the bus are named, and an 
   await shot(page, "eventbridge__bus-delete");
   await page.getByTestId("bus-delete-submit").click();
   await expect(page.getByTestId("deleted-banner")).toContainText("Event bus deleted.");
+  await expectNoErrorAnswers(page, refusals);
   expect(cli(["events", "list-event-buses"])).not.toContain("larder-audit");
   expect(putEvent(server.endpoint, "larder-audit", "x", "y", {}).out).toContain("ResourceNotFoundException");
   // The archive of the bus is not part of the bus: it is still listed.

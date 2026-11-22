@@ -6,15 +6,13 @@ import { join } from "node:path";
 import type { Page } from "@playwright/test";
 import { aws, start, type Running } from "../server";
 import { seedLarder, trust, type World } from "./iam-seed";
-import { CUT, expect, test } from "./fixtures";
+import { expect, expectNoErrorAnswers, test } from "./fixtures";
 
 const SHOTS = process.env.SHOTS_DIR ?? join(import.meta.dirname, "../../../../../shots-iam");
 const BASE = Number(process.env.E2E_BASE_PORT ?? 45100);
 const at = (b: string) => BASE + ({ firefox: 10, webkit: 20, chromium: 30 }[b] ?? 40);
 
 test.describe.configure({ mode: "serial" });
-// Several boards are IAM's refusal (a duplicate, a malformed document): the browser logs each 4xx as a failed load.
-test.use({ allowErrors: CUT });
 
 let server: Running;
 let empty: Running | null = null;
@@ -91,7 +89,7 @@ test("iam__dashboard and iam__alias-edit: the counts, the account, and the alias
   cli(["iam", "create-account-alias", "--account-alias", "larder-dev"]);
 });
 
-test("iam__users-list and iam__user-delete: the keys by user, the sentence, and the dialog that names what goes", async ({ page }) => {
+test("iam__users-list and iam__user-delete: the keys by user, the sentence, and the dialog that names what goes", async ({ page, refusals }) => {
   await go(page, iam("users"), "Users");
   await expect(page.getByTestId("list-sentence")).toContainText("4 users: ci-bot and dev each hold 1 active access key and both used it today; temp-auditor and tester have no access keys.");
   await expect(page.getByRole("row", { name: /dev .*Active - AKIA/ })).toBeVisible();
@@ -111,12 +109,15 @@ test("iam__users-list and iam__user-delete: the keys by user, the sentence, and 
   await page.getByTestId("delete-dialog-input").fill("temp-auditor");
   await page.getByTestId("delete-dialog-submit").click();
   await expect(page.getByTestId("deleted-banner")).toContainText("User temp-auditor deleted.");
+  await expectNoErrorAnswers(page, refusals);
   await expect(page.getByTestId("select-temp-auditor")).toHaveCount(0);
   await expect(page.getByTestId("list-sentence")).toContainText("3 users");
   cli(["iam", "create-user", "--user-name", "temp-auditor"]);
 });
 
-test("iam__user-detail, user-credentials, user-policies-none and access-keys-none: the user, its keys and what it may do", async ({ page }) => {
+test("iam__user-detail, user-credentials, user-policies-none and access-keys-none: the user, its keys and what it may do", async ({ page, refusals }) => {
+  // A user that is not there is asked for, and refused.
+  refusals.allow(/404 GET .*\/iam\/users\/nobody$/);
   await go(page, iam("users", "dev"), "dev");
   await expect(page.getByTestId("detail-sentence")).toContainText("dev belongs to 1 group and gets PowerUserAccess through it. Its key AKIA");
   await expect(page.getByTestId("detail-sentence")).toContainText("with sqs in us-east-1");
@@ -304,7 +305,7 @@ test("iam__role-create, role-create-permissions and role-create-review: the trus
   expect(held).toEqual(["AmazonS3ReadOnlyAccess", "AmazonSQSReadOnlyAccess"]);
 });
 
-test("iam__role-delete: the dialog names what is detached, and the role goes with it", async ({ page }) => {
+test("iam__role-delete: the dialog names what is detached, and the role goes with it", async ({ page, refusals }) => {
   await go(page, iam("roles"), "Roles");
   await page.getByTestId("select-larder-admin").click();
   await page.getByTestId("action-delete").click();
@@ -316,6 +317,7 @@ test("iam__role-delete: the dialog names what is detached, and the role goes wit
   await page.getByTestId("delete-dialog-input").fill("larder-admin");
   await page.getByTestId("delete-dialog-submit").click();
   await expect(page.getByTestId("deleted-banner")).toContainText("Role larder-admin deleted.");
+  await expectNoErrorAnswers(page, refusals);
   await expect(page.getByTestId("select-larder-admin")).toHaveCount(0);
   expect(aws(server.endpoint, ["iam", "get-role", "--role-name", "larder-admin"]).code).not.toBe(0);
 });

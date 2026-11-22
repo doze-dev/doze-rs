@@ -6,14 +6,13 @@ import { join } from "node:path";
 import type { Page } from "@playwright/test";
 import { aws, start, type Running } from "../server";
 import { seedLarder } from "./eventbridge-seed";
-import { CUT, expect, test } from "./fixtures";
+import { expect, expectNoErrorAnswers, test } from "./fixtures";
 
 const SHOTS = process.env.SHOTS_DIR ?? join(import.meta.dirname, "../../../../../shots-eventbridge");
 const BASE = Number(process.env.E2E_BASE_PORT ?? 45424);
 const at = (b: string) => BASE + ({ firefox: 0, webkit: 10, chromium: 20 }[b] ?? 30);
 
 test.describe.configure({ mode: "serial" });
-test.use({ allowErrors: CUT });
 
 let server: Running;
 let browserKind = "";
@@ -213,7 +212,7 @@ test("eventbridge__rule-create-schedule: a scheduled rule on the default bus, it
   expect(cli(["events", "describe-rule", "--name", "nightly-report"])).toContain("rate(5 minutes)");
 });
 
-test("eventbridge__rule-delete: RemoveTargets, then DeleteRule, each as the call it is, and the target's resource is not touched", async ({ page }) => {
+test("eventbridge__rule-delete: RemoveTargets, then DeleteRule, each as the call it is, and the target's resource is not touched", async ({ page, refusals }) => {
   await go(page, "/resources/eventbridge/rules?name=larder", "Rules");
   await page.getByTestId("select-refund-issued").click();
   await page.getByTestId("action-delete").click();
@@ -227,6 +226,7 @@ test("eventbridge__rule-delete: RemoveTargets, then DeleteRule, each as the call
   await shot(page, "eventbridge__rule-delete");
   await page.getByTestId("rule-delete-submit").click();
   await expect(page.getByTestId("deleted-banner")).toContainText("Rule deleted.");
+  await expectNoErrorAnswers(page, refusals);
   expect(cli(["events", "list-rules", "--event-bus-name", "larder"])).not.toContain("refund-issued");
   expect(cli(["sns", "list-topics"])).toContain("orders-created");
   // The rule's own page deletes it the same way.
@@ -236,5 +236,6 @@ test("eventbridge__rule-delete: RemoveTargets, then DeleteRule, each as the call
   await page.getByTestId("verb-delete").click();
   await page.getByTestId("rule-delete-submit").click();
   await expect(page.getByTestId("deleted-banner")).toContainText("Rule deleted.");
+  await expectNoErrorAnswers(page, refusals);
   expect(cli(["events", "list-rules", "--event-bus-name", "larder"])).not.toContain("scratch");
 });

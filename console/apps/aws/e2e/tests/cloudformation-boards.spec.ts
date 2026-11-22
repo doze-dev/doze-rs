@@ -8,7 +8,7 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import type { Page } from "@playwright/test";
 import { aws, start, type Running } from "../server";
-import { CUT, expect, test } from "./fixtures";
+import { expect, expectNoErrorAnswers, test } from "./fixtures";
 import { seedLarder, settled } from "./cloudformation-seed";
 
 const SHOTS = process.env.SHOTS_DIR ?? join(import.meta.dirname, "../../../../../shots-cloudformation");
@@ -16,8 +16,6 @@ const BASE = Number(process.env.E2E_BASE_PORT ?? 45300);
 const at = (b: string) => BASE + ({ firefox: 10, webkit: 20, chromium: 30 }[b] ?? 40);
 
 test.describe.configure({ mode: "serial" });
-// ListImports answers a ValidationError (a 400) for an export nobody imports, and a deleted stack's name is a 400 too: the browser logs each as a failed load.
-test.use({ allowErrors: CUT });
 
 let server: Running;
 let browserKind = "";
@@ -207,7 +205,9 @@ test("cloudformation__outputs-none, parameters-none, changesets-none: a stack th
   await shot(page, "changesets-none");
 });
 
-test("cloudformation__changeset-detail: what it previews, execute and delete", async ({ page }) => {
+test("cloudformation__changeset-detail: what it previews, execute and delete", async ({ page, refusals }) => {
+  // A change set that is not there is asked for, and refused.
+  refusals.allow(/404 POST .*\/cloudformation\/stacks\/op\/DescribeChangeSet$/);
   await tab(page, "larder-core", "changesets");
   await page.getByTestId("changeset-link").first().click();
   await expect(page.locator("h1").first()).toHaveText("add-reports-bucket");
@@ -288,7 +288,9 @@ test("cloudformation__stack-create: the template, from an S3 URL, and the call t
   await shot(page, "stack-create");
 });
 
-test("cloudformation__stack-create-invalid: a file that is not a template is refused with the service's words", async ({ page }) => {
+test("cloudformation__stack-create-invalid: a file that is not a template is refused with the service's words", async ({ page, refusals }) => {
+  // A file that is not a template is refused by ValidateTemplate, in the service's words.
+  refusals.allow(/400 POST .*\/cloudformation\/stacks\/op\/ValidateTemplate$/);
   await go(page, `${STACKS}?do=create`, "Create stack");
   await page.getByTestId("source-file").click();
   const file = join(tmpdir(), `larder-bad-${browserKind}.yaml`);
@@ -438,7 +440,9 @@ test("cloudformation__stack-update, details, options, review and updated: the wi
   expect(sets.Summaries.some((s) => s.ChangeSetName.startsWith("console-preview-"))).toBe(false);
 });
 
-test("cloudformation__stack-delete and stack-deleted: what goes, what stays, and the record by id", async ({ page }) => {
+test("cloudformation__stack-delete and stack-deleted: what goes, what stays, and the record by id", async ({ page, refusals }) => {
+  // A name that was never a stack is asked for, and refused. (The stack that is deleted is not: it is read by its ID to the end.)
+  refusals.allow(/400 GET .*\/cloudformation\/stacks\/never-was$/);
   await go(page, stack("larder-core"), "larder-core");
   await page.getByTestId("verb-delete").click();
   const d = page.getByTestId("delete-stack");
@@ -452,6 +456,7 @@ test("cloudformation__stack-delete and stack-deleted: what goes, what stays, and
   await shot(page, "stack-delete");
   await page.getByTestId("delete-stack-submit").click();
   await expect(page.getByTestId("stack-deleted")).toContainText("A deleted stack is hidden from the list by default.", { timeout: 20_000 });
+  await expectNoErrorAnswers(page, refusals);
   await expect(page.locator("h1").first()).toHaveText("larder-core");
   await expect(page.getByTestId("detail-badge")).toHaveText("DELETE_COMPLETE");
   await expect(page.getByTestId("stack-deleted-sentence")).toContainText("larder-core is gone");

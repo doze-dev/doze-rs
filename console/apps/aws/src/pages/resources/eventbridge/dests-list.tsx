@@ -17,7 +17,7 @@ import { Skeleton } from "@doze/ui/components/ui/skeleton";
 import { LocalStatus, PlainConfirm, RuleHelp, useDeleteClearing, useServiceCrumbs } from "../../../kit";
 import { HINT } from "../index-page";
 import { ResourceTo } from "../value";
-import { useDests, useRefreshReads } from "./api";
+import { useDests } from "./api";
 import { ConnectionCreate } from "./connection-create";
 import { DestCreate } from "./dest-create";
 import { Said, State } from "./parts";
@@ -42,7 +42,6 @@ function Dests({ service, kind, gone }: { service: string; kind: string; gone?: 
   const all = useMemo(() => q.data?.ApiDestinations ?? [], [q.data]);
   const rows = useMemo(() => all.filter((d) => d.Name.startsWith(typed.trim())), [all, typed]);
   const one = all.find((d) => chosen.has(d.Name));
-  const refresh = useRefreshReads();
   const del = useDeleteClearing({ service, kind, name: one?.Name ?? "" });
   const go = (search: { create?: "yes"; gone?: string }) => void navigate({ to: "/resources/$service/$second", params: { service, second: kind }, search });
   const columns: DataColumn<ApiDestItem>[] = [
@@ -103,7 +102,7 @@ function Dests({ service, kind, gone }: { service: string; kind: string; gone?: 
         </>
       )}
       {one && (
-        <PlainConfirm open={asking} onOpenChange={(o) => { setAsking(o); if (!o) del.reset(); }} title="Delete API destination?" description={<>Delete <b className="font-mono font-semibold text-bright">{one.Name}</b>? A rule that has it as a target keeps the target and can no longer deliver to it. Its connection <b className="font-mono font-semibold text-bright">{connectionName(one.ConnectionArn)}</b> stays.</>} call="DeleteApiDestination" pending={del.isPending} error={del.error} onConfirm={() => del.mutate({ clear: false }, { onSuccess: () => { refresh(); setAsking(false); setChosen(new Set()); go({ gone: one.Name }); } })} testId="dest-delete" />
+        <PlainConfirm open={asking} onOpenChange={(o) => { setAsking(o); if (!o) del.reset(); }} title="Delete API destination?" description={<>Delete <b className="font-mono font-semibold text-bright">{one.Name}</b>? A rule that has it as a target keeps the target and can no longer deliver to it. Its connection <b className="font-mono font-semibold text-bright">{connectionName(one.ConnectionArn)}</b> stays.</>} call="DeleteApiDestination" pending={del.isPending} error={del.error} onConfirm={() => del.mutate({ clear: false }, { onSuccess: () => { setAsking(false); setChosen(new Set()); go({ gone: one.Name }); } })} testId="dest-delete" />
       )}
     </>
   );

@@ -1,12 +1,10 @@
 // The REST boards of API Gateway (the list, the type chooser, create, resources, methods, deploy, stages, authorizers), each reached against a real
 // doze-aws (one per browser, seeded as the boards' "larder" world with the real AWS CLI) and, in Chromium, photographed light and dark into SHOTS_DIR to
 // be set beside the board. The HTTP boards and the usage plans are apigateway-boards-http.spec.ts and apigateway-boards-plans.spec.ts.
-import { expect, test, CUT } from "./fixtures";
+import { expect, expectNoErrorAnswers, test } from "./fixtures";
 import { apiPath, begin, choose, cli, ctx, end, go, json, pick, shot } from "./apigateway-kit";
 
 test.describe.configure({ mode: "serial" });
-// A few boards are the service's refusal: the browser logs each 4xx as a failed load.
-test.use({ allowErrors: CUT });
 
 test.beforeAll(async ({ browserName }) => begin(browserName));
 test.afterAll(end);
@@ -275,7 +273,7 @@ test("apigateway__rest-stage: a second stage is made from a deployment of the hi
   await expect(page.getByTestId("stage-chip-beta")).toBeVisible();
 });
 
-test("apigateway__rest-delete: a typed confirm that names the API with what goes with it, and the usage plan that lists it", async ({ page }) => {
+test("apigateway__rest-delete: a typed confirm that names the API with what goes with it, and the usage plan that lists it", async ({ page, refusals }) => {
   await go(page, apiPath("restapis", rest()), "Resources");
   await page.getByTestId("api-actions").click();
   await page.getByTestId("action-delete-api").click();
@@ -290,6 +288,7 @@ test("apigateway__rest-delete: a typed confirm that names the API with what goes
   await dialog.getByTestId("api-delete-input").fill("confirm");
   await dialog.getByTestId("api-delete-submit").click();
   await expect(page.getByTestId("deleted-banner")).toContainText("Deleted larder-public");
+  await expectNoErrorAnswers(page, refusals);
   await expect(page.getByRole("link", { name: "larder-public" })).toBeHidden();
   expect(cli(["apigateway", "get-usage-plans"])).not.toContain(rest());
 });

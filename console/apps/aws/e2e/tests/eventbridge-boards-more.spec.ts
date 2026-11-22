@@ -6,14 +6,13 @@ import { join } from "node:path";
 import type { Page } from "@playwright/test";
 import { aws, start, type Running } from "../server";
 import { putEvent, seedLarder } from "./eventbridge-seed";
-import { CUT, expect, test } from "./fixtures";
+import { expect, expectNoErrorAnswers, test } from "./fixtures";
 
 const SHOTS = process.env.SHOTS_DIR ?? join(import.meta.dirname, "../../../../../shots-eventbridge");
 const BASE = Number(process.env.E2E_BASE_PORT ?? 45458);
 const at = (b: string) => BASE + ({ firefox: 0, webkit: 10, chromium: 20 }[b] ?? 30);
 
 test.describe.configure({ mode: "serial" });
-test.use({ allowErrors: CUT });
 
 let server: Running;
 let browserKind = "";
@@ -201,7 +200,7 @@ test("eventbridge__api-destinations-list: the endpoint, the method, the connecti
   await shot(page, "eventbridge__api-destinations-list");
 });
 
-test("eventbridge__archives-none: the last archive deleted leaves the empty state, and the events go with it", async ({ page }) => {
+test("eventbridge__archives-none: the last archive deleted leaves the empty state, and the events go with it", async ({ page, refusals }) => {
   await go(page, "/resources/eventbridge/archives", "Archives");
   for (const name of ["larder-all", "orders-30d", "orders-7d", "payments-90d"]) {
     await page.getByTestId(`select-${name}`).click();
@@ -209,6 +208,7 @@ test("eventbridge__archives-none: the last archive deleted leaves the empty stat
     await expect(page.getByTestId("archive-delete")).toContainText(`Delete ${name}`);
     await page.getByTestId("archive-delete-submit").click();
     await expect(page.getByTestId("deleted-banner")).toContainText(`Deleted ${name}`);
+    await expectNoErrorAnswers(page, refusals);
   }
   await expect(page.getByTestId("list-empty")).toContainText("No archives");
   await expect(page.getByTestId("list-empty")).toContainText("An archive stores the events that match a pattern so you can replay them later.");

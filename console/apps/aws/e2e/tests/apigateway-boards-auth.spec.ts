@@ -1,11 +1,9 @@
 // The REST boards of the stages never deployed and of the authorizers (a token authorizer made, listed, deleted to none), each reached against a real doze-aws
 // (one per browser, seeded as the boards' "larder" world) and, in Chromium, photographed light and dark. The rest of the REST boards are apigateway-boards.spec.ts.
-import { expect, test, CUT } from "./fixtures";
+import { expect, expectNoErrorAnswers, test } from "./fixtures";
 import { apiPath, begin, ctx, end, go, pick, shot } from "./apigateway-kit";
 
 test.describe.configure({ mode: "serial" });
-// A few boards are the service's refusal: the browser logs each 4xx as a failed load.
-test.use({ allowErrors: CUT });
 
 test.beforeAll(async ({ browserName }) => begin(browserName));
 test.afterAll(end);
@@ -40,7 +38,7 @@ test("apigateway__rest-authorizer-create: a token authorizer, the call it makes,
   await expect(page.getByTestId("authorizer-name").nth(1)).toBeVisible();
 });
 
-test("apigateway__rest-authorizers and rest-authorizers-none: what the authorizers read and call, then none left", async ({ page }) => {
+test("apigateway__rest-authorizers and rest-authorizers-none: what the authorizers read and call, then none left", async ({ page, refusals }) => {
   await go(page, apiPath("restapis", rest(), "?tab=authorizers"), "Authorizers");
   await expect(page.getByTestId("rest-page")).toContainText("larder-public has 2 authorizers, larder-token-auth and partner-token-auth.");
   const table = page.getByRole("table", { name: "Authorizers" });
@@ -53,6 +51,7 @@ test("apigateway__rest-authorizers and rest-authorizers-none: what the authorize
     await page.getByTestId(`delete-${name}`).click();
     await page.getByTestId("authorizer-delete-submit").click();
     await expect(page.getByTestId(`delete-${name}`)).toBeHidden();
+    await expectNoErrorAnswers(page, refusals);
   }
   await expect(page.getByRole("heading", { name: "No authorizers" })).toBeVisible();
   await expect(page.getByText("An authorizer checks a caller's identity before a method runs.")).toBeVisible();

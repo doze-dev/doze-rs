@@ -1,7 +1,7 @@
 // The CloudWatch boards of the metrics and the dashboards (browse, graph, add to a dashboard, the dashboards, their widgets, the not-found
 // pages): each reached against a real doze-aws and, in Chromium, photographed light and dark into SHOTS_DIR. No test may log a console
 // error; a not-found page is the one refusal, and says so.
-import { CUT, expect, test } from "./fixtures";
+import { expect, expectNoErrorAnswers, test } from "./fixtures";
 import { alarm, cli, dash, go, shot, serveWorld, world } from "./cloudwatch-kit";
 
 serveWorld(1);
@@ -84,7 +84,7 @@ test("cloudwatch__metrics-graph and metrics-add-to-dashboard: tick two metrics, 
 });
 
 
-test("cloudwatch__dashboards-list, dashboard-create and dashboard-delete", async ({ page }) => {
+test("cloudwatch__dashboards-list, dashboard-create and dashboard-delete", async ({ page, refusals }) => {
   await go(page, "/resources/cloudwatch/dashboards", "Dashboards");
   const table = page.getByRole("table", { name: "Dashboards" });
   await expect(table.locator("tr[data-row]")).toHaveCount(2);
@@ -125,6 +125,7 @@ test("cloudwatch__dashboards-list, dashboard-create and dashboard-delete", async
   await shot(page, "cloudwatch__dashboard-delete");
   await page.getByTestId("delete-dialog-submit").click();
   await expect(page.getByTestId("deleted-banner")).toContainText("Dashboard scratch-board deleted.");
+  await expectNoErrorAnswers(page, refusals);
   await expect(table.locator("tr[data-row]", { hasText: "scratch-board" })).toHaveCount(0);
   // Deleted from its own page, the dashboard is not asked for again (a read of it would be refused and logged).
   cli(["cloudwatch", "put-dashboard", "--dashboard-name", "scratch-two", "--dashboard-body", '{"widgets":[]}']);
@@ -132,6 +133,7 @@ test("cloudwatch__dashboards-list, dashboard-create and dashboard-delete", async
   await page.getByTestId("delete-open").click();
   await page.getByTestId("delete-dialog-submit").click();
   await expect(page.getByTestId("deleted-banner")).toContainText("Dashboard scratch-two deleted.");
+  await expectNoErrorAnswers(page, refusals);
 });
 
 
@@ -243,8 +245,9 @@ test("cloudwatch__widget-alarm-status and widget-text: the two widgets that need
 
 // The service's own refusal (no such alarm, no such dashboard) is what a not-found page is: the browser logs it as a failed load.
 test.describe("not found", () => {
-  test.use({ allowErrors: CUT });
-  test("an alarm, a dashboard and a kind that are not there say so", async ({ page }) => {
+  test("an alarm, a dashboard and a kind that are not there say so", async ({ page, refusals }) => {
+    // A page of what is not there asks the service, which refuses.
+    refusals.allow(/(404|400) GET .*\/cloudwatch\/(alarms|dashboards)\/(nope|widgets)$/);
     await page.goto(`${world.server.console}${alarm("nope")}`);
     await expect(page.getByTestId("detail-error")).toContainText("There is no alarm named nope");
     await page.goto(`${world.server.console}${dash("nope")}`);
@@ -255,13 +258,14 @@ test.describe("not found", () => {
 });
 
 
-test("cloudwatch__dashboards-none: deleting the last dashboard leaves the empty state", async ({ page }) => {
+test("cloudwatch__dashboards-none: deleting the last dashboard leaves the empty state", async ({ page, refusals }) => {
   await go(page, "/resources/cloudwatch/dashboards", "Dashboards");
   await page.getByTestId("select-all").click();
   await expect(page.getByTestId("selected-count")).toContainText("dashboard");
   await page.getByTestId("action-delete").click();
   await page.getByTestId("delete-dialog-submit").click();
   await expect(page.getByTestId("list-empty")).toContainText("No dashboards");
+  await expectNoErrorAnswers(page, refusals);
   await expect(page.getByTestId("list-empty")).toContainText("A dashboard is a saved arrangement of graphs and widgets.");
   await expect(page.getByTestId("empty-create")).toHaveText("Create dashboard");
   await shot(page, "cloudwatch__dashboards-none");

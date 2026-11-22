@@ -4,7 +4,7 @@
 // and when the person asks.
 import { useQueryClient } from "@tanstack/react-query";
 import { useResourceDetail } from "../../../api/resources";
-import { type Kind, callKindOp, useKindOp, useKindOpRead } from "../../../kit";
+import { type Kind, callKindOp, forgetDeleted, scopeOf, useKindOp, useKindOpRead } from "../../../kit";
 import type { Authorizers, Deployments, HttpApi, HttpApis, HttpAuthorizers, HttpDeployments, HttpIntegrations, HttpStages, Resources, RestApi, RestApis, Routes, Stages, UsagePlans, ApiKeys, PlanKeys } from "./types";
 
 export const REST: Kind = { service: "apigateway", kind: "restapis" };
@@ -65,14 +65,7 @@ export function useRefreshReads(): () => void {
  * and a read of a deleted API is a refusal the browser logs). */
 export function useForget(): (id: string) => void {
   const qc = useQueryClient();
-  return (id) => {
-    const names = (q: { queryKey: readonly unknown[] }) => q.queryKey[0] === "resources" && JSON.stringify(q.queryKey).includes(id);
-    // What names the deleted resource is marked stale and not read again; what does not (the lists) is read afresh.
-    void qc.invalidateQueries({ predicate: names, refetchType: "none" });
-    void qc.invalidateQueries({ predicate: (q) => q.queryKey[0] === "resources" && q.queryKey[1] === "kindop" && q.queryKey[2] === "apigateway" && !names(q) });
-    void qc.invalidateQueries({ queryKey: ["resources", "list", "apigateway"] });
-    void qc.invalidateQueries({ queryKey: ["resources", "index"] });
-  };
+  return (id) => forgetDeleted(qc, scopeOf("apigateway"), [id]);
 }
 
 /** A patch of the API's own: `{op, path, value}`, how REST edits what it has made. */

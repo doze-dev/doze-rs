@@ -3,7 +3,7 @@
 // value is shown only on Reveal, Live's link to a resource lands on its page, and under `--iam enforce` the console still works.
 import type { Page } from "@playwright/test";
 import { start } from "../server";
-import { calls, CONSOLE, ENDPOINT, expect, open, test, unique } from "./fixtures";
+import { calls, CONSOLE, ENDPOINT, expect, expectNoErrorAnswers, open, test, unique } from "./fixtures";
 
 const proof = { "X-Console": "1" };
 
@@ -60,7 +60,7 @@ async function createQueue(page: Page, name: string, consoleUrl = "") {
   await page.getByTestId("form-submit").click();
 }
 
-test("a queue is created on its page, listed, opened, and deleted, each call in Live as the console", async ({ page, browserName }) => {
+test("a queue is created on its page, listed, opened, and deleted, each call in Live as the console", async ({ page, browserName, refusals }) => {
   const q = unique("orders", browserName);
   await createQueue(page, q);
   await expect(page.locator("h1")).toHaveText(q);
@@ -84,16 +84,15 @@ test("a queue is created on its page, listed, opened, and deleted, each call in 
   await page.getByTestId("delete-dialog-input").fill("delete");
   await page.getByTestId("delete-dialog-submit").click();
   await expect(page.locator("h1")).toHaveText("Queues");
+  await expectNoErrorAnswers(page, refusals);
   await expect(page.getByTestId("deleted-banner")).toContainText(`Queue ${q} deleted.`);
   await expect(page.getByTestId("row-link").filter({ hasText: q })).toHaveCount(0);
   expect((await consoleCalls(page, "DeleteQueue")).length).toBeGreaterThan(0);
 });
 
-test.describe("a refusal", () => {
-  // The refused create is a 400 the browser logs.
-  test.use({ allowErrors: /status of 400|400 \(Bad Request\)/ });
-
-test("a table is created and deleted; a refusal is shown on the page", async ({ page, browserName }) => {
+test("a table is created and deleted; a refusal is shown on the page", async ({ page, browserName, refusals }) => {
+  // The name that is taken is DynamoDB's refusal, shown on the form.
+  refusals.allow(/400 POST .*\/dynamodb\/tables\/op\/CreateTable$/);
   const t = unique("events", browserName);
   await open(page, "/resources/dynamodb/tables?do=create", "Create table");
   await page.getByTestId("table-name").fill(t);
@@ -113,10 +112,10 @@ test("a table is created and deleted; a refusal is shown on the page", async ({ 
   await page.getByTestId("table-delete").click();
   await page.getByTestId("delete-dialog-submit").click();
   await expect(page.getByTestId("deleted-banner")).toContainText(`${t}`);
+  await expectNoErrorAnswers(page, refusals);
   await expect(page.getByTestId("row-link").filter({ hasText: t })).toHaveCount(0);
 
   // (A bucket's own pages, its create and its delete, are s3-boards.spec.ts.)
-});
 });
 
 test("a secret's value is hidden until Reveal, which is one GetSecretValue in Live", async ({ page, browserName }) => {

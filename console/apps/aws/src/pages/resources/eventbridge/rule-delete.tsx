@@ -1,7 +1,7 @@
 // Delete rule (eventbridge__rule-delete): RemoveTargets, then DeleteRule, each shown as the call it is; the targets' own resources are not touched.
 import { useState } from "react";
-import { CallsPanel, PlainConfirm, callKindOp } from "../../../kit";
-import { RULES, useRefreshReads } from "./api";
+import { CallsPanel, PlainConfirm, callKindOp, scopeOf, useForgetDeleted } from "../../../kit";
+import { RULES } from "./api";
 import type { TargetItem } from "./types";
 import { list } from "./words";
 
@@ -16,7 +16,7 @@ export function deleteCalls(bus: string, rules: readonly Doomed[]) {
 }
 
 export function RuleDelete({ open, onOpenChange, bus, rules, onDone }: { open: boolean; onOpenChange: (o: boolean) => void; bus: string; rules: readonly Doomed[]; onDone: (names: string[]) => void }) {
-  const refresh = useRefreshReads();
+  const forget = useForgetDeleted();
   const [state, setState] = useState<{ pending: boolean; error: unknown }>({ pending: false, error: null });
   const names = rules.map((r) => r.name);
   const run = async () => {
@@ -24,7 +24,7 @@ export function RuleDelete({ open, onOpenChange, bus, rules, onDone }: { open: b
     try {
       for (const call of deleteCalls(bus, rules)) await callKindOp(RULES, call.operation, call.input);
       setState({ pending: false, error: null });
-      refresh();
+      await forget(scopeOf("eventbridge"), names);
       onDone(names);
     } catch (error) {
       setState({ pending: false, error });

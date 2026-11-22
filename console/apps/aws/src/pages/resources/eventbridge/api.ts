@@ -46,15 +46,6 @@ export function useTargetsOf(bus: string, rules: readonly RuleItem[]): Record<st
 export const useTargets = (bus: string, rule: string, enabled = true) =>
   useQuery({ queryKey: ["resources", "kindop", "eventbridge", "rules", "ListTargetsByRule", bus, rule], queryFn: ({ signal }) => callKindOp<Targets>(RULES, "ListTargetsByRule", { Rule: rule, EventBusName: bus }, signal), enabled, retry: false });
 
-/** Marks what the pages read of EventBridge stale (after a delete the generic endpoint made, or a call made with callKindOp). */
-export function useRefreshReads(): () => void {
-  const qc = useQueryClient();
-  return () => {
-    void qc.invalidateQueries({ queryKey: ["resources", "kindop", "eventbridge"] });
-    void qc.invalidateQueries({ queryKey: ["resources", "one", "eventbridge"] });
-  };
-}
-
 /** A write (a create, a start): what the pages read of EventBridge (the lists, the pickers, a resource's page) is stale after it. */
 export function useEbOp<T, I extends object = object>(k: Kind, operation: string) {
   const qc = useQueryClient();
