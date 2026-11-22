@@ -54,10 +54,7 @@ impl Module {
 impl Planner for Module {
     fn plan<'a>(&'a self, _ctx: &'a PlanCtx) -> BoxFuture<'a, Result<Planned, String>> {
         Box::pin(async move {
-            let port = std::net::TcpListener::bind("127.0.0.1:0")
-                .and_then(|l| l.local_addr())
-                .map(|a| a.port())
-                .map_err(|e| e.to_string())?;
+            let port = doze_engine::ports::free_port().map_err(|e| e.to_string())?;
             let env = BTreeMap::from([("PORT".to_string(), port.to_string())]);
             let p = Process {
                 name: "main".into(),

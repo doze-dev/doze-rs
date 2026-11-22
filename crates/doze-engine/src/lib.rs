@@ -22,6 +22,7 @@ pub mod logs;
 pub mod machine;
 pub mod modules;
 pub mod pidfile;
+pub mod ports;
 pub mod porttrap;
 pub mod process;
 pub mod ready;
@@ -38,7 +39,6 @@ pub mod watch;
 mod boot;
 mod converge;
 mod engine;
-mod ports;
 mod short;
 mod stop;
 
