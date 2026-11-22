@@ -245,6 +245,8 @@ test("iam__roles-list, role-detail, role-trust and role-policies-none: the roles
   await expect(page.getByTestId("permissions-card")).toContainText("report-job-readonly");
   await expect(page.getByTestId("session-note")).toContainText("AssumeRole refuses a DurationSeconds above this role's");
   await expect(page.getByTestId("recent-calls")).toContainText("AssumeRole");
+  // An assumed role's session is named by what it was asked for.
+  await expect(page.getByTestId("recent-calls").getByTestId("answer-words").filter({ hasText: /^· session \S+$/ }).first()).toBeVisible();
   await shot(page, "iam__role-detail");
   await page.getByTestId("tab-trust").click();
   await expect(page.getByTestId("detail-sentence")).toContainText("report-job names two principals in this account, ci-bot and dev, and one action, sts:AssumeRole.");
@@ -404,6 +406,8 @@ test("iam__policies-list, policy-detail: the policies, the filter, what each is 
   await expect(page.getByTestId("wired-strip")).toContainText("reports bucket");
   await expect(page.getByTestId("policy-json")).toContainText('"Action": "s3:GetObject"');
   await expect(page.getByTestId("recent-calls")).toContainText("AttachRolePolicy");
+  // The attach says who it was for.
+  await expect(page.getByTestId("recent-calls").getByTestId("answer-words").filter({ hasText: "· to report-job" }).first()).toBeVisible();
   await shot(page, "iam__policy-detail");
   // The policy's name, typed or bookmarked, is taken to its page (at the ARN) without the name being asked of the API.
   await go(page, iam("policies", "report-job-readonly"), "report-job-readonly");

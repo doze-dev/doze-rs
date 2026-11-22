@@ -262,6 +262,8 @@ test("eventbridge__bus-detail: what feeds the bus and what its rules send to, it
   const calls = page.getByTestId("recent-calls");
   await expect(calls).toContainText("PutEvents");
   await expect(calls).toContainText("matched order-placed");
+  // The call says how many events it carried; the match is read from the deliveries that followed it.
+  await expect(calls.getByTestId("answer-words").filter({ hasText: /^· \d+ events?$/ }).first()).toBeVisible();
   await shot(page, "eventbridge__bus-detail");
 });
 

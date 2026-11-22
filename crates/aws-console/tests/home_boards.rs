@@ -13,7 +13,7 @@ mod world;
 
 use std::time::Duration;
 
-use aws_gateway::Finished;
+use aws_gateway::{Did, Finished};
 use aws_peers::Mode;
 use serde_json::json;
 use support::{keys, ts_keys};
@@ -37,6 +37,7 @@ fn wire(key: &'static str, signing: &'static str, action: &'static str) -> Finis
         message: "",
         function_error: "",
         answer_bytes: None,
+        did: Did::NONE,
     }
 }
 

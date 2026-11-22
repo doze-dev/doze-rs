@@ -6,6 +6,8 @@
 //! member is matched by its model name, case aside (Step Functions writes `stateMachineArn`, Logs `logGroupName`). Nothing is
 //! copied: the value is borrowed from the call's body or arena.
 
+use std::borrow::Cow;
+
 use aws_schema::arena::{Arena, NIL, Val};
 use aws_schema::tables::Tables;
 
@@ -53,14 +55,15 @@ pub const MEMBERS: &[&str] = &[
 ];
 
 /// The member of `MEMBERS` that names the resource of a call with input `root` (decoded from `body` into `arena`), and its
-/// value; `None` when the input has none of them, or it is not a string.
+/// value; `None` when the input has none of them, or it is not a string. A call on an S3 bucket that names a `Key` acts on the
+/// object, as the path of a call from the wire does: its member is empty and its value `bucket/key`.
 #[must_use]
 pub fn resource_of<'a>(
     tables: &'static Tables,
     arena: &'a Arena,
     body: &'a str,
     root: u32,
-) -> Option<(&'static str, &'a str)> {
+) -> Option<(&'static str, Cow<'a, str>)> {
     if root == NIL {
         return None;
     }
@@ -68,9 +71,13 @@ pub fn resource_of<'a>(
         return None;
     };
     let mut best: Option<(usize, &'static str, &'a str)> = None;
+    let mut key = None;
     let mut at = first;
     while at != NIL {
         let node = arena.node(at)?;
+        if tables.member(node.member).is_some_and(|m| m.name == "Key") {
+            key = arena.str_of(body, node.val).filter(|k| !k.is_empty());
+        }
         if let Some(member) = tables.member(node.member)
             && let Some(rank) = MEMBERS
                 .iter()
@@ -82,8 +89,13 @@ pub fn resource_of<'a>(
         }
         at = node.next;
     }
-    best.map(|(_, member, value)| (member, value))
-        .or_else(|| events_bus(tables, arena, body, first))
+    match (best, key) {
+        (Some((_, "Bucket", bucket)), Some(key)) => {
+            Some(("", Cow::Owned(format!("{bucket}/{key}"))))
+        }
+        (Some((_, member, value)), _) => Some((member, Cow::Borrowed(value))),
+        (None, _) => events_bus(tables, arena, body, first).map(|(m, v)| (m, Cow::Borrowed(v))),
+    }
 }
 
 /// What `PutEvents` acts on: it has no member of its own at the top, only `Entries`, so its first entry names it, by the bus it is
@@ -147,7 +159,7 @@ mod tests {
             .unwrap();
         let mut arena = Arena::new();
         let root = decode(tables, &Patterns::new(tables), shape, body, &mut arena).unwrap();
-        resource_of(tables, &arena, body, root).map(|(m, v)| (m, v.to_owned()))
+        resource_of(tables, &arena, body, root).map(|(m, v)| (m, v.into_owned()))
     }
 
     #[test]
@@ -170,7 +182,7 @@ mod tests {
             .unwrap();
         let mut arena = Arena::new();
         let root = decode(tables, &Patterns::new(tables), shape, body, &mut arena).unwrap();
-        resource_of(tables, &arena, body, root).map(|(m, v)| (m, v.to_owned()))
+        resource_of(tables, &arena, body, root).map(|(m, v)| (m, v.into_owned()))
     }
 
     #[test]
@@ -188,5 +200,30 @@ mod tests {
             Some(("EventBusName", "default".to_owned()))
         );
         assert_eq!(put(r#"{"Entries":[{"Source":"a"}]}"#), None);
+    }
+
+    #[test]
+    fn an_object_is_named_by_its_bucket_and_key_as_the_path_of_a_request_is() {
+        let tables = &aws_model_s3::tables::TABLES;
+        let named = |op: &str, body: &str| {
+            let shape = tables
+                .op(tables.find_op(op).unwrap())
+                .unwrap()
+                .input
+                .unwrap();
+            let mut arena = Arena::new();
+            let root = decode(tables, &Patterns::new(tables), shape, body, &mut arena).unwrap();
+            resource_of(tables, &arena, body, root).map(|(m, v)| (m, v.into_owned()))
+        };
+        // The key joins the bucket, and the member is empty, as for an address the gateway reads (`bucket/key`).
+        assert_eq!(
+            named("GetObject", r#"{"Bucket":"pics","Key":"a/one.txt"}"#),
+            Some(("", "pics/a/one.txt".to_owned()))
+        );
+        // A call that names no key acts on the bucket.
+        assert_eq!(
+            named("ListObjectsV2", r#"{"Bucket":"pics"}"#),
+            Some(("Bucket", "pics".to_owned()))
+        );
     }
 }

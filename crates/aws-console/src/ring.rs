@@ -22,6 +22,7 @@ use std::sync::{Mutex, PoisonError};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use aws_gateway::{Finished, Observer};
+use aws_peers::summary::Summary;
 use aws_peers::{BusCall, CallWatcher};
 use tokio::sync::watch;
 
@@ -30,6 +31,7 @@ pub use call::{Call, Extra, Via};
 pub use flows::{FLOWS, Flow};
 
 mod call;
+mod fan;
 mod flows;
 
 /// The most calls held.
@@ -185,15 +187,26 @@ impl Recorder {
             resource: cut(call.resource, MOST_RESOURCE),
             via: None,
             sdk: crate::agent::label(call.user_agent).into(),
-            extra: (!call.message.is_empty() || !call.function_error.is_empty()).then(|| {
+            extra: (!call.message.is_empty()
+                || !call.function_error.is_empty()
+                || !call.did.detail.is_empty())
+            .then(|| {
                 Box::new(Extra {
-                    message: cut(call.message, MOST_MESSAGE),
+                    message: cut(
+                        if call.message.is_empty() {
+                            call.did.detail
+                        } else {
+                            call.message
+                        },
+                        MOST_MESSAGE,
+                    ),
                     function_error: cut(call.function_error, MOST_FUNCTION_ERROR),
                 })
             }),
             answer_bytes: call
                 .answer_bytes
                 .map_or(u16::MAX, |n| u16::try_from(n).unwrap_or(u16::MAX - 1)),
+            summary: self.deliveries(call),
         })
     }
 
@@ -243,6 +256,7 @@ impl Recorder {
             sdk: Box::default(),
             extra: None,
             answer_bytes: u16::MAX,
+            summary: Summary::NONE,
         })
     }
 

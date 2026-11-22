@@ -165,6 +165,8 @@ test("sqs__queue-detail: the sentence, what the queue is wired to, its verbs, de
   await expect(page.getByTestId("dlq-words")).toContainText("which holds 1 message now and keeps messages for 14 days");
   await expect(page.getByTestId("allow-reading")).toContainText("Not set (all source queues may use pick-lists as a dead-letter queue)");
   await expect(page.getByTestId("recent-calls")).toBeVisible();
+  // A send says how big its body was, a receive how many messages came back.
+  await expect(page.getByTestId("recent-calls").getByTestId("answer-words").filter({ hasText: /^· (sent \d+ B|no messages|\d+ messages?)$/ }).first()).toBeVisible();
   await shot(page, "sqs__queue-detail");
 });
 

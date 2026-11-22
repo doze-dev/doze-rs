@@ -10,7 +10,7 @@ import type { CallRecord } from "../api/types/CallRecord";
 import type { KeyPrincipal } from "../api/types/KeyPrincipal";
 import { Result } from "../pages/live/outcome";
 import { isConsole } from "../pages/live/search";
-import { callerWords, namedKeys, tookWords } from "./calls";
+import { callerWords, namedKeys, targetKey, tookWords } from "./calls";
 
 function columns(titles: ReadonlyMap<string, string>, names: ReadonlyMap<string, KeyPrincipal>, note?: (c: CallRecord) => string | null): DataColumn<CallRecord>[] {
   return [
@@ -31,7 +31,25 @@ function columns(titles: ReadonlyMap<string, string>, names: ReadonlyMap<string,
         );
       },
     },
-    { id: "call", header: "Call", accessorFn: (r) => r.action ?? "", meta: { mono: true }, cell: (c) => <span className="font-mono text-[13px] font-medium text-bright">{c.row.original.action ?? "–"}</span> },
+    {
+      id: "call",
+      header: "Call",
+      accessorFn: (r) => r.action ?? "",
+      meta: { mono: true },
+      cell: (c) => {
+        const key = targetKey(c.row.original);
+        return (
+          <span className="flex min-w-0 items-baseline gap-2">
+            <span className="shrink-0 font-mono text-[13px] font-medium text-bright">{c.row.original.action ?? "–"}</span>
+            {key && (
+              <span className="truncate font-mono text-[11.5px] text-muted-foreground" title={c.row.original.resource ?? undefined} data-testid="call-key">
+                {key}
+              </span>
+            )}
+          </span>
+        );
+      },
+    },
     {
       id: "result",
       header: "Result",

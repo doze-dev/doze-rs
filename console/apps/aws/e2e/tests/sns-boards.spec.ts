@@ -345,6 +345,8 @@ test("sns__topic-detail: the strip from publisher to queues, the Details card, t
   await expect(page.getByTestId("tab-archive")).toHaveCount(0);
   await expect(page.getByRole("table", { name: "Subscriptions" }).locator("tr[data-row]")).toHaveCount(3);
   await expect(page.getByTestId("recent-calls")).toContainText("Publish");
+  // SNS made one delivery to each of the three queues, over the bus; the publish says so.
+  await expect(page.getByTestId("recent-calls").getByTestId("answer-words").filter({ hasText: "delivered to 3" }).first()).toBeVisible();
   await shot(page, "sns__topic-detail");
 });
 

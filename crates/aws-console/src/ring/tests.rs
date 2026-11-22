@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use aws_gateway::Finished;
+use aws_gateway::{Did, Finished};
 
 use super::*;
 
@@ -22,6 +22,7 @@ fn call(n: u64) -> Finished<'static> {
         message: "",
         function_error: "",
         answer_bytes: None,
+        did: Did::NONE,
     }
 }
 

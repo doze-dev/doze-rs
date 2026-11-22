@@ -64,6 +64,7 @@ pub(crate) async fn handle(
     let call = decode_call(entry, op, id, caller, Bytes::from(json)).map_err(|e| fail(&e))?;
     crate::observe::input(parts, entry, &call);
     let output = entry.service.call(call).await.map_err(|e| fail(&e))?;
+    crate::observe::output(parts, entry, &output);
     let encoded = encode_output(entry, op, &output).map_err(|e| fail(&e))?;
     Ok(cbor::success(id, encoded))
 }
