@@ -225,6 +225,42 @@ test.describe("Delete records", () => {
     expect(after.body.view.log_start).toBe(3);
   });
 
+  test("opened again within the 30 s a preview is kept, the dialog says the log as it is after a write", async ({ page, request, baseURL }, info) => {
+    const name = fresh(info, "trima");
+    await topic(request, baseURL!, name, 2);
+    for (let i = 0; i < 5; i++) await produce(request, baseURL!, name, `k${i}`, `v${i}`, "1");
+    // Moved between in the app (no reload), so the cache is a visit's.
+    await page.goto(`/topics/${encodeURIComponent(name)}`);
+    await page.getByTestId("act-partitions").click();
+    const d = page.getByTestId("dialog-delete-records");
+    // Its own write: the log of partition 1 starts at 3 after it, and the dialog opened again says so.
+    await page.getByTestId("delete-records-1").click();
+    await expect(d.getByTestId("offset")).toHaveAttribute("placeholder", "0");
+    await d.getByTestId("offset").fill("3");
+    await expect(d.getByTestId("records-submit")).toHaveText("Delete 3 records");
+    await d.getByTestId("records-submit").click();
+    await expect(d.getByTestId("low-watermark")).toHaveText("3");
+    await page.keyboard.press("Escape");
+    await expect(d).toHaveCount(0);
+    await page.getByTestId("delete-records-1").click();
+    await expect(d.getByTestId("offset")).toHaveAttribute("placeholder", "3");
+    await expect(d.getByTestId("records-preview")).toContainText("This removes 0 records");
+    await page.keyboard.press("Escape");
+    await expect(d).toHaveCount(0);
+    // Another dialog's write (Empty, from the topic's actions): opened again, the preview starts at the end, 5.
+    while (/\/partitions/.test(page.url())) await page.goBack();
+    await page.getByTestId("act-empty").click();
+    const e = page.getByTestId("dialog-empty");
+    await e.getByTestId("empty-confirm").fill(name);
+    await e.getByTestId("empty-submit").click();
+    await expect(e.getByTestId("emptied")).toBeVisible();
+    await e.getByTestId("write-done").click();
+    await expect(e).toHaveCount(0);
+    await page.getByTestId("act-partitions").click();
+    await page.getByTestId("delete-records-1").click();
+    await expect(d.getByTestId("offset")).toHaveAttribute("placeholder", "5");
+  });
+
   test("on a topic that only compacts: refused POLICY_VIOLATION", async ({ page, request, baseURL }, info) => {
     const name = fresh(info, "trimc");
     await topic(request, baseURL!, name, 1, "compact");
