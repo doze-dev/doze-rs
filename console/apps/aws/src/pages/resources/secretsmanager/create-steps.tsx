@@ -2,14 +2,20 @@
 // its name, description, tags and permissions, and whether it rotates.
 import { KeyValueEditor } from "@doze/ui/components/app/key-value-editor";
 import { Callout } from "@doze/ui/components/app/callout";
+import { PlusIcon } from "lucide-react";
+import { Button } from "@doze/ui/components/ui/button";
 import { Checkbox } from "@doze/ui/components/ui/checkbox";
+import { useAbout } from "../../../api/queries";
 import { Input } from "@doze/ui/components/ui/input";
 import { Label } from "@doze/ui/components/ui/label";
 import { Switch } from "@doze/ui/components/ui/switch";
 import { Textarea } from "@doze/ui/components/ui/textarea";
 import { Field, FormSection, FunctionPicker, PolicyEditor, RadioCards, RuleHelp, Segmented, TAG_RULES } from "../../../kit";
 import { KeyAliasPicker } from "../key-picker";
-import { durationProblem, MAX_VALUE, nameProblem, scheduleProblem, type SecretForm, valueProblem, secretValue } from "./model";
+import { durationProblem, MAX_VALUE, nameProblem, replicaProblem, replicaRegions, scheduleProblem, type SecretForm, valueProblem, secretValue } from "./model";
+
+/** Regions offered as the person types one; any Region name is taken. */
+const REGIONS = ["us-east-1", "us-east-2", "us-west-1", "us-west-2", "eu-west-1", "eu-west-2", "eu-west-3", "eu-central-1", "eu-north-1", "ap-south-1", "ap-southeast-1", "ap-southeast-2", "ap-northeast-1", "ap-northeast-2", "ca-central-1", "sa-east-1"];
 
 export type StepProps = { f: SecretForm; set: (patch: Partial<SecretForm>) => void; show: boolean };
 const OFF = (what: string) => `Not available in doze-aws: there is no ${what} to choose.`;
@@ -55,6 +61,7 @@ export function StepType({ f, set, show }: StepProps) {
 
 export function StepConfigure({ f, set, show, taken, openPolicy, setOpenPolicy }: StepProps & { taken: string[]; openPolicy: boolean; setOpenPolicy: (o: boolean) => void }) {
   const problem = nameProblem(f.name, taken);
+  const region = useAbout().data?.region ?? "us-east-1";
   const hasPolicy = f.policy.trim() !== "";
   return (
     <>
@@ -73,8 +80,24 @@ export function StepConfigure({ f, set, show, taken, openPolicy, setOpenPolicy }
       <FormSection title="Resource permissions" optional collapsible defaultOpen={openPolicy || hasPolicy} summary={hasPolicy ? "A resource policy will be attached." : "No resource policy is attached. You can add one now or from the secret's Overview tab."} description="Attach a resource-based policy that says who may use the secret." testId="section-permissions">
         <PolicyEditor kind="resource" value={f.policy} onChange={(policy) => { set({ policy }); setOpenPolicy(true); }} label="Resource policy" rows={10} maxSize={20480} help="Up to 20,480 characters. It is attached with PutResourcePolicy once the secret is stored." testId="policy-editor" />
       </FormSection>
-      <FormSection title="Replicate secret" optional collapsible defaultOpen={false} summary="Not set up in this form." description="Copy the secret to other Regions." testId="section-replicate">
-        <p className="text-[13.5px] text-muted-foreground">This form does not set up replicas. To replicate a secret, call ReplicateSecretToRegions after it is stored.</p>
+      <FormSection title="Replicate secret" optional collapsible defaultOpen={f.replicas.length > 0} summary={replicaRegions(f.replicas).length > 0 ? `Replicated to ${replicaRegions(f.replicas).join(", ")}.` : "No replicas."} description="Copy the secret to other Regions." testId="section-replicate">
+        <div className="grid gap-3" data-testid="replica-rows">
+          {f.replicas.map((r, i) => {
+            const bad = replicaProblem(r, i, f.replicas, region);
+            return (
+              <div key={i} className="grid gap-1">
+                <div className="flex items-center gap-2">
+                  <Input value={r} onChange={(e) => set({ replicas: f.replicas.map((x, j) => (j === i ? e.target.value : x)) })} list="replica-regions" aria-label={`Replica Region ${i + 1}`} aria-invalid={bad !== null} placeholder="eu-west-1" autoComplete="off" spellCheck={false} className="max-w-64 bg-card font-mono" data-testid="replica-region" />
+                  <Button type="button" variant="outline" className="bg-card" onClick={() => set({ replicas: f.replicas.filter((_, j) => j !== i) })} data-testid="replica-remove">Remove</Button>
+                </div>
+                {bad && show && <p className="text-[13px] text-bad" role="alert">{bad}</p>}
+              </div>
+            );
+          })}
+          <datalist id="replica-regions">{REGIONS.filter((x) => x !== region).map((x) => <option key={x} value={x} />)}</datalist>
+          <div><Button type="button" variant="outline" className="bg-card" onClick={() => set({ replicas: [...f.replicas, ""] })} data-testid="replica-add"><PlusIcon /> Add Region</Button></div>
+        </div>
+        <RuleHelp>Each Region gets a read-only copy of the secret with the same name, sealed under that Region&apos;s aws/secretsmanager key. Every change is made on this secret and reaches the copies; a copy of the secret&apos;s name that already exists there is refused.</RuleHelp>
       </FormSection>
     </>
   );

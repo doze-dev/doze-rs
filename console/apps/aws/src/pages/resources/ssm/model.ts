@@ -93,11 +93,12 @@ export function putInput(f: ParamForm, o: { overwrite?: boolean; editing?: boole
   return {
     Name: f.name,
     ...(f.description ? { Description: f.description } : {}),
-    Type: f.type,
-    ...(f.type === "SecureString" && f.key ? { KeyId: f.key } : {}),
+    // An edit leaves the type, the key and the data type as they are (PutParameter with Overwrite keeps them, and cannot change the type).
+    ...(o.editing ? {} : { Type: f.type }),
+    ...(!o.editing && f.type === "SecureString" && f.key ? { KeyId: f.key } : {}),
     Value: f.value,
     Tier: f.tier,
-    DataType: "text",
+    ...(o.editing ? {} : { DataType: "text" }),
     ...(o.overwrite ? { Overwrite: true } : {}),
     ...(!o.editing && tags.length > 0 ? { Tags: tags.map((t) => ({ Key: t.key, Value: t.value })) } : {}),
   };

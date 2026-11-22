@@ -53,7 +53,11 @@ export function loggingOf(name: string, c: Config, w: Where): object {
   return { level: c.level, includeExecutionData: c.data, destinations: [{ cloudWatchLogsLogGroup: { logGroupArn: logGroupArn(name, w) } }] };
 }
 
-const encryptionOf = (c: Config) => (c.kms ? { encryptionConfiguration: { type: "CUSTOMER_MANAGED_KMS_KEY", kmsKeyId: c.kmsKey, kmsDataKeyReusePeriodSeconds: periodOf(c) } } : {});
+/** The `encryptionConfiguration` of a customer managed key, or nothing: Step Functions keeps it (doze-aws returns it and encrypts nothing). */
+export const encryptionOf = (c: Pick<Config, "kms" | "kmsKey" | "kmsPeriod">) => (c.kms ? { encryptionConfiguration: { type: "CUSTOMER_MANAGED_KMS_KEY", kmsKeyId: c.kmsKey, kmsDataKeyReusePeriodSeconds: Number(c.kmsPeriod) } } : {});
+
+/** Why a key chosen for encryption is not enough yet; `null` when it is. */
+export const encryptionProblem = (c: Pick<Config, "kms" | "kmsKey" | "kmsPeriod">): string | null => (!c.kms ? null : !c.kmsKey ? "Choose a KMS key." : Number(c.kmsPeriod) >= 60 && Number(c.kmsPeriod) <= 900 ? null : "The data key reuse period is 60 to 900 seconds.");
 
 /** The body of CreateStateMachine as the Config mode shows it (the definition as the text the person has). */
 export function createBody(name: string, definition: string, c: Config, w: Where): Record<string, unknown> {
@@ -94,11 +98,33 @@ export type Validation = { result: "OK" | "FAIL"; diagnostics: Diagnostic[]; tru
 /** The first error of a validation, in the board's words: `QueueReorder` pointed at a state that does not exist. */
 export function diagnosticWords(v: Validation | undefined): string | null {
   const d = v?.diagnostics.find((x) => x.severity === "ERROR");
-  if (!d) return null;
+  return d ? wordsOf(d) : null;
+}
+
+/** One diagnostic as a sentence: a transition to a state that is not there says which state points where; the rest keep the validator's message. */
+export function wordsOf(d: Diagnostic): string {
   const target = /Missing '(\w+)' target: (.+)$/.exec(d.message);
   const from = d.location ? /^\/States\/([^/]+)\/(\w+)/.exec(d.location) : null;
   if (target && from) return `The definition below points ${decodeURIComponent(from[1] ?? "")} at a state that doesn't exist: ${target[1]} names ${target[2]}.`;
   return d.location && d.location !== "null" ? `${d.message} (at ${d.location})` : d.message;
+}
+
+/** A diagnostic that only follows from another: a definition whose transition points nowhere has "no terminal state" too, and that
+ * says nothing the first problem does not. */
+const consequential = (d: Diagnostic, all: readonly Diagnostic[]): boolean => d.code === "MISSING_END_STATE" && all.some((x) => x.code === "MISSING_TRANSITION_TARGET");
+
+/** The problems of a definition past the first, which the page's sentence already says, without the ones that only follow from another. */
+export function furtherProblems(v: Validation | undefined): Diagnostic[] {
+  const all = v?.diagnostics ?? [];
+  const first = all.find((d) => d.severity === "ERROR");
+  return all.filter((d) => d !== first && !consequential(d, all));
+}
+
+/** The lines of the text the errors name (1-based, each once): the lines the editor draws in the link colour. */
+export function problemLines(text: string, v: Validation | undefined): number[] {
+  const all = v?.diagnostics ?? [];
+  const lines = all.filter((d) => d.severity === "ERROR" && !consequential(d, all)).map((d) => lineOfLocation(text, d.location));
+  return [...new Set(lines.filter((n): n is number => n !== null))];
 }
 
 /** The line (1-based) of `text` a diagnostic's location (`/States/QueueReorder/Next`) is on, found by walking its keys down the text;
@@ -110,7 +136,9 @@ export function lineOfLocation(text: string, location: string | undefined): numb
   let at = 0;
   let found: number | null = null;
   for (const k of keys) {
-    const i = rows.findIndex((r, n) => n >= at && r.includes(`"${k}"`));
+    // The key itself (`"QueueReorder":`), not a line that only names it as a value (`"Next": "QueueReorder"`).
+    const key = new RegExp(`"${k.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}"\\s*:`);
+    const i = rows.findIndex((r, n) => n >= at && key.test(r));
     if (i < 0) break;
     found = i + 1;
     at = i;

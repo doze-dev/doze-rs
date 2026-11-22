@@ -89,12 +89,12 @@ function SecretView({ d, updatedAt, fetching, refresh }: { d: ResourceDetail; up
     : search.done === "created" ? <ResultBanner title={`Secret ${name} stored.`} returned="CreateSecret returned its ARN and the id of its first version, which has the label AWSCURRENT." onDismiss={() => go()} testId="created-banner" />
     : search.done === "value" ? <ResultBanner title="A new version was saved." returned="PutSecretValue made it AWSCURRENT; the version that held the label is AWSPREVIOUS." onDismiss={() => go()} testId="value-saved" />
     : undefined;
-  const calls = <RecentCalls calls={d.calls} noun="secret" title={`Last calls that touched ${name}`} className="mt-10" />;
+  const calls = <RecentCalls calls={d.calls} noun="secret" title={`Last calls that touched ${name}`} className="mt-10" pin={["GetSecretValue"]} />;
   const tabs = [
     { id: "overview", label: "Overview", render: () => (
       <div className="grid gap-5">
         <DetailsCard name={name} arn={info?.ARN ?? fieldOf(d, "ARN")} keyId={keyId} description={info?.Description ?? fieldOf(d, "Description")} onAction={(a) => setDialog(a)} />
-        <ValueCard name={name} scheduled={scheduled} onEdit={() => go({ view: "value" })} />
+        <ValueCard name={name} scheduled={scheduled} onEdit={() => go({ view: "value" })} onRead={() => void qc.invalidateQueries({ queryKey: ["resources", "one", d.service, d.kind, name] })} />
         {!scheduled && <PolicyCard name={name} scheduled={scheduled} onEdit={(cur) => { setPolicy(cur); setDialog("policy"); }} />}
         {!scheduled && <SampleCode name={name} />}
         {calls}
@@ -102,7 +102,7 @@ function SecretView({ d, updatedAt, fetching, refresh }: { d: ResourceDetail; up
     ) },
     { id: "rotation", label: "Rotation", render: () => <>{info ? <TabRotation name={name} d={info} scheduled={scheduled} /> : null}{calls}</> },
     { id: "versions", label: "Versions", render: () => <><TabVersions name={name} />{calls}</> },
-    { id: "tags", label: "Tags", render: () => <><TagsTab target={t} noun="tag" subject="This secret" explain="Tags are key-value labels for organising secrets and for tag-based access control." />{calls}</> },
+    { id: "tags", label: "Tags", render: () => <><TagsTab target={t} noun="tag" subject="This secret" explain="Tags are key-value labels for organising secrets and for tag-based access control." heading={{ title: "Tags", lead: "Key/value labels you attach to the secret.", rules: <>Tag keys and values are case-sensitive. A secret can have up to 50 tags. Keys are 1 to 128 characters and unique, and can&apos;t start with the reserved prefix <span className="font-mono">aws:</span>. Values are 0 to 256 characters. Tags are not encrypted, and you can&apos;t change the tags of a deleted secret. Searching the list for a tag key finds the secrets that have it.</> }} manage={{ open: "Edit tags", title: "Edit tags", lead: "Key/value labels you attach to the secret.", remove: "Remove", save: "Save", rules: <>Saving adds new keys and overwrites keys that already exist; removed rows are removed with UntagResource. Keys can&apos;t start with <span className="font-mono">aws:</span>.</> }} />{calls}</> },
   ];
   const close = () => setDialog(null);
   return (

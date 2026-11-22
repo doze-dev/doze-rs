@@ -28,6 +28,8 @@ describe("keys", () => {
     expect(countSentence(keys, "customer managed key")).toBe("4 customer managed keys: 2 enabled, 1 disabled and 1 pending deletion.");
     expect(countSentence(keys.slice(0, 1), "customer managed key")).toBe("1 customer managed key: 1 enabled.");
     expect(pendingSentence(keys)).toBe("old will be deleted on Nov 15, 2026 at 08:14 unless you cancel.");
+    // A key the schedule page has just scheduled is said to have changed.
+    expect(pendingSentence(keys, [keys[3]!.id])).toBe("old changed to Pending deletion and will be deleted on Nov 15, 2026 at 08:14 unless you cancel.");
     expect(whenWords("not a time")).toBe("not a time");
   });
 });

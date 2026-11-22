@@ -72,9 +72,10 @@ export function whenWords(value: string): string {
   return `${DATE.format(d)} at ${String(d.getUTCHours()).padStart(2, "0")}:${String(d.getUTCMinutes()).padStart(2, "0")}`;
 }
 
-/** What each key pending deletion says: when it goes, and that deletion can be cancelled. */
-export function pendingSentence(keys: readonly KeyRow[]): string {
-  return keys.filter((k) => k.state === "PendingDeletion" && k.deletion).map((k) => `${keyName(k)} will be deleted on ${whenWords(k.deletion!)} unless you cancel.`).join(" ");
+/** What each key pending deletion says: when it goes, and that deletion can be cancelled. The keys in `justNow` were scheduled by the
+ * page the person has just come from, and are said to have changed. */
+export function pendingSentence(keys: readonly KeyRow[], justNow: readonly string[] = []): string {
+  return keys.filter((k) => k.state === "PendingDeletion" && k.deletion).map((k) => (justNow.includes(k.id) ? `${keyName(k)} changed to Pending deletion and will be deleted on ${whenWords(k.deletion!)} unless you cancel.` : `${keyName(k)} will be deleted on ${whenWords(k.deletion!)} unless you cancel.`)).join(" ");
 }
 
 export type Use = { service: "sqs" | "secretsmanager" | "ssm"; kind: "queues" | "secrets" | "parameters"; name: string; noun: string };

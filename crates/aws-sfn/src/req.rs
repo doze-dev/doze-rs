@@ -51,8 +51,22 @@ impl<'a> Req<'a> {
         &self.call.caller.region
     }
 
-    /// `tags` as pairs, in the order given.
-    pub(crate) fn tags(&self) -> Vec<(String, String)> {
+    /// `tags` as pairs, in the order given. A key that begins `aws:` is refused: AWS keeps that prefix for itself (not in the model;
+    /// from the Step Functions tagging guide, and the code is the service's generic `ValidationException`; not a recording).
+    pub(crate) fn tags(&self) -> Result<Vec<(String, String)>, ApiError> {
+        let tags = self.raw_tags();
+        if let Some((key, _)) = tags
+            .iter()
+            .find(|(k, _)| k.get(..4).is_some_and(|p| p.eq_ignore_ascii_case("aws:")))
+        {
+            return Err(invalid(format!(
+                "Invalid Tag Key: '{key}'. The aws: prefix is reserved for AWS use"
+            )));
+        }
+        Ok(tags)
+    }
+
+    fn raw_tags(&self) -> Vec<(String, String)> {
         self.v
             .get("tags")
             .and_then(Value::as_array)

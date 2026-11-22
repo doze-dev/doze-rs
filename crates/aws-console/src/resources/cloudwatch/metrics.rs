@@ -35,7 +35,11 @@ pub(super) const METRICS: Kind = Kind {
     delete: None,
     reveal: None,
     deep: &[],
-    // The data points are a query the pages make (a function's Monitor tab, a chart): CloudWatch's own GetMetricData.
-    ops: &[ops::free("GetMetricData"), ops::free("ListMetrics")],
+    // The data points are a query the pages make (a function's Monitor tab, a chart): CloudWatch's own GetMetricData; GetMetricStatistics says a metric's unit, which GetMetricData does not answer.
+    ops: &[
+        ops::free("GetMetricData"),
+        ops::free("GetMetricStatistics"),
+        ops::free("ListMetrics"),
+    ],
     ..Kind::BARE
 };

@@ -248,3 +248,37 @@ export function setState(def: Definition, name: string, state: AslState): Defini
   f.states[name] = state;
   return next;
 }
+
+/** Moves state `name` to `edge`: it is taken out (what led to it leads on to what it led to) and put back on the edge, with its own body and its own name.
+ * `null` for a state that cannot move that way: a Choice (its rules name other states), an edge that is the state's own place, or one that does not exist. */
+export function moveState(def: Definition, name: string, edge: EdgeRef): Definition | null {
+  const body = stateOf(def, name);
+  if (!body || body.Type === "Choice") return null;
+  if (edge.from === name || edge.to === name) return null;
+  const without = deleteState(def, name);
+  if (!without) return null;
+  const same: Offer = { id: "move", label: name, name, group: "flow", kind: body.Type === "Succeed" || body.Type === "Fail" ? "terminal" : "linear", make: () => clone(body) };
+  return insertOnEdge(without, edge, same)?.def ?? null;
+}
+
+/** The text of the definition before each of the last 50 changes, newest last, and after the ones taken back. */
+export type History = { past: string[]; future: string[] };
+export const NO_HISTORY: History = { past: [], future: [] };
+const MOST = 50;
+
+/** A change from `before` to `after`: it can be undone, and what was taken back cannot be redone any more. */
+export function changed(h: History, before: string, after: string): History {
+  return before === after ? h : { past: [...h.past, before].slice(-MOST), future: [] };
+}
+
+/** Takes the last change back: the text to show, and the history that remembers `now` to redo. */
+export function undo(h: History, now: string): { text: string; history: History } | null {
+  const text = h.past[h.past.length - 1];
+  return text === undefined ? null : { text, history: { past: h.past.slice(0, -1), future: [now, ...h.future] } };
+}
+
+/** Puts back what was taken back. */
+export function redo(h: History, now: string): { text: string; history: History } | null {
+  const [text, ...rest] = h.future;
+  return text === undefined ? null : { text, history: { past: [...h.past, now].slice(-MOST), future: rest } };
+}

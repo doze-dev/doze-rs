@@ -131,8 +131,21 @@ export type SecretForm = {
   duration: string;
   fn: string | null;
   now: boolean;
+  /** The Regions the secret is copied to (AddReplicaRegions); each is a Region name as typed. */
+  replicas: string[];
 };
-export const blankSecret = (): SecretForm => ({ mode: "pairs", pairs: [], text: "", key: null, name: "", description: "", tags: [], policy: "", rotate: false, schedule: "rate(30 days)", duration: "", fn: null, now: false });
+export const blankSecret = (): SecretForm => ({ mode: "pairs", pairs: [], text: "", key: null, name: "", description: "", tags: [], policy: "", rotate: false, schedule: "rate(30 days)", duration: "", fn: null, now: false, replicas: [] });
+
+/** What is wrong with a Region typed for a replica: not a Region name, the Region the secret is in, or one already listed. Empty rows are not wrong (they are dropped). */
+export function replicaProblem(region: string, i: number, all: readonly string[], home: string): string | null {
+  const r = region.trim();
+  if (r === "") return null;
+  if (!/^[a-z]{2}(-[a-z]+)+-\d$/.test(r)) return "Write a Region name, for example eu-west-1.";
+  if (r === home) return `The secret is already in ${home}.`;
+  return all.findIndex((x) => x.trim() === r) < i ? "Another row has this Region." : null;
+}
+/** The Regions to send, in order, without blanks. */
+export const replicaRegions = (all: readonly string[]): string[] => all.map((r) => r.trim()).filter(Boolean);
 
 export const secretValue = (f: SecretForm): string => (f.mode === "pairs" ? rowsValue(f.pairs) : f.text);
 export const hasValue = (f: SecretForm): boolean => (f.mode === "pairs" ? filled(f.pairs).length > 0 : f.text !== "");
@@ -151,8 +164,29 @@ type Call = { service: string; operation: string; input: Record<string, unknown>
 export function secretCalls(f: SecretForm, o: { masked: boolean; arn?: string }): Call[] {
   const tags = filled(f.tags);
   const id = f.name;
-  const out: Call[] = [{ service: "secretsmanager", operation: "CreateSecret", input: { Name: f.name, ...(f.description ? { Description: f.description } : {}), SecretString: o.masked ? "(masked)" : secretValue(f), ...(f.key ? { KmsKeyId: f.key } : {}), ...(tags.length > 0 ? { Tags: tags.map((t) => ({ Key: t.key, Value: t.value })) } : {}) } }];
+  const out: Call[] = [{ service: "secretsmanager", operation: "CreateSecret", input: { Name: f.name, ...(f.description ? { Description: f.description } : {}), SecretString: o.masked ? "(masked)" : secretValue(f), ...(f.key ? { KmsKeyId: f.key } : {}), ...(tags.length > 0 ? { Tags: tags.map((t) => ({ Key: t.key, Value: t.value })) } : {}), ...(replicaRegions(f.replicas).length > 0 ? { AddReplicaRegions: replicaRegions(f.replicas).map((Region) => ({ Region })) } : {}) } }];
   if (f.policy.trim() !== "") out.push({ service: "secretsmanager", operation: "PutResourcePolicy", input: { SecretId: id, ResourcePolicy: f.policy } });
   if (f.rotate && f.fn) out.push({ service: "secretsmanager", operation: "RotateSecret", input: { SecretId: id, RotationLambdaARN: f.fn, RotationRules: { ScheduleExpression: f.schedule, ...(f.duration ? { Duration: f.duration } : {}) }, RotateImmediately: f.now } });
   return out;
+}
+
+// ---- the schedule builder ----
+
+export type Cadence = { n: string; unit: "days" | "hours" };
+
+/** The builder's cadence of a schedule expression, or null for an expression the builder cannot say (a cron, a rate in minutes). */
+export function cadenceOf(expression: string): Cadence | null {
+  const m = /^rate\(\s*(\d+)\s+(day|days|hour|hours)\s*\)$/.exec(expression.trim());
+  return m ? { n: m[1]!, unit: m[2]!.startsWith("day") ? "days" : "hours" } : null;
+}
+
+/** The expression a cadence makes: `rate(30 days)`, and `rate(1 day)` for one. */
+export const expressionOf = (c: Cadence): string => `rate(${c.n} ${c.unit === "days" ? (c.n === "1" ? "day" : "days") : c.n === "1" ? "hour" : "hours"})`;
+
+/** What is wrong with a cadence: a whole number of days (1 to 1,000) or of hours (4 or more, as often as every four hours). */
+export function cadenceProblem(c: Cadence): string | null {
+  if (!/^\d+$/.test(c.n.trim())) return "Enter a whole number.";
+  const n = Number(c.n);
+  if (c.unit === "days") return n >= 1 && n <= 1000 ? null : "Rotate every 1 to 1,000 days.";
+  return n >= 4 ? null : "Rotation can run as often as every 4 hours.";
 }

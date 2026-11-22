@@ -74,14 +74,14 @@ function Keys({ aws, scheduled }: { aws: boolean; scheduled: string[] }) {
   const use = (k: KeyRow) => encryptsSentence(`alias/${keyName(k)}`, usedBy(uses, refsOf(k)));
   const sentence = aws
     ? awsSentence(mine)
-    : [countSentence(mine, words.noun), pendingSentence(mine), mine.filter((k) => k.aliases.length > 0).map(use).find(Boolean) ?? ""].filter(Boolean).join(" ");
+    : [countSentence(mine, words.noun), pendingSentence(mine, scheduled), mine.filter((k) => k.aliases.length > 0).map(use).find(Boolean) ?? ""].filter(Boolean).join(" ");
   const columns: DataColumn<KeyRow>[] = [
     { id: "alias", header: "Aliases", min: 168, accessorFn: aliasWords, meta: { mono: true }, cell: (c) => (c.row.original.aliases.length > 0 ? <ResourceTo to={{ service: "kms", kind: "keys", name: c.row.original.id }} className="font-mono text-[13px] font-medium" testId="row-link">{aliasWords(c.row.original)}</ResourceTo> : <span className="font-mono text-[13px]">–</span>) },
     { id: "id", header: "Key ID", accessorKey: "id", min: 240, meta: { mono: true }, cell: (c) => (c.row.original.aliases.length > 0 ? <Value value={c.row.original.id} format="mono" /> : <ResourceTo to={{ service: "kms", kind: "keys", name: c.row.original.id }} className="font-mono text-[13px]" testId="row-link">{c.row.original.id}</ResourceTo>) },
     { id: "state", header: "Status", accessorFn: (r) => r.stateWords, size: 152, fit: 70, cell: (c) => stateOf(c.row.original) },
     ...(aws ? [] : ([
       { id: "kind", header: "Key type", accessorKey: "kind", size: 120, fit: 80 },
-      { id: "created", header: "Creation date", accessorFn: (r: KeyRow) => r.created ?? "", size: 190, fit: 110, cell: (c) => <Value value={c.row.original.created} format="time" /> },
+      { id: "created", header: "Creation date", accessorFn: (r: KeyRow) => r.created ?? "", size: 210, fit: 150, cell: (c) => <Value value={c.row.original.created} format="time" /> },
     ] as DataColumn<KeyRow>[])),
   ];
   const actions = (
@@ -117,9 +117,8 @@ function Keys({ aws, scheduled }: { aws: boolean; scheduled: string[] }) {
     <Alert tone="bad" title={`${ACTIONS.find((a) => a.id === result.action)?.label} was refused: ${refused.code}`} testId="action-refused">{refused.message}</Alert>
   ) : result ? (
     <ResultBanner className="mb-0" title={doneTitle(result, keys)} returned={doneReturned(result)} onDismiss={() => setResult(null)} testId="action-done" />
-  ) : scheduled.length > 0 ? (
-    <ResultBanner title={`Deletion scheduled for ${scheduled.map((id) => keyName(keys.find((k) => k.id === id) ?? { id, aliases: [] })).join(", ")}.`} returned="ScheduleKeyDeletion made the key unusable at once; it is deleted when its waiting period ends, and Cancel key deletion brings it back until then." onDismiss={() => go(aws ? { mode: "aws" } : {})} testId="scheduled-banner" />
   ) : null;
+  const justScheduled = scheduled.map((id) => keyName(keys.find((k) => k.id === id) ?? { id, aliases: [] }));
   return (
     <>
       <PageHeader title={words.title} crumbs={crumbs(first?.group, first?.service_title)} sub={words.sub(region)} refresh={<RefreshControl updatedAt={list.q.dataUpdatedAt} fetching={list.q.isFetching} onRefresh={refresh} interval={false} />} />
@@ -148,6 +147,7 @@ function Keys({ aws, scheduled }: { aws: boolean; scheduled: string[] }) {
           ) : (
             <SelectableTable aria-label="Keys" noun="key" data={shown} columns={columns} rowId={(k) => k.id} selected={chosen} onSelectedChange={(s) => { setChosen(s); setResult(null); }} toolbar={search} actions={() => actions} actionsAlways actionsEnd maxHeight={680} />
           )}
+          {justScheduled.length > 0 && !result && <p className="mt-5 max-w-[48rem] border-l-2 pl-3.5 text-[13.5px] leading-[21px] text-muted-foreground" data-testid="scheduled-note">Cancel key deletion puts {justScheduled.join(", ")} back in <b className="font-semibold text-foreground">Disabled</b>, not Enabled; choose Enable to use {justScheduled.length === 1 ? "it" : "them"}.</p>}
           <Note words={aws ? null : actionWords(picked)} aws={aws} />
         </>
       )}

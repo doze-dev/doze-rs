@@ -171,18 +171,31 @@ export function parseDimensions(text: string): Dimension[] | null {
 export const dimensionText = (d: readonly Dimension[]): string => d.map((x) => `${x.Name}=${x.Value}`).join(", ");
 
 
-/** A metric handed to the wizard in the address (`?sel=`, from a row of the metrics page): its namespace, name, dimensions, statistic and period. */
+/** A metric handed to the wizard in the address, from a row of the metrics page: its namespace, name, dimensions, statistic and period. */
 export type Sel = { ns: string; m: string; d: Dimension[]; stat?: string; period?: number };
 
-export const selText = (s: Sel): string => JSON.stringify(s);
+/** The address search that carries a metric: plain parameters (`ns`, `metric`, `dims` as `Name=Value` each, `stat`, `period`), nothing quoted inside anything. */
+export const selSearch = (s: Sel): Record<string, string | number | string[]> => ({
+  ns: s.ns,
+  metric: s.m,
+  ...(s.d.length > 0 ? { dims: s.d.map((x) => `${x.Name}=${x.Value}`) } : {}),
+  ...(s.stat ? { stat: s.stat } : {}),
+  ...(s.period ? { period: s.period } : {}),
+});
 
-export function fromSel(text: string | undefined): Draft | null {
-  if (!text) return null;
-  try {
-    const s = JSON.parse(text) as Partial<Sel>;
-    if (typeof s.ns !== "string" || typeof s.m !== "string" || !Array.isArray(s.d)) return null;
-    return { ...empty(), metric: { namespace: s.ns, name: s.m, dimensions: s.d.filter((x) => typeof x?.Name === "string" && typeof x?.Value === "string") }, stat: s.stat && STATS.includes(s.stat) ? s.stat : "Average", period: typeof s.period === "number" ? s.period : 300 };
-  } catch {
-    return null;
+/** The draft an address's metric parameters make, or null when they do not name a metric. The router reads a value that looks like a number as one, so each is read as text. */
+export function fromSel(search: { ns?: unknown; metric?: unknown; dims?: unknown; stat?: unknown; period?: unknown }): Draft | null {
+  if (search.ns === undefined || search.metric === undefined) return null;
+  const ns = String(search.ns);
+  const name = String(search.metric);
+  if (ns === "" || name === "") return null;
+  const dims = (Array.isArray(search.dims) ? search.dims : search.dims === undefined ? [] : [search.dims]).map(String);
+  const dimensions: Dimension[] = [];
+  for (const d of dims) {
+    const at = d.indexOf("=");
+    if (at > 0) dimensions.push({ Name: d.slice(0, at), Value: d.slice(at + 1) });
   }
+  const stat = typeof search.stat === "string" && STATS.includes(search.stat) ? search.stat : "Average";
+  const period = typeof search.period === "number" && search.period > 0 ? search.period : 300;
+  return { ...empty(), metric: { namespace: ns, name, dimensions }, stat, period };
 }

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { dateTimeUtc } from "../../lib/format";
 import { cn } from "../../lib/utils";
-import { areaPath, axisNumber, isolatedPoints, linear, linePath, nearest, niceTicks, type Point, tickLabel, timeTicks, valueExtent } from "./chart-scale";
+import { areaPath, axisNumber, extentWithRoom, isolatedPoints, linear, linePath, nearest, niceTicks, type Point, tickLabel, timeTicks, valueExtent } from "./chart-scale";
 
 export type SeriesTone = "cool" | "warn" | "good" | "refused" | "bad";
 export type Series = { id: string; label: string; points: Point[]; /** Default: the next colour in order. */ tone?: SeriesTone; /** The area under the line is tinted. */ area?: boolean };
@@ -16,13 +16,15 @@ const TONES: Record<SeriesTone, { line: string; dot: string; swatch: string; are
   bad: { line: "stroke-bad", dot: "fill-bad", swatch: "bg-bad", area: "fill-bad/10" },
 };
 const ORDER: SeriesTone[] = ["cool", "warn", "good", "refused", "bad"];
-const M = { top: 12, right: 14, bottom: 28, left: 46 };
+const MARGIN = { top: 12, right: 14, bottom: 28, left: 46 };
 
 /** A time series, drawn by hand in SVG (no chart library): lines (with gaps where there is no data), an area, a threshold band,
  * a y axis of round numbers, an x axis on UTC ticks, a legend, and a readout of the point nearest the pointer (or the arrow
  * keys: the chart takes the focus). It fades in; with `prefers-reduced-motion` it appears at once. Every size is the
  * container's width and `height`, so it reflows with the window. */
 export function Chart({ series, from, to, height = 260, threshold, unit, empty = "There are no data points in this range.", loading = false, "aria-label": ariaLabel, className, testId = "chart" }: { series: Series[]; /** The range drawn, ms; by default the first and last point. */ from?: number; to?: number; height?: number; threshold?: Threshold; /** After each value in the readout (`messages`, `ms`). */ unit?: string; empty?: React.ReactNode; loading?: boolean; "aria-label": string; className?: string; testId?: string }) {
+  // With a unit, a row above the axis names it (`Count`, `Seconds`).
+  const M = { ...MARGIN, top: unit ? 26 : MARGIN.top };
   const box = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(0);
   const [hover, setHover] = useState<number | null>(null);
@@ -36,7 +38,7 @@ export function Chart({ series, from, to, height = 260, threshold, unit, empty =
   }, []);
 
   const times = useMemo(() => [...new Set(series.flatMap((s) => s.points.map((p) => p.t)))].sort((a, b) => a - b), [series]);
-  const extent = valueExtent(series, threshold ? [threshold.value] : []);
+  const extent = extentWithRoom(valueExtent(series, threshold ? [threshold.value] : []), threshold);
   const has = extent !== null && times.length > 0;
   const t0 = from ?? times[0] ?? 0;
   const t1 = to ?? times[times.length - 1] ?? t0 + 1;
@@ -82,6 +84,11 @@ export function Chart({ series, from, to, height = 260, threshold, unit, empty =
         ) : (
           <>
             <svg width={w} height={height} role="img" aria-label={ariaLabel} className="animate-in fade-in duration-500 motion-reduce:animate-none" onPointerMove={(e) => move(e.clientX)} onPointerLeave={() => setHover(null)}>
+              {unit && (
+                <text x={4} y={11} className="fill-muted-foreground text-[11.5px]" data-testid={`${testId}-unit`}>
+                  {unit}
+                </text>
+              )}
               {ticksY.map((v) => (
                 <g key={v}>
                   <line x1={M.left} x2={w - M.right} y1={y(v)} y2={y(v)} className="stroke-border" strokeWidth={1} />
@@ -99,7 +106,7 @@ export function Chart({ series, from, to, height = 260, threshold, unit, empty =
                 <g data-testid={`${testId}-threshold`}>
                   <rect x={M.left} width={w - M.left - M.right} y={threshold.bad === "above" ? M.top : y(threshold.value)} height={Math.max(0, threshold.bad === "above" ? y(threshold.value) - M.top : height - M.bottom - y(threshold.value))} className="fill-bad/10" />
                   <line x1={M.left} x2={w - M.right} y1={y(threshold.value)} y2={y(threshold.value)} className="stroke-bad" strokeWidth={1.25} strokeDasharray="5 4" />
-                  <text x={w - M.right - 4} y={y(threshold.value) + (threshold.bad === "above" ? 14 : -6)} textAnchor="end" className="fill-bad text-[11.5px] font-medium">
+                  <text x={w - M.right - 4} y={y(threshold.value) + (threshold.bad === "above" ? -6 : 14)} textAnchor="end" className="fill-bad text-[11.5px] font-medium">
                     {threshold.label}
                   </text>
                 </g>

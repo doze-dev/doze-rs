@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { alarmNames, parseBody, place, queriesOf, rulesBroken, textWidget, titleOf, withWidget, withoutWidget } from "./dashboard-model";
+import { alarmNames, numberLabel, parseBody, place, queriesOf, rulesBroken, textWidget, titleOf, withWidget, withoutWidget } from "./dashboard-model";
 
 const body = parseBody(JSON.stringify({ start: "-PT3H", widgets: [{ type: "metric", x: 0, y: 0, width: 12, height: 6, properties: { title: "Orders placed", stat: "Sum", period: 300, metrics: [["Larder/Orders", "OrdersPlaced", "Environment", "prod"], ["...", "OrdersFailed", "Environment", "prod", { label: "Failed", stat: "Maximum" }], [{ expression: "m1 / 2", label: "Half", id: "e1" }]] } }, { type: "alarm", properties: { alarms: ["arn:aws:cloudwatch:us-east-1:111122223333:alarm:dlq-not-empty"] } }] }))!;
 
@@ -42,5 +42,23 @@ describe("a range a widget keeps", () => {
     expect(ownRange({ properties: {} }, 1)).toBeNull();
     expect(startOf(3 * 3_600_000)).toBe("-PT3H");
     expect(startOf(86_400_000)).toBe("-P1D");
+  });
+});
+
+describe("the title of a widget that has none", () => {
+  test("a metric widget is drawn by its first metric, a widget with no metric by the word Metrics", () => {
+    expect(titleOf({ type: "metric", properties: { metrics: [["Larder/Orders", "OrdersPlaced"], ["...", "OrdersFailed"]] } })).toBe("OrdersPlaced");
+    expect(titleOf({ type: "metric", properties: { metrics: [["Larder/Orders", "OrdersPlaced", { label: "Placed" }]] } })).toBe("Placed");
+    expect(titleOf({ type: "metric", properties: { metrics: [] } })).toBe("Metrics");
+    expect(titleOf({ type: "metric", properties: { title: "Mine", metrics: [["N", "M"]] } })).toBe("Mine");
+  });
+});
+
+describe("what a number widget names its value by", () => {
+  test("the dimension value when the metric has one and the row has no label of its own", () => {
+    expect(numberLabel("DlqMessages", { metric: "DlqMessages", dimensions: { QueueName: "pick-lists-dlq" } })).toBe("pick-lists-dlq");
+    expect(numberLabel("DlqMessages", { metric: "DlqMessages", dimensions: {} })).toBe("DlqMessages");
+    expect(numberLabel("Backlog", { metric: "DlqMessages", dimensions: { QueueName: "pick-lists-dlq" } })).toBe("Backlog");
+    expect(numberLabel("x", undefined)).toBe("x");
   });
 });

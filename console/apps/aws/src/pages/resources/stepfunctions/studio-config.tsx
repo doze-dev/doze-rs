@@ -12,12 +12,13 @@ import { Label } from "@doze/ui/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@doze/ui/components/ui/radio-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@doze/ui/components/ui/select";
 import { Switch } from "@doze/ui/components/ui/switch";
-import { Field, FormSection, KeyPicker, LocalStatus, RadioCards, RolePicker, RuleHelp, TAG_RULES } from "../../../kit";
+import { Field, FormSection, KeyPicker, LOCAL_WORDS, RadioCards, RolePicker, RuleHelp } from "../../../kit";
 import { CodeBlock } from "../deep/parts";
 import { LOG_NAME, existingWords, nameProblem, pretty, roleNameOf, TRUST } from "./model";
 import { type Config, type Level, type RoleChoice, type Where, logGroupOf } from "./studio-model";
 import type { Definition } from "./graph";
 import { permissionsOf } from "./model";
+import { RULES } from "./tags-page";
 
 const NAME_RULE = <>1 to 80 characters. No whitespace, wildcard characters ( ? * ), brackets ( &lt; &gt; &#123; &#125; [ ] ) or special characters ( &quot; # % \ ^ | ~ ` $ &amp; , ; : / ). To send logs to CloudWatch, use only <span className="font-mono">0-9 A-Z a-z - _ .</span> <b className="font-semibold">The name and the type can't be changed after you create it.</b></>;
 
@@ -111,13 +112,9 @@ export function ConfigMode({ name, setName, cfg, set, taken, where, definition, 
       </FormSection>
       <FormSection title="Additional configuration" optional>
         <div className="grid gap-6">
-          <Toggle id="config-tracing" checked={cfg.tracing} onChange={(tracing) => set({ tracing })} title="Enable X-Ray tracing" body="Sends traces for executions even when the caller passes no trace ID.">
-            <LocalStatus state="stored" className="mt-0.5" />
-          </Toggle>
+          <Toggle id="config-tracing" checked={cfg.tracing} onChange={(tracing) => set({ tracing })} title="Enable X-Ray tracing" body="Sends traces for executions even when the caller passes no trace ID." stored />
           {!editing && <Toggle id="config-publish" checked={cfg.publish} onChange={(publish) => set({ publish })} title="Publish version on creation" body="Publishes version 1 as the first revision, so you can start it by version or alias." />}
-          <Toggle id="config-kms" checked={cfg.kms} onChange={(kms) => set({ kms })} title="Encrypt with customer managed key" body="Adds a second layer over the AWS owned key that always encrypts data at rest. The data key reuse period is 60 to 900 seconds.">
-            <LocalStatus state="stored" className="mt-0.5" />
-          </Toggle>
+          <Toggle id="config-kms" checked={cfg.kms} onChange={(kms) => set({ kms })} title="Encrypt with customer managed key" body="Adds a second layer over the AWS owned key that always encrypts data at rest. The data key reuse period is 60 to 900 seconds." stored />
           {cfg.kms && (
             <div className="grid gap-5 pl-14 sm:grid-cols-2">
               <Field label="KMS key">{(id) => <KeyPicker id={id} value={cfg.kmsKey} onChange={(kmsKey) => set({ kmsKey })} by="id" />}</Field>
@@ -132,7 +129,7 @@ export function ConfigMode({ name, setName, cfg, set, taken, where, definition, 
               </div>
               {cfg.tagsOn && (
                 <>
-                  <KeyValueEditor rows={rows} onChange={(r) => { setRows(r); set({ tags: r.map((x) => ({ key: x.key, value: x.value })) }); }} rules={TAG_RULES} addLabel="Add tag" testId="config-tags-kv" />
+                  <KeyValueEditor rows={rows} onChange={(r) => { setRows(r); set({ tags: r.map((x) => ({ key: x.key, value: x.value })) }); }} rules={RULES} addLabel="Add tag" testId="config-tags-kv" />
                   <RuleHelp>Up to 50 tags per state machine. Keys are 1 to 128 characters, values 0 to 256. Letters, digits, spaces and <span className="font-mono">_ . : / = + - @</span> only; <span className="font-mono">aws:</span> is reserved.</RuleHelp>
                 </>
               )}
@@ -144,11 +141,12 @@ export function ConfigMode({ name, setName, cfg, set, taken, where, definition, 
   );
 }
 
-function Toggle({ id, checked, onChange, title, body, children }: { id: string; checked: boolean; onChange: (v: boolean) => void; title: string; body: string; children?: React.ReactNode }) {
+/** A setting with a switch. `stored`: doze-aws keeps the setting and does nothing with it, said dim and inline after the sentence, as the board does. */
+function Toggle({ id, checked, onChange, title, body, stored, children }: { id: string; checked: boolean; onChange: (v: boolean) => void; title: string; body: string; stored?: boolean; children?: React.ReactNode }) {
   return (
     <div className="flex items-start gap-3.5">
       <Switch id={id} checked={checked} onCheckedChange={onChange} className="mt-0.5" data-testid={id} />
-      <div className="grid gap-0.5"><Label htmlFor={id} className="font-medium text-bright">{title}</Label><p className="text-[13px] leading-5 text-muted-foreground">{body}</p>{children}</div>
+      <div className="grid gap-0.5"><Label htmlFor={id} className="font-medium text-bright">{title}</Label><p className="text-[13px] leading-5 text-muted-foreground">{body}{stored && <> <span data-slot="local-status" data-state="stored" className="text-muted-foreground/80">{LOCAL_WORDS.stored}.</span></>}</p>{children}</div>
     </div>
   );
 }

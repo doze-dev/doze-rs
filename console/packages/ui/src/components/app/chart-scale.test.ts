@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { areaPath, axisNumber, linear, linePath, nearest, niceTicks, tickLabel, timeStep, timeTicks, valueExtent } from "./chart-scale";
+import { areaPath, axisNumber, extentWithRoom, linear, linePath, nearest, niceTicks, tickLabel, timeStep, timeTicks, valueExtent } from "./chart-scale";
 
 const H = 3_600_000;
 const T0 = Date.UTC(2026, 10, 8, 5, 20); // 05:20 UTC
@@ -94,5 +94,22 @@ describe("isolatedPoints", () => {
     expect(isolatedPoints([{ t: 0, v: 1 }, { t: 1, v: 2 }, { t: 2, v: null }, { t: 3, v: 4 }, { t: 4, v: null }])).toEqual([{ t: 3, v: 4 }]);
     expect(isolatedPoints([{ t: 0, v: 5 }])).toEqual([{ t: 0, v: 5 }]);
     expect(isolatedPoints([{ t: 0, v: 1 }, { t: 1, v: 2 }])).toEqual([]);
+  });
+});
+
+describe("room for a threshold's label", () => {
+  test("a bad side above gets a twelfth of the range past the larger of the data and the line", () => {
+    expect(extentWithRoom({ min: 0, max: 12 }, { value: 12, bad: "above" })).toEqual({ min: 0, max: 13 });
+    expect(extentWithRoom({ min: 0, max: 24 }, { value: 12, bad: "above" })).toEqual({ min: 0, max: 26 });
+    expect(extentWithRoom({ min: 0, max: 0 }, { value: 0, bad: "above" })).toEqual({ min: 0, max: 1 / 12 });
+  });
+  test("a bad side below, no threshold and no data are left as they are", () => {
+    expect(extentWithRoom({ min: 0, max: 12 }, { value: 12, bad: "below" })).toEqual({ min: 0, max: 12 });
+    expect(extentWithRoom({ min: 0, max: 12 })).toEqual({ min: 0, max: 12 });
+    expect(extentWithRoom(null, { value: 1, bad: "above" })).toBeNull();
+  });
+  test("the line is then never on the top tick", () => {
+    const e = extentWithRoom({ min: 0, max: 10 }, { value: 10, bad: "above" })!;
+    expect(niceTicks(e.min, e.max, 5).at(-1)!).toBeGreaterThan(10);
   });
 });

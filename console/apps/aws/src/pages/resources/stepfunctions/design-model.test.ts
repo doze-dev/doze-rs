@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import type { Definition } from "./graph";
-import { deleteState, insertOnEdge, offerOf, parseScope, renameState, setState, uniqueName } from "./design-model";
+import { NO_HISTORY, changed, deleteState, insertOnEdge, moveState, offerOf, parseScope, redo, renameState, setState, undo, uniqueName } from "./design-model";
 
 const line: Definition = { StartAt: "A", States: { A: { Type: "Pass", Next: "B" }, B: { Type: "Pass", End: true } } };
 const wait = offerOf("wait")!;
@@ -76,4 +76,65 @@ describe("deleting and renaming", () => {
 test("a scope is read from the graph's ids", () => {
   expect(parseScope("Par/0/Inner/1/")).toEqual([{ state: "Par", index: 0 }, { state: "Inner", index: 1 }]);
   expect(parseScope("")).toEqual([]);
+});
+
+describe("moving a state", () => {
+  const three: Definition = { StartAt: "A", States: { A: { Type: "Pass", Next: "B" }, B: { Type: "Wait", Seconds: 3, Next: "C" }, C: { Type: "Pass", End: true } } };
+  test("takes it out of its place and puts it back on the edge, with its own body and name", () => {
+    const moved = moveState(three, "A", { scope: "", from: "B", to: "C", kind: "next", nth: 0 })!;
+    expect(moved.StartAt).toBe("B");
+    expect(moved.States?.B?.Next).toBe("A");
+    expect(moved.States?.A).toEqual({ Type: "Pass", Next: "C" });
+    expect(moved.States?.C).toEqual({ Type: "Pass", End: true });
+  });
+  test("to the end of the path ends there", () => {
+    const moved = moveState(three, "B", { scope: "", from: "C", to: null, kind: "end", nth: 0 })!;
+    expect(moved.States?.A?.Next).toBe("C");
+    expect(moved.States?.C).toEqual({ Type: "Pass", Next: "B" });
+    expect(moved.States?.B).toEqual({ Type: "Wait", Seconds: 3, End: true });
+  });
+  test("an edge of its own place, and a Choice, do not move", () => {
+    expect(moveState(three, "B", { scope: "", from: "A", to: "B", kind: "next", nth: 0 })).toBeNull();
+    expect(moveState(three, "B", { scope: "", from: "B", to: "C", kind: "next", nth: 0 })).toBeNull();
+    const choice: Definition = { StartAt: "C", States: { C: { Type: "Choice", Choices: [{ Variable: "$.x", StringEquals: "a", Next: "P" }], Default: "P" }, P: { Type: "Pass", End: true } } };
+    expect(moveState(choice, "C", { scope: "", from: "P", to: null, kind: "end", nth: 0 })).toBeNull();
+  });
+});
+
+describe("dropping a pattern", () => {
+  test("brings the states that go together: a Lambda with Retry and Catch brings the Fail it catches to", () => {
+    const r = insertOnEdge(line, { scope: "", from: "A", to: "B", kind: "next", nth: 0 }, offerOf("retry-catch")!)!;
+    const task = r.def.States?.[r.name];
+    expect(task?.Retry?.[0]?.MaxAttempts).toBe(3);
+    expect(task?.Next).toBe("B");
+    expect(task?.Catch?.[0]?.Next).toBe("Handle failure");
+    expect(r.def.States?.["Handle failure"]?.Type).toBe("Fail");
+  });
+  test("a Parallel with two branches has two states of their own", () => {
+    const r = insertOnEdge(line, { scope: "", from: "A", to: "B", kind: "next", nth: 0 }, offerOf("fan-out")!)!;
+    const par = r.def.States?.Parallel;
+    expect(par?.Branches).toHaveLength(2);
+    expect(par?.Next).toBe("B");
+  });
+});
+
+describe("undo and redo", () => {
+  test("a change can be taken back and put back, and a new change forgets what was taken back", () => {
+    let h = changed(NO_HISTORY, "one", "two");
+    h = changed(h, "two", "three");
+    const back = undo(h, "three")!;
+    expect(back.text).toBe("two");
+    const again = redo(back.history, "two")!;
+    expect(again.text).toBe("three");
+    expect(changed(back.history, "two", "four").future).toEqual([]);
+    expect(undo(NO_HISTORY, "x")).toBeNull();
+    expect(redo(NO_HISTORY, "x")).toBeNull();
+  });
+  test("a change that is none is not a step, and only the last 50 are kept", () => {
+    expect(changed(NO_HISTORY, "same", "same")).toBe(NO_HISTORY);
+    let h = NO_HISTORY;
+    for (let i = 0; i < 60; i++) h = changed(h, String(i), String(i + 1));
+    expect(h.past).toHaveLength(50);
+    expect(h.past[0]).toBe("10");
+  });
 });

@@ -52,6 +52,10 @@ describe("the form", () => {
     expect(putInput(f, { overwrite: true, editing: true }).Overwrite).toBe(true);
     expect(putInput({ ...f, type: "String" }).KeyId).toBeUndefined();
   });
+  test("an edit leaves the type, the key and the data type to the parameter that exists", () => {
+    const f = { ...blankParam(), name: "/p", type: "SecureString" as const, key: "alias/k", value: "v2" };
+    expect(putInput(f, { overwrite: true, editing: true })).toEqual({ Name: "/p", Value: "v2", Tier: "Standard", Overwrite: true });
+  });
 });
 
 describe("history and labels", () => {

@@ -142,3 +142,12 @@ export function axisNumber(v: number): string {
 export function isolatedPoints(points: readonly Point[]): Point[] {
   return points.filter((p, i) => p.v !== null && points[i - 1]?.v == null && points[i + 1]?.v == null);
 }
+
+/** The value range with room for a threshold's label: when the bad side is above, the range goes a little past the larger of the data and the
+ * line (a twelfth of the range), so the line is never on the top edge and its label, drawn above it, sits clear of the data. */
+export function extentWithRoom(extent: { min: number; max: number } | null, threshold?: { value: number; bad: "above" | "below" }): { min: number; max: number } | null {
+  if (!extent || !threshold || threshold.bad !== "above") return extent;
+  const top = Math.max(extent.max, threshold.value);
+  const span = top - extent.min || Math.abs(top) || 1;
+  return { min: extent.min, max: top + span / 12 };
+}

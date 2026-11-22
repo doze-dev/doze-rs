@@ -95,6 +95,9 @@ test("ssm__parameter-detail, parameter-detail-revealed: a parameter's page, its 
   await shot(page, "ssm__parameter-detail");
   await page.getByTestId("value-show").click();
   await expect(page.getByTestId("parameter-value")).toHaveText("kq7Vz-2mPf-Lr9Xw-Tn40");
+  // The page said the call appears in Recent calls: it does, without anyone choosing Show on the hidden ones.
+  await expect(page.getByTestId("calls-console-hidden")).toBeVisible();
+  await expect(page.getByRole("table", { name: "Recent calls" })).toContainText("GetParameter");
   await expect(page.getByTestId("detail-sentence")).toContainText("decrypted for this page view");
   await shot(page, "ssm__parameter-detail-revealed");
   await page.getByTestId("value-hide").click();
@@ -125,14 +128,18 @@ test("ssm__parameter-history, parameter-labels: the versions with their labels, 
 
 test("ssm__parameter-tags: the tags of a parameter, edited in place", async ({ page }) => {
   await open(page, server.console, at(PASSWORD, "?tab=tags"), "/larder/prod/db/password");
-  await expect(page.getByTestId("tags-count")).toHaveText("3 tags");
-  await page.getByTestId("tags-edit-open").click();
+  // The board: the tab is the editor itself, a heading and a line over rows with Remove, a footnote that says what is new, and Save.
+  await expect(page.getByTestId("tags-edit")).toBeVisible();
+  await expect(page.getByTestId("tags-edit")).toContainText("Key and value pairs on this parameter. Add a pair, or remove one, then save.");
+  await expect(page.getByTestId("tags-kv").getByRole("button", { name: "Remove" })).toHaveCount(3);
+  await expect(page.getByTestId("tags-cancel")).toHaveCount(0);
+  await page.getByTestId("tags-kv").getByRole("button", { name: /Add tag/ }).click();
+  await page.getByTestId("tags-kv").getByRole("textbox").nth(6).fill("owner-team");
+  await page.getByTestId("tags-kv").getByRole("textbox").nth(7).fill("larder-core");
+  await expect(page.getByTestId("tags-rules")).toContainText("One pair is new here: owner-team.");
   await shot(page, "ssm__parameter-tags");
-  await page.getByTestId("tags-kv").getByRole("button", { name: /Add/ }).click();
-  await page.getByTestId("tags-kv").getByRole("textbox").nth(6).fill("owner");
-  await page.getByTestId("tags-kv").getByRole("textbox").nth(7).fill("ops");
   await page.getByTestId("tags-save").click();
-  await expect(page.getByTestId("tags-saved")).toBeVisible();
+  await expect(page.getByTestId("tags-kv").getByRole("button", { name: "Remove" })).toHaveCount(4);
   expect(JSON.parse(cli(["ssm", "list-tags-for-resource", "--resource-type", "Parameter", "--resource-id", "/larder/prod/db/password"])).TagList).toHaveLength(4);
 });
 
@@ -141,9 +148,13 @@ test("ssm__parameter-edit: Edit saves the next version with Overwrite", async ({
   await page.getByTestId("verb-edit").click();
   await expect(page.locator("h1").first()).toHaveText("Edit");
   await expect(page.getByTestId("parameter-name")).toHaveAttribute("readonly", "");
-  await expect(page.getByTestId("type-SecureString")).toBeDisabled();
+  // The board edits the description, the tier and the value: the type, the data type and the key stay as they are, and are not asked.
+  await expect(page.getByTestId("type-SecureString")).toHaveCount(0);
+  await expect(page.getByTestId("parameter-datatype")).toHaveCount(0);
+  await expect(page.getByTestId("parameter-value")).toHaveValue("kq7Vz-2mPf-Lr9Xw-Tn40");
   await page.getByTestId("parameter-value").fill("Zt3Mw-8cQd-Hn5Rb-Ve62");
   await expect(page.getByTestId("call-panel")).toContainText('"Overwrite": true');
+  await expect(page.getByTestId("call-panel")).not.toContainText('"Type"');
   await shot(page, "ssm__parameter-edit");
   await page.getByTestId("form-submit").click();
   await expect(page.getByTestId("saved-banner")).toContainText("PutParameter returned version 4");
@@ -172,4 +183,40 @@ test("a parameter that does not exist has a page of its own that says so", async
   refusals.allow(/ GET .*\/resources\/ssm\/parameters\/%2Fnope$/);
   await page.goto(`${server.console}${at("%2Fnope")}`);
   await expect(page.getByTestId("detail-error")).toContainText("/nope");
+});
+
+test("ssm: the Public parameters tab and the Settings tab, which the service has behind them", async ({ page, refusals }) => {
+  await open(page, server.console, "/resources/ssm/parameters", "Parameter Store");
+  await page.getByTestId("tab-public").click();
+  await expect(page.getByRole("table", { name: "Public parameters" }).locator("tbody tr[data-row]")).toHaveCount(10);
+  await expect(page.getByRole("table", { name: "Public parameters" })).toContainText("/aws/service/ami-amazon-linux-latest/");
+  await page.getByTestId("public-more").click();
+  await expect(page.getByRole("table", { name: "Public parameters" }).locator("tbody tr[data-row]")).toHaveCount(18);
+  await expect(page.getByTestId("public-more")).toHaveCount(0);
+  await expect(page.getByTestId("public-note")).toContainText("placeholders");
+  await page.getByTestId("public-path").fill("/aws/service/ami-amazon-linux-latest/zzz");
+  await page.getByTestId("public-look").click();
+  await expect(page.getByTestId("public-none")).toContainText("found no public parameter");
+  // A name outside every namespace AWS publishes is refused by the service, and the page says so.
+  refusals.allow(/400 POST .*\/ssm\/parameters\/op\/GetParametersByPath$/);
+  await page.getByTestId("public-path").fill("/aws/service/nothing-here");
+  await page.getByTestId("public-look").click();
+  await expect(page.getByTestId("public-error")).toContainText("is not a valid namespace");
+  await page.getByTestId("public-path").fill("/aws/service/ami-amazon-linux-latest/zzz");
+  await page.getByTestId("public-look").click();
+  await shot(page, "ssm__public-parameters");
+  await page.getByTestId("tab-settings").click();
+  const tier = page.getByTestId("setting-default-parameter-tier");
+  await expect(tier.getByTestId("setting-value")).toHaveText("Standard");
+  await tier.getByTestId("setting-edit").click();
+  await page.getByTestId("setting-select").click();
+  await page.getByRole("option", { name: "Advanced" }).click();
+  await page.getByTestId("edit-setting-save").click();
+  await expect(tier.getByTestId("setting-value")).toHaveText("Advanced");
+  expect(JSON.parse(cli(["ssm", "get-service-setting", "--setting-id", "/ssm/parameter-store/default-parameter-tier"])).ServiceSetting.SettingValue).toBe("Advanced");
+  await shot(page, "ssm__settings");
+  await tier.getByTestId("setting-reset").click();
+  await expect(tier.getByTestId("setting-value")).toHaveText("Standard");
+  await page.getByTestId("tab-parameters").click();
+  await expect(page.getByTestId("list-sentence")).toContainText("parameters in us-east-1");
 });

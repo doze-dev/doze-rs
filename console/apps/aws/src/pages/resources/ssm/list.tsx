@@ -23,12 +23,15 @@ import { FilterBar } from "../filter-bar";
 import { HINT } from "../index-page";
 import { refusalOf } from "../kms/schedule";
 import { ResourceTo, Value } from "../value";
+import { ParameterTabs, PublicParameters, ServiceSettings } from "./extra-tabs";
 import { ParameterForm, PARAMETERS } from "./form";
 import { FILTERS, filterSentence, listSentence, type ParamRow, paramRows, tokensFromQuery, tokensToQuery } from "./model";
 
 export function SsmList() {
-  const search = useSearch({ strict: false }) as { q?: string; create?: string; do?: string; name?: string; ver?: string; key?: string };
+  const search = useSearch({ strict: false }) as { q?: string; create?: string; do?: string; name?: string; ver?: string; key?: string; mode?: string };
   if (search.create === "yes") return <ParameterForm />;
+  if (search.mode === "public") return <PublicParameters />;
+  if (search.mode === "settings") return <ServiceSettings />;
   return <Parameters q={search.q ?? ""} created={search.do === "created" && search.name ? { name: search.name, version: search.ver ?? "1", type: search.key ?? "" } : null} />;
 }
 
@@ -76,12 +79,12 @@ function Parameters({ q, created }: { q: string; created: { name: string; versio
     }
   };
   const columns: DataColumn<ParamRow>[] = [
-    { id: "name", header: "Name", min: 300, accessorKey: "name", meta: { mono: true }, cell: (c) => <ResourceTo to={{ service: "ssm", kind: "parameters", name: c.row.original.name }} className="font-mono text-[13px] font-medium" testId="row-link">{c.row.original.name}</ResourceTo> },
+    { id: "name", header: "Name", size: 420, min: 340, accessorKey: "name", meta: { mono: true }, cell: (c) => <ResourceTo to={{ service: "ssm", kind: "parameters", name: c.row.original.name }} className="font-mono text-[13px] font-medium" testId="row-link">{c.row.original.name}</ResourceTo> },
     { id: "tier", header: "Tier", accessorKey: "tier", size: 100, fit: 50 },
     { id: "type", header: "Type", accessorKey: "type", size: 130, fit: 50 },
     { id: "version", header: "Version", accessorFn: (r) => Number(r.version), size: 90, fit: 70, meta: { numeric: true } },
-    { id: "modified", header: "Last modified (UTC)", accessorFn: (r) => r.modified ?? "", size: 200, fit: 130, cell: (c) => <Value value={c.row.original.modified} format="time" /> },
-    { id: "description", header: "Description", accessorKey: "description", min: 180 },
+    { id: "modified", header: "Last modified (UTC)", accessorFn: (r) => r.modified ?? "", size: 210, fit: 150, cell: (c) => <Value value={c.row.original.modified} format="time" /> },
+    { id: "description", header: "Description", accessorKey: "description", min: 120 },
   ];
   const create = <Button onClick={() => go({ create: "yes" })} data-testid="create-open"><PlusIcon /> Create parameter</Button>;
   const banner = done ? (
@@ -92,6 +95,7 @@ function Parameters({ q, created }: { q: string; created: { name: string; versio
   return (
     <>
       <PageHeader title="Parameter Store" crumbs={[{ label: "Resources", to: "/resources" }, ...(first ? [{ label: first.group, to: "/resources" }, { label: first.service_title, to: "/resources/ssm" }] : [])]} sub={`A centralized configuration data store for named values called parameters. Parameters are only available in the Region where they were created (${region}).`} refresh={<RefreshControl updatedAt={list.q.dataUpdatedAt} fetching={list.q.isFetching} onRefresh={refresh} interval={false} />} actions={create} />
+      <ParameterTabs current="parameters" />
       {banner && <div className="mb-6">{banner}</div>}
       {list.q.isError && !first ? (
         <ErrorBlock what="The parameters could not be listed" error={list.q.error} hint={HINT} onRetry={refresh} retrying={list.q.isFetching} testId="list-error" />
@@ -118,7 +122,7 @@ function Parameters({ q, created }: { q: string; created: { name: string; versio
               <Pagination className="mt-3" shown={rows.length} total={rows.length} more={list.more} noun={rows.length === 1 ? "parameter" : "parameters"} />
             </>
           )}
-          <Note className="mt-5" testId="list-note">{q !== "" ? <>Deleting removes every version of a parameter, and the parameter and its versions can&apos;t be restored. </> : null}The columns are the fields DescribeParameters returns for each parameter. The filter takes a name that equals, begins with or contains the text, and a type. The AWS console&apos;s Public parameters tab and Settings tab are not in this list: GetParametersByPath reaches the parameters under /aws/service, and the service settings are read with GetServiceSetting.</Note>
+          <Note className="mt-5" testId="list-note">{q !== "" ? <>Deleting removes every version of a parameter, and the parameter and its versions can&apos;t be restored. </> : null}The columns are the fields DescribeParameters returns for each parameter. The filter takes a name that equals, begins with or contains the text, and a type. The Public parameters tab lists what AWS publishes under /aws/service, and the Settings tab holds the settings of Parameter Store.</Note>
         </>
       )}
       <PlainConfirm open={confirm} onOpenChange={(o) => { if (!o) { setConfirm(false); setError(null); } }} title="Delete parameters" description="Deleting a parameter removes all versions of it. Once deleted, the parameter and its versions can't be restored." verb="Delete parameters" call="DeleteParameters" pending={pending} error={error ? new Error(`${(error as { code: string }).code}: ${(error as { message: string }).message}`) : undefined} onConfirm={() => void del()} testId="delete-parameters">

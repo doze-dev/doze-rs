@@ -45,7 +45,7 @@ export function seedLarderCloudwatch(endpoint: string, account: string, region =
   // Custom metrics: a few points in the last hours.
   const now = Date.now();
   const put = (ns: string, metric: string, dims: string, values: number[]) => {
-    const data = values.map((v, i) => ({ MetricName: metric, Value: v, Timestamp: new Date(now - (values.length - i) * 300_000).toISOString(), Dimensions: dims.split(",").map((d) => ({ Name: d.split("=")[0], Value: d.split("=")[1] })) }));
+    const data = values.map((v, i) => ({ MetricName: metric, Value: v, Unit: "Count", Timestamp: new Date(now - (values.length - i) * 300_000).toISOString(), Dimensions: dims.split(",").map((d) => ({ Name: d.split("=")[0], Value: d.split("=")[1] })) }));
     cli(["cloudwatch", "put-metric-data", "--namespace", ns, "--metric-data", JSON.stringify(data)]);
   };
   put("Larder/Orders", "OrdersPlaced", "Environment=prod", [20, 22, 24, 23, 28, 30, 26, 30, 27, 25]);

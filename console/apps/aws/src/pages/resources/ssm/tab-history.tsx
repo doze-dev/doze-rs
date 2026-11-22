@@ -1,7 +1,7 @@
 // A parameter's History tab (ssm__parameter-history, parameter-labels): the versions (GetParameterHistory) with their labels, and Manage
 // labels for the version chosen (LabelParameterVersion, UnlabelParameterVersion).
 import { useQueryClient } from "@tanstack/react-query";
-import { TagIcon, XIcon } from "lucide-react";
+import { TagIcon } from "lucide-react";
 import { useState } from "react";
 import { type DataColumn, DataTable } from "@doze/ui/components/app/data-table";
 import { Alert, errorWords } from "@doze/ui/components/app/alert";
@@ -84,7 +84,8 @@ function Labels({ name, past, all, onClose }: { name: string; past: Past; all: P
         </DialogHeader>
         <form className="grid gap-4" noValidate onSubmit={(e) => { e.preventDefault(); if (!needsConfirm || confirm === "Confirm") void save(); }}>
           <div className="grid gap-2"><span className="text-[14px] font-medium text-bright">Labels on version {past.version}</span>
-            {labels.length === 0 ? <p className="text-[13px] text-muted-foreground">No labels.</p> : <ul className="flex flex-wrap gap-2">{labels.map((l) => <li key={l} className="inline-flex items-center gap-1 rounded-full border bg-well py-0.5 pr-1 pl-3 font-mono text-[12.5px]">{l}<Button type="button" variant="ghost" size="icon-xs" aria-label={`Remove ${l}`} onClick={() => setLabels(labels.filter((x) => x !== l))} data-testid={`remove-${l}`}><XIcon /></Button></li>)}</ul>}
+            {labels.length === 0 ? <p className="text-[13px] text-muted-foreground">No labels.</p> : <ul className="grid gap-2">{labels.map((l) => <li key={l} className="flex items-center justify-between gap-3 rounded-[10px] border bg-well py-1.5 pr-1.5 pl-3 font-mono text-[12.5px]">{l}<Button type="button" variant="outline" size="sm" className="bg-card font-sans" aria-label={`Remove ${l}`} onClick={() => setLabels(labels.filter((x) => x !== l))} data-testid={`remove-${l}`}>Remove</Button></li>)}</ul>}
+            {past.labels.length > 0 && <p className="text-[13px] text-muted-foreground" data-testid="label-remove-note">Removing <span className="font-mono text-foreground">{past.labels[0]}</span> asks you to type Confirm.</p>}
           </div>
           <Field label="Label name" error={problem ?? undefined}>{(id) => <div className="flex gap-2"><Input id={id} value={typed} onChange={(e) => setTyped(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); add(); } }} className="bg-card font-mono" data-testid="label-name" /><Button type="button" variant="outline" className="bg-card" onClick={add} data-testid="label-add">Add new label</Button></div>}</Field>
           {move && <Note testId="label-move">{move}</Note>}

@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { metricInput, periodFor, toSeries } from "./metrics";
+import { metricInput, periodFor, sharedUnit, toSeries, unitInput } from "./metrics";
 
 const q = { id: "m0", label: "OrdersPlaced", namespace: "Larder/Orders", metric: "OrdersPlaced", dimensions: { Environment: "prod" } };
 
@@ -29,4 +29,20 @@ describe("metric data", () => {
     expect(toSeries(undefined, [q])[0]!.points).toEqual([]);
   });
   test("ISO timestamps are read too", () => expect(toSeries({ MetricDataResults: [{ Id: "m0", Timestamps: ["2026-11-08T05:00:00Z"], Values: [4] }] }, [q])[0]!.points[0]).toEqual({ t: Date.UTC(2026, 10, 8, 5), v: 4 }));
+});
+
+describe("the unit of a metric", () => {
+  test("is asked of GetMetricStatistics, which answers it with the data points", () => {
+    const input = unitInput({ id: "q1", label: "L", namespace: "Larder/Orders", metric: "OrdersPlaced", dimensions: { Env: "prod" } }, { from: 3_600_000, to: 7_200_000 });
+    expect(input).toEqual({ Namespace: "Larder/Orders", MetricName: "OrdersPlaced", Dimensions: [{ Name: "Env", Value: "prod" }], StartTime: 3600, EndTime: 7200, Period: 60, Statistics: ["SampleCount"] });
+  });
+  test("is shown only when every metric has the same one, and None is none", () => {
+    expect(sharedUnit(["Count"])).toBe("Count");
+    expect(sharedUnit(["Count", "Count"])).toBe("Count");
+    expect(sharedUnit(["Count", "Milliseconds"])).toBeUndefined();
+    expect(sharedUnit(["None"])).toBeUndefined();
+    expect(sharedUnit(["Count", "None"])).toBeUndefined();
+    expect(sharedUnit(["Count", undefined])).toBeUndefined();
+    expect(sharedUnit([])).toBeUndefined();
+  });
 });

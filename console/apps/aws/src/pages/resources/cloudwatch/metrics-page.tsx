@@ -13,13 +13,13 @@ import { Button } from "@doze/ui/components/ui/button";
 import { Input } from "@doze/ui/components/ui/input";
 import { Tabs, TabsList, TabsTrigger } from "@doze/ui/components/ui/tabs";
 import { useAbout } from "../../../api/queries";
-import { type MetricQuery, useMetricData, useServiceCrumbs } from "../../../kit";
+import { type MetricQuery, useMetricData, useServiceCrumbs, useUnit } from "../../../kit";
 import { AddToDashboard } from "./add-to-dashboard";
 import { useMetrics } from "./api";
 import { type GM, decode, encode, sourceOf, summaryLine, toQueries } from "./graph-model";
 import { GraphedTable } from "./metrics-graphed";
 import { Browse } from "./metrics-browse";
-import { selText } from "./wizard-model";
+import { selSearch } from "./wizard-model";
 import { RangeBar, spanWords, useRange } from "./range";
 
 type Params = { sel?: string; q?: string; name?: string; key?: string; mode?: string };
@@ -44,9 +44,10 @@ export function MetricsPage({ service, kind }: { service: string; kind: string }
   const [adding, setAdding] = useState(false);
   const queries: MetricQuery[] = useMemo(() => toQueries(rows), [rows]);
   const data = useMetricData(queries, span, queries.length > 0);
+  const unit = useUnit(queries, span, queries.length > 0);
   const refresh = () => { void all.refetch(); patchRange({ now: Date.now() }); };
   const tab = p.mode === "graphed" || (rows.length > 0 && (p.mode === "options" || p.mode === "source")) ? p.mode : "browse";
-  const alarmFrom = (r: GM) => void navigate({ to: "/resources/$service/$second", params: { service, second: "alarms" }, search: { do: "create", sel: selText({ ns: r.ns ?? "", m: r.m ?? "", d: r.d ?? [], stat: r.stat, period: r.period }) } });
+  const alarmFrom = (r: GM) => void navigate({ to: "/resources/$service/$second", params: { service, second: "alarms" }, search: { do: "create", ...selSearch({ ns: r.ns ?? "", m: r.m ?? "", d: r.d ?? [], stat: r.stat, period: r.period }) } });
   const region = about?.region ?? "us-east-1";
   return (
     <>
@@ -74,7 +75,7 @@ export function MetricsPage({ service, kind }: { service: string; kind: string }
         <RangeBar state={range} onChange={patchRange} compact={rows.length === 0} />
       </div>
       <div className="mb-8 rounded-[14px] border bg-card p-6" data-testid="metrics-chart">
-        <Chart series={data.series.map((s) => ({ ...s, area: rows.length === 1 }))} from={span.from} to={span.to} height={240} loading={queries.length > 0 && data.isPending} aria-label="The graphed metrics over the range" empty={queries.length === 0 ? "No metrics selected." : "No data points in this range. doze-aws keeps samples for 24 hours."} testId="metrics-graph" />
+        <Chart series={data.series.map((s) => ({ ...s, area: rows.length === 1 }))} from={span.from} to={span.to} height={240} unit={unit} loading={queries.length > 0 && data.isPending} aria-label="The graphed metrics over the range" empty={queries.length === 0 ? "No metrics selected." : "No data points in this range. doze-aws keeps samples for 24 hours."} testId="metrics-graph" />
       </div>
       <Tabs value={tab} onValueChange={(v) => set({ mode: v })} className="gap-0">
         <TabsList variant="line" className="h-11 w-full justify-start gap-2 overflow-x-auto rounded-none border-b p-0" aria-label="Metrics views">

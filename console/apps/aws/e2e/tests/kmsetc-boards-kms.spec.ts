@@ -59,7 +59,9 @@ test("kms__key-schedule-deletion, kms__keys-deletion-scheduled: a waiting period
   await expect(page.locator("h1").first()).toHaveText("Schedule key deletion");
   await expect(page.getByTestId("deletion-warning")).toContainText("destructive and potentially dangerous");
   await expect(page.getByRole("table", { name: "Keys to delete" })).toContainText("larder-legacy");
-  await expect(page.getByTestId("deletion-ends")).toContainText("With 7, the key is deleted on");
+  await expect(page.getByTestId("window-note")).toContainText("7 to 30 days; the API default is 30.");
+  await expect(page.getByTestId("window-note")).toContainText("With 7, larder-legacy is deleted on");
+  await expect(page.getByTestId("window-note")).not.toContainText("these keys");
   await expect(page.getByTestId("call-panel")).toContainText('"PendingWindowInDays": 7');
   await page.getByTestId("deletion-days").fill("3");
   await expect(page.getByTestId("deletion-ends")).toContainText("Enter a whole number of days from 7 to 30");
@@ -69,8 +71,8 @@ test("kms__key-schedule-deletion, kms__keys-deletion-scheduled: a waiting period
   await page.getByTestId("confirm-deletion").click();
   await shot(page, "kms__key-schedule-deletion");
   await page.getByTestId("form-submit").click();
-  await expect(page.getByTestId("scheduled-banner")).toContainText("Deletion scheduled for larder-legacy.");
-  await expect(page.getByTestId("list-sentence")).toContainText("larder-legacy will be deleted on");
+  await expect(page.getByTestId("scheduled-note")).toContainText("Cancel key deletion puts larder-legacy back in Disabled");
+  await expect(page.getByTestId("list-sentence")).toContainText("larder-legacy changed to Pending deletion and will be deleted on");
   await expect(page.getByTestId("list-sentence")).toContainText("2 pending deletion");
   expect(JSON.parse(cli(["kms", "describe-key", "--key-id", legacy])).KeyMetadata.KeyState).toBe("PendingDeletion");
   await shot(page, "kms__keys-deletion-scheduled");
@@ -173,9 +175,13 @@ test("kms__key-tags, kms__key-tags-none: tags shown and edited, and a key with n
   await open(page, server.console, `/resources/kms/keys/${app}?tab=tags`, "larder-app");
   await expect(page.getByTestId("tags-count")).toHaveText("3 tags");
   await page.getByTestId("tags-edit-open").click();
-  await expect(page.getByTestId("tags-edit")).toContainText("Tag keys are case-sensitive".replace("Tag keys", "Tags"));
+  // The board: a heading and a line over the rows, Remove and Add tag, and the rules under them.
+  await expect(page.getByTestId("tags-edit").getByRole("heading", { name: "Tags" })).toBeVisible();
+  await expect(page.getByTestId("tags-lead")).toContainText("Each tag on a key must have a different tag key; the value may be empty.");
+  await expect(page.getByTestId("tags-kv").getByRole("button", { name: "Remove" })).toHaveCount(3);
+  await expect(page.getByTestId("tags-rules")).toContainText("Removing a tag corresponds to UntagResource");
   await shot(page, "kms__key-tags");
-  await page.getByTestId("tags-kv").getByRole("button", { name: /Add/ }).click();
+  await page.getByTestId("tags-kv").getByRole("button", { name: "Add tag" }).click();
   await page.getByTestId("tags-kv").getByRole("textbox").nth(6).fill("owner");
   await page.getByTestId("tags-kv").getByRole("textbox").nth(7).fill("ops");
   await page.getByTestId("tags-save").click();

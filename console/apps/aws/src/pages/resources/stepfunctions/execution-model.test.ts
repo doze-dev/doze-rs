@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { clockMs, durationWords, executionWords, graphWords, retryFor, stepNote } from "./execution-model";
+import { causeHint, clockMs, durationWords, executionWords, graphWords, redriveWarning, retryFor, stepNote } from "./execution-model";
 
 const when = (ms: number | null) => (ms === null ? "–" : "Nov 8, 2026 07:41:08");
 
@@ -49,5 +49,29 @@ describe("what a failed step teaches", () => {
   test("an activity task that waits", () => {
     const wait = { StartAt: "P", TimeoutSeconds: 3600, States: { P: { Type: "Task", Resource: "arn:aws:states:us-east-1:1:activity:pack-order", HeartbeatSeconds: 120, End: true } } };
     expect(stepNote(wait, { name: "P", status: "running", types: [] }, { status: "RUNNING", redrivable: false, pollers: ["fulfilment (py)"] })?.text).toBe("P is an activity task. It stays in progress until a worker calls GetActivityTask for pack-order, then answers with SendTaskSuccess or SendTaskFailure. With HeartbeatSeconds 120 the worker must call SendTaskHeartbeat within that time. fulfilment (py) polls pack-order; the machine's own timeout of 3,600 seconds still applies.");
+  });
+});
+
+describe("what redriving a failed Lambda step says", () => {
+  const state = { Type: "Task", Resource: "arn:aws:states:::lambda:invoke", Parameters: { FunctionName: "send-email", "Payload.$": "$" } };
+  const cause = JSON.stringify({ errorType: "KeyError", errorMessage: "'email'" });
+  test("a KeyError for a key the input does not have says the input has none", () => {
+    const w = redriveWarning({ step: "NotifyCustomer", state, error: "KeyError", cause, input: JSON.stringify({ order: 1 }) });
+    expect(w.lead).toBe("The input has no email.");
+    expect(w.text).toBe("send-email reads event['email'], so NotifyCustomer fails again unless the function changes. A new execution with the email added would not.");
+    expect(causeHint({ state, error: "KeyError", cause, input: JSON.stringify({ order: 1 }) })).toBe("send-email read event['email'] and the input has none");
+  });
+  test("an input that has the key, a Payload that is not the input, or another error is the general warning", () => {
+    const general = redriveWarning({ step: "NotifyCustomer", state, error: "KeyError", cause, input: JSON.stringify({ email: "a@b.c" }) });
+    expect(general.lead).toBe("It may fail the same way.");
+    expect(general.text).toStartWith("NotifyCustomer stopped with KeyError. Redrive runs it again");
+    expect(causeHint({ state: { ...state, Parameters: { FunctionName: "send-email", Payload: { x: 1 } } }, error: "KeyError", cause, input: "{}" })).toBeNull();
+    expect(causeHint({ state, error: "ValueError", cause, input: "{}" })).toBeNull();
+    expect(causeHint({ state, error: "KeyError", cause: "not json", input: "{}" })).toBeNull();
+  });
+  test("the teaching line under a failed step names what it calls", () => {
+    const note = stepNote({ StartAt: "N", States: { N: state } }, { name: "N", status: "failed", error: "KeyError", types: [] }, { status: "FAILED", redrivable: true, pollers: [] });
+    expect(note?.text).toContain("until send-email or the input changes");
+    expect(note?.names).toEqual(["N", "send-email"]);
   });
 });

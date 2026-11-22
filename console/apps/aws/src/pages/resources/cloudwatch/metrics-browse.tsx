@@ -22,11 +22,14 @@ const NS_COLUMNS = (open: (r: NsRow) => void): DataColumn<NsRow>[] => [
   { id: "count", header: "Metrics", size: 110, fit: 86, accessorKey: "count", meta: { numeric: true } },
 ];
 
-function Namespaces({ title, lede, rows, open, testId }: { title: string; lede: string; rows: NsRow[]; open: (r: NsRow) => void; testId: string }) {
+/** `searched`: the list is a search's answer, so a section with none of it says that in a line (the one empty state is for a search that finds nothing at all). */
+function Namespaces({ title, lede, rows, open, testId, searched = false }: { title: string; lede: string; rows: NsRow[]; open: (r: NsRow) => void; testId: string; searched?: boolean }) {
   return (
     <section className="grid gap-3" data-testid={testId}>
       <div><h2 className="text-[19px] leading-7 font-semibold tracking-[-0.01em] text-bright">{title}</h2><p className="mt-1 text-[13.5px] text-muted-foreground">{lede}</p></div>
-      {rows.length === 0 ? (
+      {rows.length === 0 && searched ? (
+        <p className="rounded-[12px] border border-dashed px-5 py-4 text-[13.5px] text-muted-foreground" data-testid={`${testId}-none`}>No metric in these namespaces matches the search.</p>
+      ) : rows.length === 0 ? (
         <EmptyState icon={SearchIcon} title="No metrics found">ListMetrics returned nothing for this search. Metrics appear here once something publishes them.</EmptyState>
       ) : (
         <DataTable aria-label={title} data={rows} columns={NS_COLUMNS(open)} rowId={(r) => `${r.namespace}/${r.key}`} maxHeight={420} />
@@ -78,8 +81,8 @@ export function Browse({ view, onView, rows, onRows, retry }: { view: View; onVi
   if (groups.custom.length === 0 && groups.aws.length === 0) return <Namespaces testId="custom-namespaces" title="Custom namespaces" lede="Published with PutMetricData by your own code. Pick a dimension set to list its metrics." rows={[]} open={open} />;
   return (
     <div className="grid gap-8" data-testid="browse-tab">
-      <Namespaces testId="custom-namespaces" title="Custom namespaces" lede="Published with PutMetricData by your own code. Pick a dimension set to list its metrics." rows={groups.custom} open={open} />
-      <Namespaces testId="aws-namespaces" title="AWS namespaces" lede="Published by the AWS services you use." rows={groups.aws} open={open} />
+      <Namespaces testId="custom-namespaces" title="Custom namespaces" lede="Published with PutMetricData by your own code. Pick a dimension set to list its metrics." rows={groups.custom} open={open} searched={(view.q ?? "") !== ""} />
+      <Namespaces testId="aws-namespaces" title="AWS namespaces" lede="Published by the AWS services you use." rows={groups.aws} open={open} searched={(view.q ?? "") !== ""} />
       <div className="grid gap-4">
         <p className="max-w-[46rem] border-l-2 pl-3.5 text-[13px] leading-5 text-muted-foreground" data-testid="retention-note"><b className="font-semibold text-foreground">Samples are kept for 24 hours.</b> doze-aws keeps every sample for 24 hours unless it was started with <span className="font-mono">--cloudwatch-retention-hours</span>; the 1d, 3d and 1w ranges show no more than that.</p>
         <p className="max-w-[46rem] border-l-2 pl-3.5 text-[13px] leading-5 text-muted-foreground" data-testid="no-metrics-note"><b className="font-semibold text-foreground">Only AWS/Lambda is published by a service in doze-aws.</b> Queues, topics, tables, streams and the other services publish no metrics. Publish your own with <span className="font-mono">PutMetricData</span>.</p>

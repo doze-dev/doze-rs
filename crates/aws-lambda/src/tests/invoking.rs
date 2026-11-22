@@ -96,6 +96,8 @@ async fn a_python_function_runs_through_the_embedded_client() {
         "{frame}"
     );
     assert!(!frame.contains("bootstrap"), "{frame}");
+    // The code is at /var/task, as Lambda shows it, not in the directory it was unpacked to on this machine.
+    assert!(frame.contains("File \"/var/task/index.py\""), "{frame}");
     w.stop().await;
 }
 

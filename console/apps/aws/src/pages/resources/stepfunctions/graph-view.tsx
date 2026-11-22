@@ -2,6 +2,7 @@
 // (history.ts reads it). A state is a button: choosing one shows its input, output and error beside the drawing.
 import { useMemo, useState } from "react";
 import { cn } from "@doze/ui/lib/utils";
+import { durationWords } from "./execution-model";
 import { END, START, type Box, type Edge, type Graph, layout, type Definition } from "./graph";
 import type { EdgeRef } from "./design-model";
 import type { Run, StepStatus } from "./history";
@@ -66,6 +67,11 @@ function DropZone({ e, edge, design }: { e: Edge; edge: EdgeRef; design: Design 
       onDragLeave={() => setOver(false)}
       onDrop={(ev) => { ev.preventDefault(); setOver(false); const id = ev.dataTransfer.getData("text/plain"); if (id) design.onDrop(edge, id); }}
       onClick={() => design.armed && design.onDrop(edge, design.armed)}
+      // With a state chosen, the marks are reached with Tab and chosen with Enter or Space: the keyboard path of a drag.
+      role="button"
+      tabIndex={design.armed ? 0 : -1}
+      aria-label={`Put it between ${edge.from ?? "Start"} and ${edge.to ?? "End"}`}
+      onKeyDown={(ev) => { if ((ev.key === "Enter" || ev.key === " ") && design.armed) { ev.preventDefault(); design.onDrop(edge, design.armed); } }}
     >
       <circle r={13} className={cn("stroke-primary", over ? "fill-primary" : "fill-card")} strokeWidth={1.5} strokeDasharray={over ? undefined : "3 3"} />
       <path d="M-5,0 H5 M0,-5 V5" className={over ? "stroke-primary-foreground" : "stroke-primary"} strokeWidth={1.75} strokeLinecap="round" />
@@ -125,6 +131,8 @@ function StateBox({ b, run, selected, onSelect, design }: { b: Box } & Look) {
   const tone = TONE[step?.status ?? "idle"];
   const on = selected === b.name;
   const container = b.inner.length > 0;
+  // What a step took, once it has ended (a step still running has no end to count to).
+  const took = step && step.status !== "running" && step.startMs !== undefined && step.endMs !== undefined ? step.endMs - step.startMs : null;
   return (
     <g>
       <g
@@ -152,9 +160,12 @@ function StateBox({ b, run, selected, onSelect, design }: { b: Box } & Look) {
           {step && container ? ` · ${WORD[step.status]}` : ""}
         </text>
         {step && !container && (
-          <text x={b.x + b.w - 14} y={b.y + b.h / 2 + 4} textAnchor="end" className={cn("text-[12px] font-semibold", tone.text)} data-testid="state-status">
+          <text x={b.x + b.w - 14} y={b.y + (took === null ? b.h / 2 + 4 : 20)} textAnchor="end" className={cn("text-[12px] font-semibold", tone.text)} data-testid="state-status">
             <tspan>● </tspan>{WORD[step.status]}
           </text>
+        )}
+        {step && !container && took !== null && (
+          <text x={b.x + b.w - 14} y={b.y + 36} textAnchor="end" className="fill-muted-foreground text-[11px]" data-testid="state-took">{durationWords(took)}</text>
         )}
       </g>
       {b.inner.map((p, i) => (

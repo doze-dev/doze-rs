@@ -8,7 +8,7 @@ import { cn } from "@doze/ui/lib/utils";
 import { Button } from "@doze/ui/components/ui/button";
 import { Input } from "@doze/ui/components/ui/input";
 import { Card, CodeBlock, pretty } from "../deep/parts";
-import { durationWords, clockMs } from "./execution-model";
+import { causeHint, durationWords, clockMs } from "./execution-model";
 import type { AslState } from "./graph";
 import { failureOf, type HistoryEvent, STATUS, type Step, tsMs } from "./history";
 import { taskResource, taskTarget } from "./model";
@@ -77,6 +77,7 @@ export function StepDetails({ step, name, state, events, first }: { step?: Step;
   const target = state ? taskTarget(state) : null;
   const took = step.startMs !== undefined && step.endMs !== undefined && step.status !== "running" ? step.endMs - step.startMs : null;
   const cause = causeWords(step.cause);
+  const hint = causeHint({ state, error: step.error, cause: step.cause, input: step.input });
   return (
     <Card title={<span>Step details: <span className="font-mono" data-testid="step-name">{name}</span></span>} actions={<Segmented value={view} onChange={setView} options={VIEWS} label="Step details" testId="step-views" />} testId="step-details">
       {view === "input" && <CodeBlock text={pretty(step.input) || "None."} max="max-h-80" testId="step-input" />}
@@ -91,7 +92,7 @@ export function StepDetails({ step, name, state, events, first }: { step?: Step;
           </dl>
           <dl className="grid grid-cols-[minmax(7rem,10rem)_minmax(0,1fr)] content-start">
             {step.error ? <Pair label="Error"><span className="font-mono text-[13px]">{step.error}</span></Pair> : null}
-            {cause ? <Pair label="Cause"><span className="font-mono text-[13px]">{cause.main}</span></Pair> : null}
+            {cause ? <Pair label="Cause"><span className="font-mono text-[13px]">{cause.main}</span>{hint ? <span className="block text-[12.5px] text-muted-foreground" data-testid="cause-hint">{hint}</span> : null}</Pair> : null}
           </dl>
         </div>
       )}

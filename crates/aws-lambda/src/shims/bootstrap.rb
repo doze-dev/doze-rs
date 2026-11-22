@@ -49,8 +49,14 @@ def post(path, body, error_type = nil)
   Net::HTTP.start(API.host, API.port) { |http| http.request(req) }
 end
 
+# A trace line as Lambda shows it: the function's code is at /var/task there, not in the directory doze-aws unpacked it to.
+def shown(line)
+  root = ENV["LAMBDA_TASK_ROOT"]
+  root ? line.gsub(root.chomp("/") + "/", "/var/task/") : line
+end
+
 def error_body(e, request_id = nil)
-  body = { "errorMessage" => e.message, "errorType" => e.class.name, "stackTrace" => e.backtrace || [] }
+  body = { "errorMessage" => e.message, "errorType" => e.class.name, "stackTrace" => (e.backtrace || []).map { |line| shown(line) } }
   body["requestId"] = request_id if request_id
   JSON.generate(body)
 end

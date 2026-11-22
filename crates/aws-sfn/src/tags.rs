@@ -29,7 +29,7 @@ impl Core {
     }
 
     pub(crate) fn tag_resource(&mut self, r: &Req<'_>) -> Result<Value, ApiError> {
-        let new = r.tags();
+        let new = r.tags()?;
         let tags = self.tags_mut(r.s("resourceArn"))?;
         let mut next = tags.clone();
         next.extend(new);

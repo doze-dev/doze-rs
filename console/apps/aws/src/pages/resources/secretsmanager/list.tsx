@@ -3,7 +3,7 @@
 // (Preferences). Store a new secret opens the wizard (`?create=yes`).
 import { useNavigate, useSearch } from "@tanstack/react-router";
 import { LockKeyholeIcon, PlusIcon, SettingsIcon } from "lucide-react";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { ErrorBlock } from "@doze/ui/components/app/alert";
 import { type DataColumn, DataTable } from "@doze/ui/components/app/data-table";
 import { EmptyState } from "@doze/ui/components/app/empty-state";
@@ -18,9 +18,10 @@ import { Skeleton } from "@doze/ui/components/ui/skeleton";
 import { useAbout } from "../../../api/queries";
 import { useAllRows } from "../cfg-api";
 import { Note, Say } from "../cfg-parts";
-import { FilterBar, type FilterProp } from "../filter-bar";
+import { ChipFilter, type FilterProp } from "../filter-bar";
 import { HINT } from "../index-page";
 import { ResourceTo } from "../value";
+import { useSecretActivity } from "./activity";
 import { SecretCreate } from "./create";
 import { listSentence, PROPS, type SecretRow, secretRows, type Token, tokensFromQuery, tokensToQuery } from "./model";
 import { FromYourApp } from "../../../kit/from-your-app";
@@ -48,6 +49,8 @@ function Secrets({ q, deleted, stored }: { q: string; deleted: boolean; stored: 
     go({ ...(t ? { q: t } : {}), ...(d ? { mode: "deleted" } : {}) });
   };
   const refresh = () => { void list.q.refetch(); };
+  const [now] = useState(() => Date.now());
+  const activity = useSecretActivity(everything.rows.length > 0 && q !== "" ? everything.rows.map((r) => r.name) : rows.map((r) => r.name), now);
   const none = rows.length === 0 && q === "" && !deleted;
   const columns: DataColumn<SecretRow>[] = [
     { id: "name", header: "Secret name", min: 220, accessorKey: "name", meta: { mono: true }, cell: (c) => <ResourceTo to={{ service: "secretsmanager", kind: "secrets", name: c.row.original.name }} className="font-mono text-[13px] font-medium" testId="row-link">{c.row.original.name}</ResourceTo> },
@@ -69,9 +72,13 @@ function Secrets({ q, deleted, stored }: { q: string; deleted: boolean; stored: 
         </div>
       ) : (
         <>
-          <Say text={listSentence(rows, q !== "", everything.rows.length || null)} className="mb-5" testId="list-sentence" />
+          {activity.text && <Say text={activity.text} names={activity.names} className="mb-3" testId="list-activity" />}
+          <Say text={listSentence(rows, q !== "", everything.rows.length || null)} className="mb-6" testId="list-sentence" />
           <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
-            <FilterBar props={FILTERS} tokens={tokens} onChange={(t) => keep({ tokens: t })} label="Search secrets" placeholder="Type to search" />
+            <div>
+              <h2 className="text-[17px] leading-6 font-semibold tracking-[-0.01em] text-bright" data-testid="list-heading">Secrets ({rows.length.toLocaleString("en-US")})</h2>
+              <p className="mt-1 text-[13.5px] text-muted-foreground">Type to search, or add a filter to narrow by one attribute.</p>
+            </div>
             <DropdownMenu>
               <DropdownMenuTrigger asChild><Button type="button" variant="outline" className="bg-card" data-testid="preferences"><SettingsIcon /> Preferences</Button></DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="min-w-64">
@@ -79,6 +86,7 @@ function Secrets({ q, deleted, stored }: { q: string; deleted: boolean; stored: 
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
+          <div className="mb-4"><ChipFilter props={FILTERS} tokens={tokens} onChange={(t) => keep({ tokens: t })} label="Search secrets" placeholder="Search name, description or tags" /></div>
           {rows.length === 0 ? (
             <EmptyState icon={LockKeyholeIcon} title="No secret matches" action={<Button variant="outline" className="bg-card" onClick={() => keep({ tokens: [] })} data-testid="filters-clear">Clear filters</Button>}>ListSecrets returned none for these filters. The Name filter matches the start of a name and is case-sensitive; the others match words, whatever the case.</EmptyState>
           ) : (

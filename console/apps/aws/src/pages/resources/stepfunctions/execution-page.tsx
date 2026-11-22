@@ -19,7 +19,7 @@ import { callOp, deepKey, machineOf, on, useOpRead } from "../deep/api";
 import { at, Card, CodeBlock, pretty } from "../deep/parts";
 import { RedriveDialog, StartDialog, StopDialog } from "./dialogs";
 import { statusOf } from "./executions-tab";
-import { executionWords, graphWords, stepNote } from "./execution-model";
+import { executionWords, graphWords, redriveWarning, stepNote } from "./execution-model";
 import { parseDefinition, statesOf } from "./graph";
 import { GraphView, Legend } from "./graph-view";
 import { type HistoryEvent, readRun, tsMs } from "./history";
@@ -128,7 +128,8 @@ export function ExecutionPage({ arn }: { arn: string }) {
         <Skeleton className="h-80 rounded-[14px]" data-testid="execution-loading" />
       ) : (
         <div className="grid gap-6" data-testid="execution">
-          {bad && (
+          {/* The failure and the summary belong to the graph view; the table and the events are the views of the steps alone, as the boards draw them. */}
+          {bad && view === "graph" && (
             <div role="alert" className="rounded-xl border border-bad/30 bg-bad/10 px-5 py-4 text-[14px] leading-[22px]" data-testid="execution-failure">
               <div className="flex items-start gap-3">
                 <CircleAlertIcon aria-hidden className="mt-[3px] size-[18px] shrink-0 text-bad" />
@@ -152,7 +153,7 @@ export function ExecutionPage({ arn }: { arn: string }) {
               </div>
             </div>
           )}
-          <Card title="Execution summary" actions={<Segmented value={summary} onChange={setSummary} options={[{ value: "details", label: "Details" }, { value: "io", label: "Execution input and output" }, { value: "definition", label: "Definition" }]} label="Execution summary" testId="summary-views" />} testId="execution-details">
+          {view === "graph" && <Card title="Execution summary" actions={<Segmented value={summary} onChange={setSummary} options={[{ value: "details", label: "Details" }, { value: "io", label: "Execution input and output" }, { value: "definition", label: "Definition" }]} label="Execution summary" testId="summary-views" />} testId="execution-details">
             {summary === "details" && (
               <dl className="grid grid-cols-[minmax(9rem,13rem)_minmax(0,1fr)] [&>div:last-child>*]:border-b-0">
                 {([
@@ -178,7 +179,7 @@ export function ExecutionPage({ arn }: { arn: string }) {
               </div>
             )}
             {summary === "definition" && (machine.data?.definition ? <CodeBlock text={pretty(machine.data.definition)} max="max-h-96" testId="execution-definition" /> : <Skeleton className="h-40 rounded-[12px]" />)}
-          </Card>
+          </Card>}
           <Tabs value={view} onValueChange={(v) => setView(v as View)} className="gap-0">
             <TabsList variant="line" className="h-11 w-full justify-start gap-2 border-b p-0" aria-label="Views of this execution">
               {([["graph", "Graph view"], ["table", "Table view"], ["events", "Event view"]] as const).map(([id, title]) => (
@@ -198,7 +199,7 @@ export function ExecutionPage({ arn }: { arn: string }) {
           {view !== "events" && note && <p className="max-w-[46rem] border-l-2 border-input pl-3.5 text-[13px] leading-5 text-muted-foreground" data-testid="step-note"><Emphasis text={note.text} names={note.names} bold={[/\bHeartbeatSeconds \d+/]} /></p>}
           <StartDialog key={`s${opened}`} machine={e.stateMachineArn} name={machineName} startAt={definition?.StartAt} input={e.input ? pretty(e.input) : "{}"} open={dialog === "start"} onOpenChange={(o) => !o && setDialog(null)} />
           <StopDialog key={`x${opened}`} arn={e.executionArn} name={e.name} left={left} open={dialog === "stop"} onOpenChange={(o) => !o && setDialog(null)} />
-          <RedriveDialog key={`r${opened}`} arn={e.executionArn} name={e.name} at={failedStep?.name ?? last} succeeded={steps.filter((s) => s.status === "succeeded").length} error={e.error} via={via} redrives={e.redriveCount ?? 0} open={dialog === "redrive"} onOpenChange={(o) => !o && setDialog(null)} />
+          <RedriveDialog key={`r${opened}`} arn={e.executionArn} name={e.name} at={failedStep?.name ?? last} how={e.status === "TIMED_OUT" ? "timed out" : e.status === "ABORTED" ? "was stopped" : "failed"} warning={redriveWarning({ step: failedStep?.name ?? last ?? "The step", state: failedStep ? states[failedStep.name] : undefined, error: failedStep?.error ?? e.error, cause: failedStep?.cause ?? e.cause, input: failedStep?.input ?? e.input })} succeeded={steps.filter((s) => s.status === "succeeded").length} via={via} redrives={e.redriveCount ?? 0} open={dialog === "redrive"} onOpenChange={(o) => !o && setDialog(null)} />
         </div>
       )}
     </>
