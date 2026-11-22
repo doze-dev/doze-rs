@@ -132,8 +132,8 @@ async fn the_first_slices_creates_are_kind_operations() {
 async fn an_unknown_kind_is_a_kind_that_is_not_there_and_not_a_resource() {
     let w = world("ops-kind", Mode::Soft, &[]);
     for path in [
-        "cloudwatch/dashboards",
-        "cloudwatch/dashboards/main",
+        "cloudwatch/widgets",
+        "cloudwatch/widgets/main",
         "sqs/nothing",
     ] {
         let (status, body) = w.get(&format!("{BASE}/{path}")).await;
@@ -146,7 +146,7 @@ async fn an_unknown_kind_is_a_kind_that_is_not_there_and_not_a_resource() {
     let (status, body) = w
         .send(
             "POST",
-            &format!("{BASE}/cloudwatch/dashboards/op/GetDashboard"),
+            &format!("{BASE}/cloudwatch/widgets/op/GetDashboard"),
             &json!({}),
         )
         .await;
