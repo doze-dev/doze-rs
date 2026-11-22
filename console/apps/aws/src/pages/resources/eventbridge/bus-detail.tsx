@@ -60,7 +60,8 @@ function BusView({ d, updatedAt, fetching, refetch }: { d: ResourceDetail; updat
   // `payment-settled -> pick-lists queue and order-placed -> orders-created topic`: each rule with its own targets, so which rule feeds which is not lost.
   const pairs: FlowGroup[] = ruleItems.flatMap((r, i): FlowGroup[] => [
     { ...(i === 0 ? { label: "Rules" } : { before: "and" as const }), chips: [{ label: r.Name, to: { service: "eventbridge", kind: "rules", name: bus === "default" ? r.Name : `${bus}/${r.Name}` } }] },
-    { chips: [...new Set((targets[r.Name] ?? []).map((t) => targetWords(t.Arn)))].map((l) => ({ label: l })) },
+    // A rule with no target says so, or the next pair would read as its own.
+    { chips: targets[r.Name] === undefined ? [] : targets[r.Name]!.length === 0 ? [{ label: "no target" }] : [...new Set(targets[r.Name]!.map((t) => targetWords(t.Arn)))].map((l) => ({ label: l })) },
   ]);
   const groups: FlowGroup[][] = [
     ...(feeders.length > 0 ? [[{ label: "Fed by", chips: feeders.map((l) => ({ label: l })) }, { chips: [{ label: bus, self: true }] }]] : []),

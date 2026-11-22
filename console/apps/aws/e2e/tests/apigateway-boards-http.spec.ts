@@ -97,7 +97,7 @@ test("apigateway__http-route-integration: attach an integration to a route, the 
   await expect(page.getByTestId("attach")).toContainText("HTTP proxy to https://orders.larder.example.com/{proxy}. A {param} placeholder is filled from the request path");
   const call = page.getByTestId("call-panel");
   await expect(call).toContainText("UpdateRoute");
-  await expect(call).toContainText(`"RouteId": "${ctx.ids.ordersRoute}"`);
+  await expect(call).toContainText(`"routeId": "${ctx.ids.ordersRoute}"`);
   await expect(call).toContainText(`"target": "integrations/${ctx.ids.httpIntegration}"`);
   const existing = page.getByRole("table", { name: "Existing integrations" });
   await expect(existing).toContainText("AWS_PROXY");

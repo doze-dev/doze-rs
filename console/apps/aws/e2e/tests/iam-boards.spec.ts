@@ -379,7 +379,7 @@ test("iam__role-delete: the dialog names what is detached, and the role goes wit
   await page.getByTestId("action-delete").click();
   await expect(page.getByTestId("delete-dialog")).toContainText("This deletes larder-admin.");
   await expect(page.getByTestId("delete-group-Attached policies")).toContainText("1 policy will be detached. AdministratorAccess is attached to larder-admin; the policy itself stays.");
-  await expect(page.getByTestId("delete-how")).toContainText("DeleteRole answers DeleteConflict while a managed policy is still attached.");
+  await expect(page.getByTestId("delete-how")).toContainText("DeleteRole answers DeleteConflict while the role still has an attached managed policy, an inline policy or an instance profile.");
   await page.getByTestId("delete-dialog-input").fill("larder-admin");
   await shot(page, "iam__role-delete");
   await page.getByTestId("delete-dialog-input").fill("larder-admin");
