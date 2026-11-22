@@ -58,15 +58,18 @@ mod iam_policies;
 mod iam_roles;
 mod kinesis;
 mod kms;
+mod kms_ops;
 mod lambda;
 mod logs;
 mod s3;
 mod s3_ops;
 mod scheduler;
 mod secrets;
+mod secrets_ops;
 mod sns;
 mod sqs;
 mod ssm;
+mod ssm_ops;
 mod stepfunctions;
 
 /// One service's resources.

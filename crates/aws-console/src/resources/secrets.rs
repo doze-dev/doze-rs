@@ -2,6 +2,7 @@
 //! it).
 
 use super::Format::{Flag, Mono, Text as Plain, Time};
+use super::secrets_ops::{OPS, filters, planned};
 use super::{
     Apply, Create, Deep, Delete, Descriptor, Field, Id, Input, InputKind, Kind, LinkTo, List,
     Options, Param, ParamKind, Reveal, Shape, Step, Tags, Text, Write, col, field, input, op,
@@ -20,11 +21,8 @@ pub(super) static SECRETS: Descriptor = Descriptor {
         about: "Secrets and their rotation. A value is shown only when you reveal it.",
         members: &["SecretId"],
         list: List {
-            // A secret marked for deletion is listed too: it is still there, and its page is where its deletion is cancelled.
-            step: Step::new(
-                "ListSecrets",
-                r#"{"MaxResults":100,"IncludePlannedDeletion":true,"NextToken":"{token}"}"#,
-            ),
+            // As on AWS, a secret scheduled for deletion is listed only when asked for (the list's Preferences, `p.deleted=yes`).
+            step: Step::new("ListSecrets", r#"{"MaxResults":100,"NextToken":"{token}"}"#),
             items: "SecretList",
             item_as: "Name",
             token_out: "NextToken",
@@ -41,6 +39,7 @@ pub(super) static SECRETS: Descriptor = Descriptor {
             col("Last changed", "LastChangedDate", Time),
             col("Last retrieved", "LastAccessedDate", Time),
             col("Marked for deletion", "DeletedDate", Time),
+            col("Encryption key", "KmsKeyId", Mono),
         ],
         id_of: Id::Name,
         detail: &[Step::new("DescribeSecret", r#"{"SecretId":"{id}"}"#)],
@@ -140,15 +139,27 @@ pub(super) static SECRETS: Descriptor = Descriptor {
                 keys: "TagKeys",
             },
         )),
-        // ListSecrets' `name` filter matches the beginning of a name.
-        params: &[Param {
-            key: "name",
-            label: "Name",
-            input: ParamKind::Text,
-            options: Options::None,
-            default: "",
-            apply: Apply::Template(r#"{"Filters":[{"Key":"name","Values":["{value}"]}]}"#),
-        }],
+        ops: OPS,
+        // The list's search tokens (`name:larder/prod/|tag-key:app`) are ListSecrets' filters; `name` matches the beginning of a
+        // name, the others a word of the text, whatever the case.
+        params: &[
+            Param {
+                key: "filter",
+                label: "Search",
+                input: ParamKind::Text,
+                options: Options::None,
+                default: "",
+                apply: Apply::With(filters),
+            },
+            Param {
+                key: "deleted",
+                label: "Show secrets scheduled for deletion",
+                input: ParamKind::Text,
+                options: Options::None,
+                default: "",
+                apply: Apply::With(planned),
+            },
+        ],
         ..Kind::BARE
     }],
 };

@@ -1,6 +1,7 @@
 //! KMS: keys (customer managed ones listed; AWS managed ones when asked) and aliases.
 
 use super::Format::{Flag, Mono, Text as Plain, Time};
+use super::kms_ops::{ALIAS_OPS, KEY_OPS};
 use super::{
     Create, Delete, Descriptor, Field, Id, Input, InputKind, Kind, LinkTo, List, Shape, Split,
     Step, Sub, Tags, Text, Write, col, field, input, op, says, state,
@@ -48,6 +49,8 @@ const KEYS: Kind = Kind {
         col("Usage", "KeyMetadata.KeyUsage", Mono),
         col("Managed by", "KeyMetadata.KeyManager", MANAGER),
         col("Created", "KeyMetadata.CreationDate", Time),
+        // When a key scheduled for deletion goes: the list says it beside the key.
+        col("Deletion date", "KeyMetadata.DeletionDate", Time),
     ],
     id_of: Id::Name,
     detail: &[DESCRIBE],
@@ -133,6 +136,7 @@ const KEYS: Kind = Kind {
     }),
     reveal: None,
     deep: &[],
+    ops: KEY_OPS,
     tags: Some(Tags::new(
         Step::new("ListResourceTags", KEY),
         "Tags",
@@ -144,10 +148,7 @@ const KEYS: Kind = Kind {
             keys: "TagKeys",
         },
     )),
-    page: super::Page {
-        badges: Some(says::key),
-        ..super::Page::NONE
-    },
+    page: says::kms::KEY,
     ..Kind::BARE
 };
 
@@ -228,5 +229,6 @@ const ALIASES: Kind = Kind {
     }),
     reveal: None,
     deep: &[],
+    ops: ALIAS_OPS,
     ..Kind::BARE
 };
