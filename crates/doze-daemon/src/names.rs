@@ -236,10 +236,7 @@ impl Zone {
                     say!(
                         "front door: http://{} → {} ({l})",
                         b.granted.hosts.join(", http://"),
-                        b.socket
-                            .local_addr()
-                            .map(|a| a.to_string())
-                            .unwrap_or_default()
+                        b.public
                     );
                 }
             }
@@ -260,11 +257,8 @@ impl Zone {
         else {
             return out;
         };
-        let target = main
-            .socket
-            .local_addr()
-            .map(|a| a.to_string())
-            .unwrap_or_default();
+        // Where its name's route goes (`doze_bind::bind`): the public address, which the network daemon translates.
+        let target = main.public.to_string();
         for d in &f.domains {
             let twin = match lease.twin(&Name::domain(d)) {
                 Ok(t) => t,
