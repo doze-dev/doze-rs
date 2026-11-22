@@ -18,7 +18,7 @@ use crate::model::{
     AccessView, Attached, CallerSeen, DataUse, DenialGroup, FlagRow, HomeChecks, HomeView,
     KeyPrincipal, LabAnswer, LabError, LabIndex, LabMember, LabOperation, LabTarget, PrincipalKind,
     PrincipalsResponse, Refusal, ResetDone, ResetRow, ServiceSeen, SettingsView, Signal,
-    SignalKind,
+    SignalKind, WireEdge, WireNode, Wiring,
 };
 use crate::model::{
     Badge, BlockerGroup, BlockerItem, Blockers, Needs, ParamKind, ParamOption, ParamSpec, Preview,
@@ -100,6 +100,9 @@ fn all() -> BTreeMap<String, String> {
     one::<Signal>(&cfg, &mut out);
     one::<HomeView>(&cfg, &mut out);
     one::<HomeChecks>(&cfg, &mut out);
+    one::<WireNode>(&cfg, &mut out);
+    one::<WireEdge>(&cfg, &mut out);
+    one::<Wiring>(&cfg, &mut out);
     one::<FlagRow>(&cfg, &mut out);
     one::<DataUse>(&cfg, &mut out);
     one::<SettingsView>(&cfg, &mut out);

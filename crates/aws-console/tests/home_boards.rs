@@ -41,8 +41,12 @@ fn wire(key: &'static str, signing: &'static str, action: &'static str) -> Finis
 async fn a_service_any_call_reached_is_active_and_the_idle_limit_is_said() {
     let w = world("activity", Mode::Soft, &[]);
     // An app calls SQS; this console alone calls S3: Home's "apps last called" has SQS, the services awake have both.
-    w.state.recorder.record(&wire("AKIAAPP", "sqs", "SendMessage"), 1);
-    w.state.recorder.record(&wire("console", "s3", "ListBuckets"), 2);
+    w.state
+        .recorder
+        .record(&wire("AKIAAPP", "sqs", "SendMessage"), 1);
+    w.state
+        .recorder
+        .record(&wire("console", "s3", "ListBuckets"), 2);
     let (status, home) = w.get("/api/v1/home").await;
     assert_eq!(status, 200, "{home}");
     assert_eq!(keys(&home), ts_keys("HomeView"));
@@ -87,8 +91,12 @@ async fn every_service_says_what_it_is_for() {
 #[tokio::test]
 async fn a_subscription_nothing_is_delivered_to_needs_a_look() {
     let w = world("stored-only", Mode::Soft, &[]);
-    w.state.recorder.record(&wire("AKIAAPP", "sns", "Subscribe"), 1);
-    let topic = w.app("sns", "CreateTopic", &json!({"Name": "alerts"})).await["TopicArn"]
+    w.state
+        .recorder
+        .record(&wire("AKIAAPP", "sns", "Subscribe"), 1);
+    let topic = w
+        .app("sns", "CreateTopic", &json!({"Name": "alerts"}))
+        .await["TopicArn"]
         .as_str()
         .unwrap()
         .to_owned();
@@ -120,5 +128,8 @@ async fn services_come_in_the_order_of_the_resources_index() {
         .map(|s| s["name"].as_str().unwrap())
         .collect();
     let at = |n: &str| names.iter().position(|x| *x == n).unwrap();
-    assert!(at("sqs") < at("sns") && at("sns") < at("s3") && at("s3") < at("iam"), "{names:?}");
+    assert!(
+        at("sqs") < at("sns") && at("sns") < at("s3") && at("s3") < at("iam"),
+        "{names:?}"
+    );
 }

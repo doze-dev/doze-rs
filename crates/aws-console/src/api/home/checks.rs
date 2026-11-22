@@ -203,7 +203,11 @@ async fn stored_only(bus: &Bus) -> Result<Vec<Signal>, String> {
         .as_array()
         .into_iter()
         .flatten()
-        .filter(|s| at(s, "Protocol").as_str().is_some_and(|p| STORED_ONLY.contains(&p)))
+        .filter(|s| {
+            at(s, "Protocol")
+                .as_str()
+                .is_some_and(|p| STORED_ONLY.contains(&p))
+        })
         .count() as u64;
     Ok(if n == 0 {
         Vec::new()
@@ -238,7 +242,13 @@ pub async fn checks(State(s): State<Shared>) -> Response {
         );
         return json(StatusCode::OK, &out);
     };
-    for service in ["sqs", "sns", "cloudwatch", "stepfunctions", "cloudformation"] {
+    for service in [
+        "sqs",
+        "sns",
+        "cloudwatch",
+        "stepfunctions",
+        "cloudformation",
+    ] {
         if !called.contains(service) || !crate::resources::view::served(&s.facts, service) {
             continue;
         }
