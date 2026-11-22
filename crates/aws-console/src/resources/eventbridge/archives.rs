@@ -42,8 +42,8 @@ pub(super) const ARCHIVES: Kind = Kind {
             ..field("Source bus", "EventSourceArn", Tail)
         },
         field("Description", "Description", Plain),
-        field("State", "State", Plain),
-        field("Why", "StateReason", Plain),
+        field("State", "State", super::STATES),
+        or("State reason", "StateReason", Plain, "None"),
         field("Events", "EventCount", Number),
         field("Size", "SizeBytes", Bytes),
         or(

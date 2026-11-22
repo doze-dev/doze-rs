@@ -36,7 +36,7 @@ export function ConnectionCreate() {
     <FormPage
       title="Create connection"
       sub="Name it, choose how to authorize, and give the credentials. On AWS they go into a Secrets Manager secret; doze-aws keeps them in the connection record and never returns them."
-      crumbs={[...crumbs, { label: "API destinations", to: "/resources/eventbridge/api-destinations" }, { label: "Create API destination", to: "/resources/eventbridge/api-destinations?create=yes" }]}
+      crumbs={[...crumbs, { label: "API destinations", to: "/resources/eventbridge/api-destinations" }, { label: "Create API destination", to: "/resources/eventbridge/api-destinations?create=yes" }, { label: "Create connection", to: "" }]}
       request={{ service: "events", operation: "CreateConnection", input: shown }}
       refusal={refused}
       callNote="The reply holds the connection ARN and its state. Wait for Authorized before you create an API destination on it: here it is Authorized at once."

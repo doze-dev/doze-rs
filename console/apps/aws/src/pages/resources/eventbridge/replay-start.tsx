@@ -67,8 +67,9 @@ export function ReplayStart({ archive }: { archive?: string }) {
           {(id) => <Input id={id} value={bus ?? ""} readOnly placeholder="Chosen with the archive" className="bg-muted font-mono text-muted-foreground" data-testid="replay-destination" />}
         </Field>
         </div>
+      </FormSection>
+      <FormSection title="Specify rules" description="Which rules receive the replayed events." testId="section-rules">
         <div className="grid gap-3" data-testid="field-rules">
-          <p className="text-[14px] font-medium text-bright">Which rules receive the replayed events.</p>
           <RadioCards<"all" | "some"> name="rules" label="Which rules" value={f.all ? "all" : "some"} onChange={(v) => set({ all: v === "all" })} options={[{ value: "all", title: "All rules", body: bus ? `Every rule on ${bus} that matches.` : "Every rule on the bus that matches." }, { value: "some", title: "Specify rules", body: "Only the rules you pick." }]} />
           {!f.all && (
             <ul className="grid gap-2" data-testid="rule-list">

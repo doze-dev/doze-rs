@@ -12,7 +12,7 @@ import { type ResourceLink, resourceHref } from "./contract";
 /** One thing in the strip: a name, a link when it is a resource of the console, `self` for the resource the page is of. */
 export type FlowChip = { label: string; to?: ResourceLink; self?: boolean; title?: string };
 /** What comes together at one place of the strip: an optional word before it (`Wired to`), then its chips. */
-export type FlowGroup = { label?: string; chips: FlowChip[] };
+export type FlowGroup = { label?: string; chips: FlowChip[]; /** Joined to the group before it by the word `and`, not by an arrow (the next pair of a strip that reads `a to b and c to d`). */ before?: "and" };
 
 const CHIP = "inline-flex min-w-0 max-w-full items-center gap-2 rounded-lg border bg-well px-3 py-1.5 font-mono text-[13px] text-bright outline-none";
 
@@ -40,7 +40,7 @@ export function FlowStrip({ groups, className }: { groups: readonly FlowGroup[];
     <nav aria-label="Wired to" className={cn("mb-8 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-[14px] border bg-card px-5 py-4", className)} data-testid="wired-strip">
       {shown.map((g, i) => (
         <Fragment key={i}>
-          {i > 0 && <ArrowRightIcon aria-hidden className="size-3.5 text-input" />}
+          {i > 0 && (g.before === "and" ? <span className="text-[13.5px] text-muted-foreground">and</span> : <ArrowRightIcon aria-hidden className="size-3.5 text-input" />)}
           {g.label && <span className="text-[13.5px] text-muted-foreground">{g.label}</span>}
           <span className="flex flex-wrap items-center gap-2">
             {g.chips.map((c) => (

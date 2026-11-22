@@ -57,9 +57,14 @@ function BusView({ d, updatedAt, fetching, refetch }: { d: ResourceDetail; updat
     if (v.id === "send") go("/resources/$service/$second", { do: "send", name: bus });
     else if (v.id === "delete") setDeleting(true);
   };
+  // `payment-settled -> pick-lists queue and order-placed -> orders-created topic`: each rule with its own targets, so which rule feeds which is not lost.
+  const pairs: FlowGroup[] = ruleItems.flatMap((r, i): FlowGroup[] => [
+    { ...(i === 0 ? { label: "Rules" } : { before: "and" as const }), chips: [{ label: r.Name, to: { service: "eventbridge", kind: "rules", name: bus === "default" ? r.Name : `${bus}/${r.Name}` } }] },
+    { chips: [...new Set((targets[r.Name] ?? []).map((t) => targetWords(t.Arn)))].map((l) => ({ label: l })) },
+  ]);
   const groups: FlowGroup[][] = [
     ...(feeders.length > 0 ? [[{ label: "Fed by", chips: feeders.map((l) => ({ label: l })) }, { chips: [{ label: bus, self: true }] }]] : []),
-    [{ label: "Rules", chips: ruleItems.map((r) => ({ label: r.Name, to: { service: "eventbridge", kind: "rules", name: bus === "default" ? r.Name : `${bus}/${r.Name}` } })) }, { chips: [...new Set(ruleItems.flatMap((r) => (targets[r.Name] ?? []).map((t) => targetWords(t.Arn))))].map((l) => ({ label: l })) }],
+    pairs,
   ];
   const kms = field(d, "KMS key");
   const dlq = field(d, "Dead-letter queue");
@@ -84,6 +89,7 @@ function BusView({ d, updatedAt, fetching, refetch }: { d: ResourceDetail; updat
           <>
             {groups.map((g, i) => <FlowStrip key={i} groups={g} className="mb-4" />)}
             <div className="mt-6 mb-10">
+              <Heading title="Event bus details" />
               <DetailsGrid columns={2} testId="bus-details" rows={[["Name", <span key="n" className="font-mono">{bus}</span>], ["ARN", <span key="a" className="font-mono">{arn}</span>], ["Description", field(d, "Description") ?? <span className="text-muted-foreground">–</span>], ["Encryption", kms && kms !== "AWS owned" ? <span key="k" className="font-mono">{kms}</span> : "AWS owned key"], ["Dead-letter queue", dlq ? <span key="q" className="font-mono">{arnName(dlq)}</span> : "None"], ["Tags", tags.data?.tags.length ? <span key="t" className="flex flex-wrap gap-1.5">{tags.data.tags.map((t) => <Badge key={t.key} variant="outline" className="font-mono text-[11.5px] font-normal">{t.value ? `${t.key}=${t.value}` : t.key}</Badge>)}</span> : <span className="text-muted-foreground">None</span>]]} />
             </div>
             <section aria-labelledby="archives-title" data-testid="bus-archives">

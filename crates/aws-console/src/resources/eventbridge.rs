@@ -38,3 +38,21 @@ const fn retention() -> super::Column {
         "Indefinite",
     )
 }
+
+/// A state of an archive, a replay or an API destination as people say it (`ENABLED` is `Enabled`) on the pages that read them as fields.
+const STATES: super::Format = super::Format::Named(&[
+    ("ENABLED", "Enabled"),
+    ("DISABLED", "Disabled"),
+    ("CREATING", "Creating"),
+    ("UPDATING", "Updating"),
+    ("CREATE_FAILED", "Create failed"),
+    ("UPDATE_FAILED", "Update failed"),
+    ("STARTING", "Starting"),
+    ("RUNNING", "Running"),
+    ("CANCELLING", "Cancelling"),
+    ("COMPLETED", "Completed"),
+    ("CANCELLED", "Cancelled"),
+    ("FAILED", "Failed"),
+    ("ACTIVE", "Active"),
+    ("INACTIVE", "Inactive"),
+]);

@@ -63,8 +63,7 @@ export function ArchiveCreate({ bus }: { bus?: string }) {
         </div>
       </FormSection>
       <FormSection title="Event pattern" optional description="Only events that match are archived. Leave it empty to archive every event on the bus." testId="section-pattern">
-        <RadioCards<"all" | "filter"> name="filter" label="What the archive keeps" value={f.filter ? "filter" : "all"} onChange={(v) => set({ filter: v === "filter" })} options={[{ value: "all", title: "Every event", body: "No pattern: the archive keeps all that reaches the bus." }, { value: "filter", title: "Only matching events", body: "Write a pattern; the archive keeps what matches it." }]} />
-        {f.filter && <JsonBox value={f.pattern} onChange={(pattern) => set({ pattern })} label="Event pattern" rows={7} testId="archive-pattern" />}
+        <JsonBox value={f.filter ? f.pattern : ""} onChange={(pattern) => set({ pattern, filter: pattern.trim() !== "" })} label="Event pattern" rows={7} placeholder={emptyArchive("").pattern} testId="archive-pattern" />
         <RuleHelp>Same pattern language as a rule. Events that are replays never enter an archive.</RuleHelp>
       </FormSection>
     </FormPage>

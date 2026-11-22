@@ -71,7 +71,7 @@ function Rules({ service, kind, bus: asked, gone }: { service: string; kind: str
     { id: "state", header: "State", size: 130, accessorFn: (r) => r.State ?? "", cell: (c) => <State state={c.row.original.State} /> },
     { id: "pattern", header: "Event pattern", size: 280, accessorFn: (r) => patternWords(r.EventPattern, r.ScheduleExpression), cell: (c) => <PatternCell r={c.row.original} /> },
     { id: "targets", header: "Targets", size: 260, accessorFn: (r) => r.targets?.length ?? 0, cell: (c) => <TargetsCell t={c.row.original.targets} /> },
-    { id: "description", header: "Description", min: 160, accessorFn: (r) => r.Description ?? "", cell: (c) => c.row.original.Description ?? <span className="text-muted-foreground">–</span> },
+    { id: "description", header: "Description", min: 160, accessorFn: (r) => r.Description ?? "", cell: (c) => c.row.original.Description ? <span className="block whitespace-normal">{c.row.original.Description}</span> : <span className="text-muted-foreground">–</span> },
   ];
   const mine = archives.data?.Archives ?? [];
   const sentence = rulesSentence(bus, items, targets);

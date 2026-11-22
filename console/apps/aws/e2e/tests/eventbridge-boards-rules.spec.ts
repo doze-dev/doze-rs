@@ -102,6 +102,7 @@ test("eventbridge__rule-create: Create rule's five steps, each reached in turn, 
   await expect(page.getByTestId("field-where-1")).toContainText("Choose where the target sends.");
   await pick(page, /Choose a topic/, "orders-created");
   await expect(page.getByTestId("arn-1")).toContainText(`arn:aws:sns:us-east-1:${server.account}:orders-created`);
+  await expect(page.getByTestId("fanout-1")).toContainText("orders-created already fans out to");
   await page.getByTestId("input-0-transformer").click();
   await page.getByTestId("transformer-open-1").click();
   const dialog = page.getByTestId("transformer-dialog");
@@ -145,6 +146,8 @@ test("eventbridge__rule-create: Create rule's five steps, each reached in turn, 
   await expect(page.locator("h1").first()).toHaveText("Review and create");
   await expect(page.getByTestId("rule-create")).toContainText("Step 1: Define rule detail");
   await expect(page.getByTestId("review-pattern")).toContainText('"source": ["larder.orders"]');
+  // Printed over several lines, as the board prints it, not as one compact line.
+  expect(((await page.getByTestId("review-pattern").textContent()) ?? "").includes("\n")).toBe(true);
   await expect(page.getByTestId("rule-create")).toContainText("SNS topic orders-created");
   await expect(page.getByTestId("rule-create")).toContainText("Input transformer order_id, customer");
   await expect(page.getByTestId("rule-create")).toContainText("1 hour up to 20 attempts");

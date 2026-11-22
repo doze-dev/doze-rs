@@ -7,6 +7,7 @@ import { Label } from "@doze/ui/components/ui/label";
 import { Field, FormSection, FunctionPicker, QueuePicker, ResourcePicker, RadioCards, RuleHelp, TopicPicker, BusPicker } from "../../../kit";
 import { busArn, useDests } from "./api";
 import { type InputMode, type TargetDraft, type TargetKind, attemptsProblem, ageSeconds, targetProblem } from "./rule-model";
+import { useTopicHint } from "./fanout";
 import { TransformerDialog } from "./transformer-dialog";
 import { arnName, list, targetParts } from "./words";
 
@@ -61,6 +62,7 @@ export function TargetForm({ t, index, set, remove, region, account, tried, sing
   const parts = t.arn ? targetParts(t.arn) : null;
   const names = Object.keys((() => { try { return (JSON.parse(t.paths || "{}") as Record<string, string>); } catch { return {}; } })());
   const dlqName = t.dlq ? arnName(t.dlq) : null;
+  const fanout = useTopicHint(t.kind === "sns" && parts?.kind === "SNS topic" ? parts.name : null);
   const retry = (p: Partial<TargetDraft>) => set({ ...p, retry: true });
   return (
     <FormSection title={single ? "Target" : `Target ${index + 1}`} description={index === 0 ? "A rule can have up to 5 targets." : undefined} testId={`section-target-${index + 1}`}>
@@ -70,7 +72,7 @@ export function TargetForm({ t, index, set, remove, region, account, tried, sing
       </div>
       <div className="grid gap-4 md:grid-cols-2">
         {group === "aws-service" && (
-          <div className="grid gap-1.5">
+          <div className="grid content-start gap-1.5">
             <Label htmlFor={`service-${index}`}>Select a target</Label>
             <Combobox id={`service-${index}`} options={SERVICES} value={t.kind} onChange={(k) => k && set({ kind: k as TargetKind, arn: null })} aria-label="Select a target" className="w-full" />
           </div>
@@ -80,6 +82,7 @@ export function TargetForm({ t, index, set, remove, region, account, tried, sing
         </Field>
       </div>
       {parts && <p className="text-[13px] text-muted-foreground" data-testid={`arn-${index + 1}`}><span className="font-mono">{t.arn}</span></p>}
+      {fanout && <p className="border-l-2 border-input pl-3.5 text-[13.5px] leading-[21px] text-foreground" data-testid={`fanout-${index + 1}`}>{fanout}</p>}
       <RuleHelp>Delivered by doze-aws: SQS, SNS, Lambda, CloudWatch Logs, Kinesis, Step Functions, another event bus of the Region and API destinations. A target on any other service is stored and not delivered. doze-aws assumes no role, so the Execution role section is not drawn.</RuleHelp>
       <FormSection title="Additional settings" description="All optional. The defaults send the whole event, retry for 24 hours and drop what still fails." collapsible defaultOpen className="bg-muted/30" testId={`section-settings-${index + 1}`}>
         <div className="grid gap-1.5">
