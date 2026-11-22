@@ -394,3 +394,54 @@ fn an_access_key_id_is_20_characters_and_a_users_own_id_21() {
     let id = key["AccessKey"]["AccessKeyId"].as_str().unwrap();
     assert!(id.starts_with("AKIA") && id.len() == 20, "{id}");
 }
+
+#[test]
+fn a_lookup_finds_a_name_in_any_case_and_answers_with_the_spelling_it_was_made_with() {
+    // The same sentence of the model that refuses `CreateUser DEV` while `dev` exists ("Names are not distinguished by case"):
+    // `GetUser DEV` is `dev`, not NoSuchEntity. Not a recorded answer; the model's words are the evidence.
+    let mut w = World::new();
+    w.ok("CreateUser", &json!({"UserName": "dev"}));
+    w.ok("CreateGroup", &json!({"GroupName": "Devs"}));
+    w.ok(
+        "CreateRole",
+        &json!({"RoleName": "report-job", "AssumeRolePolicyDocument": TRUST}),
+    );
+    assert_eq!(
+        w.ok("GetUser", &json!({"UserName": "DEV"}))["User"]["UserName"],
+        "dev"
+    );
+    assert_eq!(
+        w.ok("GetRole", &json!({"RoleName": "Report-JOB"}))["Role"]["RoleName"],
+        "report-job"
+    );
+    // What is done by the typed name lands on the one user: the membership holds the stored spelling.
+    w.ok(
+        "AddUserToGroup",
+        &json!({"UserName": "DEV", "GroupName": "devs"}),
+    );
+    let group = w.ok("GetGroup", &json!({"GroupName": "DEVS"}));
+    assert_eq!(group["Group"]["GroupName"], "Devs");
+    assert_eq!(group["Users"][0]["UserName"], "dev");
+    w.ok(
+        "TagUser",
+        &json!({"UserName": "Dev", "Tags": [{"Key": "k", "Value": "v"}]}),
+    );
+    assert_eq!(
+        w.ok("ListUserTags", &json!({"UserName": "dev"}))["Tags"][0]["Key"],
+        "k"
+    );
+    // A name no user has is still NoSuchEntity, and a delete in another case deletes.
+    assert_eq!(
+        w.err("GetUser", &json!({"UserName": "nobody"})).0,
+        "NoSuchEntityException"
+    );
+    w.ok(
+        "RemoveUserFromGroup",
+        &json!({"UserName": "dev", "GroupName": "DEVS"}),
+    );
+    w.ok("DeleteUser", &json!({"UserName": "DEV"}));
+    assert_eq!(
+        w.err("GetUser", &json!({"UserName": "dev"})).0,
+        "NoSuchEntityException"
+    );
+}

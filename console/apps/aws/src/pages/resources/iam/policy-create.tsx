@@ -16,7 +16,7 @@ import { useAbout } from "../../../api/queries";
 import { useResourceList } from "../../../api/resources";
 import { Field, FormPage, FormSection, TAG_RULES, callKindOp } from "../../../kit";
 import { POLICIES, useRefresh } from "./api";
-import { lacksResource, list, nameProblem, type Permission, permissions, starterPolicy, suggestedResource, takenProblem } from "./model";
+import { allowsSentence, lacksResource, list, nameProblem, type Permission, permissions, starterPolicy, suggestedResource, takenProblem } from "./model";
 import { Breakable, crumbs, KINDS, Note } from "./parts";
 import { Segmented } from "../../../kit";
 import { PolicyJson, policyErrors } from "./policy-json";
@@ -77,9 +77,9 @@ export function PolicyCreate() {
   );
   return (
     <FormPage
-      title="Create policy"
+      title={step === 0 ? "Create policy" : "Review and create"}
       sub={step === 0 ? "Write the policy in the JSON editor, or build it in the visual editor. You name it on the next step." : "Name the policy and check the permissions it grants. Then create it; you attach it to users, groups or roles afterwards."}
-      crumbs={[...crumbs(KINDS.policies), { label: "Create policy", to: "" }]}
+      crumbs={[...crumbs(KINDS.policies), { label: "Create policy", to: "" }, ...(step === 1 ? [{ label: "Review and create", to: "" }] : [])]}
       stepsAfterTitle
       request={{ service: "iam", operation: "CreatePolicy", input }}
       panel={blocked ? blockedPanel : undefined}
@@ -103,6 +103,7 @@ export function PolicyCreate() {
               <p className="text-foreground">An identity policy statement names what it applies to: add a Resource (or NotResource) element.{suggestion ? <> For pick-lists that is <span className="font-mono break-all">{suggestion}</span>.</> : null}</p>
             </div>
           ) : undefined} />
+          {!blocked && allowsSentence(doc) && <p className="border-l-2 border-input pl-3.5 text-[13.5px] leading-[21px] text-foreground" data-testid="allows-line">{allowsSentence(doc)}</p>}
         </FormSection>
       )}
       {step === 1 && (

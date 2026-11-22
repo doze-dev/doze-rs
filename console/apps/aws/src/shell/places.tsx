@@ -3,8 +3,8 @@ import { PinIcon, PinOffIcon } from "lucide-react";
 import { createElement, useEffect } from "react";
 import { Button } from "@doze/ui/components/ui/button";
 import { SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarMenu, SidebarMenuButton, SidebarMenuItem } from "@doze/ui/components/ui/sidebar";
-import { iconOf } from "../pages/resources/model";
-import { MOST_RECENT, type Place, pin, placeOf, same, usePinned, useVisited, visit } from "./pins";
+import { iconOfKind } from "../pages/resources/model";
+import { labelOf, MOST_RECENT, type Place, pin, placeOf, same, usePinned, useVisited, visit } from "./pins";
 
 const params = (p: Place) => ({ service: p.service, kind: p.kind, name: p.name });
 
@@ -21,8 +21,8 @@ function Group({ label, places, testId }: { label: string; places: Place[]; test
             <SidebarMenuItem key={`${p.service}/${p.kind}/${p.name}`}>
               <SidebarMenuButton asChild isActive={here !== null && same(here, p)} className="h-8 gap-2.5 text-[13px]">
                 <Link to="/resources/$service/$kind/$name" params={params(p)} search={{}} title={`${p.service} · ${p.kind}`} data-testid="rail-place">
-                  {createElement(iconOf(p.service), { "aria-hidden": true, className: "size-4 text-primary" })}
-                  <span className="truncate font-mono text-[12.5px]">{p.name}</span>
+                  {createElement(iconOfKind(p.service, p.kind), { "aria-hidden": true, className: "size-4 text-primary" })}
+                  <span className="truncate font-mono text-[12.5px]">{labelOf(p)}</span>
                 </Link>
               </SidebarMenuButton>
             </SidebarMenuItem>

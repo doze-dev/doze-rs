@@ -9,6 +9,7 @@ import { EmptyTab } from "@doze/ui/components/app/empty-tab";
 import { RefreshControl } from "@doze/ui/components/app/refresh-control";
 import { ResultBanner } from "@doze/ui/components/app/result-banner";
 import { Button } from "@doze/ui/components/ui/button";
+import { stringifySearch } from "@doze/ui/lib/search-params";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@doze/ui/components/ui/dropdown-menu";
 import { Skeleton } from "@doze/ui/components/ui/skeleton";
 import { useUrlParam } from "@doze/ui/hooks/use-url-param";
@@ -81,7 +82,8 @@ function RoleView({ d, updatedAt, fetching, refresh }: { d: Parameters<Parameter
   const sentence = tab === "trust" ? trustSentence(name, trust, about?.account ?? "") : roleSentence({ name, assumed: seen.count, inLastHour: seen.lastHour, by: seen.by, policies: [...policies.map((p) => p.PolicyName), ...inlines], only });
   const max = Number(d.fields.find((f) => f.label === "Maximum session")?.value ?? 3600);
   const alias = useRead<{ AccountAliases: string[] }>(USERS, "ListAccountAliases", {}).data?.AccountAliases[0] ?? about?.account ?? "";
-  const link = `/resources/sts?account=${encodeURIComponent(alias)}&roleName=${encodeURIComponent(name)}`;
+  // Written as the router writes an address, so an account ID of digits (or a role named by digits) is read back as the text it is.
+  const link = `/resources/sts${stringifySearch({ account: alias, roleName: name })}`;
   const description = fieldOf(d, "Description");
   const created = fieldOf(d, "Created");
   const shown = { ...d, sentence: null, wired: [], verbs: [], badges: [{ text: "IAM role", tone: "neutral" as const }] };

@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { aliasProblem, audienceKey, awsArn, blankTrust, breakPoints, providerName, daysSince, lacksResource, list, nameProblem, needsExternalId, permissions, policyArnOfName, sameIgnoringCase, sessionWords, shortKey, suggestedResource, takenProblem, trustActions, trustDocument, trustedEntities, trustPrincipals, trustProblem, trustSentence } from "./model";
+import { aliasProblem, allowsSentence, audienceKey, awsArn, blankTrust, breakPoints, providerName, daysSince, lacksResource, list, nameProblem, needsExternalId, permissions, policyArnOfName, sameIgnoringCase, sessionWords, shortKey, suggestedResource, takenProblem, trustActions, trustDocument, trustedEntities, trustPrincipals, trustProblem, trustSentence } from "./model";
 
 const ACCOUNT = "123456789012";
 const trust = (principal: unknown, extra: object = {}) => JSON.stringify({ Version: "2012-10-17", Statement: [{ Effect: "Allow", Principal: principal, Action: "sts:AssumeRole", ...extra }] });
@@ -179,5 +179,22 @@ describe("the federated trust policies", () => {
     expect(trustProblem({ ...blankTrust, type: "saml" })).toBe("Choose a SAML provider.");
     expect(trustProblem({ ...blankTrust, type: "saml", provider: saml })).toBeNull();
     expect(trustDocument({ ...blankTrust, type: "web" }, ACCOUNT)).toContain("<provider>:aud");
+  });
+});
+
+describe("what a policy being written allows, in a line", () => {
+  const one = (action: unknown, resource: unknown, effect = "Allow") => JSON.stringify({ Version: "2012-10-17", Statement: [{ Effect: effect, Action: action, Resource: resource }] });
+  test("one action on one queue is said as the board says it", () => {
+    expect(allowsSentence(one(["sqs:SendMessage"], "arn:aws:sqs:us-east-1:123456789012:pick-lists"))).toBe("This one allows only sqs:SendMessage, on the one queue pick-lists.");
+  });
+  test("several actions, a wildcard resource, many resources, an ARN of no known kind", () => {
+    expect(allowsSentence(one(["sqs:SendMessage", "sqs:ReceiveMessage"], "*"))).toBe("This one allows sqs:SendMessage and sqs:ReceiveMessage, on every resource.");
+    expect(allowsSentence(one(["s3:GetObject", "s3:PutObject", "s3:DeleteObject", "s3:ListBucket"], ["arn:aws:s3:::a/*", "arn:aws:s3:::b/*"]))).toBe("This one allows 4 actions, on 2 resources.");
+    expect(allowsSentence(one("*", "arn:aws:iam::123456789012:role/x"))).toBe("This one allows every action, on arn:aws:iam::123456789012:role/x.");
+    expect(allowsSentence(one("dynamodb:GetItem", "arn:aws:dynamodb:us-east-1:123456789012:table/orders"))).toBe("This one allows only dynamodb:GetItem, on the one table orders.");
+  });
+  test("a policy that allows nothing, or is not JSON, has no line", () => {
+    expect(allowsSentence(one(["sqs:SendMessage"], "*", "Deny"))).toBeNull();
+    expect(allowsSentence("{ nope")).toBeNull();
   });
 });

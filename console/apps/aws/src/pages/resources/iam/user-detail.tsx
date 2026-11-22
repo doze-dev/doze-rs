@@ -36,9 +36,10 @@ function UserView({ d, updatedAt, fetching, refresh }: { d: Parameters<Parameter
   const active = access.keys.filter((k) => k.Status === "Active");
   const key = active[0] ?? access.keys[0] ?? null;
   const used = key ? access.used.get(key.AccessKeyId) : undefined;
+  const factOf = (k: { AccessKeyId: string }) => { const u = access.used.get(k.AccessKeyId); return { id: shortKey(k.AccessKeyId), usedAt: u?.LastUsedDate ?? null, service: u?.ServiceName ?? null, region: u?.Region ?? null }; };
   const viaNames = access.groups.flatMap((g) => access.viaGroups.get(g) ?? []).map((p) => p.PolicyName);
   const onSecurity = tab === "security";
-  const sentence = onSecurity ? keysSentence(name, access.keys) : userSentence({ name, groups: access.groups, viaGroups: viaNames, direct: access.direct.map((p) => p.PolicyName), key: key ? { id: shortKey(key.AccessKeyId), usedAt: used?.LastUsedDate ?? null, service: used?.ServiceName ?? null, region: used?.Region ?? null } : null });
+  const sentence = onSecurity ? keysSentence(name, access.keys) : userSentence({ name, groups: access.groups, viaGroups: viaNames, direct: access.direct.map((p) => p.PolicyName), key: key ? factOf(key) : null, others: active.slice(1).map(factOf) });
   const created = fieldOf(d, "Created");
   const meta = `${created ? `Created ${created}. ` : ""}${active.length === 0 ? "Holds no active access key." : `Holds ${active.length === 1 ? "one active access key" : `${active.length} active access keys`}.`}`;
   const wired: Wired[] = [

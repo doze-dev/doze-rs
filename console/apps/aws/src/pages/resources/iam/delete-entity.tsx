@@ -46,7 +46,7 @@ export function groupWords(name: string, b: Blocker): { lead: string; rest: stri
 /** What the console does that the service's own delete does not: the board's note, in what doze-aws really does. */
 const HOW: Record<DeletedKind, string> = {
   users: "The console also removes the user's group memberships and inline policies; managed policies attached to the user are detached, not deleted. DeleteUser answers DeleteConflict while the user still has an access key, a group, an inline policy or an attached managed policy, so from the CLI or an API you do each of those steps first.",
-  roles: "The console detaches a role's managed policies, deletes its inline policies and removes it from its instance profiles, then deletes the role. From the CLI or an API you must do each of those steps yourself first: DeleteRole answers DeleteConflict while a managed policy is still attached.",
+  roles: "The console detaches a role's managed policies, deletes its inline policies and removes it from its instance profiles, then deletes the role. From the CLI or an API you must do each of those steps yourself first: DeleteRole answers DeleteConflict while the role still has an attached managed policy, an inline policy or an instance profile.",
   groups: "The console removes the group's members and detaches its policies, then deletes the group. DeleteGroup answers DeleteConflict while the group has a member or a policy.",
   policies: "The console detaches the policy from everything it is attached to and deletes its other versions, then deletes the policy. DeletePolicy answers DeleteConflict while it is attached or has versions besides its default.",
 };

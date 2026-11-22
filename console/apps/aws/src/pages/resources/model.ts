@@ -1,6 +1,6 @@
 // What the Resources pages work out on their own: a value written as its format asks, which kind a name from Live is, and
 // each service's mark. Pure, so it is tested without a browser.
-import { BoxIcon, DatabaseIcon, FileTextIcon, FunctionSquareIcon, KeyRoundIcon, LayersIcon, LockIcon, type LucideIcon, NetworkIcon, RadioTowerIcon, RowsIcon, SlidersHorizontalIcon, TableIcon, TimerIcon, UsersIcon, WavesIcon, WorkflowIcon, ActivityIcon, IdCardIcon } from "lucide-react";
+import { BoxIcon, DatabaseIcon, FileTextIcon, FunctionSquareIcon, KeyRoundIcon, LayersIcon, LockIcon, type LucideIcon, NetworkIcon, RadioTowerIcon, RowsIcon, SlidersHorizontalIcon, TableIcon, TimerIcon, UsersIcon, WavesIcon, WorkflowIcon, ActivityIcon, IdCardIcon, UserRoundCogIcon, UserRoundIcon } from "lucide-react";
 import { bytes, dateTimeUtc, number } from "@doze/ui/lib/format";
 import type { ResourcesIndex } from "../../api/types/ResourcesIndex";
 import type { ValueFormat } from "../../api/types/ValueFormat";
@@ -28,6 +28,10 @@ export const ICONS: Record<string, LucideIcon> = {
 };
 
 export const iconOf = (service: string): LucideIcon => ICONS[service] ?? BoxIcon;
+
+/** The mark of one kind of resource where it differs from its service's: IAM's users, groups, roles and policies are not all one person. */
+const KIND_ICONS: Record<string, LucideIcon> = { "iam/users": UserRoundIcon, "iam/groups": UsersIcon, "iam/roles": UserRoundCogIcon, "iam/policies": FileTextIcon };
+export const iconOfKind = (service: string, kind: string): LucideIcon => KIND_ICONS[`${service}/${kind}`] ?? iconOf(service);
 
 /** A time as the server gives it: seconds or milliseconds since 1970 (as a number or a text of digits), or an ISO 8601 text. */
 export function timeMs(value: string): number | null {

@@ -5,8 +5,10 @@ describe("lists", () => {
   test("the users say who holds a key, who used it today and who has none", () => {
     const users = [{ name: "dev", active: 1, usedToday: true }, { name: "ci-bot", active: 1, usedToday: true }, { name: "temp-auditor", active: 0, usedToday: false }];
     expect(usersSentence(users)).toBe("3 users: dev and ci-bot each hold 1 active access key and both used it today; temp-auditor has no access keys.");
-    expect(usersSentence([{ name: "dev", active: 2, usedToday: false }])).toBe("1 user: dev holds 2 active access keys and none used one today.");
+    expect(usersSentence([{ name: "dev", active: 2, usedToday: false }])).toBe("1 user: dev holds 2 active access keys and none used a key today.");
     expect(usersSentence([{ name: "a", active: 1, usedToday: true }, { name: "b", active: 1, usedToday: false }])).toContain("a used it today");
+    // A user with two keys: the sentence names a key, not "it".
+    expect(usersSentence([{ name: "dev", active: 2, usedToday: true }, { name: "ci-bot", active: 1, usedToday: true }])).toBe("2 users: dev holds 2 active access keys, ci-bot holds 1 active access key and both used a key today.");
     expect(usersSentence([])).toBe("There are no users in this account.");
   });
   test("the groups say their members and policies, the busy ones first", () => {
@@ -31,6 +33,7 @@ describe("a resource", () => {
     expect(userSentence({ name: "dev", groups: ["developers"], viaGroups: ["PowerUserAccess"], direct: [], key: { id: "AKIA...7DEV2K", usedAt: Date.UTC(2026, 10, 8, 8, 9) / 1000, service: "sqs", region: "us-east-1" } })).toBe("dev belongs to 1 group and gets PowerUserAccess through it. Its key AKIA...7DEV2K was last used at 08:09 with sqs in us-east-1.");
     expect(userSentence({ name: "tester", groups: [], viaGroups: [], direct: [], key: null })).toBe("tester belongs to no group and has no policy, so it is allowed to do nothing.");
     expect(userSentence({ name: "u", groups: [], viaGroups: [], direct: ["p"], key: { id: "K", usedAt: null, service: null, region: null } })).toBe("u belongs to no group and has p attached directly. Its key K has never been used.");
+    expect(userSentence({ name: "dev", groups: [], viaGroups: [], direct: ["p"], key: { id: "AKIA...7DEV2K", usedAt: Date.UTC(2026, 10, 8, 8, 9) / 1000, service: "sqs", region: "us-east-1" }, others: [{ id: "AKIA...2ND", usedAt: null, service: null, region: null }] })).toBe("dev belongs to no group and has p attached directly. Of its keys, AKIA...7DEV2K was last used at 08:09 with sqs in us-east-1 and AKIA...2ND has never been used.");
   });
   test("a group says what its members can do", () => {
     expect(groupSentence("developers", ["dev"], ["PowerUserAccess"])).toBe("developers has 1 member and 1 attached policy. Everyone in it can do what PowerUserAccess allows: every service except IAM, Organizations and Account.");

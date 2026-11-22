@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { MOST_PINNED, parse, placeOf, toFront, togglePin } from "./pins";
+import { labelOf, MOST_PINNED, parse, placeOf, toFront, togglePin } from "./pins";
 
 const p = (name: string) => ({ service: "sqs", kind: "queues", name });
 
@@ -40,4 +40,13 @@ test("a request to delete a resource names it", () => {
   expect(deletedBy("/api/v1/resources/sqs/queues/pick-lists?clear=yes")).toEqual(p("pick-lists"));
   expect(deletedBy("/api/v1/resources/sqs/queues")).toBeNull();
   expect(deletedBy("/api/v1/resources/sqs/queues/q/tags")).toBeNull();
+});
+
+describe("labelOf", () => {
+  test("is the name, and for a policy addressed by its ARN the policy's name", () => {
+    expect(labelOf(p("pick-lists"))).toBe("pick-lists");
+    expect(labelOf({ service: "iam", kind: "policies", name: "arn:aws:iam::000000000000:policy/service-role/report-job-readonly" })).toBe("report-job-readonly");
+    expect(labelOf({ service: "iam", kind: "policies", name: "arn:aws:iam::aws:policy/PowerUserAccess" })).toBe("PowerUserAccess");
+    expect(labelOf({ service: "iam", kind: "users", name: "dev" })).toBe("dev");
+  });
 });
