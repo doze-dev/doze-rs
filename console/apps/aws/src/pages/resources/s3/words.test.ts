@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { baseName, copySource, longDate, nameProblems, nameRefusal, parentPrefix, regionWords, shortDate, size, suggestName, uploadKey, versioningOf, whenMs, wiredChip } from "./words";
+import { baseName, copySource, longDate, nameProblems, nameRefusal, parentPrefix, regionWords, shortDate, size, suggestName, uploadKey, versioningOf, whenMs, wiredChip, callKey } from "./words";
 
 describe("S3 words", () => {
   test("a Region and a time are written as the AWS console writes them", () => {
@@ -54,4 +54,12 @@ test("a Wired to chip names the destination with its kind in brackets", () => {
   expect(wiredChip("Notifies SQS queue", "image-events")).toBe("image-events (SQS)");
   expect(wiredChip("Notifies SNS topic", "t")).toBe("t (SNS)");
   expect(wiredChip("Something else", "x")).toBe("x");
+});
+
+test("the key a recorded call acted on is the rest of its resource after the bucket", () => {
+  expect(callKey("b", "b/sku-1.jpg")).toBe("sku-1.jpg");
+  expect(callKey("b", "b/a/b.jpg")).toBe("a/b.jpg");
+  expect(callKey("b", "b")).toBeNull();
+  expect(callKey("b", "bb/x")).toBeNull();
+  expect(callKey("b", null)).toBeNull();
 });

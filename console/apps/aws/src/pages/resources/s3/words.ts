@@ -182,3 +182,9 @@ export function wiredChip(label: string, name: string): string {
   const kind = /^Notifies (Lambda|SQS|SNS)\b/.exec(label)?.[1];
   return kind ? `${name} (${kind})` : name;
 }
+
+/** The key an S3 call acted on: the call records `bucket/key` as what was acted on, and a call on the bucket itself names the bucket only. */
+export function callKey(bucket: string, resource: string | null | undefined): string | null {
+  if (!resource?.startsWith(`${bucket}/`)) return null;
+  return resource.slice(bucket.length + 1) || null;
+}

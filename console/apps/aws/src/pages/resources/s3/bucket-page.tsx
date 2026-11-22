@@ -12,7 +12,7 @@ import { ObjectsTab } from "./objects";
 import { FlashBanner, useFlash } from "./parts";
 import { PermissionsTab, sentenceOf as permissionsSentenceOf, usePermissions } from "./permissions";
 import { PropertiesTab, sentenceOf as propertiesSentenceOf, useProperties } from "./properties";
-import { longDate, regionWords, versioningWords, wiredChip } from "./words";
+import { longDate, regionWords, versioningWords, wiredChip, callKey } from "./words";
 
 const TABS = ["objects", "properties", "permissions", "management"] as const;
 type Tab = (typeof TABS)[number];
@@ -59,7 +59,7 @@ export function BucketPage({ name, search }: OwnProps) {
           render: () => (
             <div className="grid gap-6">
               <ObjectsTab name={name!} search={search} />
-              <Calls d={d} />
+              <Calls d={d} note={(c) => callKey(name!, c.resource)} />
             </div>
           ),
         },

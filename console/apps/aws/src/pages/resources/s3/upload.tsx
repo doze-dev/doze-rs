@@ -20,7 +20,7 @@ import { setFlash } from "./flash";
 import { ActionPage, Mono } from "./parts";
 import { Card } from "../deep/parts";
 import { CHECKSUMS, STORAGE_CLASSES, type Sent, sentOf, setSent, uploadProps } from "./upload-props";
-import { count, s3Uri, size, storageWords, uploadKey, versioningWords } from "./words";
+import { callKey, count, listWords, s3Uri, size, storageWords, uploadKey, versioningWords } from "./words";
 
 type Chosen = { file: File; key: string };
 
@@ -132,12 +132,12 @@ export function UploadStatus({ name, search }: OwnProps) {
       {rows ? (
         <>
           <Alert tone={ok === rows.length ? "good" : "warn"} title={`${count(ok, "PutObject call")} succeeded in ${name}.${ok < rows.length ? ` ${rows.length - ok} failed.` : ""}`} testId="upload-summary">
-            {bucket.detail?.sentence?.includes("notify") ? "Each ObjectCreated event was sent to the destinations the bucket notifies." : "Nothing notifies on these objects: the bucket has no event notification rule."}
+            {bucket.detail?.sentence?.includes("notify") ? `Each ObjectCreated event was sent to ${listWords((bucket.detail.wired ?? []).filter((w) => w.label.startsWith("Notifies")).map((w) => w.to.name))}.` : "Nothing notifies on these objects: the bucket has no event notification rule."}
           </Alert>
           <Card title="Files and folders" lede={`${count(rows.length, "file")} total, ${size(rows.reduce((a, r) => a + r.size, 0))}, uploaded to ${s3Uri(name!, prefix)}.`}>
             <DataTable aria-label="Uploaded files" data={rows} rowId={(r) => r.key} maxHeight={360} columns={[{ id: "key", header: "Key", accessorKey: "key", meta: { mono: true }, min: 200 }, { id: "type", header: "Content type", size: 180, accessorKey: "type", meta: { mono: true } }, { id: "size", header: "Size", size: 110, meta: { numeric: true }, accessorFn: (r) => r.size, cell: (c) => size(c.row.original.size) }, { id: "status", header: "PutObject", size: 260, accessorFn: (r) => r.status, cell: (c) => (c.row.original.status >= 200 && c.row.original.status < 300 ? <span className="text-good">{c.row.original.status}</span> : <span className="text-bad" title={c.row.original.message}>{c.row.original.status || "–"} {c.row.original.message}</span>) }]} />
           </Card>
-          {bucket.detail && <Calls d={bucket.detail} />}
+          {bucket.detail && <Calls d={bucket.detail} pin={["PutObject"]} note={(c) => callKey(name!, c.resource)} />}
         </>
       ) : (
         <p className="text-[13.5px] text-muted-foreground">This page has no upload to report: it was not made in this window.</p>
