@@ -52,6 +52,31 @@ pub(crate) fn endpoint(b: &Booted) -> String {
     }
 }
 
+/// The `host:port` doze granted the console's listener.
+pub(crate) fn console_addr(b: &Booted) -> String {
+    match b.instance.listeners.get("console").map(|g| &g.backend) {
+        Some(Address::Tcp(a)) => a.clone(),
+        other => panic!("a TCP backend for the console, got {other:?}"),
+    }
+}
+
+/// One `GET` on a connection of its own, as a browser at `host` would send it: the status line, then the whole answer.
+pub(crate) fn get(addr: &str, host: &str, path: &str) -> (u16, String) {
+    use std::io::{Read, Write};
+    let mut s = std::net::TcpStream::connect(addr).unwrap();
+    s.set_read_timeout(Some(std::time::Duration::from_secs(10)))
+        .unwrap();
+    write!(
+        s,
+        "GET {path} HTTP/1.1\r\nHost: {host}\r\nAccept-Encoding: identity\r\nConnection: close\r\n\r\n"
+    )
+    .unwrap();
+    let mut out = String::new();
+    s.read_to_string(&mut out).unwrap();
+    let status = out.split(' ').nth(1).unwrap().parse().unwrap();
+    (status, out)
+}
+
 /// Whether the aws CLI is here; required when `DOZE_ACCEPTANCE` is set.
 pub(crate) fn have_cli() -> bool {
     let here = std::process::Command::new("aws")
