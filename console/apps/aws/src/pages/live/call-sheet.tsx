@@ -9,6 +9,7 @@ import type { CallRecord } from "../../api/types/CallRecord";
 import { outcomeSentence, WOULD_BE_DENIED } from "../../words";
 import { copyCommand } from "./actions";
 import { CauseChain, madeBy } from "./cause";
+import { Explain } from "./explain";
 import { Result } from "./outcome";
 import { resourceHref, resourceName, resourceSearchOf } from "./resource";
 
@@ -81,6 +82,7 @@ export function CallSheet({ seq, call, serviceTitle, titles, held, onOpen, onClo
                 )}
               </div>
             </div>
+            {(call.would_be_denied || call.outcome === "denied") && <Explain call={call} />}
             <CauseChain call={call} held={held} titles={titles} onOpen={onOpen} />
             <dl className="mt-5 grid grid-cols-[8.5rem_minmax(0,1fr)] [&>dd:last-of-type]:border-b-0 [&>dt:last-of-type]:border-b-0">
               <Field testId="at" label="Answered" value={dateTimeUtc(call.at_ms).replace(" UTC", `.${clockMsUtc(call.at_ms).slice(-3)} UTC`)} />

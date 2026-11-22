@@ -31,6 +31,11 @@ import { resourceShown } from "./resource";
 import { callerOf, consoleShown, filtering, isConsole, type LiveSearch, matches, type View } from "./search";
 import { findCall } from "./tape";
 import { useFlows } from "./use-flows";
+import { useWiring } from "./use-wiring";
+import { MapSection } from "./map-section";
+import { NeedsLook, looks } from "./needs-look";
+import { Timeline } from "./timeline";
+import { useNow } from "../card";
 import { type Conn, useTail } from "./use-tail";
 
 const route = getRouteApi("/live");
@@ -122,6 +127,10 @@ export function LivePage() {
   const keys = useMemo(() => callers.filter((c) => !c.internal && c.id.startsWith("AKIA")).map((c) => c.id).join(","), [callers]);
   const principals = usePrincipals(keys);
   const names = useMemo(() => new Map((principals.data?.principals ?? []).map((p) => [p.key, p])), [principals.data]);
+  const now = useNow();
+  const wiring = useWiring(view !== "wire" && search.by !== "service");
+  const callerName = useCallback((key: string) => { const p = names.get(key); return p ? who(p).label : key || "no key"; }, [names]);
+  const attention = useMemo(() => looks(visible), [visible]);
 
   const columns = useMemo<DataColumn<Line>[]>(
     () => [
@@ -256,9 +265,10 @@ export function LivePage() {
               They were recorded and dropped before this page was given them: the record keeps only the newest {ring ? number(ring.capacity) : ""} calls.
             </Alert>
           )}
+          <div className="mb-5 flex flex-wrap items-end justify-between gap-x-8 gap-y-3">
           {ring && (
             <Figures
-              className="mb-5"
+              className="mb-0"
               aria-label="The record"
               figures={[
                 { label: "Calls recorded", value: number(ring.recorded), ch: 6, tip: "Since doze-aws started.", testId: "live-recorded" },
@@ -267,9 +277,19 @@ export function LivePage() {
               ]}
             />
           )}
+          {view !== "wire" && <Timeline calls={visible} now={now} />}
+          </div>
           <ConsoleLine hidden={hidden} shown={search.console === "shown"} set={set} />
-          {view !== "wire" && (
+          {view !== "wire" && <NeedsLook items={attention} callerName={(c) => callerName(c.caller ?? "")} onOpen={open} />}
+          {view !== "wire" && search.by !== "service" && <MapSection calls={visible} wiring={wiring.data} now={now} search={search} set={set} callerName={callerName} openCall={openCall} />}
+          {view !== "wire" && search.by === "service" && (
             <section className="mb-5 rounded-xl border bg-card px-5 pt-3 pb-4" aria-label="Map of who calls what" data-testid="live-map-card">
+              <div className="mb-2 flex justify-end">
+                <ToggleGroup type="single" variant="outline" size="sm" value="service" onValueChange={(v) => v === "resource" && set({ by: undefined })} aria-label="Draw" className="bg-card" data-testid="map-by">
+                  <ToggleGroupItem value="resource" className="px-3" data-testid="by-resource">Resources</ToggleGroupItem>
+                  <ToggleGroupItem value="service" className="px-3" data-testid="by-service">Services</ToggleGroupItem>
+                </ToggleGroup>
+              </div>
               {map.lines.length === 0 ? (
                 <EmptyState icon={RadioIcon} title="Nothing to draw yet" className="border-0 bg-transparent">
                   Each caller and each service it calls is drawn here, joined by a line, as calls arrive.
@@ -284,6 +304,10 @@ export function LivePage() {
           )}
           {view !== "map" && (
             <>
+              <p className="mb-3 flex flex-wrap gap-x-6 gap-y-1 text-[12px] text-muted-foreground" data-testid="wire-legend">
+                <span><b className="font-bold tracking-[0.04em] text-refused">REFUSED</b> AWS itself would refuse the request</span>
+                <span><b className="font-bold tracking-[0.04em] text-warn">WOULD BE DENIED</b> AWS would deny this identity; soft IAM let it through</span>
+              </p>
               <Filters search={search} set={set} services={services} callers={callers} titles={titles} shown={kept.length} held={visible.length} />
               <DataTable
                 aria-label="Calls, newest first"

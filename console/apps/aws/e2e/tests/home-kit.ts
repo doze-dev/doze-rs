@@ -1,6 +1,7 @@
 // What the Home, Connect, Live and direction boards' specs share: a real doze-aws for each browser (seeded as the boards' "larder"
 // world, its apps called), the photograph of a page light and dark, and the small moves every spec makes.
-import { mkdirSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { Page } from "@playwright/test";
 import { aws, start, type Running } from "../server";
@@ -10,7 +11,7 @@ import { type Apps, seedHome, trafficHome } from "./home-seed";
 const SHOTS = process.env.SHOTS_DIR ?? join(import.meta.dirname, "../../../../../shots-home");
 const BASE = Number(process.env.E2E_BASE_PORT ?? 45800);
 
-export const world = { server: undefined as unknown as Running, browser: "", apps: undefined as unknown as Apps };
+export const world = { server: undefined as unknown as Running, browser: "", apps: undefined as unknown as Apps, dir: "" };
 export const url = (path: string) => `${world.server.console}${path}`;
 
 /** One doze-aws for the spec's tests, seeded and called as the apps of the world; `slot` keeps two specs' servers apart. */
@@ -19,12 +20,18 @@ export function serveWorld(slot: number, args: string[] = []) {
   test.beforeAll(async ({ browserName }) => {
     world.browser = browserName;
     const port = BASE + ({ firefox: 10, webkit: 20, chromium: 30 }[browserName] ?? 40) + slot * 4;
-    world.server = await start(port, port + 1, { args });
-    world.apps = seedHome(world.server.endpoint, world.server.account);
+    // The world is made, then doze-aws starts again over the same data: the Live record holds only what the apps do next, not the
+    // calls that set the world up.
+    world.dir = mkdtempSync(join(tmpdir(), "doze-aws-home-"));
+    const first = await start(port, port + 1, { args, dataDir: world.dir });
+    world.apps = seedHome(first.endpoint, first.account);
+    await first.stop();
+    world.server = await start(port, port + 1, { args, dataDir: world.dir });
     await trafficHome(world.server.endpoint, world.server.account, world.apps);
   });
   test.afterAll(async () => {
     await world.server.stop();
+    rmSync(world.dir, { recursive: true, force: true });
   });
 }
 

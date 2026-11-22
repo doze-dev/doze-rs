@@ -1,7 +1,7 @@
 // The world the Home, Connect, Live and direction boards are drawn in ("larder"): the apps are IAM users with an access key of
 // their own (payments, fulfilment, catalog, report-job, admin-cli), each calling as its own SDK (Go, Python, the AWS CLI), so a
 // row says who made it. `bun e2e/tests/home-seed.ts http://127.0.0.1:45860 [account]` seeds a running doze-aws by hand.
-import { mkdtempSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { aws } from "../server";
@@ -119,8 +119,16 @@ export async function trafficHome(endpoint: string, account: string, k: Apps): P
 }
 
 if (import.meta.main) {
-  const [endpoint = "http://127.0.0.1:45860", account = "123456789012"] = process.argv.slice(2);
-  const keys = seedHome(endpoint, account);
-  await trafficHome(endpoint, account, keys);
-  console.log(`seeded ${endpoint}`);
+  // `setup` makes the world and keeps the apps' keys in a file; `traffic` has the apps call (after doze-aws started again, so the
+  // Live record holds only that); no mode does both.
+  const [endpoint = "http://127.0.0.1:45860", mode = "both", file = join(tmpdir(), "home-seed-keys.json")] = process.argv.slice(2);
+  const account = "123456789012";
+  let keys: Apps;
+  if (mode === "traffic") keys = JSON.parse(readFileSync(file, "utf8")) as Apps;
+  else {
+    keys = seedHome(endpoint, account);
+    writeFileSync(file, JSON.stringify(keys));
+  }
+  if (mode !== "setup") await trafficHome(endpoint, account, keys);
+  console.log(`${mode}: ${endpoint}`);
 }

@@ -13,5 +13,6 @@ export const PATHS = {
   calls: "/api/v1/calls",
   tail: "/api/v1/tail/live",
   flows: "/api/v1/flows",
+  wiring: "/api/v1/live/wiring",
   copy: (seq: number) => `/api/v1/calls/${seq}/copy`,
 } as const;
