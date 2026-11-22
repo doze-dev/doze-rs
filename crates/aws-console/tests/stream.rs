@@ -240,8 +240,10 @@ async fn idle_keep_alive_connections_do_not_use_up_the_cap() {
     for _ in 0..3 {
         idle.push(visit_and_stay(c.local_addr()).await);
     }
-    // A fourth connection is served: the one that has been idle longest is given up for it.
-    for round in 0..4 {
+    // A fourth connection is served: the one that has been idle longest is given up for it (once it has been idle a second: a
+    // connection that was used a moment ago may be about to be used again).
+    tokio::time::sleep(aws_console::conns::MIN_IDLE + Duration::from_millis(100)).await;
+    for round in 0..3 {
         let mut s = TcpStream::connect(c.local_addr()).await.unwrap();
         s.write_all(
             format!(

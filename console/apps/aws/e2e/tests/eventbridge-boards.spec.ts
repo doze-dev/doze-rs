@@ -7,10 +7,10 @@ import { join } from "node:path";
 import type { Page } from "@playwright/test";
 import { aws, start, type Running } from "../server";
 import { PATTERN, putEvent, seedLarder } from "./eventbridge-seed";
-import { CUT, expect, test } from "./fixtures";
+import { CUT, expect, settled, test } from "./fixtures";
 
 const SHOTS = process.env.SHOTS_DIR ?? join(import.meta.dirname, "../../../../../shots-eventbridge");
-const BASE = 45400;
+const BASE = Number(process.env.E2E_BASE_PORT ?? 45400);
 const at = (b: string) => BASE + ({ firefox: 0, webkit: 10, chromium: 20 }[b] ?? 30);
 
 test.describe.configure({ mode: "serial" });
@@ -118,6 +118,8 @@ test("eventbridge__bus-create-refused: a name that exists is refused on the name
   await expect(page.getByTestId("call-panel")).toContainText("CreateArchive was never sent");
   await expect(page.getByTestId("bus-name")).toHaveValue("larder-audit");
   await shot(page, "eventbridge__bus-create-refused");
+  // The sections have just folded and the page has scrolled to the name; a click that lands as it moves is not a click.
+  await settled(page);
   await page.getByTestId("section-encryption-toggle").click();
   await expect(page.getByTestId("section-encryption")).toContainText("Use customer managed key");
 });
@@ -187,6 +189,8 @@ test("eventbridge__send-events: one PutEvents entry, which rules it matches, and
   await pick(page, /Choose an event bus/, "larder");
   await expect(page.getByTestId("match-hint")).toContainText("This event matches the rule order-placed on larder.");
   await expect(page.getByTestId("call-panel-code")).toContainText('"EventBusName": "larder"');
+  // The match hint and the preview are still being redrawn; a click that lands as the page moves is not a click.
+  await settled(page);
   await page.getByTestId("form-submit").click();
   await expect(page.getByTestId("sent-banner")).toContainText("PutEvents returned the EventId");
   await expect(page.getByTestId("sent-banner")).toContainText("It matched order-placed");

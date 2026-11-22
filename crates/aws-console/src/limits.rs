@@ -12,10 +12,10 @@ use axum::http::{HeaderValue, StatusCode};
 use axum::middleware::Next;
 use axum::response::{IntoResponse, Response};
 
-/// The most connections open at once, event streams included. Over it, the connection that has been idle longest is closed to
-/// make room (a browser leaves connections open that it does not use: Firefox and WebKit keep those of a page they have closed,
-/// and open spare ones), and only when every connection is in use is a new one answered 503 and closed (see [`crate::conns`]).
-/// 64 is for connections that are in use: a browser makes 6 to a host, a few tabs, a stream each.
+/// The most connections open at once, event streams included. Over it, the connection that has been idle longest (for a
+/// second at least) is closed to make room: a browser leaves connections open that it does not use (Firefox and WebKit keep
+/// those of a page they have closed, and open spare ones). Only when every connection is in use is a new one answered 503
+/// and closed (see [`crate::conns`]). 64 is for connections in use: a browser makes 6 to a host, a few tabs, a stream each.
 pub const MAX_CONNECTIONS: usize = 64;
 /// The most event streams (`/api/v1/tail/live`) open at once. Over it a stream is answered 503.
 pub const MAX_STREAMS: usize = 16;

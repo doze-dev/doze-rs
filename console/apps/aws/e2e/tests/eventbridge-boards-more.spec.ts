@@ -9,7 +9,7 @@ import { putEvent, seedLarder } from "./eventbridge-seed";
 import { CUT, expect, test } from "./fixtures";
 
 const SHOTS = process.env.SHOTS_DIR ?? join(import.meta.dirname, "../../../../../shots-eventbridge");
-const BASE = 45458;
+const BASE = Number(process.env.E2E_BASE_PORT ?? 45458);
 const at = (b: string) => BASE + ({ firefox: 0, webkit: 10, chromium: 20 }[b] ?? 30);
 
 test.describe.configure({ mode: "serial" });

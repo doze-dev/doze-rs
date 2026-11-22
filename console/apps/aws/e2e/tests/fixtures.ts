@@ -128,3 +128,23 @@ export async function overflowX(page: Page): Promise<number> {
 
 /** A name no other test or browser uses. */
 export const unique = (prefix: string, browserName: string) => `${prefix}-${browserName}-${Date.now().toString(36)}`;
+
+/** Resolves when the page has stopped moving: its height has not changed and no request has finished for `quiet` ms. A click is
+ * decided by where the pointer is at mouse-down and at mouse-up, and a page that is still drawing an answer (a match hint, a
+ * preview, a section that folds) moves between the two: Playwright's own check is that the element's box is the same in two
+ * frames, which a page that scrolls to keep it in view satisfies. Wait for this before the click that follows an answer. */
+export async function settled(page: Page, quiet = 400): Promise<void> {
+  await page.evaluate(async (ms) => {
+    const state = () => `${document.documentElement.scrollHeight}:${performance.getEntriesByType("resource").length}`;
+    let last = state();
+    let since = performance.now();
+    while (performance.now() - since < ms) {
+      await new Promise((r) => setTimeout(r, 50));
+      const now = state();
+      if (now !== last) {
+        last = now;
+        since = performance.now();
+      }
+    }
+  }, quiet);
+}

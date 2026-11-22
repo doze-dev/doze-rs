@@ -16,7 +16,7 @@ use std::pin::Pin;
 use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex, PoisonError};
 use std::task::{Context, Poll};
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use axum::body::{Body, Bytes};
 use hyper::body::{Frame, Incoming, SizeHint};
@@ -24,6 +24,11 @@ use hyper::service::Service;
 use hyper::{Request, Response};
 use hyper_util::service::TowerToHyperService;
 use tokio_util::sync::CancellationToken;
+
+/// How long a connection must have been idle to be given up. A browser that is about to reuse a connection does so soon after it
+/// last used it; one that has been idle for a second is a leftover. (A client that sends on a connection as it is closed is
+/// reset and sends again, as it does for any idle timeout, so the longer it has been idle the less that happens.)
+pub const MIN_IDLE: Duration = Duration::from_secs(1);
 
 /// One connection: how many requests are in hand, and since when it has had none.
 #[derive(Debug)]
@@ -115,15 +120,20 @@ impl Conns {
         }
     }
 
-    /// Gives up the connection that has been idle longest (it is closed at once). Whether a place is on its way: one was given
+    /// Gives up the connection that has been idle longest, if it has been idle for [`MIN_IDLE`] (it is closed at once). Whether a place is on its way: one was given
     /// up now, or one given up before is still closing.
     pub fn give_up_one_idle(&self) -> bool {
         let open = self.open.lock().unwrap_or_else(PoisonError::into_inner);
-        // The idle time of a connection is read once: a request may begin as we look, and then it is answered before the
-        // connection closes (a connection that is closed while it is in use finishes the request in hand).
+        // A request may begin as we look: it is then answered before the connection closes (a connection that is closed while
+        // it is in use finishes the request in hand).
         let longest = open
             .values()
-            .filter(|c| c.busy.load(Ordering::Acquire) == 0 && !c.closing.load(Ordering::Acquire))
+            .filter(|c| {
+                c.busy.load(Ordering::Acquire) == 0
+                    && !c.closing.load(Ordering::Acquire)
+                    && c.now().saturating_sub(c.idle_since.load(Ordering::Acquire))
+                        >= u64::try_from(MIN_IDLE.as_millis()).unwrap_or(u64::MAX)
+            })
             .min_by_key(|c| c.idle_since.load(Ordering::Acquire));
         match longest {
             Some(c) => {
