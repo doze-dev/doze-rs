@@ -71,7 +71,7 @@ function Plans({ service, kind, gone }: { service: string; kind: string; gone?: 
           <AccountNav current="usageplans" />
           <DataTable<UsagePlan> aria-label="Usage plans" data={all} columns={columns} rowId={(p) => p.id} rowHeight={56} />
           <div className="mt-6 grid max-w-3xl gap-3">
-            <RuleHelp><b className="font-semibold text-foreground">Enforced here.</b> doze-aws counts the requests of each key and answers 429 over the throttle or the quota (<span className="font-mono">crates/aws-apigateway/src/usage.rs</span>).</RuleHelp>
+            <RuleHelp><b className="font-semibold text-foreground">Enforced here.</b> doze-aws counts the requests of each key and answers 429 over the throttle or the quota.</RuleHelp>
             <RuleHelp>An API key can sit in several plans, but a given key can be in only one plan for each stage of an API.</RuleHelp>
           </div>
         </>

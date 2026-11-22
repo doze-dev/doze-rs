@@ -39,7 +39,7 @@ export function MethodResponses({ api, resource, method: m }: { api: string; res
       </Card>
       <Card title="What the caller gets if a response is missing" testId="method-response-help">
         <div className="grid gap-3">
-          <RuleHelp>The console adds a 200 response to every method it creates. On AWS a non-proxy integration with no method response for its status answers 500 Internal server error even when the backend succeeded. doze-aws does not check method responses when it answers: the status and headers are the integration response&apos;s (<span className="font-mono">crates/aws-apigateway/src/plane/custom.rs</span>), so a missing method response is not a 500 here.</RuleHelp>
+          <RuleHelp>The console adds a 200 response to every method it creates. On AWS a non-proxy integration with no method response for its status answers 500 Internal server error even when the backend succeeded. doze-aws does not check method responses when it answers: the status and headers are the integration response&apos;s, so a missing method response is not a 500 here.</RuleHelp>
           <RuleHelp>You can&apos;t change the HTTP status code of a response; delete it and create a new one. A response&apos;s model name is stored with it and nothing reads it when requests are answered; <span className="font-mono">GetModels</span> lists the models of the API.</RuleHelp>
         </div>
       </Card>

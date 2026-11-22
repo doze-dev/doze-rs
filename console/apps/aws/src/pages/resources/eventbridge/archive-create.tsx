@@ -59,7 +59,7 @@ export function ArchiveCreate({ bus }: { bus?: string }) {
           {!f.indefinite && (
             <Field label="Days" error={tried ? (daysProblem(f) ?? undefined) : undefined}>{(id) => <div className="relative max-w-[14rem]"><Input id={id} value={f.days} onChange={(e) => set({ days: e.target.value })} inputMode="numeric" className="pr-14" data-testid="archive-days" /><span className="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 text-[13px] text-muted-foreground">days</span></div>}</Field>
           )}
-          <RuleHelp><b>Applied here:</b> doze-aws removes the events older than the retention when the next event arrives, at most once an hour (<span className="font-mono">crates/aws-eventbridge/src/archives.rs</span>).</RuleHelp>
+          <RuleHelp><b>Applied here:</b> doze-aws removes the events older than the retention when the next event arrives, at most once an hour.</RuleHelp>
         </div>
       </FormSection>
       <FormSection title="Event pattern" optional description="Only events that match are archived. Leave it empty to archive every event on the bus." testId="section-pattern">

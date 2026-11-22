@@ -63,7 +63,7 @@ export function HttpCors({ id, api }: { id: string; api: HttpApi }) {
           <section className="grid gap-3 rounded-[14px] border bg-card p-5" aria-label="When CORS is on">
             <h2 className="text-[17px] leading-6 font-semibold text-bright">When CORS is on</h2>
             <RuleHelp>API Gateway replies to preflight <span className="font-mono">OPTIONS</span> requests on its own, even with no OPTIONS route, and adds the CORS headers to integration responses.</RuleHelp>
-            <RuleHelp>A request must carry an <span className="font-mono">origin</span> header to get CORS headers back; a preflight also needs Access-Control-Request-Method. doze-aws answers a preflight with 204 (<span className="font-mono break-all">crates/aws-apigateway/src/plane/cors.rs</span>).</RuleHelp>
+            <RuleHelp>A request must carry an <span className="font-mono">origin</span> header to get CORS headers back; a preflight also needs Access-Control-Request-Method. doze-aws answers a preflight with 204.</RuleHelp>
           </section>
         </div>
       </div>

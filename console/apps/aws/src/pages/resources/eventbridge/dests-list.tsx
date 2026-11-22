@@ -97,7 +97,7 @@ function Dests({ service, kind, gone }: { service: string; kind: string; gone?: 
           />
           <Pagination className="mt-3" shown={rows.length} total={rows.length} noun={rows.length === 1 ? "API destination" : "API destinations"} />
           <p className="mt-4 max-w-3xl text-[13px] text-muted-foreground">Columns follow the fields ListApiDestinations returns: Name, ApiDestinationState, InvocationEndpoint, HttpMethod, ConnectionArn and InvocationRateLimitPerSecond.</p>
-          <RuleHelp className="mt-4 max-w-3xl">EventBridge gives the endpoint <b>5 seconds</b> to answer. A request that fails by a transport error, a 429 or a 5xx is retried under the target's retry policy, and what runs out goes to the target's dead-letter queue; any other status is the endpoint refusing the event and is not retried (<span className="font-mono">crates/aws-eventbridge/src/deliver_http.rs</span>).</RuleHelp>
+          <RuleHelp className="mt-4 max-w-3xl">EventBridge gives the endpoint <b>5 seconds</b> to answer. A request that fails by a transport error, a 429 or a 5xx is retried under the target's retry policy, and what runs out goes to the target's dead-letter queue; any other status is the endpoint refusing the event and is not retried.</RuleHelp>
           <RuleHelp className="mt-4 max-w-3xl">An account can have <b>3,000</b> API destinations by default on AWS. The rate limit defaults to <b>300</b> invocations per second.</RuleHelp>
           <LocalStatus className="mt-3 max-w-3xl" state="stored" reason={<>The rate limit is kept and returned, not enforced.</>} />
         </>

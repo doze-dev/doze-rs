@@ -179,3 +179,25 @@ says, say what the backend does and where, and say the decision (built to the ba
 | `cloudwatch__dashboard-source`, `-add-widget`, `widget-line`, `-alarm-status`, `-text` | `Update` and `Create widget` change the dashboard. | Nothing is stored until `PutDashboard`. | They change the draft on the page; `Save dashboard` writes the whole body (`PutDashboard` replaces it). The draft is held in the tab until saved or the dashboard is deleted. |
 | `cloudwatch__dashboard-add-widget` | Blurbs for each type. | Stacked area, Bar and Pie have none on the board. | The same: no blurb for those three. |
 | `cloudwatch__overview` | `Alarms by AWS service` lists AWS Lambda and Amazon API Gateway. | The rows are the AWS namespaces of the alarms that exist; the service is named from the namespace. | Built so; a namespace with no known name reads as `AWS <name>`. A dashboard named `CloudWatch-Default` is drawn under the cards, as the dashboards' note says. |
+
+## Where a page note's claim is made
+
+The notes on EventBridge and API Gateway pages say what doze-aws does in plain words, with no file name (a test, `no-source-paths.test.ts`, keeps it so). The file that makes each claim true:
+
+| Page note | Source |
+| --- | --- |
+| EventBridge connection create: an OAuth connection's token is not requested, so an API destination on it is not delivered. | `crates/aws-eventbridge/src/deliver_http.rs` |
+| EventBridge bus create: the KMS key and the dead-letter queue are kept, not used. | `crates/aws-eventbridge/src/buses.rs` |
+| EventBridge schedule fields: first slot after the rule is first seen, only with a target, nothing replayed after a pause. | `crates/aws-eventbridge/src/schedule.rs` |
+| EventBridge archive create and bus detail: retention applied on the next event, at most hourly. | `crates/aws-eventbridge/src/archives.rs` |
+| EventBridge target form and rule detail: the retry back-off and the dead-letter queue. | `crates/aws-eventbridge/src/retry.rs` |
+| EventBridge API destination create: the invocation limit is kept, not enforced. | `crates/aws-eventbridge/src/destinations.rs` |
+| EventBridge replays: the background batches and the pace. | `crates/aws-eventbridge/src/replay_run.rs` |
+| EventBridge API destinations list: the 5 second answer and which statuses are retried. | `crates/aws-eventbridge/src/deliver_http.rs` |
+| API Gateway integration responses and method responses: the regex, header mappings and body template are applied; a missing method response is not a 500. | `crates/aws-apigateway/src/plane/custom.rs` |
+| API Gateway usage plans (create, detail, list): requests counted per key by UTC day, 429 over the throttle or quota. | `crates/aws-apigateway/src/usage.rs` |
+| API Gateway HTTP CORS: the origin header and the 204 preflight. | `crates/aws-apigateway/src/plane/cors.rs` |
+| API Gateway HTTP stages: an automatic stage is served from the live API, a manual one from its deployment's snapshot. | `crates/aws-apigateway/src/plane/find.rs` |
+| API Gateway HTTP authorization: the JWT checks. | `crates/aws-apigateway/src/plane/jwt.rs` |
+| API Gateway REST create: the IP address type is kept and not read. | `crates/aws-apigateway/src/v1/apis.rs` |
+| API Gateway HTTP wizard: the IP address type is kept and not read. | `crates/aws-apigateway/src/v2/apis.rs` |

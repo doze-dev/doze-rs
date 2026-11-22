@@ -74,7 +74,7 @@ export function RestCreate() {
             { value: "dualstack", title: "Dualstack", body: "Both IPv4 and IPv6 addresses can invoke the API." },
           ]} />
           <p className="text-[13px] leading-5 text-muted-foreground">The default for a Regional API is IPv4. You can change it later.</p>
-          <LocalStatus state="stored" reason={<>doze-aws serves {region}&apos;s APIs on one local address and reads no IP address type (<span className="font-mono">crates/aws-apigateway/src/v1/apis.rs</span> keeps it).</>} />
+          <LocalStatus state="stored" reason={<>doze-aws serves {region}&apos;s APIs on one local address and reads no IP address type, so the setting is only kept.</>} />
         </div>
       </FormSection>
     </FormPage>

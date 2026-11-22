@@ -51,7 +51,7 @@ export function PlanCreate() {
           <Field label="Rate" error={tried && problem?.startsWith("Throttling") ? problem : undefined}>{(id) => <div className="flex items-center gap-3"><Input id={id} value={f.rate} onChange={(e) => set({ rate: e.target.value })} inputMode="decimal" className="w-32 font-mono" data-testid="plan-rate" /><span className="text-[13.5px] text-muted-foreground">requests per second</span></div>}</Field>
           <Field label="Burst">{(id) => <div className="flex items-center gap-3"><Input id={id} value={f.burst} onChange={(e) => set({ burst: e.target.value })} inputMode="numeric" className="w-32 font-mono" data-testid="plan-burst" /><span className="text-[13.5px] text-muted-foreground">requests</span></div>}</Field>
         </div>
-        <RuleHelp>Rate is the requests per second added to the token bucket; burst is the bucket&apos;s capacity. doze-aws enforces it per key: a request over it gets 429 (<span className="font-mono">crates/aws-apigateway/src/usage.rs</span>).{example && <> {example.name} uses {throttleWords(example.throttle)}.</>}</RuleHelp>
+        <RuleHelp>Rate is the requests per second added to the token bucket; burst is the bucket&apos;s capacity. doze-aws enforces it per key: a request over it gets 429.{example && <> {example.name} uses {throttleWords(example.throttle)}.</>}</RuleHelp>
       </FormSection>
       <FormSection title="Quota" optional testId="section-quota">
         <div className="flex flex-wrap items-end gap-4">

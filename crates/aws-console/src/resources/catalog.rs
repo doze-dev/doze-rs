@@ -89,4 +89,6 @@ pub fn descriptor(service: &str) -> Option<&'static Descriptor> {
 }
 
 #[cfg(test)]
+mod plain_words;
+#[cfg(test)]
 mod tests;

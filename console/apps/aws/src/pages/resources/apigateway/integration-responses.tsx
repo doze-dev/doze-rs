@@ -51,7 +51,7 @@ export function IntegrationResponses({ api, resource, method: m }: { api: string
             );
           })}
           <RuleHelp className="mt-4">For a non-proxy integration, set at least one integration response and make it the default. A response with an empty regex is the default response: it catches every result no other response matches. A proxy integration, such as a Lambda proxy, has no integration response to set.</RuleHelp>
-          <RuleHelp className="mt-3">doze-aws applies the regex, the header mappings and the body template when it answers (<span className="font-mono">crates/aws-apigateway/src/plane/custom.rs</span>); content handling is stored and not applied.</RuleHelp>
+          <RuleHelp className="mt-3">doze-aws applies the regex, the header mappings and the body template when it answers; content handling is stored and not applied.</RuleHelp>
         </Card>
       )}
       {creating && <CreateIntegrationResponse base={base} have={all.map((r) => r.statusCode)} statuses={Object.keys(m.methodResponses ?? {})} onClose={() => setCreating(false)} />}

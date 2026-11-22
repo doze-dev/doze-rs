@@ -68,7 +68,7 @@ export function HttpAuthorization({ id, api, mode }: { id: string; api: HttpApi;
             <>
               <div className="mb-3 flex justify-end">{create}</div>
               <DataTable<HttpAuthorizer> aria-label="Authorizers" data={all} columns={columns} rowId={(a) => a.authorizerId} />
-              <RuleHelp className="mt-4 max-w-3xl">A <b>Lambda</b> authorizer calls a function and, with simple responses, accepts <span className="font-mono">{"{\"isAuthorized\": true}"}</span>. A <b>JWT</b> authorizer checks a token&apos;s signature against the issuer&apos;s keys (RSA algorithms only), its issuer, expiry, audience and the route&apos;s scopes (<span className="font-mono">crates/aws-apigateway/src/plane/jwt.rs</span>).</RuleHelp>
+              <RuleHelp className="mt-4 max-w-3xl">A <b>Lambda</b> authorizer calls a function and, with simple responses, accepts <span className="font-mono">{"{\"isAuthorized\": true}"}</span>. A <b>JWT</b> authorizer checks a token&apos;s signature against the issuer&apos;s keys (RSA algorithms only), its issuer, expiry, audience and the route&apos;s scopes.</RuleHelp>
             </>
           )
         ) : rs.length === 0 ? (

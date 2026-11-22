@@ -64,7 +64,7 @@ export function DestCreate({ connection }: { connection?: string }) {
           {(id) => <Input id={id} value={f.rate} onChange={(e) => set({ rate: e.target.value })} placeholder="300" inputMode="numeric" className="max-w-[12rem]" data-testid="dest-rate" />}
         </Field>
         </div>
-        <LocalStatus state="stored" reason={<>doze-aws keeps the limit and does not enforce it (<span className="font-mono">crates/aws-eventbridge/src/destinations.rs</span>).</>} />
+        <LocalStatus state="stored" reason={<>doze-aws keeps the limit and does not enforce it.</>} />
       </FormSection>
       <FormSection title="Connection" description="The authorization type and credentials EventBridge uses for the endpoint." testId="section-connection">
         <RadioCards<"existing" | "new"> name="conn" label="Connection" value="existing" onChange={(v) => { if (v === "new") void navigate({ to: "/resources/$service/$second", params: { service: "eventbridge", second: "api-destinations" }, search: { do: "connection" } }); }} options={[{ value: "existing", title: "Use an existing connection", body: "Pick one from this account." }, { value: "new", title: "Create a new connection", body: "Enter its name, destination type and authorization." }]} />

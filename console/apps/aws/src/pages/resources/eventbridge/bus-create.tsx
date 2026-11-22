@@ -97,7 +97,7 @@ export function BusCreate() {
         )}
         <Field label="Dead-letter queue" optional testId="field-dlq">{(id) => <QueuePicker id={id} by="name" value={f.dlq ? f.dlq.split(":").pop()! : null} onChange={(n) => set({ dlq: n ? `arn:aws:sqs:${region}:${account}:${n}` : null })} />}</Field>
         </div>
-        <LocalStatus state="stored" reason={<>On AWS, events that can't be encrypted go to the dead-letter queue, if you set one. doze-aws keeps both settings and does not encrypt anything, and parks nothing in the queue (<span className="font-mono">crates/aws-eventbridge/src/buses.rs</span>).</>} />
+        <LocalStatus state="stored" reason={<>On AWS, events that can't be encrypted go to the dead-letter queue, if you set one. doze-aws keeps both settings and does not encrypt anything, and parks nothing in the queue.</>} />
       </FormSection>
       <FormSection key={`arc-${collapsed}`} title="Archives" optional description="Keep events so you can replay them later." collapsible={collapsed} defaultOpen={!collapsed} summary={archiveSummary(f)} testId="section-archives">
         <div className="flex items-start gap-3">

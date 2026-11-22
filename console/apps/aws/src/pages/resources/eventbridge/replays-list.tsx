@@ -104,7 +104,7 @@ function Replays({ service, kind }: { service: string; kind: string }) {
           />
           <Pagination className="mt-3" shown={rows.length} total={rows.length} noun={rows.length === 1 ? "replay" : "replays"} />
           <p className="mt-4 max-w-3xl text-[13px] text-muted-foreground">Columns follow the fields ListReplays returns: ReplayName, EventSourceArn, State, EventStartTime and EventEndTime, EventLastReplayedTime, ReplayStartTime.</p>
-          <RuleHelp className="mt-4 max-w-3xl">A replay runs in the background, in batches of events, and can be cancelled while it is <b>Starting</b> or <b>Running</b>; the pace is doze-aws's own (<span className="font-mono">crates/aws-eventbridge/src/replay_run.rs</span>). <b>Last event replayed</b> is the EventLastReplayedTime that DescribeReplay returns. Replayed events carry a <span className="font-mono">replay-name</span> field.</RuleHelp>
+          <RuleHelp className="mt-4 max-w-3xl">A replay runs in the background, in batches of events, and can be cancelled while it is <b>Starting</b> or <b>Running</b>; the pace is doze-aws's own. <b>Last event replayed</b> is the EventLastReplayedTime that DescribeReplay returns. Replayed events carry a <span className="font-mono">replay-name</span> field.</RuleHelp>
         </>
       )}
     </>
