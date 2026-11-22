@@ -66,8 +66,8 @@ export function ObjectsTab({ name, search }: { name: string; search: Search }) {
         );
       },
     },
-    ...(versions ? [{ id: "version", header: "Version ID", size: 330, min: 300, accessorFn: (r: Row) => r.versionId ?? "", meta: { mono: true }, cell: (c: { row: { original: Row } }) => c.row.original.versionId ?? "-" } satisfies DataColumn<Row>] : []),
-    { id: "modified", header: "Last modified", size: 260, min: 200, accessorFn: (r) => r.modified ?? "", cell: (c) => (c.row.original.folder ? "-" : shortDate(c.row.original.modified)) },
+    ...(versions ? [{ id: "version", header: "Version ID", size: 290, min: 280, accessorFn: (r: Row) => r.versionId ?? "", meta: { mono: true }, cell: (c: { row: { original: Row } }) => c.row.original.versionId ?? "-" } satisfies DataColumn<Row>] : []),
+    { id: "modified", header: "Last modified", size: 290, min: 270, accessorFn: (r) => r.modified ?? "", cell: (c) => (c.row.original.folder ? "-" : shortDate(c.row.original.modified)) },
     { id: "size", header: "Size", size: 110, meta: { numeric: true }, accessorFn: (r) => r.size ?? -1, cell: (c) => (c.row.original.folder || c.row.original.marker ? "-" : size(c.row.original.size)) },
     { id: "class", header: "Storage class", size: 140, min: 110, accessorFn: (r) => r.storage ?? "", cell: (c) => (c.row.original.folder || c.row.original.marker ? "-" : storageWords(c.row.original.storage)) },
   ];
