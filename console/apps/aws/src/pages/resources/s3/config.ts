@@ -67,7 +67,7 @@ export function aclRows(answer: unknown): { grantee: string; permission: string 
   return list(obj(answer).Grants).map((g) => {
     const who = obj(g.Grantee);
     const uri = str(who.URI);
-    const grantee = uri?.endsWith("/AllUsers") ? "Everyone (public access)" : uri?.endsWith("/AuthenticatedUsers") ? "Authenticated users group" : uri ? uri : str(who.DisplayName) === undefined || who.ID === obj(answer).Owner ? "Bucket owner (your AWS account)" : String(who.DisplayName);
+    const grantee = uri?.endsWith("/AllUsers") ? "Everyone (public access)" : uri?.endsWith("/AuthenticatedUsers") ? "Authenticated users group" : uri ? uri : str(who.DisplayName) === undefined || who.ID === obj(obj(answer).Owner).ID ? "Bucket owner (your AWS account)" : String(who.DisplayName);
     return { grantee, permission: String(g.Permission ?? "") };
   });
 }

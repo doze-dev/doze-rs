@@ -19,6 +19,8 @@ describe("S3 settings", () => {
     expect(encryptionConfig("aws:kms:dsse", "k", true)).toEqual({ Rules: [{ ApplyServerSideEncryptionByDefault: { SSEAlgorithm: "aws:kms:dsse", KMSMasterKeyID: "k" } }] });
     expect(ownershipOf({ OwnershipControls: { Rules: [{ ObjectOwnership: "BucketOwnerEnforced" }] } })).toBe("BucketOwnerEnforced");
     expect(ownershipOf({})).toBeNull();
+    // doze-aws names the owner "doze" on the grant too: the grant to the bucket's owner is the owner, whatever it is called.
+    expect(aclRows({ Owner: { DisplayName: "doze", ID: "x" }, Grants: [{ Grantee: { DisplayName: "doze", ID: "x", Type: "CanonicalUser" }, Permission: "FULL_CONTROL" }] })).toEqual([{ grantee: "Bucket owner (your AWS account)", permission: "FULL_CONTROL" }]);
     expect(aclRows({ Owner: { ID: "x" }, Grants: [{ Grantee: { ID: "x", Type: "CanonicalUser" }, Permission: "FULL_CONTROL" }] })).toEqual([{ grantee: "Bucket owner (your AWS account)", permission: "FULL_CONTROL" }]);
   });
 
