@@ -319,7 +319,14 @@ test("s3__notification-create and s3__lifecycle-create: each adds a rule to the 
   await page.goto(bucketUrl(n.img, "?do=lifecycle-create"));
   await page.getByTestId("lc-name").fill("prune-old-versions");
   await page.getByTestId("lc-prefix").fill("catalog/");
+  // Each action is ticked to reveal its fields; the disabled transitions say why. A tag and a prefix go under And.
+  await expect(page.getByTestId("lc-transition-current")).toBeDisabled();
+  await expect(page.getByTestId("lc-noncurrentDays")).toHaveCount(0);
+  await page.getByTestId("lc-previous-on").click();
   await page.getByTestId("lc-noncurrentDays").fill("30");
+  await page.getByTestId("lc-tags-key-0").fill("env");
+  await page.getByTestId("lc-tags-value-0").fill("dev");
+  await expect(page.getByTestId("call-panel-code")).toContainText('"Tags"');
   await expect(page.getByTestId("call-panel-code")).toContainText("abort-stale-uploads");
   await expect(page.getByTestId("call-panel-code")).toContainText("NoncurrentDays");
   await shot(page, "s3__lifecycle-create", browserName);
