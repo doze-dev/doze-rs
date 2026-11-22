@@ -1647,3 +1647,12 @@ Measured on darwin arm64 (`cargo build --profile release-app -p doze-app`, CI's 
 #112 merged: **16,958,368 B**, **657** packages. Main's line was 16,563,000 B (the app as landed, 2026-11-19); the
 rise, about +395 KB, is the CLI's finished commands, which the app carries for its own `doze` (one binary, no Go).
 The line moves to the measure plus 5%, **17,806,000 B**, under the owner's 20 MB ceiling; packages stay at most 660.
+
+## The lean idle line and runner noise (2026-11-22)
+
+`weight-lean` failed #110's run 44946494610 at 7,832 KB idle (samples 7,744, 7,900, 7,832) against the 7,749 KB line, with a lean
+binary byte for byte the same as green runs that idled at 7,412 KB. Over the 35 CI runs of that binary (7,104,784 B, 121 packages)
+the idle medians run from 7,104 to 7,832 KB (median 7,404 KB) and single samples from 7,040 to 7,900 KB: nothing in the code moves,
+the runner does (issue #36 saw the same). A line of a measurement plus 5% sits inside that noise and knocks PRs out of the queue.
+The line is now the median plus 5% plus the run-to-run spread of the medians: 7,404 x 1.05 + 728 = **8,502 KB**. A real rise still
+shows: the next lean idle line moves only with a measured median over several runs, and the spread is added again.
