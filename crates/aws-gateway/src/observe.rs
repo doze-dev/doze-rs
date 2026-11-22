@@ -238,6 +238,33 @@ pub(crate) fn input(parts: &Parts, entry: &Entry, call: &aws_wire::service::Call
     });
 }
 
+/// The request's input was refused when it was decoded (a name the model's pattern does not allow): there is no decoded input to read
+/// what it acted on from, so the member that names it is read from the JSON body as it came, and a refused call still says what it
+/// named (`pick lists!`). Nothing is read when the call already named a resource, or the body is not a JSON object.
+pub(crate) fn refused_input(parts: &Parts, body: &[u8]) {
+    note(parts, |n| {
+        if !n.resource.is_empty() {
+            return;
+        }
+        let Ok(serde_json::Value::Object(map)) = serde_json::from_slice::<serde_json::Value>(body)
+        else {
+            return;
+        };
+        for member in aws_peers::naming::MEMBERS {
+            let named = map
+                .iter()
+                .find(|(k, _)| k.eq_ignore_ascii_case(member))
+                .and_then(|(_, v)| v.as_str())
+                .filter(|v| !v.is_empty());
+            if let Some(value) = named {
+                n.member = member;
+                value.clone_into(&mut n.resource);
+                return;
+            }
+        }
+    });
+}
+
 /// The request is answered with `error`.
 pub(crate) fn failed(parts: &Parts, error: &ApiError) {
     note(parts, |n| {

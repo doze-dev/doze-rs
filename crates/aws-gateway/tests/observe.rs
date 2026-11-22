@@ -75,6 +75,7 @@ struct Told {
     would_be_denied: bool,
     message: String,
     answer_bytes: Option<u32>,
+    resource: String,
 }
 
 #[derive(Debug, Default)]
@@ -93,6 +94,7 @@ impl Observer for Tape {
             would_be_denied: call.would_be_denied,
             message: call.message.to_owned(),
             answer_bytes: call.answer_bytes,
+            resource: call.resource.to_owned(),
         });
     }
 }
@@ -285,5 +287,26 @@ async fn an_error_answer_is_told_with_the_service_s_words_and_the_length_it_decl
     // A success says nothing of the kind, and an empty JSON answer is two bytes.
     assert_eq!(told[1].message, "");
     assert_eq!(told[1].answer_bytes, Some(2));
+    running.shutdown().await;
+}
+
+#[tokio::test]
+async fn a_call_the_model_refuses_still_says_what_it_named() {
+    let (running, addr, tape) = start(true).await;
+    // A name the model's pattern does not allow is refused when the input is decoded, before any service sees it.
+    let (refused, _) = call(
+        addr,
+        "AmazonSQS.CreateQueue",
+        "sqs",
+        r#"{"QueueName":"pick lists!"}"#,
+    )
+    .await;
+    // A valid name the service does not know names it too, as before.
+    let (missing, _) = call(addr, "AmazonSQS.GetQueueUrl", "sqs", r#"{"QueueName":"q"}"#).await;
+    assert_eq!((refused, missing), (400, 400));
+    let told = tape.0.lock().unwrap().clone();
+    assert_eq!(told[0].action, "CreateQueue");
+    assert_eq!(told[0].resource, "pick lists!", "{:?}", told[0]);
+    assert_eq!(told[1].resource, "q");
     running.shutdown().await;
 }
