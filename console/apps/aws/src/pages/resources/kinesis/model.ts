@@ -2,6 +2,7 @@
 // (the service's own limits), the sharing policy, and the requests the forms make.
 import type { FieldValue } from "../../../api/types/FieldValue";
 import type { ResourceRow } from "../../../api/types/ResourceRow";
+import { timeMs } from "../model";
 
 /** `1 stream`, `3 streams`. */
 export const count = (n: number, one: string, many = `${one}s`): string => `${n.toLocaleString("en-US")} ${n === 1 ? one : many}`;
@@ -15,7 +16,15 @@ export const statusWords = (s: string | null): string => (s ? s.charAt(0) + s.sl
 
 /** A stream as its list row says it (the descriptor's columns: status, capacity mode, created, consumers). */
 export type StreamRow = { name: string; status: string | null; mode: string | null; created: string | null; consumers: number };
-export const streamRows = (rows: readonly ResourceRow[]): StreamRow[] => rows.map((r) => ({ name: r.name, status: r.cells[0], mode: r.cells[1], created: r.cells[2], consumers: Number(r.cells[3] ?? 0) || 0 }));
+/** The streams in the order they were created (the oldest first; ListStreams answers by name). Streams with no known time keep their place after the others. */
+export const streamRows = (rows: readonly ResourceRow[]): StreamRow[] => {
+  const made = rows.map((r) => ({ name: r.name, status: r.cells[0], mode: r.cells[1], created: r.cells[2], consumers: Number(r.cells[3] ?? 0) || 0 }));
+  const at = (r: StreamRow) => (r.created ? (timeMs(r.created) ?? Number.POSITIVE_INFINITY) : Number.POSITIVE_INFINITY);
+  return made.map((r, i) => ({ r, i })).sort((a, b) => (at(a.r) === at(b.r) ? a.i - b.i : at(a.r) - at(b.r))).map((x) => x.r);
+};
+
+/** A figure typed with thousands separators (`3,000`), as a number. */
+export const figure = (text: string): number => Number(text.replace(/,/g, ""));
 
 /** The line over the list: how many, in which modes, and who consumes. `names` are the consumers' names by stream, as far as they are known. */
 export function listSentence(rows: readonly StreamRow[], names: Readonly<Record<string, readonly string[]>>): string {

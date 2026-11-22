@@ -9,17 +9,17 @@ import { Input } from "@doze/ui/components/ui/input";
 import { Label } from "@doze/ui/components/ui/label";
 import { ApiFailure } from "@doze/ui/lib/api";
 import { useAbout } from "../../../api/queries";
-import { useResourceList } from "../../../api/resources";
+import { useResourceDetail, useResourceList } from "../../../api/resources";
 import { Field, FormPage, FormSection, RadioCards, RuleHelp, TAG_RULES, useKindOp, useServiceCrumbs, useTags } from "../../../kit";
 import { STREAMS } from "./api";
-import { type CreateForm, type Mode, capacityWords, createInput, emptyCreate, estimate, list, nameProblem, shardsProblem } from "./model";
+import { type CreateForm, type Mode, capacityWords, count, createInput, emptyCreate, estimate, figure, list, nameProblem, shardsProblem, streamOf, streamRows } from "./model";
 
 export function KinesisCreate() {
   const navigate = useNavigate();
   const base = useServiceCrumbs("kinesis");
   const [f, setF] = useState<CreateForm>(emptyCreate);
   const [rows, setRows] = useState<KeyValueRow[]>([newRow()]);
-  const [est, setEst] = useState({ size: "2", rate: "3000", apps: "2" });
+  const [est, setEst] = useState({ size: "2", rate: "3,000", apps: "2" });
   const [tried, setTried] = useState(false);
   const set = (patch: Partial<CreateForm>) => {
     setF((x) => ({ ...x, ...patch }));
@@ -31,8 +31,11 @@ export function KinesisCreate() {
   const about = useAbout().data;
   const existing = useMemo(() => (lister.data?.pages.flatMap((p) => p.rows) ?? []).map((r) => r.name), [lister.data]);
   const sample = existing[0] ?? "";
+  const lives = useMemo(() => streamRows(lister.data?.pages.flatMap((p) => p.rows) ?? []).find((r) => r.mode === "PROVISIONED")?.name ?? "", [lister.data]);
+  const livesOn = useResourceDetail("kinesis", "streams", lives, lives !== "" && f.mode === "PROVISIONED");
+  const livesShards = livesOn.data ? streamOf(lives, livesOn.data.fields).shards : null;
   const sampleTags = useTags({ service: "kinesis", kind: "streams", name: sample }, sample !== "");
-  const estimated = estimate(Number(est.size), Number(est.rate), Number(est.apps));
+  const estimated = estimate(figure(est.size), figure(est.rate), figure(est.apps));
   const input = useMemo(() => createInput({ ...f, tags: rows }), [f, rows]);
   const problems = { name: nameProblem(f.name), shards: f.mode === "PROVISIONED" ? shardsProblem(f.shards) : null };
   const bad = Object.values(problems).find(Boolean) ?? (rowsValid(rows, TAG_RULES) ? null : "Fix the tags first.");
@@ -72,7 +75,7 @@ export function KinesisCreate() {
         {f.mode === "ON_DEMAND" ? (
           <RuleHelp>An on-demand stream starts with <b>4 shards</b> in doze-aws. Nothing throttles here, so capacity never limits a write.</RuleHelp>
         ) : (
-          <Field label="Number of shards" error={tried ? (problems.shards ?? undefined) : undefined} help={<>The capacity of the stream is the sum of its shards. In AWS each shard takes writes of up to <b>1 MiB per second</b> and <b>1,000 records per second</b> and serves reads of up to <b>2 MiB per second</b>, so {shards > 0 ? capacityWords(shards) : "N shards is N MiB per second in"}. <span className="text-muted-foreground">doze-aws does not throttle, so these limits are for sizing only.</span></>}>
+          <Field label="Number of shards" error={tried ? (problems.shards ?? undefined) : undefined} help={<>The capacity of the stream is the sum of its shards. In AWS each shard takes writes of up to <b>1 MiB per second</b> and <b>1,000 records per second</b> and serves reads of up to <b>2 MiB per second</b>, so {shards > 0 ? capacityWords(shards) : "N shards is N MiB per second in"}. <span className="text-muted-foreground">doze-aws does not throttle, so these limits are for sizing only.</span>{lives !== "" && livesShards !== null ? <> <b className="font-mono font-semibold text-bright">{lives}</b> runs on {count(livesShards, "shard")}.</> : null}</>}>
             {(id) => <Input id={id} value={f.shards} onChange={(e) => set({ shards: e.target.value })} inputMode="numeric" autoComplete="off" className="max-w-[12rem]" data-testid="stream-shards" />}
           </Field>
         )}
@@ -83,12 +86,12 @@ export function KinesisCreate() {
             {([["size", "Average record size", "KB"], ["rate", "Max records written", "per second"]] as const).map(([k, label, unit]) => (
               <div key={k} className="grid gap-1.5">
                 <Label htmlFor={`est-${k}`}>{label}</Label>
-                <div className="relative"><Input id={`est-${k}`} value={est[k]} onChange={(e) => { const next = { ...est, [k]: e.target.value }; setEst(next); const e2 = estimate(Number(next.size), Number(next.rate), Number(next.apps)); if (e2) set({ shards: String(e2.shards) }); }} inputMode="numeric" autoComplete="off" className="pr-24" data-testid={`est-${k}`} /><span className="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 text-[13px] text-muted-foreground">{unit}</span></div>
+                <div className="relative"><Input id={`est-${k}`} value={est[k]} onChange={(e) => { const next = { ...est, [k]: e.target.value }; setEst(next); const e2 = estimate(figure(next.size), figure(next.rate), figure(next.apps)); if (e2) set({ shards: String(e2.shards) }); }} inputMode="numeric" autoComplete="off" className="pr-24" data-testid={`est-${k}`} /><span className="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 text-[13px] text-muted-foreground">{unit}</span></div>
               </div>
             ))}
             <div className="grid gap-1.5">
               <Label htmlFor="est-apps">Number of consuming applications</Label>
-              <Input id="est-apps" value={est.apps} onChange={(e) => { const next = { ...est, apps: e.target.value }; setEst(next); const e2 = estimate(Number(next.size), Number(next.rate), Number(next.apps)); if (e2) set({ shards: String(e2.shards) }); }} inputMode="numeric" autoComplete="off" data-testid="est-apps" />
+              <Input id="est-apps" value={est.apps} onChange={(e) => { const next = { ...est, apps: e.target.value }; setEst(next); const e2 = estimate(figure(next.size), figure(next.rate), figure(next.apps)); if (e2) set({ shards: String(e2.shards) }); }} inputMode="numeric" autoComplete="off" data-testid="est-apps" />
             </div>
           </div>
           <div className="grid grid-cols-[minmax(9rem,13rem)_minmax(0,1fr)] gap-y-1 text-[13.5px]" data-testid="est-result">

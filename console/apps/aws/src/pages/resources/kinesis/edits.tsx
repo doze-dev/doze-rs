@@ -90,7 +90,7 @@ export function EncryptionEdit({ s, onClose }: Edit) {
           {(id) => <Select value={key} onValueChange={setKey}><SelectTrigger id={id} className="w-full bg-card font-mono" data-testid="sse-key"><SelectValue placeholder="Choose a key" /></SelectTrigger><SelectContent>{options.map((o) => <SelectItem key={o} value={o} className="font-mono">{o}</SelectItem>)}</SelectContent></Select>}
         </Field>
       )}
-      <RuleHelp><b>Stored, not applied locally.</b> On calls StartStreamEncryption with the key, off calls StopStreamEncryption. The key id is kept and shown, but records are not encrypted with it. The key must exist and be enabled, or producers and consumers are refused.</RuleHelp>
+      <RuleHelp><b>Stored, not applied locally.</b> On calls StartStreamEncryption with the key, off calls StopStreamEncryption. The key id is kept and shown, but records are not encrypted with it. doze-aws takes any key id here and does not look the key up, so a key that does not exist is not refused.</RuleHelp>
     </SectionEdit>
   );
 }

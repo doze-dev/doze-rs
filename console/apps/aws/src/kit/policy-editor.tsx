@@ -12,7 +12,7 @@ export function PolicyEditor({ value, onChange, kind = "identity", label = "Poli
   const parses = check.statements.length > 0 || check.problems.every((p) => !p.startsWith("It is not JSON") && p !== "The policy is empty.");
   return (
     <div className={cn("grid gap-4", className)} data-slot="policy-editor" data-testid={testId}>
-      <JsonEditor value={value} onChange={onChange} label={label} help={help} rows={rows} testId={`${testId}-json`} />
+      <JsonEditor value={value} onChange={onChange} label={label} help={help} rows={rows} testId={`${testId}-json`} highlight />
       {parses && check.problems.length > 0 && (
         <ul className="grid gap-1 rounded-xl border border-warn/30 bg-warn/10 px-4 py-3 text-[13.5px] text-foreground" data-testid={`${testId}-problems`}>
           {check.problems.map((p) => (

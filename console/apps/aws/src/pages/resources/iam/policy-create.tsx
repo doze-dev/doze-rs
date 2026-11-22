@@ -16,9 +16,12 @@ import { useAbout } from "../../../api/queries";
 import { useResourceList } from "../../../api/resources";
 import { Field, FormPage, FormSection, TAG_RULES, callKindOp } from "../../../kit";
 import { POLICIES, useRefresh } from "./api";
-import { lacksResource, list, nameProblem, type Permission, permissions, starterPolicy, suggestedResource } from "./model";
-import { crumbs, KINDS, Note } from "./parts";
+import { lacksResource, list, nameProblem, type Permission, permissions, starterPolicy, suggestedResource, takenProblem } from "./model";
+import { Breakable, crumbs, KINDS, Note } from "./parts";
+import { Segmented } from "../../../kit";
 import { PolicyJson, policyErrors } from "./policy-json";
+import { VisualPolicyEditor } from "./visual-policy-editor";
+import { blocksOf } from "./visual-policy";
 
 const STEPS = [{ id: "editor", label: "Policy editor" }, { id: "review", label: "Review and create" }];
 
@@ -29,6 +32,8 @@ export function PolicyCreate() {
   const account = about?.account ?? "000000000000";
   const [doc, setDoc] = useState(() => starterPolicy(`arn:aws:sqs:${about?.region ?? "us-east-1"}:${account}:pick-lists`));
   const [step, setStep] = useState(0);
+  const [mode, setMode] = useState<"visual" | "json">("json");
+  const [asked, setAsked] = useState(false);
   const [tried, setTried] = useState(false);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
@@ -38,8 +43,9 @@ export function PolicyCreate() {
   const existing = useResourceList("iam", "policies");
   const taken = useMemo(() => existing.data?.pages.flatMap((p) => p.rows).map((r) => r.label) ?? [], [existing.data]);
   const errors = policyErrors(doc, "identity");
+  const visual = useMemo(() => blocksOf(doc), [doc]);
   const blocked = tried && step === 0 && errors.length > 0;
-  const problem = nameProblem(name, "policy") ?? (taken.includes(name) ? `A policy named ${name} already exists.` : null);
+  const problem = nameProblem(name, "policy") ?? takenProblem("policy", name, taken);
   const suggestion = suggestedResource(doc, account, about?.region ?? "us-east-1");
   const back = () => void navigate({ to: "/resources/$service/$second", params: { service: "iam", second: "policies" }, search: {} });
   const input = { PolicyName: name || "(next step)", PolicyDocument: doc, ...(description.trim() ? { Description: description.trim() } : {}), ...(filled(tags).length > 0 ? { Tags: filled(tags).map((t) => ({ Key: t.key, Value: t.value })) } : {}) };
@@ -61,7 +67,7 @@ export function PolicyCreate() {
   const columns: DataColumn<Permission>[] = [
     { id: "service", header: "Service", size: 180, accessorFn: (r) => r.service, cell: (c) => c.row.original.service },
     { id: "actions", header: "Actions", size: 320, accessorFn: (r) => r.actions, cell: (c) => <span className="font-mono text-[13px] break-all">{c.row.original.actions}</span> },
-    { id: "resource", header: "Resource", accessorFn: (r) => r.resource, cell: (c) => <span className="block font-mono text-[13px] break-all whitespace-normal" title={c.row.original.resource}>{c.row.original.resource}</span> },
+    { id: "resource", header: "Resource", accessorFn: (r) => r.resource, cell: (c) => <Breakable text={c.row.original.resource} className="block whitespace-normal" /> },
   ];
   const blockedPanel = (
     <aside className="min-w-0 rounded-[14px] border bg-card p-5" aria-label="Nothing was created" data-testid="nothing-created">
@@ -72,8 +78,9 @@ export function PolicyCreate() {
   return (
     <FormPage
       title="Create policy"
-      sub={step === 0 ? "Write the policy in the JSON editor. You name it on the next step." : "Name the policy and check the permissions it grants. Then create it; you attach it to users, groups or roles afterwards."}
+      sub={step === 0 ? "Write the policy in the JSON editor, or build it in the visual editor. You name it on the next step." : "Name the policy and check the permissions it grants. Then create it; you attach it to users, groups or roles afterwards."}
       crumbs={[...crumbs(KINDS.policies), { label: "Create policy", to: "" }]}
+      stepsAfterTitle
       request={{ service: "iam", operation: "CreatePolicy", input }}
       panel={blocked ? blockedPanel : undefined}
       callNote={step === 0 ? "Nothing is created until Create policy on the review step. A customer managed policy keeps up to five versions." : "The new policy starts at version v1, which is its default version. Attach it afterwards from the policy's Actions menu or from a user, group or role."}
@@ -88,11 +95,11 @@ export function PolicyCreate() {
       testId="policy-create"
     >
       {step === 0 && (
-        <FormSection title="Policy editor" description={blocked ? undefined : "Write the policy in the JSON editor. IAM validates the document as you edit it, and you must fix its errors before you continue."} testId="section-editor">
+        <FormSection title="Policy editor" description={blocked ? undefined : "You can switch between Visual and JSON at any time. Choosing Next in the visual editor can restructure the policy. IAM validates the document as you edit it, and you must fix its errors before you continue."} actions={<Segmented<"visual" | "json"> value={mode} onChange={(m) => { if (m === "visual" && "why" in visual) { setAsked(true); return; } setAsked(false); setMode(m); }} label="Editor" options={[{ value: "visual", label: "Visual" }, { value: "json", label: "JSON" }]} testId="editor-mode" />} testId="section-editor">
           {blocked && <p className="text-[14px] font-medium text-bad" role="alert" data-testid="must-fix">You must fix the problem before you can continue.</p>}
-          <PolicyJson value={doc} onChange={(v) => { setDoc(v); }} kind="identity" label="JSON" rows={16} extra={blocked && lacksResource(doc) ? (
-            <div className="grid gap-1 text-[13.5px] leading-[21px]" data-testid="resource-hint">
-              <p className="font-mono text-[12.5px] font-medium text-bad">MalformedPolicyDocument</p>
+          {mode === "json" && asked && "why" in visual && <p className="text-[13px] text-muted-foreground" data-testid="visual-unavailable">The visual editor cannot show this policy yet: {visual.why}</p>}
+          <PolicyJson value={doc} onChange={(v) => { setDoc(v); }} kind="identity" label="JSON" rows={16} errorCode={blocked ? "MalformedPolicyDocument" : undefined} editor={mode === "visual" && "blocks" in visual ? <VisualPolicyEditor key="visual" initial={visual.blocks} onChange={setDoc} /> : undefined} extra={blocked && lacksResource(doc) ? (
+            <div className="grid gap-1 border-l-2 border-input pl-3.5 text-[13.5px] leading-[21px]" data-testid="resource-hint">
               <p className="text-foreground">An identity policy statement names what it applies to: add a Resource (or NotResource) element.{suggestion ? <> For pick-lists that is <span className="font-mono break-all">{suggestion}</span>.</> : null}</p>
             </div>
           ) : undefined} />

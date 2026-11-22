@@ -7,6 +7,7 @@ import { lazy, Suspense, useMemo, useState } from "react";
 import { Emphasis } from "@doze/ui/components/app/emphasis";
 import { RefreshControl } from "@doze/ui/components/app/refresh-control";
 import { ResultBanner } from "@doze/ui/components/app/result-banner";
+import { Button } from "@doze/ui/components/ui/button";
 import { Skeleton } from "@doze/ui/components/ui/skeleton";
 import { clockUtc, dateTimeUtc } from "@doze/ui/lib/format";
 import { useDelete, useResourceDetail } from "../../../api/resources";
@@ -104,6 +105,7 @@ function GroupView({ d, updatedAt, fetching, refresh }: { d: ResourceDetail; upd
         tab={tab}
         onTab={(id) => go(id === "streams" ? {} : { tab: id })}
         onVerb={onVerb}
+        after={<><Button type="button" variant="outline" className="bg-card" onClick={() => go({ view: "metric-filter" })} data-testid="open-metric-filter">Create metric filter</Button><Button type="button" variant="outline" className="bg-card" onClick={() => go({ view: "subscription" })} data-testid="open-subscription">Subscription filters (Lambda)</Button></>}
         actions={[
           { label: "Create metric filter", onSelect: () => go({ view: "metric-filter" }) },
           { label: "Subscription filters (Lambda)", onSelect: () => go({ view: "subscription" }) },

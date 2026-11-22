@@ -62,6 +62,25 @@ pub(crate) fn ms_seq(ms: i64) -> u128 {
     u128::try_from(ms).unwrap_or(0) << SEQ_SHIFT
 }
 
+/// How a sequence number is written on the wire. AWS's are 56 digits (`49` and fifty-four more), and a client may keep one as a
+/// fixed-width string (a column, a checkpoint), so ours are the same width: `49`, then the number zero-padded to 54 digits. A fixed
+/// width keeps the order of the numbers as the order of the strings. (The model only bounds a sequence number to 129 digits.)
+pub(crate) fn seq_wire(seq: u128) -> String {
+    format!("49{seq:054}")
+}
+
+/// The number a sequence number written by `seq_wire` stands for. A plain number (digits only, that fits) is taken as it is, so a
+/// number a client wrote down before the width changed still reads.
+pub(crate) fn seq_parse(text: &str) -> Option<u128> {
+    if !text.bytes().all(|b| b.is_ascii_digit()) {
+        return None;
+    }
+    match text.strip_prefix("49") {
+        Some(rest) if text.len() == 56 => rest.parse().ok(),
+        _ => text.parse().ok(),
+    }
+}
+
 pub(crate) fn shard_name(id: u32) -> String {
     format!("shardId-{id:012}")
 }

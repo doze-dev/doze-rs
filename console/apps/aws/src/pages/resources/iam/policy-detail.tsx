@@ -1,17 +1,18 @@
 // A policy's page (iam__policy-detail): what it is attached to said in a sentence, the strip from its entities to what it reaches, the Summary, and
 // the tabs Permissions (the document as a table or JSON), Entities attached, Tags and Policy versions. `?view=version` is Create policy version.
 import { useNavigate, useSearch } from "@tanstack/react-router";
-import { lazy, Suspense, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { RefreshControl } from "@doze/ui/components/app/refresh-control";
 import { Skeleton } from "@doze/ui/components/ui/skeleton";
 import { useUrlParam } from "@doze/ui/hooks/use-url-param";
+import { useAbout } from "../../../api/queries";
 import { RecentCalls, ResourcePage, WiredStrip, type Wired } from "../../../kit";
 import { POLICIES, useRead } from "./api";
 import { AttachTo } from "./attach-to";
 import { DeleteEntity } from "./delete-entity";
 import { Entity } from "./entity";
 import { useToList } from "./list-parts";
-import { isAwsManaged, type Doc } from "./model";
+import { isAwsManaged, policyArnOfName, type Doc } from "./model";
 import { fieldOf, Say, Summary } from "./parts";
 import { docResources } from "./policy-data";
 import { EntitiesTab, PermissionsTab, TagsTab, VersionsTab, type Entities, type Versions } from "./policy-tabs";
@@ -21,6 +22,14 @@ const NewVersion = lazy(() => import("./policy-version-new").then((m) => ({ defa
 
 export function PolicyDetail({ name }: { service: string; kind: string; name: string }) {
   const search = useSearch({ strict: false }) as { view?: string };
+  const navigate = useNavigate();
+  const account = useAbout().data?.account;
+  const target = account === undefined ? null : policyArnOfName(account, name);
+  // A bare name (typed, bookmarked) is taken to the policy's page, which is at its ARN; it is not asked of the API as a name.
+  useEffect(() => {
+    if (target !== null) void navigate({ to: "/resources/$service/$kind/$name", params: { service: "iam", kind: "policies", name: target }, search, replace: true });
+  }, [target, navigate, search]);
+  if (policyArnOfName("0", name) !== null) return <Skeleton className="h-96 rounded-[14px]" />;
   if (search.view === "version") return <Suspense fallback={<Skeleton className="h-96 rounded-[14px]" />}><Entity kind="policies" name={name} render={(d) => <NewVersion arn={name} label={fieldOf(d, "Name") ?? name} doc={fieldOf(d, "Document") ?? "{}"} />} /></Suspense>;
   return <Entity kind="policies" name={name} render={(d, t) => <PolicyView d={d} {...t} />} />;
 }

@@ -27,7 +27,7 @@ import { InlinePolicy } from "./inline-policy";
 import { docResources, usePolicyDocs } from "./policy-data";
 import { usePolicyOptions } from "./policy-chooser";
 import { roleSentence } from "./sentences";
-import { TrustNote } from "./trust-note";
+import { FEDERATED_WORDS, TrustNote } from "./trust-note";
 
 const TrustEdit = lazy(() => import("./role-trust-edit").then((m) => ({ default: m.RoleTrustEdit })));
 
@@ -66,6 +66,9 @@ function RoleView({ d, updatedAt, fetching, refresh }: { d: Parameters<Parameter
   const grants = policies.length === 1 && inlines.length === 0 && docs.size === 1 ? permissions([...docs.values()][0]!) : [];
   const only = grants.length === 1 && !grants[0]!.actions.includes(",") ? { action: grants[0]!.actions, resource: grants[0]!.resource.replace("arn:aws:s3:::", "") } : null;
   const users = trustPrincipals(trust).filter((p) => p.kind === "user");
+  // How much of the trust policy is federated (web identity or SAML): none, some, or all of its principals.
+  const federated = trustPrincipals(trust).filter((p) => p.kind === "federated").length;
+  const federation: "none" | "some" | "all" = federated === 0 ? "none" : federated === trustPrincipals(trust).length ? "all" : "some";
   const reaches = docResources(docs.values()).slice(0, 3);
   const wired: Wired[] = [
     ...users.slice(0, 3).map((p) => ({ label: "user", to: { service: "iam", kind: "users", name: p.label }, note: null })),
@@ -114,8 +117,8 @@ function RoleView({ d, updatedAt, fetching, refresh }: { d: Parameters<Parameter
       label: "Trust relationships",
       render: () => (
         <Card title="Trusted entities" lede="Entities that can assume this role under the conditions in the trust policy." actions={<Button type="button" variant="outline" className="bg-card" onClick={() => void navigate({ to: "/resources/$service/$kind/$name", params: { service: "iam", kind: "roles", name }, search: { view: "trust" } })} data-testid="edit-trust"><PencilIcon /> Edit trust policy</Button>} testId="trust-card">
-          <CodeBlock text={`// the role's trust policy\n${JSON.stringify(parse(trust), null, 2)}`} wrap={false} testId="trust-json" />
-          <TrustNote extra={<>doze-aws stores the trust policy exactly as it was written and returns it unchanged.</>} />
+          <CodeBlock text={`// the role's trust policy\n${JSON.stringify(parse(trust), null, 2)}`} wrap={false} testId="trust-json" json />
+          <TrustNote federated={federation === "all"} extra={<>doze-aws stores the trust policy exactly as it was written and returns it unchanged.{federation === "some" ? ` For the federated principals: ${FEDERATED_WORDS}` : ""}</>} />
         </Card>
       ),
     },

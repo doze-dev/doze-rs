@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { bounds, clock, day, minutes, rangeWords, spanLine, spanWords } from "./range";
+import { DEFAULT_ZONE, bounds, clock, day, minutes, rangeWords, spanLine, spanWords } from "./range";
 
 const T = Date.UTC(2026, 10, 8, 8, 14, 3, 211);
 
@@ -19,6 +19,7 @@ describe("a range", () => {
 });
 
 describe("times in a zone", () => {
+  test("a stream's events open in the person's own zone", () => expect(DEFAULT_ZONE).toBe("local"));
   test("UTC", () => {
     expect(clock(T, "utc")).toBe("08:14:03.211");
     expect(day(T, "utc")).toBe("2026-11-08");

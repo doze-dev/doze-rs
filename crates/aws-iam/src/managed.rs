@@ -122,7 +122,13 @@ impl Core {
         let name = r.s("PolicyName");
         let path = r.opt("Path").unwrap_or("/");
         let arn = arn_of(r.account(), "policy", path, name);
-        if self.policies.get(&arn).is_some() {
+        // Names are not distinguished by case, here as for a user: `Read` and `read` in one path are one name.
+        if self.policies.get(&arn).is_some()
+            || self
+                .policies
+                .iter()
+                .any(|(_, p)| !p.aws_managed && p.path == path && p.name.eq_ignore_ascii_case(name))
+        {
             // (memory)
             return Err(ApiError::modeled(
                 "EntityAlreadyExistsException",

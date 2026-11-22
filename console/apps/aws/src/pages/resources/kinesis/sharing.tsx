@@ -2,11 +2,10 @@
 // policy the stream carries. doze-aws stores it and answers GetResourcePolicy with it; it evaluates nothing from it (crates/aws-kinesis/src/settings.rs).
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
-import { PlusIcon, ShareIcon, TrashIcon } from "lucide-react";
+import { PlusIcon, TrashIcon } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Alert } from "@doze/ui/components/app/alert";
 import { CodeBlock } from "@doze/ui/components/app/code-block";
-import { EmptyTab } from "@doze/ui/components/app/empty-tab";
 import { Badge } from "@doze/ui/components/ui/badge";
 import { Button } from "@doze/ui/components/ui/button";
 import { Checkbox } from "@doze/ui/components/ui/checkbox";
@@ -20,8 +19,8 @@ import { on, useStreamWrite } from "./api";
 import { READ_ACTIONS, SHARE_ACTIONS, noPolicy, principalProblem, sharePolicy, statementsOf, type Stream } from "./model";
 
 /** The stream's policy as the service gives it (`{}` when it has none). */
-export function usePolicy(name: string) {
-  return useQuery({ queryKey: ["resources", "deep", "kinesis", "streams", name, "policy"], queryFn: () => callOp<{ Policy?: string }>(on(name), "GetResourcePolicy", {}), retry: false });
+export function usePolicy(name: string, enabled = true) {
+  return useQuery({ queryKey: ["resources", "deep", "kinesis", "streams", name, "policy"], queryFn: () => callOp<{ Policy?: string }>(on(name), "GetResourcePolicy", {}), retry: false, enabled });
 }
 
 export function SharingTab({ s, create }: { s: Stream; create: () => void }) {
@@ -32,12 +31,17 @@ export function SharingTab({ s, create }: { s: Stream; create: () => void }) {
   if (!q.data) return <p className="text-[13.5px] text-muted-foreground">Reading the policy…</p>;
   if (noPolicy(q.data.Policy)) {
     return (
-      <div className="grid gap-4">
-      <h2 className="text-[17px] leading-6 font-semibold tracking-[-0.01em] text-bright">Data stream sharing</h2>
-      <EmptyTab icon={ShareIcon} title="No resource policy" testId="sharing-empty" action={<Button type="button" variant="outline" className="bg-card" onClick={create} data-testid="sharing-create"><PlusIcon /> Create sharing policy</Button>}>
-        No resource policy is attached, so no other account or principal has been given access to this stream.
-      </EmptyTab>
-      </div>
+      <section className="rounded-[14px] border bg-card p-6 lg:p-7" data-testid="sharing-empty">
+        <h2 className="text-[17px] leading-6 font-semibold tracking-[-0.01em] text-bright">Data stream sharing</h2>
+        <p className="mt-1 text-[13.5px] text-muted-foreground">A resource-based policy on the stream says which identities may use it and which actions they may call.</p>
+        <dl className="mt-3 grid grid-cols-[minmax(9rem,12rem)_minmax(0,1fr)]">
+          <dt className="border-b py-3.5 pr-4 text-[13.5px] text-muted-foreground">Resource-based policy</dt>
+          <dd className="min-w-0 border-b py-3.5 text-[13.5px] text-bright" data-testid="field-Resource-based policy">None attached to {s.name}.</dd>
+        </dl>
+        <p className="mt-3 text-[13.5px] text-muted-foreground">No resource policy is attached, so no other account or principal has been given access to this stream.</p>
+        <div className="mt-4"><Button type="button" onClick={create} data-testid="sharing-create"><PlusIcon /> Create sharing policy</Button></div>
+        <RuleHelp className="mt-4">A policy you attach is stored and GetResourcePolicy reads it back. <span className="text-muted-foreground">doze-aws's IAM does not evaluate a stream's resource policy, so it neither grants nor denies a call here, whichever IAM mode the top bar shows.</span></RuleHelp>
+      </section>
     );
   }
   const policy = q.data.Policy ?? "";
@@ -60,7 +64,7 @@ export function SharingTab({ s, create }: { s: Stream; create: () => void }) {
             </li>
           ))}
         </ol>
-        <div className="mt-4"><CodeBlock text={shown} wrap={false} max="max-h-96" testId="sharing-json" /></div>
+        <div className="mt-4"><CodeBlock text={shown} wrap={false} max="max-h-96" testId="sharing-json" json /></div>
         <RuleHelp className="mt-4">The policy is stored and GetResourcePolicy reads it back. <span className="text-muted-foreground">doze-aws's IAM does not evaluate a stream's resource policy, so it neither grants nor denies a call here.</span></RuleHelp>
       </section>
       <PlainConfirm open={asking} onOpenChange={setAsking} title="Delete sharing policy" call="DeleteResourcePolicy" pending={del.isPending} error={del.error} testId="sharing-delete-dialog" onConfirm={() => del.mutate({ stream: s.name, input: {} }, { onSuccess: () => setAsking(false) })}

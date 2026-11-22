@@ -28,7 +28,7 @@ export function groupWords(name: string, b: Blocker): { lead: string; rest: stri
     case "Access keys":
       return { lead: `${n(count, "access key")} will be deleted.`, rest: `${who} stop${count === 1 ? "s" : ""} signing requests as ${name} at once.` };
     case "Groups":
-      return { lead: `${name} will be removed from ${n(count, "group")}.`, rest: `${who}: the ${count === 1 ? "group" : "groups"} stay.` };
+      return { lead: `${name} will be removed from ${n(count, "group")}.`, rest: `${who}: the ${count === 1 ? "group stays" : "groups stay"}.` };
     case "Members":
       return { lead: `${n(count, "member")} will be removed from the group.`, rest: `${who}: the ${count === 1 ? "user stays" : "users stay"}.` };
     case "Instance profiles":

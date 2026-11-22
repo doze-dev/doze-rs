@@ -216,3 +216,41 @@ async fn the_account_alias_is_the_users_kinds_and_a_kind_makes_only_what_it_list
         );
     }
 }
+
+#[tokio::test]
+async fn a_user_page_counts_what_the_users_own_key_did_whatever_it_acted_on() {
+    let w = world("iam-ops-keycalls", Mode::Soft, &[]);
+    for name in ["dev", "ci"] {
+        w.app("iam", "CreateUser", &json!({"UserName": name})).await;
+    }
+    let key = |made: &Value| {
+        made["AccessKey"]["AccessKeyId"]
+            .as_str()
+            .unwrap()
+            .to_owned()
+    };
+    let dev = key(&w
+        .app("iam", "CreateAccessKey", &json!({"UserName": "dev"}))
+        .await);
+    let ci = key(&w
+        .app("iam", "CreateAccessKey", &json!({"UserName": "ci"}))
+        .await);
+    // The key reads something that is not the user (a call that names nothing at all), and another key does the same.
+    w.app_with(&dev, "iam", "ListGroups", &json!({})).await;
+    w.app_with(&ci, "iam", "ListRoles", &json!({})).await;
+    let by = |detail: &Value, key: &str| -> Vec<String> {
+        detail["calls"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter(|c| c["caller"] == key)
+            .map(|c| c["action"].as_str().unwrap().to_owned())
+            .collect()
+    };
+    let (_, user) = w.get(&format!("{BASE}/users/dev")).await;
+    assert_eq!(by(&user, &dev), vec!["ListGroups"], "{user}");
+    assert!(by(&user, &ci).is_empty(), "{user}");
+    let (_, other) = w.get(&format!("{BASE}/users/ci")).await;
+    assert_eq!(by(&other, &ci), vec!["ListRoles"], "{other}");
+    assert!(by(&other, &dev).is_empty(), "{other}");
+}

@@ -4,7 +4,7 @@ use aws_wire::ApiError;
 use serde_json::{Value, json};
 
 use crate::core::Core;
-use crate::entity::new_id;
+use crate::entity::new_key_id;
 use crate::errors::{limit, no_such};
 use crate::model::{AccessKey, Kind};
 use crate::req::{Req, page, secs};
@@ -42,7 +42,7 @@ impl Core {
         if self.keys.iter().filter(|(_, k)| k.user == user).count() >= MAX_KEYS {
             return Err(limit("Cannot exceed quota for AccessKeysPerUser: 2"));
         }
-        let id = new_id("AKIA")?;
+        let id = new_key_id("AKIA")?;
         let key = AccessKey {
             id: id.clone(),
             secret: new_secret()?,

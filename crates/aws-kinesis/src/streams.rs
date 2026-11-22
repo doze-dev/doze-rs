@@ -258,9 +258,9 @@ pub(crate) fn child_shards_json(s: &Stream, id: u32) -> Vec<Value> {
 
 /// A shard as `ListShards` and `DescribeStream` show it.
 pub(crate) fn shard_json(sh: &Shard) -> Value {
-    let mut range = json!({"StartingSequenceNumber": sh.first_seq.to_string()});
+    let mut range = json!({"StartingSequenceNumber": crate::model::seq_wire(sh.first_seq)});
     if let Some(e) = sh.ended_seq {
-        range.put("EndingSequenceNumber", json!(e.to_string()));
+        range.put("EndingSequenceNumber", json!(crate::model::seq_wire(e)));
     }
     let mut v = json!({
         "ShardId": sh.name(),

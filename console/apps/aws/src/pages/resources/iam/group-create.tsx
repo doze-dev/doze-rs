@@ -10,7 +10,7 @@ import { ApiFailure } from "@doze/ui/lib/api";
 import { useResourceList } from "../../../api/resources";
 import { Field, FormPage, FormSection, type PreviewRequest, callKindOp } from "../../../kit";
 import { GROUPS, useRefresh } from "./api";
-import { list, nameProblem, sameIgnoringCase } from "./model";
+import { list, nameProblem, takenProblem } from "./model";
 import { crumbs, KINDS } from "./parts";
 import { PolicyChooser } from "./policy-chooser";
 
@@ -27,8 +27,7 @@ export function GroupCreate() {
   const members = useResourceList("iam", "users");
   const taken = useMemo(() => groups.data?.pages.flatMap((p) => p.rows).map((r) => r.name) ?? [], [groups.data]);
   const userNames = useMemo(() => members.data?.pages.flatMap((p) => p.rows).map((r) => r.name) ?? [], [members.data]);
-  const problem = nameProblem(name, "group") ?? (taken.includes(name) ? `A user group named ${name} already exists.` : null);
-  const similar = sameIgnoringCase(name, taken);
+  const problem = nameProblem(name, "group") ?? takenProblem("user group", name, taken);
   const shown = name || "(a name)";
   const requests: PreviewRequest[] = [
     { service: "iam", operation: "CreateGroup", input: { GroupName: shown } },
@@ -74,7 +73,7 @@ export function GroupCreate() {
       testId="group-create"
     >
       <FormSection title="Name the group" testId="section-name">
-        <Field label="User group name" error={tried ? (problem ?? undefined) : undefined} help={<><b>Up to 128 characters</b>: letters, digits and + = , . @ _ -. Names are unique in the account. AWS treats names that differ only in case, such as ADMINS and admins, as the same name; doze-aws compares names exactly, so it would create both.{taken.length > 0 && <> <span className="font-mono">{list(taken.slice(0, 5))}</span> already {taken.length === 1 ? "exists" : "exist"}.</>}</>} hint={similar.length > 0 ? <>{name} differs only in case from <span className="font-mono">{list(similar)}</span>: AWS would refuse it as a duplicate.</> : undefined} testId="field-name">
+        <Field label="User group name" error={tried ? (problem ?? undefined) : undefined} help={<><b>Up to 128 characters</b>: letters, digits and + = , . @ _ -. Names are unique in the account. Names that differ only in case, such as ADMINS and admins, are the same name: a second one is refused.{taken.length > 0 && <> <span className="font-mono">{list(taken.slice(0, 5))}</span> already {taken.length === 1 ? "exists" : "exist"}.</>}</>} testId="field-name">
           {(id) => <Input id={id} value={name} onChange={(e) => { setName(e.target.value); setFailed(null); }} placeholder="support" autoComplete="off" spellCheck={false} className="bg-card font-mono" data-testid="group-name" />}
         </Field>
       </FormSection>

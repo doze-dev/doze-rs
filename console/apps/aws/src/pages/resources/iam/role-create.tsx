@@ -17,11 +17,12 @@ import { useAbout } from "../../../api/queries";
 import { useResourceList } from "../../../api/resources";
 import { Field, FormPage, FormSection, PolicyPicker, TAG_RULES, callKindOp } from "../../../kit";
 import { ROLES, USERS, useRead, useRefresh } from "./api";
-import { awsArn, list, SERVICES, sameIgnoringCase, trustDocument } from "./model";
+import { awsArn, list, SERVICES, trustDocument } from "./model";
 import { CardChoice, crumbs, KINDS, Note, ReviewBlock, RowChoice } from "./parts";
 import { PolicyChooser, usePolicyOptions } from "./policy-chooser";
 import { PolicyJson } from "./policy-json";
 import { blankRole, roleCalls, type RoleForm, stepProblem } from "./role-create-model";
+import { SamlFields, WebIdentityFields } from "./role-federation";
 import { TrustNote } from "./trust-note";
 
 const STEPS = [{ id: "trust", label: "Select trusted entity" }, { id: "permissions", label: "Add permissions" }, { id: "review", label: "Name, review, and create" }];
@@ -31,7 +32,6 @@ const SUBS = [
   "Choose the policies that anyone who assumes the role will get. You can also attach policies after the role exists.",
   "Give the role a name, check the two earlier steps, and create it. The name cannot be changed afterwards.",
 ];
-const FEDERATION = "Not built in this form: choose Custom trust policy and name the provider.";
 
 export function RoleCreate() {
   const navigate = useNavigate();
@@ -77,13 +77,12 @@ export function RoleCreate() {
       setPending(false);
     }
   };
-  const similar = sameIgnoringCase(f.name, taken);
   const trustPanel = (
     <aside className="min-w-0 rounded-[14px] border bg-card p-5" aria-label="The trust policy this builds" data-testid="trust-panel">
       <h2 className="flex items-center gap-2 text-[12px] font-medium tracking-[0.08em] text-muted-foreground uppercase"><BracesIcon aria-hidden className="size-3.5" /> The trust policy this builds</h2>
-      <CodeBlock text={doc} className="mt-3 max-h-[24rem]" testId="trust-json" />
+      <CodeBlock text={doc} className="mt-3 max-h-[34rem]" testId="trust-json" json />
       <p className="mt-3 text-[13px] leading-5 text-muted-foreground">It becomes the AssumeRolePolicyDocument of CreateRole on the last step.</p>
-      <TrustNote className="mt-3" />
+      <TrustNote className="mt-3" federated={t.type === "web" || t.type === "saml"} />
     </aside>
   );
   const names = (p: ReadonlySet<string>) => [...p].map((a) => a.split("/").pop() ?? a);
@@ -114,10 +113,9 @@ export function RoleCreate() {
               { value: "service", title: "AWS service", description: "Let Lambda or another service act on your behalf.", span: "sm:col-span-2" },
               { value: "account", title: "AWS account", description: "Let identities in this or another account assume the role.", span: "sm:col-span-2" },
               { value: "custom", title: "Custom trust policy", description: "Write the trust policy yourself.", span: "sm:col-span-2" },
-              { value: "web" as never, title: "Web identity", description: FEDERATION, disabled: true, span: "sm:col-span-3" },
-              { value: "saml" as never, title: "SAML 2.0 federation", description: FEDERATION, disabled: true, span: "sm:col-span-3" },
+              { value: "web", title: "Web identity", description: "Let users signed in with an OpenID Connect provider assume the role.", span: "sm:col-span-3" },
+              { value: "saml", title: "SAML 2.0 federation", description: "Let users signed in with a SAML provider assume the role.", span: "sm:col-span-3" },
             ]} />
-            <Note testId="federation-note">doze-aws supports web identity and SAML federation through the providers you register (CreateOpenIDConnectProvider, CreateSAMLProvider), and AssumeRoleWithWebIdentity / AssumeRoleWithSAML work against them. This form does not build their trust policy yet: choose Custom trust policy and name the provider.</Note>
           </FormSection>
           {t.type === "service" && (
             <FormSection title="An AWS service" description="Choose the service that assumes the role." testId="section-service">
@@ -146,6 +144,8 @@ export function RoleCreate() {
               <Label className="items-start gap-3 font-normal leading-5"><Checkbox checked={t.mfa} onCheckedChange={(v) => setTrust({ mfa: v === true })} className="mt-0.5" data-testid="trust-mfa" /><span className="grid gap-0.5"><span className="font-medium text-bright">Require MFA</span><span className="text-[13px] text-muted-foreground">Adds a condition on <span className="font-mono">aws:MultiFactorAuthPresent</span>: AssumeRole then needs an MFA code (SerialNumber and TokenCode) from a virtual device registered in doze-aws.</span></span></Label>
             </FormSection>
           )}
+          {t.type === "web" && <WebIdentityFields t={t} set={setTrust} tried={tried} problem={problem} />}
+          {t.type === "saml" && <SamlFields t={t} set={setTrust} tried={tried} problem={problem} />}
           {t.type === "custom" && (
             <FormSection title="Custom trust policy" description="Write who may assume the role: every statement needs a Principal and none may name a Resource." testId="section-custom">
               <PolicyJson value={t.custom} onChange={(custom) => setTrust({ custom })} kind="trust" label="Trust policy" rows={14} />
@@ -167,14 +167,14 @@ export function RoleCreate() {
       {step === 2 && (
         <>
           <FormSection title="Role details" testId="section-details">
-            <Field label="Role name" error={tried ? (problem ?? undefined) : undefined} help={<><b>Up to 64 characters</b>: letters, digits and + = , . @ _ -. The name must be unique in the account. In a policy or an ARN it is case sensitive. AWS treats names that differ only in case, such as PRODROLE and prodrole, as the same name; doze-aws compares names exactly, so it would create both.{taken.length > 0 && <> <span className="font-mono">{list(taken.slice(0, 5))}</span> already {taken.length === 1 ? "exists" : "exist"}.</>}</>} hint={similar.length > 0 ? <>{f.name} differs only in case from <span className="font-mono">{list(similar)}</span>: AWS would refuse it as a duplicate.</> : undefined} testId="field-name">
+            <Field label="Role name" error={tried ? (problem ?? undefined) : undefined} help={<><b>Up to 64 characters</b>: letters, digits and + = , . @ _ -. The name must be unique in the account. In a policy or an ARN it is case sensitive. Names that differ only in case, such as PRODROLE and prodrole, are the same name: a second one is refused.{taken.length > 0 && <> <span className="font-mono">{list(taken.slice(0, 5))}</span> already {taken.length === 1 ? "exists" : "exist"}.</>}</>} testId="field-name">
               {(id) => <Input id={id} value={f.name} onChange={(e) => set({ name: e.target.value })} placeholder="larder-readonly" autoComplete="off" spellCheck={false} className="bg-card font-mono" data-testid="role-name" />}
             </Field>
             <Field label="Description" optional help="Up to 1,000 characters. You can edit it later from the role's Summary.">
               {(id) => <Textarea id={id} value={f.description} maxLength={1000} onChange={(e) => set({ description: e.target.value })} rows={3} className="bg-card" data-testid="role-description" />}
             </Field>
           </FormSection>
-          <ReviewBlock title="Step 1: Select trusted entities" onEdit={() => go(0)} testId="review-trust"><CodeBlock text={doc} wrap={false} className="max-h-72" /><TrustNote /></ReviewBlock>
+          <ReviewBlock title="Step 1: Select trusted entities" onEdit={() => go(0)} testId="review-trust"><CodeBlock text={doc} wrap={false} className="max-h-72" json /><TrustNote federated={t.type === "web" || t.type === "saml"} /></ReviewBlock>
           <ReviewBlock title="Step 2: Add permissions" onEdit={() => go(1)} testId="review-policies">
             {f.policies.size === 0 ? <p className="text-[13.5px] text-muted-foreground">No policies: the role starts with no permissions.</p> : (
               <ul className="divide-y rounded-lg border">

@@ -54,6 +54,7 @@ export function MetricFilterCreate({ group }: { group: string }) {
       sub={step === 0 ? <>Turn matching log events into a CloudWatch metric. <span className="text-muted-foreground">Step 1 sets the filter pattern for <span className="font-mono">{group}</span> and can test it against log event messages.</span></> : <>Name the filter and say what it publishes. <span className="text-muted-foreground">A matching log event adds the metric value to a CloudWatch metric.</span></>}
       crumbs={crumbs}
       stepsAfterTitle
+      backLabel="Previous"
       wizard={{ steps: [{ id: "pattern", label: "Filter pattern" }, { id: "metric", label: "Metric details" }], current: step, furthest, onStep: go, onBack: () => go(0), onNext: () => { if (!p1) go(1); }, nextLabel: "Next" }}
       request={step === 0 ? { service: "logs", operation: "TestMetricFilter", input: { filterPattern: pattern, logEventMessages: messages } } : { service: "logs", operation: "PutMetricFilter", input }}
       callTitle={step === 0 ? "The call the test makes" : undefined}
@@ -125,7 +126,7 @@ export function MetricFilterCreate({ group }: { group: string }) {
               <Field label="Default value" optional error={tried ? (p2.fallback ?? undefined) : undefined} help="The value to emit when the filter pattern does not match a log event.">
                 {(id) => <Input id={id} value={f.fallback} onChange={(e) => set({ fallback: e.target.value })} placeholder="Not set" autoComplete="off" spellCheck={false} className="font-mono" data-testid="mf-default" />}
               </Field>
-              <Field label="Unit" optional help="Left unset, the unit is None.">
+              <Field label="Unit" optional help="Choose None to leave the unit unset.">
                 {(id) => <Select value={f.unit || "None"} onValueChange={(v) => set({ unit: v })}><SelectTrigger id={id} className="w-full bg-card" data-testid="mf-unit"><SelectValue /></SelectTrigger><SelectContent>{UNITS.map((u) => <SelectItem key={u} value={u}>{u}</SelectItem>)}</SelectContent></Select>}
               </Field>
             </div>

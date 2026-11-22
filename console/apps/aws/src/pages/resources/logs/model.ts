@@ -155,7 +155,7 @@ export function createInput(f: CreateForm): Record<string, unknown> {
 }
 
 export type MetricForm = { name: string; namespace: string; metric: string; value: string; fallback: string; unit: string };
-export const emptyMetric: MetricForm = { name: "", namespace: "", metric: "", value: "1", fallback: "", unit: "" };
+export const emptyMetric: MetricForm = { name: "", namespace: "", metric: "", value: "1", fallback: "", unit: "Count" };
 
 /** PutMetricFilter's input (the group is the address's): one transformation; the default value and the unit only when set. */
 export function metricInput(group: string, pattern: string, f: MetricForm): Record<string, unknown> {
