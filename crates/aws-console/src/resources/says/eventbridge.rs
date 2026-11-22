@@ -3,6 +3,7 @@
 use super::super::page::{list, plural};
 use super::super::path;
 use super::super::{Page, Read, Verb};
+use super::pattern::{pattern_words, targets_words};
 use crate::model::{Badge, ResourceRow, Tone};
 
 /// The bus a rule is on: `larder` for `larder/order-placed`, `default` for a rule named without one.
@@ -24,7 +25,7 @@ fn targets(r: &Read<'_>) -> Vec<String> {
         .unwrap_or_default()
 }
 
-/// `order-placed is enabled on the larder bus and sends what matches its pattern to 1 target: orders-created.`
+/// `order-placed matches events from larder.orders with detail type OrderPlaced and a total_cents above 0, and publishes it to the orders-created topic.` A pattern that names none of those, or a rule that is disabled, keeps to the plain form: `order-placed is enabled on the larder bus and sends what matches its pattern to 1 target: orders-created.`
 fn rule_sentence(r: &Read<'_>) -> Option<String> {
     let state = r.text("State")?;
     let on = if state == "ENABLED" {
@@ -33,6 +34,23 @@ fn rule_sentence(r: &Read<'_>) -> Option<String> {
         "disabled"
     };
     let schedule = r.text("ScheduleExpression");
+    let arns: Vec<String> = r
+        .sub("Targets")
+        .map(|s| {
+            s.rows
+                .iter()
+                .filter_map(|row| row.cells.get(2).cloned().flatten())
+                .collect()
+        })
+        .unwrap_or_default();
+    if schedule.is_none()
+        && state == "ENABLED"
+        && let Some(words) = r.text("EventPattern").as_deref().and_then(pattern_words)
+        && let Some(to) = targets_words(&arns)
+    {
+        let name = r.name.rsplit('/').next().unwrap_or(r.name);
+        return Some(format!("{name} matches events {words}, and {to}."));
+    }
     let named = targets(r);
     let n = i64::try_from(named.len()).unwrap_or(0);
     let name = r.name.rsplit('/').next().unwrap_or(r.name);

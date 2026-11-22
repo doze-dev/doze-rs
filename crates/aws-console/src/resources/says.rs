@@ -6,6 +6,7 @@ pub mod kinesis;
 pub mod kms;
 pub mod lambda;
 pub mod logs;
+pub mod pattern;
 pub mod s3;
 pub mod sns;
 pub mod sqs;

@@ -131,7 +131,8 @@ function PlanView({ plan, updatedAt, fetching, refresh }: { plan: UsagePlan; upd
   const [removing, setRemoving] = useState<{ kind: "key"; key: PlanKey } | { kind: "stage"; api: string; stage: string } | null>(null);
   const delKey = useWrite(PLANS, "DeleteUsagePlanKey");
   const delStage = useWrite(PLANS, "UpdateUsagePlan");
-  const tab = search.tab === "keys" ? "keys" : "stages";
+  // The plan opens on its keys, as the board draws it; the stages are one tab away.
+  const tab = search.tab === "stages" ? "stages" : "keys";
   const go = (s: { tab?: string; done?: string; name?: string }) => void navigate({ to: "/resources/$service/$kind/$name", params: { service: "apigateway", kind: "usageplans", name: plan.id }, search: s as never });
   const all = keys.data?.item ?? [];
   const stages = plan.apiStages ?? [];

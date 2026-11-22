@@ -14,6 +14,7 @@ import { ListEditor } from "./list-editor";
 import { useWhere } from "./parts";
 import type { HttpAuthorizer } from "./types";
 import { list } from "./words";
+import { sdkShown } from "./calls";
 
 export function HttpAuthorizerCreate({ api, apiName, crumbs, onClose }: { api: string; apiName: string; crumbs: { label: string; to: string }[]; onClose: (created?: string) => void }) {
   const where = useWhere();
@@ -28,6 +29,7 @@ export function HttpAuthorizerCreate({ api, apiName, crumbs, onClose }: { api: s
   const lambda = f.kind === "lambda";
   return (
     <FormPage
+      shown={sdkShown}
       title="Create authorizer"
       sub={lambda ? "Have API Gateway ask a Lambda function whether a request may pass. You attach the authorizer to a route afterwards." : "Have API Gateway check a token against its issuer before a request may pass. You attach the authorizer to a route afterwards."}
       titleExtra={<span className="font-mono text-[13px] text-muted-foreground">{apiName}</span>}

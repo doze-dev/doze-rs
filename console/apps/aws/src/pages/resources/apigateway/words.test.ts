@@ -103,6 +103,11 @@ describe("the sentence over the list of APIs", () => {
     const s = apisSentence(apis, { k3x: [{ stage: "prod", auto: false, deployed: "1970-01-01 00:16:40 UTC" }], q8m: [{ stage: "$default", auto: true, deployed: null }] });
     expect(s).toBe("larder-public answers through its prod stage, deployed 1970-01-01 00:16:40 UTC. larder-admin answers at its $default stage, which deploys every change you save.");
     expect(apisSentence(apis, { k3x: [], q8m: [] })).toBe("larder-public has no stage yet, so it cannot be invoked. larder-admin has no stage yet, so it cannot be invoked.");
+    // The rest past the first `most` are counted, and the verb agrees with the count.
+    const stage = { stage: "prod", auto: false, deployed: null };
+    expect(apisSentence(apis, { k3x: [stage], q8m: [stage] }, 1)).toEndWith("1 more API answers too.");
+    const three = anyApis([rest, { ...rest, id: "a", name: "a" }, { ...rest, id: "b", name: "b" }], []);
+    expect(apisSentence(three, { k3x: [stage], a: [stage], b: [stage] }, 1)).toEndWith("2 more APIs answer too.");
   });
 });
 

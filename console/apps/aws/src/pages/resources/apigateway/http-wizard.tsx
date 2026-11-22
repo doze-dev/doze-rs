@@ -16,6 +16,7 @@ import { IntegrationFields, RouteFields } from "./http-wizard-parts";
 import { useWhere } from "./parts";
 import { callKindOp } from "../../../kit";
 import { haveApis, invokeUrls } from "./words";
+import { sdkShown } from "./calls";
 
 const STEPS = [{ id: "integration", label: "Integrations" }, { id: "routes", label: "Configure routes" }, { id: "stage", label: "Stage" }, { id: "review", label: "Review and create" }];
 const TITLES = [["Create HTTP API", "Step 1 of 4. Add the backend, then name the API. The console builds a route and a stage from it, which you review in the next steps."], ["Configure routes", "Step 2 of 4. Review the route the console made for your integration. A route is an HTTP method and a path; it sends matching requests to an integration."], ["Stage", "Step 3 of 4. Review the stage the console made. A stage is a named reference to a deployment of the API, and callers reach the API through it."], ["Review and create", "Step 4 of 4. Check what will be created. To work, an HTTP API needs at least one route, integration, stage and deployment."]] as const;
@@ -85,6 +86,7 @@ export function HttpWizard() {
   const tableHead = (cols: string[], template: string) => <div className={`grid gap-4 rounded-lg bg-muted/60 px-4 py-3 text-[12px] tracking-[0.08em] text-muted-foreground uppercase ${template}`}>{cols.map((c) => <span key={c}>{c}</span>)}</div>;
   return (
     <FormPage
+      shown={sdkShown}
       title={title}
       sub={sub}
       stepsAfterTitle

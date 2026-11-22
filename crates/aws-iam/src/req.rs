@@ -34,6 +34,13 @@ impl<'a> Req<'a> {
         self.v.get(name).and_then(Value::as_str)
     }
 
+    /// Sets a string member (a name read back in the spelling it was made with).
+    pub(crate) fn set(&mut self, name: &str, value: String) {
+        if let Some(o) = self.v.as_object_mut() {
+            o.insert(name.to_owned(), Value::String(value));
+        }
+    }
+
     pub(crate) fn int(&self, name: &str) -> Option<i64> {
         self.v.get(name).and_then(Value::as_i64)
     }

@@ -82,7 +82,7 @@ function Apis({ service, kind, gone }: { service: string; kind: string; gone?: s
   };
   const columns: DataColumn<AnyApi>[] = [
     { id: "name", header: "Name", min: 200, accessorFn: (a) => a.name, cell: (c) => <ResourceTo to={{ service, kind: apiKind(c.row.original.protocol), name: c.row.original.id }} className="font-mono text-[13.5px] font-medium" testId="row-link">{c.row.original.name}</ResourceTo> },
-    { id: "description", header: "Description", min: 220, accessorFn: (a) => a.description, cell: (c) => c.row.original.description || <span className="text-muted-foreground">–</span> },
+    { id: "description", header: "Description", min: 220, accessorFn: (a) => a.description, cell: (c) => c.row.original.description ? <span className="block whitespace-normal">{c.row.original.description}</span> : <span className="text-muted-foreground">–</span> },
     { id: "id", header: "API ID", size: 150, accessorFn: (a) => a.id, meta: { mono: true }, cell: (c) => <span className="font-mono text-[13px]">{c.row.original.id}</span> },
     { id: "protocol", header: "Protocol type", size: 150, accessorFn: (a) => a.protocol, cell: (c) => <Badge variant="secondary" className="font-normal">{c.row.original.protocol}</Badge> },
     { id: "endpoint", header: "API endpoint type", size: 170, accessorFn: (a) => a.endpointType },

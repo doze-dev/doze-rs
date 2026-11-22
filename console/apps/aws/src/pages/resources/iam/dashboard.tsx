@@ -14,7 +14,7 @@ import { HINT } from "../index-page";
 import { USERS, useIamCalls, useRead, useRefresh } from "./api";
 import { AliasDialog } from "./alias-edit";
 import { count, hhmm } from "./model";
-import { Card, crumbs, Say, Summary } from "./parts";
+import { crumbs, Say, Summary } from "./parts";
 import { clientName } from "../../../people";
 
 type Totals = { SummaryMap: { Users: number; Groups: number; Roles: number; Policies: number } };
@@ -73,7 +73,8 @@ function DashboardPage() {
       ) : (
         <div className="grid gap-8">
           <Say text={sentence} names={[...(alias ? [alias] : []), ...(last ? [last.action!, users.get(last.caller!)!] : [])]} bold={[/\b\d+ (users?|groups?|roles?|customer managed polic(y|ies))\b/, /\b\d\d:\d\d\b/]} testId="dashboard-sentence" />
-          <Card title="Users, groups, roles and policies" lede="The counts come from GetAccountSummary. Choose one to open its list." testId="counts-card">
+          <section className="grid gap-4" aria-label="Users, groups, roles and policies" data-testid="counts-card">
+            <div><h2 className="text-[17px] leading-6 font-semibold tracking-[-0.01em] text-bright">Users, groups, roles and policies</h2><p className="mt-1.5 text-[13.5px] leading-[21px] text-muted-foreground">The counts come from GetAccountSummary. Choose one to open its list.</p></div>
             <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
               {cards.map((c) => (
                 <Link key={c.id} to="/resources/$service/$second" params={{ service: "iam", second: c.id }} search={{}} className="grid gap-1 rounded-xl border bg-card p-4 outline-none hover:bg-accent focus-visible:ring-[3px] focus-visible:ring-ring/50" data-testid={`count-${c.id}`}>
@@ -86,7 +87,7 @@ function DashboardPage() {
                 <span className="text-[13px] text-muted-foreground">{oidc.isSuccess && saml.isSuccess ? `${oidc.data.OpenIDConnectProviderList.length} OpenID Connect and ${saml.data.SAMLProviderList.length} SAML in this account` : "reading…"}</span>
               </div>
             </div>
-          </Card>
+          </section>
           <Summary title="AWS Account" facts={[
             { label: "Account ID", value: <span className="font-mono">{account}</span> },
             { label: "Account Alias", value: <span className="grid gap-1.5"><span className="flex flex-wrap items-center gap-3">{alias ? <span className="font-mono">{alias}</span> : <span className="text-muted-foreground">None</span>}<Button type="button" variant="outline" size="sm" className="bg-card" onClick={edit} data-testid="alias-edit"><PencilIcon /> Edit</Button></span><span className="max-w-[44rem] text-[13px] leading-5 text-muted-foreground" data-testid="alias-note">An account can have only one alias. Saving a new alias deletes the old one first (DeleteAccountAlias), then makes the new one (CreateAccountAlias).</span></span> },

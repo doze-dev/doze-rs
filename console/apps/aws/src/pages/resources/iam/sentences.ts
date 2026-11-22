@@ -15,7 +15,11 @@ export function usersSentence(users: readonly UserFacts[]): string {
     const sameCount = keyed.every((u) => u.active === keyed[0]!.active);
     const holds = sameCount ? `${list(keyed.map((u) => u.name))} ${keyed.length === 1 ? "holds" : "each hold"} ${count(keyed[0]!.active, "active access key")}` : keyed.map((u) => `${u.name} holds ${count(u.active, "active access key")}`).join(", ");
     const today = keyed.filter((u) => u.usedToday);
-    const used = today.length === 0 ? "none used one today" : today.length === keyed.length ? (keyed.length === 1 ? "it was used today" : keyed.length === 2 ? "both used it today" : "all used it today") : `${list(today.map((u) => u.name))} used ${today.length === 1 ? "it" : "theirs"} today`;
+    // A user holding two keys: "it" would be read as one key, so the words say a key.
+    const multi = keyed.some((u) => u.active > 1);
+    const used = multi
+      ? today.length === 0 ? "none used a key today" : today.length === keyed.length ? (keyed.length === 1 ? "a key was used today" : keyed.length === 2 ? "both used a key today" : "all used a key today") : `${list(today.map((u) => u.name))} used a key today`
+      : today.length === 0 ? "none used one today" : today.length === keyed.length ? (keyed.length === 1 ? "it was used today" : keyed.length === 2 ? "both used it today" : "all used it today") : `${list(today.map((u) => u.name))} used ${today.length === 1 ? "it" : "theirs"} today`;
     clauses.push(`${holds} and ${used}`);
   }
   if (bare.length > 0) clauses.push(`${list(bare.map((u) => u.name))} ${bare.length === 1 ? "has" : "have"} no access keys`);
@@ -81,7 +85,8 @@ export const POLICY_WORDS: Record<string, string> = {
   ReadOnlyAccess: "the read actions of every service",
 };
 
-export type UserSentence = { name: string; groups: string[]; viaGroups: string[]; direct: string[]; key: { id: string; usedAt: number | null; service: string | null; region: string | null } | null };
+type KeyFact = { id: string; usedAt: number | null; service: string | null; region: string | null };
+export type UserSentence = { name: string; groups: string[]; viaGroups: string[]; direct: string[]; key: KeyFact | null; /** The other active keys, when the user holds more than one: each is named, so none is read as the only one. */ others?: KeyFact[] };
 
 /** `dev belongs to 1 group and gets PowerUserAccess through it. Its key AKIA… was last used at 08:09 with sqs in us-east-1.` */
 export function userSentence(u: UserSentence): string {
@@ -91,8 +96,9 @@ export function userSentence(u: UserSentence): string {
   if (via.length > 0) parts.push(`gets ${list(via)} through ${u.groups.length === 1 ? "it" : "them"}`);
   if (u.direct.length > 0) parts.push(`has ${list(u.direct)} attached directly`);
   const head = parts.length === 0 ? `${u.name} belongs to ${g} and has no policy, so it is allowed to do nothing.` : `${u.name} belongs to ${g} and ${parts.join(" and ")}.`;
-  const k = u.key;
-  const tail = !k ? "" : k.usedAt === null ? ` Its key ${k.id} has never been used.` : ` Its key ${k.id} was last used at ${hhmmOf(k.usedAt)}${k.service ? ` with ${k.service}${k.region ? ` in ${k.region}` : ""}` : ""}.`;
+  const where = (k: KeyFact): string => (k.usedAt === null ? "has never been used" : `was last used at ${hhmmOf(k.usedAt)}${k.service ? ` with ${k.service}${k.region ? ` in ${k.region}` : ""}` : ""}`);
+  const keys = u.key ? [u.key, ...(u.others ?? [])] : [];
+  const tail = keys.length === 0 ? "" : keys.length === 1 ? ` Its key ${keys[0]!.id} ${where(keys[0]!)}.` : ` Of its keys, ${keys.map((k) => `${k.id} ${where(k)}`).join(" and ")}.`;
   return `${head}${tail}`;
 }
 

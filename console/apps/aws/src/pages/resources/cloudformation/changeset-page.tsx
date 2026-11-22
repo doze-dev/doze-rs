@@ -34,7 +34,7 @@ export function ChangeSetPage({ service, kind, name, search }: OwnProps) {
   const creating = stack?.StackStatus === "REVIEW_IN_PROGRESS";
   const ready = set.ExecutionStatus === "AVAILABLE";
   const run = () => execute.mutate({ StackName: stackName, ChangeSetName: setName }, { onSuccess: () => toStack({ tab: "events", done: creating ? "executed" : "updated" }) });
-  const crumbs = [{ label: "Resources", to: "/resources" }, { label: "Infrastructure", to: "/resources" }, { label: "CloudFormation", to: `/resources/${service}` }, { label: stackName, to: back.to }, { label: "Change sets", to: back.to }];
+  const crumbs = [{ label: "Resources", to: "/resources" }, { label: "Infrastructure", to: "/resources" }, { label: "CloudFormation", to: `/resources/${service}` }, { label: stackName, to: back.to }, { label: "Change sets", to: `${back.to}?tab=changesets` }, { label: setName, to: "" }];
   return (
     <div data-testid="changeset-page">
       <PageHeader
@@ -42,7 +42,7 @@ export function ChangeSetPage({ service, kind, name, search }: OwnProps) {
         mono
         crumbs={crumbs}
         titleExtra={<span className="flex flex-wrap items-center gap-2"><DetailBadgeView badge={statusBadge(set.Status)} />{set.ExecutionStatus && <DetailBadgeView badge={{ text: set.ExecutionStatus, tone: "neutral" }} />}</span>}
-        sub={<>A change set for <StackTo name={stackName} className="font-sans text-[15px] font-normal text-foreground no-underline" />, created {at(set.CreationTime)}.{" "}{set.Status === "FAILED" ? `It could not be made: ${set.StatusReason ?? "no reason was given"}.` : `It previews ${rows.length} ${rows.length === 1 ? "change" : "changes"} and has ${set.ExecutionStatus === "EXECUTE_COMPLETE" ? "been executed" : "not changed anything yet"}.`}</>}
+        sub={<>A change set for <StackTo name={stackName} className="font-sans text-[15px] font-normal text-foreground no-underline" />, created {at(set.CreationTime)}.{" "}{set.Status === "FAILED" ? `It could not be made: ${(set.StatusReason ?? "no reason was given").replace(/[.\s]+$/, "")}.` : `It previews ${rows.length} ${rows.length === 1 ? "change" : "changes"} and has ${set.ExecutionStatus === "EXECUTE_COMPLETE" ? "been executed" : "not changed anything yet"}.`}</>}
         actions={
           <>
             <Button type="button" onClick={run} disabled={!ready || execute.isPending} title={ready ? undefined : `A change set in execution status ${set.ExecutionStatus} cannot be executed`} data-testid="execute-changeset">{execute.isPending ? "Working…" : "Execute change set"}</Button>
@@ -56,7 +56,7 @@ export function ChangeSetPage({ service, kind, name, search }: OwnProps) {
         <ChangesTable set={set} />
         <div className="grid items-start gap-6 lg:grid-cols-2">
           <ParametersCard set={set} />
-          <ExecutesCard creating={creating} rows={rows} />
+          {set.Status !== "FAILED" && <ExecutesCard creating={creating} rows={rows} />}
         </div>
       </div>
       <PlainConfirm

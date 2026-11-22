@@ -14,6 +14,7 @@ import { JsonBlock } from "../deep/parts";
 import { STACKS, useCfnPreview, useCfnWrite, useStack, useStackNames } from "./api";
 import { ChangeSetDialog } from "./changeset-dialog";
 import type { Stack } from "./model";
+import { makesWords } from "./sentences";
 import { StepDetails } from "./step-details";
 import { StepOptions } from "./step-options";
 import { StepReview } from "./step-review";
@@ -127,7 +128,7 @@ function WizardPage({ mode, service, kind, stack, resume = false }: { mode: Mode
     <div className="grid gap-2" data-testid="summary-panel">
       <span className="font-mono text-[12.5px] text-muted-foreground">returns</span>
       <div><JsonBlock value={{ ...(summary.Description ? { Description: summary.Description } : {}), ResourceTypes: summary.ResourceTypes ?? [] }} testId="summary-json" /></div>
-      <p className="text-[13px] text-muted-foreground">{(summary.Parameters ?? []).length === 0 ? "No parameters are declared." : `${(summary.Parameters ?? []).length} parameter${(summary.Parameters ?? []).length === 1 ? " is" : "s are"} declared.`} The template makes {summary.ResourceTypes?.length ?? 0} resource type{(summary.ResourceTypes?.length ?? 0) === 1 ? "" : "s"}.</p>
+      <p className="text-[13px] text-muted-foreground">{(summary.Parameters ?? []).length === 0 ? "No parameters are declared." : `${(summary.Parameters ?? []).length} parameter${(summary.Parameters ?? []).length === 1 ? " is" : "s are"} declared.`} The template makes {makesWords(summary.ResourceTypes, summary.ResourceIdentifierSummaries)}.</p>
     </div>
   ) : undefined;
   return (
@@ -160,7 +161,7 @@ function WizardPage({ mode, service, kind, stack, resume = false }: { mode: Mode
         {step === 3 && summary && (
           <>
             <StepReview w={w} summary={summary} edit={go} stackName={stackName} preview={update ? { data: preview.data, pending: preview.pending } : undefined} previewError={preview.error} />
-            <RuleHelp className="max-w-[56rem]" >{update ? "Submit calls UpdateStack and opens the stack on its events. The update runs in the background: the stack is UPDATE_IN_PROGRESS first." : <>Submit calls CreateStack and opens the new stack on its events. The stack is made in the background: it is CREATE_IN_PROGRESS first and the page follows it. Create change set makes the stack but deploys nothing yet. This template makes {summary.ResourceTypes?.length ?? 0} resource type{(summary.ResourceTypes?.length ?? 0) === 1 ? "" : "s"}.</>}</RuleHelp>
+            <RuleHelp className="max-w-[56rem]" >{update ? "Submit calls UpdateStack and opens the stack on its events. The update runs in the background: the stack is UPDATE_IN_PROGRESS first." : <>Submit calls CreateStack and opens the new stack on its events. The stack is made in the background: it is CREATE_IN_PROGRESS first and the page follows it. Create change set makes the stack but deploys nothing yet. This template makes {makesWords(summary.ResourceTypes, summary.ResourceIdentifierSummaries)}.</>}</RuleHelp>
           </>
         )}
       </FormPage>

@@ -13,6 +13,7 @@ import { PLANS, usePlans, useWrite } from "./api";
 import { type PlanForm, emptyPlan, planInput, planProblem } from "./plan-model";
 import type { UsagePlan } from "./types";
 import { quotaWords, throttleWords } from "./words";
+import { sdkShown } from "./calls";
 
 export function PlanCreate() {
   const navigate = useNavigate();
@@ -28,6 +29,7 @@ export function PlanCreate() {
   const example = [...have].sort((a, b) => a.name.localeCompare(b.name)).find((p) => p.throttle?.rateLimit !== undefined && p.quota?.limit !== undefined);
   return (
     <FormPage
+      shown={sdkShown}
       title="Create usage plan"
       sub="Set a rate and a quota for the keys in the plan. You add stages and API keys to the plan after you create it."
       crumbs={[...crumbs, { label: "Usage plans", to: "/resources/apigateway/usageplans" }, { label: "Create usage plan", to: "/resources/apigateway/usageplans?do=create" }]}

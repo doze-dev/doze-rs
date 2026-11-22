@@ -99,7 +99,6 @@ test("eventbridge__archive-create: a name, the bus, indefinite or days, a patter
   await expect(page.getByTestId("call-panel-code")).not.toContainText("RetentionDays");
   await page.getByTestId("retention-days").click();
   await page.getByTestId("archive-days").fill("7");
-  await page.getByTestId("filter-filter").click();
   await page.getByTestId("archive-pattern").fill('{\n  "source": ["larder.orders"]\n}');
   const call = page.getByTestId("call-panel-code");
   await expect(call).toContainText('"RetentionDays": 7');
@@ -134,7 +133,7 @@ test("eventbridge__replay-start: an archive, the bus it goes back to, the rules 
   await expect(call).toContainText(`arn:aws:events:us-east-1:${server.account}:archive/payments-90d`);
   // The window is written as the real call writes it: ISO 8601 text, from a date, a time and the zone.
   await expect(call).toContainText(/"EventStartTime": "\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z"/);
-  await expect(page.getByTestId("replay-start-time-zone")).toHaveValue("UTC");
+  await expect(page.getByTestId("replay-start-time-zone")).toHaveText("UTC");
   const endDate = await page.getByTestId("replay-end-time-date").inputValue();
   await page.getByTestId("replay-end-time-date").fill("2026-13-45");
   await expect(page.getByTestId("section-window")).toContainText("A date is year-month-day, like 2026-11-07.");

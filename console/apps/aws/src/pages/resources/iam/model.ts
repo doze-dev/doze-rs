@@ -296,6 +296,26 @@ export function permissions(doc: Doc): Permission[] {
   return out;
 }
 
+const NOUNS: Record<string, string> = { sqs: "queue", sns: "topic", s3: "bucket", lambda: "function", dynamodb: "table", kms: "key", secretsmanager: "secret", kinesis: "stream", events: "event bus", states: "state machine" };
+
+/** What a policy document being written allows, in a plain line: `This one allows only sqs:SendMessage, on the one queue pick-lists.` `null` when it allows nothing yet or cannot be read. */
+export function allowsSentence(doc: Doc): string | null {
+  const allows = statements(doc).filter((s) => s.Effect === "Allow");
+  const actions = [...new Set(allows.flatMap((s) => asList(s.Action)))];
+  const resources = [...new Set(allows.flatMap((s) => asList(s.Resource)))];
+  if (actions.length === 0) return null;
+  const what = actions.includes("*") ? "every action" : actions.length <= 3 ? `${actions.length === 1 ? "only " : ""}${list(actions)}` : `${actions.length} actions`;
+  let where = "on no resource yet";
+  if (resources.includes("*")) where = "on every resource";
+  else if (resources.length === 1) {
+    const parts = (resources[0] ?? "").split(":");
+    const name = parts[0] === "arn" && parts.length >= 6 ? parts.slice(5).join(":") : null;
+    const noun = NOUNS[parts[2] ?? ""];
+    where = name && noun && !name.includes("*") ? `on the one ${noun} ${name.replace(/^(?:table|function|key|stream|event-bus)\//, "")}` : `on ${resources[0]}`;
+  } else if (resources.length > 1) where = `on ${resources.length} resources`;
+  return `This one allows ${what}, ${where}.`;
+}
+
 const SERVICE_NAMES: Record<string, string> = { s3: "S3", sqs: "SQS", sns: "SNS", lambda: "Lambda", dynamodb: "DynamoDB", logs: "CloudWatch Logs", kms: "KMS", ssm: "Systems Manager", secretsmanager: "Secrets Manager", iam: "IAM", sts: "STS", events: "EventBridge", states: "Step Functions", cloudformation: "CloudFormation", kinesis: "Kinesis", apigateway: "API Gateway", cloudwatch: "CloudWatch" };
 
 /** A starting policy for the editor: one action on one resource, as the board's own example. */

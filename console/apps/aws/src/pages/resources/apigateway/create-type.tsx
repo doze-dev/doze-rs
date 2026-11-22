@@ -29,7 +29,7 @@ export function CreateType() {
   const build = (id: Card["id"]) => void navigate({ to: "/resources/$service/$second", params: { service: "apigateway", second: "restapis" }, search: { do: `create-${id}` } });
   return (
     <div data-testid="create-type">
-      <PageHeader title="Create API" crumbs={[...crumbs, { label: "APIs", to: "/resources/apigateway/restapis" }]} sub="Choose an API type to build. REST APIs support more features than HTTP APIs; HTTP APIs have minimal features so they can be offered at a lower price." />
+      <PageHeader title="Create API" crumbs={[...crumbs, { label: "APIs", to: "/resources/apigateway/restapis" }, { label: "Create API", to: "" }]} sub="Choose an API type to build. REST APIs support more features than HTTP APIs; HTTP APIs have minimal features so they can be offered at a lower price." />
       <div className="grid gap-6 lg:grid-cols-3">
         {CARDS.map((c) => (
           <section key={c.id} className="flex min-w-0 flex-col rounded-[14px] border bg-card p-7" aria-label={c.title} data-testid={`type-${c.id}`}>

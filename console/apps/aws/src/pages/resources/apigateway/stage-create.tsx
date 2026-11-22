@@ -7,6 +7,7 @@ import { ApiFailure } from "@doze/ui/lib/api";
 import { Field, FormPage, FormSection } from "../../../kit";
 import { REST, useDeployments, useStages, useWrite } from "./api";
 import { newestFirst, stageNameProblem, when } from "./words";
+import { sdkShown } from "./calls";
 
 export function StageCreate({ api, apiName, crumbs, onClose }: { api: string; apiName: string; crumbs: { label: string; to: string }[]; onClose: (created?: string) => void }) {
   const deployments = newestFirst(useDeployments(api).data?.item ?? []);
@@ -22,6 +23,7 @@ export function StageCreate({ api, apiName, crumbs, onClose }: { api: string; ap
   const failure = make.error instanceof ApiFailure ? { code: make.error.code, message: make.error.message } : null;
   return (
     <FormPage
+      shown={sdkShown}
       title="Create stage"
       sub="A stage is a named reference to a deployment. Callers reach the API through the stage's URL."
       titleExtra={<span className="font-mono text-[13px] text-muted-foreground">{apiName}</span>}

@@ -35,7 +35,7 @@ export function ChangesTable({ set, withPhysical = true, lede }: { set: ChangeSe
   const columns: DataColumn<(typeof rows)[number]>[] = [
     { id: "a", header: "Action", size: 130, accessorKey: "Action", cell: (c) => <StatusDot tone={ACTION[c.row.original.Action] ?? "idle"}>{c.row.original.Action}</StatusDot> },
     { id: "l", header: "Logical ID", size: 260, accessorKey: "LogicalResourceId", cell: (c) => <span className={`${mono} font-medium text-bright`}>{c.row.original.LogicalResourceId}</span> },
-    ...(withPhysical ? [{ id: "p", header: "Physical ID", size: 260, accessorFn: (r: (typeof rows)[number]) => r.PhysicalResourceId ?? "", cell: (c: { row: { original: (typeof rows)[number] } }) => { const r = c.row.original; const to = resourceTarget(r); return !r.PhysicalResourceId ? <span className="text-muted-foreground">–</span> : to ? <ResourceTo to={to} className={`${mono} break-all whitespace-normal`}>{r.PhysicalResourceId}</ResourceTo> : <span className={mono}>{r.PhysicalResourceId}</span>; } } as DataColumn<(typeof rows)[number]>] : []),
+    ...(withPhysical ? [{ id: "p", header: "Physical ID", size: 260, accessorFn: (r: (typeof rows)[number]) => r.PhysicalResourceId ?? "", cell: (c: { row: { original: (typeof rows)[number] } }) => { const r = c.row.original; const to = resourceTarget(r); return !r.PhysicalResourceId ? <span className="text-muted-foreground">–</span> : to ? <ResourceTo to={to} className={`${mono} [overflow-wrap:anywhere] whitespace-normal`}>{r.PhysicalResourceId}</ResourceTo> : <span className={mono}>{r.PhysicalResourceId}</span>; } } as DataColumn<(typeof rows)[number]>] : []),
     { id: "t", header: "Resource type", size: 240, accessorKey: "ResourceType", cell: (c) => <span className={mono}>{c.row.original.ResourceType}</span> },
     { id: "r", header: "Replacement", accessorFn: (r) => r.Replacement ?? "", cell: (c) => c.row.original.Replacement ?? <span className="text-muted-foreground">–</span> },
   ];
@@ -72,7 +72,7 @@ export function ParametersCard({ set }: { set: ChangeSet }) {
       <h2 className="text-[17px] leading-6 font-semibold tracking-[-0.01em] text-bright">Parameters</h2>
       <p className="mt-1 text-[13.5px] text-muted-foreground">The inputs this change set was made with.</p>
       {params.length === 0 ? <p className="mt-4 text-[13.5px] text-muted-foreground">The template declares no parameters.</p> : (
-        <dl className="mt-3 text-[13.5px]">{params.map((p) => <div key={p.ParameterKey} className="flex gap-6 border-b py-3"><dt className="w-40 shrink-0 text-muted-foreground">{p.ParameterKey}</dt><dd className={`min-w-0 flex-1 break-all ${mono}`}>{p.ParameterValue}</dd></div>)}</dl>
+        <dl className="mt-3 text-[13.5px]">{params.map((p) => <div key={p.ParameterKey} className="flex gap-6 border-b py-3"><dt className="w-40 shrink-0 text-muted-foreground">{p.ParameterKey}</dt><dd className={`min-w-0 flex-1 [overflow-wrap:anywhere] ${mono}`}>{p.ParameterValue}</dd></div>)}</dl>
       )}
     </section>
   );

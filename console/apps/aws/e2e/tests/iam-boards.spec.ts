@@ -379,7 +379,7 @@ test("iam__role-delete: the dialog names what is detached, and the role goes wit
   await page.getByTestId("action-delete").click();
   await expect(page.getByTestId("delete-dialog")).toContainText("This deletes larder-admin.");
   await expect(page.getByTestId("delete-group-Attached policies")).toContainText("1 policy will be detached. AdministratorAccess is attached to larder-admin; the policy itself stays.");
-  await expect(page.getByTestId("delete-how")).toContainText("DeleteRole answers DeleteConflict while a managed policy is still attached.");
+  await expect(page.getByTestId("delete-how")).toContainText("DeleteRole answers DeleteConflict while the role still has an attached managed policy, an inline policy or an instance profile.");
   await page.getByTestId("delete-dialog-input").fill("larder-admin");
   await shot(page, "iam__role-delete");
   await page.getByTestId("delete-dialog-input").fill("larder-admin");
@@ -424,6 +424,7 @@ test("iam__policies-list, policy-detail: the policies, the filter, what each is 
 test("iam__policy-create, policy-create-error and policy-create-review: the editor stops a document that breaks the grammar, then the review", async ({ page }) => {
   await go(page, iam("policies", "", "?create=yes"), "Create policy");
   await expect(page.getByTestId("policy-json-status")).toHaveText("No syntax errors");
+  await expect(page.getByTestId("allows-line")).toHaveText("This one allows only sqs:SendMessage, on the one queue pick-lists.");
   // The editor colours the document as it is typed: the same text sits under the transparent field.
   await expect(page.getByTestId("policy-json-editor-colours").locator('[data-json="key"]').first()).toHaveText('"Version"');
   await expect(page.getByTestId("policy-json-editor-colours")).toHaveText(await page.getByTestId("policy-json-editor").inputValue(), { useInnerText: false });
@@ -442,7 +443,8 @@ test("iam__policy-create, policy-create-error and policy-create-review: the edit
   await page.getByTestId("policy-json-editor").fill(JSON.stringify({ ...bad, Statement: [{ ...bad.Statement[0], Resource: `arn:aws:sqs:us-east-1:${server.account}:pick-lists` }] }, null, 2));
   await expect(page.getByTestId("policy-json-status")).toHaveText("No syntax errors");
   await page.getByTestId("form-submit").click();
-  await expect(page.locator("h1").first()).toHaveText("Create policy");
+  await expect(page.locator("h1").first()).toHaveText("Review and create");
+  await expect(page.getByRole("navigation", { name: "Breadcrumb" })).toContainText("Create policy");
   await expect(page.getByTestId("section-permissions")).toContainText("sqs:SendMessage");
   // The resource may wrap at its colons and slashes (not in the middle of a part).
   await expect(page.getByTestId("section-permissions").locator("wbr").first()).toBeAttached();
@@ -530,6 +532,29 @@ test("sts__switch-role and sts__role-session: AssumeRole through the form, and t
   cli(["iam", "create-role", "--role-name", "partner-role", "--assume-role-policy-document", JSON.stringify({ Version: "2012-10-17", Statement: [{ Effect: "Allow", Principal: { AWS: `arn:aws:iam::${server.account}:root` }, Action: "sts:AssumeRole", Condition: { StringEquals: { "sts:ExternalId": "abc" } } }] })]);
   await page.goto(`${server.console}/resources/sts?account=larder-dev&roleName=partner-role`);
   await expect(page.getByTestId("field-role")).toContainText("requires an external ID");
+});
+
+test("sts__switch-role: an account with no alias is its 12-digit ID in the role's link, and the form opens on it (it used to white-screen)", async ({ page }) => {
+  // An address written by hand, or by an older build, holds the ID bare: it is text, zeros and all.
+  await page.goto(`${server.console}/resources/sts?account=${server.account}&roleName=report-job`);
+  await expect(page.locator("h1").first()).toHaveText("Switch Role");
+  await expect(page.getByTestId("switch-account")).toHaveValue(server.account);
+  await expect(page.getByTestId("switch-role-name")).toHaveValue("report-job");
+  // The role's own link with no alias to name the account by.
+  cli(["iam", "delete-account-alias", "--account-alias", "larder-dev"]);
+  try {
+    await page.goto(`${server.console}${iam("roles", "report-job")}`);
+    await expect(page.locator("h1").first()).toHaveText("report-job");
+    await page.getByTestId("role-link").click();
+    await expect(page.locator("h1").first()).toHaveText("Switch Role");
+    await expect(page.getByTestId("switch-account")).toHaveValue(server.account);
+    await expect(page.getByTestId("switch-role-name")).toHaveValue("report-job");
+    // A role named by digits is a name, not a number.
+    await page.goto(`${server.console}/resources/sts?account=${server.account}&roleName=2024`);
+    await expect(page.getByTestId("switch-role-name")).toHaveValue("2024");
+  } finally {
+    cli(["iam", "create-account-alias", "--account-alias", "larder-dev"]);
+  }
 });
 
 test("iam__users-none, groups-none and policies-none: the lists with nothing left, from an empty doze-aws", async ({ page }) => {

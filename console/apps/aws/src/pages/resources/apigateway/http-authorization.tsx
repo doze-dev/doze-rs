@@ -16,6 +16,7 @@ import { ApiChips } from "./parts";
 import { httpSections } from "./sections";
 import type { HttpApi, HttpAuthorizer, Route } from "./types";
 import { lambdaName, list } from "./words";
+import { sdkShown } from "./calls";
 
 const NONE = "__none__";
 const kindWords = (a: HttpAuthorizer) => (a.authorizerType === "JWT" ? "JWT" : "Lambda (request)");
@@ -99,7 +100,7 @@ export function HttpAuthorization({ id, api, mode }: { id: string; api: HttpApi;
                 <div className="flex flex-wrap gap-3"><Button type="submit" disabled={!input || attach.isPending || pick === (route?.authorizerId ?? NONE)} data-testid="attach-submit">{attach.isPending ? "Attaching…" : chosen ? "Attach authorizer" : "Detach authorizer"}</Button>{create}</div>
               </form>
             </section>
-            <div className="xl:sticky xl:top-6"><CallPanel request={input ? { service: "apigatewayv2", operation: "UpdateRoute", input } : null} showInput note={<>Creating an authorizer does not protect a route: attaching it is this second call. The route&apos;s authorization type becomes <span className="font-mono">CUSTOM</span> (Lambda) or <span className="font-mono">JWT</span>.</>} /></div>
+            <div className="xl:sticky xl:top-6"><CallPanel request={input ? { service: "apigatewayv2", operation: "UpdateRoute", input } : null} shown={sdkShown} showInput note={<>Creating an authorizer does not protect a route: attaching it is this second call. The route&apos;s authorization type becomes <span className="font-mono">CUSTOM</span> (Lambda) or <span className="font-mono">JWT</span>.</>} /></div>
           </div>
         )}
       </div>

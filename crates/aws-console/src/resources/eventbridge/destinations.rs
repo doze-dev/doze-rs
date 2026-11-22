@@ -40,7 +40,7 @@ pub(super) const API_DESTINATIONS: Kind = Kind {
     fields: &[
         field("ARN", "ApiDestinationArn", Mono),
         field("Description", "Description", Plain),
-        field("State", "ApiDestinationState", Plain),
+        field("State", "ApiDestinationState", super::STATES),
         field("Endpoint", "InvocationEndpoint", Mono),
         field("HTTP method", "HttpMethod", Plain),
         field("Connection", "ConnectionArn", Mono),

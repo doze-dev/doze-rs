@@ -1,0 +1,1 @@
+export{t as SharingCreate}from"./detail-f8gvLar6.js";

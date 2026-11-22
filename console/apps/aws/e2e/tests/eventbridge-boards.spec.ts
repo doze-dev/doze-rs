@@ -205,7 +205,7 @@ test("eventbridge__send-events: one PutEvents entry, which rules it matches, and
 test("eventbridge__rule-detail: what feeds the rule, its pattern, its targets with the input and the retry policy, and what it delivered", async ({ page }) => {
   events();
   await go(page, `/resources/eventbridge/rules/${encodeURIComponent("larder/order-placed")}`, "order-placed");
-  await expect(page.getByTestId("detail-sentence")).toContainText("order-placed is enabled on the larder bus and sends what matches its pattern to 1 target: orders-created.");
+  await expect(page.getByTestId("detail-sentence")).toContainText("order-placed matches events from larder.orders with detail type OrderPlaced and a total_cents above 0, and publishes it to the orders-created topic.");
   await expect(page.getByTestId("wired-strip").first()).toContainText("larder bus");
   // What the topic fans out to, past the rule.
   await expect(page.getByTestId("wired-strip").first()).toContainText("3 subscribed queues");
@@ -254,6 +254,9 @@ test("eventbridge__bus-detail: what feeds the bus and what its rules send to, it
   const strips = page.getByTestId("wired-strip");
   await expect(strips.first()).toContainText("Fed by");
   await expect(strips.nth(1)).toContainText("order-placed");
+  // Each rule is read with its own target (not all the rules, then all the targets).
+  await expect(strips.nth(1)).toHaveText(/order-placed\s*SNS topic orders-created/);
+  await expect(page.getByRole("heading", { name: "Event bus details" })).toBeVisible();
   await expect(strips.nth(1)).toContainText("SNS topic orders-created");
   await expect(page.getByTestId("bus-details")).toContainText("AWS owned key");
   await expect(page.getByTestId("bus-details")).toContainText("Environment=dev");

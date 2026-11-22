@@ -97,7 +97,7 @@ test("apigateway__usage-plan-keys-none: a plan with no keys says its limits appl
 });
 
 test("apigateway: a stage is added to a plan and taken off it, and the plan's limit is enforced on a method that needs a key", async ({ page, refusals }) => {
-  await go(page, apiPath("usageplans", ctx.ids.trial), "partners-trial");
+  await go(page, apiPath("usageplans", ctx.ids.trial, "?tab=stages"), "partners-trial");
   await expect(page.getByTestId("no-stages")).toContainText("covers no stage yet");
   await page.getByTestId("add-stage").click();
   await choose(page, "stage-api", "larder-public");

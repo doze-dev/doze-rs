@@ -17,6 +17,10 @@ describe("the address's search params", () => {
     for (const v of ["12", "true", "[x", '"q"']) expect(parseSearch(stringifySearch({ key: v }))).toEqual({ key: v });
     expect(parseSearch(stringifySearch({ partition: 1, time: "2026-11-13 14:30", record: "0:12" }))).toEqual({ partition: 1, time: "2026-11-13 14:30", record: "0:12" });
   });
+  test("an account ID of digits keeps its zeros and stays text, written by hand or by the router", () => {
+    expect(parseSearch("?account=000000000000&roleName=2024")).toEqual({ account: "000000000000", roleName: 2024 });
+    expect(parseSearch(stringifySearch({ account: "000000000000", roleName: "2024" }))).toEqual({ account: "000000000000", roleName: "2024" });
+  });
   test("nothing is no search at all", () => {
     expect(stringifySearch({ a: undefined })).toBe("");
     expect(parseSearch("")).toEqual({});

@@ -83,3 +83,12 @@ export function deletedBy(url: string): Place | null {
     return null;
   }
 }
+
+/** What the rail calls a place: its name, but a customer managed policy is addressed by its ARN, and the rail names the policy. */
+export function labelOf(p: Place): string {
+  if (p.service === "iam" && p.kind === "policies") {
+    const at = p.name.indexOf(":policy/");
+    if (p.name.startsWith("arn:") && at >= 0) return p.name.slice(at + 8).split("/").pop() ?? p.name;
+  }
+  return p.name;
+}

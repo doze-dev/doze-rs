@@ -23,12 +23,16 @@ export function MethodCreate({ api, apiName, resource, crumbs, onClose }: { api:
   const authorizers = useAuthorizers(api).data?.item ?? [];
   const taken = res ? methodsOf(res).map((m) => m.httpMethod) : [];
   const first = METHODS.find((m) => !taken.includes(m)) ?? "GET";
-  const [f, setF] = useState<MethodForm>({ ...emptyMethod, method: first });
+  // The verb opens on the first one the resource has not got. The resource is read after the form opens, so until the person picks one the verb
+  // follows what is read (it used to stay GET on a resource that already had GET and OPTIONS, and the form was refused from the first look).
+  const [picked, setPicked] = useState<string | null>(null);
+  const [rest, setF] = useState<MethodForm>(emptyMethod);
+  const f = { ...rest, method: picked ?? first };
   const sentence = useFunctionSentence(f.fn);
   const [tried, setTried] = useState(false);
   const [error, setError] = useState<{ code: string; message: string; after: string | null } | null>(null);
   const [working, setWorking] = useState(false);
-  const set = (patch: Partial<MethodForm>) => { setF((x) => ({ ...x, ...patch })); setError(null); };
+  const set = (patch: Partial<MethodForm>) => { if (patch.method !== undefined) setPicked(patch.method); setF((x) => ({ ...x, ...patch })); setError(null); };
   const w = { api, resource: res?.id ?? "", region: where.region, account: where.account };
   const calls = useMemo(() => methodCalls(f, w), [f, api, res?.id, where.region, where.account]); // eslint-disable-line react-hooks/exhaustive-deps
   const problem = methodProblem(f, taken);

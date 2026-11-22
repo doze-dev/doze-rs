@@ -33,7 +33,7 @@ export function DeletedStack({ name }: { name: string }) {
     <div data-testid="stack-gone">
       <PageHeader title={name} mono crumbs={crumbs} titleExtra={<DetailBadgeView badge={{ ...statusBadge("DELETE_COMPLETE"), tone: "neutral" }} />} sub={`${stack?.CreationTime ? `Created ${at(stack.CreationTime)}. ` : ""}Deleted ${at(stack?.DeletionTime ?? record.deleted)}.`} actions={<ToStacks />} />
       <Lede said={said} testId="stack-deleted-sentence" />
-      <Callout tone="info" lead="A deleted stack is hidden from the list by default." className="mb-8" testId="stack-deleted">Choose Deleted in Filter status to see it. CloudFormation keeps the record by its stack ID, <span className="font-mono text-[12.5px] break-all">{record.id}</span>; by name it is gone.</Callout>
+      <Callout tone="info" lead="A deleted stack is hidden from the list by default." className="mb-8" testId="stack-deleted">Choose Deleted in Filter status to see it. CloudFormation keeps the record by its stack ID, <span className="font-mono text-[12.5px] [overflow-wrap:anywhere]">{record.id}</span>; by name it is gone.</Callout>
       <div className="grid gap-8">
         <Section title="Resources" lede={left.length === 0 ? "ListStackResources returns nothing for this deleted stack." : "What ListStackResources returns for the deleted stack, read by its ID."} testId="gone-resources">
           <RuleHelp className="max-w-[56rem]">

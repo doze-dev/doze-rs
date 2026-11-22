@@ -3,6 +3,7 @@ import { useState } from "react";
 import { parseClock } from "@doze/ui/components/app/utc-datetime-picker";
 import { Input } from "@doze/ui/components/ui/input";
 import { Label } from "@doze/ui/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@doze/ui/components/ui/select";
 
 const two = (n: number) => String(n).padStart(2, "0");
 
@@ -46,7 +47,8 @@ export function WhenFields({ label, value, onChange, testId }: { label: string; 
       <div className="flex flex-wrap items-center gap-2">
         <Input id={`${testId}-day`} value={text.day} onChange={(e) => set({ day: e.target.value })} placeholder="2026-11-07" inputMode="numeric" autoComplete="off" aria-label={`${label}, date`} aria-invalid={badDay} className="w-36 font-mono" data-testid={`${testId}-date`} />
         <Input value={text.clock} onChange={(e) => set({ clock: e.target.value })} placeholder="00:00:00" inputMode="numeric" autoComplete="off" aria-label={`${label}, time`} aria-invalid={badClock} className="w-28 font-mono" data-testid={`${testId}-time`} />
-        <Input value="UTC" readOnly tabIndex={-1} aria-label={`${label}, zone`} className="w-20 bg-muted font-mono text-muted-foreground" data-testid={`${testId}-zone`} />
+        {/* The console speaks UTC: the zone is a choice of one, drawn as the board draws it. */}
+        <Select value="UTC"><SelectTrigger className="w-24 bg-card font-mono" aria-label={`${label}, zone`} data-testid={`${testId}-zone`}><SelectValue /></SelectTrigger><SelectContent><SelectItem value="UTC" className="font-mono">UTC</SelectItem></SelectContent></Select>
       </div>
       {(badDay || badClock) && <p className="text-[12.5px] text-bad" role="alert">{badDay ? "A date is year-month-day, like 2026-11-07." : "A time is hours and minutes, like 14:30 or 14:30:05."}</p>}
     </div>

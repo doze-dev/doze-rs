@@ -5,7 +5,7 @@ import { Badge } from "@doze/ui/components/ui/badge";
 import type { RuleDraft } from "./rule-model";
 import { targetsOf } from "./rule-model";
 import { cronWords, parseCron } from "./cron";
-import { arnName, inputWords, retryWords, targetWords } from "./words";
+import { arnName, inputWords, prettyPattern, retryWords, targetWords } from "./words";
 
 const mono = (t: string) => <span className="font-mono">{t}</span>;
 
@@ -21,7 +21,7 @@ export function RuleReview({ d, onEdit }: { d: RuleDraft; onEdit: (step: number)
         schedule ? { label: "Schedule", value: <>{mono(d.schedule)}{cron ? <span className="text-muted-foreground"> {cronWords(cron)}</span> : null}</> } : { label: "Rule type", value: "Rule with an event pattern" },
         ...(schedule ? [{ label: "State", value: d.enabled ? "Enabled" : "Disabled" }] : []),
       ]} />
-      {!schedule && <ReviewSection title="Step 2: Build event pattern" onEdit={() => onEdit(1)} rows={[{ label: "Event pattern", value: <pre className="overflow-auto rounded-[10px] bg-well px-4 py-3 font-mono text-[12.5px] leading-5 whitespace-pre-wrap" data-testid="review-pattern">{d.pattern}</pre> }]} />}
+      {!schedule && <ReviewSection title="Step 2: Build event pattern" onEdit={() => onEdit(1)} rows={[{ label: "Event pattern", value: <pre className="overflow-auto rounded-[10px] bg-well px-4 py-3 font-mono text-[12.5px] leading-5 whitespace-pre-wrap" data-testid="review-pattern">{prettyPattern(d.pattern)}</pre> }]} />}
       <ReviewSection title={`Step ${schedule ? 2 : 3}: Select target(s)`} onEdit={() => onEdit(schedule ? 1 : 2)} rows={d.targets.flatMap((t, i) => [
         { label: d.targets.length > 1 ? `Target ${i + 1}` : "Target", value: t.arn ? targetWords(t.arn) : "–" },
         { label: "Configure target input", value: <>{inputWords(targets[i]!)}{t.input === "transformer" && t.paths ? "" : ""}</> },

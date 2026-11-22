@@ -82,6 +82,7 @@ export function StacksList({ service, kind }: { service: string; kind: string })
           <EmptyState icon={LayersIcon} title="No stacks" action={<Button variant="outline" className="bg-card" onClick={create}><PlusIcon /> Create stack</Button>}>
             You have no stacks in this region. Create a stack from a template to provision resources together.
           </EmptyState>
+          <p className="mt-4 text-center text-[13px] text-muted-foreground" data-testid="show-deleted">A deleted stack is hidden from the list. <button type="button" className="rounded-sm text-link hover:underline focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none" onClick={() => setStatus("DELETED")}>Show deleted stacks</button></p>
         </div>
       ) : (
         <>

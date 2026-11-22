@@ -7,6 +7,9 @@ export type Kept = { stack: string; w: Wizard; step: number; furthest: number; s
 
 let kept: Kept | null = null;
 
+/** The preview change set the kept wizard holds, when one is kept (its change set is being read on a page of its own). */
+export const keptPreview = (): string | null => kept?.previewId ?? null;
+
 export function keepWizard(k: Kept): void {
   kept = k;
 }

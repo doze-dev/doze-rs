@@ -19,7 +19,9 @@ import { switchTo, type SessionColor } from "../../../shell/identity";
 type Role = { RoleName: string; Path: string; AssumeRolePolicyDocument: Doc };
 
 export function SwitchRole() {
-  const search = useSearch({ strict: false }) as { account?: string; roleName?: string };
+  // An address can carry a number where a name is meant (`?roleName=2024`): the page takes both as the text they are.
+  const raw = useSearch({ strict: false }) as { account?: string | number; roleName?: string | number };
+  const search = { account: raw.account === undefined ? undefined : String(raw.account), roleName: raw.roleName === undefined ? undefined : String(raw.roleName) };
   const about = useAbout().data;
   const account = about?.account ?? "";
   const aliases = useRead<{ AccountAliases: string[] }>(USERS, "ListAccountAliases", {});

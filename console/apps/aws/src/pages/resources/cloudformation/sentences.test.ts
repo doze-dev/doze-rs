@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { deletedSaid, exportsSaid, stackSaid, updatedSaid, type StackFacts } from "./sentences";
+import { deletedSaid, exportsSaid, makesWords, stackSaid, updatedSaid, type StackFacts } from "./sentences";
 
 const res = (type: string, status = "CREATE_COMPLETE") => ({ LogicalResourceId: type, ResourceType: type, ResourceStatus: status });
 const base: StackFacts = { name: "larder-core", status: "CREATE_COMPLETE", created: "2026-11-06 18:40:12 UTC", updated: null, resources: [res("AWS::SQS::Queue"), res("AWS::SNS::Topic"), res("AWS::S3::Bucket")], exports: ["e-1", "e-2"], importers: { "e-1": [], "e-2": [] }, failed: null };
@@ -57,4 +57,14 @@ describe("the exports' sentence", () => {
   test("nothing imported", () => expect(exportsSaid(e, {}).text).toBe("3 exports from 2 stacks. Nothing imports them today."));
   test("one imported", () => expect(exportsSaid(e, { "b-z": ["c"] }).text).toBe("3 exports from 2 stacks. Only one is imported: c imports b-z, so b can't be deleted while it does."));
   test("a single export", () => expect(exportsSaid([e[0]!], {}).text).toBe("1 export from 1 stack. Nothing imports it today."));
+});
+
+describe("what a template makes", () => {
+  test("by name when every type's logical IDs are known, else by how many types", () => {
+    expect(makesWords(["AWS::DynamoDB::Table", "AWS::SQS::Queue"], [{ ResourceType: "AWS::DynamoDB::Table", LogicalResourceIds: ["SearchIndexTable"] }, { ResourceType: "AWS::SQS::Queue", LogicalResourceIds: ["SearchReindexQueue"] }])).toBe("SearchIndexTable (DynamoDB table) and SearchReindexQueue (SQS queue)");
+    expect(makesWords(["AWS::SQS::Queue"], [{ ResourceType: "AWS::SQS::Queue", LogicalResourceIds: ["A", "B", "C"] }])).toBe("A (SQS queue), B (SQS queue) and C (SQS queue)");
+    // A type the summary names no resource of: the count of types is what is known.
+    expect(makesWords(["AWS::SQS::Queue", "AWS::Lambda::Function"], [{ ResourceType: "AWS::SQS::Queue", LogicalResourceIds: ["Q"] }])).toBe("2 resource types");
+    expect(makesWords(["AWS::SQS::Queue"], undefined)).toBe("1 resource type");
+  });
 });

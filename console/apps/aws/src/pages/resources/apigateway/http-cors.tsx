@@ -16,6 +16,7 @@ import { ApiChips } from "./parts";
 import { httpSections } from "./sections";
 import type { HttpApi } from "./types";
 import { list } from "./words";
+import { sdkShown } from "./calls";
 
 export function HttpCors({ id, api }: { id: string; api: HttpApi }) {
   const navigate = useNavigate();
@@ -59,7 +60,7 @@ export function HttpCors({ id, api }: { id: string; api: HttpApi }) {
             </div>
           </section>
         </form>
-        <div className="grid gap-6 xl:sticky xl:top-6"><CallPanel request={{ service: "apigatewayv2", operation: "UpdateApi", input }} showInput note="The CORS block is part of the API itself, not of a route or a stage." />
+        <div className="grid gap-6 xl:sticky xl:top-6"><CallPanel request={{ service: "apigatewayv2", operation: "UpdateApi", input }} shown={sdkShown} showInput note="The CORS block is part of the API itself, not of a route or a stage." />
           <section className="grid gap-3 rounded-[14px] border bg-card p-5" aria-label="When CORS is on">
             <h2 className="text-[17px] leading-6 font-semibold text-bright">When CORS is on</h2>
             <RuleHelp>API Gateway replies to preflight <span className="font-mono">OPTIONS</span> requests on its own, even with no OPTIONS route, and adds the CORS headers to integration responses.</RuleHelp>

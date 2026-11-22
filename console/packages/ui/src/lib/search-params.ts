@@ -16,7 +16,7 @@ function readValue(v: string): unknown {
   }
   if (v === "true") return true;
   if (v === "false") return false;
-  if (/^-?\d{1,15}$/.test(v)) return Number(v);
+  if (/^-?(?:0|[1-9]\d{0,14})$/.test(v)) return Number(v);
   return v;
 }
 

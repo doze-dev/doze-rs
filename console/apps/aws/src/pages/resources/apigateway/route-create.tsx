@@ -10,6 +10,7 @@ import { HTTP, useIntegrations, useRoutes, useWrite } from "./api";
 import { ROUTE_METHODS, routeInput, routeKeyOf, routeProblem } from "./http-model";
 import type { Route } from "./types";
 import { httpTarget, lambdaName } from "./words";
+import { sdkShown } from "./calls";
 
 const NONE = "__none__";
 
@@ -23,10 +24,13 @@ export function RouteCreate({ api, apiName, websocket, crumbs, onClose }: { api:
   const make = useWrite<Route>(HTTP, "CreateRoute");
   const key = websocket ? path.trim() : routeKeyOf(method, path);
   const problem = routeProblem(method, path, taken, websocket);
-  const input = useMemo(() => routeInput(api, key || "<route key>", integration === NONE ? null : integration), [api, key, integration]);
+  // Until a path is typed the call says what is still to be given, not `ANY ` with a trailing space.
+  const shownKey = path.trim() === "" ? (websocket || method === "" ? "<route key>" : `${method} <path>`) : key;
+  const input = useMemo(() => routeInput(api, shownKey, integration === NONE ? null : integration), [api, shownKey, integration]);
   const failure = make.error instanceof ApiFailure ? { code: make.error.code, message: make.error.message } : null;
   return (
     <FormPage
+      shown={sdkShown}
       title="Create route"
       sub="A route maps a request method and path to an integration."
       titleExtra={<span className="font-mono text-[13px] text-muted-foreground">{apiName}</span>}
