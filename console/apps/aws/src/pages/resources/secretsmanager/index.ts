@@ -1,7 +1,8 @@
-// Secrets Manager's page of a secret: a secret marked for deletion says so on its details and offers the way back.
+// Secrets Manager's pages: its secrets, drawn by the console's app in place of the generic list and detail pages.
 import { lazy } from "react";
-import { register, registerLead } from "../deep/registry";
+import { registerKind } from "../deep/registry";
 
-// Never listed as a tab (`when` is never true): the descriptor names RestoreSecret on this kind so that the banner on the details may make it.
-register("secretsmanager", { restore: { page: lazy(() => import("./marked").then((m) => ({ default: m.SecretMarked }))), when: () => false } });
-registerLead("secretsmanager", "secrets", lazy(() => import("./marked").then((m) => ({ default: m.SecretMarked }))));
+registerKind("secretsmanager", "secrets", {
+  list: lazy(() => import("./list").then((m) => ({ default: m.SecretsList }))),
+  detail: lazy(() => import("./detail").then((m) => ({ default: m.SecretDetail }))),
+});
