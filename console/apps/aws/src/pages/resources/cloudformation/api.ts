@@ -109,16 +109,19 @@ export function useCfnPreview(stack: string, id: string, key: string, input: Rec
     staleTime: Number.POSITIVE_INFINITY,
     gcTime: 0,
   });
+  // Asked when the page is left, not when it opened: the person may have chosen View change set since.
+  const kept = () => keep.current;
   useEffect(() => {
     left.current = false;
     return () => {
       left.current = true;
       // Only a preview that was made is removed (a page left before the review step made none, and asking would be refused).
-      if (!keep.current && made.current && stack) {
+      if (!kept() && made.current && stack) {
         made.current = false;
         void callKindOp(STACKS, "DeleteChangeSet", { StackName: stack, ChangeSetName: id }).catch(() => undefined);
       }
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `kept` reads a ref: its identity changes with every render and says nothing
   }, [stack, id, keep]);
   return { data: q.data, pending: input !== null && q.isPending, error: q.error };
 }
