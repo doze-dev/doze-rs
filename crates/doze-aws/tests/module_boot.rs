@@ -19,7 +19,7 @@ mod module_support;
 
 use std::time::Duration;
 
-use module_support::{aws, converge, harness, have_cli, queue_urls};
+use module_support::{aws, console_addr, converge, endpoint, get, harness, have_cli, queue_urls};
 
 #[tokio::test(flavor = "current_thread")]
 async fn the_published_example_boots_and_the_aws_cli_sees_what_it_declares() {
@@ -147,4 +147,45 @@ async fn a_bucket_name_s3_refuses_is_refused_before_boot_not_at_provision() {
         !e.contains("ROLLBACK"),
         "refused before anything was made: {e}"
     );
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn the_console_answers_on_the_listener_doze_granted_beside_the_gateway() {
+    let b = harness().boot(SMALL).await.unwrap();
+    let console = console_addr(&b);
+    let gateway = endpoint(&b);
+    assert_ne!(
+        console,
+        gateway.trim_start_matches("http://"),
+        "its own listener"
+    );
+    // As the app opens it: at the instance's name, which doze granted the console to answer to.
+    let name = b.instance.listeners["console"]
+        .hosts
+        .first()
+        .cloned()
+        .unwrap();
+    for host in [name.as_str(), console.as_str()] {
+        let (status, page) = get(&console, host, "/healthz");
+        assert_eq!(status, 200, "{host}: {page}");
+        let (status, page) = get(&console, host, "/");
+        assert_eq!(status, 200, "{host}: {page}");
+        assert!(
+            page.to_lowercase().contains("<!doctype html>"),
+            "the bundle: {page}"
+        );
+    }
+    // A name doze did not grant is turned away (DNS rebinding), as it is when run by hand.
+    assert_eq!(get(&console, "evil.example", "/").0, 403);
+    // The gateway still answers AWS calls (the console is not where they go).
+    let (status, answer) = get(
+        gateway.trim_start_matches("http://"),
+        "localhost",
+        "/_doze/health",
+    );
+    assert_eq!(status, 200, "{answer}");
+    if have_cli() {
+        assert_eq!(queue_urls(&b), ["jobs", "spare"]);
+    }
+    b.stop(Duration::from_secs(20)).await;
 }
