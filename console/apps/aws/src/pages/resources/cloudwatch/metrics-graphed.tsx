@@ -50,7 +50,7 @@ export function GraphedTable({ rows, onChange, onAlarm, math = true }: { rows: G
         </table>
       </div>
       <p className="max-w-[46rem] border-l-2 pl-3.5 text-[13px] leading-5 text-muted-foreground" data-testid="graphed-note">
-        <b className="font-semibold text-foreground">Statistic:</b> Average, Minimum, Maximum, Sum, SampleCount, or a percentile such as <span className="font-mono">p95.45</span>. In Actions, the alarm icon starts an alarm from the metric, statistic and period on this row; the copy icon duplicates the metric.
+        <b className="font-semibold text-foreground">Statistic:</b> Average, Minimum, Maximum, Sum, SampleCount, or a percentile such as <span className="font-mono">p95.45</span>.{onAlarm && " In Actions, the alarm icon starts an alarm from the metric, statistic and period on this row; the copy icon duplicates the metric."}
       </p>
     </div>
   );

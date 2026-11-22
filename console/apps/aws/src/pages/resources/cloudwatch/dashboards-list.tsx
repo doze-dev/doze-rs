@@ -55,7 +55,7 @@ export function DashboardsList({ service, kind }: { service: string; kind: strin
         refresh={<RefreshControl updatedAt={q.dataUpdatedAt} fetching={q.isFetching} onRefresh={() => void q.refetch()} interval={false} />}
         actions={<Button onClick={create} data-testid="create-open"><PlusIcon /> Create dashboard</Button>}
       />
-      {deleted && <ResultBanner className="mb-6" title={deleted.length === 1 ? `Dashboard ${deleted[0]} deleted.` : `${deleted.length} dashboards deleted.`} returned="DeleteDashboards removed the dashboards and their widgets. The metrics and alarms they showed stay." onDismiss={() => { setDone(null); go({}); }} testId="deleted-banner" />}
+      {deleted && !none && <ResultBanner className="mb-6" title={deleted.length === 1 ? `Dashboard ${deleted[0]} deleted.` : `${deleted.length} dashboards deleted.`} returned="DeleteDashboards removed the dashboards and their widgets. The metrics and alarms they showed stay." onDismiss={() => { setDone(null); go({}); }} testId="deleted-banner" />}
       {q.isError && !q.data ? (
         <ErrorBlock what="The dashboards could not be listed" error={q.error} hint={HINT} onRetry={() => void q.refetch()} retrying={q.isFetching} testId="list-error" />
       ) : !q.data ? (

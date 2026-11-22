@@ -13,7 +13,7 @@ export function AlarmChart({ alarm }: { alarm: Alarm }) {
   const above = (alarm.ComparisonOperator ?? "").startsWith("Greater");
   const threshold = alarm.Threshold === undefined || alarm.ThresholdMetricId ? undefined : { value: alarm.Threshold, label: `${metricName(alarm)} ${signOf(alarm.ComparisonOperator)} ${alarm.Threshold}`, bad: above ? ("above" as const) : ("below" as const) };
   return (
-    <Card title={<span className="font-mono text-[17px]">{metricName(alarm)}</span>} actions={<RangeBar state={state} onChange={patch} compact />} testId="alarm-chart">
+    <Card title={metricName(alarm)} actions={<RangeBar state={state} onChange={patch} compact />} testId="alarm-chart">
       <Chart series={m.series.map((s) => ({ ...s, area: true }))} from={range.from} to={range.to} height={260} threshold={threshold} loading={m.isPending && queries.length > 0} aria-label={`${conditionWords(alarm)}, graphed over the range`} empty="No data points in this range. doze-aws keeps samples for 24 hours." testId="alarm-graph" />
     </Card>
   );

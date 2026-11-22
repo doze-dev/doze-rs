@@ -206,7 +206,6 @@ test("cloudwatch__alarm-tags and alarm-tags-none: tags to manage, and the state 
 });
 
 test("cloudwatch__alarm-step1 to step4: the wizard, the call each step makes, and the alarm it creates", async ({ page }) => {
-  page.on("response", (r) => { if (r.status() >= 400) console.log("HTTP", r.status(), r.request().method(), r.url(), r.request().postData()?.slice(0, 400)); });
   await go(page, "/resources/cloudwatch/alarms", "Alarms");
   await page.getByTestId("create-open").click();
   await expect(page.locator("h1").first()).toHaveText("Create alarm");
@@ -270,7 +269,7 @@ test("cloudwatch__alarm-step1 to step4: the wizard, the call each step makes, an
   await expect(page.getByTestId("summary-metric")).toContainText("DlqMessages >= 1 for 1 datapoints within 1 minute");
   await expect(page.getByTestId("summary-actions")).toContainText("Send a notification to alerts");
   await expect(page.getByTestId("summary-name")).toContainText("pick-lists-dlq-watch");
-  await expect(page.getByTestId("review-note")).toContainText("INSUFFICIENT_DATA until the first evaluation");
+  await expect(page.getByText("Creating it sets its state to INSUFFICIENT_DATA until the first evaluation.")).toBeVisible();
   await expect(code(page)).toContainText('"AlarmName": "pick-lists-dlq-watch"');
   await expect(code(page)).toContainText('"AlarmActions"');
   await shot(page, "cloudwatch__alarm-step4");
@@ -383,6 +382,9 @@ test("cloudwatch__dashboards-list, dashboard-create and dashboard-delete", async
   const dialog = page.getByTestId("create-dashboard-dialog");
   await expect(dialog).toContainText("Create new dashboard");
   await expect(dialog).toContainText("Up to 255 characters: A-Z, a-z, 0-9, hyphen and underscore.");
+  await dialog.getByTestId("dashboard-name").fill("larder-fulfilment");
+  await shot(page, "cloudwatch__dashboard-create");
+  await dialog.getByTestId("dashboard-name").fill("");
   await dialog.getByTestId("create-dashboard-submit").click();
   await expect(dialog).toContainText("Enter a dashboard name.");
   await dialog.getByTestId("dashboard-name").fill("bad name");
@@ -391,7 +393,6 @@ test("cloudwatch__dashboards-list, dashboard-create and dashboard-delete", async
   await dialog.getByTestId("dashboard-name").fill("larder-ops");
   await dialog.getByTestId("create-dashboard-submit").click();
   await expect(dialog).toContainText("A dashboard named larder-ops already exists.");
-  await shot(page, "cloudwatch__dashboard-create");
   await dialog.getByTestId("dashboard-name").fill("scratch-board");
   await dialog.getByTestId("create-dashboard-submit").click();
   await expect(page.locator("h1").first()).toHaveText("scratch-board");
@@ -436,7 +437,7 @@ test("cloudwatch__dashboard-view, dashboard-source and dashboard-add-widget: the
   await source.getByRole("button", { name: "Cancel" }).click();
   await page.getByTestId("add-widget").click();
   const choice = page.getByTestId("add-widget-dialog");
-  for (const t of ["Line", "Stacked area", "Number", "Gauge", "Bar", "Pie", "Text", "Alarm status"]) await expect(choice.getByRole("radio", { name: new RegExp(`^${t}`) })).toBeVisible();
+  for (const t of ["line", "stacked", "number", "gauge", "bar", "pie", "text", "alarm"]) await expect(choice.getByTestId(`widget-type-${t}`)).toBeVisible();
   await expect(choice).toContainText("Latest metric value with a sparkline");
   await shot(page, "cloudwatch__dashboard-add-widget");
 });

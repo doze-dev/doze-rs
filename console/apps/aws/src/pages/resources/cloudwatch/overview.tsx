@@ -35,7 +35,7 @@ const SERVICE_COLUMNS: DataColumn<Row>[] = [
 const RECENT_COLUMNS: DataColumn<Alarm>[] = [
   { id: "alarm", header: "Alarm", min: 160, accessorFn: (r) => r.AlarmName, meta: { mono: true }, cell: (c) => <ResourceTo to={{ service: "cloudwatch", kind: "alarms", name: c.row.original.AlarmName }} className="font-mono text-[13px] font-medium" testId="recent-link">{c.row.original.AlarmName}</ResourceTo> },
   { id: "state", header: "State", size: 190, fit: 190, accessorFn: (r) => r.StateValue, cell: (c) => <StatusDot tone={stateTone(c.row.original.StateValue)}>{c.row.original.StateValue}</StatusDot> },
-  { id: "updated", header: "State updated", size: 190, fit: 130, accessorFn: (r) => toMs(r.StateUpdatedTimestamp) ?? 0, cell: (c) => { const t = toMs(c.row.original.StateUpdatedTimestamp); return t === null ? "–" : dateTimeUtc(t); } },
+  { id: "updated", header: "State updated", size: 240, fit: 130, accessorFn: (r) => toMs(r.StateUpdatedTimestamp) ?? 0, cell: (c) => { const t = toMs(c.row.original.StateUpdatedTimestamp); return t === null ? "–" : dateTimeUtc(t); } },
 ];
 
 function Card({ to, icon: Icon, title, children, testId }: { to: string; icon: typeof BellIcon; title: string; children: React.ReactNode; testId: string }) {

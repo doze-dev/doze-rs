@@ -7,7 +7,9 @@ import { Button } from "@doze/ui/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@doze/ui/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@doze/ui/components/ui/select";
 import { Link } from "@tanstack/react-router";
-import { RadioCards, callKindOp } from "../../../kit";
+import { Label } from "@doze/ui/components/ui/label";
+import { RadioGroup, RadioGroupItem } from "@doze/ui/components/ui/radio-group";
+import { callKindOp } from "../../../kit";
 import { type DashboardAnswer, DASHBOARDS, useDashboards, usePutDashboard } from "./api";
 import { parseBody, stringify, withWidget } from "./dashboard-model";
 import { type GM, metricWidget } from "./graph-model";
@@ -55,7 +57,11 @@ export function AddToDashboard({ rows, region, onClose }: { rows: GM[]; region: 
             </div>
             <div className="grid gap-2">
               <span className="text-[14px] font-medium text-bright">Widget type</span>
-              <RadioCards<WidgetKind> name="widget" label="Widget type" value={kind} onChange={setKind} className="sm:grid-cols-3" options={[{ value: "line", title: "Line" }, { value: "stacked", title: "Stacked area" }, { value: "number", title: "Number" }]} />
+              <RadioGroup value={kind} onValueChange={(v) => setKind(v as WidgetKind)} className="grid gap-3" aria-label="Widget type">
+                {([["line", "Line"], ["stacked", "Stacked area"], ["number", "Number"]] as const).map(([v, label]) => (
+                  <Label key={v} htmlFor={`widget-${v}`} className="flex cursor-pointer items-center gap-3 font-normal"><RadioGroupItem id={`widget-${v}`} value={v} data-testid={`widget-${v}`} />{label}</Label>
+                ))}
+              </RadioGroup>
             </div>
             <p className="text-[13.5px] leading-5 text-foreground" data-testid="add-words">
               The {rows.length === 1 ? "graphed metric becomes" : `${rows.length} graphed metrics become`} one widget at the next free position of <b className="font-mono font-semibold text-bright">{chosen}</b> (a widget with no x and y takes the next available position). PutDashboard replaces the entire contents of a dashboard, so adding a widget writes the existing widgets back with the new one.

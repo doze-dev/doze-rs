@@ -21,6 +21,12 @@ const SUBS = [
   "Step 4 of 4. Check everything, then create the alarm. Creating it sets its state to INSUFFICIENT_DATA until the first evaluation.",
 ];
 
+/** The words under the title: the board's, and for an edit the alarm's name and what the last step does. */
+function subOf(step: number, editing: string | undefined): string {
+  if (editing === undefined) return SUBS[step]!;
+  return step === 3 ? "Step 4 of 4. Check everything, then update the alarm. Its state and history are kept." : SUBS[step]!.replace(/^Step (\d) of 4\./, `Step $1 of 4. Editing ${editing}.`);
+}
+
 export function CreateAlarm({ editing }: { editing?: string }) {
   const search = useSearch({ strict: false }) as { sel?: string };
   const existing = useAlarm(editing ?? "", editing !== undefined);
@@ -85,7 +91,7 @@ function Wizard({ initial, editing }: { initial: Draft; editing?: string }) {
   return (
     <FormPage
       title={title}
-      sub={editing ? SUBS[step]!.replace(/^Step (\d) of 4\./, "Step $1 of 4. Editing $NAME.").replace("$NAME", editing) : SUBS[step]}
+      sub={subOf(step, editing)}
       stepsAfterTitle
       crumbs={[...crumbs, { label: "All alarms", to: "/resources/cloudwatch/alarms" }, { label: STEPS[step]!.label, to: "/resources/cloudwatch/alarms?do=create" }]}
       request={{ service: "cloudwatch", operation: "PutMetricAlarm", input }}
@@ -104,7 +110,7 @@ function Wizard({ initial, editing }: { initial: Draft; editing?: string }) {
       {step === 0 && <MetricStep d={d} set={set} tried={tried} problem={stop} />}
       {step === 1 && <ActionsStep d={d} set={set} tried={tried} problem={stop} arn={arn} region={region} account={account} />}
       {step === 2 && <NameStep d={d} set={set} tried={tried} problem={stop} editing={editing !== undefined} />}
-      {step === 3 && <ReviewStep d={d} go={go} arn={arn} editing={editing !== undefined} />}
+      {step === 3 && <ReviewStep d={d} go={go} arn={arn} />}
     </FormPage>
   );
 }

@@ -33,7 +33,7 @@ export const ALARM_COLUMNS: DataColumn<Alarm>[] = [
     </span>
   ) },
   { id: "state", header: "State", size: 190, fit: 190, accessorFn: (r) => r.StateValue, cell: (c) => <StatusDot tone={stateTone(c.row.original.StateValue)}>{c.row.original.StateValue}</StatusDot> },
-  { id: "updated", header: "State updated", size: 190, fit: 190, accessorFn: (r) => toMs(r.StateUpdatedTimestamp) ?? 0, cell: (c) => { const t = toMs(c.row.original.StateUpdatedTimestamp); return t === null ? "–" : dateTimeUtc(t); } },
+  { id: "updated", header: "State updated", size: 240, fit: 190, accessorFn: (r) => toMs(r.StateUpdatedTimestamp) ?? 0, cell: (c) => { const t = toMs(c.row.original.StateUpdatedTimestamp); return t === null ? "–" : dateTimeUtc(t); } },
   { id: "condition", header: "Condition", min: 220, enableSorting: false, accessorFn: (r) => conditionWords(r), cell: (c) => <span className="block py-1 text-[13.5px] leading-5 whitespace-normal" data-testid="condition">{c.row.original.AlarmRule ?? conditionWords(c.row.original)}</span> },
   { id: "actions", header: "Actions enabled", size: 150, fit: 150, enableSorting: false, accessorFn: (r) => (r.ActionsEnabled ? 1 : 0), cell: (c) => (c.row.original.ActionsEnabled ? "Yes" : "No") },
 ];
@@ -70,7 +70,7 @@ function Alarms({ service, kind, gone }: { service: string; kind: string; gone?:
         refresh={<RefreshControl updatedAt={q.dataUpdatedAt} fetching={q.isFetching} onRefresh={refresh} interval={false} />}
         actions={<Button onClick={create} data-testid="create-open"><PlusIcon /> Create alarm</Button>}
       />
-      {(done ?? (gone ? [gone] : null)) && <ResultBanner className="mb-6" title={(done ?? [gone])?.length === 1 ? `Alarm ${(done ?? [gone])[0]} deleted.` : `${done?.length} alarms deleted.`} returned="DeleteAlarms removed it with its history. The metric it watched stays." onDismiss={() => { setDone(null); if (gone) void navigate({ to: ".", search: {}, replace: true }); }} testId="deleted-banner" />}
+      {!none && (done ?? (gone ? [gone] : null)) && <ResultBanner className="mb-6" title={(done ?? [gone])?.length === 1 ? `Alarm ${(done ?? [gone])[0]} deleted.` : `${done?.length} alarms deleted.`} returned="DeleteAlarms removed it with its history. The metric it watched stays." onDismiss={() => { setDone(null); if (gone) void navigate({ to: ".", search: {}, replace: true }); }} testId="deleted-banner" />}
       {q.isError && !q.data ? (
         <ErrorBlock what="The alarms could not be listed" error={q.error} hint={HINT} onRetry={refresh} retrying={q.isFetching} testId="list-error" />
       ) : !q.data ? (
