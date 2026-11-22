@@ -146,7 +146,7 @@ test("the palette jumps to a resource by name", async ({ page, cli, browserName 
 });
 
 test("under --iam enforce the console is allowed: it calls as the account root", async ({ page, browserName }) => {
-  const server = await start(Number(process.env.DOZE_AWS_E2E_PORT ?? 42101) + 2, Number(process.env.DOZE_AWS_E2E_CONSOLE_PORT ?? 42102) + 2, { args: ["--iam", "enforce"] });
+  const server = await start(Number(process.env.DOZE_AWS_E2E_PORT ?? 20002) + 2, Number(process.env.DOZE_AWS_E2E_CONSOLE_PORT ?? 20003) + 2, { args: ["--iam", "enforce"] });
   try {
     const q = unique("enforced", browserName);
     await page.goto(`${server.console}/resources/sqs/queues`);
