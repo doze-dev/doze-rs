@@ -1270,6 +1270,7 @@ dependencies = [
  "aws-dynamodb",
  "aws-eventbridge",
  "aws-logs",
+ "aws-model-lambda",
  "aws-model-sfn",
  "aws-peers",
  "aws-s3",
