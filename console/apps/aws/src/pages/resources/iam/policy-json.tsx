@@ -25,13 +25,13 @@ export function policyErrors(text: string, kind: PolicyKind | "trust"): string[]
   return problems;
 }
 
-export function PolicyJson({ value, onChange, kind, label = "Policy editor", rows = 16, extra, testId = "policy-json" }: { value: string; onChange: (v: string) => void; kind: PolicyKind | "trust"; label?: string; rows?: number; /** Under the status line: the refusal that was answered, or a suggestion. */ extra?: React.ReactNode; testId?: string }) {
+export function PolicyJson({ value, onChange, kind, label = "Policy editor", rows = 16, extra, editor, testId = "policy-json" }: { value: string; onChange: (v: string) => void; kind: PolicyKind | "trust"; label?: string; rows?: number; /** Under the status line: the refusal that was answered, or a suggestion. */ extra?: React.ReactNode; /** Another editor of the same document (the Visual one) in the place of the JSON text. */ editor?: React.ReactNode; testId?: string }) {
   const errors = useMemo(() => policyErrors(value, kind), [value, kind]);
   const parses = !errors.some((e) => e.startsWith("It is not JSON"));
   const ok = errors.length === 0 && value.trim() !== "";
   return (
     <div className="grid gap-3" data-testid={testId}>
-      <JsonEditor value={value} onChange={onChange} label={label} rows={rows} testId={`${testId}-editor`} highlight />
+      {editor ?? <JsonEditor value={value} onChange={onChange} label={label} rows={rows} testId={`${testId}-editor`} highlight />}
       <p className={cn("flex items-center gap-2 text-[13.5px] font-medium", ok ? "text-good" : "text-bad")} data-testid={`${testId}-status`}>
         {ok ? <CircleCheckIcon aria-hidden className="size-4" /> : <CircleAlertIcon aria-hidden className="size-4" />}
         {ok ? "No syntax errors" : parses ? `${errors.length} ${errors.length === 1 ? "error" : "errors"}` : "1 error"}

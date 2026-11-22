@@ -314,6 +314,63 @@ test("iam__role-create, role-create-permissions and role-create-review: the trus
   expect(held).toEqual(["AmazonS3ReadOnlyAccess", "AmazonSQSReadOnlyAccess"]);
 });
 
+test("iam__role-create: web identity and SAML federation build their trust policies from the providers this account has registered", async ({ page }) => {
+  // No provider is registered yet: the choice says so, and Next is refused.
+  await go(page, iam("roles", "", "?create=yes"), "Select trusted entity");
+  await page.getByTestId("type-web").click();
+  await expect(page.getByTestId("no-providers")).toContainText("No OpenID Connect provider is registered in this account.");
+  await page.getByTestId("form-submit").click();
+  await expect(page.getByTestId("step-problem")).toHaveText("Choose an identity provider.");
+  const thumb = "9e99a48a9960b14926bb7f3b02e22da2b0ab7280";
+  cli(["iam", "create-open-id-connect-provider", "--url", "https://token.actions.githubusercontent.com", "--client-id-list", "sts.amazonaws.com", "--thumbprint-list", thumb]);
+  const metadata = `<EntityDescriptor xmlns="urn:oasis:names:tc:SAML:2.0:metadata" entityID="https://idp.example.com/saml"><!-- ${"x".repeat(1000)} --></EntityDescriptor>`;
+  cli(["iam", "create-saml-provider", "--name", "okta", "--saml-metadata-document", metadata]);
+  // Web identity: the provider, then its audience (a client ID of it).
+  await go(page, iam("roles", "", "?create=yes"), "Select trusted entity");
+  await page.getByTestId("type-web").click();
+  await page.getByTestId("trust-provider").click();
+  await page.getByRole("option", { name: "token.actions.githubusercontent.com" }).click();
+  await page.getByTestId("trust-audience").click();
+  await page.getByRole("option", { name: "sts.amazonaws.com" }).click();
+  await expect(page.getByTestId("trust-json")).toContainText("sts:AssumeRoleWithWebIdentity");
+  await expect(page.getByTestId("trust-json")).toContainText(`"token.actions.githubusercontent.com:aud": "sts.amazonaws.com"`);
+  await expect(page.getByTestId("trust-panel")).toContainText("neither evaluates this trust policy, whatever IAM mode is on");
+  await shot(page, "iam__role-create-web-identity");
+  await page.getByTestId("form-submit").click();
+  await expect(page.locator("h1").first()).toHaveText("Add permissions");
+  await page.getByTestId("form-submit").click();
+  await page.getByTestId("role-name").fill("github-deploy");
+  await expect(page.getByTestId("review-trust")).toContainText("sts:AssumeRoleWithWebIdentity");
+  await page.getByTestId("form-submit").click();
+  await expect(page.getByTestId("created-banner")).toContainText("Role github-deploy created.");
+  const web = JSON.parse(cli(["iam", "get-role", "--role-name", "github-deploy"])).Role.AssumeRolePolicyDocument.Statement[0];
+  expect(web.Principal.Federated).toBe(`arn:aws:iam::${server.account}:oidc-provider/token.actions.githubusercontent.com`);
+  expect(web.Action).toBe("sts:AssumeRoleWithWebIdentity");
+  // SAML: the provider and the access; the sign-in page changes the audience.
+  await go(page, iam("roles", "", "?create=yes"), "Select trusted entity");
+  await page.getByTestId("type-saml").click();
+  await page.getByTestId("trust-provider").click();
+  await page.getByRole("option", { name: "okta" }).click();
+  await expect(page.getByTestId("trust-json")).toContainText("https://localhost/saml");
+  await page.getByTestId("saml-access-console").click();
+  await expect(page.getByTestId("trust-json")).toContainText("https://signin.aws.amazon.com/saml");
+  await expect(page.getByTestId("trust-json")).toContainText("sts:AssumeRoleWithSAML");
+  await shot(page, "iam__role-create-saml");
+  await page.getByTestId("form-submit").click();
+  await page.getByTestId("form-submit").click();
+  await page.getByTestId("role-name").fill("okta-console");
+  await page.getByTestId("form-submit").click();
+  await expect(page.getByTestId("created-banner")).toContainText("Role okta-console created.");
+  const saml = JSON.parse(cli(["iam", "get-role", "--role-name", "okta-console"])).Role.AssumeRolePolicyDocument.Statement[0];
+  expect(saml.Principal.Federated).toBe(`arn:aws:iam::${server.account}:saml-provider/okta`);
+  expect(saml.Condition.StringEquals["SAML:aud"]).toBe("https://signin.aws.amazon.com/saml");
+  // The role's own page says what is true of a federated trust policy.
+  await go(page, iam("roles", "github-deploy", "?tab=trust"), "github-deploy");
+  await expect(page.getByTestId("trust-note")).toContainText("neither evaluates this trust policy");
+  cli(["iam", "delete-role", "--role-name", "github-deploy"]);
+  cli(["iam", "delete-role", "--role-name", "okta-console"]);
+});
+
 test("iam__role-delete: the dialog names what is detached, and the role goes with it", async ({ page, refusals }) => {
   await go(page, iam("roles"), "Roles");
   await page.getByTestId("select-larder-admin").click();
@@ -395,6 +452,52 @@ test("iam__policy-create, policy-create-error and policy-create-review: the edit
   const made = JSON.parse(cli(["iam", "get-policy", "--policy-arn", policyArn("pick-lists-send-only")])).Policy;
   expect(made.DefaultVersionId).toBe("v1");
   expect(made.Description).toBe("Send messages to pick-lists.");
+});
+
+test("iam__policy-create: the Visual editor builds the same document as the JSON, and a policy it cannot show stays JSON", async ({ page }) => {
+  await go(page, iam("policies", "", "?create=yes"), "Create policy");
+  await page.getByTestId("editor-mode-visual").click();
+  // The starting policy, as blocks: Allow, sqs, SendMessage ticked, the queue.
+  await expect(page.getByTestId("visual-block")).toHaveCount(1);
+  await expect(page.getByTestId("visual-service")).toContainText("sqs");
+  await expect(page.getByTestId("visual-action-SendMessage")).toBeChecked();
+  await expect(page.getByTestId("visual-resource")).toHaveValue(`arn:aws:sqs:us-east-1:${server.account}:pick-lists`);
+  await page.getByTestId("visual-action-ReceiveMessage").click();
+  // A second block, not finished: it says what it lacks, and Next is stopped with the editor's own error.
+  await page.getByTestId("visual-add-block").click();
+  await expect(page.getByTestId("visual-block-problem")).toHaveText("Choose a service.");
+  await page.getByTestId("form-submit").click();
+  await expect(page.getByTestId("policy-json-errors")).toContainText("Statement 2 needs an Action.");
+  await shot(page, "iam__policy-create-visual");
+  await page.getByTestId("visual-service").nth(1).click();
+  await page.getByRole("option", { name: /\(s3\)/ }).click();
+  await page.getByTestId("visual-read").nth(1).click();
+  await page.getByTestId("visual-resource-mode-all").nth(1).click();
+  await expect(page.getByTestId("visual-block-problem")).toHaveCount(0);
+  await expect(page.getByTestId("policy-json-status")).toHaveText("No syntax errors");
+  // The JSON says what the blocks say.
+  await page.getByTestId("editor-mode-json").click();
+  const json = JSON.parse(await page.getByTestId("policy-json-editor").inputValue()) as { Statement: { Effect: string; Action: string[]; Resource: string | string[] }[] };
+  expect(json.Statement[0]).toEqual({ Effect: "Allow", Action: ["sqs:SendMessage", "sqs:ReceiveMessage"], Resource: `arn:aws:sqs:us-east-1:${server.account}:pick-lists` });
+  expect(json.Statement[1]?.Action).toContain("s3:GetObject");
+  expect(json.Statement[1]?.Action.some((a) => a === "s3:PutObject")).toBe(false);
+  expect(json.Statement[1]?.Resource).toBe("*");
+  // A policy with a Condition is not blocks: Visual says why and the JSON stays.
+  await page.getByTestId("policy-json-editor").fill(JSON.stringify({ Version: "2012-10-17", Statement: [{ Effect: "Allow", Action: "s3:GetObject", Resource: "*", Condition: { Bool: { "aws:SecureTransport": "true" } } }] }, null, 2));
+  await page.getByTestId("editor-mode-visual").click();
+  await expect(page.getByTestId("visual-unavailable")).toContainText("Statement 1 has Condition");
+  await expect(page.getByTestId("visual-editor")).toHaveCount(0);
+  // Made from blocks, the policy is created as written.
+  await page.getByTestId("policy-json-editor").fill(JSON.stringify({ Version: "2012-10-17", Statement: [{ Effect: "Allow", Action: ["sqs:SendMessage", "sqs:ReceiveMessage"], Resource: `arn:aws:sqs:us-east-1:${server.account}:pick-lists` }] }, null, 2));
+  await page.getByTestId("editor-mode-visual").click();
+  await page.getByTestId("visual-action-DeleteMessage").click();
+  await page.getByTestId("form-submit").click();
+  await page.getByTestId("policy-name").fill("pick-lists-visual");
+  await page.getByTestId("form-submit").click();
+  await expect(page.getByTestId("created-banner")).toContainText("Policy pick-lists-visual created.");
+  const doc = JSON.parse(cli(["iam", "get-policy-version", "--policy-arn", policyArn("pick-lists-visual"), "--version-id", "v1"])).PolicyVersion.Document;
+  expect(doc.Statement[0].Action).toEqual(["sqs:SendMessage", "sqs:ReceiveMessage", "sqs:DeleteMessage"]);
+  cli(["iam", "delete-policy", "--policy-arn", policyArn("pick-lists-visual")]);
 });
 
 test("sts__switch-role and sts__role-session: AssumeRole through the form, and the identity menu that holds the session", async ({ page }) => {

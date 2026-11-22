@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { aliasProblem, awsArn, blankTrust, breakPoints, daysSince, lacksResource, list, nameProblem, needsExternalId, permissions, policyArnOfName, sameIgnoringCase, sessionWords, shortKey, suggestedResource, takenProblem, trustActions, trustDocument, trustedEntities, trustPrincipals, trustProblem, trustSentence } from "./model";
+import { aliasProblem, audienceKey, awsArn, blankTrust, breakPoints, providerName, daysSince, lacksResource, list, nameProblem, needsExternalId, permissions, policyArnOfName, sameIgnoringCase, sessionWords, shortKey, suggestedResource, takenProblem, trustActions, trustDocument, trustedEntities, trustPrincipals, trustProblem, trustSentence } from "./model";
 
 const ACCOUNT = "123456789012";
 const trust = (principal: unknown, extra: object = {}) => JSON.stringify({ Version: "2012-10-17", Statement: [{ Effect: "Allow", Principal: principal, Action: "sts:AssumeRole", ...extra }] });
@@ -149,5 +149,35 @@ describe("where a resource may wrap", () => {
     expect(breakPoints("arn:aws:s3:::bucket/key/*").join("")).toBe("arn:aws:s3:::bucket/key/*");
     expect(breakPoints("*")).toEqual(["*"]);
     expect(breakPoints("")).toEqual([]);
+  });
+});
+
+describe("the federated trust policies", () => {
+  const oidc = `arn:aws:iam::${ACCOUNT}:oidc-provider/token.actions.githubusercontent.com`;
+  const saml = `arn:aws:iam::${ACCOUNT}:saml-provider/okta`;
+  test("a provider is named by what its ARN ends with, and the audience key by its URL", () => {
+    expect(providerName(oidc)).toBe("token.actions.githubusercontent.com");
+    expect(providerName(saml)).toBe("okta");
+    expect(audienceKey(oidc)).toBe("token.actions.githubusercontent.com:aud");
+    expect(audienceKey(`arn:aws:iam::${ACCOUNT}:oidc-provider/idp.example.com/realms/larder`)).toBe("idp.example.com/realms/larder:aud");
+  });
+  test("web identity trusts the provider to AssumeRoleWithWebIdentity for the audience", () => {
+    const doc = JSON.parse(trustDocument({ ...blankTrust, type: "web", provider: oidc, audience: " sts.amazonaws.com " }, ACCOUNT)) as { Version: string; Statement: unknown[] };
+    expect(doc.Version).toBe("2012-10-17");
+    expect(doc.Statement).toEqual([{ Effect: "Allow", Principal: { Federated: oidc }, Action: "sts:AssumeRoleWithWebIdentity", Condition: { StringEquals: { "token.actions.githubusercontent.com:aud": "sts.amazonaws.com" } } }]);
+  });
+  test("SAML trusts the provider to AssumeRoleWithSAML, for the API alone or with the sign-in page", () => {
+    const aud = (console: boolean) => (JSON.parse(trustDocument({ ...blankTrust, type: "saml", provider: saml, console }, ACCOUNT)) as { Statement: { Condition: { StringEquals: Record<string, string> } }[] }).Statement[0]!.Condition.StringEquals["SAML:aud"];
+    expect(aud(false)).toBe("https://localhost/saml");
+    expect(aud(true)).toBe("https://signin.aws.amazon.com/saml");
+    expect(JSON.parse(trustDocument({ ...blankTrust, type: "saml", provider: saml }, ACCOUNT)).Statement[0].Action).toBe("sts:AssumeRoleWithSAML");
+  });
+  test("a choice with no provider (or no audience) is not built, and what it says is a placeholder", () => {
+    expect(trustProblem({ ...blankTrust, type: "web" })).toBe("Choose an identity provider.");
+    expect(trustProblem({ ...blankTrust, type: "web", provider: oidc })).toBe("Enter the audience.");
+    expect(trustProblem({ ...blankTrust, type: "web", provider: oidc, audience: "a" })).toBeNull();
+    expect(trustProblem({ ...blankTrust, type: "saml" })).toBe("Choose a SAML provider.");
+    expect(trustProblem({ ...blankTrust, type: "saml", provider: saml })).toBeNull();
+    expect(trustDocument({ ...blankTrust, type: "web" }, ACCOUNT)).toContain("<provider>:aud");
   });
 });

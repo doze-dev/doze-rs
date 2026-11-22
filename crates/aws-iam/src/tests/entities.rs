@@ -162,15 +162,6 @@ fn users_groups_and_keys() {
         key["AccessKeyId"].as_str().unwrap().starts_with("AKIA")
             && key["SecretAccessKey"].as_str().unwrap().len() == 40
     );
-    // AWS's access key ids are 20 characters (AKIA and sixteen), a user's own id 21.
-    assert_eq!(key["AccessKeyId"].as_str().unwrap().len(), 20);
-    assert_eq!(
-        w.ok("GetUser", &json!({"UserName": "u"}))["User"]["UserId"]
-            .as_str()
-            .unwrap()
-            .len(),
-        21
-    );
     let id = key["AccessKeyId"].as_str().unwrap();
     w.ok(
         "UpdateAccessKey",
@@ -391,4 +382,15 @@ fn names_are_not_told_apart_by_case() {
         "CreatePolicy",
         &json!({"PolicyName": "read", "Path": "/apps/", "PolicyDocument": doc}),
     );
+}
+
+#[test]
+fn an_access_key_id_is_20_characters_and_a_users_own_id_21() {
+    // AWS's: AKIA and sixteen more for a key, AIDA and seventeen for a user (the model bounds a key id to 16..128 word characters).
+    let mut w = World::new();
+    let user = w.ok("CreateUser", &json!({"UserName": "u"}));
+    assert_eq!(user["User"]["UserId"].as_str().unwrap().len(), 21);
+    let key = w.ok("CreateAccessKey", &json!({"UserName": "u"}));
+    let id = key["AccessKey"]["AccessKeyId"].as_str().unwrap();
+    assert!(id.starts_with("AKIA") && id.len() == 20, "{id}");
 }

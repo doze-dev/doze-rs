@@ -30,6 +30,8 @@ pub(super) const USER_OPS: &[Op] = &[
     free("DeleteAccountAlias"),
     free("ListOpenIDConnectProviders"),
     free("ListSAMLProviders"),
+    // Create role's web identity choice offers the client ids of the provider chosen.
+    free("GetOpenIDConnectProvider"),
 ];
 
 /// A group's pages: the form (with its members and policies), and what each group holds.

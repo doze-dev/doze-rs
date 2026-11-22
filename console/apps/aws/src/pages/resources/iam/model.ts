@@ -198,7 +198,22 @@ export function trustSentence(role: string, doc: Doc, account: string): string {
 /** Whether a trust policy asks for an external ID: the console cannot switch to such a role. */
 export const needsExternalId = (doc: Doc): boolean => /sts:ExternalId/i.test(docText(doc));
 
-export type TrustChoice = { type: "service" | "account" | "custom"; service: string; account: "this" | "other"; other: string; external: boolean; externalId: string; mfa: boolean; custom: string };
+export type TrustChoice = {
+  type: "service" | "account" | "custom" | "web" | "saml";
+  service: string;
+  account: "this" | "other";
+  other: string;
+  external: boolean;
+  externalId: string;
+  mfa: boolean;
+  custom: string;
+  /** Web identity and SAML: the ARN of the provider chosen. */
+  provider: string;
+  /** Web identity: the audience (a client ID of the provider). */
+  audience: string;
+  /** SAML: the sign-in page is the AWS console's (programmatic and console access), not only the API. */
+  console: boolean;
+};
 
 /** The services a role is commonly made for, as their principals. */
 export const SERVICES: { value: string; label: string }[] = [
@@ -211,7 +226,16 @@ export const SERVICES: { value: string; label: string }[] = [
   { value: "cloudformation.amazonaws.com", label: "CloudFormation" },
 ];
 
-export const blankTrust: TrustChoice = { type: "account", service: "lambda.amazonaws.com", account: "this", other: "", external: false, externalId: "", mfa: false, custom: "" };
+export const blankTrust: TrustChoice = { type: "account", service: "lambda.amazonaws.com", account: "this", other: "", external: false, externalId: "", mfa: false, custom: "", provider: "", audience: "", console: false };
+
+/** The name a provider's ARN ends with: the host and path of an OpenID Connect provider's URL, or a SAML provider's name. */
+export const providerName = (arn: string): string => arn.split(":oidc-provider/")[1] ?? arn.split(":saml-provider/")[1] ?? arn;
+
+/** The condition key a web identity trust policy names the audience by: the provider's URL (without its scheme) and `:aud`. */
+export const audienceKey = (providerArn: string): string => `${providerName(providerArn)}:aud`;
+
+/** What a SAML trust policy's `SAML:aud` is: the API alone, or the AWS sign-in page as well. */
+export const SAML_AUDIENCE = { programmatic: "https://localhost/saml", console: "https://signin.aws.amazon.com/saml" } as const;
 
 /** The account the AWS account choice trusts: this one's root, or the ID typed. */
 export const accountTrusted = (c: TrustChoice, account: string): string => (c.account === "this" ? account : c.other.trim());
@@ -222,6 +246,8 @@ export function trustProblem(c: TrustChoice): string | null {
     if (c.account === "other" && !/^\d{12}$/.test(c.other.trim())) return "An account ID is 12 digits.";
     if (c.external && c.externalId.trim().length < 2) return "An external ID is at least 2 characters.";
   }
+  if (c.type === "web") return c.provider === "" ? "Choose an identity provider." : c.audience.trim() === "" ? "Enter the audience." : null;
+  if (c.type === "saml") return c.provider === "" ? "Choose a SAML provider." : null;
   if (c.type === "custom") return parse(c.custom) === null ? "The trust policy is not valid JSON." : statements(c.custom).length === 0 ? "The trust policy has no Statement." : null;
   return null;
 }
@@ -229,6 +255,16 @@ export function trustProblem(c: TrustChoice): string | null {
 /** The trust policy the choice builds, as the JSON that goes to CreateRole. */
 export function trustDocument(c: TrustChoice, account: string): string {
   if (c.type === "custom") return c.custom;
+  if (c.type === "web" || c.type === "saml") {
+    const web = c.type === "web";
+    const statement = {
+      Effect: "Allow",
+      Principal: { Federated: c.provider || (web ? `arn:aws:iam::${account}:oidc-provider/<provider>` : `arn:aws:iam::${account}:saml-provider/<provider>`) },
+      Action: web ? "sts:AssumeRoleWithWebIdentity" : "sts:AssumeRoleWithSAML",
+      Condition: { StringEquals: web ? { [audienceKey(c.provider || "<provider>")]: c.audience.trim() || "<audience>" } : { "SAML:aud": c.console ? SAML_AUDIENCE.console : SAML_AUDIENCE.programmatic } },
+    };
+    return JSON.stringify({ Version: "2012-10-17", Statement: [statement] }, null, 2);
+  }
   const principal = c.type === "service" ? { Service: c.service } : { AWS: `arn:aws:iam::${accountTrusted(c, account) || "000000000000"}:root` };
   const statement: Record<string, unknown> = { Effect: "Allow", Principal: principal, Action: "sts:AssumeRole" };
   const condition: Record<string, unknown> = {};

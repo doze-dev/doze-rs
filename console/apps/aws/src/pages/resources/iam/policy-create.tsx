@@ -18,7 +18,10 @@ import { Field, FormPage, FormSection, TAG_RULES, callKindOp } from "../../../ki
 import { POLICIES, useRefresh } from "./api";
 import { lacksResource, list, nameProblem, type Permission, permissions, starterPolicy, suggestedResource, takenProblem } from "./model";
 import { Breakable, crumbs, KINDS, Note } from "./parts";
+import { Segmented } from "../../../kit";
 import { PolicyJson, policyErrors } from "./policy-json";
+import { VisualPolicyEditor } from "./visual-policy-editor";
+import { blocksOf } from "./visual-policy";
 
 const STEPS = [{ id: "editor", label: "Policy editor" }, { id: "review", label: "Review and create" }];
 
@@ -29,6 +32,8 @@ export function PolicyCreate() {
   const account = about?.account ?? "000000000000";
   const [doc, setDoc] = useState(() => starterPolicy(`arn:aws:sqs:${about?.region ?? "us-east-1"}:${account}:pick-lists`));
   const [step, setStep] = useState(0);
+  const [mode, setMode] = useState<"visual" | "json">("json");
+  const [asked, setAsked] = useState(false);
   const [tried, setTried] = useState(false);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
@@ -38,6 +43,7 @@ export function PolicyCreate() {
   const existing = useResourceList("iam", "policies");
   const taken = useMemo(() => existing.data?.pages.flatMap((p) => p.rows).map((r) => r.label) ?? [], [existing.data]);
   const errors = policyErrors(doc, "identity");
+  const visual = useMemo(() => blocksOf(doc), [doc]);
   const blocked = tried && step === 0 && errors.length > 0;
   const problem = nameProblem(name, "policy") ?? takenProblem("policy", name, taken);
   const suggestion = suggestedResource(doc, account, about?.region ?? "us-east-1");
@@ -72,7 +78,7 @@ export function PolicyCreate() {
   return (
     <FormPage
       title="Create policy"
-      sub={step === 0 ? "Write the policy in the JSON editor. You name it on the next step." : "Name the policy and check the permissions it grants. Then create it; you attach it to users, groups or roles afterwards."}
+      sub={step === 0 ? "Write the policy in the JSON editor, or build it in the visual editor. You name it on the next step." : "Name the policy and check the permissions it grants. Then create it; you attach it to users, groups or roles afterwards."}
       crumbs={[...crumbs(KINDS.policies), { label: "Create policy", to: "" }]}
       request={{ service: "iam", operation: "CreatePolicy", input }}
       panel={blocked ? blockedPanel : undefined}
@@ -88,9 +94,10 @@ export function PolicyCreate() {
       testId="policy-create"
     >
       {step === 0 && (
-        <FormSection title="Policy editor" description={blocked ? undefined : "Write the policy in the JSON editor. IAM validates the document as you edit it, and you must fix its errors before you continue."} testId="section-editor">
+        <FormSection title="Policy editor" description={blocked ? undefined : "You can switch between Visual and JSON at any time. Choosing Next in the visual editor can restructure the policy. IAM validates the document as you edit it, and you must fix its errors before you continue."} actions={<Segmented<"visual" | "json"> value={mode} onChange={(m) => { if (m === "visual" && "why" in visual) { setAsked(true); return; } setAsked(false); setMode(m); }} label="Editor" options={[{ value: "visual", label: "Visual" }, { value: "json", label: "JSON" }]} testId="editor-mode" />} testId="section-editor">
           {blocked && <p className="text-[14px] font-medium text-bad" role="alert" data-testid="must-fix">You must fix the problem before you can continue.</p>}
-          <PolicyJson value={doc} onChange={(v) => { setDoc(v); }} kind="identity" label="JSON" rows={16} extra={blocked && lacksResource(doc) ? (
+          {mode === "json" && asked && "why" in visual && <p className="text-[13px] text-muted-foreground" data-testid="visual-unavailable">The visual editor cannot show this policy yet: {visual.why}</p>}
+          <PolicyJson value={doc} onChange={(v) => { setDoc(v); }} kind="identity" label="JSON" rows={16} editor={mode === "visual" && "blocks" in visual ? <VisualPolicyEditor key="visual" initial={visual.blocks} onChange={setDoc} /> : undefined} extra={blocked && lacksResource(doc) ? (
             <div className="grid gap-1 text-[13.5px] leading-[21px]" data-testid="resource-hint">
               <p className="font-mono text-[12.5px] font-medium text-bad">MalformedPolicyDocument</p>
               <p className="text-foreground">An identity policy statement names what it applies to: add a Resource (or NotResource) element.{suggestion ? <> For pick-lists that is <span className="font-mono break-all">{suggestion}</span>.</> : null}</p>
