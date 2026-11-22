@@ -46,20 +46,24 @@ function StackView({ d, updatedAt, fetching, refetch }: { d: ResourceDetail; upd
   const [deleting, setDeleting] = useState(false);
   const [protecting, setProtecting] = useState(false);
   const protect = useCfnWrite<unknown>("UpdateTerminationProtection");
-  const stackQ = useStack(nm);
+  // Once the delete is accepted the stack is read by its ID: CloudFormation answers for a deleted stack by ID (as DELETE_COMPLETE) and
+  // refuses its name, so the reads that follow the delete to its end are not refused (the browser logs each refusal as an error).
+  const [goneId, setGoneId] = useState<string | null>(null);
+  const as = goneId ?? nm;
+  const stackQ = useStack(as);
   const stack: Stack | undefined = stackQ.data?.Stacks?.[0];
   const status = stack?.StackStatus ?? "";
-  const resources = useResources(nm, Boolean(stack));
-  const events = useEvents(nm, undefined, status === "ROLLBACK_COMPLETE");
+  const resources = useResources(as, Boolean(stack));
+  const events = useEvents(as, undefined, status === "ROLLBACK_COMPLETE");
   const exportNames = (stack?.Outputs ?? []).flatMap((o) => (o.ExportName ? [o.ExportName] : []));
   const importers = useImporters(exportNames);
-  const template = useTemplate(nm, "Original", deleting || asked === "resources");
-  const del = useDelete(d.service, d.kind);
+  const template = useTemplate(as, "Original", deleting || asked === "resources");
+  const del = useDelete(d.service, d.kind, exportNames);
   const view = status === "REVIEW_IN_PROGRESS" ? "review" : status === "ROLLBACK_COMPLETE" ? "rolled" : search.done === "updated" && status === "UPDATE_COMPLETE" ? "updated" : "tabs";
   const sets = useCfnRead<{ Summaries?: ChangeSetRow[] }>("ListChangeSets", { StackName: nm }, { enabled: view === "review" });
   const reviewSet = sets.data?.Summaries?.[0]?.ChangeSetName;
   const execute = useCfnWrite<unknown>("ExecuteChangeSet");
-  const dropSet = useCfnWrite<unknown>("DeleteChangeSet");
+  const dropSet = useCfnWrite<unknown, { StackName: string; ChangeSetName: string }>("DeleteChangeSet", (i) => [i.ChangeSetName]);
   const refresh = () => {
     refetch();
     void stackQ.refetch();
@@ -67,8 +71,10 @@ function StackView({ d, updatedAt, fetching, refetch }: { d: ResourceDetail; upd
   };
   // Just after a write (`?done=`) the page reads again for a while, for the work it started has not begun to show yet.
   const recent = useWhile(Boolean(search.done), 15_000);
-  usePoll(inProgress(status) || recent, refresh);
-  if (stackQ.isError && isGone(stackQ.error)) return <DeletedStack name={nm} />;
+  // (A delete that is accepted is followed by the stack's own reads only: the resource's page by name is refused once it is gone.)
+  const follow = () => { void stackQ.refetch(); void resources.refetch(); };
+  usePoll(inProgress(status) || recent, goneId ? follow : refresh);
+  if ((stackQ.isError && isGone(stackQ.error)) || status === "DELETE_COMPLETE") return <DeletedStack name={nm} />;
   if (!stack) return stackQ.isError ? <ErrorBlock what="This stack could not be read" error={stackQ.error} hint={HINT} onRetry={refresh} retrying={stackQ.isFetching} testId="detail-error" /> : <ResourcePageSkeleton />;
   const rows = resources.data?.StackResourceSummaries ?? [];
   const to = (search2: Record<string, string>) => void navigate({ to: "/resources/$service/$kind/$name", params: { service: d.service, kind: d.kind, name: nm }, search: search2 });
@@ -145,7 +151,7 @@ function StackView({ d, updatedAt, fetching, refetch }: { d: ResourceDetail; upd
         importers={importers.isPending && exportNames.length > 0 ? undefined : (importers.data ?? {})}
         pending={del.isPending}
         error={del.error}
-        onConfirm={() => del.mutate(nm, { onSuccess: () => { setDeleting(false); to({ done: "deleting" }); } })}
+        onConfirm={() => del.mutate(nm, { onSuccess: () => { setGoneId(stack.StackId); setDeleting(false); to({ done: "deleting" }); } })}
       />
     </>
   );

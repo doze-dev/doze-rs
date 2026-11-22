@@ -55,5 +55,16 @@ pub async fn call(
         e
     })?;
     let body = Value::Object(bound(bus, op, ("", ""), input)?);
-    bus.call(op.target(d), op.op, &body).await
+    match bus.call(op.target(d), op.op, &body).await {
+        // The service's way of saying "nothing" is an empty answer here, not an error status in the browser.
+        Err(e)
+            if kind
+                .quiet
+                .iter()
+                .any(|q| q.op == op.op && e.code == q.code && e.message.contains(q.said)) =>
+        {
+            Ok(Value::Object(Map::new()))
+        }
+        answer => answer,
+    }
 }

@@ -6,8 +6,8 @@ use super::Format::{Flag, Mono, Pairs, Text as Plain, Time};
 use super::cfn_kept::retained;
 use super::cfn_ops::{EXPORTS, STACK_OPS};
 use super::{
-    Apply, Deep, Delete, Descriptor, Id, Kept, Kind, List, Options, Param, ParamKind, Shape, Step,
-    Sub, Tags, Text, Write, col, field, op, says, state,
+    Apply, Deep, Delete, Descriptor, Id, Kept, Kind, List, Options, Param, ParamKind, Quiet, Shape,
+    Step, Sub, Tags, Text, Write, col, field, op, says, state,
 };
 
 /// What every call of its pages names: this stack.
@@ -245,5 +245,11 @@ const STACKS: Kind = Kind {
         ..super::Page::NONE
     },
     ops: STACK_OPS,
+    // Who imports an export: CloudFormation answers "no stack does" as a ValidationError.
+    quiet: &[Quiet {
+        op: "ListImports",
+        code: "ValidationError",
+        said: "is not imported by any stack",
+    }],
     ..Kind::BARE
 };

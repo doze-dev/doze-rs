@@ -115,6 +115,8 @@ pub struct Kind {
     /// Operations of the kind that no resource is bound to (a create with a form of its own, a bulk delete): `POST
     /// …/<kind>/op/<Operation>` ([`ops`]).
     pub ops: &'static [Op],
+    /// Refusals of those operations that are the service's way of answering "nothing" ([`Quiet`]).
+    pub quiet: &'static [Quiet],
     /// How a resource of the kind is tagged ([`tags`]).
     pub tags: Option<Tags>,
     /// What stands in the way of deleting one, and what a delete leaves behind ([`blockers`]).
@@ -126,6 +128,18 @@ pub struct Kind {
     pub params: &'static [Param],
     /// How a detail page speaks of a resource: its sentence, badges and verbs ([`page`]).
     pub page: Page,
+}
+
+/// A refusal that means "nothing" (`ListImports` of an export no stack imports is a ValidationError): the console answers the
+/// page with an empty answer, so the browser is not handed an error status for what is not a fault. The call is made as it was,
+/// and Live shows the service's own answer.
+#[derive(Debug, Clone, Copy)]
+pub struct Quiet {
+    pub op: &'static str,
+    /// The error code of the refusal.
+    pub code: &'static str,
+    /// What its message says.
+    pub said: &'static str,
 }
 
 /// A page of one resource that its descriptor's generic detail cannot draw: a tab of the detail page that the console's app

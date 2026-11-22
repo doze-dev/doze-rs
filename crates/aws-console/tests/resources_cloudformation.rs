@@ -284,7 +284,8 @@ async fn a_deleted_stack_is_read_by_its_id_and_the_exports_name_who_imports_them
             .contains(":stack/base/")
     );
     assert!(list["openable"].as_bool().unwrap());
-    // Nothing imports it: ListImports says so as CloudFormation does, a ValidationError.
+    // Nothing imports it: CloudFormation says so as a ValidationError, and the page is answered with nothing, not an error
+    // status (the browser logs one). An export that does not exist is still the refusal.
     let (status, nobody) = op(
         &w,
         "stacks",
@@ -292,10 +293,18 @@ async fn a_deleted_stack_is_read_by_its_id_and_the_exports_name_who_imports_them
         &json!({"ExportName": "exp-inbox-arn"}),
     )
     .await;
+    assert_eq!((status, nobody.get("Imports")), (200, None), "{nobody}");
+    let (status, absent) = op(
+        &w,
+        "stacks",
+        "ListImports",
+        &json!({"ExportName": "exp-nobody-made"}),
+    )
+    .await;
     assert_eq!(
-        (status, nobody["code"].as_str()),
+        (status, absent["code"].as_str()),
         (400, Some("ValidationError")),
-        "{nobody}"
+        "{absent}"
     );
     // A stack that imports it.
     let user = json!({"Resources": {"Q": {"Type": "AWS::SQS::Queue", "Properties": {"QueueName": "exp-user", "Tags": [{"Key": "from", "Value": {"Fn::ImportValue": "exp-inbox-arn"}}]}}}});

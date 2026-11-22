@@ -1,8 +1,8 @@
 // CloudFormation's reads and writes from the pages: each is one operation the stacks' kind lists (crates/aws-console/src/resources/
 // cfn_ops.rs), made through `POST /resources/cloudformation/stacks/op/<Operation>` as the caller `console`.
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
-import { callKindOp } from "../../../kit";
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useEffect, useRef, useState } from "react";
+import { callKindOp, forgetDeleted, scopeOf } from "../../../kit";
 import type { ChangeSet } from "./changeset-parts";
 import { inProgress, nobodyImports, type Stack, type StackEvent, type StackResource } from "./model";
 
@@ -12,19 +12,20 @@ export const STACKS = { service: "cloudformation", kind: "stacks" } as const;
 export const EXPORTS = { service: "cloudformation", kind: "exports" } as const;
 
 /** A read of one operation, made when the page opens and when its input changes. `every`: read again that often while it says so. */
-export function useCfnRead<T>(operation: string, input: object, { enabled = true, every }: { enabled?: boolean; every?: (data: T | undefined) => number | false } = {}) {
+export function useCfnRead<T>(operation: string, input: object, { enabled = true, every, keep = false }: { enabled?: boolean; every?: (data: T | undefined) => number | false; /** Keep showing the last answer while the input changes. */ keep?: boolean } = {}) {
   return useQuery({
     queryKey: ["cfn", operation, input],
     queryFn: ({ signal }) => callKindOp<T>(STACKS, operation, input, signal),
     enabled,
     retry: false,
+    placeholderData: keep ? keepPreviousData : undefined,
     refetchInterval: every ? (q) => every(q.state.data as T | undefined) : false,
   });
 }
 
 /** The stack by its name (or its id, for a deleted one), read again every second and a half while it is being worked on. */
 export function useStack(nameOrId: string, enabled = true) {
-  return useCfnRead<{ Stacks?: Stack[] }>("DescribeStacks", { StackName: nameOrId }, { enabled, every: (d) => (inProgress(d?.Stacks?.[0]?.StackStatus ?? "") ? 1500 : false) });
+  return useCfnRead<{ Stacks?: Stack[] }>("DescribeStacks", { StackName: nameOrId }, { enabled, keep: true, every: (d) => (inProgress(d?.Stacks?.[0]?.StackStatus ?? "") ? 1500 : false) });
 }
 
 export const useResources = (name: string, enabled = true) => useCfnRead<{ StackResourceSummaries?: StackResource[] }>("ListStackResources", { StackName: name }, { enabled });
@@ -80,21 +81,29 @@ export function useRefreshStack() {
   };
 }
 
-/** A write: one operation of the stacks' kind; every read of a stack is stale after it, whatever came back. */
-export function useCfnWrite<T, I extends object = object>(operation: string) {
+/** A write: one operation of the stacks' kind; every read of a stack is stale after it, whatever came back. A write that deletes
+ * (`gone` names what it deleted, from its input) leaves the reads of what is gone unmade: they would be refused. */
+export function useCfnWrite<T, I extends object = object>(operation: string, gone?: (input: I) => string[]) {
   const refresh = useRefreshStack();
-  return useMutation({ mutationFn: (input: I) => callKindOp<T>(STACKS, operation, input), onSettled: refresh });
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: I) => callKindOp<T>(STACKS, operation, input),
+    onSettled: (_, error, input) => (gone && !error ? forgetDeleted(qc, scopeOf("cloudformation"), gone(input)) : refresh()),
+  });
 }
 
 /** The preview of an update: a change set the console makes while the review step is open (made again when the choices change) and
  * removes when the page is left, unless `keep.current` (the person went on to read it). `input` is `null` while there is nothing to preview. */
 export function useCfnPreview(stack: string, id: string, key: string, input: Record<string, unknown> | null, keep: React.RefObject<boolean>) {
+  // Whether the change set exists: it is made by the first run, so only a later run has one to remove first.
+  const made = useRef(false);
   const q = useQuery({
     // Not under ["cfn"]: a write to the stack (the update the person submits) would re-make the preview just as the page goes.
     queryKey: ["cfn-preview", stack, id, key],
     queryFn: async () => {
-      await callKindOp(STACKS, "DeleteChangeSet", { StackName: stack, ChangeSetName: id }).catch(() => undefined);
+      if (made.current) await callKindOp(STACKS, "DeleteChangeSet", { StackName: stack, ChangeSetName: id }).catch(() => undefined);
       await callKindOp(STACKS, "CreateChangeSet", input ?? {});
+      made.current = true;
       return callKindOp<ChangeSet>(STACKS, "DescribeChangeSet", { StackName: stack, ChangeSetName: id });
     },
     enabled: input !== null,
@@ -104,7 +113,7 @@ export function useCfnPreview(stack: string, id: string, key: string, input: Rec
   });
   useEffect(
     () => () => {
-      if (!keep.current && stack) void callKindOp(STACKS, "DeleteChangeSet", { StackName: stack, ChangeSetName: id }).catch(() => undefined);
+      if (!keep.current && stack && made.current) void callKindOp(STACKS, "DeleteChangeSet", { StackName: stack, ChangeSetName: id }).catch(() => undefined);
     },
     [stack, id, keep],
   );
