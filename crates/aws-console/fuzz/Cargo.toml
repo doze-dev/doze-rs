@@ -1,0 +1,33 @@
+[package]
+name = "aws-console-fuzz"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+aws-console = { path = ".." }
+
+# Not part of the main workspace: fuzzing needs a nightly toolchain.
+[workspace]
+
+[[bin]]
+name = "origin"
+path = "fuzz_targets/origin.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "eventstream"
+path = "fuzz_targets/eventstream.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "user_agent"
+path = "fuzz_targets/user_agent.rs"
+test = false
+doc = false

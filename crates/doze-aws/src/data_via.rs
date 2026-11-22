@@ -41,7 +41,8 @@ impl Via {
         let tasks = doze_runtime::Tasks::new();
         let all: Vec<&'static crate::services::Svc> = crate::services::ALL.iter().collect();
         let gw = aws_gateway::Config::new(std::net::SocketAddr::from(([127, 0, 0, 1], 0)));
-        let (_gateway, _resume, data) = crate::wire::gateway(cfg, gw, &all, &tasks);
+        let (_gateway, _resume, data, _apis) =
+            crate::wire::gateway(cfg, (gw, &aws_peers::Peers::new()), &all, &tasks, None);
         Ok(Self::Local(Local {
             runtime,
             data,

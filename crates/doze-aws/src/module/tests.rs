@@ -197,6 +197,23 @@ fn references_keys_json_and_code_are_checked_at_their_line() {
 }
 
 #[test]
+fn the_server_under_doze_listens_only_where_doze_granted_so_without_its_console() {
+    use doze_module::proto::msg::instance::Address;
+    let mut inst = instance();
+    let grant = doze_module::proto::msg::instance::Granted {
+        addr: "local.shop.doze:4566".into(),
+        url: String::new(),
+        hosts: vec![],
+        backend: Address::Tcp("127.0.0.1:41000".into()),
+    };
+    inst.listeners
+        .insert(doze_module::proto::network::MAIN.into(), grant);
+    let args = super::server_args(&inst, "us-east-1").unwrap();
+    assert_eq!(args[..2], ["--listen", "127.0.0.1:41000"]);
+    assert!(args.iter().any(|a| a == "--no-console"), "{args:?}");
+}
+
+#[test]
 fn the_shell_client_is_the_aws_cli_at_the_instance() {
     use doze_module::Module;
     let about = super::Aws.about();
