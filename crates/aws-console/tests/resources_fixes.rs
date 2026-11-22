@@ -104,8 +104,10 @@ async fn a_secret_marked_for_deletion_offers_neither_reveal_nor_delete_but_a_way
     assert_eq!(field(&before, "Value")["hidden"], true);
     let (status, _) = w.send("DELETE", &one, &json!({})).await;
     assert_eq!(status, 200);
-    // Still listed (it is there), with the day it was marked.
+    // As on AWS, not listed unless asked for; then with the day it was marked.
     let (_, list) = w.get(base).await;
+    assert!(list["rows"].as_array().unwrap().is_empty(), "{list}");
+    let (_, list) = w.get(&format!("{base}?p.deleted=yes")).await;
     let row = &list["rows"][0];
     assert_eq!(row["name"], "larder/stripe");
     assert!(row["cells"][4].is_string(), "{row}");

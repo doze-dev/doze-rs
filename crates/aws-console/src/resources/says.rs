@@ -3,6 +3,7 @@
 pub mod dynamodb;
 pub mod eventbridge;
 pub mod kinesis;
+pub mod kms;
 pub mod lambda;
 pub mod logs;
 pub mod s3;
@@ -58,7 +59,6 @@ macro_rules! status_badge {
 status_badge!(alarm, "MetricAlarms.@AlarmName.StateValue");
 status_badge!(stack, "Stacks.0.StackStatus");
 status_badge!(rule, "State");
-status_badge!(key, "KeyMetadata.KeyState");
 status_badge!(function, "Configuration.State");
 
 #[cfg(test)]

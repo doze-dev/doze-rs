@@ -262,17 +262,17 @@ mod tests {
         let kind = &ssm.kinds[0];
         let given = super::given(
             kind,
-            Some("token=x&p.begins-with=%2Fapp%2Fa+b&p.nope=1&p.begins-with.x=2"),
+            Some("token=x&p.filter=Name%3ABeginsWith%3A%2Fapp%2Fa+b&p.nope=1&p.filter.x=2"),
         );
         assert_eq!(given.len(), 1);
-        assert_eq!(given["begins-with"], "/app/a b");
+        assert_eq!(given["filter"], "Name:BeginsWith:/app/a b");
         assert!(super::given(kind, None).is_empty());
         let set = super::applied(kind, &given);
         assert_eq!(
             Value::Object(set),
             json!({"ParameterFilters": [{"Key": "Name", "Option": "BeginsWith", "Values": ["/app/a b"]}]})
         );
-        assert!(super::applied(kind, &super::given(kind, Some("p.begins-with="))).is_empty());
+        assert!(super::applied(kind, &super::given(kind, Some("p.filter="))).is_empty());
     }
 
     #[test]

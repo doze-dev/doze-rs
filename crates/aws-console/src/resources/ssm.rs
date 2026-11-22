@@ -1,6 +1,7 @@
 //! Systems Manager Parameter Store: parameters. A `SecureString` is hidden until the person reveals it.
 
 use super::Format::{Mono, Number, Text as Plain, Time};
+use super::ssm_ops::{OPS, filters};
 use super::{
     Apply, Create, Delete, Descriptor, Field, Id, Input, InputKind, Kind, List, Options, Param,
     ParamKind, Reveal, Shape, Step, Tags, Text, Write, col, field, input, op,
@@ -38,6 +39,7 @@ pub(super) static SSM: Descriptor = Descriptor {
             col("Tier", "Tier", Plain),
             col("Version", "Version", Number),
             col("Last modified", "LastModifiedDate", Time),
+            col("Description", "Description", Plain),
         ],
         id_of: Id::Name,
         detail: &[
@@ -50,6 +52,7 @@ pub(super) static SSM: Descriptor = Descriptor {
         ],
         fields: &[
             field("ARN", "Parameter.ARN", Mono),
+            field("Name", "Parameter.Name", Mono),
             field("Type", "Parameter.Type", Plain),
             Field {
                 hide_when: Some(("Parameter.Type", "SecureString")),
@@ -125,15 +128,15 @@ pub(super) static SSM: Descriptor = Descriptor {
                 keys: "TagKeys",
             },
         )),
+        ops: OPS,
+        // The list's filter tokens (`Name:BeginsWith:/larder|Type:Equals:String`) are DescribeParameters' filters.
         params: &[Param {
-            key: "begins-with",
-            label: "Name begins with",
+            key: "filter",
+            label: "Filter",
             input: ParamKind::Text,
             options: Options::None,
             default: "",
-            apply: Apply::Template(
-                r#"{"ParameterFilters":[{"Key":"Name","Option":"BeginsWith","Values":["{value}"]}]}"#,
-            ),
+            apply: Apply::With(filters),
         }],
         ..Kind::BARE
     }],

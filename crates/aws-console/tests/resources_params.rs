@@ -135,10 +135,13 @@ async fn policies_are_listed_by_scope_and_secrets_and_parameters_by_what_their_n
         .await;
     }
     let (_, secrets) = w
-        .get(&format!("{BASE}/secretsmanager/secrets?p.name=app"))
+        .get(&format!(
+            "{BASE}/secretsmanager/secrets?p.filter={}",
+            encode("name:app")
+        ))
         .await;
     assert_eq!(row_names(&secrets), ["app/cache", "app/db"]);
-    assert_eq!(param(&secrets, "name")["input"], "text");
+    assert_eq!(param(&secrets, "filter")["input"], "text");
 
     for name in ["/app/a", "/app/b", "/other/c"] {
         w.app(
@@ -150,13 +153,16 @@ async fn policies_are_listed_by_scope_and_secrets_and_parameters_by_what_their_n
     }
     let (_, params) = w
         .get(&format!(
-            "{BASE}/ssm/parameters?p.begins-with={}",
-            encode("/app/")
+            "{BASE}/ssm/parameters?p.filter={}",
+            encode("Name:BeginsWith:/app/")
         ))
         .await;
     assert_eq!(row_names(&params), ["/app/a", "/app/b"]);
     let (_, none) = w
-        .get(&format!("{BASE}/ssm/parameters?p.begins-with=%2Fzzz"))
+        .get(&format!(
+            "{BASE}/ssm/parameters?p.filter={}",
+            encode("Name:BeginsWith:/zzz")
+        ))
         .await;
     assert_eq!(row_names(&none), Vec::<String>::new());
     let (_, every) = w.get(&format!("{BASE}/ssm/parameters")).await;
