@@ -47,10 +47,7 @@ fn helper(name: &str, port: u16) -> Process {
 }
 
 fn free_port() -> u16 {
-    std::net::TcpListener::bind("127.0.0.1:0")
-        .and_then(|l| l.local_addr())
-        .unwrap()
-        .port()
+    doze_engine::ports::free_port().unwrap()
 }
 
 /// M5: in a plan of several processes each line says which one printed it (`o:<name>`, as Go); a step's last words

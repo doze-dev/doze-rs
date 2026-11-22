@@ -64,10 +64,7 @@ impl Planner for Recorder {
         if let Ok(mut s) = self.seen.lock() {
             s.push(ctx.needs.clone());
         }
-        let port = std::net::TcpListener::bind("127.0.0.1:0")
-            .and_then(|l| l.local_addr())
-            .map(|a| a.port())
-            .map_err(|e| e.to_string());
+        let port = doze_engine::ports::free_port().map_err(|e| e.to_string());
         Box::pin(async move {
             let port = port?;
             let mut env = BTreeMap::new();

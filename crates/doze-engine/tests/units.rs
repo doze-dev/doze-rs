@@ -33,10 +33,7 @@ fn process(name: &str, args: &[&str], port: Option<u16>, after: &[&str]) -> Proc
 async fn when_one_process_exits_the_others_are_stopped_gracefully() {
     let d = Dir::new("composite");
     let log = RunLog::open(&d.path().join("run"), "pair").unwrap();
-    let port = std::net::TcpListener::bind("127.0.0.1:0")
-        .and_then(|l| l.local_addr())
-        .unwrap()
-        .port();
+    let port = doze_engine::ports::free_port().unwrap();
     let plan = Plan {
         processes: vec![
             process("db", &["listen"], Some(port), &[]),
