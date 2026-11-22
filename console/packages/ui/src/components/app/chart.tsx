@@ -43,7 +43,7 @@ export function Chart({ series, from, to, height = 260, threshold, unit, empty =
   const t0 = from ?? times[0] ?? 0;
   const t1 = to ?? times[times.length - 1] ?? t0 + 1;
   const bare = !has && emptyAxes && from !== undefined && to !== undefined;
-  const ticksY = has ? niceTicks(extent.min, extent.max, Math.max(3, Math.round(height / 60))) : bare ? [0, 20, 40] : [0, 1];
+  const ticksY = has ? niceTicks(extent.min, extent.max, Math.max(3, Math.round(height / 60))) : bare ? [0, 40] : [0, 1];
   const top = ticksY[ticksY.length - 1]!;
   const bottom = ticksY[0]!;
   const w = Math.max(width, 120);

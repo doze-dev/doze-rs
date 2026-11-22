@@ -108,8 +108,9 @@ test("cloudwatch__dashboards-list, dashboard-create and dashboard-delete", async
   await expect(page.getByTestId("dashboards-scope")).toContainText("doze-aws keeps each one with the CloudWatch data of the Region it was made in");
   await expect(page.getByTestId("dashboards-scope")).not.toContainText("belongs to the Region");
   await expect(page.getByTestId("dashboards-local")).toContainText("Stored, not applied locally.");
-  // Newest saved first, as the board lists them: larder-ops was saved after larder-api.
-  await expect(table.locator("tr[data-row]").first()).toContainText("larder-ops");
+  // Newest saved first, as the board lists them (an earlier test added a widget to larder-api, so it was saved last here).
+  const saved = (JSON.parse(cli(["cloudwatch", "list-dashboards"])) as { DashboardEntries: { DashboardName: string; LastModified: string }[] }).DashboardEntries.sort((x, y) => Date.parse(y.LastModified) - Date.parse(x.LastModified));
+  await expect(table.locator("tr[data-row]").first()).toContainText(saved[0]?.DashboardName ?? "none");
   await table.locator("tr[data-row]", { hasText: "larder-api" }).getByRole("checkbox").check();
   await expect(page.getByTestId("selected-count")).toContainText("selected");
   await shot(page, "cloudwatch__dashboards-list");
