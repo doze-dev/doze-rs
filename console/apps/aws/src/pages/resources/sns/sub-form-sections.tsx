@@ -1,5 +1,7 @@
 // The sections of Create subscription and Edit subscription: details (topic, protocol, endpoint, raw delivery), the filter policy and the
 // redrive policy. Redrive and payload-based filtering are applied by doze-aws, which the boards say they are not (board-deviations.md).
+import { ChevronDownIcon } from "lucide-react";
+import { useState } from "react";
 import { Combobox } from "@doze/ui/components/app/combobox";
 import { JsonEditor } from "@doze/ui/components/app/json-editor";
 import { Badge } from "@doze/ui/components/ui/badge";
@@ -27,10 +29,19 @@ export function useRows(service: string, kind: string) {
  * someone following the AWS documentation looks for it). */
 function ProtocolSelect({ f, set }: Pick<SubFieldProps, "f" | "set">) {
   const info = protocolOf(f.protocol);
+  // The list is open on arrival (nine choices, five of them off, each saying why) and folds to the chosen protocol once one is chosen
+  // or the page was opened for one (the HTTP and Lambda forms), as the select of the boards does.
+  const [open, setOpen] = useState(true);
+  const [seen, setSeen] = useState(f.protocol);
+  if (seen !== f.protocol) { setSeen(f.protocol); setOpen(false); }
   return (
     <Field label="Protocol" help={info?.active ? <>{info.about}</> : undefined} hint={<><b className="font-semibold text-foreground">{f.topic.endsWith(".fifo") ? "To subscribe to a FIFO topic, choose Amazon SQS. " : ""}</b>{countWord(disabledCount())} of the nine protocols are disabled here; each says why under its name.</>} testId="field-protocol">
       {(id) => (
-        <RadioGroup id={id} value={f.protocol} onValueChange={(v) => set({ protocol: v as Protocol, endpoint: "", raw: false })} className="grid gap-1 rounded-xl border bg-card p-2" aria-label="Protocol" data-testid="protocol-list">
+        <div className="grid gap-2">
+        <button type="button" id={id} onClick={() => setOpen((o) => !o)} aria-expanded={open} aria-haspopup="listbox" className="flex h-9 w-full items-center justify-between rounded-md border bg-card px-3 text-left text-[14px] text-bright" data-testid="protocol-trigger">
+          <span>{info?.label ?? "Choose a protocol"}</span><ChevronDownIcon aria-hidden className={`size-4 text-muted-foreground transition-transform ${open ? "rotate-180" : ""}`} />
+        </button>
+        {open && <RadioGroup value={f.protocol} onValueChange={(v) => { set({ protocol: v as Protocol, endpoint: "", raw: false }); setOpen(false); }} className="grid gap-1 rounded-xl border bg-card p-2" aria-label="Protocol" data-testid="protocol-list">
           {PROTOCOLS.map((x) => (
             <Label key={x.id} htmlFor={`protocol-radio-${x.id}`} data-testid={`protocol-${x.id}`} data-disabled={x.active ? undefined : ""} className={`flex items-start gap-3 rounded-lg px-3 py-2.5 font-normal leading-5 has-[[data-state=checked]]:bg-pick/50 ${x.active ? "cursor-pointer hover:bg-accent/40" : "cursor-not-allowed opacity-60"}`}>
               <RadioGroupItem id={`protocol-radio-${x.id}`} value={x.id} disabled={!x.active} className="mt-0.5" data-testid={`protocol-radio-${x.id}`} />
@@ -40,7 +51,8 @@ function ProtocolSelect({ f, set }: Pick<SubFieldProps, "f" | "set">) {
               </span>
             </Label>
           ))}
-        </RadioGroup>
+        </RadioGroup>}
+        </div>
       )}
     </Field>
   );
@@ -55,16 +67,19 @@ function EndpointField({ f, set, p, show }: SubFieldProps) {
   const fns = useRows("lambda", "functions");
   const subs = useRows("sns", "subscriptions");
   const fifoTopic = f.topic.endsWith(".fifo");
+  const chosenName = f.endpoint.split(":").pop() ?? "";
   const arnOf = (kind: "sqs" | "lambda", name: string) => (kind === "sqs" ? `arn:aws:sqs:${region}:${account}:${name}` : `arn:aws:lambda:${region}:${account}:function:${name}`);
-  const options = f.protocol === "sqs" ? queues.rows.map((r) => ({ value: arnOf("sqs", r.name), label: arnOf("sqs", r.name) })) : f.protocol === "lambda" ? fns.rows.map((r) => ({ value: arnOf("lambda", r.name), label: arnOf("lambda", r.name) })) : null;
+  // Only the queues that fit the topic are offered (a FIFO topic takes FIFO queues, a standard one standard queues); another is still accepted when its ARN is typed.
+  const options = f.protocol === "sqs" ? queues.rows.filter((r) => (r.cells[0] === "FIFO") === fifoTopic || r.name === chosenName).map((r) => ({ value: arnOf("sqs", r.name), label: arnOf("sqs", r.name) })) : f.protocol === "lambda" ? fns.rows.map((r) => ({ value: arnOf("lambda", r.name), label: arnOf("lambda", r.name) })) : null;
   const chosen = queues.rows.find((r) => r.name === (f.endpoint.split(":").pop() ?? ""));
   const misfits = queues.rows.filter((r) => (r.cells[0] === "FIFO") !== fifoTopic && r.name !== chosen?.name).map((r) => r.name);
   const name = f.endpoint.split(":").pop() ?? "";
+  const runtime = f.protocol === "lambda" ? (fns.rows.find((r) => r.name === name)?.cells[2] ?? "") : "";
   const used = f.protocol === "lambda" ? subs.rows.filter((r) => r.cells[2] === f.endpoint).map((r) => r.cells[0] ?? "") : [];
   const info = protocolOf(f.protocol);
   const hint =
     f.protocol === "sqs" && queues.rows.length > 0 ? <><b className="font-semibold text-foreground">{fifoTopic ? "FIFO topics use FIFO queues." : "Standard topics use standard queues."}</b>{chosen ? ` ${name} is a ${chosen.cells[0] === "FIFO" ? "FIFO" : "standard"} queue${(chosen.cells[0] === "FIFO") === fifoTopic ? "" : " and does not fit this topic"}.` : ""}{misfits.length > 0 ? ` ${list(misfits.slice(0, 3))} ${misfits.length === 1 ? "is a" : "are"} ${fifoTopic ? "standard" : "FIFO"} ${misfits.length === 1 ? "queue and fits" : "queues and fit"} ${fifoTopic ? "standard" : "FIFO"} topics only.` : ""}</>
-    : f.protocol === "lambda" ? <>String.Array and Number message attributes reach Lambda as String in the JSON payload.{used.length > 0 ? ` ${name} is already subscribed to ${list(used)}.` : ""}</>
+    : f.protocol === "lambda" ? <>String.Array and Number message attributes reach Lambda as String in the JSON payload.{used.length > 0 ? ` ${name}${runtime ? ` (${runtime})` : ""} is already triggered by the ${list(used)} ${used.length === 1 ? "topic" : "topics"}.` : ""}</>
     : f.protocol === "http" || f.protocol === "https" ? <>For the {f.protocol} protocol the endpoint is a URL beginning with {f.protocol}://. The webhook can be a local server.</>
     : undefined;
   return (
@@ -72,6 +87,7 @@ function EndpointField({ f, set, p, show }: SubFieldProps) {
       <Field label="Endpoint" error={show ? p.endpoint : undefined} help={f.protocol === "sqs" ? "For Amazon SQS the endpoint is the ARN of the queue." : f.protocol === "lambda" ? "For the lambda protocol the endpoint is the ARN of a Lambda function." : undefined} hint={hint} testId="field-endpoint">
         {(id) => options ? <Combobox id={id} options={options} value={f.endpoint || null} onChange={(endpoint) => set({ endpoint: endpoint ?? "" })} placeholder={f.protocol === "sqs" ? "Choose a queue, or enter its ARN" : "Choose a function, or enter its ARN"} search={f.protocol === "sqs" ? "Search queues, or enter an ARN…" : "Search functions, or enter an ARN…"} empty="Nothing matches." className="w-full font-mono" pattern aria-label="Endpoint" /> : <Input id={id} value={f.endpoint} onChange={(e) => set({ endpoint: e.target.value })} placeholder={f.protocol === "http" ? "http://127.0.0.1:9000/in" : f.protocol === "https" ? "https://example.com/hook" : "Endpoint"} className="bg-card font-mono" autoComplete="off" spellCheck={false} data-testid="sub-endpoint" />}
       </Field>
+      {f.protocol === "sqs" && <RuleHelp>The queue's access policy must let this topic send to it. With IAM enforcement on, a queue without that statement is refused delivery; in soft mode the delivery is made and a warning is logged.</RuleHelp>}
       {info?.confirms === "endpoint" && <RuleHelp><b>The endpoint must confirm.</b> SNS sends a confirmation message that contains a SubscribeURL; the subscription stays pending until the endpoint sends an HTTP GET request to the SubscribeURL or calls ConfirmSubscription. The token is valid for two days.</RuleHelp>}
     </>
   );
@@ -148,6 +164,9 @@ export function Redrive({ f, set, p, show, collapsed }: SubFieldProps & { collap
         <Switch id="redrive-on" checked={f.redriveOn} onCheckedChange={(redriveOn) => set({ redriveOn })} data-testid="redrive-on" />
         <div className="grid"><Label htmlFor="redrive-on">{f.redriveOn ? "Enabled" : "Disabled"}</Label><span className="text-[13px] text-muted-foreground">Attribute: RedrivePolicy.</span></div>
       </div>
+      {!f.redriveOn && (
+        <Field label="deadLetterTargetArn" testId="field-dlq-off">{(id) => <Input id={id} disabled readOnly placeholder="Specify the ARN of an Amazon SQS queue" className="w-full font-mono" data-testid="dlq-off" />}</Field>
+      )}
       {f.redriveOn && (
         <>
           <Field label="deadLetterTargetArn" error={show ? p.dlq : undefined} hint={chosen ? `${chosen} is ${kind}.` : undefined} testId="field-dlq">

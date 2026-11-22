@@ -20,3 +20,8 @@ test("a body-scoped filter or a custom payload is the service's to decide, and t
   expect(plain(publishedSentence(sent("x"), subs, [detail('{"a":["b"]}', "MessageBody")]))).toContain("a filter policy this page does not evaluate");
   expect(plain(publishedSentence(sent("x"), [], []))).toBe("The topic has no confirmed subscription, so the message reached nobody.");
 });
+
+test("a FIFO publish names its message group", () => {
+  const subs = [row("arn:aws:sqs:us-east-1:1:orders-events.fifo")];
+  expect(plain(publishedSentence({ ...sent("order_placed"), group: "order-10482" }, subs, [detail(null)]))).toBe("The message in group order-10482 went to 1 of 1 confirmed subscription: orders-events.fifo.");
+});

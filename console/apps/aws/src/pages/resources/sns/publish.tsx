@@ -30,7 +30,8 @@ export function Publish({ d, t, subs, back, done }: TopicProps) {
   const target = { service: d.service, kind: d.kind, name: d.name };
   const [f, setF] = useState<PublishForm>(emptyPublish);
   const [tried, setTried] = useState(false);
-  const set = (patch: Partial<PublishForm>) => setF((x) => ({ ...x, ...patch }));
+  // An edit puts the refusal away: the call shown is the one now in the form, not the one that was refused.
+  const set = (patch: Partial<PublishForm>) => { if (send.error) send.reset(); setF((x) => ({ ...x, ...patch })); };
   const send = useOp<{ MessageId: string; SequenceNumber?: string }>(target, "Publish", { keep: true });
   const qc = useQueryClient();
   const read = useSubscriptions(subs);

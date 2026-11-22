@@ -27,7 +27,7 @@ export function publishedSentence(p: Published, subs: readonly SubRow[], details
   const hit = verdicts.filter((x) => x.v === "match");
   const unsure = verdicts.filter((x) => x.v === "unknown").length;
   const names = hit.map((x) => endpointName(x.s.protocol, x.s.endpoint));
-  const out: Part[] = ["The message went to ", b(`${hit.length} of ${confirmed.length}`), ` confirmed ${confirmed.length === 1 ? "subscription" : "subscriptions"}`];
+  const out: Part[] = [p.group ? `The message in group ${p.group} went to ` : "The message went to ", b(`${hit.length} of ${confirmed.length}`), ` confirmed ${confirmed.length === 1 ? "subscription" : "subscriptions"}`];
   if (names.length > 0) out.push(": ", ...names.flatMap((n, i) => (i === 0 ? [b(n)] : [i === names.length - 1 ? " and " : ", ", b(n)])));
   out.push(".");
   const filtered = hit.filter((x) => x.filter);
