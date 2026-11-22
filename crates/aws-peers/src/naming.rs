@@ -28,6 +28,8 @@ pub const MEMBERS: &[&str] = &[
     "LogGroupIdentifier",
     "StateMachineArn",
     "ExecutionArn",
+    // A worker polls for an activity by its ARN (`GetActivityTask`).
+    "ActivityArn",
     "SecretId",
     "KeyId",
     // `AttachRolePolicy` and its kin name a policy and who it goes to: the call is the policy's (its page lists what attached it). A group

@@ -119,6 +119,23 @@ pub fn not_made(kind: &Kind, operation: &str) -> ApiError {
     )
 }
 
+/// Whether `named` is a part of what `prefix` names. A prefix that ends in a separator (`:`, `/`) is begun by every longer value;
+/// one that does not (a state machine's ARN) is the value itself or a part of it after a `:` (its version `…:2`, its alias `…:PROD`),
+/// never another name that happens to begin the same (`order` and `order-fulfilment`).
+fn within(named: &str, prefix: &str) -> bool {
+    if prefix.is_empty() || !named.starts_with(prefix) {
+        return false;
+    }
+    if prefix.ends_with([':', '/']) {
+        named.len() > prefix.len()
+    } else {
+        named.len() == prefix.len()
+            || named
+                .get(prefix.len()..)
+                .is_some_and(|rest| rest.starts_with(':'))
+    }
+}
+
 /// `input` with the members of `op`'s `bind` set over it (one bound to `null` taken out), filled for the resource `id` named
 /// `name`; and, for an operation on a part of it ([`Op::within`]), the part the page names checked to be this resource's.
 ///
@@ -143,7 +160,7 @@ pub fn bound(
         let prefix = path::text(&path::fill(&Value::String(prefix.to_owned()), &fill), "")
             .unwrap_or_default();
         let named = input.get(member).and_then(Value::as_str).unwrap_or("");
-        if prefix.is_empty() || named.len() <= prefix.len() || !named.starts_with(&prefix) {
+        if !within(named, &prefix) {
             return Err(ApiError::new(
                 400,
                 "NOT_THIS_RESOURCE",

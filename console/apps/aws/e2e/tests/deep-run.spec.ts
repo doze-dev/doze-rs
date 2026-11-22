@@ -139,7 +139,7 @@ test("an execution is started from its machine, drawn with the path it took, and
   const made = cli(["stepfunctions", "create-state-machine", "--name", name, "--definition", JSON.stringify(MACHINE), "--role-arn", "arn:aws:iam::111122223333:role/sfn"]);
   expect(made.code, made.out).toBe(0);
   await open(page, `/resources/stepfunctions/machines/${name}?tab=executions`, name);
-  await page.getByTestId("start-open").click();
+  await page.getByTestId("verb-start").click();
   const start = page.getByTestId("start-dialog");
   await start.getByTestId("start-name").fill("quick");
   await start.getByTestId("start-input").fill('{"order": 1}');
@@ -155,10 +155,12 @@ test("an execution is started from its machine, drawn with the path it took, and
   await expect(graph.locator('[data-state="Hold"]')).toHaveAttribute("data-status", "idle");
   await expect(graph.locator('[data-edge="Route>Fan"]')).toHaveAttribute("data-taken", "true");
   await graph.locator('[data-state="Right"]').click();
-  await page.getByTestId("step-output").click();
+  await page.getByTestId("step-views").getByRole("radio", { name: "Output" }).click();
   await expect(page.getByTestId("step-details")).toContainText('"side": "right"');
   await page.getByTestId("tab-events").click();
   const events = page.getByTestId("history-event");
+  await expect(events.first()).toContainText("ExecutionStarted");
+  await page.getByTestId("history-sort").click();
   await expect(events.first()).toContainText("ExecutionSucceeded");
   await page.getByTestId("history-open").first().click();
   await expect(page.getByTestId("history")).toContainText('"output"');

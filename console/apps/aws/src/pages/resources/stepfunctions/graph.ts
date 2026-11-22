@@ -7,7 +7,9 @@
 // their branches (Parallel: side by side) or their item processor (Map), each laid out the same way inside. Start and End are
 // the pills the design draws.
 
-export type Rule = { Next?: string; Variable?: string; Condition?: string };
+import { taskTarget, taskWords } from "./model";
+
+export type Rule = { Next?: string; Variable?: string; Condition?: string; [more: string]: unknown };
 export type AslState = {
   Type?: string;
   Next?: string;
@@ -20,10 +22,15 @@ export type AslState = {
   Iterator?: Definition;
   Resource?: string;
   Comment?: string;
+  Parameters?: Record<string, unknown>;
+  HeartbeatSeconds?: number;
+  TimeoutSeconds?: number;
+  Retry?: { ErrorEquals?: string[]; IntervalSeconds?: number; MaxAttempts?: number; BackoffRate?: number }[];
+  [more: string]: unknown;
 };
-export type Definition = { StartAt?: string; States?: Record<string, AslState> };
+export type Definition = { Comment?: string; StartAt?: string; TimeoutSeconds?: number; States?: Record<string, AslState> };
 
-export type Box = { id: string; name: string; type: string; x: number; y: number; w: number; h: number; resource?: string; inner: Placed[] };
+export type Box = { id: string; name: string; type: string; label?: string; x: number; y: number; w: number; h: number; resource?: string; inner: Placed[] };
 /** A sub-graph placed in its container. */
 export type Placed = { graph: Graph; x: number; y: number; title: string };
 export type EdgeKind = "next" | "choice" | "default" | "catch" | "start" | "end";
@@ -31,6 +38,13 @@ export type Edge = { from: string; to: string; kind: EdgeKind; label?: string; b
 export type Graph = { w: number; h: number; boxes: Box[]; edges: Edge[] };
 
 export const START = "__start";
+
+/** What a Task is, by its resource (`DynamoDB GetItem`), with what it acts on (`on orders-table`) when asked. */
+function words(s: AslState, targets: boolean): string {
+  const target = targets ? taskTarget(s) : null;
+  const w = taskWords(s);
+  return target && !w.startsWith("Activity") ? `${w} on ${target}` : w;
+}
 export const END = "__end";
 
 const BOX_H = 46;
@@ -83,7 +97,7 @@ function boxSize(name: string, type: string, inner: Placed[]): { w: number; h: n
 }
 
 /** Lays out `def`; ids are prefixed with `scope` so a state inside a branch is named apart from one outside it. */
-export function layout(def: Definition, scope = ""): Graph {
+export function layout(def: Definition, scope = "", opts: { targets?: boolean } = {}): Graph {
   const states = statesOf(def);
   const names = Object.keys(states);
   const start = def.StartAt && states[def.StartAt] ? def.StartAt : names[0];
@@ -126,9 +140,12 @@ export function layout(def: Definition, scope = ""): Graph {
     const type = s.Type ?? "Task";
     const id = `${scope}${n}`;
     const subs: Definition[] = s.Branches ?? (s.ItemProcessor ? [s.ItemProcessor] : s.Iterator ? [s.Iterator] : []);
-    const inner: Placed[] = subs.map((d, i) => ({ graph: layout(d, `${id}/${i}/`), x: 0, y: 0, title: type === "Parallel" ? `Branch ${i + 1}` : "Each item" }));
-    const { w, h } = boxSize(n, type, inner);
-    sized.set(n, { id, name: n, type, x: 0, y: 0, w, h, resource: s.Resource, inner });
+    const inner: Placed[] = subs.map((d, i) => ({ graph: layout(d, `${id}/${i}/`, opts), x: 0, y: 0, title: type === "Parallel" ? `Branch ${i + 1}` : "Each item" }));
+    const label = type === "Task" ? words(s, opts.targets === true) : undefined;
+    const sizeOf = boxSize(n, label ?? type, inner);
+    // An execution's graph says how each state ended at the right of its box: room for the word.
+    const { w, h } = opts.targets && inner.length === 0 ? { w: sizeOf.w + 84, h: sizeOf.h } : sizeOf;
+    sized.set(n, { id, name: n, type, label, x: 0, y: 0, w, h, resource: s.Resource, inner });
   }
   // Rows: Start, the layers, End.
   const depth = Math.max(0, ...layer.values());
