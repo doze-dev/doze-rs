@@ -34,6 +34,9 @@ fn wire(key: &'static str, signing: &'static str, action: &'static str) -> Finis
         took: Duration::from_micros(900),
         would_be_denied: false,
         user_agent: "",
+        message: "",
+        function_error: "",
+        answer_bytes: None,
     }
 }
 
@@ -132,4 +135,64 @@ async fn services_come_in_the_order_of_the_resources_index() {
         at("sqs") < at("sns") && at("sns") < at("s3") && at("s3") < at("iam"),
         "{names:?}"
     );
+}
+
+#[tokio::test]
+async fn a_call_carries_the_words_of_its_error_a_function_error_and_the_length_of_its_answer() {
+    let w = world("record-words", Mode::Soft, &[]);
+    let refused = Finished {
+        status: 400,
+        code: "InvalidParameterValue",
+        message: "Can only include alphanumeric characters, hyphens, or underscores. 1 to 80 in length",
+        answer_bytes: Some(180),
+        ..wire("AKIAAPP", "sqs", "CreateQueue")
+    };
+    let failed = Finished {
+        function_error: "Unhandled",
+        answer_bytes: Some(73),
+        ..wire("AKIAAPP", "lambda", "Invoke")
+    };
+    w.state.recorder.record(&refused, 1);
+    w.state.recorder.record(&failed, 2);
+    w.state
+        .recorder
+        .record(&wire("AKIAAPP", "sqs", "ListQueues"), 3);
+    let (status, page) = w.get("/api/v1/calls").await;
+    assert_eq!(status, 200, "{page}");
+    let calls = page["calls"].as_array().unwrap();
+    let by = |op: &str| calls.iter().find(|c| c["action"] == op).unwrap();
+    assert_eq!(keys(by("CreateQueue")), ts_keys("CallRecord"));
+    assert_eq!(
+        by("CreateQueue")["message"],
+        "Can only include alphanumeric characters, hyphens, or underscores. 1 to 80 in length"
+    );
+    assert_eq!(by("CreateQueue")["answer_bytes"], 180);
+    // The invocation succeeded (200) and the function failed: the answer says so.
+    assert_eq!(by("Invoke")["outcome"], "ok");
+    assert_eq!(by("Invoke")["function_error"], "Unhandled");
+    // Nothing is made up for a call that carried none of it.
+    assert!(by("ListQueues")["message"].is_null());
+    assert!(by("ListQueues")["function_error"].is_null());
+    assert!(by("ListQueues")["answer_bytes"].is_null());
+}
+
+#[tokio::test]
+async fn gateway_domain_names_and_vpc_links_are_stored_and_say_so() {
+    let w = world("stored-gateway", Mode::Soft, &[]);
+    w.state
+        .recorder
+        .record(&wire("AKIAAPP", "apigateway", "GetRestApis"), 1);
+    w.app(
+        "apigateway",
+        "CreateDomainName",
+        &json!({"domainName": "api.larder.dev", "regionalCertificateArn": "arn:aws:acm:us-east-1:000000000000:certificate/c", "endpointConfiguration": {"types": ["REGIONAL"]}}),
+    )
+    .await;
+    let (status, checks) = w.get("/api/v1/home/checks").await;
+    assert_eq!(status, 200, "{checks}");
+    assert_eq!(checks["checked"], json!(["apigateway"]));
+    let found = &checks["signals"][0];
+    assert_eq!(found["kind"], "not-active");
+    assert_eq!(found["detail"], "1 domain name stored");
+    assert_eq!(found["href"], "/resources/apigateway");
 }

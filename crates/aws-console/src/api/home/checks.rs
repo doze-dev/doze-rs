@@ -223,6 +223,38 @@ async fn stored_only(bus: &Bus) -> Result<Vec<Signal>, String> {
     })
 }
 
+/// API Gateway custom domain names and VPC links: stored and listed, and nothing is routed through them locally.
+async fn stored_gateway(bus: &Bus) -> Result<Vec<Signal>, String> {
+    let mut parts = Vec::new();
+    let mut count = 0;
+    for (op, one, many) in [
+        ("GetDomainNames", "domain name", "domain names"),
+        ("GetVpcLinks", "VPC link", "VPC links"),
+    ] {
+        let got = bus
+            .call("apigateway", op, &json!({}))
+            .await
+            .map_err(|e| e.message)?;
+        let n = at(&got, "item").as_array().map_or(0, Vec::len) as u64;
+        if n > 0 {
+            count += n;
+            parts.push(plural(n, one, many));
+        }
+    }
+    Ok(if count == 0 {
+        Vec::new()
+    } else {
+        vec![Signal {
+            kind: SignalKind::NotActive,
+            count,
+            title: "Not active locally".to_owned(),
+            detail: format!("{} stored", parts.join(" and ")),
+            href: Some("/resources/apigateway".to_owned()),
+            resource: None,
+        }]
+    })
+}
+
 /// `GET /api/v1/home/checks`.
 pub async fn checks(State(s): State<Shared>) -> Response {
     let calls = s.recorder.newest(ALL).calls;
@@ -245,6 +277,7 @@ pub async fn checks(State(s): State<Shared>) -> Response {
     for service in [
         "sqs",
         "sns",
+        "apigateway",
         "cloudwatch",
         "stepfunctions",
         "cloudformation",
@@ -255,6 +288,7 @@ pub async fn checks(State(s): State<Shared>) -> Response {
         let found = match service {
             "sqs" => dead_letters(&bus).await,
             "sns" => stored_only(&bus).await,
+            "apigateway" => stored_gateway(&bus).await,
             "cloudwatch" => alarms(&bus).await,
             "stepfunctions" => failed_executions(&bus).await,
             _ => failed_stacks(&bus).await,

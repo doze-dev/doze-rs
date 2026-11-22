@@ -15,10 +15,10 @@ use crate::model::{
     FlowsResponse, Outcome, RingFill, ServiceName, ServiceRow, ServicesResponse, TailReady,
 };
 use crate::model::{
-    AccessView, Attached, CallerSeen, DataUse, DenialGroup, FlagRow, HomeChecks, HomeView,
-    KeyPrincipal, LabAnswer, LabError, LabIndex, LabMember, LabOperation, LabTarget, PrincipalKind,
-    PrincipalsResponse, Refusal, ResetDone, ResetRow, ServiceSeen, SettingsView, Signal,
-    SignalKind, WireEdge, WireNode, Wiring,
+    AccessView, Attached, CallerSeen, DataUse, DenialGroup, FlagRow, HeldPolicies, HeldPolicy,
+    HomeChecks, HomeView, KeyPrincipal, LabAnswer, LabError, LabIndex, LabMember, LabOperation,
+    LabTarget, PrincipalKind, PrincipalsResponse, Refusal, ResetDone, ResetRow, ServiceSeen,
+    SettingsView, Signal, SignalKind, WireEdge, WireNode, Wiring,
 };
 use crate::model::{
     Badge, BlockerGroup, BlockerItem, Blockers, Needs, ParamKind, ParamOption, ParamSpec, Preview,
@@ -46,6 +46,7 @@ fn one<T: TS + 'static + ?Sized>(cfg: &Config, out: &mut BTreeMap<String, String
 }
 
 /// Every type the API sends, by file name.
+#[allow(clippy::too_many_lines)] // one line a type
 fn all() -> BTreeMap<String, String> {
     let cfg = config();
     let mut out = BTreeMap::new();
@@ -100,6 +101,8 @@ fn all() -> BTreeMap<String, String> {
     one::<Signal>(&cfg, &mut out);
     one::<HomeView>(&cfg, &mut out);
     one::<HomeChecks>(&cfg, &mut out);
+    one::<HeldPolicy>(&cfg, &mut out);
+    one::<HeldPolicies>(&cfg, &mut out);
     one::<WireNode>(&cfg, &mut out);
     one::<WireEdge>(&cfg, &mut out);
     one::<Wiring>(&cfg, &mut out);

@@ -34,6 +34,9 @@ fn wire(signing: &'static str) -> Finished<'static> {
         took: Duration::from_micros(900),
         would_be_denied: false,
         user_agent: "",
+        message: "",
+        function_error: "",
+        answer_bytes: None,
     }
 }
 

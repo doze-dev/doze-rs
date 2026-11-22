@@ -327,3 +327,25 @@ pub struct LabAnswer {
     pub seq: Option<u64>,
     pub took_us: u64,
 }
+
+/// One policy a user or a role holds.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
+pub struct HeldPolicy {
+    pub name: String,
+    /// Put on the user or role itself (it can be edited here); else a managed policy attached to it.
+    pub inline: bool,
+    /// A managed policy's ARN.
+    pub arn: Option<String>,
+    /// The policy document as JSON text; `null` when it could not be read.
+    pub document: Option<String>,
+}
+
+/// `GET /api/v1/access/policies`: what a user or a role holds.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
+pub struct HeldPolicies {
+    pub policies: Vec<HeldPolicy>,
+    /// The groups a user is in, whose policies are not read.
+    pub groups: Vec<String>,
+}

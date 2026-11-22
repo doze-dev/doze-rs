@@ -19,6 +19,9 @@ fn call(n: u64) -> Finished<'static> {
         took: Duration::from_micros(n),
         would_be_denied: false,
         user_agent: "",
+        message: "",
+        function_error: "",
+        answer_bytes: None,
     }
 }
 
@@ -94,6 +97,9 @@ fn the_bytes_held_are_counted_and_never_pass_the_bound() {
         region: &long,
         code: &long,
         user_agent: &long,
+        message: &long,
+        function_error: &long,
+        answer_bytes: Some(70_000),
         ..call(1)
     };
     for n in 1..=20 {
@@ -110,8 +116,9 @@ fn the_bytes_held_are_counted_and_never_pass_the_bound() {
     // The whole ring, at its worst, is under a megabyte.
     const { assert!(MOST_BYTES < 1 << 20) };
     // A slot grew from 160 to 184 bytes with the member that named the resource and the cause of a call between services, and
-    // to 200 with the client its User-Agent named.
-    const { assert!(RECORD_BYTES <= 200) };
+    // to 200 with the client its User-Agent named, and to 216 with the pointer to the words of an error or a failed function and the
+    // length of the answer (16 KB more for a full ring; a success holds no more text than before).
+    const { assert!(RECORD_BYTES <= 216) };
 }
 
 #[test]

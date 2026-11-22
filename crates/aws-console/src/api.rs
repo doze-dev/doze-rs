@@ -30,6 +30,7 @@ pub mod home;
 pub mod lab;
 pub mod objects;
 pub mod ops;
+pub mod policies;
 pub mod preview;
 pub mod render;
 pub mod resources;
@@ -58,6 +59,7 @@ pub fn routes() -> Router<Shared> {
         .route("/api/v1/live/wiring", get(wiring::wiring))
         .route("/api/v1/principals", get(access::principals))
         .route("/api/v1/access", get(access::access))
+        .route("/api/v1/access/policies", get(policies::policies))
         .route("/api/v1/access/attach", post(access::attach))
         .route("/api/v1/settings", get(settings::settings))
         .route("/api/v1/settings/reset", post(settings::reset))
