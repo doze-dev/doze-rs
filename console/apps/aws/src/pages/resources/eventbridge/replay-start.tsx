@@ -1,9 +1,8 @@
 // Start new replay (eventbridge__replay-start): an archive, the bus it goes back to, all rules or some, and a window of event time (UTC).
 import { useNavigate } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { Alert } from "@doze/ui/components/app/alert";
 import { Combobox } from "@doze/ui/components/app/combobox";
-import { UtcDateTimePicker } from "@doze/ui/components/app/utc-datetime-picker";
 import { Checkbox } from "@doze/ui/components/ui/checkbox";
 import { Input } from "@doze/ui/components/ui/input";
 import { Label } from "@doze/ui/components/ui/label";
@@ -12,6 +11,7 @@ import { Field, FormPage, FormSection, RadioCards, RuleHelp, useServiceCrumbs } 
 import { REPLAYS, archiveArn, ruleArn, useArchives, useReplays, useRulesOf, useEbOp } from "./api";
 import { State, useWhere } from "./parts";
 import { emptyReplay, nameProblem, replayProblem, startReplayInput, type ReplayForm } from "./replay-model";
+import { WhenFields } from "./when-fields";
 import { busOfArn, count, list } from "./words";
 
 export function ReplayStart({ archive }: { archive?: string }) {
@@ -30,14 +30,16 @@ export function ReplayStart({ archive }: { archive?: string }) {
   const taken = replays.map((r) => r.ReplayName);
   const ran = replays.filter((r) => r.ReplayName !== f.name).sort((a, b) => (b.ReplayStartTime ?? 0) - (a.ReplayStartTime ?? 0))[0];
   const problem = replayProblem(f, taken);
-  const input = useMemo(() => (chosen && bus ? startReplayInput(f, archiveArn(region, account, chosen.ArchiveName), chosen.EventSourceArn, (r) => ruleArn(region, account, bus, r)) : startReplayInput(f, archiveArn(region, account, f.archive ?? "<archive>"), "<bus>", (r) => r)), [f, chosen, bus, region, account]);
+  const build = (shown: boolean) => (chosen && bus ? startReplayInput(f, archiveArn(region, account, chosen.ArchiveName), chosen.EventSourceArn, (r) => ruleArn(region, account, bus, r), shown) : startReplayInput(f, archiveArn(region, account, f.archive ?? "<archive>"), "<bus>", (r) => r, shown));
+  const input = build(false);
+  const shown = build(true);
   const refused = start.error instanceof ApiFailure ? { code: start.error.code, message: start.error.message } : null;
   return (
     <FormPage
       title="Start new replay"
       sub="Pick an archive and a window of event time. Events in the window are sent to the bus the archive came from."
       crumbs={[...crumbs, { label: "Replays", to: "/resources/eventbridge/replays" }]}
-      request={{ service: "events", operation: "StartReplay", input }}
+      request={{ service: "events", operation: "StartReplay", input: shown }}
       refusal={refused}
       callNote="A replay runs in the background here as on AWS: the call returns while it is Starting, the replay is Running as its events go back to the bus, and Completed when the window is done. It can be cancelled until then."
       banner={refused ? <Alert tone="bad" title="The replay wasn't started." testId="start-refused">StartReplay answered <span className="font-mono font-semibold text-bright">{refused.code}</span>: “{refused.message}”</Alert> : undefined}
@@ -84,9 +86,9 @@ export function ReplayStart({ archive }: { archive?: string }) {
         </div>
       </FormSection>
       <FormSection title="Replay time frame" description="Only events that happened between the start and end time are replayed. The time is the time inside the event." testId="section-window">
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div className="grid gap-1.5"><Label htmlFor="replay-start">Start time</Label><UtcDateTimePicker id="replay-start" value={f.startMs} onChange={(startMs) => set({ startMs })} aria-label="Start time, UTC" /></div>
-          <div className="grid gap-1.5"><Label htmlFor="replay-end">End time</Label><UtcDateTimePicker id="replay-end" value={f.endMs} onChange={(endMs) => set({ endMs })} aria-label="End time, UTC" /></div>
+        <div className="grid gap-4">
+          <WhenFields label="Start time" value={f.startMs} onChange={(startMs) => set({ startMs })} testId="replay-start-time" />
+          <WhenFields label="End time" value={f.endMs} onChange={(endMs) => set({ endMs })} testId="replay-end-time" />
         </div>
         {tried && f.endMs !== null && f.startMs !== null && f.endMs <= f.startMs && <p className="text-[13px] text-bad" role="alert">The end must be after the start.</p>}
         <RuleHelp>On AWS, events can reach an archive a few minutes late, so wait about 10 minutes before replaying recent ones. A replay does not remove events from the archive; you can replay the same window again.</RuleHelp>

@@ -24,10 +24,28 @@ function HeaderCheck({ state, onClick, label }: { state: "none" | "some" | "all"
   );
 }
 
+/** A row's radio, where one row at a time is chosen (`single`): a ring with a dot, like the radios of a form. */
+function RowRadio({ on, onClick, label, id }: { on: boolean; onClick: () => void; label: string; id: string }) {
+  return (
+    <button
+      type="button"
+      role="radio"
+      aria-checked={on}
+      aria-label={label}
+      onClick={onClick}
+      data-state={on ? "checked" : "unchecked"}
+      className="grid size-4 place-content-center rounded-full border border-input bg-card align-middle shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 data-[state=checked]:border-primary"
+      data-testid={`select-${id}`}
+    >
+      {on && <span className="size-2 rounded-full bg-primary" />}
+    </button>
+  );
+}
+
 /** A DataTable with a checkbox on every row: "N selected" and the bulk actions above it. The selection is the caller's (a set
  * of row ids), so a page can keep it in the address or clear it after a delete. The bar's height is reserved, so choosing a row
  * moves nothing. Clicking a checkbox does not open the row. */
-export function SelectableTable<T>({ data, columns, rowId, selected, onSelectedChange, actions, noun = "row", hint, toolbar, rowClassName, actionsEnd = false, actionsAlways = false, selectedLabel, ...table }: Omit<React.ComponentProps<typeof DataTable<T>>, "columns"> & { columns: DataColumn<T>[]; selected: ReadonlySet<string>; onSelectedChange: (next: Set<string>) => void; /** The bulk actions, given the chosen rows (a Delete button). */ actions?: (chosen: T[]) => React.ReactNode; /** `parameter`: names the checkboxes (`Select parameter x`). */ noun?: string; /** What the bar says when nothing is chosen (not when there is a toolbar: that fills the bar). */ hint?: string; /** The list's own controls (a search field, FilterChips) at the left of the bar: the count and the bulk actions come to its right, so the bar is one row. */ toolbar?: React.ReactNode; /** The bulk actions are drawn with nothing chosen too (given no rows, so a page can show them off). */ actionsAlways?: boolean; /** The bulk actions at the right end of the bar, across from the count, instead of beside it. */ actionsEnd?: boolean; /** The count's words (`1 selected`) instead of `1 message selected`. */ selectedLabel?: (count: number) => string }) {
+export function SelectableTable<T>({ data, columns, rowId, selected, onSelectedChange, actions, noun = "row", hint, toolbar, rowClassName, actionsEnd = false, actionsAlways = false, selectedLabel, single = false, ...table }: Omit<React.ComponentProps<typeof DataTable<T>>, "columns"> & { columns: DataColumn<T>[]; selected: ReadonlySet<string>; onSelectedChange: (next: Set<string>) => void; /** The bulk actions, given the chosen rows (a Delete button). */ actions?: (chosen: T[]) => React.ReactNode; /** `parameter`: names the checkboxes (`Select parameter x`). */ noun?: string; /** What the bar says when nothing is chosen (not when there is a toolbar: that fills the bar). */ hint?: string; /** The list's own controls (a search field, FilterChips) at the left of the bar: the count and the bulk actions come to its right, so the bar is one row. */ toolbar?: React.ReactNode; /** The bulk actions are drawn with nothing chosen too (given no rows, so a page can show them off). */ actionsAlways?: boolean; /** The bulk actions at the right end of the bar, across from the count, instead of beside it. */ actionsEnd?: boolean; /** The count's words (`1 selected`) instead of `1 message selected`. */ selectedLabel?: (count: number) => string; /** One row at a time, chosen with a radio (the list's actions are for one): choosing another row moves the choice, and there is no select-all. */ single?: boolean }) {
   const ids = useMemo(() => data.map(rowId), [data, rowId]);
   const state = allState(selected, ids);
   const chosen = data.filter((r) => selected.has(rowId(r)));
@@ -35,12 +53,12 @@ export function SelectableTable<T>({ data, columns, rowId, selected, onSelectedC
     id: "select",
     size: 44,
     enableSorting: false,
-    header: () => <HeaderCheck state={state} onClick={() => onSelectedChange(toggleAll(selected, ids))} label={state === "all" ? `Clear every ${noun}` : `Select every ${noun}`} />,
+    header: () => (single ? <span className="sr-only">Choose one {noun}</span> : <HeaderCheck state={state} onClick={() => onSelectedChange(toggleAll(selected, ids))} label={state === "all" ? `Clear every ${noun}` : `Select every ${noun}`} />),
     cell: (c) => {
       const id = rowId(c.row.original);
       return (
         <span onClick={(e) => e.stopPropagation()} className="flex">
-          <Checkbox checked={selected.has(id)} onCheckedChange={() => onSelectedChange(toggle(selected, id))} aria-label={`Select ${noun} ${id}`} data-testid={`select-${id}`} />
+          {single ? <RowRadio on={selected.has(id)} onClick={() => onSelectedChange(new Set([id]))} label={`Select ${noun} ${id}`} id={id} /> : <Checkbox checked={selected.has(id)} onCheckedChange={() => onSelectedChange(toggle(selected, id))} aria-label={`Select ${noun} ${id}`} data-testid={`select-${id}`} />}
         </span>
       );
     },

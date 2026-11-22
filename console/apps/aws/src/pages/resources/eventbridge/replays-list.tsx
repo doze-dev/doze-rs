@@ -53,12 +53,12 @@ function Replays({ service, kind }: { service: string; kind: string }) {
     }
   };
   const columns: DataColumn<ReplayItem>[] = [
-    { id: "name", header: "Name", min: 180, accessorFn: (r) => r.ReplayName, cell: (c) => <ResourceTo to={{ service, kind, name: c.row.original.ReplayName }} className="font-mono text-[13px] font-medium" testId="row-link">{c.row.original.ReplayName}</ResourceTo> },
-    { id: "source", header: "Source", size: 180, accessorFn: (r) => arnName(r.EventSourceArn), cell: (c) => <ResourceTo to={{ service, kind: "archives", name: arnName(c.row.original.EventSourceArn) }} className="font-mono text-[13px]">{arnName(c.row.original.EventSourceArn)}</ResourceTo> },
-    { id: "state", header: "State", size: 130, accessorFn: (r) => r.State ?? "", cell: (c) => <State state={c.row.original.State} /> },
-    { id: "window", header: "Event window (UTC)", size: 250, accessorFn: (r) => r.EventStartTime ?? 0, cell: (c) => windowWords(c.row.original.EventStartTime, c.row.original.EventEndTime) },
-    { id: "last", header: "Last event replayed", size: 220, accessorFn: (r) => r.EventLastReplayedTime ?? 0, cell: (c) => when(c.row.original.EventLastReplayedTime) },
-    { id: "started", header: "Started", size: 230, accessorFn: (r) => r.ReplayStartTime ?? 0, cell: (c) => when(c.row.original.ReplayStartTime) },
+    { id: "name", header: "Name", min: 130, accessorFn: (r) => r.ReplayName, cell: (c) => <ResourceTo to={{ service, kind, name: c.row.original.ReplayName }} className="font-mono text-[13px] font-medium" testId="row-link">{c.row.original.ReplayName}</ResourceTo> },
+    { id: "source", header: "Source", size: 130, accessorFn: (r) => arnName(r.EventSourceArn), cell: (c) => <ResourceTo to={{ service, kind: "archives", name: arnName(c.row.original.EventSourceArn) }} className="font-mono text-[13px]">{arnName(c.row.original.EventSourceArn)}</ResourceTo> },
+    { id: "state", header: "State", size: 120, accessorFn: (r) => r.State ?? "", cell: (c) => <State state={c.row.original.State} /> },
+    { id: "window", header: "Event window (UTC)", size: 300, min: 270, accessorFn: (r) => r.EventStartTime ?? 0, cell: (c) => windowWords(c.row.original.EventStartTime, c.row.original.EventEndTime) },
+    { id: "last", header: "Last event replayed", size: 222, min: 222, accessorFn: (r) => r.EventLastReplayedTime ?? 0, cell: (c) => when(c.row.original.EventLastReplayedTime) },
+    { id: "started", header: "Started", size: 222, min: 222, accessorFn: (r) => r.ReplayStartTime ?? 0, cell: (c) => when(c.row.original.ReplayStartTime) },
   ];
   return (
     <>
@@ -99,7 +99,12 @@ function Replays({ service, kind }: { service: string; kind: string }) {
                 <Button type="submit" variant="outline" className="bg-card">Search</Button>
               </form>
             }
-            actions={(sel) => <Button type="button" variant="outline" className="bg-card" disabled={sel.length === 0 || !picked.some(going)} title={sel.length > 0 && !picked.some(going) ? "Only a replay that is Starting or Running can be cancelled." : undefined} onClick={() => void cancel()} data-testid="action-cancel">Cancel replay</Button>}
+            actions={(sel) => (
+              <>
+                {sel.length > 0 && !picked.some(going) && <span className="text-[13px] text-muted-foreground" data-testid="cancel-why">Only a replay that is Starting or Running can be cancelled.</span>}
+                <Button type="button" variant="outline" className="bg-card" disabled={sel.length === 0 || !picked.some(going)} onClick={() => void cancel()} data-testid="action-cancel">Cancel replay</Button>
+              </>
+            )}
             empty={`No replay's name begins with “${typed}”.`}
           />
           <Pagination className="mt-3" shown={rows.length} total={rows.length} noun={rows.length === 1 ? "replay" : "replays"} />

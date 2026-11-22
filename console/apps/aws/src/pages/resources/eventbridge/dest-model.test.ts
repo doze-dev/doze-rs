@@ -47,4 +47,17 @@ describe("the connection form", () => {
     });
     expect(createConnInput({ ...f, auth: "BASIC", username: "u", password: "p" })).toMatchObject({ AuthorizationType: "BASIC", AuthParameters: { BasicAuthParameters: { Username: "u", Password: "p" } } });
   });
+  test("the call shown writes every secret as ..., what is sent keeps it", () => {
+    const secret: HttpParam = { ...newRow("X-Token", "t0k3n"), kind: "header", secret: true };
+    const plain: HttpParam = { ...newRow("X-Source", "larder"), kind: "header", secret: false };
+    const shown = JSON.stringify(createConnInput({ ...f, params: [secret, plain] }, true));
+    expect(shown).toContain('"ApiKeyValue":"..."');
+    expect(shown).toContain('"Value":"..."');
+    expect(shown).toContain('"Value":"larder"');
+    for (const hidden of ["s3cret", "t0k3n"]) expect(shown).not.toContain(hidden);
+    expect(JSON.stringify(createConnInput({ ...f, params: [secret] }))).toContain("t0k3n");
+    expect(JSON.stringify(createConnInput({ ...f, auth: "BASIC", username: "u", password: "pw" }, true))).not.toContain("pw");
+    expect(JSON.stringify(createConnInput({ ...f, auth: "OAUTH_CLIENT_CREDENTIALS", tokenEndpoint: "https://a.example/t", clientId: "id", clientSecret: "shh" }, true))).not.toContain("shh");
+    expect(JSON.stringify(createConnInput({ ...f, keyValue: "" }, true))).toContain('"ApiKeyValue":""');
+  });
 });

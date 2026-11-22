@@ -278,3 +278,29 @@ async fn the_form_a_preview_writes_is_read_back_by_the_services_own_decoder() {
         input
     );
 }
+
+#[tokio::test]
+async fn a_timestamp_written_as_text_is_one_word_on_the_command_line() {
+    let w = world("preview-timestamp", Mode::Soft, &[]);
+    let input = json!({
+        "ReplayName": "redo",
+        "EventSourceArn": "arn:aws:events:us-east-1:000000000000:archive/a",
+        "EventStartTime": "2026-11-07T00:00:00Z",
+        "EventEndTime": "2026-11-08T00:00:00Z",
+        "Destination": {"Arn": "arn:aws:events:us-east-1:000000000000:event-bus/larder"}
+    });
+    let (status, p) = preview(&w, "events", "StartReplay", &input).await;
+    assert_eq!(status, 200, "{p}");
+    assert_eq!(p["json"]["EventStartTime"], "2026-11-07T00:00:00Z");
+    let cli = p["cli"].as_str().unwrap();
+    assert!(
+        cli.contains(" --event-start-time 2026-11-07T00:00:00Z"),
+        "{cli}"
+    );
+    assert!(!cli.contains("'\"2026"), "{cli}");
+    let boto = p["boto3"].as_str().unwrap();
+    assert!(
+        boto.contains(r#"EventStartTime="2026-11-07T00:00:00Z""#),
+        "{boto}"
+    );
+}

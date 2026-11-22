@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import type { CallRecord } from "../../../api/types/CallRecord";
-import { busCalls, matchedRules, resultNote, ruleCalls, ruleOf } from "./record";
+import { busCalls, isLook, matchedRules, resultNote, ruleCalls, ruleOf } from "./record";
 
 const call = (seq: number, patch: Partial<CallRecord>): CallRecord => ({ seq, at_ms: seq * 100, service: "eventbridge", api: "EventBridge", action: "PutRule", resource: null, member: null, caller: "k", region: "us-east-1", status: 200, error_code: null, outcome: "ok", would_be_denied: false, duration_us: 1, request_id: `r${seq}`, via: null, sdk: null, ...patch }) as CallRecord;
 const by = (name: string) => ({ by: "eventbridge", request_id: null, name: `rule ${name}` });
@@ -31,6 +31,20 @@ describe("what the record says of a bus and a rule", () => {
     expect(resultNote(put, [put])).toBe("matched no rule");
     expect(resultNote(delivery, record)).toBe("to orders-created");
     expect(resultNote(putRule, record)).toBeNull();
+  });
+  test("a delivery is one row: the looks the rule took before it are not, unless one failed", () => {
+    const look = call(5.5 as number, { service: "sns", action: "GetTopicAttributes", resource: "arn:aws:sns:us-east-1:1:orders-created", via: by("order-placed") });
+    const refusedLook = { ...look, seq: 5.6, status: 403 } as CallRecord;
+    expect(isLook(look)).toBe(true);
+    expect(isLook(refusedLook)).toBe(false);
+    expect(isLook(delivery)).toBe(false);
+    expect(isLook({ ...look, via: null })).toBe(false);
+    expect(ruleCalls([putRule], [...record, look, refusedLook], "order-placed").map((c) => c.seq)).toEqual([6, 5.6, 5, 2]);
+  });
+  test("a delivery says what its input was made of", () => {
+    const t = { Id: "t", Arn: "arn:aws:sns:us-east-1:1:orders-created", InputTransformer: { InputPathsMap: { a: "$.a", b: "$.b" }, InputTemplate: "x" } };
+    expect(resultNote(delivery, record, t)).toBe("to orders-created, input transformer, 2 variables");
+    expect(resultNote(delivery, record, { Id: "t", Arn: t.Arn })).toBe("to orders-created");
   });
   test("another caller's delivery, or one long after, is not its match", () => {
     expect(matchedRules(put, [put, { ...delivery, caller: "other" }])).toEqual([]);

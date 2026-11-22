@@ -1,4 +1,5 @@
 // What the EventBridge pages share: a sentence with its names in bold, the details card, a section heading, a state badge and the times.
+import { Fragment } from "react";
 import { Emphasis } from "@doze/ui/components/app/emphasis";
 import { StatusDot } from "@doze/ui/components/app/status-dot";
 import { dateTimeUtc } from "@doze/ui/lib/format";
@@ -60,5 +61,19 @@ export function DetailsGrid({ rows, columns = 1, testId = "details" }: { rows: r
         ))}
       </div>
     </section>
+  );
+}
+
+/** An address or an ARN a cell may break after its `:`, `/` and `.`, so it wraps at a part and is shown whole (it is copied whole: the break is a `<wbr>`). */
+export function Breakable({ text }: { text: string }) {
+  return (
+    <>
+      {text.split(/(?<=[:/.])/).map((part, i) => (
+        <Fragment key={i}>
+          {i > 0 && <wbr />}
+          {part}
+        </Fragment>
+      ))}
+    </>
   );
 }

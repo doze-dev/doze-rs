@@ -85,12 +85,15 @@ export function prettyPattern(text: string): string {
   }
 }
 
-/** The event window of a replay, as the board writes it: `Nov 6 18:00 to Nov 7 18:00` (UTC, seconds since 1970). */
-export function windowWords(startSeconds: number | undefined, endSeconds: number | undefined): string {
+/** The event window of a replay, as the board writes it: `Nov 6 18:00 to Nov 7 18:00` (UTC, seconds since 1970). The year is added to both ends
+ * when either is not in this year (`Jan 1 2020 00:00 to Jan 1 2030 00:00`): without it a window of years reads as one of hours. */
+export function windowWords(startSeconds: number | undefined, endSeconds: number | undefined, now = Date.now()): string {
   if (startSeconds === undefined || endSeconds === undefined) return "–";
+  const year = (s: number) => new Date(s * 1000).getUTCFullYear();
+  const withYear = year(startSeconds) !== new Date(now).getUTCFullYear() || year(endSeconds) !== new Date(now).getUTCFullYear();
   const f = (s: number) => {
     const d = new Date(s * 1000);
-    return `${d.toLocaleString("en-US", { month: "short", timeZone: "UTC" })} ${d.getUTCDate()} ${String(d.getUTCHours()).padStart(2, "0")}:${String(d.getUTCMinutes()).padStart(2, "0")}`;
+    return `${d.toLocaleString("en-US", { month: "short", timeZone: "UTC" })} ${d.getUTCDate()}${withYear ? ` ${d.getUTCFullYear()}` : ""} ${String(d.getUTCHours()).padStart(2, "0")}:${String(d.getUTCMinutes()).padStart(2, "0")}`;
   };
   return `${f(startSeconds)} to ${f(endSeconds)}`;
 }
@@ -120,6 +123,14 @@ export function inputWords(t: TargetItem): string {
   if (t.InputPath) return `Part of the event ${t.InputPath}`;
   if (t.Input) return "Constant (JSON text)";
   return "Matched event";
+}
+
+/** What a delivery to `t` was built from, for a line of the rule's recent calls (`input transformer, 2 variables`); null for the whole event. */
+export function inputNote(t: TargetItem | undefined): string | null {
+  if (!t) return null;
+  if (t.InputTransformer) return `input transformer, ${count(Object.keys(t.InputTransformer.InputPathsMap ?? {}).length, "variable")}`;
+  if (t.InputPath) return "part of the event";
+  return t.Input ? "constant input" : null;
 }
 
 const nameList = (names: readonly string[], most = 2): string => (names.length <= most ? list(names) : `${names.slice(0, most).join(", ")} and ${names.length - most} more`);

@@ -6,6 +6,8 @@ import { useQuery } from "@tanstack/react-query";
 import { PATHS, client } from "../../../api/client";
 import type { CallRecord } from "../../../api/types/CallRecord";
 import type { CallsPage } from "../../../api/types/CallsPage";
+import type { TargetItem } from "./types";
+import { inputNote } from "./words";
 
 /** The newest calls of the record (the page reads them when it opens and when refreshed). */
 export function useRecord() {
@@ -26,10 +28,16 @@ export function busCalls(own: readonly CallRecord[], record: readonly CallRecord
   return [...own, ...more].sort((a, b) => b.seq - a.seq);
 }
 
-/** The deliveries a rule made, the PutEvents it matched, and the calls to EventBridge that named it, newest first. */
+/** The calls a rule makes to look before it delivers (a queue's address, a queue's or a topic's policy): part of one delivery, not one of their own. */
+const LOOKS = new Set(["GetQueueUrl", "GetQueueAttributes", "GetTopicAttributes"]);
+/** A look the rule took that went well: the delivery's row says it all. A look that failed stays, it is why the delivery did not happen. */
+export const isLook = (c: Pick<CallRecord, "via" | "action" | "status">): boolean => ruleOf(c) !== null && c.action !== null && LOOKS.has(c.action) && c.status < 400;
+
+/** The deliveries a rule made (one row each: its looks before delivering are not rows), the PutEvents it matched, and the calls to EventBridge that
+ * named it, newest first. */
 export function ruleCalls(own: readonly CallRecord[], record: readonly CallRecord[], rule: string): CallRecord[] {
   const seen = new Set(own.map((c) => c.seq));
-  const made = record.filter((c) => !seen.has(c.seq) && (ruleOf(c) === rule || (c.action === "PutEvents" && matchedRules(c, record).includes(rule))));
+  const made = record.filter((c) => !seen.has(c.seq) && !isLook(c) && (ruleOf(c) === rule || (c.action === "PutEvents" && matchedRules(c, record).includes(rule))));
   return [...own, ...made].sort((a, b) => b.seq - a.seq);
 }
 
@@ -42,11 +50,11 @@ export function matchedRules(call: CallRecord, record: readonly CallRecord[]): s
 }
 
 /** What a result says beyond its status: `matched order-placed` for a PutEvents, what a delivery went to for a rule's own calls. */
-export function resultNote(call: CallRecord, record: readonly CallRecord[]): string | null {
+export function resultNote(call: CallRecord, record: readonly CallRecord[], target?: TargetItem): string | null {
   if (call.action === "PutEvents" && call.status === 200) {
     const m = matchedRules(call, record);
     return m.length > 0 ? `matched ${m.join(", ")}` : "matched no rule";
   }
-  if (ruleOf(call) && call.resource) return `to ${call.resource.split(/[/:]/).pop()}`;
+  if (ruleOf(call) && call.resource) return [`to ${call.resource.split(/[/:]/).pop()}`, inputNote(target)].filter(Boolean).join(", ");
   return null;
 }

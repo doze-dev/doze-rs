@@ -16,7 +16,8 @@ import { useResourceDetail } from "../../../api/resources";
 import type { ResourceDetail } from "../../../api/types/ResourceDetail";
 import { DetailError, type FlowGroup, FlowStrip, RecentCalls, ResourcePage, ResourcePageSkeleton, RuleHelp, type Verb, callKindOp, useFeeders, useTags } from "../../../kit";
 import { RULES, useTargets } from "./api";
-import { DetailsGrid, Heading, useWhere } from "./parts";
+import { useFanout } from "./fanout";
+import { Breakable, DetailsGrid, Heading, useWhere } from "./parts";
 import { resultNote, ruleCalls, useRecord } from "./record";
 import { RuleDelete } from "./rule-delete";
 import { TargetAdd } from "./target-add";
@@ -50,8 +51,9 @@ function RuleView({ d, bus, rule, targets, reload, updatedAt, fetching }: { d: R
   const tags = useTags({ service: d.service, kind: d.kind, name: d.name });
   const record = useRecord();
   const busCalls = useFeeders(record.data?.calls.filter((c) => c.resource === bus && c.action === "PutEvents") ?? [], ["PutEvents"]);
+  const fanout = useFanout(targets);
   const calls = useMemo(() => ruleCalls(d.calls, record.data?.calls ?? [], rule), [d.calls, record.data, rule]);
-  const note = useMemo(() => (c: Parameters<typeof resultNote>[0]) => (c.action === "PutEvents" ? "matched this rule" : resultNote(c, record.data?.calls ?? [])), [record.data]);
+  const note = useMemo(() => (c: Parameters<typeof resultNote>[0]) => (c.action === "PutEvents" ? "matched this rule" : resultNote(c, record.data?.calls ?? [], (targets ?? []).find((t) => c.resource !== null && t.Arn.split(":").pop() === c.resource.split(/[/:]/).pop()))), [record.data, targets]);
   const state = field(d, "State");
   const schedule = field(d, "Schedule");
   const pattern = field(d, "Event pattern");
@@ -76,11 +78,12 @@ function RuleView({ d, bus, rule, targets, reload, updatedAt, fetching }: { d: R
     { chips: [{ label: `${bus} bus`, to: { service: "eventbridge", kind: "buses", name: bus } }] },
     { chips: [{ label: rule, self: true }] },
     ...((targets ?? []).length > 0 ? [{ chips: (targets ?? []).map((t) => { const p = targetParts(t.Arn); return { label: `${p.name} ${p.kind.split(" ").pop()}`, to: link(p.kind, p.name) }; }) }] : []),
+    ...(fanout.length > 0 ? [{ chips: fanout.map((label) => ({ label })) }] : []),
   ];
   const columns: DataColumn<TargetItem>[] = [
     { id: "id", header: "Target ID", size: 210, min: 150, accessorFn: (t) => t.Id, meta: { mono: true }, cell: (c) => <span className="font-mono text-[13px] font-medium">{c.row.original.Id}</span> },
-    { id: "arn", header: "Target ARN", min: 220, accessorFn: (t) => t.Arn, cell: (c) => <span className="grid min-w-0 leading-5"><span className="truncate font-mono text-[12.5px]">{c.row.original.Arn}</span></span> },
-    { id: "input", header: "Input", size: 250, accessorFn: (t) => inputWords(t), cell: (c) => <span className="text-[13px]">{inputWords(c.row.original)}</span> },
+    { id: "arn", header: "Target ARN", min: 220, accessorFn: (t) => t.Arn, cell: (c) => <span className="block font-mono text-[12.5px] leading-4 [overflow-wrap:anywhere] whitespace-normal" data-testid="target-arn"><Breakable text={c.row.original.Arn} /></span> },
+    { id: "input", header: "Input", size: 250, accessorFn: (t) => inputWords(t), cell: (c) => <span className="block text-[13px] leading-4 whitespace-normal">{inputWords(c.row.original)}</span> },
     { id: "retry", header: "Retry policy", size: 210, accessorFn: (t) => retryWords(t), cell: (c) => <span className="text-[13px]">{retryWords(c.row.original)}</span> },
     { id: "dlq", header: "Dead-letter queue", size: 170, accessorFn: (t) => t.DeadLetterConfig?.Arn ?? "", cell: (c) => (c.row.original.DeadLetterConfig?.Arn ? <span className="font-mono text-[12.5px]">{arnName(c.row.original.DeadLetterConfig.Arn)}</span> : <span className="text-muted-foreground">–</span>) },
   ];
@@ -131,7 +134,7 @@ function RuleView({ d, bus, rule, targets, reload, updatedAt, fetching }: { d: R
               {none ? (
                 <EmptyTab title="No targets" action={<Button onClick={() => go({ view: "target" })} data-testid="add-target"><PlusIcon /> Add target</Button>}><b className="font-mono font-semibold text-bright">{rule}</b> matches events but has nowhere to send them. A rule needs at least one target to do anything.</EmptyTab>
               ) : (
-                <SelectableTable<TargetItem> aria-label="Targets" data={targets ?? []} columns={columns} rowId={(t) => t.Id} selected={picked} onSelectedChange={setPicked} noun="target" rowHeight={44} actionsAlways actionsEnd hint=" "
+                <SelectableTable<TargetItem> aria-label="Targets" data={targets ?? []} columns={columns} rowId={(t) => t.Id} selected={picked} onSelectedChange={setPicked} noun="target" rowHeight={60} actionsAlways actionsEnd hint=" "
                   actions={(sel) => <Button type="button" variant="outline" className="border-bad/40 bg-card text-bad hover:text-bad" disabled={sel.length === 0 || removing} onClick={() => void removeTargets()} data-testid="remove-targets"><TrashIcon /> Remove</Button>} />
               )}
               {error && <p className="mt-3 text-[13px] text-bad" role="alert">{error}</p>}

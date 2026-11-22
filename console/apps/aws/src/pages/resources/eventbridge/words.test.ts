@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import type { RuleItem, TargetItem } from "./types";
-import { prettyPattern, archivesSentence, ageWords, destsSentence, inputWords, patternWords, replaysSentence, retentionWords, retryWords, rulesSentence, targetWords, windowWords } from "./words";
+import { inputNote, prettyPattern, archivesSentence, ageWords, destsSentence, inputWords, patternWords, replaysSentence, retentionWords, retryWords, rulesSentence, targetWords, windowWords } from "./words";
 
 const A = "arn:aws:events:us-east-1:111122223333";
 
@@ -39,7 +39,18 @@ describe("retention and windows", () => {
   test("a number of days, or indefinite", () => {
     expect([retentionWords(30), retentionWords(1), retentionWords(0), retentionWords(undefined)]).toEqual(["30 days", "1 day", "Indefinite", "Indefinite"]);
   });
-  test("a replay's window in UTC", () => expect(windowWords(Date.UTC(2026, 10, 6, 18) / 1000, Date.UTC(2026, 10, 7, 18) / 1000)).toBe("Nov 6 18:00 to Nov 7 18:00"));
+  test("what a delivery's input was made of", () => {
+    expect(inputNote(undefined)).toBeNull();
+    expect(inputNote({ Id: "t", Arn: "a" })).toBeNull();
+    expect(inputNote({ Id: "t", Arn: "a", InputPath: "$.detail" })).toBe("part of the event");
+    expect(inputNote({ Id: "t", Arn: "a", Input: "{}" })).toBe("constant input");
+    expect(inputNote({ Id: "t", Arn: "a", InputTransformer: { InputPathsMap: { x: "$.x" }, InputTemplate: "<x>" } })).toBe("input transformer, 1 variable");
+  });
+  test("a replay's window in UTC", () => expect(windowWords(Date.UTC(2026, 10, 6, 18) / 1000, Date.UTC(2026, 10, 7, 18) / 1000, Date.UTC(2026, 10, 22))).toBe("Nov 6 18:00 to Nov 7 18:00"));
+  test("a window that leaves this year says the years", () => {
+    expect(windowWords(Date.UTC(2020, 0, 1) / 1000, Date.UTC(2030, 0, 1) / 1000, Date.UTC(2026, 10, 22))).toBe("Jan 1 2020 00:00 to Jan 1 2030 00:00");
+    expect(windowWords(Date.UTC(2025, 11, 31, 23) / 1000, Date.UTC(2026, 0, 1, 1) / 1000, Date.UTC(2026, 10, 22))).toBe("Dec 31 2025 23:00 to Jan 1 2026 01:00");
+  });
 });
 
 describe("the sentences over the lists", () => {
