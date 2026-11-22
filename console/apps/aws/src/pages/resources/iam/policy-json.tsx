@@ -1,6 +1,6 @@
 // The JSON editor of a policy (iam__policy-create, role-trust-edit, policy-create-error): the text, what is wrong with it said before any call
 // ("No syntax errors", or "N errors" with each), and the note that IAM Access Analyzer's findings are not here.
-import { CircleAlertIcon, CircleCheckIcon } from "lucide-react";
+import { CircleAlertIcon, CircleCheckIcon, XIcon } from "lucide-react";
 import { useMemo } from "react";
 import { JsonEditor } from "@doze/ui/components/app/json-editor";
 import { cn } from "@doze/ui/lib/utils";
@@ -25,7 +25,7 @@ export function policyErrors(text: string, kind: PolicyKind | "trust"): string[]
   return problems;
 }
 
-export function PolicyJson({ value, onChange, kind, label = "Policy editor", rows = 16, extra, editor, testId = "policy-json" }: { value: string; onChange: (v: string) => void; kind: PolicyKind | "trust"; label?: string; rows?: number; /** Under the status line: the refusal that was answered, or a suggestion. */ extra?: React.ReactNode; /** Another editor of the same document (the Visual one) in the place of the JSON text. */ editor?: React.ReactNode; testId?: string }) {
+export function PolicyJson({ value, onChange, kind, label = "Policy editor", rows = 16, extra, editor, errorCode, testId = "policy-json" }: { value: string; onChange: (v: string) => void; kind: PolicyKind | "trust"; label?: string; rows?: number; /** The service's code for what is wrong (`MalformedPolicyDocument`), said under the first error. */ errorCode?: string; /** Under the status line: the refusal that was answered, or a suggestion. */ extra?: React.ReactNode; /** Another editor of the same document (the Visual one) in the place of the JSON text. */ editor?: React.ReactNode; testId?: string }) {
   const errors = useMemo(() => policyErrors(value, kind), [value, kind]);
   const parses = !errors.some((e) => e.startsWith("It is not JSON"));
   const ok = errors.length === 0 && value.trim() !== "";
@@ -37,8 +37,13 @@ export function PolicyJson({ value, onChange, kind, label = "Policy editor", row
         {ok ? "No syntax errors" : parses ? `${errors.length} ${errors.length === 1 ? "error" : "errors"}` : "1 error"}
       </p>
       {!ok && parses && errors.length > 0 && (
-        <ul className="grid gap-1 text-[13.5px] text-foreground" data-testid={`${testId}-errors`}>
-          {errors.map((e) => <li key={e} className="border-l-2 border-bad pl-3">{e}</li>)}
+        <ul className="grid gap-2 text-[13.5px] text-foreground" data-testid={`${testId}-errors`}>
+          {errors.map((e, i) => (
+            <li key={e} className="flex items-start gap-3 rounded-xl border border-bad/30 bg-bad/10 px-4 py-3">
+              <XIcon aria-hidden className="mt-0.5 size-4 shrink-0 text-bad" />
+              <span className="grid gap-0.5"><span className="font-semibold text-bright">{e}</span>{errorCode && i === 0 && <span className="font-mono text-[12.5px] text-muted-foreground">{errorCode}</span>}</span>
+            </li>
+          ))}
         </ul>
       )}
       {extra}

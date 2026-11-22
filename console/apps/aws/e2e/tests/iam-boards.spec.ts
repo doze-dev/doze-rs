@@ -431,7 +431,7 @@ test("iam__policy-create, policy-create-error and policy-create-review: the edit
   await expect(page.getByTestId("must-fix")).toHaveText("You must fix the problem before you can continue.");
   await expect(page.getByTestId("policy-json-status")).toHaveText("1 error");
   await expect(page.getByTestId("policy-json-errors")).toContainText("Policy statement must contain resources.");
-  await expect(page.getByTestId("resource-hint")).toContainText("MalformedPolicyDocument");
+  await expect(page.getByTestId("policy-json-errors")).toContainText("MalformedPolicyDocument");
   await expect(page.getByTestId("resource-hint")).toContainText(`arn:aws:sqs:us-east-1:${server.account}:pick-lists`);
   await expect(page.getByTestId("nothing-created")).toContainText("CreatePolicy only runs on the review step");
   await shot(page, "iam__policy-create-error");
