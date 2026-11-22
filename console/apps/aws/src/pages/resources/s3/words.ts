@@ -176,3 +176,9 @@ export function storageWords(storage: string | undefined): string {
   if (s === "STANDARD") return "Standard";
   return s.replace(/_IA$/, "-IA").replace(/_/g, " ").toLowerCase().replace(/^./, (c) => c.toUpperCase());
 }
+
+/** What a chip of the Wired to strip says: `resize-product-image (Lambda)` for `Notifies Lambda function` and that name. */
+export function wiredChip(label: string, name: string): string {
+  const kind = /^Notifies (Lambda|SQS|SNS)\b/.exec(label)?.[1];
+  return kind ? `${name} (${kind})` : name;
+}

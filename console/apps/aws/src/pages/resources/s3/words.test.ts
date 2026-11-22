@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { baseName, copySource, longDate, nameProblems, nameRefusal, parentPrefix, regionWords, shortDate, size, suggestName, uploadKey, versioningOf, whenMs } from "./words";
+import { baseName, copySource, longDate, nameProblems, nameRefusal, parentPrefix, regionWords, shortDate, size, suggestName, uploadKey, versioningOf, whenMs, wiredChip } from "./words";
 
 describe("S3 words", () => {
   test("a Region and a time are written as the AWS console writes them", () => {
@@ -47,4 +47,11 @@ describe("S3 words", () => {
     expect(parentPrefix("a/b/")).toBe("a/");
     expect(parentPrefix("a/")).toBe("");
   });
+});
+
+test("a Wired to chip names the destination with its kind in brackets", () => {
+  expect(wiredChip("Notifies Lambda function", "resize-product-image")).toBe("resize-product-image (Lambda)");
+  expect(wiredChip("Notifies SQS queue", "image-events")).toBe("image-events (SQS)");
+  expect(wiredChip("Notifies SNS topic", "t")).toBe("t (SNS)");
+  expect(wiredChip("Something else", "x")).toBe("x");
 });

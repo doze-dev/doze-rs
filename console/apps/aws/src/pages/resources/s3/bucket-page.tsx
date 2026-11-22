@@ -12,7 +12,7 @@ import { ObjectsTab } from "./objects";
 import { FlashBanner, useFlash } from "./parts";
 import { PermissionsTab, sentenceOf as permissionsSentenceOf, usePermissions } from "./permissions";
 import { PropertiesTab, sentenceOf as propertiesSentenceOf, useProperties } from "./properties";
-import { longDate, regionWords, versioningWords } from "./words";
+import { longDate, regionWords, versioningWords, wiredChip } from "./words";
 
 const TABS = ["objects", "properties", "permissions", "management"] as const;
 type Tab = (typeof TABS)[number];
@@ -42,6 +42,8 @@ export function BucketPage({ name, search }: OwnProps) {
       detail={detail}
       details={false}
       meta={<>Created {longDate(bucket.created)}. Versioning is {versioningWords(bucket.versioning)}.</>}
+      wiredSelf={0}
+      wiredText={(w) => wiredChip(w.label, w.to.name)}
       banner={flash ? <FlashBanner flash={flash} dismiss={dismiss} /> : undefined}
       tab={tab}
       onTab={(id) => go(id === "objects" ? {} : { tab: id })}

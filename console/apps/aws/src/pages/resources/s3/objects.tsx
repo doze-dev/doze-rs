@@ -16,7 +16,7 @@ import { cn } from "@doze/ui/lib/utils";
 import { downloadObject, useOpQuery } from "../deep/api";
 import { Card } from "../deep/parts";
 import { bucketOf, type Search, useBucketNav } from "./api";
-import { chosenRows, crumbsOf, type Listing, oneObject, type Row, rowId, rowsOf, selToText, type Versions, versionRowsOf } from "./listing";
+import { chosenRows, crumbsOf, hiddenKeys, hiddenNote, type Listing, oneObject, type Row, rowId, rowsOf, selToText, type Versions, versionRowsOf } from "./listing";
 import { ActionsMenu } from "./objects-menu";
 import { shortDate, size, storageWords } from "./words";
 
@@ -130,6 +130,7 @@ export function ObjectsTab({ name, search }: { name: string; search: Search }) {
           </form>
             } empty={q.isPending ? "Reading…" : empty} />
         )}
+        {versions && !q.error && hiddenNote(hiddenKeys(rows)) && <Alert tone="info" title={hiddenNote(hiddenKeys(rows)) ?? ""} className="mt-4" testId="hidden-by-marker" />}
         <div className="mt-3 flex items-center justify-between gap-2 text-[13px] text-muted-foreground">
           <span data-testid="page-line">{rows.length === 0 ? "0 objects" : `1 to ${rows.length} of ${rows.length}${next ? "+" : ""} ${rows.length === 1 ? "object" : "objects"}`}{pages.length > 0 ? ` · page ${pages.length + 1}` : ""}</span>
           <span className="flex gap-2">

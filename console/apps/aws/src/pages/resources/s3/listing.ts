@@ -75,3 +75,17 @@ export function selFromText(text: string | undefined): { key: string; versionId?
     return [];
   }
 }
+
+/** The keys that look deleted but are not: the newest row of the key is a delete marker and an older version is still stored. */
+export function hiddenKeys(rows: Row[]): string[] {
+  const older = new Set(rows.filter((r) => !r.folder && !r.marker && r.versionId !== undefined && r.latest === false).map((r) => r.key));
+  return rows.filter((r) => r.marker && r.latest && older.has(r.key)).map((r) => r.key);
+}
+
+/** The sentence under a listing of versions about the keys a delete marker hides (none when there are none). */
+export function hiddenNote(keys: string[]): string | null {
+  const [first] = keys;
+  if (first === undefined) return null;
+  if (keys.length === 1) return `${first} looks deleted but is not. Its current version is a delete marker, so a GET without a version ID returns 404 as though the object had been deleted; the older version is still stored until you delete it by version ID.`;
+  return `${first} and ${keys.length - 1} more look deleted but are not. The current version of each is a delete marker, so a GET without a version ID returns 404 as though the object had been deleted; the older versions are still stored until you delete them by version ID.`;
+}
