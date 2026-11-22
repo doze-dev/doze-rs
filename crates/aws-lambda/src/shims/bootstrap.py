@@ -45,11 +45,17 @@ def _trace(exc):
     return te
 
 
+def _shown(line):
+    """A trace line as Lambda shows it: the function's code is at /var/task there, not in the directory doze-aws unpacked it to."""
+    root = os.environ.get("LAMBDA_TASK_ROOT")
+    return line.replace(root.rstrip("/") + "/", "/var/task/") if root else line
+
+
 def _error_body(exc, request_id=None):
     body = {
         "errorMessage": str(exc),
         "errorType": type(exc).__name__,
-        "stackTrace": _trace(exc).stack.format(),
+        "stackTrace": [_shown(line) for line in _trace(exc).stack.format()],
     }
     if request_id:
         body["requestId"] = request_id

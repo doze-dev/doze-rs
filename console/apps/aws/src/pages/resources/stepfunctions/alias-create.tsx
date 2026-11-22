@@ -111,7 +111,11 @@ export function AliasCreate({ name: machine }: OwnProps) {
               </div>
             )}
             <RuleHelp data-testid="alias-weights-help">
-              Each percentage is 0 to 100 and the {split ? "two" : "one"} must add up to <b>100</b>{split && okWeight(w1, weight) && okWeight(w2, weight2) ? `: ${w1} + ${w2} = ${w1 + w2}` : ""}. {split ? "For every execution started from the alias, Step Functions picks a version at random by these weights." : "Every execution started from the alias runs this version."} <span className="text-muted-foreground">Both versions must belong to {name}.</span>
+              {split ? (
+                <>Each percentage is 0 to 100 and the two must add up to <b>100</b>{okWeight(w1, weight) && okWeight(w2, weight2) ? `: ${w1} + ${w2} = ${w1 + w2}` : ""}. For every execution started from the alias, Step Functions picks a version at random by these weights. <span className="text-muted-foreground">Both versions must belong to {name}.</span></>
+              ) : (
+                <>With one version, all <b>100</b> percent of the executions started from the alias run it. <span className="text-muted-foreground">The version must belong to {name}.</span></>
+              )}
             </RuleHelp>
             {tried && !weights && <p role="alert" className="text-[13px] text-bad" data-testid="alias-weights-error">The percentages must be whole numbers from 0 to 100 that add up to 100.</p>}
           </div>

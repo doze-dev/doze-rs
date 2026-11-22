@@ -20,6 +20,8 @@ const COLUMNS: DataColumn<Tag>[] = [
   { id: "value", header: "Value", accessorKey: "value", meta: { mono: true }, cell: (c) => c.row.original.value || <span className="text-muted-foreground">(empty)</span> },
 ];
 
+/** AWS keeps the aws: prefix of a tag key for itself; Step Functions (and doze-aws) refuse it. */
+export const RULES = { ...TAG_RULES, reservedPrefix: "aws:" };
 const RULE = "Up to 50 tags per resource. Keys are 1 to 128 characters, values 0 to 256; letters, digits, spaces and _ . : / = + - @ . The aws: prefix is reserved.";
 
 export function TagsPanel({ d }: { d: ResourceDetail }) {
@@ -60,7 +62,7 @@ export function ManageTags({ name }: { name: string }) {
   const back = (done?: string) => void navigate({ to: "/resources/$service/$kind/$name", params: { service: "stepfunctions", kind: "machines", name }, search: done ? { tab: "tags", done } : { tab: "tags" } });
   if (!live) return <Skeleton className="h-80 rounded-[14px]" />;
   const change = diffTags(saved, live);
-  const valid = rowsValid(live, TAG_RULES);
+  const valid = rowsValid(live, RULES);
   const requests = [
     ...(change.set.length > 0 ? [{ service: "stepfunctions", operation: "TagResource", input: { resourceArn: arn, tags: change.set } }] : []),
     ...(change.remove.length > 0 ? [{ service: "stepfunctions", operation: "UntagResource", input: { resourceArn: arn, tagKeys: change.remove } }] : []),
@@ -84,7 +86,7 @@ export function ManageTags({ name }: { name: string }) {
       testId="manage-tags-page"
     >
       <FormSection title="Tags">
-        <KeyValueEditor rows={live} onChange={setRows} rules={TAG_RULES} showErrors={tried} addLabel="Add tag" removeLabel="Remove tag" testId="tags-kv" />
+        <KeyValueEditor rows={live} onChange={setRows} rules={RULES} showErrors={tried} addLabel="Add tag" removeLabel="Remove tag" testId="tags-kv" />
         <RuleHelp>{RULE} <b className="font-semibold">Save</b> sends the added and edited tags with <span className="font-mono">TagResource</span> and the removed ones with <span className="font-mono">UntagResource</span>.</RuleHelp>
       </FormSection>
     </FormPage>

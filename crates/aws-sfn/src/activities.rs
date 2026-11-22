@@ -18,6 +18,7 @@ impl Core {
         if !valid_name(name) {
             return Err(invalid_name(name));
         }
+        let tags = r.tags()?;
         let arn = arn::activity(r.region(), r.account(), name);
         if let Some(a) = self.activities.get(&arn) {
             return Ok(json!({"activityArn": arn, "creationDate": secs(a.created_ms)}));
@@ -30,7 +31,7 @@ impl Core {
                 name: name.to_owned(),
                 created_ms: now,
                 encryption: r.v.get("encryptionConfiguration").map(Value::to_string),
-                tags: r.tags().into_iter().collect::<BTreeMap<_, _>>(),
+                tags: tags.into_iter().collect::<BTreeMap<_, _>>(),
             },
         );
         Ok(json!({"activityArn": arn, "creationDate": secs(now)}))

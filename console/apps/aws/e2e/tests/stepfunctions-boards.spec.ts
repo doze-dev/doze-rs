@@ -101,6 +101,9 @@ test("stepfunctions__machine-create-code, create-config, create-role and machine
   await expect(page.getByTestId("browser-offers").locator("[data-testid^=offer-]")).toHaveText(["Choice", "Parallel", "Map", "Pass", "Wait", "Success", "Fail"]);
   await expect(page.getByTestId("browser-note")).toContainText("The Actions tab lists only what doze-aws can run: Lambda, SQS, SNS, EventBridge, DynamoDB, S3, Step Functions and the other services it serves.");
   await expect(page.getByTestId("browser-note")).toContainText("Not available in doze-aws: the .sync pattern for any service but Step Functions");
+  // What the note says of Create is what the service does: it accepts such a definition (as AWS does), and the step fails when it runs.
+  await expect(page.getByTestId("browser-note")).toContainText("Create accepts a definition that uses one, as AWS does, and the step fails when it runs: States.TaskFailed, which a Catch can handle.");
+  expect(aws(server.endpoint, ["stepfunctions", "validate-state-machine-definition", "--definition", JSON.stringify({ StartAt: "Run", States: { Run: { Type: "Task", Resource: "arn:aws:states:::ecs:runTask.sync", Parameters: { Cluster: "c" }, End: true } } })]).out).toContain("\"result\": \"OK\"");
   await expect(page.getByTestId("canvas")).toContainText("The workflow graph updates the definition as you edit it.");
   const zone = (edge: string) => page.locator(`[data-testid=drop-zone][data-edge="${edge}"]`);
   await page.getByTestId("offer-choice").dragTo(zone("Hello>end"));
@@ -137,6 +140,12 @@ test("stepfunctions__machine-create-code, create-config, create-role and machine
   await page.getByTestId("asl-editor").fill(JSON.stringify(draft, null, 2));
   await expect(page.getByTestId("studio-invalid")).toContainText("The definition is invalid. You can't switch modes while it is. Fix the definition to switch modes.");
   await expect(page.getByTestId("studio-sub")).toContainText("The definition below points QueueReorder at a state that doesn't exist: Next names Notify.");
+  // The line that names the missing state is drawn in the link colour; the validator's own lines (and the end state that only follows from it) are not listed.
+  const marked = page.getByTestId("asl-editor-colours").locator("span.block.text-link");
+  await expect(marked).toHaveCount(1);
+  await expect(marked).toHaveText("\"Next\": \"Notify\"");
+  await expect(page.getByTestId("studio-diagnostics")).toHaveCount(0);
+  await expect(page.getByTestId("studio-code")).not.toContainText("MISSING_");
   await expect(page.getByTestId("studio-graph-paused")).toContainText("Rendering of the graph is paused while the definition is invalid. It draws again once the definition is valid.");
   await page.getByTestId("mode-config").click();
   await expect(page.getByTestId("studio-code")).toBeVisible();
@@ -242,12 +251,15 @@ test("stepfunctions__machine-definition and machine-edit: the definition read, t
   await expect(page.getByTestId("studio")).toBeVisible();
   await expect(page.getByTestId("studio-sub")).toContainText("Workflow Studio, Code mode. Running executions keep the definition and role they started with.");
   await expect(page.getByTestId("asl-editor")).toHaveValue(/"HeartbeatSeconds": 120/);
+  // Nothing has changed, so there is nothing to save: UpdateStateMachine would make a revision of the same definition.
+  await expect(page.getByTestId("studio-save")).toBeDisabled();
   const text = await page.getByTestId("asl-editor").inputValue();
   await page.getByTestId("asl-editor").fill(text.replace('"HeartbeatSeconds": 120', '"HeartbeatSeconds": 60'));
   await expect(page.getByTestId("sfn-graph")).toBeVisible();
   await shot(page, "stepfunctions__machine-edit");
   await page.getByTestId("studio-save").click();
   await expect(page.getByTestId("studio-saved")).toContainText("order-fulfilment was saved.");
+  await expect(page.getByTestId("studio-save")).toBeDisabled();
   expect(cli(["stepfunctions", "describe-state-machine", "--state-machine-arn", `arn:aws:states:us-east-1:${server.account}:stateMachine:order-fulfilment`])).toContain('HeartbeatSeconds\\": 60');
   // Publish version snapshots the saved revision as the next version.
   await page.getByTestId("studio-publish").click();
@@ -296,6 +308,7 @@ test("stepfunctions__machine-aliases, alias-create and machine-aliases-none: the
   await page.getByTestId("alias-name").fill("CANARY");
   await page.getByTestId("alias-description").fill("10 percent of runs on version 3");
   await choose(page, "Version", "Version 2");
+  await expect(page.getByText("With one version, all 100 percent of the executions started from the alias run it.")).toBeVisible();
   await page.getByTestId("alias-split").click();
   await expect(page.getByTestId("alias-weight-1")).toHaveValue("90");
   await expect(page.getByTestId("alias-weight-2")).toHaveValue("10");
@@ -330,7 +343,17 @@ test("stepfunctions__machine-tags, tags-none and tags-manage: the tags, a machin
   await shot(page, "stepfunctions__machine-tags-manage");
   await page.getByTestId("form-submit").click();
   await expect(rows(page, "Tags")).toHaveCount(4);
-  expect(cli(["stepfunctions", "list-tags-for-resource", "--resource-arn", `arn:aws:states:us-east-1:${server.account}:stateMachine:order-fulfilment`])).toContain("cost-center");
+  const arn = `arn:aws:states:us-east-1:${server.account}:stateMachine:order-fulfilment`;
+  expect(cli(["stepfunctions", "list-tags-for-resource", "--resource-arn", arn])).toContain("cost-center");
+  // The aws: prefix is AWS's own: the page says so as the key is typed, and the service refuses it for the CLI too.
+  await page.getByTestId("tags-manage").click();
+  await page.getByRole("button", { name: "Add tag" }).click();
+  await page.getByTestId("tags-kv").getByRole("textbox").nth(8).fill("aws:x");
+  await expect(page.getByTestId("manage-tags-page")).toContainText("The aws: prefix is reserved.");
+  const refusedTag = aws(server.endpoint, ["stepfunctions", "tag-resource", "--resource-arn", arn, "--tags", "key=aws:x,value=1"]);
+  expect(refusedTag.code).not.toBe(0);
+  expect(refusedTag.out).toContain("ValidationException");
+  await page.getByTestId("form-cancel").click();
   await go(page, machine("thumbnail-batch", "?tab=tags"), "thumbnail-batch");
   await expect(page.getByTestId("tags-none")).toContainText("thumbnail-batch has no tags.");
   await shot(page, "stepfunctions__machine-tags-none");
@@ -369,6 +392,11 @@ test("stepfunctions__execution-failed and execution-redrive: why it failed, the 
   await expect(page.getByTestId("step-info")).toContainText("Function send-email");
   await expect(page.getByTestId("step-info")).toContainText("KeyError");
   await expect(page.getByTestId("step-note")).toContainText("The Retry rule on NotifyCustomer matches Lambda.ServiceException only, so this error was not retried.");
+  await expect(page.getByTestId("step-note")).toContainText("until send-email or the input changes");
+  // The cause is told further when the input shows why, and the graph says what each step took.
+  await expect(page.getByTestId("cause-hint")).toHaveText("send-email read event['email'] and the input has none");
+  await expect(page.getByTestId("state-took")).toHaveCount(4);
+  await expect(page.locator("[data-state=NotifyCustomer]").getByTestId("state-took")).toContainText(/\d/);
   await page.getByTestId("step-views").getByRole("radio", { name: "Retry" }).click();
   await expect(page.getByTestId("step-retry")).toContainText("Lambda.ServiceException");
   await page.getByTestId("step-views").getByRole("radio", { name: "Details" }).click();
@@ -379,9 +407,9 @@ test("stepfunctions__execution-failed and execution-redrive: why it failed, the 
   await shot(page, "stepfunctions__execution-failed");
   await page.getByTestId("recover-redrive").click();
   const dialog = page.getByTestId("redrive-dialog");
-  await expect(page.getByTestId("redrive-words")).toContainText("Redrive continues ord-20261108-0417 from the step that stopped, NotifyCustomer, with the same input. The 3 steps that succeeded are not run again and their results stay in the history.");
-  await expect(page.getByTestId("redrive-warning")).toContainText("It may fail the same way.");
-  await expect(dialog).toContainText("Same definition (PROD, version 2) and same execution ARN. Possible for 14 days after the execution ended. The execution summary then shows Redrive count 1.");
+  await expect(page.getByTestId("redrive-words")).toContainText("Redrive continues ord-20261108-0417 from the step that failed, NotifyCustomer, with the same input. The 3 steps that succeeded are not run again and their results stay in the history.");
+  await expect(page.getByTestId("redrive-warning")).toContainText("The input has no email. send-email reads event['email'], so NotifyCustomer fails again unless the function changes. A new execution with the email added would not.");
+  await expect(dialog).toContainText("Same definition (PROD, version 2) and same execution ARN. The state machine timeout and the retry count of the rerun step start over. Possible for 14 days after the execution ended. The execution summary then shows Redrive count 1.");
   await shot(page, "stepfunctions__execution-redrive");
   await page.getByTestId("redrive-submit").click();
   await expect(dialog).toBeHidden();
@@ -404,6 +432,18 @@ test("stepfunctions__execution-table and execution-events: each step as a row, a
   await expect(table.nth(3)).toContainText("Lambda Invoke");
   await expect(page.getByRole("columnheader", { name: "Started After" })).toBeVisible();
   await expect(page.getByRole("columnheader", { name: "Duration" })).toBeVisible();
+  // The table and the events are the views of the steps alone: no failure banner and no summary above them. Preferences picks the columns.
+  await expect(page.getByTestId("execution-details")).toHaveCount(0);
+  await expect(page.getByTestId("execution-failure")).toHaveCount(0);
+  await page.getByTestId("steps-preferences").click();
+  await page.getByTestId("steps-column-d").click();
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("columnheader", { name: "Duration" })).toHaveCount(0);
+  await expect(page.getByRole("columnheader", { name: "Status" })).toBeVisible();
+  await page.getByTestId("steps-preferences").click();
+  await page.getByTestId("steps-column-d").click();
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("columnheader", { name: "Duration" })).toBeVisible();
   await page.getByTestId("steps-filter").fill("lambda");
   await expect(table).toHaveCount(1);
   await page.getByTestId("steps-filter").fill("");
@@ -412,6 +452,7 @@ test("stepfunctions__execution-table and execution-events: each step as a row, a
   await expect(page.getByTestId("step-name")).toHaveText("NotifyCustomer");
   await shot(page, "stepfunctions__execution-table");
   await page.getByTestId("tab-events").click();
+  await expect(page.getByTestId("execution-details")).toHaveCount(0);
   await expect(page.getByTestId("history-event").first()).toContainText("ExecutionStarted");
   await expect(page.getByTestId("history-line")).toContainText("events, 1 to");
   await expect(page.getByTestId("history-note")).toContainText("A page shows up to 25 events, and an execution's history is limited to 25,000 events.");
@@ -442,7 +483,12 @@ test("stepfunctions__activities-list and activity-create: the workers' tasks, an
   await expect(page.getByTestId("activity-create-page")).toContainText("pack-order and print-label already exist; creating a name that exists returns the existing activity and leaves its tags alone.");
   await page.getByTestId("activity-name-input").fill("inspect-order");
   await expect(code(page)).toContainText('"name": "inspect-order"');
-  await expect(page.getByTestId("activity-encryption")).toContainText("Not available in doze-aws");
+  // The service keeps an encryption setting on an activity and does nothing with it: a switch, said so, and the call carries it.
+  await expect(page.getByTestId("activity-encryption")).toContainText("Stored, not applied locally.");
+  await page.getByTestId("activity-kms").click();
+  await expect(page.getByTestId("activity-kms-period")).toHaveValue("300");
+  await page.getByTestId("activity-kms").click();
+  await expect(code(page)).not.toContainText("encryptionConfiguration");
   await shot(page, "stepfunctions__activity-create");
   await page.getByTestId("form-submit").click();
   await expect(page.getByTestId("created-banner")).toContainText("Activity inspect-order created.");

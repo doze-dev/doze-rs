@@ -13,6 +13,8 @@ export type KeyValueRules = {
   maxRows?: number;
   /** An empty value is allowed (a tag may have one). Default true. */
   emptyValue?: boolean;
+  /** A key may not begin so (AWS keeps `aws:` for itself); compared without regard to case. */
+  reservedPrefix?: string;
 };
 
 let counter = 0;
@@ -35,6 +37,9 @@ export function validateRows(rows: readonly KeyValueRow[], rules: KeyValueRules 
     if (r.key === "") e.key = "Enter a key.";
     else if ((seen.get(fold(r.key)) ?? 0) > 1) {
       e.key = "Another row uses this key.";
+      e.live = true;
+    } else if (rules.reservedPrefix && r.key.toLowerCase().startsWith(rules.reservedPrefix.toLowerCase())) {
+      e.key = `The ${rules.reservedPrefix} prefix is reserved.`;
       e.live = true;
     } else if (rules.maxKey !== undefined && r.key.length > rules.maxKey) {
       e.key = `A key is at most ${rules.maxKey} characters.`;

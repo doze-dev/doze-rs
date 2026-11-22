@@ -109,7 +109,7 @@ export function StopDialog({ arn, name, open, onOpenChange, left }: { arn: strin
 
 /** Redrive an execution that failed, timed out or was stopped (stepfunctions__execution-redrive): it carries on from the step that
  * stopped, with the same input, as the same execution. */
-export function RedriveDialog({ arn, name, at, succeeded, error, via, redrives, open, onOpenChange }: { arn: string; name: string; /** The step it stopped at. */ at: string | null; succeeded: number; error?: string; /** `PROD, version 2`, or `current revision`. */ via: string; redrives: number; open: boolean; onOpenChange: (o: boolean) => void }) {
+export function RedriveDialog({ arn, name, at, how, succeeded, warning, via, redrives, open, onOpenChange }: { arn: string; name: string; /** The step it stopped at. */ at: string | null; /** How it stopped: `failed`, `timed out`, `stopped`. */ how: string; succeeded: number; warning: { lead: string; text: string }; /** `PROD, version 2`, or `current revision`. */ via: string; redrives: number; open: boolean; onOpenChange: (o: boolean) => void }) {
   const redrive = useOp<{ redriveDate: number }>(on.machine(machineOf(arn)), "RedriveExecution");
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -123,11 +123,11 @@ export function RedriveDialog({ arn, name, at, succeeded, error, via, redrives, 
           <DialogHeader>
             <DialogTitle className="text-[21px] font-semibold">Redrive</DialogTitle>
             <DialogDescription className="text-[14px] leading-[22px] text-foreground" data-testid="redrive-words">
-              Redrive continues <b className="font-mono font-semibold text-bright">{name}</b> from the step that stopped{at ? <>, <b className="font-mono font-semibold text-bright">{at}</b></> : null}, with the same input. {succeeded > 0 ? <>The {succeeded} {succeeded === 1 ? "step that succeeded is" : "steps that succeeded are"} not run again and their results stay in the history.</> : null}
+              Redrive continues <b className="font-mono font-semibold text-bright">{name}</b> from the step that {how}{at ? <>, <b className="font-mono font-semibold text-bright">{at}</b></> : null}, with the same input. {succeeded > 0 ? <>The {succeeded} {succeeded === 1 ? "step that succeeded is" : "steps that succeeded are"} not run again and their results stay in the history.</> : null}
             </DialogDescription>
           </DialogHeader>
-          {at && <Callout tone="warn" testId="redrive-warning"><b className="font-semibold">It may fail the same way.</b> {at} {error ? <>stopped with <span className="font-mono">{error}</span>. </> : null}Redrive runs it again with the same input, so it fails the same way unless what it calls or the input has changed.</Callout>}
-          <p className="border-l-2 border-input pl-3.5 text-[13px] leading-5 text-muted-foreground">Same definition ({via}) and same execution ARN. Possible for 14 days after the execution ended. The execution summary then shows <b className="font-semibold text-foreground">Redrive count {redrives + 1}</b>.</p>
+          {at && <Callout tone="warn" testId="redrive-warning"><b className="font-semibold">{warning.lead}</b> {warning.text}</Callout>}
+          <p className="border-l-2 border-input pl-3.5 text-[13px] leading-5 text-muted-foreground">Same definition ({via}) and same execution ARN. The state machine timeout and the retry count of the rerun step start over. Possible for 14 days after the execution ended. The execution summary then shows <b className="font-semibold text-foreground">Redrive count {redrives + 1}</b>.</p>
           <Refused error={redrive.error} operation="RedriveExecution" testId="write-error" />
           <DialogFooter>
             <Button type="button" variant="outline" className="bg-card" onClick={() => onOpenChange(false)}>Cancel</Button>

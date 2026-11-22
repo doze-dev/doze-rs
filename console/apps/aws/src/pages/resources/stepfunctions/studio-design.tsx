@@ -25,7 +25,7 @@ type Tab = "actions" | "flow" | "patterns";
 const NOTE = (
   <p className="border-l-2 border-input pl-3.5 text-[13.5px] leading-[22px] text-foreground" data-testid="browser-note">
     The Actions tab lists only what doze-aws can run: Lambda, SQS, SNS, EventBridge, DynamoDB, S3, Step Functions and the other services it serves.{" "}
-    <span className="text-muted-foreground">Not available in doze-aws: the .sync pattern for any service but Step Functions (Batch, ECS, Glue and the rest would run a job nowhere); Create refuses those task resources.</span>
+    <span className="text-muted-foreground">Not available in doze-aws: the .sync pattern for any service but Step Functions (Batch, ECS, Glue and the rest would run a job nowhere); Create accepts a definition that uses one, as AWS does, and the step fails when it runs: States.TaskFailed, which a Catch can handle.</span>
   </p>
 );
 

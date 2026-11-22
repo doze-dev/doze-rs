@@ -20,7 +20,7 @@ import { RESOURCE_PATHS, useResourceList } from "../../../api/resources";
 import type { CallRecord } from "../../../api/types/CallRecord";
 import type { ResourceDetail } from "../../../api/types/ResourceDetail";
 import type { ResourceRow } from "../../../api/types/ResourceRow";
-import { Field, FormPage, FormSection, RecentCalls, callKindOp, useFeeders, useServiceCrumbs } from "../../../kit";
+import { Field, FormPage, FormSection, KeyPicker, LOCAL_WORDS, RecentCalls, callKindOp, useFeeders, useServiceCrumbs } from "../../../kit";
 import { HINT } from "../index-page";
 import { Value } from "../value";
 import type { OwnProps } from "../deep/registry";
@@ -28,6 +28,7 @@ import { parseDefinition } from "./graph";
 import { fieldOf } from "./details-card";
 import { useGoTo, useWorkerCalls } from "./hooks";
 import { existingWords, nameProblem, allStates, taskResource } from "./model";
+import { encryptionOf, encryptionProblem } from "./studio-model";
 
 const ACTIVITY = { service: "stepfunctions", kind: "activities" } as const;
 const WORKER_CALLS = ["GetActivityTask", "SendTaskSuccess", "SendTaskFailure", "SendTaskHeartbeat"];
@@ -135,7 +136,12 @@ export function ActivityCreate() {
   const [name, setName] = useState("");
   const [tried, setTried] = useState(false);
   const taken = list.data?.pages.flatMap((p) => p.rows.map((r) => r.name)) ?? [];
-  const problem = nameProblem(name, []);
+  const [kms, setKms] = useState(false);
+  const [kmsKey, setKmsKey] = useState<string | null>(null);
+  const [kmsPeriod, setKmsPeriod] = useState("300");
+  const enc = { kms, kmsKey, kmsPeriod };
+  const problem = nameProblem(name, []) ?? encryptionProblem(enc);
+  const body = { name, ...encryptionOf(enc) };
   const make = useMutation({
     mutationFn: (input: object) => callKindOp<{ activityArn: string }>(ACTIVITY, "CreateActivity", input),
     onSuccess: () => void qc.invalidateQueries({ queryKey: ["resources", "list", "stepfunctions", "activities"] }),
@@ -146,31 +152,36 @@ export function ActivityCreate() {
       title="Create activity"
       sub="Give the activity a name, then use its ARN in a Task state. Workers poll for it by that ARN."
       crumbs={[...base, { label: "State machines", to: "/resources/stepfunctions/machines" }, { label: "Activities", to: "/resources/stepfunctions/activities" }]}
-      request={{ service: "stepfunctions", operation: "CreateActivity", input: { name } }}
+      request={{ service: "stepfunctions", operation: "CreateActivity", input: body }}
       callNote={<>The response carries the activity ARN, <span className="font-mono">arn:aws:states:…:activity:{name || "name"}</span>.</>}
       refusal={failed ? { code: failed.code ?? "Error", message: failed.message } : null}
       banner={failed ? <Alert tone="bad" title={`CreateActivity was refused${failed.code ? `: ${failed.code}` : ""}`} testId="activity-refused">{failed.message}</Alert> : undefined}
       submitLabel="Create activity"
       pending={make.isPending}
       disabled={tried && Boolean(problem)}
-      disabledWhy="Fix the name first."
+      disabledWhy={problem ?? "Fix the name first."}
       onCancel={() => go.activities()}
-      onSubmit={() => { setTried(true); if (!problem) make.mutate({ name }, { onSuccess: () => go.activities({ name }) }); }}
+      onSubmit={() => { setTried(true); if (!problem) make.mutate(body, { onSuccess: () => go.activities({ name }) }); }}
       testId="activity-create-page"
     >
       <FormSection title="Details">
         <div className="grid gap-6">
-          <Field label="Name" error={tried && problem ? problem : undefined} help={<>1 to 80 characters, with the same rules as a state machine name: no whitespace, wildcards, brackets or special characters. Unique in this account and Region. {taken.length > 0 && <span className="text-muted-foreground">{existingWords(taken.slice(0, 4)).replace(" in this Region.", "")}; creating a name that exists returns the existing activity and leaves its tags alone.</span>}</>}>
+          <Field label="Name" error={tried && nameProblem(name, []) ? nameProblem(name, []) ?? undefined : undefined} help={<>1 to 80 characters, with the same rules as a state machine name: no whitespace, wildcards, brackets or special characters. Unique in this account and Region. {taken.length > 0 && <span className="text-muted-foreground">{existingWords(taken.slice(0, 4)).replace(" in this Region.", "")}; creating a name that exists returns the existing activity and leaves its tags alone.</span>}</>}>
             {(id) => <Input id={id} value={name} onChange={(e) => setName(e.target.value)} autoComplete="off" spellCheck={false} className="bg-card font-mono" data-testid="activity-name-input" />}
           </Field>
-          <div className="grid gap-1.5" data-testid="activity-encryption">
+          <div className="grid gap-3" data-testid="activity-encryption">
             <span className="text-sm leading-none font-medium">Encryption</span>
             <div className="flex items-center gap-3 text-[13.5px]">
-              <Switch checked={false} disabled aria-label="Customer managed KMS key encryption" data-testid="activity-kms" />
+              <Switch checked={kms} onCheckedChange={setKms} aria-label="Customer managed KMS key encryption" data-testid="activity-kms" />
               <span>Customer managed KMS key <span className="font-mono text-[12.5px] text-muted-foreground">encryptionConfiguration</span></span>
-              <span className="rounded-full border px-2 py-0.5 text-[12px] text-muted-foreground">Disabled</span>
             </div>
-            <p className="border-l-2 pl-3 text-[13px] text-muted-foreground"><b className="font-semibold text-foreground">Not available in doze-aws:</b> there is no KMS wrapping to apply to an activity's task input.</p>
+            <p className="border-l-2 pl-3 text-[13px] text-muted-foreground">doze-aws keeps the setting and returns it, and does not encrypt an activity's task input with it. <span className="text-muted-foreground/80">{LOCAL_WORDS.stored}.</span></p>
+            {kms && (
+              <div className="grid gap-5 sm:grid-cols-2">
+                <Field label="KMS key">{(id) => <KeyPicker id={id} value={kmsKey} onChange={setKmsKey} by="id" />}</Field>
+                <Field label="Data key reuse period" hint="Seconds, 60 to 900.">{(id) => <Input id={id} inputMode="numeric" value={kmsPeriod} onChange={(e) => setKmsPeriod(e.target.value)} className="bg-card" data-testid="activity-kms-period" />}</Field>
+              </div>
+            )}
           </div>
         </div>
       </FormSection>

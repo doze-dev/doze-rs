@@ -37,3 +37,16 @@ describe("key-value rows", () => {
     expect(filled([newRow(), newRow("a", ""), newRow("", "x")]).length).toBe(2);
   });
 });
+
+describe("a reserved prefix", () => {
+  test("is named on the row that begins with it, in any case, and nothing else", () => {
+    const [a, b, c] = [newRow("aws:x", "1"), newRow("AWS:cost", "1"), newRow("team:aws:x", "1")];
+    const e = validateRows([a, b, c], { reservedPrefix: "aws:" });
+    expect(e.get(a.id)?.key).toBe("The aws: prefix is reserved.");
+    expect(e.get(a.id)?.live).toBe(true);
+    expect(e.get(b.id)?.key).toBe("The aws: prefix is reserved.");
+    expect(e.has(c.id)).toBe(false);
+    expect(rowsValid([a], { reservedPrefix: "aws:" })).toBe(false);
+    expect(rowsValid([a])).toBe(true);
+  });
+});

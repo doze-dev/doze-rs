@@ -26,7 +26,7 @@ import { LOG_NAME, TRUST, permissionsOf, pretty, roleNameOf } from "./model";
 import { PublishDialog } from "./publish-dialog";
 import { ConfigMode } from "./studio-config";
 import { DesignMode } from "./studio-design";
-import { BLANK, type Config, FIRST_CONFIG, type Level, type Validation, createBody, createProblem, diagnosticWords, lineOfLocation, madeRoleArn, updateBody } from "./studio-model";
+import { BLANK, type Config, FIRST_CONFIG, type Level, type Validation, createBody, createProblem, diagnosticWords, furtherProblems, madeRoleArn, problemLines, updateBody, wordsOf } from "./studio-model";
 import type { ResourceDetail } from "../../../api/types/ResourceDetail";
 
 export type Mode = "design" | "code" | "config";
@@ -54,6 +54,9 @@ function configOf(d: ResourceDetail): Config {
   const level = (fieldOf(d, "Logging") ?? "OFF") as Level;
   return { ...FIRST_CONFIG, type: fieldOf(d, "Type") === "EXPRESS" ? "EXPRESS" : "STANDARD", role: "arn", roleArn: fieldOf(d, "IAM role ARN") ?? "", level, data: fieldOf(d, "Include execution data") === "Yes", tracing: fieldOf(d, "Tracing") === "Enabled", publish: false };
 }
+
+/** Whether the settings are the ones the machine has (the tags and the publish switch are only for a new one). */
+const sameConfig = (a: Config, b: Config): boolean => a.type === b.type && a.roleArn === b.roleArn && a.level === b.level && a.data === b.data && a.tracing === b.tracing && a.kms === b.kms && a.kmsKey === b.kmsKey && a.kmsPeriod === b.kmsPeriod;
 
 const prettyText = (text: string): string => {
   try {
@@ -85,6 +88,8 @@ export function Studio(props: Props) {
   const taken = props.taken ?? [];
   const savedText = detail ? prettyText(fieldOf(detail, "Definition") ?? "") : "";
   const dirty = props.editing && text !== savedText;
+  // UpdateStateMachine makes a revision even when nothing in it differs (the AWS CLI does too), so a Save with nothing to save is not offered.
+  const unchanged = props.editing && !dirty && detail !== null && sameConfig(cfg, configOf(detail));
   const cancel = () => (props.editing ? go.machine(name) : go.list());
   const sentence = (m: Mode): React.ReactNode => {
     if (props.editing) return <>Workflow Studio, {m === "design" ? "Design" : m === "code" ? "Code" : "Config"} mode. Running executions keep the definition and role they started with.</>;
@@ -161,7 +166,7 @@ export function Studio(props: Props) {
           <>
             <Button type="button" variant="outline" className="bg-card" onClick={cancel} data-testid="studio-cancel">Cancel</Button>
             <Button type="button" variant="outline" className="bg-card" onClick={() => setPublishing(true)} data-testid="studio-publish">Publish version</Button>
-            <Button type="button" disabled={!valid || save.isPending || pending} onClick={() => save.mutate()} data-testid="studio-save">{save.isPending ? "Saving…" : "Save"}</Button>
+            <Button type="button" disabled={!valid || save.isPending || pending || unchanged} title={unchanged ? "Nothing has changed since the last save." : undefined} onClick={() => save.mutate()} data-testid="studio-save">{save.isPending ? "Saving…" : "Save"}</Button>
           </>
         ) : undefined}
       />
@@ -183,7 +188,7 @@ export function Studio(props: Props) {
             <div className="flex flex-wrap items-center justify-end gap-x-4 gap-y-2 border-t pt-5" data-slot="form-footer">
               {tried && problem && <p className="mr-auto text-[13px] text-bad" data-testid="disabled-why">{problem}</p>}
               <Button type="button" variant="outline" className="bg-card" onClick={cancel} data-testid="form-cancel">Cancel</Button>
-              <Button type="submit" disabled={create.isPending || save.isPending} data-testid="form-submit">{create.isPending || save.isPending ? "Working…" : props.editing ? "Save" : "Create"}</Button>
+              <Button type="submit" disabled={create.isPending || save.isPending || unchanged} title={unchanged ? "Nothing has changed since the last save." : undefined} data-testid="form-submit">{create.isPending || save.isPending ? "Working…" : props.editing ? "Save" : "Create"}</Button>
             </div>
           </form>
           <div className="min-w-0 xl:sticky xl:top-6">
@@ -199,8 +204,8 @@ export function Studio(props: Props) {
 
 function CodeMode({ text, setText, validation, valid, pending, definition, editing, name }: { text: string; setText: (t: string) => void; validation: Validation | undefined; valid: boolean; pending: boolean; definition: Definition | null; editing: boolean; name: string }) {
   const bad = !valid && !pending;
-  const first = validation?.diagnostics.find((d) => d.severity === "ERROR");
-  const marked = bad ? [lineOfLocation(text, first?.location)].filter((n): n is number => n !== null) : [];
+  const marked = bad ? problemLines(text, validation) : [];
+  const further = bad ? furtherProblems(validation) : [];
   const versions = useVersions(name, editing);
   const newest = [...(versions.data ?? [])].sort((x, y) => Number(y.number) - Number(x.number))[0];
   const graph = (
@@ -221,10 +226,10 @@ function CodeMode({ text, setText, validation, valid, pending, definition, editi
   const editor = (
     <>
       <AslEditor value={text} onChange={setText} marked={marked} testId="asl-editor" />
-      {bad && (validation?.diagnostics.length ?? 0) > 0 && (
+      {further.length > 0 && (
         <ul className="mt-4 grid gap-1 text-[13px]" data-testid="studio-diagnostics">
-          {validation?.diagnostics.map((d, i) => (
-            <li key={i} className="flex gap-2"><span className={d.severity === "ERROR" ? "font-semibold text-bad" : "font-semibold text-warn"}>{d.severity === "ERROR" ? "Error" : "Warning"}</span><span className="min-w-0 break-words"><span className="font-mono text-[12.5px] text-muted-foreground">{d.code}</span> {d.message}{d.location && d.location !== "null" ? <> at <span className="font-mono text-[12.5px]">{d.location}</span></> : null}</span></li>
+          {further.map((d, i) => (
+            <li key={i} className="flex gap-2"><span className={d.severity === "ERROR" ? "font-semibold text-bad" : "font-semibold text-warn"}>{d.severity === "ERROR" ? "Error" : "Warning"}</span><span className="min-w-0 break-words">{wordsOf(d)}</span></li>
           ))}
         </ul>
       )}
