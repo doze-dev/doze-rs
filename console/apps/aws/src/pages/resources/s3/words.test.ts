@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { baseName, copySource, longDate, nameProblems, nameRefusal, parentPrefix, regionWords, shortDate, size, suggestName, uploadKey, versioningOf, whenMs, wiredChip, callKey } from "./words";
+import { baseName, copySource, longDate, nameProblems, nameRefusal, parentPrefix, regionWords, shortDate, size, suggestName, uploadKey, versioningOf, whenMs, wiredChip, callKey, storageWords } from "./words";
 
 describe("S3 words", () => {
   test("a Region and a time are written as the AWS console writes them", () => {
@@ -62,4 +62,9 @@ test("the key a recorded call acted on is the rest of its resource after the buc
   expect(callKey("b", "b")).toBeNull();
   expect(callKey("b", "bb/x")).toBeNull();
   expect(callKey("b", null)).toBeNull();
+});
+
+test("a storage class is named as the AWS console names it", () => {
+  expect([undefined, "STANDARD_IA", "ONEZONE_IA", "INTELLIGENT_TIERING", "GLACIER_IR", "GLACIER", "DEEP_ARCHIVE"].map(storageWords)).toEqual(["Standard", "Standard-IA", "One Zone-IA", "Intelligent-Tiering", "Glacier Instant Retrieval", "Glacier Flexible Retrieval", "Glacier Deep Archive"]);
+  expect(storageWords("SOMETHING_NEW")).toBe("Something new");
 });

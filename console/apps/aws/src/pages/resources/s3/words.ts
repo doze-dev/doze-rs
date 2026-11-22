@@ -170,11 +170,12 @@ export const parentPrefix = (prefix: string): string => {
 /** The words of a permanent delete: what to type. */
 export const PERMANENT = "permanently delete";
 
-/** `STANDARD` as `Standard`, `STANDARD_IA` as `Standard-IA`, the rest as words. */
+const CLASSES: Record<string, string> = { STANDARD: "Standard", REDUCED_REDUNDANCY: "Reduced Redundancy", STANDARD_IA: "Standard-IA", ONEZONE_IA: "One Zone-IA", INTELLIGENT_TIERING: "Intelligent-Tiering", GLACIER: "Glacier Flexible Retrieval", GLACIER_IR: "Glacier Instant Retrieval", DEEP_ARCHIVE: "Glacier Deep Archive", EXPRESS_ONEZONE: "Express One Zone" };
+
+/** `STANDARD_IA` as `Standard-IA`, `GLACIER_IR` as `Glacier Instant Retrieval`: the names the AWS console gives each class; one it does not know as words. */
 export function storageWords(storage: string | undefined): string {
   const s = storage || "STANDARD";
-  if (s === "STANDARD") return "Standard";
-  return s.replace(/_IA$/, "-IA").replace(/_/g, " ").toLowerCase().replace(/^./, (c) => c.toUpperCase());
+  return CLASSES[s] ?? s.replace(/_/g, " ").toLowerCase().replace(/^./, (c) => c.toUpperCase());
 }
 
 /** What a chip of the Wired to strip says: `resize-product-image (Lambda)` for `Notifies Lambda function` and that name. */
