@@ -1,6 +1,6 @@
 //! The Live tail and the limits, on a real listener: a tail opens at once with `ready`, says nothing while nothing is called, is
 //! sent a call when one is recorded, carries on from a cursor, ends at once when the console stops, and has a cap. So have
-//! connections.
+//! connections, held against the ones in use and not the ones a browser left open.
 #![allow(
     clippy::unwrap_used,
     clippy::expect_used,
@@ -174,7 +174,7 @@ async fn a_tail_ends_at_once_when_the_console_stops() {
 }
 
 #[tokio::test]
-async fn tails_and_connections_have_a_cap_and_a_request_that_says_nothing_is_closed() {
+async fn tails_have_a_cap_and_a_request_that_says_nothing_is_closed() {
     let limits = Limits {
         max_streams: 1,
         max_connections: 3,
@@ -198,27 +198,6 @@ async fn tails_and_connections_have_a_cap_and_a_request_that_says_nothing_is_clo
     let mut buf = Vec::new();
     let closed = tokio::time::timeout(Duration::from_secs(3), silent.read_to_end(&mut buf)).await;
     assert!(closed.is_ok(), "a silent connection was kept");
-    // Connections over the cap are answered 503 and closed, with the security headers every answer has.
-    let mut held = Vec::new();
-    for _ in 0..2 {
-        held.push(open(c.local_addr(), "/api/v1/tail/live", "").await);
-    }
-    tokio::time::sleep(Duration::from_millis(100)).await;
-    let mut over = TcpStream::connect(c.local_addr()).await.unwrap();
-    over.write_all(b"GET /healthz HTTP/1.1\r\nHost: x\r\n\r\n")
-        .await
-        .unwrap();
-    let mut answer = String::new();
-    tokio::time::timeout(Duration::from_secs(2), over.read_to_string(&mut answer))
-        .await
-        .expect("an answer")
-        .unwrap();
-    assert!(answer.starts_with("HTTP/1.1 503"), "{answer}");
-    assert!(
-        answer.contains("Content-Security-Policy: default-src 'self'"),
-        "{answer}"
-    );
-    drop(held);
     c.shutdown().await;
 }
 
@@ -234,5 +213,83 @@ async fn the_tail_asks_for_the_proof_header_like_every_api_address() {
     let mut answer = String::new();
     s.read_to_string(&mut answer).await.unwrap();
     assert!(answer.starts_with("HTTP/1.1 403"), "{answer}");
+    c.shutdown().await;
+}
+
+/// One `GET /healthz` on a connection that stays open (keep-alive); reads the whole answer, so the connection is then idle.
+async fn visit_and_stay(addr: SocketAddr) -> TcpStream {
+    let mut s = TcpStream::connect(addr).await.unwrap();
+    s.write_all(format!("GET /healthz HTTP/1.1\r\nHost: {addr}\r\n\r\n").as_bytes())
+        .await
+        .unwrap();
+    let got = read_until(&mut s, "ok", Duration::from_secs(2)).await;
+    assert!(got.starts_with("HTTP/1.1 200"), "{got}");
+    s
+}
+
+#[tokio::test]
+async fn idle_keep_alive_connections_do_not_use_up_the_cap() {
+    // What a browser leaves behind: Firefox and WebKit keep the connections of a page they have closed (and open speculative
+    // ones) for as long as the server lets them, so a run of quick page loads fills the cap with connections that say nothing.
+    let limits = Limits {
+        max_connections: 3,
+        ..Limits::default()
+    };
+    let (c, _recorder) = console(limits).await;
+    let mut idle = Vec::new();
+    for _ in 0..3 {
+        idle.push(visit_and_stay(c.local_addr()).await);
+    }
+    // A fourth connection is served: the one that has been idle longest is given up for it (once it has been idle a second: a
+    // connection that was used a moment ago may be about to be used again).
+    tokio::time::sleep(aws_console::conns::MIN_IDLE + Duration::from_millis(100)).await;
+    for round in 0..3 {
+        let mut s = TcpStream::connect(c.local_addr()).await.unwrap();
+        s.write_all(
+            format!(
+                "GET /healthz HTTP/1.1\r\nHost: {}\r\nConnection: close\r\n\r\n",
+                c.local_addr()
+            )
+            .as_bytes(),
+        )
+        .await
+        .unwrap();
+        let mut answer = String::new();
+        tokio::time::timeout(Duration::from_secs(2), s.read_to_string(&mut answer))
+            .await
+            .expect("an answer")
+            .unwrap();
+        assert!(
+            answer.starts_with("HTTP/1.1 200"),
+            "round {round}: {answer}"
+        );
+    }
+    // The connections that are being used are not given up: three open tails hold the cap, and a fourth connection is refused.
+    drop(idle);
+    let mut tails = Vec::new();
+    for _ in 0..3 {
+        let mut t = open(c.local_addr(), "/api/v1/tail/live", "").await;
+        read_until(&mut t, "event: ready", Duration::from_secs(2)).await;
+        tails.push(t);
+    }
+    let mut over = TcpStream::connect(c.local_addr()).await.unwrap();
+    over.write_all(b"GET /healthz HTTP/1.1\r\nHost: x\r\n\r\n")
+        .await
+        .unwrap();
+    let mut answer = String::new();
+    tokio::time::timeout(Duration::from_secs(2), over.read_to_string(&mut answer))
+        .await
+        .expect("an answer")
+        .unwrap();
+    // Over the cap, and every connection in use: answered 503 and closed, with the security headers every answer has.
+    assert!(answer.starts_with("HTTP/1.1 503"), "{answer}");
+    assert!(
+        answer.contains("Content-Security-Policy: default-src 'self'"),
+        "{answer}"
+    );
+    // And the tails are still open.
+    for t in &mut tails {
+        assert!(read_some(t, Duration::from_millis(100)).await.is_empty());
+    }
     c.shutdown().await;
 }

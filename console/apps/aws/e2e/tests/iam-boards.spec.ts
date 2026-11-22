@@ -9,7 +9,7 @@ import { seedLarder, trust, type World } from "./iam-seed";
 import { CUT, expect, test } from "./fixtures";
 
 const SHOTS = process.env.SHOTS_DIR ?? join(import.meta.dirname, "../../../../../shots-iam");
-const BASE = 45100;
+const BASE = Number(process.env.E2E_BASE_PORT ?? 45100);
 const at = (b: string) => BASE + ({ firefox: 10, webkit: 20, chromium: 30 }[b] ?? 40);
 
 test.describe.configure({ mode: "serial" });

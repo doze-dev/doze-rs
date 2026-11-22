@@ -29,6 +29,7 @@ type Fixtures = {
    * list: Playwright reads an array given as an option as its `[value, options]` pair.) */
   allowErrors: RegExp | null;
   errors: string[];
+  netlog: void;
   /** One call with the real AWS CLI against the shared doze-aws, signed with this browser's own access key. */
   cli: (args: string[], options?: { region?: string }) => { code: number; out: string };
   /** The access key this browser's calls are signed with (so a row is known to be this test's). */
@@ -54,6 +55,26 @@ export const test = base.extend<Fixtures>({
       });
       await use(errors);
       expect(errors, "no console errors").toEqual([]);
+    },
+    { auto: true },
+  ],
+  // What the page's network did that was not an answer of 2xx or 3xx, and every request that failed, attached to a test that
+  // failed: the log that tells a refused connection (503) from a slow page.
+  netlog: [
+    async ({ page }, provide, testInfo) => {
+      const lines: string[] = [];
+      const at = () => `${((Date.now() - started) / 1000).toFixed(2)}s`;
+      const started = Date.now();
+      page.on("response", (r) => {
+        if (r.status() >= 400 || r.request().method() !== "GET") lines.push(`${at()} ${r.status()} ${r.request().method()} ${r.url()}`);
+      });
+      page.on("request", (r) => { if (r.method() !== "GET") lines.push(`${at()} -> ${r.method()} ${r.url()}`); });
+      page.on("requestfailed", (r) => lines.push(`${at()} FAILED ${r.method()} ${r.url()}: ${r.failure()?.errorText ?? ""}`));
+      await provide();
+      if (testInfo.status !== testInfo.expectedStatus && lines.length > 0) {
+        await testInfo.attach("netlog", { body: lines.join("\n"), contentType: "text/plain" });
+        console.log(`netlog of "${testInfo.title}":\n${lines.join("\n")}`);
+      }
     },
     { auto: true },
   ],
@@ -107,3 +128,23 @@ export async function overflowX(page: Page): Promise<number> {
 
 /** A name no other test or browser uses. */
 export const unique = (prefix: string, browserName: string) => `${prefix}-${browserName}-${Date.now().toString(36)}`;
+
+/** Resolves when the page has stopped moving: its height has not changed and no request has finished for `quiet` ms. A click is
+ * decided by where the pointer is at mouse-down and at mouse-up, and a page that is still drawing an answer (a match hint, a
+ * preview, a section that folds) moves between the two: Playwright's own check is that the element's box is the same in two
+ * frames, which a page that scrolls to keep it in view satisfies. Wait for this before the click that follows an answer. */
+export async function settled(page: Page, quiet = 400): Promise<void> {
+  await page.evaluate(async (ms) => {
+    const state = () => `${document.documentElement.scrollHeight}:${performance.getEntriesByType("resource").length}`;
+    let last = state();
+    let since = performance.now();
+    while (performance.now() - since < ms) {
+      await new Promise((r) => setTimeout(r, 50));
+      const now = state();
+      if (now !== last) {
+        last = now;
+        since = performance.now();
+      }
+    }
+  }, quiet);
+}

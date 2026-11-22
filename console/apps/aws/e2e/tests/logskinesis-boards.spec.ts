@@ -6,7 +6,7 @@ import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 import type { Page } from "@playwright/test";
 import { aws, start, type Running } from "../server";
-import { CUT, expect, test } from "./fixtures";
+import { CUT, expect, settled, test } from "./fixtures";
 import { seedLarder } from "./logskinesis-seed";
 
 const SHOTS = process.env.SHOTS_DIR ?? join(import.meta.dirname, "../../../../../shots-logskinesis");
@@ -282,7 +282,9 @@ test("kinesis__stream-create, stream-create-refused, stream-create-provisioned: 
   await expect(page.getByTestId("create-refused")).toContainText("CreateStream answered ResourceInUseException");
   await expect(page.getByTestId("section-name")).toContainText("ResourceInUseException");
   await shot(page, "kinesis__stream-create-refused");
-  // Provisioned: the estimator sizes the shards from the traffic.
+  // Provisioned: the estimator sizes the shards from the traffic. (The page is still folding its sections and scrolling to the
+  // refused name; a click that lands as it moves is not a click: WebKit under load lost this one.)
+  await settled(page);
   await page.getByTestId("mode-PROVISIONED").click();
   await page.getByTestId("stream-name").fill("audit-feed");
   await expect(page.getByTestId("est-shards")).toHaveText("6");

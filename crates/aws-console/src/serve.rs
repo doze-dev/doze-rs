@@ -2,8 +2,8 @@
 //! has the same loop; it belongs in a crate both share.)
 //!
 //! Each accepted connection is served by hyper's HTTP/1 server with a header-read timeout (a client that sends half a head,
-//! or sends nothing, is closed), under a cap on connections open at once. A connection over the cap is answered 503 with
-//! `Retry-After` and closed. Event streams have a cap of their own (in the state). The router is the one in [`crate::app`].
+//! or sends nothing, is closed), under a cap on connections open at once. A connection over the cap takes the place of the one
+//! that has been idle longest, and is answered 503 with `Retry-After` and closed only when every connection is in use. Event streams have a cap of their own (in the state). The router is the one in [`crate::app`].
 //!
 //! With no connection the loop is parked on `accept`: it owns no timer.
 
@@ -23,6 +23,7 @@ use tokio::task::{JoinHandle, JoinSet};
 use tokio_util::sync::CancellationToken;
 
 use crate::app::console;
+use crate::conns::{Conn, Conns, Member, Tracked};
 use crate::facts::Facts;
 use crate::headers::security_headers;
 use crate::limits::{Limits, refusal_bytes, request_timeout};
@@ -35,6 +36,8 @@ pub const STOP_GRACE: Duration = Duration::from_secs(3);
 const REFUSALS_AT_ONCE: usize = 32;
 /// How long a refusal is given to be written and read past.
 const REFUSAL_TIME: Duration = Duration::from_millis(500);
+/// How long a connection that found the cap full waits for the idle connection given up for it to close.
+const GIVE_UP_WAIT: Duration = Duration::from_millis(250);
 
 /// How the console is served.
 #[derive(Debug, Clone, Default)]
@@ -118,6 +121,7 @@ async fn accept_loop(
 ) {
     let slots = Arc::new(Semaphore::new(limits.max_connections));
     let refusals = Arc::new(Semaphore::new(REFUSALS_AT_ONCE));
+    let conns = Conns::new();
     let mut connections = JoinSet::new();
     let mut router: Option<axum::Router> = None;
     loop {
@@ -136,20 +140,11 @@ async fn accept_loop(
                 continue;
             }
         };
-        match Arc::clone(&slots).try_acquire_owned() {
-            Ok(slot) => {
-                let service = TowerToHyperService::new(
-                    router
-                        .get_or_insert_with(|| app(state.clone(), limits))
-                        .clone(),
-                );
-                let stop = stop.clone();
-                connections.spawn(async move {
-                    serve_connection(stream, service, stop, limits).await;
-                    drop(slot);
-                });
-            }
-            Err(_) => match Arc::clone(&refusals).try_acquire_owned() {
+        // The cap holds against connections in use: a full cap gives up the connection that has been idle longest (a browser's
+        // leftover) for this one, and refuses it only when every connection is in use.
+        let slot = Arc::clone(&slots).try_acquire_owned().ok();
+        if slot.is_none() && !conns.give_up_one_idle() {
+            match Arc::clone(&refusals).try_acquire_owned() {
                 Ok(turn) => {
                     connections.spawn(async move {
                         refuse(stream).await;
@@ -158,8 +153,25 @@ async fn accept_loop(
                 }
                 // Too many refusals in hand as well: close without an answer.
                 Err(_) => drop(stream),
-            },
+            }
+            continue;
         }
+        let router = router
+            .get_or_insert_with(|| app(state.clone(), limits))
+            .clone();
+        let (slots, conns, stop) = (Arc::clone(&slots), Arc::clone(&conns), stop.clone());
+        connections.spawn(async move {
+            let slot = match slot {
+                Some(slot) => slot,
+                None => match tokio::time::timeout(GIVE_UP_WAIT, slots.acquire_owned()).await {
+                    Ok(Ok(slot)) => slot,
+                    // The place went to another connection: this one is over the cap after all.
+                    _ => return refuse(stream).await,
+                },
+            };
+            serve_connection(stream, router, stop, limits, conns.join()).await;
+            drop(slot);
+        });
     }
     // Stopping: the streams end with the token, the requests in hand are finished; whatever is left is dropped by the
     // caller after its grace.
@@ -168,11 +180,16 @@ async fn accept_loop(
 
 async fn serve_connection(
     stream: TcpStream,
-    service: TowerToHyperService<axum::Router>,
+    router: axum::Router,
     stop: CancellationToken,
     limits: Limits,
+    member: Member,
 ) {
     let _ = stream.set_nodelay(true);
+    let service = Tracked {
+        inner: TowerToHyperService::new(router),
+        conn: Arc::clone(&member.conn),
+    };
     let mut builder = http1::Builder::new();
     builder
         .timer(TokioTimer::new())
@@ -181,7 +198,7 @@ async fn serve_connection(
     tokio::pin!(conn);
     let result = tokio::select! {
         r = conn.as_mut() => r,
-        () = stop.cancelled() => {
+        () = ended(&stop, &member.conn) => {
             // Finish the request in hand, take no more on this connection.
             conn.as_mut().graceful_shutdown();
             conn.as_mut().await
@@ -189,6 +206,14 @@ async fn serve_connection(
     };
     if let Err(e) = result {
         tracing::debug!(error = %e, "a console connection ended with an error");
+    }
+}
+
+/// Resolves when the console stops or this connection is given up for another.
+async fn ended(stop: &CancellationToken, conn: &Conn) {
+    tokio::select! {
+        () = stop.cancelled() => {}
+        () = conn.close.cancelled() => {}
     }
 }
 

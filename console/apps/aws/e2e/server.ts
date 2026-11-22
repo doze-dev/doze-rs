@@ -77,7 +77,7 @@ export function aws(endpoint: string, args: string[], options: { accessKey?: str
   delete (env as Record<string, string | undefined>).AWS_PROFILE;
   delete (env as Record<string, string | undefined>).AWS_SESSION_TOKEN;
   try {
-    return { code: 0, out: execFileSync("aws", args, { env, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], timeout: 30_000 }) };
+    return { code: 0, out: execFileSync("aws", args, { env, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], timeout: 120_000 }) };
   } catch (e) {
     const err = e as { status?: number; stdout?: string; stderr?: string; message: string };
     if (err.status === undefined || err.status === null) throw new Error(`the AWS CLI could not be run: ${err.message}`, { cause: e });
