@@ -49,6 +49,7 @@ export function TabAliases({ id, title, aliases }: { id: string; title: string; 
     try {
       await callKindOp(ALIASES, "CreateAlias", { AliasName: `alias/${name}`, TargetKeyId: id });
       setMade(name);
+      setChosen(new Set());
       reread();
       close();
     } catch (e) {

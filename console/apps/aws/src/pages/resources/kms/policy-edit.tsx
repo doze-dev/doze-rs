@@ -2,7 +2,7 @@
 // grants, and the PutKeyPolicy call. doze-aws checks that the policy is a JSON object and stores it as written.
 import { PlusIcon, Trash2Icon } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Alert } from "@doze/ui/components/app/alert";
 import { Button } from "@doze/ui/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@doze/ui/components/ui/select";
@@ -19,18 +19,20 @@ const list = (v: unknown): string[] => (Array.isArray(v) ? v.map(String) : typeo
 const principalsOf = (s: Statement): string[] => (typeof s.Principal === "string" ? [s.Principal] : list((s.Principal as { AWS?: unknown } | undefined)?.AWS));
 
 export function PolicyEdit({ d, id, state, back }: { d: ResourceDetail; id: string; state: string; back: () => void }) {
-  const qc = useQueryClient();
   const q = useKeyPolicy(id);
-  const [text, setText] = useState<string | null>(null);
+  if (!q.data) return <p className="text-[13.5px] text-muted-foreground" data-testid="policy-reading">Reading the policy…</p>;
+  let first = q.data.Policy;
+  try { first = JSON.stringify(JSON.parse(first), null, 2); } catch { /* as stored */ }
+  return <PolicyForm d={d} id={id} state={state} back={back} initial={first} />;
+}
+
+function PolicyForm({ d, id, state, back, initial }: { d: ResourceDetail; id: string; state: string; back: () => void; initial: string }) {
+  const qc = useQueryClient();
+  const [text, setText] = useState<string>(initial);
   const [at, setAt] = useState(0);
   const [pending, setPending] = useState(false);
   const [refused, setRefused] = useState<{ code: string; message: string } | null>(null);
-  useEffect(() => {
-    if (q.data && text === null) {
-      try { setText(JSON.stringify(JSON.parse(q.data.Policy), null, 2)); } catch { setText(q.data.Policy); }
-    }
-  }, [q.data, text]);
-  const doc = useMemo(() => parsePolicy(text ?? ""), [text]);
+  const doc = useMemo(() => parsePolicy(text), [text]);
   const statements = doc?.Statement ?? [];
   const chosen = statements[Math.min(at, statements.length - 1)];
   const edit = (next: unknown) => setText(JSON.stringify(next, null, 2));
@@ -45,7 +47,7 @@ export function PolicyEdit({ d, id, state, back }: { d: ResourceDetail; id: stri
     setAt(0);
   };
   const save = async () => {
-    if (text === null || !doc) return;
+    if (!doc) return;
     setPending(true);
     setRefused(null);
     try {
@@ -87,7 +89,7 @@ export function PolicyEdit({ d, id, state, back }: { d: ResourceDetail; id: stri
       titleExtra={<StateDot state={state} words={stateWords(state)} />}
       sub="Key policy, policy view. Edit the JSON, or select a statement and use the statement builder."
       crumbs={[{ label: "Resources", to: "/resources" }, { label: d.group, to: `/resources/${d.service}` }, { label: d.service_title, to: `/resources/${d.service}` }, { label: "Keys", to: "/resources/kms/keys" }, { label: d.name, to: `/resources/kms/keys/${encodeURIComponent(d.id)}` }, { label: "Edit key policy", to: "" }]}
-      request={text !== null ? { service: "kms", operation: "PutKeyPolicy", input: { KeyId: id, PolicyName: "default", Policy: "{ ... }" } } : null}
+      request={{ service: "kms", operation: "PutKeyPolicy", input: { KeyId: id, PolicyName: "default", Policy: "{ ... }" } }}
       showInput
       refusal={refused}
       aside={builder}
@@ -101,7 +103,7 @@ export function PolicyEdit({ d, id, state, back }: { d: ResourceDetail; id: stri
       testId="key-policy-edit"
     >
       <FormSection title="Key policy" actions={<><Button type="button" variant="outline" className="bg-card" onClick={add} data-testid="statement-add"><PlusIcon /> Add new statement</Button><Button type="button" variant="outline" className="bg-card" onClick={remove} disabled={!chosen} data-testid="statement-remove"><Trash2Icon /> Remove</Button></>} testId="section-policy">
-        {text === null ? <p className="text-[13px] text-muted-foreground">Reading the policy…</p> : <PolicyEditor kind="resource" value={text} onChange={setText} label="Key policy" rows={26} testId="policy-editor" />}
+        <PolicyEditor kind="resource" value={text} onChange={setText} label="Key policy" rows={26} testId="policy-editor" />
       </FormSection>
       <Note testId="policy-note">doze-aws stores the policy as written. With IAM in soft or enforce mode it checks the policy on every request that names this key, and <b>a policy that names nobody locks everyone out</b>, the account root and PutKeyPolicy included. AWS refuses a policy that would stop the caller using PutKeyPolicy again unless the lockout safety check is bypassed; doze-aws checks only that the policy is valid JSON.</Note>
     </FormPage>

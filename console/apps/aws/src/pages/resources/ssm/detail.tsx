@@ -44,6 +44,7 @@ function ParameterView({ d, updatedAt, fetching, refresh }: { d: ResourceDetail;
   const tags = useTags(t);
   const history = useHistory(name);
   const readers = useReaders(d.calls, ["GetParameter", "GetParameters", "GetParametersByPath"]);
+  const [now] = useState(() => Date.now());
   const [tab, setTab] = useUrlParam("tab");
   const [value, setValue] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
@@ -67,7 +68,7 @@ function ParameterView({ d, updatedAt, fetching, refresh }: { d: ResourceDetail;
       setPending(false);
     }
   };
-  const read = readers.last !== null ? ` ${readers.who.join(" and ")} read${readers.who.length === 1 ? "s" : ""} it ${readers.count} time${readers.count === 1 ? "" : "s"} in the recent calls, last ${ago(readers.last, Date.now())}.` : "";
+  const read = readers.last !== null ? ` ${readers.who.join(" and ")} read${readers.who.length === 1 ? "s" : ""} it ${readers.count} time${readers.count === 1 ? "" : "s"} in the recent calls, last ${ago(readers.last, now)}.` : "";
   const sentence = secure
     ? `${name} is a SecureString at version ${version}, sealed under the KMS key ${key ?? "alias/aws/ssm"}.${value !== null ? " The value below was decrypted for this page view by a GetParameter call from the console." : ""}${read}`
     : `${name} is a ${type} at version ${version}.${read}`;

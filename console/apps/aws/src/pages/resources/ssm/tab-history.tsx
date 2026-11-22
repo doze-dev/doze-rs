@@ -74,7 +74,7 @@ function Labels({ name, past, all, onClose }: { name: string; past: Past; all: P
       setPending(false);
     }
   };
-  const move = moveWords(all, added, past.version);
+  const move = moveWords(all, [...added, ...(typed !== "" && !problem ? [typed] : [])], past.version);
   return (
     <Dialog open onOpenChange={(o) => { if (!o) onClose(); }}>
       <DialogContent className="sm:max-w-[620px]" data-testid="manage-labels">

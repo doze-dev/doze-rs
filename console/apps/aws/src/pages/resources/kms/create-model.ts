@@ -99,6 +99,6 @@ const USES: Record<string, string> = { ENCRYPT_DECRYPT: "encrypts and decrypts",
 
 /** `larder-app encrypts and decrypts, larder-signing signs and verifies.`: what the account's other keys are for. */
 export function othersWords(keys: readonly { aliases: string[]; id: string; usage: string; state: string }[]): string | null {
-  const parts = keys.filter((k) => k.state !== "PendingDeletion" && USES[k.usage]).slice(0, 4).map((k) => `${k.aliases[0] ?? k.id} ${USES[k.usage]}`);
+  const parts = keys.filter((k) => k.state !== "PendingDeletion" && k.aliases.length > 0 && USES[k.usage]).sort((a, b) => a.aliases[0]!.localeCompare(b.aliases[0]!)).slice(0, 4).map((k) => `${k.aliases[0]} ${USES[k.usage]}`);
   return parts.length === 0 ? null : `${parts.join(", ")}.`;
 }

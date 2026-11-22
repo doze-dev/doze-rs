@@ -10,7 +10,7 @@ import { useAbout } from "../../../api/queries";
 import { callKindOp, FormPage, TAG_RULES } from "../../../kit";
 import { useAllRows } from "../cfg-api";
 import { ALIASES, KEYS } from "./api";
-import { aliasInput, aliasProblem, blankKey, callsOf, createInput, descriptionProblem, type KeyForm, othersWords, shownInput } from "./create-model";
+import { aliasInput, aliasProblem, blankKey, callsOf, createInput, descriptionProblem, type KeyForm, othersWords, policySent, shownInput } from "./create-model";
 import { StepAdmins, StepPolicy, StepUsers } from "./create-perms";
 import { StepReview } from "./create-review";
 import { StepConfigure, StepLabels } from "./create-steps";
@@ -84,8 +84,8 @@ export function KeyCreate() {
       setPending(false);
     }
   };
-  const aliasTaken = failed?.code === "AlreadyExistsException" ? failed.message : null;
-  const requests = callsOf(f, { account, withPolicy: step >= 2, withLabels: step >= 1 });
+  // Steps 3 to 5 show what they add to the call Finish makes: the policy.
+  const requests = step >= 2 && step <= 4 ? [{ service: "kms", operation: "CreateKey", input: { Policy: policySent(f, account) } }] : callsOf(f, { account, withPolicy: step >= 5, withLabels: step >= 1 });
   const back = () => void navigate({ to: "/resources/$service/$second", params: { service: "kms", second: "keys" }, search: {} });
   return (
     <FormPage
@@ -110,7 +110,7 @@ export function KeyCreate() {
       banner={failed ? (
         <Alert tone="bad" title={failed.keyId ? `The key was created, but ${failed.operation} was refused.` : "The key was not created."} testId="create-refused"
           action={failed.keyId ? <Button size="sm" variant="outline" className="bg-card" onClick={() => void navigate({ to: "/resources/$service/$kind/$name", params: { service: "kms", kind: "keys", name: failed.keyId! } })}>Open the key</Button> : undefined}>
-          {failed.code}: {failed.message}{aliasTaken ? "" : ""}
+          {failed.code}: {failed.message}
         </Alert>
       ) : undefined}
       testId="key-create"

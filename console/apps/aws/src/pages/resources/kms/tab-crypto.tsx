@@ -8,7 +8,7 @@ import type { KeyRow } from "./model";
 const USAGES: Record<string, string> = { ENCRYPT_DECRYPT: "Encrypt and decrypt", SIGN_VERIFY: "Sign and verify", GENERATE_VERIFY_MAC: "Generate and verify MAC", KEY_AGREEMENT: "Key agreement" };
 const ORIGINS: Record<string, string> = { AWS_KMS: "AWS KMS", EXTERNAL: "External (imported key material)" };
 
-const list = (title: string, items: readonly string[] | undefined) => (items && items.length > 0 ? [{ label: title, value: <span className="font-mono text-[12.5px]" data-testid={`fact-${title}`}>{items.join(", ")}</span> }] : []);
+const list = (title: string, items: readonly string[] | undefined) => (items && items.length > 0 ? [{ label: title, value: <span className="font-mono text-[12.5px]">{items.join(", ")}</span> }] : []);
 
 /** What a spec is, in a sentence. */
 export function specWords(spec: string): string {

@@ -84,7 +84,7 @@ export const refsOf = (key: Pick<KeyRow, "id" | "aliases">, arn?: string): Set<s
 
 /** What of `uses` is encrypted with a key: a use names its key by id, ARN, alias or alias ARN. */
 export function usedBy(uses: readonly (Use & { key: string | null })[], refs: ReadonlySet<string>): Use[] {
-  return uses.filter((u) => u.key !== null && (refs.has(u.key) || [...refs].some((r) => u.key!.endsWith(`:${r}`) || u.key!.endsWith(`/${r}`)))).map(({ key: _k, ...u }) => u);
+  return uses.filter((u) => u.key !== null && (refs.has(u.key) || [...refs].some((r) => u.key!.endsWith(`:${r}`) || u.key!.endsWith(`/${r}`)))).map(({ service, kind, name, noun }) => ({ service, kind, name, noun }));
 }
 
 /** `alias/larder-app encrypts the queue pick-lists.` */

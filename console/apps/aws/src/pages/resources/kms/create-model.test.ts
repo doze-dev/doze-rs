@@ -61,6 +61,6 @@ describe("the calls", () => {
 });
 
 test("the other keys are said by what each is for", () => {
-  expect(othersWords([{ aliases: ["larder-app"], id: "a", usage: "ENCRYPT_DECRYPT", state: "Enabled" }, { aliases: [], id: "b", usage: "SIGN_VERIFY", state: "Enabled" }, { aliases: ["gone"], id: "c", usage: "SIGN_VERIFY", state: "PendingDeletion" }])).toBe("larder-app encrypts and decrypts, b signs and verifies.");
+  expect(othersWords([{ aliases: ["larder-app"], id: "a", usage: "ENCRYPT_DECRYPT", state: "Enabled" }, { aliases: ["b"], id: "b", usage: "SIGN_VERIFY", state: "Enabled" }, { aliases: [], id: "z", usage: "ENCRYPT_DECRYPT", state: "Enabled" }, { aliases: ["gone"], id: "c", usage: "SIGN_VERIFY", state: "PendingDeletion" }])).toBe("b signs and verifies, larder-app encrypts and decrypts.");
   expect(othersWords([])).toBeNull();
 });

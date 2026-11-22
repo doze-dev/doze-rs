@@ -76,7 +76,7 @@ function Parameters({ q, created }: { q: string; created: { name: string; versio
     }
   };
   const columns: DataColumn<ParamRow>[] = [
-    { id: "name", header: "Name", min: 240, accessorKey: "name", meta: { mono: true }, cell: (c) => <ResourceTo to={{ service: "ssm", kind: "parameters", name: c.row.original.name }} className="font-mono text-[13px] font-medium" testId="row-link">{c.row.original.name}</ResourceTo> },
+    { id: "name", header: "Name", min: 300, accessorKey: "name", meta: { mono: true }, cell: (c) => <ResourceTo to={{ service: "ssm", kind: "parameters", name: c.row.original.name }} className="font-mono text-[13px] font-medium" testId="row-link">{c.row.original.name}</ResourceTo> },
     { id: "tier", header: "Tier", accessorKey: "tier", size: 100, fit: 50 },
     { id: "type", header: "Type", accessorKey: "type", size: 130, fit: 50 },
     { id: "version", header: "Version", accessorFn: (r) => Number(r.version), size: 90, fit: 70, meta: { numeric: true } },
@@ -101,7 +101,7 @@ function Parameters({ q, created }: { q: string; created: { name: string; versio
         <div data-testid="list-empty"><EmptyState icon={SlidersHorizontalIcon} title="No parameters" action={create}>Create a parameter to keep a setting or a secret out of your code.</EmptyState></div>
       ) : (
         <>
-          <Say text={q === "" ? listSentence(rows, region) : filterSentence(rows, everything.rows.length || null)} names={rows.length <= 3 ? rows.map((r) => r.name) : []} className="mb-5" testId="list-sentence" />
+          <Say text={q === "" ? listSentence(rows, region) : filterSentence(rows, everything.rows.length || null)} names={rows.map((r) => r.name)} className="mb-5" testId="list-sentence" />
           <div className="mb-4"><FilterBar props={FILTERS} tokens={tokens} onChange={filter} label="Filter parameters" placeholder="Filter by name" /></div>
           {rows.length === 0 ? (
             <EmptyState icon={SearchIcon} title="0 parameters match" action={<Button variant="outline" className="bg-card" onClick={() => filter([])} data-testid="filters-clear">Remove the filter</Button>}>

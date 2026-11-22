@@ -21,7 +21,7 @@ import { TabAliases } from "./tab-aliases";
 import { TabCrypto } from "./tab-crypto";
 import { TabPolicy } from "./tab-policy";
 import { TabRotation } from "./tab-rotation";
-import { aliasLabel, countsSentence, keyName, keySentence, kindOf, refsOf, stateWords, usedBy, whenWords } from "./model";
+import { aliasLabel, countsSentence, keyName, keySentence, kindOf, refsOf, stateWords, usedBy } from "./model";
 import { timeMs } from "../model";
 
 export function KmsDetail({ service, kind, name }: { service: string; kind: string; name: string }) {
@@ -107,4 +107,3 @@ function KeyView({ d, updatedAt, fetching, refresh }: { d: ResourceDetail; updat
   );
 }
 
-export { whenWords };

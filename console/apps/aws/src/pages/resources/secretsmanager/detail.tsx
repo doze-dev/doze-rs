@@ -50,6 +50,7 @@ function SecretView({ d, updatedAt, fetching, refresh }: { d: ResourceDetail; up
   const desc = useDescribed(name);
   const aliases = useAllRows("kms", "aliases");
   const readers = useReaders(d.calls, ["GetSecretValue"]);
+  const [now] = useState(() => Date.now());
   const [tab, setTab] = useUrlParam("tab");
   const [dialog, setDialog] = useState<"description" | "key" | "delete" | "policy" | null>(null);
   const [policy, setPolicy] = useState<string | null>(null);
@@ -73,7 +74,7 @@ function SecretView({ d, updatedAt, fetching, refresh }: { d: ResourceDetail; up
   };
   if (search.view === "value") return <ValueEdit d={d} back={(done) => go(done ? { done } : undefined)} />;
   const rotation = info ? rotationSentence(info) : null;
-  const read = readers.last !== null ? `${readers.who.join(" and ")} read${readers.who.length === 1 ? "s" : ""} this secret ${ago(readers.last, Date.now())}, ${readers.count} time${readers.count === 1 ? "" : "s"} in the recent calls.` : null;
+  const read = readers.last !== null ? `${readers.who.join(" and ")} read${readers.who.length === 1 ? "s" : ""} this secret ${ago(readers.last, now)}, ${readers.count} time${readers.count === 1 ? "" : "s"} in the recent calls.` : null;
   const sentence = scheduled ? `${name} is scheduled for deletion, so its value cannot be read.` : [read, rotation].filter(Boolean).join(" ") || null;
   const fn = info?.RotationLambdaARN ? functionName(info.RotationLambdaARN) : null;
   const badges = [info?.RotationEnabled ? { text: "Rotation enabled", tone: "good" as const } : { text: "Rotation off", tone: "neutral" as const }, ...(scheduled ? [{ text: "Scheduled for deletion", tone: "warn" as const }] : [])];
