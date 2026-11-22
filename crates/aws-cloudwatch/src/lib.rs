@@ -109,6 +109,9 @@ pub struct Cloudwatch {
     dir: std::path::PathBuf,
     /// The bus, through which data that other services hold until it is read (`AWS/Lambda`) is taken in before a read.
     peers: Option<Arc<Peers>>,
+    /// Held across the taking in of what other services hold, so that a read that arrives while another read is storing it waits for
+    /// the data instead of answering without it (the page of a function reads four metrics at once).
+    taking: tokio::sync::Mutex<()>,
 }
 
 impl Cloudwatch {
@@ -137,6 +140,7 @@ impl Cloudwatch {
             timers: Timers::new(Arc::clone(&ctx), peers.clone()),
             actors: Keyed::new("cloudwatch", ctx, HOME_REGION),
             peers,
+            taking: tokio::sync::Mutex::new(()),
         }
     }
 
@@ -162,6 +166,7 @@ impl Cloudwatch {
         if !reads {
             return;
         }
+        let _one_at_a_time = self.taking.lock().await;
         for made in peers.take_metrics(&call.caller.region) {
             let mut caller = call.caller.clone();
             caller.account_id = made.account;
