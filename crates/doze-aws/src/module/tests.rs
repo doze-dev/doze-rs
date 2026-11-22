@@ -248,3 +248,83 @@ fn a_bucket_name_s3_would_refuse_is_refused_at_its_block_before_boot() {
         [1, 2, 3, 4].map(|i| vec![check::key("bucket"), check::idx(i)])
     );
 }
+
+fn decoded(hcl: &str) -> AwsSpec {
+    let h = doze_module_test::hcl::parse_block(hcl, &schema()).unwrap();
+    decode(&doze_module::proto::msg::instance::Instance {
+        spec: h.spec,
+        ..instance()
+    })
+}
+
+#[test]
+fn the_region_is_us_east_1_unless_the_block_says_and_it_is_what_the_server_is_given() {
+    let none = decoded("aws \"local\" {}");
+    assert_eq!(none.region(), "us-east-1");
+    assert_eq!(
+        AwsSpec::default().region(),
+        "us-east-1",
+        "a block built with none"
+    );
+    let london = decoded("aws \"local\" {\n  region = \"eu-west-2\"\n}");
+    assert_eq!(london.region(), "eu-west-2");
+    let args = |region: &str| super::server_args(&instance_at_backend(), region).unwrap();
+    let at = |args: &[String]| {
+        args.iter()
+            .position(|a| a == "--region")
+            .map(|i| args[i + 1].clone())
+    };
+    assert_eq!(at(&args(none.region())).as_deref(), Some("us-east-1"));
+    assert_eq!(at(&args(london.region())).as_deref(), Some("eu-west-2"));
+}
+
+fn instance_at_backend() -> doze_module::proto::msg::instance::Instance {
+    use doze_module::proto::msg::instance::{Address, Granted};
+    let mut i = instance();
+    i.listeners.insert(
+        doze_module::proto::network::MAIN.into(),
+        Granted {
+            addr: "127.0.0.1:46400".into(),
+            url: String::new(),
+            hosts: vec![],
+            backend: Address::Tcp("127.0.0.1:46401".into()),
+        },
+    );
+    i
+}
+
+#[test]
+fn a_region_aws_does_not_have_is_one_diagnostic_at_the_attribute_listing_the_valid_ones() {
+    let bad = decoded("aws \"local\" {\n  region = \"us-east-9\"\n}");
+    let d = check::check(&bad, "");
+    assert_eq!(d.len(), 1, "{d:?}");
+    assert_eq!(d[0].path, vec![check::key("region")]);
+    assert!(
+        d[0].message.contains("\"us-east-9\" is not an AWS Region"),
+        "{}",
+        d[0].message
+    );
+    let hint = d[0].hint.as_deref().unwrap();
+    assert!(
+        hint.starts_with("one of: ") && hint.contains("eu-west-2") && hint.contains("us-west-2"),
+        "{hint}"
+    );
+    for ok in ["us-east-1", "eu-west-2", "ap-southeast-2", "us-gov-west-1"] {
+        let s = decoded(&format!("aws \"local\" {{\n  region = \"{ok}\"\n}}"));
+        assert!(check::check(&s, "").is_empty(), "{ok}");
+    }
+}
+
+#[test]
+fn the_region_is_in_the_schema_with_its_default_and_the_client_takes_it_as_a_placeholder() {
+    use doze_module::Module;
+    let attr = schema()
+        .attrs
+        .into_iter()
+        .find(|a| a.name == "region")
+        .unwrap();
+    assert!(attr.doc.contains("module.<name>.region"), "{}", attr.doc);
+    assert_eq!(format!("{:?}", attr.default), "Some(String(\"us-east-1\"))");
+    let c = super::Aws.about().client.unwrap();
+    assert_eq!(c.env["AWS_DEFAULT_REGION"], "{region}");
+}

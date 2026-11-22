@@ -124,6 +124,7 @@ impl Core {
             return Err(invalid_address(call));
         }
         if !self.queues.contains_key(name) {
+            self.missed = Some(name.to_owned());
             return Err(no_such_queue());
         }
         let queue_url = url::build(&call.caller.endpoint, account, name);
