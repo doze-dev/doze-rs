@@ -221,9 +221,11 @@ fn bind_named(
         };
         let public = opened.addr();
         let (socket, forwarding) = opened.into_parts();
-        // The front door dials what the proxy really listens on: the name's address where it is bound, the daemon's
-        // interface and the private port where it is translated.
-        let target = socket.local_addr()?.to_string();
+        // The front door dials the name's address and public port, as every client does (Go's route was the public
+        // address too). Where addresses are translated the socket is on the network daemon's own address, which this
+        // machine routes into the daemon's tunnel, and the daemon only turns a name's address into a private port:
+        // a dial to the socket itself is dropped, and a request through the front door hangs.
+        let target = public.to_string();
         for r in &l.routes {
             if r.twin {
                 match lease.twin(&qualified(&r.host)) {
