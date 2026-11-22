@@ -130,7 +130,9 @@ test("s3__bucket-objects, -objects-empty, -objects-versions: folders, a prefix w
   await page.goto(bucketUrl(n.img));
   await h1(page, n.img);
   await expect(page.getByTestId("detail-sentence")).toContainText("holds 3 objects and 2 folders at the top level, with versioning on");
-  await expect(page.getByTestId("wired-strip")).toContainText(`resize-${browserName}`);
+  await expect(page.getByTestId("wired-strip")).toContainText(`resize-${browserName} (Lambda)`);
+  // The bucket sits in the strip between what writes to it and what it notifies.
+  await expect(page.getByTestId("wired-self")).toHaveText(n.img);
   await expect(page.getByText("US East (N. Virginia) us-east-1").first()).toBeVisible();
   await expect(page.getByTestId("tab-objects")).toBeVisible();
   await expect(page.getByTestId("objects-card")).toContainText("Objects (5)");
@@ -159,6 +161,8 @@ test("s3__bucket-objects, -objects-empty, -objects-versions: folders, a prefix w
   await expect(page.getByText("Delete marker", { exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "sku-FV-TOM-V.jpg" })).toHaveCount(3);
   await expect(page.getByTestId("objects-card")).toContainText("Objects (9)");
+  // The delete marker only looks like a delete: the page says which key and why.
+  await expect(page.getByTestId("hidden-by-marker")).toContainText("sku-FV-ORG-B.jpg looks deleted but is not. Its current version is a delete marker");
   await shot(page, "s3__bucket-objects-versions", browserName);
 });
 
@@ -186,6 +190,13 @@ test("s3__bucket-permissions, -management, -lifecycle-none: the Block Public Acc
   await expect(page.getByTestId("policy-json")).toContainText("LambdaReadsImages");
   await expect(page.getByTestId("permissions")).toContainText("Bucket owner enforced");
   await expect(page.getByTestId("permissions")).toContainText("FULL_CONTROL");
+  // The owner's grant is named for what it is, and the ACL is a card of its own.
+  await expect(page.getByRole("table", { name: "Access control list" })).toContainText("Bucket owner (your AWS account)");
+  await expect(page.getByRole("heading", { name: "Access control list (ACL)" })).toBeVisible();
+  // The policy is written a member a line, and a CORS rule keeps each list of values on one line.
+  await expect(page.getByTestId("policy-json")).toContainText('"Effect": "Allow",');
+  expect((await page.getByTestId("policy-json").innerText()).split("\n").length).toBeGreaterThan(8);
+  await expect(page.getByTestId("cors-json")).toContainText('"AllowedMethods": ["GET", "HEAD"],');
   await expect(page.getByTestId("cors-json")).toContainText("http://localhost:3000");
   await shot(page, "s3__bucket-permissions", browserName);
   await page.goto(bucketUrl(n.img, "?tab=management"));
@@ -293,6 +304,11 @@ test("s3__folder-create, s3__upload, s3__upload-status: a folder, three files wi
   await page.getByTestId("folder-open").click();
   await page.getByTestId("folder-name").fill("seasonal");
   await expect(page.getByTestId("call-panel-code")).toContainText('"Key": "seasonal/"');
+  // Specify an encryption key: the choice is offered, and the call carries what is chosen.
+  await expect(page.getByTestId("sse-bucket")).toBeDisabled();
+  await page.getByTestId("specify-key").click();
+  await page.getByTestId("sse-override").click();
+  await expect(page.getByTestId("call-panel-code")).toContainText('"ServerSideEncryption": "AES256"');
   await shot(page, "s3__folder-create", browserName);
   await page.getByTestId("form-submit").click();
   await expect(page.getByTestId("flash")).toContainText("Folder seasonal/ created.");
@@ -303,7 +319,15 @@ test("s3__folder-create, s3__upload, s3__upload-status: a folder, three files wi
   await h1(page, "Upload");
   await page.getByTestId("upload-files").setInputFiles([file("sku-FV-RAD-R.jpg", 1600), file("sku-FV-BRC-G.jpg", 2000), file("hero-autumn.jpg", 2500)]);
   await expect(page.getByText("3 files total")).toBeVisible();
-  await page.getByTestId("section-Properties-toggle").click();
+  // Properties are open: the classes are named as AWS names them, and a choice changes the call.
+  await expect(page.getByText("S3 Glacier Instant Retrieval")).toBeVisible();
+  await page.getByTestId("storage-GLACIER_IR").click();
+  await page.getByTestId("checksum-on").click();
+  await page.getByTestId("checksum").selectOption("SHA256");
+  await expect(page.getByTestId("call-panel-code")).toContainText('"StorageClass": "GLACIER_IR"');
+  await expect(page.getByTestId("call-panel-code")).toContainText('"ChecksumAlgorithm": "SHA256"');
+  await page.getByTestId("storage-STANDARD").click();
+  await page.getByTestId("checksum-off").click();
   await page.getByTestId("upload-tags-add").click();
   await page.getByTestId("upload-tags-key-0").fill("batch");
   await page.getByTestId("upload-tags-value-0").fill("autumn");
@@ -315,6 +339,10 @@ test("s3__folder-create, s3__upload, s3__upload-status: a folder, three files wi
   await page.getByTestId("form-submit").click();
   await expect(page.getByTestId("upload-summary")).toContainText(`3 PutObject calls succeeded in ${n.img}.`);
   await expect(page.getByTestId("upload-status-page")).toContainText("sku-FV-RAD-R.jpg");
+  // The PutObject calls just made are in Recent calls (this console's own are pinned here), each with the key, and the event's destination is named.
+  await expect(page.getByTestId("upload-summary")).toContainText(`Each ObjectCreated event was sent to resize-${browserName}.`);
+  await expect(page.getByTestId("recent-calls")).toContainText("seasonal/hero-autumn.jpg");
+  for (const k of ["sku-FV-RAD-R.jpg", "sku-FV-BRC-G.jpg"]) await expect(page.getByTestId("recent-calls")).toContainText(`seasonal/${k}`);
   await shot(page, "s3__upload-status", browserName);
   const head = cli(["s3api", "head-object", "--bucket", n.img, "--key", "seasonal/hero-autumn.jpg"]).out;
   expect(head).toContain('"source": "e2e"');
