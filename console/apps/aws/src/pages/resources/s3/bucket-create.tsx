@@ -1,12 +1,14 @@
 // Create bucket: a page, not a dialog. The name and its rules, a bucket to copy settings from, Object Ownership, Block Public
 // Access, versioning, tags, default encryption and Object Lock, with the call it will make at the right. CreateBucket takes the
 // name, the ownership and Object Lock; the rest are the calls that follow it, made in turn, and a refusal of any says which.
-import { useQueryClient } from "@tanstack/react-query";
+import { useQueries, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Alert, errorWords } from "@doze/ui/components/app/alert";
 import { KeyValueEditor } from "@doze/ui/components/app/key-value-editor";
-import { filled, pairsOf, rowsFrom, type KeyValueRow } from "@doze/ui/components/app/key-values";
+import { filled, newRow, pairsOf, rowsFrom, type KeyValueRow } from "@doze/ui/components/app/key-values";
+import { Checkbox } from "@doze/ui/components/ui/checkbox";
 import { Input } from "@doze/ui/components/ui/input";
+import { Label } from "@doze/ui/components/ui/label";
 import { ApiFailure } from "@doze/ui/lib/api";
 import { client } from "../../../api/client";
 import { useAbout } from "../../../api/queries";
@@ -17,13 +19,16 @@ import { BPA_ALL, bpaOf, bpaOn, type Bpa, encryptionConfig, encryptionOf, owners
 import { bucketOf, useListNav } from "./api";
 import { BpaChoice, type Encryption, EncryptionChoice, OwnershipChoice, RadioCards } from "./controls";
 import { setFlash } from "./flash";
+import { tagsHint, versioningHint } from "./create-hints";
+import { useKmsKeys } from "./kms-hook";
 import { listWords, nameRefusal, regionWords } from "./words";
 
 const KIND = { service: "s3", kind: "buckets" };
 
 /** What the settings chosen make of the bucket, in the words of the page that opens after: `versioning off, all four Block Public Access settings on, nothing in it yet`. */
 export function madeWords(f: { versioning: boolean; bpa: Bpa; lock: boolean }): string {
-  const bits = [`versioning ${f.versioning ? "on" : "off"}`, bpaOn(f.bpa) === 4 ? "all four Block Public Access settings on" : `${bpaOn(f.bpa)} of the four Block Public Access settings on`];
+  // Object Lock turns versioning on with it.
+  const bits = [`versioning ${f.versioning || f.lock ? "on" : "off"}`, bpaOn(f.bpa) === 4 ? "all four Block Public Access settings on" : `${bpaOn(f.bpa)} of the four Block Public Access settings on`];
   if (f.lock) bits.push("Object Lock on");
   return `${listWords(bits)}, nothing in it yet`;
 }
@@ -33,14 +38,21 @@ export function BucketCreate() {
   const qc = useQueryClient();
   const go = useListNav();
   const existing = useResourceList("s3", "buckets");
-  const names = (existing.data?.pages.flatMap((p) => p.rows) ?? []).map((r) => r.name);
+  const rows = existing.data?.pages.flatMap((p) => p.rows) ?? [];
+  const names = rows.map((r) => r.name);
+  // The tag keys the account's buckets use (the first few), for the line under Tags.
+  const tagged = useQueries({ queries: rows.slice(0, 6).map((r) => ({ queryKey: ["resources", "tags", "s3", "buckets", r.name], queryFn: ({ signal }: { signal: AbortSignal }) => client.api<{ tags: { key: string; value: string }[] }>(tagsPath({ ...KIND, name: r.name }), {}, signal), retry: false })) });
+  const tagKeys = tagged.map((q, i) => ({ bucket: rows[i]?.name ?? "", keys: q.data?.tags.map((t) => t.key) ?? [] }));
+  const kms = useKmsKeys();
+  const firstKey = kms.keys.usable[0]?.label;
   const [name, setName] = useState("");
   const [ownership, setOwnership] = useState<Ownership>("BucketOwnerEnforced");
   const [bpa, setBpa] = useState<Bpa>(BPA_ALL);
   const [versioning, setVersioning] = useState(false);
-  const [tags, setTags] = useState<KeyValueRow[]>([]);
+  const [tags, setTags] = useState<KeyValueRow[]>(() => [newRow()]);
   const [enc, setEnc] = useState<Encryption>({ algorithm: "AES256", keyMode: "list", key: "", bucketKey: false });
   const [lock, setLock] = useState(false);
+  const [acknowledged, setAcknowledged] = useState(false);
   const [from, setFrom] = useState<string | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -120,8 +132,8 @@ export function BucketCreate() {
       }
       submitLabel="Create bucket"
       pending={busy}
-      disabled={!name}
-      disabledWhy="Give the bucket a name."
+      disabled={!name || (lock && !acknowledged)}
+      disabledWhy={!name ? "Give the bucket a name." : "Acknowledge the Object Lock warning."}
       onCancel={() => go({})}
       onSubmit={() => void submit()}
     >
@@ -153,24 +165,32 @@ export function BucketCreate() {
       </FormSection>
       <FormSection title="Bucket Versioning">
         <RadioCards name="create-versioning" value={versioning ? "on" : "off"} onChange={(v) => setVersioning(v === "on")} options={[{ value: "off", title: "Disable", description: "The default. The bucket keeps only the latest object for each key." }, { value: "on", title: "Enable", description: "Keep every version of every object, so you can recover from unintended overwrites and deletes." }]} />
-        <VersioningNote />
+        <p className="text-[13px] text-muted-foreground" data-testid="versioning-hint">{versioningHint(rows) ?? "Versioning is off by default. With it on, every new version of an object notifies the bucket's event notification rules."}</p>
       </FormSection>
-      <FormSection title="Tags" optional description="Tags on a bucket label it for cost allocation: a tag is a key-value pair you choose.">
+      <FormSection title="Tags" optional description={`Tags on a bucket label it for cost allocation: a tag is a key-value pair you choose.${tagsHint(tagKeys) ? ` ${tagsHint(tagKeys)}` : ""}`}>
         <KeyValueEditor rows={tags} onChange={setTags} rules={TAG_RULES} addLabel="Add Tag" testId="create-tags" />
       </FormSection>
       <FormSection title="Default encryption">
         <EncryptionChoice value={enc} onChange={setEnc} />
-        <LocalStatus state="stored" reason="Objects are plain files under the data directory whatever you choose, and the setting is echoed back on each object." />
+        <LocalStatus state="stored" reason={`Objects are plain files under the data directory whatever you choose, and the setting is echoed back on each object.${firstKey ? ` ${firstKey} is a symmetric key in this Region, so it would appear in the KMS key list.` : ""}`} />
       </FormSection>
-      <FormSection title="Advanced settings" collapsible defaultOpen={lock} summary={lock ? "Object Lock is on." : "Object Lock is off."}>
+      <FormSection title="Advanced settings" collapsible defaultOpen summary={lock ? "Object Lock is on." : "Object Lock is off."}>
         <RadioCards name="lock" value={lock ? "on" : "off"} onChange={(v) => setLock(v === "on")} options={[{ value: "off", title: "Disable" }, { value: "on", title: "Enable", description: "Helps protect new objects from being deleted or overwritten. You must acknowledge the warning that appears." }]} />
-        <p className="text-[13px] text-muted-foreground">Enabling Object Lock automatically enables versioning for the bucket. After the bucket is created, set the default retention and legal hold on its Properties tab. Creating a locked bucket needs s3:CreateBucket, s3:PutBucketVersioning and s3:PutBucketObjectLockConfiguration.</p>
+        {lock && (
+          <Alert tone="warn" title="Enabling Object Lock cannot be undone for this bucket." testId="lock-warning">
+            <span className="grid gap-3">
+              <span>Object Lock turns versioning on, and it stays on: S3 refuses to suspend versioning on a bucket that has Object Lock (InvalidBucketState).</span>
+              <span className="flex items-start gap-3">
+                <Checkbox id="lock-ack" checked={acknowledged} onCheckedChange={(v) => setAcknowledged(v === true)} className="mt-0.5" data-testid="lock-ack" />
+                <Label htmlFor="lock-ack" className="font-normal leading-5">I acknowledge that enabling Object Lock will permanently allow objects in this bucket to be locked.</Label>
+              </span>
+            </span>
+          </Alert>
+        )}
+        <p className="text-[13px] text-muted-foreground">Enabling Object Lock automatically enables versioning for the bucket. Once the bucket is created, its Properties tab shows Object Lock; a default retention is set with PutObjectLockConfiguration (the AWS CLI or an SDK), and a legal hold on an object with PutObjectLegalHold. Creating a locked bucket needs s3:CreateBucket, s3:PutBucketVersioning and s3:PutBucketObjectLockConfiguration.</p>
       </FormSection>
     </FormPage>
   );
 }
 
-function VersioningNote() {
-  return <p className="text-[13px] text-muted-foreground">Versioning is off by default. With it on, every new version of an object notifies the bucket&apos;s event notification rules.</p>;
-}
 

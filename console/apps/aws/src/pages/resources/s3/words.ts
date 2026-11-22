@@ -170,9 +170,29 @@ export const parentPrefix = (prefix: string): string => {
 /** The words of a permanent delete: what to type. */
 export const PERMANENT = "permanently delete";
 
-/** `STANDARD` as `Standard`, `STANDARD_IA` as `Standard-IA`, the rest as words. */
+const CLASSES: Record<string, string> = { STANDARD: "Standard", REDUCED_REDUNDANCY: "Reduced Redundancy", STANDARD_IA: "Standard-IA", ONEZONE_IA: "One Zone-IA", INTELLIGENT_TIERING: "Intelligent-Tiering", GLACIER: "Glacier Flexible Retrieval", GLACIER_IR: "Glacier Instant Retrieval", DEEP_ARCHIVE: "Glacier Deep Archive", EXPRESS_ONEZONE: "Express One Zone" };
+
+/** `STANDARD_IA` as `Standard-IA`, `GLACIER_IR` as `Glacier Instant Retrieval`: the names the AWS console gives each class; one it does not know as words. */
 export function storageWords(storage: string | undefined): string {
   const s = storage || "STANDARD";
-  if (s === "STANDARD") return "Standard";
-  return s.replace(/_IA$/, "-IA").replace(/_/g, " ").toLowerCase().replace(/^./, (c) => c.toUpperCase());
+  return CLASSES[s] ?? s.replace(/_/g, " ").toLowerCase().replace(/^./, (c) => c.toUpperCase());
+}
+
+/** What a chip of the Wired to strip says: `resize-product-image (Lambda)` for `Notifies Lambda function` and that name. */
+export function wiredChip(label: string, name: string): string {
+  const kind = /^Notifies (Lambda|SQS|SNS)\b/.exec(label)?.[1];
+  return kind ? `${name} (${kind})` : name;
+}
+
+/** The key an S3 call acted on: the call records `bucket/key` as what was acted on, and a call on the bucket itself names the bucket only. */
+export function callKey(bucket: string, resource: string | null | undefined): string | null {
+  if (!resource?.startsWith(`${bucket}/`)) return null;
+  return resource.slice(bucket.length + 1) || null;
+}
+
+/** What the first enabling of versioning means: AWS takes up to 15 minutes to reach every part of S3 (and says to wait), and for a bucket
+ * that has had versioning on or off before, that does not apply. doze-aws applies it at once. */
+export function firstEnableWords(bucket: string, current: string | undefined): string {
+  const wait = "The first time you enable versioning it can take up to 15 minutes to reach every part of S3; until then a GET for a new object may return 404 NoSuchKey, so wait before writing or deleting.";
+  return current === undefined ? `${wait} In doze-aws it applies at once, so there is nothing to wait for.` : `${wait} ${bucket} has had versioning ${current.toLowerCase()} already, so this does not apply.`;
 }

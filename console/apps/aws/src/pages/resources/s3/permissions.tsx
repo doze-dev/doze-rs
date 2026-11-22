@@ -9,6 +9,7 @@ import { Button } from "@doze/ui/components/ui/button";
 import { Card } from "../deep/parts";
 import { NONE, useSetting } from "./api";
 import { aclRows, BPA_ALL, bpaOf, bpaRows, OWNERSHIP_WORDS, ownershipOf, permissionsSentence } from "./config";
+import { readableJson, readableText } from "./json-text";
 import { NoneYet, Reading, Rows } from "./parts";
 
 /** The reads of the tab; the page above it uses them for its sentence. */
@@ -57,7 +58,7 @@ export function PermissionsTab({ name, p, go }: { name: string; p: Permissions; 
       <Card title="Bucket policy" lede="A bucket policy grants other accounts or IAM identities access to this bucket and its objects." actions={edit(go, "policy-edit")}>
         <Reading q={p.policy} what="The bucket policy" height="h-24">
           {policy ? (
-            <JsonBlock value={policy} testId="policy-json" />
+            <JsonBlock value={readableText(policy)} className="max-h-[32rem]" testId="policy-json" />
           ) : (
             <NoneYet title="No bucket policy" testId="policy-none">{name} has no bucket policy, so only identities of this account whose own policies allow it can reach it.</NoneYet>
           )}
@@ -67,8 +68,9 @@ export function PermissionsTab({ name, p, go }: { name: string; p: Permissions; 
         <Reading q={p.ownership} what="Object Ownership" height="h-16">
           <Rows rows={[["Object Ownership", own ? OWNERSHIP_WORDS[own] : "Not set (Object writer)"]]} />
         </Reading>
-        <div className="mt-5">
-          <h3 className="mb-2 text-[15px] font-semibold text-bright">Access control list (ACL)</h3>
+      </Card>
+      <Card title="Access control list (ACL)">
+        <div>
           <Reading q={p.acl} what="The ACL" height="h-16">
             <DataTable aria-label="Access control list" data={acl} rowId={(r) => `${r.grantee}|${r.permission}`} maxHeight={240} columns={[{ id: "grantee", header: "Grantee", accessorKey: "grantee", size: 360 }, { id: "permission", header: "Permission", accessorKey: "permission", meta: { mono: true } }]} />
           </Reading>
@@ -77,7 +79,7 @@ export function PermissionsTab({ name, p, go }: { name: string; p: Permissions; 
       </Card>
       <Card title="Cross-origin resource sharing (CORS)" lede="A CORS configuration is a set of rules that identify the origins you allow to access this bucket and the HTTP methods supported for each origin." actions={edit(go, "cors-edit")}>
         <Reading q={p.cors} what="CORS" height="h-24">
-          {rules.length > 0 ? <JsonBlock value={rules} testId="cors-json" /> : <NoneYet title="No CORS configuration" testId="cors-none">A browser page on another origin cannot read from {name}: a preflight request is refused.</NoneYet>}
+          {rules.length > 0 ? <JsonBlock value={readableJson(rules)} className="max-h-[32rem]" testId="cors-json" /> : <NoneYet title="No CORS configuration" testId="cors-none">A browser page on another origin cannot read from {name}: a preflight request is refused.</NoneYet>}
         </Reading>
       </Card>
     </div>

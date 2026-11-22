@@ -67,7 +67,7 @@ export function aclRows(answer: unknown): { grantee: string; permission: string 
   return list(obj(answer).Grants).map((g) => {
     const who = obj(g.Grantee);
     const uri = str(who.URI);
-    const grantee = uri?.endsWith("/AllUsers") ? "Everyone (public access)" : uri?.endsWith("/AuthenticatedUsers") ? "Authenticated users group" : uri ? uri : str(who.DisplayName) === undefined || who.ID === obj(answer).Owner ? "Bucket owner (your AWS account)" : String(who.DisplayName);
+    const grantee = uri?.endsWith("/AllUsers") ? "Everyone (public access)" : uri?.endsWith("/AuthenticatedUsers") ? "Authenticated users group" : uri ? uri : str(who.DisplayName) === undefined || who.ID === obj(obj(answer).Owner).ID ? "Bucket owner (your AWS account)" : String(who.DisplayName);
     return { grantee, permission: String(g.Permission ?? "") };
   });
 }
@@ -223,19 +223,18 @@ export function managementSentence(name: string, rules: RuleView[], versioning: 
   return versioning === "Enabled" && !rules.some((r) => r.prunesVersions) ? `${head} Nothing yet prunes old versions, so each overwrite adds a stored version.` : head;
 }
 
-export type LifecycleForm = { name: string; allObjects: boolean; prefix: string; min: string; max: string; expireDays: string; noncurrentDays: string; keepNewer: string; abortDays: string; deleteMarkers: boolean };
+export type LifecycleForm = { name: string; allObjects: boolean; prefix: string; tags: { key: string; value: string }[]; min: string; max: string; expireDays: string; noncurrentDays: string; keepNewer: string; abortDays: string; deleteMarkers: boolean };
 
 /** The rule a form makes; the actions the person ticked, the scope as a Filter (empty for the entire bucket). */
 export function lifecycleRule(f: LifecycleForm): Json {
   const prefix = f.allObjects ? "" : f.prefix;
   const min = f.min ? Number(f.min) : undefined;
   const max = f.max ? Number(f.max) : undefined;
-  const filter: Json = {};
-  if (min === undefined && max === undefined) {
-    if (prefix) filter.Prefix = prefix;
-  } else {
-    filter.And = { ...(prefix ? { Prefix: prefix } : {}), ...(min !== undefined ? { ObjectSizeGreaterThan: min } : {}), ...(max !== undefined ? { ObjectSizeLessThan: max } : {}) };
-  }
+  // S3 takes one condition as itself and two or more under `And`.
+  const tags = f.allObjects ? [] : f.tags.filter((t) => t.key).map((t) => ({ Key: t.key, Value: t.value }));
+  const bits: Json = { ...(prefix ? { Prefix: prefix } : {}), ...(min !== undefined ? { ObjectSizeGreaterThan: min } : {}), ...(max !== undefined ? { ObjectSizeLessThan: max } : {}) };
+  const conditions = Object.keys(bits).length + tags.length;
+  const filter: Json = conditions > 1 ? { And: { ...bits, ...(tags.length > 0 ? { Tags: tags } : {}) } } : tags.length === 1 ? { Tag: tags[0] } : bits;
   const rule: Json = { ID: f.name, Status: "Enabled", Filter: filter };
   if (f.expireDays || f.deleteMarkers) rule.Expiration = f.expireDays ? { Days: Number(f.expireDays) } : { ExpiredObjectDeleteMarker: true };
   if (f.noncurrentDays) rule.NoncurrentVersionExpiration = { NoncurrentDays: Number(f.noncurrentDays), ...(f.keepNewer ? { NewerNoncurrentVersions: Number(f.keepNewer) } : {}) };

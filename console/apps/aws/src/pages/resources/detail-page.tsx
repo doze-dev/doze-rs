@@ -9,6 +9,7 @@ import { RefreshControl } from "@doze/ui/components/app/refresh-control";
 import { Button } from "@doze/ui/components/ui/button";
 import { Skeleton } from "@doze/ui/components/ui/skeleton";
 import { useResourceDetail, useReveal } from "../../api/resources";
+import type { CallRecord } from "../../api/types/CallRecord";
 import type { FieldValue } from "../../api/types/FieldValue";
 import type { ResourceDetail } from "../../api/types/ResourceDetail";
 import type { ResourceRow } from "../../api/types/ResourceRow";
@@ -143,8 +144,8 @@ function Sub({ sub, service }: { sub: SubList; service: string }) {
   );
 }
 
-export function Calls({ d }: { d: ResourceDetail }) {
-  return <RecentCalls calls={d.calls} noun={d.one} className="mt-12" />;
+export function Calls({ d, pin, note }: { d: ResourceDetail; /** Calls of this console that are kept in the list (an upload's PutObject). */ pin?: readonly string[]; note?: (c: CallRecord) => string | null }) {
+  return <RecentCalls calls={d.calls} noun={d.one} className="mt-12" pin={pin} note={note} />;
 }
 
 /** One resource: what the descriptor's detail operations answered, the lists that belong to it, its recent calls in Live,

@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { aclRows, BPA_ALL, bpaOf, bpaRows, encryptionConfig, encryptionOf, lifecycleProblem, lifecycleRule, lifecycleRules, managementSentence, notificationRules, ownershipOf, permissionsSentence, propertiesSentence, websiteConfig, websiteOf, withNotification, withRule, type LifecycleForm } from "./config";
 
-const FORM: LifecycleForm = { name: "prune-old-versions", allObjects: false, prefix: "catalog/", min: "", max: "", expireDays: "", noncurrentDays: "30", keepNewer: "", abortDays: "", deleteMarkers: false };
+const FORM: LifecycleForm = { name: "prune-old-versions", allObjects: false, prefix: "catalog/", tags: [], min: "", max: "", expireDays: "", noncurrentDays: "30", keepNewer: "", abortDays: "", deleteMarkers: false };
 
 describe("S3 settings", () => {
   test("Block Public Access reads as the master switch and the four settings", () => {
@@ -19,6 +19,8 @@ describe("S3 settings", () => {
     expect(encryptionConfig("aws:kms:dsse", "k", true)).toEqual({ Rules: [{ ApplyServerSideEncryptionByDefault: { SSEAlgorithm: "aws:kms:dsse", KMSMasterKeyID: "k" } }] });
     expect(ownershipOf({ OwnershipControls: { Rules: [{ ObjectOwnership: "BucketOwnerEnforced" }] } })).toBe("BucketOwnerEnforced");
     expect(ownershipOf({})).toBeNull();
+    // doze-aws names the owner "doze" on the grant too: the grant to the bucket's owner is the owner, whatever it is called.
+    expect(aclRows({ Owner: { DisplayName: "doze", ID: "x" }, Grants: [{ Grantee: { DisplayName: "doze", ID: "x", Type: "CanonicalUser" }, Permission: "FULL_CONTROL" }] })).toEqual([{ grantee: "Bucket owner (your AWS account)", permission: "FULL_CONTROL" }]);
     expect(aclRows({ Owner: { ID: "x" }, Grants: [{ Grantee: { ID: "x", Type: "CanonicalUser" }, Permission: "FULL_CONTROL" }] })).toEqual([{ grantee: "Bucket owner (your AWS account)", permission: "FULL_CONTROL" }]);
   });
 
@@ -59,7 +61,12 @@ describe("S3 settings", () => {
 
   test("a lifecycle form makes the rule S3 takes, and the whole configuration carries the old rules", () => {
     expect(lifecycleRule(FORM)).toEqual({ ID: "prune-old-versions", Status: "Enabled", Filter: { Prefix: "catalog/" }, NoncurrentVersionExpiration: { NoncurrentDays: 30 } });
-    expect(lifecycleRule({ ...FORM, allObjects: true, min: "1024", expireDays: "90", noncurrentDays: "", keepNewer: "" })).toEqual({ ID: "prune-old-versions", Status: "Enabled", Filter: { And: { ObjectSizeGreaterThan: 1024 } }, Expiration: { Days: 90 } });
+    expect(lifecycleRule({ ...FORM, allObjects: true, min: "1024", expireDays: "90", noncurrentDays: "", keepNewer: "" })).toEqual({ ID: "prune-old-versions", Status: "Enabled", Filter: { ObjectSizeGreaterThan: 1024 }, Expiration: { Days: 90 } });
+    // One condition is itself, two or more are under And: a tag alone is a Tag, tags and a prefix are And with Tags.
+    expect(lifecycleRule({ ...FORM, prefix: "", tags: [{ key: "env", value: "dev" }] }).Filter).toEqual({ Tag: { Key: "env", Value: "dev" } });
+    expect(lifecycleRule({ ...FORM, tags: [{ key: "env", value: "dev" }, { key: "app", value: "larder" }] }).Filter).toEqual({ And: { Prefix: "catalog/", Tags: [{ Key: "env", Value: "dev" }, { Key: "app", Value: "larder" }] } });
+    expect(lifecycleRule({ ...FORM, min: "10", max: "99" }).Filter).toEqual({ And: { Prefix: "catalog/", ObjectSizeGreaterThan: 10, ObjectSizeLessThan: 99 } });
+    expect(lifecycleRule({ ...FORM, prefix: "", allObjects: true, tags: [{ key: "env", value: "dev" }] }).Filter).toEqual({});
     expect(lifecycleRule({ ...FORM, noncurrentDays: "30", keepNewer: "2" }).NoncurrentVersionExpiration).toEqual({ NoncurrentDays: 30, NewerNoncurrentVersions: 2 });
     const first = { ID: "a", Status: "Enabled", Filter: {}, Expiration: { Days: 1 } };
     expect(withRule({ Rules: [first] }, lifecycleRule(FORM))).toEqual({ Rules: [first, lifecycleRule(FORM)] });

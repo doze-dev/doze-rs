@@ -1,10 +1,11 @@
 //! S3: buckets, and a bucket's objects (the first page) on its page.
 
+use super::Format::Tail;
 use super::Format::{Json, Mono, Text as Plain, Time};
 use super::s3_ops::{BUCKET, PAGES};
 use super::{
     Batch, Blocker, Clear, Column, Create, Delete, Descriptor, Id, Input, InputKind, Kind, List,
-    Shape, Step, Sub, Tags, Text, Write, col, field, input, op, ops, or, says,
+    Shape, Step, Sub, Tags, Text, Write, col, col_or, field, input, op, ops, or, says,
 };
 
 /// What a bucket holds, listed as versions (a bucket with no versioning lists its objects as versions `null`).
@@ -97,10 +98,28 @@ pub(super) static S3: Descriptor = Descriptor {
             split: None,
         },
         elsewhere: "",
-        each: &[],
+        // What the line under the list says of the buckets that are versioned or notify something.
+        each: &[
+            Step::new("GetBucketVersioning", BUCKET).optional(),
+            Step::new("GetBucketNotificationConfiguration", BUCKET).optional(),
+        ],
         columns: &[
             col("Region", "BucketRegion", Mono),
             col("Created", "CreationDate", Time),
+            col_or("Versioning", "Status", Plain, "Disabled"),
+            col(
+                "Notifies Lambda function",
+                "LambdaFunctionConfigurations.0.LambdaFunctionArn",
+                Tail,
+            ),
+            col("Notifies SQS queue", "QueueConfigurations.0.QueueArn", Tail),
+            col("Notifies SNS topic", "TopicConfigurations.0.TopicArn", Tail),
+            // The first rule's first event (`s3:ObjectCreated:*`).
+            col(
+                "Notifies on",
+                "LambdaFunctionConfigurations.0.Events.0|QueueConfigurations.0.Events.0|TopicConfigurations.0.Events.0",
+                Plain,
+            ),
         ],
         id_of: Id::Name,
         detail: &[

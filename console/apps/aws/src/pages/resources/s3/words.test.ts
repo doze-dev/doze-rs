@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { baseName, copySource, longDate, nameProblems, nameRefusal, parentPrefix, regionWords, shortDate, size, suggestName, uploadKey, versioningOf, whenMs } from "./words";
+import { baseName, copySource, longDate, nameProblems, nameRefusal, parentPrefix, regionWords, shortDate, size, suggestName, uploadKey, versioningOf, whenMs, wiredChip, callKey, storageWords, firstEnableWords } from "./words";
 
 describe("S3 words", () => {
   test("a Region and a time are written as the AWS console writes them", () => {
@@ -47,4 +47,29 @@ describe("S3 words", () => {
     expect(parentPrefix("a/b/")).toBe("a/");
     expect(parentPrefix("a/")).toBe("");
   });
+});
+
+test("a Wired to chip names the destination with its kind in brackets", () => {
+  expect(wiredChip("Notifies Lambda function", "resize-product-image")).toBe("resize-product-image (Lambda)");
+  expect(wiredChip("Notifies SQS queue", "image-events")).toBe("image-events (SQS)");
+  expect(wiredChip("Notifies SNS topic", "t")).toBe("t (SNS)");
+  expect(wiredChip("Something else", "x")).toBe("x");
+});
+
+test("the key a recorded call acted on is the rest of its resource after the bucket", () => {
+  expect(callKey("b", "b/sku-1.jpg")).toBe("sku-1.jpg");
+  expect(callKey("b", "b/a/b.jpg")).toBe("a/b.jpg");
+  expect(callKey("b", "b")).toBeNull();
+  expect(callKey("b", "bb/x")).toBeNull();
+  expect(callKey("b", null)).toBeNull();
+});
+
+test("a storage class is named as the AWS console names it", () => {
+  expect([undefined, "STANDARD_IA", "ONEZONE_IA", "INTELLIGENT_TIERING", "GLACIER_IR", "GLACIER", "DEEP_ARCHIVE"].map(storageWords)).toEqual(["Standard", "Standard-IA", "One Zone-IA", "Intelligent-Tiering", "Glacier Instant Retrieval", "Glacier Flexible Retrieval", "Glacier Deep Archive"]);
+  expect(storageWords("SOMETHING_NEW")).toBe("Something new");
+});
+
+test("the first enabling of versioning is explained, and said not to apply to a bucket that had it already", () => {
+  expect(firstEnableWords("b", undefined)).toContain("up to 15 minutes to reach every part of S3; until then a GET for a new object may return 404 NoSuchKey, so wait before writing or deleting. In doze-aws it applies at once");
+  expect(firstEnableWords("product-images", "Enabled")).toContain("product-images has had versioning enabled already, so this does not apply.");
 });

@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { chosenRows, crumbsOf, folderWrong, oneObject, rowId, rowsOf, selFromText, selToText, versionRowsOf } from "./listing";
+import { chosenRows, crumbsOf, folderWrong, hiddenKeys, hiddenNote, oneObject, type Row, rowId, rowsOf, selFromText, selToText, versionRowsOf } from "./listing";
 
 describe("S3 listings", () => {
   test("a listing is its folders, then its objects, without the folder's own marker", () => {
@@ -52,5 +52,18 @@ describe("S3 listings", () => {
     expect(selFromText("not json")).toEqual([]);
     const versions = versionRowsOf({ Versions: [{ Key: "k", VersionId: "v1" }] }, "");
     expect(selFromText(selToText(versions))).toEqual([{ key: "k", versionId: "v1" }]);
+  });
+});
+
+describe("keys a delete marker hides", () => {
+  const ver = (key: string, latest: boolean, marker = false): Row => ({ key, folder: false, versionId: `${key}-${latest}`, latest, marker });
+  test("the newest row a marker and an older version below it", () => {
+    const rows = [ver("a.jpg", true, true), ver("a.jpg", false), ver("b.jpg", true), ver("c.jpg", true, true)];
+    expect(hiddenKeys(rows)).toEqual(["a.jpg"]);
+    expect(hiddenNote(["a.jpg"])).toContain("a.jpg looks deleted but is not. Its current version is a delete marker");
+    expect(hiddenNote([])).toBeNull();
+  });
+  test("two keys are counted", () => {
+    expect(hiddenNote(["a", "b"])).toContain("a and 1 more look deleted but are not");
   });
 });
