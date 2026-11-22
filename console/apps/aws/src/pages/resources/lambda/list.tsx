@@ -95,7 +95,7 @@ function FunctionsList({ service, kind, q, gone, sel }: { service: string; kind:
             <form className="flex items-center gap-3" role="search" onSubmit={(e) => { e.preventDefault(); go(typed.trim() ? { q: typed.trim() } : {}); }}>
               <div className="relative w-full min-w-[16rem] max-w-[22rem]">
                 <SearchIcon aria-hidden className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
-                <Input value={typed} onChange={(e) => setTyped(e.target.value)} placeholder="Search functions by name" aria-label="Search functions by name" className="bg-card pl-9 font-mono text-[13px]" data-testid="list-search" />
+                <Input value={typed} onChange={(e) => setTyped(e.target.value)} placeholder="Search functions" aria-label="Search functions by name" className="bg-card pl-9 font-mono text-[13px]" data-testid="list-search" />
               </div>
               <Button type="submit" variant="outline" className="bg-card" data-testid="list-search-go">Search</Button>
               {q && <Button type="button" variant="ghost" onClick={() => { setTyped(""); go({}); }} data-testid="search-clear">Clear search</Button>}

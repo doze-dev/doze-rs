@@ -231,6 +231,29 @@ async fn a_trigger_is_changed_only_by_the_function_it_belongs_to() {
     );
     let (_, d) = w.get(&format!("{FN}/echo")).await;
     assert_eq!(firsts(sub(&d, "Event source mappings")), ["inbox"]);
+    // A trigger is taken away by its own function only.
+    let (s, refused) = op(
+        &w,
+        "other",
+        "DeleteEventSourceMapping",
+        &json!({"UUID": uuid}),
+    )
+    .await;
+    assert_eq!(
+        (s, refused["code"].clone()),
+        (400, json!("NOT_THIS_RESOURCE")),
+        "{refused}"
+    );
+    let (s, gone) = op(
+        &w,
+        "echo",
+        "DeleteEventSourceMapping",
+        &json!({"UUID": uuid}),
+    )
+    .await;
+    assert_eq!(s, 200, "{gone}");
+    let (_, d) = w.get(&format!("{FN}/echo")).await;
+    assert!(firsts(sub(&d, "Event source mappings")).is_empty());
 }
 
 #[tokio::test]

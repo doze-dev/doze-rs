@@ -1,6 +1,7 @@
 // What a resource's page says when its read failed, for every kind of every service: a name that is not there gets one page (a
 // title, the breadcrumb, a way back to the list, the service's own words and code), anything else the error block with Try again.
 import { Link } from "@tanstack/react-router";
+import { useEffect } from "react";
 import { SearchXIcon } from "lucide-react";
 import { ErrorBlock, errorWords } from "@doze/ui/components/app/alert";
 import { EmptyState } from "@doze/ui/components/app/empty-state";
@@ -8,6 +9,7 @@ import { PageHeader } from "@doze/ui/components/app/page-header";
 import { Button } from "@doze/ui/components/ui/button";
 import { ApiFailure } from "@doze/ui/lib/api";
 import { useCatalogue } from "../api/resources";
+import { forget } from "../shell/pins";
 
 /** Said when the console could not reach doze-aws, or it failed: the service did not answer, so "is it running" is the advice. */
 export const HINT = "Check that doze-aws is still running, then try again. Nothing was changed.";
@@ -28,6 +30,11 @@ export function DetailError({ service, kind, name, what, error, onRetry, retryin
   const s = catalogue?.services.find((x) => x.name === service);
   const k = s?.kinds.find((x) => x.id === kind);
   const one = noun ?? k?.one ?? kind.replace(/s$/, "");
+  const missing = isMissing(error);
+  // A name that is not there is not somewhere to go back to: the rail's Recent does not keep it.
+  useEffect(() => {
+    if (missing) forget({ service, kind, name });
+  }, [missing, service, kind, name]);
   if (!isMissing(error)) return <ErrorBlock what={what ?? `This ${one} could not be read`} error={error} hint={HINT} onRetry={onRetry} retrying={retrying} testId={testId} />;
   const { message, code } = errorWords(error);
   const list = `/resources/${service}/${kind}`;

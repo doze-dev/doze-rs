@@ -21,13 +21,13 @@ import { Skeleton } from "@doze/ui/components/ui/skeleton";
 import { bytes as sizeOf } from "@doze/ui/lib/format";
 import { useResourceDetail, useResourceList } from "../../../api/resources";
 import type { ResourceList } from "../../../api/types/ResourceList";
-import { DetailError, HINT, callKindOp, Field, FieldRefusal, FormPage, FormSection, useKindOp } from "../../../kit";
+import { DetailError, DetailFields, HINT, callKindOp, Field, FieldRefusal, FormPage, FormSection, useKindOp } from "../../../kit";
 import { callOp, useOp } from "../deep/api";
 import { Card, Confirm, Loaded } from "../deep/parts";
 import { ResourceTo, Value } from "../value";
 import { type LayerForm, layerInput, layerProblems } from "./forms";
 import { LAYERS, refusalOf, useLayers, type LayerRow } from "./hooks";
-import { layersSentence, rowsOf } from "./list-model";
+import { layersSentence, rowsOf, usedBy } from "./list-model";
 import { RUNTIMES } from "./model";
 import { toBase64 } from "./zip";
 
@@ -176,6 +176,8 @@ export function LayerDetail({ service, kind, name }: { service: string; kind: st
   const search = useSearch({ strict: false }) as { done?: string };
   const detail = useResourceDetail(service, kind, name);
   const versions = detail.data?.subs.find((s) => s.title === "Versions");
+  const functions = useResourceList("lambda", "functions");
+  const users = usedBy(name, rowsOf(functions.data?.pages.flatMap((p) => p.rows) ?? []));
   const [gone, setGone] = useState<number | null>(null);
   const remove = useOp(LAYER_TARGET(name), "DeleteLayerVersion");
   const done = search.done?.startsWith("published-") ? Number(search.done.slice(10)) : null;
@@ -194,6 +196,12 @@ export function LayerDetail({ service, kind, name }: { service: string; kind: st
     <>
       <PageHeader title={name} mono crumbs={[...crumbs, { label: "Layers", to: "/resources/lambda/layers" }]} sub={detail.data.fields.find((f) => f.label === "Description")?.value ?? undefined} actions={<Button variant="outline" className="bg-card" onClick={() => void navigate({ to: "/resources/$service/$second", params: { service, second: "layers" }, search: { create: "yes" } })}><PlusIcon /> Publish new version</Button>} />
       {done && <ResultBanner className="mb-6" title={`${name} version ${done} was published.`} returned="PublishLayerVersion made a version that never changes." onDismiss={() => void navigate({ to: "/resources/$service/$kind/$name", params: { service, kind, name }, search: {} })} testId="published-banner" />}
+      <div className="mb-6">
+        <DetailFields detail={detail.data} />
+        <p className="mt-3 text-[13.5px] text-muted-foreground" data-testid="layer-used-by">
+          {functions.isPending ? "Reading the functions…" : users.length === 0 ? "No function uses this layer yet." : <>Used by {users.map((u, i) => <span key={u}>{i > 0 ? (i === users.length - 1 ? " and " : ", ") : ""}<ResourceTo to={{ service: "lambda", kind: "functions", name: u }} className="font-mono text-[13px] font-medium">{u}</ResourceTo></span>)}.</>}
+        </p>
+      </div>
       <Card title="Versions" lede="Layer versions never change; a function uses one by its ARN." testId="layer-versions">
         <Loaded q={{ data: versions, error: null, isFetching: false, refetch: () => undefined }} what="The versions">{() => <DataTable aria-label="Layer versions" data={rows} columns={columns} rowId={(r) => r.cells[0] ?? r.name} maxHeight={420} />}</Loaded>
       </Card>

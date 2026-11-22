@@ -159,6 +159,8 @@ test("a function that is not there: the same page as every kind", async ({ page,
   await expect(err).toContainText("ResourceNotFoundException");
   await expect(err).not.toContainText("Check that doze-aws is still running");
   await expect(err.getByRole("link", { name: "Back to event functions" })).toBeVisible();
+  // The name that is not there is not left in the rail's Recent.
+  await expect(page.getByTestId("rail-recent").getByText("no-such-function")).toHaveCount(0);
 });
 
 test("lambda__function-test and lambda__test-result-ok: an event shaped like its trigger, and what ran", async ({ page }) => {
@@ -384,6 +386,14 @@ test("lambda__trigger-add: an SQS mapping, with the visibility timeout it needs"
   await page.getByTestId("form-submit").click();
   await expect(page.getByTestId("done-banner")).toContainText("Trigger added.");
   await expect(page.getByRole("table", { name: "Triggers" })).toContainText("analytics-queue");
+  // The trigger is taken away from its own page: Delete needs a row, and the call is DeleteEventSourceMapping.
+  await expect(page.getByTestId("trigger-delete")).toBeDisabled();
+  await page.getByRole("table", { name: "Triggers" }).locator("tr[data-row]").click();
+  await page.getByTestId("trigger-delete").click();
+  await expect(page.getByTestId("trigger-delete-dialog")).toContainText("Delete the trigger");
+  await page.getByTestId("trigger-delete-dialog-submit").click();
+  await expect(page.getByTestId("triggers-none")).toContainText("Nothing invokes dispatch-hook automatically.");
+  expect(cli(["lambda", "list-event-source-mappings", "--function-name", "dispatch-hook", "--query", "EventSourceMappings[].UUID", "--output", "text"]).trim()).toBe("");
   // A mapping the queue refuses: a function that outlasts its visibility timeout.
   cli(["lambda", "update-function-configuration", "--function-name", "dispatch-hook", "--timeout", "100"]);
   await go(page, fn("dispatch-hook", "?tab=configuration&p=triggers&view=trigger-add"), "Add trigger");
@@ -428,7 +438,7 @@ test("lambda__function-permissions, lambda__permission-add and lambda__permissio
   await expect(row).toContainText("lambda:InvokeFunction");
   await expect(row).toContainText("ArnLike aws:SourceArn arn:aws:sns:us-east-1");
   // The condition is the whole ARN, wrapped: nothing in the cell is cut with an ellipsis.
-  const condition = row.locator("td").last();
+  const condition = row.locator("td").nth(4);
   await expect(condition).toContainText(`arn:aws:sns:us-east-1:${server.account}:alerts`);
   expect(await condition.evaluate((el) => el.scrollWidth <= el.clientWidth && getComputedStyle(el).textOverflow !== "ellipsis")).toBe(true);
   await expect(page.getByTestId("policy-teach")).toContainText("aws:PrincipalOrgID");
@@ -451,6 +461,12 @@ test("lambda__function-permissions, lambda__permission-add and lambda__permissio
   await page.getByTestId("form-submit").click();
   await expect(page.getByTestId("done-banner")).toContainText("Permission added.");
   await expect(page.getByRole("table", { name: "Resource-based policy statements" })).toContainText("s3-receipts");
+  // The statement just added is taken away again from the same table.
+  await page.getByRole("button", { name: "Delete statement s3-receipts" }).click();
+  await expect(page.getByTestId("permission-delete-dialog")).toContainText("Delete the statement s3-receipts");
+  await page.getByTestId("permission-delete-dialog-submit").click();
+  await expect(page.getByRole("table", { name: "Resource-based policy statements" })).not.toContainText("s3-receipts");
+  await expect(page.getByRole("table", { name: "Resource-based policy statements" })).toContainText("sns-alerts");
   await go(page, fn("dispatch-hook", "?tab=configuration&p=permissions"), "dispatch-hook");
   await expect(page.getByTestId("policy-none")).toContainText("No other service or account has been given permission to invoke dispatch-hook.");
   await expect(page.getByTestId("policy-none").getByRole("button", { name: "Add permissions" })).toBeVisible();
@@ -494,6 +510,11 @@ test("lambda__function-url, lambda__url-create and lambda__function-url-created:
   const also = (await card.getByText(`${server.endpoint}/_aws/lambda-url/us-east-1/`).first().textContent()) ?? "";
   const res = await fetch(also.trim());
   expect(res.status).toBe(403);
+  // The URL is taken away from the card, and the card says there is none.
+  await page.getByTestId("url-delete").click();
+  await expect(page.getByTestId("url-delete-dialog")).toContainText("stops answering");
+  await page.getByTestId("url-delete-dialog-submit").click();
+  await expect(page.getByTestId("url-none")).toContainText("has no URL.");
 });
 
 test("lambda__function-aliases, lambda__alias-create and lambda__aliases-none: the aliases, the form, and a function with none", async ({ page }) => {
@@ -523,6 +544,14 @@ test("lambda__function-aliases, lambda__alias-create and lambda__aliases-none: t
   await shot(page, "lambda__alias-create");
   await page.getByTestId("form-submit").click();
   await expect(page.getByTestId("done-banner")).toContainText("Alias created.");
+  await expect(page.getByRole("table", { name: "Aliases" }).locator("tbody tr[data-row]")).toHaveCount(3);
+  // An alias is taken away from its row (one made for the purpose, so the three the later boards name stay).
+  cli(["lambda", "create-alias", "--function-name", "send-email", "--name", "scratch", "--function-version", "2"]);
+  await go(page, fn("send-email", "?tab=aliases"), "send-email");
+  await expect(page.getByRole("table", { name: "Aliases" }).locator("tbody tr[data-row]")).toHaveCount(4);
+  await page.getByRole("button", { name: "Delete alias scratch" }).click();
+  await expect(page.getByTestId("alias-delete-dialog")).toContainText("Delete the alias scratch");
+  await page.getByTestId("alias-delete-dialog-submit").click();
   await expect(page.getByRole("table", { name: "Aliases" }).locator("tbody tr[data-row]")).toHaveCount(3);
   await go(page, fn("dispatch-hook", "?tab=aliases"), "dispatch-hook");
   await expect(page.getByTestId("aliases-none")).toContainText("dispatch-hook has no aliases. An alias is a pointer to a version that you can move without changing callers.");
@@ -559,6 +588,8 @@ test("lambda__function-versions and lambda__version-publish: the versions, and t
   // Nothing changed since: Lambda would answer with version 4, and the dialog says so.
   await page.getByTestId("version-publish").click();
   await expect(page.getByTestId("publish-dialog")).toContainText("Nothing changed since version 4");
+  // It does not also promise a version 5 that the call will not make.
+  await expect(page.getByTestId("publish-words")).not.toContainText("creates version");
   await page.keyboard.press("Escape");
 });
 

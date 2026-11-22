@@ -6,6 +6,7 @@ import { useMemo, useState } from "react";
 import { Callout } from "@doze/ui/components/app/callout";
 import { Button } from "@doze/ui/components/ui/button";
 import { Skeleton } from "@doze/ui/components/ui/skeleton";
+import { useResourceList } from "../../../api/resources";
 import type { ResourceDetail } from "../../../api/types/ResourceDetail";
 import { type MetricQuery, useMetricData } from "../../../kit";
 import { Card } from "../deep/parts";
@@ -54,6 +55,9 @@ export function MonitorTab({ d }: { d: ResourceDetail }) {
   const dur = mean(by("dur"));
   const hour = lastHour(by("inv"), now);
   const group = `/aws/lambda/${d.name}`;
+  // The log group is made by the first invocation: until it is there the button has nowhere to go.
+  const groups = useResourceList("logs", "groups");
+  const logsMade = !groups.isSuccess || groups.hasNextPage || groups.data.pages.some((pg) => pg.rows.some((r) => r.name === group));
   const n = (v: number | null) => (v === null ? "0" : String(Math.round(v)));
   return (
     <div className="grid gap-6" data-testid="monitor-tab">
@@ -75,7 +79,7 @@ export function MonitorTab({ d }: { d: ResourceDetail }) {
           <span className="text-muted-foreground">Other Lambda metrics, such as DestinationDeliveryFailures, are not published. Throttles has data only once a call has been throttled.</span>
         </p>
       </div>
-      <Card title="Logs" lede="Each execution environment writes its own log stream." actions={<Button asChild variant="outline" className="bg-card"><Link to="/resources/$service/$kind/$name" params={{ service: "logs", kind: "groups", name: group }} data-testid="view-logs"><ScrollTextIcon /> View CloudWatch logs</Link></Button>} testId="logs-card">
+      <Card title="Logs" lede="Each execution environment writes its own log stream." actions={logsMade ? <Button asChild variant="outline" className="bg-card"><Link to="/resources/$service/$kind/$name" params={{ service: "logs", kind: "groups", name: group }} data-testid="view-logs"><ScrollTextIcon /> View CloudWatch logs</Link></Button> : <Button variant="outline" className="bg-card" disabled data-testid="view-logs"><ScrollTextIcon /> View CloudWatch logs</Button>} testId="logs-card">
         <dl className="grid grid-cols-[minmax(7rem,12rem)_minmax(0,1fr)] [&>div:last-child>*]:border-b-0">
           {[["Log group", group, true], ["Log streams", "Named YYYY/MM/DD[Function version][Execution environment GUID]", false], ["Lines per invocation", "START, END and REPORT, plus anything the code prints", false]].map(([k, v, mono]) => (
             <div key={String(k)} className="contents">
@@ -84,7 +88,7 @@ export function MonitorTab({ d }: { d: ResourceDetail }) {
             </div>
           ))}
         </dl>
-        <Callout tone="note" className="mt-5" testId="logs-note">Metrics and logs are kept by CloudWatch, so this tab changes nothing in Lambda. View CloudWatch logs opens the log group on its own page.</Callout>
+        <Callout tone="note" className="mt-5" testId="logs-note">Metrics and logs are kept by CloudWatch, so this tab changes nothing in Lambda. View CloudWatch logs opens the log group on its own page{logsMade ? "" : "; it is made by the function's first invocation, so it is off until then"}.</Callout>
       </Card>
     </div>
   );
