@@ -7,7 +7,10 @@ import { FormSection, PolicyEditor, TAG_RULES, changeWords, diffTags, noChange, 
 import type { OwnProps } from "../deep/registry";
 import { NONE, bucketOf, useSetting } from "./api";
 import { Loaded, SettingForm } from "./edit";
+import { useAbout } from "../../../api/queries";
 import { Mono } from "./parts";
+import { policyExamples } from "./policy-examples";
+import { PolicyExamples } from "./policy-examples-dialog";
 import { bucketArn } from "./words";
 
 const CORS_START = `[\n  {\n    "AllowedMethods": ["GET", "HEAD"],\n    "AllowedOrigins": ["http://localhost:3000"],\n    "AllowedHeaders": ["*"],\n    "MaxAgeSeconds": 3000\n  }\n]`;
@@ -40,11 +43,15 @@ export function PolicyEdit({ name }: OwnProps) {
 }
 function PolicyForm({ name, start }: { name: string; start: string }) {
   const [text, setText] = useState(start);
+  const account = useAbout().data?.account ?? "";
   const parsed = checkJson(text, "invalid");
   return (
     <SettingForm name={name} tab="permissions" title="Edit bucket policy" sub={`Grant other identities access to ${name} and its objects.`} operation="PutBucketPolicy" input={parsed.ok ? { Policy: JSON.stringify(parsed.value) } : null} saved="Bucket policy saved." disabled={!parsed.ok} disabledWhy="The policy must be valid JSON." note="The policy travels as one JSON string.">
       <FormSection title="Policy">
-        <p className="text-[13px] text-muted-foreground">Bucket ARN <Mono>{bucketArn(name)}</Mono></p>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <p className="text-[13px] text-muted-foreground">Bucket ARN <Mono>{bucketArn(name)}</Mono></p>
+          <PolicyExamples examples={policyExamples(name, account)} onUse={setText} />
+        </div>
         <PolicyEditor value={text} onChange={setText} kind="resource" maxSize={20 * 1024} label="Policy" rows={16} help="A bucket policy can be at most 20 KB. A statement that allows a public principal is rejected while Block public policy is on for this bucket." />
       </FormSection>
     </SettingForm>

@@ -4,11 +4,11 @@ import { useState } from "react";
 import { Input } from "@doze/ui/components/ui/input";
 import { Field, FormSection, LocalStatus } from "../../../kit";
 import type { OwnProps } from "../deep/registry";
-import { NONE, useBucket, useSetting } from "./api";
+import { NONE, useSetting } from "./api";
 import { BpaChoice, type Encryption, EncryptionChoice, OwnershipChoice, RadioCards, VersioningChoice } from "./controls";
 import { Loaded, SettingForm } from "./edit";
 import { BPA_ALL, bpaOf, encryptionConfig, encryptionOf, ownershipOf, type Ownership, websiteConfig, websiteOf, SSE_SHORT } from "./config";
-import { longDate } from "./words";
+import { firstEnableWords } from "./words";
 
 export function VersioningEdit({ name }: OwnProps) {
   const q = useSetting<{ Status?: string }>(name!, "GetBucketVersioning", []);
@@ -19,14 +19,12 @@ export function VersioningEdit({ name }: OwnProps) {
   );
 }
 function VersioningForm({ name, current }: { name: string; current?: string }) {
-  const bucket = useBucket(name);
   const [status, setStatus] = useState<"Enabled" | "Suspended">(current === "Suspended" ? "Suspended" : "Enabled");
-  const never = current === undefined;
   return (
     <SettingForm name={name} tab="properties" title="Edit Bucket Versioning" sub={`Versioning keeps every version of every object in ${name}.`} operation="PutBucketVersioning" input={{ VersioningConfiguration: { Status: status } }} saved={`Bucket Versioning is now ${status.toLowerCase()}.`} disabled={status === current} disabledWhy={`Versioning is already ${current?.toLowerCase()}.`}>
       <FormSection title="Bucket Versioning">
         <VersioningChoice value={status} onChange={setStatus} current={current ?? "Disabled"} />
-        <p className="text-[13px] text-muted-foreground">{never ? "The first time you enable versioning it can take up to 15 minutes to reach every part of S3 on AWS; until then a GET for a new object may return 404 NoSuchKey. Here it applies at once." : `${name} turned versioning on on ${longDate(bucket.created).split(",").slice(0, 2).join(",")}, so the 15-minute wait does not apply.`}</p>
+        <p className="text-[13px] text-muted-foreground" data-testid="versioning-delay">{firstEnableWords(name, current)}</p>
       </FormSection>
     </SettingForm>
   );

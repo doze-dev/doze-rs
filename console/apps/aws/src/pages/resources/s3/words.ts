@@ -189,3 +189,10 @@ export function callKey(bucket: string, resource: string | null | undefined): st
   if (!resource?.startsWith(`${bucket}/`)) return null;
   return resource.slice(bucket.length + 1) || null;
 }
+
+/** What the first enabling of versioning means: AWS takes up to 15 minutes to reach every part of S3 (and says to wait), and for a bucket
+ * that has had versioning on or off before, that does not apply. doze-aws applies it at once. */
+export function firstEnableWords(bucket: string, current: string | undefined): string {
+  const wait = "The first time you enable versioning it can take up to 15 minutes to reach every part of S3; until then a GET for a new object may return 404 NoSuchKey, so wait before writing or deleting.";
+  return current === undefined ? `${wait} In doze-aws it applies at once, so there is nothing to wait for.` : `${wait} ${bucket} has had versioning ${current.toLowerCase()} already, so this does not apply.`;
+}

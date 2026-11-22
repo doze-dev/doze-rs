@@ -241,6 +241,7 @@ test("the edit pages: versioning, ownership, Block Public Access, encryption, we
     await shot(page, board, browserName);
   };
   await edit("versioning-edit", "s3__versioning-edit");
+  await expect(page.getByTestId("versioning-delay")).toContainText("up to 15 minutes to reach every part of S3; until then a GET for a new object may return 404 NoSuchKey, so wait before writing or deleting.");
   await page.getByTestId("versioning-Suspended").click();
   await expect(page.getByTestId("call-panel-code")).toContainText("PutBucketVersioning");
   await page.getByTestId("versioning-Enabled").click();
@@ -288,8 +289,16 @@ test("the edit pages: versioning, ownership, Block Public Access, encryption, we
   await expect(page.getByTestId("cors-json")).toContainText("localhost:3000");
 
   await edit("policy-edit", "s3__policy-edit");
+  // Policy examples: one is put in the editor, for this bucket, and nothing is saved by choosing it.
+  await page.getByTestId("policy-examples-open").click();
+  await expect(page.getByTestId("policy-examples")).toContainText("Let a role read objects");
+  await page.getByTestId("use-tls-only").click();
+  await expect(page.getByTestId("call-panel-code")).toContainText("DenyInsecureTransport");
+  await expect(page.getByTestId("call-panel-code")).toContainText(n.thumb);
+  await page.getByTestId("policy-examples-open").click();
+  await page.getByTestId("use-role-read").click();
   await page.getByTestId("form-submit").click();
-  await expect(page.getByTestId("policy-json")).toContainText("ReadObjects");
+  await expect(page.getByTestId("policy-json")).toContainText("RoleReadsObjects");
 
   await edit("tags-edit", "s3__tags-edit");
   await page.getByTestId("tags-kv-add").click();

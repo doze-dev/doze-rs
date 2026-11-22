@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { baseName, copySource, longDate, nameProblems, nameRefusal, parentPrefix, regionWords, shortDate, size, suggestName, uploadKey, versioningOf, whenMs, wiredChip, callKey, storageWords } from "./words";
+import { baseName, copySource, longDate, nameProblems, nameRefusal, parentPrefix, regionWords, shortDate, size, suggestName, uploadKey, versioningOf, whenMs, wiredChip, callKey, storageWords, firstEnableWords } from "./words";
 
 describe("S3 words", () => {
   test("a Region and a time are written as the AWS console writes them", () => {
@@ -67,4 +67,9 @@ test("the key a recorded call acted on is the rest of its resource after the buc
 test("a storage class is named as the AWS console names it", () => {
   expect([undefined, "STANDARD_IA", "ONEZONE_IA", "INTELLIGENT_TIERING", "GLACIER_IR", "GLACIER", "DEEP_ARCHIVE"].map(storageWords)).toEqual(["Standard", "Standard-IA", "One Zone-IA", "Intelligent-Tiering", "Glacier Instant Retrieval", "Glacier Flexible Retrieval", "Glacier Deep Archive"]);
   expect(storageWords("SOMETHING_NEW")).toBe("Something new");
+});
+
+test("the first enabling of versioning is explained, and said not to apply to a bucket that had it already", () => {
+  expect(firstEnableWords("b", undefined)).toContain("up to 15 minutes to reach every part of S3; until then a GET for a new object may return 404 NoSuchKey, so wait before writing or deleting. In doze-aws it applies at once");
+  expect(firstEnableWords("product-images", "Enabled")).toContain("product-images has had versioning enabled already, so this does not apply.");
 });
