@@ -5,7 +5,10 @@ import { Input } from "@doze/ui/components/ui/input";
 import { Label } from "@doze/ui/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@doze/ui/components/ui/radio-group";
 import { cn } from "@doze/ui/lib/utils";
-import { Field, KeyPicker } from "../../../kit";
+import { Combobox } from "@doze/ui/components/app/combobox";
+import { Field } from "../../../kit";
+import { useKmsKeys } from "./kms-hook";
+import { kmsHint } from "./kms-keys";
 import { BPA_ALL, BPA_KEYS, type Bpa, bpaOn, isSse, type Ownership, OWNERSHIP_WORDS, type Sse, SSE_WORDS } from "./config";
 
 /** A choice among cards: each has a title and a sentence under it. */
@@ -93,6 +96,7 @@ export type Encryption = { algorithm: Sse; keyMode: "list" | "arn"; key: string;
 /** Default encryption: the type, and for KMS the key (from the keys in this Region, or an ARN typed) and the Bucket Key. */
 export function EncryptionChoice({ value, onChange }: { value: Encryption; onChange: (e: Encryption) => void }) {
   const set = (patch: Partial<Encryption>) => onChange({ ...value, ...patch });
+  const kms = useKmsKeys();
   return (
     <div className="grid gap-5">
       <RadioCards
@@ -113,8 +117,8 @@ export function EncryptionChoice({ value, onChange }: { value: Encryption; onCha
               ))}
             </RadioGroup>
           </div>
-          <Field label="KMS key">
-            {(id) => (value.keyMode === "list" ? <KeyPicker id={id} value={value.key || null} onChange={(k) => set({ key: k ?? "" })} /> : <Input id={id} value={value.key} onChange={(e) => set({ key: e.target.value })} placeholder="arn:aws:kms:us-east-1:111122223333:key/…" className="font-mono" spellCheck={false} data-testid="kms-arn-input" />)}
+          <Field label="KMS key" hint={value.keyMode === "list" && !kms.pending && !kms.failed ? kmsHint(kms.keys) : undefined}>
+            {(id) => (value.keyMode === "list" ? <Combobox id={id} options={kms.keys.usable} value={value.key || null} onChange={(k) => set({ key: k ?? "" })} placeholder={kms.failed ? "The keys could not be read" : kms.pending ? "Reading keys…" : kms.keys.usable.length === 0 ? "There is no key S3 can use yet" : "Choose a key"} search="Search keys…" empty="No key matches." aria-label="Choose a KMS key" className="w-full" /> : <Input id={id} value={value.key} onChange={(e) => set({ key: e.target.value })} placeholder="arn:aws:kms:us-east-1:111122223333:key/…" className="font-mono" spellCheck={false} data-testid="kms-arn-input" />)}
           </Field>
           {value.algorithm === "aws:kms" && (
             <div className="grid gap-1.5">

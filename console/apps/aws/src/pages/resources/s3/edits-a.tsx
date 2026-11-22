@@ -67,7 +67,7 @@ function BpaForm({ name, start }: { name: string; start: typeof BPA_ALL }) {
 
 export function EncryptionEdit({ name }: OwnProps) {
   const q = useSetting(name!, "GetBucketEncryption", NONE.encryption);
-  return <Loaded q={q} what="Default encryption">{(e) => { const c = encryptionOf(e); return <EncryptionForm name={name!} start={{ algorithm: c?.algorithm ?? "AES256", keyMode: "arn", key: c?.key ?? "", bucketKey: c?.bucketKey ?? false }} />; }}</Loaded>;
+  return <Loaded q={q} what="Default encryption">{(e) => { const c = encryptionOf(e); return <EncryptionForm name={name!} start={{ algorithm: c?.algorithm ?? "AES256", keyMode: c?.key ? "arn" : "list", key: c?.key ?? "", bucketKey: c?.bucketKey ?? false }} />; }}</Loaded>;
 }
 function EncryptionForm({ name, start }: { name: string; start: Encryption }) {
   const [e, setE] = useState(start);
