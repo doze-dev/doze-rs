@@ -34,3 +34,10 @@ describe("the lists", () => {
     expect(l[l.length - 1]?.name).toBe(String(MOST_PINNED + 2));
   });
 });
+
+import { deletedBy } from "./pins";
+test("a request to delete a resource names it", () => {
+  expect(deletedBy("/api/v1/resources/sqs/queues/pick-lists?clear=yes")).toEqual(p("pick-lists"));
+  expect(deletedBy("/api/v1/resources/sqs/queues")).toBeNull();
+  expect(deletedBy("/api/v1/resources/sqs/queues/q/tags")).toBeNull();
+});

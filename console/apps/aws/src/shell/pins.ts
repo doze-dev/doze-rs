@@ -65,3 +65,21 @@ export const useVisited = (): Place[] => parse(useSyncExternalStore(subscribe, (
 export const pin = (p: Place) => write(PINNED_KEY, togglePin(parse(read(PINNED_KEY)), p));
 /** Remembers that `p` was opened. */
 export const visit = (p: Place) => write(VISITED_KEY, toFront(parse(read(VISITED_KEY)), p, MOST_RECENT + MOST_PINNED));
+
+/** Takes `p` out of both lists: a resource that was deleted is not somewhere to go back to. */
+export function forget(p: Place) {
+  for (const key of [PINNED_KEY, VISITED_KEY]) write(key, parse(read(key)).filter((x) => !same(x, p)));
+}
+
+/** The resource a request to delete one was for (`/api/v1/resources/sqs/queues/pick-lists?clear=yes`), or null. */
+export function deletedBy(url: string): Place | null {
+  const at = url.indexOf("/api/v1/resources/");
+  if (at < 0) return null;
+  const [service, kind, name, ...rest] = (url.slice(at + 18).split("?")[0] ?? "").split("/");
+  if (!service || !kind || !name || rest.length > 0) return null;
+  try {
+    return { service: decodeURIComponent(service), kind: decodeURIComponent(kind), name: decodeURIComponent(name) };
+  } catch {
+    return null;
+  }
+}

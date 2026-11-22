@@ -98,7 +98,13 @@ test("Scope: what doze-aws cannot do is said in a form, on the resource, on the 
   await expect(row).toContainText("NOT BUILT");
   await row.click();
   await expect(page.getByTestId("call-summary")).toContainText("doze-aws does not do this yet: the operation is not built.");
+  await expect(page.getByTestId("not-built")).toContainText("SelectObjectContent is not built in doze-aws");
+  await expect(page.getByTestId("not-built")).toContainText("X-Doze-Not-Built: 1");
+  await expect(page.getByTestId("not-built-instead")).toContainText("GetObject returns the whole object");
   await page.keyboard.press("Escape");
+  await go(page, "/live", "Live");
+  await expect(page.locator('[data-testid="look"][data-word="NOT ACTIVE LOCALLY"]')).toContainText("1 subscription stored");
+  await expect(page.locator('[data-testid="look"][data-word="NOT BUILT"]')).toContainText("SelectObjectContent");
   // 4. Where it surfaces on its own: the count in Needs a look on Home.
   await go(page, "/", "Home");
   await expect(page.getByTestId("needs-a-look")).toContainText("NOT BUILT");

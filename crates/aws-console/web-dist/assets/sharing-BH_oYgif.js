@@ -1,0 +1,1 @@
+export{t as SharingCreate}from"./detail-Cxtf2l_2.js";

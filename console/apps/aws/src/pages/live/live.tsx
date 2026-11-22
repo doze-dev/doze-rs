@@ -36,6 +36,7 @@ import { MapSection } from "./map-section";
 import { NeedsLook, looks } from "./needs-look";
 import { Timeline } from "./timeline";
 import { useNow } from "../card";
+import { useHomeChecks } from "../../api/spaces";
 import { type Conn, useTail } from "./use-tail";
 
 const route = getRouteApi("/live");
@@ -131,6 +132,8 @@ export function LivePage() {
   const wiring = useWiring(view !== "wire" && search.by !== "service");
   const callerName = useCallback((key: string) => { const p = names.get(key); return p ? who(p).label : key || "no key"; }, [names]);
   const attention = useMemo(() => looks(visible), [visible]);
+  const checks = useHomeChecks();
+  const stored = useMemo(() => (checks.data?.signals ?? []).filter((s) => s.kind === "not-active").map((s) => ({ count: Number(s.count), detail: s.detail })), [checks.data]);
 
   const columns = useMemo<DataColumn<Line>[]>(
     () => [
@@ -280,7 +283,7 @@ export function LivePage() {
           {view !== "wire" && <Timeline calls={visible} now={now} />}
           </div>
           <ConsoleLine hidden={hidden} shown={search.console === "shown"} set={set} />
-          {view !== "wire" && <NeedsLook items={attention} callerName={(c) => callerName(c.caller ?? "")} onOpen={open} />}
+          {view !== "wire" && <NeedsLook stored={stored} items={attention} callerName={(c) => callerName(c.caller ?? "")} onOpen={open} />}
           {view !== "wire" && search.by !== "service" && <MapSection calls={visible} wiring={wiring.data} now={now} search={search} set={set} callerName={callerName} openCall={openCall} />}
           {view !== "wire" && search.by === "service" && (
             <section className="mb-5 rounded-xl border bg-card px-5 pt-3 pb-4" aria-label="Map of who calls what" data-testid="live-map-card">
