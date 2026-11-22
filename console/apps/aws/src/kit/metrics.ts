@@ -24,11 +24,18 @@ export function periodFor(spanMs: number): number {
   return Math.ceil(s / 60) * 60;
 }
 
+/** The EndTime, in seconds, for a range that ends at `ms`. EndTime is exclusive and a minute's data point is stamped with the start of its
+ * minute, so an end rounded down to the second that is also the start of a minute (`now` at 20:27:00.4, an invocation at 20:27:00.1)
+ * would leave out the minute that is running: the end is rounded up. */
+export function endSecond(ms: number): number {
+  return Math.ceil(ms / 1000);
+}
+
 /** The service's input for `queries` over `range`. */
 export function metricInput(queries: MetricQuery[], range: Range) {
   return {
     StartTime: Math.floor(range.from / 1000),
-    EndTime: Math.floor(range.to / 1000),
+    EndTime: endSecond(range.to),
     ScanBy: "TimestampAscending",
     MetricDataQueries: queries.map((q) =>
       q.expression !== undefined
@@ -66,7 +73,7 @@ const METRICS = { service: "cloudwatch", kind: "metrics" } as const;
 /** The GetMetricStatistics input that tells a metric's unit: GetMetricData answers values only, no unit, so the unit is read from the
  * data points of the metric itself, which carry the one it was put with. */
 export function unitInput(q: MetricQuery, range: Range) {
-  return { Namespace: q.namespace, MetricName: q.metric, Dimensions: Object.entries(q.dimensions ?? {}).map(([Name, Value]) => ({ Name, Value })), StartTime: Math.floor(range.from / 1000), EndTime: Math.floor(range.to / 1000), Period: periodFor(range.to - range.from), Statistics: ["SampleCount"] };
+  return { Namespace: q.namespace, MetricName: q.metric, Dimensions: Object.entries(q.dimensions ?? {}).map(([Name, Value]) => ({ Name, Value })), StartTime: Math.floor(range.from / 1000), EndTime: endSecond(range.to), Period: periodFor(range.to - range.from), Statistics: ["SampleCount"] };
 }
 
 /** The one unit every answered metric is in (`Count`, `Milliseconds`), or undefined when they differ, when there is none ("None" is no unit)

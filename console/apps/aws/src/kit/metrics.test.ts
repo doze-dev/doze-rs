@@ -17,6 +17,11 @@ describe("metric data", () => {
     expect(first.MetricStat.Metric.Dimensions).toEqual([{ Name: "Environment", Value: "prod" }]);
     expect(first.MetricStat.Stat).toBe("Sum");
   });
+  test("the end is rounded up, so the minute that is running is inside the window (EndTime is exclusive; a point is stamped with its minute's start)", () => {
+    const at = Date.UTC(2026, 10, 22, 20, 27, 0, 400);
+    expect(metricInput([q], { from: at - 3_600_000, to: at }).EndTime).toBe(Math.floor(at / 1000) + 1);
+    expect(metricInput([q], { from: 0, to: 4_600_000 }).EndTime).toBe(4600);
+  });
   test("math is an expression over the other queries, and a hidden query is asked for but not drawn", () => {
     const queries = [{ ...q, hide: true }, { id: "e1", label: "Doubled", namespace: "", metric: "", expression: "m0*2" }];
     expect(metricInput(queries, { from: 0, to: 3_600_000 }).MetricDataQueries).toMatchObject([{ Id: "m0", ReturnData: false }, { Id: "e1", Expression: "m0*2", ReturnData: true }]);
