@@ -1,7 +1,7 @@
 // The topic writes and the Config tab (slice R1b): the form previews (GETs the dialogs refetch as a person types, so the
 // call, the teaching and a button's label are the server's words) and the writes (form-encoded POSTs, as the classic
 // forms post). After a write every page query is marked stale, so the pages behind the overlay show the new state at once
-// (and the others when they are next shown); the form previews are left alone.
+// (and the others when they are next shown); the form previews no dialog shows are dropped (afterWrite).
 import { keepPreviousData, type QueryClient, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { api, ApiFailure } from "./client";
@@ -58,8 +58,13 @@ export function detailOf<T>(e: unknown): T | undefined {
   return e instanceof ApiFailure ? (e.detail as T | undefined) : undefined;
 }
 
-/** After a write: every query but the form previews is stale; the ones on screen refetch now. */
+/**
+ * After a write: every query but the form previews is stale; the ones on screen refetch now. A preview no open dialog
+ * shows is dropped, so a dialog opened next asks the server again rather than showing the cached answer of before the
+ * write (its `gcTime` keeps one for 30 s). One an open dialog shows is left alone, so a form does not change as it is read.
+ */
 export function afterWrite(qc: QueryClient) {
+  qc.removeQueries({ predicate: (q) => q.queryKey[0] === FORM && q.getObserversCount() === 0 });
   return qc.invalidateQueries({ predicate: (q) => q.queryKey[0] !== FORM });
 }
 

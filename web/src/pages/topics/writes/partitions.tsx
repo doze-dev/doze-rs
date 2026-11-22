@@ -10,7 +10,7 @@ import type { AddedAnswer } from "@/api/types/AddedAnswer";
 import type { RecordsDeletedAnswer } from "@/api/types/RecordsDeletedAnswer";
 import type { RecordsForm } from "@/api/types/RecordsForm";
 import type { RecordsRefusedAnswer } from "@/api/types/RecordsRefusedAnswer";
-import { afterWrite, detailOf, post, queryOf, topicPath, useAddForm, useDebounced, useRecordsForm } from "@/api/topic-writes";
+import { afterWrite, detailOf, FORM, post, queryOf, topicPath, useAddForm, useDebounced, useRecordsForm } from "@/api/topic-writes";
 import { Spans } from "@/components/app/spans";
 import { Button } from "@/components/ui/button";
 import { DialogClose } from "@/components/ui/dialog";
@@ -110,7 +110,11 @@ export function DeleteRecordsBody({ topic, partition, open }: { topic: string; p
   const preview = useRecordsForm(topic, q, open);
   const send = useMutation({
     mutationFn: (v: RecordsValues) => post<RecordsDeletedAnswer>(topicPath(topic, "/delete-records"), v),
-    onSuccess: () => void afterWrite(qc),
+    onSuccess: () => {
+      // This dialog's previews of the topic now say what is gone (the log starts later): opened again, it asks the server again.
+      qc.removeQueries({ queryKey: [FORM, "records", topic] });
+      void afterWrite(qc);
+    },
   });
   const refused = detailOf<RecordsRefusedAnswer>(send.error);
   const invalid = send.error && !refused?.refused ? detailOf<RecordsForm>(send.error) : undefined;
