@@ -37,6 +37,16 @@ async fn invoke(
             payload.extend_from_slice(&chunk);
         }
     }
+    // Lambda answers an Invoke on the bus with the payload as a base64 member, as it does for the console's own calls.
+    if payload.is_empty()
+        && let Some(bytes) = reply
+            .json
+            .get("Payload")
+            .and_then(Value::as_str)
+            .and_then(aws_core::base64::decode)
+    {
+        payload = bytes;
+    }
     let text = |k: &str| reply.json.get(k).and_then(Value::as_str).map(str::to_owned);
     Ok(Answer {
         status: reply
