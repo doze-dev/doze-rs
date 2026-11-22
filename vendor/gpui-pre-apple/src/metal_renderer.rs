@@ -24,7 +24,8 @@ use objc2_metal::{
     MTLGPUFamily, MTLLibrary, MTLLoadAction, MTLPixelFormat, MTLPrimitiveType,
     MTLRenderCommandEncoder, MTLRenderPassDescriptor, MTLRenderPipelineDescriptor,
     MTLRenderPipelineState, MTLResourceOptions, MTLStorageMode, MTLStoreAction, MTLTexture,
-    MTLTextureDescriptor, MTLTextureType, MTLTextureUsage, MTLViewport,
+    MTLPurgeableState, MTLResource, MTLTextureDescriptor, MTLTextureType, MTLTextureUsage,
+    MTLViewport,
 };
 #[cfg(any(test, feature = "bench-support", feature = "test-support"))]
 use objc2_metal::{MTLBlitCommandEncoder, MTLOrigin, MTLRegion, MTLSize};
@@ -160,6 +161,8 @@ pub struct MetalRenderer {
     path_intermediate_texture: Option<Retained<ProtocolObject<dyn MTLTexture>>>,
     path_intermediate_msaa_texture: Option<Retained<ProtocolObject<dyn MTLTexture>>>,
     path_sample_count: u32,
+    // PATCH (doze, PATCHES.md §6): the last frame encoded, so a finished frame can tell it was the last.
+    path_frames: Arc<Mutex<u64>>,
     /// Offscreen render target reused across `render_scene` calls when
     /// rendering headlessly without reading pixels back.
     #[cfg(any(test, feature = "bench-support", feature = "test-support"))]
@@ -448,6 +451,7 @@ impl MetalRenderer {
             path_intermediate_texture: None,
             path_intermediate_msaa_texture: None,
             path_sample_count: PATH_SAMPLE_COUNT,
+            path_frames: Arc::default(),
             #[cfg(any(test, feature = "bench-support", feature = "test-support"))]
             headless_render_target: None,
         })
@@ -668,6 +672,18 @@ impl MetalRenderer {
         if self.path_intermediate_texture.is_none() {
             self.update_path_intermediate_textures(viewport_size)?;
         }
+        // PATCH (doze, PATCHES.md §6): the path texture holds its pages again for this frame (a cleared texture: its
+        // contents never carry over, each frame clears it before drawing paths).
+        let frame = {
+            let mut last = self.path_frames.lock();
+            *last += 1;
+            if let Some(t) = &self.path_intermediate_texture {
+                t.setPurgeableState(MTLPurgeableState::NonVolatile);
+            }
+            *last
+        };
+        let (path_frames, path_texture) =
+            (self.path_frames.clone(), self.path_intermediate_texture.clone());
         let mut writer = InstanceBufferWriter::new(
             &self.device,
             &self.instance_buffer_pool,
@@ -701,6 +717,15 @@ impl MetalRenderer {
             move |_: ptr::NonNull<ProtocolObject<dyn MTLCommandBuffer>>| {
                 if let Some((instance_buffer, _surface_textures)) = frame_resources.take() {
                     instance_buffer_pool.lock().release(instance_buffer);
+                }
+                // PATCH (doze, PATCHES.md §6): the last frame done and no newer one encoded, so nothing uses the
+                // window-sized path texture until the next frame: its pages go back (a window that draws a frame
+                // now and then keeps no 16 MB for it in between). Under the lock, so a frame starting now waits.
+                let last = path_frames.lock();
+                if *last == frame
+                    && let Some(t) = &path_texture
+                {
+                    t.setPurgeableState(MTLPurgeableState::Empty);
                 }
             },
         );

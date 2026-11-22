@@ -22,6 +22,8 @@ pub(crate) trait MenuHost: 'static + Sized {
     fn menu_act(&mut self, key: &str, action: StackAction, cx: &mut Context<Self>);
     /// The start sheet for the stopped stack keyed `key`.
     fn menu_choose(&mut self, key: &str, cx: &mut Context<Self>);
+    /// Sleep everything in the running stack keyed `key` (and closes the menu).
+    fn menu_sleep(&mut self, key: &str, cx: &mut Context<Self>);
     /// Opens the doze.hcl in `dir` (`file`), or shows `dir` in Finder.
     fn menu_reveal(&mut self, dir: &str, file: bool, cx: &mut Context<Self>);
     /// Closes the menu.
@@ -80,9 +82,73 @@ pub(crate) fn more<V: MenuHost>(
         }))
 }
 
+/// What the moon beside a switch can do now.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Moon {
+    /// The stack is stopped: nothing to put to sleep; its place is kept, so nothing moves when it starts.
+    Hidden,
+    /// Up, but busy, or not answering, or everything is asleep already.
+    Off,
+    /// Up: a press puts every service to sleep.
+    Ready,
+    /// Putting every service to sleep now.
+    Working,
+}
+
+/// What the moon's hover title says.
+pub(crate) const MOON_TITLE: &str =
+    "Sleep everything (s): its daemon stays up, and the next connection wakes what it needs";
+
+/// The moon beside a switch: Sleep everything (Go's tray and ⌘K have it; `doze sleep` with no names). The switch is
+/// still up and down.
+pub(crate) fn moon<V: 'static>(
+    t: &Tokens,
+    id: &str,
+    state: Moon,
+    press: impl Fn(&mut V, &mut Context<V>) + 'static,
+    cx: &mut Context<V>,
+) -> AnyElement {
+    let el = div()
+        .id(gpui::SharedString::from(id.to_owned()))
+        .size(px(28.))
+        .flex_none()
+        .rounded(px(7.))
+        .flex()
+        .items_center()
+        .justify_center();
+    match state {
+        Moon::Hidden => el.into_any_element(),
+        Moon::Working => el
+            .child(crate::widgets::spinner(
+                gpui::SharedString::from(format!("{id}-spin")),
+                14.,
+                t.cool,
+            ))
+            .into_any_element(),
+        Moon::Off => el
+            .opacity(0.45)
+            .child(icon("icons/moon.svg", 15., t.dim))
+            .tooltip(crate::widgets::tip(MOON_TITLE))
+            .into_any_element(),
+        Moon::Ready => {
+            let el = el
+                .cursor_pointer()
+                .hover(|d| d.bg(t.sel))
+                .child(icon("icons/moon.svg", 15., t.dim))
+                .tooltip(crate::widgets::tip(MOON_TITLE))
+                .on_click(cx.listener(move |this, _, _, cx| {
+                    cx.stop_propagation();
+                    press(this, cx);
+                }));
+            crate::outward::Probe::probe(el, id.to_owned(), "Sleep everything").into_any_element()
+        }
+    }
+}
+
 /// What an item does.
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Do {
+    Sleep,
     Restart,
     Everything,
     Choose,
@@ -160,6 +226,7 @@ impl Item {
         el.cursor_pointer()
             .hover(|d| d.bg(t.pick))
             .on_click(cx.listener(move |this, _, _, cx| match what {
+                Do::Sleep => this.menu_sleep(&key, cx),
                 Do::Restart => this.menu_act(&key, StackAction::Restart, cx),
                 Do::Everything => this.menu_act(&key, StackAction::UpAll, cx),
                 Do::Choose => this.menu_choose(&key, cx),
@@ -176,6 +243,16 @@ fn items(st: &LibStack, dir: &str, busy: bool) -> Vec<Option<Item>> {
     let gone = !st.missing.is_empty();
     let mut out = Vec::new();
     if st.running {
+        let it = Item::new(
+            "Sleep everything",
+            "its daemon stays up; the next connection wakes what it needs",
+            Do::Sleep,
+        );
+        out.push(Some(Item {
+            key: "s",
+            on: !busy && st.live,
+            ..it
+        }));
         let it = Item::new(
             format!("Restart {}", st.name),
             "stops everything and starts what was running",

@@ -6,6 +6,7 @@ use serde_json::Value;
 
 use crate::error::RegistryError;
 use crate::registry::SchemaInput;
+use crate::registry::contract_read as contract;
 use crate::store::Reference;
 
 /// What a body is bound to: the Java class Confluent reads it into, and the argument its validator names when the body
@@ -208,8 +209,8 @@ fn boolean(v: Option<&Value>) -> Result<Option<bool>, RegistryError> {
     }
 }
 
-/// A schema request's body: `schema`, `schemaType`, `references`, and for IMPORT `id` and `version`. Anything else in it
-/// (`metadata`, `ruleSet`, fields of later releases) is read past.
+/// A schema request's body: `schema`, `schemaType`, `references`, `metadata`, `ruleSet`, and for IMPORT `id` and
+/// `version`. Anything else in it (fields of later releases) is read past.
 ///
 /// # Errors
 /// Confluent's 400 for a body that is not a request, its 422 for none.
@@ -240,6 +241,10 @@ pub(crate) fn schema_request(raw: &[u8], bound: Bound) -> Result<SchemaInput, Re
         references,
         id: integer(m.get("id"), "id")?,
         version: integer(m.get("version"), "version")?,
+        contract: crate::registry::Contract {
+            metadata: m.get("metadata").map_or(Ok(None), contract::metadata)?,
+            rule_set: m.get("ruleSet").map_or(Ok(None), contract::rule_set)?,
+        },
     })
 }
 
@@ -270,10 +275,19 @@ pub(crate) struct ConfigBody {
 pub(crate) fn config_request(raw: &[u8], bound: Bound) -> Result<ConfigBody, RegistryError> {
     let v = value(raw, bound)?.ok_or_else(|| missing(bound))?;
     let m = object(v, bound)?;
-    let json = |k: &str| {
-        m.get(k)
-            .filter(|v| !v.is_null())
-            .map(|v| serde_json::to_string(v).unwrap_or_default())
+    // Read as Confluent binds them (Jackson's refusals), a rule set checked as Confluent checks one, and kept as this
+    // registry writes them.
+    let metadata = |k: &str| -> Result<Option<String>, RegistryError> {
+        Ok(m.get(k)
+            .map_or(Ok(None), contract::metadata)?
+            .map(|x| crate::registry::contract_json::metadata_text(&x)))
+    };
+    let rules = |k: &str| -> Result<Option<String>, RegistryError> {
+        let Some(r) = m.get(k).map_or(Ok(None), contract::rule_set)? else {
+            return Ok(None);
+        };
+        r.validate().map_err(invalid_rule_set)?;
+        Ok(Some(crate::registry::contract_json::rule_set_text(&r)))
     };
     Ok(ConfigBody {
         compatibility: string(m.get("compatibility"), "String")?,
@@ -282,12 +296,17 @@ pub(crate) fn config_request(raw: &[u8], bound: Bound) -> Result<ConfigBody, Reg
             normalize: boolean(m.get("normalize"))?,
             validate_fields: boolean(m.get("validateFields"))?,
             compatibility_group: string(m.get("compatibilityGroup"), "String")?,
-            default_metadata: json("defaultMetadata"),
-            override_metadata: json("overrideMetadata"),
-            default_rule_set: json("defaultRuleSet"),
-            override_rule_set: json("overrideRuleSet"),
+            default_metadata: metadata("defaultMetadata")?,
+            override_metadata: metadata("overrideMetadata")?,
+            default_rule_set: rules("defaultRuleSet")?,
+            override_rule_set: rules("overrideRuleSet")?,
         },
     })
+}
+
+/// Confluent's refusal of a rule set `RuleSet.validate` refuses (`RestInvalidRuleSetException`).
+pub(crate) fn invalid_rule_set(why: String) -> RegistryError {
+    RegistryError::new(422, crate::error::code::INVALID_RULE_SET, why)
 }
 
 /// A mode request's body (`ModeUpdateRequest`): the mode, `None` when it has none.

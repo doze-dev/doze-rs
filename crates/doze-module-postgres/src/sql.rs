@@ -125,28 +125,58 @@ pub(crate) fn create_database(name: &str, s: &PostgresSpec) -> String {
     q
 }
 
+/// The database the server makes for itself, which doze works from as `postgres`. An instance may be named after it
+/// (Go allowed it, and stacks keep their tables in its schemas): its database is then this one, which already exists,
+/// so converge never creates it and prune never drops it.
+pub(crate) const ADMIN: &str = "postgres";
+
+/// The comment initdb gives [`ADMIN`]: what an instance named after it has when it declares none.
+const ADMIN_COMMENT: &str = "default administrative connection database";
+
 /// The database's options as declared, every one stated (Go never put back `is_template = false`, a limit removed, an
 /// owner or a comment removed), and connections allowed while converge works in it; [`close_database`] applies
 /// `allow_connections = false` once it is done.
 pub(crate) fn alter_database(name: &str, s: &PostgresSpec) -> Vec<String> {
+    let comment = some(&s.comment).or((name == ADMIN).then_some(ADMIN_COMMENT));
+    database_options(
+        name,
+        some(&s.owner),
+        s.connection_limit.unwrap_or(-1),
+        s.is_template,
+        comment,
+    )
+}
+
+/// [`ADMIN`] given back as initdb made it, for an instance named after it that is destroyed: its owner, options and
+/// comment, never the database itself.
+pub(crate) fn release_admin() -> Vec<String> {
+    database_options(ADMIN, None, -1, false, Some(ADMIN_COMMENT))
+}
+
+fn database_options(
+    name: &str,
+    owner: Option<&str>,
+    limit: i64,
+    is_template: bool,
+    c: Option<&str>,
+) -> Vec<String> {
     let n = ident(name);
     vec![
         format!(
             "ALTER DATABASE {n} OWNER TO {}",
-            ident(some(&s.owner).unwrap_or("postgres"))
+            ident(owner.unwrap_or("postgres"))
         ),
         format!(
-            "ALTER DATABASE {n} WITH ALLOW_CONNECTIONS true CONNECTION LIMIT {} IS_TEMPLATE {}",
-            s.connection_limit.unwrap_or(-1),
-            s.is_template
+            "ALTER DATABASE {n} WITH ALLOW_CONNECTIONS true CONNECTION LIMIT {limit} IS_TEMPLATE {is_template}"
         ),
-        comment("DATABASE", &n, some(&s.comment)),
+        comment("DATABASE", &n, c),
     ]
 }
 
-/// The last statement of a converge, if the database is declared closed to connections.
+/// The last statement of a converge, if the database is declared closed to connections ([`ADMIN`] never is: doze
+/// works from it, and `check` refuses the declaration).
 pub(crate) fn close_database(name: &str, s: &PostgresSpec) -> Option<String> {
-    (!s.allow_connections).then(|| {
+    (!s.allow_connections && name != ADMIN).then(|| {
         format!(
             "ALTER DATABASE {} WITH ALLOW_CONNECTIONS false",
             ident(name)
@@ -329,6 +359,36 @@ mod tests {
                 "COMMENT ON ROLE \"app\" IS 'c'",
             ]
         );
+    }
+
+    #[test]
+    fn the_servers_own_database_is_kept_open_and_given_back_as_initdb_made_it() {
+        let initdb = [
+            "ALTER DATABASE \"postgres\" OWNER TO \"postgres\"",
+            "ALTER DATABASE \"postgres\" WITH ALLOW_CONNECTIONS true CONNECTION LIMIT -1 IS_TEMPLATE false",
+            "COMMENT ON DATABASE \"postgres\" IS 'default administrative connection database'",
+        ];
+        assert_eq!(release_admin(), initdb);
+        let mut s = crate::spec::tests::spec();
+        // Declaring none keeps initdb's comment there; another database's is cleared.
+        assert_eq!(alter_database(ADMIN, &s), initdb);
+        assert_eq!(
+            alter_database("app", &s).last().map(String::as_str),
+            Some("COMMENT ON DATABASE \"app\" IS NULL")
+        );
+        s.owner = Some("identity".into());
+        s.comment = Some("larder".into());
+        assert_eq!(
+            alter_database(ADMIN, &s),
+            [
+                "ALTER DATABASE \"postgres\" OWNER TO \"identity\"",
+                "ALTER DATABASE \"postgres\" WITH ALLOW_CONNECTIONS true CONNECTION LIMIT -1 IS_TEMPLATE false",
+                "COMMENT ON DATABASE \"postgres\" IS 'larder'",
+            ]
+        );
+        s.allow_connections = false;
+        assert_eq!(close_database(ADMIN, &s), None);
+        assert!(close_database("app", &s).is_some());
     }
 
     #[test]

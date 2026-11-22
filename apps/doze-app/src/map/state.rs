@@ -20,7 +20,8 @@ pub(crate) struct Frame {
 /// The frame for a card's row (a task's card is dashed whatever its state).
 pub(crate) fn frame(t: &Tokens, r: Option<&Row>, task: bool) -> Frame {
     let red = mix(t.bad, t.line, 55.);
-    let none = gpui::transparent_black();
+    // Unfilled is the page's ground, opaque, so a card's easing shadow does not show through it.
+    let none = t.bg;
     match r.map(|r| (r.look, r.trouble)) {
         Some((Look::Failed, _)) => Frame {
             border: red,
@@ -36,6 +37,12 @@ pub(crate) fn frame(t: &Tokens, r: Option<&Row>, task: bool) -> Frame {
             border: red,
             fill: mix(t.bad, t.panel, 7.),
             dashed: task,
+        },
+        // Asleep as the tiles draw it: no fill, a dashed frame, and (cards.rs) no lift.
+        Some((Look::Asleep, false)) => Frame {
+            border: t.line,
+            fill: none,
+            dashed: true,
         },
         Some((Look::Paused, _)) => Frame {
             border: t.line,

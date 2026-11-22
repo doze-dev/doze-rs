@@ -30,10 +30,15 @@ WHERE backend_type = 'client backend' AND pid <> pg_backend_pid()
 ORDER BY CASE WHEN wait_event_type = 'Lock' THEN 0 WHEN state = 'active' THEN 1 ELSE 2 END, state_change DESC
 LIMIT 200";
 
-const DATABASES: &str = "
-SELECT d.datname, pg_database_size(d.datname),
+/// The databases, but the server's own (`postgres`), unless it is the instance's: an instance may be named after it.
+fn databases(instance: &str) -> String {
+    format!(
+        "SELECT d.datname, pg_database_size(d.datname),
        (SELECT count(*) FROM pg_stat_activity a WHERE a.datname = d.datname), pg_get_userbyid(d.datdba)
-FROM pg_database d WHERE NOT d.datistemplate AND d.datname <> 'postgres' ORDER BY 1";
+FROM pg_database d WHERE NOT d.datistemplate AND (d.datname <> 'postgres' OR d.datname = {}) ORDER BY 1",
+        crate::sql::lit(instance)
+    )
+}
 
 fn info(pairs: &[(&str, &str)]) -> BTreeMap<String, String> {
     pairs
@@ -51,7 +56,7 @@ fn resource(kind: &str, name: &str, status: &str, pairs: &[(&str, &str)]) -> Res
     }
 }
 
-async fn resources(p: &Psql) -> Result<Vec<Resource>> {
+async fn resources(p: &Psql, instance: &str) -> Result<Vec<Resource>> {
     let mut out = Vec::new();
     for r in p.rows("postgres", ACTIVITY, 5).await? {
         let [active, idle, waiting, of, longest] = r.as_slice() else {
@@ -83,7 +88,7 @@ async fn resources(p: &Psql) -> Result<Vec<Resource>> {
         ];
         out.push(resource("session", pid, state, &pairs));
     }
-    for r in p.rows("postgres", DATABASES, 4).await? {
+    for r in p.rows("postgres", &databases(instance), 4).await? {
         let [name, size, conns, owner] = r.as_slice() else {
             continue;
         };
@@ -100,7 +105,7 @@ async fn resources(p: &Psql) -> Result<Vec<Resource>> {
 
 impl Admin for Postgres {
     async fn resources(&self, cx: &Cx<PostgresSpec>) -> Result<Vec<Resource>> {
-        resources(&psql::admin(&cx.instance)?).await
+        resources(&psql::admin(&cx.instance)?, &cx.instance.name).await
     }
 
     async fn run_action(

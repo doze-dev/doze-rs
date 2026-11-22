@@ -8,10 +8,14 @@ mod admin;
 pub(crate) mod attention;
 pub(crate) mod attn;
 mod clock;
+#[cfg(all(test, feature = "capture"))]
+mod help_tests;
 mod history;
 #[cfg(all(test, feature = "capture"))]
 mod idle_tests;
 mod inside;
+#[cfg(all(test, feature = "capture"))]
+mod live_tests;
 mod nav;
 mod needs;
 mod ops;
@@ -19,6 +23,8 @@ mod pages;
 #[cfg(all(test, feature = "capture"))]
 mod pages_tests;
 mod pick;
+#[cfg(all(test, feature = "capture"))]
+mod reopen_tests;
 mod tasks;
 #[cfg(all(test, feature = "capture"))]
 mod tests;
@@ -35,7 +41,7 @@ use gpui::{
 
 use crate::actions::{
     AllLogs, CloseOverlay, CloseWindow, Confirm, CycleDensity, CycleMode, GoHome, MoveDown, MoveUp,
-    NextPalette, Quit,
+    Quit,
 };
 use crate::facts::{self, Facts};
 use crate::library::{LibraryEvent, LibraryView};
@@ -79,6 +85,8 @@ pub(crate) struct Root {
     tasks: tasks::Tasks,
     /// Activity and Settings (M3).
     pub(crate) pages: pages::Pages,
+    /// The sidebar and foot the root drew beside a page inside a stack (see `inside::chrome`).
+    chrome: Option<(Vec<doze_desk::page::side::Side>, String)>,
 }
 
 impl Root {
@@ -95,8 +103,7 @@ impl Root {
         let toasts = cx.new(|cx| crate::overlays::toasts::ToastsView::new(acts.clone(), cx));
         let facts = cx.new(|_| Facts::new(mode));
         let library = cx.new(|cx| LibraryView::new(hub.clone(), facts.clone(), cx));
-        cx.observe(&facts, |this: &mut Root, _, cx| this.rebuild_attention(cx))
-            .detach();
+        Root::hear_facts(&facts, cx);
         cx.observe(&acts, |this: &mut Root, _, cx| this.acting_moved(cx))
             .detach();
         let attn = attn::Attn::new(facts.clone());
@@ -149,6 +156,7 @@ impl Root {
             clock: clock::Clock::default(),
             tasks: tasks::Tasks::default(),
             pages: pages::Pages::new(facts.clone(), fixture),
+            chrome: None,
         };
         root.rebuild_attention(cx);
         root.follow_use(window, cx);
@@ -185,7 +193,7 @@ impl Root {
             Screen::Instance(k, _) | Screen::Logs(k) => {
                 if !batch.parts(k).is_empty() {
                     self.apply_inside(batch, cx);
-                    cx.notify();
+                    self.chrome(cx);
                 }
             }
         }
@@ -202,9 +210,10 @@ impl Root {
         match &self.screen {
             Screen::Library => self.library.update(cx, |l, cx| l.refresh(cx)),
             Screen::Empty(_) => cx.notify(),
-            Screen::Activity(_) | Screen::Settings => cx.notify(),
+            // Activity and Settings read the hub themselves; the root draws nothing of its own from it there.
+            Screen::Activity(_) | Screen::Settings => {}
             Screen::Stack(_) => self.overview.update(cx, |o, cx| o.refresh(cx)),
-            Screen::Instance(..) | Screen::Logs(_) => cx.notify(),
+            Screen::Instance(..) | Screen::Logs(_) => self.chrome(cx),
         }
     }
 
@@ -340,6 +349,7 @@ impl Render for Root {
         // A window glanced at draws each change in one frame: no entrance runs on it (see `clock`).
         let glanced = attention::mode(cx.background_executor().now()) == attention::Mode::Glance;
         crate::motion::set_reduced(cx.reduce_motion() || glanced);
+        crate::motion::set_still(glanced);
         crate::motion::frame();
         self.follow_system(window, cx);
         let t = tokens(cx);
@@ -383,9 +393,6 @@ impl Render for Root {
             .on_action(
                 cx.listener(|this, _: &GoHome, window, cx| this.go(Screen::Library, window, cx)),
             )
-            .on_action(
-                cx.listener(|this, _: &NextPalette, window, cx| this.next_palette(window, cx)),
-            )
             .on_action(cx.listener(|this, _: &CycleMode, window, cx| this.cycle_mode(window, cx)))
             .on_action(cx.listener(|this, _: &CycleDensity, _, cx| this.cycle_density(cx)))
             .on_action(cx.listener(|this, _: &AllLogs, window, cx| this.open_logs(window, cx)))
@@ -402,6 +409,6 @@ impl Render for Root {
             .child(self.touches(cx))
             .child(page)
             .child(self.foot_column(cx))
-            .children(self.overlay_el(f32::from(window.viewport_size().height), cx))
+            .children(self.overlay_el(cx))
     }
 }

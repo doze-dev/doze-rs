@@ -1,0 +1,460 @@
+[
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/pn-proto2/versions?normalize=true",
+   "b": "{\"schema\":\"syntax = \\\"proto2\\\";\\npackage legacy;\\nmessage Base {\\n  extensions 500 to max;\\n  extensions 100 to 199, 50;\\n  required int32 id = 3 [default = 0x10];\\n  optional double ratio = 2 [default = 1.23456];\\n  optional float f = 9 [default = -inf];\\n  optional float g = 10 [default = 1e20];\\n  optional string s = 1 [default = \\\"a\\\\x41\\\\n'q'\\\" \\\"tail\\\"];\\n  optional Color c = 4 [default = RED];\\n  optional bool b = 5 [default = true, deprecated = true];\\n  repeated int32 packed = 7 [packed = true];\\n  optional group Result = 8 { required string url = 2; optional string title = 1; }\\n  enum Color { RED = 1; GREEN = 0; }\\n  extend Base { optional int32 inner_ext = 501; }\\n}\\nextend Base { optional string tag = 502; optional int32 weight = 500; }\\nextend Base { repeated int64 more = 503; }\\n\",\"schemaType\":\"PROTOBUF\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":53}",
+    "ms": 12
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":52,\"version\":1,\"guid\":\"63cfea7b-9c00-2fce-aaae-d36cdc716aef\",\"schemaType\":\"PROTOBUF\",\"schema\":\"package legacy;\\n\\nmessage Base {\\n  optional string s = 1 [default = \\\"aA\\\\n\\\\'q\\\\'tail\\\"];\\n  optional double ratio = 2 [default = 1.235];\\n  required int32 id = 3 [default = 16];\\n  optional .legacy.Base.Color c = 4 [default = RED];\\n  optional bool b = 5 [\\n    default = true,\\n    deprecated = true\\n  ];\\n  repeated int32 packed = 7 [packed = true];\\n  optional float f = 9 [default = -inf];\\n  optional float g = 10 [default = 100000002004087730000];\\n\\n  optional group Result = 8 {\\n    optional string title = 1;\\n    required string url = 2;\\n  }\\n\\n  extensions 50;\\n  extensions 100 to 199;\\n  extensions 500 to max;\\n\\n  extend .legacy.Base {\\n    optional int32 inner_ext = 501;\\n  }\\n\\n  enum Color {\\n    GREEN = 0;\\n    RED = 1;\\n  }\\n}\\n\\nextend .legacy.Base {\\n  optional int32 weight = 500;\\n  optional string tag = 502;\\n  repeated int64 more = 503;\\n}\\n\"}",
+    "ms": 24
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":54}",
+    "ms": 6
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "GET",
+   "p": "/subjects/pn-proto2/versions/latest/schema"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "package legacy;\n\nmessage Base {\n  optional string s = 1 [default = \"aA\\n\\'q\\'tail\"];\n  optional double ratio = 2 [default = 1.235];\n  required int32 id = 3 [default = 16];\n  optional .legacy.Base.Color c = 4 [default = RED];\n  optional bool b = 5 [\n    default = true,\n    deprecated = true\n  ];\n  repeated int32 packed = 7 [packed = true];\n  optional float f = 9 [default = -inf];\n  optional float g = 10 [default = 100000002004087730000];\n\n  optional group Result = 8 {\n    optional string title = 1;\n    required string url = 2;\n  }\n\n  extensions 50;\n  extensions 100 to 199;\n  extensions 500 to max;\n\n  extend .legacy.Base {\n    optional int32 inner_ext = 501;\n  }\n\n  enum Color {\n    GREEN = 0;\n    RED = 1;\n  }\n}\n\nextend .legacy.Base {\n  optional int32 weight = 500;\n  optional string tag = 502;\n  repeated int64 more = 503;\n}\n",
+    "ms": 2
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "package legacy;\n\nmessage Base {\n  optional string s = 1 [default = \"aA\\n\\'q\\'tail\"];\n  optional double ratio = 2 [default = 1.235];\n  required int32 id = 3 [default = 16];\n  optional .legacy.Base.Color c = 4 [default = RED];\n  optional bool b = 5 [\n    default = true,\n    deprecated = true\n  ];\n  repeated int32 packed = 7 [packed = true];\n  optional float f = 9 [default = -inf];\n  optional float g = 10 [default = 100000002004087730000];\n\n  optional group Result = 8 {\n    optional string title = 1;\n    required string url = 2;\n  }\n\n  extensions 50;\n  extensions 100 to 199;\n  extensions 500 to max;\n\n  extend .legacy.Base {\n    optional int32 inner_ext = 501;\n  }\n\n  enum Color {\n    GREEN = 0;\n    RED = 1;\n  }\n}\n\nextend .legacy.Base {\n  optional int32 weight = 500;\n  optional string tag = 502;\n  repeated int64 more = 503;\n}\n",
+    "ms": 4
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "package legacy;\n\nmessage Base {\n  optional string s = 1 [default = \"aA\\n\\'q\\'tail\"];\n  optional double ratio = 2 [default = 1.235];\n  required int32 id = 3 [default = 16];\n  optional .legacy.Base.Color c = 4 [default = RED];\n  optional bool b = 5 [\n    default = true,\n    deprecated = true\n  ];\n  repeated int32 packed = 7 [packed = true];\n  optional float f = 9 [default = -inf];\n  optional float g = 10 [default = 100000002004087730000];\n\n  optional group Result = 8 {\n    optional string title = 1;\n    required string url = 2;\n  }\n\n  extensions 50;\n  extensions 100 to 199;\n  extensions 500 to max;\n\n  extend .legacy.Base {\n    optional int32 inner_ext = 501;\n  }\n\n  enum Color {\n    GREEN = 0;\n    RED = 1;\n  }\n}\n\nextend .legacy.Base {\n  optional int32 weight = 500;\n  optional string tag = 502;\n  repeated int64 more = 503;\n}\n",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/pn-proto2?normalize=true",
+   "b": "{\"schema\":\"syntax = \\\"proto2\\\";\\npackage legacy;\\nmessage Base {\\n  extensions 500 to max;\\n  extensions 100 to 199, 50;\\n  required int32 id = 3 [default = 0x10];\\n  optional double ratio = 2 [default = 1.23456];\\n  optional float f = 9 [default = -inf];\\n  optional float g = 10 [default = 1e20];\\n  optional string s = 1 [default = \\\"a\\\\x41\\\\n'q'\\\" \\\"tail\\\"];\\n  optional Color c = 4 [default = RED];\\n  optional bool b = 5 [default = true, deprecated = true];\\n  repeated int32 packed = 7 [packed = true];\\n  optional group Result = 8 { required string url = 2; optional string title = 1; }\\n  enum Color { RED = 1; GREEN = 0; }\\n  extend Base { optional int32 inner_ext = 501; }\\n}\\nextend Base { optional string tag = 502; optional int32 weight = 500; }\\nextend Base { repeated int64 more = 503; }\\n\",\"schemaType\":\"PROTOBUF\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"pn-proto2\",\"version\":1,\"id\":53,\"schemaType\":\"PROTOBUF\",\"schema\":\"package legacy;\\n\\nmessage Base {\\n  optional string s = 1 [default = \\\"aA\\\\n\\\\'q\\\\'tail\\\"];\\n  optional double ratio = 2 [default = 1.235];\\n  required int32 id = 3 [default = 16];\\n  optional .legacy.Base.Color c = 4 [default = RED];\\n  optional bool b = 5 [\\n    default = true,\\n    deprecated = true\\n  ];\\n  repeated int32 packed = 7 [packed = true];\\n  optional float f = 9 [default = -inf];\\n  optional float g = 10 [default = 100000002004087730000];\\n\\n  optional group Result = 8 {\\n    optional string title = 1;\\n    required string url = 2;\\n  }\\n\\n  extensions 50;\\n  extensions 100 to 199;\\n  extensions 500 to max;\\n\\n  extend .legacy.Base {\\n    optional int32 inner_ext = 501;\\n  }\\n\\n  enum Color {\\n    GREEN = 0;\\n    RED = 1;\\n  }\\n}\\n\\nextend .legacy.Base {\\n  optional int32 weight = 500;\\n  optional string tag = 502;\\n  repeated int64 more = 503;\\n}\\n\"}",
+    "ms": 5
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"pn-proto2\",\"version\":1,\"id\":52,\"guid\":\"63cfea7b-9c00-2fce-aaae-d36cdc716aef\",\"schemaType\":\"PROTOBUF\",\"schema\":\"package legacy;\\n\\nmessage Base {\\n  optional string s = 1 [default = \\\"aA\\\\n\\\\'q\\\\'tail\\\"];\\n  optional double ratio = 2 [default = 1.235];\\n  required int32 id = 3 [default = 16];\\n  optional .legacy.Base.Color c = 4 [default = RED];\\n  optional bool b = 5 [\\n    default = true,\\n    deprecated = true\\n  ];\\n  repeated int32 packed = 7 [packed = true];\\n  optional float f = 9 [default = -inf];\\n  optional float g = 10 [default = 100000002004087730000];\\n\\n  optional group Result = 8 {\\n    optional string title = 1;\\n    required string url = 2;\\n  }\\n\\n  extensions 50;\\n  extensions 100 to 199;\\n  extensions 500 to max;\\n\\n  extend .legacy.Base {\\n    optional int32 inner_ext = 501;\\n  }\\n\\n  enum Color {\\n    GREEN = 0;\\n    RED = 1;\\n  }\\n}\\n\\nextend .legacy.Base {\\n  optional int32 weight = 500;\\n  optional string tag = 502;\\n  repeated int64 more = 503;\\n}\\n\"}",
+    "ms": 5
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"pn-proto2\",\"version\":1,\"id\":54,\"schemaType\":\"PROTOBUF\",\"schema\":\"package legacy;\\n\\nmessage Base {\\n  optional string s = 1 [default = \\\"aA\\\\n\\\\'q\\\\'tail\\\"];\\n  optional double ratio = 2 [default = 1.235];\\n  required int32 id = 3 [default = 16];\\n  optional .legacy.Base.Color c = 4 [default = RED];\\n  optional bool b = 5 [\\n    default = true,\\n    deprecated = true\\n  ];\\n  repeated int32 packed = 7 [packed = true];\\n  optional float f = 9 [default = -inf];\\n  optional float g = 10 [default = 100000002004087730000];\\n\\n  optional group Result = 8 {\\n    optional string title = 1;\\n    required string url = 2;\\n  }\\n\\n  extensions 50;\\n  extensions 100 to 199;\\n  extensions 500 to max;\\n\\n  extend .legacy.Base {\\n    optional int32 inner_ext = 501;\\n  }\\n\\n  enum Color {\\n    GREEN = 0;\\n    RED = 1;\\n  }\\n}\\n\\nextend .legacy.Base {\\n  optional int32 weight = 500;\\n  optional string tag = 502;\\n  repeated int64 more = 503;\\n}\\n\"}",
+    "ms": 1
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/pn-proto2",
+   "b": "{\"schema\":\"syntax = \\\"proto2\\\";\\npackage legacy;\\nmessage Base {\\n  extensions 500 to max;\\n  extensions 100 to 199, 50;\\n  required int32 id = 3 [default = 0x10];\\n  optional double ratio = 2 [default = 1.23456];\\n  optional float f = 9 [default = -inf];\\n  optional float g = 10 [default = 1e20];\\n  optional string s = 1 [default = \\\"a\\\\x41\\\\n'q'\\\" \\\"tail\\\"];\\n  optional Color c = 4 [default = RED];\\n  optional bool b = 5 [default = true, deprecated = true];\\n  repeated int32 packed = 7 [packed = true];\\n  optional group Result = 8 { required string url = 2; optional string title = 1; }\\n  enum Color { RED = 1; GREEN = 0; }\\n  extend Base { optional int32 inner_ext = 501; }\\n}\\nextend Base { optional string tag = 502; optional int32 weight = 500; }\\nextend Base { repeated int64 more = 503; }\\n\",\"schemaType\":\"PROTOBUF\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 404,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":40403,\"message\":\"Schema not found\"}",
+    "ms": 3
+   },
+   "confluent-8": {
+    "status": 404,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":40403,\"message\":\"Schema not found\"}",
+    "ms": 7
+   },
+   "doze": {
+    "status": 404,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":40403,\"message\":\"Schema not found\"}",
+    "ms": 1
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/compatibility/subjects/pn-proto2/versions/latest?normalize=true&verbose=true",
+   "b": "{\"schema\":\"syntax = \\\"proto2\\\";\\npackage legacy;\\nmessage Base {\\n  extensions 500 to max;\\n  extensions 100 to 199, 50;\\n  required int32 id = 3 [default = 0x10];\\n  optional double ratio = 2 [default = 1.23456];\\n  optional float f = 9 [default = -inf];\\n  optional float g = 10 [default = 1e20];\\n  optional string s = 1 [default = \\\"a\\\\x41\\\\n'q'\\\" \\\"tail\\\"];\\n  optional Color c = 4 [default = RED];\\n  optional bool b = 5 [default = true, deprecated = true];\\n  repeated int32 packed = 7 [packed = true];\\n  optional group Result = 8 { required string url = 2; optional string title = 1; }\\n  enum Color { RED = 1; GREEN = 0; }\\n  extend Base { optional int32 inner_ext = 501; }\\n}\\nextend Base { optional string tag = 502; optional int32 weight = 500; }\\nextend Base { repeated int64 more = 503; }\\n\",\"schemaType\":\"PROTOBUF\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"is_compatible\":true,\"messages\":[]}",
+    "ms": 4
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"is_compatible\":true,\"messages\":[]}",
+    "ms": 2
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"is_compatible\":true,\"messages\":[]}",
+    "ms": 1
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "GET",
+   "p": "/schemas/ids/@1?format=serialized"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"schemaType\":\"PROTOBUF\",\"schema\":\"CgdkZWZhdWx0EgZsZWdhY3kimAIKBEJhc2USFQoBcxgBIAEoCToKYUEKJ3EndGFpbBIUCgVyYXRpbxgCIAEoAToFMS4yMzUSDgoCaWQYAyACKAU6AjE2EiAKAWMYBCABMhIubGVnYWN5LkJhc2UuQ29sb3I6A1JFRBITCgFiGAUgASgIOgR0cnVlQgIYARISCgZwYWNrZWQYByADKAVCAhABEg8KAWYYCSABKAI6BC1pbmYSIAoBZxgKIAEoAjoVMTAwMDAwMDAyMDA0MDg3NzMwMDAwIhsKBUNvbG9yEgkKBUdSRUVOEAASBwoDUkVEEAEqBAgyEDMqBQhkEMgBKgkI9AMQgICAgAIyIAoJaW5uZXJfZXh0EgwubGVnYWN5LkJhc2UY9QMgASgFOh0KBndlaWdodBIMLmxlZ2FjeS5CYXNlGPQDIAEoBToaCgN0YWcSDC5sZWdhY3kuQmFzZRj2AyABKAk6GwoEbW9yZRIMLmxlZ2FjeS5CYXNlGPcDIAMoAw==\"}",
+    "ms": 4
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"pn-proto2\",\"version\":1,\"guid\":\"63cfea7b-9c00-2fce-aaae-d36cdc716aef\",\"schemaType\":\"PROTOBUF\",\"schema\":\"CgdkZWZhdWx0EgZsZWdhY3kioAIKBEJhc2USFQoBcxgBIAEoCToKYUEKJ3EndGFpbBIUCgVyYXRpbxgCIAEoAToFMS4yMzUSDgoCaWQYAyACKAU6AjE2EiIKAWMYBCABKA4yEi5sZWdhY3kuQmFzZS5Db2xvcjoDUkVEEhMKAWIYBSABKAg6BHRydWVCAhgBEhIKBnBhY2tlZBgHIAMoBUICEAESDwoBZhgJIAEoAjoELWluZhIgCgFnGAogASgCOhUxMDAwMDAwMDIwMDQwODc3MzAwMDAiGwoFQ29sb3ISCQoFR1JFRU4QABIHCgNSRUQQASoGCDIQMxoAKgcIZBDIARoAKgsI9AMQgICAgAIaADIgCglpbm5lcl9leHQSDC5sZWdhY3kuQmFzZRj1AyABKAU6HQoGd2VpZ2h0EgwubGVnYWN5LkJhc2UY9AMgASgFOhoKA3RhZxIMLmxlZ2FjeS5CYXNlGPYDIAEoCTobCgRtb3JlEgwubGVnYWN5LkJhc2UY9wMgAygD\",\"ts\":1795104624501,\"deleted\":false}",
+    "ms": 3
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"schemaType\":\"PROTOBUF\",\"schema\":\"CgdkZWZhdWx0EgZsZWdhY3kimAIKBEJhc2USFQoBcxgBIAEoCToKYUEKJ3EndGFpbBIUCgVyYXRpbxgCIAEoAToFMS4yMzUSDgoCaWQYAyACKAU6AjE2EiAKAWMYBCABMhIubGVnYWN5LkJhc2UuQ29sb3I6A1JFRBITCgFiGAUgASgIOgR0cnVlQgIYARISCgZwYWNrZWQYByADKAVCAhABEg8KAWYYCSABKAI6BC1pbmYSIAoBZxgKIAEoAjoVMTAwMDAwMDAyMDA0MDg3NzMwMDAwIhsKBUNvbG9yEgkKBUdSRUVOEAASBwoDUkVEEAEqBAgyEDMqBQhkEMgBKgkI9AMQgICAgAIyIAoJaW5uZXJfZXh0EgwubGVnYWN5LkJhc2UY9QMgASgFOh0KBndlaWdodBIMLmxlZ2FjeS5CYXNlGPQDIAEoBToaCgN0YWcSDC5sZWdhY3kuQmFzZRj2AyABKAk6GwoEbW9yZRIMLmxlZ2FjeS5CYXNlGPcDIAMoAw==\"}",
+    "ms": 1
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/pp-proto2/versions",
+   "b": "{\"schema\":\"syntax = \\\"proto2\\\";\\npackage legacy;\\nmessage Base {\\n  extensions 500 to max;\\n  extensions 100 to 199, 50;\\n  required int32 id = 3 [default = 0x10];\\n  optional double ratio = 2 [default = 1.23456];\\n  optional float f = 9 [default = -inf];\\n  optional float g = 10 [default = 1e20];\\n  optional string s = 1 [default = \\\"a\\\\x41\\\\n'q'\\\" \\\"tail\\\"];\\n  optional Color c = 4 [default = RED];\\n  optional bool b = 5 [default = true, deprecated = true];\\n  repeated int32 packed = 7 [packed = true];\\n  optional group Result = 8 { required string url = 2; optional string title = 1; }\\n  enum Color { RED = 1; GREEN = 0; }\\n  extend Base { optional int32 inner_ext = 501; }\\n}\\nextend Base { optional string tag = 502; optional int32 weight = 500; }\\nextend Base { repeated int64 more = 503; }\\n\",\"schemaType\":\"PROTOBUF\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":54}",
+    "ms": 7
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":53,\"version\":1,\"guid\":\"bf046663-86b2-fd62-80d4-4cc36991bf45\",\"schemaType\":\"PROTOBUF\",\"schema\":\"syntax = \\\"proto2\\\";\\npackage legacy;\\n\\nmessage Base {\\n  required int32 id = 3 [default = 0x10];\\n  optional double ratio = 2 [default = 1.23456];\\n  optional float f = 9 [default = -inf];\\n  optional float g = 10 [default = 1e20];\\n  optional string s = 1 [default = \\\"aA\\\\n\\\\'q\\\\'tail\\\"];\\n  optional Color c = 4 [default = RED];\\n  optional bool b = 5 [\\n    deprecated = true,\\n    default = true\\n  ];\\n  repeated int32 packed = 7 [packed = true];\\n\\n  optional group Result = 8 {\\n    required string url = 2;\\n    optional string title = 1;\\n  }\\n\\n  extensions 500 to max;\\n  extensions 100 to 199, 50;\\n\\n  extend Base {\\n    optional int32 inner_ext = 501;\\n  }\\n\\n  enum Color {\\n    RED = 1;\\n    GREEN = 0;\\n  }\\n}\\n\\nextend Base {\\n  optional string tag = 502;\\n  optional int32 weight = 500;\\n}\\nextend Base {\\n  repeated int64 more = 503;\\n}\\n\"}",
+    "ms": 12
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":55}",
+    "ms": 6
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/pp-proto2?normalize=true",
+   "b": "{\"schema\":\"syntax = \\\"proto2\\\";\\npackage legacy;\\nmessage Base {\\n  extensions 500 to max;\\n  extensions 100 to 199, 50;\\n  required int32 id = 3 [default = 0x10];\\n  optional double ratio = 2 [default = 1.23456];\\n  optional float f = 9 [default = -inf];\\n  optional float g = 10 [default = 1e20];\\n  optional string s = 1 [default = \\\"a\\\\x41\\\\n'q'\\\" \\\"tail\\\"];\\n  optional Color c = 4 [default = RED];\\n  optional bool b = 5 [default = true, deprecated = true];\\n  repeated int32 packed = 7 [packed = true];\\n  optional group Result = 8 { required string url = 2; optional string title = 1; }\\n  enum Color { RED = 1; GREEN = 0; }\\n  extend Base { optional int32 inner_ext = 501; }\\n}\\nextend Base { optional string tag = 502; optional int32 weight = 500; }\\nextend Base { repeated int64 more = 503; }\\n\",\"schemaType\":\"PROTOBUF\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 404,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":40403,\"message\":\"Schema not found\"}",
+    "ms": 5
+   },
+   "confluent-8": {
+    "status": 404,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":40403,\"message\":\"Schema not found\"}",
+    "ms": 6
+   },
+   "doze": {
+    "status": 404,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":40403,\"message\":\"Schema not found\"}",
+    "ms": 1
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/pp-proto2/versions?normalize=true",
+   "b": "{\"schema\":\"syntax = \\\"proto2\\\";\\npackage legacy;\\nmessage Base {\\n  extensions 500 to max;\\n  extensions 100 to 199, 50;\\n  required int32 id = 3 [default = 0x10];\\n  optional double ratio = 2 [default = 1.23456];\\n  optional float f = 9 [default = -inf];\\n  optional float g = 10 [default = 1e20];\\n  optional string s = 1 [default = \\\"a\\\\x41\\\\n'q'\\\" \\\"tail\\\"];\\n  optional Color c = 4 [default = RED];\\n  optional bool b = 5 [default = true, deprecated = true];\\n  repeated int32 packed = 7 [packed = true];\\n  optional group Result = 8 { required string url = 2; optional string title = 1; }\\n  enum Color { RED = 1; GREEN = 0; }\\n  extend Base { optional int32 inner_ext = 501; }\\n}\\nextend Base { optional string tag = 502; optional int32 weight = 500; }\\nextend Base { repeated int64 more = 503; }\\n\",\"schemaType\":\"PROTOBUF\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":53}",
+    "ms": 6
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":52,\"version\":2,\"guid\":\"63cfea7b-9c00-2fce-aaae-d36cdc716aef\",\"schemaType\":\"PROTOBUF\",\"schema\":\"package legacy;\\n\\nmessage Base {\\n  optional string s = 1 [default = \\\"aA\\\\n\\\\'q\\\\'tail\\\"];\\n  optional double ratio = 2 [default = 1.235];\\n  required int32 id = 3 [default = 16];\\n  optional .legacy.Base.Color c = 4 [default = RED];\\n  optional bool b = 5 [\\n    default = true,\\n    deprecated = true\\n  ];\\n  repeated int32 packed = 7 [packed = true];\\n  optional float f = 9 [default = -inf];\\n  optional float g = 10 [default = 100000002004087730000];\\n\\n  optional group Result = 8 {\\n    optional string title = 1;\\n    required string url = 2;\\n  }\\n\\n  extensions 50;\\n  extensions 100 to 199;\\n  extensions 500 to max;\\n\\n  extend .legacy.Base {\\n    optional int32 inner_ext = 501;\\n  }\\n\\n  enum Color {\\n    GREEN = 0;\\n    RED = 1;\\n  }\\n}\\n\\nextend .legacy.Base {\\n  optional int32 weight = 500;\\n  optional string tag = 502;\\n  repeated int64 more = 503;\\n}\\n\"}",
+    "ms": 20
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":54}",
+    "ms": 6
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "GET",
+   "p": "/subjects/pp-proto2/versions"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "[1,2]",
+    "ms": 2
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "[1,2]",
+    "ms": 2
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "[1,2]",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "PUT",
+   "p": "/config/pc-proto2",
+   "b": "{\"normalize\":true}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"normalize\":true}",
+    "ms": 6
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"normalize\":true}",
+    "ms": 11
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"normalize\":true}",
+    "ms": 5
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/pc-proto2/versions",
+   "b": "{\"schema\":\"syntax = \\\"proto2\\\";\\npackage legacy;\\nmessage Base {\\n  extensions 500 to max;\\n  extensions 100 to 199, 50;\\n  required int32 id = 3 [default = 0x10];\\n  optional double ratio = 2 [default = 1.23456];\\n  optional float f = 9 [default = -inf];\\n  optional float g = 10 [default = 1e20];\\n  optional string s = 1 [default = \\\"a\\\\x41\\\\n'q'\\\" \\\"tail\\\"];\\n  optional Color c = 4 [default = RED];\\n  optional bool b = 5 [default = true, deprecated = true];\\n  repeated int32 packed = 7 [packed = true];\\n  optional group Result = 8 { required string url = 2; optional string title = 1; }\\n  enum Color { RED = 1; GREEN = 0; }\\n  extend Base { optional int32 inner_ext = 501; }\\n}\\nextend Base { optional string tag = 502; optional int32 weight = 500; }\\nextend Base { repeated int64 more = 503; }\\n\",\"schemaType\":\"PROTOBUF\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":53}",
+    "ms": 12
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":52,\"version\":1,\"guid\":\"63cfea7b-9c00-2fce-aaae-d36cdc716aef\",\"schemaType\":\"PROTOBUF\",\"schema\":\"package legacy;\\n\\nmessage Base {\\n  optional string s = 1 [default = \\\"aA\\\\n\\\\'q\\\\'tail\\\"];\\n  optional double ratio = 2 [default = 1.235];\\n  required int32 id = 3 [default = 16];\\n  optional .legacy.Base.Color c = 4 [default = RED];\\n  optional bool b = 5 [\\n    default = true,\\n    deprecated = true\\n  ];\\n  repeated int32 packed = 7 [packed = true];\\n  optional float f = 9 [default = -inf];\\n  optional float g = 10 [default = 100000002004087730000];\\n\\n  optional group Result = 8 {\\n    optional string title = 1;\\n    required string url = 2;\\n  }\\n\\n  extensions 50;\\n  extensions 100 to 199;\\n  extensions 500 to max;\\n\\n  extend .legacy.Base {\\n    optional int32 inner_ext = 501;\\n  }\\n\\n  enum Color {\\n    GREEN = 0;\\n    RED = 1;\\n  }\\n}\\n\\nextend .legacy.Base {\\n  optional int32 weight = 500;\\n  optional string tag = 502;\\n  repeated int64 more = 503;\\n}\\n\"}",
+    "ms": 15
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":54}",
+    "ms": 6
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "GET",
+   "p": "/subjects/pc-proto2/versions/latest/schema"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "package legacy;\n\nmessage Base {\n  optional string s = 1 [default = \"aA\\n\\'q\\'tail\"];\n  optional double ratio = 2 [default = 1.235];\n  required int32 id = 3 [default = 16];\n  optional .legacy.Base.Color c = 4 [default = RED];\n  optional bool b = 5 [\n    default = true,\n    deprecated = true\n  ];\n  repeated int32 packed = 7 [packed = true];\n  optional float f = 9 [default = -inf];\n  optional float g = 10 [default = 100000002004087730000];\n\n  optional group Result = 8 {\n    optional string title = 1;\n    required string url = 2;\n  }\n\n  extensions 50;\n  extensions 100 to 199;\n  extensions 500 to max;\n\n  extend .legacy.Base {\n    optional int32 inner_ext = 501;\n  }\n\n  enum Color {\n    GREEN = 0;\n    RED = 1;\n  }\n}\n\nextend .legacy.Base {\n  optional int32 weight = 500;\n  optional string tag = 502;\n  repeated int64 more = 503;\n}\n",
+    "ms": 1
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "package legacy;\n\nmessage Base {\n  optional string s = 1 [default = \"aA\\n\\'q\\'tail\"];\n  optional double ratio = 2 [default = 1.235];\n  required int32 id = 3 [default = 16];\n  optional .legacy.Base.Color c = 4 [default = RED];\n  optional bool b = 5 [\n    default = true,\n    deprecated = true\n  ];\n  repeated int32 packed = 7 [packed = true];\n  optional float f = 9 [default = -inf];\n  optional float g = 10 [default = 100000002004087730000];\n\n  optional group Result = 8 {\n    optional string title = 1;\n    required string url = 2;\n  }\n\n  extensions 50;\n  extensions 100 to 199;\n  extensions 500 to max;\n\n  extend .legacy.Base {\n    optional int32 inner_ext = 501;\n  }\n\n  enum Color {\n    GREEN = 0;\n    RED = 1;\n  }\n}\n\nextend .legacy.Base {\n  optional int32 weight = 500;\n  optional string tag = 502;\n  repeated int64 more = 503;\n}\n",
+    "ms": 1
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "package legacy;\n\nmessage Base {\n  optional string s = 1 [default = \"aA\\n\\'q\\'tail\"];\n  optional double ratio = 2 [default = 1.235];\n  required int32 id = 3 [default = 16];\n  optional .legacy.Base.Color c = 4 [default = RED];\n  optional bool b = 5 [\n    default = true,\n    deprecated = true\n  ];\n  repeated int32 packed = 7 [packed = true];\n  optional float f = 9 [default = -inf];\n  optional float g = 10 [default = 100000002004087730000];\n\n  optional group Result = 8 {\n    optional string title = 1;\n    required string url = 2;\n  }\n\n  extensions 50;\n  extensions 100 to 199;\n  extensions 500 to max;\n\n  extend .legacy.Base {\n    optional int32 inner_ext = 501;\n  }\n\n  enum Color {\n    GREEN = 0;\n    RED = 1;\n  }\n}\n\nextend .legacy.Base {\n  optional int32 weight = 500;\n  optional string tag = 502;\n  repeated int64 more = 503;\n}\n",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/pc-proto2",
+   "b": "{\"schema\":\"syntax = \\\"proto2\\\";\\npackage legacy;\\nmessage Base {\\n  extensions 500 to max;\\n  extensions 100 to 199, 50;\\n  required int32 id = 3 [default = 0x10];\\n  optional double ratio = 2 [default = 1.23456];\\n  optional float f = 9 [default = -inf];\\n  optional float g = 10 [default = 1e20];\\n  optional string s = 1 [default = \\\"a\\\\x41\\\\n'q'\\\" \\\"tail\\\"];\\n  optional Color c = 4 [default = RED];\\n  optional bool b = 5 [default = true, deprecated = true];\\n  repeated int32 packed = 7 [packed = true];\\n  optional group Result = 8 { required string url = 2; optional string title = 1; }\\n  enum Color { RED = 1; GREEN = 0; }\\n  extend Base { optional int32 inner_ext = 501; }\\n}\\nextend Base { optional string tag = 502; optional int32 weight = 500; }\\nextend Base { repeated int64 more = 503; }\\n\",\"schemaType\":\"PROTOBUF\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"pc-proto2\",\"version\":1,\"id\":53,\"schemaType\":\"PROTOBUF\",\"schema\":\"package legacy;\\n\\nmessage Base {\\n  optional string s = 1 [default = \\\"aA\\\\n\\\\'q\\\\'tail\\\"];\\n  optional double ratio = 2 [default = 1.235];\\n  required int32 id = 3 [default = 16];\\n  optional .legacy.Base.Color c = 4 [default = RED];\\n  optional bool b = 5 [\\n    default = true,\\n    deprecated = true\\n  ];\\n  repeated int32 packed = 7 [packed = true];\\n  optional float f = 9 [default = -inf];\\n  optional float g = 10 [default = 100000002004087730000];\\n\\n  optional group Result = 8 {\\n    optional string title = 1;\\n    required string url = 2;\\n  }\\n\\n  extensions 50;\\n  extensions 100 to 199;\\n  extensions 500 to max;\\n\\n  extend .legacy.Base {\\n    optional int32 inner_ext = 501;\\n  }\\n\\n  enum Color {\\n    GREEN = 0;\\n    RED = 1;\\n  }\\n}\\n\\nextend .legacy.Base {\\n  optional int32 weight = 500;\\n  optional string tag = 502;\\n  repeated int64 more = 503;\\n}\\n\"}",
+    "ms": 5
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"pc-proto2\",\"version\":1,\"id\":52,\"guid\":\"63cfea7b-9c00-2fce-aaae-d36cdc716aef\",\"schemaType\":\"PROTOBUF\",\"schema\":\"package legacy;\\n\\nmessage Base {\\n  optional string s = 1 [default = \\\"aA\\\\n\\\\'q\\\\'tail\\\"];\\n  optional double ratio = 2 [default = 1.235];\\n  required int32 id = 3 [default = 16];\\n  optional .legacy.Base.Color c = 4 [default = RED];\\n  optional bool b = 5 [\\n    default = true,\\n    deprecated = true\\n  ];\\n  repeated int32 packed = 7 [packed = true];\\n  optional float f = 9 [default = -inf];\\n  optional float g = 10 [default = 100000002004087730000];\\n\\n  optional group Result = 8 {\\n    optional string title = 1;\\n    required string url = 2;\\n  }\\n\\n  extensions 50;\\n  extensions 100 to 199;\\n  extensions 500 to max;\\n\\n  extend .legacy.Base {\\n    optional int32 inner_ext = 501;\\n  }\\n\\n  enum Color {\\n    GREEN = 0;\\n    RED = 1;\\n  }\\n}\\n\\nextend .legacy.Base {\\n  optional int32 weight = 500;\\n  optional string tag = 502;\\n  repeated int64 more = 503;\\n}\\n\"}",
+    "ms": 4
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"pc-proto2\",\"version\":1,\"id\":54,\"schemaType\":\"PROTOBUF\",\"schema\":\"package legacy;\\n\\nmessage Base {\\n  optional string s = 1 [default = \\\"aA\\\\n\\\\'q\\\\'tail\\\"];\\n  optional double ratio = 2 [default = 1.235];\\n  required int32 id = 3 [default = 16];\\n  optional .legacy.Base.Color c = 4 [default = RED];\\n  optional bool b = 5 [\\n    default = true,\\n    deprecated = true\\n  ];\\n  repeated int32 packed = 7 [packed = true];\\n  optional float f = 9 [default = -inf];\\n  optional float g = 10 [default = 100000002004087730000];\\n\\n  optional group Result = 8 {\\n    optional string title = 1;\\n    required string url = 2;\\n  }\\n\\n  extensions 50;\\n  extensions 100 to 199;\\n  extensions 500 to max;\\n\\n  extend .legacy.Base {\\n    optional int32 inner_ext = 501;\\n  }\\n\\n  enum Color {\\n    GREEN = 0;\\n    RED = 1;\\n  }\\n}\\n\\nextend .legacy.Base {\\n  optional int32 weight = 500;\\n  optional string tag = 502;\\n  repeated int64 more = 503;\\n}\\n\"}",
+    "ms": 1
+   }
+  }
+ }
+]

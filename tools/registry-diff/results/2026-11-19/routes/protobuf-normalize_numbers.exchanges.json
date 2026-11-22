@@ -1,0 +1,460 @@
+[
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/pn-numbers/versions?normalize=true",
+   "b": "{\"schema\":\"syntax = \\\"proto2\\\";\\npackage nums;\\nimport \\\"google/protobuf/descriptor.proto\\\";\\nmessage Limits { optional double lo = 1; optional double hi = 2; repeated float steps = 3; optional int64 big = 4; extensions 100 to 200; }\\nextend Limits { optional int32 extra = 100; }\\nextend google.protobuf.FieldOptions { optional Limits limits = 53000; optional double scale = 53001; }\\nmessage N {\\n  optional double a = 1 [(scale) = 0.0625];\\n  optional double b = 2 [(scale) = 2.50e0];\\n  optional double c = 3 [(limits) = { lo: -0.0001 hi: 1.23456789 steps: [0.1, 0.5, 1e3] big: 0x7fffffffffffffff [nums.extra]: 7 }];\\n  optional double d = 4 [(scale) = 123456789.123456];\\n  optional double e = 5 [(scale) = -inf];\\n  optional double f = 6 [(scale) = nan];\\n  optional float g = 7 [default = 3.14159];\\n  optional double h = 8 [(scale) = 1e20];\\n}\\n\",\"schemaType\":\"PROTOBUF\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":61}",
+    "ms": 13
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":60,\"version\":1,\"guid\":\"41169fe9-2adb-b3cb-6238-505405b49fe2\",\"schemaType\":\"PROTOBUF\",\"schema\":\"package nums;\\n\\nimport \\\"google/protobuf/descriptor.proto\\\";\\n\\nmessage Limits {\\n  optional double lo = 1;\\n  optional double hi = 2;\\n  repeated float steps = 3;\\n  optional int64 big = 4;\\n\\n  extensions 100 to 200;\\n}\\nmessage N {\\n  optional double a = 1 [(nums.scale) = 0.062];\\n  optional double b = 2 [(nums.scale) = 2.5];\\n  optional double c = 3 [(nums.limits) = {\\n    [nums.extra]: 7,\\n    big: 9223372036854775807,\\n    hi: 1.235,\\n    lo: -0,\\n    steps: [\\n      0.1,\\n      0.5,\\n      1000\\n    ]\\n  }];\\n  optional double d = 4 [(nums.scale) = 123456789.123];\\n  optional double e = 5 [(nums.scale) = -inf];\\n  optional double f = 6 [(nums.scale) = nan];\\n  optional float g = 7 [default = 3.142];\\n  optional double h = 8 [(nums.scale) = 100000002004087730000];\\n}\\n\\nextend .nums.Limits {\\n  optional int32 extra = 100;\\n}\\nextend .google.protobuf.FieldOptions {\\n  optional .nums.Limits limits = 53000;\\n  optional double scale = 53001;\\n}\\n\"}",
+    "ms": 17
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":62}",
+    "ms": 6
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "GET",
+   "p": "/subjects/pn-numbers/versions/latest/schema"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "package nums;\n\nimport \"google/protobuf/descriptor.proto\";\n\nmessage Limits {\n  optional double lo = 1;\n  optional double hi = 2;\n  repeated float steps = 3;\n  optional int64 big = 4;\n\n  extensions 100 to 200;\n}\nmessage N {\n  optional double a = 1 [(nums.scale) = 0.062];\n  optional double b = 2 [(nums.scale) = 2.5];\n  optional double c = 3 [(nums.limits) = {\n    [nums.extra]: 7,\n    big: 9223372036854775807,\n    hi: 1.235,\n    lo: -0,\n    steps: [\n      0.1,\n      0.5,\n      1000\n    ]\n  }];\n  optional double d = 4 [(nums.scale) = 123456789.123];\n  optional double e = 5 [(nums.scale) = -inf];\n  optional double f = 6 [(nums.scale) = nan];\n  optional float g = 7 [default = 3.142];\n  optional double h = 8 [(nums.scale) = 100000002004087730000];\n}\n\nextend .nums.Limits {\n  optional int32 extra = 100;\n}\nextend .google.protobuf.FieldOptions {\n  optional .nums.Limits limits = 53000;\n  optional double scale = 53001;\n}\n",
+    "ms": 3
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "package nums;\n\nimport \"google/protobuf/descriptor.proto\";\n\nmessage Limits {\n  optional double lo = 1;\n  optional double hi = 2;\n  repeated float steps = 3;\n  optional int64 big = 4;\n\n  extensions 100 to 200;\n}\nmessage N {\n  optional double a = 1 [(nums.scale) = 0.062];\n  optional double b = 2 [(nums.scale) = 2.5];\n  optional double c = 3 [(nums.limits) = {\n    [nums.extra]: 7,\n    big: 9223372036854775807,\n    hi: 1.235,\n    lo: -0,\n    steps: [\n      0.1,\n      0.5,\n      1000\n    ]\n  }];\n  optional double d = 4 [(nums.scale) = 123456789.123];\n  optional double e = 5 [(nums.scale) = -inf];\n  optional double f = 6 [(nums.scale) = nan];\n  optional float g = 7 [default = 3.142];\n  optional double h = 8 [(nums.scale) = 100000002004087730000];\n}\n\nextend .nums.Limits {\n  optional int32 extra = 100;\n}\nextend .google.protobuf.FieldOptions {\n  optional .nums.Limits limits = 53000;\n  optional double scale = 53001;\n}\n",
+    "ms": 4
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "package nums;\n\nimport \"google/protobuf/descriptor.proto\";\n\nmessage Limits {\n  optional double lo = 1;\n  optional double hi = 2;\n  repeated float steps = 3;\n  optional int64 big = 4;\n\n  extensions 100 to 200;\n}\nmessage N {\n  optional double a = 1 [(nums.scale) = 0.062];\n  optional double b = 2 [(nums.scale) = 2.5];\n  optional double c = 3 [(nums.limits) = {\n    [nums.extra]: 7,\n    big: 9223372036854775807,\n    hi: 1.235,\n    lo: -0,\n    steps: [\n      0.1,\n      0.5,\n      1000\n    ]\n  }];\n  optional double d = 4 [(nums.scale) = 123456789.123];\n  optional double e = 5 [(nums.scale) = -inf];\n  optional double f = 6 [(nums.scale) = nan];\n  optional float g = 7 [default = 3.142];\n  optional double h = 8 [(nums.scale) = 100000002004087730000];\n}\n\nextend .nums.Limits {\n  optional int32 extra = 100;\n}\nextend .google.protobuf.FieldOptions {\n  optional .nums.Limits limits = 53000;\n  optional double scale = 53001;\n}\n",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/pn-numbers?normalize=true",
+   "b": "{\"schema\":\"syntax = \\\"proto2\\\";\\npackage nums;\\nimport \\\"google/protobuf/descriptor.proto\\\";\\nmessage Limits { optional double lo = 1; optional double hi = 2; repeated float steps = 3; optional int64 big = 4; extensions 100 to 200; }\\nextend Limits { optional int32 extra = 100; }\\nextend google.protobuf.FieldOptions { optional Limits limits = 53000; optional double scale = 53001; }\\nmessage N {\\n  optional double a = 1 [(scale) = 0.0625];\\n  optional double b = 2 [(scale) = 2.50e0];\\n  optional double c = 3 [(limits) = { lo: -0.0001 hi: 1.23456789 steps: [0.1, 0.5, 1e3] big: 0x7fffffffffffffff [nums.extra]: 7 }];\\n  optional double d = 4 [(scale) = 123456789.123456];\\n  optional double e = 5 [(scale) = -inf];\\n  optional double f = 6 [(scale) = nan];\\n  optional float g = 7 [default = 3.14159];\\n  optional double h = 8 [(scale) = 1e20];\\n}\\n\",\"schemaType\":\"PROTOBUF\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"pn-numbers\",\"version\":1,\"id\":61,\"schemaType\":\"PROTOBUF\",\"schema\":\"package nums;\\n\\nimport \\\"google/protobuf/descriptor.proto\\\";\\n\\nmessage Limits {\\n  optional double lo = 1;\\n  optional double hi = 2;\\n  repeated float steps = 3;\\n  optional int64 big = 4;\\n\\n  extensions 100 to 200;\\n}\\nmessage N {\\n  optional double a = 1 [(nums.scale) = 0.062];\\n  optional double b = 2 [(nums.scale) = 2.5];\\n  optional double c = 3 [(nums.limits) = {\\n    [nums.extra]: 7,\\n    big: 9223372036854775807,\\n    hi: 1.235,\\n    lo: -0,\\n    steps: [\\n      0.1,\\n      0.5,\\n      1000\\n    ]\\n  }];\\n  optional double d = 4 [(nums.scale) = 123456789.123];\\n  optional double e = 5 [(nums.scale) = -inf];\\n  optional double f = 6 [(nums.scale) = nan];\\n  optional float g = 7 [default = 3.142];\\n  optional double h = 8 [(nums.scale) = 100000002004087730000];\\n}\\n\\nextend .nums.Limits {\\n  optional int32 extra = 100;\\n}\\nextend .google.protobuf.FieldOptions {\\n  optional .nums.Limits limits = 53000;\\n  optional double scale = 53001;\\n}\\n\"}",
+    "ms": 4
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"pn-numbers\",\"version\":1,\"id\":60,\"guid\":\"41169fe9-2adb-b3cb-6238-505405b49fe2\",\"schemaType\":\"PROTOBUF\",\"schema\":\"package nums;\\n\\nimport \\\"google/protobuf/descriptor.proto\\\";\\n\\nmessage Limits {\\n  optional double lo = 1;\\n  optional double hi = 2;\\n  repeated float steps = 3;\\n  optional int64 big = 4;\\n\\n  extensions 100 to 200;\\n}\\nmessage N {\\n  optional double a = 1 [(nums.scale) = 0.062];\\n  optional double b = 2 [(nums.scale) = 2.5];\\n  optional double c = 3 [(nums.limits) = {\\n    [nums.extra]: 7,\\n    big: 9223372036854775807,\\n    hi: 1.235,\\n    lo: -0,\\n    steps: [\\n      0.1,\\n      0.5,\\n      1000\\n    ]\\n  }];\\n  optional double d = 4 [(nums.scale) = 123456789.123];\\n  optional double e = 5 [(nums.scale) = -inf];\\n  optional double f = 6 [(nums.scale) = nan];\\n  optional float g = 7 [default = 3.142];\\n  optional double h = 8 [(nums.scale) = 100000002004087730000];\\n}\\n\\nextend .nums.Limits {\\n  optional int32 extra = 100;\\n}\\nextend .google.protobuf.FieldOptions {\\n  optional .nums.Limits limits = 53000;\\n  optional double scale = 53001;\\n}\\n\"}",
+    "ms": 5
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"pn-numbers\",\"version\":1,\"id\":62,\"schemaType\":\"PROTOBUF\",\"schema\":\"package nums;\\n\\nimport \\\"google/protobuf/descriptor.proto\\\";\\n\\nmessage Limits {\\n  optional double lo = 1;\\n  optional double hi = 2;\\n  repeated float steps = 3;\\n  optional int64 big = 4;\\n\\n  extensions 100 to 200;\\n}\\nmessage N {\\n  optional double a = 1 [(nums.scale) = 0.062];\\n  optional double b = 2 [(nums.scale) = 2.5];\\n  optional double c = 3 [(nums.limits) = {\\n    [nums.extra]: 7,\\n    big: 9223372036854775807,\\n    hi: 1.235,\\n    lo: -0,\\n    steps: [\\n      0.1,\\n      0.5,\\n      1000\\n    ]\\n  }];\\n  optional double d = 4 [(nums.scale) = 123456789.123];\\n  optional double e = 5 [(nums.scale) = -inf];\\n  optional double f = 6 [(nums.scale) = nan];\\n  optional float g = 7 [default = 3.142];\\n  optional double h = 8 [(nums.scale) = 100000002004087730000];\\n}\\n\\nextend .nums.Limits {\\n  optional int32 extra = 100;\\n}\\nextend .google.protobuf.FieldOptions {\\n  optional .nums.Limits limits = 53000;\\n  optional double scale = 53001;\\n}\\n\"}",
+    "ms": 1
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/pn-numbers",
+   "b": "{\"schema\":\"syntax = \\\"proto2\\\";\\npackage nums;\\nimport \\\"google/protobuf/descriptor.proto\\\";\\nmessage Limits { optional double lo = 1; optional double hi = 2; repeated float steps = 3; optional int64 big = 4; extensions 100 to 200; }\\nextend Limits { optional int32 extra = 100; }\\nextend google.protobuf.FieldOptions { optional Limits limits = 53000; optional double scale = 53001; }\\nmessage N {\\n  optional double a = 1 [(scale) = 0.0625];\\n  optional double b = 2 [(scale) = 2.50e0];\\n  optional double c = 3 [(limits) = { lo: -0.0001 hi: 1.23456789 steps: [0.1, 0.5, 1e3] big: 0x7fffffffffffffff [nums.extra]: 7 }];\\n  optional double d = 4 [(scale) = 123456789.123456];\\n  optional double e = 5 [(scale) = -inf];\\n  optional double f = 6 [(scale) = nan];\\n  optional float g = 7 [default = 3.14159];\\n  optional double h = 8 [(scale) = 1e20];\\n}\\n\",\"schemaType\":\"PROTOBUF\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 404,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":40403,\"message\":\"Schema not found\"}",
+    "ms": 3
+   },
+   "confluent-8": {
+    "status": 404,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":40403,\"message\":\"Schema not found\"}",
+    "ms": 19
+   },
+   "doze": {
+    "status": 404,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":40403,\"message\":\"Schema not found\"}",
+    "ms": 1
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/compatibility/subjects/pn-numbers/versions/latest?normalize=true&verbose=true",
+   "b": "{\"schema\":\"syntax = \\\"proto2\\\";\\npackage nums;\\nimport \\\"google/protobuf/descriptor.proto\\\";\\nmessage Limits { optional double lo = 1; optional double hi = 2; repeated float steps = 3; optional int64 big = 4; extensions 100 to 200; }\\nextend Limits { optional int32 extra = 100; }\\nextend google.protobuf.FieldOptions { optional Limits limits = 53000; optional double scale = 53001; }\\nmessage N {\\n  optional double a = 1 [(scale) = 0.0625];\\n  optional double b = 2 [(scale) = 2.50e0];\\n  optional double c = 3 [(limits) = { lo: -0.0001 hi: 1.23456789 steps: [0.1, 0.5, 1e3] big: 0x7fffffffffffffff [nums.extra]: 7 }];\\n  optional double d = 4 [(scale) = 123456789.123456];\\n  optional double e = 5 [(scale) = -inf];\\n  optional double f = 6 [(scale) = nan];\\n  optional float g = 7 [default = 3.14159];\\n  optional double h = 8 [(scale) = 1e20];\\n}\\n\",\"schemaType\":\"PROTOBUF\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"is_compatible\":true,\"messages\":[]}",
+    "ms": 5
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"is_compatible\":true,\"messages\":[]}",
+    "ms": 10
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"is_compatible\":true,\"messages\":[]}",
+    "ms": 2
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "GET",
+   "p": "/schemas/ids/@1?format=serialized"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"schemaType\":\"PROTOBUF\",\"schema\":\"CgdkZWZhdWx0EgRudW1zGiBnb29nbGUvcHJvdG9idWYvZGVzY3JpcHRvci5wcm90byJDCgZMaW1pdHMSCgoCbG8YASABKAESCgoCaGkYAiABKAESDQoFc3RlcHMYAyADKAISCwoDYmlnGAQgASgDKgUIZBDJASJiCgFOEgkKAWEYASABKAESCQoBYhgCIAEoARIJCgFjGAMgASgBEgkKAWQYBCABKAESCQoBZRgFIAEoARIJCgFmGAYgASgBEhAKAWcYByABKAI6BTMuMTQyEgkKAWgYCCABKAE6GwoFZXh0cmESDC5udW1zLkxpbWl0cxhkIAEoBTo7CgZsaW1pdHMSHS5nb29nbGUucHJvdG9idWYuRmllbGRPcHRpb25zGIieAyABMgwubnVtcy5MaW1pdHM6LgoFc2NhbGUSHS5nb29nbGUucHJvdG9idWYuRmllbGRPcHRpb25zGImeAyABKAE=\"}",
+    "ms": 3
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"pn-numbers\",\"version\":1,\"guid\":\"41169fe9-2adb-b3cb-6238-505405b49fe2\",\"schemaType\":\"PROTOBUF\",\"schema\":\"CgdkZWZhdWx0EgRudW1zGiBnb29nbGUvcHJvdG9idWYvZGVzY3JpcHRvci5wcm90byJFCgZMaW1pdHMSCgoCbG8YASABKAESCgoCaGkYAiABKAESDQoFc3RlcHMYAyADKAISCwoDYmlnGAQgASgDKgcIZBDJARoAImIKAU4SCQoBYRgBIAEoARIJCgFiGAIgASgBEgkKAWMYAyABKAESCQoBZBgEIAEoARIJCgFlGAUgASgBEgkKAWYYBiABKAESEAoBZxgHIAEoAjoFMy4xNDISCQoBaBgIIAEoATobCgVleHRyYRIMLm51bXMuTGltaXRzGGQgASgFOj0KBmxpbWl0cxIdLmdvb2dsZS5wcm90b2J1Zi5GaWVsZE9wdGlvbnMYiJ4DIAEoCzIMLm51bXMuTGltaXRzOi4KBXNjYWxlEh0uZ29vZ2xlLnByb3RvYnVmLkZpZWxkT3B0aW9ucxiJngMgASgB\",\"ts\":1795104625312,\"deleted\":false}",
+    "ms": 15
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"schemaType\":\"PROTOBUF\",\"schema\":\"CgdkZWZhdWx0EgRudW1zGiBnb29nbGUvcHJvdG9idWYvZGVzY3JpcHRvci5wcm90byJDCgZMaW1pdHMSCgoCbG8YASABKAESCgoCaGkYAiABKAESDQoFc3RlcHMYAyADKAISCwoDYmlnGAQgASgDKgUIZBDJASJiCgFOEgkKAWEYASABKAESCQoBYhgCIAEoARIJCgFjGAMgASgBEgkKAWQYBCABKAESCQoBZRgFIAEoARIJCgFmGAYgASgBEhAKAWcYByABKAI6BTMuMTQyEgkKAWgYCCABKAE6GwoFZXh0cmESDC5udW1zLkxpbWl0cxhkIAEoBTo7CgZsaW1pdHMSHS5nb29nbGUucHJvdG9idWYuRmllbGRPcHRpb25zGIieAyABMgwubnVtcy5MaW1pdHM6LgoFc2NhbGUSHS5nb29nbGUucHJvdG9idWYuRmllbGRPcHRpb25zGImeAyABKAE=\"}",
+    "ms": 1
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/pp-numbers/versions",
+   "b": "{\"schema\":\"syntax = \\\"proto2\\\";\\npackage nums;\\nimport \\\"google/protobuf/descriptor.proto\\\";\\nmessage Limits { optional double lo = 1; optional double hi = 2; repeated float steps = 3; optional int64 big = 4; extensions 100 to 200; }\\nextend Limits { optional int32 extra = 100; }\\nextend google.protobuf.FieldOptions { optional Limits limits = 53000; optional double scale = 53001; }\\nmessage N {\\n  optional double a = 1 [(scale) = 0.0625];\\n  optional double b = 2 [(scale) = 2.50e0];\\n  optional double c = 3 [(limits) = { lo: -0.0001 hi: 1.23456789 steps: [0.1, 0.5, 1e3] big: 0x7fffffffffffffff [nums.extra]: 7 }];\\n  optional double d = 4 [(scale) = 123456789.123456];\\n  optional double e = 5 [(scale) = -inf];\\n  optional double f = 6 [(scale) = nan];\\n  optional float g = 7 [default = 3.14159];\\n  optional double h = 8 [(scale) = 1e20];\\n}\\n\",\"schemaType\":\"PROTOBUF\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":62}",
+    "ms": 12
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":61,\"version\":1,\"guid\":\"447e4973-accb-ac23-c8e3-f2807b665207\",\"schemaType\":\"PROTOBUF\",\"schema\":\"syntax = \\\"proto2\\\";\\npackage nums;\\n\\nimport \\\"google/protobuf/descriptor.proto\\\";\\n\\nmessage Limits {\\n  optional double lo = 1;\\n  optional double hi = 2;\\n  repeated float steps = 3;\\n  optional int64 big = 4;\\n\\n  extensions 100 to 200;\\n}\\nmessage N {\\n  optional double a = 1 [(scale) = 0.0625];\\n  optional double b = 2 [(scale) = 2.50e0];\\n  optional double c = 3 [(limits) = {\\n    lo: -0.0001,\\n    hi: 1.23456789,\\n    steps: [\\n      0.1,\\n      0.5,\\n      1e3\\n    ],\\n    big: 0x7fffffffffffffff,\\n    [nums.extra]: 7\\n  }];\\n  optional double d = 4 [(scale) = 123456789.123456];\\n  optional double e = 5 [(scale) = -inf];\\n  optional double f = 6 [(scale) = nan];\\n  optional float g = 7 [default = 3.14159];\\n  optional double h = 8 [(scale) = 1e20];\\n}\\n\\nextend Limits {\\n  optional int32 extra = 100;\\n}\\nextend google.protobuf.FieldOptions {\\n  optional Limits limits = 53000;\\n  optional double scale = 53001;\\n}\\n\"}",
+    "ms": 13
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":63}",
+    "ms": 6
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/pp-numbers?normalize=true",
+   "b": "{\"schema\":\"syntax = \\\"proto2\\\";\\npackage nums;\\nimport \\\"google/protobuf/descriptor.proto\\\";\\nmessage Limits { optional double lo = 1; optional double hi = 2; repeated float steps = 3; optional int64 big = 4; extensions 100 to 200; }\\nextend Limits { optional int32 extra = 100; }\\nextend google.protobuf.FieldOptions { optional Limits limits = 53000; optional double scale = 53001; }\\nmessage N {\\n  optional double a = 1 [(scale) = 0.0625];\\n  optional double b = 2 [(scale) = 2.50e0];\\n  optional double c = 3 [(limits) = { lo: -0.0001 hi: 1.23456789 steps: [0.1, 0.5, 1e3] big: 0x7fffffffffffffff [nums.extra]: 7 }];\\n  optional double d = 4 [(scale) = 123456789.123456];\\n  optional double e = 5 [(scale) = -inf];\\n  optional double f = 6 [(scale) = nan];\\n  optional float g = 7 [default = 3.14159];\\n  optional double h = 8 [(scale) = 1e20];\\n}\\n\",\"schemaType\":\"PROTOBUF\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 404,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":40403,\"message\":\"Schema not found\"}",
+    "ms": 14
+   },
+   "confluent-8": {
+    "status": 404,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":40403,\"message\":\"Schema not found\"}",
+    "ms": 23
+   },
+   "doze": {
+    "status": 404,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":40403,\"message\":\"Schema not found\"}",
+    "ms": 1
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/pp-numbers/versions?normalize=true",
+   "b": "{\"schema\":\"syntax = \\\"proto2\\\";\\npackage nums;\\nimport \\\"google/protobuf/descriptor.proto\\\";\\nmessage Limits { optional double lo = 1; optional double hi = 2; repeated float steps = 3; optional int64 big = 4; extensions 100 to 200; }\\nextend Limits { optional int32 extra = 100; }\\nextend google.protobuf.FieldOptions { optional Limits limits = 53000; optional double scale = 53001; }\\nmessage N {\\n  optional double a = 1 [(scale) = 0.0625];\\n  optional double b = 2 [(scale) = 2.50e0];\\n  optional double c = 3 [(limits) = { lo: -0.0001 hi: 1.23456789 steps: [0.1, 0.5, 1e3] big: 0x7fffffffffffffff [nums.extra]: 7 }];\\n  optional double d = 4 [(scale) = 123456789.123456];\\n  optional double e = 5 [(scale) = -inf];\\n  optional double f = 6 [(scale) = nan];\\n  optional float g = 7 [default = 3.14159];\\n  optional double h = 8 [(scale) = 1e20];\\n}\\n\",\"schemaType\":\"PROTOBUF\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":61}",
+    "ms": 12
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":60,\"version\":2,\"guid\":\"41169fe9-2adb-b3cb-6238-505405b49fe2\",\"schemaType\":\"PROTOBUF\",\"schema\":\"package nums;\\n\\nimport \\\"google/protobuf/descriptor.proto\\\";\\n\\nmessage Limits {\\n  optional double lo = 1;\\n  optional double hi = 2;\\n  repeated float steps = 3;\\n  optional int64 big = 4;\\n\\n  extensions 100 to 200;\\n}\\nmessage N {\\n  optional double a = 1 [(nums.scale) = 0.062];\\n  optional double b = 2 [(nums.scale) = 2.5];\\n  optional double c = 3 [(nums.limits) = {\\n    [nums.extra]: 7,\\n    big: 9223372036854775807,\\n    hi: 1.235,\\n    lo: -0,\\n    steps: [\\n      0.1,\\n      0.5,\\n      1000\\n    ]\\n  }];\\n  optional double d = 4 [(nums.scale) = 123456789.123];\\n  optional double e = 5 [(nums.scale) = -inf];\\n  optional double f = 6 [(nums.scale) = nan];\\n  optional float g = 7 [default = 3.142];\\n  optional double h = 8 [(nums.scale) = 100000002004087730000];\\n}\\n\\nextend .nums.Limits {\\n  optional int32 extra = 100;\\n}\\nextend .google.protobuf.FieldOptions {\\n  optional .nums.Limits limits = 53000;\\n  optional double scale = 53001;\\n}\\n\"}",
+    "ms": 21
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":62}",
+    "ms": 7
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "GET",
+   "p": "/subjects/pp-numbers/versions"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "[1,2]",
+    "ms": 2
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "[1,2]",
+    "ms": 3
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "[1,2]",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "PUT",
+   "p": "/config/pc-numbers",
+   "b": "{\"normalize\":true}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"normalize\":true}",
+    "ms": 4
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"normalize\":true}",
+    "ms": 10
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"normalize\":true}",
+    "ms": 4
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/pc-numbers/versions",
+   "b": "{\"schema\":\"syntax = \\\"proto2\\\";\\npackage nums;\\nimport \\\"google/protobuf/descriptor.proto\\\";\\nmessage Limits { optional double lo = 1; optional double hi = 2; repeated float steps = 3; optional int64 big = 4; extensions 100 to 200; }\\nextend Limits { optional int32 extra = 100; }\\nextend google.protobuf.FieldOptions { optional Limits limits = 53000; optional double scale = 53001; }\\nmessage N {\\n  optional double a = 1 [(scale) = 0.0625];\\n  optional double b = 2 [(scale) = 2.50e0];\\n  optional double c = 3 [(limits) = { lo: -0.0001 hi: 1.23456789 steps: [0.1, 0.5, 1e3] big: 0x7fffffffffffffff [nums.extra]: 7 }];\\n  optional double d = 4 [(scale) = 123456789.123456];\\n  optional double e = 5 [(scale) = -inf];\\n  optional double f = 6 [(scale) = nan];\\n  optional float g = 7 [default = 3.14159];\\n  optional double h = 8 [(scale) = 1e20];\\n}\\n\",\"schemaType\":\"PROTOBUF\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":61}",
+    "ms": 8
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":60,\"version\":1,\"guid\":\"41169fe9-2adb-b3cb-6238-505405b49fe2\",\"schemaType\":\"PROTOBUF\",\"schema\":\"package nums;\\n\\nimport \\\"google/protobuf/descriptor.proto\\\";\\n\\nmessage Limits {\\n  optional double lo = 1;\\n  optional double hi = 2;\\n  repeated float steps = 3;\\n  optional int64 big = 4;\\n\\n  extensions 100 to 200;\\n}\\nmessage N {\\n  optional double a = 1 [(nums.scale) = 0.062];\\n  optional double b = 2 [(nums.scale) = 2.5];\\n  optional double c = 3 [(nums.limits) = {\\n    [nums.extra]: 7,\\n    big: 9223372036854775807,\\n    hi: 1.235,\\n    lo: -0,\\n    steps: [\\n      0.1,\\n      0.5,\\n      1000\\n    ]\\n  }];\\n  optional double d = 4 [(nums.scale) = 123456789.123];\\n  optional double e = 5 [(nums.scale) = -inf];\\n  optional double f = 6 [(nums.scale) = nan];\\n  optional float g = 7 [default = 3.142];\\n  optional double h = 8 [(nums.scale) = 100000002004087730000];\\n}\\n\\nextend .nums.Limits {\\n  optional int32 extra = 100;\\n}\\nextend .google.protobuf.FieldOptions {\\n  optional .nums.Limits limits = 53000;\\n  optional double scale = 53001;\\n}\\n\"}",
+    "ms": 13
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":62}",
+    "ms": 5
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "GET",
+   "p": "/subjects/pc-numbers/versions/latest/schema"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "package nums;\n\nimport \"google/protobuf/descriptor.proto\";\n\nmessage Limits {\n  optional double lo = 1;\n  optional double hi = 2;\n  repeated float steps = 3;\n  optional int64 big = 4;\n\n  extensions 100 to 200;\n}\nmessage N {\n  optional double a = 1 [(nums.scale) = 0.062];\n  optional double b = 2 [(nums.scale) = 2.5];\n  optional double c = 3 [(nums.limits) = {\n    [nums.extra]: 7,\n    big: 9223372036854775807,\n    hi: 1.235,\n    lo: -0,\n    steps: [\n      0.1,\n      0.5,\n      1000\n    ]\n  }];\n  optional double d = 4 [(nums.scale) = 123456789.123];\n  optional double e = 5 [(nums.scale) = -inf];\n  optional double f = 6 [(nums.scale) = nan];\n  optional float g = 7 [default = 3.142];\n  optional double h = 8 [(nums.scale) = 100000002004087730000];\n}\n\nextend .nums.Limits {\n  optional int32 extra = 100;\n}\nextend .google.protobuf.FieldOptions {\n  optional .nums.Limits limits = 53000;\n  optional double scale = 53001;\n}\n",
+    "ms": 1
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "package nums;\n\nimport \"google/protobuf/descriptor.proto\";\n\nmessage Limits {\n  optional double lo = 1;\n  optional double hi = 2;\n  repeated float steps = 3;\n  optional int64 big = 4;\n\n  extensions 100 to 200;\n}\nmessage N {\n  optional double a = 1 [(nums.scale) = 0.062];\n  optional double b = 2 [(nums.scale) = 2.5];\n  optional double c = 3 [(nums.limits) = {\n    [nums.extra]: 7,\n    big: 9223372036854775807,\n    hi: 1.235,\n    lo: -0,\n    steps: [\n      0.1,\n      0.5,\n      1000\n    ]\n  }];\n  optional double d = 4 [(nums.scale) = 123456789.123];\n  optional double e = 5 [(nums.scale) = -inf];\n  optional double f = 6 [(nums.scale) = nan];\n  optional float g = 7 [default = 3.142];\n  optional double h = 8 [(nums.scale) = 100000002004087730000];\n}\n\nextend .nums.Limits {\n  optional int32 extra = 100;\n}\nextend .google.protobuf.FieldOptions {\n  optional .nums.Limits limits = 53000;\n  optional double scale = 53001;\n}\n",
+    "ms": 4
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "package nums;\n\nimport \"google/protobuf/descriptor.proto\";\n\nmessage Limits {\n  optional double lo = 1;\n  optional double hi = 2;\n  repeated float steps = 3;\n  optional int64 big = 4;\n\n  extensions 100 to 200;\n}\nmessage N {\n  optional double a = 1 [(nums.scale) = 0.062];\n  optional double b = 2 [(nums.scale) = 2.5];\n  optional double c = 3 [(nums.limits) = {\n    [nums.extra]: 7,\n    big: 9223372036854775807,\n    hi: 1.235,\n    lo: -0,\n    steps: [\n      0.1,\n      0.5,\n      1000\n    ]\n  }];\n  optional double d = 4 [(nums.scale) = 123456789.123];\n  optional double e = 5 [(nums.scale) = -inf];\n  optional double f = 6 [(nums.scale) = nan];\n  optional float g = 7 [default = 3.142];\n  optional double h = 8 [(nums.scale) = 100000002004087730000];\n}\n\nextend .nums.Limits {\n  optional int32 extra = 100;\n}\nextend .google.protobuf.FieldOptions {\n  optional .nums.Limits limits = 53000;\n  optional double scale = 53001;\n}\n",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/pc-numbers",
+   "b": "{\"schema\":\"syntax = \\\"proto2\\\";\\npackage nums;\\nimport \\\"google/protobuf/descriptor.proto\\\";\\nmessage Limits { optional double lo = 1; optional double hi = 2; repeated float steps = 3; optional int64 big = 4; extensions 100 to 200; }\\nextend Limits { optional int32 extra = 100; }\\nextend google.protobuf.FieldOptions { optional Limits limits = 53000; optional double scale = 53001; }\\nmessage N {\\n  optional double a = 1 [(scale) = 0.0625];\\n  optional double b = 2 [(scale) = 2.50e0];\\n  optional double c = 3 [(limits) = { lo: -0.0001 hi: 1.23456789 steps: [0.1, 0.5, 1e3] big: 0x7fffffffffffffff [nums.extra]: 7 }];\\n  optional double d = 4 [(scale) = 123456789.123456];\\n  optional double e = 5 [(scale) = -inf];\\n  optional double f = 6 [(scale) = nan];\\n  optional float g = 7 [default = 3.14159];\\n  optional double h = 8 [(scale) = 1e20];\\n}\\n\",\"schemaType\":\"PROTOBUF\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"pc-numbers\",\"version\":1,\"id\":61,\"schemaType\":\"PROTOBUF\",\"schema\":\"package nums;\\n\\nimport \\\"google/protobuf/descriptor.proto\\\";\\n\\nmessage Limits {\\n  optional double lo = 1;\\n  optional double hi = 2;\\n  repeated float steps = 3;\\n  optional int64 big = 4;\\n\\n  extensions 100 to 200;\\n}\\nmessage N {\\n  optional double a = 1 [(nums.scale) = 0.062];\\n  optional double b = 2 [(nums.scale) = 2.5];\\n  optional double c = 3 [(nums.limits) = {\\n    [nums.extra]: 7,\\n    big: 9223372036854775807,\\n    hi: 1.235,\\n    lo: -0,\\n    steps: [\\n      0.1,\\n      0.5,\\n      1000\\n    ]\\n  }];\\n  optional double d = 4 [(nums.scale) = 123456789.123];\\n  optional double e = 5 [(nums.scale) = -inf];\\n  optional double f = 6 [(nums.scale) = nan];\\n  optional float g = 7 [default = 3.142];\\n  optional double h = 8 [(nums.scale) = 100000002004087730000];\\n}\\n\\nextend .nums.Limits {\\n  optional int32 extra = 100;\\n}\\nextend .google.protobuf.FieldOptions {\\n  optional .nums.Limits limits = 53000;\\n  optional double scale = 53001;\\n}\\n\"}",
+    "ms": 5
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"pc-numbers\",\"version\":1,\"id\":60,\"guid\":\"41169fe9-2adb-b3cb-6238-505405b49fe2\",\"schemaType\":\"PROTOBUF\",\"schema\":\"package nums;\\n\\nimport \\\"google/protobuf/descriptor.proto\\\";\\n\\nmessage Limits {\\n  optional double lo = 1;\\n  optional double hi = 2;\\n  repeated float steps = 3;\\n  optional int64 big = 4;\\n\\n  extensions 100 to 200;\\n}\\nmessage N {\\n  optional double a = 1 [(nums.scale) = 0.062];\\n  optional double b = 2 [(nums.scale) = 2.5];\\n  optional double c = 3 [(nums.limits) = {\\n    [nums.extra]: 7,\\n    big: 9223372036854775807,\\n    hi: 1.235,\\n    lo: -0,\\n    steps: [\\n      0.1,\\n      0.5,\\n      1000\\n    ]\\n  }];\\n  optional double d = 4 [(nums.scale) = 123456789.123];\\n  optional double e = 5 [(nums.scale) = -inf];\\n  optional double f = 6 [(nums.scale) = nan];\\n  optional float g = 7 [default = 3.142];\\n  optional double h = 8 [(nums.scale) = 100000002004087730000];\\n}\\n\\nextend .nums.Limits {\\n  optional int32 extra = 100;\\n}\\nextend .google.protobuf.FieldOptions {\\n  optional .nums.Limits limits = 53000;\\n  optional double scale = 53001;\\n}\\n\"}",
+    "ms": 5
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"pc-numbers\",\"version\":1,\"id\":62,\"schemaType\":\"PROTOBUF\",\"schema\":\"package nums;\\n\\nimport \\\"google/protobuf/descriptor.proto\\\";\\n\\nmessage Limits {\\n  optional double lo = 1;\\n  optional double hi = 2;\\n  repeated float steps = 3;\\n  optional int64 big = 4;\\n\\n  extensions 100 to 200;\\n}\\nmessage N {\\n  optional double a = 1 [(nums.scale) = 0.062];\\n  optional double b = 2 [(nums.scale) = 2.5];\\n  optional double c = 3 [(nums.limits) = {\\n    [nums.extra]: 7,\\n    big: 9223372036854775807,\\n    hi: 1.235,\\n    lo: -0,\\n    steps: [\\n      0.1,\\n      0.5,\\n      1000\\n    ]\\n  }];\\n  optional double d = 4 [(nums.scale) = 123456789.123];\\n  optional double e = 5 [(nums.scale) = -inf];\\n  optional double f = 6 [(nums.scale) = nan];\\n  optional float g = 7 [default = 3.142];\\n  optional double h = 8 [(nums.scale) = 100000002004087730000];\\n}\\n\\nextend .nums.Limits {\\n  optional int32 extra = 100;\\n}\\nextend .google.protobuf.FieldOptions {\\n  optional .nums.Limits limits = 53000;\\n  optional double scale = 53001;\\n}\\n\"}",
+    "ms": 1
+   }
+  }
+ }
+]

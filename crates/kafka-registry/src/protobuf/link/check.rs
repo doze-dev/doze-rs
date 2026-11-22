@@ -268,7 +268,14 @@ impl Linker<'_> {
         Ok(())
     }
 
-    pub(super) fn check_enum(&self, u: &Unit<'_>, e: &Enum, _i: usize) -> Result<(), Error> {
+    /// An enum's rules; its options (and its values') name extensions as seen from `full`, the enum's own name.
+    pub(super) fn check_enum(
+        &self,
+        u: &Unit<'_>,
+        e: &Enum,
+        _i: usize,
+        full: &str,
+    ) -> Result<(), Error> {
         let mut values: Vec<(&str, i64, u32)> = Vec::new();
         let mut reserved = Vec::new();
         let mut names = Vec::new();
@@ -282,7 +289,7 @@ impl Linker<'_> {
                             format!("enum value {} is out of range", v.name),
                         ));
                     }
-                    self.check_options(u, &v.opts, "V", &e.name)?;
+                    self.check_options(u, &v.opts, "V", full)?;
                     values.push((&v.name, v.number, v.at));
                 }
                 EnumItem::Reserved(r) => {
@@ -292,16 +299,18 @@ impl Linker<'_> {
                 EnumItem::Option(o) => {
                     alias |= o.simple() == Some("allow_alias")
                         && matches!(&o.val, Val::Ident(v) if v == "true");
-                    self.check_options(u, std::slice::from_ref(o), "E", &e.name)?;
+                    self.check_options(u, std::slice::from_ref(o), "E", full)?;
                 }
             }
         }
         let named = |m: &str| Error::at(e.at, format!("enum {}: {m}", e.name));
-        let Some(&(_, first, _)) = values.first() else {
+        if values.is_empty() {
             return Err(named("an enum needs at least one value"));
-        };
-        if self.proto3(u.file) && first != 0 {
-            return Err(named("the first value of a proto3 enum must be zero"));
+        }
+        // protoc wants zero first; Confluent takes it anywhere, and its normalized text sorts values by number, so a
+        // negative value comes before zero there (recorded: protobuf-normalize/enums). Zero must be there.
+        if self.proto3(u.file) && !values.iter().any(|v| v.1 == 0) {
+            return Err(named("a proto3 enum must have a value numbered zero"));
         }
         let mut aliased = false;
         for (n, &(name, num, at)) in values.iter().enumerate() {

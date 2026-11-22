@@ -17,19 +17,18 @@ pub(super) fn head(
     cx: &mut Context<OverviewView>,
 ) -> impl IntoElement {
     let h = &v.home;
-    let mut parts: Vec<String> = vec![h.dir.clone()];
-    if !h.up.is_empty() {
-        parts.push(format!("up {}", h.up));
-    }
-    if let Some(st) = &h.stopped {
-        parts.extend([
-            doze_desk::overview::Look::STOPPED.word.to_owned(),
-            st.when.clone(),
-        ]);
-    }
-    parts.retain(|p| !p.is_empty());
-    let path = parts.join(" · ");
-    let mut row = title_row(t, &h.stack, &path);
+    let (shown, _, sleeping) = v.busy_shown(cx);
+    let connecting = h.running
+        && v.stack
+            .as_ref()
+            .is_some_and(|s| s.conn_shown(v.hub.now()) == doze_desk::Conn::Connecting);
+    let mark = status(t, (shown, sleeping, connecting));
+    let rest = if shown.is_some() {
+        String::new()
+    } else {
+        line_rest(h)
+    };
+    let mut row = title_row(t, &h.stack, (&h.dir, &rest), mark);
     if v.view == View::List {
         let e = cx.entity();
         row = row.child(density(t, v.density, move |d| {
@@ -123,8 +122,9 @@ fn views(t: &Tokens, v: &OverviewView, cx: &mut Context<OverviewView>) -> impl I
         }))
 }
 
-/// `.swl`: Up and the stack's switch; ⋯.
-/// While the stack is busy the label says what it is doing ("starting…") and the switch, faded, where it is going.
+/// `.swl`: Up and the stack's switch; ⋯. (Sleep all is over the services' own switches: `tiles::sleep_all`.)
+/// While the stack is busy the switch, faded, shows where it is going at once; once the action has lasted a moment
+/// the head's status line says what it is doing ("Starting…"); the label stays Up.
 fn up(
     t: &Tokens,
     (running, busy): (bool, Option<doze_desk::act::Busy>),
@@ -132,7 +132,9 @@ fn up(
     broken: bool,
     cx: &mut Context<OverviewView>,
 ) -> impl IntoElement {
-    let label = busy.map_or_else(|| "Up".to_owned(), |b| format!("{}…", b.word()));
+    // The status line says what an action is doing ("Starting…", with its spinner); here the switch's own movement is
+    // enough, so the label stays Up and nothing beside it changes width.
+    let label = "Up";
     div()
         .flex()
         .flex_none()
@@ -142,7 +144,7 @@ fn up(
             div()
                 .text_size(px(ty::SM))
                 .font_weight(ty::SEMIBOLD)
-                .text_color(if busy.is_some() { t.cool } else { t.bright })
+                .text_color(t.bright)
                 .child(label),
         )
         .child(
@@ -170,8 +172,83 @@ fn up(
         ))
 }
 
-/// The head's left: the stack's name, and its folder and how long it is up.
-fn title_row(t: &Tokens, stack: &str, path: &str) -> gpui::Div {
+/// The rest of the head's line, after the folder and the status: asleep, how long up, or stopped and when.
+fn line_rest(h: &doze_desk::overview::Home) -> String {
+    let mut parts: Vec<String> = Vec::new();
+    if h.asleep {
+        parts.push(doze_desk::ALL_ASLEEP.to_owned());
+    }
+    if !h.up.is_empty() {
+        parts.push(format!("up {}", h.up));
+    }
+    if let Some(st) = &h.stopped {
+        parts.extend([
+            doze_desk::overview::Look::STOPPED.word.to_owned(),
+            st.when.clone(),
+        ]);
+    }
+    parts.retain(|p| !p.is_empty());
+    parts.join(" · ")
+}
+
+/// The head's status line, after the folder: an action under way (its spinner, "Starting…"), every service going to
+/// sleep, or the daemon being connected to (a still ring). In place, on the head's one line: nothing below moves.
+fn status(
+    t: &Tokens,
+    (shown, sleeping, connecting): (Option<doze_desk::act::Busy>, bool, bool),
+) -> Option<gpui::AnyElement> {
+    let (words, spin) = if let Some(b) = shown {
+        let mut w = format!("{}…", b.word());
+        if let Some(first) = w.get_mut(..1) {
+            first.make_ascii_uppercase();
+        }
+        (w, true)
+    } else if sleeping {
+        ("Putting everything to sleep…".to_owned(), true)
+    } else if connecting {
+        ("connecting…".to_owned(), false)
+    } else {
+        return None;
+    };
+    let mark = if spin {
+        crate::widgets::spinner("head-spin", 12., t.cool)
+    } else {
+        div()
+            .size(px(8.))
+            .flex_none()
+            .rounded_full()
+            .border_2()
+            .border_color(t.cool)
+            .into_any_element()
+    };
+    Some(
+        div()
+            .flex()
+            .flex_none()
+            .items_center()
+            .gap(px(6.))
+            .text_color(t.cool)
+            .child(mark)
+            .child(s(&words))
+            .probe("stack-status", words)
+            .into_any_element(),
+    )
+}
+
+/// The head's left: the stack's name, its folder, its status (an action under way, connecting) and the rest of the
+/// line (asleep, how long it is up, or stopped and when).
+fn title_row(
+    t: &Tokens,
+    stack: &str,
+    (dir, rest): (&str, &str),
+    status: Option<gpui::AnyElement>,
+) -> gpui::Div {
+    let path = if rest.is_empty() {
+        dir.to_owned()
+    } else {
+        format!("{dir} · {rest}")
+    };
+    let path = path.as_str();
     let name = div()
         .min_w(px(72.))
         .max_w(relative(0.4))
@@ -200,6 +277,7 @@ fn title_row(t: &Tokens, stack: &str, path: &str) -> gpui::Div {
         .min_h(px(58.))
         .child(name)
         .child(folder.text_color(t.dim).child(s(path)))
+        .children(status)
         .child(div().flex_1())
 }
 

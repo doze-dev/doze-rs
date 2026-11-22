@@ -204,7 +204,12 @@ fn sentence(t: &Tokens, v: &DialogView) -> Option<AnyElement> {
 /// The box: a reset's "Type db to confirm", or an action's input.
 fn input(t: &Tokens, v: &DialogView, focused: bool) -> Option<AnyElement> {
     let i = v.input.as_ref()?;
-    let (frame, moving) = crate::widgets::input_frame(t, "dialog/input", focused);
+    // In a danger dialog the box's focus tint is the ink too: red is the dialog's one colour.
+    let tint = Tokens {
+        accent: v.focus(t),
+        ..*t
+    };
+    let (frame, moving) = crate::widgets::input_frame(&tint, "dialog/input", focused);
     let field = div()
         .h(px(36.))
         .px(px(12.))
@@ -281,15 +286,27 @@ fn foot(t: &Tokens, v: &DialogView) -> Option<AnyElement> {
 }
 
 impl DialogView {
+    /// A highlighted plain button's colour. A danger dialog has one colour, its red: Cancel's highlight there is the
+    /// ink, not the accent (two accents competed in it, the design pass of 2026-11-19 found).
+    fn focus(&self, t: &Tokens) -> gpui::Hsla {
+        let d = &self.c.dialog;
+        if d.danger || d.buttons.iter().any(|b| b.danger) {
+            t.text
+        } else {
+            t.accent
+        }
+    }
+
     fn button(&self, t: &Tokens, i: usize, b: &Button, cx: &mut Context<Self>) -> AnyElement {
         let at = i == self.c.at;
         let on = self.c.enabled(i);
+        let focus = self.focus(t);
         let (bg, border, fg) = if b.danger {
             (t.bad, t.bad, t.ink)
         } else if b.primary {
             (t.accent, t.accent, t.ink)
         } else {
-            (t.panel, if at { t.accent } else { t.line2 }, t.text)
+            (t.panel, if at { focus } else { t.line2 }, t.text)
         };
         let key = if b.cancel {
             "esc"
@@ -326,8 +343,10 @@ impl DialogView {
             .when(at && on && !self.c.has_box(), |d| {
                 d.shadow(vec![super::scrim::ring(if b.danger {
                     t.bad
-                } else {
+                } else if b.primary {
                     t.accent
+                } else {
+                    focus
                 })])
             })
             .when(!on, |d| d.opacity(0.6))

@@ -102,6 +102,32 @@ impl Source {
         }
     }
 
+    /// The topic page's Empty dialog (CON-1590); `None` if there is no such topic (and over the fixtures, which hold no log).
+    pub async fn empty_records_form(
+        &self,
+        topic: &str,
+    ) -> Option<crate::empty_records::EmptyRecordsView> {
+        match self {
+            Self::Live(l) => gather::empty_records_form(&l.backend, topic).await,
+            #[cfg(any(test, feature = "examples"))]
+            Self::Fixture => None,
+        }
+    }
+
+    /// Empties `topic` (every partition to its high watermark) when `confirm` is its name; then moves `groups` to the new start.
+    pub async fn empty_records(
+        &self,
+        topic: &str,
+        confirm: &str,
+        groups: &[String],
+    ) -> crate::empty_records::EmptyResult {
+        match self {
+            Self::Live(l) => gather::empty_records(&l.backend, topic, confirm, groups).await,
+            #[cfg(any(test, feature = "examples"))]
+            Self::Fixture => crate::empty_records::EmptyResult::NoTopic,
+        }
+    }
+
     /// The Delete-topic dialog; `None` if there is no such topic.
     pub async fn delete_form(&self, topic: &str, typed: &str) -> Option<DeleteView> {
         match self {

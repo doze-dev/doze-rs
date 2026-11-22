@@ -42,7 +42,8 @@ fn toast(t: &Tokens, x: &Toast, motion: Motion, cx: &mut Context<ToastsView>) ->
             .flex()
             .items_center()
             .gap(px(10.))
-            .max_w(px(420.))
+            // One width for every toast, so a stack of them lines up (the design pass, 2026-11-19).
+            .w(px(420.))
             .px(px(14.))
             .py(px(10.))
             .rounded(px(10.))

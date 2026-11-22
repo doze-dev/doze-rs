@@ -12,15 +12,15 @@ use doze_module_proto::peer::Stream;
 impl ModuleInstance {
     /// Whether its module offers data actions and resources (`admin`).
     pub async fn has_admin(&self) -> Result<bool, String> {
-        let m = self.pool.get(&self.key).await.map_err(|e| e.message)?;
+        let m = self.pool.get(&self.key).await.map_err(|e| e.describe())?;
         Ok(m.manifest.caps & caps::ADMIN != 0)
     }
 
     /// Its sub-resources (queues, buckets, databases) with a live status line.
     pub async fn resources(&self, ctx: &PlanCtx) -> Result<Vec<Resource>, String> {
-        let m = self.pool.get(&self.key).await.map_err(|e| e.message)?;
+        let m = self.pool.get(&self.key).await.map_err(|e| e.describe())?;
         let i = self.with_toolchain(ctx).await?.instance;
-        m.resources(&i).await.map_err(|e| e.message)
+        m.resources(&i).await.map_err(|e| e.describe())
     }
 
     /// Runs data action `action` on `resource`; what it says it did.
@@ -31,19 +31,19 @@ impl ModuleInstance {
         resource: &str,
         input: Option<String>,
     ) -> Result<String, String> {
-        let m = self.pool.get(&self.key).await.map_err(|e| e.message)?;
+        let m = self.pool.get(&self.key).await.map_err(|e| e.describe())?;
         let a = RunAction {
             instance: self.with_toolchain(ctx).await?.instance,
             action: action.into(),
             resource: resource.into(),
             input,
         };
-        m.run_action(&a).await.map_err(|e| e.message)
+        m.run_action(&a).await.map_err(|e| e.describe())
     }
 
     /// A console panel's rows as they arrive; dropping the stream stops it.
     pub async fn tail(&self, ctx: &PlanCtx, panel: &str, selector: &str) -> Result<Stream, String> {
-        let m = self.pool.get(&self.key).await.map_err(|e| e.message)?;
+        let m = self.pool.get(&self.key).await.map_err(|e| e.describe())?;
         if m.manifest.caps & caps::CONSOLE == 0 {
             return Err(format!("{} has no console", self.base.engine));
         }
@@ -52,7 +52,7 @@ impl ModuleInstance {
             selector: selector.into(),
             instance: self.with_toolchain(ctx).await?.instance,
         };
-        m.tail(&a).map_err(|e| e.message)
+        m.tail(&a).map_err(|e| e.describe())
     }
 
     /// What its declaration says it should have, by kind and name, for telling them from what was made at run time;
@@ -79,7 +79,7 @@ impl ModuleInstance {
     /// Its module's manifest (its console and data actions), starting the module process if it is not running; the
     /// instance itself is not woken.
     pub async fn manifest(&self) -> Result<doze_module_proto::msg::hello::Manifest, String> {
-        let m = self.pool.get(&self.key).await.map_err(|e| e.message)?;
+        let m = self.pool.get(&self.key).await.map_err(|e| e.describe())?;
         Ok(m.manifest.clone())
     }
 }
@@ -97,14 +97,14 @@ impl ModuleInstance {
 impl ModuleInstance {
     /// Whether its module moves data between versions (`migrate`).
     pub async fn has_migrate(&self) -> Result<bool, String> {
-        let m = self.pool.get(&self.key).await.map_err(|e| e.message)?;
+        let m = self.pool.get(&self.key).await.map_err(|e| e.describe())?;
         Ok(m.manifest.caps & caps::MIGRATE != 0)
     }
 
     /// Asks its module to move the instance's data to the version its block declares; the instance must be stopped.
     /// What the module says it did.
     pub async fn migrate(&self, ctx: &PlanCtx) -> Result<String, String> {
-        let m = self.pool.get(&self.key).await.map_err(|e| e.message)?;
+        let m = self.pool.get(&self.key).await.map_err(|e| e.describe())?;
         let args = doze_module_proto::msg::run::ResolveArgs {
             instance: self.instance(ctx),
             target: self.target.clone(),
@@ -114,6 +114,6 @@ impl ModuleInstance {
                 .unwrap_or_else(std::sync::PoisonError::into_inner)
                 .clone(),
         };
-        m.migrate(&args).await.map_err(|e| e.message)
+        m.migrate(&args).await.map_err(|e| e.describe())
     }
 }

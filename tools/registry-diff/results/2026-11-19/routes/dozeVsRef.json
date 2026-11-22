@@ -1,0 +1,1482 @@
+[
+ {
+  "scenario": "root-and-unknown-routes",
+  "step": 13,
+  "req": "GET /v1/metadata/id",
+  "known": "REG-D5: /v1/metadata/id is not served",
+  "a": {
+   "status": 200,
+   "ct": "application/vnd.schemaregistry.v1+json",
+   "www": "",
+   "allow": "",
+   "body": "{\"scope\":{\"path\":[],\"clusters\":{\"kafka-cluster\":\"5L6g3nShT-eMCtK--X86sw\",\"schema-registry-cluster\":\"regdiff-sr7\"}}}"
+  },
+  "b": {
+   "status": 404,
+   "ct": "",
+   "www": "",
+   "allow": "",
+   "body": "{\"error_code\":404,\"message\":\"HTTP 404 Not Found\"}"
+  }
+ },
+ {
+  "scenario": "root-and-unknown-routes",
+  "step": 14,
+  "req": "GET /v1/metadata/version",
+  "known": "REG-D5: /v1/metadata/version is not served",
+  "a": {
+   "status": 200,
+   "ct": "application/vnd.schemaregistry.v1+json",
+   "www": "",
+   "allow": "",
+   "body": "{\"version\":\"7.7.1\",\"commitId\":\"b4110e23a6954a2bb3d4f664e81eba351e94fa2d\"}"
+  },
+  "b": {
+   "status": 404,
+   "ct": "",
+   "www": "",
+   "allow": "",
+   "body": "{\"error_code\":404,\"message\":\"HTTP 404 Not Found\"}"
+  }
+ },
+ {
+  "scenario": "register-and-read-avro",
+  "step": 34,
+  "req": "GET /schemas/ids/999999/schema",
+  "known": "REG-D6: Confluent answers 500 for /schemas/ids/{unknown}/schema",
+  "a": {
+   "status": 500,
+   "ct": "application/vnd.schemaregistry.v1+json",
+   "www": "",
+   "allow": "",
+   "body": "{\"error_code\":500,\"message\":\"Internal Server Error\"}"
+  },
+  "b": {
+   "status": 404,
+   "ct": "application/vnd.schemaregistry.v1+json",
+   "www": "",
+   "allow": "",
+   "body": "{\"error_code\":40403,\"message\":\"Schema 999999 not found\"}"
+  }
+ },
+ {
+  "scenario": "register-and-read-avro",
+  "step": 54,
+  "req": "POST /subjects/u-value",
+  "known": "REG-D27: the parser's own words after `details:` (Jackson's, Wire's) are doze's, which name the place",
+  "a": {
+   "status": 422,
+   "ct": "application/vnd.schemaregistry.v1+json",
+   "www": "",
+   "allow": "",
+   "body": "{\"error_code\":42201,\"message\":\"Invalid schema {subject=u-value,version=0,id=-1,schemaType=PROTOBUF,references=[],metadata=null,ruleSet=null,schema={\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"}]},schemaTags=null} with refs [] of type PROTOBUF, details: Could not parse Protobuf - Syntax error in :1:1: expected a word\"}"
+  },
+  "b": {
+   "status": 422,
+   "ct": "application/vnd.schemaregistry.v1+json",
+   "www": "",
+   "allow": "",
+   "body": "{\"error_code\":42201,\"message\":\"Invalid schema {subject=u-value,version=0,id=-1,schemaType=PROTOBUF,references=[],metadata=null,ruleSet=null,schema={\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"}]},schemaTags=null} with refs [] of type PROTOBUF, details: Could not parse Protobuf - Syntax error in :1:1: expected a declaration, found \\\"{\\\"\"}"
+  }
+ },
+ {
+  "scenario": "register-errors",
+  "step": 8,
+  "req": "POST /subjects/e/versions",
+  "known": "REG-D27: the parser's own words after `details:` (Jackson's, Wire's) are doze's, which name the place",
+  "a": {
+   "status": 422,
+   "ct": "application/vnd.schemaregistry.v1+json",
+   "www": "",
+   "allow": "",
+   "body": "{\"error_code\":42201,\"message\":\"Invalid schema {subject=e,version=0,id=-1,schemaType=AVRO,references=[],metadata=null,ruleSet=null,schema={,schemaTags=null} with refs [] of type AVRO, details: com.fasterxml.jackson.core.io.JsonEOFException: Unexpected end-of-input: expected close marker for Object (start marker at [Source: REDACTED (`StreamReadFeature.INCLUDE_SOURCE_IN_LOCATION` disabled); line: 1, column: 1])\\n at [Source: REDACTED (`StreamReadFeature.INCLUDE_SOURCE_IN_LOCATION` disabled); line: 1, column: 2]\"}"
+  },
+  "b": {
+   "status": 422,
+   "ct": "application/vnd.schemaregistry.v1+json",
+   "www": "",
+   "allow": "",
+   "body": "{\"error_code\":42201,\"message\":\"Invalid schema {subject=e,version=0,id=-1,schemaType=AVRO,references=[],metadata=null,ruleSet=null,schema={,schemaTags=null} with refs [] of type AVRO, details: expected a key at byte 1\"}"
+  }
+ },
+ {
+  "scenario": "metadata-and-rules-in-a-registration",
+  "step": 2,
+  "req": "POST /subjects/meta/versions",
+  "known": "REG-D30: the rule set is kept (the community image drops it)",
+  "a": {
+   "status": 200,
+   "ct": "application/vnd.schemaregistry.v1+json",
+   "www": "",
+   "allow": "",
+   "body": "{\"id\":\"@1\",\"version\":1,\"metadata\":{\"properties\":{\"owner\":\"team-a\"}},\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"}]}\"}"
+  },
+  "b": {
+   "status": 200,
+   "ct": "application/vnd.schemaregistry.v1+json",
+   "www": "",
+   "allow": "",
+   "body": "{\"id\":\"@2\",\"version\":2,\"metadata\":{\"properties\":{\"owner\":\"team-a\"}},\"ruleSet\":{\"domainRules\":[{\"name\":\"r1\",\"kind\":\"CONDITION\",\"mode\":\"WRITE\",\"type\":\"CEL\",\"expr\":\"true\",\"disabled\":false}]},\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"}]}\"}"
+  }
+ },
+ {
+  "scenario": "metadata-and-rules-in-a-registration",
+  "step": 3,
+  "req": "GET /subjects/meta/versions/latest",
+  "known": "REG-D30",
+  "a": {
+   "status": 200,
+   "ct": "application/vnd.schemaregistry.v1+json",
+   "www": "",
+   "allow": "",
+   "body": "{\"subject\":\"meta\",\"version\":1,\"id\":\"@1\",\"metadata\":{\"properties\":{\"owner\":\"team-a\"}},\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"}]}\"}"
+  },
+  "b": {
+   "status": 200,
+   "ct": "application/vnd.schemaregistry.v1+json",
+   "www": "",
+   "allow": "",
+   "body": "{\"subject\":\"meta\",\"version\":2,\"id\":\"@2\",\"metadata\":{\"properties\":{\"owner\":\"team-a\"}},\"ruleSet\":{\"domainRules\":[{\"name\":\"r1\",\"kind\":\"CONDITION\",\"mode\":\"WRITE\",\"type\":\"CEL\",\"expr\":\"true\",\"disabled\":false}]},\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"}]}\"}"
+  }
+ },
+ {
+  "scenario": "metadata-and-rules-in-a-registration",
+  "step": 5,
+  "req": "POST /subjects/meta",
+  "known": "REG-D31: a lookup tries the inherited contract, as 8.x does",
+  "a": {
+   "status": 404,
+   "ct": "application/vnd.schemaregistry.v1+json",
+   "www": "",
+   "allow": "",
+   "body": "{\"error_code\":40403,\"message\":\"Schema not found\"}"
+  },
+  "b": {
+   "status": 200,
+   "ct": "application/vnd.schemaregistry.v1+json",
+   "www": "",
+   "allow": "",
+   "body": "{\"subject\":\"meta\",\"version\":2,\"id\":\"@2\",\"metadata\":{\"properties\":{\"owner\":\"team-a\"}},\"ruleSet\":{\"domainRules\":[{\"name\":\"r1\",\"kind\":\"CONDITION\",\"mode\":\"WRITE\",\"type\":\"CEL\",\"expr\":\"true\",\"disabled\":false}]},\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"}]}\"}"
+  }
+ },
+ {
+  "scenario": "mode",
+  "step": 17,
+  "req": "PUT /mode/m",
+  "known": "REG-D6: Confluent answers 500 for a mode body without a mode",
+  "a": {
+   "status": 500,
+   "ct": "application/vnd.schemaregistry.v1+json",
+   "www": "",
+   "allow": "",
+   "body": "{\"error_code\":500,\"message\":\"Internal Server Error\"}"
+  },
+  "b": {
+   "status": 422,
+   "ct": "application/vnd.schemaregistry.v1+json",
+   "www": "",
+   "allow": "",
+   "body": "{\"error_code\":42204,\"message\":\"Invalid mode. Valid values are READWRITE, READONLY, and IMPORT.\"}"
+  }
+ },
+ {
+  "scenario": "compatibility-route",
+  "step": 13,
+  "req": "POST /compatibility/subjects/c/versions/latest",
+  "known": "REG-D27: the parser's own words after `details:` (Jackson's, Wire's) are doze's, which name the place",
+  "a": {
+   "status": 422,
+   "ct": "application/vnd.schemaregistry.v1+json",
+   "www": "",
+   "allow": "",
+   "body": "{\"error_code\":42201,\"message\":\"Invalid schema {subject=c,version=0,id=-1,schemaType=AVRO,references=[],metadata=null,ruleSet=null,schema={,schemaTags=null} with refs [] of type AVRO, details: com.fasterxml.jackson.core.io.JsonEOFException: Unexpected end-of-input: expected close marker for Object (start marker at [Source: REDACTED (`StreamReadFeature.INCLUDE_SOURCE_IN_LOCATION` disabled); line: 1, column: 1])\\n at [Source: REDACTED (`StreamReadFeature.INCLUDE_SOURCE_IN_LOCATION` disabled); line: 1, column: 2]\"}"
+  },
+  "b": {
+   "status": 422,
+   "ct": "application/vnd.schemaregistry.v1+json",
+   "www": "",
+   "allow": "",
+   "body": "{\"error_code\":42201,\"message\":\"Invalid schema {subject=c,version=0,id=-1,schemaType=AVRO,references=[],metadata=null,ruleSet=null,schema={,schemaTags=null} with refs [] of type AVRO, details: expected a key at byte 1\"}"
+  }
+ },
+ {
+  "scenario": "protobuf",
+  "step": 11,
+  "req": "POST /subjects/p",
+  "known": "REG-D27: the parser's own words after `details:` (Jackson's, Wire's) are doze's, which name the place",
+  "a": {
+   "status": 422,
+   "ct": "application/vnd.schemaregistry.v1+json",
+   "www": "",
+   "allow": "",
+   "body": "{\"error_code\":42201,\"message\":\"Invalid schema {subject=p,version=0,id=-1,schemaType=AVRO,references=[],metadata=null,ruleSet=null,schema=syntax = \\\"proto3\\\";\\npackage shop;\\n\\nmessage Order {\\n  string id = 1;\\n  int64 cents = 2;\\n}\\n,schemaTags=null} with refs [] of type AVRO, details: com.fasterxml.jackson.core.JsonParseException: Unrecognized token 'syntax': was expecting (JSON String, Number, Array, Object or token 'null', 'true' or 'false')\\n at [Source: REDACTED (`StreamReadFeature.INCLUDE_SOURCE_IN_LOCATION` disabled); line: 1, column: 7]\"}"
+  },
+  "b": {
+   "status": 422,
+   "ct": "application/vnd.schemaregistry.v1+json",
+   "www": "",
+   "allow": "",
+   "body": "{\"error_code\":42201,\"message\":\"Invalid schema {subject=p,version=0,id=-1,schemaType=AVRO,references=[],metadata=null,ruleSet=null,schema=syntax = \\\"proto3\\\";\\npackage shop;\\n\\nmessage Order {\\n  string id = 1;\\n  int64 cents = 2;\\n}\\n,schemaTags=null} with refs [] of type AVRO, details: expected a value at byte 0\"}"
+  }
+ },
+ {
+  "scenario": "protobuf",
+  "step": 12,
+  "req": "POST /subjects/p/versions",
+  "known": "REG-D27: the parser's own words after `details:` (Jackson's, Wire's) are doze's, which name the place",
+  "a": {
+   "status": 422,
+   "ct": "application/vnd.schemaregistry.v1+json",
+   "www": "",
+   "allow": "",
+   "body": "{\"error_code\":42201,\"message\":\"Invalid schema {subject=p,version=0,id=-1,schemaType=PROTOBUF,references=[],metadata=null,ruleSet=null,schema=message {,schemaTags=null} with refs [] of type PROTOBUF, details: Could not parse Protobuf - Syntax error in :1:9: expected a word\"}"
+  },
+  "b": {
+   "status": 422,
+   "ct": "application/vnd.schemaregistry.v1+json",
+   "www": "",
+   "allow": "",
+   "body": "{\"error_code\":42201,\"message\":\"Invalid schema {subject=p,version=0,id=-1,schemaType=PROTOBUF,references=[],metadata=null,ruleSet=null,schema=message {,schemaTags=null} with refs [] of type PROTOBUF, details: Could not parse Protobuf - Syntax error in :1:9: expected a name, found \\\"{\\\"\"}"
+  }
+ },
+ {
+  "scenario": "protobuf",
+  "step": 13,
+  "req": "POST /subjects/p/versions",
+  "known": "REG-D15: a field number used twice is refused, as protoc refuses it (Confluent takes it)",
+  "a": {
+   "status": 409,
+   "ct": "application/vnd.schemaregistry.v1+json",
+   "www": "",
+   "allow": "",
+   "body": "{\"error_code\":409,\"message\":\"Schema being registered is incompatible with an earlier schema for subject \\\"p\\\", details: [{errorType:\\\"PACKAGE_CHANGED\\\", description:\\\"The package at '#/' in the new schema does not match the package in the old schema\\\"}, {errorType:\\\"MESSAGE_REMOVED\\\", description:\\\"The new schema is missing a MESSAGE type at path '#/Order' in the old schema\\\"}, {errorType:\\\"MESSAGE_REMOVED\\\", description:\\\"The new schema is missing a MESSAGE type at path '#/Line' in the old schema\\\"}, {oldSchemaVersion: 2}, {oldSchema: 'syntax = \\\"proto3\\\";\\npackage shop;\\n\\nmessage Order {\\n  string id = 1;\\n  int64 cents = 2;\\n  repeated string tags = 3;\\n}\\nmessage Line {\\n  int32 qty = 1;\\n}\\n'}, {validateFields: 'false', compatibility: 'BACKWARD'}]\"}"
+  },
+  "b": {
+   "status": 422,
+   "ct": "application/vnd.schemaregistry.v1+json",
+   "www": "",
+   "allow": "",
+   "body": "{\"error_code\":42201,\"message\":\"Invalid schema {subject=p,version=0,id=-1,schemaType=PROTOBUF,references=[],metadata=null,ruleSet=null,schema=syntax = \\\"proto3\\\"; message A { string a = 1; string b = 1; },schemaTags=null}, details: :1:28: message A: field b uses number 1 already used by a\"}"
+  }
+ },
+ {
+  "scenario": "json-schema",
+  "step": 5,
+  "req": "GET /schemas/ids/@1?format=serialized",
+  "known": "REG-D6: Confluent answers 500 for format=serialized on a JSON schema",
+  "a": {
+   "status": 500,
+   "ct": "application/vnd.schemaregistry.v1+json",
+   "www": "",
+   "allow": "",
+   "body": "{\"error_code\":500,\"message\":\"Internal Server Error\"}"
+  },
+  "b": {
+   "status": 200,
+   "ct": "application/vnd.schemaregistry.v1+json",
+   "www": "",
+   "allow": "",
+   "body": "{\"schemaType\":\"JSON\",\"schema\":\"{\\\"type\\\":\\\"object\\\",\\\"properties\\\":{\\\"id\\\":{\\\"type\\\":\\\"integer\\\"}},\\\"required\\\":[\\\"id\\\"]}\"}"
+  }
+ },
+ {
+  "scenario": "json-schema",
+  "step": 8,
+  "req": "POST /subjects/js/versions",
+  "known": "REG-D27: the parser's own words after `details:` (Jackson's, Wire's) are doze's, which name the place",
+  "a": {
+   "status": 422,
+   "ct": "application/vnd.schemaregistry.v1+json",
+   "www": "",
+   "allow": "",
+   "body": "{\"error_code\":42201,\"message\":\"Invalid schema {subject=js,version=0,id=-1,schemaType=JSON,references=[],metadata=null,ruleSet=null,schema={\\\"type\\\":\\\"nonsense\\\"},schemaTags=null}, details: Invalid JSON Schema\"}"
+  },
+  "b": {
+   "status": 422,
+   "ct": "application/vnd.schemaregistry.v1+json",
+   "www": "",
+   "allow": "",
+   "body": "{\"error_code\":42201,\"message\":\"Invalid schema {subject=js,version=0,id=-1,schemaType=JSON,references=[],metadata=null,ruleSet=null,schema={\\\"type\\\":\\\"nonsense\\\"},schemaTags=null}, details: Invalid JSON Schema: #/type: \\\"nonsense\\\" is not a type\"}"
+  }
+ },
+ {
+  "scenario": "json-schema",
+  "step": 9,
+  "req": "POST /subjects/js/versions",
+  "known": "REG-D27: the parser's own words after `details:` (Jackson's, Wire's) are doze's, which name the place",
+  "a": {
+   "status": 422,
+   "ct": "application/vnd.schemaregistry.v1+json",
+   "www": "",
+   "allow": "",
+   "body": "{\"error_code\":42201,\"message\":\"Invalid schema {subject=js,version=0,id=-1,schemaType=JSON,references=[],metadata=null,ruleSet=null,schema={,schemaTags=null} with refs [] of type JSON, details: Invalid JSON {\"}"
+  },
+  "b": {
+   "status": 422,
+   "ct": "application/vnd.schemaregistry.v1+json",
+   "www": "",
+   "allow": "",
+   "body": "{\"error_code\":42201,\"message\":\"Invalid schema {subject=js,version=0,id=-1,schemaType=JSON,references=[],metadata=null,ruleSet=null,schema={,schemaTags=null} with refs [] of type JSON, details: Invalid JSON: expected a key at byte 1\"}"
+  }
+ },
+ {
+  "scenario": "json-schema",
+  "step": 12,
+  "req": "POST /subjects/js/versions",
+  "known": "REG-D27: the parser's own words after `details:` (Jackson's, Wire's) are doze's, which name the place",
+  "a": {
+   "status": 422,
+   "ct": "application/vnd.schemaregistry.v1+json",
+   "www": "",
+   "allow": "",
+   "body": "{\"error_code\":42201,\"message\":\"Invalid schema {subject=js,version=0,id=-1,schemaType=JSON,references=[],metadata=null,ruleSet=null,schema={\\\"type\\\":\\\"object\\\",\\\"properties\\\":{\\\"a\\\":{\\\"$ref\\\":\\\"#/definitions/missing\\\"}}},schemaTags=null}, details: Invalid JSON Schema\"}"
+  },
+  "b": {
+   "status": 422,
+   "ct": "application/vnd.schemaregistry.v1+json",
+   "www": "",
+   "allow": "",
+   "body": "{\"error_code\":42201,\"message\":\"Invalid schema {subject=js,version=0,id=-1,schemaType=JSON,references=[],metadata=null,ruleSet=null,schema={\\\"type\\\":\\\"object\\\",\\\"properties\\\":{\\\"a\\\":{\\\"$ref\\\":\\\"#/definitions/missing\\\"}}},schemaTags=null}, details: Invalid JSON Schema: #/properties/a: unresolved reference \\\"#/definitions/missing\\\"\"}"
+  }
+ },
+ {
+  "scenario": "json-schema",
+  "step": 17,
+  "req": "POST /subjects/jsr/versions",
+  "known": "REG-D27: the parser's own words after `details:` (Jackson's, Wire's) are doze's, which name the place",
+  "a": {
+   "status": 422,
+   "ct": "application/vnd.schemaregistry.v1+json",
+   "www": "",
+   "allow": "",
+   "body": "{\"error_code\":42201,\"message\":\"Invalid schema {subject=jsr,version=0,id=-1,schemaType=JSON,references=[],metadata=null,ruleSet=null,schema={\\\"$schema\\\":\\\"http://json-schema.org/draft-07/schema#\\\",\\\"type\\\":\\\"object\\\",\\\"properties\\\":{\\\"addr\\\":{\\\"$ref\\\":\\\"addr.json\\\"}}},schemaTags=null}, details: Invalid JSON Schema\"}"
+  },
+  "b": {
+   "status": 422,
+   "ct": "application/vnd.schemaregistry.v1+json",
+   "www": "",
+   "allow": "",
+   "body": "{\"error_code\":42201,\"message\":\"Invalid schema {subject=jsr,version=0,id=-1,schemaType=JSON,references=[],metadata=null,ruleSet=null,schema={\\\"$schema\\\":\\\"http://json-schema.org/draft-07/schema#\\\",\\\"type\\\":\\\"object\\\",\\\"properties\\\":{\\\"addr\\\":{\\\"$ref\\\":\\\"addr.json\\\"}}},schemaTags=null}, details: Invalid JSON Schema: #/properties/addr: unresolved reference \\\"addr.json\\\"\"}"
+  }
+ },
+ {
+  "scenario": "avro-text-forms",
+  "step": 7,
+  "req": "POST /subjects/t3?normalize=true",
+  "known": "REG-D6: Confluent answers 500 for this normalized lookup",
+  "a": {
+   "status": 404,
+   "ct": "application/vnd.schemaregistry.v1+json",
+   "www": "",
+   "allow": "",
+   "body": "{\"error_code\":40403,\"message\":\"Schema not found\"}"
+  },
+  "b": {
+   "status": 200,
+   "ct": "application/vnd.schemaregistry.v1+json",
+   "www": "",
+   "allow": "",
+   "body": "{\"subject\":\"t3\",\"version\":1,\"id\":\"@3\",\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"R\\\",\\\"doc\\\":\\\"<d&>\\\",\\\"fields\\\":[{\\\"name\\\":\\\"a\\\",\\\"type\\\":\\\"int\\\",\\\"doc\\\":\\\"x\\\",\\\"default\\\":1,\\\"order\\\":\\\"descending\\\",\\\"aliases\\\":[\\\"b\\\"]}],\\\"x-custom\\\":{\\\"z\\\":1,\\\"a\\\":2},\\\"aliases\\\":[\\\"Q\\\"]}\"}"
+  }
+ },
+ {
+  "scenario": "subject-names",
+  "step": 9,
+  "req": "POST /subjects/:.ctx:orders/versions",
+  "known": "REG-D3: contexts are not offered; Confluent gives a context subject an id of its context",
+  "a": {
+   "status": 200,
+   "ct": "application/vnd.schemaregistry.v1+json",
+   "www": "",
+   "allow": "",
+   "body": "{\"id\":\"@2\"}"
+  },
+  "b": {
+   "status": 200,
+   "ct": "application/vnd.schemaregistry.v1+json",
+   "www": "",
+   "allow": "",
+   "body": "{\"id\":\"@1\"}"
+  }
+ },
+ {
+  "scenario": "subject-names",
+  "step": 15,
+  "req": "GET /schemas?subjectPrefix=:*:",
+  "known": "REG-D3: follows from step 9",
+  "a": {
+   "status": 200,
+   "ct": "application/vnd.schemaregistry.v1+json",
+   "www": "",
+   "allow": "",
+   "body": "[{\"subject\":\":.ctx:orders\",\"version\":1,\"id\":\"@2\",\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"}]}\"},{\"subject\":\"a b\",\"version\":1,\"id\":\"@1\",\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"}]}\"},{\"subject\":\"a+b\",\"version\":1,\"id\":\"@1\",\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"}]}\"},{\"subject\":\"a/b\",\"version\":1,\"id\":\"@1\",\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"}]}\"},{\"subject\":\"kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk\",\"version\":1,\"id\":\"@1\",\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"}]}\"},{\"subject\":\"été\",\"version\":1,\"id\":\"@1\",\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"}]}\"}]"
+  },
+  "b": {
+   "status": 200,
+   "ct": "application/vnd.schemaregistry.v1+json",
+   "www": "",
+   "allow": "",
+   "body": "[{\"subject\":\":.ctx:orders\",\"version\":1,\"id\":\"@1\",\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"}]}\"},{\"subject\":\"a b\",\"version\":1,\"id\":\"@1\",\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"}]}\"},{\"subject\":\"a+b\",\"version\":1,\"id\":\"@1\",\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"}]}\"},{\"subject\":\"a/b\",\"version\":1,\"id\":\"@1\",\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"}]}\"},{\"subject\":\"kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk\",\"version\":1,\"id\":\"@1\",\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"}]}\"},{\"subject\":\"été\",\"version\":1,\"id\":\"@1\",\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"}]}\"}]"
+  }
+ },
+ {
+  "scenario": "protobuf-normalize/merge",
+  "step": 1,
+  "req": "GET /subjects/pn-merge/versions/latest/schema",
+  "known": "REG-D31: a non-repeated custom option given twice is merged deep, as 8.x merges it (7.7.1 makes a list)",
+  "a": {
+   "status": 200,
+   "ct": "application/vnd.schemaregistry.v1+json",
+   "www": "",
+   "allow": "",
+   "body": "syntax = \"proto3\";\npackage mg;\n\nimport \"google/protobuf/descriptor.proto\";\n\nmessage Sub {\n  int32 a = 1;\n  int32 b = 2;\n}\nmessage Rule {\n  int32 min = 1;\n  .mg.Sub sub = 2;\n  repeated int32 tags = 3;\n}\nmessage M {\n  option (mg.rule) = {\n    min: [\n      1,\n      2\n    ],\n    sub: [\n      {\n        a: 5\n      },\n      {\n        b: 6\n      }\n    ],\n    tags: 1\n  };\n\n  int32 v = 1;\n}\n\nextend .google.protobuf.MessageOptions {\n  .mg.Rule rule = 51000;\n}\n"
+  },
+  "b": {
+   "status": 200,
+   "ct": "application/vnd.schemaregistry.v1+json",
+   "www": "",
+   "allow": "",
+   "body": "syntax = \"proto3\";\npackage mg;\n\nimport \"google/protobuf/descriptor.proto\";\n\nmessage Sub {\n  int32 a = 1;\n  int32 b = 2;\n}\nmessage Rule {\n  int32 min = 1;\n  .mg.Sub sub = 2;\n  repeated int32 tags = 3;\n}\nmessage M {\n  option (mg.rule) = {\n    min: 2,\n    sub: {\n      a: 5,\n      b: 6\n    },\n    tags: 1\n  };\n\n  int32 v = 1;\n}\n\nextend .google.protobuf.MessageOptions {\n  .mg.Rule rule = 51000;\n}\n"
+  }
+ },
+ {
+  "scenario": "protobuf-normalize/merge",
+  "step": 2,
+  "req": "POST /subjects/pn-merge?normalize=true",
+  "known": "REG-D31: a non-repeated custom option given twice is merged deep, as 8.x merges it (7.7.1 makes a list)",
+  "a": {
+   "status": 200,
+   "ct": "application/vnd.schemaregistry.v1+json",
+   "www": "",
+   "allow": "",
+   "body": "{\"subject\":\"pn-merge\",\"version\":1,\"id\":\"@1\",\"schemaType\":\"PROTOBUF\",\"schema\":\"syntax = \\\"proto3\\\";\\npackage mg;\\n\\nimport \\\"google/protobuf/descriptor.proto\\\";\\n\\nmessage Sub {\\n  int32 a = 1;\\n  int32 b = 2;\\n}\\nmessage Rule {\\n  int32 min = 1;\\n  .mg.Sub sub = 2;\\n  repeated int32 tags = 3;\\n}\\nmessage M {\\n  option (mg.rule) = {\\n    min: [\\n      1,\\n      2\\n    ],\\n    sub: [\\n      {\\n        a: 5\\n      },\\n      {\\n        b: 6\\n      }\\n    ],\\n    tags: 1\\n  };\\n\\n  int32 v = 1;\\n}\\n\\nextend .google.protobuf.MessageOptions {\\n  .mg.Rule rule = 51000;\\n}\\n\"}"
+  },
+  "b": {
+   "status": 200,
+   "ct": "application/vnd.schemaregistry.v1+json",
+   "www": "",
+   "allow": "",
+   "body": "{\"subject\":\"pn-merge\",\"version\":1,\"id\":\"@1\",\"schemaType\":\"PROTOBUF\",\"schema\":\"syntax = \\\"proto3\\\";\\npackage mg;\\n\\nimport \\\"google/protobuf/descriptor.proto\\\";\\n\\nmessage Sub {\\n  int32 a = 1;\\n  int32 b = 2;\\n}\\nmessage Rule {\\n  int32 min = 1;\\n  .mg.Sub sub = 2;\\n  repeated int32 tags = 3;\\n}\\nmessage M {\\n  option (mg.rule) = {\\n    min: 2,\\n    sub: {\\n      a: 5,\\n      b: 6\\n    },\\n    tags: 1\\n  };\\n\\n  int32 v = 1;\\n}\\n\\nextend .google.protobuf.MessageOptions {\\n  .mg.Rule rule = 51000;\\n}\\n\"}"
+  }
+ },
+ {
+  "scenario": "protobuf-normalize/merge",
+  "step": 12,
+  "req": "GET /subjects/pc-merge/versions/latest/schema",
+  "known": "REG-D31: a non-repeated custom option given twice is merged deep, as 8.x merges it (7.7.1 makes a list)",
+  "a": {
+   "status": 200,
+   "ct": "application/vnd.schemaregistry.v1+json",
+   "www": "",
+   "allow": "",
+   "body": "syntax = \"proto3\";\npackage mg;\n\nimport \"google/protobuf/descriptor.proto\";\n\nmessage Sub {\n  int32 a = 1;\n  int32 b = 2;\n}\nmessage Rule {\n  int32 min = 1;\n  .mg.Sub sub = 2;\n  repeated int32 tags = 3;\n}\nmessage M {\n  option (mg.rule) = {\n    min: [\n      1,\n      2\n    ],\n    sub: [\n      {\n        a: 5\n      },\n      {\n        b: 6\n      }\n    ],\n    tags: 1\n  };\n\n  int32 v = 1;\n}\n\nextend .google.protobuf.MessageOptions {\n  .mg.Rule rule = 51000;\n}\n"
+  },
+  "b": {
+   "status": 200,
+   "ct": "application/vnd.schemaregistry.v1+json",
+   "www": "",
+   "allow": "",
+   "body": "syntax = \"proto3\";\npackage mg;\n\nimport \"google/protobuf/descriptor.proto\";\n\nmessage Sub {\n  int32 a = 1;\n  int32 b = 2;\n}\nmessage Rule {\n  int32 min = 1;\n  .mg.Sub sub = 2;\n  repeated int32 tags = 3;\n}\nmessage M {\n  option (mg.rule) = {\n    min: 2,\n    sub: {\n      a: 5,\n      b: 6\n    },\n    tags: 1\n  };\n\n  int32 v = 1;\n}\n\nextend .google.protobuf.MessageOptions {\n  .mg.Rule rule = 51000;\n}\n"
+  }
+ },
+ {
+  "scenario": "protobuf-normalize/merge",
+  "step": 13,
+  "req": "POST /subjects/pc-merge",
+  "known": "REG-D31: a non-repeated custom option given twice is merged deep, as 8.x merges it (7.7.1 makes a list)",
+  "a": {
+   "status": 200,
+   "ct": "application/vnd.schemaregistry.v1+json",
+   "www": "",
+   "allow": "",
+   "body": "{\"subject\":\"pc-merge\",\"version\":1,\"id\":\"@1\",\"schemaType\":\"PROTOBUF\",\"schema\":\"syntax = \\\"proto3\\\";\\npackage mg;\\n\\nimport \\\"google/protobuf/descriptor.proto\\\";\\n\\nmessage Sub {\\n  int32 a = 1;\\n  int32 b = 2;\\n}\\nmessage Rule {\\n  int32 min = 1;\\n  .mg.Sub sub = 2;\\n  repeated int32 tags = 3;\\n}\\nmessage M {\\n  option (mg.rule) = {\\n    min: [\\n      1,\\n      2\\n    ],\\n    sub: [\\n      {\\n        a: 5\\n      },\\n      {\\n        b: 6\\n      }\\n    ],\\n    tags: 1\\n  };\\n\\n  int32 v = 1;\\n}\\n\\nextend .google.protobuf.MessageOptions {\\n  .mg.Rule rule = 51000;\\n}\\n\"}"
+  },
+  "b": {
+   "status": 200,
+   "ct": "application/vnd.schemaregistry.v1+json",
+   "www": "",
+   "allow": "",
+   "body": "{\"subject\":\"pc-merge\",\"version\":1,\"id\":\"@1\",\"schemaType\":\"PROTOBUF\",\"schema\":\"syntax = \\\"proto3\\\";\\npackage mg;\\n\\nimport \\\"google/protobuf/descriptor.proto\\\";\\n\\nmessage Sub {\\n  int32 a = 1;\\n  int32 b = 2;\\n}\\nmessage Rule {\\n  int32 min = 1;\\n  .mg.Sub sub = 2;\\n  repeated int32 tags = 3;\\n}\\nmessage M {\\n  option (mg.rule) = {\\n    min: 2,\\n    sub: {\\n      a: 5,\\n      b: 6\\n    },\\n    tags: 1\\n  };\\n\\n  int32 v = 1;\\n}\\n\\nextend .google.protobuf.MessageOptions {\\n  .mg.Rule rule = 51000;\\n}\\n\"}"
+  }
+ },
+ {
+  "scenario": "json-schema-huge-numbers",
+  "step": 1,
+  "req": "POST /subjects/jh0/versions",
+  "known": "REG-D27: the parser's own words after `details:` (Jackson's, Wire's) are doze's, which name the place",
+  "a": {
+   "status": 422,
+   "ct": "application/vnd.schemaregistry.v1+json",
+   "www": "",
+   "allow": "",
+   "body": "{\"error_code\":42201,\"message\":\"Invalid schema {subject=jh0,version=0,id=-1,schemaType=JSON,references=[],metadata=null,ruleSet=null,schema={\\\"type\\\":\\\"number\\\",\\\"minimum\\\":0.5555e+000011999153157185615783},schemaTags=null}, details: Invalid JSON Schema\"}"
+  },
+  "b": {
+   "status": 422,
+   "ct": "application/vnd.schemaregistry.v1+json",
+   "www": "",
+   "allow": "",
+   "body": "{\"error_code\":42201,\"message\":\"Invalid schema {subject=jh0,version=0,id=-1,schemaType=JSON,references=[],metadata=null,ruleSet=null,schema={\\\"type\\\":\\\"number\\\",\\\"minimum\\\":0.5555e+000011999153157185615783},schemaTags=null}, details: Invalid JSON Schema: #/minimum: 0.5555e+000011999153157185615783 is past the largest number a Java double holds\"}"
+  }
+ },
+ {
+  "scenario": "json-schema-huge-numbers",
+  "step": 5,
+  "req": "POST /subjects/jh2/versions",
+  "known": "REG-D27: the parser's own words after `details:` (Jackson's, Wire's) are doze's, which name the place",
+  "a": {
+   "status": 422,
+   "ct": "application/vnd.schemaregistry.v1+json",
+   "www": "",
+   "allow": "",
+   "body": "{\"error_code\":42201,\"message\":\"Invalid schema {subject=jh2,version=0,id=-1,schemaType=JSON,references=[],metadata=null,ruleSet=null,schema={\\\"type\\\":\\\"number\\\",\\\"minimum\\\":1e2147483648},schemaTags=null}, details: Invalid JSON Schema\"}"
+  },
+  "b": {
+   "status": 422,
+   "ct": "application/vnd.schemaregistry.v1+json",
+   "www": "",
+   "allow": "",
+   "body": "{\"error_code\":42201,\"message\":\"Invalid schema {subject=jh2,version=0,id=-1,schemaType=JSON,references=[],metadata=null,ruleSet=null,schema={\\\"type\\\":\\\"number\\\",\\\"minimum\\\":1e2147483648},schemaTags=null}, details: Invalid JSON Schema: #/minimum: 1e2147483648 is past the largest number a Java double holds\"}"
+  }
+ },
+ {
+  "scenario": "json-schema-huge-numbers",
+  "step": 9,
+  "req": "POST /subjects/jh4/versions",
+  "known": "REG-D27: the parser's own words after `details:` (Jackson's, Wire's) are doze's, which name the place",
+  "a": {
+   "status": 422,
+   "ct": "application/vnd.schemaregistry.v1+json",
+   "www": "",
+   "allow": "",
+   "body": "{\"error_code\":42201,\"message\":\"Invalid schema {subject=jh4,version=0,id=-1,schemaType=JSON,references=[],metadata=null,ruleSet=null,schema={\\\"type\\\":\\\"number\\\",\\\"minimum\\\":0.12e2147483649},schemaTags=null}, details: Invalid JSON Schema\"}"
+  },
+  "b": {
+   "status": 422,
+   "ct": "application/vnd.schemaregistry.v1+json",
+   "www": "",
+   "allow": "",
+   "body": "{\"error_code\":42201,\"message\":\"Invalid schema {subject=jh4,version=0,id=-1,schemaType=JSON,references=[],metadata=null,ruleSet=null,schema={\\\"type\\\":\\\"number\\\",\\\"minimum\\\":0.12e2147483649},schemaTags=null}, details: Invalid JSON Schema: #/minimum: 0.12e2147483649 is past the largest number a Java double holds\"}"
+  }
+ },
+ {
+  "scenario": "json-schema-huge-numbers",
+  "step": 23,
+  "req": "POST /subjects/jh11/versions",
+  "known": "REG-D27: the parser's own words after `details:` (Jackson's, Wire's) are doze's, which name the place",
+  "a": {
+   "status": 422,
+   "ct": "application/vnd.schemaregistry.v1+json",
+   "www": "",
+   "allow": "",
+   "body": "{\"error_code\":42201,\"message\":\"Invalid schema {subject=jh11,version=0,id=-1,schemaType=JSON,references=[],metadata=null,ruleSet=null,schema={\\\"type\\\":\\\"number\\\",\\\"minimum\\\":-1e2147483648},schemaTags=null}, details: Invalid JSON Schema\"}"
+  },
+  "b": {
+   "status": 422,
+   "ct": "application/vnd.schemaregistry.v1+json",
+   "www": "",
+   "allow": "",
+   "body": "{\"error_code\":42201,\"message\":\"Invalid schema {subject=jh11,version=0,id=-1,schemaType=JSON,references=[],metadata=null,ruleSet=null,schema={\\\"type\\\":\\\"number\\\",\\\"minimum\\\":-1e2147483648},schemaTags=null}, details: Invalid JSON Schema: #/minimum: -1e2147483648 is past the largest number a Java double holds\"}"
+  }
+ },
+ {
+  "scenario": "json-schema-huge-numbers",
+  "step": 25,
+  "req": "POST /subjects/jh12/versions",
+  "known": "REG-D27: the parser's own words after `details:` (Jackson's, Wire's) are doze's, which name the place",
+  "a": {
+   "status": 422,
+   "ct": "application/vnd.schemaregistry.v1+json",
+   "www": "",
+   "allow": "",
+   "body": "{\"error_code\":42201,\"message\":\"Invalid schema {subject=jh12,version=0,id=-1,schemaType=JSON,references=[],metadata=null,ruleSet=null,schema={\\\"type\\\":\\\"number\\\",\\\"default\\\":1e2147483648},schemaTags=null}, details: Invalid JSON Schema\"}"
+  },
+  "b": {
+   "status": 422,
+   "ct": "application/vnd.schemaregistry.v1+json",
+   "www": "",
+   "allow": "",
+   "body": "{\"error_code\":42201,\"message\":\"Invalid schema {subject=jh12,version=0,id=-1,schemaType=JSON,references=[],metadata=null,ruleSet=null,schema={\\\"type\\\":\\\"number\\\",\\\"default\\\":1e2147483648},schemaTags=null}, details: Invalid JSON Schema: #/default: 1e2147483648 is past the largest number a Java double holds\"}"
+  }
+ },
+ {
+  "scenario": "json-schema-huge-numbers",
+  "step": 27,
+  "req": "POST /subjects/jh13/versions",
+  "known": "REG-D27: the parser's own words after `details:` (Jackson's, Wire's) are doze's, which name the place",
+  "a": {
+   "status": 422,
+   "ct": "application/vnd.schemaregistry.v1+json",
+   "www": "",
+   "allow": "",
+   "body": "{\"error_code\":42201,\"message\":\"Invalid schema {subject=jh13,version=0,id=-1,schemaType=JSON,references=[],metadata=null,ruleSet=null,schema={\\\"type\\\":\\\"number\\\",\\\"x-big\\\":1e99999999999},schemaTags=null}, details: Invalid JSON Schema\"}"
+  },
+  "b": {
+   "status": 422,
+   "ct": "application/vnd.schemaregistry.v1+json",
+   "www": "",
+   "allow": "",
+   "body": "{\"error_code\":42201,\"message\":\"Invalid schema {subject=jh13,version=0,id=-1,schemaType=JSON,references=[],metadata=null,ruleSet=null,schema={\\\"type\\\":\\\"number\\\",\\\"x-big\\\":1e99999999999},schemaTags=null}, details: Invalid JSON Schema: #/x-big: 1e99999999999 is past the largest number a Java double holds\"}"
+  }
+ },
+ {
+  "scenario": "json-schema-huge-numbers",
+  "step": 29,
+  "req": "POST /subjects/jh14/versions",
+  "known": "REG-D27: the parser's own words after `details:` (Jackson's, Wire's) are doze's, which name the place",
+  "a": {
+   "status": 422,
+   "ct": "application/vnd.schemaregistry.v1+json",
+   "www": "",
+   "allow": "",
+   "body": "{\"error_code\":42201,\"message\":\"Invalid schema {subject=jh14,version=0,id=-1,schemaType=JSON,references=[],metadata=null,ruleSet=null,schema={\\\"type\\\":\\\"number\\\",\\\"multipleOf\\\":1e-2147483647},schemaTags=null}, details: Invalid JSON Schema\"}"
+  },
+  "b": {
+   "status": 422,
+   "ct": "application/vnd.schemaregistry.v1+json",
+   "www": "",
+   "allow": "",
+   "body": "{\"error_code\":42201,\"message\":\"Invalid schema {subject=jh14,version=0,id=-1,schemaType=JSON,references=[],metadata=null,ruleSet=null,schema={\\\"type\\\":\\\"number\\\",\\\"multipleOf\\\":1e-2147483647},schemaTags=null}, details: Invalid JSON Schema: #/multipleOf: must be greater than 0 as a Java double\"}"
+  }
+ },
+ {
+  "scenario": "json-schema-huge-numbers",
+  "step": 31,
+  "req": "POST /subjects/jh15/versions",
+  "known": "REG-D27: the parser's own words after `details:` (Jackson's, Wire's) are doze's, which name the place",
+  "a": {
+   "status": 422,
+   "ct": "application/vnd.schemaregistry.v1+json",
+   "www": "",
+   "allow": "",
+   "body": "{\"error_code\":42201,\"message\":\"Invalid schema {subject=jh15,version=0,id=-1,schemaType=JSON,references=[],metadata=null,ruleSet=null,schema={\\\"type\\\":\\\"array\\\",\\\"minItems\\\":1e99999999999},schemaTags=null}, details: Invalid JSON Schema\"}"
+  },
+  "b": {
+   "status": 422,
+   "ct": "application/vnd.schemaregistry.v1+json",
+   "www": "",
+   "allow": "",
+   "body": "{\"error_code\":42201,\"message\":\"Invalid schema {subject=jh15,version=0,id=-1,schemaType=JSON,references=[],metadata=null,ruleSet=null,schema={\\\"type\\\":\\\"array\\\",\\\"minItems\\\":1e99999999999},schemaTags=null}, details: Invalid JSON Schema: #/minItems: 1e99999999999 is past the largest number a Java double holds\"}"
+  }
+ },
+ {
+  "scenario": "json-schema-huge-numbers",
+  "step": 33,
+  "req": "POST /subjects/jh16/versions",
+  "known": "REG-D27: the parser's own words after `details:` (Jackson's, Wire's) are doze's, which name the place",
+  "a": {
+   "status": 422,
+   "ct": "application/vnd.schemaregistry.v1+json",
+   "www": "",
+   "allow": "",
+   "body": "{\"error_code\":42201,\"message\":\"Invalid schema {subject=jh16,version=0,id=-1,schemaType=JSON,references=[],metadata=null,ruleSet=null,schema={\\\"type\\\":\\\"array\\\",\\\"minItems\\\":1e-2147483649},schemaTags=null}, details: Invalid JSON Schema\"}"
+  },
+  "b": {
+   "status": 422,
+   "ct": "application/vnd.schemaregistry.v1+json",
+   "www": "",
+   "allow": "",
+   "body": "{\"error_code\":42201,\"message\":\"Invalid schema {subject=jh16,version=0,id=-1,schemaType=JSON,references=[],metadata=null,ruleSet=null,schema={\\\"type\\\":\\\"array\\\",\\\"minItems\\\":1e-2147483649},schemaTags=null}, details: Invalid JSON Schema: #/minItems: must be an integer no larger than 2147483647, written without a fraction or exponent\"}"
+  }
+ },
+ {
+  "scenario": "json-schema-huge-numbers",
+  "step": 35,
+  "req": "POST /subjects/jh17/versions",
+  "known": "REG-D27: the parser's own words after `details:` (Jackson's, Wire's) are doze's, which name the place",
+  "a": {
+   "status": 422,
+   "ct": "application/vnd.schemaregistry.v1+json",
+   "www": "",
+   "allow": "",
+   "body": "{\"error_code\":42201,\"message\":\"Invalid schema {subject=jh17,version=0,id=-1,schemaType=JSON,references=[],metadata=null,ruleSet=null,schema={\\\"type\\\":\\\"array\\\",\\\"minItems\\\":1e1},schemaTags=null}, details: Invalid JSON Schema\"}"
+  },
+  "b": {
+   "status": 422,
+   "ct": "application/vnd.schemaregistry.v1+json",
+   "www": "",
+   "allow": "",
+   "body": "{\"error_code\":42201,\"message\":\"Invalid schema {subject=jh17,version=0,id=-1,schemaType=JSON,references=[],metadata=null,ruleSet=null,schema={\\\"type\\\":\\\"array\\\",\\\"minItems\\\":1e1},schemaTags=null}, details: Invalid JSON Schema: #/minItems: must be an integer no larger than 2147483647, written without a fraction or exponent\"}"
+  }
+ },
+ {
+  "scenario": "json-schema-huge-numbers",
+  "step": 37,
+  "req": "POST /subjects/jh18/versions",
+  "known": "REG-D27: the parser's own words after `details:` (Jackson's, Wire's) are doze's, which name the place",
+  "a": {
+   "status": 422,
+   "ct": "application/vnd.schemaregistry.v1+json",
+   "www": "",
+   "allow": "",
+   "body": "{\"error_code\":42201,\"message\":\"Invalid schema {subject=jh18,version=0,id=-1,schemaType=JSON,references=[],metadata=null,ruleSet=null,schema={\\\"type\\\":\\\"array\\\",\\\"minItems\\\":1.0},schemaTags=null}, details: Invalid JSON Schema\"}"
+  },
+  "b": {
+   "status": 422,
+   "ct": "application/vnd.schemaregistry.v1+json",
+   "www": "",
+   "allow": "",
+   "body": "{\"error_code\":42201,\"message\":\"Invalid schema {subject=jh18,version=0,id=-1,schemaType=JSON,references=[],metadata=null,ruleSet=null,schema={\\\"type\\\":\\\"array\\\",\\\"minItems\\\":1.0},schemaTags=null}, details: Invalid JSON Schema: #/minItems: must be an integer no larger than 2147483647, written without a fraction or exponent\"}"
+  }
+ },
+ {
+  "scenario": "json-schema-huge-numbers",
+  "step": 41,
+  "req": "POST /subjects/jh20/versions",
+  "known": "REG-D27: the parser's own words after `details:` (Jackson's, Wire's) are doze's, which name the place",
+  "a": {
+   "status": 422,
+   "ct": "application/vnd.schemaregistry.v1+json",
+   "www": "",
+   "allow": "",
+   "body": "{\"error_code\":42201,\"message\":\"Invalid schema {subject=jh20,version=0,id=-1,schemaType=JSON,references=[],metadata=null,ruleSet=null,schema={\\\"type\\\":\\\"array\\\",\\\"minItems\\\":2147483648},schemaTags=null}, details: Invalid JSON Schema\"}"
+  },
+  "b": {
+   "status": 422,
+   "ct": "application/vnd.schemaregistry.v1+json",
+   "www": "",
+   "allow": "",
+   "body": "{\"error_code\":42201,\"message\":\"Invalid schema {subject=jh20,version=0,id=-1,schemaType=JSON,references=[],metadata=null,ruleSet=null,schema={\\\"type\\\":\\\"array\\\",\\\"minItems\\\":2147483648},schemaTags=null}, details: Invalid JSON Schema: #/minItems: must be an integer no larger than 2147483647, written without a fraction or exponent\"}"
+  }
+ },
+ {
+  "scenario": "json-schema-huge-numbers",
+  "step": 43,
+  "req": "POST /subjects/jh21/versions",
+  "known": "REG-D27: the parser's own words after `details:` (Jackson's, Wire's) are doze's, which name the place",
+  "a": {
+   "status": 422,
+   "ct": "application/vnd.schemaregistry.v1+json",
+   "www": "",
+   "allow": "",
+   "body": "{\"error_code\":42201,\"message\":\"Invalid schema {subject=jh21,version=0,id=-1,schemaType=JSON,references=[],metadata=null,ruleSet=null,schema={\\\"type\\\":\\\"string\\\",\\\"maxLength\\\":2.0},schemaTags=null}, details: Invalid JSON Schema\"}"
+  },
+  "b": {
+   "status": 422,
+   "ct": "application/vnd.schemaregistry.v1+json",
+   "www": "",
+   "allow": "",
+   "body": "{\"error_code\":42201,\"message\":\"Invalid schema {subject=jh21,version=0,id=-1,schemaType=JSON,references=[],metadata=null,ruleSet=null,schema={\\\"type\\\":\\\"string\\\",\\\"maxLength\\\":2.0},schemaTags=null}, details: Invalid JSON Schema: #/maxLength: must be an integer no larger than 2147483647, written without a fraction or exponent\"}"
+  }
+ },
+ {
+  "scenario": "json-schema-huge-numbers",
+  "step": 45,
+  "req": "POST /subjects/jh22/versions",
+  "known": "REG-D27: the parser's own words after `details:` (Jackson's, Wire's) are doze's, which name the place",
+  "a": {
+   "status": 422,
+   "ct": "application/vnd.schemaregistry.v1+json",
+   "www": "",
+   "allow": "",
+   "body": "{\"error_code\":42201,\"message\":\"Invalid schema {subject=jh22,version=0,id=-1,schemaType=JSON,references=[],metadata=null,ruleSet=null,schema={\\\"type\\\":\\\"object\\\",\\\"minProperties\\\":1E0},schemaTags=null}, details: Invalid JSON Schema\"}"
+  },
+  "b": {
+   "status": 422,
+   "ct": "application/vnd.schemaregistry.v1+json",
+   "www": "",
+   "allow": "",
+   "body": "{\"error_code\":42201,\"message\":\"Invalid schema {subject=jh22,version=0,id=-1,schemaType=JSON,references=[],metadata=null,ruleSet=null,schema={\\\"type\\\":\\\"object\\\",\\\"minProperties\\\":1E0},schemaTags=null}, details: Invalid JSON Schema: #/minProperties: must be an integer no larger than 2147483647, written without a fraction or exponent\"}"
+  }
+ },
+ {
+  "scenario": "json-schema-huge-numbers",
+  "step": 47,
+  "req": "POST /subjects/jh23/versions",
+  "known": "REG-D27: the parser's own words after `details:` (Jackson's, Wire's) are doze's, which name the place",
+  "a": {
+   "status": 422,
+   "ct": "application/vnd.schemaregistry.v1+json",
+   "www": "",
+   "allow": "",
+   "body": "{\"error_code\":42201,\"message\":\"Invalid schema {subject=jh23,version=0,id=-1,schemaType=JSON,references=[],metadata=null,ruleSet=null,schema={\\\"$schema\\\":\\\"http://json-schema.org/draft-04/schema#\\\",\\\"type\\\":\\\"array\\\",\\\"minItems\\\":1.0},schemaTags=null}, details: Invalid JSON Schema\"}"
+  },
+  "b": {
+   "status": 422,
+   "ct": "application/vnd.schemaregistry.v1+json",
+   "www": "",
+   "allow": "",
+   "body": "{\"error_code\":42201,\"message\":\"Invalid schema {subject=jh23,version=0,id=-1,schemaType=JSON,references=[],metadata=null,ruleSet=null,schema={\\\"$schema\\\":\\\"http://json-schema.org/draft-04/schema#\\\",\\\"type\\\":\\\"array\\\",\\\"minItems\\\":1.0},schemaTags=null}, details: Invalid JSON Schema: #/minItems: must be an integer no larger than 2147483647, written without a fraction or exponent\"}"
+  }
+ },
+ {
+  "scenario": "json-schema-huge-numbers",
+  "step": 49,
+  "req": "POST /subjects/jh24/versions",
+  "known": "REG-D27: the parser's own words after `details:` (Jackson's, Wire's) are doze's, which name the place",
+  "a": {
+   "status": 422,
+   "ct": "application/vnd.schemaregistry.v1+json",
+   "www": "",
+   "allow": "",
+   "body": "{\"error_code\":42201,\"message\":\"Invalid schema {subject=jh24,version=0,id=-1,schemaType=JSON,references=[],metadata=null,ruleSet=null,schema={\\\"$schema\\\":\\\"http://json-schema.org/draft-06/schema#\\\",\\\"type\\\":\\\"array\\\",\\\"maxItems\\\":3e0},schemaTags=null}, details: Invalid JSON Schema\"}"
+  },
+  "b": {
+   "status": 422,
+   "ct": "application/vnd.schemaregistry.v1+json",
+   "www": "",
+   "allow": "",
+   "body": "{\"error_code\":42201,\"message\":\"Invalid schema {subject=jh24,version=0,id=-1,schemaType=JSON,references=[],metadata=null,ruleSet=null,schema={\\\"$schema\\\":\\\"http://json-schema.org/draft-06/schema#\\\",\\\"type\\\":\\\"array\\\",\\\"maxItems\\\":3e0},schemaTags=null}, details: Invalid JSON Schema: #/maxItems: must be an integer no larger than 2147483647, written without a fraction or exponent\"}"
+  }
+ },
+ {
+  "scenario": "json-schema-huge-numbers",
+  "step": 63,
+  "req": "POST /subjects/jhe/versions",
+  "known": "REG-D29: a repeated enum value (0.0 and 0) is refused; Confluent's loader takes it",
+  "a": {
+   "status": 200,
+   "ct": "application/vnd.schemaregistry.v1+json",
+   "www": "",
+   "allow": "",
+   "body": "{\"id\":\"@13\"}"
+  },
+  "b": {
+   "status": 422,
+   "ct": "application/vnd.schemaregistry.v1+json",
+   "www": "",
+   "allow": "",
+   "body": "{\"error_code\":42201,\"message\":\"Invalid schema {subject=jhe,version=0,id=-1,schemaType=JSON,references=[],metadata=null,ruleSet=null,schema={\\\"type\\\":\\\"number\\\",\\\"enum\\\":[1e-2147483649, 0]},schemaTags=null}, details: Invalid JSON Schema: #/enum: values must be distinct\"}"
+  }
+ },
+ {
+  "scenario": "json-schema-huge-numbers",
+  "step": 64,
+  "req": "GET /subjects/jhe/versions/latest/schema",
+  "known": "REG-D29: follows from step 63",
+  "a": {
+   "status": 200,
+   "ct": "application/vnd.schemaregistry.v1+json",
+   "www": "",
+   "allow": "",
+   "body": "{\"type\":\"number\",\"enum\":[0.0,0]}"
+  },
+  "b": {
+   "status": 404,
+   "ct": "application/vnd.schemaregistry.v1+json",
+   "www": "",
+   "allow": "",
+   "body": "{\"error_code\":40401,\"message\":\"Subject 'jhe' not found.\"}"
+  }
+ },
+ {
+  "scenario": "data-contracts/register-and-read",
+  "step": 11,
+  "req": "POST /subjects/dc",
+  "known": "REG-D31: a lookup tries the inherited contract, as 8.x does",
+  "a": {
+   "status": 404,
+   "ct": "application/vnd.schemaregistry.v1+json",
+   "www": "",
+   "allow": "",
+   "body": "{\"error_code\":40403,\"message\":\"Schema not found\"}"
+  },
+  "b": {
+   "status": 200,
+   "ct": "application/vnd.schemaregistry.v1+json",
+   "www": "",
+   "allow": "",
+   "body": "{\"subject\":\"dc\",\"version\":2,\"id\":\"@2\",\"metadata\":{\"properties\":{\"owner\":\"b\"}},\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"}]}\"}"
+  }
+ },
+ {
+  "scenario": "data-contracts/config-defaults-and-overrides",
+  "step": 7,
+  "req": "POST /subjects/cfg",
+  "known": "REG-D31: a lookup tries the inherited contract, as 8.x does",
+  "a": {
+   "status": 404,
+   "ct": "application/vnd.schemaregistry.v1+json",
+   "www": "",
+   "allow": "",
+   "body": "{\"error_code\":40403,\"message\":\"Schema not found\"}"
+  },
+  "b": {
+   "status": 200,
+   "ct": "application/vnd.schemaregistry.v1+json",
+   "www": "",
+   "allow": "",
+   "body": "{\"subject\":\"cfg\",\"version\":2,\"id\":\"@2\",\"metadata\":{\"tags\":{\"f\":[\"a\",\"b\"]},\"properties\":{\"other\":\"y\",\"owner\":\"forced\",\"team\":\"x\"},\"sensitive\":[\"k\"]},\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"}]}\"}"
+  }
+ },
+ {
+  "scenario": "data-contracts/config-defaults-and-overrides",
+  "step": 8,
+  "req": "POST /subjects/cfg",
+  "known": "REG-D31: a lookup tries the inherited contract, as 8.x does",
+  "a": {
+   "status": 404,
+   "ct": "application/vnd.schemaregistry.v1+json",
+   "www": "",
+   "allow": "",
+   "body": "{\"error_code\":40403,\"message\":\"Schema not found\"}"
+  },
+  "b": {
+   "status": 200,
+   "ct": "application/vnd.schemaregistry.v1+json",
+   "www": "",
+   "allow": "",
+   "body": "{\"subject\":\"cfg\",\"version\":2,\"id\":\"@2\",\"metadata\":{\"tags\":{\"f\":[\"a\",\"b\"]},\"properties\":{\"other\":\"y\",\"owner\":\"forced\",\"team\":\"x\"},\"sensitive\":[\"k\"]},\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"}]}\"}"
+  }
+ },
+ {
+  "scenario": "data-contracts/rule-sets",
+  "step": 0,
+  "req": "POST /subjects/rs/versions",
+  "known": "REG-D30: rule sets are kept and checked, as Confluent Enterprise and Cloud do; the community image drops them",
+  "a": {
+   "status": 200,
+   "ct": "application/vnd.schemaregistry.v1+json",
+   "www": "",
+   "allow": "",
+   "body": "{\"id\":\"@1\"}"
+  },
+  "b": {
+   "status": 422,
+   "ct": "application/vnd.schemaregistry.v1+json",
+   "www": "",
+   "allow": "",
+   "body": "{\"error_code\":42210,\"message\":\"Found rule with duplicate name 'a'\"}"
+  }
+ },
+ {
+  "scenario": "data-contracts/rule-sets",
+  "step": 1,
+  "req": "POST /subjects/rs/versions",
+  "known": "REG-D30: rule sets are kept and checked, as Confluent Enterprise and Cloud do; the community image drops them",
+  "a": {
+   "status": 200,
+   "ct": "application/vnd.schemaregistry.v1+json",
+   "www": "",
+   "allow": "",
+   "body": "{\"id\":\"@1\"}"
+  },
+  "b": {
+   "status": 422,
+   "ct": "application/vnd.schemaregistry.v1+json",
+   "www": "",
+   "allow": "",
+   "body": "{\"error_code\":42210,\"message\":\"Found rule with duplicate name 'a'\"}"
+  }
+ },
+ {
+  "scenario": "data-contracts/rule-sets",
+  "step": 2,
+  "req": "POST /subjects/rs/versions",
+  "known": "REG-D30: rule sets are kept and checked, as Confluent Enterprise and Cloud do; the community image drops them",
+  "a": {
+   "status": 200,
+   "ct": "application/vnd.schemaregistry.v1+json",
+   "www": "",
+   "allow": "",
+   "body": "{\"id\":\"@1\"}"
+  },
+  "b": {
+   "status": 422,
+   "ct": "application/vnd.schemaregistry.v1+json",
+   "www": "",
+   "allow": "",
+   "body": "{\"error_code\":42210,\"message\":\"Missing rule name\"}"
+  }
+ },
+ {
+  "scenario": "data-contracts/rule-sets",
+  "step": 3,
+  "req": "POST /subjects/rs/versions",
+  "known": "REG-D30: rule sets are kept and checked, as Confluent Enterprise and Cloud do; the community image drops them",
+  "a": {
+   "status": 200,
+   "ct": "application/vnd.schemaregistry.v1+json",
+   "www": "",
+   "allow": "",
+   "body": "{\"id\":\"@1\"}"
+  },
+  "b": {
+   "status": 422,
+   "ct": "application/vnd.schemaregistry.v1+json",
+   "www": "",
+   "allow": "",
+   "body": "{\"error_code\":42210,\"message\":\"Empty rule name\"}"
+  }
+ },
+ {
+  "scenario": "data-contracts/rule-sets",
+  "step": 4,
+  "req": "POST /subjects/rs/versions",
+  "known": "REG-D30: rule sets are kept and checked, as Confluent Enterprise and Cloud do; the community image drops them",
+  "a": {
+   "status": 200,
+   "ct": "application/vnd.schemaregistry.v1+json",
+   "www": "",
+   "allow": "",
+   "body": "{\"id\":\"@1\"}"
+  },
+  "b": {
+   "status": 422,
+   "ct": "application/vnd.schemaregistry.v1+json",
+   "www": "",
+   "allow": "",
+   "body": "{\"error_code\":42210,\"message\":\"Illegal initial character in rule name: 1abc\"}"
+  }
+ },
+ {
+  "scenario": "data-contracts/rule-sets",
+  "step": 5,
+  "req": "POST /subjects/rs/versions",
+  "known": "REG-D30: rule sets are kept and checked, as Confluent Enterprise and Cloud do; the community image drops them",
+  "a": {
+   "status": 200,
+   "ct": "application/vnd.schemaregistry.v1+json",
+   "www": "",
+   "allow": "",
+   "body": "{\"id\":\"@1\"}"
+  },
+  "b": {
+   "status": 422,
+   "ct": "application/vnd.schemaregistry.v1+json",
+   "www": "",
+   "allow": "",
+   "body": "{\"error_code\":42210,\"message\":\"Illegal character in rule name: a.b\"}"
+  }
+ },
+ {
+  "scenario": "data-contracts/rule-sets",
+  "step": 6,
+  "req": "POST /subjects/rs/versions",
+  "known": "REG-D30: rule sets are kept and checked, as Confluent Enterprise and Cloud do; the community image drops them",
+  "a": {
+   "status": 200,
+   "ct": "application/vnd.schemaregistry.v1+json",
+   "www": "",
+   "allow": "",
+   "body": "{\"id\":\"@1\"}"
+  },
+  "b": {
+   "status": 422,
+   "ct": "application/vnd.schemaregistry.v1+json",
+   "www": "",
+   "allow": "",
+   "body": "{\"error_code\":42210,\"message\":\"Rule name too long\"}"
+  }
+ },
+ {
+  "scenario": "data-contracts/rule-sets",
+  "step": 7,
+  "req": "POST /subjects/rs/versions",
+  "known": "REG-D30: rule sets are kept and checked, as Confluent Enterprise and Cloud do; the community image drops them",
+  "a": {
+   "status": 200,
+   "ct": "application/vnd.schemaregistry.v1+json",
+   "www": "",
+   "allow": "",
+   "body": "{\"id\":\"@1\"}"
+  },
+  "b": {
+   "status": 422,
+   "ct": "application/vnd.schemaregistry.v1+json",
+   "www": "",
+   "allow": "",
+   "body": "{\"error_code\":42210,\"message\":\"Missing rule type\"}"
+  }
+ },
+ {
+  "scenario": "data-contracts/rule-sets",
+  "step": 8,
+  "req": "POST /subjects/rs/versions",
+  "known": "REG-D30: rule sets are kept and checked, as Confluent Enterprise and Cloud do; the community image drops them",
+  "a": {
+   "status": 200,
+   "ct": "application/vnd.schemaregistry.v1+json",
+   "www": "",
+   "allow": "",
+   "body": "{\"id\":\"@1\"}"
+  },
+  "b": {
+   "status": 422,
+   "ct": "application/vnd.schemaregistry.v1+json",
+   "www": "",
+   "allow": "",
+   "body": "{\"error_code\":42210,\"message\":\"Multiple actions only valid with WRITEREAD and UPDOWN\"}"
+  }
+ },
+ {
+  "scenario": "data-contracts/rule-sets",
+  "step": 9,
+  "req": "POST /subjects/rs/versions",
+  "known": "REG-D30: rule sets are kept and checked, as Confluent Enterprise and Cloud do; the community image drops them",
+  "a": {
+   "status": 200,
+   "ct": "application/vnd.schemaregistry.v1+json",
+   "www": "",
+   "allow": "",
+   "body": "{\"id\":\"@1\"}"
+  },
+  "b": {
+   "status": 422,
+   "ct": "application/vnd.schemaregistry.v1+json",
+   "www": "",
+   "allow": "",
+   "body": "{\"error_code\":42210,\"message\":\"Domain rules can only be WRITE, READ, WRITEREAD\"}"
+  }
+ },
+ {
+  "scenario": "data-contracts/rule-sets",
+  "step": 10,
+  "req": "POST /subjects/rs/versions",
+  "known": "REG-D30: rule sets are kept and checked, as Confluent Enterprise and Cloud do; the community image drops them",
+  "a": {
+   "status": 200,
+   "ct": "application/vnd.schemaregistry.v1+json",
+   "www": "",
+   "allow": "",
+   "body": "{\"id\":\"@1\"}"
+  },
+  "b": {
+   "status": 422,
+   "ct": "application/vnd.schemaregistry.v1+json",
+   "www": "",
+   "allow": "",
+   "body": "{\"error_code\":42210,\"message\":\"Migration rules can only be UPGRADE, DOWNGRADE, UPDOWN\"}"
+  }
+ },
+ {
+  "scenario": "data-contracts/rule-sets",
+  "step": 11,
+  "req": "POST /subjects/rs/versions",
+  "known": "REG-D30: rule sets are kept and checked, as Confluent Enterprise and Cloud do; the community image drops them",
+  "a": {
+   "status": 200,
+   "ct": "application/vnd.schemaregistry.v1+json",
+   "www": "",
+   "allow": "",
+   "body": "{\"id\":\"@1\"}"
+  },
+  "b": {
+   "status": 422,
+   "ct": "application/vnd.schemaregistry.v1+json",
+   "www": "",
+   "allow": "",
+   "body": "{\"error_code\":42210,\"message\":\"Encoding rules can only be WRITE, READ, WRITEREAD\"}"
+  }
+ },
+ {
+  "scenario": "data-contracts/rule-sets",
+  "step": 12,
+  "req": "POST /subjects/rs/versions",
+  "known": "REG-D30: rule sets are kept and checked, as Confluent Enterprise and Cloud do; the community image drops them",
+  "a": {
+   "status": 200,
+   "ct": "application/vnd.schemaregistry.v1+json",
+   "www": "",
+   "allow": "",
+   "body": "{\"id\":\"@2\",\"version\":2,\"metadata\":{\"properties\":{\"owner\":\"a\"}},\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"}]}\"}"
+  },
+  "b": {
+   "status": 200,
+   "ct": "application/vnd.schemaregistry.v1+json",
+   "www": "",
+   "allow": "",
+   "body": "{\"id\":\"@1\",\"version\":1,\"metadata\":{\"properties\":{\"owner\":\"a\"}},\"ruleSet\":{\"domainRules\":[{\"name\":\"r1\",\"kind\":\"CONDITION\",\"mode\":\"WRITE\",\"type\":\"CEL\",\"tags\":[\"t1\",\"t2\"],\"params\":{\"a\":\"2\",\"z\":\"1\"},\"expr\":\"true\",\"disabled\":false},{\"name\":\"dflt\",\"kind\":\"TRANSFORM\",\"mode\":\"WRITEREAD\",\"type\":\"CEL\",\"disabled\":false}]},\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"}]}\"}"
+  }
+ },
+ {
+  "scenario": "data-contracts/rule-sets",
+  "step": 13,
+  "req": "GET /subjects/rs/versions/latest",
+  "known": "REG-D30: rule sets are kept and checked, as Confluent Enterprise and Cloud do; the community image drops them",
+  "a": {
+   "status": 200,
+   "ct": "application/vnd.schemaregistry.v1+json",
+   "www": "",
+   "allow": "",
+   "body": "{\"subject\":\"rs\",\"version\":2,\"id\":\"@2\",\"metadata\":{\"properties\":{\"owner\":\"a\"}},\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"}]}\"}"
+  },
+  "b": {
+   "status": 200,
+   "ct": "application/vnd.schemaregistry.v1+json",
+   "www": "",
+   "allow": "",
+   "body": "{\"subject\":\"rs\",\"version\":1,\"id\":\"@1\",\"metadata\":{\"properties\":{\"owner\":\"a\"}},\"ruleSet\":{\"domainRules\":[{\"name\":\"r1\",\"kind\":\"CONDITION\",\"mode\":\"WRITE\",\"type\":\"CEL\",\"tags\":[\"t1\",\"t2\"],\"params\":{\"a\":\"2\",\"z\":\"1\"},\"expr\":\"true\",\"disabled\":false},{\"name\":\"dflt\",\"kind\":\"TRANSFORM\",\"mode\":\"WRITEREAD\",\"type\":\"CEL\",\"disabled\":false}]},\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"}]}\"}"
+  }
+ },
+ {
+  "scenario": "data-contracts/rule-sets",
+  "step": 14,
+  "req": "GET /schemas/ids/@1",
+  "known": "REG-D30: rule sets are kept and checked, as Confluent Enterprise and Cloud do; the community image drops them",
+  "a": {
+   "status": 200,
+   "ct": "application/vnd.schemaregistry.v1+json",
+   "www": "",
+   "allow": "",
+   "body": "{\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"}]}\"}"
+  },
+  "b": {
+   "status": 200,
+   "ct": "application/vnd.schemaregistry.v1+json",
+   "www": "",
+   "allow": "",
+   "body": "{\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"}]}\",\"metadata\":{\"properties\":{\"owner\":\"a\"}},\"ruleSet\":{\"domainRules\":[{\"name\":\"r1\",\"kind\":\"CONDITION\",\"mode\":\"WRITE\",\"type\":\"CEL\",\"tags\":[\"t1\",\"t2\"],\"params\":{\"a\":\"2\",\"z\":\"1\"},\"expr\":\"true\",\"disabled\":false},{\"name\":\"dflt\",\"kind\":\"TRANSFORM\",\"mode\":\"WRITEREAD\",\"type\":\"CEL\",\"disabled\":false}]}}"
+  }
+ },
+ {
+  "scenario": "data-contracts/rule-sets",
+  "step": 15,
+  "req": "POST /subjects/rs/versions",
+  "known": "REG-D30: rule sets are kept and checked, as Confluent Enterprise and Cloud do; the community image drops them",
+  "a": {
+   "status": 200,
+   "ct": "application/vnd.schemaregistry.v1+json",
+   "www": "",
+   "allow": "",
+   "body": "{\"id\":\"@3\",\"version\":3,\"metadata\":{\"properties\":{\"owner\":\"a\"}},\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"},{\\\"name\\\":\\\"email\\\",\\\"type\\\":[\\\"null\\\",\\\"string\\\"],\\\"default\\\":null}]}\"}"
+  },
+  "b": {
+   "status": 200,
+   "ct": "application/vnd.schemaregistry.v1+json",
+   "www": "",
+   "allow": "",
+   "body": "{\"id\":\"@2\",\"version\":2,\"metadata\":{\"properties\":{\"owner\":\"a\"}},\"ruleSet\":{\"domainRules\":[{\"name\":\"r1\",\"kind\":\"CONDITION\",\"mode\":\"WRITE\",\"type\":\"CEL\",\"tags\":[\"t1\",\"t2\"],\"params\":{\"a\":\"2\",\"z\":\"1\"},\"expr\":\"true\",\"disabled\":false},{\"name\":\"dflt\",\"kind\":\"TRANSFORM\",\"mode\":\"WRITEREAD\",\"type\":\"CEL\",\"disabled\":false}]},\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"},{\\\"name\\\":\\\"email\\\",\\\"type\\\":[\\\"null\\\",\\\"string\\\"],\\\"default\\\":null}]}\"}"
+  }
+ },
+ {
+  "scenario": "data-contracts/rule-sets",
+  "step": 16,
+  "req": "GET /subjects/rs/versions/latest",
+  "known": "REG-D30: rule sets are kept and checked, as Confluent Enterprise and Cloud do; the community image drops them",
+  "a": {
+   "status": 200,
+   "ct": "application/vnd.schemaregistry.v1+json",
+   "www": "",
+   "allow": "",
+   "body": "{\"subject\":\"rs\",\"version\":3,\"id\":\"@3\",\"metadata\":{\"properties\":{\"owner\":\"a\"}},\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"},{\\\"name\\\":\\\"email\\\",\\\"type\\\":[\\\"null\\\",\\\"string\\\"],\\\"default\\\":null}]}\"}"
+  },
+  "b": {
+   "status": 200,
+   "ct": "application/vnd.schemaregistry.v1+json",
+   "www": "",
+   "allow": "",
+   "body": "{\"subject\":\"rs\",\"version\":2,\"id\":\"@2\",\"metadata\":{\"properties\":{\"owner\":\"a\"}},\"ruleSet\":{\"domainRules\":[{\"name\":\"r1\",\"kind\":\"CONDITION\",\"mode\":\"WRITE\",\"type\":\"CEL\",\"tags\":[\"t1\",\"t2\"],\"params\":{\"a\":\"2\",\"z\":\"1\"},\"expr\":\"true\",\"disabled\":false},{\"name\":\"dflt\",\"kind\":\"TRANSFORM\",\"mode\":\"WRITEREAD\",\"type\":\"CEL\",\"disabled\":false}]},\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"},{\\\"name\\\":\\\"email\\\",\\\"type\\\":[\\\"null\\\",\\\"string\\\"],\\\"default\\\":null}]}\"}"
+  }
+ },
+ {
+  "scenario": "data-contracts/rule-sets",
+  "step": 17,
+  "req": "POST /subjects/rs",
+  "known": "REG-D30: rule sets are kept and checked, as Confluent Enterprise and Cloud do; the community image drops them",
+  "a": {
+   "status": 404,
+   "ct": "application/vnd.schemaregistry.v1+json",
+   "www": "",
+   "allow": "",
+   "body": "{\"error_code\":40403,\"message\":\"Schema not found\"}"
+  },
+  "b": {
+   "status": 200,
+   "ct": "application/vnd.schemaregistry.v1+json",
+   "www": "",
+   "allow": "",
+   "body": "{\"subject\":\"rs\",\"version\":2,\"id\":\"@2\",\"metadata\":{\"properties\":{\"owner\":\"a\"}},\"ruleSet\":{\"domainRules\":[{\"name\":\"r1\",\"kind\":\"CONDITION\",\"mode\":\"WRITE\",\"type\":\"CEL\",\"tags\":[\"t1\",\"t2\"],\"params\":{\"a\":\"2\",\"z\":\"1\"},\"expr\":\"true\",\"disabled\":false},{\"name\":\"dflt\",\"kind\":\"TRANSFORM\",\"mode\":\"WRITEREAD\",\"type\":\"CEL\",\"disabled\":false}]},\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"},{\\\"name\\\":\\\"email\\\",\\\"type\\\":[\\\"null\\\",\\\"string\\\"],\\\"default\\\":null}]}\"}"
+  }
+ },
+ {
+  "scenario": "data-contracts/rule-sets",
+  "step": 18,
+  "req": "POST /subjects/rs/versions",
+  "known": "REG-D30: rule sets are kept and checked, as Confluent Enterprise and Cloud do; the community image drops them",
+  "a": {
+   "status": 200,
+   "ct": "application/vnd.schemaregistry.v1+json",
+   "www": "",
+   "allow": "",
+   "body": "{\"id\":\"@3\",\"version\":3,\"metadata\":{\"properties\":{\"owner\":\"a\"}},\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"},{\\\"name\\\":\\\"email\\\",\\\"type\\\":[\\\"null\\\",\\\"string\\\"],\\\"default\\\":null}]}\"}"
+  },
+  "b": {
+   "status": 200,
+   "ct": "application/vnd.schemaregistry.v1+json",
+   "www": "",
+   "allow": "",
+   "body": "{\"id\":\"@3\",\"version\":3,\"metadata\":{\"properties\":{\"owner\":\"a\"}},\"ruleSet\":{\"domainRules\":[{\"name\":\"r2\",\"doc\":\"d\",\"kind\":\"CONDITION\",\"mode\":\"WRITEREAD\",\"type\":\"CEL\",\"expr\":\"true\",\"onFailure\":\"ERROR,NONE\",\"disabled\":true}]},\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"},{\\\"name\\\":\\\"email\\\",\\\"type\\\":[\\\"null\\\",\\\"string\\\"],\\\"default\\\":null}]}\"}"
+  }
+ },
+ {
+  "scenario": "data-contracts/rule-sets",
+  "step": 19,
+  "req": "GET /subjects/rs/versions/latest",
+  "known": "REG-D30: rule sets are kept and checked, as Confluent Enterprise and Cloud do; the community image drops them",
+  "a": {
+   "status": 200,
+   "ct": "application/vnd.schemaregistry.v1+json",
+   "www": "",
+   "allow": "",
+   "body": "{\"subject\":\"rs\",\"version\":3,\"id\":\"@3\",\"metadata\":{\"properties\":{\"owner\":\"a\"}},\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"},{\\\"name\\\":\\\"email\\\",\\\"type\\\":[\\\"null\\\",\\\"string\\\"],\\\"default\\\":null}]}\"}"
+  },
+  "b": {
+   "status": 200,
+   "ct": "application/vnd.schemaregistry.v1+json",
+   "www": "",
+   "allow": "",
+   "body": "{\"subject\":\"rs\",\"version\":3,\"id\":\"@3\",\"metadata\":{\"properties\":{\"owner\":\"a\"}},\"ruleSet\":{\"domainRules\":[{\"name\":\"r2\",\"doc\":\"d\",\"kind\":\"CONDITION\",\"mode\":\"WRITEREAD\",\"type\":\"CEL\",\"expr\":\"true\",\"onFailure\":\"ERROR,NONE\",\"disabled\":true}]},\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"},{\\\"name\\\":\\\"email\\\",\\\"type\\\":[\\\"null\\\",\\\"string\\\"],\\\"default\\\":null}]}\"}"
+  }
+ },
+ {
+  "scenario": "data-contracts/rule-sets",
+  "step": 20,
+  "req": "POST /subjects/rs/versions",
+  "known": "REG-D30: rule sets are kept and checked, as Confluent Enterprise and Cloud do; the community image drops them",
+  "a": {
+   "status": 200,
+   "ct": "application/vnd.schemaregistry.v1+json",
+   "www": "",
+   "allow": "",
+   "body": "{\"id\":\"@1\"}"
+  },
+  "b": {
+   "status": 200,
+   "ct": "application/vnd.schemaregistry.v1+json",
+   "www": "",
+   "allow": "",
+   "body": "{\"id\":\"@4\",\"version\":4,\"metadata\":{\"properties\":{\"owner\":\"a\"}},\"ruleSet\":{\"encodingRules\":[{\"name\":\"enc\",\"kind\":\"CONDITION\",\"mode\":\"WRITEREAD\",\"type\":\"ENCRYPT_PAYLOAD\",\"expr\":\"true\",\"disabled\":false}]},\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"}]}\"}"
+  }
+ },
+ {
+  "scenario": "data-contracts/rule-sets",
+  "step": 21,
+  "req": "GET /subjects/rs/versions/latest",
+  "known": "REG-D30: rule sets are kept and checked, as Confluent Enterprise and Cloud do; the community image drops them",
+  "a": {
+   "status": 200,
+   "ct": "application/vnd.schemaregistry.v1+json",
+   "www": "",
+   "allow": "",
+   "body": "{\"subject\":\"rs\",\"version\":3,\"id\":\"@3\",\"metadata\":{\"properties\":{\"owner\":\"a\"}},\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"},{\\\"name\\\":\\\"email\\\",\\\"type\\\":[\\\"null\\\",\\\"string\\\"],\\\"default\\\":null}]}\"}"
+  },
+  "b": {
+   "status": 200,
+   "ct": "application/vnd.schemaregistry.v1+json",
+   "www": "",
+   "allow": "",
+   "body": "{\"subject\":\"rs\",\"version\":4,\"id\":\"@4\",\"metadata\":{\"properties\":{\"owner\":\"a\"}},\"ruleSet\":{\"encodingRules\":[{\"name\":\"enc\",\"kind\":\"CONDITION\",\"mode\":\"WRITEREAD\",\"type\":\"ENCRYPT_PAYLOAD\",\"expr\":\"true\",\"disabled\":false}]},\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"}]}\"}"
+  }
+ },
+ {
+  "scenario": "data-contracts/rule-sets",
+  "step": 22,
+  "req": "PUT /config/rsc",
+  "known": "REG-D30: rule sets are kept and checked, as Confluent Enterprise and Cloud do; the community image drops them",
+  "a": {
+   "status": 200,
+   "ct": "application/vnd.schemaregistry.v1+json",
+   "www": "",
+   "allow": "",
+   "body": "{}"
+  },
+  "b": {
+   "status": 200,
+   "ct": "application/vnd.schemaregistry.v1+json",
+   "www": "",
+   "allow": "",
+   "body": "{\"defaultRuleSet\":{\"domainRules\":[{\"name\":\"d1\",\"kind\":\"CONDITION\",\"mode\":\"WRITE\",\"type\":\"CEL\",\"expr\":\"true\",\"disabled\":false},{\"name\":\"shared\",\"kind\":\"CONDITION\",\"mode\":\"WRITE\",\"type\":\"CEL\",\"expr\":\"1 == 1\",\"disabled\":false}]},\"overrideRuleSet\":{\"migrationRules\":[{\"name\":\"m1\",\"kind\":\"TRANSFORM\",\"mode\":\"UPGRADE\",\"type\":\"JSONATA\",\"expr\":\"$\",\"disabled\":false}],\"domainRules\":[{\"name\":\"shared\",\"kind\":\"CONDITION\",\"mode\":\"WRITE\",\"type\":\"CEL\",\"expr\":\"2 == 2\",\"disabled\":false}]}}"
+  }
+ },
+ {
+  "scenario": "data-contracts/rule-sets",
+  "step": 23,
+  "req": "GET /config/rsc",
+  "known": "REG-D30: rule sets are kept and checked, as Confluent Enterprise and Cloud do; the community image drops them",
+  "a": {
+   "status": 200,
+   "ct": "application/vnd.schemaregistry.v1+json",
+   "www": "",
+   "allow": "",
+   "body": "{\"compatibilityLevel\":\"BACKWARD\"}"
+  },
+  "b": {
+   "status": 200,
+   "ct": "application/vnd.schemaregistry.v1+json",
+   "www": "",
+   "allow": "",
+   "body": "{\"compatibilityLevel\":\"BACKWARD\",\"defaultRuleSet\":{\"domainRules\":[{\"name\":\"d1\",\"kind\":\"CONDITION\",\"mode\":\"WRITE\",\"type\":\"CEL\",\"expr\":\"true\",\"disabled\":false},{\"name\":\"shared\",\"kind\":\"CONDITION\",\"mode\":\"WRITE\",\"type\":\"CEL\",\"expr\":\"1 == 1\",\"disabled\":false}]},\"overrideRuleSet\":{\"migrationRules\":[{\"name\":\"m1\",\"kind\":\"TRANSFORM\",\"mode\":\"UPGRADE\",\"type\":\"JSONATA\",\"expr\":\"$\",\"disabled\":false}],\"domainRules\":[{\"name\":\"shared\",\"kind\":\"CONDITION\",\"mode\":\"WRITE\",\"type\":\"CEL\",\"expr\":\"2 == 2\",\"disabled\":false}]}}"
+  }
+ },
+ {
+  "scenario": "data-contracts/rule-sets",
+  "step": 24,
+  "req": "POST /subjects/rsc/versions",
+  "known": "REG-D30: rule sets are kept and checked, as Confluent Enterprise and Cloud do; the community image drops them",
+  "a": {
+   "status": 200,
+   "ct": "application/vnd.schemaregistry.v1+json",
+   "www": "",
+   "allow": "",
+   "body": "{\"id\":\"@1\"}"
+  },
+  "b": {
+   "status": 200,
+   "ct": "application/vnd.schemaregistry.v1+json",
+   "www": "",
+   "allow": "",
+   "body": "{\"id\":\"@5\",\"version\":1,\"ruleSet\":{\"migrationRules\":[{\"name\":\"m1\",\"kind\":\"TRANSFORM\",\"mode\":\"UPGRADE\",\"type\":\"JSONATA\",\"expr\":\"$\",\"disabled\":false}],\"domainRules\":[{\"name\":\"d1\",\"kind\":\"CONDITION\",\"mode\":\"WRITE\",\"type\":\"CEL\",\"expr\":\"true\",\"disabled\":false},{\"name\":\"own\",\"kind\":\"CONDITION\",\"mode\":\"WRITE\",\"type\":\"CEL\",\"expr\":\"true\",\"disabled\":false},{\"name\":\"shared\",\"kind\":\"CONDITION\",\"mode\":\"WRITE\",\"type\":\"CEL\",\"expr\":\"2 == 2\",\"disabled\":false}]},\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"}]}\"}"
+  }
+ },
+ {
+  "scenario": "data-contracts/rule-sets",
+  "step": 25,
+  "req": "GET /subjects/rsc/versions/latest",
+  "known": "REG-D30: rule sets are kept and checked, as Confluent Enterprise and Cloud do; the community image drops them",
+  "a": {
+   "status": 200,
+   "ct": "application/vnd.schemaregistry.v1+json",
+   "www": "",
+   "allow": "",
+   "body": "{\"subject\":\"rsc\",\"version\":1,\"id\":\"@1\",\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"}]}\"}"
+  },
+  "b": {
+   "status": 200,
+   "ct": "application/vnd.schemaregistry.v1+json",
+   "www": "",
+   "allow": "",
+   "body": "{\"subject\":\"rsc\",\"version\":1,\"id\":\"@5\",\"ruleSet\":{\"migrationRules\":[{\"name\":\"m1\",\"kind\":\"TRANSFORM\",\"mode\":\"UPGRADE\",\"type\":\"JSONATA\",\"expr\":\"$\",\"disabled\":false}],\"domainRules\":[{\"name\":\"d1\",\"kind\":\"CONDITION\",\"mode\":\"WRITE\",\"type\":\"CEL\",\"expr\":\"true\",\"disabled\":false},{\"name\":\"own\",\"kind\":\"CONDITION\",\"mode\":\"WRITE\",\"type\":\"CEL\",\"expr\":\"true\",\"disabled\":false},{\"name\":\"shared\",\"kind\":\"CONDITION\",\"mode\":\"WRITE\",\"type\":\"CEL\",\"expr\":\"2 == 2\",\"disabled\":false}]},\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"}]}\"}"
+  }
+ },
+ {
+  "scenario": "data-contracts/rule-sets",
+  "step": 26,
+  "req": "PUT /config/rsc",
+  "known": "REG-D30: rule sets are kept and checked, as Confluent Enterprise and Cloud do; the community image drops them",
+  "a": {
+   "status": 200,
+   "ct": "application/vnd.schemaregistry.v1+json",
+   "www": "",
+   "allow": "",
+   "body": "{}"
+  },
+  "b": {
+   "status": 422,
+   "ct": "application/vnd.schemaregistry.v1+json",
+   "www": "",
+   "allow": "",
+   "body": "{\"error_code\":42210,\"message\":\"Found rule with duplicate name 'a'\"}"
+  }
+ },
+ {
+  "scenario": "data-contracts/rule-sets",
+  "step": 28,
+  "req": "GET /config/rsc",
+  "known": "REG-D30: rule sets are kept and checked, as Confluent Enterprise and Cloud do; the community image drops them",
+  "a": {
+   "status": 200,
+   "ct": "application/vnd.schemaregistry.v1+json",
+   "www": "",
+   "allow": "",
+   "body": "{\"compatibilityLevel\":\"BACKWARD\"}"
+  },
+  "b": {
+   "status": 200,
+   "ct": "application/vnd.schemaregistry.v1+json",
+   "www": "",
+   "allow": "",
+   "body": "{\"compatibilityLevel\":\"BACKWARD\",\"overrideRuleSet\":{\"migrationRules\":[{\"name\":\"m1\",\"kind\":\"TRANSFORM\",\"mode\":\"UPGRADE\",\"type\":\"JSONATA\",\"expr\":\"$\",\"disabled\":false}],\"domainRules\":[{\"name\":\"shared\",\"kind\":\"CONDITION\",\"mode\":\"WRITE\",\"type\":\"CEL\",\"expr\":\"2 == 2\",\"disabled\":false}]}}"
+  }
+ }
+]

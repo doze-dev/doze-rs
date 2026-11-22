@@ -26,12 +26,30 @@ pub(crate) fn scratch(tag: &str) -> PathBuf {
     d
 }
 
-pub(crate) fn free() -> String {
-    std::net::TcpListener::bind("127.0.0.1:0")
-        .unwrap()
-        .local_addr()
-        .unwrap()
-        .to_string()
+/// A loopback port nobody holds, below every system's ephemeral range (Linux starts at 32768, macOS and Windows at
+/// 49152), and never the same one twice in this process: a port from `bind(":0")` can be handed straight back to a
+/// test running alongside (Windows does), as doze-module-test's `free_port` found on Linux.
+/// From 10000..20000: the engine hands out 20000..32000 from the same per-process offset, so a shared range let the
+/// test's port and the engine's first one be the same (daemon_catalog on Linux, #110's queue run).
+fn free_port() -> u16 {
+    use std::sync::atomic::{AtomicU32, Ordering};
+    static NEXT: AtomicU32 = AtomicU32::new(0);
+    let start = std::process::id().wrapping_mul(97) % 10_000;
+    loop {
+        let n = NEXT.fetch_add(1, Ordering::Relaxed);
+        let port = u16::try_from(10_000 + (start + n) % 10_000).unwrap();
+        if std::net::TcpListener::bind(("127.0.0.1", port)).is_ok() {
+            return port;
+        }
+    }
+}
+
+/// Two such ports, for the door's plain and tls listeners.
+pub(crate) fn free_pair() -> (String, String) {
+    (
+        format!("127.0.0.1:{}", free_port()),
+        format!("127.0.0.1:{}", free_port()),
+    )
 }
 
 /// A backend that answers "<who> <Host header>", and on an upgrade request switches and echoes.
@@ -112,8 +130,7 @@ pub(crate) async fn https_get(
 
 pub(crate) fn config(reg: &Registry, ca_dir: &Path) -> FrontConfig {
     let mut cfg = FrontConfig::for_zone(reg, ca_dir);
-    cfg.plain = free();
-    cfg.tls = free();
+    (cfg.plain, cfg.tls) = free_pair();
     cfg.ca_check_every = Duration::ZERO;
     cfg
 }

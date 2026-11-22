@@ -11,8 +11,8 @@
 //!   `[` and `]` step the span.
 //! - A span switch keeps the page as it was until the new figures are ready, then the strips fade over: no flash of
 //!   "reading the journal…".
-//! - It reads again every ten seconds while shown, and when the journal moves, off the UI thread; it redraws only
-//!   when a figure changed.
+//! - It reads again every ten seconds while in use (once a minute while only looked at, never while hidden), and when
+//!   the journal moves, off the UI thread; it redraws only when a figure changed.
 
 mod head;
 mod read;
@@ -38,8 +38,8 @@ use crate::actions::{
 
 /// How often the page reads the journal again while it shows.
 const EVERY: Duration = Duration::from_secs(10);
-/// How many [`EVERY`]s between reads while the window is looked at but not used: once a minute.
-const GLANCED: u32 = 6;
+/// How often it reads while the window is looked at but not used: once a minute.
+const GLANCED: Duration = Duration::from_secs(60);
 
 /// What the page tells the window.
 #[derive(Debug, Clone)]
@@ -88,6 +88,8 @@ pub(crate) struct ActivityView {
     /// Trouble shows every line.
     pub(crate) all_trouble: bool,
     pub(crate) focus: FocusHandle,
+    /// Its clock runs (see [`ActivityView::wind`]).
+    ticking: bool,
 }
 
 impl EventEmitter<ActivityEvent> for ActivityView {}
@@ -111,36 +113,45 @@ impl ActivityView {
             landed: 0,
             all_trouble: false,
             focus: cx.focus_handle(),
+            ticking: false,
         };
         v.read(cx);
-        // Read again every ten seconds while the page lives (it is dropped when the window leaves it) and the window is
-        // in use; once a minute while it is only looked at; never while it is hidden. The span ends at "now", so each
-        // read redraws (a touch reads again at once).
+        v.wind(cx);
+        v
+    }
+
+    /// Reads again every ten seconds while the window is in use, once a minute while it is only looked at, and not at
+    /// all while it is hidden: the clock stops then, and the window winds it again when it shows (`shell::clock`). The
+    /// span ends at "now", so a read may redraw. One clock at a time; it ends with the page.
+    pub(crate) fn wind(&mut self, cx: &mut Context<Self>) {
+        use crate::shell::attention::{Mode, mode};
+        if self.ticking || mode(cx.background_executor().now()) == Mode::Hidden {
+            return;
+        }
+        self.ticking = true;
         cx.spawn(async move |this, cx| {
-            let mut waited = 0u32;
             loop {
-                cx.background_executor().timer(EVERY).await;
-                waited += 1;
-                let mode =
-                    cx.update(|cx| crate::shell::attention::mode(cx.background_executor().now()));
-                let due = match mode {
-                    crate::shell::attention::Mode::Use => true,
-                    crate::shell::attention::Mode::Glance => waited >= GLANCED,
-                    crate::shell::attention::Mode::Hidden => false,
-                };
-                if due {
-                    waited = 0;
-                    if this.update(cx, |v, cx| v.read(cx)).is_err() {
-                        break;
+                let wait = cx.update(|cx| match mode(cx.background_executor().now()) {
+                    Mode::Use => Some(EVERY),
+                    Mode::Glance => Some(GLANCED),
+                    Mode::Hidden => None,
+                });
+                let Some(wait) = wait else { break };
+                cx.background_executor().timer(wait).await;
+                let more = this.update(cx, |v, cx| {
+                    if mode(cx.background_executor().now()) == Mode::Hidden {
+                        return false;
                     }
-                }
-                if this.upgrade().is_none() {
+                    v.read(cx);
+                    true
+                });
+                if !matches!(more, Ok(true)) {
                     break;
                 }
             }
+            let _ = this.update(cx, |v, _| v.ticking = false);
         })
         .detach();
-        v
     }
 
     fn landed_model(&mut self, a: Activity, cx: &mut Context<Self>) {

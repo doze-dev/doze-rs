@@ -1,0 +1,460 @@
+[
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/pn-merge/versions?normalize=true",
+   "b": "{\"schema\":\"syntax = \\\"proto3\\\";\\npackage mg;\\nimport \\\"google/protobuf/descriptor.proto\\\";\\nmessage Sub { int32 a = 1; int32 b = 2; }\\nmessage Rule { int32 min = 1; Sub sub = 2; repeated int32 tags = 3; }\\nextend google.protobuf.MessageOptions { Rule rule = 51000; }\\nmessage M {\\n  option (rule).sub.a = 5;\\n  option (rule).sub.b = 6;\\n  option (rule).min = 1;\\n  option (rule).min = 2;\\n  option (rule).tags = 1;\\n  option (rule).tags = 1;\\n  int32 v = 1;\\n}\\n\",\"schemaType\":\"PROTOBUF\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":59}",
+    "ms": 7
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":58,\"version\":1,\"guid\":\"10034eb3-a25d-249d-6ae3-cdce927f0ada\",\"schemaType\":\"PROTOBUF\",\"schema\":\"syntax = \\\"proto3\\\";\\npackage mg;\\n\\nimport \\\"google/protobuf/descriptor.proto\\\";\\n\\nmessage Sub {\\n  int32 a = 1;\\n  int32 b = 2;\\n}\\nmessage Rule {\\n  int32 min = 1;\\n  .mg.Sub sub = 2;\\n  repeated int32 tags = 3;\\n}\\nmessage M {\\n  option (mg.rule) = {\\n    min: 2,\\n    sub: {\\n      a: 5,\\n      b: 6\\n    },\\n    tags: 1\\n  };\\n\\n  int32 v = 1;\\n}\\n\\nextend .google.protobuf.MessageOptions {\\n  .mg.Rule rule = 51000;\\n}\\n\"}",
+    "ms": 13
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":60}",
+    "ms": 6
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "GET",
+   "p": "/subjects/pn-merge/versions/latest/schema"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "syntax = \"proto3\";\npackage mg;\n\nimport \"google/protobuf/descriptor.proto\";\n\nmessage Sub {\n  int32 a = 1;\n  int32 b = 2;\n}\nmessage Rule {\n  int32 min = 1;\n  .mg.Sub sub = 2;\n  repeated int32 tags = 3;\n}\nmessage M {\n  option (mg.rule) = {\n    min: [\n      1,\n      2\n    ],\n    sub: [\n      {\n        a: 5\n      },\n      {\n        b: 6\n      }\n    ],\n    tags: 1\n  };\n\n  int32 v = 1;\n}\n\nextend .google.protobuf.MessageOptions {\n  .mg.Rule rule = 51000;\n}\n",
+    "ms": 2
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "syntax = \"proto3\";\npackage mg;\n\nimport \"google/protobuf/descriptor.proto\";\n\nmessage Sub {\n  int32 a = 1;\n  int32 b = 2;\n}\nmessage Rule {\n  int32 min = 1;\n  .mg.Sub sub = 2;\n  repeated int32 tags = 3;\n}\nmessage M {\n  option (mg.rule) = {\n    min: 2,\n    sub: {\n      a: 5,\n      b: 6\n    },\n    tags: 1\n  };\n\n  int32 v = 1;\n}\n\nextend .google.protobuf.MessageOptions {\n  .mg.Rule rule = 51000;\n}\n",
+    "ms": 2
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "syntax = \"proto3\";\npackage mg;\n\nimport \"google/protobuf/descriptor.proto\";\n\nmessage Sub {\n  int32 a = 1;\n  int32 b = 2;\n}\nmessage Rule {\n  int32 min = 1;\n  .mg.Sub sub = 2;\n  repeated int32 tags = 3;\n}\nmessage M {\n  option (mg.rule) = {\n    min: 2,\n    sub: {\n      a: 5,\n      b: 6\n    },\n    tags: 1\n  };\n\n  int32 v = 1;\n}\n\nextend .google.protobuf.MessageOptions {\n  .mg.Rule rule = 51000;\n}\n",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/pn-merge?normalize=true",
+   "b": "{\"schema\":\"syntax = \\\"proto3\\\";\\npackage mg;\\nimport \\\"google/protobuf/descriptor.proto\\\";\\nmessage Sub { int32 a = 1; int32 b = 2; }\\nmessage Rule { int32 min = 1; Sub sub = 2; repeated int32 tags = 3; }\\nextend google.protobuf.MessageOptions { Rule rule = 51000; }\\nmessage M {\\n  option (rule).sub.a = 5;\\n  option (rule).sub.b = 6;\\n  option (rule).min = 1;\\n  option (rule).min = 2;\\n  option (rule).tags = 1;\\n  option (rule).tags = 1;\\n  int32 v = 1;\\n}\\n\",\"schemaType\":\"PROTOBUF\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"pn-merge\",\"version\":1,\"id\":59,\"schemaType\":\"PROTOBUF\",\"schema\":\"syntax = \\\"proto3\\\";\\npackage mg;\\n\\nimport \\\"google/protobuf/descriptor.proto\\\";\\n\\nmessage Sub {\\n  int32 a = 1;\\n  int32 b = 2;\\n}\\nmessage Rule {\\n  int32 min = 1;\\n  .mg.Sub sub = 2;\\n  repeated int32 tags = 3;\\n}\\nmessage M {\\n  option (mg.rule) = {\\n    min: [\\n      1,\\n      2\\n    ],\\n    sub: [\\n      {\\n        a: 5\\n      },\\n      {\\n        b: 6\\n      }\\n    ],\\n    tags: 1\\n  };\\n\\n  int32 v = 1;\\n}\\n\\nextend .google.protobuf.MessageOptions {\\n  .mg.Rule rule = 51000;\\n}\\n\"}",
+    "ms": 4
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"pn-merge\",\"version\":1,\"id\":58,\"guid\":\"10034eb3-a25d-249d-6ae3-cdce927f0ada\",\"schemaType\":\"PROTOBUF\",\"schema\":\"syntax = \\\"proto3\\\";\\npackage mg;\\n\\nimport \\\"google/protobuf/descriptor.proto\\\";\\n\\nmessage Sub {\\n  int32 a = 1;\\n  int32 b = 2;\\n}\\nmessage Rule {\\n  int32 min = 1;\\n  .mg.Sub sub = 2;\\n  repeated int32 tags = 3;\\n}\\nmessage M {\\n  option (mg.rule) = {\\n    min: 2,\\n    sub: {\\n      a: 5,\\n      b: 6\\n    },\\n    tags: 1\\n  };\\n\\n  int32 v = 1;\\n}\\n\\nextend .google.protobuf.MessageOptions {\\n  .mg.Rule rule = 51000;\\n}\\n\"}",
+    "ms": 5
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"pn-merge\",\"version\":1,\"id\":60,\"schemaType\":\"PROTOBUF\",\"schema\":\"syntax = \\\"proto3\\\";\\npackage mg;\\n\\nimport \\\"google/protobuf/descriptor.proto\\\";\\n\\nmessage Sub {\\n  int32 a = 1;\\n  int32 b = 2;\\n}\\nmessage Rule {\\n  int32 min = 1;\\n  .mg.Sub sub = 2;\\n  repeated int32 tags = 3;\\n}\\nmessage M {\\n  option (mg.rule) = {\\n    min: 2,\\n    sub: {\\n      a: 5,\\n      b: 6\\n    },\\n    tags: 1\\n  };\\n\\n  int32 v = 1;\\n}\\n\\nextend .google.protobuf.MessageOptions {\\n  .mg.Rule rule = 51000;\\n}\\n\"}",
+    "ms": 1
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/pn-merge",
+   "b": "{\"schema\":\"syntax = \\\"proto3\\\";\\npackage mg;\\nimport \\\"google/protobuf/descriptor.proto\\\";\\nmessage Sub { int32 a = 1; int32 b = 2; }\\nmessage Rule { int32 min = 1; Sub sub = 2; repeated int32 tags = 3; }\\nextend google.protobuf.MessageOptions { Rule rule = 51000; }\\nmessage M {\\n  option (rule).sub.a = 5;\\n  option (rule).sub.b = 6;\\n  option (rule).min = 1;\\n  option (rule).min = 2;\\n  option (rule).tags = 1;\\n  option (rule).tags = 1;\\n  int32 v = 1;\\n}\\n\",\"schemaType\":\"PROTOBUF\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 404,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":40403,\"message\":\"Schema not found\"}",
+    "ms": 5
+   },
+   "confluent-8": {
+    "status": 404,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":40403,\"message\":\"Schema not found\"}",
+    "ms": 6
+   },
+   "doze": {
+    "status": 404,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":40403,\"message\":\"Schema not found\"}",
+    "ms": 1
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/compatibility/subjects/pn-merge/versions/latest?normalize=true&verbose=true",
+   "b": "{\"schema\":\"syntax = \\\"proto3\\\";\\npackage mg;\\nimport \\\"google/protobuf/descriptor.proto\\\";\\nmessage Sub { int32 a = 1; int32 b = 2; }\\nmessage Rule { int32 min = 1; Sub sub = 2; repeated int32 tags = 3; }\\nextend google.protobuf.MessageOptions { Rule rule = 51000; }\\nmessage M {\\n  option (rule).sub.a = 5;\\n  option (rule).sub.b = 6;\\n  option (rule).min = 1;\\n  option (rule).min = 2;\\n  option (rule).tags = 1;\\n  option (rule).tags = 1;\\n  int32 v = 1;\\n}\\n\",\"schemaType\":\"PROTOBUF\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"is_compatible\":true,\"messages\":[]}",
+    "ms": 4
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"is_compatible\":true,\"messages\":[]}",
+    "ms": 8
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"is_compatible\":true,\"messages\":[]}",
+    "ms": 1
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "GET",
+   "p": "/schemas/ids/@1?format=serialized"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"schemaType\":\"PROTOBUF\",\"schema\":\"CgdkZWZhdWx0EgJtZxogZ29vZ2xlL3Byb3RvYnVmL2Rlc2NyaXB0b3IucHJvdG8iFwoDU3ViEgcKAWEYASgFEgcKAWIYAigFIjEKBFJ1bGUSCQoDbWluGAEoBRIQCgNzdWIYAjIHLm1nLlN1YhIMCgR0YWdzGAMgAygFIgwKAU0SBwoBdhgBKAU6NQoEcnVsZRIfLmdvb2dsZS5wcm90b2J1Zi5NZXNzYWdlT3B0aW9ucxi4jgMyCC5tZy5SdWxlYgZwcm90bzM=\"}",
+    "ms": 6
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"pn-merge\",\"version\":1,\"guid\":\"10034eb3-a25d-249d-6ae3-cdce927f0ada\",\"schemaType\":\"PROTOBUF\",\"schema\":\"CgdkZWZhdWx0EgJtZxogZ29vZ2xlL3Byb3RvYnVmL2Rlc2NyaXB0b3IucHJvdG8iFwoDU3ViEgcKAWEYASgFEgcKAWIYAigFIjMKBFJ1bGUSCQoDbWluGAEoBRISCgNzdWIYAigLMgcubWcuU3ViEgwKBHRhZ3MYAyADKAUiDAoBTRIHCgF2GAEoBTo3CgRydWxlEh8uZ29vZ2xlLnByb3RvYnVmLk1lc3NhZ2VPcHRpb25zGLiOAygLMggubWcuUnVsZWIGcHJvdG8z\",\"ts\":1795104625112,\"deleted\":false}",
+    "ms": 7
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"schemaType\":\"PROTOBUF\",\"schema\":\"CgdkZWZhdWx0EgJtZxogZ29vZ2xlL3Byb3RvYnVmL2Rlc2NyaXB0b3IucHJvdG8iFwoDU3ViEgcKAWEYASgFEgcKAWIYAigFIjEKBFJ1bGUSCQoDbWluGAEoBRIQCgNzdWIYAjIHLm1nLlN1YhIMCgR0YWdzGAMgAygFIgwKAU0SBwoBdhgBKAU6NQoEcnVsZRIfLmdvb2dsZS5wcm90b2J1Zi5NZXNzYWdlT3B0aW9ucxi4jgMyCC5tZy5SdWxlYgZwcm90bzM=\"}",
+    "ms": 1
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/pp-merge/versions",
+   "b": "{\"schema\":\"syntax = \\\"proto3\\\";\\npackage mg;\\nimport \\\"google/protobuf/descriptor.proto\\\";\\nmessage Sub { int32 a = 1; int32 b = 2; }\\nmessage Rule { int32 min = 1; Sub sub = 2; repeated int32 tags = 3; }\\nextend google.protobuf.MessageOptions { Rule rule = 51000; }\\nmessage M {\\n  option (rule).sub.a = 5;\\n  option (rule).sub.b = 6;\\n  option (rule).min = 1;\\n  option (rule).min = 2;\\n  option (rule).tags = 1;\\n  option (rule).tags = 1;\\n  int32 v = 1;\\n}\\n\",\"schemaType\":\"PROTOBUF\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":60}",
+    "ms": 8
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":59,\"version\":1,\"guid\":\"61705494-b6cb-f702-db6a-230f870bef30\",\"schemaType\":\"PROTOBUF\",\"schema\":\"syntax = \\\"proto3\\\";\\npackage mg;\\n\\nimport \\\"google/protobuf/descriptor.proto\\\";\\n\\nmessage Sub {\\n  int32 a = 1;\\n  int32 b = 2;\\n}\\nmessage Rule {\\n  int32 min = 1;\\n  Sub sub = 2;\\n  repeated int32 tags = 3;\\n}\\nmessage M {\\n  option (rule).sub.a = 5;\\n  option (rule).sub.b = 6;\\n  option (rule).min = 1;\\n  option (rule).min = 2;\\n  option (rule).tags = 1;\\n  option (rule).tags = 1;\\n\\n  int32 v = 1;\\n}\\n\\nextend google.protobuf.MessageOptions {\\n  Rule rule = 51000;\\n}\\n\"}",
+    "ms": 14
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":61}",
+    "ms": 6
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/pp-merge?normalize=true",
+   "b": "{\"schema\":\"syntax = \\\"proto3\\\";\\npackage mg;\\nimport \\\"google/protobuf/descriptor.proto\\\";\\nmessage Sub { int32 a = 1; int32 b = 2; }\\nmessage Rule { int32 min = 1; Sub sub = 2; repeated int32 tags = 3; }\\nextend google.protobuf.MessageOptions { Rule rule = 51000; }\\nmessage M {\\n  option (rule).sub.a = 5;\\n  option (rule).sub.b = 6;\\n  option (rule).min = 1;\\n  option (rule).min = 2;\\n  option (rule).tags = 1;\\n  option (rule).tags = 1;\\n  int32 v = 1;\\n}\\n\",\"schemaType\":\"PROTOBUF\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 404,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":40403,\"message\":\"Schema not found\"}",
+    "ms": 5
+   },
+   "confluent-8": {
+    "status": 404,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":40403,\"message\":\"Schema not found\"}",
+    "ms": 7
+   },
+   "doze": {
+    "status": 404,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":40403,\"message\":\"Schema not found\"}",
+    "ms": 1
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/pp-merge/versions?normalize=true",
+   "b": "{\"schema\":\"syntax = \\\"proto3\\\";\\npackage mg;\\nimport \\\"google/protobuf/descriptor.proto\\\";\\nmessage Sub { int32 a = 1; int32 b = 2; }\\nmessage Rule { int32 min = 1; Sub sub = 2; repeated int32 tags = 3; }\\nextend google.protobuf.MessageOptions { Rule rule = 51000; }\\nmessage M {\\n  option (rule).sub.a = 5;\\n  option (rule).sub.b = 6;\\n  option (rule).min = 1;\\n  option (rule).min = 2;\\n  option (rule).tags = 1;\\n  option (rule).tags = 1;\\n  int32 v = 1;\\n}\\n\",\"schemaType\":\"PROTOBUF\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":59}",
+    "ms": 10
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":58,\"version\":2,\"guid\":\"10034eb3-a25d-249d-6ae3-cdce927f0ada\",\"schemaType\":\"PROTOBUF\",\"schema\":\"syntax = \\\"proto3\\\";\\npackage mg;\\n\\nimport \\\"google/protobuf/descriptor.proto\\\";\\n\\nmessage Sub {\\n  int32 a = 1;\\n  int32 b = 2;\\n}\\nmessage Rule {\\n  int32 min = 1;\\n  .mg.Sub sub = 2;\\n  repeated int32 tags = 3;\\n}\\nmessage M {\\n  option (mg.rule) = {\\n    min: 2,\\n    sub: {\\n      a: 5,\\n      b: 6\\n    },\\n    tags: 1\\n  };\\n\\n  int32 v = 1;\\n}\\n\\nextend .google.protobuf.MessageOptions {\\n  .mg.Rule rule = 51000;\\n}\\n\"}",
+    "ms": 14
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":60}",
+    "ms": 6
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "GET",
+   "p": "/subjects/pp-merge/versions"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "[1,2]",
+    "ms": 2
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "[1,2]",
+    "ms": 2
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "[1,2]",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "PUT",
+   "p": "/config/pc-merge",
+   "b": "{\"normalize\":true}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"normalize\":true}",
+    "ms": 3
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"normalize\":true}",
+    "ms": 9
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"normalize\":true}",
+    "ms": 4
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/pc-merge/versions",
+   "b": "{\"schema\":\"syntax = \\\"proto3\\\";\\npackage mg;\\nimport \\\"google/protobuf/descriptor.proto\\\";\\nmessage Sub { int32 a = 1; int32 b = 2; }\\nmessage Rule { int32 min = 1; Sub sub = 2; repeated int32 tags = 3; }\\nextend google.protobuf.MessageOptions { Rule rule = 51000; }\\nmessage M {\\n  option (rule).sub.a = 5;\\n  option (rule).sub.b = 6;\\n  option (rule).min = 1;\\n  option (rule).min = 2;\\n  option (rule).tags = 1;\\n  option (rule).tags = 1;\\n  int32 v = 1;\\n}\\n\",\"schemaType\":\"PROTOBUF\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":59}",
+    "ms": 6
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":58,\"version\":1,\"guid\":\"10034eb3-a25d-249d-6ae3-cdce927f0ada\",\"schemaType\":\"PROTOBUF\",\"schema\":\"syntax = \\\"proto3\\\";\\npackage mg;\\n\\nimport \\\"google/protobuf/descriptor.proto\\\";\\n\\nmessage Sub {\\n  int32 a = 1;\\n  int32 b = 2;\\n}\\nmessage Rule {\\n  int32 min = 1;\\n  .mg.Sub sub = 2;\\n  repeated int32 tags = 3;\\n}\\nmessage M {\\n  option (mg.rule) = {\\n    min: 2,\\n    sub: {\\n      a: 5,\\n      b: 6\\n    },\\n    tags: 1\\n  };\\n\\n  int32 v = 1;\\n}\\n\\nextend .google.protobuf.MessageOptions {\\n  .mg.Rule rule = 51000;\\n}\\n\"}",
+    "ms": 10
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":60}",
+    "ms": 6
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "GET",
+   "p": "/subjects/pc-merge/versions/latest/schema"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "syntax = \"proto3\";\npackage mg;\n\nimport \"google/protobuf/descriptor.proto\";\n\nmessage Sub {\n  int32 a = 1;\n  int32 b = 2;\n}\nmessage Rule {\n  int32 min = 1;\n  .mg.Sub sub = 2;\n  repeated int32 tags = 3;\n}\nmessage M {\n  option (mg.rule) = {\n    min: [\n      1,\n      2\n    ],\n    sub: [\n      {\n        a: 5\n      },\n      {\n        b: 6\n      }\n    ],\n    tags: 1\n  };\n\n  int32 v = 1;\n}\n\nextend .google.protobuf.MessageOptions {\n  .mg.Rule rule = 51000;\n}\n",
+    "ms": 1
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "syntax = \"proto3\";\npackage mg;\n\nimport \"google/protobuf/descriptor.proto\";\n\nmessage Sub {\n  int32 a = 1;\n  int32 b = 2;\n}\nmessage Rule {\n  int32 min = 1;\n  .mg.Sub sub = 2;\n  repeated int32 tags = 3;\n}\nmessage M {\n  option (mg.rule) = {\n    min: 2,\n    sub: {\n      a: 5,\n      b: 6\n    },\n    tags: 1\n  };\n\n  int32 v = 1;\n}\n\nextend .google.protobuf.MessageOptions {\n  .mg.Rule rule = 51000;\n}\n",
+    "ms": 1
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "syntax = \"proto3\";\npackage mg;\n\nimport \"google/protobuf/descriptor.proto\";\n\nmessage Sub {\n  int32 a = 1;\n  int32 b = 2;\n}\nmessage Rule {\n  int32 min = 1;\n  .mg.Sub sub = 2;\n  repeated int32 tags = 3;\n}\nmessage M {\n  option (mg.rule) = {\n    min: 2,\n    sub: {\n      a: 5,\n      b: 6\n    },\n    tags: 1\n  };\n\n  int32 v = 1;\n}\n\nextend .google.protobuf.MessageOptions {\n  .mg.Rule rule = 51000;\n}\n",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/pc-merge",
+   "b": "{\"schema\":\"syntax = \\\"proto3\\\";\\npackage mg;\\nimport \\\"google/protobuf/descriptor.proto\\\";\\nmessage Sub { int32 a = 1; int32 b = 2; }\\nmessage Rule { int32 min = 1; Sub sub = 2; repeated int32 tags = 3; }\\nextend google.protobuf.MessageOptions { Rule rule = 51000; }\\nmessage M {\\n  option (rule).sub.a = 5;\\n  option (rule).sub.b = 6;\\n  option (rule).min = 1;\\n  option (rule).min = 2;\\n  option (rule).tags = 1;\\n  option (rule).tags = 1;\\n  int32 v = 1;\\n}\\n\",\"schemaType\":\"PROTOBUF\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"pc-merge\",\"version\":1,\"id\":59,\"schemaType\":\"PROTOBUF\",\"schema\":\"syntax = \\\"proto3\\\";\\npackage mg;\\n\\nimport \\\"google/protobuf/descriptor.proto\\\";\\n\\nmessage Sub {\\n  int32 a = 1;\\n  int32 b = 2;\\n}\\nmessage Rule {\\n  int32 min = 1;\\n  .mg.Sub sub = 2;\\n  repeated int32 tags = 3;\\n}\\nmessage M {\\n  option (mg.rule) = {\\n    min: [\\n      1,\\n      2\\n    ],\\n    sub: [\\n      {\\n        a: 5\\n      },\\n      {\\n        b: 6\\n      }\\n    ],\\n    tags: 1\\n  };\\n\\n  int32 v = 1;\\n}\\n\\nextend .google.protobuf.MessageOptions {\\n  .mg.Rule rule = 51000;\\n}\\n\"}",
+    "ms": 2
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"pc-merge\",\"version\":1,\"id\":58,\"guid\":\"10034eb3-a25d-249d-6ae3-cdce927f0ada\",\"schemaType\":\"PROTOBUF\",\"schema\":\"syntax = \\\"proto3\\\";\\npackage mg;\\n\\nimport \\\"google/protobuf/descriptor.proto\\\";\\n\\nmessage Sub {\\n  int32 a = 1;\\n  int32 b = 2;\\n}\\nmessage Rule {\\n  int32 min = 1;\\n  .mg.Sub sub = 2;\\n  repeated int32 tags = 3;\\n}\\nmessage M {\\n  option (mg.rule) = {\\n    min: 2,\\n    sub: {\\n      a: 5,\\n      b: 6\\n    },\\n    tags: 1\\n  };\\n\\n  int32 v = 1;\\n}\\n\\nextend .google.protobuf.MessageOptions {\\n  .mg.Rule rule = 51000;\\n}\\n\"}",
+    "ms": 4
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"pc-merge\",\"version\":1,\"id\":60,\"schemaType\":\"PROTOBUF\",\"schema\":\"syntax = \\\"proto3\\\";\\npackage mg;\\n\\nimport \\\"google/protobuf/descriptor.proto\\\";\\n\\nmessage Sub {\\n  int32 a = 1;\\n  int32 b = 2;\\n}\\nmessage Rule {\\n  int32 min = 1;\\n  .mg.Sub sub = 2;\\n  repeated int32 tags = 3;\\n}\\nmessage M {\\n  option (mg.rule) = {\\n    min: 2,\\n    sub: {\\n      a: 5,\\n      b: 6\\n    },\\n    tags: 1\\n  };\\n\\n  int32 v = 1;\\n}\\n\\nextend .google.protobuf.MessageOptions {\\n  .mg.Rule rule = 51000;\\n}\\n\"}",
+    "ms": 1
+   }
+  }
+ }
+]

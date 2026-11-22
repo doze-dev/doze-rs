@@ -23,6 +23,8 @@ pub fn serve(home: &Path, registry: registry::Config) -> u8 {
             protocol: i64::from(doze_module_proto::version::CURRENT.major),
             doze: VERSION.into(),
         },
+        // A daemon started for a dry run says so in its environment: nothing it fetches is pinned in doze.lock.
+        lock_writes: std::env::var_os(doze_fetch::child::READ_ONLY_LOCK).is_none(),
     };
     let stdin = std::io::stdin();
     let mut input = stdin.lock();

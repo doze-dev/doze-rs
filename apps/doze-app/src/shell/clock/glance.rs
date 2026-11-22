@@ -1,6 +1,16 @@
 //! A window glanced at (on screen, not in use): the batches it takes in, at most once a second for a change of state
-//! and every ten for the meters; its words to the minute, read again once, when the first of them would change; and
-//! one wake for when its daemon's last frame would turn old.
+//! and otherwise on the [`SLOT`] grid; its words to the minute, read again on that grid too; and one wake for when its
+//! daemon's last frame would turn old.
+//!
+//! A change of state is what a person must see now: a stack, or a service, that came up, went down, fell asleep,
+//! failed or recovered ([`signature`]). Everything else a live stack does all the time (meters, connection counts,
+//! log lines, a service's holders, its journal) and every word that moves with time ("up 9m", "sleeps in 3m") is
+//! taken in on a grid of [`SLOT`] (30 s), so a window left alone on a live stack draws at most two frames a minute
+//! for them, all of them together. Without the grid a real daemon's instance frames (every three seconds) and each
+//! row's "up Nm" turning at its own second drew a frame every one to three seconds, which kept the GPU driver's
+//! ~150 MB for good (docs/port/weight.md, "A live stack's idle window").
+
+use std::hash::{Hash as _, Hasher as _};
 
 use std::time::{Duration, Instant, SystemTime};
 
@@ -14,23 +24,47 @@ use attention::Mode;
 
 /// Glanced at: a change of state is taken in at most this often.
 pub(crate) const STATE_EVERY: Duration = Duration::from_secs(1);
-/// Glanced at: the meters are taken in at most this often.
-pub(crate) const METERS_EVERY: Duration = Duration::from_secs(10);
+/// Glanced at: what is not a change of state (the meters, connections, logs, the words that move with time) is
+/// taken in on a grid of this step, all of it at once.
+pub(crate) const SLOT: Duration = Duration::from_secs(30);
 /// A wake for a word's change lands this long after it, so the word has changed when it is read.
 const PAST: Duration = Duration::from_millis(50);
 
-/// Every part of a stack but the meters: a change of state.
+/// The parts that may carry a change of state ([`signature`] says whether they did).
 const STATE: Parts = Parts::LIST
     .union(Parts::META)
     .union(Parts::CONN)
-    .union(Parts::INSTANCES)
-    .union(Parts::JOURNAL)
-    .union(Parts::LOGS)
-    .union(Parts::CONSOLE);
+    .union(Parts::INSTANCES);
+
+/// What a person must see at once, hashed: each stack, running or not, its link, and each service's state (up,
+/// asleep, starting, crashing, failed), error, restarts and switches. Not the meters, connections, holders (held or
+/// dozing), logs or times: those move all the time on a live stack, and wait for the grid.
+pub(crate) fn signature(stacks: &[doze_desk::StackView]) -> u64 {
+    let mut h = std::hash::DefaultHasher::new();
+    for st in stacks {
+        st.key.dir().hash(&mut h);
+        st.running.hash(&mut h);
+        format!("{:?}", st.link.conn).hash(&mut h);
+        for v in st.words().instances {
+            v.name.hash(&mut h);
+            // Held (active) and dozing (idle) are both up: a live stack's connections flip a service between them
+            // every second, so the flip waits for the grid; up, asleep, starting, crashing or failed is drawn at once.
+            let state = match v.state {
+                words::State::Active | words::State::Idle => "up".to_owned(),
+                other => format!("{other:?}"),
+            };
+            (state, format!("{:?}", v.kind)).hash(&mut h);
+            v.last_error.hash(&mut h);
+            v.restart_count.hash(&mut h);
+            (v.paused, v.keep_awake, v.disabled, v.tainted).hash(&mut h);
+        }
+    }
+    h.finish()
+}
 
 impl Root {
     /// A batch from the hub, as the window is looked at: in use, taken in now; glanced at, a change of state within a
-    /// second and the meters within ten; hidden, kept for when the window shows.
+    /// second and the rest at the next step of the grid; hidden, kept for when the window shows.
     pub(crate) fn apply(&mut self, batch: &Batch, cx: &mut Context<Self>) {
         let now = cx.background_executor().now();
         match attention::mode(now) {
@@ -42,14 +76,15 @@ impl Root {
                 let Some(p) = &self.clock.pending else {
                     return;
                 };
-                let state =
-                    !p.hub.is_empty() || p.stacks.values().any(|parts| parts.intersects(STATE));
-                let due = if state {
-                    self.clock.took_state.map(|t| t + STATE_EVERY)
-                } else {
-                    self.clock.took_meters.map(|t| t + METERS_EVERY)
-                };
-                match due {
+                let state = !p.hub.is_empty()
+                    || (p.stacks.values().any(|parts| parts.intersects(STATE))
+                        && Some(signature(&self.hub.stacks())) != self.clock.sig);
+                if !state {
+                    let at = self.slot_after(now);
+                    self.arm_flush(at, cx);
+                    return;
+                }
+                match self.clock.took_state.map(|t| t + STATE_EVERY) {
                     Some(at) if at > now => self.arm_flush(at, cx),
                     _ => self.flush(cx),
                 }
@@ -70,13 +105,18 @@ impl Root {
         let Some(b) = self.clock.pending.take() else {
             return;
         };
-        let now = cx.background_executor().now();
-        self.clock.took_state = Some(now);
-        if b.stacks.values().any(|p| p.intersects(Parts::STATS)) {
-            self.clock.took_meters = Some(now);
-        }
+        self.clock.took_state = Some(cx.background_executor().now());
+        self.clock.sig = Some(signature(&self.hub.stacks()));
         let ((), next) = words::coarse(|| self.apply_now(&b, cx));
         self.arm_next(next, cx);
+    }
+
+    /// The first step of the grid at or after `at`. The grid starts with the first look at a glanced window.
+    fn slot_after(&mut self, at: Instant) -> Instant {
+        let origin = *self.clock.origin.get_or_insert(at);
+        let since = at.saturating_duration_since(origin).as_nanos();
+        let steps = since.div_ceil(SLOT.as_nanos());
+        origin + SLOT * u32::try_from(steps).unwrap_or(u32::MAX)
     }
 
     fn arm_flush(&mut self, at: Instant, cx: &mut Context<Self>) {
@@ -96,18 +136,21 @@ impl Root {
         self.clock.flush = Some((at, task));
     }
 
-    /// Glanced at: wakes once when the first word read would read differently (`in`, from `coarse`), unless a wake
-    /// lands sooner already.
+    /// Glanced at: wakes once, at the step of the grid on or after the first word read would read differently (`in`,
+    /// from `coarse`), unless a wake lands sooner already.
     pub(crate) fn arm_next(&mut self, after: Option<Duration>, cx: &mut Context<Self>) {
         let Some(after) = after else {
             return;
         };
-        let at = cx.background_executor().now() + after + PAST;
+        // On the grid: every word that turns within a step is read again once, together, with the meters.
+        let now = cx.background_executor().now();
+        let at = self.slot_after(now + after + PAST);
         if self.clock.next.as_ref().is_some_and(|(t, _)| *t <= at) {
             return;
         }
+        let wait = at.saturating_duration_since(now);
         let task = cx.spawn(async move |this: WeakEntity<Root>, cx: &mut AsyncApp| {
-            cx.background_executor().timer(after + PAST).await;
+            cx.background_executor().timer(wait).await;
             let _ = this.update(cx, |r, cx| {
                 r.clock.next = None;
                 if attention::mode(cx.background_executor().now()) == Mode::Glance {
@@ -161,6 +204,7 @@ impl Root {
     /// Glanced at: everything shown read again, in words to the minute, and the next wake set.
     pub(super) fn glance(&mut self, cx: &mut Context<Self>) {
         self.clock.next = None;
+        self.clock.sig = Some(signature(&self.hub.stacks()));
         let pending = self.clock.pending.take();
         let ((), next) = words::coarse(|| {
             if let Some(b) = &pending {

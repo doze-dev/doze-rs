@@ -129,11 +129,21 @@ pub(crate) fn opened(
     names: &[String],
     what: &str,
 ) -> Result<(Stack, Config, Connection), Diagnostic> {
+    opened_spawned(ctx, mode, names, what).map(|(s, cfg, c, _)| (s, cfg, c))
+}
+
+/// [`opened`], and whether this run started the daemon (`up::start_for_spawned`).
+pub(crate) fn opened_spawned(
+    ctx: &mut Ctx<'_>,
+    mode: &Mode,
+    names: &[String],
+    what: &str,
+) -> Result<(Stack, Config, Connection, bool), Diagnostic> {
     let stack = Stack::find(ctx, mode)?;
     stack::check_offline(&stack, names)?;
     let cfg = stack.loader.shape(&stack.project)?;
-    let conn = crate::cmd::up::start_for(ctx, mode, &stack, what)?;
-    Ok((stack, cfg, conn))
+    let (conn, spawned) = crate::cmd::up::start_for_spawned(ctx, mode, &stack, what)?;
+    Ok((stack, cfg, conn, spawned))
 }
 
 /// The variables of `names` (none: every declared one), in the stack's order, then the authority's.

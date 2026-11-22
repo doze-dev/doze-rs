@@ -132,3 +132,19 @@ async fn a_mistake_is_refused_before_boot_at_its_line() {
         .unwrap_err();
     assert!(e.contains("no queue \"nope\" is declared"), "{e}");
 }
+
+#[tokio::test(flavor = "current_thread")]
+async fn a_bucket_name_s3_refuses_is_refused_before_boot_not_at_provision() {
+    let e = harness()
+        .boot("aws \"local\" {\n  bucket \"x\" {\n    versioning = true\n  }\n}\n")
+        .await
+        .unwrap_err();
+    assert!(
+        e.contains("\"x\" is not a bucket name S3 accepts") && e.contains("3 to 63 characters"),
+        "{e}"
+    );
+    assert!(
+        !e.contains("ROLLBACK"),
+        "refused before anything was made: {e}"
+    );
+}

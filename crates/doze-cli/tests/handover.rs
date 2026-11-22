@@ -146,7 +146,56 @@ fn a_new_doze_that_does_not_run_stops_nothing() {
     let upd = fixture::run(&sb, &host, Terminals::default(), true, &["update"]);
     assert_eq!(upd.code, 11, "{}\n{}", upd.stdout, upd.stderr);
     assert!(
-        upd.stderr.contains("does not run; nothing was stopped"),
+        upd.stderr.contains("does not run as this doze")
+            && upd.stderr.contains("nothing was stopped"),
+        "{}",
+        upd.stderr
+    );
+    assert!(
+        old.is_some_and(doze_os::process::alive),
+        "the old daemon was stopped"
+    );
+    let down = fixture::run(&sb, &host, Terminals::default(), false, &["down"]);
+    assert_eq!(down.code, 0, "{}", down.stderr);
+}
+
+/// An older doze on the PATH (one that runs `version` but cannot answer `--json version`, as the Go doze) is never
+/// handed a stack: nothing is stopped, exit 11.
+#[test]
+fn an_older_doze_on_the_path_is_never_handed_a_stack() {
+    if !setup::sockets() {
+        return;
+    }
+    let (sb, mut host, _) = setup::prepare(&["registry".to_owned(), "project bare".to_owned()]);
+    host.daemon_exe = Some(std::path::PathBuf::from(env!("CARGO_BIN_EXE_doze")));
+    let bin = sb.root.join("bin");
+    std::fs::create_dir_all(&bin).unwrap();
+    for (name, body) in [
+        ("brew", "#!/bin/sh\n"),
+        (
+            "doze",
+            "#!/bin/sh\n[ \"$1\" = --json ] && { echo 'Error: unknown flag: --json' >&2; exit 1; }\necho 'doze 0.1.1'\n",
+        ),
+    ] {
+        std::fs::write(bin.join(name), body).unwrap();
+        std::fs::set_permissions(bin.join(name), std::fs::Permissions::from_mode(0o755)).unwrap();
+    }
+    host.env.insert("PATH".into(), bin.display().to_string());
+    let hcl = format!(
+        "stack = \"shop\"\nhome = \"{}\"\n\napp \"web\" {{\n  run = \"exec sleep 600\"\n}}\n",
+        sb.home().display()
+    );
+    std::fs::write(sb.project().join("doze.hcl"), hcl).unwrap();
+    let key = doze_projects::StackKey::for_config(&sb.home(), &sb.project().join("doze.hcl"));
+    let up = fixture::run(&sb, &host, Terminals::default(), false, &["up"]);
+    let old = doze_projects::daemon_pid(&key).map(|p| p.pid);
+    let _reap = Reap(old.into_iter().collect());
+    assert_eq!(up.code, 0, "{}", up.stderr);
+    let upd = fixture::run(&sb, &host, Terminals::default(), true, &["update"]);
+    assert_eq!(upd.code, 11, "{}\n{}", upd.stdout, upd.stderr);
+    assert!(
+        upd.stderr.contains("does not run as this doze")
+            && upd.stderr.contains("nothing was stopped"),
         "{}",
         upd.stderr
     );

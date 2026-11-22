@@ -149,8 +149,10 @@ async fn refused_at_their_line() {
         ("app", "  schema \"pg_x\" {}\n", "pg_"),
         ("app", "  extensions = [\"plpgsql\"]\n", "built into"),
         ("app", "  extensions = [\"pg_trgn\"]\n", "no extension"),
-        ("postgres", "", "for itself"),
-        ("template1", "", "for itself"),
+        ("template1", "", "every database"),
+        ("template0", "", "every database"),
+        ("postgres", "  encoding = \"LATIN1\"\n", "fixed when"),
+        ("postgres", "  allow_connections = false\n", "closed to"),
         (
             "app",
             "  grant {\n    role = \"a\"\n    privileges = [\"EXECUTE\"]\n    database = \"app\"\n  }\n",
@@ -165,4 +167,8 @@ async fn refused_at_their_line() {
     m.decode(&decode("app", "  settings = { work_mem = \"2MB\" }\n"))
         .await
         .unwrap();
+    // Named after the server's own database, as Go allowed: roles, schemas, its owner and comment, and the encoding it
+    // has.
+    let larder = "  encoding = \"UTF8\"\n  owner = \"identity\"\n  comment = \"c\"\n  role \"identity\" { password = \"identity\" }\n  schema \"identity\" { owner = \"identity\" }\n";
+    m.decode(&decode("postgres", larder)).await.unwrap();
 }

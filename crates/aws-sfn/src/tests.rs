@@ -6,6 +6,7 @@ mod data;
 mod events;
 mod executions;
 mod integrations;
+mod lambda;
 mod lifecycle;
 mod local;
 

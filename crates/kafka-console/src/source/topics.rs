@@ -59,6 +59,29 @@ impl Source {
         }
     }
 
+    /// One look of a Live tail page's stream (`crate::tail`). The fixtures never change: their topics are followed, and
+    /// nothing is ever read.
+    pub async fn tail_look(&self, f: &mut crate::tail::Follow) -> crate::tail::Looked {
+        match self {
+            Self::Live(l) => gather::tail_look(&l.backend, f).await,
+            #[cfg(any(test, feature = "examples"))]
+            Self::Fixture => {
+                let rows = self.topics("", true, None).await.rows;
+                f.topics = rows
+                    .into_iter()
+                    .filter(|r| f.ask.wants(&r.name, r.internal))
+                    .take(crate::tail::MOST_TOPICS)
+                    .map(|r| crate::tail::TailTopic {
+                        name: r.name,
+                        partitions: r.partitions,
+                    })
+                    .collect();
+                f.opened = true;
+                crate::tail::Looked::default()
+            }
+        }
+    }
+
     /// What every page of a topic says about it; `None` if there is no such topic.
     pub async fn topic_head(&self, name: &str) -> Option<TopicHead> {
         match self {

@@ -371,6 +371,7 @@ mod log;
 mod messages;
 pub mod schema;
 mod tail;
+mod tail_topics;
 #[cfg(test)]
 pub(super) mod types;
 
@@ -412,4 +413,8 @@ pub fn routes(web: &crate::base::Base) -> Router<Shared> {
             get(log::txn),
         )
         .route(&web.url("/api/v1/tail/messages"), get(tail::tail_messages))
+        .route(
+            &web.url("/api/v1/tail/topics"),
+            get(tail_topics::tail_topics),
+        )
 }

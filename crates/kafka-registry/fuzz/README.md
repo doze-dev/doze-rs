@@ -17,4 +17,7 @@ cargo +nightly fuzz run registry_api corpus/registry_api -- -max_len=65536
 cargo +nightly fuzz run wire corpus/wire -- -max_len=4096
 ```
 
-The corpus directories are the fuzzer's own (ignored by git).
+The corpus directories are the fuzzer's own (ignored by git). `seeds/<target>` holds inputs that once failed (kept in git,
+read by CI beside the corpus): `seeds/json_schema/const-7e2` is ` {"const":7e2}`, whose stored `7E+2` did not read its own
+data until `const` and `enum` numbers compared as Java values. Pass it as a second directory: `cargo +nightly fuzz run
+json_schema corpus/json_schema seeds/json_schema`.

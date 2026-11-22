@@ -9,6 +9,9 @@ use doze_module::proto::msg::value::PathSeg;
 use doze_module::{About, Cx, Module, Result, Spec, help, serve};
 use std::collections::BTreeMap;
 
+#[path = "echo/side.rs"]
+mod side;
+
 #[derive(Debug, Spec)]
 struct EchoSpec {
     #[spec(since = 2, doc = "What the engine says first (engine 2 and later).")]
@@ -43,6 +46,7 @@ impl Module for Echo {
             versions: versions(),
             exact_dots: 2,
             default_port: 7000,
+            supervised: side::supervised(),
             backend_socket: Some("echo.sock".into()),
             example: "echo \"e\" {\n  version = \"2\"\n}\n".into(),
             console: Some(console()),
@@ -101,6 +105,10 @@ impl Module for Echo {
             .collect()
     }
 
+    fn network(&self, cx: &Cx<EchoSpec>) -> Vec<doze_module::proto::msg::instance::Listener> {
+        side::network(&cx.spec.settings)
+    }
+
     fn connection(&self, cx: &Cx<EchoSpec>) -> Result<Connection> {
         let addr = cx
             .instance
@@ -112,7 +120,10 @@ impl Module for Echo {
             env_var: "ECHO_URL".into(),
             url: format!("echo://{addr}/{}", cx.instance.name),
             // What aws needs and protocol 1's core guessed: more variables a client must set.
-            env: BTreeMap::from([("ECHO_TOKEN".to_string(), "doze".to_string())]),
+            env: [("ECHO_TOKEN".to_string(), "doze".to_string())]
+                .into_iter()
+                .chain(side::env(&cx.spec.settings, &cx.instance))
+                .collect(),
         })
     }
 
@@ -165,7 +176,7 @@ impl Module for Echo {
         if let Some(g) = &cx.spec.greeting {
             args.push(format!("--greeting={g}"));
         }
-        for (k, v) in help::settings(&cx.spec.settings, &["socket", "ready"]) {
+        for (k, v) in help::settings(&cx.spec.settings, &["socket", "ready", side::SIDE]) {
             args.push(format!("--{k}={v}"));
         }
         let program = std::path::Path::new(&tc.bin_dir)
@@ -186,8 +197,9 @@ impl Module for Echo {
             hooks: vec![],
             stop: Some(StopHow::Terminate),
         };
+        let side = side::process(&cx.spec.settings, &cx.instance, &process.program)?;
         Ok(Plan {
-            processes: vec![process],
+            processes: std::iter::once(process).chain(side).collect(),
         })
     }
 }

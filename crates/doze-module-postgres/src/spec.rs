@@ -203,3 +203,36 @@ impl PostgresSpec {
 pub(crate) fn some(v: &Option<String>) -> Option<&str> {
     v.as_deref().filter(|s| !s.is_empty())
 }
+
+#[cfg(test)]
+pub(crate) mod tests {
+    use super::PostgresSpec;
+    use std::collections::BTreeMap;
+
+    /// An empty block, each value its default.
+    pub(crate) fn spec() -> PostgresSpec {
+        PostgresSpec {
+            owner: None,
+            encoding: None,
+            locale: None,
+            lc_collate: None,
+            lc_ctype: None,
+            template: None,
+            tablespace: None,
+            comment: None,
+            connection_limit: None,
+            is_template: false,
+            allow_connections: true,
+            shared_buffers: "16MB".into(),
+            max_connections: 50,
+            fsync: false,
+            autovacuum: true,
+            settings: BTreeMap::new(),
+            extensions: vec![],
+            role: vec![],
+            schema: vec![],
+            extension: vec![],
+            grant: vec![],
+        }
+    }
+}

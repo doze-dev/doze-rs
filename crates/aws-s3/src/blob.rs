@@ -23,8 +23,12 @@ pub(crate) struct Blobs<F: Fs> {
     dir: PathBuf,
     /// Names this process's staging files, so a stale one from an earlier run can be told from one in use.
     run: String,
-    next: AtomicU64,
 }
+
+/// Numbers the staging files of the whole process. It is not a field: the service makes a `Blobs` for each request, and the
+/// requests of one region share a directory, so a counter of its own would start every one of them at `<run>.0.part` and two
+/// uploads in flight would write one file.
+static NEXT: AtomicU64 = AtomicU64::new(0);
 
 /// A body being written.
 pub(crate) struct Staging<F: Fs> {
@@ -56,7 +60,6 @@ impl<F: Fs> Blobs<F> {
             fs,
             dir: region_dir.join(DIR),
             run,
-            next: AtomicU64::new(0),
         }
     }
 
@@ -66,7 +69,7 @@ impl<F: Fs> Blobs<F> {
     /// The disk refused.
     pub(crate) fn begin(&self) -> io::Result<Staging<F>> {
         doze_fs::fs::create_dirs_durably(&self.fs, &self.dir)?;
-        let n = self.next.fetch_add(1, Ordering::Relaxed);
+        let n = NEXT.fetch_add(1, Ordering::Relaxed);
         let path = self.dir.join(format!("{}.{n}{PART}", self.run));
         let (file, _) = self.fs.open_or_create(&path)?;
         file.set_len(0)?;
@@ -207,6 +210,24 @@ mod tests {
             .map(|e| e.name)
             .collect();
         assert_eq!(names, [id], "the half-written file is gone");
+    }
+
+    #[test]
+    fn bodies_in_flight_through_separate_handles_of_one_directory_never_share_a_file() {
+        // The service makes a `Blobs` for each request; uploads of one region overlap in one directory.
+        let fs = SimFs::default();
+        let (a, b) = (blobs(&fs, "same"), blobs(&fs, "same"));
+        let (mut one, mut two) = (a.begin().unwrap(), b.begin().unwrap());
+        write(&mut one, b"file 2");
+        write(&mut two, b"file 3");
+        let (id1, id2) = (a.publish(&one).unwrap(), b.publish(&two).unwrap());
+        let read = |blobs: &Blobs<SimFs>, id: &str| {
+            let mut buf = [0u8; 6];
+            blobs.open(id).unwrap().read_at(&mut buf, 0).unwrap();
+            buf
+        };
+        assert_eq!(&read(&a, &id1), b"file 2");
+        assert_eq!(&read(&b, &id2), b"file 3");
     }
 
     #[test]

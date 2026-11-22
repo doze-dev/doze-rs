@@ -50,6 +50,9 @@ impl SchemaFormat for JsonSchema {
 // fuzz:parser json_schema
 pub fn parse(text: &str, refs: &[ResolvedRef]) -> Result<ParsedJsonSchema, String> {
     let docs = doc::Docs::read(text, refs)?;
+    if let Some(d) = docs.doc(0) {
+        finite(&d.json, "#").map_err(|e| format!("Invalid JSON Schema: {e}"))?;
+    }
     check::check(&docs).map_err(|e| format!("Invalid JSON Schema: {e}"))?;
     let arena = node::load(&docs).map_err(|e| format!("Invalid JSON Schema: {e}"))?;
     let root = docs.doc(0).map(|d| &d.json).ok_or("no schema")?;
@@ -58,6 +61,45 @@ pub fn parse(text: &str, refs: &[ResolvedRef]) -> Result<ParsedJsonSchema, Strin
         normalized: stored_text(root, true),
         arena,
     })
+}
+
+/// Refuses a number Jackson reads as an infinite `double` (one whose exponent a `BigDecimal` cannot hold), anywhere in
+/// the schema: Confluent's loader (everit, for drafts 4 to 7) refuses a non-finite number (recorded by
+/// tools/registry-diff, `json-schema-huge-numbers`). Confluent's 2019-09 and 2020-12 loader takes it and stores the
+/// string `"Infinity"` in its place; this registry refuses it there too (REG-D29).
+fn finite(v: &Json, at: &str) -> Result<(), String> {
+    match v {
+        Json::Raw(r) => match crate::json::java_reads(r) {
+            Some(crate::json::JavaRead::Infinite { .. }) => Err(format!(
+                "{at}: {} is past the largest number a Java double holds",
+                truncate(r)
+            )),
+            _ => Ok(()),
+        },
+        Json::Array(items) => items
+            .iter()
+            .enumerate()
+            .try_for_each(|(i, x)| finite(x, &format!("{at}/{i}"))),
+        Json::Object(m) => m.iter().try_for_each(|(k, x)| {
+            finite(
+                x,
+                &format!("{at}/{}", k.replace('~', "~0").replace('/', "~1")),
+            )
+        }),
+        Json::Str(_) => Ok(()),
+    }
+}
+
+/// A number quoted in a refusal, cut to 64 bytes.
+fn truncate(r: &str) -> String {
+    if r.len() <= 64 {
+        return r.to_owned();
+    }
+    let mut end = 64;
+    while !r.is_char_boundary(end) {
+        end -= 1;
+    }
+    format!("{}...", &r[..end])
 }
 
 /// The text Confluent stores: compact, an object's repeated key once (its last value, where the key first was, as
@@ -78,6 +120,10 @@ fn stored_text(v: &Json, sort: bool) -> String {
                 Json::Object(m)
             }
             Json::Array(items) => Json::Array(items.iter().map(|x| redo(x, sort)).collect()),
+            // Normalizing reads the stored text again (Confluent's sorted mapper), so a `-0.0` becomes `0.0`.
+            Json::Raw(r) if sort => {
+                Json::Raw(crate::json::java_number(&crate::json::java_number(r)))
+            }
             Json::Raw(r) => Json::Raw(crate::json::java_number(r)),
             Json::Str(s) => Json::Str(s.clone()),
         }

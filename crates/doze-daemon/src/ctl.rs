@@ -111,9 +111,13 @@ pub fn pid(run: &RunDir) -> Option<u32> {
     (pid > 0 && doze_os::process::alive(pid)).then_some(pid)
 }
 
-/// Writes this process's pid file (the daemon does, once its socket is up).
+/// Writes this process's pid file (the daemon does, once its socket is up), whole or not at all: it is written beside
+/// and renamed into place, so a reader never sees it created but still empty.
 pub fn write_pid(run: &RunDir) -> io::Result<()> {
-    std::fs::write(run.pid_file(), format!("{}\n", std::process::id()))
+    let file = run.pid_file();
+    let tmp = file.with_extension("pid.tmp");
+    std::fs::write(&tmp, format!("{}\n", std::process::id()))?;
+    std::fs::rename(&tmp, &file)
 }
 
 /// What a start needs.
@@ -152,7 +156,9 @@ pub fn start(run: &RunDir, s: &Start<'_>) -> Result<u32, String> {
     let pid = doze_os::detach::spawn_detached(cmd).map_err(|e| format!("starting daemon: {e}"))?;
     let t = Instant::now();
     while t.elapsed() < START_WAIT {
-        if running(run) {
+        // Up means answering and named in the pid file: the daemon writes it just after its socket accepts, and
+        // what runs next (`down`, the app) finds the daemon by it.
+        if running(run) && self::pid(run).is_some() {
             return Ok(pid);
         }
         if !doze_os::process::alive(pid) {

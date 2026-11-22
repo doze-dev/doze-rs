@@ -50,8 +50,10 @@ pub(crate) fn overview(
         left = left.child(state(t, &p, cx));
     }
     left = left.children(extends(t, &p, "awake"));
+    // Recent takes the column's height when it has events; empty, it is one line, not a tall box saying nothing.
+    let quiet = p.recent.is_empty();
     left = left
-        .child(recent(t, &p).flex_1())
+        .child(recent(t, &p).when(!quiet, |d| d.flex_1()))
         .children(extends(t, &p, "recent"));
     let right = div()
         .flex()
@@ -352,17 +354,21 @@ fn needs(t: &Tokens, p: &InstancePage, cx: &mut Context<InstanceView>) -> gpui::
     chips
 }
 
-/// "Recent · this run": doze's events for it.
+/// "Recent · this run": doze's events for it; with none yet, the heading and "nothing yet" on one line.
 fn recent(t: &Tokens, p: &InstancePage) -> gpui::Div {
+    if p.recent.is_empty() {
+        return card(t)
+            .flex_row()
+            .items_center()
+            .gap(px(10.))
+            .child(heading(t, "Recent", Some("· this run · nothing yet")));
+    }
     let mut rows = div()
         .flex()
         .flex_col()
         .mono_face()
         .text_size(px(ty::SM))
         .line_height(px(ty::LH_21));
-    if p.recent.is_empty() {
-        rows = rows.child(div().text_color(t.dim).child("nothing yet"));
-    }
     for r in &p.recent {
         rows = rows.child(
             div()

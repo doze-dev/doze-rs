@@ -222,3 +222,46 @@ fn the_shell_client_is_the_aws_cli_at_the_instance() {
     assert_eq!(c.env["AWS_ENDPOINT_URL"], "http://{host}:{port}");
     assert!(about.detect.unwrap().packages["pypi"].contains(&"boto3".to_string()));
 }
+
+#[test]
+fn a_bucket_name_s3_would_refuse_is_refused_at_its_block_before_boot() {
+    use super::spec::Bucket;
+    let bucket = |name: &str| Bucket {
+        name: name.into(),
+        ..Bucket::default()
+    };
+    let s = AwsSpec {
+        bucket: vec![
+            bucket("uploads"),
+            bucket("x"),
+            bucket("My_Bucket"),
+            bucket("-lead"),
+            bucket(&"a".repeat(64)),
+            bucket("my-bucket.logs"),
+        ],
+        ..AwsSpec::default()
+    };
+    let d = check::check(&s, "");
+    // The four bad names, each at its own block, and the message names the rule and the name.
+    let at: Vec<_> = d.iter().map(|d| format!("{:?}", d.path)).collect();
+    assert_eq!(d.len(), 4, "{at:#?}");
+    for (diag, name) in d.iter().zip(["x", "My_Bucket", "-lead"]) {
+        assert!(
+            diag.message.contains(&format!("{name:?}"))
+                && diag.message.contains("3 to 63 characters")
+                && diag
+                    .message
+                    .contains("lowercase letters, digits, dots and hyphens")
+                && diag
+                    .message
+                    .contains("starting and ending with a letter or digit"),
+            "{}",
+            diag.message
+        );
+    }
+    let paths: Vec<_> = d.iter().map(|d| d.path.clone()).collect();
+    assert_eq!(
+        paths,
+        [1, 2, 3, 4].map(|i| vec![check::key("bucket"), check::idx(i)])
+    );
+}

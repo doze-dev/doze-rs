@@ -150,13 +150,15 @@ impl LogsView {
             .into_any_element()
     }
 
-    /// The colour of the instance a line came from: doze's own accent, or its hue.
+    /// The colour of the instance a line came from: doze's own lines in dim, the others their category: the ramp, then the ink, round
+    /// again (never a status hue, so a name does not read as awake or failing; no `dim`, which reads as switched off).
     fn who(&self, t: &Tokens, l: &Line) -> gpui::Hsla {
-        let hue = [t.cool, t.accent, t.good, t.warn, t.extra, t.text];
+        let [c1, c2, c3, c4] = t.cat;
+        let hue = [c1, c2, c3, c4, t.text];
         if l.doze {
-            t.accent
+            t.dim
         } else {
-            hue.get(self.index.hue(&l.instance))
+            hue.get(self.index.hue(&l.instance) % hue.len())
                 .copied()
                 .unwrap_or(t.text)
         }

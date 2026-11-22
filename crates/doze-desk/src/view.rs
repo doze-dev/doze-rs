@@ -47,6 +47,9 @@ pub struct StackView {
     pub last_set: Vec<String>,
     /// When this stack's daemon started (when it read doze.hcl), or when the hub first saw it: "up 14m".
     pub since: Option<SystemTime>,
+    /// This app has an action in flight on the stack (up, down, restart, a wake that starts it; [`crate::Hub::set_acting`]):
+    /// its daemon starting or exiting under it is the action's own doing, not a daemon that stopped answering.
+    pub acting: bool,
 }
 
 impl StackView {
@@ -70,7 +73,41 @@ impl StackView {
             last_down: None,
             last_set: Vec::new(),
             since: None,
+            acting: false,
         }
+    }
+
+    /// The stack runs and its daemon is not answering: down for [`crate::LOST_AFTER`], with no action of this app on
+    /// it. What Needs you, the Library's pill, the frozen rows and the menu bar all go by.
+    pub fn daemon_lost(&self, now: SystemTime) -> bool {
+        self.running && !self.acting && self.link.lost(now)
+    }
+
+    /// The connection as the pages say it: a drop that is not (yet) [`StackView::daemon_lost`] is connecting.
+    pub fn conn_shown(&self, now: SystemTime) -> crate::Conn {
+        match self.link.shown(now) {
+            crate::Conn::Down if !self.daemon_lost(now) => crate::Conn::Connecting,
+            c => c,
+        }
+    }
+
+    /// Every service of a running, answering stack is asleep: it is up, and the next connection wakes what it needs.
+    /// Tasks, and services turned off or paused, do not count either way.
+    pub fn all_asleep(&self) -> bool {
+        use doze_display::{Kind, Look, look};
+        if !self.running || !self.link.is_live() {
+            return false;
+        }
+        let snap = self.words();
+        let mut asleep = 0;
+        for i in snap.instances.iter().filter(|i| i.kind != Kind::Task) {
+            match look(i) {
+                Look::Asleep => asleep += 1,
+                Look::Off | Look::Paused => {}
+                _ => return false,
+            }
+        }
+        asleep > 0
     }
 
     /// The instance named `name`.
@@ -83,3 +120,6 @@ impl StackView {
         crate::convert::snapshot(self.idle_timeout, &self.instances)
     }
 }
+
+/// What a stack that is up with every service asleep reads ([`StackView::all_asleep`]): not running, not stopped.
+pub const ALL_ASLEEP: &str = "asleep · wakes on use";

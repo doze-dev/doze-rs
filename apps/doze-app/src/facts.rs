@@ -18,6 +18,7 @@ use gpui::{AsyncApp, Context, WeakEntity};
 
 mod left;
 mod names;
+mod skew;
 
 /// How old the machine's report may be before it is asked again, in the background: half a minute while a window
 /// shows a page, five minutes otherwise (Go `doctorWithin(stacks, lookEvery(30s))`; the Library's own read is 30 s, and
@@ -76,13 +77,18 @@ pub(crate) struct Facts {
     left: Option<(Instant, Vec<doze_desk::settings::Leftover>)>,
     left_asked: bool,
     left_wanted: bool,
+    /// Whether each daemon (by pid) runs an older doze than the app, and which checks are under way (0: the CLI's).
+    skews: HashMap<u32, skew::Found>,
+    skew_asked: HashSet<u32>,
+    /// Whether the `doze` the app runs is older than the app, once asked.
+    cli_skew: Option<skew::Found>,
 }
 
-/// The `doze` a terminal would run, from the command source (`doze_desk::settings::cli`, where `DOZE_APP_CLI` can
-/// name another). The app started from Finder has launchd's short PATH, so the places a terminal's PATH has are
-/// looked at too (Go `dozeOnPath`).
+/// The `doze` the app runs, from the command source (`doze_desk::settings::cli`): the app itself, which carries the
+/// CLI (`crate::own`), or a check script's stand-in (`DOZE_APP_CLI`, test-only). `None` when the app cannot name
+/// itself: a `doze` found on the `PATH` is never run in its place.
 pub(crate) fn find_doze() -> Option<PathBuf> {
-    doze_desk::settings::Cli::from_env().map(|c| c.program)
+    doze_desk::settings::Cli::from_env(crate::own::program()).map(|c| c.program)
 }
 
 /// The folder doctor runs in: it reads the names setting from a stack's config, so the first stack running, else the
@@ -155,6 +161,9 @@ impl Facts {
             left: None,
             left_asked: false,
             left_wanted: false,
+            skews: HashMap::new(),
+            skew_asked: HashSet::new(),
+            cli_skew: None,
         }
     }
 
@@ -327,9 +336,15 @@ impl Facts {
                             .checked_sub(doctor_age(false))
                             .unwrap_or_else(Instant::now)
                     };
+                    // The same report again (doctor runs every 30 s while a window shows it) wakes no page, unless
+                    // someone waits for a fresh answer (a repair forgot the last one).
+                    let changed = f.doctor.as_ref().is_none_or(|(_, old)| *old != d)
+                        || f.doctor_seen <= f.fresh_after;
                     f.doctor = Some((at, d));
                     f.doctor_seen = started;
-                    cx.notify();
+                    if changed {
+                        cx.notify();
+                    }
                 });
             })
             .detach();

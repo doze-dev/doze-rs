@@ -16,6 +16,7 @@ use serde_json::Value;
 use crate::ApiError;
 use crate::service::{BoxFuture, Call};
 
+pub mod fold;
 pub mod jsonin;
 pub mod jsonout;
 pub mod request;

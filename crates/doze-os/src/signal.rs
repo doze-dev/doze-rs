@@ -5,33 +5,81 @@ use std::io;
 
 /// Waits until this process is asked to stop. The handlers are installed when this is first polled.
 pub async fn stop_requested() -> io::Result<()> {
-    imp::stop_requested().await
+    install()?.requested().await
+}
+
+/// The stop handlers, installed now: from here on a stop request is caught and kept until [`Stop::requested`] sees
+/// it, instead of ending the process. A daemon installs them before anyone can find it (its socket, its pid file), so
+/// a stop that comes at once is still a graceful one.
+pub fn install() -> io::Result<Stop> {
+    imp::Handlers::install().map(Stop)
+}
+
+/// Stop handlers already installed ([`install`]).
+pub struct Stop(imp::Handlers);
+
+impl std::fmt::Debug for Stop {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("Stop")
+    }
+}
+
+impl Stop {
+    /// Waits until this process is asked to stop (or was asked since [`install`]).
+    pub async fn requested(self) -> io::Result<()> {
+        self.0.wait().await;
+        Ok(())
+    }
 }
 
 #[cfg(unix)]
 mod imp {
-    use tokio::signal::unix::{SignalKind, signal};
+    use tokio::signal::unix::{Signal, SignalKind, signal};
 
-    pub(super) async fn stop_requested() -> std::io::Result<()> {
-        let mut term = signal(SignalKind::terminate())?;
-        let mut int = signal(SignalKind::interrupt())?;
-        tokio::select! {
-            _ = term.recv() => {},
-            _ = int.recv() => {},
+    pub(crate) struct Handlers {
+        term: Signal,
+        int: Signal,
+    }
+
+    impl Handlers {
+        pub(crate) fn install() -> std::io::Result<Handlers> {
+            Ok(Handlers {
+                term: signal(SignalKind::terminate())?,
+                int: signal(SignalKind::interrupt())?,
+            })
         }
-        Ok(())
+
+        pub(crate) async fn wait(mut self) {
+            tokio::select! {
+                _ = self.term.recv() => {},
+                _ = self.int.recv() => {},
+            }
+        }
     }
 }
 
 #[cfg(windows)]
 mod imp {
-    pub(super) async fn stop_requested() -> std::io::Result<()> {
-        let mut brk = tokio::signal::windows::ctrl_break()?;
-        let mut c = tokio::signal::windows::ctrl_c()?;
-        tokio::select! {
-            _ = brk.recv() => {},
-            _ = c.recv() => {},
+    use tokio::signal::windows::{CtrlBreak, CtrlC, ctrl_break, ctrl_c};
+
+    pub(crate) struct Handlers {
+        brk: CtrlBreak,
+        c: CtrlC,
+    }
+
+    impl Handlers {
+        pub(crate) fn install() -> std::io::Result<Handlers> {
+            Ok(Handlers {
+                brk: ctrl_break()?,
+                c: ctrl_c()?,
+            })
         }
-        Ok(())
+
+        pub(crate) async fn wait(mut self) {
+            tokio::select! {
+                _ = self.brk.recv() => {},
+                _ = self.c.recv() => {},
+            }
+        }
     }
 }

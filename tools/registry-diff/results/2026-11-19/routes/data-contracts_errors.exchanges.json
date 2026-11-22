@@ -1,0 +1,462 @@
+[
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/de/versions",
+   "b": "{\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"}]}\",\"ruleSet\":{\"domainRules\":[{\"name\":\"me\",\"kind\":\"NOPE\",\"mode\":\"WRITE\",\"type\":\"CEL\",\"expr\":\"true\"}]}}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 400,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":400,\"message\":\"Cannot deserialize value of type `RuleKind` from String \\\"NOPE\\\": not one of the values accepted for Enum class: [CONDITION, TRANSFORM]\"}",
+    "ms": 2
+   },
+   "confluent-8": {
+    "status": 400,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":400,\"message\":\"Cannot deserialize value of type `RuleKind` from String \\\"NOPE\\\": not one of the values accepted for Enum class: [CONDITION, TRANSFORM]\"}",
+    "ms": 3
+   },
+   "doze": {
+    "status": 400,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":400,\"message\":\"Cannot deserialize value of type `RuleKind` from String \\\"NOPE\\\": not one of the values accepted for Enum class: [CONDITION, TRANSFORM]\"}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/de/versions",
+   "b": "{\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"}]}\",\"ruleSet\":{\"domainRules\":[{\"name\":\"mf\",\"kind\":\"CONDITION\",\"mode\":\"write\",\"type\":\"CEL\",\"expr\":\"true\"}]}}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 400,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":400,\"message\":\"Cannot deserialize value of type `RuleMode` from String \\\"write\\\": not one of the values accepted for Enum class: [DOWNGRADE, READ, UPGRADE, UPDOWN, WRITE, WRITEREAD]\"}",
+    "ms": 2
+   },
+   "confluent-8": {
+    "status": 400,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":400,\"message\":\"Cannot deserialize value of type `RuleMode` from String \\\"write\\\": not one of the values accepted for Enum class: [DOWNGRADE, READ, UPGRADE, UPDOWN, WRITE, WRITEREAD]\"}",
+    "ms": 2
+   },
+   "doze": {
+    "status": 400,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":400,\"message\":\"Cannot deserialize value of type `RuleMode` from String \\\"write\\\": not one of the values accepted for Enum class: [DOWNGRADE, READ, UPGRADE, UPDOWN, WRITE, WRITEREAD]\"}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/de/versions",
+   "b": "{\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"}]}\",\"metadata\":[]}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 400,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":400,\"message\":\"Cannot deserialize value of type `Metadata` from Array value (token `JsonToken.START_ARRAY`)\"}",
+    "ms": 2
+   },
+   "confluent-8": {
+    "status": 400,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":400,\"message\":\"Cannot deserialize value of type `Metadata` from Array value (token `JsonToken.START_ARRAY`)\"}",
+    "ms": 1
+   },
+   "doze": {
+    "status": 400,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":400,\"message\":\"Cannot deserialize value of type `Metadata` from Array value (token `JsonToken.START_ARRAY`)\"}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/de/versions",
+   "b": "{\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"}]}\",\"metadata\":\"x\"}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 400,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":400,\"message\":\"Cannot construct instance of `Metadata` (although at least one Creator exists): no String-argument constructor/factory method to deserialize from String value ('x')\"}",
+    "ms": 1
+   },
+   "confluent-8": {
+    "status": 400,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":400,\"message\":\"Cannot construct instance of `Metadata` (although at least one Creator exists): no String-argument constructor/factory method to deserialize from String value ('x')\"}",
+    "ms": 2
+   },
+   "doze": {
+    "status": 400,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":400,\"message\":\"Cannot construct instance of `Metadata` (although at least one Creator exists): no String-argument constructor/factory method to deserialize from String value ('x')\"}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/de/versions",
+   "b": "{\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"}]}\",\"metadata\":5}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 400,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":400,\"message\":\"Cannot construct instance of `Metadata` (although at least one Creator exists): no int/Int-argument constructor/factory method to deserialize from Number value (5)\"}",
+    "ms": 2
+   },
+   "confluent-8": {
+    "status": 400,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":400,\"message\":\"Cannot construct instance of `Metadata` (although at least one Creator exists): no int/Int-argument constructor/factory method to deserialize from Number value (5)\"}",
+    "ms": 2
+   },
+   "doze": {
+    "status": 400,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":400,\"message\":\"Cannot construct instance of `Metadata` (although at least one Creator exists): no int/Int-argument constructor/factory method to deserialize from Number value (5)\"}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/de/versions",
+   "b": "{\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"}]}\",\"metadata\":{\"properties\":{\"a\":1,\"b\":true}}}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":104,\"version\":1,\"metadata\":{\"properties\":{\"a\":\"1\",\"b\":\"true\"}},\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"}]}\"}",
+    "ms": 5
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":103,\"version\":1,\"guid\":\"75f6a581-f427-dd57-94f8-fbe34613e7a5\",\"schemaType\":\"AVRO\",\"metadata\":{\"properties\":{\"a\":\"1\",\"b\":\"true\"}},\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"}]}\"}",
+    "ms": 9
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":104,\"version\":1,\"metadata\":{\"properties\":{\"a\":\"1\",\"b\":\"true\"}},\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"}]}\"}",
+    "ms": 5
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/de/versions",
+   "b": "{\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"}]}\",\"metadata\":{\"tags\":{\"a\":\"x\"}}}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 400,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":400,\"message\":\"Cannot construct instance of `HashSet` (although at least one Creator exists): no String-argument constructor/factory method to deserialize from String value ('x')\"}",
+    "ms": 2
+   },
+   "confluent-8": {
+    "status": 400,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":400,\"message\":\"Cannot construct instance of `HashSet` (although at least one Creator exists): no String-argument constructor/factory method to deserialize from String value ('x')\"}",
+    "ms": 1
+   },
+   "doze": {
+    "status": 400,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":400,\"message\":\"Cannot construct instance of `HashSet` (although at least one Creator exists): no String-argument constructor/factory method to deserialize from String value ('x')\"}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/de/versions",
+   "b": "{\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"}]}\",\"metadata\":{\"unknown\":1,\"properties\":{\"u\":\"v\"}}}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":105,\"version\":2,\"metadata\":{\"properties\":{\"u\":\"v\"}},\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"}]}\"}",
+    "ms": 4
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":104,\"version\":2,\"guid\":\"7d508aba-1b96-c95e-d8a8-ad7db9a83e60\",\"schemaType\":\"AVRO\",\"metadata\":{\"properties\":{\"u\":\"v\"}},\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"}]}\"}",
+    "ms": 11
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"id\":105,\"version\":2,\"metadata\":{\"properties\":{\"u\":\"v\"}},\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"}]}\"}",
+    "ms": 4
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "GET",
+   "p": "/subjects/de/versions/latest"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"de\",\"version\":2,\"id\":105,\"metadata\":{\"properties\":{\"u\":\"v\"}},\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"}]}\"}",
+    "ms": 1
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"de\",\"version\":2,\"id\":104,\"guid\":\"7d508aba-1b96-c95e-d8a8-ad7db9a83e60\",\"schemaType\":\"AVRO\",\"metadata\":{\"properties\":{\"u\":\"v\"}},\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"}]}\",\"ts\":1795104627792,\"deleted\":false}",
+    "ms": 3
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"subject\":\"de\",\"version\":2,\"id\":105,\"metadata\":{\"properties\":{\"u\":\"v\"}},\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"}]}\"}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/de/versions",
+   "b": "{\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"}]}\",\"ruleSet\":[]}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 400,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":400,\"message\":\"Cannot deserialize value of type `RuleSet` from Array value (token `JsonToken.START_ARRAY`)\"}",
+    "ms": 1
+   },
+   "confluent-8": {
+    "status": 400,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":400,\"message\":\"Cannot deserialize value of type `RuleSet` from Array value (token `JsonToken.START_ARRAY`)\"}",
+    "ms": 1
+   },
+   "doze": {
+    "status": 400,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":400,\"message\":\"Cannot deserialize value of type `RuleSet` from Array value (token `JsonToken.START_ARRAY`)\"}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "POST",
+   "p": "/subjects/de/versions",
+   "b": "{\"schema\":\"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"User\\\",\\\"namespace\\\":\\\"com.example\\\",\\\"fields\\\":[{\\\"name\\\":\\\"id\\\",\\\"type\\\":\\\"long\\\"}]}\",\"ruleSet\":{\"domainRules\":{}}}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 400,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":400,\"message\":\"Cannot deserialize value of type `Rule>` from Object value (token `JsonToken.START_OBJECT`)\"}",
+    "ms": 1
+   },
+   "confluent-8": {
+    "status": 400,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":400,\"message\":\"Cannot deserialize value of type `Rule>` from Object value (token `JsonToken.START_OBJECT`)\"}",
+    "ms": 2
+   },
+   "doze": {
+    "status": 400,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":400,\"message\":\"Cannot deserialize value of type `Rule>` from Object value (token `JsonToken.START_OBJECT`)\"}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "PUT",
+   "p": "/config/de",
+   "b": "{\"defaultMetadata\":[]}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 400,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":400,\"message\":\"Cannot deserialize value of type `Metadata` from Array value (token `JsonToken.START_ARRAY`)\"}",
+    "ms": 1
+   },
+   "confluent-8": {
+    "status": 400,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":400,\"message\":\"Cannot deserialize value of type `Metadata` from Array value (token `JsonToken.START_ARRAY`)\"}",
+    "ms": 1
+   },
+   "doze": {
+    "status": 400,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"error_code\":400,\"message\":\"Cannot deserialize value of type `Metadata` from Array value (token `JsonToken.START_ARRAY`)\"}",
+    "ms": 0
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "PUT",
+   "p": "/config/de",
+   "b": "{\"overrideMetadata\":{\"properties\":{\"z\":\"1\",\"a\":\"2\"},\"tags\":{\"t\":[\"y\",\"x\"]}}}"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"overrideMetadata\":{\"tags\":{\"t\":[\"x\",\"y\"]},\"properties\":{\"a\":\"2\",\"z\":\"1\"}}}",
+    "ms": 5
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"overrideMetadata\":{\"tags\":{\"t\":[\"x\",\"y\"]},\"properties\":{\"a\":\"2\",\"z\":\"1\"}}}",
+    "ms": 10
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"overrideMetadata\":{\"tags\":{\"t\":[\"x\",\"y\"]},\"properties\":{\"a\":\"2\",\"z\":\"1\"}}}",
+    "ms": 5
+   }
+  }
+ },
+ {
+  "step": {
+   "m": "GET",
+   "p": "/config/de"
+  },
+  "answers": {
+   "confluent-7.7.1": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"compatibilityLevel\":\"BACKWARD\",\"overrideMetadata\":{\"tags\":{\"t\":[\"x\",\"y\"]},\"properties\":{\"a\":\"2\",\"z\":\"1\"}}}",
+    "ms": 1
+   },
+   "confluent-8": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"compatibilityLevel\":\"BACKWARD\",\"overrideMetadata\":{\"tags\":{\"t\":[\"x\",\"y\"]},\"properties\":{\"a\":\"2\",\"z\":\"1\"}}}",
+    "ms": 1
+   },
+   "doze": {
+    "status": 200,
+    "ct": "application/vnd.schemaregistry.v1+json",
+    "www": "",
+    "allow": "",
+    "body": "{\"compatibilityLevel\":\"BACKWARD\",\"overrideMetadata\":{\"tags\":{\"t\":[\"x\",\"y\"]},\"properties\":{\"a\":\"2\",\"z\":\"1\"}}}",
+    "ms": 0
+   }
+  }
+ }
+]

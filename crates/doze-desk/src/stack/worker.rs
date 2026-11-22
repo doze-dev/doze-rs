@@ -178,9 +178,18 @@ impl Worker {
         if w == self.wanted {
             return Parts::NONE;
         }
+        let topics_moved = (w.stats, w.logs) != (self.wanted.stats, self.wanted.logs);
         self.wanted = w;
-        self.main.resubscribe(subscription(w));
-        lock(&self.state).set_metered(w.stats)
+        let mut state = lock(&self.state);
+        if !w.keep_logs {
+            // The window closed: nothing will show these lines until a page asks for the logs again, and the
+            // daemon sends its backlog then. Holding them would keep up to ~24 MB a stack for the menu bar.
+            state.ring.release();
+        }
+        if topics_moved {
+            self.main.resubscribe(subscription(w));
+        }
+        state.set_metered(w.stats)
     }
 
     fn show(&mut self, inst: String, shown: bool) -> Parts {

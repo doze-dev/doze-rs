@@ -60,3 +60,21 @@ None changed: `vendor/` is excluded from the workspace, so its own `[lints]` tab
 
 The same change as `vendor/gpui-pre/PATCHES.md` §1: `[dependencies.image]` lists `png` only. gpui-pre-apple has no code
 that uses another format.
+
+## 6. The path texture's pages go back between frames (`src/metal_renderer.rs`: `path_frames`, `render_frame`)
+
+Upstream keeps the window-sized path intermediate texture (2560 × 1602 BGRA on a 1280 × 800 window at 2×, 16 MB,
+private storage) resident from the first frame that draws a path for as long as the window lives. A page that draws
+paths at all (a service's page: its meters' curves and its countdown ring) held those 16 MB while it sat idle, so an
+idle service page read 98 MB against the app's 85 MB line.
+
+Patched: each frame sets the texture `NonVolatile` before it is used (it is cleared before paths draw into it, so no
+contents carry over); the frame's completion handler sets it `Empty` when no newer frame has been encoded since
+(`path_frames`, a counter under a mutex the next frame also takes, so a frame never starts on a texture being
+emptied). The texture object stays; only its pages go back, and the next frame takes them again. While frames come
+back to back (in use, scrolling) a newer frame is always encoded before the last one completes, so nothing changes
+there; a window drawing a frame now and then holds no 16 MB in between.
+
+Measured (release-app, `doze-app bench --screen service --select api --on-top` over a live 14-service stack,
+2026-11-21): the idle service page 98 MB settled before, 84 MB after (Owned physical footprint (unmapped) (graphics):
+22 MB → 6 MB).

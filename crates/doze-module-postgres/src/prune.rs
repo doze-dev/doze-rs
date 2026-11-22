@@ -101,6 +101,9 @@ async fn drop_object(p: &Psql, db: &str, o: &Object) -> Result<()> {
             )
             .await
             .map_err(in_the_way),
+        // The server's own database is never dropped (psql works from it, and the server needs it): an instance named
+        // after it gives back its owner, options and comment instead.
+        DATABASE if o.name == sql::ADMIN => p.exec(sql::ADMIN, &sql::release_admin()).await,
         DATABASE => {
             p.alone(
                 "postgres",
@@ -166,7 +169,7 @@ impl Prune for Postgres {
             }
         }
         // Closed again as declared, if it is still there.
-        let gone = removed.iter().any(|o| o.kind == DATABASE && o.name == db);
+        let gone = db != sql::ADMIN && removed.iter().any(|o| o.kind == DATABASE && o.name == db);
         if closed && !gone {
             p.exec("postgres", &[allow(db, cx.spec.allow_connections)])
                 .await?;

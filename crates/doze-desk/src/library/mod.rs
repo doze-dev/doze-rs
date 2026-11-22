@@ -53,7 +53,8 @@ pub struct LibStack {
     pub dir: String,
     pub running: bool,
     pub live: bool,
-    /// `g` up and well, `r` something needs you, `y` up but not answering, empty stopped.
+    /// `g` up and well, `z` up with every service asleep, `r` something needs you, `y` up but not answering, empty
+    /// stopped.
     pub dot: &'static str,
     /// What doze.hcl declares, tasks aside.
     pub declared: usize,
@@ -226,7 +227,14 @@ fn row(st: &StackView, shape: Option<&Shape>, now: SystemTime) -> LibStack {
     };
     row.need = need(st, &snap, now);
     if st.running {
-        row.fig = fig(&t, &snap.instances);
+        row.fig = if st.all_asleep() {
+            vec![Bit {
+                text: crate::ALL_ASLEEP.into(),
+                tone: "cool",
+            }]
+        } else {
+            fig(&t, &snap.instances)
+        };
         row.sub = conn_word(t.conns);
         if t.ram > 0 {
             row.sub = format!(
@@ -242,8 +250,10 @@ fn row(st: &StackView, shape: Option<&Shape>, now: SystemTime) -> LibStack {
         row.when = format!("up {}", words::ago(since));
         row.dot = if t.trouble + t.failed > 0 {
             "r"
-        } else if st.link.conn != Conn::Live {
+        } else if st.conn_shown(now) == Conn::Down {
             "y"
+        } else if st.all_asleep() {
+            "z"
         } else {
             "g"
         };
@@ -301,7 +311,7 @@ fn need(st: &StackView, snap: &words::Snapshot, now: SystemTime) -> String {
         }
         return s;
     }
-    if st.running && st.link.conn == Conn::Down {
+    if st.daemon_lost(now) {
         return "daemon not answering · retrying".to_owned();
     }
     String::new()

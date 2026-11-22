@@ -37,9 +37,27 @@ mod imp {
 
     #[allow(unsafe_code)] // the one pre_exec hook here; its SAFETY reason is below
     pub(super) fn spawn(mut cmd: Command) -> io::Result<std::process::Child> {
-        let hook = || rustix::process::setsid().map(drop).map_err(io::Error::from);
-        // SAFETY: the hook runs in the child between fork and exec and only makes the setsid syscall through rustix:
-        // no allocation, no locks, async-signal-safe.
+        let hook = || {
+            rustix::process::setsid().map_err(io::Error::from)?;
+            // The daemon is stopped with SIGTERM (`doze down`) and must hear it whoever started it. A starter run from
+            // the desktop app inherits its thread's state (a libdispatch worker's), and the daemon then ignored
+            // SIGTERM: `down` waited 20 s and gave up, and its engines outlived it. So the daemon starts with the
+            // stop signals at their defaults and none blocked; it installs its own handlers.
+            let mut none = std::mem::MaybeUninit::<libc::sigset_t>::uninit();
+            // SAFETY: sigemptyset only writes the set it is given, which lives on this stack; async-signal-safe.
+            unsafe { libc::sigemptyset(none.as_mut_ptr()) };
+            // SAFETY: sigemptyset above initialised the set.
+            let none = unsafe { none.assume_init() };
+            // SAFETY: sigprocmask reads the set and writes no old one; async-signal-safe, no locks, no allocation.
+            unsafe { libc::sigprocmask(libc::SIG_SETMASK, &raw const none, std::ptr::null_mut()) };
+            for sig in [libc::SIGTERM, libc::SIGINT, libc::SIGHUP] {
+                // SAFETY: signal with SIG_DFL installs no handler and is async-signal-safe.
+                unsafe { libc::signal(sig, libc::SIG_DFL) };
+            }
+            Ok(())
+        };
+        // SAFETY: the hook runs in the child between fork and exec and only makes the setsid syscall through rustix
+        // and the signal calls above: no allocation, no locks, async-signal-safe.
         unsafe { cmd.pre_exec(hook) };
         cmd.spawn()
     }

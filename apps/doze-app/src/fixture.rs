@@ -10,6 +10,8 @@ use doze_control::fixture::{FixtureDaemon, Script, temp_socket};
 use doze_control::{Client, InstanceView, Response};
 use doze_desk::{Options, StackKey};
 
+mod live;
+
 /// The Go fixture hubs' scripts (`crates/doze-control/testdata/go/scripts`), or `$DOZE_FIXTURES`.
 fn scripts() -> PathBuf {
     std::env::var_os("DOZE_FIXTURES").map_or_else(
@@ -44,6 +46,10 @@ pub(crate) struct Fixture {
     /// The meters frame the daemon goes on sending (none from a `-stale` daemon), for a test to send one now.
     #[cfg_attr(not(all(test, feature = "capture")), allow(dead_code))]
     beat: Option<doze_control::Frame>,
+    /// The script's last frame of instances, which a live daemon sends again every few seconds with nothing changed
+    /// (`Fixture::live`).
+    #[cfg_attr(not(all(test, feature = "capture")), allow(dead_code))]
+    pulse: Option<doze_control::Frame>,
 }
 
 impl Fixture {
@@ -78,6 +84,7 @@ impl Fixture {
                 daemon: None,
                 skew: Arc::default(),
                 beat: None,
+                pulse: None,
             });
         }
         // `medium-150`, or `medium-150x500` for 500 calls rather than two an app.
@@ -121,12 +128,13 @@ impl Fixture {
             std::fs::write(key.socket(), "").context("fixture socket marker")?;
             temp_socket("app")
         };
-        let meters = last_meters(&script);
+        let meters = live::last_meters(&script);
+        let pulse = live::last_instances(&script);
         let daemon = FixtureDaemon::start(&sock, script).context("fixture daemon")?;
         let beat = if name.ends_with("-stale") {
             None
         } else {
-            tick(daemon.pusher(), meters.clone());
+            live::tick(daemon.pusher(), meters.clone());
             meters
         };
         Ok(Fixture {
@@ -136,6 +144,7 @@ impl Fixture {
             daemon: Some(daemon),
             skew: Arc::default(),
             beat,
+            pulse,
         })
     }
 
@@ -354,31 +363,6 @@ fn script(
         hold: true,
         ..Script::default()
     }
-}
-
-/// The script's last meters frame: what a daemon goes on sending.
-fn last_meters(s: &Script) -> Option<doze_control::Frame> {
-    s.steps.iter().rev().find_map(|st| match st {
-        doze_control::fixture::Step::Frame(f) if f.topic == doze_control::Topic::Stats.as_str() => {
-            Some((**f).clone())
-        }
-        _ => None,
-    })
-}
-
-/// As Go's fixture server does: the meters every second after the script, as a daemon sends them, so a metered page is
-/// never told its picture is old; until the daemon stops.
-fn tick(p: doze_control::fixture::Pusher, meters: Option<doze_control::Frame>) {
-    let Some(f) = meters else {
-        return;
-    };
-    let _ = std::thread::Builder::new()
-        .name("fixture-meters".into())
-        .spawn(move || {
-            while p.push(&f) {
-                std::thread::sleep(std::time::Duration::from_secs(1));
-            }
-        });
 }
 
 /// `$DOZE_APP_FIXTURE_CRASH=NAME@SECONDS[+SECONDS]`: the fixture's NAME crashes that long after launch, as a daemon

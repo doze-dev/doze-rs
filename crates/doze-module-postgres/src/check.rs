@@ -70,15 +70,18 @@ pub(crate) fn check(s: &PostgresSpec, inst: &Instance) -> Vec<Diagnostic> {
             ));
         }
     }
-    if RESERVED_DATABASES.contains(&inst.name.as_str()) {
+    if TEMPLATE_DATABASES.contains(&inst.name.as_str()) {
         out.push(at(
             vec![],
             format!(
-                "an instance cannot be named {:?}: the server needs that database for itself",
+                "an instance cannot be named {:?}: the server makes every database from it",
                 inst.name
             ),
             Some("pick another label"),
         ));
+    }
+    if inst.name == sql::ADMIN {
+        admin_database(s, &mut out);
     }
     extensions(s, inst, major, &mut out);
     grants(s, major, &mut out);
@@ -208,8 +211,46 @@ fn role_config(r: &crate::spec::Role, i: usize, out: &mut Vec<Diagnostic>) {
     }
 }
 
-/// Databases the cluster needs for itself: `postgres` is where doze works from, the templates make every database.
-const RESERVED_DATABASES: [&str; 3] = ["postgres", "template0", "template1"];
+/// Databases an instance cannot be named after: the templates make every database. `postgres` can be, as in Go: its
+/// database is then the server's own ([`sql::ADMIN`]).
+const TEMPLATE_DATABASES: [&str; 2] = ["template0", "template1"];
+
+/// An instance named after the server's own database works in that database, which initdb made with the cluster: what
+/// is fixed when a database is made cannot be declared for it (Go ignored it without a word), and closing it would
+/// close the database doze works from. Its owner, comment, connection limit and template flag converge as for any
+/// instance.
+fn admin_database(s: &PostgresSpec, out: &mut Vec<Diagnostic>) {
+    let made = [
+        ("encoding", some(&s.encoding)),
+        ("locale", some(&s.locale)),
+        ("lc_collate", some(&s.lc_collate)),
+        ("lc_ctype", some(&s.lc_ctype)),
+        ("template", some(&s.template)),
+        ("tablespace", some(&s.tablespace)),
+    ];
+    for (k, v) in made {
+        // UTF8 is what the server's own database has (initdb -E UTF8): saying so is true, not a change.
+        let utf8 = k == "encoding"
+            && v.is_some_and(|e| e.eq_ignore_ascii_case("utf8") || e.eq_ignore_ascii_case("utf-8"));
+        if v.is_some() && !utf8 {
+            out.push(at(
+                vec![key(k)],
+                format!(
+                    "{k} cannot be set on the instance named \"postgres\": its database is the server's own, made with \
+                     the cluster, and {k} is fixed when a database is made"
+                ),
+                Some("leave it out, or give the instance another name to have a database made with it"),
+            ));
+        }
+    }
+    if !s.allow_connections {
+        out.push(at(
+            vec![key("allow_connections")],
+            "the instance named \"postgres\" cannot be closed to connections: doze works from that database".into(),
+            Some("leave it out, or give the instance another name"),
+        ));
+    }
+}
 
 /// Names as their extension (an alias is its extension), each once across the list and the blocks, and each one this
 /// major can have ([`ext::refused`]).
@@ -347,21 +388,5 @@ fn grants(s: &PostgresSpec, major: u32, out: &mut Vec<Diagnostic>) {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn majors_parse_like_go() {
-        assert_eq!(major("17"), 17);
-        assert_eq!(major("16.14"), 16);
-        assert_eq!(major("x"), 0);
-    }
-
-    #[test]
-    fn each_target_takes_its_own_privileges() {
-        let db = privileges(&On::Database("d".into()), 17);
-        assert!(db.contains(&"CONNECT") && !db.contains(&"SELECT"));
-        assert!(privileges(&On::All("TABLES", "s".into()), 17).contains(&"MAINTAIN"));
-        assert!(!privileges(&On::All("TABLES", "s".into()), 16).contains(&"MAINTAIN"));
-    }
-}
+#[path = "check_tests.rs"]
+mod tests;

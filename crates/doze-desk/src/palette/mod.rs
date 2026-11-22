@@ -170,7 +170,7 @@ pub enum DoKind {
     Choose,
     /// Opens a terminal in `text`.
     Terminal,
-    /// One of the app's own commands, by id in `text` (`home`, `bell`, `theme:teal`, …).
+    /// One of the app's own commands, by id in `text` (`home`, `bell`, `mode:dark`, …).
     App,
 }
 

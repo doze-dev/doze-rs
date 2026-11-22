@@ -1,1 +1,0 @@
-import{Qt as e}from"./index-CLEPJG5c.js";import{t}from"./wire-dock-DC18KwEU.js";import{Q as n}from"./dist-C2WOsUc9.js";var r=n(),i=e(`/groups/$group/wire`);function a(){let{group:e}=i.useParams();return(0,r.jsx)(`div`,{"data-testid":`group-wire`,children:(0,r.jsx)(t,{group:e})})}export{a as GroupWirePage};

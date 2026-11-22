@@ -72,6 +72,11 @@ pub(crate) fn run(ctx: &mut Ctx<'_>, mode: &Mode, a: &Up, notices: &mut Notices)
 /// Starts the stack's daemon (Go `startDaemon`), the caller holding the stack lock ([`stack::lock`]), unless another
 /// `up` started it while this one waited for the lock, and connects to it.
 pub(crate) fn start(ctx: &Ctx<'_>, mode: &Mode, stack: &Stack) -> Result<Connection, Diagnostic> {
+    spawn(ctx, mode, stack).map(|(c, _)| c)
+}
+
+/// [`start`], and whether this call spawned the daemon (false: another doze had started it).
+fn spawn(ctx: &Ctx<'_>, mode: &Mode, stack: &Stack) -> Result<(Connection, bool), Diagnostic> {
     let run = stack.run_dir();
     // No local control socket on this system yet (Windows: the named pipe, core plan W): said, nothing started.
     if let Err(e) = doze_os::local::LocalStream::connect(&run.socket())
@@ -85,7 +90,7 @@ pub(crate) fn start(ctx: &Ctx<'_>, mode: &Mode, stack: &Stack) -> Result<Connect
             .fix("doze bug writes a report with the daemon's log")
     };
     if let Some(c) = stack.open(mode.timeout)? {
-        return Ok(c);
+        return Ok((c, false));
     }
     let exe = ctx.host.daemon_exe().ok_or_else(|| {
         refused("could not find this doze program to start the daemon with".into())
@@ -104,7 +109,7 @@ pub(crate) fn start(ctx: &Ctx<'_>, mode: &Mode, stack: &Stack) -> Result<Connect
         vars: &vars,
     };
     ctl::start(&run, &start).map_err(|e| refused(format!("the doze daemon did not start: {e}")))?;
-    stack.require(mode.timeout, "doze up")
+    Ok((stack.require(mode.timeout, "doze up")?, true))
 }
 
 /// The stack's daemon for a command that needs it running (`env`, `wake`, `reset`…): connected to, or started when
@@ -115,16 +120,27 @@ pub(crate) fn start_for(
     stack: &Stack,
     what: &str,
 ) -> Result<Connection, Diagnostic> {
+    start_for_spawned(ctx, mode, stack, what).map(|(c, _)| c)
+}
+
+/// [`start_for`], and whether this call started the daemon (false: it was running, or another doze started it while
+/// this one waited for the stack lock). Only a daemon this run started is one it may stop after itself.
+pub(crate) fn start_for_spawned(
+    ctx: &mut Ctx<'_>,
+    mode: &Mode,
+    stack: &Stack,
+    what: &str,
+) -> Result<(Connection, bool), Diagnostic> {
     if let Some(c) = stack.open(mode.timeout)? {
-        return Ok(c);
+        return Ok((c, false));
     }
     let _lock = stack::lock(ctx, stack)?;
-    let c = start(ctx, mode, stack)?;
-    if !mode.quiet {
+    let (c, spawned) = spawn(ctx, mode, stack)?;
+    if spawned && !mode.quiet {
         let line = format!("started the doze daemon for {what}");
         let _ = writeln!(ctx.err, "{}", mode.err().dim(&line));
     }
-    Ok(c)
+    Ok((c, spawned))
 }
 
 /// Asks for each of `closure` in turn, a line for each, then the background line, or the logs with `-f`.

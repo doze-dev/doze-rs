@@ -47,3 +47,53 @@ fn the_report_has_the_shape_and_not_the_values() {
         );
     }
 }
+
+/// A doze.hcl that moves the state folder (`data_dir`): `bug` quotes the daemon's log from there, and `doctor` asks the
+/// daemon on the socket there, as every other command finds the stack (not the default `<home>/projects/<slug>`).
+#[test]
+fn bug_and_doctor_follow_a_moved_state_folder() {
+    let sb = fixture::Sandbox::new("bugmoved");
+    let state = sb.root.join("state");
+    let hcl = format!(
+        "stack = \"shop\"\ndata_dir = \"{}\"\n\napp \"api\" {{\n  run = \"true\"\n}}\n",
+        // Forward slashes: a Windows path's backslashes are escapes in an HCL string.
+        state.display().to_string().replace('\\', "/")
+    );
+    std::fs::write(sb.project().join("doze.hcl"), hcl).unwrap();
+    let moved = doze_projects::StackKey::new(state.clone());
+    std::fs::create_dir_all(moved.run_dir()).unwrap();
+    std::fs::write(moved.log_file(), "the moved log\n").unwrap();
+    // The default place has a log too: it is not the stack's.
+    let default = doze_projects::StackKey::for_config(&sb.home(), &sb.project().join("doze.hcl"));
+    std::fs::create_dir_all(default.run_dir()).unwrap();
+    std::fs::write(default.log_file(), "the default place's log\n").unwrap();
+    let host = fixture::FakeHost::default();
+    let ran = fixture::run(&sb, &host, Terminals::default(), false, &["--json", "bug"]);
+    assert_eq!(ran.code, 0, "{}", ran.stderr);
+    let v: serde_json::Value = serde_json::from_str(&ran.stdout).unwrap();
+    let report = std::fs::read_to_string(v["data"]["report"].as_str().unwrap()).unwrap();
+    assert!(report.contains("the moved log"), "{report}");
+    assert!(!report.contains("the default place's log"), "{report}");
+
+    if doze_os::local::LocalListener::bind(&sb.root.join("probe.sock")).is_err() {
+        return; // no local control socket here (Windows, core plan W)
+    }
+    let script = doze_control::fixture::Script::parse("empty", "").unwrap();
+    let _daemon = doze_control::fixture::FixtureDaemon::start(&moved.socket(), script).unwrap();
+    let ran = fixture::run(
+        &sb,
+        &host,
+        Terminals::default(),
+        false,
+        &["--json", "doctor"],
+    );
+    let v: serde_json::Value = serde_json::from_str(&ran.stdout).unwrap();
+    let daemon = v["data"]["checks"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|c| c["name"] == "daemon")
+        .cloned()
+        .unwrap();
+    assert_eq!(daemon["detail"], "running", "{daemon}");
+}

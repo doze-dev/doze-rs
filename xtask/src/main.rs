@@ -45,7 +45,7 @@ fn usage(problem: &str) -> ExitCode {
          weight [package ...]              binary size, packages, idle memory against the limits file\n  \
          conformance [--cmd T | --endpoint U] [module ...]   score a server against the AWS recordings\n  \
          codegen [--check]                 regenerate the aws-model crates (or fail if they are stale)\n  \
-         themes [--check]                  the desktop app's themes from tokens.css (or fail if stale)
+         themes [--check]                  the desktop app's look from its tokens.css (or fail if stale)
          gates [--quick] [--keep-going]    fmt, clippy, lint-size, fuzz-check, tests
          app-bundle [--profile P] [--out DIR] [--id ID] [--name N] [--no-scheme]   Doze.app, signed"
     );

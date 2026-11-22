@@ -191,6 +191,20 @@ impl Root {
         }
     }
 
+    /// What the root draws from the hub itself beside a page inside a stack (the sidebar and its foot) was read again:
+    /// the window redraws only when it changed. A page inside draws itself (its views are `PartialEq`), so a batch
+    /// that moves nothing the root shows draws nothing.
+    pub(super) fn chrome(&mut self, cx: &mut Context<Self>) {
+        let now = self
+            .inside
+            .is_some()
+            .then(|| (self.sides(), super::nav::foot(&self.hub)));
+        if now != self.chrome {
+            self.chrome = now;
+            cx.notify();
+        }
+    }
+
     fn sides(&self) -> Vec<Side> {
         self.key()
             .and_then(|k| self.hub.stack(k))

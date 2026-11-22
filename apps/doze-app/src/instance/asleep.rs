@@ -105,6 +105,7 @@ pub(crate) fn web_console(
         .border_1()
         .border_color(t.line)
         .bg(t.well)
+        .shadow(t.lift())
         .overflow_hidden()
         .child(top)
         .child(
