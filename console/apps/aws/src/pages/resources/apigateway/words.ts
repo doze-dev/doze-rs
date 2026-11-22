@@ -122,12 +122,14 @@ export function routesSentence(name: string, routes: readonly { routeKey: string
   return tail ? `${head} ${tail}.` : head;
 }
 
-/** The two addresses a stage answers at: AWS's, and this doze-aws's. */
-export function invokeUrls(o: { id: string; region: string; endpoint: string; stage: string; http: boolean }): { aws: string; local: string } {
-  const root = o.http && o.stage === "$default";
+/** The two addresses a stage answers at: AWS's, and this doze-aws's. A WebSocket API's is `wss://` (here `ws://`) and always has the stage in its path
+ * (`$default` too); an HTTP API's `$default` stage is the base of the address. */
+export function invokeUrls(o: { id: string; region: string; endpoint: string; stage: string; http: boolean; websocket?: boolean }): { aws: string; local: string } {
+  const root = o.http && !o.websocket && o.stage === "$default";
+  const path = root ? "" : `/${o.stage}`;
   return {
-    aws: `https://${o.id}.execute-api.${o.region}.amazonaws.com${root ? "" : `/${o.stage}`}`,
-    local: `${o.endpoint}/_aws/execute-api/${o.id}${root ? "" : `/${o.stage}`}`,
+    aws: `${o.websocket ? "wss" : "https"}://${o.id}.execute-api.${o.region}.amazonaws.com${path}`,
+    local: `${o.websocket ? o.endpoint.replace(/^http/, "ws") : o.endpoint}/_aws/execute-api/${o.id}${path}`,
   };
 }
 

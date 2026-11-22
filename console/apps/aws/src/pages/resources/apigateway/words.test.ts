@@ -70,6 +70,9 @@ describe("the addresses of a stage", () => {
     expect(invokeUrls({ ...o, stage: "$default" })).toEqual({ aws: "https://q8m.execute-api.us-east-1.amazonaws.com", local: "http://127.0.0.1:4566/_aws/execute-api/q8m" });
     expect(invokeUrls({ ...o, stage: "beta" }).aws).toBe("https://q8m.execute-api.us-east-1.amazonaws.com/beta");
     expect(invokeUrls({ ...o, http: false, stage: "prod" }).local).toBe("http://127.0.0.1:4566/_aws/execute-api/q8m/prod");
+    // A WebSocket API is wss:// (ws:// here), and its $default stage is in the path like any other.
+    expect(invokeUrls({ ...o, websocket: true, stage: "$default" })).toEqual({ aws: "wss://q8m.execute-api.us-east-1.amazonaws.com/$default", local: "ws://127.0.0.1:4566/_aws/execute-api/q8m/$default" });
+    expect(invokeUrls({ ...o, websocket: true, stage: "prod" }).aws).toBe("wss://q8m.execute-api.us-east-1.amazonaws.com/prod");
   });
 });
 

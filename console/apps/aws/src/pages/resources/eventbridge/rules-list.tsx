@@ -116,6 +116,7 @@ function Rules({ service, kind, bus: asked, gone }: { service: string; kind: str
                 selected={chosen}
                 onSelectedChange={setChosen}
                 noun="rule"
+                single
                 maxHeight={680}
                 rowHeight={58}
                 actionsAlways

@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { corsConfiguration, corsOf, corsProblem, defaultPath, emptyIntegration, emptyWizard, integrationInput, routeInput, routeKeyOf, routeProblem, sampleOf, wizardCalls, wizardProblem } from "./http-model";
+import { corsConfiguration, corsOf, corsProblem, defaultPath, emptyBackend, emptyIntegration, emptyWizard, integrationInput, routeInput, routeKeyOf, routeProblem, sampleOf, wizardCalls, wizardProblem } from "./http-model";
 
 const c = { region: "us-east-1", account: "111122223333" };
 
@@ -25,18 +25,34 @@ describe("a route", () => {
 
 describe("the wizard", () => {
   test("four calls, the route named after the function, an automatic $default stage (the board's)", () => {
-    const w = { ...emptyWizard, name: "larder-reports", integration: { ...emptyIntegration, fn: "export-report" } };
+    const w = { ...emptyWizard, name: "larder-reports", backends: [{ ...emptyBackend(), integration: { ...emptyIntegration, fn: "export-report" } }] };
     const calls = wizardCalls(w, c);
     expect(calls.map((x) => x.operation)).toEqual(["CreateApi", "CreateIntegration", "CreateRoute", "CreateStage"]);
     expect(calls[0]!.input).toEqual({ name: "larder-reports", protocolType: "HTTP" });
     expect(calls[2]!.input).toEqual({ ApiId: "<API ID>", routeKey: "ANY /export-report", target: "integrations/<integration ID>" });
     expect(calls[3]!.input).toEqual({ ApiId: "<API ID>", stageName: "$default", autoDeploy: true });
-    expect(defaultPath(w.integration)).toBe("/export-report");
-    expect(wizardCalls(w, c, { api: "a1", integration: "i1" })[2]!.input).toMatchObject({ ApiId: "a1", target: "integrations/i1" });
+    expect(defaultPath(w.backends[0]!.integration)).toBe("/export-report");
+    expect(wizardCalls(w, c, { api: "a1", integrations: ["i1"] })[2]!.input).toMatchObject({ ApiId: "a1", target: "integrations/i1" });
+  });
+  test("more than one integration: each with its own route, the stage last", () => {
+    const w = { ...emptyWizard, name: "larder-reports", backends: [{ ...emptyBackend(), integration: { ...emptyIntegration, fn: "export-report" } }, { ...emptyBackend(), method: "POST", path: "/hooks", integration: { ...emptyIntegration, kind: "http" as const, url: "https://orders.example.com/{proxy}" } }] };
+    const calls = wizardCalls(w, c, { api: "a1", integrations: ["i1", "i2"] });
+    expect(calls.map((x) => x.operation)).toEqual(["CreateApi", "CreateIntegration", "CreateRoute", "CreateIntegration", "CreateRoute", "CreateStage"]);
+    expect(calls[2]!.input).toEqual({ ApiId: "a1", routeKey: "ANY /export-report", target: "integrations/i1" });
+    expect(calls[4]!.input).toEqual({ ApiId: "a1", routeKey: "POST /hooks", target: "integrations/i2" });
+    expect(wizardCalls(w, c)[4]!.input).toMatchObject({ target: "integrations/<integration 2 ID>" });
+  });
+  test("each integration and each route is checked, and a route is made once", () => {
+    const fn = (f: string) => ({ ...emptyBackend(), integration: { ...emptyIntegration, fn: f } });
+    const two = { ...emptyWizard, name: "a", backends: [fn("x"), { ...fn("x"), path: "" }] };
+    expect(wizardProblem(0, { ...two, backends: [fn("x"), emptyBackend()] }, [])).toBe("Integration 2: Choose the Lambda function.");
+    expect(wizardProblem(1, two, [])).toBe("Integration 2: The API already has the route ANY /x.");
+    expect(wizardProblem(1, { ...two, backends: [fn("x"), { ...fn("y"), method: "GET" }] }, [])).toBeNull();
   });
   test("each step says what is missing", () => {
     expect(wizardProblem(0, emptyWizard, [])).toBe("Enter an API name.");
     expect(wizardProblem(0, { ...emptyWizard, name: "a" }, [])).toBe("Choose the Lambda function.");
+    expect(wizardProblem(1, { ...emptyWizard, name: "a", backends: [{ ...emptyBackend(), path: "reports" }] }, [])).toBe("A path starts with /, such as /reports.");
     expect(wizardProblem(2, { ...emptyWizard, stage: "a b" }, [])).toContain("A stage name");
   });
 });

@@ -19,14 +19,19 @@ export function replayProblem(f: ReplayForm, taken: readonly string[]): string |
   return nameProblem(f.name) ?? (taken.includes(f.name) ? `${f.name} already ran.` : null) ?? (f.archive ? null : "Choose the archive to replay.") ?? windowProblem(f.startMs, f.endMs) ?? (!f.all && f.rules.length === 0 ? "Pick at least one rule, or replay to all rules." : null);
 }
 
-/** StartReplay's input: the archive, the window, and the bus it came from as the destination (with the rules picked, when not all). */
-export function startReplayInput(f: ReplayForm, archiveArn: string, busArn: string, ruleArn: (rule: string) => string): Record<string, unknown> {
+/** A moment as the CLI and the SDKs write it: `2026-11-07T00:00:00Z`. */
+export const isoTime = (ms: number): string => new Date(ms).toISOString().replace(/\.\d{3}Z$/, "Z");
+
+/** StartReplay's input: the archive, the window, and the bus it came from as the destination (with the rules picked, when not all).
+ * `shown`: the call as a person writes it (the times as ISO 8601 text, as the CLI and boto3 take them), not as it goes on the wire. */
+export function startReplayInput(f: ReplayForm, archiveArn: string, busArn: string, ruleArn: (rule: string) => string, shown = false): Record<string, unknown> {
+  const time = (ms: number | null) => (shown ? (ms === null ? undefined : isoTime(ms)) : (ms ?? 0) / 1000);
   return {
     ReplayName: f.name,
     ...(f.description ? { Description: f.description } : {}),
     EventSourceArn: archiveArn,
-    EventStartTime: (f.startMs ?? 0) / 1000,
-    EventEndTime: (f.endMs ?? 0) / 1000,
+    EventStartTime: time(f.startMs),
+    EventEndTime: time(f.endMs),
     Destination: { Arn: busArn, ...(!f.all && f.rules.length > 0 ? { FilterArns: f.rules.map(ruleArn) } : {}) },
   };
 }

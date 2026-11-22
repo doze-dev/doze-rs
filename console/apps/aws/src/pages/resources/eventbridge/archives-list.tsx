@@ -84,6 +84,7 @@ function Archives({ service, kind, gone }: { service: string; kind: string; gone
             selected={chosen}
             onSelectedChange={setChosen}
             noun="archive"
+            single
             maxHeight={680}
             actionsAlways
             hint=" "
@@ -95,8 +96,8 @@ function Archives({ service, kind, gone }: { service: string; kind: string; gone
             }
             actions={(sel) => (
               <>
-                <Button type="button" variant="outline" className="bg-card" disabled={sel.length !== 1} title={sel.length > 1 ? "A replay starts from one archive." : undefined} onClick={() => void navigate({ to: "/resources/$service/$second", params: { service, second: "replays" }, search: { create: "yes", name: one?.ArchiveName } })} data-testid="action-replay">Replay</Button>
-                <Button type="button" variant="outline" className="border-bad/40 bg-card text-bad hover:text-bad" disabled={sel.length !== 1} title={sel.length > 1 ? "Delete acts on one archive at a time." : undefined} onClick={() => setAsking(true)} data-testid="action-delete"><TrashIcon /> Delete</Button>
+                <Button type="button" variant="outline" className="bg-card" disabled={sel.length !== 1} onClick={() => void navigate({ to: "/resources/$service/$second", params: { service, second: "replays" }, search: { create: "yes", name: one?.ArchiveName } })} data-testid="action-replay">Replay</Button>
+                <Button type="button" variant="outline" className="border-bad/40 bg-card text-bad hover:text-bad" disabled={sel.length !== 1} onClick={() => setAsking(true)} data-testid="action-delete"><TrashIcon /> Delete</Button>
               </>
             )}
             empty={`No archive's name begins with “${typed}”.`}

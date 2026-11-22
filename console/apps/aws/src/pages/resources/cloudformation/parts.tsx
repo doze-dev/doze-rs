@@ -87,7 +87,7 @@ const eventColumns: DataColumn<StackEvent>[] = [
 ];
 
 /** The events as a table, newest first. */
-export function EventsTable({ events, maxHeight = 640 }: { events: StackEvent[]; maxHeight?: number }) {
+export function EventsTable({ events, maxHeight = 100_000 }: { events: StackEvent[]; maxHeight?: number }) {
   return <DataTable aria-label="Stack events" data={events} columns={eventColumns} rowId={(r) => r.EventId} rowHeight={60} maxHeight={maxHeight} empty="No events." />;
 }
 

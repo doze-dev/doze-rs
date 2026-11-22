@@ -173,6 +173,48 @@ test("apigateway__rest-integration-request: what the backend is sent, the mappin
   await shot(page, "rest-integration-request");
 });
 
+test("apigateway__rest-integration-request, Edit: the timeout, a mapping template and a parameter mapping are changed on the page, and put back", async ({ page }) => {
+  await go(page, methodPath(ctx.ids.products, "GET", "integration"), "GET /products");
+  const integration = () => json<{ timeoutInMillis: number; requestTemplates?: Record<string, string>; requestParameters: Record<string, string> }>(["apigateway", "get-integration", "--rest-api-id", rest(), "--resource-id", ctx.ids.products, "--http-method", "GET"]);
+  await page.getByTestId("edit-integration").click();
+  const dialog = page.getByTestId("integration-dialog");
+  await dialog.getByTestId("timeout-default").click();
+  await dialog.getByTestId("timeout-ms").fill("20");
+  await dialog.getByTestId("integration-save").click();
+  await expect(dialog).toContainText("A custom timeout is 50 to 29,000 milliseconds.");
+  await dialog.getByTestId("timeout-ms").fill("5000");
+  await dialog.getByTestId("add-template").click();
+  await dialog.getByTestId("template-type-input").fill("application/json");
+  await dialog.getByTestId("template-text-input").fill('{"category": "$input.params(\'category\')"}');
+  await dialog.getByTestId("add-param").click();
+  await dialog.getByTestId("param-where").last().click();
+  await page.getByRole("option", { name: "Header" }).click();
+  await dialog.getByTestId("param-name").last().fill("X-Source");
+  await dialog.getByTestId("param-from").last().fill("method.request.querystring.page");
+  await dialog.getByTestId("integration-save").click();
+  await expect(dialog).toBeHidden();
+  await expect(page.getByTestId("integration-settings")).toContainText("Custom (5,000 ms)");
+  await expect(page.getByTestId("integration-templates")).toContainText("application/json");
+  await expect(page.getByTestId("integration-headers")).toContainText("X-Source");
+  const edited = integration();
+  expect(edited.timeoutInMillis).toBe(5000);
+  expect(edited.requestTemplates?.["application/json"]).toContain("category");
+  expect(edited.requestParameters["integration.request.header.X-Source"]).toBe("method.request.querystring.page");
+  expect(edited.requestParameters["integration.request.querystring.category"]).toBe("method.request.querystring.category");
+  // Put back: the default timeout, no template, no extra header; what the seed made is kept.
+  await page.getByTestId("edit-integration").click();
+  await dialog.getByTestId("timeout-default").click();
+  await dialog.getByRole("button", { name: "Remove template" }).click();
+  await dialog.getByRole("button", { name: "Remove parameter" }).last().click();
+  await dialog.getByTestId("integration-save").click();
+  await expect(dialog).toBeHidden();
+  await expect(page.getByTestId("integration-settings")).toContainText("On (29 seconds)");
+  const back = integration();
+  expect(back.timeoutInMillis).toBe(29000);
+  expect(back.requestTemplates ?? {}).toEqual({});
+  expect(Object.keys(back.requestParameters).sort()).toEqual(["integration.request.querystring.category", "integration.request.querystring.page"]);
+});
+
 test("apigateway__rest-integration-response: the default response, its regex, and a response made on the page", async ({ page }) => {
   await go(page, methodPath(ctx.ids.products, "GET", "iresponse"), "GET /products");
   await expect(page.getByTestId("wired-strip")).toContainText("Response path");
@@ -283,6 +325,8 @@ test("apigateway__rest-delete: a typed confirm that names the API with what goes
   await expect(dialog).toContainText("Delete larder-public (");
   await expect(dialog.getByTestId("delete-impact")).toContainText("4 resources, 5 methods");
   await expect(dialog.getByTestId("delete-impact")).toContainText("prod and beta");
+  // Who called it lately is not known to the record (a request to the API's address is unsigned): the dialog says so.
+  await expect(dialog.getByTestId("delete-callers")).toContainText("Who called this API lately is not shown");
   await expect(dialog.getByTestId("delete-plans")).toContainText("partners-basic");
   await expect(dialog.getByTestId("delete-plans")).toContainText("larder-public:prod");
   await expect(dialog.getByTestId("api-delete-submit")).toBeDisabled();

@@ -17,7 +17,8 @@ const at = (b: string) => BASE + ({ firefox: 10, webkit: 20, chromium: 30 }[b] ?
 
 test.describe.configure({ mode: "serial" });
 // ListImports answers a ValidationError (a 400) for an export nobody imports, and a deleted stack's name is a 400 too: the browser logs each as a failed load.
-test.use({ allowErrors: CUT });
+// Nothing the pages do makes a request the browser logs as failed (a stack that is gone, an export nobody imports, a change set that was
+// deleted are read as answers); the flows that are the service's refusal say so below, in their own group.
 
 let server: Running;
 let browserKind = "";
@@ -139,6 +140,9 @@ test("cloudformation__stack-events: newest first, the whole history of a stack t
   await expect(rows.last()).toContainText("User Initiated");
   await expect(page.getByTestId("stack-events")).toContainText("This stack has only been created, so this is its whole history.");
   await expect(page.getByTestId("stack-events")).toContainText("dependency order");
+  // The whole trail is on the page: the table has no scroll box of its own to hide rows in.
+  const box = page.getByTestId("stack-events").locator('[data-slot="data-table"]');
+  expect(await box.evaluate((el) => el.scrollHeight <= el.clientHeight + 1)).toBe(true);
   await shot(page, "stack-events");
 });
 
@@ -175,6 +179,10 @@ test("cloudformation__stack-template: the template as sent, and the processed st
   await tab(page, "larder-core", "template");
   await expect(page.getByTestId("template-body")).toContainText("AWS::SQS::Queue");
   await expect(page.getByTestId("template-body")).toContainText("DeletionPolicy: Retain");
+  // Its parts are coloured: keys, strings, intrinsic functions.
+  const body = page.getByTestId("template-body");
+  await expect(body.locator('[data-kind="key"]').first()).toBeVisible();
+  await expect(body.locator('[data-kind="string"]').first()).toBeVisible();
   await shot(page, "stack-template");
   await page.getByTestId("template-stage-Processed").click();
   await expect(page.getByTestId("stack-template")).toContainText("The template after CloudFormation expanded its transforms");
@@ -220,9 +228,15 @@ test("cloudformation__changeset-detail: what it previews, execute and delete", a
   await expect(page.getByTestId("executes")).toContainText("UPDATE_ROLLBACK_COMPLETE");
   await expect(page.getByTestId("execute-changeset")).toBeEnabled();
   await shot(page, "changeset-detail");
-  // A change set that is not there is a page that says so.
-  await go(page, stack("larder-core", "?do=changeset&name=nope"), "Change set not found");
-  await expect(page.getByTestId("detail-error")).toContainText("There is no change set named nope");
+});
+
+// The service refuses a change set that is not there (404): the browser logs that one failed load, which is the page.
+test.describe("a refusal is the page, too", () => {
+  test.use({ allowErrors: CUT });
+  test("cloudformation__changeset-detail: a change set that is not there is a page that says so", async ({ page }) => {
+    await go(page, stack("larder-core", "?do=changeset&name=nope"), "Change set not found");
+    await expect(page.getByTestId("detail-error")).toContainText("There is no change set named nope");
+  });
 });
 
 test("cloudformation__exports and export-detail: who imports what", async ({ page }) => {
@@ -288,19 +302,26 @@ test("cloudformation__stack-create: the template, from an S3 URL, and the call t
   await shot(page, "stack-create");
 });
 
-test("cloudformation__stack-create-invalid: a file that is not a template is refused with the service's words", async ({ page }) => {
-  await go(page, `${STACKS}?do=create`, "Create stack");
-  await page.getByTestId("source-file").click();
-  const file = join(tmpdir(), `larder-bad-${browserKind}.yaml`);
-  writeFileSync(file, "AWSTemplateFormatVersion: '2010-09-09'\nResources:\n  Queue:\n    Type: [AWS::SQS::Queue\n    Properties: { QueueName: x\n");
-  await page.getByTestId("template-file").setInputFiles(file);
-  await expect(page.getByTestId("file-name")).toContainText("larder-bad");
-  await page.getByTestId("form-submit").click();
-  await expect(page.getByTestId("wizard-refused")).toContainText("Template validation error.");
-  await expect(page.getByTestId("wizard-refused")).toContainText("ValidationError");
-  await expect(page.getByTestId("call-panel")).toContainText("The call that was refused");
-  await expect(page.getByTestId("section-specify")).toContainText("This one is 0.1 KB, so the size is not the problem");
-  await shot(page, "stack-create-invalid");
+// The service refuses this template (ValidateTemplate answers 400): the browser logs that one failed load, which is the board.
+test.describe("a refusal is the page", () => {
+  test.use({ allowErrors: CUT });
+  test("cloudformation__stack-create-invalid: a file that is not a template is refused with the service's words", async ({ page }) => {
+    await go(page, `${STACKS}?do=create`, "Create stack");
+    await page.getByTestId("source-file").click();
+    const file = join(tmpdir(), `larder-bad-${browserKind}.yaml`);
+    writeFileSync(file, "AWSTemplateFormatVersion: '2010-09-09'\nResources:\n  Queue:\n    Type: [AWS::SQS::Queue\n    Properties: { QueueName: x\n");
+    await page.getByTestId("template-file").setInputFiles(file);
+    await expect(page.getByTestId("file-name")).toContainText("larder-bad");
+    await expect(page.getByTestId("file-name")).not.toHaveAttribute("data-invalid", "");
+    await page.getByTestId("form-submit").click();
+    await expect(page.getByTestId("wizard-refused")).toContainText("Template validation error.");
+    // The file's name is marked red as the field at fault.
+    await expect(page.getByTestId("file-name")).toHaveAttribute("data-invalid", "");
+    await expect(page.getByTestId("wizard-refused")).toContainText("ValidationError");
+    await expect(page.getByTestId("call-panel")).toContainText("The call that was refused");
+    await expect(page.getByTestId("section-specify")).toContainText("This one is 0.1 KB, so the size is not the problem");
+    await shot(page, "stack-create-invalid");
+  });
 });
 
 test("cloudformation__stack-create-details, options, review and changeset: the wizard to a stack waiting for review", async ({ page }) => {
@@ -416,9 +437,17 @@ test("cloudformation__stack-update, details, options, review and updated: the wi
   await expect(page.locator("h1").first()).toHaveText("Review larder-core");
   const preview = page.getByTestId("preview");
   await expect(preview.locator("tbody tr")).toHaveCount(2, { timeout: 15_000 });
+  // What would be added is read first, then what would change.
+  await expect(preview.locator("tbody tr").first()).toContainText("ReportsBucket");
   await expect(preview.locator("tr", { hasText: "ReportsBucket" })).toContainText("Add");
   await expect(preview.locator("tr", { hasText: "PickListsQueue" })).toContainText("Modify");
   await expect(page.getByTestId("view-changeset")).toBeEnabled();
+  // Reading the preview in full and coming back (the browser's Back) finds the review as it was left, with the choices.
+  await page.getByTestId("view-changeset").click();
+  await expect(page.getByTestId("changeset-page")).toBeVisible();
+  await page.goBack();
+  await expect(page.locator("h1").first()).toHaveText("Review larder-core");
+  await expect(page.getByTestId("preview").locator("tbody tr")).toHaveCount(2, { timeout: 15_000 });
   await expect(page.getByTestId("call-panel-code").first()).toContainText("UpdateStack");
   await shot(page, "stack-update-review");
   await page.getByTestId("form-submit").click();

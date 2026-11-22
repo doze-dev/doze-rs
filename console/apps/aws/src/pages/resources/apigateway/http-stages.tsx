@@ -17,13 +17,13 @@ import { Field, RecentCalls, RuleHelp } from "../../../kit";
 import { HINT } from "../index-page";
 import { HTTP, useHttpDeployments, useHttpStages, useWrite } from "./api";
 import { ApiChips, Caption, Card, Mono, Rows, Said, useWhere } from "./parts";
-import { HTTP_SECTIONS } from "./sections";
+import { httpSections } from "./sections";
 import type { HttpApi, HttpStage } from "./types";
 import { httpStagesSentence, invokeUrls, stageNameProblem, when } from "./words";
 
 const ACTIONS = ["GetStage", "GetStages", "CreateStage", "UpdateStage", "DeleteStage", "CreateDeployment", "GetDeployments", "GetDeployment"];
 
-function StageForm({ api, stage, onClose }: { api: string; stage: HttpStage | null; onClose: () => void }) {
+function StageForm({ api, stage, websocket, onClose }: { api: string; stage: HttpStage | null; websocket: boolean; onClose: () => void }) {
   const [name, setName] = useState(stage?.stageName ?? "");
   const [auto, setAuto] = useState(stage?.autoDeploy ?? false);
   const [description, setDescription] = useState(stage?.description ?? "");
@@ -44,7 +44,7 @@ function StageForm({ api, stage, onClose }: { api: string; stage: HttpStage | nu
       <DialogContent className="sm:max-w-[560px]" data-testid="http-stage-dialog">
         <DialogHeader><DialogTitle className="text-[21px] font-semibold">{stage ? `Edit stage ${stage.stageName}` : "Create stage"}</DialogTitle><DialogDescription className="text-[14px] leading-[22px]">A stage is a named reference to a deployment of the API.</DialogDescription></DialogHeader>
         <form className="grid gap-5" noValidate onSubmit={(e) => { e.preventDefault(); submit(); }}>
-          {!stage && <Field label="Stage name" error={tried ? (problem ?? undefined) : undefined} help={<><span className="font-mono">$default</span> is served from the base of the URL; any other stage is in the path.</>}>{(id) => <Input id={id} value={name} onChange={(e) => setName(e.target.value)} placeholder="$default" className="font-mono" autoComplete="off" spellCheck={false} data-testid="http-stage-name" />}</Field>}
+          {!stage && <Field label="Stage name" error={tried ? (problem ?? undefined) : undefined} help={websocket ? <>The stage name is the last part of the address a client connects to.</> : <><span className="font-mono">$default</span> is served from the base of the URL; any other stage is in the path.</>}>{(id) => <Input id={id} value={name} onChange={(e) => setName(e.target.value)} placeholder="$default" className="font-mono" autoComplete="off" spellCheck={false} data-testid="http-stage-name" />}</Field>}
           <div className="flex items-start gap-3"><Switch id="auto" checked={auto} onCheckedChange={setAuto} className="mt-0.5" data-testid="http-stage-auto" /><div className="grid gap-0.5"><Label htmlFor="auto">Automatic deployment</Label><p className="text-[13px] text-muted-foreground">A change to a route, integration or authorizer is released for you.</p></div></div>
           <Field label="Description" optional>{(id) => <Input id={id} value={description} onChange={(e) => setDescription(e.target.value)} autoComplete="off" data-testid="http-stage-description" />}</Field>
           {failed && <Alert tone="bad" title={`${stage ? "UpdateStage" : "CreateStage"} was refused${failed.code ? `: ${failed.code}` : ""}`} testId="http-stage-error">{failed.message}</Alert>}
@@ -58,6 +58,7 @@ function StageForm({ api, stage, onClose }: { api: string; stage: HttpStage | nu
 export function HttpStages({ id, api, calls, selected }: { id: string; api: HttpApi; calls: CallRecord[]; selected: string | undefined }) {
   const navigate = useNavigate();
   const { region, endpoint } = useWhere();
+  const websocket = api.protocolType === "WEBSOCKET";
   const stages = useHttpStages(id);
   const deployments = useHttpDeployments(id);
   const deploy = useWrite(HTTP, "CreateDeployment");
@@ -67,19 +68,19 @@ export function HttpStages({ id, api, calls, selected }: { id: string; api: Http
   if (!stages.data) return null;
   const all = stages.data.items ?? [];
   const deps = deployments.data?.items ?? [];
-  const chips = <ApiChips kind="apis" id={id} name={api.name} sections={HTTP_SECTIONS} current="stages" />;
+  const chips = <ApiChips kind="apis" id={id} name={api.name} sections={httpSections(api.protocolType === "WEBSOCKET")} current="stages" />;
   const create = <Button variant="outline" className="bg-card" onClick={() => setForm({ stage: null })} data-testid="create-stage"><PlusIcon /> Create stage</Button>;
   if (all.length === 0) {
     return (
       <>
         {chips}
         <EmptyState icon={Layers3Icon} title="No stages" action={create}>{api.name} has no stage, so it cannot be invoked. A stage is a named reference to a deployment.</EmptyState>
-        {form && <StageForm api={id} stage={form.stage} onClose={() => setForm(null)} />}
+        {form && <StageForm api={id} stage={form.stage} websocket={websocket} onClose={() => setForm(null)} />}
       </>
     );
   }
   const chosen = all.find((s) => s.stageName === selected) ?? all[0]!;
-  const urls = invokeUrls({ id, region, endpoint, stage: chosen.stageName, http: true });
+  const urls = invokeUrls({ id, region, endpoint, stage: chosen.stageName, http: true, websocket });
   const dep = deps.find((d) => d.deploymentId === chosen.deploymentId);
   const columns: DataColumn<HttpStage>[] = [
     { id: "name", header: "Stage name", min: 160, accessorFn: (s) => s.stageName, cell: (c) => <span className="font-mono text-[13.5px] font-medium text-bright" data-testid="stage-name-cell">{c.row.original.stageName}</span> },
@@ -107,14 +108,18 @@ export function HttpStages({ id, api, calls, selected }: { id: string; api: Http
         ]} />
         {failed && <div className="mt-4"><Alert tone="bad" title={`CreateDeployment was refused${failed.code ? `: ${failed.code}` : ""}`} testId="deploy-error">{failed.message}</Alert></div>}
         <div className="mt-6 grid gap-3">
-          <RuleHelp>The <span className="font-mono">$default</span> stage is served from the base of the URL, with no stage name in the path{all.some((s) => s.stageName !== "$default") ? <>; <span className="font-mono">{all.find((s) => s.stageName !== "$default")!.stageName}</span> answers under <span className="font-mono">/{all.find((s) => s.stageName !== "$default")!.stageName}</span></> : null}.</RuleHelp>
+          {websocket ? (
+            <RuleHelp>A client connects to the stage&apos;s address, with the stage name in the path (<span className="font-mono break-all">{urls.aws}</span>), and keeps the connection open. Each message it sends goes to the route its expression selects; <span className="font-mono">$connect</span> runs when it connects and <span className="font-mono">$disconnect</span> when it leaves. A backend answers through the <span className="font-mono">@connections</span> address of the stage.</RuleHelp>
+          ) : (
+            <RuleHelp>The <span className="font-mono">$default</span> stage is served from the base of the URL, with no stage name in the path{all.some((s) => s.stageName !== "$default") ? <>; <span className="font-mono">{all.find((s) => s.stageName !== "$default")!.stageName}</span> answers under <span className="font-mono">/{all.find((s) => s.stageName !== "$default")!.stageName}</span></> : null}.</RuleHelp>
+          )}
           <RuleHelp>With automatic deployment on, a change to the API is released for you; with it off, you publish with a deployment. doze-aws serves an automatic stage from the live API; a stage deployed by hand is served from its deployment&apos;s snapshot (<span className="font-mono">crates/aws-apigateway/src/plane/find.rs</span>).</RuleHelp>
         </div>
       </Card>
       </div>
       </div>
       <RecentCalls className="mt-12" calls={calls.filter((c) => c.action !== null && ACTIONS.includes(c.action))} noun="stage" title="Recent calls" scope={`the stages of ${api.name}`} />
-      {form && <StageForm api={id} stage={form.stage} onClose={() => setForm(null)} />}
+      {form && <StageForm api={id} stage={form.stage} websocket={websocket} onClose={() => setForm(null)} />}
     </>
   );
 }

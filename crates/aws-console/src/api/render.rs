@@ -1,7 +1,7 @@
 //! A call written out for a person to run: the AWS CLI's command and boto3's code, from the model's names. Pure: nothing here
 //! calls a service, and nothing reads a request that was made (the Live record keeps no bodies; see [`super::copy`]).
 
-use aws_schema::tables::{K_BOOL, K_FLOAT, K_INT, K_LIST, K_MAP, K_STR, K_STRUCT, K_UNION};
+use aws_schema::tables::{K_BOOL, K_FLOAT, K_INT, K_LIST, K_MAP, K_STR, K_STRUCT, K_TS, K_UNION};
 use serde_json::Value;
 
 use super::copy::{cli_name, kebab, quote};
@@ -48,7 +48,8 @@ pub fn cli(sdk_id: &str, op: &str, at: Target<'_>, args: &[(&MemberRef<'_>, &Val
             // The CLI writes a boolean as a flag and its opposite as `--no-…`.
             (K_BOOL, Value::Bool(true)) => line.push_str(&format!(" --{flag}")),
             (K_BOOL, Value::Bool(false)) => line.push_str(&format!(" --no-{flag}")),
-            (_, Value::String(s)) if m.kind == K_STR => {
+            // A timestamp written as text (an ISO 8601 string) is one word to the CLI, as it is typed.
+            (_, Value::String(s)) if m.kind == K_STR || m.kind == K_TS => {
                 line.push_str(&format!(" --{flag} {}", quote(s)))
             }
             (K_INT | K_FLOAT, Value::Number(n)) => line.push_str(&format!(" --{flag} {n}")),

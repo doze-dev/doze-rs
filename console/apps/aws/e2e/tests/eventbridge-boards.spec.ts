@@ -207,6 +207,8 @@ test("eventbridge__rule-detail: what feeds the rule, its pattern, its targets wi
   await go(page, `/resources/eventbridge/rules/${encodeURIComponent("larder/order-placed")}`, "order-placed");
   await expect(page.getByTestId("detail-sentence")).toContainText("order-placed is enabled on the larder bus and sends what matches its pattern to 1 target: orders-created.");
   await expect(page.getByTestId("wired-strip").first()).toContainText("larder bus");
+  // What the topic fans out to, past the rule.
+  await expect(page.getByTestId("wired-strip").first()).toContainText("3 subscribed queues");
   await expect(page.getByTestId("rule-details")).toContainText("Rule with an event pattern");
   await expect(page.getByTestId("rule-details")).toContainText("Team=checkout");
   await expect(page.getByTestId("pattern-box")).toContainText('"source": ["larder.orders"]');
@@ -214,13 +216,17 @@ test("eventbridge__rule-detail: what feeds the rule, its pattern, its targets wi
   const targets = page.getByRole("table", { name: "Targets" });
   await expect(targets).toContainText("publish-orders-created");
   await expect(targets).toContainText("Input transformer order_id, customer");
+  // The whole ARN is on the page (it wraps), as is the delivery's input.
+  await expect(page.getByTestId("target-arn")).toHaveText(`arn:aws:sns:us-east-1:${server.account}:orders-created`);
   await expect(targets).toContainText("1 hour up to 20 attempts");
   await expect(targets).toContainText("pick-lists-dlq");
   await expect(page.getByTestId("rule-targets")).toContainText("Applied here:");
   const calls = page.getByTestId("recent-calls");
   await expect(calls).toContainText("EventBridge rule order-placed");
   await expect(calls).toContainText("Publish");
-  await expect(calls).toContainText("to orders-created");
+  await expect(calls).toContainText("to orders-created, input transformer, 2 variables");
+  // One row per delivery: the topic's policy the rule read first is not a row of its own.
+  await expect(calls).not.toContainText("GetTopicAttributes");
   await shot(page, "eventbridge__rule-detail");
 });
 

@@ -5,6 +5,7 @@ import { StatusDot, type Tone } from "@doze/ui/components/app/status-dot";
 import { RuleHelp } from "../../../kit";
 import { at } from "../deep/parts";
 import { ResourceTo } from "../value";
+import { changeRows } from "./change-rows";
 import { resourceTarget } from "./model";
 import { Facts, Section, Status } from "./parts";
 
@@ -27,8 +28,7 @@ const ACTION: Record<string, Tone> = { Add: "ok", Modify: "info", Remove: "bad",
 
 const mono = "font-mono text-[13px]";
 
-/** The rows of `Changes` as the table reads them. */
-export const changeRows = (set: Pick<ChangeSet, "Changes">) => (set.Changes ?? []).flatMap((c) => (c.ResourceChange ? [c.ResourceChange] : []));
+export { changeRows };
 
 export function ChangesTable({ set, withPhysical = true, lede }: { set: ChangeSet; withPhysical?: boolean; lede?: React.ReactNode }) {
   const rows = changeRows(set);

@@ -83,6 +83,11 @@ test("eventbridge__archives-list: events and size per archive, retention in days
   await expect(page.getByTestId("action-replay")).toBeDisabled();
   await page.getByTestId("select-payments-90d").click();
   await expect(page.getByTestId("action-replay")).toBeEnabled();
+  // A radio, as the board draws it: choosing another archive moves the choice, and the actions are always for one.
+  await page.getByTestId("select-orders-30d").click();
+  await expect(page.getByTestId("selected-count")).toHaveText("1 archive selected");
+  await expect(page.getByTestId("select-payments-90d")).toHaveAttribute("aria-checked", "false");
+  await page.getByTestId("select-payments-90d").click();
   await shot(page, "eventbridge__archives-list");
 });
 
@@ -128,6 +133,13 @@ test("eventbridge__replay-start: an archive, the bus it goes back to, the rules 
   await expect(call).toContainText("StartReplay");
   await expect(call).toContainText(`arn:aws:events:us-east-1:${server.account}:rule/larder/payment-settled`);
   await expect(call).toContainText(`arn:aws:events:us-east-1:${server.account}:archive/payments-90d`);
+  // The window is written as the real call writes it: ISO 8601 text, from a date, a time and the zone.
+  await expect(call).toContainText(/"EventStartTime": "\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z"/);
+  await expect(page.getByTestId("replay-start-time-zone")).toHaveValue("UTC");
+  const endDate = await page.getByTestId("replay-end-time-date").inputValue();
+  await page.getByTestId("replay-end-time-date").fill("2026-13-45");
+  await expect(page.getByTestId("section-window")).toContainText("A date is year-month-day, like 2026-11-07.");
+  await page.getByTestId("replay-end-time-date").fill(endDate);
   await shot(page, "eventbridge__replay-start");
   await submit(page);
   await expect(page.locator("h1").first()).toHaveText("payments-redo");
@@ -145,6 +157,11 @@ test("eventbridge__replays-list: the window, the last event replayed and when it
   await expect(table).toContainText("Completed");
   await expect(page.getByTestId("list-sentence")).toContainText("1 replay, completed.");
   await expect(page.getByText("can be cancelled while it is Starting or Running")).toBeVisible();
+  // A replay that is done cannot be cancelled: the page says so beside the button, not in a tooltip.
+  await page.getByTestId("select-payments-redo").click();
+  await expect(page.getByTestId("cancel-why")).toBeVisible();
+  await expect(page.getByTestId("action-cancel")).toBeDisabled();
+  await page.getByTestId("selection-clear").click();
   await shot(page, "eventbridge__replays-list");
 });
 
@@ -164,6 +181,13 @@ test("eventbridge__connection-create and api-destination-create: a connection ma
   await expect(call).toContainText("CreateConnection");
   await expect(call).toContainText('"AuthorizationType": "API_KEY"');
   await expect(call).toContainText('"ApiKeyName": "X-Api-Key"');
+  // The secret is never on the page, nor in what is copied: the board writes it as "...".
+  await expect(call).toContainText('"ApiKeyValue": "..."');
+  for (const tab of ["json", "cli", "boto3"]) {
+    await page.getByTestId(`call-panel-tab-${tab}`).click();
+    await expect(call).not.toContainText("s3cret-value");
+  }
+  await page.getByTestId("call-panel-tab-json").click();
   await expect(call).toContainText('"Key": "X-Source"');
   await expect(page.getByTestId("section-detail")).toContainText("Not available in doze-aws: private APIs need VPC Lattice.");
   await shot(page, "eventbridge__connection-create");

@@ -1,1 +1,0 @@
-var e=[{id:`resources`,label:`Resources`},{id:`stages`,label:`Stages`},{id:`authorizers`,label:`Authorizers`}],t=[{id:`routes`,label:`Routes`},{id:`integrations`,label:`Integrations`},{id:`authorization`,label:`Authorization`},{id:`cors`,label:`CORS`},{id:`stages`,label:`Stages`}];export{e as n,t};

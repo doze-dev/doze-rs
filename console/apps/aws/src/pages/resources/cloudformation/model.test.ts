@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { deleteRefusal, deletedRecord, deletionSplit, failedResource, isGone, listSummary, nameList, nobodyImports, resourceTarget, retainedIn, serviceCount, stackRow, stackTone } from "./model";
+import { deleteRefusal, deletedRecord, deletionSplit, failedResource, isGone, listSummary, nameList, noStack, resourceTarget, retainedIn, serviceCount, stackRow, stackTone } from "./model";
 
 const row = (name: string, status: string, parent = "") => stackRow({ name, cells: [status, null, "2026-11-07", null, parent || null] });
 
@@ -16,8 +16,12 @@ describe("status and errors", () => {
     expect(isGone({ status: 400, code: "ValidationError", message: "Stack with id x does not exist" })).toBe(true);
     expect(isGone({ status: 400, code: "ValidationError", message: "Template format error" })).toBe(false);
     expect(isGone({ status: 500, code: "ValidationError", message: "does not exist" })).toBe(false);
-    expect(nobodyImports({ code: "ValidationError", message: "Export 'a' is not imported by any stack." })).toBe(true);
-    expect(nobodyImports({ code: "ValidationError", message: "Export 'a' does not exist." })).toBe(false);
+  });
+  test("the console reads a stack that is gone as an empty answer", () => {
+    expect(noStack({ Stacks: [] })).toBe(true);
+    expect(noStack({})).toBe(true);
+    expect(noStack(undefined)).toBe(false);
+    expect(noStack({ Stacks: [{}] })).toBe(false);
   });
 });
 

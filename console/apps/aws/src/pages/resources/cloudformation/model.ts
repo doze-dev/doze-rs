@@ -51,11 +51,9 @@ export function isGone(error: unknown): boolean {
   return Boolean(e && e.status === 400 && e.code === "ValidationError" && /does not exist/i.test(e.message ?? ""));
 }
 
-/** Whether `ListImports` answered that nothing imports the export (CloudFormation says so as a ValidationError). */
-export function nobodyImports(error: unknown): boolean {
-  const e = error as { code?: string; message?: string } | null;
-  return Boolean(e && e.code === "ValidationError" && /not imported by any stack/i.test(e.message ?? ""));
-}
+/** Whether `DescribeStacks` answered with no stack: for a name that is gone the console answers an empty list, not CloudFormation's refusal
+ * (so a deleted stack's page makes no failed request). `undefined` (not read yet) is not an answer. */
+export const noStack = (answer: { Stacks?: readonly unknown[] } | undefined): boolean => answer !== undefined && (answer.Stacks ?? []).length === 0;
 
 /** The name at the end of a stack id (`arn:aws:cloudformation:r:a:stack/NAME/uuid`). */
 export const stackNameOf = (id: string): string => id.split("/")[1] ?? id;

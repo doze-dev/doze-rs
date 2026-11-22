@@ -12,7 +12,7 @@ import { CallPanel, Field, PlainConfirm, RuleHelp } from "../../../kit";
 import { HINT } from "../index-page";
 import { HTTP, useIntegrations, useRoutes, useWrite } from "./api";
 import { ApiChips, Caption } from "./parts";
-import { HTTP_SECTIONS } from "./sections";
+import { httpSections } from "./sections";
 import type { HttpApi, HttpIntegration, Route } from "./types";
 import { httpTarget, lambdaName } from "./words";
 
@@ -39,7 +39,7 @@ export function HttpIntegrations({ id, api, selected }: { id: string; api: HttpA
   const pick = picked && picked.route === chosen?.routeId ? picked.value : (current?.integrationId ?? ints[0]?.integrationId ?? "");
   if (routes.isError || integrations.isError) return <ErrorBlock what="The integrations could not be read" error={routes.error ?? integrations.error} hint={HINT} onRetry={() => { void routes.refetch(); void integrations.refetch(); }} retrying={routes.isFetching} testId="integrations-error" />;
   if (!routes.data || !integrations.data) return null;
-  const chips = <ApiChips kind="apis" id={id} name={api.name} sections={HTTP_SECTIONS} current="integrations" />;
+  const chips = <ApiChips kind="apis" id={id} name={api.name} sections={httpSections(api.protocolType === "WEBSOCKET")} current="integrations" />;
   const create = <Button variant="outline" className="bg-card" onClick={() => go({ do: "create-integration", key: chosen?.routeId })} data-testid="create-integration"><PlusIcon /> Create integration</Button>;
   const bound = (r: Route) => ints.find((i) => r.target === `integrations/${i.integrationId}`);
   const input = chosen && pick ? { ApiId: id, RouteId: chosen.routeId, target: `integrations/${pick}` } : null;

@@ -20,7 +20,7 @@ import { ResourceTo } from "../value";
 import { useDests, useRefreshReads } from "./api";
 import { ConnectionCreate } from "./connection-create";
 import { DestCreate } from "./dest-create";
-import { Said, State } from "./parts";
+import { Breakable, Said, State } from "./parts";
 import { SectionStrip } from "./strip";
 import type { ApiDestItem } from "./types";
 import { connectionName, destsSentence } from "./words";
@@ -46,12 +46,12 @@ function Dests({ service, kind, gone }: { service: string; kind: string; gone?: 
   const del = useDeleteClearing({ service, kind, name: one?.Name ?? "" });
   const go = (search: { create?: "yes"; gone?: string }) => void navigate({ to: "/resources/$service/$second", params: { service, second: kind }, search });
   const columns: DataColumn<ApiDestItem>[] = [
-    { id: "name", header: "Name", min: 170, accessorFn: (d) => d.Name, cell: (c) => <ResourceTo to={{ service, kind, name: c.row.original.Name }} className="font-mono text-[13px] font-medium" testId="row-link">{c.row.original.Name}</ResourceTo> },
+    { id: "name", header: "Name", min: 150, accessorFn: (d) => d.Name, cell: (c) => <ResourceTo to={{ service, kind, name: c.row.original.Name }} className="font-mono text-[13px] font-medium" testId="row-link">{c.row.original.Name}</ResourceTo> },
     { id: "state", header: "State", size: 120, accessorFn: (d) => d.ApiDestinationState ?? "", cell: (c) => <State state={c.row.original.ApiDestinationState} /> },
-    { id: "endpoint", header: "API destination endpoint", min: 240, accessorFn: (d) => d.InvocationEndpoint, meta: { mono: true }, cell: (c) => c.row.original.InvocationEndpoint },
+    { id: "endpoint", header: "API destination endpoint", size: 400, min: 260, accessorFn: (d) => d.InvocationEndpoint, meta: { mono: true }, cell: (c) => <span className="block text-[12.5px] leading-4 [overflow-wrap:anywhere] whitespace-normal" data-testid="endpoint"><Breakable text={c.row.original.InvocationEndpoint} /></span> },
     { id: "method", header: "HTTP method", size: 130, accessorFn: (d) => d.HttpMethod, cell: (c) => c.row.original.HttpMethod },
-    { id: "connection", header: "Connection", size: 170, accessorFn: (d) => connectionName(d.ConnectionArn), meta: { mono: true }, cell: (c) => connectionName(c.row.original.ConnectionArn) },
-    { id: "rate", header: "Rate limit per second", size: 190, accessorFn: (d) => d.InvocationRateLimitPerSecond ?? 300, meta: { numeric: true }, cell: (c) => String(c.row.original.InvocationRateLimitPerSecond ?? 300) },
+    { id: "connection", header: "Connection", size: 150, accessorFn: (d) => connectionName(d.ConnectionArn), meta: { mono: true }, cell: (c) => connectionName(c.row.original.ConnectionArn) },
+    { id: "rate", header: "Rate limit per second", size: 175, accessorFn: (d) => d.InvocationRateLimitPerSecond ?? 300, meta: { numeric: true }, cell: (c) => String(c.row.original.InvocationRateLimitPerSecond ?? 300) },
   ];
   return (
     <>
@@ -83,6 +83,8 @@ function Dests({ service, kind, gone }: { service: string; kind: string; gone?: 
             selected={chosen}
             onSelectedChange={setChosen}
             noun="API destination"
+            single
+            rowHeight={52}
             maxHeight={680}
             actionsAlways
             hint=" "
@@ -92,7 +94,7 @@ function Dests({ service, kind, gone }: { service: string; kind: string; gone?: 
                 <Button type="submit" variant="outline" className="bg-card">Search</Button>
               </form>
             }
-            actions={(sel) => <Button type="button" variant="outline" className="border-bad/40 bg-card text-bad hover:text-bad" disabled={sel.length !== 1} title={sel.length > 1 ? "Delete acts on one API destination at a time." : undefined} onClick={() => setAsking(true)} data-testid="action-delete"><TrashIcon /> Delete</Button>}
+            actions={(sel) => <Button type="button" variant="outline" className="border-bad/40 bg-card text-bad hover:text-bad" disabled={sel.length !== 1} onClick={() => setAsking(true)} data-testid="action-delete"><TrashIcon /> Delete</Button>}
             empty={`No API destination's name begins with “${typed}”.`}
           />
           <Pagination className="mt-3" shown={rows.length} total={rows.length} noun={rows.length === 1 ? "API destination" : "API destinations"} />

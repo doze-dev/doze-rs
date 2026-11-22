@@ -34,24 +34,39 @@ export function routeProblem(method: string, path: string, taken: readonly strin
 }
 export const routeInput = (api: string, key: string, integration: string | null): Record<string, unknown> => ({ ApiId: api, routeKey: key, ...(integration ? { target: `integrations/${integration}` } : {}) });
 
-export type Wizard = { name: string; ip: "ipv4" | "dualstack"; integration: IntegrationForm; method: string; path: string; stage: string; auto: boolean };
-export const emptyWizard: Wizard = { name: "", ip: "ipv4", integration: emptyIntegration, method: "ANY", path: "", stage: "$default", auto: true };
+/** One backend of the wizard: an integration, and the route that sends requests to it (the wizard makes one route for each integration). */
+export type Backend = { integration: IntegrationForm; method: string; path: string };
+export const emptyBackend = (): Backend => ({ integration: emptyIntegration, method: "ANY", path: "" });
+export type Wizard = { name: string; ip: "ipv4" | "dualstack"; backends: Backend[]; stage: string; auto: boolean };
+export const emptyWizard: Wizard = { name: "", ip: "ipv4", backends: [emptyBackend()], stage: "$default", auto: true };
 /** The path the first route takes by default: the function's name, or the endpoint's last part. */
 export const defaultPath = (i: IntegrationForm): string => (i.kind === "lambda" ? (i.fn ? `/${i.fn}` : "") : "/");
+/** The path a backend's route has: what was typed, else the default. */
+export const pathOf = (b: Backend): string => b.path || defaultPath(b.integration);
+export const keyOfBackend = (b: Backend): string => routeKeyOf(b.method, pathOf(b));
 
-/** The four calls of the wizard, in order; the later ones carry the ids the earlier ones return (`<id>` until they are made). */
-export function wizardCalls(w: Wizard, c: Ctx, ids: { api?: string; integration?: string } = {}): { operation: string; input: Record<string, unknown> }[] {
+/** The calls of the wizard, in order: the API, then for each backend its integration and its route, then the stage; the later ones carry the ids the earlier ones
+ * return (`<API ID>`, `<integration ID>` until they are made; `ids.integrations` has one for each backend made so far). */
+export function wizardCalls(w: Wizard, c: Ctx, ids: { api?: string; integrations?: readonly string[] } = {}): { operation: string; input: Record<string, unknown> }[] {
   const api = ids.api ?? "<API ID>";
+  const many = w.backends.length > 1;
   return [
     { operation: "CreateApi", input: { name: w.name || "<name>", protocolType: "HTTP", ...(w.ip === "dualstack" ? { ipAddressType: "dualstack" } : {}) } },
-    { operation: "CreateIntegration", input: integrationInput(api, w.integration, c) },
-    { operation: "CreateRoute", input: { ApiId: api, routeKey: routeKeyOf(w.method, w.path || defaultPath(w.integration)), target: `integrations/${ids.integration ?? "<integration ID>"}` } },
+    ...w.backends.flatMap((b, i) => [
+      { operation: "CreateIntegration", input: integrationInput(api, b.integration, c) },
+      { operation: "CreateRoute", input: { ApiId: api, routeKey: keyOfBackend(b), target: `integrations/${ids.integrations?.[i] ?? (many ? `<integration ${i + 1} ID>` : "<integration ID>")}` } },
+    ]),
     { operation: "CreateStage", input: { ApiId: api, stageName: w.stage, autoDeploy: w.auto } },
   ];
 }
+/** What is missing at a step: the name and each integration, then each route (a key is used once), then the stage. */
 export function wizardProblem(step: number, w: Wizard, taken: readonly string[]): string | null {
-  if (step === 0) return (w.name.trim() === "" ? "Enter an API name." : w.name.length > 128 ? "An API name is at most 128 characters." : null) ?? integrationProblem(w.integration);
-  if (step === 1) return routeProblem(w.method, w.path || defaultPath(w.integration), [], false);
+  const of = (i: number, problem: string | null) => (problem && w.backends.length > 1 ? `Integration ${i + 1}: ${problem}` : problem);
+  if (step === 0) return (w.name.trim() === "" ? "Enter an API name." : w.name.length > 128 ? "An API name is at most 128 characters." : null) ?? w.backends.map((b, i) => of(i, integrationProblem(b.integration))).find(Boolean) ?? null;
+  if (step === 1) {
+    const keys = w.backends.map(keyOfBackend);
+    return w.backends.map((b, i) => of(i, routeProblem(b.method, pathOf(b), keys.filter((_, j) => j < i), false))).find(Boolean) ?? null;
+  }
   if (step === 2) return /^(\$default|[A-Za-z0-9_-]{1,128})$/.test(w.stage) ? null : "A stage name is $default, or letters, digits, hyphens and underscores.";
   void taken;
   return null;

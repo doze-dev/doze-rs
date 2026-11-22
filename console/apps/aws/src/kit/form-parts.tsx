@@ -60,7 +60,7 @@ export function focusFirstProblem(form: HTMLElement | null): void {
 
 /** A card of a form: a title, `Optional` when it is, a sentence, and its fields. A collapsible one opens and closes (`Expand`
  * and `Collapse`), and says in `summary` what it holds while shut (`Disabled.`, `No tags.`): a closed section is never blank. */
-export function FormSection({ title, optional = false, description, collapsible = false, defaultOpen = true, summary, actions, children, className, testId }: { title: string; optional?: boolean; description?: React.ReactNode; /** At the right of the title (the section's own button, an Edit). */ actions?: React.ReactNode; collapsible?: boolean; defaultOpen?: boolean; summary?: React.ReactNode; children: React.ReactNode; className?: string; testId?: string }) {
+export function FormSection({ title, optional = false, description, collapsible = false, defaultOpen = true, summary, actions, action, children, className, testId }: { title: string; optional?: boolean; description?: React.ReactNode; /** At the right of the title (the section's own button, an Edit). */ actions?: React.ReactNode; /** A button at the right of the heading (`Add integration`), laid out by the caller. */ action?: React.ReactNode; collapsible?: boolean; defaultOpen?: boolean; summary?: React.ReactNode; children: React.ReactNode; className?: string; testId?: string }) {
   const [open, setOpen] = useState(defaultOpen || !collapsible);
   const id = useId();
   return (
@@ -76,6 +76,7 @@ export function FormSection({ title, optional = false, description, collapsible 
             {!open && summary && <div className="mt-1 text-[13.5px] text-muted-foreground" data-testid={`${testId ?? `section-${title}`}-summary`}>{summary}</div>}
           </div>
           {actions && <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}</div>}
+          {action}
           {collapsible && (
             <Button type="button" variant="outline" size="sm" className="bg-card" onClick={() => setOpen(!open)} aria-expanded={open} data-testid={`${testId ?? `section-${title}`}-toggle`}>
               {open ? <ChevronDownIcon /> : <ChevronRightIcon />} {open ? "Collapse" : "Expand"}

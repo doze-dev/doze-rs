@@ -28,6 +28,7 @@ export function ConnectionCreate() {
   const problem = connProblem(f, others);
   const set = (p: Partial<ConnForm>) => { setF((x) => ({ ...x, ...p })); make.reset(); };
   const input = useMemo(() => createConnInput(f), [f]);
+  const shown = useMemo(() => createConnInput(f, true), [f]);
   const refused = make.error instanceof ApiFailure ? { code: make.error.code, message: make.error.message } : null;
   const setParam = (id: string, p: Partial<HttpParam>) => set({ params: f.params.map((x) => (x.id === id ? { ...x, ...p } : x)) });
   const back = () => void navigate({ to: "/resources/$service/$second", params: { service: "eventbridge", second: "api-destinations" }, search: { create: "yes" } });
@@ -36,7 +37,7 @@ export function ConnectionCreate() {
       title="Create connection"
       sub="Name it, choose how to authorize, and give the credentials. On AWS they go into a Secrets Manager secret; doze-aws keeps them in the connection record and never returns them."
       crumbs={[...crumbs, { label: "API destinations", to: "/resources/eventbridge/api-destinations" }, { label: "Create API destination", to: "/resources/eventbridge/api-destinations?create=yes" }]}
-      request={{ service: "events", operation: "CreateConnection", input }}
+      request={{ service: "events", operation: "CreateConnection", input: shown }}
       refusal={refused}
       callNote="The reply holds the connection ARN and its state. Wait for Authorized before you create an API destination on it: here it is Authorized at once."
       banner={refused ? <Alert tone="bad" title="The connection wasn't created." testId="create-refused">CreateConnection answered <span className="font-mono font-semibold text-bright">{refused.code}</span>: “{refused.message}”</Alert> : undefined}

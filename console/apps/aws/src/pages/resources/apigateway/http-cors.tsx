@@ -13,7 +13,7 @@ import { HTTP, useRoutes, useWrite } from "./api";
 import { type CorsForm, corsInput, corsOf, corsProblem } from "./http-model";
 import { ListEditor } from "./list-editor";
 import { ApiChips } from "./parts";
-import { HTTP_SECTIONS } from "./sections";
+import { httpSections } from "./sections";
 import type { HttpApi } from "./types";
 import { list } from "./words";
 
@@ -31,7 +31,7 @@ export function HttpCors({ id, api }: { id: string; api: HttpApi }) {
   const reset = () => { setF(corsOf(api)); save.reset(); setTried(false); };
   return (
     <>
-      <ApiChips kind="apis" id={id} name={api.name} sections={HTTP_SECTIONS} current="cors" />
+      <ApiChips kind="apis" id={id} name={api.name} sections={httpSections(api.protocolType === "WEBSOCKET")} current="cors" />
       <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_22.5rem]">
         <form className="grid min-w-0 gap-6" noValidate onSubmit={(e) => { e.preventDefault(); setTried(true); if (!problem) save.mutate(input as never, { onSuccess: () => void navigate({ to: "/resources/$service/$kind/$name", params: { service: "apigateway", kind: "apis", name: id }, search: { tab: "cors", done: "cors" } }) }); }} data-testid="cors-form">
           <section className="grid gap-6 rounded-[14px] border bg-card p-6 lg:p-7" aria-label="CORS configuration">

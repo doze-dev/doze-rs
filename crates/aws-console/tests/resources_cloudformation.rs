@@ -284,7 +284,8 @@ async fn a_deleted_stack_is_read_by_its_id_and_the_exports_name_who_imports_them
             .contains(":stack/base/")
     );
     assert!(list["openable"].as_bool().unwrap());
-    // Nothing imports it: ListImports says so as CloudFormation does, a ValidationError.
+    // Nothing imports it: CloudFormation refuses ListImports (a ValidationError); the console reads that as an empty answer
+    // (resources_cloudformation_calm.rs).
     let (status, nobody) = op(
         &w,
         "stacks",
@@ -292,11 +293,7 @@ async fn a_deleted_stack_is_read_by_its_id_and_the_exports_name_who_imports_them
         &json!({"ExportName": "exp-inbox-arn"}),
     )
     .await;
-    assert_eq!(
-        (status, nobody["code"].as_str()),
-        (400, Some("ValidationError")),
-        "{nobody}"
-    );
+    assert_eq!((status, &nobody), (200, &json!({"Imports": []})));
     // A stack that imports it.
     let user = json!({"Resources": {"Q": {"Type": "AWS::SQS::Queue", "Properties": {"QueueName": "exp-user", "Tags": [{"Key": "from", "Value": {"Fn::ImportValue": "exp-inbox-arn"}}]}}}});
     let (status, made) = op(

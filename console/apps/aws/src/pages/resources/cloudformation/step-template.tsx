@@ -3,13 +3,15 @@
 import { Alert } from "@doze/ui/components/app/alert";
 import { Button } from "@doze/ui/components/ui/button";
 import { FileTextIcon } from "lucide-react";
+import { cn } from "@doze/ui/lib/utils";
 import { Field, FormSection, RuleHelp } from "../../../kit";
 import { Input } from "@doze/ui/components/ui/input";
 import { Choices, Note, s3Of } from "./wizard-parts";
 import { BODY_MAX, type Wizard } from "./wizard-model";
 import { useRef } from "react";
 
-export function StepTemplate({ w, set, problem, stackName }: { w: Wizard; set: (p: Partial<Wizard>) => void; problem: string | null; stackName: string }) {
+export function StepTemplate({ w, set, problem, refused = false, stackName }: { w: Wizard; set: (p: Partial<Wizard>) => void; problem: string | null; /** ValidateTemplate refused this template: the file's name is marked as the field at fault. */ refused?: boolean; stackName: string }) {
+  const bad = Boolean(problem) || refused;
   const update = w.mode !== "create";
   const file = useRef<HTMLInputElement>(null);
   const bucket = s3Of(w.url)?.bucket;
@@ -52,8 +54,8 @@ export function StepTemplate({ w, set, problem, stackName }: { w: Wizard; set: (
               {() => (
                 <div className="flex flex-wrap items-center gap-3">
                   <input ref={file} type="file" accept=".json,.yaml,.yml,.template,.txt,application/json,text/yaml" className="sr-only" onChange={(e) => void choose(e.target.files?.[0])} data-testid="template-file" aria-label="Template file" />
-                  <Button type="button" variant="outline" className="bg-card" onClick={() => file.current?.click()} data-testid="choose-file"><FileTextIcon /> Choose file</Button>
-                  <span className="font-mono text-[13px] text-muted-foreground" data-testid="file-name">{w.file ? `${w.file.name} · ${(bytes / 1024).toFixed(1)} KB` : "No file chosen"}</span>
+                  <Button type="button" variant="outline" className={cn("bg-card", bad && "border-bad")} aria-invalid={bad ? true : undefined} onClick={() => file.current?.click()} data-testid="choose-file"><FileTextIcon /> Choose file</Button>
+                  <span className={cn("rounded-md border px-2.5 py-1 font-mono text-[13px]", bad ? "border-bad bg-bad/5 text-bad" : "border-transparent text-muted-foreground")} data-testid="file-name" data-invalid={bad ? "" : undefined}>{w.file ? `${w.file.name} · ${(bytes / 1024).toFixed(1)} KB` : "No file chosen"}</span>
                 </div>
               )}
             </Field>

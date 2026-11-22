@@ -4,6 +4,8 @@ import { useNavigate } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { Alert } from "@doze/ui/components/app/alert";
 import { Input } from "@doze/ui/components/ui/input";
+import { Label } from "@doze/ui/components/ui/label";
+import { Switch } from "@doze/ui/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@doze/ui/components/ui/select";
 import { ApiFailure } from "@doze/ui/lib/api";
 import { Field, FormPage, FormSection, RuleHelp, useServiceCrumbs } from "../../../kit";
@@ -45,27 +47,37 @@ export function PlanCreate() {
       <FormSection title="Usage plan details" testId="section-details">
         <Field label="Name" error={tried && f.name.trim() === "" ? "Enter a name for the plan." : undefined} hint={have.length > 0 ? <>The account has {have.map((p) => p.name).join(", ")} already.</> : undefined}>{(id) => <Input id={id} value={f.name} onChange={(e) => set({ name: e.target.value })} placeholder="partners-premium" className="font-mono" autoComplete="off" spellCheck={false} data-testid="plan-name" />}</Field>
         <Field label="Description" optional>{(id) => <Input id={id} value={f.description} onChange={(e) => set({ description: e.target.value })} autoComplete="off" data-testid="plan-description" />}</Field>
-      </FormSection>
-      <FormSection title="Throttling" optional testId="section-throttle">
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Rate" error={tried && problem?.startsWith("Throttling") ? problem : undefined}>{(id) => <div className="flex items-center gap-3"><Input id={id} value={f.rate} onChange={(e) => set({ rate: e.target.value })} inputMode="decimal" className="w-32 font-mono" data-testid="plan-rate" /><span className="text-[13.5px] text-muted-foreground">requests per second</span></div>}</Field>
-          <Field label="Burst">{(id) => <div className="flex items-center gap-3"><Input id={id} value={f.burst} onChange={(e) => set({ burst: e.target.value })} inputMode="numeric" className="w-32 font-mono" data-testid="plan-burst" /><span className="text-[13.5px] text-muted-foreground">requests</span></div>}</Field>
+        <div className="grid gap-4" data-testid="section-throttle">
+          <div className="flex items-center gap-3"><Switch id="throttle-on" checked={f.throttle} onCheckedChange={(throttle) => set({ throttle })} data-testid="plan-throttle" /><Label htmlFor="throttle-on" className="text-[14.5px]">Throttling</Label></div>
+          {f.throttle && (
+            <>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Field label="Rate" error={tried && problem?.startsWith("Throttling") ? problem : undefined}>{(id) => <div className="flex items-center gap-3"><Input id={id} value={f.rate} onChange={(e) => set({ rate: e.target.value })} inputMode="decimal" className="w-32 font-mono" data-testid="plan-rate" /><span className="text-[13.5px] text-muted-foreground">requests per second</span></div>}</Field>
+                <Field label="Burst">{(id) => <div className="flex items-center gap-3"><Input id={id} value={f.burst} onChange={(e) => set({ burst: e.target.value })} inputMode="numeric" className="w-32 font-mono" data-testid="plan-burst" /><span className="text-[13.5px] text-muted-foreground">requests</span></div>}</Field>
+              </div>
+              <RuleHelp>Rate is the requests per second added to the token bucket; burst is the bucket&apos;s capacity. doze-aws enforces it per key: a request over it gets 429.{example && <> {example.name} uses {throttleWords(example.throttle)}.</>}</RuleHelp>
+            </>
+          )}
         </div>
-        <RuleHelp>Rate is the requests per second added to the token bucket; burst is the bucket&apos;s capacity. doze-aws enforces it per key: a request over it gets 429 (<span className="font-mono">crates/aws-apigateway/src/usage.rs</span>).{example && <> {example.name} uses {throttleWords(example.throttle)}.</>}</RuleHelp>
-      </FormSection>
-      <FormSection title="Quota" optional testId="section-quota">
-        <div className="flex flex-wrap items-end gap-4">
-          <Field label="Limit">{(id) => <div className="flex items-center gap-3"><Input id={id} value={f.limit} onChange={(e) => set({ limit: e.target.value })} inputMode="numeric" className="w-36 font-mono" data-testid="plan-limit" /><span className="text-[13.5px] text-muted-foreground">requests per</span></div>}</Field>
-          <Field label="Period">
-            {(id) => (
-              <Select value={f.period} onValueChange={(period) => set({ period: period as PlanForm["period"] })}>
-                <SelectTrigger id={id} className="w-36 bg-card" data-testid="plan-period"><SelectValue /></SelectTrigger>
-                <SelectContent><SelectItem value="DAY">Day</SelectItem><SelectItem value="WEEK">Week</SelectItem><SelectItem value="MONTH">Month</SelectItem></SelectContent>
-              </Select>
-            )}
-          </Field>
+        <div className="grid gap-4" data-testid="section-quota">
+          <div className="flex items-center gap-3"><Switch id="quota-on" checked={f.quota} onCheckedChange={(quota) => set({ quota })} data-testid="plan-quota" /><Label htmlFor="quota-on" className="text-[14.5px]">Quota</Label></div>
+          {f.quota && (
+            <>
+              <div className="flex flex-wrap items-end gap-4">
+                <Field label="Limit">{(id) => <div className="flex items-center gap-3"><Input id={id} value={f.limit} onChange={(e) => set({ limit: e.target.value })} inputMode="numeric" className="w-36 font-mono" data-testid="plan-limit" /><span className="text-[13.5px] text-muted-foreground">requests per</span></div>}</Field>
+                <Field label="Period">
+                  {(id) => (
+                    <Select value={f.period} onValueChange={(period) => set({ period: period as PlanForm["period"] })}>
+                      <SelectTrigger id={id} className="w-36 bg-card" data-testid="plan-period"><SelectValue /></SelectTrigger>
+                      <SelectContent><SelectItem value="DAY">Day</SelectItem><SelectItem value="WEEK">Week</SelectItem><SelectItem value="MONTH">Month</SelectItem></SelectContent>
+                    </Select>
+                  )}
+                </Field>
+              </div>
+              <RuleHelp>The most requests one key can make in the period: day, week or month. doze-aws counts them per key by UTC day and answers 429 once the quota is used.{example && <> {example.name} allows {quotaWords(example.quota)}.</>}</RuleHelp>
+            </>
+          )}
         </div>
-        <RuleHelp>The most requests one key can make in the period: day, week or month. doze-aws counts them per key by UTC day and answers 429 once the quota is used.{example && <> {example.name} allows {quotaWords(example.quota)}.</>}</RuleHelp>
       </FormSection>
     </FormPage>
   );

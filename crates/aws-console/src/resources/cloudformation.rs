@@ -4,7 +4,7 @@
 
 use super::Format::{Flag, Mono, Pairs, Text as Plain, Time};
 use super::cfn_kept::retained;
-use super::cfn_ops::{EXPORTS, STACK_OPS};
+use super::cfn_ops::{EXPORTS, STACK_CALM, STACK_OPS};
 use super::{
     Apply, Deep, Delete, Descriptor, Id, Kept, Kind, List, Options, Param, ParamKind, Shape, Step,
     Sub, Tags, Text, Write, col, field, op, says, state,
@@ -245,5 +245,6 @@ const STACKS: Kind = Kind {
         ..super::Page::NONE
     },
     ops: STACK_OPS,
+    calm: STACK_CALM,
     ..Kind::BARE
 };

@@ -61,16 +61,22 @@ export function connProblem(f: ConnForm, taken: readonly string[]): string | nul
   return f.tokenEndpoint && f.clientId && f.clientSecret ? (endpointProblem(f.tokenEndpoint) ? "The authorization endpoint is an http or https address." : null) : "OAuth needs the authorization endpoint, a client ID and a client secret.";
 }
 
-/** CreateConnection's input: the authorization for its type and the invocation HTTP parameters that were filled in. */
-export function createConnInput(f: ConnForm): Record<string, unknown> {
+/** What the call shows in place of a secret. */
+export const HIDDEN = "...";
+
+/** CreateConnection's input: the authorization for its type and the invocation HTTP parameters that were filled in.
+ * `shown`: the call as it is put on the page and in the copied CLI and boto3, where a secret (an API key, a password, a client secret, a
+ * parameter marked secret) is `...`, not what was typed; what is sent is never `shown`. */
+export function createConnInput(f: ConnForm, shown = false): Record<string, unknown> {
+  const hide = (v: string) => (shown && v !== "" ? HIDDEN : v);
   const params = filled(f.params as KeyValueRow[]) as HttpParam[];
-  const of = (k: ParamKind) => params.filter((p) => p.kind === k).map((p) => ({ Key: p.key, Value: p.value, IsValueSecret: p.secret }));
+  const of = (k: ParamKind) => params.filter((p) => p.kind === k).map((p) => ({ Key: p.key, Value: p.secret ? hide(p.value) : p.value, IsValueSecret: p.secret }));
   const http = { HeaderParameters: of("header"), QueryStringParameters: of("query"), BodyParameters: of("body") };
   const used = Object.fromEntries(Object.entries(http).filter(([, v]) => v.length > 0));
   const auth =
-    f.auth === "API_KEY" ? { ApiKeyAuthParameters: { ApiKeyName: f.keyName, ApiKeyValue: f.keyValue } }
-    : f.auth === "BASIC" ? { BasicAuthParameters: { Username: f.username, Password: f.password } }
-    : { OAuthParameters: { AuthorizationEndpoint: f.tokenEndpoint, HttpMethod: f.tokenMethod, ClientParameters: { ClientID: f.clientId, ClientSecret: f.clientSecret } } };
+    f.auth === "API_KEY" ? { ApiKeyAuthParameters: { ApiKeyName: f.keyName, ApiKeyValue: hide(f.keyValue) } }
+    : f.auth === "BASIC" ? { BasicAuthParameters: { Username: f.username, Password: hide(f.password) } }
+    : { OAuthParameters: { AuthorizationEndpoint: f.tokenEndpoint, HttpMethod: f.tokenMethod, ClientParameters: { ClientID: f.clientId, ClientSecret: hide(f.clientSecret) } } };
   return {
     Name: f.name,
     ...(f.description ? { Description: f.description } : {}),

@@ -27,6 +27,12 @@ function useRestImpact(id: string, name: string, on: boolean): { words: React.Re
   };
 }
 
+/** What the delete cannot say: who called the API lately. A call to an API's address is a plain HTTP request with no AWS signature, and the Live record keeps
+ * only the calls that are signed, so it holds none of them; the page says so rather than let a quiet record read as an API nobody calls. */
+function Callers() {
+  return <p className="mt-3 text-[13.5px] leading-[21px] text-muted-foreground" data-testid="delete-callers">Who called this API lately is not shown: requests to its address carry no AWS signature, so the Live record does not hold them, and a quiet record does not mean nobody calls it.</p>;
+}
+
 /** The words of what goes with an HTTP or WebSocket API. */
 function useHttpImpact(id: string, on: boolean): React.ReactNode {
   const routes = useRoutes(id, on).data?.items ?? [];
@@ -67,11 +73,13 @@ export function ApiDelete({ api, open, onOpenChange, onDone }: { api: Pick<AnyAp
         testId="api-delete"
       >
         <div className="text-[13.5px] leading-[21px] text-foreground">{rest.plans}</div>
+        <Callers />
       </TypedConfirm>
     );
   }
   return (
     <PlainConfirm open={open} onOpenChange={(o) => { onOpenChange(o); if (!o) del.reset(); }} title="Delete API" description={words} call="DeleteApi" pending={del.isPending} error={del.error} onConfirm={confirm} testId="api-delete">
+      <Callers />
     </PlainConfirm>
   );
 }
