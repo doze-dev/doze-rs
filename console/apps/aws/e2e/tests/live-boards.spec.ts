@@ -22,7 +22,8 @@ test("LiveA: apps on the left, the resources they called and what those are wire
   await expect(labels.filter({ hasText: "target" })).toContainText("payment-settled");
   await expect(labels.filter({ hasText: "redrive" })).toContainText("after 5 receives");
   await expect(labels.filter({ hasText: "notify" })).toContainText("ObjectCreated");
-  await expect(page.getByTestId("map-wire")).toHaveCount(3);
+  // A rule's target, the redrive, a notification, and the topic's two subscriptions.
+  await expect(page.getByTestId("map-wire")).toHaveCount(5);
   // Not wired: what exists and nothing calls or feeds.
   await page.getByTestId("not-wired").locator("summary").click();
   await expect(page.getByTestId("not-wired-item").filter({ hasText: "deliveries" })).toHaveCount(1);

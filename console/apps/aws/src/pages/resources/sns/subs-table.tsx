@@ -5,14 +5,22 @@ import { type DataColumn } from "@doze/ui/components/app/data-table";
 import { cn } from "@doze/ui/lib/utils";
 import { radioColumn } from "./parts";
 import { endpointName, pendingWhy, type SubRow, shortArn, shortId, statusOf } from "./sub-model";
-import { protocolLabel } from "./protocols";
+import { protocolLabel, storedWhy } from "./protocols";
 
 /** The status with its dot: green for confirmed, amber for one waiting. */
-export function Status({ s }: { s: Pick<SubRow, "pending"> }) {
+export function Status({ s }: { s: Pick<SubRow, "pending"> & { protocol?: string } }) {
+  const why = s.protocol ? storedWhy(s.protocol) : null;
   return (
-    <span className={cn("inline-flex items-center gap-2 text-[13.5px] font-medium", s.pending ? "text-warn" : "text-good")} data-testid="sub-status">
-      <span aria-hidden className="size-2 rounded-full bg-current" />
-      {statusOf(s)}
+    <span className="grid gap-0.5" data-testid="sub-status-cell">
+      <span className={cn("inline-flex items-center gap-2 text-[13.5px] font-medium", s.pending ? "text-warn" : "text-good")} data-testid="sub-status">
+        <span aria-hidden className="size-2 rounded-full bg-current" />
+        {statusOf(s)}
+      </span>
+      {why && (
+        <span className="text-[12px] leading-4 text-muted-foreground" data-testid="not-active">
+          <b className="font-semibold text-foreground">Not active locally.</b> {why}
+        </span>
+      )}
     </span>
   );
 }

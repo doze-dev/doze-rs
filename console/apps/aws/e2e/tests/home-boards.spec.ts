@@ -38,7 +38,7 @@ test("home: what is awake by group, who is connected, what needs a look, and the
   await expect(recent).toContainText("admin-cli");
   await expect(recent).toContainText("receipts/r-8841.pdf");
   await expect(recent).not.toContainText("http://127.0.0.1");
-  await expect(recent).toContainText("catalog");
+  await expect(recent).toContainText("orders-created");
   await shot(page, "home");
 });
 

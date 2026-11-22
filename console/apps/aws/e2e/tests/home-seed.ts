@@ -112,6 +112,8 @@ export async function trafficHome(endpoint: string, account: string, k: Apps): P
   await rawJson(endpoint, k.payments, "sqs", "AmazonSQS.SendMessage", { QueueUrl: url("pick-lists"), MessageBody: "{}" }, GO);
   await rawJson(endpoint, k.catalog, "dynamodb", "DynamoDB_20120810.PutItem", { TableName: "orders-table", Item: { id: { S: "o-1" } } }, GO, "1.0");
   await rawPut(endpoint, k.catalog, "product-images/sku-FV-TOM-V.jpg", "jpg", GO);
+  // payments publishes an order: SNS delivers it to two queues.
+  as(endpoint, k.payments, ["sns", "publish", "--topic-arn", `arn:aws:sns:us-east-1:${account}:orders-created`, "--message", "order"]);
   // report-job reads a bucket its policy does not cover: soft IAM lets it through and records that AWS would not.
   as(endpoint, k.reportJob, ["s3api", "get-object", "--bucket", "receipts", "--key", "r-8841.pdf", join(tmpdir(), "home-seed-out")]);
   // admin-cli asks for S3 Select, which doze-aws does not build: 501.

@@ -9,6 +9,7 @@ import { Input } from "@doze/ui/components/ui/input";
 import type { ResourceDetail } from "../../../api/types/ResourceDetail";
 import { Block, RadioRows } from "./parts";
 import { subColumns } from "./subs-table";
+import { NotActiveBanner } from "./not-active-banner";
 import { orderSubs, topicSubRow, type SubRow } from "./sub-model";
 
 export const topicSubs = (d: ResourceDetail, arn: string): SubRow[] => orderSubs((d.subs.find((s) => s.title === "Subscriptions")?.rows ?? []).map((r) => topicSubRow(r, arn)));
@@ -34,6 +35,7 @@ export function SubscriptionsTab({ d, arn, fifo, create, confirm }: { d: Resourc
   }
   return (
     <Block title="Subscriptions" testId="subscriptions-tab">
+      <NotActiveBanner protocols={rows.map((r) => r.protocol)} />
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="relative w-full max-w-[22rem]">
           <SearchIcon aria-hidden className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />

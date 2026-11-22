@@ -17,6 +17,7 @@ import { ago, who } from "../../people";
 import { CardSkeleton, Section, useNow } from "../card";
 import { ResourceTo } from "../resources/value";
 import { holderOf } from "./draft";
+import { IdentityCards } from "./identity-cards";
 import { Modes } from "./modes";
 import { PassDialog } from "./pass-dialog";
 
@@ -127,16 +128,10 @@ export function AccessPage() {
     <>
       <PageHeader
         title="Access"
-        sub="Who can do what, and why: IAM's mode, the calls it refused or would have, and who each access key is."
+        sub={<><span className="text-foreground">Who can do what, and why.</span> Identities and the credentials they hold, the calls IAM refused or would have, and who each access key is.</>}
         refresh={<RefreshControl updatedAt={access.dataUpdatedAt} fetching={access.isFetching} onRefresh={refresh} />}
-        actions={
-          <Button asChild variant="outline" className="bg-card">
-            <Link to="/resources/$service" params={{ service: "iam" }} data-testid="access-iam-resources">
-              IAM users, roles and policies
-            </Link>
-          </Button>
-        }
       />
+      <IdentityCards />
       {access.isError && !v ? (
         <ErrorBlock what="Access could not be read" error={access.error} hint={HINT} onRetry={() => void refetch()} retrying={access.isFetching} testId="access-error" />
       ) : !v ? (
