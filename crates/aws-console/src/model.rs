@@ -89,6 +89,8 @@ pub struct ApiCoverage {
 pub struct ServiceRow {
     pub name: String,
     pub title: String,
+    /// What it is for, as the Resources index groups it (`Messaging and events`).
+    pub group: String,
     pub served: bool,
     /// Operations this build answers, over every API of the service.
     pub built: u32,

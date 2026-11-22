@@ -78,6 +78,10 @@ pub fn row(service: &ServiceFacts) -> ServiceRow {
     ServiceRow {
         name: service.name.to_owned(),
         title: service.title.to_owned(),
+        group: crate::resources::catalog::ALL
+            .iter()
+            .find(|e| e.service == service.name)
+            .map_or_else(String::new, |e| e.group.to_owned()),
         served: service.served,
         built: apis.iter().map(|a| a.built).sum(),
         total: apis.iter().map(|a| a.total).sum(),

@@ -148,6 +148,8 @@ pub enum SignalKind {
     Alarm,
     FailedExecutions,
     FailedStack,
+    /// Resources a script created that doze-aws keeps and does nothing with (an email subscription).
+    NotActive,
 }
 
 /// Something worth a look, and where it is.
@@ -176,6 +178,12 @@ pub struct HomeView {
     pub callers: Vec<CallerSeen>,
     /// The services apps called, most recent first.
     pub services: Vec<ServiceSeen>,
+    /// Every service any call reached (an app, this console, another service on the bus), most recent first: what keeps a
+    /// service awake.
+    pub activity: Vec<ServiceSeen>,
+    /// Seconds without a request before a service lets go of its memory and files (`--idle-secs`): a service whose newest call
+    /// is older than this is asleep.
+    pub idle_secs: u64,
     /// The newest calls from apps, newest first, at most five.
     pub recent: Vec<CallRecord>,
     /// From the Live record: refusals, error bursts, operations not built.
