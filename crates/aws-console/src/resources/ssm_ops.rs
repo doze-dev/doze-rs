@@ -1,6 +1,7 @@
 //! What the Parameter Store pages of the console may ask of SSM without a parameter bound: the form that makes one (`PutParameter`,
 //! which an edit makes again with `Overwrite`), the delete of several (`DeleteParameters`), and what a parameter's own pages read
-//! and write (its history, its labels). A page names its parameter in the input; each call is the service's own, made as the caller
+//! and write (its history, its labels), the public parameters under `/aws/service` and the two service settings of Parameter
+//! Store. A page names its parameter in the input; each call is the service's own, made as the caller
 //! `console`. Also how the list's filter tokens become `DescribeParameters` filters.
 
 use serde_json::{Value, json};
@@ -11,6 +12,10 @@ use super::{Op, ops::free};
 pub(super) const OPS: &[Op] = &[
     free("PutParameter"),
     free("GetParameter"),
+    free("GetParametersByPath"),
+    free("GetServiceSetting"),
+    free("UpdateServiceSetting"),
+    free("ResetServiceSetting"),
     free("DeleteParameter"),
     free("DeleteParameters"),
     free("GetParameterHistory"),

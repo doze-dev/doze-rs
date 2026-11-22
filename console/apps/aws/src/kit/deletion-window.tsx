@@ -26,7 +26,7 @@ const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "
 
 /** Choosing the window (`choose`: a number of days, and the date it ends) or a deletion already scheduled (`scheduled`: the date,
  * and Cancel deletion, which restores it). The words are the same for a key and a secret; `noun` names which. */
-export function DeletionWindow(props: ({ mode: "choose"; days: string; onDays: (text: string) => void; now: number } | { mode: "scheduled"; /** ms. */ on: number; onRestore: () => void; restoring?: boolean }) & { noun: string; limits?: { min: number; max: number }; className?: string }) {
+export function DeletionWindow(props: ({ mode: "choose"; days: string; onDays: (text: string) => void; now: number } | { mode: "scheduled"; /** ms. */ on: number; onRestore: () => void; restoring?: boolean }) & { noun: string; limits?: { min: number; max: number }; className?: string; /** The label over the field, when it is not `Waiting period, in days`. */ label?: string; /** Only the field (and what is wrong with it): the page says the rest in one note of its own. */ bare?: boolean }) {
   const id = useId();
   const lim = props.limits ?? WINDOW;
   if (props.mode === "scheduled") {
@@ -44,19 +44,23 @@ export function DeletionWindow(props: ({ mode: "choose"; days: string; onDays: (
   const n = windowDays(props.days, lim);
   return (
     <div className={cn("grid gap-1.5", props.className)} data-slot="deletion-window" data-testid="deletion-window">
-      <Label htmlFor={id}>Waiting period, in days</Label>
+      <Label htmlFor={id}>{props.label ?? "Waiting period, in days"}</Label>
       <div className="flex flex-wrap items-center gap-3">
         <div className="relative w-32">
           <Input id={id} inputMode="numeric" value={props.days} onChange={(e) => props.onDays(e.target.value)} aria-invalid={n === null} aria-describedby={`${id}-help`} className="pr-12 font-mono tabular-nums" data-testid="deletion-days" />
           <span aria-hidden className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-[13px] text-muted-foreground">days</span>
         </div>
-        <span className="text-[13.5px] text-muted-foreground" data-testid="deletion-ends">
-          {n === null ? <span className="text-bad">Enter a whole number of days from {lim.min} to {lim.max}.</span> : <>With {n}, the {props.noun} is deleted on {purgeDate(props.now, n)}.</>}
-        </span>
+        {(n === null || !props.bare) && (
+          <span className="text-[13.5px] text-muted-foreground" data-testid="deletion-ends">
+            {n === null ? <span className="text-bad">Enter a whole number of days from {lim.min} to {lim.max}.</span> : <>With {n}, the {props.noun} is deleted on {purgeDate(props.now, n)}.</>}
+          </span>
+        )}
       </div>
-      <p id={`${id}-help`} className="border-l-2 pl-3 text-[13px] leading-5 text-muted-foreground">
-        From <b className="font-semibold text-foreground">{lim.min}</b> to <b className="font-semibold text-foreground">{lim.max}</b> days. Until then the {props.noun} cannot be used, and Cancel deletion restores it.
-      </p>
+      {!props.bare && (
+        <p id={`${id}-help`} className="border-l-2 pl-3 text-[13px] leading-5 text-muted-foreground">
+          From <b className="font-semibold text-foreground">{lim.min}</b> to <b className="font-semibold text-foreground">{lim.max}</b> days. Until then the {props.noun} cannot be used, and Cancel deletion restores it.
+        </p>
+      )}
     </div>
   );
 }

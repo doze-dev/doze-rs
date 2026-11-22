@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { newRow } from "@doze/ui/components/app/key-values";
 import type { ColumnSpec } from "../../../api/types/ColumnSpec";
 import type { ResourceRow } from "../../../api/types/ResourceRow";
-import { blankSecret, dayOf, durationProblem, functionName, listSentence, nameProblem, rotationSentence, rowsValue, savingWords, scheduleProblem, scheduleWords, secretCalls, secretRows, secretValue, tokenWords, tokensFromQuery, tokensToQuery, valueProblem, valueRows, versions, withStage } from "./model";
+import { blankSecret, cadenceOf, cadenceProblem, dayOf, expressionOf, durationProblem, functionName, listSentence, nameProblem, replicaProblem, replicaRegions, rotationSentence, rowsValue, savingWords, scheduleProblem, scheduleWords, secretCalls, secretRows, secretValue, tokenWords, tokensFromQuery, tokensToQuery, valueProblem, valueRows, versions, withStage } from "./model";
 
 const col = (title: string): ColumnSpec => ({ title, format: "text", badge: null });
 const COLUMNS = ["Description", "Rotation", "Last changed", "Last retrieved", "Marked for deletion", "Encryption key"].map(col);
@@ -87,5 +87,43 @@ describe("the wizard", () => {
     expect(more.map((c) => c.operation)).toEqual(["CreateSecret", "PutResourcePolicy", "RotateSecret"]);
     expect(more[2]!.input).toEqual({ SecretId: "larder/prod/search-key", RotationLambdaARN: "arn:aws:lambda:us-east-1:1:function:rot", RotationRules: { ScheduleExpression: "rate(30 days)", Duration: "3h" }, RotateImmediately: false });
     expect(secretValue({ ...f, mode: "text", text: "plain" })).toBe("plain");
+  });
+});
+
+describe("the rotation schedule builder", () => {
+  test("a rate in days or hours is a cadence, anything else is an expression only", () => {
+    expect(cadenceOf("rate(30 days)")).toEqual({ n: "30", unit: "days" });
+    expect(cadenceOf("rate(1 day)")).toEqual({ n: "1", unit: "days" });
+    expect(cadenceOf("rate(4 hours)")).toEqual({ n: "4", unit: "hours" });
+    expect(cadenceOf("cron(0 4 1 * ? *)")).toBeNull();
+    expect(cadenceOf("rate(300 minutes)")).toBeNull();
+  });
+  test("a cadence is written as AWS writes it", () => {
+    expect(expressionOf({ n: "30", unit: "days" })).toBe("rate(30 days)");
+    expect(expressionOf({ n: "1", unit: "days" })).toBe("rate(1 day)");
+    expect(expressionOf({ n: "6", unit: "hours" })).toBe("rate(6 hours)");
+  });
+  test("days are 1 to 1,000 and hours 4 or more", () => {
+    expect(cadenceProblem({ n: "30", unit: "days" })).toBeNull();
+    expect(cadenceProblem({ n: "0", unit: "days" })).toMatch(/1 to 1,000/);
+    expect(cadenceProblem({ n: "3", unit: "hours" })).toMatch(/every 4 hours/);
+    expect(cadenceProblem({ n: "x", unit: "days" })).toBe("Enter a whole number.");
+  });
+});
+
+describe("replicas in the create form", () => {
+  test("are Region names, not the Region the secret is in, each once; a blank row is dropped", () => {
+    const all = ["eu-west-1", "", "eu-west-1", "us-east-1", "nope"];
+    expect(replicaProblem(all[0]!, 0, all, "us-east-1")).toBeNull();
+    expect(replicaProblem(all[1]!, 1, all, "us-east-1")).toBeNull();
+    expect(replicaProblem(all[2]!, 2, all, "us-east-1")).toBe("Another row has this Region.");
+    expect(replicaProblem(all[3]!, 3, all, "us-east-1")).toBe("The secret is already in us-east-1.");
+    expect(replicaProblem(all[4]!, 4, all, "us-east-1")).toMatch(/Region name/);
+    expect(replicaRegions(all)).toEqual(["eu-west-1", "eu-west-1", "us-east-1", "nope"]);
+  });
+  test("CreateSecret carries them as AddReplicaRegions", () => {
+    const f = { ...blankSecret(), name: "n", pairs: [newRow("k", "v")], replicas: ["eu-west-1", " "] };
+    expect((secretCalls(f, { masked: true })[0]!.input as Record<string, unknown>).AddReplicaRegions).toEqual([{ Region: "eu-west-1" }]);
+    expect((secretCalls(blankSecret(), { masked: true })[0]!.input as Record<string, unknown>).AddReplicaRegions).toBeUndefined();
   });
 });

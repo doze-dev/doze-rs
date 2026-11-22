@@ -3,7 +3,8 @@
 // and makes the next version, and cannot change the type.
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Alert } from "@doze/ui/components/app/alert";
 import { KeyValueEditor } from "@doze/ui/components/app/key-value-editor";
 import { rowsValid } from "@doze/ui/components/app/key-values";
@@ -44,7 +45,15 @@ export function ParameterForm({ d }: { d?: ResourceDetail }) {
   const [tried, setTried] = useState(false);
   const [pending, setPending] = useState(false);
   const [refused, setRefused] = useState<{ code: string; message: string } | null>(null);
-  const set = (patch: Partial<ParamForm>) => { setF((x) => ({ ...x, ...patch })); setRefused(null); };
+  // A SecureString is edited from its own value: read decrypted when the form opens, until the person has typed.
+  const typed = useRef(false);
+  const secureEdit = editing && fieldOf(d, "Type") === "SecureString";
+  const current = useQuery({ queryKey: ["resources", "kindop", "ssm", "parameters", "GetParameter", d?.name, "edit"], queryFn: ({ signal }) => callKindOp<{ Parameter: { Value: string } }>(PARAMETERS, "GetParameter", { Name: d?.name, WithDecryption: true }, signal), enabled: secureEdit, retry: false, staleTime: 0, gcTime: 0 });
+  useEffect(() => {
+    const read = current.data?.Parameter.Value;
+    if (read !== undefined && !typed.current) setF((x) => ({ ...x, value: read }));
+  }, [current.data]);
+  const set = (patch: Partial<ParamForm>) => { if (patch.value !== undefined) typed.current = true; setF((x) => ({ ...x, ...patch })); setRefused(null); };
   const exists = !editing && known.some((p) => p.name === f.name);
   const existing = known.find((p) => p.name === f.name);
   const problems = { name: editing ? null : nameProblem(f.name), value: valueProblem(f.value, f.tier), tags: rowsValid(f.tags, TAG_RULES) ? null : "Fix the tags marked." };
@@ -75,11 +84,11 @@ export function ParameterForm({ d }: { d?: ResourceDetail }) {
       mono={false}
       sub={editing ? <><span className="font-mono text-bright">{d.name}</span> is a {f.type} at version {fieldOf(d, "Version")}. Saving a new value makes version {Number(fieldOf(d, "Version") ?? 0) + 1} and keeps versions 1 to {fieldOf(d, "Version")}. The console can&apos;t change the type of a parameter that exists, for example String to SecureString.</> : `Parameters are only available in the Region where they were created (${region}).`}
       crumbs={editing ? [{ label: "Resources", to: "/resources" }, { label: d.group, to: "/resources" }, { label: d.service_title, to: "/resources/ssm" }, { label: "Parameters", to: "/resources/ssm/parameters" }, { label: d.name, to: `/resources/ssm/parameters/${encodeURIComponent(d.name)}` }, { label: "Edit", to: "" }] : [...crumbs(first?.group, first?.service_title).slice(0, -1), { label: "Parameter Store", to: "/resources/ssm" }, { label: "Create parameter", to: "" }]}
-      request={f.name || editing ? { service: "ssm", operation: "PutParameter", input } : null}
+      request={{ service: "ssm", operation: "PutParameter", input }}
       showInput
       callTitle={taken ? "The call that was refused" : undefined}
       refusal={refused}
-      callNote={taken ? `After you change the name, Create parameter makes the same call with the new name.` : editing ? "Every field on the form is sent, with the key the parameter already uses, so nothing is left to a default. Overwrite is true, so the parameter that exists is updated, and the response carries the new version." : "Overwrite is not sent, so its default, false, applies: a name that exists is refused."}
+      callNote={taken ? `After you change the name, Create parameter makes the same call with the new name.` : editing ? "The type, the data type and the key are left out: they stay as the parameter has them. Overwrite is true, so the parameter that exists is updated, and the response carries the new version." : "Overwrite is not sent, so its default, false, applies: a name that exists is refused."}
       banner={refused ? <Alert tone="bad" title={taken ? `PutParameter was refused with ${refused.code} (HTTP 400).` : `The parameter was not ${editing ? "saved" : "created"}: ${refused.code}`} testId="put-refused">{taken ? `The error's description: ${refused.message} Nothing was created or changed.` : refused.message}</Alert> : undefined}
       submitLabel={editing ? "Save changes" : "Create parameter"}
       pending={pending}
@@ -101,18 +110,18 @@ export function ParameterForm({ d }: { d?: ResourceDetail }) {
           <RadioCards name="tier" label="Parameter tier" value={f.tier} onChange={(tier) => set({ tier })} options={TIERS} />
           <RuleHelp>On AWS, Standard holds values up to <b>4 KB</b> and Advanced up to <b>8 KB</b>, and an Advanced parameter can never go back to Standard. doze-aws holds to those sizes.</RuleHelp>
         </div>
-        <div className="grid gap-2">
+        {!editing && <div className="grid gap-2">
           <span className="text-[14px] leading-none font-medium text-bright">Type</span>
           <RadioCards name="type" label="Type" value={f.type} onChange={(type) => set({ type })} disabled={editing} className="sm:grid-cols-3" options={TYPES} />
           <RuleHelp>Only the value of a SecureString is encrypted; the name, description and other properties are not. doze-aws seals the value with the KMS key below. The type can&apos;t be changed afterwards in the console.</RuleHelp>
-        </div>
-        <Field label="Data type" help={<>The default, <b>text</b>, checks nothing. Other data types make AWS validate the value (integer, boolean, json and more); only text is offered here.</>}>
+        </div>}
+        {!editing && <Field label="Data type" help={<>The default, <b>text</b>, checks nothing. Other data types make AWS validate the value (integer, boolean, json and more); only text is offered here.</>}>
           {(id) => <Input id={id} value="text" readOnly className="max-w-40 bg-muted font-mono" data-testid="parameter-datatype" />}
-        </Field>
-        <Field label="KMS Key ID" optional={f.type !== "SecureString"} help={<>A key id, key ARN, alias name or alias ARN; an alias is written with the <span className="font-mono">alias/</span> prefix. Left empty, AWS uses <span className="font-mono">alias/aws/ssm</span>. {f.type === "SecureString" ? "doze-aws seals the value with this key, through KMS, so the key must exist and be enabled." : "It applies to a SecureString only."}</>}>
+        </Field>}
+        {!editing && <Field label="KMS Key ID" optional={f.type !== "SecureString"} help={<>A key id, key ARN, alias name or alias ARN; an alias is written with the <span className="font-mono">alias/</span> prefix. Left empty, AWS uses <span className="font-mono">alias/aws/ssm</span>. {f.type === "SecureString" ? "doze-aws seals the value with this key, through KMS, so the key must exist and be enabled." : "It applies to a SecureString only."}</>}>
           {(id) => <KeyAliasPicker id={id} value={f.type === "SecureString" ? f.key : null} onChange={(key) => set({ key })} defaultLabel="aws/ssm" />}
-        </Field>
-        <Field label="Value" error={tried ? (problems.value ?? undefined) : undefined} help={<>On AWS a value is limited to <b>4 KB</b> on Standard and <b>8 KB</b> on Advanced, and can&apos;t contain <span className="font-mono">{"{{ }}"}</span> or <span className="font-mono">{"{{ssm:name}}"}</span>. This one is {new TextEncoder().encode(f.value).length.toLocaleString("en-US")} characters.</>} hint={editing && f.type === "SecureString" ? "The current value is not shown here. Show it on the Overview tab; saving makes a new version with what you enter." : undefined} testId="field-value">
+        </Field>}
+        <Field label="Value" error={tried ? (problems.value ?? undefined) : undefined} help={<>On AWS a value is limited to <b>4 KB</b> on Standard and <b>8 KB</b> on Advanced, and can&apos;t contain <span className="font-mono">{"{{ }}"}</span> or <span className="font-mono">{"{{ssm:name}}"}</span>. This one is {new TextEncoder().encode(f.value).length.toLocaleString("en-US")} characters.</>} hint={secureEdit ? (current.isError ? "The current value could not be read. Saving makes a new version with what you enter." : "The current value is read decrypted when this form opens, so the call is on the record; saving makes a new version with what is here.") : undefined} testId="field-value">
           {(id) => <Textarea id={id} value={f.value} onChange={(e) => set({ value: e.target.value })} rows={4} spellCheck={false} className="bg-card font-mono text-[13px]" data-testid="parameter-value" />}
         </Field>
       </FormSection>

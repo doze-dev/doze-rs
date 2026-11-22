@@ -62,6 +62,7 @@ function ParameterView({ d, updatedAt, fetching, refresh }: { d: ResourceDetail;
     try {
       const r = await callKindOp<{ Parameter: { Value: string } }>(PARAMETERS, "GetParameter", { Name: name, WithDecryption: true });
       setValue(r.Parameter.Value);
+      refresh();
     } catch (e) {
       setRefused(refusalOf(e));
     } finally {
@@ -73,7 +74,7 @@ function ParameterView({ d, updatedAt, fetching, refresh }: { d: ResourceDetail;
     ? `${name} is a SecureString at version ${version}, sealed under the KMS key ${key ?? "alias/aws/ssm"}.${value !== null ? " The value below was decrypted for this page view by a GetParameter call from the console." : ""}${read}`
     : `${name} is a ${type} at version ${version}.${read}`;
   const shown: ResourceDetail = { ...d, sentence: null, wired: [], badges: [{ text: type, tone: "neutral" }, { text: fieldOf(d, "Tier") ?? "Standard", tone: "neutral" }] };
-  const calls = <RecentCalls calls={d.calls} noun="parameter" className="mt-10" />;
+  const calls = <RecentCalls calls={d.calls} noun="parameter" className="mt-10" pin={["GetParameter"]} />;
   const valueCell = secure ? (value === null ? <span className="font-mono" aria-label="Masked">************************</span> : <span className="font-mono text-bright" data-testid="parameter-value">{value}</span>) : <span className="font-mono" data-testid="parameter-value">{fieldOf(d, "Value") ?? "–"}</span>;
   const tabs = [
     { id: "overview", label: "Overview", render: () => (
@@ -105,7 +106,7 @@ function ParameterView({ d, updatedAt, fetching, refresh }: { d: ResourceDetail;
       </div>
     ) },
     { id: "history", label: "History", count: history.data ? history.data.Parameters.length : null, render: () => <><TabHistory name={name} />{calls}</> },
-    { id: "tags", label: "Tags", count: tags.data ? tags.data.tags.length : null, render: () => <><TagsTab target={t} noun="tag" subject="This parameter" explain="Tags are key and value pairs that categorize a parameter." />{calls}</> },
+    { id: "tags", label: "Tags", count: tags.data ? tags.data.tags.length : null, render: () => <><TagsTab target={t} noun="tag" subject="This parameter" explain="Tags are key and value pairs that categorize a parameter." manage={{ open: "Edit tags", inPlace: true, remove: "Remove", save: "Save", title: "Tags", lead: "Key and value pairs on this parameter. Add a pair, or remove one, then save.", rules: (change, before) => { const had = new Set(before.map((x) => x.key)); const fresh = change.set.filter((x) => !had.has(x.key)).map((x) => x.key); return <>A key is 1 to 128 characters and a value 0 to 256, made of letters, numbers, spaces and <span className="font-mono">_ . : / = + - @</span>. A parameter can carry up to 50 tags. Saving adds new keys and overwrites keys that already exist.{fresh.length > 0 && <> <b className="font-semibold text-foreground">{fresh.length === 1 ? "One pair is new here" : `${fresh.length} pairs are new here`}: {fresh.join(", ")}.</b></>} On AWS, DescribeParameters can also filter on a tag (<span className="font-mono">tag:env</span>), and doze-aws does too.</>; } }} />{calls}</> },
   ];
   const banner = search.done === "saved" ? <ResultBanner title="Parameter saved." returned={`PutParameter returned version ${search.ver ?? version}; the earlier versions stay in History.`} onDismiss={() => go()} testId="saved-banner" /> : undefined;
   return (

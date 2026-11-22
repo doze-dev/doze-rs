@@ -164,3 +164,77 @@ async fn parameters_are_made_and_overwritten_listed_by_filter_labelled_and_delet
     let (_, left) = w.get(&format!("{BASE}/ssm/parameters")).await;
     assert_eq!(names(&left), ["/larder/prod/db/host"]);
 }
+
+/// The two tabs beside the parameters: the public parameters under `/aws/service` (`GetParametersByPath`, ten at a time with a
+/// token) and the service settings of Parameter Store, each read, changed and put back to its default.
+#[tokio::test]
+async fn the_public_parameters_and_the_two_parameter_store_settings_are_read_and_changed() {
+    let w = world("kmsetc-ssm-tabs", Mode::Soft, &[]);
+    let first = ok(
+        &w,
+        "ssm/parameters",
+        "GetParametersByPath",
+        json!({"Path": "/aws/service/ami-amazon-linux-latest", "Recursive": true, "MaxResults": 10}),
+    )
+    .await;
+    let page = first["Parameters"].as_array().unwrap();
+    assert_eq!(page.len(), 10, "{first}");
+    assert!(
+        page[0]["Name"]
+            .as_str()
+            .unwrap()
+            .starts_with("/aws/service/ami-amazon-linux-latest/")
+    );
+    let token = first["NextToken"].as_str().expect("more than ten names");
+    let second = ok(
+        &w,
+        "ssm/parameters",
+        "GetParametersByPath",
+        json!({"Path": "/aws/service/ami-amazon-linux-latest", "Recursive": true, "MaxResults": 10, "NextToken": token}),
+    )
+    .await;
+    assert_ne!(second["Parameters"][0]["Name"], page[0]["Name"]);
+
+    let id = "/ssm/parameter-store/default-parameter-tier";
+    let got = ok(
+        &w,
+        "ssm/parameters",
+        "GetServiceSetting",
+        json!({"SettingId": id}),
+    )
+    .await;
+    assert_eq!(got["ServiceSetting"]["SettingValue"], "Standard");
+    assert_eq!(got["ServiceSetting"]["Status"], "Default");
+    ok(
+        &w,
+        "ssm/parameters",
+        "UpdateServiceSetting",
+        json!({"SettingId": id, "SettingValue": "Advanced"}),
+    )
+    .await;
+    let changed = ok(
+        &w,
+        "ssm/parameters",
+        "GetServiceSetting",
+        json!({"SettingId": id}),
+    )
+    .await;
+    assert_eq!(changed["ServiceSetting"]["SettingValue"], "Advanced");
+    assert_eq!(changed["ServiceSetting"]["Status"], "Customized");
+    let reset = ok(
+        &w,
+        "ssm/parameters",
+        "ResetServiceSetting",
+        json!({"SettingId": id}),
+    )
+    .await;
+    assert_eq!(reset["ServiceSetting"]["Status"], "Default");
+    let (status, refused) = op(
+        &w,
+        "ssm/parameters",
+        "GetServiceSetting",
+        &json!({"SettingId": "/ssm/nope"}),
+    )
+    .await;
+    assert_eq!(status, 400, "{refused}");
+}

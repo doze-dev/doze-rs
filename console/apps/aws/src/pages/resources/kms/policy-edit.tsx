@@ -104,6 +104,7 @@ function PolicyForm({ d, id, state, back, initial }: { d: ResourceDetail; id: st
     >
       <FormSection title="Key policy" actions={<><Button type="button" variant="outline" className="bg-card" onClick={add} data-testid="statement-add"><PlusIcon /> Add new statement</Button><Button type="button" variant="outline" className="bg-card" onClick={remove} disabled={!chosen} data-testid="statement-remove"><Trash2Icon /> Remove</Button></>} testId="section-policy">
         <PolicyEditor kind="resource" value={text} onChange={setText} label="Key policy" rows={26} testId="policy-editor" />
+        {!doc && <p className="text-[13px] text-bad" role="alert" data-testid="policy-invalid">The policy is not a JSON object, so Save changes is off. Fix the JSON, or put back what was there.</p>}
       </FormSection>
       <Note testId="policy-note">doze-aws stores the policy as written. With IAM in soft or enforce mode it checks the policy on every request that names this key, and <b>a policy that names nobody locks everyone out</b>, the account root and PutKeyPolicy included. AWS refuses a policy that would stop the caller using PutKeyPolicy again unless the lockout safety check is bypassed; doze-aws checks only that the policy is valid JSON.</Note>
     </FormPage>

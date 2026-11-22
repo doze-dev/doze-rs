@@ -68,8 +68,11 @@ export function ScheduleDeletion({ ids }: { ids: string[] }) {
         {missing ? <Callout tone="warn" testId="no-keys">{missing}</Callout> : list.loading || aliases.loading ? <Skeleton className="h-24 rounded-xl" /> : <DataTable aria-label="Keys to delete" data={keys} columns={columns} rowId={(k) => k.id} maxHeight={320} />}
       </section>
       <FormSection title="Waiting period" testId="section-waiting">
-        <DeletionWindow mode="choose" noun="key" days={days} onDays={setDays} now={now} />
-        {n !== null && keys.length > 0 && <Note testId="window-note">With {n}, {keys.length === 1 ? keyName(keys[0]!) : "each key"} is deleted on <b>{purgeDate(now, n)}</b>. When the period ends, KMS deletes the key, its key material and every alias that refers to it, and data encrypted under the key cannot be recovered.</Note>}
+        <DeletionWindow mode="choose" noun="key" days={days} onDays={setDays} now={now} label="Waiting period (in days)" bare />
+        <Note testId="window-note">
+          <b className="font-semibold text-foreground">7 to 30 days; the API default is 30.</b> Until then the {keys.length === 1 ? "key" : "keys"} cannot be used, and Cancel deletion restores {keys.length === 1 ? "it" : "them"}.
+          {n !== null && keys.length > 0 && <> With {n}, {keys.length === 1 ? keyName(keys[0]!) : "each key"} is deleted on <b className="font-semibold text-foreground">{purgeDate(now, n)}</b>. When the period ends, KMS deletes the key, its key material and every alias that refers to it, and data encrypted under the key cannot be recovered.</>}
+        </Note>
         <div className="flex items-start gap-3" data-refused={tried && !confirmed ? "" : undefined}>
           <Checkbox id="confirm-deletion" checked={confirmed} onCheckedChange={(v) => setConfirmed(v === true)} className="mt-0.5" data-testid="confirm-deletion" />
           <Label htmlFor="confirm-deletion" className="grid gap-0.5 font-normal">

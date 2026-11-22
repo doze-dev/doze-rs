@@ -30,21 +30,26 @@ test.afterAll(async () => {
 });
 
 test("secretsmanager__secrets-list, secrets-none: the secrets, searched by the filters ListSecrets takes, and a list with none", async ({ page }) => {
+  // An app reads a secret: the line over the list says who, which and when, from the Live record.
+  cli(["secretsmanager", "get-secret-value", "--secret-id", "larder/prod/stripe-key"]);
   await open(page, server.console, "/resources/secretsmanager/secrets", "Secrets");
   await expect(page.getByTestId("list-sentence")).toContainText("2 secrets: 1 with rotation on.");
+  await expect(page.getByTestId("list-activity")).toContainText("read larder/prod/stripe-key");
+  await expect(page.getByTestId("list-activity")).toContainText("changed today");
   await expect(page.getByRole("table", { name: "Secrets" })).toContainText("larder/prod/stripe-key");
   await expect(page.getByRole("table", { name: "Secrets" })).toContainText("Postgres credentials for the larder application database.");
-  await page.getByTestId("filter-prop").click();
-  await page.getByRole("option", { name: "Name", exact: true }).click();
+  // The board: a heading with the count, a search box, a chip for each property, and the filters in use as chips.
+  await expect(page.getByTestId("list-heading")).toHaveText("Secrets (2)");
+  for (const p of ["name", "description", "tag-key", "tag-value"]) await expect(page.getByTestId(`filter-prop-${p}`)).toBeVisible();
+  await page.getByTestId("filter-prop-name").click();
   await page.getByTestId("filter-text").fill("Larder/prod/");
-  await page.getByTestId("filter-add").click();
+  await page.getByTestId("filter-text").press("Enter");
   await expect(page.getByTestId("list-sentence")).toContainText("0 secrets match of 2.");
   await expect(page.getByText("No secret matches")).toBeVisible();
   await page.getByTestId("filter-remove").click();
-  await page.getByTestId("filter-prop").click();
-  await page.getByRole("option", { name: "Name", exact: true }).click();
+  await page.getByTestId("filter-prop-name").click();
   await page.getByTestId("filter-text").fill("larder/prod/");
-  await page.getByTestId("filter-add").click();
+  await page.getByTestId("filter-text").press("Enter");
   await expect(page.getByRole("table", { name: "Secrets" }).locator("tbody tr[data-row]")).toHaveCount(2);
   await expect(page.getByTestId("filter-chip")).toContainText("Name: larder/prod/");
   await shot(page, "secretsmanager__secrets-list");
@@ -77,6 +82,13 @@ test("secretsmanager__create-type ... create-review: four steps, and the secret 
   await page.getByTestId("secret-tags").getByRole("textbox").nth(0).fill("app");
   await page.getByTestId("secret-tags").getByRole("textbox").nth(1).fill("search-indexer");
   await expect(page.getByTestId("call-panel")).toContainText("Search provider API key.");
+  // The service replicates; the form sets a copy up: a Region typed in, and the call carries AddReplicaRegions.
+  await page.getByTestId("section-replicate").getByRole("button").first().click();
+  await page.getByTestId("replica-add").click();
+  await page.getByTestId("replica-region").fill("eu-west-1");
+  await expect(page.getByTestId("call-panel")).toContainText('"AddReplicaRegions"');
+  await expect(page.getByTestId("call-panel")).toContainText('"Region": "eu-west-1"');
+  await expect(page.getByTestId("section-replicate")).not.toContainText("This form does not set up replicas");
   await shot(page, "secretsmanager__create-configure");
   await page.getByTestId("form-submit").click();
   await expect(page.getByTestId("section-rotation")).toBeVisible();
@@ -89,6 +101,7 @@ test("secretsmanager__create-type ... create-review: four steps, and the secret 
   await expect(page.getByTestId("stored-banner")).toContainText("Secret larder/prod/search-key stored.");
   const d = JSON.parse(cli(["secretsmanager", "describe-secret", "--secret-id", "larder/prod/search-key"]));
   expect([d.KmsKeyId, d.Tags]).toEqual(["alias/larder-app", [{ Key: "app", Value: "search-indexer" }]]);
+  expect((d.ReplicationStatus as { Region: string }[]).map((r) => r.Region)).toEqual(["eu-west-1"]);
   expect(JSON.parse(cli(["secretsmanager", "get-secret-value", "--secret-id", "larder/prod/search-key"])).SecretString).toBe('{"api_key":"sk_search_EXAMPLE"}');
 });
 
@@ -140,10 +153,24 @@ test("secretsmanager__secret-rotation, rotation-edit: the rotation configuration
   await expect(page.getByTestId("rotation-note")).toContainText("createSecret writes the new value as a version labeled AWSPENDING");
   await shot(page, "secretsmanager__secret-rotation");
   await page.getByTestId("rotation-edit-open").click();
-  await expect(page.getByTestId("rotation-schedule")).toHaveValue("rate(30 days)");
+  // The board's two ways to write the schedule: a builder (a number and days or hours), and the expression itself.
+  await expect(page.getByTestId("schedule-how-builder")).toHaveAttribute("data-state", "on");
+  await expect(page.getByTestId("cadence-n")).toHaveValue("30");
+  await expect(page.getByTestId("cadence-expression")).toHaveText("rate(30 days)");
+  await page.getByTestId("cadence-n").fill("2");
+  await page.getByTestId("cadence-unit").click();
+  await page.getByRole("option", { name: "hours" }).click();
+  await expect(page.getByRole("alert").filter({ hasText: "every 4 hours" })).toBeVisible();
+  await expect(page.getByTestId("edit-rotation-save")).toBeDisabled();
+  await page.getByTestId("cadence-unit").click();
+  await page.getByRole("option", { name: "days" }).click();
+  await page.getByTestId("schedule-how-expression").click();
+  await expect(page.getByTestId("rotation-schedule")).toHaveValue("rate(2 days)");
   await page.getByTestId("rotation-schedule").fill("every month");
   await expect(page.getByTestId("edit-rotation-save")).toBeDisabled();
   await page.getByTestId("rotation-schedule").fill("rate(7 days)");
+  await page.getByTestId("schedule-how-builder").click();
+  await expect(page.getByTestId("cadence-n")).toHaveValue("7");
   await expect(page.getByTestId("edit-rotation-call")).toContainText('"ScheduleExpression": "rate(7 days)"');
   await shot(page, "secretsmanager__rotation-edit");
   await page.getByTestId("edit-rotation-save").click();
@@ -161,8 +188,10 @@ test("secretsmanager__secret-versions, secret-tags, secret-tags-none: versions b
   await expect(page.getByTestId("rollback-cli")).toContainText(server.endpoint);
   await shot(page, "secretsmanager__secret-versions");
   await page.getByTestId("tab-tags").click();
-  await expect(page.getByTestId("tags-count")).toHaveText("3 tags");
+  await expect(page.getByTestId("tags-heading")).toHaveText("Tags (3)");
+  await expect(page.getByTestId("tags-count")).toHaveText("Key/value labels you attach to the secret.");
   await expect(page.getByRole("table", { name: "Tags" })).toContainText("payments");
+  await expect(page.getByTestId("tags-rules")).toContainText("can't start with the reserved prefix aws:");
   await shot(page, "secretsmanager__secret-tags");
   await open(page, server.console, page_of("larder%2Fprod%2Fdb-credentials", "?tab=tags"), "larder/prod/db-credentials");
   await expect(page.getByTestId("tags-view")).toContainText("This secret has no tags.");

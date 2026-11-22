@@ -70,3 +70,41 @@ export function FilterBar({ props, tokens, onChange, label, placeholder, testId 
     </div>
   );
 }
+
+/** The same search as chips (secretsmanager__secrets-list): a box that searches text as it is typed in, a chip for each property to
+ * narrow by one attribute (choose one, then type), and the filters in use as chips that can be removed. Enter adds the filter. The first
+ * property is any text, the box on its own. */
+export function ChipFilter({ props, tokens, onChange, label, placeholder, testId = "filter" }: { props: readonly FilterProp[]; tokens: readonly FilterToken[]; onChange: (tokens: FilterToken[]) => void; label: string; placeholder: string; testId?: string }) {
+  const [armed, setArmed] = useState<string | null>(null);
+  const [text, setText] = useState("");
+  const [any, ...narrow] = props;
+  const chosen = narrow.find((p) => p.value === armed);
+  const add = () => {
+    if (text.trim() === "" || !any) return;
+    onChange([...tokens, { prop: chosen?.value ?? any.value, text: text.trim() }]);
+    setText("");
+    setArmed(null);
+  };
+  return (
+    <div className="grid gap-3" data-testid={testId}>
+      <div className="flex flex-wrap items-center gap-2">
+        <form className="relative w-full max-w-[22rem] min-w-52" role="search" aria-label={label} onSubmit={(e) => { e.preventDefault(); add(); }}>
+          <SearchIcon aria-hidden className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+          <Input value={text} onChange={(e) => setText(e.target.value)} placeholder={chosen ? `${chosen.label}…` : placeholder} aria-label={chosen ? `${chosen.label} to match` : placeholder} className="bg-card pl-9 text-[13px]" data-testid={`${testId}-text`} />
+        </form>
+        {tokens.map((t, i) => (
+          <span key={`${t.prop}${t.text}`} className="inline-flex h-9 items-center gap-1 rounded-full border border-primary/40 bg-pick py-0.5 pr-1 pl-3.5 text-[13px] font-medium text-bright" data-testid="filter-chip">
+            {tokenLabel(t, props)}
+            <Button type="button" variant="ghost" size="icon-xs" aria-label={`Remove ${tokenLabel(t, props)}`} onClick={() => onChange(tokens.filter((_, j) => j !== i))} data-testid="filter-remove"><XIcon /></Button>
+          </span>
+        ))}
+        {narrow.map((p) => (
+          <button key={p.value} type="button" aria-pressed={armed === p.value} onClick={() => setArmed(armed === p.value ? null : p.value)} className="inline-flex h-9 items-center rounded-full border px-3.5 text-[13px] font-medium text-foreground transition-colors hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none aria-pressed:border-primary/40 aria-pressed:bg-pick aria-pressed:text-bright" data-testid={`${testId}-prop-${p.value}`}>
+            {p.label}
+          </button>
+        ))}
+        {tokens.length > 0 && <Button type="button" variant="ghost" size="sm" onClick={() => onChange([])} data-testid="filter-clear">Clear filters</Button>}
+      </div>
+    </div>
+  );
+}

@@ -39,7 +39,8 @@ export function DetailsCard({ name, arn, keyId, description, onAction }: { name:
   );
 }
 
-export function ValueCard({ name, scheduled, onEdit }: { name: string; scheduled: boolean; onEdit: () => void }) {
+/** `onRead`: the value has been read, so the call is on the record and the page asks for its calls again. */
+export function ValueCard({ name, scheduled, onEdit, onRead }: { name: string; scheduled: boolean; onEdit: () => void; onRead?: () => void }) {
   const [value, setValue] = useState<SecretValue | null>(null);
   const [pending, setPending] = useState(false);
   const [refused, setRefused] = useState<{ code: string; message: string } | null>(null);
@@ -48,6 +49,7 @@ export function ValueCard({ name, scheduled, onEdit }: { name: string; scheduled
     setRefused(null);
     try {
       setValue(await callKindOp<SecretValue>(SECRETS, "GetSecretValue", { SecretId: name }));
+      onRead?.();
     } catch (e) {
       setRefused(refusalOf(e));
     } finally {

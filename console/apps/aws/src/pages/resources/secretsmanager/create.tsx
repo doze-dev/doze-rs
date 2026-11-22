@@ -14,7 +14,7 @@ import { crumbs } from "../kms/parts";
 import { refusalOf } from "../kms/schedule";
 import { SECRETS } from "./api";
 import { StepConfigure, StepRotation, StepType } from "./create-steps";
-import { blankSecret, durationProblem, nameProblem, scheduleProblem, type SecretForm, secretCalls, valueProblem, secretValue } from "./model";
+import { blankSecret, durationProblem, nameProblem, replicaProblem, replicaRegions, scheduleProblem, type SecretForm, secretCalls, valueProblem, secretValue } from "./model";
 
 const STEPS = [{ id: "type", label: "Choose secret type" }, { id: "configure", label: "Configure secret" }, { id: "rotation", label: "Configure rotation", optional: true }, { id: "review", label: "Review" }];
 const SUBS = ["Step 1 of 4. Choose what kind of secret this is and which KMS key encrypts it.", "Step 2 of 4. Name the secret and, if you like, tag it or attach a policy.", "Step 3 of 4. Rotation is optional: keep it off for now and turn it on later if you want.", "Step 4 of 4. Check the details, then store the secret."];
@@ -46,7 +46,7 @@ export function SecretCreate() {
   const set = (patch: Partial<SecretForm>) => { setF((x) => ({ ...x, ...patch })); setFailed(null); };
   const problem = (s: number): string | null => {
     if (s === 0) return rowsValid(f.pairs, { caseSensitive: true, maxKey: 256 }) ? valueProblem(f.mode === "pairs" ? (filled(f.pairs).length > 0 ? secretValue(f) : "") : f.text) : "Fix the rows marked.";
-    if (s === 1) return nameProblem(f.name, taken) ?? (f.description.length > 2048 ? "The description is too long." : null) ?? (rowsValid(f.tags, TAG_RULES) ? null : "Fix the tags marked.") ?? (f.policy.trim() !== "" && !validJson(f.policy) ? "The resource policy is not JSON." : null);
+    if (s === 1) return nameProblem(f.name, taken) ?? (f.description.length > 2048 ? "The description is too long." : null) ?? (rowsValid(f.tags, TAG_RULES) ? null : "Fix the tags marked.") ?? (f.policy.trim() !== "" && !validJson(f.policy) ? "The resource policy is not JSON." : null) ?? (f.replicas.some((r, i) => replicaProblem(r, i, f.replicas, region) !== null) ? "Fix the replica Regions marked." : null);
     if (s === 2 && f.rotate) return !f.fn ? "Choose the rotation function." : (scheduleProblem(f.schedule) ?? durationProblem(f.duration));
     return null;
   };
@@ -107,7 +107,7 @@ export function SecretCreate() {
       {step === 3 && (
         <>
           <ReviewSection title="Choose secret type" onEdit={() => go(0)} rows={[{ label: "Secret type", value: "Other type of secret" }, { label: "Encryption key", value: <span className="font-mono text-[13px]">{f.key ?? "aws/secretsmanager"}</span> }, { label: "Secret value", value: f.mode === "pairs" ? `${filled(f.pairs).length} key/value pair${filled(f.pairs).length === 1 ? "" : "s"}, masked` : "Plaintext, masked" }]} />
-          <ReviewSection title="Configure secret" onEdit={() => go(1)} rows={[{ label: "Secret name", value: <span className="font-mono text-[13px]" data-testid="review-name">{f.name}</span> }, { label: "Description", value: f.description || <span className="text-muted-foreground">None</span> }, { label: "Tags", value: tags.length === 0 ? <span className="text-muted-foreground">None</span> : <span className="grid gap-0.5">{tags.map((t) => <span key={t.key}>{t.key}: {t.value}</span>)}</span> }, { label: "Resource permissions", value: f.policy.trim() ? "A policy is attached after the secret is stored" : "None" }]} />
+          <ReviewSection title="Configure secret" onEdit={() => go(1)} rows={[{ label: "Secret name", value: <span className="font-mono text-[13px]" data-testid="review-name">{f.name}</span> }, { label: "Description", value: f.description || <span className="text-muted-foreground">None</span> }, { label: "Tags", value: tags.length === 0 ? <span className="text-muted-foreground">None</span> : <span className="grid gap-0.5">{tags.map((t) => <span key={t.key}>{t.key}: {t.value}</span>)}</span> }, { label: "Resource permissions", value: f.policy.trim() ? "A policy is attached after the secret is stored" : "None" }, { label: "Replicas", value: replicaRegions(f.replicas).length > 0 ? <span className="font-mono text-[13px]">{replicaRegions(f.replicas).join(", ")}</span> : <span className="text-muted-foreground">None</span> }]} />
           <ReviewSection title="Configure rotation" onEdit={() => go(2)} rows={[{ label: "Automatic rotation", value: f.rotate ? `On, ${f.schedule}${f.fn ? `, with ${f.fn}` : ""}` : "Off" }]} />
           <Note testId="review-note">Nothing has been sent yet. Store makes the calls on the right, in that order.</Note>
         </>
