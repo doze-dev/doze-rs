@@ -17,7 +17,7 @@ export function Status({ s }: { s: Pick<SubRow, "pending"> & { protocol?: string
         {statusOf(s)}
       </span>
       {why && (
-        <span className="text-[12px] leading-4 text-muted-foreground" data-testid="not-active">
+        <span className="text-[12px] leading-4 whitespace-normal text-muted-foreground" data-testid="not-active">
           <b className="font-semibold text-foreground">Not active locally.</b> {why}
         </span>
       )}
@@ -45,8 +45,8 @@ export function subColumns({ radio, topic }: { radio: boolean; topic: boolean })
       const s = c.row.original;
       return <Link to="/resources/$service/$kind/$name" params={{ service: "sns", kind: "subscriptions", name: s.name }} className="font-mono text-[13px] text-link hover:underline" title={s.id ?? "Waiting for its endpoint to confirm"} data-testid="row-link">{shortId(s.id)}</Link>;
     } },
-    { id: "endpoint", header: "Endpoint", size: 360, min: 220, accessorFn: (r) => r.endpoint, cell: (c) => <EndpointCell s={c.row.original} /> },
-    { id: "status", header: "Status", size: 210, accessorFn: (r) => (r.pending ? 1 : 0), cell: (c) => <Status s={c.row.original} /> },
+    { id: "endpoint", header: "Endpoint", size: 300, min: 200, accessorFn: (r) => r.endpoint, cell: (c) => <EndpointCell s={c.row.original} /> },
+    { id: "status", header: "Status", size: 300, min: 240, accessorFn: (r) => (r.pending ? 1 : 0), cell: (c) => <Status s={c.row.original} /> },
     { id: "protocol", header: "Protocol", size: 220, accessorFn: (r) => protocolLabel(r.protocol), cell: (c) => <span className="text-[13.5px]">{protocolLabel(c.row.original.protocol)}</span> },
     ...(topic ? [{ id: "topic", header: "Topic ARN", size: 240, min: 200, accessorFn: (r: SubRow) => r.topicArn, meta: { mono: true }, cell: (c: { row: { original: SubRow } }) => <span className="font-mono text-[13px]" title={c.row.original.topicArn}>arn:…:{c.row.original.topic}</span> }] : []),
   ];

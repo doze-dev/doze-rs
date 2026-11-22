@@ -1,7 +1,7 @@
 // The world the Home, Connect, Live and direction boards are drawn in ("larder"): the apps are IAM users with an access key of
 // their own (payments, fulfilment, catalog, report-job, admin-cli), each calling as its own SDK (Go, Python, the AWS CLI), so a
 // row says who made it. `bun e2e/tests/home-seed.ts http://127.0.0.1:45860 [account]` seeds a running doze-aws by hand.
-import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { aws } from "../server";
@@ -85,14 +85,22 @@ export function seedHome(endpoint: string, account: string): Apps {
   writeFileSync(join(dir, "index.py"), 'def handler(event, context):\n    return {"ok": True}\n');
   const zip = join(dir, "fn.zip");
   if (Bun.spawnSync(["zip", "-q", "-j", zip, join(dir, "index.py")]).exitCode !== 0) throw new Error("zip failed");
+  // resize-product-image fails when it runs: the invocation answers 200 and says the function failed.
+  mkdirSync(join(dir, "bad"));
+  writeFileSync(join(dir, "bad", "index.py"), 'def handler(event, context):\n    raise TypeError("cannot read width of undefined")\n');
+  const badZip = join(dir, "bad.zip");
+  if (Bun.spawnSync(["zip", "-q", "-j", badZip, join(dir, "bad", "index.py")]).exitCode !== 0) throw new Error("zip failed");
   cli(["iam", "create-role", "--role-name", "larder-fn", "--assume-role-policy-document", JSON.stringify({ Version: "2012-10-17", Statement: [{ Effect: "Allow", Principal: { Service: "lambda.amazonaws.com" }, Action: "sts:AssumeRole" }] })]);
-  for (const name of ["resize-product-image", "send-email"]) cli(["lambda", "create-function", "--function-name", name, "--runtime", "python3.12", "--role", `arn:aws:iam::${account}:role/larder-fn`, "--handler", "index.handler", "--zip-file", `fileb://${zip}`]);
+  for (const [name, file] of [["resize-product-image", badZip], ["send-email", zip]] as const) cli(["lambda", "create-function", "--function-name", name, "--runtime", "python3.12", "--role", `arn:aws:iam::${account}:role/larder-fn`, "--handler", "index.handler", "--zip-file", `fileb://${file}`]);
   for (const b of ["product-images", "reports", "receipts"]) cli(["s3api", "create-bucket", "--bucket", b]);
   writeFileSync(join(dir, "r.txt"), "receipt");
   cli(["s3api", "put-object", "--bucket", "receipts", "--key", "r-8841.pdf", "--body", join(dir, "r.txt")]);
   cli(["s3api", "put-object", "--bucket", "reports", "--key", "2026-11.csv", "--body", join(dir, "r.txt")]);
   cli(["lambda", "add-permission", "--function-name", "resize-product-image", "--statement-id", "s3", "--action", "lambda:InvokeFunction", "--principal", "s3.amazonaws.com", "--source-arn", "arn:aws:s3:::product-images"]);
   cli(["s3api", "put-bucket-notification-configuration", "--bucket", "product-images", "--notification-configuration", JSON.stringify({ LambdaFunctionConfigurations: [{ LambdaFunctionArn: arn("lambda", account, "function:resize-product-image"), Events: ["s3:ObjectCreated:*"] }] })]);
+
+  // API Gateway: a custom domain name, which is stored and routes nothing here.
+  cli(["apigateway", "create-domain-name", "--domain-name", "api.larder.dev", "--regional-certificate-arn", `arn:aws:acm:us-east-1:${account}:certificate/larder`, "--endpoint-configuration", "types=REGIONAL"]);
 
   // DynamoDB: the orders table; a table nothing calls.
   cli(["dynamodb", "create-table", "--table-name", "orders-table", "--attribute-definitions", "AttributeName=id,AttributeType=S", "--key-schema", "AttributeName=id,KeyType=HASH", "--billing-mode", "PAY_PER_REQUEST"]);
@@ -114,6 +122,10 @@ export async function trafficHome(endpoint: string, account: string, k: Apps): P
   await rawPut(endpoint, k.catalog, "product-images/sku-FV-TOM-V.jpg", "jpg", GO);
   // payments publishes an order: SNS delivers it to two queues.
   as(endpoint, k.payments, ["sns", "publish", "--topic-arn", `arn:aws:sns:us-east-1:${account}:orders-created`, "--message", "order"]);
+  // catalog invokes the resizer by hand and it fails: Invoke answers 200, the function did not work.
+  as(endpoint, k.catalog, ["lambda", "invoke", "--function-name", "resize-product-image", join(tmpdir(), "home-seed-invoke")]);
+  // catalog lists its APIs (an app that calls API Gateway is one whose stored things are looked at).
+  as(endpoint, k.catalog, ["apigateway", "get-rest-apis"]);
   // report-job reads a bucket its policy does not cover: soft IAM lets it through and records that AWS would not.
   as(endpoint, k.reportJob, ["s3api", "get-object", "--bucket", "receipts", "--key", "r-8841.pdf", join(tmpdir(), "home-seed-out")]);
   // admin-cli asks for S3 Select, which doze-aws does not build: 501.

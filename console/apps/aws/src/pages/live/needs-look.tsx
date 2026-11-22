@@ -6,17 +6,19 @@ import { resourceShown } from "./resource";
 
 export type Look = { call: CallRecord; word: string; tone: "warn" | "refused" | "bad" | "idle"; count: number };
 
-/** The calls that need a look, newest of each (caller, operation, resource, what went wrong) first, at most `most`: a call soft
- * IAM let through that it would refuse, a refusal, a failure, an operation not built. `callerName` says how an app is shown. */
-export function looks(calls: readonly CallRecord[], most = 3): Look[] {
+/** The calls that need a look: the newest of each kind (a function that failed, a call soft IAM let through that it would refuse, a
+ * refusal, a failure, an operation not built), newest kind first, with how many of that kind the calls hold. */
+export function looks(calls: readonly CallRecord[], most = 5): Look[] {
   const seen = new Map<string, Look>();
   for (const c of calls) {
-    const word = c.would_be_denied ? "WOULD BE DENIED (soft)" : c.outcome === "not-built" ? "NOT BUILT" : c.outcome === "denied" ? "DENIED" : c.outcome === "error" ? (c.status < 500 ? "REFUSED" : "FAILED") : null;
+    // A call one service made to another is not what an app did.
+    if (c.via) continue;
+    const word = c.function_error ? "FUNCTION ERROR" : c.would_be_denied ? "WOULD BE DENIED (soft)" : c.outcome === "not-built" ? "NOT BUILT" : c.outcome === "denied" ? "DENIED" : c.outcome === "error" ? (c.status < 500 ? "REFUSED" : "FAILED") : null;
     if (!word) continue;
-    const key = `${word}|${c.caller}|${c.action}|${c.resource}`;
+    const key = word;
     const was = seen.get(key);
     if (was) was.count += 1;
-    else seen.set(key, { call: c, word, tone: word.startsWith("WOULD") ? "warn" : word === "REFUSED" || word === "DENIED" ? "refused" : word === "FAILED" ? "bad" : "idle", count: 1 });
+    else seen.set(key, { call: c, word, tone: word.startsWith("WOULD") ? "warn" : word === "REFUSED" || word === "DENIED" ? "refused" : word === "FAILED" || word === "FUNCTION ERROR" ? "bad" : "idle", count: 1 });
   }
   return [...seen.values()].slice(0, most);
 }
@@ -42,6 +44,7 @@ export function NeedsLook({ items, callerName, onOpen, stored }: { items: Look[]
               <span className="mt-0.5 block truncate font-mono text-[12px] text-foreground">
                 {l.call.action ?? "Unknown"} {resourceShown(l.call)}
                 {l.call.error_code ? ` ${l.call.error_code}` : ""}
+                {l.call.function_error ? ` ${l.call.function_error}` : ""}
               </span>
             </span>
           </button>

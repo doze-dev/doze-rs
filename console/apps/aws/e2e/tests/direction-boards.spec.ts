@@ -81,16 +81,25 @@ test("System: a service is a descriptor: its list says its columns and a sentenc
 test("Scope: what doze-aws cannot do is said in a form, on the resource, on the wire, and in Needs a look", async ({ page }) => {
   // 1. In a form: the options that cannot work stay, disabled, with why.
   await go(page, "/resources/sns/subscriptions?create=yes", /Create subscription/);
-  await page.getByRole("combobox", { name: /protocol/i }).click();
-  await expect(page.getByRole("option", { name: /Email/ }).first()).toHaveAttribute("aria-disabled", "true");
-  await expect(page.getByRole("option", { name: /Email/ }).first()).toContainText("it would need a mail server");
-  await expect(page.getByRole("option", { name: /SMS/ })).toContainText("SMS needs a carrier");
-  await expect(page.getByRole("option", { name: /Amazon Data Firehose/ })).toContainText("Amazon Data Firehose, which doze-aws does not have");
-  await page.keyboard.press("Escape");
+  const list = page.getByTestId("protocol-list");
+  await expect(list.getByRole("radio")).toHaveCount(9);
+  for (const off of ["email", "email-json", "sms", "application", "firehose"]) await expect(list.getByTestId(`protocol-radio-${off}`)).toBeDisabled();
+  for (const on of ["http", "https", "sqs", "lambda"]) await expect(list.getByTestId(`protocol-radio-${on}`)).toBeEnabled();
+  await expect(list.getByTestId("protocol-email")).toContainText("it would need a mail server");
+  await expect(list.getByTestId("protocol-sms")).toContainText("SMS needs a carrier");
+  await expect(list.getByTestId("protocol-firehose")).toContainText("Amazon Data Firehose, which doze-aws does not have");
   // 2. On the resource: the subscription is stored and says so.
   await go(page, "/resources/sns/subscriptions", "Subscriptions");
   await expect(page.getByTestId("not-active-banner")).toContainText("1 subscription was created but is not active locally.");
   await expect(page.getByTestId("not-active")).toContainText("Not active locally. Stored. doze-aws has no mail server, so nothing is sent.");
+  // The whole of it is on the page: the text ends inside the cell it is in.
+  const cell = await page.getByTestId("sub-status-cell").last().boundingBox();
+  const said = await page.getByTestId("not-active").boundingBox();
+  expect(said!.x + said!.width).toBeLessThanOrEqual(cell!.x + cell!.width + 1);
+  // Why? says it for the protocol.
+  await page.getByTestId("not-active-why").click();
+  await expect(page.getByTestId("not-active-reasons")).toContainText("email: Stored. doze-aws has no mail server");
+  await expect(page.getByTestId("not-active-reasons")).toContainText("pending confirmation");
   await shot(page, "Scope");
   // 3. On the wire: a call to what is not built, with its words.
   await go(page, "/live?outcome=not-built", "Live");
@@ -101,15 +110,28 @@ test("Scope: what doze-aws cannot do is said in a form, on the resource, on the 
   await expect(page.getByTestId("not-built")).toContainText("SelectObjectContent is not built in doze-aws");
   await expect(page.getByTestId("not-built")).toContainText("X-Doze-Not-Built: 1");
   await expect(page.getByTestId("not-built-instead")).toContainText("GetObject returns the whole object");
+  await expect(page.getByTestId("not-built-open")).toContainText("reports");
+  await expect(page.getByTestId("not-built-copy")).toBeVisible();
   await page.keyboard.press("Escape");
   await go(page, "/live", "Live");
-  await expect(page.locator('[data-testid="look"][data-word="NOT ACTIVE LOCALLY"]')).toContainText("1 subscription stored");
+  await expect(page.locator('[data-testid="look"][data-word="NOT ACTIVE LOCALLY"]').filter({ hasText: "1 subscription stored" })).toHaveCount(1);
   await expect(page.locator('[data-testid="look"][data-word="NOT BUILT"]')).toContainText("SelectObjectContent");
   // 4. Where it surfaces on its own: the count in Needs a look on Home.
   await go(page, "/", "Home");
   await expect(page.getByTestId("needs-a-look")).toContainText("NOT BUILT");
   await expect(page.getByTestId("needs-a-look")).toContainText("Not active locally");
   await expect(page.getByTestId("needs-a-look")).toContainText("1 subscription stored");
+});
+
+test("an empty place says how an app makes the first one", async ({ page }) => {
+  await go(page, "/resources/kinesis/streams", "Data streams");
+  const snippet = page.getByTestId("from-your-app");
+  await expect(snippet).toContainText("Or from your app");
+  await expect(snippet.getByTestId("from-app-cli")).toContainText(`aws kinesis create-stream --stream-name events --shard-count 1 --endpoint-url ${world.server.endpoint}`);
+  await expect(snippet.getByTestId("from-app-py")).toContainText("boto3.client(\"kinesis\"");
+  await shot(page, "Patterns.empty");
+  await go(page, "/resources/secretsmanager/secrets", "Secrets");
+  await expect(page.getByTestId("from-app-cli")).toContainText("aws secretsmanager create-secret");
 });
 
 test("Main: the five jobs each have a place: connect, watch, build, understand, rehearse", async ({ page }) => {

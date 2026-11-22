@@ -13,6 +13,8 @@ import { beadColour } from "./map";
 import { callerOf } from "./search";
 
 export const CARD_W = 190;
+/** The least room between two columns: a line's label sits in it and never over a card. */
+const GAP = 150;
 const CARD_H = 62;
 const SVG = "http://www.w3.org/2000/svg";
 const reduced = () => typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches === true;
@@ -40,6 +42,7 @@ export function Marks({ n }: { n: MapNode }) {
       {s.refused > 0 && dot("bg-refused", `${number(s.refused)} refused`)}
       {s.error > 0 && dot("bg-bad", `${number(s.error)} failed`)}
       {s.notBuilt > 0 && dot("bg-muted-foreground", `${number(s.notBuilt)} not built`)}
+      {s.functionError > 0 && dot("bg-bad ring-2 ring-bad/30", `${number(s.functionError)} function ${s.functionError === 1 ? "error" : "errors"}`)}
     </span>
   );
 }
@@ -47,7 +50,7 @@ export function Marks({ n }: { n: MapNode }) {
 /** What a node says under its name. An app: the operations it calls and how many calls in the last minute. A resource: what it
  * holds now, else what was done to it. */
 export function nodeLine(n: MapNode): { top: string; bottom: string | null } {
-  if (n.kind === "app") return { top: n.ops.slice(0, 2).join(" / ") + (n.ops.length > 2 ? " …" : ""), bottom: `${number(n.lastMinute)} in the last minute` };
+  if (n.kind === "app") return { top: n.ops.slice(0, 2).join(" / ") + (n.ops.length > 2 ? " …" : ""), bottom: `${number(n.lastMinute)} in the last minute${n.sdk ? ` · ${n.sdk}` : ""}` };
   return { top: n.sentence ?? (n.calls > 0 ? `${number(n.calls)} ${n.calls === 1 ? "call" : "calls"}` : ""), bottom: n.sentence && n.calls > 0 ? `${number(n.calls)} ${n.calls === 1 ? "call" : "calls"} · ${n.ops.slice(0, 2).join(" / ")}` : null };
 }
 
@@ -68,6 +71,7 @@ function Card({ n, x, selected, dim, onPick }: { n: MapNode; x: number; selected
         <span className="min-w-0 flex-1 truncate font-mono text-[13px] font-semibold text-bright" title={n.name}>
           {n.name}
         </span>
+
         <Marks n={n} />
       </span>
       {line.top && <span className="truncate text-[12px] text-muted-foreground">{line.top}</span>}
@@ -81,7 +85,10 @@ type Props = { heads?: string[]; model: MapModel; calls: readonly CallRecord[]; 
 /** The map. `calls`: the tape, newest first; each new one sends a bead along its route. */
 export function ResourceMap({ heads, model, calls, selected, route, onPick }: Props) {
   const box = useRef<HTMLDivElement>(null);
-  const width = useWidth(box);
+  const measured = useWidth(box);
+  // Columns keep a gap a label fits in: when the room is narrower (the panel is open), the map scrolls sideways.
+  const room = 16 + model.columns * CARD_W + Math.max(0, model.columns - 1) * GAP;
+  const width = Math.max(measured, room);
   const paths = useRef(new Map<string, SVGPathElement>());
   const layer = useRef<SVGGElement>(null);
   const last = useRef<number | null>(null);
@@ -155,13 +162,14 @@ export function ResourceMap({ heads, model, calls, selected, route, onPick }: Pr
 
   const near = (id: string) => selected === null || id === selected || model.edges.some((e) => (e.from === selected && e.to === id) || (e.to === selected && e.from === id));
   return (
-    <div className={heads ? "relative pt-6" : "relative"}>
+    <div ref={box} className="overflow-x-auto" data-testid="map-scroll">
+    <div className={heads ? "relative pt-6" : "relative"} style={{ width }}>
       {heads?.map((h, i) => (
         <span key={h} className="absolute top-0 text-[11.5px] font-semibold tracking-[0.08em] text-muted-foreground uppercase" style={{ left: x(i) }} data-testid="domain-head">
           {h}
         </span>
       ))}
-    <div ref={box} className="relative w-full" style={{ height: model.height }} data-testid="resource-map">
+    <div className="relative w-full" style={{ height: model.height }} data-testid="resource-map">
       <svg width={width} height={model.height} className="absolute inset-0" role="img" aria-label={`Map: ${model.nodes.length} nodes, ${model.edges.length} lines`}>
         <g>
           {model.edges.map((e) => {
@@ -190,7 +198,8 @@ export function ResourceMap({ heads, model, calls, selected, route, onPick }: Pr
         <g ref={layer} />
       </svg>
       {model.edges
-        .filter((e) => e.kind === "wire" && e.label)
+        // A line within one column (by domain) has no room for its label: the panel of either end names it.
+        .filter((e) => e.kind === "wire" && e.label && byId.get(e.from)?.col !== byId.get(e.to)?.col)
         .map((e) => {
           const g = geo(e);
           return (
@@ -203,6 +212,7 @@ export function ResourceMap({ heads, model, calls, selected, route, onPick }: Pr
       {model.nodes.map((n) => (
         <Card key={n.id} n={n} x={x(n.col)} selected={selected === n.id || (route?.nodes.has(n.id) ?? false)} dim={route !== null ? !route.nodes.has(n.id) : !near(n.id)} onPick={() => onPick(selected === n.id ? null : n.id)} />
       ))}
+    </div>
     </div>
     </div>
   );

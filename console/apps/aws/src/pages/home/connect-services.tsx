@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { InfoIcon } from "lucide-react";
 import { Alert, ErrorBlock } from "@doze/ui/components/app/alert";
+import { CopyButton } from "@doze/ui/components/app/copy-button";
 import { type DataColumn, DataTable } from "@doze/ui/components/app/data-table";
 import { useServices } from "../../api/queries";
 import type { About } from "../../api/types/About";
@@ -18,8 +19,8 @@ export function ByService({ a }: { a: About }) {
   const columns = useMemo<DataColumn<ServiceUrl>[]>(
     () => [
       { id: "service", header: "Service", size: 210, min: 150, enableSorting: false, accessorFn: (r) => r.title, cell: (c) => <span className="font-medium text-bright">{c.getValue<string>()}</span> },
-      { id: "address", header: "On IP and port", size: 190, min: 150, enableSorting: false, accessorKey: "address", meta: { mono: true } },
-      { id: "vars", header: "Variable", size: 330, min: 220, enableSorting: false, accessorFn: (r) => r.vars.join(" "), cell: (c) => <span className="flex flex-col">{c.row.original.vars.map((v) => <span key={v}>{v}</span>)}</span>, meta: { mono: true } },
+      { id: "address", header: "On IP and port", size: 220, min: 170, enableSorting: false, accessorKey: "address", meta: { mono: true }, cell: (c) => <span className="inline-flex items-center gap-1.5">{c.getValue<string>()}<CopyButton text={c.getValue<string>()} iconOnly variant="ghost" label="Copy the address" what="Address copied" /></span> },
+      { id: "vars", header: "Variable", size: 330, min: 220, enableSorting: false, accessorFn: (r) => r.vars.join(" "), cell: (c) => <span className="flex flex-col">{c.row.original.vars.map((v) => <span key={v} className="inline-flex items-center gap-1.5">{v}<CopyButton text={v} iconOnly variant="ghost" label="Copy the variable" what="Variable copied" /></span>)}</span>, meta: { mono: true } },
       {
         id: "detail",
         header: "Detail",

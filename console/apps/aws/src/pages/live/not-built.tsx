@@ -1,4 +1,9 @@
+import { Link } from "@tanstack/react-router";
+import { ExternalLinkIcon, SquareTerminalIcon } from "lucide-react";
+import { Button } from "@doze/ui/components/ui/button";
 import type { CallRecord } from "../../api/types/CallRecord";
+import { copyCommand } from "./actions";
+import { resourceHref, resourceName, resourceSearchOf } from "./resource";
 
 /** What does the job of an operation doze-aws does not build, for the ones people reach for. The nearest thing is named and not
  * pretended to be the same. */
@@ -14,6 +19,7 @@ export const insteadOf = (action: string | null): string | null => (action ? (IN
  * thing that works, not answered with an empty result that would look like "no matches". */
 export function NotBuilt({ call }: { call: CallRecord }) {
   const instead = insteadOf(call.action);
+  const href = resourceHref(call);
   return (
     <section className="mt-5 rounded-xl border bg-card p-4" aria-label="What happened" data-testid="not-built">
       <h3 className="text-[11.5px] font-medium tracking-wide text-muted-foreground uppercase">What happened</h3>
@@ -36,6 +42,18 @@ export function NotBuilt({ call }: { call: CallRecord }) {
         <div className="mt-4" data-testid="not-built-instead">
           <h3 className="text-[11.5px] font-medium tracking-wide text-muted-foreground uppercase">What works instead</h3>
           <p className="mt-1.5 text-[13.5px]">{instead}</p>
+          <div className="mt-3 flex flex-wrap gap-2" data-testid="not-built-actions">
+            {href && (
+              <Button asChild variant="outline" size="sm" className="bg-card" data-testid="not-built-open">
+                <Link to={href} search={resourceSearchOf(call)}>
+                  <ExternalLinkIcon /> Open <span className="max-w-[16rem] truncate font-mono text-[12px]">{resourceName(call)}</span>
+                </Link>
+              </Button>
+            )}
+            <Button variant="outline" size="sm" className="bg-card" onClick={() => void copyCommand(call.seq, "cli")} data-testid="not-built-copy">
+              <SquareTerminalIcon /> Copy as AWS CLI
+            </Button>
+          </div>
         </div>
       )}
     </section>

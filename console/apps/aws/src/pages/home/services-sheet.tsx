@@ -22,7 +22,9 @@ function Snippet({ label, code, what, testId }: { label: string; code: string; w
  * out answers. Not a switch: a service left out is not served by this instance at all. */
 export function WhichServicesSheet({ open, onOpenChange, services }: { open: boolean; onOpenChange: (open: boolean) => void; services: readonly ServiceRow[] }) {
   const left = services.filter((s) => !s.served);
-  const subset = (left.length > 0 ? services.filter((s) => s.served) : services.slice(0, 3)).map((s) => s.name);
+  // The example is what one would write to run a few: the board's sqs, sns, s3 when this run serves them; else what it serves.
+  const few = ["sqs", "sns", "s3"].filter((n) => services.some((s) => s.name === n && s.served));
+  const subset = left.length > 0 ? services.filter((s) => s.served).map((s) => s.name) : few.length === 3 ? few : services.slice(0, 3).map((s) => s.name);
   const list = subset.join(",");
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>

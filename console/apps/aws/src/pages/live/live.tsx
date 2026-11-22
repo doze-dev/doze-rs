@@ -62,12 +62,14 @@ function Caller({ call, titles, names }: { call: CallRecord; titles: ReadonlyMap
       </span>
     );
   }
-  const by = call.via.by ? (serviceTitle(call.via.by, titles) ?? call.via.by) : (call.caller ?? "");
+  // A rule delivering to a target is the rule's name (payment-settled) with a `rule` mark, as the board draws it.
+  const rule = call.via.by === "eventbridge" && call.via.name?.startsWith("rule ") ? (call.via.name.slice(5).split("/").pop() ?? null) : null;
+  const by = rule ?? (call.via.by ? (serviceTitle(call.via.by, titles) ?? call.via.by) : (call.caller ?? ""));
   return (
     <span className="flex min-w-0 items-center gap-1.5" title={`Made by ${madeBy(call, titles)}, for ${call.caller ?? "no key"}`}>
       <span className="truncate font-sans text-[13px]">{by}</span>
       <span className="shrink-0 rounded-full border bg-muted px-1.5 font-sans text-[10.5px] leading-4 text-muted-foreground" data-testid="via-pill">
-        {call.via.name ? `via ${call.via.name.split(" ")[0]}` : "via"}
+        {rule ? "rule" : call.via.name ? `via ${call.via.name.split(" ")[0]}` : "via"}
       </span>
     </span>
   );
@@ -115,8 +117,6 @@ export function LivePage() {
   const [runs, setRuns] = useState<ReadonlySet<number>>(new Set());
   const toggle = useCallback((id: number) => setRuns((was) => (was.has(id) ? new Set([...was].filter((x) => x !== id)) : new Set([...was, id]))), []);
 
-  const kept = useMemo(() => (filtering(search) ? visible.filter((c) => matches(c, search)) : visible), [visible, search]);
-  const shown = useMemo(() => lines(kept, runs), [kept, runs]);
   const services = useMemo(() => [...new Set([...flows.byKey.values()].map((f) => f.service).filter(Boolean))].sort(), [flows]);
   const callers = useMemo(() => {
     const seen = new Map<string, boolean>();
@@ -131,6 +131,9 @@ export function LivePage() {
   const now = useNow();
   const wiring = useWiring(view !== "wire" && search.by !== "service");
   const callerName = useCallback((key: string) => { const p = names.get(key); return p ? who(p).label : key || "no key"; }, [names]);
+  // `?app=payments` is the caller by its name (an IAM user), as the boards address it; `?caller=` is the key.
+  const kept = useMemo(() => (filtering(search) ? visible.filter((c) => matches(c, search) && (search.app === undefined || callerName(callerOf(c)) === search.app)) : visible), [visible, search, callerName]);
+  const shown = useMemo(() => lines(kept, runs), [kept, runs]);
   const attention = useMemo(() => looks(visible), [visible]);
   const checks = useHomeChecks();
   const stored = useMemo(() => (checks.data?.signals ?? []).filter((s) => s.kind === "not-active").map((s) => ({ count: Number(s.count), detail: s.detail })), [checks.data]);
@@ -195,11 +198,13 @@ export function LivePage() {
 
   const status = connWords(conn, tape.paused);
   const ring = tape.ring;
+  const oldest = tape.calls[tape.calls.length - 1];
+  const spanMin = oldest ? Math.max(1, Math.ceil((now - oldest.at_ms) / 60_000)) : 0;
   return (
     <>
       <PageHeader
         title="Live"
-        sub="Every AWS API call this doze-aws answers, and every call one service makes to another, as it happens. Kept in memory: only the newest calls."
+        sub={`Every AWS API call this doze-aws answers, and every call one service makes to another, as it happens. Kept in memory: the newest ${ring ? number(ring.capacity) : "1,024"} calls${spanMin > 0 ? `, the last ${number(spanMin)} ${spanMin === 1 ? "minute" : "minutes"} here` : ""}; not hours of history.`}
         actions={
           <>
             {/* The pill and the status keep their room beside the h1 (nothing jumps as they change); under it, from the left (below

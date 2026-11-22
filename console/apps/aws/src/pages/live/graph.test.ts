@@ -5,7 +5,7 @@ import { buildMap, perMinute, routeOf, targetOf, wiresOf } from "./graph";
 
 const NOW = 10_000_000;
 let seq = 0;
-const call = (p: Partial<CallRecord>): CallRecord => ({ seq: ++seq, at_ms: NOW - 1000, service: "sqs", api: "SQS", action: "SendMessage", resource: "http://h/1/pick-lists", member: "QueueUrl", caller: "AKIA1", region: "us-east-1", status: 200, error_code: null, outcome: "ok", would_be_denied: false, duration_us: 1, request_id: "r", via: null, sdk: null, ...p });
+const call = (p: Partial<CallRecord>): CallRecord => ({ seq: ++seq, at_ms: NOW - 1000, service: "sqs", api: "SQS", action: "SendMessage", resource: "http://h/1/pick-lists", member: "QueueUrl", caller: "AKIA1", region: "us-east-1", status: 200, error_code: null, outcome: "ok", would_be_denied: false, duration_us: 1, request_id: "r", via: null, sdk: null, message: null, function_error: null, answer_bytes: null, ...p });
 const wiring = (nodes: [string, string?][], edges: [string, string, string, string?][]): Wiring => ({
   nodes: nodes.map(([id, sentence]) => { const [service = "", kind = "", name = ""] = id.split("/"); return { id, service, kind, name, sentence: sentence ?? null }; }),
   edges: edges.map(([from, to, label, note]) => ({ from, to, label, note: note ?? null })),
@@ -49,7 +49,7 @@ describe("buildMap", () => {
   });
   test("a refusal and a would-be-denied are counted on the node", () => {
     const x = buildMap([call({ status: 400, outcome: "error" }), call({ would_be_denied: true })], undefined, opts);
-    expect(x.nodes.find((n) => n.id === "sqs/queues/pick-lists")?.seen).toEqual({ wouldBeDenied: 1, refused: 1, error: 0, notBuilt: 0 });
+    expect(x.nodes.find((n) => n.id === "sqs/queues/pick-lists")?.seen).toEqual({ wouldBeDenied: 1, refused: 1, error: 0, notBuilt: 0, functionError: 0 });
   });
   test("by domain: apps, then the services' groups", () => {
     const d = buildMap([call({}), call({ service: "s3", member: null, resource: "b/k" })], undefined, { ...opts, layout: "domain" });
@@ -71,4 +71,42 @@ test("the route of a call runs from its caller to what it named and on along the
 
 test("per-minute counts end at now", () => {
   expect(perMinute([{ at_ms: NOW - 10 }, { at_ms: NOW - 70_000 }, { at_ms: NOW - 61_000 }], NOW, 3)).toEqual([0, 2, 1]);
+});
+
+describe("a busy world", () => {
+  const busy = Array.from({ length: 30 }, (_, i) => call({ resource: `http://h/1/q${i}`, caller: i % 2 ? "AKIA1" : "AKIA2" }));
+  test("draws the busiest flows and counts the rest as quieter, until all flows are asked for", () => {
+    const calls = busy.flatMap((c, i) => Array.from({ length: 30 - i }, () => ({ ...c, seq: ++seq })));
+    const active = buildMap(calls, undefined, { ...opts, focus: "active" });
+    expect(active.nodes.filter((n) => n.kind === "resource").length).toBe(10);
+    expect(active.quiet.length).toBe(20);
+    expect(active.nodes.some((n) => n.name === "q0")).toBe(true);
+    expect(active.nodes.some((n) => n.name === "q29")).toBe(false);
+    expect(active.height).toBeLessThan(11 * 78 + 80);
+    const all = buildMap(calls, undefined, { ...opts, focus: "all" });
+    expect(all.nodes.filter((n) => n.kind === "resource").length).toBe(30);
+    expect(all.quiet.length).toBe(0);
+  });
+  test("a flow is one row: what a resource feeds is level with it, a second thing it feeds takes the row under", () => {
+    const w = wiring([["sqs/queues/a"], ["sqs/queues/dlq"], ["lambda/functions/f"]], [["sqs/queues/a", "sqs/queues/dlq", "redrive"], ["sqs/queues/a", "lambda/functions/f", "polling"]]);
+    const m = buildMap([call({ resource: "http://h/1/a" })], w, opts);
+    const y = (id: string) => m.nodes.find((n) => n.id === id)!.y;
+    expect(y("sqs/queues/dlq")).toBe(y("sqs/queues/a"));
+    expect(y("lambda/functions/f")).toBeGreaterThan(y("sqs/queues/a"));
+    expect(m.nodes.find((n) => n.id === "sqs/queues/dlq")!.col).toBe(2);
+  });
+  test("an app is level with what it calls, and carries its client", () => {
+    const m = buildMap([call({ sdk: "Go v2 1.26.0" })], undefined, opts);
+    const app = m.nodes.find((n) => n.kind === "app")!;
+    expect(app.sdk).toBe("Go v2");
+    expect(app.y).toBe(m.nodes.find((n) => n.kind === "resource")!.y);
+  });
+});
+
+test("by domain a column holds its busiest eight and the rest are quieter", () => {
+  const calls = Array.from({ length: 12 }, (_, i) => Array.from({ length: 12 - i }, () => call({ resource: `http://h/1/q${i}` }))).flat();
+  const m = buildMap([...calls, call({ service: "s3", member: null, resource: "b/k" })], undefined, { ...opts, focus: "active", layout: "domain" });
+  expect(m.nodes.filter((n) => n.service === "sqs").length).toBe(8);
+  expect(m.nodes.some((n) => n.service === "s3")).toBe(true);
+  expect(m.quiet.length).toBe(4);
 });

@@ -5,7 +5,7 @@ import { CommandPalette, type PaletteGroup, type PaletteItem } from "@doze/ui/co
 import { copyText } from "@doze/ui/components/app/copy";
 import { ThemeSwitch } from "@doze/ui/components/app/theme-menu";
 import { TopBar, topBarChip } from "@doze/ui/components/app/top-bar";
-import { Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarHeader, SidebarInset, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarProvider, SidebarRail } from "@doze/ui/components/ui/sidebar";
+import { Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupContent, SidebarHeader, SidebarInset, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarProvider, SidebarRail } from "@doze/ui/components/ui/sidebar";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@doze/ui/components/ui/tooltip";
 import { useSidebarOpen } from "@doze/ui/lib/sidebar-state";
 import { setTheme } from "@doze/ui/lib/theme";
@@ -54,6 +54,11 @@ function Rail() {
         </SidebarGroup>
         <RailPlaces />
       </SidebarContent>
+      <SidebarFooter className="px-4 pb-4 group-data-[collapsible=icon]:hidden" data-testid="rail-footer">
+        <p className="flex items-center gap-2 text-[12px] text-muted-foreground">
+          <kbd className="rounded border bg-card px-1.5 py-px font-mono text-[11px]">⌘K</kbd> jump or do
+        </p>
+      </SidebarFooter>
       <SidebarRail />
     </Sidebar>
   );

@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import type { CallRecord } from "../../../api/types/CallRecord";
 import { busCalls, matchedRules, resultNote, ruleCalls, ruleOf } from "./record";
 
-const call = (seq: number, patch: Partial<CallRecord>): CallRecord => ({ seq, at_ms: seq * 100, service: "eventbridge", api: "EventBridge", action: "PutRule", resource: null, member: null, caller: "k", region: "us-east-1", status: 200, error_code: null, outcome: "ok", would_be_denied: false, duration_us: 1, request_id: `r${seq}`, via: null, sdk: null, ...patch }) as CallRecord;
+const call = (seq: number, patch: Partial<CallRecord>): CallRecord => ({ seq, at_ms: seq * 100, service: "eventbridge", api: "EventBridge", action: "PutRule", resource: null, member: null, caller: "k", region: "us-east-1", status: 200, error_code: null, outcome: "ok", would_be_denied: false, duration_us: 1, request_id: `r${seq}`, via: null, sdk: null, message: null, function_error: null, answer_bytes: null, ...patch }) as CallRecord;
 const by = (name: string) => ({ by: "eventbridge", request_id: null, name: `rule ${name}` });
 
 describe("what the record says of a bus and a rule", () => {

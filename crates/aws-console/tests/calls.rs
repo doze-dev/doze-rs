@@ -62,7 +62,7 @@ async fn calls_are_paged_by_a_cursor_oldest_first() {
             "seq": 1, "at_ms": 1_000, "service": "sqs", "api": "SQS", "action": "CreateQueue", "resource": null,
             "member": null, "caller": "test", "region": "us-east-1", "status": 200, "error_code": null, "outcome": "ok",
             "would_be_denied": false, "duration_us": 1_500, "request_id": "0c6f3a52-7a8b-4c1d-9e2f-000000000000",
-            "via": null, "sdk": "boto3 1.34.69",
+            "via": null, "sdk": "boto3 1.34.69", "message": null, "function_error": null, "answer_bytes": null,
         })
     );
     assert_eq!(

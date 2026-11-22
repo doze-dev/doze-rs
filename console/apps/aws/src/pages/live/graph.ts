@@ -6,12 +6,13 @@
 // whether or not anything has moved along it. A resource nothing called and nothing is wired to is "not wired".
 import type { CallRecord } from "../../api/types/CallRecord";
 import type { Wiring } from "../../api/types/Wiring";
+import { clientName } from "../../people";
 import { callerOf } from "./search";
 import { resourceName } from "./resource";
 
 export type NodeKind = "app" | "service" | "resource";
 
-export type Seen = { wouldBeDenied: number; refused: number; error: number; notBuilt: number };
+export type Seen = { wouldBeDenied: number; refused: number; error: number; notBuilt: number; functionError: number };
 
 export type MapNode = {
   id: string;
@@ -30,6 +31,8 @@ export type MapNode = {
   /** Calls in the minute before `now`. */
   lastMinute: number;
   ops: string[];
+  /** The client an app calls with (`Go v2`); null for anything else. */
+  sdk: string | null;
   seen: Seen;
   col: number;
   y: number;
@@ -81,7 +84,7 @@ export function targetOf(c: Pick<CallRecord, "service" | "resource" | "member">)
   return { id: `${c.service}/${resKind}/${name}`, kind: "resource", service: c.service, resKind, name, member: c.member };
 }
 
-const blank = (id: string, kind: NodeKind, service: string, resKind: string, name: string, member: string | null): MapNode => ({ id, kind, service, resKind, name, sentence: null, member, calls: 0, lastMs: 0, lastMinute: 0, ops: [], seen: { wouldBeDenied: 0, refused: 0, error: 0, notBuilt: 0 }, col: 0, y: 0 });
+const blank = (id: string, kind: NodeKind, service: string, resKind: string, name: string, member: string | null): MapNode => ({ id, kind, service, resKind, name, sentence: null, member, calls: 0, lastMs: 0, lastMinute: 0, ops: [], sdk: null, seen: { wouldBeDenied: 0, refused: 0, error: 0, notBuilt: 0, functionError: 0 }, col: 0, y: 0 });
 
 function touch(n: MapNode, c: CallRecord, now: number) {
   n.calls += 1;
@@ -94,9 +97,15 @@ function touch(n: MapNode, c: CallRecord, now: number) {
     else n.seen.error += 1;
   }
   if (c.outcome === "not-built") n.seen.notBuilt += 1;
+  if (c.function_error) n.seen.functionError += 1;
 }
 
-export const ROW = 76;
+export const ROW = 78;
+/** The most flows (a resource and what it is wired to) drawn while Focus is on the active ones: a busy world is the busiest, and the
+ * rest are counted as quieter flows. All flows draws every one. */
+export const MOST_FLOWS = 10;
+/** The most a domain column holds while Focus is on the active ones. */
+export const MOST_PER_COLUMN = 8;
 export const TOP = 18;
 
 /** The map of `calls` (any order; this console's own already left out) and the wiring. `callerName` says how an app is shown. */
@@ -125,6 +134,7 @@ export function buildMap(calls: readonly CallRecord[], wiring: Wiring | undefine
     const appId = `app|${key}`;
     const app = node(appId, () => blank(appId, "app", "", "", o.callerName(key), null));
     touch(app, c, o.now);
+    if (c.sdk && !app.sdk) app.sdk = clientName(c.sdk);
     const to = node(t.id, () => blank(t.id, t.kind, t.service, t.resKind, t.name, t.member));
     touch(to, c, o.now);
     const e = edge(appId, t.id, "call", null, null);
@@ -163,43 +173,90 @@ export function buildMap(calls: readonly CallRecord[], wiring: Wiring | undefine
       }
     }
   }
-  const shown = o.focus === "all" ? keep : keep.filter((n) => activeIds.has(n.id));
-  const quiet = o.focus === "all" ? [] : keep.filter((n) => !activeIds.has(n.id) && n.kind !== "app");
+  const active_ = o.focus === "all" ? keep : keep.filter((n) => activeIds.has(n.id));
+  // The flows (a resource and what it is wired to), the busiest first; past MOST_FLOWS the rest are quieter flows.
+  const flows = flowsOf(active_.filter((n) => n.kind !== "app"), [...edges.values()]);
+  // By flow, the busiest flows; by domain, the busiest of each column (a column is as tall as its own, not the sum of the others').
+  const byDomain = (nodes: MapNode[]) => domainColumns(nodes).flatMap((d) => nodes.filter((n) => domainOf(n) === d).sort((a, b) => b.calls - a.calls).slice(0, MOST_PER_COLUMN));
+  const kept = o.focus === "all" ? flows : o.layout === "domain" ? [byDomain(flows.flat())] : flows.slice(0, MOST_FLOWS);
+  const keptIds = new Set(kept.flat().map((n) => n.id));
+  const quiet = [...keep.filter((n) => n.kind !== "app" && !keptIds.has(n.id))];
+  const apps = new Set([...edges.values()].filter((e) => e.kind === "call" && keptIds.has(e.to)).map((e) => e.from));
+  const shown = active_.filter((n) => (n.kind === "app" ? apps.has(n.id) : keptIds.has(n.id)));
   const shownIds = new Set(shown.map((n) => n.id));
   const drawn = [...edges.values()].filter((e) => shownIds.has(e.from) && shownIds.has(e.to));
 
-  const columns = place(shown, drawn, o.layout);
-  const height = TOP * 2 + Math.max(1, ...Array.from({ length: columns }, (_, c) => shown.filter((n) => n.col === c).length)) * ROW;
+  const { columns, height } = place(shown, drawn, kept, o.layout);
   return { nodes: shown, edges: drawn, columns, height, quiet, notWired, more: wiring?.more ?? false };
 }
 
-/** Sets each node's column and y. Flow: apps first, then a resource one column after the last wired thing that feeds it. Domain:
- * Apps, Messaging and events, Storage and compute, Other. Within a column, the busiest first. */
-function place(shown: MapNode[], edges: MapEdge[], layout: Layout): number {
+/** The flows among `nodes`: each resource with everything wired to it or from it, the busiest flow first. */
+function flowsOf(nodes: MapNode[], edges: MapEdge[]): MapNode[][] {
+  const root = new Map(nodes.map((n) => [n.id, n.id]));
+  const find = (id: string): string => {
+    const r = root.get(id) ?? id;
+    return r === id ? id : find(r);
+  };
+  for (const e of edges) if (e.kind === "wire" && root.has(e.from) && root.has(e.to)) root.set(find(e.from), find(e.to));
+  const by = new Map<string, MapNode[]>();
+  for (const n of nodes) by.set(find(n.id), [...(by.get(find(n.id)) ?? []), n]);
+  const weight = (f: MapNode[]) => f.reduce((sum, n) => sum + n.calls, 0);
+  return [...by.values()].sort((a, b) => weight(b) - weight(a) || a[0]!.name.localeCompare(b[0]!.name));
+}
+
+/** Sets each node's column and y. Flow: one row for each flow, a resource and what it feeds along the row (a resource one column after
+ * the last wired thing that feeds it; a second thing it feeds takes the row under); apps on the left, level with what they call.
+ * Domain: Apps, Messaging and events, Storage and compute, Other, the busiest first in a column. */
+function place(shown: MapNode[], edges: MapEdge[], flows: MapNode[][], layout: Layout): { columns: number; height: number } {
   if (layout === "domain") {
     const cols = domainColumns(shown);
     for (const n of shown) n.col = cols.indexOf(domainOf(n));
     stack(shown, cols.length);
-    return Math.max(1, cols.length);
+    const tallest = Math.max(1, ...Array.from({ length: cols.length }, (_, c) => shown.filter((n) => n.col === c).length));
+    return { columns: Math.max(1, cols.length), height: TOP * 2 + tallest * ROW };
   }
   const wire = edges.filter((e) => e.kind === "wire");
-  const depth = new Map<string, number>();
-  const of = (id: string, seen: Set<string>): number => {
-    const known = depth.get(id);
-    if (known !== undefined) return known;
-    if (seen.has(id)) return 1;
-    seen.add(id);
-    const d = Math.max(1, ...wire.filter((e) => e.to === id).map((e) => of(e.from, seen) + 1));
-    depth.set(id, d);
-    return d;
+  const byId = new Map(shown.map((n) => [n.id, n]));
+  const row = new Map<string, number>();
+  let next = 0;
+  const put = (id: string, r: number, col: number): number => {
+    const n = byId.get(id);
+    if (!n) return r - 1;
+    row.set(id, r);
+    n.col = col;
+    let used = r;
+    wire
+      .filter((e) => e.from === id && byId.has(e.to) && !row.has(e.to))
+      .forEach((e, i) => {
+        used = Math.max(used, put(e.to, i === 0 ? r : used + 1, col + 1));
+      });
+    return used;
   };
-  let max = 0;
-  for (const n of shown) {
-    n.col = n.kind === "app" ? 0 : of(n.id, new Set());
-    max = Math.max(max, n.col);
+  for (const flow of flows) {
+    const fed = new Set(wire.filter((e) => flow.some((n) => n.id === e.from)).map((e) => e.to));
+    const roots = flow.filter((n) => !fed.has(n.id) && byId.has(n.id));
+    for (const r of roots.length > 0 ? roots : flow.slice(0, 1)) if (!row.has(r.id)) next = put(r.id, next, 1) + 1;
   }
-  stack(shown, max + 1);
-  return max + 1;
+  for (const n of shown) {
+    if (n.kind !== "app") n.y = TOP + (row.get(n.id) ?? 0) * ROW + ROW / 2;
+    if (n.kind === "app") n.col = 0;
+  }
+  // An app level with what it calls (the middle of their rows), kept a row apart.
+  const wants = shown
+    .filter((n) => n.kind === "app")
+    .map((n) => {
+      const ys = edges.filter((e) => e.kind === "call" && e.from === n.id).map((e) => byId.get(e.to)?.y ?? 0);
+      return { n, y: ys.length > 0 ? ys.reduce((a, b) => a + b, 0) / ys.length : 0 };
+    })
+    .sort((a, b) => a.y - b.y);
+  let floor = TOP + ROW / 2;
+  for (const w of wants) {
+    w.n.y = Math.max(w.y, floor);
+    floor = w.n.y + ROW;
+  }
+  const bottom = Math.max(TOP + ROW / 2, ...shown.map((n) => n.y));
+  const columns = Math.max(1, ...shown.map((n) => n.col + 1));
+  return { columns, height: bottom + ROW / 2 + TOP };
 }
 
 function stack(shown: MapNode[], columns: number) {

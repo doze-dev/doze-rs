@@ -2,6 +2,7 @@ import { CircleCheckIcon, CircleDashedIcon, CircleXIcon, type LucideIcon, Shield
 import { Tooltip, TooltipContent, TooltipTrigger } from "@doze/ui/components/ui/tooltip";
 import { cn } from "@doze/ui/lib/utils";
 import type { CallRecord } from "../../api/types/CallRecord";
+import { answerWords } from "./answer";
 import { OUTCOMES, type OutcomeTone, WOULD_BE_DENIED } from "../../words";
 
 /** Each outcome its own look. Error and denied share the `--bad` hue; denied is told apart by its shield and an outlined word.
@@ -17,7 +18,7 @@ const TONE: Record<OutcomeTone, { ink: string; icon: LucideIcon; word?: string }
  * refused hue; the same answer from a service that failed (5xx) stays ERROR. */
 export const isRefused = (c: Pick<CallRecord, "outcome" | "status">) => c.outcome === "error" && c.status < 500;
 
-type ResultCall = Pick<CallRecord, "outcome" | "status" | "error_code" | "would_be_denied">;
+type ResultCall = Pick<CallRecord, "outcome" | "status" | "error_code" | "would_be_denied"> & Partial<Pick<CallRecord, "action" | "answer_bytes" | "function_error">>;
 
 /** How a call ended, on one line: an icon and the status for a success; for anything else the contract's word in capitals
  * (ERROR, DENIED, NOT BUILT), the status and the error code. The word and the icon carry the meaning; the colour repeats it.
@@ -29,11 +30,23 @@ export function Result({ call, className }: { call: ResultCall; className?: stri
   const soft = call.would_be_denied && call.outcome === "ok";
   const t: { ink: string; icon: LucideIcon; word?: string } = refused ? { ink: "text-refused", icon: CircleXIcon } : TONE[o.tone];
   const word = refused ? "REFUSED" : o.label;
+  // The invocation answered 200 and the function failed: the call worked, the function did not.
+  const failed = call.outcome === "ok" && !soft && call.function_error ? call.function_error : null;
+  const said = answerWords({ action: call.action ?? null, answer_bytes: call.answer_bytes ?? null, outcome: call.outcome, function_error: call.function_error ?? null });
   return (
     <span className={cn("flex max-w-full min-w-0 items-center gap-1.5 whitespace-nowrap", className)} data-outcome={call.outcome} data-slot="result">
-      {soft ? <ShieldAlertIcon aria-hidden className="size-3.5 shrink-0 text-warn" /> : <t.icon aria-hidden className={cn("size-3.5 shrink-0", t.ink)} />}
+      {soft ? <ShieldAlertIcon aria-hidden className="size-3.5 shrink-0 text-warn" /> : failed ? <CircleXIcon aria-hidden className="size-3.5 shrink-0 text-bad" /> : <t.icon aria-hidden className={cn("size-3.5 shrink-0", t.ink)} />}
       {soft ? (
         <WouldBeDenied status={call.status} />
+      ) : failed ? (
+        <>
+          <span className="shrink-0 text-[11.5px] font-bold tracking-[0.05em] text-bad" data-testid="function-error">
+            FUNCTION ERROR
+          </span>
+          <span className="min-w-0 truncate font-mono text-[12px]" title={`${failed}: the invocation answered ${call.status}`}>
+            {failed}
+          </span>
+        </>
       ) : call.outcome === "ok" ? (
         <span className={cn("font-semibold tabular-nums", t.ink)}>
           <span className="sr-only">OK </span>
@@ -49,6 +62,11 @@ export function Result({ call, className }: { call: ResultCall; className?: stri
             </span>
           )}
         </>
+      )}
+      {said && !soft && (
+        <span className="min-w-0 truncate text-[12px] text-muted-foreground" data-testid="answer-words">
+          · {said}
+        </span>
       )}
       {call.would_be_denied && !soft && <WouldBeDenied status={call.status} />}
     </span>

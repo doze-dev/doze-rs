@@ -26,6 +26,7 @@ import { subRow } from "./sub-model";
 import { TopicCreate } from "./topic-create";
 import { DeleteTopic } from "./topic-dialogs";
 import { clock } from "./words";
+import { FromYourApp } from "../../../kit/from-your-app";
 
 const RADIO = radioColumn<ResourceRow>((r) => r.name, "topic");
 
@@ -94,6 +95,7 @@ function Topics({ service, kind, gone }: { service: string; kind: string; gone?:
           <EmptyState icon={WaypointsIcon} title="No topics" action={<Button variant="outline" className="bg-card" onClick={() => go("create")}><PlusIcon /> Create topic</Button>}>
             A topic lets you group multiple endpoints, such as AWS Lambda, Amazon SQS or HTTP/S endpoints, so one publish reaches all of them.
           </EmptyState>
+          <FromYourApp service="sns" />
           <Callout tone="note" lead="An account can create at most 100,000 standard topics and 1,000 FIFO topics." className="mt-6 max-w-[40rem]" testId="note">CreateTopic is idempotent: creating a name you already own returns that topic's ARN.</Callout>
         </div>
       ) : (

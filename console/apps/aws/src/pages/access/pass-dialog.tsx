@@ -9,14 +9,16 @@ import { useAttach } from "../../api/spaces";
 import type { Refusal } from "../../api/types/Refusal";
 import { CodeBlock } from "../card";
 import { anyExplicit, draftPolicy, holderOf, policyName } from "./draft";
+import { addTo } from "./merge";
 
 /** Make this pass: the drafted policy to copy, and, when the refused principal is a user or a role IAM holds, putting it on
  * them as an inline policy (PutUserPolicy or PutRolePolicy, as the console; Live shows it) after a confirmation. */
-export function PassDialog({ open, onOpenChange, rows, what }: { open: boolean; onOpenChange: (o: boolean) => void; rows: Refusal[]; what: string }) {
-  const doc = draftPolicy(rows);
+export function PassDialog({ open, onOpenChange, rows, what, edit }: { open: boolean; onOpenChange: (o: boolean) => void; rows: Refusal[]; what: string; /** The inline policy the caller already has: it gets the statements it lacks, under its own name. */ edit?: { name: string; document: string } }) {
+  const merged = edit ? addTo(edit.document, rows) : null;
+  const doc = merged ? merged.document : draftPolicy(rows);
   const holder = rows.map((r) => holderOf(r.principal)).find((h) => h !== null) ?? null;
   const actions = [...new Set(rows.map((r) => r.action))].sort();
-  const [name, setName] = useState(() => policyName(actions));
+  const [name, setName] = useState(() => edit?.name ?? policyName(actions));
   const attach = useAttach();
   const change = (o: boolean) => {
     if (!o) attach.reset();
@@ -42,11 +44,17 @@ export function PassDialog({ open, onOpenChange, rows, what }: { open: boolean; 
       <DialogContent className="sm:max-w-[720px]" data-testid="pass-dialog">
         <form onSubmit={submit} className="grid gap-5">
           <DialogHeader>
-            <DialogTitle className="text-[21px] font-semibold">Make this pass</DialogTitle>
+            <DialogTitle className="text-[21px] font-semibold">{edit ? "Add to policy" : "Make this pass"}</DialogTitle>
             <DialogDescription className="text-[14px] leading-[22px] text-foreground">
-              The least policy that allows what IAM refused for <b className="font-mono font-semibold text-bright">{what}</b>: each action IAM checked, on the resource it checked it on.
+              {edit ? "The policy the caller has, with what IAM refused added to it, for" : "The least policy that allows what IAM refused for"} <b className="font-mono font-semibold text-bright">{what}</b>: each action IAM checked, on the resource it checked it on.
             </DialogDescription>
           </DialogHeader>
+          {merged && (
+            <div className="rounded-lg bg-muted/60 p-3" data-testid="pass-adds">
+              <div className="mb-1.5 text-[11.5px] font-medium tracking-wide text-muted-foreground uppercase">What it adds to {edit?.name}</div>
+              {merged.added.length === 0 ? <p className="text-[13px]">Nothing: the policy already covers it, or IAM refused it with an explicit deny.</p> : merged.added.map((l) => <div key={l} className="font-mono text-[12.5px] break-all">+ {l}</div>)}
+            </div>
+          )}
           {doc ? <CodeBlock code={doc} what="Policy copied" testId="drafted-policy" /> : <p className="text-[13.5px] text-muted-foreground">Nothing to draft: IAM refused these with an explicit deny, which no allow can lift.</p>}
           {anyExplicit(rows) && doc && (
             <Alert tone="warn" title="An explicit deny is left out">
@@ -56,9 +64,9 @@ export function PassDialog({ open, onOpenChange, rows, what }: { open: boolean; 
           {doc && holder ? (
             <div className="grid gap-1.5">
               <Label htmlFor="policy-name">
-                Put it on {holder.kind} <span className="font-mono">{holder.name}</span> as an inline policy named
+                {edit ? "Save it as" : "Put it on"} {holder.kind} <span className="font-mono">{holder.name}</span> {edit ? "over the inline policy named" : "as an inline policy named"}
               </Label>
-              <Input id="policy-name" value={name} onChange={(e) => setName(e.target.value)} autoComplete="off" spellCheck={false} className="bg-card font-mono" data-testid="policy-name" />
+              <Input id="policy-name" value={name} onChange={(e) => setName(e.target.value)} readOnly={edit !== undefined} autoComplete="off" spellCheck={false} className="bg-card font-mono" data-testid="policy-name" />
               <p className="text-[12.5px] text-muted-foreground">
                 Called as <span className="font-mono">{op}</span> by this console; Live shows it. An inline policy of the same name is replaced.
               </p>
@@ -76,8 +84,8 @@ export function PassDialog({ open, onOpenChange, rows, what }: { open: boolean; 
               Close
             </Button>
             {doc && holder && (
-              <Button type="submit" disabled={attach.isPending || name.trim() === ""} data-testid="attach-submit">
-                {attach.isPending ? "Working…" : `Put on ${holder.kind}`}
+              <Button type="submit" disabled={attach.isPending || name.trim() === "" || (merged !== null && merged.added.length === 0)} data-testid="attach-submit">
+                {attach.isPending ? "Working…" : edit ? "Add to policy" : `Put on ${holder.kind}`}
               </Button>
             )}
           </DialogFooter>

@@ -1,3 +1,4 @@
+import { CopyButton } from "@doze/ui/components/app/copy-button";
 import { Button } from "@doze/ui/components/ui/button";
 import { Sheet, SheetClose, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from "@doze/ui/components/ui/sheet";
 import type { About } from "../../api/types/About";
@@ -30,10 +31,13 @@ function Frame({ title, lede, testId, children, ...p }: Props & { title: string;
   );
 }
 
-function Pair({ label, children }: { label: string; children: React.ReactNode }) {
+function Pair({ label, children, copy }: { label: string; children: React.ReactNode; copy?: string }) {
   return (
     <div className="rounded-xl border bg-card px-4 py-3">
-      <div className="mb-1 text-[11.5px] font-medium tracking-wide text-muted-foreground uppercase">{label}</div>
+      <div className="mb-1 flex items-center justify-between text-[11.5px] font-medium tracking-wide text-muted-foreground uppercase">
+        {label}
+        {copy && <CopyButton text={copy} iconOnly variant="ghost" label={`Copy ${label}`} what="URL copied" />}
+      </div>
       {children}
     </div>
   );
@@ -50,14 +54,14 @@ export function InvokeSheet(p: Props) {
         <h3 className={h3}>A deployed API</h3>
         <div className="mt-2 grid gap-2">
           <Pair label="By host name"><code className={url}>{`http://<id>.execute-api.${p.a.region}.${local}/<stage>/`}</code></Pair>
-          <Pair label="By path on IP and port"><code className={url}>{`http://${host}/_aws/execute-api/<id>/<stage>/`}</code></Pair>
+          <Pair label="By path on IP and port" copy={`http://${host}/_aws/execute-api/<id>/<stage>/`}><code className={url}>{`http://${host}/_aws/execute-api/<id>/<stage>/`}</code></Pair>
         </div>
       </section>
       <section data-testid="invoke-lambda">
         <h3 className={h3}>A Lambda function URL</h3>
         <div className="mt-2 grid gap-2">
           <Pair label="By host name"><code className={url}>{`http://<id>.lambda-url.${p.a.region}.${local}/`}</code></Pair>
-          <Pair label="By path on IP and port"><code className={url}>{`http://${host}/_aws/lambda-url/${p.a.region}/<id>/`}</code></Pair>
+          <Pair label="By path on IP and port" copy={`http://${host}/_aws/lambda-url/${p.a.region}/<id>/`}><code className={url}>{`http://${host}/_aws/lambda-url/${p.a.region}/<id>/`}</code></Pair>
         </div>
       </section>
       <section data-testid="invoke-sync">

@@ -25,6 +25,8 @@ export type LiveSearch = {
   q?: string;
   /** `shown`: this console's own calls are shown too (hidden otherwise). */
   console?: "shown";
+  /** An app by its name (an IAM user's): the calls of the key that is. */
+  app?: string;
   /** The node of the resource map whose panel is open (`sqs/queues/pick-lists`). */
   node?: string;
   /** `all`: every flow on the map, not only those active in the last five minutes. */
@@ -49,7 +51,7 @@ const text = (v: unknown, most = 256): string | undefined => (typeof v === "stri
 export function liveSearch(s: Record<string, unknown>): LiveSearch {
   const n = s.call;
   // Every key is set, to undefined when the value is not one of ours: the router keeps a raw value the validator leaves out.
-  const out: LiveSearch = { call: undefined, view: undefined, service: undefined, outcome: undefined, caller: undefined, q: undefined, console: undefined, node: undefined, focus: undefined, layout: undefined, by: undefined };
+  const out: LiveSearch = { call: undefined, view: undefined, service: undefined, outcome: undefined, caller: undefined, q: undefined, console: undefined, app: undefined, node: undefined, focus: undefined, layout: undefined, by: undefined };
   if (typeof n === "number" && Number.isSafeInteger(n) && n > 0) out.call = n;
   if (VIEWS.includes(s.view as View)) out.view = s.view as View;
   const service = text(s.service, 64);
@@ -59,6 +61,8 @@ export function liveSearch(s: Record<string, unknown>): LiveSearch {
   if (caller) out.caller = caller;
   const q = text(s.q);
   if (q) out.q = q;
+  const app = text(s.app, 64);
+  if (app) out.app = app;
   if (s.console === "shown") out.console = "shown";
   const node = text(s.node, 160);
   if (node) out.node = node;
@@ -89,5 +93,5 @@ export function matches(c: CallRecord, f: LiveSearch): boolean {
 
 /** Whether any filter is set. */
 export function filtering(f: LiveSearch): boolean {
-  return f.service !== undefined || f.outcome !== undefined || f.caller !== undefined || f.q !== undefined;
+  return f.service !== undefined || f.outcome !== undefined || f.caller !== undefined || f.q !== undefined || f.app !== undefined;
 }

@@ -33,12 +33,14 @@ test("home: what is awake by group, who is connected, what needs a look, and the
   await expect(signals).toContainText("1 message in a dead-letter queue");
   await expect(signals).toContainText("Not active locally");
   await expect(signals).toContainText("1 subscription stored");
+  // A gateway's custom domain name is stored and routes nothing here.
+  await expect(signals).toContainText("1 domain name stored");
   // Recent activity names the resource and the app, not the URL and the key.
   const recent = page.getByRole("table", { name: "Recent calls" });
   await expect(recent).toContainText("admin-cli");
   await expect(recent).toContainText("receipts/r-8841.pdf");
   await expect(recent).not.toContainText("http://127.0.0.1");
-  await expect(recent).toContainText("orders-created");
+  await expect(recent).toContainText("reports/2026-11.csv");
   await shot(page, "home");
 });
 
@@ -48,8 +50,8 @@ test("home__home-services: where the list of services is set, and what this run 
   const sheet = page.getByTestId("services-sheet");
   await expect(sheet).toBeVisible();
   await expect(sheet.getByTestId("services-sheet-lede")).toContainText("All 18 services run by default.");
-  await expect(sheet.getByTestId("services-toml")).toContainText('services = ["sqs", "sns", "eventbridge"');
-  await expect(sheet.getByTestId("services-flag")).toContainText("doze-aws --services sqs,sns");
+  await expect(sheet.getByTestId("services-toml")).toContainText('services = ["sqs", "sns", "s3"]');
+  await expect(sheet.getByTestId("services-flag")).toContainText("doze-aws --services sqs,sns,s3");
   await expect(sheet).toContainText("Takes a restart.");
   await expect(sheet).toContainText("Unknown service names are an error.");
   await shot(page, "home__home-services");

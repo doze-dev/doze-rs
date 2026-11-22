@@ -7,7 +7,6 @@ import { Checkbox } from "@doze/ui/components/ui/checkbox";
 import { Input } from "@doze/ui/components/ui/input";
 import { Label } from "@doze/ui/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@doze/ui/components/ui/radio-group";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@doze/ui/components/ui/select";
 import { Switch } from "@doze/ui/components/ui/switch";
 import { useAbout } from "../../../api/queries";
 import { useResourceList } from "../../../api/resources";
@@ -24,22 +23,24 @@ export function useRows(service: string, kind: string) {
   return { rows: q.data?.pages.flatMap((pg) => pg.rows) ?? [], pending: q.isPending };
 }
 
-/** Protocol: a select whose list says what each is and, for the ones doze-aws does not deliver to, why it is off. */
+/** Protocol: a radio for each, with what it is under it and, for the ones doze-aws does not deliver to, why it is off (greyed, not hidden:
+ * someone following the AWS documentation looks for it). */
 function ProtocolSelect({ f, set }: Pick<SubFieldProps, "f" | "set">) {
   const info = protocolOf(f.protocol);
   return (
-    <Field label="Protocol" help={info?.active ? <>{info.about}</> : undefined} hint={<><b className="font-semibold text-foreground">{f.topic.endsWith(".fifo") ? "To subscribe to a FIFO topic, choose Amazon SQS. " : ""}</b>{countWord(disabledCount())} of the nine protocols are disabled here; the table below says why.</>} testId="field-protocol">
+    <Field label="Protocol" help={info?.active ? <>{info.about}</> : undefined} hint={<><b className="font-semibold text-foreground">{f.topic.endsWith(".fifo") ? "To subscribe to a FIFO topic, choose Amazon SQS. " : ""}</b>{countWord(disabledCount())} of the nine protocols are disabled here; each says why under its name.</>} testId="field-protocol">
       {(id) => (
-        <Select value={f.protocol} onValueChange={(v) => set({ protocol: v as Protocol, endpoint: "", raw: false })}>
-          <SelectTrigger id={id} className="w-full bg-card" data-testid="sub-protocol"><SelectValue>{info?.label}</SelectValue></SelectTrigger>
-          <SelectContent className="max-h-[32rem]" data-testid="protocol-list">
-            {PROTOCOLS.map((x) => (
-              <SelectItem key={x.id} value={x.id} disabled={!x.active} className="items-start py-2.5" data-testid={`protocol-${x.id}`}>
-                <span className="grid gap-0.5"><span className="flex items-center gap-2 font-medium text-bright">{x.label}{!x.active && <Badge variant="secondary" className="font-normal text-muted-foreground">Disabled</Badge>}</span><span className="max-w-[34rem] text-[12.5px] leading-[18px] font-normal whitespace-normal text-muted-foreground">{x.about}</span></span>
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <RadioGroup id={id} value={f.protocol} onValueChange={(v) => set({ protocol: v as Protocol, endpoint: "", raw: false })} className="grid gap-1 rounded-xl border bg-card p-2" aria-label="Protocol" data-testid="protocol-list">
+          {PROTOCOLS.map((x) => (
+            <Label key={x.id} htmlFor={`protocol-radio-${x.id}`} data-testid={`protocol-${x.id}`} data-disabled={x.active ? undefined : ""} className={`flex items-start gap-3 rounded-lg px-3 py-2.5 font-normal leading-5 has-[[data-state=checked]]:bg-pick/50 ${x.active ? "cursor-pointer hover:bg-accent/40" : "cursor-not-allowed opacity-60"}`}>
+              <RadioGroupItem id={`protocol-radio-${x.id}`} value={x.id} disabled={!x.active} className="mt-0.5" data-testid={`protocol-radio-${x.id}`} />
+              <span className="grid gap-0.5">
+                <span className="flex items-center gap-2 font-medium text-bright">{x.label}{!x.active && <Badge variant="secondary" className="font-normal text-muted-foreground">Disabled</Badge>}</span>
+                <span className="max-w-[40rem] text-[13px] text-muted-foreground">{x.about}</span>
+              </span>
+            </Label>
+          ))}
+        </RadioGroup>
       )}
     </Field>
   );
