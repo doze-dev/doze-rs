@@ -1,0 +1,1 @@
+export{t as SharingCreate}from"./detail-BM_NdMTA.js";

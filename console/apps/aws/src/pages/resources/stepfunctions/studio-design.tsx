@@ -128,17 +128,23 @@ export function DesignMode({ text, setText }: { text: string; setText: (t: strin
   const state = selected && def ? stateOf(def, selected) : undefined;
   const dragging = armed !== null || dragged;
   const armedLabel = armed?.startsWith("move:") ? armed.slice(5) : (armed ? offerOf(armed)?.label : undefined);
-  const keys = (e: React.KeyboardEvent) => {
-    // Outside a text field, Ctrl or Cmd with Z takes the last change back, with Shift puts it back; a field keeps its own undo.
-    const field = (e.target as HTMLElement).closest("input, textarea, select, [contenteditable]");
-    if (field || !(e.metaKey || e.ctrlKey) || e.key.toLowerCase() !== "z") return;
+  // Outside a text field, Ctrl or Cmd with Z takes the last change back, with Shift puts it back; a field keeps its own undo. The page
+  // listens, not the studio: taking back the first change disables Undo, and a focused button that is disabled leaves the keys on the
+  // page itself, where a listener on the studio would never hear the Redo that follows.
+  const keys = (e: KeyboardEvent) => {
+    const target = e.target instanceof Element ? e.target : null;
+    if (e.defaultPrevented || target?.closest("input, textarea, select, [contenteditable], [role=dialog]") || !(e.metaKey || e.ctrlKey) || e.key.toLowerCase() !== "z") return;
     e.preventDefault();
     if (e.shiftKey) forward();
     else back();
   };
+  useEffect(() => {
+    document.addEventListener("keydown", keys);
+    return () => document.removeEventListener("keydown", keys);
+  });
   const offers = tab === "flow" ? FLOW : tab === "actions" ? ACTIONS : PATTERNS;
   return (
-    <div className="grid gap-6" data-testid="studio-design" onKeyDown={keys}>
+    <div className="grid gap-6" data-testid="studio-design">
       <section className="rounded-[14px] border bg-card p-6 lg:p-7" data-testid="states-browser">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
