@@ -4,7 +4,7 @@ import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/rea
 import { client, PATHS } from "../../../api/client";
 import type { CallRecord } from "../../../api/types/CallRecord";
 import type { CallsPage } from "../../../api/types/CallsPage";
-import { callKindOp, type Kind, useKindOpRead } from "../../../kit";
+import { callKindOp, forgetDeleted, type Kind, scopeOf, useKindOpRead } from "../../../kit";
 
 export const USERS: Kind = { service: "iam", kind: "users" };
 export const GROUPS: Kind = { service: "iam", kind: "groups" };
@@ -30,10 +30,8 @@ export function useEach<T>(kind: Kind, operation: string, inputs: readonly objec
 export function useRefresh(): (gone?: string) => void {
   const qc = useQueryClient();
   return (gone) => {
-    const iam = (key: readonly unknown[]) => (key[0] === "resources" && key[2] === "iam") || key[0] === "iam";
-    const about = (key: readonly unknown[]) => gone !== undefined && key[1] !== "list" && JSON.stringify(key).includes(JSON.stringify(gone).slice(1, -1));
-    void qc.invalidateQueries({ predicate: (q) => iam(q.queryKey) && !about(q.queryKey) });
-    if (gone !== undefined) void qc.invalidateQueries({ predicate: (q) => iam(q.queryKey) && about(q.queryKey), refetchType: "none" });
+    if (gone !== undefined) return forgetDeleted(qc, scopeOf("iam"), [gone]);
+    void qc.invalidateQueries({ predicate: (q) => (q.queryKey[0] === "resources" && q.queryKey[2] === "iam") || q.queryKey[0] === "iam" });
   };
 }
 

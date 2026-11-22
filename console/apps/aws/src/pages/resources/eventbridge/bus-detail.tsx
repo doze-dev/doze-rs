@@ -94,7 +94,7 @@ function BusView({ d, updatedAt, fetching, refetch }: { d: ResourceDetail; updat
                 <Button variant="outline" className="bg-card" onClick={() => void navigate({ to: "/resources/$service/$second", params: { service: "eventbridge", second: "archives" }, search: { create: "yes", name: bus } })} data-testid="archive-create"><PlusIcon /> Create archive</Button>
                 <Button asChild variant="ghost"><Link to="/resources/$service/$second" params={{ service: "eventbridge", second: "archives" }} search={{}}>View all archives</Link></Button>
               </div>
-              <RuleHelp className="mt-4 max-w-3xl"><b>Retention is applied.</b> doze-aws removes the events older than an archive's retention when the next event arrives, at most once an hour; an archive with no retention keeps its events until you delete it (<span className="font-mono">crates/aws-eventbridge/src/archives.rs</span>).</RuleHelp>
+              <RuleHelp className="mt-4 max-w-3xl"><b>Retention is applied.</b> doze-aws removes the events older than an archive's retention when the next event arrives, at most once an hour; an archive with no retention keeps its events until you delete it.</RuleHelp>
             </section>
             <RecentCalls className="mt-12" calls={calls} noun="bus" title="Recent calls" scope={`${bus} and its rules`} note={note} />
           </>

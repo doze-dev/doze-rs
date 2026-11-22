@@ -63,7 +63,7 @@ function StackView({ d, updatedAt, fetching, refetch }: { d: ResourceDetail; upd
   const exportNames = (stack?.Outputs ?? []).flatMap((o) => (o.ExportName ? [o.ExportName] : []));
   const importers = useImporters(exportNames);
   const template = useTemplate(nm, "Original", deleting || asked === "resources");
-  const del = useDelete(d.service, d.kind);
+  const del = useDelete(d.service, d.kind, exportNames);
   const view = status === "REVIEW_IN_PROGRESS" ? "review" : status === "ROLLBACK_COMPLETE" ? "rolled" : search.done === "updated" && status === "UPDATE_COMPLETE" ? "updated" : "tabs";
   const sets = useCfnRead<{ Summaries?: ChangeSetRow[] }>("ListChangeSets", { StackName: nm }, { enabled: view === "review" });
   const reviewSet = sets.data?.Summaries?.[0]?.ChangeSetName;

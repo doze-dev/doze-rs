@@ -1,6 +1,6 @@
 // The 22 KMS boards, each reached against a real doze-aws (one per browser, seeded as the boards' "larder" world with the real AWS
 // CLI) and, in Chromium, photographed light and dark into SHOTS_DIR.
-import { CUT, expect, test } from "./fixtures";
+import { expect, test } from "./fixtures";
 import { start, type Running } from "../server";
 import { seedKmsetc } from "./kmsetc-seed";
 import { cliOf, keyOf, open, portsFor, shoot } from "./kmsetc-kit";
@@ -240,11 +240,10 @@ test("kms__key-aliases, kms__key-alias-create: the aliases of a key, Create alia
   expect(JSON.parse(cli(["kms", "list-aliases", "--key-id", app])).Aliases.map((a: { AliasName: string }) => a.AliasName).sort()).toEqual(["alias/larder-app", "alias/larder-queues"]);
 });
 
-test.describe("a key that does not exist", () => {
-  test.use({ allowErrors: CUT });
-  test("has a page of its own that says so", async ({ page }) => {
-    await page.goto(`${server.console}/resources/kms/keys/00000000-0000-0000-0000-000000000000`);
-    await expect(page.getByTestId("detail-error")).toBeVisible();
-    await expect(page.getByTestId("detail-error")).toContainText("00000000-0000-0000-0000-000000000000");
-  });
+test("a key that does not exist has a page of its own that says so", async ({ page, refusals }) => {
+  // The service refuses a key that is not there: the page is that refusal.
+  refusals.allow(/ GET .*\/resources\/kms\/keys\/00000000-0000-0000-0000-000000000000$/);
+  await page.goto(`${server.console}/resources/kms/keys/00000000-0000-0000-0000-000000000000`);
+  await expect(page.getByTestId("detail-error")).toBeVisible();
+  await expect(page.getByTestId("detail-error")).toContainText("00000000-0000-0000-0000-000000000000");
 });

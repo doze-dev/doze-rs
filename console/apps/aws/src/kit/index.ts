@@ -8,6 +8,7 @@ export * from "./crumbs";
 export * from "./deletion-window";
 export * from "./detail-error";
 export * from "./flow-strip";
+export { forgetDeleted, scopeOf, useForgetDeleted } from "../api/forget";
 export * from "./form-page";
 export * from "./form-parts";
 export * from "./local-status";

@@ -1,6 +1,6 @@
 // The 13 Parameter Store boards, each reached against a real doze-aws (one per browser, seeded as the boards' "larder" world with the
 // real AWS CLI) and, in Chromium, photographed light and dark into SHOTS_DIR.
-import { CUT, expect, test } from "./fixtures";
+import { expect, test } from "./fixtures";
 import { start, type Running } from "../server";
 import { seedKmsetc } from "./kmsetc-seed";
 import { cliOf, open, portsFor, shoot } from "./kmsetc-kit";
@@ -52,38 +52,36 @@ test("ssm__parameters-staging: a name filter that begins with a path narrows the
   await expect(page.getByRole("table", { name: "Parameters" }).locator("tbody tr[data-row]")).toHaveCount(3);
 });
 
-// The refusal of a name that exists is the service's own 400, which the browser logs as a failed load.
-test.describe("a name that exists", () => {
-  test.use({ allowErrors: CUT });
-  test("ssm__parameter-create, create-exists, created: a form with the call beside it, a refusal on the name, then the list says what came back", async ({ page }) => {
-    await open(page, server.console, "/resources/ssm/parameters?create=yes", "Create parameter");
-    await page.getByTestId("parameter-name").fill("/larder/prod/db/password");
-    await expect(page.getByTestId("field-name")).toContainText("already exists in us-east-1");
-    await page.getByTestId("tier-Standard").click();
-    await page.getByTestId("type-SecureString").click();
-    await page.getByRole("combobox", { name: "Encryption key" }).click();
-    await page.getByRole("option", { name: "alias/larder-app" }).click();
-    await page.getByTestId("parameter-description").fill("Read replica password");
-    await page.getByTestId("parameter-value").fill("r3plica-Kx82-vQ0m-ZT19");
-    await page.getByTestId("parameter-tags").getByRole("button", { name: "Add tag" }).click();
-    await page.getByTestId("parameter-tags").getByRole("textbox").nth(0).fill("app");
-    await page.getByTestId("parameter-tags").getByRole("textbox").nth(1).fill("larder");
-    await expect(page.getByTestId("call-panel")).toContainText('"KeyId": "alias/larder-app"');
-    await expect(page.getByTestId("call-panel")).toContainText('"Tier": "Standard"');
-    await shot(page, "ssm__parameter-create");
-    await page.getByTestId("form-submit").click();
-    await expect(page.getByTestId("put-refused")).toContainText("PutParameter was refused with ParameterAlreadyExists (HTTP 400).");
-    await expect(page.getByTestId("field-name")).toContainText("choose Edit on /larder/prod/db/password");
-    await expect(page.getByTestId("call-panel")).toContainText("The call that was refused");
-    await shot(page, "ssm__parameter-create-exists");
-    await page.getByTestId("parameter-name").fill("/larder/prod/db/replica-password");
-    await page.getByTestId("form-submit").click();
-    await expect(page.getByTestId("created-banner")).toContainText("PutParameter returned version 1 for /larder/prod/db/replica-password, a SecureString.");
-    await expect(page.getByTestId("list-sentence")).toContainText("There are 9 parameters");
-    await expect(page.getByRole("table", { name: "Parameters" })).toContainText("/larder/prod/db/replica-password");
-    await shot(page, "ssm__parameter-created");
-    expect(JSON.parse(cli(["ssm", "get-parameter", "--name", "/larder/prod/db/replica-password", "--with-decryption"])).Parameter.Value).toBe("r3plica-Kx82-vQ0m-ZT19");
-  });
+test("ssm__parameter-create, create-exists, created: a form with the call beside it, a refusal on the name, then the list says what came back", async ({ page, refusals }) => {
+  // The refusal of a name that exists is the service's own 400.
+  refusals.allow(/400 POST .*\/ssm\/parameters\/op\/PutParameter$/);
+  await open(page, server.console, "/resources/ssm/parameters?create=yes", "Create parameter");
+  await page.getByTestId("parameter-name").fill("/larder/prod/db/password");
+  await expect(page.getByTestId("field-name")).toContainText("already exists in us-east-1");
+  await page.getByTestId("tier-Standard").click();
+  await page.getByTestId("type-SecureString").click();
+  await page.getByRole("combobox", { name: "Encryption key" }).click();
+  await page.getByRole("option", { name: "alias/larder-app" }).click();
+  await page.getByTestId("parameter-description").fill("Read replica password");
+  await page.getByTestId("parameter-value").fill("r3plica-Kx82-vQ0m-ZT19");
+  await page.getByTestId("parameter-tags").getByRole("button", { name: "Add tag" }).click();
+  await page.getByTestId("parameter-tags").getByRole("textbox").nth(0).fill("app");
+  await page.getByTestId("parameter-tags").getByRole("textbox").nth(1).fill("larder");
+  await expect(page.getByTestId("call-panel")).toContainText('"KeyId": "alias/larder-app"');
+  await expect(page.getByTestId("call-panel")).toContainText('"Tier": "Standard"');
+  await shot(page, "ssm__parameter-create");
+  await page.getByTestId("form-submit").click();
+  await expect(page.getByTestId("put-refused")).toContainText("PutParameter was refused with ParameterAlreadyExists (HTTP 400).");
+  await expect(page.getByTestId("field-name")).toContainText("choose Edit on /larder/prod/db/password");
+  await expect(page.getByTestId("call-panel")).toContainText("The call that was refused");
+  await shot(page, "ssm__parameter-create-exists");
+  await page.getByTestId("parameter-name").fill("/larder/prod/db/replica-password");
+  await page.getByTestId("form-submit").click();
+  await expect(page.getByTestId("created-banner")).toContainText("PutParameter returned version 1 for /larder/prod/db/replica-password, a SecureString.");
+  await expect(page.getByTestId("list-sentence")).toContainText("There are 9 parameters");
+  await expect(page.getByRole("table", { name: "Parameters" })).toContainText("/larder/prod/db/replica-password");
+  await shot(page, "ssm__parameter-created");
+  expect(JSON.parse(cli(["ssm", "get-parameter", "--name", "/larder/prod/db/replica-password", "--with-decryption"])).Parameter.Value).toBe("r3plica-Kx82-vQ0m-ZT19");
 });
 
 test("ssm__parameter-detail, parameter-detail-revealed: a parameter's page, its value masked until Show", async ({ page }) => {
@@ -169,10 +167,9 @@ test("ssm__parameters-delete, parameters-deleted: tick two, Delete parameters, a
   expect(JSON.parse(cli(["ssm", "describe-parameters"])).Parameters).toHaveLength(7);
 });
 
-test.describe("a parameter that does not exist", () => {
-  test.use({ allowErrors: CUT });
-  test("has a page of its own that says so", async ({ page }) => {
-    await page.goto(`${server.console}${at("%2Fnope")}`);
-    await expect(page.getByTestId("detail-error")).toContainText("/nope");
-  });
+test("a parameter that does not exist has a page of its own that says so", async ({ page, refusals }) => {
+  // The service refuses a parameter that is not there: the page is that refusal.
+  refusals.allow(/ GET .*\/resources\/ssm\/parameters\/%2Fnope$/);
+  await page.goto(`${server.console}${at("%2Fnope")}`);
+  await expect(page.getByTestId("detail-error")).toContainText("/nope");
 });

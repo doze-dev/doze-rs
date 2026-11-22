@@ -138,7 +138,7 @@ function RuleView({ d, bus, rule, targets, reload, updatedAt, fetching }: { d: R
                   actions={(sel) => <Button type="button" variant="outline" className="border-bad/40 bg-card text-bad hover:text-bad" disabled={sel.length === 0 || removing} onClick={() => void removeTargets()} data-testid="remove-targets"><TrashIcon /> Remove</Button>} />
               )}
               {error && <p className="mt-3 text-[13px] text-bad" role="alert">{error}</p>}
-              {!none && <RuleHelp className="mt-4 max-w-3xl">On AWS the retry policy defaults to <b>24 hours</b> and <b>185</b> attempts. <b>Applied here:</b> a failed delivery is retried with a back-off and, when it runs out of tries or time, goes to the target's dead-letter queue if it has one, else is dropped (<span className="font-mono">crates/aws-eventbridge/src/retry.rs</span>).</RuleHelp>}
+              {!none && <RuleHelp className="mt-4 max-w-3xl">On AWS the retry policy defaults to <b>24 hours</b> and <b>185</b> attempts. <b>Applied here:</b> a failed delivery is retried with a back-off and, when it runs out of tries or time, goes to the target's dead-letter queue if it has one, else is dropped.</RuleHelp>}
             </section>
             <RecentCalls calls={calls} noun="rule" scope={`${rule} and what it delivered`} note={note} />
           </>

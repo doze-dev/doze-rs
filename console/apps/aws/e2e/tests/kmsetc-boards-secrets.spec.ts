@@ -1,6 +1,6 @@
 // The 17 Secrets Manager boards, each reached against a real doze-aws (one per browser, seeded as the boards' "larder" world with the
 // real AWS CLI) and, in Chromium, photographed light and dark into SHOTS_DIR.
-import { CUT, expect, test } from "./fixtures";
+import { expect, test } from "./fixtures";
 import { start, type Running } from "../server";
 import { seedKmsetc, STRIPE } from "./kmsetc-seed";
 import { cliOf, open, portsFor, shoot } from "./kmsetc-kit";
@@ -199,10 +199,9 @@ test("secretsmanager__secret-delete, secret-deleted: a waiting period, then the 
   expect(STRIPE.length).toBeGreaterThan(0);
 });
 
-test.describe("a secret that does not exist", () => {
-  test.use({ allowErrors: CUT });
-  test("has a page of its own that says so", async ({ page }) => {
-    await page.goto(`${server.console}${page_of("nope%2Fnothing")}`);
-    await expect(page.getByTestId("detail-error")).toContainText("nope/nothing");
-  });
+test("a secret that does not exist has a page of its own that says so", async ({ page, refusals }) => {
+  // The service refuses a secret that is not there: the page is that refusal.
+  refusals.allow(/ GET .*\/resources\/secretsmanager\/secrets\/nope%2Fnothing$/);
+  await page.goto(`${server.console}${page_of("nope%2Fnothing")}`);
+  await expect(page.getByTestId("detail-error")).toContainText("nope/nothing");
 });

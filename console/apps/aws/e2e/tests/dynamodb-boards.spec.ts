@@ -7,15 +7,13 @@ import type { Page } from "@playwright/test";
 import { start, type Running, aws } from "../server";
 import { keyParam } from "../../src/pages/resources/dynamodb/item-rows";
 import { seedLarder } from "./dynamodb-seed";
-import { CUT, expect, test } from "./fixtures";
+import { expect, expectNoErrorAnswers, test } from "./fixtures";
 
 const SHOTS = process.env.SHOTS_DIR ?? join(import.meta.dirname, "../../../../../shots-dynamodb");
 const BASE = Number(process.env.E2E_BASE_PORT ?? 44800);
 const at = (b: string) => BASE + ({ firefox: 10, webkit: 20, chromium: 30 }[b] ?? 40);
 
 test.describe.configure({ mode: "serial" });
-// Boards that are the service's refusal (a name taken, a statement refused): the browser logs each 400 as a failed load.
-test.use({ allowErrors: CUT });
 
 let server: Running;
 let browserKind = "";
@@ -82,7 +80,9 @@ test("dynamodb__tables-list and table-delete: every table with its keys, indexes
   await expect(page.getByTestId("delete-dialog")).toHaveCount(0);
 });
 
-test("dynamodb__table-create and table-create-exists: a name and a key, the call, and a name that is taken", async ({ page }) => {
+test("dynamodb__table-create and table-create-exists: a name and a key, the call, and a name that is taken", async ({ page, refusals }) => {
+  // The name that is taken is DynamoDB's refusal, shown on the form.
+  refusals.allow(/400 POST .*\/dynamodb\/tables\/op\/CreateTable$/);
   await go(page, `${T}?do=create`, "Create table");
   await page.getByTestId("table-name").fill("deliveries");
   await expect(page.getByText("orders-table and search-index already exist here.").or(page.getByText("already exist here."))).toBeVisible();
@@ -125,7 +125,10 @@ test("dynamodb__table-create-custom and table-created: capacity, encryption and 
   expect(cli(["dynamodb", "list-tags-of-resource", "--resource-arn", `arn:aws:dynamodb:us-east-1:${server.account}:table/stock-moves`])).toContain("fulfilment");
 });
 
-test("a table that is not there: one page for a missing name, with the way back and the service's code", async ({ page }) => {
+test("a table that is not there: one page for a missing name, with the way back and the service's code", async ({ page, refusals }) => {
+  // A page of what is not there asks the service, which refuses.
+  refusals.allow(/400 GET .*\/dynamodb\/tables\/no-such-table$/);
+  refusals.allow(/400 POST .*\/dynamodb\/tables\/no-such-table\/op\/DescribeTable$/);
   await page.goto(`${server.console}${T}/no-such-table`);
   await expect(page.locator("h1").first()).toHaveText("Table not found");
   const err = page.getByTestId("detail-error");
@@ -161,7 +164,7 @@ test("dynamodb__table-detail: the sentence, what it is wired to, and the fields 
   await shot(page, "dynamodb__table-detail");
 });
 
-test("dynamodb__table-indexes, index-create, index-created and index-delete: the index, a new one, and its removal", async ({ page }) => {
+test("dynamodb__table-indexes, index-create, index-created and index-delete: the index, a new one, and its removal", async ({ page, refusals }) => {
   await go(page, `${T}/orders-table?tab=indexes`, "orders-table");
   await expect(page.getByTestId("global-indexes")).toContainText("by-customer");
   await expect(page.getByTestId("global-indexes")).toContainText("customer_id");
@@ -195,6 +198,7 @@ test("dynamodb__table-indexes, index-create, index-created and index-delete: the
   await page.getByTestId("index-delete-by-status").click();
   await page.getByTestId("index-delete-dialog-submit").click();
   await expect(page.getByTestId("result-banner")).toContainText("by-status was deleted.");
+  await expectNoErrorAnswers(page, refusals);
   await expect(page.getByTestId("global-indexes")).not.toContainText("by-status");
 });
 
@@ -391,7 +395,7 @@ test("dynamodb__item-create and item-edit: an item as rows, its keys fixed, save
   expect(cli(["dynamodb", "get-item", "--table-name", "orders-table", "--key", key])).toContain("delivered_at");
 });
 
-test("dynamodb__item-delete: the ticked item is named by its key and deleted", async ({ page }) => {
+test("dynamodb__item-delete: the ticked item is named by its key and deleted", async ({ page, refusals }) => {
   await go(page, `${T}/orders-table?do=explore`, "Explore table items");
   await page.getByTestId("mode-query").click();
   await page.getByTestId("items-source").click();
@@ -416,10 +420,13 @@ test("dynamodb__item-delete: the ticked item is named by its key and deleted", a
   await shot(page, "dynamodb__item-delete");
   await page.getByTestId("item-delete-dialog-submit").click();
   await expect(page.getByTestId("item-banner")).toContainText("Item deleted.");
+  await expectNoErrorAnswers(page, refusals);
   expect(cli(["dynamodb", "scan", "--table-name", "orders-table", "--select", "COUNT"])).toContain('"Count": 7');
 });
 
-test("dynamodb__partiql and partiql-error: a statement run, and a write that finds no item", async ({ page }) => {
+test("dynamodb__partiql and partiql-error: a statement run, and a write that finds no item", async ({ page, refusals }) => {
+  // The write that finds no item is DynamoDB's refusal, shown under the statement.
+  refusals.allow(/400 POST .*\/dynamodb\/tables\/op\/ExecuteStatement$/);
   await go(page, `${T}?do=partiql`, "PartiQL editor");
   await page.getByTestId("partiql-table").click();
   await page.getByRole("option", { name: "orders-table" }).click();
@@ -448,12 +455,15 @@ test("dynamodb__partiql and partiql-error: a statement run, and a write that fin
   await expect(page.getByTestId("results-json")).toContainText('"status": "shipped"');
 });
 
-test("dynamodb__table-deleted and tables-none: a table and its items are gone, and the last table leaves the empty state", async ({ page }) => {
+test("dynamodb__table-deleted and tables-none: a table and its items are gone, and the last table leaves the empty state", async ({ page, refusals }) => {
+  // A table with deletion protection is refused its delete, and the dialog says so.
+  refusals.allow(/400 DELETE .*\/dynamodb\/tables\/search-index$/);
   await go(page, T, "Tables");
   await page.getByTestId("select-deliveries").click();
   await page.getByTestId("table-delete").click();
   await page.getByTestId("delete-dialog-submit").click();
   await expect(page.getByTestId("deleted-banner")).toContainText("deliveries and its 6 items are gone.");
+  await expectNoErrorAnswers(page, refusals);
   await expect(page.getByTestId("deleted-banner")).toContainText("here it is removed at once");
   await expect(page.getByRole("table", { name: "Tables" }).locator("tbody tr[data-row]")).toHaveCount(3);
   await shot(page, "dynamodb__table-deleted");
@@ -464,6 +474,7 @@ test("dynamodb__table-deleted and tables-none: a table and its items are gone, a
   await expect(page.getByTestId("delete-protection")).toContainText("Deletion protection is on for this table.");
   await page.getByTestId("delete-dialog-submit").click();
   await expect(page.getByTestId("delete-dialog-error")).toContainText("DeleteTable was refused");
+  await expectNoErrorAnswers(page, refusals);
   await page.getByTestId("delete-dialog-cancel").click();
   cli(["dynamodb", "update-table", "--table-name", "search-index", "--no-deletion-protection-enabled"]);
   for (const t of ["orders-table", "search-index", "stock-moves"]) cli(["dynamodb", "delete-table", "--table-name", t]);

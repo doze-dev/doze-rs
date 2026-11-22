@@ -86,7 +86,7 @@ export function ConnectionCreate() {
             <Field label="Authorization endpoint" className="md:col-span-2">{(id) => <Input id={id} value={f.tokenEndpoint} onChange={(e) => set({ tokenEndpoint: e.target.value })} placeholder="https://auth.larder.example/token" autoComplete="off" className="font-mono" data-testid="conn-token-endpoint" />}</Field>
             <Field label="Client ID">{(id) => <Input id={id} value={f.clientId} onChange={(e) => set({ clientId: e.target.value })} autoComplete="off" data-testid="conn-client-id" />}</Field>
             <Field label="Client secret">{(id) => <Input id={id} type="password" value={f.clientSecret} onChange={(e) => set({ clientSecret: e.target.value })} autoComplete="off" data-testid="conn-client-secret" />}</Field>
-            <RuleHelp className="md:col-span-2">An OAuth connection is stored and returned, and its token is not requested: events to an API destination on it are not delivered (<span className="font-mono">crates/aws-eventbridge/src/deliver_http.rs</span>). Use API key or Basic to deliver.</RuleHelp>
+            <RuleHelp className="md:col-span-2">An OAuth connection is stored and returned, and its token is not requested: events to an API destination on it are not delivered. Use API key or Basic to deliver.</RuleHelp>
           </div>
         )}
         {problem && tried && <p className="text-[13px] text-bad" role="alert" data-testid="conn-problem">{problem}</p>}

@@ -5,16 +5,13 @@ import { join } from "node:path";
 import type { Page } from "@playwright/test";
 import { start, type Running, aws } from "../server";
 import { deadLettered, queueUrl, seedLarder } from "./sqs-seed";
-import { CUT, expect, test } from "./fixtures";
+import { expect, expectNoErrorAnswers, test } from "./fixtures";
 
 const SHOTS = process.env.SHOTS_DIR ?? join(import.meta.dirname, "../../../../../shots-sqs");
 const BASE = Number(process.env.E2E_BASE_PORT ?? 45240);
 const at = (b: string) => BASE + ({ firefox: 10, webkit: 20, chromium: 30 }[b] ?? 40);
 
 test.describe.configure({ mode: "serial" });
-// Several boards are the service's refusal (a name taken, a purge twice, a trigger the visibility timeout refuses): the browser
-// logs each 400 as a failed load. Script errors and React warnings still fail a test.
-test.use({ allowErrors: CUT });
 
 let server: Running;
 let browserKind = "";
@@ -87,7 +84,9 @@ test("sqs__queues-empty: a prefix that matches nothing, with the way back", asyn
   await expect(page.getByRole("table", { name: "Queues" }).locator("tbody tr[data-row]")).toHaveCount(7);
 });
 
-test("sqs__queue-create and sqs__queue-create-refused: the form, its call, and the name that is taken", async ({ page }) => {
+test("sqs__queue-create and sqs__queue-create-refused: the form, its call, and the name that is taken", async ({ page, refusals }) => {
+  // The name that is taken is SQS's refusal, shown on the form.
+  refusals.allow(/400 POST .*\/sqs\/queues\/op\/CreateQueue$/);
   await go(page, "/resources/sqs/queues?create=yes", "Create queue");
   await page.getByTestId("queue-name").fill("pick-lists");
   await expect(page.getByText("pick-lists already exists in this Region.")).toBeVisible();
@@ -188,7 +187,9 @@ test("sqs__queue-access-policy and sqs__queue-encryption: what the policy lets i
   await shot(page, "sqs__queue-encryption");
 });
 
-test("sqs__queue-lambda-triggers and sqs__queue-lambda-configure: no trigger, then one made with the function's timeout checked", async ({ page }) => {
+test("sqs__queue-lambda-triggers and sqs__queue-lambda-configure: no trigger, then one made with the function's timeout checked", async ({ page, refusals }) => {
+  // A trigger the visibility timeout refuses is Lambda's refusal, shown on the form.
+  refusals.allow(/400 POST .*\/sqs\/queues\/pick-lists\/op\/CreateEventSourceMapping$/);
   await go(page, "/resources/sqs/queues/pick-lists?tab=lambda", "pick-lists");
   await expect(page.getByTestId("lambda-empty")).toContainText("No Lambda function polls pick-lists.");
   await expect(page.getByTestId("lambda-triggers").getByRole("heading", { name: "Lambda triggers (0)" })).toBeVisible();
@@ -409,7 +410,9 @@ test("sqs__dlq-redrive-completed: a message that was dead-lettered goes back to 
   await shot(page, "sqs__dlq-redrive-completed");
 });
 
-test("sqs__queue-purge and sqs__queue-purged: the count in the confirm, then the queue emptied and what still feeds it", async ({ page }) => {
+test("sqs__queue-purge and sqs__queue-purged: the count in the confirm, then the queue emptied and what still feeds it", async ({ page, refusals }) => {
+  // A second purge within a minute is SQS's refusal, shown in the dialog.
+  refusals.allow(/400 POST .*\/sqs\/queues\/pick-lists\/op\/PurgeQueue$/);
   await go(page, "/resources/sqs/queues/pick-lists", "pick-lists");
   await page.getByTestId("verb-purge").click();
   const dialog = page.getByTestId("purge-dialog");
@@ -432,7 +435,7 @@ test("sqs__queue-purge and sqs__queue-purged: the count in the confirm, then the
   await page.keyboard.press("Escape");
 });
 
-test("sqs__queue-delete, sqs__queue-deleted and sqs__queues-none: the confirm names what goes and what feeds it, then the list, then no queue at all", async ({ page }) => {
+test("sqs__queue-delete, sqs__queue-deleted and sqs__queues-none: the confirm names what goes and what feeds it, then the list, then no queue at all", async ({ page, refusals }) => {
   // The purge emptied it; the delete is photographed with messages in it, as the board is.
   for (const n of [1, 2]) cli(["sqs", "send-message", "--queue-url", url("pick-lists"), "--message-body", `pick list ${n}`]);
   await go(page, "/resources/sqs/queues/pick-lists", "pick-lists");
@@ -447,6 +450,7 @@ test("sqs__queue-delete, sqs__queue-deleted and sqs__queues-none: the confirm na
   await page.getByTestId("delete-dialog-input").fill("delete");
   await page.getByTestId("delete-dialog-submit").click();
   await expect(page.getByTestId("deleted-banner")).toContainText("Queue pick-lists deleted.");
+  await expectNoErrorAnswers(page, refusals);
   await expect(page.getByTestId("deleted-banner")).toContainText("QueueDeletedRecently");
   await expect(page.getByTestId("list-sentence")).toContainText("queues remain, holding");
   await expect(page.getByTestId("list-sentence")).toContainText("pick-lists-dlq no longer has a source queue.");

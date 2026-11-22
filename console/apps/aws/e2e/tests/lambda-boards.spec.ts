@@ -4,7 +4,7 @@ import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 import type { Page } from "@playwright/test";
 import { start, type Running, aws } from "../server";
-import { CUT, expect, test } from "./fixtures";
+import { expect, expectNoErrorAnswers, test } from "./fixtures";
 import { invoke, seedLarder, zipOf } from "./lambda-seed";
 
 const SHOTS = process.env.SHOTS_DIR ?? join(import.meta.dirname, "../../../../../shots-lambda");
@@ -12,8 +12,6 @@ const BASE = Number(process.env.E2E_BASE_PORT ?? 44940);
 const at = (b: string) => BASE + ({ firefox: 10, webkit: 20, chromium: 30 }[b] ?? 40);
 
 test.describe.configure({ mode: "serial" });
-// Several boards are the service's refusal (a throttled call, a function that has no policy): the browser logs each 4xx as a failed load.
-test.use({ allowErrors: CUT });
 
 let server: Running;
 let browserKind = "";
@@ -151,7 +149,9 @@ test("lambda__function-delete: the dialog says what goes with the function and w
   await page.keyboard.press("Escape");
 });
 
-test("a function that is not there: the same page as every kind", async ({ page }) => {
+test("a function that is not there: the same page as every kind", async ({ page, refusals }) => {
+  // A page of what is not there asks the service, which refuses.
+  refusals.allow(/404 GET .*\/lambda\/functions\/no-such-function$/);
   await page.goto(`${server.console}${fn("no-such-function")}`);
   await expect(page.locator("h1").first()).toHaveText("Function not found");
   const err = page.getByTestId("detail-error");
@@ -223,7 +223,9 @@ test("lambda__function-monitor: four metrics from AWS/Lambda and where the logs 
   await expect(page.locator("h1").first()).toHaveText("/aws/lambda/send-email");
 });
 
-test("lambda__test-result-throttled: reserved concurrency 0 refuses the call before it reaches the code", async ({ page }) => {
+test("lambda__test-result-throttled: reserved concurrency 0 refuses the call before it reaches the code", async ({ page, refusals }) => {
+  // The throttled call is Lambda's own 429, shown as the result.
+  refusals.allow(/429 POST .*\/lambda\/functions\/send-email\/op\/Invoke$/);
   cli(["lambda", "put-function-concurrency", "--function-name", "send-email", "--reserved-concurrent-executions", "0"]);
   await go(page, fn("send-email", "?tab=test"), "send-email");
   await page.getByTestId("invoke-run").click();
@@ -347,7 +349,9 @@ test("lambda__function-triggers, lambda__trigger-edit and lambda__triggers-none:
   await shot(page, "lambda__triggers-none");
 });
 
-test("lambda__trigger-add: an SQS mapping, with the visibility timeout it needs", async ({ page }) => {
+test("lambda__trigger-add: an SQS mapping, with the visibility timeout it needs", async ({ page, refusals }) => {
+  // A queue whose visibility timeout is too short is Lambda's refusal, shown on the form.
+  refusals.allow(/400 POST .*\/lambda\/functions\/dispatch-hook\/op\/CreateEventSourceMapping$/);
   await go(page, fn("send-email", "?tab=configuration&p=triggers"), "send-email");
   await page.getByTestId("trigger-add").click();
   await expect(page.locator("h1").first()).toHaveText("Add trigger");
@@ -637,12 +641,13 @@ test("lambda__layer-create: a name, a .zip, its compatibility, and the call", as
   expect(cli(["lambda", "list-layers", "--query", "Layers[].LayerName", "--output", "text"])).toContain("mail-templates");
 });
 
-test("lambda__layers-none: the empty list once every layer version is deleted", async ({ page }) => {
+test("lambda__layers-none: the empty list once every layer version is deleted", async ({ page, refusals }) => {
   // The last version of a layer is deleted from its own page, and the list it lands on says the layer is gone.
   await go(page, "/resources/lambda/layers/mail-templates", "mail-templates");
   await page.getByTestId("layer-version-delete").click();
   await page.getByRole("button", { name: "Delete", exact: true }).click();
   await expect(page.getByTestId("deleted-banner")).toContainText("mail-templates was deleted.");
+  await expectNoErrorAnswers(page, refusals);
   for (const v of ["1", "2", "3"]) cli(["lambda", "delete-layer-version", "--layer-name", "larder-shared", "--version-number", v]);
   await go(page, "/resources/lambda/layers", "Layers");
   await expect(page.getByTestId("list-empty")).toContainText("No layers");
@@ -651,13 +656,14 @@ test("lambda__layers-none: the empty list once every layer version is deleted", 
   await shot(page, "lambda__layers-none");
 });
 
-test("lambda__function-deleted and lambda__functions-none: the list after a delete, what it left behind, and the empty list", async ({ page }) => {
+test("lambda__function-deleted and lambda__functions-none: the list after a delete, what it left behind, and the empty list", async ({ page, refusals }) => {
   await go(page, fn("send-email"), "send-email");
   await page.getByTestId("verb-delete").click();
   await expect(page.getByTestId("delete-dialog")).toContainText("its 4 versions and its 3 aliases (live, smoke, staging)");
   await page.getByTestId("delete-dialog-input").fill("confirm");
   await page.getByTestId("delete-dialog-submit").click();
   await expect(page.getByTestId("deleted-banner")).toContainText("send-email was deleted.");
+  await expectNoErrorAnswers(page, refusals);
   await expect(page.locator("h1").first()).toHaveText("Event Functions");
   await expect(page.getByTestId("list-sentence")).toContainText("3 functions run here: dispatch-hook, export-report, resize-product-image, weekly-digest.".replace("3 functions", "4 functions"));
   await expect(page.getByTestId("list-sentence")).toContainText("The alerts topic still points at the deleted function; remove that subscription in SNS.");

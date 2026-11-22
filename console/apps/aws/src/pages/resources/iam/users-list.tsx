@@ -113,7 +113,7 @@ function Users({ gone, created }: { gone?: string; created?: string }) {
         </>
       )}
       {chosenName && (
-        <DeleteEntity kind="users" name={chosenName} open={asking} onOpenChange={setAsking} onDeleted={() => { setAsking(false); setChosen(new Set()); refreshAll(); toList({ gone: chosenName }); }} />
+        <DeleteEntity kind="users" name={chosenName} open={asking} onOpenChange={setAsking} onDeleted={() => { setAsking(false); setChosen(new Set()); toList({ gone: chosenName }); }} />
       )}
     </>
   );

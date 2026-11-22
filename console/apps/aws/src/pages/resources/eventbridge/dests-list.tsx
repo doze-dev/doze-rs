@@ -17,7 +17,7 @@ import { Skeleton } from "@doze/ui/components/ui/skeleton";
 import { LocalStatus, PlainConfirm, RuleHelp, useDeleteClearing, useServiceCrumbs } from "../../../kit";
 import { HINT } from "../index-page";
 import { ResourceTo } from "../value";
-import { useDests, useRefreshReads } from "./api";
+import { useDests } from "./api";
 import { ConnectionCreate } from "./connection-create";
 import { DestCreate } from "./dest-create";
 import { Breakable, Said, State } from "./parts";
@@ -42,7 +42,6 @@ function Dests({ service, kind, gone }: { service: string; kind: string; gone?: 
   const all = useMemo(() => q.data?.ApiDestinations ?? [], [q.data]);
   const rows = useMemo(() => all.filter((d) => d.Name.startsWith(typed.trim())), [all, typed]);
   const one = all.find((d) => chosen.has(d.Name));
-  const refresh = useRefreshReads();
   const del = useDeleteClearing({ service, kind, name: one?.Name ?? "" });
   const go = (search: { create?: "yes"; gone?: string }) => void navigate({ to: "/resources/$service/$second", params: { service, second: kind }, search });
   const columns: DataColumn<ApiDestItem>[] = [
@@ -99,13 +98,13 @@ function Dests({ service, kind, gone }: { service: string; kind: string; gone?: 
           />
           <Pagination className="mt-3" shown={rows.length} total={rows.length} noun={rows.length === 1 ? "API destination" : "API destinations"} />
           <p className="mt-4 max-w-3xl text-[13px] text-muted-foreground">Columns follow the fields ListApiDestinations returns: Name, ApiDestinationState, InvocationEndpoint, HttpMethod, ConnectionArn and InvocationRateLimitPerSecond.</p>
-          <RuleHelp className="mt-4 max-w-3xl">EventBridge gives the endpoint <b>5 seconds</b> to answer. A request that fails by a transport error, a 429 or a 5xx is retried under the target's retry policy, and what runs out goes to the target's dead-letter queue; any other status is the endpoint refusing the event and is not retried (<span className="font-mono">crates/aws-eventbridge/src/deliver_http.rs</span>).</RuleHelp>
+          <RuleHelp className="mt-4 max-w-3xl">EventBridge gives the endpoint <b>5 seconds</b> to answer. A request that fails by a transport error, a 429 or a 5xx is retried under the target's retry policy, and what runs out goes to the target's dead-letter queue; any other status is the endpoint refusing the event and is not retried.</RuleHelp>
           <RuleHelp className="mt-4 max-w-3xl">An account can have <b>3,000</b> API destinations by default on AWS. The rate limit defaults to <b>300</b> invocations per second.</RuleHelp>
           <LocalStatus className="mt-3 max-w-3xl" state="stored" reason={<>The rate limit is kept and returned, not enforced.</>} />
         </>
       )}
       {one && (
-        <PlainConfirm open={asking} onOpenChange={(o) => { setAsking(o); if (!o) del.reset(); }} title="Delete API destination?" description={<>Delete <b className="font-mono font-semibold text-bright">{one.Name}</b>? A rule that has it as a target keeps the target and can no longer deliver to it. Its connection <b className="font-mono font-semibold text-bright">{connectionName(one.ConnectionArn)}</b> stays.</>} call="DeleteApiDestination" pending={del.isPending} error={del.error} onConfirm={() => del.mutate({ clear: false }, { onSuccess: () => { refresh(); setAsking(false); setChosen(new Set()); go({ gone: one.Name }); } })} testId="dest-delete" />
+        <PlainConfirm open={asking} onOpenChange={(o) => { setAsking(o); if (!o) del.reset(); }} title="Delete API destination?" description={<>Delete <b className="font-mono font-semibold text-bright">{one.Name}</b>? A rule that has it as a target keeps the target and can no longer deliver to it. Its connection <b className="font-mono font-semibold text-bright">{connectionName(one.ConnectionArn)}</b> stays.</>} call="DeleteApiDestination" pending={del.isPending} error={del.error} onConfirm={() => del.mutate({ clear: false }, { onSuccess: () => { setAsking(false); setChosen(new Set()); go({ gone: one.Name }); } })} testId="dest-delete" />
       )}
     </>
   );

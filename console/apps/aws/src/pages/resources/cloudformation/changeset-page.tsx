@@ -23,7 +23,7 @@ export function ChangeSetPage({ service, kind, name, search }: OwnProps) {
   const q = useCfnRead<ChangeSet>("DescribeChangeSet", { StackName: stackName, ChangeSetName: setName }, { enabled: !removing });
   const stack = useStack(stackName).data?.Stacks?.[0];
   const execute = useCfnWrite<unknown>("ExecuteChangeSet");
-  const remove = useCfnWrite<unknown>("DeleteChangeSet");
+  const remove = useCfnWrite<unknown, { StackName: string; ChangeSetName: string }>("DeleteChangeSet", (i) => [i.ChangeSetName]);
   const [asking, setAsking] = useState(false);
   const back = { to: `/resources/${service}/${kind}/${encodeURIComponent(stackName)}`, label: `Back to ${stackName}` };
   const toStack = (q2: Record<string, string>) => void navigate({ to: "/resources/$service/$kind/$name", params: { service, kind, name: stackName }, search: q2 });

@@ -6,7 +6,7 @@ import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 import type { Page } from "@playwright/test";
 import { aws, start, type Running } from "../server";
-import { CUT, expect, settled, test } from "./fixtures";
+import { expect, expectNoErrorAnswers, settled, test } from "./fixtures";
 import { seedLarder } from "./logskinesis-seed";
 
 const SHOTS = process.env.SHOTS_DIR ?? join(import.meta.dirname, "../../../../../shots-logskinesis");
@@ -14,8 +14,6 @@ const BASE = Number(process.env.E2E_BASE_PORT ?? 45000);
 const at = (b: string) => BASE + ({ firefox: 10, webkit: 20, chromium: 30 }[b] ?? 40);
 
 test.describe.configure({ mode: "serial" });
-// A few boards are the service's refusal (a name in use): the browser logs each 400 as a failed load.
-test.use({ allowErrors: CUT });
 
 let server: Running;
 let browserKind = "";
@@ -177,7 +175,7 @@ test("logs__log-group-search: every stream for a pattern, and the call it makes"
   await shot(page, "logs__log-group-search");
 });
 
-test("logs__metric-filter-create, metric-filter-assign, metric-filter-delete: test a pattern, name the metric, delete the filter", async ({ page }) => {
+test("logs__metric-filter-create, metric-filter-assign, metric-filter-delete: test a pattern, name the metric, delete the filter", async ({ page, refusals }) => {
   await go(page, group("/larder/api", "?view=metric-filter"), "Create metric filter");
   await page.getByTestId("mf-pattern").fill('{ $.msg = "stripe timeout" }');
   await page.getByTestId("mf-test").click();
@@ -207,6 +205,7 @@ test("logs__metric-filter-create, metric-filter-assign, metric-filter-delete: te
   await shot(page, "logs__metric-filter-delete");
   await page.getByTestId("filter-delete-dialog-submit").click();
   await expect(row).toHaveCount(0);
+  await expectNoErrorAnswers(page, refusals);
 });
 
 test("logs__subscription-filter-create: a Lambda destination, a pattern, a name; a function cannot subscribe to its own group", async ({ page }) => {
@@ -229,7 +228,9 @@ test("logs__subscription-filter-create: a Lambda destination, a pattern, a name;
   await expect(page.getByTestId("subscription-create")).toContainText("A function can't subscribe to its own /aws/lambda/ group");
 });
 
-test("logs__log-group-delete, log-group-deleted, log-groups-none: delete from the list, then the last of them", async ({ page }) => {
+test("logs__log-group-delete, log-group-deleted, log-groups-none: delete from the list, then the last of them", async ({ page, refusals }) => {
+  // A group with deletion protection is refused its delete, and the dialog says so.
+  refusals.allow(/400 DELETE .*\/logs\/groups\/%2Flarder%2Fkeep$/);
   await go(page, "/resources/logs/groups", "Log groups");
   const row = (name: string) => page.locator('[data-slot="data-table"] tbody tr[data-row]').filter({ hasText: name });
   await row("/larder/scratch").getByRole("checkbox").click();
@@ -238,6 +239,7 @@ test("logs__log-group-delete, log-group-deleted, log-groups-none: delete from th
   await shot(page, "logs__log-group-delete");
   await page.getByTestId("delete-dialog-submit").click();
   await expect(page.getByTestId("deleted-banner")).toContainText("DeleteLogGroup returned 200. /larder/scratch and the log events in it are gone.");
+  await expectNoErrorAnswers(page, refusals);
   await expect(row("/larder/scratch")).toHaveCount(0);
   await shot(page, "logs__log-group-deleted");
   // A protected group is the service's refusal, said in the dialog.
@@ -247,6 +249,7 @@ test("logs__log-group-delete, log-group-deleted, log-groups-none: delete from th
   await page.getByTestId("action-delete").click();
   await page.getByTestId("delete-dialog-submit").click();
   await expect(page.getByTestId("delete-dialog-error")).toContainText("DeleteLogGroup was refused");
+  await expectNoErrorAnswers(page, refusals);
   await page.keyboard.press("Escape");
   const all = json<{ logGroups: { logGroupName: string }[] }>(["logs", "describe-log-groups"]).logGroups.map((g) => g.logGroupName);
   cli(["logs", "put-log-group-deletion-protection", "--log-group-identifier", "/larder/keep", "--no-deletion-protection-enabled"]);
@@ -268,7 +271,9 @@ test("kinesis__streams-list: the data streams with their sentence and the consum
   await shot(page, "kinesis__streams-list");
 });
 
-test("kinesis__stream-create, stream-create-refused, stream-create-provisioned: the capacity cards, the call, the name in use, the estimator", async ({ page }) => {
+test("kinesis__stream-create, stream-create-refused, stream-create-provisioned: the capacity cards, the call, the name in use, the estimator", async ({ page, refusals }) => {
+  // The name in use is Kinesis's refusal, shown on the form.
+  refusals.allow(/400 POST .*\/kinesis\/streams\/op\/CreateStream$/);
   await go(page, "/resources/kinesis/streams?create=yes", "Create data stream");
   await page.getByTestId("stream-name").fill("orders-feed");
   await page.getByTestId("section-tags").getByRole("textbox").first().fill("stack");
@@ -423,7 +428,7 @@ test("kinesis__stream-tags-none, stream-tags-edit, stream-shards-edit: a stream 
   await expect(page.getByTestId("field-Provisioned shards")).toHaveText("4");
 });
 
-test("kinesis__stream-delete, stream-deleted, streams-none: delete from the list with the consumer named, then the last of them", async ({ page }) => {
+test("kinesis__stream-delete, stream-deleted, streams-none: delete from the list with the consumer named, then the last of them", async ({ page, refusals }) => {
   await go(page, "/resources/kinesis/streams", "Data streams");
   const row = (name: string) => page.locator('[data-slot="data-table"] tbody tr[data-row]').filter({ hasText: name });
   await row("clickstream").getByRole("checkbox").click();
@@ -433,6 +438,7 @@ test("kinesis__stream-delete, stream-deleted, streams-none: delete from the list
   await shot(page, "kinesis__stream-delete");
   await page.getByTestId("delete-dialog-submit").click();
   await expect(page.getByTestId("deleted-banner")).toContainText("Deleted clickstream. Its shards, its records and its tags are gone, and the consumer search-indexer was deregistered with it.");
+  await expectNoErrorAnswers(page, refusals);
   await expect(page.getByTestId("list-sentence")).toContainText("3 data streams remain. Anything still writing to clickstream now gets ResourceNotFoundException.");
   await shot(page, "kinesis__stream-deleted");
   for (const n of ["orders-feed", "inventory-feed", "audit-feed"]) cli(["kinesis", "delete-stream", "--stream-name", n]);

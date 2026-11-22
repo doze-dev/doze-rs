@@ -1,9 +1,9 @@
 // Resources' second part against a real doze-aws: an IAM role made in three steps from the service it is for and deleted, a log
 // group's streams, a state machine's executions (newest first), a CloudFormation stack's resources and outputs made with the
 // AWS CLI, and Live hiding this console's own calls until asked.
-import { calls, CONSOLE, expect, open, openLive, rows, test, unique } from "./fixtures";
+import { calls, CONSOLE, expect, expectNoErrorAnswers, open, openLive, rows, test, unique } from "./fixtures";
 
-test("a role is made in three steps from the service it is for, opened, and deleted", async ({ page, browserName }) => {
+test("a role is made in three steps from the service it is for, opened, and deleted", async ({ page, browserName, refusals }) => {
   const role = unique("handler", browserName);
   await open(page, "/resources/iam/roles", "Roles");
   await page.getByTestId("create-open").click();
@@ -27,6 +27,7 @@ test("a role is made in three steps from the service it is for, opened, and dele
   await confirm.getByTestId("delete-dialog-input").fill(role);
   await confirm.getByTestId("delete-dialog-submit").click();
   await expect(page.getByTestId("deleted-banner")).toContainText(`Role ${role} deleted.`);
+  await expectNoErrorAnswers(page, refusals);
   await expect(page.getByRole("link", { name: role, exact: true })).toHaveCount(0);
   const made = (await calls(page)).calls.filter((c) => c.caller === "console" && c.action === "CreateRole" && c.resource === role);
   expect(made.map((c) => c.outcome)).toEqual(["ok"]);

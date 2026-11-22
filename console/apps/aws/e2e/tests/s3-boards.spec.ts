@@ -6,7 +6,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { Page } from "@playwright/test";
 import { start } from "../server";
-import { CUT, expect, settled, test } from "./fixtures";
+import { expect, expectNoErrorAnswers, settled, test } from "./fixtures";
 
 /** Where the doze-aws with no bucket listens (two ports a browser); `E2E_BASE_PORT` moves it when another run holds these. */
 const S3_EMPTY = Number(process.env.E2E_BASE_PORT ?? 44690);
@@ -86,8 +86,9 @@ test("s3__buckets-list and s3__buckets-none: the list says how many and where; a
 
 // The refused create is a 400 the browser logs.
 test.describe("create", () => {
-test.use({ allowErrors: CUT });
-test("s3__bucket-create, -create-refused, -created: a refused name says why, a good one lands on the list with the bucket named", async ({ page, cli, browserName }) => {
+test("s3__bucket-create, -create-refused, -created: a refused name says why, a good one lands on the list with the bucket named", async ({ page, cli, browserName, refusals }) => {
+  // The name S3 refuses is shown on the form.
+  refusals.allow(/400 POST .*\/s3\/buckets\/op\/CreateBucket$/);
   const n = names(browserName);
   await page.goto("/resources/s3/buckets");
   await page.getByTestId("create-open").click();
@@ -320,7 +321,7 @@ test("s3__folder-create, s3__upload, s3__upload-status: a folder, three files wi
   expect(cli(["s3api", "get-object-tagging", "--bucket", n.img, "--key", "seasonal/hero-autumn.jpg"]).out).toContain("autumn");
 });
 
-test("s3__object-detail, -versions, -presign, -copy, -delete-version, -delete: one object, its versions, a presigned link that downloads it, a copy, and the two deletes", async ({ page, cli, browserName, request }) => {
+test("s3__object-detail, -versions, -presign, -copy, -delete-version, -delete: one object, its versions, a presigned link that downloads it, a copy, and the two deletes", async ({ page, cli, browserName, request, refusals }) => {
   const n = names(browserName);
   await page.goto(bucketUrl(n.img));
   await page.getByRole("button", { name: "sku-FV-TOM-V.jpg" }).click();
@@ -360,6 +361,7 @@ test("s3__object-detail, -versions, -presign, -copy, -delete-version, -delete: o
   await shot(page, "s3__object-delete-version", browserName);
   await page.getByTestId("delete-objects-submit").click();
   await expect(page.getByTestId("flash")).toContainText("permanently deleted");
+  await expectNoErrorAnswers(page, refusals);
   expect(JSON.parse(cli(["s3api", "list-object-versions", "--bucket", n.img, "--prefix", "sku-FV-TOM-V.jpg"]).out).Versions).toHaveLength(2);
   // Copy into a folder of another bucket.
   await page.goto(bucketUrl(n.img, "?do=object-copy&key=sku-FV-TOM-V.jpg&mode=copy"));
@@ -379,6 +381,7 @@ test("s3__object-detail, -versions, -presign, -copy, -delete-version, -delete: o
   await shot(page, "s3__object-delete", browserName);
   await page.getByTestId("delete-objects-submit").click();
   await expect(page.getByTestId("flash")).toContainText("1 object deleted");
+  await expectNoErrorAnswers(page, refusals);
   const after = JSON.parse(cli(["s3api", "list-object-versions", "--bucket", n.img, "--prefix", "sku-FV-TOM-V.jpg"]).out);
   expect(after.DeleteMarkers).toHaveLength(1);
   expect(after.Versions).toHaveLength(2);
@@ -386,8 +389,9 @@ test("s3__object-detail, -versions, -presign, -copy, -delete-version, -delete: o
 
 // Deleting a bucket that is not empty is the 409 the page is there to show.
 test.describe("danger", () => {
-test.use({ allowErrors: CUT });
-test("s3__bucket-empty, -empty-status, -delete, -deleted: emptying is counted and reported; deleting asks for the name and refuses a bucket that is not empty", async ({ page, cli, browserName }) => {
+test("s3__bucket-empty, -empty-status, -delete, -deleted: emptying is counted and reported; deleting asks for the name and refuses a bucket that is not empty", async ({ page, cli, browserName, refusals }) => {
+  // A bucket that is not empty is refused its delete (409), and the dialog says so.
+  refusals.allow(/409 DELETE .*\/s3\/buckets\/receipts-/);
   const n = names(browserName);
   await page.goto("/resources/s3/buckets");
   await page.getByTestId(`select-${n.rec}`).click();
@@ -398,6 +402,7 @@ test("s3__bucket-empty, -empty-status, -delete, -deleted: emptying is counted an
   await page.getByTestId("confirm-input").fill(n.rec);
   await page.getByTestId("delete-submit").click();
   await expect(page.getByTestId("delete-refused")).toContainText("BucketNotEmpty");
+  await expectNoErrorAnswers(page, refusals);
   await page.getByTestId("go-empty").click();
   await h1(page, "Empty bucket");
   await expect(page.getByTestId("holding")).toContainText("holds 4 objects");
@@ -420,6 +425,7 @@ test("s3__bucket-empty, -empty-status, -delete, -deleted: emptying is counted an
   await shot(page, "s3__bucket-delete", browserName);
   await page.getByTestId("delete-submit").click();
   await expect(page.getByTestId("flash")).toContainText(`Bucket ${n.rec} deleted.`);
+  await expectNoErrorAnswers(page, refusals);
   await expect(page.getByRole("link", { name: n.rec })).toHaveCount(0);
   await shot(page, "s3__bucket-deleted", browserName);
   expect(cli(["s3api", "head-bucket", "--bucket", n.rec]).code).not.toBe(0);

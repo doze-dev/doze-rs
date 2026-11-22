@@ -1,11 +1,10 @@
 // The usage plan boards of API Gateway (the list, create, a plan with its stages and API keys, and the empty states), each reached against a real doze-aws
 // (one per browser, seeded as the boards' "larder" world) and, in Chromium, photographed light and dark. The REST boards are apigateway-boards.spec.ts, the
 // HTTP boards apigateway-boards-http.spec.ts.
-import { expect, test, CUT } from "./fixtures";
+import { expect, expectNoErrorAnswers, test } from "./fixtures";
 import { apiPath, begin, choose, cli, ctx, end, go, json, shot } from "./apigateway-kit";
 
 test.describe.configure({ mode: "serial" });
-test.use({ allowErrors: CUT });
 
 test.beforeAll(async ({ browserName }) => begin(browserName));
 test.afterAll(end);
@@ -52,7 +51,7 @@ test("apigateway__rest-usage-plan-create: a name, a throttle and a quota, the ca
   await expect(page.getByTestId("plan-details")).toContainText("100,000 requests per month");
 });
 
-test("apigateway__rest-usage-plan: the plan's stages and keys, and a key added to it", async ({ page }) => {
+test("apigateway__rest-usage-plan: the plan's stages and keys, and a key added to it", async ({ page, refusals }) => {
   await go(page, apiPath("usageplans", ctx.ids.plan, "?tab=keys"), "partners-basic");
   await expect(page.getByTestId("plan-page")).toContainText("partners-basic covers larder-public:prod, and holds 3 API keys. A method that requires an API key is served only with one of them.");
   const details = page.getByTestId("plan-details");
@@ -86,6 +85,7 @@ test("apigateway__rest-usage-plan: the plan's stages and keys, and a key added t
   await page.getByTestId("remove-storefront-nice").click();
   await page.getByTestId("plan-remove-submit").click();
   await expect(page.getByTestId("keys-count")).toHaveText("4");
+  await expectNoErrorAnswers(page, refusals);
 });
 
 test("apigateway__usage-plan-keys-none: a plan with no keys says its limits apply to nobody yet", async ({ page }) => {
@@ -96,7 +96,7 @@ test("apigateway__usage-plan-keys-none: a plan with no keys says its limits appl
   await shot(page, "usage-plan-keys-none");
 });
 
-test("apigateway: a stage is added to a plan and taken off it, and the plan's limit is enforced on a method that needs a key", async ({ page }) => {
+test("apigateway: a stage is added to a plan and taken off it, and the plan's limit is enforced on a method that needs a key", async ({ page, refusals }) => {
   await go(page, apiPath("usageplans", ctx.ids.trial), "partners-trial");
   await expect(page.getByTestId("no-stages")).toContainText("covers no stage yet");
   await page.getByTestId("add-stage").click();
@@ -108,6 +108,7 @@ test("apigateway: a stage is added to a plan and taken off it, and the plan's li
   await page.getByTestId("remove-prod").click();
   await page.getByTestId("plan-remove-submit").click();
   await expect(page.getByTestId("no-stages")).toBeVisible();
+  await expectNoErrorAnswers(page, refusals);
   // Enforced: a quota of one request, a method that needs a key, the second request is refused with 429.
   const plan = json<{ id: string }>(["apigateway", "create-usage-plan", "--name", "one-shot", "--quota", "limit=1,period=DAY", "--api-stages", `apiId=${ctx.ids.rest},stage=prod`]);
   const key = json<{ id: string; value: string }>(["apigateway", "create-api-key", "--name", "one-shot-key", "--enabled"]);
@@ -119,12 +120,13 @@ test("apigateway: a stage is added to a plan and taken off it, and the plan's li
   expect((await call()).status()).toBe(429);
 });
 
-test("apigateway__usage-plans-none: with every plan deleted the list says so", async ({ page }) => {
+test("apigateway__usage-plans-none: with every plan deleted the list says so", async ({ page, refusals }) => {
   await go(page, "/resources/apigateway/usageplans", "Usage plans");
   for (const name of ["partners-basic", "partners-trial", "partners-premium", "one-shot"]) {
     await page.getByTestId(`delete-${name}`).click();
     await page.getByTestId("plan-delete-submit").click();
     await expect(page.getByTestId("deleted-banner")).toContainText(name);
+    await expectNoErrorAnswers(page, refusals);
     await expect(page.getByTestId(`delete-${name}`)).toBeHidden();
   }
   await expect(page.getByRole("heading", { name: "No usage plans" })).toBeVisible();

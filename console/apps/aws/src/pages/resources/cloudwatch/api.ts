@@ -1,7 +1,7 @@
 // CloudWatch's pages read and write through the service's own calls, made as the console by the kinds' operations
 // (crates/aws-console/src/resources/cloudwatch/): DescribeAlarms, DescribeAlarmHistory, ListMetrics, GetMetricData, the dashboards.
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { callKindOp, useKindOpRead } from "../../../kit";
+import { callKindOp, forgetDeleted, scopeOf, useKindOpRead } from "../../../kit";
 import type { Alarm, HistoryItem } from "./model";
 
 export const ALARMS = { service: "cloudwatch", kind: "alarms" } as const;
@@ -83,10 +83,10 @@ export function useDashboard(name: string, enabled = true) {
 export function useStale() {
   const qc = useQueryClient();
   return (kind: "alarms" | "dashboards", gone?: string) => {
-    void qc.invalidateQueries({ queryKey: ["resources", "kindop", "cloudwatch", kind], predicate: (q) => !gone || !JSON.stringify(q.queryKey).includes(JSON.stringify(gone)) });
+    if (gone) return forgetDeleted(qc, scopeOf("cloudwatch"), [gone]);
+    void qc.invalidateQueries({ queryKey: ["resources", "kindop", "cloudwatch", kind] });
     void qc.invalidateQueries({ queryKey: ["resources", "list", "cloudwatch", kind] });
     void qc.invalidateQueries({ queryKey: ["resources", "index"] });
-    if (gone) void qc.invalidateQueries({ queryKey: ["resources", "one", "cloudwatch", kind, gone], refetchType: "none" });
   };
 }
 

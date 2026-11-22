@@ -106,7 +106,7 @@ export function TargetForm({ t, index, set, remove, region, account, tried, sing
             <Field label="Retry attempts"><Input value={t.attempts} onChange={(e) => retry({ attempts: e.target.value })} inputMode="numeric" data-testid={`attempts-${index + 1}`} aria-label="Retry attempts" /></Field>
           </div>
           {(("problem" in age && t.retry) || (attempts && t.retry)) && <p className="text-[13px] text-bad" role="alert" data-testid={`retry-problem-${index + 1}`}>{"problem" in age ? age.problem : attempts}</p>}
-          <RuleHelp>By default AWS retries for <b>24 hours</b> and up to <b>185</b> times, with exponential back-off and jitter, then drops the event. The age can be <b>60 seconds to 24 hours</b>, attempts <b>0 to 185</b>. <b>Applied here:</b> a failed delivery is retried with a back-off that doubles from one second to a minute until it is out of tries or too old (<span className="font-mono">crates/aws-eventbridge/src/retry.rs</span>).</RuleHelp>
+          <RuleHelp>By default AWS retries for <b>24 hours</b> and up to <b>185</b> times, with exponential back-off and jitter, then drops the event. The age can be <b>60 seconds to 24 hours</b>, attempts <b>0 to 185</b>. <b>Applied here:</b> a failed delivery is retried with a back-off that doubles from one second to a minute until it is out of tries or too old.</RuleHelp>
         </div>
         <div className="grid gap-2" data-testid={`dlq-${index + 1}`}>
           <Label>Dead-letter queue</Label>

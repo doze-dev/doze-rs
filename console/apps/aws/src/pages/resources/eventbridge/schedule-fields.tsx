@@ -69,7 +69,7 @@ export function ScheduleFields({ value, onChange, tried }: { value: string; onCh
         </div>
       ) : (
         <div className="grid gap-3" data-testid="rate-fields">
-          <RuleHelp className="mb-1">doze-aws fires a schedule at the first slot after it first sees the rule, and only for a rule that has a target; what a restart or a long pause missed is not replayed, and a rate counts from the rule's creation (<span className="font-mono">crates/aws-eventbridge/src/schedule.rs</span>).</RuleHelp>
+          <RuleHelp className="mb-1">doze-aws fires a schedule at the first slot after it first sees the rule, and only for a rule that has a target; what a restart or a long pause missed is not replayed, and a rate counts from the rule's creation.</RuleHelp>
           <Field label="Rate expression" error={problem && (tried || !rate) ? problem : undefined} help={<>A rate expression is <span className="font-mono">rate(value unit)</span>: a positive number and <b>minute</b>, <b>hour</b> or <b>day</b>, singular for 1 and plural above it, so <span className="font-mono">rate(1 hour)</span> and <span className="font-mono">rate(5 hours)</span> are valid.</>}>
             {(id) => <Input id={id} value={value} onChange={(e) => onChange(e.target.value)} autoComplete="off" spellCheck={false} className="max-w-xs font-mono" data-testid="rate-expression" />}
           </Field>

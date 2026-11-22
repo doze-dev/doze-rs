@@ -294,6 +294,19 @@ async fn a_deleted_stack_is_read_by_its_id_and_the_exports_name_who_imports_them
     )
     .await;
     assert_eq!((status, &nobody), (200, &json!({"Imports": []})));
+    // An export that does not exist is still the refusal.
+    let (status, absent) = op(
+        &w,
+        "stacks",
+        "ListImports",
+        &json!({"ExportName": "exp-nobody-made"}),
+    )
+    .await;
+    assert_eq!(
+        (status, absent["code"].as_str()),
+        (400, Some("ValidationError")),
+        "{absent}"
+    );
     // A stack that imports it.
     let user = json!({"Resources": {"Q": {"Type": "AWS::SQS::Queue", "Properties": {"QueueName": "exp-user", "Tags": [{"Key": "from", "Value": {"Fn::ImportValue": "exp-inbox-arn"}}]}}}});
     let (status, made) = op(

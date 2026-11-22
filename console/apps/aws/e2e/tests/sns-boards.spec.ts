@@ -7,15 +7,13 @@ import { join } from "node:path";
 import type { Page } from "@playwright/test";
 import { aws, start, type Running } from "../server";
 import { queueArn, seedLarder, startWebhook, topicArn, type Webhook } from "./sns-seed";
-import { CUT, expect, test } from "./fixtures";
+import { expect, expectNoErrorAnswers, test } from "./fixtures";
 
 const SHOTS = process.env.SHOTS_DIR ?? join(import.meta.dirname, "../../../../../shots-sns");
 const BASE = Number(process.env.E2E_BASE_PORT ?? 45200);
 const at = (b: string) => BASE + ({ firefox: 10, webkit: 20, chromium: 30 }[b] ?? 40);
 
 test.describe.configure({ mode: "serial" });
-// Several boards are the service's refusal (a FIFO name, a missing deduplication ID, a wrong token): the browser logs each 400 as a failed load.
-test.use({ allowErrors: CUT });
 
 let server: Running;
 let hook: Webhook;
@@ -123,7 +121,9 @@ test("sns__topic-create-fifo: FIFO options, and the other sections folded with w
   await shot(page, "sns__topic-create-fifo");
 });
 
-test("sns__topic-create-refused: a FIFO name without .fifo is refused, and the form says why", async ({ page }) => {
+test("sns__topic-create-refused: a FIFO name without .fifo is refused, and the form says why", async ({ page, refusals }) => {
+  // SNS refuses the name, and the form says why.
+  refusals.allow(/400 POST .*\/sns\/topics\/op\/CreateTopic$/);
   await go(page, "/resources/sns/topics?create=yes", "Create topic");
   await page.getByTestId("type-fifo").click();
   await page.getByTestId("topic-name").fill("orders-events");
@@ -138,7 +138,9 @@ test("sns__topic-create-refused: a FIFO name without .fifo is refused, and the f
   expect(aws(server.endpoint, ["sns", "get-topic-attributes", "--topic-arn", ARN("orders-events")]).code).not.toBe(0);
 });
 
-test("an invalid name is marked on its field and brought into view, and a missing topic is not a down server", async ({ page }) => {
+test("an invalid name is marked on its field and brought into view, and a missing topic is not a down server", async ({ page, refusals }) => {
+  // A page of what is not there asks the service, which refuses.
+  refusals.allow(/404 GET .*\/sns\/topics\/no-such-topic$/);
   await go(page, "/resources/sns/topics?create=yes", "Create topic");
   await page.getByTestId("topic-name").fill("bad name!");
   await page.getByTestId("form-submit").click();
@@ -273,7 +275,9 @@ test("sns__topic-alerts: a function confirmed, a webhook and an address waiting,
   await shot(page, "sns__topic-alerts");
 });
 
-test("sns__subscription-confirm: the SubscribeURL of the confirmation message, pasted, confirms (the dialog first)", async ({ page }) => {
+test("sns__subscription-confirm: the SubscribeURL of the confirmation message, pasted, confirms (the dialog first)", async ({ page, refusals }) => {
+  // A wrong token is SNS's refusal, shown in the dialog.
+  refusals.allow(/400 POST .*\/sns\/subscriptions\/op\/ConfirmSubscription$/);
   await go(page, topicPath("alerts"), "alerts");
   await page.getByTestId(`choose-pending|${ARN("alerts")}|http|${hook.url}`).click();
   await page.getByTestId("sub-confirm").click();
@@ -431,7 +435,9 @@ test("sns__publish-message: one message, a custom payload for each protocol, and
   expect(got.Messages.map((m) => (JSON.parse(m.Body) as { Message: string }).Message)).toContain('{"order_id":"10482","lines":3,"total":"41.80"}');
 });
 
-test("sns__publish-fifo, sns__publish-fifo-refused and sns__topic-published: a group and a deduplication ID, the missing one refused, the filter checked", async ({ page }) => {
+test("sns__publish-fifo, sns__publish-fifo-refused and sns__topic-published: a group and a deduplication ID, the missing one refused, the filter checked", async ({ page, refusals }) => {
+  // A publish without a deduplication ID is SNS's refusal, shown on the form.
+  refusals.allow(/400 POST .*\/sns\/topics\/orders-events\.fifo\/op\/Publish$/);
   await go(page, topicPath(FIFO, "?view=publish"), "Publish message to topic");
   await page.getByTestId("publish-subject").fill("Order 10482 placed");
   await page.getByTestId("publish-group").fill("order-10482");
@@ -531,7 +537,7 @@ test("sns__subscription-confirm (the confirmation itself): the pasted SubscribeU
   await expect.poll(() => hook.posts().some((p) => p.type === "Notification"), { timeout: 15_000 }).toBe(true);
 });
 
-test("sns__subscription-delete: from the list, with what stops and what is not touched", async ({ page }) => {
+test("sns__subscription-delete: from the list, with what stops and what is not touched", async ({ page, refusals }) => {
   await go(page, "/resources/sns/subscriptions", "Subscriptions");
   const arn = subs(FIFO)[0]!.SubscriptionArn;
   await page.getByTestId(`choose-${arn}`).click();
@@ -542,6 +548,7 @@ test("sns__subscription-delete: from the list, with what stops and what is not t
   await shot(page, "sns__subscription-delete");
   await dialog.getByTestId("delete-dialog-submit").click();
   await expect(page.getByTestId("deleted-banner")).toContainText("deleted");
+  await expectNoErrorAnswers(page, refusals);
   await expect(page.getByTestId("list-sentence")).toContainText("6 subscriptions");
   expect(subs(FIFO)).toHaveLength(0);
 });
@@ -564,7 +571,7 @@ test("sns__topic-archive: a FIFO topic's archive policy, set on its Edit page an
   await shot(page, "sns__topic-archive");
 });
 
-test("sns__topic-delete and sns__topic-deleted: the subscriptions that go with the topic, named; publishers then get NotFound", async ({ page }) => {
+test("sns__topic-delete and sns__topic-deleted: the subscriptions that go with the topic, named; publishers then get NotFound", async ({ page, refusals }) => {
   await go(page, "/resources/sns/topics", "Topics");
   await page.getByTestId("choose-orders-created").click();
   await page.getByTestId("action-delete").click();
@@ -576,6 +583,7 @@ test("sns__topic-delete and sns__topic-deleted: the subscriptions that go with t
   await dialog.getByTestId("delete-dialog-input").fill("delete me");
   await dialog.getByTestId("delete-dialog-submit").click();
   await expect(page.getByTestId("deleted-banner")).toContainText("Topic orders-created deleted.");
+  await expectNoErrorAnswers(page, refusals);
   await expect(page.getByTestId("list-sentence")).toHaveText("2 topics left in us-east-1. A publish to orders-created now gets NotFound: the topic does not exist.");
   await expect(page.getByRole("table", { name: "Topics" }).locator("tr[data-row]")).toHaveCount(2);
   const refused = aws(server.endpoint, ["sns", "publish", "--topic-arn", ARN("orders-created"), "--message", "x"]);

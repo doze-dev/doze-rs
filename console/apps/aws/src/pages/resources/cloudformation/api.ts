@@ -2,7 +2,7 @@
 // cfn_ops.rs), made through `POST /resources/cloudformation/stacks/op/<Operation>` as the caller `console`.
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
-import { callKindOp } from "../../../kit";
+import { callKindOp, forgetDeleted, scopeOf } from "../../../kit";
 import type { ChangeSet } from "./changeset-parts";
 import { inProgress, type Stack, type StackEvent, type StackResource } from "./model";
 
@@ -76,10 +76,15 @@ export function useRefreshStack() {
   };
 }
 
-/** A write: one operation of the stacks' kind; every read of a stack is stale after it, whatever came back. */
-export function useCfnWrite<T, I extends object = object>(operation: string) {
+/** A write: one operation of the stacks' kind; every read of a stack is stale after it, whatever came back. A write that deletes
+ * (`gone` names what it deleted, from its input) leaves the reads of what is gone unmade: they would be refused. */
+export function useCfnWrite<T, I extends object = object>(operation: string, gone?: (input: I) => string[]) {
   const refresh = useRefreshStack();
-  return useMutation({ mutationFn: (input: I) => callKindOp<T>(STACKS, operation, input), onSettled: refresh });
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: I) => callKindOp<T>(STACKS, operation, input),
+    onSettled: (_, error, input) => (gone && !error ? forgetDeleted(qc, scopeOf("cloudformation"), gone(input)) : refresh()),
+  });
 }
 
 /** The preview of an update: a change set the console makes while the review step is open (made again when the choices change) and

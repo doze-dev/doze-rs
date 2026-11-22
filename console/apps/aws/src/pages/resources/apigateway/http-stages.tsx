@@ -113,7 +113,7 @@ export function HttpStages({ id, api, calls, selected }: { id: string; api: Http
           ) : (
             <RuleHelp>The <span className="font-mono">$default</span> stage is served from the base of the URL, with no stage name in the path{all.some((s) => s.stageName !== "$default") ? <>; <span className="font-mono">{all.find((s) => s.stageName !== "$default")!.stageName}</span> answers under <span className="font-mono">/{all.find((s) => s.stageName !== "$default")!.stageName}</span></> : null}.</RuleHelp>
           )}
-          <RuleHelp>With automatic deployment on, a change to the API is released for you; with it off, you publish with a deployment. doze-aws serves an automatic stage from the live API; a stage deployed by hand is served from its deployment&apos;s snapshot (<span className="font-mono">crates/aws-apigateway/src/plane/find.rs</span>).</RuleHelp>
+          <RuleHelp>With automatic deployment on, a change to the API is released for you; with it off, you publish with a deployment. doze-aws serves an automatic stage from the live API; a stage deployed by hand is served from its deployment&apos;s snapshot.</RuleHelp>
         </div>
       </Card>
       </div>
