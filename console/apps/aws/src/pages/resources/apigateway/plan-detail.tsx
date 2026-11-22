@@ -19,7 +19,7 @@ import { Tabs, TabsList, TabsTrigger } from "@doze/ui/components/ui/tabs";
 import { KeyRoundIcon } from "lucide-react";
 import { useResourceDetail } from "../../../api/resources";
 import { DetailError, Field, PlainConfirm, RuleHelp, Segmented, useServiceCrumbs } from "../../../kit";
-import { callKindOp } from "../../../kit";
+import { callKindOp, withCurrent } from "../../../kit";
 import { PLANS, useApiKeys, useHttpApis, usePlanKeys, usePlans, useRefreshReads, useRestApis, useStages, useStagesOf, useWrite } from "./api";
 import { Card, Mono, Rows, Said } from "./parts";
 import { addStagePatch, firstWithFreeStage, keyProblem, removeStagePatch } from "./plan-model";
@@ -151,7 +151,7 @@ function PlanView({ plan, updatedAt, fetching, refresh }: { plan: UsagePlan; upd
   const err = delKey.error ?? delStage.error;
   return (
     <div data-testid="plan-page">
-      <PageHeader title={plan.name} mono crumbs={[...crumbs, { label: "Usage plans", to: "/resources/apigateway/usageplans" }]} titleExtra={<Badge variant="secondary" className="font-normal">Usage plan</Badge>} sub={plan.description ?? <>Created with no description.</>} refresh={<RefreshControl updatedAt={updatedAt} fetching={fetching} onRefresh={() => { refresh(); void keys.refetch(); }} interval={false} />} />
+      <PageHeader title={plan.name} mono crumbs={withCurrent([...crumbs, { label: "Usage plans", to: "/resources/apigateway/usageplans" }], plan.name)} titleExtra={<Badge variant="secondary" className="font-normal">Usage plan</Badge>} sub={plan.description ?? <>Created with no description.</>} refresh={<RefreshControl updatedAt={updatedAt} fetching={fetching} onRefresh={() => { refresh(); void keys.refetch(); }} interval={false} />} />
       {added}
       <Said text={sentence} names={[plan.name, ...stageText]} bold={[/\d+ API keys?/]} />
       <Card title="Plan details" testId="plan-details">

@@ -14,7 +14,7 @@ import { RefreshControl } from "@doze/ui/components/app/refresh-control";
 import { Skeleton } from "@doze/ui/components/ui/skeleton";
 import { ApiFailure } from "@doze/ui/lib/api";
 import { useResourceList } from "../../../api/resources";
-import { DetailError, RuleHelp } from "../../../kit";
+import { DetailError, RuleHelp, withCurrent } from "../../../kit";
 import { HINT } from "../index-page";
 import type { OwnProps } from "../deep/registry";
 import { ResourceTo } from "../value";
@@ -93,7 +93,7 @@ export function ExportPage({ service, kind, name }: OwnProps) {
       <PageHeader
         title={exportName}
         mono
-        crumbs={[{ label: "Resources", to: "/resources" }, { label: "Infrastructure", to: "/resources" }, { label: "CloudFormation", to: `/resources/${service}` }, { label: "Exports", to: `/resources/${service}/${kind}` }]}
+        crumbs={withCurrent([{ label: "Resources", to: "/resources" }, { label: "Infrastructure", to: "/resources" }, { label: "CloudFormation", to: `/resources/${service}` }, { label: "Exports", to: `/resources/${service}/${kind}` }], exportName)}
         sub={<>An exported output of <StackTo name={stack} className="font-sans text-[15px] font-normal text-foreground no-underline" />, read by other stacks with Fn::ImportValue.</>}
       />
       {said && <Lede said={{ text: said, names: [stack, ...(users ?? [])] }} testId="export-sentence" bold={[/^\d+ stacks?/]} />}

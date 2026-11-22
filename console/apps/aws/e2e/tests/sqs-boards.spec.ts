@@ -6,6 +6,7 @@ import type { Page } from "@playwright/test";
 import { start, type Running, aws } from "../server";
 import { deadLettered, queueUrl, seedLarder } from "./sqs-seed";
 import { expect, expectNoErrorAnswers, test } from "./fixtures";
+import { expectCrumbsEnd } from "./crumbs-kit";
 
 const SHOTS = process.env.SHOTS_DIR ?? join(import.meta.dirname, "../../../../../shots-sqs");
 const BASE = Number(process.env.E2E_BASE_PORT ?? 45240);
@@ -103,6 +104,7 @@ test("sqs__queue-create and sqs__queue-create-refused: the form, its call, and t
   await page.getByTestId("call-panel-tab-boto3").click();
   await expect(page.getByTestId("call-panel-code")).toContainText("create_queue");
   await page.getByTestId("call-panel-tab-json").click();
+  await expectCrumbsEnd(page, ["Queues","Create queue"]);
   await shot(page, "sqs__queue-create");
   await page.getByTestId("form-submit").click();
   await expect(page.getByTestId("create-refused")).toContainText("QueueNameExists");
@@ -167,6 +169,7 @@ test("sqs__queue-detail: the sentence, what the queue is wired to, its verbs, de
   await expect(page.getByTestId("recent-calls")).toBeVisible();
   // A send says how big its body was, a receive how many messages came back.
   await expect(page.getByTestId("recent-calls").getByTestId("answer-words").filter({ hasText: /^· (sent \d+ B|no messages|\d+ messages?)$/ }).first()).toBeVisible();
+  await expectCrumbsEnd(page, ["Queues","pick-lists"]);
   await shot(page, "sqs__queue-detail");
 });
 
@@ -263,6 +266,7 @@ test("sqs__queue-edit: the settings in their own page, only what changed sent, t
   await page.getByTestId("form-tags-value-3").fill("floor");
   await expect(page.getByTestId("call-panel-code")).toContainText('"VisibilityTimeout": "60"');
   await expect(page.getByTestId("call-panel-code")).not.toContainText("MessageRetentionPeriod");
+  await expectCrumbsEnd(page, ["pick-lists","Edit"]);
   await shot(page, "sqs__queue-edit");
   await page.getByTestId("form-submit").click();
   await expect(page.getByTestId("updated-banner")).toContainText("Queue pick-lists updated.");

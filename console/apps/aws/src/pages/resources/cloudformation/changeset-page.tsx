@@ -6,7 +6,7 @@ import { ErrorBlock } from "@doze/ui/components/app/alert";
 import { PageHeader } from "@doze/ui/components/app/page-header";
 import { Button } from "@doze/ui/components/ui/button";
 import { Skeleton } from "@doze/ui/components/ui/skeleton";
-import { DetailBadgeView, DetailError, PlainConfirm } from "../../../kit";
+import { DetailBadgeView, DetailError, PlainConfirm, withCurrent } from "../../../kit";
 import { HINT } from "../index-page";
 import { at } from "../deep/parts";
 import type { OwnProps } from "../deep/registry";
@@ -40,7 +40,7 @@ export function ChangeSetPage({ service, kind, name, search }: OwnProps) {
       <PageHeader
         title={set.ChangeSetName}
         mono
-        crumbs={crumbs}
+        crumbs={withCurrent(crumbs, set.ChangeSetName)}
         titleExtra={<span className="flex flex-wrap items-center gap-2"><DetailBadgeView badge={statusBadge(set.Status)} />{set.ExecutionStatus && <DetailBadgeView badge={{ text: set.ExecutionStatus, tone: "neutral" }} />}</span>}
         sub={<>A change set for <StackTo name={stackName} className="font-sans text-[15px] font-normal text-foreground no-underline" />, created {at(set.CreationTime)}.{" "}{set.Status === "FAILED" ? `It could not be made: ${set.StatusReason ?? "no reason was given"}.` : `It previews ${rows.length} ${rows.length === 1 ? "change" : "changes"} and has ${set.ExecutionStatus === "EXECUTE_COMPLETE" ? "been executed" : "not changed anything yet"}.`}</>}
         actions={

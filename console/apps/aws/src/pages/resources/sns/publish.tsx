@@ -12,7 +12,7 @@ import { RadioGroup, RadioGroupItem } from "@doze/ui/components/ui/radio-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@doze/ui/components/ui/select";
 import { Textarea } from "@doze/ui/components/ui/textarea";
 import { ApiFailure } from "@doze/ui/lib/api";
-import { Field, FormPage, FormSection, RuleHelp } from "../../../kit";
+import { Field, FormPage, FormSection, RuleHelp, resourceCrumbs } from "../../../kit";
 import { useOp } from "../deep/api";
 import { type Attribute, matches, policyWords } from "./filter-match";
 import { Rich } from "./parts";
@@ -53,7 +53,7 @@ export function Publish({ d, t, subs, back, done }: TopicProps) {
     });
   };
   const sentence = sentenceOf(f, confirmed.length, filters.map((x) => ({ name: endpointName(x.s.protocol, x.s.endpoint), verdict: x.d.scope === "MessageBody" || f.structure === "custom" ? ("unknown" as const) : matches(x.d.filter!, attrs) })), attrs);
-  const crumbs = [{ label: "Resources", to: "/resources" }, { label: d.group, to: "/resources" }, { label: d.service_title, to: `/resources/${d.service}` }, { label: d.name, to: `/resources/${d.service}/${d.kind}/${encodeURIComponent(d.name)}` }];
+  const crumbs = resourceCrumbs(d);
   return (
     <FormPage
       title="Publish message to topic"

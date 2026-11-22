@@ -7,6 +7,7 @@ import { useState } from "react";
 import { PageHeader } from "@doze/ui/components/app/page-header";
 import { ResultBanner } from "@doze/ui/components/app/result-banner";
 import { Button } from "@doze/ui/components/ui/button";
+import { resourceCrumbs, withCurrent } from "../../../kit";
 import { callOp, useOp } from "../deep/api";
 import { DeleteMessages, NoMessages, Polled, ReceiveCard } from "./message-receive";
 import { type Sent, SendCard, SendResult } from "./message-send";
@@ -76,7 +77,7 @@ export function SqsMessages({ d, q, back }: SubProps) {
     <>
       <PageHeader
         title="Send and receive messages"
-        crumbs={[{ label: "Resources", to: "/resources" }, { label: d.group, to: "/resources" }, { label: d.service_title, to: `/resources/${d.service}` }, { label: d.name, to: `/resources/${d.service}/${d.kind}/${encodeURIComponent(d.name)}` }]}
+        crumbs={withCurrent(resourceCrumbs(d), "Send and receive messages")}
         sub={<>Queue <span className="font-mono text-foreground">{q.name}</span>{polled ? "" : ", "}{polled ? null : q.fifo ? `a FIFO queue${q.dedup ? " with content-based deduplication on" : ""}` : `a standard queue with ${words(q.available)} waiting`}.{subtitle ? ` ${subtitle}` : ""}</>}
         actions={<Button type="button" variant="outline" className="bg-card" onClick={back} data-testid="back-to-queue"><ArrowLeftIcon /> Back to queue</Button>}
       />

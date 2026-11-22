@@ -5,7 +5,7 @@ import { useState } from "react";
 import { Alert } from "@doze/ui/components/app/alert";
 import { Input } from "@doze/ui/components/ui/input";
 import type { ResourceDetail } from "../../../api/types/ResourceDetail";
-import { callKindOp, Field, FormPage, FormSection } from "../../../kit";
+import { callKindOp, Field, FormPage, FormSection, resourceCrumbs } from "../../../kit";
 import { Note, RowChoice } from "../cfg-parts";
 import { KEYS, type RotationStatus } from "./api";
 import { stateWords } from "./model";
@@ -51,7 +51,7 @@ export function RotationEdit({ d, id, state, current, back }: { d: ResourceDetai
       mono
       titleExtra={<StateDot state={state} words={stateWords(state)} />}
       sub="Automatic key rotation. Choose Enable or Disable, and the days between rotations."
-      crumbs={[{ label: "Resources", to: "/resources" }, { label: d.group, to: `/resources/${d.service}` }, { label: d.service_title, to: `/resources/${d.service}` }, { label: "Keys", to: "/resources/kms/keys" }, { label: d.name, to: `/resources/kms/keys/${encodeURIComponent(d.id)}?tab=rotation` }, { label: "Automatic key rotation", to: "" }]}
+      crumbs={resourceCrumbs({ ...d, key: d.id }, { label: "Automatic key rotation", to: "" })}
       request={{ service: "kms", operation: on === "enable" ? "EnableKeyRotation" : "DisableKeyRotation", input }}
       callNote={on === "enable" ? "If Disable is selected, Save calls DisableKeyRotation with the same KeyId instead." : "If Enable is selected, Save calls EnableKeyRotation, with the period if there is one."}
       showInput

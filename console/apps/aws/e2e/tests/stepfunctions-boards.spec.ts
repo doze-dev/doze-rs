@@ -6,6 +6,7 @@ import type { Page } from "@playwright/test";
 import { start, type Running, aws } from "../server";
 import { expect, expectNoErrorAnswers, test } from "./fixtures";
 import { type Larder, seedLarder } from "./stepfunctions-seed";
+import { expectCrumbsEnd } from "./crumbs-kit";
 
 const SHOTS = process.env.SHOTS_DIR ?? join(import.meta.dirname, "../../../../../shots-stepfunctions");
 const BASE = Number(process.env.E2E_BASE_PORT ?? 45800);
@@ -235,6 +236,7 @@ test("stepfunctions__machine-detail: the header, the sentence, who it is wired t
   await expect(page.getByRole("columnheader", { name: "Redrive count" })).toBeVisible();
   await expect(page.getByTestId("executions-note")).toContainText("Version and Alias come from the ARN a run was started with.");
   await expect(page.getByTestId("recent-calls")).toBeVisible();
+  await expectCrumbsEnd(page, ["State machines","order-fulfilment"]);
   await shot(page, "stepfunctions__machine-detail");
 });
 
@@ -317,6 +319,7 @@ test("stepfunctions__machine-aliases, alias-create and machine-aliases-none: the
   await expect(code(page)).toContainText("stateMachine:order-fulfilment:2");
   await expect(code(page)).toContainText('"weight": 90');
   await expect(page.getByText("Each percentage is 0 to 100 and the two must add up to 100: 90 + 10 = 100.")).toBeVisible();
+  await expectCrumbsEnd(page, ["order-fulfilment","Aliases","Create alias"]);
   await shot(page, "stepfunctions__alias-create");
   await page.getByTestId("form-submit").click();
   await expect(page.getByTestId("done-banner")).toContainText("Alias created.");
@@ -340,6 +343,7 @@ test("stepfunctions__machine-tags, tags-none and tags-manage: the tags, a machin
   await page.getByTestId("tags-kv").getByRole("textbox").nth(7).fill("fulfilment");
   await expect(code(page)).toContainText("TagResource");
   await expect(code(page)).toContainText('"key": "cost-center"');
+  await expectCrumbsEnd(page, ["Tags","Manage tags"]);
   await shot(page, "stepfunctions__machine-tags-manage");
   await page.getByTestId("form-submit").click();
   await expect(rows(page, "Tags")).toHaveCount(4);
@@ -402,6 +406,7 @@ test("stepfunctions__execution-failed and execution-redrive: why it failed, the 
   await page.getByTestId("step-views").getByRole("radio", { name: "Details" }).click();
   await page.getByTestId("failure-cause").click();
   await expect(page.getByTestId("failure-cause-text")).toContainText("errorMessage");
+  await expectCrumbsEnd(page, ["Executions", ""]);
   await page.getByTestId("recover-menu").click();
   await expect(page.getByTestId("recover-redrive")).toHaveText("Redrive from failure");
   await shot(page, "stepfunctions__execution-failed");
@@ -489,6 +494,7 @@ test("stepfunctions__activities-list and activity-create: the workers' tasks, an
   await expect(page.getByTestId("activity-kms-period")).toHaveValue("300");
   await page.getByTestId("activity-kms").click();
   await expect(code(page)).not.toContainText("encryptionConfiguration");
+  await expectCrumbsEnd(page, ["Activities","Create activity"]);
   await shot(page, "stepfunctions__activity-create");
   await page.getByTestId("form-submit").click();
   await expect(page.getByTestId("created-banner")).toContainText("Activity inspect-order created.");

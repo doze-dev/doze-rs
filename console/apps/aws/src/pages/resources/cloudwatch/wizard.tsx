@@ -93,7 +93,7 @@ function Wizard({ initial, editing }: { initial: Draft; editing?: string }) {
       title={title}
       sub={subOf(step, editing)}
       stepsAfterTitle
-      crumbs={[...crumbs, { label: "All alarms", to: "/resources/cloudwatch/alarms" }, { label: STEPS[step]!.label, to: "/resources/cloudwatch/alarms?do=create" }]}
+      crumbs={[...crumbs, { label: "All alarms", to: "/resources/cloudwatch/alarms" }, { label: STEPS[step]!.label, to: "" }]}
       request={{ service: "cloudwatch", operation: "PutMetricAlarm", input }}
       showInput
       callNote={step < 3 ? <b className="font-medium text-foreground">PutMetricAlarm, so far</b> : undefined}

@@ -4,6 +4,7 @@ import { expect, test } from "./fixtures";
 import { start, type Running } from "../server";
 import { seedKmsetc, STRIPE } from "./kmsetc-seed";
 import { cliOf, open, portsFor, shoot } from "./kmsetc-kit";
+import { expectCrumbsEnd } from "./crumbs-kit";
 
 test.describe.configure({ mode: "serial" });
 
@@ -126,6 +127,7 @@ test("secretsmanager__secret-overview, secret-value, secret-value-edit: a secret
   await expect(page.getByTestId("value-note")).toContainText("becomes AWSPREVIOUS");
   await page.getByTestId("value-rows").getByRole("textbox").nth(1).fill("sk_live_EXAMPLE_new");
   await expect(page.getByTestId("call-panel")).toContainText("(masked)");
+  await expectCrumbsEnd(page, ["Edit secret value"]);
   await shot(page, "secretsmanager__secret-value-edit");
   await page.getByTestId("form-submit").click();
   await expect(page.getByTestId("value-saved")).toBeVisible();

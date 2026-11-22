@@ -7,7 +7,7 @@ import { Alert } from "@doze/ui/components/app/alert";
 import { Button } from "@doze/ui/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@doze/ui/components/ui/select";
 import type { ResourceDetail } from "../../../api/types/ResourceDetail";
-import { callKindOp, FormPage, FormSection, PolicyEditor } from "../../../kit";
+import { callKindOp, FormPage, FormSection, PolicyEditor, resourceCrumbs } from "../../../kit";
 import { Note } from "../cfg-parts";
 import { KEYS, useKeyPolicy } from "./api";
 import { parsePolicy, principalWords, type Statement } from "./model";
@@ -88,7 +88,7 @@ function PolicyForm({ d, id, state, back, initial }: { d: ResourceDetail; id: st
       mono
       titleExtra={<StateDot state={state} words={stateWords(state)} />}
       sub="Key policy, policy view. Edit the JSON, or select a statement and use the statement builder."
-      crumbs={[{ label: "Resources", to: "/resources" }, { label: d.group, to: `/resources/${d.service}` }, { label: d.service_title, to: `/resources/${d.service}` }, { label: "Keys", to: "/resources/kms/keys" }, { label: d.name, to: `/resources/kms/keys/${encodeURIComponent(d.id)}` }, { label: "Edit key policy", to: "" }]}
+      crumbs={resourceCrumbs({ ...d, key: d.id }, { label: "Edit key policy", to: "" })}
       request={{ service: "kms", operation: "PutKeyPolicy", input: { KeyId: id, PolicyName: "default", Policy: "{ ... }" } }}
       showInput
       refusal={refused}

@@ -8,7 +8,7 @@ import { newRow, rowsFrom, rowsValid, type KeyValueRow } from "@doze/ui/componen
 import { Callout } from "@doze/ui/components/app/callout";
 import { Textarea } from "@doze/ui/components/ui/textarea";
 import type { ResourceDetail } from "../../../api/types/ResourceDetail";
-import { callKindOp, Field, FormPage, FormSection, Segmented, useKindOpRead } from "../../../kit";
+import { callKindOp, Field, FormPage, FormSection, resourceCrumbs, Segmented, useKindOpRead } from "../../../kit";
 import { Note } from "../cfg-parts";
 import { refusalOf } from "../kms/schedule";
 import { SECRETS, type SecretValue, useVersions } from "./api";
@@ -56,7 +56,7 @@ function ValueForm({ d, back, initial }: { d: ResourceDetail; back: (done?: stri
     <FormPage
       title="Edit secret value"
       sub={<>Saving stores a new version; nothing is overwritten. You are editing <span className="font-mono text-bright">{name}</span>.</>}
-      crumbs={[{ label: "Resources", to: "/resources" }, { label: d.group, to: `/resources/${d.service}` }, { label: d.service_title, to: `/resources/${d.service}` }, { label: "Secrets", to: "/resources/secretsmanager/secrets" }, { label: name, to: `/resources/secretsmanager/secrets/${encodeURIComponent(name)}` }, { label: "Edit secret value", to: "" }]}
+      crumbs={resourceCrumbs(d, { label: "Edit secret value", to: "" })}
       request={{ service: "secretsmanager", operation: "PutSecretValue", input: { SecretId: name, ClientRequestToken: token, SecretString: "(masked)" } }}
       callNote="No VersionStages, so the label AWSCURRENT moves to the new version. The token makes a retry safe: the same token with the same value does nothing."
       showInput
