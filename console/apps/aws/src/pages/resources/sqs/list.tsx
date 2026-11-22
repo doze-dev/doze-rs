@@ -91,11 +91,11 @@ function QueuesList({ service, kind, q, gone, from }: { service: string; kind: s
               <Input value={typed} onChange={(e) => setTyped(e.target.value)} placeholder="Search queues by prefix" aria-label="Search queues by prefix" className="bg-card pl-9 font-mono text-[13px]" data-testid="list-search" />
             </div>
             <Button type="submit" variant="outline" className="bg-card" data-testid="list-search-go">Search</Button>
-            {q && <Button type="button" variant="ghost" onClick={() => { setTyped(""); go({}); }} data-testid="search-clear">Clear search</Button>}
+            {q && <Button type="button" variant="outline" className="bg-card" onClick={() => { setTyped(""); go({}); }} data-testid="search-clear">Clear search</Button>}
           </form>
           {none ? (
             <div data-testid="list-no-match">
-              <EmptyState icon={SearchIcon} title="ListQueues returned no queues" action={total ? <Button variant="outline" className="bg-card" onClick={() => { setTyped(""); go({}); }} data-testid="search-show-all">Show all {total} {total === 1 ? "queue" : "queues"}</Button> : undefined}>
+              <EmptyState icon={RowsIcon} title="ListQueues returned no queues" action={total ? <Button variant="outline" className="bg-card" onClick={() => { setTyped(""); go({}); }} data-testid="search-show-all">Show all {total} {total === 1 ? "queue" : "queues"}</Button> : undefined}>
                 QueueNamePrefix <span className="font-mono text-foreground">“{q}”</span> returns only the queues whose name begins with that text, and the match is case-sensitive.
               </EmptyState>
             </div>

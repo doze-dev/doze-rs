@@ -5,7 +5,10 @@ const task = (over: Partial<Task>): Task => ({ Status: "RUNNING", SourceArn: "ar
 
 test("each state says what became of the messages", () => {
   expect(taskSentence(task({}), "pick-lists-dlq", 1)).toBe("pick-lists-dlq is moving 1 message back to their source queues. Only one redrive can run on a queue at a time.");
-  expect(taskSentence(task({ Status: "COMPLETED", ApproximateNumberOfMessagesMoved: 1 }), "pick-lists-dlq", 0)).toBe("pick-lists-dlq is empty. Its message went back to their source queues, the queue they were dead-lettered from.");
+  expect(taskSentence(task({ Status: "COMPLETED", ApproximateNumberOfMessagesMoved: 1 }), "pick-lists-dlq", 0)).toBe("pick-lists-dlq is empty. Its message went back to its source queue, the queue it was dead-lettered from.");
+  expect(taskSentence(task({ Status: "COMPLETED", ApproximateNumberOfMessagesMoved: 1 }), "pick-lists-dlq", 0, ["pick-lists"])).toBe("pick-lists-dlq is empty. Its message went back to pick-lists, the queue it was dead-lettered from.");
+  expect(taskSentence(task({ Status: "COMPLETED", ApproximateNumberOfMessagesMoved: 3 }), "d", 0, ["a", "b"])).toBe("d is empty. Its messages went back to their source queues, the queues they were dead-lettered from.");
+  expect(taskSentence(task({ Status: "COMPLETED", ApproximateNumberOfMessagesMoved: 2 }), "d", 0, ["a"])).toBe("d is empty. Its messages went back to a, the queue they were dead-lettered from.");
   expect(taskSentence(task({ Status: "CANCELLED" }), "d", 1)).toBe("d still holds 1 message. You cancelled the redrive before it moved any; start another when you are ready.");
   expect(taskSentence(task({ Status: "FAILED", FailureReason: "CouldNotDetermineMessageSource" }), "d", 1)).toBe("d still holds 1 message. The last redrive failed because SQS has no source queue to return that message to.");
   expect(taskSentence(null, "d", 1)).toBeNull();
@@ -19,6 +22,7 @@ test("destination, rate, newest task, and the note of a failure", () => {
   expect(statusNote(task({ Status: "FAILED", FailureReason: "CouldNotDetermineMessageSource" }))).toMatchObject({ lead: "Failed: CouldNotDetermineMessageSource." });
   expect(statusNote(task({ Status: "FAILED", FailureReason: "CouldNotDetermineMessageSource" }))?.text).toContain("custom destination");
   expect(statusNote(task({ Status: "CANCELLED" }))?.lead).toBe("Status CANCELLED.");
+  expect(statusNote(task({ Status: "CANCELLED" }), "pick-lists-dlq")?.text).toContain("the rest stay in pick-lists-dlq,");
   expect(statusNote(task({ Status: "COMPLETED" }))).toBeNull();
 });
 

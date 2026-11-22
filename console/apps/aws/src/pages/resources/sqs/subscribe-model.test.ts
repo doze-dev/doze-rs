@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { statementCount, topicHint, withTopic } from "./subscribe-model";
+import { statementCount, subscribeThenAllow, topicHint, withTopic } from "./subscribe-model";
 
 const Q = "arn:aws:sqs:us-east-1:1:pick-lists";
 const T = "arn:aws:sns:us-east-1:1:orders-created";
@@ -28,4 +28,17 @@ test("the other topics are named with what they already deliver", () => {
   // The topic chosen says what it already delivers too, before the others do.
   expect(topicHint([{ name: "alerts", cells: ["Standard", "1"] }], { name: "orders-created", cells: ["Standard", "3"] })).toContain("alerts is the other topic here; orders-created already has 3 subscriptions; alerts already has 1 subscription.");
   expect(topicHint([], { name: "orders-created", cells: ["Standard", "3"] })).toBe("The topics in this account and Region are listed. If yours isn't, enter its ARN. orders-created already has 3 subscriptions.");
+});
+
+test("a refused Subscribe leaves the policy alone: the statement is written only after the subscription is made", async () => {
+  const calls: string[] = [];
+  const allow = () => { calls.push("policy"); return Promise.resolve(); };
+  await expect(subscribeThenAllow(() => { calls.push("subscribe"); return Promise.reject(new Error("Topic does not exist")); }, allow)).rejects.toThrow("Topic does not exist");
+  expect(calls).toEqual(["subscribe"]);
+  calls.length = 0;
+  await subscribeThenAllow(() => { calls.push("subscribe"); return Promise.resolve(); }, allow);
+  expect(calls).toEqual(["subscribe", "policy"]);
+  calls.length = 0;
+  await subscribeThenAllow(() => { calls.push("subscribe"); return Promise.resolve(); }, null);
+  expect(calls).toEqual(["subscribe"]);
 });

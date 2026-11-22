@@ -14,6 +14,7 @@ import { useOp, useOpQuery } from "../deep/api";
 import { Refused } from "../deep/parts";
 import { Pair } from "./parts";
 import type { Queue } from "./queue-model";
+import { Emphasis } from "@doze/ui/components/app/emphasis";
 import { allowWords, cancellable, destinationWords, latest, rateWords, RUNNING, statusNote, statusTone, type Task } from "./redrive-model";
 
 export const TASKS_INPUT = { MaxResults: 10 };
@@ -38,7 +39,7 @@ export function RedriveStatus({ d, q, sources, go }: { d: ResourceDetail; q: Que
   const qc = useQueryClient();
   const task = latest(tasks.data?.Results);
   const running = task?.Status === RUNNING;
-  const note = task ? statusNote(task) : null;
+  const note = task ? statusNote(task, q.name) : null;
   const refresh = () => {
     void tasks.refetch();
     void qc.invalidateQueries({ queryKey: ["resources", "one", d.service, d.kind, d.name] });
@@ -85,7 +86,7 @@ export function RedriveStatus({ d, q, sources, go }: { d: ResourceDetail; q: Que
           <dl className={`${grid} ${cols}`}>{right}</dl>
         </div>
       )}
-      {note && <Callout tone={task?.Status === "FAILED" ? "bad" : "note"} lead={note.lead} className="mt-5" testId="redrive-note">{note.text}</Callout>}
+      {note && <Callout tone={task?.Status === "FAILED" ? "bad" : "note"} lead={note.lead} className="mt-5" testId="redrive-note"><Emphasis text={note.text} bold={["Redrive to custom destination"]} /></Callout>}
       <div className="mt-6 flex flex-wrap gap-2 border-t pt-6">
         {running && task?.TaskHandle && (
           <Button type="button" variant="outline" className="border-bad/40 bg-card text-bad hover:text-bad" disabled={cancel.isPending} data-testid="redrive-cancel" onClick={() => void stop(task.TaskHandle)}>Cancel DLQ redrive</Button>

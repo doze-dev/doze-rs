@@ -55,12 +55,10 @@ export function TypeAndName({ f, set, p, show, create, hints, refusal }: FieldPr
   if (!create) {
     return (
       <FormSection title="Type and name" description="You can edit the queue's configuration parameters, except the queue type.">
-        <dl className="grid grid-cols-[8rem_minmax(0,1fr)] gap-y-2 text-[13.5px]">
-          <dt className="text-muted-foreground">Type</dt>
-          <dd className="text-bright" data-testid="edit-type">{f.fifo ? "FIFO" : "Standard"}</dd>
-          <dt className="text-muted-foreground">Name</dt>
-          <dd className="font-mono text-bright" data-testid="edit-name">{f.name}</dd>
-        </dl>
+        <div className="grid gap-x-8 gap-y-6 md:grid-cols-2">
+          <Field label="Type" testId="field-type">{(id) => <Input id={id} value={f.fifo ? "FIFO" : "Standard"} disabled readOnly data-testid="edit-type" />}</Field>
+          <Field label="Name" testId="field-name">{(id) => <Input id={id} value={f.name} disabled readOnly className="font-mono" data-testid="edit-name" />}</Field>
+        </div>
       </FormSection>
     );
   }
@@ -92,7 +90,7 @@ export function Configuration({ f, set, p, show, create, hints }: FieldProps & {
   return (
     <FormSection title="Configuration" description={create ? "The console sets default values for the queue configuration parameters." : "Update the queue's configuration parameters."}>
       <div className="grid gap-x-8 gap-y-6 md:grid-cols-2">
-      <Setting label="Visibility timeout" name="visibility" problem={show ? p.visibility : undefined} hint={hints?.visibility} testId="field-visibility" rule={<>How long a received message stays hidden from other consumers. Range <b>0 seconds</b> to <b>12 hours</b>, default <b>30 seconds</b>.</>}>
+      <Setting label="Visibility timeout" name="visibility" problem={show ? p.visibility : undefined} hint={hints?.visibility} testId="field-visibility" rule={<>How long a received message stays hidden from other consumers. Range <b>0 seconds</b> to <b>12 hours</b>, default <b>30 seconds</b>.{create ? "" : " Applied when you save."}</>}>
         {(id) => <TimeInput id={id} value={f.visibility} onChange={(visibility) => set({ visibility })} units={timeUnits("visibility")} label="Visibility timeout" testId="queue-visibility" />}
       </Setting>
       <Setting label="Message retention period" name="retention" problem={show ? p.retention : undefined} hint={hints?.retention} testId="field-retention" rule={<>How long SQS keeps a message nobody deletes. Range <b>1 minute</b> to <b>14 days</b>, default <b>4 days</b>.{create ? "" : " Lowering it below the age of existing messages can expire them."}</>}>
