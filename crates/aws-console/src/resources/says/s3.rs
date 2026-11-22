@@ -150,7 +150,11 @@ fn summary(rows: &[ResourceRow]) -> Option<String> {
     }
     if said.len() > 2 {
         let more = i64::try_from(said.len() - 2).unwrap_or(i64::MAX);
-        let (what, verb) = if more == 1 { ("bucket", "keeps") } else { ("buckets", "keep") };
+        let (what, verb) = if more == 1 {
+            ("bucket", "keeps")
+        } else {
+            ("buckets", "keep")
+        };
         out.push_str(&format!(" {more} more {what} {verb} versions or notify."));
     }
     Some(out)
@@ -266,12 +270,19 @@ mod tests {
             .iter()
             .map(|n| row(n, "Enabled", None))
             .collect();
-        assert!(summary(&many).unwrap().ends_with(" 2 more buckets keep versions or notify."));
+        assert!(
+            summary(&many)
+                .unwrap()
+                .ends_with(" 2 more buckets keep versions or notify.")
+        );
         // A bucket whose settings could not be read says nothing of them.
         let bare = ResourceRow {
             cells: vec![Some("us-east-1".to_owned())],
             ..row("x", "", None)
         };
-        assert_eq!(summary(&[bare]).unwrap(), "1 bucket in this account, in us-east-1.");
+        assert_eq!(
+            summary(&[bare]).unwrap(),
+            "1 bucket in this account, in us-east-1."
+        );
     }
 }

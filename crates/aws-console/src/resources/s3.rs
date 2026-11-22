@@ -1,8 +1,8 @@
 //! S3: buckets, and a bucket's objects (the first page) on its page.
 
+use super::Format::Tail;
 use super::Format::{Json, Mono, Text as Plain, Time};
 use super::s3_ops::{BUCKET, PAGES};
-use super::Format::Tail;
 use super::{
     Batch, Blocker, Clear, Column, Create, Delete, Descriptor, Id, Input, InputKind, Kind, List,
     Shape, Step, Sub, Tags, Text, Write, col, col_or, field, input, op, ops, or, says,
@@ -107,11 +107,19 @@ pub(super) static S3: Descriptor = Descriptor {
             col("Region", "BucketRegion", Mono),
             col("Created", "CreationDate", Time),
             col_or("Versioning", "Status", Plain, "Disabled"),
-            col("Notifies Lambda function", "LambdaFunctionConfigurations.0.LambdaFunctionArn", Tail),
+            col(
+                "Notifies Lambda function",
+                "LambdaFunctionConfigurations.0.LambdaFunctionArn",
+                Tail,
+            ),
             col("Notifies SQS queue", "QueueConfigurations.0.QueueArn", Tail),
             col("Notifies SNS topic", "TopicConfigurations.0.TopicArn", Tail),
             // The first rule's first event (`s3:ObjectCreated:*`).
-            col("Notifies on", "LambdaFunctionConfigurations.0.Events.0|QueueConfigurations.0.Events.0|TopicConfigurations.0.Events.0", Plain),
+            col(
+                "Notifies on",
+                "LambdaFunctionConfigurations.0.Events.0|QueueConfigurations.0.Events.0|TopicConfigurations.0.Events.0",
+                Plain,
+            ),
         ],
         id_of: Id::Name,
         detail: &[
