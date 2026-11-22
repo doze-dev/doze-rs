@@ -6,7 +6,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { Page } from "@playwright/test";
 import { start } from "../server";
-import { CUT, expect, test } from "./fixtures";
+import { CUT, expect, settled, test } from "./fixtures";
 
 /** Where the doze-aws with no bucket listens (two ports a browser); `E2E_BASE_PORT` moves it when another run holds these. */
 const S3_EMPTY = Number(process.env.E2E_BASE_PORT ?? 44690);
@@ -107,6 +107,7 @@ test("s3__bucket-create, -create-refused, -created: a refused name says why, a g
   await expect(page.getByTestId("call-panel-came-back")).toContainText("InvalidBucketName");
   await shot(page, "s3__bucket-create-refused", browserName);
   // Corrected, with versioning, a tag and the block settings as they come.
+  await settled(page);
   await page.getByTestId("bucket-name").fill(n.made);
   await page.getByTestId("create-versioning-on").click();
   await page.getByTestId("create-tags-add").click();
