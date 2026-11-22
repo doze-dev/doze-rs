@@ -1,10 +1,10 @@
 // CloudFormation's reads and writes from the pages: each is one operation the stacks' kind lists (crates/aws-console/src/resources/
 // cfn_ops.rs), made through `POST /resources/cloudformation/stacks/op/<Operation>` as the caller `console`.
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { callKindOp } from "../../../kit";
 import type { ChangeSet } from "./changeset-parts";
-import { inProgress, nobodyImports, type Stack, type StackEvent, type StackResource } from "./model";
+import { inProgress, type Stack, type StackEvent, type StackResource } from "./model";
 
 export const STACKS = { service: "cloudformation", kind: "stacks" } as const;
 
@@ -41,13 +41,9 @@ export function useImporters(exports: readonly string[]) {
     queryFn: async ({ signal }) => {
       const out: Record<string, string[]> = {};
       for (const name of exports) {
-        try {
-          const r = await callKindOp<{ Imports?: string[] }>(STACKS, "ListImports", { ExportName: name }, signal);
-          out[name] = r.Imports ?? [];
-        } catch (e) {
-          if (!nobodyImports(e)) throw e;
-          out[name] = [];
-        }
+        // An export nobody imports answers an empty list (the console reads CloudFormation's refusal that says so as one).
+        const r = await callKindOp<{ Imports?: string[] }>(STACKS, "ListImports", { ExportName: name }, signal);
+        out[name] = r.Imports ?? [];
       }
       return out;
     },
@@ -88,13 +84,24 @@ export function useCfnWrite<T, I extends object = object>(operation: string) {
 
 /** The preview of an update: a change set the console makes while the review step is open (made again when the choices change) and
  * removes when the page is left, unless `keep.current` (the person went on to read it). `input` is `null` while there is nothing to preview. */
-export function useCfnPreview(stack: string, id: string, key: string, input: Record<string, unknown> | null, keep: React.RefObject<boolean>) {
+export function useCfnPreview(stack: string, id: string, key: string, input: Record<string, unknown> | null, keep: React.RefObject<boolean>, earlier = false) {
+  // Whether a change set of this id is there to be replaced: one this hook made before the choices changed (or `earlier`, one a page left by
+  // this id). The first preview of an id has nothing to delete, and asking would only be refused.
+  const made = useRef(earlier);
+  const left = useRef(false);
   const q = useQuery({
     // Not under ["cfn"]: a write to the stack (the update the person submits) would re-make the preview just as the page goes.
     queryKey: ["cfn-preview", stack, id, key],
     queryFn: async () => {
-      await callKindOp(STACKS, "DeleteChangeSet", { StackName: stack, ChangeSetName: id }).catch(() => undefined);
+      if (made.current) await callKindOp(STACKS, "DeleteChangeSet", { StackName: stack, ChangeSetName: id }).catch(() => undefined);
       await callKindOp(STACKS, "CreateChangeSet", input ?? {});
+      made.current = true;
+      // The page was left while it was being made: it is removed now, nobody is going to read it.
+      if (left.current && !keep.current) {
+        made.current = false;
+        await callKindOp(STACKS, "DeleteChangeSet", { StackName: stack, ChangeSetName: id }).catch(() => undefined);
+        throw new Error("the page was left");
+      }
       return callKindOp<ChangeSet>(STACKS, "DescribeChangeSet", { StackName: stack, ChangeSetName: id });
     },
     enabled: input !== null,
@@ -102,12 +109,17 @@ export function useCfnPreview(stack: string, id: string, key: string, input: Rec
     staleTime: Number.POSITIVE_INFINITY,
     gcTime: 0,
   });
-  useEffect(
-    () => () => {
-      if (!keep.current && stack) void callKindOp(STACKS, "DeleteChangeSet", { StackName: stack, ChangeSetName: id }).catch(() => undefined);
-    },
-    [stack, id, keep],
-  );
+  useEffect(() => {
+    left.current = false;
+    return () => {
+      left.current = true;
+      // Only a preview that was made is removed (a page left before the review step made none, and asking would be refused).
+      if (!keep.current && made.current && stack) {
+        made.current = false;
+        void callKindOp(STACKS, "DeleteChangeSet", { StackName: stack, ChangeSetName: id }).catch(() => undefined);
+      }
+    };
+  }, [stack, id, keep]);
   return { data: q.data, pending: input !== null && q.isPending, error: q.error };
 }
 

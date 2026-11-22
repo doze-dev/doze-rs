@@ -6,7 +6,7 @@
 //! each named; none passes another service's call through.
 
 use super::Format::{Mono, Text as Plain};
-use super::{Kind, List, Op, Step, Text, col, field, op, ops::free};
+use super::{Calm, Kind, List, Op, Step, Text, col, field, op, ops::free};
 
 /// The calls of the stacks' pages.
 pub(super) const STACK_OPS: &[Op] = &[
@@ -34,6 +34,31 @@ pub(super) const STACK_OPS: &[Op] = &[
     free("ListExports"),
     // The deleted stacks (CloudFormation keeps a deleted stack's record by its id), and only those.
     op("ListStacks", r#"{"StackStatusFilter":["DELETE_COMPLETE"]}"#),
+];
+
+/// The refusals the pages read as "nothing there": CloudFormation answers these with a ValidationError, which a browser logs as a
+/// failed load on every stack page. Whatever else it refuses is passed on.
+pub(super) const STACK_CALM: &[Calm] = &[
+    // An export nobody imports (an unused export is the usual one).
+    Calm {
+        op: "ListImports",
+        code: "ValidationError",
+        says: "is not imported by any stack",
+        answer: r#"{"Imports":[]}"#,
+    },
+    // A stack that is gone, read by its name (a deleted stack's page, the moment after its delete finished).
+    Calm {
+        op: "DescribeStacks",
+        code: "ValidationError",
+        says: "Stack with id",
+        answer: r#"{"Stacks":[]}"#,
+    },
+    Calm {
+        op: "ListStackResources",
+        code: "ValidationError",
+        says: "Stack with id",
+        answer: r#"{"StackResourceSummaries":[]}"#,
+    },
 ];
 
 /// The values stacks export, which other stacks read with `Fn::ImportValue`. The page of one reads `ListImports` for who does.

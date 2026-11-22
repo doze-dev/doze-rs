@@ -18,6 +18,7 @@ import { StepDetails } from "./step-details";
 import { StepOptions } from "./step-options";
 import { StepReview } from "./step-review";
 import { StepTemplate } from "./step-template";
+import { type Kept, keepWizard, takeWizard } from "./wizard-keep";
 import { type Mode, type Summary, type Wizard, changeSetInput, emptyWizard, fromStack, nameProblem, optionsProblem, parameterProblem, previewName, stackInput, summaryInput, templateProblem, validateInput } from "./wizard-model";
 
 const LABELS = ["Create stack", "Specify stack details", "Configure stack options", "Review and create"];
@@ -29,17 +30,19 @@ export function UpdateStackPage({ service, kind, name, search }: OwnProps) {
   const s = stack.data?.Stacks?.[0];
   if (stack.isError) return <DetailError service={service} kind={kind} name={name ?? ""} error={stack.error} what="This stack could not be read" />;
   if (!s) return <Skeleton className="h-96 rounded-[14px]" />;
-  return <WizardPage mode={search.mode === "changeset" ? "changeset" : "update"} service={service} kind={kind} stack={s} />;
+  return <WizardPage mode={search.mode === "changeset" ? "changeset" : "update"} service={service} kind={kind} stack={s} resume={search.mode === "resume"} />;
 }
 
 const req = (operation: string, input: object): PreviewRequest => ({ service: "cloudformation", operation, input });
 
-function WizardPage({ mode, service, kind, stack }: { mode: Mode; service: string; kind: string; stack: Stack | null }) {
+function WizardPage({ mode, service, kind, stack, resume = false }: { mode: Mode; service: string; kind: string; stack: Stack | null; resume?: boolean }) {
   const navigate = useNavigate();
-  const [w, setW] = useState<Wizard>(() => (stack ? fromStack(mode, stack) : emptyWizard(mode)));
-  const [step, setStep] = useState(0);
-  const [furthest, setFurthest] = useState(0);
-  const [summary, setSummary] = useState<Summary | undefined>();
+  // Back from reading the preview's change set: the choices, the step and the preview's name are as they were left.
+  const [back0] = useState<Kept | null>(() => (stack ? takeWizard(stack.StackName, resume) : null));
+  const [w, setW] = useState<Wizard>(() => back0?.w ?? (stack ? fromStack(mode, stack) : emptyWizard(mode)));
+  const [step, setStep] = useState(back0?.step ?? 0);
+  const [furthest, setFurthest] = useState(back0?.furthest ?? 0);
+  const [summary, setSummary] = useState<Summary | undefined>(back0?.summary);
   const [tried, setTried] = useState(false);
   const [refusal, setRefusal] = useState<{ code: string; message: string; op: string } | null>(null);
   const [checking, setChecking] = useState(false);
@@ -56,11 +59,11 @@ function WizardPage({ mode, service, kind, stack }: { mode: Mode; service: strin
   const back = () => void navigate({ to: update ? "/resources/$service/$kind/$name" : "/resources/$service/$second", params: update ? { service, kind, name: stackName } as never : { service, second: kind } as never, search: {} as never });
   const problems = [templateProblem(w), summary ? (nameProblem(w.name, taken) && !update ? nameProblem(w.name, taken) : (summary.Parameters ?? []).map((d) => parameterProblem(w, d)).find(Boolean) ?? null) : null, summary ? optionsProblem(w, summary) : null];
   // The preview of an update: a change set the console makes when the review step opens, and removes when the page is left.
-  const [previewId] = useState(() => previewName(Date.now()));
+  const [previewId] = useState(() => back0?.previewId ?? previewName(Date.now()));
   const previewInput = mode === "update" && step === 3 && summary ? { ...changeSetInput(w, summary, previewId), ChangeSetType: "UPDATE" } : null;
   const previewKey = previewInput ? JSON.stringify(previewInput) : "";
   const keepPreview = useRef(false);
-  const preview = useCfnPreview(stackName, previewId, previewKey, previewInput, keepPreview);
+  const preview = useCfnPreview(stackName, previewId, previewKey, previewInput, keepPreview, back0 !== null);
   const next = async () => {
     setTried(true);
     setRefusal(null);
@@ -94,9 +97,12 @@ function WizardPage({ mode, service, kind, stack }: { mode: Mode; service: strin
     setStep(step + 1);
     setFurthest(Math.max(furthest, step + 1));
   };
-  const viewPreview = () => {
+  const viewPreview = async () => {
     keepPreview.current = true;
-    void navigate({ to: "/resources/$service/$kind/$name", params: { service, kind, name: stackName }, search: { do: "changeset", name: previewId } });
+    keepWizard({ stack: stackName, w, step, furthest, summary, previewId });
+    // This page's own entry in the history says it is the one to come back to, so Back lands here with the choices; the change set is a new entry.
+    await navigate({ to: "/resources/$service/$kind/$name", params: { service, kind, name: stackName }, search: { do: "update", mode: "resume" }, replace: true });
+    await navigate({ to: "/resources/$service/$kind/$name", params: { service, kind, name: stackName }, search: { do: "changeset", name: previewId } });
   };
   const go = (i: number) => { setStep(i); setTried(false); setRefusal(null); };
   const submit = () => {
@@ -145,10 +151,10 @@ function WizardPage({ mode, service, kind, stack }: { mode: Mode; service: strin
         pending={make.isPending || checking}
         disabled={step < 3 && tried && Boolean(problems[step])}
         disabledWhy={problems[step]}
-        footerExtra={step === 3 ? <>{update && mode !== "changeset" && <Button type="button" variant="outline" className="bg-card" disabled={!preview.data || preview.data.Status === "FAILED"} onClick={viewPreview} data-testid="view-changeset">View change set</Button>}{!update && <Button type="button" variant="outline" className="bg-card" onClick={() => setAsking(true)} data-testid="changeset-open">Create change set</Button>}</> : undefined}
+        footerExtra={step === 3 ? <>{update && mode !== "changeset" && <Button type="button" variant="outline" className="bg-card" disabled={!preview.data || preview.data.Status === "FAILED"} onClick={() => void viewPreview()} data-testid="view-changeset">View change set</Button>}{!update && <Button type="button" variant="outline" className="bg-card" onClick={() => setAsking(true)} data-testid="changeset-open">Create change set</Button>}</> : undefined}
         testId="stack-wizard"
       >
-        {step === 0 && <StepTemplate w={w} set={set} problem={tried ? problems[0] : null} stackName={stackName} />}
+        {step === 0 && <StepTemplate w={w} set={set} problem={tried ? problems[0] : null} refused={refusal?.op === "ValidateTemplate"} stackName={stackName} />}
         {step === 1 && summary && <StepDetails w={w} set={set} summary={summary} taken={taken} tried={tried} current={current} />}
         {step === 2 && summary && <StepOptions w={w} set={set} summary={summary} tried={tried} />}
         {step === 3 && summary && (

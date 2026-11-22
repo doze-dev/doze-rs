@@ -55,5 +55,20 @@ pub async fn call(
         e
     })?;
     let body = Value::Object(bound(bus, op, ("", ""), input)?);
-    bus.call(op.target(d), op.op, &body).await
+    match bus.call(op.target(d), op.op, &body).await {
+        Err(e) => match calm(kind, operation, &e) {
+            Some(answer) => Ok(answer),
+            None => Err(e),
+        },
+        answered => answered,
+    }
+}
+
+/// The answer a refusal stands for, when the kind says that refusal is only "there is nothing" ([`Kind::calm`]).
+fn calm(kind: &Kind, operation: &str, e: &ApiError) -> Option<Value> {
+    let c = kind
+        .calm
+        .iter()
+        .find(|c| c.op == operation && e.code == c.code && e.message.contains(c.says))?;
+    serde_json::from_str(c.answer).ok()
 }

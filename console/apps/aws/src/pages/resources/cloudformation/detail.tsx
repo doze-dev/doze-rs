@@ -16,7 +16,7 @@ import type { OwnProps } from "../deep/registry";
 import { templateText, useCfnRead, useCfnWrite, useEvents, useImporters, usePoll, useResources, useStack, useTemplate, useWhile } from "./api";
 import { DeleteStackDialog } from "./delete-dialog";
 import { DeletedStack } from "./deleted";
-import { type Stack, inProgress, isGone, resourceTarget, retainedIn } from "./model";
+import { type Stack, inProgress, isGone, noStack, resourceTarget, retainedIn } from "./model";
 import { Lede, statusBadge } from "./parts";
 import { stackSaid } from "./sentences";
 import { StackStates } from "./states";
@@ -31,6 +31,15 @@ const verb = (id: string, label: string, danger = false): Verb => ({ id, label, 
 
 export function StackPage({ service, kind, name }: OwnProps) {
   const nm = name ?? "";
+  // Is there a stack of this name? Asked first, so a name that is gone (a deleted stack) is not read as a resource, which fails.
+  const there = useStack(nm);
+  // (An answer kept from an earlier visit is not this one: a stack deleted since would be read as a resource and fail.)
+  if (there.isPending || !there.isFetchedAfterMount) return <ResourcePageSkeleton />;
+  if (noStack(there.data)) return <DeletedStack name={nm} />;
+  return <StackLoaded service={service} kind={kind} nm={nm} />;
+}
+
+function StackLoaded({ service, kind, nm }: { service: string; kind: string; nm: string }) {
   const detail = useResourceDetail(service, kind, nm);
   if (detail.isError && isGone(detail.error)) return <DeletedStack name={nm} />;
   if (detail.isError && !detail.data) return <DetailError service={service} kind={kind} name={nm} error={detail.error} onRetry={() => void detail.refetch()} retrying={detail.isFetching} />;
@@ -60,15 +69,18 @@ function StackView({ d, updatedAt, fetching, refetch }: { d: ResourceDetail; upd
   const reviewSet = sets.data?.Summaries?.[0]?.ChangeSetName;
   const execute = useCfnWrite<unknown>("ExecuteChangeSet");
   const dropSet = useCfnWrite<unknown>("DeleteChangeSet");
+  // The stack is read first: if it is gone (it was deleted) the rest is not asked for, which would only fail.
   const refresh = () => {
-    refetch();
-    void stackQ.refetch();
-    void resources.refetch();
+    void stackQ.refetch().then((r) => {
+      if (noStack(r.data)) return;
+      refetch();
+      void resources.refetch();
+    });
   };
   // Just after a write (`?done=`) the page reads again for a while, for the work it started has not begun to show yet.
   const recent = useWhile(Boolean(search.done), 15_000);
   usePoll(inProgress(status) || recent, refresh);
-  if (stackQ.isError && isGone(stackQ.error)) return <DeletedStack name={nm} />;
+  if (noStack(stackQ.data)) return <DeletedStack name={nm} />;
   if (!stack) return stackQ.isError ? <ErrorBlock what="This stack could not be read" error={stackQ.error} hint={HINT} onRetry={refresh} retrying={stackQ.isFetching} testId="detail-error" /> : <ResourcePageSkeleton />;
   const rows = resources.data?.StackResourceSummaries ?? [];
   const to = (search2: Record<string, string>) => void navigate({ to: "/resources/$service/$kind/$name", params: { service: d.service, kind: d.kind, name: nm }, search: search2 });

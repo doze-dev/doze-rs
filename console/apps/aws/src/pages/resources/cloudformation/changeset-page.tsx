@@ -18,7 +18,9 @@ export function ChangeSetPage({ service, kind, name, search }: OwnProps) {
   const stackName = name ?? "";
   const setName = search.name ?? "";
   const navigate = useNavigate();
-  const q = useCfnRead<ChangeSet>("DescribeChangeSet", { StackName: stackName, ChangeSetName: setName });
+  const [removing, setRemoving] = useState(false);
+  // Once it is being deleted it is not read again: it would be refused (it is gone), and the page is on its way to the stack's.
+  const q = useCfnRead<ChangeSet>("DescribeChangeSet", { StackName: stackName, ChangeSetName: setName }, { enabled: !removing });
   const stack = useStack(stackName).data?.Stacks?.[0];
   const execute = useCfnWrite<unknown>("ExecuteChangeSet");
   const remove = useCfnWrite<unknown>("DeleteChangeSet");
@@ -66,7 +68,7 @@ export function ChangeSetPage({ service, kind, name, search }: OwnProps) {
         call="DeleteChangeSet"
         pending={remove.isPending}
         error={remove.error}
-        onConfirm={() => remove.mutate({ StackName: stackName, ChangeSetName: setName }, { onSuccess: () => { setAsking(false); toStack({ tab: "changesets" }); } })}
+        onConfirm={() => { setRemoving(true); remove.mutate({ StackName: stackName, ChangeSetName: setName }, { onSuccess: () => { setAsking(false); toStack({ tab: "changesets" }); }, onError: () => setRemoving(false) }); }}
         testId="delete-changeset-dialog"
       />
     </div>

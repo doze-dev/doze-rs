@@ -115,6 +115,8 @@ pub struct Kind {
     /// Operations of the kind that no resource is bound to (a create with a form of its own, a bulk delete): `POST
     /// …/<kind>/op/<Operation>` ([`ops`]).
     pub ops: &'static [Op],
+    /// Refusals of those operations that only say there is nothing, which a page reads as an empty answer ([`Calm`]).
+    pub calm: &'static [Calm],
     /// How a resource of the kind is tagged ([`tags`]).
     pub tags: Option<Tags>,
     /// What stands in the way of deleting one, and what a delete leaves behind ([`blockers`]).
@@ -126,6 +128,19 @@ pub struct Kind {
     pub params: &'static [Param],
     /// How a detail page speaks of a resource: its sentence, badges and verbs ([`page`]).
     pub page: Page,
+}
+
+/// A refusal that is an answer: the service says, with `code` and a message holding `says`, that there is nothing (CloudFormation
+/// refuses `ListImports` of an export nobody imports, and `DescribeStacks` of a stack that is gone). A page that asks only to
+/// know reads `answer` (the empty list it would otherwise build from the refusal) as a 200, and the browser logs no failed load.
+/// Only the kind's own operations ([`Kind::ops`]) can be calm, and only for this refusal: any other is passed on as it is.
+#[derive(Debug, Clone, Copy)]
+pub struct Calm {
+    pub op: &'static str,
+    pub code: &'static str,
+    pub says: &'static str,
+    /// The JSON the page is given instead.
+    pub answer: &'static str,
 }
 
 /// A page of one resource that its descriptor's generic detail cannot draw: a tab of the detail page that the console's app

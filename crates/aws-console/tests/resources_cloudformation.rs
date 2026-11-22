@@ -284,7 +284,8 @@ async fn a_deleted_stack_is_read_by_its_id_and_the_exports_name_who_imports_them
             .contains(":stack/base/")
     );
     assert!(list["openable"].as_bool().unwrap());
-    // Nothing imports it: ListImports says so as CloudFormation does, a ValidationError.
+    // Nothing imports it: CloudFormation refuses ListImports with a ValidationError, which the console reads as an empty answer (a
+    // 200: a page of a stack asks for every export, and a browser logs each refusal as a failed load).
     let (status, nobody) = op(
         &w,
         "stacks",
@@ -292,10 +293,52 @@ async fn a_deleted_stack_is_read_by_its_id_and_the_exports_name_who_imports_them
         &json!({"ExportName": "exp-inbox-arn"}),
     )
     .await;
+    assert_eq!((status, &nobody), (200, &json!({"Imports": []})));
+    // An export that does not exist is a refusal still: only "nobody imports it" is calm.
+    let (status, none) = op(
+        &w,
+        "stacks",
+        "ListImports",
+        &json!({"ExportName": "exp-none"}),
+    )
+    .await;
     assert_eq!(
-        (status, nobody["code"].as_str()),
+        (status, none["code"].as_str()),
         (400, Some("ValidationError")),
-        "{nobody}"
+        "{none}"
+    );
+    // A stack that is gone reads as no stack, whichever way it is asked (by name: DescribeStacks and ListStackResources).
+    let (status, gone) = op(
+        &w,
+        "stacks",
+        "DescribeStacks",
+        &json!({"StackName": "nope"}),
+    )
+    .await;
+    assert_eq!((status, &gone), (200, &json!({"Stacks": []})));
+    let (status, gone) = op(
+        &w,
+        "stacks",
+        "ListStackResources",
+        &json!({"StackName": "nope"}),
+    )
+    .await;
+    assert_eq!(
+        (status, &gone),
+        (200, &json!({"StackResourceSummaries": []}))
+    );
+    // Any other refusal passes as it is (a change set that is not there).
+    let (status, other) = op(
+        &w,
+        "stacks",
+        "DescribeChangeSet",
+        &json!({"StackName": "base", "ChangeSetName": "nope"}),
+    )
+    .await;
+    assert_eq!(
+        (status, other["code"].as_str()),
+        (404, Some("ChangeSetNotFound")),
+        "{other}"
     );
     // A stack that imports it.
     let user = json!({"Resources": {"Q": {"Type": "AWS::SQS::Queue", "Properties": {"QueueName": "exp-user", "Tags": [{"Key": "from", "Value": {"Fn::ImportValue": "exp-inbox-arn"}}]}}}});

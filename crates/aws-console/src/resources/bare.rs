@@ -33,6 +33,7 @@ impl Kind {
         reveal: None,
         deep: &[],
         ops: &[],
+        calm: &[],
         tags: None,
         blockers: &[],
         kept: &[],
