@@ -67,7 +67,32 @@ pub(crate) fn label(i: &Instance, cat: &Catalog, grant: Option<&Grant>) -> Label
             .map(|c| crate::client::view(&c, &l.endpoint, &p.url, &p.extras));
         (l.url, l.env_var, l.env, l.client) = (p.url, p.env_var, p.env, p.client);
     }
+    if i.kind() == Kind::Module
+        && let Some(spec) = cat.manifest_for(&i.ty, &i.version).and_then(|m| m.console)
+        && let Some(url) = spec.web_url.as_deref().and_then(|t| web_url(t, grant))
+    {
+        l.web_url = url;
+        l.console_front = spec.front.unwrap_or_default();
+    }
     l
+}
+
+/// A module's `web_url` template with its address filled in: `{address}` is the instance's main listener,
+/// `{address:ui}` the listener named `ui`, each as doze granted it (the instance's name and port). Empty when
+/// the listener it names was not granted, so no link points at nothing.
+fn web_url(template: &str, grant: Option<&Grant>) -> Option<String> {
+    let grant = grant?;
+    let mut out = template.to_owned();
+    while let Some(at) = out.find("{address") {
+        let end = at + out[at..].find('}')?;
+        let name = match out[at + "{address".len()..end].strip_prefix(':') {
+            Some(name) => name,
+            None => doze_module_proto::network::MAIN,
+        };
+        let addr = &grant.listeners.get(name)?.addr;
+        out.replace_range(at..=end, addr);
+    }
+    Some(out)
 }
 
 /// Where doze listens for `i`, if it sits in front of it: every module that is not supervised, and every app or
@@ -125,4 +150,50 @@ pub(crate) fn fronted_one(
         key: i.key.clone(),
         main_backend,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use doze_module_proto::msg::instance::{Address, Granted};
+
+    fn grant(listeners: &[(&str, &str)]) -> Grant {
+        Grant {
+            host: "local.shop.doze".into(),
+            listeners: listeners
+                .iter()
+                .map(|(n, a)| {
+                    (
+                        (*n).to_owned(),
+                        Granted {
+                            addr: (*a).into(),
+                            url: String::new(),
+                            hosts: vec![],
+                            backend: Address::Tcp("127.0.0.1:1".into()),
+                        },
+                    )
+                })
+                .collect(),
+        }
+    }
+
+    #[test]
+    fn a_web_url_takes_the_address_doze_granted_the_listener_it_names() {
+        let g = grant(&[
+            ("main", "local.shop.doze:4566"),
+            ("console", "local.shop.doze:4567"),
+        ]);
+        let url = |t: &str| web_url(t, Some(&g));
+        assert_eq!(
+            url("http://{address:console}").as_deref(),
+            Some("http://local.shop.doze:4567")
+        );
+        assert_eq!(
+            url("http://{address}/_console").as_deref(),
+            Some("http://local.shop.doze:4566/_console")
+        );
+        // No link to a listener that was not granted, nor when nothing was.
+        assert_eq!(url("http://{address:ui}"), None);
+        assert_eq!(web_url("http://{address:console}", None), None);
+    }
 }
