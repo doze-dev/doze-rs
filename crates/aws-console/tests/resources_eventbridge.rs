@@ -159,7 +159,7 @@ async fn a_rule_a_bus_and_an_archive_say_what_they_do() {
         .await;
     assert_eq!(
         fed["sentence"],
-        "on-order is enabled on the larder bus and sends what matches its pattern to 1 target: inbox."
+        "on-order matches events from a, and sends it to the inbox queue."
     );
     let (_, tick) = w.get(&format!("{BASE}/rules/nightly")).await;
     assert!(
