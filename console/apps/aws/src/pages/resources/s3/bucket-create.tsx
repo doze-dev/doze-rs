@@ -21,7 +21,7 @@ import { BpaChoice, type Encryption, EncryptionChoice, OwnershipChoice, RadioCar
 import { setFlash } from "./flash";
 import { tagsHint, versioningHint } from "./create-hints";
 import { useKmsKeys } from "./kms-hook";
-import { listWords, nameRefusal, regionWords } from "./words";
+import { NAME_RULE, listWords, nameRefusal, regionWords } from "./words";
 
 const KIND = { service: "s3", kind: "buckets" };
 
@@ -145,7 +145,7 @@ export function BucketCreate() {
         </div>
         <Field
           label="Bucket name"
-          refusal={nameRefused}
+          refusal={nameRefused && code === "InvalidBucketName" ? { ...nameRefused, why: `${NAME_RULE} ${nameRefused.why}` } : nameRefused}
           help={<>Between <b>3</b> and <b>63</b> characters: lowercase letters, numbers, periods and hyphens, beginning and ending with a letter or number. The name must be unique in the aws partition (all commercial Regions), cannot be changed later, and is visible in object URLs, so keep sensitive information out of it.</>}
           hint={names.length > 0 ? `This account already has ${listWords(names.slice(0, 6))}${names.length > 6 ? ` and ${names.length - 6} more` : ""}.` : undefined}
         >

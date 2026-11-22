@@ -5,6 +5,7 @@ import { useMemo, useState } from "react";
 import { ErrorBlock } from "@doze/ui/components/app/alert";
 import { type DataColumn } from "@doze/ui/components/app/data-table";
 import { EmptyState } from "@doze/ui/components/app/empty-state";
+import { Emphasis } from "@doze/ui/components/app/emphasis";
 import { PageHeader } from "@doze/ui/components/app/page-header";
 import { Pagination } from "@doze/ui/components/app/pagination";
 import { RefreshControl } from "@doze/ui/components/app/refresh-control";
@@ -63,7 +64,7 @@ export function BucketsList() {
         </div>
       ) : (
         <>
-          {first.sentence && <p className="mb-5 max-w-[62rem] text-[15px] leading-6 text-muted-foreground" data-testid="list-sentence">{first.sentence}</p>}
+          {first.sentence && <p className="mb-5 max-w-[62rem] text-[15px] leading-6 text-muted-foreground" data-testid="list-sentence"><Emphasis text={first.sentence} names={rows.map((r) => r.name)} bold={[/^\d[\d,]*(?= buckets?)/, /(?<=notifies (?:Lambda function|SQS queue|SNS topic) )[\w.-]+/g]} /></p>}
           <SelectableTable
             aria-label="General purpose buckets"
             data={shown}

@@ -69,6 +69,11 @@ test("s3__buckets-list and s3__buckets-none: the list says how many and where; a
   await expect(page.getByTestId("list-sentence")).toContainText("buckets in this account");
   // The line names the bucket that keeps versions and whom it notifies, and when.
   await expect(page.getByTestId("list-sentence")).toContainText(`${n.img} has versioning on and notifies Lambda function resize-${browserName} when an object is created.`);
+  // The board bolds the count, the names of the buckets and the one that is notified.
+  const sentence = page.getByTestId("list-sentence");
+  await expect(sentence.locator('[data-slot="emphasis-bold"]').first()).toHaveText(/^\d+$/);
+  await expect(sentence.locator('[data-slot="emphasis-name"]', { hasText: n.img }).first()).toBeVisible();
+  await expect(sentence.locator('[data-slot="emphasis-bold"]', { hasText: `resize-${browserName}` })).toBeVisible();
   await expect(page.getByRole("link", { name: n.img })).toBeVisible();
   await expect(page.getByText("US East (N. Virginia) us-east-1").first()).toBeVisible();
   await expect(page.getByTestId("bucket-delete")).toBeDisabled();
@@ -130,6 +135,8 @@ test("s3__bucket-create, -create-refused, -created: a refused name says why, a g
   await expect(banner).toContainText("has an uppercase letter and an underscore");
   await expect(banner).toContainText("for example to larder-exports");
   await expect(page.getByTestId("call-panel-came-back")).toContainText("InvalidBucketName");
+  // Under the field, in red, the naming rule the board prints, then what is wrong with this name.
+  await expect(page.locator('[data-slot="field-refusal"]').first()).toContainText("A bucket name must be between 3 and 63 characters long");
   await shot(page, "s3__bucket-create-refused", browserName);
   // Corrected, with versioning, a tag and the block settings as they come.
   await settled(page);

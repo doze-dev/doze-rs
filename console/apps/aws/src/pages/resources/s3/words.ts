@@ -134,6 +134,9 @@ export function suggestName(name: string): string {
   return s.length >= 3 ? s.slice(0, 63) : s;
 }
 
+/** The naming rule as the board prints it in red under a refused name (the specific problem follows it). */
+export const NAME_RULE = "A bucket name must be between 3 and 63 characters long, consist only of lowercase letters, numbers, periods and hyphens, and begin and end with a letter or number.";
+
 /** The sentence under a refused name: what is wrong with it and a name that would do. */
 export function nameRefusal(name: string): { why: string; suggestion?: string } | null {
   const problems = nameProblems(name);
