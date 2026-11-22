@@ -9,6 +9,7 @@ import type { DeepTab } from "../../../api/types/DeepTab";
 import type { ResourceDetail } from "../../../api/types/ResourceDetail";
 import { GONE, LEADS, pageOf } from "./registry";
 import "../cloudformation";
+import "../cloudwatch";
 import "../dynamodb";
 import "../iam";
 import "../apigateway";

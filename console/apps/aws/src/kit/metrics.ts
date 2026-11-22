@@ -3,7 +3,8 @@ import type { Point } from "@doze/ui/components/app/chart-scale";
 import type { Series } from "@doze/ui/components/app/chart";
 import { useKindOpRead } from "./ops";
 
-export type MetricQuery = { id: string; label: string; namespace: string; metric: string; dimensions?: Record<string, string>; stat?: string; period?: number };
+/** One query: a metric (`namespace`, `metric`), or metric math (`expression` over the ids of the other queries; `hide`: used by another query and not drawn). */
+export type MetricQuery = { id: string; label: string; namespace: string; metric: string; dimensions?: Record<string, string>; stat?: string; period?: number; expression?: string; hide?: boolean };
 export type Range = { from: number; to: number };
 
 /** The ranges the board offers, in ms back from now. */
@@ -28,12 +29,16 @@ export function metricInput(queries: MetricQuery[], range: Range) {
     StartTime: Math.floor(range.from / 1000),
     EndTime: Math.floor(range.to / 1000),
     ScanBy: "TimestampAscending",
-    MetricDataQueries: queries.map((q) => ({
-      Id: q.id,
-      Label: q.label,
-      MetricStat: { Metric: { Namespace: q.namespace, MetricName: q.metric, Dimensions: Object.entries(q.dimensions ?? {}).map(([Name, Value]) => ({ Name, Value })) }, Period: q.period ?? periodFor(range.to - range.from), Stat: q.stat ?? "Sum" },
-      ReturnData: true,
-    })),
+    MetricDataQueries: queries.map((q) =>
+      q.expression !== undefined
+        ? { Id: q.id, Label: q.label, Expression: q.expression, ReturnData: !q.hide }
+        : {
+            Id: q.id,
+            Label: q.label,
+            MetricStat: { Metric: { Namespace: q.namespace, MetricName: q.metric, Dimensions: Object.entries(q.dimensions ?? {}).map(([Name, Value]) => ({ Name, Value })) }, Period: q.period ?? periodFor(range.to - range.from), Stat: q.stat ?? "Sum" },
+            ReturnData: !q.hide,
+          },
+    ),
   };
 }
 
@@ -41,7 +46,7 @@ type Answer = { MetricDataResults?: { Id?: string; Label?: string; Timestamps?: 
 
 /** The service's answer as Chart series, one per query, in the queries' order; timestamps (seconds, or ISO text) become ms. */
 export function toSeries(answer: Answer | undefined, queries: MetricQuery[]): Series[] {
-  return queries.map((q) => {
+  return queries.filter((q) => !q.hide).map((q) => {
     const r = answer?.MetricDataResults?.find((x) => x.Id === q.id);
     const points: Point[] = (r?.Timestamps ?? []).map((t, i) => ({ t: typeof t === "number" ? (t < 1e11 ? t * 1000 : t) : Date.parse(t), v: r?.Values?.[i] ?? null }));
     points.sort((a, b) => a.t - b.t);

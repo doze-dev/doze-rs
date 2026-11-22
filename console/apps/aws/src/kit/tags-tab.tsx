@@ -19,7 +19,9 @@ const COLUMNS: DataColumn<Tag>[] = [
 
 /** A resource's tags as a tab: what there are (or that there are none, and what to do), and the edit in place. Presentational:
  * the data and the save are given, so every state can be drawn without a server. {@link TagsTab} is it with the data. */
-export function TagsView({ answer, saving = false, error, saved, onSave, noun = "tag", countNoun, note, subject, explain, emptyAction, loading = false, loadError, onRetry }: { answer: TagsAnswer | undefined; saving?: boolean; /** The service's refusal of the save. */ error?: unknown; /** What the last save did, said: shown until the next edit. */ saved?: string | null; onSave: (change: TagsChange) => Promise<unknown> | void; /** `cost allocation tag`. */ noun?: string; /** What the count of tags calls them, when it is not `noun` (`3 cost allocation tags` over an empty state that says `No tags`). */ countNoun?: string; /** Under the table, when there are tags. */ note?: React.ReactNode; /** The resource's name, for the sentence when there are none (`email-outbox has no tags.`). */ subject?: string; /** What a tag is for, said when there are none. */ explain?: React.ReactNode; /** The way on from nothing, when it is not the inline Add (the board sends a queue to its Edit page). */ emptyAction?: React.ReactNode; loading?: boolean; loadError?: unknown; onRetry?: () => void }) {
+export type Manage = { open: string; title: string; lead: React.ReactNode; rules: React.ReactNode };
+
+export function TagsView({ answer, saving = false, error, saved, onSave, noun = "tag", countNoun, note, subject, explain, emptyAction, loading = false, loadError, onRetry, manage }: { /** The board's Manage tags page: the button that opens the editor, a card with a heading and a lead, and the rules under the rows. */ manage?: Manage; answer: TagsAnswer | undefined; saving?: boolean; /** The service's refusal of the save. */ error?: unknown; /** What the last save did, said: shown until the next edit. */ saved?: string | null; onSave: (change: TagsChange) => Promise<unknown> | void; /** `cost allocation tag`. */ noun?: string; /** What the count of tags calls them, when it is not `noun` (`3 cost allocation tags` over an empty state that says `No tags`). */ countNoun?: string; /** Under the table, when there are tags. */ note?: React.ReactNode; /** The resource's name, for the sentence when there are none (`email-outbox has no tags.`). */ subject?: string; /** What a tag is for, said when there are none. */ explain?: React.ReactNode; /** The way on from nothing, when it is not the inline Add (the board sends a queue to its Edit page). */ emptyAction?: React.ReactNode; loading?: boolean; loadError?: unknown; onRetry?: () => void }) {
   const [rows, setRows] = useState<KeyValueRow[] | null>(null);
   const [tried, setTried] = useState(false);
   if (loadError && !answer) return <ErrorBlock what="The tags could not be read" error={loadError} onRetry={onRetry} className="w-full" testId="tags-error" />;
@@ -35,7 +37,7 @@ export function TagsView({ answer, saving = false, error, saved, onSave, noun = 
     const failed = error ? errorWords(error) : null;
     return (
       <form
-        className="grid max-w-[56rem] gap-5"
+        className={manage ? "grid gap-5 rounded-[14px] border bg-card p-8" : "grid max-w-[56rem] gap-5"}
         onSubmit={(e) => {
           e.preventDefault();
           setTried(true);
@@ -43,23 +45,45 @@ export function TagsView({ answer, saving = false, error, saved, onSave, noun = 
         }}
         data-testid="tags-edit"
       >
-        <p className="text-[13.5px] text-muted-foreground">Tags are case-sensitive, and a new tag with an existing key overwrites it. Up to {TAG_RULES.maxRows} tags.</p>
+        {manage ? (
+          <div>
+            <h2 className="text-[17px] leading-6 font-semibold tracking-[-0.01em] text-bright">{manage.title}</h2>
+            <p className="mt-1 text-[13.5px] text-muted-foreground" data-testid="tags-lead">{manage.lead}</p>
+          </div>
+        ) : (
+          <p className="text-[13.5px] text-muted-foreground">Tags are case-sensitive, and a new tag with an existing key overwrites it. Up to {TAG_RULES.maxRows} tags.</p>
+        )}
         <KeyValueEditor rows={rows} onChange={setRows} rules={TAG_RULES} showErrors={tried} disabled={saving} testId="tags-kv" />
+        {manage && <p className="max-w-[46rem] border-l-2 pl-3.5 text-[13px] leading-5 text-muted-foreground" data-testid="tags-rules">{manage.rules}</p>}
         {failed && (
           <Alert tone="bad" title={`The tags were not saved${failed.code ? `: ${failed.code}` : ""}`} testId="tags-refused">
             {failed.message}
           </Alert>
         )}
-        <div className="flex flex-wrap items-center gap-3">
+        <div className={manage ? "flex flex-wrap items-center justify-end gap-3 border-t pt-5" : "flex flex-wrap items-center gap-3"}>
+          {manage && (
+            <span className="mr-auto text-[13px] text-muted-foreground" data-testid="tags-change">
+              {changeWords(change, tags)}
+            </span>
+          )}
+          {manage && (
+            <Button type="button" variant="outline" className="bg-card" onClick={() => setRows(null)} disabled={saving} data-testid="tags-cancel">
+              Cancel
+            </Button>
+          )}
           <Button type="submit" disabled={saving || (tried && !valid)} data-testid="tags-save">
             {saving ? "Saving…" : "Save changes"}
           </Button>
-          <Button type="button" variant="outline" className="bg-card" onClick={() => setRows(null)} disabled={saving} data-testid="tags-cancel">
-            Cancel
-          </Button>
-          <span className="text-[13px] text-muted-foreground" data-testid="tags-change">
-            {changeWords(change, tags)}
-          </span>
+          {!manage && (
+            <Button type="button" variant="outline" className="bg-card" onClick={() => setRows(null)} disabled={saving} data-testid="tags-cancel">
+              Cancel
+            </Button>
+          )}
+          {!manage && (
+            <span className="text-[13px] text-muted-foreground" data-testid="tags-change">
+              {changeWords(change, tags)}
+            </span>
+          )}
         </div>
       </form>
     );
@@ -80,7 +104,7 @@ export function TagsView({ answer, saving = false, error, saved, onSave, noun = 
             </p>
             {answer.editable && (
               <Button type="button" variant="outline" className="bg-card" onClick={edit} data-testid="tags-edit-open">
-                <PencilIcon /> Edit tags
+                <PencilIcon /> {manage?.open ?? "Edit tags"}
               </Button>
             )}
           </div>
@@ -93,11 +117,11 @@ export function TagsView({ answer, saving = false, error, saved, onSave, noun = 
 }
 
 /** {@link TagsView} with a resource's tags read and saved through the console (contract §3). */
-export function TagsTab({ target, noun, countNoun, note, explain, emptyAction }: { target: Target; noun?: string; countNoun?: string; note?: React.ReactNode; explain?: React.ReactNode; emptyAction?: React.ReactNode }) {
+export function TagsTab({ target, noun, countNoun, note, explain, emptyAction, manage }: { manage?: Manage; target: Target; noun?: string; countNoun?: string; note?: React.ReactNode; explain?: React.ReactNode; emptyAction?: React.ReactNode }) {
   const q = useTags(target);
   const set = useSetTags(target);
   const [saved, setSaved] = useState<string | null>(null);
-  return <TagsView answer={q.data} loading={q.isPending && !q.isError} loadError={q.error} onRetry={() => void q.refetch()} saving={set.isPending} error={set.error} saved={saved} noun={noun} countNoun={countNoun} note={note} subject={target.name} explain={explain} emptyAction={emptyAction} onSave={async (c) => {
+  return <TagsView answer={q.data} loading={q.isPending && !q.isError} loadError={q.error} onRetry={() => void q.refetch()} saving={set.isPending} error={set.error} saved={saved} noun={noun} countNoun={countNoun} note={note} subject={target.name} explain={explain} emptyAction={emptyAction} manage={manage} onSave={async (c) => {
       const a = await set.mutateAsync(c);
       setSaved(`The resource now has ${tagWords(a.tags.length, noun ?? "tag")}.`);
     }} />;
