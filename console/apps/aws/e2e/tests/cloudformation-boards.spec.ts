@@ -10,6 +10,7 @@ import type { Page } from "@playwright/test";
 import { aws, start, type Running } from "../server";
 import { expect, expectNoErrorAnswers, test } from "./fixtures";
 import { seedLarder, settled } from "./cloudformation-seed";
+import { expectCrumbsEnd } from "./crumbs-kit";
 
 const SHOTS = process.env.SHOTS_DIR ?? join(import.meta.dirname, "../../../../../shots-cloudformation");
 const BASE = Number(process.env.E2E_BASE_PORT ?? 45300);
@@ -237,6 +238,7 @@ test("cloudformation__changeset-detail: what it previews, execute and delete", a
   await expect(page.getByTestId("changeset-parameters")).toContainText("****");
   await expect(page.getByTestId("executes")).toContainText("UPDATE_ROLLBACK_COMPLETE");
   await expect(page.getByTestId("execute-changeset")).toBeEnabled();
+  await expectCrumbsEnd(page, ["Change sets",""]);
   await shot(page, "changeset-detail");
 });
 
@@ -259,6 +261,7 @@ test("cloudformation__exports and export-detail: who imports what", async ({ pag
   await expect(page.getByTestId("export-sentence")).toContainText("1 stack imports this export: larder-edge.");
   await expect(page.getByTestId("importers")).toContainText("larder-edge");
   await expect(page.getByTestId("importers")).toContainText("DeleteStack on the exporting stack is cancelled while any import remains");
+  await expectCrumbsEnd(page, ["Exports",""]);
   await shot(page, "export-detail");
   await go(page, "/resources/cloudformation/exports/nope", "Export not found");
   // A stack that has an import to wait for cannot be deleted: its dialog says so.

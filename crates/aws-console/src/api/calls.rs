@@ -76,7 +76,8 @@ fn view(s: &Console, page: &Page, reset: bool) -> CallsPage {
     }
 }
 
-/// `GET /api/v1/calls?since=<cursor>&limit=<n>`: the calls after `since`, oldest first; with no `since`, the newest.
+/// `GET /api/v1/calls?since=<cursor>&limit=<n>`: the calls after `since`, oldest first; with no `since`, the newest. `console=no`
+/// leaves the console's own calls out of the newest (what the apps did, whatever the pages have read since).
 pub async fn calls(State(s): State<Shared>, RawQuery(query): RawQuery) -> Response {
     let query = query.as_deref();
     let limit = param(query, "limit")
@@ -85,6 +86,7 @@ pub async fn calls(State(s): State<Shared>, RawQuery(query): RawQuery) -> Respon
         .clamp(1, s.recorder.capacity());
     let asked = param(query, "since").map(|c| seq_of(&s, c));
     let (page, reset) = match asked {
+        None if param(query, "console") == Some("no") => (s.recorder.newest_apps(limit), false),
         None => (s.recorder.newest(limit), false),
         Some(Some(seq)) if seq <= s.recorder.newest_seq() => (s.recorder.after(seq, limit), false),
         // Another run's cursor, or one ahead of this run.

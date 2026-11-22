@@ -15,7 +15,9 @@ use std::time::{Duration, Instant};
 use aws_auth::claim::Claim;
 use aws_peers::summary::{self, Summary, TreeFields};
 use aws_schema::meta::ServiceMeta;
+use aws_wire::service::{Call, Caller};
 use aws_wire::{ApiError, RequestId};
+use bytes::Bytes;
 use http::request::Parts;
 
 use crate::pipeline::{Entry, Shared};
@@ -236,6 +238,50 @@ pub(crate) fn input(parts: &Parts, entry: &Entry, call: &aws_wire::service::Call
         } = &mut *n;
         summary::from_input(sdk_id, action, &fields, summary, detail);
     });
+}
+
+/// The request's input was refused when it was decoded (a name the model's pattern does not allow): there is no decoded input to read
+/// what it acted on from, so the member that names it is read from the JSON body as it came, and a refused call still says what it
+/// named (`pick lists!`). Nothing is read when the call already named a resource, or the body is not a JSON object.
+pub(crate) fn refused_input(parts: &Parts, body: &[u8]) {
+    note(parts, |n| {
+        if !n.resource.is_empty() {
+            return;
+        }
+        let Ok(serde_json::Value::Object(map)) = serde_json::from_slice::<serde_json::Value>(body)
+        else {
+            return;
+        };
+        for member in aws_peers::naming::MEMBERS {
+            let named = map
+                .iter()
+                .find(|(k, _)| k.eq_ignore_ascii_case(member))
+                .and_then(|(_, v)| v.as_str())
+                .filter(|v| !v.is_empty());
+            if let Some(value) = named {
+                n.member = member;
+                value.clone_into(&mut n.resource);
+                return;
+            }
+        }
+    });
+}
+
+/// The request's body decoded ([`crate::pipeline::decode_call`]) and noted: what its input names is what the call acted on
+/// ([`input`]); when decoding refuses it, the member that names it is read from the body as it came (`Bytes` is counted, not
+/// copied), so a refusal still says what it was about.
+pub(crate) fn decode(
+    parts: &Parts,
+    entry: &Entry,
+    (op, id): (u32, &RequestId),
+    caller: Caller,
+    bytes: Bytes,
+) -> Result<Call, ApiError> {
+    let sent = bytes.clone();
+    let call = crate::pipeline::decode_call(entry, op, id, caller, bytes)
+        .inspect_err(|_| refused_input(parts, &sent))?;
+    input(parts, entry, &call);
+    Ok(call)
 }
 
 /// The request is answered with `error`.

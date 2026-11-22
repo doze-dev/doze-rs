@@ -10,6 +10,7 @@ import { Button } from "@doze/ui/components/ui/button";
 import { ApiFailure } from "@doze/ui/lib/api";
 import { useCatalogue } from "../api/resources";
 import { forget } from "../shell/pins";
+import { withCurrent } from "./crumbs";
 
 /** Said when the console could not reach doze-aws, or it failed: the service did not answer, so "is it running" is the advice. */
 export const HINT = "Check that doze-aws is still running, then try again. Nothing was changed.";
@@ -41,7 +42,7 @@ export function DetailError({ service, kind, name, what, error, onRetry, retryin
   const crumbs = [{ label: "Resources", to: "/resources" }, ...(s ? [{ label: s.group, to: "/resources" }, { label: s.title, to: `/resources/${service}` }] : []), { label: k?.title ?? sentence(kind), to: list }];
   return (
     <>
-      {header && <PageHeader title={`${sentence(one)} not found`} crumbs={crumbs} />}
+      {header && <PageHeader title={`${sentence(one)} not found`} crumbs={withCurrent(crumbs, name)} />}
       <div role="alert" data-testid={testId} data-missing="">
         <EmptyState icon={SearchXIcon} title={`There is no ${one} named ${name}`} action={<Button asChild variant="outline" className="bg-card"><Link to={back?.to ?? list}>{back?.label ?? `Back to ${(k?.title ?? sentence(kind)).toLowerCase()}`}</Link></Button>}>
           <p data-slot="error-message">{message}</p>

@@ -45,9 +45,13 @@ function Chip({ s }: { s: Signal }) {
     );
   const r = routeOf(s.href ?? "/live");
   const [, , service, second] = r.to.split("/");
-  if (r.to.startsWith("/resources/") && service && second)
-    return (
+  if (r.to.startsWith("/resources/") && service)
+    return second ? (
       <Link to="/resources/$service/$second" params={{ service, second }} search={{}} className={CHIP} data-testid="signal" data-kind={s.kind}>
+        {body}
+      </Link>
+    ) : (
+      <Link to="/resources/$service" params={{ service }} className={CHIP} data-testid="signal" data-kind={s.kind}>
         {body}
       </Link>
     );

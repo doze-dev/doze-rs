@@ -10,7 +10,7 @@ import { RadioGroup, RadioGroupItem } from "@doze/ui/components/ui/radio-group";
 import { ApiFailure } from "@doze/ui/lib/api";
 import { useAbout } from "../../../api/queries";
 import { useResourceList } from "../../../api/resources";
-import { Field, FormPage, FormSection } from "../../../kit";
+import { Field, FormPage, FormSection, resourceCrumbs } from "../../../kit";
 import { useOp } from "../deep/api";
 import { Link } from "@tanstack/react-router";
 import { MAX_RATE, startInput, startProblem } from "./redrive-form";
@@ -38,7 +38,7 @@ export function SqsRedrive({ d, q, back, done }: SubProps) {
     <FormPage
       title="Start DLQ redrive"
       sub={`Move the messages out of ${q.name}. SQS starts a task that receives them from this queue and sends them on.`}
-      crumbs={[{ label: "Resources", to: "/resources" }, { label: d.group, to: "/resources" }, { label: d.service_title, to: `/resources/${d.service}` }, { label: d.name, to: `/resources/${d.service}/${d.kind}/${encodeURIComponent(d.name)}` }]}
+      crumbs={resourceCrumbs(d)}
       request={{ service: "sqs", operation: "StartMessageMoveTask", input }}
       refusal={refused}
       callNote={<>{where === "source" ? "No DestinationArn, so each message returns to its original source queue." : "A DestinationArn, so every message goes there."} {rate === "system" ? "No rate, so it moves at the system's pace (doze-aws moves 500 a second)." : `At most ${per || "?"} messages a second.`}</>}

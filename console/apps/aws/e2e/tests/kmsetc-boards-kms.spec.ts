@@ -4,6 +4,7 @@ import { expect, test } from "./fixtures";
 import { start, type Running } from "../server";
 import { seedKmsetc } from "./kmsetc-seed";
 import { cliOf, keyOf, open, portsFor, shoot } from "./kmsetc-kit";
+import { expectCrumbsEnd } from "./crumbs-kit";
 
 test.describe.configure({ mode: "serial" });
 
@@ -69,6 +70,7 @@ test("kms__key-schedule-deletion, kms__keys-deletion-scheduled: a waiting period
   await page.getByTestId("form-submit").click();
   await expect(page.getByTestId("confirm-problem")).toBeVisible();
   await page.getByTestId("confirm-deletion").click();
+  await expectCrumbsEnd(page, ["Schedule key deletion"]);
   await shot(page, "kms__key-schedule-deletion");
   await page.getByTestId("form-submit").click();
   await expect(page.getByTestId("scheduled-note")).toContainText("Cancel key deletion puts larder-legacy back in Disabled");
@@ -144,15 +146,20 @@ test("kms__key-detail, kms__key-policy-edit, kms__key-crypto: a key's page, its 
   await expect(page.getByTestId("general-config")).toContainText(app);
   await expect(page.getByTestId("fact-admins")).toContainText("larder-admin");
   await expect(page.getByTestId("fact-users")).toContainText("report-job");
+  await expectCrumbsEnd(page, ["Keys",""]);
   await shot(page, "kms__key-detail");
   await page.getByTestId("policy-switch").click();
   await page.getByTestId("policy-edit").click();
   await expect(page.getByTestId("key-policy-edit")).toBeVisible();
   await expect(page.getByTestId("statement-details")).toContainText("Principals");
+  // The select says which statement is chosen once, by its Sid ("Selected: Allow use of the key"), not the Effect and the Sid run together.
+  await expect(page.getByTestId("statement-select")).toHaveText(/^Selected: [^\n]+$/);
+  await expect(page.getByTestId("statement-select")).not.toContainText("Allow Allow");
   await page.getByTestId("statement-select").click();
   await page.getByRole("option", { name: /Allow use of the key/ }).click();
   await expect(page.getByTestId("statement-details")).toContainText("kms:Encrypt");
   await expect(page.getByTestId("call-panel")).toContainText("PutKeyPolicy");
+  await expectCrumbsEnd(page, ["Edit key policy"]);
   await shot(page, "kms__key-policy-edit");
   await page.getByTestId("statement-add").click();
   await page.getByTestId("form-submit").click();

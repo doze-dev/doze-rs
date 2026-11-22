@@ -21,7 +21,7 @@ import { Skeleton } from "@doze/ui/components/ui/skeleton";
 import { bytes as sizeOf } from "@doze/ui/lib/format";
 import { useResourceDetail, useResourceList } from "../../../api/resources";
 import type { ResourceList } from "../../../api/types/ResourceList";
-import { DetailError, DetailFields, HINT, callKindOp, Field, FieldRefusal, FormPage, FormSection, useKindOp } from "../../../kit";
+import { DetailError, DetailFields, HINT, callKindOp, Field, FieldRefusal, FormPage, FormSection, useKindOp, withCurrent } from "../../../kit";
 import { callOp, useOp } from "../deep/api";
 import { Card, Confirm, Loaded } from "../deep/parts";
 import { ResourceTo, Value } from "../value";
@@ -194,7 +194,7 @@ export function LayerDetail({ service, kind, name }: { service: string; kind: st
   const last = rows.length <= 1;
   return (
     <>
-      <PageHeader title={name} mono crumbs={[...crumbs, { label: "Layers", to: "/resources/lambda/layers" }]} sub={detail.data.fields.find((f) => f.label === "Description")?.value ?? undefined} actions={<Button variant="outline" className="bg-card" onClick={() => void navigate({ to: "/resources/$service/$second", params: { service, second: "layers" }, search: { create: "yes" } })}><PlusIcon /> Publish new version</Button>} />
+      <PageHeader title={name} mono crumbs={withCurrent([...crumbs, { label: "Layers", to: "/resources/lambda/layers" }], name)} sub={detail.data.fields.find((f) => f.label === "Description")?.value ?? undefined} actions={<Button variant="outline" className="bg-card" onClick={() => void navigate({ to: "/resources/$service/$second", params: { service, second: "layers" }, search: { create: "yes" } })}><PlusIcon /> Publish new version</Button>} />
       {done && <ResultBanner className="mb-6" title={`${name} version ${done} was published.`} returned="PublishLayerVersion made a version that never changes." onDismiss={() => void navigate({ to: "/resources/$service/$kind/$name", params: { service, kind, name }, search: {} })} testId="published-banner" />}
       <div className="mb-6">
         <DetailFields detail={detail.data} />

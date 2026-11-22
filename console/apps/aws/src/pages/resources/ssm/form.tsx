@@ -12,7 +12,7 @@ import { Input } from "@doze/ui/components/ui/input";
 import { Textarea } from "@doze/ui/components/ui/textarea";
 import { useAbout } from "../../../api/queries";
 import type { ResourceDetail } from "../../../api/types/ResourceDetail";
-import { callKindOp, Field, FormPage, FormSection, RadioCards, RuleHelp, TAG_RULES } from "../../../kit";
+import { callKindOp, Field, FormPage, FormSection, RadioCards, resourceCrumbs, RuleHelp, TAG_RULES } from "../../../kit";
 import { useAllRows } from "../cfg-api";
 import { fieldOf } from "../cfg-parts";
 import { KeyAliasPicker } from "../key-picker";
@@ -83,7 +83,7 @@ export function ParameterForm({ d }: { d?: ResourceDetail }) {
       title={editing ? "Edit" : "Create parameter"}
       mono={false}
       sub={editing ? <><span className="font-mono text-bright">{d.name}</span> is a {f.type} at version {fieldOf(d, "Version")}. Saving a new value makes version {Number(fieldOf(d, "Version") ?? 0) + 1} and keeps versions 1 to {fieldOf(d, "Version")}. The console can&apos;t change the type of a parameter that exists, for example String to SecureString.</> : `Parameters are only available in the Region where they were created (${region}).`}
-      crumbs={editing ? [{ label: "Resources", to: "/resources" }, { label: d.group, to: "/resources" }, { label: d.service_title, to: "/resources/ssm" }, { label: "Parameters", to: "/resources/ssm/parameters" }, { label: d.name, to: `/resources/ssm/parameters/${encodeURIComponent(d.name)}` }, { label: "Edit", to: "" }] : [...crumbs(first?.group, first?.service_title).slice(0, -1), { label: "Parameter Store", to: "/resources/ssm" }, { label: "Create parameter", to: "" }]}
+      crumbs={editing ? resourceCrumbs(d, { label: "Edit", to: "" }) : [...crumbs(first?.group, first?.service_title).slice(0, -1), { label: "Parameter Store", to: "/resources/ssm" }, { label: "Create parameter", to: "" }]}
       request={{ service: "ssm", operation: "PutParameter", input }}
       showInput
       callTitle={taken ? "The call that was refused" : undefined}

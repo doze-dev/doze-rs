@@ -47,7 +47,7 @@ function recentColumns(names: ReadonlyMap<string, KeyPrincipal>): DataColumn<Cal
     { id: "action", header: "Operation", size: 190, min: 140, accessorFn: (r) => r.action ?? "", meta: { mono: true } },
     // The name Live shows (a queue's, not its whole URL); the value as the caller wrote it is the cell's title.
     { id: "resource", header: "Resource", accessorFn: (r) => resourceShown(r), meta: { mono: true }, cell: (c) => <span title={c.row.original.resource ?? undefined}>{c.getValue<string>()}</span> },
-    { id: "result", header: "Result", size: 220, min: 140, enableSorting: false, accessorFn: (r) => r.outcome, cell: (c) => <Result call={c.row.original} /> },
+    { id: "result", header: "Result", size: 320, min: 260, enableSorting: false, accessorFn: (r) => r.outcome, cell: (c) => <Result call={c.row.original} /> },
   ];
 }
 

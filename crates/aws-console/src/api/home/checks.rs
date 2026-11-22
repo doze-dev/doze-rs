@@ -49,7 +49,7 @@ async fn dead_letters(bus: &Bus) -> Result<Vec<Signal>, String> {
         .call("sqs", "ListQueues", &json!({"MaxResults": 1000}))
         .await
         .map_err(|e| e.message)?;
-    let mut queues: Vec<(String, String, u64, Option<String>)> = Vec::new();
+    let mut queues: Vec<Queue> = Vec::new();
     for url in at(&listed, "QueueUrls")
         .as_array()
         .into_iter()
@@ -83,8 +83,17 @@ async fn dead_letters(bus: &Bus) -> Result<Vec<Signal>, String> {
             target,
         ));
     }
+    Ok(dead_letter_signals(&queues))
+}
+
+/// What a queue is read as: its URL, its ARN, the messages it holds, the dead-letter queue its redrive policy names.
+type Queue = (String, String, u64, Option<String>);
+
+/// The signals of the queues that another queue names as its dead-letter queue and that hold messages. The page opens a queue by
+/// its NAME (the end of its URL): the console's API answers 400 to a URL.
+fn dead_letter_signals(queues: &[Queue]) -> Vec<Signal> {
     let targets: BTreeSet<&str> = queues.iter().filter_map(|q| q.3.as_deref()).collect();
-    Ok(queues
+    queues
         .iter()
         .filter(|(_, arn, held, _)| *held > 0 && targets.contains(arn.as_str()))
         .map(|(url, _, held, _)| Signal {
@@ -96,9 +105,9 @@ async fn dead_letters(bus: &Bus) -> Result<Vec<Signal>, String> {
             ),
             detail: last(url).to_owned(),
             href: None,
-            resource: link("sqs", "queues", url),
+            resource: link("sqs", "queues", last(url)),
         })
-        .collect())
+        .collect()
 }
 
 async fn alarms(bus: &Bus) -> Result<Vec<Signal>, String> {
@@ -157,7 +166,7 @@ async fn failed_executions(bus: &Bus) -> Result<Vec<Signal>, String> {
                     .unwrap_or_else(|| last(arn))
                     .to_owned(),
                 href: None,
-                resource: link("stepfunctions", "machines", arn),
+                resource: link("stepfunctions", "machines", last(arn)),
             });
         }
     }
@@ -304,7 +313,7 @@ pub async fn checks(State(s): State<Shared>) -> Response {
 
 #[cfg(test)]
 mod tests {
-    use super::last;
+    use super::{Queue, dead_letter_signals, last};
 
     #[test]
     fn a_name_is_the_end_of_its_arn_or_url() {
@@ -314,5 +323,32 @@ mod tests {
         );
         assert_eq!(last("arn:aws:states:us-east-1:1:stateMachine:flow"), "flow");
         assert_eq!(last("plain"), "plain");
+    }
+
+    #[test]
+    fn a_dead_letter_signal_opens_the_queue_by_its_name_not_its_url() {
+        let url = "http://127.0.0.1:4566/000000000000/jobs-dlq";
+        let arn = "arn:aws:sqs:us-east-1:000000000000:jobs-dlq";
+        let queues: Vec<Queue> = vec![
+            (url.to_owned(), arn.to_owned(), 1, None),
+            (
+                "http://127.0.0.1:4566/000000000000/jobs".to_owned(),
+                "arn:aws:sqs:us-east-1:000000000000:jobs".to_owned(),
+                0,
+                Some(arn.to_owned()),
+            ),
+        ];
+        let signals = dead_letter_signals(&queues);
+        assert_eq!(signals.len(), 1);
+        let link = signals[0].resource.as_ref().expect("a signal opens a page");
+        assert_eq!(
+            (
+                link.service.as_str(),
+                link.kind.as_str(),
+                link.name.as_str()
+            ),
+            ("sqs", "queues", "jobs-dlq")
+        );
+        assert_eq!(signals[0].detail, "jobs-dlq");
     }
 }

@@ -19,7 +19,7 @@ import { DetailsCard, fieldOf } from "./details-card";
 import { MachineExecutions } from "./executions-tab";
 import { at } from "../deep/parts";
 import { useGoTo, useMachineRuns } from "./hooks";
-import { machineSentence, wiresOf } from "./model";
+import { inputSkeleton, machineSentence, wiresOf } from "./model";
 import { parseDefinition } from "./graph";
 import { AliasesTab, VersionsTab } from "./versions-tab";
 import { TagsPanel } from "./tags-page";
@@ -68,7 +68,7 @@ function MachineView({ d, updatedAt, fetching, refresh }: { d: ResourceDetail; u
   const wires = useMemo(() => wiresOf(definition ?? undefined), [definition]);
   const tab = TABS.some(([id]) => id === search.tab) ? (search.tab as (typeof TABS)[number][0]) : "executions";
   const done = search.done ? DONE[search.done]?.(d.name) : undefined;
-  const sentence = machineSentence(d.name, express, runs.data, definition?.StartAt);
+  const sentence = machineSentence(d.name, express, runs.data, definition?.StartAt, fieldOf(d, "Logging") ?? "OFF");
   const clear = () => go.machine(d.name, search.tab ? { tab: search.tab } : {});
   const open = (to: "delete" | "start") => {
     setOpened((n) => n + 1);
@@ -114,7 +114,7 @@ function MachineView({ d, updatedAt, fetching, refresh }: { d: ResourceDetail; u
         refresh={<RefreshControl updatedAt={updatedAt} fetching={fetching} onRefresh={refresh} interval={false} />}
         testId="machine-page"
       />
-      <StartDialog key={`s${opened}`} machine={d.id} name={d.name} startAt={definition?.StartAt} open={dialog === "start"} onOpenChange={(o) => !o && setDialog(null)} />
+      <StartDialog key={`s${opened}`} machine={d.id} name={d.name} startAt={definition?.StartAt} input={inputSkeleton(definition)} open={dialog === "start"} onOpenChange={(o) => !o && setDialog(null)} />
       <DeleteMachine d={d} open={dialog === "delete"} onOpenChange={(o) => !o && setDialog(null)} feeders={feeders} />
     </>
   );

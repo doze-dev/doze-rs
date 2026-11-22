@@ -10,7 +10,7 @@ import { Button } from "@doze/ui/components/ui/button";
 import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuTrigger } from "@doze/ui/components/ui/dropdown-menu";
 import { Input } from "@doze/ui/components/ui/input";
 import { useResourceDetail } from "../../../api/resources";
-import { RuleHelp, Segmented, useServiceCrumbs } from "../../../kit";
+import { RuleHelp, Segmented, useServiceCrumbs, withCurrent } from "../../../kit";
 import { callOp, on } from "../deep/api";
 import { Loaded, Made } from "../deep/parts";
 import { useQuery } from "@tanstack/react-query";
@@ -49,7 +49,7 @@ export function StreamPage({ group, stream }: { group: string; stream: string })
         title={stream}
         mono
         titleExtra={<Badge variant="outline" className="px-2.5 text-[12.5px] font-normal text-muted-foreground">Log stream</Badge>}
-        crumbs={[...base, { label: group, to: `/resources/logs/groups/${encodeURIComponent(group)}` }]}
+        crumbs={withCurrent([...base, { label: group, to: `/resources/logs/groups/${encodeURIComponent(group)}` }], stream)}
         sub={<>In <span className="font-mono text-foreground">{group}</span>.{last !== null ? ` Last event at ${clock(last, zone).slice(0, 8)} ${zone === "utc" ? "UTC" : "local time"}.` : ""} Choose an arrow to expand one event.</>}
         refresh={<RefreshControl updatedAt={q.dataUpdatedAt} fetching={q.isFetching} onRefresh={refresh} />}
         actions={

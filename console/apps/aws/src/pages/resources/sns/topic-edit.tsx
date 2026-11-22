@@ -7,7 +7,7 @@ import { rowsValid } from "@doze/ui/components/app/key-values";
 import { Skeleton } from "@doze/ui/components/ui/skeleton";
 import { ApiFailure } from "@doze/ui/lib/api";
 import { useAbout } from "../../../api/queries";
-import { diffTags, FormPage, noChange, type PreviewRequest, TAG_RULES, useSetTags, useTags } from "../../../kit";
+import { diffTags, FormPage, noChange, type PreviewRequest, resourceCrumbs, TAG_RULES, useSetTags, useTags } from "../../../kit";
 import { useOp } from "../deep/api";
 import { Rich } from "./parts";
 import { b } from "./sentences";
@@ -70,7 +70,7 @@ function EditForm({ d, t, subs, back, done, tags }: TopicProps & { tags: { key: 
     <FormPage
       title={`Edit ${d.name}`}
       sub="The type and the name cannot change. Every other setting can."
-      crumbs={[{ label: "Resources", to: "/resources" }, { label: d.group, to: "/resources" }, { label: d.service_title, to: `/resources/${d.service}` }, { label: d.name, to: `/resources/${d.service}/${d.kind}/${encodeURIComponent(d.name)}` }]}
+      crumbs={resourceCrumbs(d)}
       mono
       request={requests[0] ?? null}
       requests={requests}

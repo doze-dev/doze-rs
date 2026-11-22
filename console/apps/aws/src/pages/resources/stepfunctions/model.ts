@@ -203,8 +203,18 @@ export function aliasProblem(name: string, taken: readonly string[]): string | n
   return null;
 }
 
+/** What an Express machine does with its runs, from its logging level (`undefined` when the page has not read it): it keeps no
+ * execution history, and writes events to a log group only while its logging is on (the level OFF, the default, writes nothing). */
+export function expressWords(level?: string): string {
+  const l = level?.toUpperCase();
+  if (l === undefined) return "it keeps no execution history: its runs are written to a log group only while its logging is on.";
+  if (l === "OFF") return "it keeps no execution history, and its logging is Off, so its runs are recorded nowhere. Turn logging on to write them to a log group.";
+  if (l === "ALL") return "it keeps no execution history: its runs are written to its log group.";
+  return `it keeps no execution history: only the events that report a failure are written to its log group (logging ${l}).`;
+}
+
 /** `order-fulfilment has 2 executions running. thumbnail-batch is Express, so it keeps no execution history: its runs are written
- * to its log group.` What the list says of its machines, from how many executions of each are running. */
+ * to a log group only while its logging is on.` What the list says of its machines, from how many executions of each are running. */
 export function listSentence(machines: readonly { name: string; express: boolean }[], running: Readonly<Record<string, number>>): string | null {
   if (machines.length === 0) return null;
   const busy = machines.filter((m) => (running[m.name] ?? 0) > 0);
@@ -213,14 +223,14 @@ export function listSentence(machines: readonly { name: string; express: boolean
   const express = machines.filter((m) => m.express).map((m) => m.name);
   if (express.length > 0) {
     const names = express.length === 1 ? express[0] : `${express.slice(0, -1).join(", ")} and ${express[express.length - 1]}`;
-    parts.push(`${names} ${express.length === 1 ? "is" : "are"} Express, so ${express.length === 1 ? "it keeps" : "they keep"} no execution history: ${express.length === 1 ? "its runs are" : "their runs are"} written to ${express.length === 1 ? "its" : "their"} log group.`);
+    parts.push(express.length === 1 ? `${names} is Express, so ${expressWords()}` : `${names} are Express, so they keep no execution history: their runs are written to a log group only while their logging is on.`);
   }
   return parts.filter(Boolean).join(" ");
 }
 
 /** The line under a machine's name: what is running, and the last to fail and where it stopped. */
-export function machineSentence(name: string, express: boolean, runs: { running: number; never: boolean; failed: { name: string; error?: string; state?: string } | null } | undefined, startAt?: string): string | null {
-  if (express) return `${name} is Express, so it keeps no execution history: its runs are written to its log group.`;
+export function machineSentence(name: string, express: boolean, runs: { running: number; never: boolean; failed: { name: string; error?: string; state?: string } | null } | undefined, startAt?: string, level?: string): string | null {
+  if (express) return `${name} is Express, so ${expressWords(level)}`;
   if (!runs) return null;
   if (runs.never) return `${name} has never run. Start an execution with a JSON input${startAt ? `; it begins at ${startAt}` : ""}.`;
   const running = runs.running === 0 ? `${name} has no execution running.` : `${name} has ${runs.running} ${runs.running === 1 ? "execution" : "executions"} running.`;
@@ -247,4 +257,43 @@ export function definitionNotes(def: Definition | undefined): { text: string; na
     parts.push(`${name} sets HeartbeatSeconds ${s.HeartbeatSeconds} and ${typeof s.TimeoutSeconds === "number" ? `TimeoutSeconds ${s.TimeoutSeconds}` : "no TimeoutSeconds of its own"}.`);
   }
   return { text: parts.join(" "), names };
+}
+
+/** What a new execution of a machine is started with: `{}`, or a skeleton of the input its first state reads (`$.order_id` in its
+ * Parameters or its InputPath, a Choice's Variable), each member empty, so the first Start is not a run that fails at once on a
+ * path the input does not have. A state's ResultPath, OutputPath and ResultSelector write, they do not read, and `$$.` is the
+ * context object: neither is the input's. */
+export function inputSkeleton(def: Definition | null | undefined): string {
+  const start = def?.States?.[def.StartAt ?? ""];
+  if (!start) return "{}";
+  const paths = new Set<string>();
+  const scan = (v: unknown): void => {
+    if (typeof v === "string") {
+      for (const m of v.matchAll(/(?<![$\w])\$\.([A-Za-z_][\w-]*(?:\.[A-Za-z_][\w-]*)*)/g)) paths.add(m[1] as string);
+    } else if (Array.isArray(v)) v.forEach(scan);
+    else if (v !== null && typeof v === "object") {
+      for (const [k, x] of Object.entries(v)) if (k !== "ResultPath" && k !== "OutputPath" && k !== "ResultSelector") scan(x);
+    }
+  };
+  scan(start);
+  if (paths.size === 0) return "{}";
+  const input: Record<string, unknown> = {};
+  for (const p of [...paths].sort()) {
+    const keys = p.split(".");
+    let at = input;
+    keys.forEach((k, i) => {
+      if (i === keys.length - 1) {
+        if (!(k in at)) at[k] = "";
+      } else {
+        const next = at[k];
+        if (typeof next === "object" && next !== null) at = next as Record<string, unknown>;
+        else if (!(k in at) || next === "") {
+          const made: Record<string, unknown> = {};
+          at[k] = made;
+          at = made;
+        }
+      }
+    });
+  }
+  return JSON.stringify(input, null, 2);
 }

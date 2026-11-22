@@ -6,7 +6,7 @@ import { rowsValid } from "@doze/ui/components/app/key-values";
 import { Skeleton } from "@doze/ui/components/ui/skeleton";
 import { ApiFailure } from "@doze/ui/lib/api";
 import { useAbout } from "../../../api/queries";
-import { FormPage, TAG_RULES, diffTags, noChange, useSetTags, useTags } from "../../../kit";
+import { FormPage, TAG_RULES, diffTags, noChange, resourceCrumbs, useSetTags, useTags } from "../../../kit";
 import { useOp } from "../deep/api";
 import { Configuration, TypeAndName } from "./form-fields";
 import { attributes, formOf, problems, type QueueForm } from "./form-model";
@@ -53,8 +53,9 @@ function EditForm({ d, q, back, done, tags }: SubProps & { tags: { key: string; 
   return (
     <FormPage
       title={`Edit ${d.name}`}
+      crumb="Edit"
       sub={<>{q.fifo ? "FIFO" : "Standard"}. You can edit the queue's configuration parameters, except the queue type.</>}
-      crumbs={[{ label: "Resources", to: "/resources" }, { label: d.group, to: "/resources" }, { label: d.service_title, to: `/resources/${d.service}` }, { label: d.name, to: `/resources/${d.service}/${d.kind}/${encodeURIComponent(d.name)}` }]}
+      crumbs={resourceCrumbs(d)}
       mono
       request={{ service: "sqs", operation: "SetQueueAttributes", input: { QueueUrl: q.url, Attributes: changes } }}
       refusal={refused}

@@ -14,7 +14,7 @@ import { Button } from "@doze/ui/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@doze/ui/components/ui/dropdown-menu";
 import { Skeleton } from "@doze/ui/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger } from "@doze/ui/components/ui/tabs";
-import { DetailError, Segmented, useFeeders } from "../../../kit";
+import { DetailError, Segmented, useFeeders, withCurrent } from "../../../kit";
 import { callOp, deepKey, machineOf, on, useOpRead } from "../deep/api";
 import { at, Card, CodeBlock, pretty } from "../deep/parts";
 import { RedriveDialog, StartDialog, StopDialog } from "./dialogs";
@@ -105,13 +105,13 @@ export function ExecutionPage({ arn }: { arn: string }) {
       <PageHeader
         title={e?.name ?? arn.split(":").pop() ?? arn}
         mono
-        crumbs={[
+        crumbs={withCurrent([
           { label: "Resources", to: "/resources" },
           { label: "Compute and flow", to: "/resources" },
           { label: "Step Functions", to: "/resources/stepfunctions" },
           { label: "State machines", to: "/resources/stepfunctions/machines" },
           ...(machineName ? [{ label: machineName, to: machineHref(machineName) }, { label: "Executions", to: machineHref(machineName) }] : []),
-        ]}
+        ], e?.name ?? arn.split(":").pop() ?? arn)}
         titleExtra={status ? <StatusDot tone={status.tone} data-testid="execution-status">{status.word}</StatusDot> : undefined}
         sub={e && sentence ? <span data-testid="execution-sentence"><Emphasis text={sentence} names={names} /></span> : undefined}
         refresh={<RefreshControl updatedAt={exec.dataUpdatedAt} fetching={exec.isFetching || events.isFetching} onRefresh={refresh} />}

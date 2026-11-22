@@ -4,6 +4,7 @@ import { expect, test } from "./fixtures";
 import { start, type Running } from "../server";
 import { seedKmsetc } from "./kmsetc-seed";
 import { cliOf, open, portsFor, shoot } from "./kmsetc-kit";
+import { expectCrumbsEnd } from "./crumbs-kit";
 
 test.describe.configure({ mode: "serial" });
 
@@ -155,6 +156,7 @@ test("ssm__parameter-edit: Edit saves the next version with Overwrite", async ({
   await page.getByTestId("parameter-value").fill("Zt3Mw-8cQd-Hn5Rb-Ve62");
   await expect(page.getByTestId("call-panel")).toContainText('"Overwrite": true');
   await expect(page.getByTestId("call-panel")).not.toContainText('"Type"');
+  await expectCrumbsEnd(page, ["Edit"]);
   await shot(page, "ssm__parameter-edit");
   await page.getByTestId("form-submit").click();
   await expect(page.getByTestId("saved-banner")).toContainText("PutParameter returned version 4");

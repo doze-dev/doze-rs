@@ -12,6 +12,7 @@ import { Switch } from "@doze/ui/components/ui/switch";
 import { Textarea } from "@doze/ui/components/ui/textarea";
 import { Field, FormSection, FunctionPicker, PolicyEditor, RadioCards, RuleHelp, Segmented, TAG_RULES } from "../../../kit";
 import { KeyAliasPicker } from "../key-picker";
+import { DurationSelect } from "./duration-select";
 import { durationProblem, MAX_VALUE, nameProblem, replicaProblem, replicaRegions, scheduleProblem, type SecretForm, valueProblem, secretValue } from "./model";
 
 /** Regions offered as the person types one; any Region name is taken. */
@@ -118,8 +119,8 @@ export function StepRotation({ f, set, show, lambdaServed }: StepProps & { lambd
             <Field label="Schedule expression" error={show ? (sp ?? undefined) : undefined} help={<>UTC, written as rate() or cron(), for example <span className="font-mono">rate(30 days)</span>. doze-aws starts a rotation when the schedule opens its window.</>}>
               {(id) => <Input id={id} value={f.schedule} onChange={(e) => set({ schedule: e.target.value })} className="max-w-xl bg-card font-mono" data-testid="rotation-schedule" />}
             </Field>
-            <Field label="Window duration" optional error={show ? (dp ?? undefined) : undefined} help="The length of the rotation window in hours, for example 3h. Stored, not applied locally: the rotation starts when the window opens.">
-              {(id) => <Input id={id} value={f.duration} onChange={(e) => set({ duration: e.target.value })} placeholder="3h" className="max-w-40 bg-card font-mono" data-testid="rotation-duration" />}
+            <Field label="Window duration" optional error={show ? (dp ?? undefined) : undefined} help="The length of the rotation window in hours, for example 3h. It is stored and shown, and it changes nothing here: doze-aws starts the rotation when the window opens.">
+              {(id) => <DurationSelect id={id} value={f.duration} onChange={(duration) => set({ duration })} />}
             </Field>
             <div className="flex items-start gap-3"><Checkbox id="now" checked={f.now} onCheckedChange={(v) => set({ now: v === true })} className="mt-0.5" data-testid="rotate-immediately" /><Label htmlFor="now" className="grid gap-0.5 font-normal"><span className="font-medium text-bright">Rotate immediately when the secret is stored</span><span className="text-[13px] text-muted-foreground">Choose it to rotate the secret as soon as it is stored.</span></Label></div>
           </>

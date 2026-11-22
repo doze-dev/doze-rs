@@ -75,7 +75,8 @@ test("LiveBLoad: what needs a look, a function that failed, Focus, and why a cal
   await expect(strip.locator('[data-word="FUNCTION ERROR"]')).toContainText("Invoke");
   await expect(strip.locator('[data-word="FUNCTION ERROR"]')).toContainText("Unhandled");
   await expect(strip.locator('[data-word="WOULD BE DENIED (soft)"]')).toContainText("report-job");
-  await expect(strip.locator('[data-word="REFUSED"]')).toContainText("CreateQueue");
+  // The refused call says what it named (the model refused the name before a service saw it).
+  await expect(strip.locator('[data-word="REFUSED"]')).toContainText("CreateQueue pick lists!");
   await expect(strip.locator('[data-word="NOT BUILT"]')).toContainText("SelectObjectContent");
   await expect(strip.locator('[data-word="NOT ACTIVE LOCALLY"]').filter({ hasText: "1 subscription stored" })).toHaveCount(1);
   await expect(strip.locator('[data-word="NOT ACTIVE LOCALLY"]').filter({ hasText: "1 domain name stored" })).toHaveCount(1);

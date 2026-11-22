@@ -9,7 +9,7 @@ import { Emphasis } from "@doze/ui/components/app/emphasis";
 import { errorWords } from "@doze/ui/components/app/alert";
 import { Alert } from "@doze/ui/components/app/alert";
 import { useResourceDetail } from "../../../api/resources";
-import { CallPanel, RuleHelp, useServiceCrumbs } from "../../../kit";
+import { CallPanel, RuleHelp, useServiceCrumbs, withCurrent } from "../../../kit";
 import { callOp, on } from "../deep/api";
 import { Made } from "../deep/parts";
 import { EventList, type LogEvent } from "./events";
@@ -56,7 +56,7 @@ export function GroupSearch({ group }: { group: string }) {
     <>
       <PageHeader
         title="Search log group"
-        crumbs={[...base, { label: group, to: `/resources/logs/groups/${encodeURIComponent(group)}` }]}
+        crumbs={withCurrent([...base, { label: group, to: `/resources/logs/groups/${encodeURIComponent(group)}` }], "Search log group")}
         sub={<>Search every log stream in <span className="font-mono text-foreground">{group}</span> for events that match a filter pattern. <span className="text-muted-foreground">Each search returns up to the first page of data it finds and a token to retrieve the next page.</span></>}
       />
       <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_22.5rem]" data-testid="group-search">

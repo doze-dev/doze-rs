@@ -29,7 +29,7 @@ export function JsonEditor({ value, onChange, label, help, placeholder, empty = 
   const check = checkJson(value, empty);
   const bad = !check.ok;
   return (
-    <div className={cn("grid gap-1.5", className)}>
+    <div className={cn("grid gap-1.5 [&>*]:min-w-0", className)}>
       <div className="flex items-end justify-between gap-3">
         <Label htmlFor={id}>{label}</Label>
         <Button type="button" variant="ghost" size="sm" onClick={() => onChange(formatJson(value))} disabled={bad || value.trim() === ""} data-testid={`${testId}-format`}>
@@ -54,7 +54,7 @@ export function JsonEditor({ value, onChange, label, help, placeholder, empty = 
           autoComplete="off"
           aria-invalid={bad}
           aria-describedby={`${id}-help`}
-          className={cn("relative min-h-32 bg-card font-mono text-[13px] leading-5", highlight && "bg-transparent text-transparent caret-foreground dark:bg-transparent")}
+          className={cn("relative min-h-32 w-full max-w-full bg-card font-mono text-[13px] leading-5", highlight && "bg-transparent text-transparent caret-foreground dark:bg-transparent")}
           data-testid={testId}
         />
       </div>

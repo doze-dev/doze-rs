@@ -7,7 +7,7 @@ import { Combobox } from "@doze/ui/components/app/combobox";
 import { Skeleton } from "@doze/ui/components/ui/skeleton";
 import { useResourceDetail, useResourceList } from "../../../api/resources";
 import type { ResourceDetail } from "../../../api/types/ResourceDetail";
-import { Field, FormPage, FormSection } from "../../../kit";
+import { Field, FormPage, FormSection, resourceCrumbs } from "../../../kit";
 import { useOp } from "../deep/api";
 import { ApiFailure } from "@doze/ui/lib/api";
 import { wait, type Queue } from "./queue-model";
@@ -28,7 +28,7 @@ export function SubPage({ view, ...p }: SubProps & { view: string }) {
   );
 }
 
-const crumbs = (d: ResourceDetail, tab: string, label: string) => [{ label: "Resources", to: "/resources" }, { label: d.group, to: "/resources" }, { label: d.service_title, to: `/resources/${d.service}` }, { label: d.name, to: `/resources/${d.service}/${d.kind}/${encodeURIComponent(d.name)}` }, { label, to: `/resources/${d.service}/${d.kind}/${encodeURIComponent(d.name)}?tab=${tab}` }];
+const crumbs = (d: ResourceDetail, tab: string, label: string) => resourceCrumbs(d, { label, to: `/resources/${d.service}/${d.kind}/${encodeURIComponent(d.name)}?tab=${tab}` });
 
 /** A choice from another kind's list, or an alias typed in whole (an ARN of one that is not listed). */
 function ListPicker({ service, kind, noun, value, onChange, by, id }: { service: string; kind: string; noun: string; value: string | null; onChange: (v: string | null) => void; by: "id" | "name"; id: string }) {

@@ -124,5 +124,5 @@ export function useAliases(name: string) {
 
 /** The newest calls the record holds that Step Functions answered, newest first (the worker calls of an activity are among them). */
 export function useWorkerCalls() {
-  return useQuery({ queryKey: ["stepfunctions", "worker-calls"], queryFn: ({ signal }) => client.api<CallsPage>(`${PATHS.calls}?limit=200`, {}, signal), retry: false });
+  return useQuery({ queryKey: ["stepfunctions", "worker-calls"], queryFn: ({ signal }) => client.api<CallsPage>(`${PATHS.calls}?limit=200&console=no`, {}, signal), retry: false });
 }

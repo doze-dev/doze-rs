@@ -5,8 +5,8 @@ import { cn } from "../../lib/utils";
 
 export type Crumb = { label: string; to: string };
 
-/** The head of every page: the ancestors only as a breadcrumb (never the page itself, never a filter or a mode), the page's
- * name once as the h1, a static sentence, the page's actions, and the RefreshControl.
+/** The head of every page: the breadcrumb (the ancestors as links, then the page itself as the last crumb, plain text with
+ * aria-current: the trail always says where you are, and never a filter or a mode), the page's name once as the h1, a static sentence, the page's actions, and the RefreshControl.
  *
  * One shape for every page, so no page has an empty band: the breadcrumb row exists only on a page that has ancestors, and
  * the RefreshControl sits at the right of the header's first row: the breadcrumb row when there is one, the h1's row (above
@@ -29,9 +29,15 @@ export function PageHeader({ title, sub, crumbs = [], actions, refresh, mono = f
                 <Fragment key={`${i}-${c.to}`}>
                   {i > 0 && <ChevronRightIcon aria-hidden className="size-3.5 text-input" />}
                   <li>
-                    <Link to={c.to} className="rounded-sm hover:text-link focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none">
-                      {c.label}
-                    </Link>
+                    {i === crumbs.length - 1 && crumbs.length > 1 ? (
+                      <span aria-current="page" className="text-foreground">
+                        {c.label}
+                      </span>
+                    ) : (
+                      <Link to={c.to} className="rounded-sm hover:text-link focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none">
+                        {c.label}
+                      </Link>
+                    )}
                   </li>
                 </Fragment>
               ))}

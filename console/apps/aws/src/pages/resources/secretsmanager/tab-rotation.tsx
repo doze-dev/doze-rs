@@ -16,6 +16,7 @@ import { callKindOp, Field, FunctionPicker, SectionEdit, Segmented } from "../..
 import { Card, Facts, Note } from "../cfg-parts";
 import { refusalOf } from "../kms/schedule";
 import { SECRETS } from "./api";
+import { DurationSelect } from "./duration-select";
 import { type Cadence, type Described, cadenceOf, cadenceProblem, dayOf, durationProblem, expressionOf, functionName, scheduleProblem, scheduleWords, shortId } from "./model";
 
 export function TabRotation({ name, d, scheduled }: { name: string; d: Described; scheduled: boolean }) {
@@ -51,7 +52,7 @@ export function TabRotation({ name, d, scheduled }: { name: string; d: Described
       </>}>
         <Facts facts={[
           { label: "Rotation status", value: d.RotationEnabled ? "Enabled" : "Off", testId: "fact-status" },
-          { label: "Rotation schedule", value: d.RotationEnabled ? (<><span className="font-mono text-[13px]">{scheduleWords(d) ?? "–"}</span>{d.RotationRules?.Duration && <span className="ml-2 text-muted-foreground">Window duration {d.RotationRules.Duration}. Stored, not applied locally: the rotation starts when the window opens.</span>}</>) : "–" },
+          { label: "Rotation schedule", value: d.RotationEnabled ? (<><span className="font-mono text-[13px]">{scheduleWords(d) ?? "–"}</span>{d.RotationRules?.Duration && <span className="ml-2 text-muted-foreground">Window duration {d.RotationRules.Duration}. Stored and shown: the rotation starts when the window opens, whatever its length.</span>}</>) : "–" },
           { label: "Lambda rotation function", value: <span className="font-mono text-[13px]">{d.RotationLambdaARN ?? "–"}</span> },
           { label: "Last rotated date", value: dayOf(d.LastRotatedDate) ?? "–" },
           { label: "Next rotation date", value: dayOf(d.NextRotationDate) ?? "–" },
@@ -117,10 +118,10 @@ function RotationEdit({ name, d, onClose }: { name: string; d: Described; onClos
               <Input value={schedule} onChange={(e) => setSchedule(e.target.value)} aria-label="Schedule expression" className="bg-card font-mono" data-testid="rotation-schedule" />
             )}
             {problem && fn && scheduleBad && <p className="text-[13px] text-bad" role="alert">{scheduleBad}</p>}
-            <p className="border-l-2 pl-3 text-[13px] leading-5 text-muted-foreground">UTC, written as rate() or cron(), for example <span className="font-mono">rate(30 days)</span>. <b className="font-semibold text-foreground">Stored, not applied locally.</b> doze-aws starts a rotation when the schedule opens its window, and runs it when you choose Rotate secret immediately.</p>
+            <p className="border-l-2 pl-3 text-[13px] leading-5 text-muted-foreground">UTC, written as rate() or cron(), for example <span className="font-mono">rate(30 days)</span>. doze-aws starts a rotation when the schedule opens its window, and runs it when you choose Rotate secret immediately.</p>
           </div>
-          <Field label="Window duration" optional help="The length of the rotation window in hours, for example 3h. Stored, not applied locally: the rotation starts when the window opens.">
-            {(id) => <Input id={id} value={duration} onChange={(e) => setDuration(e.target.value)} placeholder="3h" className="max-w-40 bg-card font-mono" data-testid="rotation-duration" />}
+          <Field label="Window duration" optional help="The length of the rotation window in hours, for example 3h. It is stored and shown, and it changes nothing here: doze-aws starts the rotation when the window opens.">
+            {(id) => <DurationSelect id={id} value={duration} onChange={setDuration} />}
           </Field>
           <div className="flex items-start gap-3"><Checkbox id="rotate-now" checked={now} onCheckedChange={(v) => setNow(v === true)} className="mt-0.5" data-testid="rotate-immediately" /><Label htmlFor="rotate-now" className="grid gap-0.5 font-normal"><span className="font-medium text-bright">Rotate immediately when the secret is stored</span><span className="text-[13px] text-muted-foreground">Choose it to rotate the secret when you save your changes.</span></Label></div>
           <Field label="Rotation function" help="doze-aws invokes this Lambda function for each of the four rotation steps.">
