@@ -69,7 +69,9 @@ test("LiveB: opening a call lights its route from the app to what it named and o
 test("LiveBLoad: what needs a look, Focus, and why a call would be denied with Add to policy", async ({ page }) => {
   await go(page, "/live", "Live");
   const strip = page.getByTestId("needs-look");
-  await expect(strip.getByTestId("look")).toHaveCount(3);
+  await expect(strip.getByTestId("look")).toHaveCount(4);
+  // What a script made and doze-aws keeps without acting on it is counted with them.
+  await expect(strip.locator('[data-word="NOT ACTIVE LOCALLY"]')).toContainText("1 subscription stored");
   await expect(strip.locator('[data-word="WOULD BE DENIED (soft)"]')).toContainText("report-job");
   await expect(strip.locator('[data-word="REFUSED"]')).toContainText("CreateLogGroup");
   await expect(strip.locator('[data-word="NOT BUILT"]')).toContainText("SelectObjectContent");

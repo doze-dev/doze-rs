@@ -143,7 +143,6 @@ export function Shell() {
   }, [about, index.data, navigate]);
   const groups = useMemo<PaletteGroup[]>(
     () => [
-      ...(actions.length > 0 ? [{ heading: "Do", items: actions }] : []),
       { heading: "Spaces", items: SPACES.map((s) => ({ label: s.label, to: s.to, kind: "space", icon: s.icon, keywords: s.keywords })) },
       {
         heading: "Theme",
@@ -155,6 +154,8 @@ export function Shell() {
         ],
       },
       ...(resources ? [resources] : []),
+      // After the names: typing a resource's name and pressing Enter opens it; an action is chosen by its words.
+      ...(actions.length > 0 ? [{ heading: "Do", separated: true, items: actions }] : []),
     ],
     [resources, actions],
   );
