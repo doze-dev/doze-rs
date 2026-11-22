@@ -68,7 +68,8 @@ export function BucketsList() {
             columns={columns}
             rowId={(r) => r.name}
             selected={selected}
-            onSelectedChange={(s) => setSelected(s.size > 1 ? new Set([[...s].at(-1)!]) : s)}
+            single
+            onSelectedChange={setSelected}
             noun="bucket"
             maxHeight={620}
             empty={`No bucket's name contains “${query}”.`}

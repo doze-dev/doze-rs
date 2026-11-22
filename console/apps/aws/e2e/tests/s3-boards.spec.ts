@@ -54,6 +54,12 @@ test("seed: three buckets with objects, versions, a delete marker, tags, a notif
   const policy = { Version: "2012-10-17", Statement: [{ Sid: "LambdaReadsImages", Effect: "Allow", Principal: { AWS: "arn:aws:iam::111122223333:role/lambda-exec" }, Action: "s3:GetObject", Resource: `arn:aws:s3:::${n.img}/*` }] };
   expect(cli(["s3api", "put-bucket-policy", "--bucket", n.img, "--policy", JSON.stringify(policy)]).code).toBe(0);
   for (const i of [1, 2, 3]) put(n.rec, `2026/r${i}.pdf`, file("r.bin", 3000));
+  // Two KMS keys: one S3 can encrypt with, and one that signs (so it cannot be used for default encryption).
+  const kms = (args: string[]) => JSON.parse(cli(["kms", ...args]).out) as { KeyMetadata: { KeyId: string } };
+  const app = kms(["create-key", "--description", "app"]).KeyMetadata.KeyId;
+  const signing = kms(["create-key", "--key-spec", "RSA_2048", "--key-usage", "SIGN_VERIFY", "--description", "signing"]).KeyMetadata.KeyId;
+  expect(cli(["kms", "create-alias", "--alias-name", `alias/larder-app-${browserName}`, "--target-key-id", app]).code).toBe(0);
+  expect(cli(["kms", "create-alias", "--alias-name", `alias/larder-signing-${browserName}`, "--target-key-id", signing]).code).toBe(0);
 });
 
 test("s3__buckets-list and s3__buckets-none: the list says how many and where; an account with none says so", async ({ page, browserName }) => {
@@ -61,6 +67,8 @@ test("s3__buckets-list and s3__buckets-none: the list says how many and where; a
   await page.goto("/resources/s3/buckets");
   await h1(page, "General purpose buckets");
   await expect(page.getByTestId("list-sentence")).toContainText("buckets in this account");
+  // The line names the bucket that keeps versions and whom it notifies, and when.
+  await expect(page.getByTestId("list-sentence")).toContainText(`${n.img} has versioning on and notifies Lambda function resize-${browserName} when an object is created.`);
   await expect(page.getByRole("link", { name: n.img })).toBeVisible();
   await expect(page.getByText("US East (N. Virginia) us-east-1").first()).toBeVisible();
   await expect(page.getByTestId("bucket-delete")).toBeDisabled();
@@ -70,6 +78,10 @@ test("s3__buckets-list and s3__buckets-none: the list says how many and where; a
   await expect(page.getByTestId("bucket-delete")).toBeEnabled();
   await expect(page.getByTestId("bucket-empty")).toBeEnabled();
   await page.getByTestId("list-search").fill("");
+  // One bucket at a time, chosen with a radio: choosing another moves the choice.
+  await expect(page.getByTestId(`select-${n.rec}`)).toHaveAttribute("role", "radio");
+  await page.getByTestId(`select-${n.thumb}`).click();
+  await expect(page.getByTestId(`select-${n.rec}`)).toHaveAttribute("aria-checked", "false");
   await page.getByTestId(`select-${n.rec}`).click();
   await shot(page, "s3__buckets-list", browserName);
   // A doze-aws with no bucket: the empty state.
@@ -97,6 +109,18 @@ test("s3__bucket-create, -create-refused, -created: a refused name says why, a g
   await expect(page.getByText("This account already has")).toContainText(n.img);
   await page.getByTestId("bucket-name").fill("x");
   await expect(page.getByTestId("call-panel-code")).toContainText("CreateBucket");
+  await expect(page.getByTestId("versioning-hint")).toContainText("turned it on; the ObjectCreated notification to resize-");
+  await expect(page.getByText("uses app and owner")).toBeVisible();
+  await expect(page.getByText(/alias\/larder-app-\w+ is a symmetric key in this Region, so it would appear in the KMS key list/)).toBeVisible();
+  // Advanced settings are open; Object Lock asks for the warning to be acknowledged before the bucket is made.
+  await expect(page.getByTestId("lock-on")).toBeVisible();
+  await page.getByTestId("lock-on").click();
+  await expect(page.getByTestId("lock-warning")).toBeVisible();
+  await expect(page.getByTestId("form-submit")).toBeDisabled();
+  await page.getByTestId("lock-ack").click();
+  await expect(page.getByTestId("form-submit")).toBeEnabled();
+  await page.getByTestId("lock-off").click();
+  await expect(page.getByTestId("lock-warning")).toHaveCount(0);
   await shot(page, "s3__bucket-create", browserName);
   // Refused: an uppercase letter and an underscore.
   await page.getByTestId("bucket-name").fill("Larder_Exports");
@@ -111,7 +135,7 @@ test("s3__bucket-create, -create-refused, -created: a refused name says why, a g
   await settled(page);
   await page.getByTestId("bucket-name").fill(n.made);
   await page.getByTestId("create-versioning-on").click();
-  await page.getByTestId("create-tags-add").click();
+  // The form starts with one empty tag row; the lines under the choices name what the account's own buckets do.
   await page.getByTestId("create-tags-key-0").fill("env");
   await page.getByTestId("create-tags-value-0").fill("dev");
   await page.getByTestId("form-submit").click();
@@ -238,6 +262,13 @@ test("the edit pages: versioning, ownership, Block Public Access, encryption, we
 
   await edit("encryption-edit", "s3__encryption-edit");
   await page.getByTestId("encryption-aws:kms").click();
+  // The key list opens: the keys S3 can use, and which cannot be used and why.
+  await expect(page.getByText(/Only a symmetric encryption key in the bucket's Region can be used\..*qualif/)).toBeVisible();
+  await expect(page.getByText(/is RSA_2048 for signing, so S3 cannot use it/)).toBeVisible();
+  await page.getByRole("combobox", { name: "Choose a KMS key" }).click();
+  await page.getByRole("option", { name: new RegExp(`alias/larder-app-${browserName}`) }).click();
+  await expect(page.getByTestId("call-panel-code")).toContainText(`:alias/larder-app-${browserName}`);
+  await page.getByTestId("kms-arn").click();
   await page.getByTestId("kms-arn-input").fill("arn:aws:kms:us-east-1:111122223333:key/abc");
   await page.getByTestId("bucket-key-on").click();
   await expect(page.getByTestId("call-panel-code")).toContainText("BucketKeyEnabled");

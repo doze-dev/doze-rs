@@ -90,7 +90,40 @@ fn sentence(r: &Read<'_>) -> Option<String> {
     Some(out)
 }
 
-/// `4 buckets in this account, all in us-east-1.`
+/// What happens, in words, when an event like `s3:ObjectCreated:Put` fires.
+fn when(event: &str) -> String {
+    let kind = event.split(':').nth(1).unwrap_or(event);
+    match kind {
+        "ObjectCreated" => "an object is created".to_owned(),
+        "ObjectRemoved" => "an object is removed".to_owned(),
+        "" => "an event happens".to_owned(),
+        other => format!("a {other} event happens"),
+    }
+}
+
+/// What one listed bucket is worth saying: that it keeps versions, and whom it notifies and when. `None` for a bucket with neither.
+fn clause(row: &ResourceRow) -> Option<String> {
+    let cell = |i: usize| row.cells.get(i).cloned().flatten();
+    let mut bits = Vec::new();
+    if cell(2).as_deref() == Some("Enabled") {
+        bits.push("versioning on".to_owned());
+    }
+    let to = [(3, "Lambda function"), (4, "SQS queue"), (5, "SNS topic")]
+        .into_iter()
+        .find_map(|(i, kind)| cell(i).map(|name| format!("{kind} {name}")));
+    if let Some(to) = to {
+        let on = cell(6).map(|e| when(&e)).unwrap_or_default();
+        bits.push(if on.is_empty() {
+            format!("notifies {to}")
+        } else {
+            format!("notifies {to} when {on}")
+        });
+    }
+    (!bits.is_empty()).then(|| format!("{} has {}", row.name, bits.join(" and ")))
+}
+
+/// `4 buckets in this account, all in us-east-1. product-images has versioning on and notifies Lambda function
+/// resize-product-image when an object is created.`
 fn summary(rows: &[ResourceRow]) -> Option<String> {
     if rows.is_empty() {
         return None;
@@ -110,6 +143,16 @@ fn summary(rows: &[ResourceRow]) -> Option<String> {
         k => out.push_str(&format!(", in {k} Regions")),
     }
     out.push('.');
+    // The first two buckets with something to say; how many more there are.
+    let said: Vec<String> = rows.iter().filter_map(clause).collect();
+    for c in said.iter().take(2) {
+        out.push_str(&format!(" {c}."));
+    }
+    if said.len() > 2 {
+        let more = i64::try_from(said.len() - 2).unwrap_or(i64::MAX);
+        let (what, verb) = if more == 1 { ("bucket", "keeps") } else { ("buckets", "keep") };
+        out.push_str(&format!(" {more} more {what} {verb} versions or notify."));
+    }
     Some(out)
 }
 
@@ -190,5 +233,45 @@ mod tests {
             summary(&[row("us-east-1"), row("eu-west-1")]).unwrap(),
             "2 buckets in this account, in 2 Regions."
         );
+    }
+
+    #[test]
+    fn the_list_names_the_buckets_that_keep_versions_or_notify() {
+        let row = |name: &str, versioning: &str, lambda: Option<&str>| ResourceRow {
+            name: name.to_owned(),
+            label: String::new(),
+            id: String::new(),
+            cells: vec![
+                Some("us-east-1".to_owned()),
+                None,
+                Some(versioning.to_owned()),
+                lambda.map(str::to_owned),
+                None,
+                None,
+                lambda.map(|_| "s3:ObjectCreated:*".to_owned()),
+            ],
+            link: None,
+        };
+        assert_eq!(
+            summary(&[
+                row("product-images", "Enabled", Some("resize-product-image")),
+                row("receipts", "Disabled", None),
+            ])
+            .unwrap(),
+            "2 buckets in this account, all in us-east-1. product-images has versioning on and notifies Lambda function \
+             resize-product-image when an object is created."
+        );
+        // Past two, the rest are counted.
+        let many: Vec<ResourceRow> = ["a", "b", "c", "d"]
+            .iter()
+            .map(|n| row(n, "Enabled", None))
+            .collect();
+        assert!(summary(&many).unwrap().ends_with(" 2 more buckets keep versions or notify."));
+        // A bucket whose settings could not be read says nothing of them.
+        let bare = ResourceRow {
+            cells: vec![Some("us-east-1".to_owned())],
+            ..row("x", "", None)
+        };
+        assert_eq!(summary(&[bare]).unwrap(), "1 bucket in this account, in us-east-1.");
     }
 }
