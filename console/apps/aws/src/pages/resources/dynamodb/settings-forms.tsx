@@ -108,7 +108,7 @@ export function TtlEdit({ name }: OwnProps) {
         </Field>
       </FormSection>
       <Callout tone="info" testId="ttl-note">
-        On AWS it takes <b className="font-semibold text-bright">about an hour</b> for TTL to be on across all partitions, and an expired item is deleted some time after it expires, typically within a few days. doze-aws deletes an expired item as soon as it falls due (at the next call, or when its timer runs). A second <span className="font-mono">UpdateTimeToLive</span> that asks for the state the table is already in is refused with a <span className="font-mono">ValidationException</span> (doze-aws: <span className="font-mono">TimeToLive is already enabled</span>).
+        On AWS it takes <b className="font-semibold text-bright">about an hour</b> for TTL to be on across all partitions, and an expired item is deleted some time after it expires, typically within a few days. doze-aws deletes an expired item as soon as it falls due (at the next call, or when its timer runs). A second <span className="font-mono">UpdateTimeToLive</span> that asks for the state the table is already in is refused with a <span className="font-mono">ValidationException</span> (doze-aws: <span className="font-mono">TimeToLive is already enabled</span>). TTL can be changed once an hour, so turning it off within an hour of turning it on is refused too.
       </Callout>
     </FormPage>
   );

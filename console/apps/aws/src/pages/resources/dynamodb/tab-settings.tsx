@@ -103,6 +103,9 @@ export function SettingsTab({ t, go }: { t: TableInfo; go: (action: string) => v
           <p>
             Items of <span className="font-mono">{t.name}</span> stop expiring by <span className="font-mono">{attribute}</span>.
           </p>
+          <p className="mt-2 text-[13px] text-muted-foreground" data-testid="ttl-off-hour">
+            DynamoDB lets Time to Live change once an hour, and doze-aws applies the same rule: turning it off within an hour of turning it on is refused with a <span className="font-mono">ValidationException</span>.
+          </p>
         </Ask>
       )}
     </div>

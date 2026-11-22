@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import type { KeyPart } from "./json";
-import { attributeOf, blankRows, itemOf, keyParam, newAttr, paramKey, rowsOf } from "./item-rows";
+import { attributeOf, blankRows, headerFit, itemOf, keyParam, newAttr, paramKey, rowsOf } from "./item-rows";
 
 const KEYS: KeyPart[] = [{ name: "pk", type: "S", role: "HASH" }, { name: "sk", type: "N", role: "RANGE" }];
 
@@ -51,5 +51,13 @@ describe("an item's key in the address", () => {
     expect(paramKey(text)).toEqual(key);
     expect(paramKey("not a key")).toBeNull();
     expect(paramKey(undefined)).toBeNull();
+  });
+});
+
+describe("headerFit", () => {
+  test("a header is as wide as its longest line, so one column never draws over the next", () => {
+    expect(headerFit("customer_id", "String")).toBeGreaterThanOrEqual(11 * 7.5 + 36);
+    expect(headerFit("a", "Number set")).toBeGreaterThan(headerFit("a", "S"));
+    expect(headerFit("delivered_at", "")).toBeGreaterThan(headerFit("pk", ""));
   });
 });
