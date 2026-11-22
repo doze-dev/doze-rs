@@ -55,7 +55,7 @@ function Plans({ service, kind, gone }: { service: string; kind: string; gone?: 
   return (
     <>
       {gone && <ResultBanner className="mb-8" title="Usage plan deleted." returned={<>Deleted <b className="font-mono font-semibold text-bright">{gone}</b>. Its keys stay, no longer limited by it.</>} onDismiss={() => go({})} testId="deleted-banner" />}
-      <PageHeader title="Usage plans" crumbs={[...crumbs, { label: "APIs", to: "/resources/apigateway/restapis" }]} sub="Who may use which stages, and how fast. A plan groups the API keys you hand to customers with the stages they may call." refresh={<RefreshControl updatedAt={plans.dataUpdatedAt} fetching={plans.isFetching} onRefresh={() => void plans.refetch()} interval={false} />} actions={create} />
+      <PageHeader title="Usage plans" crumbs={[...crumbs, { label: "Usage plans", to: "/resources/apigateway/usageplans" }]} sub="Who may use which stages, and how fast. A plan groups the API keys you hand to customers with the stages they may call." refresh={<RefreshControl updatedAt={plans.dataUpdatedAt} fetching={plans.isFetching} onRefresh={() => void plans.refetch()} interval={false} />} actions={create} />
       {plans.isError ? (
         <ErrorBlock what="The usage plans could not be listed" error={plans.error} hint={HINT} onRetry={() => void plans.refetch()} retrying={plans.isFetching} testId="list-error" />
       ) : !plans.data ? (

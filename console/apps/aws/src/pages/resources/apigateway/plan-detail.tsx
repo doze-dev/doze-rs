@@ -20,9 +20,9 @@ import { KeyRoundIcon } from "lucide-react";
 import { useResourceDetail } from "../../../api/resources";
 import { DetailError, Field, PlainConfirm, RuleHelp, Segmented, useServiceCrumbs } from "../../../kit";
 import { callKindOp } from "../../../kit";
-import { PLANS, useApiKeys, useHttpApis, usePlanKeys, usePlans, useRefreshReads, useRestApis, useStages, useWrite } from "./api";
+import { PLANS, useApiKeys, useHttpApis, usePlanKeys, usePlans, useRefreshReads, useRestApis, useStages, useStagesOf, useWrite } from "./api";
 import { Card, Mono, Rows, Said } from "./parts";
-import { addStagePatch, keyProblem, removeStagePatch } from "./plan-model";
+import { addStagePatch, firstWithFreeStage, keyProblem, removeStagePatch } from "./plan-model";
 import type { PlanKey, UsagePlan } from "./types";
 import { count, list, stageWords } from "./words";
 
@@ -94,7 +94,9 @@ function AddStage({ plan, onClose }: { plan: UsagePlan; onClose: () => void }) {
   const [api, setApi] = useState("");
   const [stage, setStage] = useState("");
   const save = useWrite(PLANS, "UpdateUsagePlan");
-  const chosen = api || rest[0]?.id || "";
+  // The API offered first is one with a stage to add: the first of the list may have none, and the dialog would open on nothing to choose.
+  const known = useStagesOf(rest.map((a) => a.id));
+  const chosen = api || firstWithFreeStage(rest, known, plan.apiStages ?? []);
   const stages = (useStages(chosen).data?.item ?? []).filter((s) => !(plan.apiStages ?? []).some((x) => x.apiId === chosen && x.stage === s.stageName));
   const st = stage && stages.some((s) => s.stageName === stage) ? stage : stages[0]?.stageName ?? "";
   const failed = save.error ? errorWords(save.error) : null;
@@ -134,7 +136,7 @@ function PlanView({ plan, updatedAt, fetching, refresh }: { plan: UsagePlan; upd
   const all = keys.data?.item ?? [];
   const stages = plan.apiStages ?? [];
   const stageText = stages.map((s) => stageWords(s, names));
-  const sentence = `${plan.name} ${stages.length === 0 ? "covers no stage yet" : `covers ${list(stageText)}`}, and holds ${count(all.length, "API key")}. A method that requires an API key is served only with one of ${all.length === 1 ? "it" : "them"}.`;
+  const sentence = `${plan.name} ${stages.length === 0 ? "covers no stage yet" : `covers ${list(stageText)}`}, and holds ${count(all.length, "API key")}. A method that requires an API key is served only with ${all.length === 0 ? "a key you add to it" : all.length === 1 ? "that key" : "one of them"}.`;
   const keyColumns: DataColumn<PlanKey>[] = [
     { id: "name", header: "Name", min: 200, accessorFn: (k) => k.name ?? "", cell: (c) => <span className="font-mono font-medium text-bright" data-testid="key-name-cell">{c.row.original.name ?? c.row.original.id}</span> },
     { id: "id", header: "ID", size: 220, accessorFn: (k) => k.id, cell: (c) => <span className="font-mono text-[13px]">{c.row.original.id}</span> },

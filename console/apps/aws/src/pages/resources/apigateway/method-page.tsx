@@ -73,7 +73,7 @@ export function MethodPage({ api, apiName, resource, method, mode, crumbs, go }:
       </Tabs>
       <div className="grid gap-6 pt-8" data-testid={`method-tab-${current}`}>
         {current === "request" && <MethodRequest api={api} apiName={apiName} method={m} resource={res} authorizers={authorizers} />}
-        {current === "integration" && <IntegrationRequest method={m} />}
+        {current === "integration" && <IntegrationRequest api={api} resource={res.id} method={m} />}
         {current === "iresponse" && <IntegrationResponses api={api} resource={res.id} method={m} />}
         {current === "mresponse" && <MethodResponses api={api} resource={res.id} method={m} />}
       </div>

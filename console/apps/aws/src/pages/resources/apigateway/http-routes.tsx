@@ -13,7 +13,7 @@ import { PlainConfirm, RecentCalls, RuleHelp } from "../../../kit";
 import { HINT } from "../index-page";
 import { HTTP, useHttpAuthorizers, useHttpStages, useIntegrations, useRoutes, useWrite } from "./api";
 import { sampleOf } from "./http-model";
-import { HTTP_SECTIONS } from "./sections";
+import { httpSections } from "./sections";
 import { ApiChips, ApiLink, Caption, Mono, Rows, Said } from "./parts";
 import type { HttpApi, HttpIntegration, Route } from "./types";
 import { authorizationWords, httpTarget, lambdaName, routesSentence } from "./words";
@@ -33,13 +33,14 @@ export function HttpRoutes({ id, api, calls, selected }: { id: string; api: Http
   const ints = integrations.data.items ?? [];
   const byId = (target: string | undefined): HttpIntegration | undefined => ints.find((i) => target === `integrations/${i.integrationId}`);
   const name = (r: Route): string | null => { const i = byId(r.target); return i ? (lambdaName(i.integrationUri) ?? httpTarget(i.integrationType, i.integrationUri)) : null; };
+  const websocket = api.protocolType === "WEBSOCKET";
   const create = <Button variant="outline" className="bg-card" onClick={() => go({ do: "create-route" })} data-testid="create-route"><PlusIcon /> Create route</Button>;
-  const chips = <ApiChips kind="apis" id={id} name={api.name} sections={HTTP_SECTIONS} current="routes" />;
+  const chips = <ApiChips kind="apis" id={id} name={api.name} sections={httpSections(api.protocolType === "WEBSOCKET")} current="routes" />;
   if (all.length === 0) {
     return (
       <>
         {chips}
-        <EmptyState icon={RouteIcon} title="No routes" action={create}>A route maps a request method and path to an integration.</EmptyState>
+        <EmptyState icon={RouteIcon} title="No routes" action={create}>{websocket ? <>A route is chosen for each message a client sends, by the API&apos;s route selection expression <span className="font-mono">{api.routeSelectionExpression ?? "$request.body.action"}</span>, and maps it to an integration.</> : "A route maps a request method and path to an integration."}</EmptyState>
       </>
     );
   }
@@ -71,7 +72,11 @@ export function HttpRoutes({ id, api, calls, selected }: { id: string; api: Http
           { label: "Integration", value: byId(chosen.target) ? <><span className="font-medium">{name(chosen)}</span> <span className="text-muted-foreground">({byId(chosen.target)!.integrationType}, <ApiLink kind="apis" id={id} search={{ tab: "integrations", key: chosen.routeId }}>change</ApiLink>)</span></> : <>No integration is attached to this route. Attach one on the <ApiLink kind="apis" id={id} search={{ tab: "integrations", key: chosen.routeId }} testId="attach-link">Integrations</ApiLink> page.</> },
           { label: "Authorization type", value: auth === "NONE" ? <>NONE: no authorizer, the route is open.</> : <>{auth}: {authorizationWords(auth)}{authorizer ? <> <span className="font-mono">{authorizer.name}</span></> : null}</> },
         ]} />
-        <RuleHelp className="mt-6">A request takes the most specific route: a full route and method, then a greedy path such as <span className="font-mono">{"{proxy+}"}</span>, then <span className="font-mono">$default</span>.{/\{[^}]+\+\}/.test(chosen.routeKey) && <> <span className="font-mono">{chosen.routeKey.split(" ")[0] === "ANY" ? "POST" : chosen.routeKey.split(" ")[0]} {sampleOf(chosen.routeKey)}</span> would land on this route.</>}</RuleHelp>
+        {websocket ? (
+          <RuleHelp className="mt-6">A message goes to the route whose key is the value of the route selection expression <span className="font-mono">{api.routeSelectionExpression ?? "$request.body.action"}</span> in it; one that selects no route goes to <span className="font-mono">$default</span>. <span className="font-mono">$connect</span> runs when a client connects and may refuse it, <span className="font-mono">$disconnect</span> when it leaves.</RuleHelp>
+        ) : (
+          <RuleHelp className="mt-6">A request takes the most specific route: a full route and method, then a greedy path such as <span className="font-mono">{"{proxy+}"}</span>, then <span className="font-mono">$default</span>.{/\{[^}]+\+\}/.test(chosen.routeKey) && <> <span className="font-mono">{chosen.routeKey.split(" ")[0] === "ANY" ? "POST" : chosen.routeKey.split(" ")[0]} {sampleOf(chosen.routeKey)}</span> would land on this route.</>}</RuleHelp>
+        )}
       </section>
       </div>
       </div>

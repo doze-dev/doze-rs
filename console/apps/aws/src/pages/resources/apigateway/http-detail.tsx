@@ -18,7 +18,7 @@ import { HttpIntegrations } from "./http-integrations";
 import { HttpRoutes } from "./http-routes";
 import { HttpStages } from "./http-stages";
 import { NameChips } from "./parts";
-import { HTTP_SECTIONS } from "./sections";
+import { httpSections } from "./sections";
 import { when } from "./words";
 
 const RouteCreate = lazy(() => import("./route-create").then((m) => ({ default: m.RouteCreate })));
@@ -47,10 +47,11 @@ function HttpView({ id, api, calls, updatedAt, fetching, refresh }: { id: string
   const navigate = useNavigate();
   const crumbs = useServiceCrumbs("apigateway");
   const s = useSearch({ strict: false }) as Search;
-  const section = HTTP_SECTIONS.find((x) => x.id === s.tab)?.id ?? "routes";
   const websocket = api.protocolType === "WEBSOCKET";
+  const sections = httpSections(websocket);
+  const section = sections.find((x) => x.id === s.tab)?.id ?? "routes";
   const go = (search: Search) => void navigate({ to: "/resources/$service/$kind/$name", params: { service: "apigateway", kind: "apis", name: id }, search: search as never });
-  const label = HTTP_SECTIONS.find((x) => x.id === section)!.label;
+  const label = sections.find((x) => x.id === section)!.label;
   const back = [...crumbs, { label: "APIs", to: "/resources/apigateway/restapis" }, { label: api.name, to: `/resources/apigateway/apis/${id}` }];
   const form = s.do ? (
     <Suspense fallback={<Skeleton className="h-96 rounded-[14px]" />}>
@@ -61,7 +62,7 @@ function HttpView({ id, api, calls, updatedAt, fetching, refresh }: { id: string
   ) : null;
   if (form) return form;
   const banner =
-    s.done === "created" ? <ResultBanner title={`${websocket ? "WebSocket" : "HTTP"} API ${api.name} created.`} returned="Its integration, route and stage were made, and the stage deploys every change." onDismiss={() => go({})} testId="created-banner" /> :
+    s.done === "created" ? <ResultBanner title={`${websocket ? "WebSocket" : "HTTP"} API ${api.name} created.`} returned={websocket ? <>CreateApi returned its ID and its address. The API has no route, integration or stage yet: add a <span className="font-mono">$connect</span> or <span className="font-mono">$default</span> route with an integration, and a stage, before a client can connect.</> : "Its integration, route and stage were made, and the stage deploys every change."} onDismiss={() => go({})} testId="created-banner" /> :
     s.done === "route" ? <ResultBanner title={`Route ${s.name} created.`} returned="CreateRoute returned its ID. Attach an integration to it on the Integrations page." onDismiss={() => go({})} testId="route-banner" /> :
     s.done === "integration" ? <ResultBanner title={`Integration ${s.name} created.`} returned="CreateIntegration returned its ID. Attach it to a route below." onDismiss={() => go({ tab: "integrations" })} testId="integration-banner" /> :
     s.done === "authorizer" ? <ResultBanner title={`Authorizer ${s.name} created.`} returned="CreateAuthorizer returned its ID. Attach it to a route below." onDismiss={() => go({ tab: "authorization" })} testId="authorizer-banner" /> :

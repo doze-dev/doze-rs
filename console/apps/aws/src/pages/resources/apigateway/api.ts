@@ -2,7 +2,7 @@
 // made through the console as the caller `console`. The REST service takes its members as the model names them (`restApiId`); the v2
 // one takes its path members capitalised (`ApiId`, `RouteId`) and writes its bodies in camelCase. Reads are made when a page opens
 // and when the person asks.
-import { useQueryClient } from "@tanstack/react-query";
+import { useQueries, useQueryClient } from "@tanstack/react-query";
 import { useResourceDetail } from "../../../api/resources";
 import { type Kind, callKindOp, useKindOp, useKindOpRead } from "../../../kit";
 import type { Authorizers, Deployments, HttpApi, HttpApis, HttpAuthorizers, HttpDeployments, HttpIntegrations, HttpStages, Resources, RestApi, RestApis, Routes, Stages, UsagePlans, ApiKeys, PlanKeys } from "./types";
@@ -19,6 +19,11 @@ export const useHttpApi = (id: string) => useKindOpRead<HttpApi>(HTTP, "GetApi",
 /** The whole tree of a REST API in one read, each resource with its methods (and their integrations and responses). */
 export const useResources = (id: string, enabled = true) => useKindOpRead<Resources>(REST, "GetResources", { restApiId: id, embed: ["methods"], limit: 500 }, enabled);
 export const useStages = (id: string, enabled = true) => useKindOpRead<Stages>(REST, "GetStages", { restApiId: id }, enabled);
+/** The stages of each REST API asked for, by API id (an API whose read has not answered has no key): the same reads as {@link useStages}. */
+export function useStagesOf(ids: readonly string[]): Record<string, Stages["item"] | undefined> {
+  const reads = useQueries({ queries: ids.map((id) => ({ queryKey: ["resources", "kindop", REST.service, REST.kind, "GetStages", { restApiId: id }], queryFn: ({ signal }: { signal: AbortSignal }) => callKindOp<Stages>(REST, "GetStages", { restApiId: id }, signal), retry: false })) });
+  return Object.fromEntries(ids.flatMap((id, i) => (reads[i]?.data ? [[id, reads[i]!.data!.item] as const] : [])));
+}
 export const useDeployments = (id: string) => useKindOpRead<Deployments>(REST, "GetDeployments", { restApiId: id, limit: 500 });
 export const useAuthorizers = (id: string) => useKindOpRead<Authorizers>(REST, "GetAuthorizers", { restApiId: id, limit: 500 });
 /** The plans of the account, for what names an API (a delete says which plan covers it). */

@@ -13,7 +13,7 @@ import { CallPanel, Field, PlainConfirm, RuleHelp } from "../../../kit";
 import { HINT } from "../index-page";
 import { HTTP, useHttpAuthorizers, useRoutes, useWrite } from "./api";
 import { ApiChips } from "./parts";
-import { HTTP_SECTIONS } from "./sections";
+import { httpSections } from "./sections";
 import type { HttpApi, HttpAuthorizer, Route } from "./types";
 import { lambdaName, list } from "./words";
 
@@ -53,7 +53,7 @@ export function HttpAuthorization({ id, api, mode }: { id: string; api: HttpApi;
   ];
   return (
     <>
-      <ApiChips kind="apis" id={id} name={api.name} sections={HTTP_SECTIONS} current="authorization" />
+      <ApiChips kind="apis" id={id} name={api.name} sections={httpSections(api.protocolType === "WEBSOCKET")} current="authorization" />
       <Tabs value={manage ? "manage" : "attach"} onValueChange={(v) => go({ tab: "authorization", mode: v })} className="gap-0">
         <TabsList variant="line" className="h-11 w-full justify-start gap-4 rounded-none border-b p-0" aria-label="Authorization pages">
           <TabsTrigger value="attach" className="h-11 flex-none px-2 text-[14.5px] after:bottom-[-1px]" data-testid="tab-attach">Attach authorizer</TabsTrigger>

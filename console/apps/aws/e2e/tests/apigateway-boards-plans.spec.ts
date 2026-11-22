@@ -29,6 +29,11 @@ test("apigateway__rest-usage-plan-create: a name, a throttle and a quota, the ca
   await go(page, "/resources/apigateway/usageplans?do=create", "Create usage plan");
   await page.getByTestId("plan-name").fill("partners-premium");
   await page.getByTestId("plan-description").fill("Partner storefronts, premium tier");
+  // Throttling and Quota are toggles: off, a plan has neither and the call carries neither; on, each opens its fields.
+  await expect(page.getByTestId("plan-rate")).toHaveCount(0);
+  await expect(page.getByTestId("call-panel")).not.toContainText("throttle");
+  await page.getByTestId("plan-throttle").click();
+  await page.getByTestId("plan-quota").click();
   await page.getByTestId("plan-rate").fill("200");
   await page.getByTestId("plan-burst").fill("400");
   await page.getByTestId("plan-limit").fill("100000");

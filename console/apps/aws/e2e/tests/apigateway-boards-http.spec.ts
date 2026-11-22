@@ -21,11 +21,20 @@ test("apigateway__http-create (and its routes, stage and review steps): four ste
   await page.getByTestId("api-name").fill("larder-reports");
   await expect(page.getByTestId("section-api")).toContainText("This Region already has 2 REST APIs, larder-internal and larder-public, and 2 HTTP APIs, larder-admin and larder-hooks.");
   await expect(page.getByTestId("section-api")).toContainText("Stored, not applied locally.");
+  await expect(page.getByTestId("function-region")).toContainText("us-east-1");
   await shot(page, "http-create");
+  // Add integration: a second backend with its own route (a Lambda function and an HTTP endpoint behind one API).
+  await page.getByTestId("add-integration").click();
+  await expect(page.getByTestId("integration-2")).toContainText("Integration 2");
+  await page.getByTestId("integration-kind-2").click();
+  await page.getByRole("option", { name: "HTTP URI" }).click();
+  await page.getByTestId("integration-url-2").fill("https://orders.larder.example.com/{proxy}");
   await next(page);
   await expect(page.locator("h1")).toHaveText("Configure routes");
   await expect(page.getByTestId("route-path")).toHaveValue("/export-report");
-  await expect(page.getByTestId("section-match")).toContainText("The console names the first route after the Lambda function.");
+  await expect(page.getByTestId("section-match")).toContainText("The console names each route after its Lambda function.");
+  await choose(page, "route-method-2", "POST");
+  await page.getByTestId("route-path-2").fill("/orders/{proxy+}");
   await expect(page.getByTestId("section-match")).toContainText("larder-admin already has GET /reports and POST /reports/run; this new API is separate.");
   await shot(page, "http-create-routes");
   await next(page);
@@ -38,12 +47,15 @@ test("apigateway__http-create (and its routes, stage and review steps): four ste
   const summary = page.getByTestId("section-summary");
   await expect(summary).toContainText("larder-reports");
   await expect(summary).toContainText("ANY /export-report");
+  await expect(summary).toContainText("POST /orders/{proxy+}");
   const code = page.getByTestId("call-panel-code");
-  await expect(code).toHaveCount(4);
+  await expect(code).toHaveCount(6);
   await expect(code.nth(0)).toContainText('"protocolType": "HTTP"');
   await expect(code.nth(1)).toContainText('"integrationType": "AWS_PROXY"');
   await expect(code.nth(2)).toContainText('"routeKey": "ANY /export-report"');
-  await expect(code.nth(3)).toContainText('"autoDeploy": true');
+  await expect(code.nth(3)).toContainText('"integrationType": "HTTP_PROXY"');
+  await expect(code.nth(4)).toContainText('"routeKey": "POST /orders/{proxy+}"');
+  await expect(code.nth(5)).toContainText('"autoDeploy": true');
   await expect(page.getByTestId("call-panel")).toContainText("Each call also carries the new API's ID.");
   await shot(page, "http-create-review");
   await page.getByTestId("edit-routes").click();
@@ -55,6 +67,8 @@ test("apigateway__http-create (and its routes, stage and review steps): four ste
   await expect(page.locator("h1")).toHaveText("Routes");
   const made = json<{ Items: { Name: string; ApiId: string }[] }>(["apigatewayv2", "get-apis"]).Items.find((a) => a.Name === "larder-reports")!;
   expect(cli(["apigatewayv2", "get-routes", "--api-id", made.ApiId])).toContain("ANY /export-report");
+  expect(cli(["apigatewayv2", "get-routes", "--api-id", made.ApiId])).toContain("POST /orders/{proxy+}");
+  expect(json<{ Items: unknown[] }>(["apigatewayv2", "get-integrations", "--api-id", made.ApiId]).Items).toHaveLength(2);
   expect(cli(["apigatewayv2", "get-stages", "--api-id", made.ApiId])).toContain("$default");
 });
 
@@ -237,6 +251,20 @@ test("apigateway: a route and an integration are made on the pages, and a WebSoc
   await page.getByTestId("form-submit").click();
   await expect(page.getByTestId("created-banner")).toContainText("WebSocket API larder-live created.");
   await expect(page.getByTestId("chip-kind")).toHaveText("WebSocket");
+  // It is said as it is: nothing was made but the API, a WebSocket API has no CORS, and its routes and address are its own.
+  await expect(page.getByTestId("created-banner")).toContainText("The API has no route, integration or stage yet");
+  await expect(page.getByTestId("created-banner")).not.toContainText("Its integration, route and stage were made");
+  await expect(page.getByTestId("chip-routes")).toBeVisible();
+  await expect(page.getByTestId("chip-cors")).toHaveCount(0);
+  await expect(page.getByTestId("http-page")).toContainText("A route is chosen for each message a client sends, by the API's route selection expression $request.body.action");
+  const live = json<{ Items: { Name: string; ApiId: string }[] }>(["apigatewayv2", "get-apis"]).Items.find((a) => a.Name === "larder-live")!;
+  cli(["apigatewayv2", "create-stage", "--api-id", live.ApiId, "--stage-name", "prod"]);
+  await go(page, apiPath("apis", live.ApiId, "?tab=stages"), "Stages");
+  const details = page.getByTestId("stage-details");
+  await expect(details).toContainText(`wss://${live.ApiId}.execute-api.us-east-1.amazonaws.com/prod`);
+  await expect(details).toContainText(`ws://`);
+  await expect(details).not.toContainText("https://");
+  await expect(details).toContainText("A client connects to the stage's address");
 });
 
 test("apigateway__apis-none: with every API deleted the list says so, and a route is deleted from its row", async ({ page }) => {

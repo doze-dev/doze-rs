@@ -1,8 +1,12 @@
 // A method's integration request page (apigateway__rest-integration-request): what the backend is sent (its type, verb, URL, timeout), the
 // parameters mapped from the method request, and the mapping templates. What doze-aws applies and what it keeps is said where each is shown.
+import { PencilIcon } from "lucide-react";
+import { useState } from "react";
 import { type DataColumn, DataTable } from "@doze/ui/components/app/data-table";
+import { Button } from "@doze/ui/components/ui/button";
 import { CodeBlock } from "@doze/ui/components/app/code-block";
 import { RuleHelp } from "../../../kit";
+import { IntegrationEditDialog } from "./integration-edit";
 import { Card, Dim, Mono, Rows } from "./parts";
 import type { RestMethod } from "./types";
 import { integrationKind } from "./words";
@@ -15,7 +19,8 @@ const mapped = (m: RestMethod, where: "querystring" | "path" | "header"): Mapped
 };
 const PASS: Record<string, string> = { WHEN_NO_MATCH: "When no template matches the content type, pass the body through", WHEN_NO_TEMPLATES: "Pass the body through only when the integration has no template", NEVER: "Never: a body with no matching template is refused (415)" };
 
-export function IntegrationRequest({ method: m }: { method: RestMethod }) {
+export function IntegrationRequest({ api, resource, method: m }: { api: string; resource: string; method: RestMethod }) {
+  const [editing, setEditing] = useState(false);
   const i = m.methodIntegration;
   if (!i) return <Card title="Integration request settings" testId="integration-settings"><p className="text-[14px] text-muted-foreground">This method has no integration yet, so nothing is sent anywhere.</p></Card>;
   const proxy = i.type === "AWS_PROXY" || i.type === "HTTP_PROXY";
@@ -32,7 +37,7 @@ export function IntegrationRequest({ method: m }: { method: RestMethod }) {
   const templates = Object.entries(i.requestTemplates ?? {});
   return (
     <>
-      <Card title="Integration request settings" testId="integration-settings">
+      <Card title="Integration request settings" action={<Button variant="outline" size="sm" className="bg-card" onClick={() => setEditing(true)} data-testid="edit-integration"><PencilIcon /> Edit</Button>} testId="integration-settings">
         <Rows rows={[
           { label: "Integration type", value: integrationKind(i) },
           ...(lambda || i.type === "HTTP" || i.type === "HTTP_PROXY" ? [{ label: lambda ? "Lambda proxy integration" : "HTTP proxy integration", value: proxy ? "On" : "Off" }] : []),
@@ -66,6 +71,7 @@ export function IntegrationRequest({ method: m }: { method: RestMethod }) {
           </div>
         )}
       </Card>
+      {editing && <IntegrationEditDialog api={api} resource={resource} method={m.httpMethod} integration={i} onClose={() => setEditing(false)} />}
     </>
   );
 }
