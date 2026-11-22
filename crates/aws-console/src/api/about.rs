@@ -89,12 +89,15 @@ pub fn row(service: &ServiceFacts) -> ServiceRow {
     }
 }
 
-/// `GET /api/v1/services`.
+/// `GET /api/v1/services`, in the Resources index's order: a group's services together.
 pub async fn services(State(s): State<Shared>) -> Response {
-    json(
-        StatusCode::OK,
-        &ServicesResponse {
-            services: s.facts.services.iter().map(row).collect(),
-        },
-    )
+    let place = |name: &str| {
+        crate::resources::catalog::ALL
+            .iter()
+            .position(|e| e.service == name)
+            .unwrap_or(usize::MAX)
+    };
+    let mut services: Vec<ServiceRow> = s.facts.services.iter().map(row).collect();
+    services.sort_by_key(|r| place(&r.name));
+    json(StatusCode::OK, &ServicesResponse { services })
 }

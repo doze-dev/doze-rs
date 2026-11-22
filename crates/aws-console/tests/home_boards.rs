@@ -108,3 +108,17 @@ async fn a_subscription_nothing_is_delivered_to_needs_a_look() {
     assert_eq!(found["count"], 2);
     assert_eq!(found["detail"], "2 subscriptions stored");
 }
+
+#[tokio::test]
+async fn services_come_in_the_order_of_the_resources_index() {
+    let w = world("order", Mode::Soft, &[]);
+    let (_, services) = w.get("/api/v1/services").await;
+    let names: Vec<&str> = services["services"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|s| s["name"].as_str().unwrap())
+        .collect();
+    let at = |n: &str| names.iter().position(|x| *x == n).unwrap();
+    assert!(at("sqs") < at("sns") && at("sns") < at("s3") && at("s3") < at("iam"), "{names:?}");
+}

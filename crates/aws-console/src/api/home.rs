@@ -95,11 +95,12 @@ fn signals(app: &[&Call], s: &Shared) -> Vec<Signal> {
         out.push(Signal {
             kind: SignalKind::NotBuilt,
             count: unbuilt,
-            title: format!(
-                "{} not built",
-                plural(unbuilt, "call to an operation", "calls to operations")
-            ),
-            detail: named,
+            title: "NOT BUILT".to_owned(),
+            detail: if named.is_empty() {
+                format!("{} refused", plural(unbuilt, "call", "calls"))
+            } else {
+                format!("{} refused: {named}", plural(unbuilt, "call", "calls"))
+            },
             href: Some("/live?outcome=not-built".to_owned()),
             resource: None,
         });

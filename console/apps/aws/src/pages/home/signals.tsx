@@ -17,6 +17,7 @@ const TONE: Record<SignalKind, Tone> = {
   alarm: "bad",
   "failed-executions": "bad",
   "failed-stack": "bad",
+  "not-active": "idle",
 };
 
 /** `/live?outcome=error&service=sqs` as a route and its search. */
@@ -43,6 +44,13 @@ function Chip({ s }: { s: Signal }) {
       </ResourceTo>
     );
   const r = routeOf(s.href ?? "/live");
+  const [, , service, second] = r.to.split("/");
+  if (r.to.startsWith("/resources/") && service && second)
+    return (
+      <Link to="/resources/$service/$second" params={{ service, second }} search={{}} className={CHIP} data-testid="signal" data-kind={s.kind}>
+        {body}
+      </Link>
+    );
   if (r.to === "/access")
     return (
       <Link to="/access" className={CHIP} data-testid="signal" data-kind={s.kind}>
