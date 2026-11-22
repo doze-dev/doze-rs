@@ -196,10 +196,10 @@ test("lambda__test-result-error: the function threw, the call still answered 200
   await page.getByTestId("invoke-run").click();
   await expect(page.getByTestId("invoke-status")).toHaveText("The function returned an error. The response is an error object instead of a result.");
   await expect(page.getByTestId("invoke-payload")).toContainText('"errorType": "KeyError"');
-  // The trace is the handler's frame alone: no frame of the runtime shim, and the data directory the code was unpacked under is left out.
-  await expect(page.getByTestId("invoke-payload")).toContainText('File \\"…/lambda_function.py\\", line 8, in lambda_handler');
+  // The trace is the handler's frame alone: no frame of the runtime shim, and the code is at /var/task as Lambda shows it, not in the data directory it was unpacked under.
+  await expect(page.getByTestId("invoke-payload")).toContainText('File \\"/var/task/lambda_function.py\\", line 8, in lambda_handler');
   await expect(page.getByTestId("invoke-payload")).not.toContainText("bootstrap");
-  await expect(page.getByTestId("invoke-log")).toContainText('File "…/lambda_function.py", line 8, in lambda_handler');
+  await expect(page.getByTestId("invoke-log")).toContainText('File "/var/task/lambda_function.py", line 8, in lambda_handler');
   await expect(page.getByTestId("invoke-log")).not.toContainText("bootstrap");
   await expect(page.getByTestId("invoke-log")).not.toContainText(server.dataDir);
   await expect(page.getByTestId("invoke-error-teach")).toContainText("X-Amz-Function-Error");

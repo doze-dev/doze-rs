@@ -198,7 +198,7 @@ def main():
         handler = _load_handler(spec)
     except Exception as e:  # noqa: BLE001 — every init failure is reported the same way
         print("[ERROR] %s: %s" % (type(e).__name__, e))
-        sys.stderr.write("".join(_trace(e).format()))
+        sys.stderr.write(_shown("".join(_trace(e).format())))
         try:
             _post("init/error", _error_body(e), {"Lambda-Runtime-Function-Error-Type": "Runtime." + ("ImportModuleError" if isinstance(e, ImportError) else "HandlerNotFound" if isinstance(e, AttributeError) else type(e).__name__)})
         finally:
@@ -227,7 +227,7 @@ def main():
             _post("invocation/%s/response" % request_id, out)
         except Exception as e:  # noqa: BLE001 — a handler may raise anything
             print("[ERROR] %s: %s" % (type(e).__name__, e))
-            sys.stderr.write("".join(_trace(e).format()))
+            sys.stderr.write(_shown("".join(_trace(e).format())))
             _post("invocation/%s/error" % request_id, _error_body(e, request_id),
                   {"Lambda-Runtime-Function-Error-Type": type(e).__name__})
         finally:
