@@ -8,7 +8,7 @@ export type Mode = "create" | "update" | "changeset";
 
 /** What `GetTemplateSummary` says of a template: its parameters, what it needs acknowledged, what it makes. */
 export type Declared = { ParameterKey: string; ParameterType?: string; DefaultValue?: string; NoEcho?: boolean; Description?: string; ParameterConstraints?: { AllowedValues?: string[] } };
-export type Summary = { Description?: string; Parameters?: Declared[]; ResourceTypes?: string[]; Capabilities?: string[]; CapabilitiesReason?: string };
+export type Summary = { Description?: string; Parameters?: Declared[]; ResourceTypes?: string[]; /** Each type that can be imported, with the logical IDs of the resources of it. */ ResourceIdentifierSummaries?: { ResourceType: string; LogicalResourceIds?: string[] }[]; Capabilities?: string[]; CapabilitiesReason?: string };
 
 export type Wizard = {
   mode: Mode;

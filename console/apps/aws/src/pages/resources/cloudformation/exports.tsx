@@ -28,8 +28,8 @@ type Row = { name: string; value: string; stack: string };
 
 const mono = "font-mono text-[13px]";
 const COLUMNS: DataColumn<Row>[] = [
-  { id: "n", header: "Export name", size: 330, min: 200, accessorFn: (r) => r.name.toLowerCase(), cell: (c) => <ResourceTo to={{ service: "cloudformation", kind: "exports", name: c.row.original.name }} className={`${mono} font-medium break-all whitespace-normal`} testId="export-link">{c.row.original.name}</ResourceTo> },
-  { id: "v", header: "Value", size: 440, min: 200, accessorKey: "value", cell: (c) => <span className={`${mono} break-all whitespace-normal`}>{c.row.original.value}</span> },
+  { id: "n", header: "Export name", size: 330, min: 200, accessorFn: (r) => r.name.toLowerCase(), cell: (c) => <ResourceTo to={{ service: "cloudformation", kind: "exports", name: c.row.original.name }} className={`${mono} font-medium [overflow-wrap:anywhere] whitespace-normal`} testId="export-link">{c.row.original.name}</ResourceTo> },
+  { id: "v", header: "Value", size: 440, min: 200, accessorKey: "value", cell: (c) => <span className={`${mono} [overflow-wrap:anywhere] whitespace-normal`}>{c.row.original.value}</span> },
   { id: "s", header: "Exporting stack", accessorKey: "stack", cell: (c) => <StackTo name={c.row.original.stack} /> },
 ];
 
@@ -93,12 +93,12 @@ export function ExportPage({ service, kind, name }: OwnProps) {
       <PageHeader
         title={exportName}
         mono
-        crumbs={[{ label: "Resources", to: "/resources" }, { label: "Infrastructure", to: "/resources" }, { label: "CloudFormation", to: `/resources/${service}` }, { label: "Exports", to: `/resources/${service}/${kind}` }]}
+        crumbs={[{ label: "Resources", to: "/resources" }, { label: "Infrastructure", to: "/resources" }, { label: "CloudFormation", to: `/resources/${service}` }, { label: "Exports", to: `/resources/${service}/${kind}` }, { label: exportName, to: "" }]}
         sub={<>An exported output of <StackTo name={stack} className="font-sans text-[15px] font-normal text-foreground no-underline" />, read by other stacks with Fn::ImportValue.</>}
       />
       {said && <Lede said={{ text: said, names: [stack, ...(users ?? [])] }} testId="export-sentence" bold={[/^\d+ stacks?/]} />}
       <div className="grid gap-8">
-        <Facts title="Export" testId="export-facts" wide={[{ label: "Export Name", value: exportName, mono: true }, { label: "Exporting stack", value: <StackTo name={stack} /> }, { label: "Value", value: found.Value, mono: true }]} rows={[]} />
+        <Facts title="Export" testId="export-facts" wide={[{ label: "Export Name", value: exportName, mono: true }, { label: "Value", value: found.Value, mono: true }, { label: "Exporting stack", value: <StackTo name={stack} /> }]} rows={[]} />
         <section className="grid gap-3" aria-label="Importing stacks" data-testid="importers">
           <div><h2 className="text-[17px] leading-6 font-semibold tracking-[-0.01em] text-bright">Importing stacks</h2><p className="mt-1 text-[13.5px] text-muted-foreground">Stacks whose templates use Fn::ImportValue on this name.</p></div>
           {users === undefined ? <Skeleton className="h-24 rounded-[12px]" /> : rows.length === 0 ? <EmptyTab title="No stack imports this export" testId="importers-none">Nothing uses {exportName} yet.</EmptyTab> : <DataTable aria-label="Importing stacks" data={rows} columns={columns} rowId={(r) => r.stack} rowHeight={48} maxHeight={320} />}

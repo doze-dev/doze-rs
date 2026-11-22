@@ -25,7 +25,7 @@ const RESOURCE_COLUMNS: DataColumn<StackResource>[] = [
       const to = resourceTarget(c.row.original);
       const id = c.row.original.PhysicalResourceId;
       if (!id) return <span className="text-muted-foreground">–</span>;
-      return to ? <ResourceTo to={to} className={`${mono} break-all whitespace-normal`}>{id}</ResourceTo> : <span className={`${mono} break-all whitespace-normal`}>{id}</span>;
+      return to ? <ResourceTo to={to} className={`${mono} [overflow-wrap:anywhere] whitespace-normal`}>{id}</ResourceTo> : <span className={`${mono} [overflow-wrap:anywhere] whitespace-normal`}>{id}</span>;
     },
   },
   { id: "t", header: "Type", size: 250, accessorKey: "ResourceType", cell: (c) => <span className={mono}>{c.row.original.ResourceType}</span> },
@@ -53,9 +53,9 @@ export function OutputsTab({ stack, importers }: { stack: Stack; importers: Read
   const users = [...new Set(Object.values(importers ?? {}).flat())];
   const columns: DataColumn<(typeof outputs)[number]>[] = [
     { id: "k", header: "Key", size: 220, accessorKey: "OutputKey", cell: (c) => <span className={`${mono} font-medium text-bright`}>{c.row.original.OutputKey}</span> },
-    { id: "v", header: "Value", size: 400, min: 200, accessorFn: (r) => r.OutputValue ?? "", cell: (c) => <span className={`${mono} break-all whitespace-normal`}>{c.row.original.OutputValue}</span> },
+    { id: "v", header: "Value", size: 400, min: 200, accessorFn: (r) => r.OutputValue ?? "", cell: (c) => <span className={`${mono} [overflow-wrap:anywhere] whitespace-normal`}>{c.row.original.OutputValue}</span> },
     { id: "d", header: "Description", size: 260, accessorFn: (r) => r.Description ?? "", cell: (c) => <span className="whitespace-normal">{c.row.original.Description ?? <span className="text-muted-foreground">–</span>}</span> },
-    { id: "e", header: "Export name", accessorFn: (r) => r.ExportName ?? "", cell: (c) => (c.row.original.ExportName ? <ResourceTo to={{ service: "cloudformation", kind: "exports", name: c.row.original.ExportName }} className={`${mono} break-all whitespace-normal`}>{c.row.original.ExportName}</ResourceTo> : <span className="text-muted-foreground">Not exported</span>) },
+    { id: "e", header: "Export name", accessorFn: (r) => r.ExportName ?? "", cell: (c) => (c.row.original.ExportName ? <ResourceTo to={{ service: "cloudformation", kind: "exports", name: c.row.original.ExportName }} className={`${mono} [overflow-wrap:anywhere] whitespace-normal`}>{c.row.original.ExportName}</ResourceTo> : <span className="text-muted-foreground">Not exported</span>) },
   ];
   return (
     <Section title="Outputs" lede="Values the template declares in its Outputs section. An output with an export name is visible to other stacks." testId="stack-outputs">
@@ -69,12 +69,13 @@ export function OutputsTab({ stack, importers }: { stack: Stack; importers: Read
 }
 
 export function ParametersTab({ stack }: { stack: Stack }) {
-  const params = stack.Parameters ?? [];
+  // By key, as the board lists them (DescribeStacks answers in the template's order).
+  const params = [...(stack.Parameters ?? [])].sort((a, b) => a.ParameterKey.localeCompare(b.ParameterKey));
   if (params.length === 0) return <EmptyTab icon={SlidersHorizontalIcon} title="No parameters" testId="parameters-none">This stack's template declares no parameters.</EmptyTab>;
   const hidden = params.filter((p) => p.ParameterValue === "****").map((p) => p.ParameterKey);
   const columns: DataColumn<(typeof params)[number]>[] = [
     { id: "k", header: "Key", size: 280, accessorKey: "ParameterKey", cell: (c) => <span className={`${mono} font-medium text-bright`}>{c.row.original.ParameterKey}</span> },
-    { id: "v", header: "Value", accessorFn: (r) => r.ParameterValue ?? "", cell: (c) => <span className={`${mono} break-all whitespace-normal`}>{c.row.original.ParameterValue}</span> },
+    { id: "v", header: "Value", accessorFn: (r) => r.ParameterValue ?? "", cell: (c) => <span className={`${mono} [overflow-wrap:anywhere] whitespace-normal`}>{c.row.original.ParameterValue}</span> },
   ];
   return (
     <Section title="Parameters" lede="The values the stack was created with, as the template's parameters received them." testId="stack-parameters">

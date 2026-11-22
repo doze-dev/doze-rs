@@ -109,3 +109,16 @@ export function typeWords(type: string): string {
 
 /** A failure reason without the request token and handler code CloudFormation appends: `already exists.`. */
 export const plainReason = (reason: string): string => reason.replace(/\s*\(RequestToken:[^)]*\)\.?\s*$/, "").replace(/^Resource handler returned message: "?/, "").replace(/"$/, "").trim();
+
+/** What a template makes, said by name when GetTemplateSummary names every resource (`SearchIndexTable (DynamoDB table) and SearchReindexQueue (SQS queue)`),
+ * else by how many kinds of resource it makes (`2 resource types`). It names resources only for the types it has the logical IDs of. */
+export function makesWords(types: readonly string[] | undefined, identified: readonly { ResourceType: string; LogicalResourceIds?: string[] }[] | undefined): string {
+  const kinds = types ?? [];
+  const named = (identified ?? []).flatMap((i) => (i.LogicalResourceIds ?? []).map((id) => ({ id, type: i.ResourceType })));
+  const covered = kinds.length > 0 && kinds.every((t) => (identified ?? []).some((i) => i.ResourceType === t && (i.LogicalResourceIds ?? []).length > 0));
+  if (covered && named.length > 0) {
+    const parts = named.sort((a, b) => a.id.localeCompare(b.id)).map((r) => `${r.id} (${typeWords(r.type)})`);
+    return parts.length === 1 ? parts[0]! : `${parts.slice(0, -1).join(", ")} and ${parts[parts.length - 1]}`;
+  }
+  return `${kinds.length} resource type${kinds.length === 1 ? "" : "s"}`;
+}

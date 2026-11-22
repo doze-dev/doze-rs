@@ -168,6 +168,9 @@ test("cloudformation__stack-parameters: the values it was created with, a NoEcho
   await tab(page, "larder-core", "parameters");
   const p = page.getByTestId("stack-parameters");
   await expect(p.locator("tbody tr")).toHaveCount(5);
+  // By key, not in the template's order.
+  const keys = (await p.locator("tbody tr td:first-child").allInnerTexts()).map((s) => s.trim());
+  expect(keys).toEqual([...keys].sort((a, b) => a.localeCompare(b)));
   await expect(p.locator("tr", { hasText: "WebhookSecret" })).toContainText("****");
   await expect(p).toContainText("WebhookSecret is declared with NoEcho");
   await expect(p).toContainText("Use existing value");
@@ -199,6 +202,12 @@ test("cloudformation__stack-changesets: each set a link, a failed one explained"
   await expect(t).toContainText("A change set with status FAILED can't be executed");
   await expect(page.getByTestId("changeset-create")).toBeVisible();
   await shot(page, "stack-changesets");
+  // The failed set's own page: the reason ends in one full stop, and it does not say what executing would do (it cannot be executed).
+  await t.getByRole("link", { name: "same-as-deployed" }).click();
+  await expect(page.getByTestId("changeset-page")).toContainText("It could not be made: The submitted information didn't contain changes");
+  await expect(page.getByTestId("changeset-page")).not.toContainText("..");
+  await expect(page.getByTestId("executes")).toHaveCount(0);
+  await expect(page.getByTestId("execute-changeset")).toBeDisabled();
 });
 
 test("cloudformation__outputs-none, parameters-none, changesets-none: a stack that has none says so", async ({ page }) => {
@@ -367,6 +376,7 @@ test("cloudformation__stack-create-details, options, review and changeset: the w
   await expect(page.getByTestId("call-panel-code").first()).toContainText("CreateStack");
   await expect(page.getByTestId("call-panel-code").first()).toContainText('"StackName": "larder-search"');
   await expect(page.getByTestId("call-panel-code").first()).toContainText('"ParameterKey": "TableName"');
+  await expect(page.getByTestId("stack-wizard")).toContainText("This template makes SearchIndexTable (DynamoDB table) and SearchReindexQueue (SQS queue).");
   await expect(page.getByTestId("review-edit-Specify stack details")).toBeVisible();
   await shot(page, "stack-create-review");
   // Edit goes back to the step, and Next comes forward to where it was.
@@ -464,6 +474,13 @@ test("cloudformation__stack-update, details, options, review and updated: the wi
   expect(sets.Summaries.some((s) => s.ChangeSetName.startsWith("console-preview-"))).toBe(false);
 });
 
+test("cloudformation__stack-detail: the banner after a create says what the stack is now, not that it is being made", async ({ page }) => {
+  // larder-observability was created long ago and is CREATE_COMPLETE: a create that has already finished is not "being created".
+  await go(page, stack("larder-observability", "?done=created"), "larder-observability");
+  await expect(page.getByTestId("created-banner")).toContainText("Stack larder-observability created.");
+  await expect(page.getByTestId("created-banner")).not.toContainText("being created");
+});
+
 test("cloudformation__stack-delete and stack-deleted: what goes, what stays, and the record by id", async ({ page, refusals }) => {
   // A name that was never a stack is asked for, and refused. (The stack that is deleted is not: it is read by its ID to the end.)
   refusals.allow(/400 GET .*\/cloudformation\/stacks\/never-was$/);
@@ -500,6 +517,33 @@ test("cloudformation__stack-delete and stack-deleted: what goes, what stays, and
   await expect(page.getByTestId("stack-none")).toContainText("There is no stack named never-was");
 });
 
+test("cloudformation__stack-review-pending: Delete change set asks first, then leaves the stack with none and reads nothing that is gone", async ({ page, refusals }) => {
+  const tpl = join(tmpdir(), `cfn-drop-${process.pid}.json`);
+  writeFileSync(tpl, JSON.stringify({ Resources: { Queue: { Type: "AWS::SQS::Queue", Properties: { QueueName: "drop-set-queue" } } } }));
+  cli(["cloudformation", "create-change-set", "--stack-name", "larder-drop-set", "--change-set-name", "to-drop", "--change-set-type", "CREATE", "--template-body", `file://${tpl}`]);
+  await expect(async () => expect(cli(["cloudformation", "describe-change-set", "--stack-name", "larder-drop-set", "--change-set-name", "to-drop"])).toContain("CREATE_COMPLETE")).toPass({ timeout: 15_000 });
+  // A preview a closed tab left behind (nobody beats for it): the stack's page removes it, and it is not the set to execute.
+  cli(["cloudformation", "create-change-set", "--stack-name", "larder-drop-set", "--change-set-name", "console-preview-1", "--change-set-type", "CREATE", "--template-body", `file://${tpl}`]);
+  await go(page, stack("larder-drop-set"), "larder-drop-set");
+  await expect(async () => expect(cli(["cloudformation", "list-change-sets", "--stack-name", "larder-drop-set"])).not.toContain("console-preview-1")).toPass({ timeout: 15_000 });
+  expect(cli(["cloudformation", "list-change-sets", "--stack-name", "larder-drop-set"])).toContain("to-drop");
+  await expect(page.getByTestId("review-note")).toContainText("Nothing is deployed yet.");
+  // It asks, and Cancel leaves the change set where it is.
+  await page.getByTestId("verb-dropset").click();
+  const dialog = page.getByTestId("drop-changeset-dialog");
+  await expect(dialog).toContainText("Delete change set?");
+  await expect(dialog).toContainText("to-drop");
+  await dialog.getByRole("button", { name: "Cancel" }).click();
+  await expect(dialog).toHaveCount(0);
+  expect(cli(["cloudformation", "list-change-sets", "--stack-name", "larder-drop-set"])).toContain("to-drop");
+  await page.getByTestId("verb-dropset").click();
+  await page.getByTestId("drop-changeset-dialog").getByRole("button", { name: "Delete change set" }).click();
+  await expect(page.getByTestId("review-none")).toContainText("No change set is left.");
+  await expectNoErrorAnswers(page, refusals);
+  expect(cli(["cloudformation", "list-change-sets", "--stack-name", "larder-drop-set"])).not.toContain("to-drop");
+  cli(["cloudformation", "delete-stack", "--stack-name", "larder-drop-set"]);
+});
+
 test("cloudformation__stacks-none and exports-none: every stack deleted", async ({ page }) => {
   cli(["cloudformation", "delete-stack", "--stack-name", "larder-edge"]);
   await expect(async () => {
@@ -520,5 +564,9 @@ test("cloudformation__stacks-none and exports-none: every stack deleted", async 
   await expect(page.getByTestId("list-empty")).toContainText("You have no stacks in this region.");
   await expect(page.getByTestId("create-open")).toHaveCount(2 - 1);
   await shot(page, "stacks-none");
+  // The Filter is gone with the stacks, but the deleted ones are one click away (a deleted stack's page tells to choose Deleted).
+  await page.getByTestId("show-deleted").getByRole("button", { name: "Show deleted stacks" }).click();
+  await expect(page.getByTestId("deleted-note")).toBeVisible();
+  await expect(page.getByRole("table", { name: "Stacks" })).toContainText("larder-core");
   void settled;
 });

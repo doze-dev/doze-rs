@@ -31,18 +31,18 @@ export function StepReview({ w, summary, edit, preview, previewError, stackName 
     <>
       <ReviewSection title={update ? "Update stack" : "Create stack"} onEdit={() => edit(0)} rows={[
         { label: "Prepare template", value: update ? (w.keepTemplate ? "Use existing template" : "Replace existing template") : "Choose an existing template" },
-        ...(update && w.keepTemplate ? [] : [{ label: w.source === "url" ? "Amazon S3 URL" : "Template file", value: <span className={`${mono} break-all`}>{w.source === "url" ? w.url : w.file?.name}</span> }]),
+        ...(update && w.keepTemplate ? [] : [{ label: w.source === "url" ? "Amazon S3 URL" : "Template file", value: <span className={`${mono} [overflow-wrap:anywhere]`}>{w.source === "url" ? w.url : w.file?.name}</span> }]),
         ...(summary.Description ? [{ label: "Description", value: summary.Description }] : []),
       ]} />
       <ReviewSection title="Specify stack details" onEdit={() => edit(1)} rows={[
         { label: "Stack name", value: <span className={mono}>{update ? stackName : w.name}</span> },
-        ...params.map((d) => ({ label: d.ParameterKey, value: update && w.keep[d.ParameterKey] ? "Use existing value" : d.NoEcho ? "****" : <span className={`${mono} break-all`}>{valueOf(w, d)}</span> })),
+        ...params.map((d) => ({ label: d.ParameterKey, value: update && w.keep[d.ParameterKey] ? "Use existing value" : d.NoEcho ? "****" : <span className={`${mono} [overflow-wrap:anywhere]`}>{valueOf(w, d)}</span> })),
       ]} />
       <ReviewSection title="Configure stack options" onEdit={() => edit(2)} rows={[
         { label: "Tags", value: tags.length === 0 ? "None" : <span className="flex flex-wrap gap-2">{tags.map((t) => <Badge key={t.key} variant="outline" className="font-mono font-normal">{t.key}: {t.value}</Badge>)}</span> },
         { label: update ? "Behavior on provisioning failure" : "Stack failure options", value: w.failure === "rollback" ? "Roll back all stack resources" : "Preserve successfully provisioned resources" },
-        ...(w.role ? [{ label: "IAM role", value: <span className={`${mono} break-all`}>{w.role}</span> }] : []),
-        { label: "Notification options", value: w.topic.trim() ? <span className={`${mono} break-all`}>{w.topic.trim()}</span> : "None" },
+        ...(w.role ? [{ label: "IAM role", value: <span className={`${mono} [overflow-wrap:anywhere]`}>{w.role}</span> }] : []),
+        { label: "Notification options", value: w.topic.trim() ? <span className={`${mono} [overflow-wrap:anywhere]`}>{w.topic.trim()}</span> : "None" },
         ...(w.policy.trim() ? [{ label: "Stack policy", value: "Set" }] : []),
         ...(update ? [{ label: "Capabilities", value: (summary.Capabilities ?? []).length > 0 ? nameList(summary.Capabilities ?? []) : "None needed" }] : [{ label: "Termination protection", value: w.protect ? "Enabled" : "Disabled" }, ...(w.timeout ? [{ label: "Timeout", value: `${w.timeout} minutes` }] : [])]),
       ]} />

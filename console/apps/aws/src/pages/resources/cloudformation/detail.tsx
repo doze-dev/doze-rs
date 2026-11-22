@@ -13,7 +13,7 @@ import { DetailError, FlowStrip, PlainConfirm, ResourcePage, ResourcePageSkeleto
 import { HINT } from "../index-page";
 import { at } from "../deep/parts";
 import type { OwnProps } from "../deep/registry";
-import { templateText, useCfnRead, useCfnWrite, useEvents, useImporters, usePoll, useResources, useStack, useTemplate, useWhile } from "./api";
+import { templateText, useCfnRead, useCfnWrite, useEvents, useImporters, usePoll, useResources, useStack, useStalePreviews, useTemplate, useWhile } from "./api";
 import { DeleteStackDialog } from "./delete-dialog";
 import { DeletedStack } from "./deleted";
 import { type Stack, inProgress, isGone, noStack, resourceTarget, retainedIn } from "./model";
@@ -65,10 +65,14 @@ function StackView({ d, updatedAt, fetching, refetch }: { d: ResourceDetail; upd
   const template = useTemplate(nm, "Original", deleting || asked === "resources");
   const del = useDelete(d.service, d.kind, exportNames);
   const view = status === "REVIEW_IN_PROGRESS" ? "review" : status === "ROLLBACK_COMPLETE" ? "rolled" : search.done === "updated" && status === "UPDATE_COMPLETE" ? "updated" : "tabs";
-  const sets = useCfnRead<{ Summaries?: ChangeSetRow[] }>("ListChangeSets", { StackName: nm }, { enabled: view === "review" });
-  const reviewSet = sets.data?.Summaries?.[0]?.ChangeSetName;
+  const sets = useCfnRead<{ Summaries?: ChangeSetRow[] }>("ListChangeSets", { StackName: nm });
+  // A preview a closed tab left on the stack is removed, and is not the set to execute.
+  const stale = useStalePreviews(nm, sets.data?.Summaries?.map((s) => s.ChangeSetName));
+  const reviewSet = sets.data?.Summaries?.find((s) => !stale.includes(s.ChangeSetName))?.ChangeSetName;
   const execute = useCfnWrite<unknown>("ExecuteChangeSet");
-  const dropSet = useCfnWrite<unknown>("DeleteChangeSet");
+  // Deleted, a change set is not read again (it would be refused); the list of them is.
+  const dropSet = useCfnWrite<unknown, { StackName: string; ChangeSetName: string }>("DeleteChangeSet", (i) => [i.ChangeSetName]);
+  const [dropping, setDropping] = useState(false);
   // The stack is read first: if it is gone (it was deleted) the rest is not asked for, which would only fail.
   const refresh = () => {
     void stackQ.refetch().then((r) => {
@@ -100,10 +104,12 @@ function StackView({ d, updatedAt, fetching, refetch }: { d: ResourceDetail; upd
     if (v.id === "update") update();
     else if (v.id === "delete") setDeleting(true);
     else if (v.id === "execute" && reviewSet) execute.mutate({ StackName: nm, ChangeSetName: reviewSet }, { onSuccess: () => to({ tab: "events", done: "executed" }) });
-    else if (v.id === "dropset" && reviewSet) dropSet.mutate({ StackName: nm, ChangeSetName: reviewSet }, { onSuccess: () => { void sets.refetch(); refresh(); } });
+    else if (v.id === "dropset" && reviewSet) setDropping(true);
   };
   const banner =
-    search.done === "created" ? <ResultBanner title={`Stack ${nm} is being created.`} returned="CreateStack returned its stack ID. The stack is made in the background; this page follows it until it settles." onDismiss={() => to({ tab: "events" })} testId="created-banner" />
+    search.done === "created" ? (inProgress(status) ? <ResultBanner tone="info" title={`Stack ${nm} is being created.`} returned="CreateStack returned its stack ID. The stack is made in the background; this page follows it until it settles." onDismiss={() => to({ tab: "events" })} testId="created-banner" />
+      : status === "CREATE_COMPLETE" ? <ResultBanner title={`Stack ${nm} created.`} returned="CreateStack returned its stack ID, and the stack was made in the background: it is CREATE_COMPLETE." onDismiss={() => to({ tab: "events" })} testId="created-banner" />
+      : <ResultBanner tone="warn" title={`The creation of ${nm} did not complete.`} returned={`The stack is ${status}: its events say why.`} onDismiss={() => to({ tab: "events" })} testId="created-banner" />)
     : search.done === "executed" ? <ResultBanner title="Change set executed." returned="ExecuteChangeSet was accepted. The stack is built or changed in the background; this page follows it until it settles." onDismiss={() => to({ tab: "events" })} testId="executed-banner" />
     : search.done === "updated" && view === "tabs" ? <ResultBanner tone={inProgress(status) ? "info" : "warn"} title={inProgress(status) ? `Stack ${nm} is being updated.` : `The update of ${nm} did not complete.`} returned={inProgress(status) ? "UpdateStack was accepted. The update runs in the background; this page follows it until it settles." : `The stack is ${status}: its events say why.`} onDismiss={() => to({ tab: "events" })} testId="updating-banner" />
     : search.done === "deleting" ? <ResultBanner tone="info" title={`Stack ${nm} is being deleted.`} returned="DeleteStack was accepted. The stack is DELETE_IN_PROGRESS until its resources are gone." onDismiss={() => to({})} testId="deleting-banner" />
@@ -147,6 +153,18 @@ function StackView({ d, updatedAt, fetching, refetch }: { d: ResourceDetail; upd
         error={protect.error}
         onConfirm={() => protect.mutate({ StackName: nm, EnableTerminationProtection: !stack.EnableTerminationProtection }, { onSuccess: () => { setProtecting(false); refresh(); } })}
         testId="protection-dialog"
+      />
+      <PlainConfirm
+        open={dropping}
+        onOpenChange={(o) => { setDropping(o); if (!o) dropSet.reset(); }}
+        title="Delete change set?"
+        description={<>Deleting <b className="font-mono text-[13px] text-bright">{reviewSet}</b> removes the preview. The stack has no resources yet and keeps none; you can make another change set for it.</>}
+        verb="Delete change set"
+        call="DeleteChangeSet"
+        pending={dropSet.isPending}
+        error={dropSet.error}
+        onConfirm={() => reviewSet && dropSet.mutate({ StackName: nm, ChangeSetName: reviewSet }, { onSuccess: () => { setDropping(false); void sets.refetch(); refresh(); } })}
+        testId="drop-changeset-dialog"
       />
       <DeleteStackDialog
         open={deleting}

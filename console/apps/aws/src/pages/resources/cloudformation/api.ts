@@ -1,10 +1,13 @@
 // CloudFormation's reads and writes from the pages: each is one operation the stacks' kind lists (crates/aws-console/src/resources/
 // cfn_ops.rs), made through `POST /resources/cloudformation/stacks/op/<Operation>` as the caller `console`.
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { callKindOp, forgetDeleted, scopeOf } from "../../../kit";
+import { useNow } from "../../card";
 import type { ChangeSet } from "./changeset-parts";
 import { inProgress, type Stack, type StackEvent, type StackResource } from "./model";
+import { BEAT_MS, beat, stalePreviews, unbeat } from "./preview-sweep";
+import { keptPreview } from "./wizard-keep";
 
 export const STACKS = { service: "cloudformation", kind: "stacks" } as const;
 
@@ -114,6 +117,18 @@ export function useCfnPreview(stack: string, id: string, key: string, input: Rec
     staleTime: Number.POSITIVE_INFINITY,
     gcTime: 0,
   });
+  // While the review step is open its preview says so, so a page that finds one nobody says anything of knows to remove it.
+  const live = input !== null;
+  useEffect(() => {
+    if (!live) return;
+    const say = () => beat(id, Date.now());
+    say();
+    const t = setInterval(say, BEAT_MS);
+    return () => {
+      clearInterval(t);
+      unbeat(id);
+    };
+  }, [live, id]);
   // Asked when the page is left, not when it opened: the person may have chosen View change set since.
   const kept = () => keep.current;
   useEffect(() => {
@@ -140,4 +155,25 @@ export function useWhile(on: boolean, ms: number): boolean {
     return () => clearTimeout(t);
   }, [on, ms]);
   return on && live;
+}
+
+/** The previews already asked to be removed: the page and its Change sets tab both look, and a set is deleted once. */
+const ASKED = new Set<string>();
+
+/** Removes from `stack` the preview change sets nobody is using (one a closed tab left behind), and says their names: the lists leave them out
+ * meanwhile. `names`: the stack's change sets, once read. */
+export function useStalePreviews(stack: string, names: readonly string[] | undefined): string[] {
+  const qc = useQueryClient();
+  const now = useNow();
+  const stale = useMemo(() => stalePreviews(names ?? [], now, keptPreview()), [names, now]);
+  useEffect(() => {
+    for (const id of stale) {
+      if (ASKED.has(`${stack}/${id}`)) continue;
+      ASKED.add(`${stack}/${id}`);
+      void callKindOp(STACKS, "DeleteChangeSet", { StackName: stack, ChangeSetName: id })
+        .catch(() => undefined)
+        .then(() => forgetDeleted(qc, scopeOf("cloudformation"), [id]));
+    }
+  }, [stale, stack, qc]);
+  return stale;
 }
