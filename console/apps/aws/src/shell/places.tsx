@@ -6,6 +6,9 @@ import { SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarMenu, Side
 import { iconOf } from "../pages/resources/model";
 import { MOST_RECENT, type Place, pin, placeOf, same, usePinned, useVisited, visit } from "./pins";
 
+/** A page whose address is an ARN (an execution's) is named by the end of it in the rail, the name the page says: the whole ARN is its title. */
+export const shownName = (name: string): string => (name.startsWith("arn:") ? (name.split(":").pop() ?? name) : name);
+
 const params = (p: Place) => ({ service: p.service, kind: p.kind, name: p.name });
 
 function Group({ label, places, testId }: { label: string; places: Place[]; testId: string }) {
@@ -20,9 +23,9 @@ function Group({ label, places, testId }: { label: string; places: Place[]; test
           {places.map((p) => (
             <SidebarMenuItem key={`${p.service}/${p.kind}/${p.name}`}>
               <SidebarMenuButton asChild isActive={here !== null && same(here, p)} className="h-8 gap-2.5 text-[13px]">
-                <Link to="/resources/$service/$kind/$name" params={params(p)} search={{}} title={`${p.service} · ${p.kind}`} data-testid="rail-place">
+                <Link to="/resources/$service/$kind/$name" params={params(p)} search={{}} title={p.name.startsWith("arn:") ? p.name : `${p.service} · ${p.kind}`} data-testid="rail-place">
                   {createElement(iconOf(p.service), { "aria-hidden": true, className: "size-4 text-primary" })}
-                  <span className="truncate font-mono text-[12.5px]">{p.name}</span>
+                  <span className="truncate font-mono text-[12.5px]">{shownName(p.name)}</span>
                 </Link>
               </SidebarMenuButton>
             </SidebarMenuItem>

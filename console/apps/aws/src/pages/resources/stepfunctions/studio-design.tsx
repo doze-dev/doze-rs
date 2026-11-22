@@ -205,7 +205,7 @@ function Inspector({ def, name, state, onChange, onRename, onDelete, onMove }: {
       {!def || !name || !state ? (
         <p className="mt-1 text-[13.5px] text-muted-foreground" data-testid="inspector-none">Properties of the selected state. Choose a state on the canvas.</p>
       ) : (
-        <div className="mt-1 grid gap-5" key={name}>
+        <div className="mt-1 grid gap-5 [&>*]:min-w-0" key={name}>
           <p className="text-[13.5px] text-muted-foreground">Properties of the selected state, <span className="font-mono text-foreground" data-testid="inspector-name">{name}</span>.</p>
           <Fields def={def} name={name} state={state} onChange={onChange} onRename={onRename} />
           <div className="flex items-center gap-3">
@@ -228,7 +228,7 @@ function Fields({ def, name, state, onChange, onRename }: { def: Definition; nam
   const replace = (body: AslState) => onChange(setState(def, name, body), "The state could not be changed.");
   const t = taskResource(state.Resource);
   return (
-    <div className="grid gap-5">
+    <div className="grid gap-5 [&>*]:min-w-0">
       <div className="grid gap-1.5">
         <Label htmlFor="inspector-rename">Name</Label>
         <Input

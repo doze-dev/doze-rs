@@ -64,7 +64,7 @@ test.afterAll(async () => {
 
 test("stepfunctions__machines-list and machine-create-name: the machines, what runs, and the name that opens the studio", async ({ page }) => {
   await go(page, "/resources/stepfunctions/machines", "State machines");
-  await expect(page.getByTestId("list-sentence")).toContainText("order-fulfilment has 2 executions running. thumbnail-batch is Express, so it keeps no execution history: its runs are written to its log group.");
+  await expect(page.getByTestId("list-sentence")).toContainText("order-fulfilment has 2 executions running. thumbnail-batch is Express, so it keeps no execution history: its runs are written to a log group only while its logging is on.");
   const table = rows(page, "State machines");
   await expect(table).toHaveCount(2);
   await expect(table.filter({ hasText: "order-fulfilment" })).toContainText("Standard");
@@ -121,6 +121,13 @@ test("stepfunctions__machine-create-code, create-config, create-role and machine
   await page.getByTestId("inspector-rename").fill("QueueReorder");
   await page.getByTestId("inspector-rename").press("Enter");
   await expect(page.getByTestId("inspector")).toContainText("Becomes Resource arn:aws:states:::sqs:sendMessage and its Parameters.");
+  // A Task's fields fit the inspector's card: nothing runs past it and the page does not scroll sideways.
+  const fits = await page.getByTestId("inspector").evaluate((el) => {
+    const edge = el.getBoundingClientRect().right;
+    const past = [...el.querySelectorAll("*")].filter((e) => e.getBoundingClientRect().right > edge + 1).map((e) => `${e.tagName.toLowerCase()}.${String(e.className).slice(0, 60)}`);
+    return { card: el.scrollWidth <= el.clientWidth + 1, page: document.documentElement.scrollWidth <= window.innerWidth, past: past.slice(0, 6) };
+  });
+  expect(fits).toEqual({ card: true, page: true, past: [] });
   await expect(page.locator("[data-state=QueueReorder]")).toContainText("SQS SendMessage");
   await page.getByTestId("inspector-definition").click();
   await expect(page.getByTestId("inspector-json")).toContainText('"Resource": "arn:aws:states:::sqs:sendMessage"');
@@ -205,6 +212,8 @@ test("stepfunctions__executions-none and execution-start: a machine that never r
   await expect(page.getByTestId("start-words")).toContainText("Starts the current revision of order-fulfilment. To start a version or an alias instead, choose it on the Versions or Aliases tab.");
   await expect(dialog).toContainText("A name is unique per state machine and can be used again 90 days after its execution closes. Starting the same name with the same input while it runs returns that run instead of a second one.");
   await expect(dialog).toContainText("The JSON that LoadOrder receives. Send {} when there is no input. Up to 256 KiB as UTF-8.");
+  // It opens with the members the first state reads (LoadOrder reads $.order_id and $.created_at), so a first Start is not a run that fails at once.
+  await expect(page.getByTestId("start-input")).toHaveValue(JSON.stringify({ created_at: "", order_id: "" }, null, 2));
   await page.getByTestId("start-name").fill("ord-20261108-0421");
   await page.getByTestId("start-input").fill(JSON.stringify({ order_id: "ord-20261108-0412", created_at: "2026-11-08T08:00:00Z", email: "priya@example.com" }, null, 2));
   await shot(page, "stepfunctions__execution-start");
@@ -470,11 +479,24 @@ test("stepfunctions__execution-table and execution-events: each step as a row, a
   await page.getByTestId("history-sort").click();
   await page.getByRole("button", { name: "Open event 2", exact: true }).click();
   await expect(page.getByTestId("execution-events")).toContainText("LoadOrder");
+  // A run that succeeded opens nothing; one that failed opens on the event that failed, and says which.
+  await expect(page.getByTestId("history-expanded")).toHaveCount(1);
+  await page.getByRole("button", { name: "Close event 2", exact: true }).click();
+  await expect(page.getByTestId("history-expanded")).toHaveCount(0);
   await shot(page, "stepfunctions__execution-events");
+  await go(page, execution("ord-20261108-0417"), "ord-20261108-0417");
+  await page.getByTestId("tab-events").click();
+  await expect(page.getByTestId("history-expanded")).toHaveText(/^The expanded event is event \d+, \w*Failed on NotifyCustomer\.$/);
+  await expect(page.locator("[data-testid=history-event][data-event]").filter({ hasText: "ExecutionFailed" })).toHaveClass(/bg-bad/);
 });
 
 test("stepfunctions__activities-list and activity-create: the workers' tasks, and a new one", async ({ page }) => {
   await go(page, "/resources/stepfunctions/machines", "State machines");
+  // Minutes of browsing read the record many times over: the console's own reads must not push the worker's calls out of the window
+  // this page reads (it asked for the newest 200, and the console's reads alone fill that).
+  await page.evaluate(async () => {
+    for (let i = 0; i < 300; i++) await fetch("/api/v1/resources/stepfunctions/activities", { headers: { "X-Console": "1" } });
+  });
   await page.getByTestId("activities-open").click();
   await expect(page.locator("h1").first()).toHaveText("Activities");
   await expect(rows(page, "Activities")).toHaveCount(2);

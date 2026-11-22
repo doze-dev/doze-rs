@@ -34,9 +34,9 @@ export function StartDialog({ machine, name, open, onOpenChange, input: first = 
       {
         onSuccess: (r) => {
           onOpenChange(false);
-          // An Express execution keeps no history to open: its events go to the machine's log group.
+          // An Express execution keeps no history to open: its events go to a log group only if the machine's logging is on.
           if (r.executionArn.includes(":express:")) {
-            toast.success("Express execution started", { description: "It keeps no history; its events are written to the machine's log group." });
+            toast.success("Express execution started", { description: "It keeps no history to open. Its events are written to a log group only if the machine's logging is on." });
             return;
           }
           void navigate({ to: "/resources/$service/$kind/$name", params: { service: "stepfunctions", kind: "executions", name: r.executionArn }, search: { done: "started" } });

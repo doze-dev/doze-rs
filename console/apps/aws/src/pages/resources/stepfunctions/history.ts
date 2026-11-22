@@ -118,3 +118,31 @@ export const STATUS: Record<string, { word: string; tone: "ok" | "bad" | "info" 
   running: { word: "In progress", tone: "info" },
   cancelled: { word: "Cancelled", tone: "warn" },
 };
+
+/** The state each event happened in, by event id: the newest state still open when it came (`TaskFailed` is `NotifyCustomer`'s). */
+export function statesOfEvents(events: readonly HistoryEvent[]): Map<number, string> {
+  const of = new Map<number, string>();
+  const open: string[] = [];
+  for (const e of events) {
+    if (e.stateEnteredEventDetails) {
+      open.push(e.stateEnteredEventDetails.name);
+      of.set(e.id, e.stateEnteredEventDetails.name);
+    } else if (e.stateExitedEventDetails) {
+      of.set(e.id, e.stateExitedEventDetails.name);
+      const at = open.lastIndexOf(e.stateExitedEventDetails.name);
+      if (at >= 0) open.splice(at, 1);
+    } else {
+      const state = open[open.length - 1];
+      if (state && !e.type.startsWith("Execution")) of.set(e.id, state);
+    }
+  }
+  return of;
+}
+
+const FAILING = /Failed|TimedOut|Aborted/;
+
+/** The event to open first on the event view: the first one that failed inside a state (`TaskFailed`), else the execution's own
+ * failure (`ExecutionFailed`), else none. */
+export function firstFailure(events: readonly HistoryEvent[]): HistoryEvent | null {
+  return events.find((e) => FAILING.test(e.type) && !e.type.startsWith("Execution")) ?? events.find((e) => FAILING.test(e.type)) ?? null;
+}

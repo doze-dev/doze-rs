@@ -10,7 +10,7 @@ import { Input } from "@doze/ui/components/ui/input";
 import { Card, CodeBlock, pretty } from "../deep/parts";
 import { causeHint, durationWords, clockMs } from "./execution-model";
 import type { AslState } from "./graph";
-import { failureOf, type HistoryEvent, STATUS, type Step, tsMs } from "./history";
+import { failureOf, firstFailure, type HistoryEvent, statesOfEvents, STATUS, type Step, tsMs } from "./history";
 import { taskResource, taskTarget } from "./model";
 
 /** An event's details: the members of its `…EventDetails`, as JSON (inputs and outputs that are JSON read as such). */
@@ -129,7 +129,7 @@ function EventRow({ e, open, toggle }: { e: HistoryEvent; open: boolean; toggle:
   const failed = /Failed|TimedOut|Aborted/.test(e.type);
   return (
     <>
-      <tr className="border-b align-top" data-testid="history-event" data-event={e.id}>
+      <tr className={cn("border-b align-top", failed && e.type.startsWith("Execution") && "bg-bad/5")} data-testid="history-event" data-event={e.id}>
         <td className="w-10 py-2.5 pl-3">
           {details && (
             <button type="button" onClick={toggle} aria-expanded={open} aria-label={open ? `Close event ${e.id}` : `Open event ${e.id}`} className="rounded-sm text-muted-foreground hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none" data-testid="history-open">
@@ -154,8 +154,13 @@ function EventRow({ e, open, toggle }: { e: HistoryEvent; open: boolean; toggle:
 /** The event history, 25 events a page, oldest first until the Timestamp header is chosen; an event opens for its details. */
 export function EventsView({ events, startMs }: { events: HistoryEvent[]; startMs: number | null }) {
   const [newest, setNewest] = useState(false);
-  const [page, setPage] = useState(0);
-  const [open, setOpen] = useState<number | null>(null);
+  // It opens on the event that failed (a person came to see why), on the page that holds it, until they open another.
+  const first = useMemo(() => firstFailure(events), [events]);
+  const [page, setPage] = useState(() => Math.max(0, Math.floor(events.findIndex((e) => e.id === first?.id) / PAGE)));
+  const [chosen, setChosen] = useState<number | null | undefined>(undefined);
+  const open = chosen === undefined ? (first?.id ?? null) : chosen;
+  const states = useMemo(() => statesOfEvents(events), [events]);
+  const openEvent = open === null ? undefined : events.find((e) => e.id === open);
   const [filter, setFilter] = useState("");
   const found = useMemo(() => events.filter((e) => `${e.id} ${e.type}`.toLowerCase().includes(filter.trim().toLowerCase())), [events, filter]);
   const sorted = useMemo(() => (newest ? [...found].reverse() : found), [found, newest]);
@@ -182,7 +187,7 @@ export function EventsView({ events, startMs }: { events: HistoryEvent[]; startM
             </tr>
           </thead>
           <tbody>
-            {shown.map((e) => <EventRow key={e.id} e={e} open={open === e.id} toggle={() => setOpen(open === e.id ? null : e.id)} />)}
+            {shown.map((e) => <EventRow key={e.id} e={e} open={open === e.id} toggle={() => setChosen(open === e.id ? null : e.id)} />)}
           </tbody>
         </table>
       </div>
@@ -194,7 +199,7 @@ export function EventsView({ events, startMs }: { events: HistoryEvent[]; startM
         </span>
       </div>
       <p className="mt-5 max-w-[46rem] border-l-2 border-input pl-3.5 text-[13px] leading-5 text-muted-foreground" data-testid="history-note">
-        A page shows up to 25 events, and an execution's history is limited to 25,000 events. Events are sorted by Timestamp, oldest first; choose the Timestamp header to reverse the order. Choose the arrow beside an ID to see an event's input, output and resource invocation.
+        A page shows up to 25 events, and an execution's history is limited to 25,000 events. Events are sorted by Timestamp, oldest first; choose the Timestamp header to reverse the order. Choose the arrow beside an ID to see an event's input, output and resource invocation.{openEvent && <>{" "}<span data-testid="history-expanded">The expanded event is event {openEvent.id}, {openEvent.type}{states.get(openEvent.id) ? ` on ${states.get(openEvent.id)}` : ""}.</span></>}
       </p>
     </Card>
   );

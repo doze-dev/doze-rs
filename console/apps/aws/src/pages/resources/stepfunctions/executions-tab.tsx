@@ -15,7 +15,7 @@ import { at, Loaded } from "../deep/parts";
 import { StartDialog } from "./dialogs";
 import { fieldOf } from "./details-card";
 import { STATUS } from "./history";
-import { aliasOf, versionOf } from "./model";
+import { aliasOf, expressWords, inputSkeleton, versionOf } from "./model";
 import { parseDefinition } from "./graph";
 
 export type ExecutionItem = { executionArn: string; name: string; status: string; startDate: number | string; stopDate?: number | string; redriveCount?: number; stateMachineVersionArn?: string; stateMachineAliasArn?: string };
@@ -46,12 +46,12 @@ export function MachineExecutions({ d }: { d: ResourceDetail }) {
   const q = useOpRead<{ executions?: ExecutionItem[]; nextToken?: string }>(on.machine(d.name), "ListExecutions", { maxResults: 50, ...(filter !== "ALL" ? { statusFilter: filter } : {}), ...(token ? { nextToken: token } : {}) }, !express);
   const startAt = parseDefinition(fieldOf(d, "Definition") ?? "")?.StartAt;
   const start = () => { setOpened((n) => n + 1); setStarting(true); };
-  const dialog = <StartDialog key={opened} machine={d.id} name={d.name} startAt={startAt} open={starting} onOpenChange={setStarting} />;
+  const dialog = <StartDialog key={opened} machine={d.id} name={d.name} startAt={startAt} input={inputSkeleton(parseDefinition(fieldOf(d, "Definition") ?? ""))} open={starting} onOpenChange={setStarting} />;
   const calls = <RecentCalls calls={d.calls} noun="state machine" className="mt-10" />;
   if (express) {
     return (
       <>
-        <EmptyTab icon={PlayIcon} title="No execution history" testId="executions-express">{d.name} is an Express state machine. Express keeps no execution history: its runs are written to its log group.</EmptyTab>
+        <EmptyTab icon={PlayIcon} title="No execution history" testId="executions-express">{d.name} is an Express state machine. {expressWords(fieldOf(d, "Logging") ?? "OFF").replace(/^it/, "Express")}</EmptyTab>
       </>
     );
   }
@@ -62,9 +62,12 @@ export function MachineExecutions({ d }: { d: ResourceDetail }) {
           const list = p.executions ?? [];
           if (list.length === 0 && filter === "ALL" && tokens.length === 0) {
             return (
-              <EmptyTab icon={PlayIcon} title="No executions" action={<Button type="button" variant="outline" className="bg-card" onClick={start} data-testid="start-empty">Start execution</Button>} testId="executions-none">
-                {d.name} has not run. Start an execution to see it here.
-              </EmptyTab>
+              <>
+                <h2 className="mb-3 text-[17px] leading-6 font-semibold tracking-[-0.01em] text-bright">Executions</h2>
+                <EmptyTab icon={PlayIcon} title="No executions" action={<Button type="button" variant="outline" className="bg-card" onClick={start} data-testid="start-empty">Start execution</Button>} testId="executions-none">
+                  {d.name} has not run. Start an execution to see it here.
+                </EmptyTab>
+              </>
             );
           }
           return (

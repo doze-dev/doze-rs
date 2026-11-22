@@ -328,3 +328,54 @@ fn the_consoles_own_calls_are_let_go_before_an_apps_once_past_their_share() {
     r.record(&call(10), 10);
     assert_eq!(seqs(&r.newest(100)), [3, 4, 5, 6, 7, 8, 9, 10]);
 }
+
+#[test]
+fn a_workers_calls_outlast_three_times_the_rings_worth_of_page_reads() {
+    // The ring is not what emptied Step Functions' Recent calls after ten minutes of browsing (the window a page reads was: see
+    // `a_window_of_the_apps_calls_is_not_spent_on_the_consoles_own`). The console's reads past a quarter of the ring are let go first,
+    // so a worker's calls stay in it however long the console is open. (Checked with the real binary: 1,500 reads, the worker's two
+    // calls still held.)
+    let r = Recorder::new();
+    let console = |n| Finished {
+        access_key_id: crate::resources::bus::CONSOLE,
+        ..call(n)
+    };
+    r.record(&call(1), 1);
+    r.record(&call(2), 2);
+    for n in 3..(3 + 3 * CAPACITY as u64) {
+        r.record(&console(n), n);
+    }
+    let held = r.newest(usize::MAX);
+    assert_eq!(held.calls.len(), CAPACITY);
+    assert_eq!(
+        held.calls.iter().filter(|c| &*c.caller == "test").count(),
+        2
+    );
+}
+
+#[test]
+fn a_window_of_the_apps_calls_is_not_spent_on_the_consoles_own() {
+    // The pages that ask what the apps did read the newest 200 or so: with the console's reads in them (up to a quarter of the
+    // ring), the window held nothing of a worker's, and the activity page said no one polled it.
+    let r = Recorder::new();
+    let console = |n| Finished {
+        access_key_id: crate::resources::bus::CONSOLE,
+        ..call(n)
+    };
+    r.record(&call(1), 1);
+    r.record(&call(2), 2);
+    for n in 3..1500 {
+        r.record(&console(n), n);
+    }
+    let window = r.newest(200);
+    assert_eq!(window.calls.len(), 200);
+    assert!(
+        window.calls.iter().all(|c| &*c.caller != "test"),
+        "the console's reads fill the window"
+    );
+    let apps = r.newest_apps(200);
+    assert_eq!(seqs(&apps), [1, 2]);
+    assert_eq!(apps.last, r.newest_seq(), "a page that reached the end");
+    assert!(!apps.more);
+    assert_eq!(seqs(&r.newest_apps(1)), [2]);
+}

@@ -323,6 +323,30 @@ impl Recorder {
         }
     }
 
+    /// The newest `limit` calls that are not the console's own, oldest first. A page that asks what the apps did (who polls an
+    /// activity, who reads a secret) reads a window of the record; the console's own page reads (several for each page) must not
+    /// spend it, or after a few minutes of browsing the window holds nothing of the apps'. The cursor is the newest call's, as for
+    /// a page that reached the end.
+    #[must_use]
+    pub fn newest_apps(&self, limit: usize) -> Page {
+        let ring = self.ring.lock().unwrap_or_else(PoisonError::into_inner);
+        let mut calls: Vec<Call> = ring
+            .calls
+            .iter()
+            .rev()
+            .filter(|c| !is_console(c))
+            .take(limit)
+            .cloned()
+            .collect();
+        calls.reverse();
+        Page {
+            more: false,
+            calls,
+            last: ring.newest,
+            missed: 0,
+        }
+    }
+
     /// The number of the newest call recorded; 0 before the first.
     #[must_use]
     pub fn newest_seq(&self) -> u64 {
