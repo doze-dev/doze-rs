@@ -124,10 +124,13 @@ fn a_stack_with_names_is_named_resolved_routed_and_gives_every_name_back() {
         Some("doze".to_string()),
         "the stack's name is taken"
     );
+    // The name's address and port, as a client dials it: where addresses are translated (a set-up Mac) the network
+    // daemon turns that into doze's listener, and drops a dial to the listener's own socket.
     let target = reg.front_target(host).expect("api is routed");
-    assert!(
-        target.ends_with(&format!(":{port}")) || cfg!(target_os = "macos"),
-        "the front door goes to doze's listener: {target}"
+    assert_eq!(
+        target,
+        format!("{ip}:{port}"),
+        "the front door goes to doze's listener"
     );
     wait("the zone answers", || lookup(&dns, host) == Some(ip));
 
