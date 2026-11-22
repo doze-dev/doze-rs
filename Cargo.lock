@@ -1212,6 +1212,7 @@ dependencies = [
  "aws-core",
  "aws-kms",
  "aws-model-eventbridge",
+ "aws-model-s3",
  "aws-schema",
  "aws-seal",
  "aws-wire",

@@ -5,7 +5,7 @@ import { buildMap, perMinute, routeOf, targetOf, wiresOf } from "./graph";
 
 const NOW = 10_000_000;
 let seq = 0;
-const call = (p: Partial<CallRecord>): CallRecord => ({ seq: ++seq, at_ms: NOW - 1000, service: "sqs", api: "SQS", action: "SendMessage", resource: "http://h/1/pick-lists", member: "QueueUrl", caller: "AKIA1", region: "us-east-1", status: 200, error_code: null, outcome: "ok", would_be_denied: false, duration_us: 1, request_id: "r", via: null, sdk: null, message: null, function_error: null, answer_bytes: null, ...p });
+const call = (p: Partial<CallRecord>): CallRecord => ({ seq: ++seq, at_ms: NOW - 1000, service: "sqs", api: "SQS", action: "SendMessage", resource: "http://h/1/pick-lists", member: "QueueUrl", caller: "AKIA1", region: "us-east-1", status: 200, error_code: null, outcome: "ok", would_be_denied: false, duration_us: 1, request_id: "r", via: null, sdk: null, message: null, function_error: null, answer_bytes: null, summary: null, ...p });
 const wiring = (nodes: [string, string?][], edges: [string, string, string, string?][]): Wiring => ({
   nodes: nodes.map(([id, sentence]) => { const [service = "", kind = "", name = ""] = id.split("/"); return { id, service, kind, name, sentence: sentence ?? null }; }),
   edges: edges.map(([from, to, label, note]) => ({ from, to, label, note: note ?? null })),

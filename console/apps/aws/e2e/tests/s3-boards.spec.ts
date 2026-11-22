@@ -402,6 +402,9 @@ test("s3__folder-create, s3__upload, s3__upload-status: a folder, three files wi
   const mine = page.getByTestId("recent-calls").locator("tr", { hasText: "This console" }).filter({ hasText: "PutObject" });
   await expect.poll(() => mine.count()).toBeGreaterThanOrEqual(3);
   await shot(page, "s3__upload-status", browserName);
+  // The calls this console made name the object they acted on, not the bucket alone.
+  await page.getByTestId("calls-console-toggle").click();
+  await expect(page.getByTestId("recent-calls").getByTestId("call-key").filter({ hasText: "seasonal/hero-autumn.jpg" }).first()).toBeVisible();
   const head = cli(["s3api", "head-object", "--bucket", n.img, "--key", "seasonal/hero-autumn.jpg"]).out;
   expect(head).toContain('"source": "e2e"');
   expect(cli(["s3api", "get-object-tagging", "--bucket", n.img, "--key", "seasonal/hero-autumn.jpg"]).out).toContain("autumn");
@@ -419,6 +422,11 @@ test("s3__object-detail, -versions, -presign, -copy, -delete-version, -delete: o
   await expect(page.getByTestId("overview")).toContainText("http://127.0.0.1");
   await expect(page.getByText("x-amz-meta-source")).toBeVisible();
   await expect(page.getByText("FV-TOM-V").first()).toBeVisible();
+  // Its Recent calls are the object's own: each names the key, and a write or a read says how big the object was.
+  const calls = page.getByTestId("recent-calls");
+  await expect(calls).toContainText("PutObject");
+  await expect(calls.getByTestId("call-key").first()).toHaveText("sku-FV-TOM-V.jpg");
+  await expect(calls.getByTestId("answer-words").filter({ hasText: /^· \d+(\.\d)? KiB$/ }).first()).toBeVisible();
   await shot(page, "s3__object-detail", browserName);
   // The link: a presigned URL downloads the object with no key of ours.
   await page.getByTestId("object-actions").click();

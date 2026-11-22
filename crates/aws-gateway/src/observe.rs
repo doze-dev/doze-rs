@@ -13,6 +13,7 @@ use std::sync::{Arc, Mutex, PoisonError};
 use std::time::{Duration, Instant};
 
 use aws_auth::claim::Claim;
+use aws_peers::summary::{self, Summary, TreeFields};
 use aws_schema::meta::ServiceMeta;
 use aws_wire::{ApiError, RequestId};
 use http::request::Parts;
@@ -65,10 +66,17 @@ pub struct Finished<'a> {
     pub function_error: &'a str,
     /// The length of the answer when it is known before it is sent (a whole body); `None` for a streamed one.
     pub answer_bytes: Option<u32>,
+    /// What the call did, read from its input and its answer ([`aws_peers::summary`]); none for an answer that failed.
+    pub did: Did<'a>,
 }
 
 /// The most bytes of an error message the observer is told.
 pub const MOST_MESSAGE: usize = 240;
+
+mod did;
+
+pub use did::Did;
+pub(crate) use did::{output, output_json};
 
 /// The requests in flight, so a refusal IAM's soft mode lets through can be marked on the request it was for ([`crate::Config::would_deny`]).
 ///
@@ -162,6 +170,8 @@ struct Notes {
     code: Cow<'static, str>,
     message: String,
     would_be_denied: bool,
+    summary: Summary,
+    detail: String,
 }
 
 fn note(parts: &Parts, write: impl FnOnce(&mut Notes)) {
@@ -212,8 +222,19 @@ pub(crate) fn input(parts: &Parts, entry: &Entry, call: &aws_wire::service::Call
             )
         {
             n.member = member;
-            value.clone_into(&mut n.resource);
+            value.as_ref().clone_into(&mut n.resource);
         }
+        let (sdk_id, action) = (entry.service.meta().sdk_id, n.action);
+        let fields = TreeFields {
+            tables: entry.service.tables(),
+            arena: &call.arena,
+            body: &call.body,
+            root: call.root,
+        };
+        let Notes {
+            summary, detail, ..
+        } = &mut *n;
+        summary::from_input(sdk_id, action, &fields, summary, detail);
     });
 }
 
@@ -302,5 +323,14 @@ pub(crate) fn end<B: hyper::body::Body>(
             .size_hint()
             .exact()
             .and_then(|n| u32::try_from(n).ok()),
+        // A failed call did nothing a summary could say.
+        did: if status < 400 {
+            Did {
+                summary: notes.summary,
+                detail: &notes.detail,
+            }
+        } else {
+            Did::NONE
+        },
     });
 }

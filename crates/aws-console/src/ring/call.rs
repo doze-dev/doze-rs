@@ -1,5 +1,7 @@
 //! One finished call as the ring holds it, and the pieces of it (what made a call between services; the words of an error).
 
+use aws_peers::summary::Summary;
+
 use super::RECORD_BYTES;
 
 /// One finished call.
@@ -42,12 +44,15 @@ pub struct Call {
     /// The length the answer declared, in bytes, at most 65,534 (a longer one says so); [`u16::MAX`] when it declared none (a streamed
     /// answer, a call between services).
     pub answer_bytes: u16,
+    /// What the call did, in a few numbers (`3 messages`); [`Summary::NONE`] for an operation that has none and for a call that failed.
+    pub summary: Summary,
 }
 
 /// The words of an error answer, and a function invocation's own failure.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct Extra {
-    /// The words an error answer carried (the service's own).
+    /// The words an error answer carried (the service's own). On a call that succeeded, where there are none, the short text its
+    /// summary carries (an index, a session name, the role an attach was for): the two never meet, so one slot holds either.
     pub message: Box<str>,
     /// `Unhandled` or `Handled` when a function invocation answered 200 and the function failed.
     pub function_error: Box<str>,

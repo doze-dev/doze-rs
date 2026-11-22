@@ -105,6 +105,7 @@ export function CallSheet({ seq, call, serviceTitle, titles, held, onOpen, onClo
               <Field testId="resource" label="Resource" value={call.resource} none="Not known: the call named nothing doze-aws looks for (a queue, table, function, topic, bucket and the like)." note={call.member ? `The call's ${call.member}.` : call.resource ? "The S3 path the request was sent to." : undefined} copy />
               <Field testId="caller" label="Caller" value={call.caller} none="None recorded: the request carried no access key, or was refused before a service read it." note={call.via ? "The access key of the caller the service made this call for." : "The access key id the request was signed with."} copy />
               <Field testId="region" label="Region" value={call.region} none="None recorded: the request was signed for no region, or was refused before a service read it." />
+              <Field testId="did" label="What it did" value={call.summary} none="Not said: doze-aws reads a few words (a count, a size) from the answer of some operations only, and nothing from a call that failed." note="Read from the call's input and answer as it went by. The record keeps no bodies." />
               <Field testId="status" label="HTTP status" value={String(call.status)} />
               <Field testId="error-code" label="Error code" value={call.error_code} none="None: the call succeeded." copy />
               <Field testId="outcome" label="Outcome" value={call.outcome} />

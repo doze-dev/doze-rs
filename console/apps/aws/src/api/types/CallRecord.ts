@@ -89,4 +89,10 @@ function_error: string | null,
 /**
  * The length the answer declared, in bytes (65,534 for any longer one); `null` when it declared none.
  */
-answer_bytes: number | null, };
+answer_bytes: number | null, 
+/**
+ * What the call did, in a few words read from its input and its answer (`3 messages`, `sent 53 B`, `6 keys`, `delivered to 3`); `null`
+ * for an operation that has none, for a call that failed and for a call between services. The record keeps no bodies: this is
+ * all it knows of them.
+ */
+summary: string | null, };

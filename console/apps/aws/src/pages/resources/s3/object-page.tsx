@@ -20,7 +20,7 @@ import type { Presigned } from "../../../api/types/Presigned";
 import { downloadObject, useOpQuery } from "../deep/api";
 import { Card } from "../deep/parts";
 import type { OwnProps } from "../deep/registry";
-import { Calls } from "../detail-page";
+import { RecentCalls } from "../../../kit/recent-calls";
 import { bucketOf, crumbs, useBucket, useBucketNav, useSetting } from "./api";
 import { notificationRules, SSE_WORDS, isSse } from "./config";
 import { rowId, type Versions, versionRowsOf, type Row, selToText } from "./listing";
@@ -132,7 +132,7 @@ export function ObjectPage({ name, search }: OwnProps) {
           <Card title="Metadata" className="mt-6">
             <DataTable aria-label="Metadata" data={meta(h?.Metadata)} rowId={(m) => m[1]} maxHeight={280} empty="No metadata." columns={[{ id: "t", header: "Type", size: 160, accessorFn: (m) => m[0] }, { id: "k", header: "Key", size: 280, accessorFn: (m) => m[1], meta: { mono: true } }, { id: "v", header: "Value", accessorFn: (m) => m[2], meta: { mono: true } }]} />
           </Card>
-          {bucket.detail && <div className="mt-6"><Calls d={bucket.detail} /></div>}
+          {bucket.detail && <RecentCalls calls={bucket.detail.calls.filter((c) => c.resource === `${name}/${key}`)} noun="object" scope="this object" className="mt-6" />}
         </Reading>
       ) : (
         <Reading q={vq} what="The versions">

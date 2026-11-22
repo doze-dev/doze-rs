@@ -16,3 +16,14 @@ test("an answer that declared no length, a failure and a failed function say not
   expect(answerWords({ ...ok("Invoke", 73), function_error: "Unhandled" })).toBeNull();
   expect(answerWords({ ...ok("GetItem", 73), outcome: "error" as never })).toBeNull();
 });
+
+test("a summary the recorder read says what the call did, before any size", () => {
+  expect(answerWords({ ...ok("ReceiveMessage", 480), summary: "3 messages" })).toBe("3 messages");
+  expect(answerWords({ ...ok("SendMessage", 106), summary: "sent 53 B" })).toBe("sent 53 B");
+  // A summary needs no declared length (a call between services has none).
+  expect(answerWords({ ...ok("GetObject", null), summary: "212 KiB" })).toBe("212 KiB");
+});
+test("a failure and a failed function say nothing of the summary", () => {
+  expect(answerWords({ ...ok("ReceiveMessage", 2), outcome: "error" as never, summary: "no messages" })).toBeNull();
+  expect(answerWords({ ...ok("Invoke", 73), function_error: "Handled", summary: "1 event" })).toBeNull();
+});

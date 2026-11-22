@@ -47,3 +47,12 @@ export function tookWords(call: Pick<CallRecord, "duration_us" | "request_id">):
 export function namedKeys(calls: readonly Pick<CallRecord, "caller" | "via">[]): string {
   return [...new Set(calls.filter((c) => c.via === null && c.caller?.startsWith("AKIA")).map((c) => c.caller as string))].sort().join(",");
 }
+
+/** The object an S3 call acted on, beside the bucket its page is about (`a/one.txt` of `pics/a/one.txt`); null for any call that
+ * named no key. A call from the wire names it in its path; a call this console made names it in its input; both are recorded as
+ * `bucket/key` with no member. */
+export function targetKey(call: Pick<CallRecord, "service" | "member" | "resource">): string | null {
+  if (call.service !== "s3" || call.member !== null || !call.resource) return null;
+  const at = call.resource.indexOf("/");
+  return at < 0 || at === call.resource.length - 1 ? null : call.resource.slice(at + 1);
+}

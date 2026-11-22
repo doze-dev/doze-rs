@@ -119,6 +119,8 @@ test("logs__log-group-detail, log-streams-none, metric-filters: a group's page, 
   await expect(page.getByTestId("details")).toContainText("arn:aws:logs:us-east-1:");
   await expect(page.getByTestId("wired-strip")).toContainText("metric Larder/Api ApiErrors");
   await expect(page.getByTestId("recent-calls")).toContainText("PutLogEvents");
+  // The call says how many events it put.
+  await expect(page.getByTestId("recent-calls").getByTestId("answer-words").filter({ hasText: /^· \d+ events?$/ }).first()).toBeVisible();
   await expect(page.getByTestId("verb-search")).toHaveText("Search log group");
   // The two creates the board draws as buttons beside Actions are buttons, and the menu has them too.
   await expect(page.getByTestId("open-metric-filter")).toHaveText("Create metric filter");
@@ -325,6 +327,7 @@ test("kinesis__stream-detail and the edits: capacity, retention, encryption, sha
   await expect(page.getByTestId("section-metrics")).toContainText("None enabled");
   await expect(page.getByTestId("section-tags")).toContainText("larder");
   await expect(page.getByTestId("recent-calls")).toContainText("PutRecord");
+  await expect(page.getByTestId("recent-calls").getByTestId("answer-words").filter({ hasText: "· 1 record" }).first()).toBeVisible();
   await shot(page, "kinesis__stream-detail");
   // Capacity mode: a switch changes the mode and keeps the shards.
   await page.getByTestId("edit-capacity").click();

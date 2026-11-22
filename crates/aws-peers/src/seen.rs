@@ -159,7 +159,7 @@ impl Pending {
             sdk_id: meta.sdk_id,
             operation,
             member,
-            resource: resource.to_owned(),
+            resource: resource.into_owned(),
             access_key_id: call.caller.access_key_id.clone(),
             region: call.caller.region.clone(),
             cause,

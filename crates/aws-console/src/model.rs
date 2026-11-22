@@ -192,6 +192,10 @@ pub struct CallRecord {
     pub function_error: Option<String>,
     /// The length the answer declared, in bytes (65,534 for any longer one); `null` when it declared none.
     pub answer_bytes: Option<u32>,
+    /// What the call did, in a few words read from its input and its answer (`3 messages`, `sent 53 B`, `6 keys`, `delivered to 3`); `null`
+    /// for an operation that has none, for a call that failed and for a call between services. The record keeps no bodies: this is
+    /// all it knows of them.
+    pub summary: Option<String>,
 }
 
 /// What made a call between services.
@@ -235,9 +239,19 @@ impl CallRecord {
                 name: some(&v.name),
             }),
             sdk: some(&call.sdk),
-            message: call.extra.as_ref().and_then(|e| some(&e.message)),
+            message: call
+                .extra
+                .as_ref()
+                .filter(|_| call.status >= 400)
+                .and_then(|e| some(&e.message)),
             function_error: call.extra.as_ref().and_then(|e| some(&e.function_error)),
             answer_bytes: (call.answer_bytes != u16::MAX).then_some(u32::from(call.answer_bytes)),
+            summary: call.summary.text(
+                call.extra
+                    .as_ref()
+                    .filter(|_| call.status < 400)
+                    .map_or("", |e| &e.message),
+            ),
         }
     }
 }

@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import type { KeyPrincipal } from "../api/types/KeyPrincipal";
-import { callerWords, namedKeys, tookWords } from "./calls";
+import { callerWords, namedKeys, targetKey, tookWords } from "./calls";
 
 const titles = new Map([["events", "EventBridge"], ["sns", "SNS"]]);
 const user: KeyPrincipal = { key: "AKIAUSER", kind: "user", name: "admin-cli", arn: "arn:aws:iam::1:user/admin-cli" };
@@ -35,4 +35,15 @@ test("a call between services has no time of its own; a wire call says how long 
 test("only the access keys of the wire are asked about", () => {
   const via = { by: "sns", name: null, request_id: null };
   expect(namedKeys([{ caller: "AKIAB", via: null }, { caller: "AKIAA", via: null }, { caller: "AKIAB", via: null }, { caller: "console", via: null }, { caller: "AKIAC", via }])).toBe("AKIAA,AKIAB");
+});
+
+test("an S3 call that named an object shows its key beside the bucket's page; any other call shows none", () => {
+  const s3 = (resource: string | null, member: string | null = null) => ({ service: "s3", member, resource });
+  expect(targetKey(s3("pics/a/one.txt"))).toBe("a/one.txt");
+  expect(targetKey(s3("pics"))).toBeNull();
+  expect(targetKey(s3("pics/"))).toBeNull();
+  expect(targetKey(s3(null))).toBeNull();
+  // A call that names the bucket by a member (a listing's `Bucket`) acts on the bucket.
+  expect(targetKey(s3("pics", "Bucket"))).toBeNull();
+  expect(targetKey({ service: "sqs", member: null, resource: "a/b" })).toBeNull();
 });
