@@ -162,6 +162,15 @@ fn users_groups_and_keys() {
         key["AccessKeyId"].as_str().unwrap().starts_with("AKIA")
             && key["SecretAccessKey"].as_str().unwrap().len() == 40
     );
+    // AWS's access key ids are 20 characters (AKIA and sixteen), a user's own id 21.
+    assert_eq!(key["AccessKeyId"].as_str().unwrap().len(), 20);
+    assert_eq!(
+        w.ok("GetUser", &json!({"UserName": "u"}))["User"]["UserId"]
+            .as_str()
+            .unwrap()
+            .len(),
+        21
+    );
     let id = key["AccessKeyId"].as_str().unwrap();
     w.ok(
         "UpdateAccessKey",
@@ -320,5 +329,66 @@ fn account_settings_providers_and_service_linked_roles() {
     assert_eq!(
         w.ok("GetAccountSummary", &json!({}))["SummaryMap"]["Roles"],
         0
+    );
+}
+
+#[test]
+fn names_are_not_told_apart_by_case() {
+    // The model's own words (iam.json, CreateUser.UserName): "Names are not distinguished by case. For example, you cannot
+    // create resources named both MyResource and myresource."
+    let mut w = World::new();
+    w.ok("CreateUser", &json!({"UserName": "dev"}));
+    w.ok("CreateGroup", &json!({"GroupName": "devs"}));
+    w.ok(
+        "CreateRole",
+        &json!({"RoleName": "report-job", "AssumeRolePolicyDocument": TRUST}),
+    );
+    for (op, body) in [
+        ("CreateUser", json!({"UserName": "DEV"})),
+        ("CreateGroup", json!({"GroupName": "Devs"})),
+        (
+            "CreateRole",
+            json!({"RoleName": "Report-Job", "AssumeRolePolicyDocument": TRUST}),
+        ),
+    ] {
+        assert_eq!(w.err(op, &body).0, "EntityAlreadyExistsException", "{op}");
+    }
+    // A user and a group may share a name (they are different kinds), and a rename may change only the case.
+    w.ok("CreateGroup", &json!({"GroupName": "dev"}));
+    w.ok(
+        "UpdateUser",
+        &json!({"UserName": "dev", "NewUserName": "Dev"}),
+    );
+    assert_eq!(
+        w.ok("GetUser", &json!({"UserName": "Dev"}))["User"]["UserName"],
+        "Dev"
+    );
+    // A rename onto another user's name, in another case, is refused.
+    w.ok("CreateUser", &json!({"UserName": "ci"}));
+    assert_eq!(
+        w.err(
+            "UpdateUser",
+            &json!({"UserName": "ci", "NewUserName": "DEV"})
+        )
+        .0,
+        "EntityAlreadyExistsException"
+    );
+    // A customer managed policy, in one path.
+    let doc = json!({"Version": "2012-10-17", "Statement": [{"Effect": "Allow", "Action": "s3:GetObject", "Resource": "*"}]}).to_string();
+    w.ok(
+        "CreatePolicy",
+        &json!({"PolicyName": "Read", "PolicyDocument": doc}),
+    );
+    assert_eq!(
+        w.err(
+            "CreatePolicy",
+            &json!({"PolicyName": "read", "PolicyDocument": doc})
+        )
+        .0,
+        "EntityAlreadyExistsException"
+    );
+    w.ok(
+        "CreatePolicy",
+        &json!({"PolicyName": "read", "Path": "/apps/", "PolicyDocument": doc}),
     );
 }

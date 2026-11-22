@@ -278,3 +278,34 @@ async fn the_form_a_preview_writes_is_read_back_by_the_services_own_decoder() {
         input
     );
 }
+
+#[tokio::test]
+async fn a_number_or_a_flag_in_a_query_call_keeps_its_type() {
+    let w = world("preview-query-typed", Mode::Soft, &[]);
+    let (status, p) = preview(
+        &w,
+        "sts",
+        "AssumeRole",
+        &json!({"RoleArn": "arn:aws:iam::000000000000:role/report-job", "RoleSessionName": "s", "DurationSeconds": 3600}),
+    )
+    .await;
+    assert_eq!(status, 200, "{p}");
+    // The form's members, with the number a number: a copy of it into an SDK call is a valid one.
+    assert_eq!(p["json"]["Action"], "AssumeRole");
+    assert_eq!(p["json"]["DurationSeconds"], json!(3600), "{p}");
+    assert_eq!(p["json"]["RoleSessionName"], "s");
+    assert!(
+        p["cli"]
+            .as_str()
+            .unwrap()
+            .contains("--duration-seconds 3600"),
+        "{p}"
+    );
+    assert!(
+        p["boto3"]
+            .as_str()
+            .unwrap()
+            .contains("DurationSeconds=3600"),
+        "{p}"
+    );
+}

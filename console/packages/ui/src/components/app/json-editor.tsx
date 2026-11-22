@@ -1,5 +1,6 @@
-import { useId } from "react";
+import { useId, useRef } from "react";
 import { cn } from "../../lib/utils";
+import { JsonText } from "./code-block";
 import { Button } from "../ui/button";
 import { Label } from "../ui/label";
 import { Textarea } from "../ui/textarea";
@@ -22,8 +23,9 @@ export function formatJson(text: string): string {
 
 /** A JSON document typed by a person: monospace, checked as it is typed (the parser's words under it when it is not JSON), and
  * a Format button. The caller decides what an empty document means (`empty`). */
-export function JsonEditor({ value, onChange, label, help, placeholder, empty = "ok", rows = 10, className, testId = "json-editor" }: { value: string; onChange: (v: string) => void; label: string; help?: React.ReactNode; /** What an empty editor shows. */ placeholder?: string; empty?: "ok" | "invalid"; rows?: number; className?: string; testId?: string }) {
+export function JsonEditor({ value, onChange, label, help, placeholder, empty = "ok", rows = 10, className, testId = "json-editor", highlight = false }: { value: string; onChange: (v: string) => void; label: string; help?: React.ReactNode; /** What an empty editor shows. */ placeholder?: string; empty?: "ok" | "invalid"; rows?: number; className?: string; testId?: string; /** Colour the keys, strings, numbers and literals as they are typed (the text is drawn under a transparent field). */ highlight?: boolean }) {
   const id = useId();
+  const under = useRef<HTMLPreElement>(null);
   const check = checkJson(value, empty);
   const bad = !check.ok;
   return (
@@ -34,19 +36,28 @@ export function JsonEditor({ value, onChange, label, help, placeholder, empty = 
           Format
         </Button>
       </div>
-      <Textarea
-        id={id}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder={placeholder}
-        rows={rows}
-        spellCheck={false}
-        autoComplete="off"
-        aria-invalid={bad}
-        aria-describedby={`${id}-help`}
-        className="min-h-32 bg-card font-mono text-[13px] leading-5"
-        data-testid={testId}
-      />
+      <div className="relative">
+        {highlight && (
+          <pre ref={under} aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden rounded-md border border-transparent bg-card px-3 py-2 font-mono text-[13px] leading-5 break-words whitespace-pre-wrap text-foreground md:text-sm" data-testid={`${testId}-colours`}>
+            <JsonText text={value} />
+            {"\n"}
+          </pre>
+        )}
+        <Textarea
+          id={id}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          onScroll={highlight ? (e) => { if (under.current) under.current.scrollTop = e.currentTarget.scrollTop; } : undefined}
+          placeholder={placeholder}
+          rows={rows}
+          spellCheck={false}
+          autoComplete="off"
+          aria-invalid={bad}
+          aria-describedby={`${id}-help`}
+          className={cn("relative min-h-32 bg-card font-mono text-[13px] leading-5", highlight && "bg-transparent text-transparent caret-foreground dark:bg-transparent")}
+          data-testid={testId}
+        />
+      </div>
       <p id={`${id}-help`} className={cn("text-[12.5px] leading-[18px]", bad ? "text-bad" : "text-muted-foreground")} data-testid={`${testId}-help`}>
         {bad ? `Not JSON: ${check.why}` : help}
       </p>

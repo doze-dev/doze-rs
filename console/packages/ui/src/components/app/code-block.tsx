@@ -1,4 +1,14 @@
+import { JSON_COLOUR, tokenizeJson } from "../../lib/json-tokens";
 import { cn } from "../../lib/utils";
+
+/** JSON text with its keys, strings, numbers and literals in the theme's role colours (the text itself is unchanged: select and copy give it back). */
+export function JsonText({ text }: { text: string }) {
+  return (
+    <>
+      {tokenizeJson(text).map((t, i) => (t.kind === "plain" ? t.text : <span key={i} className={JSON_COLOUR[t.kind]} data-json={t.kind}>{t.text}</span>))}
+    </>
+  );
+}
 
 /** A JSON value written out, indented, in a scrolling block. */
 export function JsonBlock({ value, className, testId }: { value: unknown; className?: string; testId?: string }) {
@@ -22,10 +32,10 @@ export function pretty(body: string | null | undefined): string {
 }
 
 /** A read-only block of code or text, with its own scroll; wrapped or not. */
-export function CodeBlock({ text, wrap = true, className, testId, max = "max-h-[560px]" }: { text: string; wrap?: boolean; className?: string; testId?: string; max?: string }) {
+export function CodeBlock({ text, wrap = true, className, testId, max = "max-h-[560px]", json = false }: { text: string; wrap?: boolean; className?: string; testId?: string; max?: string; /** The text is JSON: colour its keys, strings, numbers and literals. */ json?: boolean }) {
   return (
     <pre tabIndex={0} className={cn("overflow-auto rounded-[12px] border bg-well px-5 py-4 font-mono text-[12.5px] leading-[21px] text-foreground outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50", max, wrap ? "whitespace-pre-wrap break-words" : "whitespace-pre", className)} data-slot="code-block" data-testid={testId}>
-      {text}
+      {json ? <JsonText text={text} /> : text}
     </pre>
   );
 }

@@ -64,7 +64,7 @@ export function SharingTab({ s, create }: { s: Stream; create: () => void }) {
             </li>
           ))}
         </ol>
-        <div className="mt-4"><CodeBlock text={shown} wrap={false} max="max-h-96" testId="sharing-json" /></div>
+        <div className="mt-4"><CodeBlock text={shown} wrap={false} max="max-h-96" testId="sharing-json" json /></div>
         <RuleHelp className="mt-4">The policy is stored and GetResourcePolicy reads it back. <span className="text-muted-foreground">doze-aws's IAM does not evaluate a stream's resource policy, so it neither grants nor denies a call here.</span></RuleHelp>
       </section>
       <PlainConfirm open={asking} onOpenChange={setAsking} title="Delete sharing policy" call="DeleteResourcePolicy" pending={del.isPending} error={del.error} testId="sharing-delete-dialog" onConfirm={() => del.mutate({ stream: s.name, input: {} }, { onSuccess: () => setAsking(false) })}

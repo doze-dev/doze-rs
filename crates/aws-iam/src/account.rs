@@ -223,11 +223,7 @@ impl Core {
                 .map(|s| format!("_{s}"))
                 .unwrap_or_default()
         );
-        if self
-            .entities
-            .get(&crate::core::entity_key(Kind::Role, &name))
-            .is_some()
-        {
+        if self.name_taken(Kind::Role, &name) {
             // (memory)
             return Err(ApiError::modeled(
                 "InvalidInputException",

@@ -2,7 +2,7 @@
 // and one AttachUserPolicy per policy. Pure.
 import { filled, type KeyValueRow } from "@doze/ui/components/app/key-values";
 import type { PreviewRequest } from "../../../kit";
-import { nameProblem } from "./model";
+import { nameProblem, takenProblem } from "./model";
 
 export type How = "group" | "copy" | "policies";
 export type UserForm = { name: string; how: How; groups: ReadonlySet<string>; copyFrom: string | null; policies: ReadonlySet<string>; boundary: string | null; tags: KeyValueRow[] };
@@ -36,4 +36,4 @@ export function userCalls(f: UserForm, copied: Copied, withCreate = true): Previ
 }
 
 /** What is wrong on a step, `null` when it can go on. */
-export const stepProblem = (f: UserForm, step: number, taken: readonly string[]): string | null => (step === 0 ? (nameProblem(f.name, "user") ?? (taken.includes(f.name) ? `A user named ${f.name} already exists.` : null)) : null);
+export const stepProblem = (f: UserForm, step: number, taken: readonly string[]): string | null => (step === 0 ? (nameProblem(f.name, "user") ?? takenProblem("user", f.name, taken)) : null);

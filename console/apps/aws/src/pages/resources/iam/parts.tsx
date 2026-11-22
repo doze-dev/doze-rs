@@ -10,7 +10,16 @@ import { ToggleGroup, ToggleGroupItem } from "@doze/ui/components/ui/toggle-grou
 import { cn } from "@doze/ui/lib/utils";
 import type { ValueFormat } from "../../../api/types/ValueFormat";
 import { shown } from "../model";
-import { type AttachedPolicy, managedKind } from "./model";
+import { type AttachedPolicy, breakPoints, managedKind } from "./model";
+
+/** An ARN (or any resource text) that wraps at its colons and slashes, and breaks inside a part only when the part alone is wider than the cell. */
+export function Breakable({ text, className }: { text: string; className?: string }) {
+  return (
+    <span className={cn("font-mono text-[13px] [overflow-wrap:anywhere]", className)} title={text}>
+      {breakPoints(text).map((s, i) => <span key={i}>{s}<wbr /></span>)}
+    </span>
+  );
+}
 
 /** A sentence whose resource names are in monospace bold and whose figures (a pattern or a phrase) are in bold. */
 export function Say({ text, names, bold, className, testId }: { text: string; names?: readonly string[]; bold?: readonly (string | RegExp)[]; className?: string; testId?: string }) {

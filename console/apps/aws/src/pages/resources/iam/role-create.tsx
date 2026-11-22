@@ -17,7 +17,7 @@ import { useAbout } from "../../../api/queries";
 import { useResourceList } from "../../../api/resources";
 import { Field, FormPage, FormSection, PolicyPicker, TAG_RULES, callKindOp } from "../../../kit";
 import { ROLES, USERS, useRead, useRefresh } from "./api";
-import { awsArn, list, SERVICES, sameIgnoringCase, trustDocument } from "./model";
+import { awsArn, list, SERVICES, trustDocument } from "./model";
 import { CardChoice, crumbs, KINDS, Note, ReviewBlock, RowChoice } from "./parts";
 import { PolicyChooser, usePolicyOptions } from "./policy-chooser";
 import { PolicyJson } from "./policy-json";
@@ -77,11 +77,10 @@ export function RoleCreate() {
       setPending(false);
     }
   };
-  const similar = sameIgnoringCase(f.name, taken);
   const trustPanel = (
     <aside className="min-w-0 rounded-[14px] border bg-card p-5" aria-label="The trust policy this builds" data-testid="trust-panel">
       <h2 className="flex items-center gap-2 text-[12px] font-medium tracking-[0.08em] text-muted-foreground uppercase"><BracesIcon aria-hidden className="size-3.5" /> The trust policy this builds</h2>
-      <CodeBlock text={doc} className="mt-3 max-h-[24rem]" testId="trust-json" />
+      <CodeBlock text={doc} className="mt-3 max-h-[24rem]" testId="trust-json" json />
       <p className="mt-3 text-[13px] leading-5 text-muted-foreground">It becomes the AssumeRolePolicyDocument of CreateRole on the last step.</p>
       <TrustNote className="mt-3" />
     </aside>
@@ -167,14 +166,14 @@ export function RoleCreate() {
       {step === 2 && (
         <>
           <FormSection title="Role details" testId="section-details">
-            <Field label="Role name" error={tried ? (problem ?? undefined) : undefined} help={<><b>Up to 64 characters</b>: letters, digits and + = , . @ _ -. The name must be unique in the account. In a policy or an ARN it is case sensitive. AWS treats names that differ only in case, such as PRODROLE and prodrole, as the same name; doze-aws compares names exactly, so it would create both.{taken.length > 0 && <> <span className="font-mono">{list(taken.slice(0, 5))}</span> already {taken.length === 1 ? "exists" : "exist"}.</>}</>} hint={similar.length > 0 ? <>{f.name} differs only in case from <span className="font-mono">{list(similar)}</span>: AWS would refuse it as a duplicate.</> : undefined} testId="field-name">
+            <Field label="Role name" error={tried ? (problem ?? undefined) : undefined} help={<><b>Up to 64 characters</b>: letters, digits and + = , . @ _ -. The name must be unique in the account. In a policy or an ARN it is case sensitive. Names that differ only in case, such as PRODROLE and prodrole, are the same name: a second one is refused.{taken.length > 0 && <> <span className="font-mono">{list(taken.slice(0, 5))}</span> already {taken.length === 1 ? "exists" : "exist"}.</>}</>} testId="field-name">
               {(id) => <Input id={id} value={f.name} onChange={(e) => set({ name: e.target.value })} placeholder="larder-readonly" autoComplete="off" spellCheck={false} className="bg-card font-mono" data-testid="role-name" />}
             </Field>
             <Field label="Description" optional help="Up to 1,000 characters. You can edit it later from the role's Summary.">
               {(id) => <Textarea id={id} value={f.description} maxLength={1000} onChange={(e) => set({ description: e.target.value })} rows={3} className="bg-card" data-testid="role-description" />}
             </Field>
           </FormSection>
-          <ReviewBlock title="Step 1: Select trusted entities" onEdit={() => go(0)} testId="review-trust"><CodeBlock text={doc} wrap={false} className="max-h-72" /><TrustNote /></ReviewBlock>
+          <ReviewBlock title="Step 1: Select trusted entities" onEdit={() => go(0)} testId="review-trust"><CodeBlock text={doc} wrap={false} className="max-h-72" json /><TrustNote /></ReviewBlock>
           <ReviewBlock title="Step 2: Add permissions" onEdit={() => go(1)} testId="review-policies">
             {f.policies.size === 0 ? <p className="text-[13.5px] text-muted-foreground">No policies: the role starts with no permissions.</p> : (
               <ul className="divide-y rounded-lg border">

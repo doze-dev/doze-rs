@@ -1,13 +1,15 @@
 //! `POST /api/v1/preview`: the call a form would make, written out before it is made.
 //!
 //! The answer is worked out from the model's tables (the same ones the Lab reads), never by calling the service: `json` is the
-//! request as the wire shows it (a JSON protocol's body; a query protocol's form members as an object; a REST protocol's body
-//! members, the rest being in the address), `cli` and `boto3` are the call as the AWS CLI and boto3 write it, and `missing`
+//! request as the wire shows it (a JSON protocol's body; a query protocol's form members as an object, a number or a flag keeping
+//! its type; a REST protocol's body members, the rest being in the address), `cli` and `boto3` are the call as the AWS CLI and boto3 write it, and `missing`
 //! names the required members `input` lacks. An operation doze-aws has not built, or a service it does not have, is 404
 //! `NOT_BUILT`.
 
 use aws_schema::meta::Protocol;
-use aws_schema::tables::{F_REQUIRED, K_LIST, K_MAP, K_STRUCT, K_UNION, MemberRef, Tables};
+use aws_schema::tables::{
+    F_REQUIRED, K_BOOL, K_FLOAT, K_INT, K_LIST, K_MAP, K_STRUCT, K_UNION, MemberRef, Tables,
+};
 use axum::body::Bytes;
 use axum::extract::State;
 use axum::http::StatusCode;
@@ -92,6 +94,11 @@ fn put(t: &Tables, m: &MemberRef<'_>, v: &Value, key: &str, out: &mut Map<String
                     out,
                 );
             }
+        }
+        // A number or a flag keeps its JSON type: the panel shows what a person copies into an SDK call, where `DurationSeconds` is
+        // a number (the CLI and boto3 tabs are typed too), and a form value is text only on the wire.
+        (K_INT | K_FLOAT, Value::Number(_)) | (K_BOOL, Value::Bool(_)) => {
+            out.insert(key.to_owned(), v.clone());
         }
         _ => {
             out.insert(key.to_owned(), Value::String(scalar(v)));

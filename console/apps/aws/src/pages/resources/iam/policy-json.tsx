@@ -31,7 +31,7 @@ export function PolicyJson({ value, onChange, kind, label = "Policy editor", row
   const ok = errors.length === 0 && value.trim() !== "";
   return (
     <div className="grid gap-3" data-testid={testId}>
-      <JsonEditor value={value} onChange={onChange} label={label} rows={rows} testId={`${testId}-editor`} />
+      <JsonEditor value={value} onChange={onChange} label={label} rows={rows} testId={`${testId}-editor`} highlight />
       <p className={cn("flex items-center gap-2 text-[13.5px] font-medium", ok ? "text-good" : "text-bad")} data-testid={`${testId}-status`}>
         {ok ? <CircleCheckIcon aria-hidden className="size-4" /> : <CircleAlertIcon aria-hidden className="size-4" />}
         {ok ? "No syntax errors" : parses ? `${errors.length} ${errors.length === 1 ? "error" : "errors"}` : "1 error"}

@@ -2,7 +2,7 @@
 // AttachRolePolicy per policy chosen. Pure.
 import { filled, type KeyValueRow } from "@doze/ui/components/app/key-values";
 import type { PreviewRequest } from "../../../kit";
-import { blankTrust, nameProblem, trustDocument, trustProblem, type TrustChoice } from "./model";
+import { blankTrust, nameProblem, takenProblem, trustDocument, trustProblem, type TrustChoice } from "./model";
 
 export type RoleForm = { trust: TrustChoice; policies: ReadonlySet<string>; boundary: string | null; name: string; description: string; tags: KeyValueRow[] };
 export const blankRole: RoleForm = { trust: blankTrust, policies: new Set(), boundary: null, name: "", description: "", tags: [] };
@@ -22,6 +22,6 @@ export function roleCalls(f: RoleForm, account: string, withCreate = true): Prev
 /** What is wrong with a step, `null` when it can go on. */
 export function stepProblem(f: RoleForm, step: number, taken: readonly string[]): string | null {
   if (step === 0) return trustProblem(f.trust);
-  if (step === 2) return nameProblem(f.name, "role") ?? (taken.includes(f.name) ? `A role named ${f.name} already exists.` : null);
+  if (step === 2) return nameProblem(f.name, "role") ?? takenProblem("role", f.name, taken);
   return null;
 }

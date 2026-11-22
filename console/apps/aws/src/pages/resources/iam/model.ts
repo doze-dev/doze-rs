@@ -23,6 +23,8 @@ export type GroupRef = { GroupName: string; Arn: string; CreateDate: number };
 
 /** The policy a managed policy's ARN names, with where it comes from: `arn:aws:iam::aws:policy/service-role/X` is AWS's. */
 export const policyNameOf = (arn: string): string => arn.split("/").pop() ?? arn;
+/** The ARN of a customer managed policy a bare name stands for in this account; `null` when `name` is not a bare policy name (an ARN already, or the pseudo-name of an inline policy). A policy's page is at its ARN, and a name typed or bookmarked is taken to it. */
+export const policyArnOfName = (account: string, name: string): string | null => (/^[\w+=,.@-]{1,128}$/.test(name) ? `arn:aws:iam::${account}:policy/${name}` : null);
 export const isAwsManaged = (arn: string): boolean => arn.startsWith("arn:aws:iam::aws:policy/");
 export const managedKind = (arn: string): "AWS managed" | "Customer managed" | "Inline" => (arn.startsWith("inline:") ? "Inline" : isAwsManaged(arn) ? "AWS managed" : "Customer managed");
 
@@ -65,8 +67,18 @@ export function nameProblem(value: string, what: keyof typeof NAME_RULES): strin
   return null;
 }
 
-/** The existing names that differ from `value` only in case: IAM treats them as the same name where doze-aws compares exactly. */
+/** An ARN or a path cut after each `:` and `/`, where a line may end: the pieces joined are the text. */
+export const breakPoints = (text: string): string[] => text.match(/[^:/]*[:/]?/g)?.filter((s) => s !== "") ?? [];
+
+/** The existing names that differ from `value` only in case: IAM treats them as the same name, and doze-aws refuses the second. */
 export const sameIgnoringCase = (value: string, names: readonly string[]): string[] => names.filter((n) => n !== value && n.toLowerCase() === value.toLowerCase());
+
+/** What stops a new `what` called `name` when `taken` holds one of that name (or one that differs only in case: names are not told apart by case); `null` when nothing does. */
+export function takenProblem(what: string, name: string, taken: readonly string[]): string | null {
+  if (taken.includes(name)) return `A ${what} named ${name} already exists.`;
+  const same = sameIgnoringCase(name, taken)[0];
+  return same === undefined ? null : `A ${what} named ${same} already exists; names are not told apart by case.`;
+}
 
 /** The account alias's rule: 3 to 63 of lowercase letters, digits and hyphens, a letter or digit at each end, no two hyphens in a row. */
 export function aliasProblem(value: string): string | null {

@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { aliasProblem, awsArn, blankTrust, daysSince, lacksResource, list, nameProblem, needsExternalId, permissions, sameIgnoringCase, sessionWords, shortKey, suggestedResource, trustActions, trustDocument, trustedEntities, trustPrincipals, trustProblem, trustSentence } from "./model";
+import { aliasProblem, awsArn, blankTrust, breakPoints, daysSince, lacksResource, list, nameProblem, needsExternalId, permissions, policyArnOfName, sameIgnoringCase, sessionWords, shortKey, suggestedResource, takenProblem, trustActions, trustDocument, trustedEntities, trustPrincipals, trustProblem, trustSentence } from "./model";
 
 const ACCOUNT = "123456789012";
 const trust = (principal: unknown, extra: object = {}) => JSON.stringify({ Version: "2012-10-17", Statement: [{ Effect: "Allow", Principal: principal, Action: "sts:AssumeRole", ...extra }] });
@@ -117,5 +117,37 @@ describe("documents as IAM sends them", () => {
     expect(docText('{"a":1}')).toBe('{"a":1}');
     expect(docText({ a: 1 })).toBe('{"a":1}');
     expect(permissions("%7B%22Statement%22%3A%5B%7B%22Effect%22%3A%22Allow%22%2C%22Action%22%3A%22s3%3AGetObject%22%2C%22Resource%22%3A%22%2A%22%7D%5D%7D")[0]?.actions).toBe("s3:GetObject");
+  });
+});
+
+describe("a policy named by its bare name", () => {
+  test("is the policy of that name in this account", () => {
+    expect(policyArnOfName(ACCOUNT, "orders-read")).toBe(`arn:aws:iam::${ACCOUNT}:policy/orders-read`);
+    expect(policyArnOfName(ACCOUNT, "a+b=c,d.e@f_g-h")).toBe(`arn:aws:iam::${ACCOUNT}:policy/a+b=c,d.e@f_g-h`);
+  });
+  test("an ARN, an inline policy's pseudo-name and a name that cannot be one are left alone", () => {
+    expect(policyArnOfName(ACCOUNT, `arn:aws:iam::${ACCOUNT}:policy/orders-read`)).toBeNull();
+    expect(policyArnOfName(ACCOUNT, "arn:aws:iam::aws:policy/AdministratorAccess")).toBeNull();
+    expect(policyArnOfName(ACCOUNT, "inline:dev:read")).toBeNull();
+    expect(policyArnOfName(ACCOUNT, "")).toBeNull();
+    expect(policyArnOfName(ACCOUNT, "x".repeat(129))).toBeNull();
+  });
+});
+
+describe("a name that is taken", () => {
+  test("is said with the name that holds it, and a name that differs only in case is the same name", () => {
+    expect(takenProblem("user", "dev", ["dev", "ci-bot"])).toBe("A user named dev already exists.");
+    expect(takenProblem("user", "DEV", ["dev", "ci-bot"])).toBe("A user named dev already exists; names are not told apart by case.");
+    expect(takenProblem("user", "ops", ["dev"])).toBeNull();
+  });
+});
+
+describe("where a resource may wrap", () => {
+  test("after each colon and slash, and the pieces are the text", () => {
+    const arn = "arn:aws:sqs:us-east-1:000000000000:pick-lists";
+    expect(breakPoints(arn)).toEqual(["arn:", "aws:", "sqs:", "us-east-1:", "000000000000:", "pick-lists"]);
+    expect(breakPoints("arn:aws:s3:::bucket/key/*").join("")).toBe("arn:aws:s3:::bucket/key/*");
+    expect(breakPoints("*")).toEqual(["*"]);
+    expect(breakPoints("")).toEqual([]);
   });
 });

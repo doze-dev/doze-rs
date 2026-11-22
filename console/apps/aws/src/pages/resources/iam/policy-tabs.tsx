@@ -11,7 +11,7 @@ import { dateTimeUtc } from "@doze/ui/lib/format";
 import { TagsTab as KitTags } from "../../../kit";
 import { GROUPS, POLICIES, ROLES, USERS, useWrite } from "./api";
 import { type Doc, docText, type Permission, permissions } from "./model";
-import { Card, Note, Segmented, To } from "./parts";
+import { Breakable, Card, Note, Segmented, To } from "./parts";
 
 export type Entities = { PolicyUsers?: { UserName: string }[]; PolicyRoles?: { RoleName: string }[]; PolicyGroups?: { GroupName: string }[] };
 export type Versions = { Versions: { VersionId: string; IsDefaultVersion: boolean; CreateDate: number }[] };
@@ -23,11 +23,11 @@ export function PermissionsTab({ doc, version, aws }: { doc: Doc; version: strin
   const columns: DataColumn<Permission>[] = [
     { id: "service", header: "Service", size: 200, accessorFn: (r) => r.service, cell: (c) => c.row.original.service },
     { id: "actions", header: "Actions", size: 340, accessorFn: (r) => r.actions, cell: (c) => <span className="font-mono text-[13px] break-all">{c.row.original.actions}</span> },
-    { id: "resource", header: "Resource", accessorFn: (r) => r.resource, cell: (c) => <span className="font-mono text-[13px] break-all">{c.row.original.resource}</span> },
+    { id: "resource", header: "Resource", accessorFn: (r) => r.resource, cell: (c) => <Breakable text={c.row.original.resource} className="block whitespace-normal" /> },
   ];
   return (
     <Card title="Policy summary" lede={`The default version, ${version}.${aws ? " doze-aws makes this document from the policy's name." : ""}`} actions={<Segmented value={view} onChange={(v) => v && setView(v)} label="Show the policy as" options={[{ value: "summary", label: "Summary" }, { value: "json", label: "JSON" }]} testId="policy-view" />} testId="summary-card">
-      {view === "json" ? <CodeBlock text={pretty} wrap={false} testId="policy-json" /> : <DataTable aria-label="Permissions" data={permissions(doc)} columns={columns} rowId={(r) => `${r.service}|${r.actions}|${r.resource}`} maxHeight={420} empty="This policy grants nothing: it has no Allow statement." />}
+      {view === "json" ? <CodeBlock text={pretty} wrap={false} testId="policy-json" json /> : <DataTable aria-label="Permissions" data={permissions(doc)} columns={columns} rowId={(r) => `${r.service}|${r.actions}|${r.resource}`} maxHeight={420} empty="This policy grants nothing: it has no Allow statement." />}
     </Card>
   );
 }

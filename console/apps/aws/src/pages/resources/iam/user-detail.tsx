@@ -77,7 +77,7 @@ function UserView({ d, updatedAt, fetching, refresh }: { d: Parameters<Parameter
         details={false}
         testId="user-page"
       />
-      {!onSecurity && <div className="mt-12"><RecentCalls calls={d.calls} noun="user" /></div>}
+      {!onSecurity && <div className="mt-12"><RecentCalls calls={d.calls} noun="user" scope={`${name} or were signed with its access keys`} /></div>}
       <DeleteEntity kind="users" name={name} open={deleting} onOpenChange={setDeleting} onDeleted={() => { setDeleting(false); toList({ gone: name }); }} />
     </>
   );

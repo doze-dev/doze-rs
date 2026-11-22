@@ -270,6 +270,7 @@ pub async fn detail(
         });
         subs.push(list);
     }
+    let subs_keys = key_ids(&subs);
     let fields = run::fields(kind, &out);
     let (sentence, badges, verbs) = page::speak(
         kind,
@@ -289,7 +290,13 @@ pub async fn detail(
         wired: page::wired(&fields, &subs),
         fields,
         subs,
-        calls: calls(facts, recorder, d.service, (&id, &called_as(kind, name))),
+        calls: calls(
+            facts,
+            recorder,
+            d.service,
+            (&id, &called_as(kind, name)),
+            &signing_keys(d.service, kind, &subs_keys),
+        ),
         reveal: kind
             .reveal
             .as_ref()
@@ -317,14 +324,34 @@ fn called_as(kind: &Kind, name: &str) -> String {
     }
 }
 
+/// The access key ids a page lists (an IAM user's Access keys).
+fn key_ids(subs: &[crate::model::SubList]) -> Vec<String> {
+    subs.iter()
+        .filter(|s| s.title == "Access keys")
+        .flat_map(|s| s.rows.iter().map(|r| r.id.clone()))
+        .collect()
+}
+
+/// The keys whose calls are the resource's own: an IAM user acts with its access keys, so what a key did (to any service) is
+/// among the user's calls.
+fn signing_keys(service: &str, kind: &Kind, keys: &[String]) -> Vec<String> {
+    if service == "iam" && kind.id == "users" {
+        keys.to_vec()
+    } else {
+        Vec::new()
+    }
+}
+
 /// The newest calls of the Live record to `service` that acted on the resource, newest first: up to [`MOST_CALLS`] of others'
-/// and up to as many of the console's own (a page hides those unless asked).
+/// and up to as many of the console's own (a page hides those unless asked). A call signed with one of `keys` (the access keys of
+/// an IAM user) is the resource's own whatever it acted on.
 #[must_use]
 pub fn calls(
     facts: &Facts,
     recorder: &Recorder,
     service: &str,
     (id, name): (&str, &str),
+    keys: &[String],
 ) -> Vec<CallRecord> {
     let page = recorder.newest(usize::MAX);
     page.calls
@@ -333,15 +360,16 @@ pub fn calls(
         // A role is also acted on by STS: `AssumeRole` names it.
         .filter(|c| {
             let by = facts.service_named(c.signing_name);
-            (by == service || (service == "iam" && by == "sts")) && !c.resource.is_empty()
-        })
-        .filter(|c| {
-            let r: &str = &c.resource;
-            r == id
-                || r == name
-                || super::path::tail(r) == name
-                // An S3 path names its bucket first.
-                || (c.member.is_empty() && r.split('/').next() == Some(name))
+            let acted =
+                (by == service || (service == "iam" && by == "sts")) && !c.resource.is_empty() && {
+                    let r: &str = &c.resource;
+                    r == id
+                    || r == name
+                    || super::path::tail(r) == name
+                    // An S3 path names its bucket first.
+                    || (c.member.is_empty() && r.split('/').next() == Some(name))
+                };
+            acted || keys.iter().any(|k| **k == *c.caller)
         })
         .scan((0, 0), |(mine, theirs), c| {
             let n = if *c.caller == *CONSOLE { mine } else { theirs };

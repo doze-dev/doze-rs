@@ -16,8 +16,8 @@ import { useAbout } from "../../../api/queries";
 import { useResourceList } from "../../../api/resources";
 import { Field, FormPage, FormSection, TAG_RULES, callKindOp } from "../../../kit";
 import { POLICIES, useRefresh } from "./api";
-import { lacksResource, list, nameProblem, type Permission, permissions, starterPolicy, suggestedResource } from "./model";
-import { crumbs, KINDS, Note } from "./parts";
+import { lacksResource, list, nameProblem, type Permission, permissions, starterPolicy, suggestedResource, takenProblem } from "./model";
+import { Breakable, crumbs, KINDS, Note } from "./parts";
 import { PolicyJson, policyErrors } from "./policy-json";
 
 const STEPS = [{ id: "editor", label: "Policy editor" }, { id: "review", label: "Review and create" }];
@@ -39,7 +39,7 @@ export function PolicyCreate() {
   const taken = useMemo(() => existing.data?.pages.flatMap((p) => p.rows).map((r) => r.label) ?? [], [existing.data]);
   const errors = policyErrors(doc, "identity");
   const blocked = tried && step === 0 && errors.length > 0;
-  const problem = nameProblem(name, "policy") ?? (taken.includes(name) ? `A policy named ${name} already exists.` : null);
+  const problem = nameProblem(name, "policy") ?? takenProblem("policy", name, taken);
   const suggestion = suggestedResource(doc, account, about?.region ?? "us-east-1");
   const back = () => void navigate({ to: "/resources/$service/$second", params: { service: "iam", second: "policies" }, search: {} });
   const input = { PolicyName: name || "(next step)", PolicyDocument: doc, ...(description.trim() ? { Description: description.trim() } : {}), ...(filled(tags).length > 0 ? { Tags: filled(tags).map((t) => ({ Key: t.key, Value: t.value })) } : {}) };
@@ -61,7 +61,7 @@ export function PolicyCreate() {
   const columns: DataColumn<Permission>[] = [
     { id: "service", header: "Service", size: 180, accessorFn: (r) => r.service, cell: (c) => c.row.original.service },
     { id: "actions", header: "Actions", size: 320, accessorFn: (r) => r.actions, cell: (c) => <span className="font-mono text-[13px] break-all">{c.row.original.actions}</span> },
-    { id: "resource", header: "Resource", accessorFn: (r) => r.resource, cell: (c) => <span className="block font-mono text-[13px] break-all whitespace-normal" title={c.row.original.resource}>{c.row.original.resource}</span> },
+    { id: "resource", header: "Resource", accessorFn: (r) => r.resource, cell: (c) => <Breakable text={c.row.original.resource} className="block whitespace-normal" /> },
   ];
   const blockedPanel = (
     <aside className="min-w-0 rounded-[14px] border bg-card p-5" aria-label="Nothing was created" data-testid="nothing-created">

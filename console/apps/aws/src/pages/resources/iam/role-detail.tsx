@@ -114,7 +114,7 @@ function RoleView({ d, updatedAt, fetching, refresh }: { d: Parameters<Parameter
       label: "Trust relationships",
       render: () => (
         <Card title="Trusted entities" lede="Entities that can assume this role under the conditions in the trust policy." actions={<Button type="button" variant="outline" className="bg-card" onClick={() => void navigate({ to: "/resources/$service/$kind/$name", params: { service: "iam", kind: "roles", name }, search: { view: "trust" } })} data-testid="edit-trust"><PencilIcon /> Edit trust policy</Button>} testId="trust-card">
-          <CodeBlock text={`// the role's trust policy\n${JSON.stringify(parse(trust), null, 2)}`} wrap={false} testId="trust-json" />
+          <CodeBlock text={`// the role's trust policy\n${JSON.stringify(parse(trust), null, 2)}`} wrap={false} testId="trust-json" json />
           <TrustNote extra={<>doze-aws stores the trust policy exactly as it was written and returns it unchanged.</>} />
         </Card>
       ),

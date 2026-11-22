@@ -15,7 +15,7 @@ import { useAbout } from "../../../api/queries";
 import { useResourceList } from "../../../api/resources";
 import { Field, FormPage, FormSection, PolicyPicker, ResourcePicker, TAG_RULES, callKindOp } from "../../../kit";
 import { USERS, useRead, useRefresh } from "./api";
-import { list, sameIgnoringCase } from "./model";
+import { list } from "./model";
 import { CardChoice, crumbs, KINDS, Note, ReviewBlock } from "./parts";
 import { PolicyChooser } from "./policy-chooser";
 import { type UserForm, blankUser, permissionsOf, stepProblem, userCalls } from "./user-create-model";
@@ -91,7 +91,6 @@ export function UserCreate() {
     { id: "name", header: "Group name", size: 320, accessorFn: (r) => r.name, cell: (c) => <span className="font-mono text-[13px] font-medium text-bright">{c.row.original.name}</span> },
     { id: "policies", header: "Attached policies", accessorFn: (r) => (byGroup.get(r.name) ?? []).map((p) => p.PolicyName).join(", "), cell: (c) => { const p = byGroup.get(c.row.original.name) ?? []; return p.length === 0 ? <span className="text-muted-foreground">None</span> : <span className="font-mono text-[13px]">{p.map((x) => x.PolicyName).join(", ")}</span>; } },
   ];
-  const similar = sameIgnoringCase(f.name, taken);
   const modeWords = mode === "enforce" ? "A user with no permissions is denied: IAM is enforcing here." : mode === "off" ? "IAM is off here, so permissions are not checked." : "A user with no permissions is denied in enforce mode; in soft mode, the default, doze-aws records the would-be denial and lets the call through.";
   return (
     <FormPage
@@ -114,7 +113,7 @@ export function UserCreate() {
     >
       {step === 0 && (
         <FormSection title="User details" testId="section-details">
-          <Field label="User name" error={tried ? (problem ?? undefined) : undefined} help={<><b>Up to 64 characters</b>: letters, digits and the characters + = , . @ _ -. Names are unique in the account. AWS treats names that differ only in case, such as TESTUSER and testuser, as the same name; doze-aws compares names exactly, so it would create both.{taken.length > 0 && <> <span className="font-mono">{list(taken.slice(0, 5))}{taken.length > 5 ? ` and ${taken.length - 5} more` : ""}</span> already {taken.length === 1 ? "exists" : "exist"}.</>}</>} hint={similar.length > 0 ? <>{f.name} differs only in case from <span className="font-mono">{list(similar)}</span>: AWS would refuse it as a duplicate.</> : undefined} testId="field-name">
+          <Field label="User name" error={tried ? (problem ?? undefined) : undefined} help={<><b>Up to 64 characters</b>: letters, digits and the characters + = , . @ _ -. Names are unique in the account. Names that differ only in case, such as TESTUSER and testuser, are the same name: a second one is refused.{taken.length > 0 && <> <span className="font-mono">{list(taken.slice(0, 5))}{taken.length > 5 ? ` and ${taken.length - 5} more` : ""}</span> already {taken.length === 1 ? "exists" : "exist"}.</>}</>} testId="field-name">
             {(id) => <Input id={id} value={f.name} onChange={(e) => set({ name: e.target.value })} placeholder="dev-intern" autoComplete="off" spellCheck={false} className="bg-card font-mono" data-testid="user-name" />}
           </Field>
           <div className="flex items-start gap-3 opacity-70" data-testid="console-access">

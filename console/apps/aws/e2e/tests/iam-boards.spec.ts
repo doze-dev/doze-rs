@@ -127,6 +127,9 @@ test("iam__user-detail, user-credentials, user-policies-none and access-keys-non
   await expect(page.getByTestId("permissions-note")).toContainText("Nothing is attached to dev directly and it has no inline policy, so removing dev from developers would leave it with no permissions.");
   await expect(page.getByTestId("boundary-card")).toContainText("Not set.");
   await expect(page.getByTestId("tab-groups")).toContainText("1");
+  // What dev's own key did (it read a queue) is among its calls, though the call did not act on the user.
+  await expect(page.getByTestId("recent-calls")).toContainText("GetQueueAttributes");
+  await expect(page.getByTestId("recent-calls")).toContainText("signed with its access keys");
   await shot(page, "iam__user-detail");
   await page.getByTestId("tab-security").click();
   await expect(page.getByTestId("keys-card")).toContainText("Access keys (1)");
@@ -246,6 +249,12 @@ test("iam__roles-list, role-detail, role-trust and role-policies-none: the roles
   await page.getByTestId("tab-trust").click();
   await expect(page.getByTestId("detail-sentence")).toContainText("report-job names two principals in this account, ci-bot and dev, and one action, sts:AssumeRole.");
   await expect(page.getByTestId("trust-json")).toContainText("// the role's trust policy");
+  // The JSON is coloured: its keys and strings are told apart, and what is copied is the text.
+  await expect(page.getByTestId("trust-json").locator('[data-json="key"]').first()).toHaveText('"Version"');
+  await expect(page.getByTestId("trust-json").locator('[data-json="string"]').first()).toBeVisible();
+  const keyColour = await page.getByTestId("trust-json").locator('[data-json="key"]').first().evaluate((e) => getComputedStyle(e).color);
+  const stringColour = await page.getByTestId("trust-json").locator('[data-json="string"]').first().evaluate((e) => getComputedStyle(e).color);
+  expect(keyColour).not.toBe(stringColour);
   await expect(page.getByTestId("trust-note")).toContainText("Stored, not applied locally.");
   await shot(page, "iam__role-trust");
   await go(page, iam("roles", "dispatch-role"), "dispatch-role");
@@ -339,6 +348,10 @@ test("iam__policies-list, policy-detail: the policies, the filter, what each is 
   await expect(page.getByTestId("policy-json")).toContainText('"Action": "s3:GetObject"');
   await expect(page.getByTestId("recent-calls")).toContainText("AttachRolePolicy");
   await shot(page, "iam__policy-detail");
+  // The policy's name, typed or bookmarked, is taken to its page (at the ARN) without the name being asked of the API.
+  await go(page, iam("policies", "report-job-readonly"), "report-job-readonly");
+  await expect(page).toHaveURL(new RegExp(encodeURIComponent(policyArn("report-job-readonly")).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+  await expect(page.getByTestId("detail-sentence")).toContainText("report-job-readonly is attached to 1 role");
   await page.getByTestId("policy-view-summary").click();
   await expect(page.getByTestId("summary-card")).toContainText("s3:GetObject");
   await page.getByTestId("tab-entities").click();
@@ -350,6 +363,9 @@ test("iam__policies-list, policy-detail: the policies, the filter, what each is 
 test("iam__policy-create, policy-create-error and policy-create-review: the editor stops a document that breaks the grammar, then the review", async ({ page }) => {
   await go(page, iam("policies", "", "?create=yes"), "Create policy");
   await expect(page.getByTestId("policy-json-status")).toHaveText("No syntax errors");
+  // The editor colours the document as it is typed: the same text sits under the transparent field.
+  await expect(page.getByTestId("policy-json-editor-colours").locator('[data-json="key"]').first()).toHaveText('"Version"');
+  await expect(page.getByTestId("policy-json-editor-colours")).toHaveText(await page.getByTestId("policy-json-editor").inputValue(), { useInnerText: false });
   await expect(page.getByTestId("call-panel")).toContainText("(next step)");
   await shot(page, "iam__policy-create");
   const bad = { Version: "2012-10-17", Statement: [{ Effect: "Allow", Action: ["sqs:SendMessage"] }] };
@@ -367,6 +383,8 @@ test("iam__policy-create, policy-create-error and policy-create-review: the edit
   await page.getByTestId("form-submit").click();
   await expect(page.locator("h1").first()).toHaveText("Create policy");
   await expect(page.getByTestId("section-permissions")).toContainText("sqs:SendMessage");
+  // The resource may wrap at its colons and slashes (not in the middle of a part).
+  await expect(page.getByTestId("section-permissions").locator("wbr").first()).toBeAttached();
   await page.getByTestId("policy-name").fill("pick-lists-send-only");
   await page.getByTestId("policy-description").fill("Send messages to pick-lists.");
   await expect(page.getByTestId("field-name")).toContainText("already exist");
@@ -387,6 +405,8 @@ test("sts__switch-role and sts__role-session: AssumeRole through the form, and t
   await expect(page.getByTestId("field-account")).toContainText("larder-dev is the alias of");
   await expect(page.getByTestId("switch-display")).toHaveValue("report-job @ larder-dev");
   await expect(page.getByTestId("call-panel")).toContainText("arn:aws:iam::" + server.account + ":role/report-job");
+  // DurationSeconds is a number in the call, as an SDK takes it (not the form's text).
+  await expect(page.getByTestId("call-panel")).toContainText('"DurationSeconds": 3600');
   await shot(page, "sts__switch-role");
   await page.getByTestId("switch-color-green").click();
   await page.getByTestId("form-submit").click();
