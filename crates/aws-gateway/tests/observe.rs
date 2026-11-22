@@ -73,6 +73,8 @@ struct Told {
     code: String,
     request_id: String,
     would_be_denied: bool,
+    message: String,
+    answer_bytes: Option<u32>,
 }
 
 #[derive(Debug, Default)]
@@ -89,6 +91,8 @@ impl Observer for Tape {
             code: call.code.to_owned(),
             request_id: call.request_id.to_owned(),
             would_be_denied: call.would_be_denied,
+            message: call.message.to_owned(),
+            answer_bytes: call.answer_bytes,
         });
     }
 }
@@ -265,5 +269,21 @@ async fn a_call_soft_iam_let_through_is_marked_and_no_other() {
     );
     // A refusal for a caller with nothing in flight marks nothing (and does not panic).
     flight.let_through("AKIDEXAMPLE", "eu-west-1", "sqs:ListQueues");
+    running.shutdown().await;
+}
+
+#[tokio::test]
+async fn an_error_answer_is_told_with_the_service_s_words_and_the_length_it_declared() {
+    let (running, addr, tape) = start(true).await;
+    let (status, _) = call(addr, "AmazonSQS.GetQueueUrl", "sqs", r#"{"QueueName":"q"}"#).await;
+    assert_eq!(status, 400);
+    let (ok, _) = call(addr, "AmazonSQS.ListQueues", "sqs", "{}").await;
+    assert_eq!(ok, 200);
+    let told = tape.0.lock().unwrap().clone();
+    assert_eq!(told[0].message, "The specified queue does not exist.");
+    assert!(told[0].answer_bytes.is_some_and(|n| n > 2), "{:?}", told[0]);
+    // A success says nothing of the kind, and an empty JSON answer is two bytes.
+    assert_eq!(told[1].message, "");
+    assert_eq!(told[1].answer_bytes, Some(2));
     running.shutdown().await;
 }

@@ -188,13 +188,11 @@ test("sns__subscription-create and sns__subscription-detail: a FIFO queue subscr
   await expect(page.locator("h1")).toHaveText("Create subscription");
   await expect(page.getByTestId("field-topic")).toContainText(ARN(FIFO));
   // The protocol list: five of nine are off, each with its reason.
-  await page.getByTestId("sub-protocol").click();
   const list = page.getByTestId("protocol-list");
   for (const off of ["email", "email-json", "firehose", "application", "sms"]) await expect(list.getByTestId(`protocol-${off}`)).toHaveAttribute("data-disabled", "");
   await expect(list.getByTestId("protocol-email")).toContainText("Not available in doze-aws: it would need a mail server. Subscriptions are stored and never delivered.");
   await expect(list.getByTestId("protocol-sqs")).toContainText("Delivers locally; the choice for a FIFO topic.");
   if (browserKind === "chromium") await page.screenshot({ path: join(SHOTS, "sns__subscription-create.protocols.png") });
-  await page.keyboard.press("Escape");
   await page.getByRole("combobox", { name: "Endpoint" }).click();
   await page.getByRole("option", { name: FIFO }).click();
   await expect(page.getByTestId("field-endpoint")).toContainText("FIFO topics use FIFO queues. orders-events.fifo is a FIFO queue.");
@@ -222,7 +220,6 @@ test("sns__subscription-create and sns__subscription-detail: a FIFO queue subscr
 
 test("sns__subscription-create-http: a webhook must confirm, and the answer is pending", async ({ page }) => {
   await go(page, `/resources/sns/subscriptions?create=yes&from=${encodeURIComponent(ARN("alerts"))}`, "Create subscription");
-  await page.getByTestId("sub-protocol").click();
   await page.getByTestId("protocol-http").click();
   await page.getByTestId("sub-endpoint").fill(hook.url);
   await expect(page.getByTestId("create-sentence")).toHaveText(`This subscribes the webhook ${hook.url} to alerts. SNS will send a confirmation message to it, and nothing is delivered until the endpoint confirms.`);
@@ -242,7 +239,6 @@ test("sns__subscription-create-http: a webhook must confirm, and the answer is p
 
 test("sns__subscription-create-lambda: a function in the account is confirmed at once", async ({ page }) => {
   await go(page, `/resources/sns/subscriptions?create=yes&from=${encodeURIComponent(ARN("orders-created"))}`, "Create subscription");
-  await page.getByTestId("sub-protocol").click();
   await page.getByTestId("protocol-lambda").click();
   await page.getByRole("combobox", { name: "Endpoint" }).click();
   await page.getByRole("option", { name: "send-email" }).click();

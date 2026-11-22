@@ -7,6 +7,7 @@ import { usePollInterval } from "@doze/ui/lib/refresh";
 import { client, PATHS } from "./client";
 import type { AccessView } from "./types/AccessView";
 import type { Attached } from "./types/Attached";
+import type { HeldPolicies } from "./types/HeldPolicies";
 import type { HomeChecks } from "./types/HomeChecks";
 import type { HomeView } from "./types/HomeView";
 import type { LabAnswer } from "./types/LabAnswer";
@@ -24,6 +25,7 @@ export const SPACE_PATHS = {
   principals: "/api/v1/principals",
   access: "/api/v1/access",
   attach: "/api/v1/access/attach",
+  policies: (kind: string, name: string) => `/api/v1/access/policies?kind=${kind}&name=${encodeURIComponent(name)}`,
   settings: "/api/v1/settings",
   reset: "/api/v1/settings/reset",
   lab: "/api/v1/lab",
@@ -52,6 +54,11 @@ export function usePrincipals(keys: string) {
 export function useAccess() {
   const refetchInterval = usePollInterval();
   return useQuery({ queryKey: ["access"], queryFn: ({ signal }) => client.api<AccessView>(SPACE_PATHS.access, {}, signal), refetchInterval });
+}
+
+/** The policies a user or a role holds (inline with their documents, managed attached), and the groups not read. */
+export function useHeldPolicies(kind: "user" | "role" | null, name: string | null) {
+  return useQuery({ queryKey: ["access", "policies", kind, name], queryFn: ({ signal }) => client.api<HeldPolicies>(SPACE_PATHS.policies(kind ?? "", name ?? ""), {}, signal), enabled: kind !== null && !!name, staleTime: 5_000 });
 }
 
 export type AttachInput = { kind: "user" | "role"; name: string; policy_name: string; document: string };

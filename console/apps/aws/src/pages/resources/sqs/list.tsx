@@ -22,6 +22,7 @@ import { ResourceTo, Value } from "../value";
 import { SqsCreate } from "./create";
 import { deletedWords, listRows, type QueueRow } from "./list-model";
 import { remainWords } from "./queue-model";
+import { FromYourApp } from "../../../kit/from-your-app";
 
 /** The counts a list sentence is about (`58 messages waiting`, `6 in flight`), set in bold. */
 const FIGURES = [/\d[\d,]*(?= messages? waiting| in flight)/];
@@ -79,6 +80,7 @@ function QueuesList({ service, kind, q, gone, from }: { service: string; kind: s
           <EmptyState icon={RowsIcon} title="No queues" action={<Button onClick={() => go({ create: "yes" })}><PlusIcon /> Create queue</Button>}>
             There are no queues in {region}. Create a queue to start sending and receiving messages.
           </EmptyState>
+          <FromYourApp service="sqs" />
         </div>
       ) : (
         <>

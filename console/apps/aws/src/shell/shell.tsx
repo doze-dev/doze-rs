@@ -1,11 +1,11 @@
 import { Link, Outlet, useNavigate, useRouterState } from "@tanstack/react-router";
-import { CopyIcon, MonitorIcon, MoonIcon, SunIcon } from "lucide-react";
+import { CopyIcon, Link2Icon, MonitorIcon, MoonIcon, SendIcon, ShieldAlertIcon, SunIcon } from "lucide-react";
 import { useMemo, useRef, useState } from "react";
-import { CommandPalette, type PaletteGroup } from "@doze/ui/components/app/command-palette";
+import { CommandPalette, type PaletteGroup, type PaletteItem } from "@doze/ui/components/app/command-palette";
 import { copyText } from "@doze/ui/components/app/copy";
 import { ThemeSwitch } from "@doze/ui/components/app/theme-menu";
 import { TopBar, topBarChip } from "@doze/ui/components/app/top-bar";
-import { Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarHeader, SidebarInset, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarProvider, SidebarRail } from "@doze/ui/components/ui/sidebar";
+import { Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupContent, SidebarHeader, SidebarInset, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarProvider, SidebarRail } from "@doze/ui/components/ui/sidebar";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@doze/ui/components/ui/tooltip";
 import { useSidebarOpen } from "@doze/ui/lib/sidebar-state";
 import { setTheme } from "@doze/ui/lib/theme";
@@ -17,6 +17,7 @@ import { isActive, RECENTS_KEY, SPACES, type SpacePath } from "../nav";
 import { iamWords } from "../words";
 import { Logo, Wordmark } from "./brand";
 import { IdentityChip } from "./identity-chip";
+import { PinButton, RailPlaces } from "./places";
 
 /** The rail: the mark, and the six spaces. */
 function Rail() {
@@ -51,7 +52,13 @@ function Rail() {
             </nav>
           </SidebarGroupContent>
         </SidebarGroup>
+        <RailPlaces />
       </SidebarContent>
+      <SidebarFooter className="px-4 pb-4 group-data-[collapsible=icon]:hidden" data-testid="rail-footer">
+        <p className="flex items-center gap-2 text-[12px] text-muted-foreground">
+          <kbd className="rounded border bg-card px-1.5 py-px font-mono text-[11px]">⌘K</kbd> jump or do
+        </p>
+      </SidebarFooter>
       <SidebarRail />
     </Sidebar>
   );
@@ -129,6 +136,16 @@ export function Shell() {
     );
     return items.length > 0 ? { heading: "Resources", separated: true, items } : null;
   }, [index.data]);
+  const about = useAbout().data;
+  const actions = useMemo<PaletteItem[]>(() => {
+    const queues = (index.data?.services ?? []).filter((s) => s.name === "sqs").flatMap((s) => s.kinds.filter((k) => k.id === "queues").flatMap((k) => k.names)).slice(0, 20);
+    return [
+      ...(about ? [{ label: "Copy the endpoint", to: "do:endpoint", kind: "action", icon: CopyIcon, keywords: "address url sdk aws_endpoint_url", run: () => void copyText(about.endpoint, "Endpoint copied") }] : []),
+      { label: "Connect your app", to: "do:connect", kind: "action", icon: Link2Icon, keywords: "snippets environment sdk cli", run: () => void navigate({ to: "/connect" }) },
+      { label: "Explain the last refusal", to: "do:refusal", kind: "action", icon: ShieldAlertIcon, keywords: "denied would be denied iam access policy", run: () => void navigate({ to: "/access" }) },
+      ...queues.map((name) => ({ label: `Send a message to ${name}`, to: `do:send:${name}`, kind: "action", icon: SendIcon, mono: false, keywords: `queue sqs peek ${name}`, run: () => void navigate({ to: "/resources/$service/$kind/$name", params: { service: "sqs", kind: "queues", name }, search: { view: "messages" } }) })),
+    ];
+  }, [about, index.data, navigate]);
   const groups = useMemo<PaletteGroup[]>(
     () => [
       { heading: "Spaces", items: SPACES.map((s) => ({ label: s.label, to: s.to, kind: "space", icon: s.icon, keywords: s.keywords })) },
@@ -142,8 +159,10 @@ export function Shell() {
         ],
       },
       ...(resources ? [resources] : []),
+      // After the names: typing a resource's name and pressing Enter opens it; an action is chosen by its words.
+      ...(actions.length > 0 ? [{ heading: "Do", separated: true, items: actions }] : []),
     ],
-    [resources],
+    [resources, actions],
   );
   return (
     // 184 px, the boards' rail. The shared Sidebar sets its width inline, so it is given as a style, not a class.
@@ -153,6 +172,7 @@ export function Shell() {
       <Rail />
       <SidebarInset className="min-w-0 bg-background">
         <TopBar onPalette={() => openPalette(true)} paletteLabel="Jump to a space or a resource">
+          <PinButton />
           <Chips />
           <ThemeSwitch />
         </TopBar>

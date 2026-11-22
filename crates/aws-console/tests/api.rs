@@ -66,7 +66,8 @@ async fn services_counts_each_api_s_operations_on_the_service_itself() {
     assert_eq!(keys(&body), ts_keys("ServicesResponse"));
     let rows = body["services"].as_array().unwrap();
     assert_eq!(rows.len(), 2);
-    let (s3, sqs) = (&rows[0], &rows[1]);
+    // In the Resources index's order: SQS before S3.
+    let (sqs, s3) = (&rows[0], &rows[1]);
     assert_eq!(keys(sqs), ts_keys("ServiceRow"));
     assert_eq!(
         (&s3["name"], &s3["built"], &s3["total"]),

@@ -97,7 +97,7 @@ function SubView({ d, updatedAt, fetching, refresh }: { d: ResourceDetail; updat
     ["Endpoint", <span key="e" className="font-mono">{s.protocol === "sqs" ? <ResourceTo to={{ service: "sqs", kind: "queues", name: endpointName("sqs", s.endpoint) }}>{s.endpoint}</ResourceTo> : s.protocol === "lambda" ? <ResourceTo to={{ service: "lambda", kind: "functions", name: endpointName("lambda", s.endpoint) }}>{s.endpoint}</ResourceTo> : s.endpoint}{mail && pending ? <span className="ml-3 font-sans text-[12.5px] text-muted-foreground">Stored: doze-aws sends no email</span> : null}</span>],
     ["Topic ARN", <span key="t" className="font-mono"><Link to={resourceHref({ service: "sns", kind: "topics", name: topic }) as never} className="text-link hover:underline">{s.topicArn}</Link></span>],
     ["Protocol", protocolLabel(s.protocol)],
-    ["Status", <Status key="s" s={{ pending }} />],
+    ["Status", <Status key="s" s={{ pending, protocol: s.protocol }} />],
     ["Owner", <span key="o" className="font-mono">{s.owner ?? "–"}</span>],
     ["Raw message delivery", s.raw ? "Enabled" : "Disabled"],
   ];

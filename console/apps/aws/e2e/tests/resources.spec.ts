@@ -146,7 +146,7 @@ test("the palette jumps to a resource by name", async ({ page, cli, browserName 
   await open(page, "/", "Home");
   await page.keyboard.press("ControlOrMeta+k");
   await page.keyboard.type(q);
-  await expect(page.getByRole("option", { name: new RegExp(q) })).toBeVisible();
+  await expect(page.getByRole("option", { name: q, exact: true })).toBeVisible();
   await page.keyboard.press("Enter");
   await expect(page.locator("h1")).toHaveText(q);
 });

@@ -63,8 +63,8 @@ export function snippets(endpoint: string, region: string, creds: Creds): Snippe
     {
       id: "rust",
       title: "Rust · aws-sdk-sqs",
-      install: "cargo add aws-config aws-sdk-sqs tokio",
-      code: `let config = aws_config::defaults(aws_config::BehaviorVersion::latest())\n    .endpoint_url("${endpoint}")\n    .region(aws_config::Region::new("${region}"))\n    .load()\n    .await;\nlet sqs = aws_sdk_sqs::Client::new(&config);\nlet queues = sqs.list_queues().send().await?;`,
+      install: "cargo add aws-config aws-sdk-sqs",
+      code: `use aws_config::{BehaviorVersion, Region};\n\nlet config = aws_config::defaults(BehaviorVersion::latest())\n    .endpoint_url("${endpoint}")\n    .region(Region::new("${region}"))\n    .load()\n    .await;\nlet sqs = aws_sdk_sqs::Client::new(&config);\nlet queues = sqs.list_queues().send().await?;`,
       s3: "aws_sdk_s3::config::Builder::from(&config).force_path_style(true)",
     },
   ];

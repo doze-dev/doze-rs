@@ -19,6 +19,7 @@ import { ResourceTo } from "../value";
 import { crumbs, useListNav } from "./api";
 import { FlashBanner, useFlash } from "./parts";
 import { longDate, regionWords } from "./words";
+import { FromYourApp } from "../../../kit/from-your-app";
 
 export function BucketsList() {
   const list = useResourceList("s3", "buckets");
@@ -58,6 +59,7 @@ export function BucketsList() {
           <EmptyState icon={DatabaseIcon} title="No buckets" action={<Button onClick={() => go({ do: "create" })}><PlusIcon /> Create bucket</Button>}>
             You have no buckets in this region. Create a bucket to store objects.
           </EmptyState>
+          <FromYourApp service="s3" />
         </div>
       ) : (
         <>

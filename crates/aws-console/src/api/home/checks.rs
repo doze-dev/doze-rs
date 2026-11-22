@@ -189,6 +189,72 @@ async fn failed_stacks(bus: &Bus) -> Result<Vec<Signal>, String> {
         .collect())
 }
 
+/// The protocols SNS keeps a subscription of and delivers nothing to (no mail server, no phone network, no push service, no
+/// Data Firehose): what `crates/aws-sns/src/deliver.rs` does not deliver.
+const STORED_ONLY: &[&str] = &["email", "email-json", "sms", "application", "firehose"];
+
+/// Subscriptions a script made that doze-aws keeps and delivers nothing to.
+async fn stored_only(bus: &Bus) -> Result<Vec<Signal>, String> {
+    let got = bus
+        .call("sns", "ListSubscriptions", &json!({}))
+        .await
+        .map_err(|e| e.message)?;
+    let n = at(&got, "Subscriptions")
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter(|s| {
+            at(s, "Protocol")
+                .as_str()
+                .is_some_and(|p| STORED_ONLY.contains(&p))
+        })
+        .count() as u64;
+    Ok(if n == 0 {
+        Vec::new()
+    } else {
+        vec![Signal {
+            kind: SignalKind::NotActive,
+            count: n,
+            title: "Not active locally".to_owned(),
+            detail: format!("{} stored", plural(n, "subscription", "subscriptions")),
+            href: Some("/resources/sns/subscriptions".to_owned()),
+            resource: None,
+        }]
+    })
+}
+
+/// API Gateway custom domain names and VPC links: stored and listed, and nothing is routed through them locally.
+async fn stored_gateway(bus: &Bus) -> Result<Vec<Signal>, String> {
+    let mut parts = Vec::new();
+    let mut count = 0;
+    for (op, one, many) in [
+        ("GetDomainNames", "domain name", "domain names"),
+        ("GetVpcLinks", "VPC link", "VPC links"),
+    ] {
+        let got = bus
+            .call("apigateway", op, &json!({}))
+            .await
+            .map_err(|e| e.message)?;
+        let n = at(&got, "item").as_array().map_or(0, Vec::len) as u64;
+        if n > 0 {
+            count += n;
+            parts.push(plural(n, one, many));
+        }
+    }
+    Ok(if count == 0 {
+        Vec::new()
+    } else {
+        vec![Signal {
+            kind: SignalKind::NotActive,
+            count,
+            title: "Not active locally".to_owned(),
+            detail: format!("{} stored", parts.join(" and ")),
+            href: Some("/resources/apigateway".to_owned()),
+            resource: None,
+        }]
+    })
+}
+
 /// `GET /api/v1/home/checks`.
 pub async fn checks(State(s): State<Shared>) -> Response {
     let calls = s.recorder.newest(ALL).calls;
@@ -208,12 +274,21 @@ pub async fn checks(State(s): State<Shared>) -> Response {
         );
         return json(StatusCode::OK, &out);
     };
-    for service in ["sqs", "cloudwatch", "stepfunctions", "cloudformation"] {
+    for service in [
+        "sqs",
+        "sns",
+        "apigateway",
+        "cloudwatch",
+        "stepfunctions",
+        "cloudformation",
+    ] {
         if !called.contains(service) || !crate::resources::view::served(&s.facts, service) {
             continue;
         }
         let found = match service {
             "sqs" => dead_letters(&bus).await,
+            "sns" => stored_only(&bus).await,
+            "apigateway" => stored_gateway(&bus).await,
             "cloudwatch" => alarms(&bus).await,
             "stepfunctions" => failed_executions(&bus).await,
             _ => failed_stacks(&bus).await,

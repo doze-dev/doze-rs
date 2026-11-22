@@ -91,7 +91,7 @@ test("Live hides this console's own calls until asked, and the map leaves them o
   await open(page, "/resources/sqs/queues", "Queues");
   const q = unique("watched", browserName);
   expect(cli(["sqs", "create-queue", "--queue-name", q]).code).toBe(0);
-  await openLive(page, "/live?view=both");
+  await openLive(page, "/live?view=both&by=service");
   const line = page.getByTestId("console-hidden");
   await expect(line).toContainText(/\d+ calls? made by this console (is|are) hidden/);
   await expect(rows(page).filter({ hasText: q }).first()).toBeVisible();

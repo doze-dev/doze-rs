@@ -26,5 +26,5 @@ mod web;
 mod websig;
 
 pub use config::{Auth, Config, Hooks};
-pub use observe::{Finished, Observer, WouldDeny};
+pub use observe::{Finished, MOST_MESSAGE, Observer, WouldDeny};
 pub use server::{Gateway, Running};

@@ -1,5 +1,6 @@
 // SNS's subscriptions: the list across all topics (sns__subscriptions-list, subscriptions-none, subscription-delete). A subscription is chosen with its
 // radio, and Edit and Delete act on it; one waiting for its endpoint cannot be deleted. `?create=yes` is Create subscription, as a page.
+import { NotActiveBanner } from "./not-active-banner";
 import { Link, useNavigate, useSearch } from "@tanstack/react-router";
 import { ChevronLeftIcon, ChevronRightIcon, LinkIcon, PencilIcon, PlusIcon, SearchIcon, TrashIcon } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
@@ -77,6 +78,7 @@ function Subs({ service, kind, gone }: { service: string; kind: string; gone?: s
       ) : (
         <>
           <Rich parts={sentence} className="mb-6" testId="list-sentence" />
+          <NotActiveBanner protocols={all.map((r) => r.protocol)} />
           <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
             <div className="relative w-full max-w-[22rem]">
               <SearchIcon aria-hidden className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />

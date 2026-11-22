@@ -57,7 +57,18 @@ pub struct Finished<'a> {
     /// The request's `User-Agent` header as sent (an SDK names itself and its version there); empty when it had none. The
     /// observer keeps what it needs of it: the gateway neither reads nor stores it.
     pub user_agent: &'a str,
+    /// The words an error answer carries (the service's own: the rule that was broken), cut at [`MOST_MESSAGE`] bytes; empty for a
+    /// success and for a refusal made before a service read the request.
+    pub message: &'a str,
+    /// What a function invocation answered in `X-Amz-Function-Error` (`Unhandled`, `Handled`): the call itself succeeded, the
+    /// function failed. Empty otherwise.
+    pub function_error: &'a str,
+    /// The length of the answer when it is known before it is sent (a whole body); `None` for a streamed one.
+    pub answer_bytes: Option<u32>,
 }
+
+/// The most bytes of an error message the observer is told.
+pub const MOST_MESSAGE: usize = 240;
 
 /// The requests in flight, so a refusal IAM's soft mode lets through can be marked on the request it was for ([`crate::Config::would_deny`]).
 ///
@@ -149,6 +160,7 @@ struct Notes {
     access_key_id: String,
     region: String,
     code: Cow<'static, str>,
+    message: String,
     would_be_denied: bool,
 }
 
@@ -207,7 +219,14 @@ pub(crate) fn input(parts: &Parts, entry: &Entry, call: &aws_wire::service::Call
 
 /// The request is answered with `error`.
 pub(crate) fn failed(parts: &Parts, error: &ApiError) {
-    note(parts, |n| n.code.clone_from(&error.code));
+    note(parts, |n| {
+        n.code.clone_from(&error.code);
+        let mut end = error.message.len().min(MOST_MESSAGE);
+        while !error.message.is_char_boundary(end) {
+            end -= 1;
+        }
+        n.message = error.message[..end].to_owned();
+    });
 }
 
 /// Starts watching a request, if anyone wants to be told: the time it started.
@@ -223,7 +242,7 @@ pub(crate) fn begin(shared: &Shared, id: &RequestId, parts: &mut Parts) -> Optio
 }
 
 /// Tells the observer about a request [`begin`] started watching, now that its answer is made.
-pub(crate) fn end<B>(
+pub(crate) fn end<B: hyper::body::Body>(
     shared: &Shared,
     started: Option<Instant>,
     id: &RequestId,
@@ -276,5 +295,12 @@ pub(crate) fn end<B>(
             .get(http::header::USER_AGENT)
             .and_then(|v| v.to_str().ok())
             .unwrap_or_default(),
+        message: &notes.message,
+        function_error: header("x-amz-function-error").unwrap_or_default(),
+        answer_bytes: response
+            .body()
+            .size_hint()
+            .exact()
+            .and_then(|n| u32::try_from(n).ok()),
     });
 }

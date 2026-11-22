@@ -4,7 +4,11 @@ import type { ApiCoverage } from "./ApiCoverage";
 /**
  * One service and how much of it is built.
  */
-export type ServiceRow = { name: string, title: string, served: boolean, 
+export type ServiceRow = { name: string, title: string, 
+/**
+ * What it is for, as the Resources index groups it (`Messaging and events`).
+ */
+group: string, served: boolean, 
 /**
  * Operations this build answers, over every API of the service.
  */

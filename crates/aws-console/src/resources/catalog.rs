@@ -71,10 +71,10 @@ pub static ALL: &[Entry] = &[
         "Infrastructure",
         &super::cloudformation::CLOUDFORMATION,
     ),
-    described("iam", "Identity", &super::iam::IAM),
+    described("iam", "Identity and access", &super::iam::IAM),
     Entry {
         service: "sts",
-        group: "Identity",
+        group: "Identity and access",
         descriptor: None,
         note: "STS holds no resources: it hands out credentials and says who a caller is.",
     },

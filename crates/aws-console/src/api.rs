@@ -30,6 +30,7 @@ pub mod home;
 pub mod lab;
 pub mod objects;
 pub mod ops;
+pub mod policies;
 pub mod preview;
 pub mod render;
 pub mod resources;
@@ -37,6 +38,7 @@ pub mod settings;
 pub mod tags;
 #[cfg(test)]
 mod types;
+pub mod wiring;
 
 /// The header the console's fetch client sends on every API request.
 pub const PROOF_HEADER: &str = "x-console";
@@ -54,8 +56,10 @@ pub fn routes() -> Router<Shared> {
         .route("/api/v1/flows", get(flows::flows))
         .route("/api/v1/home", get(home::home))
         .route("/api/v1/home/checks", get(home::checks))
+        .route("/api/v1/live/wiring", get(wiring::wiring))
         .route("/api/v1/principals", get(access::principals))
         .route("/api/v1/access", get(access::access))
+        .route("/api/v1/access/policies", get(policies::policies))
         .route("/api/v1/access/attach", post(access::attach))
         .route("/api/v1/settings", get(settings::settings))
         .route("/api/v1/settings/reset", post(settings::reset))

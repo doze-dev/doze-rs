@@ -4,6 +4,9 @@ import { FlaskConicalIcon, HomeIcon, KeyRoundIcon, LayoutGridIcon, type LucideIc
  * another port of the same host must not share them). */
 export const THEME_KEY = "doze-aws.theme";
 export const RECENTS_KEY = "doze-aws.recents";
+/** The resources pinned in the rail, and those opened last (this browser only). */
+export const PINNED_KEY = "doze-aws.pinned";
+export const VISITED_KEY = "doze-aws.visited";
 
 export type SpacePath = "/" | "/live" | "/resources" | "/access" | "/lab" | "/settings";
 export type Space = { label: string; to: SpacePath; icon: LucideIcon; keywords: string };

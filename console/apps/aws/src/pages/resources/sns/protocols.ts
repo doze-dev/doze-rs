@@ -50,3 +50,14 @@ export const countWord = (n: number): string => WORDS[n] ?? String(n);
 
 /** Whether a subscription of this protocol is delivered to by doze-aws. */
 export const delivers = (id: string): boolean => BY.get(id)?.active ?? false;
+
+const STORED_WHY: Record<string, string> = {
+  email: "Stored. doze-aws has no mail server, so nothing is sent.",
+  "email-json": "Stored. doze-aws has no mail server, so nothing is sent.",
+  sms: "Stored. doze-aws has no phone network, so nothing is sent.",
+  application: "Stored. doze-aws has no push service, so nothing is sent.",
+  firehose: "Stored. doze-aws has no Amazon Data Firehose, so nothing is sent.",
+};
+
+/** Why a subscription of this protocol is kept and nothing is delivered to it; null when it is delivered to. */
+export const storedWhy = (protocol: string): string | null => STORED_WHY[protocol] ?? null;
