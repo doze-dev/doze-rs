@@ -1,11 +1,33 @@
 //! What processes cost (Go's `ui.ProcStats` and `ui.ProcTree`): for each root, its own resident memory, the CPU of it
 //! and everything under it (a database's per-connection children do the work), and the processes under it.
 //!
-//! One `ps -Ao pid=,ppid=,rss=,%cpu=,comm=` covers every root, as Go's daemon read it: CPU is the kernel's recent use on
-//! macOS and the lifetime average on Linux. Windows has no `ps`: nothing is measured there (Go read RSS alone and got
-//! none either).
+//! On macOS and Linux only the roots' own trees are read, in-process: libproc's child list and task info on macOS,
+//! `/proc` on Linux. CPU is the change in each process's CPU time since the last reading, so it is what the
+//! process does now, not its lifetime average; a root seen for the first time is read twice, a moment apart. Elsewhere
+//! one `ps -Ao pid=,ppid=,rss=,%cpu=,comm=` covers every root, as Go's daemon read it (a fork that reads every process
+//! of the machine, ~25 ms of CPU on a desktop with 800). Windows has no `ps`: nothing is measured there (Go read RSS
+//! alone and got none either).
 
 use std::collections::{BTreeMap, BTreeSet};
+
+#[cfg(target_os = "linux")]
+mod linux;
+#[cfg(target_os = "macos")]
+mod macos;
+#[cfg(any(target_os = "macos", target_os = "linux"))]
+mod rate;
+#[cfg(target_os = "linux")]
+use linux as native;
+#[cfg(target_os = "macos")]
+use macos as native;
+
+/// How long apart the two readings of a root seen for the first time are.
+#[cfg(any(target_os = "macos", target_os = "linux"))]
+const FIRST_LOOK: std::time::Duration = std::time::Duration::from_millis(250);
+
+/// The most processes read under the roots together (a fork bomb is not walked to its end).
+#[cfg(any(target_os = "macos", target_os = "linux"))]
+const MOST: usize = 4096;
 
 /// One process in the table.
 #[derive(Debug, Clone, PartialEq)]
@@ -43,10 +65,78 @@ pub async fn sample(roots: &[u32]) -> BTreeMap<u32, Meters> {
     if roots.is_empty() {
         return BTreeMap::new();
     }
+    #[cfg(any(target_os = "macos", target_os = "linux"))]
+    if let Some(m) = in_process(roots).await {
+        return m;
+    }
     match table().await {
         Some(text) => of_roots(&parse(&text), roots),
         None => BTreeMap::new(),
     }
+}
+
+/// One process read in-process: its CPU time so far, which [`rate`] turns into a share of a core.
+#[cfg(any(target_os = "macos", target_os = "linux"))]
+#[derive(Debug, Clone, PartialEq)]
+struct Raw {
+    pid: u32,
+    /// 0 where the reader does not know it; the walk fills it in.
+    ppid: u32,
+    rss: u64,
+    cpu_ns: u64,
+    cmd: String,
+}
+
+/// The roots' meters read without `ps`, or `None` where the system cannot (a Linux without `/proc` or its child lists).
+#[cfg(any(target_os = "macos", target_os = "linux"))]
+async fn in_process(roots: &[u32]) -> Option<BTreeMap<u32, Meters>> {
+    let mut raws = trees(roots)?;
+    let new_root = roots
+        .iter()
+        .any(|r| !rate::known(*r) && raws.iter().any(|p| p.pid == *r));
+    if new_root {
+        // A first reading has nothing to compare with: take it as the start, and read again a moment later.
+        let _ = rate::rated(raws, std::time::Instant::now());
+        tokio::time::sleep(FIRST_LOOK).await;
+        raws = trees(roots)?;
+    }
+    let mut procs = rate::rated(raws, std::time::Instant::now());
+    procs.sort_by_key(|p| p.pid);
+    Some(of_roots(&procs, roots))
+}
+
+/// Every process under `roots` and the roots themselves, each read once; a parent the reader does not tell is the one
+/// the walk came from.
+#[cfg(any(target_os = "macos", target_os = "linux"))]
+fn trees(roots: &[u32]) -> Option<Vec<Raw>> {
+    let mut reader = native::Reader::new()?;
+    let mut out: Vec<Raw> = Vec::new();
+    let mut at: BTreeMap<u32, usize> = BTreeMap::new();
+    let mut todo: Vec<(u32, u32)> = roots.iter().map(|r| (*r, 0)).collect();
+    while let Some((pid, parent)) = todo.pop() {
+        if let Some(i) = at.get(&pid) {
+            // A root under another root: read as a root first, its parent is learned now.
+            if let Some(p) = out.get_mut(*i)
+                && p.ppid == 0
+            {
+                p.ppid = parent;
+            }
+            continue;
+        }
+        if out.len() >= MOST {
+            break;
+        }
+        let Some(mut p) = reader.read(pid) else {
+            continue;
+        };
+        if p.ppid == 0 {
+            p.ppid = parent;
+        }
+        todo.extend(reader.children(pid).into_iter().map(|c| (c, pid)));
+        at.insert(pid, out.len());
+        out.push(p);
+    }
+    Some(out)
 }
 
 #[cfg(unix)]
@@ -82,8 +172,7 @@ fn line(l: &str) -> Option<Proc> {
     let ppid = f.next()?.parse().ok()?;
     let kib: u64 = f.next()?.parse().ok()?;
     let cpu: f64 = f.next()?.replace(',', ".").parse().ok()?;
-    let cmd = f.collect::<Vec<_>>().join(" ");
-    let cmd = cmd.rsplit('/').next().unwrap_or_default().to_string();
+    let cmd = command(&f.collect::<Vec<_>>().join(" "));
     Some(Proc {
         pid,
         ppid,
@@ -91,6 +180,12 @@ fn line(l: &str) -> Option<Proc> {
         cpu: if cpu.is_finite() { cpu.max(0.0) } else { 0.0 },
         cmd,
     })
+}
+
+/// A command as the table shows it: its words joined by one space, and of a path only the last part.
+fn command(s: &str) -> String {
+    let joined = s.split_whitespace().collect::<Vec<_>>().join(" ");
+    joined.rsplit('/').next().unwrap_or_default().to_string()
 }
 
 /// Each root's meters from `procs`.
@@ -175,6 +270,39 @@ mod tests {
         let procs = parse("5 6 1 1.0 a\n6 5 1 1.0 b\n");
         let m = of_roots(&procs, &[5]);
         assert_eq!(m[&5].children.len(), 1);
+    }
+
+    /// A shell that spins under a shell that waits: the root's CPU is its tree's, as it is now, and the spinner is
+    /// shown under it with its command.
+    #[cfg(any(target_os = "macos", target_os = "linux"))]
+    #[tokio::test]
+    async fn a_busy_child_shows_as_busy_now() {
+        let mut root = std::process::Command::new("/bin/sh")
+            .args(["-c", "/bin/sh -c 'while :; do :; done' & wait"])
+            .spawn()
+            .unwrap();
+        let pid = root.id();
+        for _ in 0..40 {
+            let m = sample(&[pid]).await;
+            if m.get(&pid).is_some_and(|m| !m.children.is_empty()) {
+                break;
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+        let m = sample(&[pid]).await;
+        for c in &m[&pid].children {
+            let _ = std::process::Command::new("kill")
+                .arg(c.proc.pid.to_string())
+                .status();
+        }
+        let _ = root.kill();
+        let _ = root.wait();
+        let r = &m[&pid];
+        assert_eq!(r.children.len(), 1, "{r:?}");
+        assert_eq!(r.children[0].proc.cmd, "sh");
+        assert_eq!(r.children[0].proc.ppid, pid);
+        assert!(r.cpu > 30.0, "a spinning child is busy now: {r:?}");
     }
 
     #[tokio::test]

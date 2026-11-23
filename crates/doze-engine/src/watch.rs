@@ -2,8 +2,10 @@
 //! `internal/watch`). It polls, as Go chose: once an interval it lists what the globs match and compares each file's
 //! size and modification time with the last look. A kernel notification holds a descriptor per watched file on macOS,
 //! which a large repository runs out of; a poll costs a stat per matched file, once a second, only while the app is
-//! awake. A change is reported once the files have been quiet for an interval, so a save that writes twice, or a
-//! checkout that touches a hundred files, is one change.
+//! awake. After a minute with nothing changed it looks a third as often, and back at once on a change: nobody is
+//! editing then, and the first save of a new session is noticed within a few seconds. A change is reported once the
+//! files have been quiet for an interval, so a save that writes twice, or a checkout that touches a hundred files, is
+//! one change.
 
 use crate::tasks::inputs;
 use std::collections::BTreeMap;
@@ -12,6 +14,22 @@ use std::time::{Duration, SystemTime};
 
 /// How often the files are looked at.
 pub const DEFAULT_INTERVAL: Duration = Duration::from_secs(1);
+
+/// After this many intervals with nothing changed, the files are quiet: looked at [`QUIET_STRIDE`] times less often.
+const QUIET_AFTER: u32 = 60;
+
+/// How many intervals apart the looks are while the files are quiet.
+const QUIET_STRIDE: u32 = 3;
+
+/// The wait before the next look: the interval, or [`QUIET_STRIDE`] of them once nothing has changed for
+/// [`QUIET_AFTER`] intervals and no change waits to settle.
+fn next_gap(interval: Duration, unchanged_for: Duration, settling: bool) -> Duration {
+    if !settling && unchanged_for >= interval * QUIET_AFTER {
+        interval * QUIET_STRIDE
+    } else {
+        interval
+    }
+}
 
 /// One folder and the globs, relative to it, that matter in it.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -72,10 +90,10 @@ where
         return;
     };
     let mut pending: Option<PathBuf> = None;
-    let mut tick = tokio::time::interval_at(tokio::time::Instant::now() + interval, interval);
-    tick.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+    let mut last_change = tokio::time::Instant::now();
+    let mut next = last_change + interval;
     loop {
-        tick.tick().await;
+        tokio::time::sleep_until(next).await;
         let Some((s, cur)) = look(sets).await else {
             return;
         };
@@ -85,6 +103,7 @@ where
         if let Some(first) = diff.into_iter().next() {
             // Still changing: wait for quiet, keeping the first path seen.
             pending.get_or_insert(first);
+            last_change = tokio::time::Instant::now();
         } else if let Some(path) = pending.take() {
             on_change(path).await;
             let Some((s, after)) = look(sets).await else {
@@ -93,6 +112,15 @@ where
             sets = s;
             prev = after;
         }
+        // Each look a gap after the last one was due, or after now if that has passed (a slow look delays the rest).
+        let now = tokio::time::Instant::now();
+        next = (next
+            + next_gap(
+                interval,
+                now.saturating_duration_since(last_change),
+                pending.is_some(),
+            ))
+        .max(now);
     }
 }
 
@@ -192,6 +220,37 @@ mod tests {
             globs: vec!["*.go".into()],
         }];
         (t, file, Arc::new(Mutex::new(0)), sets)
+    }
+
+    /// After a minute of nothing the looks are three intervals apart; a change still waits for one quiet interval, so
+    /// it is reported within four of them, and the looks are one interval apart again after it.
+    #[test]
+    fn quiet_files_are_looked_at_less_often_until_they_change() {
+        let i = Duration::from_secs(1);
+        assert_eq!(next_gap(i, Duration::from_secs(59), false), i);
+        assert_eq!(next_gap(i, Duration::from_secs(60), false), i * 3);
+        assert_eq!(
+            next_gap(i, Duration::from_secs(600), true),
+            i,
+            "a change settling is looked at each interval"
+        );
+        assert_eq!(next_gap(i, Duration::ZERO, false), i);
+    }
+
+    /// A change after a long quiet is still noticed, a few intervals late at most.
+    #[tokio::test(start_paused = true)]
+    async fn a_change_after_a_long_quiet_is_reported() {
+        let (_t, file, got, sets) = watched();
+        let seen = got.clone();
+        let task = tokio::spawn(poll(sets, STEP, move |_| {
+            *seen.lock().unwrap() += 1;
+            async {}
+        }));
+        tokio::time::sleep(STEP * 100 + STEP / 2).await;
+        write(&file, "package main // after a long quiet");
+        tokio::time::sleep(STEP * 5).await;
+        assert_eq!(*got.lock().unwrap(), 1, "the change was reported");
+        task.abort();
     }
 
     /// The clock is paused, so ticks fall at 100 ms steps exactly and the edits between them (at 50, 150, ...) land in
