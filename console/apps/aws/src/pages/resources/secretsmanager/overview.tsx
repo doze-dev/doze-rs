@@ -9,17 +9,18 @@ import { CopyButton } from "@doze/ui/components/app/copy-button";
 import { DataTable } from "@doze/ui/components/app/data-table";
 import { Button } from "@doze/ui/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@doze/ui/components/ui/dropdown-menu";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@doze/ui/components/ui/select";
 import { Skeleton } from "@doze/ui/components/ui/skeleton";
 import { useAbout } from "../../../api/queries";
-import { callKindOp, Segmented } from "../../../kit";
+import { callKindOp } from "../../../kit";
 import { Card, Facts, Note } from "../cfg-parts";
 import { SECRETS, type SecretValue, usePolicy } from "./api";
 import { shortId, valueRows } from "./model";
 import { refusalOf } from "../kms/schedule";
 
-export function DetailsCard({ name, arn, keyId, description, onAction }: { name: string; arn: string | null; keyId: string | null; description: string | null; onAction: (a: "description" | "key" | "delete") => void }) {
+export function DetailsCard({ name, arn, keyId, description, onAction }: { name: string; arn: string | null; keyId: string | null; description: string | null; /** Absent on a secret waiting to be deleted: its details have no Actions. */ onAction?: (a: "description" | "key" | "delete") => void }) {
   return (
-    <Card title="Secret details" testId="secret-details" actions={
+    <Card title="Secret details" testId="secret-details" actions={onAction === undefined ? undefined : (
       <DropdownMenu>
         <DropdownMenuTrigger asChild><Button type="button" variant="outline" className="bg-card" data-testid="secret-actions">Actions <ChevronDownIcon /></Button></DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="min-w-52">
@@ -28,7 +29,7 @@ export function DetailsCard({ name, arn, keyId, description, onAction }: { name:
           <DropdownMenuItem onSelect={() => onAction("delete")} className="text-bad focus:text-bad" data-testid="action-delete">Delete secret</DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
-    }>
+    )}>
       <Facts facts={[
         { label: "Secret name", value: <span className="font-mono text-[13px]">{name}</span> },
         { label: "ARN", value: <span className="font-mono text-[13px]">{arn ?? "–"}</span> },
@@ -59,14 +60,11 @@ export function ValueCard({ name, scheduled, onEdit, onRead }: { name: string; s
   const text = value?.SecretString ?? null;
   const rows = text === null ? null : valueRows(text);
   return (
-    <Card title="Secret value" testId="secret-value" actions={value && !scheduled ? <><Button type="button" variant="outline" className="bg-card" onClick={() => setValue(null)} data-testid="value-hide"><EyeOffIcon /> Hide</Button><Button type="button" variant="outline" className="bg-card" onClick={onEdit} data-testid="value-edit"><PencilIcon /> Edit</Button></> : undefined}>
+    <Card title="Secret value" testId="secret-value" actions={scheduled ? undefined : value === null ? <Button type="button" onClick={() => void retrieve()} disabled={pending} data-testid="value-retrieve"><EyeIcon /> {pending ? "Retrieving…" : "Retrieve secret value"}</Button> : <><Button type="button" variant="outline" className="bg-card" onClick={() => setValue(null)} data-testid="value-hide"><EyeOffIcon /> Hide</Button><Button type="button" variant="outline" className="bg-card" onClick={onEdit} data-testid="value-edit"><PencilIcon /> Edit</Button></>}>
       {scheduled ? (
         <p className="text-[13.5px] text-muted-foreground" data-testid="value-scheduled">You can&apos;t retrieve the value of a secret that is scheduled for deletion. Cancel the deletion first, then retrieve it.</p>
       ) : value === null ? (
-        <>
-          <p className="text-[13.5px] text-muted-foreground">Choose Retrieve secret value to see the current version, AWSCURRENT. The call appears in the last calls below.</p>
-          <div><Button type="button" variant="outline" className="bg-card" onClick={() => void retrieve()} disabled={pending} data-testid="value-retrieve"><EyeIcon /> {pending ? "Retrieving…" : "Retrieve secret value"}</Button></div>
-        </>
+        <p className="text-[13.5px] text-muted-foreground">Choose Retrieve secret value to see the current version, AWSCURRENT. The call appears in the last calls below.</p>
       ) : (
         <>
           <p className="text-[13.5px] text-muted-foreground" data-testid="value-version">Retrieved just now: version <span className="font-mono text-bright">{shortId(value.VersionId)}</span>, labeled {(value.VersionStages ?? []).join(", ") || "no label"}.</p>
@@ -108,8 +106,15 @@ export function SampleCode({ name }: { name: string }) {
     cli: `aws secretsmanager get-secret-value \\\n  --endpoint-url ${endpoint} \\\n  --secret-id ${name}`,
   }[lang];
   return (
-    <Card title="Sample code" testId="sample-code" lede="Choose a programming language and copy the code snippet that reads this secret with GetSecretValue. The endpoint line points the SDK at doze-aws instead of AWS." actions={<Segmented label="Language" value={lang} onChange={setLang} options={SAMPLES} testId="sample-lang" />}>
-      <div className="relative"><CopyButton text={text} label="Copy" what="Copied" iconOnly variant="ghost" className="absolute top-1.5 right-1.5 z-10" /><CodeBlock text={text} testId="sample-text" /></div>
+    <Card title="Sample code" testId="sample-code" lede="Choose a programming language and copy the code snippet that reads this secret with GetSecretValue. The endpoint line points the SDK at doze-aws instead of AWS.">
+      <div className="flex items-center justify-between gap-3">
+        <Select value={lang} onValueChange={(v) => setLang(v as typeof lang)}>
+          <SelectTrigger aria-label="Language" className="w-64 bg-card" data-testid="sample-lang"><SelectValue /></SelectTrigger>
+          <SelectContent>{SAMPLES.map((o) => <SelectItem key={o.value} value={o.value} data-testid={`sample-lang-${o.value}`}>{o.label}</SelectItem>)}</SelectContent>
+        </Select>
+        <CopyButton text={text} label="Copy" what="Copied" />
+      </div>
+      <CodeBlock text={text} testId="sample-text" />
     </Card>
   );
 }

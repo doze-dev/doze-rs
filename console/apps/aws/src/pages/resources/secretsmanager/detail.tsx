@@ -77,13 +77,14 @@ function SecretView({ d, updatedAt, fetching, refresh }: { d: ResourceDetail; up
   const read = readers.last !== null ? `${readers.who.join(" and ")} read${readers.who.length === 1 ? "s" : ""} this secret ${ago(readers.last, now)}, ${readers.count} time${readers.count === 1 ? "" : "s"} in the recent calls.` : null;
   const sentence = scheduled ? `${name} is scheduled for deletion, so its value cannot be read.` : [read, rotation].filter(Boolean).join(" ") || null;
   const fn = info?.RotationLambdaARN ? functionName(info.RotationLambdaARN) : null;
-  const badges = [info?.RotationEnabled ? { text: "Rotation enabled", tone: "good" as const } : { text: "Rotation off", tone: "neutral" as const }, ...(scheduled ? [{ text: "Scheduled for deletion", tone: "warn" as const }] : [])];
+  // A secret waiting to be deleted is drawn as the board draws it: its state alone beside the name, no rotation pill.
+  const badges = scheduled ? [{ text: "Scheduled for deletion", tone: "warn" as const }] : [info?.RotationEnabled ? { text: "Rotation enabled", tone: "good" as const } : { text: "Rotation off", tone: "neutral" as const }];
   const shown: ResourceDetail = { ...d, sentence: null, wired: [], badges };
   const until = search.until && /^\d+$/.test(search.until) ? Number(search.until) : null;
   const deletedAt = info?.DeletedDate ? info.DeletedDate * 1000 : null;
   const banner = scheduled ? (
-    <Alert tone="warn" title="Scheduled for deletion" testId="secret-scheduled" action={<Button size="sm" variant="outline" className="bg-card" onClick={() => void restore()} disabled={restoring} data-testid="cancel-deletion">{restoring ? "Cancelling…" : "Cancel deletion"}</Button>}>
-      {until ? <>The recovery window ends on <b>{dayWords(until)}</b>. Until then you can cancel the deletion with Cancel deletion. After the window Secrets Manager deletes the secret permanently, as a background task with low priority, so there is no guarantee of a specific time after {dayWords(until)}.</> : <>The deletion was scheduled on <b>{deletedAt ? dateTimeUtc(deletedAt) : "an earlier day"}</b>. Secrets Manager deletes the secret for good when its recovery window (7 to 30 days) ends; DescribeSecret says when the deletion was asked for, and the end of the window is in the answer of DeleteSecret only. Until then you can cancel the deletion with Cancel deletion.</>}
+    <Alert tone="warn" title={until ? `Scheduled for deletion: the recovery window ends on ${dayWords(until)}.` : "Scheduled for deletion"} testId="secret-scheduled">
+      {until ? <>Until then you can cancel the deletion with Cancel deletion. After the window Secrets Manager deletes the secret permanently, as a background task with low priority, so there is no guarantee of a specific time after {dayWords(until)}.</> : <>The deletion was scheduled on <b>{deletedAt ? dateTimeUtc(deletedAt) : "an earlier day"}</b>. Secrets Manager deletes the secret for good when its recovery window (7 to 30 days) ends; DescribeSecret says when the deletion was asked for, and the end of the window is in the answer of DeleteSecret only. Until then you can cancel the deletion with Cancel deletion.</>}
     </Alert>
   ) : notice === "restored" ? <ResultBanner title="Deletion cancelled." returned="RestoreSecret removed the mark; the secret can be read again." onDismiss={() => setNotice(null)} testId="restored-banner" />
     : search.done === "created" ? <ResultBanner title={`Secret ${name} stored.`} returned="CreateSecret returned its ARN and the id of its first version, which has the label AWSCURRENT." onDismiss={() => go()} testId="created-banner" />
@@ -93,7 +94,7 @@ function SecretView({ d, updatedAt, fetching, refresh }: { d: ResourceDetail; up
   const tabs = [
     { id: "overview", label: "Overview", render: () => (
       <div className="grid gap-5">
-        <DetailsCard name={name} arn={info?.ARN ?? fieldOf(d, "ARN")} keyId={keyId} description={info?.Description ?? fieldOf(d, "Description")} onAction={(a) => setDialog(a)} />
+        <DetailsCard name={name} arn={info?.ARN ?? fieldOf(d, "ARN")} keyId={keyId} description={info?.Description ?? fieldOf(d, "Description")} onAction={scheduled ? undefined : (a) => setDialog(a)} />
         <ValueCard name={name} scheduled={scheduled} onEdit={() => go({ view: "value" })} onRead={() => void qc.invalidateQueries({ queryKey: ["resources", "one", d.service, d.kind, name] })} />
         {!scheduled && <PolicyCard name={name} scheduled={scheduled} onEdit={(cur) => { setPolicy(cur); setDialog("policy"); }} />}
         {!scheduled && <SampleCode name={name} />}
@@ -105,6 +106,10 @@ function SecretView({ d, updatedAt, fetching, refresh }: { d: ResourceDetail; up
     { id: "tags", label: "Tags", render: () => <><TagsTab target={t} noun="tag" subject="This secret" explain="Tags are key-value labels for organising secrets and for tag-based access control." heading={{ title: "Tags", lead: "Key/value labels you attach to the secret.", rules: <>Tag keys and values are case-sensitive. A secret can have up to 50 tags. Keys are 1 to 128 characters and unique, and can&apos;t start with the reserved prefix <span className="font-mono">aws:</span>. Values are 0 to 256 characters. Tags are not encrypted, and you can&apos;t change the tags of a deleted secret. Searching the list for a tag key finds the secrets that have it.</> }} manage={{ open: "Edit tags", title: "Edit tags", lead: "Key/value labels you attach to the secret.", remove: "Remove", save: "Save", rules: <>Saving adds new keys and overwrites keys that already exist; removed rows are removed with UntagResource. Keys can&apos;t start with <span className="font-mono">aws:</span>.</> }} />{calls}</> },
   ];
   const close = () => setDialog(null);
+  // The reduced page of secretsmanager__secret-deleted: no strip of who reads it, no tabs and no Actions menu; Cancel deletion is the
+  // header's main button.
+  const reduced = <div className="grid gap-5">{tabs[0]!.render()}</div>;
+  const cancel = <Button onClick={() => void restore()} disabled={restoring} data-testid="cancel-deletion">{restoring ? "Cancelling…" : "Cancel deletion"}</Button>;
   return (
     <>
       <ResourcePage
@@ -113,15 +118,18 @@ function SecretView({ d, updatedAt, fetching, refresh }: { d: ResourceDetail; up
         banner={banner}
         overview={<>
           {sentence && <Say text={sentence} names={[name, ...(fn ? [fn] : [])]} className="mb-6" testId="detail-sentence" />}
-          <nav aria-label="Wired to" className="mb-8 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-[14px] border bg-card px-5 py-4" data-testid="wired-strip">
+          {!scheduled && <nav aria-label="Wired to" className="mb-8 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-[14px] border bg-card px-5 py-4" data-testid="wired-strip">
             {readers.who.length > 0 && <><span className="text-[13.5px] text-muted-foreground">Read by</span>{readers.who.map((w) => <span key={w} className={chip}>{w}</span>)}<ArrowRightIcon aria-hidden className="size-3.5 text-input" /></>}
             <span aria-current="page" className="inline-flex items-center rounded-lg border border-primary/40 bg-pick px-3 py-1.5 font-mono text-[13px] text-bright" data-testid="wired-self">{name}</span>
             <span className="text-[13.5px] text-muted-foreground">Encrypted with</span>
             {keyTarget ? <Link to="/resources/$service/$kind/$name" params={{ service: "kms", kind: "keys", name: keyTarget }} className={chip} data-testid="wired-link">{keyId}</Link> : <span className={chip}>{keyId ?? "aws/secretsmanager"}</span>}
             {fn && <><span className="text-[13.5px] text-muted-foreground">Rotated by</span><Link to="/resources/$service/$kind/$name" params={{ service: "lambda", kind: "functions", name: fn }} className={chip} data-testid="wired-link">{fn}</Link></>}
-          </nav>
+          </nav>}
+          {scheduled && reduced}
         </>}
-        tabs={tabs}
+        menu={!scheduled}
+        after={scheduled ? cancel : undefined}
+        tabs={scheduled ? [] : tabs}
         tab={tab ?? "overview"}
         onTab={(x) => setTab(x)}
         details={false}

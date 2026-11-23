@@ -314,3 +314,9 @@ export function perMinute(calls: readonly { at_ms: number }[], now: number, minu
   }
   return out;
 }
+
+/** Whether the map should draw every flow though Focus says active: Focus was not chosen, nothing is active in the window, and
+ * there are quieter flows to draw. An instance idle for five minutes then opens on its map, not on an empty place. */
+export function drawsEverything(focusChosen: boolean, asked: Pick<MapModel, "nodes" | "quiet">): boolean {
+  return !focusChosen && asked.nodes.length === 0 && asked.quiet.length > 0;
+}

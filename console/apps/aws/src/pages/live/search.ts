@@ -12,7 +12,25 @@ export type View = (typeof VIEWS)[number];
 export const OUTCOME_FILTERS = ["ok", "error", "refused", "denied", "not-built", "would-be-denied"] as const;
 export type OutcomeFilter = (typeof OUTCOME_FILTERS)[number];
 
+/** The kinds of call that need a look (the chips of Needs a look, which filter the wire): a function that failed, a call soft IAM let
+ * through that AWS would refuse, an operation not built, a denial, a refusal, a failure. */
+export const LOOKS = ["function-error", "would-be-denied", "not-built", "denied", "refused", "failed"] as const;
+export type LookKind = (typeof LOOKS)[number];
+
+/** Which kind of look `c` is, or null for a call that went well. A call one service made to another is not what an app did. */
+export function lookOf(c: CallRecord): LookKind | null {
+  if (c.via) return null;
+  if (c.function_error) return "function-error";
+  if (c.would_be_denied) return "would-be-denied";
+  if (c.outcome === "not-built") return "not-built";
+  if (c.outcome === "denied") return "denied";
+  if (c.outcome === "error") return c.status < 500 ? "refused" : "failed";
+  return null;
+}
+
 export type LiveSearch = {
+  /** A chip of Needs a look pressed: only the calls of that kind are on the wire. */
+  look?: LookKind;
   /** The call whose drawer is open. */
   call?: number;
   /** Map, Wire (the table) or both; Both when not given. */
@@ -52,11 +70,12 @@ const text = (v: unknown, most = 256): string | undefined => (typeof v === "stri
 export function liveSearch(s: Record<string, unknown>): LiveSearch {
   const n = s.call;
   // Every key is set, to undefined when the value is not one of ours: the router keeps a raw value the validator leaves out.
-  const out: LiveSearch = { call: undefined, view: undefined, service: undefined, outcome: undefined, caller: undefined, q: undefined, console: undefined, app: undefined, node: undefined, focus: undefined, layout: undefined, by: undefined };
+  const out: LiveSearch = { look: undefined, call: undefined, view: undefined, service: undefined, outcome: undefined, caller: undefined, q: undefined, console: undefined, app: undefined, node: undefined, focus: undefined, layout: undefined, by: undefined };
   if (typeof n === "number" && Number.isSafeInteger(n) && n > 0) out.call = n;
   if (VIEWS.includes(s.view as View)) out.view = s.view as View;
   const service = text(s.service, 64);
   if (service && /^[a-z0-9-]+$/.test(service)) out.service = service;
+  if (LOOKS.includes(s.look as LookKind)) out.look = s.look as LookKind;
   if (OUTCOME_FILTERS.includes(s.outcome as OutcomeFilter)) out.outcome = s.outcome as OutcomeFilter;
   const caller = text(s.caller, 128);
   if (caller) out.caller = caller;
@@ -81,6 +100,7 @@ export function callerOf(c: Pick<CallRecord, "caller" | "via">): string {
 /** Whether `c` is one the filters keep. */
 export function matches(c: CallRecord, f: LiveSearch): boolean {
   if (f.service !== undefined && c.service !== f.service) return false;
+  if (f.look !== undefined && lookOf(c) !== f.look) return false;
   if (f.outcome !== undefined) {
     if (f.outcome === "would-be-denied" ? !c.would_be_denied : f.outcome === "refused" ? !(c.outcome === "error" && c.status < 500) : c.outcome !== (f.outcome as Outcome)) return false;
   }
@@ -94,5 +114,5 @@ export function matches(c: CallRecord, f: LiveSearch): boolean {
 
 /** Whether any filter is set. */
 export function filtering(f: LiveSearch): boolean {
-  return f.service !== undefined || f.outcome !== undefined || f.caller !== undefined || f.q !== undefined || f.app !== undefined;
+  return f.look !== undefined || f.service !== undefined || f.outcome !== undefined || f.caller !== undefined || f.q !== undefined || f.app !== undefined;
 }

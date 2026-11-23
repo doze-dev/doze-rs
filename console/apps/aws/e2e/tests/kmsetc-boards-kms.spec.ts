@@ -77,9 +77,10 @@ test("kms__key-schedule-deletion, kms__keys-deletion-scheduled: a waiting period
   await expect(page.getByTestId("list-sentence")).toContainText("larder-legacy changed to Pending deletion and will be deleted on");
   await expect(page.getByTestId("list-sentence")).toContainText("2 pending deletion");
   expect(JSON.parse(cli(["kms", "describe-key", "--key-id", legacy])).KeyMetadata.KeyState).toBe("PendingDeletion");
+  // The board keeps the row ticked, so Key actions can be used at once (Cancel key deletion).
+  await expect(page.getByTestId(`select-${legacy}`)).toBeChecked();
   await shot(page, "kms__keys-deletion-scheduled");
   // Cancel brings a key back Disabled, never Enabled; Enable is refused for a key pending deletion until then.
-  await page.getByTestId(`select-${legacy}`).check();
   await page.getByTestId("key-actions").click();
   await expect(page.getByTestId("action-enable")).toHaveAttribute("data-disabled", "");
   await page.getByTestId("action-cancel").click();
@@ -118,6 +119,7 @@ test("kms__key-create ... kms__key-create-review: six steps, and the key is made
   await page.getByTestId("form-submit").click();
   await page.getByTestId(`select-${ROLE("report-job")}`).check();
   await expect(page.getByTestId("users-statement")).toContainText("Allow attachment of persistent resources");
+  await expect(page.getByTestId("principal-line-role/report-job")).toHaveText("report-job reads reports/* in S3 through its report-job-readonly policy.");
   await expect(page.getByTestId("call-panel")).toContainText("{ 4 statements }");
   await shot(page, "kms__key-create-users");
   await page.getByTestId("form-submit").click();

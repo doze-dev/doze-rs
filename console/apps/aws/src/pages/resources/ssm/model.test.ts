@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { newRow } from "@doze/ui/components/app/key-values";
 import type { ColumnSpec } from "../../../api/types/ColumnSpec";
 import type { ResourceRow } from "../../../api/types/ResourceRow";
-import { blankParam, filterSentence, labelElsewhere, labelProblem, listSentence, moveWords, nameProblem, paramRows, pasts, putInput, tokensFromQuery, tokensToQuery, valueProblem, versionLine, whenWords } from "./model";
+import { blankParam, filterSentence, labelElsewhere, labelProblem, listSentence, moveWords, nameProblem, paramRows, pasts, putInput, savingWords, tokensFromQuery, tokensToQuery, valueProblem, versionLine, whenWords } from "./model";
 
 const col = (title: string): ColumnSpec => ({ title, format: "text", badge: null });
 const COLUMNS = ["Type", "Tier", "Version", "Last modified", "Description", "KMS key"].map(col);
@@ -72,5 +72,16 @@ describe("history and labels", () => {
     expect(moveWords(ps, ["current"], 3)).toBe("current is on version 2 now. Saving moves it to version 3, because a label can sit on only one version of a parameter.");
     expect(moveWords(ps, ["new"], 3)).toBeNull();
     expect(versionLine("3", "2026-11-07T10:22:00Z")).toBe("Version 3, last modified Nov 7, 2026 at 10:22 UTC.");
+  });
+});
+
+describe("the edit form's teaching line", () => {
+  const ps = (labels: Record<number, string[]>) => pasts(Object.entries(labels).map(([v, l]) => ({ Version: Number(v), Labels: l })));
+  test("one label is named with the version it stays on", () => {
+    expect(savingWords(ps({ 1: [], 2: ["current"], 3: [] }))).toEqual({ lead: "Saving always creates a new version; the old one stays in History.", rest: "The label current stays on version 2: a label names one version until you move it." });
+  });
+  test("several labels are listed with their versions; none says nothing more", () => {
+    expect(savingWords(ps({ 1: ["stable"], 2: ["current"] })).rest).toBe("The labels stable (version 1) and current (version 2) stay where they are: a label names one version until you move it.");
+    expect(savingWords(ps({ 1: [] })).rest).toBeNull();
   });
 });

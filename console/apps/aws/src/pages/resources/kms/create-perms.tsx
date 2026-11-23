@@ -15,6 +15,7 @@ import { useAllRows } from "../cfg-api";
 import { cell, Note } from "../cfg-parts";
 import { policyOf, type KeyForm } from "./create-model";
 import { buildPolicy, SIDS, statementWords } from "./model";
+import { PrincipalLines } from "./principal-lines";
 
 export type Principal = { name: string; arn: string };
 
@@ -76,6 +77,7 @@ export function StepUsers({ f, set, account }: { f: KeyForm; set: (p: Partial<Ke
     <>
       <FormSection title="This account" description={`Account ${account}. Select the IAM users and roles that can use the key in cryptographic operations, such as encrypting, decrypting, re-encrypting and generating data keys.`} testId="section-users">
         <PrincipalTable {...p} chosen={f.users} onChange={(users) => set({ users })} noun="use the key" />
+        <PrincipalLines chosen={p.principals.filter((x) => f.users.includes(x.arn))} />
         {f.usage === "ENCRYPT_DECRYPT" && <Note>The console also adds a second statement that lets AWS services create grants for a key user. doze-aws keeps and lists grants, but does not evaluate them.</Note>}
       </FormSection>
       <FormSection title="Other AWS accounts" description="Letting principals of another account use this key." testId="section-accounts">

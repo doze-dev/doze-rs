@@ -19,8 +19,9 @@ test("the index groups the services and counts what each holds", async ({ page, 
   const index = page.getByTestId("resources-index");
   await expect(index.getByRole("heading", { level: 2 })).toContainText(["Messaging and events", "Storage and data", "Compute and flow", "Config and secrets"]);
   await expect(page.getByTestId("count-sqs")).toContainText(/\d+ queues?/);
-  await expect(page.getByTestId("count-iam")).toContainText(/\d+ roles?/);
-  await expect(page.getByTestId("count-sts")).toHaveText("No resources");
+  // IAM and STS are the Access space's: the board draws them there only.
+  await expect(page.getByTestId("service-iam")).toHaveCount(0);
+  await expect(page.getByTestId("service-sts")).toHaveCount(0);
   // Each count was a list call the console made.
   expect((await consoleCalls(page, "ListQueues")).length).toBeGreaterThan(0);
   await page.getByTestId("service-sqs").click();
