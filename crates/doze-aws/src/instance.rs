@@ -20,6 +20,10 @@ pub(crate) struct Instance {
     /// The URL to reach it at (not in the health answer: the asker knows it).
     #[serde(default)]
     pub(crate) endpoint: String,
+    /// The URL clients are told to use when it is not the one it listens on (`--advertise`: under doze, the stack's address in
+    /// front of this server's private backend). Empty: the endpoint is what clients use.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub(crate) advertised: String,
     /// The region `env` points at.
     pub(crate) region: String,
     /// The account.
@@ -43,6 +47,15 @@ pub(crate) struct Instance {
 }
 
 impl Instance {
+    /// The URL a client is told to use: the advertised one, else where it listens.
+    pub(crate) fn public_endpoint(&self) -> &str {
+        if self.advertised.is_empty() {
+            &self.endpoint
+        } else {
+            &self.advertised
+        }
+    }
+
     /// What `GET /_doze/health` answers: everything but the keys.
     pub(crate) fn health(&self) -> serde_json::Map<String, serde_json::Value> {
         let public = Self {
@@ -53,6 +66,7 @@ impl Instance {
         match serde_json::to_value(public) {
             Ok(serde_json::Value::Object(mut m)) => {
                 m.remove("endpoint");
+                m.remove("advertised");
                 m.insert("name".into(), "doze-aws".into());
                 m
             }
@@ -133,6 +147,7 @@ mod tests {
         write(&dir, &me).unwrap();
         assert_eq!(running(&dir), Some(me.clone()));
         assert!(!me.health().contains_key("secret_key"));
+        assert!(!me.health().contains_key("advertised"));
         drop(lock);
         assert_eq!(running(&dir), None, "a file without a holder is stale");
         remove(&dir);

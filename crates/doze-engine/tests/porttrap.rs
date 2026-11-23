@@ -100,10 +100,7 @@ async fn a_child_listening_is_found_from_its_parent() {
 
 /// A helper given `$PORT` (where nothing listens) that listens elsewhere, with `ready`.
 fn elsewhere(args: &[&str], ready: Ready) -> Plan {
-    let port = std::net::TcpListener::bind("127.0.0.1:0")
-        .and_then(|l| l.local_addr())
-        .unwrap()
-        .port();
+    let port = doze_engine::ports::free_port().unwrap();
     let env = [("PORT", port.to_string()), ("LISTEN_ON", "0".to_string())];
     Plan {
         processes: vec![Process {

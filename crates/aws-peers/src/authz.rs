@@ -88,6 +88,9 @@ impl Mode {
     }
 }
 
+/// Told when soft mode lets through a request that would have been refused: the caller and the action (`sqs:SendMessage`).
+pub(crate) type WouldDeny = Arc<dyn Fn(&Caller, &str) + Send + Sync>;
+
 /// The mode, shared by the bus and read by whoever decides.
 #[derive(Debug, Default)]
 pub(crate) struct ModeCell(AtomicU8);
@@ -118,6 +121,23 @@ impl Peers {
     pub fn set_authorizer(&self, authorizer: Arc<dyn Authorizer>) {
         if let Ok(mut slot) = self.authorizer.write() {
             *slot = Some(authorizer);
+        }
+    }
+
+    /// Asks to be told of every request soft mode lets through that would have been refused (the console's Live record marks it).
+    /// Unset, the default, the authorizer's soft refusals are only logged.
+    pub fn on_would_deny(&self, tell: impl Fn(&Caller, &str) + Send + Sync + 'static) {
+        if let Ok(mut slot) = self.would_deny.write() {
+            *slot = Some(Arc::new(tell));
+        }
+    }
+
+    /// Soft mode let `caller` do `action`, which its policies would have refused: tells whoever asked to be told. Called by the
+    /// authorizer.
+    pub fn would_deny(&self, caller: &Caller, action: &str) {
+        let tell = self.would_deny.read().ok().and_then(|slot| slot.clone());
+        if let Some(tell) = tell {
+            tell(caller, action);
         }
     }
 

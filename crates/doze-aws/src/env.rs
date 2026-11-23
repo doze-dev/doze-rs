@@ -97,7 +97,7 @@ pub(crate) fn lines(
 ) -> Vec<String> {
     let (access, secret) = instance.keys();
     let set = [
-        ("AWS_ENDPOINT_URL", instance.endpoint.as_str()),
+        ("AWS_ENDPOINT_URL", instance.public_endpoint()),
         ("AWS_REGION", instance.region.as_str()),
         ("AWS_DEFAULT_REGION", instance.region.as_str()),
         ("AWS_ACCESS_KEY_ID", access.as_str()),
@@ -155,6 +155,17 @@ mod tests {
             auth: "trust".into(),
             ..Instance::default()
         }
+    }
+
+    #[test]
+    fn an_advertised_address_is_the_one_exported() {
+        let i = Instance {
+            endpoint: "http://127.0.0.1:27538".into(),
+            advertised: "http://127.0.0.1:24566".into(),
+            ..local()
+        };
+        let out = lines(&i, Shell::Sh, false, &[]);
+        assert_eq!(out[0], "export AWS_ENDPOINT_URL=http://127.0.0.1:24566");
     }
 
     #[test]

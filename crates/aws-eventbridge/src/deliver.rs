@@ -79,8 +79,17 @@ impl Failure {
 }
 
 impl Core {
-    /// Sends the delivery to its target.
+    /// Sends the delivery to its target. While the bus is watched (the console's Live record), the calls it makes are marked as
+    /// the rule's.
     pub(crate) async fn send(&self, d: &Delivery, caller: &Caller) -> Outcome {
+        if self.peers.as_ref().is_some_and(|p| p.calls_watched()) {
+            let rule = format!("rule {}", d.rule_name);
+            return aws_peers::seen::named(&rule, self.send_to(d, caller)).await;
+        }
+        self.send_to(d, caller).await
+    }
+
+    async fn send_to(&self, d: &Delivery, caller: &Caller) -> Outcome {
         let arn = d.target.arn.as_str();
         let service = service_of(arn);
         let (region, account) = region_and_account(arn);

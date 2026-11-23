@@ -36,6 +36,9 @@ pub struct Labels {
     pub name_only: bool,
     /// Which of its names another program holds, said for status and doctor.
     pub name_held: String,
+    /// Where its module serves a web console, its address filled in; the tab the console asks to open on.
+    pub web_url: String,
+    pub console_front: String,
     /// `enabled = false` in the config.
     pub paused: bool,
     pub group: String,
@@ -78,6 +81,8 @@ pub(crate) fn view(e: &Engine, i: &Instance, l: Option<&Labels>) -> InstanceView
         idle_after: i.idle_after.map_or(GoDuration(0), go_duration),
         always_on: i.always_on,
         endpoint: l.endpoint,
+        web_url: l.web_url,
+        console_front: l.console_front,
         bind: l.bind,
         domain: l.domain,
         domains: l.domains,

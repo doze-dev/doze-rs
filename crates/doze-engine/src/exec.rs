@@ -116,6 +116,9 @@ pub struct StartError {
     pub message: String,
     /// A readiness check ran out of time (Go's `fault.Timeout`).
     pub timeout: bool,
+    /// The `$PORT` the engine gave the process that died, taken by something else before the process could bind it
+    /// (`ports::lost`): the start is worth making again on another port.
+    pub lost_port: Option<u16>,
 }
 
 impl From<String> for StartError {
@@ -123,6 +126,7 @@ impl From<String> for StartError {
         StartError {
             message,
             timeout: false,
+            lost_port: None,
         }
     }
 }
@@ -174,6 +178,7 @@ pub async fn start(
                 return Err(StartError {
                     message: not_ready(&p.name, &e, &hint, log),
                     timeout: matches!(e, NotReady::Timeout(_)),
+                    lost_port: lost_port(p, &e),
                 });
             }
         }
@@ -244,6 +249,19 @@ async fn trap_hint(unit: &mut Unit, p: &Process, e: &NotReady) -> String {
         Some(ports) => crate::porttrap::hint(&p.name, port, &ports),
         None => String::new(),
     }
+}
+
+/// The `$PORT` a process that died while starting was given, when something else holds it now (asked once its tree
+/// is stopped, so the holder is not the process): it lost the race between the engine's probe and its own bind.
+fn lost_port(p: &Process, e: &NotReady) -> Option<u16> {
+    if !matches!(
+        e,
+        NotReady::ExitedDuringStartup | NotReady::ExitedImmediately
+    ) {
+        return None;
+    }
+    let port = crate::porttrap::env_port(&p.env);
+    (port != 0 && crate::ports::lost(port)).then_some(port)
 }
 
 /// How long a process gets to stop after it is asked, before its tree is killed (Go: 8 s for SIGTERM).

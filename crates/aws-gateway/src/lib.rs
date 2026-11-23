@@ -13,6 +13,7 @@ mod config;
 mod cors;
 mod head;
 mod health;
+mod observe;
 mod pipeline;
 mod presign;
 mod query;
@@ -25,4 +26,5 @@ mod web;
 mod websig;
 
 pub use config::{Auth, Config, Hooks};
+pub use observe::{Finished, Observer, WouldDeny};
 pub use server::{Gateway, Running};

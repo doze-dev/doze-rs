@@ -355,7 +355,17 @@ pub(crate) async fn resume(inner: &Arc<Inner>) {
     }
 }
 
+/// A mapping's poller. While the bus is watched (the console's Live record), the calls it makes are marked as the mapping's.
 async fn poller(run: Run) {
+    if run.inner.peers.as_ref().is_some_and(|p| p.calls_watched()) {
+        let name = format!("mapping {}", run.uuid);
+        aws_peers::seen::named(&name, poll(run)).await;
+    } else {
+        poll(run).await;
+    }
+}
+
+async fn poll(run: Run) {
     let Some(sources) = run.inner.sources.get().cloned() else {
         return;
     };

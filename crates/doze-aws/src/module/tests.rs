@@ -196,6 +196,102 @@ fn references_keys_json_and_code_are_checked_at_their_line() {
     assert_eq!(d.len(), 9, "{msgs:#?}");
 }
 
+fn granted(
+    addr: &str,
+    backend: &str,
+    hosts: &[&str],
+) -> doze_module::proto::msg::instance::Granted {
+    doze_module::proto::msg::instance::Granted {
+        addr: addr.into(),
+        url: String::new(),
+        hosts: hosts.iter().map(|h| (*h).to_owned()).collect(),
+        backend: doze_module::proto::msg::instance::Address::Tcp(backend.into()),
+    }
+}
+
+#[test]
+fn the_server_under_doze_listens_and_serves_its_console_only_where_doze_granted() {
+    let mut inst = instance();
+    inst.listeners.insert(
+        doze_module::proto::network::MAIN.into(),
+        granted("local.shop.doze:4566", "127.0.0.1:41000", &[]),
+    );
+    inst.listeners.insert(
+        super::CONSOLE.into(),
+        granted(
+            "local.shop.doze:4567",
+            "127.0.0.1:41001",
+            &["local.shop.doze"],
+        ),
+    );
+    let args = super::server_args(&inst, "us-east-1").unwrap();
+    assert_eq!(args[..2], ["--listen", "127.0.0.1:41000"]);
+    let at = args.iter().position(|a| a == "--console").unwrap();
+    assert_eq!(args[at + 1], "127.0.0.1:41001", "{args:?}");
+    let at = args
+        .iter()
+        .position(|a| a == "--console-allow-host")
+        .unwrap();
+    assert_eq!(args[at + 1], "local.shop.doze", "{args:?}");
+    assert!(!args.iter().any(|a| a == "--no-console"), "{args:?}");
+    let at = args.iter().position(|a| a == "--advertise").unwrap();
+    assert_eq!(args[at + 1], "http://local.shop.doze:4566", "{args:?}");
+}
+
+#[test]
+fn clients_are_told_the_address_doze_gave_never_the_backend_it_picked() {
+    // Names off: the stack's address on loopback; the backend is another port that doze picks again at every start.
+    let mut inst = instance();
+    inst.listeners.insert(
+        doze_module::proto::network::MAIN.into(),
+        granted("127.0.0.1:24566", "127.0.0.1:27538", &[]),
+    );
+    let args = super::server_args(&inst, "us-east-1").unwrap();
+    let at = args.iter().position(|a| a == "--advertise").unwrap();
+    assert_eq!(args[at + 1], "http://127.0.0.1:24566", "{args:?}");
+    assert!(
+        !args
+            .iter()
+            .any(|a| a.contains("27538") && a != "127.0.0.1:27538"),
+        "{args:?}"
+    );
+}
+
+#[test]
+fn without_a_console_listener_granted_the_server_runs_without_its_console() {
+    let mut inst = instance();
+    inst.listeners.insert(
+        doze_module::proto::network::MAIN.into(),
+        granted("local.shop.doze:4566", "127.0.0.1:41000", &[]),
+    );
+    let args = super::server_args(&inst, "us-east-1").unwrap();
+    assert_eq!(args[..2], ["--listen", "127.0.0.1:41000"]);
+    assert!(args.iter().any(|a| a == "--no-console"), "{args:?}");
+    assert!(!args.iter().any(|a| a == "--console"), "{args:?}");
+}
+
+#[test]
+fn the_console_is_its_own_listener_on_the_instances_name_and_the_app_can_open_it() {
+    use doze_module::Module;
+    let listeners = super::listeners();
+    let names: Vec<&str> = listeners.iter().map(|l| l.name.as_str()).collect();
+    assert_eq!(names, ["main", "console"]);
+    let console = &listeners[1];
+    assert!(
+        console.http && console.tcp && console.port != 0,
+        "{console:?}"
+    );
+    assert_eq!(console.routes, ["@"]);
+    assert!(
+        doze_module::proto::network::validate(&listeners).is_empty(),
+        "{:?}",
+        doze_module::proto::network::validate(&listeners)
+    );
+    let spec = super::Aws.about().console.unwrap();
+    assert_eq!(spec.web_url.as_deref(), Some("http://{address:console}"));
+    assert_eq!(spec.front.as_deref(), Some("web"));
+}
+
 #[test]
 fn the_shell_client_is_the_aws_cli_at_the_instance() {
     use doze_module::Module;
