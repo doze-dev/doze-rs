@@ -272,7 +272,7 @@ test("cloudwatch__widget-alarm-status and widget-text: the two widgets that need
   const kinds = body.widgets.map((w) => w.type);
   expect(kinds).toContain("alarm");
   expect(kinds).toContain("text");
-  expect(body.widgets.find((w) => w.type === "alarm")?.properties.alarms).toHaveLength(2);
+  expect(body.widgets.find((w) => w.type === "alarm")?.properties.alarms).toHaveLength(5); // every alarm, as the dialog opens with them all ticked
   expect(body.widgets.filter((w) => w.type === "text").pop()?.properties.background).toBe("transparent");
   // The source dialog replaces the draft; a rule broken is said, and a body that is not an object is refused.
   await page.getByTestId("source-open").click();
