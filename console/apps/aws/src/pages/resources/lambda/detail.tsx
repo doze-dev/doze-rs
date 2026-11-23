@@ -19,7 +19,7 @@ import { DetailError, RecentCalls, ResourcePage, ResourcePageSkeleton, useBlocke
 import { timeMs } from "../model";
 import { ConfigTab } from "./config-tab";
 import { CodeTab } from "./code-tab";
-import { deleteWords, leftBehind } from "./delete-model";
+import { deleteWords, leftBehind, rememberLeft } from "./delete-model";
 import { type Go, useFn, useFunctionSearch, useGo, useTriggers, useWhere } from "./hooks";
 import { MonitorTab } from "./monitor-tab";
 import { AliasesTab, VersionsTab } from "./versions-tab";
@@ -114,7 +114,8 @@ function FunctionView({ d, updatedAt, fetching, refresh }: { d: ResourceDetail; 
     del.mutate(d.name, {
       onSuccess: () => {
         setDialog(null);
-        void navigate({ to: "/resources/$service/$second", params: { service: "lambda", second: "functions" }, search: { gone: d.name, sel: leftBehind(d, triggers) } });
+        rememberLeft(d.name, leftBehind(d, triggers));
+        void navigate({ to: "/resources/$service/$second", params: { service: "lambda", second: "functions" }, search: { gone: d.name } });
       },
     });
   const failed = del.error ? errorWords(del.error) : null;

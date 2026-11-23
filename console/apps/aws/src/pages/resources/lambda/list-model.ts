@@ -48,3 +48,13 @@ function layerArns(cell: string | null | undefined): string[] {
 export function usedBy(layer: string, functions: readonly FunctionRow[]): string[] {
   return functions.filter((f) => f.layers.some((arn) => arn.split(":layer:")[1]?.split(":")[0] === layer)).map((f) => f.name);
 }
+
+/** A JSON list of plain values as the words a person reads (`["python3.13","nodejs22.x"]` is `python3.13, nodejs22.x`); any other text as it is. */
+export function listText(value: string): string {
+  try {
+    const v: unknown = JSON.parse(value);
+    return Array.isArray(v) && v.every((x) => typeof x === "string" || typeof x === "number") ? v.join(", ") : value;
+  } catch {
+    return value;
+  }
+}

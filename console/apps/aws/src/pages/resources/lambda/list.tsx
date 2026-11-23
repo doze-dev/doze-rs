@@ -22,7 +22,7 @@ import { type MetricQuery, useMetricData } from "../../../kit";
 import { HINT } from "../index-page";
 import { ResourceTo, Value } from "../value";
 import { FunctionCreate } from "./create";
-import { leftWords, readLeft } from "./delete-model";
+import { leftWords, readLeft, recalledLeft } from "./delete-model";
 import { type FunctionRow, invokedSentence, rowsOf } from "./list-model";
 import { HOUR } from "./monitor-model";
 import { FromYourApp } from "../../../kit/from-your-app";
@@ -36,12 +36,12 @@ const COLUMNS: DataColumn<FunctionRow>[] = [
 ];
 
 export function LambdaList({ service, kind }: { service: string; kind: string }) {
-  const search = useSearch({ strict: false }) as { q?: string; create?: string; gone?: string; sel?: string };
+  const search = useSearch({ strict: false }) as { q?: string; create?: string; gone?: string };
   if (search.create === "yes") return <FunctionCreate />;
-  return <FunctionsList service={service} kind={kind} q={search.q ?? ""} gone={search.gone} sel={search.sel} />;
+  return <FunctionsList service={service} kind={kind} q={search.q ?? ""} gone={search.gone} />;
 }
 
-function FunctionsList({ service, kind, q, gone, sel }: { service: string; kind: string; q: string; gone?: string; sel?: string }) {
+function FunctionsList({ service, kind, q, gone }: { service: string; kind: string; q: string; gone?: string }) {
   const navigate = useNavigate();
   const about = useAbout().data;
   const list = useResourceList(service, kind);
@@ -61,7 +61,7 @@ function FunctionsList({ service, kind, q, gone, sel }: { service: string; kind:
   const none = all.length === 0;
   const names = all.map((r) => r.name);
   const ran = invokedSentence(counts);
-  const left = gone ? leftWords(gone, readLeft(sel)) : [];
+  const left = gone ? leftWords(gone, readLeft(recalledLeft(gone))) : [];
   const sentence = first?.sentence ? `${gone && all.length ? `${all.length} ${all.length === 1 ? "function runs" : "functions run"} here: ${all.map((r) => r.name).join(", ")}.` : first.sentence}${!gone && ran ? ` ${ran}` : ""}${left[0]?.includes("still point") ? ` ${left[0]}` : ""}` : null;
   return (
     <>

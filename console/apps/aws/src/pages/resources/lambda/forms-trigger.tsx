@@ -1,6 +1,6 @@
 // Add trigger and Edit trigger (lambda__trigger-add, trigger-edit): an SQS event source mapping, made and changed with
 // CreateEventSourceMapping and UpdateEventSourceMapping; and Add destination (lambda__destination-add), where a function's
-// asynchronous invocations report to a queue, a topic or another function.
+// asynchronous invocations report to a queue, a topic, another function or an event bus.
 import { useState } from "react";
 import { Callout } from "@doze/ui/components/app/callout";
 import { Input } from "@doze/ui/components/ui/input";
@@ -9,8 +9,8 @@ import { RadioGroup, RadioGroupItem } from "@doze/ui/components/ui/radio-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@doze/ui/components/ui/select";
 import { Switch } from "@doze/ui/components/ui/switch";
 import { Textarea } from "@doze/ui/components/ui/textarea";
-import { useResourceDetail } from "../../../api/resources";
-import { Field, FormSection, FunctionPicker, QueuePicker, TopicPicker } from "../../../kit";
+import { useResourceDetail, useResourceList } from "../../../api/resources";
+import { BusPicker, Field, FormSection, FunctionPicker, QueuePicker, TopicPicker } from "../../../kit";
 import { on, useOp, useOpRead } from "../deep/api";
 import { queueOf } from "../sqs/queue-model";
 import { batchMost, type Destination, destinationInput, destinationProblems, mappingCreate, mappingUpdate, triggerProblems, visibilityFor } from "./forms";
@@ -180,6 +180,7 @@ const TYPES: { id: Type; label: string }[] = [
   { id: "sqs", label: "Amazon SQS queue" },
   { id: "sns", label: "Amazon SNS topic" },
   { id: "lambda", label: "Lambda Event Function" },
+  { id: "events", label: "EventBridge" },
 ];
 
 export function DestinationAdd(p: FormProps) {
@@ -192,7 +193,7 @@ export function DestinationAdd(p: FormProps) {
   const update = useOp(on.fn(d.name), "UpdateFunctionEventInvokeConfig");
   const put = useOp(on.fn(d.name), "PutFunctionEventInvokeConfig");
   const exists = Boolean(current.data) && !current.data?.Absent && !notFound(current.error);
-  const arn = target === null ? null : type === "sqs" ? arnOf(where, target) : type === "lambda" ? `arn:aws:lambda:${where.region}:${where.account}:function:${target}` : target;
+  const arn = target === null ? null : type === "sqs" ? arnOf(where, target) : type === "lambda" ? `arn:aws:lambda:${where.region}:${where.account}:function:${target}` : type === "events" ? `arn:aws:events:${where.region}:${where.account}:event-bus/${target}` : target;
   const dest: Destination = { condition, type, target: arn };
   const problems = destinationProblems(dest);
   const input = destinationInput(d.name, dest);
@@ -202,6 +203,9 @@ export function DestinationAdd(p: FormProps) {
     if (Object.keys(problems).length > 0) return;
     (exists ? update : put).mutate({ ...input }, { onSuccess: () => p.go({ tab: "configuration", p: "triggers", done: "destination-saved" }) });
   };
+  // The board always names the FIFO queues the account has: they cannot be a destination, picked or not.
+  const queues = useResourceList("sqs", "queues");
+  const fifoQueues = (queues.data?.pages.flatMap((pg) => pg.rows) ?? []).map((r) => r.name).filter((n) => n.endsWith(".fifo"));
   const fifoWord = target && (target.endsWith(".fifo") || target.includes(".fifo")) ? target : null;
   return (
     <FnFormPage p={{ ...p, tab: p.tab ?? "configuration", p: "triggers" }} title="Add destination" label="Add destination" sub={<><b className="font-medium text-foreground">Keep a record of asynchronous invocations.</b> A destination receives a JSON record when an event succeeds or fails every attempt.</>}
@@ -209,7 +213,12 @@ export function DestinationAdd(p: FormProps) {
       submitLabel="Save" pending={update.isPending || put.isPending} disabled={tried && Object.keys(problems).length > 0} disabledWhy={Object.values(problems)[0]} onSubmit={submit} testId="destination-form">
       <FormSection title="Destination configuration" testId="section-destination">
         <Field label="Source" help={<>Async events come from SNS, S3 and EventBridge. {p.triggers.some((t) => t.kind === "SNS topic") ? <Muted>The {p.triggers.find((t) => t.kind === "SNS topic")?.name} topic invokes {d.name} this way.</Muted> : null}</>} testId="field-source">
-          {() => <div className="flex h-9 w-full max-w-[22rem] items-center rounded-md border bg-card px-3 text-[14px] text-bright" data-testid="dsource">Asynchronous invocation</div>}
+          {(id) => (
+            <Select value="async">
+              <SelectTrigger id={id} className="w-full max-w-[22rem] bg-card" data-testid="dsource"><SelectValue /></SelectTrigger>
+              <SelectContent><SelectItem value="async">Asynchronous invocation</SelectItem></SelectContent>
+            </Select>
+          )}
         </Field>
         <div className="grid gap-1.5">
           <Label>Condition</Label>
@@ -230,13 +239,13 @@ export function DestinationAdd(p: FormProps) {
                 <RadioGroupItem id={`type-${t.id}`} value={t.id} data-testid={`dtype-${t.id}`} />{t.label}
               </Label>
             ))}
-            {[["EventBridge", "Not available in doze-aws: Lambda does not deliver invocation records to an event bus here."], [`Amazon S3 bucket (on failure only)`, "Not available in doze-aws: Lambda does not deliver invocation records to S3 here."]].map(([t, why]) => (
+            {[[`Amazon S3 bucket (on failure only)`, "Not available in doze-aws: Lambda does not deliver invocation records to S3 here."]].map(([t, why]) => (
               <div key={t} className="flex items-start gap-3 text-[13.5px] opacity-70" data-testid="dtype-off"><RadioGroupItem value={`off-${t}`} disabled className="mt-0.5" /><span className="grid gap-0.5"><span className="text-bright">{t}</span><span className="text-muted-foreground">{why}</span></span></div>
             ))}
           </RadioGroup>
         </div>
-        <Field label="Destination" error={tried ? problems.target : fifoWord ? problems.target : undefined} help={<>Only standard queues and topics work. {fifoWord ? <Muted><span className="font-mono">{fifoWord.split(/[:/]/).pop()}</span> is a FIFO queue, so it cannot be a destination. </Muted> : null}<Muted>The execution role needs {type === "sqs" ? "sqs:SendMessage on the queue" : type === "sns" ? "sns:Publish on the topic" : "lambda:InvokeFunction on the function"}.</Muted></>} testId="field-target">
-          {(id) => type === "sqs" ? <QueuePicker id={id} value={target} onChange={setTarget} by="name" className="w-full max-w-[22rem] font-mono" /> : type === "sns" ? <TopicPicker id={id} value={target} onChange={setTarget} className="w-full max-w-[22rem] font-mono" /> : <FunctionPicker id={id} value={target} onChange={setTarget} by="name" className="w-full max-w-[22rem] font-mono" />}
+        <Field label="Destination" error={tried ? problems.target : fifoWord ? problems.target : undefined} help={<>{type === "events" ? <>The record goes to the bus as a PutEvents entry with source <span className="font-mono">lambda</span> and detail type <span className="font-mono">Lambda Function Invocation Result</span>, so a rule on the bus can match it. </> : <>Only <b>standard</b> queues and topics work. </>}{fifoWord ? <Muted><span className="font-mono">{fifoWord.split(/[:/]/).pop()}</span> is a FIFO queue, so it cannot be a destination. </Muted> : type === "sqs" && fifoQueues.length > 0 ? <Muted><span className="font-mono">{fifoQueues.join(", ")}</span> {fifoQueues.length === 1 ? "is a FIFO queue" : "are FIFO queues"}, so {fifoQueues.length === 1 ? "it" : "they"} cannot be a destination. </Muted> : null}<Muted>The execution role needs {type === "sqs" ? "sqs:SendMessage on the queue" : type === "sns" ? "sns:Publish on the topic" : type === "events" ? "events:PutEvents on the bus" : "lambda:InvokeFunction on the function"}.</Muted></>} testId="field-target">
+          {(id) => type === "sqs" ? <QueuePicker id={id} value={target} onChange={setTarget} by="name" className="w-full max-w-[22rem] font-mono" /> : type === "sns" ? <TopicPicker id={id} value={target} onChange={setTarget} className="w-full max-w-[22rem] font-mono" /> : type === "events" ? <BusPicker id={id} value={target} onChange={setTarget} className="w-full max-w-[22rem] font-mono" /> : <FunctionPicker id={id} value={target} onChange={setTarget} by="name" className="w-full max-w-[22rem] font-mono" />}
         </Field>
       </FormSection>
     </FnFormPage>

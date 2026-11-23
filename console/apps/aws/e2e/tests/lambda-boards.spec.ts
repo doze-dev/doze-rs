@@ -5,6 +5,7 @@ import { join } from "node:path";
 import type { Page } from "@playwright/test";
 import { start, type Running, aws } from "../server";
 import { expectCopy } from "./callpanel-kit";
+import { expectCrumbsEnd } from "./crumbs-kit";
 import { expect, expectNoErrorAnswers, test } from "./fixtures";
 import { invoke, seedLarder, zipOf } from "./lambda-seed";
 
@@ -205,6 +206,7 @@ test("lambda__test-result-error: the function threw, the call still answered 200
   await expect(page.getByTestId("invoke-log")).not.toContainText(server.dataDir);
   await expect(page.getByTestId("invoke-error-teach")).toContainText("X-Amz-Function-Error");
   await expect(page.getByTestId("invoke-error-teach")).toContainText("Unhandled");
+  await expect(page.getByTestId("invoke-error-teach")).toContainText('The handler reads event["Records"], which this event does not have.');
   await expect(page.getByTestId("invoke-report")).toContainText("FunctionErrorUnhandled");
   await shot(page, "lambda__test-result-error");
 });
@@ -409,7 +411,20 @@ test("lambda__destination-add: where the asynchronous invocations report, and th
   await expect(page.locator("h1").first()).toHaveText("Add destination");
   await expect(page.getByTestId("field-source")).toContainText("Asynchronous invocation");
   await expect(page.getByTestId("field-source")).toContainText("The alerts topic invokes send-email this way.");
-  await expect(page.getByTestId("dtype-off")).toHaveCount(2);
+  // The source is a select (the board's); S3 is the one destination type doze-aws does not deliver to.
+  await expect(page.getByTestId("dsource")).toHaveText("Asynchronous invocation");
+  await expect(page.getByTestId("dtype-off")).toHaveCount(1);
+  await expect(page.getByTestId("dtype-off")).toContainText("Amazon S3 bucket");
+  // The FIFO queue is named up front, before anything is picked.
+  await expect(page.getByTestId("field-target")).toContainText("orders-events.fifo is a FIFO queue, so it cannot be a destination.");
+  // An event bus is a destination: the function's records are put on it as events (the service delivers them with PutEvents).
+  await page.getByTestId("dtype-events").click();
+  await choose(page, "Choose an event bus", "default");
+  await expect(code(page)).toContainText(`arn:aws:events:us-east-1:${server.account}:event-bus/default`);
+  await expect(page.getByTestId("field-target")).toContainText("Lambda Function Invocation Result");
+  await expect(page.getByTestId("field-target")).toContainText("events:PutEvents on the bus");
+  await expect(page.getByText("does not deliver invocation records to an event bus")).toHaveCount(0);
+  await page.getByTestId("dtype-sqs").click();
   await choose(page, "Choose a queue", "orders-events.fifo");
   await expect(page.getByTestId("field-target")).toContainText("orders-events.fifo is a FIFO queue, so it cannot be a destination.");
   await expect(page.getByTestId("field-target")).toContainText("Only standard queues and topics work.");
@@ -455,7 +470,10 @@ test("lambda__function-permissions, lambda__permission-add and lambda__permissio
   await expect(code(page)).toContainText('"Principal": "s3.amazonaws.com"');
   await expect(code(page)).toContainText('"SourceArn": "arn:aws:s3:::receipts"');
   await expect(code(page)).toContainText(`"SourceAccount": "${server.account}"`);
-  await expect(page.getByTestId("field-source-arn")).toContainText("for S3, a bucket such as arn:aws:s3:::receipts");
+  // With the bucket's ARN typed the hint names the bucket, as the board does; Action is a text input, not a select.
+  await expect(page.getByTestId("field-source-arn")).toContainText("the ARN of the resource that invokes the function: here the bucket receipts.");
+  await expect(page.getByTestId("perm-action")).toHaveValue("lambda:InvokeFunction");
+  await expect(page.getByTestId("perm-action")).toHaveJSProperty("tagName", "INPUT");
   await shot(page, "lambda__permission-add");
   await page.getByTestId("form-submit").click();
   await expect(page.getByTestId("done-banner")).toContainText("Permission added.");
@@ -620,7 +638,13 @@ test("lambda__layers-list: the account's layers and whether a function uses one"
   await expect(row).toContainText("x86_64");
   await expect(page.getByTestId("create-open")).toHaveText("Create layer");
   await expect(page.getByTestId("page-line")).toHaveText("1 to 1 of 1 layer");
+  await expectCrumbsEnd(page, ["Event Functions", "Layers"]);
   await shot(page, "lambda__layers-list");
+  // The layer's own page writes its date as the app does and its lists as words, not as JSON.
+  await go(page, "/resources/lambda/layers/larder-shared", "larder-shared");
+  await expect(page.getByTestId("field-Created")).toHaveText(/^\d{4}-\d\d-\d\d \d\d:\d\d:\d\d UTC$/);
+  await expect(page.getByTestId("field-Compatible runtimes")).toHaveText("python3.13, nodejs22.x");
+  await expect(page.getByTestId("field-Compatible architectures")).toHaveText("x86_64");
 });
 
 test("lambda__layer-add: a layer of this account and one of its versions, set on the function", async ({ page }) => {
@@ -683,6 +707,7 @@ test("lambda__layers-none: the empty list once every layer version is deleted", 
   await expect(page.getByTestId("list-empty")).toContainText("No layers");
   await expect(page.getByTestId("list-empty")).toContainText("A layer packages libraries or data that functions share.");
   await expect(page.getByTestId("list-empty").getByRole("button", { name: "Create layer" })).toBeVisible();
+  await expectCrumbsEnd(page, ["Event Functions", "Layers"]);
   await shot(page, "lambda__layers-none");
 });
 
@@ -702,6 +727,8 @@ test("lambda__function-deleted and lambda__functions-none: the list after a dele
   await expect(page.getByRole("table", { name: "Functions" }).locator("tbody tr[data-row]")).toHaveCount(4);
   const mapping = cli(["lambda", "list-event-source-mappings", "--query", "EventSourceMappings[].UUID", "--output", "text"]);
   expect(mapping.trim().length).toBeGreaterThan(0);
+  // What the delete left behind is a one-time result: only the name of the deleted function is in the address.
+  expect(new URL(page.url()).search).toBe("?gone=send-email");
   await shot(page, "lambda__function-deleted");
   for (const name of ["dispatch-hook", "export-report", "resize-product-image", "weekly-digest"]) cli(["lambda", "delete-function", "--function-name", name]);
   await go(page, "/resources/lambda/functions", "Event Functions");
