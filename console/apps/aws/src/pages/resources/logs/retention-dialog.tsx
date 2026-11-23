@@ -2,6 +2,7 @@
 // removes the policy (DeleteRetentionPolicy).
 import { useState } from "react";
 import { Callout } from "@doze/ui/components/app/callout";
+import { Input } from "@doze/ui/components/ui/input";
 import { Label } from "@doze/ui/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@doze/ui/components/ui/select";
 import { RuleHelp, SectionEdit } from "../../../kit";
@@ -30,15 +31,18 @@ function Inner({ group, onClose }: { group: Pick<GroupRow, "name" | "retention">
       open
       onOpenChange={(o) => { if (!o) onClose(); }}
       title="Retention setting"
-      description={<>Log group <b className="font-mono font-semibold text-bright">{group.name}</b></>}
+      saveLabel="Save"
       request={never ? { service: "logs", operation: "DeleteRetentionPolicy", input: { logGroupName: group.name } } : { service: "logs", operation: "PutRetentionPolicy", input: { logGroupName: group.name, retentionInDays: Number(value) } }}
       onSave={save}
       pending={put.isPending || drop.isPending}
       error={put.error ?? drop.error}
       disabled={unchanged}
-      disabledWhy={`It already is ${retentionWords(group.retention)}.`}
       testId="retention-dialog"
     >
+      <div className="grid gap-1.5">
+        <Label htmlFor="retention-group">Log group</Label>
+        <Input id="retention-group" value={group.name} readOnly className="bg-muted font-mono" data-testid="retention-group" />
+      </div>
       <div className="grid gap-1.5">
         <Label htmlFor="retention-select">Expire events after</Label>
         <Select value={value} onValueChange={setValue}>
