@@ -12,7 +12,7 @@ export function pickerOptions(rows: readonly ResourceRow[], by: "id" | "name" = 
 /** One resource of a kind, chosen from the list the console reads for that kind (the same list the Resources space shows). It
  * reads further pages (up to `PAGES`) so the whole list is there to search. Says so while it reads, when the read fails, and
  * when there is nothing to choose (`noun`: `queue`). */
-export function ResourcePicker({ service, kind, noun, value, onChange, by = "id", id, className, "aria-label": ariaLabel }: { service: string; kind: string; noun: string; value: string | null; onChange: (value: string | null) => void; by?: "id" | "name"; id?: string; className?: string; "aria-label"?: string }) {
+export function ResourcePicker({ service, kind, noun, value, onChange, by = "id", id, className, hide, "aria-label": ariaLabel }: { service: string; kind: string; noun: string; value: string | null; /** Rows left out of the choices (a queue the call would refuse). */ hide?: (row: ResourceRow) => boolean; onChange: (value: string | null) => void; by?: "id" | "name"; id?: string; className?: string; "aria-label"?: string }) {
   const q = useResourceList(service, kind);
   const { hasNextPage, isFetchingNextPage, fetchNextPage } = q;
   const pages = q.data?.pages.length ?? 0;
@@ -20,7 +20,7 @@ export function ResourcePicker({ service, kind, noun, value, onChange, by = "id"
     if (hasNextPage && !isFetchingNextPage && pages < PAGES) void fetchNextPage();
   }, [hasNextPage, isFetchingNextPage, fetchNextPage, pages]);
   const rows = q.data?.pages.flatMap((p) => p.rows) ?? [];
-  const options = pickerOptions(rows, by);
+  const options = pickerOptions(hide ? rows.filter((r) => !hide(r)) : rows, by);
   const a = /^[aeiou]/i.test(noun) ? "an" : "a";
   const placeholder = q.isError ? `The ${noun}s could not be read` : q.isPending ? `Reading ${noun}s…` : options.length === 0 ? `There are no ${noun}s yet` : `Choose ${a} ${noun}`;
   return (
