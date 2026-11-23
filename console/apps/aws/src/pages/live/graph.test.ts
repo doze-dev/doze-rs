@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import type { CallRecord } from "../../api/types/CallRecord";
 import type { Wiring } from "../../api/types/Wiring";
-import { buildMap, perMinute, routeOf, targetOf, wiresOf } from "./graph";
+import { buildMap, drawsEverything, perMinute, routeOf, targetOf, wiresOf } from "./graph";
 
 const NOW = 10_000_000;
 let seq = 0;
@@ -109,4 +109,21 @@ test("by domain a column holds its busiest eight and the rest are quieter", () =
   expect(m.nodes.filter((n) => n.service === "sqs").length).toBe(8);
   expect(m.nodes.some((n) => n.service === "s3")).toBe(true);
   expect(m.quiet.length).toBe(4);
+});
+
+describe("an idle instance", () => {
+  test("draws every flow when Focus was not chosen, nothing is active and quieter flows exist", () => {
+    const old = [call({ at_ms: NOW - 20 * 60_000 })];
+    const asked = buildMap(old, undefined, { now: NOW, focus: "active", layout: "flow", callerName: (k) => k });
+    expect(asked.nodes).toHaveLength(0);
+    expect(asked.quiet.length).toBeGreaterThan(0);
+    expect(drawsEverything(false, asked)).toBe(true);
+    expect(drawsEverything(true, asked)).toBe(false);
+    const all = buildMap(old, undefined, { now: NOW, focus: "all", layout: "flow", callerName: (k) => k });
+    expect(all.nodes.length).toBeGreaterThan(0);
+  });
+  test("an instance that never heard a call has nothing to draw instead", () => {
+    const asked = buildMap([], undefined, { now: NOW, focus: "active", layout: "flow", callerName: (k) => k });
+    expect(drawsEverything(false, asked)).toBe(false);
+  });
 });

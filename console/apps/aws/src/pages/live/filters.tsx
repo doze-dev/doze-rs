@@ -86,7 +86,7 @@ export function Filters({ search, set, services, callers, titles, shown, held }:
       </Select>
       {filtering(search) && (
         <>
-          <Button variant="ghost" size="sm" onClick={() => set({ service: undefined, outcome: undefined, caller: undefined, q: undefined })} data-testid="filter-clear">
+          <Button variant="ghost" size="sm" onClick={() => set({ look: undefined, service: undefined, outcome: undefined, caller: undefined, q: undefined, app: undefined })} data-testid="filter-clear">
             <XIcon /> Clear
           </Button>
           <span className="text-[12.5px] text-muted-foreground tabular-nums" data-testid="filter-count">

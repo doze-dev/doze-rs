@@ -2,10 +2,11 @@ import { RadioIcon } from "lucide-react";
 import { useMemo } from "react";
 import { EmptyState } from "@doze/ui/components/app/empty-state";
 import { ToggleGroup, ToggleGroupItem } from "@doze/ui/components/ui/toggle-group";
-import { number } from "@doze/ui/lib/format";
+import { clockMsUtc, number } from "@doze/ui/lib/format";
 import type { CallRecord } from "../../api/types/CallRecord";
 import type { Wiring } from "../../api/types/Wiring";
-import { ACTIVE_MS, buildMap, domainColumns, type Layout, routeOf } from "./graph";
+import { ago } from "../../people";
+import { ACTIVE_MS, buildMap, domainColumns, drawsEverything, type Layout, routeOf } from "./graph";
 import { NodePanel } from "./node-panel";
 import { ResourceMap } from "./resource-map";
 import { callerOf, type LiveSearch } from "./search";
@@ -31,7 +32,11 @@ function Legend() {
 export function MapSection({ calls, wiring, now, search, set, callerName, openCall }: { calls: readonly CallRecord[]; wiring: Wiring | undefined; now: number; search: LiveSearch; set: (p: Partial<LiveSearch>) => void; callerName: (key: string) => string; openCall: CallRecord | undefined }) {
   const focus = search.focus === "all" ? "all" : "active";
   const layout: Layout = search.layout === "domain" ? "domain" : "flow";
-  const model = useMemo(() => buildMap(calls, wiring, { now, focus, layout, callerName }), [calls, wiring, now, focus, layout, callerName]);
+  const asked = useMemo(() => buildMap(calls, wiring, { now, focus, layout, callerName }), [calls, wiring, now, focus, layout, callerName]);
+  // An instance that has been idle for the window would open on an empty map with the things it holds a click away. When Focus was
+  // not chosen and nothing is active, every flow is drawn instead, and the line above the map says so.
+  const everything = useMemo(() => (focus === "active" && drawsEverything(search.focus !== undefined, asked) ? buildMap(calls, wiring, { now, focus: "all", layout, callerName }) : null), [asked, focus, search.focus, calls, wiring, now, layout, callerName]);
+  const model = everything ?? asked;
   const node = search.node ? model.nodes.find((n) => n.id === search.node) : undefined;
   const route = useMemo(() => (openCall && !openCall.via ? routeOf(model, openCall, callerOf(openCall)) : null), [model, openCall]);
   const nothing = model.nodes.length === 0;
@@ -56,6 +61,11 @@ export function MapSection({ calls, wiring, now, search, set, callerName, openCa
           </ToggleGroup>
         </div>
       </div>
+      {everything && (
+        <p className="mb-3 text-[12.5px] text-muted-foreground" data-testid="focus-fallback">
+          Nothing was called in the last {ACTIVE_MS / 60_000} minutes, so every flow the record holds is drawn. Active in last {ACTIVE_MS / 60_000} min draws only what is being called.
+        </p>
+      )}
       {nothing ? (
         <EmptyState icon={RadioIcon} title={model.quiet.length > 0 ? "Nothing active in the last five minutes" : "Nothing to draw yet"} className="border-0 bg-transparent">
           {model.quiet.length > 0 ? `${number(model.quiet.length)} quieter ${model.quiet.length === 1 ? "flow is" : "flows are"} kept; choose All flows to draw them.` : "Each app and each resource it calls is drawn here, with what they are wired to, as calls arrive."}
@@ -77,7 +87,7 @@ export function MapSection({ calls, wiring, now, search, set, callerName, openCa
         </details>
       )}
       {model.notWired.length > 0 && (
-        <details className="mt-3 rounded-lg border border-dashed px-3 py-2 text-[13px]" data-testid="not-wired">
+        <details open className="mt-3 rounded-lg border border-dashed px-3 py-2 text-[13px]" data-testid="not-wired">
           <summary className="cursor-pointer text-muted-foreground">
             <span className="font-medium text-foreground">Not wired · {number(model.notWired.length)} {model.notWired.length === 1 ? "resource" : "resources"}</span> nothing has called them and nothing is wired to them
           </summary>
@@ -85,11 +95,16 @@ export function MapSection({ calls, wiring, now, search, set, callerName, openCa
             {model.notWired.map((n) => (
               <li key={n.id} className="min-w-0 rounded-md border bg-card px-3 py-1.5" data-testid="not-wired-item">
                 <span className="block truncate font-mono text-[12.5px] text-bright">{n.name}</span>
-                <span className="block truncate text-[11.5px] text-muted-foreground">{n.sentence ?? n.service}</span>
+                <span className="block truncate text-[11.5px] text-muted-foreground">idle · {n.lastMs > 0 ? `last call ${ago(n.lastMs, now)}` : "no call held"}{n.sentence ? ` · ${n.sentence}` : ""}</span>
               </li>
             ))}
           </ul>
         </details>
+      )}
+      {route && openCall && (
+        <p className="mt-3 text-[12.5px] font-semibold text-primary" data-testid="selected-call">
+          Selected call · {openCall.action ?? "Unknown operation"} · {clockMsUtc(openCall.at_ms)}
+        </p>
       )}
       <Legend />
       {model.more && <p className="mt-2 text-[12px] text-muted-foreground">The map holds the first 60 resources; the rest are in Resources.</p>}

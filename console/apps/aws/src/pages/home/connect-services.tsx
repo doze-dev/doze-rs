@@ -1,8 +1,9 @@
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { InfoIcon } from "lucide-react";
 import { Alert, ErrorBlock } from "@doze/ui/components/app/alert";
 import { CopyButton } from "@doze/ui/components/app/copy-button";
 import { type DataColumn, DataTable } from "@doze/ui/components/app/data-table";
+import { useUrlParam } from "@doze/ui/hooks/use-url-param";
 import { useServices } from "../../api/queries";
 import type { About } from "../../api/types/About";
 import { CardSkeleton } from "../card";
@@ -14,7 +15,10 @@ const link = "rounded-sm text-link hover:underline focus-visible:ring-2 focus-vi
 /** By service: where each service answers, the variable an SDK reads for it, and what is special about its URLs. */
 export function ByService({ a }: { a: About }) {
   const services = useServices();
-  const [open, setOpen] = useState<Drawer | null>(null);
+  // The sheet that is open is in the address (`?sheet=s3`).
+  const [asked, setAsked] = useUrlParam("sheet");
+  const open: Drawer | null = asked === "invoke" || asked === "s3" ? asked : null;
+  const setOpen = (d: Drawer | null) => setAsked(d);
   const rows = useMemo(() => (services.data ? serviceUrls(services.data.services, a.endpoint, a.account, a.region) : null), [services.data, a]);
   const columns = useMemo<DataColumn<ServiceUrl>[]>(
     () => [
@@ -32,7 +36,7 @@ export function ByService({ a }: { a: About }) {
             <span className="flex flex-wrap items-baseline gap-x-3">
               <span>{r.detail}</span>
               {r.more && (
-                <button type="button" className={link} onClick={() => setOpen(r.more!.drawer)} data-testid={`more-${r.name}`}>
+                <button type="button" className={link} onClick={() => setAsked(r.more!.drawer)} data-testid={`more-${r.name}`}>
                   {r.more.label}
                 </button>
               )}
@@ -41,7 +45,7 @@ export function ByService({ a }: { a: About }) {
         },
       },
     ],
-    [],
+    [setAsked],
   );
   return (
     <div className="grid gap-6">

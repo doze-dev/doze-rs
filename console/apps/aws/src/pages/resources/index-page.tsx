@@ -14,6 +14,9 @@ import { iconOf } from "./model";
 import { HINT } from "../../kit";
 export { HINT };
 
+/** The group IAM and STS are in: drawn by Access, not by this index. */
+const ACCESS_GROUP = "Identity and access";
+
 /** `3 queues`, `1 topic`, `at least 1,000 keys`; a kind not counted says why in a word. */
 export function countWords(k: KindCount): string {
   if (k.count === null) return k.error ? `${k.title}: not read` : k.title;
@@ -63,6 +66,8 @@ export function ResourcesPage() {
   const refresh = useCallback(() => void refetch(), [refetch]);
   const groups: [string, ResourceService[]][] = [];
   for (const s of index.data?.services ?? []) {
+    // IAM and STS are the Access space's (resources-index keeps them under Access only); their pages stay at /resources/iam and /resources/sts.
+    if (s.group === ACCESS_GROUP) continue;
     const g = groups.find(([name]) => name === s.group);
     if (g) g[1].push(s);
     else groups.push([s.group, [s]]);
