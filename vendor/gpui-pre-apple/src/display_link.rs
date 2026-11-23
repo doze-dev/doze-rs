@@ -95,6 +95,17 @@ impl MetalFrameSource {
 
 impl Drop for MetalFrameSource {
     fn drop(&mut self) {
+        // PATCH (doze, PATCHES.md §7): paused and taken off the run loop before it is invalidated. A window's link is
+        // invalidated and a new one made each time the window is covered and shown, resized, or drawn synchronously;
+        // invalidated straight away, a link now and then kept the drawable it held for its next update (a whole window
+        // of pixels, 16 MB at 1280 × 800 on a 2× display, 22 MB maximised on a 3024 × 1898 one), and a window kept
+        // open for hours held five drawables where its layer allows three.
+        self.link.setPaused(true);
+        // SAFETY: the link was added to the main run loop in these modes (`new`), on this thread (`_main_thread`).
+        unsafe {
+            self.link
+                .removeFromRunLoop_forMode(&NSRunLoop::mainRunLoop(), NSRunLoopCommonModes);
+        }
         self.link.invalidate();
     }
 }

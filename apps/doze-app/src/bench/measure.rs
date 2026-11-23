@@ -139,3 +139,65 @@ pub(crate) fn footprint() -> Option<f64> {
         _ => None,
     }
 }
+
+/// The window drawables the process holds, as `vmmap` lists them (`CAMetalLayer Display Drawable` IOSurfaces, each a
+/// whole window's pixels: 16 MB for a 1280 × 800 window at 2×): how many, and the megabytes of them counted against
+/// the app (dirty or swapped; one mapped but not resident costs nothing). A layer has at most three; more is a leak.
+pub(crate) fn drawables() -> Option<Drawables> {
+    let out = std::process::Command::new("vmmap")
+        .arg(std::process::id().to_string())
+        .output()
+        .ok()?;
+    if !out.status.success() {
+        return None;
+    }
+    let text = String::from_utf8_lossy(&out.stdout);
+    let mut d = Drawables::default();
+    for l in text.lines().filter(|l| l.contains("Display Drawable")) {
+        d.count += 1;
+        d.held_mb += held_mb(l).unwrap_or(0.);
+    }
+    Some(d)
+}
+
+/// What [`drawables`] read.
+#[derive(Debug, Default, Clone, Copy)]
+pub(crate) struct Drawables {
+    pub(crate) count: usize,
+    pub(crate) held_mb: f64,
+}
+
+impl std::fmt::Display for Drawables {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{} held_mb {:.0}", self.count, self.held_mb)
+    }
+}
+
+/// A `vmmap` region line's `[ VSIZE RSDNT DIRTY SWAP ]`: its dirty and swapped megabytes.
+fn held_mb(line: &str) -> Option<f64> {
+    let inside = line.split('[').nth(1)?.split(']').next()?;
+    let sizes: Vec<f64> = inside.split_whitespace().filter_map(megabytes).collect();
+    Some(sizes.get(2)? + sizes.get(3)?)
+}
+
+fn megabytes(s: &str) -> Option<f64> {
+    let (n, unit) = s.split_at(s.find(|c: char| c.is_ascii_alphabetic())?);
+    let n: f64 = n.parse().ok()?;
+    match unit {
+        "K" => Some(n / 1024.),
+        "M" => Some(n),
+        "G" => Some(n * 1024.),
+        _ => None,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn a_drawable_counts_its_dirty_and_swapped_pages() {
+        let l = "IOSurface  118240000-119248000 [ 16.0M  16.0M     0K  16.0M] r--/r-- SM=SHM PURGE=N ...x10c 2560x1602 (&BGA) 16.0M 'CAMetalLayer Display Drawable'";
+        assert_eq!(super::held_mb(l), Some(16.));
+        let l = "IOSurface  11bc3c000-11cc44000 [ 16.0M     0K     0K     0K] r--/r-- SM=SHM ...0x2d 'CAMetalLayer Display Drawable'";
+        assert_eq!(super::held_mb(l), Some(0.));
+    }
+}

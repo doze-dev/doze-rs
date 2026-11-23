@@ -60,6 +60,10 @@ pub(super) fn float_over() -> usize {
     0
 }
 
+pub(super) fn bring_back() -> usize {
+    0
+}
+
 pub(super) fn holds_input() -> (bool, usize) {
     (false, 0)
 }

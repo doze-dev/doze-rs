@@ -18,6 +18,7 @@
 //!          [--display N] [--in-use | --hidden] [--at 12,30,60] [--check [--budget MB] [--per-minute N]]
 //!          [--real [N]] [--screen home|tiles|list|map|grid|service|logs|activity] [--select NAME] [--on-top]
 //!          [--settled MB] [--closed-budget MB]      a real stack of N services under its own daemon (bench/real.rs)
+//!          [--churn]                                maximise, resize, minimise, hide and bring back (bench/churn.rs)
 //! doze-app fixture-serve NAME ROOT                               a fixture daemon alone, on its own socket under ROOT/home
 //! doze-app status | logs | wake | …                              the doze CLI, whole (main.rs `as_cli`)
 //! ```
@@ -151,6 +152,9 @@ pub(crate) struct Bench {
     /// The window floats over the others, on every Space (`--on-top`), so a reading on a busy screen is an on-screen
     /// window's, not a covered one's.
     pub(crate) on_top: bool,
+    /// After the idle reading, the window is put through what a person does to it (`--churn`): maximised and
+    /// restored, resized, minimised and brought back, hidden and shown (bench/churn.rs).
+    pub(crate) churn: bool,
 }
 
 /// What to do.
@@ -360,6 +364,7 @@ fn bench(args: impl Iterator<Item = String>) -> Result<Bench, String> {
             }
             "--select" => b.select = Some(value(&mut args, &a)?),
             "--on-top" => b.on_top = true,
+            "--churn" => b.churn = true,
             "--real" => {
                 b.real = Some(match args.peek().and_then(|n| n.parse().ok()) {
                     Some(n) => {

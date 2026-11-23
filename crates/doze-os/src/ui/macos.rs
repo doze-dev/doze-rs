@@ -397,6 +397,27 @@ pub(super) fn float_over() -> usize {
     n
 }
 
+pub(super) fn bring_back() -> usize {
+    use objc2_app_kit::NSWindowStyleMask;
+    let Some(mtm) = MainThreadMarker::new() else {
+        return 0;
+    };
+    let app = NSApplication::sharedApplication(mtm);
+    // Unhidden without activating: the app stays in the background, so the person keeps the keyboard.
+    app.unhideWithoutActivation();
+    let mut n = 0;
+    for w in app.windows().iter() {
+        if w.styleMask().contains(NSWindowStyleMask::Titled) {
+            if w.isMiniaturized() {
+                w.deminiaturize(None);
+            }
+            w.orderFrontRegardless();
+            n += 1;
+        }
+    }
+    n
+}
+
 pub(super) fn holds_input() -> (bool, usize) {
     let Some(mtm) = MainThreadMarker::new() else {
         return (false, 0);
