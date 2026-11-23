@@ -13,32 +13,40 @@ import { unflatten } from "./wire-json";
 export type CallFormat = "json" | "outline";
 
 /** What a panel is asked to show of a call, beyond the request itself. */
-export type CallShape = { format?: CallFormat; service?: string; input?: unknown };
+export type CallShape = { format?: CallFormat; service?: string; input?: unknown; /** How a list of plain values is drawn; see {@link listsOf}. */ lists?: ListStyle };
+
+/** A short list of plain values is drawn on one line (`"types": ["REGIONAL"]`) by every board but the Lambda boards', which put every list's
+ * values on a line each. A list of objects is expanded in all of them. */
+export type ListStyle = "inline" | "expanded";
+
+/** The services whose boards draw a call's lists expanded, even a list of one plain value (the Lambda boards: `"Architectures": [\n "x86_64"\n ]`). */
+const EXPANDED_LISTS = new Set(["lambda"]);
+export const listsOf = (service: string | undefined): ListStyle => (service && EXPANDED_LISTS.has(service) ? "expanded" : "inline");
 
 /** The call as the panel draws it: the operation's name, then its input as `format` says. `input`: the operation's input as an SDK
  * takes it (a REST protocol's wire body is only some of its members); without it, the wire body less a query protocol's Action and
  * Version. `service` is named before the operation (`sns Subscribe`) for a call to a service other than the page's own. */
-export function callText(p: Preview, operation: string, { format = "json", service, input }: CallShape = {}): string {
+export function callText(p: Preview, operation: string, { format = "json", service, input, lists = "inline" }: CallShape = {}): string {
   const body = input === undefined ? withoutWire(p.json) : input;
   if (format === "outline") return outlineText(operation, body, service);
-  return `${service ? `${service} ` : ""}${operation}\n${drawJson(body)}`;
+  return `${service ? `${service} ` : ""}${operation}\n${drawJson(body, "", lists)}`;
 }
 
 /** JSON as the boards draw it: indented by two, a short list of plain values on one line (`"types": ["REGIONAL"]`). */
-export function drawJson(v: unknown, indent = ""): string {
+export function drawJson(v: unknown, indent = "", lists: ListStyle = "inline"): string {
   const inner = indent + "  ";
   if (Array.isArray(v)) {
     if (v.length === 0) return "[]";
-    if (v.every((x) => typeof x !== "object" || x === null)) {
+    if (lists === "inline" && v.every((x) => typeof x !== "object" || x === null)) {
       const flat = `[${v.map((x) => JSON.stringify(x)).join(", ")}]`;
       if (flat.length <= 48) return flat;
     }
-    return `[\n${v.map((x) => inner + drawJson(x, inner)).join(",\n")}\n${indent}]`;
+    return `[\n${v.map((x) => inner + drawJson(x, inner, lists)).join(",\n")}\n${indent}]`;
   }
   if (typeof v === "object" && v !== null) {
     const e = Object.entries(v);
     if (e.length === 0) return "{}";
-    return `{\n${e.map(([k, x]) => `${inner}${JSON.stringify(k)}: ${drawJson(x, inner)}`).join(",\n")}\n${indent}}`;
+    return `{\n${e.map(([k, x]) => `${inner}${JSON.stringify(k)}: ${drawJson(x, inner, lists)}`).join(",\n")}\n${indent}}`;
   }
   return JSON.stringify(v) ?? "null";
 }
@@ -67,9 +75,11 @@ export function CallCode({ text, settling = false, testId, className }: { text: 
   return (
     <pre className={cn("rounded-xl border bg-well px-5 py-[18px] font-mono text-[13px] leading-[22px] whitespace-pre-wrap text-foreground transition-opacity [overflow-wrap:anywhere]", settling && "opacity-60", className)} data-testid={testId}>
       {text.split("\n").map((line, i) => {
-        // A line that wraps hangs two columns in from where its text began, so the structure still reads.
-        const hang = `${(line.length - line.trimStart().length) + 2}ch`;
-        return <span key={i} className="block" style={{ paddingLeft: hang, textIndent: `-${hang}` }}>{line || " "}</span>;
+        // The indentation is padding, not text: a line that wraps would otherwise put its spaces alone on a line before a token
+        // too long for the rest of it (a blank line in the middle of the call). A line that wraps hangs two columns in from where
+        // its text began, so the structure still reads.
+        const lead = line.length - line.trimStart().length;
+        return <span key={i} className="block" style={{ paddingLeft: `${lead + 2}ch`, textIndent: "-2ch" }}>{line.trimStart() || " "}</span>;
       })}
     </pre>
   );
@@ -77,13 +87,13 @@ export function CallCode({ text, settling = false, testId, className }: { text: 
 
 /** The row of copy buttons under a call: the AWS CLI line and the boto3 snippet, as the boards draw them, and the JSON that is sent as
  * a quiet third. The outline boards word the first two `Copy as aws cli` and `Copy as boto3`; the others say `Copy as` once. */
-export function CopyCalls({ cli, boto3, json, format, plural = false }: { cli: string; boto3: string; json: string; format: CallFormat; plural?: boolean }) {
+export function CopyCalls({ cli, boto3, json, format, plural = false, waiting = false }: { cli: string; boto3: string; json: string; format: CallFormat; plural?: boolean; /** The call on screen is still catching up with the form: what would be copied is the one before. */ waiting?: boolean }) {
   return (
-    <div className="flex flex-wrap items-center gap-2" data-testid="copy-as">
+    <div className="flex flex-wrap items-center gap-2" data-testid="copy-as" data-waiting={waiting ? "" : undefined}>
       {format === "json" && <span className="text-[13px] text-muted-foreground">Copy as</span>}
-      <CopyButton text={cli} label={format === "json" ? "AWS CLI" : "Copy as aws cli"} what={plural ? "AWS CLI lines copied" : "AWS CLI line copied"} className="bg-card" />
-      <CopyButton text={boto3} label={format === "json" ? "boto3" : "Copy as boto3"} what="boto3 snippet copied" className="bg-card" />
-      <div className="basis-full"><CopyButton text={json} label="Copy JSON" what="JSON copied" variant="ghost" className="-ml-2.5" /></div>
+      <CopyButton text={cli} label={format === "json" ? "AWS CLI" : "Copy as aws cli"} what={plural ? "AWS CLI lines copied" : "AWS CLI line copied"} disabled={waiting} className="bg-card" />
+      <CopyButton text={boto3} label={format === "json" ? "boto3" : "Copy as boto3"} what="boto3 snippet copied" disabled={waiting} className="bg-card" />
+      <div className="basis-full"><CopyButton text={json} label="Copy JSON" what="JSON copied" disabled={waiting} variant="ghost" className="-ml-2.5" /></div>
     </div>
   );
 }
@@ -100,7 +110,7 @@ export function CallPanel({ request, refusal, note, title, className, showServic
   const missing = p ? missingWords(p.missing) : "";
   const input = request && showInput ? (shown ? shown(request.operation, request.input) : request.input) : undefined;
   const helpText = note && <div className="text-[13px] leading-5 text-muted-foreground">{note}</div>;
-  const copy = p && request && <CopyCalls cli={p.cli} boto3={p.boto3} json={callJson(p, input)} format={format} />;
+  const copy = p && request && <CopyCalls cli={p.cli} boto3={p.boto3} json={callJson(p, input)} format={format} waiting={preview.settling} />;
   return (
     <aside className={cn("min-w-0 rounded-[14px] border bg-card p-5", className)} aria-label={heading} data-slot="call-panel" data-refused={refusal ? "" : undefined} data-testid={testId}>
       <div className="flex items-center justify-between gap-3">
@@ -123,7 +133,7 @@ export function CallPanel({ request, refusal, note, title, className, showServic
         ) : !p ? (
           <Skeleton className="h-44 rounded-xl" data-testid={`${testId}-loading`} />
         ) : (
-          <CallCode text={callText(p, request.operation, { format, service: showService ? request.service : undefined, input })} settling={preview.settling} testId={`${testId}-code`} />
+          <CallCode text={callText(p, request.operation, { format, service: showService ? request.service : undefined, input, lists: listsOf(request.service) })} settling={preview.settling} testId={`${testId}-code`} />
         )}
       </div>
       {missing && (

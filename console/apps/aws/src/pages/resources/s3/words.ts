@@ -1,3 +1,4 @@
+import { pluralWord } from "@doze/ui/lib/format";
 // What the S3 pages say, pure: a Region and a time as AWS's console writes them, sizes, a bucket's name checked against the
 // naming rules, and the addresses an object has. No React, no calls.
 
@@ -89,7 +90,7 @@ export function size(n: number | undefined | null): string {
 }
 
 /** `1 object`, `4 objects`. */
-export const count = (n: number, one: string, many = `${one}s`): string => `${n.toLocaleString("en-US")} ${n === 1 ? one : many}`;
+export const count = (n: number, one: string, many = pluralWord(one)): string => `${n.toLocaleString("en-US")} ${n === 1 ? one : many}`;
 
 /** `a, b and c`. */
 export function listWords(items: readonly string[]): string {

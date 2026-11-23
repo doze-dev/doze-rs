@@ -73,3 +73,9 @@ export function orderSubs<T extends Pick<SubRow, "pending" | "protocol">>(rows: 
   const rank = (s: T): number => (s.pending ? (s.protocol.startsWith("email") ? 2 : 1) : 0);
   return [...rows].sort((a, b) => rank(a) - rank(b));
 }
+
+/** What the palette calls a subscription (its name is an ARN, or `pending|...`): the topic it is on, and its id's start or, while it waits, its protocol and endpoint. */
+export function subscriptionLabel(name: string): string {
+  const s = subRow({ name, cells: [], link: null } as unknown as ResourceRow);
+  return s.pending ? `${s.topic} · ${s.protocol} ${s.endpoint}`.trim() : `${s.topic} · ${shortId(s.id)}`;
+}

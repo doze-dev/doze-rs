@@ -10,10 +10,10 @@ import { Reading } from "./parts";
 
 const TAB_LABEL: Record<string, string> = { objects: "Objects", properties: "Properties", permissions: "Permissions", management: "Management" };
 
-export type EditProps = { name: string; tab: "properties" | "permissions" | "management"; title: string; sub: React.ReactNode; operation: string; input: object | null; saved: string; returned?: string; children: React.ReactNode; submitLabel?: string; disabled?: boolean; disabledWhy?: React.ReactNode; note?: React.ReactNode; aside?: React.ReactNode; /** Saves in place of the Put… (tags are written through the console's tags address). */ save?: () => Promise<unknown> };
+export type EditProps = { name: string; tab: "properties" | "permissions" | "management"; title: string; sub: React.ReactNode; operation: string; input: object | null; saved: string; returned?: string; children: React.ReactNode; submitLabel?: string; disabled?: boolean; disabledWhy?: React.ReactNode; note?: React.ReactNode; aside?: React.ReactNode; /** The call panel full width under the form (the boards do so for the forms with a long call). */ callBelow?: boolean; /** Saves in place of the Put… (tags are written through the console's tags address). */ save?: () => Promise<unknown> };
 
 /** One setting's edit page. `input` is the whole input of the Put (`null` while it cannot be sent); `saved` is what the tab says after. */
-export function SettingForm({ name, tab, title, sub, operation, input, saved, returned, children, submitLabel = "Save changes", disabled, disabledWhy, note, aside, save }: EditProps) {
+export function SettingForm({ name, tab, title, sub, operation, input, saved, returned, children, submitLabel = "Save changes", disabled, disabledWhy, note, aside, callBelow, save }: EditProps) {
   const go = useBucketNav(name);
   const put = usePut(name, operation);
   const [error, setError] = useState<unknown>(null);
@@ -31,6 +31,7 @@ export function SettingForm({ name, tab, title, sub, operation, input, saved, re
       refusal={failed ? { code: error instanceof ApiFailure ? error.code : "Error", message: failed.message } : null}
       callNote={note}
       aside={aside}
+      callBelow={callBelow}
       banner={failed ? <Alert tone="bad" title="Not saved." testId="edit-refused">{failed.code?.split(" · ")[0]}: {failed.message}</Alert> : undefined}
       submitLabel={submitLabel}
       pending={put.isPending || busy}

@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { labelOf, MOST_PINNED, parse, placeOf, toFront, togglePin } from "./pins";
+import { isGone, labelOf, MOST_PINNED, parse, placeOf, toFront, togglePin } from "./pins";
 
 const p = (name: string) => ({ service: "sqs", kind: "queues", name });
 
@@ -48,5 +48,16 @@ describe("labelOf", () => {
     expect(labelOf({ service: "iam", kind: "policies", name: "arn:aws:iam::000000000000:policy/service-role/report-job-readonly" })).toBe("report-job-readonly");
     expect(labelOf({ service: "iam", kind: "policies", name: "arn:aws:iam::aws:policy/PowerUserAccess" })).toBe("PowerUserAccess");
     expect(labelOf({ service: "iam", kind: "users", name: "dev" })).toBe("dev");
+  });
+});
+
+describe("a deleted resource leaves the rail", () => {
+  const cw = (name: string) => ({ service: "cloudwatch", kind: "alarms", name });
+  test("a place is gone by its name, or by the tail of its ARN, in its own service only", () => {
+    expect(isGone(cw("larder-fulfilment-lag"), "cloudwatch", ["larder-fulfilment-lag"])).toBe(true);
+    expect(isGone(cw("other"), "cloudwatch", ["larder-fulfilment-lag"])).toBe(false);
+    expect(isGone(p("larder-fulfilment-lag"), "cloudwatch", ["larder-fulfilment-lag"])).toBe(false);
+    expect(isGone({ service: "iam", kind: "policies", name: "arn:aws:iam::1:policy/team/readers" }, "iam", ["readers"])).toBe(true);
+    expect(isGone(cw("a"), "cloudwatch", [""])).toBe(false);
   });
 });

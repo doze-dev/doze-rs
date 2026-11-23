@@ -47,7 +47,7 @@ function NotificationForm({ name, current }: { name: string; current: unknown })
   const input = events.length > 0 && dest ? { NotificationConfiguration: withNotification(current, { id, events, prefix, suffix, kind, arn: dest }) } : null;
   const toggle = (e: string, on: boolean) => setEvents(on ? [...events, e] : events.filter((x) => x !== e));
   return (
-    <SettingForm name={name} tab="properties" title="Create event notification" sub={`Send a message when something happens to an object in ${name}.`} operation="PutBucketNotificationConfiguration" input={input} saved={`Event notification ${id || "rule"} created.`} disabled={!input} disabledWhy="Choose the events and a destination."
+    <SettingForm name={name} callBelow tab="properties" title="Create event notification" sub={`Send a message when something happens to an object in ${name}.`} operation="PutBucketNotificationConfiguration" input={input} saved={`Event notification ${id || "rule"} created.`} disabled={!input} disabledWhy="Choose the events and a destination."
       note="The call replaces the whole notification configuration, so it carries the rule that is already there. doze-aws accepts a Lambda or SNS destination that does not exist yet; an SQS queue must exist and must not be FIFO.">
       <FormSection title="General configuration">
         <Field label="Event name (optional)" help={existing.length > 0 ? <>If you leave the name empty, S3 generates a globally unique identifier (GUID) and uses it. The existing {existing.length === 1 ? "rule is" : "rules are"} called <b>{existing.map((r) => r.id).join(", ")}</b>.</> : "If you leave the name empty, S3 generates a globally unique identifier (GUID) and uses it."}>
@@ -115,7 +115,7 @@ function LifecycleFormPage({ name, current }: { name: string; current: unknown }
   );
   const existing = lifecycleRules(current);
   return (
-    <SettingForm name={name} tab="management" title="Create lifecycle rule" sub={`Tell S3 what to do with objects in ${name} as they age.`} operation="PutBucketLifecycleConfiguration" input={problem ? null : { LifecycleConfiguration: withRule(current, lifecycleRule(sent)) }} saved={`Lifecycle rule ${f.name} created.`} submitLabel="Create rule" disabled={Boolean(problem)} disabledWhy={problem}
+    <SettingForm name={name} callBelow tab="management" title="Create lifecycle rule" sub={`Tell S3 what to do with objects in ${name} as they age.`} operation="PutBucketLifecycleConfiguration" input={problem ? null : { LifecycleConfiguration: withRule(current, lifecycleRule(sent)) }} saved={`Lifecycle rule ${f.name} created.`} submitLabel="Create rule" disabled={Boolean(problem)} disabledWhy={problem}
       note="Adding a rule replaces the bucket's lifecycle configuration, so the call carries every rule: the ones that exist and the new one.">
       <FormSection title="Lifecycle rule configuration">
         <Field label="Lifecycle rule name" help={<>Up to <b>255</b> characters, unique within the bucket.{existing.length > 0 && <> {existing.map((r) => r.name).join(", ")} {existing.length === 1 ? "is the rule" : "are the rules"} already here.</>}</>}>

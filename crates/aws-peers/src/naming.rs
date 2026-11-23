@@ -94,7 +94,9 @@ pub fn resource_of<'a>(
             Some(("", Cow::Owned(format!("{bucket}/{key}"))))
         }
         (Some((_, member, value)), _) => Some((member, Cow::Borrowed(value))),
-        (None, _) => events_bus(tables, arena, body, first).map(|(m, v)| (m, Cow::Borrowed(v))),
+        (None, _) => events_bus(tables, arena, body, first)
+            .or_else(|| tables_of(tables, arena, body, first))
+            .map(|(m, v)| (m, Cow::Borrowed(v))),
     }
 }
 
@@ -128,6 +130,48 @@ fn events_bus<'a>(
             return seen.then_some(("EventBusName", "default"));
         }
         at = node.next;
+    }
+    None
+}
+
+/// What a DynamoDB batch or transaction acts on: it has no `TableName` at the top, only `RequestItems` (a map keyed by table: `BatchGetItem`,
+/// `BatchWriteItem`) or `TransactItems` (a list whose entries each hold a `Put`, `Update`, `Delete`, `ConditionCheck` or `Get` with its own
+/// `TableName`), so its first table names it. A call that spans several tables is the first one's page's; the rest are not looked for.
+fn tables_of<'a>(
+    tables: &'static Tables,
+    arena: &'a Arena,
+    body: &'a str,
+    first: u32,
+) -> Option<(&'static str, &'a str)> {
+    let mut at = first;
+    while at != NIL {
+        let node = arena.node(at)?;
+        match (tables.member(node.member)?.name, node.val) {
+            ("RequestItems", Val::Seq(key)) => {
+                let table = arena
+                    .str_of(body, arena.node(key)?.val)
+                    .filter(|t| !t.is_empty())?;
+                return Some(("TableName", table));
+            }
+            ("TransactItems", Val::Seq(entry)) => {
+                let Val::Obj(kind) = arena.node(entry)?.val else {
+                    return None;
+                };
+                let Val::Obj(mut field) = arena.node(kind)?.val else {
+                    return None;
+                };
+                while field != NIL {
+                    let f = arena.node(field)?;
+                    if tables.member(f.member)?.name == "TableName" {
+                        let table = arena.str_of(body, f.val).filter(|t| !t.is_empty())?;
+                        return Some(("TableName", table));
+                    }
+                    field = f.next;
+                }
+                return None;
+            }
+            _ => at = node.next,
+        }
     }
     None
 }
@@ -224,6 +268,59 @@ mod tests {
         assert_eq!(
             named("ListObjectsV2", r#"{"Bucket":"pics"}"#),
             Some(("Bucket", "pics".to_owned()))
+        );
+    }
+
+    fn ddb(op: &str, body: &str) -> Option<(&'static str, String)> {
+        let tables = &aws_model_dynamodb::tables::TABLES;
+        let shape = tables
+            .op(tables.find_op(op).unwrap())
+            .unwrap()
+            .input
+            .unwrap();
+        let mut arena = Arena::new();
+        let root = decode(tables, &Patterns::new(tables), shape, body, &mut arena).unwrap();
+        resource_of(tables, &arena, body, root).map(|(m, v)| (m, v.into_owned()))
+    }
+
+    #[test]
+    fn a_batch_or_a_transaction_is_its_first_tables() {
+        let put = r#"{"PutRequest":{"Item":{"id":{"S":"a"}}}}"#;
+        assert_eq!(
+            ddb(
+                "BatchWriteItem",
+                &format!(r#"{{"RequestItems":{{"orders":[{put}],"other":[{put}]}}}}"#)
+            ),
+            Some(("TableName", "orders".to_owned()))
+        );
+        assert_eq!(
+            ddb(
+                "BatchGetItem",
+                r#"{"RequestItems":{"orders":{"Keys":[{"id":{"S":"a"}}]}}}"#
+            ),
+            Some(("TableName", "orders".to_owned()))
+        );
+        assert_eq!(
+            ddb(
+                "TransactWriteItems",
+                r#"{"TransactItems":[{"Put":{"TableName":"orders","Item":{"id":{"S":"a"}}}}]}"#
+            ),
+            Some(("TableName", "orders".to_owned()))
+        );
+        assert_eq!(
+            ddb(
+                "TransactGetItems",
+                r#"{"TransactItems":[{"Get":{"TableName":"carts","Key":{"id":{"S":"a"}}}}]}"#
+            ),
+            Some(("TableName", "carts".to_owned()))
+        );
+        // A call with a table of its own at the top is still named by it,.
+        assert_eq!(
+            ddb(
+                "GetItem",
+                r#"{"TableName":"orders","Key":{"id":{"S":"a"}}}"#
+            ),
+            Some(("TableName", "orders".to_owned()))
         );
     }
 }

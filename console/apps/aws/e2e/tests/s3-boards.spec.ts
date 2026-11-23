@@ -8,6 +8,7 @@ import type { Page } from "@playwright/test";
 import { start } from "../server";
 import { expectCrumbsEnd } from "./crumbs-kit";
 import { expect, expectNoErrorAnswers, settled, test } from "./fixtures";
+import { expectCopy, expectFullWidthCall } from "./callpanel-kit";
 
 /** Where the doze-aws with no bucket listens (two ports a browser); `E2E_BASE_PORT` moves it when another run holds these. */
 const S3_EMPTY = Number(process.env.E2E_BASE_PORT ?? 44690);
@@ -307,6 +308,7 @@ test("the edit pages: versioning, ownership, Block Public Access, encryption, we
   await page.getByRole("combobox", { name: "Choose a KMS key" }).click();
   await page.getByRole("option", { name: new RegExp(`alias/larder-app-${browserName}`) }).click();
   await expect(page.getByTestId("call-panel-code")).toContainText(`:alias/larder-app-${browserName}`);
+  await expectFullWidthCall(page);
   await page.getByTestId("kms-arn").click();
   await page.getByTestId("kms-arn-input").fill("arn:aws:kms:us-east-1:111122223333:key/abc");
   await page.getByTestId("bucket-key-on").click();
@@ -322,6 +324,9 @@ test("the edit pages: versioning, ownership, Block Public Access, encryption, we
   await expect(page.getByTestId("properties")).toContainText("index.html");
 
   await edit("cors-edit", "s3__cors-edit");
+  // The editor opens with each list of values on one line, as the board draws the rule; the call panel under the form is full width and wraps at spaces, not inside a name.
+  await expect(page.getByTestId("cors-json")).toHaveValue(/"AllowedMethods": \["GET", "HEAD"\],/);
+  await expectFullWidthCall(page);
   await expect(page.getByTestId("form-submit")).toBeEnabled();
   await page.getByTestId("form-submit").click();
   await expect(page.getByTestId("cors-json")).toContainText("localhost:3000");
@@ -343,6 +348,9 @@ test("the edit pages: versioning, ownership, Block Public Access, encryption, we
   await expect(page.getByTestId("tags-kv-key-0")).toHaveValue("");
   await page.getByTestId("tags-kv-key-0").fill("team");
   await page.getByTestId("tags-kv-value-0").fill("search");
+  // Copy at once, with no wait for the preview: the button waits while the panel catches up, so what it copies is what is on screen (a row just typed, not the call before it).
+  await expectCopy(page, "cli", "search");
+  await expectCopy(page, "boto3", "search");
   await expect(page.getByTestId("call-panel-code")).toContainText("PutBucketTagging");
   await page.getByTestId("form-submit").click();
   await expect(page.getByTestId("properties")).toContainText("search");
@@ -367,6 +375,7 @@ test("s3__notification-create and s3__lifecycle-create: each adds a rule to the 
   await page.getByTestId("dest-arn").fill(`arn:aws:sqs:us-east-1:111122223333:inventory-${browserName}`);
   await expect(page.getByTestId("call-panel-code")).toContainText("LambdaFunctionConfigurations");
   await expect(page.getByTestId("call-panel-code")).toContainText("QueueConfigurations");
+  await expectFullWidthCall(page);
   await shot(page, "s3__notification-create", browserName);
   await page.getByTestId("form-submit").click();
   await expect(page.getByTestId("properties")).toContainText("image-removed");
@@ -440,7 +449,6 @@ test("s3__folder-create, s3__upload, s3__upload-status: a folder, three files wi
   await expect.poll(() => mine.count()).toBeGreaterThanOrEqual(3);
   await shot(page, "s3__upload-status", browserName);
   // The calls this console made name the object they acted on, not the bucket alone.
-  await page.getByTestId("calls-console-toggle").click();
   await expect(page.getByTestId("recent-calls").getByTestId("call-key").filter({ hasText: "seasonal/hero-autumn.jpg" }).first()).toBeVisible();
   const head = cli(["s3api", "head-object", "--bucket", n.img, "--key", "seasonal/hero-autumn.jpg"]).out;
   expect(head).toContain('"source": "e2e"');

@@ -160,6 +160,8 @@ test("dynamodb__table-detail: the sentence, what it is wired to, and the fields 
   await expect(page.getByTestId("fact-Encryption type")).toContainText("Stored, not applied locally.");
   await expect(page.getByTestId("verb-explore")).toHaveText("Explore table items");
   await expect(page.getByTestId("recent-calls")).toContainText("CreateTable");
+  // A batch names its tables only inside RequestItems: the call is still the table's (the seed wrote its items with one BatchWriteItem).
+  await expect(page.getByTestId("recent-calls")).toContainText("BatchWriteItem");
   await shot(page, "dynamodb__table-detail");
 });
 

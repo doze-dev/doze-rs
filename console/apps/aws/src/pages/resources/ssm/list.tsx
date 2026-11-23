@@ -84,7 +84,7 @@ function Parameters({ q, created }: { q: string; created: { name: string; versio
     { id: "type", header: "Type", accessorKey: "type", size: 130, fit: 50 },
     { id: "version", header: "Version", accessorFn: (r) => Number(r.version), size: 90, fit: 70, meta: { numeric: true } },
     { id: "modified", header: "Last modified (UTC)", accessorFn: (r) => r.modified ?? "", size: 210, fit: 150, cell: (c) => <Value value={c.row.original.modified} format="time" /> },
-    { id: "description", header: "Description", accessorKey: "description", min: 120 },
+    { id: "description", header: "Description", accessorKey: "description", min: 120, meta: { wrap: true } },
   ];
   const create = <Button onClick={() => go({ create: "yes" })} data-testid="create-open"><PlusIcon /> Create parameter</Button>;
   const banner = done ? (

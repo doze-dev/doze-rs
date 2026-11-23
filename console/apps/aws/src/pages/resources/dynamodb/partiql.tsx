@@ -15,7 +15,7 @@ import { useResourceList } from "../../../api/resources";
 import { CallPanel, useKindOp } from "../../../kit";
 import { Card, JsonBlock } from "../deep/parts";
 import { type Item, cell, toPlain } from "./json";
-import { headerFit } from "./item-rows";
+import { headerFit, resultWidth } from "./item-rows";
 import { partiqlWords, tableOf } from "./partiql-words";
 import { crumbs, KIND, Said } from "./parts";
 
@@ -44,7 +44,7 @@ export function Partiql() {
   const plain = failed && ran ? partiqlWords(code, ran) : null;
   const items = run.data?.Items ?? [];
   const names2 = [...new Set(items.flatMap((i) => Object.keys(i)))];
-  const columns: DataColumn<Item>[] = names2.map((n) => ({ id: n, header: () => <span className="font-mono text-[12.5px] tracking-normal text-foreground normal-case">{n}</span>, fit: headerFit(n, ""), accessorFn: (r) => cell(r[n]), meta: { mono: true }, min: Math.max(110, headerFit(n, "")), cell: (c) => cell(c.row.original[n]) || <span className="text-muted-foreground">–</span> }));
+  const columns: DataColumn<Item>[] = names2.map((n) => ({ id: n, header: () => <span className="font-mono text-[12.5px] tracking-normal text-foreground normal-case">{n}</span>, fit: headerFit(n, ""), accessorFn: (r) => cell(r[n]), meta: { mono: true, wrap: true }, size: resultWidth(n, items), min: Math.max(110, headerFit(n, "")), cell: (c) => cell(c.row.original[n]) || <span className="text-muted-foreground">–</span> }));
   const request = statement.trim() ? { service: "dynamodb", operation: "ExecuteStatement", input: { Statement: statement } } : null;
   // The table picker follows the statement: one that names a table of this account shows it in the picker.
   const writeStatement = (text: string) => {

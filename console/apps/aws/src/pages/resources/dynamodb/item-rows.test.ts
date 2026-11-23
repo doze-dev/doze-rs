@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import type { KeyPart } from "./json";
-import { attributeOf, blankRows, headerFit, itemOf, keyParam, newAttr, paramKey, rowsOf } from "./item-rows";
+import { attributeOf, blankRows, headerFit, resultWidth, itemOf, keyParam, newAttr, paramKey, rowsOf } from "./item-rows";
 
 const KEYS: KeyPart[] = [{ name: "pk", type: "S", role: "HASH" }, { name: "sk", type: "N", role: "RANGE" }];
 
@@ -59,5 +59,17 @@ describe("headerFit", () => {
     expect(headerFit("customer_id", "String")).toBeGreaterThanOrEqual(11 * 7.5 + 36);
     expect(headerFit("a", "Number set")).toBeGreaterThan(headerFit("a", "S"));
     expect(headerFit("delivered_at", "")).toBeGreaterThan(headerFit("pk", ""));
+  });
+});
+
+describe("resultWidth", () => {
+  const items = [{ order_id: { S: "ord-20261107-0001" }, created_at: { S: "2026-11-07T08:01:00Z" }, note: { S: "x".repeat(400) } }];
+  test("a PartiQL result column is as wide as its longest value, so a value that fits is not cut", () => {
+    expect(resultWidth("created_at", items)).toBeGreaterThanOrEqual(20 * 7.8);
+    expect(resultWidth("order_id", items)).toBeGreaterThanOrEqual(17 * 7.8);
+  });
+  test("a very long value stops at 360 px and wraps; a short one never goes under 110", () => {
+    expect(resultWidth("note", items)).toBe(360);
+    expect(resultWidth("pk", [{ pk: { S: "a" } }])).toBeGreaterThanOrEqual(110);
   });
 });

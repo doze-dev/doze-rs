@@ -7,6 +7,7 @@
 // gone one among them, and read each row at once, before the list is read again. The answer is a promise that settles when the
 // lists on screen have been read again: a mutation that returns it opens the next page (the list) on rows that are current.
 import { type QueryClient, type QueryKey, useQueryClient } from "@tanstack/react-query";
+import { forgetGone } from "../shell/pins";
 
 /** Whether `value` (a part of a query key: a string, a list, the input object of an operation) holds `name`: as a string of its
  * own, or as a part of an address or an ARN (`/restapis/<id>/stages`, `arn:aws:sqs:r:a:<name>`). */
@@ -38,6 +39,8 @@ export const GONE_FOR_MS = 60_000;
  */
 export function forgetDeleted(qc: QueryClient, scope: readonly string[], names: readonly string[], now: () => number = Date.now): Promise<void> {
   const gone = (key: QueryKey) => names.some((n) => mentions(key, n));
+  // What was deleted is not somewhere to go back to: the rail's Pinned and Recent let it go.
+  if (scope[0]) forgetGone(scope[0], names);
   const until = now() + GONE_FOR_MS;
   for (const q of qc.getQueryCache().findAll({ predicate: (q) => ofService(q.queryKey, scope) && gone(q.queryKey) })) {
     qc.setQueryDefaults(q.queryKey, { staleTime: () => (now() < until ? Number.POSITIVE_INFINITY : 0) });

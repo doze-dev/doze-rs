@@ -29,7 +29,7 @@ export type DataColumn<T> = ColumnDef<T> & {
   /** px: what the header really needs on one line, when the page measured it (a long header that the 9 px a letter estimate counts
    * wider than it is). Without it the estimate stands: a header is never cut. */
   fit?: number;
-  meta?: { numeric?: boolean; mono?: boolean };
+  meta?: { numeric?: boolean; mono?: boolean; /** The value wraps over lines (a long token breaks where it must) and the row grows, in place of the one line with an ellipsis: for a column whose values a person needs whole (a version ID, a status, a description). */ wrap?: boolean };
 };
 
 /** The widths of the columns (px; `undefined` for the one that takes the rest) and the least the table may be, in a box `box` px
@@ -166,7 +166,7 @@ export function DataTable<T>({ data, columns, rowId, empty, maxHeight = 560, cla
                 const raw = c.getValue();
                 const title = typeof raw === "string" || typeof raw === "number" ? String(raw) : undefined;
                 return (
-                  <td key={c.id} title={title} style={{ height: rowHeight }} className={cn("overflow-hidden border-b px-3 text-ellipsis whitespace-nowrap group-last:border-b-0 group-hover:bg-accent/40", meta?.numeric && "text-right tabular-nums", meta?.mono && "font-mono text-[12.5px]")}>
+                  <td key={c.id} title={title} style={{ height: rowHeight }} className={cn("border-b px-3 group-last:border-b-0 group-hover:bg-accent/40", meta?.wrap ? "py-2 break-words whitespace-normal [overflow-wrap:anywhere]" : "overflow-hidden text-ellipsis whitespace-nowrap", meta?.numeric && "text-right tabular-nums", meta?.mono && "font-mono text-[12.5px]")}>
                     {flexRender(c.column.columnDef.cell, c.getContext())}
                   </td>
                 );

@@ -5,7 +5,7 @@ import { cn } from "../../lib/utils";
 import { copyText } from "./copy";
 
 /** A Copy button that says Copied for 1.4 s in the width it had (nothing beside it moves). */
-export function CopyButton({ text, label = "Copy", what, className, size = "sm", variant = "outline", iconOnly = false }: { text: string; label?: string; what?: string; className?: string; size?: "sm" | "default" | "icon-sm"; variant?: "outline" | "ghost"; iconOnly?: boolean }) {
+export function CopyButton({ text, label = "Copy", what, className, size = "sm", variant = "outline", iconOnly = false, disabled = false }: { /** The button waits (its text is not yet what is on screen). */ disabled?: boolean; text: string; label?: string; what?: string; className?: string; size?: "sm" | "default" | "icon-sm"; variant?: "outline" | "ghost"; iconOnly?: boolean }) {
   const [done, setDone] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   useEffect(() => () => clearTimeout(timer.current), []);
@@ -15,6 +15,7 @@ export function CopyButton({ text, label = "Copy", what, className, size = "sm",
       variant={variant}
       size={iconOnly ? "icon-sm" : size}
       className={cn(!iconOnly && "min-w-[5.5rem]", className)}
+      disabled={disabled}
       aria-label={iconOnly ? `${label}: ${text}` : undefined}
       onClick={async () => {
         if (await copyText(text, what)) {

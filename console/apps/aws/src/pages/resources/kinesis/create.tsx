@@ -102,7 +102,7 @@ export function KinesisCreate() {
         </FormSection>
       )}
       <FormSection title="Tags" description="Tags are labels you define to organise and track costs. They are added when the stream is created." testId="section-tags">
-        <KeyValueEditor rows={rows} onChange={setRows} rules={TAG_RULES} showErrors={tried} removeLabel="Remove" testId="form-tags" />
+        <KeyValueEditor rows={rows} onChange={setRows} rules={TAG_RULES} showErrors={tried} removeLabel="Remove" removeIcon="x" fieldLabels testId="form-tags" />
         <RuleHelp>A tag has a key and an optional value; keys and values are case-sensitive.{sample && tagNames.length > 0 ? <> <span className="text-muted-foreground">{sample} carries {list(tagNames)}.</span></> : null}</RuleHelp>
       </FormSection>
     </FormPage>

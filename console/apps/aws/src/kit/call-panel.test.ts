@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { callJson, callText, missingWords } from "./call-panel";
+import { callJson, callText, listsOf, missingWords } from "./call-panel";
 
 const p = { json: { QueueName: "x" }, cli: "aws sqs create-queue --queue-name x", boto3: "sqs.create_queue(QueueName=\"x\")", missing: [] };
 
@@ -27,5 +27,15 @@ describe("a call to another service", () => {
 describe("the JSON as the boards draw it", () => {
   test("a short list of plain values stays on one line, structures are spread", () => {
     expect(callText({ ...p, json: { types: ["REGIONAL"], Tags: [{ Key: "a" }], E: [], O: {} } }, "X")).toBe('X\n{\n  "types": ["REGIONAL"],\n  "Tags": [\n    {\n      "Key": "a"\n    }\n  ],\n  "E": [],\n  "O": {}\n}');
+  });
+});
+
+describe("lists in the Lambda boards' calls", () => {
+  const lam = { ...p, json: { Architectures: ["x86_64"], Methods: ["GET", "HEAD"] } };
+  test("a service's boards draw a list of plain values one to a line, the others on one line", () => {
+    expect(listsOf("lambda")).toBe("expanded");
+    expect(listsOf("s3")).toBe("inline");
+    expect(callText(lam, "CreateFunction", { lists: listsOf("lambda") })).toBe('CreateFunction\n{\n  "Architectures": [\n    "x86_64"\n  ],\n  "Methods": [\n    "GET",\n    "HEAD"\n  ]\n}');
+    expect(callText(lam, "PutBucketCors", { lists: listsOf("s3") })).toBe('PutBucketCors\n{\n  "Architectures": ["x86_64"],\n  "Methods": ["GET", "HEAD"]\n}');
   });
 });

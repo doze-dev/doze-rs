@@ -3,8 +3,9 @@
 import type { Blockers } from "../../../api/types/Blockers";
 import type { ResourceDetail } from "../../../api/types/ResourceDetail";
 import type { Trigger } from "./model";
+import { pluralWord } from "@doze/ui/lib/format";
 
-const count = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
+const count = (n: number, one: string, many = pluralWord(one)) => `${n} ${n === 1 ? one : many}`;
 const names = (xs: string[]): string => (xs.length <= 1 ? xs.join("") : `${xs.slice(0, -1).join(", ")} and ${xs[xs.length - 1]}`);
 
 /** `Deleting send-email permanently deletes the function, its 3 versions and its 2 aliases (live, staging). A deleted function cannot be recovered.` */

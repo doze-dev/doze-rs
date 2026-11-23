@@ -71,7 +71,7 @@ function EncryptionForm({ name, start }: { name: string; start: Encryption }) {
   const [e, setE] = useState(start);
   const noKey = e.algorithm !== "AES256" && !e.key;
   return (
-    <SettingForm name={name} tab="properties" title="Edit default encryption" sub={`New objects in ${name} are encrypted with the type you choose.`} operation="PutBucketEncryption" input={{ ServerSideEncryptionConfiguration: encryptionConfig(e.algorithm, e.key, e.bucketKey) }} saved={`Default encryption is now ${SSE_SHORT[e.algorithm]}.`} disabled={noKey} disabledWhy="Choose or enter the AWS KMS key." note="Amazon S3 does not validate the KMS key ID provided in PutBucketEncryption requests, so check that it is correct.">
+    <SettingForm name={name} callBelow tab="properties" title="Edit default encryption" sub={`New objects in ${name} are encrypted with the type you choose.`} operation="PutBucketEncryption" input={{ ServerSideEncryptionConfiguration: encryptionConfig(e.algorithm, e.key, e.bucketKey) }} saved={`Default encryption is now ${SSE_SHORT[e.algorithm]}.`} disabled={noKey} disabledWhy="Choose or enter the AWS KMS key." note="Amazon S3 does not validate the KMS key ID provided in PutBucketEncryption requests, so check that it is correct.">
       <FormSection title="Encryption type">
         <EncryptionChoice value={e} onChange={setE} />
         <p className="text-[13px] text-muted-foreground">Buckets and new objects are encrypted with SSE-S3 as the base level, at no cost. Choosing SSE-KMS or DSSE-KMS puts you under the requests-per-second quota of AWS KMS. Objects already in the bucket keep the encryption they have.</p>
@@ -95,7 +95,7 @@ function WebsiteForm({ name, start }: { name: string; start: ReturnType<typeof w
   const bad = on && (mode === "host" ? !index || index.includes("/") : !host);
   const input = on ? { WebsiteConfiguration: websiteConfig({ mode, index, error, host, protocol }) } : null;
   return (
-    <SettingForm name={name} tab="properties" title="Edit static website hosting" sub={`Serve ${name} as a website. Visitors get the index document at the root and in every folder.`} operation={on ? "PutBucketWebsite" : "DeleteBucketWebsite"} input={on ? (bad ? null : input) : {}} saved={on ? "Static website hosting is on." : "Static website hosting is off."} disabled={bad} disabledWhy={mode === "host" ? "The index document cannot be empty or contain a slash." : "Name the host to redirect to."}
+    <SettingForm name={name} callBelow tab="properties" title="Edit static website hosting" sub={`Serve ${name} as a website. Visitors get the index document at the root and in every folder.`} operation={on ? "PutBucketWebsite" : "DeleteBucketWebsite"} input={on ? (bad ? null : input) : {}} saved={on ? "Static website hosting is on." : "Static website hosting is off."} disabled={bad} disabledWhy={mode === "host" ? "The index document cannot be empty or contain a slash." : "Name the host to redirect to."}
       note="Turning on hosting is not enough on AWS: to make the site public you must also turn off Block Public Access and add a bucket policy that grants everyone s3:GetObject. doze-aws refuses a public bucket policy while BlockPublicPolicy is on.">
       <FormSection title="Static website hosting">
         <RadioCards name="website-on" value={on ? "on" : "off"} onChange={(v) => setOn(v === "on")} options={[{ value: "off", title: "Disable" }, { value: "on", title: "Enable" }]} />

@@ -26,6 +26,8 @@ describe("selection", () => {
   test("words", () => {
     expect(selectedWords(3)).toBe("3 selected");
     expect(selectedWords(1200)).toBe("1,200 selected");
+    expect(selectedWords(2, "policy")).toBe("2 policies selected");
+    expect(selectedWords(1, "policy")).toBe("1 policy selected");
     expect(selectedWords(1, "alarm")).toBe("1 alarm selected");
     expect(selectedWords(2, "alarm")).toBe("2 alarms selected");
   });

@@ -8,6 +8,7 @@ import type { OwnProps } from "../deep/registry";
 import { NONE, bucketOf, useSetting } from "./api";
 import { readableJson } from "./json-text";
 import { Loaded, SettingForm } from "./edit";
+import { readableJson } from "./json-text";
 import { useAbout } from "../../../api/queries";
 import { Mono } from "./parts";
 import { policyExamples } from "./policy-examples";
@@ -26,7 +27,7 @@ function CorsForm({ name, start }: { name: string; start: string }) {
   const rules = parsed.ok && Array.isArray(parsed.value) ? parsed.value : null;
   const why = !parsed.ok ? parsed.why : rules === null ? "The configuration is a list of rules." : rules.length === 0 ? "Give at least one rule." : null;
   return (
-    <SettingForm name={name} tab="permissions" title="Edit cross-origin resource sharing (CORS)" sub={`Let a web app on another origin read objects from ${name}.`} operation="PutBucketCors" input={rules && !why ? { CORSConfiguration: { CORSRules: rules } } : null} saved="CORS configuration saved." disabled={Boolean(why)} disabledWhy={why}>
+    <SettingForm name={name} callBelow tab="permissions" title="Edit cross-origin resource sharing (CORS)" sub={`Let a web app on another origin read objects from ${name}.`} operation="PutBucketCors" input={rules && !why ? { CORSConfiguration: { CORSRules: rules } } : null} saved="CORS configuration saved." disabled={Boolean(why)} disabledWhy={why}>
       <FormSection title="CORS configuration editor">
         <p className="text-[13px] text-muted-foreground">Bucket ARN <Mono>{bucketArn(name)}</Mono></p>
         <JsonEditor value={text} onChange={setText} label="CORS rules" rows={16} empty="invalid" testId="cors-json" />
@@ -47,7 +48,7 @@ function PolicyForm({ name, start }: { name: string; start: string }) {
   const account = useAbout().data?.account ?? "";
   const parsed = checkJson(text, "invalid");
   return (
-    <SettingForm name={name} tab="permissions" title="Edit bucket policy" sub={`Grant other identities access to ${name} and its objects.`} operation="PutBucketPolicy" input={parsed.ok ? { Policy: JSON.stringify(parsed.value) } : null} saved="Bucket policy saved." disabled={!parsed.ok} disabledWhy="The policy must be valid JSON." note="The policy travels as one JSON string.">
+    <SettingForm name={name} callBelow tab="permissions" title="Edit bucket policy" sub={`Grant other identities access to ${name} and its objects.`} operation="PutBucketPolicy" input={parsed.ok ? { Policy: JSON.stringify(parsed.value) } : null} saved="Bucket policy saved." disabled={!parsed.ok} disabledWhy="The policy must be valid JSON." note="The policy travels as one JSON string.">
       <FormSection title="Policy">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <p className="text-[13px] text-muted-foreground">Bucket ARN <Mono>{bucketArn(name)}</Mono></p>
