@@ -39,10 +39,18 @@ function pairs(v: unknown): Record<string, unknown> | null {
   return out;
 }
 
+/** A message attribute (`{DataType, StringValue}`) is one line to a person: `event = String: order_placed`. */
+function attribute(v: unknown): string | null {
+  if (!isMap(v) || Object.keys(v).sort().join() !== "DataType,StringValue") return null;
+  return typeof v.DataType === "string" && typeof v.StringValue === "string" && !v.StringValue.includes("\n") ? `${v.DataType}: ${v.StringValue}` : null;
+}
+
 function member(name: string | null, v: unknown, depth: number, out: string[]): void {
   const pad = "  ".repeat(depth);
   const asMap = pairs(v);
   if (asMap) return member(name, asMap, depth, out);
+  const typed = name === null ? null : attribute(v);
+  if (name !== null && typed !== null) return member(name, typed, depth, out);
   const nested = Array.isArray(v) || isMap(v);
   if (nested && (Array.isArray(v) ? v.length : Object.keys(v as object).length) === 0) {
     out.push(name === null ? `${pad}${Array.isArray(v) ? "[]" : "{}"}` : `${pad}${name} = ${Array.isArray(v) ? "[]" : "{}"}`);

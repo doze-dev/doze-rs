@@ -96,7 +96,7 @@ function TopicView({ d, updatedAt, fetching, refresh }: { d: ResourceDetail; upd
     { id: "access", label: "Access policy", render: () => <AccessTab t={t} edit={edit} /> },
     ...(t.fifo ? [] : [{ id: "retry", label: "Delivery retry policy (HTTP/S)", render: () => <RetryTab t={t} edit={edit} http={http} /> }]),
     { id: "logging", label: "Delivery status logging", render: () => <LoggingTab t={t} edit={edit} /> },
-    { id: "encryption", label: "Encryption", render: () => <EncryptionTab t={t} edit={edit} /> },
+    { id: "encryption", label: "Encryption", render: () => <EncryptionTab t={t} edit={edit} calls={d.calls} /> },
     { id: "tags", label: "Tags", render: () => <Block title="Tags" lede="Metadata attached to the topic. Read with ListTagsForResource." testId="tags-tab"><TagsTab target={target} noun="tag" note="Key 1 to 128 characters, value 0 to 256. A topic cannot take more than 50 tags (TagLimitExceeded). Tags are accessible to other AWS services, billing included, so keep sensitive data out of them." explain="Tags are key-value labels for organising topics and tracking their cost." /></Block> },
     ...(t.fifo ? [{ id: "archive", label: "Archive policy", render: () => <ArchiveTab t={t} edit={edit} /> }] : []),
   ];

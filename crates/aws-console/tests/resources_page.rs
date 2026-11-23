@@ -203,7 +203,7 @@ async fn a_topic_says_where_it_delivers_and_a_subscription_how() {
     assert_eq!(badges(&s), ["Confirmed", "sqs"]);
     assert_eq!(s["badges"][0]["tone"], "good");
     assert_eq!(verbs(&s), ["edit", "delete"]);
-    assert_eq!(s["verbs"][1]["label"], "Unsubscribe");
+    assert_eq!(s["verbs"][1]["label"], "Delete");
     // An HTTP endpoint waits for its own confirmation.
     w.app(
         "sns",

@@ -1,0 +1,1 @@
+import{pn as e,un as t}from"./use-overlay-opener-D8Ydu19c.js";var n=e(t(),1),r=new Map,i=new Set,a=()=>i.forEach(e=>e()),o=e=>r.get(e);function s(e,t){t===null?r.delete(e):r.set(e,t),a()}function c(e){return(0,n.useSyncExternalStore)(e=>(i.add(e),()=>i.delete(e)),()=>r.get(e))}export{s as n,c as r,o as t};

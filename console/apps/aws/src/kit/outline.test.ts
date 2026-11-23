@@ -26,3 +26,10 @@ describe("tags", () => {
   });
   test("structures with more members stay structures", () => expect(outlineText("X", { L: [{ Key: "a", Value: "b", Extra: "c" }] })).toContain("Extra = c"));
 });
+
+describe("message attributes", () => {
+  test("an attribute is its name, its type and its value on one line", () => {
+    expect(outlineText("Publish", { MessageAttributes: { event: { DataType: "String", StringValue: "order_placed" } } })).toBe("Publish\n  MessageAttributes\n    event = String: order_placed");
+  });
+  test("a binary one stays a structure", () => expect(outlineText("X", { A: { b: { DataType: "Binary", BinaryValue: "aGk=" } } })).toContain("BinaryValue = aGk="));
+});

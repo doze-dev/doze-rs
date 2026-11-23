@@ -35,7 +35,7 @@ function ProtocolSelect({ f, set }: Pick<SubFieldProps, "f" | "set">) {
   const [seen, setSeen] = useState(f.protocol);
   if (seen !== f.protocol) { setSeen(f.protocol); setOpen(false); }
   return (
-    <Field label="Protocol" help={info?.active ? <>{info.about}</> : undefined} hint={<><b className="font-semibold text-foreground">{f.topic.endsWith(".fifo") ? "To subscribe to a FIFO topic, choose Amazon SQS. " : ""}</b>{countWord(disabledCount())} of the nine protocols are disabled here; each says why under its name.</>} testId="field-protocol">
+    <Field label="Protocol" help={info?.active ? info.said ? <><b className="font-semibold text-foreground">{info.said.lead}</b> {info.said.more}</> : <>{info.about}</> : undefined} hint={<><b className="font-semibold text-foreground">{f.topic.endsWith(".fifo") ? "To subscribe to a FIFO topic, choose Amazon SQS. " : ""}</b>{countWord(disabledCount())} of the nine protocols are disabled here; each says why under its name.</>} testId="field-protocol">
       {(id) => (
         <div className="grid gap-2">
         <button type="button" id={id} onClick={() => setOpen((o) => !o)} aria-expanded={open} aria-haspopup="listbox" className="flex h-9 w-full items-center justify-between rounded-md border bg-card px-3 text-left text-[14px] text-bright" data-testid="protocol-trigger">

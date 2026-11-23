@@ -149,7 +149,7 @@ pub(super) const SUBSCRIPTIONS: Kind = Kind {
         key: "Endpoint",
     }),
     delete: Some(Delete {
-        verb: "Unsubscribe",
+        verb: "Delete",
         step: Step::new("Unsubscribe", r#"{"SubscriptionArn":"{id}"}"#),
         words: "The topic stops delivering to this endpoint.",
     }),

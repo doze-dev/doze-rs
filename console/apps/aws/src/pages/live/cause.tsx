@@ -75,7 +75,9 @@ export function CauseChain({ call, held, titles, onOpen }: { call: CallRecord; h
             <Step call={parent} titles={titles} onOpen={onOpen} note={`call ${number(parent.seq)}, from ${parent.caller ?? "no key"}`} />
           ) : (
             <p className={cn("rounded-lg border border-dashed px-3 py-2 text-[12.5px] text-muted-foreground")} data-testid="cause-root">
-              {call.via.request_id ? (
+              {call.via.request_id && /^console-\d+$/.test(call.via.request_id) ? (
+                <>Made while doze-aws answered a publish from this console.</>
+              ) : call.via.request_id ? (
                 <>
                   Made while doze-aws answered request <span className="font-mono break-all text-foreground">{call.via.request_id}</span>, which the record no longer holds.
                 </>
