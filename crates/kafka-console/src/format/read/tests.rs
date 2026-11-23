@@ -58,6 +58,20 @@ fn a_time_is_milliseconds_or_a_utc_civil_time() {
     }
 }
 
+/// A century is no leap year unless it is a fourth one, and the last second of a day is a time.
+#[test]
+fn centuries_leap_only_every_fourth_and_the_last_second_of_a_day_is_a_time() {
+    for (text, want) in [
+        ("2000-02-29", Some(951_782_400_000)),
+        ("2100-02-29", None),
+        ("2400-02-29", Some(13_574_563_200_000)),
+        ("2023-11-14 23:59:59", Some(1_700_006_399_000)),
+        ("2023-11-14 23:59", Some(1_700_006_340_000)),
+    ] {
+        assert_eq!(parse_time(text), want, "{text:?}");
+    }
+}
+
 #[test]
 fn every_minute_of_a_year_round_trips_through_the_civil_clock() {
     for day in 0..366_i64 {

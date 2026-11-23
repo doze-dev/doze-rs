@@ -177,6 +177,54 @@ fn the_producer_and_the_sequence_of_each_record_are_reported() {
     assert!(w.rows[0].transactional);
 }
 
+/// A batch whose producer gave no sequence (the header's -1) says -1 for each record, not a number made up from offsets.
+#[test]
+fn a_batch_without_a_sequence_says_minus_one() {
+    let recs: Vec<Rec> = (0..2).map(|i| rec(&format!("k{i}"), "v")).collect();
+    let b = BatchBuilder::from_records(1_000, &recs)
+        .base_offset(30)
+        .last_offset_delta(1)
+        .producer(55, 0, -1)
+        .build();
+    let w = walk(&b, 0, 30, 100, &[], (KEEP, 100));
+    assert_eq!(w.rows[0].producer, Some((55, 0, -1)));
+    assert_eq!(w.rows[1].producer, Some((55, 0, -1)));
+}
+
+/// A producer's committed transaction before its aborted one stays committed: the abort begins at its own first offset.
+#[test]
+fn an_abort_begins_at_its_first_offset_not_before() {
+    let all = joined(&[
+        batch(0, 2, 0x10, Some(7)),
+        marker(2, 7),
+        batch(3, 2, 0x10, Some(7)),
+        marker(5, 7),
+    ]);
+    let w = walk(&all, 0, 0, 50, &[(7, 3)], (KEEP, 100));
+    assert_eq!(
+        standings(&w),
+        vec![
+            (0, Standing::Committed),
+            (1, Standing::Committed),
+            (3, Standing::Aborted),
+            (4, Standing::Aborted)
+        ]
+    );
+}
+
+#[test]
+fn each_codec_has_its_name() {
+    for (c, name) in [
+        (Compression::None, "none"),
+        (Compression::Gzip, "gzip"),
+        (Compression::Snappy, "snappy"),
+        (Compression::Lz4, "lz4"),
+        (Compression::Zstd, "zstd"),
+    ] {
+        assert_eq!(codec_name(c), name);
+    }
+}
+
 #[test]
 fn bytes_that_are_not_batches_end_the_walk_without_a_panic() {
     for seed in 0..500_u32 {
