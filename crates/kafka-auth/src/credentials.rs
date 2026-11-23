@@ -30,6 +30,13 @@ impl Secret {
     }
 }
 
+impl Drop for Secret {
+    /// The bytes are wiped before the memory is given back.
+    fn drop(&mut self) {
+        zeroize::Zeroize::zeroize(&mut *self.0);
+    }
+}
+
 impl fmt::Debug for Secret {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str("Secret(<redacted>)")
@@ -82,8 +89,11 @@ impl Credentials {
     {
         let mut secrets = BTreeMap::new();
         for (name, password) in pairs {
+            // Wiped when dropped, whatever the outcome; the secret is a copy of exactly its bytes (a shrink in place could
+            // leave the old buffer behind).
+            let password = zeroize::Zeroizing::new(password);
             validate(&name, &password)?;
-            let secret = Secret(password.into_bytes().into_boxed_slice());
+            let secret = Secret(Box::from(password.as_bytes()));
             if secrets.insert(name.clone(), secret).is_some() {
                 return Err(CredentialsError::Duplicate(name));
             }

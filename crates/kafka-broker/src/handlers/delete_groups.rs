@@ -15,7 +15,8 @@ impl<F: Fs> Broker<F> {
     /// Deletes each group named, in the order Kafka answers: a group with members is refused, an empty one goes with
     /// its committed offsets, and one that is neither there nor has offsets is not found.
     ///
-    /// The caller must be allowed to DELETE each group. Those it is not are answered 30, once each, after the rest.
+    /// A name asked twice is answered once, as Kafka de-duplicates the request first (KA:1431). The caller must be
+    /// allowed to DELETE each group. Those it is not are answered 30, after the rest.
     pub(crate) async fn delete_groups(
         &self,
         caller: &Caller,
@@ -27,9 +28,12 @@ impl<F: Fs> Broker<F> {
         let mut refused: Vec<String> = Vec::new();
         for g in &req.groups_names {
             let name = g.0.as_str();
+            if asked.iter().chain(&refused).any(|n| n == name) {
+                continue;
+            }
             if guard.group(Operation::Delete, name) {
                 asked.push(name.to_owned());
-            } else if !refused.iter().any(|r| r == name) {
+            } else {
                 refused.push(name.to_owned());
             }
         }

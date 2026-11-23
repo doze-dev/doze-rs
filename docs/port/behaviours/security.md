@@ -67,7 +67,7 @@ Deviations from Apache Kafka (and one from the Go edition) by number. Every one 
 - **SEC-D18** unsupported resource types are checked for the right, then answered 42
 - **SEC-D19** a follower Fetch with CLUSTER_ACTION is read like a consumer's; a nameless Metadata entry has no operations field
 - **SEC-D20** (settled 2026-11-18) the topic-API rules were read from the source; `authz-matrix` records them
-- **SEC-D30** DeleteGroups with a repeated allowed name answers it twice
+- **SEC-D30** (withdrawn 2026-11-23) DeleteGroups answered a repeated allowed name twice
 - **SEC-D31** SyncGroup v5+ with no protocol type or name is 23 only for a caller also refused
 - **SEC-D32** AddPartitionsToTxn on the internal topics is 3, not 29
 - **SEC-D33** (withdrawn: InitProducerId v6 is served as Kafka 4.4.0 serves it, SEC-336)
@@ -801,8 +801,8 @@ is not there is 29 to one who may not describe it and offset -1, no error, to on
 `asked_for_everything_the_topics_not_described_are_dropped_without_a_word`, `a_topic_that_is_not_there_is_not_revealed_to_offset_fetch_either`.
 
 ## SEC-112. DeleteGroups (KA:1428-1464)
-DELETE on each group (READ, DESCRIBE or ALL-less rights do not do). The refused are answered 30, **once each**, after the answers for the others
-(Kafka's `authorized results then unauthorized`); a refused group is not deleted and keeps its offsets (**deviation SEC-D30** on repeated names). Test:
+DELETE on each group (READ, DESCRIBE or ALL-less rights do not do). A name asked twice is answered once (the request is de-duplicated first). The refused are answered 30, **once each**, after the answers for the others
+(Kafka's `authorized results then unauthorized`); a refused group is not deleted and keeps its offsets. Test:
 `delete_groups_needs_delete_on_each_group`, `delete_groups_serves_the_allowed_first_then_the_refused_once_each`, `delete_needs_delete_and_describe_or_read_do_not_do`.
 
 ## SEC-113. OffsetDelete (KA:2363-2427; `OffsetDeleteResponse.Builder.merge`)
@@ -1723,8 +1723,7 @@ TRANSACTIONAL_ID_NOT_FOUND (105) with producer id 0, epoch 0 and start time 0, a
   assembler): clang or gcc on Linux and macOS, the MSVC build tools on Windows (ring ships prebuilt Windows objects, so NASM is not normally needed; not verified here, the `windows` CI job checks
   the default build only). The default build needs neither. Where it matters: Windows developers and minimal CI images that have no compiler.
 
-- **SEC-D30.** DeleteGroups with the same allowed name twice answers it twice (the existing behaviour, pinned by `group_admin`: deleted, then not found); Kafka de-duplicates
-  the request first (KA:1431). The refused names are de-duplicated, as Kafka's are.
+- **SEC-D30.** (Withdrawn 2026-11-23.) DeleteGroups answered an allowed name asked twice twice; it now de-duplicates the request first, as Kafka does (KA:1431).
 - **SEC-D31.** A SyncGroup of v5 or later with no protocol type or name is 23 up front (KA:1406-1411) only for a caller that is also refused; an allowed caller's goes to the group
   as before, which judges only the names it is given. Kafka answers 23 to everyone.
 - **SEC-D32.** AddPartitionsToTxn: Kafka removes the internal topics (`__consumer_offsets`, `__transaction_state`) from the topics it authorizes, so they are 29 even with no
