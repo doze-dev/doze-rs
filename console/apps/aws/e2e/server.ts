@@ -56,9 +56,9 @@ async function freePair(not: readonly number[]): Promise<[number, number]> {
 
 /** Starts doze-aws with its console on the two ports and waits until both answer. `dataDir`: start again over the same
  * state (a restart); otherwise a new, empty directory that `stop` removes. A start that never answers is killed by its pid and
- * tried once more; when the last try fails the error carries what the process printed. A new state (no `dataDir`) does not need these
- * exact ports: when they are taken, or a try failed, it is tried on another free pair (read `endpoint` and `console` from what is
- * returned). A restart over the same state keeps its ports. */
+ * tried once more; when the last try fails the error carries what the process printed. Neither a new state nor a restart over one needs
+ * these exact ports: they are tried first, and when they are taken, or a try failed, the next try is on another free pair (so read
+ * `endpoint` and `console` from what is returned, never the ports asked for). */
 export async function start(listenPort: number, consolePort: number, options: { dataDir?: string; args?: string[] } = {}): Promise<Running> {
   const own = options.dataDir === undefined;
   const dataDir = options.dataDir ?? mkdtempSync(join(tmpdir(), "doze-aws-e2e-"));
@@ -66,11 +66,9 @@ export async function start(listenPort: number, consolePort: number, options: { 
   let consoleUrl = `http://127.0.0.1:${consolePort}`;
   const argvFor = (l: number, c: number) => ["--listen", `127.0.0.1:${l}`, "--console", `127.0.0.1:${c}`, "--data-dir", dataDir, "--account", ACCOUNT, ...(options.args ?? [])];
   let argv = argvFor(listenPort, consolePort);
-  // Something already answering on the console port is another process: its answers would be taken for this one's.
-  if (!own && (await fetch(`${consoleUrl}/healthz`, { signal: AbortSignal.timeout(1_000) }).then(() => true, () => false))) throw new Error(`${consoleUrl} is already served by another process: pick free ports`);
   const notes: string[] = [];
   for (let attempt = 1; attempt <= START_TRIES; attempt++) {
-    if (own && (attempt > 1 || !(await pairFree(listenPort, consolePort)))) {
+    if (attempt > 1 || !(await pairFree(listenPort, consolePort))) {
       const [l, c] = await freePair([listenPort]);
       endpoint = `http://127.0.0.1:${l}`;
       consoleUrl = `http://127.0.0.1:${c}`;
