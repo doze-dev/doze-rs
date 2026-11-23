@@ -1,1 +1,0 @@
-export{t as SharingCreate}from"./detail-CROw04H7.js";

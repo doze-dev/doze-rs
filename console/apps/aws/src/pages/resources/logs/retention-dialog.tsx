@@ -41,7 +41,7 @@ function Inner({ group, onClose }: { group: Pick<GroupRow, "name" | "retention">
     >
       <div className="grid gap-1.5">
         <Label htmlFor="retention-group">Log group</Label>
-        <Input id="retention-group" value={group.name} readOnly className="bg-muted font-mono" data-testid="retention-group" />
+        <Input id="retention-group" value={group.name} readOnly tabIndex={-1} className="bg-muted font-mono" data-testid="retention-group" />
       </div>
       <div className="grid gap-1.5">
         <Label htmlFor="retention-select">Expire events after</Label>
