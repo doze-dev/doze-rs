@@ -59,7 +59,7 @@ export function AccessPolicy({ f, set, p, queueArn, basic }: FieldProps & { queu
           )}
           <div className="grid gap-1.5" data-testid="resulting-policy">
             <Label>Resulting access policy</Label>
-            {resulting ? <CodeBlock text={resulting} max="max-h-64" /> : <p className="rounded-[10px] border border-dashed px-4 py-3 text-[13.5px] text-muted-foreground">No statement is needed: with both choices on Only the queue owner, nobody else can send or receive. The default policy lets only the queue owner send and receive. Anything else, such as letting a service principal send, is written in Advanced.</p>}
+            {resulting ? <CodeBlock text={resulting} max="max-h-64" /> : <p className="rounded-[var(--radius-field)] border border-dashed px-4 py-3 text-[13.5px] text-muted-foreground">No statement is needed: with both choices on Only the queue owner, nobody else can send or receive. The default policy lets only the queue owner send and receive. Anything else, such as letting a service principal send, is written in Advanced.</p>}
             <RuleHelp>Basic shows the resulting policy in a read-only JSON panel. Choose Advanced to edit the JSON directly and name a custom set of actions for each principal.</RuleHelp>
           </div>
         </>

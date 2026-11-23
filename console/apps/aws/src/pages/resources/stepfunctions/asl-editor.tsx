@@ -38,7 +38,7 @@ function lines(tokens: Tok[]): Tok[][] {
 export function AslEditor({ value, onChange, marked = [], label = "Amazon States Language", readOnly = false, testId = "asl-editor" }: { value: string; onChange: (v: string) => void; marked?: number[]; label?: string; readOnly?: boolean; testId?: string }) {
   const rows = useMemo(() => lines(tokenizeJson(value)), [value]);
   return (
-    <div className="relative overflow-auto rounded-[12px] border bg-well focus-within:ring-[3px] focus-within:ring-ring/50" data-testid={`${testId}-box`}>
+    <div className="relative overflow-auto rounded-[var(--radius-panel)] border bg-well focus-within:ring-[3px] focus-within:ring-ring/50" data-testid={`${testId}-box`}>
       <div className="relative">
         <pre aria-hidden className={cn(SHARED, "pointer-events-none text-foreground")} data-testid={`${testId}-colours`}>
           {rows.map((row, i) => (

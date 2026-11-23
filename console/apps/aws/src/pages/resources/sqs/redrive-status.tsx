@@ -72,12 +72,12 @@ export function RedriveStatus({ d, q, sources, go }: { d: ResourceDetail; q: Que
       ]
     : [row("Redrive allow policy", allowWords(q.allow)), row("Approx. messages", q.available.toLocaleString("en-US"))];
   return (
-    <section className="rounded-[14px] border bg-card p-6 lg:p-7" aria-label="Dead-letter queue redrive status" data-testid="redrive-status">
+    <section className="rounded-[var(--radius-card)] border bg-card p-6 lg:p-7" aria-label="Dead-letter queue redrive status" data-testid="redrive-status">
       <h2 className="text-[17px] leading-6 font-semibold tracking-[-0.01em] text-bright">Dead-letter queue redrive status</h2>
       <p className="mt-1 text-[13.5px] text-muted-foreground">{task ? "The fields of the most recent ListMessageMoveTasks entry for this queue." : "The status of the most recent redrive task for this queue, from ListMessageMoveTasks."}</p>
       <Refused operation="CancelMessageMoveTask" error={cancel.error} />
       {tasks.isPending ? (
-        <Skeleton className="mt-5 h-32 rounded-[14px]" />
+        <Skeleton className="mt-5 h-32 rounded-[var(--radius-card)]" />
       ) : tasks.error ? (
         <Alert tone="bad" title="ListMessageMoveTasks was refused" className="mt-5">{String((tasks.error as Error).message)}</Alert>
       ) : (

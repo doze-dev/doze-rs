@@ -88,7 +88,7 @@ export function GroupSearch({ group }: { group: string }) {
           <Made className="mt-2" ops={["FilterLogEvents"]} />
         </div>
         <div className="grid min-w-0 gap-6 xl:sticky xl:top-6">
-          <section className="rounded-[14px] border bg-card p-6" aria-label="Filter pattern examples" data-testid="search-examples">
+          <section className="rounded-[var(--radius-card)] border bg-card p-6" aria-label="Filter pattern examples" data-testid="search-examples">
             <h2 className="text-[17px] leading-6 font-semibold tracking-[-0.01em] text-bright">Filter pattern examples</h2>
             <dl className="mt-3 grid grid-cols-[minmax(0,1fr)_minmax(0,0.8fr)] [&>div:last-child>*]:border-b-0">
               {EXAMPLES.map(([p, words]) => (

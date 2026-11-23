@@ -13,7 +13,7 @@ import { timeMs } from "../model";
 export function Card({ title, lede, actions, children, className, testId }: { title: React.ReactNode; lede?: React.ReactNode; actions?: React.ReactNode; children?: React.ReactNode; className?: string; testId?: string }) {
   return (
     // min-w-0: in a grid or flex column, a wide table inside scrolls in its own box instead of widening the card past the page.
-    <section className={cn("min-w-0 rounded-[14px] border bg-card p-6 lg:p-7", className)} data-testid={testId}>
+    <section className={cn("min-w-0 rounded-[var(--radius-card)] border bg-card p-6 lg:p-7", className)} data-testid={testId}>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <h2 className="text-[17px] leading-6 font-semibold tracking-[-0.01em] text-bright">{title}</h2>
@@ -67,7 +67,7 @@ export function Loaded<T>({ q, what, children, height = "h-40" }: { q: { data: T
       </Alert>
     );
   }
-  return <Skeleton className={cn("rounded-[12px]", height)} data-testid="deep-loading" />;
+  return <Skeleton className={cn("rounded-[var(--radius-panel)]", height)} data-testid="deep-loading" />;
 }
 
 /** A dialog that asks before a change that cannot be undone, and shows the refusal if there is one. */

@@ -37,7 +37,7 @@ export function FlowStrip({ groups, className }: { groups: readonly FlowGroup[];
   const shown = groups.filter((g) => g.chips.length > 0);
   if (shown.length === 0) return null;
   return (
-    <nav aria-label="Wired to" className={cn("mb-8 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-[14px] border bg-card px-5 py-4", className)} data-testid="wired-strip">
+    <nav aria-label="Wired to" className={cn("mb-8 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-[var(--radius-card)] border bg-card px-5 py-4", className)} data-testid="wired-strip">
       {shown.map((g, i) => (
         <Fragment key={i}>
           {i > 0 && (g.before === "and" ? <span className="text-[13.5px] text-muted-foreground">and</span> : <ArrowRightIcon aria-hidden className="size-3.5 text-input" />)}

@@ -128,8 +128,8 @@ export function ResourcePageSkeleton() {
     <div className="grid gap-6" data-testid="resource-page-loading">
       <Skeleton className="h-12 w-80 rounded-lg" />
       <Skeleton className="h-6 w-2/3 rounded-lg" />
-      <Skeleton className="h-16 rounded-[14px]" />
-      <Skeleton className="h-72 rounded-[14px]" />
+      <Skeleton className="h-16 rounded-[var(--radius-card)]" />
+      <Skeleton className="h-72 rounded-[var(--radius-card)]" />
     </div>
   );
 }

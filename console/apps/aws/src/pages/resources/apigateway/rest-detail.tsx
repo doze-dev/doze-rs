@@ -35,7 +35,7 @@ export function RestDetail({ service, kind, name }: { service: string; kind: str
   const api = useRestApi(name);
   const refresh = useRefreshReads();
   if (detail.isError && !detail.data) return <DetailError service={service} kind={kind} name={name} error={detail.error} onRetry={() => void detail.refetch()} retrying={detail.isFetching} />;
-  if (!detail.data || !api.data) return <div className="grid gap-4" data-testid="resource-page-loading"><Skeleton className="h-12 w-80" /><Skeleton className="h-72 rounded-[14px]" /></div>;
+  if (!detail.data || !api.data) return <div className="grid gap-4" data-testid="resource-page-loading"><Skeleton className="h-12 w-80" /><Skeleton className="h-72 rounded-[var(--radius-card)]" /></div>;
   return <RestView id={name} apiName={api.data.name} created={api.data.createdDate} types={api.data.endpointConfiguration?.types} calls={detail.data.calls} updatedAt={detail.dataUpdatedAt} fetching={detail.isFetching} refresh={() => { refresh(); void detail.refetch(); }} />;
 }
 
@@ -49,7 +49,7 @@ function RestView({ id, apiName, created, types, calls, updatedAt, fetching, ref
   const go = (search: Search) => void navigate({ to: "/resources/$service/$kind/$name", params: { service: "apigateway", kind: "restapis", name: id }, search: search as never });
   const back = [...crumbs, { label: "APIs", to: "/resources/apigateway/restapis" }, { label: apiName, to: `/resources/apigateway/restapis/${id}` }];
   const form = s.do ? (
-    <Suspense fallback={<Skeleton className="h-96 rounded-[14px]" />}>
+    <Suspense fallback={<Skeleton className="h-96 rounded-[var(--radius-card)]" />}>
       {s.do === "create-resource" && <ResourceCreate api={id} apiName={apiName} parent={s.key} crumbs={back} onClose={(p) => go({ ...(p ? { done: "resource", name: p } : {}) })} />}
       {s.do === "create-method" && <MethodCreate api={id} apiName={apiName} resource={s.key} crumbs={back} onClose={(m, r) => go(m ? { done: "method", name: m, key: r } : { key: r })} />}
       {s.do === "create-authorizer" && <AuthorizerCreate api={id} apiName={apiName} crumbs={back} onClose={(a) => go({ tab: "authorizers", ...(a ? { done: "authorizer", name: a } : {}) })} />}

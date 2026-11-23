@@ -44,7 +44,7 @@ export function TabRotation({ id, kind, state, status, rotations, loading, go }:
     }
   };
   if (kind !== "Symmetric") return <EmptyTab icon={RotateCwIcon} title="This key cannot rotate" testId="rotation-none">Only symmetric encryption keys with key material from KMS can be rotated. {kind === "Asymmetric" ? "An asymmetric key pair keeps the material it was made with." : "An HMAC key keeps the material it was made with."}</EmptyTab>;
-  if (loading || !status || !rotations) return <Skeleton className="h-56 rounded-[14px]" data-testid="rotation-loading" />;
+  if (loading || !status || !rotations) return <Skeleton className="h-56 rounded-[var(--radius-card)]" data-testid="rotation-loading" />;
   const rotateNow = <Button type="button" variant="outline" className="bg-card" onClick={() => void rotate()} disabled={pending || why !== null} title={why ?? undefined} data-testid="rotate-now"><RefreshCwIcon /> {pending ? "Rotating…" : "Rotate now"}</Button>;
   const result = refused ? <Alert tone="bad" title={`RotateKeyOnDemand was refused: ${refused.code}`} testId="rotate-refused">{refused.message}</Alert> : done ? <ResultBanner title="Key material rotated." returned="RotateKeyOnDemand made new key material current; the older material stays to decrypt what it encrypted." onDismiss={() => setDone(false)} testId="rotated-banner" /> : null;
   const edit = <Button type="button" variant="outline" className="bg-card" onClick={go} disabled={state === "PendingDeletion"} data-testid="rotation-edit"><PencilIcon /> {rotations.length === 0 ? "Edit rotation" : "Edit"}</Button>;

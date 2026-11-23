@@ -94,7 +94,7 @@ export function PolicyTab({ q, go, account }: TabProps) {
         {q.policy ? <CodeBlock text={pretty(q.policy)} max="max-h-[420px]" testId="policy-json" /> : <EmptyTab icon={ShieldIcon} title="No access policy" testId="policy-none">Only the queue owner can send and receive messages, which needs no statement.</EmptyTab>}
       </Block>
       <Block title="Who this lets in" lede={q.policy ? "Read from the statements above." : "Read from the policy, which is empty."} testId="who-reading">
-        <ul className="grid divide-y rounded-[14px] border bg-card text-[13.5px]">
+        <ul className="grid divide-y rounded-[var(--radius-card)] border bg-card text-[13.5px]">
           {reading.map((r, i) => (
             <li key={i} className="grid grid-cols-[minmax(9rem,14rem)_minmax(0,1fr)] gap-4 px-6 py-3" data-testid="who-row">
               <span className="font-medium text-bright">{r.who}</span>

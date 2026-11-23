@@ -25,7 +25,7 @@ function Review({ stack, set }: { stack: Stack; set?: string }) {
   const name = stack.StackName;
   const q = useCfnRead<ChangeSet>("DescribeChangeSet", { StackName: name, ChangeSetName: set ?? "" }, { enabled: Boolean(set) });
   if (!set) return <Callout tone="info" lead="No change set is left." testId="review-none">{name} was made from a change set that has since been deleted, so there is nothing to execute. Delete the stack, or make it again.</Callout>;
-  if (!q.data) return <Skeleton className="h-64 rounded-[14px]" />;
+  if (!q.data) return <Skeleton className="h-64 rounded-[var(--radius-card)]" />;
   const rows = changeRows(q.data);
   const said = stackSaid({ name, status: stack.StackStatus, created: null, updated: null, resources: [], exports: [], importers: {}, failed: null, waiting: { name: set, adds: rows.map((r) => ({ logical: r.LogicalResourceId, type: r.ResourceType })) } });
   return (

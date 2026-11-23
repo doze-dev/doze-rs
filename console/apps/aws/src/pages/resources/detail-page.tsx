@@ -31,7 +31,7 @@ function Hidden({ service, kind, name, label }: { service: string; kind: string;
   if (value !== undefined) {
     return (
       <div className="grid gap-2" data-testid="revealed">
-        <pre className="max-h-64 overflow-auto rounded-[10px] border bg-muted px-4 py-3 font-mono text-[13px] leading-5 whitespace-pre-wrap break-all text-foreground" data-testid="revealed-value">
+        <pre className="max-h-64 overflow-auto rounded-[var(--radius-field)] border bg-muted px-4 py-3 font-mono text-[13px] leading-5 whitespace-pre-wrap break-all text-foreground" data-testid="revealed-value">
           {value}
         </pre>
         <div className="flex flex-wrap items-center gap-2">
@@ -78,7 +78,7 @@ function Fields({ d }: { d: ResourceDetail }) {
   );
   const list = "grid grid-cols-[minmax(9rem,13rem)_minmax(0,1fr)] content-start [&>div:last-child>*]:border-b-0";
   return (
-    <section className="rounded-[14px] border bg-card p-6 lg:p-7" aria-labelledby="details-title" data-testid="details">
+    <section className="rounded-[var(--radius-card)] border bg-card p-6 lg:p-7" aria-labelledby="details-title" data-testid="details">
       <h2 id="details-title" className="text-[17px] leading-6 font-semibold tracking-[-0.01em] text-bright">
         Details
       </h2>
@@ -134,7 +134,7 @@ function Sub({ sub, service }: { sub: SubList; service: string }) {
           {sub.error}
         </Alert>
       ) : sub.rows.length === 0 ? (
-        <p className="rounded-[12px] border border-dashed px-5 py-4 text-[13.5px] text-muted-foreground" data-testid="sub-none">
+        <p className="rounded-[var(--radius-panel)] border border-dashed px-5 py-4 text-[13.5px] text-muted-foreground" data-testid="sub-none">
           None.
         </p>
       ) : (
@@ -183,7 +183,7 @@ export function ResourceDetailPage({ service, kind, name, tab }: { service: stri
       ) : detail.isError && !d ? (
         <DetailError service={service} kind={kind} name={name} what={`This ${oneOf(kind)} could not be read`} error={detail.error} onRetry={refresh} retrying={detail.isFetching} header={false} />
       ) : !d ? (
-        <Skeleton className="h-80 rounded-[14px]" data-testid="detail-loading" />
+        <Skeleton className="h-80 rounded-[var(--radius-card)]" data-testid="detail-loading" />
       ) : (
         <div data-testid="detail">
           <DeepTabs d={d} name={name} tab={tab} />

@@ -12,7 +12,7 @@ export function CodeEditor({ value, onChange, family, label, readOnly = false, t
   const tokens = useMemo(() => tokenize(value, family), [value, family]);
   const lines = value.split("\n").length;
   return (
-    <div className="relative max-h-[28rem] overflow-auto rounded-[12px] border bg-well focus-within:ring-[3px] focus-within:ring-ring/50" data-testid={`${testId}-box`}>
+    <div className="relative max-h-[28rem] overflow-auto rounded-[var(--radius-panel)] border bg-well focus-within:ring-[3px] focus-within:ring-ring/50" data-testid={`${testId}-box`}>
       <div className="relative">
         <pre aria-hidden className={cn(SHARED, "pointer-events-none text-foreground")} data-testid={`${testId}-colours`}>
           {tokens.map((t, i) => (

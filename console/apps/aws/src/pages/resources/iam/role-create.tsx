@@ -78,7 +78,7 @@ export function RoleCreate() {
     }
   };
   const trustPanel = (
-    <aside className="min-w-0 rounded-[14px] border bg-card p-5" aria-label="The trust policy this builds" data-testid="trust-panel">
+    <aside className="min-w-0 rounded-[var(--radius-card)] border bg-card p-5" aria-label="The trust policy this builds" data-testid="trust-panel">
       <h2 className="flex items-center gap-2 text-[12px] font-medium tracking-[0.08em] text-muted-foreground uppercase"><BracesIcon aria-hidden className="size-3.5" /> The trust policy this builds</h2>
       <CodeBlock text={doc} className="mt-3 max-h-[34rem]" testId="trust-json" json />
       <p className="mt-3 text-[13px] leading-5 text-muted-foreground">It becomes the AssumeRolePolicyDocument of CreateRole on the last step.</p>

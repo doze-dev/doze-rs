@@ -30,7 +30,7 @@ export function UpdateStackPage({ service, kind, name, search }: OwnProps) {
   const stack = useStack(name ?? "");
   const s = stack.data?.Stacks?.[0];
   if (stack.isError) return <DetailError service={service} kind={kind} name={name ?? ""} error={stack.error} what="This stack could not be read" />;
-  if (!s) return <Skeleton className="h-96 rounded-[14px]" />;
+  if (!s) return <Skeleton className="h-96 rounded-[var(--radius-card)]" />;
   return <WizardPage mode={search.mode === "changeset" ? "changeset" : "update"} service={service} kind={kind} stack={s} resume={search.mode === "resume"} />;
 }
 

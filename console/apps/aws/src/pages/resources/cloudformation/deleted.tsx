@@ -22,7 +22,7 @@ export function DeletedStack({ name }: { name: string }) {
   const resources = useResources(id, Boolean(record));
   const template = useTemplate(id, "Original", Boolean(record));
   const stack = stackQ.data?.Stacks?.[0];
-  if (list.isPending) return <Skeleton className="h-28 rounded-[14px]" data-testid="detail-loading" />;
+  if (list.isPending) return <Skeleton className="h-28 rounded-[var(--radius-card)]" data-testid="detail-loading" />;
   if (list.isError) return <DetailError service="cloudformation" kind="stacks" name={name} what="The deleted stacks could not be read" error={list.error} header={false} testId="detail-error" />;
   if (!record) return <DetailError service="cloudformation" kind="stacks" name={name} error={new ApiFailure(404, { code: "ValidationError", message: `Stack with id ${name} does not exist` })} testId="stack-none" />;
   const kept = retainedIn(templateText(template.data?.TemplateBody)).map((r) => r.id);
@@ -42,7 +42,7 @@ export function DeletedStack({ name }: { name: string }) {
           </RuleHelp>
         </Section>
         <Section title="Events" lede="Newest first. The delete adds its events on top of the stack's creation." testId="gone-events">
-          {events.data ? <EventsTable events={events.data.StackEvents ?? []} /> : <Skeleton className="h-40 rounded-[12px]" />}
+          {events.data ? <EventsTable events={events.data.StackEvents ?? []} /> : <Skeleton className="h-40 rounded-[var(--radius-panel)]" />}
         </Section>
       </div>
     </div>

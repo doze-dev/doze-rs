@@ -122,7 +122,7 @@ test("secretsmanager__secret-overview, secret-value, secret-value-edit: a secret
   await page.getByTestId("sample-lang").click();
   await page.getByTestId("sample-lang-python").click();
   await expect(page.getByTestId("sample-code").getByRole("button", { name: "Copy" })).toBeVisible();
-  await expect(page.getByTestId("secret-value").getByTestId("value-retrieve")).toHaveClass(/bg-primary/);
+  await expect(page.getByTestId("secret-value").getByTestId("value-retrieve")).toHaveClass(/bg-cta/);
   await shot(page, "secretsmanager__secret-overview");
   await page.getByTestId("value-retrieve").click();
   await expect(page.getByTestId("value-version")).toContainText("labeled AWSCURRENT");

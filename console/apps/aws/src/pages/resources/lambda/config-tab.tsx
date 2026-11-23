@@ -125,7 +125,7 @@ function Permissions({ d, f, go }: { d: ResourceDetail; f: Fn; go: (to: Go) => v
       </Card>
       <Card title="Resource-based policy statements" lede="Who may call the function. The console adds a statement when you create a trigger for an AWS service." actions={policy.statements.length > 0 ? add : undefined} testId="policy-card">
         {policy.isPending ? (
-          <Skeleton className="h-24 rounded-[12px]" />
+          <Skeleton className="h-24 rounded-[var(--radius-panel)]" />
         ) : policy.statements.length === 0 ? (
           <EmptyTab icon={ShieldIcon} title="No resource-based policy statements" action={<Button type="button" variant="outline" className="bg-card" onClick={() => go({ tab: "configuration", p: "permissions", view: "permission-add" })}>Add permissions</Button>} testId="policy-none">No other service or account has been given permission to invoke {d.name}.</EmptyTab>
         ) : (

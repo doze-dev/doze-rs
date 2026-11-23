@@ -127,7 +127,7 @@ export function LabPage() {
                 {failed.message}
               </Alert>
             )}
-            {send.data ? <Answer answer={send.data} /> : <div className="rounded-[14px] border border-dashed bg-card px-6 py-10 text-center text-[13.5px] text-muted-foreground">The answer shows here, with a link to the call in Live.</div>}
+            {send.data ? <Answer answer={send.data} /> : <div className="rounded-[var(--radius-card)] border border-dashed bg-card px-6 py-10 text-center text-[13.5px] text-muted-foreground">The answer shows here, with a link to the call in Live.</div>}
           </div>
         </div>
       )}

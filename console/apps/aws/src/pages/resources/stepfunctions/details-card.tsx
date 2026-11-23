@@ -26,7 +26,7 @@ export function DetailsCard({ d }: { d: ResourceDetail }) {
   const tracing = f("Tracing") === "Enabled";
   const wide = "grid grid-cols-[minmax(9rem,13rem)_minmax(0,1fr)] content-start [&>div:last-child>*]:border-b-0";
   return (
-    <section className="mb-10 rounded-[14px] border bg-card p-6 lg:p-7" aria-label="Details" data-testid="details">
+    <section className="mb-10 rounded-[var(--radius-card)] border bg-card p-6 lg:p-7" aria-label="Details" data-testid="details">
       <h2 className="text-[17px] leading-6 font-semibold tracking-[-0.01em] text-bright">Details</h2>
       <dl className={`${wide} mt-4 [&>div:last-child>*]:border-b`}>
         <Row label="ARN" testId="field-ARN"><span className="font-mono text-[13px]">{f("ARN") ?? d.id}</span></Row>

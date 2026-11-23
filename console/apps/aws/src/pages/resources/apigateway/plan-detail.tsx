@@ -31,7 +31,7 @@ export function PlanDetail({ service, kind, name }: { service: string; kind: str
   const plans = usePlans();
   if (detail.isError && !detail.data) return <DetailError service={service} kind={kind} name={name} error={detail.error} onRetry={() => void detail.refetch()} retrying={detail.isFetching} />;
   const plan = plans.data?.item?.find((p) => p.id === name);
-  if (!detail.data || !plans.data) return <div className="grid gap-4" data-testid="resource-page-loading"><Skeleton className="h-12 w-80" /><Skeleton className="h-72 rounded-[14px]" /></div>;
+  if (!detail.data || !plans.data) return <div className="grid gap-4" data-testid="resource-page-loading"><Skeleton className="h-12 w-80" /><Skeleton className="h-72 rounded-[var(--radius-card)]" /></div>;
   if (!plan) return <DetailError service={service} kind={kind} name={name} error={Object.assign(new Error("NotFoundException"), { status: 404, code: "NotFoundException" })} />;
   return <PlanView plan={plan} updatedAt={detail.dataUpdatedAt} fetching={detail.isFetching} refresh={() => { void detail.refetch(); void plans.refetch(); }} />;
 }

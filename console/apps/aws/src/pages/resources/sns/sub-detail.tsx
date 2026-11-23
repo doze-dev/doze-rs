@@ -76,7 +76,7 @@ function SubView({ d, updatedAt, fetching, refresh }: { d: ResourceDetail; updat
   useEffect(() => { if (asked) void reread(); }, [asked, reread]);
   const subscribe = search.done === "created" ? made.data?.calls.find((c) => c.action === "Subscribe" && c.status < 400) : undefined;
   const calls = subscribe ? [subscribe, ...d.calls].sort((x, y) => y.at_ms - x.at_ms) : d.calls;
-  if (search.view === "edit" && s.arn) return <Suspense fallback={<Skeleton className="h-96 rounded-[14px]" />}><Edit d={d} s={s} back={() => go()} done={(done) => go(undefined, done)} /></Suspense>;
+  if (search.view === "edit" && s.arn) return <Suspense fallback={<Skeleton className="h-96 rounded-[var(--radius-card)]" />}><Edit d={d} s={s} back={() => go()} done={(done) => go(undefined, done)} /></Suspense>;
   const id = s.arn ? tail(s.arn) : null;
   const title = shortId(id);
   const topic = tail(s.topicArn);
@@ -110,13 +110,13 @@ function SubView({ d, updatedAt, fetching, refresh }: { d: ResourceDetail; updat
         overview={
           <>
             <Rich parts={subSentence(s)} className="mb-6" testId="detail-sentence" />
-            <nav aria-label="Wired to" className="mb-8 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-[14px] border bg-card px-5 py-4" data-testid="wired-strip">
+            <nav aria-label="Wired to" className="mb-8 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-[var(--radius-card)] border bg-card px-5 py-4" data-testid="wired-strip">
               <Link to={resourceHref({ service: "sns", kind: "topics", name: topic }) as never} className="inline-flex items-center rounded-lg border bg-well px-3 py-1.5 font-mono text-[13px] text-bright hover:bg-accent" data-testid="wired-link">{topic}</Link>
               <ArrowRightIcon aria-hidden className="size-3.5 text-input" />
               {s.filter && <><span className="text-[13.5px] text-muted-foreground" data-testid="wired-filter">filter: {policyWords(s.filter)}</span><ArrowRightIcon aria-hidden className="size-3.5 text-input" /></>}
               <span className="inline-flex items-center rounded-lg border bg-well px-3 py-1.5 font-mono text-[13px] text-bright">{endpointName(s.protocol, s.endpoint)} ({s.protocol === "sqs" ? "SQS" : s.protocol === "lambda" ? "Lambda" : protocolLabel(s.protocol)})</span>
             </nav>
-            <section className="mb-10 rounded-[14px] border bg-card px-6 py-2 lg:px-7" aria-label="Details" data-testid="details">
+            <section className="mb-10 rounded-[var(--radius-card)] border bg-card px-6 py-2 lg:px-7" aria-label="Details" data-testid="details">
               <dl className="grid grid-cols-[minmax(9rem,13rem)_minmax(0,1fr)] [&>div:last-child>*]:border-b-0">
                 {rows.map(([l, v]) => (<div key={l} className="contents"><dt className="border-b py-3.5 pr-4 text-[13.5px] text-muted-foreground">{l}</dt><dd className="min-w-0 border-b py-3.5 text-[13.5px] break-words text-bright" data-testid={`field-${l}`}>{v}</dd></div>))}
               </dl>

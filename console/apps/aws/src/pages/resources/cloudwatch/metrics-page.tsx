@@ -74,7 +74,7 @@ export function MetricsPage({ service, kind }: { service: string; kind: string }
         )}
         <RangeBar state={range} onChange={patchRange} compact={rows.length === 0} />
       </div>
-      <div className="mb-8 rounded-[14px] border bg-card p-6" data-testid="metrics-chart">
+      <div className="mb-8 rounded-[var(--radius-card)] border bg-card p-6" data-testid="metrics-chart">
         <Chart series={data.series.map((s) => ({ ...s, area: rows.length === 1 }))} from={span.from} to={span.to} height={240} unit={unit} loading={queries.length > 0 && data.isPending} aria-label="The graphed metrics over the range" emptyAxes empty={queries.length === 0 ? "No metrics selected." : "No data points in this range. doze-aws keeps samples for 24 hours."} testId="metrics-graph" />
       </div>
       <Tabs value={tab} onValueChange={(v) => set({ mode: v })} className="gap-0">
@@ -93,7 +93,7 @@ export function MetricsPage({ service, kind }: { service: string; kind: string }
               <p className="text-muted-foreground">Left is the only Y-axis. The range is not kept in the address: a shared link opens on the last 3 hours.</p>
             </div>
           )}
-          {tab === "source" && <pre className="max-h-[32rem] overflow-auto rounded-[10px] border bg-well px-4 py-3 font-mono text-[12.5px] leading-5 whitespace-pre-wrap" data-testid="source-tab">{sourceOf(rows, region)}</pre>}
+          {tab === "source" && <pre className="max-h-[32rem] overflow-auto rounded-[var(--radius-field)] border bg-well px-4 py-3 font-mono text-[12.5px] leading-5 whitespace-pre-wrap" data-testid="source-tab">{sourceOf(rows, region)}</pre>}
         </div>
       </Tabs>
       {adding && <AddToDashboard rows={rows} region={region} onClose={() => setAdding(false)} />}

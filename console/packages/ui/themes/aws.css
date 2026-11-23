@@ -7,7 +7,9 @@
    primary button, the active item, selection) with navy text on it, and the focus ring. Sky is too light for text or a ring on
    a white ground, so in light those are a deeper sky (--link, --ring); in dark and on the navy frame the sky itself is used.
    AWS's orange is deliberately not used: the navy-and-orange pair is AWS's own trade dress, and doze-aws must not look like
-   an AWS product.
+   an AWS product. The one warm colour is the YELLOW of the main action button (--cta, owner 2026-11-23: bright, on navy text),
+   and it is used for that button and nothing else: sky stays the colour of selection, the active item and the focus ring, so
+   a yellow thing always means "press this". The warning amber (--warn) is a different, orange-leaning hue.
 
    Contrast (WCAG, measured on the values below): navy on sky 6.6, --link on white 5.1, --ring on white 3.6, --muted-foreground
    on the page 5.4; on the navy frame its text 10, its dim text 6.9, sky 6.6.
@@ -38,7 +40,11 @@
 }
 
 :root {
-  --radius: 0.625rem;
+  --radius: 0.25rem;
+  /* Sharper than the kit's default, as the AWS console's own corners are (owner, 2026-11-23): a card, a panel, a field. */
+  --radius-card: 6px;
+  --radius-panel: 5px;
+  --radius-field: 4px;
 
   /* Type: Inter for text, JetBrains Mono for names, numbers and times. */
   --font-sans: "Inter", -apple-system, "Helvetica Neue", Arial, sans-serif;
@@ -65,6 +71,8 @@
   --popover-foreground: #2a3550;
   --primary: #5bb8e8; /* logo: Sky */
   --primary-foreground: #1f2a44; /* logo: Navy */
+  --cta: #ffc61a; /* the one yellow: the main action button, and nothing else */
+  --cta-foreground: #1f2a44;
   --secondary: #eef3f9;
   --secondary-foreground: #1f2a44;
   --muted: #f1f5fa;
@@ -118,6 +126,8 @@
     --popover-foreground: #dde4ef;
     --primary: #5bb8e8;
     --primary-foreground: #0f1626;
+    --cta: #ffd23f;
+    --cta-foreground: #0f1626;
     --secondary: #1a2439;
     --secondary-foreground: #f2f6fb;
     --muted: #172034;
@@ -132,7 +142,7 @@
     --scrim: rgba(5, 8, 15, 0.6);
 
     --bright: #f2f6fb;
-    --link: #7cc8f0;
+    --link: #6db6e3;
     --good: #7ee787;
     --warn: #f2c879;
     --cool: #7cc8f0;
@@ -171,6 +181,8 @@
   --popover-foreground: #dde4ef;
   --primary: #5bb8e8;
   --primary-foreground: #0f1626;
+  --cta: #ffd23f;
+  --cta-foreground: #0f1626;
   --secondary: #1a2439;
   --secondary-foreground: #f2f6fb;
   --muted: #172034;
@@ -185,7 +197,7 @@
   --scrim: rgba(5, 8, 15, 0.6);
 
   --bright: #f2f6fb;
-  --link: #7cc8f0;
+  --link: #6db6e3;
   --good: #7ee787;
   --warn: #f2c879;
   --cool: #7cc8f0;
@@ -234,7 +246,7 @@
   --input: #56678f;
   --ring: #5bb8e8;
   --bright: #ffffff;
-  --link: #7cc8f0;
+  --link: #6db6e3;
   --track: #18223a;
   --pick: #2c3a5c;
   --well: #18223a;

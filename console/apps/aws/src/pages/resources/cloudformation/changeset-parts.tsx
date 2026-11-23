@@ -68,7 +68,7 @@ export function ChangeSetFacts({ set, title = "Overview", stack }: { set: Change
 export function ParametersCard({ set }: { set: ChangeSet }) {
   const params = set.Parameters ?? [];
   return (
-    <section className="min-w-0 rounded-[14px] border bg-card p-6 lg:p-7" aria-label="Parameters" data-testid="changeset-parameters">
+    <section className="min-w-0 rounded-[var(--radius-card)] border bg-card p-6 lg:p-7" aria-label="Parameters" data-testid="changeset-parameters">
       <h2 className="text-[17px] leading-6 font-semibold tracking-[-0.01em] text-bright">Parameters</h2>
       <p className="mt-1 text-[13.5px] text-muted-foreground">The inputs this change set was made with.</p>
       {params.length === 0 ? <p className="mt-4 text-[13.5px] text-muted-foreground">The template declares no parameters.</p> : (
@@ -82,7 +82,7 @@ export function ParametersCard({ set }: { set: ChangeSet }) {
 export function ExecutesCard({ creating, rows }: { creating: boolean; rows: { Action: string }[] }) {
   const modifies = rows.some((r) => r.Action === "Modify");
   return (
-    <section className="min-w-0 rounded-[14px] border bg-card p-6 lg:p-7" aria-label="What executing does" data-testid="executes">
+    <section className="min-w-0 rounded-[var(--radius-card)] border bg-card p-6 lg:p-7" aria-label="What executing does" data-testid="executes">
       <h2 className="text-[17px] leading-6 font-semibold tracking-[-0.01em] text-bright">What executing does</h2>
       <p className="mt-1 text-[13.5px] text-muted-foreground">Read this before you choose Execute change set.</p>
       <RuleHelp className="mt-4">

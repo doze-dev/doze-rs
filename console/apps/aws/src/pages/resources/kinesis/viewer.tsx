@@ -62,7 +62,7 @@ export function ViewerTab({ s, oldest }: { s: Stream; oldest: { shard: string; a
   const failed = error ? errorWords(error) : null;
   return (
     <div className="grid gap-8" data-testid="stream-viewer">
-      <section className="rounded-[14px] border bg-card p-6 lg:p-7" aria-label="Shard and starting position">
+      <section className="rounded-[var(--radius-card)] border bg-card p-6 lg:p-7" aria-label="Shard and starting position">
         <h2 className="text-[17px] leading-6 font-semibold tracking-[-0.01em] text-bright">Shard and starting position</h2>
         <p className="mt-1 text-[13.5px] text-muted-foreground">Shows the records in one shard without a consumer application.</p>
         <div className="mt-5 grid gap-5 md:grid-cols-2">

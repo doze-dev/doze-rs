@@ -34,7 +34,7 @@ const TrustEdit = lazy(() => import("./role-trust-edit").then((m) => ({ default:
 
 export function RoleDetail({ name }: { service: string; kind: string; name: string }) {
   const search = useSearch({ strict: false }) as { view?: string };
-  if (search.view === "trust") return <Suspense fallback={<Skeleton className="h-96 rounded-[14px]" />}><Entity kind="roles" name={name} render={(d) => <TrustEdit role={name} doc={fieldDoc(d)} />} /></Suspense>;
+  if (search.view === "trust") return <Suspense fallback={<Skeleton className="h-96 rounded-[var(--radius-card)]" />}><Entity kind="roles" name={name} render={(d) => <TrustEdit role={name} doc={fieldDoc(d)} />} /></Suspense>;
   return <Entity kind="roles" name={name} render={(d, t) => <RoleView d={d} {...t} />} />;
 }
 

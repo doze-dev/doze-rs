@@ -22,7 +22,7 @@ export function IndexCreate({ name }: OwnProps) {
   const update = useOp<unknown>(tableTarget(table), "UpdateTable");
   const back = () => go({ tab: "indexes" });
   if (isError && !t) return <DetailError service="dynamodb" kind="tables" name={table} error={error} onRetry={() => void refetch()} />;
-  if (!t) return <Skeleton className="h-80 rounded-[14px]" />;
+  if (!t) return <Skeleton className="h-80 rounded-[var(--radius-card)]" />;
   const set = (patch: Partial<IndexForm>) => {
     setF((x) => ({ ...x, ...patch }));
     update.reset();

@@ -80,7 +80,7 @@ export function ExportPage({ service, kind, name }: OwnProps) {
   const found = all.data?.Exports?.find((e) => e.Name === exportName);
   const importers = useImporters(found ? [exportName] : []);
   if (all.isError) return <DetailError service={service} kind={kind} name={exportName} what="This export could not be read" error={all.error} onRetry={() => void all.refetch()} retrying={all.isFetching} />;
-  if (all.isPending) return <Skeleton className="h-64 rounded-[14px]" data-testid="detail-loading" />;
+  if (all.isPending) return <Skeleton className="h-64 rounded-[var(--radius-card)]" data-testid="detail-loading" />;
   if (!found) return <DetailError service={service} kind={kind} name={exportName} error={new ApiFailure(404, { code: "ValidationError", message: `Export '${exportName}' does not exist.` })} />;
   const stack = stackNameOf(found.ExportingStackId);
   const users = importers.data?.[exportName];
@@ -101,7 +101,7 @@ export function ExportPage({ service, kind, name }: OwnProps) {
         <Facts title="Export" testId="export-facts" wide={[{ label: "Export Name", value: exportName, mono: true }, { label: "Value", value: found.Value, mono: true }, { label: "Exporting stack", value: <StackTo name={stack} /> }]} rows={[]} />
         <section className="grid gap-3" aria-label="Importing stacks" data-testid="importers">
           <div><h2 className="text-[17px] leading-6 font-semibold tracking-[-0.01em] text-bright">Importing stacks</h2><p className="mt-1 text-[13.5px] text-muted-foreground">Stacks whose templates use Fn::ImportValue on this name.</p></div>
-          {users === undefined ? <Skeleton className="h-24 rounded-[12px]" /> : rows.length === 0 ? <EmptyTab title="No stack imports this export" testId="importers-none">Nothing uses {exportName} yet.</EmptyTab> : <DataTable aria-label="Importing stacks" data={rows} columns={columns} rowId={(r) => r.stack} rowHeight={48} maxHeight={320} />}
+          {users === undefined ? <Skeleton className="h-24 rounded-[var(--radius-panel)]" /> : rows.length === 0 ? <EmptyTab title="No stack imports this export" testId="importers-none">Nothing uses {exportName} yet.</EmptyTab> : <DataTable aria-label="Importing stacks" data={rows} columns={columns} rowId={(r) => r.stack} rowHeight={48} maxHeight={320} />}
           <RuleHelp className="max-w-[56rem]">
             {users && users.length > 0 ? <>To delete {stack} or change this output, first remove the import from {nameList(users)}'s template and update {users.length === 1 ? "that stack" : "those stacks"}. DeleteStack on the exporting stack is cancelled while any import remains: the stack keeps its status and says why. </> : "Once a stack imports this export, the output can't change and the exporting stack can't be deleted. "}
             {others.length > 0 ? `${others.length === 1 ? "The other export is" : `The other ${others.length} exports are`} unaffected.` : ""}

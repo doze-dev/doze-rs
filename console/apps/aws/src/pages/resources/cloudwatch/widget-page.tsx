@@ -66,7 +66,7 @@ export function WidgetPage({ name, mode }: { name: string; mode: string | undefi
         <Select value={kind} onValueChange={setKind}><SelectTrigger className="w-44 bg-card" aria-label="Widget type" data-testid="widget-kind"><SelectValue /></SelectTrigger><SelectContent>{Object.entries(KINDS).map(([id, x]) => <SelectItem key={id} value={id}>{x.label}</SelectItem>)}</SelectContent></Select>
         <Button type="button" variant="outline" aria-pressed={persist} onClick={() => setPersist(!persist)} className={`h-9 rounded-full px-4 ${persist ? "border-primary/50 bg-accent text-bright" : "bg-card"}`} data-testid="persist-range">Persist time range</Button>
       </div>
-      <div className="mb-8 rounded-[14px] border bg-card p-6" data-testid="widget-preview">
+      <div className="mb-8 rounded-[var(--radius-card)] border bg-card p-6" data-testid="widget-preview">
         <Chart series={data.series.map((s) => ({ ...s, area: k.stacked === true || rows.length === 1 }))} from={span.from} to={span.to} height={240} unit={unit} loading={queries.length > 0 && data.isPending} aria-label="The widget over the range" empty={queries.length === 0 ? "No metrics selected." : "No data points in this range."} testId="widget-graph" />
       </div>
       <Tabs value={tab} onValueChange={setTab} className="gap-0">

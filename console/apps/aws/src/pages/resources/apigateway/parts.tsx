@@ -99,7 +99,7 @@ export function Rows({ rows, testId = "details" }: { rows: readonly { label: str
 /** A card with a heading, an optional Edit at its right, and what is in it. */
 export function Card({ title, sub, action, children, className, testId }: { title: string; sub?: React.ReactNode; action?: React.ReactNode; children: React.ReactNode; className?: string; testId?: string }) {
   return (
-    <section className={cn("min-w-0 rounded-[14px] border bg-card p-6 lg:p-7", className)} aria-label={title} data-testid={testId}>
+    <section className={cn("min-w-0 rounded-[var(--radius-card)] border bg-card p-6 lg:p-7", className)} aria-label={title} data-testid={testId}>
       <div className="mb-4 flex items-start justify-between gap-3">
         <div className="min-w-0">
           <h2 className="text-[19px] leading-7 font-semibold tracking-[-0.01em] text-bright">{title}</h2>

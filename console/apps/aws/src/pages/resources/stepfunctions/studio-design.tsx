@@ -145,7 +145,7 @@ export function DesignMode({ text, setText }: { text: string; setText: (t: strin
   const offers = tab === "flow" ? FLOW : tab === "actions" ? ACTIONS : PATTERNS;
   return (
     <div className="grid gap-6" data-testid="studio-design">
-      <section className="rounded-[14px] border bg-card p-6 lg:p-7" data-testid="states-browser">
+      <section className="rounded-[var(--radius-card)] border bg-card p-6 lg:p-7" data-testid="states-browser">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <h2 className="text-[17px] leading-6 font-semibold tracking-[-0.01em] text-bright">States browser</h2>
@@ -162,7 +162,7 @@ export function DesignMode({ text, setText }: { text: string; setText: (t: strin
       {armed && <Callout tone="info" testId="armed-note">Choose where <b className="font-semibold">{armedLabel}</b> {armed.startsWith("move:") ? "moves to" : "goes"}: one of the <span className="font-mono">+</span> marks on the canvas. <button type="button" className="font-medium text-link hover:underline" onClick={() => setArmed(null)}>Cancel</button></Callout>}
       {problem && <Callout tone="warn" testId="design-problem">{problem}</Callout>}
       <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_22rem]">
-        <section className="min-w-0 rounded-[14px] border bg-card p-6 lg:p-7" data-testid="canvas">
+        <section className="min-w-0 rounded-[var(--radius-card)] border bg-card p-6 lg:p-7" data-testid="canvas">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
               <h2 className="text-[17px] leading-6 font-semibold tracking-[-0.01em] text-bright">Canvas</h2>
@@ -178,7 +178,7 @@ export function DesignMode({ text, setText }: { text: string; setText: (t: strin
               <Callout tone="bad" testId="design-unreadable">The definition is not JSON, so there is no graph to draw. Fix it in Code mode.</Callout>
             ) : empty ? (
               <div
-                className="flex min-h-48 items-center justify-center rounded-[12px] border border-dashed text-[13.5px] text-muted-foreground"
+                className="flex min-h-48 items-center justify-center rounded-[var(--radius-panel)] border border-dashed text-[13.5px] text-muted-foreground"
                 onDragOver={(e) => e.preventDefault()}
                 onDrop={(e) => { e.preventDefault(); const id = e.dataTransfer.getData("text/plain"); if (id) dropFirst(id); }}
                 onClick={() => armed && dropFirst(armed)}
@@ -200,7 +200,7 @@ export function DesignMode({ text, setText }: { text: string; setText: (t: strin
 function Inspector({ def, name, state, onChange, onRename, onDelete, onMove }: { def: Definition | null; name: string | undefined; state: AslState | undefined; onChange: (d: Definition | null, refused: string) => void; onRename: (name: string) => void; onDelete: () => void; onMove: (name: string) => void }) {
   const [showDefinition, setShowDefinition] = useState(false);
   return (
-    <section className="min-w-0 rounded-[14px] border bg-card p-6 lg:p-7" data-testid="inspector">
+    <section className="min-w-0 rounded-[var(--radius-card)] border bg-card p-6 lg:p-7" data-testid="inspector">
       <h2 className="text-[17px] leading-6 font-semibold tracking-[-0.01em] text-bright">Inspector</h2>
       {!def || !name || !state ? (
         <p className="mt-1 text-[13.5px] text-muted-foreground" data-testid="inspector-none">Properties of the selected state. Choose a state on the canvas.</p>

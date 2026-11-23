@@ -23,7 +23,7 @@ const prop = <T,>(w: Widget, k: string): T | undefined => w.properties?.[k] as T
 
 function Frame({ title, children, onRemove, source, testId }: { title: string; children: React.ReactNode; onRemove?: () => void; source: string; testId: string }) {
   return (
-    <section className="flex min-h-0 min-w-0 flex-1 flex-col rounded-[14px] border bg-card p-5" data-testid={testId}>
+    <section className="flex min-h-0 min-w-0 flex-1 flex-col rounded-[var(--radius-card)] border bg-card p-5" data-testid={testId}>
       <div className="mb-3 flex items-start justify-between gap-2">
         <h3 className="min-w-0 truncate text-[14.5px] font-semibold text-bright">{title}</h3>
         <DropdownMenu>

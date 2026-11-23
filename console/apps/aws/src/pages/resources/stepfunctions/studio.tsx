@@ -209,7 +209,7 @@ function CodeMode({ text, setText, validation, valid, pending, definition, editi
   const versions = useVersions(name, editing);
   const newest = [...(versions.data ?? [])].sort((x, y) => Number(y.number) - Number(x.number))[0];
   const graph = (
-    <section className="rounded-[14px] border bg-card p-6 lg:p-7" data-testid="studio-graph">
+    <section className="rounded-[var(--radius-card)] border bg-card p-6 lg:p-7" data-testid="studio-graph">
       <h2 className="text-[17px] leading-6 font-semibold tracking-[-0.01em] text-bright">Graph</h2>
       {editing && <p className="mt-1 text-[13.5px] text-muted-foreground">Redrawn as you edit.</p>}
       <div className="mt-4">
@@ -218,7 +218,7 @@ function CodeMode({ text, setText, validation, valid, pending, definition, editi
         ) : definition ? (
           <GraphView definition={definition} />
         ) : (
-          <Skeleton className="h-40 rounded-[12px]" />
+          <Skeleton className="h-40 rounded-[var(--radius-panel)]" />
         )}
       </div>
     </section>

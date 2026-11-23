@@ -98,7 +98,7 @@ export function ProtocolTable({ open }: { open: (p: Protocol) => void }) {
     <section className="mt-12 grid gap-3" aria-label="What each protocol changes" data-testid="protocol-table">
       <h2 className="text-[17px] font-semibold tracking-[-0.01em] text-bright">What each protocol changes</h2>
       <p className="max-w-[56rem] text-[13.5px] text-muted-foreground">The Protocol you pick decides what Endpoint means and whether the endpoint owner must confirm. {countWord(disabledCount())} of the nine AWS protocols are disabled here, with the reason.</p>
-      <div className="overflow-x-auto rounded-[14px] border bg-card">
+      <div className="overflow-x-auto rounded-[var(--radius-card)] border bg-card">
         <table className="w-full min-w-[56rem] border-collapse">
           <thead className="bg-muted/50"><tr><th className={th}>Protocol</th><th className={th}>Endpoint is</th><th className={th}>Confirmation</th><th className={th}>Raw delivery</th><th className={th}>Form</th></tr></thead>
           <tbody className="divide-y">

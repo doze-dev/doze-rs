@@ -29,7 +29,7 @@ export function TagsPanel({ d }: { d: ResourceDetail }) {
   const tags = useTags({ service: d.service, kind: d.kind, name: d.name });
   const manage = () => void navigate({ to: "/resources/$service/$kind/$name", params: { service: d.service, kind: d.kind, name: d.name }, search: { do: "tags" } });
   if (tags.isError && !tags.data) return <ErrorBlock what="The tags could not be read" error={tags.error} onRetry={() => void tags.refetch()} testId="tags-error" />;
-  if (!tags.data) return <Skeleton className="h-40 w-full rounded-[14px]" data-testid="tags-loading" />;
+  if (!tags.data) return <Skeleton className="h-40 w-full rounded-[var(--radius-card)]" data-testid="tags-loading" />;
   const list = tags.data.tags;
   if (list.length === 0) {
     return (
@@ -60,7 +60,7 @@ export function ManageTags({ name }: { name: string }) {
   const saved = tags.data?.tags ?? [];
   const live = rows ?? (tags.data ? (saved.length > 0 ? rowsFrom(saved) : [newRow()]) : null);
   const back = (done?: string) => void navigate({ to: "/resources/$service/$kind/$name", params: { service: "stepfunctions", kind: "machines", name }, search: done ? { tab: "tags", done } : { tab: "tags" } });
-  if (!live) return <Skeleton className="h-80 rounded-[14px]" />;
+  if (!live) return <Skeleton className="h-80 rounded-[var(--radius-card)]" />;
   const change = diffTags(saved, live);
   const valid = rowsValid(live, RULES);
   const requests = [

@@ -149,7 +149,7 @@ export function AccessPage() {
                 {v.iam === "off" ? "No call is checked against a policy, so none is refused. Start doze-aws with --iam soft to see what your policies would refuse." : `No call in the Live record was ${soft ? "let through that IAM would refuse" : "refused by IAM"}.`}
               </EmptyState>
             ) : (
-              <ul className="rounded-[14px] border bg-card" data-testid="denial-groups">
+              <ul className="rounded-[var(--radius-card)] border bg-card" data-testid="denial-groups">
                 {v.groups.map((g) => (
                   <Group key={`${g.caller}-${g.service}-${g.action}`} g={g} now={now} soft={soft} />
                 ))}

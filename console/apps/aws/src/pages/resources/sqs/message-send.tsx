@@ -14,7 +14,7 @@ import { type Attr, type DelayUnit, NEW_ATTR, type SendForm } from "./send";
 
 export type Sent = { MessageId: string; MD5OfMessageBody?: string; MD5OfMessageAttributes?: string; SequenceNumber?: string };
 
-const card = "rounded-[14px] border bg-card p-6 lg:p-7";
+const card = "rounded-[var(--radius-card)] border bg-card p-6 lg:p-7";
 const heading = "text-[17px] leading-6 font-semibold tracking-[-0.01em] text-bright";
 const pill = (text: string) => <span className="ml-1.5 rounded-full bg-muted px-2 py-px text-[11.5px] font-normal text-muted-foreground">{text}</span>;
 

@@ -16,7 +16,7 @@ import { RedriveStatus } from "./redrive-status";
 import type { TabProps } from "./tabs";
 
 const dl = "grid grid-cols-[minmax(9rem,12rem)_minmax(0,1fr)] [&>*]:border-b [&>*]:py-3 [&>:nth-last-child(-n+2)]:border-b-0 text-[13.5px]";
-const card = "rounded-[14px] border bg-card p-6 lg:p-7";
+const card = "rounded-[var(--radius-card)] border bg-card p-6 lg:p-7";
 const heading = "text-[17px] leading-6 font-semibold tracking-[-0.01em] text-bright";
 
 /** The dead-letter queue this queue sends to, who may send to it, and (when it is one) its redrive. */
@@ -56,7 +56,7 @@ export function DlqTab({ d, q, go, dead }: TabProps) {
         </Alert>
       )}
       <Block title="Redrive allow policy" lede={`Which source queues may use ${q.name} as THEIR dead-letter queue.`} testId="allow-reading">
-        <dl className={`${dl} rounded-[14px] border bg-card px-6 py-0.5`}>
+        <dl className={`${dl} rounded-[var(--radius-card)] border bg-card px-6 py-0.5`}>
           <dt className="text-muted-foreground">Redrive allow policy</dt>
           <dd className="text-bright">{q.allow === null ? `Not set (all source queues may use ${q.name} as a dead-letter queue)` : allowWords(q.allow)}</dd>
         </dl>

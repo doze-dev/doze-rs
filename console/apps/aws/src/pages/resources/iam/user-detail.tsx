@@ -23,7 +23,7 @@ const NewKey = lazy(() => import("./access-key-new").then((m) => ({ default: m.A
 
 export function UserDetail({ name }: { service: string; kind: string; name: string }) {
   const search = useSearch({ strict: false }) as { view?: string };
-  if (search.view === "access-key") return <Suspense fallback={<Skeleton className="h-96 rounded-[14px]" />}><NewKey user={name} /></Suspense>;
+  if (search.view === "access-key") return <Suspense fallback={<Skeleton className="h-96 rounded-[var(--radius-card)]" />}><NewKey user={name} /></Suspense>;
   return <Entity kind="users" name={name} render={(d, t) => <UserView d={d} {...t} />} />;
 }
 

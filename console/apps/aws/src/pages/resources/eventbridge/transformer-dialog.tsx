@@ -55,9 +55,9 @@ export function TransformerDialog({ open, onOpenChange, paths, template, target,
           <span className="text-[13px] text-muted-foreground">{names} {names === 1 ? "variable" : "variables"}</span>
         </div>
         {out && ("output" in out ? (
-          <div className="grid gap-1.5" data-testid="transformer-output"><Label>Output</Label><pre className="overflow-auto rounded-[10px] bg-well px-4 py-3 font-mono text-[13px] leading-5">{out.output}</pre></div>
+          <div className="grid gap-1.5" data-testid="transformer-output"><Label>Output</Label><pre className="overflow-auto rounded-[var(--radius-field)] bg-well px-4 py-3 font-mono text-[13px] leading-5">{out.output}</pre></div>
         ) : (
-          <p className="rounded-[10px] border border-bad/30 bg-bad/5 px-4 py-3 text-[13px] text-bad" role="alert" data-testid="transformer-problem">{out.problem}</p>
+          <p className="rounded-[var(--radius-field)] border border-bad/30 bg-bad/5 px-4 py-3 text-[13px] text-bad" role="alert" data-testid="transformer-problem">{out.problem}</p>
         ))}
         <DialogFooter>
           <Button type="button" variant="outline" className="bg-card" onClick={() => onOpenChange(false)}>Cancel</Button>

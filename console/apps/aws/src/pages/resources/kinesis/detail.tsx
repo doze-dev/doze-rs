@@ -59,7 +59,7 @@ function Summary({ s }: { s: ReturnType<typeof streamOf> }) {
   );
   const col = "grid grid-cols-[minmax(9rem,12rem)_minmax(0,1fr)] content-start [&>div:last-child>*]:border-b-0";
   return (
-    <section className="mb-10 rounded-[14px] border bg-card p-6 lg:p-7" aria-label="Summary" data-testid="details">
+    <section className="mb-10 rounded-[var(--radius-card)] border bg-card p-6 lg:p-7" aria-label="Summary" data-testid="details">
       <h2 className="text-[17px] leading-6 font-semibold tracking-[-0.01em] text-bright">Summary</h2>
       <p className="mt-1 text-[13.5px] text-muted-foreground">The fields DescribeStreamSummary returns for this stream.</p>
       <dl className={`mt-3 ${col}`}>{row("Stream ARN", <span className="flex items-center gap-2 font-mono text-[13px]">{s.arn}<CopyButton text={s.arn} what="ARN copied" iconOnly variant="ghost" label="Copy ARN" /></span>)}</dl>
@@ -96,7 +96,7 @@ function StreamView({ d, updatedAt, fetching, refresh }: { d: ResourceDetail; up
   const go = (patch: { view?: string; tab?: string; done?: string }) => void navigate({ to: "/resources/$service/$kind/$name", params: { service: d.service, kind: d.kind, name: d.name }, search: patch });
   if (search.view === "sharing-create" || search.view === "tags") {
     const Page = search.view === "tags" ? Manage : Sharing;
-    return <Suspense fallback={<Skeleton className="h-96 rounded-[14px]" />}><Page d={d} /></Suspense>;
+    return <Suspense fallback={<Skeleton className="h-96 rounded-[var(--radius-card)]" />}><Page d={d} /></Suspense>;
   }
   const created = s.created && timeMs(s.created) ? dateTimeUtc(timeMs(s.created) ?? 0) : "";
   const meta = `${search.done === "created" ? "Created just now." : created ? `Created ${created}.` : ""} ${s.mode === "PROVISIONED" ? `Provisioned capacity with ${count(s.shards, "open shard")}.` : "On-demand capacity."}`.trim();

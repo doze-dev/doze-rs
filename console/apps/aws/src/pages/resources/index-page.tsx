@@ -31,7 +31,7 @@ function ServiceCard({ s }: { s: ResourceService }) {
   const live = s.described && s.served && first;
   const body = (
     <div className="flex items-start gap-3.5">
-      <span className="inline-flex size-9 flex-none items-center justify-center rounded-[10px] border bg-muted">
+      <span className="inline-flex size-9 flex-none items-center justify-center rounded-[var(--radius-field)] border bg-muted">
         {createElement(iconOf(s.name), { "aria-hidden": true, className: cn("size-[18px]", live ? "text-primary" : "text-muted-foreground") })}
       </span>
       <div className="min-w-0">
@@ -42,7 +42,7 @@ function ServiceCard({ s }: { s: ResourceService }) {
       </div>
     </div>
   );
-  const card = "block rounded-[14px] border bg-card px-[22px] py-5";
+  const card = "block rounded-[var(--radius-card)] border bg-card px-[22px] py-5";
   if (!live) {
     return (
       <div className={cn(card, "opacity-75")} title={s.note ?? (s.served ? undefined : "This doze-aws does not serve it: start it with the service in --services.")} data-testid={`service-${s.name}`}>
@@ -88,7 +88,7 @@ export function ResourcesPage() {
       ) : !index.data ? (
         <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3" data-testid="resources-loading">
           {[0, 1, 2, 3, 4, 5].map((i) => (
-            <Skeleton key={i} className="h-[86px] rounded-[14px]" />
+            <Skeleton key={i} className="h-[86px] rounded-[var(--radius-card)]" />
           ))}
         </div>
       ) : (
