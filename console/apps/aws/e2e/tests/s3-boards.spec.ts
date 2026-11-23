@@ -447,6 +447,27 @@ test("s3__object-detail, -versions, -presign, -copy, -delete-version, -delete: o
   await expect(calls.getByTestId("call-key").first()).toHaveText("sku-FV-TOM-V.jpg");
   await expect(calls.getByTestId("answer-words").filter({ hasText: /^· \d+(\.\d)? KiB$/ }).first()).toBeVisible();
   await shot(page, "s3__object-detail", browserName);
+  // Tags and Metadata sit side by side, as drawn.
+  const tagsBox = await page.getByTestId("object-tags").boundingBox();
+  const metaBox = await page.getByTestId("object-metadata").boundingBox();
+  expect(Math.abs(tagsBox!.y - metaBox!.y)).toBeLessThan(2);
+  expect(tagsBox!.x + tagsBox!.width).toBeLessThanOrEqual(metaBox!.x);
+  // Object actions: the list's own menu (Download as, Share, Calculate total size, Copy, Move, Rename) and Delete.
+  await page.getByTestId("object-actions").click();
+  for (const id of ["action-download-as", "action-presign", "action-total", "action-copy", "action-move", "action-rename", "action-delete"]) await expect(page.getByTestId(id)).toBeVisible();
+  await shot(page, "s3__object-detail-actions", browserName);
+  await page.getByTestId("action-total").click();
+  await expect(page.getByTestId("total-size")).toContainText("in 1 object");
+  await shot(page, "s3__object-detail-total", browserName);
+  await page.keyboard.press("Escape");
+  await page.getByTestId("object-actions").click();
+  await page.getByTestId("action-download-as").click();
+  await expect(page.getByTestId("save-as")).toHaveValue("sku-FV-TOM-V.jpg");
+  await page.getByTestId("save-as").fill("tomato.jpg");
+  const saved = page.waitForEvent("download");
+  await page.getByTestId("save-as-submit").click();
+  expect((await saved).suggestedFilename()).toBe("tomato.jpg");
+  await expectNoErrorAnswers(page, refusals);
   // The link: a presigned URL downloads the object with no key of ours.
   await page.getByTestId("object-actions").click();
   await page.getByTestId("action-presign").click();

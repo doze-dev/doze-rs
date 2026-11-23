@@ -1,6 +1,6 @@
 // One object: its overview (what HeadObject says, its addresses, its tags and metadata) and its versions, with Download and the
 // Object actions (a presigned link, copy, move, rename). The presigned link is a dialog over this page.
-import { ChevronDownIcon, DownloadIcon, Trash2Icon } from "lucide-react";
+import { DownloadIcon, Trash2Icon } from "lucide-react";
 import { useState } from "react";
 import { Alert, errorWords } from "@doze/ui/components/app/alert";
 import { CopyButton } from "@doze/ui/components/app/copy-button";
@@ -9,7 +9,7 @@ import { DataTable } from "@doze/ui/components/app/data-table";
 import { SelectableTable } from "@doze/ui/components/app/selectable-table";
 import { Button } from "@doze/ui/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@doze/ui/components/ui/dialog";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@doze/ui/components/ui/dropdown-menu";
+import { DropdownMenuItem } from "@doze/ui/components/ui/dropdown-menu";
 import { Input } from "@doze/ui/components/ui/input";
 import { Label } from "@doze/ui/components/ui/label";
 import { Tabs, TabsList, TabsTrigger } from "@doze/ui/components/ui/tabs";
@@ -24,6 +24,7 @@ import { RecentCalls } from "../../../kit/recent-calls";
 import { bucketOf, crumbs, useBucket, useBucketNav, useSetting } from "./api";
 import { notificationRules, SSE_WORDS, isSse } from "./config";
 import { rowId, type Versions, versionRowsOf, type Row, selToText } from "./listing";
+import { ActionsMenu } from "./objects-menu";
 import { ActionPage, FlashBanner, Mono, Reading, Rows, useFlash } from "./parts";
 import { baseName, bucketArn, clock, count, listWords, longDate, s3Uri, shortDate, size, storageWords } from "./words";
 
@@ -93,17 +94,11 @@ export function ObjectPage({ name, search }: OwnProps) {
   const objectUrl = `${about.data?.endpoint ?? ""}/${name}/${key.split("/").map(encodeURIComponent).join("/")}`;
   const sel = versions.filter((v) => picked.has(rowId(v)));
   const dl = async (versionId?: string) => downloadObject(name!, key, undefined, versionId).catch(setError);
+  const here: Row = { key, folder: false, size: h?.ContentLength };
   const menu = (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild><Button variant="outline" className="bg-card" data-testid="object-actions">Object actions <ChevronDownIcon /></Button></DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="min-w-60">
-        <DropdownMenuItem onSelect={() => go({ do: "object", key, dialog: "presign" })} data-testid="action-presign">Share with a presigned URL</DropdownMenuItem>
-        <DropdownMenuItem onSelect={() => go({ do: "object-copy", key, mode: "copy" })} data-testid="action-copy">Copy</DropdownMenuItem>
-        <DropdownMenuItem onSelect={() => go({ do: "object-copy", key, mode: "move" })} data-testid="action-move">Move</DropdownMenuItem>
-        <DropdownMenuItem onSelect={() => go({ do: "object-copy", key, mode: "rename" })} data-testid="action-rename">Rename object</DropdownMenuItem>
-        <DropdownMenuItem onSelect={() => go({ do: "object-delete", sel: selToText([{ key, folder: false }]) })} data-testid="action-delete">Delete</DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
+    <ActionsMenu t={t} rows={h ? [here] : []} one={h ? here : null} label="Object actions" testId="object-actions" align="end"
+      go={(action, mode) => go(action === "presign" ? { do: "object", key, dialog: "presign" } : { do: action, key, ...(mode ? { mode } : {}) })}
+      extra={<DropdownMenuItem onSelect={() => go({ do: "object-delete", sel: selToText([{ key, folder: false }]) })} data-testid="action-delete">Delete</DropdownMenuItem>} />
   );
   const sentence = h ? `${baseName(key)} is ${size(h.ContentLength)}, last modified ${clock(h.LastModified)} UTC. ${versions.length > 1 ? `It has ${count(versions.length, "version")}${notified.length ? ` and ${listWords(notified)} is notified when an object is created in the bucket` : ""}.` : notified.length ? `${listWords(notified)} is notified when an object is created in the bucket.` : ""}`.trim() : null;
   const meta = (m: Record<string, string> | undefined) => [...(h?.ContentType ? [["System defined", "Content-Type", h.ContentType]] : []), ...(h?.CacheControl ? [["System defined", "Cache-Control", h.CacheControl]] : []), ...(h?.ContentDisposition ? [["System defined", "Content-Disposition", h.ContentDisposition]] : []), ...(h?.ContentEncoding ? [["System defined", "Content-Encoding", h.ContentEncoding]] : []), ...Object.entries(m ?? {}).map(([k, v]) => ["User defined", `x-amz-meta-${k}`, v])] as [string, string, string][];
@@ -126,12 +121,14 @@ export function ObjectPage({ name, search }: OwnProps) {
           <Card title="Properties" className="mt-6">
             <Rows rows={[["Storage class", storageWords(h?.StorageClass)], ["Server-side encryption settings", h?.ServerSideEncryption && isSse(h.ServerSideEncryption) ? SSE_WORDS[h.ServerSideEncryption] : (h?.ServerSideEncryption ?? "None")]]} />
           </Card>
-          <Card title="Tags" className="mt-6">
-            {(tags.data?.TagSet ?? []).length > 0 ? <DataTable aria-label="Tags" data={tags.data!.TagSet!} rowId={(x) => x.Key} maxHeight={240} columns={[{ id: "k", header: "Key", accessorKey: "Key", size: 280, meta: { mono: true } }, { id: "v", header: "Value", accessorKey: "Value", meta: { mono: true } }]} /> : <p className="text-[13.5px] text-muted-foreground" data-testid="object-tags-none">{tags.isPending ? "Reading…" : "This object has no tags."}</p>}
-          </Card>
-          <Card title="Metadata" className="mt-6">
-            <DataTable aria-label="Metadata" data={meta(h?.Metadata)} rowId={(m) => m[1]} maxHeight={280} empty="No metadata." columns={[{ id: "t", header: "Type", size: 160, accessorFn: (m) => m[0] }, { id: "k", header: "Key", size: 280, accessorFn: (m) => m[1], meta: { mono: true } }, { id: "v", header: "Value", accessorFn: (m) => m[2], meta: { mono: true } }]} />
-          </Card>
+          <div className="mt-6 grid gap-6 lg:grid-cols-2" data-testid="tags-and-metadata">
+            <Card title="Tags" testId="object-tags">
+              {(tags.data?.TagSet ?? []).length > 0 ? <DataTable aria-label="Tags" data={tags.data!.TagSet!} rowId={(x) => x.Key} maxHeight={240} columns={[{ id: "k", header: "Key", accessorKey: "Key", size: 180, meta: { mono: true } }, { id: "v", header: "Value", accessorKey: "Value", meta: { mono: true } }]} /> : <p className="text-[13.5px] text-muted-foreground" data-testid="object-tags-none">{tags.isPending ? "Reading…" : "This object has no tags."}</p>}
+            </Card>
+            <Card title="Metadata" testId="object-metadata">
+              <DataTable aria-label="Metadata" data={meta(h?.Metadata)} rowId={(m) => m[1]} maxHeight={280} empty="No metadata." columns={[{ id: "t", header: "Type", size: 145, accessorFn: (m) => m[0] }, { id: "k", header: "Key", size: 175, accessorFn: (m) => m[1], meta: { mono: true } }, { id: "v", header: "Value", accessorFn: (m) => m[2], meta: { mono: true } }]} />
+            </Card>
+          </div>
           {bucket.detail && <RecentCalls calls={bucket.detail.calls.filter((c) => c.resource === `${name}/${key}`)} noun="object" scope="this object" className="mt-6" />}
         </Reading>
       ) : (

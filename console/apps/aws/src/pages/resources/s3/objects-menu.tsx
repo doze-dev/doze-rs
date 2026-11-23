@@ -39,7 +39,8 @@ export async function totalSize(t: Target, rows: Row[]): Promise<{ objects: numb
   return { objects, bytes };
 }
 
-export function ActionsMenu({ t, rows, one, go }: { t: Target; rows: Row[]; one: Row | null; go: (action: string, mode?: string) => void }) {
+/** `label`, `testId` and `extra` are for an object's own page: its menu is `Object actions`, and ends with the Delete of that object. */
+export function ActionsMenu({ t, rows, one, go, label = "Actions", testId = "objects-actions", align = "start", extra }: { t: Target; rows: Row[]; one: Row | null; go: (action: string, mode?: string) => void; label?: string; testId?: string; align?: "start" | "end"; extra?: React.ReactNode }) {
   const [dialog, setDialog] = useState<"total" | "download" | null>(null);
   const [total, setTotal] = useState<{ objects: number; bytes: number } | null>(null);
   const [saveAs, setSaveAs] = useState("");
@@ -62,11 +63,11 @@ export function ActionsMenu({ t, rows, one, go }: { t: Target; rows: Row[]; one:
     <>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button type="button" variant="outline" className="bg-card" disabled={rows.length === 0} data-testid="objects-actions">
-            Actions <ChevronDownIcon />
+          <Button type="button" variant="outline" className="bg-card" disabled={rows.length === 0} data-testid={testId}>
+            {label} <ChevronDownIcon />
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="start" className="min-w-60">
+        <DropdownMenuContent align={align} className="min-w-60">
           <DropdownMenuItem disabled={!one} onSelect={() => void open("download")} data-testid="action-download-as">Download as</DropdownMenuItem>
           <DropdownMenuItem disabled={!one} onSelect={() => go("presign")} data-testid="action-presign">Share with a presigned URL</DropdownMenuItem>
           <DropdownMenuItem onSelect={() => void open("total")} data-testid="action-total">Calculate total size</DropdownMenuItem>
@@ -74,6 +75,7 @@ export function ActionsMenu({ t, rows, one, go }: { t: Target; rows: Row[]; one:
           <DropdownMenuItem disabled={!one} onSelect={() => go("object-copy", "copy")} data-testid="action-copy">Copy</DropdownMenuItem>
           <DropdownMenuItem disabled={!one} onSelect={() => go("object-copy", "move")} data-testid="action-move">Move</DropdownMenuItem>
           <DropdownMenuItem disabled={!one} onSelect={() => go("object-copy", "rename")} data-testid="action-rename">Rename object</DropdownMenuItem>
+          {extra}
         </DropdownMenuContent>
       </DropdownMenu>
       <Dialog open={dialog === "total"} onOpenChange={(o) => !o && setDialog(null)}>
