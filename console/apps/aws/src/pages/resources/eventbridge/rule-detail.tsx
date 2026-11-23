@@ -14,7 +14,7 @@ import { Button } from "@doze/ui/components/ui/button";
 import { Link } from "@tanstack/react-router";
 import { useResourceDetail } from "../../../api/resources";
 import type { ResourceDetail } from "../../../api/types/ResourceDetail";
-import { DetailError, type FlowGroup, FlowStrip, RecentCalls, ResourcePage, ResourcePageSkeleton, RuleHelp, type Verb, callKindOp, useFeeders, useTags } from "../../../kit";
+import { DetailError, type FlowGroup, FlowStrip, PlainConfirm, RecentCalls, ResourcePage, ResourcePageSkeleton, RuleHelp, type Verb, callKindOp, useFeeders, useTags } from "../../../kit";
 import { RULES, useTargets } from "./api";
 import { useFanout } from "./fanout";
 import { Breakable, DetailsGrid, Heading, useWhere } from "./parts";
@@ -47,6 +47,7 @@ function RuleView({ d, bus, rule, targets, reload, updatedAt, fetching }: { d: R
   const [deleting, setDeleting] = useState(false);
   const [picked, setPicked] = useState<Set<string>>(new Set());
   const [removing, setRemoving] = useState(false);
+  const [confirming, setConfirming] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const tags = useTags({ service: d.service, kind: d.kind, name: d.name });
   const record = useRecord();
@@ -94,6 +95,7 @@ function RuleView({ d, bus, rule, targets, reload, updatedAt, fetching }: { d: R
       await callKindOp(RULES, "RemoveTargets", { Rule: rule, EventBusName: bus, Ids: [...picked] });
       setPicked(new Set());
       reload();
+      setConfirming(false);
       go({ done: "removed" });
     } catch (e) {
       setError((e as Error).message);
@@ -135,9 +137,11 @@ function RuleView({ d, bus, rule, targets, reload, updatedAt, fetching }: { d: R
                 <EmptyTab title="No targets" action={<Button onClick={() => go({ view: "target" })} data-testid="add-target"><PlusIcon /> Add target</Button>}><b className="font-mono font-semibold text-bright">{rule}</b> matches events but has nowhere to send them. A rule needs at least one target to do anything.</EmptyTab>
               ) : (
                 <SelectableTable<TargetItem> aria-label="Targets" data={targets ?? []} columns={columns} rowId={(t) => t.Id} selected={picked} onSelectedChange={setPicked} noun="target" rowHeight={60} actionsAlways actionsEnd hint=" "
-                  actions={(sel) => <Button type="button" variant="outline" className="border-bad/40 bg-card text-bad hover:text-bad" disabled={sel.length === 0 || removing} onClick={() => void removeTargets()} data-testid="remove-targets"><TrashIcon /> Remove</Button>} />
+                  actions={(sel) => <Button type="button" variant="outline" className="border-bad/40 bg-card text-bad hover:text-bad" disabled={sel.length === 0 || removing} onClick={() => { setError(null); setConfirming(true); }} data-testid="remove-targets"><TrashIcon /> Remove</Button>} />
               )}
-              {error && <p className="mt-3 text-[13px] text-bad" role="alert">{error}</p>}
+              {error && !confirming && <p className="mt-3 text-[13px] text-bad" role="alert">{error}</p>}
+              <PlainConfirm open={confirming} onOpenChange={(o) => { if (!removing) setConfirming(o); }} title={`Remove ${picked.size === 1 ? "this target" : `${picked.size} targets`}?`} verb="Remove" call="RemoveTargets" pending={removing} error={error ? new Error(error) : undefined} onConfirm={() => void removeTargets()} testId="remove-targets-dialog"
+                description={<>RemoveTargets takes <b className="font-mono font-semibold text-bright">{[...picked].join(", ")}</b> off <b className="font-mono font-semibold text-bright">{rule}</b>, so matching events stop going there. The {picked.size === 1 ? "resource it sends" : "resources they send"} to {picked.size === 1 ? "is" : "are"} not touched.{(targets ?? []).length === picked.size ? " This is the last target: the rule keeps matching events but has nowhere to send them." : ""}</>} />
               {!none && <RuleHelp className="mt-4 max-w-3xl">On AWS the retry policy defaults to <b>24 hours</b> and <b>185</b> attempts. <b>Applied here:</b> a failed delivery is retried with a back-off and, when it runs out of tries or time, goes to the target's dead-letter queue if it has one, else is dropped.</RuleHelp>}
             </section>
             <RecentCalls calls={calls} noun="rule" scope={`${rule} and what it delivered`} note={note} />

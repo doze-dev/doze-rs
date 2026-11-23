@@ -83,7 +83,6 @@ function Archives({ service, kind, gone }: { service: string; kind: string; gone
             selected={chosen}
             onSelectedChange={setChosen}
             noun="archive"
-            single
             maxHeight={680}
             actionsAlways
             hint=" "

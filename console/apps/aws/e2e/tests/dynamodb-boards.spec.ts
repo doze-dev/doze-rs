@@ -85,6 +85,9 @@ test("dynamodb__table-create and table-create-exists: a name and a key, the call
   // The name that is taken is DynamoDB's refusal, shown on the form.
   refusals.allow(/400 POST .*\/dynamodb\/tables\/op\/CreateTable$/);
   await go(page, `${T}?do=create`, "Create table");
+  await expect(page.getByRole("navigation", { name: "Breadcrumb" })).toContainText("Tables");
+  // The optional sort key carries no placeholder that reads as a value.
+  await expect(page.getByTestId("table-sk")).toHaveAttribute("placeholder", "");
   await page.getByTestId("table-name").fill("deliveries");
   await expect(page.getByText("orders-table and search-index already exist here.").or(page.getByText("already exist here."))).toBeVisible();
   await page.getByTestId("table-pk").fill("delivery_id");
@@ -97,6 +100,9 @@ test("dynamodb__table-create and table-create-exists: a name and a key, the call
   await expect(page.getByTestId("create-refused")).toContainText("ResourceInUseException");
   await expect(page.getByTestId("create-refused")).toContainText("Retrying the same request will not help.");
   await expect(page.getByTestId("section-Table details")).toContainText("CreateTable refused this name: ResourceInUseException.");
+  // As the board draws it: the details alone, without the name hint or the settings card.
+  await expect(page.getByTestId("section-Table details")).not.toContainText("already exist here");
+  await expect(page.getByTestId("section-Table settings")).toHaveCount(0);
   await shot(page, "dynamodb__table-create-exists");
 });
 
@@ -135,6 +141,8 @@ test("a table that is not there: one page for a missing name, with the way back 
   await expect(err).toContainText("There is no table of that name in this account and Region.");
   await expect(err).toContainText("ResourceNotFoundException");
   await expect(err).not.toContainText("Check that doze-aws is still running");
+  // Nothing to pin on a page of what is not there.
+  await expect(page.getByTestId("pin-toggle")).toHaveCount(0);
   await expect(page.getByRole("navigation", { name: "Breadcrumb" }).getByRole("link")).toContainText(["Resources", "Storage and data", "DynamoDB", "Tables"]);
   await shot(page, "dynamodb__table-missing");
   // The same page behind the item forms and the settings forms.
