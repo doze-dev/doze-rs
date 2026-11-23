@@ -5,6 +5,7 @@ import { join } from "node:path";
 import type { Page } from "@playwright/test";
 import { start, type Running, aws } from "../server";
 import { deadLettered, queueUrl, seedLarder } from "./sqs-seed";
+import { expectCopy } from "./callpanel-kit";
 import { expect, expectNoErrorAnswers, test } from "./fixtures";
 import { expectCrumbsEnd } from "./crumbs-kit";
 
@@ -99,11 +100,8 @@ test("sqs__queue-create and sqs__queue-create-refused: the form, its call, and t
   await page.getByTestId("queue-visibility").fill("60");
   await expect(page.getByTestId("call-panel-code")).toContainText('"VisibilityTimeout": "60"');
   await expect(page.getByTestId("call-panel-code")).toContainText('"QueueName": "pick-lists"');
-  await page.getByTestId("call-panel-tab-cli").click();
-  await expect(page.getByTestId("call-panel-code")).toContainText("sqs create-queue --queue-name pick-lists");
-  await page.getByTestId("call-panel-tab-boto3").click();
-  await expect(page.getByTestId("call-panel-code")).toContainText("create_queue");
-  await page.getByTestId("call-panel-tab-json").click();
+  await expectCopy(page, "cli", "sqs create-queue --queue-name pick-lists");
+  await expectCopy(page, "boto3", "create_queue");
   await expectCrumbsEnd(page, ["Queues","Create queue"]);
   await shot(page, "sqs__queue-create");
   await page.getByTestId("form-submit").click();

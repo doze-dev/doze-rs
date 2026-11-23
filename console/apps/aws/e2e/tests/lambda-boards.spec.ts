@@ -4,6 +4,7 @@ import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 import type { Page } from "@playwright/test";
 import { start, type Running, aws } from "../server";
+import { expectCopy } from "./callpanel-kit";
 import { expect, expectNoErrorAnswers, test } from "./fixtures";
 import { invoke, seedLarder, zipOf } from "./lambda-seed";
 
@@ -90,9 +91,7 @@ test("lambda__function-create and lambda__function-created: the form, the call i
   await expect(code(page)).toContainText('"Handler": "lambda_function.lambda_handler"');
   await expect(code(page)).toContainText("<the Hello world example, zipped>");
   await expect(code(page)).toContainText(`arn:aws:iam::${server.account}:role/lambda-exec`);
-  await page.getByTestId("call-panel-tab-cli").click();
-  await expect(code(page)).toContainText("lambda create-function --function-name weekly-digest");
-  await page.getByTestId("call-panel-tab-json").click();
+  await expectCopy(page, "cli", "lambda create-function --function-name weekly-digest");
   await expect(page.getByTestId("author-off")).toHaveCount(2);
   await expect(page.getByTestId("role-create-off")).toContainText("Not in this form");
   await shot(page, "lambda__function-create");

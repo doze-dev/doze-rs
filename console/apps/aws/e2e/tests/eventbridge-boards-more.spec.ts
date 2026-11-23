@@ -6,6 +6,7 @@ import { join } from "node:path";
 import type { Page } from "@playwright/test";
 import { aws, start, type Running } from "../server";
 import { putEvent, seedLarder } from "./eventbridge-seed";
+import { copyCall } from "./callpanel-kit";
 import { expect, expectNoErrorAnswers, test } from "./fixtures";
 
 const SHOTS = process.env.SHOTS_DIR ?? join(import.meta.dirname, "../../../../../shots-eventbridge");
@@ -181,11 +182,8 @@ test("eventbridge__connection-create and api-destination-create: a connection ma
   await expect(call).toContainText('"ApiKeyName": "X-Api-Key"');
   // The secret is never on the page, nor in what is copied: the board writes it as "...".
   await expect(call).toContainText('"ApiKeyValue": "..."');
-  for (const tab of ["json", "cli", "boto3"]) {
-    await page.getByTestId(`call-panel-tab-${tab}`).click();
-    await expect(call).not.toContainText("s3cret-value");
-  }
-  await page.getByTestId("call-panel-tab-json").click();
+  await expect(call).not.toContainText("s3cret-value");
+  for (const which of ["json", "cli", "boto3"] as const) expect(await copyCall(page, which) ?? "").not.toContain("s3cret-value");
   await expect(call).toContainText('"Key": "X-Source"');
   await expect(page.getByTestId("section-detail")).toContainText("Not available in doze-aws: private APIs need VPC Lattice.");
   await shot(page, "eventbridge__connection-create");

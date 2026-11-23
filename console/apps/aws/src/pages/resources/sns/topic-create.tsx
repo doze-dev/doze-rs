@@ -42,6 +42,7 @@ export function TopicCreate() {
   const named = f.name.trim() || "<topic-name>";
   return (
     <FormPage
+      callFormat="outline"
       key={f.fifo ? "fifo" : "standard"}
       title="Create topic"
       sub={refused ? "Nothing was created. Fix the name and try again." : f.fifo ? "FIFO topics keep messages in order within a message group and drop duplicates." : "Choose the type and the name. Everything else is optional and can be edited later."}
