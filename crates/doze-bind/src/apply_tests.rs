@@ -299,7 +299,23 @@ fn on_a_shared_address_a_routed_listener_whose_port_is_taken_is_reached_by_name(
     let registry = &e.listeners["registry"];
     let at = registry.socket.local_addr().unwrap();
     assert_ne!(at.port(), busy);
-    assert_eq!(e.moved.len(), 1, "{:?}", e.moved);
+    // The registry's port is the one this test took. The console's came from `free_port` and was free when asked
+    // for, but another process may take it before the bind (queue run 45078190892: "console: ...:15275 is taken"),
+    // and then it moves too, as it should. So: the registry moved, and anything else that moved says why.
+    assert!(
+        e.moved
+            .iter()
+            .any(|m| m.starts_with(&format!("registry: events.shop.doze:{busy} is taken"))),
+        "{:?}",
+        e.moved
+    );
+    assert!(
+        e.moved
+            .iter()
+            .all(|m| m.contains(" is taken; it is reached by its name only")),
+        "{:?}",
+        e.moved
+    );
     assert_eq!(
         reg.front_target("registry.events.shop.doze"),
         Some(at.to_string()),
