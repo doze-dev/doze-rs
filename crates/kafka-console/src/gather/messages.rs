@@ -65,6 +65,29 @@ struct Found {
     older_left: bool,
 }
 
+/// The records of `partition` from `from` to `end`, the newest always among them: a read that its bounds (4 MiB, 16 fetches)
+/// stopped short of the end is read again from half-way to the end (or past the last record read, if that is nearer the end),
+/// until the end is reached, keeping the older ones read.
+async fn newest(
+    b: &Backend,
+    t: &TopicMeta,
+    (partition, from, end): (i32, i64, i64),
+    reading: Reading,
+) -> read::Window {
+    let mut w = read::forward(b, t, (partition, from, end), reading, (TABLE, None)).await;
+    let mut near = from;
+    while !w.reached && end - near > 1 {
+        let past = w.rows.iter().map(|r| r.offset + 1).max().unwrap_or(near);
+        near = (near + (end - near) / 2).max(past).min(end - 1);
+        let tail = read::forward(b, t, (partition, near, end), reading, (TABLE, None)).await;
+        w.rows.retain(|r| r.offset < near);
+        w.rows.extend(tail.rows);
+        w.reached = tail.reached;
+        w.error = w.error.or(tail.error);
+    }
+    w
+}
+
 async fn latest(
     b: &Backend,
     t: &TopicMeta,
@@ -87,7 +110,7 @@ async fn latest(
             .map_or(end, |(_, o)| (*o).clamp(start, end));
         let mut from = (end - n).max(start);
         loop {
-            let w = read::forward(b, t, (p, from, end), q.reading, (TABLE, None)).await;
+            let w = newest(b, t, (p, from, end), q.reading).await;
             out.error = out.error.or(w.error);
             out.reached_end &= w.reached;
             let enough = w.rows.len() >= q.limit || from <= start;
@@ -184,7 +207,6 @@ async fn by_key(
     let wanted = q.key.as_deref().unwrap_or_default().as_bytes();
     let mut out = Found {
         reached_end: true,
-        scanned: Some((0, true)),
         ..Found::default()
     };
     let (mut looked, mut complete, mut bytes) = (0_u64, true, 0_usize);
