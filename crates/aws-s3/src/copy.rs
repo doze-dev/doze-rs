@@ -181,8 +181,9 @@ impl Core {
         Ok((blob, staging.len, done))
     }
 
-    /// The headers the copy keeps: the source's, or the request's when it replaces them; the encryption is the request's, else the
-    /// source's, else the bucket's default.
+    /// The headers the copy keeps: the source's, or the request's when it replaces them. The storage class and the encryption are
+    /// the request's whichever directive it gives (the model: `StorageClass` and `ServerSideEncryption` are their own members); a
+    /// copy that names no encryption gets the destination bucket's default, not the source's (`ServerSideEncryption` in the model).
     fn copied_meta(
         &self,
         req: &Req<'_>,
@@ -195,14 +196,16 @@ impl Core {
         } else {
             src.meta.clone()
         };
-        let (sse, kms) = self.default_sse(bucket);
-        if let Some(s) = req.s("ServerSideEncryption") {
-            meta.sse = Some(s.to_owned());
+        if let Some(class) = req.s("StorageClass") {
+            meta.storage_class = Some(class.to_owned());
         }
-        meta.sse.get_or_insert(sse);
-        if meta.sse_kms_key.is_none() {
-            meta.sse_kms_key = kms;
-        }
+        let (default, default_key) = self.default_sse(bucket);
+        let sse = req.s("ServerSideEncryption").unwrap_or(&default);
+        // A key is the request's, else the default's when the encryption is the default's kind (KMS), else none.
+        let named = req.s("SSEKMSKeyId").map(str::to_owned);
+        let kms = sse.starts_with("aws:kms");
+        meta.sse_kms_key = named.or(if kms { default_key } else { None });
+        meta.sse = Some(sse.to_owned());
         meta
     }
 }
