@@ -4,6 +4,7 @@ import { cn } from "../../lib/utils";
 import { Button } from "../ui/button";
 import { Checkbox } from "../ui/checkbox";
 import { type DataColumn, DataTable } from "./data-table";
+import { pluralWord } from "../../lib/format";
 import { allState, selectedWords, toggle, toggleAll } from "./selection";
 
 /** The header's checkbox: a tick when every row is chosen, a bar when some are (the shared Checkbox draws a tick only). */
@@ -72,7 +73,7 @@ export function SelectableTable<T>({ data, columns, rowId, selected, onSelectedC
         {toolbar && <div className="flex min-w-0 flex-1 flex-wrap items-center gap-3">{toolbar}</div>}
         {chosen.length === 0 ? (
           <>
-            {!toolbar && <span>{hint ?? `Choose ${noun}s to act on them together.`}</span>}
+            {!toolbar && <span>{hint ?? `Choose ${pluralWord(noun)} to act on them together.`}</span>}
             {actionsAlways && actions && <div className={cn("flex flex-wrap items-center gap-2", actionsEnd && "ml-auto")}>{actions([])}</div>}
           </>
         ) : (

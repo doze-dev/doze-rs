@@ -7,13 +7,14 @@ import { Skeleton } from "@doze/ui/components/ui/skeleton";
 import { ApiFailure } from "@doze/ui/lib/api";
 import { type Blocker, useBlockers, useDeleteClearing } from "../../../kit";
 import { list } from "./model";
+import { pluralWord } from "@doze/ui/lib/format";
 
 export type DeletedKind = "users" | "groups" | "roles" | "policies";
 
 const OPERATION: Record<DeletedKind, string> = { users: "DeleteUser", groups: "DeleteGroup", roles: "DeleteRole", policies: "DeletePolicy" };
 const NOUN: Record<DeletedKind, string> = { users: "user", groups: "group", roles: "role", policies: "policy" };
 
-const n = (count: number, one: string, many = `${one}s`) => `${count} ${count === 1 ? one : many}`;
+const n = (count: number, one: string, many = pluralWord(one)) => `${count} ${count === 1 ? one : many}`;
 
 /** What the delete does with one kind of dependent, in words: how many, which, and what happens to them. */
 export function groupWords(name: string, b: Blocker): { lead: string; rest: string } {

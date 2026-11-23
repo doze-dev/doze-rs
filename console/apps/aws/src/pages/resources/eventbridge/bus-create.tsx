@@ -113,7 +113,7 @@ export function BusCreate() {
         )}
       </FormSection>
       <FormSection key={`tags-${collapsed}`} title="Tags" optional description="Labels that help you find and organise the bus." collapsible={collapsed} defaultOpen={!collapsed} summary={tagsSummary(f)} testId="section-tags">
-        <KeyValueEditor rows={f.tags} onChange={(tags) => set({ tags })} rules={TAG_RULES} showErrors={tried} removeLabel="Remove" testId="form-tags" />
+        <KeyValueEditor rows={f.tags} onChange={(tags) => set({ tags })} rules={TAG_RULES} showErrors={tried} removeLabel="Remove" removeIcon="x" fieldLabels testId="form-tags" />
         <RuleHelp>Up to <b>50</b> tags per resource. A key can be <b>128</b> characters and a value <b>256</b>; keys are case-sensitive and can't start with <span className="font-mono">aws:</span>.</RuleHelp>
       </FormSection>
     </FormPage>

@@ -183,6 +183,9 @@ test("iam__user-create, user-create-permissions and user-create-review: three st
   await page.getByTestId("user-name").fill("dev-intern");
   await expect(page.getByTestId("call-panel")).toContainText('"UserName": "dev-intern"');
   await expect(page.getByTestId("console-access")).toContainText("Not available in doze-aws");
+  // The steps are under the lead sentence, as every board draws them, not above the title.
+  const [title, steps] = await Promise.all([page.locator("h1").boundingBox(), page.getByRole("navigation", { name: "Steps" }).boundingBox()]);
+  expect(steps!.y).toBeGreaterThan(title!.y);
   await shot(page, "iam__user-create");
   await page.getByTestId("form-submit").click();
   await expect(page.locator("h1").first()).toHaveText("Set permissions");

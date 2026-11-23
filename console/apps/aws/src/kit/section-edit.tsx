@@ -7,7 +7,7 @@ import type { PreviewRequest } from "./contract";
 /** A small edit of one part of a resource (a bucket's CORS, a stream's retention): a dialog with the fields, the call they make
  * shown live beside them, and the service's refusal in place when it says no. It is an overlay, not a page: the resource stays
  * behind it, and the page shows the change when it closes. Controlled. */
-export function SectionEdit({ open, onOpenChange, title, description, request, onSave, saveLabel = "Save changes", pending = false, error, disabled = false, disabledWhy, children, wide = false, testId = "section-edit" }: { open: boolean; onOpenChange: (open: boolean) => void; title: string; description?: React.ReactNode; request: PreviewRequest | null; onSave: () => void; saveLabel?: string; pending?: boolean; /** The service's refusal of the save. */ error?: unknown; disabled?: boolean; disabledWhy?: React.ReactNode; children: React.ReactNode; /** The fields need room (a JSON document). */ wide?: boolean; testId?: string }) {
+export function SectionEdit({ open, onOpenChange, title, description, request, onSave, saveLabel = "Save changes", pending = false, error, disabled = false, disabledWhy, children, wide = false, callBelow = false, testId = "section-edit" }: { open: boolean; onOpenChange: (open: boolean) => void; title: string; description?: React.ReactNode; request: PreviewRequest | null; onSave: () => void; saveLabel?: string; pending?: boolean; /** The service's refusal of the save. */ error?: unknown; disabled?: boolean; disabledWhy?: React.ReactNode; children: React.ReactNode; /** The fields need room (a JSON document). */ wide?: boolean; /** The call under the fields, full width, in place of beside them (the boards of a long call draw it so). */ callBelow?: boolean; testId?: string }) {
   const failed = error ? errorWords(error) : null;
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -24,7 +24,7 @@ export function SectionEdit({ open, onOpenChange, title, description, request, o
             if (!disabled && !pending) onSave();
           }}
         >
-          <div className="grid items-start gap-5 md:grid-cols-[minmax(0,1fr)_minmax(0,22rem)]">
+          <div className={callBelow ? "grid gap-5" : "grid items-start gap-5 md:grid-cols-[minmax(0,1fr)_minmax(0,22rem)]"}>
             <div className="grid min-w-0 gap-4">{children}</div>
             <CallPanel request={request} refusal={failed ? { code: failed.code?.split(" ")[0] ?? "Error", message: failed.message } : null} className="bg-well" testId={`${testId}-call`} />
           </div>

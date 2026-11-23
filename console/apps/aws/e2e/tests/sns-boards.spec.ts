@@ -307,8 +307,9 @@ test("sns__topics-list and sns__subscriptions-list: three topics, seven subscrip
   await expect(page.getByTestId("page-line")).toHaveText("3 topics, one ListTopics page (a page holds up to 100)");
   await expect(page.getByTestId("last-calls")).toContainText("Publish");
   await expect(page.getByTestId("last-calls")).toContainText("Last calls in SNS");
-  // The feed is the same as the pages of a topic: the app's calls by their caller's name, this console's own reads hidden until asked for.
-  await expect(page.getByTestId("last-calls").getByTestId("call-caller").first()).toContainText("AWS CLI");
+  // The feed is the same as the pages of a topic: the app's calls by their caller's name, and the calls this console made listed beside them (they can be hidden).
+  await expect(page.getByTestId("last-calls").getByTestId("call-caller").filter({ hasText: "AWS CLI" }).first()).toBeVisible();
+  await expect(page.getByTestId("last-calls").getByTestId("call-caller").filter({ hasText: "This console" }).first()).toBeVisible();
   await expect(page.getByTestId("last-calls").getByTestId("calls-console-hidden")).toContainText("made by this console");
   await shot(page, "sns__topics-list");
 

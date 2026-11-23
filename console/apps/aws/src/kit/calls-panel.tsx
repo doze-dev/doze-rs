@@ -1,7 +1,7 @@
 import { keepPreviousData, useQueries } from "@tanstack/react-query";
 import { BracesIcon } from "lucide-react";
 import { Skeleton } from "@doze/ui/components/ui/skeleton";
-import { type CallFormat, CallCode, CopyCalls, callJson, callText, missingWords } from "./call-panel";
+import { type CallFormat, CallCode, CopyCalls, callJson, callText, listsOf, missingWords } from "./call-panel";
 import type { PreviewRequest } from "./contract";
 import { useDebounced } from "./debounce";
 import { fetchPreview, PREVIEW_PAUSE } from "./preview";
@@ -16,14 +16,19 @@ export function CallsPanel({ requests, note, refusal, title = "The call this wil
   const shownInput = (i: number) => (showInput ? (shown ? shown(asked[i]![1], asked[i]![2]) : asked[i]![2]) : undefined);
   const answers = useQueries({ queries: asked.map((a) => ({ queryKey: ["preview", JSON.stringify(a)], queryFn: ({ signal }: { signal: AbortSignal }) => fetchPreview({ service: a[0], operation: a[1], input: a[2] }, signal), retry: false, staleTime: Number.POSITIVE_INFINITY, placeholderData: keepPreviousData })) });
   const done = answers.length > 0 && answers.every((a) => a.data);
-  const texts = answers.map((a, i) => (a.data ? callText(a.data, asked[i]![1], { format, input: shownInput(i) }) : ""));
+  // Catching up: a newer form is waiting out its pause, or an answer on screen is the one before.
+  const settling = !pause.settled || answers.some((a) => a.isFetching && a.isPlaceholderData);
+  const texts = answers.map((a, i) => (a.data ? callText(a.data, asked[i]![1], { format, input: shownInput(i), lists: listsOf(asked[i]![0]) }) : ""));
   const all = (pick: (p: NonNullable<(typeof answers)[number]["data"]>, i: number) => string, sep: string) => answers.map((a, i) => (a.data ? pick(a.data, i) : "")).filter(Boolean).join(sep);
   const missing = answers.flatMap((a) => (a.data ? a.data.missing : []));
   const helpText = note && <div className="text-[13px] leading-5 text-muted-foreground">{note}</div>;
-  const copy = done && <CopyCalls cli={all((p) => p.cli, "\n")} boto3={all((p) => p.boto3, "\n\n")} json={all((p, i) => callJson(p, shownInput(i)), "\n\n")} format={format} plural />;
+  const copy = done && <CopyCalls cli={all((p) => p.cli, "\n")} boto3={all((p) => p.boto3, "\n\n")} json={all((p, i) => callJson(p, shownInput(i)), "\n\n")} format={format} plural waiting={settling} />;
   return (
     <aside className="min-w-0 rounded-[14px] border bg-card p-5" aria-label={title} data-slot="call-panel" data-refused={refusal ? "" : undefined} data-testid={testId}>
-      <h2 className="flex items-center gap-2 text-[12px] font-medium tracking-[0.08em] text-muted-foreground uppercase"><BracesIcon aria-hidden className="size-3.5" /> {title}</h2>
+      <div className="flex items-center justify-between gap-3">
+        <h2 className="flex items-center gap-2 text-[12px] font-medium tracking-[0.08em] text-muted-foreground uppercase"><BracesIcon aria-hidden className="size-3.5" /> {title}</h2>
+        {settling && done && <span className="text-[11.5px] text-muted-foreground" data-testid={`${testId}-settling`}>Updating…</span>}
+      </div>
       <div className="mt-3 grid gap-3" aria-live="polite">
         {requests.length === 0 ? (
           <p className="rounded-[10px] border border-dashed px-4 py-6 text-[13px] text-muted-foreground" data-testid={`${testId}-idle`}>The calls appear here as soon as there is something to send.</p>

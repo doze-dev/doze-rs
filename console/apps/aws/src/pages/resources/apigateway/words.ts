@@ -2,9 +2,10 @@
 // stage answers at, and how an integration, a throttle and a quota read in a table.
 import { dateTimeUtc } from "@doze/ui/lib/format";
 import type { AnyApi, Deployment, HttpApi, HttpDeployment, HttpStage, Integration, RestApi, RestMethod, RestResource, Stage, UsagePlan } from "./types";
+import { pluralWord } from "@doze/ui/lib/format";
 
 /** `1 route`, `3 routes`. */
-export const count = (n: number, one: string, many = `${one}s`): string => `${n.toLocaleString("en-US")} ${n === 1 ? one : many}`;
+export const count = (n: number, one: string, many = pluralWord(one)): string => `${n.toLocaleString("en-US")} ${n === 1 ? one : many}`;
 /** `a`, `a and b`, `a, b and c`. */
 export const list = (items: readonly string[]): string => (items.length <= 1 ? items.join("") : `${items.slice(0, -1).join(", ")} and ${items[items.length - 1]}`);
 /** Seconds since 1970 (REST) or ISO text (v2) as the console writes a time; a dash for none. */

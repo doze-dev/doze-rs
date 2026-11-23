@@ -102,7 +102,7 @@ export function ObjectCopy({ name, search }: OwnProps) {
       banner={said ? <Alert tone="bad" title="Not done." testId="copy-refused">{said.message}</Alert> : undefined}
       submitLabel={MODES[mode]} pending={busy} disabled={!input || same} disabledWhy={same ? "The destination is the object itself." : reading ? "Reading the source's settings." : "Give a destination like s3://bucket/folder/, and settings that are complete."} onCancel={back} onSubmit={() => void run()}>
       <FormSection title="Source">
-        <DataTable aria-label="Source" data={[key]} rowId={(k) => k} columns={[{ id: "n", header: "Name", accessorFn: (k) => k, meta: { mono: true }, min: 200 }, { id: "m", header: "Last modified", size: 260, accessorFn: () => "", cell: () => shortDate(head.data?.LastModified) }, { id: "s", header: "Size", size: 110, meta: { numeric: true }, accessorFn: () => 0, cell: () => size(head.data?.ContentLength) }]} />
+        <DataTable aria-label="Source" data={[key]} rowId={(k) => k} columns={[{ id: "n", header: "Name", accessorFn: (k) => k, meta: { mono: true, wrap: true }, min: 200 }, { id: "m", header: "Last modified", size: 300, accessorFn: () => "", cell: () => shortDate(head.data?.LastModified) }, { id: "s", header: "Size", size: 110, meta: { numeric: true }, accessorFn: () => 0, cell: () => size(head.data?.ContentLength) }]} />
       </FormSection>
       <FormSection title="Destination">
         <p className="text-[13px] text-muted-foreground">General purpose bucket. Directory buckets are an express-zone feature that doze-aws does not have, so this is the only destination type.</p>

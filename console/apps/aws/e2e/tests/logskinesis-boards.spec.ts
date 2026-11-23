@@ -7,6 +7,7 @@ import { join } from "node:path";
 import type { Page } from "@playwright/test";
 import { aws, start, type Running } from "../server";
 import { expect, expectNoErrorAnswers, settled, test } from "./fixtures";
+import { expectWholeLines } from "./callpanel-kit";
 import { seedLarder } from "./logskinesis-seed";
 
 const SHOTS = process.env.SHOTS_DIR ?? join(import.meta.dirname, "../../../../../shots-logskinesis");
@@ -369,6 +370,8 @@ test("kinesis__stream-detail and the edits: capacity, retention, encryption, sha
   await expect(page.getByTestId("metrics-dialog")).toContainText("ReadProvisionedThroughputExceeded");
   await shot(page, "kinesis__stream-metrics-edit");
   await page.getByTestId("metric-IncomingBytes").click();
+  // The call is under the fields, full width: no list name is broken in two.
+  await expectWholeLines(page, "metrics-dialog-call-code");
   await page.getByTestId("metrics-dialog-save").click();
   await expect(page.getByTestId("section-metrics")).toContainText("IncomingBytes");
   expect(json<{ StreamDescriptionSummary: { RetentionPeriodHours: number; EncryptionType: string; EnhancedMonitoring: { ShardLevelMetrics: string[] }[] } }>(["kinesis", "describe-stream-summary", "--stream-name", "clickstream"]).StreamDescriptionSummary).toMatchObject({ RetentionPeriodHours: 72, EncryptionType: "KMS", EnhancedMonitoring: [{ ShardLevelMetrics: ["IncomingBytes"] }] });

@@ -3,9 +3,10 @@
 import type { FieldValue } from "../../../api/types/FieldValue";
 import type { ResourceRow } from "../../../api/types/ResourceRow";
 import { timeMs } from "../model";
+import { pluralWord } from "@doze/ui/lib/format";
 
 /** `1 stream`, `3 streams`. */
-export const count = (n: number, one: string, many = `${one}s`): string => `${n.toLocaleString("en-US")} ${n === 1 ? one : many}`;
+export const count = (n: number, one: string, many = pluralWord(one)): string => `${n.toLocaleString("en-US")} ${n === 1 ? one : many}`;
 /** `a`, `a and b`, `a, b and c`. */
 export const list = (items: readonly string[]): string => (items.length <= 1 ? items.join("") : `${items.slice(0, -1).join(", ")} and ${items[items.length - 1]}`);
 

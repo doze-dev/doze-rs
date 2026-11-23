@@ -66,7 +66,7 @@ export const TONES: Record<Tone, BadgeTone> = { ok: "good", warn: "warn", bad: "
 export const statusBadge = (status: string): DetailBadge => ({ text: status, tone: TONES[stackTone(status)] });
 
 /** A status as a coloured dot and its word. */
-export const Status = ({ status, wrap = false }: { status: string; /** A long word (`UPDATE_COMPLETE_CLEANUP_IN_PROGRESS`) may break in a narrow cell instead of being cut. */ wrap?: boolean }) => <StatusDot tone={stackTone(status)} className={wrap ? "items-start whitespace-normal [&>span:first-child]:mt-1.5 [overflow-wrap:anywhere]" : undefined}>{status}</StatusDot>;
+export const Status = ({ status, wrap = false }: { status: string; /** A long word (`UPDATE_COMPLETE_CLEANUP_IN_PROGRESS`) may break in a narrow cell instead of being cut. */ wrap?: boolean }) => <StatusDot tone={stackTone(status)} className={wrap ? "items-start whitespace-normal [&>span:first-child]:mt-1.5 [overflow-wrap:anywhere]" : undefined}>{wrap ? status.split("_").flatMap((w, i, all) => (i < all.length - 1 ? [w, "_", <wbr key={i} />] : [w])) : status}</StatusDot>;
 
 const eventColumns: DataColumn<StackEvent>[] = [
   { id: "t", header: "Timestamp", size: 240, accessorFn: (r) => String(r.Timestamp), cell: (c) => <span className="font-mono text-[13px] tabular-nums">{at(c.row.original.Timestamp)}</span> },

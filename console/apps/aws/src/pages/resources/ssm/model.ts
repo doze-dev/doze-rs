@@ -6,6 +6,7 @@ import type { ResourceRow } from "../../../api/types/ResourceRow";
 import { andList, cell } from "../cfg-parts";
 import type { FilterProp, FilterToken } from "../filter-bar";
 import { timeMs } from "../model";
+import { pluralWord } from "@doze/ui/lib/format";
 
 export const FILTERS: FilterProp[] = [
   { value: "Name", label: "Name", options: [{ value: "BeginsWith", label: "begins with" }, { value: "Equals", label: "equals" }, { value: "Contains", label: "contains" }] },
@@ -37,7 +38,7 @@ export function whenWords(v: string | null): string {
   return `${WHEN.format(d)} at ${String(d.getUTCHours()).padStart(2, "0")}:${String(d.getUTCMinutes()).padStart(2, "0")}`;
 }
 
-const count = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
+const count = (n: number, one: string, many = pluralWord(one)) => `${n} ${n === 1 ? one : many}`;
 
 /** `There are 8 parameters in us-east-1: 7 Standard and 1 Advanced. /a is the only SecureString. The newest change is /b, saved as version 2 on Nov 7, 2026 at 17:05.` */
 export function listSentence(rows: readonly ParamRow[], region: string): string {

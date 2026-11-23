@@ -1,3 +1,4 @@
+import { pluralWord } from "../../lib/format";
 // A table's selection, as pure functions over a set of row ids (no React).
 
 export type AllState = "none" | "some" | "all";
@@ -24,4 +25,4 @@ export const prune = (selected: ReadonlySet<string>, ids: readonly string[]): Se
 };
 
 /** `3 selected`; with the noun, `3 alarms selected` and `1 alarm selected`. */
-export const selectedWords = (n: number, noun?: string) => `${n.toLocaleString("en-US")} ${noun ? `${noun}${n === 1 ? "" : "s"} ` : ""}selected`;
+export const selectedWords = (n: number, noun?: string) => `${n.toLocaleString("en-US")} ${noun ? `${n === 1 ? noun : pluralWord(noun)} ` : ""}selected`;

@@ -71,7 +71,15 @@ export function duration(ms: number): string {
   return `${s} s`;
 }
 
+/** The plural of a noun: `topic` is `topics`, `policy` is `policies`, `bus` is `buses`, `batch` is `batches`; a noun of several words is
+ * pluralised at its last (`log group` is `log groups`). */
+export function pluralWord(one: string): string {
+  if (/[^aeiou]y$/i.test(one)) return `${one.slice(0, -1)}ies`;
+  if (/(s|x|z|ch|sh)$/i.test(one)) return `${one}es`;
+  return `${one}s`;
+}
+
 /** `1 topic`, `3 topics`. */
-export function plural(n: number, one: string, many = `${one}s`): string {
+export function plural(n: number, one: string, many = pluralWord(one)): string {
   return `${number(n)} ${n === 1 ? one : many}`;
 }

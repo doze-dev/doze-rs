@@ -1,7 +1,7 @@
 // An item as rows of name, type and value (dynamodb__item-create, item-edit): the rows an item makes, and the item the rows make. The
 // types are DynamoDB's ten. A String, Number or Binary is its text; a Boolean is true or false; a Null has no value; a set is a JSON
 // list of texts; a List or Map is DynamoDB JSON (`[{"S": "x"}]`, `{"a": {"N": "1"}}`).
-import { type AttributeValue, type Item, type KeyPart, typeOf, wellFormed } from "./json";
+import { type AttributeValue, type Item, type KeyPart, cell, typeOf, wellFormed } from "./json";
 
 export const ATTRIBUTE_TYPES = ["S", "N", "B", "BOOL", "NULL", "SS", "NS", "BS", "L", "M"] as const;
 export type AttributeType = (typeof ATTRIBUTE_TYPES)[number];
@@ -120,3 +120,10 @@ export function paramKey(text: string | undefined): Item | null {
 
 /** The px a column header needs on one line: the attribute name (mono, 12.5 px) over its type, plus the cell's padding. */
 export const headerFit = (name: string, sub: string): number => Math.ceil(Math.max(name.length * 7.8, sub.length * 6.6)) + 36;
+
+/** The width (px) a result column needs to show its longest value whole (the name in its header too): at 7.8 px a character in mono and the
+ * cell padding, up to 360 px, past which a value wraps in its cell instead of being cut. */
+export const resultWidth = (name: string, items: readonly Item[]): number => {
+  const longest = Math.max(0, ...items.map((i) => cell(i[name]).length));
+  return Math.min(360, Math.max(110, headerFit(name, ""), Math.ceil(longest * 7.8) + 28));
+};

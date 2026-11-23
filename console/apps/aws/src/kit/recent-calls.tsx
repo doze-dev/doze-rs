@@ -16,22 +16,6 @@ function columns(titles: ReadonlyMap<string, string>, names: ReadonlyMap<string,
   return [
     { id: "time", header: "Time", size: 120, accessorKey: "at_ms", meta: { mono: true }, cell: (c) => clockUtc(c.row.original.at_ms) },
     {
-      id: "caller",
-      header: "Caller",
-      size: 260,
-      min: 160,
-      accessorFn: (r) => callerWords(r, titles, names).label,
-      cell: (c) => {
-        const w = callerWords(c.row.original, titles, names);
-        return (
-          <span className="flex min-w-0 items-baseline gap-2" title={w.title} data-testid="call-caller">
-            <span className="truncate text-[13px]">{w.label}</span>
-            {w.key && <span className="truncate font-mono text-[11.5px] text-muted-foreground">{w.key}</span>}
-          </span>
-        );
-      },
-    },
-    {
       id: "call",
       header: "Call",
       accessorFn: (r) => r.action ?? "",
@@ -46,6 +30,22 @@ function columns(titles: ReadonlyMap<string, string>, names: ReadonlyMap<string,
                 {key}
               </span>
             )}
+          </span>
+        );
+      },
+    },
+    {
+      id: "caller",
+      header: "Caller",
+      size: 260,
+      min: 160,
+      accessorFn: (r) => callerWords(r, titles, names).label,
+      cell: (c) => {
+        const w = callerWords(c.row.original, titles, names);
+        return (
+          <span className="flex min-w-0 items-baseline gap-2" title={w.title} data-testid="call-caller">
+            <span className="truncate text-[13px]">{w.label}</span>
+            {w.key && <span className="truncate font-mono text-[11.5px] text-muted-foreground">{w.key}</span>}
           </span>
         );
       },
@@ -76,10 +76,12 @@ function columns(titles: ReadonlyMap<string, string>, names: ReadonlyMap<string,
  * Optional: `scope` is what the calls acted on when that is not `this {noun}` (`SNS`); `pin` names the operations whose calls this
  * console made that stay in view (a page that has just published or subscribed shows that call); `limit` cuts the table. */
 export function RecentCalls({ calls, noun, title = "Recent calls", className, scope, pin, limit, note }: { calls: readonly CallRecord[]; noun: string; title?: string; className?: string; scope?: string; pin?: readonly string[]; limit?: number; /** What a call's result says beyond its status and time (`1 event, matched order-placed`), where the page knows it. */ note?: (c: CallRecord) => string | null }) {
-  const [mine, setMine] = useState(false);
+  // The boards list the calls this console made (`doze console` rows) beside an app's: shown by default, with a way to hide them.
+  const [hide, setHide] = useState(false);
   const kept = calls.filter((c) => !isConsole(c) || (c.action !== null && (pin ?? []).includes(c.action)));
   const theirs = kept.slice(0, limit);
   const everything = calls.slice(0, limit);
+  const mine = !hide;
   const what = scope ?? `this ${noun}`;
   const hidden = calls.length - kept.length;
   const principals = usePrincipals(useMemo(() => namedKeys(calls), [calls]));
@@ -95,11 +97,11 @@ export function RecentCalls({ calls, noun, title = "Recent calls", className, sc
           <h2 id="calls-title" className="text-[17px] leading-6 font-semibold tracking-[-0.01em] text-bright">{title}</h2>
           <p className="mt-1 mb-4 text-[13.5px] text-muted-foreground">
             The last calls in the Live record that acted on {what}, newest first. Times are UTC.
-            {(hidden > 0 || mine) && (
+            {hidden > 0 && (
               <span data-testid="calls-console-hidden">
                 {" "}
-                {mine ? "This console's own are shown." : `${hidden} made by this console ${hidden === 1 ? "is" : "are"} hidden.`}{" "}
-                <button type="button" className="rounded-sm font-medium text-link hover:underline focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none" onClick={() => setMine(!mine)} data-testid="calls-console-toggle">
+                {mine ? `${hidden} made by this console ${hidden === 1 ? "is" : "are"} listed.` : `${hidden} made by this console ${hidden === 1 ? "is" : "are"} hidden.`}{" "}
+                <button type="button" className="rounded-sm font-medium text-link hover:underline focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none" onClick={() => setHide(mine)} data-testid="calls-console-toggle">
                   {mine ? "Hide them" : "Show"}
                 </button>
               </span>

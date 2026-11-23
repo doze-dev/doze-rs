@@ -116,7 +116,7 @@ export function MetricsEdit({ s, now, onClose }: Edit & { now: string[] }) {
     })();
   };
   return (
-    <SectionEdit open onOpenChange={(o) => !o && onClose()} title="Edit shard level metrics" description={<>Choose the shard-level metrics for <b className="font-mono font-semibold text-bright">{s.name}</b>. {now.length === 0 ? "None are enabled now." : `${now.length} ${now.length === 1 ? "is" : "are"} enabled now.`}</>}
+    <SectionEdit callBelow open onOpenChange={(o) => !o && onClose()} title="Edit shard level metrics" description={<>Choose the shard-level metrics for <b className="font-mono font-semibold text-bright">{s.name}</b>. {now.length === 0 ? "None are enabled now." : `${now.length} ${now.length === 1 ? "is" : "are"} enabled now.`}</>}
       request={{ service: "kinesis", operation: call.op, input: { StreamName: s.name, ShardLevelMetrics: call.names } }} onSave={save} pending={enable.isPending || disable.isPending} error={enable.error ?? disable.error}
       disabled={diff.enable.length + diff.disable.length === 0} disabledWhy="Nothing changed." testId="metrics-dialog">
       <div className="grid gap-3">
