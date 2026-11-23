@@ -24,14 +24,14 @@ export function CallsPanel({ requests, note, refusal, title = "The call this wil
   const helpText = note && <div className="text-[13px] leading-5 text-muted-foreground">{note}</div>;
   const copy = done && <CopyCalls cli={all((p) => p.cli, "\n")} boto3={all((p) => p.boto3, "\n\n")} json={all((p, i) => callJson(p, shownInput(i)), "\n\n")} format={format} plural waiting={settling} />;
   return (
-    <aside className="min-w-0 rounded-[14px] border bg-card p-5" aria-label={title} data-slot="call-panel" data-refused={refusal ? "" : undefined} data-testid={testId}>
+    <aside className="min-w-0 rounded-[var(--radius-card)] border bg-card p-5" aria-label={title} data-slot="call-panel" data-refused={refusal ? "" : undefined} data-testid={testId}>
       <div className="flex items-center justify-between gap-3">
         <h2 className="flex items-center gap-2 text-[12px] font-medium tracking-[0.08em] text-muted-foreground uppercase"><BracesIcon aria-hidden className="size-3.5" /> {title}</h2>
         {settling && done && <span className="text-[11.5px] text-muted-foreground" data-testid={`${testId}-settling`}>Updating…</span>}
       </div>
       <div className="mt-3 grid gap-3" aria-live="polite">
         {requests.length === 0 ? (
-          <p className="rounded-[10px] border border-dashed px-4 py-6 text-[13px] text-muted-foreground" data-testid={`${testId}-idle`}>The calls appear here as soon as there is something to send.</p>
+          <p className="rounded-[var(--radius-field)] border border-dashed px-4 py-6 text-[13px] text-muted-foreground" data-testid={`${testId}-idle`}>The calls appear here as soon as there is something to send.</p>
         ) : !done ? (
           <Skeleton className="h-44 rounded-xl" data-testid={`${testId}-loading`} />
         ) : (
@@ -40,7 +40,7 @@ export function CallsPanel({ requests, note, refusal, title = "The call this wil
       </div>
       {missing.length > 0 && <p className="mt-2 text-[12.5px] text-warn" data-testid={`${testId}-missing`}>{missingWords([...new Set(missing)])}</p>}
       {refusal && (
-        <div className="mt-3 rounded-[10px] border border-bad/30 bg-bad/5 px-4 py-3 text-[13px]" data-testid={`${testId}-came-back`}>
+        <div className="mt-3 rounded-[var(--radius-field)] border border-bad/30 bg-bad/5 px-4 py-3 text-[13px]" data-testid={`${testId}-came-back`}>
           <p className="text-[12px] font-medium tracking-[0.06em] text-muted-foreground uppercase">What came back</p>
           <p className="mt-1 font-mono text-[12.5px] font-medium text-bad">{refusal.code}</p>
           <p className="mt-0.5 text-foreground">{refusal.message}</p>

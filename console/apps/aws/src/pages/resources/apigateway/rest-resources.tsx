@@ -38,7 +38,7 @@ export function RestResources({ id, name, selected, calls }: { id: string; name:
       <Said text={restSentence(name, resources, stages.data?.item ?? [], deployments.data?.item ?? [])} names={[name, ...(stages.data?.item ?? []).map((s) => s.stageName), ...(deployments.data?.item ?? []).map((d) => d.id)]} />
       <ApiChips kind="restapis" id={id} name={name} sections={REST_SECTIONS} current="resources" />
       <Caption title="Resources" action={<Button variant="outline" className="bg-card" onClick={() => create({ do: "create-resource", key: chosen?.id })} data-testid="create-resource"><PlusIcon /> Create resource</Button>} />
-      <section className="overflow-hidden rounded-[14px] border bg-card" aria-label="Resources" data-testid="resource-tree">
+      <section className="overflow-hidden rounded-[var(--radius-card)] border bg-card" aria-label="Resources" data-testid="resource-tree">
         <ul>
           {rows.map(({ resource: r, depth }) => {
             const on = r.id === chosen?.id;

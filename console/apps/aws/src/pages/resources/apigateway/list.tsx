@@ -58,7 +58,7 @@ export function ApisList({ service, kind }: { service: string; kind: string }) {
   const search = useSearch({ strict: false }) as { do?: string; gone?: string };
   if (search.do === "create") return <CreateType />;
   const Form = search.do ? FORMS[search.do] : undefined;
-  if (Form) return <Suspense fallback={<Skeleton className="h-96 rounded-[14px]" />}><Form /></Suspense>;
+  if (Form) return <Suspense fallback={<Skeleton className="h-96 rounded-[var(--radius-card)]" />}><Form /></Suspense>;
   return <Apis service={service} kind={kind} gone={search.gone} />;
 }
 

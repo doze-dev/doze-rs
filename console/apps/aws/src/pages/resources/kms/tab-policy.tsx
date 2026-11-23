@@ -30,7 +30,7 @@ export function TabPolicy({ id, editable, go }: { id: string; editable: boolean;
   const q = useKeyPolicy(id);
   const [asked, setAsked] = useState<"default" | "policy">("default");
   if (q.isError) return <ErrorBlock what="The key policy could not be read" error={q.error} onRetry={() => void q.refetch()} testId="policy-error" />;
-  if (!q.data) return <Skeleton className="h-56 rounded-[14px]" data-testid="policy-loading" />;
+  if (!q.data) return <Skeleton className="h-56 rounded-[var(--radius-card)]" data-testid="policy-loading" />;
   const sections = policySections(q.data.Policy);
   const view = sections ? asked : "policy";
   let pretty = q.data.Policy;

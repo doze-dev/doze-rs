@@ -105,7 +105,7 @@ export function Explore({ name, search }: OwnProps) {
     },
   }));
   if (read.isError && !read.table) return <DetailError service="dynamodb" kind="tables" name={table} error={read.error} onRetry={() => void read.refetch()} />;
-  if (!read.table || !base) return <Skeleton className="h-80 rounded-[14px]" />;
+  if (!read.table || !base) return <Skeleton className="h-80 rounded-[var(--radius-card)]" />;
   const count = items.data?.Count ?? rows.length;
   const scanned = items.data?.ScannedCount ?? 0;
   const pkWords = ran.mode === "query" && ran.pk ? `${(ranSource?.keys[0]?.name ?? "").replace(/_id$/, "")} ${ran.pk}` : "";

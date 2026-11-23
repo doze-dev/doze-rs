@@ -29,7 +29,7 @@ export function ChangeSetPage({ service, kind, name, search }: OwnProps) {
   const toStack = (q2: Record<string, string>) => void navigate({ to: "/resources/$service/$kind/$name", params: { service, kind, name: stackName }, search: q2 });
   if (q.isError) return <DetailError service={service} kind={kind} name={setName} noun="change set" back={back} what="This change set could not be read" error={q.error} onRetry={() => void q.refetch()} retrying={q.isFetching} />;
   const set = q.data;
-  if (!set) return <div className="grid gap-4"><Skeleton className="h-12 w-96" /><Skeleton className="h-64 rounded-[14px]" /></div>;
+  if (!set) return <div className="grid gap-4"><Skeleton className="h-12 w-96" /><Skeleton className="h-64 rounded-[var(--radius-card)]" /></div>;
   const rows = changeRows(set);
   const creating = stack?.StackStatus === "REVIEW_IN_PROGRESS";
   const ready = set.ExecutionStatus === "AVAILABLE";

@@ -18,7 +18,7 @@ const H = 56;
 
 function Tile({ label, value, note, path, dots, testId }: { label: string; value: string; note: React.ReactNode; path: string; dots: { x: number; y: number }[]; testId: string }) {
   return (
-    <div className="rounded-[14px] border bg-card p-6" data-testid={testId}>
+    <div className="rounded-[var(--radius-card)] border bg-card p-6" data-testid={testId}>
       <p className="text-[12px] font-medium tracking-[0.08em] text-muted-foreground uppercase">{label}</p>
       <p className="mt-2 text-[22px] leading-8 font-semibold text-bright tabular-nums" data-testid={`${testId}-value`}>{value}</p>
       <p className="mt-1 text-[13.5px] text-muted-foreground">{note}</p>
@@ -65,7 +65,7 @@ export function MonitorTab({ d }: { d: ResourceDetail }) {
         <h2 className="text-[17px] leading-6 font-semibold tracking-[-0.01em] text-bright">Metrics</h2>
         <p className="mt-1 text-[13.5px] text-muted-foreground">Lambda sends metric data to CloudWatch in 1-minute intervals. The lines show the last 3 hours.</p>
         {m.isPending ? (
-          <Skeleton className="mt-5 h-72 rounded-[14px]" data-testid="metrics-loading" />
+          <Skeleton className="mt-5 h-72 rounded-[var(--radius-card)]" data-testid="metrics-loading" />
         ) : (
           <div className="mt-5 grid gap-4 md:grid-cols-2">
             <Tile testId="metric-invocations" label="Invocations" value={n(inv)} note={<>Sum. {n(hour)} in the last hour.</>} path={path("inv")} dots={dots("inv")} />

@@ -19,7 +19,7 @@ const COLUMNS: DataColumn<Version>[] = [
 export function TabVersions({ name }: { name: string }) {
   const q = useVersions(name);
   const endpoint = useAbout().data?.endpoint ?? "http://127.0.0.1:4566";
-  if (!q.data) return <Skeleton className="h-48 rounded-[14px]" data-testid="versions-loading" />;
+  if (!q.data) return <Skeleton className="h-48 rounded-[var(--radius-card)]" data-testid="versions-loading" />;
   const vs = versions(q.data.Versions);
   const cur = withStage(vs, "AWSCURRENT");
   const prev = withStage(vs, "AWSPREVIOUS");

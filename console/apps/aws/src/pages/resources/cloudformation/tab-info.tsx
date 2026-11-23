@@ -13,7 +13,7 @@ import { useCfnRead } from "./api";
 import { type Stack } from "./model";
 import { Facts, Status, StackTo } from "./parts";
 
-const card = "min-w-0 rounded-[14px] border bg-card p-6 lg:p-7";
+const card = "min-w-0 rounded-[var(--radius-card)] border bg-card p-6 lg:p-7";
 
 function Block({ title, lede, children, testId }: { title: string; lede: string; children: React.ReactNode; testId: string }) {
   return (

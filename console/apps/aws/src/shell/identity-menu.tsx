@@ -25,7 +25,7 @@ export function IdentitySheet() {
           <SheetDescription>The role&apos;s display name replaces your user name in the top bar while it is in effect.</SheetDescription>
         </SheetHeader>
         <div className="grid gap-6 px-4 pb-6">
-          <div className="grid gap-4 rounded-[14px] border bg-card p-5" data-testid="identity-current">
+          <div className="grid gap-4 rounded-[var(--radius-card)] border bg-card p-5" data-testid="identity-current">
             {live ? (
               <>
                 <div className="flex items-center justify-between gap-3">
@@ -49,7 +49,7 @@ export function IdentitySheet() {
             <section className="grid gap-2" aria-label="Credentials" data-testid="identity-credentials">
               <h3 className="text-[15px] font-semibold text-bright">Credentials of the session</h3>
               <p className="text-[13px] text-muted-foreground">AssumeRole returned these. They are real to SDKs and the AWS CLI; the console itself keeps making its own calls as the console.</p>
-              <pre className="overflow-auto rounded-[10px] border bg-well px-3 py-2.5 font-mono text-[12px] leading-5 break-all whitespace-pre-wrap">{exportLines(live, region)}</pre>
+              <pre className="overflow-auto rounded-[var(--radius-field)] border bg-well px-3 py-2.5 font-mono text-[12px] leading-5 break-all whitespace-pre-wrap">{exportLines(live, region)}</pre>
               <div><CopyButton text={exportLines(live, region)} label="Copy as export lines" what="Credentials copied" /></div>
             </section>
           )}

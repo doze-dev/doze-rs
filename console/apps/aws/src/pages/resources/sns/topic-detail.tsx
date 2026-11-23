@@ -62,7 +62,7 @@ function TopicView({ d, updatedAt, fetching, refresh }: { d: ResourceDetail; upd
   const go = (view?: string, done?: string, tab?: string) => void navigate({ to: "/resources/$service/$kind/$name", params: { service: d.service, kind: d.kind, name: d.name }, search: { ...(view ? { view } : {}), ...(done ? { done } : {}), ...(tab ? { tab } : {}) } });
   if (search.view === "edit" || search.view === "publish") {
     const props = { d, t, subs, back: () => go(), done: (done: string, tab?: string) => go(undefined, done, tab) };
-    return <Suspense fallback={<Skeleton className="h-96 rounded-[14px]" />}>{search.view === "edit" ? <Edit {...props} /> : <Publish {...props} />}</Suspense>;
+    return <Suspense fallback={<Skeleton className="h-96 rounded-[var(--radius-card)]" />}>{search.view === "edit" ? <Edit {...props} /> : <Publish {...props} />}</Suspense>;
   }
   const rawText = raw.ready ? rawWords(raw.subs.map((s) => s.raw), raw.subs.map((s) => s.protocol)) : null;
   const fifoQueue = t.fifo ? ((queues.data?.pages.flatMap((p) => p.rows) ?? []).find((r) => r.name === t.name)?.name ?? null) : null;

@@ -111,7 +111,7 @@ export function FunctionCreate() {
       onSubmit={submit}
       testId="function-create"
     >
-      <section className="min-w-0 rounded-[14px] border bg-card p-6 lg:p-7" aria-label="How the function is made" data-testid="section-author">
+      <section className="min-w-0 rounded-[var(--radius-card)] border bg-card p-6 lg:p-7" aria-label="How the function is made" data-testid="section-author">
         <div className="grid gap-4 md:grid-cols-3">
           <div className="flex gap-3 rounded-xl border border-primary bg-pick/40 p-4 text-[13.5px]" data-testid="author-scratch">
             <span aria-hidden className="mt-1 size-3.5 shrink-0 rounded-full border-[4px] border-primary bg-card" />
@@ -160,7 +160,7 @@ export function FunctionCreate() {
           {(id) => <RolePicker id={id} value={c.role ? tailOf(c.role) : null} onChange={(role) => set({ role: role ? roleArn(where.account, role) : null })} by="id" className="w-full max-w-[22rem] font-mono" />}
         </Field>
       </FormSection>
-      <section className="min-w-0 rounded-[14px] border bg-card p-6 lg:p-7" data-testid="section-advanced">
+      <section className="min-w-0 rounded-[var(--radius-card)] border bg-card p-6 lg:p-7" data-testid="section-advanced">
         <h2 className="text-[17px] leading-6 font-semibold tracking-[-0.01em] text-bright">Advanced settings</h2>
         <p className="mt-1 text-[13.5px] text-muted-foreground">Open a section to configure it while you create the function.</p>
         <div className="mt-5 grid divide-y">

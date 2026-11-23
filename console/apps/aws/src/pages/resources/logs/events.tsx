@@ -64,7 +64,7 @@ function Row({ e, group, wrap, withStream, zone }: { e: LogEvent; group: string;
       {open && (
         <tr className="border-b bg-pick/50 shadow-[inset_3px_0_0_var(--color-primary)] last:border-b-0" data-testid="log-event-open">
           <td colSpan={cols} className="px-3 pb-3">
-            <pre className="overflow-auto rounded-[10px] border bg-well px-4 py-3 font-mono text-[13px] leading-[22px] whitespace-pre text-foreground">{doc ?? message}</pre>
+            <pre className="overflow-auto rounded-[var(--radius-field)] border bg-well px-4 py-3 font-mono text-[13px] leading-[22px] whitespace-pre text-foreground">{doc ?? message}</pre>
           </td>
         </tr>
       )}
@@ -73,9 +73,9 @@ function Row({ e, group, wrap, withStream, zone }: { e: LogEvent; group: string;
 }
 
 export function EventList({ events, group, wrap, withStream = false, empty, zone = "utc", testId = "log-events" }: { events: LogEvent[]; group: string; wrap: boolean; withStream?: boolean; empty: React.ReactNode; zone?: Zone; testId?: string }) {
-  if (events.length === 0) return <p className="rounded-[12px] border border-dashed px-5 py-6 text-center text-[13.5px] text-muted-foreground" data-testid={`${testId}-none`}>{empty}</p>;
+  if (events.length === 0) return <p className="rounded-[var(--radius-panel)] border border-dashed px-5 py-6 text-center text-[13.5px] text-muted-foreground" data-testid={`${testId}-none`}>{empty}</p>;
   return (
-    <div className="max-h-[640px] overflow-auto rounded-[12px] border bg-card" data-testid={testId}>
+    <div className="max-h-[640px] overflow-auto rounded-[var(--radius-panel)] border bg-card" data-testid={testId}>
       <table className="w-full table-fixed border-collapse text-left">
         <colgroup>
           <col className="w-8" />

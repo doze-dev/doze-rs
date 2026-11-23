@@ -50,7 +50,7 @@ function FactRow({ label, value, mono }: Fact) {
 /** A card of facts, label then value: the `wide` ones across the card, the others in two columns under them. */
 export function Facts({ title, lede, wide = [], rows, testId, children, className }: { title: string; lede?: React.ReactNode; wide?: Fact[]; rows: Fact[]; testId?: string; children?: React.ReactNode; className?: string }) {
   return (
-    <section className={cn("min-w-0 rounded-[14px] border bg-card p-6 lg:p-7", className)} aria-label={title} data-testid={testId}>
+    <section className={cn("min-w-0 rounded-[var(--radius-card)] border bg-card p-6 lg:p-7", className)} aria-label={title} data-testid={testId}>
       <h2 className="text-[17px] leading-6 font-semibold tracking-[-0.01em] text-bright">{title}</h2>
       {lede && <p className="mt-1 text-[13.5px] text-muted-foreground">{lede}</p>}
       {wide.length > 0 && <dl className="mt-3">{wide.map((r) => <FactRow key={r.label} {...r} />)}</dl>}

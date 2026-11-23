@@ -31,7 +31,7 @@ export function CreateAlarm({ editing }: { editing?: string }) {
   const search = useSearch({ strict: false }) as { ns?: string | number; metric?: string | number; dims?: string | string[]; stat?: string; period?: number };
   const existing = useAlarm(editing ?? "", editing !== undefined);
   if (editing !== undefined) {
-    if (existing.alarm === undefined) return <Skeleton className="h-96 rounded-[14px]" data-testid="wizard-loading" />;
+    if (existing.alarm === undefined) return <Skeleton className="h-96 rounded-[var(--radius-card)]" data-testid="wizard-loading" />;
     if (existing.alarm === null) return <DetailError service="cloudwatch" kind="alarms" name={editing} error={new ApiFailure(404, { code: "NOT_FOUND", message: `There is no alarm named ${editing}.` })} />;
     const draft = fromAlarm(existing.alarm);
     if (!draft) return <Alert tone="warn" title={`${editing} cannot be edited here`} testId="edit-unsupported">The wizard edits an alarm on one metric, or on one expression over it. Change this one with PutMetricAlarm or PutCompositeAlarm.</Alert>;

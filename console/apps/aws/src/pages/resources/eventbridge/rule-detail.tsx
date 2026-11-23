@@ -127,7 +127,7 @@ function RuleView({ d, bus, rule, targets, reload, updatedAt, fetching }: { d: R
             {pattern && (
               <section className="mb-10" aria-labelledby="pattern-title" data-testid="rule-pattern">
                 <div className="mb-3 flex items-center justify-between"><Heading title="Event pattern" id="pattern-title">An event goes to the targets when it matches all of this.</Heading><CopyButton text={pattern} label="Copy" what="Pattern copied" className="bg-card" /></div>
-                <pre className="overflow-auto rounded-[14px] border bg-card px-5 py-4 font-mono text-[13px] leading-5 text-bright" data-testid="pattern-box">{prettyPattern(pattern)}</pre>
+                <pre className="overflow-auto rounded-[var(--radius-card)] border bg-card px-5 py-4 font-mono text-[13px] leading-5 text-bright" data-testid="pattern-box">{prettyPattern(pattern)}</pre>
                 <RuleHelp className="mt-3 max-w-3xl">Every field's value is a list, and one entry of the list matching is enough. Fields you leave out are not checked. Numeric conditions compare values as 64-bit floating-point numbers.</RuleHelp>
               </section>
             )}

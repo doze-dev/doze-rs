@@ -17,7 +17,7 @@ export function IntegrationFields({ i, count, form, region, set, remove, tried, 
   const lambda = form.kind === "lambda";
   const sentence = useFunctionSentence(lambda ? form.fn : null);
   return (
-    <div className="grid gap-5 rounded-[12px] border p-5" data-testid={tid("integration", i)}>
+    <div className="grid gap-5 rounded-[var(--radius-panel)] border p-5" data-testid={tid("integration", i)}>
       {count > 1 && (
         <div className="flex items-center justify-between gap-3">
           <h3 className="text-[15px] font-semibold text-bright">Integration {i + 1}</h3>

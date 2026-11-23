@@ -47,7 +47,7 @@ export function DetailsGrid({ rows, columns = 1, testId = "details" }: { rows: r
   const per = Math.ceil(rows.length / columns);
   const parts = columns === 2 ? [rows.slice(0, per), rows.slice(per)] : [rows];
   return (
-    <section className="rounded-[14px] border bg-card px-6 py-3 lg:px-7" data-testid={testId}>
+    <section className="rounded-[var(--radius-card)] border bg-card px-6 py-3 lg:px-7" data-testid={testId}>
       <div className={cn("grid gap-x-12", columns === 2 && "lg:grid-cols-2")}>
         {parts.map((p, i) => (
           <dl key={i} className="grid grid-cols-[minmax(7rem,10rem)_minmax(0,1fr)] [&>div:last-child>*]:border-b-0">

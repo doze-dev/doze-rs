@@ -64,7 +64,7 @@ export function FormSection({ title, optional = false, description, collapsible 
   const [open, setOpen] = useState(defaultOpen || !collapsible);
   const id = useId();
   return (
-    <section className={cn("min-w-0 rounded-[14px] border bg-card p-6 lg:p-7", className)} aria-labelledby={`${id}-title`} data-slot="form-section" data-testid={testId ?? `section-${title}`}>
+    <section className={cn("min-w-0 rounded-[var(--radius-card)] border bg-card p-6 lg:p-7", className)} aria-labelledby={`${id}-title`} data-slot="form-section" data-testid={testId ?? `section-${title}`}>
       <Collapsible open={open} onOpenChange={setOpen}>
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">

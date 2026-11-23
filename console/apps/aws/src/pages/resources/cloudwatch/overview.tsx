@@ -40,7 +40,7 @@ const RECENT_COLUMNS: DataColumn<Alarm>[] = [
 
 function Card({ to, icon: Icon, title, children, testId }: { to: string; icon: typeof BellIcon; title: string; children: React.ReactNode; testId: string }) {
   return (
-    <Link to={to as never} className="flex items-center gap-4 rounded-[14px] border bg-card px-6 py-5 outline-none hover:bg-accent focus-visible:ring-[3px] focus-visible:ring-ring/50" data-testid={testId}>
+    <Link to={to as never} className="flex items-center gap-4 rounded-[var(--radius-card)] border bg-card px-6 py-5 outline-none hover:bg-accent focus-visible:ring-[3px] focus-visible:ring-ring/50" data-testid={testId}>
       <Icon aria-hidden className="size-5 shrink-0 text-good" />
       <span className="grid gap-0.5"><span className="text-[16px] font-semibold text-bright">{title}</span><span className="text-[13.5px] text-muted-foreground">{children}</span></span>
     </Link>
@@ -83,14 +83,14 @@ export function Overview() {
       {alarms.isError && !alarms.data ? (
         <ErrorBlock what="The alarms could not be read" error={alarms.error} hint={HINT} onRetry={refresh} retrying={alarms.isFetching} testId="overview-error" />
       ) : !alarms.data ? (
-        <div className="grid gap-4" data-testid="overview-loading"><Skeleton className="h-8 w-60" /><Skeleton className="h-52 rounded-[14px]" /></div>
+        <div className="grid gap-4" data-testid="overview-loading"><Skeleton className="h-8 w-60" /><Skeleton className="h-52 rounded-[var(--radius-card)]" /></div>
       ) : (
         <>
           <section className="grid gap-3" data-testid="alarms-by-service">
             <div><h2 className="text-[19px] leading-7 font-semibold tracking-[-0.01em] text-bright">Alarms by AWS service</h2><p className="mt-1 max-w-[46rem] text-[13.5px] text-muted-foreground">The AWS services you use that have alarms, and the alarms that are in ALARM or changed state most recently.{custom[0] && recent.some((r) => r.AlarmName === custom[0]!.AlarmName) ? <> <span className="font-mono text-foreground">{custom[0].AlarmName}</span> watches a custom metric, so it appears only on the right.</> : null}</p></div>
             <div className="grid items-start gap-6 lg:grid-cols-2">
-              {services.length === 0 ? <p className="rounded-[14px] border border-dashed px-5 py-8 text-[13.5px] text-muted-foreground" data-testid="no-service-alarms">No alarm watches an AWS service's metric.</p> : <DataTable aria-label="Alarms by AWS service" data={services} columns={SERVICE_COLUMNS} rowId={(r) => r.service} maxHeight={320} />}
-              {recent.length === 0 ? <p className="rounded-[14px] border border-dashed px-5 py-8 text-[13.5px] text-muted-foreground" data-testid="no-alarms">There are no alarms yet.</p> : <DataTable aria-label="Recent alarms" data={recent} columns={RECENT_COLUMNS} rowId={(r) => r.AlarmName} maxHeight={320} />}
+              {services.length === 0 ? <p className="rounded-[var(--radius-card)] border border-dashed px-5 py-8 text-[13.5px] text-muted-foreground" data-testid="no-service-alarms">No alarm watches an AWS service's metric.</p> : <DataTable aria-label="Alarms by AWS service" data={services} columns={SERVICE_COLUMNS} rowId={(r) => r.service} maxHeight={320} />}
+              {recent.length === 0 ? <p className="rounded-[var(--radius-card)] border border-dashed px-5 py-8 text-[13.5px] text-muted-foreground" data-testid="no-alarms">There are no alarms yet.</p> : <DataTable aria-label="Recent alarms" data={recent} columns={RECENT_COLUMNS} rowId={(r) => r.AlarmName} maxHeight={320} />}
             </div>
           </section>
           <section className="mt-12 grid gap-3" data-testid="where-to-go">

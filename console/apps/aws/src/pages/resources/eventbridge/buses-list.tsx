@@ -75,7 +75,7 @@ function Buses({ service, kind, gone }: { service: string; kind: string; gone?: 
       ) : (
         <>
           <Said text={busesSentence(names, rulesBy, archives.data?.Archives ?? [])} names={names} />
-          <section className="mb-10 rounded-[14px] border bg-card p-6 lg:p-7" aria-labelledby="default-bus" data-testid="default-bus">
+          <section className="mb-10 rounded-[var(--radius-card)] border bg-card p-6 lg:p-7" aria-labelledby="default-bus" data-testid="default-bus">
             <div className="flex items-start justify-between gap-4">
               <Heading title="Default event bus" id="default-bus">Receives events from AWS services in this account. It can't be deleted.</Heading>
               <DropdownMenu>

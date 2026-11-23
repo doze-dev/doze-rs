@@ -25,7 +25,7 @@ export function CapacityEdit({ name }: OwnProps) {
   const [read, setRead] = useState<string | null>(null);
   const [write, setWrite] = useState<string | null>(null);
   if (isError && !t) return <DetailError service="dynamodb" kind="tables" name={table} error={error} onRetry={() => void refetch()} />;
-  if (!t) return <Skeleton className="h-80 rounded-[14px]" />;
+  if (!t) return <Skeleton className="h-80 rounded-[var(--radius-card)]" />;
   const m = mode ?? t.mode;
   const r = read ?? String(t.read ?? 5);
   const w = write ?? String(t.write ?? 5);

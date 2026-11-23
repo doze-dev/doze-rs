@@ -43,7 +43,7 @@ export function Pipeline({ name, calls, subs }: { name: string; calls: readonly 
   if (from.length === 0 && groups.length === 0) return null;
   const row: { label?: string; chips: Chip[] }[] = [...(from.length > 0 ? [{ label: "Publisher", chips: from.map((l) => ({ label: l })) }] : []), { chips: [{ label: name, self: true }] }, ...groups];
   return (
-    <nav aria-label="Wired to" className="mb-8 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-[14px] border bg-card px-5 py-4" data-testid="wired-strip">
+    <nav aria-label="Wired to" className="mb-8 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-[var(--radius-card)] border bg-card px-5 py-4" data-testid="wired-strip">
       {row.map((g, i) => (
         <Fragment key={i}>
           {i > 0 && <ArrowRightIcon aria-hidden className="size-3.5 text-input" />}
@@ -66,7 +66,7 @@ export function DetailsCard({ t }: { t: Topic }) {
     ...(t.fifo && a.active ? ([["Retention policy", `Archive policy active, ${daysWords(a.days ?? 0)}`]] as [string, React.ReactNode][]) : []),
   ];
   return (
-    <section className="rounded-[14px] border bg-card px-6 py-2 lg:px-7" aria-label="Details" data-testid="details">
+    <section className="rounded-[var(--radius-card)] border bg-card px-6 py-2 lg:px-7" aria-label="Details" data-testid="details">
       <dl className="grid grid-cols-[minmax(9rem,13rem)_minmax(0,1fr)] [&>div:last-child>*]:border-b-0">
         {rows.map(([l, v]) => (
           <div key={l} className="contents">

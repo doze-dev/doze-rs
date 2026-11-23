@@ -99,7 +99,7 @@ export function StepDetails({ step, name, state, events, first }: { step?: Step;
       {view === "definition" && <CodeBlock text={state ? JSON.stringify(state, null, 2) : "This state is not in the definition the execution ran."} max="max-h-80" testId="step-definition" />}
       {view === "retry" && (
         state?.Retry && state.Retry.length > 0 ? (
-          <div className="overflow-auto rounded-[12px] border" data-testid="step-retry">
+          <div className="overflow-auto rounded-[var(--radius-panel)] border" data-testid="step-retry">
             <table className="w-full border-collapse text-left text-[13px]">
               <thead className="bg-well"><tr className="border-b text-[11.5px] font-medium tracking-[0.07em] text-muted-foreground uppercase"><th className="px-4 py-2.5 font-medium">Errors</th><th className="px-4 py-2.5 font-medium">Interval</th><th className="px-4 py-2.5 font-medium">Max attempts</th><th className="px-4 py-2.5 font-medium">Backoff rate</th></tr></thead>
               <tbody>{state.Retry.map((r, i) => <tr key={i} className="border-b last:border-b-0"><td className="px-4 py-2.5 font-mono">{(r.ErrorEquals ?? []).join(", ")}</td><td className="px-4 py-2.5">{r.IntervalSeconds ?? 1} s</td><td className="px-4 py-2.5">{r.MaxAttempts ?? 3}</td><td className="px-4 py-2.5">{r.BackoffRate ?? 2}</td></tr>)}</tbody>
@@ -172,7 +172,7 @@ export function EventsView({ events, startMs }: { events: HistoryEvent[]; startM
         <SearchIcon aria-hidden className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
         <Input value={filter} onChange={(e) => { setFilter(e.target.value); setPage(0); }} placeholder="Filter by properties or search by keyword" aria-label="Filter events" className="bg-card pl-9" data-testid="events-filter" />
       </div>
-      <div className="overflow-auto rounded-[12px] border" data-testid="history">
+      <div className="overflow-auto rounded-[var(--radius-panel)] border" data-testid="history">
         <table className="w-full border-collapse text-left">
           <thead className="bg-well">
             <tr className="border-b text-[11.5px] font-medium tracking-[0.07em] text-muted-foreground uppercase">

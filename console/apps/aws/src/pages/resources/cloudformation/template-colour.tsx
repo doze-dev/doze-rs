@@ -44,7 +44,7 @@ export function colourLine(line: string, json: boolean): Token[] {
 export function TemplateCode({ text, json, wrap, testId, max = "max-h-[1600px]" }: { text: string; json: boolean; wrap: boolean; testId?: string; max?: string }) {
   const lines = text.split("\n");
   return (
-    <pre tabIndex={0} className={cn("overflow-auto rounded-[12px] border bg-well px-5 py-4 font-mono text-[12.5px] leading-[21px] text-foreground outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50", max, wrap ? "whitespace-pre-wrap break-words" : "whitespace-pre")} data-slot="code-block" data-testid={testId}>
+    <pre tabIndex={0} className={cn("overflow-auto rounded-[var(--radius-panel)] border bg-well px-5 py-4 font-mono text-[12.5px] leading-[21px] text-foreground outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50", max, wrap ? "whitespace-pre-wrap break-words" : "whitespace-pre")} data-slot="code-block" data-testid={testId}>
       {lines.map((line, i) => (
         <span key={i}>
           {colourLine(line, json).map((t, j) => (CLASS[t.kind] ? <span key={j} className={CLASS[t.kind]} data-kind={t.kind}>{t.text}</span> : t.text))}

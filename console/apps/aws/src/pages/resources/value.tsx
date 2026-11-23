@@ -19,7 +19,7 @@ export function ResourceTo({ to, children, className, testId }: { to: ResourceLi
 export function Value({ value, format, link, block = false }: { value: string | null; format: ValueFormat; link?: ResourceLink | null; block?: boolean }) {
   if (value === null || value === "") return dim;
   if (format === "json" && block && isDocument(value)) {
-    return <pre className="max-h-80 overflow-auto rounded-[10px] border bg-muted px-4 py-3 font-mono text-[12.5px] leading-5 whitespace-pre-wrap text-foreground">{value}</pre>;
+    return <pre className="max-h-80 overflow-auto rounded-[var(--radius-field)] border bg-muted px-4 py-3 font-mono text-[12.5px] leading-5 whitespace-pre-wrap text-foreground">{value}</pre>;
   }
   const text = shown(value, format);
   const mono = format === "mono" || (format === "json" && isDocument(value));

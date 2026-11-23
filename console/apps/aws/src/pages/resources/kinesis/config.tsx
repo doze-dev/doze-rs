@@ -14,7 +14,7 @@ const note = "mt-3 max-w-[40rem] border-l-2 border-input pl-3.5 text-[13px] lead
 
 function Section({ title, actions, children, testId }: { title: string; actions?: React.ReactNode; children: React.ReactNode; testId: string }) {
   return (
-    <section className="rounded-[14px] border bg-card p-6 lg:p-7" aria-label={title} data-testid={testId}>
+    <section className="rounded-[var(--radius-card)] border bg-card p-6 lg:p-7" aria-label={title} data-testid={testId}>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-[17px] leading-6 font-semibold tracking-[-0.01em] text-bright">{title}</h2>
         {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}

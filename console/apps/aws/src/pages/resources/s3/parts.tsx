@@ -55,7 +55,7 @@ export const Mono = ({ children }: { children: React.ReactNode }) => <span class
 export function Reading({ q, what, children, height = "h-32" }: { q: { data: unknown; isPending: boolean; failed?: unknown; error?: unknown; refetch: () => unknown; isFetching: boolean }; what: string; children: React.ReactNode; height?: string }) {
   const failure = q.failed ?? (q.data === undefined ? q.error : null);
   if (failure) return <ErrorBlock what={`${what} could not be read`} error={failure} onRetry={() => void q.refetch()} retrying={q.isFetching} testId="read-error" />;
-  if (q.isPending) return <Skeleton className={cn("rounded-[12px]", height)} data-testid="reading" />;
+  if (q.isPending) return <Skeleton className={cn("rounded-[var(--radius-panel)]", height)} data-testid="reading" />;
   return <>{children}</>;
 }
 

@@ -74,7 +74,7 @@ export function HttpIntegrations({ id, api, selected }: { id: string; api: HttpA
           <Caption title="Routes" />
           <DataTable<Route> aria-label="Routes" data={all} columns={routeColumns} rowId={(r) => r.routeId} onRowClick={(r) => go({ tab: "integrations", key: r.routeId })} rowClassName={(r) => (r.routeId === chosen?.routeId ? "[&>td]:bg-pick/50" : undefined)} empty="No route yet: create a route first, then attach an integration to it." />
           {chosen && (
-            <section className="mt-8 rounded-[14px] border bg-card p-6 lg:p-7" aria-label="Attach an integration" data-testid="attach">
+            <section className="mt-8 rounded-[var(--radius-card)] border bg-card p-6 lg:p-7" aria-label="Attach an integration" data-testid="attach">
               <h2 className="text-[17px] leading-6 font-semibold text-bright">Attach an integration to <span className="font-mono">{chosen.routeKey}</span></h2>
               <form className="mt-5 grid gap-5" onSubmit={(e) => { e.preventDefault(); if (input) attach.mutate(input as never); }}>
                 <Field label="Choose an existing integration" hint={pick && options.find((i) => i.integrationId === pick) ? explain(options.find((i) => i.integrationId === pick)!) : undefined}>

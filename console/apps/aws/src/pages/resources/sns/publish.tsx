@@ -160,7 +160,7 @@ function Aside({ f, filters, who }: { f: PublishForm; filters: { name: string; p
   return (
     <>
       {filters.length > 0 && (
-        <section className="rounded-[14px] border bg-card p-5" data-testid="filter-preview">
+        <section className="rounded-[var(--radius-card)] border bg-card p-5" data-testid="filter-preview">
           <h2 className="text-[17px] font-semibold tracking-[-0.01em] text-bright">Filter on the {filters.length === 1 ? "one subscription" : `${filters.length} subscriptions`}</h2>
           {filters.map((x) => (
             <div key={x.name} className="mt-3 grid gap-3 text-[13px]">
@@ -173,7 +173,7 @@ function Aside({ f, filters, who }: { f: PublishForm; filters: { name: string; p
         </section>
       )}
       {who.length > 0 && (
-        <section className="rounded-[14px] border bg-card p-5" data-testid="who-gets-what">
+        <section className="rounded-[var(--radius-card)] border bg-card p-5" data-testid="who-gets-what">
           <h2 className="text-[17px] font-semibold tracking-[-0.01em] text-bright">Who gets what</h2>
           {who.every((w) => w.raw === false) && <p className="mt-2 text-[13px] leading-5 text-muted-foreground">Raw delivery is off on {who.length === 1 ? "it" : `all ${who.length}`}, so each endpoint gets the JSON envelope with this text in <span className="font-mono">Message</span>.</p>}
           <ul className="mt-3 grid gap-1.5 text-[13px]">

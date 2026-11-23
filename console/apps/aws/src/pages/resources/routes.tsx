@@ -46,7 +46,7 @@ function NotDescribed({ service, note }: { service: string; note: string | null 
 function useResolved(service: string, second: string | null, member?: string) {
   const catalogue = useCatalogue();
   if (catalogue.isError && !catalogue.data) return { page: <ErrorBlock what="The resources could not be read" error={catalogue.error} hint={HINT} onRetry={() => void catalogue.refetch()} retrying={catalogue.isFetching} /> };
-  if (!catalogue.data) return { page: <Skeleton className="h-80 rounded-[14px]" /> };
+  if (!catalogue.data) return { page: <Skeleton className="h-80 rounded-[var(--radius-card)]" /> };
   const s = catalogue.data.services.find((x) => x.name === service);
   if (!s || !s.described) return { page: <NotDescribed service={s?.title ?? service} note={s?.note ?? null} /> };
   if (second === null) return { kind: s.kinds[0]?.id ?? "", name: null };
@@ -74,7 +74,7 @@ const ownPage = (service: string, kind: string, name: string | null, search: Own
 
 function Own({ Page, props }: { Page: NonNullable<ReturnType<typeof ownPage>>; props: OwnProps }) {
   return (
-    <Suspense fallback={<Skeleton className="h-80 rounded-[14px]" />}>
+    <Suspense fallback={<Skeleton className="h-80 rounded-[var(--radius-card)]" />}>
       <Page {...props} />
     </Suspense>
   );
@@ -102,7 +102,7 @@ export function OnePage() {
   if (Page) return <Own key={ownKey(props)} Page={Page} props={props} />;
   if (isDeepRoute(service, kind)) {
     return (
-      <Suspense fallback={<Skeleton className="h-80 rounded-[14px]" />}>
+      <Suspense fallback={<Skeleton className="h-80 rounded-[var(--radius-card)]" />}>
         <DeepRoute key={`${service}/${kind}/${name}`} service={service} kind={kind} name={name} group={group} />
       </Suspense>
     );

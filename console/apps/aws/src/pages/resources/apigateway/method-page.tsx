@@ -33,7 +33,7 @@ export function MethodPage({ api, apiName, resource, method, mode, crumbs, go }:
   const tree = useResources(api);
   const authorizers = useAuthorizers(api).data?.item ?? [];
   const current = MODES.find((m) => m.id === mode)?.id ?? "request";
-  if (!tree.data) return <div className="grid gap-4" data-testid="resource-page-loading"><Skeleton className="h-12 w-80" /><Skeleton className="h-72 rounded-[14px]" /></div>;
+  if (!tree.data) return <div className="grid gap-4" data-testid="resource-page-loading"><Skeleton className="h-12 w-80" /><Skeleton className="h-72 rounded-[var(--radius-card)]" /></div>;
   const res = tree.data.item?.find((r) => r.id === resource);
   const m = res?.resourceMethods?.[method];
   if (!res || !m) {

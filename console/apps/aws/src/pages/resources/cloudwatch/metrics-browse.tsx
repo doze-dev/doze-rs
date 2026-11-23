@@ -28,7 +28,7 @@ function Namespaces({ title, lede, rows, open, testId, searched = false }: { tit
     <section className="grid gap-3" data-testid={testId}>
       <div><h2 className="text-[19px] leading-7 font-semibold tracking-[-0.01em] text-bright">{title}</h2><p className="mt-1 text-[13.5px] text-muted-foreground">{lede}</p></div>
       {rows.length === 0 && searched ? (
-        <p className="rounded-[12px] border border-dashed px-5 py-4 text-[13.5px] text-muted-foreground" data-testid={`${testId}-none`}>No metric in these namespaces matches the search.</p>
+        <p className="rounded-[var(--radius-panel)] border border-dashed px-5 py-4 text-[13.5px] text-muted-foreground" data-testid={`${testId}-none`}>No metric in these namespaces matches the search.</p>
       ) : rows.length === 0 ? (
         <EmptyState icon={SearchIcon} title="No metrics found">ListMetrics returned nothing for this search. Metrics appear here once something publishes them.</EmptyState>
       ) : (
@@ -52,7 +52,7 @@ export function Browse({ view, onView, rows, onRows, retry }: { view: View; onVi
     onRows(out);
   };
   if (all.isError && !all.data) return <ErrorBlock what="The metrics could not be listed" error={all.error} hint={HINT} onRetry={() => (retry ?? (() => void all.refetch()))()} retrying={all.isFetching} testId="list-error" />;
-  if (all.isPending) return <Skeleton className="h-64 rounded-[14px]" data-testid="list-loading" />;
+  if (all.isPending) return <Skeleton className="h-64 rounded-[var(--radius-card)]" data-testid="list-loading" />;
   if (drill)
     return (
       <section className="grid gap-4" data-testid="metrics-in">

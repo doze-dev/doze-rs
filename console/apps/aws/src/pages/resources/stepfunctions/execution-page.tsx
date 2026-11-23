@@ -125,7 +125,7 @@ export function ExecutionPage({ arn }: { arn: string }) {
         }
       />
       {!e ? (
-        <Skeleton className="h-80 rounded-[14px]" data-testid="execution-loading" />
+        <Skeleton className="h-80 rounded-[var(--radius-card)]" data-testid="execution-loading" />
       ) : (
         <div className="grid gap-6" data-testid="execution">
           {/* The failure and the summary belong to the graph view; the table and the events are the views of the steps alone, as the boards draw them. */}
@@ -178,7 +178,7 @@ export function ExecutionPage({ arn }: { arn: string }) {
                 <div data-testid="execution-output"><h3 className="mb-2 text-[13.5px] font-medium text-bright">Output</h3><CodeBlock text={e.output ? pretty(e.output) : e.status === "RUNNING" ? "Not yet: it is running." : "None."} /></div>
               </div>
             )}
-            {summary === "definition" && (machine.data?.definition ? <CodeBlock text={pretty(machine.data.definition)} max="max-h-96" testId="execution-definition" /> : <Skeleton className="h-40 rounded-[12px]" />)}
+            {summary === "definition" && (machine.data?.definition ? <CodeBlock text={pretty(machine.data.definition)} max="max-h-96" testId="execution-definition" /> : <Skeleton className="h-40 rounded-[var(--radius-panel)]" />)}
           </Card>}
           <Tabs value={view} onValueChange={(v) => setView(v as View)} className="gap-0">
             <TabsList variant="line" className="h-11 w-full justify-start gap-2 border-b p-0" aria-label="Views of this execution">
@@ -189,12 +189,12 @@ export function ExecutionPage({ arn }: { arn: string }) {
           </Tabs>
           {view === "graph" && (
             <Card title="Graph view" lede={run && events.data ? graphWords(steps, e.status) : undefined} testId="graph-card">
-              {machine.error ? <p className="text-[13.5px] text-bad">The definition could not be read.</p> : !definition || !events.data ? <Skeleton className="h-72 rounded-[12px]" /> : <GraphView definition={definition} targets run={run} selected={shownStep} onSelect={setSelected} />}
+              {machine.error ? <p className="text-[13.5px] text-bad">The definition could not be read.</p> : !definition || !events.data ? <Skeleton className="h-72 rounded-[var(--radius-panel)]" /> : <GraphView definition={definition} targets run={run} selected={shownStep} onSelect={setSelected} />}
               <Legend cancelled={steps.some((s) => s.status === "cancelled")} notRun={Object.keys(definition?.States ?? {}).some((n) => !steps.some((s) => s.name === n))} />
             </Card>
           )}
           {view === "table" && <TableView steps={steps} states={states} startMs={startMs} selected={shownStep} onSelect={setSelected} />}
-          {view === "events" && (events.error ? <p className="text-[13.5px] text-bad">The history could not be read.</p> : !events.data ? <Skeleton className="h-72 rounded-[12px]" /> : <EventsView events={events.data} startMs={startMs} />)}
+          {view === "events" && (events.error ? <p className="text-[13.5px] text-bad">The history could not be read.</p> : !events.data ? <Skeleton className="h-72 rounded-[var(--radius-panel)]" /> : <EventsView events={events.data} startMs={startMs} />)}
           {view !== "events" && <StepDetails key={shownStep} step={shownStep ? run?.steps.get(shownStep) : undefined} name={shownStep} state={shownStep ? states[shownStep] : undefined} events={events.data ?? []} first={failedStep?.name === shownStep ? "details" : "input"} />}
           {view !== "events" && note && <p className="max-w-[46rem] border-l-2 border-input pl-3.5 text-[13px] leading-5 text-muted-foreground" data-testid="step-note"><Emphasis text={note.text} names={note.names} bold={[/\bHeartbeatSeconds \d+/]} /></p>}
           <StartDialog key={`s${opened}`} machine={e.stateMachineArn} name={machineName} startAt={definition?.StartAt} input={e.input ? pretty(e.input) : "{}"} open={dialog === "start"} onOpenChange={(o) => !o && setDialog(null)} />

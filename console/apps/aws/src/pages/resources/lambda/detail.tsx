@@ -85,7 +85,7 @@ function FunctionView({ d, updatedAt, fetching, refresh }: { d: ResourceDetail; 
     const ran = d.calls.find((c) => c.action === "Invoke" || c.action === "InvokeWithResponseStream");
     return ran ? new Date(ran.at_ms).toISOString().slice(11, 19) : null;
   }, [d.calls]);
-  if (search.view) return <Suspense fallback={<Skeleton className="h-96 rounded-[14px]" />}><Forms d={d} f={f} view={search.view} sel={search.sel} go={go} where={where} triggers={triggers} /></Suspense>;
+  if (search.view) return <Suspense fallback={<Skeleton className="h-96 rounded-[var(--radius-card)]" />}><Forms d={d} f={f} view={search.view} sel={search.sel} go={go} where={where} triggers={triggers} /></Suspense>;
   const tab = search.tab && TABS.some(([id]) => id === search.tab) ? search.tab : "code";
   const done = search.done ? DONE[search.done]?.(d.name) : undefined;
   const sentence = search.done === "created" ? madeSentence(d.name, f.roleName, triggers.length) : sentenceOf(f, triggers, lastRan);

@@ -48,7 +48,7 @@ export function DetailsCard({ q }: { q: Queue }) {
   ];
   const col = "grid grid-cols-[minmax(9rem,13rem)_minmax(0,1fr)] content-start [&>div:last-child>*]:border-b-0";
   return (
-    <section className="rounded-[14px] border bg-card p-6 lg:p-7" aria-label="Details" data-testid="details">
+    <section className="rounded-[var(--radius-card)] border bg-card p-6 lg:p-7" aria-label="Details" data-testid="details">
       <h2 className="text-[17px] leading-6 font-semibold tracking-[-0.01em] text-bright">Details</h2>
       <dl className="mt-4 grid grid-cols-[6rem_minmax(0,1fr)] gap-y-3 border-b pb-5 text-[13.5px]">
         <dt className="text-muted-foreground">ARN</dt>

@@ -34,7 +34,7 @@ export function AliasCreate({ name: machine }: OwnProps) {
     mutationFn: (input: object) => callOp<{ stateMachineAliasArn: string }>(on.machine(name), "CreateStateMachineAlias", input),
     onSuccess: () => void qc.invalidateQueries({ queryKey: ["resources", "deep", "stepfunctions", "machines", name] }),
   });
-  if (!versions.data || !aliases.data) return <Skeleton className="h-80 rounded-[14px]" />;
+  if (!versions.data || !aliases.data) return <Skeleton className="h-80 rounded-[var(--radius-card)]" />;
   const list = [...versions.data].sort((a, b) => Number(b.number) - Number(a.number));
   const taken = aliases.data.map((a) => a.name);
   const arnOf = (n: string | null) => `arn:aws:states:${where.region}:${where.account}:stateMachine:${name}:${n ?? "?"}`;

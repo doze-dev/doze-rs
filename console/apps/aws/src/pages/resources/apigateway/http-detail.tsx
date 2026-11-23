@@ -38,7 +38,7 @@ export function HttpDetail({ service, kind, name }: { service: string; kind: str
   const api = useHttpApi(name);
   const refresh = useRefreshReads();
   if (detail.isError && !detail.data) return <DetailError service={service} kind={kind} name={name} error={detail.error} onRetry={() => void detail.refetch()} retrying={detail.isFetching} />;
-  if (!detail.data || !api.data) return <div className="grid gap-4" data-testid="resource-page-loading"><Skeleton className="h-12 w-80" /><Skeleton className="h-72 rounded-[14px]" /></div>;
+  if (!detail.data || !api.data) return <div className="grid gap-4" data-testid="resource-page-loading"><Skeleton className="h-12 w-80" /><Skeleton className="h-72 rounded-[var(--radius-card)]" /></div>;
   const a = api.data;
   return <HttpView id={name} api={a} calls={detail.data.calls} updatedAt={detail.dataUpdatedAt} fetching={detail.isFetching} refresh={() => { refresh(); void detail.refetch(); }} />;
 }
@@ -54,7 +54,7 @@ function HttpView({ id, api, calls, updatedAt, fetching, refresh }: { id: string
   const label = sections.find((x) => x.id === section)!.label;
   const back = [...crumbs, { label: "APIs", to: "/resources/apigateway/restapis" }, { label: api.name, to: `/resources/apigateway/apis/${id}` }];
   const form = s.do ? (
-    <Suspense fallback={<Skeleton className="h-96 rounded-[14px]" />}>
+    <Suspense fallback={<Skeleton className="h-96 rounded-[var(--radius-card)]" />}>
       {s.do === "create-route" && <RouteCreate api={id} apiName={api.name} websocket={websocket} crumbs={back} onClose={(k) => go(k ? { done: "route", name: k } : {})} />}
       {s.do === "create-integration" && <IntegrationCreate api={id} apiName={api.name} route={s.key} crumbs={back} onClose={(done) => go({ tab: "integrations", ...(done ? { done: "integration", name: done } : {}) })} />}
       {s.do === "create-authorizer" && <HttpAuthorizerCreate api={id} apiName={api.name} crumbs={back} onClose={(n) => go({ tab: "authorization", mode: "manage", ...(n ? { done: "authorizer", name: n } : {}) })} />}

@@ -40,7 +40,7 @@ function lastWords(lastMs: number | null, now: number): string {
 function GroupCard({ g, now }: { g: AwakeGroup; now: number }) {
   const Icon = ICONS[g.name] ?? LayersIcon;
   return (
-    <section className="min-w-0 rounded-[14px] border bg-card px-6 pt-5 pb-3" aria-label={g.name} data-testid="awake-group" data-group={g.name}>
+    <section className="min-w-0 rounded-[var(--radius-card)] border bg-card px-6 pt-5 pb-3" aria-label={g.name} data-testid="awake-group" data-group={g.name}>
       <h3 className="flex items-center gap-2.5 border-b pb-3 text-[15px] font-semibold text-bright">
         <Icon className="size-[18px] text-primary" aria-hidden /> {g.name}
       </h3>
@@ -96,7 +96,7 @@ export function AwakeSection({ activity, idleSecs, now }: { activity: ServiceSee
         ) : (
           <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
             {[0, 1, 2].map((i) => (
-              <Skeleton key={i} className="h-40 rounded-[14px]" />
+              <Skeleton key={i} className="h-40 rounded-[var(--radius-card)]" />
             ))}
           </div>
         )}
