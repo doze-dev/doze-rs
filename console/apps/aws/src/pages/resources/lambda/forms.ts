@@ -89,7 +89,7 @@ export function mappingUpdate(uuid: string, from: { enabled: boolean; batch: num
 export const visibilityFor = (timeout: number): number => timeout * 6;
 
 // --- destinations of asynchronous invocations ------------------------------------------------------------------------
-export type Destination = { condition: "OnFailure" | "OnSuccess"; type: "sqs" | "sns" | "lambda"; target: string | null };
+export type Destination = { condition: "OnFailure" | "OnSuccess"; type: "sqs" | "sns" | "lambda" | "events"; target: string | null };
 
 export function destinationProblems(d: Destination): Problems {
   const p: Problems = {};
@@ -108,22 +108,27 @@ export function permissionProblems(p: Permission, taken: readonly string[]): Pro
   if (!/^[a-zA-Z0-9_-]{1,100}$/.test(p.sid)) out.sid = "A statement ID is 1 to 100 letters, digits, hyphens and underscores.";
   else if (taken.includes(p.sid)) out.sid = `${p.sid} is taken: the policy already has a statement with that ID.`;
   if (p.principal.trim() === "") out.principal = "Name the service, account, user or role that may call the function.";
+  // The model's pattern for Action: `lambda:*`, `lambda:` and letters, or `*`.
+  if (!/^(lambda:\*|lambda:[a-zA-Z]+|\*)$/.test(p.action.trim())) out.action = "An action is lambda: and its name, such as lambda:InvokeFunction.";
   return out;
 }
 
 export function permissionInput(name: string, p: Permission) {
-  const out: Record<string, unknown> = { FunctionName: name, StatementId: p.sid, Action: p.action, Principal: p.principal.trim() };
+  const out: Record<string, unknown> = { FunctionName: name, StatementId: p.sid, Action: p.action.trim(), Principal: p.principal.trim() };
   if (p.sourceArn.trim()) out.SourceArn = p.sourceArn.trim();
   if (p.sourceAccount.trim()) out.SourceAccount = p.sourceAccount.trim();
   return out;
 }
 
 /** What a principal given as a service most likely names a source of (`s3.amazonaws.com` is a bucket). */
-export function sourceHint(principal: string, fn: string): string | null {
-  if (principal === "s3.amazonaws.com") return "For an AWS service, the ARN of the resource that invokes the function: for S3, a bucket such as arn:aws:s3:::receipts.";
-  if (principal === "sns.amazonaws.com") return "For an AWS service, the ARN of the resource that invokes the function: for SNS, the topic's ARN.";
-  if (principal === "events.amazonaws.com") return "For an AWS service, the ARN of the resource that invokes the function: for EventBridge, the rule's ARN.";
-  return principal.endsWith(".amazonaws.com") ? `The ARN of the ${principal.split(".")[0]} resource that invokes ${fn}.` : null;
+export function sourceHint(principal: string, fn: string, sourceArn = ""): (string | { bold: string })[] | null {
+  const lead = "For an AWS service, the ARN of the resource that invokes the function";
+  // With a bucket's ARN typed, the board names the bucket: `here the bucket receipts`.
+  const bucket = /^arn:aws:s3:::([^/:\s]+)$/.exec(sourceArn.trim())?.[1];
+  if (principal === "s3.amazonaws.com") return bucket ? [`${lead}: here the bucket `, { bold: bucket }, "."] : [`${lead}: for S3, a bucket such as arn:aws:s3:::receipts.`];
+  if (principal === "sns.amazonaws.com") return [`${lead}: for SNS, the topic's ARN.`];
+  if (principal === "events.amazonaws.com") return [`${lead}: for EventBridge, the rule's ARN.`];
+  return principal.endsWith(".amazonaws.com") ? [`The ARN of the ${principal.split(".")[0]} resource that invokes ${fn}.`] : null;
 }
 
 // --- a function URL --------------------------------------------------------------------------------------------------

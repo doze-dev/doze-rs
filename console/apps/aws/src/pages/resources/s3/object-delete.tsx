@@ -78,9 +78,10 @@ export function ObjectDelete({ name, search, permanent }: OwnProps & { permanent
     }
   };
   const said = error ? errorWords(error) : null;
+  const bucketPath = `/resources/s3/buckets/${encodeURIComponent(name!)}`;
   const rows = items.map((i, n) => ({ ...i, head: heads[n]?.data, listed: siblings.data?.Versions?.find((v) => v.Key === i.key && v.VersionId === i.versionId) }));
   return (
-    <ActionPage title={versionMode ? "Delete objects" : "Delete objects"} crumbs={[...crumbs(name!), { label: versionMode ? "Permanently delete object versions" : "Delete objects", to: `/resources/s3/buckets/${encodeURIComponent(name!)}` }]} testId={versionMode ? "object-delete-version-page" : "object-delete-page"}
+    <ActionPage title={versionMode ? "Delete objects" : "Delete objects"} crumbs={[...crumbs(name!), ...(versionMode && items[0] ? [{ label: baseName(items[0].key), to: bucketPath }, { label: "Versions", to: bucketPath }] : []), { label: versionMode ? "Permanently delete object versions" : "Delete objects", to: bucketPath }]} testId={versionMode ? "object-delete-version-page" : "object-delete-page"}
       sub={versionMode ? <>Permanently delete {count(items.length, "version")} of <Mono>{baseName(items[0]?.key ?? "")}</Mono>.</> : <>Delete {count(items.length, "object")} from <Mono>{s3Uri(name!)}</Mono>.</>}
       footer={<Footer onCancel={back}><Button variant="destructive" disabled={typed !== word || busy || items.length === 0} onClick={() => void run()} data-testid="delete-objects-submit">{busy ? "Deleting…" : "Delete objects"}</Button></Footer>}>
       {versionMode ? (

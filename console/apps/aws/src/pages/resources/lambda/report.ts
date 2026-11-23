@@ -26,3 +26,16 @@ export function reportOf(log: string): [string, string][] {
 export function tidyPaths(text: string): string {
   return text.replace(/\/[^"\\\s]*?\/code\/[\w-]+\/root\//g, "…/");
 }
+
+/** The key of the event a Python handler read that the event does not have: a `KeyError` whose key the trace shows as `event["Records"]`; null for any other error. */
+export function missingEventKey(payload: string): string | null {
+  try {
+    const p = JSON.parse(payload) as { errorType?: unknown; errorMessage?: unknown; stackTrace?: unknown };
+    if (p.errorType !== "KeyError" || typeof p.errorMessage !== "string") return null;
+    const key = /^['"](.+)['"]$/.exec(p.errorMessage)?.[1];
+    const trace = Array.isArray(p.stackTrace) ? p.stackTrace.join("\n") : "";
+    return key && (trace.includes(`event["${key}"]`) || trace.includes(`event['${key}']`)) ? key : null;
+  } catch {
+    return null;
+  }
+}

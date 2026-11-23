@@ -71,6 +71,11 @@ test("logs__log-groups and retention-edit: the list with its sentence, the reten
   // The Retention cell opens the setting.
   await row("/larder/api").getByTestId("retention-open").click();
   await expect(page.getByTestId("retention-dialog")).toContainText("Expire events after");
+  // The log group is a read-only field, as the board draws it; the button is Save and there is no "already is" line.
+  await expect(page.getByTestId("retention-group")).toHaveValue("/larder/api");
+  await expect(page.getByTestId("retention-group")).toHaveJSProperty("readOnly", true);
+  await expect(page.getByTestId("retention-dialog-save")).toHaveText("Save");
+  await expect(page.getByTestId("retention-dialog")).not.toContainText("It already is");
   await expect(page.getByTestId("retention-dialog-call")).toContainText("PutRetentionPolicy");
   await shot(page, "logs__retention-edit");
   await page.getByTestId("retention-select").click();
@@ -213,6 +218,9 @@ test("logs__metric-filter-create, metric-filter-assign, metric-filter-delete: te
   await shot(page, "logs__metric-filter-delete");
   await page.getByTestId("filter-delete-dialog-submit").click();
   await expect(row).toHaveCount(0);
+  // The old "created" banner is replaced by one that says what was just done.
+  await expect(page.getByTestId("filter-created-banner")).toHaveCount(0);
+  await expect(page.getByTestId("filter-deleted-banner")).toContainText("DeleteMetricFilter returned 200. stripe-timeouts no longer turns events into a metric.");
   await expectNoErrorAnswers(page, refusals);
 });
 

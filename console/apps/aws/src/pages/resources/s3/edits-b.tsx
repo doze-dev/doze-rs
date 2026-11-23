@@ -2,10 +2,11 @@
 import { useState } from "react";
 import { JsonEditor, checkJson, formatJson } from "@doze/ui/components/app/json-editor";
 import { KeyValueEditor } from "@doze/ui/components/app/key-value-editor";
-import { filled, pairsOf, rowsFrom, rowsValid, type KeyValueRow } from "@doze/ui/components/app/key-values";
+import { filled, newRow, pairsOf, rowsFrom, rowsValid, type KeyValueRow } from "@doze/ui/components/app/key-values";
 import { FormSection, PolicyEditor, TAG_RULES, changeWords, diffTags, noChange, useSetTags, useTags } from "../../../kit";
 import type { OwnProps } from "../deep/registry";
 import { NONE, bucketOf, useSetting } from "./api";
+import { readableJson } from "./json-text";
 import { Loaded, SettingForm } from "./edit";
 import { useAbout } from "../../../api/queries";
 import { Mono } from "./parts";
@@ -17,7 +18,7 @@ const CORS_START = `[\n  {\n    "AllowedMethods": ["GET", "HEAD"],\n    "Allowed
 
 export function CorsEdit({ name }: OwnProps) {
   const q = useSetting<{ CORSRules?: unknown[] }>(name!, "GetBucketCors", NONE.cors);
-  return <Loaded q={q} what="CORS">{(c) => <CorsForm name={name!} start={c?.CORSRules ? JSON.stringify(c.CORSRules, null, 2) : CORS_START} />}</Loaded>;
+  return <Loaded q={q} what="CORS">{(c) => <CorsForm name={name!} start={c?.CORSRules ? readableJson(c.CORSRules) : CORS_START} />}</Loaded>;
 }
 function CorsForm({ name, start }: { name: string; start: string }) {
   const [text, setText] = useState(start);
@@ -63,7 +64,8 @@ export function TagsEdit({ name }: OwnProps) {
   return <Loaded q={{ ...q, failed: q.error }} what="Tags">{(a) => <TagsForm name={name!} before={a?.tags ?? []} />}</Loaded>;
 }
 function TagsForm({ name, before }: { name: string; before: { key: string; value: string }[] }) {
-  const [rows, setRows] = useState<KeyValueRow[]>(() => rowsFrom(before));
+  // The board opens with a blank row ready to type in, after the tags the bucket has.
+  const [rows, setRows] = useState<KeyValueRow[]>(() => [...rowsFrom(before), newRow()]);
   const set = useSetTags(bucketOf(name));
   const change = diffTags(before, rows);
   const kept = filled(rows);

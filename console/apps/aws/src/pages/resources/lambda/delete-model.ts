@@ -46,3 +46,8 @@ export function leftWords(name: string, left: Left): string[] {
   void name;
   return out;
 }
+
+/** What a delete left behind, kept for the list the person lands on (by function name): it is a one-time result, so it stays out of the address. */
+const LEFT = new Map<string, string>();
+export const rememberLeft = (name: string, left: string): void => void LEFT.set(name, left);
+export const recalledLeft = (name: string): string | undefined => LEFT.get(name);

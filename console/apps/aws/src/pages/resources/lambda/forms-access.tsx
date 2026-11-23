@@ -14,19 +14,19 @@ import { usePolicy } from "./hooks";
 import { urlAuthNote } from "./model";
 import type { Alias, Version } from "./versions-tab";
 
-const ACTIONS = ["lambda:InvokeFunction", "lambda:InvokeFunctionUrl", "lambda:GetFunction"];
+const DEFAULT_ACTION = "lambda:InvokeFunction";
 
 export function PermissionAdd(p: FormProps) {
   const { d } = p;
   const policy = usePolicy(d.name);
-  const [f, setF] = useState({ sid: "", principal: "", sourceArn: "", sourceAccount: "", action: ACTIONS[0] ?? "" });
+  const [f, setF] = useState({ sid: "", principal: "", sourceArn: "", sourceAccount: "", action: DEFAULT_ACTION });
   const [tried, setTried] = useState(false);
   const set = (patch: Partial<typeof f>) => setF((x) => ({ ...x, ...patch }));
   const add = useOp(on.fn(d.name), "AddPermission");
   const taken = policy.statements.flatMap((s) => (s.Sid ? [s.Sid] : []));
   const problems = permissionProblems(f, taken);
   const input = useMemo(() => permissionInput(d.name, f), [d.name, f]);
-  const hint = sourceHint(f.principal.trim(), d.name);
+  const hint = sourceHint(f.principal.trim(), d.name, f.sourceArn);
   const submit = () => {
     setTried(true);
     if (Object.keys(problems).length > 0) return;
@@ -44,19 +44,14 @@ export function PermissionAdd(p: FormProps) {
         <Field label="Principal" error={tried ? problems.principal : undefined} help={<>An AWS service, account, IAM user or IAM role. <Muted>If you name a service, use SourceArn or SourceAccount to limit who can invoke the function through that service.</Muted></>} testId="field-principal">
           {(id) => <Input id={id} value={f.principal} onChange={(e) => set({ principal: e.target.value })} placeholder="s3.amazonaws.com" autoComplete="off" spellCheck={false} className="font-mono" data-testid="perm-principal" />}
         </Field>
-        <Field label={<>SourceArn <span className="font-normal text-muted-foreground">Optional</span></>} help={hint ?? "For an AWS service, the ARN of the resource that invokes the function."} testId="field-source-arn">
+        <Field label={<>SourceArn <span className="font-normal text-muted-foreground">Optional</span></>} help={hint ? hint.map((h, i) => (typeof h === "string" ? h : <b key={i} className="font-semibold text-foreground">{h.bold}</b>)) : "For an AWS service, the ARN of the resource that invokes the function."} testId="field-source-arn">
           {(id) => <Input id={id} value={f.sourceArn} onChange={(e) => set({ sourceArn: e.target.value })} placeholder={bucket ? "arn:aws:s3:::receipts" : ""} autoComplete="off" spellCheck={false} className="font-mono" data-testid="perm-source-arn" />}
         </Field>
         <Field label={<>SourceAccount <span className="font-normal text-muted-foreground">Optional</span></>} help={<>The ID of the account that owns the resource, used with SourceArn. <Muted>An Amazon S3 bucket can be deleted by its owner and recreated by another account.</Muted></>} testId="field-source-account">
           {(id) => <Input id={id} value={f.sourceAccount} onChange={(e) => set({ sourceAccount: e.target.value })} inputMode="numeric" autoComplete="off" className="max-w-[16rem] font-mono" data-testid="perm-source-account" />}
         </Field>
-        <Field label="Action" help="The action the principal can use on the function." testId="field-action">
-          {(id) => (
-            <Select value={f.action} onValueChange={(action) => set({ action })}>
-              <SelectTrigger id={id} className="w-full max-w-[22rem] bg-card font-mono" data-testid="perm-action"><SelectValue /></SelectTrigger>
-              <SelectContent>{ACTIONS.map((a) => <SelectItem key={a} value={a} className="font-mono">{a}</SelectItem>)}</SelectContent>
-            </Select>
-          )}
+        <Field label="Action" error={tried ? problems.action : undefined} help="The action the principal can use on the function." testId="field-action">
+          {(id) => <Input id={id} value={f.action} onChange={(e) => set({ action: e.target.value })} autoComplete="off" spellCheck={false} className="font-mono" data-testid="perm-action" />}
         </Field>
       </FormSection>
     </FnFormPage>

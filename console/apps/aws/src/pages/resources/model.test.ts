@@ -33,6 +33,10 @@ describe("the Resources pages", () => {
     expect(seconds("90")).toBe("90 seconds");
     expect(seconds("3600")).toBe("1 hour");
     expect(timeMs("1.5")).toBe(1500);
+    // Lambda's own date format, an offset without a colon.
+    expect(timeMs("2026-11-23T05:37:34.461+0000")).toBe(Date.UTC(2026, 10, 23, 5, 37, 34, 461));
+    expect(timeMs("2026-11-23T05:37:34.461-0130")).toBe(Date.UTC(2026, 10, 23, 7, 7, 34, 461));
+    expect(shown("2026-11-23T05:37:34.461+0000", "time")).toBe("2026-11-23 05:37:34 UTC");
   });
 
   test("columns sort numbers as numbers and times by the moment", () => {

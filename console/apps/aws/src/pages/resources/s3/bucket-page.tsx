@@ -30,7 +30,8 @@ export function BucketPage({ name, search }: OwnProps) {
   if (bucket.isError && !d) return <DetailError service="s3" kind="buckets" name={name!} error={bucket.error} onRetry={() => void bucket.refetch()} retrying={bucket.isFetching} />;
   if (!d || !bucket.versioning) return <ResourcePageSkeleton />;
   const sentence = tab === "properties" ? propertiesSentenceOf(name!, props) : tab === "permissions" ? permissionsSentenceOf(name!, perms) : tab === "management" ? managementSentenceOf(name!, mgmt, bucket.versioning) : d.sentence;
-  const detail = { ...d, name: name!, sentence, badges: [{ text: regionWords(bucket.region), tone: "neutral" as const }], verbs: [], deep: [] };
+  // The Wired to strip is the Objects tab's: the board draws it there only.
+  const detail = { ...d, name: name!, sentence, wired: tab === "objects" ? d.wired : [], badges: [{ text: regionWords(bucket.region), tone: "neutral" as const }], verbs: [], deep: [] };
   const refresh = () => {
     void bucket.refetch();
     void qc.invalidateQueries({ queryKey: deepKey(bucketOf(name!)) });

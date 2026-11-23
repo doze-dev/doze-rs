@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { baseName, copySource, longDate, nameProblems, nameRefusal, parentPrefix, regionWords, shortDate, size, suggestName, uploadKey, versioningOf, whenMs, wiredChip, callKey, storageWords, firstEnableWords } from "./words";
+import { baseName, copySource, longDate, nameProblems, nameRefusal, parentPrefix, regionWords, shortDate, size, suggestName, uploadKey, versioningOf, whenMs, wiredChip, callKey, storageWords, firstEnableWords, fifoDestinationHint } from "./words";
 
 describe("S3 words", () => {
   test("a Region and a time are written as the AWS console writes them", () => {
@@ -72,4 +72,10 @@ test("a storage class is named as the AWS console names it", () => {
 test("the first enabling of versioning is explained, and said not to apply to a bucket that had it already", () => {
   expect(firstEnableWords("b", undefined)).toContain("up to 15 minutes to reach every part of S3; until then a GET for a new object may return 404 NoSuchKey, so wait before writing or deleting. In doze-aws it applies at once");
   expect(firstEnableWords("product-images", "Enabled")).toContain("product-images has had versioning enabled already, so this does not apply.");
+});
+
+test("the SQS destination hint names the FIFO queues that are left out of the list", () => {
+  expect(fifoDestinationHint([])).toBe("FIFO queues are not supported as a destination: naming one by its ARN is refused with InvalidArgument.");
+  expect(fifoDestinationHint(["orders-events.fifo"])).toBe("FIFO queues are not supported as a destination: orders-events.fifo is a FIFO queue, so it is not in the list, and naming it by its ARN is refused with InvalidArgument.");
+  expect(fifoDestinationHint(["a.fifo", "b.fifo"])).toContain("a.fifo and b.fifo are FIFO queues, so they are not in the list");
 });

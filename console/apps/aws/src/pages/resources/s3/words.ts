@@ -199,3 +199,12 @@ export function firstEnableWords(bucket: string, current: string | undefined): s
   const wait = "The first time you enable versioning it can take up to 15 minutes to reach every part of S3; until then a GET for a new object may return 404 NoSuchKey, so wait before writing or deleting.";
   return current === undefined ? `${wait} In doze-aws it applies at once, so there is nothing to wait for.` : `${wait} ${bucket} has had versioning ${current.toLowerCase()} already, so this does not apply.`;
 }
+
+/** The SQS queue hint of an event notification: a FIFO queue is not a destination, so the ones that exist are named and are
+ * not in the list. S3 refuses one named by its ARN with InvalidArgument (checked against the S3 model's notification docs). */
+export function fifoDestinationHint(fifo: readonly string[]): string {
+  const base = "FIFO queues are not supported as a destination";
+  if (fifo.length === 0) return `${base}: naming one by its ARN is refused with InvalidArgument.`;
+  const one = fifo.length === 1;
+  return `${base}: ${listWords(fifo)} ${one ? "is a FIFO queue, so it is" : "are FIFO queues, so they are"} not in the list, and naming ${one ? "it" : "one"} by its ARN is refused with InvalidArgument.`;
+}

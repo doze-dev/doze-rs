@@ -6,7 +6,7 @@ import { Button } from "@doze/ui/components/ui/button";
 import { Input } from "@doze/ui/components/ui/input";
 import { Label } from "@doze/ui/components/ui/label";
 import { useQuery } from "@tanstack/react-query";
-import { BlockersList, useBlockers, useDeleteClearing } from "../../../kit";
+import { useBlockers, useDeleteClearing } from "../../../kit";
 import { callOp } from "../deep/api";
 import type { OwnProps } from "../deep/registry";
 import { bucketOf, crumbs, useBucket, useListNav, useStale } from "./api";
@@ -76,20 +76,20 @@ export function BucketDelete({ search }: OwnProps) {
   const del = useDeleteClearing(bucketOf(name));
   const [typed, setTyped] = useState("");
   const blocking = blockers.data?.blockers.filter((b) => b.blocks) ?? [];
+  const notEmpty = blocking.length > 0;
   const said = del.error ? errorWords(del.error) : null;
   const run = () => del.mutate({ clear: false }, { onSuccess: () => (setFlash({ title: `Bucket ${name} deleted.`, returned: "DeleteBucket answered 204. Its name is free to use again.", left: "To confirm a deletion, search the list for the name you deleted. If S3 does not list it, the bucket is gone." }), list({})) });
   return (
     <ActionPage title="Delete bucket" sub={<>Delete the bucket <Mono>{name}</Mono>. A bucket must be empty before it can be deleted.</>} crumbs={[...crumbs(null), { label: "Delete bucket", to: "/resources/s3/buckets" }]} testId="bucket-delete-page"
-      footer={<Footer onCancel={() => list({})}><Button variant="destructive" disabled={typed !== name || del.isPending} onClick={run} data-testid="delete-submit">{del.isPending ? "Deleting…" : "Delete bucket"}</Button></Footer>}>
+      footer={<Footer onCancel={() => list({})}><Button variant="destructive" disabled={typed !== name || del.isPending || blockers.isPending || notEmpty} onClick={run} data-testid="delete-submit">{del.isPending ? "Deleting…" : "Delete bucket"}</Button></Footer>}>
       {blocking.length > 0 && (
         <Alert tone="warn" title="This bucket is not empty" testId="not-empty" action={<Button variant="outline" size="sm" className="bg-card" onClick={() => list({ do: "empty", name })} data-testid="go-empty">Empty bucket</Button>}>
-          S3 deletes a bucket only when every object, version and delete marker is gone. Empty it first.
+          S3 deletes a bucket only when every object, version and delete marker is gone, and nothing is removed for you here. Empty the bucket first, then come back to delete it.
         </Alert>
       )}
       {said && <Alert tone="bad" title={`DeleteBucket was refused: ${said.code?.split(" · ")[0]}`} testId="delete-refused">{said.message}</Alert>}
       <Alert tone="warn" title="Deleting a bucket cannot be undone.">Bucket names are unique. If you delete your bucket, another AWS user can use the name. If you want to continue to use the same bucket name, don&apos;t delete your bucket. Instead, empty and keep the bucket.</Alert>
       <Card title="Delete bucket">
-        <BlockersList data={blockers.data} loading={blockers.isPending} className="mb-4" />
         <Confirm id="confirm" words={name} label="To confirm deletion, enter the name of the bucket" value={typed} set={setTyped} />
         <p className="mt-3 text-[13px] text-muted-foreground">Every object, including all versions and delete markers, must be gone before S3 deletes a bucket. If any are left, this page shows a &quot;This bucket is not empty&quot; alert with an Empty bucket button.</p>
       </Card>

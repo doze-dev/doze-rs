@@ -16,7 +16,7 @@ import { on, useOp } from "../deep/api";
 import { Card, CodeBlock, pretty, Refused } from "../deep/parts";
 import { notFound } from "./hooks";
 import type { Fn, Trigger } from "./model";
-import { reportOf, tidyPaths } from "./report";
+import { missingEventKey, reportOf, tidyPaths } from "./report";
 import { firstEvent, templatesFor } from "./templates";
 
 /** The most a page sends: the console takes a request body of at most 1 MiB (Lambda itself takes 6 MB). */
@@ -70,7 +70,7 @@ function Result({ r }: { r: Invoked }) {
             {r.payload ? <CodeBlock text={tidyPaths(pretty(r.payload))} testId="invoke-payload" max="max-h-80" /> : <p className="text-[13.5px] text-muted-foreground">The function answered with nothing.</p>}
             {threw && (
               <p className="mt-4 max-w-[46rem] border-l-2 pl-3.5 text-[13px] leading-5 text-foreground" data-testid="invoke-error-teach">
-                The call itself succeeded: the HTTP status is still {r.status}, and the <span className="font-mono">FunctionError</span> header (<span className="font-mono">X-Amz-Function-Error</span>) says {r.function_error}.
+                {missingEventKey(r.payload) ? <>The handler reads <span className="font-mono">event[&quot;{missingEventKey(r.payload)}&quot;]</span>, which this event does not have. </> : null}The call itself succeeded: the HTTP status is still {r.status}, and the <span className="font-mono">FunctionError</span> header (<span className="font-mono">X-Amz-Function-Error</span>) says {r.function_error}.
                 {r.payload.includes("/code/") && <span className="text-muted-foreground"> Each file path in the trace starts where doze-aws unpacked the code on this machine; that start is left out here.</span>}
               </p>
             )}

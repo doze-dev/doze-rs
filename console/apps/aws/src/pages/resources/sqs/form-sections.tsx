@@ -148,7 +148,7 @@ export function Encryption({ f, set, p, show, edit }: FieldProps & { edit: boole
               <Field label="KMS key" error={show ? p.kms : undefined} hint="Choose a KMS key alias, or enter the alias or ARN of a key not in the list." testId="field-kms">
                 {(id) => <Combobox id={id} options={(aliases.data ?? []).map((a) => ({ value: a, label: a }))} value={f.kms || null} onChange={(kms) => set({ kms: kms ?? "" })} placeholder={aliases.isPending ? "Reading keys…" : "Choose a KMS key"} search="Search aliases, or type an alias or ARN…" empty="No alias matches." className="w-full font-mono" pattern aria-label="KMS key" />}
               </Field>
-              <Field label="Data key reuse period" error={show ? p.reuse : undefined} help={<>How long SQS reuses a data key before calling KMS again. Range <b>1 minute</b> to <b>24 hours</b>, default <b>5 minutes</b>.</>} testId="field-reuse">
+              <Field label="Data key reuse period" error={show ? p.reuse : undefined} help={<>How long SQS reuses a data key before calling KMS again. Range <b>1 minute</b> to <b>24 hours</b>, default <b>5 minutes</b>. <span data-testid="reuse-stored">Stored, not applied locally.</span></>} testId="field-reuse">
                 {(id) => <TimeInput id={id} value={f.reuse} onChange={(reuse) => set({ reuse })} units={timeUnits("reuse")} label="Data key reuse period" testId="queue-reuse" />}
               </Field>
             </>
