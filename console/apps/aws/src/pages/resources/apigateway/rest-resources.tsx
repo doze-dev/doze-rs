@@ -35,7 +35,7 @@ export function RestResources({ id, name, selected, calls }: { id: string; name:
   if (tree.isError) return <ErrorBlock what="The resources could not be read" error={tree.error} hint={HINT} onRetry={() => void tree.refetch()} retrying={tree.isFetching} testId="resources-error" />;
   return (
     <>
-      <Said text={restSentence(name, resources, stages.data?.item ?? [], deployments.data?.item ?? [])} names={[name, ...(stages.data?.item ?? []).map((s) => s.stageName), ...(deployments.data?.item ?? []).map((d) => d.id)]} bold={[/\d+ (?:resources?|methods?)/]} />
+      <Said text={restSentence(name, resources, stages.data?.item ?? [], deployments.data?.item ?? [])} names={[name, ...(stages.data?.item ?? []).map((s) => s.stageName), ...(deployments.data?.item ?? []).map((d) => d.id)]} />
       <ApiChips kind="restapis" id={id} name={name} sections={REST_SECTIONS} current="resources" />
       <Caption title="Resources" action={<Button variant="outline" className="bg-card" onClick={() => create({ do: "create-resource", key: chosen?.id })} data-testid="create-resource"><PlusIcon /> Create resource</Button>} />
       <section className="overflow-hidden rounded-[14px] border bg-card" aria-label="Resources" data-testid="resource-tree">

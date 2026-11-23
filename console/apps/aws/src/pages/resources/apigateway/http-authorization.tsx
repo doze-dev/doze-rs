@@ -64,7 +64,7 @@ export function HttpAuthorization({ id, api, mode }: { id: string; api: HttpApi;
       <div className="pt-8">
         {manage ? (
           all.length === 0 ? (
-            <EmptyState icon={ShieldCheckIcon} title="No authorizers" action={create}>{api.name} has no authorizer. An authorizer decides, before a route runs, whether the caller may pass.</EmptyState>
+            <EmptyState icon={ShieldCheckIcon} title="No authorizers" action={<Button variant="outline" className="bg-card" onClick={() => go({ do: "create-authorizer" })} data-testid="create-authorizer-empty"><PlusIcon /> Create authorizer</Button>}>{api.name} has no authorizer. An authorizer decides, before a route runs, whether the caller may pass.</EmptyState>
           ) : (
             <>
               <div className="mb-3 flex justify-end">{create}</div>
