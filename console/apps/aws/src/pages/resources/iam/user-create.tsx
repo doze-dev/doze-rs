@@ -16,6 +16,7 @@ import { useResourceList } from "../../../api/resources";
 import { Field, FormPage, FormSection, PolicyPicker, ResourcePicker, TAG_RULES, callKindOp } from "../../../kit";
 import { USERS, useRead, useRefresh } from "./api";
 import { list } from "./model";
+import { inheritsSentence } from "./sentences";
 import { CardChoice, crumbs, KINDS, Note, ReviewBlock } from "./parts";
 import { PolicyChooser } from "./policy-chooser";
 import { type UserForm, blankUser, permissionsOf, stepProblem, userCalls } from "./user-create-model";
@@ -100,7 +101,7 @@ export function UserCreate() {
       request={null}
       requests={shown}
       callTitle={step === 0 ? "The call this will make" : step === 1 ? "The call this will add" : "The calls this will make"}
-      callNote={step === 0 ? "The call runs when you choose Create user on the last step, not on Next." : step === 1 ? <>{perms.groups.length > 0 ? <>One AddUserToGroup call per selected group, after CreateUser.</> : perms.policies.length > 0 ? <>One AttachUserPolicy call per selected policy, after CreateUser.</> : <>Nothing is added: the user starts with no permissions.</>}{inherited.length > 0 && <> <b className="font-semibold text-foreground">{f.name || "The user"}</b> inherits {list([...new Set(inherited)])} through {list(perms.groups)}.</>}</> : "After it succeeds the console shows a notification and the new user in the Users list; View user opens its details."}
+      callNote={step === 0 ? "The call runs when you choose Create user on the last step, not on Next." : step === 1 ? <>{perms.groups.length > 0 ? <>One AddUserToGroup call per selected group, after CreateUser.</> : perms.policies.length > 0 ? <>One AttachUserPolicy call per selected policy, after CreateUser.</> : <>Nothing is added: the user starts with no permissions.</>}{inherited.length > 0 && <> <b className="font-semibold text-foreground">{f.name || "The user"}</b>{inheritsSentence("", inherited, perms.groups)}</>}</> : "After it succeeds the console shows a notification and the new user in the Users list; View user opens its details."}
       refusal={failed ? { code: `${failed.operation}: ${failed.code}`, message: failed.message } : null}
       wizard={{ steps: STEPS, current: step, furthest, onStep: go, onBack: () => go(step - 1), onNext: next }}
       backLabel="Previous"
@@ -129,7 +130,7 @@ export function UserCreate() {
         <>
           <FormSection title="Permissions options" testId="section-options">
             <CardChoice name="how" value={f.how} onChange={(how) => set({ how })} options={[{ value: "group", title: "Add user to group", description: "Recommended: manage permissions through the groups." }, { value: "copy", title: "Copy permissions", description: "Copy the groups and policies of an existing user." }, { value: "policies", title: "Attach policies directly", description: "Attach managed policies to this one user." }]} />
-            <p className="max-w-[48rem] text-[13.5px] leading-[21px] text-muted-foreground" data-testid="mode-words">Put users in groups and attach policies to the groups; a change to a group applies to every member. {modeWords}</p>
+            <p className="max-w-[48rem] text-[13.5px] leading-[21px] text-muted-foreground" data-testid="mode-words">{f.how === "copy" ? "Copying gives the new user the groups and policies the other user has now; it does not follow later changes to that user." : f.how === "policies" ? "A policy attached directly applies to this one user. Put users in groups and attach policies to the groups, and a change applies to every member." : "Put users in groups and attach policies to the groups; a change to a group applies to every member."} {modeWords}</p>
           </FormSection>
           {f.how === "group" && (
             <FormSection title={`User groups (${groupNames.length})`} description="Select the groups the user joins. The list shows each group's name and the policies the user receives from it." testId="section-groups">

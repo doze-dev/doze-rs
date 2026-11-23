@@ -395,3 +395,29 @@ async fn a_policy_is_made_with_tags_gets_versions_and_the_account_gets_an_alias(
         "{gone}"
     );
 }
+
+/// A user's Add permissions menu has Create inline policy, as a role's has: PutUserPolicy embeds the document in the user, and
+/// ListUserPolicies names it. Only the users' kind makes it.
+#[tokio::test]
+async fn a_user_can_be_given_an_inline_policy_by_the_users_pages() {
+    let w = world("iam-user-inline", Mode::Enforce, &[]);
+    ok(&w, "users", "CreateUser", json!({"UserName": "dev"})).await;
+    let doc = json!({"Version": "2012-10-17", "Statement": [{"Effect": "Allow", "Action": "sqs:SendMessage", "Resource": "*"}]});
+    ok(
+        &w,
+        "users",
+        "PutUserPolicy",
+        json!({"UserName": "dev", "PolicyName": "read-reports", "PolicyDocument": doc.to_string()}),
+    )
+    .await;
+    let held = ok(&w, "users", "ListUserPolicies", json!({"UserName": "dev"})).await;
+    assert_eq!(held["PolicyNames"], json!(["read-reports"]), "{held}");
+    let (status, refused) = op(
+        &w,
+        "groups",
+        "PutUserPolicy",
+        &json!({"UserName": "dev", "PolicyName": "x", "PolicyDocument": doc.to_string()}),
+    )
+    .await;
+    assert_eq!(status, 404, "{refused}");
+}

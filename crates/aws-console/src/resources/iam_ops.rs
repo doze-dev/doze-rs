@@ -19,6 +19,8 @@ pub(super) const USER_OPS: &[Op] = &[
     free("ListGroupsForUser"),
     free("ListAttachedUserPolicies"),
     free("ListUserPolicies"),
+    // Add permissions > Create inline policy.
+    free("PutUserPolicy"),
     free("AddUserToGroup"),
     free("RemoveUserFromGroup"),
     free("AttachUserPolicy"),

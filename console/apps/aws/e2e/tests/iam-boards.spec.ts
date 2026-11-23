@@ -432,7 +432,8 @@ test("iam__policy-create, policy-create-error and policy-create-review: the edit
   await shot(page, "iam__policy-create");
   const bad = { Version: "2012-10-17", Statement: [{ Effect: "Allow", Action: ["sqs:SendMessage"] }] };
   await page.getByTestId("policy-json-editor").fill(JSON.stringify(bad, null, 2));
-  await page.getByTestId("form-submit").click();
+  // The error state shows while the broken document is typed, with no click, and Next is off.
+  await expect(page.getByTestId("form-submit")).toBeDisabled();
   await expect(page.getByTestId("must-fix")).toHaveText("You must fix the problem before you can continue.");
   await expect(page.getByTestId("policy-json-status")).toHaveText("1 error");
   await expect(page.getByTestId("policy-json-errors")).toContainText("Policy statement must contain resources.");
