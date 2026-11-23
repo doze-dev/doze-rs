@@ -73,10 +73,30 @@ export function parseDefinition(text: string): Definition | null {
   }
 }
 
+const SYMBOL: Record<string, string> = { Equals: "=", LessThan: "<", GreaterThan: ">", LessThanEquals: "<=", GreaterThanEquals: ">=", Matches: "matches" };
+const bare = (path: string) => (path.startsWith("$.") ? path.slice(2) : path);
+
+/** What a Choice rule says on its edge, as a person would read it: `on_hand < reorder_point` for a NumericLessThanPath, `big = true` for a
+ * BooleanEquals, the JSONata condition as it is, and `rule 3` for one it cannot put in a line (And, Or, Not). */
+export function ruleLabel(c: Rule, i: number): string {
+  if (c.Condition) return c.Condition;
+  if (!c.Variable) return `rule ${i + 1}`;
+  const v = bare(c.Variable);
+  for (const [key, value] of Object.entries(c)) {
+    const m = /^(?:String|Numeric|Boolean|Timestamp)(Equals|LessThan|GreaterThan|LessThanEquals|GreaterThanEquals|Matches)(Path)?$/.exec(key);
+    if (!m) continue;
+    const rhs = m[2] ? bare(String(value)) : typeof value === "string" ? JSON.stringify(value) : String(value);
+    return `${v} ${SYMBOL[m[1]!]} ${rhs}`;
+  }
+  if ("IsPresent" in c) return `${v} ${c.IsPresent === false ? "is absent" : "is present"}`;
+  if ("IsNull" in c) return `${v} ${c.IsNull === false ? "is not null" : "is null"}`;
+  return v;
+}
+
 /** Where each state goes, in the order the state names them. */
 export function exits(s: AslState): { to: string; kind: EdgeKind; label?: string }[] {
   const out: { to: string; kind: EdgeKind; label?: string }[] = [];
-  (s.Choices ?? []).forEach((c, i) => c.Next && out.push({ to: c.Next, kind: "choice", label: c.Variable ?? c.Condition ?? `rule ${i + 1}` }));
+  (s.Choices ?? []).forEach((c, i) => c.Next && out.push({ to: c.Next, kind: "choice", label: ruleLabel(c, i) }));
   if (s.Default) out.push({ to: s.Default, kind: "default", label: "Default" });
   if (s.Next) out.push({ to: s.Next, kind: "next" });
   for (const c of s.Catch ?? []) if (c.Next) out.push({ to: c.Next, kind: "catch", label: (c.ErrorEquals ?? []).join(", ") || "Catch" });

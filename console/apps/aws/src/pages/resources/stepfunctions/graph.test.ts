@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { END, START, allBoxes, layout, type Definition } from "./graph";
+import { END, START, allBoxes, layout, ruleLabel, type Definition } from "./graph";
 import { readRun, type HistoryEvent } from "./history";
 
 const CHOICE: Definition = {
@@ -21,6 +21,19 @@ const CHOICE: Definition = {
   },
 };
 
+describe("a Choice rule on its edge", () => {
+  test("reads as a comparison, a path against a path, a literal, or the rule it cannot be said as", () => {
+    expect(ruleLabel({ Variable: "$.on_hand", NumericLessThanPath: "$.reorder_point" }, 0)).toBe("on_hand < reorder_point");
+    expect(ruleLabel({ Variable: "$.big", BooleanEquals: true }, 0)).toBe("big = true");
+    expect(ruleLabel({ Variable: "$.status", StringEquals: "open" }, 0)).toBe("status = \"open\"");
+    expect(ruleLabel({ Variable: "$.qty", NumericGreaterThanEquals: 5 }, 0)).toBe("qty >= 5");
+    expect(ruleLabel({ Variable: "$.note", IsPresent: true }, 0)).toBe("note is present");
+    expect(ruleLabel({ Condition: "{% $x > 1 %}" }, 0)).toBe("{% $x > 1 %}");
+    expect(ruleLabel({ And: [] }, 2)).toBe("rule 3");
+    expect(ruleLabel({ Variable: "$.x" }, 0)).toBe("x");
+  });
+});
+
 describe("a state machine's graph", () => {
   test("states sit one layer below the deepest state that leads to them, Start above and End below", () => {
     const g = layout(CHOICE);
@@ -39,7 +52,7 @@ describe("a state machine's graph", () => {
     const g = layout(CHOICE);
     const loop = g.edges.find((e) => e.from === "Retry" && e.to === "Load");
     expect(loop?.back).toBe(true);
-    expect(loop?.label).toBe("$.again");
+    expect(loop?.label).toBe("again");
     expect(Math.max(...(loop?.points ?? []).map((p) => p[0]))).toBeGreaterThan(Math.max(...g.boxes.map((b) => b.x + b.w)));
     expect(g.edges.filter((e) => e.from === "Pick").map((e) => [e.to, e.kind])).toEqual([
       ["Split", "choice"],
