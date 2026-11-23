@@ -171,12 +171,9 @@ async fn deleting_a_group_needs_it_empty_takes_its_offsets_and_says_when_there_w
     assert_eq!(by("never"), [GROUP_ID_NOT_FOUND]);
     // Kafka 4.4.0 looks the empty id up like any other (`tools/wire-tail-oracle`, `delete-groups`).
     assert_eq!(by(""), [GROUP_ID_NOT_FOUND]);
-    // Deleted once, and then there was nothing.
-    let idle = by("idle");
-    assert!(
-        idle == [0, GROUP_ID_NOT_FOUND] || idle == [GROUP_ID_NOT_FOUND, 0],
-        "{idle:?}"
-    );
+    // Named twice, answered once (Kafka de-duplicates the request first, KA:1431): deleted.
+    assert_eq!(by("idle"), [0]);
+    assert_eq!(got.len(), 4, "{got:?}");
     assert!(rig.fetch_offsets(false, "idle", None).await.is_empty());
     // After leaving, the group can go; and it is then Dead.
     rig.leave(3, "busy", &[&id]).await;
