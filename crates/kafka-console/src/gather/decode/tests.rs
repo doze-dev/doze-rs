@@ -40,6 +40,69 @@ fn json_nested_past_the_depth_is_not_recognised_and_does_not_overflow_the_stack(
     assert!(!looks_like_json(&deep));
     let ok = format!("{}{}", "[".repeat(60), "]".repeat(60));
     assert!(looks_like_json(&ok));
+    // Depths 0 to 64 are recognised: 65 brackets, not 66.
+    let at = |n: usize| format!("{}{}", "[".repeat(n), "]".repeat(n));
+    assert!(looks_like_json(&at(65)));
+    assert!(!looks_like_json(&at(66)));
+}
+
+/// Every literal, every escape, a number's fraction and exponent with its sign, and a container closed by its own bracket.
+#[test]
+fn json_is_read_to_the_letter_of_rfc_8259() {
+    for (text, json) in [
+        ("[false]", true),
+        ("[true, null, false]", true),
+        (r#"["a\"b", "c\\d", "e\/f", "\b\f\n\r\t"]"#, true),
+        (r#"{"k\"ey": "v"}"#, true),
+        (r#"["\x"]"#, false),
+        ("[1e+5, 1E-2, 2.5e3, -0.5]", true),
+        ("[1.]", false),
+        ("[1e]", false),
+        ("[1e+]", false),
+        ("[-]", false),
+        ("[1}", false),
+        (r#"{"a":1]"#, false),
+        ("[[1],[2]]", true),
+    ] {
+        assert_eq!(looks_like_json(text), json, "{text}");
+    }
+}
+
+/// A cut that lands inside a character steps back to the character's start.
+#[test]
+fn a_cut_inside_a_character_steps_back_to_its_start() {
+    let odd = format!("a{}", "é".repeat(TEXT_CAP));
+    let s = of(odd.as_bytes());
+    assert!(s.clipped);
+    assert_eq!(s.text.len(), TEXT_CAP - 1);
+    assert!(s.text.starts_with("aé"));
+}
+
+/// Only five bytes or more that begin with a zero byte may be a schema registry's frame.
+#[test]
+fn only_five_bytes_or_more_from_a_zero_byte_may_be_framed() {
+    let framed = of(&[0, 0, 0, 0, 1, 2]);
+    assert_eq!(
+        framed.framed,
+        Some(Framed {
+            bytes: vec![0, 0, 0, 0, 1, 2],
+            whole: true
+        })
+    );
+    assert!(of(&[0, 0, 0, 1]).framed.is_none(), "four bytes");
+    assert!(of(b"hello").framed.is_none(), "no zero byte first");
+    let part = shown(Some(&[0, 0, 0, 0, 7]), 9);
+    assert_eq!(part.framed.map(|f| f.whole), Some(false));
+}
+
+/// A cell counts characters, not bytes: 47 four-byte characters fit whole, and more are cut with `…`.
+#[test]
+fn a_cell_counts_characters_not_bytes() {
+    let fits = "🦇".repeat(PREVIEW_CHARS);
+    assert_eq!(of(fits.as_bytes()).preview, fits);
+    let over = "🦇".repeat(60);
+    let p = of(over.as_bytes()).preview;
+    assert_eq!(p, format!("{fits}…"));
 }
 
 #[test]
