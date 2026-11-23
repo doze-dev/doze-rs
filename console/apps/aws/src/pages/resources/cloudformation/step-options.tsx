@@ -6,12 +6,13 @@ import { Checkbox } from "@doze/ui/components/ui/checkbox";
 import { Input } from "@doze/ui/components/ui/input";
 import { Textarea } from "@doze/ui/components/ui/textarea";
 import { KeyValueEditor } from "@doze/ui/components/app/key-value-editor";
+import { filled } from "@doze/ui/components/app/key-values";
 import { Field, FormSection, LocalStatus, RolePicker, TAG_RULES, TopicPicker } from "../../../kit";
 import { useAbout } from "../../../api/queries";
 import { Choices, Note } from "./wizard-parts";
-import type { Summary, Wizard } from "./wizard-model";
+import { type Summary, type Wizard, tagsLine } from "./wizard-model";
 
-export function StepOptions({ w, set, summary, tried }: { w: Wizard; set: (p: Partial<Wizard>) => void; summary: Summary; tried: boolean }) {
+export function StepOptions({ w, set, summary, tried, was = [] }: { w: Wizard; set: (p: Partial<Wizard>) => void; summary: Summary; tried: boolean; /** An update: the tags the stack has now. */ was?: readonly { Key: string; Value: string }[] }) {
   const account = useAbout().data?.account ?? "";
   const update = w.mode !== "create";
   const caps = summary.Capabilities ?? [];
@@ -19,7 +20,7 @@ export function StepOptions({ w, set, summary, tried }: { w: Wizard; set: (p: Pa
     <>
       <FormSection title="Tags" optional description={update ? "The stack's current tags. Changing them is itself an update." : "Key-value pairs on the stack. Up to 50."} testId="section-tags">
         <KeyValueEditor rows={w.tags} onChange={(tags) => set({ tags })} rules={TAG_RULES} showErrors={tried} addLabel="Add tag" removeLabel="Remove" testId="tags" />
-        <Note lead="Applied locally." testId="tags-note">The stack's tags are added to each resource it makes whose type takes tags; a tag the template sets itself wins. Up to 50 tags.</Note>
+        <Note lead="Applied locally." testId="tags-note">The stack's tags are added to each resource it makes whose type takes tags; a tag the template sets itself wins. Up to 50 tags.{update ? ` ${tagsLine(filled(w.tags), was, w.stack) ?? ""}` : ""}</Note>
       </FormSection>
       <FormSection title="Permissions" optional description="An existing IAM service role that CloudFormation can assume." testId="section-permissions">
         <Field label="IAM role" testId="field-role">
@@ -35,6 +36,9 @@ export function StepOptions({ w, set, summary, tried }: { w: Wizard; set: (p: Pa
           ]} />
         <Note testId="failure-note">Choosing to preserve sends DisableRollback true; the default is to roll back. {update ? "" : "A rolled-back stack can only be deleted, so a failed trial costs one delete before the name is free again."}</Note>
       </FormSection>
+      <FormSection title="Rollback configuration" optional collapsible defaultOpen={false} summary="CloudWatch alarms that would roll the operation back: up to 5, watched for 0 to 180 minutes after it. None set. Not kept in doze-aws." description="CloudWatch alarms that would roll the operation back." testId="section-rollback">
+        <Note lead="Not kept in doze-aws." testId="rollback-note">A call that sends a RollbackConfiguration is accepted and the stack answers an empty one, so no alarm is watched during an operation. The form leaves it out of the call.</Note>
+      </FormSection>
       <FormSection title="Notification options" optional description={update ? "Topics that receive this update's events." : "Where CloudFormation publishes stack events."} testId="section-notify">
         <Choices rows name="notify" label="Notification options" value="existing" onChange={() => undefined}
           options={[
@@ -45,9 +49,6 @@ export function StepOptions({ w, set, summary, tried }: { w: Wizard; set: (p: Pa
           {(id) => <TopicPicker id={id} value={w.topic || null} onChange={(topic) => set({ topic: topic ?? "" })} />}
         </Field>
         <Note lead="Applied locally." testId="notify-note">Each stack event is published to the topic as CloudFormation words it; the API takes up to 5 topic ARNs and this form sets one.</Note>
-      </FormSection>
-      <FormSection title="Rollback configuration" optional collapsible defaultOpen={false} summary="CloudWatch alarms that would roll the operation back: up to 5, watched for 0 to 180 minutes after it. None set. Not kept in doze-aws." description="CloudWatch alarms that would roll the operation back." testId="section-rollback">
-        <Note lead="Not kept in doze-aws." testId="rollback-note">A call that sends a RollbackConfiguration is accepted and the stack answers an empty one, so no alarm is watched during an operation. The form leaves it out of the call.</Note>
       </FormSection>
       <FormSection title="Stack policy" optional description={update ? "A policy that protects resources from unintended updates." : "No policy: every resource can be updated."} testId="section-policy">
         <Field label="Stack policy (JSON)" optional testId="field-policy">
@@ -69,7 +70,6 @@ export function StepOptions({ w, set, summary, tried }: { w: Wizard; set: (p: Pa
           </Field>
         </FormSection>
       )}
-      {update && <Callout tone="info" lead="Timeout and termination protection are stack creation options." testId="creation-only-note">They are not part of a stack update. Termination protection is changed from the stack page, Actions, Turn on termination protection.</Callout>}
       {(caps.length > 0 || update) && <FormSection title="Capabilities" description={caps.length > 0 ? "Acknowledge what this template needs." : "What the template needs acknowledged."} testId="section-capabilities">
         {caps.length > 0 ? (
           <label className="flex items-start gap-3 text-[13.5px] leading-5"><Checkbox checked={w.capabilities} onCheckedChange={(c) => set({ capabilities: c === true })} className="mt-0.5" data-testid="capabilities" /><span>I acknowledge that CloudFormation may create IAM resources: <span className="font-mono text-[12.5px]">{caps.join(", ")}</span>. {summary.CapabilitiesReason}</span></label>
@@ -77,6 +77,7 @@ export function StepOptions({ w, set, summary, tried }: { w: Wizard; set: (p: Pa
           <p className="text-[13.5px] text-muted-foreground" data-testid="no-capabilities">Nothing to acknowledge. {update ? "This template has" : "This template holds"} no IAM resources, so no capabilities are sent.</p>
         )}
       </FormSection>}
+      {update && <Callout tone="info" lead="Timeout and termination protection are stack creation options." testId="creation-only-note">They are not part of a stack update. Termination protection is changed from the stack page, Actions, Turn on termination protection.</Callout>}
     </>
   );
 }
