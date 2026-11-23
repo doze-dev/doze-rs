@@ -163,12 +163,21 @@ async fn list_stacks_without_a_filter_lists_a_stack_waiting_for_review() {
     assert_eq!(rows.len(), 1, "{all}");
     assert_eq!(rows[0]["StackStatus"], "REVIEW_IN_PROGRESS");
     let other = w
-        .cfn("ListStacks", json!({"StackStatusFilter": ["CREATE_COMPLETE"]}))
+        .cfn(
+            "ListStacks",
+            json!({"StackStatusFilter": ["CREATE_COMPLETE"]}),
+        )
         .await
         .unwrap();
-    assert!(other["StackSummaries"].as_array().unwrap().is_empty(), "{other}");
+    assert!(
+        other["StackSummaries"].as_array().unwrap().is_empty(),
+        "{other}"
+    );
     let named = w
-        .cfn("ListStacks", json!({"StackStatusFilter": ["REVIEW_IN_PROGRESS"]}))
+        .cfn(
+            "ListStacks",
+            json!({"StackStatusFilter": ["REVIEW_IN_PROGRESS"]}),
+        )
         .await
         .unwrap();
     assert_eq!(named["StackSummaries"].as_array().unwrap().len(), 1);
