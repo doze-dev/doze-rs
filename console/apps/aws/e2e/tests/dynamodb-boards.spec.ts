@@ -7,6 +7,7 @@ import type { Page } from "@playwright/test";
 import { start, type Running, aws } from "../server";
 import { keyParam } from "../../src/pages/resources/dynamodb/item-rows";
 import { seedLarder } from "./dynamodb-seed";
+import { expectCopy } from "./callpanel-kit";
 import { expect, expectNoErrorAnswers, test } from "./fixtures";
 
 const SHOTS = process.env.SHOTS_DIR ?? join(import.meta.dirname, "../../../../../shots-dynamodb");
@@ -89,9 +90,7 @@ test("dynamodb__table-create and table-create-exists: a name and a key, the call
   await page.getByTestId("table-pk").fill("delivery_id");
   await expect(code(page)).toContainText('"BillingMode": "PAY_PER_REQUEST"');
   await expect(code(page)).toContainText('"AttributeName": "delivery_id"');
-  await page.getByTestId("call-panel-tab-cli").click();
-  await expect(code(page)).toContainText("dynamodb create-table");
-  await page.getByTestId("call-panel-tab-json").click();
+  await expectCopy(page, "cli", "dynamodb create-table");
   await shot(page, "dynamodb__table-create");
   await page.getByTestId("form-submit").click();
   await expect(page.getByTestId("create-refused")).toContainText("The table was not created.");

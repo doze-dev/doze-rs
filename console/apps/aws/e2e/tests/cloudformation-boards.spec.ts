@@ -309,7 +309,7 @@ test("cloudformation__stack-create: the template, from an S3 URL, and the call t
   await expect(page.getByTestId("call-panel-code").first()).toContainText("ValidateTemplate");
   await expect(page.getByTestId("call-panel-code").first()).toContainText(SEARCH_URL);
   await expect(page.getByTestId("check-note")).toContainText("The file is read from the reports bucket");
-  await expect(page.getByTestId("call-panel-tab-cli")).toBeVisible();
+  await expect(page.getByTestId("call-panel").first().getByRole("button", { name: "AWS CLI" })).toBeVisible();
   await shot(page, "stack-create");
 });
 

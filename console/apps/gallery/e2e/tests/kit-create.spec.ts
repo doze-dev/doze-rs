@@ -32,15 +32,15 @@ test("Stepper: a passed step goes back, the current one says so, a step not reac
   await expect(step("configure").locator("[aria-current=step]")).toHaveCount(1);
 });
 
-test("CallPanel: live from the preview, three views, what is needed, a refusal, a failure, loading", async ({ page }) => {
+test("CallPanel: live from the preview, the copy buttons, what is needed, a refusal, a failure, loading", async ({ page }) => {
   await open(page, "/create", LOOK);
   const live = page.getByTestId("live-panel");
   await expect(live.getByTestId("live-panel-code")).toContainText('"QueueName": "pick-lists"');
-  await live.getByTestId("live-panel-tab-cli").click();
-  await expect(live.getByTestId("live-panel-code")).toContainText("aws sqs create-queue --queue-name pick-lists");
-  await live.getByTestId("live-panel-tab-boto3").click();
-  await expect(live.getByTestId("live-panel-code")).toContainText("sqs.create_queue(QueueName=");
-  await live.getByTestId("live-panel-tab-json").click();
+  await expect(live.getByText("Copy as", { exact: true })).toBeVisible();
+  await expect(live.getByRole("button", { name: "AWS CLI" })).toBeVisible();
+  await expect(live.getByRole("button", { name: "boto3" })).toBeVisible();
+  await expect(live.getByRole("button", { name: "Copy JSON" })).toBeVisible();
+  await expect(live.locator("[role=tab]")).toHaveCount(0);
   await page.getByTestId("live-name").fill("");
   await expect(live.getByTestId("live-panel-missing")).toHaveText("Needs QueueName.");
   await page.getByTestId("live-name").fill("orders");
@@ -195,9 +195,9 @@ test("pickers: seven kinds list what the console reads, one is chosen, an empty 
   await expect(sec.getByTestId("picker-error")).toContainText("The queues could not be read.");
 });
 
-test("keyboard: a section's toggle, a tab of the call panel and a section take the focus with a ring", async ({ page, browserName }) => {
+test("keyboard: a section's toggle, the call panel's copy buttons and a section take the focus with a ring", async ({ page, browserName }) => {
   await open(page, "/create", LOOK);
-  const tabs: Locator[] = [page.getByTestId("live-panel-tab-json"), page.getByTestId("form-live").getByTestId("section-Encryption-toggle")];
+  const tabs: Locator[] = [page.getByTestId("live-panel").getByRole("button", { name: "AWS CLI" }), page.getByTestId("live-panel").getByRole("button", { name: "boto3" }), page.getByTestId("live-panel").getByRole("button", { name: "Copy JSON" }), page.getByTestId("form-live").getByTestId("section-Encryption-toggle")];
   for (const t of tabs) {
     await tabTo(page, browserName, t, 200);
     const ring = await ringOf(t);

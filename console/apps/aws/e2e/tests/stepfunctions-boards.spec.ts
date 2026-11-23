@@ -4,6 +4,7 @@ import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 import type { Page } from "@playwright/test";
 import { start, type Running, aws } from "../server";
+import { expectCopy } from "./callpanel-kit";
 import { expect, expectNoErrorAnswers, test } from "./fixtures";
 import { type Larder, seedLarder } from "./stepfunctions-seed";
 import { expectCrumbsEnd } from "./crumbs-kit";
@@ -178,9 +179,7 @@ test("stepfunctions__machine-create-code, create-config, create-role and machine
   await expect(code(page)).toContainText(`"roleArn": "arn:aws:iam::${server.account}:role/StepFunctions-stock-reorder-role"`);
   await expect(code(page)).toContainText('"level": "OFF"');
   await expect(code(page)).toContainText('"key": "app"');
-  await page.getByTestId("call-panel-tab-cli").click();
-  await expect(code(page)).toContainText("stepfunctions create-state-machine --name stock-reorder");
-  await page.getByTestId("call-panel-tab-json").click();
+  await expectCopy(page, "cli", "stepfunctions create-state-machine --name stock-reorder");
   await shot(page, "stepfunctions__machine-create-config");
   await page.getByTestId("form-submit").click();
   const dialog = page.getByTestId("role-dialog");

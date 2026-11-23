@@ -93,8 +93,8 @@ test("sns__topic-create: every setting of a topic, the sentence, and the call it
   await tags.getByRole("textbox").nth(3).fill("fulfilment");
   const call = page.getByTestId("call-panel-code").first();
   await expect(call).toContainText("CreateTopic");
-  await expect(call).toContainText('"KmsMasterKeyId": "alias/larder-app"');
-  await expect(call).toContainText('"Value": "fulfilment"');
+  await expect(call).toContainText("alias/larder-app");
+  await expect(call).toContainText("app = fulfilment");
   await shot(page, "sns__topic-create");
   // It is made: the new topic's page, with its own banner. CreateTopic is idempotent, so the same call again answers the same ARN.
   await page.getByTestId("form-submit").click();
@@ -117,7 +117,7 @@ test("sns__topic-create-fifo: FIFO options, and the other sections folded with w
   await expect(page.getByTestId("section-access-summary")).toHaveText("Default: only the topic owner can publish or subscribe");
   await expect(page.getByTestId("section-logging-summary")).toHaveText("Off");
   await expect(page.getByTestId("section-tags-summary")).toHaveText("No tags");
-  await expect(page.getByTestId("call-panel-code").first()).toContainText('"FifoTopic": "true"');
+  await expect(page.getByTestId("call-panel-code").first()).toContainText("FifoTopic = true");
   await shot(page, "sns__topic-create-fifo");
 });
 
@@ -203,7 +203,7 @@ test("sns__subscription-create and sns__subscription-detail: a FIFO queue subscr
   await expect(page.getByTestId("protocol-table")).toContainText("Five of the nine AWS protocols are disabled here, with the reason.");
   const call = page.getByTestId("call-panel-code").first();
   await expect(call).toContainText("Subscribe");
-  await expect(call).toContainText('"FilterPolicy"');
+  await expect(call).toContainText("FilterPolicy");
   await shot(page, "sns__subscription-create");
   await page.getByTestId("form-submit").click();
   await expect(page.getByTestId("created-banner")).toContainText("Subscription created.");
@@ -226,7 +226,7 @@ test("sns__subscription-create-http: a webhook must confirm, and the answer is p
   await expect(page.getByTestId("section-details")).toContainText("The endpoint must confirm.");
   await expect(page.getByTestId("section-details")).toContainText("The token is valid for two days.");
   await expect(page.getByTestId("section-filter-summary")).toHaveText("No filter policy: every message published to the topic is delivered");
-  await expect(page.getByTestId("call-panel-code").first()).toContainText('"Protocol": "http"');
+  await expect(page.getByTestId("call-panel-code").first()).toContainText("Protocol = http");
   await shot(page, "sns__subscription-create-http");
   await page.getByTestId("form-submit").click();
   // Pending: the subscription has an ARN already (ReturnSubscriptionArn), so its page opens, saying it waits.
@@ -245,7 +245,7 @@ test("sns__subscription-create-lambda: a function in the account is confirmed at
   await expect(page.getByTestId("create-sentence")).toHaveText("This subscribes the function send-email to orders-created. The function is in your account, so the subscription is confirmed at once and every publish invokes it.");
   await expect(page.getByTestId("field-endpoint")).toContainText(/send-email \(\S+\) is already triggered by the alerts topic\./);
   await expect(page.getByTestId("field-protocol")).toContainText("The endpoint is the ARN of a Lambda function");
-  await expect(page.getByTestId("call-panel-code").first()).toContainText('"Protocol": "lambda"');
+  await expect(page.getByTestId("call-panel-code").first()).toContainText("Protocol = lambda");
   await shot(page, "sns__subscription-create-lambda");
   await page.getByTestId("form-submit").click();
   await expect(page.getByTestId("created-banner")).toContainText("It is confirmed at once");
@@ -424,7 +424,7 @@ test("sns__publish-message: one message, a custom payload for each protocol, and
   await expect(page.getByTestId("section-attributes")).toContainText("Message attributes are sent only when the message structure is String, not JSON.");
   await expect(page.getByTestId("who-gets-what")).toContainText("Raw delivery is off on all 3");
   await expect(page.getByTestId("who-gets-what")).toContainText("the sqs text");
-  await expect(page.getByTestId("call-panel-code").first()).toContainText('"MessageStructure": "json"');
+  await expect(page.getByTestId("call-panel-code").first()).toContainText("MessageStructure = json");
   await shot(page, "sns__publish-message");
   await page.getByTestId("form-submit").click();
   await expect(page.getByTestId("published-banner")).toBeVisible();
@@ -458,7 +458,8 @@ test("sns__publish-fifo, sns__publish-fifo-refused and sns__topic-published: a g
   // Editing the form puts the refusal away: the banner and the "refused" label do not stay over a good call.
   await expect(page.getByTestId("publish-refused")).toHaveCount(0);
   await expect(page.getByTestId("call-panel-came-back")).toHaveCount(0);
-  await expect(page.getByTestId("call-panel-code").first()).toContainText('"MessageDeduplicationId": "order-10482-placed"');
+  await expect(page.getByTestId("call-panel-code").first()).toContainText("MessageDeduplicationId");
+  await expect(page.getByTestId("call-panel-code").first()).toContainText("order-10482-placed");
   await shot(page, "sns__publish-fifo");
   await page.getByTestId("form-submit").click();
   await expect(page.getByTestId("published-banner")).toContainText("Message published.");
@@ -487,7 +488,7 @@ test("sns__topic-edit: only what changed is sent, one call each, and the tags in
   await expect(page.getByTestId("edit-sentence")).toContainText("You changed 2 settings: the maximum message size goes to 512 KiB and the tag owner is added. Nothing else will be sent.");
   await expect(page.getByTestId("section-size")).toContainText("This topic has 3 subscriptions, under the limit of 100, and all of them are Amazon SQS or AWS Lambda.");
   const call = page.getByTestId("call-panel");
-  await expect(call).toContainText('"AttributeValue": "524288"');
+  await expect(call).toContainText("AttributeValue = 524288");
   await expect(call).toContainText("TagResource");
   await expect(call).toContainText("one call for each setting you changed");
   await expect(page.getByTestId("section-logging")).toContainText("Delivery status logging");
