@@ -24,7 +24,7 @@ test("calls made with the AWS CLI appear as they are answered, without a reload"
   expect(cli(["sqs", "get-queue-url", "--queue-name", `${queue}-missing`]).code).not.toBe(0);
   await expect(first.locator("td").nth(2)).toHaveText("GetQueueUrl");
   await expect(first.locator('[data-slot="result"]')).toHaveAttribute("data-outcome", "error");
-  await expect(first.locator('[data-slot="result"]')).toHaveText(/ERROR\s*400\s*AWS\.SimpleQueueService\.NonExistentQueue/);
+  await expect(first.locator('[data-slot="result"]')).toHaveText(/REFUSED\s*400\s*AWS\.SimpleQueueService\.NonExistentQueue/);
 
   // An operation this build does not have: not built, not an error of the caller's.
   expect(cli(["ssm", "describe-instance-information"]).code).not.toBe(0);
@@ -105,7 +105,7 @@ test("a row opens a drawer over the page with everything the record has for the 
   await expect(rows(page).first()).toBeAttached();
 
   await expect(page.getByTestId("call-title")).toHaveText("GetQueueUrl");
-  await expect(page.getByTestId("call-summary")).toContainText("ERROR");
+  await expect(page.getByTestId("call-summary")).toContainText("REFUSED");
   await expect(page.getByTestId("call-summary")).toContainText("the caller's to fix");
   const at = new Date(record.at_ms).toISOString();
   await expect(page.getByTestId("call-at")).toHaveText(`${at.slice(0, 10)} ${at.slice(11, 23)} UTC`);

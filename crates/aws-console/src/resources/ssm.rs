@@ -1,10 +1,14 @@
 //! Systems Manager Parameter Store: parameters. A `SecureString` is hidden until the person reveals it.
 
 use super::Format::{Mono, Number, Text as Plain, Time};
+use super::ssm_ops::{OPS, filters};
 use super::{
-    Create, Delete, Descriptor, Field, Id, Input, InputKind, Kind, List, Reveal, Step, Text, col,
-    field, input,
+    Apply, Create, Delete, Descriptor, Field, Id, Input, InputKind, Kind, List, Options, Param,
+    ParamKind, Reveal, Shape, Step, Tags, Text, Write, col, field, input, op, says,
 };
+
+/// What a tag call names: this parameter.
+const PARAMETER: &str = r#"{"ResourceType":"Parameter","ResourceId":"{id}"}"#;
 
 pub(super) static SSM: Descriptor = Descriptor {
     service: "ssm",
@@ -35,6 +39,8 @@ pub(super) static SSM: Descriptor = Descriptor {
             col("Tier", "Tier", Plain),
             col("Version", "Version", Number),
             col("Last modified", "LastModifiedDate", Time),
+            col("Description", "Description", Plain),
+            col("KMS key", "KeyId", Mono),
         ],
         id_of: Id::Name,
         detail: &[
@@ -47,6 +53,7 @@ pub(super) static SSM: Descriptor = Descriptor {
         ],
         fields: &[
             field("ARN", "Parameter.ARN", Mono),
+            field("Name", "Parameter.Name", Mono),
             field("Type", "Parameter.Type", Plain),
             Field {
                 hide_when: Some(("Parameter.Type", "SecureString")),
@@ -111,5 +118,28 @@ pub(super) static SSM: Descriptor = Descriptor {
             path: "Parameter.Value",
         }),
         deep: &[],
+        tags: Some(Tags::new(
+            Step::new("ListTagsForResource", PARAMETER),
+            "TagList",
+            Shape::KEY_VALUE,
+            Write::Delta {
+                add: op("AddTagsToResource", PARAMETER),
+                at: "Tags",
+                remove: op("RemoveTagsFromResource", PARAMETER),
+                keys: "TagKeys",
+            },
+        )),
+        ops: OPS,
+        page: says::ssm::PARAMETER,
+        // The list's filter tokens (`Name:BeginsWith:/larder|Type:Equals:String`) are DescribeParameters' filters.
+        params: &[Param {
+            key: "filter",
+            label: "Filter",
+            input: ParamKind::Text,
+            options: Options::None,
+            default: "",
+            apply: Apply::With(filters),
+        }],
+        ..Kind::BARE
     }],
 };

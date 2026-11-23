@@ -2,10 +2,14 @@
 //! it).
 
 use super::Format::{Flag, Mono, Text as Plain, Time};
+use super::secrets_ops::{OPS, filters, planned};
 use super::{
-    Create, Delete, Descriptor, Field, Id, Input, InputKind, Kind, LinkTo, List, Reveal, Step,
-    Text, col, field, input,
+    Apply, Create, Deep, Delete, Descriptor, Field, Id, Input, InputKind, Kind, LinkTo, List,
+    Options, Param, ParamKind, Reveal, Shape, Step, Tags, Text, Write, col, field, input, op,
 };
+
+/// What a tag call names: this secret.
+const SECRET: &str = r#"{"SecretId":"{id}"}"#;
 
 pub(super) static SECRETS: Descriptor = Descriptor {
     service: "secretsmanager",
@@ -17,6 +21,7 @@ pub(super) static SECRETS: Descriptor = Descriptor {
         about: "Secrets and their rotation. A value is shown only when you reveal it.",
         members: &["SecretId"],
         list: List {
+            // As on AWS, a secret scheduled for deletion is listed only when asked for (the list's Preferences, `p.deleted=yes`).
             step: Step::new("ListSecrets", r#"{"MaxResults":100,"NextToken":"{token}"}"#),
             items: "SecretList",
             item_as: "Name",
@@ -33,6 +38,8 @@ pub(super) static SECRETS: Descriptor = Descriptor {
             col("Rotation", "RotationEnabled", Flag("On", "Off")),
             col("Last changed", "LastChangedDate", Time),
             col("Last retrieved", "LastAccessedDate", Time),
+            col("Marked for deletion", "DeletedDate", Time),
+            col("Encryption key", "KmsKeyId", Mono),
         ],
         id_of: Id::Name,
         detail: &[Step::new("DescribeSecret", r#"{"SecretId":"{id}"}"#)],
@@ -41,6 +48,7 @@ pub(super) static SECRETS: Descriptor = Descriptor {
             field("Description", "Description", Plain),
             Field {
                 hide_when: Some(("", "")),
+                empty: "Not readable while the secret is marked for deletion.",
                 ..field("Value", "$hidden", Mono)
             },
             Field {
@@ -61,7 +69,11 @@ pub(super) static SECRETS: Descriptor = Descriptor {
             field("Last rotated", "LastRotatedDate", Time),
             field("Last changed", "LastChangedDate", Time),
             field("Last retrieved", "LastAccessedDate", Time),
-            field("Scheduled for deletion on", "DeletedDate", Time),
+            // DescribeSecret says when the deletion was asked for. The end of the recovery window is only in DeleteSecret's answer.
+            Field {
+                retires: true,
+                ..field("Marked for deletion", "DeletedDate", Time)
+            },
             field("Created", "CreatedDate", Time),
         ],
         subs: &[],
@@ -109,6 +121,45 @@ pub(super) static SECRETS: Descriptor = Descriptor {
             step: Step::new("GetSecretValue", r#"{"SecretId":"{id}"}"#),
             path: "SecretString|SecretBinary",
         }),
-        deep: &[],
+        // Cancelling a deletion is drawn on the page itself when the secret is marked; the tab is never listed.
+        deep: &[Deep {
+            id: "restore",
+            title: "Cancel deletion",
+            ops: &[op("RestoreSecret", r#"{"SecretId":"{id}"}"#)],
+        }],
+        // A secret's tags come with its description.
+        tags: Some(Tags::new(
+            Step::new("DescribeSecret", SECRET),
+            "Tags",
+            Shape::KEY_VALUE,
+            Write::Delta {
+                add: op("TagResource", SECRET),
+                at: "Tags",
+                remove: op("UntagResource", SECRET),
+                keys: "TagKeys",
+            },
+        )),
+        ops: OPS,
+        // The list's search tokens (`name:larder/prod/|tag-key:app`) are ListSecrets' filters; `name` matches the beginning of a
+        // name, the others a word of the text, whatever the case.
+        params: &[
+            Param {
+                key: "filter",
+                label: "Search",
+                input: ParamKind::Text,
+                options: Options::None,
+                default: "",
+                apply: Apply::With(filters),
+            },
+            Param {
+                key: "deleted",
+                label: "Show secrets scheduled for deletion",
+                input: ParamKind::Text,
+                options: Options::None,
+                default: "",
+                apply: Apply::With(planned),
+            },
+        ],
+        ..Kind::BARE
     }],
 };

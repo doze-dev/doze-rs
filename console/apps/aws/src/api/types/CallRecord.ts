@@ -75,4 +75,24 @@ via: CallVia | null,
  * The client that sent it, as its `User-Agent` names it (`boto3 1.34.69`, `AWS CLI 2.15.30`, `JS v3 3.540.0`); `null` for a
  * call between services and a request that named none.
  */
-sdk: string | null, };
+sdk: string | null, 
+/**
+ * The words the service answered an error with (the rule that was broken), cut at 240 bytes; `null` for a success, for a call
+ * between services and for a refusal made before a service read the request.
+ */
+message: string | null, 
+/**
+ * `Unhandled` or `Handled` when the call was a function invocation that answered 200 and the function failed (the answer
+ * carried `X-Amz-Function-Error`); `null` otherwise.
+ */
+function_error: string | null, 
+/**
+ * The length the answer declared, in bytes (65,534 for any longer one); `null` when it declared none.
+ */
+answer_bytes: number | null, 
+/**
+ * What the call did, in a few words read from its input and its answer (`3 messages`, `sent 53 B`, `6 keys`, `delivered to 3`); `null`
+ * for an operation that has none, for a call that failed and for a call between services. The record keeps no bodies: this is
+ * all it knows of them.
+ */
+summary: string | null, };

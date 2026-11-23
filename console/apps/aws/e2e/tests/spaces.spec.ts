@@ -28,7 +28,7 @@ test("Home turns to connected when an app's first call arrives, and names its cl
     await expect(page.getByTestId("connected")).toHaveAttribute("data-state", "yes", { timeout: 15_000 });
     const caller = page.getByTestId("connected-caller").first();
     await expect(caller).toHaveAttribute("data-key", "AKIAHOMEAPP000000001");
-    await expect(caller.getByTestId("caller-sdks")).toContainText("AWS CLI");
+    await expect(page.getByTestId("connected-heard")).toContainText("(AWS CLI)");
     await expect(page.getByRole("table", { name: "Recent calls" }).locator("tbody tr[data-row]")).toHaveCount(1);
     // Errors in a burst are worth a look, and say where.
     for (let i = 0; i < 3; i++) aws(server.endpoint, ["sqs", "get-queue-url", "--queue-name", "missing"], { accessKey: "AKIAHOMEAPP000000001" });

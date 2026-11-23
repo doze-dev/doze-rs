@@ -28,8 +28,7 @@ impl Core {
         let entry = entry_of(&r.v, max)?;
         let name = r.stream_name().unwrap_or_default();
         let (shard, seq) = self.append(&name, entry)?;
-        let mut out =
-            json!({"ShardId": crate::model::shard_name(shard), "SequenceNumber": seq.to_string()});
+        let mut out = json!({"ShardId": crate::model::shard_name(shard), "SequenceNumber": crate::model::seq_wire(seq)});
         if self.stream(r)?.kms_key.is_some() {
             out.put("EncryptionType", json!("KMS"));
         }
@@ -62,7 +61,7 @@ impl Core {
             match entry.and_then(|e| self.append(&name, e)) {
                 Ok((shard, seq)) => results.push(json!({
                     "ShardId": crate::model::shard_name(shard),
-                    "SequenceNumber": seq.to_string(),
+                    "SequenceNumber": crate::model::seq_wire(seq),
                 })),
                 Err(e) => {
                     failed += 1;

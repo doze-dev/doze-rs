@@ -78,12 +78,18 @@ function errorNamed(type, message, stack) {
   return e;
 }
 
+// A trace line as Lambda shows it: the function's code is at /var/task there, not in the directory doze-aws unpacked it to.
+const shown = (line) => {
+  const root = (process.env.LAMBDA_TASK_ROOT || "").replace(/\/$/, "");
+  return root ? line.split(`file://${root}/`).join("/var/task/").split(`${root}/`).join("/var/task/") : line;
+};
+
 function errorBody(e) {
   const err = e instanceof Error ? e : new Error(String(e));
   return JSON.stringify({
     errorType: err.name || "Error",
     errorMessage: err.message,
-    trace: (err.stack || "").split("\n"),
+    trace: (err.stack || "").split("\n").map(shown),
   });
 }
 

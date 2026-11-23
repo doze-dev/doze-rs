@@ -2,9 +2,19 @@
 
 use super::Format::{Mono, Number, Text as Plain, Time};
 use super::{
-    Create, Delete, Descriptor, Field, Id, Input, InputKind, Kind, LinkTo, List, Step, Sub, Text,
-    col, field, input,
+    Create, Deep, Delete, Descriptor, Field, Id, Input, InputKind, Kind, LinkTo, List, Shape, Step,
+    Sub, Tags, Text, Write, col, field, input, op, ops, says, state,
 };
+
+/// What a tag call names: this stream.
+const STREAM: &str = r#"{"StreamName":"{id}"}"#;
+
+/// What a call on the stream's settings names: this stream, by its name.
+const NAMED: &str = r#"{"StreamName":"{id}"}"#;
+/// What a call that names a stream by its ARN takes: this stream.
+const ARN: &str = r#"{"StreamARN":"arn:aws:kinesis:{region}:{account}:stream/{id}"}"#;
+/// What a resource policy call names.
+const POLICY: &str = r#"{"ResourceARN":"arn:aws:kinesis:{region}:{account}:stream/{id}"}"#;
 
 const SUMMARY: Step = Step::new("DescribeStreamSummary", r#"{"StreamName":"{id}"}"#);
 
@@ -13,8 +23,8 @@ pub(super) static KINESIS: Descriptor = Descriptor {
     target: "kinesis",
     kinds: &[Kind {
         id: "streams",
-        title: "Streams",
-        one: "stream",
+        title: "Data streams",
+        one: "data stream",
         about: "Ordered records split across shards, kept for the retention period and read by many consumers.",
         members: &["StreamName", "StreamARN"],
         list: List {
@@ -30,26 +40,22 @@ pub(super) static KINESIS: Descriptor = Descriptor {
         elsewhere: "",
         each: &[SUMMARY],
         columns: &[
-            col("Status", "StreamDescriptionSummary.StreamStatus", Plain),
+            state("Status", "StreamDescriptionSummary.StreamStatus", Plain),
             col(
                 "Capacity mode",
                 "StreamDescriptionSummary.StreamModeDetails.StreamMode",
                 Plain,
             ),
             col(
-                "Open shards",
-                "StreamDescriptionSummary.OpenShardCount",
-                Number,
-            ),
-            col(
-                "Retention (hours)",
-                "StreamDescriptionSummary.RetentionPeriodHours",
-                Number,
-            ),
-            col(
                 "Created",
                 "StreamDescriptionSummary.StreamCreationTimestamp",
                 Time,
+            ),
+            // Not on the board's list: what its sentence counts (the consumers a stream has).
+            col(
+                "Consumers",
+                "StreamDescriptionSummary.ConsumerCount",
+                Number,
             ),
         ],
         id_of: Id::Name,
@@ -94,6 +100,12 @@ pub(super) static KINESIS: Descriptor = Descriptor {
                 "Created",
                 "StreamDescriptionSummary.StreamCreationTimestamp",
                 Time,
+            ),
+            // The metric names it keeps (nothing publishes them: crates/aws-kinesis/src/settings.rs).
+            field(
+                "Shard-level metrics",
+                "StreamDescriptionSummary.EnhancedMonitoring.0.ShardLevelMetrics",
+                Plain,
             ),
         ],
         subs: &[Sub {
@@ -157,10 +169,74 @@ pub(super) static KINESIS: Descriptor = Descriptor {
         }),
         delete: Some(Delete {
             verb: "Delete",
-            step: Step::new("DeleteStream", r#"{"StreamName":"{id}"}"#),
-            words: "Deleting removes the stream and every record in it. Kinesis refuses while it has registered consumers.",
+            // The console deletes the consumers with the stream (its dialog says which): Kinesis otherwise refuses.
+            step: Step::new(
+                "DeleteStream",
+                r#"{"StreamName":"{id}","EnforceConsumerDeletion":true}"#,
+            ),
+            words: "Deleting removes the stream, every record in it and its registered consumers.",
         }),
         reveal: None,
-        deep: &[],
+        // What the pages of a stream do to it: each setting its own call, the Data Viewer's reads, the sharing policy.
+        deep: &[
+            Deep {
+                id: "configuration",
+                title: "Configuration",
+                ops: &[
+                    op("UpdateStreamMode", ARN),
+                    op("UpdateShardCount", NAMED),
+                    op("IncreaseStreamRetentionPeriod", NAMED),
+                    op("DecreaseStreamRetentionPeriod", NAMED),
+                    op("StartStreamEncryption", NAMED),
+                    op("StopStreamEncryption", NAMED),
+                    op("EnableEnhancedMonitoring", NAMED),
+                    op("DisableEnhancedMonitoring", NAMED),
+                    op("DescribeStreamSummary", NAMED),
+                    op("ListStreamConsumers", ARN),
+                ],
+            },
+            Deep {
+                id: "viewer",
+                title: "Data Viewer",
+                ops: &[
+                    op("ListShards", NAMED),
+                    op("GetShardIterator", NAMED),
+                    op("GetRecords", "{}"),
+                ],
+            },
+            Deep {
+                id: "sharing",
+                title: "Data stream sharing",
+                ops: &[
+                    op("GetResourcePolicy", POLICY),
+                    op("PutResourcePolicy", POLICY),
+                    op("DeleteResourcePolicy", POLICY),
+                ],
+            },
+        ],
+        // The create with its form (the tags), and the consumers a stream's sentence and delete dialog name.
+        // The keys' aliases are the encryption edit's choices.
+        ops: &[
+            ops::free("CreateStream"),
+            ops::free("ListStreamConsumers"),
+            ops::free("ListAliases").of("kms"),
+        ],
+        page: says::kinesis::STREAM,
+        // Kinesis answers a stream's tags as pairs and takes them as a map.
+        tags: Some(
+            Tags::new(
+                Step::new("ListTagsForStream", STREAM),
+                "Tags",
+                Shape::KEY_VALUE,
+                Write::Delta {
+                    add: op("AddTagsToStream", STREAM),
+                    at: "Tags",
+                    remove: op("RemoveTagsFromStream", STREAM),
+                    keys: "TagKeys",
+                },
+            )
+            .sent(Shape::Map),
+        ),
+        ..Kind::BARE
     }],
 };

@@ -60,7 +60,9 @@ impl Core {
             .and_then(|n| s.shard(n))
             .ok_or_else(|| shard_missing(id, &s.name, r.account()))?;
         let kind = r.s("ShardIteratorType");
-        let from = r.opt("StartingSequenceNumber").map(|t| t.parse::<u128>());
+        let from = r
+            .opt("StartingSequenceNumber")
+            .map(|t| crate::model::seq_parse(t).ok_or(()));
         let next = match (kind, from) {
             ("AT_SEQUENCE_NUMBER", Some(Ok(n))) => n,
             ("AFTER_SEQUENCE_NUMBER", Some(Ok(n))) => n.saturating_add(1),
@@ -277,7 +279,7 @@ impl Core {
 /// A record as `GetRecords` and a `SubscribeToShardEvent` show it.
 pub(crate) fn record_json(seq: u128, rec: &Record, kms: bool) -> Value {
     let mut v = json!({
-        "SequenceNumber": seq.to_string(),
+        "SequenceNumber": crate::model::seq_wire(seq),
         "ApproximateArrivalTimestamp": secs(rec.arrived_ms),
         "Data": aws_core::base64::encode(&rec.data),
         "PartitionKey": rec.partition_key,

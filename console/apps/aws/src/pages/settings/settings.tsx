@@ -12,7 +12,9 @@ import { useSettings } from "../../api/spaces";
 import type { FlagRow } from "../../api/types/FlagRow";
 import { setDensity, useDensity } from "../../density";
 import { authWords, iamWords } from "../../words";
-import { Card, CardSkeleton, CodeBlock } from "../card";
+import { Card, CardSkeleton, CodeBlock, useNow } from "../card";
+import { useHome } from "../../api/spaces";
+import { BuildServices } from "../home/services";
 import { ResetDialog } from "./reset-dialog";
 
 const HINT = "Check that doze-aws is still running, then try again.";
@@ -51,6 +53,8 @@ export function SettingsPage() {
   const s = settings.data;
   const flags = useMemo(() => (s ? (changedOnly ? s.flags.filter((f) => !f.default) : s.flags) : []), [s, changedOnly]);
   const served = a?.services.filter((x) => x.served) ?? [];
+  const home = useHome();
+  const now = useNow();
   return (
     <>
       <PageHeader title="Settings" sub="This doze-aws: how it was started, where it keeps its data, and the choices kept in this browser." refresh={<RefreshControl updatedAt={settings.dataUpdatedAt} fetching={settings.isFetching} onRefresh={() => (void about.refetch(), void settings.refetch())} />} />
@@ -161,6 +165,7 @@ export function SettingsPage() {
               </Fact>
             </dl>
           </Card>
+          <BuildServices called={home.data?.services ?? []} now={now} />
         </div>
       )}
       {resetting && <ResetDialog open={resetting} onOpenChange={setResetting} />}

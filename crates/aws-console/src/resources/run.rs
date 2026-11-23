@@ -5,7 +5,7 @@ use serde_json::{Map, Value, json};
 
 use super::bus::Bus;
 use super::path::{self, Vars};
-use super::{Descriptor, Id, Kind, LinkTo, Step, Sub};
+use super::{Column, Descriptor, Id, Kind, LinkTo, Step, Sub};
 use crate::model::{FieldValue, ResourceLink, ResourceRow, SubList};
 
 /// The most of one kind the index counts: past it, it says "at least".
@@ -74,14 +74,22 @@ impl<'a> Fill<'a> {
     }
 }
 
+/// The body of `step` with its placeholders filled.
+///
+/// # Errors
+/// A descriptor whose body is not JSON (a fault of the build).
+pub fn body(step: &Step, fill: &Fill<'_>) -> Result<Value, ApiError> {
+    let template: Value = serde_json::from_str(step.body)
+        .map_err(|e| ApiError::internal(format!("a descriptor's body is not JSON: {e}")))?;
+    Ok(path::fill(&template, fill))
+}
+
 /// Makes `step` for descriptor `d` with its placeholders filled.
 ///
 /// # Errors
 /// The service's refusal.
 pub async fn call(d: &Descriptor, step: &Step, fill: &Fill<'_>) -> Result<Value, ApiError> {
-    let template: Value = serde_json::from_str(step.body)
-        .map_err(|e| ApiError::internal(format!("a descriptor's body is not JSON: {e}")))?;
-    let body = path::fill(&template, fill);
+    let body = body(step, fill)?;
     fill.bus
         .call(step.service.unwrap_or(d.target), step.op, &body)
         .await
@@ -94,7 +102,8 @@ pub fn merge(out: &mut Value, answer: Value) {
     }
 }
 
-/// One page of `kind`: its rows as the answer gives them (each an object), and the next page's token.
+/// One page of `kind`: its rows as the answer gives them (each an object), and the next page's token. `applied` are the members
+/// the list's parameters ([`super::params`]) set over the call's body.
 ///
 /// # Errors
 /// The service's refusal.
@@ -103,13 +112,24 @@ pub async fn page(
     d: &Descriptor,
     kind: &Kind,
     token: Option<&str>,
+    applied: &Map<String, Value>,
 ) -> Result<(Vec<Value>, Option<String>), ApiError> {
     let (out, form) = (Value::Null, Map::new());
     let fill = Fill {
         token,
         ..Fill::bare(bus, &out, &form)
     };
-    let answer = call(d, &kind.list.step, &fill).await?;
+    let mut body = body(&kind.list.step, &fill)?;
+    if let Value::Object(m) = &mut body {
+        m.extend(applied.iter().map(|(k, v)| (k.clone(), v.clone())));
+    }
+    let answer = bus
+        .call(
+            kind.list.step.service.unwrap_or(d.target),
+            kind.list.step.op,
+            &body,
+        )
+        .await?;
     let items = items_of(&answer, kind.list.items, kind.list.item_as);
     let next = (!kind.list.token_out.is_empty())
         .then(|| path::text(&answer, kind.list.token_out))
@@ -118,15 +138,26 @@ pub async fn page(
     Ok((items, next))
 }
 
-/// The list at `items` in `answer`, each a bare value made an object with the one member `item_as`.
-fn items_of(answer: &Value, items: &str, item_as: &str) -> Vec<Value> {
-    let Some(Value::Array(list)) = path::get(answer, items) else {
-        return Vec::new();
-    };
-    list.into_iter()
-        .map(|item| match item {
-            Value::Object(_) => item,
-            bare => json!({ item_as: bare }),
+/// The list at `items` in `answer`, each a bare value made an object with the one member `item_as`. `a|b` is both lists, one
+/// after the other, each row saying which it came from (`$from`, a metric alarm or a composite one).
+pub fn items_of(answer: &Value, items: &str, item_as: &str) -> Vec<Value> {
+    let several = items.contains('|');
+    items
+        .split('|')
+        .filter_map(|at| match path::get(answer, at) {
+            Some(Value::Array(list)) => Some((at, list)),
+            _ => None,
+        })
+        .flat_map(|(at, list)| {
+            list.into_iter().map(move |item| match item {
+                Value::Object(mut m) => {
+                    if several {
+                        m.insert("$from".to_owned(), json!(at));
+                    }
+                    Value::Object(m)
+                }
+                bare => json!({ item_as: bare }),
+            })
         })
         .collect()
 }
@@ -142,8 +173,7 @@ pub async fn rows(
     let mut rows = Vec::with_capacity(items.len());
     let mut others = 0;
     for (i, mut item) in items.into_iter().enumerate() {
-        let id = path::text(&item, kind.list.id).unwrap_or_default();
-        let name = kind.list.name.read(&item).unwrap_or_else(|| id.clone());
+        let (id, name, pending) = identity(kind, &item);
         if i < MOST_EACH {
             for step in kind.each {
                 let form = Map::new();
@@ -166,17 +196,16 @@ pub async fn rows(
                 continue;
             }
         }
-        let label = kind
-            .list
-            .label
-            .and_then(|l| l.read(&item))
-            .unwrap_or_else(|| name.clone());
+        let label = match (&kind.id_of, pending) {
+            (Id::Pending(p), true) => p.label(&name),
+            _ => kind
+                .list
+                .label
+                .and_then(|l| l.read(&item))
+                .unwrap_or_else(|| name.clone()),
+        };
         rows.push(ResourceRow {
-            cells: kind
-                .columns
-                .iter()
-                .map(|c| path::shown(&item, c.path, c.format))
-                .collect(),
+            cells: kind.columns.iter().map(|c| cell(&item, c)).collect(),
             link: None,
             name,
             label,
@@ -184,6 +213,24 @@ pub async fn rows(
         });
     }
     (rows, others)
+}
+
+/// What a column shows of a row: its value, else what its absence means.
+fn cell(item: &Value, c: &Column) -> Option<String> {
+    path::shown(item, c.path, c.format)
+        .or_else(|| (!c.empty.is_empty()).then(|| c.empty.to_owned()))
+}
+
+/// A listed row's id and name, and whether it is one the service lists without an id ([`super::Pending`]).
+fn identity(kind: &Kind, item: &Value) -> (String, String, bool) {
+    let id = path::text(item, kind.list.id).unwrap_or_default();
+    if let Id::Pending(p) = &kind.id_of
+        && let Some(name) = p.name(item)
+    {
+        return (name.clone(), name, true);
+    }
+    let name = kind.list.name.read(item).unwrap_or_else(|| id.clone());
+    (id, name, false)
 }
 
 /// What the calls of a resource named `name` take, and what was answered on the way (SQS's `GetQueueUrl`).
@@ -199,7 +246,7 @@ pub async fn id_of(
     let mut out = json!({ "$name": name });
     let form = Map::new();
     let id = match &kind.id_of {
-        Id::Name => name.to_owned(),
+        Id::Name | Id::Pending(_) => name.to_owned(),
         Id::Template(t) => {
             let snapshot = out.clone();
             let fill = Fill {
@@ -243,6 +290,13 @@ pub async fn read_detail(
 ) -> Result<Vec<String>, ApiError> {
     let mut made = Vec::new();
     let form = Map::new();
+    if let Id::Pending(p) = &kind.id_of
+        && p.names(name)
+    {
+        made.push(p.step.op.to_owned());
+        p.read(bus, d, name, out).await?;
+        return Ok(made);
+    }
     for step in kind.detail {
         let snapshot = out.clone();
         let fill = Fill {
@@ -262,15 +316,25 @@ pub async fn read_detail(
     Ok(made)
 }
 
+/// Whether the resource is on its way out: a field that says so ([`super::Field::retires`]) has a value.
+#[must_use]
+pub fn retired(kind: &Kind, out: &Value) -> bool {
+    kind.fields
+        .iter()
+        .any(|f| f.retires && path::text(out, f.path).is_some())
+}
+
 /// The fields of a detail page, read out of `out`.
 #[must_use]
 pub fn fields(kind: &Kind, out: &Value) -> Vec<FieldValue> {
+    let retired = retired(kind, out);
     kind.fields
         .iter()
         .map(|f| {
-            let hidden = f
-                .hide_when
-                .is_some_and(|(p, eq)| p.is_empty() || path::text(out, p).is_some_and(|v| v == eq));
+            let hidden = !retired
+                && f.hide_when.is_some_and(|(p, eq)| {
+                    p.is_empty() || path::text(out, p).is_some_and(|v| v == eq)
+                });
             let value = path::shown(out, f.path, f.format)
                 .or_else(|| (!f.empty.is_empty()).then(|| f.empty.to_owned()));
             let link = value
@@ -321,11 +385,15 @@ pub async fn sub(
     };
     let (rows, more, error) = match answer {
         Ok(answer) => {
-            let items = items_of(&answer, sub.items, sub.item_as);
+            let mut items = items_of(&answer, sub.items, sub.item_as);
+            if let Some((at, value)) = sub.step.keep {
+                let want = path::text(&path::fill(&Value::String(value.to_owned()), &fill), "");
+                items.retain(|item| path::text(item, at) == want);
+            }
             let more = !sub.more.is_empty()
                 && path::text(&answer, sub.more)
                     .is_some_and(|m| m == "true" || (!m.is_empty() && m != "false"));
-            let rows = items.iter().map(|item| sub_row(sub, item)).collect();
+            let rows = items.iter().map(|item| sub_row(d, sub, item)).collect();
             (rows, more, None)
         }
         Err(e) => (Vec::new(), false, Some(e.message)),
@@ -341,18 +409,23 @@ pub async fn sub(
     }
 }
 
-fn sub_row(sub: &Sub, item: &Value) -> ResourceRow {
-    let cells: Vec<Option<String>> = sub
-        .columns
-        .iter()
-        .map(|c| path::shown(item, c.path, c.format))
-        .collect();
+fn sub_row(d: &Descriptor, sub: &Sub, item: &Value) -> ResourceRow {
+    let cells: Vec<Option<String>> = sub.columns.iter().map(|c| cell(item, c)).collect();
     let first = cells.first().cloned().flatten().unwrap_or_default();
     let link = sub.link.and_then(|(service, kind, at)| {
+        // A row the service lists without an id is named as its own kind's list names it.
+        let pending = d
+            .kinds
+            .iter()
+            .find(|k| service == d.service && k.id == kind)
+            .and_then(|k| match &k.id_of {
+                Id::Pending(p) => p.name(item),
+                _ => None,
+            });
         Some(ResourceLink {
             service: service.to_owned(),
             kind: kind.to_owned(),
-            name: at.read(item)?,
+            name: pending.or_else(|| at.read(item))?,
         })
     });
     ResourceRow {

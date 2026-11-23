@@ -45,6 +45,13 @@ use tokio::sync::watch;
 
 use crate::core::Core;
 
+/// The order a sequence number sorts at, as a number: what a reader that orders records (a Lambda event source mapping) compares.
+/// `None` for text that is not a sequence number.
+#[must_use]
+pub fn sequence_value(text: &str) -> Option<u128> {
+    model::seq_parse(text)
+}
+
 /// The region whose files are kept in the service's directory itself.
 const HOME_REGION: &str = "us-east-1";
 

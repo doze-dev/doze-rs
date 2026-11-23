@@ -22,11 +22,16 @@ use std::sync::{Mutex, PoisonError};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use aws_gateway::{Finished, Observer};
+use aws_peers::summary::Summary;
 use aws_peers::{BusCall, CallWatcher};
 use tokio::sync::watch;
 
+use call::cut;
+pub use call::{Call, Extra, Via};
 pub use flows::{FLOWS, Flow};
 
+mod call;
+mod fan;
 mod flows;
 
 /// The most calls held.
@@ -41,13 +46,24 @@ pub const MOST_CALLER: usize = 128;
 pub const MOST_REGION: usize = 32;
 /// See [`MOST_REQUEST_ID`].
 pub const MOST_CODE: usize = 96;
+/// See [`MOST_REQUEST_ID`]: the words of an error answer.
+pub const MOST_MESSAGE: usize = 120;
+/// See [`MOST_REQUEST_ID`]: `Unhandled`, `Handled`.
+pub const MOST_FUNCTION_ERROR: usize = 16;
 /// See [`MOST_REQUEST_ID`]. An S3 key can be 1024 bytes; the head of it says which object.
 pub const MOST_RESOURCE: usize = 256;
 /// See [`MOST_REQUEST_ID`]: each of the three texts of a call between services ([`Via`]).
 pub const MOST_VIA: usize = 64;
 /// The most text a request from the wire holds.
-pub const MOST_WIRE_TEXT: usize =
-    MOST_REQUEST_ID + MOST_CALLER + MOST_REGION + MOST_CODE + MOST_RESOURCE + crate::agent::MOST;
+pub const MOST_WIRE_TEXT: usize = MOST_REQUEST_ID
+    + MOST_CALLER
+    + MOST_REGION
+    + MOST_CODE
+    + MOST_RESOURCE
+    + crate::agent::MOST
+    + MOST_MESSAGE
+    + MOST_FUNCTION_ERROR
+    + std::mem::size_of::<Extra>();
 /// The most a call between services holds beside its slot: it has no request id of its own, and a [`Via`].
 pub const MOST_BUS_TEXT: usize = MOST_CALLER
     + MOST_REGION
@@ -65,87 +81,6 @@ pub const MOST_TEXT: usize = if MOST_WIRE_TEXT > MOST_BUS_TEXT {
 pub const RECORD_BYTES: usize = std::mem::size_of::<Call>();
 /// The most the ring can hold, in bytes, when every text of every record is as long as it may be.
 pub const MOST_BYTES: usize = CAPACITY * (RECORD_BYTES + MOST_TEXT);
-
-/// One finished call.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Call {
-    /// Its number: 1 for the first call of this process.
-    pub seq: u64,
-    /// When it was answered, in milliseconds since 1970.
-    pub at_ms: u64,
-    /// From its head being read to its answer being made, in microseconds (a call over 71 minutes says 71 minutes).
-    pub took_us: u32,
-    /// The HTTP status answered.
-    pub status: u16,
-    /// `--iam soft` would have refused it and let it through.
-    pub would_be_denied: bool,
-    /// The service's name in a credential scope; empty when the request named no service of this build.
-    pub signing_name: &'static str,
-    /// The service's SDK id (`DynamoDB Streams`).
-    pub sdk_id: &'static str,
-    /// The operation; empty when the request was refused before one was found.
-    pub action: &'static str,
-    pub request_id: Box<str>,
-    /// The access key id the request was signed with.
-    pub caller: Box<str>,
-    pub region: Box<str>,
-    /// The error code answered; empty for a success.
-    pub code: Box<str>,
-    /// The input member that named what was acted on (`QueueUrl`); empty for an S3 path and when nothing was named.
-    pub member: &'static str,
-    /// What was acted on, when it was named; empty otherwise.
-    pub resource: Box<str>,
-    /// A call one service made to another on the bus, not a request from the wire: who made it and why.
-    pub via: Option<Box<Via>>,
-    /// The client that sent it, from its `User-Agent` ([`crate::agent::label`]: `boto3 1.34.69`); empty for a call between
-    /// services and for a request that named no client.
-    pub sdk: Box<str>,
-}
-
-/// What made a call between services.
-#[derive(Debug, Clone, PartialEq, Eq, Default)]
-pub struct Via {
-    /// The service that made it, as it named itself on the bus (`sns`); empty for one made as the caller itself (a Step
-    /// Functions task as its role).
-    pub by: Box<str>,
-    /// The id of the request from the wire being answered when it was made; empty when none was (a rule, a schedule).
-    pub request: Box<str>,
-    /// The rule, subscription, mapping or schedule that made it; empty when the service did not say.
-    pub name: Box<str>,
-}
-
-impl Via {
-    fn bytes(&self) -> usize {
-        std::mem::size_of::<Self>() + self.by.len() + self.request.len() + self.name.len()
-    }
-}
-
-impl Call {
-    /// The bytes this record holds: its slot and its text.
-    #[must_use]
-    pub fn bytes(&self) -> usize {
-        RECORD_BYTES
-            + self.request_id.len()
-            + self.caller.len()
-            + self.region.len()
-            + self.code.len()
-            + self.resource.len()
-            + self.via.as_ref().map_or(0, |v| v.bytes())
-            + self.sdk.len()
-    }
-}
-
-/// `text`, cut at the last character boundary at or before `most` bytes.
-fn cut(text: &str, most: usize) -> Box<str> {
-    if text.len() <= most {
-        return text.into();
-    }
-    let mut end = most;
-    while !text.is_char_boundary(end) {
-        end -= 1;
-    }
-    text.get(..end).unwrap_or_default().into()
-}
 
 /// What a reader that has everything up to `after` is given.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
@@ -252,6 +187,26 @@ impl Recorder {
             resource: cut(call.resource, MOST_RESOURCE),
             via: None,
             sdk: crate::agent::label(call.user_agent).into(),
+            extra: (!call.message.is_empty()
+                || !call.function_error.is_empty()
+                || !call.did.detail.is_empty())
+            .then(|| {
+                Box::new(Extra {
+                    message: cut(
+                        if call.message.is_empty() {
+                            call.did.detail
+                        } else {
+                            call.message
+                        },
+                        MOST_MESSAGE,
+                    ),
+                    function_error: cut(call.function_error, MOST_FUNCTION_ERROR),
+                })
+            }),
+            answer_bytes: call
+                .answer_bytes
+                .map_or(u16::MAX, |n| u16::try_from(n).unwrap_or(u16::MAX - 1)),
+            summary: self.deliveries(call),
         })
     }
 
@@ -299,6 +254,9 @@ impl Recorder {
                 name: text(cause.and_then(|c| c.name.as_deref())),
             })),
             sdk: Box::default(),
+            extra: None,
+            answer_bytes: u16::MAX,
+            summary: Summary::NONE,
         })
     }
 
@@ -362,6 +320,30 @@ impl Recorder {
         Page {
             missed: 0,
             ..self.after(from, limit)
+        }
+    }
+
+    /// The newest `limit` calls that are not the console's own, oldest first. A page that asks what the apps did (who polls an
+    /// activity, who reads a secret) reads a window of the record; the console's own page reads (several for each page) must not
+    /// spend it, or after a few minutes of browsing the window holds nothing of the apps'. The cursor is the newest call's, as for
+    /// a page that reached the end.
+    #[must_use]
+    pub fn newest_apps(&self, limit: usize) -> Page {
+        let ring = self.ring.lock().unwrap_or_else(PoisonError::into_inner);
+        let mut calls: Vec<Call> = ring
+            .calls
+            .iter()
+            .rev()
+            .filter(|c| !is_console(c))
+            .take(limit)
+            .cloned()
+            .collect();
+        calls.reverse();
+        Page {
+            more: false,
+            calls,
+            last: ring.newest,
+            missed: 0,
         }
     }
 

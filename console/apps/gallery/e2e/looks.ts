@@ -15,6 +15,11 @@ export const PAGES = [
   { path: "/data", name: "data", title: "Data" },
   { path: "/states", name: "states", title: "States" },
   { path: "/frame", name: "frame", title: "Frame" },
+  { path: "/create", name: "create", title: "Create" },
+  { path: "/fields", name: "fields", title: "Fields" },
+  { path: "/resource", name: "resource", title: "Resource" },
+  { path: "/lists", name: "lists", title: "Lists" },
+  { path: "/charts", name: "charts", title: "Charts" },
 ] as const;
 
 /** The address of a page under a look (the gallery takes both from the address, once, and keeps them). */

@@ -64,14 +64,14 @@ export function CopyRow({ label, value, testId }: { label: string; value: string
 }
 
 /** A block of code with Copy under it. */
-export function CodeBlock({ code, what, testId }: { code: string; what: string; testId?: string }) {
+export function CodeBlock({ code, what, testId, copyLabel }: { code: string; what: string; testId?: string; copyLabel?: string }) {
   return (
     <div>
       <pre className="overflow-x-auto rounded-xl border bg-well px-5 py-4 font-mono text-[12.5px] leading-[21px] whitespace-pre text-foreground" data-testid={testId}>
         {code}
       </pre>
       <div className="mt-2.5">
-        <CopyButton text={code} what={what} className="bg-card" />
+        <CopyButton text={code} what={what} label={copyLabel} className="bg-card" />
       </div>
     </div>
   );

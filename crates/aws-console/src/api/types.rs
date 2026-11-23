@@ -15,10 +15,14 @@ use crate::model::{
     FlowsResponse, Outcome, RingFill, ServiceName, ServiceRow, ServicesResponse, TailReady,
 };
 use crate::model::{
-    AccessView, Attached, CallerSeen, DataUse, DenialGroup, FlagRow, HomeChecks, HomeView,
-    KeyPrincipal, LabAnswer, LabError, LabIndex, LabMember, LabOperation, LabTarget, PrincipalKind,
-    PrincipalsResponse, Refusal, ResetDone, ResetRow, ServiceSeen, SettingsView, Signal,
-    SignalKind,
+    AccessView, Attached, CallerSeen, DataUse, DenialGroup, FlagRow, HeldPolicies, HeldPolicy,
+    HomeChecks, HomeView, KeyPrincipal, LabAnswer, LabError, LabIndex, LabMember, LabOperation,
+    LabTarget, PrincipalKind, PrincipalsResponse, Refusal, ResetDone, ResetRow, ServiceSeen,
+    SettingsView, Signal, SignalKind, WireEdge, WireNode, Wiring,
+};
+use crate::model::{
+    Badge, BlockerGroup, BlockerItem, Blockers, Needs, ParamKind, ParamOption, ParamSpec, Preview,
+    PreviewRequest, Tag, TagsChange, TagsView, Tone, VerbSpec, Wired,
 };
 use crate::model::{
     ColumnSpec, CreateSpec, Created, DeepTab, DeleteSpec, Deleted, FieldValue, FormInput,
@@ -42,6 +46,7 @@ fn one<T: TS + 'static + ?Sized>(cfg: &Config, out: &mut BTreeMap<String, String
 }
 
 /// Every type the API sends, by file name.
+#[allow(clippy::too_many_lines)] // one line a type
 fn all() -> BTreeMap<String, String> {
     let cfg = config();
     let mut out = BTreeMap::new();
@@ -82,6 +87,7 @@ fn all() -> BTreeMap<String, String> {
     one::<Deleted>(&cfg, &mut out);
     one::<DeepTab>(&cfg, &mut out);
     one::<Uploaded>(&cfg, &mut out);
+    one::<crate::api::objects::Presigned>(&cfg, &mut out);
     one::<KeyPrincipal>(&cfg, &mut out);
     one::<PrincipalKind>(&cfg, &mut out);
     one::<PrincipalsResponse>(&cfg, &mut out);
@@ -95,6 +101,11 @@ fn all() -> BTreeMap<String, String> {
     one::<Signal>(&cfg, &mut out);
     one::<HomeView>(&cfg, &mut out);
     one::<HomeChecks>(&cfg, &mut out);
+    one::<HeldPolicy>(&cfg, &mut out);
+    one::<HeldPolicies>(&cfg, &mut out);
+    one::<WireNode>(&cfg, &mut out);
+    one::<WireEdge>(&cfg, &mut out);
+    one::<Wiring>(&cfg, &mut out);
     one::<FlagRow>(&cfg, &mut out);
     one::<DataUse>(&cfg, &mut out);
     one::<SettingsView>(&cfg, &mut out);
@@ -106,7 +117,29 @@ fn all() -> BTreeMap<String, String> {
     one::<LabOperation>(&cfg, &mut out);
     one::<LabError>(&cfg, &mut out);
     one::<LabAnswer>(&cfg, &mut out);
+    page_types(&cfg, &mut out);
     out
+}
+
+/// What a resource page adds: a call's preview, tags, what stands in the way of a delete, a list's parameters, and how a
+/// detail speaks of its resource.
+fn page_types(cfg: &Config, out: &mut BTreeMap<String, String>) {
+    one::<PreviewRequest>(cfg, out);
+    one::<Preview>(cfg, out);
+    one::<Tag>(cfg, out);
+    one::<TagsView>(cfg, out);
+    one::<TagsChange>(cfg, out);
+    one::<BlockerItem>(cfg, out);
+    one::<BlockerGroup>(cfg, out);
+    one::<Blockers>(cfg, out);
+    one::<ParamKind>(cfg, out);
+    one::<ParamOption>(cfg, out);
+    one::<ParamSpec>(cfg, out);
+    one::<Tone>(cfg, out);
+    one::<Badge>(cfg, out);
+    one::<Needs>(cfg, out);
+    one::<VerbSpec>(cfg, out);
+    one::<Wired>(cfg, out);
 }
 
 #[test]

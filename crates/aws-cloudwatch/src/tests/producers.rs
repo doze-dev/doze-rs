@@ -87,3 +87,55 @@ async fn held_data_is_taken_in_before_a_read_and_an_alarm_says_what_it_watches()
     call("DeleteAlarms", json!({"AlarmNames": ["errors"]})).await;
     assert!(!peers.watched("us-east-1", "AWS/Lambda"));
 }
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn reads_at_the_same_moment_all_see_what_was_held() {
+    let dir = temp();
+    let peers = Peers::new();
+    let ext: Arc<dyn std::any::Any + Send + Sync> = peers.clone();
+    let ctx = Arc::new(Ctx {
+        dir: dir.path().to_path_buf(),
+        idle: Duration::from_secs(300),
+        tasks: Tasks::new(),
+        clock: Arc::new(SystemClock),
+        ext: Some(ext),
+    });
+    peers.register(Arc::new(Cloudwatch::new(ctx)));
+    let held = Arc::new(Mutex::new(vec![Made {
+        service: "lambda",
+        account: "111122223333".into(),
+        body: json!({"Namespace": "AWS/Lambda", "MetricData": [
+            {"MetricName": "Invocations", "Dimensions": [{"Name": "FunctionName", "Value": "f"}], "Values": [1.0], "Counts": [3.0],
+             "Unit": "Count"}]}),
+    }]));
+    let h = Arc::clone(&held);
+    peers.add_producer(Arc::new(move |_: &str| {
+        h.lock()
+            .map(|mut v| std::mem::take(&mut *v))
+            .unwrap_or_default()
+    }));
+    // One read takes the data in and stores it; the reads that arrive meanwhile must wait for it, not answer without it (a
+    // function's page asks for four metrics at once).
+    let reads: Vec<_> = (0..6)
+        .map(|_| {
+            let peers = Arc::clone(&peers);
+            tokio::spawn(async move {
+                peers
+                    .call(
+                        "test",
+                        &caller(),
+                        "monitoring",
+                        "ListMetrics",
+                        &json!({"Namespace": "AWS/Lambda"}),
+                    )
+                    .await
+                    .map(|v| v["Metrics"][0]["MetricName"].clone())
+                    .map_err(|e| e.message)
+            })
+        })
+        .collect();
+    for read in reads {
+        let seen = read.await.expect("the read finished");
+        assert_eq!(seen, Ok(json!("Invocations")));
+    }
+}

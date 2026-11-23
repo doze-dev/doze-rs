@@ -59,7 +59,7 @@ function zipped(): { file: string; done: () => void } {
 
 const TRUST = JSON.stringify({ Version: "2012-10-17", Statement: [{ Effect: "Allow", Principal: { Service: "lambda.amazonaws.com" }, Action: "sts:AssumeRole" }] });
 
-test("a function is tested, configured in dialogs, and its runs' logs open in the stream viewer", async ({ page, cli, browserName }) => {
+test("a function is tested, configured on pages of its own, and its runs' logs open in the stream viewer", async ({ page, cli, browserName }) => {
   const fn = unique("echo", browserName);
   const role = unique("fn-role", browserName);
   expect(cli(["iam", "create-role", "--role-name", role, "--assume-role-policy-document", TRUST]).code).toBe(0);
@@ -75,7 +75,7 @@ test("a function is tested, configured in dialogs, and its runs' logs open in th
   await expect(page).toHaveURL(/tab=test/);
   await page.getByTestId("invoke-event").fill('{"n": 1}');
   await page.getByTestId("invoke-run").click();
-  await expect(page.getByTestId("invoke-status")).toHaveText("Succeeded", { timeout: 20_000 });
+  await expect(page.getByTestId("invoke-status")).toContainText("Status: Succeeded", { timeout: 20_000 });
   await expect(page.getByTestId("invoke-payload")).toContainText('"n": 1');
   await expect(page.getByTestId("invoke-log")).toContainText("START RequestId");
   await expect(page.getByTestId("invoke-report")).toContainText("Billed Duration");
@@ -85,36 +85,37 @@ test("a function is tested, configured in dialogs, and its runs' logs open in th
   await expect(page.getByTestId("invoke-run")).toBeDisabled();
   await page.getByTestId("invoke-event").fill('{"fail": true}');
   await page.getByTestId("invoke-run").click();
-  await expect(page.getByTestId("invoke-status")).toHaveText("Function error: Unhandled");
+  await expect(page.getByTestId("invoke-status")).toContainText("The function returned an error.");
   await expect(page.getByTestId("invoke-payload")).toContainText("asked to fail");
 
   await page.getByTestId("tab-configuration").click();
   await page.getByTestId("config-edit").click();
-  const general = page.getByTestId("config-dialog");
-  await general.getByTestId("cfg-memory").fill("256");
-  await general.getByTestId("config-save").click();
-  await expect(general).toHaveCount(0);
-  await expect(page.getByTestId("cfg-memory-value")).toHaveText("256 MB");
+  await page.getByTestId("cfg-memory").fill("256");
+  await page.getByTestId("form-submit").click();
+  await expect(page.getByTestId("done-banner")).toContainText("was saved");
+  await expect(page.getByTestId("general-card")).toContainText("256 MB");
+  await page.getByTestId("section-env").click();
   await page.getByTestId("env-edit").click();
-  const env = page.getByTestId("env-dialog");
-  await env.getByTestId("env-add").click();
-  await env.getByTestId("env-key").fill("1BAD");
-  await expect(env.getByTestId("env-save")).toBeDisabled();
-  await env.getByTestId("env-key").fill("MODE");
-  await env.getByTestId("env-value").fill("blue");
-  await env.getByTestId("env-save").click();
-  await expect(env).toHaveCount(0);
-  await expect(page.getByTestId("env-list")).toContainText("blue");
+  await page.getByRole("button", { name: "Add environment variable" }).click();
+  await page.getByTestId("env-kv-key-0").fill("1BAD");
+  await page.getByTestId("form-submit").click();
+  await expect(page.getByTestId("env-problem-0")).toContainText("A key starts with a letter");
+  await page.getByTestId("env-kv-key-0").fill("MODE");
+  await page.getByTestId("env-kv-value-0").fill("blue");
+  await page.getByTestId("form-submit").click();
+  await expect(page.getByTestId("done-banner")).toContainText("environment variables");
+  await expect(page.getByTestId("env-card")).toContainText("blue");
 
   await page.getByTestId("tab-versions").click();
   await expect(page.getByTestId("lambda-versions")).toContainText("$LATEST");
+  await page.getByTestId("tab-aliases").click();
   await expect(page.getByTestId("aliases-none")).toBeVisible();
 
   await page.reload();
-  await page.getByTestId("tab-invocations").click();
-  await page.getByTestId("invokes-console-toggle").click();
-  await expect(page.getByTestId("lambda-invocations").locator("tbody tr")).toHaveCount(2);
-  const stream = page.getByTestId("lambda-streams").getByTestId("stream-link").first();
+  await page.getByTestId("tab-monitor").click();
+  await page.getByTestId("view-logs").click();
+  await page.getByTestId("tab-streams").click();
+  const stream = page.getByTestId("group-streams").getByTestId("stream-link").first();
   await stream.click();
   await expect(page.getByTestId("stream-viewer")).toBeVisible();
   await expect(page.getByTestId("log-event").first()).toBeVisible();
@@ -138,7 +139,7 @@ test("an execution is started from its machine, drawn with the path it took, and
   const made = cli(["stepfunctions", "create-state-machine", "--name", name, "--definition", JSON.stringify(MACHINE), "--role-arn", "arn:aws:iam::111122223333:role/sfn"]);
   expect(made.code, made.out).toBe(0);
   await open(page, `/resources/stepfunctions/machines/${name}?tab=executions`, name);
-  await page.getByTestId("start-open").click();
+  await page.getByTestId("verb-start").click();
   const start = page.getByTestId("start-dialog");
   await start.getByTestId("start-name").fill("quick");
   await start.getByTestId("start-input").fill('{"order": 1}');
@@ -154,10 +155,12 @@ test("an execution is started from its machine, drawn with the path it took, and
   await expect(graph.locator('[data-state="Hold"]')).toHaveAttribute("data-status", "idle");
   await expect(graph.locator('[data-edge="Route>Fan"]')).toHaveAttribute("data-taken", "true");
   await graph.locator('[data-state="Right"]').click();
-  await page.getByTestId("step-output").click();
+  await page.getByTestId("step-views").getByRole("radio", { name: "Output" }).click();
   await expect(page.getByTestId("step-details")).toContainText('"side": "right"');
   await page.getByTestId("tab-events").click();
   const events = page.getByTestId("history-event");
+  await expect(events.first()).toContainText("ExecutionStarted");
+  await page.getByTestId("history-sort").click();
   await expect(events.first()).toContainText("ExecutionSucceeded");
   await page.getByTestId("history-open").first().click();
   await expect(page.getByTestId("history")).toContainText('"output"');
@@ -188,23 +191,21 @@ test("a log stream is read and paged, its group searched, and tailed live", asyn
   await open(page, `/resources/logs/groups/${encodeURIComponent(group)}?tab=streams`, group);
   await page.getByTestId("group-streams").getByTestId("stream-link").click();
   await expect(page.locator("h1")).toHaveText("web-1");
-  // The newest page first: 100 of 120, ending with the last line.
+  // The first 100 of 120 in the last hour, oldest first; the rest are loaded when asked for.
   await expect(page.getByTestId("log-event")).toHaveCount(100);
+  await expect(page.getByTestId("log-events")).toContainText("line 0");
+  await page.getByTestId("stream-more").click();
+  await expect(page.getByTestId("log-event")).toHaveCount(120);
   await expect(page.getByTestId("log-events")).toContainText("line 119");
-  await page.getByTestId("stream-older").click();
-  await expect(page.getByTestId("log-event")).toHaveCount(20);
-  await expect(page.getByTestId("log-events")).toContainText("line 0");
-  await page.getByTestId("stream-start").click();
-  await expect(page.getByTestId("log-events")).toContainText("line 0");
   await expect(page.locator('[data-testid="log-event"][data-level="bad"]')).toHaveCount(1);
 
-  await open(page, `/resources/logs/groups/${encodeURIComponent(group)}?tab=search`, group);
+  await open(page, `/resources/logs/groups/${encodeURIComponent(group)}?view=search`, "Search log group");
   await page.getByTestId("search-pattern").fill("ERROR");
   await page.getByTestId("search-run").click();
-  await expect(page.getByTestId("search-count")).toContainText("1 event matches");
+  await expect(page.getByTestId("search-count")).toContainText("1 event in the last hour matches the pattern");
   await expect(page.getByTestId("search-events")).toContainText("web-1");
 
-  await page.getByTestId("tab-tail").click();
+  await open(page, `/resources/logs/groups/${encodeURIComponent(group)}?view=tail`, "Live Tail");
   await page.getByTestId("tail-start").click();
   await expect(page.getByTestId("tail-status")).toHaveText("Tailing");
   const live = [{ timestamp: Date.now(), message: `live ${browserName}` }];
@@ -224,9 +225,9 @@ test("a stack says where it stands, and shows its events, template and change se
   expect(cli(["cloudformation", "create-stack", "--stack-name", stack, "--template-body", template]).code).toBe(0);
   await expect(async () => {
     await open(page, `/resources/cloudformation/stacks/${stack}`, stack);
-    await expect(page.getByTestId("stack-sentence")).toContainText("CREATE_COMPLETE", { timeout: 1000 });
+    await expect(page.getByTestId("detail-badge")).toHaveText("CREATE_COMPLETE", { timeout: 1000 });
   }).toPass({ timeout: 15_000 });
-  await expect(page.getByTestId("stack-sentence")).toContainText("not updated since");
+  await expect(page.getByTestId("stack-sentence")).toContainText("owns 1 resource in 1 service and has been stable since");
   await page.getByTestId("tab-events").click();
   const events = page.getByTestId("stack-events").locator("tbody tr");
   await expect(events.first()).toContainText(stack);
@@ -236,4 +237,30 @@ test("a stack says where it stands, and shows its events, template and change se
   await expect(page.getByTestId("template-body")).toContainText(queue);
   await page.getByTestId("tab-changesets").click();
   await expect(page.getByTestId("changesets-none")).toBeVisible();
+});
+
+test("a stack whose create failed holds nothing and says which resource failed; a deleted stack's name says it was deleted", async ({ page, cli, browserName, refusals }) => {
+  // A deleted stack's name, and a name that never was, are asked for and refused.
+  refusals.allow(/400 GET .*\/cloudformation\/stacks\/deep-failed/);
+  const stack = unique("deep-failed", browserName);
+  const clash = `/e2e/${unique("clash", browserName)}`;
+  expect(cli(["ssm", "put-parameter", "--name", clash, "--type", "String", "--value", "x"]).code).toBe(0);
+  const template = JSON.stringify({ Resources: { Taken: { Type: "AWS::SSM::Parameter", Properties: { Name: clash, Type: "String", Value: "y" } } } });
+  expect(cli(["cloudformation", "create-stack", "--stack-name", stack, "--template-body", template]).code).toBe(0);
+  await expect(async () => {
+    await open(page, `/resources/cloudformation/stacks/${stack}`, stack);
+    await expect(page.getByTestId("detail-badge")).toHaveText("ROLLBACK_COMPLETE", { timeout: 1000 });
+  }).toPass({ timeout: 15_000 });
+  await expect(page.getByTestId("stack-sentence")).toContainText("It holds no resources.");
+  await expect(page.getByTestId("stack-sentence")).not.toContainText("held before");
+  await expect(page.getByTestId("stack-sentence")).toContainText("Taken could not be made");
+  // Deleted: its name is no longer answered; the page says it was deleted, not "ValidationError".
+  expect(cli(["cloudformation", "delete-stack", "--stack-name", stack]).code).toBe(0);
+  await expect(async () => {
+    await open(page, `/resources/cloudformation/stacks/${stack}`, stack);
+    await expect(page.getByTestId("stack-deleted")).toContainText("A deleted stack is hidden from the list", { timeout: 1000 });
+  }).toPass({ timeout: 15_000 });
+  await expect(page.getByTestId("detail-error")).toHaveCount(0);
+  await open(page, `/resources/cloudformation/stacks/${stack}-never`, "Stack not found");
+  await expect(page.getByTestId("stack-none")).toContainText("There is no stack named");
 });

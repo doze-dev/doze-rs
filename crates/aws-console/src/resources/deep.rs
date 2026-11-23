@@ -41,6 +41,7 @@ pub const fn op_owned(op: &'static str, bind: &'static str, owned: &'static Owne
         bind,
         within: None,
         owned: Some(owned),
+        service: None,
     }
 }
 
@@ -60,6 +61,7 @@ async fn check_owned(
         bind: owned.bind,
         within: None,
         owned: None,
+        service: None,
     };
     let ask = bound(bus, &list, (id, name), Map::new())?;
     let answer = bus.call(target, owned.list, &Value::Object(ask)).await?;
@@ -117,6 +119,23 @@ pub fn not_made(kind: &Kind, operation: &str) -> ApiError {
     )
 }
 
+/// Whether `named` is a part of what `prefix` names. A prefix that ends in a separator (`:`, `/`) is begun by every longer value;
+/// one that does not (a state machine's ARN) is the value itself or a part of it after a `:` (its version `…:2`, its alias `…:PROD`),
+/// never another name that happens to begin the same (`order` and `order-fulfilment`).
+fn within(named: &str, prefix: &str) -> bool {
+    if prefix.is_empty() || !named.starts_with(prefix) {
+        return false;
+    }
+    if prefix.ends_with([':', '/']) {
+        named.len() > prefix.len()
+    } else {
+        named.len() == prefix.len()
+            || named
+                .get(prefix.len()..)
+                .is_some_and(|rest| rest.starts_with(':'))
+    }
+}
+
 /// `input` with the members of `op`'s `bind` set over it (one bound to `null` taken out), filled for the resource `id` named
 /// `name`; and, for an operation on a part of it ([`Op::within`]), the part the page names checked to be this resource's.
 ///
@@ -141,7 +160,7 @@ pub fn bound(
         let prefix = path::text(&path::fill(&Value::String(prefix.to_owned()), &fill), "")
             .unwrap_or_default();
         let named = input.get(member).and_then(Value::as_str).unwrap_or("");
-        if prefix.is_empty() || named.len() <= prefix.len() || !named.starts_with(&prefix) {
+        if !within(named, &prefix) {
             return Err(ApiError::new(
                 400,
                 "NOT_THIS_RESOURCE",
@@ -210,12 +229,12 @@ pub async fn call(
     }
     let id = id_for(bus, (d, kind), op, name).await?;
     if let Some(owned) = op.owned {
-        check_owned(bus, (d.target, op, owned), (&id, name), &input).await?;
+        check_owned(bus, (op.target(d), op, owned), (&id, name), &input).await?;
     }
     let body = Value::Object(bound(bus, op, (&id, name), input)?);
     if (d.target, op.op) == ("lambda", "Invoke") {
         let done = invoke::invoke(bus, &body).await?;
         return serde_json::to_value(done).map_err(|e| ApiError::internal(e.to_string()));
     }
-    bus.call(d.target, op.op, &body).await
+    bus.call(op.target(d), op.op, &body).await
 }

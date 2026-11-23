@@ -11,6 +11,7 @@ pub mod envelope;
 mod metrics;
 pub mod naming;
 pub mod seen;
+pub mod summary;
 
 pub use authz::{Authorizer, Mode, Need};
 pub use metrics::{Made, Producer};

@@ -33,12 +33,14 @@ export function callOp<T>(t: Target, operation: string, input: object = {}, sign
 export const deepKey = (t: Target, ...rest: unknown[]) => ["resources", "deep", t.service, t.kind, t.name, ...rest];
 
 /** A read made through an operation (a scan, a listing): once when the page opens with these inputs, then on asking. */
-export function useOpQuery<T>(t: Target, operation: string, input: object, key: unknown[], enabled = true) {
+export function useOpQuery<T>(t: Target, operation: string, input: object, key: unknown[], enabled = true, every?: (data: T | undefined) => number | false) {
   return useQuery({
     queryKey: deepKey(t, operation, ...key),
     queryFn: ({ signal }) => callOp<T>(t, operation, input, signal),
     enabled,
     retry: false,
+    // `every`: read again that often while the answer says so (a task still running); never otherwise.
+    refetchInterval: every ? (q) => every(q.state.data) : false,
   });
 }
 
@@ -66,15 +68,16 @@ export const UPLOAD_MAX = 25 * 1024 * 1024;
 /** The address of an object of a bucket. */
 export const objectPath = (bucket: string, key: string) => `${RESOURCE_PATHS.one("s3", "buckets", bucket)}/object?key=${encodeURIComponent(key)}`;
 
-/** PutObject of `body` as `key` (a folder is an empty body and a key ending in `/`). */
-export function putObject(bucket: string, key: string, body: Blob, type: string): Promise<Uploaded> {
-  return client.api<Uploaded>(objectPath(bucket, key), { method: "POST", body, headers: { "Content-Type": type || "application/octet-stream" } });
+/** PutObject of `body` as `key` (a folder is an empty body and a key ending in `/`); `props`: metadata, tags, encryption and the like. */
+export function putObject(bucket: string, key: string, body: Blob, type: string, props?: object): Promise<Uploaded> {
+  const more = props && Object.keys(props).length > 0 ? `&props=${encodeURIComponent(JSON.stringify(props))}` : "";
+  return client.api<Uploaded>(objectPath(bucket, key) + more, { method: "POST", body, headers: { "Content-Type": type || "application/octet-stream" } });
 }
 
-/** GetObject, saved as a file. The console's API answers only requests that carry its proof header, which a plain link cannot
+/** GetObject, saved as a file (named `saveAs`, else by the last part of the key). The console's API answers only requests that carry its proof header, which a plain link cannot
  * send: the bytes are fetched (the server streams them from S3) and handed to the browser to save. */
-export async function downloadObject(bucket: string, key: string): Promise<void> {
-  const res = await fetch(`${client.basePath}${objectPath(bucket, key)}`, { headers: { "X-Console": "1" }, credentials: "same-origin" });
+export async function downloadObject(bucket: string, key: string, saveAs?: string, versionId?: string): Promise<void> {
+  const res = await fetch(`${client.basePath}${objectPath(bucket, key)}${versionId ? `&versionId=${encodeURIComponent(versionId)}` : ""}`, { headers: { "X-Console": "1" }, credentials: "same-origin" });
   if (!res.ok) {
     const body = (await res.json().catch(() => null)) as { code?: string; message?: string } | null;
     throw new Error(body?.message ?? `The download was refused (${res.status}).`);
@@ -83,7 +86,7 @@ export async function downloadObject(bucket: string, key: string): Promise<void>
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = key.split("/").filter(Boolean).pop() ?? "object";
+  a.download = saveAs ?? key.split("/").filter(Boolean).pop() ?? "object";
   document.body.append(a);
   a.click();
   a.remove();

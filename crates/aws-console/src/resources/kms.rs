@@ -1,15 +1,18 @@
 //! KMS: keys (customer managed ones listed; AWS managed ones when asked) and aliases.
 
 use super::Format::{Flag, Mono, Text as Plain, Time};
+use super::kms_ops::{ALIAS_OPS, KEY_OPS};
 use super::{
-    Create, Delete, Descriptor, Field, Id, Input, InputKind, Kind, LinkTo, List, Split, Step, Sub,
-    Text, col, field, input,
+    Create, Delete, Descriptor, Field, Id, Input, InputKind, Kind, LinkTo, List, Shape, Split,
+    Step, Sub, Tags, Text, Write, col, field, input, op, says, state,
 };
 
 /// Who manages a key, as the console says it.
 const MANAGER: super::Format = super::Format::Named(&[("CUSTOMER", "Customer"), ("AWS", "AWS")]);
 
 const DESCRIBE: Step = Step::new("DescribeKey", r#"{"KeyId":"{id}"}"#);
+/// What a tag call names: this key.
+const KEY: &str = r#"{"KeyId":"{id}"}"#;
 
 pub(super) static KMS: Descriptor = Descriptor {
     service: "kms",
@@ -41,11 +44,13 @@ const KEYS: Kind = Kind {
     each: &[DESCRIBE],
     columns: &[
         col("Description", "KeyMetadata.Description", Plain),
-        col("State", "KeyMetadata.KeyState", Plain),
+        state("State", "KeyMetadata.KeyState", Plain),
         col("Spec", "KeyMetadata.KeySpec", Mono),
         col("Usage", "KeyMetadata.KeyUsage", Mono),
         col("Managed by", "KeyMetadata.KeyManager", MANAGER),
         col("Created", "KeyMetadata.CreationDate", Time),
+        // When a key scheduled for deletion goes: the list says it beside the key.
+        col("Deletion date", "KeyMetadata.DeletionDate", Time),
     ],
     id_of: Id::Name,
     detail: &[DESCRIBE],
@@ -131,6 +136,20 @@ const KEYS: Kind = Kind {
     }),
     reveal: None,
     deep: &[],
+    ops: KEY_OPS,
+    tags: Some(Tags::new(
+        Step::new("ListResourceTags", KEY),
+        "Tags",
+        Shape::Pairs("TagKey", "TagValue"),
+        Write::Delta {
+            add: op("TagResource", KEY),
+            at: "Tags",
+            remove: op("UntagResource", KEY),
+            keys: "TagKeys",
+        },
+    )),
+    page: says::kms::KEY,
+    ..Kind::BARE
 };
 
 const ALIASES: Kind = Kind {
@@ -210,4 +229,6 @@ const ALIASES: Kind = Kind {
     }),
     reveal: None,
     deep: &[],
+    ops: ALIAS_OPS,
+    ..Kind::BARE
 };

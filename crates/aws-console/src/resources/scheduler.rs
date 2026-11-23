@@ -4,7 +4,7 @@
 use super::Format::{Json, Mono, Tail, Text as Plain, Time};
 use super::{
     Create, Delete, Descriptor, Id, Input, InputKind, Kind, List, Step, Sub, Text, col, field,
-    input, or,
+    input, or, state,
 };
 
 pub(super) static SCHEDULER: Descriptor = Descriptor {
@@ -38,7 +38,7 @@ const SCHEDULES: Kind = Kind {
     each: &[],
     columns: &[
         col("Group", "GroupName", Mono),
-        col("State", "State", Plain),
+        state("State", "State", Plain),
         col("Target", "Target.Arn", Tail),
         col("Last modified", "LastModificationDate", Time),
     ],
@@ -141,6 +141,7 @@ const SCHEDULES: Kind = Kind {
     }),
     reveal: None,
     deep: &[],
+    ..Kind::BARE
 };
 
 const GROUPS: Kind = Kind {
@@ -215,4 +216,5 @@ const GROUPS: Kind = Kind {
     }),
     reveal: None,
     deep: &[],
+    ..Kind::BARE
 };

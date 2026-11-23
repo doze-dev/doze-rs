@@ -1,15 +1,21 @@
 //! CloudWatch Logs: log groups, with their subscription filters on their page; their streams, search and Live Tail are pages of
 //! their own.
 
-use super::Format::{Bytes, Mono, Number, Tail, Text as Plain, Time};
+use super::Format::{Bytes, Mono, Number, Text as Plain, Time};
 use super::{
-    Create, Deep, Delete, Descriptor, Id, Input, InputKind, Kind, List, Step, Sub, Text, col,
-    field, input, op, or,
+    Create, Deep, Delete, Descriptor, Id, Input, InputKind, Kind, List, Shape, Step, Sub, Tags,
+    Text, Write, col, field, input, op, ops, or, says,
 };
+
+/// What a tag call names: this group, by its ARN.
+const ARN: &str = r#"{"resourceArn":"arn:aws:logs:{region}:{account}:log-group:{name}"}"#;
 
 /// What a read of its streams names: this group, and no other by `logGroupIdentifier`. By its name as the address gives it, so
 /// no `DescribeLogGroups` is made first to find it (Logs itself refuses a group that is not there).
 const GROUP: &str = r#"{"logGroupName":"{name}","logGroupIdentifier":null}"#;
+
+/// What a filter or retention call names: this group.
+const NAMED: &str = r#"{"logGroupName":"{name}"}"#;
 
 pub(super) static LOGS: Descriptor = Descriptor {
     service: "logs",
@@ -33,9 +39,9 @@ pub(super) static LOGS: Descriptor = Descriptor {
         elsewhere: "",
         each: &[],
         columns: &[
-            col("Retention (days)", "retentionInDays", Number),
-            col("Stored", "storedBytes", Bytes),
             col("Class", "logGroupClass", Plain),
+            col("Retention (days)", "retentionInDays", Number),
+            col("Metric filters", "metricFilterCount", Number),
             col("Created", "creationTime", Time),
         ],
         // Logs has no call that reads one group: the groups whose name begins with it are asked for, and the one of that name
@@ -67,20 +73,61 @@ pub(super) static LOGS: Descriptor = Descriptor {
             or("KMS key", "logGroups.@logGroupName.kmsKeyId", Mono, "None"),
             field("Created", "logGroups.@logGroupName.creationTime", Time),
         ],
-        subs: &[Sub {
-            title: "Subscription filters",
-            step: Step::new("DescribeSubscriptionFilters", r#"{"logGroupName":"{id}"}"#),
-            items: "subscriptionFilters",
-            item_as: "filterName",
-            columns: &[
-                col("Filter", "filterName", Mono),
-                col("Pattern", "filterPattern", Mono),
-                col("Destination", "destinationArn", Tail),
-            ],
-            link: None,
-            more: "nextToken",
-            add: None,
-        }],
+        subs: &[
+            // Its streams, the newest event first: the tab's rows and its count.
+            Sub {
+                title: "Log streams",
+                step: Step::new(
+                    "DescribeLogStreams",
+                    r#"{"logGroupName":"{id}","orderBy":"LastEventTime","descending":true,"limit":50}"#,
+                ),
+                items: "logStreams",
+                item_as: "logStreamName",
+                columns: &[
+                    col("Log stream", "logStreamName", Mono),
+                    col("Last event time", "lastEventTimestamp", Time),
+                ],
+                link: None,
+                more: "nextToken",
+                add: None,
+            },
+            Sub {
+                title: "Metric filters",
+                step: Step::new("DescribeMetricFilters", r#"{"logGroupName":"{id}"}"#),
+                items: "metricFilters",
+                item_as: "filterName",
+                columns: &[
+                    col("Filter name", "filterName", Mono),
+                    col("Filter pattern", "filterPattern", Mono),
+                    col("Metric name", "metricTransformations.0.metricName", Mono),
+                    col(
+                        "Metric namespace",
+                        "metricTransformations.0.metricNamespace",
+                        Mono,
+                    ),
+                    col("Metric value", "metricTransformations.0.metricValue", Mono),
+                    col("Unit", "metricTransformations.0.unit", Plain),
+                ],
+                link: None,
+                more: "nextToken",
+                add: None,
+            },
+            Sub {
+                title: "Subscription filters",
+                step: Step::new("DescribeSubscriptionFilters", r#"{"logGroupName":"{id}"}"#),
+                items: "subscriptionFilters",
+                item_as: "filterName",
+                columns: &[
+                    col("Filter", "filterName", Mono),
+                    col("Pattern", "filterPattern", Mono),
+                    // The whole ARN: the page names the kind (Lambda, Kinesis) from it and links the function or stream.
+                    col("Destination", "destinationArn", Mono),
+                ],
+                link: None,
+                more: "nextToken",
+                add: None,
+            },
+        ],
         create: Some(Create {
             inputs: &[
                 Input {
@@ -129,6 +176,30 @@ pub(super) static LOGS: Descriptor = Descriptor {
                 title: "Search",
                 ops: &[op("FilterLogEvents", GROUP)],
             },
+            Deep {
+                id: "retention",
+                title: "Retention",
+                ops: &[
+                    op("PutRetentionPolicy", NAMED),
+                    op("DeleteRetentionPolicy", NAMED),
+                ],
+            },
+            Deep {
+                id: "metric-filters",
+                title: "Metric filters",
+                ops: &[
+                    op("PutMetricFilter", NAMED),
+                    op("DeleteMetricFilter", NAMED),
+                ],
+            },
+            Deep {
+                id: "subscription-filters",
+                title: "Subscription filters",
+                ops: &[
+                    op("PutSubscriptionFilter", NAMED),
+                    op("DeleteSubscriptionFilter", NAMED),
+                ],
+            },
             // Read at its own address (`GET …/tail`) as server-sent events.
             Deep {
                 id: "tail",
@@ -139,5 +210,25 @@ pub(super) static LOGS: Descriptor = Descriptor {
                 )],
             },
         ],
+        tags: Some(Tags::new(
+            Step::new("ListTagsForResource", ARN),
+            "tags",
+            Shape::Map,
+            Write::Delta {
+                add: op("TagResource", ARN),
+                at: "tags",
+                remove: op("UntagResource", ARN),
+                keys: "tagKeys",
+            },
+        )),
+        // The create with its own form (the KMS key, the deletion protection), the test a metric filter's pattern gets, and the
+        // account's metric filters (a new filter's namespace says what the others already hold).
+        ops: &[
+            ops::free("CreateLogGroup"),
+            ops::free("TestMetricFilter"),
+            ops::free("DescribeMetricFilters"),
+        ],
+        page: says::logs::GROUP,
+        ..Kind::BARE
     }],
 };

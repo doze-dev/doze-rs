@@ -20,16 +20,25 @@ use crate::state::Shared;
 
 pub mod about;
 pub mod access;
+pub mod blockers;
 pub mod calls;
+pub mod code;
 pub mod copy;
 pub mod deep;
 pub mod flows;
 pub mod home;
 pub mod lab;
+pub mod objects;
+pub mod ops;
+pub mod policies;
+pub mod preview;
+pub mod render;
 pub mod resources;
 pub mod settings;
+pub mod tags;
 #[cfg(test)]
 mod types;
+pub mod wiring;
 
 /// The header the console's fetch client sends on every API request.
 pub const PROOF_HEADER: &str = "x-console";
@@ -47,8 +56,10 @@ pub fn routes() -> Router<Shared> {
         .route("/api/v1/flows", get(flows::flows))
         .route("/api/v1/home", get(home::home))
         .route("/api/v1/home/checks", get(home::checks))
+        .route("/api/v1/live/wiring", get(wiring::wiring))
         .route("/api/v1/principals", get(access::principals))
         .route("/api/v1/access", get(access::access))
+        .route("/api/v1/access/policies", get(policies::policies))
         .route("/api/v1/access/attach", post(access::attach))
         .route("/api/v1/settings", get(settings::settings))
         .route("/api/v1/settings/reset", post(settings::reset))
@@ -57,6 +68,7 @@ pub fn routes() -> Router<Shared> {
             "/api/v1/lab/{target}/{operation}",
             get(lab::operation).post(lab::send),
         )
+        .route("/api/v1/preview", post(preview::preview))
         .route("/api/v1/resources", get(resources::index))
         .route(
             "/api/v1/resources/{service}/{kind}",
@@ -67,8 +79,20 @@ pub fn routes() -> Router<Shared> {
             get(resources::detail).delete(resources::delete),
         )
         .route(
+            "/api/v1/resources/{service}/{kind}/op/{operation}",
+            post(ops::op),
+        )
+        .route(
             "/api/v1/resources/{service}/{kind}/{name}/reveal",
             post(resources::reveal),
+        )
+        .route(
+            "/api/v1/resources/{service}/{kind}/{name}/tags",
+            get(tags::get).put(tags::put),
+        )
+        .route(
+            "/api/v1/resources/{service}/{kind}/{name}/blockers",
+            get(blockers::get),
         )
         .route(
             "/api/v1/resources/{service}/{kind}/{name}/op/{operation}",
@@ -79,6 +103,14 @@ pub fn routes() -> Router<Shared> {
             get(deep::download)
                 .post(deep::upload)
                 .layer(DefaultBodyLimit::max(deep::UPLOAD_MAX)),
+        )
+        .route(
+            "/api/v1/resources/{service}/{kind}/{name}/presign",
+            post(objects::presign),
+        )
+        .route(
+            "/api/v1/resources/{service}/{kind}/{name}/code",
+            get(code::code),
         )
         .route(
             "/api/v1/resources/{service}/{kind}/{name}/tail",

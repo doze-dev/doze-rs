@@ -162,7 +162,7 @@ async fn handle(
         .rest()
         .ok_or_else(|| ApiError::internal("the service has no REST side"))?;
     let reply = rest.call_rest(call, up).await?;
-    Ok(answer(entry, id, op, parts.method == Method::HEAD, reply))
+    Ok(answer(parts, entry, id, op, reply))
 }
 
 fn unrouted(json: bool) -> ApiError {
@@ -350,12 +350,14 @@ fn decode_call(entry: &Entry, h: &Head<'_>, claim: Claim) -> Result<Call, ApiErr
 
 /// The HTTP answer for a service's reply.
 fn answer(
+    parts: &Parts,
     entry: &Entry,
     id: &RequestId,
     op: u32,
-    head: bool,
     reply: RestReply,
 ) -> Response<RespBody> {
+    crate::observe::output_json(parts, entry, &reply.json);
+    let head = parts.method == Method::HEAD;
     let meta = entry.service.meta();
     let RestReply { json, status, body } = reply;
     let wire_json = is_json(entry);

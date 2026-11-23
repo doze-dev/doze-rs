@@ -29,6 +29,8 @@ pub(crate) enum Status {
     Running,
     Completed,
     Cancelled,
+    /// A message had no queue to return to. Last, so a database written before it existed reads as it did.
+    Failed,
 }
 
 impl Status {
@@ -37,9 +39,14 @@ impl Status {
             Self::Running => "RUNNING",
             Self::Completed => "COMPLETED",
             Self::Cancelled => "CANCELLED",
+            Self::Failed => "FAILED",
         }
     }
 }
+
+/// The only reason a task fails (SQS Developer Guide, "Dead-letter queue redrive"; `FailureReason` in the model): the next
+/// message was sent straight to the dead-letter queue, so it names no queue it came from, and no destination was given.
+const COULD_NOT_DETERMINE_SOURCE: &str = "CouldNotDetermineMessageSource";
 
 /// One task.
 #[derive(Debug, Serialize, Deserialize)]
@@ -105,10 +112,14 @@ impl Core {
                 task.to_move,
             );
             let want = allowed.min(to_move).saturating_sub(already);
-            let moved = self.move_messages(&source, destination.as_deref(), want, now_ms);
+            let (moved, sourceless) =
+                self.move_messages(&source, destination.as_deref(), want, now_ms);
             if let Some(task) = self.tasks.get_mut(i) {
                 task.moved += moved;
-                if task.moved >= task.to_move || moved < want {
+                if sourceless {
+                    task.status = Status::Failed;
+                    task.finished_ms = Some(now_ms);
+                } else if task.moved >= task.to_move || moved < want {
                     task.status = Status::Completed;
                     task.finished_ms = Some(now_ms);
                 }
@@ -117,22 +128,34 @@ impl Core {
     }
 
     /// Moves up to `count` messages from the queue `source` names, each to `destination` or else back to the queue it came
-    /// from. Returns how many moved.
+    /// from. Returns how many moved, and whether the next message has no queue to return to (it and the ones after it stay
+    /// where they are: the task fails).
     fn move_messages(
         &mut self,
         source: &str,
         destination: Option<&str>,
         count: u64,
         now_ms: i64,
-    ) -> u64 {
+    ) -> (u64, bool) {
         let Some(name) = source.rsplit(':').next() else {
-            return 0;
+            return (0, false);
         };
         let mut moving: Vec<Message> = Vec::new();
+        let mut sourceless = false;
         if let Some(q) = self.queue_named(name) {
-            let take = usize::try_from(count)
+            let window = usize::try_from(count)
                 .unwrap_or(usize::MAX)
                 .min(q.messages.len());
+            let take = if destination.is_some() {
+                window
+            } else {
+                q.messages
+                    .iter()
+                    .take(window)
+                    .take_while(|m| m.source_arn.is_some())
+                    .count()
+            };
+            sourceless = take < window;
             moving.extend(q.messages.take_front(take));
         }
         let mut moved = 0;
@@ -157,7 +180,7 @@ impl Core {
                 }
             }
         }
-        moved
+        (moved, sourceless)
     }
 
     pub(crate) fn start_message_move_task(&mut self, call: &Call) -> Reply {
@@ -297,5 +320,8 @@ fn write_entry(e: &mut aws_schema::build::Object<'_, Entry>, t: &Task) {
         Entry::APPROXIMATE_NUMBER_OF_MESSAGES_TO_MOVE,
         i64::try_from(t.to_move).unwrap_or(i64::MAX),
     );
+    if t.status == Status::Failed {
+        e.put(Entry::FAILURE_REASON, COULD_NOT_DETERMINE_SOURCE);
+    }
     e.put_int(Entry::STARTED_TIMESTAMP, t.started_ms);
 }

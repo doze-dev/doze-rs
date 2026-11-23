@@ -1,0 +1,1 @@
+var e=null,t=0;function n(n){e=n,t=Date.now()}function r(){return e&&Date.now()-t<8e3?e:null}function i(){e=null}var a=new Map,o=(e,t)=>void a.set(e,t),s=e=>a.get(e);export{r as a,n as i,s as n,o as r,i as t};

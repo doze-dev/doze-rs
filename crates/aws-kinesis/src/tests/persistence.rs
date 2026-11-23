@@ -40,16 +40,11 @@ fn streams_and_records_survive_a_restart_and_an_old_iterator_still_reads() {
     let got = w.ok("GetRecords", &json!({"ShardIterator": it}));
     assert_eq!(got["Records"].as_array().unwrap().len(), 2);
     // A put after the restart takes a later sequence number than anything before it.
-    let last = got["Records"][1]["SequenceNumber"]
-        .as_str()
-        .unwrap()
-        .parse::<u128>()
-        .unwrap();
-    let again = w.put("s", "a", "three")["SequenceNumber"]
-        .as_str()
-        .unwrap()
-        .parse::<u128>()
-        .unwrap();
+    let last =
+        crate::model::seq_parse(got["Records"][1]["SequenceNumber"].as_str().unwrap()).unwrap();
+    let again =
+        crate::model::seq_parse(w.put("s", "a", "three")["SequenceNumber"].as_str().unwrap())
+            .unwrap();
     assert!(again > last);
 }
 

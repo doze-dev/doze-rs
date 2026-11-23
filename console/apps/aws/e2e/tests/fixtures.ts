@@ -24,11 +24,25 @@ export function themeColour(mode: "light" | "dark", role: string): string {
 /** The page ground each mode must paint: the theme's --background. */
 export const GROUND = { light: themeColour("light", "--background"), dark: themeColour("dark", "--background") } as const;
 
+/** The 4xx and 5xx answers a test expects the browser to receive: the service's own deliberate refusal (a create form that shows
+ * it). Named in the test that causes it, as a pattern of `<status> <METHOD> <url>`; any other error answer fails the test. */
+export type Refusals = {
+  allow: (pattern: RegExp) => void;
+  /** The patterns allowed so far, and every error answer the page has been handed (`<status> <METHOD> <url>`). */
+  readonly list: RegExp[];
+  readonly bodies: Map<string, string>;
+  readonly seen: string[];
+  /** The error answers so far that the test did not allow, each with the body of the request that was refused. */
+  unexpected: () => string[];
+};
+
 type Fixtures = {
+  refusals: Refusals;
   /** Console errors a test expects (it cuts a request, or stops the server): a pattern of the message. (One pattern, not a
    * list: Playwright reads an array given as an option as its `[value, options]` pair.) */
   allowErrors: RegExp | null;
   errors: string[];
+  netlog: void;
   /** One call with the real AWS CLI against the shared doze-aws, signed with this browser's own access key. */
   cli: (args: string[], options?: { region?: string }) => { code: number; out: string };
   /** The access key this browser's calls are signed with (so a row is known to be this test's). */
@@ -39,13 +53,31 @@ type Fixtures = {
  * the ones it says it expects. */
 export const test = base.extend<Fixtures>({
   allowErrors: [null, { option: true }],
+  // (Playwright wants the first argument destructured, even when it takes nothing.)
+  // eslint-disable-next-line no-empty-pattern
+  refusals: async ({}, provide) => {
+    const allowed: RegExp[] = [];
+    const seen: string[] = [];
+    const bodies = new Map<string, string>();
+    const unexpected = () => seen.filter((l) => !allowed.some((a) => a.test(l))).map((l) => (bodies.has(l) ? `${l}  ${bodies.get(l)}` : l));
+    await provide({ allow: (pattern) => void allowed.push(pattern), list: allowed, seen, unexpected, bodies });
+  },
   errors: [
-    async ({ page, allowErrors }, use) => {
+    async ({ page, allowErrors, refusals }, use) => {
       const errors: string[] = [];
+      // An error answer is told from the response, the same in every browser (Chromium and WebKit also log it as a console
+      // error, Firefox does not): a test names the ones it expects, with `refusals.allow`.
+      page.on("response", (r) => {
+        if (r.status() < 400) return;
+        const line = `${r.status()} ${r.request().method()} ${r.url()}`;
+        refusals.seen.push(line);
+        const body = r.request().postData();
+        if (body) refusals.bodies.set(line, body.slice(0, 160));
+      });
       const expected = (text: string) =>
         // A font download that the next navigation cut short (Firefox: NS_BINDING_ABORTED) is the test moving faster than a
         // person, not a fault of the page.
-        /downloadable font: download failed.*status=2152398850/.test(text) || (allowErrors?.test(text) ?? false);
+        /downloadable font: download failed.*status=2152398850/.test(text) || ANSWER_LOGGED.test(text) || (allowErrors?.test(text) ?? false);
       page.on("console", (m) => {
         if (m.type() === "error" && !expected(m.text())) errors.push(`console: ${m.text()}`);
       });
@@ -53,7 +85,28 @@ export const test = base.extend<Fixtures>({
         if (!expected(e.message)) errors.push(`pageerror: ${e.message}`);
       });
       await use(errors);
+      for (const line of refusals.unexpected()) errors.push(`error answer: ${line}`);
       expect(errors, "no console errors").toEqual([]);
+    },
+    { auto: true },
+  ],
+  // What the page's network did that was not an answer of 2xx or 3xx, and every request that failed, attached to a test that
+  // failed: the log that tells a refused connection (503) from a slow page.
+  netlog: [
+    async ({ page }, provide, testInfo) => {
+      const lines: string[] = [];
+      const at = () => `${((Date.now() - started) / 1000).toFixed(2)}s`;
+      const started = Date.now();
+      page.on("response", (r) => {
+        if (r.status() >= 400 || r.request().method() !== "GET") lines.push(`${at()} ${r.status()} ${r.request().method()} ${r.url()}`);
+      });
+      page.on("request", (r) => { if (r.method() !== "GET") lines.push(`${at()} -> ${r.method()} ${r.url()} ${(r.postData() ?? "").slice(0, 100)}`); });
+      page.on("requestfailed", (r) => lines.push(`${at()} FAILED ${r.method()} ${r.url()}: ${r.failure()?.errorText ?? ""}`));
+      await provide();
+      if (testInfo.status !== testInfo.expectedStatus && lines.length > 0) {
+        await testInfo.attach("netlog", { body: lines.join("\n"), contentType: "text/plain" });
+        console.log(`netlog of "${testInfo.title}":\n${lines.join("\n")}`);
+      }
     },
     { auto: true },
   ],
@@ -68,8 +121,11 @@ export const test = base.extend<Fixtures>({
 
 export { expect };
 
+/** What a browser logs of a request that got an error answer (Chromium, WebKit): the answer itself is judged from the response. */
+const ANSWER_LOGGED = /Failed to load resource: the server responded with a status of \d{3}/;
+
 /** What a request the browser could not finish logs, by browser: the tests that cut a request or stop the server expect it. */
-export const CUT = /Failed to load resource|NetworkError|Load failed|net::ERR_|Could not connect|access control checks|network connection was lost/i;
+export const CUT = /NetworkError|Load failed|net::ERR_|Could not connect|access control checks|network connection was lost/i;
 
 const proof = { "X-Console": "1" };
 
@@ -82,6 +138,13 @@ export async function services(page: Page): Promise<ServicesResponse> {
 }
 export async function calls(page: Page, consoleUrl = CONSOLE): Promise<CallsPage> {
   return (await (await page.request.get(`${consoleUrl}/api/v1/calls?limit=100000`, { headers: proof })).json()) as CallsPage;
+}
+
+/** After a delete: once the page has settled, the browser has been handed no error answer. A page that reads what it just deleted
+ * is refused (a 404 or a 400) and the browser logs it as an error; the page leaves the gone resource unread. */
+export async function expectNoErrorAnswers(page: Page, refusals: Refusals): Promise<void> {
+  await settled(page);
+  expect(refusals.unexpected(), "no error answer reached the browser after the delete").toEqual([]);
 }
 
 /** Opens a page of the console and waits for its title. */
@@ -110,3 +173,23 @@ export async function overflowX(page: Page): Promise<number> {
  * palette search for "lab" then matched.
  */
 export const unique = (prefix: string, browserName: string) => `${prefix}-${browserName}-${Date.now()}`;
+
+/** Resolves when the page has stopped moving: its height has not changed and no request has finished for `quiet` ms. A click is
+ * decided by where the pointer is at mouse-down and at mouse-up, and a page that is still drawing an answer (a match hint, a
+ * preview, a section that folds) moves between the two: Playwright's own check is that the element's box is the same in two
+ * frames, which a page that scrolls to keep it in view satisfies. Wait for this before the click that follows an answer. */
+export async function settled(page: Page, quiet = 400): Promise<void> {
+  await page.evaluate(async (ms) => {
+    const state = () => `${document.documentElement.scrollHeight}:${performance.getEntriesByType("resource").length}`;
+    let last = state();
+    let since = performance.now();
+    while (performance.now() - since < ms) {
+      await new Promise((r) => setTimeout(r, 50));
+      const now = state();
+      if (now !== last) {
+        last = now;
+        since = performance.now();
+      }
+    }
+  }, quiet);
+}

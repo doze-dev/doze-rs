@@ -86,6 +86,18 @@ async fn a_python_function_runs_through_the_embedded_client() {
     assert_eq!(bad["FunctionError"], "Unhandled");
     assert_eq!(bad["Payload"]["errorType"], "ValueError");
     assert_eq!(bad["Payload"]["errorMessage"], "asked to fail");
+    // The trace is the handler's: Lambda shows no frame of its runtime, and neither does the embedded client (the loop that calls the
+    // handler is not in it).
+    let frames = bad["Payload"]["stackTrace"].as_array().unwrap();
+    assert_eq!(frames.len(), 1, "{frames:?}");
+    let frame = frames[0].as_str().unwrap();
+    assert!(
+        frame.contains("index.py") && frame.contains("in handler"),
+        "{frame}"
+    );
+    assert!(!frame.contains("bootstrap"), "{frame}");
+    // The code is at /var/task, as Lambda shows it, not in the directory it was unpacked to on this machine.
+    assert!(frame.contains("File \"/var/task/index.py\""), "{frame}");
     w.stop().await;
 }
 

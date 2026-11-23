@@ -3,4 +3,8 @@
 /**
  * `DELETE /api/v1/resources/<service>/<kind>/<name>`: what was done.
  */
-export type Deleted = { name: string, operation: string, };
+export type Deleted = { name: string, operation: string, 
+/**
+ * What `?clear=yes` cleared first (`Detached AdminAccess`); empty for a plain delete.
+ */
+cleared: Array<string>, };

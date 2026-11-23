@@ -22,6 +22,16 @@ callers: Array<CallerSeen>,
  */
 services: Array<ServiceSeen>, 
 /**
+ * Every service any call reached (an app, this console, another service on the bus), most recent first: what keeps a
+ * service awake.
+ */
+activity: Array<ServiceSeen>, 
+/**
+ * Seconds without a request before a service lets go of its memory and files (`--idle-secs`): a service whose newest call
+ * is older than this is asleep.
+ */
+idle_secs: number, 
+/**
  * The newest calls from apps, newest first, at most five.
  */
 recent: Array<CallRecord>, 

@@ -44,7 +44,17 @@ async fn a_queue_is_sent_to_and_peeked_without_hiding_its_messages() {
         .iter()
         .map(|t| t["id"].as_str().unwrap())
         .collect();
-    assert_eq!(tabs, ["messages", "redrive", "settings"]);
+    assert_eq!(
+        tabs,
+        [
+            "messages",
+            "redrive",
+            "settings",
+            "wiring",
+            "triggers",
+            "subscriptions"
+        ]
+    );
     // The page cannot send to another queue, whatever it names.
     let attrs = json!({"kind": {"DataType": "String", "StringValue": "new"}});
     let sent = ok(

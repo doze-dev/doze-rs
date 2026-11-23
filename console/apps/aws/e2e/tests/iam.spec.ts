@@ -28,7 +28,7 @@ test("a call soft IAM let through is OK, marked would be denied, and the drawer 
   const row = page.locator(`tr[data-row="${record.seq}"]`);
   await expect(row.locator('[data-slot="result"]')).toHaveAttribute("data-outcome", "ok");
   const marker = row.locator('[data-slot="would-be-denied"]');
-  await expect(marker).toHaveText("would be denied");
+  await expect(marker).toContainText("would be denied");
   await marker.hover();
   await expect(page.getByRole("tooltip")).toContainText("IAM is soft");
   await expect(page.getByRole("tooltip")).toContainText("--iam enforce");

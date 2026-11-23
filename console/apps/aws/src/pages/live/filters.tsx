@@ -12,6 +12,7 @@ const ALL = "__all";
 const OUTCOME_WORDS: Record<OutcomeFilter, string> = {
   ok: "OK",
   error: "Error",
+  refused: "Refused",
   denied: "Denied",
   "not-built": "Not built",
   "would-be-denied": "Would be denied",

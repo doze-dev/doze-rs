@@ -3,6 +3,7 @@
 // person asks (the RefreshControl's button). The catalogue (which kinds each service has) makes no call and is kept.
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { client } from "./client";
+import { forgetDeleted, scopeOf } from "./forget";
 import type { Created } from "./types/Created";
 import type { Deleted } from "./types/Deleted";
 import type { ResourceDetail } from "./types/ResourceDetail";
@@ -15,8 +16,9 @@ const enc = encodeURIComponent;
 export const RESOURCE_PATHS = {
   index: "/api/v1/resources",
   catalogue: "/api/v1/resources?counts=no",
-  list: (service: string, kind: string, token?: string, all = false) => {
-    const q = [token ? `token=${enc(token)}` : "", all ? "all=yes" : ""].filter(Boolean).join("&");
+  list: (service: string, kind: string, token?: string, all = false, params: Record<string, string> = {}) => {
+    const p = Object.entries(params).filter(([, v]) => v !== "").map(([k, v]) => `p.${enc(k)}=${enc(v)}`);
+    const q = [token ? `token=${enc(token)}` : "", all ? "all=yes" : "", ...p].filter(Boolean).join("&");
     return `/api/v1/resources/${enc(service)}/${enc(kind)}${q ? `?${q}` : ""}`;
   },
   one: (service: string, kind: string, name: string) => `/api/v1/resources/${enc(service)}/${enc(kind)}/${enc(name)}`,
@@ -34,18 +36,18 @@ export function useCatalogue() {
 
 /** A kind's pages: the first when opened, the next when asked for (`fetchNextPage`), each by the token the one before gave.
  * `all`: with the rows the kind sets aside (AWS managed keys). */
-export function useResourceList(service: string, kind: string, all = false) {
+export function useResourceList(service: string, kind: string, all = false, params: Record<string, string> = {}) {
   return useInfiniteQuery({
-    queryKey: ["resources", "list", service, kind, all],
-    queryFn: ({ signal, pageParam }) => client.api<ResourceList>(RESOURCE_PATHS.list(service, kind, pageParam || undefined, all), {}, signal),
+    queryKey: ["resources", "list", service, kind, all, params],
+    queryFn: ({ signal, pageParam }) => client.api<ResourceList>(RESOURCE_PATHS.list(service, kind, pageParam || undefined, all, params), {}, signal),
     initialPageParam: "",
     getNextPageParam: (last) => last.next ?? undefined,
     retry: false,
   });
 }
 
-export function useResourceDetail(service: string, kind: string, name: string) {
-  return useQuery({ queryKey: ["resources", "one", service, kind, name], queryFn: ({ signal }) => client.api<ResourceDetail>(RESOURCE_PATHS.one(service, kind, name), {}, signal), retry: false });
+export function useResourceDetail(service: string, kind: string, name: string, enabled = true) {
+  return useQuery({ queryKey: ["resources", "one", service, kind, name], queryFn: ({ signal }) => client.api<ResourceDetail>(RESOURCE_PATHS.one(service, kind, name), {}, signal), retry: false, enabled });
 }
 
 const json = (body: unknown): RequestInit => ({ method: "POST", body: JSON.stringify(body), headers: { "Content-Type": "application/json" } });
@@ -67,13 +69,15 @@ export function useCreate(service: string, kind: string) {
   });
 }
 
-/** Delete one. Its own page's query is left alone (the page is still on screen until the list opens; removing it would read
- * the resource again and be refused): it is read afresh if the name is opened again. */
-export function useDelete(service: string, kind: string) {
-  const invalidate = useInvalidate();
+/** Delete one. What the pages read of it is marked stale and not read again (the page is on screen until the list opens, and
+ * a read of what is gone is refused): it is read afresh if the name is opened again, and the rest is read afresh now. `also`: other
+ * names that go with it (the exports of a stack), whose reads are left as they are as well. */
+export function useDelete(service: string, kind: string, also: readonly string[] = []) {
+  const qc = useQueryClient();
   return useMutation({
     mutationFn: (name: string) => client.api<Deleted>(RESOURCE_PATHS.one(service, kind, name), { method: "DELETE" }),
-    onSuccess: () => invalidate(service, kind),
+    // (Returned, so the delete is not done for the page until what is on screen is read again.)
+    onSuccess: (_, name) => forgetDeleted(qc, scopeOf(service), [name, ...also]),
   });
 }
 

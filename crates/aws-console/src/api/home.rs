@@ -95,11 +95,12 @@ fn signals(app: &[&Call], s: &Shared) -> Vec<Signal> {
         out.push(Signal {
             kind: SignalKind::NotBuilt,
             count: unbuilt,
-            title: format!(
-                "{} not built",
-                plural(unbuilt, "call to an operation", "calls to operations")
-            ),
-            detail: named,
+            title: "NOT BUILT".to_owned(),
+            detail: if named.is_empty() {
+                format!("{} refused", plural(unbuilt, "call", "calls"))
+            } else {
+                format!("{} refused: {named}", plural(unbuilt, "call", "calls"))
+            },
             href: Some("/live?outcome=not-built".to_owned()),
             resource: None,
         });
@@ -154,6 +155,37 @@ fn title_of(s: &Shared, service: &str) -> String {
         .iter()
         .find(|v| v.name == service)
         .map_or_else(|| service.to_owned(), |v| v.title.to_owned())
+}
+
+/// Seconds without a request before a service lets go (`--idle-secs`, 300 unless the run says otherwise).
+fn idle_secs(s: &Shared) -> u64 {
+    s.facts
+        .flags
+        .iter()
+        .find(|f| f.name == "idle-secs")
+        .and_then(|f| f.value.as_deref()?.parse().ok())
+        .unwrap_or(300)
+}
+
+/// The services any call reached (an app's, this console's, another service's on the bus), newest first: what keeps a service awake.
+fn activity(calls: &[Call], s: &Shared) -> Vec<ServiceSeen> {
+    let mut out: Vec<ServiceSeen> = Vec::new();
+    for c in calls.iter().rev() {
+        let service = s.facts.service_named(c.signing_name);
+        if service.is_empty() {
+            continue;
+        }
+        match out.iter_mut().find(|v| v.service == service) {
+            Some(v) => v.calls += 1,
+            None => out.push(ServiceSeen {
+                service: service.to_owned(),
+                title: title_of(s, service),
+                calls: 1,
+                last_ms: c.at_ms,
+            }),
+        }
+    }
+    out
 }
 
 /// `GET /api/v1/home`.
@@ -212,6 +244,8 @@ pub async fn home(State(s): State<Shared>) -> Response {
             })
             .collect(),
         services,
+        activity: activity(&calls, &s),
+        idle_secs: idle_secs(&s),
         recent: app
             .iter()
             .take(RECENT)

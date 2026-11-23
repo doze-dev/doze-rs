@@ -13,8 +13,11 @@ use std::sync::{Arc, Mutex, PoisonError};
 use std::time::{Duration, Instant};
 
 use aws_auth::claim::Claim;
+use aws_peers::summary::{self, Summary, TreeFields};
 use aws_schema::meta::ServiceMeta;
+use aws_wire::service::{Call, Caller};
 use aws_wire::{ApiError, RequestId};
+use bytes::Bytes;
 use http::request::Parts;
 
 use crate::pipeline::{Entry, Shared};
@@ -57,7 +60,25 @@ pub struct Finished<'a> {
     /// The request's `User-Agent` header as sent (an SDK names itself and its version there); empty when it had none. The
     /// observer keeps what it needs of it: the gateway neither reads nor stores it.
     pub user_agent: &'a str,
+    /// The words an error answer carries (the service's own: the rule that was broken), cut at [`MOST_MESSAGE`] bytes; empty for a
+    /// success and for a refusal made before a service read the request.
+    pub message: &'a str,
+    /// What a function invocation answered in `X-Amz-Function-Error` (`Unhandled`, `Handled`): the call itself succeeded, the
+    /// function failed. Empty otherwise.
+    pub function_error: &'a str,
+    /// The length of the answer when it is known before it is sent (a whole body); `None` for a streamed one.
+    pub answer_bytes: Option<u32>,
+    /// What the call did, read from its input and its answer ([`aws_peers::summary`]); none for an answer that failed.
+    pub did: Did<'a>,
 }
+
+/// The most bytes of an error message the observer is told.
+pub const MOST_MESSAGE: usize = 240;
+
+mod did;
+
+pub use did::Did;
+pub(crate) use did::{output, output_json};
 
 /// The requests in flight, so a refusal IAM's soft mode lets through can be marked on the request it was for ([`crate::Config::would_deny`]).
 ///
@@ -149,7 +170,10 @@ struct Notes {
     access_key_id: String,
     region: String,
     code: Cow<'static, str>,
+    message: String,
     would_be_denied: bool,
+    summary: Summary,
+    detail: String,
 }
 
 fn note(parts: &Parts, write: impl FnOnce(&mut Notes)) {
@@ -200,14 +224,76 @@ pub(crate) fn input(parts: &Parts, entry: &Entry, call: &aws_wire::service::Call
             )
         {
             n.member = member;
-            value.clone_into(&mut n.resource);
+            value.as_ref().clone_into(&mut n.resource);
+        }
+        let (sdk_id, action) = (entry.service.meta().sdk_id, n.action);
+        let fields = TreeFields {
+            tables: entry.service.tables(),
+            arena: &call.arena,
+            body: &call.body,
+            root: call.root,
+        };
+        let Notes {
+            summary, detail, ..
+        } = &mut *n;
+        summary::from_input(sdk_id, action, &fields, summary, detail);
+    });
+}
+
+/// The request's input was refused when it was decoded (a name the model's pattern does not allow): there is no decoded input to read
+/// what it acted on from, so the member that names it is read from the JSON body as it came, and a refused call still says what it
+/// named (`pick lists!`). Nothing is read when the call already named a resource, or the body is not a JSON object.
+pub(crate) fn refused_input(parts: &Parts, body: &[u8]) {
+    note(parts, |n| {
+        if !n.resource.is_empty() {
+            return;
+        }
+        let Ok(serde_json::Value::Object(map)) = serde_json::from_slice::<serde_json::Value>(body)
+        else {
+            return;
+        };
+        for member in aws_peers::naming::MEMBERS {
+            let named = map
+                .iter()
+                .find(|(k, _)| k.eq_ignore_ascii_case(member))
+                .and_then(|(_, v)| v.as_str())
+                .filter(|v| !v.is_empty());
+            if let Some(value) = named {
+                n.member = member;
+                value.clone_into(&mut n.resource);
+                return;
+            }
         }
     });
 }
 
+/// The request's body decoded ([`crate::pipeline::decode_call`]) and noted: what its input names is what the call acted on
+/// ([`input`]); when decoding refuses it, the member that names it is read from the body as it came (`Bytes` is counted, not
+/// copied), so a refusal still says what it was about.
+pub(crate) fn decode(
+    parts: &Parts,
+    entry: &Entry,
+    (op, id): (u32, &RequestId),
+    caller: Caller,
+    bytes: Bytes,
+) -> Result<Call, ApiError> {
+    let sent = bytes.clone();
+    let call = crate::pipeline::decode_call(entry, op, id, caller, bytes)
+        .inspect_err(|_| refused_input(parts, &sent))?;
+    input(parts, entry, &call);
+    Ok(call)
+}
+
 /// The request is answered with `error`.
 pub(crate) fn failed(parts: &Parts, error: &ApiError) {
-    note(parts, |n| n.code.clone_from(&error.code));
+    note(parts, |n| {
+        n.code.clone_from(&error.code);
+        let mut end = error.message.len().min(MOST_MESSAGE);
+        while !error.message.is_char_boundary(end) {
+            end -= 1;
+        }
+        n.message = error.message[..end].to_owned();
+    });
 }
 
 /// Starts watching a request, if anyone wants to be told: the time it started.
@@ -223,7 +309,7 @@ pub(crate) fn begin(shared: &Shared, id: &RequestId, parts: &mut Parts) -> Optio
 }
 
 /// Tells the observer about a request [`begin`] started watching, now that its answer is made.
-pub(crate) fn end<B>(
+pub(crate) fn end<B: hyper::body::Body>(
     shared: &Shared,
     started: Option<Instant>,
     id: &RequestId,
@@ -276,5 +362,21 @@ pub(crate) fn end<B>(
             .get(http::header::USER_AGENT)
             .and_then(|v| v.to_str().ok())
             .unwrap_or_default(),
+        message: &notes.message,
+        function_error: header("x-amz-function-error").unwrap_or_default(),
+        answer_bytes: response
+            .body()
+            .size_hint()
+            .exact()
+            .and_then(|n| u32::try_from(n).ok()),
+        // A failed call did nothing a summary could say.
+        did: if status < 400 {
+            Did {
+                summary: notes.summary,
+                detail: &notes.detail,
+            }
+        } else {
+            Did::NONE
+        },
     });
 }

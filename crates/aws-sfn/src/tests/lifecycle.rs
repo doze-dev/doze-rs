@@ -194,6 +194,63 @@ async fn activities_and_tags() {
     w.stop().await;
 }
 
+/// The aws: prefix of a tag key is AWS's own (the tagging guide; the model lists no error for it, so the code is the generic
+/// ValidationException): TagResource, CreateStateMachine and CreateActivity refuse it, and nothing is tagged by a refused call.
+#[tokio::test]
+async fn a_tag_key_that_begins_aws_colon_is_refused() {
+    let w = World::new();
+    let m = w.machine("t", pass()).await;
+    for key in ["aws:x", "AWS:cost"] {
+        let bad = w
+            .call(
+                "TagResource",
+                json!({"resourceArn": m, "tags": [{"key": "ok", "value": "1"}, {"key": key, "value": "v"}]}),
+            )
+            .await
+            .unwrap_err();
+        assert_eq!(bad.code, "ValidationException", "{key}");
+        assert!(bad.message.contains(key), "{}", bad.message);
+    }
+    let made = w
+        .call(
+            "CreateStateMachine",
+            json!({"name": "tagged", "definition": pass().to_string(), "roleArn": ROLE, "tags": [{"key": "aws:x", "value": "v"}]}),
+        )
+        .await
+        .unwrap_err();
+    assert_eq!(made.code, "ValidationException");
+    let activity = w
+        .call(
+            "CreateActivity",
+            json!({"name": "work", "tags": [{"key": "aws:x", "value": "v"}]}),
+        )
+        .await
+        .unwrap_err();
+    assert_eq!(activity.code, "ValidationException");
+    // Nothing was made or tagged, and a key that only contains the prefix is a tag like any other.
+    assert_eq!(
+        w.ok("ListTagsForResource", json!({"resourceArn": m})).await["tags"],
+        json!([])
+    );
+    assert_eq!(
+        w.ok("ListActivities", json!({})).await["activities"],
+        json!([])
+    );
+    w.ok(
+        "TagResource",
+        json!({"resourceArn": m, "tags": [{"key": "team:aws:x", "value": "v"}, {"key": "aws", "value": "v"}]}),
+    )
+    .await;
+    assert_eq!(
+        w.ok("ListTagsForResource", json!({"resourceArn": m})).await["tags"]
+            .as_array()
+            .unwrap()
+            .len(),
+        2
+    );
+    w.stop().await;
+}
+
 #[tokio::test]
 async fn validation_lists_every_problem() {
     let w = World::new();

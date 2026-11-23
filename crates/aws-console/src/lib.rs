@@ -21,6 +21,7 @@
 pub mod agent;
 pub mod api;
 pub mod app;
+pub mod conns;
 pub mod facts;
 pub mod files;
 pub mod guard;

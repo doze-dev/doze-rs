@@ -9,7 +9,11 @@
 
 mod support;
 
-use aws_gateway::Finished;
+use aws_gateway::{Did, Finished};
+use std::time::Duration;
+
+use aws_peers::BusCall;
+use aws_peers::summary::{Kind, Summary};
 use serde_json::Value;
 use support::{app, get, json, keys, sqs_call, state, ts_keys};
 
@@ -62,7 +66,7 @@ async fn calls_are_paged_by_a_cursor_oldest_first() {
             "seq": 1, "at_ms": 1_000, "service": "sqs", "api": "SQS", "action": "CreateQueue", "resource": null,
             "member": null, "caller": "test", "region": "us-east-1", "status": 200, "error_code": null, "outcome": "ok",
             "would_be_denied": false, "duration_us": 1_500, "request_id": "0c6f3a52-7a8b-4c1d-9e2f-000000000000",
-            "via": null, "sdk": "boto3 1.34.69",
+            "via": null, "sdk": "boto3 1.34.69", "message": null, "function_error": null, "answer_bytes": null, "summary": null,
         })
     );
     assert_eq!(
@@ -191,4 +195,120 @@ async fn a_call_soft_iam_let_through_says_so() {
         (&call["outcome"], &call["would_be_denied"]),
         (&"ok".into(), &true.into())
     );
+}
+
+/// A summary is told with the call: counted words, the text some carry, and none for a call that failed.
+#[tokio::test]
+async fn a_call_says_what_it_did_in_a_few_words() {
+    let s = state(16, &[]);
+    let app = app(&s);
+    let did = |kind, n, failed, detail| Did {
+        summary: Summary::of(kind, n, failed),
+        detail,
+    };
+    for (action, d) in [
+        ("ReceiveMessage", did(Kind::Messages, 3, 0, "")),
+        ("SendMessage", did(Kind::Sent, 53, 0, "")),
+        ("AssumeRole", did(Kind::Session, 0, 0, "report-job")),
+        ("DeleteMessage", Did::NONE),
+    ] {
+        s.recorder.record(
+            &Finished {
+                did: d,
+                ..sqs_call(action, 200, "")
+            },
+            1,
+        );
+    }
+    // What a failed call carried is not said: the gateway tells none, and the words of an error are an error's.
+    s.recorder.record(
+        &Finished {
+            message: "The specified queue does not exist.",
+            did: did(Kind::Messages, 1, 0, "left over"),
+            ..sqs_call("ReceiveMessage", 400, "QueueDoesNotExist")
+        },
+        2,
+    );
+    let (_, page) = json(&app, get("/api/v1/calls")).await;
+    let said: Vec<(&str, &Value, &Value)> = page["calls"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|c| (c["action"].as_str().unwrap(), &c["summary"], &c["message"]))
+        .collect();
+    assert_eq!(
+        said[0],
+        ("ReceiveMessage", &"3 messages".into(), &Value::Null)
+    );
+    assert_eq!(said[1], ("SendMessage", &"sent 53 B".into(), &Value::Null));
+    assert_eq!(
+        said[2],
+        ("AssumeRole", &"session report-job".into(), &Value::Null)
+    );
+    assert_eq!(said[3], ("DeleteMessage", &Value::Null, &Value::Null));
+    assert_eq!(said[4].2, "The specified queue does not exist.");
+}
+
+fn delivery<'a>(request: &'a aws_peers::Cause, status: u16, code: &'a str) -> BusCall<'a> {
+    BusCall {
+        acting: "sns",
+        signing_name: "sqs",
+        sdk_id: "SQS",
+        operation: "SendMessage",
+        member: "QueueUrl",
+        resource: "http://localhost/000000000000/orders",
+        access_key_id: "test",
+        region: "us-east-1",
+        status,
+        code,
+        took: Duration::from_micros(10),
+        cause: Some(request),
+    }
+}
+
+/// A publish says how many deliveries SNS made for it over the bus, from the calls recorded for its request.
+#[tokio::test]
+async fn a_publish_counts_the_deliveries_made_for_it() {
+    let s = state(32, &[]);
+    let app = app(&s);
+    let cause = |request: &str| aws_peers::Cause {
+        request: Some(request.into()),
+        name: None,
+    };
+    let mine = cause("0c6f3a52-7a8b-4c1d-9e2f-000000000000");
+    let other = cause("another-request");
+    for (cause, status, code) in [
+        (&mine, 200, ""),
+        (&other, 200, ""),
+        (&mine, 200, ""),
+        (&mine, 404, "QueueDoesNotExist"),
+    ] {
+        s.recorder.record_bus(&delivery(cause, status, code), 1);
+    }
+    let publish = |action, request_id| Finished {
+        request_id,
+        signing_name: "sns",
+        sdk_id: "SNS",
+        action,
+        did: Did {
+            summary: Summary::of(Kind::Delivered, 0, 0),
+            detail: "",
+        },
+        ..sqs_call(action, 200, "")
+    };
+    s.recorder.record(
+        &publish("Publish", "0c6f3a52-7a8b-4c1d-9e2f-000000000000"),
+        2,
+    );
+    s.recorder
+        .record(&publish("Publish", "a-publish-nobody-delivered-for"), 3);
+    let (_, page) = json(&app, get("/api/v1/calls")).await;
+    let said: Vec<&Value> = page["calls"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|c| c["action"] == "Publish")
+        .map(|c| &c["summary"])
+        .collect();
+    assert_eq!(said, ["delivered to 2, 1 failed", "no deliveries"]);
 }

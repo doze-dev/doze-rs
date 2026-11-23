@@ -29,6 +29,7 @@ mod local;
 mod managed;
 mod mfa;
 mod model;
+mod names;
 mod needs;
 mod oidc;
 mod ops;

@@ -5,7 +5,10 @@
 //! - `GET /api/v1/resources/<service>/<kind>[?token=][&all=yes]`: a page of a kind (with `all`, the rows it sets aside too).
 //! - `POST /api/v1/resources/<service>/<kind>`: create one from the form's values (a JSON object).
 //! - `GET /api/v1/resources/<service>/<kind>/<name>`: one, with its lists and its recent calls.
-//! - `DELETE /api/v1/resources/<service>/<kind>/<name>`: delete it.
+//! - `DELETE /api/v1/resources/<service>/<kind>/<name>[?clear=yes]`: delete it (with `clear`, what the kind can clear of what
+//!   stands in the way goes first).
+//! - `GET …/<name>/tags`, `PUT …/<name>/tags` ([`super::tags`]), `GET …/<name>/blockers` ([`super::blockers`]) and `POST
+//!   …/<kind>/op/<Operation>` ([`super::ops`]), each in a module of its own.
 //! - `POST /api/v1/resources/<service>/<kind>/<name>/reveal`: its hidden value (a POST: never prefetched, and behind the
 //!   same-origin proof as a write).
 //!
@@ -19,7 +22,7 @@ use serde_json::{Map, Value};
 
 use super::{error, json, param};
 use crate::resources::bus::Bus;
-use crate::resources::{Descriptor, Kind, act, catalog, view};
+use crate::resources::{Descriptor, Kind, act, blockers, catalog, params, view};
 use crate::state::Shared;
 
 /// The bus and the descriptor and kind an address names, or the answer that says why there are none.
@@ -38,7 +41,7 @@ pub(super) fn find(
     let k = d.kinds.iter().find(|k| k.id == kind).ok_or_else(|| {
         no(
             StatusCode::NOT_FOUND,
-            "NOT_FOUND",
+            "NO_SUCH_KIND",
             &format!("{service} has no kind of resource called {kind}."),
         )
     })?;
@@ -97,7 +100,8 @@ pub async fn list(
     };
     let token = param(query.as_deref(), "token").map(decode);
     let all = param(query.as_deref(), "all") == Some("yes");
-    match view::list(&bus, &s.facts, (d, k), (token.as_deref(), all)).await {
+    let given = params::given(k, query.as_deref());
+    match view::list(&bus, &s.facts, (d, k), (token.as_deref(), all, &given)).await {
         Ok(page) => json(StatusCode::OK, &page),
         Err(e) => refused(&e),
     }
@@ -149,13 +153,23 @@ pub async fn create(
 pub async fn delete(
     State(s): State<Shared>,
     Path((service, kind, name)): Path<(String, String, String)>,
+    RawQuery(query): RawQuery,
 ) -> Response {
     let (bus, d, k) = match find(&s, &service, &kind) {
         Ok(found) => found,
         Err(res) => return *res,
     };
+    // `?clear=yes`: what the kind can clear of what stands in the way goes first.
+    let cleared = if param(query.as_deref(), "clear") == Some("yes") {
+        match blockers::clear(&bus, (d, k), &name).await {
+            Ok(done) => done,
+            Err(e) => return refused(&e),
+        }
+    } else {
+        Vec::new()
+    };
     match act::delete(&bus, (d, k), &name).await {
-        Ok(done) => json(StatusCode::OK, &done),
+        Ok(done) => json(StatusCode::OK, &crate::model::Deleted { cleared, ..done }),
         Err(e) => refused(&e),
     }
 }

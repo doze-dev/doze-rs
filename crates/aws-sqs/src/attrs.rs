@@ -182,12 +182,17 @@ pub(crate) fn render(
         inflight.to_string(),
     );
     put("ApproximateNumberOfMessagesDelayed", delayed.to_string());
-    // AWS reports SSE by SQS-managed keys as on unless the caller said otherwise.
+    // AWS reports SSE by SQS-managed keys as on unless the caller said otherwise (recorded). A queue with a KMS key is SSE-KMS, and the
+    // model says only one server-side encryption option is supported per queue, so it is off there (not recorded: from the model).
+    let keyed = q
+        .stored
+        .get("KmsMasterKeyId")
+        .is_some_and(|k| !k.is_empty());
     let sse = q
         .stored
         .get("SqsManagedSseEnabled")
         .cloned()
-        .unwrap_or_else(|| "true".to_owned());
+        .unwrap_or_else(|| if keyed { "false" } else { "true" }.to_owned());
     put("SqsManagedSseEnabled", sse);
     if q.is_fifo() {
         for (name, default) in fifo_defaults() {

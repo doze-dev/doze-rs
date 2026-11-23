@@ -31,6 +31,12 @@ import { resourceShown } from "./resource";
 import { callerOf, consoleShown, filtering, isConsole, type LiveSearch, matches, type View } from "./search";
 import { findCall } from "./tape";
 import { useFlows } from "./use-flows";
+import { useWiring } from "./use-wiring";
+import { MapSection } from "./map-section";
+import { NeedsLook, looks } from "./needs-look";
+import { Timeline } from "./timeline";
+import { useNow } from "../card";
+import { useHomeChecks } from "../../api/spaces";
 import { type Conn, useTail } from "./use-tail";
 
 const route = getRouteApi("/live");
@@ -56,12 +62,14 @@ function Caller({ call, titles, names }: { call: CallRecord; titles: ReadonlyMap
       </span>
     );
   }
-  const by = call.via.by ? (serviceTitle(call.via.by, titles) ?? call.via.by) : (call.caller ?? "");
+  // A rule delivering to a target is the rule's name (payment-settled) with a `rule` mark, as the board draws it.
+  const rule = call.via.by === "eventbridge" && call.via.name?.startsWith("rule ") ? (call.via.name.slice(5).split("/").pop() ?? null) : null;
+  const by = rule ?? (call.via.by ? (serviceTitle(call.via.by, titles) ?? call.via.by) : (call.caller ?? ""));
   return (
     <span className="flex min-w-0 items-center gap-1.5" title={`Made by ${madeBy(call, titles)}, for ${call.caller ?? "no key"}`}>
       <span className="truncate font-sans text-[13px]">{by}</span>
       <span className="shrink-0 rounded-full border bg-muted px-1.5 font-sans text-[10.5px] leading-4 text-muted-foreground" data-testid="via-pill">
-        {call.via.name ? `via ${call.via.name.split(" ")[0]}` : "via"}
+        {rule ? "rule" : call.via.name ? `via ${call.via.name.split(" ")[0]}` : "via"}
       </span>
     </span>
   );
@@ -109,8 +117,6 @@ export function LivePage() {
   const [runs, setRuns] = useState<ReadonlySet<number>>(new Set());
   const toggle = useCallback((id: number) => setRuns((was) => (was.has(id) ? new Set([...was].filter((x) => x !== id)) : new Set([...was, id]))), []);
 
-  const kept = useMemo(() => (filtering(search) ? visible.filter((c) => matches(c, search)) : visible), [visible, search]);
-  const shown = useMemo(() => lines(kept, runs), [kept, runs]);
   const services = useMemo(() => [...new Set([...flows.byKey.values()].map((f) => f.service).filter(Boolean))].sort(), [flows]);
   const callers = useMemo(() => {
     const seen = new Map<string, boolean>();
@@ -122,6 +128,15 @@ export function LivePage() {
   const keys = useMemo(() => callers.filter((c) => !c.internal && c.id.startsWith("AKIA")).map((c) => c.id).join(","), [callers]);
   const principals = usePrincipals(keys);
   const names = useMemo(() => new Map((principals.data?.principals ?? []).map((p) => [p.key, p])), [principals.data]);
+  const now = useNow();
+  const wiring = useWiring(view !== "wire" && search.by !== "service");
+  const callerName = useCallback((key: string) => { const p = names.get(key); return p ? who(p).label : key || "no key"; }, [names]);
+  // `?app=payments` is the caller by its name (an IAM user), as the boards address it; `?caller=` is the key.
+  const kept = useMemo(() => (filtering(search) ? visible.filter((c) => matches(c, search) && (search.app === undefined || callerName(callerOf(c)) === search.app)) : visible), [visible, search, callerName]);
+  const shown = useMemo(() => lines(kept, runs), [kept, runs]);
+  const attention = useMemo(() => looks(visible), [visible]);
+  const checks = useHomeChecks();
+  const stored = useMemo(() => (checks.data?.signals ?? []).filter((s) => s.kind === "not-active").map((s) => ({ count: Number(s.count), detail: s.detail, href: s.href ?? "/resources/sns/subscriptions" })), [checks.data]);
 
   const columns = useMemo<DataColumn<Line>[]>(
     () => [
@@ -183,11 +198,13 @@ export function LivePage() {
 
   const status = connWords(conn, tape.paused);
   const ring = tape.ring;
+  const oldest = tape.calls[tape.calls.length - 1];
+  const spanMin = oldest ? Math.max(1, Math.ceil((now - oldest.at_ms) / 60_000)) : 0;
   return (
     <>
       <PageHeader
         title="Live"
-        sub="Every AWS API call this doze-aws answers, and every call one service makes to another, as it happens. Kept in memory: only the newest calls."
+        sub={`Every AWS API call this doze-aws answers, and every call one service makes to another, as it happens. Kept in memory: the newest ${ring ? number(ring.capacity) : "1,024"} calls${spanMin > 0 ? `, the last ${number(spanMin)} ${spanMin === 1 ? "minute" : "minutes"} here` : ""}; not hours of history.`}
         actions={
           <>
             {/* The pill and the status keep their room beside the h1 (nothing jumps as they change); under it, from the left (below
@@ -256,9 +273,10 @@ export function LivePage() {
               They were recorded and dropped before this page was given them: the record keeps only the newest {ring ? number(ring.capacity) : ""} calls.
             </Alert>
           )}
+          <div className="mb-5 flex flex-wrap items-end justify-between gap-x-8 gap-y-3">
           {ring && (
             <Figures
-              className="mb-5"
+              className="mb-0"
               aria-label="The record"
               figures={[
                 { label: "Calls recorded", value: number(ring.recorded), ch: 6, tip: "Since doze-aws started.", testId: "live-recorded" },
@@ -267,9 +285,19 @@ export function LivePage() {
               ]}
             />
           )}
+          {view !== "wire" && <Timeline calls={visible} now={now} />}
+          </div>
           <ConsoleLine hidden={hidden} shown={search.console === "shown"} set={set} />
-          {view !== "wire" && (
+          {view !== "wire" && <NeedsLook stored={stored} items={attention} callerName={(c) => callerName(c.caller ?? "")} onOpen={open} />}
+          {view !== "wire" && search.by !== "service" && <MapSection calls={visible} wiring={wiring.data} now={now} search={search} set={set} callerName={callerName} openCall={openCall} />}
+          {view !== "wire" && search.by === "service" && (
             <section className="mb-5 rounded-xl border bg-card px-5 pt-3 pb-4" aria-label="Map of who calls what" data-testid="live-map-card">
+              <div className="mb-2 flex justify-end">
+                <ToggleGroup type="single" variant="outline" size="sm" value="service" onValueChange={(v) => v === "resource" && set({ by: undefined })} aria-label="Draw" className="bg-card" data-testid="map-by">
+                  <ToggleGroupItem value="resource" className="px-3" data-testid="by-resource">Resources</ToggleGroupItem>
+                  <ToggleGroupItem value="service" className="px-3" data-testid="by-service">Services</ToggleGroupItem>
+                </ToggleGroup>
+              </div>
               {map.lines.length === 0 ? (
                 <EmptyState icon={RadioIcon} title="Nothing to draw yet" className="border-0 bg-transparent">
                   Each caller and each service it calls is drawn here, joined by a line, as calls arrive.
@@ -284,6 +312,10 @@ export function LivePage() {
           )}
           {view !== "map" && (
             <>
+              <p className="mb-3 flex flex-wrap gap-x-6 gap-y-1 text-[12px] text-muted-foreground" data-testid="wire-legend">
+                <span><b className="font-bold tracking-[0.04em] text-refused">REFUSED</b> AWS itself would refuse the request</span>
+                <span><b className="font-bold tracking-[0.04em] text-warn">WOULD BE DENIED</b> AWS would deny this identity; soft IAM let it through</span>
+              </p>
               <Filters search={search} set={set} services={services} callers={callers} titles={titles} shown={kept.length} held={visible.length} />
               <DataTable
                 aria-label="Calls, newest first"

@@ -1,123 +1,13 @@
-//! CloudWatch: metric alarms, and the metrics that have data (a list only: a metric has nothing more to read on a page of its
-//! own; its data points are a query, which the console does not make yet).
+//! CloudWatch: metric alarms, the metrics that have data, and dashboards.
 
-use super::Format::{Flag, Json, Mono, Number, Pairs, Seconds, Text as Plain, Time};
-use super::{Delete, Descriptor, Id, Kind, List, Step, Text, col, field, or};
+mod alarms;
+mod dashboards;
+mod metrics;
 
-/// One alarm among those `DescribeAlarms` answered for its name.
-macro_rules! alarm {
-    ($member:literal) => {
-        concat!("MetricAlarms.@AlarmName.", $member)
-    };
-}
+use super::Descriptor;
 
 pub(super) static CLOUDWATCH: Descriptor = Descriptor {
     service: "cloudwatch",
     target: "monitoring",
-    kinds: &[ALARMS, METRICS],
-};
-
-const ALARMS: Kind = Kind {
-    id: "alarms",
-    title: "Alarms",
-    one: "alarm",
-    about: "Metric alarms: a metric watched against a threshold, and what is done when it crosses it.",
-    members: &["AlarmName", "AlarmNames"],
-    list: List {
-        step: Step::new(
-            "DescribeAlarms",
-            r#"{"AlarmTypes":["MetricAlarm"],"MaxRecords":100,"NextToken":"{token}"}"#,
-        ),
-        items: "MetricAlarms",
-        item_as: "AlarmName",
-        token_out: "NextToken",
-        id: "AlarmName",
-        name: Text::at("AlarmName"),
-        label: None,
-        split: None,
-    },
-    elsewhere: "An alarm is made with its metric, statistic, threshold and actions: use aws cloudwatch put-metric-alarm, or your deploy tool.",
-    each: &[],
-    columns: &[
-        col("State", "StateValue", Plain),
-        col("Metric", "MetricName", Mono),
-        col("Namespace", "Namespace", Mono),
-        col("Threshold", "Threshold", Number),
-        col("State changed", "StateUpdatedTimestamp", Time),
-    ],
-    // CloudWatch has no call that reads one alarm: alarms are asked for by name, and none found is a refusal.
-    id_of: Id::Call(
-        Step::new(
-            "DescribeAlarms",
-            r#"{"AlarmNames":["{name}"],"AlarmTypes":["MetricAlarm"]}"#,
-        ),
-        alarm!("AlarmName"),
-    ),
-    detail: &[],
-    fields: &[
-        field("ARN", alarm!("AlarmArn"), Mono),
-        field("Description", alarm!("AlarmDescription"), Plain),
-        field("State", alarm!("StateValue"), Plain),
-        field("Why", alarm!("StateReason"), Plain),
-        field("Metric", alarm!("MetricName"), Mono),
-        field("Namespace", alarm!("Namespace"), Mono),
-        field("Dimensions", alarm!("Dimensions"), Pairs),
-        field("Statistic", alarm!("Statistic"), Plain),
-        field("Period", alarm!("Period"), Seconds),
-        field("Comparison", alarm!("ComparisonOperator"), Mono),
-        field("Threshold", alarm!("Threshold"), Number),
-        field("Evaluation periods", alarm!("EvaluationPeriods"), Number),
-        field("Datapoints to alarm", alarm!("DatapointsToAlarm"), Number),
-        field("Missing data", alarm!("TreatMissingData"), Plain),
-        field(
-            "Actions",
-            alarm!("ActionsEnabled"),
-            Flag("Enabled", "Disabled"),
-        ),
-        or("Alarm actions", alarm!("AlarmActions"), Json, "None"),
-        or("OK actions", alarm!("OKActions"), Json, "None"),
-        field("State changed", alarm!("StateUpdatedTimestamp"), Time),
-    ],
-    subs: &[],
-    create: None,
-    delete: Some(Delete {
-        verb: "Delete",
-        step: Step::new("DeleteAlarms", r#"{"AlarmNames":["{id}"]}"#),
-        words: "Deleting removes the alarm and its history. The metric and its data stay.",
-    }),
-    reveal: None,
-    deep: &[],
-};
-
-const METRICS: Kind = Kind {
-    id: "metrics",
-    title: "Metrics",
-    one: "metric",
-    about: "Every metric with data: the services' own and those your code puts. Read only.",
-    members: &[],
-    list: List {
-        step: Step::new("ListMetrics", r#"{"NextToken":"{token}"}"#),
-        items: "Metrics",
-        item_as: "MetricName",
-        token_out: "NextToken",
-        // A metric is its namespace, name and dimensions together: the whole row names it.
-        id: "",
-        name: Text::at(""),
-        label: Some(Text::at("MetricName")),
-        split: None,
-    },
-    elsewhere: "Metrics appear when data is put: by the services, or with aws cloudwatch put-metric-data.",
-    each: &[],
-    columns: &[
-        col("Namespace", "Namespace", Mono),
-        col("Dimensions", "Dimensions", Pairs),
-    ],
-    id_of: Id::Name,
-    detail: &[],
-    fields: &[],
-    subs: &[],
-    create: None,
-    delete: None,
-    reveal: None,
-    deep: &[],
+    kinds: &[alarms::ALARMS, metrics::METRICS, dashboards::DASHBOARDS],
 };

@@ -245,8 +245,13 @@ impl World {
 
     /// A call as an app's would be: to `target` on the bus, with an access key of its own (`app`), the account root's.
     pub(crate) async fn app(&self, target: &str, op: &str, body: &Value) -> Value {
+        self.app_with("app", target, op, body).await
+    }
+
+    /// A call as the holder of the access key `key` would make it.
+    pub(crate) async fn app_with(&self, key: &str, target: &str, op: &str, body: &Value) -> Value {
         let caller = aws_wire::service::Caller {
-            access_key_id: "app".to_owned(),
+            access_key_id: key.to_owned(),
             account_id: "000000000000".to_owned(),
             region: "us-east-1".to_owned(),
             endpoint: "http://127.0.0.1:4566".to_owned(),

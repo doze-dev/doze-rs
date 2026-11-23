@@ -11,7 +11,8 @@ import type { KindCount } from "../../api/types/KindCount";
 import type { ResourceService } from "../../api/types/ResourceService";
 import { iconOf } from "./model";
 
-export const HINT = "Check that doze-aws is still running, then try again. Nothing was changed.";
+import { HINT } from "../../kit";
+export { HINT };
 
 /** `3 queues`, `1 topic`, `at least 1,000 keys`; a kind not counted says why in a word. */
 export function countWords(k: KindCount): string {

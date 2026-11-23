@@ -302,7 +302,10 @@ impl Core {
                 denied
             })?;
         }
-        let r = Req::new(call);
+        let mut r = Req::new(call);
+        if which == Which::Iam {
+            self.respell(call.op, &mut r);
+        }
         let value: Value = match which {
             Which::Iam => self.run_iam(call.op, &r)?,
             Which::Sts => self.run_sts(call.op, &r)?,

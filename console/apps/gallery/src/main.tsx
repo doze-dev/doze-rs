@@ -4,6 +4,8 @@ import { createRoot } from "react-dom/client";
 import { Toaster } from "@doze/ui/components/ui/sonner";
 import { TooltipProvider } from "@doze/ui/components/ui/tooltip";
 import { setTheme, startTheme } from "@doze/ui/lib/theme";
+import { KitProvider } from "@aws-kit";
+import { installMockApi } from "./mock-api";
 import { startProduct } from "./product";
 import { router } from "./router";
 import "./index.css";
@@ -12,6 +14,7 @@ import "./index.css";
 // four. Both are taken once, kept as the choice, and removed from the address.
 const asked = new URLSearchParams(location.search);
 const mode = asked.get("mode");
+installMockApi();
 startTheme({ storageKey: "doze-gallery.theme" });
 if (mode === "light" || mode === "dark" || mode === "system") setTheme(mode);
 await startProduct(asked.get("theme"));
@@ -25,7 +28,9 @@ if (asked.has("theme") || asked.has("mode")) {
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <TooltipProvider delayDuration={300}>
-      <RouterProvider router={router} />
+      <KitProvider>
+        <RouterProvider router={router} />
+      </KitProvider>
       <Toaster position="bottom-right" />
     </TooltipProvider>
   </StrictMode>,

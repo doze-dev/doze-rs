@@ -9,6 +9,9 @@ import type { CallRecord } from "../../api/types/CallRecord";
 import { outcomeSentence, WOULD_BE_DENIED } from "../../words";
 import { copyCommand } from "./actions";
 import { CauseChain, madeBy } from "./cause";
+import { Explain } from "./explain";
+import { NotBuilt } from "./not-built";
+import { Refused } from "./refused";
 import { Result } from "./outcome";
 import { resourceHref, resourceName, resourceSearchOf } from "./resource";
 
@@ -60,11 +63,19 @@ export function CallSheet({ seq, call, serviceTitle, titles, held, onOpen, onClo
                   A call between services: {madeBy(call, titles)} made it on doze-aws's internal bus, not over the wire.
                 </p>
               )}
+              {call.function_error && (
+                <p className="mt-2 rounded-md bg-bad/10 px-2.5 py-1.5 text-[13px] text-bad" data-testid="call-function-error">
+                  The function failed ({call.function_error}). The invocation itself answered {call.status}: the failure is in the answer, in X-Amz-Function-Error and the error's own text, which the record does not keep.
+                </p>
+              )}
               {call.would_be_denied && (
                 <p className="mt-2 rounded-md bg-tint-warn px-2.5 py-1.5 text-[13px] text-warn" data-testid="call-would-be-denied">
                   {WOULD_BE_DENIED.sentence}
                 </p>
               )}
+              <p className="mt-2 text-[12px] text-muted-foreground" data-testid="no-replay">
+                Replay is not available: the record keeps no request bodies, so a call cannot be sent again from here.
+              </p>
               <div className="mt-3 flex flex-wrap gap-2" data-testid="call-actions">
                 <Button variant="outline" size="sm" className="bg-card" disabled={call.action === null} onClick={() => void copyCommand(call.seq, "cli")} data-testid="call-copy-cli">
                   <SquareTerminalIcon /> Copy as AWS CLI
@@ -81,6 +92,9 @@ export function CallSheet({ seq, call, serviceTitle, titles, held, onOpen, onClo
                 )}
               </div>
             </div>
+            {(call.would_be_denied || call.outcome === "denied") && <Explain call={call} />}
+            {call.outcome === "not-built" && <NotBuilt call={call} />}
+            <Refused call={call} />
             <CauseChain call={call} held={held} titles={titles} onOpen={onOpen} />
             <dl className="mt-5 grid grid-cols-[8.5rem_minmax(0,1fr)] [&>dd:last-of-type]:border-b-0 [&>dt:last-of-type]:border-b-0">
               <Field testId="at" label="Answered" value={dateTimeUtc(call.at_ms).replace(" UTC", `.${clockMsUtc(call.at_ms).slice(-3)} UTC`)} />
@@ -91,6 +105,7 @@ export function CallSheet({ seq, call, serviceTitle, titles, held, onOpen, onClo
               <Field testId="resource" label="Resource" value={call.resource} none="Not known: the call named nothing doze-aws looks for (a queue, table, function, topic, bucket and the like)." note={call.member ? `The call's ${call.member}.` : call.resource ? "The S3 path the request was sent to." : undefined} copy />
               <Field testId="caller" label="Caller" value={call.caller} none="None recorded: the request carried no access key, or was refused before a service read it." note={call.via ? "The access key of the caller the service made this call for." : "The access key id the request was signed with."} copy />
               <Field testId="region" label="Region" value={call.region} none="None recorded: the request was signed for no region, or was refused before a service read it." />
+              <Field testId="did" label="What it did" value={call.summary} none="Not said: doze-aws reads a few words (a count, a size) from the answer of some operations only, and nothing from a call that failed." note="Read from the call's input and answer as it went by. The record keeps no bodies." />
               <Field testId="status" label="HTTP status" value={String(call.status)} />
               <Field testId="error-code" label="Error code" value={call.error_code} none="None: the call succeeded." copy />
               <Field testId="outcome" label="Outcome" value={call.outcome} />

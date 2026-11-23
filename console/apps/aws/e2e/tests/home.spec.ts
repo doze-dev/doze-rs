@@ -12,8 +12,8 @@ test("Home says what this doze-aws is, as /about says it", async ({ page }) => {
   await expect(page.getByTestId("endpoint-env")).toHaveText(`AWS_ENDPOINT_URL=${a.endpoint}`);
 });
 
-test("the services table has every service of the build, with its state and how much of it is built", async ({ page }) => {
-  await open(page, "/", "Home");
+test("Settings lists every service of the build, with its state and how much of it is built", async ({ page }) => {
+  await open(page, "/settings", "Settings");
   const { services: list } = await services(page);
   expect(list.length).toBeGreaterThan(10);
   const table = page.getByRole("table", { name: "Services of this build" });
@@ -68,11 +68,13 @@ test.describe("a fetch that fails", () => {
     await expect(page.getByTestId("endpoint")).toBeVisible();
     await page.unroute("**/api/v1/services");
     await page.getByTestId("services-error-retry").click();
-    await expect(page.getByRole("table", { name: "Services of this build" })).toBeVisible();
+    await expect(page.getByTestId("awake-group").first()).toBeVisible();
     await expect(block).toHaveCount(0);
   });
 
-  test("a refusal is shown in the server's own words, with its code", async ({ page }) => {
+  test("a refusal is shown in the server's own words, with its code", async ({ page, refusals }) => {
+    // The test makes the server refuse.
+    refusals.allow(/403 GET .*\/api\/v1\/about$/);
     // The request is sent on without the proof header, so the real server refuses it: the words on the page are its own.
     await page.route("**/api/v1/about", (route) => {
       const headers = { ...route.request().headers() };

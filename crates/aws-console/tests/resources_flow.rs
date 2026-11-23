@@ -231,18 +231,14 @@ async fn a_state_machine_lists_its_executions_newest_first() {
     }
     let (_, list) = w.get("/api/v1/resources/stepfunctions/machines").await;
     assert_eq!(list["rows"][0]["name"], "checkout");
+    // A machine is made in the studio (a page of the app, with the kind's own CreateStateMachine), not by the generic create.
     assert!(list["create"].is_null());
-    assert!(
-        list["create_elsewhere"]
-            .as_str()
-            .unwrap()
-            .contains("create-state-machine")
-    );
+    assert!(list["create_elsewhere"].is_null(), "{list}");
     let (status, detail) = w
         .get("/api/v1/resources/stepfunctions/machines/checkout")
         .await;
     assert_eq!(status, 200, "{detail}");
-    assert_eq!(field(&detail, "Role")["link"]["name"], "sfn");
+    assert_eq!(field(&detail, "IAM role ARN")["link"]["name"], "sfn");
     // Its executions are a page of their own: the page lists them through the machine.
     let (status, runs) = w
         .send(

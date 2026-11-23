@@ -63,7 +63,7 @@ test.describe("the map, on a doze-aws of its own", () => {
   test("the map draws a line from each caller to each service it called, and a dashed one for SNS to SQS", async ({ page, accessKey, browserName }) => {
     const cli = (args: string[]) => aws(own?.endpoint ?? "", args, { accessKey });
     fanOut(cli, browserName);
-    await openLive(page, `${own?.console}/live?view=map`);
+    await openLive(page, `${own?.console}/live?view=map&by=service`);
     await expect(page.getByTestId("live-map")).toBeVisible();
     // The wire is not drawn in the Map view.
     await expect(rows(page)).toHaveCount(0);

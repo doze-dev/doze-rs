@@ -88,11 +88,7 @@ fn a_split_closes_the_parent_and_opens_two_children_as_recorded() {
     assert_eq!(list[2]["HashKeyRange"]["EndingHashKey"], end.to_string());
     // Distinct starting numbers, each after the parent's end.
     let seq = |v: &Value, k: &str| -> u128 {
-        v["SequenceNumberRange"][k]
-            .as_str()
-            .unwrap()
-            .parse()
-            .unwrap()
+        crate::model::seq_parse(v["SequenceNumberRange"][k].as_str().unwrap()).unwrap()
     };
     let parent_end = seq(&list[0], "EndingSequenceNumber");
     assert!(seq(&list[1], "StartingSequenceNumber") > parent_end);
@@ -197,31 +193,27 @@ fn records_after_a_split_go_to_the_child_that_holds_their_hash_and_follow_the_pa
     let b = w.put("s", "b", "new-b");
     assert_eq!(a["ShardId"], shard(1));
     assert_eq!(b["ShardId"], shard(2));
-    let seq = |v: &Value| {
-        v["SequenceNumber"]
-            .as_str()
-            .unwrap()
-            .parse::<u128>()
-            .unwrap()
-    };
+    let seq = |v: &Value| crate::model::seq_parse(v["SequenceNumber"].as_str().unwrap()).unwrap();
     assert!(seq(&a) > seq(&before));
     assert!(seq(&b) > seq(&before));
     let list = shards(&mut w, &Value::Null);
     for child in &list[1..] {
-        let start: u128 = child["SequenceNumberRange"]["StartingSequenceNumber"]
-            .as_str()
-            .unwrap()
-            .parse()
-            .unwrap();
+        let start = crate::model::seq_parse(
+            child["SequenceNumberRange"]["StartingSequenceNumber"]
+                .as_str()
+                .unwrap(),
+        )
+        .unwrap();
         assert!(start > seq(&before));
     }
     assert!(
         seq(&a)
-            >= list[1]["SequenceNumberRange"]["StartingSequenceNumber"]
-                .as_str()
-                .unwrap()
-                .parse::<u128>()
-                .unwrap()
+            >= crate::model::seq_parse(
+                list[1]["SequenceNumberRange"]["StartingSequenceNumber"]
+                    .as_str()
+                    .unwrap()
+            )
+            .unwrap()
     );
     let it = w.iterator("s", &shard(1), "TRIM_HORIZON");
     let got = w.ok("GetRecords", &json!({"ShardIterator": it}));

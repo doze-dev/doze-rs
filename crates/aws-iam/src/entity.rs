@@ -20,11 +20,20 @@ fn name_key(kind: Kind) -> String {
     format!("{}Name", kind.title())
 }
 
-/// A new id: four letters for the kind, seventeen of IAM's alphabet.
+/// A new id: four letters for the kind, seventeen of IAM's alphabet (the 21 characters of a user or role id).
 pub(crate) fn new_id(prefix: &str) -> Result<String, ApiError> {
+    new_id_of(prefix, 17)
+}
+
+/// A new access key id: `AKIA` and sixteen of IAM's alphabet, the 20 characters AWS gives.
+pub(crate) fn new_key_id(prefix: &str) -> Result<String, ApiError> {
+    new_id_of(prefix, 16)
+}
+
+fn new_id_of(prefix: &str, len: usize) -> Result<String, ApiError> {
     const SET: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
     let mut out = String::from(prefix);
-    for _ in 0..17 {
+    for _ in 0..len {
         let ix =
             aws_seal::random_below(SET.len()).ok_or_else(|| ApiError::internal("no randomness"))?;
         out.push(char::from(SET.get(ix).copied().unwrap_or(b'A')));
@@ -38,9 +47,19 @@ pub(crate) fn arn_of(account: &str, word: &str, path: &str, name: &str) -> Strin
 }
 
 impl Core {
+    /// Whether a user, group or role is already called `name`. IAM does not tell names apart by case (the model: "Names are not
+    /// distinguished by case. For example, you cannot create resources named both MyResource and myresource"), so `DEV` is taken
+    /// while `dev` exists.
+    pub(crate) fn name_taken(&self, kind: Kind, name: &str) -> bool {
+        let prefix = entity_key(kind, "");
+        self.entities
+            .iter()
+            .any(|(key, e)| key.starts_with(&prefix) && e.name.eq_ignore_ascii_case(name))
+    }
+
     pub(crate) fn create_entity(&mut self, kind: Kind, r: &Req<'_>) -> Result<Value, ApiError> {
         let name = r.s(&name_key(kind)).to_owned();
-        if self.entities.get(&entity_key(kind, &name)).is_some() {
+        if self.name_taken(kind, &name) {
             return Err(exists(kind.title(), &name));
         }
         let trust = if kind == Kind::Role {
@@ -109,7 +128,7 @@ impl Core {
             .with_prefix(&format!("{}/", kind.word()))
             .map(|(_, e)| e)
             .filter(|e| e.path.starts_with(prefix))
-            .map(|e| view::entity(e, false))
+            .map(view::listed)
             .collect();
         page(r, items, &format!("{}s", kind.title()))
     }
@@ -153,9 +172,10 @@ impl Core {
         let new_name = r
             .opt(&format!("New{}Name", kind.title()))
             .map(str::to_owned);
+        // A name that differs from the old only in case is a new spelling of the same name (it is the entity's own).
         if let Some(n) = &new_name
-            && *n != old
-            && self.entities.get(&entity_key(kind, n)).is_some()
+            && !n.eq_ignore_ascii_case(&old)
+            && self.name_taken(kind, n)
         {
             return Err(exists(kind.title(), n));
         }

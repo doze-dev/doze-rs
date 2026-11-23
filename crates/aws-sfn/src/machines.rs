@@ -27,6 +27,7 @@ impl Core {
         check_definition(text, express)?;
         let logging = r.v.get("loggingConfiguration").map(Value::to_string);
         check_logging(logging.as_deref(), express)?;
+        let tags = r.tags()?;
         let arn = arn::machine(r.region(), r.account(), name);
         if let Some(m) = self.machines.get(&arn) {
             if m.definition == text && m.role_arn == role && m.express == express {
@@ -52,7 +53,7 @@ impl Core {
             created_ms: now,
             updated_ms: now,
             revision: crate::util::uuid(),
-            tags: r.tags().into_iter().collect::<BTreeMap<_, _>>(),
+            tags: tags.into_iter().collect::<BTreeMap<_, _>>(),
             versions: Vec::new(),
             next_version: 1,
             aliases: Vec::new(),

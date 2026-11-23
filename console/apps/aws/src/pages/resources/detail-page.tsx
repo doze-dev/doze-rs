@@ -1,30 +1,27 @@
-import { Link } from "@tanstack/react-router";
-import { EyeIcon, EyeOffIcon, PlusIcon, RadioIcon, Trash2Icon } from "lucide-react";
+import { EyeIcon, EyeOffIcon, PlusIcon, Trash2Icon } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useCallback, useState } from "react";
-import { Alert, ErrorBlock, errorWords } from "@doze/ui/components/app/alert";
+import { Alert, errorWords } from "@doze/ui/components/app/alert";
 import { CopyButton } from "@doze/ui/components/app/copy-button";
 import { type DataColumn, DataTable } from "@doze/ui/components/app/data-table";
 import { PageHeader } from "@doze/ui/components/app/page-header";
 import { RefreshControl } from "@doze/ui/components/app/refresh-control";
 import { Button } from "@doze/ui/components/ui/button";
 import { Skeleton } from "@doze/ui/components/ui/skeleton";
-import { clockUtc } from "@doze/ui/lib/format";
 import { useResourceDetail, useReveal } from "../../api/resources";
 import type { CallRecord } from "../../api/types/CallRecord";
 import type { FieldValue } from "../../api/types/FieldValue";
 import type { ResourceDetail } from "../../api/types/ResourceDetail";
 import type { ResourceRow } from "../../api/types/ResourceRow";
 import type { SubList } from "../../api/types/SubList";
-import { Result } from "../live/outcome";
+import { DetailError } from "../../kit/detail-error";
+import { RecentCalls } from "../../kit/recent-calls";
 import { DeleteDialog } from "./delete-dialog";
-import { HINT } from "./index-page";
-import { columnLeast, columnSizes, isDocument, sortKey, titleOf } from "./model";
-import { isConsole } from "../live/search";
+import { columnLeast, columnSizes, isDocument, oneOf, sortKey, titleFor } from "./model";
 import { CreateDialog } from "./create-dialog";
 import { ResourceTo, Value } from "./value";
 import { deepKey } from "./deep/api";
-import { DeepPage, DeepTabs, DetailLead } from "./deep/pages";
+import { DeepPage, DeepTabs, DetailLead, GonePage, hasGonePage } from "./deep/pages";
 
 /** The hidden value of a field: Reveal makes the one call that reads it (Live shows it); Hide forgets it. */
 function Hidden({ service, kind, name, label }: { service: string; kind: string; name: string; label: string }) {
@@ -147,48 +144,8 @@ function Sub({ sub, service }: { sub: SubList; service: string }) {
   );
 }
 
-const CALL_COLUMNS: DataColumn<CallRecord>[] = [
-  { id: "time", header: "Time", size: 120, accessorKey: "at_ms", meta: { mono: true }, cell: (c) => `${clockUtc(c.row.original.at_ms)}` },
-  { id: "caller", header: "Caller", size: 220, min: 140, accessorFn: (r) => r.caller ?? "", meta: { mono: true }, cell: (c) => <span className="font-mono text-[13px]">{c.row.original.caller ?? "–"}{c.row.original.via?.by ? <span className="text-muted-foreground"> via {c.row.original.via.by}</span> : null}</span> },
-  { id: "call", header: "Call", accessorFn: (r) => r.action ?? "", meta: { mono: true }, cell: (c) => <span className="font-mono text-[13px] font-medium text-bright">{c.row.original.action ?? "–"}</span> },
-  { id: "result", header: "Result", size: 260, min: 140, accessorFn: (r) => r.status, cell: (c) => <Result call={c.row.original} /> },
-];
-
-function Calls({ d }: { d: ResourceDetail }) {
-  // This console's own reads of the resource are noise beside an app's calls: hidden unless asked for, as on Live.
-  const [mine, setMine] = useState(false);
-  const theirs = d.calls.filter((c) => !isConsole(c));
-  const hidden = d.calls.length - theirs.length;
-  const shown = mine ? d.calls : theirs;
-  return (
-    <section className="mt-12" aria-labelledby="calls-title" data-testid="recent-calls">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h2 id="calls-title" className="text-[17px] leading-6 font-semibold tracking-[-0.01em] text-bright">
-            Recent calls
-          </h2>
-          <p className="mt-1 mb-4 text-[13.5px] text-muted-foreground">
-            The last calls in the Live record that acted on this {d.one}, newest first. Times are UTC.
-            {(hidden > 0 || mine) && (
-              <span data-testid="calls-console-hidden">
-                {" "}
-                {mine ? "This console's own are shown." : `${hidden} made by this console ${hidden === 1 ? "is" : "are"} hidden.`}{" "}
-                <button type="button" className="rounded-sm font-medium text-link hover:underline focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none" onClick={() => setMine(!mine)} data-testid="calls-console-toggle">
-                  {mine ? "Hide them" : "Show"}
-                </button>
-              </span>
-            )}
-          </p>
-        </div>
-        <Button asChild variant="outline" size="sm" className="mb-4 bg-card">
-          <Link to="/live">
-            <RadioIcon /> Open Live
-          </Link>
-        </Button>
-      </div>
-      <DataTable aria-label="Recent calls" data={shown} columns={CALL_COLUMNS} rowId={(r) => String(r.seq)} maxHeight={420} empty={hidden > 0 && !mine ? `Only this console has acted on this ${d.one} so far.` : `No call in the Live record acted on this ${d.one} yet.`} />
-    </section>
-  );
+export function Calls({ d, pin, note }: { d: ResourceDetail; /** Calls of this console that are kept in the list (an upload's PutObject). */ pin?: readonly string[]; note?: (c: CallRecord) => string | null }) {
+  return <RecentCalls calls={d.calls} noun={d.one} className="mt-12" pin={pin} note={note} />;
 }
 
 /** One resource: what the descriptor's detail operations answered, the lists that belong to it, its recent calls in Live,
@@ -208,7 +165,7 @@ export function ResourceDetailPage({ service, kind, name, tab }: { service: stri
   return (
     <>
       <PageHeader
-        title={titleOf(name)}
+        title={titleFor(name, d?.fields)}
         mono
         crumbs={crumbs}
         sub={d ? <>Read with {d.operations.map((o, i) => <span key={`${o}${i}`}>{i > 0 && ", "}<span className="font-mono text-foreground">{o}</span></span>)} as the caller <span className="font-mono text-foreground">console</span>.</> : undefined}
@@ -221,8 +178,10 @@ export function ResourceDetailPage({ service, kind, name, tab }: { service: stri
           )
         }
       />
-      {detail.isError && !d ? (
-        <ErrorBlock what={`This ${kind.replace(/s$/, "")} could not be read`} error={detail.error} hint={HINT} onRetry={refresh} retrying={detail.isFetching} testId="detail-error" />
+      {detail.isError && !d && hasGonePage(service, kind, errorWords(detail.error).message) ? (
+        <GonePage service={service} kind={kind} name={name} />
+      ) : detail.isError && !d ? (
+        <DetailError service={service} kind={kind} name={name} what={`This ${oneOf(kind)} could not be read`} error={detail.error} onRetry={refresh} retrying={detail.isFetching} header={false} />
       ) : !d ? (
         <Skeleton className="h-80 rounded-[14px]" data-testid="detail-loading" />
       ) : (

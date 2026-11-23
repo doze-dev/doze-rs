@@ -14,7 +14,7 @@ mod world;
 
 use std::time::Duration;
 
-use aws_gateway::Finished;
+use aws_gateway::{Did, Finished};
 use aws_peers::Mode;
 use aws_wire::service::Caller;
 use serde_json::{Value, json};
@@ -42,6 +42,10 @@ fn wire<'a>(
         took: Duration::from_micros(900),
         would_be_denied: false,
         user_agent: ua,
+        message: "",
+        function_error: "",
+        answer_bytes: None,
+        did: Did::NONE,
     }
 }
 
@@ -182,8 +186,8 @@ async fn make_this_pass_puts_the_drafted_policy_on_the_user_as_the_console() {
     // A role nobody made is IAM's refusal, in its words.
     let body = json!({"kind": "role", "name": "missing", "policy_name": "p", "document": "{}"});
     let (status, refused) = w.send("POST", "/api/v1/access/attach", &body).await;
-    assert_eq!(status, 400, "{refused}");
-    assert_eq!(refused["code"], "NoSuchEntityException");
+    assert_eq!(status, 404, "{refused}");
+    assert_eq!(refused["code"], "NoSuchEntity");
     let (status, _) = w
         .send("POST", "/api/v1/access/attach", &json!({"kind": "group"}))
         .await;
@@ -287,9 +291,10 @@ async fn home_checks_find_a_dead_letter_queue_holding_messages() {
         (Some("dead-letters"), Some(1)),
         "{checks}"
     );
+    // The page opens a queue by its name: its URL is answered 400 ("Can only include alphanumeric characters").
     assert_eq!(
         found["resource"],
-        json!({"service": "sqs", "kind": "queues", "name": dlq})
+        json!({"service": "sqs", "kind": "queues", "name": "jobs-dlq"})
     );
 }
 

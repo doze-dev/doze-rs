@@ -1,0 +1,1 @@
+function e(e){return e.length<=1?e.join(``):`${e.slice(0,-1).join(`, `)} and ${e[e.length-1]}`}var t=(e,t,n=`${t}s`)=>`${e.toLocaleString(`en-US`)} ${e===1?t:n}`,n=e=>new Date(e).toISOString().slice(11,19);export{t as n,e as r,n as t};

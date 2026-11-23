@@ -123,6 +123,7 @@ pub async fn delete(
     Ok(Deleted {
         name: name.to_owned(),
         operation: delete.step.op.to_owned(),
+        cleared: Vec::new(),
     })
 }
 

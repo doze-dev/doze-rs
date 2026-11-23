@@ -46,7 +46,15 @@ pub(crate) fn dispatch(core: &mut Core, op: u32, r: &Req) -> Res {
     if name.contains("VpcLink") {
         return crate::links::v2(core, &name, r);
     }
-    parts::dispatch(core, op, r).unwrap_or_else(|| Err(refused(&format!("{op:?}"))))
+    let res = parts::dispatch(core, op, r).unwrap_or_else(|| Err(refused(&format!("{op:?}"))));
+    // A route, integration, authorizer, model or response that changed deploys an auto-deploying stage.
+    if res.is_ok()
+        && !name.starts_with("Get")
+        && let Ok(doc) = api_mut(core, r)
+    {
+        stages::auto_deploy(doc, &r.now_iso());
+    }
+    res
 }
 
 /// The API the request names (`ApiId`).

@@ -14,7 +14,7 @@ use std::time::Duration;
 use aws_console::app::console;
 use aws_console::state::{Shared, State};
 use aws_console::{Facts, Limits, Recorder, ServiceFacts};
-use aws_gateway::Finished;
+use aws_gateway::{Did, Finished};
 use axum::Router;
 use axum::body::Body;
 use axum::http::{Request, Response, header};
@@ -99,6 +99,10 @@ pub(crate) fn sqs_call(action: &'static str, status: u16, code: &'static str) ->
         took: Duration::from_micros(1_500),
         would_be_denied: false,
         user_agent: "Boto3/1.34.69 md/Botocore#1.34.69",
+        message: "",
+        function_error: "",
+        answer_bytes: None,
+        did: Did::NONE,
     }
 }
 

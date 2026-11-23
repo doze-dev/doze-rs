@@ -226,3 +226,55 @@ async fn quick_create_stages_deployments_and_settings() {
         "Invalid API identifier specified 000000000000:nope"
     );
 }
+
+/// Model `Stage.AutoDeploy`: "updates to an API automatically trigger a new deployment".
+#[tokio::test]
+async fn an_auto_deploying_stage_names_a_deployment_and_follows_the_api() {
+    let w = World::new();
+    let api = w
+        .http("CreateApi", json!({"name": "a", "protocolType": "HTTP"}))
+        .await
+        .unwrap();
+    let id = api["apiId"].as_str().unwrap().to_owned();
+    let made = w
+        .http(
+            "CreateStage",
+            json!({"ApiId": id, "stageName": "live", "autoDeploy": true}),
+        )
+        .await
+        .unwrap();
+    let first = made["deploymentId"].as_str().unwrap().to_owned();
+    let deployment = w
+        .http("GetDeployment", json!({"ApiId": id, "DeploymentId": first}))
+        .await
+        .unwrap();
+    assert_eq!(
+        (
+            deployment["deploymentStatus"].as_str(),
+            deployment["autoDeployed"].as_bool()
+        ),
+        (Some("DEPLOYED"), Some(true))
+    );
+    // A new route deploys again; the deployment nothing names any more is gone.
+    w.http("CreateRoute", json!({"ApiId": id, "routeKey": "GET /x"}))
+        .await
+        .unwrap();
+    let stage = w
+        .http("GetStage", json!({"ApiId": id, "StageName": "live"}))
+        .await
+        .unwrap();
+    let second = stage["deploymentId"].as_str().unwrap().to_owned();
+    assert_ne!(second, first);
+    assert!(stage["lastDeploymentStatusMessage"].as_str().is_some());
+    let all = w
+        .http("GetDeployments", json!({"ApiId": id}))
+        .await
+        .unwrap();
+    assert_eq!(all["items"].as_array().unwrap().len(), 1);
+    // A stage without autoDeploy has no deployment until one is made for it.
+    let manual = w
+        .http("CreateStage", json!({"ApiId": id, "stageName": "manual"}))
+        .await
+        .unwrap();
+    assert!(manual.get("deploymentId").is_none());
+}

@@ -298,3 +298,39 @@ fn the_console_is_on_by_default_off_when_asked_and_an_address_beyond_this_machin
         "nothing was served"
     );
 }
+
+/// A refusal read through the console says what the AWS CLI prints for a service whose only wire is Query (SNS: `NotFound`, 404;
+/// not the shape's `NotFoundException`), and leaves a service that speaks JSON its own code (SQS).
+#[test]
+fn a_refusal_in_the_console_is_worded_as_the_services_wire_words_it() {
+    let dir = tempfile::tempdir().unwrap();
+    let (child, rows) = start(
+        dir.path(),
+        &["--console", "127.0.0.1:0", "--services", "sqs,sns"],
+    );
+    let console = row(&rows, "console").unwrap().to_owned();
+    let refusal = |path: &str| {
+        let answer = request(
+            &console,
+            &format!("GET {path} HTTP/1.1\r\nX-Console: 1"),
+            "",
+        );
+        let (head, body) = answer.split_once("\r\n\r\n").unwrap();
+        let json: serde_json::Value =
+            serde_json::from_str(body).unwrap_or_else(|e| panic!("{e}: {answer}"));
+        (
+            head.lines().next().unwrap().to_owned(),
+            json["code"].as_str().unwrap().to_owned(),
+        )
+    };
+    let (status, code) = refusal("/api/v1/resources/sns/topics/no-such-topic");
+    assert!(status.starts_with("HTTP/1.1 404"), "{status}");
+    assert_eq!(code, "NotFound");
+    let (status, code) = refusal("/api/v1/resources/sqs/queues/no-such-queue");
+    assert!(status.starts_with("HTTP/1.1 4"), "{status}");
+    assert!(
+        !code.eq("NotFound") && code != "NOT_FOUND",
+        "SQS keeps the code of its own model: {code}"
+    );
+    stop(child);
+}

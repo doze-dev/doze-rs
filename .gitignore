@@ -6,3 +6,6 @@ node_modules/
 # Spikes build on their own (each has its own [workspace]).
 /spikes/*/target
 /target-*
+
+# Screenshot folders the console slice specs write to the repo root.
+/shots-*/

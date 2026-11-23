@@ -30,11 +30,32 @@ def _post(path, body, headers=None):
         resp.read()
 
 
+def _trace(exc):
+    """The exception's traceback as Lambda shows it: the handler's frames, not this runtime's (the `main` loop that called it)."""
+    te = traceback.TracebackException.from_exception(exc)
+    seen = []
+    pending = [te]
+    while pending:
+        t = pending.pop()
+        if t is None or any(t is s for s in seen):
+            continue
+        seen.append(t)
+        t.stack = traceback.StackSummary.from_list([fr for fr in t.stack if fr.filename != __file__])
+        pending += [t.__cause__, t.__context__]
+    return te
+
+
+def _shown(line):
+    """A trace line as Lambda shows it: the function's code is at /var/task there, not in the directory doze-aws unpacked it to."""
+    root = os.environ.get("LAMBDA_TASK_ROOT")
+    return line.replace(root.rstrip("/") + "/", "/var/task/") if root else line
+
+
 def _error_body(exc, request_id=None):
     body = {
         "errorMessage": str(exc),
         "errorType": type(exc).__name__,
-        "stackTrace": traceback.format_tb(exc.__traceback__),
+        "stackTrace": [_shown(line) for line in _trace(exc).stack.format()],
     }
     if request_id:
         body["requestId"] = request_id
@@ -177,7 +198,7 @@ def main():
         handler = _load_handler(spec)
     except Exception as e:  # noqa: BLE001 — every init failure is reported the same way
         print("[ERROR] %s: %s" % (type(e).__name__, e))
-        traceback.print_exc()
+        sys.stderr.write(_shown("".join(_trace(e).format())))
         try:
             _post("init/error", _error_body(e), {"Lambda-Runtime-Function-Error-Type": "Runtime." + ("ImportModuleError" if isinstance(e, ImportError) else "HandlerNotFound" if isinstance(e, AttributeError) else type(e).__name__)})
         finally:
@@ -206,7 +227,7 @@ def main():
             _post("invocation/%s/response" % request_id, out)
         except Exception as e:  # noqa: BLE001 — a handler may raise anything
             print("[ERROR] %s: %s" % (type(e).__name__, e))
-            traceback.print_exc()
+            sys.stderr.write(_shown("".join(_trace(e).format())))
             _post("invocation/%s/error" % request_id, _error_body(e, request_id),
                   {"Lambda-Runtime-Function-Error-Type": type(e).__name__})
         finally:

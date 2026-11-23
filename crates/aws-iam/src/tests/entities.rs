@@ -52,6 +52,11 @@ fn a_role_is_made_read_updated_listed_and_deleted() {
             .len(),
         1
     );
+    // A listing carries the description (the model's ListRoles note leaves out only PermissionsBoundary, RoleLastUsed, Tags).
+    assert_eq!(
+        w.ok("ListRoles", &json!({"PathPrefix": "/apps/"}))["Roles"][0]["Description"],
+        "new"
+    );
     assert_eq!(
         w.ok("ListRoles", &json!({"PathPrefix": "/other/"}))["Roles"],
         json!([])
@@ -315,5 +320,128 @@ fn account_settings_providers_and_service_linked_roles() {
     assert_eq!(
         w.ok("GetAccountSummary", &json!({}))["SummaryMap"]["Roles"],
         0
+    );
+}
+
+#[test]
+fn names_are_not_told_apart_by_case() {
+    // The model's own words (iam.json, CreateUser.UserName): "Names are not distinguished by case. For example, you cannot
+    // create resources named both MyResource and myresource."
+    let mut w = World::new();
+    w.ok("CreateUser", &json!({"UserName": "dev"}));
+    w.ok("CreateGroup", &json!({"GroupName": "devs"}));
+    w.ok(
+        "CreateRole",
+        &json!({"RoleName": "report-job", "AssumeRolePolicyDocument": TRUST}),
+    );
+    for (op, body) in [
+        ("CreateUser", json!({"UserName": "DEV"})),
+        ("CreateGroup", json!({"GroupName": "Devs"})),
+        (
+            "CreateRole",
+            json!({"RoleName": "Report-Job", "AssumeRolePolicyDocument": TRUST}),
+        ),
+    ] {
+        assert_eq!(w.err(op, &body).0, "EntityAlreadyExistsException", "{op}");
+    }
+    // A user and a group may share a name (they are different kinds), and a rename may change only the case.
+    w.ok("CreateGroup", &json!({"GroupName": "dev"}));
+    w.ok(
+        "UpdateUser",
+        &json!({"UserName": "dev", "NewUserName": "Dev"}),
+    );
+    assert_eq!(
+        w.ok("GetUser", &json!({"UserName": "Dev"}))["User"]["UserName"],
+        "Dev"
+    );
+    // A rename onto another user's name, in another case, is refused.
+    w.ok("CreateUser", &json!({"UserName": "ci"}));
+    assert_eq!(
+        w.err(
+            "UpdateUser",
+            &json!({"UserName": "ci", "NewUserName": "DEV"})
+        )
+        .0,
+        "EntityAlreadyExistsException"
+    );
+    // A customer managed policy, in one path.
+    let doc = json!({"Version": "2012-10-17", "Statement": [{"Effect": "Allow", "Action": "s3:GetObject", "Resource": "*"}]}).to_string();
+    w.ok(
+        "CreatePolicy",
+        &json!({"PolicyName": "Read", "PolicyDocument": doc}),
+    );
+    assert_eq!(
+        w.err(
+            "CreatePolicy",
+            &json!({"PolicyName": "read", "PolicyDocument": doc})
+        )
+        .0,
+        "EntityAlreadyExistsException"
+    );
+    w.ok(
+        "CreatePolicy",
+        &json!({"PolicyName": "read", "Path": "/apps/", "PolicyDocument": doc}),
+    );
+}
+
+#[test]
+fn an_access_key_id_is_20_characters_and_a_users_own_id_21() {
+    // AWS's: AKIA and sixteen more for a key, AIDA and seventeen for a user (the model bounds a key id to 16..128 word characters).
+    let mut w = World::new();
+    let user = w.ok("CreateUser", &json!({"UserName": "u"}));
+    assert_eq!(user["User"]["UserId"].as_str().unwrap().len(), 21);
+    let key = w.ok("CreateAccessKey", &json!({"UserName": "u"}));
+    let id = key["AccessKey"]["AccessKeyId"].as_str().unwrap();
+    assert!(id.starts_with("AKIA") && id.len() == 20, "{id}");
+}
+
+#[test]
+fn a_lookup_finds_a_name_in_any_case_and_answers_with_the_spelling_it_was_made_with() {
+    // The same sentence of the model that refuses `CreateUser DEV` while `dev` exists ("Names are not distinguished by case"):
+    // `GetUser DEV` is `dev`, not NoSuchEntity. Not a recorded answer; the model's words are the evidence.
+    let mut w = World::new();
+    w.ok("CreateUser", &json!({"UserName": "dev"}));
+    w.ok("CreateGroup", &json!({"GroupName": "Devs"}));
+    w.ok(
+        "CreateRole",
+        &json!({"RoleName": "report-job", "AssumeRolePolicyDocument": TRUST}),
+    );
+    assert_eq!(
+        w.ok("GetUser", &json!({"UserName": "DEV"}))["User"]["UserName"],
+        "dev"
+    );
+    assert_eq!(
+        w.ok("GetRole", &json!({"RoleName": "Report-JOB"}))["Role"]["RoleName"],
+        "report-job"
+    );
+    // What is done by the typed name lands on the one user: the membership holds the stored spelling.
+    w.ok(
+        "AddUserToGroup",
+        &json!({"UserName": "DEV", "GroupName": "devs"}),
+    );
+    let group = w.ok("GetGroup", &json!({"GroupName": "DEVS"}));
+    assert_eq!(group["Group"]["GroupName"], "Devs");
+    assert_eq!(group["Users"][0]["UserName"], "dev");
+    w.ok(
+        "TagUser",
+        &json!({"UserName": "Dev", "Tags": [{"Key": "k", "Value": "v"}]}),
+    );
+    assert_eq!(
+        w.ok("ListUserTags", &json!({"UserName": "dev"}))["Tags"][0]["Key"],
+        "k"
+    );
+    // A name no user has is still NoSuchEntity, and a delete in another case deletes.
+    assert_eq!(
+        w.err("GetUser", &json!({"UserName": "nobody"})).0,
+        "NoSuchEntityException"
+    );
+    w.ok(
+        "RemoveUserFromGroup",
+        &json!({"UserName": "dev", "GroupName": "DEVS"}),
+    );
+    w.ok("DeleteUser", &json!({"UserName": "DEV"}));
+    assert_eq!(
+        w.err("GetUser", &json!({"UserName": "dev"})).0,
+        "NoSuchEntityException"
     );
 }

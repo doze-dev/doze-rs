@@ -3,4 +3,4 @@
 /**
  * What a signal is about.
  */
-export type SignalKind = "would-be-denied" | "denied" | "errors" | "not-built" | "dead-letters" | "alarm" | "failed-executions" | "failed-stack";
+export type SignalKind = "would-be-denied" | "denied" | "errors" | "not-built" | "dead-letters" | "alarm" | "failed-executions" | "failed-stack" | "not-active";

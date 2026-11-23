@@ -2,10 +2,13 @@
 //! groups, and with [`super::iam_roles`] roles and customer managed policies.
 
 use super::Format::{Mono, Text as Plain, Time};
-use super::iam_roles::{POLICIES, ROLES};
+use super::iam_blockers::{GROUP_BLOCKERS, USER_BLOCKERS};
+use super::iam_ops::{GROUP_OPS, USER_OPS};
+use super::iam_policies::POLICIES;
+use super::iam_roles::ROLES;
 use super::{
-    Create, Delete, Descriptor, Id, Input, InputKind, Kind, List, Step, Sub, Text, col, field,
-    input,
+    Create, Delete, Descriptor, Id, Input, InputKind, Kind, List, Shape, Step, Sub, Tags, Text,
+    Write, col, field, input, op,
 };
 
 pub(super) static IAM: Descriptor = Descriptor {
@@ -13,6 +16,9 @@ pub(super) static IAM: Descriptor = Descriptor {
     target: "iam",
     kinds: &[USERS, ROLES, POLICIES, GROUPS],
 };
+
+/// What a user call names: this user.
+const USER: &str = r#"{"UserName":"{id}"}"#;
 
 const ATTACHED: &[super::Column] = &[
     col("Policy", "PolicyName", Mono),
@@ -140,6 +146,20 @@ const USERS: Kind = Kind {
     }),
     reveal: None,
     deep: &[],
+    tags: Some(Tags::new(
+        Step::new("ListUserTags", USER),
+        "Tags",
+        Shape::KEY_VALUE,
+        Write::Delta {
+            add: op("TagUser", USER),
+            at: "Tags",
+            remove: op("UntagUser", USER),
+            keys: "TagKeys",
+        },
+    )),
+    blockers: USER_BLOCKERS,
+    ops: USER_OPS,
+    ..Kind::BARE
 };
 
 const GROUPS: Kind = Kind {
@@ -220,4 +240,7 @@ const GROUPS: Kind = Kind {
     }),
     reveal: None,
     deep: &[],
+    blockers: GROUP_BLOCKERS,
+    ops: GROUP_OPS,
+    ..Kind::BARE
 };

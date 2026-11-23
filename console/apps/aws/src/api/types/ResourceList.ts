@@ -2,6 +2,7 @@
 import type { ColumnSpec } from "./ColumnSpec";
 import type { CreateSpec } from "./CreateSpec";
 import type { DeleteSpec } from "./DeleteSpec";
+import type { ParamSpec } from "./ParamSpec";
 import type { ResourceRow } from "./ResourceRow";
 import type { SetAside } from "./SetAside";
 
@@ -36,4 +37,12 @@ all: boolean,
 /**
  * Why the console does not create one (a function needs its code), when it does not.
  */
-create_elsewhere: string | null, };
+create_elsewhere: string | null, 
+/**
+ * The filters and selectors of the list, with what each holds now.
+ */
+params: Array<ParamSpec>, 
+/**
+ * One line on what the list holds now, when the kind says one.
+ */
+sentence: string | null, };

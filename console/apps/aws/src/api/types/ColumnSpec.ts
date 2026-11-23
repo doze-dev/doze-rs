@@ -4,4 +4,8 @@ import type { ValueFormat } from "./ValueFormat";
 /**
  * A column of a list.
  */
-export type ColumnSpec = { title: string, format: ValueFormat, };
+export type ColumnSpec = { title: string, format: ValueFormat, 
+/**
+ * `state` when the cells are states, shown as badges; `null` otherwise.
+ */
+badge: string | null, };

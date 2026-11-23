@@ -49,7 +49,7 @@ async fn dead_letters(bus: &Bus) -> Result<Vec<Signal>, String> {
         .call("sqs", "ListQueues", &json!({"MaxResults": 1000}))
         .await
         .map_err(|e| e.message)?;
-    let mut queues: Vec<(String, String, u64, Option<String>)> = Vec::new();
+    let mut queues: Vec<Queue> = Vec::new();
     for url in at(&listed, "QueueUrls")
         .as_array()
         .into_iter()
@@ -83,8 +83,17 @@ async fn dead_letters(bus: &Bus) -> Result<Vec<Signal>, String> {
             target,
         ));
     }
+    Ok(dead_letter_signals(&queues))
+}
+
+/// What a queue is read as: its URL, its ARN, the messages it holds, the dead-letter queue its redrive policy names.
+type Queue = (String, String, u64, Option<String>);
+
+/// The signals of the queues that another queue names as its dead-letter queue and that hold messages. The page opens a queue by
+/// its NAME (the end of its URL): the console's API answers 400 to a URL.
+fn dead_letter_signals(queues: &[Queue]) -> Vec<Signal> {
     let targets: BTreeSet<&str> = queues.iter().filter_map(|q| q.3.as_deref()).collect();
-    Ok(queues
+    queues
         .iter()
         .filter(|(_, arn, held, _)| *held > 0 && targets.contains(arn.as_str()))
         .map(|(url, _, held, _)| Signal {
@@ -96,9 +105,9 @@ async fn dead_letters(bus: &Bus) -> Result<Vec<Signal>, String> {
             ),
             detail: last(url).to_owned(),
             href: None,
-            resource: link("sqs", "queues", url),
+            resource: link("sqs", "queues", last(url)),
         })
-        .collect())
+        .collect()
 }
 
 async fn alarms(bus: &Bus) -> Result<Vec<Signal>, String> {
@@ -157,7 +166,7 @@ async fn failed_executions(bus: &Bus) -> Result<Vec<Signal>, String> {
                     .unwrap_or_else(|| last(arn))
                     .to_owned(),
                 href: None,
-                resource: link("stepfunctions", "machines", arn),
+                resource: link("stepfunctions", "machines", last(arn)),
             });
         }
     }
@@ -189,6 +198,72 @@ async fn failed_stacks(bus: &Bus) -> Result<Vec<Signal>, String> {
         .collect())
 }
 
+/// The protocols SNS keeps a subscription of and delivers nothing to (no mail server, no phone network, no push service, no
+/// Data Firehose): what `crates/aws-sns/src/deliver.rs` does not deliver.
+const STORED_ONLY: &[&str] = &["email", "email-json", "sms", "application", "firehose"];
+
+/// Subscriptions a script made that doze-aws keeps and delivers nothing to.
+async fn stored_only(bus: &Bus) -> Result<Vec<Signal>, String> {
+    let got = bus
+        .call("sns", "ListSubscriptions", &json!({}))
+        .await
+        .map_err(|e| e.message)?;
+    let n = at(&got, "Subscriptions")
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter(|s| {
+            at(s, "Protocol")
+                .as_str()
+                .is_some_and(|p| STORED_ONLY.contains(&p))
+        })
+        .count() as u64;
+    Ok(if n == 0 {
+        Vec::new()
+    } else {
+        vec![Signal {
+            kind: SignalKind::NotActive,
+            count: n,
+            title: "Not active locally".to_owned(),
+            detail: format!("{} stored", plural(n, "subscription", "subscriptions")),
+            href: Some("/resources/sns/subscriptions".to_owned()),
+            resource: None,
+        }]
+    })
+}
+
+/// API Gateway custom domain names and VPC links: stored and listed, and nothing is routed through them locally.
+async fn stored_gateway(bus: &Bus) -> Result<Vec<Signal>, String> {
+    let mut parts = Vec::new();
+    let mut count = 0;
+    for (op, one, many) in [
+        ("GetDomainNames", "domain name", "domain names"),
+        ("GetVpcLinks", "VPC link", "VPC links"),
+    ] {
+        let got = bus
+            .call("apigateway", op, &json!({}))
+            .await
+            .map_err(|e| e.message)?;
+        let n = at(&got, "item").as_array().map_or(0, Vec::len) as u64;
+        if n > 0 {
+            count += n;
+            parts.push(plural(n, one, many));
+        }
+    }
+    Ok(if count == 0 {
+        Vec::new()
+    } else {
+        vec![Signal {
+            kind: SignalKind::NotActive,
+            count,
+            title: "Not active locally".to_owned(),
+            detail: format!("{} stored", parts.join(" and ")),
+            href: Some("/resources/apigateway".to_owned()),
+            resource: None,
+        }]
+    })
+}
+
 /// `GET /api/v1/home/checks`.
 pub async fn checks(State(s): State<Shared>) -> Response {
     let calls = s.recorder.newest(ALL).calls;
@@ -208,12 +283,21 @@ pub async fn checks(State(s): State<Shared>) -> Response {
         );
         return json(StatusCode::OK, &out);
     };
-    for service in ["sqs", "cloudwatch", "stepfunctions", "cloudformation"] {
+    for service in [
+        "sqs",
+        "sns",
+        "apigateway",
+        "cloudwatch",
+        "stepfunctions",
+        "cloudformation",
+    ] {
         if !called.contains(service) || !crate::resources::view::served(&s.facts, service) {
             continue;
         }
         let found = match service {
             "sqs" => dead_letters(&bus).await,
+            "sns" => stored_only(&bus).await,
+            "apigateway" => stored_gateway(&bus).await,
             "cloudwatch" => alarms(&bus).await,
             "stepfunctions" => failed_executions(&bus).await,
             _ => failed_stacks(&bus).await,
@@ -229,7 +313,7 @@ pub async fn checks(State(s): State<Shared>) -> Response {
 
 #[cfg(test)]
 mod tests {
-    use super::last;
+    use super::{Queue, dead_letter_signals, last};
 
     #[test]
     fn a_name_is_the_end_of_its_arn_or_url() {
@@ -239,5 +323,32 @@ mod tests {
         );
         assert_eq!(last("arn:aws:states:us-east-1:1:stateMachine:flow"), "flow");
         assert_eq!(last("plain"), "plain");
+    }
+
+    #[test]
+    fn a_dead_letter_signal_opens_the_queue_by_its_name_not_its_url() {
+        let url = "http://127.0.0.1:4566/000000000000/jobs-dlq";
+        let arn = "arn:aws:sqs:us-east-1:000000000000:jobs-dlq";
+        let queues: Vec<Queue> = vec![
+            (url.to_owned(), arn.to_owned(), 1, None),
+            (
+                "http://127.0.0.1:4566/000000000000/jobs".to_owned(),
+                "arn:aws:sqs:us-east-1:000000000000:jobs".to_owned(),
+                0,
+                Some(arn.to_owned()),
+            ),
+        ];
+        let signals = dead_letter_signals(&queues);
+        assert_eq!(signals.len(), 1);
+        let link = signals[0].resource.as_ref().expect("a signal opens a page");
+        assert_eq!(
+            (
+                link.service.as_str(),
+                link.kind.as_str(),
+                link.name.as_str()
+            ),
+            ("sqs", "queues", "jobs-dlq")
+        );
+        assert_eq!(signals[0].detail, "jobs-dlq");
     }
 }

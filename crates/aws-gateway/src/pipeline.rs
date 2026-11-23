@@ -313,15 +313,16 @@ async fn handle(
     }
     let bytes = inflate(parts, bytes, shared.max_body_bytes()).map_err(|e| fail(&e))?;
     let caller = caller_of(shared, parts, claim);
-    let call = decode_call(entry, op, id, caller, bytes).map_err(|e| fail(&e))?;
-    crate::observe::input(parts, entry, &call);
-    answer(entry, (op, version), call)
+    let call =
+        crate::observe::decode(parts, entry, (op, id), caller, bytes).map_err(|e| fail(&e))?;
+    answer(parts, entry, (op, version), call)
         .await
         .map_err(|e| fail(&e))
 }
 
 /// The service's answer to a decoded JSON-protocol call: whole, or (an operation whose output is an event stream) streamed.
 async fn answer(
+    parts: &Parts,
     entry: &Entry,
     (op, version): (u32, json::Version),
     call: Call,
@@ -332,6 +333,7 @@ async fn answer(
         return Ok(streamed(&id, stream));
     }
     let output = entry.service.call(call).await?;
+    crate::observe::output(parts, entry, &output);
     let encoded = encode_output(entry, op, &output.arena, output.root)?;
     Ok(json::success(version, &id, encoded).map(RespBody::whole))
 }

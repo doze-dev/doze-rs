@@ -7,9 +7,13 @@ use super::Format;
 /// The value at `path` (`Attributes.RedrivePolicy.deadLetterTargetArn`, `Table.KeySchema.0.AttributeName`): members by name,
 /// list items by number. A text met on the way that holds a JSON object or list is read as one (SQS keeps its redrive policy as
 /// a JSON text). The empty path is `value` itself. In a list, `@member` is the item whose `member` is the resource's name
-/// (`$name` of `value`): the log group of that name among those a prefix found.
+/// (`$name` of `value`): the log group of that name among those a prefix found. `a|b` is the first of the two that has a value
+/// (an alarm is a metric alarm or a composite one).
 #[must_use]
 pub fn get(value: &Value, path: &str) -> Option<Value> {
+    if path.contains('|') {
+        return path.split('|').find_map(|p| get(value, p));
+    }
     let mut at = value.clone();
     for step in path.split('.').filter(|s| !s.is_empty()) {
         if let Value::String(text) = &at
@@ -32,6 +36,21 @@ pub fn get(value: &Value, path: &str) -> Option<Value> {
         };
     }
     Some(at)
+}
+
+/// `value` set at the dotted `at` of `input`, the objects on the way made (`Delete.Objects`).
+pub fn put_at(input: &mut Map<String, Value>, at: &str, value: Value) {
+    match at.split_once('.') {
+        None => drop(input.insert(at.to_owned(), value)),
+        Some((head, rest)) => {
+            let inner = input
+                .entry(head.to_owned())
+                .or_insert_with(|| Value::Object(Map::new()));
+            if let Value::Object(m) = inner {
+                put_at(m, rest, value);
+            }
+        }
+    }
 }
 
 /// The value at `path` as text: a text as it is, a number or a true/false written out, nothing for an absent or null value,
@@ -196,7 +215,7 @@ pub fn shown(value: &Value, path: &str, format: Format) -> Option<String> {
                 Value::Array(a) if a.is_empty() => None,
                 Value::Object(m) if m.is_empty() => None,
                 Value::String(s) => Some(s),
-                other => serde_json::to_string_pretty(&other).ok(),
+                other => Some(super::pretty::pretty(&other)),
             }
         }
         _ => text(value, path).filter(|t| !t.is_empty()),

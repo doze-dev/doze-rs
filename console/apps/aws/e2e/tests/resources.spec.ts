@@ -3,36 +3,13 @@
 // value is shown only on Reveal, Live's link to a resource lands on its page, and under `--iam enforce` the console still works.
 import type { Page } from "@playwright/test";
 import { start } from "../server";
-import { calls, CONSOLE, ENDPOINT, expect, open, test, unique } from "./fixtures";
+import { calls, CONSOLE, ENDPOINT, expect, expectNoErrorAnswers, open, test, unique } from "./fixtures";
 
 const proof = { "X-Console": "1" };
 
 /** The console's calls of `action` in the Live record. */
 async function consoleCalls(page: Page, action: string, consoleUrl = CONSOLE) {
   return (await calls(page, consoleUrl)).calls.filter((c) => c.caller === "console" && c.action === action);
-}
-
-/** Creates one through the list page's dialog; lands on its page. */
-async function create(page: Page, path: string, title: string, fields: Record<string, string>) {
-  await open(page, path, title);
-  await page.getByTestId("create-open").click();
-  const dialog = page.getByTestId("create-dialog");
-  await expect(dialog).toBeVisible();
-  for (const [key, value] of Object.entries(fields)) await dialog.getByTestId(`field-${key}`).fill(value);
-  await dialog.getByTestId("create-submit").click();
-  await expect(dialog).toHaveCount(0);
-}
-
-/** Deletes the resource whose page is open; lands on its list. */
-async function remove(page: Page, name: string) {
-  await page.getByTestId("delete-open").click();
-  const dialog = page.getByTestId("delete-dialog");
-  await expect(dialog).toBeVisible();
-  await expect(dialog).toContainText(name);
-  await expect(dialog.getByTestId("delete-submit")).toBeDisabled();
-  await dialog.getByTestId("confirm-delete").fill("delete");
-  await dialog.getByTestId("delete-submit").click();
-  await expect(dialog).toHaveCount(0);
 }
 
 test("the index groups the services and counts what each holds", async ({ page, cli, browserName }) => {
@@ -51,9 +28,18 @@ test("the index groups the services and counts what each holds", async ({ page, 
   await expect(page.getByTestId("row-link").filter({ hasText: q })).toBeVisible();
 });
 
-test("a queue is created in a dialog, listed, opened, and deleted, each call in Live as the console", async ({ page, browserName }) => {
+/** Creates a queue on its own page (Create queue); lands on its page. */
+async function createQueue(page: Page, name: string, consoleUrl = "") {
+  await page.goto(`${consoleUrl}/resources/sqs/queues`);
+  await expect(page.locator("h1")).toHaveText("Queues");
+  await page.getByTestId("create-open").click();
+  await page.getByTestId("queue-name").fill(name);
+  await page.getByTestId("form-submit").click();
+}
+
+test("a queue is created on its page, listed, opened, and deleted, each call in Live as the console", async ({ page, browserName, refusals }) => {
   const q = unique("orders", browserName);
-  await create(page, "/resources/sqs/queues", "Queues", { QueueName: q });
+  await createQueue(page, q);
   await expect(page.locator("h1")).toHaveText(q);
   await expect(page.getByTestId("field-Type")).toHaveText("Standard");
   await expect(page.getByTestId("field-Visibility timeout")).toHaveText("30 seconds");
@@ -67,60 +53,80 @@ test("a queue is created in a dialog, listed, opened, and deleted, each call in 
   // Listed, and found by the search.
   await open(page, "/resources/sqs/queues", "Queues");
   await page.getByTestId("list-search").fill(q);
+  await page.getByTestId("list-search-go").click();
   await expect(page.getByTestId("row-link")).toHaveText([q]);
   await page.getByTestId("row-link").click();
   await expect(page.locator("h1")).toHaveText(q);
-  await remove(page, q);
+  await page.getByTestId("verb-delete").click();
+  await page.getByTestId("delete-dialog-input").fill("delete");
+  await page.getByTestId("delete-dialog-submit").click();
   await expect(page.locator("h1")).toHaveText("Queues");
+  await expectNoErrorAnswers(page, refusals);
+  await expect(page.getByTestId("deleted-banner")).toContainText(`Queue ${q} deleted.`);
   await expect(page.getByTestId("row-link").filter({ hasText: q })).toHaveCount(0);
   expect((await consoleCalls(page, "DeleteQueue")).length).toBeGreaterThan(0);
 });
 
-test.describe("a refusal", () => {
-  // The refused create is a 400 the browser logs.
-  test.use({ allowErrors: /status of 400|400 \(Bad Request\)/ });
-
-test("a table and a bucket are created and deleted the same way; a refusal is shown in the dialog", async ({ page, browserName }) => {
+test("a table is created and deleted; a refusal is shown on the page", async ({ page, browserName, refusals }) => {
+  // The name that is taken is DynamoDB's refusal, shown on the form.
+  refusals.allow(/400 POST .*\/dynamodb\/tables\/op\/CreateTable$/);
   const t = unique("events", browserName);
-  await create(page, "/resources/dynamodb/tables", "Tables", { TableName: t, PartitionKey: "pk" });
-  await expect(page.locator("h1")).toHaveText(t);
-  await expect(page.getByTestId("field-Partition key")).toHaveText("pk");
-  // The same name again: DynamoDB's own refusal, in the dialog, which stays open with what was typed.
-  await open(page, "/resources/dynamodb/tables", "Tables");
+  await open(page, "/resources/dynamodb/tables?do=create", "Create table");
+  await page.getByTestId("table-name").fill(t);
+  await page.getByTestId("table-pk").fill("pk");
+  await page.getByTestId("form-submit").click();
+  await expect(page.getByTestId("created-banner")).toContainText(`${t} was created and is Active.`);
+  // The same name again: DynamoDB's own refusal, on the page, which keeps what was typed.
   await page.getByTestId("create-open").click();
-  await page.getByTestId("field-TableName").fill(t);
-  await page.getByTestId("field-PartitionKey").fill("pk");
-  await page.getByTestId("create-submit").click();
-  await expect(page.getByTestId("create-error")).toContainText("ResourceInUseException");
-  await expect(page.getByTestId("field-TableName")).toHaveValue(t);
-  await page.keyboard.press("Escape");
-  await expect(page.getByTestId("create-dialog")).toHaveCount(0);
-  await page.getByTestId("row-link").filter({ hasText: t }).click();
-  await remove(page, t);
+  await page.getByTestId("table-name").fill(t);
+  await page.getByTestId("table-pk").fill("pk");
+  await page.getByTestId("form-submit").click();
+  await expect(page.getByTestId("create-refused")).toContainText("ResourceInUseException");
+  await expect(page.getByTestId("table-name")).toHaveValue(t);
+  await page.getByTestId("form-cancel").click();
+  await expect(page.locator("h1")).toHaveText("Tables");
+  await page.getByTestId(`select-${t}`).click();
+  await page.getByTestId("table-delete").click();
+  await page.getByTestId("delete-dialog-submit").click();
+  await expect(page.getByTestId("deleted-banner")).toContainText(`${t}`);
+  await expectNoErrorAnswers(page, refusals);
   await expect(page.getByTestId("row-link").filter({ hasText: t })).toHaveCount(0);
 
-  const b = unique("photos", browserName).toLowerCase();
-  await create(page, "/resources/s3/buckets", "Buckets", { Bucket: b });
-  await expect(page.locator("h1")).toHaveText(b);
-  await expect(page.getByTestId("sub-Objects")).toContainText("ListObjectsV2");
-  await remove(page, b);
-  await expect(page.getByTestId("row-link").filter({ hasText: b })).toHaveCount(0);
-});
+  // (A bucket's own pages, its create and its delete, are s3-boards.spec.ts.)
 });
 
-test("a secret's value is hidden until Reveal, which is one GetSecretValue in Live", async ({ page, browserName }) => {
+test("a secret's value is hidden until Retrieve secret value, which is one GetSecretValue in Live", async ({ page, cli, browserName }) => {
   const name = `larder/${unique("stripe", browserName)}`;
-  await create(page, "/resources/secretsmanager/secrets", "Secrets", { Name: name, SecretString: "sk_test_e2e" });
-  await expect(page.locator("h1")).toHaveText(name);
-  await expect(page.getByTestId("detail")).not.toContainText("sk_test_e2e");
+  expect(cli(["secretsmanager", "create-secret", "--name", name, "--secret-string", "sk_test_e2e"]).code).toBe(0);
+  await open(page, `/resources/secretsmanager/secrets/${encodeURIComponent(name)}`, name);
+  await expect(page.getByTestId("secret-value")).not.toContainText("sk_test_e2e");
   const before = (await consoleCalls(page, "GetSecretValue")).length;
-  await page.getByTestId("reveal-value").click();
-  await expect(page.getByTestId("revealed-value")).toHaveText("sk_test_e2e");
+  await page.getByTestId("value-retrieve").click();
+  await expect(page.getByTestId("secret-value")).toContainText("sk_test_e2e");
   expect((await consoleCalls(page, "GetSecretValue")).length).toBe(before + 1);
-  await page.getByTestId("hide-value").click();
-  await expect(page.getByTestId("revealed-value")).toHaveCount(0);
-  await remove(page, name);
-  await expect(page.locator("h1")).toHaveText("Secrets");
+  await page.getByTestId("value-hide").click();
+  await expect(page.getByTestId("secret-value")).not.toContainText("sk_test_e2e");
+  expect(cli(["secretsmanager", "delete-secret", "--secret-id", name, "--force-delete-without-recovery"]).code).toBe(0);
+});
+
+test("a secret marked for deletion is listed only on asking, cannot be retrieved, and its deletion can be cancelled", async ({ page, cli, browserName }) => {
+  const name = `larder/${unique("marked", browserName)}`;
+  expect(cli(["secretsmanager", "create-secret", "--name", name, "--secret-string", "sk_marked"]).code).toBe(0);
+  // A live secret too: a list with nothing but a scheduled one says "No secrets", as the board does.
+  expect(cli(["secretsmanager", "create-secret", "--name", `larder/${unique("live", browserName)}`, "--secret-string", "x"]).code).toBe(0);
+  expect(cli(["secretsmanager", "delete-secret", "--secret-id", name, "--recovery-window-in-days", "7"]).code).toBe(0);
+  await open(page, "/resources/secretsmanager/secrets", "Secrets");
+  await expect(page.getByTestId("row-link").filter({ hasText: name })).toHaveCount(0);
+  await page.getByTestId("preferences").click();
+  await page.getByTestId("show-deleted").click();
+  await expect(page.getByTestId("row-link").filter({ hasText: name })).toHaveCount(1);
+  await open(page, `/resources/secretsmanager/secrets/${encodeURIComponent(name)}`, name);
+  await expect(page.getByTestId("secret-scheduled")).toContainText("Scheduled for deletion");
+  await expect(page.getByTestId("value-retrieve")).toHaveCount(0);
+  await expect(page.getByTestId("value-scheduled")).toContainText("You can't retrieve the value");
+  await page.getByTestId("cancel-deletion").click();
+  await expect(page.getByTestId("secret-scheduled")).toHaveCount(0);
+  await expect(page.getByTestId("value-retrieve")).toBeVisible();
 });
 
 test("Live's link to what a call acted on opens its page in Resources", async ({ page, cli, browserName }) => {
@@ -140,7 +146,7 @@ test("the palette jumps to a resource by name", async ({ page, cli, browserName 
   await open(page, "/", "Home");
   await page.keyboard.press("ControlOrMeta+k");
   await page.keyboard.type(q);
-  await expect(page.getByRole("option", { name: new RegExp(q) })).toBeVisible();
+  await expect(page.getByRole("option", { name: q, exact: true })).toBeVisible();
   await page.keyboard.press("Enter");
   await expect(page.locator("h1")).toHaveText(q);
 });
@@ -149,11 +155,7 @@ test("under --iam enforce the console is allowed: it calls as the account root",
   const server = await start(Number(process.env.DOZE_AWS_E2E_PORT ?? 20002) + 2, Number(process.env.DOZE_AWS_E2E_CONSOLE_PORT ?? 20003) + 2, { args: ["--iam", "enforce"] });
   try {
     const q = unique("enforced", browserName);
-    await page.goto(`${server.console}/resources/sqs/queues`);
-    await expect(page.locator("h1")).toHaveText("Queues");
-    await page.getByTestId("create-open").click();
-    await page.getByTestId("field-QueueName").fill(q);
-    await page.getByTestId("create-submit").click();
+    await createQueue(page, q, server.console);
     await expect(page.locator("h1")).toHaveText(q);
     const made = (await consoleCalls(page, "CreateQueue", server.console)).pop();
     expect(made?.outcome).toBe("ok");

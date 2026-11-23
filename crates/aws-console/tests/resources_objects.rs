@@ -42,6 +42,19 @@ fn upload(key: &str, kind: &str, bytes: Vec<u8>) -> Request<Body> {
         .unwrap()
 }
 
+/// `text` with every character but the unreserved ones percent-encoded (a JSON text in a query).
+fn every(text: &str) -> String {
+    text.bytes()
+        .map(|b| {
+            if b.is_ascii_alphanumeric() || b"-_.~".contains(&b) {
+                char::from(b).to_string()
+            } else {
+                format!("%{b:02X}")
+            }
+        })
+        .collect()
+}
+
 /// 2 MiB of bytes that are not all alike.
 fn big() -> Vec<u8> {
     (0..(2 << 20))
@@ -171,4 +184,133 @@ async fn an_upload_over_the_cap_and_a_missing_object_are_refused() {
         .get("/api/v1/resources/sqs/queues/orders/object?key=x")
         .await;
     assert_eq!(status, 404);
+}
+
+#[tokio::test]
+async fn an_upload_sets_the_properties_the_board_offers_and_no_others() {
+    let w = bucket("deep-s3-props").await;
+    let props = json!({"Metadata": {"source": "catalog"}, "Tagging": "sku=FV-TOM-V&team=a",
+        "ServerSideEncryption": "aws:kms", "CacheControl": "max-age=60", "StorageClass": "STANDARD_IA"});
+    let mut req = upload("catalog/with-props.txt", "text/plain", b"abc".to_vec());
+    let uri = format!("{}&props={}", req.uri(), every(&props.to_string()));
+    *req.uri_mut() = uri.parse().unwrap();
+    let (res, text) = raw(&w.app, req).await;
+    assert_eq!(res.status(), 201, "{text}");
+    let head = ok(
+        &w,
+        BASE,
+        "HeadObject",
+        &json!({"Key": "catalog/with-props.txt"}),
+    )
+    .await;
+    assert_eq!(head["Metadata"]["source"], "catalog");
+    assert_eq!(head["ServerSideEncryption"], "aws:kms");
+    assert_eq!(head["CacheControl"], "max-age=60");
+    assert_eq!(head["StorageClass"], "STANDARD_IA");
+    let tags = ok(
+        &w,
+        BASE,
+        "GetObjectTagging",
+        &json!({"Key": "catalog/with-props.txt"}),
+    )
+    .await;
+    assert_eq!(tags["TagSet"].as_array().unwrap().len(), 2);
+    // A member an upload does not set is refused, not passed to S3: not another bucket, not an ACL.
+    for bad in [
+        json!({"Bucket": "other"}),
+        json!({"ACL": "public-read"}),
+        json!([1]),
+    ] {
+        let mut req = upload("x.txt", "text/plain", b"abc".to_vec());
+        let uri = format!("{}&props={}", req.uri(), every(&bad.to_string()));
+        *req.uri_mut() = uri.parse().unwrap();
+        let (res, text) = raw(&w.app, req).await;
+        assert_eq!(res.status(), 400, "{bad}: {text}");
+    }
+}
+
+#[tokio::test]
+async fn a_presigned_link_is_made_to_an_object_that_is_there_and_for_at_most_twelve_hours() {
+    let w = bucket("deep-s3-presign").await;
+    let (status, link) = w
+        .send(
+            "POST",
+            &format!("{BASE}/presign"),
+            &json!({"key": "banners/hero.bin", "expires": 3600}),
+        )
+        .await;
+    assert_eq!(status, 200, "{link}");
+    let url = link["url"].as_str().unwrap();
+    assert!(
+        url.contains("/product-images/banners/hero.bin?X-Amz-Algorithm=AWS4-HMAC-SHA256"),
+        "{url}"
+    );
+    assert!(url.contains("X-Amz-Expires=3600") && url.contains("X-Amz-Signature="));
+    assert_eq!(link["expires_in"], 3600);
+    assert_eq!(link["verified"], false);
+    // An object that is not there, a lifetime out of range, and another service's page are each refused.
+    let (status, gone) = w
+        .send("POST", &format!("{BASE}/presign"), &json!({"key": "nope"}))
+        .await;
+    assert_eq!(
+        (status, gone["code"].as_str()),
+        (404, Some("NoSuchKey")),
+        "{gone}"
+    );
+    for expires in [0, 12 * 3600 + 1] {
+        let (status, _) = w
+            .send(
+                "POST",
+                &format!("{BASE}/presign"),
+                &json!({"key": "readme.txt", "expires": expires}),
+            )
+            .await;
+        assert_eq!(status, 400, "{expires}");
+    }
+    let (status, _) = w
+        .send(
+            "POST",
+            "/api/v1/resources/sqs/queues/orders/presign",
+            &json!({"key": "x"}),
+        )
+        .await;
+    assert_eq!(status, 404);
+}
+
+#[tokio::test]
+async fn one_version_of_an_object_is_downloaded_by_its_id() {
+    let w = bucket("deep-s3-version").await;
+    ok(
+        &w,
+        "/api/v1/resources/s3/buckets/product-images",
+        "ListObjectVersions",
+        &json!({}),
+    )
+    .await;
+    w.app(
+        "s3",
+        "PutBucketVersioning",
+        &json!({"Bucket": "product-images", "VersioningConfiguration": {"Status": "Enabled"}}),
+    )
+    .await;
+    let (res, text) = raw(&w.app, upload("v.txt", "text/plain", b"one".to_vec())).await;
+    assert_eq!(res.status(), 201, "{text}");
+    let first: Value = serde_json::from_str(&text).unwrap();
+    let id = first["version_id"].as_str().unwrap().to_owned();
+    raw(&w.app, upload("v.txt", "text/plain", b"two".to_vec())).await;
+    let get = |q: String| support::get(&format!("{BASE}/object?key=v.txt{q}"));
+    for (query, want) in [(String::new(), "two"), (format!("&versionId={id}"), "one")] {
+        let (parts, body) = w
+            .app
+            .clone()
+            .oneshot(get(query))
+            .await
+            .unwrap()
+            .into_parts();
+        assert_eq!(parts.status, 200);
+        assert_eq!(
+            body.collect().await.unwrap().to_bytes().as_ref(),
+            want.as_bytes()
+        );
+    }
 }

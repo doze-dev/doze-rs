@@ -153,6 +153,7 @@ async fn answer(
         decode_call(entry, op, id, caller(shared, parts, claim), form).map_err(|e| fail(&e))?;
     crate::observe::input(parts, entry, &call);
     let output = entry.service.call(call).await.map_err(|e| fail(&e))?;
+    crate::observe::output(parts, entry, &output);
     let json = output_json(entry, op, &output.arena, output.root).map_err(|e| fail(&e))?;
     Ok(query::success(meta, tables, op, &json, id))
 }

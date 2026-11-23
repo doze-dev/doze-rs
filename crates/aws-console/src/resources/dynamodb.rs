@@ -1,16 +1,17 @@
 //! DynamoDB: tables.
 
-use super::Format::{Bytes, Flag, Mono, Number, Text as Plain, Time};
+use super::Format::{Bytes, Flag, Json, Mono, Number, Text as Plain, Time};
+use super::dynamodb_ops::TABS;
 use super::{
-    Create, Deep, Delete, Descriptor, Id, Input, InputKind, Kind, List, Step, Text, col, field,
-    input, op,
+    Create, Delete, Descriptor, Id, Input, InputKind, Kind, List, Shape, Step, Tags, Text, Write,
+    col, field, input, op, ops, says, state,
 };
 
 const DESCRIBE: Step = Step::new("DescribeTable", r#"{"TableName":"{id}"}"#);
 const TYPES: &[&str] = &["S", "N", "B"];
 
-/// What every item call names: this table.
-const TABLE: &str = r#"{"TableName":"{id}"}"#;
+/// What a tag call names: this table, by its ARN.
+const ARN: &str = r#"{"ResourceArn":"arn:aws:dynamodb:{region}:{account}:table/{id}"}"#;
 
 pub(super) static DYNAMODB: Descriptor = Descriptor {
     service: "dynamodb",
@@ -37,12 +38,31 @@ pub(super) static DYNAMODB: Descriptor = Descriptor {
         elsewhere: "",
         each: &[DESCRIBE],
         columns: &[
-            col("Status", "Table.TableStatus", Plain),
+            state("Status", "Table.TableStatus", Plain),
             col("Partition key", "Table.KeySchema.0.AttributeName", Mono),
             col("Sort key", "Table.KeySchema.1.AttributeName", Mono),
             col("Items", "Table.ItemCount", Number),
             col("Size", "Table.TableSizeBytes", Bytes),
             col("Created", "Table.CreationDateTime", Time),
+            // Read by the page: the key types, the indexes and the capacity are more than a word each.
+            col("Attributes", "Table.AttributeDefinitions", Json),
+            col("Global indexes", "Table.GlobalSecondaryIndexes", Json),
+            col("Local indexes", "Table.LocalSecondaryIndexes", Json),
+            col(
+                "Capacity mode",
+                "Table.BillingModeSummary.BillingMode",
+                Plain,
+            ),
+            col(
+                "Read units",
+                "Table.ProvisionedThroughput.ReadCapacityUnits",
+                Number,
+            ),
+            col(
+                "Write units",
+                "Table.ProvisionedThroughput.WriteCapacityUnits",
+                Number,
+            ),
         ],
         id_of: Id::Name,
         detail: &[
@@ -164,18 +184,21 @@ pub(super) static DYNAMODB: Descriptor = Descriptor {
             words: "Deleting removes the table and every item in it. Its stream, if it has one, stops.",
         }),
         reveal: None,
-        deep: &[Deep {
-            id: "items",
-            title: "Items",
-            ops: &[
-                // The key schema and the indexes the page queries by.
-                op("DescribeTable", TABLE),
-                op("Scan", TABLE),
-                op("Query", TABLE),
-                op("GetItem", TABLE),
-                op("PutItem", TABLE),
-                op("DeleteItem", TABLE),
-            ],
-        }],
+        deep: TABS,
+        // CreateTable with the form's settings and tags; ExecuteStatement is the PartiQL editor, whose statements name their table.
+        ops: &[ops::free("CreateTable"), ops::free("ExecuteStatement")],
+        page: says::dynamodb::TABLE,
+        tags: Some(Tags::new(
+            Step::new("ListTagsOfResource", ARN),
+            "Tags",
+            Shape::KEY_VALUE,
+            Write::Delta {
+                add: op("TagResource", ARN),
+                at: "Tags",
+                remove: op("UntagResource", ARN),
+                keys: "TagKeys",
+            },
+        )),
+        ..Kind::BARE
     }],
 };
