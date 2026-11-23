@@ -172,9 +172,20 @@ async fn on_an_acl_broker_a_principal_that_may_describe_but_not_read_is_refused_
         text.contains("The broker refused the read: TOPIC_AUTHORIZATION_FAILED (29)."),
         "refused in Kafka's words: {text:.2000}"
     );
+    assert_eq!(
+        msgs["view"]["notes"],
+        serde_json::json!([
+            "The broker refused the read: TOPIC_AUTHORIZATION_FAILED (29). The console's principal may describe this topic but not read it."
+        ]),
+        "the refusal is the page's note: {text:.2000}"
+    );
     assert!(
         msgs["view"]["rows"].as_array().is_none_or(Vec::is_empty),
         "no record: {text:.2000}"
+    );
+    assert_eq!(
+        msgs["view"]["reach"]["reached_end"], false,
+        "a refused read reached nothing: {text:.2000}"
     );
     let (_, hidden) = get(&viewer, "/api/v1/topics/gz.events").await;
     let (_, never) = get(&viewer, "/api/v1/topics/never.made").await;
