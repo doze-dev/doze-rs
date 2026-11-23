@@ -77,6 +77,14 @@ pub(crate) const KEYS: &[Key] = &[
         SERVER,
     ),
     key(
+        "advertise",
+        Kind::Text,
+        "",
+        "URL",
+        "The address to tell clients to use (the console, `doze-aws env` and `doctor`), when it is not the one this server listens on: set by doze, whose address stands in front of it",
+        SERVER,
+    ),
+    key(
         "console-allow-host",
         Kind::List,
         "",

@@ -215,7 +215,7 @@ fn facts(cfg: &Config, me: &Instance, on: &[&'static Svc], apis: &Apis) -> Facts
         version: me.version.clone(),
         account: me.account.clone(),
         region: me.region.clone(),
-        endpoint: me.endpoint.clone(),
+        endpoint: me.public_endpoint().to_owned(),
         auth: me.auth.clone(),
         iam: cfg.text("iam"),
         data_dir: me.data_dir.clone(),

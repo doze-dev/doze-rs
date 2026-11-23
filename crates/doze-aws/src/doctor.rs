@@ -94,7 +94,7 @@ fn running_check(running: Option<&Instance>) -> Check {
     let detail = format!(
         "pid {} at {}, {} services in {}",
         i.pid,
-        i.endpoint,
+        i.public_endpoint(),
         i.services.len(),
         i.region
     );
@@ -253,13 +253,16 @@ pub(crate) fn shell_checks(env: &[(String, String)], running: Option<&Instance>)
             "AWS_ENDPOINT_URL is not set: SDKs in this shell call real AWS".into(),
             fix.clone(),
         )),
-        (Some(url), Some(i)) if url.trim_end_matches('/') != i.endpoint => {
+        (Some(url), Some(i))
+            if url.trim_end_matches('/') != i.endpoint
+                && url.trim_end_matches('/') != i.public_endpoint() =>
+        {
             out.push(check(
                 Verdict::Warn,
                 "shell",
                 format!(
                     "AWS_ENDPOINT_URL is {url}, not this doze-aws ({})",
-                    i.endpoint
+                    i.public_endpoint()
                 ),
                 fix.clone(),
             ));

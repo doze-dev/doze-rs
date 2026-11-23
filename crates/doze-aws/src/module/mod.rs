@@ -191,6 +191,13 @@ pub(crate) fn server_args(instance: &Instance, region: &str) -> Result<Vec<Strin
         "--region".into(),
         region.into(),
     ];
+    // Clients reach doze-aws at the address doze put in front of it (the one `doze env` gives, a name when names are on), never
+    // at the private backend it listens on, which doze picks again at every start: the console and `doctor` say that one.
+    if let Some(main) = instance.listeners.get(doze_module::proto::network::MAIN)
+        && !main.addr.is_empty()
+    {
+        args.extend(["--advertise".into(), format!("http://{}", main.addr)]);
+    }
     match tcp_backend(instance, CONSOLE)? {
         Some(addr) => {
             args.extend(["--console".into(), addr]);

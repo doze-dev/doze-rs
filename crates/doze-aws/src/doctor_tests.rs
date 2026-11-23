@@ -43,3 +43,25 @@ fn the_shell_trap_is_found_and_the_fix_named() {
     );
     assert!(good.iter().all(|c| c.verdict == Verdict::Ok), "{good:?}");
 }
+
+#[test]
+fn under_doze_the_address_clients_use_is_the_advertised_one_not_the_backend() {
+    let i = Instance {
+        endpoint: "http://127.0.0.1:27538".into(),
+        advertised: "http://127.0.0.1:24566".into(),
+        region: "us-east-1".into(),
+        ..Instance::default()
+    };
+    assert_eq!(i.public_endpoint(), "http://127.0.0.1:24566");
+    let fine = shell_checks(
+        &env(&[("AWS_ENDPOINT_URL", "http://127.0.0.1:24566")]),
+        Some(&i),
+    );
+    assert_eq!(fine[0].verdict, Verdict::Ok, "{fine:?}");
+    let backend = shell_checks(
+        &env(&[("AWS_ENDPOINT_URL", "http://127.0.0.1:9999")]),
+        Some(&i),
+    );
+    assert!(backend[0].detail.contains("24566"), "{backend:?}");
+    assert!(!backend[0].detail.contains("27538"), "{backend:?}");
+}
