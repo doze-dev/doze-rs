@@ -164,7 +164,10 @@ async fn a_form_says_what_it_misses_a_check_says_after_and_a_save_says_before_an
         json!([["cleanup.policy", "delete", "delete,compact"]]),
         "{v}"
     );
-    assert_eq!(w.config("d", "cleanup.policy").await.as_deref(), Some("delete"));
+    assert_eq!(
+        w.config("d", "cleanup.policy").await.as_deref(),
+        Some("delete")
+    );
     let (_, v) = post(
         &app,
         edit,
@@ -238,12 +241,7 @@ async fn a_refusal_offers_what_the_broker_takes_and_says_the_other_samples() {
     assert_eq!(others_of(&v), all, "{v}");
 
     // A sample's own value is not said again; the other value of the same key is.
-    let (_, v) = post(
-        &app,
-        edit,
-        &[("key", "segment.bytes"), ("value", "512")],
-    )
-    .await;
+    let (_, v) = post(&app, edit, &[("key", "segment.bytes"), ("value", "512")]).await;
     assert_eq!(v["outcome"], "refused", "{v}");
     assert_eq!(
         others_of(&v),

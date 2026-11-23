@@ -40,7 +40,12 @@ fn shown(v: &Value) -> Vec<(i64, i64)> {
         .as_array()
         .unwrap_or_else(|| panic!("{v}"))
         .iter()
-        .map(|r| (r["partition"].as_i64().unwrap(), r["offset"].as_i64().unwrap()))
+        .map(|r| {
+            (
+                r["partition"].as_i64().unwrap(),
+                r["offset"].as_i64().unwrap(),
+            )
+        })
         .collect()
 }
 
@@ -301,7 +306,14 @@ async fn transactions_stand_where_a_consumer_would_and_the_head_says_who_holds_w
         .as_array()
         .unwrap()
         .iter()
-        .map(|h| json!([h["partition"], h["high_watermark"], h["last_stable"], h["txn"]]))
+        .map(|h| {
+            json!([
+                h["partition"],
+                h["high_watermark"],
+                h["last_stable"],
+                h["txn"]
+            ])
+        })
         .collect();
     assert_eq!(
         holds,
@@ -313,7 +325,11 @@ async fn transactions_stand_where_a_consumer_would_and_the_head_says_who_holds_w
     );
     assert_eq!(reach(&v)["reached_end"], true);
     assert_eq!(reach(&v)["more"], false, "{v}");
-    assert_eq!(reach(&v)["above_lso"], 3, "the open transaction's three: {v}");
+    assert_eq!(
+        reach(&v)["above_lso"],
+        3,
+        "the open transaction's three: {v}"
+    );
     let v = ok(&app, "/api/v1/topics/t2/messages?isolation=read_committed").await;
     assert_eq!(shown(&v).len(), 2, "{v}");
     assert_eq!(
@@ -342,7 +358,11 @@ async fn transactions_stand_where_a_consumer_would_and_the_head_says_who_holds_w
     assert_eq!(row("e")["empty"], true);
     assert_eq!(row("e")["bytes"], 0);
     assert_eq!(row("e")["segments"], Value::Null, "nothing written");
-    assert_eq!(row("x")["segments"], Value::Null, "one segment, one partition");
+    assert_eq!(
+        row("x")["segments"],
+        Value::Null,
+        "one segment, one partition"
+    );
     assert!(
         row("seg")["segments"].as_i64().unwrap() > 1,
         "{}",
