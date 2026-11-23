@@ -5,10 +5,12 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from "@doze/ui/components/ui/input";
 import { Alert, errorWords } from "@doze/ui/components/app/alert";
 import { CallPanel, Field, type PreviewRequest, RuleHelp } from "../../../kit";
-import { changeSetNameProblem } from "./wizard-model";
+import { changeSetNameProblem, firstFree } from "./wizard-model";
 
 export function ChangeSetDialog({ open, onOpenChange, stack, creating, request, taken, pending, error, onMake }: { open: boolean; onOpenChange: (o: boolean) => void; stack: string; creating: boolean; request: (name: string) => PreviewRequest; taken: readonly string[]; pending: boolean; error: unknown; onMake: (name: string) => void }) {
-  const [name, setName] = useState(creating ? "initial-review" : "");
+  // A name is offered on both: the first free one of initial-review (a new stack) or update-review (an update), read from the stack's change sets.
+  const [typed, setName] = useState<string | null>(null);
+  const name = typed ?? firstFree(creating ? "initial-review" : "update-review", taken);
   const [tried, setTried] = useState(false);
   const problem = changeSetNameProblem(name, taken);
   const failed = error ? errorWords(error) : null;

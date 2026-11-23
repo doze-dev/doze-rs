@@ -15,6 +15,8 @@ test("cloudwatch__overview: alarms by AWS service, the recent alarms, and where 
   const recent = page.getByRole("table", { name: "Recent alarms" });
   await expect(recent.locator("tr[data-row]").first()).toContainText("dlq-not-empty");
   await expect(recent.locator("tr[data-row]").first()).toContainText("ALARM");
+  // Three rows, as the board draws: the alarms that changed most recently, the oldest left to the Alarms page.
+  await expect(recent.locator("tr[data-row]")).toHaveCount(3);
   await expect(page.getByTestId("card-alarms")).toContainText("5 alarms, 1 in ALARM");
   await expect(page.getByTestId("card-metrics")).toContainText("All metrics: 3 namespaces");
   await expect(page.getByTestId("card-dashboards")).toContainText("2 custom dashboards");

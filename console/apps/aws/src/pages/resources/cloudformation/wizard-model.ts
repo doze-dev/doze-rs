@@ -104,6 +104,17 @@ export function parameterProblem(w: Wizard, d: Declared): string | null {
   return null;
 }
 
+const COUNT = ["no", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten"];
+
+/** What an update says under its tags: that they are the stack's own, or how many are kept. `null` for a stack with no tags. */
+export function tagsLine(rows: readonly { key: string; value: string }[], was: readonly { Key: string; Value: string }[], stack: string): string | null {
+  if (was.length === 0) return null;
+  const kept = was.filter((t) => rows.some((r) => r.key === t.Key && r.value === t.Value)).length;
+  const n = was.length <= 10 ? COUNT[was.length]! : String(was.length);
+  if (kept === was.length && rows.length === was.length) return was.length === 1 ? `This one matches what ${stack} has.` : `These ${n} match what ${stack} has.`;
+  return `${kept} of ${stack}'s ${n} tags ${kept === 1 ? "is" : "are"} kept as ${kept === 1 ? "it is" : "they are"}.`;
+}
+
 /** Every parameter of the call, as the board sends it: all of them, a NoEcho one an update keeps as `UsePreviousValue`. */
 export function parameterList(w: Wizard, s: Summary | undefined): { ParameterKey: string; ParameterValue?: string; UsePreviousValue?: true }[] {
   return (s?.Parameters ?? []).map((d) => (w.mode !== "create" && w.keep[d.ParameterKey] ? { ParameterKey: d.ParameterKey, UsePreviousValue: true as const } : { ParameterKey: d.ParameterKey, ParameterValue: valueOf(w, d) }));
@@ -155,6 +166,12 @@ export function changeSetInput(w: Wizard, s: Summary | undefined, name: string):
 }
 
 /** What is wrong with a change set's name, or `null`. */
+/** The first of base, base-2, base-3 ... that is not already a change set's name. */
+export function firstFree(base: string, taken: readonly string[]): string {
+  if (!taken.includes(base)) return base;
+  for (let i = 2; ; i++) if (!taken.includes(`${base}-${i}`)) return `${base}-${i}`;
+}
+
 export function changeSetNameProblem(name: string, taken: readonly string[]): string | null {
   if (name === "") return "Enter a name for the change set.";
   if (name.length > 128) return "A change set name is at most 128 characters.";

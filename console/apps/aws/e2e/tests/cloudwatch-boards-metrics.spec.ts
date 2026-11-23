@@ -215,7 +215,9 @@ test("cloudwatch__widget-line: pick a metric, create the widget, and Save dashbo
   await expect(page.getByTestId("graphed-m1")).toContainText("Larder/Orders · Environment=prod");
   await expect(page.getByTestId("persist-words")).toContainText("Persist time range keeps this widget on the time range you pick");
   await expect(page.getByTestId("dashboard-local")).toContainText("Stored, not applied locally.");
+  await expect(page.getByTestId("persist-range")).toHaveAttribute("aria-pressed", "false");
   await page.getByTestId("persist-range").click();
+  await expect(page.getByTestId("persist-range")).toHaveAttribute("aria-pressed", "true");
   await shot(page, "cloudwatch__widget-line");
   await page.getByTestId("widget-create").click();
   await expect(page.locator("h1").first()).toHaveText("larder-api");
@@ -241,7 +243,13 @@ test("cloudwatch__widget-alarm-status and widget-text: the two widgets that need
   await expect(dialog).toContainText("dlq-not-empty");
   await expect(dialog).toContainText("INSUFFICIENT_DATA");
   await expect(dialog).toContainText("up to 100 alarms");
-  await dialog.getByTestId("alarm-dlq-not-empty").check();
+  // As the board: every alarm ticked, the one in ALARM first; unticking one leaves it out of the widget.
+  await expect(dialog.getByTestId("alarm-dlq-not-empty")).toBeChecked();
+  await expect(dialog.getByTestId("alarm-resize-errors")).toBeChecked();
+  await expect(dialog.getByRole("list", { name: "Alarms" }).locator("li").first()).toContainText("dlq-not-empty");
+  await expect(dialog.getByTestId("widget-create")).toBeEnabled();
+  await dialog.getByTestId("alarm-resize-errors").uncheck();
+  await expect(dialog.getByTestId("alarm-resize-errors")).not.toBeChecked();
   await dialog.getByTestId("alarm-resize-errors").check();
   await shot(page, "cloudwatch__widget-alarm-status");
   await dialog.getByTestId("widget-create").click();
@@ -264,7 +272,7 @@ test("cloudwatch__widget-alarm-status and widget-text: the two widgets that need
   const kinds = body.widgets.map((w) => w.type);
   expect(kinds).toContain("alarm");
   expect(kinds).toContain("text");
-  expect(body.widgets.find((w) => w.type === "alarm")?.properties.alarms).toHaveLength(2);
+  expect(body.widgets.find((w) => w.type === "alarm")?.properties.alarms).toHaveLength(5); // every alarm, as the dialog opens with them all ticked
   expect(body.widgets.filter((w) => w.type === "text").pop()?.properties.background).toBe("transparent");
   // The source dialog replaces the draft; a rule broken is said, and a body that is not an object is refused.
   await page.getByTestId("source-open").click();

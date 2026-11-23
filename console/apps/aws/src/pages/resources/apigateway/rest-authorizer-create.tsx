@@ -2,12 +2,11 @@
 // authorizer), or a Cognito user pool whose token claims are checked. Attaching it to a method is the method request's.
 import { useMemo, useState } from "react";
 import { Alert } from "@doze/ui/components/app/alert";
-import { Button } from "@doze/ui/components/ui/button";
 import { Input } from "@doze/ui/components/ui/input";
 import { Switch } from "@doze/ui/components/ui/switch";
 import { Label } from "@doze/ui/components/ui/label";
 import { ApiFailure } from "@doze/ui/lib/api";
-import { Field, FormPage, FormSection, FunctionPicker, RadioCards, RolePicker, RuleHelp } from "../../../kit";
+import { Field, FormPage, FormSection, FunctionPicker, RadioCards, RuleHelp } from "../../../kit";
 import { type RestAuthorizerForm, emptyRest, restAuthorizerInput, restAuthorizerProblem } from "./authorizer-model";
 import { REST, useAuthorizers, useWrite } from "./api";
 import { useWhere } from "./parts";
@@ -59,13 +58,11 @@ export function AuthorizerCreate({ api, apiName, crumbs, onClose }: { api: strin
         </div>
         {lambda ? (
           <>
-            <Field label="Lambda function" help={<>The function the authorizer calls. API Gateway is allowed to invoke it through the function&apos;s resource policy or the role below.</>}>
+            <Field label="Lambda function" help={<>The function the authorizer calls. doze-aws invokes it directly.</>}>
               {(id) => <FunctionPicker id={id} by="name" value={f.fn} onChange={(fn) => set({ fn })} />}
             </Field>
-            <Field label="Lambda invoke role" optional hint="Leave blank to allow API Gateway through the function's resource policy, or choose a role API Gateway assumes.">
-              {(id) => (
-                <div className="flex items-center gap-2"><div className="min-w-0 flex-1"><RolePicker id={id} by="name" value={f.role} onChange={(role) => set({ role })} /></div>{f.role && <Button type="button" variant="ghost" size="sm" onClick={() => set({ role: null })}>Leave blank</Button>}</div>
-              )}
+            <Field label="Lambda invoke role" optional hint={<>A role name or ARN API Gateway would assume to invoke the function. Leave it blank: doze-aws calls the function directly, does not read the function's resource policy and does not assume a role, so a role entered here is stored, not applied locally.</>}>
+              {(id) => <Input id={id} value={f.role ?? ""} onChange={(e) => set({ role: e.target.value || null })} placeholder="Leave blank" className="bg-card font-mono" autoComplete="off" spellCheck={false} data-testid="authorizer-role" />}
             </Field>
             <div className="grid gap-2">
               <span className="text-[14px] leading-none font-medium text-bright">Lambda event payload</span>

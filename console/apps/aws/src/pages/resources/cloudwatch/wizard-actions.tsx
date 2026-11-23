@@ -33,7 +33,8 @@ function TopicWords({ name }: { name: string }) {
   );
 }
 
-function Notification({ n, d, set, region, account, tried, problem }: Props & { n: Notify }) {
+/** `add`: the Add notification button, drawn before Remove on the last notification (the board's row: Add notification, Remove). */
+function Notification({ n, d, set, region, account, tried, problem, add }: Props & { n: Notify; add?: React.ReactNode }) {
   const patch = (p: Partial<Notify>) => set({ notify: d.notify.map((x) => (x.id === n.id ? { ...x, ...p } : x)) });
   const remove = () => set({ notify: d.notify.filter((x) => x.id !== n.id) });
   const topicName = n.via === "new" ? "" : n.arn.split(":").pop() ?? "";
@@ -80,7 +81,7 @@ function Notification({ n, d, set, region, account, tried, problem }: Props & { 
         </Field>
       )}
       <TopicWords name={n.via === "existing" ? topicName : ""} />
-      <div><Button type="button" variant="outline" className="bg-card" onClick={remove} data-testid="notification-remove"><Trash2Icon /> Remove</Button></div>
+      <div className="flex flex-wrap items-center gap-3">{add}<Button type="button" variant="outline" className="bg-card" onClick={remove} data-testid="notification-remove"><Trash2Icon /> Remove</Button></div>
     </div>
   );
 }
@@ -107,11 +108,13 @@ const OFF = ["Auto Scaling action", "EC2 action", "Add Systems Manager action", 
 
 export function ActionsStep(p: Props) {
   const { d, set } = p;
+  const sns = d.notify.filter((n) => n.via !== "lambda");
+  const addNotification = <Button type="button" variant="outline" className="bg-card" onClick={() => set({ notify: [...d.notify, { id: nextId(), state: "ALARM", via: "existing", arn: "", name: "" }] })} data-testid="notification-add"><PlusIcon /> Add notification</Button>;
   return (
     <>
       <FormSection title="Notification" description="Send a message to an SNS topic when the alarm enters a state." testId="section-notification">
-        {d.notify.filter((n) => n.via !== "lambda").map((n) => <Notification key={n.id} n={n} {...p} />)}
-        <div><Button type="button" variant="outline" className="bg-card" onClick={() => set({ notify: [...d.notify, { id: nextId(), state: "ALARM", via: "existing", arn: "", name: "" }] })} data-testid="notification-add"><PlusIcon /> Add notification</Button></div>
+        {sns.map((n, i) => <Notification key={n.id} n={n} {...p} add={i === sns.length - 1 ? addNotification : undefined} />)}
+        {sns.length === 0 && <div>{addNotification}</div>}
       </FormSection>
       <FormSection title="Actions" description="Each of these adds an action for the state you pick. An alarm can have at most five actions per state." testId="section-actions">
         {d.notify.filter((n) => n.via === "lambda").map((n) => <LambdaAction key={n.id} n={n} {...p} />)}

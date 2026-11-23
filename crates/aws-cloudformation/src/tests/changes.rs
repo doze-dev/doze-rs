@@ -151,3 +151,34 @@ async fn a_replacement_is_said_to_be_one() {
         .unwrap();
     assert_eq!(p["ResourceChange"]["Details"][0]["Evaluation"], "Dynamic");
 }
+
+#[tokio::test]
+async fn list_stacks_without_a_filter_lists_a_stack_waiting_for_review() {
+    let w = World::new();
+    w.cfn("CreateChangeSet", json!({"StackName": "review-me", "ChangeSetName": "first", "ChangeSetType": "CREATE", "TemplateBody": template(30, false)}))
+        .await
+        .unwrap();
+    let all = w.cfn("ListStacks", json!({})).await.unwrap();
+    let rows = all["StackSummaries"].as_array().unwrap();
+    assert_eq!(rows.len(), 1, "{all}");
+    assert_eq!(rows[0]["StackStatus"], "REVIEW_IN_PROGRESS");
+    let other = w
+        .cfn(
+            "ListStacks",
+            json!({"StackStatusFilter": ["CREATE_COMPLETE"]}),
+        )
+        .await
+        .unwrap();
+    assert!(
+        other["StackSummaries"].as_array().unwrap().is_empty(),
+        "{other}"
+    );
+    let named = w
+        .cfn(
+            "ListStacks",
+            json!({"StackStatusFilter": ["REVIEW_IN_PROGRESS"]}),
+        )
+        .await
+        .unwrap();
+    assert_eq!(named["StackSummaries"].as_array().unwrap().len(), 1);
+}

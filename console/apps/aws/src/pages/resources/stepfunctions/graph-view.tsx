@@ -87,7 +87,7 @@ function EdgeLine({ g, e, run, design, scope = "" }: { g: Graph; e: Edge } & Loo
   return (
     <g data-edge={`${from}>${to}`} data-taken={taken || undefined}>
       <path d={pathOf(e)} fill="none" className={cn(taken ? "stroke-good" : "stroke-border", e.kind === "catch" && "[stroke-dasharray:4_4]")} strokeWidth={taken ? 2 : 1.5} markerEnd={`url(#${taken ? "arrow-taken" : "arrow"})`} />
-      {e.label && e.kind !== "next" && <EdgeLabel e={e} text={e.label.length > 22 ? `${e.label.slice(0, 21)}…` : e.label} />}
+      {e.label && e.kind !== "next" && <EdgeLabel e={e} text={e.label.length > 26 ? `${e.label.slice(0, 25)}…` : e.label} />}
       {design && refOf(g, e, scope) && <DropZone e={e} edge={refOf(g, e, scope) as EdgeRef} design={design} />}
     </g>
   );
@@ -210,16 +210,16 @@ export function GraphView({ definition, targets = false, ...look }: { definition
   );
 }
 
-/** The legend under the drawing. */
-export function Legend() {
+/** The legend under the drawing: the three the boards name, and Cancelled and Not run only when the drawing has such a state. */
+export function Legend({ cancelled = false, notRun = false }: { cancelled?: boolean; notRun?: boolean } = {}) {
   return (
     <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2 border-t pt-4 text-[13px]" data-testid="sfn-legend">
       <span className="text-muted-foreground">Legend</span>
       <span className="inline-flex items-center gap-1.5 font-semibold text-good"><span className="size-2 rounded-full bg-current" />Succeeded</span>
       <span className="inline-flex items-center gap-1.5 font-semibold text-bad"><span className="size-2 rounded-full bg-current" />Failed</span>
       <span className="inline-flex items-center gap-1.5 font-semibold text-cool"><span className="size-2 rounded-full bg-current" />In progress</span>
-      <span className="inline-flex items-center gap-1.5 font-semibold text-warn"><span className="size-2 rounded-full bg-current" />Cancelled</span>
-      <span className="inline-flex items-center gap-1.5 text-muted-foreground"><span className="size-2 rounded-full border border-current" />Not run</span>
+      {cancelled && <span className="inline-flex items-center gap-1.5 font-semibold text-warn"><span className="size-2 rounded-full bg-current" />Cancelled</span>}
+      {notRun && <span className="inline-flex items-center gap-1.5 text-muted-foreground"><span className="size-2 rounded-full border border-current" />Not run</span>}
     </div>
   );
 }

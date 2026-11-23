@@ -28,7 +28,7 @@ export function PublishDialog({ d, open, onOpenChange, done, unsaved = false }: 
               {same ? <>The saved revision <b className="font-mono font-semibold">{revision.slice(0, 8)}</b> already has <b className="font-semibold">version {same.number}</b>, so publishing returns it and makes no new one.</> : <>Publishes the saved revision <b className="font-mono font-semibold">{revision.slice(0, 8)}</b> as <b className="font-semibold">version {highest + 1}</b>, an immutable snapshot you can start by its version ARN or through an alias.</>}{unsaved ? <> <span className="text-muted-foreground">Your unsaved changes are not in it: choose Save first.</span></> : null}
             </DialogDescription>
           </DialogHeader>
-          <Field label="Description" optional hint="Up to 256 characters. Version numbers go up by one and are never reused; a state machine holds up to 1,000. Publishing again without changing the definition returns the version that already exists.">
+          <Field label="Description" optional hint="Up to 256 characters. Version numbers go up by one and are never reused; AWS allows up to 1,000 per state machine and doze-aws does not enforce that. Publishing again without changing the definition returns the version that already exists.">
             {(id) => <Input id={id} value={text} onChange={(e) => setText(e.target.value)} maxLength={256} autoComplete="off" className="bg-card" data-testid="publish-description" />}
           </Field>
           <Refused error={publish.error} operation="PublishStateMachineVersion" testId="publish-error" />

@@ -190,7 +190,7 @@ export function ExecutionPage({ arn }: { arn: string }) {
           {view === "graph" && (
             <Card title="Graph view" lede={run && events.data ? graphWords(steps, e.status) : undefined} testId="graph-card">
               {machine.error ? <p className="text-[13.5px] text-bad">The definition could not be read.</p> : !definition || !events.data ? <Skeleton className="h-72 rounded-[12px]" /> : <GraphView definition={definition} targets run={run} selected={shownStep} onSelect={setSelected} />}
-              <Legend />
+              <Legend cancelled={steps.some((s) => s.status === "cancelled")} notRun={Object.keys(definition?.States ?? {}).some((n) => !steps.some((s) => s.name === n))} />
             </Card>
           )}
           {view === "table" && <TableView steps={steps} states={states} startMs={startMs} selected={shownStep} onSelect={setSelected} />}

@@ -64,7 +64,7 @@ function RestView({ id, apiName, created, types, calls, updatedAt, fetching, ref
     s.done === "resource" ? <ResultBanner title={`Resource ${s.name} created.`} returned="CreateResource returned its ID and full path. Add a method to it next." onDismiss={() => go({})} testId="resource-banner" /> :
     s.done === "method" ? <ResultBanner title={`Method ${s.name} created.`} returned="PutMethod and PutIntegration were made. Deploy the API to put the change on a stage." onDismiss={() => go({ key: s.key })} testId="method-banner" /> :
     s.done === "authorizer" ? <ResultBanner title={`Authorizer ${s.name} created.`} returned="CreateAuthorizer returned its ID. Choose it under Authorization on a method request." onDismiss={() => go({ tab: "authorizers" })} testId="authorizer-banner" /> :
-    s.done === "deployed" ? <ResultBanner title={`Deployed to ${s.name ?? "a stage"}.`} returned="CreateDeployment recorded the deployment. doze-aws already answers from the live API." onDismiss={() => go({ tab: "stages", name: s.name })} testId="deployed-banner" /> :
+    s.done === "deployed" ? <ResultBanner title={`Deployed to ${s.name ?? "a stage"}.`} returned="CreateDeployment took a snapshot of the API, and the stage now serves it. A change made after this shows on the stage only when you deploy again." onDismiss={() => go({ tab: "stages", name: s.name })} testId="deployed-banner" /> :
     s.done === "stage" ? <ResultBanner title={`Stage ${s.name} created.`} returned="CreateStage pointed it at a deployment." onDismiss={() => go({ tab: "stages" })} testId="stage-banner" /> : undefined;
   const sub = <>API ID <span className="font-mono">{id}</span>. Created {when(created)}.</>;
   return (

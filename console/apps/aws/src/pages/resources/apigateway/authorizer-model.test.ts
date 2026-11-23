@@ -12,6 +12,11 @@ describe("a REST authorizer", () => {
       identitySource: "method.request.header.Authorization", identityValidationExpression: "^Bearer [A-Za-z0-9-_.]+$", authorizerResultTtlInSeconds: 300,
     });
   });
+  test("an invoke role is a name or an ARN, and left out when blank", () => {
+    expect(restAuthorizerInput({ ...emptyRest, name: "a", fn: "f", role: "gw-invoke" }, o)).toMatchObject({ authorizerCredentials: `arn:aws:iam::${o.account}:role/gw-invoke` });
+    expect(restAuthorizerInput({ ...emptyRest, name: "a", fn: "f", role: "arn:aws:iam::1:role/x" }, o)).toMatchObject({ authorizerCredentials: "arn:aws:iam::1:role/x" });
+    expect(restAuthorizerInput({ ...emptyRest, name: "a", fn: "f", role: "  " }, o)).not.toHaveProperty("authorizerCredentials");
+  });
   test("choosing Request makes it REQUEST; Cognito names the pools", () => {
     expect(restAuthorizerInput({ ...emptyRest, name: "a", fn: "f", payload: "REQUEST", source: "Authorization, stageVariables.env" }, o)).toMatchObject({ type: "REQUEST", identitySource: "method.request.header.Authorization,stageVariables.env" });
     expect(restAuthorizerInput({ ...emptyRest, name: "a", kind: "cognito", pools: "arn:aws:cognito-idp:us-east-1:1:userpool/p" }, o)).toMatchObject({ type: "COGNITO_USER_POOLS", providerARNs: ["arn:aws:cognito-idp:us-east-1:1:userpool/p"] });

@@ -63,7 +63,7 @@ function Plans({ service, kind, gone }: { service: string; kind: string; gone?: 
       ) : all.length === 0 ? (
         <>
           <AccountNav current="usageplans" />
-          <EmptyState icon={GaugeIcon} title="No usage plans" action={create}>A usage plan sets throttling and quota limits for the API keys that use it.</EmptyState>
+          <EmptyState icon={GaugeIcon} title="No usage plans" action={<Button variant="outline" className="bg-card" onClick={() => go({ do: "create" })} data-testid="create-empty"><PlusIcon /> Create usage plan</Button>}>A usage plan sets throttling and quota limits for the API keys that use it.</EmptyState>
         </>
       ) : (
         <>
