@@ -63,7 +63,7 @@ test("LiveB: opening a call lights its route from the app to what it named and o
   await go(page, "/live", "Live");
   // payments' SendMessage to pick-lists, which dead-letters to pick-lists-dlq.
   const row = page.locator("tr[data-row]", { hasText: "SendMessage" }).filter({ hasText: "payments" }).first();
-  await row.click();
+  await row.getByTestId("open-call").click();
   await expect(page.getByTestId("call-sheet")).toBeVisible();
   const lit = page.locator('[data-testid="map-line"][stroke-width="3.5"], [data-testid="map-wire"][stroke-width="3.5"]');
   await expect(lit).toHaveCount(2);
@@ -79,7 +79,7 @@ async function openLook(page: import("@playwright/test").Page, word: string): Pr
   const chip = page.locator(`[data-testid="look"][data-word="${word}"]`);
   await chip.click();
   await expect(chip).toHaveAttribute("aria-pressed", "true");
-  await page.getByRole("table", { name: "Calls, newest first" }).locator("tr[data-row]").first().click();
+  await page.getByRole("table", { name: "Calls, newest first" }).locator("tr[data-row]").first().getByTestId("open-call").click();
 }
 
 test("LiveBLoad: what needs a look, a function that failed, Focus, and why a call would be denied against the policy the caller has", async ({ page }) => {
@@ -213,7 +213,7 @@ test("LiveC: the same map in columns by domain, and what REFUSED and WOULD BE DE
 test("Vanity: the live space as the verdicts say it is built: wire, copy as, the map with caller by app, one number per resource", async ({ page }) => {
   await go(page, "/live", "Live");
   // Copy as AWS CLI and curl are on every call, and Open resource.
-  await page.locator("tr[data-row]", { hasText: "ReceiveMessage" }).first().click();
+  await page.locator("tr[data-row]", { hasText: "ReceiveMessage" }).first().getByTestId("open-call").click();
   await expect(page.getByTestId("call-copy-cli")).toBeEnabled();
   await expect(page.getByTestId("call-copy-curl")).toBeEnabled();
   await expect(page.getByTestId("call-open-resource")).toContainText("pick-lists");

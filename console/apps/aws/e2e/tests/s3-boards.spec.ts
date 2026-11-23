@@ -65,8 +65,11 @@ test("seed: three buckets with objects, versions, a delete marker, tags, a notif
   const kms = (args: string[]) => JSON.parse(cli(["kms", ...args]).out) as { KeyMetadata: { KeyId: string } };
   const app = kms(["create-key", "--description", "app"]).KeyMetadata.KeyId;
   const signing = kms(["create-key", "--key-spec", "RSA_2048", "--key-usage", "SIGN_VERIFY", "--description", "signing"]).KeyMetadata.KeyId;
-  expect(cli(["kms", "create-alias", "--alias-name", `alias/larder-app-${browserName}`, "--target-key-id", app]).code).toBe(0);
-  expect(cli(["kms", "create-alias", "--alias-name", `alias/larder-signing-${browserName}`, "--target-key-id", signing]).code).toBe(0);
+  // A retry of this test seeds again over the same server: an alias it made before is replaced, not a refusal.
+  for (const [alias, key] of [[`alias/larder-app-${browserName}`, app], [`alias/larder-signing-${browserName}`, signing]]) {
+    cli(["kms", "delete-alias", "--alias-name", alias]);
+    expect(cli(["kms", "create-alias", "--alias-name", alias, "--target-key-id", key]).code).toBe(0);
+  }
 });
 
 test("s3__buckets-list and s3__buckets-none: the list says how many and where; an account with none says so", async ({ page, browserName }) => {
@@ -366,7 +369,8 @@ test("s3__notification-create and s3__lifecycle-create: each adds a rule to the 
   await page.getByTestId("event-ObjectRemoved").click();
   await page.getByTestId("dest-kind-SQS Queue").click();
   // A FIFO queue cannot be a destination: the hint names it up front and the list does not offer it.
-  await expect(page.getByText(`${fifo} is a FIFO queue, so it is not in the list`)).toBeVisible();
+  // (The hint names every FIFO queue the server holds, the other browsers' too: it is the one that names this browser's.)
+  await expect(page.getByText("not in the list").filter({ hasText: fifo })).toBeVisible();
   await page.getByRole("combobox", { name: "Choose a queue" }).click();
   await expect(page.getByRole("option", { name: `inventory-${browserName}` })).toBeVisible();
   await expect(page.getByRole("option", { name: fifo })).toHaveCount(0);
