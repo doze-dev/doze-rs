@@ -57,6 +57,7 @@ export function Publish({ d, t, subs, back, done }: TopicProps) {
   const crumbs = resourceCrumbs(d);
   return (
     <FormPage
+      callFormat="outline"
       title="Publish message to topic"
       sub={<span className="font-mono">{d.name}</span>}
       crumbs={crumbs}

@@ -180,6 +180,8 @@ function StepperDemo() {
 }
 
 const PREVIEW: PreviewRequest = { service: "sqs", operation: "CreateQueue", input: { QueueName: "pick-lists", Attributes: { VisibilityTimeout: "60" } } };
+const OUTLINE: PreviewRequest = { service: "sns", operation: "CreateTopic", input: { Name: "deliveries-updated", Attributes: { DisplayName: "larder deliveries", KmsMasterKeyId: "alias/larder-app" }, Tags: [{ Key: "stack", Value: "larder" }, { Key: "app", Value: "fulfilment" }] } };
+const LONG: PreviewRequest = { service: "lambda", operation: "CreateFunction", input: { FunctionName: "a-function-whose-name-is-long-enough-to-need-wrapping-in-any-column", Role: "arn:aws:iam::123456789012:role/a-role-with-a-very-long-name-that-has-no-break-in-it-at-all-whatsoever", Environment: { Variables: { QUEUE_URL: "https://sqs.us-east-1.amazonaws.com/123456789012/stock-moves-with-a-long-name", NOTE: "a sentence that is long enough to wrap onto a second line and then a third" } } } };
 
 function LivePanel() {
   const [name, setName] = useState("pick-lists");
@@ -212,9 +214,24 @@ export function CreatePage() {
         </Specimen>
       </Section>
 
-      <Section id="callpanel" title="CallPanel" source="apps/aws/src/kit/call-panel.tsx" note="The call a form will make, from POST /preview: JSON, the AWS CLI line or boto3, each copyable. It is asked for once the typing pauses, and the last answer stays while the next is on its way.">
+      <Section id="callpanel" title="CallPanel" source="apps/aws/src/kit/call-panel.tsx" note="The call a form will make, from POST /preview, drawn as the boards draw it: the operation over its input as JSON (the SNS boards as an outline), with the AWS CLI line and the boto3 snippet to copy and the JSON that is sent. It wraps at any width and never scrolls. It is asked for once the typing pauses, and the last answer stays while the next is on its way.">
         <Specimen label="Live" stack>
           <LivePanel />
+        </Specimen>
+        <Specimen label="As an outline (the SNS boards)" stack>
+          <div className="w-full max-w-sm">
+            <CallPanel request={OUTLINE} format="outline" note="Settings left at their defaults are not sent." testId="panel-outline" />
+          </div>
+        </Specimen>
+        <Specimen label="Long values wrap" stack>
+          <div className="w-full max-w-sm">
+            <CallPanel request={LONG} testId="panel-long" />
+          </div>
+        </Specimen>
+        <Specimen label="Long values wrap, as an outline" stack>
+          <div className="w-full max-w-sm">
+            <CallPanel request={LONG} format="outline" testId="panel-long-outline" />
+          </div>
         </Specimen>
         <Specimen label="Needs a member" stack>
           <div className="w-full max-w-sm">

@@ -61,6 +61,7 @@ export function SubCreate() {
   return (
     <>
     <FormPage
+      callFormat="outline"
       title="Create subscription"
       sub="Subscribe an endpoint to a topic so it receives what is published there."
       crumbs={[{ label: "Resources", to: "/resources" }, ...(first ? [{ label: first.group, to: "/resources" }, { label: first.service_title, to: "/resources/sns" }] : []), ...(search.from ? [{ label: tail(search.from), to: `/resources/sns/topics/${encodeURIComponent(tail(search.from))}` }] : [{ label: "Subscriptions", to: "/resources/sns/subscriptions" }])]}

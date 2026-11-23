@@ -68,6 +68,7 @@ function EditForm({ d, t, subs, back, done, tags }: TopicProps & { tags: { key: 
   const own = { total: subs.length, sqsOrLambda: subs.filter((s) => s.protocol === "sqs" || s.protocol === "lambda").length };
   return (
     <FormPage
+      callFormat="outline"
       title={`Edit ${d.name}`}
       sub="The type and the name cannot change. Every other setting can."
       crumbs={resourceCrumbs(d)}
