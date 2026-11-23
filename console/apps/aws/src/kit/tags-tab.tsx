@@ -63,6 +63,8 @@ export function TagsView({ heading, answer, saving = false, error, saved, onSave
         }}
         data-testid="tags-edit"
       >
+        {/* An editor that is the tab itself has no read view to say a save happened: the banner is its first line until the next edit. */}
+        {manage?.inPlace && saved && edited === null && <ResultBanner className="mb-0" title="Tags saved." returned={saved} testId="tags-saved" />}
         {manage ? (
           <div>
             <h2 className="text-[17px] leading-6 font-semibold tracking-[-0.01em] text-bright">{manage.title}</h2>

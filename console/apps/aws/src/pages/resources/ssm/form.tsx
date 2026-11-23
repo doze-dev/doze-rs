@@ -9,6 +9,7 @@ import { Alert } from "@doze/ui/components/app/alert";
 import { KeyValueEditor } from "@doze/ui/components/app/key-value-editor";
 import { rowsValid } from "@doze/ui/components/app/key-values";
 import { Input } from "@doze/ui/components/ui/input";
+import { cn } from "@doze/ui/lib/utils";
 import { Textarea } from "@doze/ui/components/ui/textarea";
 import { useAbout } from "../../../api/queries";
 import type { ResourceDetail } from "../../../api/types/ResourceDetail";
@@ -18,7 +19,8 @@ import { fieldOf } from "../cfg-parts";
 import { KeyAliasPicker } from "../key-picker";
 import { crumbs } from "../kms/parts";
 import { refusalOf } from "../kms/schedule";
-import { blankParam, nameProblem, type ParamForm, paramRows, putInput, type Tier, valueProblem } from "./model";
+import { blankParam, nameProblem, type ParamForm, paramRows, pasts, putInput, savingWords, type Tier, valueProblem } from "./model";
+import { useHistory } from "./tab-history";
 
 export const PARAMETERS = { service: "ssm", kind: "parameters" } as const;
 
@@ -54,6 +56,8 @@ export function ParameterForm({ d }: { d?: ResourceDetail }) {
     if (read !== undefined && !typed.current) setF((x) => ({ ...x, value: read }));
   }, [current.data]);
   const set = (patch: Partial<ParamForm>) => { if (patch.value !== undefined) typed.current = true; setF((x) => ({ ...x, ...patch })); setRefused(null); };
+  const history = useHistory(d?.name ?? "", editing);
+  const saving = editing ? savingWords(pasts(history.data?.Parameters ?? [])) : null;
   const exists = !editing && known.some((p) => p.name === f.name);
   const existing = known.find((p) => p.name === f.name);
   const problems = { name: editing ? null : nameProblem(f.name), value: valueProblem(f.value, f.tier), tags: rowsValid(f.tags, TAG_RULES) ? null : "Fix the tags marked." };
@@ -100,7 +104,7 @@ export function ParameterForm({ d }: { d?: ResourceDetail }) {
     >
       <FormSection title="Parameter details" testId="section-details">
         <Field label="Name" error={tried || f.name !== "" ? (problems.name ?? undefined) : undefined} refusal={taken ? { why: `${f.name} already exists in ${region}.`, suggestion: <>Pick a new name, for example <span className="font-mono">{suggestion}</span>. To save a new value under this name instead, choose Edit on <Link to="/resources/$service/$kind/$name" params={{ service: "ssm", kind: "parameters", name: f.name }} search={{ view: "edit" }} className="font-mono text-link hover:underline">{f.name}</Link>: that overwrites it{existing ? ` as version ${Number(existing.version) + 1}` : ""}. Names are case sensitive.</> } : null} hint={!taken && exists ? <>{f.name} already exists in {region}. Creating it again is refused; choose Edit on it to save a new version.</> : undefined} help={editing ? undefined : <>Letters, digits and <b>. - _</b>, with / between levels, up to <b>15 levels</b>, and not starting with aws or ssm. Names are case sensitive, and on AWS the limit of 1,011 characters counts the 45 of <span className="font-mono">arn:aws:ssm:{region}:{"<account>"}:parameter/</span>.</>} testId="field-name">
-          {(id) => <Input id={id} value={f.name} onChange={(e) => set({ name: e.target.value })} readOnly={editing} placeholder="/larder/prod/db/password" autoComplete="off" spellCheck={false} className="max-w-xl bg-card font-mono" data-testid="parameter-name" />}
+          {(id) => <Input id={id} value={f.name} onChange={(e) => set({ name: e.target.value })} readOnly={editing} aria-readonly={editing} placeholder="/larder/prod/db/password" autoComplete="off" spellCheck={false} className={cn("max-w-xl font-mono", editing ? "cursor-default bg-well text-muted-foreground" : "bg-card")} data-testid="parameter-name" />}
         </Field>
         <Field label="Description" optional error={f.description.length > 1024 ? "A description is at most 1,024 characters." : undefined} help="Up to 1,024 characters. Don't enter personally identifiable information.">
           {(id) => <Input id={id} value={f.description} onChange={(e) => set({ description: e.target.value })} className="max-w-xl bg-card" data-testid="parameter-description" />}
@@ -124,6 +128,7 @@ export function ParameterForm({ d }: { d?: ResourceDetail }) {
         <Field label="Value" error={tried ? (problems.value ?? undefined) : undefined} help={<>On AWS a value is limited to <b>4 KB</b> on Standard and <b>8 KB</b> on Advanced, and can&apos;t contain <span className="font-mono">{"{{ }}"}</span> or <span className="font-mono">{"{{ssm:name}}"}</span>. This one is {new TextEncoder().encode(f.value).length.toLocaleString("en-US")} characters.</>} hint={secureEdit ? (current.isError ? "The current value could not be read. Saving makes a new version with what you enter." : "The current value is read decrypted when this form opens, so the call is on the record; saving makes a new version with what is here.") : undefined} testId="field-value">
           {(id) => <Textarea id={id} value={f.value} onChange={(e) => set({ value: e.target.value })} rows={4} spellCheck={false} className="bg-card font-mono text-[13px]" data-testid="parameter-value" />}
         </Field>
+        {saving && <RuleHelp className="max-w-[46rem]"><span data-testid="saving-words"><b>{saving.lead}</b>{saving.rest && <> {saving.rest}</>}</span></RuleHelp>}
       </FormSection>
       {!editing && (
         <FormSection title="Tags" optional description="Optional metadata: key and value pairs that categorize a parameter." testId="section-tags">

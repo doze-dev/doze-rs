@@ -135,3 +135,14 @@ export function moveWords(ps: readonly Past[], added: readonly string[], version
 export function versionLine(version: string, modified: string | null): string {
   return `Version ${version}, last modified ${whenWords(modified)} UTC.`;
 }
+
+/** What the Value field's teaching line says: a save makes a version and moves nothing, and the labels it leaves where they are
+ * (`The label current stays on version 2: ...`, ssm__parameter-edit). */
+export function savingWords(ps: readonly Past[]): { lead: string; rest: string | null } {
+  const lead = "Saving always creates a new version; the old one stays in History.";
+  const held = ps.flatMap((p) => p.labels.map((l) => ({ label: l, version: p.version }))).sort((a, b) => a.version - b.version || a.label.localeCompare(b.label));
+  if (held.length === 0) return { lead, rest: null };
+  const tail = "a label names one version until you move it.";
+  if (held.length === 1) return { lead, rest: `The label ${held[0]!.label} stays on version ${held[0]!.version}: ${tail}` };
+  return { lead, rest: `The labels ${andList(held.map((h) => `${h.label} (version ${h.version})`))} stay where they are: ${tail}` };
+}
