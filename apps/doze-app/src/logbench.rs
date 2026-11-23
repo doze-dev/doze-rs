@@ -6,7 +6,9 @@
 //!   `scroll_frames_over_16ms`;
 //! - follows for `--follow` seconds while the daemon prints 200 lines a second, reading the process's footprint (the
 //!   figure Activity Monitor shows) every second: `follow_footprint_max_mb`, and ten seconds after the lines stop,
-//!   `after_follow_footprint_mb`.
+//!   `after_follow_footprint_mb`;
+//! - leaves the page for the stack's, then closes the window: `after_logs_left_footprint_mb`,
+//!   `after_close_footprint_mb` (what the burst left behind, the free heap given back).
 //!
 //! The window is on screen, so a frame waits for the display: on a 120 Hz panel frames come every 8.3 ms, and a frame
 //! over 16 ms is one the display had to wait a refresh for.
@@ -193,7 +195,7 @@ pub(crate) async fn run(
     cx: &mut AsyncApp,
     src: Rc<Source>,
     follow_secs: u64,
-    display: Option<usize>,
+    (display, on_top): (Option<usize>, bool),
 ) {
     let (hub, first, facts) = (src.hub.clone(), src.first.clone(), src.facts.clone());
     let opened = cx.update(|cx| {
@@ -205,6 +207,9 @@ pub(crate) async fn run(
     });
     let Ok(h) = opened else { return };
     cx.update(|cx| crate::handsoff::after_open(h.into(), cx));
+    if on_top {
+        println!("on_top {}", doze_os::ui::float_over());
+    }
     hub.set_visible(true);
     let pumped = hub.clone();
     cx.spawn(async move |cx: &mut AsyncApp| {
@@ -231,7 +236,32 @@ pub(crate) async fn run(
     #[cfg(feature = "capture")]
     draw_cost(cx, h).await;
     follow(cx, h, &src, follow_secs).await;
+    leave(cx, h, &hub).await;
+}
+
+/// The burst over: the page left for the stack's, then the window closed, as a person does. The footprint ten seconds
+/// after each (`after_logs_left_footprint_mb`, `after_close_footprint_mb`): what the follow left behind.
+async fn leave(cx: &mut AsyncApp, h: WindowHandle<Root>, hub: &doze_desk::Hub) {
+    let _ = h.update(cx, |root, window, cx| {
+        if let Some(k) = root.key().cloned() {
+            root.go(crate::shell::Screen::Stack(k), window, cx);
+        }
+    });
+    pause(cx, 10_000).await;
+    let left = cx
+        .background_executor()
+        .spawn(async { crate::bench::footprint() })
+        .await;
+    println!("after_logs_left_footprint_mb {:.0}", left.unwrap_or(0.));
     let _ = h.update(cx, |_, w, _| w.remove_window());
+    hub.set_visible(false);
+    cx.update(crate::app::window_gone);
+    pause(cx, 12_000).await;
+    let closed = cx
+        .background_executor()
+        .spawn(async { crate::bench::footprint() })
+        .await;
+    println!("after_close_footprint_mb {:.0}", closed.unwrap_or(0.));
 }
 
 /// One idle frame: note when it began and ask for the next, drawing nothing new (the display's own pace).

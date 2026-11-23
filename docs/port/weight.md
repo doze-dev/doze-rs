@@ -1656,3 +1656,33 @@ the idle medians run from 7,104 to 7,832 KB (median 7,404 KB) and single samples
 the runner does (issue #36 saw the same). A line of a measurement plus 5% sits inside that noise and knocks PRs out of the queue.
 The line is now the median plus 5% plus the run-to-run spread of the medians: 7,404 x 1.05 + 728 = **8,502 KB**. A real rise still
 shows: the next lean idle line moves only with a measured median over several runs, and the spread is added again.
+
+## The window's drawables stop climbing (2026-11-23, branch `eff-app`), release + fixtures, darwin/arm64
+
+A resource audit of the owner's app (open for hours, maximised at 3024 × 1898) found 208 MB, of which 111 MB was five
+`CAMetalLayer Display Drawable` IOSurfaces of 22.2 MB each, against the three the layer allows. The cause: each time the
+window's `CAMetalDisplayLink` is replaced (covered and shown, minimised, a synchronous draw), the old link was
+invalidated while it held the drawable for its next update, and now and then kept it. Fixed in the vendored renderer
+(vendor/gpui-pre-apple/PATCHES.md §7). `doze-app bench --churn` now measures it: the window maximised and restored,
+dragged through a dozen sizes, minimised and brought back, hidden and shown, then ten quick rounds of all of it, with
+the footprint and the drawables `vmmap` lists read after each step (15 s after the last frame).
+
+| `bench --fixture larder --on-top --churn` | before: footprint, drawables (MB held) | after |
+|---|---|---|
+| fresh window, after drawing | 130 MB, 5 (80); 89–93 MB, 3–4 in three earlier runs | 72 MB, 3 (32) |
+| maximised | 136 MB, 3 (67) | 88 MB, 3 (44) |
+| restored | 102 MB, 3 (32) | 76 MB, 3 (32) |
+| minimised, then brought back | 117 MB, 3 (48) | 92 MB, 3 (48) |
+| hidden, then shown | 117 MB, 3 (48) | 92 MB, 3 (48) |
+| after ten more rounds | 102 MB, 3 (32) | 76 MB, 3 (32) |
+| closed (12 s) | 46 MB, 0 | 40 MB, 0 |
+
+Frames drawn back to back after each step came at the same pace before and after (120 of 120, median 33.3 ms, none
+late). `setMaximumDrawableCount(2)` was tried as well and dropped: the count still read three or four, and the
+footprint was no lower (fresh 88 MB, shown 129 MB).
+
+The logs bench now leaves the page and closes the window after its follow (`after_logs_left_footprint_mb`,
+`after_close_footprint_mb`). Measured: 257 MB peak, 103 MB ten seconds after the follow, 104 MB after leaving the page,
+44 MB after closing. A `malloc_zone_pressure_relief` when the logs page goes was tried and not kept: on macOS 27 it
+gives back 0 bytes, as does the call `window_gone` already makes (the allocator returns empty pages itself: "Malloc
+Small (empty)" held 864 KB dirty of 27.5 MB).

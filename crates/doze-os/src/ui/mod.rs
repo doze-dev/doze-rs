@@ -221,6 +221,13 @@ pub fn float_over() -> usize {
     imp::float_over()
 }
 
+/// A measuring run (`doze-app bench --churn`): the app unhidden and every titled window of it brought back from the
+/// Dock and to the front, all without activating the app (the person keeps the keyboard). Returns how many windows
+/// it brought back. A no-op where there is no AppKit.
+pub fn bring_back() -> usize {
+    imp::bring_back()
+}
+
 /// Whether this app holds the person's input: it is the active app (it gets the keyboard), and how many of its
 /// windows are key. A hands-off run checks both are none.
 #[must_use]

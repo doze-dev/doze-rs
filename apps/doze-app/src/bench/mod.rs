@@ -12,10 +12,12 @@ use std::time::{Duration, Instant};
 
 use gpui::{ActivationPolicy, App, AppContext as _, AsyncApp, QuitMode};
 
+mod churn;
 mod measure;
 pub(crate) mod real;
 pub(crate) mod stage;
 
+use measure::drawables;
 pub(crate) use measure::footprint;
 use measure::{checked, idle_frames, settled_footprint};
 
@@ -103,7 +105,7 @@ pub(crate) fn run(b: Bench, launched: Instant) -> ExitCode {
                 let _keep = src.clone();
                 cx.background_executor().timer(Duration::from_secs(2)).await;
                 if logs {
-                    logs_bench(cx, src, follow, watch.display).await;
+                    logs_bench(cx, src, follow, (watch.display, watch.on_top)).await;
                 } else {
                     time_open(cx, hub, first, watch).await;
                 }
@@ -143,6 +145,8 @@ struct Watch {
     closed_budget: Option<f64>,
     /// The window floats over the others (`--on-top`).
     on_top: bool,
+    /// The window maximised, resized, minimised and hidden, each brought back (`--churn`, bench/churn.rs).
+    churn: bool,
     /// The real stack, taken down before the run ends.
     real: Option<Rc<real::Real>>,
 }
@@ -166,6 +170,7 @@ impl Watch {
             closed_budget: b.closed_budget,
             real,
             on_top: b.on_top,
+            churn: b.churn,
         }
     }
 
@@ -293,6 +298,9 @@ async fn idle(cx: &mut AsyncApp, h: gpui::WindowHandle<Root>, w: &Watch, t: Inst
     if w.check {
         checked(drawn, (fp, settled), w);
     }
+    if w.churn {
+        churn::run(cx, h).await;
+    }
 }
 
 /// The window closed, as the menu-bar app goes on: its footprint after `--closed`, checked.
@@ -303,6 +311,12 @@ async fn closed(cx: &mut AsyncApp, w: &Watch) {
     let closed = cx.background_executor().spawn(async { footprint() }).await;
     if let Some(mb) = closed {
         println!("closed_footprint_mb {mb:.0}");
+    }
+    if w.churn {
+        let n = cx.background_executor().spawn(async { drawables() }).await;
+        if let Some(n) = n {
+            println!("closed_drawables {n}");
+        }
     }
     println!("closed_done");
     if w.check
@@ -325,19 +339,20 @@ async fn map_bench(cx: &mut AsyncApp, h: gpui::WindowHandle<Root>) {
     }
 }
 
-/// The logs viewer under load (`--logs`; a build with fixtures), on the display `--display` names: its scroll counts
-/// frames the display delivers, and a display that hides the window delivers none.
+/// The logs viewer under load (`--logs`; a build with fixtures), on the display `--display` names, floating over the
+/// others with `--on-top`: its scroll counts frames the display delivers, and a display that hides the window, or a
+/// window covered, delivers none.
 async fn logs_bench(
     cx: &mut AsyncApp,
     src: Rc<crate::source::Source>,
     follow: u64,
-    display: Option<usize>,
+    on: (Option<usize>, bool),
 ) {
     #[cfg(feature = "fixtures")]
-    crate::logbench::run(cx, src, follow, display).await;
+    crate::logbench::run(cx, src, follow, on).await;
     #[cfg(not(feature = "fixtures"))]
     {
-        let _ = (cx, src, follow, display);
+        let _ = (cx, src, follow, on);
         eprintln!("doze-app bench --logs needs a build with the `fixtures` feature");
     }
 }
