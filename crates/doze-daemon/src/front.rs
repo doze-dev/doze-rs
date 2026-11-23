@@ -95,6 +95,8 @@ struct Opened {
     endpoint: String,
     /// An app with an address of its own that could not also have 127.0.0.1 at its port.
     name_only: bool,
+    /// The public port each of its listeners was bound to (it may not be the planned one).
+    ports: BTreeMap<String, u16>,
 }
 
 impl Drop for Opened {
@@ -186,12 +188,14 @@ impl Front {
             }
         }
         let domains = self.zone.domains(f, &bound);
+        let ports = crate::entry::bound_ports(inst);
         let opened = Opened {
             tasks,
             domains,
             _bound: bound,
             endpoint,
             name_only,
+            ports,
         };
         crate::lock(&self.open).insert(f.name.clone(), opened);
     }
@@ -245,6 +249,14 @@ impl Front {
         crate::lock(&self.open)
             .get(name)
             .map(|o| o.endpoint.clone())
+    }
+
+    /// The port each of `name`'s listeners was bound to, by listener name.
+    pub fn ports(&self, name: &str) -> BTreeMap<String, u16> {
+        crate::lock(&self.open)
+            .get(name)
+            .map(|o| o.ports.clone())
+            .unwrap_or_default()
     }
 
     /// Whether `name` could be given only its name, not also 127.0.0.1.

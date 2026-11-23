@@ -68,13 +68,50 @@ pub(crate) fn label(i: &Instance, cat: &Catalog, grant: Option<&Grant>) -> Label
             .map(|c| crate::client::view(&c, &l.endpoint, &p.url, &p.extras));
         (l.url, l.env_var, l.env, l.client) = (p.url, p.env_var, p.env, p.client);
     }
-    if i.kind() == Kind::Module
-        && let Some(spec) = cat.manifest_for(&i.ty, &i.version).and_then(|m| m.console)
-        && let Some((url, front)) = console_link(&spec, grant)
-    {
+    if let Some((url, front)) = console_of(i, cat, grant) {
         (l.web_url, l.console_front) = (url, front);
     }
     l
+}
+
+/// The console link of module instance `i` and the tab it opens on, from what the zone granted it.
+pub(crate) fn console_of(
+    i: &Instance,
+    cat: &Catalog,
+    grant: Option<&Grant>,
+) -> Option<(String, String)> {
+    if i.kind() != Kind::Module {
+        return None;
+    }
+    let spec = cat
+        .manifest_for(&i.ty, &i.version)
+        .and_then(|m| m.console)?;
+    console_link(&spec, grant)
+}
+
+/// `grant` with each listener at the port it was really bound to. A grant is made from the plan, before anything is
+/// bound, and a routed listener whose port was taken is bound on another one (`doze_bind`: "reached by its name
+/// only"): a link that names the planned port points at someone else's listener. `ports` is each bound listener's
+/// public port; a listener it does not name, or names as 0, keeps the planned address.
+pub(crate) fn at_ports(grant: &Grant, ports: &BTreeMap<String, u16>) -> Grant {
+    let mut out = grant.clone();
+    for (name, g) in &mut out.listeners {
+        let Some(port) = ports.get(name).copied().filter(|p| *p > 0) else {
+            continue;
+        };
+        if let Some((host, _)) = doze_config::split_host_port(&g.addr) {
+            g.addr = doze_config::join_host_port(&host, &port.to_string());
+        }
+    }
+    out
+}
+
+/// Each listener of a bound instance and the public port it got.
+pub(crate) fn bound_ports(b: &doze_bind::BoundInstance) -> BTreeMap<String, u16> {
+    b.listeners
+        .iter()
+        .map(|(n, l)| (n.clone(), l.public.port()))
+        .collect()
 }
 
 /// Where a module's web console is and the tab it opens on, when it declares one (a lean build declares none) and
@@ -242,6 +279,41 @@ mod tests {
             web_url("http://{address:console}/ui", Some(&g)).as_deref(),
             Some("http://local.shop.doze:4567/ui")
         );
+    }
+
+    #[test]
+    fn a_listener_that_was_bound_elsewhere_is_linked_where_it_is() {
+        // The console's port was taken, so doze bound it on another: the link names that one, and the main listener, which got
+        // its planned port, is untouched.
+        let moved = at_ports(&kafka(), &BTreeMap::from([("console".to_owned(), 51234)]));
+        assert_eq!(
+            web_url(KAFKA, Some(&moved)).as_deref(),
+            Some("http://events.shop.doze:51234")
+        );
+        assert_eq!(
+            web_url("http://{address}", Some(&moved)).as_deref(),
+            Some("http://events.shop.doze:9092")
+        );
+        // The host it is reached by stays the name's (a routed child keeps its own).
+        let child = grant(&[(
+            "registry",
+            granted("events.shop.doze:8081", &["registry.events.shop.doze"]),
+        )]);
+        let moved = at_ports(&child, &BTreeMap::from([("registry".to_owned(), 40001)]));
+        assert_eq!(
+            web_url("http://{address:registry}", Some(&moved)).as_deref(),
+            Some("http://registry.events.shop.doze:40001")
+        );
+    }
+
+    #[test]
+    fn a_listener_nothing_says_a_port_for_keeps_the_planned_one() {
+        let same = at_ports(
+            &kafka(),
+            &BTreeMap::from([("console".to_owned(), 0), ("elsewhere".to_owned(), 7)]),
+        );
+        assert_eq!(same, kafka());
+        assert_eq!(at_ports(&kafka(), &BTreeMap::new()), kafka());
     }
 
     #[test]
