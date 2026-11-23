@@ -82,7 +82,7 @@ async function fillBus(page: Page, name: string) {
 
 test("eventbridge__bus-create: encryption, a dead-letter queue, an archive and tags, and the two calls it will make", async ({ page }) => {
   await go(page, "/resources/eventbridge/buses?create=yes", "Create event bus");
-  await expect(page.getByTestId("section-details")).toContainText("larder already exists in us-east-1.");
+  await expect(page.getByTestId("section-details")).toContainText("larder already exists in this Region.");
   await fillBus(page, "larder-audit");
   await expect(page.getByTestId("field-kms")).toContainText("Key status: Enabled. Alias alias/larder-app.");
   await expect(page.getByTestId("section-encryption")).toContainText("Stored, not applied locally.");

@@ -83,11 +83,13 @@ test("eventbridge__archives-list: events and size per archive, retention in days
   await expect(page.getByTestId("action-replay")).toBeDisabled();
   await page.getByTestId("select-payments-90d").click();
   await expect(page.getByTestId("action-replay")).toBeEnabled();
-  // A radio, as the board draws it: choosing another archive moves the choice, and the actions are always for one.
+  // Checkboxes, as the board draws them: a second ticked archive turns Replay and Delete off (each is for one), unticking it turns them on.
   await page.getByTestId("select-orders-30d").click();
-  await expect(page.getByTestId("selected-count")).toHaveText("1 archive selected");
-  await expect(page.getByTestId("select-payments-90d")).toHaveAttribute("aria-checked", "false");
-  await page.getByTestId("select-payments-90d").click();
+  await expect(page.getByTestId("selected-count")).toHaveText("2 archives selected");
+  await expect(page.getByTestId("action-replay")).toBeDisabled();
+  await expect(page.getByTestId("action-delete")).toBeDisabled();
+  await page.getByTestId("select-orders-30d").click();
+  await expect(page.getByTestId("action-replay")).toBeEnabled();
   await shot(page, "eventbridge__archives-list");
 });
 

@@ -473,7 +473,7 @@ test("iam__policy-create: the Visual editor builds the same document as the JSON
   // A second block, not finished: it says what it lacks, and Next is stopped with the editor's own error.
   await page.getByTestId("visual-add-block").click();
   await expect(page.getByTestId("visual-block-problem")).toHaveText("Choose a service.");
-  await page.getByTestId("form-submit").click();
+  await expect(page.getByTestId("form-submit")).toBeDisabled();
   await expect(page.getByTestId("policy-json-errors")).toContainText("Statement 2 needs an Action.");
   await shot(page, "iam__policy-create-visual");
   await page.getByTestId("visual-service").nth(1).click();
