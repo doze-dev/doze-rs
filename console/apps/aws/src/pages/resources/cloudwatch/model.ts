@@ -189,7 +189,9 @@ export function actionsExplainer(a: Alarm, history: readonly HistoryItem[]): { l
   const ran = history.filter((h) => h.HistoryItemType === "Action" && h.HistorySummary.startsWith("Successfully") && Math.abs((toMs(h.Timestamp) ?? 0) - at) < 5000);
   const names = ran.map((h) => actionOf(h.HistorySummary.replace("Successfully executed action ", "")));
   const did = names.length === 0 ? "no action ran" : names.map((n) => (n.kind === "lambda" ? `${n.name} was invoked` : `${n.name} was published to`)).join(" and ");
-  const stays = t.to === a.StateValue ? `; the alarm stays in ${a.StateValue} without running them again` : "";
+  // The board's words for an alarm that publishes ("without publishing again"); an alarm that invokes a function, or does both, says it by what it does.
+  const again = names.length > 0 && names.every((n) => n.kind !== "lambda") ? "publishing" : names.length > 0 && names.every((n) => n.kind === "lambda") ? "invoking" : "running them";
+  const stays = t.to === a.StateValue ? `; the alarm stays in ${a.StateValue} without ${again} again` : "";
   return { lead, rest: `It moved from ${t.from} to ${t.to} at ${clock(at)}, so ${did}${names.length ? " once" : ""}${stays}.` };
 }
 

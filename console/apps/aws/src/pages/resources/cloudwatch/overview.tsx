@@ -70,7 +70,7 @@ export function Overview() {
   const names = useMemo(() => alarms.data ?? [], [alarms.data]);
   const counts = stateCounts(names);
   const services = useMemo(() => byService(names), [names]);
-  const recent = useMemo(() => recentFirst(names).slice(0, 5), [names]);
+  const recent = useMemo(() => recentFirst(names).slice(0, 3), [names]);
   const own = useMemo(() => [...new Set((metrics.data ?? []).map((m) => m.Namespace).filter((n) => !n.startsWith("AWS/")))].sort(), [metrics.data]);
   const spaces = useMemo(() => new Set((metrics.data ?? []).map((m) => m.Namespace)), [metrics.data]);
   const custom = names.filter((a) => a.StateValue === "ALARM" && !awsService(namespaceOf(a)));
@@ -87,7 +87,7 @@ export function Overview() {
       ) : (
         <>
           <section className="grid gap-3" data-testid="alarms-by-service">
-            <div><h2 className="text-[19px] leading-7 font-semibold tracking-[-0.01em] text-bright">Alarms by AWS service</h2><p className="mt-1 max-w-[46rem] text-[13.5px] text-muted-foreground">The AWS services you use that have alarms, and the alarms that are in ALARM or changed state most recently.{custom[0] ? <> <span className="font-mono text-foreground">{custom[0].AlarmName}</span> watches a custom metric, so it appears only on the right.</> : null}</p></div>
+            <div><h2 className="text-[19px] leading-7 font-semibold tracking-[-0.01em] text-bright">Alarms by AWS service</h2><p className="mt-1 max-w-[46rem] text-[13.5px] text-muted-foreground">The AWS services you use that have alarms, and the alarms that are in ALARM or changed state most recently.{custom[0] && recent.some((r) => r.AlarmName === custom[0]!.AlarmName) ? <> <span className="font-mono text-foreground">{custom[0].AlarmName}</span> watches a custom metric, so it appears only on the right.</> : null}</p></div>
             <div className="grid items-start gap-6 lg:grid-cols-2">
               {services.length === 0 ? <p className="rounded-[14px] border border-dashed px-5 py-8 text-[13.5px] text-muted-foreground" data-testid="no-service-alarms">No alarm watches an AWS service's metric.</p> : <DataTable aria-label="Alarms by AWS service" data={services} columns={SERVICE_COLUMNS} rowId={(r) => r.service} maxHeight={320} />}
               {recent.length === 0 ? <p className="rounded-[14px] border border-dashed px-5 py-8 text-[13.5px] text-muted-foreground" data-testid="no-alarms">There are no alarms yet.</p> : <DataTable aria-label="Recent alarms" data={recent} columns={RECENT_COLUMNS} rowId={(r) => r.AlarmName} maxHeight={320} />}
