@@ -235,21 +235,31 @@ impl Lock {
     }
 }
 
-/// The file's canonical path: the file itself resolved when it exists (a symlinked doze.lock is its target), else its
-/// folder resolved and its name kept, so a lock reached two ways is one file.
+/// The file's canonical path: its folder resolved and its name kept, a symlinked doze.lock followed to its target, so
+/// a lock reached two ways is one file.
+///
+/// The file itself is never opened. Windows' `canonicalize` opens it and asks the handle for its name; when another
+/// writer's rename had just replaced doze.lock, that handle was the old file and its name `C:\$Extend\$Deleted\…`, so
+/// two writers took different locks and one save failed (CI, `concurrent_saves_keep_every_pin`, 2026-11-23).
 pub fn canonical(path: &Path) -> std::path::PathBuf {
-    if let Ok(p) = path.canonicalize() {
-        return p;
+    let mut path = path.to_path_buf();
+    // A chain of links ends within the hops an OS follows (40 on Linux); a longer one (a loop) is kept as reached.
+    for _ in 0..40 {
+        let dir = path
+            .parent()
+            .filter(|d| !d.as_os_str().is_empty())
+            .unwrap_or(Path::new("."));
+        let (Ok(dir), Some(name)) = (dir.canonicalize(), path.file_name()) else {
+            return path;
+        };
+        let here = dir.join(name);
+        match std::fs::read_link(&here) {
+            // A relative target is relative to the link's folder; an absolute one replaces it (`join`).
+            Ok(to) => path = dir.join(to),
+            Err(_) => return here,
+        }
     }
-    let name = path.file_name().map(std::ffi::OsStr::to_os_string);
-    let dir = path
-        .parent()
-        .filter(|d| !d.as_os_str().is_empty())
-        .unwrap_or(Path::new("."));
-    match (dir.canonicalize(), name) {
-        (Ok(d), Some(n)) => d.join(n),
-        _ => path.to_path_buf(),
-    }
+    path
 }
 
 /// Changes the lock at `path` with `change` and saves it, holding a lock in the doze home keyed by the file's
