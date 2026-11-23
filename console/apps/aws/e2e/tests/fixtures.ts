@@ -105,5 +105,8 @@ export async function overflowX(page: Page): Promise<number> {
   return page.evaluate(() => Math.max(0, document.documentElement.scrollWidth - document.documentElement.clientWidth));
 }
 
-/** A name no other test or browser uses. */
-export const unique = (prefix: string, browserName: string) => `${prefix}-${browserName}-${Date.now().toString(36)}`;
+/**
+ * A name no other test or browser uses. The suffix is digits only: a base-36 one spelled words (`mwslabnh`) that the
+ * palette search for "lab" then matched.
+ */
+export const unique = (prefix: string, browserName: string) => `${prefix}-${browserName}-${Date.now()}`;
