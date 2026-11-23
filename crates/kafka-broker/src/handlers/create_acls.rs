@@ -27,6 +27,12 @@ fn acl_of(c: &AclCreation) -> Acl {
     }
 }
 
+/// The most ACLs one CreateAcls may add, counting only those not stored already and each once: Kafka's bound on the
+/// records of one operation (`MAX_RECORDS_PER_USER_OP`). Past it every result of the request is 44 with Kafka's words,
+/// the invalid ones too, and nothing is stored (Kafka 4.4.0, `tools/kafka-oracle/acl-probe-4.4.0.txt`).
+const MOST_NEW_ACLS: usize = 10_000;
+const TOO_MANY: &str = "Unable to perform excessively large batch operation.";
+
 /// A result that says `code` and, if there is one, why.
 fn result(code: i16, message: Option<&str>) -> AclCreationResult {
     let mut r = AclCreationResult::default();
@@ -89,6 +95,12 @@ impl<F: Fs> Broker<F> {
             .copied()
             .filter(|a| !stored_already.contains(*a))
             .collect();
+        if fresh.len() > MOST_NEW_ACLS {
+            return acls
+                .iter()
+                .map(|_| result(ResponseError::PolicyViolation.code(), Some(TOO_MANY)))
+                .collect();
+        }
         let stored = if fresh.is_empty() {
             Ok(())
         } else {

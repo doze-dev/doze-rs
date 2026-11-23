@@ -740,8 +740,8 @@ APIs otherwise exempt).
   stand-in is needed and tests must not pin it.
 - **U2** Order of resources/ACLs in DescribeAcls and of `MatchingAcls` in DeleteAcls: `HashMap`/`HashSet` order of Java objects whose `hashCode` is derived from
   enum/string content (stable per JVM but not specified). Clients sort. Not settled.
-- **U3** CreateAcls with more than 10000 new distinct ACLs: `BoundedListTooLongException` escapes `AclControlManager.createAcls`; how
-  `EventHandlerExceptionInfo.fromInternal` maps it was not read (likely `UNKNOWN_SERVER_ERROR`/`UnknownServerException`). Not read.
+- **U3** (resolved 2026-11-23 by running Kafka 4.4.0, `tools/kafka-oracle/AclProbe.java`) CreateAcls with more than 10000 new distinct ACLs:
+  every result is 44 (POLICY_VIOLATION) "Unable to perform excessively large batch operation.", an invalid creation too, and nothing is stored.
 - **U4** (resolved, kept for the record) SCRAM misuse cases look like they might hit `IllegalSaslStateException`, but trace to the
   client-first / client-final regex `SaslException`, i.e. 58, matching recording A16 (3.5 item 10).
 - **U5** Whether a PLAIN token with invalid UTF-8 yields exactly "Invalid username or password" for every byte pattern (recorded for one pattern, A2).
