@@ -122,3 +122,10 @@ export function toSeconds(value: string, unit: Unit): number | null {
 }
 
 export const wait = (secs: number): string => seconds(String(secs));
+
+/** A period as the word before a noun: `4-day`, `1-hour`, `30-second` (`seconds()` says `4 days`); a period that is not one whole unit is said as it is. */
+export function waitBefore(secs: number): string {
+  const w = wait(secs);
+  const m = /^(\d+) (day|hour|minute|second)s?$/.exec(w);
+  return m ? `${m[1]}-${m[2]}` : w;
+}

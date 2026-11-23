@@ -1,16 +1,19 @@
 // The pages a queue opens with `?view=`: Edit, Send and receive messages, Start DLQ redrive, and the two forms that wire the queue to
 // Lambda (sqs__queue-lambda-configure) and SNS (sqs__queue-sns-subscribe).
 import { lazy, Suspense, useState } from "react";
+import { useQueries } from "@tanstack/react-query";
 import { Alert } from "@doze/ui/components/app/alert";
 import { Callout } from "@doze/ui/components/app/callout";
 import { Combobox } from "@doze/ui/components/app/combobox";
 import { Skeleton } from "@doze/ui/components/ui/skeleton";
-import { useResourceDetail, useResourceList } from "../../../api/resources";
+import { client } from "../../../api/client";
+import { RESOURCE_PATHS, useResourceDetail, useResourceList } from "../../../api/resources";
 import type { ResourceDetail } from "../../../api/types/ResourceDetail";
 import { Field, FormPage, FormSection, resourceCrumbs } from "../../../kit";
 import { useOp } from "../deep/api";
 import { ApiFailure } from "@doze/ui/lib/api";
 import { wait, type Queue } from "./queue-model";
+import { andList, firstAccepted } from "./sentences";
 import { statementCount, subscribeThenAllow, topicHint, withTopic } from "./subscribe-model";
 
 const Edit = lazy(() => import("./edit").then((m) => ({ default: m.SqsEdit })));
@@ -48,8 +51,12 @@ export function ConfigureTrigger({ d, q, back, done }: SubProps) {
   const make = useOp(t, "CreateEventSourceMapping");
   const functions = useResourceList("lambda", "functions");
   const names = (functions.data?.pages.flatMap((p) => p.rows) ?? []).map((r) => r.name).sort();
-  // The first function is chosen until the person chooses another (or clears the choice).
-  const fn = chose === undefined ? (names[0] ?? null) : chose;
+  // The first function the queue accepts is chosen until the person chooses another (or clears the choice): the form does not open on
+  // a function whose timeout is longer than the queue's visibility timeout. The first few are read (a detail each, kept for the page).
+  const probes = useQueries({ queries: names.slice(0, 8).map((n) => ({ queryKey: ["resources", "one", "lambda", "functions", n], queryFn: ({ signal }: { signal: AbortSignal }) => client.api<ResourceDetail>(RESOURCE_PATHS.one("lambda", "functions", n), {}, signal), retry: false })) });
+  const timeouts = probes.map((p) => (p.isPending ? null : Number(p.data?.fields.find((f) => f.label === "Timeout")?.value ?? Number.NaN)));
+  const opening = firstAccepted(names.slice(0, 8), timeouts.map((t) => (t !== null && Number.isNaN(t) ? Number.POSITIVE_INFINITY : t)), q.visibility);
+  const fn = chose === undefined ? (opening ?? null) : chose;
   const fname = fn?.startsWith("arn:") ? fn.split(":").pop()! : fn;
   const chosen = useResourceDetail("lambda", "functions", fname ?? "", Boolean(fname) && names.includes(fname ?? ""));
   const timeout = Number(chosen.data?.fields.find((f) => f.label === "Timeout")?.value);
@@ -75,7 +82,7 @@ export function ConfigureTrigger({ d, q, back, done }: SubProps) {
       testId="trigger-form"
     >
       <FormSection title="Lambda trigger">
-        <Field label="Lambda function" hint={others.length > 0 ? `Choose an existing function, or enter the ARN of one that isn't listed. Also here: ${others.join(", ")}.` : "Choose an existing function, or enter the ARN of one that isn't listed."} testId="field-function">
+        <Field label="Lambda function" hint={others.length > 0 ? `Choose an existing function, or enter the ARN of one that isn't listed. Also here: ${andList(others)}.` : "Choose an existing function, or enter the ARN of one that isn't listed."} testId="field-function">
           {(id) => <div className="grid gap-2"><ListPicker id={id} service="lambda" kind="functions" noun="function" value={fn} onChange={(v) => { make.reset(); setFn(v); }} by="name" />{chosen.data && <p className="font-mono text-[12.5px] break-all text-muted-foreground" data-testid="function-arn">{chosen.data.fields.find((f) => f.label === "ARN")?.value}</p>}</div>}
         </Field>
         <Callout tone="warn" lead={tooLong ? `${fname} has a timeout of ${wait(timeout)}, longer than this queue's visibility timeout.` : "Check the visibility timeout first."} testId="visibility-check">

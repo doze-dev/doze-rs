@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { madeSentence, purgedSentence, sourceSentence, chipWords } from "./sentences";
+import { andList, chipWords, firstAccepted, madeSentence, purgedSentence, sourceSentence } from "./sentences";
 
 test("a dead-letter queue names the limit of its one source", () => {
   const s = "pick-lists-dlq holds 1 message. It is the dead-letter queue of pick-lists.";
@@ -18,4 +18,19 @@ test("a wired chip is set as the board sets it", () => {
   expect(chipWords({ label: "Fed by", to: to("nightly") })).toBe("nightly rule");
   expect(chipWords({ label: "KMS key", to: to("alias/larder-app") })).toBe("alias/larder-app key");
   expect(chipWords({ label: "Dead-letter queue", to: to("pick-lists-dlq") })).toBe("pick-lists-dlq");
+});
+
+test("a list is joined with and", () => {
+  expect(andList([])).toBe("");
+  expect(andList(["a"])).toBe("a");
+  expect(andList(["a", "b"])).toBe("a and b");
+  expect(andList(["a", "b", "c"])).toBe("a, b and c");
+});
+
+test("a trigger form opens on the first function the queue accepts", () => {
+  expect(firstAccepted(["export-report", "send-email"], [120, 30], 30)).toBe("send-email");
+  expect(firstAccepted(["export-report", "send-email"], [null, 30], 30)).toBe("send-email");
+  expect(firstAccepted(["export-report", "send-email"], [120, null], 30)).toBeUndefined();
+  expect(firstAccepted(["export-report", "send-email"], [120, 300], 30)).toBe("export-report");
+  expect(firstAccepted([], [], 30)).toBeNull();
 });
