@@ -25,3 +25,20 @@ export const UPSTREAM = ["Fed by", "Queues that use it"];
 export const chipWords = (w: Pick<Wired, "label" | "to">): string => (w.label === "Fed by" ? ruleWords(w.to.name) : w.label === "KMS key" ? `${w.to.name} key` : w.to.name);
 const ruleWords = (n: string): string => (n.includes("/") ? `${n.slice(n.indexOf("/") + 1)} rule, bus ${n.slice(0, n.indexOf("/"))}` : `${n} rule`);
 
+
+/** `a`, `a and b`, `a, b and c`. */
+export function andList(items: readonly string[]): string {
+  return items.length <= 1 ? items.join("") : `${items.slice(0, -1).join(", ")} and ${items[items.length - 1]}`;
+}
+
+/** The function a trigger form opens on: the first (in the order given) whose timeout the queue accepts (a mapping needs a visibility
+ * timeout of at least the function's timeout), so the form does not open on a refusal. A timeout not read yet is `null`; while any
+ * is not read and none read so far fits, there is no answer yet (`undefined`); once all are read and none fits, the first name. */
+export function firstAccepted(names: readonly string[], timeouts: readonly (number | null)[], visibility: number): string | null | undefined {
+  for (let i = 0; i < names.length; i++) {
+    const t = timeouts[i];
+    if (t !== null && t !== undefined && t <= visibility) return names[i];
+  }
+  if (timeouts.some((t) => t === null || t === undefined) && names.length > 0) return undefined;
+  return names[0] ?? null;
+}

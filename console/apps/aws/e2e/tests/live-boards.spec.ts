@@ -26,13 +26,18 @@ test("LiveA: apps on the left, the resources they called and what those are wire
   // A rule's target, the redrive, a notification, and the topic's two subscriptions.
   await expect(page.getByTestId("map-wire")).toHaveCount(5);
   // Not wired: what exists and nothing calls or feeds.
-  await page.getByTestId("not-wired").locator("summary").click();
+  // The list is open, as the board draws it, and says what is idle about each.
   await expect(page.getByTestId("not-wired-item").filter({ hasText: "deliveries" })).toHaveCount(1);
+  await expect(page.getByTestId("not-wired-item").filter({ hasText: "deliveries" })).toContainText("idle · no call held");
   // The panel of a queue: what it holds, who feeds it, where it dead-letters to, who reads it, and its verbs.
   await node(page, "sqs/queues/pick-lists").click();
   const panel = page.getByTestId("node-panel");
   await expect(panel.getByTestId("panel-title")).toHaveText("pick-lists");
-  await expect(panel.getByTestId("panel-sentence")).toHaveText("3 waiting · 2 in flight");
+  // The peek's headline is how many are waiting, in big type, with the rest under it.
+  await expect(panel.getByTestId("panel-count")).toHaveText("3");
+  await expect(panel.getByTestId("panel-headline")).toContainText("waiting");
+  await expect(panel.getByTestId("panel-sentence")).toHaveText("2 in flight");
+  expect(Number.parseFloat(await panel.getByTestId("panel-count").evaluate((e) => getComputedStyle(e).fontSize))).toBeGreaterThanOrEqual(56);
   await expect(panel).toContainText("Fed by");
   await expect(panel).toContainText("larder");
   await expect(panel).toContainText("Dead letters to");
@@ -58,14 +63,24 @@ test("LiveB: opening a call lights its route from the app to what it named and o
   await go(page, "/live", "Live");
   // payments' SendMessage to pick-lists, which dead-letters to pick-lists-dlq.
   const row = page.locator("tr[data-row]", { hasText: "SendMessage" }).filter({ hasText: "payments" }).first();
-  await row.click();
+  await row.getByTestId("open-call").click();
   await expect(page.getByTestId("call-sheet")).toBeVisible();
   const lit = page.locator('[data-testid="map-line"][stroke-width="3.5"], [data-testid="map-wire"][stroke-width="3.5"]');
   await expect(lit).toHaveCount(2);
   await expect(node(page, "sqs/queues/pick-lists")).toHaveAttribute("aria-pressed", "true");
   await expect(node(page, "sqs/queues/pick-lists-dlq")).toHaveAttribute("aria-pressed", "true");
+  // The map says which call it is lighting, as the board does.
+  await expect(page.getByTestId("selected-call")).toContainText(/^Selected call · SendMessage · \d\d:\d\d:\d\d\.\d{3}$/);
   await shot(page, "LiveB");
 });
+
+/** Presses a chip of Needs a look (it filters the wire to its kind) and opens the newest call the wire then holds. */
+async function openLook(page: import("@playwright/test").Page, word: string): Promise<void> {
+  const chip = page.locator(`[data-testid="look"][data-word="${word}"]`);
+  await chip.click();
+  await expect(chip).toHaveAttribute("aria-pressed", "true");
+  await page.getByRole("table", { name: "Calls, newest first" }).locator("tr[data-row]").first().getByTestId("open-call").click();
+}
 
 test("LiveBLoad: what needs a look, a function that failed, Focus, and why a call would be denied against the policy the caller has", async ({ page }) => {
   await go(page, "/live", "Live");
@@ -91,7 +106,18 @@ test("LiveBLoad: what needs a look, a function that failed, Focus, and why a cal
   await expect(page).toHaveURL(/focus=all/);
   await page.getByTestId("focus-active").click();
   // The would-be-denied call opens with how many statements match, the policies the caller has, and what would be added to the one it has.
+  // A chip is a pressed toggle that filters the wire to its kind; pressed again it lets the whole wire back.
+  const wire = page.getByRole("table", { name: "Calls, newest first" });
+  const all = await wire.locator("tr[data-row]").count();
   await strip.locator('[data-word="WOULD BE DENIED (soft)"]').click();
+  await expect(strip.locator('[data-word="WOULD BE DENIED (soft)"]')).toHaveAttribute("aria-pressed", "true");
+  await expect(page).toHaveURL(/look=would-be-denied/);
+  await expect(wire.locator("tr[data-row]")).toHaveCount(1);
+  await expect(wire.locator("tr[data-row]").first()).toContainText("GetObject");
+  await expect(strip.locator('[data-word="REFUSED"]')).toHaveAttribute("aria-pressed", "false");
+  await strip.locator('[data-word="WOULD BE DENIED (soft)"]').click();
+  await expect(wire.locator("tr[data-row]")).toHaveCount(all);
+  await openLook(page, "WOULD BE DENIED (soft)");
   const explain = page.getByTestId("explain");
   await expect(explain).toContainText("Why this would be denied");
   await expect(explain.getByTestId("explain-count")).toContainText("0 statements match this resource");
@@ -119,7 +145,7 @@ test("LiveBLoad: what needs a look, a function that failed, Focus, and why a cal
 
 test("a refused call says which rule fired, with the service's own words, and what would pass", async ({ page }) => {
   await go(page, "/live", "Live");
-  await page.locator('[data-testid="look"][data-word="REFUSED"]').click();
+  await openLook(page, "REFUSED");
   const refused = page.getByTestId("refused");
   await expect(refused).toContainText("Why it was refused");
   await expect(refused.getByTestId("refused-message")).not.toBeEmpty();
@@ -150,6 +176,14 @@ test("the wire says what came back, keeps a rule's name, and does not claim hour
   // The page says what it keeps.
   await expect(page.locator("main")).toContainText("Kept in memory: the newest 1,024 calls");
   await expect(page.locator("main")).toContainText("not hours of history");
+  // And since when: the hour and minute doze-aws started, so a restart is not mistaken for a quiet afternoon.
+  await expect(page.locator("main")).toContainText(/nothing from before \d\d:\d\d UTC, when doze-aws started/);
+  // A wire row has its own Open <resource>, which goes to the resource and does not open the call.
+  const send = wire.locator("tr[data-row]", { hasText: "SendMessage" }).first();
+  await send.getByTestId("row-open-resource").click();
+  await expect(page).toHaveURL(/\/resources\/sqs\//);
+  await expect(page.getByTestId("call-sheet")).toHaveCount(0);
+  await page.goBack();
   await expect(page.getByTestId("rail-footer")).toContainText("jump or do");
 });
 
@@ -179,7 +213,7 @@ test("LiveC: the same map in columns by domain, and what REFUSED and WOULD BE DE
 test("Vanity: the live space as the verdicts say it is built: wire, copy as, the map with caller by app, one number per resource", async ({ page }) => {
   await go(page, "/live", "Live");
   // Copy as AWS CLI and curl are on every call, and Open resource.
-  await page.locator("tr[data-row]", { hasText: "ReceiveMessage" }).first().click();
+  await page.locator("tr[data-row]", { hasText: "ReceiveMessage" }).first().getByTestId("open-call").click();
   await expect(page.getByTestId("call-copy-cli")).toBeEnabled();
   await expect(page.getByTestId("call-copy-curl")).toBeEnabled();
   await expect(page.getByTestId("call-open-resource")).toContainText("pick-lists");
@@ -225,7 +259,7 @@ test("a busy world: the busiest flows are drawn, the rest are counted as quieter
 
 test("Add to policy edits the policy the caller has: the same name, its statements kept, the new one after them", async ({ page }) => {
   await go(page, "/live", "Live");
-  await page.locator('[data-testid="look"][data-word="WOULD BE DENIED (soft)"]').click();
+  await openLook(page, "WOULD BE DENIED (soft)");
   await page.getByTestId("explain-add").click();
   await expect(page.getByTestId("pass-dialog")).toBeVisible();
   await page.getByTestId("attach-submit").click();

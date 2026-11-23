@@ -115,6 +115,14 @@ test("secretsmanager__secret-overview, secret-value, secret-value-edit: a secret
   await expect(page.getByTestId("policy-json")).toContainText("secretsmanager:GetSecretValue");
   await expect(page.getByTestId("sample-text")).toContainText("get_secret_value(SecretId=\"larder/prod/stripe-key\")");
   await expect(page.getByTestId("sample-text")).toContainText(server.endpoint);
+  // Sample code is a select with a Copy button, and Retrieve is the card's main button.
+  await page.getByTestId("sample-lang").click();
+  await page.getByTestId("sample-lang-cli").click();
+  await expect(page.getByTestId("sample-text")).toContainText("aws secretsmanager get-secret-value");
+  await page.getByTestId("sample-lang").click();
+  await page.getByTestId("sample-lang-python").click();
+  await expect(page.getByTestId("sample-code").getByRole("button", { name: "Copy" })).toBeVisible();
+  await expect(page.getByTestId("secret-value").getByTestId("value-retrieve")).toHaveClass(/bg-primary/);
   await shot(page, "secretsmanager__secret-overview");
   await page.getByTestId("value-retrieve").click();
   await expect(page.getByTestId("value-version")).toContainText("labeled AWSCURRENT");
@@ -211,7 +219,15 @@ test("secretsmanager__secret-delete, secret-deleted: a waiting period, then the 
   await expect(page.getByTestId("delete-secret-call")).toContainText('"RecoveryWindowInDays": 30');
   await shot(page, "secretsmanager__secret-delete");
   await page.getByTestId("delete-secret-save").click();
-  await expect(page.getByTestId("secret-scheduled")).toContainText("The recovery window ends on");
+  await expect(page.getByTestId("secret-scheduled")).toContainText("Scheduled for deletion: the recovery window ends on");
+  // The board's reduced page: its state alone beside the name, Cancel deletion as the header's main button, and no strip, tabs or menus.
+  await expect(page.getByText("Rotation enabled")).toHaveCount(0);
+  await expect(page.getByTestId("wired-strip")).toHaveCount(0);
+  await expect(page.getByTestId("tab-overview")).toHaveCount(0);
+  await expect(page.getByTestId("actions-menu")).toHaveCount(0);
+  await expect(page.getByTestId("secret-actions")).toHaveCount(0);
+  await expect(page.getByTestId("cancel-deletion")).toBeVisible();
+  await expect(page.getByTestId("secret-scheduled").getByTestId("cancel-deletion")).toHaveCount(0);
   await expect(page.getByTestId("value-scheduled")).toContainText("You can't retrieve the value of a secret that is scheduled for deletion.");
   await expect(page.getByTestId("detail-sentence")).toContainText("is scheduled for deletion");
   await shot(page, "secretsmanager__secret-deleted");

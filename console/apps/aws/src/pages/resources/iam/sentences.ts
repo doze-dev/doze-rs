@@ -113,6 +113,14 @@ export function groupSentence(name: string, members: readonly string[], policies
   return `${name} has ${m} and ${p}. ${members.length === 0 ? "Anyone added" : "Everyone in it"} can do what ${list(policies)} ${policies.length === 1 ? "allows" : "allow"}${words ? `: ${words}` : ""}.`;
 }
 
+/** `dev-intern inherits PowerUserAccess through developers: every service except IAM, Organizations and Account.` The words follow a policy only
+ * when one policy is inherited and doze-aws knows what it allows. */
+export function inheritsSentence(user: string, policies: readonly string[], groups: readonly string[]): string {
+  const once = [...new Set(policies)];
+  const words = once.length === 1 ? POLICY_WORDS[once[0]!] : undefined;
+  return `${user} inherits ${list(once)} through ${list(groups)}${words ? `: ${words}` : ""}.`;
+}
+
 export type RoleSentence = { name: string; assumed: number; inLastHour: number; by: string[]; policies: string[]; only: { action: string; resource: string } | null };
 
 /** `report-job was assumed 7 times in the last hour, all with ci-bot's key. Its only permission is s3:GetObject on reports/*, through report-job-readonly.` */

@@ -32,7 +32,7 @@ test("SNS delivering to SQS is a call via SNS, and its drawer shows the Publish 
   await expect(row.getByTestId("via-pill")).toHaveText("via");
   await expect(row.locator("td").nth(4)).toContainText("SNS");
 
-  await row.click();
+  await row.getByTestId("open-call").click();
   const chain = page.getByTestId("cause-chain");
   await expect(chain).toBeVisible();
   await expect(page.getByTestId("call-via")).toContainText("SNS made it on doze-aws's internal bus");
@@ -143,7 +143,7 @@ test("a call is copied as an AWS CLI command and as curl", async ({ page, cli, b
   await page.getByTestId("copy-cli").click();
   await expect(page.getByText("AWS CLI command copied")).toBeVisible();
   expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(`aws --endpoint-url ${ENDPOINT} --region us-east-1 sqs create-queue --queue-name ${queue}`);
-  await row.click();
+  await row.getByTestId("open-call").click();
   await page.getByTestId("call-copy-curl").click();
   await expect(page.getByText("Curl command copied")).toBeVisible();
   const curl = await page.evaluate(() => navigator.clipboard.readText());

@@ -6,7 +6,9 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { Page } from "@playwright/test";
 import { start } from "../server";
+import { expectCrumbsEnd } from "./crumbs-kit";
 import { expect, expectNoErrorAnswers, settled, test } from "./fixtures";
+import { expectCopy, expectFullWidthCall } from "./callpanel-kit";
 
 /** Where the doze-aws with no bucket listens (two ports a browser); `E2E_BASE_PORT` moves it when another run holds these. */
 const S3_EMPTY = Number(process.env.E2E_BASE_PORT ?? 44690);
@@ -63,8 +65,11 @@ test("seed: three buckets with objects, versions, a delete marker, tags, a notif
   const kms = (args: string[]) => JSON.parse(cli(["kms", ...args]).out) as { KeyMetadata: { KeyId: string } };
   const app = kms(["create-key", "--description", "app"]).KeyMetadata.KeyId;
   const signing = kms(["create-key", "--key-spec", "RSA_2048", "--key-usage", "SIGN_VERIFY", "--description", "signing"]).KeyMetadata.KeyId;
-  expect(cli(["kms", "create-alias", "--alias-name", `alias/larder-app-${browserName}`, "--target-key-id", app]).code).toBe(0);
-  expect(cli(["kms", "create-alias", "--alias-name", `alias/larder-signing-${browserName}`, "--target-key-id", signing]).code).toBe(0);
+  // A retry of this test seeds again over the same server: an alias it made before is replaced, not a refusal.
+  for (const [alias, key] of [[`alias/larder-app-${browserName}`, app], [`alias/larder-signing-${browserName}`, signing]]) {
+    cli(["kms", "delete-alias", "--alias-name", alias]);
+    expect(cli(["kms", "create-alias", "--alias-name", alias, "--target-key-id", key]).code).toBe(0);
+  }
 });
 
 test("s3__buckets-list and s3__buckets-none: the list says how many and where; an account with none says so", async ({ page, browserName }) => {
@@ -228,6 +233,8 @@ test("s3__bucket-properties, -tags-none, -notifications-none: sections with thei
   await expect(page.getByTestId("properties")).toContainText("resize-on-create");
   await expect(page.getByTestId("properties")).toContainText("larder");
   await shot(page, "s3__bucket-properties", browserName);
+  // The Wired to strip is the Objects tab's: the other tabs do not repeat it.
+  await expect(page.getByTestId("wired-strip")).toHaveCount(0);
   await page.goto(bucketUrl(n.thumb, "?tab=properties"));
   await expect(page.getByTestId("tags-none")).toContainText(`${n.thumb} has no tags`);
   await expect(page.getByTestId("notifications-none")).toContainText(`${n.thumb} sends no notifications`);
@@ -252,8 +259,14 @@ test("s3__bucket-permissions, -management, -lifecycle-none: the Block Public Acc
   await expect(page.getByTestId("cors-json")).toContainText('"AllowedMethods": ["GET", "HEAD"],');
   await expect(page.getByTestId("cors-json")).toContainText("http://localhost:3000");
   await shot(page, "s3__bucket-permissions", browserName);
+  await expect(page.getByTestId("wired-strip")).toHaveCount(0);
+  // The CORS editor opens with each list of values on one line, as the board draws it.
+  await page.goto(bucketUrl(n.img, "?do=cors-edit"));
+  await expect(page.getByTestId("cors-json")).toHaveValue(/"AllowedMethods": \["GET", "HEAD"\],/);
+  await expect(page.getByTestId("cors-json")).toHaveValue(/"ExposeHeaders": \["ETag"\],/);
   await page.goto(bucketUrl(n.img, "?tab=management"));
   await expect(page.getByTestId("detail-sentence")).toContainText("has 1 lifecycle rule: abort-stale-uploads cleans up unfinished multipart uploads. Nothing yet prunes old versions");
+  await expect(page.getByTestId("wired-strip")).toHaveCount(0);
   await expect(page.getByTestId("management")).toContainText("Delete incomplete multipart uploads 7 days after they start");
   await shot(page, "s3__bucket-management", browserName);
   await page.goto(bucketUrl(n.thumb, "?tab=management"));
@@ -298,6 +311,7 @@ test("the edit pages: versioning, ownership, Block Public Access, encryption, we
   await page.getByRole("combobox", { name: "Choose a KMS key" }).click();
   await page.getByRole("option", { name: new RegExp(`alias/larder-app-${browserName}`) }).click();
   await expect(page.getByTestId("call-panel-code")).toContainText(`:alias/larder-app-${browserName}`);
+  await expectFullWidthCall(page);
   await page.getByTestId("kms-arn").click();
   await page.getByTestId("kms-arn-input").fill("arn:aws:kms:us-east-1:111122223333:key/abc");
   await page.getByTestId("bucket-key-on").click();
@@ -313,6 +327,9 @@ test("the edit pages: versioning, ownership, Block Public Access, encryption, we
   await expect(page.getByTestId("properties")).toContainText("index.html");
 
   await edit("cors-edit", "s3__cors-edit");
+  // The editor opens with each list of values on one line, as the board draws the rule; the call panel under the form is full width and wraps at spaces, not inside a name.
+  await expect(page.getByTestId("cors-json")).toHaveValue(/"AllowedMethods": \["GET", "HEAD"\],/);
+  await expectFullWidthCall(page);
   await expect(page.getByTestId("form-submit")).toBeEnabled();
   await page.getByTestId("form-submit").click();
   await expect(page.getByTestId("cors-json")).toContainText("localhost:3000");
@@ -330,9 +347,13 @@ test("the edit pages: versioning, ownership, Block Public Access, encryption, we
   await expect(page.getByTestId("policy-json")).toContainText("RoleReadsObjects");
 
   await edit("tags-edit", "s3__tags-edit");
-  await page.getByTestId("tags-kv-add").click();
+  // The page opens with a blank row to type in (the board's), without pressing Add Tag first.
+  await expect(page.getByTestId("tags-kv-key-0")).toHaveValue("");
   await page.getByTestId("tags-kv-key-0").fill("team");
   await page.getByTestId("tags-kv-value-0").fill("search");
+  // Copy at once, with no wait for the preview: the button waits while the panel catches up, so what it copies is what is on screen (a row just typed, not the call before it).
+  await expectCopy(page, "cli", "search");
+  await expectCopy(page, "boto3", "search");
   await expect(page.getByTestId("call-panel-code")).toContainText("PutBucketTagging");
   await page.getByTestId("form-submit").click();
   await expect(page.getByTestId("properties")).toContainText("search");
@@ -341,14 +362,24 @@ test("the edit pages: versioning, ownership, Block Public Access, encryption, we
 test("s3__notification-create and s3__lifecycle-create: each adds a rule to the whole configuration", async ({ page, cli, browserName }) => {
   const n = names(browserName);
   expect(cli(["sqs", "create-queue", "--queue-name", `inventory-${browserName}`]).code).toBe(0);
+  const fifo = `orders-events-${browserName}.fifo`;
+  expect(cli(["sqs", "create-queue", "--queue-name", fifo, "--attributes", "FifoQueue=true"]).code).toBe(0);
   await page.goto(bucketUrl(n.img, "?do=notification-create"));
   await page.getByTestId("notification-name").fill("image-removed");
   await page.getByTestId("event-ObjectRemoved").click();
   await page.getByTestId("dest-kind-SQS Queue").click();
+  // A FIFO queue cannot be a destination: the hint names it up front and the list does not offer it.
+  // (The hint names every FIFO queue the server holds, the other browsers' too: it is the one that names this browser's.)
+  await expect(page.getByText("not in the list").filter({ hasText: fifo })).toBeVisible();
+  await page.getByRole("combobox", { name: "Choose a queue" }).click();
+  await expect(page.getByRole("option", { name: `inventory-${browserName}` })).toBeVisible();
+  await expect(page.getByRole("option", { name: fifo })).toHaveCount(0);
+  await page.keyboard.press("Escape");
   await page.getByTestId("dest-enter-arn").click();
   await page.getByTestId("dest-arn").fill(`arn:aws:sqs:us-east-1:111122223333:inventory-${browserName}`);
   await expect(page.getByTestId("call-panel-code")).toContainText("LambdaFunctionConfigurations");
   await expect(page.getByTestId("call-panel-code")).toContainText("QueueConfigurations");
+  await expectFullWidthCall(page);
   await shot(page, "s3__notification-create", browserName);
   await page.getByTestId("form-submit").click();
   await expect(page.getByTestId("properties")).toContainText("image-removed");
@@ -422,7 +453,6 @@ test("s3__folder-create, s3__upload, s3__upload-status: a folder, three files wi
   await expect.poll(() => mine.count()).toBeGreaterThanOrEqual(3);
   await shot(page, "s3__upload-status", browserName);
   // The calls this console made name the object they acted on, not the bucket alone.
-  await page.getByTestId("calls-console-toggle").click();
   await expect(page.getByTestId("recent-calls").getByTestId("call-key").filter({ hasText: "seasonal/hero-autumn.jpg" }).first()).toBeVisible();
   const head = cli(["s3api", "head-object", "--bucket", n.img, "--key", "seasonal/hero-autumn.jpg"]).out;
   expect(head).toContain('"source": "e2e"');
@@ -483,6 +513,7 @@ test("s3__object-detail, -versions, -presign, -copy, -delete-version, -delete: o
   // Versions.
   await page.getByTestId("tab-versions").click();
   await expect(page.getByTestId("versions")).toContainText("Versions (3)");
+  await expectCrumbsEnd(page, ["sku-FV-TOM-V.jpg", "sku-FV-TOM-V.jpg: Versions"]);
   await shot(page, "s3__object-versions", browserName);
   // Delete the oldest version for good.
   const rows = page.getByTestId("versions").locator("tbody tr");
@@ -491,6 +522,7 @@ test("s3__object-detail, -versions, -presign, -copy, -delete-version, -delete: o
   await expect(page.getByTestId("object-delete-version-page")).toContainText("Permanently delete 1 version of");
   await expect(page.getByTestId("object-delete-version-page")).toContainText("The other 2 versions stay.");
   await expect(page.getByTestId("delete-objects-submit")).toBeDisabled();
+  await expectCrumbsEnd(page, ["sku-FV-TOM-V.jpg", "Versions", "Permanently delete object versions"]);
   await page.getByTestId("confirm-input").fill("permanently delete");
   await shot(page, "s3__object-delete-version", browserName);
   await page.getByTestId("delete-objects-submit").click();
@@ -617,8 +649,8 @@ test("s3__object-copy (Specify settings), Move and Rename: the copy has the stor
 // Deleting a bucket that is not empty is the 409 the page is there to show.
 test.describe("danger", () => {
 test("s3__bucket-empty, -empty-status, -delete, -deleted: emptying is counted and reported; deleting asks for the name and refuses a bucket that is not empty", async ({ page, cli, browserName, refusals }) => {
-  // A bucket that is not empty is refused its delete (409), and the dialog says so.
-  refusals.allow(/409 DELETE .*\/s3\/buckets\/receipts-/);
+  // A bucket that is not empty is not offered a delete: the page says so, names no "cleared with it" line, and sends no call that
+  // would be refused with a 409.
   const n = names(browserName);
   await page.goto("/resources/s3/buckets");
   await page.getByTestId(`select-${n.rec}`).click();
@@ -626,9 +658,11 @@ test("s3__bucket-empty, -empty-status, -delete, -deleted: emptying is counted an
   await page.getByTestId("bucket-delete").click();
   await h1(page, "Delete bucket");
   await expect(page.getByTestId("not-empty")).toContainText("This bucket is not empty");
+  await expect(page.getByTestId("not-empty")).toContainText("Empty the bucket first");
+  await expect(page.getByTestId("blockers")).toHaveCount(0);
+  await expect(page.getByText("cleared with it")).toHaveCount(0);
   await page.getByTestId("confirm-input").fill(n.rec);
-  await page.getByTestId("delete-submit").click();
-  await expect(page.getByTestId("delete-refused")).toContainText("BucketNotEmpty");
+  await expect(page.getByTestId("delete-submit")).toBeDisabled();
   await expectNoErrorAnswers(page, refusals);
   await page.getByTestId("go-empty").click();
   await h1(page, "Empty bucket");

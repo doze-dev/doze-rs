@@ -79,7 +79,7 @@ export function EnvEdit(p: FormProps) {
   return (
     <FnFormPage p={{ ...p, tab: "configuration", p: "env" }} title="Edit environment variables" label="Edit environment variables" sub={<><b className="font-medium text-foreground">Settings for {d.name}&apos;s code.</b> Changes apply to $LATEST.</>}
       request={{ service: "lambda", operation: "UpdateFunctionConfiguration", input }} refusal={save.error} callNote="The whole Variables map is replaced, so every variable you keep is sent again."
-      submitLabel="Save" pending={save.isPending} disabled={tried && bad} disabledWhy={problems[""] ?? Object.values(problems)[0]} onSubmit={submit} testId="env-edit-form">
+      submitLabel="Save" pending={save.isPending} disabled={tried && bad} disabledWhy="Fix the rows marked above before saving." onSubmit={submit} testId="env-edit-form">
       <FormSection title="Environment variables" testId="section-env">
         <KeyValueEditor rows={rows} onChange={setRows} addLabel="Add environment variable" removeLabel="Remove" keyLabel="Key" valueLabel="Value" showErrors={tried} testId="env-kv" />
         {tried && Object.entries(problems).filter(([i]) => i !== "").map(([i, why]) => <Alert key={i} tone="bad" title={`Row ${Number(i) + 1}`} testId={`env-problem-${i}`}>{why}</Alert>)}

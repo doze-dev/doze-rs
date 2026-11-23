@@ -200,7 +200,14 @@ test("sqs__queue-lambda-triggers and sqs__queue-lambda-configure: no trigger, th
   await shot(page, "sqs__queue-lambda-triggers");
   await page.getByTestId("lambda-configure-open").first().click();
   await expect(page.locator("h1")).toHaveText("Configure Lambda function trigger");
-  // The first function is chosen already, with its ARN under the picker; its timeout is checked at once.
+  // The form opens on the first function the queue accepts (send-email, ten seconds against a 30-second visibility timeout), not on one it
+  // would refuse, with its ARN under the picker, the board's hint and the others joined with "and".
+  await expect(page.getByTestId("function-arn")).toContainText("function:send-email");
+  await expect(page.getByTestId("visibility-check")).toContainText("Check the visibility timeout first.");
+  await expect(page.getByTestId("field-function")).toContainText("Also here: export-report and resize-product-image.");
+  // A function whose timeout is longer is said so, and the refusal is Lambda's.
+  await page.getByRole("combobox", { name: "Choose a function" }).click();
+  await page.getByRole("option", { name: "export-report" }).click();
   await expect(page.getByTestId("function-arn")).toContainText("function:export-report");
   await expect(page.getByTestId("visibility-check")).toContainText("export-report has a timeout of 2 minutes, longer than this queue's visibility timeout.");
   await page.getByTestId("form-submit").click();
@@ -269,6 +276,8 @@ test("sqs__queue-edit: the settings in their own page, only what changed sent, t
   await go(page, "/resources/sqs/queues/pick-lists?view=edit", "Edit pick-lists");
   await expect(page.getByTestId("disabled-why")).toHaveText("Nothing has changed.");
   await expect(page.getByTestId("policy-json").first()).toBeVisible();
+  // The data key reuse period (the queue has SSE-KMS) says it is stored, not applied, as the board does.
+  await expect(page.getByTestId("reuse-stored")).toHaveText("Stored, not applied locally.");
   await page.getByTestId("queue-visibility").fill("60");
   await page.getByTestId("form-tags-add").click();
   await page.getByTestId("form-tags-key-3").fill("team");

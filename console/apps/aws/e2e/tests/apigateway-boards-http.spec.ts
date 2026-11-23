@@ -21,6 +21,10 @@ test("apigateway__http-create (and its routes, stage and review steps): four ste
   await expect(page.getByTestId("section-api")).toContainText("This Region already has 2 REST APIs, larder-internal and larder-public, and 2 HTTP APIs, larder-admin and larder-hooks.");
   await expect(page.getByTestId("section-api")).toContainText("Stored, not applied locally.");
   await expect(page.getByTestId("function-region")).toContainText("us-east-1");
+  // The footers are the boards': Cancel and Review and create on the first step, Previous and Next after it.
+  await expect(page.getByTestId("form-cancel")).toBeVisible();
+  await expect(page.getByTestId("form-review")).toBeVisible();
+  await expect(page.getByTestId("form-back")).toHaveCount(0);
   await shot(page, "http-create");
   // Add integration: a second backend with its own route (a Lambda function and an HTTP endpoint behind one API).
   await page.getByTestId("add-integration").click();
@@ -35,6 +39,9 @@ test("apigateway__http-create (and its routes, stage and review steps): four ste
   await choose(page, "route-method-2", "POST");
   await page.getByTestId("route-path-2").fill("/orders/{proxy+}");
   await expect(page.getByTestId("section-match")).toContainText("larder-admin already has GET /reports and POST /reports/run; this new API is separate.");
+  await expect(page.getByTestId("form-back")).toBeVisible();
+  await expect(page.getByTestId("form-cancel")).toHaveCount(0);
+  await expect(page.getByTestId("form-review")).toHaveCount(0);
   await shot(page, "http-create-routes");
   await next(page);
   await expect(page.locator("h1")).toHaveText("Stage");
@@ -56,6 +63,8 @@ test("apigateway__http-create (and its routes, stage and review steps): four ste
   await expect(code.nth(4)).toContainText('"routeKey": "POST /orders/{proxy+}"');
   await expect(code.nth(5)).toContainText('"autoDeploy": true');
   await expect(page.getByTestId("call-panel")).toContainText("Each call also carries the new API's ID.");
+  await expect(page.getByTestId("form-cancel")).toHaveCount(0);
+  await expect(page.getByTestId("form-submit")).toHaveText("Create");
   await shot(page, "http-create-review");
   await page.getByTestId("edit-routes").click();
   await expect(page.locator("h1")).toHaveText("Configure routes");

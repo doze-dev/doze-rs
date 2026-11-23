@@ -65,7 +65,7 @@ export function IndexCreate({ name }: OwnProps) {
           {(id) => <KeyRow nameId={id} name={f.pk} type={f.pkType} onName={(pk) => set({ pk, ...(knownType(t, pk) ? { pkType: knownType(t, pk)! } : {}) })} onType={(pkType) => set({ pkType })} placeholder="status" label="Partition key" testId="index-pk" />}
         </Field>
         <Field label={<>Sort key <span className="font-normal text-muted-foreground">optional</span></>} error={p.sk}>
-          {(id) => <KeyRow nameId={id} name={f.sk} type={f.skType} onName={(sk) => set({ sk, ...(knownType(t, sk) ? { skType: knownType(t, sk)! } : {}) })} onType={(skType) => set({ skType })} placeholder="created_at" label="Sort key" testId="index-sk" />}
+          {(id) => <KeyRow nameId={id} name={f.sk} type={f.skType} onName={(sk) => set({ sk, ...(knownType(t, sk) ? { skType: knownType(t, sk)! } : {}) })} onType={(skType) => set({ skType })} placeholder="" label="Sort key" testId="index-sk" />}
         </Field>
       </FormSection>
       <FormSection title="Projection" description="Which attributes the index copies, besides the table and index keys.">
@@ -81,7 +81,7 @@ export function IndexCreate({ name }: OwnProps) {
         >
           {{
             INCLUDE: (
-              <Field label="Attributes to copy" error={p.include} help="Separate the names with commas.">
+              <Field label="Attributes to copy" error={f.include.trim() === "" ? undefined : p.include} help="Separate the names with commas.">
                 {(id) => <Input id={id} value={f.include} onChange={(e) => set({ include: e.target.value })} placeholder="status, total" autoComplete="off" spellCheck={false} className="max-w-md bg-card font-mono" data-testid="index-include" />}
               </Field>
             ),

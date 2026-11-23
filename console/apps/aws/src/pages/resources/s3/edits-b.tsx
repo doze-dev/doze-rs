@@ -2,10 +2,11 @@
 import { useState } from "react";
 import { JsonEditor, checkJson, formatJson } from "@doze/ui/components/app/json-editor";
 import { KeyValueEditor } from "@doze/ui/components/app/key-value-editor";
-import { filled, pairsOf, rowsFrom, rowsValid, type KeyValueRow } from "@doze/ui/components/app/key-values";
+import { filled, newRow, pairsOf, rowsFrom, rowsValid, type KeyValueRow } from "@doze/ui/components/app/key-values";
 import { FormSection, PolicyEditor, TAG_RULES, changeWords, diffTags, noChange, useSetTags, useTags } from "../../../kit";
 import type { OwnProps } from "../deep/registry";
 import { NONE, bucketOf, useSetting } from "./api";
+import { readableJson } from "./json-text";
 import { Loaded, SettingForm } from "./edit";
 import { useAbout } from "../../../api/queries";
 import { Mono } from "./parts";
@@ -17,7 +18,7 @@ const CORS_START = `[\n  {\n    "AllowedMethods": ["GET", "HEAD"],\n    "Allowed
 
 export function CorsEdit({ name }: OwnProps) {
   const q = useSetting<{ CORSRules?: unknown[] }>(name!, "GetBucketCors", NONE.cors);
-  return <Loaded q={q} what="CORS">{(c) => <CorsForm name={name!} start={c?.CORSRules ? JSON.stringify(c.CORSRules, null, 2) : CORS_START} />}</Loaded>;
+  return <Loaded q={q} what="CORS">{(c) => <CorsForm name={name!} start={c?.CORSRules ? readableJson(c.CORSRules) : CORS_START} />}</Loaded>;
 }
 function CorsForm({ name, start }: { name: string; start: string }) {
   const [text, setText] = useState(start);
@@ -25,7 +26,7 @@ function CorsForm({ name, start }: { name: string; start: string }) {
   const rules = parsed.ok && Array.isArray(parsed.value) ? parsed.value : null;
   const why = !parsed.ok ? parsed.why : rules === null ? "The configuration is a list of rules." : rules.length === 0 ? "Give at least one rule." : null;
   return (
-    <SettingForm name={name} tab="permissions" title="Edit cross-origin resource sharing (CORS)" sub={`Let a web app on another origin read objects from ${name}.`} operation="PutBucketCors" input={rules && !why ? { CORSConfiguration: { CORSRules: rules } } : null} saved="CORS configuration saved." disabled={Boolean(why)} disabledWhy={why}>
+    <SettingForm name={name} callBelow tab="permissions" title="Edit cross-origin resource sharing (CORS)" sub={`Let a web app on another origin read objects from ${name}.`} operation="PutBucketCors" input={rules && !why ? { CORSConfiguration: { CORSRules: rules } } : null} saved="CORS configuration saved." disabled={Boolean(why)} disabledWhy={why}>
       <FormSection title="CORS configuration editor">
         <p className="text-[13px] text-muted-foreground">Bucket ARN <Mono>{bucketArn(name)}</Mono></p>
         <JsonEditor value={text} onChange={setText} label="CORS rules" rows={16} empty="invalid" testId="cors-json" />
@@ -46,7 +47,7 @@ function PolicyForm({ name, start }: { name: string; start: string }) {
   const account = useAbout().data?.account ?? "";
   const parsed = checkJson(text, "invalid");
   return (
-    <SettingForm name={name} tab="permissions" title="Edit bucket policy" sub={`Grant other identities access to ${name} and its objects.`} operation="PutBucketPolicy" input={parsed.ok ? { Policy: JSON.stringify(parsed.value) } : null} saved="Bucket policy saved." disabled={!parsed.ok} disabledWhy="The policy must be valid JSON." note="The policy travels as one JSON string.">
+    <SettingForm name={name} callBelow tab="permissions" title="Edit bucket policy" sub={`Grant other identities access to ${name} and its objects.`} operation="PutBucketPolicy" input={parsed.ok ? { Policy: JSON.stringify(parsed.value) } : null} saved="Bucket policy saved." disabled={!parsed.ok} disabledWhy="The policy must be valid JSON." note="The policy travels as one JSON string.">
       <FormSection title="Policy">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <p className="text-[13px] text-muted-foreground">Bucket ARN <Mono>{bucketArn(name)}</Mono></p>
@@ -63,7 +64,8 @@ export function TagsEdit({ name }: OwnProps) {
   return <Loaded q={{ ...q, failed: q.error }} what="Tags">{(a) => <TagsForm name={name!} before={a?.tags ?? []} />}</Loaded>;
 }
 function TagsForm({ name, before }: { name: string; before: { key: string; value: string }[] }) {
-  const [rows, setRows] = useState<KeyValueRow[]>(() => rowsFrom(before));
+  // The board opens with a blank row ready to type in, after the tags the bucket has.
+  const [rows, setRows] = useState<KeyValueRow[]>(() => [...rowsFrom(before), newRow()]);
   const set = useSetTags(bucketOf(name));
   const change = diffTags(before, rows);
   const kept = filled(rows);

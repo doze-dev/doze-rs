@@ -52,13 +52,14 @@ export function ObjectsTab({ name, search }: { name: string; search: Search }) {
       header: "Name",
       accessorFn: (r) => `${r.folder ? 0 : 1}${r.key}`,
       min: 200,
+      meta: { wrap: true },
       cell: (c) => {
         const r = c.row.original;
         const Icon = r.folder ? FolderIcon : FileIcon;
         return (
           <span className="flex min-w-0 items-center gap-2">
             <Icon className={cn("size-4 flex-none", r.folder ? "text-link" : "text-muted-foreground")} aria-hidden />
-            <button type="button" className="truncate rounded-sm text-left font-mono text-[13px] text-link outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring/50" onClick={() => open(r)} data-testid="object-open">
+            <button type="button" className="min-w-0 rounded-sm text-left font-mono text-[13px] text-link outline-none [overflow-wrap:anywhere] hover:underline focus-visible:ring-2 focus-visible:ring-ring/50" onClick={() => open(r)} data-testid="object-open">
               {r.key.slice(base.Prefix.length - applied.length) || r.key}
             </button>
             {r.marker && <Badge variant="outline" className="border-warn/40 bg-warn/10 font-normal text-warn">Delete marker</Badge>}
@@ -66,8 +67,8 @@ export function ObjectsTab({ name, search }: { name: string; search: Search }) {
         );
       },
     },
-    ...(versions ? [{ id: "version", header: "Version ID", size: 290, min: 280, accessorFn: (r: Row) => r.versionId ?? "", meta: { mono: true }, cell: (c: { row: { original: Row } }) => c.row.original.versionId ?? "-" } satisfies DataColumn<Row>] : []),
-    { id: "modified", header: "Last modified", size: 290, min: 270, accessorFn: (r) => r.modified ?? "", cell: (c) => (c.row.original.folder ? "-" : shortDate(c.row.original.modified)) },
+    ...(versions ? [{ id: "version", header: "Version ID", size: 290, min: 280, accessorFn: (r: Row) => r.versionId ?? "", meta: { mono: true, wrap: true }, cell: (c: { row: { original: Row } }) => c.row.original.versionId ?? "-" } satisfies DataColumn<Row>] : []),
+    { id: "modified", header: "Last modified", size: 300, min: 280, accessorFn: (r) => r.modified ?? "", cell: (c) => (c.row.original.folder ? "-" : shortDate(c.row.original.modified)) },
     { id: "size", header: "Size", size: 110, meta: { numeric: true }, accessorFn: (r) => r.size ?? -1, cell: (c) => (c.row.original.folder || c.row.original.marker ? "-" : size(c.row.original.size)) },
     { id: "class", header: "Storage class", size: 140, min: 110, accessorFn: (r) => r.storage ?? "", cell: (c) => (c.row.original.folder || c.row.original.marker ? "-" : storageWords(c.row.original.storage)) },
   ];

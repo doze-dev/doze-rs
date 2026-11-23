@@ -158,9 +158,10 @@ export function HttpWizard() {
       )}
       <div className="flex flex-wrap items-center justify-end gap-x-3 gap-y-2 border-t pt-5" data-slot="form-footer">
         {tried && problem && step < 3 && <p className="mr-auto text-[13px] text-muted-foreground" data-testid="disabled-why">{problem}</p>}
-        <Button type="button" variant="outline" className="bg-card" onClick={() => void navigate({ to: "/resources/$service/$second", params: { service: "apigateway", second: "restapis" }, search: { do: "create" } })} data-testid="form-cancel">Cancel</Button>
+        {/* The boards: Cancel and Review and create on the first step, Previous and Next after it. */}
+        {step === 0 && <Button type="button" variant="outline" className="bg-card" onClick={() => void navigate({ to: "/resources/$service/$second", params: { service: "apigateway", second: "restapis" }, search: { do: "create" } })} data-testid="form-cancel">Cancel</Button>}
         {step > 0 && <Button type="button" variant="outline" className="bg-card" onClick={() => go(step - 1)} data-testid="form-back">Previous</Button>}
-        {step < 3 && <Button type="button" variant="outline" className="bg-card" onClick={review} data-testid="form-review">Review and create</Button>}
+        {step === 0 && <Button type="button" variant="outline" className="bg-card" onClick={review} data-testid="form-review">Review and create</Button>}
         <Button type="submit" disabled={working} data-testid="form-submit">{step < 3 ? "Next" : working ? "Working…" : "Create"}</Button>
       </div>
     </FormPage>

@@ -53,7 +53,7 @@ function Keys({ aws, scheduled }: { aws: boolean; scheduled: string[] }) {
   const aliases = useAllRows("kms", "aliases");
   const { uses } = useKeyUses();
   const { run, pending } = useKeyActions();
-  const [chosen, setChosen] = useState<ReadonlySet<string>>(new Set());
+  const [chosen, setChosen] = useState<ReadonlySet<string>>(() => new Set(scheduled));
   const [typed, setTyped] = useState("");
   const [result, setResult] = useState<Done | null>(null);
   const words = aws ? WORDS.aws : WORDS.customer;

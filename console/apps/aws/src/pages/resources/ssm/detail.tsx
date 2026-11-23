@@ -80,8 +80,9 @@ function ParameterView({ d, updatedAt, fetching, refresh }: { d: ResourceDetail;
     { id: "overview", label: "Overview", render: () => (
       <div className="grid gap-5">
         <Card title="Details" lede="The fields DescribeParameters returns for this parameter." testId="parameter-details">
+          {/* The ARN has a row of its own, as the board draws it: in half a card it broke in the middle of a word. */}
+          <div data-testid="parameter-arn"><Facts facts={[{ label: "ARN", value: <span className="font-mono text-[13px] break-all">{fieldOf(d, "ARN") ?? "–"}</span> }]} /></div>
           <Facts columns={2} facts={[
-            { label: "ARN", value: <span className="font-mono text-[13px]">{fieldOf(d, "ARN") ?? "–"}</span> },
             { label: "Name", value: <span className="font-mono text-[13px]">{name}</span> },
             { label: "Description", value: fieldOf(d, "Description") || <span className="text-muted-foreground">–</span> },
             { label: "Tier", value: fieldOf(d, "Tier") ?? "–" },
@@ -92,13 +93,16 @@ function ParameterView({ d, updatedAt, fetching, refresh }: { d: ResourceDetail;
             { label: "Last modified date", value: modified ? `${versionLine(version, modified).replace(/^Version \d+, last modified /, "").replace(/ UTC\.$/, "")} UTC` : "–" },
           ]} />
         </Card>
-        <Card title="Value" lede={secure ? "A SecureString value is masked until you ask to see it." : `A ${type} value is shown as it is stored.`} testId="parameter-value-card" actions={secure ? (
-          <>
-            <Button type="button" variant="outline" className="bg-card" onClick={() => (value === null ? void show() : setValue(null))} disabled={pending} data-testid={value === null ? "value-show" : "value-hide"}>{value === null ? <><EyeIcon /> {pending ? "Reading…" : "Show"}</> : <><EyeOffIcon /> Hide</>}</Button>
-            {value !== null && <CopyButton text={value} label="Copy value" what="Copied" />}
-          </>
-        ) : undefined}>
-          <p className="break-all text-[14px]">{valueCell}</p>
+        <Card title="Value" lede={secure ? "A SecureString value is masked until you ask to see it." : `A ${type} value is shown as it is stored.`} testId="parameter-value-card">
+          <div className="flex items-center gap-3">
+            <p className="min-w-0 flex-1 break-all rounded-lg border bg-well px-4 py-2.5 text-[14px]" data-testid="parameter-value-box">{valueCell}</p>
+            {secure && (
+              <>
+                <Button type="button" variant="outline" className="bg-card" onClick={() => (value === null ? void show() : setValue(null))} disabled={pending} data-testid={value === null ? "value-show" : "value-hide"}>{value === null ? <><EyeIcon /> {pending ? "Reading…" : "Show"}</> : <><EyeOffIcon /> Hide</>}</Button>
+                {value !== null && <CopyButton text={value} label="Copy value" what="Copied" />}
+              </>
+            )}
+          </div>
           {secure && <Note>{value === null ? <>Show reads the value with GetParameter and WithDecryption set to true: KMS decrypts it with {key ?? "alias/aws/ssm"}, and the call is in Recent calls. </> : <>Decrypted by KMS with {key ?? "alias/aws/ssm"}. This is the same string that readers receive when they pass WithDecryption. </>}WithDecryption is what asks for decrypted values of SecureString parameters; for String and StringList it is ignored.</Note>}
           {refused && <Alert tone="bad" title={`GetParameter was refused: ${refused.code}`} testId="value-refused">{refused.message}</Alert>}
         </Card>

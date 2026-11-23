@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { bytes, clockMsUtc, clockUtc, dateTimeUtc, duration, hhmmUtc, micros, number, plural } from "./format";
+import { bytes, clockMsUtc, clockUtc, dateTimeUtc, duration, hhmmUtc, micros, number, plural, pluralWord } from "./format";
 import { intervalMs, parseInterval } from "./refresh";
 import { parseRecents, pushRecent } from "./recents";
 
@@ -21,6 +21,15 @@ describe("format", () => {
     expect(duration(2 * 3600_000 + 5 * 60_000)).toBe("2 h 5 min");
     expect(duration(3 * 86400_000 + 4 * 3600_000)).toBe("3 d 4 h");
     expect(duration(-5)).toBe("0 s");
+  });
+  test("pluralWord", () => {
+    expect(pluralWord("policy")).toBe("policies");
+    expect(pluralWord("topic")).toBe("topics");
+    expect(pluralWord("key")).toBe("keys");
+    expect(pluralWord("bus")).toBe("buses");
+    expect(pluralWord("batch")).toBe("batches");
+    expect(pluralWord("log group")).toBe("log groups");
+    expect(plural(2, "policy")).toBe("2 policies");
   });
   test("plural", () => {
     expect(plural(1, "topic")).toBe("1 topic");

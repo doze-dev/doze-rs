@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import type { ResourceRow } from "../../../api/types/ResourceRow";
-import { endpointName, pendingWhy, shortArn, shortId, subRow, topicSubRow } from "./sub-model";
+import { endpointName, pendingWhy, shortArn, shortId, subRow, subscriptionLabel, topicSubRow } from "./sub-model";
 import { PROTOCOLS, countWord, disabledCount, protocolLabel } from "./protocols";
 
 const row = (name: string, cells: (string | null)[]): ResourceRow => ({ name, label: "", id: name, cells, link: null });
@@ -28,4 +28,9 @@ test("five of the nine protocols are off here, and each says why", () => {
   expect(countWord(disabledCount())).toBe("Five");
   expect(protocolLabel("lambda")).toBe("AWS Lambda");
   expect(PROTOCOLS.filter((p) => !p.active).every((p) => p.about.startsWith("Not available in doze-aws"))).toBe(true);
+});
+
+test("the palette names a subscription by its topic and what tells it apart, not by its ARN", () => {
+  expect(subscriptionLabel("arn:aws:sns:us-east-1:111122223333:orders-created:5f2a91c4-9a47-4c05-b6e1-7d0f2a58c931")).toBe("orders-created · 5f2a91c4…");
+  expect(subscriptionLabel("pending|arn:aws:sns:us-east-1:1:alerts|email|ops@larder.example")).toBe("alerts · email ops@larder.example");
 });

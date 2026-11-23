@@ -1,5 +1,5 @@
-import { getRouteApi } from "@tanstack/react-router";
-import { ChevronDownIcon, ChevronRightIcon, PauseIcon, PlayIcon, RadioIcon, SearchXIcon } from "lucide-react";
+import { getRouteApi, Link } from "@tanstack/react-router";
+import { ChevronDownIcon, ChevronRightIcon, ExternalLinkIcon, PauseIcon, PlayIcon, RadioIcon, SearchXIcon } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 import { Alert, ErrorBlock, errorWords } from "@doze/ui/components/app/alert";
 import { type DataColumn, DataTable } from "@doze/ui/components/app/data-table";
@@ -27,7 +27,7 @@ import { flowKeyOf, layout, withoutConsole } from "./flows";
 import { LiveMap, MapLegend } from "./map";
 import { Result } from "./outcome";
 import { type Line, lineId, lines } from "./repeats";
-import { resourceShown } from "./resource";
+import { resourceHref, resourceName, resourceSearchOf, resourceShown } from "./resource";
 import { callerOf, consoleShown, filtering, isConsole, type LiveSearch, matches, type View } from "./search";
 import { findCall } from "./tape";
 import { useFlows } from "./use-flows";
@@ -40,6 +40,9 @@ import { useHomeChecks } from "../../api/spaces";
 import { type Conn, useTail } from "./use-tail";
 
 const route = getRouteApi("/live");
+
+/** `08:09`: a moment's hour and minute, UTC. */
+const clockMinUtc = (ms: number): string => new Date(ms).toISOString().slice(11, 16);
 
 const dim = <span className="text-muted-foreground">–</span>;
 
@@ -187,7 +190,23 @@ export function LivePage() {
           );
         },
       },
-      { id: "resource", header: "Resource", enableSorting: false, accessorFn: (l) => resourceShown(l.call), meta: { mono: true }, cell: (c) => (c.getValue<string>() ? <span title={c.row.original.call.resource ?? undefined}>{c.getValue<string>()}</span> : dim) },
+      { id: "resource", header: "Resource", enableSorting: false, accessorFn: (l) => resourceShown(l.call), meta: { mono: true }, cell: (c) => {
+          const call = c.row.original.call;
+          const href = resourceHref(call);
+          if (!c.getValue<string>()) return dim;
+          // The row's verb for what it acted on, as the board's expanded row has (Open pick-lists): a link of its own, so a click
+          // on it goes to the resource and does not open the call.
+          return (
+            <span className="flex min-w-0 items-center gap-1.5">
+              <span className="truncate" title={call.resource ?? undefined}>{c.getValue<string>()}</span>
+              {href && (
+                <Link to={href} search={resourceSearchOf(call)} onClick={(e) => e.stopPropagation()} className="inline-flex shrink-0 rounded-sm p-0.5 text-muted-foreground opacity-60 outline-none hover:text-primary hover:opacity-100 focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-ring/50" aria-label={`Open ${resourceName(call)}`} title={`Open ${resourceName(call)}`} data-testid="row-open-resource">
+                  <ExternalLinkIcon className="size-3.5" />
+                </Link>
+              )}
+            </span>
+          );
+        } },
       { id: "caller", header: "Caller", size: 186, min: 130, enableSorting: false, accessorFn: (l) => callerOf(l.call), meta: { mono: true }, cell: (c) => <Caller call={c.row.original.call} titles={titles} names={names} /> },
       { id: "result", header: "Result", size: 214, min: 140, enableSorting: false, accessorFn: (l) => `${l.call.outcome} ${l.call.status}${l.call.error_code ? ` ${l.call.error_code}` : ""}`, cell: (c) => <Result call={c.row.original.call} /> },
       { id: "latency", header: "Latency", size: 84, enableSorting: false, accessorFn: (l) => micros(l.call.duration_us), meta: { numeric: true, mono: true } },
@@ -204,7 +223,7 @@ export function LivePage() {
     <>
       <PageHeader
         title="Live"
-        sub={`Every AWS API call this doze-aws answers, and every call one service makes to another, as it happens. Kept in memory: the newest ${ring ? number(ring.capacity) : "1,024"} calls${spanMin > 0 ? `, the last ${number(spanMin)} ${spanMin === 1 ? "minute" : "minutes"} here` : ""}; not hours of history.`}
+        sub={`Every AWS API call this doze-aws answers, and every call one service makes to another, as it happens. Kept in memory: the newest ${ring ? number(ring.capacity) : "1,024"} calls${spanMin > 0 ? `, the last ${number(spanMin)} ${spanMin === 1 ? "minute" : "minutes"} here` : ""}; not hours of history${about ? `, and nothing from before ${clockMinUtc(about.started * 1000)} UTC, when doze-aws started` : ""}.`}
         actions={
           <>
             {/* The pill and the status keep their room beside the h1 (nothing jumps as they change); under it, from the left (below
@@ -288,7 +307,7 @@ export function LivePage() {
           {view !== "wire" && <Timeline calls={visible} now={now} />}
           </div>
           <ConsoleLine hidden={hidden} shown={search.console === "shown"} set={set} />
-          {view !== "wire" && <NeedsLook stored={stored} items={attention} callerName={(c) => callerName(c.caller ?? "")} onOpen={open} />}
+          {view !== "wire" && <NeedsLook stored={stored} items={attention} callerName={(c) => callerName(c.caller ?? "")} pressed={search.look} onPress={(look) => set({ look })} />}
           {view !== "wire" && search.by !== "service" && <MapSection calls={visible} wiring={wiring.data} now={now} search={search} set={set} callerName={callerName} openCall={openCall} />}
           {view !== "wire" && search.by === "service" && (
             <section className="mb-5 rounded-xl border bg-card px-5 pt-3 pb-4" aria-label="Map of who calls what" data-testid="live-map-card">

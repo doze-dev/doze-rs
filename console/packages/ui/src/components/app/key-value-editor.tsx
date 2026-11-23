@@ -1,14 +1,15 @@
-import { PlusIcon, Trash2Icon } from "lucide-react";
+import { PlusIcon, Trash2Icon, XIcon } from "lucide-react";
 import { useState } from "react";
 import { cn } from "../../lib/utils";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
+import { Label } from "../ui/label";
 import { type KeyValueRow, type KeyValueRules, newRow, validateRows } from "./key-values";
 
 /** Rows of key and value that a person adds to and removes from (tags, message attributes, environment variables). A row's
  * problem (an empty key, a key another row has) is said under it once the person has left the field or tried to save
  * (`showErrors`); until then the row is only a row. The editor owns nothing: the rows are the caller's. */
-export function KeyValueEditor({ rows, onChange, rules, addLabel = "Add new tag", removeLabel, keyLabel = "Key", valueLabel = "Value", showErrors = false, disabled = false, className, testId = "kv" }: { rows: KeyValueRow[]; onChange: (rows: KeyValueRow[]) => void; rules?: KeyValueRules; addLabel?: string; /** Words on the remove button, in place of the bin icon (`Remove tag`). */ removeLabel?: string; keyLabel?: string; valueLabel?: string; showErrors?: boolean; disabled?: boolean; className?: string; testId?: string }) {
+export function KeyValueEditor({ rows, onChange, rules, addLabel = "Add new tag", removeLabel, keyLabel = "Key", valueLabel = "Value", fieldLabels = false, removeIcon = "trash", showErrors = false, disabled = false, className, testId = "kv" }: { rows: KeyValueRow[]; onChange: (rows: KeyValueRow[]) => void; rules?: KeyValueRules; addLabel?: string; /** Words on the remove button, in place of the bin icon (`Remove tag`). */ removeLabel?: string; keyLabel?: string; valueLabel?: string; /** The column heads are drawn as a form's field labels (`Key`, `Value Optional`: the value may be left empty), not as small capitals. */ fieldLabels?: boolean; /** The mark of a button that removes a row: the bin (the default) or an x. */ removeIcon?: "trash" | "x"; showErrors?: boolean; disabled?: boolean; className?: string; testId?: string }) {
   const [touched, setTouched] = useState<ReadonlySet<string>>(new Set());
   const errors = validateRows(rows, rules);
   const full = rules?.maxRows !== undefined && rows.length >= rules.maxRows;
@@ -18,8 +19,19 @@ export function KeyValueEditor({ rows, onChange, rules, addLabel = "Add new tag"
     <div className={cn("grid gap-3", className)} data-slot="key-value-editor" data-testid={testId}>
       {rows.length > 0 && (
         <div className={cn("grid items-start gap-x-3 gap-y-2", removeLabel ? "grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]" : "grid-cols-[minmax(0,1fr)_minmax(0,1fr)_2rem]")}>
-          <span className="text-[12px] font-medium tracking-[0.04em] text-muted-foreground uppercase">{keyLabel}</span>
-          <span className="text-[12px] font-medium tracking-[0.04em] text-muted-foreground uppercase">{valueLabel}</span>
+          {fieldLabels ? (
+            <>
+              <Label className="text-[13.5px] text-bright">{keyLabel}</Label>
+              <Label className="text-[13.5px] text-bright">
+                {valueLabel} <span className="font-normal text-muted-foreground">Optional</span>
+              </Label>
+            </>
+          ) : (
+            <>
+              <span className="text-[12px] font-medium tracking-[0.04em] text-muted-foreground uppercase">{keyLabel}</span>
+              <span className="text-[12px] font-medium tracking-[0.04em] text-muted-foreground uppercase">{valueLabel}</span>
+            </>
+          )}
           <span />
           {rows.map((r, i) => {
             const found = errors.get(r.id);
@@ -43,7 +55,7 @@ export function KeyValueEditor({ rows, onChange, rules, addLabel = "Add new tag"
                   )}
                 </div>
                 <Button type="button" variant={removeLabel ? "outline" : "ghost"} size={removeLabel ? "sm" : "icon-sm"} className={removeLabel ? "bg-card" : undefined} onClick={() => onChange(rows.filter((x) => x.id !== r.id))} disabled={disabled} aria-label={`Remove ${keyLabel.toLowerCase()} ${r.key || i + 1}`} data-testid={`${testId}-remove-${i}`}>
-                  {removeLabel ?? <Trash2Icon />}
+                  {removeLabel ? (removeIcon === "x" ? <><XIcon /> {removeLabel}</> : removeLabel) : removeIcon === "x" ? <XIcon /> : <Trash2Icon />}
                 </Button>
               </div>
             );

@@ -1,3 +1,4 @@
+import { pluralWord } from "@doze/ui/lib/format";
 // What the S3 pages say, pure: a Region and a time as AWS's console writes them, sizes, a bucket's name checked against the
 // naming rules, and the addresses an object has. No React, no calls.
 
@@ -89,7 +90,7 @@ export function size(n: number | undefined | null): string {
 }
 
 /** `1 object`, `4 objects`. */
-export const count = (n: number, one: string, many = `${one}s`): string => `${n.toLocaleString("en-US")} ${n === 1 ? one : many}`;
+export const count = (n: number, one: string, many = pluralWord(one)): string => `${n.toLocaleString("en-US")} ${n === 1 ? one : many}`;
 
 /** `a, b and c`. */
 export function listWords(items: readonly string[]): string {
@@ -198,4 +199,13 @@ export function callKey(bucket: string, resource: string | null | undefined): st
 export function firstEnableWords(bucket: string, current: string | undefined): string {
   const wait = "The first time you enable versioning it can take up to 15 minutes to reach every part of S3; until then a GET for a new object may return 404 NoSuchKey, so wait before writing or deleting.";
   return current === undefined ? `${wait} In doze-aws it applies at once, so there is nothing to wait for.` : `${wait} ${bucket} has had versioning ${current.toLowerCase()} already, so this does not apply.`;
+}
+
+/** The SQS queue hint of an event notification: a FIFO queue is not a destination, so the ones that exist are named and are
+ * not in the list. S3 refuses one named by its ARN with InvalidArgument (checked against the S3 model's notification docs). */
+export function fifoDestinationHint(fifo: readonly string[]): string {
+  const base = "FIFO queues are not supported as a destination";
+  if (fifo.length === 0) return `${base}: naming one by its ARN is refused with InvalidArgument.`;
+  const one = fifo.length === 1;
+  return `${base}: ${listWords(fifo)} ${one ? "is a FIFO queue, so it is" : "are FIFO queues, so they are"} not in the list, and naming ${one ? "it" : "one"} by its ARN is refused with InvalidArgument.`;
 }

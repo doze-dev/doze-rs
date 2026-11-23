@@ -222,6 +222,7 @@ test("sns__subscription-create-http: a webhook must confirm, and the answer is p
   await go(page, `/resources/sns/subscriptions?create=yes&from=${encodeURIComponent(ARN("alerts"))}`, "Create subscription");
   await page.getByTestId("protocol-http").click();
   await page.getByTestId("sub-endpoint").fill(hook.url);
+  await expect(page.getByTestId("field-protocol")).toContainText("HTTP delivery is an HTTP POST of the JSON-encoded message. HTTPS does the same over https://. A URL on this machine works.");
   await expect(page.getByTestId("create-sentence")).toHaveText(`This subscribes the webhook ${hook.url} to alerts. SNS will send a confirmation message to it, and nothing is delivered until the endpoint confirms.`);
   await expect(page.getByTestId("section-details")).toContainText("The endpoint must confirm.");
   await expect(page.getByTestId("section-details")).toContainText("The token is valid for two days.");
@@ -244,7 +245,7 @@ test("sns__subscription-create-lambda: a function in the account is confirmed at
   await page.getByRole("option", { name: "send-email" }).click();
   await expect(page.getByTestId("create-sentence")).toHaveText("This subscribes the function send-email to orders-created. The function is in your account, so the subscription is confirmed at once and every publish invokes it.");
   await expect(page.getByTestId("field-endpoint")).toContainText(/send-email \(\S+\) is already triggered by the alerts topic\./);
-  await expect(page.getByTestId("field-protocol")).toContainText("The endpoint is the ARN of a Lambda function");
+  await expect(page.getByTestId("field-protocol")).toContainText("The Lambda function is invoked with the payload of the published message.");
   await expect(page.getByTestId("call-panel-code").first()).toContainText("Protocol = lambda");
   await shot(page, "sns__subscription-create-lambda");
   await page.getByTestId("form-submit").click();
@@ -307,8 +308,9 @@ test("sns__topics-list and sns__subscriptions-list: three topics, seven subscrip
   await expect(page.getByTestId("page-line")).toHaveText("3 topics, one ListTopics page (a page holds up to 100)");
   await expect(page.getByTestId("last-calls")).toContainText("Publish");
   await expect(page.getByTestId("last-calls")).toContainText("Last calls in SNS");
-  // The feed is the same as the pages of a topic: the app's calls by their caller's name, this console's own reads hidden until asked for.
-  await expect(page.getByTestId("last-calls").getByTestId("call-caller").first()).toContainText("AWS CLI");
+  // The feed is the same as the pages of a topic: the app's calls by their caller's name, and the calls this console made listed beside them (they can be hidden).
+  await expect(page.getByTestId("last-calls").getByTestId("call-caller").filter({ hasText: "AWS CLI" }).first()).toBeVisible();
+  await expect(page.getByTestId("last-calls").getByTestId("call-caller").filter({ hasText: "This console" }).first()).toBeVisible();
   await expect(page.getByTestId("last-calls").getByTestId("calls-console-hidden")).toContainText("made by this console");
   await shot(page, "sns__topics-list");
 

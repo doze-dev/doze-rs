@@ -93,6 +93,8 @@ test("ssm__parameter-detail, parameter-detail-revealed: a parameter's page, its 
   await expect(page.getByTestId("tab-history")).toContainText("3");
   await expect(page.getByTestId("tab-tags")).toContainText("3");
   await expect(page.getByTestId("parameter-value-card")).not.toContainText("kq7Vz");
+  // The ARN has a row of its own: it stays on one line (in half a card it broke inside a word).
+  expect((await page.getByTestId("parameter-arn").locator(".font-mono").boundingBox())!.height).toBeLessThan(30);
   await shot(page, "ssm__parameter-detail");
   await page.getByTestId("value-show").click();
   await expect(page.getByTestId("parameter-value")).toHaveText("kq7Vz-2mPf-Lr9Xw-Tn40");
@@ -121,6 +123,7 @@ test("ssm__parameter-history, parameter-labels: the versions with their labels, 
   await page.getByTestId("label-confirm").fill("Confirm");
   await shot(page, "ssm__parameter-labels");
   await page.getByTestId("labels-save").click();
+  await expect(page.getByTestId("labels-saved")).toContainText("Version 3 of /larder/prod/db/password now has current.");
   await expect(page.getByRole("table", { name: "Versions" }).locator("tr[data-row]", { hasText: "3" }).first()).toContainText("current");
   const hist = JSON.parse(cli(["ssm", "get-parameter-history", "--name", "/larder/prod/db/password"])).Parameters;
   expect(hist.find((p: { Version: number }) => p.Version === 3).Labels).toEqual(["current"]);
@@ -140,6 +143,7 @@ test("ssm__parameter-tags: the tags of a parameter, edited in place", async ({ p
   await expect(page.getByTestId("tags-rules")).toContainText("One pair is new here: owner-team.");
   await shot(page, "ssm__parameter-tags");
   await page.getByTestId("tags-save").click();
+  await expect(page.getByTestId("tags-saved")).toContainText("The resource now has 4 tags.");
   await expect(page.getByTestId("tags-kv").getByRole("button", { name: "Remove" })).toHaveCount(4);
   expect(JSON.parse(cli(["ssm", "list-tags-for-resource", "--resource-type", "Parameter", "--resource-id", "/larder/prod/db/password"])).TagList).toHaveLength(4);
 });
@@ -149,6 +153,9 @@ test("ssm__parameter-edit: Edit saves the next version with Overwrite", async ({
   await page.getByTestId("verb-edit").click();
   await expect(page.locator("h1").first()).toHaveText("Edit");
   await expect(page.getByTestId("parameter-name")).toHaveAttribute("readonly", "");
+  await expect(page.getByTestId("parameter-name")).toHaveClass(/bg-well/);
+  // The line under Value names the labels a save leaves where they are.
+  await expect(page.getByTestId("saving-words")).toContainText(/Saving always creates a new version; the old one stays in History\. The label current stays on version \d: a label names one version until you move it\./);
   // The board edits the description, the tier and the value: the type, the data type and the key stay as they are, and are not asked.
   await expect(page.getByTestId("type-SecureString")).toHaveCount(0);
   await expect(page.getByTestId("parameter-datatype")).toHaveCount(0);

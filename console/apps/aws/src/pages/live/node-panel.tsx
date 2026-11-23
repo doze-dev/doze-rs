@@ -7,6 +7,7 @@ import { number } from "@doze/ui/lib/format";
 import type { CallRecord } from "../../api/types/CallRecord";
 import { iconOf } from "../resources/model";
 import { type MapModel, type MapNode, perMinute, targetOf, wiresOf } from "./graph";
+import { waitingHeadline } from "./panel-words";
 
 const KIND: Record<string, string> = { queues: "queue", topics: "topic", buckets: "bucket", functions: "function", tables: "table", buses: "event bus", streams: "stream", machines: "state machine" };
 export const kindWord = (n: MapNode): string => KIND[n.resKind] ?? (n.kind === "service" ? "service" : "resource");
@@ -58,6 +59,7 @@ export function NodePanel({ node, model, calls, now, onPick, onClose }: { node: 
   const reads = w.callers.filter((a) => a.ops.some((o) => /^(Receive|Get|Delete|Read)/.test(o)));
   const writes = w.callers.filter((a) => !reads.includes(a));
   const queue = node.resKind === "queues";
+  const headline = queue ? waitingHeadline(node.sentence) : null;
   return (
     <aside className="flex min-w-0 flex-col rounded-xl border bg-card p-5" aria-label={`${node.name}, ${kindWord(node)}`} data-testid="node-panel" data-node={node.id}>
       <div className="flex items-start gap-3">
@@ -74,9 +76,15 @@ export function NodePanel({ node, model, calls, now, onPick, onClose }: { node: 
           <XIcon className="size-4" />
         </button>
       </div>
-      <p className="mt-3 text-[13.5px]" data-testid="panel-sentence">
+      {headline && (
+        <div className="mt-4" data-testid="panel-headline">
+          <div className="flex items-baseline gap-3"><span className="text-[64px] leading-none font-light tracking-[-0.03em] text-bright tabular-nums" data-testid="panel-count">{headline.count}</span><span className="text-[20px] font-light text-muted-foreground">waiting</span></div>
+          {headline.rest && <p className="mt-2 text-[13.5px] text-muted-foreground" data-testid="panel-sentence">{headline.rest}</p>}
+        </div>
+      )}
+      {!headline && <p className="mt-3 text-[13.5px]" data-testid="panel-sentence">
         {node.sentence ?? (node.calls > 0 ? `${number(node.calls)} ${node.calls === 1 ? "call" : "calls"} held, the newest ${Math.max(0, Math.round((now - node.lastMs) / 1000))} s ago.` : "Nothing has called it.")}
-      </p>
+      </p>}
       {node.calls > 0 && (
         <div className="mt-4">
           <div className="mb-1.5 text-[11.5px] font-medium tracking-wide text-muted-foreground uppercase">Calls to it, per minute</div>

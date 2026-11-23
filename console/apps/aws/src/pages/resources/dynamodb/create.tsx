@@ -47,7 +47,7 @@ export function TableCreate() {
     <FormPage
       title="Create table"
       sub={f.custom ? "Customize settings: choose the capacity mode, encryption and tags yourself." : "Name it and choose a primary key. Everything else can use the default settings."}
-      crumbs={[...crumbs().slice(0, 3), { label: "Create table", to: "/resources/dynamodb/tables" }]}
+      crumbs={crumbs(undefined, "Create table")}
       request={request}
       refusal={refused && said ? { code: code || "Error", message: said.message } : null}
       banner={
@@ -70,7 +70,7 @@ export function TableCreate() {
           label="Table name"
           error={p.name}
           refusal={taken ? { why: <>CreateTable refused this name: <span className="font-mono">{code}</span>.</> } : null}
-          help={<><b>3 to 255 characters</b>: letters, numbers, underscore, hyphen and period. Names are case-sensitive and unique per Region.{names.length > 0 && <> <span className="font-mono">{some(names)}</span> {names.length === 1 ? "already exists" : "already exist"} here.</>}</>}
+          help={taken ? undefined : <><b>3 to 255 characters</b>: letters, numbers, underscore, hyphen and period. Names are case-sensitive and unique per Region.{names.length > 0 && <> <span className="font-mono">{some(names)}</span> {names.length === 1 ? "already exists" : "already exist"} here.</>}</>}
         >
           {(id) => <Input id={id} value={f.name} onChange={(e) => set({ name: e.target.value })} placeholder="deliveries" autoComplete="off" spellCheck={false} className="bg-card font-mono" data-testid="table-name" />}
         </Field>
@@ -78,10 +78,11 @@ export function TableCreate() {
           {(id) => <KeyRow nameId={id} name={f.pk} type={f.pkType} onName={(pk) => set({ pk })} onType={(pkType) => set({ pkType })} placeholder="delivery_id" label="Partition key" testId="table-pk" />}
         </Field>
         <Field label={<>Sort key <span className="font-normal text-muted-foreground">optional</span></>} error={p.sk} help="With a sort key, many items can share a partition key; a sort key value is 1 to 1024 bytes.">
-          {(id) => <KeyRow nameId={id} name={f.sk} type={f.skType} onName={(sk) => set({ sk })} onType={(skType) => set({ skType })} placeholder="created_at" label="Sort key" testId="table-sk" />}
+          {(id) => <KeyRow nameId={id} name={f.sk} type={f.skType} onName={(sk) => set({ sk })} onType={(skType) => set({ skType })} placeholder="" label="Sort key" testId="table-sk" />}
         </Field>
       </FormSection>
-      <FormSection title="Table settings" description={f.custom ? "Customize settings is on, so every section below applies." : "Default settings are fine for most tables."}>
+      {/* The board of a refused name draws the details alone (the default settings are not the problem); customized ones stay. */}
+      {(!taken || f.custom) && <FormSection title="Table settings" description={f.custom ? "Customize settings is on, so every section below applies." : "Default settings are fine for most tables."}>
         <CardChoice
           name="settings"
           value={f.custom ? "custom" : "default"}
@@ -91,7 +92,7 @@ export function TableCreate() {
             { value: "custom", title: "Customize settings", description: "Choose the capacity mode, encryption and tags yourself." },
           ]}
         />
-      </FormSection>
+      </FormSection>}
       {f.custom && (
         <>
           <FormSection title="Read/write capacity settings" description="How the table is billed for reads and writes (BillingMode).">

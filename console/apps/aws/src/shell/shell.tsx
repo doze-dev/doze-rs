@@ -12,6 +12,7 @@ import { setTheme } from "@doze/ui/lib/theme";
 import { cn } from "@doze/ui/lib/utils";
 import { useAbout } from "../api/queries";
 import { useResourcesIndex } from "../api/resources";
+import { subscriptionLabel } from "../pages/resources/sns/sub-model";
 import { iconOf } from "../pages/resources/model";
 import { isActive, RECENTS_KEY, SPACES, type SpacePath } from "../nav";
 import { iamWords } from "../words";
@@ -125,12 +126,12 @@ export function Shell() {
     const items = (index.data?.services ?? []).flatMap((s) =>
       s.kinds.flatMap((k) =>
         k.names.map((name) => ({
-          label: name,
+          label: s.name === "sns" && k.id === "subscriptions" ? subscriptionLabel(name) : name,
           to: `/resources/${encodeURIComponent(s.name)}/${encodeURIComponent(k.id)}/${encodeURIComponent(name)}`,
           kind: k.one,
           icon: iconOf(s.name),
           mono: true,
-          keywords: `${s.title} ${k.title}`,
+          keywords: `${s.title} ${k.title} ${name}`,
         })),
       ),
     );

@@ -4,6 +4,7 @@ import type { FieldValue } from "../../../api/types/FieldValue";
 import type { ResourceRow } from "../../../api/types/ResourceRow";
 import type { SubList } from "../../../api/types/SubList";
 import { timeMs } from "../model";
+import { pluralWord } from "@doze/ui/lib/format";
 
 /** The retention periods, in days, that CloudWatch Logs accepts (PutRetentionPolicy). */
 export const RETENTIONS = [1, 3, 5, 7, 14, 30, 60, 90, 120, 150, 180, 365, 400, 545, 731, 1096, 1827, 2192, 2557, 2922, 3288, 3653] as const;
@@ -12,7 +13,7 @@ export const RETENTIONS = [1, 3, 5, 7, 14, 30, 60, 90, 120, 150, 180, 365, 400, 
 export const retentionWords = (days: number | null): string => (days === null ? "Never Expire" : days === 1 ? "1 day" : `${days} days`);
 
 /** A count with its noun: `2 metric filters`. */
-export const count = (n: number, one: string, many = `${one}s`): string => `${n.toLocaleString("en-US")} ${n === 1 ? one : many}`;
+export const count = (n: number, one: string, many = pluralWord(one)): string => `${n.toLocaleString("en-US")} ${n === 1 ? one : many}`;
 
 /** The class's words: Infrequent Access is Essentials on AWS now. */
 export const classWords = (cls: string | null): string => (cls === "INFREQUENT_ACCESS" ? "Essentials" : "Standard");

@@ -55,7 +55,12 @@ describe("what the last change did", () => {
     expect(transitionOf(change)).toEqual({ from: "OK", to: "ALARM" });
   });
   test("the explainer names what ran", () => {
-    expect(actionsExplainer(dlq, [action, change]).rest).toBe("It moved from OK to ALARM at 07:52:13, so alerts was published to once; the alarm stays in ALARM without running them again.");
+    expect(actionsExplainer(dlq, [action, change]).rest).toBe("It moved from OK to ALARM at 07:52:13, so alerts was published to once; the alarm stays in ALARM without publishing again.");
+  });
+  test("an alarm that invokes a function, or does both, says what it does", () => {
+    const fn = { ...action, HistorySummary: "Successfully executed action arn:aws:lambda:us-east-1:111122223333:function:page-me" };
+    expect(actionsExplainer(dlq, [fn, change]).rest).toContain("without invoking again.");
+    expect(actionsExplainer(dlq, [fn, action, change]).rest).toContain("without running them again.");
   });
   test("with no change it says so", () => {
     expect(actionsExplainer({ ...dlq, StateValue: "INSUFFICIENT_DATA" }, []).rest).toContain("has not changed state");

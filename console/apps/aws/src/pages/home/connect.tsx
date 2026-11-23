@@ -1,7 +1,8 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { useCallback, useState } from "react";
+import { useCallback } from "react";
 import { PageHeader } from "@doze/ui/components/app/page-header";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@doze/ui/components/ui/tabs";
+import { useUrlParam } from "@doze/ui/hooks/use-url-param";
 import { useAbout } from "../../api/queries";
 import { useArrivals } from "../../api/spaces";
 import { CardSkeleton } from "../card";
@@ -10,13 +11,17 @@ import { Overview } from "./connect-overview";
 import { ByService } from "./connect-services";
 
 type Tab = "overview" | "code" | "services";
+const TABS: readonly Tab[] = ["overview", "code", "services"];
 
 /** Connect your app: the address and the environment (Overview), the same call from each client (Code), and where each service
  * answers (By service). Everything is from `/api/v1/about`, `/api/v1/services` and the Live record. */
 export function ConnectPage() {
   const about = useAbout();
   const qc = useQueryClient();
-  const [tab, setTab] = useState<Tab>("overview");
+  // The tab is in the address (`?tab=code`), so a reload, a pasted link and the sheets of By service keep their place.
+  const [asked, setAsked] = useUrlParam("tab");
+  const tab: Tab = TABS.find((t) => t === asked) ?? "overview";
+  const setTab = useCallback((t: Tab) => setAsked(t === "overview" ? undefined : t), [setAsked]);
   const onCalls = useCallback(() => void qc.invalidateQueries({ queryKey: ["home"], exact: true }), [qc]);
   useArrivals(onCalls);
   const a = about.data;

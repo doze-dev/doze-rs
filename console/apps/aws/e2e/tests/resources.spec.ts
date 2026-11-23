@@ -19,8 +19,9 @@ test("the index groups the services and counts what each holds", async ({ page, 
   const index = page.getByTestId("resources-index");
   await expect(index.getByRole("heading", { level: 2 })).toContainText(["Messaging and events", "Storage and data", "Compute and flow", "Config and secrets"]);
   await expect(page.getByTestId("count-sqs")).toContainText(/\d+ queues?/);
-  await expect(page.getByTestId("count-iam")).toContainText(/\d+ roles?/);
-  await expect(page.getByTestId("count-sts")).toHaveText("No resources");
+  // IAM and STS are the Access space's: the board draws them there only.
+  await expect(page.getByTestId("service-iam")).toHaveCount(0);
+  await expect(page.getByTestId("service-sts")).toHaveCount(0);
   // Each count was a list call the console made.
   expect((await consoleCalls(page, "ListQueues")).length).toBeGreaterThan(0);
   await page.getByTestId("service-sqs").click();
@@ -43,11 +44,15 @@ test("a queue is created on its page, listed, opened, and deleted, each call in 
   await expect(page.locator("h1")).toHaveText(q);
   await expect(page.getByTestId("field-Type")).toHaveText("Standard");
   await expect(page.getByTestId("field-Visibility timeout")).toHaveText("30 seconds");
-  // Its recent calls are the console's own, hidden until asked for.
-  await expect(page.getByTestId("calls-console-hidden")).toContainText(/\d+ made by this console (is|are) hidden/);
-  await page.getByTestId("calls-console-toggle").click();
+  // Its recent calls are the console's own, listed as the boards list them, with a way to hide them.
+  await expect(page.getByTestId("calls-console-hidden")).toContainText(/\d+ made by this console (is|are) listed/);
   await expect(page.getByTestId("recent-calls")).toContainText("CreateQueue");
   await expect(page.getByTestId("recent-calls")).toContainText("console");
+  // The columns are the boards': Time, Call, Caller, Result.
+  await expect(page.getByRole("table", { name: "Recent calls" }).locator("th")).toHaveText(["Time", "Call", "Caller", "Result"]);
+  await page.getByTestId("calls-console-toggle").click();
+  await expect(page.getByTestId("calls-console-hidden")).toContainText(/hidden/);
+  await page.getByTestId("calls-console-toggle").click();
   const made = (await consoleCalls(page, "CreateQueue")).find((c) => c.resource === q);
   expect(made?.outcome).toBe("ok");
   // Listed, and found by the search.

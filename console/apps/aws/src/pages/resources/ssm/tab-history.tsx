@@ -8,6 +8,7 @@ import { Alert, errorWords } from "@doze/ui/components/app/alert";
 import { Button } from "@doze/ui/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@doze/ui/components/ui/dialog";
 import { Input } from "@doze/ui/components/ui/input";
+import { ResultBanner } from "@doze/ui/components/app/result-banner";
 import { Skeleton } from "@doze/ui/components/ui/skeleton";
 import { dateTimeUtc } from "@doze/ui/lib/format";
 import { callKindOp, Field, useKindOpRead } from "../../../kit";
@@ -22,6 +23,7 @@ export function TabHistory({ name }: { name: string }) {
   const q = useHistory(name);
   const [version, setVersion] = useState<number | null>(null);
   const [open, setOpen] = useState(false);
+  const [saved, setSaved] = useState<string | null>(null);
   if (!q.data) return <Skeleton className="h-48 rounded-[14px]" data-testid="history-loading" />;
   const ps = pasts(q.data.Parameters);
   const chosen = ps.find((p) => p.version === version) ?? null;
@@ -34,18 +36,19 @@ export function TabHistory({ name }: { name: string }) {
   ];
   return (
     <div className="grid gap-5" data-testid="history-tab">
+      {saved && <ResultBanner title="Labels saved." returned={saved} onDismiss={() => setSaved(null)} testId="labels-saved" />}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <Say text={`${ps.length} version${ps.length === 1 ? "" : "s"}. Choose one to manage its labels.`} className="text-[13.5px]" testId="history-count" />
         <Button type="button" variant="outline" className="bg-card" disabled={chosen === null} onClick={() => setOpen(true)} data-testid="labels-open"><TagIcon /> Manage labels</Button>
       </div>
       <DataTable aria-label="Versions" data={ps} columns={columns} rowId={(p) => String(p.version)} maxHeight={420} />
       <Note testId="history-note">Every save of the value adds a version and keeps the old ones: {ps.length} exist. The columns are the fields GetParameterHistory returns. On AWS the 100 latest versions are kept: a new version then drops the oldest, unless that oldest version carries a label, and then the save fails until you move the label. A reader that asks for {name}:{ps.flatMap((p) => p.labels)[0] ?? "label"} gets the version that carries that label.</Note>
-      {open && chosen && <Labels name={name} past={chosen} all={ps} onClose={() => setOpen(false)} />}
+      {open && chosen && <Labels name={name} past={chosen} all={ps} onClose={(done) => { setOpen(false); if (done) setSaved(done); }} />}
     </div>
   );
 }
 
-function Labels({ name, past, all, onClose }: { name: string; past: Past; all: Past[]; onClose: () => void }) {
+function Labels({ name, past, all, onClose }: { name: string; past: Past; all: Past[]; /** `done`: what a save did, said; none when the dialog was closed without one. */ onClose: (done?: string) => void }) {
   const qc = useQueryClient();
   const [labels, setLabels] = useState<string[]>(past.labels);
   const [typed, setTyped] = useState("");
@@ -67,7 +70,7 @@ function Labels({ name, past, all, onClose }: { name: string; past: Past; all: P
         if (r.InvalidLabels && r.InvalidLabels.length > 0) throw new Error(`${r.InvalidLabels.join(", ")} came back in InvalidLabels and ${r.InvalidLabels.length === 1 ? "was" : "were"} not attached.`);
       }
       await qc.invalidateQueries({ queryKey: ["resources", "kindop", "ssm"] });
-      onClose();
+      onClose(`Version ${past.version} of ${name} now has ${labels.length === 0 ? "no labels" : labels.join(", ")}.`);
     } catch (e) {
       setError(errorWords(e));
     } finally {
@@ -93,7 +96,7 @@ function Labels({ name, past, all, onClose }: { name: string; past: Past; all: P
           {needsConfirm && <Field label={`Type Confirm to remove ${removed.join(", ")}`}>{(id) => <Input id={id} value={confirm} onChange={(e) => setConfirm(e.target.value)} className="max-w-48 bg-card" data-testid="label-confirm" />}</Field>}
           {error && <Alert tone="bad" title={`The labels were not saved${error.code ? `: ${error.code}` : ""}`} testId="labels-refused">{error.message}</Alert>}
           <DialogFooter>
-            <Button type="button" variant="outline" className="bg-card" onClick={onClose}>Cancel</Button>
+            <Button type="button" variant="outline" className="bg-card" onClick={() => onClose()}>Cancel</Button>
             <Button type="submit" disabled={pending || (added.length === 0 && removed.length === 0) || (needsConfirm && confirm !== "Confirm")} data-testid="labels-save">{pending ? "Working…" : "Save changes"}</Button>
           </DialogFooter>
         </form>

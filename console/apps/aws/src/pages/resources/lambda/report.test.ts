@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { reportOf, tidyPaths } from "./report";
+import { missingEventKey, reportOf, tidyPaths } from "./report";
 
 describe("a run's REPORT line", () => {
   test("is read into its fields, the last one when there are several", () => {
@@ -26,4 +26,12 @@ describe("a trace's file paths", () => {
     expect(tidyPaths('File "/usr/lib/python3.13/json/__init__.py", line 1')).toBe('File "/usr/lib/python3.13/json/__init__.py", line 1');
     expect(tidyPaths("no path here")).toBe("no path here");
   });
+});
+
+test("a KeyError on the event names the key the handler read", () => {
+  const p = JSON.stringify({ errorMessage: "'Records'", errorType: "KeyError", stackTrace: ['  File "/var/task/f.py", line 8, in lambda_handler\n    record = event["Records"][0]\n'] });
+  expect(missingEventKey(p)).toBe("Records");
+  expect(missingEventKey(JSON.stringify({ errorType: "KeyError", errorMessage: "'x'", stackTrace: ["  x = other[\"x\"]"] }))).toBeNull();
+  expect(missingEventKey(JSON.stringify({ errorType: "ValueError", errorMessage: "bad", stackTrace: [] }))).toBeNull();
+  expect(missingEventKey("not json")).toBeNull();
 });

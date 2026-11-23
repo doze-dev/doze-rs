@@ -40,7 +40,8 @@ export function timeMs(value: string): number | null {
     const n = Number(t);
     return n > 1e12 ? n : n * 1000;
   }
-  const ms = Date.parse(t);
+  // Lambda writes its dates with an offset that has no colon (`2026-11-23T05:37:34.461+0000`), which not every browser reads.
+  const ms = Date.parse(t.replace(/([+-]\d{2})(\d{2})$/, "$1:$2"));
   return Number.isNaN(ms) ? null : ms;
 }
 

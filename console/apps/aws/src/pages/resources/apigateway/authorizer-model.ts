@@ -40,7 +40,7 @@ export function restAuthorizerInput(f: RestAuthorizerForm, o: { api: string; reg
     restApiId: o.api,
     name: f.name || "<name>",
     type,
-    ...(lambda ? { authorizerUri: restLambdaUri(o.region, f.fn ? `arn:aws:lambda:${o.region}:${o.account}:function:${f.fn}` : "<function>"), ...(f.role ? { authorizerCredentials: `arn:aws:iam::${o.account}:role/${f.role}` } : {}) } : { providerARNs: f.pools.split(",").map((s) => s.trim()).filter(Boolean) }),
+    ...(lambda ? { authorizerUri: restLambdaUri(o.region, f.fn ? `arn:aws:lambda:${o.region}:${o.account}:function:${f.fn}` : "<function>"), ...(f.role?.trim() ? { authorizerCredentials: f.role.trim().startsWith("arn:") ? f.role.trim() : `arn:aws:iam::${o.account}:role/${f.role.trim()}` } : {}) } : { providerARNs: f.pools.split(",").map((s) => s.trim()).filter(Boolean) }),
     identitySource: identitySource(f.source, lambda ? f.payload : "TOKEN"),
     ...(f.validation ? { identityValidationExpression: f.validation } : {}),
     ...(f.cache && ttlOk(f.ttl) ? { authorizerResultTtlInSeconds: Number(f.ttl) } : { authorizerResultTtlInSeconds: 0 }),

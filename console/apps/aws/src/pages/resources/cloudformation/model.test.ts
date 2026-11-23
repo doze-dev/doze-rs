@@ -10,7 +10,7 @@ describe("status and errors", () => {
     expect(stackTone("UPDATE_ROLLBACK_COMPLETE")).toBe("warn");
     expect(stackTone("REVIEW_IN_PROGRESS")).toBe("info");
     expect(stackTone("UPDATE_FAILED")).toBe("bad");
-    expect(stackTone("DELETE_COMPLETE")).toBe("warn");
+    expect(stackTone("DELETE_COMPLETE")).toBe("idle");
   });
   test("a stack that is not there is told from another refusal", () => {
     expect(isGone({ status: 400, code: "ValidationError", message: "Stack with id x does not exist" })).toBe(true);

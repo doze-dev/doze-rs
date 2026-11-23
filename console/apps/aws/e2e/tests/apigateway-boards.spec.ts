@@ -263,6 +263,9 @@ test("apigateway__rest-deploy: Deploy API to a stage, and the stage serves what 
   await shot(page, "rest-deploy");
   await dialog.getByTestId("deploy-submit").click();
   await expect(page.getByTestId("deployed-banner")).toContainText("Deployed to prod.");
+  // A REST stage serves its deployment's snapshot, not the live API.
+  await expect(page.getByTestId("deployed-banner")).toContainText("took a snapshot of the API");
+  await expect(page.getByTestId("deployed-banner")).not.toContainText("live API");
   await expect(page.locator("h1")).toHaveText("Stages");
   expect(cli(["apigateway", "get-deployments", "--rest-api-id", rest()])).toContain("Add POST /products");
 });

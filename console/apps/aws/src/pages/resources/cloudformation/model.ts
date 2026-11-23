@@ -34,12 +34,13 @@ export type StackEvent = { EventId: string; Timestamp: number | string; LogicalR
 export const inProgress = (status: string): boolean => /IN_PROGRESS$/.test(status);
 
 /** How a stack's status is coloured: a failed one and a create that was rolled back red, an update that was rolled back (the stack
- * is as it was) amber, work under way blue, a review waiting grey-blue, done green, deleted amber. */
+ * is as it was) amber, work under way blue, a review waiting grey-blue, done green, deleted grey (the stack-deleted board draws it as an idle status). */
 export function stackTone(status: string): Tone {
   if (status === "REVIEW_IN_PROGRESS") return "info";
   if (/FAILED$/.test(status) || status === "ROLLBACK_COMPLETE") return "bad";
   if (/IN_PROGRESS$/.test(status)) return "info";
-  if (/ROLLBACK|^DELETE_COMPLETE$|SKIPPED/.test(status)) return "warn";
+  if (status === "DELETE_COMPLETE") return "idle";
+  if (/ROLLBACK|SKIPPED/.test(status)) return "warn";
   if (/COMPLETE$/.test(status)) return "ok";
   return "idle";
 }

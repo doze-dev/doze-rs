@@ -12,6 +12,7 @@ import { Textarea } from "@doze/ui/components/ui/textarea";
 import { StatusDot } from "@doze/ui/components/app/status-dot";
 import { RadioGroup, RadioGroupItem } from "@doze/ui/components/ui/radio-group";
 import { useAlarms } from "./api";
+import { recentFirst } from "./model";
 import { type Body, alarmArn, alarmWidget, parseBody, rulesBroken, textWidget, withWidget } from "./dashboard-model";
 import { stateTone } from "./words";
 
@@ -90,9 +91,11 @@ export function TextWidgetDialog({ body, onCreate, onClose }: { body: Body; onCr
 
 export function AlarmWidgetDialog({ body, region, account, onCreate, onClose }: { body: Body; region: string; account: string; onCreate: (next: Body) => void; onClose: () => void }) {
   const alarms = useAlarms();
-  const [chosen, setChosen] = useState<Set<string>>(new Set());
-  const list = alarms.data ?? [];
-  const toggle = (n: string) => setChosen((s) => { const x = new Set(s); if (x.has(n)) x.delete(n); else x.add(n); return x; });
+  // The board lists the alarms that changed most recently first, with all of them ticked (up to the widget's 100) to untick what is not wanted.
+  const list = recentFirst(alarms.data ?? []);
+  const [picked, setPicked] = useState<Set<string> | null>(null);
+  const chosen = picked ?? new Set(list.slice(0, 100).map((a) => a.AlarmName));
+  const toggle = (n: string) => setPicked(() => { const x = new Set(chosen); if (x.has(n)) x.delete(n); else x.add(n); return x; });
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="sm:max-w-[600px]" data-testid="alarm-widget-dialog">

@@ -1,0 +1,3 @@
+var e=e=>typeof e!=`object`||!e;function t(n,r=``){if(Array.isArray(n)){if(n.every(e))return`[${n.map(e=>JSON.stringify(e)).join(`, `)}]`;let i=`${r}  `;return`[\n${n.map(e=>`${i}${t(e,i)}`).join(`,
+`)}\n${r}]`}if(typeof n==`object`&&n){let e=Object.entries(n);if(e.length===0)return`{}`;let i=`${r}  `;return`{\n${e.map(([e,n])=>`${i}${JSON.stringify(e)}: ${t(n,i)}`).join(`,
+`)}\n${r}}`}return JSON.stringify(n)??`null`}function n(e){try{return t(JSON.parse(e))}catch{return e}}export{n,t};

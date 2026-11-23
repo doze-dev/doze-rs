@@ -6,6 +6,7 @@ import type { ResourceRow } from "../../../api/types/ResourceRow";
 import { andList, cell } from "../cfg-parts";
 import type { FilterProp, FilterToken } from "../filter-bar";
 import { timeMs } from "../model";
+import { pluralWord } from "@doze/ui/lib/format";
 
 export const FILTERS: FilterProp[] = [
   { value: "Name", label: "Name", options: [{ value: "BeginsWith", label: "begins with" }, { value: "Equals", label: "equals" }, { value: "Contains", label: "contains" }] },
@@ -37,7 +38,7 @@ export function whenWords(v: string | null): string {
   return `${WHEN.format(d)} at ${String(d.getUTCHours()).padStart(2, "0")}:${String(d.getUTCMinutes()).padStart(2, "0")}`;
 }
 
-const count = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
+const count = (n: number, one: string, many = pluralWord(one)) => `${n} ${n === 1 ? one : many}`;
 
 /** `There are 8 parameters in us-east-1: 7 Standard and 1 Advanced. /a is the only SecureString. The newest change is /b, saved as version 2 on Nov 7, 2026 at 17:05.` */
 export function listSentence(rows: readonly ParamRow[], region: string): string {
@@ -134,4 +135,15 @@ export function moveWords(ps: readonly Past[], added: readonly string[], version
 /** The last words of a parameter's page, said once: its type, tier, version and when it was saved. */
 export function versionLine(version: string, modified: string | null): string {
   return `Version ${version}, last modified ${whenWords(modified)} UTC.`;
+}
+
+/** What the Value field's teaching line says: a save makes a version and moves nothing, and the labels it leaves where they are
+ * (`The label current stays on version 2: ...`, ssm__parameter-edit). */
+export function savingWords(ps: readonly Past[]): { lead: string; rest: string | null } {
+  const lead = "Saving always creates a new version; the old one stays in History.";
+  const held = ps.flatMap((p) => p.labels.map((l) => ({ label: l, version: p.version }))).sort((a, b) => a.version - b.version || a.label.localeCompare(b.label));
+  if (held.length === 0) return { lead, rest: null };
+  const tail = "a label names one version until you move it.";
+  if (held.length === 1) return { lead, rest: `The label ${held[0]!.label} stays on version ${held[0]!.version}: ${tail}` };
+  return { lead, rest: `The labels ${andList(held.map((h) => `${h.label} (version ${h.version})`))} stay where they are: ${tail}` };
 }

@@ -44,7 +44,8 @@ export function PolicyCreate() {
   const taken = useMemo(() => existing.data?.pages.flatMap((p) => p.rows).map((r) => r.label) ?? [], [existing.data]);
   const errors = policyErrors(doc, "identity");
   const visual = useMemo(() => blocksOf(doc), [doc]);
-  const blocked = tried && step === 0 && errors.length > 0;
+  // The error state is the document's, as soon as it is broken (while it is typed), not only after Next was pressed.
+  const blocked = step === 0 && errors.length > 0;
   const problem = nameProblem(name, "policy") ?? takenProblem("policy", name, taken);
   const suggestion = suggestedResource(doc, account, about?.region ?? "us-east-1");
   const back = () => void navigate({ to: "/resources/$service/$second", params: { service: "iam", second: "policies" }, search: {} });

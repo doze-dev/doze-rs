@@ -58,7 +58,8 @@ function AlarmView({ d, a, updatedAt, fetching, refresh }: { d: ResourceDetail; 
     ) },
     { id: "history", label: "History", render: () => <><AlarmHistory name={a.AlarmName} />{calls}</> },
     { id: "tags", label: "Tags", render: () => (
-      <div className="grid gap-4">
+      // The board's Manage tags is a card of its own, with no Tags heading over it (the heading goes while the manager is open).
+      <div className="grid gap-4 [&:has([data-testid=tags-lead])>h2:first-child]:hidden">
         <h2 className="text-[17px] leading-6 font-semibold tracking-[-0.01em] text-bright">Tags</h2>
         <TagsTab target={{ service: d.service, kind: d.kind, name: d.name }} noun="tag" explain="Tags are key-value labels for organising alarms." manage={{ open: "Manage tags", title: "Manage tags", lead: "Tags are key-value pairs that help you organize and categorize your alarms. You can also use them to scope user permissions.", rules: <><b className="font-semibold text-foreground">Up to 50 tags per alarm; keys are 1 to 128 characters and values 0 to 256.</b> Saving new keys calls TagResource; removed rows call UntagResource. A tag with an existing key replaces its value.</> }} />
         {calls}

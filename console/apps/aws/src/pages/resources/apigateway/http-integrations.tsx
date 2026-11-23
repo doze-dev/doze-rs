@@ -6,6 +6,7 @@ import { useState } from "react";
 import { Alert, ErrorBlock, errorWords } from "@doze/ui/components/app/alert";
 import { type DataColumn, DataTable } from "@doze/ui/components/app/data-table";
 import { EmptyState } from "@doze/ui/components/app/empty-state";
+import { StatusDot } from "@doze/ui/components/app/status-dot";
 import { Button } from "@doze/ui/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@doze/ui/components/ui/select";
 import { CallPanel, Field, PlainConfirm, RuleHelp } from "../../../kit";
@@ -47,7 +48,7 @@ export function HttpIntegrations({ id, api, selected }: { id: string; api: HttpA
   const failed = attach.error ? errorWords(attach.error) : null;
   const routeColumns: DataColumn<Route>[] = [
     { id: "key", header: "Route key", min: 220, accessorFn: (r) => r.routeKey, cell: (c) => <span className="font-mono text-[13.5px] font-medium text-bright" data-testid="route-key">{c.row.original.routeKey}</span> },
-    { id: "integration", header: "Integration", accessorFn: (r) => (bound(r) ? words(bound(r)!) : ""), cell: (c) => (bound(c.row.original) ? words(bound(c.row.original)!) : <span className="text-muted-foreground">None</span>) },
+    { id: "integration", header: "Integration", accessorFn: (r) => (bound(r) ? words(bound(r)!) : ""), cell: (c) => (bound(c.row.original) ? words(bound(c.row.original)!) : <StatusDot tone="warn">None</StatusDot>) },
   ];
   const intColumns: DataColumn<HttpIntegration>[] = [
     { id: "id", header: "Integration ID", size: 170, accessorFn: (i) => i.integrationId, meta: { mono: true }, cell: (c) => <span className="font-mono text-[13px]">{c.row.original.integrationId}</span> },

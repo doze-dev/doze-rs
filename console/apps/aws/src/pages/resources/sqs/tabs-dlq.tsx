@@ -10,7 +10,7 @@ import { LocalStatus } from "../../../kit";
 import { RecentCalls } from "../../../kit/recent-calls";
 import { ResourceTo } from "../value";
 import { Block } from "./parts";
-import { queueOf, wait } from "./queue-model";
+import { queueOf, wait, waitBefore } from "./queue-model";
 import { allowWords } from "./redrive-model";
 import { RedriveStatus } from "./redrive-status";
 import type { TabProps } from "./tabs";
@@ -51,7 +51,7 @@ export function DlqTab({ d, q, go, dead }: TabProps) {
         </section>
       ) : dead.length > 0 ? null : (
         <Alert icon={InfoIcon} tone="info" title="No dead-letter queue." testId="dlq-none">
-          A message that keeps failing stays in {q.name} until its {wait(q.retention)} retention ends. Edit the queue to add a{q.fifo ? " FIFO" : ""} dead-letter queue.
+          A message that keeps failing stays in {q.name} until its {waitBefore(q.retention)} retention ends. Edit the queue to add a{q.fifo ? " FIFO" : ""} dead-letter queue.
           <div className="mt-3"><Button type="button" variant="outline" size="sm" className="bg-card" onClick={() => go("edit")}>Edit queue</Button></div>
         </Alert>
       )}

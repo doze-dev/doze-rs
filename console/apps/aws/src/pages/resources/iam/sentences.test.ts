@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { groupSentence, groupsSentence, policiesSentence, policySentence, roleSentence, rolesSentence, userSentence, usersSentence } from "./sentences";
+import { groupSentence, groupsSentence, inheritsSentence, policiesSentence, policySentence, roleSentence, rolesSentence, userSentence, usersSentence } from "./sentences";
 
 describe("lists", () => {
   test("the users say who holds a key, who used it today and who has none", () => {
@@ -57,4 +57,11 @@ describe("keys", () => {
     expect(keysSentence("tester", [])).toBe("tester has no access keys.");
     expect(keysSentence("dev", [{ Status: "Active" }, { Status: "Inactive" }])).toBe("dev has 2 access keys, and 1 is active and 1 inactive.");
   });
+});
+
+test("a user says what the one policy it inherits allows", () => {
+  expect(inheritsSentence("dev-intern", ["PowerUserAccess"], ["developers"])).toBe("dev-intern inherits PowerUserAccess through developers: every service except IAM, Organizations and Account.");
+  expect(inheritsSentence("dev", ["PowerUserAccess", "PowerUserAccess"], ["a", "b"])).toBe("dev inherits PowerUserAccess through a and b: every service except IAM, Organizations and Account.");
+  expect(inheritsSentence("dev", ["Custom"], ["developers"])).toBe("dev inherits Custom through developers.");
+  expect(inheritsSentence("dev", ["PowerUserAccess", "ReadOnlyAccess"], ["developers"])).toBe("dev inherits PowerUserAccess and ReadOnlyAccess through developers.");
 });

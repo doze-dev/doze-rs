@@ -108,3 +108,18 @@ async fn a_subscription_is_made_with_its_attributes_changed_one_at_a_time_and_co
         .await;
     assert_eq!((status, gone["code"].as_str()), (404, Some("NOT_FOUND")));
 }
+
+/// The service lists every unconfirmed subscription as `PendingConfirmation`; a page typed with that name is the not-found page, not
+/// a refusal of the service (which has no subscription of that ARN and says 400).
+#[tokio::test]
+async fn the_name_every_pending_subscription_is_listed_under_is_not_a_subscription() {
+    let w = world("sns-pending-name", Mode::Enforce, &[]);
+    let (status, body) = w
+        .get(&format!("{BASE}/sns/subscriptions/PendingConfirmation"))
+        .await;
+    assert_eq!(
+        (status, body["code"].as_str()),
+        (404, Some("NOT_FOUND")),
+        "{body}"
+    );
+}

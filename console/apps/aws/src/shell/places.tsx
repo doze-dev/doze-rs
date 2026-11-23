@@ -4,7 +4,7 @@ import { createElement, useEffect } from "react";
 import { Button } from "@doze/ui/components/ui/button";
 import { SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarMenu, SidebarMenuButton, SidebarMenuItem } from "@doze/ui/components/ui/sidebar";
 import { iconOfKind } from "../pages/resources/model";
-import { labelOf, MOST_RECENT, type Place, pin, placeOf, same, usePinned, useVisited, visit } from "./pins";
+import { clearAbsent, labelOf, MOST_RECENT, type Place, pin, placeOf, same, useAbsent, usePinned, useVisited, visit } from "./pins";
 
 /** A page whose address is an ARN (an execution's) is named by the end of it in the rail, the name the page says: the whole ARN is its title. */
 export const shownName = (name: string): string => (name.startsWith("arn:") ? (name.split(":").pop() ?? name) : name);
@@ -44,6 +44,7 @@ export function RailPlaces() {
   useEffect(() => {
     const p = placeOf(path);
     if (p) visit(p);
+    return clearAbsent;
   }, [path]);
   return (
     <>
@@ -58,7 +59,8 @@ export function PinButton() {
   const path = useRouterState({ select: (s) => s.location.pathname });
   const pinned = usePinned();
   const here = placeOf(path);
-  if (!here) return null;
+  const absent = useAbsent(here);
+  if (!here || absent) return null;
   const on = pinned.some((p) => same(p, here));
   return (
     <Button variant="outline" size="sm" className="hidden h-8 gap-1.5 rounded-full bg-card md:inline-flex" onClick={() => pin(here)} aria-pressed={on} data-testid="pin-toggle" title={on ? `Take ${here.name} out of the rail` : `Keep ${here.name} in the rail`}>

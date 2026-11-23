@@ -171,7 +171,7 @@ pub const SUBSCRIPTION: Page = Page {
     verbs: &[
         Verb::ui("edit", "Edit"),
         Verb::ui("confirm", "Confirm subscription").when(pending),
-        Verb::ui("delete", "Unsubscribe").danger(),
+        Verb::ui("delete", "Delete").danger(),
     ],
     summary: None,
 };

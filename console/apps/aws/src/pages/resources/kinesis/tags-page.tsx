@@ -48,7 +48,7 @@ export function ManageTags({ name }: { name: string }) {
       testId="manage-tags-page"
     >
       <FormSection title="Tags" description={<>{count(saved.length, "tag")} {saved.length === 1 ? "is" : "are"} saved on this stream.{added.length > 0 ? ` The ${added.map((t) => t.key).join(", ")} ${added.length === 1 ? "row is" : "rows are"} new.` : ""}</>}>
-        <KeyValueEditor rows={live} onChange={setRows} rules={TAG_RULES} showErrors={tried} removeLabel="Remove" testId="tags-kv" />
+        <KeyValueEditor rows={live} onChange={setRows} rules={TAG_RULES} showErrors={tried} removeLabel="Remove" removeIcon="x" fieldLabels testId="tags-kv" />
         <RuleHelp>Keys and values are case-sensitive. Each key is unique: adding a key that exists overwrites its value.</RuleHelp>
       </FormSection>
     </FormPage>

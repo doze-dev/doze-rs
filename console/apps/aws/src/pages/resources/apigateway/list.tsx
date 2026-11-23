@@ -109,11 +109,11 @@ function Apis({ service, kind, gone }: { service: string; kind: string; gone?: s
       ) : all.length === 0 ? (
         <>
           <AccountNav current="apis" />
-          <EmptyState icon={NetworkIcon} title="No APIs" action={create}>You have no APIs in this region. Create a REST or HTTP API to expose a backend.</EmptyState>
+          <EmptyState icon={NetworkIcon} title="No APIs" action={<Button variant="outline" className="bg-card" onClick={() => go({ do: "create" })} data-testid="create-empty"><PlusIcon /> Create API</Button>}>You have no APIs in this region. Create a REST or HTTP API to expose a backend.</EmptyState>
         </>
       ) : (
         <>
-          <Said text={apisSentence(all, answering)} names={all.map((a) => a.name)} bold={[/\b(?:deployed )?\d{4}-\d\d-\d\d \d\d:\d\d:\d\d UTC/, /(?<=its )[\w$-]+(?= stage)/]} />
+          <Said text={apisSentence(all, answering)} names={all.map((a) => a.name)} bold={[/(?<=its )[\w$-]+(?= stage)/]} />
           <AccountNav current="apis" />
           <SelectableTable<AnyApi>
             aria-label="APIs"

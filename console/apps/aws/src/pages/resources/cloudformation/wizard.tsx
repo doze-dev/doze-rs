@@ -11,7 +11,7 @@ import { DetailError, FormPage, type PreviewRequest, RuleHelp } from "../../../k
 import { callKindOp } from "../../../kit";
 import type { OwnProps } from "../deep/registry";
 import { JsonBlock } from "../deep/parts";
-import { STACKS, useCfnPreview, useCfnWrite, useStack, useStackNames } from "./api";
+import { STACKS, useCfnPreview, useCfnRead, useCfnWrite, useStack, useStackNames } from "./api";
 import { ChangeSetDialog } from "./changeset-dialog";
 import type { Stack } from "./model";
 import { makesWords } from "./sentences";
@@ -54,6 +54,7 @@ function WizardPage({ mode, service, kind, stack, resume = false }: { mode: Mode
   const update = mode !== "create";
   const stackName = stack?.StackName ?? w.name;
   const make = useCfnWrite<{ StackId?: string }>(update ? "UpdateStack" : "CreateStack");
+  const existingSets = useCfnRead<{ Summaries?: { ChangeSetName: string }[] }>("ListChangeSets", { StackName: stackName }, { enabled: update });
   const makeSet = useCfnWrite<{ Id?: string; StackId?: string }>("CreateChangeSet");
   const current = useMemo(() => Object.fromEntries((stack?.Parameters ?? []).map((p) => [p.ParameterKey, p.ParameterValue ?? ""])), [stack]);
   const labels = update ? [...LABELS.slice(0, 3), `Review ${stackName}`].map((l, i) => (i === 0 ? "Update stack" : l)) : LABELS;
@@ -157,7 +158,7 @@ function WizardPage({ mode, service, kind, stack, resume = false }: { mode: Mode
       >
         {step === 0 && <StepTemplate w={w} set={set} problem={tried ? problems[0] : null} refused={refusal?.op === "ValidateTemplate"} stackName={stackName} />}
         {step === 1 && summary && <StepDetails w={w} set={set} summary={summary} taken={taken} tried={tried} current={current} />}
-        {step === 2 && summary && <StepOptions w={w} set={set} summary={summary} tried={tried} />}
+        {step === 2 && summary && <StepOptions w={w} set={set} summary={summary} tried={tried} was={stack?.Tags ?? []} />}
         {step === 3 && summary && (
           <>
             <StepReview w={w} summary={summary} edit={go} stackName={stackName} preview={update ? { data: preview.data, pending: preview.pending } : undefined} previewError={preview.error} />
@@ -165,7 +166,7 @@ function WizardPage({ mode, service, kind, stack, resume = false }: { mode: Mode
           </>
         )}
       </FormPage>
-      <ChangeSetDialog open={asking} onOpenChange={(o) => { setAsking(o); if (!o) makeSet.reset(); }} stack={stackName} creating={!update} request={(n) => req("CreateChangeSet", changeSetInput(w, summary, n))} taken={[]} pending={makeSet.isPending} error={makeSet.error} onMake={makeChangeSet} />
+      <ChangeSetDialog open={asking} onOpenChange={(o) => { setAsking(o); if (!o) makeSet.reset(); }} stack={stackName} creating={!update} request={(n) => req("CreateChangeSet", changeSetInput(w, summary, n))} taken={(existingSets.data?.Summaries ?? []).map((s) => s.ChangeSetName)} pending={makeSet.isPending} error={makeSet.error} onMake={makeChangeSet} />
     </>
   );
 }

@@ -15,6 +15,8 @@ test("cloudwatch__overview: alarms by AWS service, the recent alarms, and where 
   const recent = page.getByRole("table", { name: "Recent alarms" });
   await expect(recent.locator("tr[data-row]").first()).toContainText("dlq-not-empty");
   await expect(recent.locator("tr[data-row]").first()).toContainText("ALARM");
+  // Three rows, as the board draws: the alarms that changed most recently, the oldest left to the Alarms page.
+  await expect(recent.locator("tr[data-row]")).toHaveCount(3);
   await expect(page.getByTestId("card-alarms")).toContainText("5 alarms, 1 in ALARM");
   await expect(page.getByTestId("card-metrics")).toContainText("All metrics: 3 namespaces");
   await expect(page.getByTestId("card-dashboards")).toContainText("2 custom dashboards");
@@ -272,10 +274,13 @@ test("what the boards do not draw: an anomaly alarm from the wizard, a metric ma
   await expect(page.getByTestId("created-banner")).toContainText("orders-band");
   await expect(page.getByTestId("alarm-threshold")).toContainText("OrdersPlaced is outside the band");
   // Deleted from its own page, the alarm is not asked for again (a read of it would be refused and logged).
+  await expect(page.getByTestId("rail-recent")).toContainText("orders-band");
   await page.getByTestId("actions-menu").click();
   await page.getByRole("menuitem", { name: "Delete" }).click();
   await page.getByTestId("delete-dialog-submit").click();
   await expect(page.getByTestId("deleted-banner")).toContainText("Alarm orders-band deleted.");
+  // It was open a moment ago, so the rail had it under Recent: a deleted alarm is not somewhere to go back to.
+  await expect(page.getByTestId("rail-recent").filter({ hasText: "orders-band" })).toHaveCount(0);
   await expectNoErrorAnswers(page, refusals);
   await expect(page.getByRole("table", { name: "Alarms" }).locator("tr[data-row]", { hasText: "orders-band" })).toHaveCount(0);
   // Metric math, made with the CLI: the page names the expression and draws the one it returns.

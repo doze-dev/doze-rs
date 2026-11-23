@@ -432,6 +432,7 @@ test("cloudformation__stack-update, details, options, review and updated: the wi
   await expect(page.getByTestId("param-input-VisibilityTimeout")).toHaveValue("30");
   await expect(page.getByTestId("param-input-ExecutionRoleArn")).toHaveValue(/role\/lambda-exec$/);
   await expect(page.getByTestId("keep-WebhookSecret")).toBeChecked();
+  await expect(page.getByTestId("param-input-WebhookSecret")).toHaveAttribute("placeholder", "Hidden, because the parameter is NoEcho");
   await expect(page.getByTestId("param-WebhookSecret")).toContainText("Type String.");
   await expect(page.getByTestId("call-panel-code").first()).toContainText('"UsePreviousValue": true');
   await shot(page, "stack-update-details");
@@ -442,6 +443,10 @@ test("cloudformation__stack-update, details, options, review and updated: the wi
   await expect(page.getByTestId("section-capabilities")).toContainText("Nothing to acknowledge.");
   await expect(page.getByTestId("section-creation")).toHaveCount(0);
   await expect(page.getByTestId("section-failure")).toContainText("Behavior on provisioning failure");
+  await expect(page.getByTestId("tags-note")).toContainText(/(These \w+ match|This one matches) what larder-core has\./);
+  // The board's order: Rollback comes before Notification, and Capabilities before the note on the creation-only options.
+  const order = await page.locator("[data-testid^='section-'], [data-testid='creation-only-note']").evaluateAll((els) => els.map((e) => e.getAttribute("data-testid")));
+  expect(order.filter((id) => ["section-failure", "section-rollback", "section-notify", "section-policy", "section-capabilities", "creation-only-note"].includes(id ?? ""))).toEqual(["section-failure", "section-rollback", "section-notify", "section-policy", "section-capabilities", "creation-only-note"]);
   await shot(page, "stack-update-options");
   await page.getByTestId("form-submit").click();
   await expect(page.locator("h1").first()).toHaveText("Review larder-core");
@@ -475,6 +480,30 @@ test("cloudformation__stack-update, details, options, review and updated: the wi
   // The preview change set the review made is gone with the page.
   const sets = JSON.parse(cli(["cloudformation", "list-change-sets", "--stack-name", "larder-core"])) as { Summaries: { ChangeSetName: string }[] };
   expect(sets.Summaries.some((s) => s.ChangeSetName.startsWith("console-preview-"))).toBe(false);
+});
+
+test("cloudformation__stack-update: the change set an update asks for opens with a name, and not one the stack has", async ({ page }) => {
+  // The create dialog offers initial-review; the update one offers update-review, or the next free one.
+  await go(page, stack("larder-observability", "?do=update&mode=changeset"), "Update stack");
+  await page.getByTestId("form-submit").click();
+  await expect(page.locator("h1").first()).toHaveText("Specify stack details");
+  await page.getByTestId("form-submit").click();
+  await expect(page.locator("h1").first()).toHaveText("Configure stack options");
+  await page.getByTestId("form-submit").click();
+  await expect(page.locator("h1").first()).toHaveText("Review larder-observability");
+  await page.getByTestId("form-submit").click();
+  await expect(page.getByTestId("changeset-name")).toHaveValue("update-review");
+  await expect(page.getByTestId("changeset-call")).toContainText('"ChangeSetName": "update-review"');
+  await page.getByTestId("changeset-make").click();
+  await expect(page.getByTestId("changeset-page")).toBeVisible();
+  // Asked again, the name offered is the next free one.
+  await go(page, stack("larder-observability", "?do=update&mode=changeset"), "Update stack");
+  for (const title of ["Specify stack details", "Configure stack options", "Review larder-observability"]) {
+    await page.getByTestId("form-submit").click();
+    await expect(page.locator("h1").first()).toHaveText(title);
+  }
+  await page.getByTestId("form-submit").click();
+  await expect(page.getByTestId("changeset-name")).toHaveValue("update-review-2");
 });
 
 test("cloudformation__stack-detail: the banner after a create says what the stack is now, not that it is being made", async ({ page }) => {

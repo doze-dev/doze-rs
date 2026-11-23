@@ -27,7 +27,7 @@ import { Card, Confirm, Loaded } from "../deep/parts";
 import { ResourceTo, Value } from "../value";
 import { type LayerForm, layerInput, layerProblems } from "./forms";
 import { LAYERS, refusalOf, useLayers, type LayerRow } from "./hooks";
-import { layersSentence, rowsOf, usedBy } from "./list-model";
+import { layersSentence, listText, rowsOf, usedBy } from "./list-model";
 import { RUNTIMES } from "./model";
 import { toBase64 } from "./zip";
 
@@ -64,7 +64,7 @@ function Layers({ service, kind, gone }: { service: string; kind: string; gone?:
   return (
     <>
       {gone && <ResultBanner className="mb-6" title={`${gone} was deleted.`} returned="DeleteLayerVersion removed its last version, so the layer is gone." onDismiss={() => go({})} testId="deleted-banner" />}
-      <PageHeader title="Layers" crumbs={[...crumbs]} sub="Layers in this account. A layer is a .zip file archive that contains supplementary code or data." refresh={<RefreshControl updatedAt={list.dataUpdatedAt} fetching={list.isFetching} onRefresh={() => void list.refetch()} interval={false} />} actions={create} />
+      <PageHeader title="Layers" crumbs={[...crumbs, { label: "Layers", to: "/resources/lambda/layers" }]} sub="Layers in this account. A layer is a .zip file archive that contains supplementary code or data." refresh={<RefreshControl updatedAt={list.dataUpdatedAt} fetching={list.isFetching} onRefresh={() => void list.refetch()} interval={false} />} actions={create} />
       {list.isError && !first ? (
         <ErrorBlock what="The layers could not be listed" error={list.error} hint={HINT} onRetry={() => void list.refetch()} retrying={list.isFetching} testId="list-error" />
       ) : !first ? (
@@ -197,7 +197,7 @@ export function LayerDetail({ service, kind, name }: { service: string; kind: st
       <PageHeader title={name} mono crumbs={withCurrent([...crumbs, { label: "Layers", to: "/resources/lambda/layers" }], name)} sub={detail.data.fields.find((f) => f.label === "Description")?.value ?? undefined} actions={<Button variant="outline" className="bg-card" onClick={() => void navigate({ to: "/resources/$service/$second", params: { service, second: "layers" }, search: { create: "yes" } })}><PlusIcon /> Publish new version</Button>} />
       {done && <ResultBanner className="mb-6" title={`${name} version ${done} was published.`} returned="PublishLayerVersion made a version that never changes." onDismiss={() => void navigate({ to: "/resources/$service/$kind/$name", params: { service, kind, name }, search: {} })} testId="published-banner" />}
       <div className="mb-6">
-        <DetailFields detail={detail.data} />
+        <DetailFields detail={detail.data} renderValue={(f) => <Value value={f.value === null ? null : listText(f.value)} format={f.format === "json" ? "text" : f.format} link={f.link} />} />
         <p className="mt-3 text-[13.5px] text-muted-foreground" data-testid="layer-used-by">
           {functions.isPending ? "Reading the functions…" : users.length === 0 ? "No function uses this layer yet." : <>Used by {users.map((u, i) => <span key={u}>{i > 0 ? (i === users.length - 1 ? " and " : ", ") : ""}<ResourceTo to={{ service: "lambda", kind: "functions", name: u }} className="font-mono text-[13px] font-medium">{u}</ResourceTo></span>)}.</>}
         </p>

@@ -91,13 +91,16 @@ export function problems(f: SubForm, create: boolean): Problems {
   return p;
 }
 
-/** What Subscribe takes: the three that name the subscription and the attributes that differ from the service's defaults. */
+/** What Subscribe takes: the three that name the subscription and the attributes that differ from the service's defaults. A subscription
+ * with a filter policy also says its scope and whether raw delivery is on, as the board's call does, so the filter is read whole. */
 export function subscribeInput(f: SubForm): Record<string, unknown> {
   const attrs: Record<string, string> = {};
-  if (f.raw && protocolOf(f.protocol)?.raw) attrs.RawMessageDelivery = "true";
-  if (f.filter.trim() !== "") {
+  const filtered = f.filter.trim() !== "";
+  const rawable = protocolOf(f.protocol)?.raw === true;
+  if (rawable && (f.raw || filtered)) attrs.RawMessageDelivery = String(f.raw);
+  if (filtered) {
     attrs.FilterPolicy = norm(f.filter);
-    if (f.scope === "MessageBody") attrs.FilterPolicyScope = "MessageBody";
+    attrs.FilterPolicyScope = f.scope;
   }
   if (f.redriveOn && f.dlq.trim()) attrs.RedrivePolicy = redrivePolicy(f.dlq.trim());
   return { TopicArn: f.topic.trim(), Protocol: f.protocol, Endpoint: f.endpoint.trim(), ReturnSubscriptionArn: true, ...(Object.keys(attrs).length > 0 ? { Attributes: attrs } : {}) };

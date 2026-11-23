@@ -3,8 +3,9 @@
 import type { Blockers } from "../../../api/types/Blockers";
 import type { ResourceDetail } from "../../../api/types/ResourceDetail";
 import type { Trigger } from "./model";
+import { pluralWord } from "@doze/ui/lib/format";
 
-const count = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
+const count = (n: number, one: string, many = pluralWord(one)) => `${n} ${n === 1 ? one : many}`;
 const names = (xs: string[]): string => (xs.length <= 1 ? xs.join("") : `${xs.slice(0, -1).join(", ")} and ${xs[xs.length - 1]}`);
 
 /** `Deleting send-email permanently deletes the function, its 3 versions and its 2 aliases (live, staging). A deleted function cannot be recovered.` */
@@ -46,3 +47,8 @@ export function leftWords(name: string, left: Left): string[] {
   void name;
   return out;
 }
+
+/** What a delete left behind, kept for the list the person lands on (by function name): it is a one-time result, so it stays out of the address. */
+const LEFT = new Map<string, string>();
+export const rememberLeft = (name: string, left: string): void => void LEFT.set(name, left);
+export const recalledLeft = (name: string): string | undefined => LEFT.get(name);

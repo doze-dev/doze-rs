@@ -21,3 +21,27 @@ export async function expectCopy(page: Page, which: keyof typeof BUTTON, text: s
   const copied = await copyCall(page, which, panel);
   if (copied !== null) expect(copied).toContain(text);
 }
+
+/** The call panel of a form with a long call sits full width under the form (as the boards draw it), and its code reads as drawn:
+ * no line of it is blank where the call has none, and no short line is broken in two. */
+export async function expectFullWidthCall(page: Page, panel = "call-panel"): Promise<void> {
+  const box = page.getByTestId(panel).first();
+  const form = page.locator("form").first();
+  await expect(box).toBeVisible();
+  const [b, f] = await Promise.all([box.boundingBox(), form.boundingBox()]);
+  expect(b!.width).toBeGreaterThan(f!.width * 0.9);
+  expect(b!.y).toBeGreaterThan(f!.y);
+  await expectWholeLines(page, `${panel}-code`);
+}
+
+/** Every line of a call's code that is short enough to fit is on one row, and none of its lines is empty (a call has no blank line). */
+export async function expectWholeLines(page: Page, code = "call-panel-code"): Promise<void> {
+  const lines = await page.getByTestId(code).first().evaluate((pre) =>
+    [...pre.children].map((el) => ({ text: el.textContent ?? "", h: (el as HTMLElement).offsetHeight, lh: Number.parseFloat(getComputedStyle(el).lineHeight) })),
+  );
+  expect(lines.length).toBeGreaterThan(2);
+  for (const l of lines) {
+    expect(l.text.trim(), "a blank line in the call").not.toBe("");
+    if (l.text.length < 60) expect(l.h, `"${l.text}" is broken over lines`).toBeLessThanOrEqual(l.lh + 1);
+  }
+}

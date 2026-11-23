@@ -2,6 +2,7 @@
 // who imports them, and (for a failed create) the resource that failed. Each returns a sentence whose resource names the page sets
 // in bold type, with the list of those names.
 import { count, nameList, type StackResource } from "./model";
+import { pluralWord } from "@doze/ui/lib/format";
 
 export type Said = { text: string; names: string[] };
 
@@ -26,7 +27,7 @@ export type StackFacts = {
   retained?: readonly string[];
 };
 
-const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
+const plural = (n: number, one: string, many = pluralWord(one)) => `${n} ${n === 1 ? one : many}`;
 
 /** The one sentence under a stack's name. */
 export function stackSaid(f: StackFacts): Said {

@@ -164,7 +164,7 @@ const USERS: Kind = Kind {
 
 const GROUPS: Kind = Kind {
     id: "groups",
-    title: "Groups",
+    title: "User groups",
     one: "group",
     about: "Users gathered to share the policies attached to the group.",
     members: &["GroupName"],

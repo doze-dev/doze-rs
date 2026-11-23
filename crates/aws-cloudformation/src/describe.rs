@@ -179,9 +179,8 @@ impl Core {
             .stacks
             .iter()
             .map(|(_, s)| s)
-            .filter(|s| {
-                s.status != "REVIEW_IN_PROGRESS" || filter.iter().any(|f| f == "REVIEW_IN_PROGRESS")
-            })
+            // Unfiltered, ListStacks answers every stack, REVIEW_IN_PROGRESS ones included
+            // (the model: "summary information for all stacks is returned").
             .filter(|s| filter.is_empty() || filter.contains(&s.status))
             .collect();
         all.sort_by_key(|s| std::cmp::Reverse(s.created_ms));

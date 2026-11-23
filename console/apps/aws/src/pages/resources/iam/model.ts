@@ -1,3 +1,4 @@
+import { pluralWord } from "@doze/ui/lib/format";
 // What the IAM pages work out from what IAM answered: names and aliases checked against IAM's rules, a trust policy read as the
 // people it names and built from a choice, key ages, and the words a sentence is made of. Pure: the pages draw them.
 
@@ -8,7 +9,7 @@ export function list(items: readonly string[]): string {
 }
 
 /** `1 user`, `3 users`. */
-export const count = (n: number, one: string, many = `${one}s`): string => `${n.toLocaleString("en-US")} ${n === 1 ? one : many}`;
+export const count = (n: number, one: string, many = pluralWord(one)): string => `${n.toLocaleString("en-US")} ${n === 1 ? one : many}`;
 
 /** `one`, `two`, ... for the sentences that spell a small number out; the figure itself past ten. */
 const WORDS = ["no", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten"];

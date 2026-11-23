@@ -94,6 +94,7 @@ export function RuleCreate({ schedule, bus }: { schedule: boolean; bus?: string 
       noCall={id !== "review"}
       request={requests[0] ?? null}
       requests={requests}
+      callTitle={requests.length > 1 ? "The calls this will make" : undefined}
       refusal={refused}
       callNote={<>The rule is created first, {d.enabled ? "enabled" : "disabled"}; then its target is added. {made && failure ? <b className="font-semibold text-foreground">The rule exists; its targets were not added.</b> : "A new rule can take a short while to start matching on AWS; here it matches at once."}</>}
       banner={refused ? <Alert tone="bad" title={made ? "The rule was created, but its targets were not." : "The rule wasn't created."} testId="create-refused">{made ? "PutTargets" : "PutRule"} answered <span className="font-mono font-semibold text-bright">{refused.code}</span>: “{refused.message}”</Alert> : undefined}

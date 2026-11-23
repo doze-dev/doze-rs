@@ -7,6 +7,7 @@ import { filled, newRow, pairsOf, rowsValid, type KeyValueRow } from "@doze/ui/c
 import { Input } from "@doze/ui/components/ui/input";
 import { Label } from "@doze/ui/components/ui/label";
 import { useAbout } from "../../../api/queries";
+import { useResourceList } from "../../../api/resources";
 import { Field, FormSection, FunctionPicker, ResourcePicker, TAG_RULES, TopicPicker } from "../../../kit";
 import type { OwnProps } from "../deep/registry";
 import { NONE, useSetting } from "./api";
@@ -14,6 +15,9 @@ import { type LifecycleForm, lifecycleProblem, lifecycleRule, lifecycleRules, no
 import { RadioCards } from "./controls";
 import { Loaded, SettingForm } from "./edit";
 import { Mono } from "./parts";
+import { fifoDestinationHint } from "./words";
+
+const isFifo = (r: { name: string }) => r.name.endsWith(".fifo");
 
 const EVENTS: [string, string][] = [["s3:ObjectCreated:*", "Notify whenever an object is created, regardless of the API that was used to create it."], ["s3:ObjectRemoved:*", "Notify anytime an object is deleted."]];
 type Kind = Rule["kind"];
@@ -33,6 +37,9 @@ function NotificationForm({ name, current }: { name: string; current: unknown })
   const [arn, setArn] = useState("");
   const [typed, setTyped] = useState(false);
   const existing = notificationRules(current);
+  // A FIFO queue cannot be a destination (the call is refused with InvalidArgument), so the list does not offer one and the hint names them.
+  const queues = useResourceList("sqs", "queues");
+  const fifoNames = (queues.data?.pages.flatMap((p) => p.rows) ?? []).filter(isFifo).map((r) => r.name);
   const region = about.data?.region ?? "us-east-1";
   const account = about.data?.account ?? "";
   const from = (n: string) => `arn:aws:${kind === "Lambda Function" ? "lambda" : kind === "SQS Queue" ? "sqs" : "sns"}:${region}:${account}:${kind === "Lambda Function" ? "function:" : ""}${n}`;
@@ -40,7 +47,7 @@ function NotificationForm({ name, current }: { name: string; current: unknown })
   const input = events.length > 0 && dest ? { NotificationConfiguration: withNotification(current, { id, events, prefix, suffix, kind, arn: dest }) } : null;
   const toggle = (e: string, on: boolean) => setEvents(on ? [...events, e] : events.filter((x) => x !== e));
   return (
-    <SettingForm name={name} tab="properties" title="Create event notification" sub={`Send a message when something happens to an object in ${name}.`} operation="PutBucketNotificationConfiguration" input={input} saved={`Event notification ${id || "rule"} created.`} disabled={!input} disabledWhy="Choose the events and a destination."
+    <SettingForm name={name} callBelow tab="properties" title="Create event notification" sub={`Send a message when something happens to an object in ${name}.`} operation="PutBucketNotificationConfiguration" input={input} saved={`Event notification ${id || "rule"} created.`} disabled={!input} disabledWhy="Choose the events and a destination."
       note="The call replaces the whole notification configuration, so it carries the rule that is already there. doze-aws accepts a Lambda or SNS destination that does not exist yet; an SQS queue must exist and must not be FIFO.">
       <FormSection title="General configuration">
         <Field label="Event name (optional)" help={existing.length > 0 ? <>If you leave the name empty, S3 generates a globally unique identifier (GUID) and uses it. The existing {existing.length === 1 ? "rule is" : "rules are"} called <b>{existing.map((r) => r.id).join(", ")}</b>.</> : "If you leave the name empty, S3 generates a globally unique identifier (GUID) and uses it."}>
@@ -59,8 +66,8 @@ function NotificationForm({ name, current }: { name: string; current: unknown })
       </FormSection>
       <FormSection title="Destination">
         <RadioCards name="dest-kind" value={kind} onChange={(k) => (setKind(k), setPicked(null))} options={(["Lambda Function", "SNS Topic", "SQS Queue"] as Kind[]).map((k) => ({ value: k, title: k }))} className="sm:grid-cols-3" />
-        <Field label={kind === "Lambda Function" ? "Lambda function" : kind === "SQS Queue" ? "SQS queue" : "SNS topic"} help={kind === "SQS Queue" ? "Choose a queue from the list, or choose Enter ARN and type its ARN. Before S3 can publish, you must grant the Amazon S3 principal permission to send to the queue. FIFO queues are not supported as a destination: naming one is refused with InvalidArgument." : "Choose from the list, or choose Enter ARN and type the ARN."}>
-          {(i) => (typed ? <Input id={i} value={arn} onChange={(e) => setArn(e.target.value)} placeholder="arn:aws:…" className="font-mono" spellCheck={false} data-testid="dest-arn" /> : kind === "Lambda Function" ? <FunctionPicker id={i} by="name" value={picked} onChange={setPicked} /> : kind === "SNS Topic" ? <TopicPicker id={i} by="name" value={picked} onChange={setPicked} /> : <ResourcePicker id={i} service="sqs" kind="queues" noun="queue" by="name" value={picked} onChange={setPicked} />)}
+        <Field label={kind === "Lambda Function" ? "Lambda function" : kind === "SQS Queue" ? "SQS queue" : "SNS topic"} help={kind === "SQS Queue" ? `Choose a queue from the list, or choose Enter ARN and type its ARN. Before S3 can publish, you must grant the Amazon S3 principal permission to send to the queue. ${fifoDestinationHint(fifoNames)}` : "Choose from the list, or choose Enter ARN and type the ARN."}>
+          {(i) => (typed ? <Input id={i} value={arn} onChange={(e) => setArn(e.target.value)} placeholder="arn:aws:…" className="font-mono" spellCheck={false} data-testid="dest-arn" /> : kind === "Lambda Function" ? <FunctionPicker id={i} by="name" value={picked} onChange={setPicked} /> : kind === "SNS Topic" ? <TopicPicker id={i} by="name" value={picked} onChange={setPicked} /> : <ResourcePicker id={i} service="sqs" kind="queues" noun="queue" by="name" hide={isFifo} value={picked} onChange={setPicked} />)}
         </Field>
         <button type="button" className="w-fit text-[13px] font-medium text-link hover:underline" onClick={() => setTyped(!typed)} data-testid="dest-enter-arn">{typed ? "Choose from the list" : "Enter ARN"}</button>
         {dest && <p className="text-[13px] text-muted-foreground">Destination <Mono>{dest}</Mono></p>}
@@ -108,7 +115,7 @@ function LifecycleFormPage({ name, current }: { name: string; current: unknown }
   );
   const existing = lifecycleRules(current);
   return (
-    <SettingForm name={name} tab="management" title="Create lifecycle rule" sub={`Tell S3 what to do with objects in ${name} as they age.`} operation="PutBucketLifecycleConfiguration" input={problem ? null : { LifecycleConfiguration: withRule(current, lifecycleRule(sent)) }} saved={`Lifecycle rule ${f.name} created.`} submitLabel="Create rule" disabled={Boolean(problem)} disabledWhy={problem}
+    <SettingForm name={name} callBelow tab="management" title="Create lifecycle rule" sub={`Tell S3 what to do with objects in ${name} as they age.`} operation="PutBucketLifecycleConfiguration" input={problem ? null : { LifecycleConfiguration: withRule(current, lifecycleRule(sent)) }} saved={`Lifecycle rule ${f.name} created.`} submitLabel="Create rule" disabled={Boolean(problem)} disabledWhy={problem}
       note="Adding a rule replaces the bucket's lifecycle configuration, so the call carries every rule: the ones that exist and the new one.">
       <FormSection title="Lifecycle rule configuration">
         <Field label="Lifecycle rule name" help={<>Up to <b>255</b> characters, unique within the bucket.{existing.length > 0 && <> {existing.map((r) => r.name).join(", ")} {existing.length === 1 ? "is the rule" : "are the rules"} already here.</>}</>}>

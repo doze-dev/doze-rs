@@ -30,7 +30,6 @@ export function RestAuthorizers({ id, name }: { id: string; name: string }) {
   const all = auths.data.item ?? [];
   const methods = (tree.data?.item ?? []).flatMap((r) => Object.values(r.resourceMethods ?? {}).map((m) => ({ path: r.path, m })));
   const usedBy = (a: Authorizer) => methods.filter((x) => x.m.authorizerId === a.id).map((x) => `${x.m.httpMethod} ${x.path}`);
-  const button = <Button onClick={create} data-testid="create-authorizer"><PlusIcon /> Create authorizer</Button>;
   const unused = all.filter((a) => usedBy(a).length === 0);
   const sentence = all.length === 0 ? "" : `${name} has ${all.length === 1 ? "one authorizer" : `${count(all.length, "authorizer")}`}, ${list(all.map((a) => a.name))}. ${unused.length === 0 ? `${all.length === 1 ? "It is" : "They are"} used by ${list(all.flatMap(usedBy))}.` : unused.length === all.length ? `No method uses ${all.length === 1 ? "it" : "them"} yet: choose ${all.length === 1 ? "it" : "one"} under Authorization on a method request.` : `${list(unused.map((a) => a.name))} ${unused.length === 1 ? "is" : "are"} used by no method yet.`}`;
   const columns: DataColumn<Authorizer>[] = [
@@ -46,7 +45,7 @@ export function RestAuthorizers({ id, name }: { id: string; name: string }) {
       {all.length > 0 && <Said text={sentence} names={[name, ...all.map((a) => a.name)]} />}
       <ApiChips kind="restapis" id={id} name={name} sections={REST_SECTIONS} current="authorizers" />
       {all.length === 0 ? (
-        <EmptyState icon={ShieldCheckIcon} title="No authorizers" action={button}>An authorizer checks a caller&apos;s identity before a method runs.</EmptyState>
+        <EmptyState icon={ShieldCheckIcon} title="No authorizers" action={<Button variant="outline" className="bg-card" onClick={create} data-testid="create-authorizer-empty"><PlusIcon /> Create authorizer</Button>}>An authorizer checks a caller&apos;s identity before a method runs.</EmptyState>
       ) : (
         <>
           <DataTable<Authorizer> aria-label="Authorizers" data={all} columns={columns} rowId={(a) => a.id} />

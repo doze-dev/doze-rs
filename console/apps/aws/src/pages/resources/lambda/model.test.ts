@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { aliasProblems, batchMost, destinationProblems, envInput, envProblems, generalChange, generalOf, generalProblems, mappingUpdate, nextVersion, permissionInput, permissionProblems, urlInput } from "./forms";
+import { aliasProblems, batchMost, destinationInput, destinationProblems, envInput, envProblems, generalChange, generalOf, generalProblems, mappingUpdate, nextVersion, permissionInput, permissionProblems, sourceHint, urlInput } from "./forms";
 import { type Fn, chipWords, policyTrigger, runtimeName, sentenceOf, sourceWords, statementsOf, tailOf, triggersOf, urlAuthNote, wiredOf } from "./model";
 import { firstEvent, templatesFor } from "./templates";
 
@@ -55,7 +55,13 @@ describe("the forms' rules and what they send", () => {
     expect(batchMost("arn:aws:sqs:us-east-1:1:q")).toBe(10000);
     expect(mappingUpdate("u1", { enabled: true, batch: 10 }, { queue: null, enabled: true, batch: "5" })).toEqual({ UUID: "u1", BatchSize: 5 });
     expect(destinationProblems({ condition: "OnFailure", type: "sqs", target: "arn:aws:sqs:us-east-1:1:orders.fifo" }).target).toContain("FIFO");
+    expect(destinationProblems({ condition: "OnSuccess", type: "events", target: "arn:aws:events:us-east-1:1:event-bus/default" })).toEqual({});
+    expect(destinationInput("f", { condition: "OnSuccess", type: "events", target: "arn:aws:events:us-east-1:1:event-bus/default" })).toEqual({ FunctionName: "f", DestinationConfig: { OnSuccess: { Destination: "arn:aws:events:us-east-1:1:event-bus/default" } } });
     expect(permissionProblems({ sid: "sns-alerts", principal: "sns.amazonaws.com", sourceArn: "", sourceAccount: "", action: "lambda:InvokeFunction" }, ["sns-alerts"]).sid).toContain("taken");
+    expect(permissionProblems({ sid: "s", principal: "p", sourceArn: "", sourceAccount: "", action: "InvokeFunction" }, []).action).toContain("lambda:");
+    expect(permissionProblems({ sid: "s", principal: "p", sourceArn: "", sourceAccount: "", action: "lambda:*" }, [])).toEqual({});
+    expect(sourceHint("s3.amazonaws.com", "f", "arn:aws:s3:::receipts")).toEqual(["For an AWS service, the ARN of the resource that invokes the function: here the bucket ", { bold: "receipts" }, "."]);
+    expect(sourceHint("s3.amazonaws.com", "f")?.join("")).toContain("for S3, a bucket such as arn:aws:s3:::receipts");
     expect(permissionInput("f", { sid: "s", principal: " s3.amazonaws.com ", sourceArn: "arn:aws:s3:::r", sourceAccount: "", action: "lambda:InvokeFunction" })).toEqual({ FunctionName: "f", StatementId: "s", Action: "lambda:InvokeFunction", Principal: "s3.amazonaws.com", SourceArn: "arn:aws:s3:::r" });
     expect(urlInput("f", { auth: "NONE", origins: "https://a.dev, https://b.dev", methods: "POST", headers: "", maxAge: "5" })).toEqual({ FunctionName: "f", AuthType: "NONE", Cors: { AllowOrigins: ["https://a.dev", "https://b.dev"], AllowMethods: ["POST"], MaxAge: 5 } });
     expect(urlInput("f", { auth: "AWS_IAM", origins: "", methods: "", headers: "", maxAge: "" })).toEqual({ FunctionName: "f", AuthType: "AWS_IAM" });

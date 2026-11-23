@@ -183,6 +183,9 @@ test("iam__user-create, user-create-permissions and user-create-review: three st
   await page.getByTestId("user-name").fill("dev-intern");
   await expect(page.getByTestId("call-panel")).toContainText('"UserName": "dev-intern"');
   await expect(page.getByTestId("console-access")).toContainText("Not available in doze-aws");
+  // The steps are under the lead sentence, as every board draws them, not above the title.
+  const [title, steps] = await Promise.all([page.locator("h1").boundingBox(), page.getByRole("navigation", { name: "Steps" }).boundingBox()]);
+  expect(steps!.y).toBeGreaterThan(title!.y);
   await shot(page, "iam__user-create");
   await page.getByTestId("form-submit").click();
   await expect(page.locator("h1").first()).toHaveText("Set permissions");
@@ -432,7 +435,8 @@ test("iam__policy-create, policy-create-error and policy-create-review: the edit
   await shot(page, "iam__policy-create");
   const bad = { Version: "2012-10-17", Statement: [{ Effect: "Allow", Action: ["sqs:SendMessage"] }] };
   await page.getByTestId("policy-json-editor").fill(JSON.stringify(bad, null, 2));
-  await page.getByTestId("form-submit").click();
+  // The error state shows while the broken document is typed, with no click, and Next is off.
+  await expect(page.getByTestId("form-submit")).toBeDisabled();
   await expect(page.getByTestId("must-fix")).toHaveText("You must fix the problem before you can continue.");
   await expect(page.getByTestId("policy-json-status")).toHaveText("1 error");
   await expect(page.getByTestId("policy-json-errors")).toContainText("Policy statement must contain resources.");
@@ -472,7 +476,7 @@ test("iam__policy-create: the Visual editor builds the same document as the JSON
   // A second block, not finished: it says what it lacks, and Next is stopped with the editor's own error.
   await page.getByTestId("visual-add-block").click();
   await expect(page.getByTestId("visual-block-problem")).toHaveText("Choose a service.");
-  await page.getByTestId("form-submit").click();
+  await expect(page.getByTestId("form-submit")).toBeDisabled();
   await expect(page.getByTestId("policy-json-errors")).toContainText("Statement 2 needs an Action.");
   await shot(page, "iam__policy-create-visual");
   await page.getByTestId("visual-service").nth(1).click();

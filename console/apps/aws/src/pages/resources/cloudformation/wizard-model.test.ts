@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { newRow } from "@doze/ui/components/app/key-values";
-import { type Summary, type Wizard, BODY_MAX, changeSetInput, changeSetNameProblem, emptyWizard, nameProblem, optionsInput, optionsProblem, parameterList, parameterProblem, stackInput, summaryInput, templateProblem, templateRef, validateInput } from "./wizard-model";
+import { type Summary, type Wizard, BODY_MAX, changeSetInput, changeSetNameProblem, emptyWizard, firstFree, nameProblem, tagsLine, optionsInput, optionsProblem, parameterList, parameterProblem, stackInput, summaryInput, templateProblem, templateRef, validateInput } from "./wizard-model";
 
 const summary: Summary = { Description: "d", Parameters: [{ ParameterKey: "Stage", ParameterType: "String", DefaultValue: "prod" }, { ParameterKey: "Table", ParameterType: "String" }, { ParameterKey: "Secret", NoEcho: true }, { ParameterKey: "Mode", ParameterConstraints: { AllowedValues: ["a", "b"] }, DefaultValue: "a" }] };
 const create = (p: Partial<Wizard> = {}): Wizard => ({ ...emptyWizard("create"), url: "https://b.s3.us-east-1.amazonaws.com/t.yaml", name: "search", values: { Table: "search-index", Secret: "s" }, ...p });
@@ -97,5 +97,18 @@ describe("step 4", () => {
     expect(changeSetNameProblem("", [])).toBe("Enter a name for the change set.");
     expect(changeSetNameProblem("a", ["a"])).toContain("already exists");
     expect(changeSetNameProblem("add-reports", ["a"])).toBeNull();
+  });
+  test("an update says whether its tags are the stack's own", () => {
+    const was = [{ Key: "app", Value: "larder" }, { Key: "stage", Value: "prod" }];
+    expect(tagsLine([{ key: "app", value: "larder" }, { key: "stage", value: "prod" }], was, "core")).toBe("These two match what core has.");
+    expect(tagsLine([{ key: "app", value: "larder" }], was, "core")).toBe("1 of core's two tags is kept as it is.");
+    expect(tagsLine([{ key: "app", value: "x" }], was, "core")).toBe("0 of core's two tags are kept as they are.");
+    expect(tagsLine([{ key: "a", value: "b" }], [{ Key: "a", Value: "b" }], "core")).toBe("This one matches what core has.");
+    expect(tagsLine([{ key: "a", value: "b" }], [], "core")).toBeNull();
+  });
+  test("the name offered for a change set is the first one the stack does not have", () => {
+    expect(firstFree("update-review", [])).toBe("update-review");
+    expect(firstFree("update-review", ["update-review"])).toBe("update-review-2");
+    expect(firstFree("update-review", ["update-review", "update-review-2", "x"])).toBe("update-review-3");
   });
 });

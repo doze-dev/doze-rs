@@ -163,6 +163,8 @@ test("stepfunctions__machine-create-code, create-config, create-role and machine
   await page.getByTestId("asl-editor").fill(JSON.stringify(draft, null, 2));
   await expect(page.getByTestId("studio-invalid")).toHaveCount(0);
   await expect(page.getByTestId("sfn-graph")).toBeVisible();
+  // The Choice's edge says the comparison, as the board does.
+  await expect(page.getByTestId("sfn-graph")).toContainText("on_hand < reorder_point");
   await page.getByTestId("mode-config").click();
   await expect(page.getByTestId("config-name")).toHaveValue("stock-reorder");
   await expect(page.getByTestId("role-create")).toBeChecked();
@@ -274,7 +276,7 @@ test("stepfunctions__machine-definition and machine-edit: the definition read, t
   // Publish version snapshots the saved revision as the next version.
   await page.getByTestId("studio-publish").click();
   await expect(page.getByTestId("publish-words")).toContainText("as version 4, an immutable snapshot you can start by its version ARN or through an alias.");
-  await expect(page.getByTestId("publish-dialog")).toContainText("Up to 256 characters. Version numbers go up by one and are never reused; a state machine holds up to 1,000.");
+  await expect(page.getByTestId("publish-dialog")).toContainText("Up to 256 characters. Version numbers go up by one and are never reused; AWS allows up to 1,000 per state machine and doze-aws does not enforce that.");
   await page.getByTestId("publish-description").fill("Heartbeat back to 60");
   await shot(page, "stepfunctions__version-publish");
   await page.getByTestId("publish-submit").click();
@@ -380,6 +382,10 @@ test("stepfunctions__execution-running and execution-stop: a run waiting for a w
   await expect(page.locator("[data-state=PackOrder]")).toHaveAttribute("data-status", "running");
   await expect(page.getByTestId("step-name")).toHaveText("PackOrder");
   await expect(page.getByTestId("step-note")).toContainText("PackOrder is an activity task. It stays in progress until a worker calls GetActivityTask for pack-order, then answers with SendTaskSuccess or SendTaskFailure. With HeartbeatSeconds 120 the worker must call SendTaskHeartbeat within that time.");
+  // The legend names the three the board draws; Cancelled only when a state was, Not run because the run has not reached the rest.
+  await expect(page.getByTestId("sfn-legend")).toContainText("Succeeded");
+  await expect(page.getByTestId("sfn-legend")).toContainText("In progress");
+  await expect(page.getByTestId("sfn-legend")).not.toContainText("Cancelled");
   await shot(page, "stepfunctions__execution-running");
   await page.getByTestId("stop-open").click();
   const dialog = page.getByTestId("stop-dialog");
@@ -519,6 +525,13 @@ test("stepfunctions__activities-list and activity-create: the workers' tasks, an
   await shot(page, "stepfunctions__activity-create");
   await page.getByTestId("form-submit").click();
   await expect(page.getByTestId("created-banner")).toContainText("Activity inspect-order created.");
+  await expect(rows(page, "Activities")).toHaveCount(3);
+  // A name that exists returns the existing activity: the page says so and does not claim to have made one.
+  await page.getByTestId("create-open").click();
+  await page.getByTestId("activity-name-input").fill("pack-order");
+  await page.getByTestId("form-submit").click();
+  await expect(page.getByTestId("created-banner")).toContainText("Activity pack-order already exists.");
+  await expect(page.getByTestId("created-banner")).not.toContainText("created.");
   await expect(rows(page, "Activities")).toHaveCount(3);
 });
 

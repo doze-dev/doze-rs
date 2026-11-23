@@ -38,7 +38,7 @@ export function StepDetails({ w, set, summary, taken, tried, current }: { w: Wiz
             <Field key={key} label={key} error={error ?? undefined} testId={`param-${key}`} help={update && d.NoEcho ? "A NoEcho value is never shown again, so the field starts empty. Ticking Use existing value keeps the one the stack has." : undefined} hint={<>{d.Description ? `${dot(d.Description)} ` : ""}{words(d)}</>}>
               {(id) => d.NoEcho ? (
                 <div className="grid gap-2">
-                  <Input id={id} type="password" value={keeping ? "" : (w.values[key] ?? "")} onChange={(e) => set({ values: { ...w.values, [key]: e.target.value } })} disabled={keeping} placeholder={keeping ? "Kept as it is" : ""} className="bg-card font-mono text-[13px]" autoComplete="off" data-testid={`param-input-${key}`} />
+                  <Input id={id} type="password" value={keeping ? "" : (w.values[key] ?? "")} onChange={(e) => set({ values: { ...w.values, [key]: e.target.value } })} disabled={keeping} placeholder={keeping ? "Hidden, because the parameter is NoEcho" : ""} className="bg-card font-mono text-[13px]" autoComplete="off" data-testid={`param-input-${key}`} />
                   {update && (
                     <label className="flex items-center gap-2 text-[13.5px]"><Checkbox checked={keeping} onCheckedChange={(c) => set({ keep: { ...w.keep, [key]: c === true } })} data-testid={`keep-${key}`} /> Use existing value</label>
                   )}

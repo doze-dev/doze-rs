@@ -70,7 +70,7 @@ export function StreamsTab({ g, streams, more, justMade, retention, group, back 
   );
 }
 
-export function FiltersTab({ group, filters, create }: { group: string; filters: MetricFilter[]; create: () => void }) {
+export function FiltersTab({ group, filters, create, onDeleted }: { group: string; filters: MetricFilter[]; create: () => void; /** After a delete: the names of the filters that went (the page says so, in place of what it said before). */ onDeleted?: (names: string[]) => void }) {
   const [chosen, setChosen] = useState<Set<string>>(new Set());
   const [asking, setAsking] = useState(false);
   const [prefix, setPrefix] = useState("");
@@ -98,6 +98,7 @@ export function FiltersTab({ group, filters, create }: { group: string; filters:
         for (const f of picked) await del.mutateAsync({ group, input: { filterName: f.name } });
         setAsking(false);
         setChosen(new Set());
+        onDeleted?.(picked.map((f) => f.name));
       } catch {
         /* said in the dialog */
       }

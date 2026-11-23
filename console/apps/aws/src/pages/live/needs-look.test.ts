@@ -23,3 +23,8 @@ test("one chip a kind, the newest of it, with how many there are; a call that we
 test("a server error is a failure, not a refusal", () => {
   expect(looks([call({ status: 500, outcome: "error" })])[0]?.word).toBe("FAILED");
 });
+
+test("each chip carries the kind the wire is filtered by when it is pressed", () => {
+  const l = looks([call({ action: "Invoke", function_error: "Unhandled" }), call({ status: 400, outcome: "error" })]);
+  expect(l.map((x) => x.kind)).toEqual(["function-error", "refused"]);
+});

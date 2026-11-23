@@ -11,13 +11,14 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Alert } from "@doze/ui/components/app/alert";
 import { USERS, useWrite } from "./api";
 import { AddToGroups, AttachPolicies } from "./dialogs";
+import { InlinePolicy } from "./inline-policy";
 import { list } from "./model";
 import { Card, Note, PolicyTable, type PolicyRow, To } from "./parts";
 import type { UserAccess } from "./user-data";
 
-/** The Add permissions button: a user joins a group, or has policies attached. */
+/** The Add permissions button: a user joins a group, has policies attached, or is given an inline policy. */
 function AddPermissions({ user, access }: { user: string; access: UserAccess }) {
-  const [dialog, setDialog] = useState<"group" | "policies" | null>(null);
+  const [dialog, setDialog] = useState<"group" | "policies" | "inline" | null>(null);
   return (
     <>
       <DropdownMenu>
@@ -25,9 +26,11 @@ function AddPermissions({ user, access }: { user: string; access: UserAccess }) 
         <DropdownMenuContent align="end" className="min-w-52">
           <DropdownMenuItem onSelect={() => setDialog("group")} data-testid="add-to-group">Add user to group</DropdownMenuItem>
           <DropdownMenuItem onSelect={() => setDialog("policies")} data-testid="attach-policies">Attach policies directly</DropdownMenuItem>
+          <DropdownMenuItem onSelect={() => setDialog("inline")} data-testid="create-inline">Create inline policy</DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
       <AddToGroups user={user} member={access.groups} open={dialog === "group"} onOpenChange={(o) => !o && setDialog(null)} />
+      <InlinePolicy user={user} open={dialog === "inline"} onOpenChange={(o) => !o && setDialog(null)} />
       <AttachPolicies on="users" name={user} attached={access.direct.map((p) => p.PolicyArn)} open={dialog === "policies"} onOpenChange={(o) => !o && setDialog(null)} />
     </>
   );

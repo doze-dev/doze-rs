@@ -78,9 +78,10 @@ export function ObjectDelete({ name, search, permanent }: OwnProps & { permanent
     }
   };
   const said = error ? errorWords(error) : null;
+  const bucketPath = `/resources/s3/buckets/${encodeURIComponent(name!)}`;
   const rows = items.map((i, n) => ({ ...i, head: heads[n]?.data, listed: siblings.data?.Versions?.find((v) => v.Key === i.key && v.VersionId === i.versionId) }));
   return (
-    <ActionPage title={versionMode ? "Delete objects" : "Delete objects"} crumbs={[...crumbs(name!), { label: versionMode ? "Permanently delete object versions" : "Delete objects", to: `/resources/s3/buckets/${encodeURIComponent(name!)}` }]} testId={versionMode ? "object-delete-version-page" : "object-delete-page"}
+    <ActionPage title={versionMode ? "Delete objects" : "Delete objects"} crumbs={[...crumbs(name!), ...(versionMode && items[0] ? [{ label: baseName(items[0].key), to: bucketPath }, { label: "Versions", to: bucketPath }] : []), { label: versionMode ? "Permanently delete object versions" : "Delete objects", to: bucketPath }]} testId={versionMode ? "object-delete-version-page" : "object-delete-page"}
       sub={versionMode ? <>Permanently delete {count(items.length, "version")} of <Mono>{baseName(items[0]?.key ?? "")}</Mono>.</> : <>Delete {count(items.length, "object")} from <Mono>{s3Uri(name!)}</Mono>.</>}
       footer={<Footer onCancel={back}><Button variant="destructive" disabled={typed !== word || busy || items.length === 0} onClick={() => void run()} data-testid="delete-objects-submit">{busy ? "Deleting…" : "Delete objects"}</Button></Footer>}>
       {versionMode ? (
@@ -92,7 +93,7 @@ export function ObjectDelete({ name, search, permanent }: OwnProps & { permanent
       )}
       {said && <Alert tone="bad" title="Not deleted" testId="delete-refused">{said.message}</Alert>}
       <Card title="Specified objects">
-        <DataTable aria-label="Specified objects" data={rows} rowId={(r) => `${r.key}|${r.versionId ?? ""}`} maxHeight={280} columns={[{ id: "n", header: "Name", accessorFn: (r) => r.key, meta: { mono: true }, min: 200 }, ...(versionMode ? [{ id: "v", header: "Version ID", size: 240, accessorFn: (r: (typeof rows)[number]) => r.versionId ?? "", meta: { mono: true } }] : []), { id: "m", header: "Last modified", size: 260, accessorFn: (r) => String(r.head?.LastModified ?? r.listed?.LastModified ?? ""), cell: (c) => (c.row.original.key.endsWith("/") ? "-" : shortDate(c.row.original.head?.LastModified ?? c.row.original.listed?.LastModified)) }, { id: "s", header: "Size", size: 110, meta: { numeric: true }, accessorFn: (r) => r.head?.ContentLength ?? r.listed?.Size ?? -1, cell: (c) => (c.row.original.key.endsWith("/") ? "-" : size(c.row.original.head?.ContentLength ?? c.row.original.listed?.Size)) }]} />
+        <DataTable aria-label="Specified objects" data={rows} rowId={(r) => `${r.key}|${r.versionId ?? ""}`} maxHeight={280} columns={[{ id: "n", header: "Name", accessorFn: (r) => r.key, meta: { mono: true, wrap: true }, min: 200 }, ...(versionMode ? [{ id: "v", header: "Version ID", size: 290, accessorFn: (r: (typeof rows)[number]) => r.versionId ?? "", meta: { mono: true, wrap: true } }] : []), { id: "m", header: "Last modified", size: 300, accessorFn: (r) => String(r.head?.LastModified ?? r.listed?.LastModified ?? ""), cell: (c) => (c.row.original.key.endsWith("/") ? "-" : shortDate(c.row.original.head?.LastModified ?? c.row.original.listed?.LastModified)) }, { id: "s", header: "Size", size: 110, meta: { numeric: true }, accessorFn: (r) => r.head?.ContentLength ?? r.listed?.Size ?? -1, cell: (c) => (c.row.original.key.endsWith("/") ? "-" : size(c.row.original.head?.ContentLength ?? c.row.original.listed?.Size)) }]} />
       </Card>
       <Card title={hard ? "Permanently delete objects?" : "Delete objects?"}>
         <div className="grid gap-1.5">

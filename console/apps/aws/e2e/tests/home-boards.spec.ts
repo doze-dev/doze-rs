@@ -167,3 +167,26 @@ test("home__connect-s3: virtual-hosted and path style, and the setting for each 
   await expect(sheet.getByTestId("s3-path")).toContainText("aws configure set default.s3.addressing_style path");
   await shot(page, "home__connect-s3");
 });
+
+test("Connect keeps its tab and its sheet in the address: a reload and a pasted link land where they were", async ({ page }) => {
+  await go(page, "/connect", "Connect your app");
+  await page.getByTestId("tab-code").click();
+  await expect(page).toHaveURL(/\/connect\?tab=code$/);
+  await page.reload();
+  await expect(page.getByTestId("snippet-boto3")).toBeVisible();
+  await page.getByTestId("tab-services").click();
+  await expect(page).toHaveURL(/tab=services/);
+  await page.getByTestId("more-s3").click();
+  await expect(page).toHaveURL(/tab=services&sheet=s3|sheet=s3&tab=services/);
+  await expect(page.getByTestId("s3-sheet")).toBeVisible();
+  // A pasted link opens the same sheet on the same tab, and closing the sheet takes it out of the address.
+  await page.goto(page.url());
+  await expect(page.getByTestId("s3-sheet")).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(page.getByTestId("s3-sheet")).toHaveCount(0);
+  await expect(page).not.toHaveURL(/sheet=/);
+  await expect(page).toHaveURL(/tab=services/);
+  // The first tab needs no parameter.
+  await page.getByTestId("tab-overview").click();
+  await expect(page).toHaveURL(/\/connect$/);
+});

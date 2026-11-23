@@ -74,6 +74,9 @@ export function seedKmsetc(endpoint: string, account: string): void {
   const cli = runner(endpoint);
   for (const r of ["lambda-exec", "larder-admin", "report-job"]) cli(["iam", "create-role", "--role-name", r, "--assume-role-policy-document", TRUST]);
   for (const u of ["ci-bot", "dev"]) cli(["iam", "create-user", "--user-name", u]);
+  // What report-job may do: the line under the key users table (kms__key-create-users) is made from this policy.
+  const readonly = JSON.parse(cli(["iam", "create-policy", "--policy-name", "report-job-readonly", "--policy-document", JSON.stringify({ Version: "2012-10-17", Statement: [{ Effect: "Allow", Action: "s3:GetObject", Resource: "arn:aws:s3:::reports/*" }] })])) as { Policy: { Arn: string } };
+  cli(["iam", "attach-role-policy", "--role-name", "report-job", "--policy-arn", readonly.Policy.Arn]);
 
   // Keys.
   const key = (args: string[]) => (JSON.parse(cli(["kms", "create-key", ...args])) as { KeyMetadata: { KeyId: string } }).KeyMetadata.KeyId;

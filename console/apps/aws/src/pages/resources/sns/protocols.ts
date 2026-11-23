@@ -18,19 +18,22 @@ export type ProtocolInfo = {
   confirms: "never" | "endpoint" | "nobody";
   /** Whether RawMessageDelivery is offered. */
   raw: boolean;
+  /** The board's words under the Protocol select once the protocol is chosen: a bold sentence and what follows it. Without them the
+   * option's own `about` is said. */
+  said?: { lead: string; more: string };
 };
 
 const MAIL = "Not available in doze-aws: it would need a mail server. Subscriptions are stored and never delivered.";
 
 /** In the order of the board. */
 export const PROTOCOLS: readonly ProtocolInfo[] = [
-  { id: "http", label: "HTTP", active: true, about: "Delivery of the JSON-encoded message by HTTP POST. The endpoint is a URL beginning with http://. Delivers locally.", endpoint: "A URL beginning with http://. A local URL works", confirms: "endpoint", raw: true },
-  { id: "https", label: "HTTPS", active: true, about: "Delivery of the JSON-encoded message by HTTPS POST. The endpoint is a URL beginning with https://. Delivers locally.", endpoint: "A URL beginning with https://", confirms: "endpoint", raw: true },
+  { id: "http", label: "HTTP", active: true, about: "Delivery of the JSON-encoded message by HTTP POST. The endpoint is a URL beginning with http://. Delivers locally.", endpoint: "A URL beginning with http://. A local URL works", confirms: "endpoint", raw: true, said: { lead: "HTTP delivery is an HTTP POST of the JSON-encoded message.", more: "HTTPS does the same over https://. A URL on this machine works." } },
+  { id: "https", label: "HTTPS", active: true, about: "Delivery of the JSON-encoded message by HTTPS POST. The endpoint is a URL beginning with https://. Delivers locally.", endpoint: "A URL beginning with https://", confirms: "endpoint", raw: true, said: { lead: "HTTPS delivery is an HTTPS POST of the JSON-encoded message.", more: "HTTP does the same over http://. A URL on this machine works." } },
   { id: "email", label: "Email", active: false, about: MAIL, endpoint: "An email address", confirms: "nobody", raw: false },
   { id: "email-json", label: "Email-JSON", active: false, about: MAIL, endpoint: "An email address", confirms: "nobody", raw: false },
   { id: "firehose", label: "Amazon Data Firehose", active: false, about: "Not available in doze-aws: it needs Amazon Data Firehose, which doze-aws does not have.", endpoint: "The ARN of a delivery stream", confirms: "never", raw: true },
   { id: "sqs", label: "Amazon SQS", active: true, about: "The endpoint is the ARN of an Amazon SQS queue. Delivers locally; the choice for a FIFO topic.", endpoint: "The ARN of a queue. The choice for a FIFO topic", confirms: "never", raw: true },
-  { id: "lambda", label: "AWS Lambda", active: true, about: "The endpoint is the ARN of a Lambda function. Delivers locally.", endpoint: "The ARN of a function", confirms: "never", raw: false },
+  { id: "lambda", label: "AWS Lambda", active: true, about: "The endpoint is the ARN of a Lambda function. Delivers locally.", endpoint: "The ARN of a function", confirms: "never", raw: false, said: { lead: "The Lambda function is invoked with the payload of the published message.", more: "The function can manipulate the information in the message, publish it to other Amazon SNS topics, or send it to other AWS services." } },
   { id: "application", label: "Platform application endpoint", active: false, about: "Not available in doze-aws: mobile push needs the platform push services. Messages to one are accepted and sent nowhere.", endpoint: "The ARN of an endpoint", confirms: "never", raw: false },
   { id: "sms", label: "SMS", active: false, about: "Not available in doze-aws: SMS needs a carrier. Messages to a number are accepted and sent nowhere.", endpoint: "A phone number", confirms: "never", raw: false },
 ];

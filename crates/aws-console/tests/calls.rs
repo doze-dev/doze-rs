@@ -312,3 +312,50 @@ async fn a_publish_counts_the_deliveries_made_for_it() {
         .collect();
     assert_eq!(said, ["delivered to 2, 1 failed", "no deliveries"]);
 }
+
+/// A publish the console makes over the bus says `delivered to N` as an AWS CLI's does, and is not shown as caused by a request.
+#[tokio::test]
+async fn a_publish_made_by_the_console_counts_its_deliveries_too() {
+    let s = state(32, &[]);
+    let app = app(&s);
+    let cause = |request: &str| aws_peers::Cause {
+        request: Some(request.into()),
+        name: None,
+    };
+    let mine = cause("console-7");
+    let other = cause("console-8");
+    for (cause, status, code) in [(&mine, 200, ""), (&other, 200, ""), (&mine, 200, "")] {
+        s.recorder.record_bus(&delivery(cause, status, code), 1);
+    }
+    let publish = |operation, cause| BusCall {
+        acting: "",
+        signing_name: "sns",
+        sdk_id: "SNS",
+        operation,
+        member: "TopicArn",
+        resource: "arn:aws:sns:us-east-1:000000000000:orders",
+        access_key_id: "console",
+        ..delivery(cause, 200, "")
+    };
+    s.recorder.record_bus(&publish("Publish", &mine), 2);
+    let (quiet, wire) = (cause("console-9"), cause("0c6f3a52-uuid"));
+    s.recorder.record_bus(&publish("Publish", &quiet), 3);
+    s.recorder.record_bus(&publish("Publish", &wire), 4);
+    let (_, page) = json(&app, get("/api/v1/calls")).await;
+    let publishes: Vec<(&Value, &Value)> = page["calls"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|c| c["action"] == "Publish")
+        .map(|c| (&c["summary"], &c["via"]["request_id"]))
+        .collect();
+    // Oldest first: the console's own are counted; a request from the wire has no summary here (the gateway words it).
+    assert_eq!(
+        publishes,
+        [
+            (&Value::from("delivered to 2"), &Value::Null),
+            (&Value::from("no deliveries"), &Value::Null),
+            (&Value::Null, &Value::from("0c6f3a52-uuid")),
+        ]
+    );
+}
