@@ -71,6 +71,27 @@ export function forget(p: Place) {
   for (const key of [PINNED_KEY, VISITED_KEY]) write(key, parse(read(key)).filter((x) => !same(x, p)));
 }
 
+/** Places whose page said, while it is open, that the thing is not there: there is nothing to pin on such a page. */
+const absent = new Set<string>();
+const keyOf = (p: Place) => JSON.stringify([p.service, p.kind, p.name]);
+
+/** The page of `p` has said it is not there. */
+export function markAbsent(p: Place) {
+  if (absent.has(keyOf(p))) return;
+  absent.add(keyOf(p));
+  for (const l of listeners) l();
+}
+
+/** Forgets what was said of absent places (the page was left: the thing may exist when it is opened again). */
+export function clearAbsent() {
+  if (absent.size === 0) return;
+  absent.clear();
+  for (const l of listeners) l();
+}
+
+/** Whether the page of `p` has said it is not there. */
+export const useAbsent = (p: Place | null): boolean => useSyncExternalStore(subscribe, () => p !== null && absent.has(keyOf(p)));
+
 /** The resource a request to delete one was for (`/api/v1/resources/sqs/queues/pick-lists?clear=yes`), or null. */
 export function deletedBy(url: string): Place | null {
   const at = url.indexOf("/api/v1/resources/");

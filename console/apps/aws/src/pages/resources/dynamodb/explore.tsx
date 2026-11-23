@@ -167,11 +167,6 @@ export function Explore({ name, search }: OwnProps) {
               </Button>
             </div>
           )}
-          {items.data && rows.length === 0 && (
-            <EmptyTab icon={SearchIcon} title="No items returned" testId="items-none">
-              {ran.mode === "query" ? "The query found no items for this key. Change the key or the index." : ran.filter ? "No item matches the filter. Change it, or scan without one." : "This table holds no item yet. Create an item to start."}
-            </EmptyTab>
-          )}
           {rows.length > 0 && (
             <>
               <Said testId="items-note">
@@ -193,6 +188,11 @@ export function Explore({ name, search }: OwnProps) {
           )}
         </div>
       </Card>
+      {items.data && rows.length === 0 && (
+        <EmptyTab icon={SearchIcon} title="No items returned" testId="items-none" className="mt-6">
+          {ran.mode === "query" ? "The query found no items for this key. Change the key or the index." : ran.filter ? "No item matches the filter. Change it, or scan without one." : "This table holds no item yet. Create an item to start."}
+        </EmptyTab>
+      )}
       {deleting && chosen && (
         <Ask
           open
