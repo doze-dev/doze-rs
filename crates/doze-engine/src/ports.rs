@@ -89,32 +89,30 @@ mod tests {
     }
 
     /// A port handed out and then taken by someone else is lost; free again, or never handed out, it is not.
-    ///
-    /// The other test processes of a run draw ports from the same range, so one may bind this port while it is free;
-    /// a port taken that way is tried again with another (the gates failed twice on it, 2026-11-23).
     #[test]
     fn a_handed_out_port_taken_by_someone_else_is_lost() {
-        let mut seen = false;
-        for _ in 0..20 {
-            let p = free_port().unwrap();
-            if lost(p) {
-                continue;
+        // Other programs on a busy machine (other test runs, a daemon starting its own services) probe this same range, so a
+        // port can be taken in the instant between handing it out and asking; the test asks about one nothing else holds, and
+        // waits a moment for it to be let go of, as the claim is about the state of a port and not the speed of the system.
+        let free = |p: u16| {
+            for _ in 0..100 {
+                if !lost(p) {
+                    return true;
+                }
+                std::thread::sleep(std::time::Duration::from_millis(20));
             }
-            let Ok(holder) = TcpListener::bind(("127.0.0.1", p)) else {
-                continue;
-            };
-            assert!(lost(p), "held here, so held by someone");
-            drop(holder);
-            if lost(p) {
-                continue;
-            }
-            seen = true;
-            break;
-        }
-        assert!(
-            seen,
-            "twenty ports were each taken by another process meanwhile"
-        );
+            false
+        };
+        let (p, holder) = (0..50)
+            .find_map(|_| {
+                let p = free_port().ok()?;
+                let holder = TcpListener::bind(("127.0.0.1", p)).ok()?;
+                Some((p, holder))
+            })
+            .expect("a port nothing else holds");
+        assert!(lost(p), "held by someone else");
+        drop(holder);
+        assert!(free(p), "free again");
         let other = TcpListener::bind("127.0.0.1:0").unwrap();
         let fixed = other.local_addr().unwrap().port();
         assert!(!lost(fixed), "a port this process never handed out");
