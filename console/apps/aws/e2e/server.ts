@@ -3,6 +3,7 @@
 import { type ChildProcess, execFileSync, spawn } from "node:child_process";
 import { closeSync, existsSync, mkdtempSync, openSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
+import { createServer } from "node:net";
 import { join } from "node:path";
 
 const repo = join(import.meta.dirname, "../../../..");
@@ -32,19 +33,49 @@ async function until(what: string, probe: () => Promise<boolean>, ms = 15_000): 
 const START_MS = 30_000;
 const START_TRIES = 2;
 
+/** Whether both ports can be listened on now (a probe: bound on loopback, then let go). */
+async function pairFree(a: number, b: number): Promise<boolean> {
+  const free = (port: number) =>
+    new Promise<boolean>((resolve) => {
+      const probe = createServer();
+      probe.once("error", () => resolve(false));
+      probe.listen(port, "127.0.0.1", () => probe.close(() => resolve(true)));
+    });
+  return (await free(a)) && (await free(b));
+}
+
+/** Two free neighbouring ports from 20000-28999 (below the range Linux gives to outgoing connections, which once held a port a test
+ * wanted), from a random place in it so that two runs seldom probe the same ones. */
+async function freePair(not: readonly number[]): Promise<[number, number]> {
+  for (let i = 0; i < 200; i++) {
+    const a = 20_000 + Math.floor(Math.random() * 4_500) * 2;
+    if (!not.includes(a) && (await pairFree(a, a + 1))) return [a, a + 1];
+  }
+  throw new Error("no free pair of ports between 20000 and 28999");
+}
+
 /** Starts doze-aws with its console on the two ports and waits until both answer. `dataDir`: start again over the same
  * state (a restart); otherwise a new, empty directory that `stop` removes. A start that never answers is killed by its pid and
- * tried once more; when the last try fails the error carries what the process printed. */
+ * tried once more; when the last try fails the error carries what the process printed. A new state (no `dataDir`) does not need these
+ * exact ports: when they are taken, or a try failed, it is tried on another free pair (read `endpoint` and `console` from what is
+ * returned). A restart over the same state keeps its ports. */
 export async function start(listenPort: number, consolePort: number, options: { dataDir?: string; args?: string[] } = {}): Promise<Running> {
   const own = options.dataDir === undefined;
   const dataDir = options.dataDir ?? mkdtempSync(join(tmpdir(), "doze-aws-e2e-"));
-  const endpoint = `http://127.0.0.1:${listenPort}`;
-  const consoleUrl = `http://127.0.0.1:${consolePort}`;
-  const argv = ["--listen", `127.0.0.1:${listenPort}`, "--console", `127.0.0.1:${consolePort}`, "--data-dir", dataDir, "--account", ACCOUNT, ...(options.args ?? [])];
+  let endpoint = `http://127.0.0.1:${listenPort}`;
+  let consoleUrl = `http://127.0.0.1:${consolePort}`;
+  const argvFor = (l: number, c: number) => ["--listen", `127.0.0.1:${l}`, "--console", `127.0.0.1:${c}`, "--data-dir", dataDir, "--account", ACCOUNT, ...(options.args ?? [])];
+  let argv = argvFor(listenPort, consolePort);
   // Something already answering on the console port is another process: its answers would be taken for this one's.
-  if (await fetch(`${consoleUrl}/healthz`, { signal: AbortSignal.timeout(1_000) }).then(() => true, () => false)) throw new Error(`${consoleUrl} is already served by another process: pick free ports`);
+  if (!own && (await fetch(`${consoleUrl}/healthz`, { signal: AbortSignal.timeout(1_000) }).then(() => true, () => false))) throw new Error(`${consoleUrl} is already served by another process: pick free ports`);
   const notes: string[] = [];
   for (let attempt = 1; attempt <= START_TRIES; attempt++) {
+    if (own && (attempt > 1 || !(await pairFree(listenPort, consolePort)))) {
+      const [l, c] = await freePair([listenPort]);
+      endpoint = `http://127.0.0.1:${l}`;
+      consoleUrl = `http://127.0.0.1:${c}`;
+      argv = argvFor(l, c);
+    }
     const logPath = join(mkdtempSync(join(tmpdir(), "doze-aws-e2e-log-")), "out.log");
     const fd = openSync(logPath, "w");
     const child: ChildProcess = spawn(binary(), argv, { stdio: ["ignore", fd, fd] });
