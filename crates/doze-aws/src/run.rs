@@ -113,6 +113,7 @@ async fn run(cfg: &Config, started: Instant) -> Result<(), String> {
     };
     me.endpoint = endpoint_of(running.local_addr());
     resumable.resume(&me.endpoint).await;
+    me.advertised = advertised(cfg)?;
     // The line a supervisor (and the conformance harness) waits for.
     tracing::info!("doze-aws listening on {}", running.local_addr());
     write_instance(cfg, &data, &mut me);
@@ -145,6 +146,18 @@ fn write_instance(cfg: &Config, data: &std::path::Path, me: &mut Instance) {
     }
 }
 
+/// The URL `--advertise` names (without a trailing slash), empty when none is given.
+fn advertised(cfg: &Config) -> Result<String, String> {
+    let given = cfg.text("advertise");
+    let url = given.trim().trim_end_matches('/');
+    if !url.is_empty() && !(url.starts_with("http://") || url.starts_with("https://")) {
+        return Err(format!(
+            "--advertise {given:?} is not an http:// or https:// address"
+        ));
+    }
+    Ok(url.to_owned())
+}
+
 /// The ready block, then the template `--template` names, applied beside the server.
 fn announce(
     cfg: &Config,
@@ -154,7 +167,7 @@ fn announce(
     console: Option<&str>,
 ) {
     let ready = crate::ready::Ready {
-        endpoint: &me.endpoint,
+        endpoint: me.public_endpoint(),
         console,
         services: on,
         region: &me.region,

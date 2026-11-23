@@ -104,6 +104,7 @@ jobs:
     env:
       MODULE: ${{ needs.plan.outputs.module }}
       CRATE: ${{ needs.plan.outputs.crate }}
+      VERSION: ${{ needs.plan.outputs.version }}
       TARGET: ${{ matrix.target }}
       DOZE_ACCEPTANCE: "1"
       # The engine builds the acceptance runs against: keep these in step with ci.yml's `modules` job.
@@ -157,7 +158,8 @@ jobs:
           # The profile the weight check measures (xtask/src/weight.rs, profile_of): doze-aws ships what its size
           # line is held to (release-aws, opt-level "z" and fat LTO), not the larger plain release build.
           case "$CRATE" in
-            doze-aws) profile=release-aws ;;
+            # doze-aws also names its version (main.rs, VERSION) from DOZE_AWS_VERSION; without it, it says 0.0.0.
+            doze-aws) profile=release-aws; export DOZE_AWS_VERSION="$VERSION" ;;
             *) profile=release ;;
           esac
           cargo build --locked --profile "$profile" -p "$CRATE"

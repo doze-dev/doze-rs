@@ -168,8 +168,11 @@ export async function overflowX(page: Page): Promise<number> {
   return page.evaluate(() => Math.max(0, document.documentElement.scrollWidth - document.documentElement.clientWidth));
 }
 
-/** A name no other test or browser uses. */
-export const unique = (prefix: string, browserName: string) => `${prefix}-${browserName}-${Date.now().toString(36)}`;
+/**
+ * A name no other test or browser uses. The suffix is digits only: a base-36 one spelled words (`mwslabnh`) that the
+ * palette search for "lab" then matched.
+ */
+export const unique = (prefix: string, browserName: string) => `${prefix}-${browserName}-${Date.now()}`;
 
 /** Resolves when the page has stopped moving: its height has not changed and no request has finished for `quiet` ms. A click is
  * decided by where the pointer is at mouse-down and at mouse-up, and a page that is still drawing an answer (a match hint, a
