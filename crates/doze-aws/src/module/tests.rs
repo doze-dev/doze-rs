@@ -234,6 +234,27 @@ fn the_server_under_doze_listens_and_serves_its_console_only_where_doze_granted(
         .unwrap();
     assert_eq!(args[at + 1], "local.shop.doze", "{args:?}");
     assert!(!args.iter().any(|a| a == "--no-console"), "{args:?}");
+    let at = args.iter().position(|a| a == "--advertise").unwrap();
+    assert_eq!(args[at + 1], "http://local.shop.doze:4566", "{args:?}");
+}
+
+#[test]
+fn clients_are_told_the_address_doze_gave_never_the_backend_it_picked() {
+    // Names off: the stack's address on loopback; the backend is another port that doze picks again at every start.
+    let mut inst = instance();
+    inst.listeners.insert(
+        doze_module::proto::network::MAIN.into(),
+        granted("127.0.0.1:24566", "127.0.0.1:27538", &[]),
+    );
+    let args = super::server_args(&inst, "us-east-1").unwrap();
+    let at = args.iter().position(|a| a == "--advertise").unwrap();
+    assert_eq!(args[at + 1], "http://127.0.0.1:24566", "{args:?}");
+    assert!(
+        !args
+            .iter()
+            .any(|a| a.contains("27538") && a != "127.0.0.1:27538"),
+        "{args:?}"
+    );
 }
 
 #[test]
