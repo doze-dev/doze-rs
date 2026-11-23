@@ -395,3 +395,19 @@ fn a_const_number_is_the_same_value_however_java_writes_it() {
         ["ENUM_ARRAY_CHANGED"]
     );
 }
+
+/// As Confluent 7.7.1: a number a BigDecimal holds whose adjusted exponent is one past an `int` is taken, and stored as Java
+/// writes it (`2.1E+2147483648`), which does not read again (recorded by tools/registry-diff, `json-schema-huge-numbers`;
+/// found by fuzz json_schema, `seeds/json_schema/exponent-past-an-int`). The registry then refuses a comparison with it in
+/// Confluent's words.
+#[test]
+fn a_number_whose_written_exponent_is_past_an_int_is_stored_as_java_writes_it() {
+    let s = parse(r#"{"ult":-21e02147483647}"#, &[]).unwrap();
+    let stored = s.canonical(false);
+    assert_eq!(stored, r#"{"ult":-2.1E+2147483648}"#);
+    let e = parse(&stored, &[]).unwrap_err();
+    assert_eq!(
+        e,
+        "Invalid JSON Schema: #/ult: -2.1E+2147483648 is past the largest number a Java double holds"
+    );
+}

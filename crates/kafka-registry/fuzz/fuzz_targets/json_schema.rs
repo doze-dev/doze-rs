@@ -33,7 +33,15 @@ fuzz_target!(|data: &[u8]| {
         return;
     };
     let stored = s.canonical(false);
-    let again = parse(&stored, &refs).expect("the stored text reads again");
+    let again = match parse(&stored, &refs) {
+        Ok(again) => again,
+        // As in Confluent 7.7.1: a BigDecimal whose adjusted exponent is one past an `int` (`12e2147483647`) is held, and
+        // written `1.2E+2147483648`, which is no BigDecimal and reads again as an infinite double (recorded by
+        // tools/registry-diff, `json-schema-huge-numbers`; REG-50). The registry stores that text and refuses a comparison
+        // with it in Confluent's words (`prepare::unreadable`). No other stored text may fail to read again.
+        Err(e) if past_an_int(&e) => return,
+        Err(e) => panic!("the stored text reads again: {stored} gave {e}"),
+    };
     let restored = again.canonical(false);
     let stable = (restored != stored).then(|| {
         // As in Confluent: a number too small for a BigDecimal is Java's double zero, written `-0.0` when negative, and
@@ -54,3 +62,15 @@ fuzz_target!(|data: &[u8]| {
         let _ = s.can_read(&o, Role::Old, Role::New);
     }
 });
+
+/// Whether `e` refuses a number written with an exponent past an `int`, as `1.2E+2147483648`.
+fn past_an_int(e: &str) -> bool {
+    let Some(rest) = e.strip_suffix(" is past the largest number a Java double holds") else {
+        return false;
+    };
+    let number = rest.rsplit(' ').next().unwrap_or_default();
+    number
+        .split_once("E+")
+        .and_then(|(_, exp)| exp.parse::<i64>().ok())
+        .is_some_and(|exp| i32::try_from(exp).is_err())
+}
