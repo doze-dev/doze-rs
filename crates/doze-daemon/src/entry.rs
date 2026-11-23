@@ -141,7 +141,7 @@ pub async fn assemble(
             }
         }
         zone.record_domains(&app_domains(&cfg));
-        let mut labels = labels(&cfg, catalog.as_ref(), &grants);
+        let mut labels = labels(&cfg, catalog.as_ref(), &as_bound(&grants, &bound));
         for (name, b) in &bound {
             if let Some(l) = labels.get_mut(name) {
                 bound_labels(l, b.instances.get(name), &zone, name);
@@ -178,6 +178,23 @@ fn app_domains(cfg: &doze_config::Config) -> Vec<String> {
         .iter()
         .filter(|i| i.enabled)
         .flat_map(|i| i.domains.iter().cloned())
+        .collect()
+}
+
+/// The grants as the views say them: a routed listener whose port was taken was bound on another, and a link names that one.
+fn as_bound(
+    grants: &BTreeMap<String, Grant>,
+    bound: &BTreeMap<String, doze_bind::Bound>,
+) -> BTreeMap<String, Grant> {
+    grants
+        .iter()
+        .map(|(name, g)| {
+            let at = bound.get(name).and_then(|b| b.instances.get(name));
+            (
+                name.clone(),
+                at.map_or_else(|| g.clone(), |b| at_ports(g, &bound_ports(b))),
+            )
+        })
         .collect()
 }
 
@@ -380,4 +397,4 @@ pub(crate) use load::{parse_block, with_options};
 #[path = "entry_labels.rs"]
 mod labels;
 use labels::labels;
-pub(crate) use labels::{fronted_one, label};
+pub(crate) use labels::{at_ports, bound_ports, console_of, fronted_one, label};

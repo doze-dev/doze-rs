@@ -57,6 +57,8 @@ struct Prepared {
     supervised: bool,
     /// Where doze listens for it, if it fronts it.
     fronted: Option<crate::front::Fronted>,
+    /// What the zone planned for it, before it was bound.
+    grant: Option<crate::planners::Grant>,
 }
 
 fn failed(error: String, code: &str) -> Response {
@@ -140,7 +142,34 @@ fn prepare(
         module: module.into_inner(),
         supervised,
         fronted,
+        grant,
     })
+}
+
+/// What the front says of an instance it has just opened: where it listens, and the console link at the port its listener got
+/// (not the planned one when that was taken).
+fn opened_labels(
+    l: &mut crate::Labels,
+    inst: &Instance,
+    grant: Option<&crate::planners::Grant>,
+    live: &Live,
+) {
+    let name = &inst.name;
+    if let Some(ep) = live.front.endpoint(name).filter(|e| !e.is_empty()) {
+        l.bind = ep.clone();
+        l.endpoint = ep;
+    }
+    if let Some(g) = grant
+        && let Some((url, front)) = entry::console_of(
+            inst,
+            &live.catalog,
+            Some(&entry::at_ports(g, &live.front.ports(name))),
+        )
+    {
+        (l.web_url, l.console_front) = (url, front);
+    }
+    l.name_only = live.front.name_only(name);
+    l.name_held = live.front.zone().held(name).unwrap_or_default();
 }
 
 /// The `add` op: the new instance's view, or why it was not added.
@@ -192,12 +221,7 @@ pub(crate) async fn add(d: &Daemon, block: &str) -> Response {
             return failed(err, "");
         }
         if let Some(l) = crate::write(&d.inner.labels).get_mut(&name) {
-            if let Some(ep) = live.front.endpoint(&name).filter(|e| !e.is_empty()) {
-                l.bind = ep.clone();
-                l.endpoint = ep;
-            }
-            l.name_only = live.front.name_only(&name);
-            l.name_held = live.front.zone().held(&name).unwrap_or_default();
+            opened_labels(l, &p.inst, p.grant.as_ref(), live);
         }
     } else if starts_by_itself(&p.inst, p.supervised)
         && let Err(err) = e.wake(&name, Cause::Command).await
