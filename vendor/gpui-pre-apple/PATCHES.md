@@ -78,3 +78,31 @@ there; a window drawing a frame now and then holds no 16 MB in between.
 Measured (release-app, `doze-app bench --screen service --select api --on-top` over a live 14-service stack,
 2026-11-21): the idle service page 98 MB settled before, 84 MB after (Owned physical footprint (unmapped) (graphics):
 22 MB → 6 MB).
+
+## 7. A display link gives back its drawable before it ends (`src/display_link.rs`: `Drop for MetalFrameSource`)
+
+On macOS 14+ each window draws through a `CAMetalDisplayLink`. gpui-pre-macos invalidates the window's link and makes
+a new one every time it stops and starts the link: the window covered and shown, minimised and brought back, a
+synchronous draw (a resize, the window becoming key), a move to another display. Upstream's `Drop` only invalidated
+the link. Now and then, an invalidated link kept the drawable it had taken for its next update. That drawable is a
+whole window of pixels: 16 MB at 1280 × 800 on a 2× display, 22 MB maximised on a 3024 × 1898 one. So a window kept
+open grew past the three its layer allows (`setMaximumDrawableCount(3)`). The owner's app, open for hours, held five
+maximised drawables (111 MB of IOSurface; their IDs climbed from 0x2d to 0x120).
+
+Patched: the link is paused and taken off the run loop before it is invalidated. Either step alone stopped the climb
+in the bench below; the patch does both.
+
+How it was found (`doze-app bench --churn`, release, fixtures, 1280 × 800 at 2×, the window hidden and shown 14
+times, the drawables `vmmap` lists counted after each round, 2026-11-23):
+
+| `Drop` | drawables after 14 rounds (dirty or swapped MB) |
+|---|---|
+| upstream: invalidate | 5 (80 MB); another run 4 (64 MB) |
+| `setPaused(false)`, then invalidate | 5 (80 MB) |
+| `setPaused(true)`, then invalidate | 3 (48 MB); a 4th mapped but not resident |
+| `removeFromRunLoop`, then invalidate | 3 (48 MB) |
+
+Tried and dropped: keeping one link per window and pausing it ("parking") instead of invalidating it. Its count stayed at
+three, but AppKit then raises `CAMetalLayerInvalidOperation` ("-nextDrawable should not be called when using
+CAMetalDisplayLink") on the first synchronous draw (`display_layer`, a zoom). A paused link still counts as driving the
+layer.

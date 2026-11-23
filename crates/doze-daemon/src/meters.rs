@@ -1,10 +1,10 @@
 //! What each running instance costs (Go's `daemon/meters.go` and the meters of `Status`): its resident memory, the CPU
 //! of its process tree, its connections, and for an app, service or task the processes under it. Read through
-//! [`doze_os::meters`]: one `ps` for every instance.
+//! [`doze_os::meters`]: the instances' own process trees, read in-process.
 //!
 //! Recent readings are kept (Go's ring: 240 frames, readings closer than 800 ms are one), so a screen that subscribes
-//! starts with the last minutes instead of an empty chart. With no subscriber the daemon reads every 5 s, and only
-//! while something runs; a subscriber's own readings fill the ring at its rate.
+//! starts with the last minutes instead of an empty chart. With no subscriber the daemon reads every 30 s (Go: 5 s),
+//! and only while something runs; a subscriber's own readings fill the ring at its rate.
 
 use crate::Daemon;
 use doze_control::{Frame, InstanceView, ProcView, StatView, Timestamp};
@@ -14,7 +14,9 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::{Duration, SystemTime};
 
 const KEPT: usize = 240;
-const UNWATCHED_GAP: Duration = Duration::from_secs(5);
+/// Unwatched, a reading for the ring this often: enough for a chart that opens to start with the last two hours (240
+/// readings), without the daemon waking every few seconds around the clock to read processes nobody looks at.
+const UNWATCHED_GAP: Duration = Duration::from_secs(30);
 const DEDUPE: Duration = Duration::from_millis(800);
 
 /// The kept readings and how many subscribers read their own.
@@ -149,9 +151,10 @@ pub(crate) async fn fill(d: &Daemon, views: &mut [InstanceView]) {
     }
 }
 
-/// Go's `runMeters`: every 5 s while nobody subscribes and something runs, a reading for the ring.
+/// Go's `runMeters` (every 5 s there): every [`UNWATCHED_GAP`] while nobody subscribes and something runs, a reading
+/// for the ring. It looks every 5 s whether one is due.
 pub(crate) async fn keep(d: Daemon) {
-    let mut tick = tokio::time::interval(Duration::from_secs(1));
+    let mut tick = tokio::time::interval(Duration::from_secs(5));
     loop {
         tick.tick().await;
         let ring = &d.inner.meters;
