@@ -8,7 +8,6 @@ import type { OwnProps } from "../deep/registry";
 import { NONE, bucketOf, useSetting } from "./api";
 import { readableJson } from "./json-text";
 import { Loaded, SettingForm } from "./edit";
-import { readableJson } from "./json-text";
 import { useAbout } from "../../../api/queries";
 import { Mono } from "./parts";
 import { policyExamples } from "./policy-examples";
