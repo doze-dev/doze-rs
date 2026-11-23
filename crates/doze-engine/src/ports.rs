@@ -89,14 +89,32 @@ mod tests {
     }
 
     /// A port handed out and then taken by someone else is lost; free again, or never handed out, it is not.
+    ///
+    /// The other test processes of a run draw ports from the same range, so one may bind this port while it is free;
+    /// a port taken that way is tried again with another (the gates failed twice on it, 2026-11-23).
     #[test]
     fn a_handed_out_port_taken_by_someone_else_is_lost() {
-        let p = free_port().unwrap();
-        assert!(!lost(p), "nothing holds it");
-        let holder = TcpListener::bind(("127.0.0.1", p)).unwrap();
-        assert!(lost(p));
-        drop(holder);
-        assert!(!lost(p));
+        let mut seen = false;
+        for _ in 0..20 {
+            let p = free_port().unwrap();
+            if lost(p) {
+                continue;
+            }
+            let Ok(holder) = TcpListener::bind(("127.0.0.1", p)) else {
+                continue;
+            };
+            assert!(lost(p), "held here, so held by someone");
+            drop(holder);
+            if lost(p) {
+                continue;
+            }
+            seen = true;
+            break;
+        }
+        assert!(
+            seen,
+            "twenty ports were each taken by another process meanwhile"
+        );
         let other = TcpListener::bind("127.0.0.1:0").unwrap();
         let fixed = other.local_addr().unwrap().port();
         assert!(!lost(fixed), "a port this process never handed out");
