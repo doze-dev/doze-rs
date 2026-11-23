@@ -521,6 +521,99 @@ test("s3__object-detail, -versions, -presign, -copy, -delete-version, -delete: o
   expect(after.Versions).toHaveLength(2);
 });
 
+// Copy with "Specify settings": each of the six is set on the page and is what the copy has afterwards; a destination with ACLs
+// disabled offers only the owner's full control; a move and a rename read nothing of the object they just deleted.
+test("s3__object-copy (Specify settings), Move and Rename: the copy has the storage class, ACL, tags, metadata, encryption and checksum chosen; a move and a rename leave no refused read", async ({ page, cli, browserName, refusals }) => {
+  const b = browserName;
+  const src = `copyset-src-${b}`;
+  const dst = `copyset-dst-${b}`;
+  const enf = `copyset-enf-${b}`;
+  expect(cli(["s3api", "create-bucket", "--bucket", src]).code).toBe(0);
+  // ACLs enabled and public ACLs allowed on one destination; the other is a new bucket (ACLs disabled).
+  expect(cli(["s3api", "create-bucket", "--bucket", dst, "--object-ownership", "ObjectWriter"]).code).toBe(0);
+  expect(cli(["s3api", "put-public-access-block", "--bucket", dst, "--public-access-block-configuration", "BlockPublicAcls=false,IgnorePublicAcls=false,BlockPublicPolicy=true,RestrictPublicBuckets=true"]).code).toBe(0);
+  expect(cli(["s3api", "create-bucket", "--bucket", enf]).code).toBe(0);
+  const body = file("readme.txt", 300);
+  const put = (key: string) => expect(cli(["s3api", "put-object", "--bucket", src, "--key", key, "--body", body, "--content-type", "text/plain", "--metadata", "source=catalog", "--tagging", "team=web"]).code).toBe(0);
+  put("docs/readme.txt");
+  put("docs/old.txt");
+
+  await page.goto(bucketUrl(src, "?do=object-copy&key=docs/readme.txt&mode=copy"));
+  await h1(page, "Copy");
+  // The destination starts at the object's own folder.
+  await expect(page.getByTestId("copy-dest")).toHaveValue(`s3://${src}/docs/`);
+  await page.getByTestId("copy-dest").fill(`s3://${dst}/out/`);
+  await expect(page.getByTestId("section-Destination details")).toContainText("Disabled");
+  await page.getByTestId("copy-settings-specify").click();
+  // Each setting starts as the source has it: its tags and its metadata are the rows.
+  await expect(page.getByTestId("copy-tags-key-0")).toHaveValue("team");
+  await expect(page.getByTestId("copy-tags-value-0")).toHaveValue("web");
+  await expect(page.getByTestId("copy-specify")).toContainText("Stored, not applied locally");
+  await page.getByTestId("storage-GLACIER").click();
+  await expect(page.getByTestId("storage-archive-note")).toContainText("cannot be read afterwards");
+  await page.getByTestId("storage-STANDARD_IA").click();
+  await expect(page.getByTestId("storage-archive-note")).toHaveCount(0);
+  await page.getByTestId("copy-acl").selectOption("authenticated-read");
+  await page.getByTestId("copy-tags-add").click();
+  await page.getByTestId("copy-tags-key-1").fill("stage");
+  await page.getByTestId("copy-tags-value-1").fill("test");
+  await page.getByTestId("copy-metadata-replace").click();
+  await expect(page.getByTestId("copy-meta-key-0")).toHaveValue("Content-Type");
+  await expect(page.getByTestId("copy-meta-key-1")).toHaveValue("x-amz-meta-source");
+  await page.getByTestId("copy-meta-remove-1").click();
+  await page.getByTestId("copy-meta-add").click();
+  await page.getByTestId("copy-meta-key-1").fill("x-amz-meta-owner");
+  await page.getByTestId("copy-meta-value-1").fill("web");
+  await page.getByTestId("specify-key").click();
+  await page.getByTestId("sse-override").click();
+  await page.getByTestId("sse-kms").click();
+  await page.getByTestId("kms-key").fill(`alias/larder-app-${b}`);
+  await page.getByTestId("checksum-on").click();
+  await page.getByTestId("checksum").selectOption("SHA256");
+  const call = page.getByTestId("call-panel-code");
+  for (const want of ['"StorageClass": "STANDARD_IA"', '"ACL": "authenticated-read"', '"MetadataDirective": "REPLACE"', '"ContentType": "text/plain"', '"ServerSideEncryption": "aws:kms"', '"ChecksumAlgorithm": "SHA256"', '"TaggingDirective": "REPLACE"']) await expect(call).toContainText(want);
+  await shot(page, "s3__object-copy-specify", b);
+  await page.getByTestId("form-submit").click();
+  await expect(page.getByTestId("flash")).toContainText(`to s3://${dst}/out/readme.txt`);
+  await expectNoErrorAnswers(page, refusals);
+  const head = JSON.parse(cli(["s3api", "head-object", "--bucket", dst, "--key", "out/readme.txt", "--checksum-mode", "ENABLED"]).out);
+  expect(head.StorageClass).toBe("STANDARD_IA");
+  expect(head.Metadata).toEqual({ owner: "web" });
+  expect(head.ContentType).toBe("text/plain");
+  expect(head.ServerSideEncryption).toBe("aws:kms");
+  expect(head.SSEKMSKeyId).toBe(`alias/larder-app-${b}`);
+  expect(head.ChecksumSHA256).toBeTruthy();
+  const tags = JSON.parse(cli(["s3api", "get-object-tagging", "--bucket", dst, "--key", "out/readme.txt"]).out).TagSet as { Key: string; Value: string }[];
+  expect(tags.map((t) => `${t.Key}=${t.Value}`).sort()).toEqual(["stage=test", "team=web"]);
+  expect(cli(["s3api", "get-object-acl", "--bucket", dst, "--key", "out/readme.txt"]).out).toContain("AuthenticatedUsers");
+
+  // A destination with ACLs disabled takes only the bucket owner full control ACL, and the page offers no other.
+  await page.goto(bucketUrl(src, "?do=object-copy&key=docs/readme.txt&mode=move"));
+  await page.getByTestId("copy-dest").fill(`s3://${enf}/`);
+  await page.getByTestId("copy-settings-specify").click();
+  await expect(page.getByTestId("copy-specify")).toContainText("ACLs disabled");
+  await expect(page.locator('[data-testid="copy-acl"] option[value="private"]')).toBeDisabled();
+  await expect(page.locator('[data-testid="copy-acl"] option[value="bucket-owner-full-control"]')).toBeEnabled();
+  await page.getByTestId("copy-acl").selectOption("bucket-owner-full-control");
+  await shot(page, "s3__object-copy-specify-enforced", b);
+  // Move: the copy, then the delete of the source, and nothing asks for the source again.
+  await page.getByTestId("form-submit").click();
+  await expect(page.getByTestId("flash")).toContainText(`Moved readme.txt to s3://${enf}/readme.txt`);
+  await expectNoErrorAnswers(page, refusals);
+  expect(cli(["s3api", "head-object", "--bucket", enf, "--key", "readme.txt"]).code).toBe(0);
+  expect(cli(["s3api", "head-object", "--bucket", src, "--key", "docs/readme.txt"]).code).not.toBe(0);
+
+  // Rename: the same.
+  await page.goto(bucketUrl(src, "?do=object-copy&key=docs/old.txt&mode=rename"));
+  await page.getByTestId("rename-name").fill("new.txt");
+  await page.getByTestId("form-submit").click();
+  await expect(page.getByTestId("flash")).toContainText(`Renamed old.txt to s3://${src}/docs/new.txt`);
+  await expectNoErrorAnswers(page, refusals);
+  expect(cli(["s3api", "head-object", "--bucket", src, "--key", "docs/new.txt"]).code).toBe(0);
+  expect(cli(["s3api", "head-object", "--bucket", src, "--key", "docs/old.txt"]).code).not.toBe(0);
+  for (const bucket of [src, dst, enf]) expect(cli(["s3", "rb", `s3://${bucket}`, "--force"]).code).toBe(0);
+});
+
 // Deleting a bucket that is not empty is the 409 the page is there to show.
 test.describe("danger", () => {
 test("s3__bucket-empty, -empty-status, -delete, -deleted: emptying is counted and reported; deleting asks for the name and refuses a bucket that is not empty", async ({ page, cli, browserName, refusals }) => {

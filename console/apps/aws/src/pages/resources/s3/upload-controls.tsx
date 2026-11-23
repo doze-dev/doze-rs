@@ -26,6 +26,7 @@ export function StorageClassChoice({ value, onChange }: { value: string; onChang
         {STORAGE_CLASSES.map((c) => <Radio key={c} value={c} id={`storage-${c}`} title={`S3 ${storageWords(c)}`} />)}
       </RadioGroup>
       <LocalStatus state="stored" reason="Every object is a plain file whatever class you name; the class is kept on the object and listed, and no lifecycle transition moves it." />
+      {(value === "GLACIER" || value === "DEEP_ARCHIVE") && <p className="text-[13px] leading-5 text-muted-foreground" data-testid="storage-archive-note">An object in this class cannot be read afterwards: S3 asks for a restore first, and restoring is not built here, so a download or a copy of it is refused.</p>}
     </div>
   );
 }
