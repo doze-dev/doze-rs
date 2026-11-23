@@ -7,8 +7,11 @@ const BUTTON = { cli: /^(Copy as )?aws cli$/i, boto3: /^(Copy as )?boto3$/i, jso
  * clipboard (Chromium only: the other two give a page no read permission) the text that was copied is returned, else `null`. */
 export async function copyCall(page: Page, which: keyof typeof BUTTON, panel = "call-panel"): Promise<string | null> {
   const box = page.getByTestId(panel).first();
+  const copied = box.getByRole("button", { name: "Copied" });
+  // A button that has just been pressed says Copied for a moment: wait it out, so the one pressed now is the only one that does.
+  await expect(copied).toHaveCount(0);
   await box.getByRole("button", { name: BUTTON[which] }).click();
-  await expect(box.getByRole("button", { name: "Copied" })).toBeVisible();
+  await expect(copied).toHaveCount(1);
   if (page.context().browser()?.browserType().name() !== "chromium") return null;
   return page.evaluate(() => navigator.clipboard.readText());
 }
