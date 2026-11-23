@@ -220,6 +220,9 @@ impl Recorder {
     pub fn record_bus(&self, call: &BusCall<'_>, at_ms: u64) -> u64 {
         let cause = call.cause;
         let text = |t: Option<&str>| cut(t.unwrap_or_default(), MOST_VIA);
+        // A publish the console made says how many deliveries it led to; the request it ran under is the console's own, which nothing
+        // answers, so the call does not name it as its cause.
+        let published = self.console_publish(call);
         // A call made on a task the request's own does not reach (a service's actor) carries no cause: the request in flight for
         // its caller is. One a rule, mapping or schedule made is that thing's, whatever its caller has in flight.
         let found = if cause.is_none_or(|c| c.request.is_none() && c.name.is_none()) {
@@ -249,6 +252,7 @@ impl Recorder {
                 request: text(
                     cause
                         .and_then(|c| c.request.as_deref())
+                        .filter(|_| published.is_none())
                         .or(found.as_deref()),
                 ),
                 name: text(cause.and_then(|c| c.name.as_deref())),
@@ -256,7 +260,7 @@ impl Recorder {
             sdk: Box::default(),
             extra: None,
             answer_bytes: u16::MAX,
-            summary: Summary::NONE,
+            summary: published.unwrap_or(Summary::NONE),
         })
     }
 

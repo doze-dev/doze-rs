@@ -93,6 +93,11 @@ test("eventbridge__rule-create: Create rule's five steps, each reached in turn, 
   await expect(page.getByTestId("test-result")).toHaveAttribute("data-match", "yes");
   await page.getByTestId("event-pattern").fill("{");
   await expect(page.getByTestId("event-pattern-problem")).toContainText("Not JSON");
+  // A pattern of the wrong shape (a field that is not a list) is refused at Next, as PutRule would refuse it at the end.
+  await page.getByTestId("event-pattern").fill('{ "source": "larder.orders" }');
+  await next(page);
+  await expect(page.getByTestId("pattern-problem")).toContainText('"source" must be an object or an array.');
+  await expect(page.locator("h1").first()).toHaveText("Build event pattern");
   await page.getByTestId("event-pattern").fill('{\n  "source": ["larder.orders"],\n  "detail-type": ["OrderPlaced"]\n}');
   await next(page);
 
@@ -241,4 +246,26 @@ test("eventbridge__rule-delete: RemoveTargets, then DeleteRule, each as the call
   await expect(page.getByTestId("deleted-banner")).toContainText("Rule deleted.");
   await expectNoErrorAnswers(page, refusals);
   expect(cli(["events", "list-rules", "--event-bus-name", "larder"])).not.toContain("scratch");
+});
+
+test("eventbridge__rule-detail: Remove asks before RemoveTargets, and Cancel leaves the targets alone", async ({ page, refusals }) => {
+  const queue = (n: string) => `arn:aws:sqs:us-east-1:${server.account}:${n}`;
+  cli(["events", "put-rule", "--name", "two-targets", "--event-bus-name", "larder", "--event-pattern", JSON.stringify({ source: ["x"] })]);
+  cli(["events", "put-targets", "--rule", "two-targets", "--event-bus-name", "larder", "--targets", JSON.stringify([{ Id: "a", Arn: queue("pick-lists") }, { Id: "b", Arn: queue("pick-lists") }])]);
+  await go(page, `/resources/eventbridge/rules/${encodeURIComponent("larder/two-targets")}`, "two-targets");
+  await page.getByTestId("select-a").click();
+  await page.getByTestId("remove-targets").click();
+  const dialog = page.getByTestId("remove-targets-dialog");
+  await expect(dialog).toContainText("Remove this target?");
+  await expect(dialog).toContainText("RemoveTargets takes a off two-targets");
+  await dialog.getByRole("button", { name: "Cancel" }).click();
+  await expect(dialog).toBeHidden();
+  expect(cli(["events", "list-targets-by-rule", "--rule", "two-targets", "--event-bus-name", "larder"])).toContain('"Id": "a"');
+  await page.getByTestId("remove-targets").click();
+  await page.getByTestId("remove-targets-dialog").getByRole("button", { name: "Remove" }).click();
+  await expect(page.getByTestId("removed-banner")).toContainText("Targets removed.");
+  await expectNoErrorAnswers(page, refusals);
+  const left = cli(["events", "list-targets-by-rule", "--rule", "two-targets", "--event-bus-name", "larder"]);
+  expect(left).not.toContain('"Id": "a"');
+  expect(left).toContain('"Id": "b"');
 });

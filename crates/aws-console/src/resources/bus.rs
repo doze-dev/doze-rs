@@ -21,6 +21,18 @@ use serde_json::Value;
 /// The access key the console's calls carry, and the caller Live shows them under.
 pub const CONSOLE: &str = "console";
 
+/// How many publishes the console has made: each is its own cause for the deliveries it leads to.
+static PUBLISHES: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(1);
+
+/// Whether `request` names a publish made by the console ([`Bus::call`]), not a request from the wire.
+#[must_use]
+pub fn is_console_request(request: &str) -> bool {
+    request
+        .strip_prefix(CONSOLE)
+        .and_then(|r| r.strip_prefix('-'))
+        .is_some_and(|n| !n.is_empty() && n.bytes().all(|b| b.is_ascii_digit()))
+}
+
 /// The console's caller on the bus.
 #[derive(Debug, Clone)]
 pub struct Bus {
@@ -68,7 +80,7 @@ impl Bus {
         operation: &str,
         body: &Value,
     ) -> Result<Value, ApiError> {
-        let answered = aws_peers::seen::asked(async {
+        let work = aws_peers::seen::asked(async {
             if self.peers.speaks_rest(target) {
                 self.peers
                     .call_rest_as(&self.caller, target, operation, body, None)
@@ -79,8 +91,18 @@ impl Bus {
                     .call_as(&self.caller, target, operation, body)
                     .await
             }
-        })
-        .await;
+        });
+        // A publish answers with a message id and nothing of who got it: the deliveries SNS makes while it answers are marked with
+        // a request of their own, as a request from the wire marks them, so the record can say `delivered to 2` for this call too.
+        let answered = if target == "sns" && matches!(operation, "Publish" | "PublishBatch") {
+            let id = format!(
+                "{CONSOLE}-{}",
+                PUBLISHES.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
+            );
+            aws_peers::seen::within_request(&id, work).await
+        } else {
+            work.await
+        };
         answered.map_err(|e| self.on_the_wire(target, e))
     }
 

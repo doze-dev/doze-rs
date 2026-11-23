@@ -54,6 +54,28 @@ export function nameProblem(name: string): string | null {
   return /^[.\-_A-Za-z0-9]+$/.test(name) ? null : "A rule name takes letters, digits, dot, hyphen and underscore only.";
 }
 
+/** The shape PutRule and TestEventPattern check before any condition: a key holds an object (nested) or a non-empty array, and `$or` an array of
+ * objects (crates/aws-eventbridge pattern/parse.rs says the same words). `null` when the shape is right. */
+function shapeProblem(v: Record<string, unknown>, depth = 0): string | null {
+  for (const [key, value] of Object.entries(v)) {
+    if (key === "$or") {
+      if (!Array.isArray(value)) return "$or value must be an array.";
+      if (value.length === 0) return "Empty arrays are not allowed.";
+      for (const item of value) {
+        if (typeof item !== "object" || item === null || Array.isArray(item)) return "$or must contain only objects.";
+        const inner = shapeProblem(item as Record<string, unknown>, depth + 1);
+        if (inner) return inner;
+      }
+    } else if (Array.isArray(value)) {
+      if (value.length === 0) return "Empty arrays are not allowed.";
+    } else if (typeof value === "object" && value !== null) {
+      const inner = shapeProblem(value as Record<string, unknown>, depth + 1);
+      if (inner) return inner;
+    } else return `"${key}" must be an object or an array.`;
+  }
+  return null;
+}
+
 /** An event pattern is a JSON object of at most 2,048 characters (the default quota). */
 export function patternProblem(text: string): string | null {
   if (text.trim() === "") return "Write an event pattern.";
@@ -61,6 +83,8 @@ export function patternProblem(text: string): string | null {
     const v = JSON.parse(text) as unknown;
     if (typeof v !== "object" || v === null || Array.isArray(v)) return "An event pattern is a JSON object.";
     if (Object.keys(v).length === 0) return "An empty pattern is refused: name at least one field.";
+    const shape = shapeProblem(v as Record<string, unknown>);
+    if (shape) return shape;
   } catch (e) {
     return `Not JSON: ${(e as Error).message}`;
   }

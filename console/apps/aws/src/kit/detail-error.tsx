@@ -9,7 +9,7 @@ import { PageHeader } from "@doze/ui/components/app/page-header";
 import { Button } from "@doze/ui/components/ui/button";
 import { ApiFailure } from "@doze/ui/lib/api";
 import { useCatalogue } from "../api/resources";
-import { forget } from "../shell/pins";
+import { forget, markAbsent } from "../shell/pins";
 import { withCurrent } from "./crumbs";
 
 /** Said when the console could not reach doze-aws, or it failed: the service did not answer, so "is it running" is the advice. */
@@ -34,7 +34,10 @@ export function DetailError({ service, kind, name, what, error, onRetry, retryin
   const missing = isMissing(error);
   // A name that is not there is not somewhere to go back to: the rail's Recent does not keep it.
   useEffect(() => {
-    if (missing) forget({ service, kind, name });
+    if (missing) {
+      forget({ service, kind, name });
+      markAbsent({ service, kind, name });
+    }
   }, [missing, service, kind, name]);
   if (!isMissing(error)) return <ErrorBlock what={what ?? `This ${one} could not be read`} error={error} hint={HINT} onRetry={onRetry} retrying={retrying} testId={testId} />;
   const { message, code } = errorWords(error);

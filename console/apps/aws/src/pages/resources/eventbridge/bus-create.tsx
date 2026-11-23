@@ -70,6 +70,7 @@ export function BusCreate() {
       crumbs={[...crumbs, { label: "Event buses", to: "/resources/eventbridge/buses" }]}
       request={requests[0] ?? null}
       requests={requests}
+      callTitle={requests.length > 1 ? "The calls this will make" : undefined}
       refusal={failure}
       callNote={failure ? <>The call failed{archive.error ? " after the bus was made" : " before anything was created"}, so {archive.error ? "the archive was not made" : <><b className="font-semibold text-foreground">CreateArchive was never sent</b></>}. What you typed is kept.</> : <>The archive is a separate call, made after the bus exists. Empty sections are left out.</>}
       banner={failure ? <Alert tone="bad" title={stage} testId="create-refused">{archive.error ? "CreateArchive" : "CreateEventBus"} answered <span className="font-mono font-semibold text-bright">{failure.code}</span>: “{failure.message}”</Alert> : undefined}
@@ -82,7 +83,7 @@ export function BusCreate() {
       testId="bus-create"
     >
       <FormSection title="Event bus details" testId="section-details">
-        <Field label="Name" error={tried ? (busNameProblem(f.name) ?? undefined) : undefined} refusal={exists ? { why: <>A bus named <b className="font-semibold">{f.name}</b> already exists.</>, suggestion: "Pick another name." } : null} help={<><b>1 to 256</b> characters: letters, digits, dot, hyphen and underscore. A custom bus name can't contain / and can't be <span className="font-mono">default</span>.</>} hint={exists && existing ? <><b className="font-mono font-semibold text-foreground">{f.name}</b> was created at {when(existing.CreationTime)}; {list(taken.filter((n) => n !== f.name).map((n) => n))} {taken.length - 1 === 1 ? "is" : "are"} taken too.</> : mine.length > 0 ? <>{list(mine.slice(0, 3))} already {mine.length === 1 ? "exists" : "exist"} in {region}.</> : undefined}>
+        <Field label="Name" error={tried ? (busNameProblem(f.name) ?? undefined) : undefined} refusal={exists ? { why: <>A bus named <b className="font-semibold">{f.name}</b> already exists.</>, suggestion: "Pick another name." } : null} help={<><b>1 to 256</b> characters: letters, digits, dot, hyphen and underscore. A custom bus name can't contain / and can't be <span className="font-mono">default</span>.</>} hint={exists && existing ? <><b className="font-mono font-semibold text-foreground">{f.name}</b> was created at {when(existing.CreationTime)}; {list(taken.filter((n) => n !== f.name).map((n) => n))} {taken.length - 1 === 1 ? "is" : "are"} taken too.</> : mine.length > 0 ? <>{list(mine.slice(0, 3))} already {mine.length === 1 ? "exists" : "exist"} in this Region.</> : undefined}>
           {(id) => <Input id={id} value={f.name} onChange={(e) => set({ name: e.target.value, ...(f.archiveName === defaultArchiveName(f.name) || f.archiveName === "" ? { archiveName: defaultArchiveName(e.target.value) } : {}) })} placeholder="larder-audit" autoComplete="off" spellCheck={false} className="font-mono" data-testid="bus-name" />}
         </Field>
         <Field label="Description" optional>{(id) => <Input id={id} value={f.description} onChange={(e) => set({ description: e.target.value })} autoComplete="off" data-testid="bus-description" />}</Field>

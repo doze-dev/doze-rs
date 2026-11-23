@@ -222,6 +222,7 @@ test("sns__subscription-create-http: a webhook must confirm, and the answer is p
   await go(page, `/resources/sns/subscriptions?create=yes&from=${encodeURIComponent(ARN("alerts"))}`, "Create subscription");
   await page.getByTestId("protocol-http").click();
   await page.getByTestId("sub-endpoint").fill(hook.url);
+  await expect(page.getByTestId("field-protocol")).toContainText("HTTP delivery is an HTTP POST of the JSON-encoded message. HTTPS does the same over https://. A URL on this machine works.");
   await expect(page.getByTestId("create-sentence")).toHaveText(`This subscribes the webhook ${hook.url} to alerts. SNS will send a confirmation message to it, and nothing is delivered until the endpoint confirms.`);
   await expect(page.getByTestId("section-details")).toContainText("The endpoint must confirm.");
   await expect(page.getByTestId("section-details")).toContainText("The token is valid for two days.");
@@ -244,7 +245,7 @@ test("sns__subscription-create-lambda: a function in the account is confirmed at
   await page.getByRole("option", { name: "send-email" }).click();
   await expect(page.getByTestId("create-sentence")).toHaveText("This subscribes the function send-email to orders-created. The function is in your account, so the subscription is confirmed at once and every publish invokes it.");
   await expect(page.getByTestId("field-endpoint")).toContainText(/send-email \(\S+\) is already triggered by the alerts topic\./);
-  await expect(page.getByTestId("field-protocol")).toContainText("The endpoint is the ARN of a Lambda function");
+  await expect(page.getByTestId("field-protocol")).toContainText("The Lambda function is invoked with the payload of the published message.");
   await expect(page.getByTestId("call-panel-code").first()).toContainText("Protocol = lambda");
   await shot(page, "sns__subscription-create-lambda");
   await page.getByTestId("form-submit").click();

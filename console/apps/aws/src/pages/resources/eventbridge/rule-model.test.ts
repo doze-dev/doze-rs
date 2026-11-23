@@ -16,6 +16,13 @@ describe("a rule's fields", () => {
     expect(patternProblem("[]")).toBe("An event pattern is a JSON object.");
     expect(patternProblem("{}")).toContain("empty pattern");
     expect(patternProblem("{")).toContain("Not JSON");
+    // The shape PutRule refuses at the end is refused at Next: a key holds an array or an object.
+    expect(patternProblem('{"source":"x"}')).toBe('"source" must be an object or an array.');
+    expect(patternProblem('{"detail":{"status":"ok"}}')).toBe('"status" must be an object or an array.');
+    expect(patternProblem('{"source":[]}')).toBe("Empty arrays are not allowed.");
+    expect(patternProblem('{"$or":[{"source":["a"]},{"detail-type":["b"]}]}')).toBeNull();
+    expect(patternProblem('{"$or":["a"]}')).toBe("$or must contain only objects.");
+    expect(patternProblem('{"detail":{"n":[{"numeric":[">",5]}]}}')).toBeNull();
     expect(patternProblem(JSON.stringify({ a: ["x".repeat(2100)] }))).toContain("2,048");
   });
   test("a retry policy's age", () => {

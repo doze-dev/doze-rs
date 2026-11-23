@@ -8,7 +8,9 @@ import { Badge } from "@doze/ui/components/ui/badge";
 import { Button } from "@doze/ui/components/ui/button";
 import { useResourceDetail } from "../../../api/resources";
 import { LocalStatus } from "../../../kit";
+import type { CallRecord } from "../../../api/types/CallRecord";
 import { Block } from "./parts";
+import { publishers } from "./topic-parts";
 import { ResourceTo } from "../value";
 import { deliveryRows, hasOwnDelivery, type Logged, archiveOf, daysWords, roleName, type PolicyRow, type Topic } from "./topic-model";
 
@@ -102,7 +104,8 @@ export function LoggingTab({ t, edit }: TabProps) {
   );
 }
 
-export function EncryptionTab({ t, edit }: TabProps) {
+export function EncryptionTab({ t, edit, calls = [] }: TabProps & { calls?: readonly CallRecord[] }) {
+  const from = publishers(calls);
   const key = useResourceDetail("kms", "keys", t.kms ?? "", t.kms !== null);
   const f = (label: string) => key.data?.fields.find((x) => x.label === label)?.value;
   const alias = t.kms?.startsWith("alias/");
@@ -120,13 +123,14 @@ export function EncryptionTab({ t, edit }: TabProps) {
       <Block title="Encryption" lede="Server-side encryption with AWS KMS. Read from the topic's KmsMasterKeyId attribute." actions={<EditButton onClick={edit} />}>
         {t.kms && (
           <nav aria-label="Wired to" className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-[14px] border bg-card px-5 py-3" data-testid="kms-strip">
+            {from.length > 0 && <><span className="text-[13.5px] text-muted-foreground">Publisher</span>{from.map((l) => <span key={l} className="inline-flex rounded-lg border bg-well px-3 py-1.5 font-mono text-[13px] text-bright">{l}</span>)}<span aria-hidden className="text-input">→</span></>}
             <span className="inline-flex rounded-lg border border-primary/30 bg-pick px-3 py-1.5 font-mono text-[13px] text-bright">{t.name}</span>
             <span aria-hidden className="text-input">→</span>
             <span className="text-[13.5px] text-muted-foreground">KMS key</span>
             <span className="inline-flex rounded-lg border bg-well px-3 py-1.5 font-mono text-[13px] text-bright">{t.kms}</span>
           </nav>
         )}
-        <dl className="grid grid-cols-[minmax(11rem,15rem)_minmax(0,1fr)] rounded-[14px] border bg-card px-6 py-2 text-[13.5px] [&>*]:border-b [&>*]:py-3 [&>:nth-last-child(-n+2)]:border-b-0">
+        <dl className="grid grid-cols-[minmax(11rem,15rem)_minmax(0,1fr)] rounded-[14px] border bg-card px-6 py-2 text-[13.5px] [&_dd]:border-b [&_dd]:py-3 [&_dt]:border-b [&_dt]:py-3 [&>span:last-child>*]:border-b-0">
           {rows.map(([l, v]) => (<span key={l} className="contents"><dt className="text-muted-foreground">{l}</dt><dd className="text-bright" data-testid={`field-${l}`}>{v}</dd></span>))}
         </dl>
       </Block>

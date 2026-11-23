@@ -246,7 +246,16 @@ pub async fn id_of(
     let mut out = json!({ "$name": name });
     let form = Map::new();
     let id = match &kind.id_of {
-        Id::Name | Id::Pending(_) => name.to_owned(),
+        Id::Name => name.to_owned(),
+        // What the service lists for every unconfirmed row is not the name of one: no subscription is called that.
+        Id::Pending(p) if name == p.value => {
+            return Err(ApiError::new(
+                404,
+                "NOT_FOUND",
+                format!("There is no {} named {name}.", kind.one),
+            ));
+        }
+        Id::Pending(_) => name.to_owned(),
         Id::Template(t) => {
             let snapshot = out.clone();
             let fill = Fill {
