@@ -177,9 +177,10 @@ fn build(
         .map(|m| m.wire.to_owned())
         .collect();
     let args = render::known(&all, input);
+    let region = crate::regions::current(&s.facts.region);
     let at = Target {
         endpoint: s.facts.endpoint.trim_end_matches('/'),
-        region: &s.facts.region,
+        region: &region,
     };
     Some(Preview {
         json: wire(protocol, (tables, &op, meta.version), &all, input),

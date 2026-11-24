@@ -5,8 +5,8 @@ import { columnLeast, columnSizes, isDocument, resolve, seconds, shown, oneOf, s
 const kind = (id: string, members: string[]) => ({ id, title: id, one: id, members, count: null, more: false, names: [], error: null, others: null });
 const INDEX: ResourcesIndex = {
   services: [
-    { name: "sns", title: "SNS", group: "Messaging and events", served: true, described: true, note: null, kinds: [kind("topics", ["TopicArn", "TargetArn"]), kind("subscriptions", ["SubscriptionArn"])] },
-    { name: "iam", title: "IAM", group: "Identity", served: true, described: false, note: "Not described yet", kinds: [] },
+    { name: "sns", title: "SNS", group: "Messaging and events", served: true, described: true, asleep: false, note: null, kinds: [kind("topics", ["TopicArn", "TargetArn"]), kind("subscriptions", ["SubscriptionArn"])] },
+    { name: "iam", title: "IAM", group: "Identity", served: true, described: false, asleep: false, note: "Not described yet", kinds: [] },
   ],
 };
 

@@ -65,7 +65,7 @@ function Machines({ service, kind, gone }: { service: string; kind: string; gone
       {gone && <ResultBanner className="mb-6" title={`State machine ${gone} deleted.`} returned="DeleteStateMachine answered, and the machine is gone from the list." left="Its versions and aliases went with it; executions that were running carry on with the definition they started with." onDismiss={() => go.list()} testId="deleted-banner" />}
       <PageHeader
         title="State machines"
-        crumbs={[{ label: "Resources", to: "/resources" }, ...(first ? [{ label: first.group, to: "/resources" }, { label: first.service_title, to: `/resources/${service}` }] : [])]}
+        crumbs={[{ label: "Resources", to: "/resources" }, ...(first ? [{ label: first.service_title, to: `/resources/${service}` }] : [])]}
         sub={none ? `Standard and Express workflows in ${region}.` : `Standard and Express workflows in ${region}. Choose a name to open it.`}
         refresh={<RefreshControl updatedAt={list.dataUpdatedAt} fetching={list.isFetching} onRefresh={refresh} interval={false} />}
         actions={

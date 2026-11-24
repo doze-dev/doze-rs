@@ -137,7 +137,7 @@ function WizardPage({ mode, service, kind, stack, resume = false }: { mode: Mode
       <FormPage
         title={titles[step]!}
         sub={lead}
-        crumbs={[{ label: "Resources", to: "/resources" }, { label: "Infrastructure", to: "/resources" }, { label: "CloudFormation", to: `/resources/${service}` }, ...(update ? [{ label: stackName, to: `/resources/${service}/${kind}/${encodeURIComponent(stackName)}` }] : [{ label: "Stacks", to: `/resources/${service}/${kind}` }]), { label: titles[step]!, to: "#" }]}
+        crumbs={[{ label: "Resources", to: "/resources" }, { label: "CloudFormation", to: `/resources/${service}` }, ...(update ? [{ label: stackName, to: `/resources/${service}/${kind}/${encodeURIComponent(stackName)}` }] : [{ label: "Stacks", to: `/resources/${service}/${kind}` }]), { label: titles[step]!, to: "#" }]}
         stepsAfterTitle
         backLabel="Previous"
         showInput

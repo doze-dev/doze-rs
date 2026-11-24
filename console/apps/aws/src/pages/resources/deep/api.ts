@@ -3,6 +3,7 @@
 // bucket or table). Nothing here polls: a read is made when the page opens and when the person asks.
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { client } from "../../../api/client";
+import { regionHeader } from "../../../api/region";
 import { RESOURCE_PATHS } from "../../../api/resources";
 import type { Uploaded } from "../../../api/types/Uploaded";
 
@@ -77,7 +78,7 @@ export function putObject(bucket: string, key: string, body: Blob, type: string,
 /** GetObject, saved as a file (named `saveAs`, else by the last part of the key). The console's API answers only requests that carry its proof header, which a plain link cannot
  * send: the bytes are fetched (the server streams them from S3) and handed to the browser to save. */
 export async function downloadObject(bucket: string, key: string, saveAs?: string, versionId?: string): Promise<void> {
-  const res = await fetch(`${client.basePath}${objectPath(bucket, key)}${versionId ? `&versionId=${encodeURIComponent(versionId)}` : ""}`, { headers: { "X-Console": "1" }, credentials: "same-origin" });
+  const res = await fetch(`${client.basePath}${objectPath(bucket, key)}${versionId ? `&versionId=${encodeURIComponent(versionId)}` : ""}`, { headers: { "X-Console": "1", ...regionHeader() }, credentials: "same-origin" });
   if (!res.ok) {
     const body = (await res.json().catch(() => null)) as { code?: string; message?: string } | null;
     throw new Error(body?.message ?? `The download was refused (${res.status}).`);

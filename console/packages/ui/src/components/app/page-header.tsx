@@ -8,22 +8,18 @@ export type Crumb = { label: string; to: string };
 /** The head of every page: the breadcrumb (the ancestors as links, then the page itself as the last crumb, plain text with
  * aria-current: the trail always says where you are, and never a filter or a mode), the page's name once as the h1, a static sentence, the page's actions, and the RefreshControl.
  *
- * One shape for every page, so no page has an empty band: the breadcrumb row exists only on a page that has ancestors, and
- * the RefreshControl sits at the right of the header's first row: the breadcrumb row when there is one, the h1's row (above
- * the actions) when there is not. A page without a RefreshControl simply has nothing there. */
+ * One shape for every page, so no page has an empty band: the first row (the breadcrumb, with the RefreshControl at its right) exists
+ * only on a page that has ancestors or a RefreshControl, and the page's actions are always on the h1's row, at the right. The
+ * RefreshControl is the page's housekeeping and the actions are what the page is for: they are never one stack, which read as one
+ * group of buttons. A page without a RefreshControl simply has nothing in that row. */
 export function PageHeader({ title, sub, crumbs = [], actions, refresh, mono = false, titleExtra, belowCrumbs }: { title: string; sub?: React.ReactNode; crumbs?: Crumb[]; actions?: React.ReactNode; refresh?: React.ReactNode; mono?: boolean; /** Beside the h1: the badges of a resource (its type, its state). */ titleExtra?: React.ReactNode; /** Between the breadcrumb and the title: a wizard's steps. */ belowCrumbs?: React.ReactNode }) {
-  const top = crumbs.length > 0;
-  const side = top ? actions : (refresh || actions) && (
-    <>
-      {refresh}
-      {actions && <div className="flex flex-wrap items-center gap-2.5 xl:justify-end">{actions}</div>}
-    </>
-  );
+  const top = crumbs.length > 0 || Boolean(refresh);
+  const side = actions;
   return (
     <header className="mb-8" data-slot="page-header">
       {top && (
         <div className="mb-5 flex min-h-9 flex-wrap items-center justify-between gap-x-6 gap-y-2">
-          <nav aria-label="Breadcrumb" className="min-w-0">
+          {crumbs.length > 0 && <nav aria-label="Breadcrumb" className="min-w-0">
             <ol className="flex flex-wrap items-center gap-2 text-[13px] text-muted-foreground">
               {crumbs.map((c, i) => (
                 <Fragment key={`${i}-${c.to}`}>
@@ -42,8 +38,8 @@ export function PageHeader({ title, sub, crumbs = [], actions, refresh, mono = f
                 </Fragment>
               ))}
             </ol>
-          </nav>
-          {refresh}
+          </nav>}
+          {refresh && <div className="ml-auto">{refresh}</div>}
         </div>
       )}
       {belowCrumbs && <div className="mb-6">{belowCrumbs}</div>}
@@ -60,7 +56,7 @@ export function PageHeader({ title, sub, crumbs = [], actions, refresh, mono = f
           {sub && <div className="mt-2 max-w-[46rem] text-[14.5px] leading-[22px] text-muted-foreground">{sub}</div>}
         </div>
         {/* Beside the h1 from 1280 px; under it (from the left, in one row) when the window is narrower. */}
-        {side && <div className={cn("flex flex-none flex-wrap items-center gap-2.5 pt-1", !top && "xl:flex-col xl:items-end xl:gap-3")}>{side}</div>}
+        {side && <div className="flex flex-none flex-wrap items-center gap-2.5 pt-1">{side}</div>}
       </div>
     </header>
   );

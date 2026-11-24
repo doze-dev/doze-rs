@@ -143,7 +143,7 @@ test("a table that is not there: one page for a missing name, with the way back 
   await expect(err).not.toContainText("Check that doze-aws is still running");
   // Nothing to pin on a page of what is not there.
   await expect(page.getByTestId("pin-toggle")).toHaveCount(0);
-  await expect(page.getByRole("navigation", { name: "Breadcrumb" }).getByRole("link")).toContainText(["Resources", "Storage and data", "DynamoDB", "Tables"]);
+  await expect(page.getByRole("navigation", { name: "Breadcrumb" }).getByRole("link")).toContainText(["Resources", "DynamoDB", "Tables"]);
   await shot(page, "dynamodb__table-missing");
   // The same page behind the item forms and the settings forms.
   await page.goto(`${server.console}${T}/no-such-table?do=explore`);

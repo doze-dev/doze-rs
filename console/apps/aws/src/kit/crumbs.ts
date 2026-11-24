@@ -1,11 +1,12 @@
 import type { Crumb } from "@doze/ui/components/app/page-header";
 import { useCatalogue } from "../api/resources";
 
-/** The breadcrumb a service's pages begin with: `Resources`, the group it is listed under (`Observability`), the service (`CloudWatch Logs`).
+/** The breadcrumb a service's pages begin with: `Resources`, the service (`CloudWatch Logs`). (Its group, `Observability`, is not a crumb: it has no
+ * page of its own, so it only led back to Resources.)
  * Read from the catalogue, which makes no call and is kept, so a page that has read nothing else still knows where it is. */
 export function useServiceCrumbs(service: string): Crumb[] {
   const s = useCatalogue().data?.services.find((x) => x.name === service);
-  return [{ label: "Resources", to: "/resources" }, ...(s ? [{ label: s.group, to: "/resources" }, { label: s.title, to: `/resources/${service}` }] : [])];
+  return [{ label: "Resources", to: "/resources" }, ...(s ? [{ label: s.title, to: `/resources/${service}` }] : [])];
 }
 
 const norm = (s: string) => s.trim().toLowerCase();
@@ -24,9 +25,9 @@ export function withCurrent(crumbs: Crumb[], title: string, label?: string): Cru
   return [...crumbs, { label: label ?? title, to: "" }];
 }
 
-/** Where a resource's own pages start: Resources, its group, its service, its kind. */
+/** Where a resource's own pages start: Resources, its service, its kind. */
 export function kindCrumbs(d: { group: string; service: string; service_title: string; kind: string; kind_title: string }): Crumb[] {
-  return [{ label: "Resources", to: "/resources" }, { label: d.group, to: `/resources/${d.service}` }, { label: d.service_title, to: `/resources/${d.service}` }, { label: d.kind_title, to: `/resources/${d.service}/${d.kind}` }];
+  return [{ label: "Resources", to: "/resources" }, { label: d.service_title, to: `/resources/${d.service}` }, { label: d.kind_title, to: `/resources/${d.service}/${d.kind}` }];
 }
 
 /** A resource's pages: the kind's trail, the resource (a link to its page, or the page itself when nothing follows), then

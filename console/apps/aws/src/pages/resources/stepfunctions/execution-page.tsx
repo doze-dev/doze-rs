@@ -107,7 +107,7 @@ export function ExecutionPage({ arn }: { arn: string }) {
         mono
         crumbs={withCurrent([
           { label: "Resources", to: "/resources" },
-          { label: "Compute and flow", to: "/resources" },
+          
           { label: "Step Functions", to: "/resources/stepfunctions" },
           { label: "State machines", to: "/resources/stepfunctions/machines" },
           ...(machineName ? [{ label: machineName, to: machineHref(machineName) }, { label: "Executions", to: machineHref(machineName) }] : []),

@@ -9,6 +9,7 @@ import { useServices } from "../../api/queries";
 import type { ServiceSeen } from "../../api/types/ServiceSeen";
 import { ago } from "../../people";
 import { type Awake, type AwakeGroup, awakeGroups, STATE_WORDS } from "./awake";
+import { StateMark } from "./state-mark";
 import { WhichServicesSheet } from "./services-sheet";
 
 const ICONS: Record<string, LucideIcon> = {
@@ -21,11 +22,11 @@ const ICONS: Record<string, LucideIcon> = {
   "Identity and access": ShieldIcon,
 };
 
-/** A filled dot for awake, a ring for asleep: the word says it, the shape repeats it. */
+/** A green dot for running, a blue moon for resting: the word says it, the mark repeats it. */
 function State({ state }: { state: Awake }) {
   return (
-    <span className={cn("inline-flex w-[5.75rem] shrink-0 items-center gap-1.5 text-[13px] font-semibold", state === "awake" ? "text-good" : "text-muted-foreground")} data-testid="awake-state">
-      <span aria-hidden className={cn("size-2 shrink-0 rounded-full", state === "awake" ? "bg-current" : "border-[1.5px] border-current")} />
+    <span className={cn("inline-flex w-[5.75rem] shrink-0 items-center gap-1.5 text-[13px] font-semibold", state === "awake" ? "text-good" : state === "asleep" ? "text-link" : "text-muted-foreground")} data-testid="awake-state" title={state === "asleep" ? "Resting: it starts on its next call, and what is due (schedules, timers) still runs." : undefined}>
+      <StateMark state={state} className={state === "awake" ? "size-2" : undefined} />
       {STATE_WORDS[state]}
     </span>
   );
@@ -67,8 +68,8 @@ function GroupCard({ g, now }: { g: AwakeGroup; now: number }) {
   );
 }
 
-/** What is awake: each service of the build in its group with when anything last called it. A service that gets no request for
- * `idleSecs` lets go of its memory and files, so one called longer ago than that is asleep. */
+/** What is running: each service of the build in its group with when anything last called it. A service that gets no request for
+ * `idleSecs` lets go of its memory and files and rests, so one called longer ago than that is resting. */
 export function AwakeSection({ activity, idleSecs, now }: { activity: ServiceSeen[] | undefined; idleSecs: number | undefined; now: number }) {
   const services = useServices();
   const [open, setOpen] = useState(false);
@@ -76,10 +77,10 @@ export function AwakeSection({ activity, idleSecs, now }: { activity: ServiceSee
   return (
     <section className="mb-10" aria-labelledby="awake-title" data-testid="awake">
       <h2 id="awake-title" className="text-[17px] leading-6 font-semibold tracking-[-0.01em] text-bright">
-        What is awake
+        What is running
       </h2>
       <p className="mt-1.5 max-w-[46rem] text-[13.5px] text-muted-foreground">
-        Each row shows when the service was last called. A service opens on its first call and lets go of its memory and files after {idleSecs === undefined ? "a while" : idleSecs % 60 === 0 && idleSecs >= 120 ? `${idleSecs / 60} minutes` : `${idleSecs} seconds`} without one, so an asleep service costs almost nothing.{" "}
+        Each row shows when the service was last called. A service starts on its first call and rests after {idleSecs === undefined ? "a while" : idleSecs % 60 === 0 && idleSecs >= 120 ? `${idleSecs / 60} minutes` : `${idleSecs} seconds`} without one. A resting service costs almost nothing, answers as soon as it is called, and still runs what is due.{" "}
         <button type="button" className="rounded-sm text-link hover:underline focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none" onClick={() => setOpen(true)} data-testid="which-services">
           Which services run
         </button>

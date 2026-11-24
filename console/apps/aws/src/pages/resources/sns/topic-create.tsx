@@ -46,7 +46,7 @@ export function TopicCreate() {
       key={f.fifo ? "fifo" : "standard"}
       title="Create topic"
       sub={refused ? "Nothing was created. Fix the name and try again." : f.fifo ? "FIFO topics keep messages in order within a message group and drop duplicates." : "Choose the type and the name. Everything else is optional and can be edited later."}
-      crumbs={[{ label: "Resources", to: "/resources" }, ...(first ? [{ label: first.group, to: "/resources" }, { label: first.service_title, to: "/resources/sns" }] : []), { label: "Topics", to: "/resources/sns/topics" }]}
+      crumbs={[{ label: "Resources", to: "/resources" }, ...(first ? [{ label: first.service_title, to: "/resources/sns" }] : []), { label: "Topics", to: "/resources/sns/topics" }]}
       request={f.name.trim() ? { service: "sns", operation: "CreateTopic", input } : null}
       refusal={refused}
       callNote={refused && badFifoName ? "The rule comes from the API: a FIFO topic's name must end with .fifo." : <>Settings left at their defaults are not sent. To tag a topic on creation you need the sns:CreateTopic and sns:TagResource permissions.{f.fifo ? " If the name is refused, CreateTopic answers InvalidParameter." : ""}</>}

@@ -283,3 +283,12 @@
     --well: #121a2b;
   }
 }
+
+/* The active item of the rail is a ground with a marker on its left edge, as the Kafka console draws it (the marker is a box-shadow,
+   and so is the focus ring: with the focus on the active item both are drawn). */
+[data-sidebar="menu-button"][data-active="true"] {
+  box-shadow: inset 3px 0 0 var(--sidebar-primary);
+}
+[data-sidebar="menu-button"][data-active="true"]:focus-visible {
+  box-shadow: inset 3px 0 0 var(--sidebar-primary), 0 0 0 2px var(--sidebar-ring);
+}

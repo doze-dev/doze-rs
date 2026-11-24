@@ -30,6 +30,7 @@ pub mod iam;
 pub mod limits;
 pub mod model;
 pub mod origin;
+pub mod regions;
 pub mod resources;
 pub mod ring;
 pub mod serve;

@@ -72,7 +72,7 @@ function Chip({ s }: { s: Signal }) {
  * hold (a dead-letter queue with messages, an alarm, failed executions, a failed stack). Only real signals; none is said so. */
 export function Signals({ live, checks, checksError }: { live?: Signal[]; checks?: HomeChecks; checksError: unknown }) {
   const all = [...(live ?? []), ...(checks?.signals ?? [])];
-  const looked = checks?.checked.length ? `Looked in ${checks.checked.join(", ")}: the services apps called in this run, so nothing asleep was woken.` : "No app has called a service whose state is looked at (SQS, CloudWatch, Step Functions, CloudFormation), so none was woken to look.";
+  const looked = checks?.checked.length ? `Looked in ${checks.checked.join(", ")}: the services apps called in this run, so nothing resting was started.` : "No app has called a service whose state is looked at (SQS, CloudWatch, Step Functions, CloudFormation), so none was woken to look.";
   return (
     <Section title="Needs a look" testId="needs-a-look" lede={checks ? looked : "Reading the Live record and the services apps called…"}>
       {live && all.length === 0 ? (

@@ -8,6 +8,7 @@ import { Button } from "@doze/ui/components/ui/button";
 import { Skeleton } from "@doze/ui/components/ui/skeleton";
 import { cn } from "@doze/ui/lib/utils";
 import { client } from "../../../api/client";
+import { regionHeader } from "../../../api/region";
 import { RESOURCE_PATHS } from "../../../api/resources";
 import type { ResourceDetail } from "../../../api/types/ResourceDetail";
 import { on, useOp } from "../deep/api";
@@ -22,7 +23,7 @@ const MOST_SHOWN = 400_000;
 
 /** The package of a function: its files, read in the page from the zip the console hands over (`…/code`). */
 async function readPackage(name: string): Promise<ZipFile[]> {
-  const res = await fetch(`${client.basePath}${RESOURCE_PATHS.one("lambda", "functions", name)}/code`, { headers: { "X-Console": "1" }, credentials: "same-origin" });
+  const res = await fetch(`${client.basePath}${RESOURCE_PATHS.one("lambda", "functions", name)}/code`, { headers: { "X-Console": "1", ...regionHeader() }, credentials: "same-origin" });
   if (!res.ok) {
     const body = (await res.json().catch(() => null)) as { message?: string } | null;
     throw new Error(body?.message ?? `The package could not be read (${res.status}).`);

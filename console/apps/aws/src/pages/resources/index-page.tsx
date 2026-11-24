@@ -1,14 +1,16 @@
 import { Link } from "@tanstack/react-router";
-import { createElement, useCallback } from "react";
+import { createElement, useCallback, useState } from "react";
 import { ErrorBlock } from "@doze/ui/components/app/alert";
 import { PageHeader } from "@doze/ui/components/app/page-header";
 import { RefreshControl } from "@doze/ui/components/app/refresh-control";
+import { Button } from "@doze/ui/components/ui/button";
 import { Skeleton } from "@doze/ui/components/ui/skeleton";
 import { cn } from "@doze/ui/lib/utils";
 import { number } from "@doze/ui/lib/format";
 import { useResourcesIndex } from "../../api/resources";
 import type { KindCount } from "../../api/types/KindCount";
 import type { ResourceService } from "../../api/types/ResourceService";
+import { StateMark } from "../home/state-mark";
 import { iconOf } from "./model";
 
 import { HINT } from "../../kit";
@@ -26,6 +28,14 @@ export function countWords(k: KindCount): string {
   return `${k.more ? "at least " : ""}${number(k.count)} ${noun}${others}`;
 }
 
+/** What a service's card says it holds: the kinds there are some of (`1 queue`), and when there are none of any, its first kind with the zero
+ * (`0 topics`): a card is not a list of every kind at zero. A kind that could not be counted keeps its place. */
+export function cardWords(kinds: readonly KindCount[]): string {
+  const some = kinds.filter((k) => k.count === null || k.count > 0);
+  const shown = some.length > 0 ? some : kinds.slice(0, 1);
+  return shown.map(countWords).join(" · ");
+}
+
 function ServiceCard({ s }: { s: ResourceService }) {
   const first = s.kinds[0];
   const live = s.described && s.served && first;
@@ -36,8 +46,8 @@ function ServiceCard({ s }: { s: ResourceService }) {
       </span>
       <div className="min-w-0">
         <div className="text-[16px] font-semibold text-bright">{s.title}</div>
-        <div className="mt-0.5 text-[13px] text-muted-foreground" data-testid={`count-${s.name}`}>
-          {!s.described ? (s.kinds.length === 0 && s.note?.startsWith("STS") ? "No resources" : "Not described yet") : !s.served ? "Not served in this run (--services)" : s.kinds.map(countWords).join(" · ")}
+        <div className="mt-0.5 text-[13px] text-muted-foreground" data-testid={`count-${s.name}`} title={s.asleep ? "Resting: nothing has called it lately, so it holds no memory and was not counted (counting is a call, which starts it). It starts on its next call, and what is due still runs. Open it to see what it holds." : undefined}>
+          {!s.described ? (s.kinds.length === 0 && s.note?.startsWith("STS") ? "No resources" : "Not described yet") : !s.served ? "Not served in this run (--services)" : s.asleep ? <span className="inline-flex items-center gap-1.5 text-link"><StateMark state="asleep" /> Resting</span> : cardWords(s.kinds)}
         </div>
       </div>
     </div>
@@ -61,7 +71,10 @@ function ServiceCard({ s }: { s: ResourceService }) {
  * call made when the page is opened or refreshed (Live shows them as the console's); a service this run does not serve is not
  * woken to be counted. */
 export function ResourcesPage() {
-  const index = useResourcesIndex();
+  // A service that is asleep is not counted (counting it is a list call, which wakes it) until the person asks.
+  const [wake, setWake] = useState(false);
+  const index = useResourcesIndex(true, wake);
+  const sleeping = (index.data?.services ?? []).filter((s) => s.asleep && s.group !== ACCESS_GROUP).length;
   const { refetch } = index;
   const refresh = useCallback(() => void refetch(), [refetch]);
   const groups: [string, ResourceService[]][] = [];
@@ -82,6 +95,13 @@ export function ResourcesPage() {
           </>
         }
         refresh={<RefreshControl updatedAt={index.dataUpdatedAt} fetching={index.isFetching} onRefresh={refresh} interval={false} />}
+        actions={
+          sleeping > 0 ? (
+            <Button variant="outline" size="sm" className="bg-card" onClick={() => setWake(true)} title="Lists each resting service, which starts it and holds its memory until it has been idle again" data-testid="count-sleeping">
+              Count the {sleeping} resting {sleeping === 1 ? "service" : "services"} too
+            </Button>
+          ) : undefined
+        }
       />
       {index.isError && !index.data ? (
         <ErrorBlock what="The resources could not be counted" error={index.error} hint={HINT} onRetry={refresh} retrying={index.isFetching} testId="resources-error" />

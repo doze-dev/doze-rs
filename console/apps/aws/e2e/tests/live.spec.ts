@@ -95,7 +95,7 @@ test("a row opens a drawer over the page with everything the record has for the 
   const record = (await calls(page)).calls.filter((c) => c.caller === accessKey && c.action === "GetQueueUrl").pop()!;
   expect(record.outcome).toBe("error");
 
-  await page.locator(`tr[data-row="${record.seq}"]`).click();
+  await page.locator(`tr[data-row="${record.seq}"]`).getByTestId("open-call").click();
   const sheet = page.getByTestId("call-sheet");
   await expect(sheet).toBeVisible();
   await expect(sheet).toHaveAttribute("role", "dialog");

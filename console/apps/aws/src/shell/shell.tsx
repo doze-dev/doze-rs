@@ -5,13 +5,14 @@ import { CommandPalette, type PaletteGroup, type PaletteItem } from "@doze/ui/co
 import { copyText } from "@doze/ui/components/app/copy";
 import { ThemeSwitch } from "@doze/ui/components/app/theme-menu";
 import { TopBar, topBarChip } from "@doze/ui/components/app/top-bar";
-import { Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupContent, SidebarHeader, SidebarInset, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarProvider, SidebarRail } from "@doze/ui/components/ui/sidebar";
+import { Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupContent, SidebarHeader, SidebarInset, SidebarMenu, SidebarMenuBadge, SidebarMenuButton, SidebarMenuItem, SidebarProvider, SidebarRail } from "@doze/ui/components/ui/sidebar";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@doze/ui/components/ui/tooltip";
+import { number } from "@doze/ui/lib/format";
 import { useSidebarOpen } from "@doze/ui/lib/sidebar-state";
 import { setTheme } from "@doze/ui/lib/theme";
 import { cn } from "@doze/ui/lib/utils";
 import { useAbout } from "../api/queries";
-import { useResourcesIndex } from "../api/resources";
+import { useCatalogue, useResourcesIndex } from "../api/resources";
 import { subscriptionLabel } from "../pages/resources/sns/sub-model";
 import { iconOf } from "../pages/resources/model";
 import { isActive, RECENTS_KEY, SPACES, type SpacePath } from "../nav";
@@ -19,16 +20,24 @@ import { iamWords } from "../words";
 import { Logo, Wordmark } from "./brand";
 import { IdentityChip } from "./identity-chip";
 import { PinButton, RailPlaces } from "./places";
+import { RegionMenu } from "./region-menu";
+import { RailServices, useRailCounts } from "./rail-services";
 
 /** The rail: the mark, and the six spaces. */
 function Rail() {
   const path = useRouterState({ select: (s) => s.location.pathname });
+  const counts = useRailCounts();
+  const countOf = (to: string): { text: string; title: string } | null => {
+    if (to === "/live" && counts.live !== undefined) return { text: number(counts.live), title: `${number(counts.live)} ${counts.live === 1 ? "app has" : "apps have"} called` };
+    if (to === "/resources" && counts.awake) return { text: number(counts.awake.awake), title: `${counts.awake.awake} of ${counts.awake.served} services running` };
+    return null;
+  };
   return (
     <Sidebar collapsible="icon" data-testid="sidebar">
       <SidebarHeader className="h-[52px] justify-center border-b border-sidebar-border px-4 group-data-[collapsible=icon]:px-2">
         <Link to="/" className="flex items-center gap-2.5 rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring/50" aria-label="doze-aws, Home" data-testid="brand">
-          <Logo size={30} className="rounded-[8px]" />
-          <Wordmark className="text-[16px] leading-none group-data-[collapsible=icon]:hidden" />
+          <Logo size={32} className="rounded-[8px]" />
+          <Wordmark className="text-[20px] leading-none group-data-[collapsible=icon]:hidden" />
         </Link>
       </SidebarHeader>
       <SidebarContent className="pt-4">
@@ -40,12 +49,18 @@ function Rail() {
                   const active = isActive(space, path);
                   return (
                     <SidebarMenuItem key={space.to}>
-                      <SidebarMenuButton asChild isActive={active} tooltip={space.label} className="h-10 gap-3 rounded-[9px] text-[14px] data-[active=true]:font-medium [&>svg]:size-[18px] [&>svg]:text-muted-foreground data-[active=true]:[&>svg]:text-primary">
+                      <SidebarMenuButton asChild isActive={active} tooltip={space.label} className="h-9 text-[14px] data-[active=true]:font-medium [&>svg]:text-muted-foreground data-[active=true]:[&>svg]:text-primary">
                         <Link to={space.to} aria-current={active ? "page" : undefined} data-testid={`space-${space.label.toLowerCase()}`}>
                           <space.icon />
                           <span>{space.label}</span>
                         </Link>
                       </SidebarMenuButton>
+                      {countOf(space.to) && (
+                        <SidebarMenuBadge className="font-normal text-muted-foreground tabular-nums" title={countOf(space.to)?.title} data-testid={`count-${space.label.toLowerCase()}`}>
+                          {countOf(space.to)?.text}
+                        </SidebarMenuBadge>
+                      )}
+                      {space.to === "/resources" && active && <RailServices />}
                     </SidebarMenuItem>
                   );
                 })}
@@ -56,7 +71,7 @@ function Rail() {
         <RailPlaces />
       </SidebarContent>
       <SidebarFooter className="px-4 pb-4 group-data-[collapsible=icon]:hidden" data-testid="rail-footer">
-        <p className="flex items-center gap-2 text-[12px] text-muted-foreground">
+        <p className="flex items-center gap-2 px-1 text-[12px] text-muted-foreground">
           <kbd className="rounded border bg-card px-1.5 py-px font-mono text-[11px]">⌘K</kbd> jump or do
         </p>
       </SidebarFooter>
@@ -82,24 +97,20 @@ function Chips() {
         </TooltipTrigger>
         <TooltipContent>The address AWS SDKs and the AWS CLI reach doze-aws at. Click to copy it.</TooltipContent>
       </Tooltip>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <span tabIndex={0} className={cn(topBarChip, "hidden font-mono outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 lg:inline-flex")} data-testid="chip-region">
-            {about.region}
-          </span>
-        </TooltipTrigger>
-        <TooltipContent>The default region (--region).</TooltipContent>
-      </Tooltip>
       <IdentityChip />
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <span tabIndex={0} className={cn(topBarChip, "hidden outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 lg:inline-flex")} data-testid="chip-iam">
-            <span aria-hidden className={cn("size-[7px] shrink-0 rounded-full", about.iam === "off" ? "border-[1.5px] border-muted-foreground" : "bg-primary")} />
-            {iam.chip}
-          </span>
-        </TooltipTrigger>
-        <TooltipContent>{iam.sentence}</TooltipContent>
-      </Tooltip>
+      {/* What this doze-aws is set to, in one pill: its region and what IAM does (each with its own tooltip). */}
+      <span className={cn(topBarChip, "hidden gap-0 divide-x px-0 lg:inline-flex")} data-testid="chip-settings">
+        <RegionMenu />
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <span tabIndex={0} className="inline-flex h-full items-center gap-2 rounded-r-full px-3 outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50" data-testid="chip-iam">
+              <span aria-hidden className={cn("size-[7px] shrink-0 rounded-full", about.iam === "off" ? "border-[1.5px] border-muted-foreground" : "bg-primary")} />
+              {iam.chip}
+            </span>
+          </TooltipTrigger>
+          <TooltipContent>{iam.sentence}</TooltipContent>
+        </Tooltip>
+      </span>
     </>
   );
 }
@@ -121,7 +132,10 @@ export function Shell() {
   };
   // Every resource by name, counted when the palette is first opened (each kind is one list call, which Live shows), and again
   // when the counts are older than the query's stale time.
-  const index = useResourcesIndex(palette);
+  // A service that is asleep is not listed to be searched (listing it would wake it) until the person asks, from the palette.
+  const [wake, setWake] = useState(false);
+  const index = useResourcesIndex(palette, wake);
+  const sleeping = (index.data?.services ?? []).some((s) => s.asleep);
   const resources = useMemo<PaletteGroup | null>(() => {
     const items = (index.data?.services ?? []).flatMap((s) =>
       s.kinds.flatMap((k) =>
@@ -137,19 +151,27 @@ export function Shell() {
     );
     return items.length > 0 ? { heading: "Resources", separated: true, items } : null;
   }, [index.data]);
+  const catalogue = useCatalogue().data;
+  const services = useMemo<PaletteItem[]>(
+    () => (catalogue?.services ?? []).filter((s) => s.served && s.described).map((s) => ({ label: s.title, to: `/resources/${encodeURIComponent(s.name)}`, kind: "service", icon: iconOf(s.name), keywords: `${s.name} ${s.group} service` })),
+    [catalogue],
+  );
   const about = useAbout().data;
   const actions = useMemo<PaletteItem[]>(() => {
     const queues = (index.data?.services ?? []).filter((s) => s.name === "sqs").flatMap((s) => s.kinds.filter((k) => k.id === "queues").flatMap((k) => k.names)).slice(0, 20);
     return [
       ...(about ? [{ label: "Copy the endpoint", to: "do:endpoint", kind: "action", icon: CopyIcon, keywords: "address url sdk aws_endpoint_url", run: () => void copyText(about.endpoint, "Endpoint copied") }] : []),
+      ...(sleeping ? [{ label: "Search the resting services too", to: "do:wake", kind: "action", icon: MoonIcon, keywords: "asleep resting wake start resources names count find", run: () => setWake(true) }] : []),
       { label: "Connect your app", to: "do:connect", kind: "action", icon: Link2Icon, keywords: "snippets environment sdk cli", run: () => void navigate({ to: "/connect" }) },
       { label: "Explain the last refusal", to: "do:refusal", kind: "action", icon: ShieldAlertIcon, keywords: "denied would be denied iam access policy", run: () => void navigate({ to: "/access" }) },
       ...queues.map((name) => ({ label: `Send a message to ${name}`, to: `do:send:${name}`, kind: "action", icon: SendIcon, mono: false, keywords: `queue sqs peek ${name}`, run: () => void navigate({ to: "/resources/$service/$kind/$name", params: { service: "sqs", kind: "queues", name }, search: { view: "messages" } }) })),
     ];
-  }, [about, index.data, navigate]);
+  }, [about, index.data, navigate, sleeping]);
   const groups = useMemo<PaletteGroup[]>(
     () => [
       { heading: "Spaces", items: SPACES.map((s) => ({ label: s.label, to: s.to, kind: "space", icon: s.icon, keywords: s.keywords })) },
+      // Every service this run serves, by its name: a jump to its pages (the catalogue makes no call, so no service is started to be listed).
+      ...(services.length > 0 ? [{ heading: "Services", items: services }] : []),
       {
         heading: "Theme",
         separated: true,
@@ -163,17 +185,16 @@ export function Shell() {
       // After the names: typing a resource's name and pressing Enter opens it; an action is chosen by its words.
       ...(actions.length > 0 ? [{ heading: "Do", separated: true, items: actions }] : []),
     ],
-    [resources, actions],
+    [resources, actions, services],
   );
   return (
-    // 184 px, the boards' rail. The shared Sidebar sets its width inline, so it is given as a style, not a class.
+    // 224 px: the boards drew 184 and the Kafka console's rail is 256; the services under Resources and the counts need the room, and a wide table needs the rest. The shared Sidebar sets its width inline, so it is given as a style, not a class.
     // bg-sidebar on the wrapper: the rail is fixed to the window, so a page taller than the window (a full-page capture) shows the
     // wrapper beside the inset below it; in the rail's colour, the rail reads as reaching the bottom.
-    <SidebarProvider className="bg-sidebar" style={{ "--sidebar-width": "11.5rem" } as React.CSSProperties} open={sidebar} onOpenChange={setSidebar}>
+    <SidebarProvider className="bg-sidebar" style={{ "--sidebar-width": "14rem" } as React.CSSProperties} open={sidebar} onOpenChange={setSidebar}>
       <Rail />
       <SidebarInset className="min-w-0 bg-background">
-        <TopBar onPalette={() => openPalette(true)} paletteLabel="Jump to a space or a resource">
-          <PinButton />
+        <TopBar onPalette={() => openPalette(true)} paletteLabel="Jump to a space or a resource" afterPalette={<PinButton />}>
           <Chips />
           <ThemeSwitch />
         </TopBar>

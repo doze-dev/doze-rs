@@ -34,7 +34,7 @@ const COLUMNS: DataColumn<QueueRow>[] = [
   { id: "available", header: "Messages available", accessorKey: "available", size: 176, fit: 176, meta: { numeric: true } },
   { id: "inFlight", header: "Messages in flight", accessorKey: "inFlight", size: 176, fit: 176, meta: { numeric: true } },
   { id: "encryption", header: "Encryption", accessorFn: (r) => (r.encrypted ? 1 : 0), size: 108, fit: 108, enableSorting: false, cell: (c) => (c.row.original.encrypted ? "Enabled" : <span className="text-muted-foreground">–</span>) },
-  { id: "dedup", header: "Content-based deduplication", accessorFn: (r) => (r.dedup ? 1 : 0), size: 238, fit: 232, enableSorting: false, cell: (c) => (c.row.original.dedup ? "Enabled" : <span className="text-muted-foreground">–</span>) },
+  { id: "dedup", header: "Content-based deduplication", accessorFn: (r) => (r.dedup ? 1 : 0), size: 252, fit: 248, enableSorting: false, cell: (c) => (c.row.original.dedup ? "Enabled" : <span className="text-muted-foreground">–</span>) },
 ];
 
 /** The queues' list page; with `?create=yes` the Create queue page in its place. */
@@ -65,7 +65,7 @@ function QueuesList({ service, kind, q, gone, from }: { service: string; kind: s
     <>
       <PageHeader
         title="Queues"
-        crumbs={[{ label: "Resources", to: "/resources" }, ...(first ? [{ label: first.group, to: "/resources" }, { label: first.service_title, to: `/resources/${service}` }] : [])]}
+        crumbs={[{ label: "Resources", to: "/resources" }, ...(first ? [{ label: first.service_title, to: `/resources/${service}` }] : [])]}
         sub={`Standard and FIFO queues in ${region}.${none && !q ? "" : " Choose a name to open it."}`}
         refresh={<RefreshControl updatedAt={list.dataUpdatedAt} fetching={list.isFetching} onRefresh={refresh} interval={false} />}
         actions={create}

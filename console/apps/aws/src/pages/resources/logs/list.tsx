@@ -80,7 +80,7 @@ function Groups({ service, kind, gone }: { service: string; kind: string; gone?:
     <>
       <PageHeader
         title="Log groups"
-        crumbs={[{ label: "Resources", to: "/resources" }, ...(first ? [{ label: first.group, to: "/resources" }, { label: first.service_title, to: `/resources/${service}` }] : [])]}
+        crumbs={[{ label: "Resources", to: "/resources" }, ...(first ? [{ label: first.service_title, to: `/resources/${service}` }] : [])]}
         sub="A log group is a group of log streams that share the same retention, monitoring, and access control settings."
         refresh={<RefreshControl updatedAt={list.dataUpdatedAt} fetching={list.isFetching} onRefresh={refresh} interval={false} />}
       />

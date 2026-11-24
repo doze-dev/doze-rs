@@ -44,7 +44,7 @@ export function ExportsListPage({ service, kind }: OwnProps) {
     <>
       <PageHeader
         title="Exports"
-        crumbs={[{ label: "Resources", to: "/resources" }, ...(first ? [{ label: first.group, to: "/resources" }, { label: first.service_title, to: `/resources/${service}` }] : [])]}
+        crumbs={[{ label: "Resources", to: "/resources" }, ...(first ? [{ label: first.service_title, to: `/resources/${service}` }] : [])]}
         sub="Output values that other stacks in this account and Region can import. A stack exports a value with the Export field of an output."
         refresh={<RefreshControl updatedAt={list.dataUpdatedAt} fetching={list.isFetching} onRefresh={refresh} interval={false} />}
       />
@@ -93,7 +93,7 @@ export function ExportPage({ service, kind, name }: OwnProps) {
       <PageHeader
         title={exportName}
         mono
-        crumbs={withCurrent([{ label: "Resources", to: "/resources" }, { label: "Infrastructure", to: "/resources" }, { label: "CloudFormation", to: `/resources/${service}` }, { label: "Exports", to: `/resources/${service}/${kind}` }], exportName)}
+        crumbs={withCurrent([{ label: "Resources", to: "/resources" }, { label: "CloudFormation", to: `/resources/${service}` }, { label: "Exports", to: `/resources/${service}/${kind}` }], exportName)}
         sub={<>An exported output of <StackTo name={stack} className="font-sans text-[15px] font-normal text-foreground no-underline" />, read by other stacks with Fn::ImportValue.</>}
       />
       {said && <Lede said={{ text: said, names: [stack, ...(users ?? [])] }} testId="export-sentence" bold={[/^\d+ stacks?/]} />}

@@ -34,7 +34,7 @@ export function ChangeSetPage({ service, kind, name, search }: OwnProps) {
   const creating = stack?.StackStatus === "REVIEW_IN_PROGRESS";
   const ready = set.ExecutionStatus === "AVAILABLE";
   const run = () => execute.mutate({ StackName: stackName, ChangeSetName: setName }, { onSuccess: () => toStack({ tab: "events", done: creating ? "executed" : "updated" }) });
-  const crumbs = [{ label: "Resources", to: "/resources" }, { label: "Infrastructure", to: "/resources" }, { label: "CloudFormation", to: `/resources/${service}` }, { label: stackName, to: back.to }, { label: "Change sets", to: `${back.to}?tab=changesets` }, { label: setName, to: "" }];
+  const crumbs = [{ label: "Resources", to: "/resources" }, { label: "CloudFormation", to: `/resources/${service}` }, { label: stackName, to: back.to }, { label: "Change sets", to: `${back.to}?tab=changesets` }, { label: setName, to: "" }];
   return (
     <div data-testid="changeset-page">
       <PageHeader

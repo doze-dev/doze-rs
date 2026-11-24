@@ -34,7 +34,7 @@ test("a call soft IAM let through is OK, marked would be denied, and the drawer 
   await expect(page.getByRole("tooltip")).toContainText("--iam enforce");
   await page.mouse.move(0, 0);
 
-  await row.click();
+  await row.getByTestId("open-call").click();
   await expect(page.getByTestId("call-sheet")).toBeVisible();
   await expect(page.getByTestId("call-would-be-denied")).toContainText("let through");
   await expect(page.getByTestId("call-outcome")).toHaveText("ok");

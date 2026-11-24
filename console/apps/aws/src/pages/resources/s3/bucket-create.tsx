@@ -118,7 +118,7 @@ export function BucketCreate() {
     <FormPage
       title="Create bucket"
       sub="Name the bucket and choose its starting settings. The defaults keep ACLs off and public access blocked."
-      crumbs={[{ label: "Resources", to: "/resources" }, { label: "Storage and data", to: "/resources" }, { label: "S3", to: "/resources/s3/buckets" }, { label: "Create bucket", to: "/resources/s3/buckets" }]}
+      crumbs={[{ label: "Resources", to: "/resources" }, { label: "S3", to: "/resources/s3/buckets" }, { label: "Create bucket", to: "/resources/s3/buckets" }]}
       request={request}
       showInput
       refusal={refused && said ? { code: code || "Error", message: said.message } : null}

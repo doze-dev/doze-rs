@@ -6,6 +6,7 @@ use aws_wire::ApiError;
 use serde_json::Map;
 
 use super::bus::{Bus, CONSOLE};
+pub use super::counted::Counted;
 use super::run::{self, MOST_COUNTED, PAGES_COUNTED};
 use super::{Column, Descriptor, Format, InputKind, Kind, Read, catalog, page, params};
 use crate::facts::Facts;
@@ -102,9 +103,9 @@ pub fn served(facts: &Facts, service: &str) -> bool {
     facts.services.iter().any(|s| s.name == service && s.served)
 }
 
-/// The index: every service of the build, each described kind counted by listing it (a served service only, and only when
-/// `counted`).
-pub async fn index(bus: &Bus, facts: &Facts, counted: bool) -> ResourcesIndex {
+/// The index: every service of the build, each described kind counted by listing it (a served service only, and only the ones
+/// `counted` says).
+pub async fn index(bus: &Bus, facts: &Facts, counted: Counted<'_>) -> ResourcesIndex {
     let mut services = Vec::new();
     for entry in catalog::ALL {
         let Some(svc) = facts.services.iter().find(|s| s.name == entry.service) else {
@@ -123,7 +124,9 @@ pub async fn index(bus: &Bus, facts: &Facts, counted: bool) -> ResourcesIndex {
                 error: None,
                 others: None,
             };
-            if let (true, true, Some(d)) = (counted, svc.served, entry.descriptor) {
+            if let (true, true, Some(d)) =
+                (counted.counts(entry.service), svc.served, entry.descriptor)
+            {
                 count(bus, d, kind, &mut k).await;
             }
             kinds.push(k);
@@ -134,6 +137,10 @@ pub async fn index(bus: &Bus, facts: &Facts, counted: bool) -> ResourcesIndex {
             group: entry.group.to_owned(),
             served: svc.served,
             described: entry.descriptor.is_some(),
+            asleep: svc.served
+                && entry.descriptor.is_some()
+                && matches!(counted, Counted::Awake(_))
+                && !counted.counts(entry.service),
             note: (!entry.note.is_empty()).then(|| entry.note.to_owned()),
             kinds,
         });

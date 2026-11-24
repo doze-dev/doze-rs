@@ -68,7 +68,7 @@ function FunctionsList({ service, kind, q, gone }: { service: string; kind: stri
       {gone && <ResultBanner className="mb-6" title={`${gone} was deleted.`} returned="DeleteFunction removed the function, its versions and its aliases." onDismiss={() => go({})} testId="deleted-banner" />}
       <PageHeader
         title="Event Functions"
-        crumbs={[{ label: "Resources", to: "/resources" }, ...(first ? [{ label: first.group, to: "/resources" }, { label: first.service_title, to: `/resources/${service}` }] : [])]}
+        crumbs={[{ label: "Resources", to: "/resources" }, ...(first ? [{ label: first.service_title, to: `/resources/${service}` }] : [])]}
         sub={none ? `Functions in ${region}.` : `Functions in ${region}. Choose a name to open it, or create a new one.`}
         refresh={<RefreshControl updatedAt={list.dataUpdatedAt} fetching={list.isFetching} onRefresh={refresh} interval={false} />}
         actions={create}

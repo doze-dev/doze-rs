@@ -35,7 +35,7 @@ export function ParameterTabs({ current }: { current: Tab }) {
   );
 }
 
-const crumbs = [{ label: "Resources", to: "/resources" }, { label: "Config and secrets", to: "/resources" }, { label: "Parameter Store", to: "/resources/ssm" }];
+const crumbs = [{ label: "Resources", to: "/resources" }, { label: "Parameter Store", to: "/resources/ssm" }];
 
 type Found = { Name: string; Value?: string; Version?: number; ARN?: string };
 type Page = { Parameters?: Found[]; NextToken?: string };

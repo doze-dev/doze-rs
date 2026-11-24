@@ -14,7 +14,10 @@ import type { Revealed } from "./types/Revealed";
 const enc = encodeURIComponent;
 
 export const RESOURCE_PATHS = {
+  /** Every served service counted (a count is a list call, which wakes a service that is asleep). */
   index: "/api/v1/resources",
+  /** Only the services that are awake are counted: a sleeping one is left asleep. */
+  awake: "/api/v1/resources?counts=awake",
   catalogue: "/api/v1/resources?counts=no",
   list: (service: string, kind: string, token?: string, all = false, params: Record<string, string> = {}) => {
     const p = Object.entries(params).filter(([, v]) => v !== "").map(([k, v]) => `p.${enc(k)}=${enc(v)}`);
@@ -24,9 +27,10 @@ export const RESOURCE_PATHS = {
   one: (service: string, kind: string, name: string) => `/api/v1/resources/${enc(service)}/${enc(kind)}/${enc(name)}`,
 };
 
-/** `GET /api/v1/resources`: every service with its kinds counted (each count is a list call, which Live shows). */
-export function useResourcesIndex(enabled = true) {
-  return useQuery({ queryKey: ["resources", "index"], queryFn: ({ signal }) => client.api<ResourcesIndex>(RESOURCE_PATHS.index, {}, signal), enabled, staleTime: 15_000 });
+/** `GET /api/v1/resources`: every service with its kinds counted (each count is a list call, which Live shows). A service that is asleep
+ * is not counted, so as not to wake it (it says `asleep`), unless `wake`: the person asked for every one to be counted. */
+export function useResourcesIndex(enabled = true, wake = false) {
+  return useQuery({ queryKey: ["resources", "index", wake ? "all" : "awake"], queryFn: ({ signal }) => client.api<ResourcesIndex>(wake ? RESOURCE_PATHS.index : RESOURCE_PATHS.awake, {}, signal), enabled, staleTime: 15_000 });
 }
 
 /** The services and their kinds, with no call made: what the pages route by. */

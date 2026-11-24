@@ -78,10 +78,19 @@ pub(super) fn refused(e: &aws_wire::ApiError) -> Response {
     error(status, &e.code, &e.message)
 }
 
-/// `GET /api/v1/resources[?counts=no]`: with `counts=no`, the services and kinds alone, with no call made (what the pages need
-/// to know which kinds there are).
+/// `GET /api/v1/resources[?counts=no|awake]`: with `counts=no`, the services and kinds alone, with no call made (what the pages need
+/// to know which kinds there are); with `counts=awake`, only the services that are awake are counted, and the sleeping ones are
+/// left asleep (a count is a list call, which wakes one); otherwise every served service is.
 pub async fn index(State(s): State<Shared>, RawQuery(query): RawQuery) -> Response {
-    let counted = param(query.as_deref(), "counts") != Some("no");
+    let awake = match param(query.as_deref(), "counts") {
+        Some("awake") => Some(super::home::awake(&s)),
+        _ => None,
+    };
+    let counted = match (param(query.as_deref(), "counts"), &awake) {
+        (Some("no"), _) => view::Counted::No,
+        (_, Some(awake)) => view::Counted::Awake(awake),
+        _ => view::Counted::All,
+    };
     match bus(&s) {
         Ok(bus) => json(StatusCode::OK, &view::index(&bus, &s.facts, counted).await),
         Err(res) => *res,

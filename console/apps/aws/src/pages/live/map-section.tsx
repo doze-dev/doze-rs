@@ -67,7 +67,7 @@ export function MapSection({ calls, wiring, now, search, set, callerName, openCa
         </p>
       )}
       {nothing ? (
-        <EmptyState icon={RadioIcon} title={model.quiet.length > 0 ? "Nothing active in the last five minutes" : "Nothing to draw yet"} className="border-0 bg-transparent">
+        <EmptyState icon={RadioIcon} title={model.quiet.length > 0 ? "Nothing active in the last five minutes" : "Nothing to draw yet"} className="min-h-0 border-0 bg-transparent py-3">
           {model.quiet.length > 0 ? `${number(model.quiet.length)} quieter ${model.quiet.length === 1 ? "flow is" : "flows are"} kept; choose All flows to draw them.` : "Each app and each resource it calls is drawn here, with what they are wired to, as calls arrive."}
         </EmptyState>
       ) : (
@@ -106,7 +106,7 @@ export function MapSection({ calls, wiring, now, search, set, callerName, openCa
           Selected call · {openCall.action ?? "Unknown operation"} · {clockMsUtc(openCall.at_ms)}
         </p>
       )}
-      <Legend />
+      {!nothing && <Legend />}
       {model.more && <p className="mt-2 text-[12px] text-muted-foreground">The map holds the first 60 resources; the rest are in Resources.</p>}
     </section>
   );

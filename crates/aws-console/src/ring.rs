@@ -395,7 +395,7 @@ fn is_console(call: &Call) -> bool {
     &*call.caller == crate::resources::bus::CONSOLE
 }
 
-fn now_ms() -> u64 {
+pub(crate) fn now_ms() -> u64 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .map_or(0, |d| u64::try_from(d.as_millis()).unwrap_or(u64::MAX))

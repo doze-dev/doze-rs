@@ -105,3 +105,15 @@ test("an address the console has no page for says so and leads home", async ({ p
   await page.getByRole("link", { name: "Home", exact: true }).last().click();
   await expect(page.locator("h1").first()).toHaveText("Home");
 });
+
+test("a press of Refresh is felt: the icon turns, a check shows that it came, and the time of the data takes the ink for a moment", async ({ page }) => {
+  await open(page, "/", "Home");
+  const button = page.getByTestId("refresh-now");
+  await expect(button).toHaveAttribute("data-phase", "idle");
+  await button.click();
+  // The answer is local and quick, but the press is not over before it has been seen.
+  await expect(button).toHaveAttribute("data-phase", "turning");
+  await expect(button).toHaveAttribute("data-phase", "done");
+  await expect(page.getByRole("status").filter({ hasText: "Refreshed" })).toHaveCount(1);
+  await expect(button).toHaveAttribute("data-phase", "idle");
+});
