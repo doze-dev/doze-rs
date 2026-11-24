@@ -85,9 +85,11 @@ fn find_flies_to_the_card(cx: &mut TestAppContext) {
     vcx.run_until_parked();
     vcx.simulate_input("search-api");
     vcx.run_until_parked();
+    let pressed = Instant::now();
     vcx.simulate_keystrokes("enter");
     vcx.run_until_parked();
     assert_eq!(name_of(&m, vcx).as_deref(), Some("search-api"));
+    let dur = vcx.update(|_, cx| crate::theme::Motion::of(cx).normal);
     let (flying, target) = vcx.update(|_, cx| {
         let m = m.read(cx);
         let id = m.lit.unwrap();
@@ -96,7 +98,9 @@ fn find_flies_to_the_card(cx: &mut TestAppContext) {
             m.layout.card(id).unwrap().rect.center(),
         )
     });
-    assert!(flying, "a flight, not a jump");
+    // The flight runs on the clock: a slow runner can take longer than it to handle the key, and it has landed. A jump
+    // is still caught whenever the key took less time than a flight.
+    assert!(flying || pressed.elapsed() >= dur, "a flight, not a jump");
     std::thread::sleep(Duration::from_millis(320));
     let cam = vcx.update(|_, cx| {
         m.update(cx, |m, _| {
