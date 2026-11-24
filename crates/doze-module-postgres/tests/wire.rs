@@ -1,7 +1,8 @@
 //! The wire filter on the real server (`DOZE_POSTGRES_BINDIR`): clients reach PostgreSQL only through the module's
 //! `wire.accept`, as they do through doze. psql connects; TLS is terminated and required where the host says so; a
 //! query is cancelled by psql's own CancelRequest (a connection of its own, with the synthetic key); a hand-written
-//! driver sees a synthetic key, of the real one's length on protocol 3.2 (PostgreSQL 18), and cancels with it.
+//! driver sees a synthetic key, of the real one's length on protocol 3.2 (PostgreSQL 18), and cancels with it. The
+//! daemon's client TLS, minted from the doze authority per connection, verifies for psql across a rotation.
 #![cfg(unix)]
 #![allow(
     clippy::unwrap_used,
@@ -68,7 +69,8 @@ struct Front {
     port: u16,
 }
 
-async fn front(h: &Harness, req: WireAccept) -> Front {
+/// `req` is asked for each connection, as the daemon builds a `wire.accept` per connection.
+async fn front(h: &Harness, req: impl Fn() -> WireAccept + Send + Sync + 'static) -> Front {
     let booted = h
         .boot(&format!(
             "postgres \"wire\" {{\n  version = {}\n}}\n",
@@ -86,7 +88,7 @@ async fn front(h: &Harness, req: WireAccept) -> Front {
     let port = l.local_addr().unwrap().port();
     tokio::spawn(async move {
         while let Ok((c, _)) = l.accept().await {
-            let (m, req) = (m.clone(), req.clone());
+            let (m, req) = (m.clone(), req());
             let c = c.into_std().unwrap();
             tokio::spawn(async move { m.wire_accept(c, &req).await });
         }
@@ -130,7 +132,7 @@ fn run(mut c: std::process::Command) -> Result<String, String> {
 #[tokio::test(flavor = "multi_thread")]
 async fn psql_connects_through_the_filter_and_sessions_are_counted() {
     let Some(h) = harness() else { return };
-    let f = front(&h, plain()).await;
+    let f = front(&h, plain).await;
     for _ in 0..3 {
         let got = tokio::task::spawn_blocking({
             let c = psql(&f, "prefer", "SELECT current_database() || ' ' || 1 + 1");
@@ -182,7 +184,7 @@ async fn tls_is_terminated_and_required_where_the_host_says() {
         tls: Some((cert.into(), key.into())),
         ..plain()
     };
-    let f = front(&h, req).await;
+    let f = front(&h, move || req.clone()).await;
     let refused = tokio::task::spawn_blocking({
         let c = psql(&f, "disable", "SELECT 1");
         move || run(c)
@@ -197,10 +199,57 @@ async fn tls_is_terminated_and_required_where_the_host_says() {
     f.booted.stop(Duration::from_secs(20)).await;
 }
 
+/// The daemon's client TLS through the real filter: the certificate each connection is handed is minted from the doze
+/// authority as it is now, so a client that verifies against the root connects, and still does after `doze trust
+/// --rotate` (against the new root; the old one no longer vouches for what is served). A throwaway doze home.
+#[tokio::test(flavor = "multi_thread")]
+async fn a_client_verifying_against_the_doze_root_connects_across_a_rotation() {
+    let Some(h) = harness() else { return };
+    let home = std::env::temp_dir().join(format!("dzpg-tls-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&home);
+    std::fs::create_dir_all(&home).unwrap();
+    let ca = doze_names::ca::ca_dir(&home);
+    let tls =
+        doze_daemon::tls::WireTls::from_authority(&ca, "localhost", true, Duration::ZERO).unwrap();
+    let f = front(&h, move || {
+        let p = tls.pair();
+        WireAccept {
+            require_tls: tls.required(),
+            local: false,
+            tls: Some((p.0.clone().into(), p.1.clone().into())),
+            ..plain()
+        }
+    })
+    .await;
+    let old = home.join("old-root.crt");
+    std::fs::copy(ca.join("root.crt"), &old).unwrap();
+    let verifying = |root: std::path::PathBuf| {
+        let port = f.port;
+        let bin = f.booted.toolchain.bin_dir.clone();
+        tokio::task::spawn_blocking(move || {
+            let mut c = std::process::Command::new(std::path::Path::new(&bin).join("psql"));
+            let conn = format!(
+                "host=localhost hostaddr=127.0.0.1 port={port} user=postgres dbname=wire sslmode=verify-full sslrootcert='{}'",
+                root.display()
+            );
+            c.args(["-X", "-tA", &conn, "-c", "SELECT 1"]);
+            run(c)
+        })
+    };
+    assert_eq!(verifying(old.clone()).await.unwrap().unwrap(), "1");
+
+    doze_names::ca::Ca::rotate(&ca).unwrap();
+    assert_eq!(verifying(ca.join("root.crt")).await.unwrap().unwrap(), "1");
+    let e = verifying(old).await.unwrap().unwrap_err();
+    assert!(e.contains("certificate verify failed"), "{e}");
+    f.booted.stop(Duration::from_secs(20)).await;
+    let _ = std::fs::remove_dir_all(&home);
+}
+
 #[tokio::test(flavor = "multi_thread")]
 async fn psql_cancels_a_query_through_the_filter() {
     let Some(h) = harness() else { return };
-    let f = front(&h, plain()).await;
+    let f = front(&h, plain).await;
     let mut slow = tokio::process::Command::from(psql(&f, "disable", "SELECT pg_sleep(60)"));
     let child = slow
         .stderr(std::process::Stdio::piped())
@@ -293,7 +342,7 @@ async fn query(s: &mut tokio::net::TcpStream, q: &str) -> Vec<(u8, Vec<u8>)> {
 #[tokio::test(flavor = "multi_thread")]
 async fn a_driver_sees_a_synthetic_key_and_cancels_with_it() {
     let Some(h) = harness() else { return };
-    let f = front(&h, plain()).await;
+    let f = front(&h, plain).await;
     let mut s = tokio::net::TcpStream::connect(("127.0.0.1", f.port))
         .await
         .unwrap();

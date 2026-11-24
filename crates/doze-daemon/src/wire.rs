@@ -45,12 +45,13 @@ impl crate::front::Targets for Targets {
             }
             let accept = WireAccept {
                 instance: instance.to_owned(),
-                require_tls: self.tls.as_ref().is_some_and(|t| t.required),
+                require_tls: self.tls.as_ref().is_some_and(WireTls::required),
                 local: false,
-                tls: self
-                    .tls
-                    .as_ref()
-                    .map(|t| (t.cert.clone().into(), t.key.clone().into())),
+                // As it is now: renewed, rotated or replaced since the stack loaded.
+                tls: self.tls.as_ref().map(|t| {
+                    let p = t.pair();
+                    (p.0.clone().into(), p.1.clone().into())
+                }),
             };
             Some(Wire { module, accept })
         })
