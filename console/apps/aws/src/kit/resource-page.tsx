@@ -34,7 +34,7 @@ export function ResourcePage({ detail, meta, banner, overview, tabs = [], tab, o
   const verb = (v: Verb) => {
     const why = verbStates?.[v.id]?.disabled;
     return (
-      <Button key={v.id} type="button" variant={v.id === primary ? "default" : "outline"} className={cn(v.id !== primary && "bg-card", v.danger && "border-bad/40 text-bad hover:text-bad")} disabled={Boolean(why)} title={why} onClick={() => onVerb?.(v)} data-testid={`verb-${v.id}`}>
+      <Button key={v.id} type="button" variant={v.id === primary ? "default" : v.danger ? "ghost" : "outline"} className={cn(v.id !== primary && !v.danger && "bg-card", v.danger && "text-bad hover:bg-bad/10 hover:text-bad")} disabled={Boolean(why)} title={why} onClick={() => onVerb?.(v)} data-testid={`verb-${v.id}`}>
         {v.label}
       </Button>
     );
