@@ -35,7 +35,11 @@ fn a_specific_bind_is_the_listener_and_a_wildcard_is_the_advertised_name() {
 #[test]
 fn a_client_is_pointed_at_the_advertised_address_not_the_bind() {
     let mut f = facts();
-    assert_eq!(f.bootstrap(), "127.0.0.1:9092", "the same address when nothing is advertised");
+    assert_eq!(
+        f.bootstrap(),
+        "127.0.0.1:9092",
+        "the same address when nothing is advertised"
+    );
     f.listen = "127.0.0.1:25427".parse().unwrap();
     f.advertised_port = 29092;
     assert_eq!(f.bootstrap(), "127.0.0.1:29092");

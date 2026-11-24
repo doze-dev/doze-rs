@@ -151,14 +151,25 @@ async fn the_address_a_client_is_given_is_the_advertised_one_when_it_is_not_the_
     let shell = get("/api/v1/shell").await;
     assert_eq!(shell["address"], stack.as_str(), "the top bar: {shell}");
     let h = home(&app).await;
-    assert_eq!(h["home"]["listen"], stack.as_str(), "Home's Address card: {h}");
+    assert_eq!(
+        h["home"]["listen"],
+        stack.as_str(),
+        "Home's Address card: {h}"
+    );
     assert_eq!(h["home"]["probe"]["listen"], bind.as_str(), "{h}");
     assert_eq!(h["home"]["probe"]["advertised"], stack.as_str(), "{h}");
     assert_eq!(h["home"]["probe"]["same"], false, "{h}");
     let c = get("/api/v1/connect").await;
     let text = c.to_string();
-    assert_eq!(c["connect"]["listen"], stack.as_str(), "Connect's Address: {c}");
-    assert!(text.contains(&format!("bootstrap.servers={stack}")), "{text}");
+    assert_eq!(
+        c["connect"]["listen"],
+        stack.as_str(),
+        "Connect's Address: {c}"
+    );
+    assert!(
+        text.contains(&format!("bootstrap.servers={stack}")),
+        "{text}"
+    );
     assert!(
         !text.contains(&format!("bootstrap.servers={bind}")),
         "a snippet points at the private bind: {text}"
