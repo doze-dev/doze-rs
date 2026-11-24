@@ -78,6 +78,9 @@ struct Slot {
     started: Option<Instant>,
     idle_since: Option<Instant>,
     next_restart: Option<Instant>,
+    /// Why it cannot be reached at all (a listener of its that could not be opened): it shows failed with this, and
+    /// every start is refused with it, for as long as the stack runs.
+    unreachable: Option<String>,
 }
 
 /// What a subscriber of transitions compares (Go's `instSig`): connection churn alone is not a transition.
@@ -207,6 +210,17 @@ impl Table {
     /// Takes it out of this run (`off`) or puts it back.
     pub fn set_off(&mut self, name: &str, off: bool) {
         self.slot(name).view.off = off;
+    }
+
+    /// It cannot be reached at all, for `why` (its address is taken): failed with that, and it stays so.
+    pub fn set_unreachable(&mut self, name: &str, why: &str) {
+        self.mark_failed(name, why);
+        self.slot(name).unreachable = Some(why.to_string());
+    }
+
+    /// Why it cannot be reached, if it cannot ([`Table::set_unreachable`]).
+    pub fn unreachable(&self, name: &str) -> Option<&str> {
+        self.slots.get(name).and_then(|s| s.unreachable.as_deref())
     }
 
     /// Whether it was taken out of this run.
@@ -397,6 +411,11 @@ fn view_of(s: &Slot, now: Now) -> Instance {
     v.started_at = s.started.map(|t| now.wall_of(t));
     v.idle_since = s.idle_since.map(|t| now.wall_of(t));
     v.next_restart = s.next_restart.map(|t| now.wall_of(t));
+    // Whatever else moved it (a stop says reaped), an instance nothing can reach is failed, and says why.
+    if let Some(why) = &s.unreachable {
+        v.state = State::Failed;
+        v.last_error.clone_from(why);
+    }
     v
 }
 

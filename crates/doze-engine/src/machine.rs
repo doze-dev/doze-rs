@@ -230,6 +230,9 @@ impl Machine {
         if off {
             return (Decision::Refuse(Error::Off(name.into())), Vec::new());
         }
+        if let Some(why) = self.table.unreachable(name) {
+            return (Decision::Refuse(Error::Failed(why.into())), Vec::new());
+        }
         let boot = self.id();
         let c = self.ctl(name);
         c.boot = Some(boot);
