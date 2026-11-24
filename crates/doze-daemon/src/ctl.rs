@@ -151,9 +151,9 @@ pub fn start(run: &RunDir, s: &Start<'_>) -> Result<u32, String> {
 /// doze home fetches the stack's modules before the daemon serves, and the person waiting should see why.
 ///
 /// The wait is for progress, not for a fixed time (Go gave up after 10 s, which a module download on a slow network
-/// outlasts): a daemon that has written nothing for [`START_WAIT`] has failed to start, unless its `__fetch` child said
-/// a download is under way ([`doze_fetch::child::busy`]), which it is given [`DOWNLOAD_WAIT`] for; and none is waited
-/// for past [`START_CEILING`]. A daemon that exits is reported at once.
+/// outlasts): a daemon that has written nothing for `START_WAIT` has failed to start, unless its `__fetch` child said
+/// a download is under way ([`doze_fetch::child::busy`]), which it is given `DOWNLOAD_WAIT` for; and none is waited
+/// for past `START_CEILING`. A daemon that exits is reported at once.
 pub fn start_relaying(
     run: &RunDir,
     s: &Start<'_>,
