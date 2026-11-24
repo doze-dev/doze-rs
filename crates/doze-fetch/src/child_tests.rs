@@ -203,3 +203,29 @@ fn a_read_only_lock_is_never_written() {
     assert!(r.notes.iter().all(|n| !n.starts_with("pinned")), "{r:?}");
     assert!(!lock.exists(), "a dry run's child never writes the lock");
 }
+
+/// A module request says it fetches until the module is pinned and its build is here: then it touches no network, and
+/// a daemon waiting on it is not told a download is under way.
+#[test]
+fn a_module_request_says_it_fetches_until_pinned_and_cached() {
+    let reg = registry("says", &[("0.3.0", 2, &["9"])], "");
+    let p = place(modules(&reg));
+    let lock = reg.home.join("doze.lock");
+    let ask = Request::Module {
+        source: valkey().to_string(),
+        majors: majors(&["9"]),
+        lock: Some(lock.clone()),
+        persist: true,
+    };
+    let said = starting(&ask, &p).unwrap_or_default();
+    assert!(
+        said.starts_with("fetching module doze/valkey from "),
+        "{said}"
+    );
+    assert_eq!(busy(&format!("doze: {said}")), Some(true));
+    let r = serve(&ask, &p);
+    assert_eq!(r.error, None, "{r:?}");
+    assert_eq!(starting(&ask, &p), None, "pinned and cached");
+    assert_eq!(busy("doze: download done in 1.2s"), Some(false));
+    assert_eq!(busy("doze daemon: serving shop"), None);
+}

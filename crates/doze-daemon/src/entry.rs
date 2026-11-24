@@ -249,6 +249,8 @@ async fn run(config: &Path, version: &str) -> Result<(), String> {
     let stop = doze_os::signal::install().map_err(|e| format!("catching stop signals: {e}"))?;
     // Before the catalog starts a single module: a second daemon for this stack says so and nothing else runs.
     let (run, _alone) = no_daemon_yet(config, version)?;
+    #[cfg(debug_assertions)]
+    slow_start_for_tests().await;
     let catalog = Arc::new(catalog(config)?);
     let mut assembled = assemble(config, version, catalog.clone(), BTreeMap::new()).await?;
     let front = Arc::new(assembled.open_front());
@@ -310,6 +312,34 @@ async fn run(config: &Path, version: &str) -> Result<(), String> {
     zone.close().await;
     let _ = std::fs::remove_file(run.pid_file());
     Ok(())
+}
+
+/// The variable a debug build's daemon reads to start slowly, as on a fresh doze home where it fetches each module
+/// before it serves: `<seconds>` waits saying nothing (a stuck start), `<seconds>,download` waits between the lines a
+/// `__fetch` child writes around a download. Tests of `doze up` use it, because no module they can build is in a
+/// registry they can serve. A release build has no such variable: this is compiled out.
+#[cfg(debug_assertions)]
+pub const SLOW_START_VAR: &str = "DOZE_TEST_SLOW_START";
+
+#[cfg(debug_assertions)]
+#[allow(clippy::print_stderr)] // the daemon's stderr is its log file
+async fn slow_start_for_tests() {
+    let Ok(v) = std::env::var(SLOW_START_VAR) else {
+        return;
+    };
+    let (secs, download) = v
+        .split_once(',')
+        .map_or((v.as_str(), false), |(s, w)| (s, w == "download"));
+    let Ok(secs) = secs.trim().parse::<u64>() else {
+        return;
+    };
+    if download {
+        eprintln!("doze: fetching module doze/slow from a test registry…");
+    }
+    tokio::time::sleep(std::time::Duration::from_secs(secs)).await;
+    if download {
+        eprintln!("doze: download done in {secs}.0s");
+    }
 }
 
 /// Stops module processes nothing has called for a while, now and then.

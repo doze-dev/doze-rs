@@ -257,3 +257,108 @@ fn a_sigint_sent_to_doze_run_alone_reaches_the_command() {
     assert_eq!(status.code(), Some(41), "{status}");
     assert_eq!(down.code, 0, "{}", down.stderr);
 }
+
+/// `doze up` as the real binary, in its own sandbox, with `DOZE_TEST_SLOW_START` (a debug daemon's slow start, see
+/// `doze_daemon::entry::SLOW_START_VAR`) set to `slow`; its exit code, stdout and stderr, and how long it took.
+#[cfg(unix)]
+fn up_slowly(
+    sb: &fixture::Sandbox,
+    slow: &str,
+) -> (Option<i32>, String, String, std::time::Duration) {
+    let t = std::time::Instant::now();
+    let out = std::process::Command::new(env!("CARGO_BIN_EXE_doze"))
+        .args(["up", "web"])
+        .current_dir(sb.project())
+        .env("DOZE_HOME", sb.home())
+        .env("DOZE_ZONE", "off")
+        .env("DOZE_NO_UPDATE_NOTIFIER", "1")
+        .env("DOZE_TEST_SLOW_START", slow)
+        .stdin(std::process::Stdio::null())
+        .output()
+        .unwrap();
+    (
+        out.status.code(),
+        String::from_utf8_lossy(&out.stdout).into_owned(),
+        String::from_utf8_lossy(&out.stderr).into_owned(),
+        t.elapsed(),
+    )
+}
+
+#[cfg(unix)]
+fn slow_stack() -> (fixture::Sandbox, doze_projects::StackKey) {
+    let (sb, _, _) = setup::prepare(&["project bare".to_owned()]);
+    let hcl = format!(
+        "stack = \"shop\"\nhome = \"{}\"\n\napp \"web\" {{\n  run = \"exec sleep 600\"\n}}\n",
+        sb.home().display()
+    );
+    std::fs::write(sb.project().join("doze.hcl"), hcl).unwrap();
+    let key = doze_projects::StackKey::for_config(&sb.home(), &sb.project().join("doze.hcl"));
+    (sb, key)
+}
+
+/// A first `up` on a fresh doze home: the daemon fetches the stack's modules before it serves, and on a slow network
+/// that outlasts the 10 s a start used to be given (2026-11-24: `up` failed with an empty "recent log" while the
+/// daemon went on to serve). While its fetch child says a download is under way the start is waited for, and what it
+/// says is relayed, so the wait has a reason on screen.
+#[cfg(unix)]
+#[test]
+fn a_first_up_waits_out_a_slow_module_download_and_says_so() {
+    if !setup::sockets() {
+        return;
+    }
+    let (sb, key) = slow_stack();
+    let (code, stdout, stderr, took) = up_slowly(&sb, "13,download");
+    let _reap = Reap(doze_projects::daemon_pid(&key).map(|p| p.pid));
+    assert_eq!(code, Some(0), "{stdout}\n{stderr}");
+    assert!(took >= std::time::Duration::from_secs(13), "{took:?}");
+    assert!(
+        stderr.contains("› fetching module doze/slow from a test registry…"),
+        "{stderr}"
+    );
+    assert!(
+        !stderr.contains("download done"),
+        "only the slow part is relayed: {stderr}"
+    );
+    assert!(stdout.contains("✓ web awake"), "{stdout}");
+    let down = fixture::run(
+        &sb,
+        &fixture::FakeHost::default(),
+        Terminals::default(),
+        false,
+        &["down"],
+    );
+    assert_eq!(down.code, 0, "{}", down.stderr);
+}
+
+/// A daemon that says nothing and does not serve has not started: after 10 s of silence `up` fails, says so in words
+/// (not an empty "recent log"), and names the daemon it left, which this test then ends.
+#[cfg(unix)]
+#[test]
+fn a_silent_stuck_daemon_still_fails_with_a_clear_message() {
+    if !setup::sockets() {
+        return;
+    }
+    let (sb, _key) = slow_stack();
+    let (code, stdout, stderr, took) = up_slowly(&sb, "60");
+    let pid: Option<u32> = stderr
+        .split("(pid ")
+        .nth(1)
+        .and_then(|r| r.split(',').next())
+        .and_then(|p| p.parse().ok());
+    if let Some(pid) = pid.filter(|p| doze_os::process::alive(*p)) {
+        // Its stop handler waits for it to serve: ended outright (it is this test's, and runs nothing yet).
+        let _ = doze_os::process::kill(pid);
+    }
+    assert_ne!(code, Some(0), "{stdout}\n{stderr}");
+    assert!(
+        took >= std::time::Duration::from_secs(10) && took < std::time::Duration::from_secs(40),
+        "{took:?}"
+    );
+    assert!(pid.is_some(), "the daemon left running is named: {stderr}");
+    assert!(
+        stderr.contains(
+            "did not come up: it wrote nothing for 10s; its log has nothing from this start"
+        ),
+        "{stderr}"
+    );
+}

@@ -14,8 +14,17 @@ use std::time::{Duration, Instant};
 /// The hidden argument the daemon runs under (Go's `doze __daemon --config <path>`).
 pub const ARG: &str = "__daemon";
 
-/// How long a start waits for the socket (Go's 100 × 100 ms).
+/// How long a start waits for the socket while the daemon says nothing (Go's 100 × 100 ms, from the start): a daemon
+/// that writes a line to its log has that long again from the line.
 const START_WAIT: Duration = Duration::from_secs(10);
+
+/// How long a start waits while the daemon's `__fetch` child says a download is under way (a fresh doze home fetches
+/// each module before the daemon serves): as long as the daemon itself gives the child, after which it fails the
+/// download and exits, which the start sees.
+const DOWNLOAD_WAIT: Duration = doze_fetch::child::CHILD_LIMIT;
+
+/// The longest a start waits in all, however busy the daemon says it is.
+const START_CEILING: Duration = Duration::from_secs(30 * 60);
 
 /// How long a stop waits for the daemon to go (Go's 200 × 100 ms: past the shutdown's 15 s reap budget).
 const STOP_WAIT: Duration = Duration::from_secs(20);
@@ -135,6 +144,21 @@ pub struct Start<'a> {
 /// Starts the daemon detached and waits for its socket (Go's `Start`); its pid. On a failed start the error quotes the
 /// end of its log.
 pub fn start(run: &RunDir, s: &Start<'_>) -> Result<u32, String> {
+    start_relaying(run, s, &mut |_| {})
+}
+
+/// [`start`], handing `say` each line the daemon writes to its log while it is waited for: a first start on a fresh
+/// doze home fetches the stack's modules before the daemon serves, and the person waiting should see why.
+///
+/// The wait is for progress, not for a fixed time (Go gave up after 10 s, which a module download on a slow network
+/// outlasts): a daemon that has written nothing for [`START_WAIT`] has failed to start, unless its `__fetch` child said
+/// a download is under way ([`doze_fetch::child::busy`]), which it is given [`DOWNLOAD_WAIT`] for; and none is waited
+/// for past [`START_CEILING`]. A daemon that exits is reported at once.
+pub fn start_relaying(
+    run: &RunDir,
+    s: &Start<'_>,
+    say: &mut dyn FnMut(&str),
+) -> Result<u32, String> {
     doze_os::fs::private_dir(run.path())
         .map_err(|e| format!("creating {}: {e}", run.path().display()))?;
     let log = std::fs::OpenOptions::new()
@@ -142,6 +166,8 @@ pub fn start(run: &RunDir, s: &Start<'_>) -> Result<u32, String> {
         .append(true)
         .open(run.log_file())
         .map_err(|e| format!("opening {}: {e}", run.log_file().display()))?;
+    // This start's lines are the ones after what earlier daemons wrote.
+    let mut lines = LogLines::from_end(run.log_file());
     let err = log.try_clone().map_err(|e| e.to_string())?;
     let mut cmd = std::process::Command::new(s.exe);
     cmd.arg(ARG)
@@ -154,26 +180,151 @@ pub fn start(run: &RunDir, s: &Start<'_>) -> Result<u32, String> {
         cmd.env(format!("DOZE_VAR_{k}"), v);
     }
     let pid = doze_os::detach::spawn_detached(cmd).map_err(|e| format!("starting daemon: {e}"))?;
+    wait_up(run, pid, &mut lines, say)
+}
+
+/// Waits for the daemon `pid` started to serve, relaying its log (see [`start_relaying`]); its pid.
+fn wait_up(
+    run: &RunDir,
+    pid: u32,
+    lines: &mut LogLines,
+    say: &mut dyn FnMut(&str),
+) -> Result<u32, String> {
     let t = Instant::now();
-    while t.elapsed() < START_WAIT {
+    let mut said = Instant::now();
+    let mut downloads = 0usize;
+    loop {
         // Up means answering and named in the pid file: the daemon writes it just after its socket accepts, and
         // what runs next (`down`, the app) finds the daemon by it.
         if running(run) && self::pid(run).is_some() {
             return Ok(pid);
         }
+        for line in lines.read() {
+            said = Instant::now();
+            match doze_fetch::child::busy(&line) {
+                Some(true) => downloads += 1,
+                Some(false) => downloads = downloads.saturating_sub(1),
+                None => {}
+            }
+            say(&line);
+        }
         if !doze_os::process::alive(pid) {
+            // What it wrote as it went.
+            for line in lines.read() {
+                say(&line);
+            }
             return Err(format!(
-                "daemon exited during startup:\n{}",
-                tail_log(run, 15)
+                "daemon exited during startup: {}",
+                this_start(lines)
             ));
+        }
+        let quiet = if downloads > 0 {
+            DOWNLOAD_WAIT
+        } else {
+            START_WAIT
+        };
+        if said.elapsed() >= quiet || t.elapsed() >= START_CEILING {
+            break;
         }
         std::thread::sleep(Duration::from_millis(100));
     }
+    let why = if t.elapsed() >= START_CEILING {
+        format!("did not come up within {}", secs(START_CEILING))
+    } else if downloads > 0 {
+        format!(
+            "did not come up: a download it started said nothing for {}",
+            secs(DOWNLOAD_WAIT)
+        )
+    } else if lines.seen == 0 {
+        format!("did not come up: it wrote nothing for {}", secs(START_WAIT))
+    } else {
+        format!(
+            "did not come up: it wrote nothing more for {}",
+            secs(START_WAIT)
+        )
+    };
     Err(format!(
-        "daemon did not come up within 10s; recent log:\n{}\n(full log: {})",
-        tail_log(run, 15),
+        "daemon (pid {pid}, still running) {why}; {}\n(full log: {})",
+        this_start(lines),
         run.log_file().display()
     ))
+}
+
+/// A wait in words: `10s`, `11m`.
+fn secs(d: Duration) -> String {
+    match d.as_secs() {
+        s if s >= 120 && s % 60 == 0 => format!("{}m", s / 60),
+        s => format!("{s}s"),
+    }
+}
+
+/// What this start's daemon wrote, for an error: its last lines, or that it wrote none (an empty "recent log" under
+/// the error said nothing).
+fn this_start(lines: &LogLines) -> String {
+    if lines.seen == 0 {
+        return "its log has nothing from this start".into();
+    }
+    let last: Vec<&str> = lines.last.iter().map(String::as_str).collect();
+    format!("recent log:\n{}", last.join("\n"))
+}
+
+/// The complete lines a log gains, read from where it ended (a partial last line waits for its end).
+#[derive(Debug)]
+struct LogLines {
+    path: PathBuf,
+    offset: u64,
+    pending: Vec<u8>,
+    /// How many lines were read.
+    seen: usize,
+    /// The last [`LogLines::KEEP`] of them.
+    last: std::collections::VecDeque<String>,
+}
+
+impl LogLines {
+    const KEEP: usize = 15;
+
+    fn from_end(path: PathBuf) -> LogLines {
+        let offset = std::fs::metadata(&path).map_or(0, |m| m.len());
+        LogLines {
+            path,
+            offset,
+            pending: Vec::new(),
+            seen: 0,
+            last: std::collections::VecDeque::new(),
+        }
+    }
+
+    fn read(&mut self) -> Vec<String> {
+        use std::io::{Read as _, Seek as _};
+        let Ok(mut f) = std::fs::File::open(&self.path) else {
+            return Vec::new();
+        };
+        let mut buf = Vec::new();
+        if f.seek(io::SeekFrom::Start(self.offset)).is_err() || f.read_to_end(&mut buf).is_err() {
+            return Vec::new();
+        }
+        self.offset += buf.len() as u64;
+        self.pending.extend_from_slice(&buf);
+        let Some(last) = self.pending.iter().rposition(|b| *b == b'\n') else {
+            return Vec::new();
+        };
+        let rest = self.pending.split_off(last + 1);
+        let done = std::mem::replace(&mut self.pending, rest);
+        let lines: Vec<String> = String::from_utf8_lossy(&done)
+            .split('\n')
+            .map(|l| l.trim_end_matches('\r'))
+            .filter(|l| !l.is_empty())
+            .map(str::to_owned)
+            .collect();
+        self.seen += lines.len();
+        for l in &lines {
+            if self.last.len() == LogLines::KEEP {
+                self.last.pop_front();
+            }
+            self.last.push_back(l.clone());
+        }
+        lines
+    }
 }
 
 /// Asks the daemon to stop and waits for it to go (Go's `Stop`): `Ok(false)` when none was running, `Ok(true)` once it

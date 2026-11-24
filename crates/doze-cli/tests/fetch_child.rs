@@ -83,12 +83,65 @@ async fn a_child_resolves_from_the_mirror_and_says_why_it_failed() {
     assert!(err.starts_with("fetching module index"), "{err}");
 }
 
+/// One request to a `__fetch` child with its home, mirror and registry under `dir`: its reply and its log (stderr).
+#[allow(clippy::unwrap_used)]
+fn ask(dir: &std::path::Path, req: &str) -> (String, String) {
+    use std::io::Write;
+    use std::process::{Command, Stdio};
+    let mut child = Command::new(DOZE)
+        .arg("__fetch")
+        .env("DOZE_HOME", dir.join("home"))
+        .env(
+            "DOZE_MIRROR",
+            format!("file://{}", dir.join("mirror").display()),
+        )
+        .env("DOZE_REGISTRY", dir.join("no-registry"))
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .unwrap();
+    child
+        .stdin
+        .take()
+        .unwrap()
+        .write_all(format!("{req}\n").as_bytes())
+        .unwrap();
+    let out = child.wait_with_output().unwrap();
+    (
+        String::from_utf8_lossy(&out.stdout).into_owned(),
+        String::from_utf8_lossy(&out.stderr).into_owned(),
+    )
+}
+
+/// A module not pinned and cached here: the registry is asked (here one with nothing in it), and that is said with its
+/// end, because a daemon on a fresh doze home does it before it serves, and `up` waits for it while it goes on.
+#[test]
+fn a_child_says_a_module_fetch_on_its_log() {
+    let d = Dir(std::env::temp_dir().join(format!("doze-cli-fetch-mod-{}", std::process::id())));
+    std::fs::create_dir_all(&d.0).unwrap();
+    let (reply, log) = ask(
+        &d.0,
+        r#"{"op":"module","source":"valkey","majors":["9"],"lock":null,"persist":false}"#,
+    );
+    assert!(reply.contains("error"), "{reply}");
+    let (start, end) = log.split_once('\n').unwrap();
+    assert_eq!(
+        start,
+        format!(
+            "doze: fetching module doze/valkey from {}…",
+            d.0.join("no-registry").display()
+        )
+    );
+    assert!(end.starts_with("doze: download failed after "), "{log}");
+    assert_eq!(doze_fetch::child::busy(start), Some(true));
+    assert_eq!(doze_fetch::child::busy(end.trim_end()), Some(false));
+}
+
 /// The child says a download as it starts, on its stderr: the daemon's log, which `doze up` relays while a service
 /// wakes (an engine build takes a minute and more; `up` said nothing meanwhile). Only what is not on this machine yet.
 #[test]
 fn a_child_says_an_engine_download_on_its_log() {
-    use std::io::Write;
-    use std::process::{Command, Stdio};
     let d = Dir(std::env::temp_dir().join(format!("doze-cli-fetch-log-{}", std::process::id())));
     let mirror = d.0.join("mirror/valkey");
     std::fs::create_dir_all(&mirror).unwrap();
@@ -100,46 +153,26 @@ fn a_child_says_an_engine_download_on_its_log() {
         triple()
     );
     std::fs::write(mirror.join("index.yaml"), manifest).unwrap();
-    let ask = |req: &str| {
-        let mut child = Command::new(DOZE)
-            .arg("__fetch")
-            .env("DOZE_HOME", d.0.join("home"))
-            .env(
-                "DOZE_MIRROR",
-                format!("file://{}", d.0.join("mirror").display()),
-            )
-            .env("DOZE_REGISTRY", d.0.join("no-registry"))
-            .stdin(Stdio::piped())
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
-            .spawn()
-            .unwrap();
-        child
-            .stdin
-            .take()
-            .unwrap()
-            .write_all(format!("{req}\n").as_bytes())
-            .unwrap();
-        let out = child.wait_with_output().unwrap();
-        (
-            String::from_utf8_lossy(&out.stdout).into_owned(),
-            String::from_utf8_lossy(&out.stderr).into_owned(),
-        )
-    };
+    let ask = |req: &str| ask(&d.0, req);
     let ensure = format!(
         r#"{{"op":"ensure","engine":"valkey","full":"9.1.1","target":"{}","expected_sha":null}}"#,
         triple()
     );
     let (reply, log) = ask(&ensure);
     assert!(reply.contains("extracting"), "{reply}");
+    // The start and the end: a daemon not yet serving is waited for while a download is under way.
+    let (start, end) = log.split_once('\n').unwrap();
     assert_eq!(
-        log,
+        start,
         format!(
-            "doze: downloading valkey 9.1.1 ({}) from {}…\n",
+            "doze: downloading valkey 9.1.1 ({}) from {}…",
             triple(),
             d.0.join("mirror/valkey").display()
         )
     );
+    assert!(end.starts_with("doze: download failed after "), "{log}");
+    assert_eq!(doze_fetch::child::busy(start), Some(true));
+    assert_eq!(doze_fetch::child::busy(end.trim_end()), Some(false));
     // A request that downloads nothing says nothing.
     let (reply, log) = ask(r#"{"op":"resolve_major","engine":"valkey","major":"9"}"#);
     assert!(reply.contains("9.1.1"), "{reply}");
