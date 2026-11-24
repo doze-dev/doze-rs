@@ -239,9 +239,9 @@ impl Prober {
         ProbeView {
             verdict: Verdict::NotChecked,
             rules: Vec::<Rule>::new(),
-            listen: f.bootstrap(),
+            listen: f.listener(),
             advertised: f.advertised(),
-            same: f.bootstrap() == f.advertised(),
+            same: f.listener() == f.advertised(),
             metadata_version: self.backend.version(ApiKey::Metadata),
         }
     }
@@ -256,7 +256,7 @@ impl Prober {
                 dial(&to_advertised, f.tls, ADVERTISED_DEADLINE),
             );
             Measured {
-                listen: f.bootstrap(),
+                listen: f.listener(),
                 metadata_version: self.backend.version(ApiKey::Metadata),
                 advertised: f.advertised(),
                 tls: f.tls,

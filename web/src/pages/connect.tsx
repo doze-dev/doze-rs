@@ -4,6 +4,7 @@ import { useConnect } from "@/api/queries";
 import type { ClientSnippet } from "@/api/types/ClientSnippet";
 import type { ConnectResponse } from "@/api/types/ConnectResponse";
 import type { Tok } from "@/api/types/Tok";
+import { AddressNote } from "@/components/app/address-note";
 import { CodeValue } from "@/components/app/code-value";
 import { CopyButton } from "@/components/app/copy-button";
 import { PageHeader } from "@/components/app/page-header";
@@ -72,9 +73,7 @@ function Loaded({ r, as, setAs }: { r: ConnectResponse; as: CopyAs; setAs: (a: C
           <CardContent className="flex flex-col gap-3">
             <p className="text-[13.5px] text-muted-foreground">Bootstrap from this address. Clients are then told where to reconnect.</p>
             <CodeValue value={c.listen} label="Address" className="h-11" />
-            <p className="text-[12.5px] text-muted-foreground">
-              The listener, set by <code className="font-mono">--listen</code>. {c.loopback ? "It is on loopback, so only this machine can reach it." : "It is not on loopback, so other machines can reach it."}
-            </p>
+            <AddressNote probe={c.probe} loopback={c.loopback} />
             <Separator className="my-3" />
             <h3 className="text-[15px] font-semibold text-bright">From another machine or a container</h3>
             <p className="text-[13px] text-muted-foreground">Listen on every interface and advertise an address the other side can use.</p>

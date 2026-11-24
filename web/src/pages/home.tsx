@@ -2,6 +2,7 @@ import { Link } from "@tanstack/react-router";
 import { ActivityIcon, ArrowRightIcon, CircleAlertIcon, CircleCheckIcon, CodeIcon, HardDriveIcon, InfoIcon, PlusIcon, SettingsIcon, TriangleAlertIcon } from "lucide-react";
 import { useHome } from "@/api/queries";
 import type { HomeResponse } from "@/api/types/HomeResponse";
+import { AddressNote } from "@/components/app/address-note";
 import { CodeValue } from "@/components/app/code-value";
 import { DiskAlarmBanner } from "@/components/app/disk-alarm";
 import { Logo, Wordmark } from "@/components/app/brand";
@@ -132,11 +133,9 @@ function AddressCard({ r }: { r: HomeResponse }) {
         </Link>
       </CardHeader>
       <CardContent className="flex flex-col gap-3">
-        <p className="text-[13.5px] text-muted-foreground">Point any Kafka client at this address. It is where the broker listens and, below, where it tells clients to reconnect.</p>
+        <p className="text-[13.5px] text-muted-foreground">Point any Kafka client at this address. It is where the broker tells clients to reconnect, checked below.</p>
         <CodeValue value={h.listen} label="Address" className="h-11 text-[15px]" />
-        <p className="text-[12.5px] text-muted-foreground">
-          The listener, set by <code className="font-mono">--listen</code>. {h.loopback ? "On loopback it is reachable from this machine only." : "It is not on loopback, so other machines can reach it."}
-        </p>
+        <AddressNote probe={h.probe} loopback={h.loopback} />
         <Separator className="my-3" />
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-3">

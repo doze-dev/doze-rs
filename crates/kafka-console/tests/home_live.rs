@@ -129,6 +129,54 @@ async fn a_read_of_home_never_dials_and_check_now_dials_every_time() {
     w.stop().await;
 }
 
+/// Under doze the broker listens on the engine's private backend (a port chosen afresh at each start) and advertises the
+/// stack's address, the one that wakes it. Every address a person copies is the advertised one: the top bar, Home's
+/// Address card, Connect and its snippets, the first commands; the bind is said beside it, as the listener.
+#[tokio::test]
+async fn the_address_a_client_is_given_is_the_advertised_one_when_it_is_not_the_bind() {
+    // The stack's front door, standing in for doze's: a broker of its own as far as the check can tell.
+    let (front, _) = counting_kafka().await;
+    let w = world("front", |_, s| s.advertised_port = Some(front)).await;
+    let (stack, bind) = (format!("127.0.0.1:{front}"), w.facts.listen.to_string());
+    assert_ne!(stack, bind);
+    let app = w.router();
+    let get = |path: &'static str| {
+        let app = app.clone();
+        async move {
+            let (res, body) = send(&app, api_get(path)).await;
+            assert_eq!(res.status(), StatusCode::OK, "{path}: {body}");
+            serde_json::from_str::<serde_json::Value>(&body).unwrap()
+        }
+    };
+    let shell = get("/api/v1/shell").await;
+    assert_eq!(shell["address"], stack.as_str(), "the top bar: {shell}");
+    let h = home(&app).await;
+    assert_eq!(
+        h["home"]["listen"],
+        stack.as_str(),
+        "Home's Address card: {h}"
+    );
+    assert_eq!(h["home"]["probe"]["listen"], bind.as_str(), "{h}");
+    assert_eq!(h["home"]["probe"]["advertised"], stack.as_str(), "{h}");
+    assert_eq!(h["home"]["probe"]["same"], false, "{h}");
+    let c = get("/api/v1/connect").await;
+    let text = c.to_string();
+    assert_eq!(
+        c["connect"]["listen"],
+        stack.as_str(),
+        "Connect's Address: {c}"
+    );
+    assert!(
+        text.contains(&format!("bootstrap.servers={stack}")),
+        "{text}"
+    );
+    assert!(
+        !text.contains(&format!("bootstrap.servers={bind}")),
+        "a snippet points at the private bind: {text}"
+    );
+    w.stop().await;
+}
+
 #[tokio::test]
 async fn a_dead_advertised_address_does_not_slow_a_fragment() {
     let (port, hole) = black_hole().await;
