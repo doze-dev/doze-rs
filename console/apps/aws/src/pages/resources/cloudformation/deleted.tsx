@@ -28,7 +28,7 @@ export function DeletedStack({ name }: { name: string }) {
   const kept = retainedIn(templateText(template.data?.TemplateBody)).map((r) => r.id);
   const left = resources.data?.StackResourceSummaries ?? [];
   const said = deletedSaid({ name, status: "DELETE_COMPLETE", created: null, updated: null, resources: left, exports: [], importers: {}, failed: null, retained: kept });
-  const crumbs = [{ label: "Resources", to: "/resources" }, { label: "Infrastructure", to: "/resources" }, { label: "CloudFormation", to: "/resources/cloudformation" }, { label: `${name}, deleted`, to: "/resources/cloudformation/stacks" }];
+  const crumbs = [{ label: "Resources", to: "/resources" }, { label: "CloudFormation", to: "/resources/cloudformation" }, { label: `${name}, deleted`, to: "/resources/cloudformation/stacks" }];
   return (
     <div data-testid="stack-gone">
       <PageHeader title={name} mono crumbs={crumbs} titleExtra={<DetailBadgeView badge={{ ...statusBadge("DELETE_COMPLETE"), tone: "neutral" }} />} sub={`${stack?.CreationTime ? `Created ${at(stack.CreationTime)}. ` : ""}Deleted ${at(stack?.DeletionTime ?? record.deleted)}.`} actions={<ToStacks />} />

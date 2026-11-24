@@ -97,7 +97,7 @@ export function FunctionCreate() {
     <FormPage
       title="Create Event Function"
       sub="Name the function and choose its runtime. The new function is a Hello world function that you can change on the Code tab."
-      crumbs={[{ label: "Resources", to: "/resources" }, { label: "Compute and flow", to: "/resources" }, { label: "Lambda", to: "/resources/lambda" }, { label: "Event Functions", to: "/resources/lambda/functions" }]}
+      crumbs={[{ label: "Resources", to: "/resources" }, { label: "Lambda", to: "/resources/lambda" }, { label: "Event Functions", to: "/resources/lambda/functions" }]}
       request={c.name ? { service: "lambda", operation: "CreateFunction", input: shown } : null}
       showInput
       refusal={refused}

@@ -64,7 +64,7 @@ export function SubCreate() {
       callFormat="outline"
       title="Create subscription"
       sub="Subscribe an endpoint to a topic so it receives what is published there."
-      crumbs={[{ label: "Resources", to: "/resources" }, ...(first ? [{ label: first.group, to: "/resources" }, { label: first.service_title, to: "/resources/sns" }] : []), ...(search.from ? [{ label: tail(search.from), to: `/resources/sns/topics/${encodeURIComponent(tail(search.from))}` }] : [{ label: "Subscriptions", to: "/resources/sns/subscriptions" }])]}
+      crumbs={[{ label: "Resources", to: "/resources" }, ...(first ? [{ label: first.service_title, to: "/resources/sns" }] : []), ...(search.from ? [{ label: tail(search.from), to: `/resources/sns/topics/${encodeURIComponent(tail(search.from))}` }] : [{ label: "Subscriptions", to: "/resources/sns/subscriptions" }])]}
       request={f.topic && f.endpoint ? { service: "sns", operation: "Subscribe", input } : null}
       refusal={refused}
       callNote={info?.confirms === "endpoint" ? "For HTTP/S, the answer is the text pending confirmation until the endpoint confirms; with ReturnSubscriptionArn true it is the pending subscription's ARN instead." : f.protocol === "lambda" ? "A Lambda subscription in the same account is confirmed at once, so the answer is the full subscription ARN." : undefined}

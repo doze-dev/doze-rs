@@ -31,7 +31,7 @@ import { layersSentence, listText, rowsOf, usedBy } from "./list-model";
 import { RUNTIMES } from "./model";
 import { toBase64 } from "./zip";
 
-const crumbs = [{ label: "Resources", to: "/resources" }, { label: "Compute and flow", to: "/resources" }, { label: "Lambda", to: "/resources/lambda" }, { label: "Event Functions", to: "/resources/lambda/functions" }];
+const crumbs = [{ label: "Resources", to: "/resources" }, { label: "Lambda", to: "/resources/lambda" }, { label: "Event Functions", to: "/resources/lambda/functions" }];
 
 const COLUMNS: DataColumn<LayerRow>[] = [
   { id: "name", header: "Layer name", min: 160, accessorFn: (r) => r.name, meta: { mono: true }, cell: (c) => <ResourceTo to={{ service: "lambda", kind: "layers", name: c.row.original.name }} className="font-mono text-[13px] font-medium" testId="row-link">{c.row.original.name}</ResourceTo> },

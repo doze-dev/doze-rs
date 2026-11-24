@@ -359,7 +359,7 @@ test("lambda__trigger-add: an SQS mapping, with the visibility timeout it needs"
   await page.getByTestId("trigger-add").click();
   await expect(page.locator("h1").first()).toHaveText("Add trigger");
   // The crumbs keep the section the form was opened from, as the board's do.
-  await expect(page.getByRole("navigation", { name: "Breadcrumb" }).getByRole("link")).toContainText(["Resources", "Compute and flow", "Lambda", "Event Functions", "send-email", "Configuration", "Triggers"]);
+  await expect(page.getByRole("navigation", { name: "Breadcrumb" }).getByRole("link")).toContainText(["Resources", "Lambda", "Event Functions", "send-email", "Configuration", "Triggers"]);
   await expect(page.getByRole("navigation", { name: "Breadcrumb" })).toContainText("Add trigger");
   await expect(page.getByTestId("trigger-type")).toContainText("SQS");
   await choose(page, "Choose a queue", "invoice-queue");

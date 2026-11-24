@@ -6,13 +6,13 @@ const queue = { name: "larder-app", group: "Messaging and events", service: "sqs
 describe("a page's breadcrumb ends on the page itself", () => {
   test("a resource's page ends on the resource, with the kind before it as a link", () => {
     const c = resourceCrumbs(queue);
-    expect(c.map((x) => x.label)).toEqual(["Resources", "Messaging and events", "SQS", "Queues", "larder-app"]);
+    expect(c.map((x) => x.label)).toEqual(["Resources", "SQS", "Queues", "larder-app"]);
     expect(c.at(-2)?.to).toBe("/resources/sqs/queues");
   });
 
   test("what follows the resource comes after it, the resource staying a link to its page", () => {
     const c = resourceCrumbs(queue, { label: "Aliases", to: "" });
-    expect(c.map((x) => x.label)).toEqual(["Resources", "Messaging and events", "SQS", "Queues", "larder-app", "Aliases"]);
+    expect(c.map((x) => x.label)).toEqual(["Resources", "SQS", "Queues", "larder-app", "Aliases"]);
     expect(c.at(-2)?.to).toBe("/resources/sqs/queues/larder-app");
   });
 

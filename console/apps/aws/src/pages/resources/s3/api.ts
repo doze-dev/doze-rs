@@ -66,9 +66,9 @@ export function useListNav() {
   };
 }
 
-/** The crumbs every bucket page starts with: Resources, the group, S3, the bucket. */
-export function crumbs(name: string | null, group = "Storage and data"): { label: string; to: string }[] {
-  const base = [{ label: "Resources", to: "/resources" }, { label: group, to: "/resources" }, { label: "S3", to: "/resources/s3/buckets" }];
+/** The crumbs every bucket page starts with: Resources, S3, the bucket. */
+export function crumbs(name: string | null): { label: string; to: string }[] {
+  const base = [{ label: "Resources", to: "/resources" }, { label: "S3", to: "/resources/s3/buckets" }];
   return name ? [...base, { label: name, to: `/resources/s3/buckets/${encodeURIComponent(name)}` }] : base;
 }
 

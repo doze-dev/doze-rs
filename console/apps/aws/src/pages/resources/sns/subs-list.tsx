@@ -58,7 +58,7 @@ function Subs({ service, kind, gone }: { service: string; kind: string; gone?: s
     <>
       <PageHeader
         title="Subscriptions"
-        crumbs={[{ label: "Resources", to: "/resources" }, ...(first ? [{ label: first.group, to: "/resources" }, { label: first.service_title, to: `/resources/${service}` }] : [])]}
+        crumbs={[{ label: "Resources", to: "/resources" }, ...(first ? [{ label: first.service_title, to: `/resources/${service}` }] : [])]}
         sub={`Every subscription in ${region}, across all topics.`}
         refresh={<RefreshControl updatedAt={q.dataUpdatedAt} fetching={q.isFetching} onRefresh={refresh} interval={false} />}
         actions={<Button onClick={() => go("create")} data-testid="create-open"><PlusIcon /> Create subscription</Button>}

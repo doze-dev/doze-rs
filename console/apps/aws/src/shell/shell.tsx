@@ -96,24 +96,27 @@ function Chips() {
         </TooltipTrigger>
         <TooltipContent>The address AWS SDKs and the AWS CLI reach doze-aws at. Click to copy it.</TooltipContent>
       </Tooltip>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <span tabIndex={0} className={cn(topBarChip, "hidden font-mono outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 lg:inline-flex")} data-testid="chip-region">
-            {about.region}
-          </span>
-        </TooltipTrigger>
-        <TooltipContent>The default region (--region).</TooltipContent>
-      </Tooltip>
       <IdentityChip />
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <span tabIndex={0} className={cn(topBarChip, "hidden outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 lg:inline-flex")} data-testid="chip-iam">
-            <span aria-hidden className={cn("size-[7px] shrink-0 rounded-full", about.iam === "off" ? "border-[1.5px] border-muted-foreground" : "bg-primary")} />
-            {iam.chip}
-          </span>
-        </TooltipTrigger>
-        <TooltipContent>{iam.sentence}</TooltipContent>
-      </Tooltip>
+      {/* What this doze-aws is set to, in one pill: its region and what IAM does (each with its own tooltip). */}
+      <span className={cn(topBarChip, "hidden gap-0 divide-x px-0 lg:inline-flex")} data-testid="chip-settings">
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <span tabIndex={0} className="inline-flex h-full items-center rounded-l-full px-3 font-mono outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50" data-testid="chip-region">
+              {about.region}
+            </span>
+          </TooltipTrigger>
+          <TooltipContent>The default region (--region).</TooltipContent>
+        </Tooltip>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <span tabIndex={0} className="inline-flex h-full items-center gap-2 rounded-r-full px-3 outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50" data-testid="chip-iam">
+              <span aria-hidden className={cn("size-[7px] shrink-0 rounded-full", about.iam === "off" ? "border-[1.5px] border-muted-foreground" : "bg-primary")} />
+              {iam.chip}
+            </span>
+          </TooltipTrigger>
+          <TooltipContent>{iam.sentence}</TooltipContent>
+        </Tooltip>
+      </span>
     </>
   );
 }
@@ -190,8 +193,7 @@ export function Shell() {
     <SidebarProvider className="bg-sidebar" style={{ "--sidebar-width": "14rem" } as React.CSSProperties} open={sidebar} onOpenChange={setSidebar}>
       <Rail />
       <SidebarInset className="min-w-0 bg-background">
-        <TopBar onPalette={() => openPalette(true)} paletteLabel="Jump to a space or a resource">
-          <PinButton />
+        <TopBar onPalette={() => openPalette(true)} paletteLabel="Jump to a space or a resource" afterPalette={<PinButton />}>
           <Chips />
           <ThemeSwitch />
         </TopBar>

@@ -38,7 +38,7 @@ export function useListNav() {
 export function crumbs(name?: string, last?: string): { label: string; to: string }[] {
   const base = [
     { label: "Resources", to: "/resources" },
-    { label: "Storage and data", to: "/resources" },
+    
     { label: "DynamoDB", to: "/resources/dynamodb/tables" },
     { label: "Tables", to: "/resources/dynamodb/tables" },
   ];

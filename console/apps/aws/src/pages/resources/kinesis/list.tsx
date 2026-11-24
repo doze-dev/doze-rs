@@ -65,7 +65,7 @@ function Streams({ service, kind, gone }: { service: string; kind: string; gone?
       {gone && <ResultBanner className="mb-8" title="Stream deleted." returned={<>Deleted <b className="font-mono font-semibold text-bright">{gone}</b>. Its shards, its records and its tags are gone{left && left.consumers.length > 0 ? <>, and the {left.consumers.length === 1 ? "consumer" : "consumers"} <b className="font-mono font-semibold text-bright">{list(left.consumers)}</b> {left.consumers.length === 1 ? "was" : "were"} deregistered with it</> : null}.</>} onDismiss={() => go({})} testId="deleted-banner" />}
       <PageHeader
         title="Data streams"
-        crumbs={[{ label: "Resources", to: "/resources" }, ...(first ? [{ label: first.group, to: "/resources" }, { label: first.service_title, to: `/resources/${service}` }] : [])]}
+        crumbs={[{ label: "Resources", to: "/resources" }, ...(first ? [{ label: first.service_title, to: `/resources/${service}` }] : [])]}
         sub={`Kinesis data streams in ${region}.${none ? "" : " Choose a name to open the stream."}`}
         refresh={<RefreshControl updatedAt={lister.dataUpdatedAt} fetching={lister.isFetching} onRefresh={refresh} interval={false} />}
         actions={<Button onClick={() => go({ create: "yes" })} data-testid="create-open"><PlusIcon /> Create data stream</Button>}

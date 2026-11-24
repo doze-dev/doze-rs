@@ -65,7 +65,7 @@ export function SqsCreate() {
     <FormPage
       title="Create queue"
       sub="The console provides default values for all settings except the queue name."
-      crumbs={[{ label: "Resources", to: "/resources" }, ...(first ? [{ label: first.group, to: "/resources" }, { label: first.service_title, to: "/resources/sqs" }] : []), { label: "Queues", to: "/resources/sqs/queues" }]}
+      crumbs={[{ label: "Resources", to: "/resources" }, ...(first ? [{ label: first.service_title, to: "/resources/sqs" }] : []), { label: "Queues", to: "/resources/sqs/queues" }]}
       request={f.name ? { service: "sqs", operation: "CreateQueue", input } : null}
       refusal={refused}
       callNote={taken && had ? `The existing queue has ${had.name} ${had.value}. Sending the exact same attributes as the existing queue would have returned its URL instead of an error.` : f.fifo ? "Only the settings that differ from the defaults are sent." : "Only the settings that differ from the defaults are sent, so SQS applies its own defaults to the rest."}

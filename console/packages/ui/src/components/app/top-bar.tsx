@@ -7,7 +7,7 @@ export const topBarChip = "inline-flex h-[30px] items-center gap-2 rounded-full 
 
 /** The frame's top bar: the sidebar's trigger, the palette's field-shaped button with its key hint, and on the right whatever
  * the app puts there (its chips, the theme switch). The app owns the palette's state; this is its trigger. */
-export function TopBar({ onPalette, paletteLabel = "Jump to…", children, className, sidebarTrigger = true }: { onPalette: () => void; /** What the palette's button says (`Jump to a topic or group`). */ paletteLabel?: string; /** The right side. */ children?: React.ReactNode; className?: string; /** False for a frame without the shared Sidebar. */ sidebarTrigger?: boolean }) {
+export function TopBar({ onPalette, paletteLabel = "Jump to…", children, afterPalette, className, sidebarTrigger = true }: { onPalette: () => void; /** Beside the palette's field, on the left: what belongs to the page on screen (the resource's Pin), so that it comes and goes without moving the chips on the right. */ afterPalette?: React.ReactNode; /** What the palette's button says (`Jump to a topic or group`). */ paletteLabel?: string; /** The right side. */ children?: React.ReactNode; className?: string; /** False for a frame without the shared Sidebar. */ sidebarTrigger?: boolean }) {
   const mac = typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform);
   return (
     <header className={cn("sticky top-0 z-20 flex h-[52px] shrink-0 items-center gap-3 border-b bg-background px-4 md:px-6", className)} data-testid="topbar" data-slot="top-bar">
@@ -17,6 +17,7 @@ export function TopBar({ onPalette, paletteLabel = "Jump to…", children, class
         <span className="truncate">{paletteLabel}</span>
         <kbd className="ml-auto rounded-[5px] border bg-card px-1.5 font-mono text-[11px] leading-[18px]">{mac ? "⌘K" : "Ctrl K"}</kbd>
       </button>
+      {afterPalette}
       {children && <div className="ml-auto flex shrink-0 items-center gap-2">{children}</div>}
     </header>
   );

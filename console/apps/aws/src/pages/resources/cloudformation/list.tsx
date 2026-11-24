@@ -70,7 +70,7 @@ export function StacksList({ service, kind }: { service: string; kind: string })
     <>
       <PageHeader
         title="Stacks"
-        crumbs={[{ label: "Resources", to: "/resources" }, ...(first ? [{ label: first.group, to: "/resources" }, { label: first.service_title, to: `/resources/${service}` }] : [])]}
+        crumbs={[{ label: "Resources", to: "/resources" }, ...(first ? [{ label: first.service_title, to: `/resources/${service}` }] : [])]}
         sub={none ? "Groups of resources you create, update and delete together from a template." : "Groups of resources you create, update and delete together from a template. Choose a stack name to open it."}
         refresh={<RefreshControl updatedAt={list.dataUpdatedAt} fetching={list.isFetching} onRefresh={refresh} interval={false} />}
         actions={<Button onClick={create} data-testid="create-open"><PlusIcon /> Create stack</Button>}

@@ -65,7 +65,7 @@ function QueuesList({ service, kind, q, gone, from }: { service: string; kind: s
     <>
       <PageHeader
         title="Queues"
-        crumbs={[{ label: "Resources", to: "/resources" }, ...(first ? [{ label: first.group, to: "/resources" }, { label: first.service_title, to: `/resources/${service}` }] : [])]}
+        crumbs={[{ label: "Resources", to: "/resources" }, ...(first ? [{ label: first.service_title, to: `/resources/${service}` }] : [])]}
         sub={`Standard and FIFO queues in ${region}.${none && !q ? "" : " Choose a name to open it."}`}
         refresh={<RefreshControl updatedAt={list.dataUpdatedAt} fetching={list.isFetching} onRefresh={refresh} interval={false} />}
         actions={create}

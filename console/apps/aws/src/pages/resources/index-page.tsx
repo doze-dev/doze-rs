@@ -27,6 +27,14 @@ export function countWords(k: KindCount): string {
   return `${k.more ? "at least " : ""}${number(k.count)} ${noun}${others}`;
 }
 
+/** What a service's card says it holds: the kinds there are some of (`1 queue`), and when there are none of any, its first kind with the zero
+ * (`0 topics`): a card is not a list of every kind at zero. A kind that could not be counted keeps its place. */
+export function cardWords(kinds: readonly KindCount[]): string {
+  const some = kinds.filter((k) => k.count === null || k.count > 0);
+  const shown = some.length > 0 ? some : kinds.slice(0, 1);
+  return shown.map(countWords).join(" · ");
+}
+
 function ServiceCard({ s }: { s: ResourceService }) {
   const first = s.kinds[0];
   const live = s.described && s.served && first;
@@ -38,7 +46,7 @@ function ServiceCard({ s }: { s: ResourceService }) {
       <div className="min-w-0">
         <div className="text-[16px] font-semibold text-bright">{s.title}</div>
         <div className="mt-0.5 text-[13px] text-muted-foreground" data-testid={`count-${s.name}`} title={s.asleep ? "Nothing has called it lately, so it is asleep and was not counted (counting is a list call, which wakes it). Open it to see what it holds." : undefined}>
-          {!s.described ? (s.kinds.length === 0 && s.note?.startsWith("STS") ? "No resources" : "Not described yet") : !s.served ? "Not served in this run (--services)" : s.asleep ? "Asleep" : s.kinds.map(countWords).join(" · ")}
+          {!s.described ? (s.kinds.length === 0 && s.note?.startsWith("STS") ? "No resources" : "Not described yet") : !s.served ? "Not served in this run (--services)" : s.asleep ? "Asleep" : cardWords(s.kinds)}
         </div>
       </div>
     </div>

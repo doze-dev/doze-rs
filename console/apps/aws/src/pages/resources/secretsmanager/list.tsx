@@ -59,7 +59,7 @@ function Secrets({ q, deleted, stored }: { q: string; deleted: boolean; stored: 
   const create = <Button onClick={() => go({ create: "yes" })} data-testid="create-open"><PlusIcon /> Store a new secret</Button>;
   return (
     <>
-      <PageHeader title="Secrets" crumbs={[{ label: "Resources", to: "/resources" }, ...(first ? [{ label: first.group, to: "/resources" }, { label: first.service_title, to: "/resources/secretsmanager" }] : [])]} sub={`Credentials, API keys and other secrets your apps read at run time. Secrets Manager is regional: this list holds the secrets in ${region}.`} refresh={<RefreshControl updatedAt={list.q.dataUpdatedAt} fetching={list.q.isFetching} onRefresh={refresh} interval={false} />} actions={create} />
+      <PageHeader title="Secrets" crumbs={[{ label: "Resources", to: "/resources" }, ...(first ? [{ label: first.service_title, to: "/resources/secretsmanager" }] : [])]} sub={`Credentials, API keys and other secrets your apps read at run time. Secrets Manager is regional: this list holds the secrets in ${region}.`} refresh={<RefreshControl updatedAt={list.q.dataUpdatedAt} fetching={list.q.isFetching} onRefresh={refresh} interval={false} />} actions={create} />
       {stored && <ResultBanner className="mb-6" title={`Secret ${stored} stored.`} returned="CreateSecret returned its ARN and the id of its first version, which has the label AWSCURRENT." onDismiss={() => keep({})} testId="stored-banner" />}
       {list.q.isError && !first ? (
         <ErrorBlock what="The secrets could not be listed" error={list.q.error} hint={HINT} onRetry={refresh} retrying={list.q.isFetching} testId="list-error" />

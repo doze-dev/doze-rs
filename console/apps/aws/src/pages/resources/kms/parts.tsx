@@ -10,4 +10,4 @@ export function StateDot({ state, words }: { state: string; words: string }) {
 
 export const stateOf = (k: Pick<KeyRow, "state" | "stateWords">) => <StateDot state={k.state} words={k.stateWords} />;
 
-export const crumbs = (group: string | undefined, title: string | undefined) => [{ label: "Resources", to: "/resources" }, ...(group ? [{ label: group, to: "/resources" }, { label: title ?? "KMS", to: "/resources/kms" }] : [])];
+export const crumbs = (group: string | undefined, title: string | undefined) => [{ label: "Resources", to: "/resources" }, ...(group ? [{ label: title ?? "KMS", to: "/resources/kms" }] : [])];

@@ -43,7 +43,7 @@ export function SubEdit({ d, s, back, done }: { d: ResourceDetail; s: Subscripti
       callFormat="outline"
       title={`Edit ${s.arn?.split(":").pop() ?? d.name}`}
       sub="The subscription's Details section, filter policy and redrive policy."
-      crumbs={[{ label: "Resources", to: "/resources" }, { label: d.group, to: "/resources" }, { label: d.service_title, to: `/resources/${d.service}` }, { label: "Subscriptions", to: "/resources/sns/subscriptions" }, { label: (s.arn?.split(":").pop() ?? d.name).slice(0, 8), to: `/resources/sns/subscriptions/${encodeURIComponent(d.name)}` }]}
+      crumbs={[{ label: "Resources", to: "/resources" }, { label: d.service_title, to: `/resources/${d.service}` }, { label: "Subscriptions", to: "/resources/sns/subscriptions" }, { label: (s.arn?.split(":").pop() ?? d.name).slice(0, 8), to: `/resources/sns/subscriptions/${encodeURIComponent(d.name)}` }]}
       mono
       request={requests[0] ?? null}
       requests={requests}

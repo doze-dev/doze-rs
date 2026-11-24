@@ -94,7 +94,7 @@ function Parameters({ q, created }: { q: string; created: { name: string; versio
   ) : null;
   return (
     <>
-      <PageHeader title="Parameter Store" crumbs={[{ label: "Resources", to: "/resources" }, ...(first ? [{ label: first.group, to: "/resources" }, { label: first.service_title, to: "/resources/ssm" }] : [])]} sub={`A centralized configuration data store for named values called parameters. Parameters are only available in the Region where they were created (${region}).`} refresh={<RefreshControl updatedAt={list.q.dataUpdatedAt} fetching={list.q.isFetching} onRefresh={refresh} interval={false} />} actions={create} />
+      <PageHeader title="Parameter Store" crumbs={[{ label: "Resources", to: "/resources" }, ...(first ? [{ label: first.service_title, to: "/resources/ssm" }] : [])]} sub={`A centralized configuration data store for named values called parameters. Parameters are only available in the Region where they were created (${region}).`} refresh={<RefreshControl updatedAt={list.q.dataUpdatedAt} fetching={list.q.isFetching} onRefresh={refresh} interval={false} />} actions={create} />
       <ParameterTabs current="parameters" />
       {banner && <div className="mb-6">{banner}</div>}
       {list.q.isError && !first ? (

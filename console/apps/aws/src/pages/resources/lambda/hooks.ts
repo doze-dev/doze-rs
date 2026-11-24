@@ -75,7 +75,6 @@ export function useWhere(): { region: string; account: string } {
 
 export const crumbsOf = (d: ResourceDetail, ...rest: { label: string; to: string }[]) => [
   { label: "Resources", to: "/resources" },
-  { label: d.group, to: "/resources" },
   { label: d.service_title, to: `/resources/${d.service}` },
   { label: d.kind_title, to: `/resources/${d.service}/${d.kind}` },
   { label: d.name, to: `/resources/${d.service}/${d.kind}/${encodeURIComponent(d.name)}` },
