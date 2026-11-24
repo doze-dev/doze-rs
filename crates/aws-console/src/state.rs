@@ -80,7 +80,7 @@ impl State {
         Some(crate::resources::bus::Bus::new(
             peers,
             &self.facts.account,
-            &self.facts.region,
+            &crate::regions::current(&self.facts.region),
             &self.facts.endpoint,
         ))
     }

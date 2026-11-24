@@ -29,6 +29,7 @@ use crate::model::{
     KindCount, ResourceDetail, ResourceLink, ResourceList, ResourceRow, ResourceService,
     ResourcesIndex, Revealed, SetAside, SubAdd, SubList, Uploaded, ValueFormat,
 };
+use crate::model::{RegionRow, RegionsView};
 
 fn dir() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../console/apps/aws/src/api/types")
@@ -67,6 +68,8 @@ fn all() -> BTreeMap<String, String> {
     one::<FlowsResponse>(&cfg, &mut out);
     one::<CopyCommands>(&cfg, &mut out);
     one::<ResourcesIndex>(&cfg, &mut out);
+    one::<RegionsView>(&cfg, &mut out);
+    one::<RegionRow>(&cfg, &mut out);
     one::<ResourceService>(&cfg, &mut out);
     one::<KindCount>(&cfg, &mut out);
     one::<ValueFormat>(&cfg, &mut out);

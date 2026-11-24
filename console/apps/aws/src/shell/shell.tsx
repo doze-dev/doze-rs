@@ -20,6 +20,7 @@ import { iamWords } from "../words";
 import { Logo, Wordmark } from "./brand";
 import { IdentityChip } from "./identity-chip";
 import { PinButton, RailPlaces } from "./places";
+import { RegionMenu } from "./region-menu";
 import { RailServices, useRailCounts } from "./rail-services";
 
 /** The rail: the mark, and the six spaces. */
@@ -99,14 +100,7 @@ function Chips() {
       <IdentityChip />
       {/* What this doze-aws is set to, in one pill: its region and what IAM does (each with its own tooltip). */}
       <span className={cn(topBarChip, "hidden gap-0 divide-x px-0 lg:inline-flex")} data-testid="chip-settings">
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <span tabIndex={0} className="inline-flex h-full items-center rounded-l-full px-3 font-mono outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50" data-testid="chip-region">
-              {about.region}
-            </span>
-          </TooltipTrigger>
-          <TooltipContent>The default region (--region).</TooltipContent>
-        </Tooltip>
+        <RegionMenu />
         <Tooltip>
           <TooltipTrigger asChild>
             <span tabIndex={0} className="inline-flex h-full items-center gap-2 rounded-r-full px-3 outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50" data-testid="chip-iam">

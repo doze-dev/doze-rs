@@ -12,11 +12,13 @@ use crate::ring::{Call, Flow};
 
 mod deep;
 mod extras;
+mod regions;
 mod resources;
 mod spaces;
 mod wiring;
 pub use deep::*;
 pub use extras::*;
+pub use regions::*;
 pub use resources::*;
 pub use spaces::*;
 pub use wiring::*;
