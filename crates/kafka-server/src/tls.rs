@@ -44,6 +44,15 @@ pub enum TlsError {
     Mismatch { cert: String, key: String },
     #[error("the private key in {file} is not one this build can use")]
     BadKey { file: String },
+    /// The leaf cannot be read as an X.509 v3 certificate. Most often it is version 1: LibreSSL's `openssl req -x509`
+    /// (macOS's own `/usr/bin/openssl`) makes one when given no `-addext`, and webpki, which rustls checks the key
+    /// against the certificate with, reads version 3 only.
+    #[error(
+        "the certificate in {file} cannot be used: it is not an X.509 version 3 certificate (one made with no \
+         extensions is version 1; make it again with -addext \"subjectAltName=DNS:localhost,IP:127.0.0.1\", the names \
+         clients check anyway)"
+    )]
+    BadCertificate { file: String },
     #[error("setting up TLS failed: {0}")]
     Setup(rustls::Error),
 }
@@ -143,6 +152,9 @@ fn build(
                 cert: cert_file,
                 key: key_file,
             },
+            // The key is matched against the certificate by parsing the certificate: a leaf that does not parse is the
+            // certificate's fault, not the key's.
+            rustls::Error::InvalidCertificate(_) => TlsError::BadCertificate { file: cert_file },
             _ => TlsError::BadKey { file: key_file },
         })?;
     Ok(Arc::new(config))

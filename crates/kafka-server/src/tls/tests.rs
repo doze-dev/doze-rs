@@ -75,6 +75,23 @@ fn a_key_that_belongs_to_another_certificate_is_a_mismatch_naming_both_files() {
     assert!(matches!(said, TlsError::Mismatch { .. }), "{said}");
 }
 
+/// A version 1 certificate (LibreSSL's `openssl req -x509` with no `-addext`, macOS's own openssl) is refused, and the
+/// refusal names the certificate and how to make one that works, not the key, which is fine: the same key loads with a
+/// version 3 certificate.
+#[test]
+fn a_version_1_certificate_is_blamed_not_its_key() {
+    load("rsa-chain.pem", "rsa-key-pkcs1.pem").unwrap();
+    let said = load("rsa-v1.pem", "rsa-key-pkcs1.pem").unwrap_err();
+    assert!(matches!(said, TlsError::BadCertificate { .. }), "{said:?}");
+    let text = said.to_string();
+    assert!(text.contains("rsa-v1.pem"), "{text}");
+    assert!(!text.contains("rsa-key-pkcs1.pem"), "{text}");
+    assert!(
+        text.contains("version 1") && text.contains("-addext"),
+        "{text}"
+    );
+}
+
 #[test]
 fn an_encrypted_key_is_recognised_and_garbage_is_not_echoed() {
     let encrypted = scratch(

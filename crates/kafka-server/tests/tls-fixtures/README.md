@@ -11,6 +11,7 @@ generation. They are private keys of nothing: never use them anywhere real.
 | `ec-chain.pem`, `ec-key-pkcs8.pem`, `ec-key-sec1.pem` | An EC P-256 leaf for `localhost` and `127.0.0.1` followed by its intermediate; the key as PKCS#8 and as SEC1 (`EC PRIVATE KEY`). |
 | `rsa-chain.pem`, `rsa-key-pkcs8.pem`, `rsa-key-pkcs1.pem` | The same with an RSA-2048 leaf; the key as PKCS#8 and as PKCS#1 (`RSA PRIVATE KEY`). |
 | `ec-leaf-only.pem` | The EC leaf without its intermediate: a chain a client cannot verify from the root alone. |
+| `rsa-v1.pem` | A self-signed X.509 version 1 certificate (no extensions) for the RSA key: what LibreSSL's `req -x509` makes with no `-addext`, which webpki cannot read. |
 
 They are valid for 36,500 days (to 2126). `make.sh` remakes all of them (needs `openssl`; LibreSSL, which macOS ships, works). It signs with
 `-sha256` explicitly: LibreSSL 3.3 signs with SHA-1 otherwise, and rustls refuses SHA-1 signatures.
