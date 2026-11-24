@@ -105,6 +105,15 @@ pub struct Response {
     /// The `lint` op: module types whose blocks could not be checked, and why (Rust daemon, additive).
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub unchecked: Vec<UncheckedView>,
+    /// The `value` op's part of a value (Rust daemon, additive).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub value: Option<super::blocks::ValueView>,
+    /// The `children` op's page (Rust daemon, additive).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub children: Option<super::blocks::ChildrenView>,
+    /// An `admin` form's failure: the field it is about, for the form to mark (Rust daemon, additive).
+    #[serde(skip_serializing_if = "String::is_empty")]
+    pub field: String,
 }
 
 /// One instance-tagged log line (Go `LogFrame`).
@@ -174,6 +183,9 @@ pub struct ActionView {
     pub destructive: bool,
     #[serde(skip_serializing_if = "String::is_empty")]
     pub input_hint: String,
+    /// Rust daemon, additive: a form's typed fields; with none the action takes `input_hint`'s one box.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub fields: Vec<super::blocks::FieldView>,
 }
 
 impl Frame {

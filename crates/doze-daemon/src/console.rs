@@ -27,6 +27,18 @@ fn node(n: &proto::Node) -> ConsoleNode {
         text: n.text.clone(),
         actions: n.actions.clone(),
         children: n.children.iter().map(node).collect(),
+        keys: n.keys.clone(),
+        by: n.by.clone(),
+    }
+}
+
+/// A column as the wire shows it.
+fn column(c: &proto::Column) -> ConsoleColumn {
+    ConsoleColumn {
+        key: c.key.clone(),
+        title: c.title.clone(),
+        align: c.align.clone(),
+        role: c.role.clone(),
     }
 }
 
@@ -46,16 +58,7 @@ pub(crate) fn spec_view(s: Option<&proto::ConsoleSpec>) -> ConsoleSpec {
                 title: p.title.clone(),
                 kind: p.kind.clone(),
                 source: p.source.clone(),
-                columns: p
-                    .columns
-                    .iter()
-                    .map(|c| ConsoleColumn {
-                        key: c.key.clone(),
-                        title: c.title.clone(),
-                        align: c.align.clone(),
-                        role: c.role.clone(),
-                    })
-                    .collect(),
+                columns: p.columns.iter().map(column).collect(),
                 select: p.select.clone().unwrap_or_default(),
             })
             .collect(),

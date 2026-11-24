@@ -5,6 +5,7 @@ use crate::json::{is_false, is_zero_i64, is_zero_u64};
 use crate::time::Timestamp;
 use crate::{Hello, PROTO_VERSION, format_go_duration};
 use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap;
 
 /// A command sent from a client to the daemon (Go `Request`).
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -70,6 +71,25 @@ pub struct Request {
     /// `logs`: drop lines older than this. Go's `omitzero`.
     #[serde(skip_serializing_if = "Timestamp::is_zero")]
     pub since_time: Timestamp,
+    /// Rust daemon, additive. `value`: wake a sleeping instance first (the person opened a value).
+    #[serde(skip_serializing_if = "is_false")]
+    pub wake: bool,
+    /// `value`: the selected row's cells.
+    #[serde(skip_serializing_if = "BTreeMap::is_empty")]
+    pub row: BTreeMap<String, String>,
+    /// `value`: from which byte.
+    #[serde(skip_serializing_if = "is_zero_u64")]
+    pub offset: u64,
+    /// `children`: the folder (empty for the top), what to filter by, and where the last page stopped.
+    #[serde(skip_serializing_if = "String::is_empty")]
+    pub parent: String,
+    #[serde(skip_serializing_if = "String::is_empty")]
+    pub filter: String,
+    #[serde(skip_serializing_if = "String::is_empty")]
+    pub cursor: String,
+    /// `admin`: a form's values by field id.
+    #[serde(skip_serializing_if = "BTreeMap::is_empty")]
+    pub values: BTreeMap<String, String>,
 }
 
 impl Request {
@@ -157,6 +177,53 @@ impl Request {
             resource: resource.to_owned(),
             input: input.to_owned(),
             ..Request::on(Op::Admin, instance)
+        }
+    }
+
+    /// Run an action's form: its values by field id.
+    pub fn admin_form(
+        instance: &str,
+        action: &str,
+        resource: &str,
+        values: BTreeMap<String, String>,
+    ) -> Request {
+        Request {
+            values,
+            ..Request::admin(instance, action, resource, "")
+        }
+    }
+
+    /// Part of the value of `row` in `panel`, from byte `offset`.
+    pub fn value(
+        instance: &str,
+        panel: &str,
+        row: BTreeMap<String, String>,
+        offset: u64,
+        wake: bool,
+    ) -> Request {
+        Request {
+            panel: panel.to_owned(),
+            row,
+            offset,
+            wake,
+            ..Request::on(Op::Value, instance)
+        }
+    }
+
+    /// One page of the children of `parent` in tree panel `panel`.
+    pub fn children(
+        instance: &str,
+        panel: &str,
+        parent: &str,
+        filter: &str,
+        cursor: &str,
+    ) -> Request {
+        Request {
+            panel: panel.to_owned(),
+            parent: parent.to_owned(),
+            filter: filter.to_owned(),
+            cursor: cursor.to_owned(),
+            ..Request::on(Op::Children, instance)
         }
     }
 

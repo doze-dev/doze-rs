@@ -15,6 +15,7 @@ use std::collections::BTreeMap;
 use std::path::Path;
 use std::sync::Arc;
 
+mod blocks;
 mod picks;
 
 /// Each instance's console as the hub would hold it once the script played.

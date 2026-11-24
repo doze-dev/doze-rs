@@ -31,6 +31,10 @@ pub mod caps {
     pub const EVENTS: u64 = 1 << 11;
     /// The module moves an instance's data to the version its block now declares (`migrate`).
     pub const MIGRATE: u64 = 1 << 12;
+    /// The module gives one value in full, in parts (`value`, minor 2).
+    pub const VALUE: u64 = 1 << 13;
+    /// The module gives a tree panel's folders as they open (`children`, minor 2).
+    pub const TREE: u64 = 1 << 14;
 }
 
 /// `hello`, module to host, the first frame on the channel.

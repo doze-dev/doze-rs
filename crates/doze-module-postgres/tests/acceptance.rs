@@ -241,6 +241,7 @@ async fn console_cancels_a_query(b: &Booted) {
         action: action.into(),
         resource: pid.clone(),
         input: None,
+        values: Default::default(),
     };
     let done = b.module.run_action(&act("cancel")).await.unwrap();
     assert_eq!(done, format!("cancelled the query of session {pid}"));

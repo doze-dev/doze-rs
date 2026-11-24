@@ -7,9 +7,11 @@
 pub mod caps;
 pub mod fetch;
 mod fields;
+pub mod forms;
 pub mod help;
 pub mod module;
 mod register;
+mod register_blocks;
 mod register_io;
 mod route;
 pub mod server;

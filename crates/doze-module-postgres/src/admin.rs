@@ -158,6 +158,7 @@ pub(crate) fn actions() -> Vec<Action> {
         kind: "session".into(),
         destructive,
         input_hint: None,
+        fields: vec![],
     };
     vec![
         action("cancel", "Cancel query", false),

@@ -43,6 +43,10 @@ pub struct RunAction {
     pub resource: String,
     #[n(3)]
     pub input: Option<String>,
+    /// The form's values by field id (minor 2); empty from a host that does not know forms.
+    #[n(4)]
+    #[cbor(default)]
+    pub values: std::collections::BTreeMap<String, String>,
 }
 
 /// `shutdown`: finish what is in flight within the deadline, then exit.

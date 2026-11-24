@@ -47,7 +47,8 @@ fn main() -> std::process::ExitCode {
   type is a map entry holding a list of maps, one per block; a block's labels are entries of its map named after the
   schema's label names.
 - **Capabilities are traits** (`Converge`, `Objects`, `Prune`, `Admin`, `Console`, `Template`, `Attributes`,
-  `BackendUrl`, `Health`, `Restart`, `Wire`). Registering one on the server requires the trait, and the manifest's
+  `BackendUrl`, `Health`, `Restart`, `Wire`, and from protocol minor 2 the console blocks `Values` and `Tree`;
+  `Admin::run_form` takes a form's values, checked against the action's fields by `forms::check` first). Registering one on the server requires the trait, and the manifest's
   capability bits come from what was registered: a module cannot advertise what it does not implement.
 - **Handlers get a context, `Cx`**, holding the decoded spec, the instance, the call's cancel signal and id, and the
   module's log and progress. It owns the protocol call while the handler runs (protocol.md: a handler holding only the
@@ -67,6 +68,8 @@ crates/doze-module/
   src/spec.rs       Spec trait, decoding primitives with paths, Diagnostics
   src/module.rs     Module trait, About, Cx
   src/caps.rs       capability traits
+  src/forms.rs      action forms: values checked against declared fields, defaults filled, per-field errors
+  src/register_blocks.rs  values, tree: the routes, holding a module to the bytes asked
   src/server.rs     the builder, dispatch of calls to traits, hello
   src/fetch.rs      Fetch
   src/help/         resolve_via, settings, run (tools), stale files, template

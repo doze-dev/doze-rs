@@ -23,22 +23,34 @@ impl ModuleInstance {
         m.resources(&i).await.map_err(|e| e.describe())
     }
 
-    /// Runs data action `action` on `resource`; what it says it did.
+    /// Runs data action `action` on `resource`, with its form's values; what it says it did. The error is the
+    /// module's own, so a form's caller can tell which field it is about.
     pub async fn run_action(
         &self,
         ctx: &PlanCtx,
         action: &str,
         resource: &str,
         input: Option<String>,
-    ) -> Result<String, String> {
-        let m = self.pool.get(&self.key).await.map_err(|e| e.describe())?;
+        values: std::collections::BTreeMap<String, String>,
+    ) -> Result<String, doze_module_proto::msg::error::Error> {
+        let m = self.pool.get(&self.key).await?;
         let a = RunAction {
-            instance: self.with_toolchain(ctx).await?.instance,
+            instance: self
+                .with_toolchain(ctx)
+                .await
+                .map_err(|e| {
+                    doze_module_proto::msg::error::Error::new(
+                        doze_module_proto::msg::error::ErrorKind::Unavailable,
+                        e,
+                    )
+                })?
+                .instance,
             action: action.into(),
             resource: resource.into(),
             input,
+            values,
         };
-        m.run_action(&a).await.map_err(|e| e.describe())
+        m.run_action(&a).await
     }
 
     /// A console panel's rows as they arrive; dropping the stream stops it.

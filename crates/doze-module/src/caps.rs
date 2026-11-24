@@ -2,6 +2,7 @@
 //! manifest's capability bits come from what was registered, so a module cannot advertise what it does not do.
 
 use crate::module::{Cx, Module, Result};
+use doze_module_proto::msg::blocks::{Children, ValueAnswer, check};
 use doze_module_proto::msg::console::{Resource, Row};
 use doze_module_proto::msg::instance::{Object, Toolchain};
 use doze_module_proto::msg::run::Restart;
@@ -73,6 +74,65 @@ pub trait Admin: Module {
         resource: &str,
         input: Option<&str>,
     ) -> impl Future<Output = Result<String>> + Send;
+
+    /// Runs an action whose form has fields (protocol minor 2). The SDK has checked `values` against the action's
+    /// declared fields (required, typed, in range) and filled in their defaults before this is called; refuse a value
+    /// it cannot check with [`crate::forms::field_error`] so the form marks that field. By default the values are
+    /// ignored and [`Admin::run_action`] runs, so a module without forms needs nothing here.
+    fn run_form(
+        &self,
+        cx: &Cx<Self::Spec>,
+        action: &str,
+        resource: &str,
+        input: Option<&str>,
+        values: &BTreeMap<String, String>,
+    ) -> impl Future<Output = Result<String>> + Send {
+        let _ = values;
+        self.run_action(cx, action, resource, input)
+    }
+}
+
+/// A console value viewer (`serve(m).values()`, capability VALUE): one value in full, from the cells of the row
+/// selected in `panel`, from byte `offset`, `max` bytes at most ([`ValueAnswer::slice`] does the arithmetic). The
+/// SDK cuts a longer body and marks that more follows.
+pub trait Values: Module {
+    fn value(
+        &self,
+        cx: &Cx<Self::Spec>,
+        panel: &str,
+        row: &BTreeMap<String, String>,
+        offset: u64,
+        max: u32,
+    ) -> impl Future<Output = Result<ValueAnswer>> + Send;
+}
+
+/// A console tree (`serve(m).tree()`, capability TREE): one page of the children of `parent` ("" for the top) in a
+/// panel of kind "tree", filtered by what the person typed (search everything, not only what is open). Pages keep a
+/// folder with a million children quick; [`Children::page`] pages a list at hand.
+pub trait Tree: Module {
+    fn children(
+        &self,
+        cx: &Cx<Self::Spec>,
+        panel: &str,
+        parent: &str,
+        filter: &str,
+        cursor: Option<&str>,
+    ) -> impl Future<Output = Result<Children>> + Send;
+}
+
+/// A check for a "checks" panel (a resource of kind [`check::KIND`]): what was checked, "ok", "warn" or "bad", the
+/// result in plain words, and the action that mends it, if one does. List checks with the other resources.
+pub fn check(name: &str, status: &str, detail: &str, fix: Option<&str>) -> Resource {
+    let mut info = BTreeMap::from([(check::DETAIL.to_string(), detail.to_string())]);
+    if let Some(fix) = fix {
+        info.insert(check::FIX.to_string(), fix.to_string());
+    }
+    Resource {
+        kind: check::KIND.into(),
+        name: name.into(),
+        status: status.into(),
+        info,
+    }
 }
 
 /// Rows for a console stream panel, sent through `out` (which waits for the host's credit).

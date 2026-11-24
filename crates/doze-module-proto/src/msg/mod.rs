@@ -1,6 +1,7 @@
 //! Every message of protocol 2. Field numbers are frozen here: fields are only added (with a new number, `Option` or
 //! `#[cbor(default)]`), never renumbered or removed; enums that may grow travel inside `Option`.
 
+pub mod blocks;
 pub mod calls;
 pub mod console;
 pub mod error;

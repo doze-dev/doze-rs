@@ -2918,6 +2918,7 @@ name = "doze-control"
 version = "0.0.0"
 dependencies = [
  "async-channel",
+ "base64ct",
  "doze-control",
  "doze-display",
  "doze-os",

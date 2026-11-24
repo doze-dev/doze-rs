@@ -209,6 +209,7 @@ pub(crate) fn actions() -> Vec<Action> {
         kind: "topic".into(),
         destructive: false,
         input_hint: Some("message value".into()),
+        fields: vec![],
     }]
 }
 
