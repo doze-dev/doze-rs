@@ -8,6 +8,8 @@
     clippy::panic
 )]
 
+pub(crate) mod verify;
+
 use std::io::{BufRead, BufReader};
 use std::path::Path;
 use std::process::{Child, Command, Stdio};

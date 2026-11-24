@@ -25,7 +25,7 @@ use x509_cert::serial_number::SerialNumber;
 use x509_cert::spki::SubjectPublicKeyInfo;
 use x509_cert::time::{Time, Validity};
 
-pub use crate::ca_leaf::UNDER_CAP;
+pub use crate::ca_under::UNDER_CAP;
 
 const ROOT_CRT: &str = "root.crt";
 const ROOT_KEY: &str = "root.key";
@@ -71,7 +71,7 @@ pub struct Ca {
     previous: Vec<String>,
     pub(crate) leaves: Mutex<HashMap<String, Arc<Leaf>>>,
     /// Leaves for names under a registered one, bounded ([`UNDER_CAP`]).
-    pub(crate) under: Mutex<crate::ca_leaf::Under>,
+    pub(crate) under: Mutex<crate::ca_under::Under>,
 }
 
 pub(crate) fn random_serial() -> Result<SerialNumber, Error> {

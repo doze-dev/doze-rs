@@ -4,7 +4,7 @@
 //! when the holder exits, and the holder serving every peer's routes from the one registry, so a process that dies
 //! stops being proxied to the moment it stops answering DNS.
 
-use crate::certs::{CA_CHECK_EVERY, CaSource, Certs};
+use crate::certs::{CA_CHECK_EVERY, CaSource, Certs, Chosen};
 use crate::front::{INGRESS_KEY, INGRESS_TLS_KEY, ingress_bind, ingress_tls_bind};
 use crate::resolver::Log;
 use crate::{Registry, SUFFIX};
@@ -17,9 +17,18 @@ use std::time::Duration;
 use tokio::net::TcpListener;
 use tokio::sync::watch;
 use tokio::task::JoinHandle;
-use tokio_rustls::TlsAcceptor;
+use tokio_rustls::LazyConfigAcceptor;
 
 const RETRY: Duration = Duration::from_secs(2);
+
+/// The https side: the settings every handshake shares, and where its certificate comes from. The certificate is
+/// chosen after the client's hello is read, on a blocking thread (it may read files or mint a leaf), and handed to
+/// that one handshake, so a slow mint holds up neither the async workers nor other names.
+#[derive(Debug, Clone)]
+struct Tls {
+    base: Arc<rustls::ServerConfig>,
+    certs: Arc<Certs>,
+}
 
 /// Where to serve, and from what.
 #[derive(Clone)]
@@ -69,9 +78,14 @@ pub fn serve(cfg: FrontConfig) -> FrontDoor {
     ))
     .with_safe_default_protocol_versions()
     .map(|b| {
-        let mut c = b.with_no_client_auth().with_cert_resolver(certs);
+        let mut c = b
+            .with_no_client_auth()
+            .with_cert_resolver(Arc::new(Chosen(None)));
         c.alpn_protocols = vec![b"http/1.1".to_vec()];
-        TlsAcceptor::from(Arc::new(c))
+        Tls {
+            base: Arc::new(c),
+            certs,
+        }
     })
     .ok();
     let plain = tokio::spawn(hold(
@@ -118,7 +132,7 @@ async fn hold(
     cfg: FrontConfig,
     bind: String,
     key: &'static str,
-    tls: Option<TlsAcceptor>,
+    tls: Option<Tls>,
     mut stop: watch::Receiver<bool>,
     bound: Option<watch::Sender<bool>>,
 ) {
@@ -175,7 +189,7 @@ fn why_not(reg: &Registry, bind: &str, key: &str, e: &std::io::Error) -> String 
 async fn accept_until_stopped(
     cfg: &FrontConfig,
     listener: &TcpListener,
-    tls: Option<&TlsAcceptor>,
+    tls: Option<&Tls>,
     stop: &mut watch::Receiver<bool>,
 ) {
     loop {
@@ -192,7 +206,7 @@ async fn connection(
     reg: Registry,
     stream: tokio::net::TcpStream,
     peer: SocketAddr,
-    tls: Option<TlsAcceptor>,
+    tls: Option<Tls>,
 ) {
     let ip = peer.ip();
     let is_tls = tls.is_some();
@@ -211,8 +225,25 @@ async fn connection(
                 .await;
         }
         // Only this machine gets a handshake: a LAN peer learns nothing, not even which names are domains.
-        Some(acceptor) if crate::on_this_machine(ip) => {
-            if let Ok(s) = acceptor.accept(stream).await {
+        Some(tls) if crate::on_this_machine(ip) => {
+            let Ok(start) =
+                LazyConfigAcceptor::new(rustls::server::Acceptor::default(), stream).await
+            else {
+                return;
+            };
+            let name = start.client_hello().server_name().map(str::to_owned);
+            let certs = tls.certs.clone();
+            let chosen = match name {
+                Some(n) => tokio::task::spawn_blocking(move || certs.for_name(&n))
+                    .await
+                    .ok()
+                    .flatten(),
+                None => None,
+            };
+            // No certificate: the handshake goes on to fail with an alert the client can read, as before.
+            let mut cfg = (*tls.base).clone();
+            cfg.cert_resolver = Arc::new(Chosen(chosen));
+            if let Ok(s) = start.into_stream(Arc::new(cfg)).await {
                 let _ = http
                     .serve_connection(TokioIo::new(s), service)
                     .with_upgrades()

@@ -13,7 +13,7 @@
 //! at most every two seconds; leaves of an old root go with it.
 
 use crate::ca::Ca;
-use crate::domains::lookup_domain;
+use crate::domains::{lookup_domain, route_domain, shared_suffix, wildcard};
 use crate::registry::zone_owner;
 use crate::{Registry, in_zone, normalize};
 use rustls::crypto::ring::sign::any_supported_type;
@@ -87,12 +87,17 @@ impl Certs {
     pub fn for_name(&self, server_name: &str) -> Option<Arc<CertifiedKey>> {
         let name = normalize(server_name);
         let snap = self.reg.snapshot();
-        let (entry, owner) = if in_zone(&name) {
-            // Only what the front door fronts: a name without a route answers nothing over https either.
-            zone_owner(&snap, &name).filter(|(e, _)| !e.target.is_empty())?
+        let owned = if in_zone(&name) {
+            zone_owner(&snap, &name)
         } else {
-            lookup_domain(&snap, &name)?
+            lookup_domain(&snap, &name)
         };
+        // Only what the front door fronts: a name without a route answers nothing over https either (http's
+        // `front_target`). And never under a wildcard over a shared suffix (`*.co.uk`), which a registry written by
+        // an older program may hold: that would mint for strangers' names.
+        let (entry, owner) = owned.filter(|(e, o)| {
+            !e.target.is_empty() && !(wildcard(o) && shared_suffix(&route_domain(o)))
+        })?;
         if !entry.cert.is_empty() {
             // The person's own files, as they are now (a renewed file is picked up).
             return own_files(Path::new(&entry.cert), Path::new(&entry.key));
@@ -136,6 +141,17 @@ fn own_files(cert: &Path, key: &Path) -> Option<Arc<CertifiedKey>> {
     let key = PrivateKeyDer::from_pem_file(key).ok()?;
     let signer = any_supported_type(&key).ok()?;
     (!chain.is_empty()).then(|| Arc::new(CertifiedKey::new(chain, signer)))
+}
+
+/// A certificate already chosen for one handshake (or none, so it fails): what the front door hands rustls once
+/// [`Certs::for_name`] has run off the async workers.
+#[derive(Debug)]
+pub struct Chosen(pub Option<Arc<CertifiedKey>>);
+
+impl ResolvesServerCert for Chosen {
+    fn resolve(&self, _: ClientHello<'_>) -> Option<Arc<CertifiedKey>> {
+        self.0.clone()
+    }
 }
 
 impl ResolvesServerCert for Certs {

@@ -52,7 +52,70 @@ pub fn valid_domain(host: &str) -> Result<(), String> {
     if labels.first() == Some(&"*") && labels.len() < 3 {
         return Err(format!("{host:?}: a wildcard needs a domain under it"));
     }
+    if labels.first() == Some(&"*") && shared_suffix(&route_domain(&h)) {
+        return Err(format!(
+            "{host:?}: {} is a suffix other people register names under; a wildcard needs a domain of your own",
+            route_domain(&h)
+        ));
+    }
     Ok(())
+}
+
+/// Suffixes under which unrelated people register names (the Public Suffix List's private section, its commonest
+/// entries). A wildcard over one would have the front door mint certificates for strangers' names from a root the
+/// machine trusts. The full list is ~230 KB, past the weight budget; this and [`shared_suffix`]'s rule cost under
+/// 1 KB.
+const SHARED: &[&str] = &[
+    "github.io",
+    "gitlab.io",
+    "pages.dev",
+    "workers.dev",
+    "vercel.app",
+    "netlify.app",
+    "herokuapp.com",
+    "web.app",
+    "firebaseapp.com",
+    "appspot.com",
+    "blogspot.com",
+    "cloudfront.net",
+    "azurewebsites.net",
+    "azurestaticapps.net",
+    "s3.amazonaws.com",
+    "elasticbeanstalk.com",
+    "fly.dev",
+    "onrender.com",
+    "glitch.me",
+    "repl.co",
+    "ngrok.io",
+    "ngrok-free.app",
+    "trycloudflare.com",
+    "deno.dev",
+    "surge.sh",
+    "now.sh",
+    "readthedocs.io",
+    "codeberg.page",
+    "duckdns.org",
+    "dyndns.org",
+    "no-ip.org",
+];
+
+/// Second-level labels country registries sell names under (`co.uk`, `com.au`, `ne.jp`).
+const SECOND_LEVEL: &[&str] = &[
+    "ac", "co", "com", "edu", "gen", "go", "gob", "gov", "gv", "ltd", "me", "mil", "ne", "net",
+    "nhs", "nic", "or", "org", "plc", "sch",
+];
+
+/// Whether `host` is a suffix other people register names under: a top-level domain, a second-level registry of a
+/// country (`co.uk`: a common label under a two-letter top-level domain), or a common hosting suffix
+/// (`github.io`, `pages.dev`, ...).
+pub fn shared_suffix(host: &str) -> bool {
+    let h = normalize(host);
+    let labels: Vec<&str> = h.split('.').collect();
+    match labels.as_slice() {
+        [_] => true,
+        [second, top] if top.len() == 2 && SECOND_LEVEL.contains(second) => true,
+        _ => SHARED.contains(&h.as_str()),
+    }
 }
 
 /// Whether a domain stands for every name under it.

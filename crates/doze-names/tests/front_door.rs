@@ -230,3 +230,52 @@ async fn a_name_under_an_instance_is_served_over_https_with_a_certificate_for_it
     );
     door.close().await;
 }
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn many_handshakes_for_names_under_an_instance_at_once_all_verify() {
+    // The certificate is chosen off the async workers, one mint per name: 24 distinct names and 8 asks for one name,
+    // all at once, on two workers.
+    let home = scratch("many");
+    let reg = Registry::open(&home, "doze-aws");
+    reg.claim(&Name::qualified("files", "shop"))
+        .unwrap()
+        .route(&backend("aws").await.to_string())
+        .unwrap();
+    let ca_dir = home.join("ca");
+    let ca = Ca::load_or_create(&ca_dir).unwrap();
+    let cfg = config(&reg, &ca_dir);
+    let tls = cfg.tls.clone();
+    let mut door = serve(cfg);
+    assert!(door.bound(Duration::from_secs(5)).await);
+    until(|| reg.ingress_tls_holder().is_some()).await;
+    let root = ca.root_der().to_vec();
+    let names: Vec<String> = (0..24)
+        .map(|i| format!("api{i}.execute-api.us-east-1.files.shop.doze"))
+        .chain((0..8).map(|_| "same.lambda-url.us-east-1.files.shop.doze".to_string()))
+        .collect();
+    let asks: Vec<_> = names
+        .into_iter()
+        .map(|n| {
+            let (tls, root) = (tls.clone(), root.clone());
+            tokio::spawn(async move { (https_get(&tls, &n, Some(&root)).await, n) })
+        })
+        .collect();
+    for a in asks {
+        let (got, name) = tokio::time::timeout(Duration::from_secs(30), a)
+            .await
+            .unwrap()
+            .unwrap();
+        let (status, body) = got.unwrap_or_else(|e| panic!("{name}: {e}"));
+        assert!(
+            status.contains("200") && body == format!("aws {name}"),
+            "{status} {body}"
+        );
+    }
+    let kept = std::fs::read_dir(ca_dir.join("certs/under"))
+        .unwrap()
+        .flatten()
+        .filter(|e| e.path().extension().is_some_and(|x| x == "crt"))
+        .count();
+    assert_eq!(kept, 25, "one leaf per name");
+    door.close().await;
+}

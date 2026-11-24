@@ -18,11 +18,42 @@ use x509_cert::der::Decode;
 use x509_cert::ext::pkix::SubjectAltName;
 use x509_cert::ext::pkix::name::GeneralName;
 
-fn scratch(tag: &str) -> PathBuf {
+/// A private home, removed when the test ends.
+struct Scratch(PathBuf);
+
+impl Drop for Scratch {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_dir_all(&self.0);
+    }
+}
+
+impl std::ops::Deref for Scratch {
+    type Target = Path;
+    fn deref(&self) -> &Path {
+        &self.0
+    }
+}
+
+fn scratch(tag: &str) -> Scratch {
     let d = std::env::temp_dir().join(format!("doze-names-under-{tag}-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&d);
     std::fs::create_dir_all(&d).unwrap();
-    d
+    Scratch(d)
+}
+
+/// The file a name's leaf is kept in under `dir` (named by a prefix of the name and a hash of it), if there is one.
+fn kept(dir: &Path, name: &str, ext: &str) -> Option<PathBuf> {
+    std::fs::read_dir(dir)
+        .ok()?
+        .flatten()
+        .map(|e| e.path())
+        .find(|p| {
+            p.file_name().and_then(|f| f.to_str()).is_some_and(|f| {
+                f.strip_prefix(name)
+                    .and_then(|rest| rest.strip_prefix('-'))
+                    .is_some_and(|rest| rest.len() == 16 + 1 + ext.len() && rest.ends_with(ext))
+            })
+        })
 }
 
 /// The DNS names a certificate is for.
@@ -75,9 +106,9 @@ fn a_name_under_an_instance_gets_a_leaf_for_itself_and_the_owner_keeps_its_own()
         "the owner is served its own leaf"
     );
     assert!(home.join("ca/certs/files.shop.doze.crt").exists());
+    let dir = home.join("ca/certs/under");
     assert!(
-        home.join(format!("ca/certs/under/{under}.crt")).exists()
-            && home.join(format!("ca/certs/under/{under}.key")).exists(),
+        kept(&dir, under, "crt").is_some() && kept(&dir, under, "key").is_some(),
         "kept on disk beside the others, apart"
     );
 }
@@ -92,6 +123,9 @@ fn a_name_nobody_registered_or_fronts_gets_nothing() {
         .unwrap();
     // Registered for DNS alone, no route: the front door does not answer it, over http or https.
     let _dns_only = reg.claim(&Name::qualified("db", "shop")).unwrap();
+    // A wildcard domain with no route: http answers 404, so https answers nothing.
+    let web = reg.claim(&Name::qualified("web", "shop")).unwrap();
+    let _unrouted = web.twin(&Name::domain("*.dev.acme.com")).unwrap();
     let certs = certs(&home, &reg);
     for name in [
         "abc.files.shop.dozer.doze",
@@ -101,6 +135,8 @@ fn a_name_nobody_registered_or_fronts_gets_nothing() {
         "x.db.shop.doze",
         "db.shop.doze",
         "files.shop.doze.evil.com",
+        "a.b.dev.acme.com",
+        "api.dev.acme.com",
     ] {
         assert_eq!(served(&certs, name), None, "{name}");
     }
@@ -158,7 +194,7 @@ fn leaves_under_a_name_are_bounded_in_memory_and_on_disk() {
     assert_eq!(on_disk("crt"), UNDER_CAP, "the oldest file goes");
     assert_eq!(on_disk("key"), UNDER_CAP, "with its key");
     assert!(
-        !under.join(format!("{}.crt", name(0))).exists(),
+        kept(&under, &name(0), "crt").is_none(),
         "the oldest on disk is the first minted"
     );
     assert_eq!(
@@ -166,7 +202,7 @@ fn leaves_under_a_name_are_bounded_in_memory_and_on_disk() {
         first.cert_der,
         "recently served, it stays in memory though its file went"
     );
-    std::fs::remove_file(under.join(format!("{}.crt", name(1)))).unwrap();
+    std::fs::remove_file(kept(&under, &name(1), "crt").unwrap()).unwrap();
     assert_ne!(
         ca.leaf_under(&name(1)).unwrap().cert_der,
         second.cert_der,
@@ -191,4 +227,32 @@ fn a_rotation_drops_the_leaves_under_names() {
         "leaves of the old root go with it"
     );
     assert_ne!(rotated.leaf_under(under).unwrap().cert_der, old.cert_der);
+}
+
+#[test]
+fn no_wildcard_over_a_suffix_other_people_register_under() {
+    use doze_names::domains::valid_domain;
+    for d in ["*.co.uk", "*.com.au", "*.github.io", "*.pages.dev", "*.com"] {
+        assert!(valid_domain(d).is_err(), "{d}");
+    }
+    for d in [
+        "*.acme.co.uk",
+        "*.dev.acme.com",
+        "*.me.github.io",
+        "www.bank.co.uk",
+    ] {
+        assert_eq!(valid_domain(d), Ok(()), "{d}");
+    }
+    // A registry an older program wrote may hold one anyway: the front door still mints nothing under it.
+    let home = scratch("shared");
+    let entry = serde_json::json!({"*.co.uk": {
+        "ip": "127.0.0.1", "pid": std::process::id(), "owner": "doze", "tier": "domain", "target": "127.0.0.1:1"
+    }});
+    std::fs::write(home.join("names.json"), entry.to_string()).unwrap();
+    let reg = Registry::open(&home, "doze");
+    assert!(reg.snapshot().contains_key("*.co.uk"));
+    let certs = certs(&home, &reg);
+    for name in ["www.bank.co.uk", "a.b.bank.co.uk", "co.uk"] {
+        assert_eq!(served(&certs, name), None, "{name}");
+    }
 }

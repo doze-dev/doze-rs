@@ -25,6 +25,7 @@ use std::time::Duration;
 use doze_names::ca::Ca;
 use doze_names::front_door::{FrontConfig, serve};
 use doze_names::{Name, Registry};
+use names_support::verify;
 use names_support::{
     Door, REGION, Scheme, direct, free_port, have, json, signed, start, zip_bootstrap,
 };
@@ -208,6 +209,26 @@ async fn nobody(door: &Door, scheme: Scheme) {
     }
 }
 
+/// The same certificates through curl and, on macOS, SecTrust: an API's host, a function URL's (past X.520's 64
+/// characters for a common name, so the leaf has none), and a 241-character name (past what a file name built from it
+/// plus a temporary suffix fits in).
+fn other_verifiers(door: &Door, ca_dir: &std::path::Path, api: &str, lambda: Option<&str>) {
+    if !cfg!(unix) || !have("curl") {
+        eprintln!("curl and SecTrust checks skipped: no curl");
+        return;
+    }
+    let label = "a".repeat(55);
+    let mut hosts = vec![
+        format!("{api}.execute-api.{REGION}.{INSTANCE}"),
+        format!("{label}.{label}.{label}.{label}.v.{INSTANCE}"),
+    ];
+    hosts.extend(lambda.map(|id| format!("{id}.lambda-url.{REGION}.{INSTANCE}")));
+    for host in &hosts {
+        verify::by_curl(&door.tls, &ca_dir.join("root.crt"), host);
+        verify::by_sectrust(ca_dir, host);
+    }
+}
+
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn doze_aws_answers_names_under_its_instance_over_http_and_https() {
     let dir = tempfile::tempdir().unwrap();
@@ -258,6 +279,10 @@ async fn doze_aws_answers_names_under_its_instance_over_http_and_https() {
         s3_in_host(&door, scheme).await;
         nobody(&door, scheme).await;
     }
+    // Blocking child processes, off the async workers the front door is on.
+    tokio::task::block_in_place(|| {
+        other_verifiers(&door, &home.join("ca"), &api, lambda.as_deref())
+    });
     front.close().await;
     drop(lease);
 }
