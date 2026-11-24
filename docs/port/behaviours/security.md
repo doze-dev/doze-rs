@@ -652,9 +652,9 @@ because a broker that ignored them would send in the clear. Test: `cli::tests::t
 
 ## SEC-142. A certificate or key that cannot be used stops the start, before anything is bound, and never falls back to plaintext
 The files are read once, at start. A missing or unreadable file, a file with no certificate, a file with no key (including a certificate where the key goes and the reverse),
-an encrypted key, bad PEM, a key that does not belong to the first certificate, a key this build cannot use: each is an error that names the file (or both, for a mismatch) and says
+an encrypted key, bad PEM, a key that does not belong to the first certificate, a leaf that is not an X.509 version 3 certificate (version 1, what LibreSSL's `openssl req -x509` makes with no `-addext`: the error names the certificate, not the key, and says how to make one that works), a key this build cannot use: each is an error that names the file (or both, for a mismatch) and says
 what is wrong. The words of the stop are the Go edition's: `config: cannot load the TLS certificate and key (--tls-cert X, --tls-key Y): <reason>`. No listener is left behind.
-Test: `tls::tests::{a_missing_file_is_named, an_empty_file_or_the_wrong_kind_of_file_says_what_is_missing_and_where, a_key_that_belongs_to_another_certificate_is_a_mismatch_naming_both_files, an_encrypted_key_is_recognised_and_garbage_is_not_echoed}`,
+Test: `tls::tests::{a_missing_file_is_named, an_empty_file_or_the_wrong_kind_of_file_says_what_is_missing_and_where, a_key_that_belongs_to_another_certificate_is_a_mismatch_naming_both_files, a_version_1_certificate_is_blamed_not_its_key, an_encrypted_key_is_recognised_and_garbage_is_not_echoed}`,
 `cli::tests::tls::a_file_that_cannot_be_used_stops_the_start_naming_both_flags_and_no_key_bytes`, `tests/process tls::a_certificate_that_cannot_be_used_stops_the_start_and_no_plaintext_listener_is_left`.
 
 ## SEC-143. What is accepted: a PEM chain, leaf first, and a PEM key of any of three kinds

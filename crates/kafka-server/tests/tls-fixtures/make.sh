@@ -39,10 +39,15 @@ leaf ec ec-key-sec1.pem
 openssl genrsa -out rsa-key-pkcs1.pem 2048
 openssl pkcs8 -topk8 -nocrypt -in rsa-key-pkcs1.pem -out rsa-key-pkcs8.pem
 leaf rsa rsa-key-pkcs1.pem
+# An X.509 version 1 certificate for the RSA key: self-signed with no extensions (`x509 -req` without `-extfile` makes
+# version 1 in OpenSSL and LibreSSL alike), as LibreSSL's `req -x509` makes one when given no `-addext`.
+openssl req -new -key rsa-key-pkcs1.pem -out v1.csr -subj "/CN=localhost"
+openssl x509 -req -in v1.csr -signkey rsa-key-pkcs1.pem -sha256 -out rsa-v1.pem -days $days
 
 cp root.pem "$here/root.pem"
 cp other.pem "$here/other-root.pem"
 cat ec.pem mid.pem >"$here/ec-chain.pem"
 cat rsa.pem mid.pem >"$here/rsa-chain.pem"
 cp ec.pem "$here/ec-leaf-only.pem"
+cp rsa-v1.pem "$here/rsa-v1.pem"
 cp ec-key-sec1.pem ec-key-pkcs8.pem rsa-key-pkcs1.pem rsa-key-pkcs8.pem "$here/"
