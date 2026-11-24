@@ -11,7 +11,7 @@ import { urlShapes } from "./url-shapes";
 
 const mono = "font-mono text-[12.5px] text-foreground";
 const link = "rounded-sm text-link hover:underline focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none";
-const panel = "min-w-0 rounded-[14px] border bg-card p-6 lg:p-7";
+const panel = "min-w-0 rounded-[var(--radius-card)] border bg-card p-6 lg:p-7";
 const h3 = "text-[17px] leading-6 font-semibold tracking-[-0.01em] text-bright";
 
 /** The two client settings an address with no hostnames needs: what AWS puts in a host name, the client puts elsewhere. */
@@ -47,7 +47,7 @@ function Settings() {
 function Shapes({ a }: { a: About }) {
   return (
     <Section title="The URL shapes you will see" testId="connect-shapes" lede="The instance mints every URL from the address a request arrived on, so these are what comes back.">
-      <div className="overflow-hidden rounded-[14px] border bg-card">
+      <div className="overflow-hidden rounded-[var(--radius-card)] border bg-card">
         <table className="w-full text-[13.5px]">
           <thead>
             <tr className="bg-muted text-left text-[11.5px] tracking-wide text-muted-foreground uppercase">

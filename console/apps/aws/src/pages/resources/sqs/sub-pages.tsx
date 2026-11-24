@@ -25,7 +25,7 @@ export type SubProps = { d: ResourceDetail; q: Queue; back: () => void; done: (d
 /** The page for `?view=`; an unknown one says so instead of showing nothing. */
 export function SubPage({ view, ...p }: SubProps & { view: string }) {
   return (
-    <Suspense fallback={<Skeleton className="h-96 rounded-[14px]" />}>
+    <Suspense fallback={<Skeleton className="h-96 rounded-[var(--radius-card)]" />}>
       {view === "edit" ? <Edit {...p} /> : view === "messages" ? <Messages {...p} /> : view === "redrive" ? <Redrive {...p} /> : view === "lambda-configure" ? <ConfigureTrigger {...p} /> : view === "sns-subscribe" ? <SubscribeTopic {...p} /> : <Alert tone="warn" title="No such page">This queue has no page called {view}.</Alert>}
     </Suspense>
   );

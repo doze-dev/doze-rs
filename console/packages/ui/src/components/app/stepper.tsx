@@ -58,7 +58,7 @@ export type ReviewRow = { label: string; value: React.ReactNode };
 /** One step's answers on the review page: its title, what was chosen, and an Edit link back to the step. */
 export function ReviewSection({ title, rows, onEdit, className }: { title: string; rows: ReviewRow[]; onEdit?: () => void; className?: string }) {
   return (
-    <section className={cn("min-w-0 rounded-[14px] border bg-card p-6 lg:p-7", className)} aria-label={title} data-slot="review-section">
+    <section className={cn("min-w-0 rounded-[var(--radius-card)] border bg-card p-6 lg:p-7", className)} aria-label={title} data-slot="review-section">
       <div className="flex items-start justify-between gap-3">
         <h2 className="text-[17px] leading-6 font-semibold tracking-[-0.01em] text-bright">{title}</h2>
         {onEdit && (

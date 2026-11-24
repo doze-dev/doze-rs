@@ -22,7 +22,7 @@ import { Input } from "@doze/ui/components/ui/input";
 
 export function TopicEdit(p: TopicProps) {
   const tags = useTags({ service: p.d.service, kind: p.d.kind, name: p.d.name });
-  if (tags.isPending) return <Skeleton className="h-96 rounded-[14px]" data-testid="edit-loading" />;
+  if (tags.isPending) return <Skeleton className="h-96 rounded-[var(--radius-card)]" data-testid="edit-loading" />;
   return <EditForm {...p} tags={tags.data?.tags ?? []} />;
 }
 

@@ -48,7 +48,7 @@ export function IntegrationEditDialog({ api, resource, method, integration, onCl
                 <h3 className="text-[15px] font-semibold text-bright">Mapping templates</h3>
                 {e.templates.length === 0 && <p className="text-[13.5px] text-muted-foreground">No template is defined: the body is passed as it arrives, as the setting below says.</p>}
                 {e.templates.map((t) => (
-                  <div key={t.id} className="grid gap-2 rounded-[10px] border p-3" data-testid="template-row">
+                  <div key={t.id} className="grid gap-2 rounded-[var(--radius-field)] border p-3" data-testid="template-row">
                     <div className="flex items-center gap-2"><Input value={t.type} onChange={(ev) => set({ templates: e.templates.map((x) => (x.id === t.id ? { ...x, type: ev.target.value } : x)) })} placeholder="application/json" aria-label="Content type" className="font-mono" autoComplete="off" spellCheck={false} data-testid="template-type-input" /><Button type="button" variant="ghost" size="icon" aria-label="Remove template" onClick={() => set({ templates: e.templates.filter((x) => x.id !== t.id) })}><XIcon /></Button></div>
                     <Textarea value={t.text} onChange={(ev) => set({ templates: e.templates.map((x) => (x.id === t.id ? { ...x, text: ev.target.value } : x)) })} rows={4} aria-label="Template" className="font-mono text-[12.5px]" spellCheck={false} data-testid="template-text-input" />
                   </div>

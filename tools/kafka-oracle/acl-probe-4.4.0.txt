@@ -1,0 +1,10 @@
+10001 new: 10001 results {44 Unable to perform excessively large batch operation.=10001}
+acls now: 0
+10000 new: 10000 results {0 =10000}
+acls now: 10000
+the same 10000 again plus 1 new: 10001 results {0 =10001}
+acls now: 10001
+10001 with 2 the same: 10001 results {0 =10001}
+acls now: 20001
+10001 new and 1 invalid: 10002 results {44 Unable to perform excessively large batch operation.=10002}
+acls now: 20001

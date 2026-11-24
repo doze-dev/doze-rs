@@ -259,3 +259,53 @@ async fn the_other_refusals_of_a_creation_are_kafkas_words() {
         ]
     );
 }
+
+/// More than 10,000 new ACLs in one request is refused whole, as Kafka 4.4.0 refuses it (`tools/kafka-oracle/AclProbe.java`,
+/// `acl-probe-4.4.0.txt`): every result 44 in Kafka's words, an invalid one too, and nothing stored. Only ACLs not stored
+/// already count, each once.
+#[tokio::test]
+async fn more_than_ten_thousand_new_acls_at_once_are_refused_whole() {
+    let rig = rig_with(closed_world);
+    let many = |prefix: &str, n: usize| -> Vec<_> {
+        (0..n)
+            .map(|i| {
+                creation(
+                    (TOPIC, &format!("{prefix}-{i}"), LITERAL),
+                    "User:probe",
+                    READ,
+                    ALLOW,
+                )
+            })
+            .collect()
+    };
+    let codes = |r: &[kafka_wire::messages::create_acls_response::AclCreationResult]| {
+        let mut seen: Vec<(i16, Option<StrBytes>)> = r
+            .iter()
+            .map(|x| (x.error_code, x.error_message.clone()))
+            .collect();
+        seen.dedup();
+        (r.len(), seen)
+    };
+    let too_many = text("Unable to perform excessively large batch operation.");
+    let r = rig.create_acls_as(&admin(), 3, many("over", 10_001)).await;
+    assert_eq!(codes(&r), (10_001, vec![(44, too_many.clone())]));
+    assert!(rig.acls_as(&admin()).await.is_empty());
+    let r = rig.create_acls_as(&admin(), 3, many("at", 10_000)).await;
+    assert_eq!(codes(&r), (10_000, vec![(0, text(""))]));
+    let mut again = many("at", 10_000);
+    again.extend(many("one", 1));
+    let r = rig.create_acls_as(&admin(), 3, again).await;
+    assert_eq!(codes(&r), (10_001, vec![(0, text(""))]), "one new");
+    assert_eq!(rig.acls_as(&admin()).await.len(), 10_001);
+    let mut twice = many("dup", 10_000);
+    twice.extend(many("dup", 1));
+    let r = rig.create_acls_as(&admin(), 3, twice).await;
+    assert_eq!(codes(&r), (10_001, vec![(0, text(""))]), "10,000 distinct");
+    assert_eq!(rig.acls_as(&admin()).await.len(), 20_001);
+    let mut bad = many("bad", 1);
+    bad[0].principal = StrBytes::from_static_str("probe");
+    bad.extend(many("more", 10_001));
+    let r = rig.create_acls_as(&admin(), 3, bad).await;
+    assert_eq!(codes(&r), (10_002, vec![(44, too_many)]));
+    assert_eq!(rig.acls_as(&admin()).await.len(), 20_001);
+}

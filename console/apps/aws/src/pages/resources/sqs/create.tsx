@@ -78,7 +78,7 @@ export function SqsCreate() {
       }
       aside={
         taken && neighbour.data ? (
-          <section className="rounded-[14px] border bg-card p-5" data-testid="what-it-has">
+          <section className="rounded-[var(--radius-card)] border bg-card p-5" data-testid="what-it-has">
             <h2 className="text-[12px] font-medium tracking-[0.08em] text-muted-foreground uppercase">What {f.name} already has</h2>
             <p className="mt-2 text-[13.5px] text-muted-foreground">{had ? "The attribute the request does not match." : "The existing queue's settings."}</p>
             {had && <p className="mt-2 font-mono text-[13.5px] text-bright">{had.name} {had.value}</p>}

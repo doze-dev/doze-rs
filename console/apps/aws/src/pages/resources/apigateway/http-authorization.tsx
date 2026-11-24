@@ -76,7 +76,7 @@ export function HttpAuthorization({ id, api, mode }: { id: string; api: HttpApi;
           <EmptyState icon={ShieldCheckIcon} title="No routes" action={<Button variant="outline" className="bg-card" onClick={() => go({ do: "create-route" })}>Create route</Button>}>An authorizer is attached to a route, and {api.name} has none yet.</EmptyState>
         ) : (
           <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_22.5rem]">
-            <section className="min-w-0 rounded-[14px] border bg-card p-6 lg:p-7" aria-label="Attach an authorizer" data-testid="attach-authorizer">
+            <section className="min-w-0 rounded-[var(--radius-card)] border bg-card p-6 lg:p-7" aria-label="Attach an authorizer" data-testid="attach-authorizer">
               <h2 className="text-[17px] leading-6 font-semibold text-bright">Attach an authorizer to a route</h2>
               <form className="mt-5 grid gap-5" onSubmit={(e) => { e.preventDefault(); if (input) attach.mutate(input as never); }}>
                 <Field label="Route">

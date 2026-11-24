@@ -20,7 +20,7 @@ export function ManageTags({ name }: { name: string }) {
   const saved = tags.data?.tags ?? [];
   const live = rows ?? (tags.data ? (saved.length > 0 ? rowsFrom(saved) : [newRow()]) : null);
   const back = (done?: string) => void navigate({ to: "/resources/$service/$kind/$name", params: { service: "kinesis", kind: "streams", name }, search: done ? { done } : {} });
-  if (!live) return <Skeleton className="h-80 rounded-[14px]" />;
+  if (!live) return <Skeleton className="h-80 rounded-[var(--radius-card)]" />;
   const change = diffTags(saved, live);
   const valid = rowsValid(live, TAG_RULES);
   const added = change.set.filter((t) => !saved.some((x) => x.key === t.key));

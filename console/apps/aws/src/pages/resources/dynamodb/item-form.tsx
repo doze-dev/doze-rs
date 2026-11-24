@@ -77,7 +77,7 @@ export function ItemForm({ name, search, edit }: OwnProps & { edit: boolean }) {
   const put = useOp<unknown>(t, "PutItem");
   const back = () => go({ do: "explore" });
   if (read.isError && !read.table) return <DetailError service="dynamodb" kind="tables" name={table} error={read.error} onRetry={() => void read.refetch()} />;
-  if (!read.table || (edit && got.isPending)) return <Skeleton className="h-80 rounded-[14px]" />;
+  if (!read.table || (edit && got.isPending)) return <Skeleton className="h-80 rounded-[var(--radius-card)]" />;
   if (edit && !got.data?.Item) return <ErrorBlock what="This item could not be read" error={got.error ?? new Error("No item has this key any more. It may have been deleted.")} onRetry={() => void got.refetch()} testId="item-missing" />;
   const current = rows ?? (edit ? rowsOf(got.data!.Item!, keys) : blankRows(keys));
   const change = (next: AttrRow[]) => (setRows(next), put.reset());

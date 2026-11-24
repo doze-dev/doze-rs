@@ -61,7 +61,7 @@ export function PresignDialog({ name, objectKey, versionId, open, onClose }: { n
         {said && <Alert tone="bad" title={`The link was not made: ${said.code?.split(" · ")[0]}`}>{said.message}</Alert>}
         {make.data && (
           <div className="grid gap-2" data-testid="presigned">
-            <pre className="max-h-40 overflow-auto rounded-[10px] border bg-well p-3 font-mono text-[12px] break-all whitespace-pre-wrap" data-testid="presigned-url">{make.data.url}</pre>
+            <pre className="max-h-40 overflow-auto rounded-[var(--radius-field)] border bg-well p-3 font-mono text-[12px] break-all whitespace-pre-wrap" data-testid="presigned-url">{make.data.url}</pre>
             <div className="flex items-center gap-3"><CopyButton text={make.data.url} label="Copy URL" what="Presigned URL copied" /><span className="text-[13px] text-muted-foreground">Expires {longDate(make.data.expires_at)}.</span></div>
           </div>
         )}

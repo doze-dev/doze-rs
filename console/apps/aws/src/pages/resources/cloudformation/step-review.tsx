@@ -47,11 +47,11 @@ export function StepReview({ w, summary, edit, preview, previewError, stackName 
         ...(update ? [{ label: "Capabilities", value: (summary.Capabilities ?? []).length > 0 ? nameList(summary.Capabilities ?? []) : "None needed" }] : [{ label: "Termination protection", value: w.protect ? "Enabled" : "Disabled" }, ...(w.timeout ? [{ label: "Timeout", value: `${w.timeout} minutes` }] : [])]),
       ]} />
       {update && (
-        <section className="min-w-0 rounded-[14px] border bg-card p-6 lg:p-7" aria-label="Change set preview" data-testid="preview">
+        <section className="min-w-0 rounded-[var(--radius-card)] border bg-card p-6 lg:p-7" aria-label="Change set preview" data-testid="preview">
           <h2 className="text-[17px] leading-6 font-semibold tracking-[-0.01em] text-bright">Change set preview</h2>
           <p className="mt-1 text-[13.5px] text-muted-foreground">CloudFormation compared this update with the running stack by making a change set. Nothing has been changed yet.</p>
           <div className="mt-4 grid gap-3">
-            {preview?.pending ? <Skeleton className="h-24 rounded-[12px]" /> : refused ? (
+            {preview?.pending ? <Skeleton className="h-24 rounded-[var(--radius-panel)]" /> : refused ? (
               <Callout tone="bad" lead="The preview could not be made." testId="preview-refused">{refused.code ? `${refused.code}: ` : ""}{refused.message}</Callout>
             ) : preview?.data?.Status === "FAILED" ? (
               <Callout tone="warn" lead="This update changes nothing." testId="preview-empty">{preview.data.StatusReason} UpdateStack would be refused with the same words.</Callout>

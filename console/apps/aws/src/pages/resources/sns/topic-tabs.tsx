@@ -85,7 +85,7 @@ export function LoggingTab({ t, edit }: TabProps) {
   return (
     <div className="grid gap-4" data-testid="logging-tab">
       <Block title="Delivery status logging" lede="Delivery results written to CloudWatch Logs, per protocol. Read from the topic's SuccessFeedbackRoleArn, SuccessFeedbackSampleRate and FailureFeedbackRoleArn attributes." actions={<EditButton onClick={edit} />}>
-        <div className="overflow-x-auto rounded-[14px] border bg-card">
+        <div className="overflow-x-auto rounded-[var(--radius-card)] border bg-card">
           <table className="w-full min-w-[40rem] border-collapse" aria-label="Delivery status logging">
             <thead className="bg-muted/50"><tr>{["Protocol", "Success sample rate", "IAM roles"].map((h) => <th key={h} className="px-4 py-3 text-left text-[12px] font-medium tracking-[0.06em] text-muted-foreground uppercase">{h}</th>)}</tr></thead>
             <tbody className="divide-y">
@@ -122,7 +122,7 @@ export function EncryptionTab({ t, edit, calls = [] }: TabProps & { calls?: read
     <div className="grid gap-4" data-testid="encryption-tab">
       <Block title="Encryption" lede="Server-side encryption with AWS KMS. Read from the topic's KmsMasterKeyId attribute." actions={<EditButton onClick={edit} />}>
         {t.kms && (
-          <nav aria-label="Wired to" className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-[14px] border bg-card px-5 py-3" data-testid="kms-strip">
+          <nav aria-label="Wired to" className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-[var(--radius-card)] border bg-card px-5 py-3" data-testid="kms-strip">
             {from.length > 0 && <><span className="text-[13.5px] text-muted-foreground">Publisher</span>{from.map((l) => <span key={l} className="inline-flex rounded-lg border bg-well px-3 py-1.5 font-mono text-[13px] text-bright">{l}</span>)}<span aria-hidden className="text-input">→</span></>}
             <span className="inline-flex rounded-lg border border-primary/30 bg-pick px-3 py-1.5 font-mono text-[13px] text-bright">{t.name}</span>
             <span aria-hidden className="text-input">→</span>
@@ -130,7 +130,7 @@ export function EncryptionTab({ t, edit, calls = [] }: TabProps & { calls?: read
             <span className="inline-flex rounded-lg border bg-well px-3 py-1.5 font-mono text-[13px] text-bright">{t.kms}</span>
           </nav>
         )}
-        <dl className="grid grid-cols-[minmax(11rem,15rem)_minmax(0,1fr)] rounded-[14px] border bg-card px-6 py-2 text-[13.5px] [&_dd]:border-b [&_dd]:py-3 [&_dt]:border-b [&_dt]:py-3 [&>span:last-child>*]:border-b-0">
+        <dl className="grid grid-cols-[minmax(11rem,15rem)_minmax(0,1fr)] rounded-[var(--radius-card)] border bg-card px-6 py-2 text-[13.5px] [&_dd]:border-b [&_dd]:py-3 [&_dt]:border-b [&_dt]:py-3 [&>span:last-child>*]:border-b-0">
           {rows.map(([l, v]) => (<span key={l} className="contents"><dt className="text-muted-foreground">{l}</dt><dd className="text-bright" data-testid={`field-${l}`}>{v}</dd></span>))}
         </dl>
       </Block>
@@ -144,7 +144,7 @@ export function ArchiveTab({ t, edit }: TabProps) {
   return (
     <div className="grid gap-4" data-testid="archive-tab">
       <Block title="Archive policy" lede="Message archiving keeps a single copy of all messages published to the topic, for a minimum of one day to a maximum of 365 days. Read from the ArchivePolicy attribute." actions={<EditButton onClick={edit} />}>
-        <dl className="grid grid-cols-[minmax(11rem,15rem)_minmax(0,1fr)] rounded-[14px] border bg-card px-6 py-2 text-[13.5px] [&>*]:border-b [&>*]:py-3 [&>:nth-last-child(-n+2)]:border-b-0">
+        <dl className="grid grid-cols-[minmax(11rem,15rem)_minmax(0,1fr)] rounded-[var(--radius-card)] border bg-card px-6 py-2 text-[13.5px] [&>*]:border-b [&>*]:py-3 [&>:nth-last-child(-n+2)]:border-b-0">
           <dt className="text-muted-foreground">Status</dt><dd className={a.active ? "text-link" : "text-muted-foreground"} data-testid="field-Status"><span className="inline-flex items-center gap-2"><span aria-hidden className="size-2 rounded-full bg-current" />{a.active ? "active" : "inactive"}</span></dd>
           {a.days !== null && (<><dt className="text-muted-foreground">Message retention period</dt><dd className="text-bright" data-testid="field-retention">{daysWords(a.days)}</dd></>)}
         </dl>

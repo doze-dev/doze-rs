@@ -43,7 +43,7 @@ export function TagsView({ heading, answer, saving = false, error, saved, onSave
   const seed = useMemo(() => (manage?.inPlace && answer && answer.tags.length > 0 ? rowsFrom(answer.tags) : null), [manage?.inPlace, answer]);
   const rows = edited ?? seed;
   if (loadError && !answer) return <ErrorBlock what="The tags could not be read" error={loadError} onRetry={onRetry} className="w-full" testId="tags-error" />;
-  if (loading || !answer) return <Skeleton className="h-40 w-full rounded-[14px]" data-testid="tags-loading" />;
+  if (loading || !answer) return <Skeleton className="h-40 w-full rounded-[var(--radius-card)]" data-testid="tags-loading" />;
   const tags = answer.tags;
   const edit = () => {
     setTried(false);
@@ -55,7 +55,7 @@ export function TagsView({ heading, answer, saving = false, error, saved, onSave
     const failed = error ? errorWords(error) : null;
     return (
       <form
-        className={manage ? "grid gap-5 rounded-[14px] border bg-card p-8" : "grid max-w-[56rem] gap-5"}
+        className={manage ? "grid gap-5 rounded-[var(--radius-card)] border bg-card p-8" : "grid max-w-[56rem] gap-5"}
         onSubmit={(e) => {
           e.preventDefault();
           setTried(true);

@@ -71,7 +71,7 @@ export function PolicyCreate() {
     { id: "resource", header: "Resource", accessorFn: (r) => r.resource, cell: (c) => <Breakable text={c.row.original.resource} className="block whitespace-normal" /> },
   ];
   const blockedPanel = (
-    <aside className="min-w-0 rounded-[14px] border bg-card p-5" aria-label="Nothing was created" data-testid="nothing-created">
+    <aside className="min-w-0 rounded-[var(--radius-card)] border bg-card p-5" aria-label="Nothing was created" data-testid="nothing-created">
       <h2 className="flex items-center gap-2 text-[12px] font-medium tracking-[0.08em] text-muted-foreground uppercase"><BracesIcon aria-hidden className="size-3.5" /> Nothing was created</h2>
       <p className="mt-3 text-[13.5px] leading-[21px] text-foreground">CreatePolicy only runs on the review step, and it answers MalformedPolicyDocument for a document that breaks the grammar. The editor stops you before that.</p>
     </aside>

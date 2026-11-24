@@ -33,7 +33,7 @@ impl TokenLogin {
     /// # Errors
     /// [`CredentialsError::NoEntropy`] if the system has no random bytes for the salts.
     pub fn derive(owner: Principal, hmac: &[u8]) -> Result<Self, CredentialsError> {
-        let password = base64::encode(hmac);
+        let password = zeroize::Zeroizing::new(base64::encode(hmac));
         let mut verifiers = BTreeMap::new();
         for kind in Kind::ALL {
             let mut salt = [0u8; 16];

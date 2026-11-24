@@ -12,6 +12,10 @@ AlterClientQuotas, the controller mutation quota), doze-kafka is held to a real 
 4. `java -cp '<kafka_2.13-4.4.0>/libs/*' tools/kafka-oracle/QuotaMath.java`: Kafka's own `Rate`, `TokenBucket` and throttle
    arithmetic on the inputs of `crates/kafka-broker/src/quotas/meter/tests.rs`, whose expected values are its output.
 
+5. CreateAcls past the 10,000 bound (debt I8): Kafka started with `authorizer.class.name=org.apache.kafka.metadata.authorizer.StandardAuthorizer`
+   and `super.users=User:ANONYMOUS` added, then `java -cp '<kafka_2.13-4.4.0>/libs/*' tools/kafka-oracle/AclProbe.java <host:port>` against
+   each; Kafka's answers are `acl-probe-4.4.0.txt`. Run on 2026-11-23: doze-kafka's are the same.
+
 Kafka's own tools against both, as the behaviours cite them: `kafka-log-dirs.sh --describe`, `kafka-configs.sh --alter
 --entity-type users|clients ... --add-config producer_byte_rate=...`, `kafka-producer-perf-test.sh` and
 `kafka-consumer-perf-test.sh` with a client id that has a quota. Ports: 39400 to 39401 here; never the owner's 29xxx or 19592.

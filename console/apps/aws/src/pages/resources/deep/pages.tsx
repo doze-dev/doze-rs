@@ -35,7 +35,7 @@ export function GonePage({ service, kind, name }: { service: string; kind: strin
   const Gone = GONE[`${service}/${kind}`];
   if (!Gone) return null;
   return (
-    <Suspense fallback={<Skeleton className="h-28 rounded-[14px]" />}>
+    <Suspense fallback={<Skeleton className="h-28 rounded-[var(--radius-card)]" />}>
       <Gone name={name} />
     </Suspense>
   );
@@ -90,14 +90,14 @@ export function DeepPage({ d, id }: { d: ResourceDetail; id: string }) {
   const entry = pageOf(d.service, id);
   if (!tab || !entry) {
     return (
-      <p className="rounded-[12px] border border-dashed px-5 py-4 text-[13.5px] text-muted-foreground" data-testid="deep-missing">
+      <p className="rounded-[var(--radius-panel)] border border-dashed px-5 py-4 text-[13.5px] text-muted-foreground" data-testid="deep-missing">
         This {d.one} has no page called {id} in this console.
       </p>
     );
   }
   const Page = entry.page;
   return (
-    <Suspense fallback={<Skeleton className="h-80 rounded-[14px]" />}>
+    <Suspense fallback={<Skeleton className="h-80 rounded-[var(--radius-card)]" />}>
       <div className="animate-in fade-in-0 duration-200" data-testid={`deep-${id}`}>
         <Page d={d} tab={tab} />
       </div>

@@ -60,7 +60,7 @@ export function StreamPage({ group, stream }: { group: string; stream: string })
         }
       />
       {!group ? (
-        <p className="rounded-[12px] border border-dashed px-5 py-6 text-[13.5px] text-muted-foreground">This address names no log group (?group=). Open the stream from its group's page.</p>
+        <p className="rounded-[var(--radius-panel)] border border-dashed px-5 py-6 text-[13.5px] text-muted-foreground">This address names no log group (?group=). Open the stream from its group's page.</p>
       ) : (
         <div data-testid="stream-viewer">
           <form className="mb-4 flex flex-wrap items-center gap-3" role="search" onSubmit={search}>

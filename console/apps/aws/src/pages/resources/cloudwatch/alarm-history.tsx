@@ -43,7 +43,7 @@ export function AlarmHistory({ name }: { name: string }) {
       {h.isError && !h.data ? (
         <ErrorBlock what="The history could not be read" error={h.error} onRetry={() => void h.refetch()} retrying={h.isFetching} testId="history-error" />
       ) : h.isPending ? (
-        <Skeleton className="h-64 rounded-[14px]" data-testid="history-loading" />
+        <Skeleton className="h-64 rounded-[var(--radius-card)]" data-testid="history-loading" />
       ) : h.items.length === 0 ? (
         <EmptyTab icon={HistoryIcon} title="No history in this window" testId="history-empty">{type || start || end ? "DescribeAlarmHistory returned nothing for this type and window." : "Nothing has happened to this alarm yet."}</EmptyTab>
       ) : (

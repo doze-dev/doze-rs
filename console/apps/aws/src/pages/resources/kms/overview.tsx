@@ -14,7 +14,7 @@ const chip = "inline-flex min-w-0 max-w-full items-center gap-2 rounded-lg borde
 export function KeyStrip({ name, uses, aliases }: { name: string; uses: readonly Use[]; aliases: readonly string[] }) {
   if (uses.length === 0 && aliases.length === 0) return null;
   return (
-    <nav aria-label="Wired to" className="mb-8 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-[14px] border bg-card px-5 py-4" data-testid="wired-strip">
+    <nav aria-label="Wired to" className="mb-8 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-[var(--radius-card)] border bg-card px-5 py-4" data-testid="wired-strip">
       {uses.length > 0 && (
         <>
           <span className="text-[13.5px] text-muted-foreground">Used by</span>

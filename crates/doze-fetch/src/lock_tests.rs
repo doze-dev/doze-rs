@@ -99,6 +99,28 @@ fn save_writes_only_a_change_and_names_the_newest_doze() {
     let _ = std::fs::remove_dir_all(&dir);
 }
 
+/// A symlinked doze.lock is its target, through a relative link to a link, without the file being opened.
+#[cfg(unix)]
+#[test]
+fn a_linked_lock_is_its_target() {
+    let root = std::env::temp_dir().join(format!("doze-fetch-link-{}", std::process::id()));
+    let (real, p) = (root.join("real"), root.join("p"));
+    std::fs::create_dir_all(&real).unwrap();
+    std::fs::create_dir_all(&p).unwrap();
+    std::fs::write(real.join(FILE), "engines: {}\n").unwrap();
+    std::os::unix::fs::symlink("../real/doze.lock", p.join("middle.lock")).unwrap();
+    std::os::unix::fs::symlink("middle.lock", p.join(FILE)).unwrap();
+    let want = real.canonicalize().unwrap().join(FILE);
+    assert_eq!(canonical(&p.join(FILE)), want);
+    assert_eq!(canonical(&real.join(FILE)), want);
+    assert_eq!(
+        canonical(&p.join("absent.lock")),
+        p.canonicalize().unwrap().join("absent.lock"),
+        "a file not yet written is its folder's"
+    );
+    let _ = std::fs::remove_dir_all(&root);
+}
+
 /// Two spellings of one file are one lock: writers through `dir/../dir/doze.lock` and `dir/doze.lock` each read the
 /// file again under the same lock, so both pins are kept.
 #[test]

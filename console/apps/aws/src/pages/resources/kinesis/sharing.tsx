@@ -31,7 +31,7 @@ export function SharingTab({ s, create }: { s: Stream; create: () => void }) {
   if (!q.data) return <p className="text-[13.5px] text-muted-foreground">Reading the policy…</p>;
   if (noPolicy(q.data.Policy)) {
     return (
-      <section className="rounded-[14px] border bg-card p-6 lg:p-7" data-testid="sharing-empty">
+      <section className="rounded-[var(--radius-card)] border bg-card p-6 lg:p-7" data-testid="sharing-empty">
         <h2 className="text-[17px] leading-6 font-semibold tracking-[-0.01em] text-bright">Data stream sharing</h2>
         <p className="mt-1 text-[13.5px] text-muted-foreground">A resource-based policy on the stream says which identities may use it and which actions they may call.</p>
         <dl className="mt-3 grid grid-cols-[minmax(9rem,12rem)_minmax(0,1fr)]">
@@ -50,7 +50,7 @@ export function SharingTab({ s, create }: { s: Stream; create: () => void }) {
   try { shown = JSON.stringify(JSON.parse(policy), null, 2); } catch { /* shown as it is */ }
   return (
     <div className="grid gap-5" data-testid="sharing-policy">
-      <section className="rounded-[14px] border bg-card p-6 lg:p-7">
+      <section className="rounded-[var(--radius-card)] border bg-card p-6 lg:p-7">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div><h2 className="text-[17px] leading-6 font-semibold tracking-[-0.01em] text-bright">Data stream sharing</h2><p className="mt-1 text-[13.5px] text-muted-foreground">A resource-based policy on the stream says which identities may use it and which actions they may call.</p></div>
           <div className="flex gap-2"><Button type="button" variant="outline" className="bg-card" onClick={create} data-testid="sharing-replace">Replace policy</Button><Button type="button" variant="outline" className="border-bad/40 bg-card text-bad hover:text-bad" onClick={() => { del.reset(); setAsking(true); }} data-testid="sharing-delete"><TrashIcon /> Delete policy</Button></div>

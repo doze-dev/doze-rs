@@ -53,7 +53,7 @@ export function WiredStrip({ wired, className, self, chipText, chipHref, lead = 
   const items: React.ReactNode[] = wired.map((w) => <Fragment key={`${w.label}|${w.to.service}|${w.to.kind}|${w.to.name}`}>{chip(w)}</Fragment>);
   if (self) items.splice(Math.min(self.at, items.length), 0, <span key="self" aria-current="page" className="inline-flex items-center rounded-lg border border-primary/40 bg-pick px-3 py-1.5 font-mono text-[13px] text-bright" data-testid="wired-self">{self.name}</span>);
   return (
-    <nav aria-label="Wired to" className={cn("mb-8 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-[14px] border bg-card px-5 py-4", className)} data-testid="wired-strip">
+    <nav aria-label="Wired to" className={cn("mb-8 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-[var(--radius-card)] border bg-card px-5 py-4", className)} data-testid="wired-strip">
       <span className="text-[13.5px] text-muted-foreground">{lead}</span>
       {items.map((it, i) => (
         <Fragment key={i}>
@@ -80,7 +80,7 @@ export function DetailFields({ detail, renderValue }: { detail: ResourceDetail; 
     </div>
   );
   return (
-    <section className="rounded-[14px] border bg-card p-6 lg:p-7" aria-label="Details" data-testid="details">
+    <section className="rounded-[var(--radius-card)] border bg-card p-6 lg:p-7" aria-label="Details" data-testid="details">
       <h2 className="text-[17px] leading-6 font-semibold tracking-[-0.01em] text-bright">Details</h2>
       <div className="mt-4 grid lg:grid-cols-2 lg:gap-x-12">
         <dl className={col}>{fields.slice(0, half).map(row)}</dl>

@@ -32,7 +32,7 @@ export function CreateType() {
       <PageHeader title="Create API" crumbs={[...crumbs, { label: "APIs", to: "/resources/apigateway/restapis" }, { label: "Create API", to: "" }]} sub="Choose an API type to build. REST APIs support more features than HTTP APIs; HTTP APIs have minimal features so they can be offered at a lower price." />
       <div className="grid gap-6 lg:grid-cols-3">
         {CARDS.map((c) => (
-          <section key={c.id} className="flex min-w-0 flex-col rounded-[14px] border bg-card p-7" aria-label={c.title} data-testid={`type-${c.id}`}>
+          <section key={c.id} className="flex min-w-0 flex-col rounded-[var(--radius-card)] border bg-card p-7" aria-label={c.title} data-testid={`type-${c.id}`}>
             <span className="mb-5 grid size-9 place-content-center rounded-lg border bg-pick text-primary"><Share2Icon aria-hidden className="size-[18px]" /></span>
             <h2 className="text-[19px] leading-7 font-semibold text-bright">{c.title}</h2>
             <p className="mt-2 text-[14px] leading-[22px] text-muted-foreground">{c.body}</p>
@@ -50,7 +50,7 @@ export function CreateType() {
       </div>
       <section className="mt-12" aria-labelledby="expect">
         <Heading title="What to expect from each type here" id="expect">API Gateway&apos;s developer guide page &quot;Choose between REST APIs and HTTP APIs&quot; compares them; this is how they differ in doze-aws.</Heading>
-        <div className="overflow-x-auto rounded-[14px] border bg-card" data-testid="expect-table">
+        <div className="overflow-x-auto rounded-[var(--radius-card)] border bg-card" data-testid="expect-table">
           <table className="w-full min-w-[40rem] text-left text-[14px]">
             <thead>
               <tr className="bg-muted/60 text-[12px] tracking-[0.08em] text-muted-foreground uppercase">

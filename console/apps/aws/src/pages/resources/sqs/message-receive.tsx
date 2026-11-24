@@ -14,7 +14,7 @@ import { Refused } from "../deep/parts";
 import { type Message, MOST, receives, sentOf, sizeOf } from "./messages-model";
 import { messages as words, type Queue } from "./queue-model";
 
-const card = "rounded-[14px] border bg-card p-6 lg:p-7";
+const card = "rounded-[var(--radius-card)] border bg-card p-6 lg:p-7";
 const heading = "text-[17px] leading-6 font-semibold tracking-[-0.01em] text-bright";
 
 export function ReceiveCard({ q, count, setCount, countProblem, primary, pending, error, empty, onPoll, onSend }: { q: Queue; count: string; setCount: (v: string) => void; countProblem: string | undefined; primary: boolean; pending: boolean; error: unknown; empty: React.ReactNode; onPoll: () => void; /** Set once a poll is on the page: the card is the one-line bar of the boards, and this brings the Send form back. */ onSend?: () => void }) {

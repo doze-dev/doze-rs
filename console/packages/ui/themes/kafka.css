@@ -42,6 +42,9 @@
 
 :root {
   --radius: 0.625rem; /* 10 px: the kit's buttons and fields */
+  --radius-card: 14px; /* what the kit's cards, panels and fields drew before they were roles */
+  --radius-panel: 12px;
+  --radius-field: 10px;
 
   /* Type (the families are named here; the files are beside this one). */
   --font-sans: "Inter", -apple-system, "Helvetica Neue", Arial, sans-serif;
@@ -68,6 +71,8 @@
   --popover-foreground: #38352b;
   --primary: #ffd60a;
   --primary-foreground: #16150f;
+  --cta: var(--primary);
+  --cta-foreground: var(--primary-foreground);
   --secondary: #f3f1e9;
   --secondary-foreground: #16150f;
   --muted: #f3f1e9;
@@ -123,6 +128,8 @@
     --popover-foreground: #e6e2d4;
     --primary: #ffd60a;
     --primary-foreground: #16150f;
+    --cta: var(--primary);
+    --cta-foreground: var(--primary-foreground);
     --secondary: #24221d;
     --secondary-foreground: #f4f1e6;
     --muted: #24221d;
@@ -177,6 +184,8 @@
   --popover-foreground: #e6e2d4;
   --primary: #ffd60a;
   --primary-foreground: #16150f;
+  --cta: var(--primary);
+  --cta-foreground: var(--primary-foreground);
   --secondary: #24221d;
   --secondary-foreground: #f4f1e6;
   --muted: #24221d;

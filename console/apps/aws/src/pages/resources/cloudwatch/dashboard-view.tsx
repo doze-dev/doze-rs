@@ -31,7 +31,7 @@ export function DashboardPage({ service, kind, name }: { service: string; kind: 
   const entries = useDashboards(detail.isSuccess);
   if (detail.isError && !detail.data) return <DetailError service={service} kind={kind} name={name} error={detail.error} onRetry={() => void detail.refetch()} retrying={detail.isFetching} />;
   if (read.isError && !read.data) return <DetailError service={service} kind={kind} name={name} error={read.error} onRetry={() => void read.refetch()} retrying={read.isFetching} />;
-  if (!detail.data || !read.data) return <div className="grid gap-4" data-testid="dashboard-loading"><Skeleton className="h-12 w-80" /><Skeleton className="h-72 rounded-[14px]" /></div>;
+  if (!detail.data || !read.data) return <div className="grid gap-4" data-testid="dashboard-loading"><Skeleton className="h-12 w-80" /><Skeleton className="h-72 rounded-[var(--radius-card)]" /></div>;
   const saved = read.data.DashboardBody;
   const modified = toMs(entries.data?.find((e) => e.DashboardName === name)?.LastModified);
   return <View name={name} saved={saved} modified={modified} calls={detail.data.calls} fetching={detail.isFetching || read.isFetching} updatedAt={Math.max(detail.dataUpdatedAt, read.dataUpdatedAt)} refresh={() => { void detail.refetch(); void read.refetch(); void entries.refetch(); }} />;
@@ -92,7 +92,7 @@ function View({ name, saved, modified, calls, fetching, updatedAt, refresh }: { 
       {!body ? (
         <Alert tone="warn" title="The body of this dashboard is not a JSON object" testId="body-invalid">doze-aws keeps the body as written, so there is nothing to draw. Open View/edit source to replace it.</Alert>
       ) : count === 0 ? (
-        <div className="rounded-[14px] border border-dashed px-6 py-14 text-center" data-testid="dashboard-empty"><p className="text-[16px] font-medium text-bright">This dashboard has no widgets</p><p className="mt-1 text-[13.5px] text-muted-foreground">Choose Add widget to put a graph, a number, alarm states or a note on it.</p></div>
+        <div className="rounded-[var(--radius-card)] border border-dashed px-6 py-14 text-center" data-testid="dashboard-empty"><p className="text-[16px] font-medium text-bright">This dashboard has no widgets</p><p className="mt-1 text-[13.5px] text-muted-foreground">Choose Add widget to put a graph, a number, alarm states or a note on it.</p></div>
       ) : (
         <Widgets widgets={body.widgets} range={span} alarms={alarms.data} onRemove={(i) => change(withoutWidget(body, i))} />
       )}

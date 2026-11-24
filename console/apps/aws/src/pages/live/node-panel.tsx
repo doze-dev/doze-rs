@@ -63,7 +63,7 @@ export function NodePanel({ node, model, calls, now, onPick, onClose }: { node: 
   return (
     <aside className="flex min-w-0 flex-col rounded-xl border bg-card p-5" aria-label={`${node.name}, ${kindWord(node)}`} data-testid="node-panel" data-node={node.id}>
       <div className="flex items-start gap-3">
-        <span className="inline-flex size-9 shrink-0 items-center justify-center rounded-[10px] border bg-muted">
+        <span className="inline-flex size-9 shrink-0 items-center justify-center rounded-[var(--radius-field)] border bg-muted">
           {createElement(iconOf(node.service), { "aria-hidden": true, className: "size-[18px] text-primary" })}
         </span>
         <div className="min-w-0 flex-1">

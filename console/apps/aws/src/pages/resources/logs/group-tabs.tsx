@@ -26,7 +26,7 @@ export function GroupCard({ g, retention }: { g: Group; retention: () => void })
   );
   const col = "grid grid-cols-[minmax(7rem,10rem)_minmax(0,1fr)] content-start [&>div:last-child>*]:border-b-0";
   return (
-    <section className="mb-8 rounded-[14px] border bg-card p-6 lg:p-7" aria-label="Log group details" data-testid="details">
+    <section className="mb-8 rounded-[var(--radius-card)] border bg-card p-6 lg:p-7" aria-label="Log group details" data-testid="details">
       <h2 className="text-[17px] leading-6 font-semibold tracking-[-0.01em] text-bright">Log group details</h2>
       <div className="mt-3 grid lg:grid-cols-2 lg:gap-x-12">
         <dl className={col}>

@@ -190,7 +190,7 @@ export function LayerDetail({ service, kind, name }: { service: string; kind: st
     { id: "delete", header: "", size: 60, enableSorting: false, cell: (c) => <Button type="button" variant="ghost" size="icon-sm" aria-label={`Delete version ${c.row.original.cells[0]}`} onClick={() => setGone(Number(c.row.original.cells[0]))} data-testid="layer-version-delete"><Trash2Icon /></Button> },
   ];
   if (detail.isError && !detail.data) return <DetailError service={service} kind={kind} name={name} error={detail.error} onRetry={() => void detail.refetch()} retrying={detail.isFetching} />;
-  if (!detail.data) return <Skeleton className="h-72 rounded-[14px]" />;
+  if (!detail.data) return <Skeleton className="h-72 rounded-[var(--radius-card)]" />;
   const last = rows.length <= 1;
   return (
     <>

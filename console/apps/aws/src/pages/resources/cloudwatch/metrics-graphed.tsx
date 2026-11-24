@@ -23,7 +23,7 @@ export function GraphedTable({ rows, onChange, onAlarm, math = true }: { rows: G
         <Button type="button" variant="outline" className="bg-card" disabled={!math || rows.every((r) => r.expr !== undefined)} onClick={() => onChange([...rows, { id: nextId(rows, true), stat: "", period: 0, label: "Expression", shown: true, expr: rows.find((r) => r.expr === undefined)?.id ?? "" }])} data-testid="add-math"><PlusIcon /> Add math</Button>
         <span className="text-[13.5px] text-muted-foreground">An expression works on the rows above by their ids (<span className="font-mono">m1</span>, <span className="font-mono">m2</span>): <span className="font-mono">m1 / m2 * 100</span>, <span className="font-mono">RATE(m1)</span>. doze-aws evaluates metric math.</span>
       </div>
-      <div className="overflow-x-auto rounded-[14px] border bg-card">
+      <div className="overflow-x-auto rounded-[var(--radius-card)] border bg-card">
         <table className="w-full min-w-[56rem] text-[14px]" aria-label="Graphed metrics">
           <thead className="bg-muted/60"><tr><th className="w-12 px-4" /><th className={head}>Label</th><th className={head}>Details</th><th className={head}>Statistic</th><th className={head}>Period</th><th className={head}>Y-axis</th>{onAlarm && <th className={head}>Actions</th>}</tr></thead>
           <tbody>

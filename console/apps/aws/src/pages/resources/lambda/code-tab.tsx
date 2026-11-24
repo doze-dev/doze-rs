@@ -70,7 +70,7 @@ export function CodeTab({ d, f, go }: { d: ResourceDetail; f: Fn; go: (to: Go) =
         {f.pkg === "Image" ? (
           <EmptyTab title="A container image" testId="code-image">{d.name} is deployed as a container image, which doze-aws stores and never runs: there is no code to show.</EmptyTab>
         ) : pkg.isPending ? (
-          <Skeleton className="h-64 rounded-[12px]" data-testid="code-loading" />
+          <Skeleton className="h-64 rounded-[var(--radius-panel)]" data-testid="code-loading" />
         ) : pkg.error || !current ? (
           <EmptyTab title="No code to show" testId="code-none">{pkg.error ? (pkg.error as Error).message : "The package holds no text file to show."}</EmptyTab>
         ) : (

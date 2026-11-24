@@ -65,7 +65,7 @@ export function HttpRoutes({ id, api, calls, selected }: { id: string; api: Http
       </div>
       <div className="min-w-0">
       <Caption title="Selected route" />
-      <section className="rounded-[14px] border bg-card p-6 lg:p-7" aria-label="Selected route" data-testid="selected-route">
+      <section className="rounded-[var(--radius-card)] border bg-card p-6 lg:p-7" aria-label="Selected route" data-testid="selected-route">
         <Rows rows={[
           { label: "Route key", value: <Mono>{chosen.routeKey}</Mono> },
           { label: "Route ID", value: <Mono>{chosen.routeId}</Mono> },

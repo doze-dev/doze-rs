@@ -118,7 +118,7 @@ function SecretView({ d, updatedAt, fetching, refresh }: { d: ResourceDetail; up
         banner={banner}
         overview={<>
           {sentence && <Say text={sentence} names={[name, ...(fn ? [fn] : [])]} className="mb-6" testId="detail-sentence" />}
-          {!scheduled && <nav aria-label="Wired to" className="mb-8 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-[14px] border bg-card px-5 py-4" data-testid="wired-strip">
+          {!scheduled && <nav aria-label="Wired to" className="mb-8 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-[var(--radius-card)] border bg-card px-5 py-4" data-testid="wired-strip">
             {readers.who.length > 0 && <><span className="text-[13.5px] text-muted-foreground">Read by</span>{readers.who.map((w) => <span key={w} className={chip}>{w}</span>)}<ArrowRightIcon aria-hidden className="size-3.5 text-input" /></>}
             <span aria-current="page" className="inline-flex items-center rounded-lg border border-primary/40 bg-pick px-3 py-1.5 font-mono text-[13px] text-bright" data-testid="wired-self">{name}</span>
             <span className="text-[13.5px] text-muted-foreground">Encrypted with</span>

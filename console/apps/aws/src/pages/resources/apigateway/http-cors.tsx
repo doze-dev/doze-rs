@@ -35,7 +35,7 @@ export function HttpCors({ id, api }: { id: string; api: HttpApi }) {
       <ApiChips kind="apis" id={id} name={api.name} sections={httpSections(api.protocolType === "WEBSOCKET")} current="cors" />
       <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_22.5rem]">
         <form className="grid min-w-0 gap-6" noValidate onSubmit={(e) => { e.preventDefault(); setTried(true); if (!problem) save.mutate(input as never, { onSuccess: () => void navigate({ to: "/resources/$service/$kind/$name", params: { service: "apigateway", kind: "apis", name: id }, search: { tab: "cors", done: "cors" } }) }); }} data-testid="cors-form">
-          <section className="grid gap-6 rounded-[14px] border bg-card p-6 lg:p-7" aria-label="CORS configuration">
+          <section className="grid gap-6 rounded-[var(--radius-card)] border bg-card p-6 lg:p-7" aria-label="CORS configuration">
             <h2 className="text-[19px] leading-7 font-semibold text-bright">CORS configuration</h2>
             <Field label="Access-Control-Allow-Origin" help={<>An origin, <span className="font-mono">*</span> for any origin, or a prefix such as <span className="font-mono">https://*</span>.</>}>
               {() => <ListEditor values={f.origins} onChange={(origins) => set({ origins })} placeholder="https://admin.larder.example.com" label="Allowed origin" testId="cors-origins" />}
@@ -61,7 +61,7 @@ export function HttpCors({ id, api }: { id: string; api: HttpApi }) {
           </section>
         </form>
         <div className="grid gap-6 xl:sticky xl:top-6"><CallPanel request={{ service: "apigatewayv2", operation: "UpdateApi", input }} shown={sdkShown} showInput note="The CORS block is part of the API itself, not of a route or a stage." />
-          <section className="grid gap-3 rounded-[14px] border bg-card p-5" aria-label="When CORS is on">
+          <section className="grid gap-3 rounded-[var(--radius-card)] border bg-card p-5" aria-label="When CORS is on">
             <h2 className="text-[17px] leading-6 font-semibold text-bright">When CORS is on</h2>
             <RuleHelp>API Gateway replies to preflight <span className="font-mono">OPTIONS</span> requests on its own, even with no OPTIONS route, and adds the CORS headers to integration responses.</RuleHelp>
             <RuleHelp>A request must carry an <span className="font-mono">origin</span> header to get CORS headers back; a preflight also needs Access-Control-Request-Method. doze-aws answers a preflight with 204.</RuleHelp>

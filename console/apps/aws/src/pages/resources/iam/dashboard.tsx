@@ -69,7 +69,7 @@ function DashboardPage() {
       {summary.isError && !s ? (
         <ErrorBlock what="The account summary could not be read" error={summary.error} hint={HINT} onRetry={refresh} retrying={summary.isFetching} testId="dashboard-error" />
       ) : !s ? (
-        <Skeleton className="h-64 rounded-[14px]" />
+        <Skeleton className="h-64 rounded-[var(--radius-card)]" />
       ) : (
         <div className="grid gap-8">
           <Say text={sentence} names={[...(alias ? [alias] : []), ...(last ? [last.action!, users.get(last.caller!)!] : [])]} bold={[/\b\d+ (users?|groups?|roles?|customer managed polic(y|ies))\b/, /\b\d\d:\d\d\b/]} testId="dashboard-sentence" />

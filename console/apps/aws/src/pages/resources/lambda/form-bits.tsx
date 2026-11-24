@@ -65,7 +65,7 @@ export const Muted = ({ children }: { children: React.ReactNode }) => <span clas
 /** A setting doze-aws does not have: its title, why, and an Expand that is off. */
 export function NotHere({ title, why, optional = false, testId }: { title: string; why: React.ReactNode; optional?: boolean; testId: string }) {
   return (
-    <section className="min-w-0 rounded-[14px] border bg-card p-6 opacity-80 lg:p-7" data-testid={testId}>
+    <section className="min-w-0 rounded-[var(--radius-card)] border bg-card p-6 opacity-80 lg:p-7" data-testid={testId}>
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <h2 className="flex flex-wrap items-center gap-2.5 text-[17px] leading-6 font-semibold tracking-[-0.01em] text-bright">{title}{optional && <span className="rounded-md bg-secondary px-2 py-0.5 text-[12px] font-normal text-muted-foreground">Optional</span>}</h2>

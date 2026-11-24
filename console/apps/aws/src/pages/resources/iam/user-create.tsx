@@ -164,7 +164,7 @@ export function UserCreate() {
           <ReviewBlock title="User details" onEdit={() => go(0)} testId="review-details">
             <dl className="grid grid-cols-[minmax(8rem,13rem)_minmax(0,1fr)] text-[13.5px]"><dt className="py-2 text-muted-foreground">User name</dt><dd className="py-2 font-mono text-bright" data-testid="review-name">{f.name}</dd>{f.boundary && <><dt className="py-2 text-muted-foreground">Permissions boundary</dt><dd className="py-2 font-mono text-bright">{f.boundary}</dd></>}</dl>
           </ReviewBlock>
-          <section className="rounded-[14px] border bg-card p-6 lg:p-7" aria-label="Permissions" data-testid="review-permissions">
+          <section className="rounded-[var(--radius-card)] border bg-card p-6 lg:p-7" aria-label="Permissions" data-testid="review-permissions">
             <div className="flex items-start justify-between gap-3"><h2 className="text-[17px] leading-6 font-semibold tracking-[-0.01em] text-bright">{perms.groups.length > 0 || perms.policies.length === 0 ? "User group memberships" : "Permissions policies"}</h2><Button type="button" variant="outline" size="sm" className="bg-card" onClick={() => go(1)} data-testid="review-edit-Permissions">Edit</Button></div>
             <p className="mt-1 text-[13.5px] text-muted-foreground">{perms.groups.length > 0 ? "The user will be added to these user groups." : perms.policies.length > 0 ? "These policies will be attached to the user." : "The user has no permissions until you give it some."}</p>
             {(perms.groups.length > 0 || perms.policies.length > 0) && (

@@ -112,7 +112,7 @@ export function CallPanel({ request, refusal, note, title, className, showServic
   const helpText = note && <div className="text-[13px] leading-5 text-muted-foreground">{note}</div>;
   const copy = p && request && <CopyCalls cli={p.cli} boto3={p.boto3} json={callJson(p, input)} format={format} waiting={preview.settling} />;
   return (
-    <aside className={cn("min-w-0 rounded-[14px] border bg-card p-5", className)} aria-label={heading} data-slot="call-panel" data-refused={refusal ? "" : undefined} data-testid={testId}>
+    <aside className={cn("min-w-0 rounded-[var(--radius-card)] border bg-card p-5", className)} aria-label={heading} data-slot="call-panel" data-refused={refusal ? "" : undefined} data-testid={testId}>
       <div className="flex items-center justify-between gap-3">
         <h2 className="flex items-center gap-2 text-[12px] font-medium tracking-[0.08em] text-muted-foreground uppercase">
           <BracesIcon aria-hidden className="size-3.5" /> {heading}
@@ -121,11 +121,11 @@ export function CallPanel({ request, refusal, note, title, className, showServic
       </div>
       <div className="mt-3" aria-live="polite">
         {request === null ? (
-          <p className="rounded-[10px] border border-dashed px-4 py-6 text-[13px] text-muted-foreground" data-testid={`${testId}-idle`}>
+          <p className="rounded-[var(--radius-field)] border border-dashed px-4 py-6 text-[13px] text-muted-foreground" data-testid={`${testId}-idle`}>
             The call appears here as soon as there is something to send.
           </p>
         ) : failed && !p ? (
-          <div className="rounded-[10px] border border-bad/30 bg-bad/5 px-4 py-3 text-[13px]" data-testid={`${testId}-error`}>
+          <div className="rounded-[var(--radius-field)] border border-bad/30 bg-bad/5 px-4 py-3 text-[13px]" data-testid={`${testId}-error`}>
             <p className="font-medium text-bright">The call could not be shown.</p>
             <p className="mt-0.5 text-foreground">{failed.message}</p>
             {failed.code && <p className="mt-1 font-mono text-[12px] text-muted-foreground">{failed.code}</p>}
@@ -142,7 +142,7 @@ export function CallPanel({ request, refusal, note, title, className, showServic
         </p>
       )}
       {refusal && (
-        <div className="mt-3 rounded-[10px] border border-bad/30 bg-bad/5 px-4 py-3 text-[13px]" data-testid={`${testId}-came-back`}>
+        <div className="mt-3 rounded-[var(--radius-field)] border border-bad/30 bg-bad/5 px-4 py-3 text-[13px]" data-testid={`${testId}-came-back`}>
           <p className="text-[12px] font-medium tracking-[0.06em] text-muted-foreground uppercase">What came back</p>
           <p className="mt-1 font-mono text-[12.5px] font-medium text-bad">{refusal.code}</p>
           <p className="mt-0.5 text-foreground">{refusal.message}</p>

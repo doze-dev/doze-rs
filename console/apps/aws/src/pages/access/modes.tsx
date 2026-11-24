@@ -10,7 +10,7 @@ const MODES = [
 /** The IAM mode: the three, the one this doze-aws runs, and how to change it (a setting read at start: doze-aws restarts). */
 export function Modes({ mode }: { mode: string }) {
   return (
-    <section className="mb-10 rounded-[14px] border bg-card p-6 lg:p-7" aria-labelledby="iam-mode-title" data-testid="iam-mode" data-mode={mode}>
+    <section className="mb-10 rounded-[var(--radius-card)] border bg-card p-6 lg:p-7" aria-labelledby="iam-mode-title" data-testid="iam-mode" data-mode={mode}>
       <h2 id="iam-mode-title" className="text-[17px] leading-6 font-semibold tracking-[-0.01em] text-bright">
         IAM mode
       </h2>

@@ -11,7 +11,7 @@ import type { ResourceRow } from "../../api/types/ResourceRow";
 /** A card of a page: its title and what it is (`lede`), the card's own action at the right of the title, and the content. */
 export function Card({ title, lede, actions, children, className, testId }: { title: string; lede?: React.ReactNode; actions?: React.ReactNode; children?: React.ReactNode; className?: string; testId?: string }) {
   return (
-    <section className={cn("rounded-[14px] border bg-card p-6 lg:p-7", className)} aria-label={title} data-testid={testId}>
+    <section className={cn("rounded-[var(--radius-card)] border bg-card p-6 lg:p-7", className)} aria-label={title} data-testid={testId}>
       <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
         <div className="max-w-[48rem] min-w-0">
           <h2 className="text-[17px] leading-6 font-semibold tracking-[-0.01em] text-bright">{title}</h2>

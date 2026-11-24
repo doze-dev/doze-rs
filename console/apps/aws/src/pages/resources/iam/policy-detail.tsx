@@ -29,8 +29,8 @@ export function PolicyDetail({ name }: { service: string; kind: string; name: st
   useEffect(() => {
     if (target !== null) void navigate({ to: "/resources/$service/$kind/$name", params: { service: "iam", kind: "policies", name: target }, search, replace: true });
   }, [target, navigate, search]);
-  if (policyArnOfName("0", name) !== null) return <Skeleton className="h-96 rounded-[14px]" />;
-  if (search.view === "version") return <Suspense fallback={<Skeleton className="h-96 rounded-[14px]" />}><Entity kind="policies" name={name} render={(d) => <NewVersion arn={name} label={fieldOf(d, "Name") ?? name} doc={fieldOf(d, "Document") ?? "{}"} />} /></Suspense>;
+  if (policyArnOfName("0", name) !== null) return <Skeleton className="h-96 rounded-[var(--radius-card)]" />;
+  if (search.view === "version") return <Suspense fallback={<Skeleton className="h-96 rounded-[var(--radius-card)]" />}><Entity kind="policies" name={name} render={(d) => <NewVersion arn={name} label={fieldOf(d, "Name") ?? name} doc={fieldOf(d, "Document") ?? "{}"} />} /></Suspense>;
   return <Entity kind="policies" name={name} render={(d, t) => <PolicyView d={d} {...t} />} />;
 }
 

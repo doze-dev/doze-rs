@@ -16,7 +16,7 @@ import type { SubProps } from "./sub-pages";
 export function SqsEdit(p: SubProps) {
   const t = { service: p.d.service, kind: p.d.kind, name: p.d.name };
   const tags = useTags(t);
-  if (tags.isPending) return <Skeleton className="h-96 rounded-[14px]" data-testid="edit-loading" />;
+  if (tags.isPending) return <Skeleton className="h-96 rounded-[var(--radius-card)]" data-testid="edit-loading" />;
   return <EditForm {...p} tags={tags.data?.tags ?? []} />;
 }
 

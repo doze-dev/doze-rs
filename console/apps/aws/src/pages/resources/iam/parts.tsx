@@ -33,7 +33,7 @@ export function Say({ text, names, bold, className, testId }: { text: string; na
 /** A card of a page: its title and what it is (`lede`), the card's own action at the right of the title, and the content. */
 export function Card({ title, lede, actions, children, className, testId }: { title: string; lede?: React.ReactNode; actions?: React.ReactNode; children?: React.ReactNode; className?: string; testId?: string }) {
   return (
-    <section className={cn("rounded-[14px] border bg-card p-6 lg:p-7", className)} aria-label={title} data-testid={testId}>
+    <section className={cn("rounded-[var(--radius-card)] border bg-card p-6 lg:p-7", className)} aria-label={title} data-testid={testId}>
       <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
         <div className="min-w-0 max-w-[48rem]">
           <h2 className="text-[17px] leading-6 font-semibold tracking-[-0.01em] text-bright">{title}</h2>
@@ -71,7 +71,7 @@ export function Summary({ facts, title = "Summary", columns = 1 }: { facts: Fact
     </dl>
   );
   return (
-    <section className="mb-10 rounded-[14px] border bg-card p-6 lg:p-7" aria-label={title} data-testid="summary">
+    <section className="mb-10 rounded-[var(--radius-card)] border bg-card p-6 lg:p-7" aria-label={title} data-testid="summary">
       <h2 className="text-[17px] leading-6 font-semibold tracking-[-0.01em] text-bright">{title}</h2>
       <div className={cn("mt-4 grid", columns === 2 && "lg:grid-cols-2 lg:gap-x-12")}>
         {col(facts.slice(0, half))}
@@ -84,7 +84,7 @@ export function Summary({ facts, title = "Summary", columns = 1 }: { facts: Fact
 /** Two or three choices side by side in one box, one on at a time (the board's AWS managed / Customer managed). */
 export function Segmented<T extends string>({ value, onChange, options, label, testId }: { value: T | ""; onChange: (v: T | "") => void; options: { value: T; label: string; /** A colour dot before the label (`bg-good`). */ dot?: string }[]; label: string; testId?: string }) {
   return (
-    <ToggleGroup type="single" value={value} onValueChange={(v) => onChange(v as T | "")} aria-label={label} className="rounded-[10px] border bg-muted p-1" data-testid={testId}>
+    <ToggleGroup type="single" value={value} onValueChange={(v) => onChange(v as T | "")} aria-label={label} className="rounded-[var(--radius-field)] border bg-muted p-1" data-testid={testId}>
       {options.map((o) => (
         <ToggleGroupItem key={o.value} value={o.value} aria-label={o.label} className="h-8 rounded-[7px] px-4 text-[13.5px] font-normal data-[state=on]:bg-card data-[state=on]:font-medium data-[state=on]:text-bright data-[state=on]:shadow-sm" data-testid={`${testId ?? "segment"}-${o.value}`}>
           {o.dot && <span aria-hidden className={cn("mr-2 size-2 rounded-full", o.dot)} />}
@@ -192,7 +192,7 @@ export const fieldOf = (d: { fields: readonly { label: string; value: string | n
 export function NotThere({ kind, name }: { kind: keyof typeof KINDS; name: string }) {
   const noun = { users: "user", groups: "user group", roles: "role", policies: "policy" }[kind];
   return (
-    <div className="grid max-w-[40rem] gap-3 rounded-[14px] border border-dashed bg-card/60 px-8 py-10" data-testid="not-there">
+    <div className="grid max-w-[40rem] gap-3 rounded-[var(--radius-card)] border border-dashed bg-card/60 px-8 py-10" data-testid="not-there">
       <h2 className="text-[17px] font-semibold text-bright">No {noun} named <span className="font-mono">{name}</span></h2>
       <p className="text-[13.5px] leading-[21px] text-muted-foreground">IAM answered NoSuchEntity: there is no {noun} of that name in this account. It may have been deleted, or the address is mistyped.</p>
       <p><Link to="/resources/$service/$second" params={{ service: "iam", second: kind }} search={{}} className="text-[13.5px] font-medium text-link hover:underline">See the {KINDS[kind].title.toLowerCase()}</Link></p>
@@ -203,7 +203,7 @@ export function NotThere({ kind, name }: { kind: keyof typeof KINDS; name: strin
 /** A block of the review step: its title, the Edit that goes back to the step, and what that step chose. */
 export function ReviewBlock({ title, onEdit, children, testId }: { title: string; onEdit?: () => void; children: React.ReactNode; testId?: string }) {
   return (
-    <section className="min-w-0 rounded-[14px] border bg-card p-6 lg:p-7" aria-label={title} data-testid={testId}>
+    <section className="min-w-0 rounded-[var(--radius-card)] border bg-card p-6 lg:p-7" aria-label={title} data-testid={testId}>
       <div className="flex items-start justify-between gap-3">
         <h2 className="text-[17px] leading-6 font-semibold tracking-[-0.01em] text-bright">{title}</h2>
         {onEdit && <Button type="button" variant="outline" size="sm" className="bg-card" onClick={onEdit} data-testid={`review-edit-${testId ?? title}`}>Edit</Button>}

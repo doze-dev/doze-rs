@@ -63,7 +63,7 @@ function PolicyForm({ d, id, state, back, initial }: { d: ResourceDetail; id: st
   // A statement is named by its Sid (`Allow use of the key`), or its place when it has none: the Effect is said below, in its details.
   const nameOf = (s: { Sid?: string } | undefined, i: number) => s?.Sid ?? `Statement ${i + 1}`;
   const builder = (
-    <section className="rounded-[14px] border bg-card p-6" aria-label="Statement builder" data-testid="statement-builder">
+    <section className="rounded-[var(--radius-card)] border bg-card p-6" aria-label="Statement builder" data-testid="statement-builder">
       <h2 className="text-[17px] font-semibold tracking-[-0.01em] text-bright">Statement builder</h2>
       {statements.length === 0 ? <p className="mt-2 text-[13px] text-muted-foreground">The policy has no statements yet. Add one, or write it in the JSON.</p> : (
         <>

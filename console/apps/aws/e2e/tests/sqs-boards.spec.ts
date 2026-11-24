@@ -315,7 +315,7 @@ test("sqs__queue-messages, -message-sent, -messages-polled, message-detail, mess
   await expect(page.getByTestId("send-result")).toContainText("MD5OfMessageAttributes");
   // The result is in the form's place, and Poll is the main button now.
   await expect(page.getByTestId("send-body")).toHaveCount(0);
-  await expect(page.getByTestId("poll")).toHaveClass(/bg-primary/);
+  await expect(page.getByTestId("poll")).toHaveClass(/bg-cta/);
   await shot(page, "sqs__queue-message-sent");
   // Two more are waiting, so the poll returns several and a delete leaves some of them, as the boards show.
   for (const n of [1, 2]) cli(["sqs", "send-message", "--queue-url", url("pick-lists"), "--message-body", `pick list ${n}`]);

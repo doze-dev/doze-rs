@@ -83,7 +83,7 @@ export function PublicParameters() {
       ) : q.isPending && rows.length === 0 ? (
         <Skeleton className="h-64 rounded-xl" data-testid="public-loading" />
       ) : rows.length === 0 ? (
-        <p className="rounded-[12px] border border-dashed px-5 py-6 text-[13.5px] text-muted-foreground" data-testid="public-none">GetParametersByPath found no public parameter under <span className="font-mono text-foreground">{path}</span>. Names start with <span className="font-mono text-foreground">/aws/service/</span>.</p>
+        <p className="rounded-[var(--radius-panel)] border border-dashed px-5 py-6 text-[13.5px] text-muted-foreground" data-testid="public-none">GetParametersByPath found no public parameter under <span className="font-mono text-foreground">{path}</span>. Names start with <span className="font-mono text-foreground">/aws/service/</span>.</p>
       ) : (
         <div className="grid gap-3">
           <DataTable aria-label="Public parameters" data={rows} columns={columns} rowId={(r) => r.Name} maxHeight={560} />

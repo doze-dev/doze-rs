@@ -7,6 +7,8 @@
 use std::fmt;
 use std::num::NonZeroU32;
 
+use zeroize::{Zeroize, Zeroizing};
+
 use crate::crypto::{self, pbkdf2};
 use crate::principal::Mechanism;
 
@@ -99,7 +101,7 @@ impl Verifier {
     /// The verifier of `password` under `salt` and `iterations`.
     #[must_use]
     pub fn derive(kind: Kind, password: &[u8], salt: &[u8], iterations: NonZeroU32) -> Self {
-        let salted = kind.salted_password(password, salt, iterations);
+        let salted = Zeroizing::new(kind.salted_password(password, salt, iterations));
         Self::from_salted_password(kind, salt, iterations, &salted)
     }
 
@@ -113,7 +115,7 @@ impl Verifier {
         iterations: NonZeroU32,
         salted_password: &[u8],
     ) -> Self {
-        let client_key = kind.hmac(salted_password, &[b"Client Key"]);
+        let client_key = Zeroizing::new(kind.hmac(salted_password, &[b"Client Key"]));
         Self {
             kind,
             salt: salt.into(),
@@ -177,7 +179,8 @@ impl Verifier {
         if proof.len() != signature.len() {
             return false;
         }
-        let client_key: Vec<u8> = signature.iter().zip(proof).map(|(s, p)| s ^ p).collect();
+        let client_key: Zeroizing<Vec<u8>> =
+            Zeroizing::new(signature.iter().zip(proof).map(|(s, p)| s ^ p).collect());
         crypto::ct_eq(&self.kind.hash(&client_key), &self.stored_key)
     }
 
@@ -186,6 +189,14 @@ impl Verifier {
     #[must_use]
     pub fn server_signature(&self, auth_message: &[u8]) -> Vec<u8> {
         self.kind.hmac(&self.server_key, &[auth_message])
+    }
+}
+
+impl Drop for Verifier {
+    /// The keys are wiped before the memory is given back.
+    fn drop(&mut self) {
+        self.stored_key.zeroize();
+        self.server_key.zeroize();
     }
 }
 

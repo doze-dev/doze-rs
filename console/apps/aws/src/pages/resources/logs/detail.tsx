@@ -65,7 +65,7 @@ function GroupView({ d, updatedAt, fetching, refresh }: { d: ResourceDetail; upd
   const view = search.view;
   if (view === "search" || view === "tail" || view === "metric-filter" || view === "subscription") {
     const Page = view === "search" ? Search : view === "tail" ? Tail : view === "metric-filter" ? Filter : Subscribe;
-    return <Suspense fallback={<Skeleton className="h-96 rounded-[14px]" />}><Page d={d} /></Suspense>;
+    return <Suspense fallback={<Skeleton className="h-96 rounded-[var(--radius-card)]" />}><Page d={d} /></Suspense>;
   }
   const tab = search.tab === "metric-filters" || search.tab === "subscription-filters" ? search.tab : "streams";
   const created = search.done === "created";
