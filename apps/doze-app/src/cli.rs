@@ -8,6 +8,7 @@
 //!          [--select NAME] [--hover NAME] [--zoom Z] [--at X,Y] [--find TEXT] [--synth N] [--reduce-motion] [--wait MS]
 //!          --screen instance --select api [--tab logs|console:ID|last run] [--hold PORT]
 //!          --screen logs [--filter TEXT] [--find-mode] [--level 0-3]
+//!          --screen instance --tab console:ID [--filter TEXT] [--sort N[:down]]   a console's focused table
 //!          --screen map [--map lines,tile,trouble,hood:N,fly:P,region:NAME]
 //!          --act sleep|restart|reset|reset-typed|stop|remove|action|action-typed|copy|toast-fail|recent|preflight|start
 //!                |busy|failed|library-busy|verb-busy|empty|empty-found|add     (M2: done before the shot)
@@ -16,7 +17,7 @@
 //! doze-app bench --fixture medium-150 --map                         the Map: frames while it pans, zooms and hovers
 //! doze-app bench [--idle S] [--closed S]                         with no fixture: $DOZE_HOME (a fixture served apart)
 //!          [--display N] [--in-use | --hidden] [--at 12,30,60] [--check [--budget MB] [--per-minute N]]
-//!          [--real [N]] [--screen home|tiles|list|map|grid|service|logs|activity] [--select NAME] [--on-top]
+//!          [--real [N]] [--screen home|tiles|list|map|grid|service|logs|activity] [--select NAME] [--tab ID] [--on-top]
 //!          [--settled MB] [--closed-budget MB]      a real stack of N services under its own daemon (bench/real.rs)
 //!          [--churn]                                maximise, resize, minimise, hide and bring back (bench/churn.rs)
 //! doze-app fixture-serve NAME ROOT                               a fixture daemon alone, on its own socket under ROOT/home
@@ -94,6 +95,8 @@ pub(crate) struct Shot {
     /// The logs' filter, level and find mode.
     pub(crate) filter: Option<String>,
     pub(crate) level: Option<u8>,
+    /// A console tab: its focused table ordered by column N (`N`, or `N:down`).
+    pub(crate) sort: Option<String>,
     pub(crate) find_mode: bool,
     /// Something done before the shot (M2): a dialog asked for, a stack action started, a folder opened.
     pub(crate) act: Option<String>,
@@ -143,6 +146,8 @@ pub(crate) struct Bench {
     /// service a service's page shows (`--select NAME`).
     pub(crate) screen: crate::bench::stage::Screen,
     pub(crate) select: Option<String>,
+    /// The tab that service's page opens on (`--tab console:_`): an idle console tab is measured too.
+    pub(crate) tab: Option<String>,
     /// A real stack of this many services under its own daemon, on a throwaway home (`--real [N]`, 13 by default).
     pub(crate) real: Option<usize>,
     /// `--check`: the footprint the window must fall back under by the end of the idle time (`--settled MB`), the
@@ -310,6 +315,7 @@ fn shot(mut args: impl Iterator<Item = String>) -> Result<Shot, String> {
             "--tab" => s.tab = Some(v),
             "--hold" => s.hold = Some(number(&v, "--hold")?),
             "--filter" => s.filter = Some(v),
+            "--sort" => s.sort = Some(v),
             "--level" => s.level = Some(number(&v, "--level")?),
             "--act" => s.act = Some(v),
             "--query" => s.query = Some(v),
@@ -363,6 +369,7 @@ fn bench(args: impl Iterator<Item = String>) -> Result<Bench, String> {
                     .ok_or_else(|| format!("bench: no screen {v}"))?;
             }
             "--select" => b.select = Some(value(&mut args, &a)?),
+            "--tab" => b.tab = Some(value(&mut args, &a)?),
             "--on-top" => b.on_top = true,
             "--churn" => b.churn = true,
             "--real" => {

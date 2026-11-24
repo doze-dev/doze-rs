@@ -13,6 +13,7 @@ pub mod parts;
 mod recent;
 mod resolve;
 pub mod runs;
+mod shape;
 pub mod side;
 pub mod snippets;
 pub mod time;

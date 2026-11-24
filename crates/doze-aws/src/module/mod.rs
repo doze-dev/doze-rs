@@ -404,3 +404,19 @@ fn detect() -> Detect {
         ]),
     }
 }
+
+/// The console, pinned: the app's `consoles` fixture is generated from `console.snapshot.json`, never written by
+/// hand. `DOZE_UPDATE_SNAPSHOT=1` rewrites it after a deliberate change.
+#[cfg(test)]
+#[test]
+fn the_console_matches_its_snapshot() {
+    let now = doze_module_proto::msg::snapshot::console_json(&console_spec(), &[]);
+    let pinned = doze_module_proto::msg::snapshot::pin(
+        concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/src/module/console.snapshot.json"
+        ),
+        &now,
+    );
+    assert_eq!(pinned, Ok(()));
+}

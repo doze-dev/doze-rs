@@ -1,0 +1,192 @@
+{
+  "actions": [
+    {
+      "id": "cancel",
+      "kind": "session",
+      "label": "Cancel query"
+    },
+    {
+      "destructive": true,
+      "id": "terminate",
+      "kind": "session",
+      "label": "Terminate session"
+    }
+  ],
+  "spec": {
+    "extend": [
+      {
+        "after": "vitals",
+        "node": {
+          "kind": "table",
+          "panel": "databases",
+          "weight": 1
+        }
+      }
+    ],
+    "front": "overview",
+    "panels": [
+      {
+        "columns": [
+          {
+            "align": "left",
+            "key": "active",
+            "role": "count",
+            "title": "Active"
+          },
+          {
+            "align": "left",
+            "key": "idle",
+            "role": "count",
+            "title": "Idle"
+          },
+          {
+            "align": "left",
+            "key": "waiting",
+            "role": "count",
+            "title": "Waiting"
+          },
+          {
+            "align": "left",
+            "key": "connections",
+            "role": "count",
+            "title": "Connections"
+          },
+          {
+            "align": "left",
+            "key": "of",
+            "role": "of",
+            "title": "Of"
+          },
+          {
+            "align": "left",
+            "key": "longest",
+            "title": "Longest"
+          }
+        ],
+        "id": "activity",
+        "kind": "counters",
+        "source": "activity",
+        "title": "Activity"
+      },
+      {
+        "columns": [
+          {
+            "align": "right",
+            "key": "pid",
+            "title": "Pid"
+          },
+          {
+            "align": "left",
+            "key": "user",
+            "title": "User"
+          },
+          {
+            "align": "left",
+            "key": "database",
+            "title": "Database"
+          },
+          {
+            "align": "left",
+            "key": "app",
+            "title": "App"
+          },
+          {
+            "align": "right",
+            "key": "for",
+            "title": "For"
+          },
+          {
+            "align": "left",
+            "key": "state",
+            "role": "state",
+            "title": "State"
+          },
+          {
+            "align": "left",
+            "key": "query",
+            "role": "detail",
+            "title": "Query"
+          }
+        ],
+        "id": "sessions",
+        "kind": "table",
+        "source": "session",
+        "title": "Sessions"
+      },
+      {
+        "columns": [
+          {
+            "align": "left",
+            "key": "database",
+            "title": "Database"
+          },
+          {
+            "align": "right",
+            "key": "size",
+            "role": "bytes",
+            "title": "Size"
+          },
+          {
+            "align": "right",
+            "key": "connections",
+            "role": "count",
+            "title": "Connections"
+          },
+          {
+            "align": "left",
+            "key": "owner",
+            "title": "Owner"
+          }
+        ],
+        "id": "databases",
+        "kind": "table",
+        "source": "database",
+        "title": "Databases"
+      }
+    ],
+    "tabs": [
+      {
+        "body": {
+          "children": [
+            {
+              "kind": "stat",
+              "panel": "activity",
+              "weight": 1
+            },
+            {
+              "children": [
+                {
+                  "kind": "table",
+                  "panel": "sessions",
+                  "weight": 2
+                },
+                {
+                  "children": [
+                    {
+                      "from": "sessions",
+                      "kind": "detail",
+                      "title": "query",
+                      "weight": 1
+                    },
+                    {
+                      "kind": "actions",
+                      "weight": 1
+                    }
+                  ],
+                  "kind": "col",
+                  "weight": 1
+                }
+              ],
+              "kind": "row",
+              "weight": 1
+            }
+          ],
+          "kind": "col",
+          "weight": 1
+        },
+        "id": "activity",
+        "title": "Activity"
+      }
+    ]
+  }
+}

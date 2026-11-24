@@ -16,6 +16,11 @@ minicbor = { version = "2.3", features = ["derive", "std"] }
 thiserror = "2"
 doze-os = { path = "../doze-os" }
 tokio = { version = "1.54", features = ["sync", "rt", "time", "macros"] }
+serde_json = { version = "1", optional = true }
+
+[features]
+# `msg::snapshot`: a module's console as JSON, for the snapshot tests that feed the app's consoles fixture.
+snapshot = ["dep:serde_json"]
 
 [dev-dependencies]
 minicbor = { version = "2.3", features = ["derive", "std"] }

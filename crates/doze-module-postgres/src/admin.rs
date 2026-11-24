@@ -16,6 +16,7 @@ const ACTIVITY: &str = "
 SELECT count(*) FILTER (WHERE state = 'active'),
        count(*) FILTER (WHERE state LIKE 'idle%'),
        count(*) FILTER (WHERE wait_event_type = 'Lock'),
+       count(*),
        current_setting('max_connections'),
        coalesce(round(max(extract(epoch FROM now() - query_start))::numeric, 1), 0)
 FROM pg_stat_activity WHERE backend_type = 'client backend'";
@@ -58,8 +59,8 @@ fn resource(kind: &str, name: &str, status: &str, pairs: &[(&str, &str)]) -> Res
 
 async fn resources(p: &Psql, instance: &str) -> Result<Vec<Resource>> {
     let mut out = Vec::new();
-    for r in p.rows("postgres", ACTIVITY, 5).await? {
-        let [active, idle, waiting, of, longest] = r.as_slice() else {
+    for r in p.rows("postgres", ACTIVITY, 6).await? {
+        let [active, idle, waiting, connections, of, longest] = r.as_slice() else {
             continue;
         };
         let longest = format!("{longest} s");
@@ -67,6 +68,7 @@ async fn resources(p: &Psql, instance: &str) -> Result<Vec<Resource>> {
             ("active", active.as_str()),
             ("idle", idle),
             ("waiting", waiting),
+            ("connections", connections),
             ("of", of),
             ("longest", &longest),
         ];
@@ -206,7 +208,8 @@ fn panels() -> Vec<Panel> {
             column("active", "Active", "count", false),
             column("idle", "Idle", "count", false),
             column("waiting", "Waiting", "count", false),
-            column("of", "Of", "", false),
+            column("connections", "Connections", "count", false),
+            column("of", "Of", "of", false),
             column("longest", "Longest", "", false),
         ],
     );
@@ -283,5 +286,21 @@ pub(crate) fn console() -> ConsoleSpec {
             after: "vitals".into(),
             node: node("table", "databases", "", 1, vec![]),
         }],
+    }
+}
+
+/// The console and actions, pinned: the app's `consoles` fixture is generated from `console.snapshot.json`, never
+/// written by hand. `DOZE_UPDATE_SNAPSHOT=1` rewrites it after a deliberate change.
+#[cfg(test)]
+mod snapshot {
+    #[test]
+    fn the_console_and_actions_match_their_snapshot() {
+        let now =
+            doze_module_proto::msg::snapshot::console_json(&super::console(), &super::actions());
+        let pinned = doze_module_proto::msg::snapshot::pin(
+            concat!(env!("CARGO_MANIFEST_DIR"), "/src/console.snapshot.json"),
+            &now,
+        );
+        assert_eq!(pinned, Ok(()));
     }
 }

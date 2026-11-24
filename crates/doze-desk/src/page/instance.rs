@@ -230,7 +230,49 @@ fn tabs(v: &words::Instance, spec: Option<&words::ConsoleSpec>) -> Vec<PageTab> 
             );
         }
     }
+    name_console_tabs(&mut tabs, &v.engine);
     tabs
+}
+
+/// A module's tabs titled as the app's own are: a capital first, as `Overview` and `Logs` are. No two tabs share a
+/// title: one the app already uses (a module's "overview" beside the app's Overview) takes the module's name before
+/// it ("Gauge overview"); a module's own repeat is numbered ("Requests 2").
+pub fn name_console_tabs(tabs: &mut [PageTab], engine: &str) {
+    let apps: Vec<String> = tabs
+        .iter()
+        .filter(|t| !t.id.starts_with("console:"))
+        .map(|t| match t.id.as_str() {
+            words::TAB_WEB => "web ui".to_owned(),
+            words::TAB_LAST_RUN => "last run".to_owned(),
+            id => id.to_lowercase(),
+        })
+        .collect();
+    let mut taken = apps.clone();
+    for t in tabs.iter_mut().filter(|t| t.id.starts_with("console:")) {
+        let mut title = capital(t.title.trim());
+        if title.is_empty() {
+            title = "Console".to_owned();
+        }
+        if apps.contains(&title.to_lowercase()) && !engine.is_empty() {
+            title = format!("{} {}", capital(engine), t.title.trim().to_lowercase());
+        }
+        let base = title.clone();
+        let mut n = 2;
+        while taken.contains(&title.to_lowercase()) {
+            title = format!("{base} {n}");
+            n += 1;
+        }
+        taken.push(title.to_lowercase());
+        t.title = title;
+    }
+}
+
+/// The words with a capital first letter, the rest as they are ("activity" is "Activity", "OLTP load" stays).
+fn capital(s: &str) -> String {
+    let mut c = s.chars();
+    c.next()
+        .map(|f| f.to_uppercase().chain(c).collect())
+        .unwrap_or_default()
 }
 
 /// The title a tab is drawn with (the page's `tabTitle`): `Overview`, `Logs`, `Runs · 3`, `Console`, the module's.
@@ -277,12 +319,17 @@ fn vitals(st: &StackView, name: &str, v: &words::Instance) -> Option<Vitals> {
     let mut cpu = parts::chart(&s.cpu, words::pct, "of one core");
     if let Some(&last) = s.cpu.last() {
         cpu.now = words::cores(last);
-        cpu.sub = format!("cores · {} of one", words::pct(last));
+        // The figure says "cores" already ("<0.01 cores"); Go's "cores · 0% of one" said it twice.
+        cpu.sub = format!("{} of one core", words::pct(last));
+    }
+    let mut conns = parts::chart(&s.conns, words::count, "connections");
+    if conns.now == "1" {
+        "connection".clone_into(&mut conns.sub);
     }
     Some(Vitals {
         ram: parts::chart(&s.ram, words::bytes_label, "resident"),
         cpu,
-        conns: parts::chart(&s.conns, words::count, "connections"),
+        conns,
     })
 }
 
@@ -307,4 +354,51 @@ pub fn need_tone(n: &NeedChip) -> Tone {
 /// The instance as the words read it, for the app's own small questions (is it a module, an app).
 pub fn words_of(st: &StackView, name: &str) -> Option<words::Instance> {
     st.instance(name).map(convert::instance)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{PageTab, name_console_tabs};
+
+    fn tabs(ids: &[(&str, &str)]) -> Vec<PageTab> {
+        ids.iter()
+            .map(|(id, title)| PageTab {
+                id: (*id).to_owned(),
+                title: (*title).to_owned(),
+            })
+            .collect()
+    }
+
+    fn titles(t: &[PageTab]) -> Vec<&str> {
+        t.iter().map(|t| t.title.as_str()).collect()
+    }
+
+    #[test]
+    fn a_modules_tabs_read_like_the_apps_and_never_repeat_one() {
+        let mut t = tabs(&[
+            ("overview", "overview"),
+            ("console:overview", "overview"),
+            ("console:requests", "requests"),
+            ("console:logs", "logs"),
+            ("console:more", "requests"),
+            ("logs", "logs"),
+        ]);
+        name_console_tabs(&mut t, "gauge");
+        assert_eq!(
+            titles(&t)[1..5],
+            ["Gauge overview", "Requests", "Gauge logs", "Requests 2"]
+        );
+        // The whole console, untitled or called "console", is Console; the Web UI is a tab of its own.
+        let mut t = tabs(&[
+            ("overview", "overview"),
+            ("web console", "web console"),
+            ("console:_", "console"),
+            ("logs", "logs"),
+        ]);
+        name_console_tabs(&mut t, "kafka");
+        assert_eq!(titles(&t)[2], "Console");
+        let mut t = tabs(&[("console:x", " ")]);
+        name_console_tabs(&mut t, "");
+        assert_eq!(titles(&t), ["Console"]);
+    }
 }

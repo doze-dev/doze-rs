@@ -1,121 +1,112 @@
 {
-  "actions": [
-    {
-      "destructive": false,
-      "id": "produce",
-      "input_hint": "message value",
-      "kind": "topic",
-      "label": "Produce a message"
-    }
-  ],
   "spec": {
-    "extend": [],
     "front": "console",
+    "web_url": "http://{address:console}",
     "panels": [
       {
-        "columns": [
-          {
-            "align": "left",
-            "key": "name",
-            "role": "",
-            "title": "Topic"
-          },
-          {
-            "align": "right",
-            "key": "partitions",
-            "role": "count",
-            "title": "Partitions"
-          },
-          {
-            "align": "right",
-            "key": "high",
-            "role": "count",
-            "title": "Messages"
-          },
-          {
-            "align": "right",
-            "key": "high",
-            "role": "rate",
-            "title": "Rate"
-          }
-        ],
         "id": "topics",
+        "title": "Topics",
         "kind": "table",
         "source": "topic",
-        "title": "Topics"
-      },
-      {
         "columns": [
           {
-            "align": "left",
             "key": "name",
-            "role": "",
-            "title": "Group"
+            "title": "Topic",
+            "align": "left"
           },
           {
-            "align": "left",
-            "key": "state",
-            "role": "state",
-            "title": "State"
-          },
-          {
-            "align": "right",
-            "key": "members",
+            "key": "partitions",
+            "title": "Partitions",
             "role": "count",
-            "title": "Members"
+            "align": "right"
           },
           {
-            "align": "right",
-            "key": "lag",
-            "role": "lag",
-            "title": "Lag"
+            "key": "high",
+            "title": "Messages",
+            "role": "count",
+            "align": "right"
+          },
+          {
+            "key": "high",
+            "title": "Rate",
+            "role": "rate",
+            "align": "right"
           }
-        ],
+        ]
+      },
+      {
         "id": "groups",
+        "title": "Consumer groups",
         "kind": "table",
         "source": "group",
-        "title": "Consumer groups"
-      },
-      {
         "columns": [
           {
-            "align": "left",
+            "key": "name",
+            "title": "Group",
+            "align": "left"
+          },
+          {
+            "key": "state",
+            "title": "State",
+            "role": "state",
+            "align": "left"
+          },
+          {
+            "key": "members",
+            "title": "Members",
+            "role": "count",
+            "align": "right"
+          },
+          {
+            "key": "lag",
+            "title": "Lag",
+            "role": "lag",
+            "align": "right"
+          }
+        ]
+      },
+      {
+        "id": "tail",
+        "title": "Tail",
+        "kind": "stream",
+        "columns": [
+          {
             "key": "time",
+            "title": "Time",
             "role": "time",
-            "title": "Time"
+            "align": "left"
           },
           {
-            "align": "right",
             "key": "partition",
-            "role": "",
-            "title": "P"
+            "title": "P",
+            "align": "right"
           },
           {
-            "align": "right",
             "key": "offset",
-            "role": "",
-            "title": "Offset"
+            "title": "Offset",
+            "align": "right"
           },
           {
-            "align": "left",
             "key": "key",
-            "role": "",
-            "title": "Key"
+            "title": "Key",
+            "align": "left"
           },
           {
-            "align": "left",
             "key": "value",
-            "role": "",
-            "title": "Value"
+            "title": "Value",
+            "align": "left"
           }
         ],
-        "id": "tail",
-        "kind": "stream",
-        "select": "topics",
-        "title": "Tail"
+        "select": "topics"
       }
-    ],
-    "tabs": [],
-    "web_url": "http://{address:console}"
-  }
+    ]
+  },
+  "actions": [
+    {
+      "id": "produce",
+      "label": "Produce a message",
+      "kind": "topic",
+      "input_hint": "message value"
+    }
+  ]
 }

@@ -156,10 +156,7 @@ pub(crate) fn say(input: &Value) -> Value {
         };
         bodies.insert(tab.to_owned(), tree(&body));
         for n in body.walk() {
-            let detail: Vec<Value> = d::detail_rows(spec, tab, &tables, &given.sel, n)
-                .iter()
-                .map(|(k, v)| json!([k, v]))
-                .collect();
+            let detail = details(spec, tab, &body, &tables, &given.sel, n);
             walked.push(json!([
                 n.block_id(),
                 n.share(),
@@ -199,12 +196,88 @@ pub(crate) fn say(input: &Value) -> Value {
     })
 }
 
+/// A detail block's pairs, a bytes column's in Go's words (see [`go_sizes`]).
+fn details(
+    spec: Option<&ConsoleSpec>,
+    tab: &str,
+    body: &Node,
+    tables: &HashMap<String, Vec<ConsoleRow>>,
+    sel: &HashMap<String, usize>,
+    n: &Node,
+) -> Vec<Value> {
+    let go = go_sizes(spec, body, tables, sel, n);
+    d::detail_rows(spec, tab, tables, sel, n)
+        .iter()
+        .enumerate()
+        .map(|(i, (k, v))| match go.get(i).cloned().flatten() {
+            Some(go) => json!([k, go]),
+            None => json!([k, v]),
+        })
+        .collect()
+}
+
+/// The detail of a bytes column as Go wrote it (whole megabytes): a deliberate change, see [`cells`]. One entry a
+/// column of the panel the detail shows, `Some` for a bytes column whose cell is a figure.
+fn go_sizes(
+    spec: Option<&ConsoleSpec>,
+    body: &Node,
+    tables: &HashMap<String, Vec<ConsoleRow>>,
+    sel: &HashMap<String, usize>,
+    n: &Node,
+) -> Vec<Option<String>> {
+    let row = if n.from.is_empty() {
+        tables
+            .get(&n.panel)
+            .and_then(|r| r.first())
+            .map(|r| (n.panel.as_str(), r))
+    } else {
+        body.walk()
+            .find(|x| {
+                x.kind == NodeKind::Table
+                    && (x.block_id() == n.from || x.panel == n.from || x.id == n.from)
+            })
+            .and_then(|src| {
+                let rows = tables.get(&src.panel)?;
+                let i = sel
+                    .get(src.block_id().as_ref())
+                    .copied()
+                    .unwrap_or(0)
+                    .min(rows.len().checked_sub(1)?);
+                Some((src.panel.as_str(), rows.get(i)?))
+            })
+    };
+    let Some((panel, row)) = row else {
+        return Vec::new();
+    };
+    let Some(p) = spec.and_then(|s| s.panel(panel)) else {
+        return Vec::new();
+    };
+    p.columns
+        .iter()
+        .map(|c| {
+            (c.role == Role::Bytes)
+                .then(|| row.cell(&c.key).parse::<i64>().ok().map(d::mb))
+                .flatten()
+        })
+        .collect()
+}
+
 fn cells(spec: Option<&ConsoleSpec>, tables: &HashMap<String, Vec<ConsoleRow>>) -> Vec<Value> {
     let mut out = Vec::new();
     for p in spec.map_or(&[][..], |s| &s.panels) {
         for row in tables.get(&p.id).map_or(&[][..], Vec::as_slice) {
             for col in &p.columns {
                 let (text, tone) = d::cell(col, row);
+                // A deliberate change from Go: a size is written in the unit it reads in (`88 KB`), where Go wrote
+                // whole megabytes (`0 MB`). The rest of the cell is still Go's; the size is checked against `size`.
+                let raw = row.cell(&col.key);
+                if col.role == Role::Bytes
+                    && let Ok(n) = raw.parse::<i64>()
+                {
+                    assert_eq!(text, d::size(n), "a bytes cell is a size");
+                    out.push(json!([d::mb(n), tone.as_str()]));
+                    continue;
+                }
                 out.push(json!([text, tone.as_str()]));
             }
         }

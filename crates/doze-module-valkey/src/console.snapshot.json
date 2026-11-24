@@ -1,0 +1,137 @@
+{
+  "actions": [
+    {
+      "destructive": true,
+      "id": "flush",
+      "kind": "server",
+      "label": "Empty the cache"
+    },
+    {
+      "id": "save",
+      "kind": "server",
+      "label": "Save a snapshot now"
+    }
+  ],
+  "spec": {
+    "extend": [
+      {
+        "after": "vitals",
+        "node": {
+          "children": [
+            {
+              "kind": "stat",
+              "panel": "server",
+              "title": "Valkey",
+              "weight": 1
+            },
+            {
+              "kind": "actions",
+              "title": "Actions",
+              "weight": 1
+            }
+          ],
+          "kind": "row"
+        }
+      }
+    ],
+    "panels": [
+      {
+        "columns": [
+          {
+            "align": "left",
+            "key": "memory",
+            "title": "Memory"
+          },
+          {
+            "align": "left",
+            "key": "ceiling",
+            "role": "of",
+            "title": "Ceiling"
+          },
+          {
+            "align": "right",
+            "key": "keys",
+            "role": "count",
+            "title": "Keys"
+          },
+          {
+            "align": "right",
+            "key": "clients",
+            "role": "count",
+            "title": "Clients"
+          },
+          {
+            "align": "right",
+            "key": "hits",
+            "role": "rate",
+            "title": "Hits"
+          },
+          {
+            "align": "right",
+            "key": "evicted",
+            "role": "rate",
+            "title": "Evictions"
+          },
+          {
+            "align": "left",
+            "key": "persistence",
+            "title": "Keeps data"
+          }
+        ],
+        "id": "server",
+        "kind": "counters",
+        "source": "server",
+        "title": "Valkey"
+      },
+      {
+        "columns": [
+          {
+            "align": "left",
+            "key": "name",
+            "title": "Database"
+          },
+          {
+            "align": "right",
+            "key": "keys",
+            "role": "count",
+            "title": "Keys"
+          },
+          {
+            "align": "right",
+            "key": "expiring",
+            "role": "count",
+            "title": "Expiring"
+          }
+        ],
+        "id": "databases",
+        "kind": "table",
+        "source": "database",
+        "title": "Databases"
+      },
+      {
+        "columns": [
+          {
+            "align": "left",
+            "key": "time",
+            "role": "time",
+            "title": "Time"
+          },
+          {
+            "align": "left",
+            "key": "client",
+            "title": "Client"
+          },
+          {
+            "align": "left",
+            "key": "command",
+            "role": "code",
+            "title": "Command"
+          }
+        ],
+        "id": "commands",
+        "kind": "stream",
+        "title": "Commands"
+      }
+    ]
+  }
+}

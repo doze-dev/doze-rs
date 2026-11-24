@@ -1,0 +1,130 @@
+{
+  "actions": [
+    {
+      "destructive": true,
+      "id": "flush",
+      "kind": "namespace",
+      "label": "Empty this namespace"
+    },
+    {
+      "id": "recount",
+      "kind": "server",
+      "label": "Count keys again"
+    },
+    {
+      "id": "compact",
+      "kind": "server",
+      "label": "Compact (free deleted data's disk)"
+    }
+  ],
+  "spec": {
+    "extend": [
+      {
+        "after": "vitals",
+        "node": {
+          "children": [
+            {
+              "kind": "stat",
+              "panel": "server",
+              "title": "Kvrocks",
+              "weight": 1
+            },
+            {
+              "kind": "table",
+              "panel": "namespaces",
+              "title": "Namespaces",
+              "weight": 1
+            },
+            {
+              "kind": "actions",
+              "title": "Actions",
+              "weight": 1
+            }
+          ],
+          "kind": "row"
+        }
+      }
+    ],
+    "panels": [
+      {
+        "columns": [
+          {
+            "align": "left",
+            "key": "memory",
+            "title": "Memory"
+          },
+          {
+            "align": "left",
+            "key": "disk",
+            "title": "Disk"
+          },
+          {
+            "align": "right",
+            "key": "keys",
+            "role": "count",
+            "title": "Keys"
+          },
+          {
+            "align": "right",
+            "key": "clients",
+            "role": "count",
+            "title": "Clients"
+          },
+          {
+            "align": "right",
+            "key": "hits",
+            "role": "rate",
+            "title": "Hits"
+          }
+        ],
+        "id": "server",
+        "kind": "counters",
+        "source": "server",
+        "title": "Kvrocks"
+      },
+      {
+        "columns": [
+          {
+            "align": "left",
+            "key": "name",
+            "title": "Namespace"
+          },
+          {
+            "align": "right",
+            "key": "keys",
+            "role": "count",
+            "title": "Keys"
+          }
+        ],
+        "id": "namespaces",
+        "kind": "table",
+        "source": "namespace",
+        "title": "Namespaces"
+      },
+      {
+        "columns": [
+          {
+            "align": "left",
+            "key": "time",
+            "role": "time",
+            "title": "Time"
+          },
+          {
+            "align": "left",
+            "key": "client",
+            "title": "Namespace and client"
+          },
+          {
+            "align": "left",
+            "key": "command",
+            "role": "code",
+            "title": "Command"
+          }
+        ],
+        "id": "commands",
+        "kind": "stream",
+        "title": "Commands"
+      }
+    ]
+  }
+}

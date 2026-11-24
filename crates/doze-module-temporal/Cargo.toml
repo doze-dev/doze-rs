@@ -17,7 +17,7 @@ serde_json = "1"
 
 [dev-dependencies]
 doze-module-test = { path = "../doze-module-test" }
-doze-module-proto = { path = "../doze-module-proto" }
+doze-module-proto = { path = "../doze-module-proto", features = ["snapshot"] }
 doze-os = { path = "../doze-os" }
 serde_json = "1"
 tokio = { version = "1.54", features = ["rt", "macros", "net", "io-util", "time"] }

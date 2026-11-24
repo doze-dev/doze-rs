@@ -6,7 +6,7 @@ use std::collections::HashMap;
 use std::time::Instant;
 
 use crate::console::{CELL_RUNTIME, Column, ConsoleRow, ConsoleSpec, Node, NodeKind, Role};
-use crate::format::{mb, thousands};
+use crate::format::{size, thousands};
 use crate::gonum::{fixed, lowercase, parse_float};
 use crate::look::Tone;
 use crate::tabs::console_body;
@@ -65,7 +65,8 @@ fn whole(f: f64) -> i64 {
     f as i64
 }
 
-/// A cell's text and tone, by what the module said the column is: a count with commas, bytes as a size, a rate or
+/// A cell's text and tone, by what the module said the column is: a count with commas, bytes as a size (`512 B` to `1.2 GB`, where Go wrote whole
+/// megabytes and so `0 MB` for a small key), a rate or
 /// a dash while there is none, a lag that is green at zero and red above it, a state with its glyph. A row the
 /// module marked dim is dim except for its state; an empty "from" column says doze.hcl, or runtime for a row made
 /// while the stack ran. (Go: `Cell`.)
@@ -74,14 +75,14 @@ pub fn cell<'a>(col: &Column, row: &'a ConsoleRow) -> (Cow<'a, str>, Tone) {
     let raw = row.cell(&col.key);
     let (mut text, mut tone) = (Cow::Borrowed(raw), Tone::Text);
     match col.role {
-        Role::Count => {
+        Role::Count | Role::Of => {
             if let Some(n) = figure(raw) {
                 text = Cow::Owned(thousands(whole(n)));
             }
         }
         Role::Bytes => {
             if let Ok(n) = raw.parse::<i64>() {
-                text = Cow::Owned(mb(n));
+                text = Cow::Owned(size(n));
             }
         }
         Role::Rate => {
@@ -97,8 +98,13 @@ pub fn cell<'a>(col: &Column, row: &'a ConsoleRow) -> (Cow<'a, str>, Tone) {
             }
         }
         Role::State => {
-            let (glyph, t) = state_glyph(&lowercase(raw));
-            (text, tone) = (Cow::Owned(format!("{glyph} {raw}")), t);
+            if let Some(t) = status_class(raw) {
+                // An HTTP status is toned by its class and written as it is: a 500 must not read as a 200.
+                tone = t;
+            } else {
+                let (glyph, t) = state_glyph(&lowercase(raw));
+                (text, tone) = (Cow::Owned(format!("{glyph} {raw}")), t);
+            }
         }
         Role::Text => {}
     }
@@ -181,4 +187,72 @@ fn followed<'a>(
 #[must_use]
 pub fn action_key(id: &str) -> Option<char> {
     id.chars().next().map(crate::gonum::upper)
+}
+
+/// The tone of an HTTP status written as a state (`200`, `404`, `503`): a client error warns, a server error is bad,
+/// the rest is plain. `None` for anything that is not three digits from 100 to 599.
+fn status_class(raw: &str) -> Option<Tone> {
+    let n: u16 = raw.parse().ok().filter(|_| raw.len() == 3)?;
+    match n {
+        100..=399 => Some(Tone::Text),
+        400..=499 => Some(Tone::Warn),
+        500..=599 => Some(Tone::Bad),
+        _ => None,
+    }
+}
+
+/// What a cell amounts to, for ordering a column and filling a meter: the leading figure of what a module writes
+/// (`1,043`, `4.2 s`, `11.0 MB`, `90ms`, `3m`), scaled by its unit so sizes and times compare across units. `None` for
+/// a cell that does not start with a figure (`no limit`, `—`, a name).
+#[must_use]
+pub fn magnitude(raw: &str) -> Option<f64> {
+    let s = raw.trim();
+    let end = s
+        .char_indices()
+        .find(|&(i, c)| !(c.is_ascii_digit() || c == ',' || c == '.' || (i == 0 && c == '-')))
+        .map_or(s.len(), |(i, _)| i);
+    let n = parse_float(&s[..end].replace(',', ""))?;
+    let unit = s[end..].trim_start();
+    let unit = unit.split_whitespace().next().unwrap_or("");
+    let scale = match unit.trim_end_matches('/') {
+        "KB" | "KiB" | "kB" => 1024.0,
+        "MB" | "MiB" => 1024.0 * 1024.0,
+        "GB" | "GiB" => 1024.0 * 1024.0 * 1024.0,
+        "TB" | "TiB" => 1024.0_f64.powi(4),
+        "ms" => 0.001,
+        "µs" | "us" => 0.000_001,
+        "m" | "min" => 60.0,
+        "h" => 3600.0,
+        "d" => 86_400.0,
+        _ => 1.0,
+    };
+    Some(n * scale)
+}
+
+#[cfg(test)]
+mod magnitude_tests {
+    use super::magnitude;
+
+    #[test]
+    fn an_http_status_is_toned_by_its_class() {
+        use super::{Tone, status_class};
+        assert_eq!(status_class("200"), Some(Tone::Text));
+        assert_eq!(status_class("404"), Some(Tone::Warn));
+        assert_eq!(status_class("503"), Some(Tone::Bad));
+        assert_eq!(status_class("0500"), None);
+        assert_eq!(status_class("idle"), None);
+    }
+
+    #[test]
+    fn a_figure_is_read_with_its_unit() {
+        assert_eq!(magnitude("1,043"), Some(1043.0));
+        assert_eq!(magnitude("4.2 s"), Some(4.2));
+        assert_eq!(magnitude("90ms"), Some(0.09));
+        assert_eq!(magnitude("3m"), Some(180.0));
+        assert_eq!(magnitude("2 KB"), Some(2048.0));
+        assert!(magnitude("11.0 MB") > magnitude("900 KB"));
+        assert_eq!(magnitude("no limit"), None);
+        assert_eq!(magnitude("—"), None);
+        assert_eq!(magnitude("-3"), Some(-3.0));
+    }
 }

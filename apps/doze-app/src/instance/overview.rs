@@ -74,7 +74,9 @@ pub(crate) fn overview(
         .child(
             div()
                 .flex()
-                .flex_1()
+                // As tall as the cards (the page scrolls to the end of them), or the page when they are fewer.
+                .flex_grow(1.)
+                .flex_shrink_0()
                 .gap(px(14.))
                 .px(px(28.))
                 .py(px(16.))

@@ -65,7 +65,7 @@ tokio = { version = "1", default-features = false, features = ["rt", "signal", "
 
 [dev-dependencies]
 doze-module-test = { path = "../doze-module-test" }
-doze-module-proto = { path = "../doze-module-proto" }
+doze-module-proto = { path = "../doze-module-proto", features = ["snapshot"] }
 tempfile = "3"
 # The names front door end to end (tests/names_front_door.rs): the zone's front door in the test, doze-aws behind it.
 doze-names = { path = "../doze-names" }

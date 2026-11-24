@@ -15,6 +15,7 @@
 mod check;
 #[path = "../common/mod.rs"]
 mod common;
+mod consoles;
 mod pages;
 
 use check::{check_rows, check_series, check_table, g, golden, s};

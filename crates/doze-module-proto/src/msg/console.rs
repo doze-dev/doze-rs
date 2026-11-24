@@ -86,8 +86,11 @@ pub struct Column {
     pub key: String,
     #[n(1)]
     pub title: String,
-    /// How the host formats and colours it: "", "count", "rate", "lag", "state", "time", "code". A "rate" column's
-    /// key names an info value that is a running total; the host shows how fast it grows.
+    /// How the host formats and colours it: "", "count", "bytes", "rate", "lag", "state", "time", "code", "of". A
+    /// "rate" column's key names an info value that is a running total; the host shows how fast it grows. A "bytes"
+    /// cell is a size in bytes, written in the unit it reads in. An "of" column is the limit of the column before it
+    /// (`max_connections` after the connections): the host draws the two as one figure, `4 of 100`, with a meter. A
+    /// host that does not know a role shows the cell as it is, so a new one is only ever added.
     #[n(2)]
     pub role: String,
     /// "left" or "right".

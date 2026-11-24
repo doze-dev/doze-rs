@@ -26,6 +26,34 @@ pub fn mb(bytes: i64) -> String {
     }
 }
 
+/// A size written for a person, from bytes up: `512 B`, `9.5 KB`, `88 KB`, `3.1 MB`, `412 MB`, `11.5 GB`. Under ten of
+/// a unit gets a tenth; nothing small reads as `0 MB` (what [`mb`] writes, for the meters, where a megabyte is the
+/// grain). A console's `bytes` column is written this way.
+#[must_use]
+pub fn size(bytes: i64) -> String {
+    if bytes < 1024 {
+        return format!("{} B", bytes.max(0));
+    }
+    #[allow(clippy::cast_precision_loss)] // WHY: a tenth of a unit is all that is written
+    let mut v = bytes as f64 / 1024.0;
+    let mut units = ["KB", "MB", "GB", "TB", "PB"].into_iter().peekable();
+    let mut unit = "KB";
+    while let Some(u) = units.next() {
+        unit = u;
+        if v < 1023.5 || units.peek().is_none() {
+            break;
+        }
+        v /= 1024.0;
+    }
+    // A gigabyte and up keeps its tenth, as `mb` writes it.
+    let big = !matches!(unit, "KB" | "MB");
+    if v < 9.95 || (big && v < 999.95) {
+        format!("{v:.1} {unit}")
+    } else {
+        format!("{v:.0} {unit}")
+    }
+}
+
 /// A countdown as `m:ss`, the way the board counts down to sleep. (Go: `Clock`.)
 #[must_use]
 pub fn clock(d: Duration) -> String {
@@ -159,6 +187,26 @@ pub fn bytes_label(v: f64) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_size_is_written_in_the_unit_it_reads_in() {
+        for (n, want) in [
+            (-5, "0 B"),
+            (0, "0 B"),
+            (512, "512 B"),
+            (1023, "1023 B"),
+            (1024, "1.0 KB"),
+            (9_728, "9.5 KB"),
+            (90_120, "88 KB"),
+            (1_048_000, "1023 KB"),
+            (1_048_500, "1.0 MB"),
+            (3_250_585, "3.1 MB"),
+            (432_013_312, "412 MB"),
+            (1_288_490_189, "1.2 GB"),
+        ] {
+            assert_eq!(size(n), want, "{n}");
+        }
+    }
 
     #[test]
     fn thousands_groups_from_the_right() {

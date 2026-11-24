@@ -25,7 +25,7 @@ doze-daemon = { path = "../doze-daemon" }
 doze-names = { path = "../doze-names" }
 doze-module-test = { path = "../doze-module-test" }
 doze-module-host = { path = "../doze-module-host" }
-doze-module-proto = { path = "../doze-module-proto" }
+doze-module-proto = { path = "../doze-module-proto", features = ["snapshot"] }
 serde_json = "1"
 tokio = { version = "1.54", features = ["rt", "rt-multi-thread", "macros", "net", "io-util", "time", "process"] }
 

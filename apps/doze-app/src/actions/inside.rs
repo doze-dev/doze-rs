@@ -268,6 +268,15 @@ pub(crate) const INSIDE: &[Spec] = &[
         None,
         false
     ),
+    spec!(
+        "Filter the table",
+        "rows with these words",
+        super::FilterRows,
+        ["/"],
+        Console,
+        None,
+        false
+    ),
     spec!("Next table", "", NextTable, ["]"], Console, None, false),
     spec!("Table before", "", PrevTable, ["["], Console, None, false),
     spec!(

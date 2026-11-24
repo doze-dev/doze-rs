@@ -117,3 +117,18 @@ mod tests {
         assert_eq!(readable(None), "");
     }
 }
+
+/// The console and actions, pinned: the app's `consoles` fixture is generated from `console.snapshot.json`, never
+/// written by hand. `DOZE_UPDATE_SNAPSHOT=1` rewrites it after a deliberate change.
+#[cfg(test)]
+mod snapshot {
+    #[test]
+    fn the_console_and_actions_match_their_snapshot() {
+        let now = doze_module_proto::msg::snapshot::console_json(&super::console(), &Vec::new());
+        let pinned = doze_module_proto::msg::snapshot::pin(
+            concat!(env!("CARGO_MANIFEST_DIR"), "/src/console.snapshot.json"),
+            &now,
+        );
+        assert_eq!(pinned, Ok(()));
+    }
+}

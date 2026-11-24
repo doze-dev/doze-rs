@@ -140,6 +140,7 @@ struct Watch {
     /// The page the window is left on, and the service it shows.
     screen: stage::Screen,
     select: Option<String>,
+    tab: Option<String>,
     /// `--check`: the footprint at the end of the idle time, and at the end of `closed`, at most these.
     settled: Option<f64>,
     closed_budget: Option<f64>,
@@ -166,6 +167,7 @@ impl Watch {
             at: b.at.clone(),
             screen: b.screen,
             select: b.select.clone(),
+            tab: b.tab.clone(),
             settled: b.settled,
             closed_budget: b.closed_budget,
             real,
@@ -259,6 +261,9 @@ async fn open(
     });
     let _ = h.update(cx, |root, window, cx| {
         stage::go(root, hub, w.screen, w.select.as_deref(), window, cx);
+        if let (Some(tab), Some(v)) = (&w.tab, root.inside_instance()) {
+            v.update(cx, |v, cx| v.set_tab(tab, window, cx));
+        }
         println!("screen {:?}", root.screen);
     });
     Some(h)
