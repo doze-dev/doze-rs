@@ -23,10 +23,10 @@ pub(crate) const BIG: usize = doze_desk::page::console::FILTER_FROM;
 /// How many rows a virtual table shows at the least, when the page is short.
 const SHOWN: usize = 4;
 /// A character's width in the table face, and in the stream's mono face, at their sizes.
-const CH: f32 = 7.6;
+pub(super) const CH: f32 = 7.6;
 pub(super) const MONO_CH: f32 = 7.9;
 /// The space between columns, and inside a row's ends.
-const GAP: f32 = 16.;
+pub(super) const GAP: f32 = 16.;
 
 /// Each column's width: a fixed one for what it holds, or `None` for the column that takes what is left.
 pub(super) fn widths(n: &Node, ch: f32) -> Vec<Option<f32>> {
@@ -57,19 +57,15 @@ impl Draw<'_> {
             let right = col.is_some_and(|c| c.right);
             let cell = match width {
                 // A column of long words takes the room left; with none, each takes a share of it by what it holds.
-                // In a card too narrow for every column and the actions, a column gives up width (its words cut short)
-                // before the actions column does.
-                Some(wd) if grows => div()
-                    .flex_basis(px(*wd))
-                    .flex_shrink(1.)
-                    .min_w(px(wd.min(4. * CH))),
+                // A column is never narrower than what it holds: the actions column shows letters only first.
+                Some(wd) if grows => div().w(px(*wd)).flex_none(),
                 // With none, the room left goes to the columns of words, by what they hold: a figure keeps its width, so it
                 // stays beside the words before it rather than across a gap at the far edge.
                 Some(wd) => div()
                     .flex_basis(px(*wd))
                     .flex_grow(if right { 0. } else { wd.max(1.) })
-                    .flex_shrink(1.)
-                    .min_w(px(wd.min(4. * CH))),
+                    .flex_shrink_0()
+                    .min_w(px(*wd)),
                 // The growing column keeps room for what it holds before the others; past that it is cut short.
                 None => div()
                     .flex_1()
@@ -118,9 +114,11 @@ impl Draw<'_> {
                     Some(true) => " ↓",
                     None => "",
                 };
+                // A title cut short ends in an ellipsis, as a cell does, never mid-letter.
                 let mut title = div()
                     .id(SharedString::from(format!("{}-h{i}", n.id)))
-                    .flex()
+                    .min_w_0()
+                    .whitespace_nowrap()
                     .overflow_hidden()
                     .text_ellipsis()
                     .text_color(if c.sort.is_some() { t.text } else { t.dim })
@@ -262,6 +260,8 @@ impl Draw<'_> {
                 .overflow_hidden()
         };
         frame
+            .relative()
+            .children(self.measure_width(n))
             .children(self.title_bar(n))
             .child(self.header(n, &widths, self.live.is_some()))
             .child(body)
@@ -338,7 +338,7 @@ impl Draw<'_> {
     fn big_table(&self, n: &Node, widths: Vec<Option<f32>>) -> AnyElement {
         let t = *self.t;
         let (node, live, focused) = (n.clone(), self.live.clone(), self.focused.clone());
-        let asleep = self.asleep;
+        let (asleep, rooms) = (self.asleep, self.rooms.clone());
         let list = uniform_list(
             SharedString::from(format!("table-{}", n.id)),
             n.rows.len(),
@@ -352,7 +352,8 @@ impl Draw<'_> {
                     filter: None,
                     flat: false,
                     asleep,
-                    rooms: None,
+                    // The same measurements as the header: its actions column is the rows' width.
+                    rooms: rooms.clone(),
                 };
                 range
                     .filter_map(|i| node.rows.get(i).map(|r| d.table_row(&node, &widths, r)))
