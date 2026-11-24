@@ -2942,8 +2942,13 @@ dependencies = [
  "doze-module-proto",
  "doze-names",
  "doze-os",
+ "p256",
+ "rcgen",
+ "rustls",
  "serde_json",
+ "time",
  "tokio",
+ "tokio-rustls",
  "tracing",
 ]
 
@@ -3206,10 +3211,12 @@ dependencies = [
 name = "doze-module-postgres"
 version = "0.0.0"
 dependencies = [
+ "doze-daemon",
  "doze-module",
  "doze-module-host",
  "doze-module-proto",
  "doze-module-test",
+ "doze-names",
  "doze-os",
  "getrandom 0.4.3",
  "rustls",
