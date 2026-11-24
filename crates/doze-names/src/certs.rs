@@ -2,13 +2,20 @@
 //! leaf minted from the authority as it is on disk now. A name nobody registered gets none, so the handshake fails
 //! rather than answering for a stranger.
 //!
+//! Which names: a declared domain and what its wildcard covers, and a name in the zone the front door fronts (one
+//! with a route). A registered name owns its subtree ([`Registry::lookup`]), so a name under it is answered too:
+//! `abc.execute-api.us-east-1.files.shop.doze` under `files.shop.doze`, or `a.b.dev.acme.com` under
+//! `*.dev.acme.com`. A certificate for the owner would fail the client's hostname check there, so such a name gets a
+//! leaf for exactly itself ([`Ca::leaf_under`], bounded); the person's own files are served as they are.
+//!
 //! The holder of the https port may run for days while another process makes the authority or rotates it (`doze
 //! trust --rotate`), so the root is looked up per handshake through a cache that rereads it when the file changed,
 //! at most every two seconds; leaves of an old root go with it.
 
-use crate::Registry;
 use crate::ca::Ca;
 use crate::domains::lookup_domain;
+use crate::registry::zone_owner;
+use crate::{Registry, in_zone, normalize};
 use rustls::crypto::ring::sign::any_supported_type;
 use rustls::pki_types::pem::PemObject;
 use rustls::pki_types::{CertificateDer, PrivateKeyDer, PrivateSec1KeyDer};
@@ -78,12 +85,25 @@ impl Certs {
 
     /// The certificate for `server_name`, or `None`.
     pub fn for_name(&self, server_name: &str) -> Option<Arc<CertifiedKey>> {
-        let (entry, owner) = lookup_domain(&self.reg.snapshot(), server_name)?;
+        let name = normalize(server_name);
+        let snap = self.reg.snapshot();
+        let (entry, owner) = if in_zone(&name) {
+            // Only what the front door fronts: a name without a route answers nothing over https either.
+            zone_owner(&snap, &name).filter(|(e, _)| !e.target.is_empty())?
+        } else {
+            lookup_domain(&snap, &name)?
+        };
         if !entry.cert.is_empty() {
             // The person's own files, as they are now (a renewed file is picked up).
             return own_files(Path::new(&entry.cert), Path::new(&entry.key));
         }
-        let leaf = self.ca.current()?.leaf(&owner).ok()?;
+        let ca = self.ca.current()?;
+        let leaf = if covers(&owner, &name) {
+            ca.leaf(&owner)
+        } else {
+            ca.leaf_under(&name)
+        }
+        .ok()?;
         let key = PrivateKeyDer::Sec1(PrivateSec1KeyDer::from(leaf.key_der.clone()));
         let signer = any_supported_type(&key).ok()?;
         Some(Arc::new(CertifiedKey::new(
@@ -91,6 +111,21 @@ impl Certs {
             signer,
         )))
     }
+}
+
+/// Whether the owner's own certificate carries `name`: it is the owner, or one label under a wildcard owner (whose
+/// certificate also names what the wildcard is under).
+fn covers(owner: &str, name: &str) -> bool {
+    if owner == name {
+        return true;
+    }
+    let Some(base) = owner.strip_prefix("*.") else {
+        return false;
+    };
+    name == base
+        || name
+            .split_once('.')
+            .is_some_and(|(first, rest)| rest == base && first != "*")
 }
 
 fn own_files(cert: &Path, key: &Path) -> Option<Arc<CertifiedKey>> {

@@ -5,7 +5,7 @@
 //!
 //! The folder is shared with Go programs, so its files are Go's: `root.crt` and `root.key` (P-256, the key as SEC1
 //! "EC PRIVATE KEY", which is what Go's `ParseECPrivateKey` reads), `certs/<domain>.{crt,key}`, `previous/<fp>.crt`
-//! and `previous.json`.
+//! and `previous.json`. `certs/under/` is Rust's own: the leaves of names under a registered one, kept to a bound.
 
 use crate::Error;
 use p256::ecdsa::{DerSignature, SigningKey};
@@ -25,9 +25,13 @@ use x509_cert::serial_number::SerialNumber;
 use x509_cert::spki::SubjectPublicKeyInfo;
 use x509_cert::time::{Time, Validity};
 
+pub use crate::ca_leaf::UNDER_CAP;
+
 const ROOT_CRT: &str = "root.crt";
 const ROOT_KEY: &str = "root.key";
 pub(crate) const CERTS: &str = "certs";
+/// Under `certs/`: the leaves of names under a registered one (Go's programs never look there).
+pub(crate) const UNDER: &str = "under";
 const PREVIOUS_DIR: &str = "previous";
 const PREVIOUS_FILE: &str = "previous.json";
 const CA_LIFE: Duration = Duration::from_secs(10 * 365 * 86_400);
@@ -66,6 +70,8 @@ pub struct Ca {
     pub(crate) key: SigningKey,
     previous: Vec<String>,
     pub(crate) leaves: Mutex<HashMap<String, Arc<Leaf>>>,
+    /// Leaves for names under a registered one, bounded ([`UNDER_CAP`]).
+    pub(crate) under: Mutex<crate::ca_leaf::Under>,
 }
 
 pub(crate) fn random_serial() -> Result<SerialNumber, Error> {
@@ -150,6 +156,7 @@ impl Ca {
             key: SigningKey::from(secret),
             previous: read_previous(dir),
             leaves: Mutex::new(HashMap::new()),
+            under: Mutex::default(),
         }))
     }
 
@@ -178,6 +185,7 @@ impl Ca {
         for e in std::fs::read_dir(dir.join(CERTS))?.flatten() {
             let _ = std::fs::remove_file(e.path());
         }
+        let _ = std::fs::remove_dir_all(dir.join(CERTS).join(UNDER));
         let root_der = root.to_der().map_err(ca_err)?;
         let leaves = Mutex::new(HashMap::new());
         Ok(Ca {
@@ -187,6 +195,7 @@ impl Ca {
             key,
             previous,
             leaves,
+            under: Mutex::default(),
         })
     }
 

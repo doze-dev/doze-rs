@@ -1,6 +1,7 @@
 //! The front door against real sockets on free loopback ports and a private home (never the machine's :80): routing
 //! by Host with the Host kept, the 404 that says what is fronted, take-over, https for a declared domain from the doze
-//! authority or the person's own files, the redirect from http, following a rotation, and a WebSocket carried through.
+//! authority or the person's own files, https for a name under an instance with a certificate for that name, the
+//! redirect from http, following a rotation, and a WebSocket carried through.
 //! Go: ingress_test.go, ca_test.go.
 #![allow(
     clippy::unwrap_used,
@@ -190,5 +191,42 @@ async fn a_websocket_upgrade_is_carried_through() {
         .unwrap()
         .unwrap();
     assert_eq!(&echo, b"ping", "bytes flow both ways after the switch");
+    door.close().await;
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn a_name_under_an_instance_is_served_over_https_with_a_certificate_for_itself() {
+    // doze-aws mints `<id>.execute-api.<region>.<instance>` at run time: the owning name fronts it, and the handshake
+    // must carry the exact name or the client's hostname check fails.
+    let home = scratch("under");
+    let reg = Registry::open(&home, "doze-aws");
+    reg.claim(&Name::qualified("files", "shop"))
+        .unwrap()
+        .route(&backend("aws").await.to_string())
+        .unwrap();
+    let ca_dir = home.join("ca");
+    let ca = Ca::load_or_create(&ca_dir).unwrap();
+    let cfg = config(&reg, &ca_dir);
+    let tls = cfg.tls.clone();
+    let mut door = serve(cfg);
+    assert!(door.bound(Duration::from_secs(5)).await);
+    until(|| reg.ingress_tls_holder().is_some()).await;
+    let under = "abc.execute-api.us-east-1.files.shop.doze";
+    let (status, body) = https_get(&tls, under, Some(ca.root_der())).await.unwrap();
+    assert!(status.contains("200"), "{status}");
+    assert_eq!(body, format!("aws {under}"));
+    let (_, body) = https_get(&tls, "files.shop.doze", Some(ca.root_der()))
+        .await
+        .unwrap();
+    assert_eq!(
+        body, "aws files.shop.doze",
+        "the owner is served for its own name"
+    );
+    assert!(
+        https_get(&tls, "abc.files.shop.dozer.doze", Some(ca.root_der()))
+            .await
+            .is_err(),
+        "a name nobody registered gets no certificate"
+    );
     door.close().await;
 }

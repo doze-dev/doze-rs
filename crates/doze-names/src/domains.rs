@@ -70,7 +70,8 @@ pub fn route_domain(host: &str) -> String {
 /// The domain entry owning a host outside the zone, and the registered name it was found under: the exact name,
 /// else a wildcard over it. A wildcard owns the name under it too (`*.dev.acme.com` serves `dev.acme.com`, as its
 /// certificate carries), and every depth beneath for resolving and routing; its certificate covers one level, as
-/// certificates do, so `a.b.dev.acme.com` resolves but fails the handshake.
+/// certificates do, so the front door gives `a.b.dev.acme.com` a leaf of its own ([`crate::certs`]). A person's own
+/// wildcard files are served as they are, and fail the handshake that deep.
 pub(crate) fn lookup_domain(m: &BTreeMap<String, Entry>, host: &str) -> Option<(Entry, String)> {
     let domain = |key: &str| {
         m.get(key)

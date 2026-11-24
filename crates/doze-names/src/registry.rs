@@ -172,21 +172,28 @@ impl Registry {
     /// claimable in advance. Two rules keep it from being a catch-all: the most specific claim wins (the walk starts
     /// at the full name), and the walk stops before the zone itself, so a name nobody claimed is still NXDOMAIN ("a
     /// typo fails as a name that does not exist rather than as a connection to the wrong thing").
+    ///
+    /// The front door answers such a name over https too, with a certificate for the name itself ([`crate::certs`]).
     pub fn lookup(&self, host: &str) -> Option<Entry> {
         let m = self.snapshot();
         if !in_zone(host) {
             return crate::domains::lookup_domain(&m, host).map(|(e, _)| e);
         }
-        let mut h = normalize(host);
-        while h != crate::SUFFIX {
-            if let Some(e) = m.get(&h) {
-                return Some(e.clone());
-            }
-            let (_, rest) = h.split_once('.')?;
-            h = rest.to_string();
-        }
-        None
+        zone_owner(&m, host).map(|(e, _)| e)
     }
+}
+
+/// The entry owning a name in the zone and the registered name it was found under: [`Registry::lookup`]'s walk.
+pub(crate) fn zone_owner(m: &BTreeMap<String, Entry>, host: &str) -> Option<(Entry, String)> {
+    let mut h = normalize(host);
+    while h != crate::SUFFIX {
+        if let Some(e) = m.get(&h) {
+            return Some((e.clone(), h));
+        }
+        let (_, rest) = h.split_once('.')?;
+        h = rest.to_string();
+    }
+    None
 }
 
 #[cfg(test)]
