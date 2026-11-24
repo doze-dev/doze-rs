@@ -19,6 +19,7 @@ import { iamWords } from "../words";
 import { Logo, Wordmark } from "./brand";
 import { IdentityChip } from "./identity-chip";
 import { PinButton, RailPlaces } from "./places";
+import { RailAwake, RailServices } from "./rail-services";
 
 /** The rail: the mark, and the six spaces. */
 function Rail() {
@@ -46,6 +47,7 @@ function Rail() {
                           <span>{space.label}</span>
                         </Link>
                       </SidebarMenuButton>
+                      {space.to === "/resources" && active && <RailServices />}
                     </SidebarMenuItem>
                   );
                 })}
@@ -55,8 +57,9 @@ function Rail() {
         </SidebarGroup>
         <RailPlaces />
       </SidebarContent>
-      <SidebarFooter className="px-4 pb-4 group-data-[collapsible=icon]:hidden" data-testid="rail-footer">
-        <p className="flex items-center gap-2 text-[12px] text-muted-foreground">
+      <SidebarFooter className="gap-1.5 px-4 pb-4 group-data-[collapsible=icon]:hidden" data-testid="rail-footer">
+        <RailAwake />
+        <p className="flex items-center gap-2 px-1 text-[12px] text-muted-foreground">
           <kbd className="rounded border bg-card px-1.5 py-px font-mono text-[11px]">⌘K</kbd> jump or do
         </p>
       </SidebarFooter>
