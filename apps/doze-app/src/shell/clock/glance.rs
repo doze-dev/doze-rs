@@ -99,6 +99,13 @@ impl Root {
             .merge(batch.clone());
     }
 
+    /// Takes in what was kept now, as a glance would on its next slot: a shot draws what the hub holds, not what the
+    /// window last took in (a console's stream lines wait for the slot otherwise, and a shot showed none).
+    #[cfg(feature = "capture")]
+    pub(crate) fn take_kept(&mut self, cx: &mut Context<Self>) {
+        self.flush(cx);
+    }
+
     /// Glanced at: takes in what was kept, in words to the minute.
     fn flush(&mut self, cx: &mut Context<Self>) {
         self.clock.flush = None;

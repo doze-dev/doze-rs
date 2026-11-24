@@ -36,7 +36,7 @@ mod tabs;
 mod words;
 
 pub use banner::{STALE_AFTER, banner, humanise, running_note, task_result, task_started};
-pub use cells::{RateSample, action_key, cell, detail_rows, rates};
+pub use cells::{RateSample, action_key, cell, detail_rows, magnitude, rates};
 pub use clean::{clean, clean_bytes, clean_event, clean_instance, clean_lines};
 pub use console::{
     CELL_RUNTIME, Column, ConsoleRow, ConsoleSpec, ConsoleTab, Node, NodeKind, Panel, PanelKind,
@@ -48,8 +48,8 @@ pub use dialog::{
 };
 pub use empty::{Choice, EMPTY_CHOICES, EMPTY_NOTHING_FOUND, STARTER_FILE};
 pub use format::{
-    ago, bytes_label, clock, count, countdown, home, mb, pct, plural, seconds_to_go, thousands,
-    tilde,
+    ago, bytes_label, clock, count, countdown, home, mb, pct, plural, seconds_to_go, size,
+    thousands, tilde,
 };
 pub use fuzzy::{fuzzy_match, fuzzy_score};
 pub use gonum::parse_float;

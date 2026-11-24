@@ -62,7 +62,7 @@ serde_json = { version = "1", optional = true }
 [dev-dependencies]
 doze-module-test = { path = "../doze-module-test" }
 doze-module-host = { path = "../doze-module-host" }
-doze-module-proto = { path = "../doze-module-proto" }
+doze-module-proto = { path = "../doze-module-proto", features = ["snapshot"] }
 serde_json = "1"
 kafka-auth = { path = "../kafka-auth", features = ["client"] }
 kafka-wire = { path = "../kafka-wire", features = ["test-support"] }

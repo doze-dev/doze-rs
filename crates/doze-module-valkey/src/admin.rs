@@ -154,7 +154,12 @@ pub(crate) fn actions() -> Vec<Action> {
 }
 
 fn column(key: &str, title: &str, role: &str) -> Column {
-    let align = if role.is_empty() { "left" } else { "right" };
+    // Figures line up on the right; words, times and commands read from the left.
+    let align = if matches!(role, "count" | "rate" | "bytes" | "lag") {
+        "right"
+    } else {
+        "left"
+    };
     Column {
         key: key.into(),
         title: title.into(),
@@ -194,7 +199,7 @@ pub(crate) fn console() -> ConsoleSpec {
         "server",
         vec![
             column("memory", "Memory", ""),
-            column("ceiling", "Ceiling", ""),
+            column("ceiling", "Ceiling", "of"),
             column("keys", "Keys", "count"),
             column("clients", "Clients", "count"),
             column("hits", "Hits", "rate"),
@@ -241,5 +246,21 @@ pub(crate) fn console() -> ConsoleSpec {
             after: "vitals".into(),
             node: overview,
         }],
+    }
+}
+
+/// The console and actions, pinned: the app's `consoles` fixture is generated from `console.snapshot.json`, never
+/// written by hand. `DOZE_UPDATE_SNAPSHOT=1` rewrites it after a deliberate change.
+#[cfg(test)]
+mod snapshot {
+    #[test]
+    fn the_console_and_actions_match_their_snapshot() {
+        let now =
+            doze_module_proto::msg::snapshot::console_json(&super::console(), &super::actions());
+        let pinned = doze_module_proto::msg::snapshot::pin(
+            concat!(env!("CARGO_MANIFEST_DIR"), "/src/console.snapshot.json"),
+            &now,
+        );
+        assert_eq!(pinned, Ok(()));
     }
 }

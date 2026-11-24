@@ -123,7 +123,10 @@ async fn take(cx: &mut AsyncApp, h: WindowHandle<Root>, s: &Shot) {
         crate::shotover::stage(root, window, cx, s)
     });
     pause(cx, 500).await;
-    let _ = h.update(cx, |root, _, cx| root.refresh(cx));
+    let _ = h.update(cx, |root, _, cx| {
+        root.take_kept(cx);
+        root.refresh(cx);
+    });
     paint(cx, h);
     pause(cx, 400).await;
     crate::shot_act::run(cx, h, s.act.as_deref()).await;
@@ -307,10 +310,31 @@ fn map_stage(root: &mut Root, window: &mut gpui::Window, cx: &mut gpui::Context<
     }
 }
 
-/// The page inside as the shot asks: its tab, then the logs' level, filter and find mode.
+/// The page inside as the shot asks: its tab (a console's order and filter), then the logs' level, filter and find
+/// mode.
 fn inside(root: &mut Root, window: &mut gpui::Window, cx: &mut gpui::Context<Root>, s: &Shot) {
     if let (Some(v), Some(tab)) = (root.inside_instance(), &s.tab) {
         v.update(cx, |v, cx| v.set_tab(tab, window, cx));
+        // A console's focused table ordered (`--sort N`, `N:down`) and filtered (`--filter`).
+        if let Some(c) = v.read(cx).console_tab() {
+            c.update(cx, |c, cx| {
+                let Some(id) = c.focused_table() else {
+                    return;
+                };
+                if let Some(sort) = &s.sort {
+                    let (col, down) = sort.split_once(':').unwrap_or((sort, ""));
+                    if let Ok(col) = col.parse::<usize>() {
+                        c.sort(&id, col, cx);
+                        if down == "down" {
+                            c.sort(&id, col, cx);
+                        }
+                    }
+                }
+                if let Some(words) = &s.filter {
+                    c.filter_words(words, window, cx);
+                }
+            });
+        }
     }
     let Some(l) = root.inside_logs(cx) else {
         return;

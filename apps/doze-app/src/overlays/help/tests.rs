@@ -54,7 +54,7 @@ fn every_key_and_word_from_before_is_still_on_the_sheet() {
     let new: Vec<_> = now.difference(&before).collect();
     assert!(lost.is_empty(), "gone from the sheet: {lost:?}");
     assert!(new.is_empty(), "on the sheet but not before: {new:?}");
-    assert_eq!(before.len(), 156);
+    assert_eq!(before.len(), 157);
 }
 
 #[test]

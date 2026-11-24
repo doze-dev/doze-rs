@@ -1,0 +1,8 @@
+{
+  "spec": {
+    "front": "web",
+    "web_url": "http://{address:console}",
+    "panels": []
+  },
+  "actions": []
+}

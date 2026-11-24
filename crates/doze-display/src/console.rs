@@ -236,6 +236,9 @@ pub enum Role {
     Lag,
     /// `state`: a word with its glyph.
     State,
+    /// `of`: the limit the column before it is counted against (postgres's `max_connections` after its connections).
+    /// A host that knows it draws the two as one figure, `4 of 100`, with a meter; one that does not shows two.
+    Of,
     /// Text as it is (`time`, `id`, `url`, `text`, none, or one this crate does not know).
     #[default]
     Text,
@@ -251,6 +254,7 @@ impl Role {
             "rate" => Self::Rate,
             "lag" => Self::Lag,
             "state" => Self::State,
+            "of" => Self::Of,
             _ => Self::Text,
         }
     }

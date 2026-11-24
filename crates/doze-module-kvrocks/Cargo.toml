@@ -18,7 +18,7 @@ doze-resp = { path = "../doze-resp" }
 
 [dev-dependencies]
 doze-module-test = { path = "../doze-module-test" }
-doze-module-proto = { path = "../doze-module-proto" }
+doze-module-proto = { path = "../doze-module-proto", features = ["snapshot"] }
 doze-os = { path = "../doze-os" }
 doze-resp = { path = "../doze-resp" }
 serde_json = "1"

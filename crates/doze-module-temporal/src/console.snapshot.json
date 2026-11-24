@@ -1,0 +1,50 @@
+{
+  "spec": {
+    "front": "web",
+    "web_url": "http://{address:ui}",
+    "panels": [
+      {
+        "id": "namespaces",
+        "title": "Namespaces",
+        "kind": "table",
+        "source": "namespace",
+        "columns": [
+          {
+            "key": "name",
+            "title": "Namespace",
+            "align": "left"
+          },
+          {
+            "key": "status",
+            "title": "State",
+            "role": "state",
+            "align": "left"
+          },
+          {
+            "key": "retention",
+            "title": "Retention",
+            "align": "left"
+          },
+          {
+            "key": "running",
+            "title": "Running",
+            "role": "count",
+            "align": "right"
+          }
+        ]
+      }
+    ],
+    "extend": [
+      {
+        "after": "vitals",
+        "node": {
+          "kind": "table",
+          "title": "Namespaces",
+          "panel": "namespaces",
+          "weight": 1
+        }
+      }
+    ]
+  },
+  "actions": []
+}

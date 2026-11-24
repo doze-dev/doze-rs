@@ -8,6 +8,7 @@
 //!          [--select NAME] [--hover NAME] [--zoom Z] [--at X,Y] [--find TEXT] [--synth N] [--reduce-motion] [--wait MS]
 //!          --screen instance --select api [--tab logs|console:ID|last run] [--hold PORT]
 //!          --screen logs [--filter TEXT] [--find-mode] [--level 0-3]
+//!          --screen instance --tab console:ID [--filter TEXT] [--sort N[:down]]   a console's focused table
 //!          --screen map [--map lines,tile,trouble,hood:N,fly:P,region:NAME]
 //!          --act sleep|restart|reset|reset-typed|stop|remove|action|action-typed|copy|toast-fail|recent|preflight|start
 //!                |busy|failed|library-busy|verb-busy|empty|empty-found|add     (M2: done before the shot)
@@ -94,6 +95,8 @@ pub(crate) struct Shot {
     /// The logs' filter, level and find mode.
     pub(crate) filter: Option<String>,
     pub(crate) level: Option<u8>,
+    /// A console tab: its focused table ordered by column N (`N`, or `N:down`).
+    pub(crate) sort: Option<String>,
     pub(crate) find_mode: bool,
     /// Something done before the shot (M2): a dialog asked for, a stack action started, a folder opened.
     pub(crate) act: Option<String>,
@@ -310,6 +313,7 @@ fn shot(mut args: impl Iterator<Item = String>) -> Result<Shot, String> {
             "--tab" => s.tab = Some(v),
             "--hold" => s.hold = Some(number(&v, "--hold")?),
             "--filter" => s.filter = Some(v),
+            "--sort" => s.sort = Some(v),
             "--level" => s.level = Some(number(&v, "--level")?),
             "--act" => s.act = Some(v),
             "--query" => s.query = Some(v),

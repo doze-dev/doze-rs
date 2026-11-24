@@ -181,8 +181,13 @@ impl InstanceView {
         if self.tab == words::TAB_LAST_RUN {
             self.open_tab(cx);
         }
+        // A tab the page does not have opens the first; `console:_` (the module's console, whatever its tabs are
+        // called) opens the module's first tab.
+        let console_first = (self.tab == "console:_")
+            .then(|| self.page.tabs.iter().find(|t| t.id.starts_with("console:")))
+            .flatten();
         if !self.page.tabs.iter().any(|t| t.id == self.tab)
-            && let Some(t) = self.page.tabs.first()
+            && let Some(t) = console_first.or(self.page.tabs.first())
         {
             self.tab = t.id.clone();
             self.open_tab(cx);
@@ -408,6 +413,12 @@ impl InstanceView {
                 .map(|c| c.into_any_element())
                 .unwrap_or_else(|| div().into_any_element()),
         }
+    }
+
+    /// The open console tab, if one is open.
+    #[cfg(feature = "capture")]
+    pub(crate) fn console_tab(&self) -> Option<Entity<ConsoleTabView>> {
+        self.console.clone()
     }
 
     /// The logs view a task's last run shows its output in.

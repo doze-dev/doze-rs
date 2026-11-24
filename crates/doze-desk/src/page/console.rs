@@ -10,8 +10,35 @@ use doze_control as wire;
 use doze_display::{self as words, NodeKind};
 use std::collections::HashMap;
 
-/// The selected row of each table, by block id.
+/// The selected row of each table, by block id: its index among the rows as the module sent them, whatever order
+/// the table is shown in.
 pub type Selection = HashMap<String, usize>;
+
+/// How each table is shown, by block id: the column it is ordered by and the words it is filtered to.
+pub type Views = HashMap<String, TableView>;
+
+/// How one table is shown.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct TableView {
+    /// The column it is ordered by (its index among the table's columns), and whether downwards.
+    pub sort: Option<(usize, bool)>,
+    /// Only the rows with a cell that holds these words (any case).
+    pub filter: String,
+}
+
+impl TableView {
+    /// A click on column `i`'s header: ordered by it upwards, then downwards, then as the module sent it.
+    pub fn click(&mut self, i: usize) {
+        self.sort = match self.sort {
+            Some((c, false)) if c == i => Some((i, true)),
+            Some((c, true)) if c == i => None,
+            _ => Some((i, false)),
+        };
+    }
+}
+
+/// A table this long gets a filter box; a shorter one is read at a glance.
+pub const FILTER_FROM: usize = 12;
 
 /// One console tab, resolved.
 #[derive(Debug, Clone, PartialEq, Default)]
@@ -50,9 +77,25 @@ pub struct Node {
     /// A detail block's pairs; empty says nothing is selected.
     pub detail: Vec<(String, String)>,
     pub actions: Vec<Action>,
+    /// A table's actions on its selected row (those whose kind is the table's), drawn at that row or in the detail
+    /// that follows it; an actions block lists only the rest. A detail lists those of the table it follows.
+    pub row_actions: Vec<Action>,
+    /// An actions block in a tab with nothing left to list (every action went to a table's row, or there are none):
+    /// it draws nothing.
+    pub moved: bool,
+    /// A table whose selected row a detail block shows (its row actions are drawn there).
+    pub detailed: bool,
+    /// A table's or stream's rows before the filter.
+    pub total: usize,
+    /// The words a table is filtered to.
+    pub filter: String,
     pub text: String,
     pub values: Vec<f64>,
     pub last: String,
+    /// A chart's scale, its least and greatest value written, and what its x runs over ("last 120 readings").
+    pub low: String,
+    pub high: String,
+    pub span: String,
     /// Why a block cannot draw: `no data source x`.
     pub missing: String,
 }
@@ -78,12 +121,20 @@ pub struct Col {
     pub key: String,
     pub title: String,
     pub right: bool,
+    /// How wide it needs to be, in characters: its title's and its widest cell's.
+    pub chars: usize,
+    /// It takes the width the others leave: the widest column of words.
+    pub grow: bool,
+    /// The table is ordered by it: `Some(true)` downwards.
+    pub sort: Option<bool>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct Row {
     /// What names it: its first column's value.
     pub key: String,
+    /// Its index among the rows as the module sent them (what [`Selection`] holds).
+    pub at: usize,
     pub cells: Vec<Cell>,
     pub faded: bool,
 }
@@ -94,11 +145,17 @@ pub struct Cell {
     pub ink: Ink,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Stat {
     pub label: String,
     pub value: String,
     pub ink: Ink,
+    /// The limit it is counted against (an `of` column after it): `100` in `4 of 100`.
+    pub of: String,
+    /// How full it is against that limit, 0 to 1, when both are figures.
+    pub fill: Option<f32>,
+    /// Why it has no figure yet, in words, when it has none.
+    pub note: String,
 }
 
 /// One of the module's actions: its key, and the row it would act on now.
@@ -119,17 +176,40 @@ impl Action {
     }
 }
 
-/// The console tab `tab` of `name`, for the selection `sel`.
+/// The console tab `tab` of `name`, for the selection `sel`, as Go's dash resolved it: every block where the module
+/// put it (what the Go goldens hold).
 pub fn console_page(
     name: &str,
     tab: &str,
     c: Option<&ConsoleView>,
     sel: &Selection,
 ) -> ConsolePage {
+    page(name, tab, c, sel, None)
+}
+
+/// The console tab as a person works in it: each table ordered and filtered as `views` says, and an action on a
+/// table's kind drawn at its selected row (and in the detail that follows it) rather than in an actions block.
+pub fn console_page_viewed(
+    name: &str,
+    tab: &str,
+    c: Option<&ConsoleView>,
+    sel: &Selection,
+    views: &Views,
+) -> ConsolePage {
+    page(name, tab, c, sel, Some(views))
+}
+
+fn page(
+    name: &str,
+    tab: &str,
+    c: Option<&ConsoleView>,
+    sel: &Selection,
+    views: Option<&Views>,
+) -> ConsolePage {
     let mut out = ConsolePage {
         name: name.to_owned(),
         tab: tab.to_owned(),
-        note: format!("the module's console · re-read every 2s while awake; it never wakes {name}"),
+        note: format!("re-read every 2s while awake · never wakes {name}"),
         body: Node {
             kind: NodeKind::Col,
             ..Node::default()
@@ -153,9 +233,28 @@ pub fn console_page(
         return out;
     };
     let r = Resolver::new(c, spec, tab, sel, &body);
+    let r = match views {
+        Some(v) => r.live(v),
+        None => r,
+    };
     out.body = r.node(&body);
-    out.keys = vec![("↑↓".to_owned(), "select".to_owned())];
-    for a in &c.actions {
+    // The keys of this tab: select where it has a table, and the actions it offers (an actions block's, or a table
+    // row's), not every action the module has.
+    let blocks = out.body.walk();
+    out.keys = Vec::new();
+    if blocks.iter().any(|n| n.kind == NodeKind::Table) {
+        out.keys.push(("↑↓".to_owned(), "select".to_owned()));
+    }
+    let offered: Vec<&str> = blocks
+        .iter()
+        .flat_map(|n| n.actions.iter().chain(&n.row_actions))
+        .map(|a| a.id.as_str())
+        .collect();
+    for a in c
+        .actions
+        .iter()
+        .filter(|a| offered.contains(&a.id.as_str()))
+    {
         let key = words::action_key(&a.id)
             .map(String::from)
             .unwrap_or_default();

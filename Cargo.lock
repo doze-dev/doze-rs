@@ -3220,6 +3220,7 @@ version = "0.0.0"
 dependencies = [
  "doze-os",
  "minicbor",
+ "serde_json",
  "thiserror 2.0.21",
  "tokio",
 ]

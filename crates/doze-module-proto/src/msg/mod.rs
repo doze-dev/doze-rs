@@ -8,6 +8,8 @@ pub mod hello;
 pub mod hints;
 pub mod instance;
 pub mod run;
+#[cfg(feature = "snapshot")]
+pub mod snapshot;
 pub mod value;
 
 use minicbor::{Decode, Encode};

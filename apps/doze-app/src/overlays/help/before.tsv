@@ -111,6 +111,7 @@ Map	h	Card left
 Map	right	Card right
 Map	l	Card right
 Map	enter	Open the card
+Console	/	Filter the table
 Console	down	Row below
 Console	j	Row below
 Console	up	Row above

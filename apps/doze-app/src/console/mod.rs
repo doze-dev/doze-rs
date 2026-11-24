@@ -1,21 +1,26 @@
-//! A module's console tab (PLAN.md §2.6), as the ConsoleTab board frames it: one frame with a top line saying what
-//! is shown, and inside it the tree of rows, columns and blocks the module published, each resolved by doze-desk for
-//! the rows selected here. `↑` `↓` (or `j` `k`) move in the focused table, `[` `]` move between tables, an action's
-//! capital letter runs it on the selected row. The stream follows the selected row: the hub's console subscription is
-//! told whenever that changes. Rates are worked out by the hub as the tables arrive.
+//! A module's console tab (PLAN.md §2.6): the tree of rows, columns and blocks the module published, each resolved by
+//! doze-desk for the rows selected here, laid straight on the page (each block its own card, no frame around them).
+//! `↑` `↓` (or `j` `k`) move in the focused table, `[` `]` move between tables, an action's capital letter runs it on
+//! the selected row, a click on a column's title orders the table by it and `/` filters the focused table. The stream
+//! follows the selected row: the hub's console subscription is told whenever that changes. Rates are worked out by the
+//! hub as the tables arrive.
 
 pub(crate) mod blocks;
+mod figures;
+mod filter;
 mod parts;
+mod stream;
 
-use doze_desk::page::console::{self, Action, ConsolePage, Selection};
+use doze_desk::page::console::{self, Action, ConsolePage, FILTER_FROM, Selection, Views};
 use doze_desk::{Batch, Hub, Parts, StackKey};
 use doze_display::NodeKind;
 use gpui::{
-    Context, FocusHandle, Focusable, IntoElement, KeyDownEvent, Render, UniformListScrollHandle,
-    Window, div, prelude::*, px,
+    Context, Entity, FocusHandle, Focusable, IntoElement, KeyDownEvent, Render,
+    UniformListScrollHandle, Window, div, prelude::*, px,
 };
+use gpui_component::input::InputState;
 
-use crate::actions::{NextTable, PrevTable, RowDown, RowUp};
+use crate::actions::{FilterRows, NextTable, PrevTable, RowDown, RowUp};
 use crate::instance::head::{chip, keys_bar};
 use crate::instance::ui::{self, text};
 use crate::theme::{tokens, ty};
@@ -27,6 +32,8 @@ pub(crate) struct ConsoleTabView {
     name: String,
     tab: String,
     pub(crate) sel: Selection,
+    /// How each table is ordered and filtered, by block id.
+    pub(crate) views: Views,
     /// The table the arrows move in, by block id; the first table when none was picked.
     pub(crate) focused: Option<String>,
     pub(crate) page: ConsolePage,
@@ -34,6 +41,8 @@ pub(crate) struct ConsoleTabView {
     pub(crate) stream: UniformListScrollHandle,
     /// The scroll handles of the tables too long to lay out whole, by block id.
     pub(crate) lists: std::collections::HashMap<String, UniformListScrollHandle>,
+    /// The filter box, and the table it filters, while one is open.
+    pub(crate) filter: Option<(String, Entity<InputState>)>,
     pub(crate) focus: FocusHandle,
 }
 
@@ -51,11 +60,13 @@ impl ConsoleTabView {
             name: name.to_owned(),
             tab: tab.to_owned(),
             sel: Selection::new(),
+            views: Views::new(),
             focused: None,
             page: ConsolePage::default(),
             followed: Default::default(),
             stream: UniformListScrollHandle::new(),
             lists: std::collections::HashMap::new(),
+            filter: None,
             focus: cx.focus_handle(),
         };
         v.refresh(cx);
@@ -75,7 +86,7 @@ impl ConsoleTabView {
     pub(crate) fn refresh(&mut self, cx: &mut Context<Self>) {
         let st = self.hub.stack(&self.key);
         let c = st.as_ref().and_then(|s| s.consoles.get(&self.name));
-        let page = console::console_page(&self.name, &self.tab, c, &self.sel);
+        let page = console::console_page_viewed(&self.name, &self.tab, c, &self.sel, &self.views);
         let follow = c
             .map(|c| console::follow(c, &self.tab, &self.sel))
             .unwrap_or_default();
@@ -88,7 +99,7 @@ impl ConsoleTabView {
             // A new line, not a longer stream: a full stream (`STREAM_KEPT`) drops its oldest as each comes.
             let grew = streams(&page) != streams(&self.page);
             for n in page.body.walk() {
-                if n.kind == NodeKind::Table && n.rows.len() > parts::BIG {
+                if n.kind == NodeKind::Table && n.total > parts::BIG {
                     self.lists.entry(n.id.clone()).or_default();
                 }
             }
@@ -100,14 +111,14 @@ impl ConsoleTabView {
         }
     }
 
-    /// The tables of the tab, in order: their ids and row counts.
-    fn tables(&self) -> Vec<(String, usize)> {
+    /// The tables of the tab, in order: their ids and the rows they show, as indexes among the module's rows.
+    fn tables(&self) -> Vec<(String, Vec<usize>)> {
         self.page
             .body
             .walk()
             .into_iter()
             .filter(|n| n.kind == NodeKind::Table)
-            .map(|n| (n.id.clone(), n.rows.len()))
+            .map(|n| (n.id.clone(), n.rows.iter().map(|r| r.at).collect()))
             .collect()
     }
 
@@ -119,29 +130,40 @@ impl ConsoleTabView {
             .or_else(|| tables.first().map(|(id, _)| id.clone()))
     }
 
-    /// Picks row `i` of the table `id`.
-    pub(crate) fn pick(&mut self, id: &str, i: usize, cx: &mut Context<Self>) {
+    /// Picks the module's row `at` of the table `id`.
+    pub(crate) fn pick(&mut self, id: &str, at: usize, cx: &mut Context<Self>) {
         self.focused = Some(id.to_owned());
-        self.sel.insert(id.to_owned(), i);
-        if let Some(h) = self.lists.get(id) {
+        self.sel.insert(id.to_owned(), at);
+        let shown = self.tables().into_iter().find(|(t, _)| t == id);
+        if let (Some(h), Some((_, rows))) = (self.lists.get(id), shown)
+            && let Some(i) = rows.iter().position(|&r| r == at)
+        {
             h.scroll_to_item(i, gpui::ScrollStrategy::Center);
         }
         self.refresh(cx);
         cx.notify();
     }
 
+    /// Moves the selection `by` rows in the order the table shows them.
     fn step_row(&mut self, by: isize, cx: &mut Context<Self>) {
         let Some(id) = self.focused_table() else {
             return;
         };
-        let n = self
-            .tables()
-            .into_iter()
-            .find(|(t, _)| *t == id)
-            .map_or(0, |(_, n)| n);
-        let at = self.sel.get(&id).copied().unwrap_or(0) as isize;
-        let next = (at + by).clamp(0, n.saturating_sub(1) as isize) as usize;
-        self.pick(&id, next, cx);
+        let Some((_, rows)) = self.tables().into_iter().find(|(t, _)| *t == id) else {
+            return;
+        };
+        if rows.is_empty() {
+            return;
+        }
+        let at = self.sel.get(&id).copied().unwrap_or(0);
+        let pos = rows.iter().position(|&r| r == at);
+        let next = match pos {
+            Some(p) => (p as isize + by).clamp(0, rows.len() as isize - 1) as usize,
+            None => 0,
+        };
+        if let Some(&at) = rows.get(next) {
+            self.pick(&id, at, cx);
+        }
     }
 
     fn step_table(&mut self, by: isize, cx: &mut Context<Self>) {
@@ -157,10 +179,19 @@ impl ConsoleTabView {
         }
     }
 
-    /// A capital letter runs the action it names, on the selected row.
-    fn key_down(&mut self, e: &KeyDownEvent, cx: &mut Context<Self>) {
+    /// A capital letter runs the action it names, on the selected row (not while the filter box has the keys).
+    fn key_down(&mut self, e: &KeyDownEvent, window: &mut Window, cx: &mut Context<Self>) {
         let k = &e.keystroke;
-        if k.modifiers.platform || k.modifiers.control || k.modifiers.alt || !k.modifiers.shift {
+        let typing = self
+            .filter
+            .as_ref()
+            .is_some_and(|(_, i)| crate::widgets::has_keys(i, window, cx));
+        if typing
+            || k.modifiers.platform
+            || k.modifiers.control
+            || k.modifiers.alt
+            || !k.modifiers.shift
+        {
             return;
         }
         let Some(c) = k.key.chars().next().filter(|_| k.key.chars().count() == 1) else {
@@ -174,13 +205,21 @@ impl ConsoleTabView {
         }
     }
 
+    /// Every action the tab offers, once: those of the actions blocks and those at a table's selected row.
     fn actions(&self) -> Vec<Action> {
-        self.page
+        let mut out: Vec<Action> = Vec::new();
+        for a in self
+            .page
             .body
             .walk()
             .into_iter()
-            .flat_map(|n| n.actions.clone())
-            .collect()
+            .flat_map(|n| n.actions.iter().chain(&n.row_actions))
+        {
+            if !out.iter().any(|b| b.id == a.id) {
+                out.push(a.clone());
+            }
+        }
+        out
     }
 
     /// Runs a module's action; one that takes input or deletes something asks first (`crate::act`).
@@ -189,6 +228,15 @@ impl ConsoleTabView {
         if let Some(acts) = crate::act::acts(cx) {
             acts.update(cx, |acts, cx| acts.action(&key, &name, &a, cx));
         }
+    }
+
+    /// A table long enough to want a filter.
+    fn long_table(&self) -> bool {
+        self.page
+            .body
+            .walk()
+            .iter()
+            .any(|n| n.kind == NodeKind::Table && n.total > FILTER_FROM)
     }
 }
 
@@ -210,103 +258,81 @@ impl Focusable for ConsoleTabView {
 }
 
 impl ConsoleTabView {
-    /// The frame's top line: whose console, which tab, how it is read.
-    fn top(&self, t: &crate::theme::Tokens) -> gpui::Div {
+    /// What the tab holds: the tree, or why there is none yet.
+    fn body(
+        &self,
+        t: &crate::theme::Tokens,
+        window: &Window,
+        cx: &mut Context<Self>,
+    ) -> gpui::AnyElement {
         let p = &self.page;
-        let title = self
-            .tab
-            .strip_prefix("console:")
-            .filter(|s| !s.is_empty() && *s != "_")
-            .unwrap_or("console");
-        let mut top = div()
-            .flex()
-            .flex_none()
-            .items_center()
-            .gap(px(12.))
-            .min_h(px(44.))
-            .px(px(16.))
-            .border_b_1()
-            .border_color(t.line)
-            .whitespace_nowrap()
-            .overflow_hidden()
-            .text_color(t.bright)
-            .font_weight(ty::SEMIBOLD)
-            .child(text(&self.name))
-            .child(
-                div()
-                    .font_weight(ty::REGULAR)
-                    .text_color(t.dim)
-                    .child(text(&format!("· {title}"))),
-            );
-        if !p.state.is_empty() && !p.awake && !p.missing {
-            top = top.child(
-                div()
-                    .font_weight(ty::REGULAR)
-                    .text_color(t.dim)
-                    .overflow_hidden()
-                    .text_ellipsis()
-                    .child(text(&format!(
-                        "· {}: the console never wakes it; what it last showed is kept",
-                        p.state
-                    ))),
-            );
-        }
-        top = top.child(div().flex_1()).child(
-            div()
-                .font_weight(ty::REGULAR)
-                .text_size(px(ty::SM))
+        let why = if p.reading && !p.err.is_empty() {
+            // The banner above says why; not "reading", which it is not.
+            Some("Nothing to show until the module answers.")
+        } else if p.reading {
+            Some("Reading the console…")
+        } else if p.missing {
+            Some("The module has no such tab.")
+        } else {
+            None
+        };
+        match why {
+            Some(w) => div()
+                .flex()
+                .flex_1()
+                .items_center()
+                .justify_center()
                 .text_color(t.dim)
-                .overflow_hidden()
-                .text_ellipsis()
-                .child(text(&p.note)),
-        );
-        top
+                .child(w)
+                .into_any_element(),
+            None => blocks::tab_body(t, self, window, cx),
+        }
     }
 
-    /// What the frame holds: the tree, or why there is none yet.
-    fn body(&self, t: &crate::theme::Tokens, cx: &mut Context<Self>) -> gpui::AnyElement {
+    /// Asleep, the console shows what it last read and never wakes the module: one quiet line says so.
+    fn asleep(&self, t: &crate::theme::Tokens) -> Option<gpui::Div> {
         let p = &self.page;
-        if p.reading {
+        (!p.state.is_empty() && !p.awake && !p.missing && !p.reading).then(|| {
             div()
-                .flex()
-                .flex_1()
-                .items_center()
-                .justify_center()
+                .flex_none()
+                .px(px(28.))
+                .pt(px(12.))
+                .text_size(px(ty::SM))
                 .text_color(t.dim)
-                .child("reading the console…")
-                .into_any_element()
-        } else if p.missing {
-            div()
-                .flex()
-                .flex_1()
-                .items_center()
-                .justify_center()
-                .text_color(t.dim)
-                .child("the module has no such tab")
-                .into_any_element()
-        } else {
-            blocks::tab_body(t, self, cx)
-        }
+                .child(text(&format!(
+                    "{} is {}: the console never wakes it, so this is what it showed last.",
+                    p.name,
+                    doze_display::State::parse(&p.state).word()
+                )))
+        })
     }
 }
 
 impl Render for ConsoleTabView {
-    fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let t = tokens(cx);
-        let (top, body) = (self.top(&t), self.body(&t, cx));
+        let body = self.body(&t, window, cx);
         let p = &self.page;
         let mut keys: Vec<(String, &str)> = p
             .keys
             .iter()
             .map(|(k, w)| (k.clone(), w.as_str()))
             .collect();
-        keys.insert(
-            1.min(keys.len()),
-            (
-                format!("{} {}", chip("Table before"), chip("Next table")),
-                "tables",
-            ),
-        );
+        // Between tables only where there are two; the filter where one is long.
+        let mut at = usize::from(keys.first().is_some_and(|k| k.1 == "select"));
+        if self.tables().len() > 1 {
+            keys.insert(
+                at,
+                (
+                    format!("{} {}", chip("Table before"), chip("Next table")),
+                    "tables",
+                ),
+            );
+            at += 1;
+        }
+        if self.long_table() {
+            keys.insert(at, (chip("Filter the table"), "filter"));
+        }
         div()
             .id("console")
             .key_context("ConsoleTab")
@@ -320,7 +346,14 @@ impl Render for ConsoleTabView {
             .on_action(cx.listener(|v, _: &RowUp, _, cx| v.step_row(-1, cx)))
             .on_action(cx.listener(|v, _: &NextTable, _, cx| v.step_table(1, cx)))
             .on_action(cx.listener(|v, _: &PrevTable, _, cx| v.step_table(-1, cx)))
-            .on_key_down(cx.listener(|v, e: &KeyDownEvent, _, cx| v.key_down(e, cx)))
+            .on_action(cx.listener(|v, _: &FilterRows, w, cx| v.open_filter(w, cx)))
+            .capture_key_down(cx.listener(|v, e: &KeyDownEvent, w, cx| {
+                if e.keystroke.key == "escape" && v.filter.is_some() {
+                    v.close_filter(w, cx);
+                    cx.stop_propagation();
+                }
+            }))
+            .on_key_down(cx.listener(|v, e: &KeyDownEvent, w, cx| v.key_down(e, w, cx)))
             .when(!p.err.is_empty(), |d| {
                 d.child(div().px(px(28.)).pt(px(14.)).child(ui::banner(
                     &t,
@@ -329,29 +362,8 @@ impl Render for ConsoleTabView {
                     "",
                 )))
             })
-            .child(
-                div()
-                    .flex()
-                    .flex_col()
-                    .flex_1()
-                    .min_h_0()
-                    .min_w_0()
-                    .mx(px(28.))
-                    .mt(px(0.))
-                    .mb(px(3.))
-                    .rounded(px(10.))
-                    .border_1()
-                    .border_color(t.line)
-                    .bg(t.well)
-                    .shadow(t.lift())
-                    .overflow_hidden()
-                    .child(top)
-                    .child(body),
-            )
-            .child(keys_bar(
-                &t,
-                keys,
-                "from the Overview tab: Console, or ↵ on an asleep module",
-            ))
+            .children(self.asleep(&t))
+            .child(body)
+            .child(keys_bar(&t, keys, &p.note))
     }
 }
