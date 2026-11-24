@@ -10,11 +10,15 @@
 //! The daemon runs for weeks, so the pair is not taken once at load: each `wire.accept` asks for it as it is now. The
 //! authority is followed the way the front door's [`doze_names::certs`] follows it (the root file looked at at most
 //! every [`CA_CHECK_EVERY`], reloaded when it changed, so `doze trust --rotate` is picked up), and its leaf is the
-//! authority's own, renewed a week before it lapses. The person's files are read again when either one's modification
-//! time or size changed (a renewal). What cannot be loaded at start stops the stack, as Go's did; a later reload that
-//! fails keeps serving the last good pair, said once in the log, so a half-written renewal breaks no connection.
+//! authority's own, renewed a week before it lapses. The person's files are read again when either one changed: its
+//! modification time, size, or the file itself (a renewal moved into place, or copied with its time kept).
+//!
+//! What cannot be loaded at start stops the stack, as Go's did. A later reload that fails keeps serving the last good
+//! pair, so a half-written renewal breaks no connection; it is tried again every check (a minting that failed waits
+//! that long too, rather than being retried per connection), and said in the log once an hour, and again as soon as
+//! the certificate still served comes within a week of lapsing or has lapsed.
 
-use doze_names::ca::Ca;
+use doze_names::ca::{Ca, Leaf};
 pub use doze_names::certs::CA_CHECK_EVERY;
 use doze_names::certs::CaSource;
 use std::path::{Path, PathBuf};
@@ -23,6 +27,11 @@ use std::time::{Duration, Instant, SystemTime};
 
 /// A certificate and its key, DER.
 pub type Pair = Arc<(Vec<u8>, Vec<u8>)>;
+
+/// How often a reload that keeps failing is said again.
+const SAY_AGAIN: Duration = Duration::from_secs(3600);
+/// A served certificate this close to lapsing is said at once (the authority renews its leaves this early).
+const NEAR: Duration = Duration::from_secs(7 * 86_400);
 
 /// What a module terminating TLS is handed: the pair as it is now, and whether a plain client is refused. Cloning
 /// shares the source.
@@ -49,24 +58,67 @@ enum Source {
 struct Now {
     /// The last good pair.
     pair: Pair,
-    /// When the person's files were last looked at, and what they were then.
+    /// The authority's leaf `pair` was made from: an unchanged leaf (the same `Arc`) is not copied again.
+    leaf: Option<Arc<Leaf>>,
+    /// When the person's files were last looked at, and what they were when `pair` was loaded from them.
     checked: Instant,
     seen: (FileId, FileId),
-    /// A reload failed and was said; quiet until one succeeds again.
-    failing: bool,
+    /// After a failed minting, nothing is tried before this.
+    retry_at: Option<Instant>,
+    /// A failure was said, when, and how near lapsing the served certificate was then.
+    said: Option<(Instant, Lapse)>,
+    /// Failures said, for the tests.
+    #[cfg(test)]
+    warnings: u32,
 }
 
-/// A file's modification time and size; `None` when it cannot be looked at.
-type FileId = Option<(SystemTime, u64)>;
+/// How near lapsing a served certificate is.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+enum Lapse {
+    Far,
+    Near,
+    Lapsed,
+}
+
+/// What a file is now: its modification time and size, and which file it is (a replacement moved into place is
+/// another file; a copy over it in place changes its status-change time, which no copy keeps). `None` when it cannot
+/// be looked at.
+type FileId = Option<(SystemTime, u64, [i64; 4])>;
 
 fn file_id(p: &Path) -> FileId {
     let m = std::fs::metadata(p).ok()?;
-    Some((m.modified().unwrap_or(SystemTime::UNIX_EPOCH), m.len()))
+    Some((
+        m.modified().unwrap_or(SystemTime::UNIX_EPOCH),
+        m.len(),
+        identity(&m),
+    ))
+}
+
+#[cfg(unix)]
+#[allow(clippy::cast_possible_wrap)] // compared for equality only
+fn identity(m: &std::fs::Metadata) -> [i64; 4] {
+    use std::os::unix::fs::MetadataExt;
+    [m.dev() as i64, m.ino() as i64, m.ctime(), m.ctime_nsec()]
+}
+
+/// Windows: the creation time (its file index is not stable Rust yet); a replacement moved into place within
+/// seconds may keep the old one (tunnelling), so there the modification time and size carry it.
+#[cfg(windows)]
+#[allow(clippy::cast_possible_wrap)] // compared for equality only
+fn identity(m: &std::fs::Metadata) -> [i64; 4] {
+    use std::os::windows::fs::MetadataExt;
+    [m.creation_time() as i64, 0, 0, 0]
+}
+
+#[cfg(not(any(unix, windows)))]
+fn identity(_: &std::fs::Metadata) -> [i64; 4] {
+    [0; 4]
 }
 
 impl WireTls {
     /// A leaf for `host` minted from the authority under `ca_dir` (made there when there is none); its root is looked
-    /// at at most every `every`. An error when no leaf can be had now.
+    /// at at most every `every`, and a minting that failed is not tried again sooner. An error when no leaf can be had
+    /// now.
     pub fn from_authority(
         ca_dir: &Path,
         host: &str,
@@ -81,7 +133,14 @@ impl WireTls {
             ca: CaSource::new(ca_dir, every),
             host: host.to_owned(),
         };
-        Ok(WireTls::new(from, pair, (None, None), required, every))
+        Ok(WireTls::new(
+            from,
+            pair,
+            Some(first),
+            (None, None),
+            required,
+            every,
+        ))
     }
 
     /// The person's certificate and key files, read again when they change, looked at at most every `every`. An error
@@ -99,12 +158,20 @@ impl WireTls {
             cert: cert.to_path_buf(),
             key: key.to_path_buf(),
         };
-        Ok(WireTls::new(from, Arc::new(pair), seen, required, every))
+        Ok(WireTls::new(
+            from,
+            Arc::new(pair),
+            None,
+            seen,
+            required,
+            every,
+        ))
     }
 
     fn new(
         from: Source,
         pair: Pair,
+        leaf: Option<Arc<Leaf>>,
         seen: (FileId, FileId),
         required: bool,
         every: Duration,
@@ -115,9 +182,13 @@ impl WireTls {
             every,
             now: Mutex::new(Now {
                 pair,
+                leaf,
                 checked: Instant::now(),
                 seen,
-                failing: false,
+                retry_at: None,
+                said: None,
+                #[cfg(test)]
+                warnings: 0,
             }),
         }))
     }
@@ -131,53 +202,101 @@ impl WireTls {
     pub fn pair(&self) -> Pair {
         let inner = &*self.0;
         let mut now = inner.now.lock().unwrap_or_else(PoisonError::into_inner);
-        let fresh = match &inner.from {
-            Source::Authority { ca, host } => match ca.current() {
-                Some(ca) => ca
-                    .leaf(host)
-                    .map(|l| Some((l.cert_der.clone(), l.key_der.clone())))
-                    .map_err(|e| e.to_string()),
-                None => Err(format!(
-                    "no usable doze authority (`doze trust --rotate` makes one); the certificate for {host} is not renewed"
-                )),
-            },
+        let due = |at: Instant| inner.every.is_zero() || at.elapsed() >= inner.every;
+        // `None`: not looked at this time; `Some(Ok(None))`: looked at, the pair served is current.
+        let looked: Option<Result<Option<Pair>, String>> = match &inner.from {
+            Source::Authority { .. } if now.retry_at.is_some_and(|t| Instant::now() < t) => None,
+            Source::Authority { ca, host } => {
+                let leaf = ca
+                    .current()
+                    .ok_or_else(|| {
+                        "no usable doze authority (`doze trust --rotate` makes one)".to_owned()
+                    })
+                    .and_then(|ca| {
+                        ca.leaf(host)
+                            .map_err(|e| format!("minting for {host}: {e}"))
+                    });
+                Some(match leaf {
+                    Ok(l) if now.leaf.as_ref().is_some_and(|had| Arc::ptr_eq(had, &l)) => Ok(None),
+                    Ok(l) => {
+                        let p = Arc::new((l.cert_der.clone(), l.key_der.clone()));
+                        now.leaf = Some(l);
+                        Ok(Some(p))
+                    }
+                    Err(e) => {
+                        now.retry_at = Some(Instant::now() + inner.every);
+                        Err(e)
+                    }
+                })
+            }
+            Source::Files { .. } if !due(now.checked) => None,
             Source::Files { cert, key } => {
-                if now.checked.elapsed() < inner.every && !inner.every.is_zero() {
+                now.checked = Instant::now();
+                let seen = (file_id(cert), file_id(key));
+                Some(if seen == now.seen {
                     Ok(None)
                 } else {
-                    now.checked = Instant::now();
-                    let seen = (file_id(cert), file_id(key));
-                    if seen == now.seen {
-                        Ok(None)
-                    } else {
-                        // A failure is not retried until the files change again: a writer that is not done yet
-                        // changes them once more when it is.
-                        now.seen = seen;
-                        load_files(cert, key).map(Some).map_err(|e| {
-                            format!(
-                                "reloading the keypair: {e}; the last one loaded is still served"
-                            )
+                    // What was seen moves only with a good load: a refused one (a renewal caught between its two
+                    // writes) is tried again at the next check, however the files change meanwhile.
+                    load_files(cert, key)
+                        .map(|p| {
+                            now.seen = seen;
+                            Some(Arc::new(p))
                         })
-                    }
-                }
+                        .map_err(|e| format!("reloading the keypair: {e}"))
+                })
             }
         };
-        match fresh {
-            Ok(Some(p)) => {
-                if *now.pair != p {
-                    now.pair = Arc::new(p);
+        match looked {
+            None => {}
+            Some(Ok(p)) => {
+                if let Some(p) = p {
+                    now.pair = p;
                 }
-                now.failing = false;
+                now.retry_at = None;
+                now.said = None;
             }
-            Ok(None) => {}
-            Err(e) => {
-                if !now.failing {
-                    tracing::warn!("client TLS: {e}");
-                    now.failing = true;
-                }
-            }
+            Some(Err(e)) => now.say(&e),
         }
         now.pair.clone()
+    }
+}
+
+impl Now {
+    /// A failed reload, said when it is news: the first, an hour after the last, or the served certificate nearer
+    /// lapsing than when last said.
+    fn say(&mut self, e: &str) {
+        let lapses = doze_names::ca::not_after(&self.pair.0);
+        let left = lapses.and_then(|t| t.duration_since(SystemTime::now()).ok());
+        let lapse = match (lapses, left) {
+            (None, _) => Lapse::Far,
+            (Some(_), None) => Lapse::Lapsed,
+            (Some(_), Some(d)) if d <= NEAR => Lapse::Near,
+            _ => Lapse::Far,
+        };
+        let news = self
+            .said
+            .is_none_or(|(at, was)| at.elapsed() >= SAY_AGAIN || lapse > was);
+        if !news {
+            return;
+        }
+        let served = match (lapse, left) {
+            (Lapse::Lapsed, _) => {
+                "the certificate still served has lapsed: clients that check it are refused"
+                    .to_owned()
+            }
+            (_, Some(d)) => format!(
+                "the last good certificate is still served; it lapses in {} days",
+                d.as_secs() / 86_400
+            ),
+            _ => "the last good certificate is still served".to_owned(),
+        };
+        tracing::warn!("client TLS: {e}; {served}");
+        self.said = Some((Instant::now(), lapse));
+        #[cfg(test)]
+        {
+            self.warnings += 1;
+        }
     }
 }
 
@@ -235,4 +354,72 @@ pub fn for_config(cfg: &doze_config::Config) -> Result<Option<WireTls>, String> 
         )?
     };
     Ok(Some(tls))
+}
+
+#[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used)] // test code
+mod tests {
+    use super::*;
+
+    fn temp(tag: &str) -> PathBuf {
+        let d = std::env::temp_dir().join(format!("dzd-tlsu-{tag}-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        std::fs::create_dir_all(&d).unwrap();
+        d
+    }
+
+    /// A self-signed pair as PEM, lapsing `life` from now.
+    fn pem(life: Duration) -> (String, String) {
+        let key = rcgen::KeyPair::generate().unwrap();
+        let mut params = rcgen::CertificateParams::new(vec!["localhost".to_owned()]).unwrap();
+        params.not_after =
+            time::OffsetDateTime::now_utc() + time::Duration::try_from(life).unwrap();
+        (params.self_signed(&key).unwrap().pem(), key.serialize_pem())
+    }
+
+    fn warnings(t: &WireTls) -> u32 {
+        t.0.now.lock().unwrap().warnings
+    }
+
+    #[test]
+    fn a_failing_reload_is_retried_and_said_hourly_and_again_as_the_served_certificate_lapses() {
+        let dir = temp("say");
+        let (cert, key) = (dir.join("tls.crt"), dir.join("tls.key"));
+        let (c, k) = pem(Duration::from_secs(3));
+        std::fs::write(&cert, &c).unwrap();
+        std::fs::write(&key, &k).unwrap();
+        let tls = WireTls::from_files(&cert, &key, false, Duration::ZERO).unwrap();
+        let good = tls.pair();
+        let loaded = tls.0.now.lock().unwrap().seen;
+
+        // Half a renewal: a new certificate beside the old key. Refused, and what was seen stays what was loaded, so
+        // the next check reads the files again whatever the key's rewrite looks like.
+        let (c2, k2) = pem(Duration::from_secs(86_400 * 90));
+        std::fs::write(&cert, &c2).unwrap();
+        for _ in 0..3 {
+            assert_eq!(tls.pair(), good);
+        }
+        assert_eq!(tls.0.now.lock().unwrap().seen, loaded);
+        assert_eq!(
+            warnings(&tls),
+            1,
+            "said once (it lapses within a week), not per connection"
+        );
+
+        // The certificate still served lapses: said again at once, then quiet.
+        std::thread::sleep(Duration::from_millis(3500));
+        assert_eq!(tls.pair(), good);
+        assert_eq!(warnings(&tls), 2);
+        assert_eq!(tls.pair(), good);
+        assert_eq!(warnings(&tls), 2);
+
+        // The key arrives: taken up, and the next failure is news again.
+        std::fs::write(&key, &k2).unwrap();
+        assert_ne!(tls.pair(), good);
+        assert!(tls.0.now.lock().unwrap().said.is_none());
+        std::fs::write(&cert, "not a certificate").unwrap();
+        tls.pair();
+        assert_eq!(warnings(&tls), 3);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
 }

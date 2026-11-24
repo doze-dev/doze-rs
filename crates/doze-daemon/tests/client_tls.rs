@@ -225,3 +225,103 @@ fn files_that_cannot_be_loaded_at_start_stop_the_stack() {
     assert!(e.contains("not the certificate's"), "{e}");
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+/// A pair whose certificate PEM is exactly `len` bytes (an ECDSA signature's length varies by a byte or two).
+fn own_of_len(len: usize) -> Own {
+    (0..200)
+        .map(|_| own(&["localhost"]))
+        .find(|o| o.cert_pem.len() == len)
+        .expect("a certificate of that length")
+}
+
+#[test]
+fn a_replacement_keeping_size_and_time_is_picked_up() {
+    let dir = temp("same");
+    let (cert, key) = (dir.join("tls.crt"), dir.join("tls.key"));
+    let a = own(&["localhost"]);
+    std::fs::write(&cert, &a.cert_pem).unwrap();
+    std::fs::write(&key, &a.key_pem).unwrap();
+    let tls = WireTls::from_files(&cert, &key, false, Duration::ZERO).unwrap();
+    assert_eq!(*tls.pair(), a.der);
+    let times = |p: &Path| std::fs::metadata(p).unwrap().modified().unwrap();
+    let (tc, tk) = (times(&cert), times(&key));
+
+    // Moved into place with the old size and time (rsync -t, tar): another file.
+    let b = own_of_len(a.cert_pem.len());
+    assert_eq!(b.key_pem.len(), a.key_pem.len());
+    for (path, pem, t) in [(&cert, &b.cert_pem, tc), (&key, &b.key_pem, tk)] {
+        let tmp = dir.join("incoming");
+        std::fs::write(&tmp, pem).unwrap();
+        std::fs::File::options()
+            .write(true)
+            .open(&tmp)
+            .unwrap()
+            .set_modified(t)
+            .unwrap();
+        std::fs::rename(&tmp, path).unwrap();
+    }
+    assert_eq!(times(&cert), tc);
+    assert_eq!(*tls.pair(), b.der, "a file moved into place is read");
+
+    // Copied over in place with the time kept (cp -p): the same file, its status changed.
+    #[cfg(unix)]
+    {
+        let c = own_of_len(a.cert_pem.len());
+        for (path, pem, t) in [(&cert, &c.cert_pem, tc), (&key, &c.key_pem, tk)] {
+            std::fs::write(path, pem).unwrap();
+            std::fs::File::options()
+                .write(true)
+                .open(path)
+                .unwrap()
+                .set_modified(t)
+                .unwrap();
+        }
+        assert_eq!(times(&cert), tc);
+        assert_eq!(
+            *tls.pair(),
+            c.der,
+            "a copy in place keeping the time is read"
+        );
+    }
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// A minting that fails (the certificates folder read-only) is not retried per connection: the last good leaf is
+/// served until the check interval has passed, then the next try succeeds.
+#[cfg(unix)]
+#[tokio::test]
+async fn a_failed_minting_waits_for_the_check_interval() {
+    use std::os::unix::fs::PermissionsExt;
+    let dir = temp("backoff");
+    Ca::load_or_create(&dir).unwrap();
+    let root = root_der(&dir);
+    let left = Duration::from_secs(2);
+    let aging = plant_aging_leaf(&dir, "localhost", left);
+    let every = Duration::from_secs(2);
+    let tls = WireTls::from_authority(&dir, "localhost", false, every).unwrap();
+    assert_eq!(tls.pair().0, aging);
+    tokio::time::sleep(left + Duration::from_millis(300)).await;
+
+    let certs = dir.join("certs");
+    std::fs::set_permissions(&certs, std::fs::Permissions::from_mode(0o555)).unwrap();
+    if std::fs::write(certs.join("probe"), b"").is_ok() {
+        eprintln!("skipped: a read-only folder is writable here (root)");
+        std::fs::set_permissions(&certs, std::fs::Permissions::from_mode(0o755)).unwrap();
+        return;
+    }
+    assert_eq!(
+        tls.pair().0,
+        aging,
+        "minting failed: the last good leaf is served"
+    );
+    std::fs::set_permissions(&certs, std::fs::Permissions::from_mode(0o755)).unwrap();
+    // Minting would succeed now, but is not tried again before the interval.
+    for _ in 0..5 {
+        assert_eq!(tls.pair().0, aging);
+    }
+    tokio::time::sleep(every + Duration::from_millis(200)).await;
+    let renewed = tls.pair();
+    assert_ne!(renewed.0, aging);
+    handshake(&renewed, &root, "localhost").await.unwrap();
+    let _ = std::fs::remove_dir_all(&dir);
+}
