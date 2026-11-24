@@ -188,6 +188,18 @@ fn activity(calls: &[Call], s: &Shared) -> Vec<ServiceSeen> {
     out
 }
 
+/// The services that are awake now: reached by a call (an app's, this console's, another service's) within `--idle-secs`.
+pub(super) fn awake(s: &Shared) -> Vec<String> {
+    let calls = s.recorder.newest(ALL).calls;
+    let window = idle_secs(s).saturating_mul(1000);
+    let now = crate::ring::now_ms();
+    activity(&calls, s)
+        .into_iter()
+        .filter(|v| now.saturating_sub(v.last_ms) <= window)
+        .map(|v| v.service)
+        .collect()
+}
+
 /// `GET /api/v1/home`.
 pub async fn home(State(s): State<Shared>) -> Response {
     let calls = s.recorder.newest(ALL).calls;

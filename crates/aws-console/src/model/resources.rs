@@ -24,6 +24,9 @@ pub struct ResourceService {
     pub served: bool,
     /// Whether it has a descriptor yet.
     pub described: bool,
+    /// Served, but not counted: nothing has called it for `--idle-secs`, so it is asleep, and listing its kinds would wake it. Its
+    /// kinds say nothing of how many there are until the person asks for them to be counted (or opens one).
+    pub asleep: bool,
     /// Why it lists nothing, when it is not described.
     pub note: Option<String>,
     pub kinds: Vec<KindCount>,

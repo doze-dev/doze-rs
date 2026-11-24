@@ -257,6 +257,51 @@ async fn a_key_is_made_and_scheduled_for_deletion_and_functions_list_empty() {
 }
 
 #[tokio::test]
+async fn the_index_can_leave_a_sleeping_service_asleep_and_uncounted() {
+    // SQS is called (the queue is made through the console), KMS is not: it is asleep, and listing its keys would wake it.
+    let w = world("index-awake", Mode::Soft, &["sqs", "kms"]);
+    w.send(
+        "POST",
+        "/api/v1/resources/sqs/queues",
+        &json!({"QueueName": "a"}),
+    )
+    .await;
+    let svc = |index: &Value, n: &str| {
+        index["services"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|s| s["name"] == n)
+            .unwrap()
+            .clone()
+    };
+    let before = w.live().len();
+    let (status, awake) = w.get("/api/v1/resources?counts=awake").await;
+    assert_eq!(status, 200, "{awake}");
+    // The awake one is counted, the sleeping one is neither counted nor called, and it says why.
+    let (sqs, kms) = (svc(&awake, "sqs"), svc(&awake, "kms"));
+    assert_eq!(
+        (&sqs["asleep"], &sqs["kinds"][0]["count"]),
+        (&json!(false), &json!(1))
+    );
+    assert_eq!(
+        (&kms["asleep"], &kms["kinds"][0]["count"]),
+        (&json!(true), &Value::Null)
+    );
+    assert!(
+        !w.live()[before..].iter().any(|c| c.contains(" kms ")),
+        "counting the awake services called KMS"
+    );
+    // A service this run does not serve is not asleep (it is not served), and the other counts leave nothing asleep.
+    assert_eq!(svc(&awake, "sns")["asleep"], false);
+    let (_, all) = w.get("/api/v1/resources").await;
+    assert_eq!(svc(&all, "kms")["asleep"], false);
+    assert_ne!(svc(&all, "kms")["kinds"][0]["count"], Value::Null);
+    let (_, bare) = w.get("/api/v1/resources?counts=no").await;
+    assert_eq!(svc(&bare, "kms")["asleep"], false);
+}
+
+#[tokio::test]
 async fn the_index_counts_what_is_served_and_says_what_is_not_described() {
     let w = world("index", Mode::Soft, &["sqs", "kms"]);
     w.send(

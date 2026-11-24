@@ -102,9 +102,30 @@ pub fn served(facts: &Facts, service: &str) -> bool {
     facts.services.iter().any(|s| s.name == service && s.served)
 }
 
-/// The index: every service of the build, each described kind counted by listing it (a served service only, and only when
-/// `counted`).
-pub async fn index(bus: &Bus, facts: &Facts, counted: bool) -> ResourcesIndex {
+/// Which services the index counts: a count is a list call, and a list call wakes a service that is asleep.
+#[derive(Debug, Clone, Copy)]
+pub enum Counted<'a> {
+    /// None: the services and their kinds alone, no call made.
+    No,
+    /// Every served service, asleep or not (waking the sleeping ones).
+    All,
+    /// The served services in the list (the ones that are awake); a served service that is not in it is left asleep, uncounted.
+    Awake(&'a [String]),
+}
+
+impl Counted<'_> {
+    fn counts(self, service: &str) -> bool {
+        match self {
+            Counted::No => false,
+            Counted::All => true,
+            Counted::Awake(awake) => awake.iter().any(|a| a == service),
+        }
+    }
+}
+
+/// The index: every service of the build, each described kind counted by listing it (a served service only, and only the ones
+/// `counted` says).
+pub async fn index(bus: &Bus, facts: &Facts, counted: Counted<'_>) -> ResourcesIndex {
     let mut services = Vec::new();
     for entry in catalog::ALL {
         let Some(svc) = facts.services.iter().find(|s| s.name == entry.service) else {
@@ -123,7 +144,9 @@ pub async fn index(bus: &Bus, facts: &Facts, counted: bool) -> ResourcesIndex {
                 error: None,
                 others: None,
             };
-            if let (true, true, Some(d)) = (counted, svc.served, entry.descriptor) {
+            if let (true, true, Some(d)) =
+                (counted.counts(entry.service), svc.served, entry.descriptor)
+            {
                 count(bus, d, kind, &mut k).await;
             }
             kinds.push(k);
@@ -134,6 +157,10 @@ pub async fn index(bus: &Bus, facts: &Facts, counted: bool) -> ResourcesIndex {
             group: entry.group.to_owned(),
             served: svc.served,
             described: entry.descriptor.is_some(),
+            asleep: svc.served
+                && entry.descriptor.is_some()
+                && matches!(counted, Counted::Awake(_))
+                && !counted.counts(entry.service),
             note: (!entry.note.is_empty()).then(|| entry.note.to_owned()),
             kinds,
         });

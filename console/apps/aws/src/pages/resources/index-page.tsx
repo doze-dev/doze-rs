@@ -1,8 +1,9 @@
 import { Link } from "@tanstack/react-router";
-import { createElement, useCallback } from "react";
+import { createElement, useCallback, useState } from "react";
 import { ErrorBlock } from "@doze/ui/components/app/alert";
 import { PageHeader } from "@doze/ui/components/app/page-header";
 import { RefreshControl } from "@doze/ui/components/app/refresh-control";
+import { Button } from "@doze/ui/components/ui/button";
 import { Skeleton } from "@doze/ui/components/ui/skeleton";
 import { cn } from "@doze/ui/lib/utils";
 import { number } from "@doze/ui/lib/format";
@@ -36,8 +37,8 @@ function ServiceCard({ s }: { s: ResourceService }) {
       </span>
       <div className="min-w-0">
         <div className="text-[16px] font-semibold text-bright">{s.title}</div>
-        <div className="mt-0.5 text-[13px] text-muted-foreground" data-testid={`count-${s.name}`}>
-          {!s.described ? (s.kinds.length === 0 && s.note?.startsWith("STS") ? "No resources" : "Not described yet") : !s.served ? "Not served in this run (--services)" : s.kinds.map(countWords).join(" · ")}
+        <div className="mt-0.5 text-[13px] text-muted-foreground" data-testid={`count-${s.name}`} title={s.asleep ? "Nothing has called it lately, so it is asleep and was not counted (counting is a list call, which wakes it). Open it to see what it holds." : undefined}>
+          {!s.described ? (s.kinds.length === 0 && s.note?.startsWith("STS") ? "No resources" : "Not described yet") : !s.served ? "Not served in this run (--services)" : s.asleep ? "Asleep" : s.kinds.map(countWords).join(" · ")}
         </div>
       </div>
     </div>
@@ -61,7 +62,10 @@ function ServiceCard({ s }: { s: ResourceService }) {
  * call made when the page is opened or refreshed (Live shows them as the console's); a service this run does not serve is not
  * woken to be counted. */
 export function ResourcesPage() {
-  const index = useResourcesIndex();
+  // A service that is asleep is not counted (counting it is a list call, which wakes it) until the person asks.
+  const [wake, setWake] = useState(false);
+  const index = useResourcesIndex(true, wake);
+  const sleeping = (index.data?.services ?? []).filter((s) => s.asleep && s.group !== ACCESS_GROUP).length;
   const { refetch } = index;
   const refresh = useCallback(() => void refetch(), [refetch]);
   const groups: [string, ResourceService[]][] = [];
@@ -82,6 +86,13 @@ export function ResourcesPage() {
           </>
         }
         refresh={<RefreshControl updatedAt={index.dataUpdatedAt} fetching={index.isFetching} onRefresh={refresh} interval={false} />}
+        actions={
+          sleeping > 0 ? (
+            <Button variant="outline" size="sm" className="bg-card" onClick={() => setWake(true)} title="Lists each sleeping service, which wakes it and holds its memory until it has been idle again" data-testid="count-sleeping">
+              Count the {sleeping} sleeping {sleeping === 1 ? "service" : "services"} too
+            </Button>
+          ) : undefined
+        }
       />
       {index.isError && !index.data ? (
         <ErrorBlock what="The resources could not be counted" error={index.error} hint={HINT} onRetry={refresh} retrying={index.isFetching} testId="resources-error" />

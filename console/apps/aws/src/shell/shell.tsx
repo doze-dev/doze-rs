@@ -135,7 +135,10 @@ export function Shell() {
   };
   // Every resource by name, counted when the palette is first opened (each kind is one list call, which Live shows), and again
   // when the counts are older than the query's stale time.
-  const index = useResourcesIndex(palette);
+  // A service that is asleep is not listed to be searched (listing it would wake it) until the person asks, from the palette.
+  const [wake, setWake] = useState(false);
+  const index = useResourcesIndex(palette, wake);
+  const sleeping = (index.data?.services ?? []).some((s) => s.asleep);
   const resources = useMemo<PaletteGroup | null>(() => {
     const items = (index.data?.services ?? []).flatMap((s) =>
       s.kinds.flatMap((k) =>
@@ -156,11 +159,12 @@ export function Shell() {
     const queues = (index.data?.services ?? []).filter((s) => s.name === "sqs").flatMap((s) => s.kinds.filter((k) => k.id === "queues").flatMap((k) => k.names)).slice(0, 20);
     return [
       ...(about ? [{ label: "Copy the endpoint", to: "do:endpoint", kind: "action", icon: CopyIcon, keywords: "address url sdk aws_endpoint_url", run: () => void copyText(about.endpoint, "Endpoint copied") }] : []),
+      ...(sleeping ? [{ label: "Search the sleeping services too", to: "do:wake", kind: "action", icon: MoonIcon, keywords: "asleep wake resources names count find", run: () => setWake(true) }] : []),
       { label: "Connect your app", to: "do:connect", kind: "action", icon: Link2Icon, keywords: "snippets environment sdk cli", run: () => void navigate({ to: "/connect" }) },
       { label: "Explain the last refusal", to: "do:refusal", kind: "action", icon: ShieldAlertIcon, keywords: "denied would be denied iam access policy", run: () => void navigate({ to: "/access" }) },
       ...queues.map((name) => ({ label: `Send a message to ${name}`, to: `do:send:${name}`, kind: "action", icon: SendIcon, mono: false, keywords: `queue sqs peek ${name}`, run: () => void navigate({ to: "/resources/$service/$kind/$name", params: { service: "sqs", kind: "queues", name }, search: { view: "messages" } }) })),
     ];
-  }, [about, index.data, navigate]);
+  }, [about, index.data, navigate, sleeping]);
   const groups = useMemo<PaletteGroup[]>(
     () => [
       { heading: "Spaces", items: SPACES.map((s) => ({ label: s.label, to: s.to, kind: "space", icon: s.icon, keywords: s.keywords })) },
