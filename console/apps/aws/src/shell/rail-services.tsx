@@ -18,12 +18,12 @@ function useAwakeGroups(): AwakeGroup[] {
   return useMemo<AwakeGroup[]>(() => (services ? awakeGroups(services, home?.activity ?? [], home?.idle_secs ?? 300, now) : []), [services, home, now]);
 }
 
-/** What the rail's items count, as the Kafka console's rail counts its topics: the calls the Live record holds, and the services that are
- * awake (Home says which). `undefined` until the answer is in. */
+/** What the rail's items count, as the Kafka console's rail counts its topics: the apps that have called (not the calls: this console's
+ * own are most of the record, and Live hides them), and the services that are awake (Home says which). `undefined` until the answer is in. */
 export function useRailCounts(): { live: number | undefined; awake: { awake: number; served: number } | undefined } {
   const groups = useAwakeGroups();
-  const held = useHome().data?.ring.held;
-  return { live: held, awake: groups.length > 0 ? awakeCount(groups) : undefined };
+  const apps = useHome().data?.callers.length;
+  return { live: apps, awake: groups.length > 0 ? awakeCount(groups) : undefined };
 }
 
 /** The service whose pages are open (`/resources/sqs/queues/orders` is `sqs`), or `null` off the Resources space. */

@@ -27,7 +27,7 @@ function Rail() {
   const path = useRouterState({ select: (s) => s.location.pathname });
   const counts = useRailCounts();
   const countOf = (to: string): { text: string; title: string } | null => {
-    if (to === "/live" && counts.live !== undefined) return { text: number(counts.live), title: `${number(counts.live)} calls in the Live record` };
+    if (to === "/live" && counts.live !== undefined) return { text: number(counts.live), title: `${number(counts.live)} ${counts.live === 1 ? "app has" : "apps have"} called` };
     if (to === "/resources" && counts.awake) return { text: number(counts.awake.awake), title: `${counts.awake.awake} of ${counts.awake.served} services awake` };
     return null;
   };
