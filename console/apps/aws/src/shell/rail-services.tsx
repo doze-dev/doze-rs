@@ -33,7 +33,7 @@ export function serviceOfPath(path: string): string | null {
   return m ? decodeURIComponent(m[1]) : null;
 }
 
-/** The services under Resources in the rail: each in its group, a mark for whether it is running (a green dot) or resting (a blue moon), the one
+/** The services under Resources in the rail: each in its group, a green dot when it is running (a resting one, the usual state, is left unmarked), the one
  * whose pages are open marked. The same words and groups as Home's "What is awake", read from the same two answers. */
 export function RailServices() {
   const path = useRouterState({ select: (s) => s.location.pathname });
@@ -56,7 +56,8 @@ export function RailServices() {
                 ) : (
                   <SidebarMenuSubButton asChild isActive={here === r.name} className="h-6 gap-2 text-[13px] data-[active=true]:font-medium">
                     <Link to="/resources/$service" params={{ service: r.name }} aria-current={here === r.name ? "page" : undefined} title={`${r.title}, ${g.name}: ${STATE_WORDS[r.state].toLowerCase()}`} data-testid="rail-service" data-service={r.name} data-state={r.state}>
-                      <StateMark state={r.state} />
+                      {/* Only a running service is marked: a column of moons is noise, and a resting one is the usual state (its tooltip says so). */}
+                      {r.state === "awake" ? <StateMark state="awake" /> : <span aria-hidden className="size-1.5 shrink-0" />}
                       <span className="truncate">{r.title}</span>
                       <span className="sr-only">{STATE_WORDS[r.state]}</span>
                     </Link>
