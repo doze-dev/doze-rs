@@ -6,7 +6,11 @@ use gpui::{AnyElement, IntoElement, SharedString, div, prelude::*, px, uniform_l
 
 use super::blocks::{Draw, share};
 use super::parts::{LINE_H, MONO_CH, widths};
-use crate::instance::ui::heading;
+
+/// A stream card's height besides its lines: its title, the column titles and the border.
+const CHROME: f32 = 34. + 30. + 2.;
+/// The fewest lines a busy stream shows, however short the page.
+const FEWEST: usize = 5;
 use crate::theme::ty;
 use crate::widgets::Mono as _;
 
@@ -14,30 +18,28 @@ impl Draw<'_> {
     pub(super) fn stream(&self, n: &Node) -> AnyElement {
         let t = *self.t;
         let widths = widths(n, MONO_CH);
-        let title = div()
-            .px(px(16.))
-            .pt(px(4.))
-            .min_h(px(34.))
-            .flex()
-            .items_center()
-            .gap(px(8.))
-            .child(heading(&t, &n.title, None));
-        let body: AnyElement = if n.rows.is_empty() {
+        let empty = n.rows.is_empty();
+        let body: AnyElement = if empty {
             div()
                 .px(px(16.))
                 .pb(px(14.))
                 .text_size(px(ty::SM))
                 .text_color(t.dim)
-                .child("Waiting for the first line.")
+                .child(if self.asleep {
+                    "Asleep: its lines show while it is awake."
+                } else {
+                    "Waiting for the first line."
+                })
                 .into_any_element()
         } else {
-            self.lines(n, &widths)
+            let shown = self.lines_shown(n);
+            self.keep_newest_in_view(n, shown);
+            self.lines(n, &widths, shown)
         };
-        let empty = n.rows.is_empty();
-        let frame = if self.flat {
-            share(div(), n).flex().flex_col().overflow_hidden()
+        let card = if self.flat {
+            div().flex().flex_col().overflow_hidden()
         } else {
-            share(div(), n)
+            div()
                 .flex()
                 .flex_col()
                 .rounded(px(10.))
@@ -46,17 +48,76 @@ impl Draw<'_> {
                 .bg(t.panel)
                 .shadow(t.lift())
                 .overflow_hidden()
+        }
+        .flex_none()
+        .min_w_0()
+        .children(self.title_bar(n))
+        .when(!empty, |d| d.child(self.header(n, &widths, false)))
+        .child(body);
+        // The card is as tall as its lines, up to the room its place in the layout has (measured as it is laid out,
+        // `Draw::rooms`): a few lines are a short card, not a tall empty one, and a busy stream shows whole lines only,
+        // so the newest is at the bottom and the oldest shown is not cut under the header.
+        let mut slot = share(div(), n).flex().flex_col().relative();
+        if let (false, Some(rooms)) = (empty, self.rooms.clone()) {
+            let (id, view) = (n.id.clone(), self.live.clone());
+            // No taller than its lines need: the room below a short stream is the page's, not a gap before the next block.
+            #[allow(clippy::cast_precision_loss)] // WHY: a count of lines on a page
+            let all = CHROME + LINE_H * n.rows.len() as f32;
+            slot = slot
+                .min_h(px(all.min(CHROME + LINE_H * FEWEST as f32)))
+                .max_h(px(all))
+                .child(
+                    gpui::canvas(
+                        move |bounds, window, cx| {
+                            let h = bounds.size.height / px(1.);
+                            let mut r = rooms.borrow_mut();
+                            if r.get(&id).is_none_or(|old| (old - h).abs() > 0.5) {
+                                r.insert(id, h);
+                                // Drawn again with the lines that fit (only when the room changed: an idle window stays still).
+                                if let Some(v) = &view {
+                                    cx.notify(v.entity_id());
+                                }
+                                window.refresh();
+                            }
+                        },
+                        |_, (), _, _| {},
+                    )
+                    .absolute()
+                    .size_full(),
+                );
+        }
+        slot.child(card).into_any_element()
+    }
+
+    /// A list drawn with a different number of lines keeps its scroll offset, which then stops a line short of the
+    /// newest (or past it): when the lines shown change, the newest goes back to the bottom.
+    fn keep_newest_in_view(&self, n: &Node, shown: usize) {
+        let (Some(rooms), Some(follow)) = (&self.rooms, &self.stream) else {
+            return;
         };
-        frame
-            .when(!empty, |d| d.min_h(px(LINE_H * 6.)))
-            .child(title)
-            .when(!empty, |d| d.child(self.header(n, &widths, false)))
-            .child(body)
-            .into_any_element()
+        let key = format!("{}#shown", n.id);
+        let mut r = rooms.borrow_mut();
+        #[allow(clippy::cast_precision_loss)] // WHY: a count of lines on a page
+        let now = shown as f32;
+        if r.get(&key) != Some(&now) {
+            r.insert(key, now);
+            follow.scroll_to_bottom();
+        }
+    }
+
+    /// How many lines a stream shows: all of them, up to as many whole lines as its room holds.
+    fn lines_shown(&self, n: &Node) -> usize {
+        let room = self
+            .rooms
+            .as_ref()
+            .and_then(|r| r.borrow().get(&n.id).copied())
+            .unwrap_or(CHROME + LINE_H * 8.);
+        let fit = ((room - CHROME) / LINE_H).floor().max(FEWEST as f32) as usize;
+        n.rows.len().min(fit)
     }
 
     /// A stream's lines, the newest kept in view.
-    fn lines(&self, n: &Node, widths: &[Option<f32>]) -> AnyElement {
+    fn lines(&self, n: &Node, widths: &[Option<f32>], shown: usize) -> AnyElement {
         let t = *self.t;
         let (node, rows, widths) = (n.clone(), n.rows.clone(), widths.to_vec());
         let list = uniform_list(
@@ -71,11 +132,13 @@ impl Draw<'_> {
                     lists: None,
                     filter: None,
                     flat: false,
+                    asleep: false,
+                    rooms: None,
                 };
                 range
                     .filter_map(|i| rows.get(i))
                     .map(|r| {
-                        d.cells(&node, &widths, d.row_cells(r))
+                        d.cells(&node, &widths, d.row_cells(r), None)
                             .h(px(LINE_H))
                             .border_t_1()
                             .border_color(t.line)
@@ -85,9 +148,8 @@ impl Draw<'_> {
                     .collect::<Vec<_>>()
             },
         )
-        .flex_1()
         .w_full()
-        .min_h(px(LINE_H * 5.));
+        .h(px(LINE_H * shown as f32));
         match &self.stream {
             Some(h) => list.track_scroll(h).into_any_element(),
             None => list.into_any_element(),

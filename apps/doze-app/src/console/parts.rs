@@ -1,6 +1,8 @@
 //! A console's tables (counters and details are in `figures`, streams in `stream`). A table of more rows than fit is a
 //! virtual list (only what shows is laid out), so a module's thousand-row table costs what its forty visible rows cost.
-//! Columns are as wide as what they hold, and the widest column of long words takes what is left (`Col::grow`).
+//! Columns are as wide as what they hold; the widest column of long words takes what is left (`Col::grow`), and with
+//! none, the room left is shared out by how much each holds. What can be done to the selected row has a column of its
+//! own at the end, never over the cells.
 
 use doze_desk::page::console::{FILTER_FROM, Node, Row};
 use doze_display::NodeKind;
@@ -12,7 +14,7 @@ use crate::theme::ty;
 use crate::widgets::kbd_chip;
 
 /// A table's row height.
-const ROW_H: f32 = 34.;
+pub(super) const ROW_H: f32 = 34.;
 /// A stream's row height.
 pub(super) const LINE_H: f32 = 28.;
 /// A table of more rows than this is drawn as a virtual list, scrolling inside its card.
@@ -34,7 +36,14 @@ pub(super) fn widths(n: &Node, ch: f32) -> Vec<Option<f32>> {
 }
 
 impl Draw<'_> {
-    pub(super) fn cells(&self, n: &Node, widths: &[Option<f32>], cells: Vec<AnyElement>) -> Div {
+    pub(super) fn cells(
+        &self,
+        n: &Node,
+        widths: &[Option<f32>],
+        cells: Vec<AnyElement>,
+        tail: Option<(f32, AnyElement)>,
+    ) -> Div {
+        let grows = widths.iter().any(Option::is_none);
         let mut d = div()
             .w_full()
             .flex()
@@ -46,7 +55,18 @@ impl Draw<'_> {
             let col = n.cols.get(i);
             let right = col.is_some_and(|c| c.right);
             let cell = match width {
-                Some(wd) => div().w(px(*wd)).flex_none(),
+                // A column of long words takes the room left; with none, each takes a share of it by what it holds.
+                // In a card too narrow for every column and the actions, a column gives up width (its words cut short)
+                // before the actions column does.
+                Some(wd) if grows => div()
+                    .flex_basis(px(*wd))
+                    .flex_shrink(1.)
+                    .min_w(px(wd.min(4. * CH))),
+                Some(wd) => div()
+                    .flex_basis(px(*wd))
+                    .flex_grow(wd.max(1.))
+                    .flex_shrink(1.)
+                    .min_w(px(wd.min(4. * CH))),
                 // The growing column keeps room for what it holds before the others; past that it is cut short.
                 None => div()
                     .flex_1()
@@ -60,11 +80,26 @@ impl Draw<'_> {
                     .child(s),
             );
         }
-        // No column grows: the room left is after the last, not between the columns.
-        if widths.iter().all(Option::is_some) {
-            d = d.child(div().flex_1());
+        if let Some((w, el)) = tail {
+            d = d.child(div().w(px(w)).flex_none().flex().justify_end().child(el));
         }
         d
+    }
+
+    /// A block's title over its rows: a heading in the card (on the overview, the same heading, flat).
+    pub(super) fn title_bar(&self, n: &Node) -> Option<Div> {
+        if self.flat {
+            return self.flat_heading(n);
+        }
+        (!n.title.is_empty()).then(|| {
+            div()
+                .px(px(16.))
+                .pt(px(4.))
+                .min_h(px(34.))
+                .flex()
+                .items_center()
+                .child(heading(self.t, &n.title, None))
+        })
     }
 
     /// The column titles: on a tab, a click orders the table by one (again, the other way; a third time, as sent).
@@ -100,7 +135,8 @@ impl Draw<'_> {
                 title.into_any_element()
             })
             .collect();
-        self.cells(n, widths, cells)
+        let tail = self.gutter(n).map(|w| (w, div().into_any_element()));
+        self.cells(n, widths, cells, tail)
             .min_h(px(30.))
             .bg(t.well)
             .text_size(px(ty::XS))
@@ -108,14 +144,24 @@ impl Draw<'_> {
     }
 
     pub(super) fn row_cells(&self, r: &Row) -> Vec<AnyElement> {
+        let t = self.t;
         r.cells
             .iter()
             .map(|c| {
+                // A state with no glyph of its own is written with a dot before it ("· idle"); the dim ink says it.
+                let text = c.text.strip_prefix("· ").unwrap_or(&c.text);
+                let ink = match c.ink {
+                    // The amber is a little light on a white card: a step towards the ink there.
+                    doze_desk::page::Ink::Warn if !t.dark => {
+                        crate::theme::mix(t.warn, t.bright, 30.)
+                    }
+                    i => ui::ink(t, i),
+                };
                 div()
                     .overflow_hidden()
                     .text_ellipsis()
-                    .text_color(ui::ink(self.t, c.ink))
-                    .child(SharedString::from(c.text.clone()))
+                    .text_color(ink)
+                    .child(SharedString::from(text.to_owned()))
                     .into_any_element()
             })
             .collect()
@@ -125,8 +171,17 @@ impl Draw<'_> {
         let t = self.t;
         let on = self.live.is_some() && r.at == n.selected;
         let focused = self.focused.as_deref() == Some(n.id.as_str());
+        // The selected row's actions sit in the table's actions column, never over its cells.
+        let tail = self.gutter(n).map(|w| {
+            let el = if on {
+                self.row_actions(n).into_any_element()
+            } else {
+                div().into_any_element()
+            };
+            (w, el)
+        });
         let mut row = self
-            .cells(n, widths, self.row_cells(r))
+            .cells(n, widths, self.row_cells(r), tail)
             .id(SharedString::from(format!("{}-{}", n.id, r.at)))
             .relative()
             .h(px(ROW_H))
@@ -140,10 +195,6 @@ impl Draw<'_> {
                     .child(crate::widgets::sel_bar(t, 0.).when(!focused, |b| b.opacity(0.)))
             })
             .when(!on && self.live.is_some(), |d| d.hover(|s| s.bg(t.sel)));
-        // The selected row carries what can be done to it, unless a detail beside the table shows that.
-        if on && !n.detailed && !n.row_actions.is_empty() {
-            row = row.child(self.row_actions(n));
-        }
         if let Some(e) = &self.live {
             let (e, id, at) = (e.clone(), n.id.clone(), r.at);
             row = row
@@ -151,50 +202,6 @@ impl Draw<'_> {
                 .on_click(move |_, _, cx| e.update(cx, |v, cx| v.pick(&id, at, cx)));
         }
         row
-    }
-
-    /// The selected row's actions, over its right end: each its letter and its label, a click runs it.
-    fn row_actions(&self, n: &Node) -> Div {
-        let t = self.t;
-        let mut d = div()
-            .absolute()
-            .top_0()
-            .bottom_0()
-            .right(px(8.))
-            .flex()
-            .items_center()
-            .gap(px(6.))
-            .pl(px(12.))
-            .bg(t.pick);
-        for (i, a) in n.row_actions.iter().enumerate() {
-            let mut b = div()
-                .id(SharedString::from(format!("{}-ra{i}", n.id)))
-                .flex()
-                .items_center()
-                .gap(px(6.))
-                .h(px(24.))
-                .px(px(8.))
-                .rounded(px(6.))
-                .border_1()
-                .border_color(t.line2)
-                .bg(t.panel)
-                .text_size(px(ty::SM))
-                .text_color(if a.destructive { t.bad } else { t.text })
-                .child(kbd_chip(t, &a.key.to_string(), ty::XS, ty::SEMIBOLD, 5.))
-                .child(text(&a.label));
-            if let Some(e) = &self.live {
-                let (e, a) = (e.clone(), a.clone());
-                b = b
-                    .cursor_pointer()
-                    .hover(|s| s.bg(t.sel))
-                    .on_click(move |_, _, cx| {
-                        cx.stop_propagation();
-                        e.update(cx, |v, cx| v.act(a.clone(), cx));
-                    });
-            }
-            d = d.child(b);
-        }
-        d
     }
 
     pub(super) fn table(&self, n: &Node, dir: Option<&NodeKind>) -> AnyElement {
@@ -221,7 +228,11 @@ impl Draw<'_> {
             div()
                 .flex()
                 .flex_col()
-                .children(n.rows.iter().map(|r| self.table_row(n, &widths, r)))
+                .children(n.rows.iter().flat_map(|r| {
+                    let under = (r.at == n.selected && self.acts_in_table(n))
+                        .then(|| self.action_line_under(n).into_any_element());
+                    std::iter::once(self.table_row(n, &widths, r).into_any_element()).chain(under)
+                }))
                 .into_any_element()
         } else {
             self.big_table(n, widths.clone())
@@ -250,7 +261,7 @@ impl Draw<'_> {
                 .overflow_hidden()
         };
         frame
-            .children(self.flat_heading(n))
+            .children(self.title_bar(n))
             .child(self.header(n, &widths, self.live.is_some()))
             .child(body)
             .children(self.foot(n))
@@ -326,6 +337,7 @@ impl Draw<'_> {
     fn big_table(&self, n: &Node, widths: Vec<Option<f32>>) -> AnyElement {
         let t = *self.t;
         let (node, live, focused) = (n.clone(), self.live.clone(), self.focused.clone());
+        let asleep = self.asleep;
         let list = uniform_list(
             SharedString::from(format!("table-{}", n.id)),
             n.rows.len(),
@@ -338,6 +350,8 @@ impl Draw<'_> {
                     lists: None,
                     filter: None,
                     flat: false,
+                    asleep,
+                    rooms: None,
                 };
                 range
                     .filter_map(|i| node.rows.get(i).map(|r| d.table_row(&node, &widths, r)))

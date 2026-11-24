@@ -91,32 +91,20 @@ pub(super) fn shown(
     });
 }
 
-/// A panel's counters as figures: an `of` column is the limit of the figure before it (`4 of 100`, with how full);
-/// a figure not read yet says why rather than leave a bare dash.
+/// A panel's counters as figures: an `of` column is the limit of the figure before it (`4 of 100`, with how full),
+/// written in that figure's own way (a `bytes` figure's limit is a size too); an `of` with nothing before it, or with
+/// nothing in it, draws nothing. A figure not read yet says why rather than leave a bare dash.
 pub(super) fn stats(cols: &[words::Column], row: &words::ConsoleRow) -> Vec<Stat> {
     let mut out: Vec<Stat> = Vec::new();
     let mut before: Option<&words::Column> = None;
     for c in cols {
-        let (t, tone) = words::cell(c, row);
-        if c.role == words::Role::Of
-            && let (Some(prev), Some(last)) = (before, out.last_mut())
-            && !t.is_empty()
-        {
-            last.of = t.into_owned();
-            let (used, of) = (
-                words::magnitude(row.cell(&prev.key)),
-                words::magnitude(row.cell(&c.key)),
-            );
-            if let (Some(u), Some(o)) = (used, of)
-                && o > 0.0
-            {
-                #[allow(clippy::cast_possible_truncation)] // WHY: a meter's fill, 0 to 1
-                let fill = (u / o).clamp(0.0, 1.0) as f32;
-                last.fill = Some(fill);
+        if c.role == words::Role::Of {
+            if let (Some(prev), Some(last)) = (before.take(), out.last_mut()) {
+                fold_limit(last, prev, c, row);
             }
-            before = None;
             continue;
         }
+        let (t, tone) = words::cell(c, row);
         let (value, ink, note) = if t.is_empty() || t == "—" {
             let why = if c.role == words::Role::Rate {
                 "from the next read"
@@ -138,4 +126,80 @@ pub(super) fn stats(cols: &[words::Column], row: &words::ConsoleRow) -> Vec<Stat
         before = Some(c);
     }
     out
+}
+
+/// The limit `of` of the figure `prev` read, into its tile.
+fn fold_limit(last: &mut Stat, prev: &words::Column, of: &words::Column, row: &words::ConsoleRow) {
+    let as_prev = words::Column {
+        key: of.key.clone(),
+        title: of.title.clone(),
+        role: prev.role,
+    };
+    let (t, _) = words::cell(&as_prev, row);
+    if t.trim().is_empty() || last.value == "—" {
+        return;
+    }
+    last.of = t.into_owned();
+    let (used, limit) = (
+        words::magnitude(row.cell(&prev.key)),
+        words::magnitude(row.cell(&of.key)),
+    );
+    if let (Some(u), Some(o)) = (used, limit)
+        && o > 0.0
+    {
+        #[allow(clippy::cast_possible_truncation)] // WHY: a meter's fill, 0 to 1
+        let fill = (u / o).clamp(0.0, 1.0) as f32;
+        last.fill = Some(fill);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::stats;
+    use doze_display::{Column, ConsoleRow, Role};
+
+    fn col(key: &str, role: Role) -> Column {
+        Column {
+            key: key.to_owned(),
+            title: key.to_owned(),
+            role,
+        }
+    }
+
+    fn row(cells: &[(&str, &str)]) -> ConsoleRow {
+        ConsoleRow {
+            cells: cells
+                .iter()
+                .map(|(k, v)| ((*k).to_owned(), (*v).to_owned()))
+                .collect(),
+            tone: String::new(),
+        }
+    }
+
+    #[test]
+    fn a_limit_is_written_as_the_figure_it_limits() {
+        let cols = [col("used", Role::Bytes), col("max", Role::Of)];
+        let s = stats(&cols, &row(&[("used", "67108864"), ("max", "268435456")]));
+        assert_eq!(s.len(), 1);
+        assert_eq!((s[0].value.as_str(), s[0].of.as_str()), ("64 MB", "256 MB"));
+        assert_eq!(s[0].fill, Some(0.25));
+    }
+
+    #[test]
+    fn an_empty_or_orphan_limit_draws_nothing() {
+        // Nothing in the limit: the figure alone, no "Of — not reported" tile.
+        let cols = [col("n", Role::Count), col("of", Role::Of)];
+        let s = stats(&cols, &row(&[("n", "4"), ("of", "")]));
+        assert_eq!(s.len(), 1);
+        assert!(s[0].of.is_empty() && s[0].fill.is_none());
+        // A limit first, with no figure before it: no tile of its own.
+        let cols = [col("of", Role::Of), col("n", Role::Count)];
+        let s = stats(&cols, &row(&[("n", "4"), ("of", "100")]));
+        assert_eq!(s.len(), 1);
+        assert_eq!(s[0].label, "n");
+        // A figure not read has no limit drawn against it.
+        let cols = [col("n", Role::Count), col("of", Role::Of)];
+        let s = stats(&cols, &row(&[("of", "100")]));
+        assert_eq!((s[0].value.as_str(), s[0].of.as_str()), ("—", ""));
+    }
 }

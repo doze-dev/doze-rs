@@ -41,13 +41,106 @@ fn chart_card(
     height: f32,
 ) -> AnyElement {
     let n = c.points.len();
+    let area_el = hover(t, title, id, c);
+    card(t)
+        .child(heading(t, &format!("{title} · last {}", c.span), None))
+        .child(
+            div()
+                .flex()
+                .items_baseline()
+                .gap(px(8.))
+                .child(
+                    div()
+                        .text_size(px(ty::FIGURE))
+                        .font_weight(ty::SEMIBOLD)
+                        .text_color(t.bright)
+                        .font_features(ty::tabular())
+                        .child(text(&c.now)),
+                )
+                .child(div().text_color(t.dim).child(text(&c.sub))),
+        )
+        .child(
+            div()
+                .flex()
+                .gap(px(8.))
+                .w_full()
+                .when(n > 1, |d| {
+                    d.child(scale(
+                        t,
+                        short(id, c.hi.max(c.lo + 1.0)),
+                        short(id, c.lo),
+                        height,
+                    ))
+                })
+                .child(
+                    div()
+                        .relative()
+                        .h(px(height))
+                        .flex_1()
+                        .min_w_0()
+                        .when(n > 1, |d| {
+                            d.child(area(
+                                std::rc::Rc::new(c.points.clone()),
+                                c.lo,
+                                c.hi.max(c.lo + 1.0),
+                                color,
+                            ))
+                        })
+                        .child(
+                            div()
+                                .absolute()
+                                .top(px(0.))
+                                .left(px(0.))
+                                .size_full()
+                                .child(area_el),
+                        ),
+                ),
+        )
+        .into_any_element()
+}
+
+/// A scale's figure, short: the unit is the card's ("cores" is in its figure).
+fn short(id: &str, v: f64) -> String {
+    match id {
+        "ram" => doze_display::bytes_label(v),
+        "cpu" => doze_display::cores_unit(v),
+        _ => doze_display::count(v),
+    }
+}
+
+/// A light scale beside a chart: its top and bottom readings, as the module console's charts have.
+fn scale(t: &Tokens, high: String, low: String, height: f32) -> gpui::Div {
+    let small = |s: String| {
+        div()
+            .text_size(px(ty::XS))
+            .text_color(t.dim)
+            .font_features(ty::tabular())
+            .whitespace_nowrap()
+            .child(text(&s))
+    };
+    div()
+        .flex()
+        .flex_col()
+        .w(px(40.))
+        .flex_none()
+        .justify_between()
+        .items_end()
+        .h(px(height))
+        .child(small(high))
+        .child(small(low))
+}
+
+/// The chart's hover, which reads any moment (gpui-component's area chart, drawn clear over `area`), or why there
+/// is no chart yet.
+fn hover(t: &Tokens, title: &str, id: &'static str, c: &Chart) -> AnyElement {
+    let n = c.points.len();
     let label: fn(f64) -> String = match id {
         "ram" => doze_display::bytes_label,
         "cpu" => |v| format!("{} cores", doze_display::cores_unit(v)),
         _ => doze_display::count,
     };
     let data: Vec<(usize, f64)> = c.points.iter().copied().enumerate().collect();
-    let area_el = if n > 1 {
+    if n > 1 {
         calm(AreaChart::new(data))
             .id(id)
             .x(move |(i, _)| SharedString::from(ago(n - 1 - i)))
@@ -68,47 +161,7 @@ fn chart_card(
             .text_color(t.dim)
             .child("no readings yet")
             .into_any_element()
-    };
-    card(t)
-        .child(heading(t, &format!("{title} · last {}", c.span), None))
-        .child(
-            div()
-                .flex()
-                .items_baseline()
-                .gap(px(8.))
-                .child(
-                    div()
-                        .text_size(px(ty::FIGURE))
-                        .font_weight(ty::SEMIBOLD)
-                        .text_color(t.bright)
-                        .font_features(ty::tabular())
-                        .child(text(&c.now)),
-                )
-                .child(div().text_color(t.dim).child(text(&c.sub))),
-        )
-        .child(
-            div()
-                .relative()
-                .h(px(height))
-                .w_full()
-                .when(n > 1, |d| {
-                    d.child(area(
-                        std::rc::Rc::new(c.points.clone()),
-                        c.lo,
-                        c.hi.max(c.lo + 1.0),
-                        color,
-                    ))
-                })
-                .child(
-                    div()
-                        .absolute()
-                        .top(px(0.))
-                        .left(px(0.))
-                        .size_full()
-                        .child(area_el),
-                ),
-        )
-        .into_any_element()
+    }
 }
 
 /// How long before now reading `back` was taken, a second apart: `now`, `12s ago`, `3m 05s ago`.

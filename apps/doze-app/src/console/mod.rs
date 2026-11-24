@@ -5,13 +5,14 @@
 //! follows the selected row: the hub's console subscription is told whenever that changes. Rates are worked out by the
 //! hub as the tables arrive.
 
+mod acts;
 pub(crate) mod blocks;
 mod figures;
 mod filter;
 mod parts;
 mod stream;
 
-use doze_desk::page::console::{self, Action, ConsolePage, FILTER_FROM, Selection, Views};
+use doze_desk::page::console::{self, Action, ConsolePage, FILTER_FROM, Picked, Selection, Views};
 use doze_desk::{Batch, Hub, Parts, StackKey};
 use doze_display::NodeKind;
 use gpui::{
@@ -25,12 +26,19 @@ use crate::instance::head::{chip, keys_bar};
 use crate::instance::ui::{self, text};
 use crate::theme::{tokens, ty};
 
+/// The height each stream's place in the layout had when last laid out, by block id: a stream shows as many whole lines
+/// as fit (`Draw::stream`).
+pub(crate) type Rooms = std::rc::Rc<std::cell::RefCell<std::collections::HashMap<String, f32>>>;
+
 /// One console tab.
 pub(crate) struct ConsoleTabView {
     hub: Hub,
     key: StackKey,
     name: String,
     tab: String,
+    /// The row picked in each table, by name: what a person chose, kept through the module's re-reads.
+    pub(crate) picked: Picked,
+    /// Those picks as rows of the tables last read (`console::selection`).
     pub(crate) sel: Selection,
     /// How each table is ordered and filtered, by block id.
     pub(crate) views: Views,
@@ -43,6 +51,7 @@ pub(crate) struct ConsoleTabView {
     pub(crate) lists: std::collections::HashMap<String, UniformListScrollHandle>,
     /// The filter box, and the table it filters, while one is open.
     pub(crate) filter: Option<(String, Entity<InputState>)>,
+    pub(crate) rooms: Rooms,
     pub(crate) focus: FocusHandle,
 }
 
@@ -59,6 +68,7 @@ impl ConsoleTabView {
             key,
             name: name.to_owned(),
             tab: tab.to_owned(),
+            picked: Picked::new(),
             sel: Selection::new(),
             views: Views::new(),
             focused: None,
@@ -67,6 +77,7 @@ impl ConsoleTabView {
             stream: UniformListScrollHandle::new(),
             lists: std::collections::HashMap::new(),
             filter: None,
+            rooms: Rooms::default(),
             focus: cx.focus_handle(),
         };
         v.refresh(cx);
@@ -86,6 +97,12 @@ impl ConsoleTabView {
     pub(crate) fn refresh(&mut self, cx: &mut Context<Self>) {
         let st = self.hub.stack(&self.key);
         let c = st.as_ref().and_then(|s| s.consoles.get(&self.name));
+        if let Some(c) = c {
+            self.sel = console::selection(c, &self.tab, &self.picked);
+            // A pick whose row is gone (the session ended) is let go: the table's first row is selected, and shown so.
+            let sel = &self.sel;
+            self.picked.retain(|id, _| sel.contains_key(id));
+        }
         let page = console::console_page_viewed(&self.name, &self.tab, c, &self.sel, &self.views);
         let follow = c
             .map(|c| console::follow(c, &self.tab, &self.sel))
@@ -130,18 +147,35 @@ impl ConsoleTabView {
             .or_else(|| tables.first().map(|(id, _)| id.clone()))
     }
 
-    /// Picks the module's row `at` of the table `id`.
+    /// Picks the module's row `at` of the table `id`, by its name.
     pub(crate) fn pick(&mut self, id: &str, at: usize, cx: &mut Context<Self>) {
         self.focused = Some(id.to_owned());
+        let name = self
+            .page
+            .body
+            .walk()
+            .into_iter()
+            .find(|n| n.id == id)
+            .and_then(|n| n.rows.iter().find(|r| r.at == at))
+            .map(|r| r.key.clone());
+        if let Some(name) = name {
+            self.picked.insert(id.to_owned(), name);
+        }
         self.sel.insert(id.to_owned(), at);
+        self.refresh(cx);
+        self.reveal(id);
+        cx.notify();
+    }
+
+    /// Scrolls a long table so its selected row is in view, wherever its order put it.
+    pub(crate) fn reveal(&self, id: &str) {
+        let at = self.sel.get(id).copied().unwrap_or(0);
         let shown = self.tables().into_iter().find(|(t, _)| t == id);
         if let (Some(h), Some((_, rows))) = (self.lists.get(id), shown)
             && let Some(i) = rows.iter().position(|&r| r == at)
         {
             h.scroll_to_item(i, gpui::ScrollStrategy::Center);
         }
-        self.refresh(cx);
-        cx.notify();
     }
 
     /// Moves the selection `by` rows in the order the table shows them.
@@ -186,7 +220,10 @@ impl ConsoleTabView {
             .filter
             .as_ref()
             .is_some_and(|(_, i)| crate::widgets::has_keys(i, window, cx));
+        // Asleep, the console never wakes the module: its actions wait (dimmed on the page).
+        let asleep = !self.page.state.is_empty() && !self.page.awake;
         if typing
+            || asleep
             || k.modifiers.platform
             || k.modifiers.control
             || k.modifiers.alt
@@ -222,10 +259,25 @@ impl ConsoleTabView {
         out
     }
 
-    /// Runs a module's action; one that takes input or deletes something asks first (`crate::act`).
+    /// Runs a module's action on the row it shows; one that takes input or deletes something asks first
+    /// (`crate::act`). The tables are read again first: an action whose row has gone since it was drawn (the session
+    /// ended) is not run on whatever row took its place, and says so.
     pub(crate) fn act(&mut self, a: Action, cx: &mut Context<Self>) {
+        self.refresh(cx);
+        let now = self.actions().into_iter().find(|b| b.id == a.id);
+        let acts = crate::act::acts(cx);
+        if now.as_ref().map(|b| &b.resource) != Some(&a.resource) {
+            let said = format!(
+                "{} was not run: {} is no longer there.",
+                a.label, a.resource
+            );
+            if let Some(acts) = acts {
+                acts.update(cx, |acts, cx| acts.say(said, true, cx));
+            }
+            return;
+        }
         let (key, name) = (self.key.clone(), self.name.clone());
-        if let Some(acts) = crate::act::acts(cx) {
+        if let Some(acts) = acts {
             acts.update(cx, |acts, cx| acts.action(&key, &name, &a, cx));
         }
     }
@@ -277,11 +329,12 @@ impl ConsoleTabView {
             None
         };
         match why {
+            // Said where the blocks would start, not floating mid-page.
             Some(w) => div()
-                .flex()
                 .flex_1()
-                .items_center()
-                .justify_center()
+                .px(px(28.))
+                .pt(px(16.))
+                .text_size(px(ty::SM))
                 .text_color(t.dim)
                 .child(w)
                 .into_any_element(),
@@ -318,6 +371,10 @@ impl Render for ConsoleTabView {
             .iter()
             .map(|(k, w)| (k.clone(), w.as_str()))
             .collect();
+        // Asleep, the actions wait (dimmed on the page): their keys are not offered.
+        if !p.state.is_empty() && !p.awake {
+            keys.retain(|(_, w)| *w == "select" || *w == "next tab");
+        }
         // Between tables only where there are two; the filter where one is long.
         let mut at = usize::from(keys.first().is_some_and(|k| k.1 == "select"));
         if self.tables().len() > 1 {
@@ -358,7 +415,7 @@ impl Render for ConsoleTabView {
                 d.child(div().px(px(28.)).pt(px(14.)).child(ui::banner(
                     &t,
                     ui::Tone::Bad,
-                    &p.err,
+                    &sentence(&p.err),
                     "",
                 )))
             })
@@ -366,4 +423,12 @@ impl Render for ConsoleTabView {
             .child(body)
             .child(keys_bar(&t, keys, &p.note))
     }
+}
+
+/// Words as a sentence starts: a capital first ("the module did not answer" is "The module did not answer").
+fn sentence(s: &str) -> String {
+    let mut c = s.chars();
+    c.next()
+        .map(|f| f.to_uppercase().chain(c).collect())
+        .unwrap_or_default()
 }

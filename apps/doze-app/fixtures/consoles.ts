@@ -95,10 +95,10 @@ instances[instances.length - 1].web_url = "http://127.0.0.1:8233";
 module("db", "postgres", "17", 612, 96, 4, "overview");
 console("db", postgres.spec, postgres.actions, {
   activity: [{ active: "3", idle: "12", waiting: "1", connections: "16", of: "100", longest: "4.2 s" }],
-  // LIMIT 200: the most a real one sends.
-  sessions: Array.from({ length: 200 }, (_, i) => ({
+  // The sessions the figures above count: 1 waiting (the longest, 4.2 s), 3 active, 12 idle.
+  sessions: Array.from({ length: 16 }, (_, i) => ({
     pid: String(4412 - i), user: "app", database: i % 5 ? "app" : "app_test", app: ["api", "worker", "psql", "migrate"][i % 4],
-    for: `${(i * 0.7).toFixed(1)} s`, state: i === 0 ? "waiting" : i < 3 ? "active" : "idle",
+    for: i === 0 ? "4.2 s" : `${(((i * 7) % 40) / 10).toFixed(1)} s`, state: i === 0 ? "waiting" : i < 4 ? "active" : "idle",
     query: i % 3 ? "SELECT o.id, o.total, c.email FROM orders o JOIN customers c ON c.id = o.customer_id WHERE o.status = $1 AND o.created_at > now() - interval '7 days' ORDER BY o.created_at DESC LIMIT 50" : "UPDATE orders SET status = $1 WHERE id = $2",
   })),
   databases: [{ database: "app", size: "40121344", connections: "4", owner: "postgres" }, { database: "app_test", size: "9437184", connections: "0", owner: "postgres" }, { database: "postgres", size: "7602176", connections: "0", owner: "postgres" }],

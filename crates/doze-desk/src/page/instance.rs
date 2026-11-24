@@ -235,10 +235,10 @@ fn tabs(v: &words::Instance, spec: Option<&words::ConsoleSpec>) -> Vec<PageTab> 
 }
 
 /// A module's tabs titled as the app's own are: a capital first, as `Overview` and `Logs` are. No two tabs share a
-/// title: one already taken (a module's "overview" beside the app's Overview, or a second "requests") takes the
-/// module's name before it ("Gauge overview"), and a repeat after that is numbered.
+/// title: one the app already uses (a module's "overview" beside the app's Overview) takes the module's name before
+/// it ("Gauge overview"); a module's own repeat is numbered ("Requests 2").
 pub fn name_console_tabs(tabs: &mut [PageTab], engine: &str) {
-    let mut taken: Vec<String> = tabs
+    let apps: Vec<String> = tabs
         .iter()
         .filter(|t| !t.id.starts_with("console:"))
         .map(|t| match t.id.as_str() {
@@ -247,12 +247,13 @@ pub fn name_console_tabs(tabs: &mut [PageTab], engine: &str) {
             id => id.to_lowercase(),
         })
         .collect();
+    let mut taken = apps.clone();
     for t in tabs.iter_mut().filter(|t| t.id.starts_with("console:")) {
         let mut title = capital(t.title.trim());
         if title.is_empty() {
             title = "Console".to_owned();
         }
-        if taken.contains(&title.to_lowercase()) && !engine.is_empty() {
+        if apps.contains(&title.to_lowercase()) && !engine.is_empty() {
             title = format!("{} {}", capital(engine), t.title.trim().to_lowercase());
         }
         let base = title.clone();
@@ -318,12 +319,17 @@ fn vitals(st: &StackView, name: &str, v: &words::Instance) -> Option<Vitals> {
     let mut cpu = parts::chart(&s.cpu, words::pct, "of one core");
     if let Some(&last) = s.cpu.last() {
         cpu.now = words::cores(last);
-        cpu.sub = format!("cores · {} of one", words::pct(last));
+        // The figure says "cores" already ("<0.01 cores"); Go's "cores · 0% of one" said it twice.
+        cpu.sub = format!("{} of one core", words::pct(last));
+    }
+    let mut conns = parts::chart(&s.conns, words::count, "connections");
+    if conns.now == "1" {
+        "connection".clone_into(&mut conns.sub);
     }
     Some(Vitals {
         ram: parts::chart(&s.ram, words::bytes_label, "resident"),
         cpu,
-        conns: parts::chart(&s.conns, words::count, "connections"),
+        conns,
     })
 }
 
@@ -380,7 +386,7 @@ mod tests {
         name_console_tabs(&mut t, "gauge");
         assert_eq!(
             titles(&t)[1..5],
-            ["Gauge overview", "Requests", "Gauge logs", "Gauge requests"]
+            ["Gauge overview", "Requests", "Gauge logs", "Requests 2"]
         );
         // The whole console, untitled or called "console", is Console; the Web UI is a tab of its own.
         let mut t = tabs(&[

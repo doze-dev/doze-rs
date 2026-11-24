@@ -15,6 +15,8 @@ use std::collections::BTreeMap;
 use std::path::Path;
 use std::sync::Arc;
 
+mod picks;
+
 /// Each instance's console as the hub would hold it once the script played.
 fn consoles() -> BTreeMap<String, ConsoleView> {
     let s = Script::load(

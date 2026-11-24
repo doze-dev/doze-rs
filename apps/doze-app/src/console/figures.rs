@@ -2,6 +2,7 @@
 //! meter), and the selected row's detail with what can be done to it.
 
 use doze_desk::page::console::Node;
+use doze_display::NodeKind;
 use gpui::{AnyElement, Div, IntoElement, div, prelude::*, px};
 
 use super::blocks::{Draw, share};
@@ -10,17 +11,34 @@ use crate::theme::ty;
 use crate::widgets::{Mono as _, tracked};
 
 impl Draw<'_> {
-    pub(super) fn stats(&self, n: &Node) -> AnyElement {
+    /// The figures on one grid, so the tiles of every row line up and a lone figure is a tile's width, not the page's:
+    /// three across where the block shares a row (or the overview's half page), else one a figure, four to six.
+    pub(super) fn stats(&self, n: &Node, dir: Option<&NodeKind>) -> AnyElement {
+        let across = if self.flat || dir == Some(&NodeKind::Row) {
+            3
+        } else {
+            n.stats.len().clamp(4, 6)
+        };
         let tiles = div()
-            .flex()
-            .flex_wrap()
+            .grid()
+            .grid_cols(u16::try_from(across).unwrap_or(3))
             .gap(px(10.))
             .when(self.flat, |d| d.px(px(14.)).py(px(10.)).gap(px(18.)))
             .children(n.stats.iter().map(|s| self.tile(s)));
         share(div(), n)
             .flex()
             .flex_col()
-            .children(self.flat_heading(n))
+            // What the figures are ("Channels", "Activity"): on a tab a heading over the tiles, as a table's is.
+            .children(if self.flat {
+                self.flat_heading(n)
+            } else {
+                (!n.title.is_empty()).then(|| {
+                    div()
+                        .px(px(2.))
+                        .pb(px(8.))
+                        .child(heading(self.t, &n.title, None))
+                })
+            })
             .child(tiles)
             .into_any_element()
     }
@@ -72,8 +90,7 @@ impl Draw<'_> {
             .flex()
             .flex_col()
             .gap(px(4.))
-            .min_w(px(if s.of.is_empty() { 120. } else { 170. }))
-            .flex_1()
+            .min_w_0()
             .child(tracked(&s.label, ty::XS, ty::REGULAR, t.dim, 0.66))
             .child(figure)
             .when(!s.note.is_empty(), |d| {

@@ -30,6 +30,10 @@ pub(super) struct Draw<'a> {
     pub(super) filter: Option<(String, Entity<InputState>, bool)>,
     /// On the overview: inside the overview's own card, so a block draws no card of its own.
     pub(super) flat: bool,
+    /// The module is asleep: what it cannot do now is dimmed, and a stream says why it is quiet.
+    pub(super) asleep: bool,
+    /// The height each stream's place in the layout had when last laid out, by block id (see `Draw::stream`).
+    pub(super) rooms: Option<super::Rooms>,
 }
 
 /// The tab's tree, live.
@@ -53,6 +57,8 @@ pub(crate) fn tab_body(
             )
         }),
         flat: false,
+        asleep: !v.page.state.is_empty() && !v.page.awake,
+        rooms: Some(v.rooms.clone()),
     };
     div()
         .id("con")
@@ -88,6 +94,8 @@ pub(crate) fn static_block(t: &Tokens, n: &Node) -> AnyElement {
         lists: None,
         filter: None,
         flat: true,
+        asleep: false,
+        rooms: None,
     };
     // The overview's cards are a column's width (half the page): a row the module laid out for a whole tab stacks
     // there, each block full width, rather than three blocks squeezed to a third each.
@@ -153,10 +161,7 @@ impl Draw<'_> {
     pub(super) fn node(&self, n: &Node, dir: Option<NodeKind>) -> AnyElement {
         let t = self.t;
         if !n.missing.is_empty() {
-            return words(share(self.frame(), n), n, dir.as_ref())
-                .text_color(t.dim)
-                .child(text(&n.missing))
-                .into_any_element();
+            return self.placeholder(n, &n.missing, dir.as_ref());
         }
         match n.kind {
             NodeKind::Row | NodeKind::Col => {
@@ -210,7 +215,7 @@ impl Draw<'_> {
                 .into_any_element()
             }
             NodeKind::Table => self.table(n, dir.as_ref()),
-            NodeKind::Stat => self.stats(n),
+            NodeKind::Stat => self.stats(n, dir.as_ref()),
             NodeKind::Detail => self.detail(n),
             NodeKind::Stream => self.stream(n),
             NodeKind::Actions => self.actions(n),
@@ -220,11 +225,24 @@ impl Draw<'_> {
                 .into_any_element(),
             NodeKind::Chart => self.chart(n),
             // The resolver says what it is (`missing`); this is for a tree resolved by an older doze-desk.
-            NodeKind::Other(_) => words(share(self.frame(), n), n, dir.as_ref())
-                .text_color(t.dim)
-                .child("This needs a newer doze.")
-                .into_any_element(),
+            NodeKind::Other(_) => self.placeholder(n, "This needs a newer doze.", dir.as_ref()),
         }
+    }
+
+    /// Where a block this doze cannot draw would be: a quiet line in a faint outline, not a card of words.
+    fn placeholder(&self, n: &Node, why: &str, dir: Option<&NodeKind>) -> AnyElement {
+        let t = self.t;
+        words(share(div(), n), n, dir)
+            .flex_none()
+            .px(px(12.))
+            .py(px(8.))
+            .rounded(px(8.))
+            .border_1()
+            .border_color(t.line)
+            .text_size(px(ty::XS))
+            .text_color(t.dim)
+            .child(text(why))
+            .into_any_element()
     }
 
     /// One action as a line: its letter, its label, the row it acts on. On a tab, a click runs it.
@@ -240,6 +258,8 @@ impl Draw<'_> {
             .mx(px(-8.))
             .rounded(px(7.))
             .text_color(if a.destructive { t.bad } else { t.text })
+            // Asleep, nothing can be done to it: the actions wait, dimmed.
+            .when(self.asleep, |d| d.opacity(0.5))
             .child(kbd_chip(t, &a.key.to_string(), ty::XS, ty::SEMIBOLD, 6.))
             .child(text(&a.label))
             .when(!a.resource.is_empty(), |d| {
@@ -253,7 +273,7 @@ impl Draw<'_> {
                         .child(text(&format!("on {}", a.resource))),
                 )
             });
-        if let Some(e) = &self.live {
+        if let Some(e) = self.live.as_ref().filter(|_| !self.asleep) {
             let (e, a) = (e.clone(), a.clone());
             row = row
                 .cursor_pointer()

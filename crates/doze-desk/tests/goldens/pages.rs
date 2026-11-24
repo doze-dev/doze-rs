@@ -191,6 +191,14 @@ fn check_instance(p: &InstancePage, want: &Value) {
                     let x = w[f].as_f64().unwrap();
                     w[f] = json!(x);
                 }
+                // Deliberately not Go's: "<0.01 cores" is followed by "0% of one core", not "cores · 0% of one"
+                // again, and one connection is "1 connection".
+                let sub = w["sub"].as_str().unwrap().to_owned();
+                if let Some(pct) = sub.strip_prefix("cores · ") {
+                    w["sub"] = json!(format!("{pct} core"));
+                } else if k == "conns" && c.now == "1" {
+                    w["sub"] = json!("connection");
+                }
                 assert_eq!(got, w, "{name}'s {k}");
             }
         }

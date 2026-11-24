@@ -14,6 +14,37 @@ use std::collections::HashMap;
 /// the table is shown in.
 pub type Selection = HashMap<String, usize>;
 
+/// The row picked in each table, by block id: what names it (its first column's value, the resource an action on
+/// it targets). A person picks a row, not a place: the module re-reads its tables every 2 s and may send them in
+/// another order (postgres orders its sessions by state), so the pick is kept by name and turned into a
+/// [`Selection`] for each read ([`selection`]); kept by place, "Terminate session" would go to whichever session
+/// moved into it.
+pub type Picked = HashMap<String, String>;
+
+/// The selection the picks name in the tables as last read: each table's row of that name. A name no longer there
+/// (the session ended) is not in it, so the table's first row is selected and shown as such.
+pub fn selection(c: &ConsoleView, tab: &str, picked: &Picked) -> Selection {
+    let mut sel = Selection::new();
+    let (Some(spec), Some(w)) = (&c.spec, c.words.as_deref()) else {
+        return sel;
+    };
+    let Some(body) = body_of(spec, Some(w), tab) else {
+        return sel;
+    };
+    for t in wire_walk(&body).into_iter().filter(|t| t.kind == "table") {
+        let id = block_id(t);
+        let (Some(name), Some(rows), Some(p)) =
+            (picked.get(&id), c.tables.get(&t.panel), w.panel(&t.panel))
+        else {
+            continue;
+        };
+        if let Some(i) = rows.iter().position(|r| r.cell(p.first_col()) == name) {
+            sel.insert(id, i);
+        }
+    }
+    sel
+}
+
 /// How each table is shown, by block id: the column it is ordered by and the words it is filtered to.
 pub type Views = HashMap<String, TableView>;
 

@@ -98,8 +98,13 @@ pub fn cell<'a>(col: &Column, row: &'a ConsoleRow) -> (Cow<'a, str>, Tone) {
             }
         }
         Role::State => {
-            let (glyph, t) = state_glyph(&lowercase(raw));
-            (text, tone) = (Cow::Owned(format!("{glyph} {raw}")), t);
+            if let Some(t) = status_class(raw) {
+                // An HTTP status is toned by its class and written as it is: a 500 must not read as a 200.
+                tone = t;
+            } else {
+                let (glyph, t) = state_glyph(&lowercase(raw));
+                (text, tone) = (Cow::Owned(format!("{glyph} {raw}")), t);
+            }
         }
         Role::Text => {}
     }
@@ -184,6 +189,18 @@ pub fn action_key(id: &str) -> Option<char> {
     id.chars().next().map(crate::gonum::upper)
 }
 
+/// The tone of an HTTP status written as a state (`200`, `404`, `503`): a client error warns, a server error is bad,
+/// the rest is plain. `None` for anything that is not three digits from 100 to 599.
+fn status_class(raw: &str) -> Option<Tone> {
+    let n: u16 = raw.parse().ok().filter(|_| raw.len() == 3)?;
+    match n {
+        100..=399 => Some(Tone::Text),
+        400..=499 => Some(Tone::Warn),
+        500..=599 => Some(Tone::Bad),
+        _ => None,
+    }
+}
+
 /// What a cell amounts to, for ordering a column and filling a meter: the leading figure of what a module writes
 /// (`1,043`, `4.2 s`, `11.0 MB`, `90ms`, `3m`), scaled by its unit so sizes and times compare across units. `None` for
 /// a cell that does not start with a figure (`no limit`, `—`, a name).
@@ -215,6 +232,16 @@ pub fn magnitude(raw: &str) -> Option<f64> {
 #[cfg(test)]
 mod magnitude_tests {
     use super::magnitude;
+
+    #[test]
+    fn an_http_status_is_toned_by_its_class() {
+        use super::{Tone, status_class};
+        assert_eq!(status_class("200"), Some(Tone::Text));
+        assert_eq!(status_class("404"), Some(Tone::Warn));
+        assert_eq!(status_class("503"), Some(Tone::Bad));
+        assert_eq!(status_class("0500"), None);
+        assert_eq!(status_class("idle"), None);
+    }
 
     #[test]
     fn a_figure_is_read_with_its_unit() {

@@ -12,6 +12,7 @@ impl ConsoleTabView {
         self.focused = Some(id.to_owned());
         self.views.entry(id.to_owned()).or_default().click(col);
         self.refresh(cx);
+        self.reveal(id);
         cx.notify();
     }
 
@@ -69,6 +70,7 @@ impl ConsoleTabView {
         {
             self.pick(id, first, cx);
         }
+        self.reveal(id);
         cx.notify();
     }
 
