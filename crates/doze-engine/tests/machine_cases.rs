@@ -140,3 +140,25 @@ fn a_cancelled_start_sleeps_and_frees_the_next_wake() {
         Decision::Start(_)
     ));
 }
+
+/// An instance none of whose listeners could be opened is failed with the reason, every start of it is refused with
+/// that reason (an `up`, or a wake by what needs it), and a stop does not make it look asleep.
+#[test]
+#[allow(clippy::panic)] // test code
+fn an_unreachable_instance_is_failed_and_refuses_every_start() {
+    let mut m = machine();
+    let why = "api cannot listen on 127.0.0.1:4567: Address already in use";
+    let fx = m.set_unreachable("api", why).unwrap_or_default();
+    assert!(fx.iter().any(|f| matches!(f, Effect::Journal(_))), "{fx:?}");
+    let shown = |m: &Machine| m.table().get("api", Now::current()).unwrap_or_default();
+    assert_eq!(shown(&m).state, State::Failed);
+    assert_eq!(shown(&m).last_error, why);
+    match m.wake("api", Cause::Command).0 {
+        Decision::Refuse(e) => assert_eq!(e.to_string(), why),
+        d => panic!("not refused: {d:?}"),
+    }
+    let _ = m.stop("api", Cause::Command);
+    assert_eq!(shown(&m).state, State::Failed);
+    assert_eq!(shown(&m).last_error, why);
+    assert!(m.set_unreachable("nope", why).is_err(), "not declared");
+}

@@ -107,6 +107,63 @@ fn run_starts_the_daemon_then_the_command() {
     );
 }
 
+/// An instance whose port something else listens on is failed, not asleep: the daemon keeps running, `up` says why
+/// (the address) and exits non-zero, and `status` shows it failed with that reason.
+#[test]
+fn a_taken_port_fails_the_instance_honestly() {
+    if !std::path::Path::new("/bin/sh").exists() || !setup::sockets() {
+        return;
+    }
+    let (sb, mut host, _) = setup::prepare(&["project bare".to_owned()]);
+    host.daemon_exe = Some(std::path::PathBuf::from(env!("CARGO_BIN_EXE_doze")));
+    // Something else holds the port first, for the whole test.
+    let taken = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+    let port = taken.local_addr().unwrap().port();
+    let hcl = format!(
+        "stack = \"shop\"\nhome = \"{}\"\n\ndefaults {{\n  names = false\n}}\n\napp \"web\" {{\n  run  = \"exec sleep 600\"\n  port = {port}\n}}\n",
+        sb.home().display()
+    );
+    std::fs::write(sb.project().join("doze.hcl"), hcl).unwrap();
+    let key = doze_projects::StackKey::for_config(&sb.home(), &sb.project().join("doze.hcl"));
+    let up = fixture::run(&sb, &host, Terminals::default(), false, &["up"]);
+    let pid = doze_projects::daemon_pid(&key).map(|p| p.pid);
+    let _reap = Reap(pid); // a failed assert below still stops the daemon
+    let why = format!("web cannot listen on 127.0.0.1:{port}");
+    assert_ne!(up.code, 0, "{}\n{}", up.stdout, up.stderr);
+    assert!(!up.stdout.contains("✓ web awake"), "{}", up.stdout);
+    assert!(
+        up.stderr.contains(&why) || up.stdout.contains(&why),
+        "{}\n{}",
+        up.stdout,
+        up.stderr
+    );
+    assert!(
+        pid.is_some_and(doze_os::process::alive),
+        "the daemon keeps running"
+    );
+    let status = fixture::run(
+        &sb,
+        &host,
+        Terminals::default(),
+        false,
+        &["--json", "status"],
+    );
+    assert_eq!(status.code, 0, "{}", status.stderr);
+    let v: serde_json::Value = serde_json::from_str(&status.stdout).unwrap();
+    let web = v["data"]["services"]
+        .as_array()
+        .and_then(|s| s.iter().find(|s| s["name"] == "web"))
+        .cloned()
+        .unwrap_or_else(|| panic!("no web in {}", status.stdout));
+    assert_eq!(web["state"], "failed", "{web}");
+    assert!(status.stdout.contains(&why), "{}", status.stdout);
+    let shown = fixture::run(&sb, &host, Terminals::default(), false, &["status"]);
+    assert!(shown.stdout.contains(&why), "{}", shown.stdout);
+    let down = fixture::run(&sb, &host, Terminals::default(), false, &["down"]);
+    assert_eq!(down.code, 0, "{}", down.stderr);
+    drop(taken);
+}
+
 /// Stops the daemon a test started (by its exact pid, while it lives) however the test ends.
 struct Reap(Option<u32>);
 
