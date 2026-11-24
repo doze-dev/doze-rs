@@ -31,7 +31,11 @@ async function until(what: string, probe: () => Promise<boolean>, ms = 15_000): 
 /** How long one start may take before it is tried again, and how many tries (a loaded CI runner has been seen not to answer
  * within 15 s once; the output of every try is kept so a hang is diagnosable). */
 const START_MS = 30_000;
-const START_TRIES = 2;
+const START_TRIES = 3;
+
+/** Linux hands 32768-60999 to outgoing connections (a browser's, a test's own), and one of those can hold a port a start wanted between
+ * the probe and the bind: the ports a spec names there (they were 44690-46300) are not asked for at all. */
+const EPHEMERAL = 32_768;
 
 /** Whether both ports can be listened on now (a probe: bound on loopback, then let go). */
 async function pairFree(a: number, b: number): Promise<boolean> {
@@ -68,7 +72,7 @@ export async function start(listenPort: number, consolePort: number, options: { 
   let argv = argvFor(listenPort, consolePort);
   const notes: string[] = [];
   for (let attempt = 1; attempt <= START_TRIES; attempt++) {
-    if (attempt > 1 || !(await pairFree(listenPort, consolePort))) {
+    if (attempt > 1 || listenPort >= EPHEMERAL || consolePort >= EPHEMERAL || !(await pairFree(listenPort, consolePort))) {
       const [l, c] = await freePair([listenPort]);
       endpoint = `http://127.0.0.1:${l}`;
       consoleUrl = `http://127.0.0.1:${c}`;

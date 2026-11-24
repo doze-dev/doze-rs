@@ -1,7 +1,7 @@
 // The usage plan boards of API Gateway (the list, create, a plan with its stages and API keys, and the empty states), each reached against a real doze-aws
 // (one per browser, seeded as the boards' "larder" world) and, in Chromium, photographed light and dark. The REST boards are apigateway-boards.spec.ts, the
 // HTTP boards apigateway-boards-http.spec.ts.
-import { expect, expectNoErrorAnswers, test } from "./fixtures";
+import { advance, expect, expectNoErrorAnswers, test } from "./fixtures";
 import { apiPath, begin, choose, cli, ctx, end, go, json, shot } from "./apigateway-kit";
 
 test.describe.configure({ mode: "serial" });
@@ -44,7 +44,7 @@ test("apigateway__rest-usage-plan-create: a name, a throttle and a quota, the ca
   await expect(call).toContainText("No apiStages yet: the plan covers nothing until you add a stage to it.");
   await expect(page.getByTestId("section-throttle")).toContainText("partners-basic uses 50 per second, burst 100.");
   await shot(page, "rest-usage-plan-create");
-  await page.getByTestId("form-submit").click();
+  await advance(page);
   await expect(page.getByTestId("created-banner")).toContainText("Usage plan partners-premium created.");
   await expect(page.locator("h1")).toHaveText("partners-premium");
   await expect(page.getByTestId("plan-details")).toContainText("200 requests per second, burst 400");

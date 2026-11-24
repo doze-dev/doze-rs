@@ -7,7 +7,7 @@ import { join } from "node:path";
 import type { Page } from "@playwright/test";
 import { aws, start, type Running } from "../server";
 import { PATTERN, putEvent, seedLarder } from "./eventbridge-seed";
-import { expect, expectNoErrorAnswers, settled, test } from "./fixtures";
+import { advance, expect, expectNoErrorAnswers, settled, test } from "./fixtures";
 
 const SHOTS = process.env.SHOTS_DIR ?? join(import.meta.dirname, "../../../../../shots-eventbridge");
 const BASE = Number(process.env.E2E_BASE_PORT ?? 45400);
@@ -93,7 +93,7 @@ test("eventbridge__bus-create: encryption, a dead-letter queue, an archive and t
   await expect(call).toContainText("larder-audit-archive");
   await expect(call).toContainText("The archive is a separate call, made after the bus exists.");
   await shot(page, "eventbridge__bus-create");
-  await page.getByTestId("form-submit").click();
+  await advance(page);
   await expect(page.getByTestId("created-banner")).toContainText("Event bus larder-audit created.");
   await expect(page.getByTestId("bus-archives")).toContainText("larder-audit-archive");
   await expect(page.getByTestId("bus-details")).toContainText("alias/larder-app");
@@ -106,7 +106,7 @@ test("eventbridge__bus-create-refused: a name that exists is refused on the name
   refusals.allow(/400 POST .*\/eventbridge\/buses\/op\/CreateEventBus$/);
   await go(page, "/resources/eventbridge/buses?create=yes", "Create event bus");
   await fillBus(page, "larder-audit");
-  await page.getByTestId("form-submit").click();
+  await advance(page);
   await expect(page.getByTestId("create-refused")).toContainText("CreateEventBus answered ResourceAlreadyExistsException");
   await expect(page.getByTestId("field-bus")).toHaveCount(0);
   await expect(page.getByTestId("section-details")).toContainText("A bus named larder-audit already exists. Pick another name.");
@@ -191,7 +191,7 @@ test("eventbridge__send-events: one PutEvents entry, which rules it matches, and
   await expect(page.getByTestId("call-panel-code")).toContainText('"EventBusName": "larder"');
   // The match hint and the preview are still being redrawn; a click that lands as the page moves is not a click.
   await settled(page);
-  await page.getByTestId("form-submit").click();
+  await advance(page);
   await expect(page.getByTestId("sent-banner")).toContainText("PutEvents returned the EventId");
   await expect(page.getByTestId("sent-banner")).toContainText("It matched order-placed");
   // A detail that is not JSON is said on the field.
@@ -240,7 +240,7 @@ test("eventbridge__rule-targets-none: a rule with no target says what it does, a
   await pick(page, /Select a target/, "SQS queue");
   await pick(page, /Choose a queue/, "analytics-queue");
   await expect(page.getByTestId("call-panel-code")).toContainText('"Id": "send-analytics-queue"');
-  await page.getByTestId("form-submit").click();
+  await advance(page);
   await expect(page.getByTestId("target-banner")).toContainText("Target added.");
   await expect(page.getByRole("table", { name: "Targets" })).toContainText("send-analytics-queue");
   cli(["events", "remove-targets", "--rule", "audit-sweep", "--event-bus-name", "larder", "--ids", "send-analytics-queue"]);

@@ -1,7 +1,7 @@
 // The HTTP boards of API Gateway (the four-step create, routes, integrations, authorization, CORS, stages, and their empty states), each reached against
 // a real doze-aws (one per browser, seeded as the boards' "larder" world) and, in Chromium, photographed light and dark. The REST boards are
 // apigateway-boards.spec.ts, the usage plans apigateway-boards-plans.spec.ts.
-import { expect, expectNoErrorAnswers, test } from "./fixtures";
+import { advance, expect, expectNoErrorAnswers, test } from "./fixtures";
 import { apiPath, begin, choose, cli, ctx, end, go, json, pick, shot } from "./apigateway-kit";
 
 test.describe.configure({ mode: "serial" });
@@ -10,7 +10,7 @@ test.beforeAll(async ({ browserName }) => begin(browserName));
 test.afterAll(end);
 
 const http = () => ctx.ids.http;
-const next = (page: import("@playwright/test").Page) => page.getByTestId("form-submit").click();
+const next = (page: import("@playwright/test").Page) => advance(page);
 
 test("apigateway__http-create (and its routes, stage and review steps): four steps, then the four calls", async ({ page }) => {
   await go(page, "/resources/apigateway/restapis?do=create-http", "Create HTTP API");
@@ -70,7 +70,7 @@ test("apigateway__http-create (and its routes, stage and review steps): four ste
   await expect(page.locator("h1")).toHaveText("Configure routes");
   await next(page);
   await next(page);
-  await page.getByTestId("form-submit").click();
+  await advance(page);
   await expect(page.getByTestId("created-banner")).toContainText("HTTP API larder-reports created.");
   await expect(page.locator("h1")).toHaveText("Routes");
   const made = json<{ Items: { Name: string; ApiId: string }[] }>(["apigatewayv2", "get-apis"]).Items.find((a) => a.Name === "larder-reports")!;
@@ -135,7 +135,7 @@ test("apigateway__http-authorizer-create: a Lambda authorizer, the call, and att
   await expect(call).toContainText('"authorizerResultTtlInSeconds": 300');
   await expect(call).toContainText("Attaching it to a route is a second step, on the Authorization page");
   await shot(page, "http-authorizer-create");
-  await page.getByTestId("form-submit").click();
+  await advance(page);
   await expect(page.getByTestId("authorizer-banner")).toContainText("Authorizer orders-request-auth created.");
   // The second step: the route is attached, and its type becomes CUSTOM.
   await page.getByTestId("tab-attach").click();
@@ -154,7 +154,7 @@ test("apigateway__http-authorizer-create: a JWT authorizer is built, not refused
   await page.getByTestId("authorizer-issuer").fill("https://idp.larder.example.com/");
   await page.getByTestId("authorizer-audience").fill("larder-admin");
   await expect(page.getByTestId("call-panel")).toContainText('"authorizerType": "JWT"');
-  await page.getByTestId("form-submit").click();
+  await advance(page);
   await expect(page.getByTestId("authorizer-banner")).toContainText("Authorizer admin-jwt created.");
   expect(cli(["apigatewayv2", "get-authorizers", "--api-id", http()])).toContain("admin-jwt");
 });
@@ -249,18 +249,18 @@ test("apigateway: a route and an integration are made on the pages, and a WebSoc
   await choose(page, "route-method", "POST");
   await page.getByTestId("route-path").fill("/github");
   await expect(page.getByTestId("call-panel")).toContainText('"routeKey": "POST /github"');
-  await page.getByTestId("form-submit").click();
+  await advance(page);
   await expect(page.getByTestId("route-banner")).toContainText("Route POST /github created.");
   await go(page, apiPath("apis", ctx.ids.hooks, "?do=create-integration"), "Create integration");
   await pick(page, /Choose a function/, "export-report");
   await choose(page, "integration-route", "POST /github");
-  await page.getByTestId("form-submit").click();
+  await advance(page);
   await expect(page.getByTestId("integration-banner")).toContainText("created.");
   expect(cli(["apigatewayv2", "get-routes", "--api-id", ctx.ids.hooks])).toContain("integrations/");
   await go(page, "/resources/apigateway/restapis?do=create-websocket", "Create WebSocket API");
   await page.getByTestId("api-name").fill("larder-live");
   await expect(page.getByTestId("call-panel")).toContainText('"protocolType": "WEBSOCKET"');
-  await page.getByTestId("form-submit").click();
+  await advance(page);
   await expect(page.getByTestId("created-banner")).toContainText("WebSocket API larder-live created.");
   await expect(page.getByTestId("chip-kind")).toHaveText("WebSocket");
   // It is said as it is: nothing was made but the API, a WebSocket API has no CORS, and its routes and address are its own.

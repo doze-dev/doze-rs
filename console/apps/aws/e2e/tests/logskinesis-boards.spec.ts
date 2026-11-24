@@ -6,7 +6,7 @@ import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 import type { Page } from "@playwright/test";
 import { aws, start, type Running } from "../server";
-import { expect, expectNoErrorAnswers, settled, test } from "./fixtures";
+import { advance, expect, expectNoErrorAnswers, settled, test } from "./fixtures";
 import { expectWholeLines } from "./callpanel-kit";
 import { seedLarder } from "./logskinesis-seed";
 
@@ -104,10 +104,10 @@ test("logs__log-group-create and log-group-created: the form, its call, and the 
   await shot(page, "logs__log-group-create");
   // A name that is not allowed is said on the field.
   await page.getByTestId("group-name").fill("aws/own");
-  await page.getByTestId("form-submit").click();
+  await advance(page);
   await expect(page.getByTestId("log-group-create")).toContainText("A name cannot begin with aws/");
   await page.getByTestId("group-name").fill("/larder/notifications");
-  await page.getByTestId("form-submit").click();
+  await advance(page);
   await expect(page.locator("h1").first()).toHaveText("/larder/notifications");
   await expect(page.getByTestId("created-banner")).toContainText("CreateLogGroup returned 200");
   await expect(page.getByTestId("detail-sentence")).toContainText("/larder/notifications is empty. Nothing has written to it yet.");
@@ -195,7 +195,7 @@ test("logs__metric-filter-create, metric-filter-assign, metric-filter-delete: te
   await expect(page.getByTestId("mf-results").locator("tbody tr")).toHaveCount(2);
   await expect(page.getByTestId("call-panel")).toContainText("TestMetricFilter");
   await shot(page, "logs__metric-filter-create");
-  await page.getByTestId("form-submit").click();
+  await advance(page);
   await expect(page.locator("h1").first()).toHaveText("Metric details");
   await page.getByTestId("mf-name").fill("stripe-timeouts");
   await page.getByTestId("mf-namespace").fill("Larder/Payments");
@@ -207,7 +207,7 @@ test("logs__metric-filter-create, metric-filter-assign, metric-filter-delete: te
   await expect(page.getByTestId("call-panel")).toContainText('"unit": "Count"');
   await expect(page.getByTestId("call-panel")).toContainText("PutMetricFilter");
   await shot(page, "logs__metric-filter-assign");
-  await page.getByTestId("form-submit").click();
+  await advance(page);
   await expect(page.getByTestId("filter-created-banner")).toContainText("PutMetricFilter returned 200");
   const made = json<{ metricFilters: { filterName: string }[] }>(["logs", "describe-metric-filters", "--log-group-name", "/larder/api"]).metricFilters.map((f) => f.filterName);
   expect(made).toContain("stripe-timeouts");
@@ -233,7 +233,7 @@ test("logs__subscription-filter-create: a Lambda destination, a pattern, a name;
   await page.getByTestId("sub-name").fill("errors-to-email");
   await expect(page.getByTestId("call-panel")).toContainText("destinationArn");
   await shot(page, "logs__subscription-filter-create");
-  await page.getByTestId("form-submit").click();
+  await advance(page);
   await expect(page.getByTestId("subscription-created-banner")).toContainText("PutSubscriptionFilter returned 200");
   expect(json<{ subscriptionFilters: { filterName: string }[] }>(["logs", "describe-subscription-filters", "--log-group-name", "/larder/api"]).subscriptionFilters[0]?.filterName).toBe("errors-to-email");
   // The group's strip names the destination by its kind, as the board does: Lambda send-email.
@@ -243,7 +243,7 @@ test("logs__subscription-filter-create: a Lambda destination, a pattern, a name;
   await page.getByRole("combobox").first().click();
   await page.getByRole("option", { name: "send-email" }).click();
   await page.getByTestId("sub-name").fill("loop");
-  await page.getByTestId("form-submit").click();
+  await advance(page);
   await expect(page.getByTestId("subscription-create")).toContainText("A function can't subscribe to its own /aws/lambda/ group");
 });
 
@@ -304,7 +304,7 @@ test("kinesis__stream-create, stream-create-refused, stream-create-provisioned: 
   await expect(page.getByTestId("call-panel")).toContainText('"StreamMode": "ON_DEMAND"');
   await expect(page.getByTestId("call-panel")).toContainText('"stack": "larder"');
   await shot(page, "kinesis__stream-create");
-  await page.getByTestId("form-submit").click();
+  await advance(page);
   await expect(page.getByTestId("create-refused")).toContainText("CreateStream answered ResourceInUseException");
   await expect(page.getByTestId("section-name")).toContainText("ResourceInUseException");
   await shot(page, "kinesis__stream-create-refused");
@@ -320,7 +320,7 @@ test("kinesis__stream-create, stream-create-refused, stream-create-provisioned: 
   await expect(page.getByTestId("stream-shards")).toHaveValue("6");
   await expect(page.getByTestId("call-panel")).toContainText('"ShardCount": 6');
   await shot(page, "kinesis__stream-create-provisioned");
-  await page.getByTestId("form-submit").click();
+  await advance(page);
   await expect(page.getByTestId("created-banner")).toContainText("CreateStream returned 200");
   const made = json<{ StreamDescriptionSummary: { OpenShardCount: number; StreamModeDetails: { StreamMode: string } } }>(["kinesis", "describe-stream-summary", "--stream-name", "audit-feed"]).StreamDescriptionSummary;
   expect([made.OpenShardCount, made.StreamModeDetails.StreamMode]).toEqual([6, "PROVISIONED"]);
@@ -444,7 +444,7 @@ test("kinesis__stream-sharing, sharing-none, sharing-create: no policy, the visu
   await expect(page.getByTestId("call-panel")).toContainText("PutResourcePolicy");
   await expect(page.getByTestId("share-policy")).toContainText("kinesis:GetShardIterator");
   await shot(page, "kinesis__stream-sharing-create");
-  await page.getByTestId("form-submit").click();
+  await advance(page);
   await expect(page.getByTestId("sharing-banner")).toContainText("PutResourcePolicy returned 200");
   await expect(page.getByTestId("sharing-policy")).toContainText("may call kinesis:DescribeStreamSummary");
   await expect(page.getByTestId("sharing-policy")).toContainText("does not evaluate a stream's resource policy");
@@ -465,7 +465,7 @@ test("kinesis__stream-tags-none, stream-tags-edit, stream-shards-edit: a stream 
   await expect(page.getByTestId("call-panel")).toContainText("AddTagsToStream");
   await expect(page.getByTestId("manage-tags-page")).toContainText("The team row is new.");
   await shot(page, "kinesis__stream-tags-edit");
-  await page.getByTestId("form-submit").click();
+  await advance(page);
   await expect(page.getByTestId("tags-banner")).toContainText("Tags saved.");
   expect(json<{ Tags: { Key: string }[] }>(["kinesis", "list-tags-for-stream", "--stream-name", "clickstream"]).Tags.map((t) => t.Key)).toContain("team");
   // Shards: UNIFORM_SCALING, before and after.

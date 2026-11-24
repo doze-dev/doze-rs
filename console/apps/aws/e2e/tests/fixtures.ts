@@ -174,6 +174,23 @@ export async function overflowX(page: Page): Promise<number> {
  */
 export const unique = (prefix: string, browserName: string) => `${prefix}-${browserName}-${Date.now()}`;
 
+/** Presses the form's main button, and on a wizard's step that is not the last waits until the Stepper shows the next one. A second
+ * press that comes before the next step is drawn lands on the step it was meant to leave (a step is a route change, not a frame), and
+ * a test that goes on to the fields of the next step passes or fails by the timing. On the last step, or a form with no steps, it is
+ * just the click. A press the page refuses (the step stays, with its problem) is waited on for a few seconds and then let go: what the
+ * test expects of the refusal is its next line; `press` is the click alone, for a test that means to be refused. */
+export async function advance(page: Page): Promise<void> {
+  const steps = page.locator("li[data-step]");
+  const total = await steps.count();
+  const current = () => steps.evaluateAll((els) => els.findIndex((e) => e.getAttribute("data-state") === "current"));
+  const was = total > 0 ? await current() : -1;
+  await page.getByTestId("form-submit").click();
+  if (was >= 0 && was < total - 1) await expect.poll(current, { timeout: 5_000 }).not.toBe(was).catch(() => undefined);
+}
+
+/** The form's main button pressed once, with no wait: a step the page is expected to refuse. */
+export const press = (page: Page) => page.getByTestId("form-submit").click();
+
 /** Resolves when the page has stopped moving: its height has not changed and no request has finished for `quiet` ms. A click is
  * decided by where the pointer is at mouse-down and at mouse-up, and a page that is still drawing an answer (a match hint, a
  * preview, a section that folds) moves between the two: Playwright's own check is that the element's box is the same in two

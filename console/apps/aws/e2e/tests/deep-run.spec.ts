@@ -9,7 +9,7 @@ import { join } from "node:path";
 import type { Page } from "@playwright/test";
 import { aws, type Running, start } from "../server";
 import { LISTEN_PORT } from "../global-setup";
-import { calls as allCalls, expect, test as base, unique } from "./fixtures";
+import { advance, calls as allCalls, expect, test as base, unique } from "./fixtures";
 
 // These tests run against a doze-aws of their own (the two ports after the shared one's): a function, a machine and a stack
 // make calls on their callers' behalf (Lambda, Step Functions, CloudFormation), callers that would crowd the shared Live map
@@ -91,18 +91,18 @@ test("a function is tested, configured on pages of its own, and its runs' logs o
   await page.getByTestId("tab-configuration").click();
   await page.getByTestId("config-edit").click();
   await page.getByTestId("cfg-memory").fill("256");
-  await page.getByTestId("form-submit").click();
+  await advance(page);
   await expect(page.getByTestId("done-banner")).toContainText("was saved");
   await expect(page.getByTestId("general-card")).toContainText("256 MB");
   await page.getByTestId("section-env").click();
   await page.getByTestId("env-edit").click();
   await page.getByRole("button", { name: "Add environment variable" }).click();
   await page.getByTestId("env-kv-key-0").fill("1BAD");
-  await page.getByTestId("form-submit").click();
+  await advance(page);
   await expect(page.getByTestId("env-problem-0")).toContainText("A key starts with a letter");
   await page.getByTestId("env-kv-key-0").fill("MODE");
   await page.getByTestId("env-kv-value-0").fill("blue");
-  await page.getByTestId("form-submit").click();
+  await advance(page);
   await expect(page.getByTestId("done-banner")).toContainText("environment variables");
   await expect(page.getByTestId("env-card")).toContainText("blue");
 

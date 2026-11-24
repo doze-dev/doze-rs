@@ -25,7 +25,8 @@ const ROLE = (account: string) => `arn:aws:iam::${account}:role/sns-delivery-log
 /** A local webhook: what SNS posts to it is kept, and the SubscribeURL of a confirmation message is read out of it. */
 export type Webhook = { url: string; posts: () => { type: string; body: Record<string, unknown> }[]; subscribeUrl: () => string | null; stop: () => void };
 
-export function startWebhook(port: number): Webhook {
+/** `port` 0 (the default) is any free port: the webhook's `url` says which. */
+export function startWebhook(port = 0): Webhook {
   const posts: { type: string; body: Record<string, unknown> }[] = [];
   const server = Bun.serve({
     port,
@@ -41,7 +42,7 @@ export function startWebhook(port: number): Webhook {
     },
   });
   return {
-    url: `http://127.0.0.1:${port}/in`,
+    url: `http://127.0.0.1:${server.port}/in`,
     posts: () => posts,
     subscribeUrl: () => (posts.find((p) => p.type === "SubscriptionConfirmation")?.body.SubscribeURL as string | undefined) ?? null,
     stop: () => void server.stop(true),

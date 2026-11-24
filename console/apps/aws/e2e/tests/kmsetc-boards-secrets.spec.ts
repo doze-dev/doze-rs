@@ -1,6 +1,6 @@
 // The 17 Secrets Manager boards, each reached against a real doze-aws (one per browser, seeded as the boards' "larder" world with the
 // real AWS CLI) and, in Chromium, photographed light and dark into SHOTS_DIR.
-import { expect, test } from "./fixtures";
+import { advance, press, expect, test } from "./fixtures";
 import { start, type Running } from "../server";
 import { seedKmsetc, STRIPE } from "./kmsetc-seed";
 import { cliOf, open, portsFor, shoot } from "./kmsetc-kit";
@@ -71,9 +71,9 @@ test("secretsmanager__create-type ... create-review: four steps, and the secret 
   await expect(page.getByTestId("call-panel")).toContainText("(masked)");
   await expect(page.getByTestId("call-panel")).toContainText('"KmsKeyId": "alias/larder-app"');
   await shot(page, "secretsmanager__create-type");
-  await page.getByTestId("form-submit").click();
+  await advance(page);
   await expect(page.getByTestId("section-name")).toBeVisible();
-  await page.getByTestId("form-submit").click();
+  await press(page);
   await expect(page.getByTestId("field-name")).toContainText("Enter a name.");
   await page.getByTestId("secret-name").fill("larder/prod/stripe-key");
   await expect(page.getByTestId("field-name")).toContainText("already exists");
@@ -91,14 +91,14 @@ test("secretsmanager__create-type ... create-review: four steps, and the secret 
   await expect(page.getByTestId("call-panel")).toContainText('"Region": "eu-west-1"');
   await expect(page.getByTestId("section-replicate")).not.toContainText("This form does not set up replicas");
   await shot(page, "secretsmanager__create-configure");
-  await page.getByTestId("form-submit").click();
+  await advance(page);
   await expect(page.getByTestId("section-rotation")).toBeVisible();
   await expect(page.getByTestId("call-panel")).toContainText("With rotation off, this step adds no call");
   await shot(page, "secretsmanager__create-rotation");
-  await page.getByTestId("form-submit").click();
+  await advance(page);
   await expect(page.getByTestId("review-name")).toHaveText("larder/prod/search-key");
   await shot(page, "secretsmanager__create-review");
-  await page.getByTestId("form-submit").click();
+  await advance(page);
   await expect(page.getByTestId("stored-banner")).toContainText("Secret larder/prod/search-key stored.");
   const d = JSON.parse(cli(["secretsmanager", "describe-secret", "--secret-id", "larder/prod/search-key"]));
   expect([d.KmsKeyId, d.Tags]).toEqual(["alias/larder-app", [{ Key: "app", Value: "search-indexer" }]]);
@@ -137,7 +137,7 @@ test("secretsmanager__secret-overview, secret-value, secret-value-edit: a secret
   await expect(page.getByTestId("call-panel")).toContainText("(masked)");
   await expectCrumbsEnd(page, ["Edit secret value"]);
   await shot(page, "secretsmanager__secret-value-edit");
-  await page.getByTestId("form-submit").click();
+  await advance(page);
   await expect(page.getByTestId("value-saved")).toBeVisible();
   expect(JSON.parse(cli(["secretsmanager", "get-secret-value", "--secret-id", "larder/prod/stripe-key"])).SecretString).toContain("sk_live_EXAMPLE_new");
 });
