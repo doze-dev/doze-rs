@@ -6,7 +6,7 @@ import type { Page } from "@playwright/test";
 import { start, type Running, aws } from "../server";
 import { deadLettered, queueUrl, seedLarder } from "./sqs-seed";
 import { expectCopy } from "./callpanel-kit";
-import { expect, expectNoErrorAnswers, test } from "./fixtures";
+import { advance, expect, expectNoErrorAnswers, test } from "./fixtures";
 import { expectCrumbsEnd } from "./crumbs-kit";
 
 const SHOTS = process.env.SHOTS_DIR ?? join(import.meta.dirname, "../../../../../shots-sqs");
@@ -104,7 +104,7 @@ test("sqs__queue-create and sqs__queue-create-refused: the form, its call, and t
   await expectCopy(page, "boto3", "create_queue");
   await expectCrumbsEnd(page, ["Queues","Create queue"]);
   await shot(page, "sqs__queue-create");
-  await page.getByTestId("form-submit").click();
+  await advance(page);
   await expect(page.getByTestId("create-refused")).toContainText("QueueNameExists");
   await expect(page.getByTestId("create-refused")).toContainText("different value for attribute VisibilityTimeout");
   await expect(page.getByTestId("field-name")).toContainText("A queue with this name already exists, with different attributes.");
@@ -114,7 +114,7 @@ test("sqs__queue-create and sqs__queue-create-refused: the form, its call, and t
   await shot(page, "sqs__queue-create-refused");
   // The same attributes are not a refusal: SQS returns the queue's URL (what an app does on start-up).
   await page.getByTestId("queue-visibility").fill("30");
-  await page.getByTestId("form-submit").click();
+  await advance(page);
   await expect(page.getByTestId("queue-page")).toBeVisible();
 });
 
@@ -138,7 +138,7 @@ test("sqs__queue-create-fifo and sqs__queue-created: a FIFO queue with its own s
   // No FIFO queue is a dead-letter queue yet: the note says there is no good target.
   await expect(page.getByTestId("section-dlq")).toContainText("none is a dead-letter queue yet, so there is no good target. Create one first; SQS does not create it for you.");
   await shot(page, "sqs__queue-create-fifo");
-  await page.getByTestId("form-submit").click();
+  await advance(page);
   await expect(page.getByTestId("created-banner")).toContainText("Queue stock-moves.fifo created. CreateQueue returned its URL");
   await expect(page.getByTestId("detail-sentence")).toContainText("stock-moves.fifo is empty. Every message you send needs a message group ID");
   await expect(page.getByTestId("detail-badge")).toHaveText("FIFO");
@@ -210,14 +210,14 @@ test("sqs__queue-lambda-triggers and sqs__queue-lambda-configure: no trigger, th
   await page.getByRole("option", { name: "export-report" }).click();
   await expect(page.getByTestId("function-arn")).toContainText("function:export-report");
   await expect(page.getByTestId("visibility-check")).toContainText("export-report has a timeout of 2 minutes, longer than this queue's visibility timeout.");
-  await page.getByTestId("form-submit").click();
+  await advance(page);
   await expect(page.getByTestId("trigger-refused")).toContainText("visibility");
   await page.getByRole("combobox", { name: "Choose a function" }).click();
   await page.getByRole("option", { name: "send-email" }).click();
   await expect(page.getByTestId("call-panel-code")).toContainText('"FunctionName": "send-email"');
   await expect(page.getByTestId("call-panel-code")).toContainText(`arn:aws:sqs:us-east-1:${server.account}:pick-lists`);
   await shot(page, "sqs__queue-lambda-configure");
-  await page.getByTestId("form-submit").click();
+  await advance(page);
   await expect(page.getByTestId("trigger-banner")).toContainText("Lambda trigger configured.");
   await expect(page.getByTestId("lambda-triggers")).toContainText("send-email");
   const mappings = cli(["lambda", "list-event-source-mappings", "--event-source-arn", `arn:aws:sqs:us-east-1:${server.account}:pick-lists`]);
@@ -246,12 +246,12 @@ test("sqs__queue-sns-subscriptions and sqs__queue-sns-subscribe: no subscription
   await page.getByRole("combobox", { name: "Choose a topic" }).click();
   await page.getByPlaceholder("Search topics, or enter an ARN…").fill(`arn:aws:sns:us-east-1:${server.account}:not-there`);
   await page.getByRole("option", { name: /Use arn:aws:sns/ }).click();
-  await page.getByTestId("form-submit").click();
+  await advance(page);
   await expect(page.getByTestId("subscribe-refused")).toContainText("The subscription was not made.");
   expect(cli(["sqs", "get-queue-attributes", "--queue-url", url("pick-lists"), "--attribute-names", "Policy"])).toBe(before);
   await page.getByRole("combobox", { name: "Choose a topic" }).click();
   await page.getByRole("option", { name: /orders-created/ }).click();
-  await page.getByTestId("form-submit").click();
+  await advance(page);
   await expect(page.getByTestId("subscribed-banner")).toBeVisible();
   await expect(page.getByTestId("sns-subscriptions")).toContainText("orders-created");
   expect(cli(["sqs", "get-queue-attributes", "--queue-url", url("pick-lists"), "--attribute-names", "Policy"])).toContain("sns.amazonaws.com");
@@ -286,7 +286,7 @@ test("sqs__queue-edit: the settings in their own page, only what changed sent, t
   await expect(page.getByTestId("call-panel-code")).not.toContainText("MessageRetentionPeriod");
   await expectCrumbsEnd(page, ["pick-lists","Edit"]);
   await shot(page, "sqs__queue-edit");
-  await page.getByTestId("form-submit").click();
+  await advance(page);
   await expect(page.getByTestId("updated-banner")).toContainText("Queue pick-lists updated.");
   await expect(page.getByTestId("field-Visibility timeout")).toHaveText("1 minute");
   const attrs = cli(["sqs", "get-queue-attributes", "--queue-url", url("pick-lists"), "--attribute-names", "VisibilityTimeout"]);
@@ -384,7 +384,7 @@ test("sqs__dlq-detail and sqs__dlq-redrive-failed: a message sent straight to th
   await expect(page.getByTestId("call-panel-code")).toContainText(`arn:aws:sqs:us-east-1:${server.account}:pick-lists-dlq`);
   await expect(page.getByTestId("call-panel-code")).not.toContainText("DestinationArn");
   await shot(page, "sqs__dlq-redrive");
-  await page.getByTestId("form-submit").click();
+  await advance(page);
   await page.getByTestId("redrive-refresh").click();
   await expect(page.getByTestId("redrive-fields")).toHaveAttribute("data-status", "FAILED");
   // The start's banner does not stay over a task that failed.
@@ -402,7 +402,7 @@ test("sqs__dlq-redrive-running and -cancelled: a slow redrive is RUNNING, then c
   await page.getByTestId("rate-custom").click();
   await page.getByTestId("redrive-rate").fill("1");
   await expect(page.getByTestId("call-panel-code")).toContainText('"MaxNumberOfMessagesPerSecond": 1');
-  await page.getByTestId("form-submit").click();
+  await advance(page);
   await expect(page.getByTestId("redrive-started-banner")).toBeVisible();
   await expect(page.getByTestId("redrive-fields")).toHaveAttribute("data-status", "RUNNING");
   await expect(page.getByTestId("redrive-Task handle")).toContainText("…");
@@ -424,7 +424,7 @@ test("sqs__dlq-redrive-running and -cancelled: a slow redrive is RUNNING, then c
 test("sqs__dlq-redrive-completed: a message that was dead-lettered goes back to its source and the dead-letter queue is empty", async ({ page }) => {
   deadLettered(server.endpoint, server.account, "moved-source", "moved-dlq", 1);
   await go(page, "/resources/sqs/queues/moved-dlq?view=redrive", "Start DLQ redrive");
-  await page.getByTestId("form-submit").click();
+  await advance(page);
   await page.getByTestId("redrive-refresh").click();
   await expect(page.getByTestId("redrive-fields")).toHaveAttribute("data-status", "COMPLETED");
   await expect(page.getByTestId("redrive-completed-banner")).toContainText("Status COMPLETED. 1 message moved from moved-dlq to moved-source.");

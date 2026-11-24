@@ -1,7 +1,7 @@
 // Resources' second part against a real doze-aws: an IAM role made in three steps from the service it is for and deleted, a log
 // group's streams, a state machine's executions (newest first), a CloudFormation stack's resources and outputs made with the
 // AWS CLI, and Live hiding this console's own calls until asked.
-import { calls, CONSOLE, expect, expectNoErrorAnswers, open, openLive, rows, test, unique } from "./fixtures";
+import { advance, calls, CONSOLE, expect, expectNoErrorAnswers, open, openLive, rows, test, unique } from "./fixtures";
 
 test("a role is made in three steps from the service it is for, opened, and deleted", async ({ page, browserName, refusals }) => {
   const role = unique("handler", browserName);
@@ -11,10 +11,10 @@ test("a role is made in three steps from the service it is for, opened, and dele
   // The trusted entity becomes the trust policy, shown as it is built; the name is the last step's.
   await page.getByTestId("type-service").click();
   await expect(page.getByTestId("trust-json")).toContainText("lambda.amazonaws.com");
-  await page.getByTestId("form-submit").click();
-  await page.getByTestId("form-submit").click();
+  await advance(page);
+  await advance(page);
   await page.getByTestId("role-name").fill(role);
-  await page.getByTestId("form-submit").click();
+  await advance(page);
   await expect(page.getByTestId("created-banner")).toContainText(`Role ${role} created.`);
   await page.getByTestId("view-created").click();
   await expect(page.locator("h1")).toHaveText(role);

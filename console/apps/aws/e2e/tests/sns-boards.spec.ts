@@ -7,7 +7,7 @@ import { join } from "node:path";
 import type { Page } from "@playwright/test";
 import { aws, start, type Running } from "../server";
 import { queueArn, seedLarder, startWebhook, topicArn, type Webhook } from "./sns-seed";
-import { expect, expectNoErrorAnswers, test } from "./fixtures";
+import { advance, expect, expectNoErrorAnswers, test } from "./fixtures";
 
 const SHOTS = process.env.SHOTS_DIR ?? join(import.meta.dirname, "../../../../../shots-sns");
 const BASE = Number(process.env.E2E_BASE_PORT ?? 45200);
@@ -53,7 +53,7 @@ const subs = (topic: string): { SubscriptionArn: string; Protocol: string; Endpo
 test.beforeAll(async ({ browserName }) => {
   browserKind = browserName;
   server = await start(at(browserName), at(browserName) + 1);
-  hook = startWebhook(at(browserName) + 2);
+  hook = startWebhook();
   seedLarder(server.endpoint, server.account);
 });
 test.afterAll(async () => {
@@ -97,7 +97,7 @@ test("sns__topic-create: every setting of a topic, the sentence, and the call it
   await expect(call).toContainText("app = fulfilment");
   await shot(page, "sns__topic-create");
   // It is made: the new topic's page, with its own banner. CreateTopic is idempotent, so the same call again answers the same ARN.
-  await page.getByTestId("form-submit").click();
+  await advance(page);
   await expect(page.getByTestId("created-banner")).toContainText("Topic deliveries-updated created.");
   await expect(page.getByTestId("field-Display name")).toHaveText("larder deliveries");
   expect(cli(["sns", "list-tags-for-resource", "--resource-arn", ARN("deliveries-updated")])).toContain("fulfilment");
@@ -127,7 +127,7 @@ test("sns__topic-create-refused: a FIFO name without .fifo is refused, and the f
   await go(page, "/resources/sns/topics?create=yes", "Create topic");
   await page.getByTestId("type-fifo").click();
   await page.getByTestId("topic-name").fill("orders-events");
-  await page.getByTestId("form-submit").click();
+  await advance(page);
   await expect(page.getByTestId("create-refused")).toContainText("CreateTopic returned InvalidParameter:");
   await expect(page.getByTestId("create-refused")).not.toContainText("Exception");
   await expect(page.getByTestId("create-refused")).toContainText("For a FIFO topic, the name must end with the .fifo suffix.");
@@ -143,14 +143,14 @@ test("an invalid name is marked on its field and brought into view, and a missin
   refusals.allow(/404 GET .*\/sns\/topics\/no-such-topic$/);
   await go(page, "/resources/sns/topics?create=yes", "Create topic");
   await page.getByTestId("topic-name").fill("bad name!");
-  await page.getByTestId("form-submit").click();
+  await advance(page);
   await expect(page.getByTestId("field-name")).toContainText("1 to 256 characters: letters, numbers, underscores and hyphens.");
   await expect(page.getByTestId("field-name")).toHaveAttribute("data-refused", "");
   await expect(page.getByTestId("topic-name")).toBeFocused();
   await expect(page.getByTestId("topic-name")).toBeInViewport();
   await go(page, "/resources/sns/topics?create=yes", "Create topic");
   await page.getByTestId("topic-name").fill("n".repeat(257));
-  await page.getByTestId("form-submit").click();
+  await advance(page);
   await expect(page.getByTestId("topic-name")).toBeFocused();
   await expect(page.getByTestId("disabled-why")).toContainText("1 to 256 characters");
   // A topic that is not there: the service's own words and code, and no advice to check that doze-aws runs (it answered).
@@ -167,7 +167,7 @@ test("sns__topic-created and sns__topic-subscriptions-none: the FIFO topic is ma
   await go(page, "/resources/sns/topics?create=yes", "Create topic");
   await page.getByTestId("type-fifo").click();
   await page.getByTestId("topic-name").fill(FIFO);
-  await page.getByTestId("form-submit").click();
+  await advance(page);
   await expect(page.getByTestId("created-banner")).toContainText(`Topic ${FIFO} created.`);
   await expect(page.getByTestId("detail-sentence")).toContainText("orders-events.fifo has no subscriptions yet, so a publish would reach nobody. Subscribe the FIFO queue orders-events.fifo from SQS to start delivering.");
   await expect(page.getByTestId("detail-badge")).toHaveText("FIFO");
@@ -205,7 +205,7 @@ test("sns__subscription-create and sns__subscription-detail: a FIFO queue subscr
   await expect(call).toContainText("Subscribe");
   await expect(call).toContainText("FilterPolicy");
   await shot(page, "sns__subscription-create");
-  await page.getByTestId("form-submit").click();
+  await advance(page);
   await expect(page.getByTestId("created-banner")).toContainText("Subscription created.");
   await expect(page.locator("h1")).toContainText("…");
   await expect(page.getByTestId("detail-sentence")).toHaveText("Messages published to orders-events.fifo reach the queue orders-events.fifo only when their event attribute is order_placed or order_cancelled. Raw message delivery is off.");
@@ -229,7 +229,7 @@ test("sns__subscription-create-http: a webhook must confirm, and the answer is p
   await expect(page.getByTestId("section-filter-summary")).toHaveText("No filter policy: every message published to the topic is delivered");
   await expect(page.getByTestId("call-panel-code").first()).toContainText("Protocol = http");
   await shot(page, "sns__subscription-create-http");
-  await page.getByTestId("form-submit").click();
+  await advance(page);
   // Pending: the subscription has an ARN already (ReturnSubscriptionArn), so its page opens, saying it waits.
   await expect(page.getByTestId("created-banner")).toContainText("Subscribe returned pending confirmation");
   await expect(page.getByTestId("field-Status")).toHaveText("Pending confirmation");
@@ -248,7 +248,7 @@ test("sns__subscription-create-lambda: a function in the account is confirmed at
   await expect(page.getByTestId("field-protocol")).toContainText("The Lambda function is invoked with the payload of the published message.");
   await expect(page.getByTestId("call-panel-code").first()).toContainText("Protocol = lambda");
   await shot(page, "sns__subscription-create-lambda");
-  await page.getByTestId("form-submit").click();
+  await advance(page);
   await expect(page.getByTestId("created-banner")).toContainText("It is confirmed at once");
   // The seeded world has three queues on orders-created: the function's subscription is taken away again.
   const mine = subs("orders-created").find((s) => s.Protocol === "lambda");
@@ -428,7 +428,7 @@ test("sns__publish-message: one message, a custom payload for each protocol, and
   await expect(page.getByTestId("who-gets-what")).toContainText("the sqs text");
   await expect(page.getByTestId("call-panel-code").first()).toContainText("MessageStructure = json");
   await shot(page, "sns__publish-message");
-  await page.getByTestId("form-submit").click();
+  await advance(page);
   await expect(page.getByTestId("published-banner")).toBeVisible();
   const got = JSON.parse(cli(["sqs", "receive-message", "--queue-url", `${server.endpoint}/${server.account}/invoice-queue`, "--max-number-of-messages", "10"])) as { Messages: { Body: string }[] };
   // The queue is given the text of the sqs key of the custom payload (after the one the earlier CLI publish left).
@@ -450,7 +450,7 @@ test("sns__publish-fifo, sns__publish-fifo-refused and sns__topic-published: a g
   await expect(page.getByTestId("filter-verdict")).toHaveText("Matches, delivered");
   await expect(page.getByTestId("filter-preview")).toContainText("event in [order_placed, order_cancelled]");
   // Refused first: no deduplication ID.
-  await page.getByTestId("form-submit").click();
+  await advance(page);
   await expect(page.getByTestId("publish-refused")).toContainText("Nothing was published.");
   await expect(page.getByTestId("publish-refused")).toContainText("MessageDeduplicationId");
   await expect(page.getByTestId("field-dedup")).toContainText("Required: this topic does not have ContentBasedDeduplication set.");
@@ -463,7 +463,7 @@ test("sns__publish-fifo, sns__publish-fifo-refused and sns__topic-published: a g
   await expect(page.getByTestId("call-panel-code").first()).toContainText("MessageDeduplicationId");
   await expect(page.getByTestId("call-panel-code").first()).toContainText("order-10482-placed");
   await shot(page, "sns__publish-fifo");
-  await page.getByTestId("form-submit").click();
+  await advance(page);
   await expect(page.getByTestId("published-banner")).toContainText("Message published.");
   await expect(page.getByTestId("detail-sentence")).toHaveText("The message in group order-10482 went to 1 of 1 confirmed subscription: orders-events.fifo. It matched the filter policy (event in [order_placed, order_cancelled]).");
   await expect(page.getByTestId("published-message-id")).not.toBeEmpty();
@@ -495,7 +495,7 @@ test("sns__topic-edit: only what changed is sent, one call each, and the tags in
   await expect(call).toContainText("one call for each setting you changed");
   await expect(page.getByTestId("section-logging")).toContainText("Delivery status logging");
   await shot(page, "sns__topic-edit");
-  await page.getByTestId("form-submit").click();
+  await advance(page);
   await expect(page.getByTestId("updated-banner")).toBeVisible();
   const attrs = JSON.parse(cli(["sns", "get-topic-attributes", "--topic-arn", ARN("orders-created")])) as { Attributes: Record<string, string> };
   expect(attrs.Attributes.MaximumMessageSize).toBe("524288");
@@ -521,7 +521,7 @@ test("sns__subscription-edit: raw delivery and a dead-letter queue, one call eac
   await expect(call).toContainText("SetSubscriptionAttributes");
   await expect(call).toContainText("RedrivePolicy");
   await shot(page, "sns__subscription-edit");
-  await page.getByTestId("form-submit").click();
+  await advance(page);
   await expect(page.getByTestId("updated-banner")).toBeVisible();
   await expect(page.getByTestId("field-Raw message delivery")).toHaveText("Enabled");
   await expect(page.getByTestId("redrive-section")).toContainText("orders-events-dlq.fifo");
@@ -564,7 +564,7 @@ test("sns__topic-archive: a FIFO topic's archive policy, set on its Edit page an
   await expect(page.getByTestId("section-archive")).toContainText("Message archiving keeps a single copy of all messages published to the topic");
   await page.getByTestId("topic-archive").fill("7");
   await expect(page.getByTestId("call-panel-code").first()).toContainText("MessageRetentionPeriod");
-  await page.getByTestId("form-submit").click();
+  await advance(page);
   await expect(page.getByTestId("updated-banner")).toBeVisible();
   await page.goto(`${server.console}${topicPath(FIFO, "?tab=archive")}`);
   await expect(page.getByTestId("detail-sentence")).toContainText("orders-events.fifo has an archive policy of 7 days, set on the Edit topic page after the topic was created. Nothing is archived or replayable locally");

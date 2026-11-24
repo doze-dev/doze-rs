@@ -1,6 +1,6 @@
 // The 22 KMS boards, each reached against a real doze-aws (one per browser, seeded as the boards' "larder" world with the real AWS
 // CLI) and, in Chromium, photographed light and dark into SHOTS_DIR.
-import { expect, test } from "./fixtures";
+import { advance, press, expect, test } from "./fixtures";
 import { start, type Running } from "../server";
 import { seedKmsetc } from "./kmsetc-seed";
 import { cliOf, keyOf, open, portsFor, shoot } from "./kmsetc-kit";
@@ -67,12 +67,12 @@ test("kms__key-schedule-deletion, kms__keys-deletion-scheduled: a waiting period
   await page.getByTestId("deletion-days").fill("3");
   await expect(page.getByTestId("deletion-ends")).toContainText("Enter a whole number of days from 7 to 30");
   await page.getByTestId("deletion-days").fill("7");
-  await page.getByTestId("form-submit").click();
+  await advance(page);
   await expect(page.getByTestId("confirm-problem")).toBeVisible();
   await page.getByTestId("confirm-deletion").click();
   await expectCrumbsEnd(page, ["Schedule key deletion"]);
   await shot(page, "kms__key-schedule-deletion");
-  await page.getByTestId("form-submit").click();
+  await advance(page);
   await expect(page.getByTestId("scheduled-note")).toContainText("Cancel key deletion puts larder-legacy back in Disabled");
   await expect(page.getByTestId("list-sentence")).toContainText("larder-legacy changed to Pending deletion and will be deleted on");
   await expect(page.getByTestId("list-sentence")).toContainText("2 pending deletion");
@@ -97,9 +97,9 @@ test("kms__key-create ... kms__key-create-review: six steps, and the key is made
   await expect(page.getByTestId("key-spec")).toBeVisible();
   await page.getByTestId("kind-symmetric").click();
   await shot(page, "kms__key-create");
-  await page.getByTestId("form-submit").click();
+  await advance(page);
   await expect(page.locator("h1").first()).toHaveText("Add labels");
-  await page.getByTestId("form-submit").click();
+  await press(page);
   await expect(page.getByTestId("field-alias")).toContainText("Enter an alias");
   await page.getByTestId("key-alias").fill("larder-app");
   await expect(page.getByTestId("field-alias")).toContainText("larder-app is already an alias");
@@ -110,26 +110,26 @@ test("kms__key-create ... kms__key-create-review: six steps, and the key is made
   await page.getByTestId("key-tags").getByRole("textbox").nth(1).fill("larder");
   await expect(page.getByTestId("call-panel")).toContainText("CreateAlias");
   await shot(page, "kms__key-create-labels");
-  await page.getByTestId("form-submit").click();
+  await advance(page);
   await expect(page.locator("h1").first()).toHaveText("Define key administrative permissions");
   await page.getByTestId(`select-${ROLE("larder-admin")}`).check();
   await expect(page.getByTestId("admins-statement")).toContainText("Allow access for Key Administrators");
   await expect(page.getByTestId("call-panel")).toContainText("{ 2 statements }");
   await shot(page, "kms__key-create-admins");
-  await page.getByTestId("form-submit").click();
+  await advance(page);
   await page.getByTestId(`select-${ROLE("report-job")}`).check();
   await expect(page.getByTestId("users-statement")).toContainText("Allow attachment of persistent resources");
   await expect(page.getByTestId("principal-line-role/report-job")).toHaveText("report-job reads reports/* in S3 through its report-job-readonly policy.");
   await expect(page.getByTestId("call-panel")).toContainText("{ 4 statements }");
   await shot(page, "kms__key-create-users");
-  await page.getByTestId("form-submit").click();
+  await advance(page);
   await expect(page.getByTestId("policy-json")).toContainText("Enable IAM User Permissions");
   await shot(page, "kms__key-create-policy");
-  await page.getByTestId("form-submit").click();
+  await advance(page);
   await expect(page.getByTestId("review-alias")).toHaveText("larder-reports");
   await expect(page.getByTestId("review-note")).toContainText("single-Region key");
   await shot(page, "kms__key-create-review");
-  await page.getByTestId("form-submit").click();
+  await advance(page);
   await expect(page.getByTestId("created-banner")).toContainText("Key larder-reports created.");
   const made = keyOf(cli, "larder-reports");
   const key = JSON.parse(cli(["kms", "describe-key", "--key-id", made])).KeyMetadata;
@@ -164,7 +164,7 @@ test("kms__key-detail, kms__key-policy-edit, kms__key-crypto: a key's page, its 
   await expectCrumbsEnd(page, ["Edit key policy"]);
   await shot(page, "kms__key-policy-edit");
   await page.getByTestId("statement-add").click();
-  await page.getByTestId("form-submit").click();
+  await advance(page);
   await expect(page.getByTestId("key-page")).toBeVisible();
   expect(JSON.parse(cli(["kms", "get-key-policy", "--key-id", app, "--policy-name", "default"])).Policy).toContain("Statement5");
   // The policy now has a statement the console did not write: it is shown as the JSON it is.
@@ -219,12 +219,12 @@ test("kms__key-rotation, kms__key-rotation-edit: rotation status, Rotate now and
   await page.getByTestId("rotation-edit").click();
   await expect(page.getByTestId("rotation-edit-page")).toBeVisible();
   await page.getByTestId("rotation-days").fill("50");
-  await page.getByTestId("form-submit").click();
+  await advance(page);
   await expect(page.getByTestId("field-period")).toContainText("90 to 2,560");
   await page.getByTestId("rotation-days").fill("180");
   await expect(page.getByTestId("call-panel")).toContainText('"RotationPeriodInDays": 180');
   await shot(page, "kms__key-rotation-edit");
-  await page.getByTestId("form-submit").click();
+  await advance(page);
   await expect(page.getByTestId("rotation-enabled")).toContainText("true");
   expect(JSON.parse(cli(["kms", "get-key-rotation-status", "--key-id", app])).RotationPeriodInDays).toBe(180);
   await page.getByTestId("rotate-now").click();

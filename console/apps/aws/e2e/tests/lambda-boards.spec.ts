@@ -6,7 +6,7 @@ import type { Page } from "@playwright/test";
 import { start, type Running, aws } from "../server";
 import { expectCopy } from "./callpanel-kit";
 import { expectCrumbsEnd } from "./crumbs-kit";
-import { expect, expectNoErrorAnswers, test } from "./fixtures";
+import { advance, expect, expectNoErrorAnswers, test, pickFrom } from "./fixtures";
 import { invoke, seedLarder, zipOf } from "./lambda-seed";
 
 const SHOTS = process.env.SHOTS_DIR ?? join(import.meta.dirname, "../../../../../shots-lambda");
@@ -47,8 +47,7 @@ const go = async (page: Page, path: string, title: string | RegExp) => {
 const fn = (name: string, search = "") => `/resources/lambda/functions/${name}${search}`;
 const code = (page: Page) => page.getByTestId("call-panel-code");
 const choose = async (page: Page, combobox: string, option: string | RegExp) => {
-  await page.getByRole("combobox", { name: combobox }).click();
-  await page.getByRole("option", { name: option }).click();
+  await pickFrom(page, combobox, option, { exact: false });
 };
 
 test.beforeAll(async ({ browserName }) => {
@@ -96,7 +95,7 @@ test("lambda__function-create and lambda__function-created: the form, the call i
   await expect(page.getByTestId("author-off")).toHaveCount(2);
   await expect(page.getByTestId("role-create-off")).toContainText("Not in this form");
   await shot(page, "lambda__function-create");
-  await page.getByTestId("form-submit").click();
+  await advance(page);
   await expect(page.getByTestId("function-page")).toBeVisible();
   await expect(page.getByTestId("done-banner")).toContainText("weekly-digest was created.");
   await expect(page.getByTestId("detail-sentence")).toContainText("weekly-digest was created a moment ago with the Hello world example. It has no trigger yet, and runs as lambda-exec.");
@@ -268,7 +267,7 @@ test("lambda__function-config and lambda__config-edit: the general settings, and
   await shot(page, "lambda__config-edit");
   // A value out of range is said and not sent.
   await page.getByTestId("cfg-memory").fill("64");
-  await page.getByTestId("form-submit").click();
+  await advance(page);
   await expect(page.getByTestId("field-memory")).toContainText("Memory is a whole number from 128 to 10,240 MB.");
   await page.getByTestId("form-cancel").click();
   await expect(page.getByTestId("general-card")).toContainText("256 MB");
@@ -276,7 +275,7 @@ test("lambda__function-config and lambda__config-edit: the general settings, and
   await go(page, fn("dispatch-hook", "?tab=configuration&p=general&view=config-edit"), "Edit General configuration");
   await page.getByTestId("cfg-memory").fill("192");
   await page.getByTestId("cfg-timeout").fill("12");
-  await page.getByTestId("form-submit").click();
+  await advance(page);
   await expect(page.getByTestId("done-banner")).toContainText("The configuration of dispatch-hook was saved.");
   await expect(page.getByTestId("general-card")).toContainText("192 MB");
   await expect(page.getByTestId("general-card")).toContainText("12 seconds");
@@ -303,7 +302,7 @@ test("lambda__function-env, lambda__env-edit and lambda__env-none: the variables
   await shot(page, "lambda__env-edit");
   // A key Lambda reserves is said before it is sent.
   await page.getByTestId("env-kv-key-3").fill("AWS_REGION");
-  await page.getByTestId("form-submit").click();
+  await advance(page);
   await expect(page.getByTestId("env-problem-3")).toContainText("AWS_REGION is a variable Lambda sets itself");
   await page.getByTestId("form-cancel").click();
   await go(page, fn("dispatch-hook", "?tab=configuration&p=env"), "dispatch-hook");
@@ -313,7 +312,7 @@ test("lambda__function-env, lambda__env-edit and lambda__env-none: the variables
   await page.getByRole("button", { name: "Add environment variable" }).click();
   await page.getByTestId("env-kv-key-0").fill("GREETING");
   await page.getByTestId("env-kv-value-0").fill("hello");
-  await page.getByTestId("form-submit").click();
+  await advance(page);
   await expect(page.getByTestId("done-banner")).toContainText("The environment variables of dispatch-hook were saved.");
   await expect(page.getByTestId("env-key")).toHaveText(["GREETING"]);
 });
@@ -342,7 +341,7 @@ test("lambda__function-triggers, lambda__trigger-edit and lambda__triggers-none:
   await expect(code(page)).toContainText('"UUID"');
   await expect(page.getByTestId("field-batch")).toContainText("Changed from 10.");
   await shot(page, "lambda__trigger-edit");
-  await page.getByTestId("form-submit").click();
+  await advance(page);
   await expect(page.getByTestId("done-banner")).toContainText("Trigger saved.");
   await expect(page.getByRole("table", { name: "Triggers" })).toContainText("batch size 5");
   cli(["lambda", "update-event-source-mapping", "--uuid", cli(["lambda", "list-event-source-mappings", "--function-name", "send-email", "--query", "EventSourceMappings[0].UUID", "--output", "text"]).trim(), "--batch-size", "10"]);
@@ -384,7 +383,7 @@ test("lambda__trigger-add: an SQS mapping, with the visibility timeout it needs"
   // Added for real on the function that has no trigger (its timeout is within the queue's visibility timeout).
   await go(page, fn("dispatch-hook", "?tab=configuration&p=triggers&view=trigger-add"), "Add trigger");
   await choose(page, "Choose a queue", "analytics-queue");
-  await page.getByTestId("form-submit").click();
+  await advance(page);
   await expect(page.getByTestId("done-banner")).toContainText("Trigger added.");
   await expect(page.getByRole("table", { name: "Triggers" })).toContainText("analytics-queue");
   // The trigger is taken away from its own page: Delete needs a row, and the call is DeleteEventSourceMapping.
@@ -400,7 +399,7 @@ test("lambda__trigger-add: an SQS mapping, with the visibility timeout it needs"
   await go(page, fn("dispatch-hook", "?tab=configuration&p=triggers&view=trigger-add"), "Add trigger");
   await choose(page, "Choose a queue", "invoice-queue");
   await expect(page.getByTestId("visibility-note")).toContainText("which is shorter than the timeout: Lambda refuses the mapping.");
-  await page.getByTestId("form-submit").click();
+  await advance(page);
   await expect(page.getByTestId("call-panel-came-back")).toBeVisible();
   cli(["lambda", "update-function-configuration", "--function-name", "dispatch-hook", "--timeout", "12"]);
 });
@@ -435,7 +434,7 @@ test("lambda__destination-add: where the asynchronous invocations report, and th
   await expect(page.getByTestId("call-panel").getByText("Update changes only the member you send. Put would replace the whole async configuration.")).toBeVisible();
   await expect(page.getByTestId("field-target")).toContainText("sqs:SendMessage");
   await shot(page, "lambda__destination-add");
-  await page.getByTestId("form-submit").click();
+  await advance(page);
   await expect(page.getByTestId("done-banner")).toContainText("Destination saved.");
   expect(cli(["lambda", "get-function-event-invoke-config", "--function-name", "send-email"])).toContain("analytics-queue");
 });
@@ -475,7 +474,7 @@ test("lambda__function-permissions, lambda__permission-add and lambda__permissio
   await expect(page.getByTestId("perm-action")).toHaveValue("lambda:InvokeFunction");
   await expect(page.getByTestId("perm-action")).toHaveJSProperty("tagName", "INPUT");
   await shot(page, "lambda__permission-add");
-  await page.getByTestId("form-submit").click();
+  await advance(page);
   await expect(page.getByTestId("done-banner")).toContainText("Permission added.");
   await expect(page.getByRole("table", { name: "Resource-based policy statements" })).toContainText("s3-receipts");
   // The statement just added is taken away again from the same table.
@@ -510,7 +509,7 @@ test("lambda__function-url, lambda__url-create and lambda__function-url-created:
   await expect(code(page)).toContainText('"MaxAge": 5');
   await expect(page.getByTestId("call-panel").getByText("No Qualifier, so the URL is for $LATEST.")).toBeVisible();
   await shot(page, "lambda__url-create");
-  await page.getByTestId("form-submit").click();
+  await advance(page);
   await expect(page.getByTestId("done-banner")).toContainText("A function URL was created for the $LATEST unpublished version.");
   await expect(page.getByTestId("header-url")).toContainText(".lambda-url.us-east-1.localhost");
   const card = page.getByTestId("url-card");
@@ -559,7 +558,7 @@ test("lambda__function-aliases, lambda__alias-create and lambda__aliases-none: t
   await expect(page.getByTestId("field-version")).toContainText("send-email has versions 1, 2, 3; live points at 2, staging points at 3.");
   await expect(page.getByTestId("section-weighted")).toContainText("Weighted alias");
   await shot(page, "lambda__alias-create");
-  await page.getByTestId("form-submit").click();
+  await advance(page);
   await expect(page.getByTestId("done-banner")).toContainText("Alias created.");
   await expect(page.getByRole("table", { name: "Aliases" }).locator("tbody tr[data-row]")).toHaveCount(3);
   // An alias is taken away from its row (one made for the purpose, so the three the later boards name stay).
@@ -659,7 +658,7 @@ test("lambda__layer-add: a layer of this account and one of its versions, set on
   await expect(code(page)).toContainText('"Layers": [');
   await expect(page.getByTestId("layer-limits")).toContainText("up to five layers");
   await shot(page, "lambda__layer-add");
-  await page.getByTestId("form-submit").click();
+  await advance(page);
   await expect(page.getByTestId("done-banner")).toContainText("Layer added.");
   await expect(page.getByTestId("layers-list")).toContainText("larder-shared");
   await expect(page.getByTestId("layers-list")).toContainText("version 3");
@@ -690,7 +689,7 @@ test("lambda__layer-create: a name, a .zip, its compatibility, and the call", as
   await expect(code(page)).toContainText('"LicenseInfo": "MIT"');
   await expect(code(page)).toContainText("<fn.zip>");
   await shot(page, "lambda__layer-create");
-  await page.getByTestId("form-submit").click();
+  await advance(page);
   await expect(page.getByTestId("published-banner")).toContainText("mail-templates version 1 was published.");
   expect(cli(["lambda", "list-layers", "--query", "Layers[].LayerName", "--output", "text"])).toContain("mail-templates");
 });

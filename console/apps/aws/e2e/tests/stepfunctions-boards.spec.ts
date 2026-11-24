@@ -5,7 +5,7 @@ import { join } from "node:path";
 import type { Page } from "@playwright/test";
 import { start, type Running, aws } from "../server";
 import { expectCopy } from "./callpanel-kit";
-import { expect, expectNoErrorAnswers, test } from "./fixtures";
+import { advance, expect, expectNoErrorAnswers, test, pickFrom } from "./fixtures";
 import { type Larder, seedLarder } from "./stepfunctions-seed";
 import { expectCrumbsEnd } from "./crumbs-kit";
 
@@ -50,8 +50,7 @@ const execution = (name: string) => `/resources/stepfunctions/executions/${encod
 const rows = (page: Page, label: string) => page.getByRole("table", { name: label }).locator("tbody tr[data-row]");
 const code = (page: Page) => page.getByTestId("call-panel-code");
 const choose = async (page: Page, combobox: string, option: string | RegExp) => {
-  await page.getByRole("combobox", { name: combobox }).click();
-  await page.getByRole("option", { name: option }).click();
+  await pickFrom(page, combobox, option, { exact: false });
 };
 
 test.beforeAll(async ({ browserName }) => {
@@ -183,7 +182,7 @@ test("stepfunctions__machine-create-code, create-config, create-role and machine
   await expect(code(page)).toContainText('"key": "app"');
   await expectCopy(page, "cli", "stepfunctions create-state-machine --name stock-reorder");
   await shot(page, "stepfunctions__machine-create-config");
-  await page.getByTestId("form-submit").click();
+  await advance(page);
   const dialog = page.getByTestId("role-dialog");
   await expect(dialog).toContainText("Step Functions creates a new IAM role for stock-reorder and then creates the state machine.");
   await expect(page.getByTestId("role-warning")).toContainText("If you delete this role, Step Functions can't recreate it.");
@@ -331,7 +330,7 @@ test("stepfunctions__machine-aliases, alias-create and machine-aliases-none: the
   await expect(page.getByText("Each percentage is 0 to 100 and the two must add up to 100: 90 + 10 = 100.")).toBeVisible();
   await expectCrumbsEnd(page, ["order-fulfilment","Aliases","Create alias"]);
   await shot(page, "stepfunctions__alias-create");
-  await page.getByTestId("form-submit").click();
+  await advance(page);
   await expect(page.getByTestId("done-banner")).toContainText("Alias created.");
   await expect(rows(page, "Aliases").filter({ hasText: "CANARY" })).toContainText("Version 2, 90% · Version 3, 10%");
   await go(page, machine("thumbnail-batch", "?tab=aliases"), "thumbnail-batch");
@@ -355,7 +354,7 @@ test("stepfunctions__machine-tags, tags-none and tags-manage: the tags, a machin
   await expect(code(page)).toContainText('"key": "cost-center"');
   await expectCrumbsEnd(page, ["Tags","Manage tags"]);
   await shot(page, "stepfunctions__machine-tags-manage");
-  await page.getByTestId("form-submit").click();
+  await advance(page);
   await expect(rows(page, "Tags")).toHaveCount(4);
   const arn = `arn:aws:states:us-east-1:${server.account}:stateMachine:order-fulfilment`;
   expect(cli(["stepfunctions", "list-tags-for-resource", "--resource-arn", arn])).toContain("cost-center");
@@ -523,13 +522,13 @@ test("stepfunctions__activities-list and activity-create: the workers' tasks, an
   await expect(code(page)).not.toContainText("encryptionConfiguration");
   await expectCrumbsEnd(page, ["Activities","Create activity"]);
   await shot(page, "stepfunctions__activity-create");
-  await page.getByTestId("form-submit").click();
+  await advance(page);
   await expect(page.getByTestId("created-banner")).toContainText("Activity inspect-order created.");
   await expect(rows(page, "Activities")).toHaveCount(3);
   // A name that exists returns the existing activity: the page says so and does not claim to have made one.
   await page.getByTestId("create-open").click();
   await page.getByTestId("activity-name-input").fill("pack-order");
-  await page.getByTestId("form-submit").click();
+  await advance(page);
   await expect(page.getByTestId("created-banner")).toContainText("Activity pack-order already exists.");
   await expect(page.getByTestId("created-banner")).not.toContainText("created.");
   await expect(rows(page, "Activities")).toHaveCount(3);

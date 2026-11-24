@@ -8,7 +8,7 @@ import { start, type Running, aws } from "../server";
 import { keyParam } from "../../src/pages/resources/dynamodb/item-rows";
 import { seedLarder } from "./dynamodb-seed";
 import { expectCopy } from "./callpanel-kit";
-import { expect, expectNoErrorAnswers, test } from "./fixtures";
+import { advance, expect, expectNoErrorAnswers, test } from "./fixtures";
 
 const SHOTS = process.env.SHOTS_DIR ?? join(import.meta.dirname, "../../../../../shots-dynamodb");
 const BASE = Number(process.env.E2E_BASE_PORT ?? 44800);
@@ -95,7 +95,7 @@ test("dynamodb__table-create and table-create-exists: a name and a key, the call
   await expect(code(page)).toContainText('"AttributeName": "delivery_id"');
   await expectCopy(page, "cli", "dynamodb create-table");
   await shot(page, "dynamodb__table-create");
-  await page.getByTestId("form-submit").click();
+  await advance(page);
   await expect(page.getByTestId("create-refused")).toContainText("The table was not created.");
   await expect(page.getByTestId("create-refused")).toContainText("ResourceInUseException");
   await expect(page.getByTestId("create-refused")).toContainText("Retrying the same request will not help.");
@@ -122,7 +122,7 @@ test("dynamodb__table-create-custom and table-created: capacity, encryption and 
   await expect(code(page)).toContainText('"Key": "owner"');
   await expect(code(page)).toContainText('"KeyType": "RANGE"');
   await shot(page, "dynamodb__table-create-custom");
-  await page.getByTestId("form-submit").click();
+  await advance(page);
   await expect(page.getByTestId("created-banner")).toContainText("stock-moves was created and is Active.");
   await expect(page.getByTestId("created-banner")).toContainText("here it is ready at once");
   await expect(page.getByRole("table", { name: "Tables" }).locator("tbody tr[data-row]")).toHaveCount(4);
@@ -190,7 +190,7 @@ test("dynamodb__table-indexes, index-create, index-created and index-delete: the
   await expect(code(page)).toContainText('"ProjectionType": "ALL"');
   await expect(page.getByTestId("index-note")).toContainText("one index can be created or deleted per request");
   await shot(page, "dynamodb__index-create");
-  await page.getByTestId("form-submit").click();
+  await advance(page);
   await expect(page.getByTestId("result-banner")).toContainText("by-status was created from the table's 7 items;");
   await expect(page.getByTestId("global-indexes")).toContainText("by-status");
   await shot(page, "dynamodb__index-created");
@@ -284,7 +284,7 @@ test("dynamodb__table-settings, capacity-edit and ttl-edit: capacity, Time to Li
   await expect(code(page)).toContainText('"ReadCapacityUnits": 20');
   await expect(code(page)).toContainText('"BillingMode": "PROVISIONED"');
   await shot(page, "dynamodb__capacity-edit");
-  await page.getByTestId("form-submit").click();
+  await advance(page);
   await expect(page.getByTestId("result-banner")).toContainText("Read/write capacity updated.");
   await go(page, `${T}/orders-table?tab=settings`, "orders-table");
   await expect(page.getByTestId("capacity")).toContainText("20");
@@ -293,7 +293,7 @@ test("dynamodb__table-settings, capacity-edit and ttl-edit: capacity, Time to Li
   await page.getByTestId("ttl-attribute").fill("expires_at");
   await expect(code(page)).toContainText('"AttributeName": "expires_at"');
   await shot(page, "dynamodb__ttl-edit");
-  await page.getByTestId("form-submit").click();
+  await advance(page);
   await expect(page.getByTestId("result-banner")).toContainText("Time to Live is on for orders-table.");
   await expect(page.getByTestId("fact-TimeToLiveStatus")).toContainText("ENABLED");
   await expect(page.getByTestId("fact-AttributeName")).toHaveText("expires_at");
@@ -386,7 +386,7 @@ test("dynamodb__item-create and item-edit: an item as rows, its keys fixed, save
   await expect(code(page)).toContainText('"N": "24.90"');
   await expect(code(page)).toContainText('"S": "ord-20261108-0431"');
   await shot(page, "dynamodb__item-create");
-  await page.getByTestId("form-submit").click();
+  await advance(page);
   await expect(page.getByTestId("item-banner")).toContainText("Item created.");
   expect(cli(["dynamodb", "get-item", "--table-name", "orders-table", "--key", JSON.stringify({ order_id: { S: "ord-20261108-0431" }, created_at: { S: "2026-11-08T08:14:07Z" } })])).toContain("24.9");
   // Edit the first order of cus-1042.
@@ -399,7 +399,7 @@ test("dynamodb__item-create and item-edit: an item as rows, its keys fixed, save
   await page.getByTestId("attr-delivered_at").getByTestId("attr-value").fill("2026-11-07T10:42:18Z");
   await expect(code(page)).toContainText('"delivered_at"');
   await shot(page, "dynamodb__item-edit");
-  await page.getByTestId("form-submit").click();
+  await advance(page);
   await expect(page.getByTestId("item-banner")).toContainText("Item saved.");
   expect(cli(["dynamodb", "get-item", "--table-name", "orders-table", "--key", key])).toContain("delivered_at");
 });

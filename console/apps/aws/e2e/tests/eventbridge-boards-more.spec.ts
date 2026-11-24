@@ -7,7 +7,7 @@ import type { Page } from "@playwright/test";
 import { aws, start, type Running } from "../server";
 import { putEvent, seedLarder } from "./eventbridge-seed";
 import { copyCall } from "./callpanel-kit";
-import { expect, expectNoErrorAnswers, test } from "./fixtures";
+import { advance, expect, expectNoErrorAnswers, test } from "./fixtures";
 
 const SHOTS = process.env.SHOTS_DIR ?? join(import.meta.dirname, "../../../../../shots-eventbridge");
 const BASE = Number(process.env.E2E_BASE_PORT ?? 45458);
@@ -43,7 +43,7 @@ const go = async (page: Page, path: string, title: string | RegExp) => {
   await page.goto(`${server.console}${path}`);
   await expect(page.locator("h1").first()).toHaveText(title);
 };
-const submit = (page: Page) => page.getByTestId("form-submit").click();
+const submit = (page: Page) => advance(page);
 
 test.beforeAll(async ({ browserName }) => {
   browserKind = browserName;
