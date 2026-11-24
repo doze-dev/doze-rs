@@ -159,3 +159,102 @@ queue:
 module-tags:
     git fetch -q --tags origin
     for m in $(git tag -l 'module/*' | cut -d/ -f2 | sort -u); do echo "$m $(git tag -l "module/$m/v*" --sort=-v:refname | head -1)"; done
+
+# ── Cleanup ─────────────────────────────────────────────────────────────────────────────────────────────────────────
+# These delete only what git ignores: a path is deleted when `git check-ignore` says it is ignored and no tracked file
+# is inside it. Each lists what it would delete, with sizes, then asks; a last argument `yes` skips the question.
+
+# What the cleanup recipes would free, biggest first (deletes nothing).
+clean-sizes:
+    @for p in target target-* spikes/*/target crates/*/fuzz/target crates/*/fuzz/corpus crates/*/fuzz/artifacts web/node_modules web/e2e/node_modules console/node_modules console/*/*/node_modules shots-*; do \
+      if [ -e "$p" ]; then du -sh "$p" 2>/dev/null; fi; done | sort -rh | head -25
+
+# The workspace's build output (target/).
+clean yes="": (_clean yes "target")
+
+# Test leftovers: Playwright results and reports, the consoles' .tmp, screenshot folders, TypeScript build info.
+clean-tests yes="": (_clean yes "console/*test-results" "console/*playwright-report" "console/*.tmp" "console/*.tsbuildinfo" "web/*test-results" "web/*.tmp" "web/*.tsbuildinfo" "shots-*")
+
+# The fuzz targets' builds, grown corpora and crash artifacts (the committed seeds stay).
+clean-fuzz yes="": (_clean yes "crates/*/fuzz/target" "crates/*/fuzz/corpus" "crates/*/fuzz/artifacts")
+
+# Other build folders: the spikes' own targets and any target-<name> beside target/.
+clean-extra yes="": (_clean yes "spikes/*/target" "target-*")
+
+# The consoles' installed packages (`just web-install` brings them back).
+clean-node yes="": (_clean yes "web/*node_modules" "console/*node_modules")
+
+# Everything git ignores in this checkout, all of the above at once (`git clean -X`).
+clean-all yes="":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    list=$(git clean -ndX | sed 's/^Would remove //')
+    if [ -z "$list" ]; then echo "nothing to clean"; exit 0; fi
+    echo "$list" | sed 's/^/  /'
+    if [ "{{ yes }}" != "yes" ]; then
+      read -r -p "Delete these $(echo "$list" | wc -l | tr -d ' ')? [y/N] " a
+      if [ "$a" != "y" ] && [ "$a" != "Y" ]; then echo "kept"; exit 0; fi
+    fi
+    git clean -fdX
+
+# Worktrees of this repository, each with its branch, marked when that branch is already in origin/main.
+worktrees:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    git fetch -q origin
+    git worktree list --porcelain | awk '/^worktree /{w=$2} /^branch /{b=$2; sub("refs/heads/","",b); print w" "b} /^detached/{print w" (detached)"}' |
+      while read -r w b; do
+        m=""
+        if [ "$b" != "(detached)" ] && git merge-base --is-ancestor "$b" origin/main 2>/dev/null; then m="  (in main)"; fi
+        echo "$w  $b$m"
+      done
+
+# Forget worktrees whose folder is already gone (removes nothing on disk).
+worktrees-prune:
+    git worktree prune -v
+
+# Finds what matches the patterns (find's -path: `*` also spans folders), keeps what git ignores and holds no tracked
+# file, lists it with sizes, asks (unless `yes`), then deletes it. A search starts at the pattern's first folder, so
+# `crates/*/fuzz/target` never walks target/.
+[positional-arguments]
+[private]
+_clean yes +patterns:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    shift # $1 is `yes`; the rest are the patterns, one argument each
+    found=()
+    for pat in "$@"; do
+      top=${pat%%/*}
+      case "$top" in
+        *'*'*) start=. depth=(-maxdepth 1) ;;
+        *) start=$top depth=() ;;
+      esac
+      [ -e "$start" ] || continue
+      # A search never walks into node_modules or target unless the pattern names them.
+      skip=()
+      case "$pat" in *node_modules*) ;; *) skip+=(-name node_modules -o) ;; esac
+      case "$pat" in *target*) ;; *) skip+=(-name target -o) ;; esac
+      skip+=(-false)
+      while IFS= read -r m; do
+        m=${m#./}
+        git check-ignore -q -- "$m" || continue
+        [ -z "$(git ls-files -- "$m" | head -1)" ] || continue
+        found+=("$m")
+      done < <(find "$start" ${depth[@]+"${depth[@]}"} \( -path "./$pat" -o -path "$pat" \) -prune -print -o \( "${skip[@]}" \) -prune 2>/dev/null)
+    done
+    if [ ${#found[@]} -eq 0 ]; then echo "nothing to clean"; exit 0; fi
+    # What sits inside something already found goes with it.
+    kept=()
+    for m in "${found[@]}"; do
+      inside=0
+      for o in "${found[@]}"; do case "$m" in "$o"/*) inside=1 ;; esac; done
+      if [ $inside -eq 0 ]; then kept+=("$m"); fi
+    done
+    found=("${kept[@]}")
+    du -sh "${found[@]}" 2>/dev/null | sed 's/^/  /'
+    if [ "{{ yes }}" != "yes" ]; then
+      read -r -p "Delete these ${#found[@]}? [y/N] " a
+      if [ "$a" != "y" ] && [ "$a" != "Y" ]; then echo "kept"; exit 0; fi
+    fi
+    rm -rf -- "${found[@]}"
+    echo "deleted ${#found[@]}"
