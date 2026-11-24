@@ -35,7 +35,8 @@ test("the search jumps to a service by its name, and says which are services", a
   await page.getByTestId("palette-input").fill("step functions");
   const choice = page.getByRole("option", { name: /Step Functions/ }).first();
   await expect(choice).toBeVisible();
-  await expect(choice).toContainText("service");
+  // Under its own heading, apart from the spaces and the resources.
+  await expect(page.getByRole("group", { name: "Services" })).toContainText("Step Functions");
   await page.keyboard.press("Enter");
   await expect(page).toHaveURL(/\/resources\/stepfunctions/);
 });
