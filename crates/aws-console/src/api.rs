@@ -46,15 +46,9 @@ pub const PROOF_HEADER: &str = "x-console";
 
 const FETCH_SITE: HeaderName = HeaderName::from_static("sec-fetch-site");
 
-/// The API's routes, each behind [`guard`].
-pub fn routes() -> Router<Shared> {
+/// The addresses of the spaces beside Resources: Home, the regions, Live's wiring, Access, Settings, the Lab and the call preview.
+fn spaces() -> Router<Shared> {
     Router::new()
-        .route("/api/v1/about", get(about::about))
-        .route("/api/v1/services", get(about::services))
-        .route("/api/v1/calls", get(calls::calls))
-        .route("/api/v1/tail/live", get(calls::tail))
-        .route("/api/v1/calls/{seq}/copy", get(copy::copy))
-        .route("/api/v1/flows", get(flows::flows))
         .route("/api/v1/regions", get(regions::regions))
         .route("/api/v1/home", get(home::home))
         .route("/api/v1/home/checks", get(home::checks))
@@ -71,6 +65,18 @@ pub fn routes() -> Router<Shared> {
             get(lab::operation).post(lab::send),
         )
         .route("/api/v1/preview", post(preview::preview))
+}
+
+/// The API's routes, each behind [`guard`].
+pub fn routes() -> Router<Shared> {
+    Router::new()
+        .route("/api/v1/about", get(about::about))
+        .route("/api/v1/services", get(about::services))
+        .route("/api/v1/calls", get(calls::calls))
+        .route("/api/v1/tail/live", get(calls::tail))
+        .route("/api/v1/calls/{seq}/copy", get(copy::copy))
+        .route("/api/v1/flows", get(flows::flows))
+        .merge(spaces())
         .route("/api/v1/resources", get(resources::index))
         .route(
             "/api/v1/resources/{service}/{kind}",
