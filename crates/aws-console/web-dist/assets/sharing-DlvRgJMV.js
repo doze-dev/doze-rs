@@ -1,0 +1,1 @@
+export{t as SharingCreate}from"./detail-CHN8jI8N.js";
