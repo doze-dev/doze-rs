@@ -105,6 +105,18 @@ The networking needs root once per machine, never per run, as in Go:
   person's own certificate served instead when they bring one (`Lease::certificate`), plain http to a declared
   domain redirected to https, and no certificate for a peer that is not this machine. N3, on rustls (already in the
   workspace) with rcgen.
+- **Names in the zone and under a name (2026-11-24)**: https answers every name the front door fronts, not only
+  declared domains: a routed name in the zone gets its own leaf, and a name under a registered one (doze-aws's
+  `<api id>.execute-api.<region>.<instance>.<stack>.doze`, a function URL, a bucket website; a domain two labels under
+  a wildcard) gets a leaf for exactly that name, since the owner's would fail the hostname check. Those are minted at
+  run time without limit, so they are kept apart (`certs/under/`) and bounded: 256 in memory (least recently served
+  goes) and on disk (oldest file goes). Unregistered or unrouted names still get no handshake; a rotation drops them
+  all. The certificate is chosen after the client's hello, on a blocking thread, with a lock per name (one mint per
+  name, other names in parallel); files are named by a prefix and a hash of the host, and the leaves carry no common
+  name (X.520 caps it at 64). A wildcard over a suffix other people register under (`*.co.uk`, `*.github.io`) is
+  refused: a short built-in list and a ccTLD second-level rule, under 1 KB, instead of the ~230 KB Public Suffix List.
+  Proved end to end with doze-aws in `crates/doze-aws/tests/names_front_door.rs` (rustls, curl, and SecTrust on
+  macOS).
 - **Not here, recorded so it is not lost**: the core's client-facing proxy (Go `internal/proxy`: one listener per
   instance, boot on first connection, splice) and its TLS termination for engines that need it (`tls.go`: a cached
   self-signed certificate, enough for postgres `sslmode=require`). In protocol 2 that is the core's proxy plus the

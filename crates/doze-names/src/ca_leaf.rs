@@ -1,5 +1,7 @@
 //! Leaf certificates: minted per domain from the machine's authority on the first handshake that asks, kept under
 //! `certs/` (Go's names and formats), reused while fresh and signed by this root, renewed a week before they lapse.
+//!
+//! A name under a registered one gets a leaf for exactly itself: `ca_under.rs`.
 
 use crate::Error;
 use crate::ca::{CERTS, Ca, LEAF_LIFE, Leaf, ca_err, random_serial, validity, write_atomic};
@@ -31,14 +33,14 @@ impl Ca {
         let base = self.dir.join(CERTS).join(domain.replace('*', "_wildcard"));
         let leaf = match self.load_leaf(&base) {
             Some(l) => l,
-            None => Arc::new(self.mint(domain, &base)?),
+            None => Arc::new(self.mint(domain, &base, true)?),
         };
         leaves.insert(domain.to_string(), leaf.clone());
         Ok(leaf)
     }
 
     /// A leaf from disk, if it is fresh and this root signed it.
-    fn load_leaf(&self, base: &Path) -> Option<Arc<Leaf>> {
+    pub(crate) fn load_leaf(&self, base: &Path) -> Option<Arc<Leaf>> {
         let crt = std::fs::read_to_string(with_suffix(base, "crt")).ok()?;
         let key = std::fs::read_to_string(with_suffix(base, "key")).ok()?;
         let cert = Certificate::from_pem(crt.as_bytes()).ok()?;
@@ -69,14 +71,20 @@ impl Ca {
         VerifyingKey::from(&self.key).verify(&tbs, &sig).is_ok()
     }
 
-    fn mint(&self, domain: &str, base: &Path) -> Result<Leaf, Error> {
+    /// Mints a leaf for `domain` and writes it beside `base`. With `cn` the subject names the domain, as Go's do;
+    /// without, it is `O=doze` alone: the SAN is what clients check, and X.520 caps a common name at 64 characters.
+    pub(crate) fn mint(&self, domain: &str, base: &Path, cn: bool) -> Result<Leaf, Error> {
         let key = SigningKey::from(p256::SecretKey::generate());
         let mut names = vec![domain.to_string()];
         if wildcard(domain) {
             names.push(route_domain(domain));
         }
-        let subject =
-            Name::from_str(&format!("CN={},O=doze", route_domain(domain))).map_err(ca_err)?;
+        let subject = if cn {
+            format!("CN={},O=doze", route_domain(domain))
+        } else {
+            "O=doze".to_string()
+        };
+        let subject = Name::from_str(&subject).map_err(ca_err)?;
         let spki = SubjectPublicKeyInfo::from_key(key.verifying_key()).map_err(ca_err)?;
         let issuer_spki =
             SubjectPublicKeyInfo::from_key(self.key.verifying_key()).map_err(ca_err)?;
@@ -106,7 +114,7 @@ impl Ca {
 }
 
 /// `base` with `.ext` appended (a domain already has dots: `with_extension` would replace its last label).
-fn with_suffix(base: &Path, ext: &str) -> PathBuf {
+pub(crate) fn with_suffix(base: &Path, ext: &str) -> PathBuf {
     let mut s = base.as_os_str().to_os_string();
     s.push(".");
     s.push(ext);
