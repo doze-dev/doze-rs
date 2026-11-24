@@ -5,7 +5,7 @@ import { join } from "node:path";
 import type { Page } from "@playwright/test";
 import { aws, start, type Running } from "../server";
 import { type Larder, seedLarder } from "./apigateway-seed";
-import { expect } from "./fixtures";
+import { expect, pickFrom } from "./fixtures";
 
 const SHOTS = process.env.SHOTS_DIR ?? join(import.meta.dirname, "../../../../../shots-apigateway");
 // This slice's ports: 45900-45999 (the shared server of the run is at 45990).
@@ -53,8 +53,7 @@ export const apiPath = (kind: "restapis" | "apis" | "usageplans", id: string, q 
 
 /** Chooses `option` in the combobox named `name`. */
 export const pick = async (page: Page, name: string | RegExp, option: string | RegExp) => {
-  await page.getByRole("combobox", { name }).click();
-  await page.getByRole("option", { name: option, exact: typeof option === "string" }).click();
+  await pickFrom(page, name, option);
 };
 /** Chooses `option` in the Select whose trigger has `testId`. */
 export const choose = async (page: Page, testId: string, option: string | RegExp) => {

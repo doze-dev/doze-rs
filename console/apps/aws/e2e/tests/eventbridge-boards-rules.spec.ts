@@ -6,7 +6,7 @@ import { join } from "node:path";
 import type { Page } from "@playwright/test";
 import { aws, start, type Running } from "../server";
 import { seedLarder } from "./eventbridge-seed";
-import { advance, press, expect, expectNoErrorAnswers, test } from "./fixtures";
+import { advance, press, expect, expectNoErrorAnswers, test, pickFrom } from "./fixtures";
 
 const SHOTS = process.env.SHOTS_DIR ?? join(import.meta.dirname, "../../../../../shots-eventbridge");
 const BASE = Number(process.env.E2E_BASE_PORT ?? 45424);
@@ -43,8 +43,7 @@ const go = async (page: Page, path: string, title: string | RegExp) => {
   await expect(page.locator("h1").first()).toHaveText(title);
 };
 const pick = async (page: Page, name: string | RegExp, option: string | RegExp) => {
-  await page.getByRole("combobox", { name }).click();
-  await page.getByRole("option", { name: option, exact: typeof option === "string" }).click();
+  await pickFrom(page, name, option);
 };
 const next = (page: Page) => advance(page);
 

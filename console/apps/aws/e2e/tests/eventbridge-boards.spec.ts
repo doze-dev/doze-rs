@@ -7,7 +7,7 @@ import { join } from "node:path";
 import type { Page } from "@playwright/test";
 import { aws, start, type Running } from "../server";
 import { PATTERN, putEvent, seedLarder } from "./eventbridge-seed";
-import { advance, expect, expectNoErrorAnswers, settled, test } from "./fixtures";
+import { advance, expect, expectNoErrorAnswers, settled, test, pickFrom } from "./fixtures";
 
 const SHOTS = process.env.SHOTS_DIR ?? join(import.meta.dirname, "../../../../../shots-eventbridge");
 const BASE = Number(process.env.E2E_BASE_PORT ?? 45400);
@@ -46,8 +46,7 @@ const go = async (page: Page, path: string, title: string | RegExp) => {
 };
 /** Chooses `option` in the combobox named `name`. */
 const pick = async (page: Page, name: string | RegExp, option: string | RegExp) => {
-  await page.getByRole("combobox", { name }).click();
-  await page.getByRole("option", { name: option, exact: typeof option === "string" }).click();
+  await pickFrom(page, name, option);
 };
 const events = () => {
   const put = (bus: string, source: string, type: string, detail: object) => expect(putEvent(server.endpoint, bus, source, type, detail).code).toBe(0);

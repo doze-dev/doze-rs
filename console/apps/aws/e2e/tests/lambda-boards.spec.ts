@@ -6,7 +6,7 @@ import type { Page } from "@playwright/test";
 import { start, type Running, aws } from "../server";
 import { expectCopy } from "./callpanel-kit";
 import { expectCrumbsEnd } from "./crumbs-kit";
-import { advance, expect, expectNoErrorAnswers, test } from "./fixtures";
+import { advance, expect, expectNoErrorAnswers, test, pickFrom } from "./fixtures";
 import { invoke, seedLarder, zipOf } from "./lambda-seed";
 
 const SHOTS = process.env.SHOTS_DIR ?? join(import.meta.dirname, "../../../../../shots-lambda");
@@ -47,8 +47,7 @@ const go = async (page: Page, path: string, title: string | RegExp) => {
 const fn = (name: string, search = "") => `/resources/lambda/functions/${name}${search}`;
 const code = (page: Page) => page.getByTestId("call-panel-code");
 const choose = async (page: Page, combobox: string, option: string | RegExp) => {
-  await page.getByRole("combobox", { name: combobox }).click();
-  await page.getByRole("option", { name: option }).click();
+  await pickFrom(page, combobox, option, { exact: false });
 };
 
 test.beforeAll(async ({ browserName }) => {

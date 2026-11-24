@@ -5,7 +5,7 @@ import { join } from "node:path";
 import type { Page } from "@playwright/test";
 import { start, type Running, aws } from "../server";
 import { expectCopy } from "./callpanel-kit";
-import { advance, expect, expectNoErrorAnswers, test } from "./fixtures";
+import { advance, expect, expectNoErrorAnswers, test, pickFrom } from "./fixtures";
 import { type Larder, seedLarder } from "./stepfunctions-seed";
 import { expectCrumbsEnd } from "./crumbs-kit";
 
@@ -50,8 +50,7 @@ const execution = (name: string) => `/resources/stepfunctions/executions/${encod
 const rows = (page: Page, label: string) => page.getByRole("table", { name: label }).locator("tbody tr[data-row]");
 const code = (page: Page) => page.getByTestId("call-panel-code");
 const choose = async (page: Page, combobox: string, option: string | RegExp) => {
-  await page.getByRole("combobox", { name: combobox }).click();
-  await page.getByRole("option", { name: option }).click();
+  await pickFrom(page, combobox, option, { exact: false });
 };
 
 test.beforeAll(async ({ browserName }) => {
