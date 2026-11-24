@@ -1,6 +1,6 @@
 // The resource pages of their own against a real doze-aws: a table's items created, scanned, queried, edited and deleted. Each
 // call is the console's, and Live has it. (A queue's pages are in sqs-boards.spec.ts, a bucket's in s3-boards.spec.ts.)
-import { calls, CONSOLE, expect, expectNoErrorAnswers, open, test, unique } from "./fixtures";
+import { advance, calls, CONSOLE, expect, expectNoErrorAnswers, open, test, unique } from "./fixtures";
 
 const mine = async (page: Parameters<typeof calls>[0], action: string) => (await calls(page, CONSOLE)).calls.filter((c) => c.caller === "console" && c.action === action);
 
@@ -21,7 +21,7 @@ test("a table's item is created as rows, scanned, queried by its key, edited and
   await page.getByTestId("attr-add").click();
   await page.getByTestId("attr-new").getByTestId("attr-name").fill("status");
   await page.getByTestId("attr-status").getByTestId("attr-value").fill("new");
-  await page.getByTestId("form-submit").click();
+  await advance(page);
   await expect(page.getByTestId("item-banner")).toContainText("Item created.");
   await expect(rows).toHaveCount(2);
   await page.getByTestId("mode-query").click();
@@ -32,7 +32,7 @@ test("a table's item is created as rows, scanned, queried by its key, edited and
   await page.getByTestId("item-edit").click();
   await expect(page.locator("h1")).toHaveText("Edit item");
   await page.getByTestId("attr-status").getByTestId("attr-value").fill("shipped");
-  await page.getByTestId("form-submit").click();
+  await advance(page);
   await expect(page.getByTestId("item-banner")).toContainText("Item saved.");
   await expect(rows.first()).toContainText("shipped");
   await rows.first().getByRole("checkbox").click();

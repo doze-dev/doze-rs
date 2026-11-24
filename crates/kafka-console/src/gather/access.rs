@@ -262,7 +262,7 @@ fn tls_of(facts: &Facts, start: &StartFacts) -> AccessTls {
     AccessTls {
         on: facts.tls,
         cert: start.tls_cert.clone(),
-        listener: facts.bootstrap(),
+        listener: facts.listener(),
         loopback: facts.loopback(),
     }
 }

@@ -7,7 +7,7 @@ import { join } from "node:path";
 import type { Page } from "@playwright/test";
 import { start } from "../server";
 import { expectCrumbsEnd } from "./crumbs-kit";
-import { expect, expectNoErrorAnswers, settled, test } from "./fixtures";
+import { advance, expect, expectNoErrorAnswers, settled, test } from "./fixtures";
 import { expectCopy, expectFullWidthCall } from "./callpanel-kit";
 
 /** Where the doze-aws with no bucket listens (two ports a browser); `E2E_BASE_PORT` moves it when another run holds these. */
@@ -146,7 +146,7 @@ test("s3__bucket-create, -create-refused, -created: a refused name says why, a g
   await shot(page, "s3__bucket-create", browserName);
   // Refused: an uppercase letter and an underscore.
   await page.getByTestId("bucket-name").fill("Larder_Exports");
-  await page.getByTestId("form-submit").click();
+  await advance(page);
   const banner = page.getByTestId("create-refused");
   await expect(banner).toContainText("CreateBucket answered 400 InvalidBucketName");
   await expect(banner).toContainText("has an uppercase letter and an underscore");
@@ -162,7 +162,7 @@ test("s3__bucket-create, -create-refused, -created: a refused name says why, a g
   // The form starts with one empty tag row; the lines under the choices name what the account's own buckets do.
   await page.getByTestId("create-tags-key-0").fill("env");
   await page.getByTestId("create-tags-value-0").fill("dev");
-  await page.getByTestId("form-submit").click();
+  await advance(page);
   await expect(page.getByTestId("flash")).toContainText(`Bucket ${n.made} created.`);
   await expect(page.getByTestId("flash")).toContainText("versioning on");
   await expect(page.getByRole("link", { name: n.made })).toBeVisible();
@@ -174,7 +174,7 @@ test("s3__bucket-create, -create-refused, -created: a refused name says why, a g
   await page.getByTestId("bucket-name").fill(`locked-${browserName}`);
   await page.getByTestId("lock-on").click();
   await page.getByTestId("lock-ack").click();
-  await page.getByTestId("form-submit").click();
+  await advance(page);
   await expect(page.getByTestId("flash")).toContainText(`Bucket locked-${browserName} created.`);
   await expect(page.getByTestId("flash")).toContainText("versioning on, all four Block Public Access settings on and Object Lock on");
   expect(cli(["s3api", "get-bucket-versioning", "--bucket", `locked-${browserName}`]).out).toContain("Enabled");
@@ -287,19 +287,19 @@ test("the edit pages: versioning, ownership, Block Public Access, encryption, we
   await page.getByTestId("versioning-Suspended").click();
   await expect(page.getByTestId("call-panel-code")).toContainText("PutBucketVersioning");
   await page.getByTestId("versioning-Enabled").click();
-  await page.getByTestId("form-submit").click();
+  await advance(page);
   await expect(page.getByTestId("flash")).toContainText("Bucket Versioning is now enabled.");
   expect(cli(["s3api", "get-bucket-versioning", "--bucket", n.thumb]).out).toContain("Enabled");
 
   await edit("ownership-edit", "s3__ownership-edit");
   await page.getByTestId("ownership-ObjectWriter").click();
-  await page.getByTestId("form-submit").click();
+  await advance(page);
   await expect(page.getByTestId("permissions")).toContainText("Object writer");
 
   await edit("bpa-edit", "s3__bpa-edit");
   await page.getByTestId("bpa-BlockPublicPolicy").click();
   await expect(page.getByTestId("call-panel-code")).toContainText('"BlockPublicPolicy": false');
-  await page.getByTestId("form-submit").click();
+  await advance(page);
   await expect(page.getByTestId("permissions")).toContainText("BlockPublicPolicy");
   expect(cli(["s3api", "get-public-access-block", "--bucket", n.thumb]).out).toContain('"BlockPublicPolicy": false');
 
@@ -316,14 +316,14 @@ test("the edit pages: versioning, ownership, Block Public Access, encryption, we
   await page.getByTestId("kms-arn-input").fill("arn:aws:kms:us-east-1:111122223333:key/abc");
   await page.getByTestId("bucket-key-on").click();
   await expect(page.getByTestId("call-panel-code")).toContainText("BucketKeyEnabled");
-  await page.getByTestId("form-submit").click();
+  await advance(page);
   await expect(page.getByTestId("properties")).toContainText("SSE-KMS");
 
   await edit("website-edit", "s3__website-edit");
   await page.getByTestId("website-on-on").click();
   await page.getByTestId("website-error").fill("error.html");
   await expect(page.getByTestId("call-panel-code")).toContainText("PutBucketWebsite");
-  await page.getByTestId("form-submit").click();
+  await advance(page);
   await expect(page.getByTestId("properties")).toContainText("index.html");
 
   await edit("cors-edit", "s3__cors-edit");
@@ -331,7 +331,7 @@ test("the edit pages: versioning, ownership, Block Public Access, encryption, we
   await expect(page.getByTestId("cors-json")).toHaveValue(/"AllowedMethods": \["GET", "HEAD"\],/);
   await expectFullWidthCall(page);
   await expect(page.getByTestId("form-submit")).toBeEnabled();
-  await page.getByTestId("form-submit").click();
+  await advance(page);
   await expect(page.getByTestId("cors-json")).toContainText("localhost:3000");
 
   await edit("policy-edit", "s3__policy-edit");
@@ -343,7 +343,7 @@ test("the edit pages: versioning, ownership, Block Public Access, encryption, we
   await expect(page.getByTestId("call-panel-code")).toContainText(n.thumb);
   await page.getByTestId("policy-examples-open").click();
   await page.getByTestId("use-role-read").click();
-  await page.getByTestId("form-submit").click();
+  await advance(page);
   await expect(page.getByTestId("policy-json")).toContainText("RoleReadsObjects");
 
   await edit("tags-edit", "s3__tags-edit");
@@ -355,7 +355,7 @@ test("the edit pages: versioning, ownership, Block Public Access, encryption, we
   await expectCopy(page, "cli", "search");
   await expectCopy(page, "boto3", "search");
   await expect(page.getByTestId("call-panel-code")).toContainText("PutBucketTagging");
-  await page.getByTestId("form-submit").click();
+  await advance(page);
   await expect(page.getByTestId("properties")).toContainText("search");
 });
 
@@ -381,7 +381,7 @@ test("s3__notification-create and s3__lifecycle-create: each adds a rule to the 
   await expect(page.getByTestId("call-panel-code")).toContainText("QueueConfigurations");
   await expectFullWidthCall(page);
   await shot(page, "s3__notification-create", browserName);
-  await page.getByTestId("form-submit").click();
+  await advance(page);
   await expect(page.getByTestId("properties")).toContainText("image-removed");
   await expect(page.getByTestId("properties")).toContainText("resize-on-create");
 
@@ -399,7 +399,7 @@ test("s3__notification-create and s3__lifecycle-create: each adds a rule to the 
   await expect(page.getByTestId("call-panel-code")).toContainText("abort-stale-uploads");
   await expect(page.getByTestId("call-panel-code")).toContainText("NoncurrentDays");
   await shot(page, "s3__lifecycle-create", browserName);
-  await page.getByTestId("form-submit").click();
+  await advance(page);
   await expect(page.getByTestId("management")).toContainText("prune-old-versions");
   await expect(page.getByTestId("management")).toContainText("abort-stale-uploads");
   await expect(page.getByTestId("detail-sentence")).toContainText("has 2 lifecycle rules");
@@ -417,7 +417,7 @@ test("s3__folder-create, s3__upload, s3__upload-status: a folder, three files wi
   await page.getByTestId("sse-override").click();
   await expect(page.getByTestId("call-panel-code")).toContainText('"ServerSideEncryption": "AES256"');
   await shot(page, "s3__folder-create", browserName);
-  await page.getByTestId("form-submit").click();
+  await advance(page);
   await expect(page.getByTestId("flash")).toContainText("Folder seasonal/ created.");
   await expect(page.getByRole("button", { name: "seasonal/" })).toBeVisible();
   // Upload into that folder.
@@ -443,7 +443,7 @@ test("s3__folder-create, s3__upload, s3__upload-status: a folder, three files wi
   await page.getByTestId("upload-meta-value-0").fill("e2e");
   await expect(page.getByTestId("call-panel-code")).toContainText("Tagging");
   await shot(page, "s3__upload", browserName);
-  await page.getByTestId("form-submit").click();
+  await advance(page);
   await expect(page.getByTestId("upload-summary")).toContainText(`3 PutObject calls succeeded in ${n.img}.`);
   await expect(page.getByTestId("upload-status-page")).toContainText("sku-FV-RAD-R.jpg");
   // The PutObject calls just made are in Recent calls (this console's own are pinned here), and the event's destination is named.
@@ -534,7 +534,7 @@ test("s3__object-detail, -versions, -presign, -copy, -delete-version, -delete: o
   await page.getByTestId("copy-dest").fill(`s3://${n.rec}/copies/`);
   await expect(page.getByTestId("call-panel-code")).toContainText(`"Key": "copies/sku-FV-TOM-V.jpg"`);
   await shot(page, "s3__object-copy", browserName);
-  await page.getByTestId("form-submit").click();
+  await advance(page);
   await expect(page.getByTestId("flash")).toContainText(`to s3://${n.rec}/copies/sku-FV-TOM-V.jpg`);
   expect(cli(["s3api", "head-object", "--bucket", n.rec, "--key", "copies/sku-FV-TOM-V.jpg"]).code).toBe(0);
   // Delete: a delete marker, not the data.
@@ -605,7 +605,7 @@ test("s3__object-copy (Specify settings), Move and Rename: the copy has the stor
   const call = page.getByTestId("call-panel-code");
   for (const want of ['"StorageClass": "STANDARD_IA"', '"ACL": "authenticated-read"', '"MetadataDirective": "REPLACE"', '"ContentType": "text/plain"', '"ServerSideEncryption": "aws:kms"', '"ChecksumAlgorithm": "SHA256"', '"TaggingDirective": "REPLACE"']) await expect(call).toContainText(want);
   await shot(page, "s3__object-copy-specify", b);
-  await page.getByTestId("form-submit").click();
+  await advance(page);
   await expect(page.getByTestId("flash")).toContainText(`to s3://${dst}/out/readme.txt`);
   await expectNoErrorAnswers(page, refusals);
   const head = JSON.parse(cli(["s3api", "head-object", "--bucket", dst, "--key", "out/readme.txt", "--checksum-mode", "ENABLED"]).out);
@@ -629,7 +629,7 @@ test("s3__object-copy (Specify settings), Move and Rename: the copy has the stor
   await page.getByTestId("copy-acl").selectOption("bucket-owner-full-control");
   await shot(page, "s3__object-copy-specify-enforced", b);
   // Move: the copy, then the delete of the source, and nothing asks for the source again.
-  await page.getByTestId("form-submit").click();
+  await advance(page);
   await expect(page.getByTestId("flash")).toContainText(`Moved readme.txt to s3://${enf}/readme.txt`);
   await expectNoErrorAnswers(page, refusals);
   expect(cli(["s3api", "head-object", "--bucket", enf, "--key", "readme.txt"]).code).toBe(0);
@@ -638,7 +638,7 @@ test("s3__object-copy (Specify settings), Move and Rename: the copy has the stor
   // Rename: the same.
   await page.goto(bucketUrl(src, "?do=object-copy&key=docs/old.txt&mode=rename"));
   await page.getByTestId("rename-name").fill("new.txt");
-  await page.getByTestId("form-submit").click();
+  await advance(page);
   await expect(page.getByTestId("flash")).toContainText(`Renamed old.txt to s3://${src}/docs/new.txt`);
   await expectNoErrorAnswers(page, refusals);
   expect(cli(["s3api", "head-object", "--bucket", src, "--key", "docs/new.txt"]).code).toBe(0);

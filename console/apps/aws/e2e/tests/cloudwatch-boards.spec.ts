@@ -1,6 +1,6 @@
 // The CloudWatch boards of the alarms (overview, list, delete, detail, history, tags, the four steps of the wizard, and none left): each reached against a real doze-aws and, in Chromium, photographed light and dark into SHOTS_DIR.
 // No test may log a console error.
-import { expect, expectNoErrorAnswers, test } from "./fixtures";
+import { advance, press, expect, expectNoErrorAnswers, test } from "./fixtures";
 import { alarm, choose, cli, code, go, pick, shot, serveWorld, world } from "./cloudwatch-kit";
 
 serveWorld(0);
@@ -170,7 +170,7 @@ test("cloudwatch__alarm-step1 to step4: the wizard, the call each step makes, an
   await expect(page.locator("h1").first()).toHaveText("Create alarm");
   await expect(page.getByText("Step 1 of 4. Choose the metric to watch and the condition that puts the alarm in ALARM.")).toBeVisible();
   for (const s of ["Specify metric and conditions", "Configure actions", "Add name and description", "Preview and create"]) await expect(page.getByTestId("alarm-wizard").getByText(s).first()).toBeVisible();
-  await page.getByTestId("form-submit").click();
+  await press(page);
   await expect(page.getByText("Choose the metric to watch.").first()).toBeVisible();
   await choose(page, "Namespace", "Larder/Queues");
   await choose(page, "Metric name", "DlqMessages");
@@ -195,10 +195,10 @@ test("cloudwatch__alarm-step1 to step4: the wizard, the call each step makes, an
   await expect(code(page)).toContainText('"Expression": "m1 * 2"');
   await page.getByTestId("math-toggle").click();
   await expect(code(page)).toContainText('"MetricName": "DlqMessages"');
-  await page.getByTestId("form-submit").click();
+  await advance(page);
   await expect(page.getByText("Step 2 of 4. Choose what happens when the alarm changes state.")).toBeVisible();
   await expect(page.getByTestId("section-notification")).toContainText("Send a message to an SNS topic when the alarm enters a state.");
-  await page.getByTestId("form-submit").click();
+  await advance(page);
   await expect(page.getByText("Choose the topic to notify.").first()).toBeVisible();
   await page.getByRole("combobox", { name: "Topic" }).click();
   await page.getByRole("option", { name: "alerts" }).click();
@@ -211,18 +211,18 @@ test("cloudwatch__alarm-step1 to step4: the wizard, the call each step makes, an
   for (const b of ["Auto Scaling action", "EC2 action", "Add Systems Manager action", "Add investigation action"]) await expect(page.getByRole("button", { name: b })).toBeDisabled();
   await expect(page.getByTestId("actions-off-reason")).toContainText("SNS topics and Lambda functions only");
   await shot(page, "cloudwatch__alarm-step2");
-  await page.getByTestId("form-submit").click();
+  await advance(page);
   await expect(page.getByText("Step 3 of 4. Name the alarm and say what it means.")).toBeVisible();
-  await page.getByTestId("form-submit").click();
+  await advance(page);
   await expect(page.getByText("Enter the alarm name.")).toBeVisible();
   await page.getByTestId("alarm-name").fill("dlq-not-empty");
-  await page.getByTestId("form-submit").click();
+  await advance(page);
   await expect(page.getByText("An alarm named dlq-not-empty already exists in this Region.")).toBeVisible();
   await page.getByTestId("alarm-name").fill("pick-lists-dlq-watch");
   await page.getByTestId("alarm-description").fill("The dead-letter queue pick-lists-dlq holds a message. Look at the message first.");
   await expect(code(page)).toContainText('"AlarmName": "pick-lists-dlq-watch"');
   await shot(page, "cloudwatch__alarm-step3");
-  await page.getByTestId("form-submit").click();
+  await advance(page);
   await expect(page.getByText("Step 4 of 4.")).toBeVisible();
   await expect(page.getByTestId("summary-metric")).toContainText("Larder/Queues · DlqMessages");
   await expect(page.getByTestId("summary-metric")).toContainText("DlqMessages >= 1 for 1 datapoints within 1 minute");
@@ -234,8 +234,8 @@ test("cloudwatch__alarm-step1 to step4: the wizard, the call each step makes, an
   await shot(page, "cloudwatch__alarm-step4");
   await page.getByTestId("edit-summary-name").click();
   await expect(page.getByTestId("alarm-name")).toHaveValue("pick-lists-dlq-watch");
-  await page.getByTestId("form-submit").click();
-  await page.getByTestId("form-submit").click();
+  await advance(page);
+  await advance(page);
   await expect(page.locator("h1").first()).toHaveText("pick-lists-dlq-watch");
   await expect(page.getByTestId("created-banner")).toContainText("Alarm pick-lists-dlq-watch created.");
   expect(cli(["cloudwatch", "describe-alarms", "--alarm-names", "pick-lists-dlq-watch"])).toContain("Look at the message first.");
@@ -243,11 +243,11 @@ test("cloudwatch__alarm-step1 to step4: the wizard, the call each step makes, an
   await page.getByTestId("actions-menu").click();
   await page.getByRole("menuitem", { name: "Edit" }).click();
   await expect(page.locator("h1").first()).toHaveText("Edit alarm");
-  await page.getByTestId("form-submit").click();
-  await page.getByTestId("form-submit").click();
+  await advance(page);
+  await advance(page);
   await expect(page.getByTestId("alarm-name")).toBeDisabled();
-  await page.getByTestId("form-submit").click();
-  await page.getByTestId("form-submit").click();
+  await advance(page);
+  await advance(page);
   await expect(page.getByTestId("updated-banner")).toContainText("updated");
 });
 
@@ -265,12 +265,12 @@ test("what the boards do not draw: an anomaly alarm from the wizard, a metric ma
   await expect(code(page)).toContainText('"ThresholdMetricId": "ad1"');
   await expect(code(page)).toContainText("ANOMALY_DETECTION_BAND(m1, 3)");
   await expect(code(page)).toContainText("LessThanLowerOrGreaterThanUpperThreshold");
-  await page.getByTestId("form-submit").click();
+  await advance(page);
   await page.getByTestId("notification-remove").click();
-  await page.getByTestId("form-submit").click();
+  await advance(page);
   await page.getByTestId("alarm-name").fill("orders-band");
-  await page.getByTestId("form-submit").click();
-  await page.getByTestId("form-submit").click();
+  await advance(page);
+  await advance(page);
   await expect(page.getByTestId("created-banner")).toContainText("orders-band");
   await expect(page.getByTestId("alarm-threshold")).toContainText("OrdersPlaced is outside the band");
   // Deleted from its own page, the alarm is not asked for again (a read of it would be refused and logged).

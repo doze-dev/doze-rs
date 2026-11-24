@@ -1,6 +1,6 @@
 // The REST boards of the stages never deployed and of the authorizers (a token authorizer made, listed, deleted to none), each reached against a real doze-aws
 // (one per browser, seeded as the boards' "larder" world) and, in Chromium, photographed light and dark. The rest of the REST boards are apigateway-boards.spec.ts.
-import { expect, expectNoErrorAnswers, test } from "./fixtures";
+import { advance, expect, expectNoErrorAnswers, test } from "./fixtures";
 import { apiPath, begin, ctx, end, go, pick, shot } from "./apigateway-kit";
 
 test.describe.configure({ mode: "serial" });
@@ -33,7 +33,7 @@ test("apigateway__rest-authorizer-create: a token authorizer, the call it makes,
   await expect(call).toContainText('"identitySource": "method.request.header.Authorization"');
   await expect(call).toContainText("The type is TOKEN here; choosing Request makes it REQUEST.");
   await shot(page, "rest-authorizer-create");
-  await page.getByTestId("form-submit").click();
+  await advance(page);
   await expect(page.getByTestId("authorizer-banner")).toContainText("Authorizer partner-token-auth created.");
   await expect(page.getByTestId("authorizer-name").nth(1)).toBeVisible();
 });

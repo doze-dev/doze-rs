@@ -4,7 +4,7 @@ import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 import type { Page } from "@playwright/test";
 import { aws, start, type Running } from "../server";
-import { expect, test } from "./fixtures";
+import { expect, test, pickFrom } from "./fixtures";
 import { seedLarderCloudwatch } from "./cloudwatch-seed";
 
 const SHOTS = process.env.SHOTS_DIR ?? join(import.meta.dirname, "../../../../../shots-cloudwatch");
@@ -57,8 +57,7 @@ export const go = async (page: Page, path: string, title: string | RegExp) => {
 export const alarm = (name: string, search = "") => `/resources/cloudwatch/alarms/${name}${search}`;
 export const dash = (name: string, search = "") => `/resources/cloudwatch/dashboards/${name}${search}`;
 export const choose = async (page: Page, combobox: string, option: string | RegExp) => {
-  await page.getByRole("combobox", { name: combobox, exact: true }).click();
-  await page.getByRole("option", { name: option }).first().click();
+  await pickFrom(page, combobox, option, { exact: false, first: true, nameExact: true });
 };
 export const pick = async (page: Page, trigger: string, option: string | RegExp) => {
   await page.getByTestId(trigger).click();

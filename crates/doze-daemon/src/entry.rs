@@ -131,20 +131,7 @@ pub async fn assemble(
                 fronted_one(i, catalog.as_ref(), supervised.contains(&i.name), &run_dir)
             })
             .collect();
-        let plan = zone.plan(&fronted)?;
-        let mut grants = BTreeMap::new();
-        let mut bound = BTreeMap::new();
-        for f in &fronted {
-            grants.insert(f.name.clone(), zone.grant(&plan, f, &run_dir));
-            match zone.bind(&plan, f, &run_dir) {
-                Ok(b) => {
-                    bound.insert(f.name.clone(), b);
-                }
-                Err(BindError::Held(e)) => return Err(e),
-                // Go refused to start; the app shows the instance failing to wake instead, which names the holder.
-                Err(e) => eprintln_daemon(&e.to_string()),
-            }
-        }
+        let (grants, bound, unreachable) = bind_all(&zone, &fronted, &run_dir)?;
         zone.record_domains(&app_domains(&cfg));
         let mut labels = labels(&cfg, catalog.as_ref(), &as_bound(&grants, &bound));
         for (name, b) in &bound {
@@ -153,12 +140,19 @@ pub async fn assemble(
             }
         }
         let stack = stack(&cfg, &catalog, &grants);
-        Ok::<_, String>((cfg, labels, stack, supervised, fronted, zone, tls, bound))
+        let unbound = (bound, unreachable);
+        Ok::<_, String>((cfg, labels, stack, supervised, fronted, zone, tls, unbound))
     })
     .await
     .map_err(|e| e.to_string())??;
-    let (cfg, labels, (stack, modules), supervised, fronted, zone, tls, bound) = placed;
+    let (cfg, labels, (stack, modules), supervised, fronted, zone, tls, (bound, unreachable)) =
+        placed;
     let engine = doze_engine::Engine::new(stack).map_err(|e| e.to_string())?;
+    for (name, why) in &unreachable {
+        engine
+            .set_unreachable(name, why)
+            .map_err(|e| e.to_string())?;
+    }
     Ok(Assembled {
         cfg,
         engine,
@@ -170,6 +164,38 @@ pub async fn assemble(
         tls,
         bound,
     })
+}
+
+/// What each fronted instance is granted, the listeners bound, and the instances none of whose listeners could be
+/// opened, each with why (an address something else holds). A name another program holds stops the stack.
+type Binds = (
+    BTreeMap<String, Grant>,
+    BTreeMap<String, doze_bind::Bound>,
+    Vec<(String, String)>,
+);
+
+/// Grants and binds every fronted instance of the plan (see [`Binds`]).
+fn bind_all(zone: &Zone, fronted: &[Fronted], run_dir: &Path) -> Result<Binds, String> {
+    let plan = zone.plan(fronted)?;
+    let mut grants = BTreeMap::new();
+    let mut bound = BTreeMap::new();
+    let mut unreachable = Vec::new();
+    for f in fronted {
+        grants.insert(f.name.clone(), zone.grant(&plan, f, run_dir));
+        match zone.bind(&plan, f, run_dir) {
+            Ok(b) => {
+                bound.insert(f.name.clone(), b);
+            }
+            Err(BindError::Held(e)) => return Err(e),
+            // Go refused to start the stack. The rest of it runs here; this instance is failed with the reason (which
+            // names the address), and every wake of it fails with that, so `status` and `up` say so.
+            Err(e) => {
+                eprintln_daemon(&e.to_string());
+                unreachable.push((f.name.clone(), e.to_string()));
+            }
+        }
+    }
+    Ok((grants, bound, unreachable))
 }
 
 #[allow(clippy::print_stderr)] // the daemon's stderr is its log file

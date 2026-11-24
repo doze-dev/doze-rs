@@ -8,7 +8,7 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import type { Page } from "@playwright/test";
 import { aws, start, type Running } from "../server";
-import { expect, expectNoErrorAnswers, test } from "./fixtures";
+import { advance, press, expect, expectNoErrorAnswers, test } from "./fixtures";
 import { seedLarder, settled } from "./cloudformation-seed";
 import { expectCrumbsEnd } from "./crumbs-kit";
 
@@ -323,7 +323,7 @@ test("cloudformation__stack-create-invalid: a file that is not a template is ref
   await page.getByTestId("template-file").setInputFiles(file);
   await expect(page.getByTestId("file-name")).toContainText("larder-bad");
   await expect(page.getByTestId("file-name")).not.toHaveAttribute("data-invalid", "");
-  await page.getByTestId("form-submit").click();
+  await press(page);
   await expect(page.getByTestId("wizard-refused")).toContainText("Template validation error.");
   // The file's name is marked red as the field at fault.
   await expect(page.getByTestId("file-name")).toHaveAttribute("data-invalid", "");
@@ -336,7 +336,7 @@ test("cloudformation__stack-create-invalid: a file that is not a template is ref
 test("cloudformation__stack-create-details, options, review and changeset: the wizard to a stack waiting for review", async ({ page }) => {
   await go(page, `${STACKS}?do=create`, "Create stack");
   await page.getByTestId("template-url").fill(SEARCH_URL);
-  await page.getByTestId("form-submit").click();
+  await advance(page);
   await expect(page.locator("h1").first()).toHaveText("Specify stack details");
   await expect(page.getByTestId("field-name")).toContainText("already exist");
   await expect(page.getByTestId("field-name")).toContainText("larder-core");
@@ -346,11 +346,11 @@ test("cloudformation__stack-create-details, options, review and changeset: the w
   await expect(page.getByTestId("summary-panel")).toContainText("AWS::DynamoDB::Table");
   // The name is checked: one that is taken is said on the field.
   await page.getByTestId("stack-name").fill("larder-core");
-  await page.getByTestId("form-submit").click();
+  await advance(page);
   await expect(page.getByTestId("field-name")).toContainText("A stack named larder-core already exists in this Region.");
   await page.getByTestId("stack-name").fill("larder-search");
   await shot(page, "stack-create-details");
-  await page.getByTestId("form-submit").click();
+  await advance(page);
   await expect(page.locator("h1").first()).toHaveText("Configure stack options");
   const tags = page.getByTestId("tags");
   await page.getByTestId("section-tags").getByRole("button", { name: "Add tag" }).click();
@@ -371,7 +371,7 @@ test("cloudformation__stack-create-details, options, review and changeset: the w
   await expect(page.getByTestId("call-panel-code").first()).toContainText('"DisableRollback": false');
   await expect(page.getByTestId("call-panel-code").first()).toContainText('"Key": "app"');
   await shot(page, "stack-create-options");
-  await page.getByTestId("form-submit").click();
+  await advance(page);
   await expect(page.locator("h1").first()).toHaveText("Review and create");
   await expect(page.getByTestId("stack-wizard")).toContainText("Stack name");
   await expect(page.getByTestId("stack-wizard")).toContainText("larder-search");
@@ -385,8 +385,8 @@ test("cloudformation__stack-create-details, options, review and changeset: the w
   // Edit goes back to the step, and Next comes forward to where it was.
   await page.getByTestId("review-edit-Specify stack details").click();
   await expect(page.locator("h1").first()).toHaveText("Specify stack details");
-  await page.getByTestId("form-submit").click();
-  await page.getByTestId("form-submit").click();
+  await advance(page);
+  await advance(page);
   await expect(page.locator("h1").first()).toHaveText("Review and create");
   // Create change set: asks a name, over the review.
   await page.getByTestId("changeset-open").click();
@@ -426,7 +426,7 @@ test("cloudformation__stack-update, details, options, review and updated: the wi
   await page.getByTestId("template-url").fill(CORE_V2_URL);
   await expect(page.getByTestId("call-panel-code").first()).toContainText("ValidateTemplate");
   await shot(page, "stack-update");
-  await page.getByTestId("form-submit").click();
+  await advance(page);
   await expect(page.locator("h1").first()).toHaveText("Specify stack details");
   await expect(page.getByTestId("param-input-Stage")).toHaveValue("prod");
   await expect(page.getByTestId("param-input-VisibilityTimeout")).toHaveValue("30");
@@ -436,7 +436,7 @@ test("cloudformation__stack-update, details, options, review and updated: the wi
   await expect(page.getByTestId("param-WebhookSecret")).toContainText("Type String.");
   await expect(page.getByTestId("call-panel-code").first()).toContainText('"UsePreviousValue": true');
   await shot(page, "stack-update-details");
-  await page.getByTestId("form-submit").click();
+  await advance(page);
   await expect(page.locator("h1").first()).toHaveText("Configure stack options");
   await expect(page.getByTestId("tags")).toBeVisible();
   await expect(page.getByTestId("tags").locator("input").first()).toHaveValue("app");
@@ -448,7 +448,7 @@ test("cloudformation__stack-update, details, options, review and updated: the wi
   const order = await page.locator("[data-testid^='section-'], [data-testid='creation-only-note']").evaluateAll((els) => els.map((e) => e.getAttribute("data-testid")));
   expect(order.filter((id) => ["section-failure", "section-rollback", "section-notify", "section-policy", "section-capabilities", "creation-only-note"].includes(id ?? ""))).toEqual(["section-failure", "section-rollback", "section-notify", "section-policy", "section-capabilities", "creation-only-note"]);
   await shot(page, "stack-update-options");
-  await page.getByTestId("form-submit").click();
+  await advance(page);
   await expect(page.locator("h1").first()).toHaveText("Review larder-core");
   const preview = page.getByTestId("preview");
   await expect(preview.locator("tbody tr")).toHaveCount(2, { timeout: 15_000 });
@@ -465,7 +465,7 @@ test("cloudformation__stack-update, details, options, review and updated: the wi
   await expect(page.getByTestId("preview").locator("tbody tr")).toHaveCount(2, { timeout: 15_000 });
   await expect(page.getByTestId("call-panel-code").first()).toContainText("UpdateStack");
   await shot(page, "stack-update-review");
-  await page.getByTestId("form-submit").click();
+  await advance(page);
   await expect(page.locator("h1").first()).toHaveText("larder-core");
   await expect(async () => {
     await page.goto(`${server.console}${stack("larder-core", "?tab=events&done=updated")}`);
@@ -485,13 +485,13 @@ test("cloudformation__stack-update, details, options, review and updated: the wi
 test("cloudformation__stack-update: the change set an update asks for opens with a name, and not one the stack has", async ({ page }) => {
   // The create dialog offers initial-review; the update one offers update-review, or the next free one.
   await go(page, stack("larder-observability", "?do=update&mode=changeset"), "Update stack");
-  await page.getByTestId("form-submit").click();
+  await advance(page);
   await expect(page.locator("h1").first()).toHaveText("Specify stack details");
-  await page.getByTestId("form-submit").click();
+  await advance(page);
   await expect(page.locator("h1").first()).toHaveText("Configure stack options");
-  await page.getByTestId("form-submit").click();
+  await advance(page);
   await expect(page.locator("h1").first()).toHaveText("Review larder-observability");
-  await page.getByTestId("form-submit").click();
+  await advance(page);
   await expect(page.getByTestId("changeset-name")).toHaveValue("update-review");
   await expect(page.getByTestId("changeset-call")).toContainText('"ChangeSetName": "update-review"');
   await page.getByTestId("changeset-make").click();
@@ -499,10 +499,10 @@ test("cloudformation__stack-update: the change set an update asks for opens with
   // Asked again, the name offered is the next free one.
   await go(page, stack("larder-observability", "?do=update&mode=changeset"), "Update stack");
   for (const title of ["Specify stack details", "Configure stack options", "Review larder-observability"]) {
-    await page.getByTestId("form-submit").click();
+    await advance(page);
     await expect(page.locator("h1").first()).toHaveText(title);
   }
-  await page.getByTestId("form-submit").click();
+  await advance(page);
   await expect(page.getByTestId("changeset-name")).toHaveValue("update-review-2");
 });
 

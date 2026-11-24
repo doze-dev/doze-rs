@@ -14,20 +14,37 @@ fn facts() -> Facts {
 }
 
 #[test]
-fn a_specific_bind_is_the_bootstrap_and_a_wildcard_is_the_advertised_name() {
+fn a_specific_bind_is_the_listener_and_a_wildcard_is_the_advertised_name() {
     let mut f = facts();
-    assert_eq!(f.bootstrap(), "127.0.0.1:9092");
+    assert_eq!(f.listener(), "127.0.0.1:9092");
     assert_eq!(f.dial_listener(), "127.0.0.1:9092");
     assert!(f.loopback());
     f.listen = "0.0.0.0:9092".parse().unwrap();
     f.advertised_host = "localhost".into();
-    assert_eq!(f.bootstrap(), "localhost:9092");
+    assert_eq!(f.listener(), "localhost:9092");
     assert_eq!(f.dial_listener(), "127.0.0.1:9092");
     assert!(!f.loopback());
     f.listen = "[::]:19092".parse().unwrap();
     assert_eq!(f.dial_listener(), "[::1]:19092");
     f.listen = "[::1]:9092".parse().unwrap();
-    assert_eq!(f.bootstrap(), "[::1]:9092");
+    assert_eq!(f.listener(), "[::1]:9092");
+}
+
+/// Under doze the listener is the engine's private backend and the advertised address the stack's: a client is
+/// pointed at the advertised one (the top bar, Home's Address card, every snippet), or it skips doze.
+#[test]
+fn a_client_is_pointed_at_the_advertised_address_not_the_bind() {
+    let mut f = facts();
+    assert_eq!(
+        f.bootstrap(),
+        "127.0.0.1:9092",
+        "the same address when nothing is advertised"
+    );
+    f.listen = "127.0.0.1:25427".parse().unwrap();
+    f.advertised_port = 29092;
+    assert_eq!(f.bootstrap(), "127.0.0.1:29092");
+    assert_eq!(f.listener(), "127.0.0.1:25427");
+    assert_eq!(chrome(&f, &access(&f, 0, true)).address, "127.0.0.1:29092");
 }
 
 #[test]

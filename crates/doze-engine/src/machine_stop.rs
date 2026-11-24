@@ -226,6 +226,16 @@ impl Machine {
         }
     }
 
+    /// `name` cannot be reached at all, for `why` (a listener of its could not be opened): failed with that, and every
+    /// start of it, or of what needs it, is refused with it.
+    pub fn set_unreachable(&mut self, name: &str, why: &str) -> Result<Vec<Effect>, Error> {
+        self.declared(name)?;
+        self.table.set_unreachable(name, why);
+        Ok(vec![Effect::Journal(
+            Event::new(Kind::Failed, name).detail(why),
+        )])
+    }
+
     /// Why `name` is awake: running services that hold it, a pin, client connections.
     pub fn holders(&self, name: &str, now: Now) -> Vec<Holder> {
         let Some(inst) = self.table.get(name, now).filter(|i| i.state.running()) else {

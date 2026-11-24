@@ -26,9 +26,19 @@ pub struct Facts {
 }
 
 impl Facts {
-    /// What a client is pointed at: the listener's address, or for a wildcard bind the advertised name.
+    /// What a client is pointed at: the advertised address, where every client ends up after its first Metadata
+    /// anyway. It is the listener's own address unless `--advertised-host`/`--advertised-port` say otherwise, as under
+    /// doze, where the listener is the engine's private backend (a port chosen afresh at each start) and the advertised
+    /// address is the stack's, the one that wakes the broker.
     #[must_use]
     pub fn bootstrap(&self) -> String {
+        self.advertised()
+    }
+
+    /// Where the Kafka listener is bound, as a client would write it: the listener's address, or for a wildcard bind
+    /// the advertised name.
+    #[must_use]
+    pub fn listener(&self) -> String {
         if self.listen.ip().is_unspecified() {
             join(&self.advertised_host, self.listen.port())
         } else {

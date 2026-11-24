@@ -6,7 +6,7 @@ import { join } from "node:path";
 import type { Page } from "@playwright/test";
 import { aws, start, type Running } from "../server";
 import { seedLarder } from "./eventbridge-seed";
-import { expect, expectNoErrorAnswers, test } from "./fixtures";
+import { advance, press, expect, expectNoErrorAnswers, test, pickFrom } from "./fixtures";
 
 const SHOTS = process.env.SHOTS_DIR ?? join(import.meta.dirname, "../../../../../shots-eventbridge");
 const BASE = Number(process.env.E2E_BASE_PORT ?? 45424);
@@ -43,10 +43,9 @@ const go = async (page: Page, path: string, title: string | RegExp) => {
   await expect(page.locator("h1").first()).toHaveText(title);
 };
 const pick = async (page: Page, name: string | RegExp, option: string | RegExp) => {
-  await page.getByRole("combobox", { name }).click();
-  await page.getByRole("option", { name: option, exact: typeof option === "string" }).click();
+  await pickFrom(page, name, option);
 };
-const next = (page: Page) => page.getByTestId("form-submit").click();
+const next = (page: Page) => advance(page);
 
 test.beforeAll(async ({ browserName }) => {
   browserKind = browserName;
@@ -63,7 +62,7 @@ test("eventbridge__rule-create: Create rule's five steps, each reached in turn, 
   await expect(page.getByRole("navigation", { name: "Steps" })).toContainText("Define rule detail");
   await page.getByTestId("rule-name").fill("order-placed");
   await expect(page.getByTestId("section-detail")).toContainText("audit-sweep and order-placed are already on larder, with 1 more.");
-  await next(page);
+  await press(page);
   await expect(page.getByTestId("section-detail")).toContainText("order-placed is already on larder.");
   await page.getByTestId("rule-name").fill("refund-issued");
   await page.getByTestId("rule-description").fill("Tell finance about each refund");

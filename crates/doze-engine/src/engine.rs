@@ -353,6 +353,15 @@ impl Engine {
         Ok(on)
     }
 
+    /// `name` cannot be reached at all, for `why` (a listener of its could not be opened; the message names the
+    /// address): it shows failed with `why`, and every start of it (or of what needs it) fails with `why`, for as long
+    /// as this engine runs.
+    pub fn set_unreachable(&self, name: &str, why: &str) -> Result<(), Error> {
+        let fx = self.update(|c| c.m.set_unreachable(name, why))?;
+        self.run(fx);
+        Ok(())
+    }
+
     /// Takes `name` out of this run (stops it; every start is refused) or puts it back (nothing starts at once).
     pub async fn set_off(&self, name: &str, off: bool) -> Result<(), Error> {
         let fx = self.update(|c| c.m.set_off(name, off))?;
