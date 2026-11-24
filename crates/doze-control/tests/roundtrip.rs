@@ -219,7 +219,7 @@ fn the_block_requests_are_written_with_only_what_they_set() {
     let values = std::collections::BTreeMap::from([("partitions".to_owned(), "6".to_owned())]);
     assert_eq!(
         line(Request::admin_form("events", "create", "", values)),
-        "{\"op\":\"admin\",\"db\":\"events\",\"action\":\"create\",\"values\":{\"partitions\":\"6\"}}\n"
+        "{\"op\":\"admin\",\"db\":\"events\",\"action\":\"create\",\"values\":{\"partitions\":\"6\"},\"form\":true}\n"
     );
     for r in [
         Request::value("db", "keys", row, 0, false),

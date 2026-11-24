@@ -23,6 +23,16 @@ use std::collections::BTreeMap;
 /// a frame is sent, even if the module set the bit (a bit a 2.1 build might mean something else by).
 #[tokio::test(flavor = "current_thread")]
 async fn a_2_1_module_is_never_asked_for_a_block() {
+    // And a 2.2 module with the bits may be.
+    let (a, b) = channel::pair().await.unwrap();
+    let host = tokio::spawn(peer::accept_module(a, nothing(), None));
+    let bits = caps::VALUE | caps::TREE;
+    let (_m, _w) = peer::connect_host(b, common::hello(bits, 2), nothing())
+        .await
+        .unwrap();
+    let (h, _) = host.await.unwrap().unwrap();
+    assert!(h.can_call(Method::Value) && h.can_call(Method::Children));
+
     for (minor, bits, why) in [
         (1, caps::VALUE | caps::TREE, "minor"),
         (2, caps::ADMIN, "does not offer"),
@@ -33,6 +43,11 @@ async fn a_2_1_module_is_never_asked_for_a_block() {
             .await
             .unwrap();
         let (h, _) = host.await.unwrap().unwrap();
+        // What a host asks before waking an instance for a block.
+        assert!(
+            !h.can_call(Method::Value) && !h.can_call(Method::Children),
+            "{minor}"
+        );
         let v = ValueArgs {
             instance: common::instance(),
             panel: "m".into(),

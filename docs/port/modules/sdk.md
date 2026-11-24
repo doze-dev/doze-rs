@@ -69,7 +69,8 @@ crates/doze-module/
   src/module.rs     Module trait, About, Cx
   src/caps.rs       capability traits
   src/forms.rs      action forms: values checked against declared fields, defaults filled, per-field errors
-  src/register_blocks.rs  values, tree: the routes, holding a module to the bytes asked
+  src/register_blocks.rs  values, tree: the routes, holding a module to the bytes asked (pairs with the first part only) and a
+                    tree page to CHILDREN_PAGE (500) nodes, continued under a cursor of the SDK's
   src/server.rs     the builder, dispatch of calls to traits, hello
   src/fetch.rs      Fetch
   src/help/         resolve_via, settings, run (tools), stale files, template

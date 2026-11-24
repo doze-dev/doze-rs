@@ -113,18 +113,6 @@ fn field_view(f: &doze_module_proto::msg::blocks::Field) -> doze_control::FieldV
     }
 }
 
-/// The form field a module's refusal is about: its first diagnostic's path when that is one field id.
-fn field_of(e: &doze_module_proto::msg::error::Error) -> String {
-    use doze_module_proto::msg::value::PathSeg;
-    e.diagnostics
-        .iter()
-        .find_map(|d| match d.path.as_slice() {
-            [PathSeg::Key(f)] => Some(f.clone()),
-            _ => None,
-        })
-        .unwrap_or_default()
-}
-
 /// Go's `Resources`: a module instance's resources with a status line, and its module's data actions. Empty for an
 /// instance whose module offers none (or that is not a module's); an error when it does not run.
 pub(crate) async fn resources(d: &Daemon, name: &str) -> Response {
@@ -190,9 +178,10 @@ pub(crate) async fn admin(d: &Daemon, req: &doze_control::Request) -> Response {
     }
     let ctx = d.engine().ctx_for(name);
     let input = (!req.input.is_empty()).then(|| req.input.clone());
-    let values = req.values.clone();
+    // A client that sends values knows forms, whether or not it says so.
+    let form = (req.form || !req.values.is_empty()).then(|| req.values.clone());
     match mi
-        .run_action(&ctx, &req.action, &req.resource, input, values)
+        .run_action(&ctx, &req.action, &req.resource, input, form)
         .await
     {
         Ok(result) => Response {
@@ -201,7 +190,8 @@ pub(crate) async fn admin(d: &Daemon, req: &doze_control::Request) -> Response {
             ..Response::default()
         },
         Err(err) => Response {
-            field: field_of(&err),
+            // Only a refusal of a form field names one (never a problem in the instance's configuration).
+            field: err.field.clone().unwrap_or_default(),
             ..failed(err.describe(), "")
         },
     }

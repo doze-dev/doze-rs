@@ -318,6 +318,7 @@ fn what_a_2_1_build_wrote_reads_in_2_2_with_the_blocks_left_empty() {
         input: Some("payments".into()),
     });
     assert!(r.values.is_empty(), "an old host sends no form values");
+    assert!(!r.form, "and does not say it knows forms");
 }
 
 #[test]
@@ -358,6 +359,7 @@ fn what_a_2_2_build_writes_reads_in_2_1_without_the_blocks() {
         resource: String::new(),
         input: Some("payments".into()),
         values: BTreeMap::from([("partitions".into(), "6".into())]),
+        form: true,
     };
     let old: RunAction21 = across(&run);
     assert_eq!(old.input.as_deref(), Some("payments"));

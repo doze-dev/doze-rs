@@ -18,7 +18,6 @@ use doze_module_proto::msg::console::Resource;
 use doze_module_proto::msg::error::{Error, ErrorKind};
 use doze_module_proto::msg::hello::caps;
 use doze_module_proto::msg::instance::Instance;
-use doze_module_proto::msg::value::PathSeg;
 use doze_module_proto::peer::{CallOpts, Peer};
 use echo_support::{good, instance, start};
 use minicbor::{Decode, Encode};
@@ -63,6 +62,7 @@ async fn form(p: &Peer, action: &str, values: &[(&str, &str)]) -> Result<String,
             .iter()
             .map(|(k, v)| (k.to_string(), v.to_string()))
             .collect(),
+        form: true,
     };
     p.call(Method::RunAction, &a, CallOpts::default()).await
 }
@@ -110,6 +110,11 @@ async fn a_value_comes_as_what_it_is_and_in_parts() {
     let headers = value(&p, "headers", 0, 0).await.unwrap();
     assert_eq!(headers.media, media::PAIRS);
     assert_eq!(headers.pairs[1], ("source".to_string(), "api".to_string()));
+    let later = value(&p, "headers", 10, 0).await.unwrap();
+    assert!(
+        later.pairs.is_empty(),
+        "the pairs came with the first part only"
+    );
     // In parts: 64 bytes, then the rest from where it stopped.
     let first = value(&p, "order-10433", 0, 64).await.unwrap();
     assert_eq!((first.body.len(), first.more), (64, true));
@@ -144,7 +149,22 @@ async fn a_form_is_checked_by_the_sdk_and_an_older_app_is_told_to_update() {
         .await
         .unwrap_err();
     assert_eq!(e.kind(), ErrorKind::Invalid);
-    assert_eq!(e.diagnostics[0].path, [PathSeg::Key("size".into())], "{e}");
+    assert_eq!(
+        (e.field.as_deref(), e.describe().as_str()),
+        (Some("size"), "Size must be at least 1"),
+        "said once, about its field"
+    );
+    // A new app whose form was left blank sends no values: it is told which field, not to update.
+    let e = form(&p, "create", &[]).await.unwrap_err();
+    assert_eq!(
+        (e.field.as_deref(), e.describe().as_str()),
+        (Some("name"), "Name is required")
+    );
+    // A number is passed on as it was checked, trimmed.
+    let done = form(&p, "create", &[("name", "p"), ("size", " 7 ")])
+        .await
+        .unwrap();
+    assert!(done.contains("(size 7,"), "{done}");
     // An app that knows no forms sends the 2.1 shape: no values at all.
     #[derive(Encode, Decode)]
     struct RunAction21 {

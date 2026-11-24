@@ -90,6 +90,9 @@ pub struct Request {
     /// `admin`: a form's values by field id.
     #[serde(skip_serializing_if = "BTreeMap::is_empty")]
     pub values: BTreeMap<String, String>,
+    /// `admin`: the client knows forms, so `values` is what the form sent even when empty (every field left blank).
+    #[serde(skip_serializing_if = "is_false")]
+    pub form: bool,
 }
 
 impl Request {
@@ -189,6 +192,7 @@ impl Request {
     ) -> Request {
         Request {
             values,
+            form: true,
             ..Request::admin(instance, action, resource, "")
         }
     }

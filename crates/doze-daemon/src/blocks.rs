@@ -5,6 +5,7 @@
 use crate::Daemon;
 use doze_control::{ChildrenView, PairView, Response, TreeNodeView, ValueView, fault};
 use doze_engine::modules::{Block, ModuleInstance};
+use doze_engine::{Instance, State};
 use doze_module_proto::msg::blocks::{self as proto, VALUE_CHUNK};
 use std::sync::Arc;
 
@@ -49,18 +50,64 @@ async fn ready(
         }
         Err(e) => return Err(refuse(e, "")),
     };
-    if !d.engine().get(name).is_some_and(|i| i.state.running()) {
-        if !wake {
-            return Err(refuse(
-                format!("{name} is asleep. Opening a value wakes it."),
-                fault::ASLEEP,
-            ));
-        }
-        crate::unary::wake(d, name)
-            .await
-            .map_err(|e| refuse(e.to_string(), ""))?;
-    }
+    awake(d, name, wake).await?;
     Ok(mi)
+}
+
+/// The instance up, or why not in its own words: only one truly asleep is "asleep", and only an explicit press
+/// (`wake`) wakes it (or waits for a start already under way). One that is off, failed or crashing is not woken.
+async fn awake(d: &Daemon, name: &str, wake: bool) -> Result<(), Box<Response>> {
+    let Some(i) = d.engine().get(name) else {
+        let why = format!("instance {name:?} is not declared");
+        return Err(refuse(why, fault::NOT_FOUND));
+    };
+    let off = i.off || d.label(name).is_some_and(|l| l.paused);
+    match refusal(name, &i, off, wake) {
+        Some(r) => Err(r),
+        None if i.state.running() => Ok(()),
+        None => crate::unary::wake(d, name)
+            .await
+            .map_err(|e| refuse(e.to_string(), fault::FAILED)),
+    }
+}
+
+/// Why a block cannot be read from instance `i` now; `None` when it runs, or may be woken (`wake`) or waited for.
+fn refusal(name: &str, i: &Instance, off: bool, wake: bool) -> Option<Box<Response>> {
+    let why = if i.last_error.is_empty() {
+        String::new()
+    } else {
+        format!(": {}", i.last_error)
+    };
+    let (text, code) = match i.state {
+        s if s.running() => return None,
+        _ if off => (
+            format!(
+                "{name} is off: `doze on {name}` (or `enabled = true` in the config) brings it back."
+            ),
+            fault::OFF,
+        ),
+        State::Failed => (
+            format!("{name} failed{why}. `doze restart {name}` tries again."),
+            fault::FAILED,
+        ),
+        State::Crashing => (
+            format!(
+                "{name} crashed and is restarting (attempt {} of {}){why}.",
+                i.restart_count, i.restart_max
+            ),
+            fault::FAILED,
+        ),
+        _ if wake => return None,
+        State::Booting => (
+            format!("{name} is starting. Try again in a moment."),
+            fault::STARTING,
+        ),
+        _ => (
+            format!("{name} is asleep. Opening a value wakes it."),
+            fault::ASLEEP,
+        ),
+    };
+    Some(refuse(text, code))
 }
 
 /// The `value` op.
@@ -137,5 +184,65 @@ pub(crate) fn children_view(c: proto::Children) -> ChildrenView {
             })
             .collect(),
         next: c.next.unwrap_or_default(),
+    }
+}
+
+#[cfg(test)]
+#[allow(clippy::unwrap_used)]
+mod tests {
+    use super::*;
+
+    fn said(state: State, off: bool, wake: bool) -> Option<(String, String)> {
+        let i = Instance {
+            state,
+            last_error: if state == State::Failed {
+                "exit status 1".into()
+            } else {
+                String::new()
+            },
+            restart_count: 2,
+            restart_max: 5,
+            ..Instance::default()
+        };
+        refusal("db", &i, off, wake).map(|r| (r.error.clone(), r.code.clone()))
+    }
+
+    #[test]
+    fn only_an_instance_truly_asleep_is_called_asleep() {
+        assert_eq!(said(State::Idle, false, false), None);
+        assert_eq!(
+            said(State::Reaped, false, true),
+            None,
+            "an explicit open wakes it"
+        );
+        assert_eq!(
+            said(State::Booting, false, true),
+            None,
+            "and waits for a start under way"
+        );
+        let code = |s, off, wake| said(s, off, wake).unwrap().1;
+        assert_eq!(code(State::Reaped, false, false), fault::ASLEEP);
+        assert_eq!(code(State::Booting, false, false), fault::STARTING);
+        assert_eq!(
+            code(State::Reaped, true, true),
+            fault::OFF,
+            "never woken when off"
+        );
+        let (failed, c) = said(State::Failed, false, true).unwrap();
+        assert_eq!(
+            (failed.as_str(), c.as_str()),
+            (
+                "db failed: exit status 1. `doze restart db` tries again.",
+                fault::FAILED
+            )
+        );
+        let (crashing, c) = said(State::Crashing, false, true).unwrap();
+        assert_eq!(
+            (crashing.as_str(), c.as_str()),
+            (
+                "db crashed and is restarting (attempt 2 of 5).",
+                fault::FAILED
+            )
+        );
     }
 }

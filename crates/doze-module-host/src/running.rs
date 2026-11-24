@@ -177,6 +177,10 @@ impl Running {
     pub async fn run_action(&self, a: &RunAction) -> Result<String, Error> {
         self.call(Method::RunAction, a, SLOW).await
     }
+    /// Whether the module may be asked `method`: it declared the capability, and the agreed protocol minor has it.
+    pub fn offers(&self, method: Method) -> bool {
+        self.peer.can_call(method)
+    }
     /// Part of one value in full.
     pub async fn value(&self, a: &ValueArgs) -> Result<ValueAnswer, Error> {
         self.call(Method::Value, a, QUICK).await

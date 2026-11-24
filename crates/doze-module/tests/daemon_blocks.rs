@@ -49,6 +49,14 @@ async fn the_blocks_are_asked_of_the_module_and_wake_only_on_a_press() {
         r["error"], "instance \"show\" (process) has no value viewer",
         "{r}"
     );
+    // An instance taken out of the run (`doze off`) is said to be off, and an open does not wake it.
+    let r = c.ask(r#"{"id":18,"op":"off","db":"e"}"#);
+    assert_eq!(r["ok"], true, "{r}");
+    let r = c.ask(
+        r#"{"id":17,"op":"value","db":"e","panel":"messages","row":{"name":"note"},"wake":true}"#,
+    );
+    assert_eq!(r["code"], "off", "{r}");
+    assert!(!d.engine().get("e").unwrap().state.running());
     let r = c.ask(r#"{"id":14,"op":"value","db":"nope","panel":"m"}"#);
     assert_eq!(r["code"], "not_found", "{r}");
 
@@ -85,6 +93,18 @@ fn values_trees_and_forms(c: &mut Raw) {
         (Some(false), Some("size")),
         "{r}"
     );
+    assert_eq!(r["error"], "Size must be at most 1024", "said once");
+    // A new app's form left blank: no values on the wire, `form` says it knows forms.
+    let r = c.ask(r#"{"id":15,"op":"admin","db":"e","action":"create","form":true}"#);
+    assert_eq!(
+        (r["error"].as_str(), r["field"].as_str()),
+        (Some("Name is required"), Some("name")),
+        "{r}"
+    );
+    // An old app: no values and no `form`.
+    let r = c.ask(r#"{"id":16,"op":"admin","db":"e","action":"create","input":"p"}"#);
+    assert_eq!(r["error"], "This action needs a newer doze app.", "{r}");
+    assert_eq!(r["field"], serde_json::Value::Null, "{r}");
     let r = c.ask(r#"{"id":11,"op":"admin","db":"e","action":"create","values":{"name":"p"}}"#);
     assert_eq!(
         r["result"], "created channel p (size 1, delete, kept in doze.hcl, 0 headers)",

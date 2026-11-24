@@ -179,6 +179,7 @@ impl<M: Module> Server<M> {
                 let mut values = a.values;
                 with_cx!(m, a.instance, call, peer, |cx| match crate::forms::check(
                     &fields,
+                    a.form,
                     &mut values
                 ) {
                     Err(e) => Err(e),

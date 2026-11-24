@@ -23,7 +23,7 @@ impl ModuleInstance {
         m.resources(&i).await.map_err(|e| e.describe())
     }
 
-    /// Runs data action `action` on `resource`, with its form's values; what it says it did. The error is the
+    /// Runs data action `action` on `resource`, with its form's values (`Some` when the caller knows forms, even with none filled in); what it says it did. The error is the
     /// module's own, so a form's caller can tell which field it is about.
     pub async fn run_action(
         &self,
@@ -31,7 +31,7 @@ impl ModuleInstance {
         action: &str,
         resource: &str,
         input: Option<String>,
-        values: std::collections::BTreeMap<String, String>,
+        form: Option<std::collections::BTreeMap<String, String>>,
     ) -> Result<String, doze_module_proto::msg::error::Error> {
         let m = self.pool.get(&self.key).await?;
         let a = RunAction {
@@ -48,7 +48,8 @@ impl ModuleInstance {
             action: action.into(),
             resource: resource.into(),
             input,
-            values,
+            form: form.is_some(),
+            values: form.unwrap_or_default(),
         };
         m.run_action(&a).await
     }

@@ -158,6 +158,10 @@ pub mod fault {
     pub const INTERRUPTED: &str = "interrupted";
     /// Rust daemon, additive: the instance sleeps and the request did not ask to wake it.
     pub const ASLEEP: &str = "asleep";
+    /// Rust daemon, additive: the instance is starting; asked again in a moment, it answers.
+    pub const STARTING: &str = "starting";
+    /// Rust daemon, additive: the instance is off (`doze off`, or `enabled = false`); nothing wakes it until it is on.
+    pub const OFF: &str = "off";
 }
 
 /// What a subscribe request asks for (Go `Subscription`).

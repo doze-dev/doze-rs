@@ -4,12 +4,12 @@
 
 use super::ModuleInstance;
 use crate::stack::PlanCtx;
+use doze_module_proto::method::Method;
 use doze_module_proto::msg::blocks::{Children, ChildrenArgs, ValueAnswer, ValueArgs};
-use doze_module_proto::msg::hello::caps;
 use doze_module_proto::msg::instance::Instance;
 use std::collections::BTreeMap;
 
-/// Which block a call is for: its capability bit and how to say it is missing.
+/// Which block a call is for: its call and how to say it is missing.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Block {
     Value,
@@ -17,10 +17,10 @@ pub enum Block {
 }
 
 impl Block {
-    fn bit(self) -> u64 {
+    fn method(self) -> Method {
         match self {
-            Block::Value => caps::VALUE,
-            Block::Tree => caps::TREE,
+            Block::Value => Method::Value,
+            Block::Tree => Method::Children,
         }
     }
 
@@ -33,10 +33,11 @@ impl Block {
 }
 
 impl ModuleInstance {
-    /// Whether its module offers `block`.
+    /// Whether its module offers `block`: the capability bit, and a protocol minor agreed with it that has the call (a
+    /// 2.1 module with a stray bit is never woken for a block it cannot answer).
     pub async fn has_block(&self, block: Block) -> Result<bool, String> {
         let m = self.pool.get(&self.key).await.map_err(|e| e.describe())?;
-        Ok(m.manifest.caps & block.bit() != 0)
+        Ok(m.offers(block.method()))
     }
 
     /// The running module and the instance as it started, once `block` is known to be offered.
@@ -46,7 +47,7 @@ impl ModuleInstance {
         block: Block,
     ) -> Result<(std::sync::Arc<doze_module_host::Running>, Instance), String> {
         let m = self.pool.get(&self.key).await.map_err(|e| e.describe())?;
-        if m.manifest.caps & block.bit() == 0 {
+        if !m.offers(block.method()) {
             return Err(format!("{} has no {}", self.base.engine, block.what()));
         }
         let i = self.with_toolchain(ctx).await?.instance;

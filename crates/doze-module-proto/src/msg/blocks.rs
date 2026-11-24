@@ -109,7 +109,8 @@ pub struct ValueAnswer {
     #[n(1)]
     #[cbor(with = "minicbor::bytes")]
     pub body: Vec<u8>,
-    /// Key–value pairs beside or instead of the body (a message's headers, a hash's fields), in order.
+    /// Key–value pairs beside or instead of the body (a message's headers, a hash's fields), in order. Sent with the
+    /// first part only (offset 0): "Load the rest" asks for more of the body, not the pairs again.
     #[n(2)]
     #[cbor(default)]
     pub pairs: Vec<(String, String)>,
@@ -170,6 +171,10 @@ pub struct ChildrenArgs {
     #[n(4)]
     pub cursor: Option<String>,
 }
+
+/// The most nodes one page of a folder's children carries. The SDK cuts a longer page a module gives and continues it
+/// with a cursor of its own, so a module that answers a whole folder at once still crosses the socket a page at a time.
+pub const CHILDREN_PAGE: usize = 500;
 
 /// One page of a folder's children.
 #[derive(Debug, Clone, PartialEq, Eq, Default, Encode, Decode)]

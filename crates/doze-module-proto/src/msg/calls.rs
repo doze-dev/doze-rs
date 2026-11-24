@@ -47,6 +47,11 @@ pub struct RunAction {
     #[n(4)]
     #[cbor(default)]
     pub values: std::collections::BTreeMap<String, String>,
+    /// The caller knows forms (minor 2): `values` is what the form sent, even when it is empty (a form whose fields were
+    /// all left blank). False from a host or app that does not know forms.
+    #[n(5)]
+    #[cbor(default)]
+    pub form: bool,
 }
 
 /// `shutdown`: finish what is in flight within the deadline, then exit.

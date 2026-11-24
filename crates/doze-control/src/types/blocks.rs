@@ -118,13 +118,14 @@ pub struct TreeNodeView {
     pub info: BTreeMap<String, String>,
 }
 
-/// A check that is not passing, as the map and Needs you show it beside a crash (`InstanceView::checks`).
+/// A failing check, as the map and Needs you show it beside a crash (`InstanceView::checks`). Only `bad` checks are
+/// carried there; a `warn` stays in the module's console.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct CheckView {
     /// What was checked.
     pub name: String,
-    /// `warn` or `bad`.
+    /// `bad`.
     pub status: String,
     /// The result in plain words.
     #[serde(skip_serializing_if = "String::is_empty")]

@@ -2,37 +2,33 @@
 //! module sees them, so every module refuses the same way and the app marks the field each refusal is about.
 
 use doze_module_proto::msg::blocks::{Field, field};
-use doze_module_proto::msg::error::{Diagnostic, Error, ErrorKind};
-use doze_module_proto::msg::value::PathSeg;
+use doze_module_proto::msg::error::{Error, ErrorKind};
 use std::collections::BTreeMap;
 
 /// What a module says when an app that does not know forms runs an action whose form has required fields.
 pub const NEEDS_NEWER_APP: &str = "This action needs a newer doze app.";
 
-/// A refusal about one field of a form: the app shows `message` next to it.
+/// A refusal about one field of a form: the app shows `message` next to it, and the error says it once.
 pub fn field_error(field: &str, message: impl Into<String>) -> Error {
-    let message = message.into();
-    Error::invalid(
-        message.clone(),
-        vec![Diagnostic {
-            path: vec![PathSeg::Key(field.into())],
-            message,
-            hint: None,
-        }],
-    )
+    Error::for_field(field, message)
 }
 
-/// Checks `values` against `fields` and fills in the defaults of fields left out. With fields declared and no values
-/// at all, the caller is an app that does not know forms: refused with [`NEEDS_NEWER_APP`] when any field is required
-/// and has no default, otherwise run with the defaults.
-pub fn check(fields: &[Field], values: &mut BTreeMap<String, String>) -> Result<(), Error> {
+/// Checks `values` against `fields` and fills in the defaults of fields left out; a number is kept trimmed. `form`
+/// says the caller knows forms (`RunAction::form`): without it and without values, the caller is a host or app that
+/// does not know forms, refused with [`NEEDS_NEWER_APP`] when a field is required and has no default, otherwise run
+/// with the defaults. With it, a required field left blank is refused by name.
+pub fn check(
+    fields: &[Field],
+    form: bool,
+    values: &mut BTreeMap<String, String>,
+) -> Result<(), Error> {
     if fields.is_empty() {
         return Ok(());
     }
     let unanswerable = fields
         .iter()
         .any(|f| f.required && f.default.is_none() && !values.contains_key(&f.id));
-    if values.is_empty() && unanswerable {
+    if !form && values.is_empty() && unanswerable {
         return Err(Error::new(ErrorKind::Unsupported, NEEDS_NEWER_APP));
     }
     if let Some(k) = values.keys().find(|k| !fields.iter().any(|f| &f.id == *k)) {
@@ -43,6 +39,11 @@ pub fn check(fields: &[Field], values: &mut BTreeMap<String, String>) -> Result<
             && let Some(d) = &f.default
         {
             values.insert(f.id.clone(), d.clone());
+        }
+        if f.kind == field::NUMBER
+            && let Some(v) = values.get_mut(&f.id)
+        {
+            *v = v.trim().to_string();
         }
         match values.get(&f.id) {
             None if f.required => {
@@ -67,7 +68,7 @@ fn one(f: &Field, v: &str) -> Result<(), Error> {
     }
     match f.kind.as_str() {
         field::NUMBER if !v.is_empty() => {
-            let Ok(n) = v.trim().parse::<i64>() else {
+            let Ok(n) = v.parse::<i64>() else {
                 return bad(format!("{} must be a whole number", label(f)));
             };
             if let Some(min) = f.min.filter(|m| n < *m) {
@@ -90,10 +91,18 @@ fn one(f: &Field, v: &str) -> Result<(), Error> {
                 f.choices.join(", ")
             ))
         }
-        field::PAIRS => match v.lines().find(|l| !l.trim().is_empty() && !l.contains('=')) {
-            Some(l) => bad(format!("{}: {l:?} is not key=value", label(f))),
-            None => Ok(()),
-        },
+        field::PAIRS => {
+            let line = |l: &&str| match l.split_once('=') {
+                _ if l.trim().is_empty() => false,
+                Some((k, _)) => k.trim().is_empty(),
+                None => true,
+            };
+            match v.lines().find(line) {
+                Some(l) if l.contains('=') => bad(format!("{}: {l:?} has no key", label(f))),
+                Some(l) => bad(format!("{}: {l:?} is not key=value", label(f))),
+                None => Ok(()),
+            }
+        }
         _ => Ok(()),
     }
 }
@@ -128,10 +137,8 @@ mod tests {
     }
 
     fn field_of(e: &Error) -> String {
-        match e.diagnostics[0].path.as_slice() {
-            [PathSeg::Key(k)] => k.clone(),
-            _ => String::new(),
-        }
+        assert!(e.diagnostics.is_empty(), "said once: {}", e.describe());
+        e.field.clone().unwrap_or_default()
     }
 
     #[test]
@@ -144,26 +151,58 @@ mod tests {
         };
         let fields = [f("name", field::TEXT, true), parts];
         let mut v = vals(&[("name", "payments")]);
-        check(&fields, &mut v).unwrap();
+        check(&fields, true, &mut v).unwrap();
         assert_eq!(v["partitions"], "3");
-        let e = check(&fields, &mut vals(&[("name", "p"), ("partitions", "0")])).unwrap_err();
+        let mut v = vals(&[("name", "payments"), ("partitions", " 6 ")]);
+        check(&fields, true, &mut v).unwrap();
+        assert_eq!(
+            v["partitions"], "6",
+            "the number checked is the number passed on"
+        );
+        let e = check(
+            &fields,
+            true,
+            &mut vals(&[("name", "p"), ("partitions", "0")]),
+        )
+        .unwrap_err();
         assert_eq!(field_of(&e), "partitions");
         assert!(e.message.contains("at least 1"), "{e}");
-        let e = check(&fields, &mut vals(&[("name", "p"), ("partitions", "six")])).unwrap_err();
+        let e = check(
+            &fields,
+            true,
+            &mut vals(&[("name", "p"), ("partitions", "six")]),
+        )
+        .unwrap_err();
         assert!(e.message.contains("whole number"), "{e}");
-        let e = check(&fields, &mut vals(&[("name", " "), ("partitions", "6")])).unwrap_err();
+        let e = check(
+            &fields,
+            true,
+            &mut vals(&[("name", " "), ("partitions", "6")]),
+        )
+        .unwrap_err();
         assert_eq!(field_of(&e), "name");
-        let e = check(&fields, &mut vals(&[("name", "p"), ("colour", "red")])).unwrap_err();
+        let e = check(
+            &fields,
+            true,
+            &mut vals(&[("name", "p"), ("colour", "red")]),
+        )
+        .unwrap_err();
         assert_eq!(field_of(&e), "colour");
     }
 
     #[test]
     fn an_app_without_forms_is_told_to_update_only_when_it_must() {
         let fields = [f("name", field::TEXT, true)];
-        let e = check(&fields, &mut BTreeMap::new()).unwrap_err();
+        let e = check(&fields, false, &mut BTreeMap::new()).unwrap_err();
         assert_eq!(
             (e.kind(), e.message.as_str()),
             (ErrorKind::Unsupported, NEEDS_NEWER_APP)
+        );
+        // A new app whose form was left blank (no values on the wire) is told which field, not to update.
+        let e = check(&fields, true, &mut BTreeMap::new()).unwrap_err();
+        assert_eq!(
+            (field_of(&e), e.message.as_str()),
+            ("name".into(), "name is required")
         );
         // Every field has a default: the action runs with them.
         let optional = [Field {
@@ -172,9 +211,9 @@ mod tests {
             ..f("cleanup", field::CHOICE, true)
         }];
         let mut v = BTreeMap::new();
-        check(&optional, &mut v).unwrap();
+        check(&optional, false, &mut v).unwrap();
         assert_eq!(v["cleanup"], "delete");
-        let e = check(&optional, &mut vals(&[("cleanup", "shred")])).unwrap_err();
+        let e = check(&optional, false, &mut vals(&[("cleanup", "shred")])).unwrap_err();
         assert!(e.message.contains("one of delete, compact"), "{e}");
     }
 
@@ -186,11 +225,17 @@ mod tests {
         ];
         check(
             &fields,
+            true,
             &mut vals(&[("keep", "true"), ("headers", "a=1\nb=x=y")]),
         )
         .unwrap();
-        assert!(check(&fields, &mut vals(&[("keep", "yes")])).is_err());
-        assert!(check(&fields, &mut vals(&[("headers", "nope")])).is_err());
+        let e = check(&fields, true, &mut vals(&[("headers", "a=1\n =v")])).unwrap_err();
+        assert_eq!(
+            (field_of(&e), e.message.as_str()),
+            ("headers".into(), "headers: \" =v\" has no key")
+        );
+        assert!(check(&fields, true, &mut vals(&[("keep", "yes")])).is_err());
+        assert!(check(&fields, true, &mut vals(&[("headers", "nope")])).is_err());
         assert_eq!(
             pairs("a=1\nb=x=y"),
             [("a".into(), "1".into()), ("b".into(), "x=y".into())]
