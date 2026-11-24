@@ -275,17 +275,19 @@ impl Root {
     }
 }
 
-/// The pages inside, for `shot` and `bench` to set up.
-#[cfg(feature = "fixtures")]
 impl Root {
-    #[cfg(feature = "capture")]
+    /// The instance page inside, for `shot` and `bench` (`--tab`) to set up; the bench is in every build.
     pub(crate) fn inside_instance(&self) -> Option<Entity<InstanceView>> {
         match &self.inside {
             Some(Inside::Instance(v)) => Some(v.clone()),
             _ => None,
         }
     }
+}
 
+/// The pages inside, for `shot` and `bench` to set up.
+#[cfg(feature = "fixtures")]
+impl Root {
     pub(crate) fn inside_logs(&self, cx: &gpui::App) -> Option<Entity<LogsView>> {
         match &self.inside {
             Some(Inside::Logs(l)) => Some(l.clone()),
