@@ -6,6 +6,7 @@ use aws_wire::ApiError;
 use serde_json::Map;
 
 use super::bus::{Bus, CONSOLE};
+pub use super::counted::Counted;
 use super::run::{self, MOST_COUNTED, PAGES_COUNTED};
 use super::{Column, Descriptor, Format, InputKind, Kind, Read, catalog, page, params};
 use crate::facts::Facts;
@@ -100,27 +101,6 @@ fn title_of(facts: &Facts, service: &str) -> String {
 #[must_use]
 pub fn served(facts: &Facts, service: &str) -> bool {
     facts.services.iter().any(|s| s.name == service && s.served)
-}
-
-/// Which services the index counts: a count is a list call, and a list call wakes a service that is asleep.
-#[derive(Debug, Clone, Copy)]
-pub enum Counted<'a> {
-    /// None: the services and their kinds alone, no call made.
-    No,
-    /// Every served service, asleep or not (waking the sleeping ones).
-    All,
-    /// The served services in the list (the ones that are awake); a served service that is not in it is left asleep, uncounted.
-    Awake(&'a [String]),
-}
-
-impl Counted<'_> {
-    fn counts(self, service: &str) -> bool {
-        match self {
-            Counted::No => false,
-            Counted::All => true,
-            Counted::Awake(awake) => awake.iter().any(|a| a == service),
-        }
-    }
 }
 
 /// The index: every service of the build, each described kind counted by listing it (a served service only, and only the ones

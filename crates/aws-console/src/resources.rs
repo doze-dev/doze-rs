@@ -18,6 +18,7 @@ pub mod act;
 pub mod blockers;
 pub mod bus;
 pub mod catalog;
+pub mod counted;
 pub mod deep;
 pub mod ops;
 pub mod page;
