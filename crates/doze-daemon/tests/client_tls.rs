@@ -246,7 +246,7 @@ fn a_replacement_keeping_size_and_time_is_picked_up() {
     let times = |p: &Path| std::fs::metadata(p).unwrap().modified().unwrap();
     let (tc, tk) = (times(&cert), times(&key));
 
-    // Moved into place with the old size and time (rsync -t, tar): another file.
+    // Moved into place with the old size and time (rsync -t, tar).
     let b = own_of_len(a.cert_pem.len());
     assert_eq!(b.key_pem.len(), a.key_pem.len());
     for (path, pem, t) in [(&cert, &b.cert_pem, tc), (&key, &b.key_pem, tk)] {
@@ -263,8 +263,7 @@ fn a_replacement_keeping_size_and_time_is_picked_up() {
     assert_eq!(times(&cert), tc);
     assert_eq!(*tls.pair(), b.der, "a file moved into place is read");
 
-    // Copied over in place with the time kept (cp -p): the same file, its status changed.
-    #[cfg(unix)]
+    // Copied over in place with the time kept (cp -p): only the contents differ.
     {
         let c = own_of_len(a.cert_pem.len());
         for (path, pem, t) in [(&cert, &c.cert_pem, tc), (&key, &c.key_pem, tk)] {

@@ -10,8 +10,9 @@
 //! The daemon runs for weeks, so the pair is not taken once at load: each `wire.accept` asks for it as it is now. The
 //! authority is followed the way the front door's [`doze_names::certs`] follows it (the root file looked at at most
 //! every [`CA_CHECK_EVERY`], reloaded when it changed, so `doze trust --rotate` is picked up), and its leaf is the
-//! authority's own, renewed a week before it lapses. The person's files are read again when either one changed: its
-//! modification time, size, or the file itself (a renewal moved into place, or copied with its time kept).
+//! authority's own, renewed a week before it lapses. The person's files are read at each check and taken up when their
+//! contents differ from what was loaded. No file time or identity is trusted: a copy keeps its time, some filesystems
+//! keep coarse times, and Windows can keep a replaced file's creation time; the two files are a kilobyte or two each.
 //!
 //! What cannot be loaded at start stops the stack, as Go's did. A later reload that fails keeps serving the last good
 //! pair, so a half-written renewal breaks no connection; it is tried again every check (a minting that failed waits
@@ -60,9 +61,9 @@ struct Now {
     pair: Pair,
     /// The authority's leaf `pair` was made from: an unchanged leaf (the same `Arc`) is not copied again.
     leaf: Option<Arc<Leaf>>,
-    /// When the person's files were last looked at, and what they were when `pair` was loaded from them.
+    /// When the person's files were last looked at, and their bytes when `pair` was loaded from them.
     checked: Instant,
-    seen: (FileId, FileId),
+    seen: Option<Raw>,
     /// After a failed minting, nothing is tried before this.
     retry_at: Option<Instant>,
     /// A failure was said, when, and how near lapsing the served certificate was then.
@@ -80,39 +81,12 @@ enum Lapse {
     Lapsed,
 }
 
-/// What a file is now: its modification time and size, and which file it is (a replacement moved into place is
-/// another file; a copy over it in place changes its status-change time, which no copy keeps). `None` when it cannot
-/// be looked at.
-type FileId = Option<(SystemTime, u64, [i64; 4])>;
+/// The person's certificate and key files as read, PEM.
+type Raw = (Vec<u8>, Vec<u8>);
 
-fn file_id(p: &Path) -> FileId {
-    let m = std::fs::metadata(p).ok()?;
-    Some((
-        m.modified().unwrap_or(SystemTime::UNIX_EPOCH),
-        m.len(),
-        identity(&m),
-    ))
-}
-
-#[cfg(unix)]
-#[allow(clippy::cast_possible_wrap)] // compared for equality only
-fn identity(m: &std::fs::Metadata) -> [i64; 4] {
-    use std::os::unix::fs::MetadataExt;
-    [m.dev() as i64, m.ino() as i64, m.ctime(), m.ctime_nsec()]
-}
-
-/// Windows: the creation time (its file index is not stable Rust yet); a replacement moved into place within
-/// seconds may keep the old one (tunnelling), so there the modification time and size carry it.
-#[cfg(windows)]
-#[allow(clippy::cast_possible_wrap)] // compared for equality only
-fn identity(m: &std::fs::Metadata) -> [i64; 4] {
-    use std::os::windows::fs::MetadataExt;
-    [m.creation_time() as i64, 0, 0, 0]
-}
-
-#[cfg(not(any(unix, windows)))]
-fn identity(_: &std::fs::Metadata) -> [i64; 4] {
-    [0; 4]
+fn read_files(cert: &Path, key: &Path) -> Result<Raw, String> {
+    let read = |p: &Path| std::fs::read(p).map_err(|e| format!("{}: {e}", p.display()));
+    Ok((read(cert)?, read(key)?))
 }
 
 impl WireTls {
@@ -133,14 +107,7 @@ impl WireTls {
             ca: CaSource::new(ca_dir, every),
             host: host.to_owned(),
         };
-        Ok(WireTls::new(
-            from,
-            pair,
-            Some(first),
-            (None, None),
-            required,
-            every,
-        ))
+        Ok(WireTls::new(from, pair, Some(first), None, required, every))
     }
 
     /// The person's certificate and key files, read again when they change, looked at at most every `every`. An error
@@ -151,9 +118,10 @@ impl WireTls {
         required: bool,
         every: Duration,
     ) -> Result<WireTls, String> {
-        let seen = (file_id(cert), file_id(key));
-        let pair = load_files(cert, key)
-            .map_err(|e| format!("configuring TLS: loading the keypair: {e}"))?;
+        let pair = read_files(cert, key)
+            .and_then(|raw| Ok((parse_pair(cert, key, &raw)?, raw)))
+            .map_err(|e| format!("configuring TLS: loading the keypair: {e}"));
+        let (pair, raw) = pair?;
         let from = Source::Files {
             cert: cert.to_path_buf(),
             key: key.to_path_buf(),
@@ -162,7 +130,7 @@ impl WireTls {
             from,
             Arc::new(pair),
             None,
-            seen,
+            Some(raw),
             required,
             every,
         ))
@@ -172,7 +140,7 @@ impl WireTls {
         from: Source,
         pair: Pair,
         leaf: Option<Arc<Leaf>>,
-        seen: (FileId, FileId),
+        seen: Option<Raw>,
         required: bool,
         every: Duration,
     ) -> WireTls {
@@ -232,19 +200,17 @@ impl WireTls {
             Source::Files { .. } if !due(now.checked) => None,
             Source::Files { cert, key } => {
                 now.checked = Instant::now();
-                let seen = (file_id(cert), file_id(key));
-                Some(if seen == now.seen {
-                    Ok(None)
-                } else {
-                    // What was seen moves only with a good load: a refused one (a renewal caught between its two
-                    // writes) is tried again at the next check, however the files change meanwhile.
-                    load_files(cert, key)
-                        .map(|p| {
-                            now.seen = seen;
-                            Some(Arc::new(p))
-                        })
-                        .map_err(|e| format!("reloading the keypair: {e}"))
-                })
+                // What was seen moves only with a good load: a refused one (a renewal caught between its two writes)
+                // is tried again at the next check.
+                let looked = match read_files(cert, key) {
+                    Ok(raw) if now.seen.as_ref() == Some(&raw) => Ok(None),
+                    Ok(raw) => parse_pair(cert, key, &raw).map(|p| {
+                        now.seen = Some(raw);
+                        Some(Arc::new(p))
+                    }),
+                    Err(e) => Err(e),
+                };
+                Some(looked.map_err(|e| format!("reloading the keypair: {e}")))
             }
         };
         match looked {
@@ -300,11 +266,19 @@ impl Now {
     }
 }
 
-/// The person's pair, whose key must be the certificate's: a renewal caught between its two writes is not served.
-fn load_files(cert: &Path, key: &Path) -> Result<(Vec<u8>, Vec<u8>), String> {
+/// The person's pair from the files' bytes (the first certificate, the key in the form the file has it; DER), whose key
+/// must be the certificate's: a renewal caught between its two writes is not served.
+fn parse_pair(cert: &Path, key: &Path, raw: &Raw) -> Result<(Vec<u8>, Vec<u8>), String> {
+    use rustls::pki_types::pem::PemObject;
     use rustls::pki_types::{CertificateDer, PrivateKeyDer};
-    let (c, k) = doze_names::certs::pem_pair_der(cert, key)?;
-    let der = PrivateKeyDer::try_from(k.clone()).map_err(|e| format!("{}: {e}", key.display()))?;
+    let c = CertificateDer::pem_slice_iter(&raw.0)
+        .next()
+        .ok_or_else(|| format!("{}: no certificate in it", cert.display()))?
+        .map_err(|e| format!("{}: {e}", cert.display()))?
+        .to_vec();
+    let der =
+        PrivateKeyDer::from_pem_slice(&raw.1).map_err(|e| format!("{}: {e}", key.display()))?;
+    let k = der.secret_der().to_vec();
     let signer = rustls::crypto::ring::sign::any_supported_type(&der)
         .map_err(|e| format!("{}: {e}", key.display()))?;
     rustls::sign::CertifiedKey::new(vec![CertificateDer::from(c.clone())], signer)
@@ -390,7 +364,7 @@ mod tests {
         std::fs::write(&key, &k).unwrap();
         let tls = WireTls::from_files(&cert, &key, false, Duration::ZERO).unwrap();
         let good = tls.pair();
-        let loaded = tls.0.now.lock().unwrap().seen;
+        let loaded = tls.0.now.lock().unwrap().seen.clone();
 
         // Half a renewal: a new certificate beside the old key. Refused, and what was seen stays what was loaded, so
         // the next check reads the files again whatever the key's rewrite looks like.
