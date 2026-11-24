@@ -27,6 +27,9 @@ cargo build
 cargo run -p doze-kafka
 ```
 
+`just` lists the repo's common tasks (the gates, CI's jobs run locally, fuzzing, release builds, the desktop app and
+the consoles). Each recipe is a name for a command the repo already runs, so the justfile and CI cannot drift.
+
 ### The doze-kafka web console
 
 `doze-kafka` serves a web console beside the broker, on `127.0.0.1:9093` by default. It has no login and
