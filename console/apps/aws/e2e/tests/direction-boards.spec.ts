@@ -105,7 +105,7 @@ test("Scope: what doze-aws cannot do is said in a form, on the resource, on the 
   await go(page, "/live?outcome=not-built", "Live");
   const row = page.locator("tr[data-row]", { hasText: "SelectObjectContent" }).first();
   await expect(row).toContainText("NOT BUILT");
-  await row.click();
+  await row.getByTestId("open-call").click();
   await expect(page.getByTestId("call-summary")).toContainText("doze-aws does not do this yet: the operation is not built.");
   await expect(page.getByTestId("not-built")).toContainText("SelectObjectContent is not built in doze-aws");
   await expect(page.getByTestId("not-built")).toContainText("X-Doze-Not-Built: 1");
