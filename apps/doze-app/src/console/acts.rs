@@ -1,12 +1,10 @@
-//! What can be done to a table's selected row, drawn in the table when no detail beside it shows that: in a long
-//! table's actions column (its rows are a list of one height), in a short one on a line under the row. Never over
-//! the row's cells.
+//! What can be done to a table's selected row, drawn in the table when no detail beside it shows that: in the
+//! table's own actions column, never over the row's cells; and nothing offered on a table whose pick is gone.
 
 use doze_desk::page::console::Node;
 use gpui::{Div, SharedString, div, prelude::*, px};
 
 use super::blocks::Draw;
-use super::parts::{BIG, ROW_H};
 use crate::instance::ui::text;
 use crate::theme::ty;
 use crate::widgets::kbd_chip;
@@ -26,27 +24,10 @@ impl Draw<'_> {
         self.live.is_some() && !n.detailed && !n.row_actions.is_empty()
     }
 
-    /// A long table's actions column (its rows are a list of one height, so the actions cannot have a line of their
-    /// own); a short table has them on a line under the selected row instead (`action_line_under`).
+    /// The table's actions column, sized to the labels: every row has it, so nothing moves as the selection does,
+    /// and in a narrow card the data columns give up width (their words cut short) before it does.
     pub(super) fn gutter(&self, n: &Node) -> Option<f32> {
-        (self.acts_in_table(n) && n.total > BIG).then(|| gutter(n))
-    }
-
-    /// Under a short table's selected row: what can be done to it, on a line of its own.
-    pub(super) fn action_line_under(&self, n: &Node) -> Div {
-        let t = self.t;
-        div()
-            .flex()
-            .justify_end()
-            .px(px(14.))
-            .h(px(ROW_H))
-            .items_center()
-            .bg(if self.focused.as_deref() == Some(n.id.as_str()) {
-                t.pick
-            } else {
-                t.sel
-            })
-            .child(self.row_actions(n))
+        self.acts_in_table(n).then(|| gutter(n))
     }
 
     /// The selected row's actions: each its letter and its label, a click runs it (asleep, they wait, dimmed).
@@ -70,7 +51,13 @@ impl Draw<'_> {
                 .border_color(t.line2)
                 .bg(t.panel)
                 .text_size(px(ty::SM))
-                .text_color(if a.destructive { t.bad } else { t.text })
+                .text_color(if self.asleep {
+                    t.dim
+                } else if a.destructive {
+                    t.bad
+                } else {
+                    t.text
+                })
                 .child(kbd_chip(t, &a.key.to_string(), ty::XS, ty::SEMIBOLD, 5.))
                 .child(text(&a.label));
             if let Some(e) = self.live.as_ref().filter(|_| !self.asleep) {
@@ -87,4 +74,32 @@ impl Draw<'_> {
         }
         d
     }
+}
+
+/// Nothing picked in the table `id`: no row drawn as selected, and nothing offered on "the selected row" (its own
+/// actions, and those of a detail showing that row).
+pub(super) fn unpick(n: &mut doze_desk::page::console::Node, id: &str) {
+    let row = n
+        .walk()
+        .into_iter()
+        .find(|t| t.id == id)
+        .and_then(|t| t.rows.iter().find(|r| r.at == t.selected))
+        .map(|r| r.ident.clone());
+    let Some(row) = row else {
+        return;
+    };
+    fn clear(n: &mut doze_desk::page::console::Node, id: &str, row: &str) {
+        if n.id == id {
+            n.selected = usize::MAX;
+            n.row_actions.clear();
+        }
+        if n.row_actions.iter().any(|a| a.row == row) {
+            n.row_actions.clear();
+            n.detail.clear();
+        }
+        for c in &mut n.children {
+            clear(c, id, row);
+        }
+    }
+    clear(n, id, &row);
 }

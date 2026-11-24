@@ -221,6 +221,8 @@ jobs:
         run: |
           target/debug/doze-app bench --fixture larder --idle 15 --closed 1 --check --per-minute 2
           target/debug/doze-app bench --fixture larder --idle 15 --closed 1 --check --hidden
+          # A console tab left open with a busy stream: its lines are measured once, then it draws no more than any page.
+          target/debug/doze-app bench --fixture consoles --screen service --select store --tab console:_ --idle 15 --closed 1 --check --per-minute 2
       - name: Screens inside a stack (instance, logs, consoles)
         run: |
           app=target/debug/doze-app

@@ -17,10 +17,11 @@ use crate::widgets::kbd_chip;
 pub(super) const ROW_H: f32 = 34.;
 /// A stream's row height.
 pub(super) const LINE_H: f32 = 28.;
-/// A table of more rows than this is drawn as a virtual list, scrolling inside its card.
-pub(crate) const BIG: usize = 40;
+/// A table of more rows than this is drawn as a list that takes the height left on the page and scrolls inside its
+/// card, its footer ("16 rows · scroll") always above the keys bar: a page of rows running under the bar hid both.
+pub(crate) const BIG: usize = doze_desk::page::console::FILTER_FROM;
 /// How many rows a virtual table shows at the least, when the page is short.
-const SHOWN: usize = 8;
+const SHOWN: usize = 4;
 /// A character's width in the table face, and in the stream's mono face, at their sizes.
 const CH: f32 = 7.6;
 pub(super) const MONO_CH: f32 = 7.9;
@@ -62,9 +63,11 @@ impl Draw<'_> {
                     .flex_basis(px(*wd))
                     .flex_shrink(1.)
                     .min_w(px(wd.min(4. * CH))),
+                // With none, the room left goes to the columns of words, by what they hold: a figure keeps its width, so it
+                // stays beside the words before it rather than across a gap at the far edge.
                 Some(wd) => div()
                     .flex_basis(px(*wd))
-                    .flex_grow(wd.max(1.))
+                    .flex_grow(if right { 0. } else { wd.max(1.) })
                     .flex_shrink(1.)
                     .min_w(px(wd.min(4. * CH))),
                 // The growing column keeps room for what it holds before the others; past that it is cut short.
@@ -190,9 +193,11 @@ impl Draw<'_> {
             .border_color(t.line)
             .when(r.faded, |d| d.opacity(0.55))
             .when(on, |d| {
-                d.bg(if focused { t.pick } else { t.sel })
+                // Asleep, nothing can act on it: the selection is muted.
+                let lit = focused && !self.asleep;
+                d.bg(if lit { t.pick } else { t.sel })
                     .text_color(t.bright)
-                    .child(crate::widgets::sel_bar(t, 0.).when(!focused, |b| b.opacity(0.)))
+                    .child(crate::widgets::sel_bar(t, 0.).when(!lit, |b| b.opacity(0.)))
             })
             .when(!on && self.live.is_some(), |d| d.hover(|s| s.bg(t.sel)));
         if let Some(e) = &self.live {
@@ -228,11 +233,7 @@ impl Draw<'_> {
             div()
                 .flex()
                 .flex_col()
-                .children(n.rows.iter().flat_map(|r| {
-                    let under = (r.at == n.selected && self.acts_in_table(n))
-                        .then(|| self.action_line_under(n).into_any_element());
-                    std::iter::once(self.table_row(n, &widths, r).into_any_element()).chain(under)
-                }))
+                .children(n.rows.iter().map(|r| self.table_row(n, &widths, r)))
                 .into_any_element()
         } else {
             self.big_table(n, widths.clone())

@@ -257,7 +257,13 @@ impl Draw<'_> {
             .px(px(8.))
             .mx(px(-8.))
             .rounded(px(7.))
-            .text_color(if a.destructive { t.bad } else { t.text })
+            .text_color(if self.asleep {
+                t.dim
+            } else if a.destructive {
+                t.bad
+            } else {
+                t.text
+            })
             // Asleep, nothing can be done to it: the actions wait, dimmed.
             .when(self.asleep, |d| d.opacity(0.5))
             .child(kbd_chip(t, &a.key.to_string(), ty::XS, ty::SEMIBOLD, 6.))

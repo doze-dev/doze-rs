@@ -97,13 +97,13 @@ impl ConsoleTabView {
     pub(crate) fn refresh(&mut self, cx: &mut Context<Self>) {
         let st = self.hub.stack(&self.key);
         let c = st.as_ref().and_then(|s| s.consoles.get(&self.name));
+        let mut gone = Vec::new();
         if let Some(c) = c {
             self.sel = console::selection(c, &self.tab, &self.picked);
-            // A pick whose row is gone (the session ended) is let go: the table's first row is selected, and shown so.
-            let sel = &self.sel;
-            self.picked.retain(|id, _| sel.contains_key(id));
+            gone = console::gone(c, &self.tab, &self.picked);
         }
-        let page = console::console_page_viewed(&self.name, &self.tab, c, &self.sel, &self.views);
+        let mut page =
+            console::console_page_viewed(&self.name, &self.tab, c, &self.sel, &self.views);
         let follow = c
             .map(|c| console::follow(c, &self.tab, &self.sel))
             .unwrap_or_default();
@@ -111,6 +111,11 @@ impl ConsoleTabView {
             self.hub
                 .follow_console(&self.key, &self.name, &follow.0, &follow.1);
             self.followed = follow;
+        }
+        // A table whose picked row is gone (the session ended) has nothing picked until a person picks again: no row
+        // is drawn as selected, its detail says nothing is, and nothing can be done to "the selected row" there.
+        for id in &gone {
+            acts::unpick(&mut page.body, id);
         }
         if page != self.page {
             // A new line, not a longer stream: a full stream (`STREAM_KEPT`) drops its oldest as each comes.
@@ -157,8 +162,9 @@ impl ConsoleTabView {
             .into_iter()
             .find(|n| n.id == id)
             .and_then(|n| n.rows.iter().find(|r| r.at == at))
-            .map(|r| r.key.clone());
+            .map(|r| r.ident.clone());
         if let Some(name) = name {
+            // Picking again is how a table whose pick went comes back.
             self.picked.insert(id.to_owned(), name);
         }
         self.sel.insert(id.to_owned(), at);
@@ -266,7 +272,9 @@ impl ConsoleTabView {
         self.refresh(cx);
         let now = self.actions().into_iter().find(|b| b.id == a.id);
         let acts = crate::act::acts(cx);
-        if now.as_ref().map(|b| &b.resource) != Some(&a.resource) {
+        // The same row, by identity, as the one it was started on; a row that is gone is never swapped for another.
+        let same = now.is_some_and(|b| b.row == a.row && b.resource == a.resource);
+        if !same {
             let said = format!(
                 "{} was not run: {} is no longer there.",
                 a.label, a.resource

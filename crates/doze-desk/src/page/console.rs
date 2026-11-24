@@ -14,8 +14,8 @@ use std::collections::HashMap;
 /// the table is shown in.
 pub type Selection = HashMap<String, usize>;
 
-/// The row picked in each table, by block id: what names it (its first column's value, the resource an action on
-/// it targets). A person picks a row, not a place: the module re-reads its tables every 2 s and may send them in
+/// The row picked in each table, by block id: its identity ([`row_ident`]: what names it, its first column's value
+/// and the resource an action on it targets, and which of the rows of that name it is). A person picks a row, not a place: the module re-reads its tables every 2 s and may send them in
 /// another order (postgres orders its sessions by state), so the pick is kept by name and turned into a
 /// [`Selection`] for each read ([`selection`]); kept by place, "Terminate session" would go to whichever session
 /// moved into it.
@@ -38,11 +38,37 @@ pub fn selection(c: &ConsoleView, tab: &str, picked: &Picked) -> Selection {
         else {
             continue;
         };
-        if let Some(i) = rows.iter().position(|r| r.cell(p.first_col()) == name) {
+        if let Some(i) = (0..rows.len()).find(|&i| row_ident(rows, i, p.first_col()) == *name) {
             sel.insert(id, i);
         }
     }
     sel
+}
+
+/// The tables whose picked row is gone (the session ended), by block id: nothing is picked in them, so nothing may be
+/// done to "the selected row" there until a person picks one again.
+pub fn gone(c: &ConsoleView, tab: &str, picked: &Picked) -> Vec<String> {
+    let sel = selection(c, tab, picked);
+    picked
+        .keys()
+        .filter(|id| !sel.contains_key(*id))
+        .cloned()
+        .collect()
+}
+
+/// A row's identity among the rows as the module sent them: the value of its first column (what names it), and which
+/// of the rows with that value it is, so two rows of the same name (a stream-like table led by its time) are never the
+/// same pick.
+pub fn row_ident(rows: &[words::ConsoleRow], i: usize, first: &str) -> String {
+    let Some(name) = rows.get(i).map(|r| r.cell(first)) else {
+        return String::new();
+    };
+    let nth = rows
+        .iter()
+        .take(i)
+        .filter(|r| r.cell(first) == name)
+        .count();
+    format!("{name}\u{1f}{nth}")
 }
 
 /// How each table is shown, by block id: the column it is ordered by and the words it is filtered to.
@@ -164,6 +190,8 @@ pub struct Col {
 pub struct Row {
     /// What names it: its first column's value.
     pub key: String,
+    /// Which row it is ([`row_ident`]): what a pick holds.
+    pub ident: String,
     /// Its index among the rows as the module sent them (what [`Selection`] holds).
     pub at: usize,
     pub cells: Vec<Cell>,
@@ -198,6 +226,8 @@ pub struct Action {
     pub destructive: bool,
     pub hint: String,
     pub resource: String,
+    /// The identity of the row it acts on ([`row_ident`]); empty for an action on the instance.
+    pub row: String,
 }
 
 impl Action {

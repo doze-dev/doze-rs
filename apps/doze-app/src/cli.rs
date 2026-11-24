@@ -17,7 +17,7 @@
 //! doze-app bench --fixture medium-150 --map                         the Map: frames while it pans, zooms and hovers
 //! doze-app bench [--idle S] [--closed S]                         with no fixture: $DOZE_HOME (a fixture served apart)
 //!          [--display N] [--in-use | --hidden] [--at 12,30,60] [--check [--budget MB] [--per-minute N]]
-//!          [--real [N]] [--screen home|tiles|list|map|grid|service|logs|activity] [--select NAME] [--on-top]
+//!          [--real [N]] [--screen home|tiles|list|map|grid|service|logs|activity] [--select NAME] [--tab ID] [--on-top]
 //!          [--settled MB] [--closed-budget MB]      a real stack of N services under its own daemon (bench/real.rs)
 //!          [--churn]                                maximise, resize, minimise, hide and bring back (bench/churn.rs)
 //! doze-app fixture-serve NAME ROOT                               a fixture daemon alone, on its own socket under ROOT/home
@@ -146,6 +146,8 @@ pub(crate) struct Bench {
     /// service a service's page shows (`--select NAME`).
     pub(crate) screen: crate::bench::stage::Screen,
     pub(crate) select: Option<String>,
+    /// The tab that service's page opens on (`--tab console:_`): an idle console tab is measured too.
+    pub(crate) tab: Option<String>,
     /// A real stack of this many services under its own daemon, on a throwaway home (`--real [N]`, 13 by default).
     pub(crate) real: Option<usize>,
     /// `--check`: the footprint the window must fall back under by the end of the idle time (`--settled MB`), the
@@ -367,6 +369,7 @@ fn bench(args: impl Iterator<Item = String>) -> Result<Bench, String> {
                     .ok_or_else(|| format!("bench: no screen {v}"))?;
             }
             "--select" => b.select = Some(value(&mut args, &a)?),
+            "--tab" => b.tab = Some(value(&mut args, &a)?),
             "--on-top" => b.on_top = true,
             "--churn" => b.churn = true,
             "--real" => {

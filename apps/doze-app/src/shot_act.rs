@@ -68,6 +68,7 @@ fn produce() -> Action {
         destructive: false,
         hint: "message value".into(),
         resource: "orders".into(),
+        row: String::new(),
     }
 }
 

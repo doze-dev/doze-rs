@@ -159,8 +159,11 @@ console("gauge", {
     { id: "keys", title: "Keys", kind: "table", source: "key", columns: [c("key", "Key"), c("type", "Type"), c("size", "Size", "bytes"), c("ttl", "TTL", "", "right"), c("touched", "Touched", "", "right")] },
     { id: "log", title: "Requests", kind: "stream", columns: [c("time", "Time", "time"), c("method", "Method"), c("path", "Path"), c("status", "Status", "state", "right"), c("took", "Took", "", "right")] },
     { id: "errors", title: "Errors", kind: "stream", columns: [c("time", "Time", "time"), c("path", "Path"), c("error", "Error")] },
+    // A bytes figure with a bytes limit, and a figure whose limit the module sent empty.
+    { id: "mem", title: "Memory", kind: "counters", source: "server", columns: [c("used", "Used", "bytes"), c("max", "Max", "of"), c("clients", "Clients", "count"), c("cap", "Cap", "of")] },
   ],
   tabs: [{ id: "overview", title: "overview", body: { kind: "col", children: [
+    { kind: "stat", panel: "mem", id: "mem", title: "Memory" },
     { kind: "row", children: [
       { kind: "chart", panel: "series", id: "chart-rps", title: "Requests a second", weight: 2 },
       { kind: "note", id: "note", title: "About", text: "gauge keeps every key in memory and writes a snapshot when it sleeps. Keys with a TTL leave on their own.", weight: 1 },
@@ -175,6 +178,7 @@ console("gauge", {
     { kind: "sparkle", title: "Something new", weight: 1 },
   ] } }],
 }, [{ id: "evict", label: "Evict this key", kind: "key", destructive: true }], {
+  mem: [{ used: "67108864", max: "268435456", clients: "7", cap: "" }],
   series: Array.from({ length: 120 }, (_, i) => ({ t: clock(120 - i), rps: String(Math.round(140 + 60 * Math.sin(i / 9) + (i % 17 === 0 ? 120 : 0))) })),
   keys: Array.from({ length: 1000 }, (_, i) => ({
     key: `user:${String(10000 + i)}:profile${i % 7 === 0 ? ":with-a-much-longer-name-than-the-rest-of-them" : ""}`,

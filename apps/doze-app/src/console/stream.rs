@@ -56,36 +56,39 @@ impl Draw<'_> {
         .child(body);
         // The card is as tall as its lines, up to the room its place in the layout has (measured as it is laid out,
         // `Draw::rooms`): a few lines are a short card, not a tall empty one, and a busy stream shows whole lines only,
-        // so the newest is at the bottom and the oldest shown is not cut under the header.
+        // so the newest is at the bottom and the oldest shown is not cut under the header. The room is the slot's, and
+        // the slot's height comes from the layout and the line count alone (`slot_limits`), never from the card, which
+        // sits over it: what is measured does not follow what was drawn from it, so one measurement settles it.
         let mut slot = share(div(), n).flex().flex_col().relative();
-        if let (false, Some(rooms)) = (empty, self.rooms.clone()) {
+        let measured = !empty && self.rooms.is_some();
+        if let (true, Some(rooms)) = (measured, self.rooms.clone()) {
             let (id, view) = (n.id.clone(), self.live.clone());
-            // No taller than its lines need: the room below a short stream is the page's, not a gap before the next block.
-            #[allow(clippy::cast_precision_loss)] // WHY: a count of lines on a page
-            let all = CHROME + LINE_H * n.rows.len() as f32;
-            slot = slot
-                .min_h(px(all.min(CHROME + LINE_H * FEWEST as f32)))
-                .max_h(px(all))
-                .child(
-                    gpui::canvas(
-                        move |bounds, window, cx| {
-                            let h = bounds.size.height / px(1.);
-                            let mut r = rooms.borrow_mut();
-                            if r.get(&id).is_none_or(|old| (old - h).abs() > 0.5) {
-                                r.insert(id, h);
-                                // Drawn again with the lines that fit (only when the room changed: an idle window stays still).
-                                if let Some(v) = &view {
-                                    cx.notify(v.entity_id());
-                                }
-                                window.refresh();
+            let (least, most) = slot_limits(n.rows.len());
+            slot = slot.min_h(px(least)).max_h(px(most)).child(
+                gpui::canvas(
+                    move |bounds, window, cx| {
+                        let h = bounds.size.height / px(1.);
+                        let mut r = rooms.borrow_mut();
+                        if r.get(&id).is_none_or(|old| (old - h).abs() > 0.5) {
+                            r.insert(id, h);
+                            // Drawn again with the lines that fit (only when the room changed: an idle window stays still).
+                            if let Some(v) = &view {
+                                cx.notify(v.entity_id());
                             }
-                        },
-                        |_, (), _, _| {},
-                    )
-                    .absolute()
-                    .size_full(),
-                );
+                            window.refresh();
+                        }
+                    },
+                    |_, (), _, _| {},
+                )
+                .absolute()
+                .size_full(),
+            );
         }
+        let card = if measured {
+            card.absolute().top_0().left_0().right_0()
+        } else {
+            card
+        };
         slot.child(card).into_any_element()
     }
 
@@ -112,8 +115,7 @@ impl Draw<'_> {
             .as_ref()
             .and_then(|r| r.borrow().get(&n.id).copied())
             .unwrap_or(CHROME + LINE_H * 8.);
-        let fit = ((room - CHROME) / LINE_H).floor().max(FEWEST as f32) as usize;
-        n.rows.len().min(fit)
+        fit(room, n.rows.len())
     }
 
     /// A stream's lines, the newest kept in view.
@@ -153,6 +155,58 @@ impl Draw<'_> {
         match &self.stream {
             Some(h) => list.track_scroll(h).into_any_element(),
             None => list.into_any_element(),
+        }
+    }
+}
+
+/// The least and most height a busy stream's slot takes, from its line count alone: no taller than its lines (the
+/// room below a short stream is the page's, not a gap before the next block), and room for the fewest lines.
+#[allow(clippy::cast_precision_loss)] // WHY: a count of lines on a page
+fn slot_limits(rows: usize) -> (f32, f32) {
+    let all = CHROME + LINE_H * rows as f32;
+    (all.min(CHROME + LINE_H * FEWEST as f32), all)
+}
+
+/// How many whole lines of `rows` a room of `room` points holds (at least the fewest).
+#[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)] // WHY: a whole count of lines, never negative
+fn fit(room: f32, rows: usize) -> usize {
+    let whole = ((room - CHROME) / LINE_H).floor().max(FEWEST as f32) as usize;
+    rows.min(whole)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{CHROME, LINE_H, fit, slot_limits};
+
+    /// A room the layout gives the slot, between its limits.
+    fn slot(available: f32, rows: usize) -> f32 {
+        let (least, most) = slot_limits(rows);
+        available.clamp(least, most)
+    }
+
+    #[test]
+    fn a_streams_lines_settle_in_one_measurement_and_fit_its_room() {
+        for rows in 1..60 {
+            for available in (0..900).step_by(7) {
+                #[allow(clippy::cast_precision_loss)] // WHY: a test's points
+                let room = slot(available as f32, rows);
+                let shown = fit(room, rows);
+                #[allow(clippy::cast_precision_loss)] // WHY: a count of lines
+                let card = CHROME + LINE_H * shown as f32;
+                assert!(
+                    card <= room + 0.5,
+                    "{rows} rows in {room}: a card of {card} spills"
+                );
+                // The slot does not depend on what was drawn in it: measured again, the same room, the same lines.
+                #[allow(clippy::cast_precision_loss)] // WHY: a test's points
+                let again = slot(available as f32, rows);
+                assert_eq!(fit(again, rows), shown);
+                // Whole lines only, and no room for one more left over (unless every line is shown).
+                assert!(
+                    shown == rows || room - card < LINE_H,
+                    "{rows} rows in {room}: a line short"
+                );
+            }
         }
     }
 }

@@ -59,6 +59,7 @@ fn a_module_action_asks_for_its_input_as_go_does() {
         destructive: false,
         hint: "message value".into(),
         resource: "orders".into(),
+        row: String::new(),
     };
     let d = act::action_dialog("events", &produce);
     assert_eq!(

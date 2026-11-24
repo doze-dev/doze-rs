@@ -1,6 +1,8 @@
 //! What each block of a console tab shows now: the resolver behind [`super::console`] (Go `view.resolver`).
 
-use super::console::{Action, Cell, Col, Node, Row, Selection, Views, block_id, wire_walk};
+use super::console::{
+    Action, Cell, Col, Node, Row, Selection, Views, block_id, row_ident, wire_walk,
+};
 use super::shape::{shown, size_columns, stats};
 use crate::console::ConsoleView;
 use crate::convert;
@@ -108,6 +110,20 @@ impl<'a> Resolver<'a> {
         out
     }
 
+    /// The selected row's identity ([`row_ident`]).
+    fn selected_ident(&self, block: &str, panel: &str) -> String {
+        let (Some(rows), Some((_, p))) = (self.c.tables.get(panel), self.panel(panel)) else {
+            return String::new();
+        };
+        let i = self
+            .sel
+            .get(block)
+            .copied()
+            .unwrap_or(0)
+            .min(rows.len().saturating_sub(1));
+        row_ident(rows, i, p.first_col())
+    }
+
     /// The selected row's first cell: what names it.
     pub(super) fn selected_key(&self, block: &str, panel: &str) -> String {
         let (Some(rows), Some((_, p))) = (self.c.tables.get(panel), self.panel(panel)) else {
@@ -134,6 +150,7 @@ impl<'a> Resolver<'a> {
             .enumerate()
             .map(|(at, row)| Row {
                 key: row.cell(first).to_owned(),
+                ident: row_ident(rows, at, first),
                 at,
                 faded: row.tone == "dim",
                 cells: cols
@@ -190,12 +207,16 @@ impl<'a> Resolver<'a> {
         }
         if self.views.is_some() {
             let key = self.selected_key(&out.id, &n.panel);
+            let row = self.selected_ident(&out.id, &n.panel);
             out.row_actions = self
                 .c
                 .actions
                 .iter()
                 .filter(|a| !a.kind.is_empty() && a.kind == wp.source)
-                .map(|a| action(a, key.clone()))
+                .map(|a| Action {
+                    row: row.clone(),
+                    ..action(a, key.clone())
+                })
                 .collect();
             out.detailed = wire_walk(self.body).iter().any(|d| {
                 d.kind == "detail" && !d.from.is_empty() && (d.from == out.id || d.from == n.panel)
@@ -305,11 +326,15 @@ impl<'a> Resolver<'a> {
             return Vec::new();
         };
         let key = self.selected_key(&block_id(t), &t.panel);
+        let row = self.selected_ident(&block_id(t), &t.panel);
         self.c
             .actions
             .iter()
             .filter(|a| !a.kind.is_empty() && a.kind == p.source)
-            .map(|a| action(a, key.clone()))
+            .map(|a| Action {
+                row: row.clone(),
+                ..action(a, key.clone())
+            })
             .collect()
     }
 
@@ -381,6 +406,7 @@ fn action(a: &wire::ActionView, resource: String) -> Action {
         destructive: a.destructive,
         hint: a.input_hint.clone(),
         resource,
+        row: String::new(),
     }
 }
 
