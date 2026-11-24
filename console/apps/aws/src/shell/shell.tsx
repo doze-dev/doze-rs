@@ -12,7 +12,7 @@ import { useSidebarOpen } from "@doze/ui/lib/sidebar-state";
 import { setTheme } from "@doze/ui/lib/theme";
 import { cn } from "@doze/ui/lib/utils";
 import { useAbout } from "../api/queries";
-import { useResourcesIndex } from "../api/resources";
+import { useCatalogue, useResourcesIndex } from "../api/resources";
 import { subscriptionLabel } from "../pages/resources/sns/sub-model";
 import { iconOf } from "../pages/resources/model";
 import { isActive, RECENTS_KEY, SPACES, type SpacePath } from "../nav";
@@ -28,7 +28,7 @@ function Rail() {
   const counts = useRailCounts();
   const countOf = (to: string): { text: string; title: string } | null => {
     if (to === "/live" && counts.live !== undefined) return { text: number(counts.live), title: `${number(counts.live)} ${counts.live === 1 ? "app has" : "apps have"} called` };
-    if (to === "/resources" && counts.awake) return { text: number(counts.awake.awake), title: `${counts.awake.awake} of ${counts.awake.served} services awake` };
+    if (to === "/resources" && counts.awake) return { text: number(counts.awake.awake), title: `${counts.awake.awake} of ${counts.awake.served} services running` };
     return null;
   };
   return (
@@ -157,12 +157,17 @@ export function Shell() {
     );
     return items.length > 0 ? { heading: "Resources", separated: true, items } : null;
   }, [index.data]);
+  const catalogue = useCatalogue().data;
+  const services = useMemo<PaletteItem[]>(
+    () => (catalogue?.services ?? []).filter((s) => s.served && s.described).map((s) => ({ label: s.title, to: `/resources/${encodeURIComponent(s.name)}`, kind: "service", icon: iconOf(s.name), keywords: `${s.name} ${s.group} service` })),
+    [catalogue],
+  );
   const about = useAbout().data;
   const actions = useMemo<PaletteItem[]>(() => {
     const queues = (index.data?.services ?? []).filter((s) => s.name === "sqs").flatMap((s) => s.kinds.filter((k) => k.id === "queues").flatMap((k) => k.names)).slice(0, 20);
     return [
       ...(about ? [{ label: "Copy the endpoint", to: "do:endpoint", kind: "action", icon: CopyIcon, keywords: "address url sdk aws_endpoint_url", run: () => void copyText(about.endpoint, "Endpoint copied") }] : []),
-      ...(sleeping ? [{ label: "Search the sleeping services too", to: "do:wake", kind: "action", icon: MoonIcon, keywords: "asleep wake resources names count find", run: () => setWake(true) }] : []),
+      ...(sleeping ? [{ label: "Search the resting services too", to: "do:wake", kind: "action", icon: MoonIcon, keywords: "asleep resting wake start resources names count find", run: () => setWake(true) }] : []),
       { label: "Connect your app", to: "do:connect", kind: "action", icon: Link2Icon, keywords: "snippets environment sdk cli", run: () => void navigate({ to: "/connect" }) },
       { label: "Explain the last refusal", to: "do:refusal", kind: "action", icon: ShieldAlertIcon, keywords: "denied would be denied iam access policy", run: () => void navigate({ to: "/access" }) },
       ...queues.map((name) => ({ label: `Send a message to ${name}`, to: `do:send:${name}`, kind: "action", icon: SendIcon, mono: false, keywords: `queue sqs peek ${name}`, run: () => void navigate({ to: "/resources/$service/$kind/$name", params: { service: "sqs", kind: "queues", name }, search: { view: "messages" } }) })),
@@ -171,6 +176,8 @@ export function Shell() {
   const groups = useMemo<PaletteGroup[]>(
     () => [
       { heading: "Spaces", items: SPACES.map((s) => ({ label: s.label, to: s.to, kind: "space", icon: s.icon, keywords: s.keywords })) },
+      // Every service this run serves, by its name: a jump to its pages (the catalogue makes no call, so no service is started to be listed).
+      ...(services.length > 0 ? [{ heading: "Services", items: services }] : []),
       {
         heading: "Theme",
         separated: true,
@@ -184,7 +191,7 @@ export function Shell() {
       // After the names: typing a resource's name and pressing Enter opens it; an action is chosen by its words.
       ...(actions.length > 0 ? [{ heading: "Do", separated: true, items: actions }] : []),
     ],
-    [resources, actions],
+    [resources, actions, services],
   );
   return (
     // 224 px: the boards drew 184 and the Kafka console's rail is 256; the services under Resources and the counts need the room, and a wide table needs the rest. The shared Sidebar sets its width inline, so it is given as a style, not a class.

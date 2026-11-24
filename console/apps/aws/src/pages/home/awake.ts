@@ -17,7 +17,8 @@ export type AwakeRow = {
 
 export type AwakeGroup = { name: string; rows: AwakeRow[] };
 
-export const STATE_WORDS: Record<Awake, string> = { awake: "Awake", asleep: "Asleep", off: "Not served" };
+/** The words for a state: a service is running (in memory now) or resting (it starts on its next call, and what is due still runs). */
+export const STATE_WORDS: Record<Awake, string> = { awake: "Running", asleep: "Resting", off: "Not served" };
 
 /** The services by group, in the catalogue's order. `served: false` is a service this run left out (`--services`): it is never
  * awake, and it says so. */

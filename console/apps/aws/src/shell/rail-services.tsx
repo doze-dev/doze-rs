@@ -5,6 +5,7 @@ import { cn } from "@doze/ui/lib/utils";
 import { useServices } from "../api/queries";
 import { useHome } from "../api/spaces";
 import { type AwakeGroup, awakeCount, awakeGroups, STATE_WORDS } from "../pages/home/awake";
+import { StateMark } from "../pages/home/state-mark";
 import { useNow } from "../pages/card";
 
 /** The group IAM and STS are in: they are under Access, not Resources. */
@@ -32,7 +33,7 @@ export function serviceOfPath(path: string): string | null {
   return m ? decodeURIComponent(m[1]) : null;
 }
 
-/** The services under Resources in the rail: each in its group, a dot for whether it is awake (filled) or asleep (a ring), the one
+/** The services under Resources in the rail: each in its group, a mark for whether it is running (a green dot) or resting (a blue moon), the one
  * whose pages are open marked. The same words and groups as Home's "What is awake", read from the same two answers. */
 export function RailServices() {
   const path = useRouterState({ select: (s) => s.location.pathname });
@@ -49,13 +50,13 @@ export function RailServices() {
               <SidebarMenuSubItem key={r.name}>
                 {r.state === "off" ? (
                   <span className="flex h-6 items-center gap-2 px-2 text-[13px] text-muted-foreground/60" title="This run does not serve it (--services)" data-testid="rail-service" data-service={r.name} data-state="off">
-                    <span aria-hidden className="size-1.5 shrink-0 rounded-full border border-current opacity-50" />
+                    <StateMark state="off" className="opacity-60" />
                     <span className="truncate">{r.title}</span>
                   </span>
                 ) : (
                   <SidebarMenuSubButton asChild isActive={here === r.name} className="h-6 gap-2 text-[13px] data-[active=true]:font-medium">
                     <Link to="/resources/$service" params={{ service: r.name }} aria-current={here === r.name ? "page" : undefined} title={`${r.title}, ${g.name}: ${STATE_WORDS[r.state].toLowerCase()}`} data-testid="rail-service" data-service={r.name} data-state={r.state}>
-                      <span aria-hidden className={cn("size-1.5 shrink-0 rounded-full", r.state === "awake" ? "bg-good" : "border border-muted-foreground/70")} />
+                      <StateMark state={r.state} />
                       <span className="truncate">{r.title}</span>
                       <span className="sr-only">{STATE_WORDS[r.state]}</span>
                     </Link>

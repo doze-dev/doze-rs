@@ -10,6 +10,7 @@ import { number } from "@doze/ui/lib/format";
 import { useResourcesIndex } from "../../api/resources";
 import type { KindCount } from "../../api/types/KindCount";
 import type { ResourceService } from "../../api/types/ResourceService";
+import { StateMark } from "../home/state-mark";
 import { iconOf } from "./model";
 
 import { HINT } from "../../kit";
@@ -45,8 +46,8 @@ function ServiceCard({ s }: { s: ResourceService }) {
       </span>
       <div className="min-w-0">
         <div className="text-[16px] font-semibold text-bright">{s.title}</div>
-        <div className="mt-0.5 text-[13px] text-muted-foreground" data-testid={`count-${s.name}`} title={s.asleep ? "Nothing has called it lately, so it is asleep and was not counted (counting is a list call, which wakes it). Open it to see what it holds." : undefined}>
-          {!s.described ? (s.kinds.length === 0 && s.note?.startsWith("STS") ? "No resources" : "Not described yet") : !s.served ? "Not served in this run (--services)" : s.asleep ? "Asleep" : cardWords(s.kinds)}
+        <div className="mt-0.5 text-[13px] text-muted-foreground" data-testid={`count-${s.name}`} title={s.asleep ? "Resting: nothing has called it lately, so it holds no memory and was not counted (counting is a call, which starts it). It starts on its next call, and what is due still runs. Open it to see what it holds." : undefined}>
+          {!s.described ? (s.kinds.length === 0 && s.note?.startsWith("STS") ? "No resources" : "Not described yet") : !s.served ? "Not served in this run (--services)" : s.asleep ? <span className="inline-flex items-center gap-1.5 text-link"><StateMark state="asleep" /> Resting</span> : cardWords(s.kinds)}
         </div>
       </div>
     </div>
@@ -96,8 +97,8 @@ export function ResourcesPage() {
         refresh={<RefreshControl updatedAt={index.dataUpdatedAt} fetching={index.isFetching} onRefresh={refresh} interval={false} />}
         actions={
           sleeping > 0 ? (
-            <Button variant="outline" size="sm" className="bg-card" onClick={() => setWake(true)} title="Lists each sleeping service, which wakes it and holds its memory until it has been idle again" data-testid="count-sleeping">
-              Count the {sleeping} sleeping {sleeping === 1 ? "service" : "services"} too
+            <Button variant="outline" size="sm" className="bg-card" onClick={() => setWake(true)} title="Lists each resting service, which starts it and holds its memory until it has been idle again" data-testid="count-sleeping">
+              Count the {sleeping} resting {sleeping === 1 ? "service" : "services"} too
             </Button>
           ) : undefined
         }

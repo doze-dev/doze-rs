@@ -11,9 +11,9 @@ test("the services are under Resources when it is open, the open one is marked, 
   await expect(services.locator('[data-service="iam"]')).toHaveCount(0);
   await expect(services.locator('[data-service="sqs"]')).toHaveAttribute("aria-current", "page");
   await expect(services.locator('[data-service="sns"]')).not.toHaveAttribute("aria-current", "page");
-  // Awake or asleep, in words for a screen reader and a state for the dot.
+  // Running or resting, in words for a screen reader and a state for the mark.
   await expect(services.locator('[data-service="sqs"]')).toHaveAttribute("data-state", /^(awake|asleep)$/);
-  await expect(services.locator('[data-service="sqs"]')).toContainText(/Awake|Asleep/);
+  await expect(services.locator('[data-service="sqs"]')).toContainText(/Running|Resting/);
   await services.locator('[data-service="sns"]').click();
   await expect(page).toHaveURL(/\/resources\/sns/);
   await expect(page.getByTestId("rail-services").locator('[data-service="sns"]')).toHaveAttribute("aria-current", "page");
@@ -26,5 +26,16 @@ test("the services are folded away off Resources, and the rail's counts are the 
   await expect(page.getByTestId("count-live")).toHaveText(/^\d+$/);
   await expect(page.getByTestId("count-live")).toHaveAttribute("title", /apps? (have|has) called/);
   await expect(page.getByTestId("count-resources")).toHaveText(/^\d+$/);
-  await expect(page.getByTestId("count-resources")).toHaveAttribute("title", /\d+ of \d+ services awake/);
+  await expect(page.getByTestId("count-resources")).toHaveAttribute("title", /\d+ of \d+ services running/);
+});
+
+test("the search jumps to a service by its name, and says which are services", async ({ page }) => {
+  await open(page, "/", "Home");
+  await page.getByTestId("palette-trigger").click();
+  await page.getByTestId("palette-input").fill("step functions");
+  const choice = page.getByRole("option", { name: /Step Functions/ }).first();
+  await expect(choice).toBeVisible();
+  await expect(choice).toContainText("service");
+  await page.keyboard.press("Enter");
+  await expect(page).toHaveURL(/\/resources\/stepfunctions/);
 });
