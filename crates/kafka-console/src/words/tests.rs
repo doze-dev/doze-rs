@@ -37,7 +37,7 @@ fn the_quiet_sentence_names_the_listener_and_claims_no_client() {
     assert_eq!(home_title(&v.state), "Your broker is up");
     let s = plain(&home_sub(&v));
     assert!(
-        s.starts_with("No topics yet, and that is fine. It is listening on 127.0.0.1:9092"),
+        s.starts_with("No topics yet, and that is fine. Clients reach it at 127.0.0.1:9092"),
         "{s}"
     );
     assert!(!s.contains("connected") && !s.contains("apps"), "{s}");

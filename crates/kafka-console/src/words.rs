@@ -20,7 +20,7 @@ pub fn home_title(state: &HomeState) -> &'static str {
 pub fn home_sub(v: &HomeView) -> Vec<Span> {
     match v.state {
         HomeState::Quiet => vec![Span::text(format!(
-            "No topics yet, and that is fine. It is listening on {} and will hold whatever you send it.",
+            "No topics yet, and that is fine. Clients reach it at {}, and it will hold whatever you send it.",
             v.listen
         ))],
         _ => vec![Span::text(
