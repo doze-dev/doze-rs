@@ -5,8 +5,9 @@ import { CommandPalette, type PaletteGroup, type PaletteItem } from "@doze/ui/co
 import { copyText } from "@doze/ui/components/app/copy";
 import { ThemeSwitch } from "@doze/ui/components/app/theme-menu";
 import { TopBar, topBarChip } from "@doze/ui/components/app/top-bar";
-import { Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupContent, SidebarHeader, SidebarInset, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarProvider, SidebarRail } from "@doze/ui/components/ui/sidebar";
+import { Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupContent, SidebarHeader, SidebarInset, SidebarMenu, SidebarMenuBadge, SidebarMenuButton, SidebarMenuItem, SidebarProvider, SidebarRail } from "@doze/ui/components/ui/sidebar";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@doze/ui/components/ui/tooltip";
+import { number } from "@doze/ui/lib/format";
 import { useSidebarOpen } from "@doze/ui/lib/sidebar-state";
 import { setTheme } from "@doze/ui/lib/theme";
 import { cn } from "@doze/ui/lib/utils";
@@ -19,17 +20,23 @@ import { iamWords } from "../words";
 import { Logo, Wordmark } from "./brand";
 import { IdentityChip } from "./identity-chip";
 import { PinButton, RailPlaces } from "./places";
-import { RailAwake, RailServices } from "./rail-services";
+import { RailServices, useRailCounts } from "./rail-services";
 
 /** The rail: the mark, and the six spaces. */
 function Rail() {
   const path = useRouterState({ select: (s) => s.location.pathname });
+  const counts = useRailCounts();
+  const countOf = (to: string): { text: string; title: string } | null => {
+    if (to === "/live" && counts.live !== undefined) return { text: number(counts.live), title: `${number(counts.live)} calls in the Live record` };
+    if (to === "/resources" && counts.awake) return { text: number(counts.awake.awake), title: `${counts.awake.awake} of ${counts.awake.served} services awake` };
+    return null;
+  };
   return (
     <Sidebar collapsible="icon" data-testid="sidebar">
       <SidebarHeader className="h-[52px] justify-center border-b border-sidebar-border px-4 group-data-[collapsible=icon]:px-2">
         <Link to="/" className="flex items-center gap-2.5 rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring/50" aria-label="doze-aws, Home" data-testid="brand">
-          <Logo size={30} className="rounded-[8px]" />
-          <Wordmark className="text-[16px] leading-none group-data-[collapsible=icon]:hidden" />
+          <Logo size={32} className="rounded-[8px]" />
+          <Wordmark className="text-[20px] leading-none group-data-[collapsible=icon]:hidden" />
         </Link>
       </SidebarHeader>
       <SidebarContent className="pt-4">
@@ -41,12 +48,17 @@ function Rail() {
                   const active = isActive(space, path);
                   return (
                     <SidebarMenuItem key={space.to}>
-                      <SidebarMenuButton asChild isActive={active} tooltip={space.label} className="h-10 gap-3 rounded-[9px] text-[14px] data-[active=true]:font-medium [&>svg]:size-[18px] [&>svg]:text-muted-foreground data-[active=true]:[&>svg]:text-primary">
+                      <SidebarMenuButton asChild isActive={active} tooltip={space.label} className="h-9 text-[14px] data-[active=true]:font-medium [&>svg]:text-muted-foreground data-[active=true]:[&>svg]:text-primary">
                         <Link to={space.to} aria-current={active ? "page" : undefined} data-testid={`space-${space.label.toLowerCase()}`}>
                           <space.icon />
                           <span>{space.label}</span>
                         </Link>
                       </SidebarMenuButton>
+                      {countOf(space.to) && (
+                        <SidebarMenuBadge className="font-normal text-muted-foreground tabular-nums" title={countOf(space.to)?.title} data-testid={`count-${space.label.toLowerCase()}`}>
+                          {countOf(space.to)?.text}
+                        </SidebarMenuBadge>
+                      )}
                       {space.to === "/resources" && active && <RailServices />}
                     </SidebarMenuItem>
                   );
@@ -57,8 +69,7 @@ function Rail() {
         </SidebarGroup>
         <RailPlaces />
       </SidebarContent>
-      <SidebarFooter className="gap-1.5 px-4 pb-4 group-data-[collapsible=icon]:hidden" data-testid="rail-footer">
-        <RailAwake />
+      <SidebarFooter className="px-4 pb-4 group-data-[collapsible=icon]:hidden" data-testid="rail-footer">
         <p className="flex items-center gap-2 px-1 text-[12px] text-muted-foreground">
           <kbd className="rounded border bg-card px-1.5 py-px font-mono text-[11px]">⌘K</kbd> jump or do
         </p>
@@ -169,10 +180,10 @@ export function Shell() {
     [resources, actions],
   );
   return (
-    // 184 px, the boards' rail. The shared Sidebar sets its width inline, so it is given as a style, not a class.
+    // 224 px: the boards drew 184 and the Kafka console's rail is 256; the services under Resources and the counts need the room, and a wide table needs the rest. The shared Sidebar sets its width inline, so it is given as a style, not a class.
     // bg-sidebar on the wrapper: the rail is fixed to the window, so a page taller than the window (a full-page capture) shows the
     // wrapper beside the inset below it; in the rail's colour, the rail reads as reaching the bottom.
-    <SidebarProvider className="bg-sidebar" style={{ "--sidebar-width": "11.5rem" } as React.CSSProperties} open={sidebar} onOpenChange={setSidebar}>
+    <SidebarProvider className="bg-sidebar" style={{ "--sidebar-width": "14rem" } as React.CSSProperties} open={sidebar} onOpenChange={setSidebar}>
       <Rail />
       <SidebarInset className="min-w-0 bg-background">
         <TopBar onPalette={() => openPalette(true)} paletteLabel="Jump to a space or a resource">
