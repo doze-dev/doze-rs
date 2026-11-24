@@ -275,6 +275,8 @@ async fn run(config: &Path, version: &str) -> Result<(), String> {
     let stop = doze_os::signal::install().map_err(|e| format!("catching stop signals: {e}"))?;
     // Before the catalog starts a single module: a second daemon for this stack says so and nothing else runs.
     let (run, _alone) = no_daemon_yet(config, version)?;
+    #[cfg(debug_assertions)]
+    slow_start::slow_start_for_tests().await;
     let catalog = Arc::new(catalog(config)?);
     let mut assembled = assemble(config, version, catalog.clone(), BTreeMap::new()).await?;
     let front = Arc::new(assembled.open_front());
@@ -424,6 +426,12 @@ fn refuse_if_running(run: &RunDir) -> Result<(), String> {
 mod load;
 use load::load;
 pub(crate) use load::{parse_block, with_options};
+
+#[cfg(debug_assertions)]
+#[path = "entry_slow_start.rs"]
+mod slow_start;
+#[cfg(debug_assertions)]
+pub use slow_start::SLOW_START_VAR;
 
 #[path = "entry_labels.rs"]
 mod labels;

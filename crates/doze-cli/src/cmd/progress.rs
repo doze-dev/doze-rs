@@ -75,12 +75,9 @@ impl Boot {
         }
         self.read = Instant::now();
         for line in self.new_lines() {
-            if !progress_line(&line) {
+            let Some(line) = relayed(&line) else {
                 continue;
-            }
-            let line = PREFIXES
-                .iter()
-                .fold(line.as_str(), |l, p| l.strip_prefix(p).unwrap_or(l));
+            };
             let msg = format!("  {}", self.paint.dim(&format!("› {line}")));
             let _ = if self.tty {
                 writeln!(err, "{CLEAR}{msg}")
@@ -127,6 +124,15 @@ impl Boot {
             .map(str::to_owned)
             .collect()
     }
+}
+
+/// A daemon log line as `up` relays it, without the daemon's prefix; `None` for one it does not relay.
+pub(crate) fn relayed(line: &str) -> Option<&str> {
+    progress_line(line).then(|| {
+        PREFIXES
+            .iter()
+            .fold(line, |l, p| l.strip_prefix(p).unwrap_or(l))
+    })
 }
 
 /// The log lines worth relaying during a boot (Go `bootProgressLine`): the slow parts, not the supervision chatter.

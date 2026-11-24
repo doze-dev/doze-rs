@@ -71,12 +71,16 @@ pub(crate) fn run(ctx: &mut Ctx<'_>, mode: &Mode, a: &Up, notices: &mut Notices)
 
 /// Starts the stack's daemon (Go `startDaemon`), the caller holding the stack lock ([`stack::lock`]), unless another
 /// `up` started it while this one waited for the lock, and connects to it.
-pub(crate) fn start(ctx: &Ctx<'_>, mode: &Mode, stack: &Stack) -> Result<Connection, Diagnostic> {
+pub(crate) fn start(
+    ctx: &mut Ctx<'_>,
+    mode: &Mode,
+    stack: &Stack,
+) -> Result<Connection, Diagnostic> {
     spawn(ctx, mode, stack).map(|(c, _)| c)
 }
 
 /// [`start`], and whether this call spawned the daemon (false: another doze had started it).
-fn spawn(ctx: &Ctx<'_>, mode: &Mode, stack: &Stack) -> Result<(Connection, bool), Diagnostic> {
+fn spawn(ctx: &mut Ctx<'_>, mode: &Mode, stack: &Stack) -> Result<(Connection, bool), Diagnostic> {
     let run = stack.run_dir();
     // No local control socket on this system yet (Windows: the named pipe, core plan W): said, nothing started.
     if let Err(e) = doze_os::local::LocalStream::connect(&run.socket())
@@ -108,7 +112,18 @@ fn spawn(ctx: &Ctx<'_>, mode: &Mode, stack: &Stack) -> Result<(Connection, bool)
         config: &config,
         vars: &vars,
     };
-    ctl::start(&run, &start).map_err(|e| refused(format!("the doze daemon did not start: {e}")))?;
+    // A first start on a fresh doze home fetches the stack's modules before the daemon serves: what it says of that
+    // is relayed as `up` relays a waking service's downloads, so the wait has a reason on screen.
+    let (paint, quiet) = (mode.err(), mode.quiet);
+    let err = &mut *ctx.err;
+    let mut say = |line: &str| {
+        if let Some(line) = crate::cmd::progress::relayed(line).filter(|_| !quiet) {
+            let _ = writeln!(err, "  {}", paint.dim(&format!("› {line}")));
+            let _ = err.flush();
+        }
+    };
+    ctl::start_relaying(&run, &start, &mut say)
+        .map_err(|e| refused(format!("the doze daemon did not start: {e}")))?;
     Ok((stack.require(mode.timeout, "doze up")?, true))
 }
 

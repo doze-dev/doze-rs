@@ -262,46 +262,32 @@ pub fn run(
     input.read_line(&mut line)?;
     let reply = match serde_json::from_str::<Request>(&line) {
         Ok(req) => {
-            if let Some(said) = starting(&req, place) {
-                // The log is a courtesy: a reply is owed whether or not it could be written.
+            let said = starting(&req, place);
+            // The log is a courtesy: a reply is owed whether or not it could be written.
+            if let Some(said) = &said {
                 let _ = writeln!(log, "doze: {said}");
                 let _ = log.flush();
             }
-            serve(&req, place)
+            let t = std::time::Instant::now();
+            let reply = serve(&req, place);
+            // The end is said too: a daemon that has not served yet is waited for while a download is under way
+            // ([`busy`]), and only as long as one is.
+            if said.is_some() {
+                let how = if reply.error.is_some() {
+                    END_FAILED
+                } else {
+                    END_DONE
+                };
+                let _ = writeln!(log, "{how} {:.1}s", t.elapsed().as_secs_f64());
+                let _ = log.flush();
+            }
+            reply
         }
         Err(e) => Reply::failed(format!("not a fetch request: {e}")),
     };
     let text = serde_json::to_string(&reply).map_err(std::io::Error::other)?;
     writeln!(output, "{text}")?;
     output.flush()
-}
-
-/// What `req` is about to do that takes a while, in a line for the log: an engine build or a download not yet on this
-/// machine.
-fn starting(req: &Request, place: &Place) -> Option<String> {
-    if let Request::Download { url, .. } = req {
-        let cached = archive_cached(&place.modules.home, url);
-        return (!cached).then(|| format!("downloading {url}…"));
-    }
-    let Request::Ensure {
-        engine,
-        full,
-        target,
-        ..
-    } = req
-    else {
-        return None;
-    };
-    (!place.mirror.has(engine, full, target)).then(|| {
-        format!(
-            "downloading {engine} {full} ({target}) from {}…",
-            place.mirror.source(engine)
-        )
-    })
-}
-
-fn archive_cached(home: &Path, url: &str) -> bool {
-    crate::archive::recorded_sha(&crate::download::content_dir(home, url)).is_some()
 }
 
 /// The longest a child may take: the download budget, and a little to start and unpack.
@@ -414,6 +400,11 @@ impl Downloads for ChildDownloads {
         })
     }
 }
+
+#[path = "child_log.rs"]
+mod log;
+pub use log::busy;
+use log::{END_DONE, END_FAILED, starting};
 
 #[cfg(test)]
 #[path = "child_tests.rs"]
