@@ -174,6 +174,49 @@ export async function overflowX(page: Page): Promise<number> {
  */
 export const unique = (prefix: string, browserName: string) => `${prefix}-${browserName}-${Date.now()}`;
 
+/** Presses the form's main button, and on a wizard's step that is not the last waits until the Stepper shows the next one. A second
+ * press that comes before the next step is drawn lands on the step it was meant to leave (a step is a route change, not a frame), and
+ * a test that goes on to the fields of the next step passes or fails by the timing. On the last step, or a form with no steps, it is
+ * just the click. A press the page refuses (the step stays, with its problem) is waited on for a few seconds and then let go: what the
+ * test expects of the refusal is its next line; `press` is the click alone, for a test that means to be refused. */
+export async function advance(page: Page): Promise<void> {
+  const steps = page.locator("li[data-step]");
+  const total = await steps.count();
+  const current = () => steps.evaluateAll((els) => els.findIndex((e) => e.getAttribute("data-state") === "current"));
+  const was = total > 0 ? await current() : -1;
+  await page.getByTestId("form-submit").click();
+  if (was >= 0 && was < total - 1) await expect.poll(current, { timeout: 5_000 }).not.toBe(was).catch(() => undefined);
+}
+
+/** Chooses `option` in the combobox named `name`. A list of choices is opened only once the picker has read it, and a choice in a
+ * searchable list (cmdk) is made with the keyboard, down to the option and Enter: a click has to find the row still for two frames,
+ * and a row in a popover that is still being placed, or re-laid out while the pointer is over it, never is (CI: "element is not
+ * stable", then "detached", for the whole timeout). A plain Select (no search field) is clicked. */
+export async function pickFrom(page: Page, name: string | RegExp, option: string | RegExp, { exact = typeof option === "string", first = false, nameExact = false }: { exact?: boolean; first?: boolean; nameExact?: boolean } = {}): Promise<void> {
+  const box = page.getByRole("combobox", { name, exact: nameExact });
+  await expect(page.locator('[data-slot="resource-picker"][data-state="loading"]').filter({ has: box })).toHaveCount(0);
+  // A list that was just closed is still drawn while it fades: it is gone before this one is opened (its rows would answer for this one's, and
+  // the focus would still be on its way back to the button).
+  await expect(page.locator("[cmdk-input]")).toHaveCount(0);
+  await box.click();
+  const found = page.getByRole("option", { name: option, exact });
+  const choice = first ? found.first() : found;
+  await expect(choice).toBeVisible();
+  if ((await page.locator("[cmdk-root]").count()) === 0) {
+    await choice.click();
+    return;
+  }
+  await page.locator("[cmdk-input]").focus();
+  // From the first row (the pointer may be over a later one, which selects it), down to the choice.
+  await page.keyboard.press("Home");
+  for (let i = 0; i < 400 && (await choice.getAttribute("aria-selected")) !== "true"; i++) await page.keyboard.press("ArrowDown");
+  await expect(choice).toHaveAttribute("aria-selected", "true");
+  await page.keyboard.press("Enter");
+}
+
+/** The form's main button pressed once, with no wait: a step the page is expected to refuse. */
+export const press = (page: Page) => page.getByTestId("form-submit").click();
+
 /** Resolves when the page has stopped moving: its height has not changed and no request has finished for `quiet` ms. A click is
  * decided by where the pointer is at mouse-down and at mouse-up, and a page that is still drawing an answer (a match hint, a
  * preview, a section that folds) moves between the two: Playwright's own check is that the element's box is the same in two

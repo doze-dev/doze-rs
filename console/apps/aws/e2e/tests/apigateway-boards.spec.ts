@@ -1,7 +1,7 @@
 // The REST boards of API Gateway (the list, the type chooser, create, resources, methods, deploy, stages, authorizers), each reached against a real
 // doze-aws (one per browser, seeded as the boards' "larder" world with the real AWS CLI) and, in Chromium, photographed light and dark into SHOTS_DIR to
 // be set beside the board. The HTTP boards and the usage plans are apigateway-boards-http.spec.ts and apigateway-boards-plans.spec.ts.
-import { expect, expectNoErrorAnswers, test } from "./fixtures";
+import { advance, expect, expectNoErrorAnswers, test } from "./fixtures";
 import { apiPath, begin, choose, cli, ctx, end, go, json, pick, shot } from "./apigateway-kit";
 
 test.describe.configure({ mode: "serial" });
@@ -74,7 +74,7 @@ test("apigateway__rest-create: Regional, the IP address type, the call beside it
   await expect(call).toContainText('"types": [');
   await expect(call).toContainText('"ipAddressType": "ipv4"');
   await shot(page, "rest-create");
-  await page.getByTestId("form-submit").click();
+  await advance(page);
   await expect(page.getByTestId("created-banner")).toContainText("REST API larder-orders created.");
   await expect(page.locator("h1")).toHaveText("Resources");
   expect(JSON.parse(cli(["apigateway", "get-rest-apis"])).items.find((a: { name: string }) => a.name === "larder-orders").endpointConfiguration.types).toEqual(["REGIONAL"]);
@@ -114,7 +114,7 @@ test("apigateway__rest-resource-create: a path parameter under /products with CO
   await page.getByTestId("resource-cors").click();
   await shot(page, "rest-resource-create");
   await page.getByTestId("resource-cors").click();
-  await page.getByTestId("form-submit").click();
+  await advance(page);
   await expect(page.getByTestId("resource-banner")).toContainText("Resource /products/{sku} created.");
   await expect(page.getByTestId("resource-tree")).toContainText("/products/{sku}");
   const tree = json<{ items: { path: string; resourceMethods?: Record<string, unknown> }[] }>(["apigateway", "get-resources", "--rest-api-id", rest(), "--embed", "methods"]);
@@ -141,7 +141,7 @@ test("apigateway__rest-method-create: a Lambda proxy method, with the two calls 
   await expect(code.nth(1)).toContainText('"type": "AWS_PROXY"');
   await expect(code.nth(1)).toContainText("function:resize-product-image/invocations");
   await shot(page, "rest-method-create");
-  await page.getByTestId("form-submit").click();
+  await advance(page);
   await expect(page.getByTestId("method-banner")).toContainText("Method POST /products created.");
   await expect(page.getByRole("table", { name: "Methods of /products" })).toContainText("Lambda function");
   expect(cli(["apigateway", "get-method", "--rest-api-id", rest(), "--resource-id", ctx.ids.products, "--http-method", "POST"])).toContain("AWS_PROXY");
@@ -316,7 +316,7 @@ test("apigateway__rest-stage: a second stage is made from a deployment of the hi
   await page.getByTestId("create-stage").click();
   await expect(page.locator("h1")).toHaveText("Create stage");
   await page.getByTestId("stage-name").fill("beta");
-  await page.getByTestId("form-submit").click();
+  await advance(page);
   await expect(page.getByTestId("stage-banner")).toContainText("Stage beta created.");
   await expect(page.getByTestId("stage-chip-beta")).toBeVisible();
 });

@@ -3,7 +3,7 @@
 // value is shown only on Reveal, Live's link to a resource lands on its page, and under `--iam enforce` the console still works.
 import type { Page } from "@playwright/test";
 import { start } from "../server";
-import { calls, CONSOLE, ENDPOINT, expect, expectNoErrorAnswers, open, test, unique } from "./fixtures";
+import { advance, calls, CONSOLE, ENDPOINT, expect, expectNoErrorAnswers, open, test, unique } from "./fixtures";
 
 const proof = { "X-Console": "1" };
 
@@ -35,7 +35,7 @@ async function createQueue(page: Page, name: string, consoleUrl = "") {
   await expect(page.locator("h1")).toHaveText("Queues");
   await page.getByTestId("create-open").click();
   await page.getByTestId("queue-name").fill(name);
-  await page.getByTestId("form-submit").click();
+  await advance(page);
 }
 
 test("a queue is created on its page, listed, opened, and deleted, each call in Live as the console", async ({ page, browserName, refusals }) => {
@@ -79,13 +79,13 @@ test("a table is created and deleted; a refusal is shown on the page", async ({ 
   await open(page, "/resources/dynamodb/tables?do=create", "Create table");
   await page.getByTestId("table-name").fill(t);
   await page.getByTestId("table-pk").fill("pk");
-  await page.getByTestId("form-submit").click();
+  await advance(page);
   await expect(page.getByTestId("created-banner")).toContainText(`${t} was created and is Active.`);
   // The same name again: DynamoDB's own refusal, on the page, which keeps what was typed.
   await page.getByTestId("create-open").click();
   await page.getByTestId("table-name").fill(t);
   await page.getByTestId("table-pk").fill("pk");
-  await page.getByTestId("form-submit").click();
+  await advance(page);
   await expect(page.getByTestId("create-refused")).toContainText("ResourceInUseException");
   await expect(page.getByTestId("table-name")).toHaveValue(t);
   await page.getByTestId("form-cancel").click();

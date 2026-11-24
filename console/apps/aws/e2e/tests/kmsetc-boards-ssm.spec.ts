@@ -1,6 +1,6 @@
 // The 13 Parameter Store boards, each reached against a real doze-aws (one per browser, seeded as the boards' "larder" world with the
 // real AWS CLI) and, in Chromium, photographed light and dark into SHOTS_DIR.
-import { expect, test } from "./fixtures";
+import { advance, expect, test } from "./fixtures";
 import { start, type Running } from "../server";
 import { seedKmsetc } from "./kmsetc-seed";
 import { cliOf, open, portsFor, shoot } from "./kmsetc-kit";
@@ -71,13 +71,13 @@ test("ssm__parameter-create, create-exists, created: a form with the call beside
   await expect(page.getByTestId("call-panel")).toContainText('"KeyId": "alias/larder-app"');
   await expect(page.getByTestId("call-panel")).toContainText('"Tier": "Standard"');
   await shot(page, "ssm__parameter-create");
-  await page.getByTestId("form-submit").click();
+  await advance(page);
   await expect(page.getByTestId("put-refused")).toContainText("PutParameter was refused with ParameterAlreadyExists (HTTP 400).");
   await expect(page.getByTestId("field-name")).toContainText("choose Edit on /larder/prod/db/password");
   await expect(page.getByTestId("call-panel")).toContainText("The call that was refused");
   await shot(page, "ssm__parameter-create-exists");
   await page.getByTestId("parameter-name").fill("/larder/prod/db/replica-password");
-  await page.getByTestId("form-submit").click();
+  await advance(page);
   await expect(page.getByTestId("created-banner")).toContainText("PutParameter returned version 1 for /larder/prod/db/replica-password, a SecureString.");
   await expect(page.getByTestId("list-sentence")).toContainText("There are 9 parameters");
   await expect(page.getByRole("table", { name: "Parameters" })).toContainText("/larder/prod/db/replica-password");
@@ -165,7 +165,7 @@ test("ssm__parameter-edit: Edit saves the next version with Overwrite", async ({
   await expect(page.getByTestId("call-panel")).not.toContainText('"Type"');
   await expectCrumbsEnd(page, ["Edit"]);
   await shot(page, "ssm__parameter-edit");
-  await page.getByTestId("form-submit").click();
+  await advance(page);
   await expect(page.getByTestId("saved-banner")).toContainText("PutParameter returned version 4");
   expect(JSON.parse(cli(["ssm", "get-parameter", "--name", "/larder/prod/db/password", "--with-decryption"])).Parameter.Value).toBe("Zt3Mw-8cQd-Hn5Rb-Ve62");
 });
