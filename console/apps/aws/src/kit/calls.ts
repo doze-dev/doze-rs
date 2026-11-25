@@ -4,6 +4,7 @@
 import { micros } from "@doze/ui/lib/format";
 import type { CallRecord } from "../api/types/CallRecord";
 import type { KeyPrincipal } from "../api/types/KeyPrincipal";
+import { isConsole } from "../pages/live/search";
 import { clientName, who } from "../people";
 import { serviceTitle } from "../words";
 
@@ -56,3 +57,14 @@ export function targetKey(call: Pick<CallRecord, "service" | "member" | "resourc
   const at = call.resource.indexOf("/");
   return at < 0 || at === call.resource.length - 1 ? null : call.resource.slice(at + 1);
 }
+
+/** An operation that only looks and changes nothing (`ListQueues`, `DescribeTable`, `GetFunction`, `HeadObject`, a `Query`). The
+ * console makes dozens of them to draw a page; a write (`CreateQueue`, `PutObject`, `StartMessageMoveTask`) is something a
+ * person did, whoever made it. `ReceiveMessage` is not here: it changes what a queue holds. */
+const READS = /^(List|Describe|Get|Head|BatchGet|Query|Scan|Filter|Search|Lookup|Validate)/;
+export const isReadCall = (c: Pick<CallRecord, "action">): boolean => c.action !== null && READS.test(c.action);
+
+/** This console's own read, which a resource's Recent calls hides until asked: a page makes dozens of them to draw itself, and
+ * they bury the calls of an app and the console's own writes. `pin` names reads that stay in view (the `GetSecretValue` a page
+ * has just made when the person chose Show). */
+export const isConsoleRead = (c: Pick<CallRecord, "caller" | "action">, pin: readonly string[] = []): boolean => isConsole(c) && isReadCall(c) && !(c.action !== null && pin.includes(c.action));

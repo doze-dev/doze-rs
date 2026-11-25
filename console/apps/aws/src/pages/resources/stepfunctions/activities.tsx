@@ -95,7 +95,7 @@ export function ActivitiesList({ service, kind, search }: OwnProps) {
       {gone && <ResultBanner className="mb-6" title={search.mode === "existed" ? `Activity ${gone} already exists.` : `Activity ${gone} created.`} returned={search.mode === "existed" ? "CreateActivity returned the existing activity's ARN and changed nothing, so no second activity was made and its tags are as they were." : "CreateActivity returned its ARN. Use it in a Task state; workers poll for it by that ARN."} onDismiss={() => go.activities()} testId="created-banner" />}
       <PageHeader
         title="Activities"
-        crumbs={[{ label: "Resources", to: "/resources" }, ...(first ? [{ label: first.service_title, to: `/resources/${service}` }, { label: "State machines", to: "/resources/stepfunctions/machines" }] : [])]}
+        crumbs={[{ label: "Resources", to: "/resources" }, ...(first ? [{ label: first.service_title, to: `/resources/${service}` }] : []), { label: "Activities", to: "" }]}
         sub="Tasks done by workers outside Step Functions. A worker polls for work, does it, and reports back."
         refresh={<RefreshControl updatedAt={list.dataUpdatedAt} fetching={list.isFetching} onRefresh={refresh} interval={false} />}
         actions={<Button onClick={() => go.activities({ do: "create" })} data-testid="create-open"><PlusIcon /> Create activity</Button>}

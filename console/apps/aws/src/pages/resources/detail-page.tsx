@@ -14,6 +14,7 @@ import type { FieldValue } from "../../api/types/FieldValue";
 import type { ResourceDetail } from "../../api/types/ResourceDetail";
 import type { ResourceRow } from "../../api/types/ResourceRow";
 import type { SubList } from "../../api/types/SubList";
+import { kindCrumbs, serviceTrail } from "../../kit/crumbs";
 import { DetailError } from "../../kit/detail-error";
 import { RecentCalls } from "../../kit/recent-calls";
 import { DeleteDialog } from "./delete-dialog";
@@ -161,7 +162,7 @@ export function ResourceDetailPage({ service, kind, name, tab }: { service: stri
     void qc.invalidateQueries({ queryKey: deepKey({ service, kind, name }) });
   }, [refetch, qc, service, kind, name]);
   const d = detail.data;
-  const crumbs = [{ label: "Resources", to: "/resources" }, ...(d ? [{ label: d.service_title, to: `/resources/${service}` }, { label: d.kind_title, to: `/resources/${service}/${kind}` }] : [])];
+  const crumbs = d ? kindCrumbs(d) : serviceTrail(service);
   return (
     <>
       <PageHeader
