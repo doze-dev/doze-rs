@@ -173,6 +173,8 @@ async fn the_app_sees_the_numbers_watches_commands_and_can_empty_it() {
         action: action.into(),
         resource: "valkey".into(),
         input: None,
+        values: Default::default(),
+        form: false,
     };
     assert_eq!(
         b.module.run_action(&act("save")).await.unwrap(),

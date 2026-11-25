@@ -184,6 +184,7 @@ pub(crate) fn actions() -> Vec<Action> {
         kind: kind.into(),
         destructive,
         input_hint: None,
+        fields: vec![],
     };
     vec![
         action("flush", "Empty this namespace", "namespace", true),

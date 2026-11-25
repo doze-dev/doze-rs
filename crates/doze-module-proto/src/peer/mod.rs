@@ -144,6 +144,12 @@ impl Peer {
         Ok(())
     }
 
+    /// Whether this side may make `method` now: its direction, the module's capability bit, and the agreed minor. A
+    /// host asks this before doing anything for a call (waking an instance) that it could not then make.
+    pub fn can_call(&self, method: Method) -> bool {
+        self.check(method).is_ok()
+    }
+
     fn send_call<A: minicbor::Encode<()>>(
         &self,
         method: Method,

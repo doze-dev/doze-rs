@@ -92,6 +92,7 @@ fn wire_instance() -> wire::InstanceView {
         next_restart: ts(4),
         children: Vec::new(),
         healthy: Some(true),
+        checks: Vec::new(),
     }
 }
 
@@ -229,6 +230,8 @@ fn a_console_spec_carries_its_panels_and_layout() {
                     text: "a note".into(),
                     actions: vec!["cancel".into()],
                     children: Vec::new(),
+                    keys: Vec::new(),
+                    by: String::new(),
                 }],
                 ..wire::ConsoleNode::default()
             },

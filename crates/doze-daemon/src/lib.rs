@@ -11,6 +11,7 @@
 //! context); a stream ends with its connection or its `cancel`.
 
 mod admin;
+mod blocks;
 pub mod catalog;
 mod client;
 mod console;

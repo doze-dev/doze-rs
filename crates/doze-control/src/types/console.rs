@@ -43,8 +43,9 @@ pub struct ConsoleExtension {
     pub node: ConsoleNode,
 }
 
-/// A container (`row`, `col`) or a block (`table`, `stat`, `detail`, `stream`, `actions`, `note`, `chart`)
-/// (Go `ConsoleNode`).
+/// A container (`row`, `col`) or a block (`table`, `stat`, `detail`, `stream`, `actions`, `note`, `chart`; and
+/// from the Rust daemon `value`, `series`, `checks`, `tree`) (Go `ConsoleNode`). A client draws a kind
+/// it does not know as a placeholder.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct ConsoleNode {
@@ -65,6 +66,13 @@ pub struct ConsoleNode {
     pub actions: Vec<String>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub children: Vec<ConsoleNode>,
+    /// Rust daemon, additive: a `series` block's lines, columns of its panel (one of role `of` after a key is its
+    /// limit, drawn dashed).
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub keys: Vec<String>,
+    /// Rust daemon, additive: a `series` block's column naming each line.
+    #[serde(skip_serializing_if = "String::is_empty")]
+    pub by: String,
 }
 
 /// One block of a console: a table, a row of counters, or a stream (Go `ConsolePanel`).
@@ -73,7 +81,7 @@ pub struct ConsoleNode {
 pub struct ConsolePanel {
     pub id: String,
     pub title: String,
-    /// `table`, `counters` or `stream`.
+    /// `table`, `counters` or `stream`; from the Rust daemon also `tree` and `checks`.
     pub kind: String,
     #[serde(skip_serializing_if = "String::is_empty")]
     pub source: String,
@@ -133,4 +141,8 @@ pub struct ConsoleFrame {
     pub row: Option<ConsoleRow>,
     #[serde(skip_serializing_if = "String::is_empty")]
     pub error: String,
+    /// Rust daemon, additive: the readings of `panel` the daemon kept, oldest first, sent once when the console opens
+    /// so a time chart has its past ([`crate::READINGS_EVERY_SECS`] apart, [`crate::READINGS_KEPT`] at most).
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub history: Vec<super::blocks::ConsoleReading>,
 }

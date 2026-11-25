@@ -47,7 +47,13 @@ async fn the_manifest_comes_from_the_derive_and_the_registrations() {
     );
     assert_eq!(
         m.caps,
-        caps::OBJECTS | caps::WIRE | caps::ADMIN | caps::CONSOLE | caps::MIGRATE,
+        caps::OBJECTS
+            | caps::WIRE
+            | caps::ADMIN
+            | caps::CONSOLE
+            | caps::MIGRATE
+            | caps::VALUE
+            | caps::TREE,
         "capabilities must be exactly what was registered"
     );
     // The module powers a block on the app's overview page, and picks the tab its console opens on.

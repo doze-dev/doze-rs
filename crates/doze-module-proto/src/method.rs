@@ -82,6 +82,9 @@ methods! {
     Resources = 50, HostToModule, Unary, caps::ADMIN, &[], 0;
     RunAction = 51, HostToModule, Unary, caps::ADMIN, &[], 0;
     Tail = 52, HostToModule, Stream, caps::CONSOLE, &[], 0;
+    // Minor 2: the console's working blocks (msg/blocks.rs).
+    Value = 53, HostToModule, Unary, caps::VALUE, &[], 2;
+    Children = 54, HostToModule, Unary, caps::TREE, &[], 2;
     WireAccept = 60, HostToModule, Unary, caps::WIRE, &[], 0;
     Shutdown = 70, HostToModule, Unary, 0, &[], 0;
     FetchResolveMajor = 100, ModuleToHost, Unary, 0, &[Method::Resolve, Method::Migrate], 0;

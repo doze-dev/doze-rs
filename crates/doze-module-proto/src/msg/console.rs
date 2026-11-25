@@ -19,7 +19,7 @@ pub struct Resource {
 }
 
 /// A data operation the module offers on a kind of resource.
-#[derive(Debug, Clone, PartialEq, Eq, Encode, Decode)]
+#[derive(Debug, Clone, PartialEq, Eq, Default, Encode, Decode)]
 pub struct Action {
     #[n(0)]
     pub id: String,
@@ -31,6 +31,11 @@ pub struct Action {
     pub destructive: bool,
     #[n(4)]
     pub input_hint: Option<String>,
+    /// A form's typed fields (minor 2). Keep `input_hint` too: a host that does not know forms shows one box, and
+    /// the SDK refuses a call that brings no values for a form with required fields ("needs a newer doze app").
+    #[n(5)]
+    #[cbor(default)]
+    pub fields: Vec<super::blocks::Field>,
 }
 
 /// How the host draws the module's console and what the module adds to the app's own pages (the Go SDK's
@@ -59,13 +64,14 @@ pub struct ConsoleSpec {
 }
 
 /// A data panel.
-#[derive(Debug, Clone, PartialEq, Eq, Encode, Decode)]
+#[derive(Debug, Clone, PartialEq, Eq, Default, Encode, Decode)]
 pub struct Panel {
     #[n(0)]
     pub id: String,
     #[n(1)]
     pub title: String,
-    /// "table", "counters" or "stream".
+    /// "table", "counters", "stream", or (minor 2) "tree" (the module answers `children`) and "checks" (the resources
+    /// of kind `check`).
     #[n(2)]
     pub kind: String,
     /// For a table or counters: the resource kind it lists.
@@ -79,7 +85,7 @@ pub struct Panel {
 }
 
 /// A column of a table, a field of a stream row.
-#[derive(Debug, Clone, PartialEq, Eq, Encode, Decode)]
+#[derive(Debug, Clone, PartialEq, Eq, Default, Encode, Decode)]
 pub struct Column {
     /// "name", "status", or a key of the resource's info (or the row's cells).
     #[n(0)]
@@ -120,7 +126,8 @@ pub struct Extension {
 }
 
 /// A layout node. Containers: "row" and "col" (children laid out by weight). Blocks: "table", "stat", "detail",
-/// "stream", "actions", "note", "chart". The kind is a string on purpose: a host that meets a kind it does not know
+/// "stream", "actions", "note", "chart", and from minor 2 "value", "series", "checks" and "tree"
+/// ([`super::blocks::kind`]). The kind is a string on purpose: a host that meets a kind it does not know
 /// draws a placeholder card and the rest of the layout as usual, so a newer module never breaks an older app.
 #[derive(Debug, Clone, PartialEq, Eq, Default, Encode, Decode)]
 pub struct Node {
@@ -148,6 +155,15 @@ pub struct Node {
     #[n(8)]
     #[cbor(default)]
     pub children: Vec<Node>,
+    /// A "series" block's lines: columns of its panel, each read as a number. A column of role "of" after one of
+    /// them is that line's limit, drawn dashed (minor 2).
+    #[n(9)]
+    #[cbor(default)]
+    pub keys: Vec<String>,
+    /// A "series" block's column naming each line (one line per consumer group); empty for one line per key.
+    #[n(10)]
+    #[cbor(default)]
+    pub by: String,
 }
 
 /// `tail` arguments: stream rows of a stream panel.

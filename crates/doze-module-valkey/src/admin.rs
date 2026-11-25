@@ -146,6 +146,7 @@ pub(crate) fn actions() -> Vec<Action> {
         kind: "server".into(),
         destructive,
         input_hint: None,
+        fields: vec![],
     };
     vec![
         action("flush", "Empty the cache", true),

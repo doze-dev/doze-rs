@@ -180,6 +180,8 @@ async fn the_app_sees_topics_and_lag_produces_tails_and_a_wake_keeps_the_data() 
         action: "produce".into(),
         resource: "orders".into(),
         input: Some(value.into()),
+        values: Default::default(),
+        form: false,
     };
     assert_eq!(
         b.module.run_action(&produce("first")).await.unwrap(),

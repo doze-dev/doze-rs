@@ -5,22 +5,39 @@ use crate::{Daemon, lock, topics, unary};
 use doze_control::codec::{self, CodecError, Decoder};
 use doze_control::{Frame, Hello, Op, PROTO_VERSION, Request, Response};
 use doze_os::local::LocalStream;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::io::{self, Read, Write};
 use std::sync::{Arc, Mutex};
 use tokio::sync::watch;
 
 /// The write half, shared by the threads answering the connection; one frame is one write.
-pub(crate) type Writer = Arc<Mutex<LocalStream>>;
+pub(crate) type Writer = Arc<Mutex<Conn>>;
+
+/// The connection's write half, and the streams that have sent their `end`.
+#[derive(Debug)]
+pub(crate) struct Conn {
+    stream: LocalStream,
+    /// Request ids whose stream has ended: nothing more is written for them. A topic's task runs on the runtime's
+    /// workers and can be part-way through a reading (several frames written with no await between them) when its
+    /// stream is cancelled; without this its last frames could follow the `end`, and a client reading one line per
+    /// request would take one for the answer to its next request.
+    ended: BTreeSet<u64>,
+}
 
 /// What ends each stream of this connection, by request id.
 type Streams = Arc<Mutex<BTreeMap<u64, watch::Sender<bool>>>>;
 
 pub(crate) fn send(w: &Writer, f: &Frame) -> io::Result<()> {
     let line = codec::encode(f).map_err(io::Error::other)?;
-    let mut w = lock(w);
-    w.write_all(&line)?;
-    w.flush()
+    let mut c = lock(w);
+    if f.id != 0 && f.response.is_none() && c.ended.contains(&f.id) {
+        return Ok(());
+    }
+    if f.end {
+        c.ended.insert(f.id);
+    }
+    c.stream.write_all(&line)?;
+    c.stream.flush()
 }
 
 // fuzz:parser fuzz_session
@@ -94,7 +111,10 @@ pub(crate) fn serve(d: &Daemon, _conn: usize, stream: LocalStream) {
     let Ok(mut reader) = stream.try_clone() else {
         return;
     };
-    let w: Writer = Arc::new(Mutex::new(stream));
+    let w: Writer = Arc::new(Mutex::new(Conn {
+        stream,
+        ended: BTreeSet::new(),
+    }));
     let mut dec = Decoder::new();
     if !greet(&w, &mut reader, &mut dec) {
         return;
@@ -125,6 +145,8 @@ fn dispatch(d: &Daemon, w: &Writer, streams: &Streams, req: Request) {
     }
     let (d, w) = (d.clone(), Arc::clone(w));
     let spawned = if req.is_stream() {
+        // An id used again for a new stream writes again.
+        lock(&w).ended.remove(&req.id);
         let (tx, rx) = watch::channel(false);
         lock(streams).insert(req.id, tx);
         let streams = Arc::clone(streams);

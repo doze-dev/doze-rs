@@ -101,6 +101,14 @@ fn the_console(c: &mut Raw) {
     );
     c.say(r#"{"id":6,"op":"cancel"}"#);
     while c.hear()["end"] != true {}
+    // Nothing of the stream follows its end: the very next frame answers the next request. (Its topic task can be
+    // part-way through a reading of several panels when the cancel lands; the daemon drops what it writes after.)
+    for _ in 0..3 {
+        std::thread::sleep(std::time::Duration::from_millis(20));
+        c.say(r#"{"id":8,"op":"status"}"#);
+        let next = c.hear();
+        assert_eq!(next["id"], 8, "a frame after the stream ended: {next}");
+    }
 }
 
 /// `doze connect`'s command, resolved: the program in the engine's build, at doze's address for the instance.

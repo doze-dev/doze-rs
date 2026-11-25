@@ -19,6 +19,8 @@ words = ["dep:doze-display"]
 
 [dependencies]
 async-channel = "2"
+# A value viewer's bytes in JSON (types/blocks.rs).
+base64ct = { version = "1", features = ["alloc"] }
 doze-display = { path = "../doze-display", optional = true }
 doze-os = { path = "../doze-os" }
 serde = { version = "1", features = ["derive"] }

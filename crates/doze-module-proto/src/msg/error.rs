@@ -59,6 +59,10 @@ pub struct Error {
     #[n(3)]
     #[cbor(default)]
     pub retryable: bool,
+    /// A refusal of one field of an action's form (minor 2): the field's id, for the form to mark. Set only by
+    /// [`Error::for_field`], never for a problem in the instance's configuration (those are `diagnostics`).
+    #[n(4)]
+    pub field: Option<String>,
 }
 
 impl Error {
@@ -69,6 +73,15 @@ impl Error {
             message: message.into(),
             diagnostics: Vec::new(),
             retryable,
+            field: None,
+        }
+    }
+
+    /// A refusal of the form field `field`: `message` is shown next to it (and is the whole of the error's text).
+    pub fn for_field(field: impl Into<String>, message: impl Into<String>) -> Error {
+        Error {
+            field: Some(field.into()),
+            ..Error::new(ErrorKind::Invalid, message)
         }
     }
 

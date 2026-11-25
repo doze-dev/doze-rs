@@ -4,7 +4,7 @@
 use thiserror::Error;
 
 /// The protocol this build speaks.
-pub const CURRENT: Version = Version { major: 2, minor: 1 };
+pub const CURRENT: Version = Version { major: 2, minor: 2 };
 
 /// A protocol version.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
