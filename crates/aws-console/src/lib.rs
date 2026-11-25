@@ -27,6 +27,7 @@ pub mod files;
 pub mod guard;
 pub mod headers;
 pub mod iam;
+pub mod lab_once;
 pub mod limits;
 pub mod model;
 pub mod origin;

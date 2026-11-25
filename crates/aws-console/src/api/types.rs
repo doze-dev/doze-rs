@@ -53,6 +53,7 @@ fn all() -> BTreeMap<String, String> {
     let mut out = BTreeMap::new();
     one::<ApiError>(&cfg, &mut out);
     one::<Invoked>(&cfg, &mut out);
+    crate::api::lab_once::register(&cfg, &mut out);
     one::<About>(&cfg, &mut out);
     one::<ServiceName>(&cfg, &mut out);
     one::<ServicesResponse>(&cfg, &mut out);

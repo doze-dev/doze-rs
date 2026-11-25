@@ -23,6 +23,8 @@ pub struct State {
     pub addr: SocketAddr,
     /// `--console-allow-host`.
     pub allow_hosts: Vec<String>,
+    /// The Lab's forced events kept so far (`lab_once`).
+    pub once: crate::lab_once::History,
     /// Cancelled when the console is told to stop: every open stream ends with it.
     pub stop: CancellationToken,
     /// One permit per event stream that may still be opened (the cap is [`Limits::max_streams`]).
@@ -55,6 +57,7 @@ impl State {
             recorder,
             addr,
             allow_hosts,
+            once: crate::lab_once::History::default(),
             stop,
             streams: Arc::new(Semaphore::new(limits.max_streams)),
             epoch,
