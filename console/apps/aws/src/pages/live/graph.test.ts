@@ -103,6 +103,16 @@ describe("a busy world", () => {
   });
 });
 
+test("by domain the columns leave room above them for a line that runs over a column, and only then", () => {
+  // An app calls a queue (the middle column) and a bucket (the last): its call to the bucket skips the middle column.
+  const calls = [call({}), call({ service: "s3", member: null, resource: "b/k" })];
+  const over = buildMap(calls, undefined, { ...opts, layout: "domain" });
+  const apps = buildMap([call({})], undefined, { ...opts, layout: "domain" });
+  expect(over.edges.some((e) => over.nodes.find((n) => n.id === e.to)?.col === 2 && over.nodes.find((n) => n.id === e.from)?.col === 0)).toBe(true);
+  expect(over.height).toBeGreaterThan(apps.height);
+  expect(Math.min(...over.nodes.map((n) => n.y))).toBeGreaterThan(Math.min(...apps.nodes.map((n) => n.y)));
+});
+
 test("by domain a column holds its busiest eight and the rest are quieter", () => {
   const calls = Array.from({ length: 12 }, (_, i) => Array.from({ length: 12 - i }, () => call({ resource: `http://h/1/q${i}` }))).flat();
   const m = buildMap([...calls, call({ service: "s3", member: null, resource: "b/k" })], undefined, { ...opts, focus: "active", layout: "domain" });

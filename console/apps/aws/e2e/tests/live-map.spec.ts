@@ -30,7 +30,7 @@ test("SNS delivering to SQS is a call via SNS, and its drawer shows the Publish 
   await expect(row.locator("td").nth(2)).toHaveText("SendMessage");
   await expect(row.locator("td").nth(3)).toHaveText(queue);
   await expect(row.getByTestId("via-pill")).toHaveText("via");
-  await expect(row.locator("td").nth(4)).toContainText("SNS");
+  await expect(row.locator("td").nth(1)).toContainText("SNS");
 
   await row.getByTestId("open-call").click();
   const chain = page.getByTestId("cause-chain");
@@ -82,8 +82,9 @@ test.describe("the map, on a doze-aws of its own", () => {
     await page.getByTestId("view-both").click();
     await expect(page).toHaveURL(/service=dynamodb/);
     await expect(page).not.toHaveURL(/view=/);
-    await expect(rows(page).first().locator("td").nth(1)).toHaveText("DynamoDB");
-    for (const cell of await rows(page).locator("td:nth-child(2)").allTextContents()) expect(cell).toBe("DynamoDB");
+    // The wire has no Service column (the board's has none): the filter says which service it is kept to, and the call is a DynamoDB one.
+    await expect(page.getByTestId("filter-service")).toContainText("DynamoDB");
+    await expect(rows(page).first().locator("td").nth(2)).toHaveText("ListTables");
   });
 });
 
@@ -112,7 +113,7 @@ test("the wire's filters keep the calls that match, and live in the address", as
   await page.getByTestId("filter-caller").click();
   await page.getByRole("option", { name: accessKey }).click();
   await expect(page).toHaveURL(new RegExp(`caller=${accessKey}`));
-  for (const cell of await rows(page).locator("td:nth-child(5)").allTextContents()) expect([accessKey, "SNS"].some((k) => cell.includes(k))).toBe(true);
+  for (const cell of await rows(page).locator("td:nth-child(2)").allTextContents()) expect([accessKey, "SNS"].some((k) => cell.includes(k))).toBe(true);
   // Nothing matches: said, not an empty box.
   await page.getByTestId("filter-q").fill("no-such-operation-anywhere");
   await expect(page.getByText("No call matches")).toBeVisible();
@@ -138,7 +139,7 @@ test("a call is copied as an AWS CLI command and as curl", async ({ page, cli, b
   expect(cli(["sqs", "create-queue", "--queue-name", queue]).code).toBe(0);
   await openLive(page, "/live?view=wire");
   const row = rows(page).filter({ hasText: queue }).first();
-  await expect(row.locator("td").nth(4)).toHaveText(accessKey);
+  await expect(row.locator("td").nth(1)).toHaveText(accessKey);
   await row.getByTestId("row-menu").click();
   await page.getByTestId("copy-cli").click();
   await expect(page.getByText("AWS CLI command copied")).toBeVisible();

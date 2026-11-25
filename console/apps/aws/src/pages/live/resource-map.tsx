@@ -10,11 +10,9 @@ import type { CallRecord } from "../../api/types/CallRecord";
 import { iconOf } from "../resources/model";
 import { type MapEdge, type MapModel, type MapNode, targetOf } from "./graph";
 import { beadColour } from "./map";
+import { channelY, metrics, overRoute, skips } from "./map-geometry";
 import { callerOf } from "./search";
 
-export const CARD_W = 190;
-/** The least room between two columns: a line's label sits in it and never over a card. */
-const GAP = 150;
 const CARD_H = 62;
 const SVG = "http://www.w3.org/2000/svg";
 const reduced = () => typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches === true;
@@ -54,7 +52,7 @@ export function nodeLine(n: MapNode): { top: string; bottom: string | null } {
   return { top: n.sentence ?? (n.calls > 0 ? `${number(n.calls)} ${n.calls === 1 ? "call" : "calls"}` : ""), bottom: n.sentence && n.calls > 0 ? `${number(n.calls)} ${n.calls === 1 ? "call" : "calls"} · ${n.ops.slice(0, 2).join(" / ")}` : null };
 }
 
-function Card({ n, x, selected, dim, onPick }: { n: MapNode; x: number; selected: boolean; dim: boolean; onPick: () => void }) {
+function Card({ n, x, w, selected, dim, onPick }: { n: MapNode; x: number; w: number; selected: boolean; dim: boolean; onPick: () => void }) {
   const line = nodeLine(n);
   return (
     <button
@@ -64,7 +62,7 @@ function Card({ n, x, selected, dim, onPick }: { n: MapNode; x: number; selected
       data-testid={n.kind === "app" ? "map-app" : "map-resource"}
       data-node={n.id}
       className={cn("absolute flex -translate-y-1/2 flex-col justify-center gap-0.5 rounded-xl border bg-card px-3 py-2 text-left shadow-xs outline-none transition-colors hover:border-input focus-visible:ring-2 focus-visible:ring-ring", selected && "border-primary ring-2 ring-primary/30", dim && "opacity-40", n.kind === "service" && "border-dashed")}
-      style={{ left: x, top: n.y, width: CARD_W, minHeight: CARD_H }}
+      style={{ left: x, top: n.y, width: w, minHeight: CARD_H }}
     >
       <span className="flex items-center gap-2">
         {createElement(n.kind === "app" ? BotIcon : iconOf(n.service), { "aria-hidden": true, className: "size-4 shrink-0 text-primary" })}
@@ -86,27 +84,50 @@ type Props = { heads?: string[]; model: MapModel; calls: readonly CallRecord[]; 
 export function ResourceMap({ heads, model, calls, selected, route, onPick }: Props) {
   const box = useRef<HTMLDivElement>(null);
   const measured = useWidth(box);
-  // Columns keep a gap a label fits in: when the room is narrower (the panel is open), the map scrolls sideways.
-  const room = 16 + model.columns * CARD_W + Math.max(0, model.columns - 1) * GAP;
-  const width = Math.max(measured, room);
+  // The columns shrink (down to a gap a label fits in) to fit the box; narrower than that (the panel is open) the map scrolls sideways.
+  const pad = heads ? 16 : 8;
+  const { card, width, scrolls } = metrics(model.columns, measured, pad);
   const paths = useRef(new Map<string, SVGPathElement>());
   const layer = useRef<SVGGElement>(null);
   const last = useRef<number | null>(null);
   const flying = useRef<{ el: SVGCircleElement; path: SVGPathElement; len: number; start: number }[]>([]);
   const frame = useRef(0);
-  const pad = 8;
-  const x = (col: number) => pad + (model.columns <= 1 ? 0 : (col * (width - 2 * pad - CARD_W)) / (model.columns - 1));
+  const x = (col: number) => pad + (model.columns <= 1 ? 0 : (col * (width - 2 * pad - card)) / (model.columns - 1));
   const byId = useMemo(() => new Map(model.nodes.map((n) => [n.id, n])), [model.nodes]);
+  // By domain, a line that skips a column runs over the columns on a channel of its own, so it never passes behind a card; its lane is its place among those that leave or enter by the same gutter.
+  const over = useMemo(() => {
+    const out = new Map<string, number>();
+    if (!heads) return out;
+    for (const e of model.edges) {
+      const a = byId.get(e.from);
+      const b = byId.get(e.to);
+      if (a && b && skips(a, b)) out.set(e.id, out.size);
+    }
+    return out;
+  }, [heads, model.edges, byId]);
   const geo = (e: MapEdge) => {
     const a = byId.get(e.from)!;
     const b = byId.get(e.to)!;
-    const x1 = x(a.col) + CARD_W;
+    const x1 = x(a.col) + card;
     const x2 = x(b.col);
+    const k = over.get(e.id);
+    if (k !== undefined) {
+      const r = overRoute(x1, a.y, x2, b.y, channelY(k), (x1 + x(a.col + 1)) / 2, (x(b.col) + x(b.col - 1) + card) / 2, k);
+      return { d: r.d, mx: r.mx, my: r.my };
+    }
     const mx = (x1 + x2) / 2;
     return { d: `M${x1} ${a.y}C${mx} ${a.y} ${mx} ${b.y} ${x2} ${b.y}`, mx, my: (a.y + b.y) / 2 };
   };
 
   useEffect(() => () => cancelAnimationFrame(frame.current), []);
+  // The node picked is brought into view: with the panel open the map is narrow and scrolls, and the node the person clicked must not be the one cut off.
+  useEffect(() => {
+    const el = selected ? box.current?.querySelector<HTMLElement>(`[data-node="${CSS.escape(selected)}"]`) : null;
+    const sc = box.current;
+    if (!el || !sc) return;
+    const left = el.offsetLeft - (sc.clientWidth - el.offsetWidth) / 2;
+    sc.scrollTo({ left: Math.max(0, left), behavior: reduced() ? "auto" : "smooth" });
+  }, [selected]);
   // A bead for each call newer than the last one seen, along the line from its caller to what it named; none for the calls on
   // screen when the map opens.
   useEffect(() => {
@@ -162,10 +183,14 @@ export function ResourceMap({ heads, model, calls, selected, route, onPick }: Pr
 
   const near = (id: string) => selected === null || id === selected || model.edges.some((e) => (e.from === selected && e.to === id) || (e.to === selected && e.from === id));
   return (
-    <div ref={box} className="overflow-x-auto" data-testid="map-scroll">
-    <div className={heads ? "relative pt-6" : "relative"} style={{ width }}>
+    <div ref={box} className="overflow-x-auto" data-testid="map-scroll" data-scrolls={scrolls ? "" : undefined}>
+    <div className={heads ? "relative pt-9" : "relative"} style={{ width }}>
+      {/* By domain each column is a panel of its own, with its name at the top. */}
       {heads?.map((h, i) => (
-        <span key={h} className="absolute top-0 text-[11.5px] font-semibold tracking-[0.08em] text-muted-foreground uppercase" style={{ left: x(i) }} data-testid="domain-head">
+        <div key={`${h}-panel`} aria-hidden className="absolute inset-y-0 rounded-xl border bg-muted/30" style={{ left: x(i) - 10, width: card + 20 }} data-testid="domain-panel" />
+      ))}
+      {heads?.map((h, i) => (
+        <span key={h} className="absolute top-2.5 text-[11.5px] font-semibold tracking-[0.08em] text-muted-foreground uppercase" style={{ left: x(i) }} data-testid="domain-head">
           {h}
         </span>
       ))}
@@ -210,7 +235,7 @@ export function ResourceMap({ heads, model, calls, selected, route, onPick }: Pr
           );
         })}
       {model.nodes.map((n) => (
-        <Card key={n.id} n={n} x={x(n.col)} selected={selected === n.id || (route?.nodes.has(n.id) ?? false)} dim={route !== null ? !route.nodes.has(n.id) : !near(n.id)} onPick={() => onPick(selected === n.id ? null : n.id)} />
+        <Card key={n.id} n={n} x={x(n.col)} w={card} selected={selected === n.id || (route?.nodes.has(n.id) ?? false)} dim={route !== null ? !route.nodes.has(n.id) : !near(n.id)} onPick={() => onPick(selected === n.id ? null : n.id)} />
       ))}
     </div>
     </div>
