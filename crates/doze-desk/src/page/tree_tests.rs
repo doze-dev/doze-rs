@@ -148,3 +148,31 @@ fn info_in_words() {
     let n = node("k", true, &[("bytes", "2048"), ("type", "hash")]);
     assert_eq!(info(&n), "2.0 KB · hash");
 }
+
+#[test]
+fn a_reread_asks_again_for_every_open_folder() {
+    let mut t = TreeState::default();
+    let top = t.start().unwrap();
+    t.got(&top, page(vec![node("app", false, &[])], ""));
+    let f = t.toggle("app").unwrap();
+    t.refused(
+        &f,
+        Refusal {
+            message: "db is asleep. Opening a value wakes it.".into(),
+            code: "asleep".into(),
+        },
+    );
+    assert!(t.any_refused());
+    let again = t.reread();
+    let parents: Vec<&str> = again.iter().map(|f| f.parent.as_str()).collect();
+    assert_eq!(parents, ["", "app"], "the top and the open folder");
+    for f in &again {
+        t.got(f, page(vec![node("app/x", true, &[])], ""));
+    }
+    assert!(
+        !labels(&t).iter().any(|l| l.ends_with('…')),
+        "{:?}",
+        labels(&t)
+    );
+    assert!(!t.any_refused());
+}

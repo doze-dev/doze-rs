@@ -10,7 +10,8 @@ use common::{Home, daemon, until};
 use doze_control::fixture::{Answer, Script};
 use doze_control::{ChildrenView, InstanceView, Op, Response, TreeNodeView, ValueView, fault};
 use doze_desk::page::tree::TreeState;
-use doze_desk::page::value::{Refusal, ValueDoc};
+use doze_desk::page::value::Refusal;
+use doze_desk::page::viewer::{Ask, Viewer, Want};
 use doze_desk::{BlockAsk, Conn, FormOutcome, Hub};
 use std::collections::BTreeMap;
 
@@ -97,6 +98,15 @@ fn script() -> Script {
     }
 }
 
+fn want(id: &str) -> Option<Want> {
+    Some(Want {
+        panel: "browse".into(),
+        row: BTreeMap::from([("id".to_owned(), id.to_owned())]),
+        ident: id.into(),
+        label: id.into(),
+    })
+}
+
 #[test]
 fn values_trees_and_forms_go_through_the_hub() {
     let Some(d) = daemon("blocks", script()) else {
@@ -111,10 +121,25 @@ fn values_trees_and_forms_go_through_the_hub() {
         panel: "browse".into(),
     };
 
-    let row = BTreeMap::from([("id".to_owned(), "orders".to_owned())]);
-    let doc = ValueDoc::first(&hub.value(&key, &at, row, 0, false).unwrap());
+    // The viewer decides each ask, as the app's does; the hub runs it on the fixture daemon.
+    let run = |v: &mut Viewer, ask: Option<Ask>| {
+        let ask = ask.expect("an ask");
+        let got = hub
+            .value(&key, &at, ask.row.clone(), ask.offset, ask.wake)
+            .map_err(|e| Refusal::of(&e));
+        v.answered(&ask, got);
+    };
+    let mut v = Viewer::default();
+    let ask = v.follow(want("orders"), false);
+    run(&mut v, ask);
+    let doc = v.doc.clone().unwrap();
     assert_eq!(doc.summary(), "JSON · 8 B of 11 B");
     assert!(doc.more && doc.json.is_none(), "a part is not folded yet");
+    assert_eq!(
+        v.follow(want("orders"), false),
+        None,
+        "the same pick is not asked again"
+    );
 
     let page = hub.children(&key, &at, "", "", "").unwrap();
     let mut tree = TreeState::default();
@@ -122,10 +147,14 @@ fn values_trees_and_forms_go_through_the_hub() {
     tree.got(&top, page);
     assert_eq!(tree.more("").map(|f| f.cursor), Some("50".to_owned()));
 
-    let row = BTreeMap::from([("id".to_owned(), "sleepy".to_owned())]);
-    let r = Refusal::of(&hub.value(&key, &at, row, 0, false).unwrap_err());
+    // A pick on an instance asleep: refused in the daemon's words, until the person presses to open it.
+    let ask = v.follow(want("sleepy"), false);
+    run(&mut v, ask);
+    let r = v.refused.clone().unwrap();
     assert!(r.asleep(), "{r:?}");
     assert_eq!(r.message, "db is asleep. Opening a value wakes it.");
+    let ask = v.open_waking();
+    run(&mut v, ask);
 
     let values = BTreeMap::from([
         ("name".to_owned(), "app".to_owned()),
@@ -148,7 +177,11 @@ fn values_trees_and_forms_go_through_the_hub() {
         .filter(|r| r.op == Op::Value.as_str())
         .map(|r| r.wake)
         .collect();
-    assert_eq!(values_asked, [false, false], "nothing asked to wake");
+    assert_eq!(
+        values_asked,
+        [false, false, true],
+        "only the press asked to wake"
+    );
     let form = asked.iter().find(|r| r.op == Op::Admin.as_str()).unwrap();
     assert!(form.form, "a form says so");
     assert_eq!(form.values, values, "every field, blanks included");

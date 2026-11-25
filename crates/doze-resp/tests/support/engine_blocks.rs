@@ -127,6 +127,7 @@ pub(crate) async fn browse_and_set(b: &Booted, password: &str) {
     tree(b).await;
     values(b).await;
     form(b, &mut c).await;
+    old_app(b).await;
 }
 
 /// The top level: folders with their counts, keys with their types.
@@ -277,6 +278,22 @@ async fn big_string(b: &Booted, big: &[u8]) {
     );
 }
 
+/// An app that does not know forms, asking for the set-key form's action.
+async fn old_app(b: &Booted) {
+    // An app that does not know forms sends one box: with two required fields (key and value) nothing tells which the
+    // box was, so it is told to update rather than have a guess written.
+    let old = RunAction {
+        instance: b.instance.clone(),
+        action: "key-set".into(),
+        resource: String::new(),
+        input: Some("made:3 hello".into()),
+        values: Default::default(),
+        form: false,
+    };
+    let e = b.module.run_action(&old).await.unwrap_err();
+    assert_eq!(e.message, doze_module::forms::NEEDS_NEWER_APP, "{e}");
+}
+
 /// The set-key form.
 async fn form(b: &Booted, c: &mut Client<UnixStream>) {
     // The form sets a key, with a time to live when asked.
@@ -307,6 +324,13 @@ async fn form(b: &Booted, c: &mut Client<UnixStream>) {
         .await
         .unwrap();
     assert_eq!(said, "set made:2; it expires in 1m 40s");
+    // The app sends every field, a blank time to live too: it keeps the key for ever.
+    let said = b
+        .module
+        .run_action(&form(&[("key", "made:4"), ("value", "v"), ("ttl", "")]))
+        .await
+        .unwrap();
+    assert_eq!(said, "set made:4");
     let get = c.call(&["GET", "made:1"]).await.unwrap();
     assert_eq!(get.text().as_deref(), Some("hi there"));
     let ttl = c.call(&["TTL", "made:2"]).await.unwrap();

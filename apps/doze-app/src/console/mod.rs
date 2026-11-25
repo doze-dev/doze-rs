@@ -13,6 +13,7 @@ mod page;
 mod parts;
 mod stream;
 mod tree;
+mod tree_keys;
 mod value;
 mod value_body;
 pub(crate) mod work;
@@ -26,7 +27,9 @@ use gpui::{
 };
 use gpui_component::input::InputState;
 
-use crate::actions::{FilterRows, NextTable, PrevTable, RowDown, RowUp};
+use crate::actions::{
+    FilterRows, FolderClose, FolderOpen, NextTable, OpenLeaf, PrevTable, RowDown, RowUp,
+};
 use crate::instance::head::{chip, keys_bar};
 use crate::instance::ui;
 use crate::theme::tokens;
@@ -195,6 +198,15 @@ impl ConsoleTabView {
 
     /// Moves the selection `by` rows in the order the table shows them.
     fn step_row(&mut self, by: isize, cx: &mut Context<Self>) {
+        if self.tree_keys(
+            |t| {
+                t.step(by);
+                None
+            },
+            cx,
+        ) {
+            return;
+        }
         let Some(id) = self.focused_table() else {
             return;
         };
@@ -332,11 +344,10 @@ impl Focusable for ConsoleTabView {
     }
 }
 
-impl Render for ConsoleTabView {
-    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        let t = tokens(cx);
-        self.ensure_filters(window, cx);
-        let body = self.body(&t, window, cx);
+impl ConsoleTabView {
+    /// The keys bar: the page's keys (the actions' wait while asleep), between tables where there are two, the filter
+    /// where one is long, and a tree's once it has been clicked.
+    fn keys_shown(&self) -> Vec<(String, &str)> {
         let p = &self.page;
         let mut keys: Vec<(String, &str)> = p
             .keys
@@ -362,6 +373,33 @@ impl Render for ConsoleTabView {
         if self.long_table() {
             keys.insert(at, (chip("Filter the table"), "filter"));
         }
+        // A tree's keys, once it has been clicked (it then takes them).
+        if self
+            .focused
+            .as_ref()
+            .is_some_and(|f| self.work.trees.contains_key(f))
+        {
+            let folders = format!("{} {}", chip("Close the folder"), chip("Open the folder"));
+            keys.splice(
+                0..0,
+                [
+                    ("↑↓".to_owned(), "move"),
+                    (folders, "folders"),
+                    (chip("Open the leaf"), "open"),
+                ],
+            );
+        }
+        keys
+    }
+}
+
+impl Render for ConsoleTabView {
+    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        let t = tokens(cx);
+        self.ensure_filters(window, cx);
+        let body = self.body(&t, window, cx);
+        let keys = self.keys_shown();
+        let p = &self.page;
         div()
             .id("console")
             .key_context("ConsoleTab")
@@ -373,6 +411,9 @@ impl Render for ConsoleTabView {
             .min_w_0()
             .on_action(cx.listener(|v, _: &RowDown, _, cx| v.step_row(1, cx)))
             .on_action(cx.listener(|v, _: &RowUp, _, cx| v.step_row(-1, cx)))
+            .on_action(cx.listener(|v, _: &FolderOpen, _, cx| v.tree_right(cx)))
+            .on_action(cx.listener(|v, _: &FolderClose, _, cx| v.tree_left(cx)))
+            .on_action(cx.listener(|v, _: &OpenLeaf, _, cx| v.tree_enter(cx)))
             .on_action(cx.listener(|v, _: &NextTable, _, cx| v.step_table(1, cx)))
             .on_action(cx.listener(|v, _: &PrevTable, _, cx| v.step_table(-1, cx)))
             .on_action(cx.listener(|v, _: &FilterRows, w, cx| v.open_filter(w, cx)))

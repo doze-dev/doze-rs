@@ -6,6 +6,7 @@
 
 use doze_desk::page::console::Node;
 use doze_desk::page::value::{Refusal, Shown, ValueDoc};
+use doze_desk::page::viewer::Viewer;
 use gpui::{AnyElement, Div, Entity, IntoElement, SharedString, div, prelude::*, px};
 
 use super::ConsoleTabView;
@@ -33,7 +34,7 @@ impl Draw<'_> {
         let t = self.t;
         let id = own.map_or_else(|| n.id.clone(), str::to_owned);
         let slot = self.work.and_then(|w| w.values.get(&id));
-        let want = slot.and_then(|s| s.want.as_ref());
+        let want = slot.and_then(|s| s.viewer.want.as_ref());
         let title = if own.is_some() {
             "Value"
         } else {
@@ -61,7 +62,7 @@ impl Draw<'_> {
                     .child(text(&w.label))
             }))
             .when(want.is_none(), |d| d.child(div().flex_1()));
-        if let Some(d) = slot.and_then(|s| s.doc.as_ref()) {
+        if let Some(d) = slot.and_then(|s| s.viewer.doc.as_ref()) {
             head = head.child(self.tools(&id, slot, d));
         }
         let body = match (want, slot) {
@@ -72,7 +73,7 @@ impl Draw<'_> {
             } else {
                 "Pick a row to see its value."
             }),
-            (Some(_), Some(s)) => match (&s.doc, &s.refused) {
+            (Some(_), Some(s)) => match (&s.viewer.doc, &s.viewer.refused) {
                 (_, Some(r)) => self.refusal(&id, r),
                 (Some(d), None) => self.doc(&id, s, d),
                 (None, None) => self.reading(&id),
@@ -135,7 +136,9 @@ impl Draw<'_> {
         };
         let wake = r.asleep();
         let key = id.to_owned();
-        let click = on(&self.live, move |v, cx| v.fetch_value(&key, 0, wake, cx));
+        let click = on(&self.live, move |v, cx| {
+            v.value_ask(&key, |w| if wake { w.open_waking() } else { w.retry() }, cx);
+        });
         let tone = match r.state() {
             Some(doze_control::fault::FAILED) => t.bad,
             Some(_) => t.text,
@@ -215,7 +218,7 @@ impl Draw<'_> {
         let copied = slot
             .and_then(|s| s.copied)
             .is_some_and(|at| at.elapsed() < crate::kit::COPIED_FOR);
-        let all = d.copy_text();
+
         let (cid, key) = (copy_id.clone(), id.to_owned());
         row.child(btn(
             t,
@@ -224,6 +227,14 @@ impl Draw<'_> {
             "",
             Btn::Plain,
             on(&self.live, move |v, cx| {
+                // Made when pressed, not each time the viewer is drawn.
+                let all = v
+                    .work
+                    .values
+                    .get(&key)
+                    .and_then(|s| s.viewer.doc.as_ref())
+                    .map(|d| d.copy_text())
+                    .unwrap_or_default();
                 crate::outward::copy(cx, &all);
                 if let Some(s) = v.work.values.get_mut(&key) {
                     s.copied = Some(std::time::Instant::now());
@@ -255,7 +266,6 @@ impl Draw<'_> {
         }
         if d.more {
             let key = id.to_owned();
-            let from = d.next_offset();
             out = out.child(
                 div()
                     .flex()
@@ -268,23 +278,21 @@ impl Draw<'_> {
                             .text_color(t.dim)
                             .child(text(&format!("Showing {}.", d.summary()))),
                     )
-                    .when(s.loading, |r| {
+                    .when(s.viewer.loading, |r| {
                         r.child(crate::widgets::spinner(
                             SharedString::from(format!("value-more-{id}")),
                             12.,
                             t.dim,
                         ))
                     })
-                    .when(!s.loading && self.live.is_some(), |r| {
+                    .when(!s.viewer.loading && self.live.is_some(), |r| {
                         r.child(btn(
                             t,
                             SharedString::from(format!("value-rest-{id}")),
                             "Load the rest",
                             "",
                             Btn::Plain,
-                            on(&self.live, move |v, cx| {
-                                v.fetch_value(&key, from, false, cx)
-                            }),
+                            on(&self.live, move |v, cx| v.value_ask(&key, Viewer::rest, cx)),
                         ))
                     }),
             );

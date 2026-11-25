@@ -9,38 +9,24 @@ use doze_desk::BlockAsk;
 use doze_desk::page::console::Node;
 use doze_desk::page::json;
 use doze_desk::page::tree::{Fetch, TreeState};
-use doze_desk::page::value::{Refusal, ValueDoc};
+use doze_desk::page::value::Refusal;
+use doze_desk::page::viewer::{Ask, Viewer, Want};
 use doze_display::NodeKind;
 use gpui::{AppContext as _, Context, Entity, Window};
 use gpui_component::input::{InputEvent, InputState};
 
 use super::ConsoleTabView;
 
-/// What a value viewer is to show: the panel asked, the row (a table's cells or `{"id": leaf}`), its identity and
-/// its name.
-#[derive(Debug, Clone, PartialEq, Eq, Default)]
-pub(crate) struct Want {
-    pub(crate) panel: String,
-    pub(crate) row: BTreeMap<String, String>,
-    pub(crate) ident: String,
-    pub(crate) label: String,
-}
-
-/// One value viewer.
+/// One value viewer: what it asks and has read (`Viewer`, whose rules doze-desk tests), and how it is drawn.
 #[derive(Default)]
 pub(crate) struct ValueSlot {
-    pub(crate) want: Option<Want>,
-    pub(crate) doc: Option<ValueDoc>,
-    pub(crate) refused: Option<Refusal>,
-    pub(crate) loading: bool,
+    pub(crate) viewer: Viewer,
     /// The JSON containers folded, by line.
     pub(crate) folded: HashSet<usize>,
     /// Long text lines wrap (on by default; off keeps a log line one line).
     pub(crate) nowrap: bool,
     /// When Copy was pressed: it says "Copied" a moment.
     pub(crate) copied: Option<std::time::Instant>,
-    /// Counts the asks, so an answer to one no longer wanted is dropped.
-    asked: u64,
 }
 
 /// One tree.
@@ -48,7 +34,14 @@ pub(crate) struct TreeSlot {
     pub(crate) state: TreeState,
     pub(crate) panel: String,
     pub(crate) filter: Option<Entity<InputState>>,
+    /// The rows' scroll, so the keys' cursor and the picked leaf stay in view.
+    pub(crate) scroll: gpui::ScrollHandle,
+    /// Counts the changes to the filter box: only the last one, once typing pauses, is asked.
+    typed: u64,
 }
+
+/// How long typing in a tree's filter pauses before the module is asked.
+const FILTER_PAUSE: std::time::Duration = std::time::Duration::from_millis(250);
 
 /// Every working block on the tab.
 #[derive(Default)]
@@ -91,8 +84,10 @@ impl ConsoleTabView {
                     state: TreeState::default(),
                     panel: n.panel.clone(),
                     filter: None,
+                    scroll: gpui::ScrollHandle::new(),
+                    typed: 0,
                 });
-            let refused = slot.state.folders.values().any(|f| f.refused.is_some());
+            let refused = slot.state.any_refused();
             if woke && refused {
                 fetches.extend(slot.state.reread().into_iter().map(|f| (n.id.clone(), f)));
             } else if !slot.state.folders.contains_key("")
@@ -132,30 +127,23 @@ impl ConsoleTabView {
         }
         for (id, want) in wants {
             let slot = self.work.values.entry(id.clone()).or_default();
-            let same = slot.want.as_ref().map(|w| &w.ident) == want.as_ref().map(|w| &w.ident);
-            // The same value, named better now its folder has been read.
-            if same && let (Some(w), Some(new)) = (slot.want.as_mut(), want.as_ref()) {
-                w.label.clone_from(&new.label);
+            if let Some(ask) = slot.viewer.follow(want, woke) {
+                slot.folded.clear();
+                self.run_ask(&id, ask, cx);
             }
-            let retry = woke
-                && slot
-                    .refused
-                    .as_ref()
-                    .is_some_and(|r| r.asleep() || r.starting());
-            if same && !retry {
-                continue;
-            }
-            if !same {
-                *slot = ValueSlot {
-                    want,
-                    nowrap: slot.nowrap,
-                    asked: slot.asked,
-                    ..ValueSlot::default()
-                };
-            }
-            if slot.want.is_some() {
-                self.fetch_value(&id, 0, false, cx);
-            }
+        }
+    }
+
+    /// A press or a key on viewer `id`: `f` decides the ask (open and wake, try again, the rest), which runs.
+    pub(crate) fn value_ask(
+        &mut self,
+        id: &str,
+        f: impl FnOnce(&mut Viewer) -> Option<Ask>,
+        cx: &mut Context<Self>,
+    ) {
+        let ask = self.work.values.get_mut(id).and_then(|s| f(&mut s.viewer));
+        if let Some(ask) = ask {
+            self.run_ask(id, ask, cx);
         }
     }
 
@@ -184,54 +172,32 @@ impl ConsoleTabView {
         })
     }
 
-    /// Asks for the value of viewer `id` from `offset` ("Load the rest" asks from where the body ends); `wake` only
-    /// when the person pressed to open it on an instance that sleeps.
-    pub(crate) fn fetch_value(
-        &mut self,
-        id: &str,
-        offset: u64,
-        wake: bool,
-        cx: &mut Context<Self>,
-    ) {
-        let Some(slot) = self.work.values.get_mut(id) else {
-            return;
-        };
-        let Some(want) = slot.want.clone() else {
-            return;
-        };
-        slot.asked += 1;
-        slot.loading = true;
-        if offset == 0 {
-            slot.refused = None;
-        }
-        let asked = slot.asked;
+    /// Runs `ask` of viewer `id` on the hub, off the UI thread, and hands the answer to its viewer.
+    fn run_ask(&mut self, id: &str, ask: Ask, cx: &mut Context<Self>) {
         let (hub, key, id) = (self.hub.clone(), self.key.clone(), id.to_owned());
         let at = BlockAsk {
             instance: self.name.clone(),
-            panel: want.panel.clone(),
+            panel: ask.panel.clone(),
         };
         cx.spawn(async move |this, cx| {
+            let (row, offset, wake) = (ask.row.clone(), ask.offset, ask.wake);
             let got = cx
                 .background_executor()
-                .spawn(async move { hub.value(&key, &at, want.row, offset, wake) })
-                .await;
+                .spawn(async move { hub.value(&key, &at, row, offset, wake) })
+                .await
+                .map_err(|e| Refusal::of(&e));
             let _ = this.update(cx, |v, cx| {
-                let Some(slot) = v.work.values.get_mut(&id).filter(|s| s.asked == asked) else {
-                    return;
-                };
-                slot.loading = false;
-                match got {
-                    Ok(part) if offset > 0 => {
-                        if let Some(d) = &mut slot.doc {
-                            d.add(&part);
-                        }
-                    }
-                    Ok(part) => {
-                        let d = ValueDoc::first(&part);
-                        slot.folded = d.json.as_deref().map(json::first_folds).unwrap_or_default();
-                        slot.doc = Some(d);
-                    }
-                    Err(e) => slot.refused = Some(Refusal::of(&e)),
+                if let Some(slot) = v.work.values.get_mut(&id)
+                    && slot.viewer.answered(&ask, got)
+                {
+                    // A new value: its long containers start folded.
+                    slot.folded = slot
+                        .viewer
+                        .doc
+                        .as_ref()
+                        .and_then(|d| d.json.as_deref())
+                        .map(json::first_folds)
+                        .unwrap_or_default();
                 }
                 cx.notify();
             });
@@ -263,8 +229,9 @@ impl ConsoleTabView {
                         Err(e) => slot.state.refused(&asked, Refusal::of(&e)),
                     }
                 }
-                // A leaf opened before its folder was read gets its name.
+                // A leaf opened before its folder was read gets its name, and is scrolled into view.
                 v.sync_work(cx);
+                v.reveal_in_tree(&tree);
                 cx.notify();
             });
         })
@@ -275,11 +242,11 @@ impl ConsoleTabView {
     /// A folder's chevron: it opens (asked for the first time) or closes.
     pub(crate) fn toggle_folder(&mut self, tree: &str, id: &str, cx: &mut Context<Self>) {
         self.focused = Some(tree.to_owned());
-        let f = self
-            .work
-            .trees
-            .get_mut(tree)
-            .and_then(|s| s.state.toggle(id));
+        let f = self.work.trees.get_mut(tree).and_then(|s| {
+            // The keys go on from the row clicked.
+            s.state.cursor = Some(id.to_owned());
+            s.state.toggle(id)
+        });
         if let Some(f) = f {
             self.fetch_children(tree, f, cx);
         }
@@ -303,9 +270,38 @@ impl ConsoleTabView {
         self.focused = Some(tree.to_owned());
         if let Some(s) = self.work.trees.get_mut(tree) {
             s.state.picked = Some(id.to_owned());
+            s.state.cursor = Some(id.to_owned());
         }
+        self.reveal_in_tree(tree);
         self.sync_work(cx);
         cx.notify();
+    }
+
+    /// The filter box changed: the module is asked once typing pauses ([`FILTER_PAUSE`]), not at each key (a filter
+    /// may scan a whole keyspace or every database), and only for the words in the box by then.
+    fn filter_typed(&mut self, tree: &str, words: String, cx: &mut Context<Self>) {
+        let Some(slot) = self.work.trees.get_mut(tree) else {
+            return;
+        };
+        slot.typed += 1;
+        let typed = slot.typed;
+        let tree = tree.to_owned();
+        cx.spawn(async move |this, cx| {
+            cx.background_executor().timer(FILTER_PAUSE).await;
+            let _ = this.update(cx, |v, cx| {
+                let f = v
+                    .work
+                    .trees
+                    .get_mut(&tree)
+                    .filter(|s| s.typed == typed)
+                    .and_then(|s| s.state.set_filter(&words));
+                if let Some(f) = f {
+                    v.fetch_children(&tree, f, cx);
+                }
+                cx.notify();
+            });
+        })
+        .detach();
     }
 
     /// Each tree's filter box, made the first time the tree is drawn (a box needs the window).
@@ -326,15 +322,7 @@ impl ConsoleTabView {
                 move |v: &mut ConsoleTabView, i, ev: &InputEvent, window, cx| match ev {
                     InputEvent::Change => {
                         let words = i.read(cx).value().to_string();
-                        let f = v
-                            .work
-                            .trees
-                            .get_mut(&tree)
-                            .and_then(|s| s.state.set_filter(&words));
-                        if let Some(f) = f {
-                            v.fetch_children(&tree, f, cx);
-                        }
-                        cx.notify();
+                        v.filter_typed(&tree, words, cx);
                     }
                     InputEvent::PressEnter { .. } => window.focus(&v.focus, cx),
                     _ => {}

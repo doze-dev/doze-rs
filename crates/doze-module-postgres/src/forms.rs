@@ -1,7 +1,6 @@
 //! "Create a database", the console's form (protocol minor 2): a name, its owner, the template it is copied from and its
-//! encoding. An app that does not know forms shows one box for the name and sends it as the action's input, so the name
-//! is checked here rather than declared required (the SDK would refuse such an app for a required field it cannot
-//! fill).
+//! encoding. The name is required; an app that does not know forms shows one box for it and sends it as the action's
+//! input, which the SDK puts in the name (the form's only required field without a default).
 
 use crate::names::ident;
 use crate::psql;
@@ -46,6 +45,7 @@ pub(crate) fn create_database() -> Action {
         input_hint: Some("name".into()),
         fields: vec![
             Field {
+                required: true,
                 help: Some("At most 63 bytes.".into()),
                 ..f("name", "Name", field::TEXT)
             },
@@ -213,12 +213,13 @@ mod tests {
     }
 
     #[test]
-    fn an_app_without_forms_gets_one_box() {
+    fn an_app_without_forms_gets_one_box_and_it_is_the_name() {
         let a = create_database();
         assert_eq!(a.input_hint.as_deref(), Some("name"));
-        assert!(
-            a.fields.iter().all(|f| !f.required || f.default.is_some()),
-            "a required field without a default would refuse an app without forms"
-        );
+        let mut v = BTreeMap::new();
+        doze_module::forms::one_box(&a.fields, false, Some("shop"), &mut v);
+        doze_module::forms::check(&a.fields, false, &mut v).unwrap();
+        assert_eq!(v.get("name").map(String::as_str), Some("shop"));
+        assert_eq!(v.get("template").map(String::as_str), Some("template1"));
     }
 }

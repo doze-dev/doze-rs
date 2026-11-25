@@ -13,7 +13,7 @@ use super::blocks::{Draw, share};
 use super::value::chevron;
 use super::work::own_viewer;
 use crate::instance::ui::{heading, text};
-use crate::theme::ty;
+use crate::theme::{Tokens, ty};
 use crate::widgets::Mono as _;
 
 /// A tree row's height.
@@ -69,6 +69,7 @@ impl Draw<'_> {
         let slot = self.work.and_then(|w| w.trees.get(&n.id));
         let rows = slot.map(|s| s.state.rows()).unwrap_or_default();
         let picked = slot.and_then(|s| s.state.picked.clone());
+        let cursor = slot.and_then(|s| s.state.cursor.clone());
         let filter = slot.and_then(|s| s.filter.clone()).map(|i| {
             let focused = self.live.as_ref().is_some_and(|_| {
                 self.filter
@@ -87,7 +88,7 @@ impl Draw<'_> {
         } else {
             rows.iter()
                 .enumerate()
-                .map(|(i, r)| self.tree_row(n, i, r, picked.as_deref()))
+                .map(|(i, r)| self.tree_row(n, i, r, (picked.as_deref(), cursor.as_deref())))
                 .collect()
         };
         share(self.frame(), n)
@@ -103,6 +104,7 @@ impl Draw<'_> {
                     .flex()
                     .flex_col()
                     .overflow_y_scroll()
+                    .when_some(slot.map(|s| s.scroll.clone()), |d, h| d.track_scroll(&h))
                     .children(list),
             )
             .into_any_element()
@@ -120,7 +122,13 @@ impl Draw<'_> {
             .into_any_element()
     }
 
-    fn tree_row(&self, n: &Node, i: usize, r: &TreeRow, picked: Option<&str>) -> AnyElement {
+    fn tree_row(
+        &self,
+        n: &Node,
+        i: usize,
+        r: &TreeRow,
+        marks: (Option<&str>, Option<&str>),
+    ) -> AnyElement {
         let t = self.t;
         let tree = n.id.clone();
         match r {
@@ -171,7 +179,7 @@ impl Draw<'_> {
                 leaf,
                 open,
                 info,
-            } => self.node_row(&tree, (id, label, info), *depth, (*leaf, *open), picked),
+            } => self.node_row(&tree, (id, label, info), *depth, (*leaf, *open), marks),
         }
     }
 
@@ -182,11 +190,13 @@ impl Draw<'_> {
         (id, label, info): (&str, &str, &str),
         depth: usize,
         (leaf, open): (bool, bool),
-        picked: Option<&str>,
+        (picked, cursor): (Option<&str>, Option<&str>),
     ) -> AnyElement {
         let t = self.t;
         let tree = tree.to_owned();
         let on = leaf && picked == Some(id);
+        // The keys' row: lit like a focused table's selection (the picked leaf keeps its bar).
+        let at = cursor == Some(id);
         let mut row = div()
             .id(SharedString::from(format!("tree-{tree}-{id}")))
             .relative()
@@ -208,39 +218,14 @@ impl Draw<'_> {
                         d.child(chevron(t, &format!("tree-{tree}-{id}"), open))
                     }),
             )
-            .child(
-                div()
-                    .flex_1()
-                    .min_w_0()
-                    .overflow_hidden()
-                    .text_ellipsis()
-                    .whitespace_nowrap()
-                    .mono_face()
-                    .text_size(px(ty::SM))
-                    .text_color(if on || !leaf { t.bright } else { t.text })
-                    .when(!leaf, |d| d.font_weight(ty::MEDIUM))
-                    .child(text(label)),
-            )
-            .when(!info.is_empty(), |d| {
-                d.child(
-                    div()
-                        .flex_none()
-                        .max_w(relative(0.5))
-                        .overflow_hidden()
-                        .text_ellipsis()
-                        .whitespace_nowrap()
-                        .text_size(px(ty::XS))
-                        .font_features(ty::tabular())
-                        .text_color(t.dim)
-                        .child(text(info)),
-                )
-            })
-            .when(on, |d| d.bg(t.sel).child(crate::widgets::sel_bar(t, 4.)));
+            .children(name_and_info(t, label, info, leaf, on))
+            .when(on, |d| d.bg(t.sel).child(crate::widgets::sel_bar(t, 4.)))
+            .when(at, |d| d.bg(t.pick));
         if let Some(e) = self.live.clone() {
             let id = id.to_owned();
             row = row
                 .cursor_pointer()
-                .when(!on, |d| d.hover(|s| s.bg(t.sel)))
+                .when(!on && !at, |d| d.hover(|s| s.bg(t.sel)))
                 .on_click(move |_, _, cx| {
                     e.update(cx, |v, cx| {
                         if leaf {
@@ -253,4 +238,38 @@ impl Draw<'_> {
         }
         row.into_any_element()
     }
+}
+
+/// A node's name, which keeps its room (up to most of the row), and its info beside it, which gives way first.
+fn name_and_info(t: &Tokens, label: &str, info: &str, leaf: bool, on: bool) -> [gpui::Div; 2] {
+    let name = div()
+        .flex_shrink_0()
+        .max_w(relative(0.72))
+        .overflow_hidden()
+        .text_ellipsis()
+        .whitespace_nowrap()
+        .mono_face()
+        .text_size(px(ty::SM))
+        .text_color(if on || !leaf { t.bright } else { t.text })
+        .when(!leaf, |d| d.font_weight(ty::MEDIUM))
+        .child(text(label));
+    let info = div()
+        .flex_1()
+        .min_w_0()
+        .flex()
+        .justify_end()
+        .when(!info.is_empty(), |d| {
+            d.child(
+                div()
+                    .min_w_0()
+                    .overflow_hidden()
+                    .text_ellipsis()
+                    .whitespace_nowrap()
+                    .text_size(px(ty::XS))
+                    .font_features(ty::tabular())
+                    .text_color(t.dim)
+                    .child(text(info)),
+            )
+        });
+    [name, info]
 }

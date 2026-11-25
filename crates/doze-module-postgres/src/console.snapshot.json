@@ -17,7 +17,8 @@
           "help": "At most 63 bytes.",
           "id": "name",
           "kind": "text",
-          "label": "Name"
+          "label": "Name",
+          "required": true
         },
         {
           "default": "postgres",

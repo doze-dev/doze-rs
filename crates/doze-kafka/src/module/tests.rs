@@ -377,8 +377,15 @@ fn the_console_is_the_go_modules_three_panels_a_tree_and_the_web_console() {
     let a = admin::actions();
     let ids: Vec<(&str, &str)> = a.iter().map(|a| (a.id.as_str(), a.kind.as_str())).collect();
     assert_eq!(ids, [("produce", "topic"), ("create-topic", "")]);
-    // Produce keeps its one box for an app that does not know forms.
-    assert!(a[0].input_hint.is_some() && a[0].fields.iter().all(|f| !f.required));
+    // Produce keeps its one box for an app that does not know forms: its only required field, the value.
+    let required: Vec<&str> = a[0]
+        .fields
+        .iter()
+        .filter(|f| f.required)
+        .map(|f| f.id.as_str())
+        .collect();
+    assert!(a[0].input_hint.is_some());
+    assert_eq!(required, ["value"]);
 }
 
 /// The kafka module's console and actions, pinned: the app's fixture for a kafka instance is generated from

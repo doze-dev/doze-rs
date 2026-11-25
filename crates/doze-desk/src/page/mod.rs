@@ -21,7 +21,9 @@ pub mod side;
 pub mod snippets;
 pub mod time;
 pub mod tree;
+mod tree_keys;
 pub mod value;
+pub mod viewer;
 
 /// The colour class a piece of text is drawn in: the words' tones and the accent (doze's own: a woke event, the
 /// bat's `zzz`, a match).

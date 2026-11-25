@@ -14,7 +14,7 @@ use gpui::{
 use gpui_component::input::{InputEvent, InputState, TextareaState};
 
 use crate::kit::{Btn, btn, s};
-use crate::theme::{Tokens, tokens, ty};
+use crate::theme::{Tokens, alpha, tokens, ty};
 use crate::widgets::UI_FAMILY;
 
 /// What the form ends with.
@@ -44,6 +44,8 @@ pub(crate) struct FormView {
     pub(crate) form: Form,
     boxes: Vec<Field>,
     focus: FocusHandle,
+    /// The fields' scroll: a form taller than the window scrolls between its title and its buttons.
+    scroll: gpui::ScrollHandle,
 }
 
 impl EventEmitter<FormEvent> for FormView {}
@@ -124,6 +126,7 @@ impl FormView {
             form,
             boxes,
             focus,
+            scroll: gpui::ScrollHandle::new(),
         }
     }
 
@@ -145,11 +148,32 @@ impl FormView {
             self.form.action.resource.clone(),
         );
         let label = self.form.action.label.clone();
+        // The run is followed to its end even if the dialog goes meanwhile (Esc, a press outside): what the module
+        // said is then a toast, never lost.
+        let acts = crate::act::acts(cx);
         cx.spawn(async move |this, cx| {
             let got = cx
                 .background_executor()
                 .spawn(async move { hub.admin_form(&key, &inst, (&id, &resource), values) })
                 .await;
+            let shown = this.upgrade().is_some();
+            if !shown {
+                let (said, bad) = match got {
+                    Ok(FormOutcome::Done(s)) if s.is_empty() => (format!("{label} done"), false),
+                    Ok(FormOutcome::Done(s)) => (s, false),
+                    Ok(FormOutcome::Refused { message, .. }) => {
+                        (format!("{label}: {message}"), true)
+                    }
+                    Err(e) => (
+                        format!("{label}: {}", doze_display::humanise(&e.to_string())),
+                        true,
+                    ),
+                };
+                if let Some(acts) = acts {
+                    acts.update(cx, |a, cx| a.say(said, bad, cx));
+                }
+                return;
+            }
             let _ = this.update(cx, |v, cx| {
                 match got {
                     Ok(FormOutcome::Done(said)) => {
@@ -242,15 +266,72 @@ impl FormView {
             .justify_end()
             .items_center()
             .gap(px(8.))
-            .child(btn(
-                t,
-                "form-cancel",
-                "Cancel",
-                "esc",
-                Btn::Plain,
-                Some(cancel),
-            ))
+            // While the module works the form cannot be sent again nor cancelled from here (its answer is coming).
+            .child(
+                btn(
+                    t,
+                    "form-cancel",
+                    "Cancel",
+                    "esc",
+                    Btn::Plain,
+                    (!running).then_some(cancel),
+                )
+                .when(running, |b| b.opacity(0.5).cursor_default()),
+            )
             .child(press.when(running, |b| b.opacity(0.7)))
+    }
+}
+
+impl FormView {
+    /// The fields, scrolling inside the dialog when it has no room for them all: a fade at the edge with more past
+    /// it (and a hairline under the title once scrolled) says there is more.
+    fn body(&self, t: &Tokens, fields: Vec<AnyElement>, cx: &mut Context<Self>) -> gpui::Div {
+        let (off, max) = (-self.scroll.offset().y, self.scroll.max_offset().y);
+        let below = max - off > px(1.);
+        let above = off > px(1.);
+        let fade = |top: bool| {
+            let (from, to) = (
+                gpui::linear_color_stop(alpha(t.panel, 0.), 0.),
+                gpui::linear_color_stop(t.panel, 1.),
+            );
+            div()
+                .absolute()
+                .left(px(0.))
+                .right(px(0.))
+                .h(px(28.))
+                .when(top, |d| {
+                    d.top(px(0.)).bg(gpui::linear_gradient(0., from, to))
+                })
+                .when(!top, |d| {
+                    d.bottom(px(0.)).bg(gpui::linear_gradient(180., from, to))
+                })
+        };
+        div()
+            .relative()
+            .flex_1()
+            .min_h_0()
+            .flex()
+            .flex_col()
+            .when(above, |d| d.border_t_1().border_color(t.line))
+            // More below: a hairline over the buttons too, under the fade.
+            .when(below, |d| d.border_b_1().border_color(t.line))
+            .child(
+                div()
+                    .id("form-fields")
+                    .flex_1()
+                    .min_h_0()
+                    .flex()
+                    .flex_col()
+                    .gap(px(14.))
+                    .pb(px(4.))
+                    .overflow_y_scroll()
+                    .track_scroll(&self.scroll)
+                    // The fade follows the scroll: drawn again as the fields move.
+                    .on_scroll(cx.listener(|_, _, _, cx| cx.notify()))
+                    .children(fields),
+            )
+            .when(above, |d| d.child(fade(true)))
+            .when(below, |d| d.child(fade(false)))
     }
 }
 
@@ -268,7 +349,8 @@ impl Render for FormView {
             .track_focus(&self.focus)
             .on_mouse_down(gpui::MouseButton::Left, |_, _, cx| cx.stop_propagation())
             .w(px(540.))
-            .max_h(px(560.))
+            // Never taller than the window leaves room for: the fields scroll, the title and buttons stay.
+            .max_h((window.viewport_size().height - px(64.)).min(px(620.)))
             .flex()
             .flex_col()
             .gap(px(16.))
@@ -283,15 +365,7 @@ impl Render for FormView {
             .text_size(px(ty::BASE))
             .line_height(px(ty::LH_19))
             .child(self.title(&t))
-            .child(
-                div()
-                    .id("form-fields")
-                    .flex()
-                    .flex_col()
-                    .gap(px(14.))
-                    .overflow_y_scroll()
-                    .children(fields),
-            )
+            .child(self.body(&t, fields, cx))
             .children(general.map(|g| {
                 div()
                     .px(px(12.))

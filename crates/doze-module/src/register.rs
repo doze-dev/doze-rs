@@ -177,6 +177,7 @@ impl<M: Module> Server<M> {
                     .map(|d| d.fields)
                     .unwrap_or_default();
                 let mut values = a.values;
+                crate::forms::one_box(&fields, a.form, a.input.as_deref(), &mut values);
                 with_cx!(m, a.instance, call, peer, |cx| match crate::forms::check(
                     &fields,
                     a.form,

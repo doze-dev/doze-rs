@@ -17,7 +17,7 @@ use std::time::Duration;
 
 use doze_module_proto::msg::blocks::{Children, ChildrenArgs, ValueAnswer, ValueArgs, media};
 use doze_module_proto::msg::calls::RunAction;
-use doze_module_proto::msg::error::Error;
+use doze_module_proto::msg::error::{Error, ErrorKind};
 use doze_module_test::Booted;
 use kafka_protocol::messages::produce_request::{PartitionProduceData, TopicProduceData};
 use kafka_protocol::messages::{ApiKey, ProduceRequest, ProduceResponse, TopicName};
@@ -148,6 +148,16 @@ async fn the_tree_opens_topics_partitions_and_messages_newest_first_and_pages_ba
         ("t/orders/1/9", None)
     );
     assert!(children(&b, "t/orders/0", "", None).await.nodes.is_empty());
+    // A partition the topic does not have is not an empty page: the broker has nothing for it.
+    let a = ChildrenArgs {
+        instance: b.instance.clone(),
+        panel: "browse".into(),
+        parent: "t/orders/9".into(),
+        filter: String::new(),
+        cursor: None,
+    };
+    let e = b.module.children(&a).await.unwrap_err();
+    assert_eq!(e.kind(), ErrorKind::NotFound, "{e}");
 
     // A filter searches every name, in any case.
     assert_eq!(ids(&children(&b, "", "ORD", None).await), ["t/orders"]);
@@ -341,12 +351,11 @@ async fn produce_forms(b: &Booted) {
         (v.media.as_str(), v.body.as_slice()),
         (media::TEXT, &b"from an old app"[..])
     );
-    // Creating a topic needs the form: an old app is told to update.
+    // Creating a topic from an old app: its one box is the name, the rest are the defaults.
     let mut old_create = old.clone();
     old_create.action = "create-topic".into();
-    let e = b.module.run_action(&old_create).await.unwrap_err();
-    assert!(
-        e.message.contains(doze_module::forms::NEEDS_NEWER_APP),
-        "{e}"
-    );
+    old_create.resource = String::new();
+    old_create.input = Some("audit".into());
+    let said = b.module.run_action(&old_create).await.unwrap();
+    assert!(said.contains("audit"), "{said}");
 }

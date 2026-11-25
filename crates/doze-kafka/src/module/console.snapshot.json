@@ -6,7 +6,8 @@
           "help": "What the message says; JSON reads as JSON in the viewer.",
           "id": "value",
           "kind": "text",
-          "label": "Value"
+          "label": "Value",
+          "required": true
         },
         {
           "help": "Messages with the same key go to the same partition.",

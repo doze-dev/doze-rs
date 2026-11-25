@@ -40,12 +40,11 @@ fn help(field: Field, words: &str) -> Field {
     }
 }
 
-/// Produce's fields. None is required: an app without forms sends none, and the value may be empty (an empty message
-/// is a message).
+/// Produce's fields. The value is required: an app without forms sends its one box, which the SDK puts there.
 pub(crate) fn produce_fields() -> Vec<Field> {
     vec![
         help(
-            f("value", "Value", field::TEXT, false),
+            f("value", "Value", field::TEXT, true),
             "What the message says; JSON reads as JSON in the viewer.",
         ),
         help(
@@ -256,13 +255,22 @@ mod tests {
     }
 
     #[test]
-    fn an_app_without_forms_can_still_produce_and_is_told_to_update_to_create() {
-        let mut none = BTreeMap::new();
-        doze_module::forms::check(&produce_fields(), false, &mut none).unwrap();
-        assert!(none.is_empty());
-        let e = doze_module::forms::check(&create_topic().fields, false, &mut BTreeMap::new())
-            .unwrap_err();
-        assert_eq!(e.message, doze_module::forms::NEEDS_NEWER_APP);
+    fn an_app_without_forms_fills_the_one_box_of_each_form() {
+        use doze_module::forms::{check, one_box};
+        let mut v = BTreeMap::new();
+        one_box(&produce_fields(), false, Some("hello"), &mut v);
+        check(&produce_fields(), false, &mut v).unwrap();
+        assert_eq!(v["value"], "hello", "produce's box is its value");
+        let mut v = BTreeMap::new();
+        one_box(&create_topic().fields, false, Some("audit"), &mut v);
+        check(&create_topic().fields, false, &mut v).unwrap();
+        assert_eq!(v["name"], "audit", "create-topic's box is its name");
+        let e = check(&produce_fields(), false, &mut BTreeMap::new()).unwrap_err();
+        assert_eq!(
+            e.message,
+            doze_module::forms::NEEDS_NEWER_APP,
+            "nothing typed"
+        );
         let mut v = vals(&[("name", "orders")]);
         doze_module::forms::check(&create_topic().fields, true, &mut v).unwrap();
         assert_eq!(

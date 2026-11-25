@@ -126,7 +126,7 @@ async fn a_value_comes_as_what_it_is_and_in_parts() {
 }
 
 #[tokio::test(flavor = "current_thread")]
-async fn a_form_is_checked_by_the_sdk_and_an_older_app_is_told_to_update() {
+async fn a_form_is_checked_by_the_sdk() {
     let (p, _h, _c) = start(Arc::default()).await;
     let done = form(
         &p,
@@ -165,6 +165,11 @@ async fn a_form_is_checked_by_the_sdk_and_an_older_app_is_told_to_update() {
         .await
         .unwrap();
     assert!(done.contains("(size 7,"), "{done}");
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn an_older_apps_one_box_fills_the_form_or_it_is_told_to_update() {
+    let (p, _h, _c) = start(Arc::default()).await;
     // An app that knows no forms sends the 2.1 shape: no values at all.
     #[derive(Encode, Decode)]
     struct RunAction21 {
@@ -183,8 +188,19 @@ async fn a_form_is_checked_by_the_sdk_and_an_older_app_is_told_to_update() {
         resource: "a".into(),
         input: Some("payments".into()),
     };
+    // Its one box is the form's only required field without a default: the name.
+    let made: String = p
+        .call(Method::RunAction, &old("create"), CallOpts::default())
+        .await
+        .unwrap();
+    assert!(made.starts_with("created channel payments"), "{made}");
+    // With nothing typed there is nothing to fill: it is told to update.
+    let blank = RunAction21 {
+        input: None,
+        ..old("create")
+    };
     let e = p
-        .call::<_, String>(Method::RunAction, &old("create"), CallOpts::default())
+        .call::<_, String>(Method::RunAction, &blank, CallOpts::default())
         .await
         .unwrap_err();
     assert_eq!(

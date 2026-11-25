@@ -8,8 +8,11 @@
 //! - `wake:VALUE` presses "Open and wake it" on value block `VALUE`;
 //! - `rest:VALUE` presses "Load the rest";
 //! - `fold:VALUE:LINE` folds or opens the JSON container on line `LINE`;
+//! - `keys:down,right,enter` presses keys in the tab (the block clicked last takes them);
+//! - `sleep:NAME` and `up:NAME` put the instance to sleep and wake it, as `doze sleep` and `doze wake` do;
 //! - `form:ACTION` opens the action's form; `fill:FIELD=TEXT;FIELD=TEXT` types into it; `submit` presses it.
 
+use doze_desk::page::viewer::Viewer;
 use gpui::{Context, Entity, Window};
 
 use crate::console::ConsoleTabView;
@@ -39,6 +42,15 @@ pub(crate) fn start(
             }
             return Some(200);
         }
+        "keys" => return press_keys(root, rest, window, cx),
+        "sleep" => {
+            daemon_verb(root, doze_control::Verb::Sleep, rest);
+            return Some(3000);
+        }
+        "up" => {
+            daemon_verb(root, doze_control::Verb::Wake, rest);
+            return Some(4000);
+        }
         "submit" => {
             root.form()?.update(cx, |f, cx| f.submit(cx));
             return Some(1500);
@@ -57,18 +69,8 @@ pub(crate) fn start(
                 c.pick(&block, at, cx);
             }
         }
-        "wake" => c.fetch_value(&block, 0, true, cx),
-        "rest" => {
-            let from = c
-                .work
-                .values
-                .get(&block)
-                .and_then(|s| s.doc.as_ref())
-                .map(|d| d.next_offset());
-            if let Some(from) = from {
-                c.fetch_value(&block, from, false, cx);
-            }
-        }
+        "wake" => c.value_ask(&block, Viewer::open_waking, cx),
+        "rest" => c.value_ask(&block, Viewer::rest, cx),
         "fold" => {
             if let (Ok(line), Some(s)) = (arg.parse::<usize>(), c.work.values.get_mut(&block))
                 && !s.folded.remove(&line)
@@ -125,5 +127,38 @@ fn filter(
         .and_then(|t| t.state.set_filter(words));
     if let Some(f) = f {
         c.fetch_children(tree, f, cx);
+    }
+}
+
+/// Keys pressed in the console tab, the block clicked last taking them: `keys:down,down,right,enter`.
+fn press_keys(
+    root: &mut Root,
+    keys: &str,
+    window: &mut Window,
+    cx: &mut Context<Root>,
+) -> Option<u64> {
+    let c = console(root, cx)?;
+    let f = c.read(cx).focus.clone();
+    window.focus(&f, cx);
+    for k in keys.split(',') {
+        let a: Box<dyn gpui::Action> = match k {
+            "down" => Box::new(crate::actions::RowDown),
+            "up" => Box::new(crate::actions::RowUp),
+            "right" => Box::new(crate::actions::FolderOpen),
+            "left" => Box::new(crate::actions::FolderClose),
+            "enter" => Box::new(crate::actions::OpenLeaf),
+            _ => continue,
+        };
+        window.dispatch_action(a, cx);
+    }
+    Some(1500)
+}
+
+/// The instance put to sleep or woken by the daemon itself, as `doze sleep` and `doze wake` would (no question asked).
+fn daemon_verb(root: &Root, v: doze_control::Verb, name: &str) {
+    if let Some(k) = root.key().cloned()
+        && let Err(e) = root.hub().verb(&k, v, name)
+    {
+        eprintln!("doze-app shot: {} {name}: {e}", v.as_str());
     }
 }

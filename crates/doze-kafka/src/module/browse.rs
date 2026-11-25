@@ -203,8 +203,25 @@ async fn bounds(c: &mut Client, topic: &str, partition: i32) -> Result<(i64, i64
         partitions: vec![partition],
     }];
     let at = (topic.to_string(), partition);
-    let end = c.offsets(&one, -1).await?.get(&at).copied().unwrap_or(0);
-    let start = c.offsets(&one, -2).await?.get(&at).copied().unwrap_or(0);
+    // A partition the broker does not answer for (the topic was deleted, or never had it) is not an empty page.
+    let gone = || {
+        Error::new(
+            ErrorKind::NotFound,
+            format!("topic {topic} has no partition {partition}"),
+        )
+    };
+    let end = c
+        .offsets(&one, -1)
+        .await?
+        .get(&at)
+        .copied()
+        .ok_or_else(gone)?;
+    let start = c
+        .offsets(&one, -2)
+        .await?
+        .get(&at)
+        .copied()
+        .ok_or_else(gone)?;
     Ok((start.min(end), end))
 }
 

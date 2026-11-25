@@ -97,9 +97,9 @@ impl Draw<'_> {
 
     pub(super) fn text_body(&self, d: &ValueDoc, nowrap: bool) -> AnyElement {
         let t = self.t;
-        let all = d.text();
-        let lines: Vec<&str> = all.split('\n').collect();
-        let more = lines.len().saturating_sub(MOST_LINES);
+        // Borrowed, and only the lines shown are laid out; the count was taken once, as the part came.
+        let lines = d.text_str().split('\n');
+        let more = d.lines.saturating_sub(MOST_LINES);
         let mut body = div()
             .flex()
             .flex_col()
@@ -108,7 +108,7 @@ impl Draw<'_> {
             .text_size(px(ty::SM))
             .line_height(px(LINE))
             .text_color(t.bright)
-            .children(lines.into_iter().take(MOST_LINES).map(|l| {
+            .children(lines.take(MOST_LINES).map(|l| {
                 div()
                     .min_h(px(LINE))
                     .when(nowrap, |d| {
@@ -124,8 +124,10 @@ impl Draw<'_> {
 
     pub(super) fn hex(&self, d: &ValueDoc) -> AnyElement {
         let t = self.t;
-        let rows = hex(&d.body);
-        let more = rows.len().saturating_sub(MOST_LINES);
+        // Only the rows shown are made: sixteen bytes a row.
+        let shown = d.body.len().min(MOST_LINES * 16);
+        let rows = hex(d.body.get(..shown).unwrap_or_default());
+        let more = d.body.len().div_ceil(16).saturating_sub(MOST_LINES);
         let mut body = div()
             .flex()
             .flex_col()

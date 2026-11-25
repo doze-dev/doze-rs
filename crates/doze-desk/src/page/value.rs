@@ -8,10 +8,11 @@ use super::json::{self, JsonLine};
 use doze_control::{ValueView, fault};
 
 /// What the body is shown as.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum Shown {
     Json,
     Text,
+    #[default]
     Bytes,
 }
 
@@ -28,6 +29,11 @@ pub struct ValueDoc {
     pub more: bool,
     /// The body laid out as JSON, when it is all JSON.
     pub json: Option<Vec<JsonLine>>,
+    /// Worked out once a part arrives, not each time the viewer is drawn: what the body is shown as, how much of it is
+    /// text (a character cut at a part's end is left out), and its lines.
+    shown_as: Shown,
+    text_len: usize,
+    pub lines: usize,
 }
 
 impl ValueDoc {
@@ -57,9 +63,49 @@ impl ValueDoc {
         }
         self.size = v.size.max(self.body.len() as u64);
         self.more = v.more;
-        self.json = (!self.more && self.shown() == Shown::Json)
-            .then(|| json::lines(&self.body))
-            .flatten();
+        self.read_body();
+    }
+
+    /// What the body is, once: its text's length, what it is shown as, its JSON lines and its line count.
+    fn read_body(&mut self) {
+        let (valid, text) = match std::str::from_utf8(&self.body) {
+            Ok(_) => (self.body.len(), true),
+            // A part cut inside a character is still text.
+            Err(e) => (e.valid_up_to(), self.more && e.error_len().is_none()),
+        };
+        self.text_len = valid;
+        self.lines = self
+            .body
+            .get(..valid)
+            .map_or(0, |b| b.iter().filter(|c| **c == b'\n').count())
+            + 1;
+        let whole = !self.more;
+        let mut json = None;
+        self.shown_as = match self.media.as_str() {
+            "json" if text => Shown::Json,
+            "pairs" if text && whole => {
+                json = json::lines(&self.body);
+                if json.is_some() {
+                    Shown::Json
+                } else {
+                    Shown::Text
+                }
+            }
+            "json" | "text" | "pairs" if text => Shown::Text,
+            _ => Shown::Bytes,
+        };
+        if json.is_none() && whole && self.shown_as == Shown::Json {
+            json = json::lines(&self.body);
+        }
+        self.json = json;
+    }
+
+    /// The body's text, borrowed (a character cut at a part's end is left out).
+    pub fn text_str(&self) -> &str {
+        self.body
+            .get(..self.text_len)
+            .and_then(|b| std::str::from_utf8(b).ok())
+            .unwrap_or_default()
     }
 
     /// Where "Load the rest" asks from.
@@ -69,26 +115,12 @@ impl ValueDoc {
 
     /// What the body is shown as: as the module says, else (pairs beside a body) as what it reads as.
     pub fn shown(&self) -> Shown {
-        match self.media.as_str() {
-            "json" | "text" | "pairs" => {}
-            _ => return Shown::Bytes,
-        }
-        let text = std::str::from_utf8(&self.body).is_ok()
-            // A part cut inside a character is still text.
-            || (self.more && self.body.get(..self.body.len().saturating_sub(3)).is_some_and(|b| std::str::from_utf8(b).is_ok()));
-        match self.media.as_str() {
-            "json" if text => Shown::Json,
-            "pairs" if text && json::lines(&self.body).is_some() => Shown::Json,
-            _ if text => Shown::Text,
-            _ => Shown::Bytes,
-        }
+        self.shown_as
     }
 
     /// The body as text (a character cut at a part's end is left out).
     pub fn text(&self) -> String {
-        String::from_utf8_lossy(&self.body)
-            .trim_end_matches('\u{fffd}')
-            .to_owned()
+        self.text_str().to_owned()
     }
 
     /// The header's words: what it is and how big, and how much of it is here when not all is.

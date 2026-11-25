@@ -1,6 +1,7 @@
 //! The console's value viewer (protocol minor 2): a tree leaf in full (a table's first rows as JSON, a column's
-//! definition as JSON) and a session's whole query (the sessions table cuts it at 600 characters). Read with psql, the
-//! whole value each time; [`ValueAnswer::slice`] hands out the part asked for, so "Load the rest" continues it.
+//! definition as JSON) and a session's whole query (the sessions table cuts it at 600 characters). Each is made to fit
+//! one answer ([`VALUE_CHUNK`]): the rows leaf takes as many of the first rows as fit, so a value is read once, whole,
+//! never re-run for a part that could have changed. A read gives up after [`psql::READ_TIMEOUT`].
 
 use crate::Postgres;
 use crate::browse::{self, Id};
@@ -9,7 +10,7 @@ use crate::psql::{self, Psql};
 use crate::spec::PostgresSpec;
 use crate::sql::lit;
 use doze_module::caps::Values;
-use doze_module::proto::msg::blocks::{ValueAnswer, media};
+use doze_module::proto::msg::blocks::{VALUE_CHUNK, ValueAnswer, media};
 use doze_module::proto::msg::error::{Error, ErrorKind};
 use doze_module::{Cx, Result};
 use std::collections::BTreeMap;
@@ -27,10 +28,17 @@ fn gone(what: String) -> Error {
     Error::new(ErrorKind::NotFound, what)
 }
 
-/// The first rows of a table as one JSON array.
+/// The most bytes of rows the rows leaf gathers: under one answer, with room for the array around them.
+const ROWS_BYTES: usize = VALUE_CHUNK as usize - 4096;
+
+/// The first rows of a table as one JSON array: of the first [`FIRST_ROWS`], as many as fit in [`ROWS_BYTES`].
 fn rows_query(schema: &str, table: &str) -> String {
     format!(
-        "SELECT '{MARK}' || coalesce(json_agg(t), '[]'::json)::text FROM (SELECT * FROM {}.{} LIMIT {FIRST_ROWS}) t",
+        "SELECT '{MARK}' || coalesce(json_agg(r ORDER BY n), '[]'::json)::text FROM (
+           SELECT r, n, sum(octet_length(r::text)) OVER (ORDER BY n) AS upto FROM (
+             SELECT row_to_json(t) AS r, row_number() OVER () AS n FROM (SELECT * FROM {}.{} LIMIT {FIRST_ROWS}) t
+           ) numbered
+         ) sized WHERE upto <= {ROWS_BYTES}",
         ident(schema),
         ident(table)
     )
@@ -57,7 +65,9 @@ fn session_query(pid: u32) -> String {
 
 /// The one value `query` reads, whole (it may hold line breaks); `None` if it found no row.
 async fn one(p: &Psql, db: &str, query: &str) -> Result<Option<String>> {
-    let out = p.run(db, &format!("{query};\n"), false).await?;
+    let out = p
+        .read(db, &format!("{query};\n"), VALUE_CHUNK as usize + 64)
+        .await?;
     Ok(read_back(&out))
 }
 
@@ -160,6 +170,10 @@ mod tests {
     fn names_reach_the_queries_quoted() {
         let q = rows_query("a\"b", "c");
         assert!(q.contains(r#"FROM "a""b"."c" LIMIT 100"#), "{q}");
+        assert!(
+            q.contains(&format!("upto <= {ROWS_BYTES}")),
+            "only what fits one answer"
+        );
         let q = column_query("s", "t", "it's");
         assert!(q.contains("a.attname = 'it''s'"), "{q}");
         assert!(q.contains(r#"to_regclass('"s"."t"')"#), "{q}");

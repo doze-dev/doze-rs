@@ -87,6 +87,8 @@ async fn the_blocks_read_the_server() {
          COMMENT ON COLUMN sales."or/ders".total IS 'in euros';
          INSERT INTO sales."or/ders" VALUES (1, 'first', 9.50), (2, 'second', 12.00);
          CREATE VIEW sales.big AS SELECT * FROM sales."or/ders" WHERE total > 10;
+         CREATE TABLE public.wide (id int, blob text);
+         INSERT INTO public.wide SELECT i, repeat('w', 30000) FROM generate_series(1, 100) i;
          CREATE SCHEMA many;
          DO $$ BEGIN FOR i IN 1..250 LOOP EXECUTE format('CREATE TABLE many.t%s (v int)', lpad(i::text, 3, '0')); END LOOP; END $$"#);
     tree(&b).await;
@@ -144,6 +146,20 @@ async fn pages_and_filters(b: &Booted) {
     assert_eq!(found.nodes.len(), 10, "t240..t249: {:?}", ids(&found));
 }
 
+/// Rows wider than one answer: as many as fit, whole and valid, in one part.
+async fn wide_rows(b: &Booted) {
+    // Rows wider than one answer: as many as fit, whole and valid, in one part (read once, never re-run for a part).
+    let wide = value(b, "browse", &[("id", "shop/public/wide/#rows")])
+        .await
+        .unwrap();
+    let body = text(&wide);
+    assert!(!wide.more, "one part");
+    assert!(body.len() <= 1 << 20, "{}", body.len());
+    let kept = body.matches(r#""id":"#).count();
+    assert!((30..100).contains(&kept), "{kept} rows fit");
+    assert!(body.ends_with(']'), "a whole JSON array");
+}
+
 async fn leaves(b: &Booted) {
     let rows = value(b, "browse", &[("id", "shop/sales/or%2Fders/#rows")])
         .await
@@ -183,6 +199,7 @@ async fn leaves(b: &Booted) {
     };
     let part = b.module.value(&a).await.unwrap();
     assert_eq!((part.body.len(), part.more), (5, true));
+    wide_rows(b).await;
     let gone = value(b, "browse", &[("id", "shop/sales/nope/#rows")])
         .await
         .unwrap_err();

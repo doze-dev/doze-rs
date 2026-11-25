@@ -32,6 +32,8 @@ pub(crate) fn unavailable(e: io::Error) -> Error {
 pub struct Scan {
     pub keys: Found,
     pub complete: bool,
+    /// It stopped at [`MAX_KEYS`] keys (else, when not complete, after [`MAX_ROUNDS`] steps).
+    pub full: bool,
 }
 
 /// Every key matching `pattern`, up to the limits.
@@ -58,6 +60,7 @@ pub async fn scan<S: AsyncRead + AsyncWrite + Unpin>(
             return Ok(out);
         }
         if out.keys.len() >= MAX_KEYS {
+            out.full = true;
             return Ok(out);
         }
         cursor = next;
@@ -105,9 +108,17 @@ fn node(id: &Id, label: String, leaf: bool, info: BTreeMap<String, String>) -> T
     }
 }
 
-/// The last node of a walk that stopped early.
-fn more(prefix: &[u8]) -> TreeNode {
-    let why = format!("only the first {MAX_KEYS} keys were looked at; filter to find the rest");
+/// The last node of a walk that stopped early, saying why: it had read as many keys as it reads at once, or it had
+/// asked the server as many times as it asks (a sparse match in a big keyspace) with `found` keys to show.
+fn more(prefix: &[u8], found: &Scan) -> TreeNode {
+    let n = found.keys.len();
+    let why = if found.full {
+        format!("the walk stops at {MAX_KEYS} keys; filter to find the rest")
+    } else {
+        format!(
+            "the walk stopped after {MAX_ROUNDS} scan steps with {n} keys found; filter to narrow it"
+        )
+    };
     node(
         &Id::More(prefix.to_vec()),
         "… more keys not scanned".into(),
@@ -158,7 +169,7 @@ pub async fn children<S: AsyncRead + AsyncWrite + Unpin>(
         found
     };
     if !found.complete {
-        all.push(more(&prefix));
+        all.push(more(&prefix, &found));
     }
     let mut page = Children::page(all, cursor, CHILDREN_PAGE);
     describe(c, &mut page.nodes).await?;
@@ -262,10 +273,13 @@ pub async fn set_key<S: AsyncRead + AsyncWrite + Unpin>(
     if key.is_empty() {
         return Err(Error::for_field("key", "a key needs a name"));
     }
-    let ttl: u64 = ttl
-        .trim()
-        .parse()
-        .map_err(|_| Error::for_field("ttl", "Expires after must be a whole number of seconds"))?;
+    // A form sends every field, blanks included: a blank time to live keeps the key for ever, as 0 does.
+    let ttl: u64 = match ttl.trim() {
+        "" => 0,
+        t => t.parse().map_err(|_| {
+            Error::for_field("ttl", "Expires after must be a whole number of seconds")
+        })?,
+    };
     let secs = ttl.to_string();
     let mut args: Vec<&[u8]> = vec![b"SET", key.as_bytes(), value.as_bytes()];
     if ttl > 0 {

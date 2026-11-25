@@ -64,6 +64,8 @@ pub struct TreeState {
     pub found: Folder,
     /// The leaf opened in the value viewer.
     pub picked: Option<String>,
+    /// The row the keys are on (a node's id): ↑↓ move it, → opens, ← closes or goes up, ⏎ opens a leaf.
+    pub cursor: Option<String>,
 }
 
 impl TreeState {
@@ -78,11 +80,20 @@ impl TreeState {
         Some(fetch("", "", ""))
     }
 
-    /// Forgets every folder read (the instance slept and woke, the module may have changed), keeping what is open.
+    /// Forgets every folder read (the instance slept and woke, the module may have changed), keeping what is open, and
+    /// asks for the top, each open folder and what the filter finds again.
     pub fn reread(&mut self) -> Vec<Fetch> {
         self.folders.clear();
         self.found = Folder::default();
         let mut out: Vec<Fetch> = self.start().into_iter().collect();
+        // Each folder still open is read again too, or it would say "Reading…" for ever.
+        let mut open: Vec<String> = self.open.iter().cloned().collect();
+        open.sort();
+        for id in open {
+            let f = self.folders.entry(id.clone()).or_default();
+            f.loading = true;
+            out.push(fetch(&id, "", ""));
+        }
         if !self.filter.is_empty() {
             self.found.loading = true;
             out.push(fetch("", &self.filter, ""));
@@ -198,6 +209,11 @@ impl TreeState {
         }
         out.reverse();
         out
+    }
+
+    /// Something was refused (asleep, starting, failed): a folder, or what the filter found.
+    pub fn any_refused(&self) -> bool {
+        self.found.refused.is_some() || self.folders.values().any(|f| f.refused.is_some())
     }
 
     /// The rows as drawn: the top (or what the filter found), each open folder's children under it.

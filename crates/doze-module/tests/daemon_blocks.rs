@@ -101,8 +101,14 @@ fn values_trees_and_forms(c: &mut Raw) {
         (Some("Name is required"), Some("name")),
         "{r}"
     );
-    // An old app: no values and no `form`.
-    let r = c.ask(r#"{"id":16,"op":"admin","db":"e","action":"create","input":"p"}"#);
+    // An old app: no values and no `form`; its one box is the name, the only required field without a default.
+    let r = c.ask(r#"{"id":16,"op":"admin","db":"e","action":"create","input":"q"}"#);
+    assert_eq!(
+        r["result"], "created channel q (size 1, delete, kept in doze.hcl, 0 headers)",
+        "{r}"
+    );
+    // One with nothing typed is told to update.
+    let r = c.ask(r#"{"id":17,"op":"admin","db":"e","action":"create"}"#);
     assert_eq!(r["error"], "This action needs a newer doze app.", "{r}");
     assert_eq!(r["field"], serde_json::Value::Null, "{r}");
     let r = c.ask(r#"{"id":11,"op":"admin","db":"e","action":"create","values":{"name":"p"}}"#);
