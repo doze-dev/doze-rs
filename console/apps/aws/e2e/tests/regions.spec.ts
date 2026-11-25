@@ -31,3 +31,21 @@ test("a region is chosen in the top bar, every page then shows it, and a resourc
   await expect(page.getByRole("link", { name: queue })).toHaveCount(0);
   expect(cli(["sqs", "delete-queue", "--queue-url", `${ENDPOINT}/111122223333/${queue}`], { region: "eu-west-1" }).code).toBe(0);
 });
+
+test("Recent and Pinned are kept for each region: a queue opened in one is not a place of the other", async ({ page, cli, browserName }) => {
+  const queue = unique("recents", browserName);
+  expect(cli(["sqs", "create-queue", "--queue-name", queue], { region: "eu-west-1" }).code).toBe(0);
+  await open(page, "/resources/sqs/queues", "Queues");
+  await page.getByTestId("chip-region").click();
+  await page.getByTestId("region-option-eu-west-1").click();
+  await page.getByRole("link", { name: queue }).click();
+  await expect(page.getByTestId("rail-recent").getByTestId("rail-place")).toHaveText([queue]);
+  // Back in the default region the rail has no memory of it, and in eu-west-1 it still has.
+  await page.getByTestId("chip-region").click();
+  await page.getByTestId("region-option-us-east-1").click();
+  await expect(page.getByTestId("rail-recent").getByText(queue)).toHaveCount(0);
+  await page.getByTestId("chip-region").click();
+  await page.getByTestId("region-option-eu-west-1").click();
+  await expect(page.getByTestId("rail-recent").getByTestId("rail-place")).toHaveText([queue]);
+  expect(cli(["sqs", "delete-queue", "--queue-url", `${ENDPOINT}/111122223333/${queue}`], { region: "eu-west-1" }).code).toBe(0);
+});
