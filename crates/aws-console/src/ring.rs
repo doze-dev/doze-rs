@@ -28,6 +28,7 @@ use tokio::sync::watch;
 
 use call::cut;
 pub use call::{Call, Extra, Via};
+pub use fan::Publishing;
 pub use flows::{FLOWS, Flow};
 
 mod call;
@@ -125,6 +126,8 @@ pub struct Recorder {
     ring: Mutex<Ring>,
     /// Who asks the gateway which request a caller has in flight ([`Recorder::find_causes_with`]).
     causes: std::sync::OnceLock<FindCause>,
+    /// The publishes the console is making now ([`Recorder::publishing`]).
+    publishing: Mutex<Vec<Box<str>>>,
     capacity: usize,
     newest: watch::Sender<u64>,
 }
@@ -157,6 +160,7 @@ impl Recorder {
         Self {
             ring: Mutex::new(Ring::default()),
             causes: std::sync::OnceLock::new(),
+            publishing: Mutex::new(Vec::new()),
             capacity: capacity.max(1),
             newest: watch::Sender::new(0),
         }
@@ -226,9 +230,11 @@ impl Recorder {
         // A call made on a task the request's own does not reach (a service's actor) carries no cause: the request in flight for
         // its caller is. One a rule, mapping or schedule made is that thing's, whatever its caller has in flight.
         let found = if cause.is_none_or(|c| c.request.is_none() && c.name.is_none()) {
-            self.causes
-                .get()
-                .and_then(|find| find(call.access_key_id, call.region))
+            self.console_publish_of(call).or_else(|| {
+                self.causes
+                    .get()
+                    .and_then(|find| find(call.access_key_id, call.region))
+            })
         } else {
             None
         };
