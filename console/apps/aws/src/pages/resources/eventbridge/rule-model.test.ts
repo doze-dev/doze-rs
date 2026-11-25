@@ -42,7 +42,7 @@ describe("what the wizard sends", () => {
     expect(putTargetsInput(d)).toEqual({ Rule: "order-placed", EventBusName: "larder", Targets: [{ Id: "publish-orders-created", Arn: A, InputTransformer: { InputPathsMap: { order_id: "$.detail.order_id" }, InputTemplate: '{"o":"<order_id>"}' }, RetryPolicy: { MaximumRetryAttempts: 20, MaximumEventAgeInSeconds: 3600 }, DeadLetterConfig: { Arn: "arn:aws:sqs:us-east-1:111122223333:dlq" } }] });
   });
   test("a schedule rule sends the schedule", () => {
-    expect(putRuleInput({ ...emptyRule("schedule"), name: "tick", enabled: false })).toEqual({ Name: "tick", EventBusName: "default", ScheduleExpression: "rate(5 minutes)", State: "DISABLED" });
+    expect(putRuleInput({ ...emptyRule("schedule"), name: "tick", enabled: false })).toEqual({ Name: "tick", EventBusName: "default", ScheduleExpression: "cron(0 18 ? * MON-FRI *)", State: "DISABLED" });
   });
   test("target ids are unique", () => {
     expect(targetId({ kind: "sqs", arn: "arn:aws:sqs:us-east-1:1:q" }, ["send-q"])).toBe("send-q-2");

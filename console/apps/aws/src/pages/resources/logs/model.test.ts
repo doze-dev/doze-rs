@@ -88,3 +88,11 @@ describe("search results", () => {
     expect(events[0]?.message).toBe("a");
   });
 });
+
+describe("where a long log message may be broken", () => {
+  test("after each comma, so a JSON message wraps between its members", async () => {
+    const { softParts } = await import("../../../kit/soft");
+    expect(softParts('{"level":"error","app":"payments","msg":"stripe timeout"}')).toEqual(['{"level":"error",', '"app":"payments",', '"msg":"stripe timeout"}']);
+    expect(softParts("no commas here")).toEqual(["no commas here"]);
+  });
+});

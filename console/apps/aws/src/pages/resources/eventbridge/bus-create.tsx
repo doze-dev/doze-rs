@@ -63,14 +63,16 @@ export function BusCreate() {
   const collapsed = refused !== null;
   const stage = archive.error ? "The bus was created, but its archive was not." : "The event bus wasn't created.";
   const failure = refused ?? (archive.error instanceof ApiFailure ? { code: archive.error.code, message: archive.error.message } : null);
+  // A refusal shows only the call that was refused and what came back (the board's panel); the call after it was never sent.
+  const refusedCalls = failure ? [archive.error ? requests[1] : requests[0]].filter((r): r is (typeof requests)[number] => r !== undefined) : requests;
   return (
     <FormPage
       title="Create event bus"
       sub="Name the bus, then set what it should do. Everything below the name is optional and can be changed later."
       crumbs={[...crumbs, { label: "Event buses", to: "/resources/eventbridge/buses" }]}
       request={requests[0] ?? null}
-      requests={requests}
-      callTitle={requests.length > 1 ? "The calls this will make" : undefined}
+      requests={refusedCalls}
+      callTitle={failure ? undefined : requests.length > 1 ? "The calls this will make" : undefined}
       refusal={failure}
       callNote={failure ? <>The call failed{archive.error ? " after the bus was made" : " before anything was created"}, so {archive.error ? "the archive was not made" : <><b className="font-semibold text-foreground">CreateArchive was never sent</b></>}. What you typed is kept.</> : <>The archive is a separate call, made after the bus exists. Empty sections are left out.</>}
       banner={failure ? <Alert tone="bad" title={stage} testId="create-refused">{archive.error ? "CreateArchive" : "CreateEventBus"} answered <span className="font-mono font-semibold text-bright">{failure.code}</span>: “{failure.message}”</Alert> : undefined}

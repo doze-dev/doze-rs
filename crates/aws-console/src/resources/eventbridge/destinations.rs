@@ -1,7 +1,7 @@
 //! EventBridge API destinations: the list, a destination's page, and what the pages do (create one and its connection).
 
 use super::super::Format::{Mono, Number, Text as Plain, Time};
-use super::super::{Delete, Id, Kind, List, Step, Text, col, field, ops, state};
+use super::super::{Delete, Id, Kind, List, Step, Text, col, field, ops, says, state};
 
 pub(super) const API_DESTINATIONS: Kind = Kind {
     id: "api-destinations",
@@ -69,5 +69,6 @@ pub(super) const API_DESTINATIONS: Kind = Kind {
         ops::free("DescribeConnection"),
         ops::free("ListApiDestinations"),
     ],
+    page: says::eventbridge::DESTINATION,
     ..Kind::BARE
 };

@@ -215,10 +215,56 @@ pub const ARCHIVE: Page = Page {
     summary: None,
 };
 
+/// Whether a replay is still going: it can be cancelled only while it is Starting or Running.
+fn going(r: &Read<'_>) -> bool {
+    r.text("State")
+        .is_some_and(|s| s == "STARTING" || s == "RUNNING")
+}
+
+/// A replay's header: its state, and Cancel replay while it is going.
+pub const REPLAY: Page = Page {
+    sentence: None,
+    badges: Some(|r| {
+        r.text("State")
+            .map(|s| Badge::new(s.clone(), super::tone(&s)))
+            .into_iter()
+            .collect()
+    }),
+    verbs: &[Verb::ui("cancel", "Cancel replay").danger().when(going)],
+    summary: None,
+};
+
+/// An API destination's header: its state and Delete.
+pub const DESTINATION: Page = Page {
+    sentence: None,
+    badges: Some(|r| {
+        r.text("ApiDestinationState")
+            .map(|s| Badge::new(s.clone(), super::tone(&s)))
+            .into_iter()
+            .collect()
+    }),
+    verbs: &[Verb::ui("delete", "Delete").danger()],
+    summary: None,
+};
+
 #[cfg(test)]
 mod tests {
-    use super::rules_summary;
+    use super::{REPLAY, going, rules_summary};
     use crate::model::ResourceRow;
+    use crate::resources::Read;
+    use serde_json::json;
+
+    #[test]
+    fn a_replay_can_be_cancelled_only_while_it_is_starting_or_running() {
+        let read = |state: &str| {
+            let out = json!({ "State": state });
+            going(&Read { out: &out, name: "r", subs: &[] })
+        };
+        assert!(read("STARTING") && read("RUNNING"));
+        assert!(!read("COMPLETED") && !read("CANCELLED") && !read("FAILED"));
+        assert_eq!(REPLAY.verbs.len(), 1);
+        assert_eq!(REPLAY.verbs[0].id, "cancel");
+    }
 
     fn row(state: &str) -> ResourceRow {
         ResourceRow {
