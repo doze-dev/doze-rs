@@ -17,10 +17,10 @@ use http::Response;
 use http::request::Parts;
 use hyper::body::Incoming;
 
+use crate::fault::Step;
 pub(crate) use crate::head::{
     authenticate, caller_of, endpoint_of, inflate, read_body, session_token,
 };
-use crate::fault::Step;
 use crate::target::target_prefix;
 use crate::{Auth, Config};
 
@@ -279,17 +279,7 @@ async fn handle(
         }
         return Err(early(id, parts, &unserved_protocol(meta)));
     };
-    let fail = |e: &ApiError| -> Fail {
-        crate::observe::failed(parts, e);
-        Box::new(json::failure(
-            meta,
-            tables,
-            version,
-            id,
-            e,
-            entry.service.flat_client_errors(),
-        ))
-    };
+    let fail = |e: &ApiError| json_fail(parts, entry, (version, id), e);
     let authed = authenticate(shared, parts, claim.service.as_str())
         .await
         .map_err(|e| fail(&from_auth(&e, Family::Coral)))?;
@@ -324,6 +314,24 @@ async fn handle(
     answer(parts, entry, (op, version), call)
         .await
         .map_err(|e| fail(&e))
+}
+
+/// An error answer in the JSON protocol, noted for the observer.
+fn json_fail(
+    parts: &Parts,
+    entry: &Entry,
+    (version, id): (json::Version, &RequestId),
+    e: &ApiError,
+) -> Fail {
+    crate::observe::failed(parts, e);
+    Box::new(json::failure(
+        entry.service.meta(),
+        entry.service.tables(),
+        version,
+        id,
+        e,
+        entry.service.flat_client_errors(),
+    ))
 }
 
 /// The service's answer to a decoded JSON-protocol call: whole, or (an operation whose output is an event stream) streamed.

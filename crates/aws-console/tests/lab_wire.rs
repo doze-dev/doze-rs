@@ -18,7 +18,7 @@ use std::time::{Duration, Instant};
 
 use aws_console::Recorder;
 use aws_console::lab::{Effect, Fail, LabTable, Matcher, Share, Spec};
-use aws_console::ring::{LabDid, Call};
+use aws_console::ring::{Call, LabDid};
 use aws_gateway::{Auth, Config, Gateway};
 use aws_schema::cbor::{map_header, text};
 use doze_runtime::{Ctx, SystemClock, Tasks};
@@ -133,7 +133,11 @@ async fn send(
     // A body is sent when the server asks for it (`100 Continue`), as the SDKs do: a request answered before its body is read must
     // not have the body waiting in the socket when it is closed.
     let mut raw = Vec::new();
-    if !body.is_empty() && headers.iter().any(|(k, _)| k.eq_ignore_ascii_case("expect")) {
+    if !body.is_empty()
+        && headers
+            .iter()
+            .any(|(k, _)| k.eq_ignore_ascii_case("expect"))
+    {
         let mut buf = [0u8; 4096];
         while !raw.windows(4).any(|w| w == b"\r\n\r\n") {
             let n = stream.read(&mut buf).await.unwrap_or(0);
@@ -234,38 +238,61 @@ async fn queue_depth(addr: SocketAddr, url: &str) -> String {
         .to_owned()
 }
 
-#[tokio::test]
-async fn a_json_service_is_throttled_slowed_and_dropped_and_a_fail_writes_nothing() {
-    let w = start("json").await;
+/// A world with the queue `orders`, and the body of a `SendMessage` to it.
+async fn orders(tag: &str) -> (Wire, String, String) {
+    let w = start(tag).await;
     let made = sqs(w.addr, "CreateQueue", r#"{"QueueName":"orders"}"#).await;
     assert_eq!(made.status, Some(200), "{}", made.text());
     let url = serde_json::from_slice::<serde_json::Value>(&made.body).unwrap()["QueueUrl"]
         .as_str()
         .unwrap()
         .to_owned();
-    let send_body = format!(r#"{{"QueueUrl":"{url}","MessageBody":"hi"}}"#);
+    let body = format!(r#"{{"QueueUrl":"{url}","MessageBody":"hi"}}"#);
+    (w, url, body)
+}
 
-    // Fail: SQS's own throttle, in the JSON protocol with its Query-compatible code, 403 as the model says.
+#[tokio::test]
+async fn a_json_fail_answers_in_the_protocols_shape_and_writes_nothing() {
+    let (w, url, send_body) = orders("json-fail").await;
+    // SQS's own throttle, in the JSON protocol with its Query-compatible code, 403 as the model says.
     let id = w
         .table
         .add(rule("sqs", "SendMessage", Effect::Fail(Fail::Throttle)))
         .unwrap();
     let a = sqs(w.addr, "SendMessage", &send_body).await;
     assert_eq!(a.status, Some(403), "{}", a.text());
-    assert!(a.head.contains("x-amzn-query-error: requestthrottled;sender"), "{}", a.head);
+    assert!(
+        a.head
+            .contains("x-amzn-query-error: requestthrottled;sender"),
+        "{}",
+        a.head
+    );
     let body: serde_json::Value = serde_json::from_slice(&a.body).unwrap();
-    assert!(body["__type"].as_str().unwrap().ends_with("#RequestThrottled"), "{body}");
+    assert!(
+        body["__type"]
+            .as_str()
+            .unwrap()
+            .ends_with("#RequestThrottled"),
+        "{body}"
+    );
     assert!(THROTTLED.contains(&"RequestThrottled"));
-    assert_eq!(queue_depth(w.addr, &url).await, "0", "a failed call writes nothing");
+    assert_eq!(
+        queue_depth(w.addr, &url).await,
+        "0",
+        "a failed call writes nothing"
+    );
     let row = tagged(&w, id);
     assert_eq!((row.status, &*row.code), (403, "RequestThrottled"));
     assert_eq!(lab_of(&row), Some((id, LabDid::Failed)));
     // Other operations are not touched.
     assert_eq!(sqs(w.addr, "ListQueues", "{}").await.status, Some(200));
     assert_eq!(lab_of(&newest(&w)), None);
-    assert_eq!(w.table.stop_all(), 1);
+    w.stop().await;
+}
 
-    // Drop: no answer, and nothing written.
+#[tokio::test]
+async fn a_json_drop_closes_the_connection_with_no_answer_and_writes_nothing() {
+    let (w, url, send_body) = orders("json-drop").await;
     let id = w
         .table
         .add(rule("sqs", "SendMessage", Effect::Drop))
@@ -276,31 +303,39 @@ async fn a_json_service_is_throttled_slowed_and_dropped_and_a_fail_writes_nothin
     let row = tagged(&w, id);
     assert_eq!(row.status, 0, "a dropped call has no status");
     assert_eq!(lab_of(&row), Some((id, LabDid::Dropped)));
-    w.table.stop_all();
+    w.stop().await;
+}
 
-    // Slow: served after its wait, and the row says it waited.
-    let id = w
-        .table
-        .add(rule(
-            "sqs",
-            "SendMessage",
-            Effect::Slow {
-                delay_ms: 300,
-                jitter_ms: 0,
-            },
-        ))
-        .unwrap();
+#[tokio::test]
+async fn a_json_slow_call_is_served_after_its_wait_and_its_row_says_it_waited() {
+    let (w, url, send_body) = orders("json-slow").await;
+    let slow = Effect::Slow {
+        delay_ms: 300,
+        jitter_ms: 0,
+    };
+    let id = w.table.add(rule("sqs", "SendMessage", slow)).unwrap();
     let started = Instant::now();
     let a = sqs(w.addr, "SendMessage", &send_body).await;
     assert_eq!(a.status, Some(200), "{}", a.text());
     assert!(started.elapsed() >= Duration::from_millis(300));
-    assert_eq!(queue_depth(w.addr, &url).await, "1", "a slowed call is served");
+    assert_eq!(
+        queue_depth(w.addr, &url).await,
+        "1",
+        "a slowed call is served"
+    );
     let row = tagged(&w, id);
     assert_eq!(lab_of(&row), Some((id, LabDid::Delayed(300))));
-    assert!(row.took_us >= 300_000, "its time includes the wait: {}", row.took_us);
-    w.table.stop_all();
+    assert!(
+        row.took_us >= 300_000,
+        "its time includes the wait: {}",
+        row.took_us
+    );
+    w.stop().await;
+}
 
-    // With a rule for another service armed, and with none, the call is untouched.
+#[tokio::test]
+async fn a_json_call_no_rule_fits_is_untouched_with_other_rules_armed_and_with_none() {
+    let (w, url, send_body) = orders("json-pass").await;
     w.table
         .add(rule("kms", "Encrypt", Effect::Fail(Fail::Internal)))
         .unwrap();
@@ -310,7 +345,7 @@ async fn a_json_service_is_throttled_slowed_and_dropped_and_a_fail_writes_nothin
         assert_eq!(lab_of(&newest(&w)), None);
         w.table.stop_all();
     }
-    assert_eq!(queue_depth(w.addr, &url).await, "3");
+    assert_eq!(queue_depth(w.addr, &url).await, "2");
     w.stop().await;
 }
 
@@ -327,17 +362,22 @@ async fn sns(addr: SocketAddr, form: &str) -> Answer {
     .await
 }
 
-#[tokio::test]
-async fn a_query_service_is_throttled_slowed_and_dropped_and_a_fail_writes_nothing() {
-    let w = start("query").await;
-    let create = "Action=CreateTopic&Name=order-events&Version=2010-03-31";
-    let topics = || sns(w.addr, "Action=ListTopics&Version=2010-03-31");
+const CREATE_TOPIC: &str = "Action=CreateTopic&Name=order-events&Version=2010-03-31";
 
+async fn topics(addr: SocketAddr) -> String {
+    sns(addr, "Action=ListTopics&Version=2010-03-31")
+        .await
+        .text()
+}
+
+#[tokio::test]
+async fn a_query_fail_answers_in_xml_with_the_models_code_and_writes_nothing() {
+    let w = start("query-fail").await;
     let id = w
         .table
         .add(rule("sns", "CreateTopic", Effect::Fail(Fail::Throttle)))
         .unwrap();
-    let a = sns(w.addr, create).await;
+    let a = sns(w.addr, CREATE_TOPIC).await;
     // SNS's own throttle: the model's `Throttled`, 429, as Query XML.
     assert_eq!(a.status, Some(429), "{}", a.text());
     let xml = a.text();
@@ -345,58 +385,65 @@ async fn a_query_service_is_throttled_slowed_and_dropped_and_a_fail_writes_nothi
     assert!(xml.contains("<ErrorResponse"), "{xml}");
     assert!(xml.contains("<Type>Sender</Type>"), "{xml}");
     assert!(xml.contains("Rate exceeded."), "{xml}");
-    assert!(!topics().await.text().contains("order-events"), "a failed call writes nothing");
+    assert!(
+        !topics(w.addr).await.contains("order-events"),
+        "a failed call writes nothing"
+    );
     let failed = w.recorder.touched(Some(id), 5).0;
     assert_eq!(failed.len(), 1);
     assert_eq!((failed[0].status, &*failed[0].code), (429, "Throttled"));
-    w.table.stop_all();
+    w.stop().await;
+}
 
-    w.table
+#[tokio::test]
+async fn a_query_drop_and_a_query_slow_call() {
+    let w = start("query-drop-slow").await;
+    let id = w
+        .table
         .add(rule("sns", "CreateTopic", Effect::Drop))
         .unwrap();
-    assert_eq!(sns(w.addr, create).await.status, None);
-    assert!(!topics().await.text().contains("order-events"));
-    w.table.stop_all();
-
-    w.table
-        .add(rule(
-            "sns",
-            "CreateTopic",
-            Effect::Slow {
-                delay_ms: 250,
-                jitter_ms: 0,
-            },
-        ))
-        .unwrap();
+    assert_eq!(sns(w.addr, CREATE_TOPIC).await.status, None);
+    assert!(!topics(w.addr).await.contains("order-events"));
+    assert!(w.table.remove(id));
+    let slow = Effect::Slow {
+        delay_ms: 250,
+        jitter_ms: 0,
+    };
+    w.table.add(rule("sns", "CreateTopic", slow)).unwrap();
     let started = Instant::now();
-    let a = sns(w.addr, create).await;
+    let a = sns(w.addr, CREATE_TOPIC).await;
     assert_eq!(a.status, Some(200), "{}", a.text());
     assert!(started.elapsed() >= Duration::from_millis(250));
-    assert!(topics().await.text().contains("order-events"));
-    w.table.stop_all();
+    assert!(topics(w.addr).await.contains("order-events"));
+    w.stop().await;
+}
 
-    // The other kinds of failure: an unavailable service, and an internal error with the model's code.
-    w.table
-        .add(rule("sns", "ListTopics", Effect::Fail(Fail::Internal)))
-        .unwrap();
-    let a = topics().await;
-    assert_eq!(a.status, Some(500));
-    assert!(a.text().contains("<Code>InternalError</Code>"), "{}", a.text());
-    assert!(a.text().contains("<Type>Receiver</Type>"));
-    w.table.stop_all();
-    w.table
-        .add(rule("sns", "ListTopics", Effect::Fail(Fail::Unavailable)))
-        .unwrap();
-    let a = topics().await;
-    assert_eq!(a.status, Some(503));
-    assert!(a.text().contains("<Code>ServiceUnavailable</Code>"));
-    w.table.stop_all();
-    w.table
-        .add(rule("sns", "ListTopics", Effect::Fail(Fail::AccessDenied)))
-        .unwrap();
-    let a = topics().await;
-    assert_eq!(a.status, Some(403));
-    assert!(a.text().contains("<Code>AuthorizationError</Code>"), "{}", a.text());
+#[tokio::test]
+async fn a_query_service_words_each_kind_of_failure_its_own_way() {
+    let w = start("query-kinds").await;
+    for (fail, status, code, who) in [
+        (Fail::Internal, 500, "InternalError", "Receiver"),
+        (Fail::Unavailable, 503, "ServiceUnavailable", "Receiver"),
+        (Fail::AccessDenied, 403, "AuthorizationError", "Sender"),
+    ] {
+        let id = w
+            .table
+            .add(rule("sns", "ListTopics", Effect::Fail(fail)))
+            .unwrap();
+        let a = sns(w.addr, "Action=ListTopics&Version=2010-03-31").await;
+        assert_eq!(a.status, Some(status), "{code}");
+        assert!(
+            a.text().contains(&format!("<Code>{code}</Code>")),
+            "{}",
+            a.text()
+        );
+        assert!(
+            a.text().contains(&format!("<Type>{who}</Type>")),
+            "{}",
+            a.text()
+        );
+        w.table.remove(id);
+    }
     w.stop().await;
 }
 
@@ -462,7 +509,12 @@ fn metric_put() -> Vec<u8> {
 }
 
 async fn metrics_listed(addr: SocketAddr) -> usize {
-    let a = cloudwatch(addr, "ListMetrics", &cbor_map(&[("Namespace", cbor_text("W"))])).await;
+    let a = cloudwatch(
+        addr,
+        "ListMetrics",
+        &cbor_map(&[("Namespace", cbor_text("W"))]),
+    )
+    .await;
     assert_eq!(a.status, Some(200));
     let json = aws_wire::cbor::to_json(&a.body).unwrap();
     let v: serde_json::Value = serde_json::from_str(&json).unwrap();
@@ -473,24 +525,53 @@ async fn metrics_listed(addr: SocketAddr) -> usize {
 async fn a_cbor_service_is_throttled_slowed_and_dropped_and_a_fail_writes_nothing() {
     let w = start("cbor").await;
     w.table
-        .add(rule("monitoring", "PutMetricData", Effect::Fail(Fail::Throttle)))
+        .add(rule(
+            "monitoring",
+            "PutMetricData",
+            Effect::Fail(Fail::Throttle),
+        ))
         .unwrap();
     let a = cloudwatch(w.addr, "PutMetricData", &metric_put()).await;
     // CloudWatch's model carries no throttle: the common `ThrottlingException`, 400, as a CBOR map.
     assert_eq!(a.status, Some(400));
-    assert!(a.head.contains("content-type: application/cbor"), "{}", a.head);
-    assert!(a.head.contains("smithy-protocol: rpc-v2-cbor"), "{}", a.head);
+    assert!(
+        a.head.contains("content-type: application/cbor"),
+        "{}",
+        a.head
+    );
+    assert!(
+        a.head.contains("smithy-protocol: rpc-v2-cbor"),
+        "{}",
+        a.head
+    );
     let json: serde_json::Value =
         serde_json::from_str(&aws_wire::cbor::to_json(&a.body).unwrap()).unwrap();
-    assert_eq!(json["__type"], "com.amazon.coral.service#ThrottlingException");
-    assert!(json["message"].as_str().unwrap().starts_with("Rate exceeded."));
-    assert_eq!(metrics_listed(w.addr).await, 0, "a failed call writes nothing");
+    assert_eq!(
+        json["__type"],
+        "com.amazon.coral.service#ThrottlingException"
+    );
+    assert!(
+        json["message"]
+            .as_str()
+            .unwrap()
+            .starts_with("Rate exceeded.")
+    );
+    assert_eq!(
+        metrics_listed(w.addr).await,
+        0,
+        "a failed call writes nothing"
+    );
     w.table.stop_all();
 
     w.table
         .add(rule("monitoring", "PutMetricData", Effect::Drop))
         .unwrap();
-    assert_eq!(cloudwatch(w.addr, "PutMetricData", &metric_put()).await.status, None);
+    assert_eq!(
+        cloudwatch(w.addr, "PutMetricData", &metric_put())
+            .await
+            .status,
+        None
+    );
     assert_eq!(metrics_listed(w.addr).await, 0);
     w.table.stop_all();
 
@@ -518,7 +599,10 @@ async fn s3(addr: SocketAddr, method: &str, path: &str, body: &[u8]) -> Answer {
     let expect: &[(&str, &str)] = if body.is_empty() {
         &[]
     } else {
-        &[("Expect", "100-continue"), ("x-amz-content-sha256", "UNSIGNED-PAYLOAD")]
+        &[
+            ("Expect", "100-continue"),
+            ("x-amz-content-sha256", "UNSIGNED-PAYLOAD"),
+        ]
     };
     send(addr, "s3", (method, path), expect, body).await
 }
@@ -538,19 +622,26 @@ async fn a_rest_service_is_throttled_slowed_and_dropped_and_a_fail_writes_nothin
     assert_eq!(a.status, Some(503), "{}", a.text());
     let xml = a.text();
     assert!(xml.contains("<Code>SlowDown</Code>"), "{xml}");
-    assert!(xml.contains("<Error>") && xml.contains("<RequestId>"), "{xml}");
+    assert!(
+        xml.contains("<Error>") && xml.contains("<RequestId>"),
+        "{xml}"
+    );
     assert!(a.head.contains("server: amazons3"), "{}", a.head);
-    assert!(!listing().await.text().contains("a.txt"), "a failed call writes nothing");
+    assert!(
+        !listing().await.text().contains("a.txt"),
+        "a failed call writes nothing"
+    );
     let row = tagged(&w, id);
     assert_eq!((row.status, &*row.code), (503, "SlowDown"));
     assert_eq!(&*row.resource, "orders/a.txt", "the row says what it named");
     assert_eq!(lab_of(&row), Some((id, LabDid::Failed)));
     w.table.stop_all();
 
-    w.table
-        .add(rule("s3", "PutObject", Effect::Drop))
-        .unwrap();
-    assert_eq!(s3(w.addr, "PUT", "/orders/a.txt", b"hello").await.status, None);
+    w.table.add(rule("s3", "PutObject", Effect::Drop)).unwrap();
+    assert_eq!(
+        s3(w.addr, "PUT", "/orders/a.txt", b"hello").await.status,
+        None
+    );
     assert!(!listing().await.text().contains("a.txt"));
     w.table.stop_all();
 
@@ -577,7 +668,11 @@ async fn a_rest_service_is_throttled_slowed_and_dropped_and_a_fail_writes_nothin
     w.table.add(spec).unwrap();
     let a = s3(w.addr, "GET", "/orders/a.txt", b"").await;
     assert_eq!(a.status, Some(403));
-    assert!(a.text().contains("<Code>AccessDenied</Code>"), "{}", a.text());
+    assert!(
+        a.text().contains("<Code>AccessDenied</Code>"),
+        "{}",
+        a.text()
+    );
     w.stop().await;
 }
 
@@ -620,7 +715,10 @@ async fn a_client_that_retries_as_the_sdks_do_gets_through_when_the_rule_has_run
         attempts += 1;
         let a = sqs(w.addr, "SendMessage", &body).await;
         let status = a.status.unwrap();
-        let retryable = status == 200 || THROTTLED.contains(&code_of(&a).as_str()) || status == 429 || status >= 500;
+        let retryable = status == 200
+            || THROTTLED.contains(&code_of(&a).as_str())
+            || status == 429
+            || status >= 500;
         assert!(retryable, "{status} {}", code_of(&a));
         if status == 200 || attempts == 3 {
             break a;
@@ -628,10 +726,17 @@ async fn a_client_that_retries_as_the_sdks_do_gets_through_when_the_rule_has_run
     };
     assert_eq!(attempts, 3);
     assert_eq!(answered.status, Some(200));
-    assert_eq!(queue_depth(w.addr, &url).await, "1", "only the call that was served wrote");
+    assert_eq!(
+        queue_depth(w.addr, &url).await,
+        "1",
+        "only the call that was served wrote"
+    );
     let found = w.table.find(id).unwrap();
     assert_eq!(found.rule.hits, 2);
-    assert!(found.over.is_some(), "the rule ended by itself when it had fired twice");
+    assert!(
+        found.over.is_some(),
+        "the rule ended by itself when it had fired twice"
+    );
     // Live holds the three attempts: two tagged, one not.
     let (touched, more) = w.recorder.touched(Some(id), 10);
     assert_eq!((touched.len(), more), (2, false));
@@ -655,6 +760,12 @@ async fn a_rule_that_names_a_resource_touches_only_what_it_names() {
     let payments = sqs(w.addr, "GetQueueAttributes", &ask("payments")).await;
     assert_eq!(orders.status, Some(200), "{}", orders.text());
     assert_eq!(payments.status, Some(503), "{}", payments.text());
-    assert!(payments.head.contains("x-amzn-query-error: serviceunavailable;receiver"), "{}", payments.head);
+    assert!(
+        payments
+            .head
+            .contains("x-amzn-query-error: serviceunavailable;receiver"),
+        "{}",
+        payments.head
+    );
     w.stop().await;
 }

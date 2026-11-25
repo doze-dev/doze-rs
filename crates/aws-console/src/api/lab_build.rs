@@ -8,10 +8,10 @@ use crate::facts::Facts;
 use crate::lab::codes::ROWS;
 use crate::lab::rule::Fail as Failure;
 use crate::lab::{
-    AddError, Effect, EndedWhy, Matcher, Rule, Share, Spec, words, MOST_CALLERS, MOST_ENDED,
-    MOST_KEPT_CALLERS, MOST_OPERATIONS, MOST_REGIONS, MOST_RESOURCES, MOST_RULES, MOST_SERVICES,
-    LONGEST_CODE, LONGEST_DELAY_MS, LONGEST_NAME, LONGEST_PATTERN, LONGEST_RULE, NTH, PERCENT,
-    SHORTEST_RULE,
+    AddError, Effect, EndedWhy, LONGEST_CODE, LONGEST_DELAY_MS, LONGEST_NAME, LONGEST_PATTERN,
+    LONGEST_RULE, MOST_CALLERS, MOST_ENDED, MOST_KEPT_CALLERS, MOST_OPERATIONS, MOST_REGIONS,
+    MOST_RESOURCES, MOST_RULES, MOST_SERVICES, Matcher, NTH, PERCENT, Rule, SHORTEST_RULE, Share,
+    Spec, words,
 };
 use crate::model::{
     LabCheck, LabCode, LabEffect, LabEnd, LabFailKind, LabFirst, LabKind, LabLimits, LabMatcher,
@@ -210,9 +210,9 @@ fn answers(m: &Matcher, fail: &Failure) -> Vec<LabCode> {
     ROWS.iter()
         .filter(|r| {
             m.services.is_empty()
-                || m.services.iter().any(|s| {
-                    s.eq_ignore_ascii_case(r.signing) || s.eq_ignore_ascii_case(r.sdk_id)
-                })
+                || m.services
+                    .iter()
+                    .any(|s| s.eq_ignore_ascii_case(r.signing) || s.eq_ignore_ascii_case(r.sdk_id))
         })
         .map(|r| {
             let (_, status, code) = r.answer(fail);
@@ -260,11 +260,9 @@ fn matcher_view(m: &Matcher) -> LabMatcher {
     }
 }
 
-/// A rule as the API sends it; `over` is when and why it ended, for one that did.
-#[must_use]
-pub(super) fn rule_view(facts: &Facts, rule: &Rule, over: Option<(i64, EndedWhy)>) -> LabRule {
-    let spec = &rule.spec;
-    let (kind, effect) = match &spec.effect {
+/// What a rule does, as the API sends it.
+fn effect_view(effect: &Effect) -> (LabKind, LabEffect) {
+    match effect {
         Effect::Slow {
             delay_ms,
             jitter_ms,
@@ -276,27 +274,33 @@ pub(super) fn rule_view(facts: &Facts, rule: &Rule, over: Option<(i64, EndedWhy)
             },
         ),
         Effect::Drop => (LabKind::Drop, LabEffect::Drop),
-        Effect::Fail(f) => (
-            LabKind::Fail,
-            LabEffect::Fail {
-                error: match f {
-                    Failure::Throttle => LabFailKind::Throttle,
-                    Failure::Unavailable => LabFailKind::Unavailable,
-                    Failure::Internal => LabFailKind::Internal,
-                    Failure::AccessDenied => LabFailKind::AccessDenied,
-                    Failure::Custom { .. } => LabFailKind::Custom,
+        Effect::Fail(f) => {
+            let (error, status, code) = match f {
+                Failure::Throttle => (LabFailKind::Throttle, None, None),
+                Failure::Unavailable => (LabFailKind::Unavailable, None, None),
+                Failure::Internal => (LabFailKind::Internal, None, None),
+                Failure::AccessDenied => (LabFailKind::AccessDenied, None, None),
+                Failure::Custom { status, code } => {
+                    (LabFailKind::Custom, Some(*status), Some(code.to_string()))
+                }
+            };
+            (
+                LabKind::Fail,
+                LabEffect::Fail {
+                    error,
+                    status,
+                    code,
                 },
-                status: match f {
-                    Failure::Custom { status, .. } => Some(*status),
-                    _ => None,
-                },
-                code: match f {
-                    Failure::Custom { code, .. } => Some(code.to_string()),
-                    _ => None,
-                },
-            },
-        ),
-    };
+            )
+        }
+    }
+}
+
+/// A rule as the API sends it; `over` is when and why it ended, for one that did.
+#[must_use]
+pub(super) fn rule_view(facts: &Facts, rule: &Rule, over: Option<(i64, EndedWhy)>) -> LabRule {
+    let spec = &rule.spec;
+    let (kind, effect) = effect_view(&spec.effect);
     let share = match spec.share {
         Share::Every => LabShare::Every,
         Share::Nth(n) => LabShare::Nth { n },

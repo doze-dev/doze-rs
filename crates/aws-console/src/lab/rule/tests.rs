@@ -43,10 +43,7 @@ fn a_rule_is_checked_against_every_bound() {
         with(&|s| s.ttl = Duration::from_secs(24 * 3600 + 1)),
         Err(AddError::BadDuration)
     );
-    assert_eq!(
-        with(&|s| s.ttl = Duration::from_secs(24 * 3600)),
-        Ok(())
-    );
+    assert_eq!(with(&|s| s.ttl = Duration::from_secs(24 * 3600)), Ok(()));
     assert_eq!(with(&|s| s.max_hits = Some(0)), Err(AddError::BadHits));
     assert_eq!(with(&|s| s.max_hits = Some(1)), Ok(()));
     for bad in [1, 1001] {
@@ -168,7 +165,11 @@ fn hostile_words_are_said_and_left_out() {
 #[test]
 fn a_matcher_is_the_same_whatever_order_and_case_its_words_came_in() {
     let a = matcher(&["SQS", "sns"], &["SendMessage", "Publish"], &["b*", "a*"]);
-    let b = matcher(&["sns", "sqs", "SQS"], &["Publish", "SendMessage"], &["a*", "b*", "a*"]);
+    let b = matcher(
+        &["sns", "sqs", "SQS"],
+        &["Publish", "SendMessage"],
+        &["a*", "b*", "a*"],
+    );
     assert_eq!(a, b);
 }
 
@@ -176,10 +177,16 @@ fn a_matcher_is_the_same_whatever_order_and_case_its_words_came_in() {
 fn each_field_must_fit_and_a_field_left_empty_fits_anything() {
     assert!(Matcher::default().fits(&send()));
     assert!(matcher(&["sqs"], &[], &[]).fits(&send()));
-    assert!(matcher(&["SQS"], &[], &[]).fits(&send()), "an SDK id, in any case");
+    assert!(
+        matcher(&["SQS"], &[], &[]).fits(&send()),
+        "an SDK id, in any case"
+    );
     assert!(!matcher(&["sns"], &[], &[]).fits(&send()));
     assert!(matcher(&[], &["SendMessage"], &[]).fits(&send()));
-    assert!(!matcher(&[], &["sendmessage"], &[]).fits(&send()), "an operation is exact");
+    assert!(
+        !matcher(&[], &["sendmessage"], &[]).fits(&send()),
+        "an operation is exact"
+    );
     assert!(!matcher(&[], &["ReceiveMessage"], &[]).fits(&send()));
     let (m, _) = Matcher::build(&[], &[], &words(&["us-east-1"]), &[], &[]);
     assert!(m.fits(&send()));

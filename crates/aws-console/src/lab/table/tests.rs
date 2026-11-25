@@ -28,7 +28,11 @@ fn rules_are_bounded_at_fifty_and_a_replacement_does_not_count_twice() {
         t.add(distinct(n)).unwrap();
     }
     assert_eq!(t.rules().len(), 50);
-    assert_eq!(t.add(distinct(50)), Err(AddError::Full), "the 51st is refused");
+    assert_eq!(
+        t.add(distinct(50)),
+        Err(AddError::Full),
+        "the 51st is refused"
+    );
     assert!(!t.has_room_for(&distinct(50)));
     // The same calls and the same kind of effect take the place of the old rule, which is over, as replaced.
     assert!(t.has_room_for(&distinct(7)));
@@ -94,7 +98,11 @@ fn a_rule_acts_on_what_it_fits_and_counts_matches_and_hits() {
     assert!(is_pass(&t.judge(&ask("sns", "SNS", "Publish"))));
     assert!(matches!(t.judge(&send()), Verdict::Fail(_)));
     let r = &t.rules()[0];
-    assert_eq!((r.id, r.matched, r.hits), (id, 2, 2), "an SNS call is not counted");
+    assert_eq!(
+        (r.id, r.matched, r.hits),
+        (id, 2, 2),
+        "an SNS call is not counted"
+    );
 }
 
 #[test]
@@ -105,9 +113,7 @@ fn every_nth_fires_on_the_nth_matching_request() {
         ..throttle_of("sqs")
     })
     .unwrap();
-    let verdicts: Vec<bool> = (0..9)
-        .map(|_| !is_pass(&t.judge(&send())))
-        .collect();
+    let verdicts: Vec<bool> = (0..9).map(|_| !is_pass(&t.judge(&send()))).collect();
     assert_eq!(
         verdicts,
         [false, false, true, false, false, true, false, false, true]
@@ -133,10 +139,17 @@ fn a_percent_share_is_the_seeds_and_close_to_the_share() {
             .collect::<Vec<_>>()
     };
     let first = run(7);
-    assert_eq!(first, run(7), "the same seed, the same calls, the same hits");
+    assert_eq!(
+        first,
+        run(7),
+        "the same seed, the same calls, the same hits"
+    );
     assert_ne!(first, run(8));
     let hits = first.iter().filter(|h| **h).count();
-    assert!((500..700).contains(&hits), "30 % of 2000 is about 600: {hits}");
+    assert!(
+        (500..700).contains(&hits),
+        "30 % of 2000 is about 600: {hits}"
+    );
 }
 
 #[test]
@@ -162,18 +175,22 @@ fn jitter_is_added_within_its_bound_and_is_the_seeds() {
     let delays = run(3);
     assert_eq!(delays, run(3));
     assert!(delays.iter().all(|d| (100..=150).contains(&d.as_millis())));
-    assert!(delays.iter().any(|d| d.as_millis() > 100), "some jitter is drawn");
+    assert!(
+        delays.iter().any(|d| d.as_millis() > 100),
+        "some jitter is drawn"
+    );
     assert!(delays.iter().any(|d| d.as_millis() < 125));
 }
 
 #[test]
 fn a_rule_ends_when_its_time_is_up_and_is_kept_as_ended() {
     let (t, clock) = table();
-    let id = t.add(Spec {
-        ttl: Duration::from_secs(10),
-        ..throttle()
-    })
-    .unwrap();
+    let id = t
+        .add(Spec {
+            ttl: Duration::from_secs(10),
+            ..throttle()
+        })
+        .unwrap();
     clock.advance(Duration::from_secs(9));
     assert!(matches!(t.judge(&send()), Verdict::Fail(_)));
     clock.advance(Duration::from_secs(5));
@@ -192,11 +209,12 @@ fn a_rule_ends_when_its_time_is_up_and_is_kept_as_ended() {
 #[test]
 fn a_rule_ends_when_it_has_fired_as_often_as_allowed() {
     let (t, _) = table();
-    let id = t.add(Spec {
-        max_hits: Some(2),
-        ..throttle()
-    })
-    .unwrap();
+    let id = t
+        .add(Spec {
+            max_hits: Some(2),
+            ..throttle()
+        })
+        .unwrap();
     assert!(!is_pass(&t.judge(&send())));
     assert!(!is_pass(&t.judge(&send())));
     assert!(is_pass(&t.judge(&send())), "the third is let through");
@@ -209,21 +227,29 @@ fn a_rule_ends_when_it_has_fired_as_often_as_allowed() {
 #[test]
 fn a_rule_that_is_switched_off_does_nothing_and_still_runs_out() {
     let (t, clock) = table();
-    let id = t.add(Spec {
-        ttl: Duration::from_secs(5),
-        ..throttle()
-    })
-    .unwrap();
+    let id = t
+        .add(Spec {
+            ttl: Duration::from_secs(5),
+            ..throttle()
+        })
+        .unwrap();
     assert!(t.set_enabled(id, false));
     assert!(is_pass(&t.judge(&send())));
-    assert_eq!(t.rules()[0].matched, 0, "a switched off rule counts nothing");
+    assert_eq!(
+        t.rules()[0].matched,
+        0,
+        "a switched off rule counts nothing"
+    );
     assert!(t.set_enabled(id, true));
     assert!(!is_pass(&t.judge(&send())));
     assert!(t.set_enabled(id, false));
     clock.advance(Duration::from_secs(6));
     assert!(t.rules().is_empty());
     assert_eq!(t.ended()[0].why, EndedWhy::Expired);
-    assert!(!t.set_enabled(id, true), "an ended rule cannot be switched on");
+    assert!(
+        !t.set_enabled(id, true),
+        "an ended rule cannot be switched on"
+    );
 }
 
 #[test]

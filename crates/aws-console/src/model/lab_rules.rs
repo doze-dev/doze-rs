@@ -159,7 +159,7 @@ pub struct LabCheck {
 #[cfg_attr(test, derive(ts_rs::TS))]
 #[serde(tag = "outcome", rename_all = "kebab-case")]
 pub enum LabMade {
-    Made { rule: LabRule },
+    Made { rule: Box<LabRule> },
     Refused { check: LabCheck },
 }
 

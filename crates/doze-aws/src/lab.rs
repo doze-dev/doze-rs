@@ -38,7 +38,11 @@ pub(crate) fn word(text: &str) -> Option<bool> {
 
 /// Decides the Lab. `value` is what `--lab` says and `plainly` whether anyone said it (a default is not asking); `console` is where
 /// the console listens, `None` with the console off.
-pub(crate) fn plan(value: &str, plainly: bool, console: Option<SocketAddr>) -> Result<Plan, String> {
+pub(crate) fn plan(
+    value: &str,
+    plainly: bool,
+    console: Option<SocketAddr>,
+) -> Result<Plan, String> {
     let Some(asked) = word(value) else {
         return Err(format!(
             "--lab takes true, false, on or off, not {value:?}; the Lab stays off until it is asked for plainly"
@@ -54,13 +58,15 @@ pub(crate) fn plan(value: &str, plainly: bool, console: Option<SocketAddr>) -> R
         let lines = if plainly && asked {
             vec![(
                 Level::Warn,
-                "--lab has nothing to do: the Lab's rules are made from the console, which is off".to_owned(),
+                "--lab has nothing to do: the Lab's rules are made from the console, which is off"
+                    .to_owned(),
             )]
         } else {
             Vec::new()
         };
         return Ok(off(
-            "The Lab is off because the console is off: its rules are made from the console.".to_owned(),
+            "The Lab is off because the console is off: its rules are made from the console."
+                .to_owned(),
             lines,
         ));
     };
@@ -130,11 +136,15 @@ mod tests {
         assert!(!p.on);
         assert!(p.lines[0].1.contains("nothing to do"));
         let said = plan("maybe", true, at("127.0.0.1:4567")).unwrap_err();
-        assert!(said.contains("--lab takes true, false, on or off"), "{said}");
+        assert!(
+            said.contains("--lab takes true, false, on or off"),
+            "{said}"
+        );
     }
 
     #[test]
-    fn a_console_open_to_other_machines_has_the_lab_off_unless_asked_and_then_says_it_can_inject_faults() {
+    fn a_console_open_to_other_machines_has_the_lab_off_unless_asked_and_then_says_it_can_inject_faults()
+     {
         for open in ["0.0.0.0:4567", "192.168.1.20:4567", "[::]:4567"] {
             let p = plan("on", false, at(open)).unwrap();
             assert!(!p.on, "{open}");
@@ -150,7 +160,11 @@ mod tests {
             let p = plan("true", true, at(open)).unwrap();
             assert!(p.on && p.open, "{open}");
             assert_eq!(p.lines[0].0, Level::Warn);
-            assert!(p.lines[0].1.contains("anyone who can reach the console can inject faults"));
+            assert!(
+                p.lines[0]
+                    .1
+                    .contains("anyone who can reach the console can inject faults")
+            );
             // And asked to be off, it says nothing of it.
             let p = plan("false", true, at(open)).unwrap();
             assert!(!p.on && p.lines.is_empty());

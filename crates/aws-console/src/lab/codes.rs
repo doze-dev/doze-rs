@@ -86,7 +86,11 @@ const fn row(signing: &'static str, sdk_id: &'static str) -> Row {
     }
 }
 
-const PROVISIONED: Coded = shape("ProvisionedThroughputExceededException", 400, "ProvisionedThroughputExceededException");
+const PROVISIONED: Coded = shape(
+    "ProvisionedThroughputExceededException",
+    400,
+    "ProvisionedThroughputExceededException",
+);
 
 /// Every service of the catalogue (the signing name and SDK id are the model's).
 pub const ROWS: &[Row] = &[
@@ -174,7 +178,11 @@ pub const ROWS: &[Row] = &[
     row("cloudformation", "CloudFormation"),
     Row {
         throttle: shape("TooManyRequestsException", 429, "TooManyRequestsException"),
-        unavailable: shape("ServiceUnavailableException", 503, "ServiceUnavailableException"),
+        unavailable: shape(
+            "ServiceUnavailableException",
+            503,
+            "ServiceUnavailableException",
+        ),
         ..row("apigateway", "API Gateway")
     },
     Row {
@@ -220,10 +228,7 @@ fn plain_words(fail: &Fail, ask: &Ask<'_>, code: &str) -> String {
         Fail::Throttle => "Rate exceeded.".to_owned(),
         Fail::Unavailable => "The service is temporarily unavailable. Try again later.".to_owned(),
         Fail::Internal => "We encountered an internal error. Please try again.".to_owned(),
-        Fail::AccessDenied => format!(
-            "The caller is not authorized to perform {}.",
-            ask.operation
-        ),
+        Fail::AccessDenied => format!("The caller is not authorized to perform {}.", ask.operation),
         Fail::Custom { .. } => format!("The request failed with {code}."),
     }
 }

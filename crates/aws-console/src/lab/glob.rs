@@ -8,7 +8,7 @@
 /// Whether `name` fits `pattern`.
 ///
 /// It works on characters, not bytes, so `?` fits `é` as it fits `e`.
-// fuzz:parser fuzz_lab_glob
+// fuzz:parser lab_glob
 #[must_use]
 pub fn fits(pattern: &str, name: &str) -> bool {
     let (mut p, mut n) = (pattern, name);
@@ -115,6 +115,58 @@ mod tests {
         let started = std::time::Instant::now();
         assert!(!fits(&pattern, &name));
         assert!(started.elapsed() < std::time::Duration::from_secs(2));
+    }
+
+    /// The reference: a table of (pattern prefix, name prefix), which no input can make slow or wrong.
+    fn reference(p: &[char], n: &[char]) -> bool {
+        let mut row = vec![false; n.len() + 1];
+        row[0] = true;
+        for pc in p {
+            let mut next = vec![false; n.len() + 1];
+            if *pc == '*' {
+                let mut seen = false;
+                for i in 0..=n.len() {
+                    seen |= row[i];
+                    next[i] = seen;
+                }
+            } else {
+                for i in 1..=n.len() {
+                    next[i] = row[i - 1] && (*pc == '?' || *pc == n[i - 1]);
+                }
+            }
+            row = next;
+        }
+        row[n.len()]
+    }
+
+    #[test]
+    fn the_walk_agrees_with_a_plain_table_on_every_small_pattern_and_name() {
+        // Every pattern and name of up to five characters over a small alphabet: 4^0..5 each.
+        let alphabet = ['a', 'b', '*', '?'];
+        let names = ['a', 'b'];
+        let all = |letters: &[char], most: usize| {
+            let mut out: Vec<String> = vec![String::new()];
+            let mut last = out.clone();
+            for _ in 0..most {
+                last = last
+                    .iter()
+                    .flat_map(|w| letters.iter().map(move |c| format!("{w}{c}")))
+                    .collect();
+                out.extend(last.iter().cloned());
+            }
+            out
+        };
+        let (patterns, texts) = (all(&alphabet, 5), all(&names, 6));
+        let mut checked = 0;
+        for p in &patterns {
+            let pc: Vec<char> = p.chars().collect();
+            for n in &texts {
+                let nc: Vec<char> = n.chars().collect();
+                assert_eq!(fits(p, n), reference(&pc, &nc), "{p:?} against {n:?}");
+                checked += 1;
+            }
+        }
+        assert!(checked > 100_000, "{checked}");
     }
 
     #[test]

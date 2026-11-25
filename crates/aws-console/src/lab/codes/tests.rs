@@ -14,22 +14,58 @@ fn models() -> Vec<(&'static ServiceMeta, &'static Tables)> {
         (&aws_model_sns::meta::META, &aws_model_sns::tables::TABLES),
         (&aws_model_sts::meta::META, &aws_model_sts::tables::TABLES),
         (&aws_model_iam::meta::META, &aws_model_iam::tables::TABLES),
-        (&aws_model_dynamodb::meta::META, &aws_model_dynamodb::tables::TABLES),
-        (&aws_model_dynamodb_streams::meta::META, &aws_model_dynamodb_streams::tables::TABLES),
+        (
+            &aws_model_dynamodb::meta::META,
+            &aws_model_dynamodb::tables::TABLES,
+        ),
+        (
+            &aws_model_dynamodb_streams::meta::META,
+            &aws_model_dynamodb_streams::tables::TABLES,
+        ),
         (&aws_model_s3::meta::META, &aws_model_s3::tables::TABLES),
-        (&aws_model_kinesis::meta::META, &aws_model_kinesis::tables::TABLES),
+        (
+            &aws_model_kinesis::meta::META,
+            &aws_model_kinesis::tables::TABLES,
+        ),
         (&aws_model_kms::meta::META, &aws_model_kms::tables::TABLES),
         (&aws_model_ssm::meta::META, &aws_model_ssm::tables::TABLES),
-        (&aws_model_secrets_manager::meta::META, &aws_model_secrets_manager::tables::TABLES),
-        (&aws_model_cloudwatch::meta::META, &aws_model_cloudwatch::tables::TABLES),
-        (&aws_model_cloudwatch_logs::meta::META, &aws_model_cloudwatch_logs::tables::TABLES),
-        (&aws_model_eventbridge::meta::META, &aws_model_eventbridge::tables::TABLES),
-        (&aws_model_scheduler::meta::META, &aws_model_scheduler::tables::TABLES),
-        (&aws_model_lambda::meta::META, &aws_model_lambda::tables::TABLES),
+        (
+            &aws_model_secrets_manager::meta::META,
+            &aws_model_secrets_manager::tables::TABLES,
+        ),
+        (
+            &aws_model_cloudwatch::meta::META,
+            &aws_model_cloudwatch::tables::TABLES,
+        ),
+        (
+            &aws_model_cloudwatch_logs::meta::META,
+            &aws_model_cloudwatch_logs::tables::TABLES,
+        ),
+        (
+            &aws_model_eventbridge::meta::META,
+            &aws_model_eventbridge::tables::TABLES,
+        ),
+        (
+            &aws_model_scheduler::meta::META,
+            &aws_model_scheduler::tables::TABLES,
+        ),
+        (
+            &aws_model_lambda::meta::META,
+            &aws_model_lambda::tables::TABLES,
+        ),
         (&aws_model_sfn::meta::META, &aws_model_sfn::tables::TABLES),
-        (&aws_model_cloudformation::meta::META, &aws_model_cloudformation::tables::TABLES),
-        (&aws_model_api_gateway::meta::META, &aws_model_api_gateway::tables::TABLES),
-        (&aws_model_apigatewayv2::meta::META, &aws_model_apigatewayv2::tables::TABLES),
+        (
+            &aws_model_cloudformation::meta::META,
+            &aws_model_cloudformation::tables::TABLES,
+        ),
+        (
+            &aws_model_api_gateway::meta::META,
+            &aws_model_api_gateway::tables::TABLES,
+        ),
+        (
+            &aws_model_apigatewayv2::meta::META,
+            &aws_model_apigatewayv2::tables::TABLES,
+        ),
         (
             &aws_model_apigatewaymanagementapi::meta::META,
             &aws_model_apigatewaymanagementapi::tables::TABLES,
@@ -57,7 +93,11 @@ const THROTTLED: &[&str] = &[
 ];
 
 /// botocore's `TransientRetryableChecker._TRANSIENT_ERROR_CODES`.
-const TRANSIENT: &[&str] = &["RequestTimeout", "RequestTimeoutException", "PriorRequestNotComplete"];
+const TRANSIENT: &[&str] = &[
+    "RequestTimeout",
+    "RequestTimeoutException",
+    "PriorRequestNotComplete",
+];
 
 fn each_coded(mut f: impl FnMut(&Row, &str, &Coded)) {
     for row in ROWS {
@@ -120,7 +160,10 @@ fn every_shape_a_row_names_is_in_its_model_with_the_status_and_code_the_model_gi
             checked += 1;
         }
     }
-    assert!(checked >= 30, "only {checked} modelled answers were checked");
+    assert!(
+        checked >= 30,
+        "only {checked} modelled answers were checked"
+    );
 }
 
 #[test]
@@ -128,7 +171,9 @@ fn a_throttle_is_one_every_sdk_retries_as_a_throttle() {
     each_coded(|row, kind, c| {
         if kind == "throttle" {
             assert!(
-                THROTTLED.contains(&c.code) || c.status == 429 || c.shape.is_some_and(|s| THROTTLED.contains(&s)),
+                THROTTLED.contains(&c.code)
+                    || c.status == 429
+                    || c.shape.is_some_and(|s| THROTTLED.contains(&s)),
                 "{} {}: {} {}",
                 row.sdk_id,
                 kind,
@@ -178,16 +223,34 @@ fn a_service_the_table_does_not_know_answers_the_common_errors() {
         (r.throttle.status, r.throttle.code),
         (400, "ThrottlingException")
     );
-    assert_eq!((r.unavailable.status, r.unavailable.code), (503, "ServiceUnavailable"));
-    assert_eq!((r.internal.status, r.internal.code), (500, "InternalFailure"));
-    assert_eq!((r.denied.status, r.denied.code), (403, "AccessDeniedException"));
+    assert_eq!(
+        (r.unavailable.status, r.unavailable.code),
+        (503, "ServiceUnavailable")
+    );
+    assert_eq!(
+        (r.internal.status, r.internal.code),
+        (500, "InternalFailure")
+    );
+    assert_eq!(
+        (r.denied.status, r.denied.code),
+        (403, "AccessDeniedException")
+    );
 }
 
 #[test]
 fn two_apis_that_sign_alike_each_have_their_own_row() {
-    assert_eq!(row_of("dynamodb", "DynamoDB").throttle.code, "ProvisionedThroughputExceededException");
-    assert_eq!(row_of("dynamodb", "DynamoDB Streams").throttle.code, "ThrottlingException");
-    assert_eq!(row_of("apigateway", "API Gateway").unavailable.shape, Some("ServiceUnavailableException"));
+    assert_eq!(
+        row_of("dynamodb", "DynamoDB").throttle.code,
+        "ProvisionedThroughputExceededException"
+    );
+    assert_eq!(
+        row_of("dynamodb", "DynamoDB Streams").throttle.code,
+        "ThrottlingException"
+    );
+    assert_eq!(
+        row_of("apigateway", "API Gateway").unavailable.shape,
+        Some("ServiceUnavailableException")
+    );
     assert_eq!(row_of("apigateway", "ApiGatewayV2").unavailable.shape, None);
 }
 
@@ -198,9 +261,18 @@ fn a_failure_carries_the_rule_and_says_it_was_made_by_one() {
         rule: 12,
         name: "n".into(),
     };
-    for fail in [Fail::Throttle, Fail::Unavailable, Fail::Internal, Fail::AccessDenied] {
+    for fail in [
+        Fail::Throttle,
+        Fail::Unavailable,
+        Fail::Internal,
+        Fail::AccessDenied,
+    ] {
         let f = failure(&fail, &call, tag());
-        assert!(f.message.ends_with("(made by doze-aws Lab rule 12)"), "{}", f.message);
+        assert!(
+            f.message.ends_with("(made by doze-aws Lab rule 12)"),
+            "{}",
+            f.message
+        );
         assert_eq!(f.tag.rule, 12);
     }
     let denied = failure(&Fail::AccessDenied, &call, tag());
@@ -213,6 +285,9 @@ fn a_failure_carries_the_rule_and_says_it_was_made_by_one() {
         &call,
         tag(),
     );
-    assert_eq!((custom.shape, custom.status, &*custom.code), (None, 509, "Bandwidth.Exceeded"));
+    assert_eq!(
+        (custom.shape, custom.status, &*custom.code),
+        (None, 509, "Bandwidth.Exceeded")
+    );
     assert!(custom.message.contains("Bandwidth.Exceeded"));
 }

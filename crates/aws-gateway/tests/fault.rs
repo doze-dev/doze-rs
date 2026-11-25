@@ -14,9 +14,7 @@ use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
-use aws_gateway::{
-    Ask, Config, Done, Failure, Faults, Finished, Gateway, Observer, Tag, Verdict,
-};
+use aws_gateway::{Ask, Config, Done, Failure, Faults, Finished, Gateway, Observer, Tag, Verdict};
 use aws_model_sqs::{meta::META, tables::TABLES};
 use aws_schema::meta::ServiceMeta;
 use aws_schema::tables::Tables;
@@ -77,7 +75,12 @@ impl Faults for Script {
         self.judged.fetch_add(1, Ordering::SeqCst);
         self.seen.lock().unwrap().push(format!(
             "{}|{}|{}|{}|{}|{}",
-            ask.signing_name, ask.sdk_id, ask.operation, ask.resource, ask.access_key_id, ask.region
+            ask.signing_name,
+            ask.sdk_id,
+            ask.operation,
+            ask.resource,
+            ask.access_key_id,
+            ask.region
         ));
         self.verdict.lock().unwrap().clone()
     }
@@ -330,7 +333,10 @@ async fn a_request_the_pipeline_refused_before_it_was_decoded_is_not_judged() {
     // `SendMessage` needs its `QueueUrl` and `MessageBody`: an invalid input is the service's validation error, as AWS answers it.
     let answer = text(&send_raw(h.addr, "{}").await);
     assert!(answer.starts_with("http/1.1 400"), "{answer}");
-    assert!(answer.contains("validation") || answer.contains("missing"), "{answer}");
+    assert!(
+        answer.contains("validation") || answer.contains("missing"),
+        "{answer}"
+    );
     assert_eq!(script.judged.load(Ordering::SeqCst), 0);
     h.running.shutdown().await;
 }
@@ -354,4 +360,32 @@ async fn stopping_the_server_does_not_wait_for_a_slow_request() {
         "a stop does not wait for the delay"
     );
     assert!(waiting.await.unwrap().is_empty());
+}
+
+#[tokio::test]
+async fn a_client_that_gives_up_during_the_wait_is_never_served() {
+    let script = Script::new(Verdict::Slow {
+        delay: Duration::from_millis(700),
+        tag: tag(),
+    });
+    let h = start(Some(script.clone()), true).await;
+    let request = format!(
+        "POST / HTTP/1.1\r\nHost: {}\r\nContent-Length: {}\r\nContent-Type: application/x-amz-json-1.0\r\nX-Amz-Target: AmazonSQS.SendMessage\r\nX-Amz-Date: 20130524T000000Z\r\nAuthorization: AWS4-HMAC-SHA256 Credential=AKIDLAB/20130524/eu-west-1/sqs/aws4_request,SignedHeaders=host;x-amz-date,Signature=00\r\n\r\n{SEND}",
+        h.addr,
+        SEND.len()
+    );
+    let mut stream = TcpStream::connect(h.addr).await.unwrap();
+    stream.write_all(request.as_bytes()).await.unwrap();
+    while script.judged.load(Ordering::SeqCst) == 0 {
+        tokio::time::sleep(Duration::from_millis(10)).await;
+    }
+    // The client's timeout ran out: it hangs up while the call waits.
+    drop(stream);
+    tokio::time::sleep(Duration::from_millis(1200)).await;
+    assert_eq!(
+        h.service.0.load(Ordering::SeqCst),
+        0,
+        "the call that was given up on is not served: here the service never did the work"
+    );
+    h.running.shutdown().await;
 }

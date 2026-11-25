@@ -112,9 +112,7 @@ impl Call {
             + self.via.as_ref().map_or(0, |v| v.bytes())
             + self.sdk.len()
             + self.extra.as_ref().map_or(0, |e| {
-                std::mem::size_of::<Extra>()
-                    + e.message.len()
-                    + e.function_error.len()
+                std::mem::size_of::<Extra>() + e.message.len() + e.function_error.len()
             })
     }
 }

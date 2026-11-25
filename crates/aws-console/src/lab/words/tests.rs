@@ -102,12 +102,19 @@ fn every_kind_of_failure_has_its_own_verb() {
 #[test]
 fn lists_are_said_in_words_and_counted_past_three() {
     let s = with(
-        (&["sqs", "sns", "s3", "kms"], &["A", "B", "C", "D", "E"], &[]),
+        (
+            &["sqs", "sns", "s3", "kms"],
+            &["A", "B", "C", "D", "E"],
+            &[],
+        ),
         spec(Effect::Drop, Share::Every),
     );
     let said = sentence(&s, &ToString::to_string);
     assert!(said.contains("4 services 5 operations call"), "{said}");
-    let two = with((&["sqs", "sns"], &[], &["a*", "b*"]), spec(Effect::Drop, Share::Every));
+    let two = with(
+        (&["sqs", "sns"], &[], &["a*", "b*"]),
+        spec(Effect::Drop, Share::Every),
+    );
     assert_eq!(
         sentence(&two, &ToString::to_string),
         "Close the connection of every sns and sqs call to a* and b* for 10 minutes"

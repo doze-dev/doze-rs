@@ -9,8 +9,6 @@
 )]
 
 mod support;
-#[path = "resources/world.rs"]
-mod world;
 
 use std::sync::Arc;
 
@@ -23,7 +21,19 @@ use axum::Router;
 use serde_json::{Value, json};
 use support::{HOST, get, json as answer, keys, ts_keys};
 use tokio_util::sync::CancellationToken;
-use world::write;
+
+/// A write as the console's own page sends it.
+fn write(method: &str, path: &str, body: &Value) -> axum::http::Request<axum::body::Body> {
+    axum::http::Request::builder()
+        .method(method)
+        .uri(path)
+        .header(axum::http::header::HOST, HOST)
+        .header("x-console", "1")
+        .header(axum::http::header::ORIGIN, format!("http://{HOST}"))
+        .header(axum::http::header::CONTENT_TYPE, "application/json")
+        .body(axum::body::Body::from(body.to_string()))
+        .unwrap()
+}
 
 struct Lab {
     app: Router,
@@ -98,7 +108,13 @@ async fn at_first_there_are_no_rules_and_the_answer_has_the_keys_of_its_type() {
     assert_eq!(keys(&v["limits"]), ts_keys("LabLimits"));
     assert_eq!(v["enabled"], true);
     assert_eq!(v["off_why"], Value::Null);
-    assert_eq!((v["in_force"].as_array().unwrap().len(), v["ended"].as_array().unwrap().len()), (0, 0));
+    assert_eq!(
+        (
+            v["in_force"].as_array().unwrap().len(),
+            v["ended"].as_array().unwrap().len()
+        ),
+        (0, 0)
+    );
     assert_eq!(v["limits"]["most_rules"], 50);
     assert_eq!(v["limits"]["most_ended"], 200);
     assert_eq!(v["limits"]["longest_secs"], 86_400);
@@ -153,7 +169,8 @@ async fn what_is_wrong_with_a_rule_is_said_field_by_field() {
     let said = v["problems"].to_string();
     assert!(said.contains("SendMesage"), "{said}");
     assert!(said.contains("from 1 to 60000 milliseconds"), "{said}");
-    let custom = body(json!({ "kind": "fail", "error": "custom", "status": 200, "code": "no good" }));
+    let custom =
+        body(json!({ "kind": "fail", "error": "custom", "status": 200, "code": "no good" }));
     let (_, v) = lab.post("/api/v1/lab/rules/check", &custom).await;
     assert_eq!(v["problems"].as_array().unwrap().len(), 2, "{v}");
     let no_status = body(json!({ "kind": "fail", "error": "custom", "code": "Teapot" }));
@@ -164,7 +181,9 @@ async fn what_is_wrong_with_a_rule_is_said_field_by_field() {
     hostile["matcher"]["resources"] = json!(["ok", "bad\u{7}", ""]);
     let (_, v) = lab.post("/api/v1/lab/rules/check", &hostile).await;
     assert_eq!(v["ok"], false);
-    let (status, v) = lab.post("/api/v1/lab/rules/check", &json!({ "nope": 1 })).await;
+    let (status, v) = lab
+        .post("/api/v1/lab/rules/check", &json!({ "nope": 1 }))
+        .await;
     assert_eq!((status, v["code"].as_str()), (400, Some("BAD_REQUEST")));
 }
 
@@ -182,16 +201,33 @@ async fn a_rule_is_made_listed_switched_ended_and_forgotten() {
     assert_eq!(rule["share_words"], "1 in 4");
     assert_eq!(rule["what"], "SQS SendMessage");
     assert_eq!(rule["target"], "orders");
-    assert_eq!((rule["enabled"].clone(), rule["hits"].clone(), rule["ended"].clone()), (json!(true), json!(0), Value::Null));
-    assert_eq!(rule["effect"], json!({ "kind": "fail", "error": "throttle" }));
+    assert_eq!(
+        (
+            rule["enabled"].clone(),
+            rule["hits"].clone(),
+            rule["ended"].clone()
+        ),
+        (json!(true), json!(0), Value::Null)
+    );
+    assert_eq!(
+        rule["effect"],
+        json!({ "kind": "fail", "error": "throttle" })
+    );
 
     let (_, listed) = lab.get("/api/v1/lab/rules").await;
     assert_eq!(listed["in_force"][0]["id"], id);
 
     // Switched off, and back on (with no body it turns the other way).
-    let (status, off) = lab.post(&format!("/api/v1/lab/rules/{id}/switch"), &json!({ "enabled": false })).await;
+    let (status, off) = lab
+        .post(
+            &format!("/api/v1/lab/rules/{id}/switch"),
+            &json!({ "enabled": false }),
+        )
+        .await;
     assert_eq!((status, off["enabled"].clone()), (200, json!(false)));
-    let (_, on) = lab.post(&format!("/api/v1/lab/rules/{id}/switch"), &json!({})).await;
+    let (_, on) = lab
+        .post(&format!("/api/v1/lab/rules/{id}/switch"), &json!({}))
+        .await;
     assert_eq!(on["enabled"], true);
 
     // One rule, in force: its page.
@@ -201,18 +237,27 @@ async fn a_rule_is_made_listed_switched_ended_and_forgotten() {
     assert_eq!(one["calls"], json!([]));
 
     // Ended by hand, it moves to the list of what ended, and its page is still there.
-    let (status, gone) = lab.post(&format!("/api/v1/lab/rules/{id}/remove"), &json!({})).await;
+    let (status, gone) = lab
+        .post(&format!("/api/v1/lab/rules/{id}/remove"), &json!({}))
+        .await;
     assert_eq!((status, gone["ended"].clone()), (200, json!("cleared")));
     let (_, listed) = lab.get("/api/v1/lab/rules").await;
     assert_eq!(listed["in_force"], json!([]));
     assert_eq!(listed["ended"][0]["id"], id);
     assert_eq!(listed["ended"][0]["ended"], "cleared");
     let (status, one) = lab.get(&format!("/api/v1/lab/rules/{id}")).await;
-    assert_eq!((status, one["rule"]["ended"].clone()), (200, json!("cleared")));
+    assert_eq!(
+        (status, one["rule"]["ended"].clone()),
+        (200, json!("cleared"))
+    );
     // An ended rule cannot be switched or removed again.
-    let (status, v) = lab.post(&format!("/api/v1/lab/rules/{id}/switch"), &json!({})).await;
+    let (status, v) = lab
+        .post(&format!("/api/v1/lab/rules/{id}/switch"), &json!({}))
+        .await;
     assert_eq!((status, v["code"].as_str()), (409, Some("OVER")));
-    let (status, v) = lab.post(&format!("/api/v1/lab/rules/{id}/remove"), &json!({})).await;
+    let (status, v) = lab
+        .post(&format!("/api/v1/lab/rules/{id}/remove"), &json!({}))
+        .await;
     assert_eq!((status, v["code"].as_str()), (409, Some("OVER")));
 
     // The history is forgotten.
@@ -259,7 +304,10 @@ async fn the_51st_rule_is_refused_in_words_and_a_replacement_is_not_counted_twic
     assert_eq!(keys(&refused["check"]), ts_keys("LabCheck"));
     let problem = &refused["check"]["problems"][0];
     assert_eq!(problem["field"], "rules");
-    assert!(problem["text"].as_str().unwrap().contains("50 rules"), "{problem}");
+    assert!(
+        problem["text"].as_str().unwrap().contains("50 rules"),
+        "{problem}"
+    );
     let (_, v) = lab.post("/api/v1/lab/rules/check", &b).await;
     assert_eq!(v["ok"], false);
     // The same calls and kind of effect replace the old rule even now.
@@ -277,20 +325,36 @@ async fn the_51st_rule_is_refused_in_words_and_a_replacement_is_not_counted_twic
 async fn a_fail_rule_says_what_each_service_it_names_answers() {
     let lab = lab(true);
     let mut b = body(json!({ "kind": "fail", "error": "throttle" }));
-    b["matcher"] = json!({ "services": [], "operations": [], "regions": [], "callers": [], "resources": [] });
+    b["matcher"] =
+        json!({ "services": [], "operations": [], "regions": [], "callers": [], "resources": [] });
     let (_, v) = lab.post("/api/v1/lab/rules/check", &b).await;
     let answers = v["answers"].as_array().unwrap();
-    assert_eq!(answers.len(), 21, "every API of the build, when no service is named");
+    assert_eq!(
+        answers.len(),
+        21,
+        "every API of the build, when no service is named"
+    );
     let by = |s: &str| answers.iter().find(|a| a["service"] == s).unwrap().clone();
-    assert_eq!(by("DynamoDB")["code"], "ProvisionedThroughputExceededException");
-    assert_eq!((by("S3")["status"].clone(), by("S3")["code"].clone()), (json!(503), json!("SlowDown")));
+    assert_eq!(
+        by("DynamoDB")["code"],
+        "ProvisionedThroughputExceededException"
+    );
+    assert_eq!(
+        (by("S3")["status"].clone(), by("S3")["code"].clone()),
+        (json!(503), json!("SlowDown"))
+    );
     assert_eq!(by("STS")["code"], "ThrottlingException");
     assert_eq!(v["sentence"], "Throttle 1 in 4 calls for 10 minutes");
     let access = body(json!({ "kind": "fail", "error": "access-denied" }));
     let (_, v) = lab.post("/api/v1/lab/rules/check", &access).await;
-    assert_eq!(v["answers"], json!([{ "service": "SQS", "status": 400, "code": "AccessDeniedException" }]));
+    assert_eq!(
+        v["answers"],
+        json!([{ "service": "SQS", "status": 400, "code": "AccessDeniedException" }])
+    );
     // A slow rule and a drop have no answers.
-    let (_, v) = lab.post("/api/v1/lab/rules/check", &body(json!({ "kind": "drop" }))).await;
+    let (_, v) = lab
+        .post("/api/v1/lab/rules/check", &body(json!({ "kind": "drop" })))
+        .await;
     assert_eq!(v["answers"], json!([]));
 }
 
@@ -326,16 +390,41 @@ async fn the_guide_has_the_intro_and_the_six_lessons_in_the_order_of_the_tabs() 
     assert_eq!(keys(&v), ts_keys("LabGuide"));
     assert_eq!(keys(&v["intro"]), ts_keys("LabIntro"));
     assert_eq!(keys(&v["rehearsals"][0]), ts_keys("LabTeach"));
-    assert_eq!(keys(&v["rehearsals"][0]["settings"][0]), ts_keys("LabSetting"));
+    assert_eq!(
+        keys(&v["rehearsals"][0]["settings"][0]),
+        ts_keys("LabSetting")
+    );
     assert_eq!(keys(&v["intro"]["steps"][0]), ts_keys("LabStep"));
-    let tabs: Vec<&str> = v["rehearsals"].as_array().unwrap().iter().map(|t| t["tab"].as_str().unwrap()).collect();
-    assert_eq!(tabs, ["throttle", "unavailable", "internal", "access-denied", "slow", "drop"]);
+    let tabs: Vec<&str> = v["rehearsals"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|t| t["tab"].as_str().unwrap())
+        .collect();
+    assert_eq!(
+        tabs,
+        [
+            "throttle",
+            "unavailable",
+            "internal",
+            "access-denied",
+            "slow",
+            "drop"
+        ]
+    );
 }
 
 #[tokio::test]
 async fn a_write_asks_for_the_same_origin_proof_like_every_write() {
     let lab = lab(true);
-    for path in ["/api/v1/lab/rules", "/api/v1/lab/rules/check", "/api/v1/lab/stop-all", "/api/v1/lab/history/clear", "/api/v1/lab/rules/1/switch", "/api/v1/lab/rules/1/remove"] {
+    for path in [
+        "/api/v1/lab/rules",
+        "/api/v1/lab/rules/check",
+        "/api/v1/lab/stop-all",
+        "/api/v1/lab/history/clear",
+        "/api/v1/lab/rules/1/switch",
+        "/api/v1/lab/rules/1/remove",
+    ] {
         let req = axum::http::Request::builder()
             .method("POST")
             .uri(path)
@@ -345,7 +434,11 @@ async fn a_write_asks_for_the_same_origin_proof_like_every_write() {
             .body(axum::body::Body::from(throttle().to_string()))
             .unwrap();
         let (status, v) = answer(&lab.app, req).await;
-        assert_eq!((status, v["code"].as_str()), (403, Some("FORBIDDEN")), "{path}");
+        assert_eq!(
+            (status, v["code"].as_str()),
+            (403, Some("FORBIDDEN")),
+            "{path}"
+        );
     }
     assert_eq!(lab.get("/api/v1/lab/rules").await.1["in_force"], json!([]));
 }
@@ -369,24 +462,51 @@ async fn live_tags_the_calls_a_rule_touched_and_filters_by_the_rule() {
     let recorder = &lab.state.recorder;
     recorder.record(&support::sqs_call("ListQueues", 200, ""), 1);
     recorder.record(&touched(id, Done::Failed), 2);
-    recorder.record(&touched(id + 40, Done::Delayed(std::time::Duration::from_millis(250))), 3);
-    recorder.record(&Finished { status: 0, code: "", ..touched(id, Done::Dropped) }, 4);
+    recorder.record(
+        &touched(
+            id + 40,
+            Done::Delayed(std::time::Duration::from_millis(250)),
+        ),
+        3,
+    );
+    recorder.record(
+        &Finished {
+            status: 0,
+            code: "",
+            ..touched(id, Done::Dropped)
+        },
+        4,
+    );
 
     let (_, all) = lab.get("/api/v1/calls").await;
     let rows = all["calls"].as_array().unwrap();
     assert_eq!(rows.len(), 4);
     assert_eq!(rows[0]["lab"], Value::Null);
-    assert_eq!(rows[1]["lab"], json!({ "id": id, "name": "Throttle sqs SendMessage", "effect": { "kind": "failed" } }));
+    assert_eq!(
+        rows[1]["lab"],
+        json!({ "id": id, "name": "Throttle sqs SendMessage", "effect": { "kind": "failed" } })
+    );
     // A rule the table has forgotten still has a number.
     assert_eq!(rows[2]["lab"]["name"], format!("Lab rule {}", id + 40));
-    assert_eq!(rows[2]["lab"]["effect"], json!({ "kind": "delayed", "ms": 250 }));
+    assert_eq!(
+        rows[2]["lab"]["effect"],
+        json!({ "kind": "delayed", "ms": 250 })
+    );
     // A dropped call has no status and is an error; the tag says what was done.
-    assert_eq!((rows[3]["status"].clone(), rows[3]["outcome"].clone()), (json!(0), json!("error")));
+    assert_eq!(
+        (rows[3]["status"].clone(), rows[3]["outcome"].clone()),
+        (json!(0), json!("error"))
+    );
     assert_eq!(rows[3]["lab"]["effect"], json!({ "kind": "dropped" }));
 
     let (status, mine) = lab.get(&format!("/api/v1/calls?lab={id}")).await;
     assert_eq!(status, 200);
-    let seqs: Vec<u64> = mine["calls"].as_array().unwrap().iter().map(|c| c["seq"].as_u64().unwrap()).collect();
+    let seqs: Vec<u64> = mine["calls"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|c| c["seq"].as_u64().unwrap())
+        .collect();
     assert_eq!(seqs, [2, 4], "oldest first, only this rule's");
     let (_, any) = lab.get("/api/v1/calls?lab=any").await;
     assert_eq!(any["calls"].as_array().unwrap().len(), 3, "the Lab only");
@@ -395,7 +515,12 @@ async fn live_tags_the_calls_a_rule_touched_and_filters_by_the_rule() {
 
     // The rule's page lists what it touched, newest first, the rows Live has.
     let (_, one) = lab.get(&format!("/api/v1/lab/rules/{id}")).await;
-    let seqs: Vec<u64> = one["calls"].as_array().unwrap().iter().map(|c| c["seq"].as_u64().unwrap()).collect();
+    let seqs: Vec<u64> = one["calls"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|c| c["seq"].as_u64().unwrap())
+        .collect();
     assert_eq!(seqs, [4, 2]);
     assert_eq!(one["more"], false);
 }

@@ -30,9 +30,9 @@ pub fn share_words(share: Share) -> String {
 #[must_use]
 pub fn duration_words(d: Duration) -> String {
     let s = d.as_secs();
-    let (n, unit) = if s >= 3600 && s % 3600 == 0 {
+    let (n, unit) = if s >= 3600 && s.is_multiple_of(3600) {
         (s / 3600, "hour")
-    } else if s >= 60 && s % 60 == 0 {
+    } else if s >= 60 && s.is_multiple_of(60) {
         (s / 60, "minute")
     } else {
         (s, "second")
@@ -155,7 +155,11 @@ pub fn default_name(spec: &Spec) -> String {
         Effect::Drop => "Drop".to_owned(),
     };
     out.push(' ');
-    out.push_str(if named.is_empty() { "every call" } else { &named });
+    out.push_str(if named.is_empty() {
+        "every call"
+    } else {
+        &named
+    });
     out.chars().take(LONGEST_NAME).collect()
 }
 

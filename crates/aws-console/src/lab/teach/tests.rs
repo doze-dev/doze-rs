@@ -22,7 +22,6 @@ fn every_rehearsal_is_taught_once_in_the_order_of_the_tabs() {
 fn every_lesson_says_what_it_stands_for_what_to_expect_and_what_a_client_does() {
     for t in rehearsals() {
         for (what, text) in [
-
             ("lede", &t.lede),
             ("simulates", &t.simulates),
             ("expect", &t.expect),
@@ -81,7 +80,13 @@ fn the_words_never_say_asleep_or_promise_what_is_not_true() {
     let g = guide();
     let mut text = format!("{} {}", g.intro.what, g.intro.limits.join(" "));
     for t in &g.rehearsals {
-        text.push_str(&format!("{} {} {} {}", t.lede, t.simulates, t.expect, t.client.join(" ")));
+        text.push_str(&format!(
+            "{} {} {} {}",
+            t.lede,
+            t.simulates,
+            t.expect,
+            t.client.join(" ")
+        ));
     }
     assert!(!text.to_lowercase().contains("asleep"));
     // A fault never reaches storage, and the page and the doc say so in these words.

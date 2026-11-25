@@ -171,7 +171,7 @@ pub async fn create(State(s): State<Shared>, bytes: Bytes) -> Response {
         Some(found) => json(
             StatusCode::OK,
             &LabMade::Made {
-                rule: rule_view(&s.facts, &found.rule, None),
+                rule: Box::new(rule_view(&s.facts, &found.rule, None)),
             },
         ),
         None => json(

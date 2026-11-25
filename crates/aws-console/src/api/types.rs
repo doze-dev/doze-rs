@@ -238,3 +238,12 @@ fn an_outcome_tells_iam_saying_no_from_doze_not_doing_it_from_any_other_error() 
     assert_eq!(Outcome::of(500, "InternalFailure"), Outcome::Error);
     assert_eq!(Outcome::of(403, ""), Outcome::Error);
 }
+
+#[test]
+fn a_dropped_call_is_an_error_and_a_denial_in_snss_words_is_a_denial() {
+    // A connection a Lab rule closed has no status; nobody said no, and it did not succeed.
+    assert_eq!(Outcome::of(0, ""), Outcome::Error);
+    assert_eq!(Outcome::of(403, "AuthorizationError"), Outcome::Denied);
+    assert_eq!(Outcome::of(403, "AccessDenied"), Outcome::Denied);
+    assert_eq!(Outcome::of(429, "Throttled"), Outcome::Error);
+}

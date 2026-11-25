@@ -269,15 +269,15 @@ impl AddError {
             Self::BadCode => format!(
                 "An error code is 1 to {LONGEST_CODE} letters, digits and dots (such as ThrottlingException)."
             ),
-            Self::TooMany(f) => format!(
-                "A rule names at most {} {}.",
-                f.most(),
-                f.word()
-            ),
+            Self::TooMany(f) => format!("A rule names at most {} {}.", f.most(), f.word()),
             Self::BadEntry(f) => format!(
                 "Each of the {} is 1 to {} characters with no control character in it.",
                 f.word(),
-                if *f == Field::Resources { LONGEST_PATTERN } else { LONGEST_WORD }
+                if *f == Field::Resources {
+                    LONGEST_PATTERN
+                } else {
+                    LONGEST_WORD
+                }
             ),
             Self::UnknownService(s) => format!("doze-aws has no service called {s}."),
             Self::UnknownOperation(o) => {
@@ -299,6 +299,7 @@ fn word_ok(w: &str) -> bool {
 }
 
 impl Matcher {
+    // fuzz:parser lab_body
     /// A matcher from the words as typed. Each list is made tidy; an entry that is not one is left out and said (the matcher is then
     /// what the rest of the words mean, so a sentence can still be made of it).
     #[must_use]
@@ -315,7 +316,14 @@ impl Matcher {
             for w in list {
                 let w = w.trim();
                 if word_ok(w) {
-                    kept.push(if lower { w.to_ascii_lowercase() } else { w.to_owned() }.into());
+                    kept.push(
+                        if lower {
+                            w.to_ascii_lowercase()
+                        } else {
+                            w.to_owned()
+                        }
+                        .into(),
+                    );
                 } else {
                     problems.push(AddError::BadEntry(field));
                 }
@@ -362,7 +370,8 @@ impl Matcher {
     /// Whether every list that is set fits a call.
     #[must_use]
     pub fn fits(&self, ask: &aws_gateway::Ask<'_>) -> bool {
-        let named = |list: &[Box<str>], what: &str| list.is_empty() || list.iter().any(|w| **w == *what);
+        let named =
+            |list: &[Box<str>], what: &str| list.is_empty() || list.iter().any(|w| **w == *what);
         (self.services.is_empty()
             || self.services.iter().any(|s| {
                 s.eq_ignore_ascii_case(ask.signing_name) || s.eq_ignore_ascii_case(ask.sdk_id)
@@ -400,7 +409,10 @@ impl Spec {
             Effect::Slow {
                 delay_ms,
                 jitter_ms,
-            } if *delay_ms == 0 || *delay_ms > LONGEST_DELAY_MS || *jitter_ms > LONGEST_DELAY_MS => {
+            } if *delay_ms == 0
+                || *delay_ms > LONGEST_DELAY_MS
+                || *jitter_ms > LONGEST_DELAY_MS =>
+            {
                 out.push(AddError::BadDelay);
             }
             Effect::Fail(Fail::Custom { status, code }) => {

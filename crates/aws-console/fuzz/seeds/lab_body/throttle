@@ -1,0 +1,1 @@
+{"matcher":{"services":["sqs"],"operations":["SendMessage"],"resources":["orders*"]},"effect":{"kind":"fail","error":"throttle"},"ends_in_secs":600}
