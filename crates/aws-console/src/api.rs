@@ -61,7 +61,6 @@ fn spaces() -> Router<Shared> {
         .route("/api/v1/settings", get(settings::settings))
         .route("/api/v1/settings/reset", post(settings::reset))
         .route("/api/v1/lab", get(lab::index))
-        .merge(forced_events())
         .route(
             "/api/v1/lab/{target}/{operation}",
             get(lab::operation).post(lab::send),
@@ -89,6 +88,7 @@ pub fn routes() -> Router<Shared> {
         .route("/api/v1/calls/{seq}/copy", get(copy::copy))
         .route("/api/v1/flows", get(flows::flows))
         .merge(spaces())
+        .merge(forced_events())
         .route("/api/v1/resources", get(resources::index))
         .route(
             "/api/v1/resources/{service}/{kind}",
