@@ -14,7 +14,7 @@ pub enum AddError {
     Off(String),
     /// The name is longer than [`LONGEST_NAME`] or holds a control character.
     BadName,
-    /// The duration is outside [`SHORTEST_RULE`]..=[`LONGEST_RULE`].
+    /// The duration is outside [`super::SHORTEST_RULE`]..=[`super::LONGEST_RULE`].
     BadDuration,
     /// A delay of nothing, or a delay or jitter above [`LONGEST_DELAY_MS`].
     BadDelay,
