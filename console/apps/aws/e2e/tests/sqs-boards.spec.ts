@@ -71,6 +71,11 @@ test("sqs__queues-list: every queue with what it holds, and a sentence", async (
   const head = page.getByRole("columnheader", { name: /Content-based deduplication/i });
   const [headFits] = await head.evaluate((el) => [el.scrollWidth <= el.clientWidth + 1]);
   expect(headFits).toBe(true);
+  // Fitting the box does not cut a cell instead: the type, the date and the longest name are whole.
+  for (const cell of [fifo.locator("td").nth(0), fifo.locator("td").nth(1), fifo.locator("td").nth(2)]) {
+    const [inner, outer] = await cell.evaluate((el) => [el.scrollWidth, el.clientWidth]);
+    expect(inner).toBeLessThanOrEqual(outer);
+  }
   await shot(page, "sqs__queues-list");
 });
 

@@ -154,7 +154,7 @@ function FunctionUrl({ d, f, go }: { d: ResourceDetail; f: Fn; go: (to: Go) => v
   return (
     <Card title="Function URL" lede="A function URL is a dedicated HTTP(S) endpoint for the function." testId="url-card">
       {!f.url ? (
-        <EmptyTab icon={LinkIcon} title="No function URL" action={<Button type="button" onClick={() => go({ tab: "configuration", p: "url", view: "url-create" })} data-testid="url-create">Create function URL</Button>} testId="url-none">
+        <EmptyTab icon={LinkIcon} title="No function URL" action={<Button type="button" onClick={() => go({ tab: "configuration", p: "url", view: "url-create" })} data-testid="url-create"><PlusIcon /> Create function URL</Button>} testId="url-none">
           {d.name} has no URL. A URL can be added to $LATEST or to an alias, but not to another version.
         </EmptyTab>
       ) : (

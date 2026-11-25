@@ -484,6 +484,10 @@ test("sns__publish-fifo, sns__publish-fifo-refused and sns__topic-published: a g
   await expect(page.getByTestId("recent-calls")).toContainText("Publish");
   await expect(page.getByTestId("recent-calls").getByTestId("call-caller").first()).toContainText("This console");
   await expect(page.getByTestId("calls-console-hidden")).toContainText("made by this console");
+  // The row says the publish reached the queue, as the sentence above it does (not "no deliveries").
+  const publishRow = page.getByTestId("recent-calls").locator("tr[data-row]").filter({ hasText: "Publish" }).first();
+  await expect(publishRow).toContainText("delivered to 1");
+  await expect(publishRow).not.toContainText("no deliveries");
   const got = JSON.parse(cli(["sqs", "receive-message", "--queue-url", `${server.endpoint}/${server.account}/${FIFO}`, "--attribute-names", "All"])) as { Messages: { Body: string }[] };
   expect(JSON.parse(got.Messages[0]!.Body).Message).toContain("order_placed");
 });

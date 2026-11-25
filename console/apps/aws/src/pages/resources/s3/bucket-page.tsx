@@ -56,6 +56,7 @@ export function BucketPage({ name, search }: OwnProps) {
         { label: "Empty bucket", onSelect: () => go({ do: "empty" }) },
         { label: "Delete bucket", onSelect: () => go({ do: "delete" }) },
       ]}
+      sentenceBold={[/\d[\d,]*(?= event notification rules?| lifecycle rules?)/]}
       refresh={<RefreshControl updatedAt={bucket.dataUpdatedAt} fetching={bucket.isFetching} onRefresh={refresh} interval={false} />}
       tabs={[
         {

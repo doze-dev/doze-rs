@@ -451,6 +451,13 @@ test("lambda__function-permissions, lambda__permission-add and lambda__permissio
   const row = page.getByRole("table", { name: "Resource-based policy statements" }).locator("tr[data-row]");
   await expect(row).toHaveCount(1);
   await expect(row).toContainText("sns-alerts");
+  // The statement ID is one word and stays on one line (it is not broken at its hyphen).
+  const lines = await row.getByTestId("statement-sid").evaluate((el) => {
+    const range = document.createRange();
+    range.selectNodeContents(el);
+    return range.getClientRects().length;
+  });
+  expect(lines).toBe(1);
   await expect(row).toContainText("Allow");
   await expect(row).toContainText("sns.amazonaws.com");
   await expect(row).toContainText("lambda:InvokeFunction");

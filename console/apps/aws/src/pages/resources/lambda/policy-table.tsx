@@ -24,7 +24,7 @@ export function PolicyTable({ statements, onDelete }: { statements: readonly Sta
         <tbody>
           {statements.map((s, i) => (
             <tr key={s.Sid ?? i} data-row={s.Sid ?? String(i)} className="group hover:bg-accent/40">
-              <td className={`${CELL} font-medium text-bright`}>{s.Sid ?? "–"}</td>
+              <td className={`${CELL} font-medium whitespace-nowrap text-bright`} data-testid="statement-sid">{s.Sid ?? "–"}</td>
               <td className={`${CELL} font-sans text-[13.5px]`}>{s.Effect ?? "–"}</td>
               <td className={CELL}>{principalOf(s)}</td>
               <td className={CELL}>{[s.Action].flat().join(", ")}</td>

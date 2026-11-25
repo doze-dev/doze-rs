@@ -5,6 +5,7 @@ import { ErrorBlock } from "@doze/ui/components/app/alert";
 import { PageHeader, type Crumb } from "@doze/ui/components/app/page-header";
 import { ResultBanner } from "@doze/ui/components/app/result-banner";
 import { Button } from "@doze/ui/components/ui/button";
+import { StatusDot } from "@doze/ui/components/app/status-dot";
 import { Skeleton } from "@doze/ui/components/ui/skeleton";
 import { cn } from "@doze/ui/lib/utils";
 import { dismissFlash, type Flash, takeFlash } from "./flash";
@@ -48,6 +49,9 @@ export function Rows({ rows, className, testId }: { rows: [string, React.ReactNo
     </dl>
   );
 }
+
+/** A setting that is on or off, as the boards draw it: a green dot and Enabled, or a ring and Disabled. */
+export const OnOff = ({ on }: { on: boolean }) => <StatusDot tone={on ? "ok" : "idle"}>{on ? "Enabled" : "Disabled"}</StatusDot>;
 
 export const Mono = ({ children }: { children: React.ReactNode }) => <span className="font-mono text-[13px]">{children}</span>;
 

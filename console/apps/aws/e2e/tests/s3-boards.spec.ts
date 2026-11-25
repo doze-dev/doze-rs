@@ -248,6 +248,9 @@ test("s3__bucket-properties, -tags-none, -notifications-none: sections with thei
   const n = names(browserName);
   await page.goto(bucketUrl(n.img, "?tab=properties"));
   await expect(page.getByTestId("detail-sentence")).toContainText("has 1 event notification rule, versioning on and default encryption SSE-S3. Static website hosting and Object Lock are off.");
+  // The count is set in bold, and a setting that is off has the ring the boards draw (Enabled has the green dot).
+  await expect(page.getByTestId("detail-sentence").locator('[data-slot="emphasis-bold"]').first()).toHaveText("1");
+  await expect(page.getByTestId("properties").locator('[data-tone="idle"]').first()).toHaveText("Disabled");
   await expect(page.getByTestId("properties")).toContainText(`arn:aws:s3:::${n.img}`);
   await expect(page.getByTestId("properties")).toContainText("Server-side encryption with Amazon S3 managed keys (SSE-S3)");
   await expect(page.getByTestId("properties")).toContainText("resize-on-create");
