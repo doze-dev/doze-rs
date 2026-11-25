@@ -154,10 +154,24 @@ impl Raw {
         self.r.read_line(&mut s).unwrap();
         serde_json::from_str(&s).unwrap()
     }
-    /// A unary answer (the frame's `response`).
+    /// A unary answer: the `response` of the frame that answers this request's id. Frames of other requests (a stream
+    /// still open on this connection) are passed over, up to a bound; each read waits at most the read timeout.
+    #[allow(clippy::panic)]
     pub fn ask(&mut self, line: &str) -> serde_json::Value {
+        let request: serde_json::Value = serde_json::from_str(line).unwrap();
+        let id_of =
+            |v: &serde_json::Value| v.get("id").and_then(serde_json::Value::as_u64).unwrap_or(0);
+        let id = id_of(&request);
         self.say(line);
-        self.hear().get("response").cloned().unwrap_or_default()
+        for _ in 0..1000 {
+            let f = self.hear();
+            if id_of(&f) == id
+                && let Some(r) = f.get("response")
+            {
+                return r.clone();
+            }
+        }
+        panic!("no answer to request {id} in 1000 frames");
     }
 }
 
