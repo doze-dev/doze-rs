@@ -1,1 +1,0 @@
-import{l as e}from"./skeleton-BD_UWHrf.js";function t(e){return e.length<=1?e.join(``):`${e.slice(0,-1).join(`, `)} and ${e[e.length-1]}`}var n=(t,n,r=e(n))=>`${t.toLocaleString(`en-US`)} ${t===1?n:r}`,r=e=>new Date(e).toISOString().slice(11,19);export{n,t as r,r as t};
