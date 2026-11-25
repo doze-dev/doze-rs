@@ -27,7 +27,7 @@ export function resourceImpact(resources: readonly RestResource[], id: string): 
   const all = subtree(resources, id);
   const children = all.slice(1).map((r) => r.path);
   const methods = methodsIn(all);
-  const parts = [children.length > 0 ? `its ${count(children.length, "child resource")} (${list(children)})` : "", methods.length > 0 ? `${children.length > 0 ? "all " : "its "}${count(methods.length, "method")} (${list(methods)})` : ""].filter(Boolean);
+  const parts = [children.length > 0 ? `its ${count(children.length, "child resource")} (${list(children)})` : "", methods.length > 0 ? `${children.length > 0 && methods.length > 1 ? "all " : "its "}${count(methods.length, "method")} (${list(methods)})` : ""].filter(Boolean);
   return { children, methods, words: parts.length === 0 ? "It has no method and no child resource." : `${parts.join(" and ")} go${parts.length === 1 && children.length + methods.length === 1 ? "es" : ""} with it.`.replace(/^its/, "Its") };
 }
 

@@ -22,6 +22,11 @@ describe("what deleting a resource takes with it", () => {
     expect(i?.words).toBe("Its 1 child resource (/products/{id}) and all 3 methods (GET /products, POST /products and GET /products/{id}) go with it.");
   });
 
+  test("says its 1 method, not all 1, when there is a child and one method", () => {
+    const one: RestResource[] = [{ id: "root", path: "/" }, { id: "s", parentId: "root", pathPart: "s", path: "/s", resourceMethods: { GET: m("GET") } }, { id: "i", parentId: "s", pathPart: "i", path: "/s/i" }];
+    expect(resourceImpact(one, "s")?.words).toBe("Its 1 child resource (/s/i) and its 1 method (GET /s) go with it.");
+  });
+
   test("says so for a resource with nothing in it, and refuses the root", () => {
     expect(resourceImpact(tree, "o")?.words).toBe("It has no method and no child resource.");
     expect(resourceImpact(tree, "root")).toBeNull();
