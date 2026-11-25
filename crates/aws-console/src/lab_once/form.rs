@@ -226,7 +226,7 @@ fn preview(def: &KindDef, form: &LabOnceForm, chosen: Option<&str>) -> Option<St
     let name = &pick.label;
     Some(match def.id {
         aws_wire::forced::kind::EXPIRE_VISIBILITY => format!(
-            "Bring back the messages in flight in {name} now ({}) . Each can be received again at once with the receive count it had, and the receipt handles it was given still name it.",
+            "Bring back the messages in flight in {name} now ({}). Each can be received again at once with the receive count it had, and the receipt handles it was given still name it.",
             pick.detail
                 .as_deref()
                 .unwrap_or("none are counted")

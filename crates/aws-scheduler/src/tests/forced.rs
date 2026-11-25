@@ -6,7 +6,6 @@ use std::time::Duration;
 use aws_peers::{Authorizer, Mode, Need, Peers};
 use aws_testkit::{Harness, TempDir};
 use aws_wire::ApiError;
-use aws_wire::forced::Forced as _;
 use aws_wire::forced::{Done, Step, kind};
 use aws_wire::service::{BoxFuture, Caller, Service};
 use serde_json::{Value, json};

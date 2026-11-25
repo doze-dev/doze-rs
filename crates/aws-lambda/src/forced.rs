@@ -102,7 +102,7 @@ impl Lambda {
 /// `10 minutes`, `90 seconds`.
 fn idle_words(idle: std::time::Duration) -> String {
     let secs = idle.as_secs();
-    if secs >= 120 && secs % 60 == 0 {
+    if secs >= 120 && secs.is_multiple_of(60) {
         format!("{} minutes", secs / 60)
     } else {
         format!("{secs} seconds")

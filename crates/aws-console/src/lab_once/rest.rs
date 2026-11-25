@@ -100,7 +100,7 @@ fn preview(s: &Shared, c: &LabOnceChoice, region: &str) -> String {
 
 /// `5 minutes`, `90 seconds`.
 pub(crate) fn idle_words(secs: u64) -> String {
-    if secs >= 120 && secs % 60 == 0 {
+    if secs >= 120 && secs.is_multiple_of(60) {
         format!("{} minutes", secs / 60)
     } else {
         format!("{secs} seconds")
@@ -196,6 +196,8 @@ fn ms(us: u128) -> String {
         } else {
             format!("{whole} ms")
         }
+    } else if us < 100 {
+        "under 0.1 ms".to_owned()
     } else {
         format!("{:.1} ms", us as f64 / 1000.0)
     }
@@ -207,6 +209,7 @@ mod tests {
 
     #[test]
     fn a_time_is_said_in_milliseconds_with_a_decimal_when_it_is_small() {
+        assert_eq!(ms(40), "under 0.1 ms");
         assert_eq!(ms(800), "0.8 ms");
         assert_eq!(ms(9_940), "9.9 ms");
         assert_eq!(ms(12_300), "12 ms");

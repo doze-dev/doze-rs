@@ -121,23 +121,27 @@ fn many(n: usize) -> String {
 /// What was done, with each message's receive count (the first few, by id).
 fn sentence(queue: &str, held: &[(&str, u32)], past: usize) -> String {
     let n = held.len();
-    let mut s = format!(
-        "Brought back {} that {} in flight in {queue}: {} receivable again with the receive count {} had.",
-        many(n),
-        if n == 1 { "was" } else { "were" },
-        if n == 1 { "it is" } else { "they are" },
-        if n == 1 { "it" } else { "each" },
-    );
-    let shown: Vec<String> = held
+    let mut shown: Vec<String> = held
         .iter()
         .take(3)
-        .map(|(id, count)| format!("{} (received {count}x)", short(id)))
+        .map(|(id, count)| {
+            let times = if *count == 1 { "time" } else { "times" };
+            format!("{}, received {count} {times}", short(id))
+        })
         .collect();
-    s.push_str(&format!(" {}", shown.join(", ")));
     if n > shown.len() {
-        s.push_str(&format!(" and {} more", n - shown.len()));
+        shown.push(format!("and {} more", n - shown.len()));
     }
-    s.push('.');
+    let mut s = format!(
+        "Brought back {} that {} in flight in {queue}: {} can be received again and {} the receive {} {} had ({}).",
+        many(n),
+        if n == 1 { "was" } else { "were" },
+        if n == 1 { "it" } else { "they" },
+        if n == 1 { "keeps" } else { "keep" },
+        if n == 1 { "count" } else { "counts" },
+        if n == 1 { "it" } else { "they" },
+        shown.join("; "),
+    );
     if past > 0 {
         s.push_str(&format!(
             " {} reached the queue's maxReceiveCount: the next receive moves {} to the dead-letter queue.",

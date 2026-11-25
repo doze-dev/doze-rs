@@ -63,6 +63,16 @@ impl Core {
         })
     }
 
+    /// [`Core::sweep_now`], answered as the timer's tick is: with whether a stream got records and what is left to do.
+    pub(crate) async fn sweep_answer(&mut self, table: &str) -> crate::core::Answer {
+        let swept = self.sweep_now(table).await;
+        let appended = matches!(&swept, Ok(Sweep::Ran { appended: true, .. }));
+        let mut answer = crate::core::Answer::of(Err(ApiError::internal("not a call")), appended);
+        answer.work = std::mem::take(&mut self.work);
+        answer.swept = Some(swept);
+        answer
+    }
+
     /// How many items are expired in the tables with time to live other than `name`.
     fn expired_elsewhere(&self, name: &str, now_secs: i64) -> Result<usize, ApiError> {
         let mut total = 0;
@@ -142,7 +152,7 @@ fn words(table: &str, sweep: Sweep) -> Step {
         )),
         Sweep::Nothing { next_ms } => {
             let next = next_ms.map_or_else(
-                || "No item has an expiry set.".to_owned(),
+                || "None of its items has an expiry set.".to_owned(),
                 |ms| format!("The next item expires at {}.", utc(ms)),
             );
             Step::Nothing(format!(

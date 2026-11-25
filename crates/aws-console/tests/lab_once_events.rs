@@ -4,17 +4,19 @@
     clippy::unwrap_used,
     clippy::expect_used,
     clippy::panic,
-    clippy::indexing_slicing
+    clippy::indexing_slicing,
+    clippy::too_many_lines
 )]
 
 mod support;
 #[path = "lab_once/world.rs"]
 mod world;
 
+use aws_peers::Mode;
 use doze_runtime::Clock as _;
 use serde_json::{Value, json};
 use support::{keys, ts_keys};
-use world::{ONCE, lab, queue, sent};
+use world::{ONCE, lab, lab_in, queue, sent};
 
 const R: &str = "us-east-1";
 
@@ -121,6 +123,28 @@ async fn an_in_flight_message_comes_back_with_its_receive_count_and_a_second_try
     );
     let (_, index) = l.get(ONCE).await;
     assert_eq!(index["history"].as_array().unwrap().len(), 3);
+}
+
+#[tokio::test]
+async fn under_enforce_the_console_is_the_accounts_root_and_may_force_what_the_call_would_allow() {
+    let l = lab_in("enforce", &[], Mode::Enforce);
+    l.app(R, "sqs", "CreateQueue", &queue("orders")).await;
+    let url = "http://127.0.0.1:4566/000000000000/orders";
+    l.app(
+        R,
+        "sqs",
+        "SendMessage",
+        &json!({"QueueUrl": url, "MessageBody": "one"}),
+    )
+    .await;
+    l.app(R, "sqs", "ReceiveMessage", &json!({"QueueUrl": url}))
+        .await;
+    // The same right the call `sqs:ChangeMessageVisibility` needs is asked, and the root holds it.
+    let (status, done) = l
+        .force("expire-visibility", &json!({"choice": "orders"}))
+        .await;
+    assert_eq!(status, 200, "{done}");
+    assert_eq!(done["ok"], true, "{done}");
 }
 
 #[tokio::test]

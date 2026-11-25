@@ -236,15 +236,7 @@ impl doze_runtime::Service for Core {
                 answer.work = std::mem::take(&mut self.work);
                 answer
             }
-            Request::Sweep { table } => {
-                let swept = self.sweep_now(&table).await;
-                let appended =
-                    matches!(&swept, Ok(crate::forced::Sweep::Ran { appended: true, .. }));
-                let mut answer = Answer::of(Err(ApiError::internal("not a call")), appended);
-                answer.work = std::mem::take(&mut self.work);
-                answer.swept = Some(swept);
-                answer
-            }
+            Request::Sweep { table } => self.sweep_answer(&table).await,
             Request::Policy(arn) => Answer {
                 policy: self.policy_text(&arn),
                 ..Answer::of(Err(ApiError::internal("not a call")), false)

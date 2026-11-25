@@ -237,6 +237,7 @@ fn caller(key: &str) -> Caller {
 }
 
 #[tokio::test]
+#[allow(clippy::too_many_lines)] // one story: a service, a refusal, a sweep, a second sweep
 async fn a_real_service_sweeps_and_a_caller_without_the_right_is_refused() {
     let dir = TempDir::new("ddb-forced");
     let clock = Arc::new(ManualClock::at(NOW_MS));

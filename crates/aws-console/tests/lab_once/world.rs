@@ -1,7 +1,7 @@
 //! The harness of the forced events' tests: the services a rehearsal acts on, really, on one bus with one task set (so the register of
 //! lazy services sees them all), a console over them, and requests as the Lab's page sends them. DynamoDB reads a clock the test owns.
 
-#![allow(dead_code)]
+#![allow(dead_code, clippy::too_many_lines)]
 
 use std::sync::Arc;
 use std::time::Duration;
@@ -38,10 +38,15 @@ impl Drop for Lab {
 
 /// A doze-aws's worth of the services a forced event is about, `served` of them served (all, when it is empty).
 pub(crate) fn lab(name: &str, served: &[&'static str]) -> Lab {
+    lab_in(name, served, Mode::Off)
+}
+
+/// The same with IAM deciding in `mode` (the console calls as the account's root, which it lets do what the person running doze-aws can).
+pub(crate) fn lab_in(name: &str, served: &[&'static str], mode: Mode) -> Lab {
     let dir = std::env::temp_dir().join(format!("aws-console-once-{name}-{}", std::process::id()));
     drop(std::fs::remove_dir_all(&dir));
     let peers = Peers::new();
-    peers.set_mode(Mode::Off);
+    peers.set_mode(mode);
     let tasks = Tasks::new();
     let clock = Arc::new(ManualClock::at(1_700_000_000_000));
     let ext: Arc<dyn std::any::Any + Send + Sync> = peers.clone();
@@ -84,6 +89,13 @@ pub(crate) fn lab(name: &str, served: &[&'static str]) -> Lab {
     ];
     for (_, _, s) in &services {
         peers.register(Arc::clone(s));
+    }
+    if mode != Mode::Off {
+        let (iam, sts) = aws_iam::services(ctx("iam", system()));
+        let iam = Arc::new(iam);
+        peers.register(iam.clone());
+        peers.register(Arc::new(sts));
+        peers.set_authorizer(iam);
     }
     peers.set_rests(tasks.rests());
     let recorder = Arc::new(Recorder::new());
