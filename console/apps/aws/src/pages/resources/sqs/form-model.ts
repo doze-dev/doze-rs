@@ -167,7 +167,7 @@ export function problems(f: QueueForm, existing: { create: boolean }): Problems 
     if (!f.kms.trim()) out.kms = "Choose a KMS key, or enter its alias or ARN.";
     set("reuse", range("The data key reuse period", toSeconds(f.reuse.value, f.reuse.unit), LIMITS.reuse.min, LIMITS.reuse.max, "seconds (1 minute to 24 hours)"));
   }
-  if (policyBroken(f)) out.policy = "The access policy is not a JSON object.";
+  if (f.policyMode === "advanced" && f.policy.trim() !== "" && parse(f.policy) === null) out.policy = "The access policy is not a JSON object.";
   if (f.allowOn && f.allowMode === "byQueue") {
     const arns = lines(f.allowArns);
     if (arns.length === 0) out.allow = "Name at least one source queue by ARN.";
@@ -194,10 +194,6 @@ export function basicPolicy(f: Pick<QueueForm, "send" | "receive" | "principals"
   if (statements.length === 0) return null;
   return JSON.stringify({ Version: "2012-10-17", Id: "__default_policy_ID", Statement: statements }, null, 2);
 }
-
-/** Whether the access policy typed in Advanced is not a JSON object yet: nothing of it is put in the call (a half-typed policy is not a
- * member), and the form cannot be saved until it is. */
-export const policyBroken = (f: Pick<QueueForm, "policyMode" | "policy">): boolean => f.policyMode === "advanced" && f.policy.trim() !== "" && parse(f.policy) === null;
 
 /** The Policy attribute the form means: the Basic choices' policy, or the JSON typed in Advanced; null for none. */
 export function policyOf(f: QueueForm, queueArn: string): string | null {
@@ -243,9 +239,9 @@ export function attributes(f: QueueForm, base: Base, queueArn: string): Record<s
     if (scope !== was.scope) out.DeduplicationScope = scope;
     if (limit !== was.throughput) out.FifoThroughputLimit = limit;
   }
+  // A policy typed that is not a JSON object is a problem of the form (Save says so): it is not what the call carries.
   const policy = policyOf(f, queueArn);
-  // A policy that is not JSON yet is no member of the call at all (an empty Policy would remove the queue's).
-  if (!policyBroken(f) && !same(policy, was.policy)) out.Policy = policy ?? "";
+  if (!problems(f, { create: false }).policy && !same(policy, was.policy)) out.Policy = policy ?? "";
   const allow = allowPolicy(f);
   if (!same(allow, was.allow)) out.RedriveAllowPolicy = allow ?? "";
   if (f.sse !== was.sse || (f.sse === "kms" && f.kms.trim() !== was.kms)) {
@@ -254,10 +250,11 @@ export function attributes(f: QueueForm, base: Base, queueArn: string): Record<s
     else Object.assign(out, was.sse === "kms" ? { KmsMasterKeyId: "", SqsManagedSseEnabled: "false" } : { SqsManagedSseEnabled: "false" });
   }
   if (f.sse === "kms") put("KmsDataKeyReusePeriodSeconds", toSeconds(f.reuse.value, f.reuse.unit), was.reuse);
-  // The dead-letter switch is on before a queue is chosen: nothing is sent for it yet.
-  const target = f.dlqOn && f.dlq ? f.dlq : null;
-  const max = target ? Number(f.maxReceives) : null;
-  if (target !== was.dlqArn || max !== was.max) out.RedrivePolicy = target ? JSON.stringify({ deadLetterTargetArn: target, maxReceiveCount: max }) : "";
+  // The switch is on and no queue is chosen yet: there is nothing to send for it (an empty policy would say "no dead-letter queue").
+  const choosing = f.dlqOn && !f.dlq;
+  const target = f.dlqOn ? f.dlq : null;
+  const max = f.dlqOn ? Number(f.maxReceives) : null;
+  if (!choosing && (target !== was.dlqArn || max !== was.max)) out.RedrivePolicy = target ? JSON.stringify({ deadLetterTargetArn: target, maxReceiveCount: max }) : "";
   return out;
 }
 

@@ -9,7 +9,7 @@ import { useAbout } from "../../../api/queries";
 import { FormPage, TAG_RULES, diffTags, noChange, resourceCrumbs, useSetTags, useTags } from "../../../kit";
 import { useOp } from "../deep/api";
 import { Configuration, TypeAndName } from "./form-fields";
-import { attributes, formOf, policyBroken, problems, type QueueForm } from "./form-model";
+import { attributes, formOf, problems, type QueueForm } from "./form-model";
 import { AccessPolicy, DeadLetter, Encryption, RedriveAllow, TagsSection } from "./form-sections";
 import type { SubProps } from "./sub-pages";
 
@@ -63,8 +63,8 @@ function EditForm({ d, q, back, done, tags }: SubProps & { tags: { key: string; 
       banner={refused ? <Alert tone="bad" title="The changes were not saved." testId="edit-refused">{refused.code}: {refused.message}</Alert> : undefined}
       submitLabel="Save"
       pending={save.isPending || setTags.isPending}
-      disabled={nothing || policyBroken(f) || (tried && bad)}
-      disabledWhy={policyBroken(f) ? "Fix the JSON policy to save." : nothing ? "Nothing has changed." : Object.values(p)[0]}
+      disabled={nothing || (tried && bad) || Boolean(p.policy)}
+      disabledWhy={nothing ? "Nothing has changed." : p.policy ?? Object.values(p)[0]}
       cancelLabel="Cancel"
       onCancel={back}
       onSubmit={() => void submit()}

@@ -19,7 +19,7 @@ import { BPA_ALL, bpaOf, bpaOn, type Bpa, encryptionConfig, encryptionOf, owners
 import { bucketOf, useListNav } from "./api";
 import { BpaChoice, type Encryption, EncryptionChoice, OwnershipChoice, RadioCards } from "./controls";
 import { setFlash } from "./flash";
-import { tagsHint, versioningHint } from "./create-hints";
+import { ownedRefusal, startSentence, tagsHint, versioningHint } from "./create-hints";
 import { useKmsKeys } from "./kms-hook";
 import { NAME_RULE, listWords, nameRefusal, regionWords } from "./words";
 
@@ -57,12 +57,15 @@ export function BucketCreate() {
   const [copied, setCopied] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [failure, setFailure] = useState<{ step: string; error: unknown } | null>(null);
+  // The name the account already has a bucket of, found before any call was sent.
+  const [owned, setOwned] = useState<string | null>(null);
+  const ownRefusal = owned !== null && owned === name ? ownedRefusal(name) : null;
 
   const input = { Bucket: name, ObjectOwnership: ownership, ...(lock ? { ObjectLockEnabledForBucket: true } : {}) };
   const request: PreviewRequest | null = name ? { service: "s3", operation: "CreateBucket", input } : null;
   const refused = failure?.step === "CreateBucket" ? failure.error : null;
   const code = refused instanceof ApiFailure ? refused.code : "";
-  const nameRefused = refused ? (code === "InvalidBucketName" ? nameRefusal(name) : code.startsWith("BucketAlready") ? { why: `${name} is taken: ${errorWords(refused).message}`, suggestion: "Choose another name." } : null) : null;
+  const nameRefused = ownRefusal ?? (refused ? (code === "InvalidBucketName" ? nameRefusal(name) : code.startsWith("BucketAlready") ? { why: `${name} is taken: ${errorWords(refused).message}`, suggestion: "Choose another name." } : null) : null);
   const said = refused ? errorWords(refused) : null;
 
   /** Takes the settings of another bucket into this form (not its policy). */
@@ -83,14 +86,24 @@ export function BucketCreate() {
     setCopied(source);
   };
 
+  /** The list's sentence says what each bucket has on (versioning): read it again once the calls after CreateBucket are made, not before. */
+  const refreshList = () => qc.invalidateQueries({ queryKey: ["resources", "list", "s3", "buckets"] });
+
   const submit = async () => {
     setBusy(true);
     setFailure(null);
+    // In us-east-1 CreateBucket for a bucket the account owns answers 200: read the account's buckets again, and say so instead of
+    // reporting a bucket made that was already there.
+    const fresh = (await existing.refetch()).data?.pages.flatMap((pg) => pg.rows.map((r) => r.name)) ?? names;
+    if (fresh.includes(name)) {
+      setOwned(name);
+      setBusy(false);
+      return;
+    }
     const t = bucketOf(name);
     let step = "CreateBucket";
     try {
       await callKindOp(KIND, "CreateBucket", input);
-      void qc.invalidateQueries({ queryKey: ["resources", "list", "s3", "buckets"] });
       const kept = filled(tags);
       if (bpaOn(bpa) !== 4) await callOp(t, (step = "PutPublicAccessBlock"), { PublicAccessBlockConfiguration: bpa });
       if (versioning) await callOp(t, (step = "PutBucketVersioning"), { VersioningConfiguration: { Status: "Enabled" } });
@@ -107,10 +120,12 @@ export function BucketCreate() {
       }
       // The bucket is there; the setting after it was refused. Its own page says so.
       setFlash({ tone: "warn", title: `Bucket ${name} was created, but ${step} was refused.`, returned: errorWords(e).message, left: "Set it from the bucket's pages." });
+      await refreshList();
       go({});
       return;
     }
-    setFlash({ title: `Bucket ${name} created.`, returned: `CreateBucket answered with its location. ${madeWords({ versioning, bpa, lock })}.` });
+    setFlash({ title: `Bucket ${name} created.`, returned: `CreateBucket answered with its location. ${startSentence(madeWords({ versioning, bpa, lock }))}.` });
+    await refreshList();
     go({});
   };
 
@@ -124,7 +139,11 @@ export function BucketCreate() {
       refusal={refused && said ? { code: code || "Error", message: said.message } : null}
       callNote={<>Keeping all four Block Public Access settings on and Bucket owner enforced needs only the CreateBucket permission. Object Lock On adds ObjectLockEnabledForBucket to this call. Versioning, tags, Block Public Access changes and a KMS key are made by the calls that follow it.</>}
       banner={
-        refused && said ? (
+        ownRefusal ? (
+          <Alert tone="bad" title={ownRefusal.title} testId="create-owned">
+            {ownRefusal.why} {ownRefusal.suggestion}
+          </Alert>
+        ) : refused && said ? (
           <Alert tone="bad" title="Bucket not created." testId="create-refused">
             CreateBucket answered {said.code?.split(" · HTTP ").reverse().join(" ")}: {said.message.replace(/\.$/, "")}. {nameRefused ? `${nameRefused.why} ${nameRefused.suggestion ?? ""}`.replace(/\s+$/, "") : ""} Choose Create bucket again.
           </Alert>

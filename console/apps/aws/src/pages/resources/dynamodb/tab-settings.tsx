@@ -87,7 +87,7 @@ export function SettingsTab({ t, go }: { t: TableInfo; go: (action: string) => v
           {failed && <Alert tone="bad" title={`UpdateTable was refused${failed.code ? `: ${failed.code}` : ""}`} testId="protection-error">{failed.message}</Alert>}
         </div>
       </Card>
-      <SettingsTags name={t.name} />
+      <SettingsTags name={t.name} onSaved={setSaved} />
       {turning && (
         <Ask
           open

@@ -40,9 +40,9 @@ export function kmsKeys(keys: readonly ResourceRow[], aliases: readonly Resource
   return out;
 }
 
-/** `Only a symmetric encryption key in the bucket's Region can be used. alias/larder-app qualifies; alias/larder-signing is RSA_2048 for signing, so S3 cannot use it.` */
+/** `Only a symmetric encryption key in the bucket's Region can be used, and the console lists the first 100. alias/larder-app qualifies; alias/larder-signing is RSA_2048 for signing, so S3 cannot use it.` */
 export function kmsHint(k: KmsKeys): string {
-  const head = "Only a symmetric encryption key in the bucket's Region can be used.";
+  const head = "Only a symmetric encryption key in the bucket's Region can be used, and the console lists the first 100.";
   const yes = k.usable.slice(0, 3).map((u) => u.label);
   const no = k.unusable[0];
   const parts = [yes.length > 0 && `${listWords(yes)} ${yes.length === 1 ? "qualifies" : "qualify"}`, no && `${no.label} ${no.why}, so S3 cannot use it`].filter(Boolean);

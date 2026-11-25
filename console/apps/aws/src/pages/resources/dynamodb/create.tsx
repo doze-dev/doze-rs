@@ -47,7 +47,8 @@ export function TableCreate() {
     <FormPage
       title="Create table"
       sub={f.custom ? "Customize settings: choose the capacity mode, encryption and tags yourself." : "Name it and choose a primary key. Everything else can use the default settings."}
-      crumbs={crumbs(undefined, "Create table")}
+      // Customized, the page is one deeper (the board's last crumb): Create table > Create table (customized).
+      crumbs={f.custom ? [...crumbs(), { label: "Create table", to: "/resources/dynamodb/tables?do=create" }, { label: "Create table (customized)", to: "" }] : crumbs(undefined, "Create table")}
       request={request}
       refusal={refused && said ? { code: code || "Error", message: said.message } : null}
       banner={
@@ -88,8 +89,8 @@ export function TableCreate() {
           value={f.custom ? "custom" : "default"}
           onChange={(v) => set({ custom: v === "custom" })}
           options={[
-            { value: "default", title: "Default settings", description: "On-demand capacity and the default encryption. On AWS this option also turns on auto scaling; doze-aws has no auto scaling." },
-            { value: "custom", title: "Customize settings", description: "Choose the capacity mode, encryption and tags yourself." },
+            { value: "default", title: "Default settings", description: f.custom ? undefined : "On-demand capacity and the default encryption. On AWS this option also turns on auto scaling; doze-aws has no auto scaling." },
+            { value: "custom", title: "Customize settings", description: f.custom ? undefined : "Choose the capacity mode, encryption and tags yourself." },
           ]}
         />
       </FormSection>}

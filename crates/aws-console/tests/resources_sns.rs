@@ -219,3 +219,76 @@ async fn a_topics_settings_are_set_one_attribute_a_call_and_a_message_is_publish
         .await;
     assert_eq!((status, gone["code"].as_str()), (404, Some("NOT_FOUND")));
 }
+
+/// The record says what a publish the console made did: SNS delivers on an actor of its own, where nothing says which request it
+/// works for, so the delivery marks that carry the request across it are what make the row read `delivered to 1`, not `no deliveries`.
+#[tokio::test]
+async fn a_publish_the_console_makes_reads_delivered_to_the_queues_it_reached() {
+    let w = world("sns-fan", Mode::Soft, &[]);
+    w.app("sns", "CreateTopic", &json!({"Name": "orders-created"}))
+        .await;
+    w.app("sqs", "CreateQueue", &json!({"QueueName": "invoice-queue"}))
+        .await;
+    w.app(
+        "sns",
+        "Subscribe",
+        &json!({"TopicArn": topic_arn("orders-created"), "Protocol": "sqs",
+            "Endpoint": format!("arn:aws:sqs:us-east-1:{ACCOUNT}:invoice-queue")}),
+    )
+    .await;
+    let (status, sent) = w
+        .send(
+            "POST",
+            &format!("{BASE}/sns/topics/orders-created/op/Publish"),
+            &json!({"Message": "Order 10482 placed"}),
+        )
+        .await;
+    assert_eq!(status, 200, "{sent}");
+    let (_, page) = w.get("/api/v1/calls").await;
+    let said: Vec<&Value> = page["calls"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|c| c["action"] == "Publish" && c["caller"] == "console")
+        .map(|c| &c["summary"])
+        .collect();
+    assert_eq!(said, ["delivered to 1"], "{page}");
+}
+
+/// A topic's delivery logging offers the roles SNS can assume: the roles list narrowed by `p.trusts`, which the page never draws.
+#[tokio::test]
+async fn the_roles_list_is_narrowed_to_those_a_service_can_assume() {
+    let w = world("sns-roles", Mode::Soft, &[]);
+    let trust = |service: &str| {
+        json!({"Version": "2012-10-17", "Statement": [{"Effect": "Allow",
+            "Principal": {"Service": service}, "Action": "sts:AssumeRole"}]})
+        .to_string()
+    };
+    for (role, service) in [
+        ("sns-delivery-logs", "sns.amazonaws.com"),
+        ("larder-fn", "lambda.amazonaws.com"),
+    ] {
+        w.app(
+            "iam",
+            "CreateRole",
+            &json!({"RoleName": role, "AssumeRolePolicyDocument": trust(service)}),
+        )
+        .await;
+    }
+    let names = |page: &Value| -> Vec<String> {
+        page["rows"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|r| r["name"].as_str().unwrap().to_owned())
+            .collect()
+    };
+    let (_, all) = w.get(&format!("{BASE}/iam/roles")).await;
+    assert_eq!(names(&all), ["larder-fn", "sns-delivery-logs"], "{all}");
+    let (_, only) = w
+        .get(&format!("{BASE}/iam/roles?p.trusts=sns.amazonaws.com"))
+        .await;
+    assert_eq!(names(&only), ["sns-delivery-logs"], "{only}");
+    // The page draws no filter for it.
+    assert_eq!(only["params"].as_array().map(Vec::len), Some(0), "{only}");
+}

@@ -42,7 +42,8 @@ function columns(onDelete?: (i: IndexInfo) => void): DataColumn<IndexInfo>[] {
   ];
 }
 
-export function IndexesTab({ name, global, local, onCreate, onDeleted }: { name: string; global: IndexInfo[]; local: IndexInfo[]; onCreate: () => void; onDeleted: (index: string) => void }) {
+/** `banner`: what was just done to an index, said under the tabs (the board's place for it). `justMade`: an index was just created, so the line under the list says what it means for writes and no more. */
+export function IndexesTab({ name, global, local, onCreate, onDeleted, banner, justMade = false }: { name: string; global: IndexInfo[]; local: IndexInfo[]; onCreate: () => void; onDeleted: (index: string) => void; banner?: React.ReactNode; justMade?: boolean }) {
   const [asked, setAsked] = useState<IndexInfo | null>(null);
   const update = useOp<unknown>(tableTarget(name), "UpdateTable");
   const create = (
@@ -59,6 +60,7 @@ export function IndexesTab({ name, global, local, onCreate, onDeleted }: { name:
   }
   return (
     <div className="grid gap-6">
+      {banner}
       <Card title="Global secondary indexes" lede="A copy of the table's items under a different key, kept in step by DynamoDB. The columns are fields of GlobalSecondaryIndexes in DescribeTable." testId="global-indexes">
         {global.length === 0 ? (
           <div className="grid justify-items-start gap-3">
@@ -70,7 +72,7 @@ export function IndexesTab({ name, global, local, onCreate, onDeleted }: { name:
             <div>{create}</div>
             <DataTable aria-label="Global secondary indexes" data={global} columns={columns(setAsked)} rowId={(r) => r.name} />
             <Said>
-              <b>20 global secondary indexes</b> per table by default.{global.length > 1 ? ` Every write to ${name} now also updates ${global.length === 2 ? "both indexes" : `the ${global.length} indexes`}.` : ""}
+              {!(justMade && global.length > 1) && <><b>20 global secondary indexes</b> per table by default.</>}{global.length > 1 ? ` Every write to ${name} now also updates ${global.length === 2 ? "both indexes" : `the ${global.length} indexes`}.` : ""}
             </Said>
           </div>
         )}

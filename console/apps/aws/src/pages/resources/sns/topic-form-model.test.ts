@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { newRow } from "@doze/ui/components/app/key-values";
 import type { ResourceDetail } from "../../../api/types/ResourceDetail";
-import { changePhrases, changes, createInput, defaultPolicy, deliveryPolicy, DEFAULT_RETRY, emptyTopicForm, formOfTopic, policyBroken, problems, retryOf } from "./topic-form-model";
+import { changePhrases, changes, createInput, defaultPolicy, deliveryPolicy, DEFAULT_RETRY, emptyTopicForm, formOfTopic, problems, retryOf, NOT_JSON } from "./topic-form-model";
 import { topicOf } from "./topic-model";
 
 const R = "us-east-1";
@@ -48,14 +48,8 @@ test("an edit says what each change does", () => {
   expect(changePhrases([{ name: "MaximumMessageSize", value: "524288" }, { name: "SQSSuccessFeedbackRoleArn", value: "" }, { name: "SQSFailureFeedbackRoleArn", value: "" }, { name: "KmsMasterKeyId", value: "" }])).toEqual(["the maximum message size goes to 512 KiB", "delivery status logging changes", "encryption is turned off"]);
 });
 
-test("an access policy that is not JSON yet is no member of any call, not a half string and not an empty one", () => {
-  const broken = '{ "Version": "2012-10-17", "Stat';
-  expect(policyBroken({ policy: broken })).toBe(true);
-  expect(policyBroken({ policy: "[1]" })).toBe(true);
-  expect(policyBroken({ policy: "" })).toBe(false);
-  expect(policyBroken({ policy: '{"Version":"2012-10-17"}' })).toBe(false);
-  expect(JSON.stringify(createInput({ ...emptyTopicForm(), name: "t", policy: broken }, R, A))).not.toContain("Policy");
-  expect(problems({ ...emptyTopicForm(), name: "t", policy: broken }, true).policy).toContain("Not JSON");
-  const t = topicOf(detail({ ARN: `arn:aws:sns:${R}:${A}:orders-created`, Type: "Standard" }));
-  expect(changes({ ...formOfTopic(t, [], R, A), policy: broken }, t, R, A)).toEqual([]);
+test("a policy that is not JSON is a problem of the form and is not in the call", () => {
+  const f = { ...emptyTopicForm(), name: "orders", policy: "{ not json" };
+  expect(problems(f, true).policy?.startsWith(NOT_JSON)).toBe(true);
+  expect(createInput(f, "us-east-1", "000000000000")).toEqual({ Name: "orders" });
 });

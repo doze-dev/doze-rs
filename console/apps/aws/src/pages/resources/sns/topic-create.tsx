@@ -9,7 +9,7 @@ import { useResourceList } from "../../../api/resources";
 import { FormPage, useKindOp } from "../../../kit";
 import { Rich } from "./parts";
 import { b } from "./sentences";
-import { createInput, emptyTopicForm, policyBroken, problems, type TopicForm } from "./topic-form-model";
+import { createInput, emptyTopicForm, problems, type TopicForm } from "./topic-form-model";
 import { RetryPolicy, Logging, TagsSection, Tracing } from "./topic-form-delivery";
 import { AccessPolicy, Details, Encryption, FifoOptions, MaxSize } from "./topic-form-fields";
 
@@ -63,8 +63,8 @@ export function TopicCreate() {
       }
       submitLabel="Create topic"
       pending={make.isPending}
-      disabled={policyBroken(f) || (tried && Object.keys(p).length > 0)}
-      disabledWhy={policyBroken(f) ? "Fix the access policy to continue." : Object.values(p)[0]}
+      disabled={(tried && Object.keys(p).length > 0) || Boolean(p.policy)}
+      disabledWhy={p.policy ?? Object.values(p)[0]}
       onCancel={refused ? () => make.reset() : back}
       cancelLabel={refused ? "Back to the form" : "Cancel"}
       onSubmit={submit}

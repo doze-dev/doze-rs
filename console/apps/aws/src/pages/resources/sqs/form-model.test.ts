@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { allowPolicy, attributes, basicPolicy, createInput, emptyForm, formOf, nameProblem, policyBroken, problems } from "./form-model";
+import { allowPolicy, attributes, basicPolicy, createInput, emptyForm, formOf, nameProblem, problems } from "./form-model";
 import type { Queue } from "./queue-model";
 
 const ARN = "arn:aws:sqs:us-east-1:1:pick-lists";
@@ -61,6 +61,19 @@ describe("an edit", () => {
     const f = { ...formOf(q, [], dlqArn), visibility: { value: "60", unit: "seconds" as const }, dlqOn: false };
     expect(attributes(f, { create: false, queue: q, dlqArn }, ARN)).toEqual({ VisibilityTimeout: "60", RedrivePolicy: "" });
   });
+  test("a dead-letter switch that is on with no queue chosen sends no RedrivePolicy (not an empty one), on a new queue and on an edit", () => {
+    const blank = { ...formOf(queue({}), [], null), name: "q", dlqOn: true, dlq: "" };
+    expect(createInput(blank, ARN)).toEqual({ QueueName: "q" });
+    const q = queue({ dlq: "dlq", maxReceives: 5 });
+    const dlqArn = "arn:aws:sqs:us-east-1:1:dlq";
+    expect(attributes({ ...formOf(q, [], dlqArn), dlq: "" }, { create: false, queue: q, dlqArn }, ARN)).toEqual({});
+  });
+  test("an access policy that is not JSON is a problem of the form, and not what the call carries", () => {
+    const q = queue({});
+    const f = { ...formOf(q, [], null), policyMode: "advanced" as const, policy: "{ not json" };
+    expect(problems(f, { create: false }).policy).toBe("The access policy is not a JSON object.");
+    expect(attributes(f, { create: false, queue: q, dlqArn: null }, ARN)).toEqual({});
+  });
   test("moving from SSE-KMS to SSE-SQS clears the key", () => {
     const q = queue({ sse: "kms", kms: "alias/a", reuse: 300 });
     const f = { ...formOf(q, [], null), sse: "sqs" as const };
@@ -91,13 +104,13 @@ describe("a field that is not ready is no member of the call", () => {
   test("an access policy that is not JSON yet is not written into the call as a half string, and not as an empty one that would remove the queue's", () => {
     const q = queue({ policy: '{"Version":"2012-10-17","Statement":[]}' });
     const f = { ...formOf(q, [], null), policy: '{ "Version": "2012-10-17", "Stat' };
-    expect(policyBroken(f)).toBe(true);
+    expect(problems(f, { create: false }).policy).toBeTruthy();
     expect(attributes(f, { create: false, queue: q, dlqArn: null }, ARN)).toEqual({});
     expect(problems(f, { create: false }).policy).toContain("not a JSON object");
     // On a new queue too.
     const made = { ...emptyForm(), name: "q", policyMode: "advanced" as const, policy: "{ not json" };
     expect(JSON.stringify(createInput(made, ARN))).not.toContain("Policy");
-    expect(policyBroken({ ...made, policy: '{"Version":"2012-10-17"}' })).toBe(false);
-    expect(policyBroken({ ...made, policy: "   " })).toBe(false);
+    expect(problems({ ...made, policy: '{"Version":"2012-10-17"}' }, { create: true }).policy).toBeUndefined();
+    expect(problems({ ...made, policy: "   " }, { create: true }).policy).toBeUndefined();
   });
 });

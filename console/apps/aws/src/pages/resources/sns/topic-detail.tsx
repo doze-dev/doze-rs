@@ -109,7 +109,8 @@ function TopicView({ d, updatedAt, fetching, refresh }: { d: ResourceDetail; upd
         banner={banner}
         overview={<>
           {sentence && <Rich parts={sentence} className="mb-6" testId="detail-sentence" />}
-          <Pipeline name={t.name} calls={d.calls} subs={subs} />
+          {/* The Encryption tab of a topic with a key draws its own strip (publisher, topic, key): this one would be there twice. */}
+          {!(tab === "encryption" && t.kms) && <Pipeline name={t.name} calls={d.calls} subs={subs} />}
           <div className={published ? "mb-10 grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]" : "mb-10"}>
             <DetailsCard t={t} />
             {published && <PublishedCall published={published} />}
