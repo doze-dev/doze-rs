@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { isGone, labelOf, MOST_PINNED, parse, placeOf, toFront, togglePin } from "./pins";
+import { isGone, keyed, labelOf, MOST_PINNED, parse, placeOf, toFront, togglePin } from "./pins";
 
 const p = (name: string) => ({ service: "sqs", kind: "queues", name });
 
@@ -59,5 +59,13 @@ describe("a deleted resource leaves the rail", () => {
     expect(isGone(p("larder-fulfilment-lag"), "cloudwatch", ["larder-fulfilment-lag"])).toBe(false);
     expect(isGone({ service: "iam", kind: "policies", name: "arn:aws:iam::1:policy/team/readers" }, "iam", ["readers"])).toBe(true);
     expect(isGone(cw("a"), "cloudwatch", [""])).toBe(false);
+  });
+});
+
+describe("keyed", () => {
+  test("the default region keeps the key it always had, another region has its own", () => {
+    expect(keyed("doze-aws.pinned", null)).toBe("doze-aws.pinned");
+    expect(keyed("doze-aws.pinned", "eu-west-1")).toBe("doze-aws.pinned@eu-west-1");
+    expect(keyed("doze-aws.visited", "eu-west-1")).not.toBe(keyed("doze-aws.visited", "us-west-2"));
   });
 });

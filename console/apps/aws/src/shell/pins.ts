@@ -1,6 +1,7 @@
 // What the rail remembers in this browser: the resources a person pinned, and the ones opened most recently. Both are kept in
 // this browser only (localStorage under this console's own keys); doze-aws does not know them. A resource is its address.
 import { useSyncExternalStore } from "react";
+import { selectedRegion, useSelectedRegion } from "../api/region";
 import { PINNED_KEY, VISITED_KEY } from "../nav";
 import { subscriptionLabel } from "../pages/resources/sns/sub-model";
 
@@ -47,6 +48,10 @@ export function togglePin(list: Place[], p: Place): Place[] {
   return list.some((x) => same(x, p)) ? list.filter((x) => !same(x, p)) : [...list, p].slice(-MOST_PINNED);
 }
 
+/** The key a list is kept under: each region the console looks at has its own pins and recents (a queue of one region is not a place of
+ * another), and the default region keeps the keys it always had. */
+export const keyed = (base: string, region: string | null = selectedRegion()): string => (region ? `${base}@${region}` : base);
+
 const listeners = new Set<() => void>();
 const read = (key: string) => (typeof localStorage === "undefined" ? null : localStorage.getItem(key));
 const write = (key: string, list: Place[]) => {
@@ -60,16 +65,22 @@ const write = (key: string, list: Place[]) => {
 const subscribe = (l: () => void) => (listeners.add(l), window.addEventListener("storage", l), () => (listeners.delete(l), window.removeEventListener("storage", l)));
 
 /** The text kept is the snapshot, so a list is read again only when it changed. */
-export const usePinned = (): Place[] => parse(useSyncExternalStore(subscribe, () => read(PINNED_KEY)));
-export const useVisited = (): Place[] => parse(useSyncExternalStore(subscribe, () => read(VISITED_KEY)));
+export const usePinned = (): Place[] => {
+  const region = useSelectedRegion();
+  return parse(useSyncExternalStore(subscribe, () => read(keyed(PINNED_KEY, region))));
+};
+export const useVisited = (): Place[] => {
+  const region = useSelectedRegion();
+  return parse(useSyncExternalStore(subscribe, () => read(keyed(VISITED_KEY, region))));
+};
 
-export const pin = (p: Place) => write(PINNED_KEY, togglePin(parse(read(PINNED_KEY)), p));
+export const pin = (p: Place) => write(keyed(PINNED_KEY), togglePin(parse(read(keyed(PINNED_KEY))), p));
 /** Remembers that `p` was opened. */
-export const visit = (p: Place) => write(VISITED_KEY, toFront(parse(read(VISITED_KEY)), p, MOST_RECENT + MOST_PINNED));
+export const visit = (p: Place) => write(keyed(VISITED_KEY), toFront(parse(read(keyed(VISITED_KEY))), p, MOST_RECENT + MOST_PINNED));
 
 /** Takes `p` out of both lists: a resource that was deleted is not somewhere to go back to. */
 export function forget(p: Place) {
-  for (const key of [PINNED_KEY, VISITED_KEY]) write(key, parse(read(key)).filter((x) => !same(x, p)));
+  for (const key of [keyed(PINNED_KEY), keyed(VISITED_KEY)]) write(key, parse(read(key)).filter((x) => !same(x, p)));
 }
 
 /** Whether `p` is one of `names` of `service`: its name as it is, or as the tail of its ARN or path (a policy is a place by its ARN, and the
@@ -79,7 +90,7 @@ export const isGone = (p: Place, service: string, names: readonly string[]): boo
 /** Takes the places that were deleted out of both lists, for a delete that is a call of its own (a POST: `DeleteAlarms`) and not a DELETE of the
  * resource's address, which `forget` already sees. */
 export function forgetGone(service: string, names: readonly string[]) {
-  for (const key of [PINNED_KEY, VISITED_KEY]) {
+  for (const key of [keyed(PINNED_KEY), keyed(VISITED_KEY)]) {
     const kept = parse(read(key));
     const left = kept.filter((p) => !isGone(p, service, names));
     if (left.length !== kept.length) write(key, left);
