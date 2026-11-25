@@ -54,7 +54,7 @@ export function loggingOf(name: string, c: Config, w: Where): object {
 }
 
 /** The `encryptionConfiguration` of a customer managed key, or nothing: Step Functions keeps it (doze-aws returns it and encrypts nothing). */
-export const encryptionOf = (c: Pick<Config, "kms" | "kmsKey" | "kmsPeriod">) => (c.kms ? { encryptionConfiguration: { type: "CUSTOMER_MANAGED_KMS_KEY", kmsKeyId: c.kmsKey, kmsDataKeyReusePeriodSeconds: Number(c.kmsPeriod) } } : {});
+export const encryptionOf = (c: Pick<Config, "kms" | "kmsKey" | "kmsPeriod">) => (c.kms ? { encryptionConfiguration: { type: "CUSTOMER_MANAGED_KMS_KEY", kmsKeyId: c.kmsKey ?? "<KMS key>", kmsDataKeyReusePeriodSeconds: Number(c.kmsPeriod) } } : {});
 
 /** Why a key chosen for encryption is not enough yet; `null` when it is. */
 export const encryptionProblem = (c: Pick<Config, "kms" | "kmsKey" | "kmsPeriod">): string | null => (!c.kms ? null : !c.kmsKey ? "Choose a KMS key." : Number(c.kmsPeriod) >= 60 && Number(c.kmsPeriod) <= 900 ? null : "The data key reuse period is 60 to 900 seconds.");

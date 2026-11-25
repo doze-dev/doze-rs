@@ -148,6 +148,7 @@ pub(super) const HTTP: Kind = Kind {
         ops::free("DeleteStage").of("apigatewayv2"),
         ops::free("GetDeployments").of("apigatewayv2"),
         ops::free("CreateDeployment").of("apigatewayv2"),
+        ops::free("DeleteDeployment").of("apigatewayv2"),
     ],
     ..Kind::BARE
 };

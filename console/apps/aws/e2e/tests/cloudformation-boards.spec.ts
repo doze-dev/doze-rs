@@ -93,6 +93,8 @@ test("cloudformation__stack-detail: the sentence, what it owns, the verbs, the o
   await expect(page.getByTestId("stack-sentence")).toContainText("No stack imports its two exports, so nothing stops you deleting it.");
   await expect(page.getByTestId("wired-strip")).toContainText("Owns");
   await expect(page.getByTestId("wired-strip").getByTestId("wired-link")).toHaveCount(6);
+  // In the order the template declares them (the queues first), not the alphabetical order ListStackResources answers in.
+  await expect(page.getByTestId("wired-strip").getByTestId("wired-link")).toHaveText(["pick-lists-dlq", "pick-lists", "orders-created", "orders-table", "product-images", "resize-product-image"]);
   await expect(page.getByTestId("verb-update")).toBeVisible();
   await expect(page.getByTestId("verb-delete")).toBeVisible();
   await expect(page.getByTestId("detail-badge")).toHaveText("CREATE_COMPLETE");
@@ -111,6 +113,12 @@ test("cloudformation__stack-detail: the sentence, what it owns, the verbs, the o
 });
 
 test("cloudformation__stack-detail: termination protection is turned on from Actions, and a delete is then refused in words", async ({ page }) => {
+  await go(page, stack("larder-sandbox"), "larder-sandbox");
+  // Actions > Open Live opens Live on this stack's calls, not on every call.
+  await page.getByTestId("actions-menu").click();
+  await page.getByTestId("actions-open-live").click();
+  await expect(page).toHaveURL(/\/live\?.*service=cloudformation/);
+  await expect(page).toHaveURL(/q=larder-sandbox/);
   await go(page, stack("larder-sandbox"), "larder-sandbox");
   await page.getByTestId("actions-menu").click();
   await page.getByRole("menuitem", { name: "Turn on termination protection" }).click();
@@ -434,6 +442,7 @@ test("cloudformation__stack-update, details, options, review and updated: the wi
   await expect(page.getByTestId("keep-WebhookSecret")).toBeChecked();
   await expect(page.getByTestId("param-input-WebhookSecret")).toHaveAttribute("placeholder", "Hidden, because the parameter is NoEcho");
   await expect(page.getByTestId("param-WebhookSecret")).toContainText("Type String.");
+  await expect(page.getByTestId("param-WebhookSecret")).toContainText(/It was set (once, when|when) larder-core was created on \d{4}-\d{2}-\d{2}/);
   await expect(page.getByTestId("call-panel-code").first()).toContainText('"UsePreviousValue": true');
   await shot(page, "stack-update-details");
   await advance(page);
@@ -464,17 +473,22 @@ test("cloudformation__stack-update, details, options, review and updated: the wi
   await expect(page.locator("h1").first()).toHaveText("Review larder-core");
   await expect(page.getByTestId("preview").locator("tbody tr")).toHaveCount(2, { timeout: 15_000 });
   await expect(page.getByTestId("call-panel-code").first()).toContainText("UpdateStack");
+  // The call carries the token it goes out under, and the page says where the preview above it came from (the hidden change set is not its call).
+  await expect(page.getByTestId("call-panel-code").first()).toContainText(/"ClientRequestToken": "Console-UpdateStack-[0-9a-f-]{36}"/);
+  await expect(page.getByTestId("stack-wizard")).toContainText("The preview above comes from CreateChangeSet and DescribeChangeSet, made for you. It is separate from this call.");
   await shot(page, "stack-update-review");
   await advance(page);
   await expect(page.locator("h1").first()).toHaveText("larder-core");
-  await expect(async () => {
-    await page.goto(`${server.console}${stack("larder-core", "?tab=events&done=updated")}`);
-    await expect(page.getByTestId("updated-state")).toBeVisible({ timeout: 1000 });
-  }).toPass({ timeout: 20_000 });
+  // The page follows the update to its end by itself, with no reload: when the badge says UPDATE_COMPLETE the events hold the stack's own
+  // UPDATE_COMPLETE row as well as the in-progress ones (the status flips before the page has read the last events).
+  await expect(page.getByTestId("updated-state")).toBeVisible({ timeout: 30_000 });
   await expect(page.getByTestId("detail-badge")).toHaveText("UPDATE_COMPLETE");
+  await expect(page.getByTestId("stack-events").locator("tr", { hasText: "AWS::CloudFormation::Stack" }).filter({ hasText: /UPDATE_COMPLETE\b/ }).first()).toBeVisible();
   await expect(page.getByTestId("stack-sentence")).toContainText("larder-core was updated: ReportsBucket was created and PickListsQueue was changed.");
   await expect(page.getByTestId("stack-events")).toContainText("UPDATE_COMPLETE");
   await expect(page.getByTestId("stack-events")).toContainText("CREATE_COMPLETE");
+  // The events the update wrote carry the token the page sent.
+  expect(cli(["cloudformation", "describe-stack-events", "--stack-name", "larder-core"])).toContain("Console-UpdateStack-");
   expect(cli(["s3api", "head-bucket", "--bucket", "larder-reports-out"])).toBeDefined();
   await shot(page, "stack-updated");
   // The preview change set the review made is gone with the page.

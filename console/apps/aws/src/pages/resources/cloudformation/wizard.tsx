@@ -10,7 +10,7 @@ import { ApiFailure } from "@doze/ui/lib/api";
 import { DetailError, FormPage, type PreviewRequest, RuleHelp } from "../../../kit";
 import { callKindOp } from "../../../kit";
 import type { OwnProps } from "../deep/registry";
-import { JsonBlock } from "../deep/parts";
+import { at, JsonBlock } from "../deep/parts";
 import { STACKS, useCfnPreview, useCfnRead, useCfnWrite, useStack, useStackNames } from "./api";
 import { ChangeSetDialog } from "./changeset-dialog";
 import type { Stack } from "./model";
@@ -107,14 +107,17 @@ function WizardPage({ mode, service, kind, stack, resume = false }: { mode: Mode
     await navigate({ to: "/resources/$service/$kind/$name", params: { service, kind, name: stackName }, search: { do: "changeset", name: previewId } });
   };
   const go = (i: number) => { setStep(i); setTried(false); setRefusal(null); };
+  // The token the update goes out under (the events it makes carry it); one for the whole wizard, so the call shown is the call made.
+  const [token] = useState(() => `Console-UpdateStack-${crypto.randomUUID()}`);
+  const stackCall = () => (mode === "update" ? { ...stackInput(w, summary), ClientRequestToken: token } : stackInput(w, summary));
   const submit = () => {
     setRefusal(null);
-    const input = stackInput(w, summary);
+    const input = stackCall();
     make.mutate(input, { onSuccess: () => void navigate({ to: "/resources/$service/$kind/$name", params: { service, kind, name: stackName }, search: update ? { tab: "events", done: "updated" } : { tab: "events", done: "created" } }) });
   };
   const makeChangeSet = (name: string) => makeSet.mutate(changeSetInput(w, summary, name), { onSuccess: () => { setAsking(false); void navigate({ to: "/resources/$service/$kind/$name", params: { service, kind, name: stackName }, search: update ? { do: "changeset", name } : {} }); } });
   const lead = [
-    update ? `Step 1 of 4 for ${stackName}. Keep the template or replace it. The last step previews the update as a change set before you deploy it.` : "Step 1 of 4. Choose the template that describes the resources. Nothing is created until you submit on the last step.",
+    update ? `Step 1 of 4 for ${stackName}. Keep the template or replace it. A direct update deploys right away; the last step previews it as a change set first.` : "Step 1 of 4. Choose the template that describes the resources. Nothing is created until you submit on the last step.",
     update ? `Step 2 of 4 for ${stackName}. Each parameter starts at the value the stack has now. Change the ones you want to change.` : "Step 2 of 4. Name the stack and answer the parameters its template declares.",
     update ? `Step 3 of 4 for ${stackName}. The same options as at creation, except the ones that only apply when a stack is first made.` : "Step 3 of 4. Tags, permissions, what to do when creation fails, and termination protection. Every option here has a default; you can go straight on.",
     update ? `Step 4 of 4. Check what you chose and what it would change. Choose Edit on a section to change it.` : "Step 4 of 4. Check what you chose. Choose Edit on a section to change it before you submit.",
@@ -124,7 +127,7 @@ function WizardPage({ mode, service, kind, stack, resume = false }: { mode: Mode
   const call: PreviewRequest | null =
     step === 0 ? (update && w.keepTemplate ? req("GetTemplateSummary", { StackName: stackName }) : validateInput(w) ? req("ValidateTemplate", validateInput(w)!) : null)
     : step === 1 && !update ? req("GetTemplateSummary", summaryInput(w) ?? {})
-    : req(update ? "UpdateStack" : "CreateStack", stackInput(w, summary));
+    : req(update ? "UpdateStack" : "CreateStack", stackCall());
   const asideStep = step === 1 && !update && summary ? (
     <div className="grid gap-2" data-testid="summary-panel">
       <span className="font-mono text-[12.5px] text-muted-foreground">returns</span>
@@ -146,7 +149,7 @@ function WizardPage({ mode, service, kind, stack, resume = false }: { mode: Mode
         request={step === 3 ? call : call}
         callTitle={refusal ? "The call that was refused" : step === 1 && !update ? "The call that reads the template" : step >= 1 && step < 3 ? `The ${update ? "UpdateStack" : "CreateStack"} call so far` : undefined}
         refusal={reached}
-        callNote={step === 1 && !update && summary ? asideStep : step === 0 ? (update && w.keepTemplate ? "Choosing Use existing template sends UsePreviousTemplate true to UpdateStack instead of a URL. Never both." : "Next reads the template and lists its parameters. Making the stack is the last step, and the call is shown there.") : step === 2 ? "Left blank, the role, the rollback configuration and the stack policy are left out of the call." : step === 3 ? (summary && (summary.Capabilities ?? []).length > 0 ? `Capabilities sent: ${(summary.Capabilities ?? []).join(", ")}.` : "No capabilities are sent: the template holds no IAM resources.") : undefined}
+        callNote={step === 1 && !update && summary ? asideStep : step === 0 ? (update && w.keepTemplate ? "Choosing Use existing template sends UsePreviousTemplate true to UpdateStack instead of a URL. Never both." : "Next reads the template and lists its parameters. Making the stack is the last step, and the call is shown there.") : step === 2 ? "Left blank, the role, the rollback configuration and the stack policy are left out of the call." : step === 3 ? <>{mode === "update" ? "The preview above comes from CreateChangeSet and DescribeChangeSet, made for you. It is separate from this call. " : ""}{summary && (summary.Capabilities ?? []).length > 0 ? `Capabilities sent: ${(summary.Capabilities ?? []).join(", ")}.` : "No capabilities are sent: the template holds no IAM resources."}</> : undefined}
         submitLabel={update ? (mode === "changeset" ? "Create change set" : "Update stack") : "Submit"}
         onSubmit={mode === "changeset" ? () => setAsking(true) : submit}
         onCancel={back}
@@ -157,7 +160,7 @@ function WizardPage({ mode, service, kind, stack, resume = false }: { mode: Mode
         testId="stack-wizard"
       >
         {step === 0 && <StepTemplate w={w} set={set} problem={tried ? problems[0] : null} refused={refusal?.op === "ValidateTemplate"} stackName={stackName} />}
-        {step === 1 && summary && <StepDetails w={w} set={set} summary={summary} taken={taken} tried={tried} current={current} />}
+        {step === 1 && summary && <StepDetails w={w} set={set} summary={summary} taken={taken} tried={tried} current={current} born={stack ? { created: stack.CreationTime ? at(stack.CreationTime) : undefined, updated: Boolean(stack.LastUpdatedTime) } : undefined} />}
         {step === 2 && summary && <StepOptions w={w} set={set} summary={summary} tried={tried} was={stack?.Tags ?? []} />}
         {step === 3 && summary && (
           <>

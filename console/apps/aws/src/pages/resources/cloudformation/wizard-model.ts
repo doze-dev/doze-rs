@@ -106,6 +106,14 @@ export function parameterProblem(w: Wizard, d: Declared): string | null {
 
 const COUNT = ["no", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten"];
 
+/** What an update says of a NoEcho parameter: it is never shown again, so the field starts empty, and when it was set (the stack's creation,
+ * or an update since, which the console cannot tell from one that left it alone). */
+export function noEchoLine(stack: string, created: string | undefined, updated: boolean): string {
+  const first = "A NoEcho value is never shown again, so the field starts empty. Ticking Use existing value keeps the one the stack has.";
+  if (!created) return first;
+  return `${first} ${updated ? `It was set when ${stack} was created on ${created}, or by an update since.` : `It was set once, when ${stack} was created on ${created}.`}`;
+}
+
 /** What an update says under its tags: that they are the stack's own, or how many are kept. `null` for a stack with no tags. */
 export function tagsLine(rows: readonly { key: string; value: string }[], was: readonly { Key: string; Value: string }[], stack: string): string | null {
   if (was.length === 0) return null;

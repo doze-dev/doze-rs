@@ -127,6 +127,57 @@ async fn a_rest_api_is_built_resource_by_resource_and_method_by_method_through_t
     assert_eq!(stage["description"], "Production");
     let history = make(&w, "restapis", "GetDeployments", json!({"restApiId": id})).await;
     assert_eq!(history["item"].as_array().unwrap().len(), 1);
+    // A deployment a stage serves is refused; a second one, made by hand, is deleted; so are the method, the resource and the stage.
+    let (status, refused) = w
+        .send(
+            "POST",
+            &op("restapis", "DeleteDeployment"),
+            &json!({"restApiId": id, "deploymentId": dep["id"]}),
+        )
+        .await;
+    assert_eq!(status, 400, "{refused}");
+    assert!(
+        refused["message"].as_str().unwrap().contains("Active stages"),
+        "{refused}"
+    );
+    let spare = make(&w, "restapis", "CreateDeployment", json!({"restApiId": id})).await;
+    make(
+        &w,
+        "restapis",
+        "DeleteDeployment",
+        json!({"restApiId": id, "deploymentId": spare["id"]}),
+    )
+    .await;
+    make(
+        &w,
+        "restapis",
+        "DeleteMethod",
+        json!({"restApiId": id, "resourceId": rid, "httpMethod": "GET"}),
+    )
+    .await;
+    make(
+        &w,
+        "restapis",
+        "DeleteResource",
+        json!({"restApiId": id, "resourceId": rid}),
+    )
+    .await;
+    make(
+        &w,
+        "restapis",
+        "DeleteStage",
+        json!({"restApiId": id, "stageName": "prod"}),
+    )
+    .await;
+    make(
+        &w,
+        "restapis",
+        "DeleteDeployment",
+        json!({"restApiId": id, "deploymentId": dep["id"]}),
+    )
+    .await;
+    let after = make(&w, "restapis", "GetDeployments", json!({"restApiId": id})).await;
+    assert!(after["item"].as_array().is_none_or(Vec::is_empty), "{after}");
     // The calls are the console's, and show in Live as its own.
     assert!(
         w.live().iter().any(|l| l == "console apigateway PutMethod"),
@@ -190,6 +241,37 @@ async fn an_http_api_is_made_by_the_wizards_four_calls_and_given_cors_and_an_aut
     let history = make(&w, "apis", "GetDeployments", json!({"ApiId": id})).await;
     assert_eq!(history["items"][0]["deploymentId"], deployment);
     assert_eq!(history["items"][0]["autoDeployed"], true);
+    // The stage serves that deployment, so its delete is refused (the page says so in words and does not offer it).
+    let (status, refused) = w
+        .send(
+            "POST",
+            &op("apis", "DeleteDeployment"),
+            &json!({"ApiId": id, "DeploymentId": deployment}),
+        )
+        .await;
+    assert_eq!(status, 400, "{refused}");
+    // Once the stage is gone the deployment can go.
+    make(
+        &w,
+        "apis",
+        "DeleteStage",
+        json!({"ApiId": id, "StageName": "$default"}),
+    )
+    .await;
+    make(
+        &w,
+        "apis",
+        "DeleteDeployment",
+        json!({"ApiId": id, "DeploymentId": deployment}),
+    )
+    .await;
+    make(
+        &w,
+        "apis",
+        "CreateStage",
+        json!({"ApiId": id, "stageName": "$default", "autoDeploy": true}),
+    )
+    .await;
     // CORS is a part of the API itself.
     let cors = json!({"allowOrigins": ["https://admin.larder.example.com"], "allowMethods": ["GET", "POST"], "maxAge": 300});
     let updated = make(

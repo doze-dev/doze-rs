@@ -113,7 +113,8 @@ function ActionsMenu({ detail, extra }: { detail: ResourceDetail; extra?: { labe
           </DropdownMenuItem>
         )}
         <DropdownMenuItem asChild>
-          <Link to={"/live" as never}>
+          {/* Live, filtered to this resource's service and name (its filters are `service` and `q`). */}
+          <Link to={"/live" as never} search={{ service: detail.service, q: detail.name } as never} data-testid="actions-open-live">
             <RadioIcon /> Open Live
           </Link>
         </DropdownMenuItem>

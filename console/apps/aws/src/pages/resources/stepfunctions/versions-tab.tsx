@@ -15,7 +15,8 @@ import { fieldOf } from "./details-card";
 import { type AliasRow, type VersionRow, useAliases, useVersions } from "./hooks";
 import { PublishDialog } from "./publish-dialog";
 import { RadioRows, radioColumn } from "./radio";
-import { inputSkeleton, routingWords } from "./model";
+import { routingWords } from "./model";
+import { inputSkeleton } from "./start-input";
 import { parseDefinition } from "./graph";
 import { useGoTo } from "./hooks";
 
@@ -67,7 +68,7 @@ export function VersionsTab({ d }: { d: ResourceDetail }) {
               A version is a numbered, immutable snapshot of a revision. Numbers start at 1 and are never reused: delete version {Math.max(...list.map((v) => Number(v.number)))} and the next one published is {Math.max(...list.map((v) => Number(v.number))) + 1}. AWS allows up to 1,000 versions per state machine; doze-aws does not enforce that limit. Versions are published from <Link to="/resources/$service/$kind/$name" params={{ service: "stepfunctions", kind: "machines", name: d.name }} search={{ do: "edit" }} className="font-medium text-link hover:underline">Edit</Link>; starting one from here uses its version ARN.
             </p>
             {pick && starting > 0 && (
-              <StartDialog key={`${pick.number}-${starting}`} machine={d.id} name={d.name} startAt={startAt} input={inputSkeleton(parseDefinition(fieldOf(d, "Definition") ?? ""))} open onOpenChange={() => setStarting(0)} target={{ arn: pick.arn, words: <>Starts <b className="font-semibold">version {pick.number}</b> of <span className="font-mono font-semibold text-bright">{d.name}</span> by its version ARN. The execution runs the definition that version holds.</> }} />
+              <StartDialog key={`${pick.number}-${starting}`} machine={d.id} name={d.name} startAt={startAt} reuse={fieldOf(d, "Type") !== "EXPRESS"} input={inputSkeleton(parseDefinition(fieldOf(d, "Definition") ?? ""))} open onOpenChange={() => setStarting(0)} target={{ arn: pick.arn, words: <>Starts <b className="font-semibold">version {pick.number}</b> of <span className="font-mono font-semibold text-bright">{d.name}</span> by its version ARN. The execution runs the definition that version holds.</> }} />
             )}
           </>
         );
@@ -114,7 +115,7 @@ export function AliasesTab({ d }: { d: ResourceDetail }) {
               An alias points at one version, or splits executions between two by percentage. Starting an execution from an alias records both the alias and the version it chose. AWS allows up to 100 aliases per state machine; doze-aws does not enforce that limit.
             </p>
             {pick && starting > 0 && (
-              <StartDialog key={`${pick.name}-${starting}`} machine={d.id} name={d.name} startAt={startAt} input={inputSkeleton(parseDefinition(fieldOf(d, "Definition") ?? ""))} open onOpenChange={() => setStarting(0)} target={{ arn: pick.arn, words: <>Starts the alias <b className="font-mono font-semibold">{pick.name}</b> of <span className="font-mono font-semibold text-bright">{d.name}</span>, which picks a version by its routing: {routingWords(pick.routing)}.</> }} />
+              <StartDialog key={`${pick.name}-${starting}`} machine={d.id} name={d.name} startAt={startAt} reuse={fieldOf(d, "Type") !== "EXPRESS"} input={inputSkeleton(parseDefinition(fieldOf(d, "Definition") ?? ""))} open onOpenChange={() => setStarting(0)} target={{ arn: pick.arn, words: <>Starts the alias <b className="font-mono font-semibold">{pick.name}</b> of <span className="font-mono font-semibold text-bright">{d.name}</span>, which picks a version by its routing: {routingWords(pick.routing)}.</> }} />
             )}
           </>
         )

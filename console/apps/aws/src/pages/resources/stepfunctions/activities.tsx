@@ -139,6 +139,8 @@ export function ActivityCreate() {
   const [kms, setKms] = useState(false);
   const [kmsKey, setKmsKey] = useState<string | null>(null);
   const [kmsPeriod, setKmsPeriod] = useState("300");
+  const keys = useResourceList("kms", "keys");
+  const noKeys = kms && keys.isSuccess && !keys.hasNextPage && keys.data.pages.every((p) => p.rows.length === 0);
   const enc = { kms, kmsKey, kmsPeriod };
   const problem = nameProblem(name, []) ?? encryptionProblem(enc);
   const body = { name, ...encryptionOf(enc) };
@@ -178,7 +180,7 @@ export function ActivityCreate() {
             <p className="border-l-2 pl-3 text-[13px] text-muted-foreground">doze-aws keeps the setting and returns it, and does not encrypt an activity's task input with it. <span className="text-muted-foreground/80">{LOCAL_WORDS.stored}.</span></p>
             {kms && (
               <div className="grid gap-5 sm:grid-cols-2">
-                <Field label="KMS key">{(id) => <KeyPicker id={id} value={kmsKey} onChange={setKmsKey} by="id" />}</Field>
+                <Field label="KMS key" hint={noKeys ? "There is no KMS key in this Region yet. Make one in KMS first, or turn the switch off." : undefined}>{(id) => <KeyPicker id={id} value={kmsKey} onChange={setKmsKey} by="id" />}</Field>
                 <Field label="Data key reuse period" hint="Seconds, 60 to 900.">{(id) => <Input id={id} inputMode="numeric" value={kmsPeriod} onChange={(e) => setKmsPeriod(e.target.value)} className="bg-card" data-testid="activity-kms-period" />}</Field>
               </div>
             )}

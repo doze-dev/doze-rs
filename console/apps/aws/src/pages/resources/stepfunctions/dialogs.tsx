@@ -1,7 +1,7 @@
 // Start an execution (a name, optional, and its input as JSON), stop a running one and redrive a failed one: each a dialog over its
 // page, each one call as the console (StartExecution, StopExecution, RedriveExecution) that Live shows.
 import { useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Callout } from "@doze/ui/components/app/callout";
 import { Emphasis } from "@doze/ui/components/app/emphasis";
@@ -11,17 +11,35 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from "@doze/ui/components/ui/input";
 import { Field } from "../../../kit";
 import { machineOf, on, useOp } from "../deep/api";
-import { Refused } from "../deep/parts";
+import { pretty, Refused } from "../deep/parts";
+import { useLastGoodInput } from "./hooks";
 import { NAME, nameProblem } from "./model";
 
 export { NAME };
 
+/** The words under the input: what it is for, and where what it opens with came from (`from`: the run it was read from; `null`: no run has succeeded, so it is a skeleton; `undefined`: nothing to say). */
+function InputHelp({ startAt, from }: { startAt?: string; from: string | null | undefined }) {
+  const state = startAt ? <b className="font-mono font-semibold">{startAt}</b> : "the first state";
+  return (
+    <>
+      The JSON that {state} receives. Send <span className="font-mono">{"{}"}</span> when there is no input. Up to 256 KiB as UTF-8.
+      {from ? <> It opens with the input of <b className="font-mono font-semibold">{from}</b>, the newest execution that succeeded.</> : null}
+      {from === null ? <> No execution has succeeded yet, so it opens with the paths {state} reads, each holding its own name: replace them with values that exist.</> : null}
+    </>
+  );
+}
+
 /** What an execution is started from: the machine's current revision, one of its versions, or an alias. */
 export type StartTarget = { arn: string; words: React.ReactNode };
 
-export function StartDialog({ machine, name, open, onOpenChange, input: first = "{}", target, startAt }: { machine: string; name: string; open: boolean; onOpenChange: (o: boolean) => void; input?: string; target?: StartTarget; /** The state the execution begins at, which the input is for. */ startAt?: string }) {
+export function StartDialog({ machine, name, open, onOpenChange, input: first = "{}", target, startAt, reuse = false }: { machine: string; name: string; open: boolean; onOpenChange: (o: boolean) => void; /** What the input opens with. */ input?: string; target?: StartTarget; /** The state the execution begins at, which the input is for. */ startAt?: string; /** `input` is a skeleton: the input of the newest run that succeeded replaces it once read, unless it was edited. */ reuse?: boolean }) {
   const [run, setRun] = useState("");
   const [input, setInput] = useState(first);
+  const [touched, setTouched] = useState(false);
+  const last = useLastGoodInput(name, open && reuse).data;
+  useEffect(() => {
+    if (last && !touched) setInput(pretty(last.input));
+  }, [last, touched]);
   const start = useOp<{ executionArn: string; startDate: number }>(on.machine(name), "StartExecution");
   const navigate = useNavigate();
   const check = checkJson(input, "invalid");
@@ -57,7 +75,7 @@ export function StartDialog({ machine, name, open, onOpenChange, input: first = 
           <Field label="Name" optional error={named ? undefined : (nameProblem(run.trim()) ?? undefined)} hint="Leave it empty for a generated name. A name is unique per state machine and can be used again 90 days after its execution closes. Starting the same name with the same input while it runs returns that run instead of a second one.">
             {(id) => <Input id={id} value={run} onChange={(e) => setRun(e.target.value)} placeholder="e.g. order-0421" aria-invalid={!named} className="bg-card font-mono" spellCheck={false} data-testid="start-name" />}
           </Field>
-          <JsonEditor label="Input" value={input} onChange={setInput} empty="invalid" rows={8} testId="start-input" help={<>The JSON that {startAt ? <b className="font-mono font-semibold">{startAt}</b> : "the first state"} receives. Send <span className="font-mono">{"{}"}</span> when there is no input. Up to 256 KiB as UTF-8.</>} />
+          <JsonEditor label="Input" value={input} onChange={(v) => { setTouched(true); setInput(v); }} empty="invalid" rows={8} testId="start-input" help={<InputHelp startAt={startAt} from={reuse && !touched ? (last ? last.name : last === null && first !== "{}" ? null : undefined) : undefined} />} />
           <Refused error={start.error} operation="StartExecution" testId="write-error" />
           <DialogFooter>
             <Button type="button" variant="outline" className="bg-card" onClick={() => onOpenChange(false)}>Cancel</Button>
