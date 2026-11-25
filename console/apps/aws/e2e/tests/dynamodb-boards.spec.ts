@@ -8,6 +8,7 @@ import { start, type Running, aws } from "../server";
 import { keyParam } from "../../src/pages/resources/dynamodb/item-rows";
 import { seedLarder } from "./dynamodb-seed";
 import { expectCopy } from "./callpanel-kit";
+import { expectCrumbsEnd } from "./crumbs-kit";
 import { advance, expect, expectNoErrorAnswers, test } from "./fixtures";
 
 const SHOTS = process.env.SHOTS_DIR ?? join(import.meta.dirname, "../../../../../shots-dynamodb");
@@ -118,6 +119,9 @@ test("dynamodb__table-create-custom and table-created: capacity, encryption and 
   await page.getByTestId("table-pk").fill("sku");
   await page.getByTestId("table-sk").fill("moved_at");
   await page.getByTestId("settings-custom").click();
+  // Customized, the mode cards are names only and the crumbs gain the board's last one.
+  await expect(page.getByTestId("section-Table settings")).not.toContainText("On-demand capacity and the default encryption.");
+  await expectCrumbsEnd(page, ["Create table", "Create table (customized)"]);
   await expect(page.getByTestId("section-Read/write capacity settings")).toContainText("Stored, not applied locally.");
   await expect(page.getByTestId("section-Encryption at rest")).toContainText("Owned by Amazon DynamoDB");
   await page.getByTestId("create-tags-key-0").fill("app");
