@@ -25,6 +25,7 @@ use kafka_protocol::messages::{
 use kafka_protocol::protocol::{Decodable, Encodable, StrBytes};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
+pub(crate) mod browse;
 mod data;
 
 /// How long one request may take before the broker is taken to be gone (a fetch waits at most `FETCH_WAIT` of it).

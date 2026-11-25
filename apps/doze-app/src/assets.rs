@@ -15,6 +15,8 @@ const MINIMAP: &str = r#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16
 const DOTS: &str = r#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><circle cx="3.5" cy="8" r="1.4" fill="white"/><circle cx="8" cy="8" r="1.4" fill="white"/><circle cx="12.5" cy="8" r="1.4" fill="white"/></svg>"#;
 /// The Grid tooltip's arrow.
 const CARET: &str = r#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 6"><path d="M0 6 6 0 12 6z" fill="white"/></svg>"#;
+/// A folder's chevron, pointing right (turned a quarter when open).
+const CHEVRON: &str = r#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="none" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3.5 10.5 8 6 12.5"/></svg>"#;
 /// The copy glyph (`⧉` in the React page, drawn so it sits on the text's middle).
 const COPY: &str = r#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="none" stroke="white" stroke-width="1.4"><rect x="5.5" y="5.5" width="8" height="8" rx="1.5"/><path d="M10.5 3.5v-.5a1 1 0 0 0-1-1h-6a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h.5"/></svg>"#;
 /// The pin (overview.tsx `PinGlyph`).
@@ -69,6 +71,7 @@ impl AssetSource for Assets {
             "icons/lines-6.svg" => lines(6.0).into(),
             "icons/copy.svg" => COPY.into(),
             "icons/caret.svg" => CARET.into(),
+            "icons/chevron.svg" => CHEVRON.into(),
             "icons/pin.svg" => PIN.into(),
             "icons/check.svg" => CHECK.into(),
             "icons/moon.svg" => MOON.into(),

@@ -35,7 +35,7 @@ impl Hub {
             .admin(inst, action, resource, input)?)
     }
 
-    fn live_client(&self, key: &StackKey) -> Result<Client, Error> {
+    pub(super) fn live_client(&self, key: &StackKey) -> Result<Client, Error> {
         let inner = lock(&self.shared.inner);
         let s = inner.stacks.get(key).ok_or(Error::NotRunning)?;
         if !s.is_live() {

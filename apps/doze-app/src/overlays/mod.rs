@@ -7,6 +7,7 @@ pub(crate) mod alerts;
 pub(crate) mod bell;
 mod bell_calm;
 pub(crate) mod dialog;
+pub(crate) mod form;
 mod glossary;
 pub(crate) mod help;
 pub(crate) mod palette;
@@ -29,6 +30,8 @@ pub(crate) enum Overlay {
     Palette(gpui::Entity<palette::Palette>),
     Help(gpui::Entity<help::HelpView>),
     Dialog(gpui::Entity<dialog::DialogView>),
+    /// A module's action with typed fields.
+    Form(gpui::Entity<form::FormView>),
     Preflight(gpui::Entity<preflight::PreflightView>),
     Start(gpui::Entity<start::StartView>),
     /// Needs you, under the bell.

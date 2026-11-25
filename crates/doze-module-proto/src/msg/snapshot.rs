@@ -49,10 +49,41 @@ pub fn console_json(spec: &ConsoleSpec, actions: &[Action]) -> Value {
             if let Some(h) = &a.input_hint {
                 o.insert("input_hint".into(), json!(h));
             }
+            // A form's fields (minor 2), as the daemon relays them (`FieldView`): what the app's fixture draws.
+            if !a.fields.is_empty() {
+                let fields = a.fields.iter().map(field).collect();
+                o.insert("fields".into(), Value::Array(fields));
+            }
             Value::Object(o)
         })
         .collect();
     json!({"spec": Value::Object(s), "actions": actions})
+}
+
+fn field(f: &super::blocks::Field) -> Value {
+    let mut o = Map::new();
+    o.insert("id".into(), json!(f.id));
+    o.insert("label".into(), json!(f.label));
+    o.insert("kind".into(), json!(f.kind));
+    if f.required {
+        o.insert("required".into(), json!(true));
+    }
+    if let Some(d) = &f.default {
+        o.insert("default".into(), json!(d));
+    }
+    if !f.choices.is_empty() {
+        o.insert("choices".into(), json!(f.choices));
+    }
+    if let Some(m) = f.min {
+        o.insert("min".into(), json!(m));
+    }
+    if let Some(m) = f.max {
+        o.insert("max".into(), json!(m));
+    }
+    if let Some(h) = &f.help {
+        o.insert("help".into(), json!(h));
+    }
+    Value::Object(o)
 }
 
 fn panel(p: &Panel) -> Value {

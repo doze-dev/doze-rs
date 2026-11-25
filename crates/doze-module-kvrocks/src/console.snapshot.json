@@ -15,6 +15,35 @@
       "id": "compact",
       "kind": "server",
       "label": "Compact (free deleted data's disk)"
+    },
+    {
+      "fields": [
+        {
+          "id": "key",
+          "kind": "text",
+          "label": "Key",
+          "required": true
+        },
+        {
+          "id": "value",
+          "kind": "text",
+          "label": "Value",
+          "required": true
+        },
+        {
+          "default": "0",
+          "help": "Seconds; 0 keeps it forever",
+          "id": "ttl",
+          "kind": "number",
+          "label": "Expires after",
+          "max": 31536000,
+          "min": 0
+        }
+      ],
+      "id": "key-set",
+      "input_hint": "key value",
+      "kind": "server",
+      "label": "Set a key"
     }
   ],
   "spec": {
@@ -124,6 +153,74 @@
         "id": "commands",
         "kind": "stream",
         "title": "Commands"
+      },
+      {
+        "columns": [],
+        "id": "keys",
+        "kind": "tree",
+        "title": "Keys"
+      }
+    ],
+    "tabs": [
+      {
+        "body": {
+          "children": [
+            {
+              "children": [
+                {
+                  "kind": "stat",
+                  "panel": "server",
+                  "title": "Kvrocks",
+                  "weight": 1
+                },
+                {
+                  "kind": "table",
+                  "panel": "namespaces",
+                  "title": "Namespaces",
+                  "weight": 1
+                }
+              ],
+              "kind": "row",
+              "weight": 1
+            },
+            {
+              "kind": "stream",
+              "panel": "commands",
+              "title": "Commands",
+              "weight": 1
+            },
+            {
+              "kind": "actions"
+            }
+          ],
+          "kind": "col"
+        },
+        "id": "console",
+        "title": "Console"
+      },
+      {
+        "body": {
+          "children": [
+            {
+              "id": "keys",
+              "kind": "tree",
+              "panel": "keys",
+              "title": "Keys",
+              "weight": 1
+            },
+            {
+              "from": "keys",
+              "id": "value",
+              "kind": "value",
+              "panel": "keys",
+              "title": "Value",
+              "weight": 2
+            }
+          ],
+          "kind": "row"
+        },
+        "id": "keys",
+        "title": "Keys"
       }
     ]
   }

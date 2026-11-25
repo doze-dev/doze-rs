@@ -36,6 +36,12 @@ actions!(
         PrevTable,
         RowDown,
         RowUp,
+        /// A console tree: open the folder at the cursor, or step into it when it is open.
+        FolderOpen,
+        /// A console tree: close the folder at the cursor, or step out to its parent.
+        FolderClose,
+        /// A console tree: open the leaf at the cursor in the value viewer (a folder opens or closes).
+        OpenLeaf,
         LogsTop,
         LogsEnd,
     ]
@@ -293,6 +299,33 @@ pub(crate) const INSIDE: &[Spec] = &[
         "select",
         RowUp,
         ["up", "k"],
+        Console,
+        None,
+        false
+    ),
+    spec!(
+        "Open the folder",
+        "in a tree",
+        FolderOpen,
+        ["right"],
+        Console,
+        None,
+        false
+    ),
+    spec!(
+        "Close the folder",
+        "or go to its parent",
+        FolderClose,
+        ["left"],
+        Console,
+        None,
+        false
+    ),
+    spec!(
+        "Open the leaf",
+        "in the value viewer",
+        OpenLeaf,
+        ["enter"],
         Console,
         None,
         false

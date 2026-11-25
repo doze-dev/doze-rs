@@ -107,6 +107,42 @@ fn one(f: &Field, v: &str) -> Result<(), Error> {
     }
 }
 
+/// An older app's one box, put where the form would have taken it: an app that does not know forms (`form` false, no
+/// values) sends what was typed in the action's one box as `input`. When one field is clearly the box's (the only
+/// required field without a default, else the only required field), it gets the input, so a form with a required
+/// field still runs from an older app. With two candidates nothing is filled, and [`check`] says the action needs a
+/// newer app.
+pub fn one_box(
+    fields: &[Field],
+    form: bool,
+    input: Option<&str>,
+    values: &mut BTreeMap<String, String>,
+) {
+    let Some(input) = input.filter(|i| !i.trim().is_empty()) else {
+        return;
+    };
+    if form || !values.is_empty() {
+        return;
+    }
+    let sole = |want: &dyn Fn(&Field) -> bool| {
+        let mut it = fields.iter().filter(|f| want(f));
+        match (it.next(), it.next()) {
+            (Some(f), None) => Some(f),
+            _ => None,
+        }
+    };
+    let field = sole(&|f| f.required && f.default.is_none()).or_else(|| {
+        fields
+            .iter()
+            .all(|f| !f.required || f.default.is_some())
+            .then(|| sole(&|f| f.required))
+            .flatten()
+    });
+    if let Some(f) = field {
+        values.insert(f.id.clone(), input.to_string());
+    }
+}
+
 /// A `pairs` value as its keys and values, in order (`k=v` lines).
 pub fn pairs(v: &str) -> Vec<(String, String)> {
     v.lines()
@@ -119,6 +155,35 @@ pub fn pairs(v: &str) -> Vec<(String, String)> {
 #[allow(clippy::unwrap_used, clippy::indexing_slicing)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn an_older_apps_one_box_fills_the_one_required_field() {
+        let name = || Field {
+            default: None,
+            ..f("name", field::TEXT, true)
+        };
+        let size = || Field {
+            default: Some("1".into()),
+            ..f("size", field::NUMBER, true)
+        };
+        let mut v = BTreeMap::new();
+        one_box(&[name(), size()], false, Some("orders"), &mut v);
+        check(&[name(), size()], false, &mut v).unwrap();
+        assert_eq!((v["name"].as_str(), v["size"].as_str()), ("orders", "1"));
+        // Two required fields without defaults: whose box was it? Nothing is guessed; the app is told to update.
+        let mut v = BTreeMap::new();
+        let two = [name(), f("value", field::TEXT, true)];
+        one_box(&two, false, Some("k v"), &mut v);
+        assert!(v.is_empty());
+        let e = check(&two, false, &mut v).unwrap_err();
+        assert_eq!(e.message, NEEDS_NEWER_APP);
+        // A form, or values already sent, or nothing typed: left alone.
+        for (form, input) in [(true, Some("x")), (false, Some("  ")), (false, None)] {
+            let mut v = BTreeMap::new();
+            one_box(&[name()], form, input, &mut v);
+            assert!(v.is_empty(), "{form} {input:?}");
+        }
+    }
 
     fn f(id: &str, kind: &str, required: bool) -> Field {
         Field {

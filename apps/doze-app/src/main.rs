@@ -49,6 +49,8 @@ mod shot;
 #[cfg(feature = "capture")]
 mod shot_act;
 #[cfg(feature = "capture")]
+mod shot_blocks;
+#[cfg(feature = "capture")]
 mod shot_m3;
 #[cfg(feature = "capture")]
 mod shotover;

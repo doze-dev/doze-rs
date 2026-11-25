@@ -31,10 +31,9 @@ pub(crate) fn label(i: &Instance, cat: &Catalog, grant: Option<&Grant>) -> Label
     let host = grant.map(|g| g.host.clone()).unwrap_or_default();
     let named = !host.is_empty();
     let mut l = Labels {
-        kind: match i.kind() {
-            Kind::Module => String::new(),
-            k => k.as_str().into(),
-        },
+        // A module's instance says so (`module`), as Go's daemon did: the app opens a module's console, and `connect`
+        // and `sync` tell a module from a service, by it.
+        kind: String::new(),
         engine: i.ty.clone(),
         version: i.version.clone(),
         run,
@@ -71,7 +70,17 @@ pub(crate) fn label(i: &Instance, cat: &Catalog, grant: Option<&Grant>) -> Label
     if let Some((url, front)) = console_of(i, cat, grant) {
         (l.web_url, l.console_front) = (url, front);
     }
+    let described = cat
+        .manifest_for(&i.ty, &i.version)
+        .is_some_and(|m| m.console.is_some());
+    (l.kind, l.has_console) = kind_and_console(i.kind(), described);
     l
+}
+
+/// What an instance is (`module`, `service`, `task`, …: `connect`, `sync` and the app read it), and whether it has a
+/// console the app opens: a module's whose manifest describes one (tables, streams, the working blocks).
+fn kind_and_console(kind: Kind, described: bool) -> (String, bool) {
+    (kind.as_str().into(), kind == Kind::Module && described)
 }
 
 /// The console link of module instance `i` and the tab it opens on, from what the zone granted it.
@@ -213,6 +222,22 @@ pub(crate) fn fronted_one(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_module_says_it_is_one_and_has_the_console_its_manifest_describes() {
+        assert_eq!(
+            kind_and_console(Kind::Module, true),
+            ("module".to_owned(), true)
+        );
+        assert_eq!(
+            kind_and_console(Kind::Module, false),
+            ("module".to_owned(), false),
+            "a module without a console has none to open"
+        );
+        let (kind, console) = kind_and_console(Kind::Service, true);
+        assert!(kind != "module" && !kind.is_empty(), "{kind}");
+        assert!(!console, "only a module's page is customised");
+    }
     use doze_module_proto::msg::instance::{Address, Granted};
 
     /// One listener as the zone grants it: where clients connect, and the hosts routed to it.

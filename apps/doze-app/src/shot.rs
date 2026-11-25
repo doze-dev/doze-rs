@@ -14,12 +14,14 @@ use crate::shell::{Root, Screen as Page};
 use crate::theme::{Choice, Density};
 
 pub(crate) fn run(s: Shot) -> ExitCode {
-    if s.from.fixture.is_none() && s.from.synth.is_none() {
-        eprintln!("doze-app shot: name a stack with --fixture NAME or --synth N");
+    if s.from.fixture.is_none() && s.from.synth.is_none() && s.home.is_none() {
+        eprintln!("doze-app shot: name a stack with --fixture NAME, --synth N or --home PATH");
         return ExitCode::from(2);
     }
-    // A fixture's clock starts at the moment the Go fixtures were recorded at, so ages read as the goldens do.
-    let source = match crate::source_for(&s.from, std::env::temp_dir()) {
+    // A fixture's clock starts at the moment the Go fixtures were recorded at, so ages read as the goldens do; a real
+    // home's stacks are read live.
+    let home = s.home.clone().unwrap_or_else(std::env::temp_dir);
+    let source = match crate::source_for(&s.from, home) {
         Ok(src) => std::rc::Rc::new(src),
         Err(e) => {
             eprintln!("doze-app shot: {e:#}");

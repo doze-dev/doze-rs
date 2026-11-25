@@ -3343,6 +3343,7 @@ dependencies = [
 name = "doze-resp"
 version = "0.0.0"
 dependencies = [
+ "doze-module-proto",
  "tokio",
 ]
 
