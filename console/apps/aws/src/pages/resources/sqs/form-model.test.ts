@@ -61,6 +61,19 @@ describe("an edit", () => {
     const f = { ...formOf(q, [], dlqArn), visibility: { value: "60", unit: "seconds" as const }, dlqOn: false };
     expect(attributes(f, { create: false, queue: q, dlqArn }, ARN)).toEqual({ VisibilityTimeout: "60", RedrivePolicy: "" });
   });
+  test("a dead-letter switch that is on with no queue chosen sends no RedrivePolicy (not an empty one), on a new queue and on an edit", () => {
+    const blank = { ...formOf(queue({}), [], null), name: "q", dlqOn: true, dlq: "" };
+    expect(createInput(blank, ARN)).toEqual({ QueueName: "q" });
+    const q = queue({ dlq: "dlq", maxReceives: 5 });
+    const dlqArn = "arn:aws:sqs:us-east-1:1:dlq";
+    expect(attributes({ ...formOf(q, [], dlqArn), dlq: "" }, { create: false, queue: q, dlqArn }, ARN)).toEqual({});
+  });
+  test("an access policy that is not JSON is a problem of the form, and not what the call carries", () => {
+    const q = queue({});
+    const f = { ...formOf(q, [], null), policyMode: "advanced" as const, policy: "{ not json" };
+    expect(problems(f, { create: false }).policy).toBe("The access policy is not a JSON object.");
+    expect(attributes(f, { create: false, queue: q, dlqArn: null }, ARN)).toEqual({});
+  });
   test("moving from SSE-KMS to SSE-SQS clears the key", () => {
     const q = queue({ sse: "kms", kms: "alias/a", reuse: 300 });
     const f = { ...formOf(q, [], null), sse: "sqs" as const };

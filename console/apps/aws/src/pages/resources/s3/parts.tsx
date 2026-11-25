@@ -26,9 +26,9 @@ export function ActionPage({ title, sub, crumbs, banner, actions, children, foot
   return (
     <div data-testid={testId}>
       <PageHeader title={title} sub={sub} crumbs={crumbs} actions={actions} mono={mono} />
-      {banner && <div className="mb-6 max-w-[62rem]">{banner}</div>}
-      <div className="grid max-w-[62rem] gap-6">{children}</div>
-      {footer && <div className="mt-6 flex max-w-[62rem] flex-wrap items-center justify-end gap-3 border-t pt-5">{footer}</div>}
+      {banner && <div className="mb-6">{banner}</div>}
+      <div className="grid gap-6">{children}</div>
+      {footer && <div className="mt-6 flex flex-wrap items-center justify-end gap-3 border-t pt-5">{footer}</div>}
     </div>
   );
 }

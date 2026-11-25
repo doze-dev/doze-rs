@@ -108,7 +108,9 @@ test("s3__buckets-list and s3__buckets-none: the list says how many and where; a
   try {
     await page.goto(`${other.console}/resources/s3/buckets`);
     await expect(page.getByTestId("list-empty")).toContainText("You have no buckets in this region");
-    await expect(page.getByTestId("list-empty").getByRole("button", { name: "Create bucket" })).toBeVisible();
+    // The board's plain button in the box: the main button is the one at the top right.
+    await expect(page.getByTestId("list-empty").getByRole("button", { name: "Create bucket" })).toHaveAttribute("data-variant", "outline");
+    await expect(page.getByTestId("create-open")).toHaveAttribute("data-variant", "default");
     await shot(page, "s3__buckets-none", browserName);
   } finally {
     await other.stop();
@@ -155,6 +157,12 @@ test("s3__bucket-create, -create-refused, -created: a refused name says why, a g
   // Under the field, in red, the naming rule the board prints, then what is wrong with this name.
   await expect(page.locator('[data-slot="field-refusal"]').first()).toContainText("A bucket name must be between 3 and 63 characters long");
   await shot(page, "s3__bucket-create-refused", browserName);
+  // A name the account already has is refused before any call (us-east-1 answers 200 for a bucket you own): nothing is said to be made.
+  await page.getByTestId("bucket-name").fill(n.thumb);
+  await advance(page);
+  await expect(page.getByTestId("create-owned")).toContainText(`${n.thumb} is already your bucket.`);
+  await expect(page.locator('[data-slot="field-refusal"]').first()).toContainText(`${n.thumb} is already your bucket.`);
+  await expect(page.getByTestId("flash")).toHaveCount(0);
   // Corrected, with versioning, a tag and the block settings as they come.
   await settled(page);
   await page.getByTestId("bucket-name").fill(n.made);
@@ -164,8 +172,10 @@ test("s3__bucket-create, -create-refused, -created: a refused name says why, a g
   await page.getByTestId("create-tags-value-0").fill("dev");
   await advance(page);
   await expect(page.getByTestId("flash")).toContainText(`Bucket ${n.made} created.`);
-  await expect(page.getByTestId("flash")).toContainText("versioning on");
+  await expect(page.getByTestId("flash")).toContainText("Versioning on");
   await expect(page.getByRole("link", { name: n.made })).toBeVisible();
+  // The list's own sentence, read after the calls that followed CreateBucket, already says the new bucket keeps versions.
+  await expect(page.getByTestId("list-sentence")).toContainText(`${n.made} has versioning on`);
   await shot(page, "s3__bucket-created", browserName);
   expect(cli(["s3api", "get-bucket-versioning", "--bucket", n.made]).out).toContain("Enabled");
   expect(cli(["s3api", "get-bucket-tagging", "--bucket", n.made]).out).toContain("dev");
@@ -176,7 +186,7 @@ test("s3__bucket-create, -create-refused, -created: a refused name says why, a g
   await page.getByTestId("lock-ack").click();
   await advance(page);
   await expect(page.getByTestId("flash")).toContainText(`Bucket locked-${browserName} created.`);
-  await expect(page.getByTestId("flash")).toContainText("versioning on, all four Block Public Access settings on and Object Lock on");
+  await expect(page.getByTestId("flash")).toContainText("Versioning on, all four Block Public Access settings on and Object Lock on");
   expect(cli(["s3api", "get-bucket-versioning", "--bucket", `locked-${browserName}`]).out).toContain("Enabled");
   expect(cli(["s3api", "get-object-lock-configuration", "--bucket", `locked-${browserName}`]).out).toContain("Enabled");
 });
@@ -211,9 +221,16 @@ test("s3__bucket-objects, -objects-empty, -objects-versions: folders, a prefix w
   await page.getByTestId("object-search").click();
   await expect(page.getByTestId("objects-none")).toContainText("ListObjectsV2 with the prefix seasonal/ returned no keys");
   await expect(page.getByTestId("objects-card")).toContainText("Objects (0)");
+  // The board's state is lean: no bucket sentence, no Wired to strip, no Recent calls, no table header, a plain Upload.
+  await expect(page.getByTestId("detail-sentence")).toHaveCount(0);
+  await expect(page.getByTestId("wired-strip")).toHaveCount(0);
+  await expect(page.getByTestId("recent-calls")).toHaveCount(0);
+  await expect(page.getByRole("table")).toHaveCount(0);
+  await expect(page.getByTestId("objects-none").getByRole("button", { name: "Upload" })).toHaveClass(/border/);
   await shot(page, "s3__bucket-objects-empty", browserName);
   await page.getByTestId("object-find").fill("");
   await page.getByTestId("object-search").click();
+  await expect(page.getByTestId("detail-sentence")).toBeVisible();
   // Versions.
   await page.getByTestId("show-versions").click();
   await expect(page.getByText("Delete marker", { exact: true })).toBeVisible();
@@ -221,6 +238,9 @@ test("s3__bucket-objects, -objects-empty, -objects-versions: folders, a prefix w
   await expect(page.getByTestId("objects-card")).toContainText("Objects (9)");
   // The delete marker only looks like a delete: the page says which key and why.
   await expect(page.getByTestId("hidden-by-marker")).toContainText("sku-FV-ORG-B.jpg looks deleted but is not. Its current version is a delete marker");
+  // The delete marker's key stays on one line beside (or over) its badge, not wrapped to the width of the badge.
+  const marker = page.getByRole("row").filter({ hasText: "Delete marker" }).getByTestId("object-open");
+  expect((await marker.boundingBox())!.height).toBeLessThan(24);
   await shot(page, "s3__bucket-objects-versions", browserName);
 });
 
@@ -306,8 +326,10 @@ test("the edit pages: versioning, ownership, Block Public Access, encryption, we
   await edit("encryption-edit", "s3__encryption-edit");
   await page.getByTestId("encryption-aws:kms").click();
   // The key list opens: the keys S3 can use, and which cannot be used and why.
-  await expect(page.getByText(/Only a symmetric encryption key in the bucket's Region can be used\..*qualif/)).toBeVisible();
+  await expect(page.getByText(/Only a symmetric encryption key in the bucket's Region can be used, and the console lists the first 100\..*qualif/)).toBeVisible();
   await expect(page.getByText(/is RSA_2048 for signing, so S3 cannot use it/)).toBeVisible();
+  // The board's three cards: Encryption type, AWS KMS key and Bucket Key (the last two only for a KMS type).
+  await expect(page.locator("h2, h3").filter({ hasText: /^(Encryption type|AWS KMS key|Bucket Key)$/ })).toHaveText(["Encryption type", "AWS KMS key", "Bucket Key"]);
   await page.getByRole("combobox", { name: "Choose a KMS key" }).click();
   await page.getByRole("option", { name: new RegExp(`alias/larder-app-${browserName}`) }).click();
   await expect(page.getByTestId("call-panel-code")).toContainText(`:alias/larder-app-${browserName}`);
@@ -392,6 +414,9 @@ test("s3__notification-create and s3__lifecycle-create: each adds a rule to the 
   await expect(page.getByTestId("lc-transition-current")).toBeDisabled();
   await expect(page.getByTestId("lc-noncurrentDays")).toHaveCount(0);
   await page.getByTestId("lc-previous-on").click();
+  // The noncurrent-version fields are a card of their own, as the board draws it.
+  await expect(page.getByTestId("section-noncurrent")).toContainText("Permanently delete noncurrent versions of objects");
+  await expect(page.getByTestId("section-noncurrent").getByTestId("lc-noncurrentDays")).toBeVisible();
   await page.getByTestId("lc-noncurrentDays").fill("30");
   await page.getByTestId("lc-tags-key-0").fill("env");
   await page.getByTestId("lc-tags-value-0").fill("dev");
@@ -533,6 +558,10 @@ test("s3__object-detail, -versions, -presign, -copy, -delete-version, -delete: o
   await page.goto(bucketUrl(n.img, "?do=object-copy&key=sku-FV-TOM-V.jpg&mode=copy"));
   await page.getByTestId("copy-dest").fill(`s3://${n.rec}/copies/`);
   await expect(page.getByTestId("call-panel-code")).toContainText(`"Key": "copies/sku-FV-TOM-V.jpg"`);
+  // The destination type is a labelled field, and the hint names what a copy sets off there and what it does not keep.
+  await expect(page.getByTestId("destination-type")).toContainText("Destination typeGeneral purpose bucketNot available in doze-aws");
+  await expect(page.getByTestId("field-destination")).toContainText("Copied objects do not keep the Object Lock settings of the original");
+  await expect(page.getByTestId("field-destination")).toContainText(`${n.rec} has none for copies/sku-FV-TOM-V.jpg`);
   await shot(page, "s3__object-copy", browserName);
   await advance(page);
   await expect(page.getByTestId("flash")).toContainText(`to s3://${n.rec}/copies/sku-FV-TOM-V.jpg`);

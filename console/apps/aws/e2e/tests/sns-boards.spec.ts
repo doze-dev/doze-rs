@@ -82,6 +82,14 @@ test("sns__topic-create: every setting of a topic, the sentence, and the call it
   await expect(page.getByTestId("logging-Firehose")).toContainText("Not available in doze-aws");
   await expect(page.getByTestId("logging-Application")).toContainText("Disabled");
   await expect(page.getByTestId("section-logging")).toContainText("writes no delivery logs");
+  // A delivery logging role is chosen from the roles SNS can assume: larder-fn trusts Lambda, so it is not offered.
+  await page.getByTestId("log-SQS").click();
+  await page.getByRole("combobox", { name: "SQS success role" }).click();
+  await expect(page.getByRole("option", { name: "sns-delivery-logs" })).toBeVisible();
+  await expect(page.getByRole("option", { name: "larder-fn" })).toHaveCount(0);
+  await page.keyboard.press("Escape");
+  await expect(page.getByTestId("role-trust-note").first()).toContainText("Only roles whose trust policy lets sns.amazonaws.com assume them are listed.");
+  await page.getByTestId("log-SQS").click();
   await expect(page.getByTestId("section-tracing")).toContainText("doze-aws has no X-Ray, so the setting is only recorded.");
   // Tags.
   await page.getByTestId("section-tags").getByRole("button", { name: "Add tag" }).click();

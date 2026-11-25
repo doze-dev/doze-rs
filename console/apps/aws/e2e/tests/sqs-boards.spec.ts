@@ -64,6 +64,13 @@ test("sqs__queues-list: every queue with what it holds, and a sentence", async (
   const fifo = page.getByRole("table", { name: "Queues" }).locator("tr[data-row]", { hasText: "orders-events.fifo" });
   await expect(fifo).toContainText("FIFO");
   await expect(fifo).toContainText("Enabled");
+  // At 1440 px every column fits its box: no sideways scroll, and the last header is whole.
+  const box = page.locator('[data-slot="data-table"]').first();
+  const [scroll, client] = await box.evaluate((el) => [el.scrollWidth, el.clientWidth]);
+  expect(scroll).toBeLessThanOrEqual(client);
+  const head = page.getByRole("columnheader", { name: /Content-based deduplication/i });
+  const [headFits] = await head.evaluate((el) => [el.scrollWidth <= el.clientWidth + 1]);
+  expect(headFits).toBe(true);
   await shot(page, "sqs__queues-list");
 });
 

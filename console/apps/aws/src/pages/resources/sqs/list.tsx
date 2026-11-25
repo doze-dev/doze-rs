@@ -29,12 +29,12 @@ const FIGURES = [/\d[\d,]*(?= messages? waiting| in flight)/];
 
 const COLUMNS: DataColumn<QueueRow>[] = [
   { id: "name", header: "Name", min: 168, accessorFn: (r) => r.name.toLowerCase(), meta: { mono: true }, cell: (c) => <ResourceTo to={{ service: "sqs", kind: "queues", name: c.row.original.name }} className="font-mono text-[13px] font-medium" testId="row-link">{c.row.original.name}</ResourceTo> },
-  { id: "type", header: "Type", accessorKey: "type", size: 84, fit: 60, enableSorting: false },
-  { id: "created", header: "Created", accessorFn: (r) => r.createdMs ?? 0, size: 190, fit: 90, cell: (c) => <Value value={c.row.original.created} format="time" /> },
-  { id: "available", header: "Messages available", accessorKey: "available", size: 176, fit: 176, meta: { numeric: true } },
-  { id: "inFlight", header: "Messages in flight", accessorKey: "inFlight", size: 176, fit: 176, meta: { numeric: true } },
-  { id: "encryption", header: "Encryption", accessorFn: (r) => (r.encrypted ? 1 : 0), size: 108, fit: 108, enableSorting: false, cell: (c) => (c.row.original.encrypted ? "Enabled" : <span className="text-muted-foreground">–</span>) },
-  { id: "dedup", header: "Content-based deduplication", accessorFn: (r) => (r.dedup ? 1 : 0), size: 252, fit: 248, enableSorting: false, cell: (c) => (c.row.original.dedup ? "Enabled" : <span className="text-muted-foreground">–</span>) },
+  { id: "type", header: "Type", accessorKey: "type", size: 84, min: 60, fit: 60, enableSorting: false },
+  { id: "created", header: "Created", accessorFn: (r) => r.createdMs ?? 0, size: 190, min: 90, fit: 90, cell: (c) => <Value value={c.row.original.created} format="time" /> },
+  { id: "available", header: "Messages available", accessorKey: "available", size: 176, min: 100, fit: 176, meta: { numeric: true } },
+  { id: "inFlight", header: "Messages in flight", accessorKey: "inFlight", size: 176, min: 100, fit: 176, meta: { numeric: true } },
+  { id: "encryption", header: "Encryption", accessorFn: (r) => (r.encrypted ? 1 : 0), size: 108, min: 100, fit: 108, enableSorting: false, cell: (c) => (c.row.original.encrypted ? "Enabled" : <span className="text-muted-foreground">–</span>) },
+  { id: "dedup", header: "Content-based deduplication", accessorFn: (r) => (r.dedup ? 1 : 0), size: 252, min: 100, fit: 248, enableSorting: false, cell: (c) => (c.row.original.dedup ? "Enabled" : <span className="text-muted-foreground">–</span>) },
 ];
 
 /** The queues' list page; with `?create=yes` the Create queue page in its place. */

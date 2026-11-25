@@ -93,46 +93,70 @@ export function VersioningChoice({ value, onChange, current }: { value: "Enabled
 
 export type Encryption = { algorithm: Sse; keyMode: "list" | "arn"; key: string; bucketKey: boolean };
 
-/** Default encryption: the type, and for KMS the key (from the keys in this Region, or an ARN typed) and the Bucket Key. */
-export function EncryptionChoice({ value, onChange }: { value: Encryption; onChange: (e: Encryption) => void }) {
-  const set = (patch: Partial<Encryption>) => onChange({ ...value, ...patch });
+type Set = (patch: Partial<Encryption>) => void;
+
+/** The encryption types: SSE-S3, SSE-KMS and DSSE-KMS. */
+export function EncryptionType({ value, onChange }: { value: Encryption; onChange: (e: Encryption) => void }) {
+  return (
+    <RadioCards
+      name="encryption"
+      value={value.algorithm}
+      onChange={(v) => isSse(v) && onChange({ ...value, algorithm: v, bucketKey: v === "aws:kms" ? value.bucketKey : false })}
+      options={(["AES256", "aws:kms", "aws:kms:dsse"] as Sse[]).map((a) => ({ value: a, title: SSE_WORDS[a], description: a === "aws:kms" ? "Choosing it adds a KMS key and Bucket Key choice." : undefined }))}
+    />
+  );
+}
+
+/** Where the KMS key comes from (the keys of this Region, or an ARN typed), and the key. `titled`: it names itself (a card of its own has the title). */
+export function KmsKeyChoice({ value, set, titled = true }: { value: Encryption; set: Set; titled?: boolean }) {
   const kms = useKmsKeys();
   return (
+    <>
+      <div className="grid gap-1.5">
+        {titled && <Label>AWS KMS key</Label>}
+        <RadioGroup value={value.keyMode} onValueChange={(v) => set({ keyMode: v as "list" | "arn" })} className="flex flex-wrap gap-6" aria-label="AWS KMS key source">
+          {[["list", "Choose from your AWS KMS keys"], ["arn", "Enter AWS KMS key ARN"]].map(([v, t]) => (
+            <Label key={v} className="flex items-center gap-2 font-normal">
+              <RadioGroupItem value={v!} data-testid={`kms-${v}`} /> {t}
+            </Label>
+          ))}
+        </RadioGroup>
+      </div>
+      <Field label="KMS key" hint={value.keyMode === "list" && !kms.pending && !kms.failed ? kmsHint(kms.keys) : undefined}>
+        {(id) => (value.keyMode === "list" ? <Combobox id={id} options={kms.keys.usable} value={value.key || null} onChange={(k) => set({ key: k ?? "" })} placeholder={kms.failed ? "The keys could not be read" : kms.pending ? "Reading keys…" : kms.keys.usable.length === 0 ? "There is no key S3 can use yet" : "Choose a key"} search="Search keys…" empty="No key matches." aria-label="Choose a KMS key" className="w-full" /> : <Input id={id} value={value.key} onChange={(e) => set({ key: e.target.value })} placeholder="arn:aws:kms:us-east-1:111122223333:key/…" className="font-mono" spellCheck={false} data-testid="kms-arn-input" />)}
+      </Field>
+    </>
+  );
+}
+
+/** Bucket Key: on or off (not for DSSE-KMS). */
+export function BucketKeyChoice({ value, set, titled = true }: { value: Encryption; set: Set; titled?: boolean }) {
+  return (
+    <div className="grid gap-1.5">
+      {titled && <Label>Bucket Key</Label>}
+      <RadioGroup value={value.bucketKey ? "on" : "off"} onValueChange={(v) => set({ bucketKey: v === "on" })} className="flex gap-6" aria-label="Bucket Key">
+        {[["off", "Disable"], ["on", "Enable"]].map(([v, t]) => (
+          <Label key={v} className="flex items-center gap-2 font-normal">
+            <RadioGroupItem value={v!} data-testid={`bucket-key-${v}`} /> {t}
+          </Label>
+        ))}
+      </RadioGroup>
+      <p className="text-[13px] text-muted-foreground">A Bucket Key lowers the cost of encryption by reducing request traffic from S3 to AWS KMS. It is not supported for DSSE-KMS.</p>
+    </div>
+  );
+}
+
+/** Default encryption in one place (Create bucket): the type, and for KMS the key and the Bucket Key in a well under it. Its edit page
+ * draws the same three parts as cards of their own. */
+export function EncryptionChoice({ value, onChange }: { value: Encryption; onChange: (e: Encryption) => void }) {
+  const set: Set = (patch) => onChange({ ...value, ...patch });
+  return (
     <div className="grid gap-5">
-      <RadioCards
-        name="encryption"
-        value={value.algorithm}
-        onChange={(v) => isSse(v) && set({ algorithm: v, bucketKey: v === "aws:kms" ? value.bucketKey : false })}
-        options={(["AES256", "aws:kms", "aws:kms:dsse"] as Sse[]).map((a) => ({ value: a, title: SSE_WORDS[a], description: a === "aws:kms" ? "Choosing it adds a KMS key and Bucket Key choice." : undefined }))}
-      />
+      <EncryptionType value={value} onChange={onChange} />
       {value.algorithm !== "AES256" && (
         <div className="grid gap-4 rounded-xl border bg-well p-4" data-testid="kms-choice">
-          <div className="grid gap-1.5">
-            <Label>AWS KMS key</Label>
-            <RadioGroup value={value.keyMode} onValueChange={(v) => set({ keyMode: v as "list" | "arn" })} className="flex flex-wrap gap-6" aria-label="AWS KMS key source">
-              {[["list", "Choose from your AWS KMS keys"], ["arn", "Enter AWS KMS key ARN"]].map(([v, t]) => (
-                <Label key={v} className="flex items-center gap-2 font-normal">
-                  <RadioGroupItem value={v!} data-testid={`kms-${v}`} /> {t}
-                </Label>
-              ))}
-            </RadioGroup>
-          </div>
-          <Field label="KMS key" hint={value.keyMode === "list" && !kms.pending && !kms.failed ? kmsHint(kms.keys) : undefined}>
-            {(id) => (value.keyMode === "list" ? <Combobox id={id} options={kms.keys.usable} value={value.key || null} onChange={(k) => set({ key: k ?? "" })} placeholder={kms.failed ? "The keys could not be read" : kms.pending ? "Reading keys…" : kms.keys.usable.length === 0 ? "There is no key S3 can use yet" : "Choose a key"} search="Search keys…" empty="No key matches." aria-label="Choose a KMS key" className="w-full" /> : <Input id={id} value={value.key} onChange={(e) => set({ key: e.target.value })} placeholder="arn:aws:kms:us-east-1:111122223333:key/…" className="font-mono" spellCheck={false} data-testid="kms-arn-input" />)}
-          </Field>
-          {value.algorithm === "aws:kms" && (
-            <div className="grid gap-1.5">
-              <Label>Bucket Key</Label>
-              <RadioGroup value={value.bucketKey ? "on" : "off"} onValueChange={(v) => set({ bucketKey: v === "on" })} className="flex gap-6" aria-label="Bucket Key">
-                {[["off", "Disable"], ["on", "Enable"]].map(([v, t]) => (
-                  <Label key={v} className="flex items-center gap-2 font-normal">
-                    <RadioGroupItem value={v!} data-testid={`bucket-key-${v}`} /> {t}
-                  </Label>
-                ))}
-              </RadioGroup>
-              <p className="text-[13px] text-muted-foreground">A Bucket Key lowers the cost of encryption by reducing request traffic from S3 to AWS KMS. It is not supported for DSSE-KMS.</p>
-            </div>
-          )}
+          <KmsKeyChoice value={value} set={set} />
+          {value.algorithm === "aws:kms" && <BucketKeyChoice value={value} set={set} />}
         </div>
       )}
     </div>
