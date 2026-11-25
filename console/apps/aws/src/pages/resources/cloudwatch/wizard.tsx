@@ -59,8 +59,9 @@ function Wizard({ initial, editing }: { initial: Draft; editing?: string }) {
   const set = (patch: Partial<Draft>) => { setD((x) => ({ ...x, ...patch })); setFailure(null); };
   const stop = problem(step, d, taken, editing !== undefined);
   const go = (i: number) => {
-    // The first look at the actions step opens with a notification to fill in, as the board does.
-    if (i === 1 && first && d.notify.length === 0) set({ notify: [{ id: nextId(), state: "ALARM", via: "existing", arn: "", name: "" }] });
+    // The first look at the actions step of a new alarm opens with a notification to fill in, as the board does; an alarm that is being edited and has
+    // no action opens with none, since there is nothing to fill in and an empty row would hold Next until a topic is chosen or the row removed.
+    if (i === 1 && first && d.notify.length === 0 && editing === undefined) set({ notify: [{ id: nextId(), state: "ALARM", via: "existing", arn: "", name: "" }] });
     if (i === 1) setFirst(false);
     setStep(i);
     setFurthest((f) => Math.max(f, i));

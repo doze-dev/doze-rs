@@ -203,3 +203,48 @@ async fn the_dashboards_page_lists_with_the_services_own_listdashboards() {
     assert_eq!(listed["DashboardEntries"][0]["DashboardName"], "larder-api");
     assert!(listed["DashboardEntries"][0]["LastModified"].is_number());
 }
+
+#[tokio::test]
+async fn a_dashboards_page_lists_the_calls_that_touched_it() {
+    let w = world("cw-dashboard-calls", Mode::Soft, &[]);
+    // An app's calls, not the console's: PutDashboard and GetDashboard name the dashboard by DashboardName.
+    w.app(
+        "monitoring",
+        "PutDashboard",
+        &json!({"DashboardName": "larder-ops", "DashboardBody": "{}"}),
+    )
+    .await;
+    w.app(
+        "monitoring",
+        "PutDashboard",
+        &json!({"DashboardName": "other", "DashboardBody": "{}"}),
+    )
+    .await;
+    w.app(
+        "monitoring",
+        "GetDashboard",
+        &json!({"DashboardName": "larder-ops"}),
+    )
+    .await;
+    let (_, detail) = w.get(&format!("{BASE}/dashboards/larder-ops")).await;
+    let calls: Vec<(String, String)> = detail["calls"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|c| {
+            (
+                c["action"].as_str().unwrap().to_owned(),
+                c["resource"].as_str().unwrap_or_default().to_owned(),
+            )
+        })
+        .filter(|(a, _)| a == "PutDashboard" || a == "GetDashboard")
+        .collect();
+    assert!(
+        calls.iter().all(|(_, r)| r == "larder-ops"),
+        "another dashboard's call is not listed: {calls:?}"
+    );
+    assert!(
+        calls.iter().any(|(a, _)| a == "PutDashboard") && calls.iter().any(|(a, _)| a == "GetDashboard"),
+        "{calls:?}"
+    );
+}
