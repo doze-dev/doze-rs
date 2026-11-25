@@ -104,6 +104,5 @@ Lab chunk is lazy (it already is). Fuzz: a new parser needs a `// fuzz:parser` m
 - **S3 PutObject from Send a call.** The Lab sends over the peer bus, which carries no object body (`aws-s3/src/put.rs`: "the object body was not
   received"), so PutObject and UploadPart are answered with an error. The page says so under the editor; the bucket's recipe is *Look inside*
   (ListObjectsV2) and its next step is the bucket's page, where upload exists. Sending a body needs the bus to carry one.
-- **Recipe for a Lambda function needs no code to be present, but a call to one that has no runtime** is the service's own answer, not the Lab's.
 - **Rehearse's rule and forced-event cards** are drawn off ("Needs a newer doze-aws") until the engine and forced-event endpoints are merged
   (`LAB_ENGINE` in `pages/lab/rehearsals.ts`); their words are static until the guide endpoint supplies them.
