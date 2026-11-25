@@ -20,7 +20,7 @@ import type { ResourceList } from "../../../api/types/ResourceList";
 import { HINT } from "../index-page";
 import { ResourceTo, Value } from "../value";
 import { SqsCreate } from "./create";
-import { deletedWords, listRows, type QueueRow } from "./list-model";
+import { createdWords, deletedWords, listRows, type QueueRow } from "./list-model";
 import { remainWords } from "./queue-model";
 import { FromYourApp } from "../../../kit/from-your-app";
 
@@ -28,9 +28,9 @@ import { FromYourApp } from "../../../kit/from-your-app";
 const FIGURES = [/\d[\d,]*(?= messages? waiting| in flight)/];
 
 const COLUMNS: DataColumn<QueueRow>[] = [
-  { id: "name", header: "Name", min: 150, accessorFn: (r) => r.name.toLowerCase(), meta: { mono: true }, cell: (c) => <ResourceTo to={{ service: "sqs", kind: "queues", name: c.row.original.name }} className="font-mono text-[13px] font-medium" testId="row-link">{c.row.original.name}</ResourceTo> },
-  { id: "type", header: "Type", accessorKey: "type", size: 80, min: 60, fit: 60, enableSorting: false },
-  { id: "created", header: "Created", accessorFn: (r) => r.createdMs ?? 0, size: 184, min: 150, fit: 90, cell: (c) => <Value value={c.row.original.created} format="time" /> },
+  { id: "name", header: "Name", min: 168, accessorFn: (r) => r.name.toLowerCase(), meta: { mono: true }, cell: (c) => <ResourceTo to={{ service: "sqs", kind: "queues", name: c.row.original.name }} className="font-mono text-[13px] font-medium" testId="row-link">{c.row.original.name}</ResourceTo> },
+  { id: "type", header: "Type", accessorKey: "type", size: 84, min: 60, fit: 60, enableSorting: false },
+  { id: "created", header: "Created (UTC)", accessorFn: (r) => r.createdMs ?? 0, size: 148, min: 140, fit: 124, cell: (c) => { const at = createdWords(c.row.original.createdMs); return at ? <span title={at.full}>{at.short}</span> : <Value value={c.row.original.created} format="time" />; } },
   { id: "available", header: "Messages available", accessorKey: "available", size: 176, fit: 176, meta: { numeric: true } },
   { id: "inFlight", header: "Messages in flight", accessorKey: "inFlight", size: 176, fit: 176, meta: { numeric: true } },
   { id: "encryption", header: "Encryption", accessorFn: (r) => (r.encrypted ? 1 : 0), size: 108, fit: 108, enableSorting: false, cell: (c) => (c.row.original.encrypted ? "Enabled" : <span className="text-muted-foreground">–</span>) },
