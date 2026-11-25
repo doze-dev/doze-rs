@@ -26,6 +26,7 @@ mod dispatch;
 mod durable;
 mod errors;
 mod eventstream;
+mod forced;
 mod functions;
 mod invoke;
 mod layers;
@@ -366,6 +367,11 @@ impl Service for Lambda {
     }
 
     fn storage(&self) -> Option<&dyn aws_wire::storage::Storage> {
+        Some(self)
+    }
+
+    /// The console's Lab makes a function's next invocation a cold one (`forced`).
+    fn forced(&self) -> Option<&dyn aws_wire::forced::Forced> {
         Some(self)
     }
 

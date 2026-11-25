@@ -7,7 +7,7 @@ import { lineId, lines } from "./repeats";
 import { nameIn, resourceHref, resourceName, resourceShown } from "./resource";
 import { callerOf, consoleShown, filtering, isConsole, liveSearch, matches } from "./search";
 
-const call = (seq: number, more: Partial<CallRecord> = {}): CallRecord => ({ seq, at_ms: 1_800_000_000_000 + seq, service: "sqs", api: "SQS", action: "SendMessage", resource: "orders", member: "QueueName", caller: "AKIA1", region: "us-east-1", status: 200, error_code: null, outcome: "ok", would_be_denied: false, duration_us: 100, request_id: `r-${seq}`, via: null, sdk: null, message: null, function_error: null, answer_bytes: null, summary: null, ...more });
+const call = (seq: number, more: Partial<CallRecord> = {}): CallRecord => ({ seq, at_ms: 1_800_000_000_000 + seq, service: "sqs", api: "SQS", action: "SendMessage", resource: "orders", member: "QueueName", caller: "AKIA1", region: "us-east-1", status: 200, error_code: null, outcome: "ok", would_be_denied: false, duration_us: 100, request_id: `r-${seq}`, via: null, sdk: null, message: null, function_error: null, answer_bytes: null, summary: null, lab: null, ...more });
 const via = (by: string, request_id: string | null = null, name: string | null = null) => ({ by, request_id, name });
 
 describe("Live's address", () => {
@@ -55,6 +55,15 @@ describe("repeats", () => {
     expect(lines([call(2), call(1, { outcome: "error" })], new Set()).length).toBe(2);
     expect(lines([call(2), call(1, { resource: "other" })], new Set()).length).toBe(2);
     expect(lines([call(2), call(1, { via: via("sns") })], new Set()).length).toBe(2);
+  });
+
+  test("a call a Lab rule touched is never folded: each try of a bent client is a row of its own", () => {
+    const lab = { id: 3, name: "Throttle sqs SendMessage", effect: { kind: "failed" } } as CallRecord["lab"];
+    const tries = [call(3, { outcome: "error", lab }), call(2, { outcome: "error", lab }), call(1, { outcome: "error", lab })];
+    expect(lines(tries, new Set()).map((l) => l.kind)).toEqual(["call", "call", "call"]);
+    // Nor is one the rule did not touch folded into one it did.
+    expect(lines([call(2, { outcome: "error" }), call(1, { outcome: "error", lab })], new Set()).length).toBe(2);
+    expect(lines([call(2, { outcome: "error" }), call(1, { outcome: "error" })], new Set()).length).toBe(1);
   });
 });
 

@@ -8,6 +8,7 @@ mod batch;
 mod core;
 mod elsewhere;
 mod fifo;
+mod forced;
 mod messages;
 mod model;
 mod moves;
@@ -220,6 +221,11 @@ impl Service for Sqs {
     }
 
     fn storage(&self) -> Option<&dyn aws_wire::storage::Storage> {
+        Some(self)
+    }
+
+    /// The console's Lab brings a queue's in-flight messages back now (`forced`).
+    fn forced(&self) -> Option<&dyn aws_wire::forced::Forced> {
         Some(self)
     }
 }

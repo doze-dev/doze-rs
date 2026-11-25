@@ -1,4 +1,4 @@
-import { SearchIcon, XIcon } from "lucide-react";
+import { FlaskConicalIcon, SearchIcon, XIcon } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@doze/ui/components/ui/button";
 import { Input } from "@doze/ui/components/ui/input";
@@ -20,7 +20,7 @@ const OUTCOME_WORDS: Record<OutcomeFilter, string> = {
 
 /** The wire's filters: service, outcome, caller, and text in the operation or the resource. Each is in the address. `services`
  * and `callers`: what the calls held and the map's flows name. */
-export function Filters({ search, set, services, callers, titles, shown, held }: { search: LiveSearch; set: (patch: Partial<LiveSearch>) => void; services: string[]; callers: { id: string; internal: boolean }[]; titles: ReadonlyMap<string, string>; /** Calls the filters keep, of `held`. */ shown: number; held: number }) {
+export function Filters({ search, set, services, callers, titles, shown, held, labCalls }: { search: LiveSearch; set: (patch: Partial<LiveSearch>) => void; /** Calls held that a Lab rule touched: the chip is there when there are some, or when it is on. */ labCalls: number; services: string[]; callers: { id: string; internal: boolean }[]; titles: ReadonlyMap<string, string>; /** Calls the filters keep, of `held`. */ shown: number; held: number }) {
   const [q, setQ] = useState(search.q ?? "");
   // The address is the truth: a link, Back or Clear changes the box too (during render, as React asks for state that follows a
   // prop). What the person is typing is kept while it says the same thing.
@@ -84,9 +84,14 @@ export function Filters({ search, set, services, callers, titles, shown, held }:
           ))}
         </SelectContent>
       </Select>
+      {(labCalls > 0 || search.lab !== undefined) && (
+        <Button variant={search.lab === undefined ? "outline" : "secondary"} size="sm" className={search.lab === undefined ? "bg-card" : undefined} aria-pressed={search.lab !== undefined} onClick={() => set({ lab: search.lab === undefined ? "any" : undefined })} data-testid="filter-lab">
+          <FlaskConicalIcon /> {typeof search.lab === "number" ? `Lab rule ${search.lab}` : "Lab calls only"}
+        </Button>
+      )}
       {filtering(search) && (
         <>
-          <Button variant="ghost" size="sm" onClick={() => set({ look: undefined, service: undefined, outcome: undefined, caller: undefined, q: undefined, app: undefined })} data-testid="filter-clear">
+          <Button variant="ghost" size="sm" onClick={() => set({ lab: undefined, look: undefined, service: undefined, outcome: undefined, caller: undefined, q: undefined, app: undefined })} data-testid="filter-clear">
             <XIcon /> Clear
           </Button>
           <span className="text-[12.5px] text-muted-foreground tabular-nums" data-testid="filter-count">

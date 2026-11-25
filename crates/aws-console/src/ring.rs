@@ -27,7 +27,7 @@ use aws_peers::{BusCall, CallWatcher};
 use tokio::sync::watch;
 
 use call::cut;
-pub use call::{Call, Extra, Via};
+pub use call::{Call, Extra, Lab, LabDid, Via};
 pub use fan::Publishing;
 pub use flows::{FLOWS, Flow};
 
@@ -193,7 +193,8 @@ impl Recorder {
             sdk: crate::agent::label(call.user_agent).into(),
             extra: (!call.message.is_empty()
                 || !call.function_error.is_empty()
-                || !call.did.detail.is_empty())
+                || !call.did.detail.is_empty()
+                || call.lab.is_some())
             .then(|| {
                 Box::new(Extra {
                     message: cut(
@@ -205,6 +206,18 @@ impl Recorder {
                         MOST_MESSAGE,
                     ),
                     function_error: cut(call.function_error, MOST_FUNCTION_ERROR),
+                    lab: call.lab.and_then(|l| {
+                        Lab::new(
+                            l.rule,
+                            match l.done {
+                                aws_gateway::Done::Delayed(d) => LabDid::Delayed(
+                                    u32::try_from(d.as_millis()).unwrap_or(u32::MAX),
+                                ),
+                                aws_gateway::Done::Failed => LabDid::Failed,
+                                aws_gateway::Done::Dropped => LabDid::Dropped,
+                            },
+                        )
+                    }),
                 })
             }),
             answer_bytes: call
@@ -357,6 +370,22 @@ impl Recorder {
         }
     }
 
+    /// The newest `limit` calls a Lab rule touched, newest first: those of rule `rule`, or of any rule when it is `None`; and
+    /// whether the ring holds more of them than that.
+    #[must_use]
+    pub fn touched(&self, rule: Option<u32>, limit: usize) -> (Vec<Call>, bool) {
+        let ring = self.ring.lock().unwrap_or_else(PoisonError::into_inner);
+        let mut found = ring.calls.iter().rev().filter(|c| {
+            c.extra
+                .as_ref()
+                .and_then(|e| e.lab.as_ref())
+                .is_some_and(|l| rule.is_none_or(|r| r == l.rule()))
+        });
+        let calls: Vec<Call> = found.by_ref().take(limit).cloned().collect();
+        let more = found.next().is_some();
+        (calls, more)
+    }
+
     /// The number of the newest call recorded; 0 before the first.
     #[must_use]
     pub fn newest_seq(&self) -> u64 {
@@ -421,3 +450,5 @@ impl CallWatcher for Recorder {
 
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod tests_lab;

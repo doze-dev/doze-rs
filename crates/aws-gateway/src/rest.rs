@@ -4,28 +4,24 @@
 
 use aws_auth::Pending;
 use aws_auth::claim::Claim;
-use aws_schema::arena::{Arena, NIL};
-use aws_schema::json::decode;
 use aws_schema::meta::Protocol;
 use aws_schema::tables::{K_STREAM, Tables};
-use aws_wire::rest::fold::fold_enum_headers;
-use aws_wire::rest::jsonin;
 use aws_wire::rest::jsonout;
-use aws_wire::rest::request::{Parts as Input, ReadError, to_json};
 use aws_wire::rest::response::{Rendered, error, host_id, render};
-use aws_wire::rest::route::Matched;
 use aws_wire::rest::{RestReply, Upload};
-use aws_wire::service::{Call, Caller};
 use aws_wire::{ApiError, Family, RequestId, from_auth};
 use http::request::Parts;
 use http::{HeaderValue, Method, Response, header};
 use hyper::body::Incoming;
 
 use crate::body::RespBody;
-use crate::pipeline::{Entry, Shared, authenticate, read_body, session_token};
+mod input;
+use crate::fault::Step;
+use crate::pipeline::{Entry, Shared, authenticate, read_body};
 use crate::presign::{check_presigned, pairs};
 use crate::s3host::target;
 use crate::upload::{Framing, upload};
+use input::{Head, decode_call};
 
 /// Answers a request to the REST service `entry`.
 pub(crate) async fn respond(
@@ -38,7 +34,7 @@ pub(crate) async fn respond(
 ) -> Response<RespBody> {
     let region = claim.region.clone();
     let mut response = respond_inner(shared, entry, id, parts, body, claim).await;
-    if !is_json(entry) {
+    if !is_json(entry) && !crate::fault::is_dropped(&response) {
         crate::cors::decorate(entry, parts, &region, &mut response).await;
     }
     response
@@ -56,7 +52,9 @@ async fn respond_inner(
     let json = is_json(entry);
     match handle(shared, entry, id, parts, body, claim).await {
         Ok(response) => response,
-        Err(e) => {
+        // A Lab rule closed the connection: the answer is a mark, which the connection loop turns into no answer.
+        Err(Halt::Dropped) => crate::fault::marked_dropped::<Vec<u8>>().map(RespBody::whole),
+        Err(Halt::Error(e)) => {
             crate::observe::failed(parts, &e);
             let rendered = if json {
                 jsonout::error(&e, entry.service.tables())
@@ -85,6 +83,20 @@ fn family(json: bool) -> Family {
     if json { Family::Coral } else { Family::S3 }
 }
 
+/// Why a request stops short of its answer.
+enum Halt {
+    /// It is answered with this error.
+    Error(ApiError),
+    /// A Lab rule closes the connection with no answer.
+    Dropped,
+}
+
+impl From<ApiError> for Halt {
+    fn from(e: ApiError) -> Self {
+        Self::Error(e)
+    }
+}
+
 async fn handle(
     shared: &Shared,
     entry: &Entry,
@@ -92,7 +104,7 @@ async fn handle(
     parts: &Parts,
     body: Incoming,
     claim: Claim,
-) -> Result<Response<RespBody>, ApiError> {
+) -> Result<Response<RespBody>, Halt> {
     let tables = entry.service.tables();
     let json = is_json(entry);
     let pending = if crate::presign::is_sigv2(&claim) {
@@ -110,20 +122,7 @@ async fn handle(
     if pending.is_none() {
         check_presigned(&claim, parts)?;
     }
-    let (path, host) = if json {
-        // A service called below a base path (the API Gateway management API at its stage) routes what follows it; the base goes on
-        // with the host, into the caller's endpoint.
-        let (host, full) = (host_of(parts), parts.uri.path());
-        let cut = entry
-            .service
-            .rest()
-            .map_or(0, |r| r.base_path(&host, full))
-            .min(full.len());
-        let (base, rest) = full.split_at(cut);
-        (rest.to_owned(), format!("{host}{base}"))
-    } else {
-        target(parts)
-    };
+    let (path, host) = address(entry, parts, json);
     let query = pairs(parts.uri.query().unwrap_or_default());
     let matched = entry
         .router(tables)
@@ -142,7 +141,8 @@ async fn handle(
             501,
             "NotImplemented",
             format!("{name} is not built in doze-aws."),
-        ));
+        )
+        .into());
     }
     let streaming = streams(tables, op);
     let (body_bytes, up) = take_body(shared, parts, body, pending, streaming, family(json)).await?;
@@ -161,8 +161,29 @@ async fn handle(
         .service
         .rest()
         .ok_or_else(|| ApiError::internal("the service has no REST side"))?;
+    match crate::fault::apply(shared, parts).await {
+        Step::Go => {}
+        Step::Fail(e) => return Err(Halt::Error(e)),
+        Step::Drop => return Err(Halt::Dropped),
+    }
     let reply = rest.call_rest(call, up).await?;
     Ok(answer(parts, entry, id, op, reply))
+}
+
+/// The path a request is routed by and the host it was sent to. A service called below a base path (the API Gateway management API
+/// at its stage) routes what follows it; the base goes on with the host, into the caller's endpoint.
+fn address(entry: &Entry, parts: &Parts, json: bool) -> (String, String) {
+    if !json {
+        return target(parts);
+    }
+    let (host, full) = (host_of(parts), parts.uri.path());
+    let cut = entry
+        .service
+        .rest()
+        .map_or(0, |r| r.base_path(&host, full))
+        .min(full.len());
+    let (base, rest) = full.split_at(cut);
+    (rest.to_owned(), format!("{host}{base}"))
 }
 
 fn unrouted(json: bool) -> ApiError {
@@ -262,23 +283,6 @@ fn framing_of(
     Ok((framing, length))
 }
 
-/// What of the request the call is made from.
-struct Head<'a> {
-    id: &'a RequestId,
-    parts: &'a Parts,
-    host: &'a str,
-    account: &'a str,
-    matched: &'a Matched,
-    query: &'a [(String, String)],
-    body: &'a [u8],
-    json: bool,
-}
-
-/// The input of a restJson1 operation; the body is only named for the error (a body that is not JSON is the service's to word).
-fn json_in(tables: &Tables, shape: u32, p: &Input<'_>) -> Option<serde_json::Value> {
-    jsonin::to_json(tables, shape, p).ok()
-}
-
 /// The `Host` header, or `localhost`.
 fn host_of(parts: &Parts) -> String {
     parts
@@ -287,65 +291,6 @@ fn host_of(parts: &Parts) -> String {
         .and_then(|h| h.to_str().ok())
         .unwrap_or("localhost")
         .to_owned()
-}
-
-fn decode_call(entry: &Entry, h: &Head<'_>, claim: Claim) -> Result<Call, ApiError> {
-    let (matched, parts, id) = (h.matched, h.parts, h.id);
-    let tables = entry.service.tables();
-    let input = tables.op(matched.op).and_then(|o| o.input);
-    let mut arena = Arena::new();
-    let (text, root) = match input {
-        Some(shape) => {
-            let p = Input {
-                labels: &matched.labels,
-                query: h.query,
-                headers: &parts.headers,
-                body: h.body,
-            };
-            let value = if h.json {
-                json_in(tables, shape, &p).ok_or_else(|| {
-                    entry
-                        .service
-                        .invalid(&aws_schema::json::Violation::Syntax { at: 0 })
-                })?
-            } else {
-                to_json(tables, shape, &p).map_err(|ReadError::MalformedXml| {
-                    ApiError::new(
-                        400,
-                        "MalformedXML",
-                        "The XML you provided was not well-formed or did not validate against our published schema",
-                    )
-                })?
-            };
-            let mut value = value;
-            let blind = entry.service.case_blind_headers();
-            if !blind.is_empty() {
-                fold_enum_headers(tables, shape, blind, &mut value);
-            }
-            let text = value.to_string();
-            let root = decode(tables, &entry.patterns, shape, &text, &mut arena)
-                .map_err(|v| entry.service.invalid(&v))?;
-            (text, root)
-        }
-        None => (String::new(), NIL),
-    };
-    let call = Call {
-        op: matched.op,
-        id: id.clone(),
-        caller: Caller {
-            access_key_id: claim.access_key_id,
-            account_id: h.account.to_owned(),
-            region: claim.region,
-            endpoint: format!("http://{}", h.host),
-            service: None,
-            session_token: session_token(parts),
-        },
-        body: text,
-        arena,
-        root,
-    };
-    crate::observe::input(parts, entry, &call);
-    Ok(call)
 }
 
 /// The HTTP answer for a service's reply.

@@ -1,0 +1,1 @@
+{"effect":{"kind":"slow","delay_ms":400,"jitter_ms":100},"share":{"kind":"percent","percent":30},"ends_in_secs":60,"max_hits":3}

@@ -85,6 +85,14 @@ pub(crate) const KEYS: &[Key] = &[
         SERVER,
     ),
     key(
+        "lab",
+        Kind::Text,
+        "on",
+        "on|off",
+        "The Lab: rules made in the console that make calls slow, fail or drop on purpose, kept in memory. On with the console; off by default where the console is served beyond this machine",
+        SERVER,
+    ),
+    key(
         "console-allow-host",
         Kind::List,
         "",

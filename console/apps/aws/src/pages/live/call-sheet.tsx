@@ -13,6 +13,7 @@ import { Explain } from "./explain";
 import { NotBuilt } from "./not-built";
 import { Refused } from "./refused";
 import { Result } from "./outcome";
+import { labSentence } from "../../words";
 import { resourceHref, resourceName, resourceSearchOf } from "./resource";
 
 /** One field of the call: its name, its value (or why there is none), and a line on what it is. */
@@ -68,6 +69,11 @@ export function CallSheet({ seq, call, serviceTitle, titles, held, onOpen, onClo
                   The function failed ({call.function_error}). The invocation itself answered {call.status}: the failure is in the answer, in X-Amz-Function-Error and the error's own text, which the record does not keep.
                 </p>
               )}
+              {call.lab && (
+                <p className="mt-2 rounded-md bg-muted px-2.5 py-1.5 text-[13px] text-foreground" data-testid="call-lab">
+                  {labSentence(call.lab)}
+                </p>
+              )}
               {call.would_be_denied && (
                 <p className="mt-2 rounded-md bg-tint-warn px-2.5 py-1.5 text-[13px] text-warn" data-testid="call-would-be-denied">
                   {WOULD_BE_DENIED.sentence}
@@ -98,7 +104,7 @@ export function CallSheet({ seq, call, serviceTitle, titles, held, onOpen, onClo
             <CauseChain call={call} held={held} titles={titles} onOpen={onOpen} />
             <dl className="mt-5 grid grid-cols-[8.5rem_minmax(0,1fr)] [&>dd:last-of-type]:border-b-0 [&>dt:last-of-type]:border-b-0">
               <Field testId="at" label="Answered" value={dateTimeUtc(call.at_ms).replace(" UTC", `.${clockMsUtc(call.at_ms).slice(-3)} UTC`)} />
-              <Field testId="duration" label="Took" value={micros(call.duration_us)} note={`${number(call.duration_us)} µs, from the request's head being read to its answer being made.`} />
+              <Field testId="duration" label="Took" value={micros(call.duration_us)} note={`${number(call.duration_us)} µs, from the request's head being read to its answer being made.${call.lab?.effect.kind === "delayed" ? ` It includes +${number(call.lab.effect.ms)} ms that Lab rule ${call.lab.id} made it wait.` : ""}`} />
               <Field testId="service" label="Service" value={call.service} none="The request named no service of this build." note={serviceTitle && serviceTitle !== call.service ? serviceTitle : undefined} />
               <Field testId="api" label="API" value={call.api} none="None, with the service." note="The API's SDK id." />
               <Field testId="action" label="Operation" value={call.action} none="The request was refused before an operation was found." />

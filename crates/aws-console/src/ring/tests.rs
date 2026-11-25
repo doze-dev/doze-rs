@@ -4,7 +4,7 @@ use aws_gateway::{Did, Finished};
 
 use super::*;
 
-fn call(n: u64) -> Finished<'static> {
+pub(super) fn call(n: u64) -> Finished<'static> {
     Finished {
         request_id: "0c6f3a52-7a8b-4c1d-9e2f-000000000000",
         signing_name: "sqs",
@@ -23,6 +23,7 @@ fn call(n: u64) -> Finished<'static> {
         function_error: "",
         answer_bytes: None,
         did: Did::NONE,
+        lab: None,
     }
 }
 
@@ -101,6 +102,11 @@ fn the_bytes_held_are_counted_and_never_pass_the_bound() {
         message: &long,
         function_error: &long,
         answer_bytes: Some(70_000),
+        lab: Some(aws_gateway::LabNote {
+            rule: 3,
+            name: &long,
+            done: aws_gateway::Done::Failed,
+        }),
         ..call(1)
     };
     for n in 1..=20 {
@@ -114,7 +120,7 @@ fn the_bytes_held_are_counted_and_never_pass_the_bound() {
     assert_eq!(one.bytes(), RECORD_BYTES + MOST_WIRE_TEXT);
     assert_eq!(one.resource.len(), MOST_RESOURCE);
     assert_eq!(one.caller.len(), MOST_CALLER);
-    // The whole ring, at its worst, is under a megabyte.
+    // The whole ring, at its worst, is under a mebibyte (the Lab's tag took 8 bytes a row of the headroom).
     const { assert!(MOST_BYTES < 1 << 20) };
     // A slot grew from 160 to 184 bytes with the member that named the resource and the cause of a call between services, and
     // to 200 with the client its User-Agent named, and to 216 with the pointer to the words of an error or a failed function and the

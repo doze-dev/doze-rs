@@ -21,6 +21,7 @@ mod describe;
 mod disk;
 mod export;
 mod extras;
+mod forced;
 mod import;
 mod insights;
 mod invalid;
@@ -319,6 +320,11 @@ impl Service for Dynamodb {
     }
 
     fn storage(&self) -> Option<&dyn aws_wire::storage::Storage> {
+        Some(self)
+    }
+
+    /// The console's Lab runs a table's time-to-live sweep now (`forced`).
+    fn forced(&self) -> Option<&dyn aws_wire::forced::Forced> {
         Some(self)
     }
 }

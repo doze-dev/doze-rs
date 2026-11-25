@@ -158,7 +158,7 @@ fn title_of(s: &Shared, service: &str) -> String {
 }
 
 /// Seconds without a request before a service lets go (`--idle-secs`, 300 unless the run says otherwise).
-fn idle_secs(s: &Shared) -> u64 {
+pub(crate) fn idle_secs(s: &Shared) -> u64 {
     s.facts
         .flags
         .iter()
@@ -190,7 +190,17 @@ fn activity(calls: &[Call], s: &Shared) -> Vec<ServiceSeen> {
 
 /// The services that are awake now: reached by a call (an app's, this console's, another service's) within `--idle-secs`.
 pub(super) fn awake(s: &Shared) -> Vec<String> {
-    let calls = s.recorder.newest(ALL).calls;
+    // A service the Lab rested after its newest call is resting, whatever that call was (`lab_once::rest`).
+    let calls: Vec<Call> = s
+        .recorder
+        .newest(ALL)
+        .calls
+        .into_iter()
+        .filter(|c| {
+            !s.once
+                .rested_after(s.facts.service_named(c.signing_name), &c.region, c.at_ms)
+        })
+        .collect();
     let window = idle_secs(s).saturating_mul(1000);
     let now = crate::ring::now_ms();
     activity(&calls, s)

@@ -4,6 +4,7 @@ import { cn } from "@doze/ui/lib/utils";
 import type { CallRecord } from "../../api/types/CallRecord";
 import { answerWords } from "./answer";
 import { OUTCOMES, type OutcomeTone, WOULD_BE_DENIED } from "../../words";
+import { LabTag } from "./lab-tag";
 
 /** Each outcome its own look. Error and denied share the `--bad` hue; denied is told apart by its shield and an outlined word.
  * Not built is muted: doze-aws has not built it, nobody did anything wrong. */
@@ -16,9 +17,9 @@ const TONE: Record<OutcomeTone, { ink: string; icon: LucideIcon; word?: string }
 
 /** A request the service refuses (an answer under 500 that is not IAM's): AWS itself would refuse it, so it is REFUSED, in the
  * refused hue; the same answer from a service that failed (5xx) stays ERROR. */
-export const isRefused = (c: Pick<CallRecord, "outcome" | "status">) => c.outcome === "error" && c.status < 500;
+export const isRefused = (c: Pick<CallRecord, "outcome" | "status">) => c.outcome === "error" && c.status > 0 && c.status < 500;
 
-type ResultCall = Pick<CallRecord, "outcome" | "status" | "error_code" | "would_be_denied"> & Partial<Pick<CallRecord, "action" | "answer_bytes" | "function_error" | "summary">>;
+type ResultCall = Pick<CallRecord, "outcome" | "status" | "error_code" | "would_be_denied"> & Partial<Pick<CallRecord, "action" | "answer_bytes" | "function_error" | "summary" | "lab">>;
 
 /** How a call ended, on one line: an icon and the status for a success; for anything else the contract's word in capitals
  * (ERROR, DENIED, NOT BUILT), the status and the error code. The word and the icon carry the meaning; the colour repeats it.
@@ -54,8 +55,8 @@ export function Result({ call, className }: { call: ResultCall; className?: stri
         </span>
       ) : (
         <>
-          <span className={cn("shrink-0 text-[11.5px] font-bold tracking-[0.05em]", t.ink, t.word)}>{word}</span>
-          <span className="shrink-0 font-mono text-[12px] tabular-nums">{call.status}</span>
+          <span className={cn("shrink-0 text-[11.5px] font-bold tracking-[0.05em]", t.ink, t.word)}>{call.status === 0 ? "NO ANSWER" : word}</span>
+          {call.status !== 0 && <span className="shrink-0 font-mono text-[12px] tabular-nums">{call.status}</span>}
           {call.error_code && (
             <span className="min-w-0 truncate font-mono text-[12px]" title={call.error_code}>
               {call.error_code}
@@ -69,6 +70,7 @@ export function Result({ call, className }: { call: ResultCall; className?: stri
         </span>
       )}
       {call.would_be_denied && !soft && <WouldBeDenied status={call.status} />}
+      {call.lab && <LabTag lab={call.lab} />}
     </span>
   );
 }

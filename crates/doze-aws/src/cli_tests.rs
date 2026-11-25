@@ -90,3 +90,26 @@ fn a_switch_given_is_true_and_the_account_has_its_go_spelling() {
     assert_eq!(g["account"].0, ["111122223333"]);
     command().debug_assert();
 }
+
+#[test]
+fn the_lab_flag_is_on_alone_and_takes_its_word_with_an_equals_sign() {
+    let say = |args: &[&str]| {
+        let (_, m) = parse(args).unwrap();
+        given(&m, None).0.get("lab").cloned()
+    };
+    assert_eq!(say(&[]), None, "left out, it is the default");
+    assert_eq!(say(&["--lab"]), Some((vec!["on".to_owned()], Source::Flag)));
+    assert_eq!(
+        say(&["--lab=false"]),
+        Some((vec!["false".to_owned()], Source::Flag))
+    );
+    assert_eq!(
+        say(&["--lab=true", "--no-console"]).map(|g| g.0),
+        Some(vec!["true".to_owned()])
+    );
+    // It does not take the next word: that one is a command here, and a typo of one.
+    assert!(parse(&["--lab", "false"]).is_err());
+    // `--lab` before a command does not swallow it.
+    let (cli, _) = parse(&["--lab", "doctor"]).unwrap();
+    assert!(matches!(cli.command, Some(Command::Doctor)));
+}

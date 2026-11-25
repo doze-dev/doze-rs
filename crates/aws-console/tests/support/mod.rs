@@ -63,6 +63,7 @@ pub(crate) fn facts() -> Facts {
         peers: None,
         flags: Vec::new(),
         data: None,
+        lab: aws_console::LabFacts::default(),
     }
 }
 
@@ -103,6 +104,7 @@ pub(crate) fn sqs_call(action: &'static str, status: u16, code: &'static str) ->
         function_error: "",
         answer_bytes: None,
         did: Did::NONE,
+        lab: None,
     }
 }
 

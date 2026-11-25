@@ -27,6 +27,7 @@ mod concurrency;
 mod data;
 mod durable;
 mod durable_js;
+mod forced;
 mod functions;
 mod invoking;
 mod livelog;
