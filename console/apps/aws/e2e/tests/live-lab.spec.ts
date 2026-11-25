@@ -24,7 +24,8 @@ const body = (key: string, operation: string, effect: unknown) => ({
 });
 
 test("a throttle rule fails the AWS CLI with its own retries, Live tags each try, and Stop all lets the call through", async ({ page, request, cli, accessKey }) => {
-  const queue = `lab-${accessKey.slice(-6).toLowerCase()}`;
+  // A queue name cannot be made again for 60 s after its delete (as on AWS), so each run has its own.
+  const queue = `lab-${accessKey.slice(-6).toLowerCase()}-${Date.now()}`;
   const made = cli(["sqs", "create-queue", "--queue-name", queue]);
   expect(made.code, made.out).toBe(0);
   const url = (JSON.parse(made.out) as { QueueUrl: string }).QueueUrl;
@@ -41,7 +42,8 @@ test("a throttle rule fails the AWS CLI with its own retries, Live tags each try
     expect(refused.out).toContain("reached max retries: 2");
 
     await page.goto("/live");
-    const tags = page.locator('[data-slot="lab-tag"]');
+    // Other browsers' runs of this test leave their tagged rows on the shared Live record: this run's are the rule's own.
+    const tags = page.locator(`[data-slot="lab-tag"][data-rule="${id}"]`);
     await expect(tags.first()).toBeVisible();
     await expect(tags).toHaveCount(3);
     await expect(tags.first()).toHaveAttribute("data-rule", String(id));
@@ -51,14 +53,14 @@ test("a throttle rule fails the AWS CLI with its own retries, Live tags each try
     // The chip keeps the Lab's calls; the tag says in words what the rule did.
     await page.getByTestId("filter-lab").click();
     await expect(page).toHaveURL(/lab=any/);
-    await expect(page.getByTestId("filter-count")).toContainText("3 of");
+    await expect(page.getByTestId("filter-count")).toContainText(/\d+ of/);
     await tags.first().hover();
     await expect(page.getByRole("tooltip")).toContainText(`Lab rule ${id}`);
     await expect(page.getByRole("tooltip")).toContainText("never saw it");
     await page.locator("table").last().screenshot({ path: process.env.DOZE_AWS_LAB_SHOTS ? `${process.env.DOZE_AWS_LAB_SHOTS}/live-lab-fail.png` : undefined });
 
     // The call's drawer says the same, and that the rule is why.
-    await page.locator('[data-slot="result"]').first().click();
+    await page.locator('[data-slot="result"]').filter({ has: tags.first() }).first().click();
     await expect(page.getByTestId("call-lab")).toContainText(`Lab rule ${id}`);
 
     const stopped = await post<LabStopped>(request, "/api/v1/lab/stop-all", {});
@@ -87,7 +89,8 @@ test("a slow rule serves the call after its wait and the row says its time inclu
     await post<LabStopped>(request, "/api/v1/lab/stop-all", {});
 
     await page.goto("/live?lab=any");
-    const waited = page.getByTestId("latency-includes");
+    // Every browser's run leaves such a row on the shared record: any one of them says it.
+    const waited = page.getByTestId("latency-includes").first();
     await expect(waited).toBeVisible();
     await expect(waited).toContainText("+400");
     await expect(waited).toHaveAttribute("title", /includes \+400 ms/);
