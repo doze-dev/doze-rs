@@ -11,6 +11,7 @@ use http::request::Parts;
 use hyper::body::Incoming;
 use serde_json::Value;
 
+use crate::fault::Step;
 use crate::pipeline::{Entry, Fail, Out, Shared, authenticate, early, endpoint_of, read_body};
 
 /// Answers a Query request to `entry`.
@@ -152,6 +153,11 @@ async fn answer(
     let call =
         decode_call(entry, op, id, caller(shared, parts, claim), form).map_err(|e| fail(&e))?;
     crate::observe::input(parts, entry, &call);
+    match crate::fault::apply(shared, parts).await {
+        Step::Go => {}
+        Step::Fail(e) => return Err(fail(&e)),
+        Step::Drop => return Err(Box::new(crate::fault::marked_dropped())),
+    }
     let output = entry.service.call(call).await.map_err(|e| fail(&e))?;
     crate::observe::output(parts, entry, &output);
     let json = output_json(entry, op, &output.arena, output.root).map_err(|e| fail(&e))?;

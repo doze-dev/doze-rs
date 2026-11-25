@@ -46,6 +46,7 @@ fn wire<'a>(
         function_error: "",
         answer_bytes: None,
         did: Did::NONE,
+        lab: None,
     }
 }
 

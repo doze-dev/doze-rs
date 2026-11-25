@@ -11,6 +11,7 @@ mod body;
 mod cbor;
 mod config;
 mod cors;
+mod fault;
 mod head;
 mod health;
 mod observe;
@@ -26,5 +27,6 @@ mod web;
 mod websig;
 
 pub use config::{Auth, Config, Hooks};
+pub use fault::{Ask, Done, Failure, Faults, LabNote, Tag, Verdict};
 pub use observe::{Did, Finished, MOST_MESSAGE, Observer, WouldDeny};
 pub use server::{Gateway, Running};

@@ -229,6 +229,9 @@ fn check(key: &Key, value: &[String]) -> Result<(), String> {
             Err(format!("`{one}` is not an account id (twelve digits)"))
         }
         "data-dir" if one.is_empty() => Err("the data directory cannot be empty".into()),
+        "lab" if crate::lab::word(&one).is_none() => {
+            Err(format!("`{one}` is not true, false, on or off"))
+        }
         _ => Ok(()),
     }
 }

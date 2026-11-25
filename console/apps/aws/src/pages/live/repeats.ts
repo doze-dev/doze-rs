@@ -9,8 +9,10 @@ export type Line =
   | { kind: "run"; call: CallRecord; calls: CallRecord[]; open: boolean }
   | { kind: "member"; call: CallRecord; of: number };
 
-/** What makes two calls repeats of each other. */
+/** What makes two calls repeats of each other. A call a Lab rule touched is never one: each try of a client the rule bent is a row of
+ * its own, so the retries that were the point of the rule are seen. */
 export function sameAs(a: CallRecord, b: CallRecord): boolean {
+  if (a.lab !== null || b.lab !== null) return false;
   return callerOf(a) === callerOf(b) && a.service === b.service && a.action === b.action && a.resource === b.resource && a.outcome === b.outcome && a.would_be_denied === b.would_be_denied && (a.via === null) === (b.via === null);
 }
 

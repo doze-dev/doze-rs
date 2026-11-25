@@ -9,6 +9,7 @@ use bytes::Bytes;
 use http::request::Parts;
 use hyper::body::Incoming;
 
+use crate::fault::Step;
 use crate::pipeline::{
     Entry, Fail, Out, Shared, authenticate, caller_of, decode_call, inflate, read_body, unbuilt,
 };
@@ -63,6 +64,11 @@ pub(crate) async fn handle(
     let caller = caller_of(shared, parts, claim);
     let call = decode_call(entry, op, id, caller, Bytes::from(json)).map_err(|e| fail(&e))?;
     crate::observe::input(parts, entry, &call);
+    match crate::fault::apply(shared, parts).await {
+        Step::Go => {}
+        Step::Fail(e) => return Err(fail(&e)),
+        Step::Drop => return Err(Box::new(crate::fault::marked_dropped())),
+    }
     let output = entry.service.call(call).await.map_err(|e| fail(&e))?;
     crate::observe::output(parts, entry, &output);
     let encoded = encode_output(entry, op, &output).map_err(|e| fail(&e))?;

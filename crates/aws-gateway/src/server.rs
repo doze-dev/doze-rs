@@ -1,6 +1,5 @@
 //! The listening socket and the connection tasks.
 
-use std::convert::Infallible;
 use std::io;
 use std::net::SocketAddr;
 use std::sync::Arc;
@@ -112,7 +111,14 @@ async fn connection(
 ) {
     let service = service_fn(move |req| {
         let shared = Arc::clone(&shared);
-        async move { Ok::<_, Infallible>(respond(&shared, req).await) }
+        async move {
+            let response = respond(&shared, req).await;
+            // A Lab rule that drops a request answers it with nothing: an error from the service function ends the connection.
+            if crate::fault::is_dropped(&response) {
+                return Err(crate::fault::Dropped);
+            }
+            Ok::<_, crate::fault::Dropped>(response)
+        }
     });
     // Upgrades are allowed so a service can take a connection over (a WebSocket API).
     let conn = http1::Builder::new()

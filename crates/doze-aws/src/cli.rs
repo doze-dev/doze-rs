@@ -236,6 +236,13 @@ fn setting_args(shown: &[&str]) -> Vec<Arg> {
         if key.name == "account" {
             arg = arg.visible_alias("account-id");
         }
+        if key.name == "lab" {
+            // `--lab` alone is `--lab=on`; the value is given with an equals sign, so it never takes the next word.
+            arg = arg
+                .num_args(0..=1)
+                .require_equals(true)
+                .default_missing_value("on");
+        }
         args.push(arg);
         if key.name == "console" {
             // The console is on by default; this is the switch that turns it off (as `--console off`).

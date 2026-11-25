@@ -1,6 +1,7 @@
 // What the server's short words mean, said for a person. Each sentence restates the contract's own documentation
 // (crates/aws-console/src/model.rs); a word this build does not know is shown as it is, never guessed at.
 import type { CallRecord } from "./api/types/CallRecord";
+import type { LabTag } from "./api/types/LabTag";
 import type { Outcome } from "./api/types/Outcome";
 
 /** `--iam`: what IAM does with a request its policies refuse. */
@@ -50,7 +51,21 @@ export function outcomeSentence(call: Pick<CallRecord, "outcome" | "status" | "e
       if (call.error_code === "OptInRequired") return "doze-aws was started without this service (--services), so it answers every call to it with how to turn it on.";
       return "doze-aws does not do this yet: the operation is not built.";
     case "error":
+      if (call.status === 0) return "The connection was closed with no answer: no HTTP status was sent.";
       return call.status >= 500 ? "The server answered with an error of its own." : "The request was answered with an error: the caller's to fix.";
+  }
+}
+
+/** What a Lab rule did to a call, in a sentence. The rule is the one the person made on the Lab page; what it did is a fault on purpose. */
+export function labSentence(lab: LabTag): string {
+  const rule = `Lab rule ${lab.id}, ${lab.name}`;
+  switch (lab.effect.kind) {
+    case "failed":
+      return `${rule}, answered this call with an error on purpose. The service never saw it, so it wrote nothing.`;
+    case "delayed":
+      return `${rule}, made this call wait ${lab.effect.ms} ms before the service was asked. Its time includes the wait; the call was served as usual.`;
+    case "dropped":
+      return `${rule}, closed the connection with no answer, on purpose. The service never saw the call, so it wrote nothing.`;
   }
 }
 

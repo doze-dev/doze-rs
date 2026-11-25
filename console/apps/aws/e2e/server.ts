@@ -151,8 +151,8 @@ export async function assertCurrentBundle(consoleUrl: string): Promise<void> {
 
 /** One call with the real AWS CLI against `endpoint`, signed with dummy credentials (doze-aws trusts any key by default).
  * Returns its exit code and what it printed; a call that fails is not thrown, it is a result. */
-export function aws(endpoint: string, args: string[], options: { accessKey?: string; region?: string } = {}): { code: number; out: string } {
-  const env = { ...process.env, AWS_ENDPOINT_URL: endpoint, AWS_ACCESS_KEY_ID: options.accessKey ?? "AKIADOZEE2E00000001", AWS_SECRET_ACCESS_KEY: "dummy", AWS_DEFAULT_REGION: options.region ?? "us-east-1", AWS_PAGER: "", AWS_EC2_METADATA_DISABLED: "true", AWS_MAX_ATTEMPTS: "1" };
+export function aws(endpoint: string, args: string[], options: { accessKey?: string; region?: string; /** Total attempts the CLI makes (retries included); 1 by default, so a test sees each call once. */ attempts?: number } = {}): { code: number; out: string } {
+  const env = { ...process.env, AWS_ENDPOINT_URL: endpoint, AWS_ACCESS_KEY_ID: options.accessKey ?? "AKIADOZEE2E00000001", AWS_SECRET_ACCESS_KEY: "dummy", AWS_DEFAULT_REGION: options.region ?? "us-east-1", AWS_PAGER: "", AWS_EC2_METADATA_DISABLED: "true", AWS_MAX_ATTEMPTS: String(options.attempts ?? 1) };
   delete (env as Record<string, string | undefined>).AWS_PROFILE;
   delete (env as Record<string, string | undefined>).AWS_SESSION_TOKEN;
   try {

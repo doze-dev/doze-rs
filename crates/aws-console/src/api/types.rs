@@ -122,7 +122,44 @@ fn all() -> BTreeMap<String, String> {
     one::<LabError>(&cfg, &mut out);
     one::<LabAnswer>(&cfg, &mut out);
     page_types(&cfg, &mut out);
+    lab_types(&cfg, &mut out);
     out
+}
+
+/// What the Lab's fault rules send and take.
+fn lab_types(cfg: &Config, out: &mut BTreeMap<String, String>) {
+    use crate::model::{
+        LabCheck, LabCleared, LabCode, LabDid, LabEffect, LabEnd, LabFailKind, LabFirst, LabGuide,
+        LabIntro, LabKind, LabLimits, LabMade, LabMatcher, LabProblem, LabRule, LabRuleBody,
+        LabRuleView, LabRules, LabSetting, LabShare, LabStep, LabStopped, LabSwitchBody, LabTag,
+        LabTeach,
+    };
+    one::<LabKind>(cfg, out);
+    one::<LabFailKind>(cfg, out);
+    one::<LabEffect>(cfg, out);
+    one::<LabShare>(cfg, out);
+    one::<LabMatcher>(cfg, out);
+    one::<LabRuleBody>(cfg, out);
+    one::<LabSwitchBody>(cfg, out);
+    one::<LabProblem>(cfg, out);
+    one::<LabCode>(cfg, out);
+    one::<LabCheck>(cfg, out);
+    one::<LabMade>(cfg, out);
+    one::<LabEnd>(cfg, out);
+    one::<LabFirst>(cfg, out);
+    one::<LabRule>(cfg, out);
+    one::<LabLimits>(cfg, out);
+    one::<LabRules>(cfg, out);
+    one::<LabRuleView>(cfg, out);
+    one::<LabStopped>(cfg, out);
+    one::<LabCleared>(cfg, out);
+    one::<LabDid>(cfg, out);
+    one::<LabTag>(cfg, out);
+    one::<LabStep>(cfg, out);
+    one::<LabIntro>(cfg, out);
+    one::<LabSetting>(cfg, out);
+    one::<LabTeach>(cfg, out);
+    one::<LabGuide>(cfg, out);
 }
 
 /// What a resource page adds: a call's preview, tags, what stands in the way of a delete, a list's parameters, and how a
@@ -201,4 +238,13 @@ fn an_outcome_tells_iam_saying_no_from_doze_not_doing_it_from_any_other_error() 
     assert_eq!(Outcome::of(400, "QueueDoesNotExist"), Outcome::Error);
     assert_eq!(Outcome::of(500, "InternalFailure"), Outcome::Error);
     assert_eq!(Outcome::of(403, ""), Outcome::Error);
+}
+
+#[test]
+fn a_dropped_call_is_an_error_and_a_denial_in_snss_words_is_a_denial() {
+    // A connection a Lab rule closed has no status; nobody said no, and it did not succeed.
+    assert_eq!(Outcome::of(0, ""), Outcome::Error);
+    assert_eq!(Outcome::of(403, "AuthorizationError"), Outcome::Denied);
+    assert_eq!(Outcome::of(403, "AccessDenied"), Outcome::Denied);
+    assert_eq!(Outcome::of(429, "Throttled"), Outcome::Error);
 }

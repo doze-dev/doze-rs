@@ -38,6 +38,7 @@ fn wire(signing: &'static str) -> Finished<'static> {
         function_error: "",
         answer_bytes: None,
         did: Did::NONE,
+        lab: None,
     }
 }
 

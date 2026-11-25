@@ -120,6 +120,7 @@ export function LivePage() {
   const [runs, setRuns] = useState<ReadonlySet<number>>(new Set());
   const toggle = useCallback((id: number) => setRuns((was) => (was.has(id) ? new Set([...was].filter((x) => x !== id)) : new Set([...was, id]))), []);
 
+  const labCalls = useMemo(() => visible.filter((c) => c.lab !== null).length, [visible]);
   const services = useMemo(() => [...new Set([...flows.byKey.values()].map((f) => f.service).filter(Boolean))].sort(), [flows]);
   const callers = useMemo(() => {
     const seen = new Map<string, boolean>();
@@ -208,8 +209,19 @@ export function LivePage() {
           );
         } },
       { id: "caller", header: "Caller", size: 186, min: 130, enableSorting: false, accessorFn: (l) => callerOf(l.call), meta: { mono: true }, cell: (c) => <Caller call={c.row.original.call} titles={titles} names={names} /> },
-      { id: "result", header: "Result", size: 214, min: 140, enableSorting: false, accessorFn: (l) => `${l.call.outcome} ${l.call.status}${l.call.error_code ? ` ${l.call.error_code}` : ""}`, cell: (c) => <Result call={c.row.original.call} /> },
-      { id: "latency", header: "Latency", size: 84, enableSorting: false, accessorFn: (l) => micros(l.call.duration_us), meta: { numeric: true, mono: true } },
+      { id: "result", header: "Result", size: 320, min: 140, enableSorting: false, accessorFn: (l) => `${l.call.outcome} ${l.call.status}${l.call.error_code ? ` ${l.call.error_code}` : ""}`, cell: (c) => <Result call={c.row.original.call} /> },
+      { id: "latency", header: "Latency", size: 120, enableSorting: false, accessorFn: (l) => micros(l.call.duration_us), meta: { numeric: true, mono: true }, cell: (c) => {
+          const lab = c.row.original.call.lab;
+          const waited = lab?.effect.kind === "delayed" ? lab.effect.ms : 0;
+          // A call a Lab rule slowed says its time includes the wait, so nobody reads it as the service's.
+          return waited > 0 ? (
+            <span title={`includes +${number(waited)} ms: Lab rule ${lab?.id} made the call wait`} data-testid="latency-includes">
+              {c.getValue<string>()} <span className="text-[11px] text-muted-foreground">+{number(waited)}</span>
+            </span>
+          ) : (
+            c.getValue<string>()
+          );
+        } },
       { id: "actions", header: () => <span className="sr-only">Actions</span>, size: 44, enableSorting: false, cell: (c) => <RowMenu call={c.row.original.call} /> },
     ],
     [titles, toggle, names],
@@ -335,7 +347,7 @@ export function LivePage() {
                 <span><b className="font-bold tracking-[0.04em] text-refused">REFUSED</b> AWS itself would refuse the request</span>
                 <span><b className="font-bold tracking-[0.04em] text-warn">WOULD BE DENIED</b> AWS would deny this identity; soft IAM let it through</span>
               </p>
-              <Filters search={search} set={set} services={services} callers={callers} titles={titles} shown={kept.length} held={visible.length} />
+              <Filters search={search} set={set} services={services} callers={callers} titles={titles} shown={kept.length} held={visible.length} labCalls={labCalls} />
               <DataTable
                 aria-label="Calls, newest first"
                 data={shown}

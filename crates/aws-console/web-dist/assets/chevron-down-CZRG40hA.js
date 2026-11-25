@@ -1,0 +1,1 @@
+import{At as e}from"./use-overlay-opener-DdKmv_y5.js";var t={name:`chevron-down`,size:24,node:[[`path`,{d:`m6 9 6 6 6-6`,key:`qrunsl`}]]};t.node;var n=e(t);export{n as t};
