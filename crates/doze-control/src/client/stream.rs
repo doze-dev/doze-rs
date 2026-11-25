@@ -41,6 +41,18 @@ impl Pending {
         block_on(self.rx.recv(), Some(Instant::now() + timeout)).map(|r| self.finish(r))
     }
 
+    /// Waits for the response, at most `timeout`, and hands it over refusal and all: only a connection that failed is
+    /// an error, so a caller can read what a refusal carries beyond its words (a form's `field`).
+    pub fn answer(self, timeout: Option<Duration>) -> Result<Response, Error> {
+        match block_on(self.rx.recv(), timeout.map(|t| Instant::now() + t)) {
+            Some(Ok(Frame {
+                response: Some(r), ..
+            })) => Ok(r),
+            Some(r) => self.finish(r),
+            None => Err(Error::Timeout(timeout.unwrap_or_default())),
+        }
+    }
+
     /// Waits for the response from async code.
     pub async fn response(self) -> Result<Response, Error> {
         let r = self.rx.recv().await;

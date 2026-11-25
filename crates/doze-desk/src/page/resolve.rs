@@ -12,12 +12,12 @@ use std::collections::HashMap;
 
 /// What resolves the blocks of one tab.
 pub(super) struct Resolver<'a> {
-    c: &'a ConsoleView,
+    pub(super) c: &'a ConsoleView,
     spec: &'a wire::ConsoleSpec,
     words: Option<&'a words::ConsoleSpec>,
     tab: &'a str,
-    sel: &'a Selection,
-    body: &'a wire::ConsoleNode,
+    pub(super) sel: &'a Selection,
+    pub(super) body: &'a wire::ConsoleNode,
     tables: HashMap<String, Vec<words::ConsoleRow>>,
     /// A tab a person works in (not the overview's blocks): tables are ordered and filtered as `views` says, and an
     /// action on a table's kind goes to its selected row.
@@ -54,7 +54,7 @@ impl<'a> Resolver<'a> {
         self
     }
 
-    fn panel(&self, id: &str) -> Option<(&'a wire::ConsolePanel, &'a words::Panel)> {
+    pub(super) fn panel(&self, id: &str) -> Option<(&'a wire::ConsolePanel, &'a words::Panel)> {
         Some((
             self.spec.panels.iter().find(|p| p.id == id)?,
             self.words?.panel(id)?,
@@ -97,6 +97,8 @@ impl<'a> Resolver<'a> {
                 out.text.clone_from(&n.text);
             }
             NodeKind::Chart => self.chart(&mut out, n),
+            NodeKind::Value => self.value(&mut out, n),
+            NodeKind::Tree => self.tree(&mut out, n),
             // A block this doze cannot draw says so where it would be, rather than leave a hole in the layout.
             NodeKind::Other(kind) if kind.is_empty() => {
                 out.missing =
@@ -111,7 +113,7 @@ impl<'a> Resolver<'a> {
     }
 
     /// The selected row's identity ([`row_ident`]).
-    fn selected_ident(&self, block: &str, panel: &str) -> String {
+    pub(super) fn selected_ident(&self, block: &str, panel: &str) -> String {
         let (Some(rows), Some((_, p))) = (self.c.tables.get(panel), self.panel(panel)) else {
             return String::new();
         };
@@ -407,10 +409,11 @@ fn action(a: &wire::ActionView, resource: String) -> Action {
         hint: a.input_hint.clone(),
         resource,
         row: String::new(),
+        fields: a.fields.clone(),
     }
 }
 
-fn default_title(out: &mut Node, title: &str) {
+pub(super) fn default_title(out: &mut Node, title: &str) {
     if out.title.is_empty() {
         title.clone_into(&mut out.title);
     }

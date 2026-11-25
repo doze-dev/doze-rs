@@ -69,6 +69,7 @@ fn produce() -> Action {
         hint: "message value".into(),
         resource: "orders".into(),
         row: String::new(),
+        fields: Vec::new(),
     }
 }
 
@@ -90,6 +91,9 @@ fn lib_act(root: &mut Root, name: &str, action: StackAction, cx: &mut Context<Ro
 /// Does `act`; says how long to wait before the shot.
 fn start(root: &mut Root, act: &str, window: &mut Window, cx: &mut Context<Root>) -> u64 {
     if let Some(wait) = crate::shot_m3::start(root, act, window, cx) {
+        return wait;
+    }
+    if let Some(wait) = crate::shot_blocks::start(root, act, window, cx) {
         return wait;
     }
     let acts = root.acts.clone();
@@ -179,17 +183,19 @@ fn then(root: &mut Root, act: &str, window: &mut Window, cx: &mut Context<Root>)
     }
 }
 
-/// Runs `--act`, if one was asked for, and waits for it to settle.
+/// Runs `--act`, if one was asked for, and waits for it to settle; acts joined by `|` run in turn.
 pub(crate) async fn run(cx: &mut AsyncApp, h: WindowHandle<Root>, act: Option<&str>) {
-    let Some(act) = act else { return };
-    let wait = h
-        .update(cx, |root, window, cx| start(root, act, window, cx))
-        .unwrap_or(0);
-    cx.background_executor()
-        .timer(Duration::from_millis(wait))
-        .await;
-    let _ = h.update(cx, |root, window, cx| then(root, act, window, cx));
-    cx.background_executor()
-        .timer(Duration::from_millis(250))
-        .await;
+    let Some(acts) = act else { return };
+    for act in acts.split('|') {
+        let wait = h
+            .update(cx, |root, window, cx| start(root, act, window, cx))
+            .unwrap_or(0);
+        cx.background_executor()
+            .timer(Duration::from_millis(wait))
+            .await;
+        let _ = h.update(cx, |root, window, cx| then(root, act, window, cx));
+        cx.background_executor()
+            .timer(Duration::from_millis(250))
+            .await;
+    }
 }

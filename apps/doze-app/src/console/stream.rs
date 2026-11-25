@@ -136,6 +136,7 @@ impl Draw<'_> {
                     flat: false,
                     asleep: false,
                     rooms: None,
+                    work: None,
                 };
                 range
                     .filter_map(|i| rows.get(i))

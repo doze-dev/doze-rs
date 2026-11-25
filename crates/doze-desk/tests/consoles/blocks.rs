@@ -57,7 +57,7 @@ fn view() -> ConsoleView {
 }
 
 #[test]
-fn each_new_block_is_a_placeholder_until_this_doze_draws_it() {
+fn each_block_not_drawn_yet_is_a_placeholder() {
     let v = view();
     let p = console_page("db", "console:work", Some(&v), &Selection::new());
     assert!(!p.missing, "the tab resolves");
@@ -76,7 +76,19 @@ fn each_new_block_is_a_placeholder_until_this_doze_draws_it() {
             _ => None,
         })
         .collect();
-    assert_eq!(unknown, ["value", "series", "checks", "tree"]);
+    assert_eq!(
+        unknown,
+        ["series", "checks"],
+        "the value viewer and the tree are drawn (step 2); the rest wait"
+    );
+    let value = nodes.iter().find(|n| n.kind == NodeKind::Value).unwrap();
+    assert!(
+        value.missing.contains("not on this tab"),
+        "a value following no block on the tab says so: {:?}",
+        value.missing
+    );
+    let tree = nodes.iter().find(|n| n.kind == NodeKind::Tree).unwrap();
+    assert_eq!((tree.panel.as_str(), tree.paired), ("t", false));
     assert!(
         nodes
             .iter()

@@ -14,6 +14,9 @@ pub(crate) fn answer(state: &State, req: &Request) -> Response {
             ..Response::default()
         };
     };
+    if let Some(r) = canned(state, req, op) {
+        return r;
+    }
     match op {
         Op::Status => Response {
             ok: true,
@@ -59,6 +62,14 @@ pub(crate) fn answer(state: &State, req: &Request) -> Response {
                 },
             )
         }
+        // A block the script has no answer for: as the daemon says of a module without it.
+        Op::Value | Op::Children => Response {
+            error: format!(
+                "instance {:?} has no answer for that in this fixture",
+                req.db
+            ),
+            ..Response::default()
+        },
         _ => {
             pause(state);
             let fail = lock(&state.script).failure(&req.op, &req.db).cloned();
@@ -68,6 +79,23 @@ pub(crate) fn answer(state: &State, req: &Request) -> Response {
             outcome(fail.as_ref(), Response::default())
         }
     }
+}
+
+/// A canned answer to a block request (or a form) wins: a value, a page of a tree, a form's field error.
+fn canned(state: &State, req: &Request, op: Op) -> Option<Response> {
+    if !matches!(op, Op::Value | Op::Children | Op::Admin) {
+        return None;
+    }
+    let r = lock(&state.script)
+        .answer(req)
+        .map(|a| a.response.clone())?;
+    if op == Op::Admin {
+        pause(state);
+    }
+    Some(Response {
+        ok: r.error.is_empty(),
+        ..r
+    })
 }
 
 /// Waits as long as the script says a verb takes.

@@ -19,11 +19,14 @@
 //! - the console answers on the instance's name (`--console-allow-host`) and the app can open it (`web_url`).
 
 mod admin;
+mod browse;
 mod check;
 mod client;
 mod converge;
+mod forms;
 mod godata;
 mod hints;
+mod layout;
 #[cfg(test)]
 mod tests;
 
@@ -95,6 +98,8 @@ pub(crate) fn run() -> std::process::ExitCode {
         .health()
         .admin()
         .console()
+        .values()
+        .tree()
         .run()
 }
 
@@ -328,7 +333,7 @@ impl Module for Kafka {
             exact_dots: 0,
             default_port: 9092,
             example: EXAMPLE.into(),
-            console: Some(admin::console()),
+            console: Some(layout::console()),
             actions: admin::actions(),
             targets: targets.map(String::from).to_vec(),
             description: Some(

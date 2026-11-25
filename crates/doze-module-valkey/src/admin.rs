@@ -1,6 +1,7 @@
 //! What the app shows of a running valkey and can do to it: memory against its ceiling, keys, clients, hits and
-//! evictions (from `INFO`), each database's keys, the commands clients send as they send them (`MONITOR`), and two
-//! actions, empty the cache and save a snapshot now. The Go module showed nothing.
+//! evictions (from `INFO`), each database's keys, the commands clients send as they send them (`MONITOR`), and three
+//! actions: empty the cache, save a snapshot now, and set a key (a form). The keys tab is in [`crate::browse`]. The
+//! Go module showed nothing.
 
 use crate::ValkeySpec;
 use doze_module::proto::msg::console::{
@@ -11,11 +12,11 @@ use doze_module::{Cx, Result, help};
 use doze_resp::{Client, fields, human_bytes, parse_info, parse_monitor};
 use std::collections::BTreeMap;
 
-fn unavailable(e: std::io::Error) -> Error {
+pub(crate) fn unavailable(e: std::io::Error) -> Error {
     Error::new(ErrorKind::Unavailable, e.to_string())
 }
 
-async fn client(cx: &Cx<ValkeySpec>) -> Result<Client<doze_os::net::Stream>> {
+pub(crate) async fn client(cx: &Cx<ValkeySpec>) -> Result<Client<doze_os::net::Stream>> {
     let stream = help::dial_backend(&cx.instance).await?;
     Client::authenticated(stream, cx.spec.password())
         .await
@@ -151,6 +152,7 @@ pub(crate) fn actions() -> Vec<Action> {
     vec![
         action("flush", "Empty the cache", true),
         action("save", "Save a snapshot now", false),
+        doze_resp::browse::set_key_action(),
     ]
 }
 
@@ -238,9 +240,10 @@ pub(crate) fn console() -> ConsoleSpec {
         ],
         ..Node::default()
     };
+    let console = doze_resp::layout::console_tab("Valkey", "databases", "Databases");
     ConsoleSpec {
-        panels: vec![server, databases, commands],
-        tabs: vec![],
+        panels: vec![server, databases, commands, doze_resp::layout::keys_panel()],
+        tabs: vec![console, doze_resp::layout::keys_tab()],
         web_url: None,
         front: None,
         extend: vec![Extension {

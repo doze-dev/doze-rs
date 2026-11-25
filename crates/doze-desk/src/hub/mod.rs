@@ -2,10 +2,12 @@
 //! `internal/desk/hub`). Nothing else in the app talks to a daemon's subscription.
 
 mod acting;
+mod blocks;
 mod refresh;
 mod verbs;
 mod watch;
 
+pub use blocks::{BlockAsk, FormOutcome};
 pub use verbs::VERB_TIMEOUT;
 pub use watch::{ConsoleWatch, Watch};
 

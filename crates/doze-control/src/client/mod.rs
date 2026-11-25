@@ -2,6 +2,7 @@
 //! subscription alive across daemon restarts. Frames reach their consumer over `async_channel`, so a GPUI entity can
 //! await them while a CLI blocks on them.
 
+mod blocks;
 pub(crate) mod connection;
 mod follow;
 mod ops;

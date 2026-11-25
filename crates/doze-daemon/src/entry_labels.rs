@@ -31,10 +31,9 @@ pub(crate) fn label(i: &Instance, cat: &Catalog, grant: Option<&Grant>) -> Label
     let host = grant.map(|g| g.host.clone()).unwrap_or_default();
     let named = !host.is_empty();
     let mut l = Labels {
-        kind: match i.kind() {
-            Kind::Module => String::new(),
-            k => k.as_str().into(),
-        },
+        // A module's instance says so (`module`), as Go's daemon did: the app opens a module's console, and `connect`
+        // and `sync` tell a module from a service, by it.
+        kind: i.kind().as_str().into(),
         engine: i.ty.clone(),
         version: i.version.clone(),
         run,
@@ -71,6 +70,11 @@ pub(crate) fn label(i: &Instance, cat: &Catalog, grant: Option<&Grant>) -> Label
     if let Some((url, front)) = console_of(i, cat, grant) {
         (l.web_url, l.console_front) = (url, front);
     }
+    // The module describes a console of its own (tables, streams, the working blocks): the app subscribes to it.
+    l.has_console = i.kind() == Kind::Module
+        && cat
+            .manifest_for(&i.ty, &i.version)
+            .is_some_and(|m| m.console.is_some());
     l
 }
 

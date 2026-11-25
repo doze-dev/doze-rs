@@ -155,6 +155,19 @@ pub struct Node {
     pub span: String,
     /// Why a block cannot draw: `no data source x`.
     pub missing: String,
+    /// A value's or a tree's panel: what the module is asked about.
+    pub panel: String,
+    /// A value block's: the block it follows (a table, or a tree whose leaf it opens).
+    pub follows: String,
+    /// The block it follows is a tree: what it shows is the leaf opened there, not a row.
+    pub follows_tree: bool,
+    /// A value following a table: the selected row's cells (what the module knows the value by), its identity
+    /// ([`row_ident`]: a new pick is a new value) and its name. Empty when the table has no rows.
+    pub row: std::collections::BTreeMap<String, String>,
+    pub pick: String,
+    pub pick_name: String,
+    /// A tree's: a value block on the tab opens its leaves (else the tree shows a leaf itself).
+    pub paired: bool,
 }
 
 impl Node {
@@ -228,12 +241,14 @@ pub struct Action {
     pub resource: String,
     /// The identity of the row it acts on ([`row_ident`]); empty for an action on the instance.
     pub row: String,
+    /// Its form's typed fields (module protocol minor 2); with none it takes `hint`'s one box, or nothing.
+    pub fields: Vec<wire::FieldView>,
 }
 
 impl Action {
     /// It asks before it runs: it takes input, or deletes something.
     pub fn asks(&self) -> bool {
-        self.destructive || !self.hint.is_empty()
+        self.destructive || !self.hint.is_empty() || !self.fields.is_empty()
     }
 }
 

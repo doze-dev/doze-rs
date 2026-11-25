@@ -39,6 +39,8 @@ pub struct Labels {
     /// Where its module serves a web console, its address filled in; the tab the console asks to open on.
     pub web_url: String,
     pub console_front: String,
+    /// The module describes a console (its manifest has one).
+    pub has_console: bool,
     /// `enabled = false` in the config.
     pub paused: bool,
     pub group: String,
@@ -83,6 +85,7 @@ pub(crate) fn view(e: &Engine, i: &Instance, l: Option<&Labels>) -> InstanceView
         endpoint: l.endpoint,
         web_url: l.web_url,
         console_front: l.console_front,
+        has_console: l.has_console,
         bind: l.bind,
         domain: l.domain,
         domains: l.domains,

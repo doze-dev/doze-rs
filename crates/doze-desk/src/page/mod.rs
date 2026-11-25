@@ -3,9 +3,12 @@
 //! `PartialEq`, so the app redraws only when a page changed. The Go app's view goldens hold these to Go's
 //! (`tests/goldens`).
 
+mod blocks;
 pub mod console;
 pub mod filter;
+pub mod form;
 pub mod instance;
+pub mod json;
 pub mod logindex;
 mod logread;
 pub mod logs;
@@ -17,6 +20,8 @@ mod shape;
 pub mod side;
 pub mod snippets;
 pub mod time;
+pub mod tree;
+pub mod value;
 
 /// The colour class a piece of text is drawn in: the words' tones and the accent (doze's own: a woke event, the
 /// bat's `zzz`, a match).

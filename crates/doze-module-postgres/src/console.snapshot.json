@@ -10,6 +10,49 @@
       "id": "terminate",
       "kind": "session",
       "label": "Terminate session"
+    },
+    {
+      "fields": [
+        {
+          "help": "At most 63 bytes.",
+          "id": "name",
+          "kind": "text",
+          "label": "Name"
+        },
+        {
+          "default": "postgres",
+          "help": "A role that exists.",
+          "id": "owner",
+          "kind": "text",
+          "label": "Owner"
+        },
+        {
+          "choices": [
+            "template1",
+            "template0"
+          ],
+          "default": "template1",
+          "help": "template0 is the pristine copy: pick it for another encoding.",
+          "id": "template",
+          "kind": "choice",
+          "label": "Template"
+        },
+        {
+          "choices": [
+            "UTF8",
+            "SQL_ASCII"
+          ],
+          "default": "UTF8",
+          "help": "UTF8 unless you know otherwise.",
+          "id": "encoding",
+          "kind": "choice",
+          "label": "Encoding"
+        }
+      ],
+      "id": "new-database",
+      "input_hint": "name",
+      "kind": "",
+      "label": "Create a database"
     }
   ],
   "spec": {
@@ -142,6 +185,12 @@
         "kind": "table",
         "source": "database",
         "title": "Databases"
+      },
+      {
+        "columns": [],
+        "id": "browse",
+        "kind": "tree",
+        "title": "Schemas"
       }
     ],
     "tabs": [
@@ -156,8 +205,23 @@
             {
               "children": [
                 {
-                  "kind": "table",
-                  "panel": "sessions",
+                  "children": [
+                    {
+                      "id": "sessions",
+                      "kind": "table",
+                      "panel": "sessions",
+                      "weight": 2
+                    },
+                    {
+                      "from": "sessions",
+                      "id": "query-text",
+                      "kind": "value",
+                      "panel": "sessions",
+                      "title": "Full query",
+                      "weight": 1
+                    }
+                  ],
+                  "kind": "col",
                   "weight": 2
                 },
                 {
@@ -169,6 +233,10 @@
                       "weight": 1
                     },
                     {
+                      "actions": [
+                        "cancel",
+                        "terminate"
+                      ],
                       "kind": "actions",
                       "weight": 1
                     }
@@ -186,6 +254,44 @@
         },
         "id": "activity",
         "title": "Activity"
+      },
+      {
+        "body": {
+          "children": [
+            {
+              "children": [
+                {
+                  "id": "browse",
+                  "kind": "tree",
+                  "panel": "browse",
+                  "title": "Schemas",
+                  "weight": 1
+                },
+                {
+                  "from": "browse",
+                  "id": "leaf",
+                  "kind": "value",
+                  "panel": "browse",
+                  "title": "Value",
+                  "weight": 2
+                }
+              ],
+              "kind": "row",
+              "weight": 1
+            },
+            {
+              "actions": [
+                "new-database"
+              ],
+              "kind": "actions",
+              "weight": 1
+            }
+          ],
+          "kind": "col",
+          "weight": 1
+        },
+        "id": "browse",
+        "title": "Browse"
       }
     ]
   }

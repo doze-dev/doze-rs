@@ -34,6 +34,8 @@ pub(super) struct Draw<'a> {
     pub(super) asleep: bool,
     /// The height each stream's place in the layout had when last laid out, by block id (see `Draw::stream`).
     pub(super) rooms: Option<super::Rooms>,
+    /// The working blocks' state (a value viewer's value, a tree's folders): on a tab only.
+    pub(super) work: Option<&'a super::work::Work>,
 }
 
 /// The tab's tree, live.
@@ -49,16 +51,27 @@ pub(crate) fn tab_body(
         live: Some(cx.entity()),
         stream: Some(v.stream.clone()),
         lists: Some(&v.lists),
-        filter: v.filter.as_ref().map(|(id, i)| {
-            (
-                id.clone(),
-                i.clone(),
-                crate::widgets::has_keys(i, window, cx),
-            )
-        }),
+        // The open filter box: a table's, else a tree's while it has the keys (its frame tints).
+        filter: v
+            .filter
+            .as_ref()
+            .map(|(id, i)| {
+                (
+                    id.clone(),
+                    i.clone(),
+                    crate::widgets::has_keys(i, window, cx),
+                )
+            })
+            .or_else(|| {
+                v.work.trees.iter().find_map(|(id, s)| {
+                    let i = s.filter.as_ref()?;
+                    crate::widgets::has_keys(i, window, cx).then(|| (id.clone(), i.clone(), true))
+                })
+            }),
         flat: false,
         asleep: !v.page.state.is_empty() && !v.page.awake,
         rooms: Some(v.rooms.clone()),
+        work: Some(&v.work),
     };
     div()
         .id("con")
@@ -96,6 +109,7 @@ pub(crate) fn static_block(t: &Tokens, n: &Node) -> AnyElement {
         flat: true,
         asleep: false,
         rooms: None,
+        work: None,
     };
     // The overview's cards are a column's width (half the page): a row the module laid out for a whole tab stacks
     // there, each block full width, rather than three blocks squeezed to a third each.
@@ -134,11 +148,13 @@ fn words(d: Div, n: &Node, dir: Option<&NodeKind>) -> Div {
     }
 }
 
-/// It wants the height left over: a stream with lines, or a table too long to lay out whole.
+/// It wants the height left over: a stream with lines, a table too long to lay out whole, a value or a tree (each
+/// scrolls inside its card).
 pub(super) fn grows(n: &Node) -> bool {
     n.walk().iter().any(|b| {
         (b.kind == NodeKind::Stream && !b.rows.is_empty())
             || (b.kind == NodeKind::Table && b.total > BIG)
+            || (matches!(b.kind, NodeKind::Value | NodeKind::Tree) && b.missing.is_empty())
     })
 }
 
@@ -224,6 +240,8 @@ impl Draw<'_> {
                 .child(div().text_color(t.dim).child(text(&n.text)))
                 .into_any_element(),
             NodeKind::Chart => self.chart(n),
+            NodeKind::Value => self.value(n, None),
+            NodeKind::Tree => self.tree(n),
             // The resolver says what it is (`missing`); this is for a tree resolved by an older doze-desk.
             NodeKind::Other(_) => self.placeholder(n, "This needs a newer doze.", dir.as_ref()),
         }

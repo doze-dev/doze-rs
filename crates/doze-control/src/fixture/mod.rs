@@ -12,7 +12,7 @@ mod script;
 mod session;
 mod unary;
 
-pub use script::{Entry, Fail, Script, ScriptError, Step};
+pub use script::{Answer, Entry, Fail, Script, ScriptError, Step};
 
 use crate::client::connection::lock;
 use crate::{Client, Frame, Request, Response};

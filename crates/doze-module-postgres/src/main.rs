@@ -16,12 +16,14 @@
 //!   smart, waited for every client to leave).
 
 mod admin;
+mod browse;
 mod check;
 mod cluster;
 mod conf;
 mod converge;
 mod ext;
 mod filter;
+mod forms;
 mod migrate;
 mod names;
 mod prune;
@@ -29,6 +31,7 @@ mod psql;
 mod rows;
 mod spec;
 mod sql;
+mod value;
 mod wire;
 
 use doze_module::caps::{BackendUrl, Wire, WireHost};
@@ -349,6 +352,8 @@ fn main() -> std::process::ExitCode {
         .prune()
         .template()
         .admin()
+        .values()
+        .tree()
         .backend_url()
         .wire()
         .migrate()

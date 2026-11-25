@@ -50,6 +50,8 @@ pub(crate) enum ActsEvent {
     Open(PathBuf),
     /// The machine's setup asked for (a preflight's Set up): the run sheet.
     Repair,
+    /// A module's action with a form: its fields over the page (the stack, the instance, the action).
+    Form(StackKey, String, doze_desk::page::console::Action),
 }
 
 /// The app's acting.

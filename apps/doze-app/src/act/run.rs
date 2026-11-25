@@ -187,6 +187,14 @@ impl Acts {
         a: &doze_desk::page::console::Action,
         cx: &mut Context<Self>,
     ) {
+        if !a.fields.is_empty() {
+            cx.emit(super::ActsEvent::Form(
+                key.clone(),
+                inst.to_owned(),
+                a.clone(),
+            ));
+            return;
+        }
         let d = doze_desk::act::action_dialog(inst, a);
         if d.needed {
             self.ask(Some(key), d, cx);

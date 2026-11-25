@@ -56,10 +56,16 @@ const MAX_DEPTH: usize = 32;
 
 /// A command as RESP2 sends it: an array of bulk strings.
 pub fn encode(args: &[&str]) -> Vec<u8> {
+    let bytes: Vec<&[u8]> = args.iter().map(|a| a.as_bytes()).collect();
+    encode_bytes(&bytes)
+}
+
+/// A command whose arguments are bytes (a key need not be UTF-8), as RESP2 sends it.
+pub fn encode_bytes(args: &[&[u8]]) -> Vec<u8> {
     let mut out = format!("*{}\r\n", args.len()).into_bytes();
     for a in args {
         out.extend_from_slice(format!("${}\r\n", a.len()).as_bytes());
-        out.extend_from_slice(a.as_bytes());
+        out.extend_from_slice(a);
         out.extend_from_slice(b"\r\n");
     }
     out

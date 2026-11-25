@@ -157,7 +157,7 @@ fn asked(acts: gpui::Entity<Acts>, ev: &ActsEvent, cx: &mut App) {
     let key = match ev {
         ActsEvent::Ask(a) => a.key.clone(),
         ActsEvent::Check(c) => Some(c.key.clone()),
-        ActsEvent::Start(k, _) => Some(k.clone()),
+        ActsEvent::Start(k, _) | ActsEvent::Form(k, _, _) => Some(k.clone()),
         ActsEvent::Open(_) | ActsEvent::Repair => None,
     };
     let outside = around(cx)
