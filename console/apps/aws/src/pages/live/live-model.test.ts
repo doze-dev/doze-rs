@@ -56,6 +56,15 @@ describe("repeats", () => {
     expect(lines([call(2), call(1, { resource: "other" })], new Set()).length).toBe(2);
     expect(lines([call(2), call(1, { via: via("sns") })], new Set()).length).toBe(2);
   });
+
+  test("a call a Lab rule touched is never folded: each try of a bent client is a row of its own", () => {
+    const lab = { id: 3, name: "Throttle sqs SendMessage", effect: { kind: "failed" } } as CallRecord["lab"];
+    const tries = [call(3, { outcome: "error", lab }), call(2, { outcome: "error", lab }), call(1, { outcome: "error", lab })];
+    expect(lines(tries, new Set()).map((l) => l.kind)).toEqual(["call", "call", "call"]);
+    // Nor is one the rule did not touch folded into one it did.
+    expect(lines([call(2, { outcome: "error" }), call(1, { outcome: "error", lab })], new Set()).length).toBe(2);
+    expect(lines([call(2, { outcome: "error" }), call(1, { outcome: "error" })], new Set()).length).toBe(1);
+  });
 });
 
 describe("resource names", () => {
