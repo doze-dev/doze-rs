@@ -24,7 +24,7 @@ pub(crate) enum LogFormat {
 
 /// A Kafka broker for local development: one node, one binary, data on disk.
 #[derive(Debug, Parser)]
-#[command(name = "doze-kafka", version, about)]
+#[command(name = "doze-kafka", version = crate::VERSION, about)]
 pub(crate) struct Args {
     /// Serve on this host:port.
     #[arg(long, default_value = "127.0.0.1:9092")]

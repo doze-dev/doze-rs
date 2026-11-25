@@ -19,6 +19,13 @@ mod web;
 use anyhow::Result;
 use clap::{CommandFactory, FromArgMatches};
 
+/// This build's version, as `--version` says it: `DOZE_KAFKA_VERSION` at build time (the release workflow sets it from
+/// the tag), else the crate's.
+pub(crate) const VERSION: &str = match option_env!("DOZE_KAFKA_VERSION") {
+    Some(v) => v,
+    None => env!("CARGO_PKG_VERSION"),
+};
+
 /// `Parser::parse`, taken apart: the matches say which flags were given, which Settings shows.
 fn parse() -> (cli::Args, run::Flags) {
     let mut cmd = cli::Args::command();
