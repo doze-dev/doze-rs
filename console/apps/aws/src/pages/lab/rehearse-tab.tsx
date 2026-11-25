@@ -1,62 +1,114 @@
-import { ListChecksIcon, OctagonXIcon } from "lucide-react";
-import { Alert } from "@doze/ui/components/app/alert";
+import { ListChecksIcon, OctagonXIcon, Trash2Icon } from "lucide-react";
+import { useState } from "react";
+import { toast } from "sonner";
+import { Alert, ErrorBlock } from "@doze/ui/components/app/alert";
 import { EmptyState } from "@doze/ui/components/app/empty-state";
-import { Badge } from "@doze/ui/components/ui/badge";
 import { Button } from "@doze/ui/components/ui/button";
+import { Skeleton } from "@doze/ui/components/ui/skeleton";
+import { plural } from "@doze/ui/lib/format";
+import { useClearEnded, useClearOnce, useLabGuide, useLabRules, useOnceGuide, useOnceIndex, useRemoveRule, useStopAll, useSwitchRule } from "../../api/lab";
+import type { LabOnceKind } from "../../api/types/LabOnceKind";
 import { Section } from "../card";
+import { OnceDialog } from "./once-dialog";
+import { OnceHistory } from "./once-history";
+import { OnceCards, RuleCards } from "./rehearse-cards";
 import { Recipes } from "./recipes-panel";
-import { EVENTS, LAB_ENGINE, NEEDS_NEWER, RULES, type Rehearsal } from "./rehearsals";
+import { formFor, isRuleTab, newForm, type RuleForm } from "./rule-form";
+import { RuleDialog } from "./rule-dialog";
+import { RuleSheet } from "./rule-sheet";
+import { EndedTable, InForceTable } from "./rules-table";
 
-/** One rehearsal: what it does, and what it stands for in production. Drawn off while this doze-aws has no engine for it. */
-function RehearsalCard({ r, kind }: { r: Rehearsal; kind: "rule" | "once" }) {
-  const Icon = r.icon;
+/** How the Lab works, from the server's words: what it is for, its steps and what it does not do. */
+function HowItWorks() {
+  const guide = useLabGuide();
+  const intro = guide.data?.intro;
+  if (!intro) return null;
   return (
-    <article className="flex min-w-0 flex-col rounded-xl border bg-card p-5" data-testid={`rehearsal-${r.id}`} data-state={LAB_ENGINE ? "ready" : "off"} aria-label={r.title}>
-      <div className="flex w-full items-center gap-2">
-        <Icon className="size-4 shrink-0 text-warn" aria-hidden />
-        <h3 className="min-w-0 text-[15px] font-semibold text-bright">{r.title}</h3>
-        <Badge variant="outline" className="ml-auto shrink-0 text-[11px]">{kind === "rule" ? "rule" : "once"}</Badge>
-      </div>
-      <p className="mt-2 text-[13px] leading-5 text-muted-foreground">{r.lede}</p>
-      <p className="mt-3 border-t pt-3 text-[12.5px] leading-[19px] text-muted-foreground">
-        <b className="font-semibold text-foreground">In production: </b>
-        {r.production}
-      </p>
-      {!LAB_ENGINE && <p className="mt-3 text-[12.5px] font-medium text-muted-foreground" data-testid="rehearsal-needs">{NEEDS_NEWER}</p>}
-    </article>
+    <details className="mb-8 rounded-[var(--radius-card)] border bg-card px-5 py-4" data-testid="lab-intro">
+      <summary className="cursor-pointer text-[14px] font-medium text-bright">{intro.what}</summary>
+      <ol className="mt-3 grid gap-2.5">
+        {intro.steps.map((s, i) => (
+          <li key={s.title} className="text-[13.5px] leading-5"><b className="font-semibold text-bright">{i + 1}. {s.title}.</b> <span className="text-muted-foreground">{s.text}</span></li>
+        ))}
+      </ol>
+      <ul className="mt-3 list-disc pl-5 text-[13px] leading-5 text-muted-foreground">{intro.limits.map((l) => <li key={l}>{l}</li>)}</ul>
+    </details>
   );
 }
 
-/** Rehearse: what production does to a client, made to happen here; and calls to try with your own things. */
+/** Rehearse: the rules in force (and what ended), the six rehearsals that make a rule, recipes made from your own things, and the forced events. */
 export function RehearseTab() {
+  const rules = useLabRules();
+  const guide = useLabGuide();
+  const once = useOnceIndex();
+  const onceGuide = useOnceGuide();
+  const [dialog, setDialog] = useState<RuleForm | null>(null);
+  const [opened, setOpened] = useState<number | null>(null);
+  const [forced, setForced] = useState<LabOnceKind | null>(null);
+  const flip = useSwitchRule();
+  const remove = useRemoveRule();
+  const stop = useStopAll();
+  const clearEnded = useClearEnded();
+  const clearOnce = useClearOnce();
+  const data = rules.data;
+  const enabled = data?.enabled === true;
+  const inForce = data?.in_force ?? [];
   return (
     <>
-      <Recipes />
-      <Section title="Rehearse a failure" testId="lab-rules" lede="A rule bends the calls your app sends to the endpoint for a while: slower, refused the way AWS refuses, or dropped. It ends by itself. The console's own calls, calls between services and calls sent from Send a call are never bent.">
-        {!LAB_ENGINE && (
-          <Alert tone="info" title="Rules are not in this doze-aws yet" className="mb-4" testId="lab-engine-off">
-            The six rehearsals below are drawn off. They light up when doze-aws has the fault engine; nothing here changes your calls until then.
-          </Alert>
-        )}
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3" data-testid="rehearsal-cards">
-          {RULES.map((r) => <RehearsalCard key={r.id} r={r} kind="rule" />)}
-        </div>
-      </Section>
-      <Section title="Make a slow event happen now" testId="lab-events" lede="Some things production does wait on a timer here. Each of these runs the service's own step at once, never a made-up state, and says in words when there is nothing to do.">
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3" data-testid="event-cards">
-          {EVENTS.map((r) => <RehearsalCard key={r.id} r={r} kind="once" />)}
-        </div>
-      </Section>
+      <HowItWorks />
+      {data && !enabled && (
+        <Alert tone="warn" title="Rules are off in this doze-aws" className="mb-8" testId="lab-off">
+          {data.off_why ?? "The Lab was started off."} Send a call, its history and the forced events below still work.
+        </Alert>
+      )}
       <Section
-        title="In force"
+        title="Rules in force"
         testId="lab-in-force"
-        lede="The rules at work now, with how many calls each touched, a link to those calls on Live, and what ended."
-        actions={<Button type="button" variant="outline" size="sm" className="bg-card" disabled title={NEEDS_NEWER} data-testid="lab-stop-all"><OctagonXIcon /> Stop all</Button>}
+        lede="What is bending your calls now, with how many each touched, a link to those calls on Live, and when it ends. A rule ends by itself."
+        actions={
+          <Button type="button" variant="outline" size="sm" className="bg-card" disabled={inForce.length === 0 || stop.isPending} onClick={() => stop.mutate(undefined, { onSuccess: (r) => toast.success(`Stopped ${plural(r.stopped, "rule")}`) })} data-testid="lab-stop-all">
+            <OctagonXIcon /> Stop all
+          </Button>
+        }
       >
-        <EmptyState icon={ListChecksIcon} title="No rules in force" className="min-h-40">
-          Rules you make are listed here, each with a switch, its hits and when it ends. Stop all removes every rule at once.
-        </EmptyState>
+        {rules.isError && !data ? (
+          <ErrorBlock what="The rules could not be read" error={rules.error} hint="Check that doze-aws is still running." onRetry={() => void rules.refetch()} retrying={rules.isFetching} testId="lab-rules-error" />
+        ) : !data ? (
+          <Skeleton className="h-40 rounded-xl" aria-label="Loading" />
+        ) : inForce.length === 0 ? (
+          <EmptyState icon={ListChecksIcon} title="No rules in force" className="min-h-40">
+            {enabled ? "Make a rule below, or from one of your own things. It is listed here with a switch, its hits and when it ends." : "The Lab is off, so there is nothing to make."}
+          </EmptyState>
+        ) : (
+          <InForceTable rules={inForce} onOpen={setOpened} busy={flip.isPending || remove.isPending} onSwitch={(id, on) => flip.mutate({ id, enabled: on })} onRemove={(r) => remove.mutate(r.id, { onSuccess: () => toast.success(`Removed ${r.name}`) })} />
+        )}
       </Section>
+      <Section title="Rehearse a failure" testId="lab-rules" lede="A rule bends the calls your app sends to the endpoint for a while: slower, refused the way AWS refuses, or dropped. The console's own calls, calls between services and calls sent from Send a call are never bent.">
+        <RuleCards teach={guide.data?.rehearsals} enabled={enabled} onStart={(tab) => setDialog(newForm(isRuleTab(tab) ? tab : "throttle"))} />
+      </Section>
+      <Recipes onRehearse={enabled ? (r) => setDialog(formFor({ service: r.ask.service, op: r.ask.op, resource: r.resource })) : undefined} />
+      <Section title="Make a slow event happen now" testId="lab-events" lede="Some things production does wait on a timer here. Each of these runs the service's own step at once, never a made-up state, and says in words when there is nothing to do.">
+        {once.isError && !once.data ? <ErrorBlock what="The forced events could not be read" error={once.error} onRetry={() => void once.refetch()} retrying={once.isFetching} testId="lab-once-error" /> : <OnceCards kinds={once.data?.kinds} teach={onceGuide.data?.kinds} onOpen={setForced} />}
+        {once.data && once.data.history.length > 0 && (
+          <div className="mt-6">
+            <h3 className="mb-3 text-[15px] font-semibold text-bright">Forced lately</h3>
+            <OnceHistory history={once.data.history} kinds={once.data.kinds} clearing={clearOnce.isPending} onClear={() => clearOnce.mutate()} />
+          </div>
+        )}
+      </Section>
+      {data && data.ended.length > 0 && (
+        <Section
+          title="Ended"
+          testId="lab-ended"
+          lede={`The last ${data.limits.most_ended} rules that are over, and how each ended.`}
+          actions={<Button type="button" variant="outline" size="sm" className="bg-card" disabled={clearEnded.isPending} onClick={() => clearEnded.mutate()} data-testid="lab-ended-clear"><Trash2Icon /> Clear the list</Button>}
+        >
+          <EndedTable rules={data.ended} onOpen={setOpened} />
+        </Section>
+      )}
+      <RuleDialog initial={dialog} onClose={() => setDialog(null)} />
+      <RuleSheet id={opened} onClose={() => setOpened(null)} />
+      <OnceDialog kind={forced} teach={onceGuide.data?.kinds.find((t) => t.kind === forced?.id)} onClose={() => setForced(null)} />
     </>
   );
 }

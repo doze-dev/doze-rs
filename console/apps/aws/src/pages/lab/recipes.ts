@@ -16,6 +16,8 @@ export type Recipe = {
   /** What the call is, in one line. */
   line: string;
   ask: Omit<Ask, "title">;
+  /** What a fault rule names to bend the calls for this thing alone (a pattern the gateway's resource fits), when the call names one. */
+  resource?: string;
   /** The call's answer carries a secret: it is hidden until the person shows it. */
   secret: boolean;
   next: { text: string; to: Next };
@@ -67,6 +69,7 @@ const sqs: RecipeSpec = {
       service: "sqs",
       title: `Send a message to ${row.name}`,
       line: "SQS SendMessage with the queue's URL filled in.",
+      resource: row.name,
       ask: { target: "sqs", service: "sqs", op: "SendMessage", input: { QueueUrl: row.id, MessageBody: HELLO, ...(fifo ? { MessageGroupId: "lab", MessageDeduplicationId: `lab-${row.name}` } : {}) } },
       secret: false,
       next: { text: "Then open the queue and look at its messages.", to: { kind: "resource", service: "sqs", resKind: "queues", name: row.name, view: "messages" } },
@@ -90,6 +93,7 @@ const dynamodb: RecipeSpec = {
       service: "dynamodb",
       title: `Put an item in ${row.name}`,
       line: `DynamoDB PutItem with its key (${sort ? `${partition} and ${sort}` : partition}) filled in.`,
+      resource: row.name,
       ask: { target: "dynamodb", service: "dynamodb", op: "PutItem", input: { TableName: row.id, Item: item } },
       secret: false,
       next: { text: "Then open the table and look for the item.", to: { kind: "resource", service: "dynamodb", resKind: "tables", name: row.name } },
@@ -106,6 +110,7 @@ const lambda: RecipeSpec = {
     service: "lambda",
     title: `Invoke ${row.name}`,
     line: "Lambda Invoke with a small JSON payload (a blob is base64 text).",
+    resource: row.name,
     ask: { target: "lambda", service: "lambda", op: "Invoke", input: { FunctionName: row.id, InvocationType: "RequestResponse", Payload: b64('{"source":"lab"}') } },
     secret: false,
     next: { text: "Then see the invocation on Live, and the function's log lines.", to: { kind: "live", service: "lambda" } },
@@ -121,6 +126,7 @@ const sns: RecipeSpec = {
     service: "sns",
     title: `Publish to ${row.name}`,
     line: "SNS Publish with the topic's ARN filled in.",
+    resource: `*:${row.name}`,
     ask: { target: "sns", service: "sns", op: "Publish", input: { TopicArn: row.id, Message: HELLO, ...(row.name.endsWith(".fifo") ? { MessageGroupId: "lab", MessageDeduplicationId: `lab-${row.name}` } : {}) } },
     secret: false,
     next: { text: "Then open the topic and follow what it delivered.", to: { kind: "resource", service: "sns", resKind: "topics", name: row.name } },
@@ -137,6 +143,7 @@ const s3: RecipeSpec = {
     service: "s3",
     title: `Look inside ${row.name}`,
     line: "S3 ListObjectsV2. (PutObject cannot be sent from here: upload on the bucket's page.)",
+    resource: row.name,
     ask: { target: "s3", service: "s3", op: "ListObjectsV2", input: { Bucket: row.id } },
     secret: false,
     next: { text: "Then open the bucket to upload an object.", to: { kind: "resource", service: "s3", resKind: "buckets", name: row.name } },
@@ -152,6 +159,7 @@ const states: RecipeSpec = {
     service: "stepfunctions",
     title: `Start ${row.name}`,
     line: "Step Functions StartExecution with the state machine's ARN filled in.",
+    resource: `*:${row.name}`,
     ask: { target: "states", service: "stepfunctions", op: "StartExecution", input: { stateMachineArn: row.id, input: "{}" } },
     secret: false,
     next: { text: "Then open the state machine and watch the execution.", to: { kind: "resource", service: "stepfunctions", resKind: "machines", name: row.name } },
@@ -167,6 +175,7 @@ const secrets: RecipeSpec = {
     service: "secretsmanager",
     title: `Get ${row.name}`,
     line: "Secrets Manager GetSecretValue with the secret's name filled in.",
+    resource: row.name,
     ask: { target: "secretsmanager", service: "secretsmanager", op: "GetSecretValue", input: { SecretId: row.name } },
     secret: true,
     next: { text: "Then see the call on Live.", to: { kind: "live", service: "secretsmanager" } },

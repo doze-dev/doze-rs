@@ -3,22 +3,9 @@
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { Page } from "@playwright/test";
-import { aws, ACCOUNT, type Running, start } from "../server";
+import { aws, ACCOUNT } from "../server";
 import { expect, open, overflowX, pickFrom, test, unique } from "./fixtures";
-
-/** A doze-aws of this test's own, stopped by its pid at the end. */
-async function own(page: Page, run: (server: Running, cli: (args: string[]) => { code: number; out: string }) => Promise<void>): Promise<void> {
-  const base = 24_000 + 2 * Math.floor(Math.random() * 1_000);
-  const server = await start(base, base + 1);
-  try {
-    await run(server, (args) => aws(server.endpoint, args));
-  } finally {
-    // The page leaves first: one that is still open would find the server gone and log it.
-    await page.goto("about:blank");
-    await server.stop();
-  }
-}
+import { own } from "./lab-kit";
 
 test("the tabs are in the address, a reload keeps the tab, and the keyboard goes along them", async ({ page, browserName }) => {
   await open(page, "/lab", "Lab");
@@ -48,17 +35,20 @@ test("the tabs are in the address, a reload keeps the tab, and the keyboard goes
   await expect(page.getByTestId("lab-tab-rehearse")).toHaveAttribute("aria-current", "page");
 });
 
-test("Rehearse says what each rehearsal stands for in production, and is honest that this doze-aws has no engine for them", async ({ page }) => {
+test("Rehearse has the six rule rehearsals and the five forced events, each with what it stands for in production", async ({ page }) => {
   await open(page, "/lab", "Lab");
   await expect(page.getByText("Not built yet")).toHaveCount(0);
+  await expect(page.getByText("Needs a newer doze-aws")).toHaveCount(0);
   await expect(page.getByTestId("rehearsal-cards").getByRole("article")).toHaveCount(6);
   await expect(page.getByTestId("event-cards").getByRole("article")).toHaveCount(5);
   await expect(page.getByTestId("rehearsal-throttle")).toContainText("In production:");
-  await expect(page.getByTestId("rehearsal-throttle")).toContainText("Needs a newer doze-aws");
-  await expect(page.getByTestId("rehearsal-throttle")).toHaveAttribute("data-state", "off");
-  await expect(page.getByTestId("lab-stop-all")).toBeDisabled();
+  await expect(page.getByTestId("rehearsal-throttle").getByTestId("rule-start")).toBeEnabled();
+  await expect(page.getByTestId("rehearsal-rest-service")).toContainText("In production:");
+  await expect(page.getByTestId("rehearsal-rest-service").getByTestId("once-open")).toBeEnabled();
+  // How the Lab works is the server's words, folded.
+  await expect(page.getByTestId("lab-intro")).toContainText(/Lab/);
   await expect(page.getByTestId("lab-in-force")).toContainText("No rules in force");
-  await expect(page.getByTestId("lab-engine-off")).toBeVisible();
+  await expect(page.getByTestId("lab-stop-all")).toBeDisabled();
 });
 
 test("Send a call picks a service and an operation, starts from the model's example, and says what an invalid input is", async ({ page }) => {

@@ -1,5 +1,5 @@
 import { Link, useNavigate } from "@tanstack/react-router";
-import { EyeOffIcon, PackageOpenIcon, SendIcon } from "lucide-react";
+import { EyeOffIcon, FlaskConicalIcon, PackageOpenIcon, SendIcon } from "lucide-react";
 import { useMemo, useState } from "react";
 import { ErrorBlock } from "@doze/ui/components/app/alert";
 import { EmptyState } from "@doze/ui/components/app/empty-state";
@@ -29,7 +29,7 @@ function NextLink({ to, children }: { to: Next; children: React.ReactNode }) {
   );
 }
 
-function RecipeCard({ recipe, title }: { recipe: Recipe; title: string }) {
+function RecipeCard({ recipe, title, onRehearse }: { recipe: Recipe; title: string; onRehearse?: (r: Recipe) => void }) {
   const navigate = useNavigate();
   const open = () => {
     setDraft({ target: recipe.ask.target, op: recipe.ask.op, text: inputText(recipe.ask.input), note: `From the recipe: ${recipe.title}.` });
@@ -47,10 +47,15 @@ function RecipeCard({ recipe, title }: { recipe: Recipe; title: string }) {
           <EyeOffIcon className="size-3.5" aria-hidden /> The value is hidden until you show it.
         </p>
       )}
-      <div className="mt-4">
+      <div className="mt-4 flex flex-wrap gap-2">
         <Button type="button" variant="outline" size="sm" className="bg-card" onClick={open} data-testid="lab-recipe-open">
           <SendIcon /> Open in Send a call
         </Button>
+        {onRehearse && (
+          <Button type="button" variant="outline" size="sm" className="bg-card" onClick={() => onRehearse(recipe)} data-testid="lab-recipe-rehearse">
+            <FlaskConicalIcon /> Rehearse a failure
+          </Button>
+        )}
       </div>
       <p className="mt-3 border-t pt-3 text-[12.5px] leading-[19px] text-muted-foreground">
         <NextLink to={recipe.next.to}>{recipe.next.text}</NextLink>
@@ -61,14 +66,14 @@ function RecipeCard({ recipe, title }: { recipe: Recipe; title: string }) {
 
 /** The recipe of `spec` for the first thing of its kind, when there is one. Asking for the list is a call to the service, so this is drawn only
  * for a service that is awake, or one the person asked to look at. */
-function RecipeSlot({ spec, titles }: { spec: RecipeSpec; titles: ReadonlyMap<string, string> }) {
+function RecipeSlot({ spec, titles, onRehearse }: { spec: RecipeSpec; titles: ReadonlyMap<string, string>; onRehearse?: (r: Recipe) => void }) {
   const list = useResourceList(spec.service, spec.kind);
   const page = list.data?.pages[0];
   const row = page?.rows[0];
   const recipe = useMemo(() => (row && page ? spec.build(row, page.columns) : null), [spec, row, page]);
   if (list.isPending) return <Skeleton className="h-44 rounded-xl" aria-label="Loading" />;
   if (!recipe) return null;
-  return <RecipeCard recipe={recipe} title={titles.get(recipe.ask.target) ?? recipe.service} />;
+  return <RecipeCard recipe={recipe} title={titles.get(recipe.ask.target) ?? recipe.service} onRehearse={onRehearse} />;
 }
 
 type Kind = ResourceService["kinds"][number];
@@ -76,7 +81,7 @@ const kindOf = (s: ResourceService | undefined, id: string): Kind | undefined =>
 
 /** Recipes: a call to try with the person's own queues, tables, functions, topics, buckets, state machines, secrets and buses. A recipe
  * exists only for a thing that exists. A service that is resting is not asked (that would wake it): the person can ask for it. */
-export function Recipes() {
+export function Recipes({ onRehearse }: { onRehearse?: (r: Recipe) => void }) {
   const index = useResourcesIndex(true, false);
   const lab = useLab();
   const [asked, setAsked] = useState<ReadonlySet<string>>(new Set());
@@ -91,7 +96,7 @@ export function Recipes() {
   const present = slots.filter((s) => s.present);
   const resting = slots.filter((s) => s.rested);
   return (
-    <Section title="Try it with your own things" testId="lab-recipes" lede="A call made from what you already have, with its input filled in. It opens in Send a call, where you can change it before it goes.">
+    <Section title="Try it with your own things" testId="lab-recipes" lede="A call made from what you already have, with its input filled in. It opens in Send a call, where you can change it before it goes; or rehearse a failure of just those calls.">
       {index.isError && !index.data ? (
         <ErrorBlock what="Your resources could not be read" error={index.error} hint="Check that doze-aws is still running." onRetry={() => void index.refetch()} retrying={index.isFetching} testId="lab-recipes-error" />
       ) : !services ? (
@@ -102,7 +107,7 @@ export function Recipes() {
         <>
           {present.length > 0 && (
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3" data-testid="lab-recipe-cards">
-              {present.map((s) => <RecipeSlot key={s.spec.id} spec={s.spec} titles={titles} />)}
+              {present.map((s) => <RecipeSlot key={s.spec.id} spec={s.spec} titles={titles} onRehearse={onRehearse} />)}
             </div>
           )}
           {present.length === 0 && (

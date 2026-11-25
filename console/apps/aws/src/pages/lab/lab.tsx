@@ -1,6 +1,8 @@
 import { Link, useNavigate, useSearch } from "@tanstack/react-router";
 import { PageHeader } from "@doze/ui/components/app/page-header";
+import { RefreshControl } from "@doze/ui/components/app/refresh-control";
 import { cn } from "@doze/ui/lib/utils";
+import { useLabRules, useOnceIndex } from "../../api/lab";
 import { RehearseTab } from "./rehearse-tab";
 import { type LabSearch, type LabTab, tabOf } from "./search";
 import { SendTab } from "./send-tab";
@@ -25,10 +27,12 @@ export function LabPage() {
   const search = useSearch({ from: "/lab" });
   const navigate = useNavigate({ from: "/lab" });
   const tab = tabOf(search);
+  const rules = useLabRules();
+  const once = useOnceIndex();
   const pick = (next: LabSearch) => void navigate({ search: next });
   return (
     <>
-      <PageHeader title="Lab" sub="Rehearse what production does to a client, and send any call doze-aws has built, as this console." />
+      <PageHeader title="Lab" sub="Rehearse what production does to a client, and send any call doze-aws has built, as this console." refresh={tab === "rehearse" ? <RefreshControl updatedAt={rules.dataUpdatedAt} fetching={rules.isFetching || once.isFetching} onRefresh={() => (void rules.refetch(), void once.refetch())} /> : undefined} />
       <Tabs tab={tab} />
       {tab === "rehearse" ? <RehearseTab /> : <SendTab api={search.api ?? ""} op={search.op ?? ""} pick={pick} />}
     </>

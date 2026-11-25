@@ -165,8 +165,7 @@ Lab chunk is lazy (it already is). Fuzz: a new parser needs a `// fuzz:parser` m
 - **S3 PutObject from Send a call.** The Lab sends over the peer bus, which carries no object body (`aws-s3/src/put.rs`: "the object body was not
   received"), so PutObject and UploadPart are answered with an error. The page says so under the editor; the bucket's recipe is *Look inside*
   (ListObjectsV2) and its next step is the bucket's page, where upload exists. Sending a body needs the bus to carry one.
-- **Rehearse's rule and forced-event cards** are drawn off ("Needs a newer doze-aws") until the engine and forced-event endpoints are merged
-  (`LAB_ENGINE` in `pages/lab/rehearsals.ts`); their words are static until the guide endpoint supplies them.
+
 ## 4. As built: the engine (branch `aws-lab-engine`)
 
 Part 2 of the contract above, built; the rules and the tests that hold them are `docs/port/behaviours/aws-lab.md` (AWS-LAB-1 to 20). Not built
@@ -245,3 +244,24 @@ and a 20 s backoff cap, timeouts from the call's context. The retry classificati
   theme was not photographed (the tag uses the theme's `primary` and `current` colours).
 - **A banner or a count of "rules in force" on other pages** (Live's header, the sidebar): Live shows the tag and the chip only once a Lab call is
   held; a rule that has not fired is only on the Lab page.
+
+## 6. As built: the page (branch `aws-lab-page`)
+
+Under `console/apps/aws/src/pages/lab/` (files under 300 lines) and `api/lab.ts`. **Send a call** (`send-tab.tsx`): the editor, the model's members, copy as CLI/boto3,
+the answer, the history of calls sent (50, per region, in this browser), saved inputs (30), and recipes. **Rehearse** (`rehearse-tab.tsx`): the rules in force
+(`rules-table.tsx`: switch, rule, applies to, hits, last hit, ends, See on Live, Remove; Stop all; the rule's sheet `rule-sheet.tsx` with the calls it touched),
+the six rule cards from `/lab/guide`, recipes (each with *Rehearse a failure*, which opens the rule dialog on that thing's calls), the five forced events from
+`/lab/once` and `/lab/once/guide`, what was forced lately (with a link to the result), and the ended rules with how each ended. The rule dialog (`rule-dialog.tsx`,
+`rule-fields.tsx`, `rule-form.ts`) keeps the form; the sentence and every problem are the server's (`/rules/check`, asked 250 ms after the form is still); Make rule is enabled only
+for a checked rule. Off (`enabled: false`): the page says why from `off_why`, the cards and Stop all are disabled, Send a call and the forced events still work.
+The data of Rehearse follows the page's refresh choice (Off by default), as every data page does; a change made here reads it again at once.
+
+Decisions where the brief was silent: the forced-event form reads the services (a call), so a resting service is shown as resting with *Look anyway*; a forced event does
+**not** invalidate what Resources lists (reading it would start the service that was just rested). A recipe's rule names its resource by the name (`orders`) or, for
+an ARN-named thing (SNS topic, state machine), by `*:name`; both checked against the real engine.
+
+Not built (page, part 2): **a Custom error rule** (`fail.error: custom`, a status and a code of the person's choosing) has no tab; the six lessons are the guide's six, and the
+dialog sends `throttle`, `unavailable`, `internal` or `access-denied`. **Callers** are typed (access key ids), with no picker. **The rule's sheet** shows at most 20 of the calls it touched
+(Live has all). **Live's Lab tag, the Lab-only chip, `?lab=`, `+ms` and NO ANSWER** are the engine's and were checked (and are covered by `lab-rules.spec.ts` and `live-lab.spec.ts`),
+not redone; `live-lab.spec.ts` fails when run for the three browsers in one run (it counts rows another browser's run left on the shared Live record) and passes alone in Chromium.
+
