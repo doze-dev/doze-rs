@@ -148,8 +148,8 @@ precedence, seeded shares), `record.rs`, `words.rs` (the sentences), `teach.rs` 
 **Measured** (2026-11-26, darwin/arm64). `cargo run --release -p aws-console --example lab_bench`: a request through the gateway to SQS costs
 about 24.5 to 25.3 microseconds with the recorder only, with the table and no rule, with one rule that fits nothing and with 50, all within
 about 1 microsecond of each other; `armed` is 0.2 ns, `judge` 2 ns with no rule, 25 ns with one that fits nothing, 123 ns with fifty.
-`cargo xtask weight doze-aws`: 12,088,336 bytes against 20,000,000, 305 packages against 310, 7,952 KB idle against 16,384 (before the Live
-work; the final number is in the commit's report).
+`cargo xtask weight doze-aws` (with the Live work and the rebuilt bundle): 12,088,352 bytes against 20,000,000, 305 packages against 310,
+7,872 KB idle against 16,384 (darwin/arm64, `release-aws`).
 
 **SDK defaults the lessons name** (read on 2026-11-25 from the official docs and sources; the sources are in `lab/teach/settings.rs`): botocore
 standard mode by default with 3 attempts (4 for DynamoDB), legacy 5; connect and read timeouts 60 s; JavaScript v3 3 attempts, standard, a request
