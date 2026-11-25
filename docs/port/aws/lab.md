@@ -132,6 +132,9 @@ function the service's own timer or request path calls, and can the console make
   call again, both on Live as the console's. A schedule fired now invokes the target once and keeps its plan (the local hook's meaning), a one-time schedule's fire is its one fire.
   A schedule's first attempt is waited for at most ten seconds; after that the invocation carries on in the background and the sentence says so.
 
+- **Weight** (`cargo xtask weight doze-aws`, macOS, release-aws, 2026-11-26): 12,087,968 B (the base commit `ce3fe9566`, measured the same way: 12,004,640 B, so +83,328 B), 305
+  packages (unchanged), idle 7,760 KB (samples 7,664 to 7,792; the base 7,792 to 7,872). The register holds one weak handle per lazy actor made, which is a few bytes for each region a service was called in.
+
 ### Forced events: not built
 
 - **Secrets rotation, Secrets and KMS deletion windows, EventBridge archive retention, Logs retention, SQS retention.** See the survey: each is lazy against the clock or is already a
