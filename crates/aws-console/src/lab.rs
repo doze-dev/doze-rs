@@ -15,6 +15,8 @@ pub mod record;
 pub mod rule;
 pub mod table;
 pub mod teach;
+#[cfg(test)]
+mod testing;
 pub mod words;
 
 pub use record::{Ended, EndedWhy, First, Found, Rule};

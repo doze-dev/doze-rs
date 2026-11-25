@@ -131,7 +131,7 @@ pub const ROWS: &[Row] = &[
         ..row("kinesis", "Kinesis")
     },
     Row {
-        internal: shape("KMSInternalException", 500, "KMSInternal"),
+        internal: shape("KMSInternalException", 500, "KMSInternalException"),
         ..row("kms", "KMS")
     },
     Row {
@@ -145,7 +145,7 @@ pub const ROWS: &[Row] = &[
         ..row("secretsmanager", "Secrets Manager")
     },
     Row {
-        internal: shape("InternalServiceFault", 500, "InternalServiceError"),
+        internal: shape("InternalServiceFault", 500, "InternalServiceFault"),
         ..row("monitoring", "CloudWatch")
     },
     Row {

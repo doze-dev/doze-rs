@@ -59,13 +59,12 @@ pub enum LabDid {
     Dropped,
 }
 
-/// The Lab rule that touched a call: kept on its row, never folded into another.
-#[derive(Debug, Clone, PartialEq, Eq)]
+/// The Lab rule that touched a call: kept on its row, never folded into another. The rule's name is not kept here (a ring row is
+/// bounded to a mebibyte in all): the API asks the table for it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Lab {
     /// The rule's number.
     pub rule: u32,
-    /// Its name when it fired, cut at [`super::MOST_LAB_NAME`] bytes.
-    pub name: Box<str>,
     /// What it did.
     pub did: LabDid,
 }
@@ -116,7 +115,6 @@ impl Call {
                 std::mem::size_of::<Extra>()
                     + e.message.len()
                     + e.function_error.len()
-                    + e.lab.as_ref().map_or(0, |l| l.name.len())
             })
     }
 }

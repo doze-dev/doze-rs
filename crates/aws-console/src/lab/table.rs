@@ -290,6 +290,19 @@ impl LabTable {
         })
     }
 
+    /// The name of rule `id`, in force or over, while the table still holds it.
+    #[must_use]
+    pub fn name_of(&self, id: u32) -> Option<Arc<str>> {
+        let inner = self.lock();
+        inner
+            .rules
+            .iter()
+            .map(|l| &l.rule)
+            .chain(inner.ended.iter().map(|e| &e.rule))
+            .find(|r| r.id == id)
+            .map(|r| Arc::clone(&r.name))
+    }
+
     /// Forgets the rules that are over; how many.
     pub fn clear_ended(&self) -> usize {
         let mut inner = self.lock();

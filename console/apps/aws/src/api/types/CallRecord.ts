@@ -48,7 +48,7 @@ caller: string | null,
  */
 region: string | null, 
 /**
- * The HTTP status answered.
+ * The HTTP status answered; 0 for a call whose connection was closed with no answer (a Lab rule dropped it).
  */
 status: number, 
 /**

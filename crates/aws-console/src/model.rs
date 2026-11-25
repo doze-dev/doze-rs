@@ -268,7 +268,12 @@ impl CallRecord {
                 .and_then(|e| e.lab.as_ref())
                 .map(|l| LabTag {
                     id: l.rule,
-                    name: l.name.to_string(),
+                    name: facts
+                        .lab
+                        .table
+                        .as_ref()
+                        .and_then(|t| t.name_of(l.rule))
+                        .map_or_else(|| format!("Lab rule {}", l.rule), |n| n.to_string()),
                     effect: match l.did {
                         crate::ring::LabDid::Delayed(ms) => LabDid::Delayed { ms },
                         crate::ring::LabDid::Failed => LabDid::Failed,
