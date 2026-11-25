@@ -65,7 +65,7 @@ export function PageHeader({ title, sub, crumbs = [], actions, refresh, mono = f
       )}
       {belowCrumbs && <div className="mb-6">{belowCrumbs}</div>}
       <div ref={mark} aria-hidden className="-mb-px h-px" />
-      <div className={cn("-mt-2 flex flex-wrap items-start justify-between gap-x-8 gap-y-4 bg-background py-2 xl:sticky xl:top-[52px] xl:z-[15] -mx-6 px-6 lg:-mx-10 lg:px-10 xl:-mx-12 xl:px-12", sub ? "mb-0" : "mb-6", stuck ? "shadow-[0_1px_0_0_var(--border)]" : "shadow-[0_1px_0_0_transparent]")} data-slot="page-title-row" data-stuck={stuck || undefined}>
+      <div className={cn("-mt-2 flex flex-wrap items-start justify-between gap-x-8 gap-y-4 bg-background py-2 xl:sticky xl:top-[52px] xl:z-[15]", sub ? "mb-0" : "mb-6", stuck ? "shadow-[0_1px_0_0_var(--border)]" : "shadow-[0_1px_0_0_transparent]")} data-slot="page-title-row" data-stuck={stuck || undefined}>
         <div className="min-w-0 flex-1 basis-[14rem]">
           {titleExtra ? (
             <div className="flex flex-wrap items-center gap-x-3.5 gap-y-2">
