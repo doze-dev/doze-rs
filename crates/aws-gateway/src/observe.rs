@@ -20,6 +20,7 @@ use aws_wire::{ApiError, RequestId};
 use bytes::Bytes;
 use http::request::Parts;
 
+use crate::fault::{Ask, Done, Faults, LabNote, Tag, Verdict};
 use crate::pipeline::{Entry, Shared};
 
 /// Told about every finished AWS API request. Called on the request path: it must be quick and must not block.
@@ -70,6 +71,8 @@ pub struct Finished<'a> {
     pub answer_bytes: Option<u32>,
     /// What the call did, read from its input and its answer ([`aws_peers::summary`]); none for an answer that failed.
     pub did: Did<'a>,
+    /// The Lab rule that touched the request ([`crate::Config::faults`]); a dropped request has status 0.
+    pub lab: Option<LabNote<'a>>,
 }
 
 /// The most bytes of an error message the observer is told.
@@ -174,6 +177,8 @@ struct Notes {
     would_be_denied: bool,
     summary: Summary,
     detail: String,
+    /// The Lab rule that touched the request, and what it did.
+    lab: Option<(Tag, Done)>,
 }
 
 fn note(parts: &Parts, write: impl FnOnce(&mut Notes)) {
@@ -296,11 +301,44 @@ pub(crate) fn failed(parts: &Parts, error: &ApiError) {
     });
 }
 
-/// Starts watching a request, if anyone wants to be told: the time it started.
+/// The request has been judged by a Lab rule, which did `done` to it.
+pub(crate) fn lab(parts: &Parts, tag: &Tag, done: Done) {
+    note(parts, |n| n.lab = Some((tag.clone(), done)));
+}
+
+/// What the Lab's rules say of the request in hand, from what the pipeline has noted of it. A request whose service or operation is
+/// not known is passed.
+pub(crate) fn judge(parts: &Parts, faults: &dyn Faults) -> Verdict {
+    let Some(seen) = parts.extensions.get::<Arc<Seen>>() else {
+        return Verdict::Pass;
+    };
+    let n = seen.notes();
+    let Some(meta) = n.meta.filter(|_| !n.action.is_empty()) else {
+        return Verdict::Pass;
+    };
+    faults.judge(&Ask {
+        signing_name: meta.signing_name,
+        sdk_id: meta.sdk_id,
+        operation: n.action,
+        resource: &n.resource,
+        access_key_id: &n.access_key_id,
+        region: &n.region,
+        user_agent: parts
+            .headers
+            .get(http::header::USER_AGENT)
+            .and_then(|v| v.to_str().ok())
+            .unwrap_or_default(),
+    })
+}
+
+/// Starts watching a request, if anyone wants to be told (an observer) or to judge it (the Lab's rules): the time it started.
 pub(crate) fn begin(shared: &Shared, id: &RequestId, parts: &mut Parts) -> Option<Instant> {
-    shared.config.observer.as_ref()?;
+    let observed = shared.config.observer.is_some();
+    if !observed && shared.config.faults.is_none() {
+        return None;
+    }
     let seen = Arc::new(Seen::default());
-    if let Some(flight) = &shared.config.would_deny {
+    if let (true, Some(flight)) = (observed, &shared.config.would_deny) {
         id.as_str().clone_into(&mut seen.notes().request_id);
         flight.enter(&seen);
     }
@@ -327,7 +365,12 @@ pub(crate) fn end<B: hyper::body::Body>(
         flight.leave(seen);
     }
     let notes = seen.notes();
-    let status = response.status().as_u16();
+    // A dropped request was answered with nothing: it has no status.
+    let status = if crate::fault::is_dropped(response) {
+        0
+    } else {
+        response.status().as_u16()
+    };
     let header = |name: &str| response.headers().get(name).and_then(|v| v.to_str().ok());
     // A query-compatible service (SQS) answers its JSON with the code its query protocol had, which is the code an SDK reports.
     let query = (status >= 400)
@@ -370,7 +413,7 @@ pub(crate) fn end<B: hyper::body::Body>(
             .exact()
             .and_then(|n| u32::try_from(n).ok()),
         // A failed call did nothing a summary could say.
-        did: if status < 400 {
+        did: if status != 0 && status < 400 {
             Did {
                 summary: notes.summary,
                 detail: &notes.detail,
@@ -378,5 +421,10 @@ pub(crate) fn end<B: hyper::body::Body>(
         } else {
             Did::NONE
         },
+        lab: notes.lab.as_ref().map(|(tag, done)| LabNote {
+            rule: tag.rule,
+            name: &tag.name,
+            done: *done,
+        }),
     });
 }

@@ -38,6 +38,7 @@ fn wire(key: &'static str, signing: &'static str, action: &'static str) -> Finis
         function_error: "",
         answer_bytes: None,
         did: Did::NONE,
+        lab: None,
     }
 }
 

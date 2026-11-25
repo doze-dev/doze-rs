@@ -130,7 +130,8 @@ fn lab_types(cfg: &Config, out: &mut BTreeMap<String, String>) {
     use crate::model::{
         LabCheck, LabCleared, LabCode, LabDid, LabEffect, LabEnd, LabFailKind, LabFirst, LabGuide,
         LabIntro, LabKind, LabLimits, LabMade, LabMatcher, LabProblem, LabRule, LabRuleBody,
-        LabRuleView, LabRules, LabSetting, LabShare, LabStep, LabStopped, LabTag, LabTeach,
+        LabRuleView, LabRules, LabSetting, LabShare, LabStep, LabStopped, LabSwitchBody, LabTag,
+        LabTeach,
     };
     one::<LabKind>(cfg, out);
     one::<LabFailKind>(cfg, out);
@@ -138,6 +139,7 @@ fn lab_types(cfg: &Config, out: &mut BTreeMap<String, String>) {
     one::<LabShare>(cfg, out);
     one::<LabMatcher>(cfg, out);
     one::<LabRuleBody>(cfg, out);
+    one::<LabSwitchBody>(cfg, out);
     one::<LabProblem>(cfg, out);
     one::<LabCode>(cfg, out);
     one::<LabCheck>(cfg, out);

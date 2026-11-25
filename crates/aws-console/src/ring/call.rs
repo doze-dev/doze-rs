@@ -48,7 +48,29 @@ pub struct Call {
     pub summary: Summary,
 }
 
-/// The words of an error answer, and a function invocation's own failure.
+/// What a Lab rule did to a call.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum LabDid {
+    /// The call waited this many milliseconds before it was served.
+    Delayed(u32),
+    /// It was answered with an error and the service never saw it.
+    Failed,
+    /// The connection was closed with no answer.
+    Dropped,
+}
+
+/// The Lab rule that touched a call: kept on its row, never folded into another.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Lab {
+    /// The rule's number.
+    pub rule: u32,
+    /// Its name when it fired, cut at [`super::MOST_LAB_NAME`] bytes.
+    pub name: Box<str>,
+    /// What it did.
+    pub did: LabDid,
+}
+
+/// The words of an error answer, a function invocation's own failure, and the Lab rule that touched the call.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct Extra {
     /// The words an error answer carried (the service's own). On a call that succeeded, where there are none, the short text its
@@ -56,6 +78,8 @@ pub struct Extra {
     pub message: Box<str>,
     /// `Unhandled` or `Handled` when a function invocation answered 200 and the function failed.
     pub function_error: Box<str>,
+    /// The Lab rule that touched the call.
+    pub lab: Option<Lab>,
 }
 
 /// What made a call between services.
@@ -89,7 +113,10 @@ impl Call {
             + self.via.as_ref().map_or(0, |v| v.bytes())
             + self.sdk.len()
             + self.extra.as_ref().map_or(0, |e| {
-                std::mem::size_of::<Extra>() + e.message.len() + e.function_error.len()
+                std::mem::size_of::<Extra>()
+                    + e.message.len()
+                    + e.function_error.len()
+                    + e.lab.as_ref().map_or(0, |l| l.name.len())
             })
     }
 }

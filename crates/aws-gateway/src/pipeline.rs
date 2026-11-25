@@ -20,6 +20,7 @@ use hyper::body::Incoming;
 pub(crate) use crate::head::{
     authenticate, caller_of, endpoint_of, inflate, read_body, session_token,
 };
+use crate::fault::Step;
 use crate::target::target_prefix;
 use crate::{Auth, Config};
 
@@ -315,6 +316,11 @@ async fn handle(
     let caller = caller_of(shared, parts, claim);
     let call =
         crate::observe::decode(parts, entry, (op, id), caller, bytes).map_err(|e| fail(&e))?;
+    match crate::fault::apply(shared, parts).await {
+        Step::Go => {}
+        Step::Fail(e) => return Err(fail(&e)),
+        Step::Drop => return Err(Box::new(crate::fault::marked_dropped())),
+    }
     answer(parts, entry, (op, version), call)
         .await
         .map_err(|e| fail(&e))

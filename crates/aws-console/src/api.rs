@@ -28,6 +28,8 @@ pub mod deep;
 pub mod flows;
 pub mod home;
 pub mod lab;
+mod lab_build;
+pub mod lab_rules;
 pub mod objects;
 pub mod ops;
 pub mod policies;
@@ -77,6 +79,7 @@ pub fn routes() -> Router<Shared> {
         .route("/api/v1/calls/{seq}/copy", get(copy::copy))
         .route("/api/v1/flows", get(flows::flows))
         .merge(spaces())
+        .merge(lab_rules::routes())
         .route("/api/v1/resources", get(resources::index))
         .route(
             "/api/v1/resources/{service}/{kind}",

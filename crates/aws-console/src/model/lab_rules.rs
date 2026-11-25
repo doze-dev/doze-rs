@@ -384,3 +384,12 @@ pub struct LabGuide {
     /// One per rehearsal, in the order of the form's tabs.
     pub rehearsals: Vec<LabTeach>,
 }
+
+/// `POST /api/v1/lab/rules/{id}/switch`: switch a rule on or off. With no body, or no `enabled`, the rule is turned the other way.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Deserialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
+pub struct LabSwitchBody {
+    #[serde(default)]
+    #[cfg_attr(test, ts(optional))]
+    pub enabled: Option<bool>,
+}

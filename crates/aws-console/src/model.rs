@@ -120,7 +120,8 @@ pub struct ServicesResponse {
 pub enum Outcome {
     /// Answered as asked (a status under 400).
     Ok,
-    /// Any other error answer, 4xx or 5xx, the caller's or the server's, a validation error included: the status says which.
+    /// Any other error answer, 4xx or 5xx, the caller's or the server's, a validation error included: the status says which. Also a
+    /// call whose connection was closed with no answer (status 0).
     Error,
     /// IAM refused it (an `AccessDenied...` error, under `--iam enforce`): the caller may not do this.
     Denied,
@@ -133,9 +134,12 @@ impl Outcome {
     /// The outcome of an answer with `status` and error `code`.
     #[must_use]
     pub fn of(status: u16, code: &str) -> Self {
-        if status < 400 {
+        if status == 0 {
+            // A connection closed with no answer (a Lab rule dropped it): it did not succeed, and no one said no.
+            Self::Error
+        } else if status < 400 {
             Self::Ok
-        } else if code.starts_with("AccessDenied") {
+        } else if code.starts_with("AccessDenied") || code == "AuthorizationError" {
             Self::Denied
         } else if (status == 501 && code == "NotImplemented") || code == "OptInRequired" {
             Self::NotBuilt
@@ -171,7 +175,7 @@ pub struct CallRecord {
     pub caller: Option<String>,
     /// The region it was signed for.
     pub region: Option<String>,
-    /// The HTTP status answered.
+    /// The HTTP status answered; 0 for a call whose connection was closed with no answer (a Lab rule dropped it).
     pub status: u16,
     /// The error code answered (`QueueDoesNotExist`); `null` for a success.
     pub error_code: Option<String>,
@@ -258,7 +262,19 @@ impl CallRecord {
                     .filter(|_| call.status < 400)
                     .map_or("", |e| &e.message),
             ),
-            lab: None,
+            lab: call
+                .extra
+                .as_ref()
+                .and_then(|e| e.lab.as_ref())
+                .map(|l| LabTag {
+                    id: l.rule,
+                    name: l.name.to_string(),
+                    effect: match l.did {
+                        crate::ring::LabDid::Delayed(ms) => LabDid::Delayed { ms },
+                        crate::ring::LabDid::Failed => LabDid::Failed,
+                        crate::ring::LabDid::Dropped => LabDid::Dropped,
+                    },
+                }),
         }
     }
 }

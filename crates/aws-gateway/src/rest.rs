@@ -22,6 +22,7 @@ use http::{HeaderValue, Method, Response, header};
 use hyper::body::Incoming;
 
 use crate::body::RespBody;
+use crate::fault::Step;
 use crate::pipeline::{Entry, Shared, authenticate, read_body, session_token};
 use crate::presign::{check_presigned, pairs};
 use crate::s3host::target;
@@ -38,7 +39,7 @@ pub(crate) async fn respond(
 ) -> Response<RespBody> {
     let region = claim.region.clone();
     let mut response = respond_inner(shared, entry, id, parts, body, claim).await;
-    if !is_json(entry) {
+    if !is_json(entry) && !crate::fault::is_dropped(&response) {
         crate::cors::decorate(entry, parts, &region, &mut response).await;
     }
     response
@@ -56,7 +57,9 @@ async fn respond_inner(
     let json = is_json(entry);
     match handle(shared, entry, id, parts, body, claim).await {
         Ok(response) => response,
-        Err(e) => {
+        // A Lab rule closed the connection: the answer is a mark, which the connection loop turns into no answer.
+        Err(Halt::Dropped) => crate::fault::marked_dropped::<Vec<u8>>().map(RespBody::whole),
+        Err(Halt::Error(e)) => {
             crate::observe::failed(parts, &e);
             let rendered = if json {
                 jsonout::error(&e, entry.service.tables())
@@ -85,6 +88,20 @@ fn family(json: bool) -> Family {
     if json { Family::Coral } else { Family::S3 }
 }
 
+/// Why a request stops short of its answer.
+enum Halt {
+    /// It is answered with this error.
+    Error(ApiError),
+    /// A Lab rule closes the connection with no answer.
+    Dropped,
+}
+
+impl From<ApiError> for Halt {
+    fn from(e: ApiError) -> Self {
+        Self::Error(e)
+    }
+}
+
 async fn handle(
     shared: &Shared,
     entry: &Entry,
@@ -92,7 +109,7 @@ async fn handle(
     parts: &Parts,
     body: Incoming,
     claim: Claim,
-) -> Result<Response<RespBody>, ApiError> {
+) -> Result<Response<RespBody>, Halt> {
     let tables = entry.service.tables();
     let json = is_json(entry);
     let pending = if crate::presign::is_sigv2(&claim) {
@@ -142,7 +159,8 @@ async fn handle(
             501,
             "NotImplemented",
             format!("{name} is not built in doze-aws."),
-        ));
+        )
+        .into());
     }
     let streaming = streams(tables, op);
     let (body_bytes, up) = take_body(shared, parts, body, pending, streaming, family(json)).await?;
@@ -161,6 +179,11 @@ async fn handle(
         .service
         .rest()
         .ok_or_else(|| ApiError::internal("the service has no REST side"))?;
+    match crate::fault::apply(shared, parts).await {
+        Step::Go => {}
+        Step::Fail(e) => return Err(Halt::Error(e)),
+        Step::Drop => return Err(Halt::Dropped),
+    }
     let reply = rest.call_rest(call, up).await?;
     Ok(answer(parts, entry, id, op, reply))
 }

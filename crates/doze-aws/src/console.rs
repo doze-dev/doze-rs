@@ -237,6 +237,7 @@ fn facts(cfg: &Config, me: &Instance, on: &[&'static Svc], apis: &Apis) -> Facts
         peers: None,
         flags: Vec::new(),
         data: None,
+        lab: aws_console::LabFacts::default(),
     }
 }
 
