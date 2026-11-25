@@ -146,7 +146,7 @@ test("a JSON field that is not JSON yet is no member of the call, Save is off, a
   await editor.fill('{ "Version": "2012-10-17", "Stat');
   await expect(page.getByTestId("form-submit")).toBeDisabled();
   await expect(page.getByText("Not JSON")).toHaveCount(1);
-  await expect(page.getByTestId("disabled-why")).toContainText("Fix the JSON policy to save.");
+  await expect(page.getByTestId("disabled-why")).toContainText("not a JSON object");
   // Whatever the panel last drew, it holds no Policy once the pause is over.
   await expect(page.getByTestId("call-panel-code")).not.toContainText("Policy", { timeout: 6_000 });
   await expect(page.getByTestId("policy-json-format")).toHaveCount(0);

@@ -64,7 +64,7 @@ function EditForm({ d, q, back, done, tags }: SubProps & { tags: { key: string; 
       submitLabel="Save"
       pending={save.isPending || setTags.isPending}
       disabled={nothing || (tried && bad) || Boolean(p.policy)}
-      disabledWhy={nothing ? "Nothing has changed." : p.policy ?? Object.values(p)[0]}
+      disabledWhy={p.policy ?? (nothing ? "Nothing has changed." : Object.values(p)[0])}
       cancelLabel="Cancel"
       onCancel={back}
       onSubmit={() => void submit()}

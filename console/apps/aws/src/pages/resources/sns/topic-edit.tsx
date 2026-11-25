@@ -11,7 +11,7 @@ import { diffTags, FormPage, noChange, type PreviewRequest, resourceCrumbs, TAG_
 import { useOp } from "../deep/api";
 import { Rich } from "./parts";
 import { b } from "./sentences";
-import { changePhrases, changes, formOfTopic, problems, type TopicForm } from "./topic-form-model";
+import { changePhrases, changes, formOfTopic, NOT_JSON, problems, type TopicForm } from "./topic-form-model";
 import { Logging, RetryPolicy, TagsSection, Tracing } from "./topic-form-delivery";
 import { AccessPolicy, Details, Encryption, FifoOptions, MaxSize } from "./topic-form-fields";
 import type { TopicProps } from "./topic-props";
@@ -86,7 +86,7 @@ function EditForm({ d, t, subs, back, done, tags }: TopicProps & { tags: { key: 
       submitLabel="Save changes"
       pending={save.isPending || setTags.isPending}
       disabled={nothing || (tried && bad) || Boolean(pr.policy)}
-      disabledWhy={nothing ? "Nothing has changed." : pr.policy ?? Object.values(pr)[0]}
+      disabledWhy={pr.policy?.startsWith(NOT_JSON) ? "Fix the JSON policy to save." : (pr.policy ?? (nothing ? "Nothing has changed." : Object.values(pr)[0]))}
       onCancel={back}
       onSubmit={() => void submit()}
       testId="topic-edit"
