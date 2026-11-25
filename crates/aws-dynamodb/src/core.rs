@@ -77,6 +77,10 @@ pub(crate) enum Request {
         table: Option<String>,
     },
     Tick,
+    /// From the console's Lab: the time-to-live sweep of a table now (`forced`).
+    Sweep {
+        table: String,
+    },
     /// From `doze-aws data`: what the tables hold, or remove some of it.
     Data(Box<crate::storage::Asked>),
     /// What work done outside the actor found (`work.rs`).
@@ -99,6 +103,8 @@ pub(crate) struct Answer {
     pub(crate) work: Vec<Work>,
     /// The policy a `Policy` request asked for.
     pub(crate) policy: Option<String>,
+    /// What a forced sweep came to.
+    pub(crate) swept: Option<Result<crate::forced::Sweep, ApiError>>,
 }
 
 impl Answer {
@@ -111,6 +117,7 @@ impl Answer {
             next_due: None,
             work: Vec::new(),
             policy: None,
+            swept: None,
         }
     }
 }
@@ -227,6 +234,15 @@ impl doze_runtime::Service for Core {
                     Err(e) => Answer::of(Err(e), false),
                 };
                 answer.work = std::mem::take(&mut self.work);
+                answer
+            }
+            Request::Sweep { table } => {
+                let swept = self.sweep_now(&table).await;
+                let appended =
+                    matches!(&swept, Ok(crate::forced::Sweep::Ran { appended: true, .. }));
+                let mut answer = Answer::of(Err(ApiError::internal("not a call")), appended);
+                answer.work = std::mem::take(&mut self.work);
+                answer.swept = Some(swept);
                 answer
             }
             Request::Policy(arn) => Answer {
