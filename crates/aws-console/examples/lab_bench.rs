@@ -50,13 +50,7 @@ async fn call(s: &mut TcpStream) {
 }
 
 fn rule(n: usize) -> Spec {
-    let (matcher, said) = Matcher::build(
-        &["kms".to_owned()],
-        &[format!("Op{n}")],
-        &[],
-        &[],
-        &[],
-    );
+    let (matcher, said) = Matcher::build(&["kms".to_owned()], &[format!("Op{n}")], &[], &[], &[]);
     assert!(said.is_empty());
     Spec {
         name: String::new(),
@@ -139,24 +133,40 @@ async fn main() {
     for n in 0..50 {
         fifty.add(rule(n)).unwrap();
     }
-    println!("one connection, {REQUESTS} ListQueues a round, {ROUNDS} rounds: nanoseconds a request (median, best)");
+    println!(
+        "one connection, {REQUESTS} ListQueues a round, {ROUNDS} rounds: nanoseconds a request (median, best)"
+    );
     let mut base = None;
     for (what, observed, table) in [
         ("no observer, no table (--no-console)", false, None),
         ("the recorder only (--lab=false)", true, None),
         ("recorder and table, no rule", true, Some(none.clone())),
-        ("recorder and table, one rule that fits nothing", true, Some(one.clone())),
-        ("recorder and table, 50 rules that fit nothing", true, Some(fifty.clone())),
+        (
+            "recorder and table, one rule that fits nothing",
+            true,
+            Some(one.clone()),
+        ),
+        (
+            "recorder and table, 50 rules that fit nothing",
+            true,
+            Some(fifty.clone()),
+        ),
     ] {
         let (median, best) = measure(observed, table).await;
-        let delta = base.map_or(String::new(), |b: f64| format!("  ({:+.0} ns over the recorder only)", median - b));
+        let delta = base.map_or(String::new(), |b: f64| {
+            format!("  ({:+.0} ns over the recorder only)", median - b)
+        });
         if what.starts_with("the recorder only") {
             base = Some(median);
         }
         println!("  {what:<52} {median:>9.0} {best:>9.0}{delta}");
     }
     println!("the table over a call (ns a call: armed, judge):");
-    for (what, t) in [("no rule", &none), ("one rule that fits nothing", &one), ("50 rules that fit nothing", &fifty)] {
+    for (what, t) in [
+        ("no rule", &none),
+        ("one rule that fits nothing", &one),
+        ("50 rules that fit nothing", &fifty),
+    ] {
         let (armed, judge) = judging(t);
         println!("  {what:<28} {armed:>7.1} {judge:>8.1}");
     }
