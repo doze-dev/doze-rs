@@ -47,10 +47,10 @@ pub enum LabEffect {
     /// Answer with an error. `status` and `code` are given for `custom` and ignored for the other kinds.
     Fail {
         error: LabFailKind,
-        #[serde(default)]
+        #[serde(default, skip_serializing_if = "Option::is_none")]
         #[cfg_attr(test, ts(optional))]
         status: Option<u16>,
-        #[serde(default)]
+        #[serde(default, skip_serializing_if = "Option::is_none")]
         #[cfg_attr(test, ts(optional))]
         code: Option<String>,
     },
@@ -111,7 +111,7 @@ pub struct LabRuleBody {
     /// How long the rule lasts, in seconds: 1 to 86,400.
     pub ends_in_secs: u64,
     /// The rule ends after firing this many times, if that comes first.
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     #[cfg_attr(test, ts(optional))]
     pub max_hits: Option<u32>,
 }

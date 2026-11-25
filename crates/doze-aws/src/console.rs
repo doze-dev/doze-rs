@@ -16,12 +16,14 @@
 use std::net::SocketAddr;
 use std::sync::Arc;
 
-use aws_console::{Facts, Flag, LocalData, Recorder, Running, ServiceFacts, Settings};
+use aws_console::lab::LabTable;
+use aws_console::{Facts, Flag, LabFacts, LocalData, Recorder, Running, ServiceFacts, Settings};
 use tokio::net::TcpListener;
 
 use crate::config::{Config, Source};
 use crate::data::Data;
 use crate::instance::Instance;
+use crate::lab::{Level, Plan};
 use crate::services::{ALL, Svc};
 use crate::wire::Apis;
 
@@ -29,6 +31,10 @@ use crate::wire::Apis;
 pub(crate) struct Planned {
     listener: TcpListener,
     recorder: Arc<Recorder>,
+    /// `--lab`, decided against where the console listens.
+    lab: Plan,
+    /// The Lab's fault table: made with the console, installed on the gateway, and the console makes rules in it.
+    table: Option<Arc<LabTable>>,
 }
 
 /// What `--console` asks for.
@@ -74,10 +80,16 @@ fn wanted(given: &str, listen: &str) -> Result<Wanted, String> {
 /// What to tell the person: the address is not one, is not on this machine alone, or cannot be bound.
 pub(crate) async fn plan(cfg: &Config) -> Result<Option<Planned>, String> {
     let addr = match wanted(&cfg.text("console"), &cfg.text("listen"))? {
-        Wanted::Off => return Ok(None),
+        Wanted::Off => {
+            // Said once, as the Lab's own start would say it were the console on.
+            for (level, line) in crate::lab::plan(&cfg.text("lab"), lab_asked(cfg), None)?.lines {
+                say(level, &line);
+            }
+            return Ok(None);
+        }
         Wanted::At(addr) => addr,
         Wanted::Beside(Some(addr)) => match TcpListener::bind(addr).await {
-            Ok(listener) => return Ok(Some(Planned::on(listener))),
+            Ok(listener) => return Planned::on(listener, cfg).map(Some),
             Err(e) => {
                 // Not asked for by name: a port that is taken leaves doze-aws without its console, not without its start.
                 tracing::warn!(
@@ -102,7 +114,19 @@ pub(crate) async fn plan(cfg: &Config) -> Result<Option<Planned>, String> {
             format!("doze-aws cannot serve its console on {addr}: {e}")
         }
     })?;
-    Ok(Some(Planned::on(listener)))
+    Planned::on(listener, cfg).map(Some)
+}
+
+/// Whether anyone said `--lab` (a flag, a variable or the file): a default is not asking.
+fn lab_asked(cfg: &Config) -> bool {
+    cfg.get("lab").is_some_and(|s| s.source != Source::Default)
+}
+
+fn say(level: Level, line: &str) {
+    match level {
+        Level::Info => tracing::info!("{line}"),
+        Level::Warn => tracing::warn!("{line}"),
+    }
 }
 
 /// The address `--console` names, which must be this machine's loopback.
@@ -122,11 +146,27 @@ fn address(given: &str) -> Result<SocketAddr, String> {
 }
 
 impl Planned {
-    fn on(listener: TcpListener) -> Self {
-        Self {
+    /// The console on `listener`, with the Lab as `--lab` and where the console listens decide.
+    fn on(listener: TcpListener, cfg: &Config) -> Result<Self, String> {
+        let lab = crate::lab::plan(
+            &cfg.text("lab"),
+            lab_asked(cfg),
+            Some(listener.local_addr().map_err(|e| e.to_string())?),
+        )?;
+        let table = lab.on.then(LabTable::new);
+        Ok(Self {
             listener,
             recorder: Arc::new(Recorder::new()),
-        }
+            lab,
+            table,
+        })
+    }
+
+    /// The Lab's fault table, for the gateway to ask about each request; `None` when the Lab is off.
+    pub(crate) fn faults(&self) -> Option<Arc<dyn aws_gateway::Faults>> {
+        self.table
+            .as_ref()
+            .map(|t| Arc::clone(t) as Arc<dyn aws_gateway::Faults>)
     }
 
     /// The Live record, which the gateway tells about each finished call and the bus about each call between services.
@@ -152,6 +192,14 @@ impl Planned {
         facts.peers = Some(peers);
         facts.flags = flags(cfg);
         facts.data = Some(Arc::new(ConsoleData(data)));
+        facts.lab = LabFacts {
+            table: self.table.clone(),
+            off_why: self.lab.off_why.clone(),
+            open: self.lab.open,
+        };
+        for (level, line) in &self.lab.lines {
+            say(*level, line);
+        }
         let running = aws_console::start_on(self.listener, facts, self.recorder, settings)
             .map_err(|e| format!("doze-aws cannot serve its console: {e}"))?;
         // The line a supervisor (and the tests) wait for, beside the gateway's.

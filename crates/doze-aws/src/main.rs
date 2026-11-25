@@ -21,6 +21,7 @@ mod events;
 mod export;
 mod instance;
 mod keys;
+mod lab;
 mod locate;
 #[cfg(feature = "module")]
 mod module;
