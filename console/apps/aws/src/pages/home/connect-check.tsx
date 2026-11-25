@@ -8,14 +8,16 @@ import { useHome } from "../../api/spaces";
 import type { About } from "../../api/types/About";
 import type { CallRecord } from "../../api/types/CallRecord";
 import { clientName, who } from "../../people";
-import { Card, CardSkeleton, CodeBlock } from "../card";
+import { CardSkeleton, CodeBlock, Section } from "../card";
 import { Result } from "../live/outcome";
 import { ADDRESS } from "./address";
 import { heardSince, probe } from "./check";
 
 type Row = { call: CallRecord | null };
 
-/** Check the connection: the last call that reached the address and who made it; Check again starts over from now. */
+/** Check the connection, as the board draws it: the heading and its sentence, then one box that holds the table and, under it, a footer row with
+ * what the table says (or what to do) at the left and Check again and Open Live at the right. The last call that reached the address and who made
+ * it; Check again starts over from now. */
 export function CheckCard({ a }: { a: About }) {
   const home = useHome();
   const [since, setSince] = useState(0);
@@ -49,49 +51,43 @@ export function CheckCard({ a }: { a: About }) {
     { id: "result", header: "Result", size: 190, min: 130, enableSorting: false, accessorFn: (r) => r.call?.outcome ?? "", cell: (c) => (c.row.original.call ? <Result call={c.row.original.call} /> : null) },
   ];
   const waiting = h !== undefined && heard === null;
+  const buttons = (
+    <div className="flex shrink-0 gap-2">
+      {waiting && since > 0 && (
+        <Button variant="outline" size="sm" className="bg-card" onClick={() => setSince(0)} data-testid="check-back">
+          Back to Connect
+        </Button>
+      )}
+      <Button variant="outline" size="sm" className="bg-card" onClick={() => (setSince(Date.now()), void home.refetch())} disabled={home.isFetching} data-testid="check-again">
+        <RefreshCwIcon /> Check again
+      </Button>
+      <Button asChild variant="outline" size="sm" className="bg-card">
+        <Link to="/live" data-testid="check-open-live">
+          <RadioIcon /> Open Live
+        </Link>
+      </Button>
+    </div>
+  );
   return (
-    <Card
-      testId="connect-check"
-      title={waiting ? "Waiting for the first call" : "Check the connection"}
-      lede={waiting ? "Listening on this address." : "The last call that reached this address, and who made it. This page reads it again when a call arrives."}
-      actions={
-        <div className="flex gap-2">
-          <Button variant="outline" size="sm" className="bg-card" onClick={() => (setSince(Date.now()), void home.refetch())} disabled={home.isFetching} data-testid="check-again">
-            <RefreshCwIcon /> Check again
-          </Button>
-          <Button asChild variant="outline" size="sm" className="bg-card">
-            <Link to="/live" data-testid="check-open-live">
-              <RadioIcon /> Open Live
-            </Link>
-          </Button>
-        </div>
-      }
-    >
+    <Section testId="connect-check" title={waiting ? "Waiting for the first call" : "Check the connection"} lede={waiting ? "Listening on this address." : "The last call that reached this address, and who made it. This page reads it again when a call arrives."}>
       {!h ? (
         <CardSkeleton rows={2} />
       ) : (
-        <div data-testid={waiting ? "connect-waiting" : "connect-heard"} data-state={waiting ? "waiting" : "heard"}>
-          <DataTable aria-label="Last call to each address" data={[{ call: heard }]} columns={columns} rowId={() => ADDRESS.id} empty="" />
-          {waiting ? (
-            <div className="mt-5 grid gap-3">
-              <p className="text-[13.5px] text-muted-foreground">Run your app, or send one call yourself. Either ticks the row.</p>
-              <CodeBlock code={probe(a.endpoint)} what="Command copied" testId="connect-probe" />
-              <p className="text-[13px] text-muted-foreground">
-                The check starts over from now, and only counts calls made after it.{" "}
-                {since > 0 && (
-                  <button type="button" className="rounded-sm text-link hover:underline focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none" onClick={() => setSince(0)} data-testid="check-back">
-                    Back to Connect
-                  </button>
-                )}
-              </p>
-            </div>
-          ) : (
-            <p className="mt-4 text-[13.5px] text-muted-foreground" data-testid="connect-heard-note">
-              Your app has reached this address. If an app should be calling and is not shown, its endpoint setting is not being read.
+        <div className="overflow-hidden rounded-[var(--radius-card)] border bg-card" data-testid={waiting ? "connect-waiting" : "connect-heard"} data-state={waiting ? "waiting" : "heard"}>
+          <DataTable aria-label="Last call to each address" data={[{ call: heard }]} columns={columns} rowId={() => ADDRESS.id} empty="" className="rounded-none border-0" />
+          <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3 border-t px-6 py-4">
+            <p className="min-w-0 flex-1 text-[13.5px] text-muted-foreground" data-testid={waiting ? "connect-waiting-note" : "connect-heard-note"}>
+              {waiting ? "Run your app, or send one call yourself. Either ticks the row. The check starts over from now, and only counts calls made after it." : "Your app has reached this address. If an app should be calling and is not shown, its endpoint setting is not being read."}
             </p>
+            {buttons}
+          </div>
+          {waiting && (
+            <div className="border-t px-6 py-4" data-testid="connect-waiting-probe">
+              <CodeBlock code={probe(a.endpoint)} what="Command copied" testId="connect-probe" />
+            </div>
           )}
         </div>
       )}
-    </Card>
+    </Section>
   );
 }

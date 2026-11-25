@@ -134,11 +134,11 @@ export function RowChoice<T extends string>({ value, onChange, options, name, ch
   );
 }
 
-/** Resources, Identity, IAM, then the kind and the page on screen. */
+/** Access, IAM, then the kind and the page on screen (the boards': `Access > IAM > Users > dev`). A trail that ends on its kind, a list, ends
+ * on the list itself, which goes nowhere; `crumbs()` is the dashboard's, `Access > IAM`, whose last crumb is the page too. */
 export function crumbs(kind?: { id: string; title: string }, name?: string, last?: string): { label: string; to: string }[] {
   const base = [
-    { label: "Resources", to: "/resources" },
-    { label: "Identity", to: "/resources" },
+    { label: "Access", to: "/access" },
     { label: "IAM", to: "/resources/iam" },
   ];
   if (!kind) return base;
@@ -146,6 +146,9 @@ export function crumbs(kind?: { id: string; title: string }, name?: string, last
   const one = name ? [...k, { label: name, to: `/resources/iam/${kind.id}/${encodeURIComponent(name)}` }] : k;
   return last ? [...one, { label: last, to: "" }] : one;
 }
+
+/** The trail of a kind's list: Access, IAM, and the list as the page on screen. */
+export const listCrumbs = (kind: { id: string; title: string }): { label: string; to: string }[] => [...crumbs().slice(0, 2), { label: kind.title, to: "" }];
 
 export const KINDS = {
   users: { id: "users", title: "Users" },

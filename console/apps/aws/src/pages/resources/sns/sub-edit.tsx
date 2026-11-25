@@ -8,7 +8,7 @@ import { FormPage, type PreviewRequest, RuleHelp } from "../../../kit";
 import { useOp } from "../deep/api";
 import { Rich } from "./parts";
 import { protocolLabel } from "./protocols";
-import { changes, changeWords, formOfSubscription, problems, type Subscription, type SubForm } from "./sub-form-model";
+import { changes, changeWords, filterBroken, formOfSubscription, problems, type Subscription, type SubForm } from "./sub-form-model";
 import { Details, FilterPolicy, Redrive } from "./sub-form-sections";
 import { count } from "./words";
 import type { ResourceDetail } from "../../../api/types/ResourceDetail";
@@ -52,8 +52,8 @@ export function SubEdit({ d, s, back, done }: { d: ResourceDetail; s: Subscripti
       banner={refused ? <Alert tone="bad" title="The changes were not saved." testId="edit-refused">{refused.code}: {refused.message}</Alert> : <Rich testId="edit-sentence" parts={nothing ? ["Nothing has changed yet."] : [`${changeWords(changed)} The rest is unchanged. Saving sends ${count(changed.length, "call")}.`]} />}
       submitLabel="Save changes"
       pending={save.isPending}
-      disabled={nothing || (tried && bad)}
-      disabledWhy={nothing ? "Nothing has changed." : Object.values(p)[0]}
+      disabled={nothing || filterBroken(f) || (tried && bad)}
+      disabledWhy={filterBroken(f) ? "Fix the filter policy to save." : nothing ? "Nothing has changed." : Object.values(p)[0]}
       onCancel={back}
       onSubmit={() => void submit()}
       testId="sub-edit-form"

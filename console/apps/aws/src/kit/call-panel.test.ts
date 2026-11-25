@@ -39,3 +39,19 @@ describe("lists in the Lambda boards' calls", () => {
     expect(callText(lam, "PutBucketCors", { lists: listsOf("s3") })).toBe('PutBucketCors\n{\n  "Architectures": ["x86_64"],\n  "Methods": ["GET", "HEAD"]\n}');
   });
 });
+
+describe("lists of small objects in the CloudFormation and Step Functions boards' calls", () => {
+  const cfn = { ...p, json: { StackName: "larder-search", Parameters: [{ ParameterKey: "Stage", ParameterValue: "prod" }, { ParameterKey: "TableName", ParameterValue: "search-index" }], Tags: [{ Key: "app", Value: "larder" }], NotificationARNs: ["arn:aws:sns:us-east-1:123456789012:alerts-of-larder"], Mixed: [{ A: { B: 1 } }] } };
+  test("each small flat object is one line; a list of plain values that is too long for one is spread; a nested object is spread", () => {
+    expect(listsOf("cloudformation")).toBe("compact");
+    expect(listsOf("stepfunctions")).toBe("compact");
+    expect(callText(cfn, "CreateStack", { lists: listsOf("cloudformation") })).toBe(
+      'CreateStack\n{\n  "StackName": "larder-search",\n  "Parameters": [\n    { "ParameterKey": "Stage", "ParameterValue": "prod" },\n    { "ParameterKey": "TableName", "ParameterValue": "search-index" }\n  ],\n  "Tags": [\n    { "Key": "app", "Value": "larder" }\n  ],\n  "NotificationARNs": [\n    "arn:aws:sns:us-east-1:123456789012:alerts-of-larder"\n  ],\n  "Mixed": [\n    {\n      "A": {\n        "B": 1\n      }\n    }\n  ]\n}',
+    );
+  });
+  test("an object too long for a line is spread, and every other service keeps spreading its objects", () => {
+    const long = { ...p, json: { Tags: [{ Key: "k", Value: "v".repeat(120) }] } };
+    expect(callText(long, "CreateStack", { lists: "compact" })).toContain('{\n      "Key": "k"');
+    expect(callText({ ...p, json: { Tags: [{ Key: "a", Value: "b" }] } }, "TagQueue", { lists: listsOf("sqs") })).toBe('TagQueue\n{\n  "Tags": [\n    {\n      "Key": "a",\n      "Value": "b"\n    }\n  ]\n}');
+  });
+});

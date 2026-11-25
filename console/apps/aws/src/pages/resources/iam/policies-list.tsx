@@ -16,7 +16,7 @@ import { AttachTo } from "./attach-to";
 import { DeleteEntity } from "./delete-entity";
 import { CreatedBanner, GoneBanner, ListError, ListLoading, PageLine, SearchBox, useToList } from "./list-parts";
 import { managedKind } from "./model";
-import { crumbs, Note, Say, Segmented, To } from "./parts";
+import { KINDS, listCrumbs, Note, Say, Segmented, To } from "./parts";
 import { PolicyCreate } from "./policy-create";
 import { policiesSentence } from "./sentences";
 
@@ -63,7 +63,7 @@ function Policies({ gone, created }: { gone?: string; created?: string }) {
     <>
       <PageHeader
         title="Policies"
-        crumbs={crumbs()}
+        crumbs={listCrumbs(KINDS.policies)}
         sub="A policy is an entity that, when attached to an identity or resource, defines their permissions."
         refresh={<RefreshControl updatedAt={read.dataUpdatedAt} fetching={read.isFetching} onRefresh={refresh} interval={false} />}
         actions={

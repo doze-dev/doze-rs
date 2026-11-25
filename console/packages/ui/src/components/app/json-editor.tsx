@@ -21,9 +21,10 @@ export function formatJson(text: string): string {
   return c.ok && c.value !== undefined ? JSON.stringify(c.value, null, 2) : text;
 }
 
-/** A JSON document typed by a person: monospace, checked as it is typed (the parser's words under it when it is not JSON), and
- * a Format button. The caller decides what an empty document means (`empty`). */
-export function JsonEditor({ value, onChange, label, help, placeholder, empty = "ok", rows = 10, className, testId = "json-editor", highlight = false }: { value: string; onChange: (v: string) => void; label: string; help?: React.ReactNode; /** What an empty editor shows. */ placeholder?: string; empty?: "ok" | "invalid"; rows?: number; className?: string; testId?: string; /** Colour the keys, strings, numbers and literals as they are typed (the text is drawn under a transparent field). */ highlight?: boolean }) {
+/** A JSON document typed by a person: monospace, checked as it is typed (the parser's words under it when it is not JSON). The caller
+ * decides what an empty document means (`empty`). A Format button is there only when asked for (`format`): no board draws one beside a JSON
+ * input, so an editor has none unless its page has a reason to. */
+export function JsonEditor({ value, onChange, label, help, placeholder, empty = "ok", rows = 10, className, testId = "json-editor", highlight = false, format = false }: { value: string; onChange: (v: string) => void; label: string; help?: React.ReactNode; /** What an empty editor shows. */ placeholder?: string; empty?: "ok" | "invalid"; rows?: number; className?: string; testId?: string; /** Colour the keys, strings, numbers and literals as they are typed (the text is drawn under a transparent field). */ highlight?: boolean; /** A Format button beside the label, which indents what is typed. */ format?: boolean }) {
   const id = useId();
   const under = useRef<HTMLPreElement>(null);
   const check = checkJson(value, empty);
@@ -32,9 +33,11 @@ export function JsonEditor({ value, onChange, label, help, placeholder, empty = 
     <div className={cn("grid gap-1.5 [&>*]:min-w-0", className)}>
       <div className="flex items-end justify-between gap-3">
         <Label htmlFor={id}>{label}</Label>
-        <Button type="button" variant="ghost" size="sm" onClick={() => onChange(formatJson(value))} disabled={bad || value.trim() === ""} data-testid={`${testId}-format`}>
-          Format
-        </Button>
+        {format && (
+          <Button type="button" variant="ghost" size="sm" onClick={() => onChange(formatJson(value))} disabled={bad || value.trim() === ""} data-testid={`${testId}-format`}>
+            Format
+          </Button>
+        )}
       </div>
       <div className="relative">
         {highlight && (

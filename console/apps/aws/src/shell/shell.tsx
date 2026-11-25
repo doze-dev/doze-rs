@@ -18,6 +18,7 @@ import { iconOf } from "../pages/resources/model";
 import { isActive, RECENTS_KEY, SPACES, type SpacePath } from "../nav";
 import { iamWords } from "../words";
 import { Logo, Wordmark } from "./brand";
+import { useScrollFade } from "./scroll-fade";
 import { IdentityChip } from "./identity-chip";
 import { PinButton, RailPlaces } from "./places";
 import { RegionMenu } from "./region-menu";
@@ -27,6 +28,7 @@ import { RailServices, useRailCounts } from "./rail-services";
 function Rail() {
   const path = useRouterState({ select: (s) => s.location.pathname });
   const counts = useRailCounts();
+  const scroller = useScrollFade<HTMLDivElement>();
   const countOf = (to: string): { text: string; title: string } | null => {
     if (to === "/live" && counts.live !== undefined) return { text: number(counts.live), title: `${number(counts.live)} ${counts.live === 1 ? "app has" : "apps have"} called` };
     if (to === "/resources" && counts.awake) return { text: number(counts.awake.awake), title: `${counts.awake.awake} of ${counts.awake.served} services running` };
@@ -40,7 +42,8 @@ function Rail() {
           <Wordmark className="text-[20px] leading-none group-data-[collapsible=icon]:hidden" />
         </Link>
       </SidebarHeader>
-      <SidebarContent className="pt-4">
+      {/* The rail scrolls above its footer (never under it); an edge with more past it fades, so a row cut by it reads as more to scroll to. */}
+      <SidebarContent ref={scroller} className="pt-4 pb-3 [mask-image:linear-gradient(to_bottom,transparent,black_var(--fade-top,0px),black_calc(100%_-_var(--fade-bottom,0px)),transparent)]" data-testid="rail-scroll">
         <SidebarGroup>
           <SidebarGroupContent>
             <nav aria-label="Spaces">
@@ -50,7 +53,8 @@ function Rail() {
                   return (
                     <SidebarMenuItem key={space.to}>
                       <SidebarMenuButton asChild isActive={active} tooltip={space.label} className="h-9 text-[14px] data-[active=true]:font-medium [&>svg]:text-muted-foreground data-[active=true]:[&>svg]:text-primary">
-                        <Link to={space.to} aria-current={active ? "page" : undefined} data-testid={`space-${space.label.toLowerCase()}`}>
+                        {/* `isActive` (nav.ts) is what marks a space, not the router's prefix match: IAM and STS are under `/resources` and are Access, so the router must not call Resources current there. */}
+                        <Link to={space.to} activeOptions={{ exact: true }} aria-current={active ? "page" : undefined} data-testid={`space-${space.label.toLowerCase()}`}>
                           <space.icon />
                           <span>{space.label}</span>
                         </Link>
@@ -70,7 +74,7 @@ function Rail() {
         </SidebarGroup>
         <RailPlaces />
       </SidebarContent>
-      <SidebarFooter className="px-4 pb-4 group-data-[collapsible=icon]:hidden" data-testid="rail-footer">
+      <SidebarFooter className="shrink-0 border-t border-sidebar-border bg-sidebar px-4 pt-3 pb-4 group-data-[collapsible=icon]:hidden" data-testid="rail-footer">
         <p className="flex items-center gap-2 px-1 text-[12px] text-muted-foreground">
           <kbd className="rounded border bg-card px-1.5 py-px font-mono text-[11px]">⌘K</kbd> jump or do
         </p>

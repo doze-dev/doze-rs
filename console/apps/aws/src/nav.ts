@@ -21,8 +21,16 @@ export const SPACES: Space[] = [
   { label: "Settings", to: "/settings", icon: SlidersHorizontalIcon, keywords: "config flags options" },
 ];
 
-/** Whether `path` is in the space (Home only at `/`). */
+/** The services that are Access, not Resources: their pages are under `/resources/<service>` but the rail marks Access, and their
+ * crumbs begin `Access`. */
+export const ACCESS_SERVICES: readonly string[] = ["iam", "sts"];
+
+/** Whether `path` is a page of IAM or STS. */
+export const inAccess = (path: string): boolean => ACCESS_SERVICES.some((s) => path === `/resources/${s}` || path.startsWith(`/resources/${s}/`));
+
+/** Whether `path` is in the space (Home only at `/`). IAM and STS are in Access, wherever their pages live. */
 export function isActive(space: { to: string }, path: string): boolean {
   if (space.to === "/") return path === "/";
+  if (inAccess(path)) return space.to === "/access";
   return path === space.to || path.startsWith(`${space.to}/`);
 }

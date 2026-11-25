@@ -50,7 +50,7 @@ export function NodePanel({ node, model, calls, now, onPick, onClose }: { node: 
   const mine = useMemo(() => calls.filter((c) => !c.via && targetOf(c)?.id === node.id), [calls, node.id]);
   const counts = useMemo(() => perMinute(mine, now, 30), [mine, now]);
   const name = (n: MapNode) => (
-    <button type="button" onClick={() => onPick(n.id)} className="rounded-sm font-mono text-[12.5px] text-bright hover:underline focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none" data-testid="panel-link">
+    <button type="button" onClick={() => onPick(n.id)} title={n.name} className="max-w-full truncate rounded-sm text-left font-mono text-[12.5px] whitespace-nowrap text-bright hover:underline focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none" data-testid="panel-link">
       {n.name}
     </button>
   );
@@ -96,10 +96,10 @@ export function NodePanel({ node, model, calls, now, onPick, onClose }: { node: 
         </div>
       )}
       <dl className="mt-4">
-        {w.fedBy.some((x) => x.edge.label !== "redrive") && <Row label="Fed by">{w.fedBy.filter((x) => x.edge.label !== "redrive" && x.edge.label !== "polling").map((x) => <span key={x.edge.id} className="mr-3 inline-flex items-baseline gap-1.5">{name(x.node)}{x.edge.note && <span className="text-[12px] text-muted-foreground">{x.edge.note}</span>}</span>)}</Row>}
-        {into("redrive").length > 0 && <Row label="Dead-letter queue of">{into("redrive").map((x) => <span key={x.edge.id} className="mr-3 inline-flex items-baseline gap-1.5">{name(x.node)}<span className="text-[12px] text-muted-foreground">{x.edge.note}</span></span>)}</Row>}
-        {out("redrive").length > 0 && <Row label="Dead letters to">{out("redrive").map((x) => <span key={x.edge.id} className="mr-3 inline-flex items-baseline gap-1.5">{name(x.node)}<span className="text-[12px] text-muted-foreground">{x.edge.note}</span></span>)}</Row>}
-        {w.out.some((x) => x.edge.label !== "redrive") && <Row label="Sends to">{w.out.filter((x) => x.edge.label !== "redrive").map((x) => <span key={x.edge.id} className="mr-3 inline-flex items-baseline gap-1.5">{name(x.node)}<span className="text-[12px] text-muted-foreground">{[x.edge.label, x.edge.note].filter(Boolean).join(" · ")}</span></span>)}</Row>}
+        {w.fedBy.some((x) => x.edge.label !== "redrive") && <Row label="Fed by">{w.fedBy.filter((x) => x.edge.label !== "redrive" && x.edge.label !== "polling").map((x) => <span key={x.edge.id} className="mr-3 inline-flex max-w-full flex-wrap items-baseline gap-x-1.5">{name(x.node)}{x.edge.note && <span className="text-[12px] text-muted-foreground">{x.edge.note}</span>}</span>)}</Row>}
+        {into("redrive").length > 0 && <Row label="Dead-letter queue of">{into("redrive").map((x) => <span key={x.edge.id} className="mr-3 inline-flex max-w-full flex-wrap items-baseline gap-x-1.5">{name(x.node)}<span className="text-[12px] text-muted-foreground">{x.edge.note}</span></span>)}</Row>}
+        {out("redrive").length > 0 && <Row label="Dead letters to">{out("redrive").map((x) => <span key={x.edge.id} className="mr-3 inline-flex max-w-full flex-wrap items-baseline gap-x-1.5">{name(x.node)}<span className="text-[12px] text-muted-foreground">{x.edge.note}</span></span>)}</Row>}
+        {w.out.some((x) => x.edge.label !== "redrive") && <Row label="Sends to">{w.out.filter((x) => x.edge.label !== "redrive").map((x) => <span key={x.edge.id} className="mr-3 inline-flex max-w-full flex-wrap items-baseline gap-x-1.5">{name(x.node)}<span className="text-[12px] text-muted-foreground">{[x.edge.label, x.edge.note].filter(Boolean).join(" · ")}</span></span>)}</Row>}
         {queue && reads.length > 0 && <Row label="Read by">{reads.map((a) => <span key={a.id} className="mr-3 text-bright">{a.name}</span>)}</Row>}
         {queue && writes.length > 0 && <Row label="Written by">{writes.map((a) => <span key={a.id} className="mr-3 text-bright">{a.name}</span>)}</Row>}
         {!queue && w.callers.length > 0 && <Row label="Called by">{w.callers.map((a) => <span key={a.id} className="mr-3 text-bright">{a.name}</span>)}</Row>}

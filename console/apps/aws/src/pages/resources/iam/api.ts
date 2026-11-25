@@ -16,12 +16,15 @@ export function useRead<T>(kind: Kind, operation: string, input: object = {}, en
   return useKindOpRead<T>(kind, operation, input, enabled);
 }
 
-const keyOf = (kind: Kind, operation: string, input: object) => ["resources", "kindop", kind.service, kind.kind, operation, input];
+/** The key of an operation's read. `owner` is who the input belongs to when the input does not say (a key's id does not name its user): it is
+ * part of the key, so a delete of the owner finds the read and does not make it again (see `forgetDeleted`). */
+export const keyOf = (kind: Kind, operation: string, input: object, owner?: string) => ["resources", "kindop", kind.service, kind.kind, operation, input, ...(owner === undefined ? [] : [owner])];
 
-/** The same operation once for each of `inputs` (a user's keys for every user of a list): the answers in the order of the inputs. */
-export function useEach<T>(kind: Kind, operation: string, inputs: readonly object[], enabled = true) {
+/** The same operation once for each of `inputs` (a user's keys for every user of a list): the answers in the order of the inputs. `owners`,
+ * the owner of each input where the input does not name it (a key's user). */
+export function useEach<T>(kind: Kind, operation: string, inputs: readonly object[], enabled = true, owners: readonly string[] = []) {
   return useQueries({
-    queries: inputs.map((input) => ({ queryKey: keyOf(kind, operation, input), queryFn: ({ signal }: { signal: AbortSignal }) => callKindOp<T>(kind, operation, input, signal), enabled, retry: false })),
+    queries: inputs.map((input, i) => ({ queryKey: keyOf(kind, operation, input, owners[i]), queryFn: ({ signal }: { signal: AbortSignal }) => callKindOp<T>(kind, operation, input, signal), enabled, retry: false })),
   });
 }
 

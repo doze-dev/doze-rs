@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { allowPolicy, attributes, basicPolicy, createInput, emptyForm, formOf, nameProblem, problems } from "./form-model";
+import { allowPolicy, attributes, basicPolicy, createInput, emptyForm, formOf, nameProblem, policyBroken, problems } from "./form-model";
 import type { Queue } from "./queue-model";
 
 const ARN = "arn:aws:sqs:us-east-1:1:pick-lists";
@@ -74,5 +74,30 @@ describe("the basic access policy", () => {
     const p = JSON.parse(basicPolicy({ send: "accounts", receive: "everyone", principals: "123456789012" }, ARN)!) as { Statement: { Principal: unknown; Action: unknown }[] };
     expect(p.Statement[0]).toMatchObject({ Principal: { AWS: ["arn:aws:iam::123456789012:root"] }, Action: "sqs:SendMessage" });
     expect(p.Statement[1]).toMatchObject({ Principal: "*", Action: ["sqs:ReceiveMessage", "sqs:DeleteMessage", "sqs:GetQueueAttributes"] });
+  });
+});
+
+describe("a field that is not ready is no member of the call", () => {
+  test("the dead-letter switch on before a queue is chosen sends no RedrivePolicy, on a new queue and on an edit", () => {
+    const f = { ...emptyForm(), name: "q", dlqOn: true, dlq: "" };
+    expect(JSON.stringify(createInput(f, ARN))).not.toContain("RedrivePolicy");
+    const q = queue();
+    const edited = { ...formOf(q, [], null), dlqOn: true, dlq: "" };
+    expect(attributes(edited, { create: false, queue: q, dlqArn: null }, ARN)).toEqual({});
+    // Once a queue is chosen it is sent.
+    expect(createInput({ ...f, dlq: "arn:dlq" }, ARN)).toEqual({ QueueName: "q", Attributes: { RedrivePolicy: JSON.stringify({ deadLetterTargetArn: "arn:dlq", maxReceiveCount: 5 }) } });
+  });
+
+  test("an access policy that is not JSON yet is not written into the call as a half string, and not as an empty one that would remove the queue's", () => {
+    const q = queue({ policy: '{"Version":"2012-10-17","Statement":[]}' });
+    const f = { ...formOf(q, [], null), policy: '{ "Version": "2012-10-17", "Stat' };
+    expect(policyBroken(f)).toBe(true);
+    expect(attributes(f, { create: false, queue: q, dlqArn: null }, ARN)).toEqual({});
+    expect(problems(f, { create: false }).policy).toContain("not a JSON object");
+    // On a new queue too.
+    const made = { ...emptyForm(), name: "q", policyMode: "advanced" as const, policy: "{ not json" };
+    expect(JSON.stringify(createInput(made, ARN))).not.toContain("Policy");
+    expect(policyBroken({ ...made, policy: '{"Version":"2012-10-17"}' })).toBe(false);
+    expect(policyBroken({ ...made, policy: "   " })).toBe(false);
   });
 });

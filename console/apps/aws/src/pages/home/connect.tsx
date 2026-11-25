@@ -13,6 +13,13 @@ import { ByService } from "./connect-services";
 type Tab = "overview" | "code" | "services";
 const TABS: readonly Tab[] = ["overview", "code", "services"];
 
+/** What the page says of itself on each tab: the board's subtitle (one address here, so no `.doze name`), and the crumb that names the tab. */
+export const TAB_WORDS: Record<Tab, { sub: string; crumb: string | null }> = {
+  overview: { sub: "Point an AWS SDK or the AWS CLI at this doze-aws. Running on its own it has one address, and that one address serves every service.", crumb: null },
+  code: { sub: "The same call, list the queues, from each client.", crumb: "Code" },
+  services: { sub: "Where each service answers, on IP and port.", crumb: "By service" },
+};
+
 /** Connect your app: the address and the environment (Overview), the same call from each client (Code), and where each service
  * answers (By service). Everything is from `/api/v1/about`, `/api/v1/services` and the Live record. */
 export function ConnectPage() {
@@ -25,9 +32,14 @@ export function ConnectPage() {
   const onCalls = useCallback(() => void qc.invalidateQueries({ queryKey: ["home"], exact: true }), [qc]);
   useArrivals(onCalls);
   const a = about.data;
+  const words = TAB_WORDS[tab];
   return (
     <>
-      <PageHeader title="Connect your app" crumbs={[{ label: "Home", to: "/" }, { label: "Connect your app", to: "/connect" }]} sub="Point an AWS SDK or the AWS CLI at this doze-aws. Running on its own it has one address, and that one address serves every service." />
+      <PageHeader
+        title="Connect your app"
+        crumbs={[{ label: "Home", to: "/" }, { label: "Connect your app", to: words.crumb ? "/connect" : "" }, ...(words.crumb ? [{ label: words.crumb, to: "" }] : [])]}
+        sub={words.sub}
+      />
       {!a ? (
         <CardSkeleton rows={4} />
       ) : (

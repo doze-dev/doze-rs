@@ -1,10 +1,10 @@
-import { keepPreviousData, useQueries } from "@tanstack/react-query";
+import { useQueries } from "@tanstack/react-query";
 import { BracesIcon } from "lucide-react";
 import { Skeleton } from "@doze/ui/components/ui/skeleton";
 import { type CallFormat, CallCode, CopyCalls, callJson, callText, listsOf, missingWords } from "./call-panel";
 import type { PreviewRequest } from "./contract";
 import { useDebounced } from "./debounce";
-import { fetchPreview, PREVIEW_PAUSE } from "./preview";
+import { fetchPreview, keepSameOperation, PREVIEW_PAUSE } from "./preview";
 
 /** The calls a form makes when it makes more than one (an edit that sets one attribute a call, then the tags): each as the panel of one
  * call draws it, in the order they are made, with one Copy as for them all. `refusal` is the service's refusal of the one that failed. */
@@ -14,7 +14,7 @@ export function CallsPanel({ requests, note, refusal, title = "The call this wil
   const asked = JSON.parse(pause.value || "[]") as [string, string, unknown][];
   // What the panel shows of the i-th call asked (the requests may have changed since the pause).
   const shownInput = (i: number) => (showInput ? (shown ? shown(asked[i]![1], asked[i]![2]) : asked[i]![2]) : undefined);
-  const answers = useQueries({ queries: asked.map((a) => ({ queryKey: ["preview", JSON.stringify(a)], queryFn: ({ signal }: { signal: AbortSignal }) => fetchPreview({ service: a[0], operation: a[1], input: a[2] }, signal), retry: false, staleTime: Number.POSITIVE_INFINITY, placeholderData: keepPreviousData })) });
+  const answers = useQueries({ queries: asked.map((a) => ({ queryKey: ["preview", JSON.stringify(a)], queryFn: ({ signal }: { signal: AbortSignal }) => fetchPreview({ service: a[0], operation: a[1], input: a[2] }, signal), retry: false, staleTime: Number.POSITIVE_INFINITY, placeholderData: keepSameOperation(JSON.stringify(a)) })) });
   const done = answers.length > 0 && answers.every((a) => a.data);
   // Catching up: a newer form is waiting out its pause, or an answer on screen is the one before.
   const settling = !pause.settled || answers.some((a) => a.isFetching && a.isPlaceholderData);
