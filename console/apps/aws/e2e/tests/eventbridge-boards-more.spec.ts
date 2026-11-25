@@ -119,6 +119,9 @@ test("eventbridge__archive-create: a name, the bus, indefinite or days, a patter
   await expect(page.getByTestId("done-banner")).toContainText("Archive orders-7d created.");
   await expect(page.getByTestId("verb-delete")).toBeVisible();
   await expect(page.getByTestId("field-Retention (days)")).toContainText("7");
+  // Dates and sizes are said as the other pages say them, not as the service's raw numbers.
+  await expect(page.getByTestId("field-Created")).toContainText(/\d{4}-\d{2}-\d{2}/);
+  await expect(page.getByTestId("field-Size")).toContainText("0 B");
   await shot(page, "eventbridge__archive-created");
   await page.getByTestId("verb-replay").click();
   await expect(page.locator("h1").first()).toHaveText("Start new replay");

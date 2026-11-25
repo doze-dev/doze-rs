@@ -10,6 +10,7 @@ import { useResourceDetail } from "../../../api/resources";
 import type { ResourceDetail } from "../../../api/types/ResourceDetail";
 import { DetailError, PlainConfirm, RecentCalls, ResourcePage, ResourcePageSkeleton, type Verb, callKindOp, useDeleteClearing } from "../../../kit";
 import { DetailFields } from "../../../kit/resource-parts";
+import { Value } from "../value";
 import { REPLAYS } from "./api";
 import { ownBanner } from "./own-words";
 
@@ -53,7 +54,7 @@ function OneView({ d, updatedAt, fetching, refetch }: { d: ResourceDetail; updat
         banner={refused ? <ResultBanner tone="warn" title={`CancelReplay was refused.`} returned={refused} onDismiss={() => setRefused(null)} testId="cancel-refused" /> : banner ? <ResultBanner title={banner.title} returned={banner.returned} onDismiss={() => go("/resources/$service/$kind/$name", {}, { service: d.service, kind: d.kind, name: d.name })} testId="done-banner" /> : undefined}
         onVerb={onVerb}
         refresh={<RefreshControl updatedAt={updatedAt} fetching={fetching} onRefresh={refetch} interval={false} />}
-        overview={<><DetailFields detail={d} /><RecentCalls className="mt-12" calls={d.calls} noun={one} title="Recent calls" scope={d.name} /></>}
+        overview={<><DetailFields detail={d} renderValue={(f) => <Value value={f.value} format={f.format} link={f.link} />} /><RecentCalls className="mt-12" calls={d.calls} noun={one} title="Recent calls" scope={d.name} /></>}
         testId={`${d.kind}-page`}
       />
       {d.delete && (

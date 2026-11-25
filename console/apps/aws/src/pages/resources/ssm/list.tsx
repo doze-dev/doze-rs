@@ -79,11 +79,11 @@ function Parameters({ q, created }: { q: string; created: { name: string; versio
     }
   };
   const columns: DataColumn<ParamRow>[] = [
-    { id: "name", header: "Name", size: 340, min: 260, accessorKey: "name", meta: { mono: true }, cell: (c) => <ResourceTo to={{ service: "ssm", kind: "parameters", name: c.row.original.name }} className="font-mono text-[13px] font-medium" testId="row-link">{c.row.original.name}</ResourceTo> },
-    { id: "tier", header: "Tier", accessorKey: "tier", size: 90, fit: 50 },
-    { id: "type", header: "Type", accessorKey: "type", size: 120, fit: 50 },
-    { id: "version", header: "Version", accessorFn: (r) => Number(r.version), size: 80, fit: 70, meta: { numeric: true } },
-    { id: "modified", header: "Last modified (UTC)", accessorFn: (r) => r.modified ?? "", size: 190, fit: 150, cell: (c) => <Value value={c.row.original.modified} format="time" /> },
+    { id: "name", header: "Name", size: 310, min: 250, accessorKey: "name", meta: { mono: true }, cell: (c) => <ResourceTo to={{ service: "ssm", kind: "parameters", name: c.row.original.name }} className="font-mono text-[13px] font-medium" testId="row-link">{c.row.original.name}</ResourceTo> },
+    { id: "tier", header: "Tier", accessorKey: "tier", size: 84, fit: 50 },
+    { id: "type", header: "Type", accessorKey: "type", size: 112, fit: 50 },
+    { id: "version", header: "Version", accessorFn: (r) => Number(r.version), size: 72, fit: 70, meta: { numeric: true } },
+    { id: "modified", header: "Last modified (UTC)", accessorFn: (r) => r.modified ?? "", size: 205, fit: 160, cell: (c) => <Value value={c.row.original.modified} format="time" /> },
     { id: "description", header: "Description", accessorKey: "description", min: 240, meta: { wrap: true } },
   ];
   const create = <Button onClick={() => go({ create: "yes" })} data-testid="create-open"><PlusIcon /> Create parameter</Button>;
