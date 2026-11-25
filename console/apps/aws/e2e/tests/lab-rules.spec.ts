@@ -89,12 +89,14 @@ test("a slow rule delays the call and it is served; removing it ends it; a drop 
     const began = Date.now();
     const listed = cli(["sqs", "list-queues"]);
     expect(listed.code, listed.out).toBe(0);
-    expect(Date.now() - began).toBeGreaterThanOrEqual(650);
+    const slowTook = Date.now() - began;
+    expect(slowTook).toBeGreaterThanOrEqual(650);
     await page.getByTestId("rule-remove").click();
     await expect(page.getByTestId("rule-row")).toHaveCount(0);
     const quick = Date.now();
     expect(cli(["sqs", "list-queues"]).code).toBe(0);
-    expect(Date.now() - quick).toBeLessThan(650);
+    // A process launch is not a fixed time on a shared runner: what is asserted is the rule's effect, not a clock.
+    expect(Date.now() - quick).toBeLessThan(slowTook - 300);
 
     await page.getByTestId("rehearsal-drop").getByTestId("rule-start").click();
     await expect(page.getByTestId("rule-kind-drop")).toHaveAttribute("aria-checked", "true");

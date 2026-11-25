@@ -1,5 +1,5 @@
 //! The words of the Lab: what each rehearsal stands for in production, what to expect, what a well-behaved client does, the SDK
-//! settings that decide how it goes (with their real defaults: [`settings`]) and where to see it. One module, served by
+//! settings that decide how it goes (with their real defaults: the `settings` module) and where to see it. One module, served by
 //! `GET /api/v1/lab/guide`; the recipes that name a person's own queues and tables are made by the page.
 
 use crate::model::{LabGuide, LabIntro, LabSetting, LabStep, LabTeach};

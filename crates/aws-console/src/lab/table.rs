@@ -1,6 +1,6 @@
 //! The table of fault rules: bounded, in memory, and the one place a rule is made, changed, fired or ended.
 //!
-//! A request costs one relaxed load while no rule is switched on ([`Faults::armed`]). With rules, the table is locked for the few
+//! A request costs one relaxed load while no rule is switched on ([`aws_gateway::Faults::armed`]). With rules, the table is locked for the few
 //! comparisons a request needs; it never holds the lock across an await, and nothing grows without a bound: 50 rules, 200 ended
 //! ones, eight access keys a rule. Expiry is lazy (no timer anywhere): every look at the table first ends the rules whose time is
 //! up, dated when they were due.

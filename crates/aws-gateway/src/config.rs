@@ -55,7 +55,7 @@ pub struct Config {
     /// ([`crate::WouldDeny::request_of`]). `None`, the default, costs a request nothing.
     pub would_deny: Option<Arc<crate::WouldDeny>>,
     /// The Lab's fault rules: asked about each request after it is decoded and before its service is, which may make it wait, fail
-    /// it with an error of the service's own, or close the connection ([`crate::fault`]). `None`, the default, costs a request one
+    /// it with an error of the service's own, or close the connection (the `fault` module). `None`, the default, costs a request one
     /// `Option` test.
     pub faults: Option<Arc<dyn crate::Faults>>,
 }
