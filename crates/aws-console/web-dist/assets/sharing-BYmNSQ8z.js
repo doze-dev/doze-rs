@@ -1,0 +1,1 @@
+export{t as SharingCreate}from"./detail-9lq-mpyt.js";

@@ -46,6 +46,8 @@ pub const MEMBERS: &[&str] = &[
     "Rule",
     "ScheduleName",
     "AlarmName",
+    // CloudWatch dashboards (`PutDashboard`, `GetDashboard`) are named by their name, so a dashboard page lists the calls that touched it.
+    "DashboardName",
     "Bucket",
     "Name",
     "EventBusName",

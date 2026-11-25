@@ -108,7 +108,7 @@ function BusView({ d, updatedAt, fetching, refetch }: { d: ResourceDetail; updat
         }
         testId="bus-page"
       />
-      <BusDelete open={deleting} onOpenChange={setDeleting} bus={bus} rules={ruleItems.map((r) => r.Name)} />
+      <BusDelete open={deleting} onOpenChange={setDeleting} bus={bus} rules={ruleItems.map((r) => r.Name)} archives={(archives.data?.Archives ?? []).map((a) => a.ArchiveName)} />
     </>
   );
 }

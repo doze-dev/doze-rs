@@ -68,3 +68,13 @@ describe("CORS", () => {
     expect(corsProblem({ ...corsOf(undefined), origins: ["*"], credentials: true })).toContain("Browsers refuse a *");
   });
 });
+
+describe("the routes another API already has", () => {
+  test("are all named, not the first two", async () => {
+    const { routeKeysWords } = await import("./http-model");
+    expect(routeKeysWords(["GET /reports", "POST /reports/run", "ANY /orders/{proxy+}"])).toBe("GET /reports, POST /reports/run and ANY /orders/{proxy+}");
+    expect(routeKeysWords(["GET /a", "GET /b"])).toBe("GET /a and GET /b");
+    expect(routeKeysWords(["a", "b", "c", "d", "e", "f"])).toBe("a, b, c, d and 2 more");
+    expect(routeKeysWords(["GET /a"])).toBe("GET /a");
+  });
+});

@@ -1,7 +1,7 @@
 // EventBridge's archives (eventbridge__archives-list, archives-none, and the delete from the list): rows chosen for Replay and Delete.
 // `?create=yes` is Create archive (`?name=<bus>` its source); `?gone=<name>` a deleted one.
 import { useNavigate, useSearch } from "@tanstack/react-router";
-import { ArchiveIcon, PlusIcon, SearchIcon, TrashIcon } from "lucide-react";
+import { FunnelIcon, PlusIcon, SearchIcon, TrashIcon } from "lucide-react";
 import { useMemo, useState } from "react";
 import { ErrorBlock } from "@doze/ui/components/app/alert";
 import type { DataColumn } from "@doze/ui/components/app/data-table";
@@ -70,7 +70,7 @@ function Archives({ service, kind, gone }: { service: string; kind: string; gone
         <div className="grid gap-3" data-testid="list-loading"><Skeleton className="h-9 w-80" /><Skeleton className="h-64 rounded-xl" /></div>
       ) : all.length === 0 ? (
         <div data-testid="list-empty">
-          <EmptyState icon={ArchiveIcon} title="No archives" action={<Button onClick={() => go({ create: "yes" })}><PlusIcon /> Create archive</Button>}>An archive stores the events that match a pattern so you can replay them later.</EmptyState>
+          <EmptyState icon={FunnelIcon} title="No archives" action={<Button variant="outline" className="bg-card" onClick={() => go({ create: "yes" })}><PlusIcon /> Create archive</Button>}>An archive stores the events that match a pattern so you can replay them later.</EmptyState>
         </div>
       ) : (
         <>

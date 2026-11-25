@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { JsonEditor } from "@doze/ui/components/app/json-editor";
 import { Badge } from "@doze/ui/components/ui/badge";
 import { cn } from "@doze/ui/lib/utils";
+import { Soft } from "./soft";
 import { checkPolicy, type PolicyKind, statementWords } from "./policy";
 
 /** An IAM policy typed as JSON, with what it says in words beside it: the JSON editor (checked as it is typed, Format), the
@@ -29,7 +30,7 @@ export function PolicyEditor({ value, onChange, kind = "identity", label = "Poli
                 <Badge variant="outline" className={cn("font-medium", s.effect === "Allow" ? "border-good/40 bg-good/10 text-good" : s.effect === "Deny" ? "border-bad/40 bg-bad/10 text-bad" : "text-muted-foreground")}>
                   {s.effect}
                 </Badge>
-                <span className="min-w-0 flex-1 font-mono text-[12.5px] break-all text-foreground">{statementWords(s).slice(s.effect.length + 1)}</span>
+                <span className="min-w-0 flex-1 font-mono text-[12.5px] break-words text-foreground"><Soft text={statementWords(s).slice(s.effect.length + 1)} /></span>
                 {s.sid && <span className="text-[12px] text-muted-foreground">{s.sid}</span>}
               </li>
             ))}

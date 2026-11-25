@@ -63,8 +63,11 @@ export function filterSentence(rows: readonly ParamRow[], total: number | null):
 // ---- the form ----
 
 export type Tier = "Standard" | "Advanced";
-export type ParamForm = { name: string; description: string; tier: Tier; type: "String" | "StringList" | "SecureString"; key: string | null; value: string; tags: KeyValueRow[] };
-export const blankParam = (): ParamForm => ({ name: "", description: "", tier: "Standard", type: "String", key: null, value: "", tags: [] });
+/** The data types PutParameter takes (the service accepts these two; any other is refused). */
+export const DATA_TYPES = ["text", "aws:ec2:image"] as const;
+export type DataType = (typeof DATA_TYPES)[number];
+export type ParamForm = { name: string; description: string; tier: Tier; type: "String" | "StringList" | "SecureString"; dataType: DataType; key: string | null; value: string; tags: KeyValueRow[] };
+export const blankParam = (): ParamForm => ({ name: "", description: "", tier: "Standard", type: "String", dataType: "text", key: null, value: "", tags: [] });
 
 /** What a name may be: levels of letters, digits and `. - _` between slashes, up to 15, not beginning with aws or ssm. */
 export function nameProblem(name: string): string | null {
@@ -99,7 +102,7 @@ export function putInput(f: ParamForm, o: { overwrite?: boolean; editing?: boole
     ...(!o.editing && f.type === "SecureString" && f.key ? { KeyId: f.key } : {}),
     Value: f.value,
     Tier: f.tier,
-    ...(o.editing ? {} : { DataType: "text" }),
+    ...(o.editing ? {} : { DataType: f.dataType }),
     ...(o.overwrite ? { Overwrite: true } : {}),
     ...(!o.editing && tags.length > 0 ? { Tags: tags.map((t) => ({ Key: t.key, Value: t.value })) } : {}),
   };

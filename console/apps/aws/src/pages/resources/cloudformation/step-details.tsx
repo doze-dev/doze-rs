@@ -6,11 +6,11 @@ import { Input } from "@doze/ui/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@doze/ui/components/ui/select";
 import { Field, FormSection } from "../../../kit";
 import { nameList } from "./model";
-import { type Declared, type Summary, type Wizard, dot, nameProblem, parameterProblem, valueOf } from "./wizard-model";
+import { type Declared, type Summary, type Wizard, dot, nameProblem, noEchoLine, parameterProblem, valueOf } from "./wizard-model";
 
 const words = (d: Declared) => `Type ${d.ParameterType ?? "String"}${d.DefaultValue !== undefined && d.DefaultValue !== "" ? `, default ${d.DefaultValue}` : ""}.`;
 
-export function StepDetails({ w, set, summary, taken, tried, current }: { w: Wizard; set: (p: Partial<Wizard>) => void; summary: Summary; taken: readonly string[]; tried: boolean; current: Record<string, string> }) {
+export function StepDetails({ w, set, summary, taken, tried, current, born }: { w: Wizard; set: (p: Partial<Wizard>) => void; summary: Summary; taken: readonly string[]; tried: boolean; current: Record<string, string>; /** The stack an update is of: when it was created, and whether it has been updated since. */ born?: { created?: string; updated: boolean } }) {
   const update = w.mode !== "create";
   const params = summary.Parameters ?? [];
   const nameError = nameProblem(w.name, taken);
@@ -35,7 +35,7 @@ export function StepDetails({ w, set, summary, taken, tried, current }: { w: Wiz
           const was = current[key];
           const shown = update && !d.NoEcho ? (w.values[key] ?? was ?? d.DefaultValue ?? "") : valueOf(w, d);
           return (
-            <Field key={key} label={key} error={error ?? undefined} testId={`param-${key}`} help={update && d.NoEcho ? "A NoEcho value is never shown again, so the field starts empty. Ticking Use existing value keeps the one the stack has." : undefined} hint={<>{d.Description ? `${dot(d.Description)} ` : ""}{words(d)}</>}>
+            <Field key={key} label={key} error={error ?? undefined} testId={`param-${key}`} help={update && d.NoEcho ? noEchoLine(w.stack, born?.created, born?.updated ?? false) : undefined} hint={<>{d.Description ? `${dot(d.Description)} ` : ""}{words(d)}</>}>
               {(id) => d.NoEcho ? (
                 <div className="grid gap-2">
                   <Input id={id} type="password" value={keeping ? "" : (w.values[key] ?? "")} onChange={(e) => set({ values: { ...w.values, [key]: e.target.value } })} disabled={keeping} placeholder={keeping ? "Hidden, because the parameter is NoEcho" : ""} className="bg-card font-mono text-[13px]" autoComplete="off" data-testid={`param-input-${key}`} />

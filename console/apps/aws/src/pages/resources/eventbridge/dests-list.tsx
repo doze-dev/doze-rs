@@ -1,7 +1,7 @@
 // EventBridge's API destinations (eventbridge__api-destinations-list, api-destinations-none): the endpoint, the method, the connection and the rate limit.
 // `?create=yes` is Create API destination, `?do=connection` Create connection.
 import { useNavigate, useSearch } from "@tanstack/react-router";
-import { GlobeIcon, PlusIcon, SearchIcon, TrashIcon } from "lucide-react";
+import { FunnelIcon, PlusIcon, SearchIcon, TrashIcon } from "lucide-react";
 import { useMemo, useState } from "react";
 import { ErrorBlock } from "@doze/ui/components/app/alert";
 import type { DataColumn } from "@doze/ui/components/app/data-table";
@@ -69,7 +69,7 @@ function Dests({ service, kind, gone }: { service: string; kind: string; gone?: 
         <div className="grid gap-3" data-testid="list-loading"><Skeleton className="h-9 w-80" /><Skeleton className="h-64 rounded-xl" /></div>
       ) : all.length === 0 ? (
         <div data-testid="list-empty">
-          <EmptyState icon={GlobeIcon} title="No API destinations" action={<Button onClick={() => go({ create: "yes" })}><PlusIcon /> Create API destination</Button>}>An API destination is an HTTP endpoint a rule can call, with the connection that holds its credentials.</EmptyState>
+          <EmptyState icon={FunnelIcon} title="No API destinations" action={<Button variant="outline" className="bg-card" onClick={() => go({ create: "yes" })}><PlusIcon /> Create API destination</Button>}>An API destination is an HTTP endpoint a rule can call, with the connection that holds its credentials.</EmptyState>
         </div>
       ) : (
         <>

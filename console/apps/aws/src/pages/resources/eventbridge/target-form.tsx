@@ -4,6 +4,7 @@ import { Combobox } from "@doze/ui/components/app/combobox";
 import { Button } from "@doze/ui/components/ui/button";
 import { Input } from "@doze/ui/components/ui/input";
 import { Label } from "@doze/ui/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@doze/ui/components/ui/select";
 import { Field, FormSection, FunctionPicker, QueuePicker, ResourcePicker, RadioCards, RuleHelp, TopicPicker, BusPicker } from "../../../kit";
 import { busArn, useDests } from "./api";
 import { type InputMode, type TargetDraft, type TargetKind, attemptsProblem, ageSeconds, targetProblem } from "./rule-model";
@@ -23,6 +24,9 @@ const INPUTS: { value: InputMode; title: string; body: string }[] = [
   { value: "constant", title: "Constant (JSON text)", body: "The same JSON for every event." },
   { value: "transformer", title: "Input transformer", body: "A template filled from parts of the event." },
 ];
+
+/** What each input choice sends, said in a clause for the sentence that names the choices the select is not on. */
+const INPUT_WORDS: Record<InputMode, string> = { event: "the whole event, the default", path: "a JSON path", constant: "JSON text", transformer: "a template filled from the event" };
 
 /** The ARN of a resource chosen by name for `kind`. */
 export const arnFor = (kind: TargetKind, name: string, region: string, account: string): string => {
@@ -83,17 +87,24 @@ export function TargetForm({ t, index, set, remove, region, account, tried, sing
       </div>
       {parts && <p className="text-[13px] text-muted-foreground" data-testid={`arn-${index + 1}`}><span className="font-mono">{t.arn}</span></p>}
       {fanout && <p className="border-l-2 border-input pl-3.5 text-[13.5px] leading-[21px] text-foreground" data-testid={`fanout-${index + 1}`}>{fanout}</p>}
-      <RuleHelp>Delivered by doze-aws: SQS, SNS, Lambda, CloudWatch Logs, Kinesis, Step Functions, another event bus of the Region and API destinations. A target on any other service is stored and not delivered. doze-aws assumes no role, so the Execution role section is not drawn.</RuleHelp>
+      <RuleHelp>Delivered by doze-aws: SQS, SNS, Lambda, CloudWatch Logs, Kinesis, Step Functions, another event bus of the Region and API destinations. A target on any other service is stored and not delivered.</RuleHelp>
+      <div data-testid={`execution-role-${index + 1}`}><RuleHelp>On AWS the Execution role section lets you create or pick an IAM role for the target; for Lambda, SNS and SQS targets EventBridge can instead use the target&apos;s resource-based policy. doze-aws assumes no role, so that section is not drawn.</RuleHelp></div>
       <FormSection title="Additional settings" description="All optional. The defaults send the whole event, retry for 24 hours and drop what still fails." collapsible defaultOpen className="bg-muted/30" testId={`section-settings-${index + 1}`}>
         <div className="grid gap-1.5">
           <Label>Configure target input</Label>
-          <RadioCards<InputMode> name={`input-${index}`} label="Configure target input" value={t.input} onChange={(input) => set({ input })} options={INPUTS} className="sm:grid-cols-4" />
+          <div className="flex flex-wrap items-center gap-3">
+            <Select value={t.input} onValueChange={(input) => set({ input: input as InputMode })}>
+              <SelectTrigger className="w-64 bg-card" aria-label="Configure target input" data-testid={`input-mode-${index + 1}`}><SelectValue /></SelectTrigger>
+              <SelectContent>{INPUTS.map((o) => <SelectItem key={o.value} value={o.value}>{o.title}</SelectItem>)}</SelectContent>
+            </Select>
+            {t.input === "transformer" && <Button type="button" variant="outline" className="bg-card" onClick={() => setDialog(true)} data-testid={`transformer-open-${index + 1}`}>Configure input transformer</Button>}
+          </div>
+          <p className="text-[13px] text-muted-foreground" data-testid={`input-choices-${index + 1}`}>{INPUTS.find((o) => o.value === t.input)?.body} The other choices are {list(INPUTS.filter((o) => o.value !== t.input).map((o) => `${o.title.replace(/ \(.*\)$/, "")} (${INPUT_WORDS[o.value]})`))}.</p>
         </div>
         {t.input === "path" && <Field label="Path" error={tried && !t.path.startsWith("$") ? "A path starts with $." : undefined}>{(id) => <Input id={id} value={t.path} onChange={(e) => set({ path: e.target.value })} className="max-w-md font-mono" data-testid={`input-path-${index + 1}`} />}</Field>}
         {t.input === "constant" && <Field label="Constant" error={tried && problem === "The constant is JSON text." ? problem : undefined}>{(id) => <Input id={id} value={t.constant} onChange={(e) => set({ constant: e.target.value })} placeholder='{"source": "larder"}' className="font-mono" data-testid={`input-constant-${index + 1}`} />}</Field>}
         {t.input === "transformer" && (
           <div className="grid gap-2">
-            <div><Button type="button" variant="outline" className="bg-card" onClick={() => setDialog(true)} data-testid={`transformer-open-${index + 1}`}>Configure input transformer</Button></div>
             {t.template ? <p className="text-[13.5px]" data-testid={`transformer-set-${index + 1}`}>Transformer set: <b className="font-semibold text-bright">{names.length} {names.length === 1 ? "variable" : "variables"}</b>{names.length > 0 ? `, ${list(names)},` : ""} shape the message {t.kind === "sns" ? "published" : "sent"} to <span className="font-mono font-semibold text-bright">{parts?.name ?? "the target"}</span>.</p> : tried && <p className="text-[13px] text-bad" role="alert">Write the template.</p>}
           </div>
         )}

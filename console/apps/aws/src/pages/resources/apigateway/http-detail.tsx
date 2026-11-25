@@ -56,7 +56,7 @@ function HttpView({ id, api, calls, updatedAt, fetching, refresh }: { id: string
   const form = s.do ? (
     <Suspense fallback={<Skeleton className="h-96 rounded-[var(--radius-card)]" />}>
       {s.do === "create-route" && <RouteCreate api={id} apiName={api.name} websocket={websocket} crumbs={back} onClose={(k) => go(k ? { done: "route", name: k } : {})} />}
-      {s.do === "create-integration" && <IntegrationCreate api={id} apiName={api.name} route={s.key} crumbs={back} onClose={(done) => go({ tab: "integrations", ...(done ? { done: "integration", name: done } : {}) })} />}
+      {s.do === "create-integration" && <IntegrationCreate api={id} apiName={api.name} route={s.key} crumbs={back} onClose={(done, attached) => go({ tab: "integrations", ...(done ? { done: "integration", name: done, ...(attached ? { sel: attached } : {}) } : {}) })} />}
       {s.do === "create-authorizer" && <HttpAuthorizerCreate api={id} apiName={api.name} crumbs={back} onClose={(n) => go({ tab: "authorization", mode: "manage", ...(n ? { done: "authorizer", name: n } : {}) })} />}
     </Suspense>
   ) : null;
@@ -64,7 +64,7 @@ function HttpView({ id, api, calls, updatedAt, fetching, refresh }: { id: string
   const banner =
     s.done === "created" ? <ResultBanner title={`${websocket ? "WebSocket" : "HTTP"} API ${api.name} created.`} returned={websocket ? <>CreateApi returned its ID and its address. The API has no route, integration or stage yet: add a <span className="font-mono">$connect</span> or <span className="font-mono">$default</span> route with an integration, and a stage, before a client can connect.</> : "Its integration, route and stage were made, and the stage deploys every change."} onDismiss={() => go({})} testId="created-banner" /> :
     s.done === "route" ? <ResultBanner title={`Route ${s.name} created.`} returned="CreateRoute returned its ID. Attach an integration to it on the Integrations page." onDismiss={() => go({})} testId="route-banner" /> :
-    s.done === "integration" ? <ResultBanner title={`Integration ${s.name} created.`} returned="CreateIntegration returned its ID. Attach it to a route below." onDismiss={() => go({ tab: "integrations" })} testId="integration-banner" /> :
+    s.done === "integration" ? <ResultBanner title={`Integration ${s.name} created.`} returned={s.sel ? <>CreateIntegration returned its ID, and UpdateRoute attached it to <span className="font-mono">{s.sel}</span>.</> : "CreateIntegration returned its ID. Attach it to a route below."} onDismiss={() => go({ tab: "integrations" })} testId="integration-banner" /> :
     s.done === "authorizer" ? <ResultBanner title={`Authorizer ${s.name} created.`} returned="CreateAuthorizer returned its ID. Attach it to a route below." onDismiss={() => go({ tab: "authorization" })} testId="authorizer-banner" /> :
     s.done === "cors" ? <ResultBanner title="CORS configuration saved." returned="UpdateApi stored it on the API; preflight requests are answered with it at once." onDismiss={() => go({ tab: "cors" })} testId="cors-banner" /> : undefined;
   return (
@@ -73,7 +73,7 @@ function HttpView({ id, api, calls, updatedAt, fetching, refresh }: { id: string
         title={section === "cors" ? "Configure CORS" : label}
         crumbs={[...back, { label, to: `/resources/apigateway/apis/${id}` }]}
         titleExtra={<NameChips name={api.name} kind={websocket ? "WebSocket" : "HTTP"} />}
-        sub={section === "routes" ? <>API ID <span className="font-mono">{id}</span>. Created {when(api.createdDate)}.</> : (SUBS[section] ?? "")}
+        sub={section === "routes" ? <>API ID <span className="font-mono">{id}</span>. Created {when(api.createdDate)}.</> : <>{SUBS[section] ?? ""} <span data-testid="header-created">Created {when(api.createdDate)}.</span></>}
         refresh={<RefreshControl updatedAt={updatedAt} fetching={fetching} onRefresh={refresh} interval={false} />}
         actions={section === "routes" ? <Button onClick={() => go({ do: "create-route" })} data-testid="create-route-top"><PlusIcon /> Create</Button> : undefined}
       />

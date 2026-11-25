@@ -39,7 +39,7 @@ export function CreateDashboard({ names, onClose }: { names: readonly string[]; 
           <DialogDescription className="sr-only">Name the dashboard; it is made empty and opens on its page.</DialogDescription>
         </DialogHeader>
         <form className="grid gap-5" noValidate onSubmit={(e) => { e.preventDefault(); submit(); }}>
-          <Field label="Dashboard name" error={tried ? problem ?? undefined : undefined} help="Up to 255 characters: A-Z, a-z, 0-9, hyphen and underscore. Saving a dashboard under a name that already exists replaces that dashboard's contents.">
+          <Field label="Dashboard name" error={tried ? problem ?? undefined : undefined} help={<><b className="font-semibold text-foreground">Up to 255 characters:</b> A-Z, a-z, 0-9, hyphen and underscore. Saving a dashboard under a name that already exists replaces that dashboard's contents.</>}>
             {(id) => <Input id={id} value={name} onChange={(e) => setName(e.target.value)} autoFocus className="font-mono" autoComplete="off" spellCheck={false} data-testid="dashboard-name" />}
           </Field>
           {failed && <Alert tone="bad" title={`The dashboard was not made${failed.code ? `: ${failed.code}` : ""}`} testId="create-refused">{failed.message}</Alert>}

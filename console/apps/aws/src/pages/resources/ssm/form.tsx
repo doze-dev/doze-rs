@@ -10,6 +10,7 @@ import { KeyValueEditor } from "@doze/ui/components/app/key-value-editor";
 import { rowsValid } from "@doze/ui/components/app/key-values";
 import { Input } from "@doze/ui/components/ui/input";
 import { cn } from "@doze/ui/lib/utils";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@doze/ui/components/ui/select";
 import { Textarea } from "@doze/ui/components/ui/textarea";
 import { useAbout } from "../../../api/queries";
 import type { ResourceDetail } from "../../../api/types/ResourceDetail";
@@ -19,7 +20,7 @@ import { fieldOf } from "../cfg-parts";
 import { KeyAliasPicker } from "../key-picker";
 import { crumbs } from "../kms/parts";
 import { refusalOf } from "../kms/schedule";
-import { blankParam, nameProblem, type ParamForm, paramRows, pasts, putInput, savingWords, type Tier, valueProblem } from "./model";
+import { blankParam, DATA_TYPES, type DataType, nameProblem, type ParamForm, paramRows, pasts, putInput, savingWords, type Tier, valueProblem } from "./model";
 import { useHistory } from "./tab-history";
 
 export const PARAMETERS = { service: "ssm", kind: "parameters" } as const;
@@ -119,8 +120,13 @@ export function ParameterForm({ d }: { d?: ResourceDetail }) {
           <RadioCards name="type" label="Type" value={f.type} onChange={(type) => set({ type })} disabled={editing} className="sm:grid-cols-3" options={TYPES} />
           <RuleHelp>Only the value of a SecureString is encrypted; the name, description and other properties are not. doze-aws seals the value with the KMS key below. The type can&apos;t be changed afterwards in the console.</RuleHelp>
         </div>}
-        {!editing && <Field label="Data type" help={<>The default, <b>text</b>, checks nothing. Other data types make AWS validate the value (integer, boolean, json and more); only text is offered here.</>}>
-          {(id) => <Input id={id} value="text" readOnly className="max-w-40 bg-muted font-mono" data-testid="parameter-datatype" />}
+        {!editing && <Field label="Data type" help={<>The default, <b>text</b>, checks nothing. <span className="font-mono">aws:ec2:image</span> says the value is an AMI ID; on AWS the value is then validated, and doze-aws keeps the data type without checking it.</>}>
+          {(id) => (
+            <Select value={f.dataType} onValueChange={(dataType) => set({ dataType: dataType as DataType })}>
+              <SelectTrigger id={id} className="w-56 bg-card font-mono" data-testid="parameter-datatype"><SelectValue /></SelectTrigger>
+              <SelectContent>{DATA_TYPES.map((t) => <SelectItem key={t} value={t} className="font-mono">{t}</SelectItem>)}</SelectContent>
+            </Select>
+          )}
         </Field>}
         {!editing && <Field label="KMS Key ID" optional={f.type !== "SecureString"} help={<>A key id, key ARN, alias name or alias ARN; an alias is written with the <span className="font-mono">alias/</span> prefix. Left empty, AWS uses <span className="font-mono">alias/aws/ssm</span>. {f.type === "SecureString" ? "doze-aws seals the value with this key, through KMS, so the key must exist and be enabled." : "It applies to a SecureString only."}</>}>
           {(id) => <KeyAliasPicker id={id} value={f.type === "SecureString" ? f.key : null} onChange={(key) => set({ key })} defaultLabel="aws/ssm" />}

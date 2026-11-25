@@ -10,7 +10,7 @@ import type { Draft, Notify, StateName } from "./wizard-model";
 export function NameStep({ d, set, tried, problem, editing }: { d: Draft; set: (p: Partial<Draft>) => void; tried: boolean; problem: string | null; editing: boolean }) {
   return (
     <FormSection title="Name and description" testId="section-name">
-      <Field label="Alarm name" error={tried ? problem ?? undefined : undefined} help={editing ? "The name of an alarm cannot be changed. Make a new alarm to get another name." : "1 to 255 characters of UTF-8, without ASCII control characters, and unique in the Region. A name cannot be changed later; copy the alarm to get a new one."}>
+      <Field label="Alarm name" error={tried ? problem ?? undefined : undefined} help={editing ? "The name of an alarm cannot be changed. Make a new alarm to get another name." : <><b className="font-semibold text-foreground">1 to 255 characters</b> of UTF-8, without ASCII control characters, and unique in the Region. A name cannot be changed later; copy the alarm to get a new one.</>}>
         {(id) => <Input id={id} value={d.name} onChange={(e) => set({ name: e.target.value })} disabled={editing} className="font-mono" autoComplete="off" spellCheck={false} data-testid="alarm-name" />}
       </Field>
       <Field label="Alarm description" optional help="Up to 1,024 characters. It is the first line of the alarm's page, as written: Markdown is kept but shown as plain text. Use it for a link to a runbook.">

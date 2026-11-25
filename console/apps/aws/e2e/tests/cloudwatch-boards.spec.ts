@@ -244,6 +244,9 @@ test("cloudwatch__alarm-step1 to step4: the wizard, the call each step makes, an
   await page.getByRole("menuitem", { name: "Edit" }).click();
   await expect(page.locator("h1").first()).toHaveText("Edit alarm");
   await advance(page);
+  // The topic the alarm notifies opens on the existing-topic choice with the topic chosen, not on a typed ARN.
+  await expect(page.getByTestId("via-existing")).toBeChecked();
+  await expect(page.getByTestId("topic-arn")).toContainText(":alerts");
   await advance(page);
   await expect(page.getByTestId("alarm-name")).toBeDisabled();
   await advance(page);

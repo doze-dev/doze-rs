@@ -50,7 +50,7 @@ export function ReplayStart({ archive }: { archive?: string }) {
       onCancel={() => void navigate({ to: "/resources/$service/$second", params: { service: "eventbridge", second: "replays" }, search: {} })}
       onSubmit={() => {
         setTried(true);
-        if (!problem) start.mutate(input as never, { onSuccess: () => void navigate({ to: "/resources/$service/$kind/$name", params: { service: "eventbridge", kind: "replays", name: f.name }, search: {} }) });
+        if (!problem) start.mutate(input as never, { onSuccess: () => void navigate({ to: "/resources/$service/$kind/$name", params: { service: "eventbridge", kind: "replays", name: f.name }, search: { done: "created" } }) });
       }}
       testId="replay-start"
     >

@@ -67,7 +67,7 @@ export function AddWidgetDialog({ onNext, onClose }: { onNext: (kind: WidgetChoi
             </Label>
           ))}
         </RadioGroup>
-        <p className="text-[13px] leading-5 text-muted-foreground">Line, Stacked area, Number, Gauge, Bar and Pie go on to the metric picker and the graphed metrics. Text asks for Markdown; Alarm status asks you to select the alarms.</p>
+        <p className="text-[13px] leading-5 text-muted-foreground"><b className="font-semibold text-foreground">Line, Stacked area, Number, Gauge, Bar and Pie</b> go on to the metric picker and the graphed metrics. Text asks for Markdown; Alarm status asks you to select the alarms.</p>
         <DialogFooter><Button type="button" variant="outline" className="bg-card" onClick={onClose}>Cancel</Button><Button type="button" onClick={() => onNext(kind)} data-testid="add-widget-next">Next</Button></DialogFooter>
       </DialogContent>
     </Dialog>
@@ -107,7 +107,7 @@ export function AlarmWidgetDialog({ body, region, account, onCreate, onClose }: 
             ))}
           </ul>
         )}
-        <p className="text-[13px] leading-5 text-muted-foreground">The widget shows each alarm's name and state, without graphs. One alarm status widget can hold up to 100 alarms.</p>
+        <p className="text-[13px] leading-5 text-muted-foreground"><b className="font-semibold text-foreground">The widget shows each alarm's name and state, without graphs.</b> One alarm status widget can hold up to 100 alarms.</p>
         <DialogFooter><Button type="button" variant="outline" className="bg-card" onClick={onClose}>Cancel</Button><Button type="button" disabled={chosen.size === 0 || chosen.size > 100} onClick={() => onCreate(withWidget(body, alarmWidget([...chosen].map((n) => alarmArn(region, account, n)))))} data-testid="widget-create">Create widget</Button></DialogFooter>
       </DialogContent>
     </Dialog>

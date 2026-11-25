@@ -61,13 +61,13 @@ export function GroupSearch({ group }: { group: string }) {
       />
       <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_22.5rem]" data-testid="group-search">
         <div className="grid min-w-0 gap-4">
-          <form className="flex flex-wrap items-center gap-3" role="search" onSubmit={search}>
-            <div className="relative w-full max-w-[18rem]">
+          <form className="flex flex-wrap items-center gap-2" role="search" onSubmit={search}>
+            <div className="relative w-full max-w-[13rem]">
               <SearchIcon aria-hidden className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
               <Input value={pattern} onChange={(e) => setPattern(e.target.value)} placeholder="Filter pattern" aria-label="Filter pattern" spellCheck={false} className="bg-card pl-9 font-mono text-[13px]" data-testid="search-pattern" />
             </div>
             <RangeControls range={range} onChange={(r) => { setRange(r); setNow(Date.now()); }} />
-            <Button type="submit" variant="outline" className="bg-card" disabled={busy} data-testid="search-run">{busy && !found ? "Searching…" : "Search"}</Button>
+            <Button type="submit" variant="outline" className="shrink-0 bg-card" disabled={busy} data-testid="search-run">{busy && !found ? "Searching…" : "Search"}</Button>
           </form>
           {failed && <Alert tone="bad" title={`FilterLogEvents was refused${failed.code ? `: ${failed.code}` : ""}`} testId="write-error">{failed.message}</Alert>}
           {found && (

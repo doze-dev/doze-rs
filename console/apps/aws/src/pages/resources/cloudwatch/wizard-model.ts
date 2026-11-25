@@ -138,7 +138,7 @@ export function fromAlarm(a: Alarm): Draft | null {
   if (a.AlarmRule !== undefined) return null;
   const base = empty();
   const common = { operator: a.ComparisonOperator ?? base.operator, threshold: String(a.Threshold ?? 1), datapoints: String(a.DatapointsToAlarm ?? a.EvaluationPeriods ?? 1), of: String(a.EvaluationPeriods ?? 1), missing: a.TreatMissingData ?? "missing", name: a.AlarmName, description: a.AlarmDescription ?? "" };
-  const notify: Notify[] = STATES.flatMap((s) => actionsOf(a, s).map((arn) => ({ id: nextId(), state: s, via: arn.includes(":lambda:") ? ("lambda" as const) : ("arn" as const), arn, name: "" })));
+  const notify: Notify[] = STATES.flatMap((s) => actionsOf(a, s).map((arn) => ({ id: nextId(), state: s, via: arn.includes(":lambda:") ? ("lambda" as const) : arn.includes(":sns:") ? ("existing" as const) : ("arn" as const), arn, name: "" })));
   if (a.ThresholdMetricId) {
     const [m1, ad] = a.Metrics ?? [];
     const stat = m1?.MetricStat;

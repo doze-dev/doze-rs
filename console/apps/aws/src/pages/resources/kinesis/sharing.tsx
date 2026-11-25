@@ -6,6 +6,7 @@ import { PlusIcon, TrashIcon } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Alert } from "@doze/ui/components/app/alert";
 import { CodeBlock } from "@doze/ui/components/app/code-block";
+import { Soft } from "../../../kit/soft";
 import { Badge } from "@doze/ui/components/ui/badge";
 import { Button } from "@doze/ui/components/ui/button";
 import { Checkbox } from "@doze/ui/components/ui/checkbox";
@@ -59,12 +60,12 @@ export function SharingTab({ s, create }: { s: Stream; create: () => void }) {
           {statements.map((st, i) => (
             <li key={i} className="flex flex-wrap items-baseline gap-x-3 gap-y-1 rounded-lg border bg-well px-3.5 py-2.5 text-[13.5px]" data-testid="sharing-statement">
               <Badge variant="outline" className={st.effect === "Allow" ? "border-good/40 bg-good/10 text-good" : "border-bad/40 bg-bad/10 text-bad"}>{st.effect}</Badge>
-              <span className="min-w-0 flex-1 font-mono text-[12.5px] break-all">{st.principals.join(", ") || "no principal"} may call {st.actions.join(", ")}</span>
+              <span className="min-w-0 flex-1 font-mono text-[12.5px] break-words" data-testid="sharing-statement-words"><Soft text={`${st.principals.join(", ") || "no principal"} may call ${st.actions.join(", ")}`} /></span>
               {st.sid && <span className="text-[12px] text-muted-foreground">{st.sid}</span>}
             </li>
           ))}
         </ol>
-        <div className="mt-4"><CodeBlock text={shown} wrap={false} max="max-h-96" testId="sharing-json" json /></div>
+        <div className="mt-4"><CodeBlock text={shown} max="max-h-[32rem]" testId="sharing-json" json /></div>
         <RuleHelp className="mt-4">The policy is stored and GetResourcePolicy reads it back. <span className="text-muted-foreground">doze-aws's IAM does not evaluate a stream's resource policy, so it neither grants nor denies a call here.</span></RuleHelp>
       </section>
       <PlainConfirm open={asking} onOpenChange={setAsking} title="Delete sharing policy" call="DeleteResourcePolicy" pending={del.isPending} error={del.error} testId="sharing-delete-dialog" onConfirm={() => del.mutate({ stream: s.name, input: {} }, { onSuccess: () => setAsking(false) })}

@@ -73,7 +73,7 @@ function RestView({ id, apiName, created, types, calls, updatedAt, fetching, ref
         title={SECTIONS.find((x) => x.id === section)?.label ?? "Resources"}
         crumbs={[...back, { label: SECTIONS.find((x) => x.id === section)?.label ?? "Resources", to: `/resources/apigateway/restapis/${id}` }]}
         titleExtra={<NameChips name={apiName} kind="REST" extra={endpointWords(types?.[0])} />}
-        sub={section === "stages" ? "A stage is a named reference to a deployment. Callers reach the API through the stage's URL." : section === "authorizers" ? "An authorizer decides, before a method runs, whether the caller may invoke it." : sub}
+        sub={section === "stages" || section === "authorizers" ? <>{section === "stages" ? "A stage is a named reference to a deployment. Callers reach the API through the stage's URL." : "An authorizer decides, before a method runs, whether the caller may invoke it."} <span data-testid="header-created">Created {when(created)}.</span></> : sub}
         refresh={<RefreshControl updatedAt={updatedAt} fetching={fetching} onRefresh={refresh} interval={false} />}
         actions={
           <>

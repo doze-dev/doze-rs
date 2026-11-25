@@ -95,7 +95,7 @@ export function ConfigMode({ name, setName, cfg, set, taken, where, definition, 
       </FormSection>
       <FormSection title="Logging">
         <div className="grid gap-5">
-          <Field label="Log level" help={<><b className="font-semibold">ALL</b> logs every event, <b className="font-semibold">ERROR</b> logs failures, <b className="font-semibold">FATAL</b> logs only executions that fail, abort or time out, and <b className="font-semibold">OFF</b> logs nothing. A Standard machine made in the console doesn't log by default; an Express one does. <span className="text-muted-foreground">CloudWatch Logs charges the vended-logs rate for what is sent.</span></>}>
+          <Field label="Log level" help={<><b className="font-semibold">ALL</b> logs every event, <b className="font-semibold">ERROR</b> logs failures, <b className="font-semibold">FATAL</b> logs only executions that fail, abort or time out, and <b className="font-semibold">OFF</b> logs nothing. Neither a Standard nor an Express machine logs by default: the level starts at OFF, and an Express machine's runs are written nowhere while it is OFF. <span className="text-muted-foreground">CloudWatch Logs charges the vended-logs rate for what is sent.</span></>}>
             {(id) => (
               <Select value={cfg.level} onValueChange={(v) => set({ level: v as Level })}>
                 <SelectTrigger id={id} className="w-full max-w-[18rem] bg-card" data-testid="config-level"><SelectValue /></SelectTrigger>

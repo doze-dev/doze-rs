@@ -52,3 +52,10 @@ describe("the line an error names", () => {
     expect(lineOfLocation(pretty, "null")).toBeNull();
   });
 });
+
+describe("the encryption of a call that has no key yet", () => {
+  test("names the key as a placeholder, not as null", () => {
+    expect(encryptionOf({ kms: true, kmsKey: null, kmsPeriod: "300" })).toEqual({ encryptionConfiguration: { type: "CUSTOMER_MANAGED_KMS_KEY", kmsKeyId: "<KMS key>", kmsDataKeyReusePeriodSeconds: 300 } });
+    expect(encryptionProblem({ kms: true, kmsKey: null, kmsPeriod: "300" })).toBe("Choose a KMS key.");
+  });
+});
