@@ -122,6 +122,7 @@ pub(crate) fn lab_in(name: &str, served: &[&'static str], mode: Mode) -> Lab {
         peers: Some(peers.clone()),
         flags: Vec::new(),
         data: None,
+        lab: aws_console::LabFacts::default(),
     };
     let state = State::new(
         facts,
