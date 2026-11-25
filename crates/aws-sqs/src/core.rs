@@ -74,6 +74,8 @@ pub(crate) enum Ask {
         name: String,
         max: usize,
     },
+    /// From the console's Lab: the in-flight messages of a queue come back now (`forced`).
+    Release(Box<crate::forced::Release>),
 }
 
 impl doze_runtime::Service for Core {
@@ -114,6 +116,10 @@ impl doze_runtime::Service for Core {
             Ask::Peek { name, max } => {
                 let reply = self.peek(&name, max);
                 return self.answer(reply);
+            }
+            Ask::Release(ask) => {
+                self.release(*ask).await;
+                return self.answer(empty());
             }
         };
         if let Some(peers) = self.peers.clone()

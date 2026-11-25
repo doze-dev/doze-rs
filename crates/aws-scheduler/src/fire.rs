@@ -6,11 +6,14 @@
 //! a one-time schedule that came due while the process was down fires then, once.
 
 use aws_wire::ApiError;
-use serde_json::Value;
+use serde_json::{Value, json};
 
 use crate::core::Core;
 use crate::model::{Schedule, key};
 use crate::req::no_schedule;
+
+/// The code of the refusal that says a schedule has nothing to fire (its message is the words for why).
+pub(crate) const NOTHING: &str = "NothingToFire";
 
 /// One invocation of a schedule's target.
 #[derive(Clone, Debug)]
@@ -136,4 +139,53 @@ impl Core {
         }
         Ok(Value::Null)
     }
+
+    /// The console's Lab: fires the schedule now, when its timer would fire it at all. A disabled schedule holds no fire, and one
+    /// whose last fire has passed has none left; both are `NOTHING`, with the words. Otherwise it is [`Core::fire_now`]: the same
+    /// invocation as the hook makes and the timer hands out, a recurring schedule keeping its plan and a one-time one completing.
+    /// Answers what the schedule has left: `{"next_ms": ..., "once": ..., "removed": ...}`.
+    pub(crate) fn fire_checked(
+        &mut self,
+        account: &str,
+        group: &str,
+        name: &str,
+    ) -> Result<Value, ApiError> {
+        let k = key(account, &[group, name]);
+        let now = self.now_ms();
+        let Some(s) = self.schedules.get(&k) else {
+            return Err(no_schedule(name));
+        };
+        let label = if group == crate::model::DEFAULT_GROUP {
+            name.to_owned()
+        } else {
+            format!("{group}/{name}")
+        };
+        let once = aws_cron::parse_scheduler(&s.expression).is_ok_and(|e| e.is_once());
+        if !s.enabled {
+            return Err(nothing(format!(
+                "{label} is disabled: its timer holds no fire, and a disabled schedule does not invoke its target. Enable it first (UpdateSchedule with State ENABLED)."
+            )));
+        }
+        if s.next_ms.is_none() {
+            let why = if once {
+                "it is a one-time schedule and its one fire has already happened (it is kept because ActionAfterCompletion is NONE)"
+            } else if s.end_ms.is_some_and(|end| end <= now) {
+                "its EndDate has passed"
+            } else {
+                "its expression has no time left"
+            };
+            return Err(nothing(format!(
+                "{label} has no fire left: {why}, so its timer is not running."
+            )));
+        }
+        self.fire_now(Some(account), group, name)?;
+        let left = self.schedules.get(&k);
+        Ok(
+            json!({"next_ms": left.and_then(|s| s.next_ms), "once": once, "removed": left.is_none()}),
+        )
+    }
+}
+
+fn nothing(why: String) -> ApiError {
+    ApiError::new(409, NOTHING, why)
 }

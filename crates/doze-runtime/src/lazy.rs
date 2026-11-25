@@ -17,11 +17,14 @@ use std::fmt;
 use std::future::Future;
 use std::mem;
 use std::path::PathBuf;
-use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
+use std::pin::Pin;
+use std::sync::{Arc, Mutex, MutexGuard, PoisonError, Weak};
 use std::time::Duration;
 
 use tokio::sync::{mpsc, oneshot};
+use tokio_util::sync::CancellationToken;
 
+use crate::rests::Resting;
 use crate::{Clock, Tasks};
 
 /// What every service shares: where its files live, how long it may sit idle, and the task set its actor
@@ -86,6 +89,10 @@ enum Slot<S: Service> {
         id: u64,
         inbox: mpsc::Sender<Call<S>>,
         closed: oneshot::Receiver<()>,
+        /// Cancelled to make the actor rest now (it is also cancelled when the task set stops).
+        rest: CancellationToken,
+        /// Cancelled by the actor as its last act, once the service has closed.
+        ended: CancellationToken,
     },
 }
 
@@ -131,15 +138,25 @@ impl<S: Service> Lazy<S> {
     /// Registers a service. Nothing runs until the first call.
     #[must_use]
     pub fn new(name: &'static str, ctx: Arc<Ctx>) -> Self {
+        Self::keyed(name, "", ctx)
+    }
+
+    /// Registers the service `name` of `key` (a region): [`Keyed`](crate::Keyed) makes one of these for each. The task set's
+    /// [`Rests`](crate::Rests) learns of it, by a weak handle.
+    #[must_use]
+    pub(crate) fn keyed(name: &'static str, key: &str, ctx: Arc<Ctx>) -> Self {
         let state = State {
             next_id: 0,
             slot: Slot::Empty,
         };
-        Self(Arc::new(Shared {
+        let shared = Arc::new(Shared {
             name,
             ctx,
             state: Mutex::new(state),
-        }))
+        });
+        let at: Weak<dyn Resting> = Arc::downgrade(&shared) as Weak<dyn Resting>;
+        shared.ctx.tasks.rests().add(name, key, at);
+        Self(shared)
     }
 
     /// True while an actor is running (for tests and the console, not for routing).
@@ -183,14 +200,23 @@ impl<S: Service> Lazy<S> {
         state.next_id += 1;
         let (inbox, rx) = mpsc::channel(INBOX);
         let (closed_tx, closed) = oneshot::channel();
-        self.0
-            .ctx
-            .tasks
-            .spawn(actor(Arc::clone(&self.0), id, rx, previous, closed_tx));
+        // Told to rest, the actor ends as it does when idle; the task set's stop reaches it through this one too.
+        let rest = self.0.ctx.tasks.stopping().child_token();
+        let ended = CancellationToken::new();
+        self.0.ctx.tasks.spawn(actor(
+            Arc::clone(&self.0),
+            id,
+            rx,
+            previous,
+            closed_tx,
+            (rest.clone(), ended.clone()),
+        ));
         state.slot = Slot::Live {
             id,
             inbox: inbox.clone(),
             closed,
+            rest,
+            ended,
         };
         inbox
     }
@@ -203,6 +229,8 @@ async fn actor<S: Service>(
     previous: Option<oneshot::Receiver<()>>,
     // Dropped when this actor ends: that is the "closed" signal the next actor waits for.
     _closed: oneshot::Sender<()>,
+    // Told to rest now, and what this actor cancels when it has ended.
+    (rest, ended): (CancellationToken, CancellationToken),
 ) {
     if let Some(previous) = previous {
         // WHY: it resolves, with an error, when the old actor has fully ended; the error is that signal.
@@ -210,8 +238,8 @@ async fn actor<S: Service>(
     }
     match S::open(&shared.ctx, shared.name).await {
         Ok(mut svc) => {
-            run(&shared.ctx, &mut svc, &mut inbox).await;
-            // Idle, stopping, or every handle dropped: refuse new work, finish what is queued, release.
+            run(shared.ctx.idle, &rest, &mut svc, &mut inbox).await;
+            // Idle, told to rest, stopping, or every handle dropped: refuse new work, finish what is queued, release.
             inbox.close();
             while let Some(call) = inbox.recv().await {
                 serve(&mut svc, call).await;
@@ -222,13 +250,19 @@ async fn actor<S: Service>(
     }
     drop(inbox);
     shared.release(id);
+    ended.cancel();
 }
 
-/// Serves requests until the service has been idle too long, the task set is stopping, or the handles are gone.
-async fn run<S: Service>(ctx: &Ctx, svc: &mut S, inbox: &mut mpsc::Receiver<Call<S>>) {
-    let stopping = ctx.tasks.stopping();
-    while let Some(Ok(Some(call))) = stopping
-        .run_until_cancelled(tokio::time::timeout(ctx.idle, inbox.recv()))
+/// Serves requests until the service has been idle too long, it is told to rest or the task set is stopping (`rest` is cancelled
+/// by either), or the handles are gone.
+async fn run<S: Service>(
+    idle: Duration,
+    rest: &CancellationToken,
+    svc: &mut S,
+    inbox: &mut mpsc::Receiver<Call<S>>,
+) {
+    while let Some(Ok(Some(call))) = rest
+        .run_until_cancelled(tokio::time::timeout(idle, inbox.recv()))
         .await
     {
         serve(svc, call).await;
@@ -248,6 +282,29 @@ async fn refuse<S: Service>(inbox: &mut mpsc::Receiver<Call<S>>, why: &str) {
         if call.reply.send(Err(Error::Open(why.to_owned()))).is_err() {
             // WHY: the caller gave up waiting.
         }
+    }
+}
+
+impl<S: Service> Resting for Shared<S> {
+    fn live(&self) -> bool {
+        matches!(&self.lock().slot, Slot::Live { inbox, .. } if !inbox.is_closed())
+    }
+
+    fn rest(&self) -> Pin<Box<dyn Future<Output = bool> + Send + '_>> {
+        Box::pin(async move {
+            let tokens = match &self.lock().slot {
+                Slot::Live {
+                    inbox, rest, ended, ..
+                } if !inbox.is_closed() => Some((rest.clone(), ended.clone())),
+                _ => None,
+            };
+            let Some((rest, ended)) = tokens else {
+                return false;
+            };
+            rest.cancel();
+            ended.cancelled().await;
+            true
+        })
     }
 }
 

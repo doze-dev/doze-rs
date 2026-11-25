@@ -265,6 +265,12 @@ pub trait Service: Send + Sync + 'static {
         None
     }
 
+    /// The forced events the service can carry out for the console's Lab (see [`crate::forced`]): steps its own timer or request
+    /// path takes, asked for now. `None`, the default, for a service that has none; it changes nothing about the calls it answers.
+    fn forced(&self) -> Option<&dyn crate::forced::Forced> {
+        None
+    }
+
     /// What the service keeps on disk, for `doze-aws data` and the console to show and remove. `None` for a service that keeps
     /// nothing (STS) or is a second face of another (DynamoDB Streams answers through DynamoDB).
     fn storage(&self) -> Option<&dyn crate::storage::Storage> {
