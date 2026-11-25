@@ -63,8 +63,8 @@ export function TopicCreate() {
       }
       submitLabel="Create topic"
       pending={make.isPending}
-      disabled={tried && Object.keys(p).length > 0}
-      disabledWhy={Object.values(p)[0]}
+      disabled={(tried && Object.keys(p).length > 0) || Boolean(p.policy)}
+      disabledWhy={p.policy ?? Object.values(p)[0]}
       onCancel={refused ? () => make.reset() : back}
       cancelLabel={refused ? "Back to the form" : "Cancel"}
       onSubmit={submit}

@@ -406,6 +406,9 @@ test("sns__topic-encryption: the key, what it is, and that nothing is encrypted"
   await expect(page.getByTestId("field-Customer managed key ARN")).toContainText("arn:aws:kms:us-east-1:");
   await expect(page.getByTestId("field-Description")).toHaveText("Larder application data key");
   await expect(page.getByTestId("encryption-tab")).toContainText("Stored, not applied locally.");
+  // One strip, the tab's own (publisher, topic, key): the page's Wired to strip would say the same publisher and topic again.
+  await expect(page.getByTestId("kms-strip")).toHaveCount(1);
+  await expect(page.getByTestId("wired-strip")).toHaveCount(0);
   await shot(page, "sns__topic-encryption");
 });
 

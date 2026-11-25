@@ -102,7 +102,7 @@ test("sqs__queue-create and sqs__queue-create-refused: the form, its call, and t
   await expect(page.getByText("pick-lists uses 30 seconds.")).toBeVisible();
   // Retention names its neighbour, the dead-letter queue; the dead-letter hint names queues that are one, and what the first keeps.
   await expect(page.getByText(/pick-lists keeps 4 days\./)).toContainText("pick-lists-dlq keeps 14 days.");
-  await expect(page.getByTestId("section-dlq")).toContainText("pick-lists-dlq is one; pick-lists-dlq keeps messages for 14 days.");
+  await expect(page.getByTestId("section-dlq")).toContainText("pick-lists-dlq is one; it keeps messages for 14 days.");
   await expect(page.getByTestId("section-dlq")).not.toContainText("invoice-queue");
   await page.getByTestId("queue-visibility").fill("60");
   await expect(page.getByTestId("call-panel-code")).toContainText('"VisibilityTimeout": "60"');
@@ -132,7 +132,11 @@ test("sqs__queue-create-fifo and sqs__queue-created: a FIFO queue with its own s
   await expect(page.getByText("orders-events.fifo already exists in this Region.")).toBeVisible();
   await page.getByTestId("queue-name").fill("stock-moves.fifo");
   await page.getByTestId("queue-dedup").click();
+  // Content-based deduplication is a labelled block of its own, and the tag rows have a Remove button, as drawn (no bin icon).
+  await expect(page.getByTestId("field-dedup")).toContainText("Content-based deduplication");
+  await expect(page.getByTestId("field-high-throughput")).toBeVisible();
   await page.getByTestId("form-tags-add").click();
+  await expect(page.getByTestId("section-tags").getByRole("button", { name: "Remove" })).toHaveCount(1);
   await page.getByTestId("form-tags-key-0").fill("stack");
   await page.getByTestId("form-tags-value-0").fill("larder");
   await page.getByTestId("form-tags-add").click();
@@ -162,6 +166,12 @@ test("sqs__queue-detail: the sentence, what the queue is wired to, its verbs, de
   await expect(page.getByTestId("wired-strip")).toContainText("alias/larder-app key");
   await expect(page.getByTestId("wired-self")).toHaveText("pick-lists");
   for (const verb of ["edit", "delete", "purge", "messages"]) await expect(page.getByTestId(`verb-${verb}`)).toBeVisible();
+  // The verbs are outlined buttons as drawn: Edit with a pencil, Delete in red with a bin, Purge plain.
+  await expect(page.getByTestId("verb-edit").locator("svg")).toHaveCount(1);
+  await expect(page.getByTestId("verb-delete").locator("svg")).toHaveCount(1);
+  await expect(page.getByTestId("verb-delete")).toHaveClass(/border-bad/);
+  await expect(page.getByTestId("verb-purge")).not.toHaveClass(/border-bad|text-bad/);
+  await expect(page.getByTestId("verb-purge")).toHaveAttribute("data-variant", "outline");
   // Start DLQ redrive is there, greyed: pick-lists is no one's dead-letter queue.
   await expect(page.getByTestId("verb-redrive")).toBeDisabled();
   await expect(page.getByTestId("verb-reasons")).toHaveCount(0);

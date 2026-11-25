@@ -85,8 +85,8 @@ function EditForm({ d, t, subs, back, done, tags }: TopicProps & { tags: { key: 
       }
       submitLabel="Save changes"
       pending={save.isPending || setTags.isPending}
-      disabled={nothing || (tried && bad)}
-      disabledWhy={nothing ? "Nothing has changed." : Object.values(pr)[0]}
+      disabled={nothing || (tried && bad) || Boolean(pr.policy)}
+      disabledWhy={nothing ? "Nothing has changed." : pr.policy ?? Object.values(pr)[0]}
       onCancel={back}
       onSubmit={() => void submit()}
       testId="topic-edit"
