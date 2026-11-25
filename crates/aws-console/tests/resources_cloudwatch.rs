@@ -244,7 +244,8 @@ async fn a_dashboards_page_lists_the_calls_that_touched_it() {
         "another dashboard's call is not listed: {calls:?}"
     );
     assert!(
-        calls.iter().any(|(a, _)| a == "PutDashboard") && calls.iter().any(|(a, _)| a == "GetDashboard"),
+        calls.iter().any(|(a, _)| a == "PutDashboard")
+            && calls.iter().any(|(a, _)| a == "GetDashboard"),
         "{calls:?}"
     );
 }

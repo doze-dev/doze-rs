@@ -512,7 +512,7 @@ test("stepfunctions__activities-list and activity-create: the workers' tasks, an
   await expect(page.locator("h1").first()).toHaveText("Activities");
   await expect(rows(page, "Activities")).toHaveCount(2);
   await expect(rows(page, "Activities").filter({ hasText: "pack-order" })).toContainText(`arn:aws:states:us-east-1:${server.account}:activity:pack-order`);
-  await expect(page.getByTestId("list-sentence")).toContainText("polls pack-order, which order-fulfilment uses in its PackOrder step. print-label is not used by any machine yet.");
+  await expect(page.getByTestId("list-sentence")).toContainText(/last polled pack-order (just now|\d+ s ago|\d+ min ago), which order-fulfilment uses in its PackOrder step\. print-label is not used by any machine yet\./);
   await expect(page.getByTestId("activities-note")).toContainText("A worker asks for a task with GetActivityTask, which holds the request for up to 60 seconds");
   await expect(page.getByTestId("worker-calls")).toContainText("GetActivityTask");
   await shot(page, "stepfunctions__activities-list");

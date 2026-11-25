@@ -119,6 +119,7 @@ test("eventbridge__archive-create: a name, the bus, indefinite or days, a patter
   await expect(page.getByTestId("done-banner")).toContainText("Archive orders-7d created.");
   await expect(page.getByTestId("verb-delete")).toBeVisible();
   await expect(page.getByTestId("field-Retention (days)")).toContainText("7");
+  await shot(page, "eventbridge__archive-created");
   await page.getByTestId("verb-replay").click();
   await expect(page.locator("h1").first()).toHaveText("Start new replay");
   await expect(page.getByTestId("field-archive")).toContainText("orders-7d");

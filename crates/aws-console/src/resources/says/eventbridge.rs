@@ -258,7 +258,11 @@ mod tests {
     fn a_replay_can_be_cancelled_only_while_it_is_starting_or_running() {
         let read = |state: &str| {
             let out = json!({ "State": state });
-            going(&Read { out: &out, name: "r", subs: &[] })
+            going(&Read {
+                out: &out,
+                name: "r",
+                subs: &[],
+            })
         };
         assert!(read("STARTING") && read("RUNNING"));
         assert!(!read("COMPLETED") && !read("CANCELLED") && !read("FAILED"));

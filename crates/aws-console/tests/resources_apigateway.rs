@@ -137,7 +137,10 @@ async fn a_rest_api_is_built_resource_by_resource_and_method_by_method_through_t
         .await;
     assert_eq!(status, 400, "{refused}");
     assert!(
-        refused["message"].as_str().unwrap().contains("Active stages"),
+        refused["message"]
+            .as_str()
+            .unwrap()
+            .contains("Active stages"),
         "{refused}"
     );
     let spare = make(&w, "restapis", "CreateDeployment", json!({"restApiId": id})).await;
@@ -177,7 +180,10 @@ async fn a_rest_api_is_built_resource_by_resource_and_method_by_method_through_t
     )
     .await;
     let after = make(&w, "restapis", "GetDeployments", json!({"restApiId": id})).await;
-    assert!(after["item"].as_array().is_none_or(Vec::is_empty), "{after}");
+    assert!(
+        after["item"].as_array().is_none_or(Vec::is_empty),
+        "{after}"
+    );
     // The calls are the console's, and show in Live as its own.
     assert!(
         w.live().iter().any(|l| l == "console apigateway PutMethod"),

@@ -111,7 +111,7 @@ export const STATUS: Record<string, { word: string; tone: "ok" | "bad" | "info" 
   SUCCEEDED: { word: "Succeeded", tone: "ok" },
   FAILED: { word: "Failed", tone: "bad" },
   TIMED_OUT: { word: "Timed out", tone: "bad" },
-  ABORTED: { word: "Aborted", tone: "warn" },
+  ABORTED: { word: "Aborted", tone: "idle" },
   PENDING_REDRIVE: { word: "Pending redrive", tone: "info" },
   succeeded: { word: "Succeeded", tone: "ok" },
   failed: { word: "Failed", tone: "bad" },

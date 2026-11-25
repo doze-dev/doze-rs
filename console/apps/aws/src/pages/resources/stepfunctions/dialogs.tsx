@@ -1,7 +1,7 @@
 // Start an execution (a name, optional, and its input as JSON), stop a running one and redrive a failed one: each a dialog over its
 // page, each one call as the console (StartExecution, StopExecution, RedriveExecution) that Live shows.
 import { useNavigate } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { toast } from "sonner";
 import { Callout } from "@doze/ui/components/app/callout";
 import { Emphasis } from "@doze/ui/components/app/emphasis";
@@ -34,12 +34,11 @@ export type StartTarget = { arn: string; words: React.ReactNode };
 
 export function StartDialog({ machine, name, open, onOpenChange, input: first = "{}", target, startAt, reuse = false }: { machine: string; name: string; open: boolean; onOpenChange: (o: boolean) => void; /** What the input opens with. */ input?: string; target?: StartTarget; /** The state the execution begins at, which the input is for. */ startAt?: string; /** `input` is a skeleton: the input of the newest run that succeeded replaces it once read, unless it was edited. */ reuse?: boolean }) {
   const [run, setRun] = useState("");
-  const [input, setInput] = useState(first);
-  const [touched, setTouched] = useState(false);
+  // What the person typed, once they have; until then what it opens with: the input of the newest run that succeeded when it has been read, else `first`.
+  const [typed, setTyped] = useState<string | null>(null);
+  const touched = typed !== null;
   const last = useLastGoodInput(name, open && reuse).data;
-  useEffect(() => {
-    if (last && !touched) setInput(pretty(last.input));
-  }, [last, touched]);
+  const input = typed ?? (last ? pretty(last.input) : first);
   const start = useOp<{ executionArn: string; startDate: number }>(on.machine(name), "StartExecution");
   const navigate = useNavigate();
   const check = checkJson(input, "invalid");
@@ -75,7 +74,7 @@ export function StartDialog({ machine, name, open, onOpenChange, input: first = 
           <Field label="Name" optional error={named ? undefined : (nameProblem(run.trim()) ?? undefined)} hint="Leave it empty for a generated name. A name is unique per state machine and can be used again 90 days after its execution closes. Starting the same name with the same input while it runs returns that run instead of a second one.">
             {(id) => <Input id={id} value={run} onChange={(e) => setRun(e.target.value)} placeholder="e.g. order-0421" aria-invalid={!named} className="bg-card font-mono" spellCheck={false} data-testid="start-name" />}
           </Field>
-          <JsonEditor label="Input" value={input} onChange={(v) => { setTouched(true); setInput(v); }} empty="invalid" rows={8} testId="start-input" help={<InputHelp startAt={startAt} from={reuse && !touched ? (last ? last.name : last === null && first !== "{}" ? null : undefined) : undefined} />} />
+          <JsonEditor label="Input" value={input} onChange={setTyped} empty="invalid" rows={8} testId="start-input" help={<InputHelp startAt={startAt} from={reuse && !touched ? (last ? last.name : last === null && first !== "{}" ? null : undefined) : undefined} />} />
           <Refused error={start.error} operation="StartExecution" testId="write-error" />
           <DialogFooter>
             <Button type="button" variant="outline" className="bg-card" onClick={() => onOpenChange(false)}>Cancel</Button>

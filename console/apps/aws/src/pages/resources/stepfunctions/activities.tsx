@@ -21,6 +21,8 @@ import type { CallRecord } from "../../../api/types/CallRecord";
 import type { ResourceDetail } from "../../../api/types/ResourceDetail";
 import type { ResourceRow } from "../../../api/types/ResourceRow";
 import { Field, FormPage, FormSection, KeyPicker, LOCAL_WORDS, RecentCalls, callKindOp, useFeeders, useServiceCrumbs } from "../../../kit";
+import { ago } from "../../../people";
+import { useNow } from "../../card";
 import { HINT } from "../index-page";
 import { Value } from "../value";
 import type { OwnProps } from "../deep/registry";
@@ -62,6 +64,7 @@ export function ActivitiesList({ service, kind, search }: OwnProps) {
   const list = useResourceList(service, kind);
   const machines = useResourceList("stepfunctions", "machines");
   const calls = useWorkerCalls();
+  const now = useNow();
   const { refetch } = list;
   const first = list.data?.pages[0];
   const all = useMemo(() => list.data?.pages.flatMap((p) => p.rows) ?? [], [list.data]);
@@ -79,7 +82,9 @@ export function ActivitiesList({ service, kind, search }: OwnProps) {
     const names: string[] = [];
     if (polled && pollers[0]) {
       const use = users.used.get(polled.name)?.[0]?.split("\u0000");
-      parts.push(`${pollers[0]} polls ${polled.name}${use ? `, which ${use[0]} uses in its ${use[1]} step` : ""}.`);
+      // Read from the Live record, which keeps what happened and not what is going on: it says when the last poll was, not that someone is polling.
+      const last = mine.filter((c) => c.action === "GetActivityTask" && (c.resource ?? "").endsWith(`:activity:${polled.name}`)).reduce((m, c) => Math.max(m, c.at_ms), 0);
+      parts.push(`${pollers[0]} last polled ${polled.name} ${ago(last, now)}${use ? `, which ${use[0]} uses in its ${use[1]} step` : ""}.`);
       names.push(polled.name);
     }
     const idle = all.filter((a) => !users.used.has(a.name) && !users.pending).map((a) => a.name);
@@ -88,7 +93,7 @@ export function ActivitiesList({ service, kind, search }: OwnProps) {
       names.push(...idle);
     }
     return parts.length > 0 ? { text: parts.join(" "), names } : null;
-  }, [all, polled, pollers, users]);
+  }, [all, polled, pollers, users, mine, now]);
   const gone = search.name;
   return (
     <>

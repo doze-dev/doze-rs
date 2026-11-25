@@ -38,7 +38,7 @@ test("apigateway__http-create (and its routes, stage and review steps): four ste
   await expect(page.getByTestId("section-match")).toContainText("The console names each route after its Lambda function.");
   await choose(page, "route-method-2", "POST");
   await page.getByTestId("route-path-2").fill("/orders/{proxy+}");
-  await expect(page.getByTestId("section-match")).toContainText("larder-admin already has GET /reports and POST /reports/run; this new API is separate.");
+  await expect(page.getByTestId("section-match")).toContainText("larder-admin already has GET /reports, POST /reports/run and ANY /orders/{proxy+}; this new API is separate.");
   await expect(page.getByTestId("form-back")).toBeVisible();
   await expect(page.getByTestId("form-cancel")).toHaveCount(0);
   await expect(page.getByTestId("form-review")).toHaveCount(0);
@@ -126,6 +126,9 @@ test("apigateway__http-authorizer-create: a Lambda authorizer, the call, and att
   await expect(page.getByTestId("kind-jwt")).toBeEnabled();
   await page.getByTestId("authorizer-name-input").fill("orders-request-auth");
   await pick(page, /Choose a function/, "admin-auth");
+  // The hint says what the API's request authorizer already does, from its routes and its URI, and that AWS's invoke permission is not checked here.
+  await expect(page.getByTestId("http-authorizer-create")).toContainText(/admin-request-auth, already on \d+ routes?, calls the function admin-auth\./);
+  await expect(page.getByTestId("http-authorizer-create")).toContainText("On AWS, API Gateway must be allowed to invoke the function. doze-aws does not check that permission.");
   await expect(page.getByTestId("authorizer-simple")).toBeChecked();
   await expect(page.getByTestId("authorizer-sources-item")).toContainText("$request.header.Authorization");
   const call = page.getByTestId("call-panel");
@@ -223,6 +226,37 @@ test("apigateway__http-stages: a stage is made and edited", async ({ page }) => 
   expect(cli(["apigatewayv2", "get-stage", "--api-id", http(), "--stage-name", "canary"])).toContain('"AutoDeploy": true');
 });
 
+test("apigateway__http-stages: a stage and a deployment are deleted by typing their names, and a deployment a stage serves is refused in words", async ({ page }) => {
+  const served = json<{ Items: { StageName: string; DeploymentId?: string }[] }>(["apigatewayv2", "get-stages", "--api-id", http()]).Items.find((x) => x.StageName === "$default")?.DeploymentId ?? "";
+  expect(served).not.toBe("");
+  const spare = json<{ DeploymentId: string }>(["apigatewayv2", "create-deployment", "--api-id", http(), "--description", "spare snapshot"]).DeploymentId;
+  await go(page, apiPath("apis", http(), "?tab=stages"), "Stages");
+  await expect(page.getByTestId("deployment-history")).toContainText(spare);
+  await expect(page.getByTestId("header-created")).toContainText("Created");
+  await page.getByTestId(`delete-deployment-${served}`).click();
+  const dep = page.getByTestId("deployment-delete");
+  await expect(page.getByTestId("deployment-delete-blocker")).toContainText("$default serves this deployment");
+  await shot(page, "http-deployment-delete-blocked");
+  await dep.getByTestId("deployment-delete-input").fill(served);
+  await expect(dep.getByTestId("deployment-delete-submit")).toBeDisabled();
+  await page.getByRole("button", { name: "Cancel" }).click();
+  await page.getByTestId(`delete-deployment-${spare}`).click();
+  await dep.getByTestId("deployment-delete-input").fill(spare);
+  await dep.getByTestId("deployment-delete-submit").click();
+  await expect(dep).toBeHidden();
+  expect(cli(["apigatewayv2", "get-deployments", "--api-id", http()])).not.toContain(spare);
+  await page.getByTestId("stage-name-cell").filter({ hasText: "canary" }).click();
+  await page.getByTestId("delete-stage").click();
+  const stage = page.getByTestId("stage-delete");
+  await expect(stage).toContainText("Delete the stage canary of larder-admin?");
+  await expect(stage.getByTestId("stage-delete-submit")).toBeDisabled();
+  await stage.getByTestId("stage-delete-input").fill("canary");
+  await stage.getByTestId("stage-delete-submit").click();
+  await expect(stage).toBeHidden();
+  await expect(page.getByRole("table", { name: "Stages" })).not.toContainText("canary");
+  expect(cli(["apigatewayv2", "get-stages", "--api-id", http()])).not.toContain("canary");
+});
+
 test("apigateway__http-routes-none, http-integrations-none and http-stages-none: an API with nothing says what each is", async ({ page }) => {
   await go(page, apiPath("apis", ctx.ids.hooks), "Routes");
   await expect(page.getByRole("heading", { name: "No routes" })).toBeVisible();
@@ -256,6 +290,9 @@ test("apigateway: a route and an integration are made on the pages, and a WebSoc
   await choose(page, "integration-route", "POST /github");
   await advance(page);
   await expect(page.getByTestId("integration-banner")).toContainText("created.");
+  // The route was chosen in the form, so the banner says it was attached and does not tell the person to attach it.
+  await expect(page.getByTestId("integration-banner")).toContainText("UpdateRoute attached it to POST /github.");
+  await expect(page.getByTestId("integration-banner")).not.toContainText("Attach it to a route below");
   expect(cli(["apigatewayv2", "get-routes", "--api-id", ctx.ids.hooks])).toContain("integrations/");
   await go(page, "/resources/apigateway/restapis?do=create-websocket", "Create WebSocket API");
   await page.getByTestId("api-name").fill("larder-live");
