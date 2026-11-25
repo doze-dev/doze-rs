@@ -10,6 +10,7 @@ describe("the status of an item", () => {
   test("the usual words have the colour of their meaning, any other none", () => {
     expect(statusTone("delivered")).toBe("ok");
     expect(statusTone("Placed")).toBe("warn");
+    expect(statusTone("shipped")).toBe("info");
     expect(statusTone("cancelled")).toBe("bad");
     expect(statusTone("paused")).toBe("idle");
     expect(statusTone("quarantined")).toBeNull();

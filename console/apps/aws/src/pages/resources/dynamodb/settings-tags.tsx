@@ -14,7 +14,13 @@ import { KIND } from "./parts";
 
 const LEDE = "Key 1 to 128 characters; value up to 256.";
 
-export function SettingsTags({ name }: { name: string }) {
+/** What a saved tag change says: `Tag tier added to orders-table.` */
+export function tagSaid(what: "added" | "set" | "deleted", key: string, table: string): string {
+  return what === "added" ? `Tag ${key} added to ${table}.` : what === "set" ? `Tag ${key} of ${table} has its new value.` : `Tag ${key} deleted from ${table}.`;
+}
+
+/** `onSaved`: what to say once a tag is added or deleted (the settings page's banner: the one it held before is no longer true). */
+export function SettingsTags({ name, onSaved }: { name: string; onSaved: (said: string) => void }) {
   const target = { ...KIND, name };
   const q = useTags(target);
   const set = useSetTags(target);
@@ -27,13 +33,13 @@ export function SettingsTags({ name }: { name: string }) {
   const bad = key.length < 1 ? "Give the tag a key." : key.length > TAG_RULES.maxKey! ? `A key is at most ${TAG_RULES.maxKey} characters.` : value.length > TAG_RULES.maxValue! ? `A value is at most ${TAG_RULES.maxValue} characters.` : null;
   const add = () => {
     if (bad) return;
-    set.mutate({ set: [{ key, value }], remove: [] }, { onSuccess: () => (setAdding(false), setKey(""), setValue("")) });
+    set.mutate({ set: [{ key, value }], remove: [] }, { onSuccess: () => (onSaved(tagSaid(clash || tags.some((t) => t.key === key) ? "set" : "added", key, name)), setAdding(false), setKey(""), setValue("")) });
   };
   const columns: DataColumn<Tag>[] = [
     { id: "key", header: "Key", accessorKey: "key", size: 320, min: 140, meta: { mono: true }, cell: (c) => <b className="font-medium text-bright">{c.row.original.key}</b> },
     { id: "value", header: "Value", accessorKey: "value", meta: { mono: true }, cell: (c) => c.row.original.value || <span className="text-muted-foreground">(empty)</span> },
     { id: "delete", header: "", size: 110, enableSorting: false, cell: (c) => (
-        <Button variant="outline" size="sm" className="border-bad/40 bg-card text-bad hover:text-bad" disabled={set.isPending} onClick={() => set.mutate({ set: [], remove: [c.row.original.key] })} data-testid={`tag-delete-${c.row.original.key}`}>
+        <Button variant="outline" size="sm" className="border-bad/40 bg-card text-bad hover:text-bad" disabled={set.isPending} onClick={() => set.mutate({ set: [], remove: [c.row.original.key] }, { onSuccess: () => onSaved(tagSaid("deleted", c.row.original.key, name)) })} data-testid={`tag-delete-${c.row.original.key}`}>
           Delete
         </Button>
       ) },
