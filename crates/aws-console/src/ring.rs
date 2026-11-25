@@ -202,15 +202,17 @@ impl Recorder {
                         MOST_MESSAGE,
                     ),
                     function_error: cut(call.function_error, MOST_FUNCTION_ERROR),
-                    lab: call.lab.map(|l| Lab {
-                        rule: l.rule,
-                        did: match l.done {
-                            aws_gateway::Done::Delayed(d) => {
-                                LabDid::Delayed(u32::try_from(d.as_millis()).unwrap_or(u32::MAX))
-                            }
-                            aws_gateway::Done::Failed => LabDid::Failed,
-                            aws_gateway::Done::Dropped => LabDid::Dropped,
-                        },
+                    lab: call.lab.and_then(|l| {
+                        Lab::new(
+                            l.rule,
+                            match l.done {
+                                aws_gateway::Done::Delayed(d) => LabDid::Delayed(
+                                    u32::try_from(d.as_millis()).unwrap_or(u32::MAX),
+                                ),
+                                aws_gateway::Done::Failed => LabDid::Failed,
+                                aws_gateway::Done::Dropped => LabDid::Dropped,
+                            },
+                        )
                     }),
                 })
             }),
@@ -371,7 +373,7 @@ impl Recorder {
             c.extra
                 .as_ref()
                 .and_then(|e| e.lab.as_ref())
-                .is_some_and(|l| rule.is_none_or(|r| r == l.rule))
+                .is_some_and(|l| rule.is_none_or(|r| r == l.rule()))
         });
         let calls: Vec<Call> = found.by_ref().take(limit).cloned().collect();
         let more = found.next().is_some();

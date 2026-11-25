@@ -120,8 +120,8 @@ fn the_bytes_held_are_counted_and_never_pass_the_bound() {
     assert_eq!(one.bytes(), RECORD_BYTES + MOST_WIRE_TEXT);
     assert_eq!(one.resource.len(), MOST_RESOURCE);
     assert_eq!(one.caller.len(), MOST_CALLER);
-    // The whole ring, at its worst, is at most a mebibyte (the Lab's tag took the last of the headroom: 16 bytes a row).
-    const { assert!(MOST_BYTES <= 1 << 20) };
+    // The whole ring, at its worst, is under a mebibyte (the Lab's tag took 8 bytes a row of the headroom).
+    const { assert!(MOST_BYTES < 1 << 20) };
     // A slot grew from 160 to 184 bytes with the member that named the resource and the cause of a call between services, and
     // to 200 with the client its User-Agent named, and to 216 with the pointer to the words of an error or a failed function and the
     // length of the answer (16 KB more for a full ring; a success holds no more text than before).
@@ -405,12 +405,15 @@ fn a_call_a_rule_touched_keeps_the_rule_and_is_found_by_it() {
     r.record(&touched(1, Done::Dropped), 5);
     let lab = |seq| r.get(seq).unwrap().extra.and_then(|e| e.lab);
     assert_eq!(lab(1), None);
-    assert_eq!(lab(2).map(|l| (l.rule, l.did)), Some((1, LabDid::Failed)));
     assert_eq!(
-        lab(3).map(|l| (l.rule, l.did)),
+        lab(2).map(|l| (l.rule(), l.did())),
+        Some((1, LabDid::Failed))
+    );
+    assert_eq!(
+        lab(3).map(|l| (l.rule(), l.did())),
         Some((2, LabDid::Delayed(250)))
     );
-    assert_eq!(lab(5).map(|l| l.did), Some(LabDid::Dropped));
+    assert_eq!(lab(5).map(|l| l.did()), Some(LabDid::Dropped));
     // Found by rule, newest first, and by any rule; a limit says whether there were more.
     let seqs = |rule, limit| {
         let (calls, more) = r.touched(rule, limit);
@@ -423,4 +426,26 @@ fn a_call_a_rule_touched_keeps_the_rule_and_is_found_by_it() {
     assert_eq!(seqs(None, 2), (vec![5, 3], true));
     // A call that no rule touched holds no more than it did: the tag is part of the slot that holds the words of an error.
     assert_eq!(r.get(1).unwrap().bytes(), RECORD_BYTES + 36 + 4 + 9);
+}
+
+#[test]
+fn a_lab_mark_is_eight_bytes_and_says_what_it_was_given() {
+    assert_eq!(std::mem::size_of::<Option<Lab>>(), 8);
+    assert!(
+        Lab::new(0, LabDid::Failed).is_none(),
+        "no table makes rule 0"
+    );
+    for did in [
+        LabDid::Delayed(0),
+        LabDid::Delayed(1),
+        LabDid::Delayed(120_000),
+        LabDid::Failed,
+        LabDid::Dropped,
+    ] {
+        let mark = Lab::new(7, did).unwrap();
+        assert_eq!((mark.rule(), mark.did()), (7, did));
+    }
+    // A wait too long to be one never reads as an error or a closed connection.
+    let long = Lab::new(1, LabDid::Delayed(u32::MAX)).unwrap();
+    assert!(matches!(long.did(), LabDid::Delayed(_)));
 }

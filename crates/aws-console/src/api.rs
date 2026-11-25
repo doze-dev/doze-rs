@@ -30,6 +30,7 @@ pub mod home;
 pub mod lab;
 mod lab_build;
 pub mod lab_rules;
+mod lab_view;
 pub mod objects;
 pub mod ops;
 pub mod policies;

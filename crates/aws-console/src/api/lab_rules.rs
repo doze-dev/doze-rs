@@ -20,7 +20,8 @@ use axum::http::StatusCode;
 use axum::response::Response;
 use axum::routing::{get, post};
 
-use super::lab_build::{build, check as check_rule, limits, rule_view};
+use super::lab_build::{build, check as check_rule, limits};
+use super::lab_view::rule_view;
 use super::{error, json};
 use crate::lab::LabTable;
 use crate::model::{
@@ -68,6 +69,11 @@ fn number(id: &str) -> Result<u32, Box<Response>> {
             &format!("{id} is not the number of a rule."),
         ))
     })
+}
+
+/// The table, and the rule an address names.
+fn target<'a>(s: &'a Shared, id: &str) -> Result<(&'a Arc<LabTable>, u32), Box<Response>> {
+    Ok((table(s)?, number(id)?))
 }
 
 fn no_rule(id: u32) -> Response {
@@ -185,12 +191,8 @@ pub async fn create(State(s): State<Shared>, bytes: Bytes) -> Response {
 
 /// `GET /api/v1/lab/rules/{id}`.
 pub async fn one(State(s): State<Shared>, Path(id): Path<String>) -> Response {
-    let table = match table(&s) {
-        Ok(t) => t,
-        Err(res) => return *res,
-    };
-    let id = match number(&id) {
-        Ok(id) => id,
+    let (table, id) = match target(&s, &id) {
+        Ok(found) => found,
         Err(res) => return *res,
     };
     let Some(found) = table.find(id) else {
@@ -213,12 +215,8 @@ pub async fn one(State(s): State<Shared>, Path(id): Path<String>) -> Response {
 
 /// `POST /api/v1/lab/rules/{id}/switch`.
 pub async fn switch(State(s): State<Shared>, Path(id): Path<String>, bytes: Bytes) -> Response {
-    let table = match table(&s) {
-        Ok(t) => t,
-        Err(res) => return *res,
-    };
-    let id = match number(&id) {
-        Ok(id) => id,
+    let (table, id) = match target(&s, &id) {
+        Ok(found) => found,
         Err(res) => return *res,
     };
     let asked: LabSwitchBody = if bytes.iter().all(u8::is_ascii_whitespace) {
@@ -255,12 +253,8 @@ pub async fn switch(State(s): State<Shared>, Path(id): Path<String>, bytes: Byte
 
 /// `POST /api/v1/lab/rules/{id}/remove`.
 pub async fn remove(State(s): State<Shared>, Path(id): Path<String>) -> Response {
-    let table = match table(&s) {
-        Ok(t) => t,
-        Err(res) => return *res,
-    };
-    let id = match number(&id) {
-        Ok(id) => id,
+    let (table, id) = match target(&s, &id) {
+        Ok(found) => found,
         Err(res) => return *res,
     };
     if !table.remove(id) {

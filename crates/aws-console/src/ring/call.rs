@@ -1,5 +1,7 @@
 //! One finished call as the ring holds it, and the pieces of it (what made a call between services; the words of an error).
 
+use std::num::NonZeroU32;
+
 use aws_peers::summary::Summary;
 
 use super::RECORD_BYTES;
@@ -60,13 +62,47 @@ pub enum LabDid {
 }
 
 /// The Lab rule that touched a call: kept on its row, never folded into another. The rule's name is not kept here (a ring row is
-/// bounded to a mebibyte in all): the API asks the table for it.
+/// bounded to under a mebibyte in all): the API asks the table for it. Eight bytes: the rule's number, and what it did packed into a
+/// number of milliseconds (a wait) or one of two values no wait reaches (an error, a closed connection).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Lab {
+    rule: NonZeroU32,
+    packed: u32,
+}
+
+const FAILED: u32 = u32::MAX;
+const DROPPED: u32 = u32::MAX - 1;
+
+impl Lab {
+    /// The mark of rule `rule` having done `did`; `None` for rule 0, which no table makes.
+    #[must_use]
+    pub fn new(rule: u32, did: LabDid) -> Option<Self> {
+        let packed = match did {
+            LabDid::Delayed(ms) => ms.min(DROPPED - 1),
+            LabDid::Failed => FAILED,
+            LabDid::Dropped => DROPPED,
+        };
+        Some(Self {
+            rule: NonZeroU32::new(rule)?,
+            packed,
+        })
+    }
+
     /// The rule's number.
-    pub rule: u32,
+    #[must_use]
+    pub fn rule(self) -> u32 {
+        self.rule.get()
+    }
+
     /// What it did.
-    pub did: LabDid,
+    #[must_use]
+    pub fn did(self) -> LabDid {
+        match self.packed {
+            FAILED => LabDid::Failed,
+            DROPPED => LabDid::Dropped,
+            ms => LabDid::Delayed(ms),
+        }
+    }
 }
 
 /// The words of an error answer, a function invocation's own failure, and the Lab rule that touched the call.

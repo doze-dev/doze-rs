@@ -9,43 +9,9 @@ use std::collections::VecDeque;
 use std::fmt;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
-use std::time::Duration;
 
-use aws_gateway::{Ask, Faults, Tag, Verdict};
-
-use super::codes;
-use super::record::{Ended, EndedWhy, First, Found, Rule};
-use super::rule::{AddError, Effect, MOST_ENDED, MOST_KEPT_CALLERS, MOST_RULES, Share, Spec};
-
-/// What the table asks the time of: a test makes its own.
-pub trait Clock: Send + Sync + fmt::Debug {
-    /// Milliseconds on a clock that only goes forward.
-    fn mono_ms(&self) -> u64;
-    /// Milliseconds since the epoch, for showing.
-    fn wall_ms(&self) -> i64;
-}
-
-/// The system's clocks.
-#[derive(Debug)]
-pub struct SystemClock(std::time::Instant);
-
-impl Default for SystemClock {
-    fn default() -> Self {
-        Self(std::time::Instant::now())
-    }
-}
-
-impl Clock for SystemClock {
-    fn mono_ms(&self) -> u64 {
-        u64::try_from(self.0.elapsed().as_millis()).unwrap_or(u64::MAX)
-    }
-
-    fn wall_ms(&self) -> i64 {
-        std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .map_or(0, |d| i64::try_from(d.as_millis()).unwrap_or(i64::MAX))
-    }
-}
+use super::record::{Ended, EndedWhy, Found, Rule};
+use super::rule::{AddError, MOST_ENDED, MOST_RULES, Spec};
 
 /// A rule in force and the rest of what the table keeps for it.
 #[derive(Debug)]
@@ -318,147 +284,13 @@ impl LabTable {
     }
 }
 
-/// How much a firing rule outweighs another: a drop before a fail before a delay, the longer delay of two. For a delay the second
-/// number is the wait in milliseconds, jitter drawn.
-type Weight = (u8, u64);
-
-/// Whether the share lets this call through.
-fn gate(l: &mut Live, draw: u64) -> bool {
-    match l.rule.spec.share {
-        Share::Every => true,
-        Share::Nth(n) => {
-            if l.since >= n {
-                l.since = 0;
-                true
-            } else {
-                false
-            }
-        }
-        Share::Percent(p) => (draw >> 8) % 100 < u64::from(p),
-    }
-}
-
-fn weigh(effect: &Effect, draw: u64) -> Weight {
-    match effect {
-        Effect::Slow {
-            delay_ms,
-            jitter_ms,
-        } => {
-            let extra = if *jitter_ms == 0 {
-                0
-            } else {
-                (draw >> 16) % (u64::from(*jitter_ms) + 1)
-            };
-            (1, u64::from(*delay_ms) + extra)
-        }
-        Effect::Fail(_) => (2, 0),
-        Effect::Drop => (3, 0),
-    }
-}
-
-/// Counts the call against every rule that fits it, and picks the rule that acts.
-fn choose(inner: &mut Inner, ask: &Ask<'_>) -> Option<(usize, Weight)> {
-    let mut best: Option<(usize, Weight)> = None;
-    for i in 0..inner.rules.len() {
-        let fits = inner
-            .rules
-            .get(i)
-            .is_some_and(|l| l.rule.enabled && l.rule.spec.matcher.fits(ask));
-        if !fits {
-            continue;
-        }
-        let draw = inner.random();
-        let Some(l) = inner.rules.get_mut(i) else {
-            continue;
-        };
-        l.rule.matched += 1;
-        l.since = l.since.saturating_add(1);
-        if !gate(l, draw) {
-            continue;
-        }
-        let w = weigh(&l.rule.spec.effect, draw);
-        if best.is_none_or(|(_, b)| w > b) {
-            best = Some((i, w));
-        }
-    }
-    best
-}
-
-fn clip(text: &str, most: usize) -> Box<str> {
-    text.chars().take(most).collect::<String>().into()
-}
-
-/// Puts the hit in the rule's record.
-fn record(rule: &mut Rule, ask: &Ask<'_>, wall: i64) {
-    rule.hits += 1;
-    rule.last_ms = Some(wall);
-    let caller = clip(ask.access_key_id, 64);
-    if rule.first.is_none() {
-        rule.first = Some(First {
-            at_ms: wall,
-            caller: caller.clone(),
-            service: ask.sdk_id,
-            operation: clip(ask.operation, 64),
-            resource: (!ask.resource.is_empty()).then(|| clip(ask.resource, 256)),
-            sdk: Some(crate::agent::label(ask.user_agent))
-                .filter(|s| !s.is_empty())
-                .map(Into::into),
-        });
-    }
-    if !caller.is_empty() && !rule.callers.contains(&caller) {
-        if rule.callers.len() < MOST_KEPT_CALLERS {
-            rule.callers.push(caller);
-        } else {
-            rule.more_callers = rule.more_callers.saturating_add(1);
-        }
-    }
-}
-
-impl Faults for LabTable {
-    fn armed(&self) -> bool {
-        self.switched_on.load(Ordering::Relaxed) > 0
-    }
-
-    fn judge(&self, ask: &Ask<'_>) -> Verdict {
-        if !self.armed() {
-            return Verdict::Pass;
-        }
-        let now = self.clock.mono_ms();
-        let mut inner = self.lock();
-        self.sweep(&mut inner, now);
-        let Some((index, (_, wait_ms))) = choose(&mut inner, ask) else {
-            return Verdict::Pass;
-        };
-        let wall = self.clock.wall_ms();
-        let Some(l) = inner.rules.get_mut(index) else {
-            return Verdict::Pass;
-        };
-        record(&mut l.rule, ask, wall);
-        let tag = Tag {
-            rule: l.rule.id,
-            name: Arc::clone(&l.rule.name),
-        };
-        let effect = l.rule.spec.effect.clone();
-        let spent = l
-            .rule
-            .spec
-            .max_hits
-            .is_some_and(|m| l.rule.hits >= u64::from(m));
-        if spent {
-            inner.end(index, EndedWhy::Spent, wall);
-            self.recount(&inner);
-        }
-        drop(inner);
-        match effect {
-            Effect::Slow { .. } => Verdict::Slow {
-                delay: Duration::from_millis(wait_ms),
-                tag,
-            },
-            Effect::Fail(fail) => Verdict::Fail(Box::new(codes::failure(&fail, ask, tag))),
-            Effect::Drop => Verdict::Drop { tag },
-        }
-    }
-}
+mod clock;
+mod judge;
+mod pick;
+pub use clock::{Clock, SystemClock};
+use pick::{choose, record};
 
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod tests_judge;

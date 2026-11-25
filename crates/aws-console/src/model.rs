@@ -12,6 +12,8 @@ use crate::ring::{Call, Flow};
 
 mod deep;
 mod extras;
+mod lab_acts;
+mod lab_guide;
 mod lab_rules;
 mod regions;
 mod resources;
@@ -19,6 +21,8 @@ mod spaces;
 mod wiring;
 pub use deep::*;
 pub use extras::*;
+pub use lab_acts::*;
+pub use lab_guide::*;
 pub use lab_rules::*;
 pub use regions::*;
 pub use resources::*;
@@ -267,14 +271,14 @@ impl CallRecord {
                 .as_ref()
                 .and_then(|e| e.lab.as_ref())
                 .map(|l| LabTag {
-                    id: l.rule,
+                    id: l.rule(),
                     name: facts
                         .lab
                         .table
                         .as_ref()
-                        .and_then(|t| t.name_of(l.rule))
-                        .map_or_else(|| format!("Lab rule {}", l.rule), |n| n.to_string()),
-                    effect: match l.did {
+                        .and_then(|t| t.name_of(l.rule()))
+                        .map_or_else(|| format!("Lab rule {}", l.rule()), |n| n.to_string()),
+                    effect: match l.did() {
                         crate::ring::LabDid::Delayed(ms) => LabDid::Delayed { ms },
                         crate::ring::LabDid::Failed => LabDid::Failed,
                         crate::ring::LabDid::Dropped => LabDid::Dropped,

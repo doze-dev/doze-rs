@@ -61,7 +61,7 @@ note the service, caller, region, operation and resource on the request's `Seen`
   *Send a call* and the history do not depend on the flag (they are as dangerous as the console already is).
 
 ### Console API (`aws-console`, behind the same-origin proof like every write; shapes are `ts-rs` models so `cargo test -p aws-console api::types` writes the TS)
-- `GET  /api/v1/lab/rules` → `{ enabled, off_why, in_force: [LabRule], ended: [LabRule], once: [LabOnce], limits }`
+- `GET  /api/v1/lab/rules` → `{ enabled, off_why, now_ms, in_force: [LabRule], ended: [LabRule], limits }` (no `once`: the forced events are another part; section 4)
 - `POST /api/v1/lab/rules/check` and `POST /api/v1/lab/rules` (same body: kind, name, matcher, effect, share, lifetime, max hits) → check returns the
   sentence ("Throttle 1 in 4 SQS SendMessage calls to orders for 10 minutes") and field problems in words; create returns the rule or the refusal.
 - `GET  /api/v1/lab/rules/{id}` (the rule and the recent requests it touched, from the Recorder), `POST .../{id}/switch`, `POST .../{id}/remove`,
@@ -124,7 +124,7 @@ precedence, seeded shares), `record.rs`, `words.rs` (the sentences), `teach.rs` 
   `Seen` is made when an observer **or** a table wants it, so the rules judge a call with no console observer too.
 - *Drop's status.* A dropped call is told to the observer with status 0, and `Outcome::of(0, _)` is `error`. Live draws `NO ANSWER` and does not
   count it as a refusal (`isRefused`, `lookOf` and the map's counts now need a status above 0). `AuthorizationError` (SNS's own denial) is `denied`.
-- *The rule's name on a Live row.* The ring keeps the rule's number and what was done (16 bytes a row: its worst-case total is still at most a
+- *The rule's name on a Live row.* The ring keeps the rule's number and what was done (8 bytes a row: its worst-case total is still under a
   mebibyte, the bound its test holds). The name is read from the table when the row is sent, `Lab rule N` when the table has forgotten the rule
   (200 ended rules are kept). `Finished::lab` still carries the name.
 - *The body of a rule* (`LabRuleBody`): `matcher {services, operations, regions, callers, resources}`, `effect {kind: slow|fail|drop, ...}`
