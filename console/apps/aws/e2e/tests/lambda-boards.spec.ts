@@ -386,12 +386,13 @@ test("lambda__trigger-add: an SQS mapping, with the visibility timeout it needs"
   await advance(page);
   await expect(page.getByTestId("done-banner")).toContainText("Trigger added.");
   await expect(page.getByRole("table", { name: "Triggers" })).toContainText("analytics-queue");
-  // The trigger is taken away from its own page: Delete needs a row, and the call is DeleteEventSourceMapping.
-  await expect(page.getByTestId("trigger-delete")).toBeDisabled();
-  await page.getByRole("table", { name: "Triggers" }).locator("tr[data-row]").click();
+  // The trigger is taken away from its own page: the page opens with the mapping chosen, and the call is DeleteEventSourceMapping.
+  await expect(page.getByTestId("trigger-delete")).toBeEnabled();
+  await expect(page.getByTestId("trigger-edit")).toBeEnabled();
   await page.getByTestId("trigger-delete").click();
   await expect(page.getByTestId("trigger-delete-dialog")).toContainText("Delete the trigger");
   await page.getByTestId("trigger-delete-dialog-submit").click();
+  await expect(page.getByTestId("done-banner")).toContainText("Trigger deleted.");
   await expect(page.getByTestId("triggers-none")).toContainText("Nothing invokes dispatch-hook automatically.");
   expect(cli(["lambda", "list-event-source-mappings", "--function-name", "dispatch-hook", "--query", "EventSourceMappings[].UUID", "--output", "text"]).trim()).toBe("");
   // A mapping the queue refuses: a function that outlasts its visibility timeout.
@@ -408,6 +409,8 @@ test("lambda__destination-add: where the asynchronous invocations report, and th
   await go(page, fn("send-email"), "send-email");
   await page.getByTestId("verb-destination").click();
   await expect(page.locator("h1").first()).toHaveText("Add destination");
+  // Opened from the header on the Code tab: the crumb is `send-email > Add destination`, with no section between.
+  await expectCrumbsEnd(page, ["send-email", "Add destination"]);
   await expect(page.getByTestId("field-source")).toContainText("Asynchronous invocation");
   await expect(page.getByTestId("field-source")).toContainText("The alerts topic invokes send-email this way.");
   // The source is a select (the board's); S3 is the one destination type doze-aws does not deliver to.
@@ -436,6 +439,8 @@ test("lambda__destination-add: where the asynchronous invocations report, and th
   await shot(page, "lambda__destination-add");
   await advance(page);
   await expect(page.getByTestId("done-banner")).toContainText("Destination saved.");
+  // Save returns to where the verb was chosen: the Code tab, not the Triggers section.
+  await expect(page).not.toHaveURL(/p=triggers/);
   expect(cli(["lambda", "get-function-event-invoke-config", "--function-name", "send-email"])).toContain("analytics-queue");
 });
 
@@ -481,6 +486,7 @@ test("lambda__function-permissions, lambda__permission-add and lambda__permissio
   await page.getByRole("button", { name: "Delete statement s3-receipts" }).click();
   await expect(page.getByTestId("permission-delete-dialog")).toContainText("Delete the statement s3-receipts");
   await page.getByTestId("permission-delete-dialog-submit").click();
+  await expect(page.getByTestId("done-banner")).toContainText("Permission deleted.");
   await expect(page.getByRole("table", { name: "Resource-based policy statements" })).not.toContainText("s3-receipts");
   await expect(page.getByRole("table", { name: "Resource-based policy statements" })).toContainText("sns-alerts");
   await go(page, fn("dispatch-hook", "?tab=configuration&p=permissions"), "dispatch-hook");
@@ -530,8 +536,20 @@ test("lambda__function-url, lambda__url-create and lambda__function-url-created:
   await page.getByTestId("url-delete").click();
   await expect(page.getByTestId("url-delete-dialog")).toContainText("stops answering");
   await page.getByTestId("url-delete-dialog-submit").click();
+  await expect(page.getByTestId("done-banner")).toContainText("Function URL deleted.");
   await expect(page.getByTestId("url-none")).toContainText("has no URL.");
 });
+
+/** The cell shows all it holds (nothing is cut by an ellipsis or by the box around the table). */
+async function expectWhole(cell: import("@playwright/test").Locator) {
+  const [inner, outer] = await cell.evaluate((el) => [el.scrollWidth, el.clientWidth]);
+  expect(inner).toBeLessThanOrEqual(outer);
+  const [scroll, client] = await cell.evaluate((el) => {
+    const box = el.closest('[data-slot="data-table"]');
+    return [box?.scrollWidth ?? 0, box?.clientWidth ?? 0];
+  });
+  expect(scroll).toBeLessThanOrEqual(client);
+}
 
 test("lambda__function-aliases, lambda__alias-create and lambda__aliases-none: the aliases, the form, and a function with none", async ({ page }) => {
   await go(page, fn("send-email", "?tab=aliases"), "send-email");
@@ -540,6 +558,7 @@ test("lambda__function-aliases, lambda__alias-create and lambda__aliases-none: t
   await expect(rows.nth(0)).toContainText("live");
   await expect(rows.nth(0)).toContainText("Production traffic");
   await expect(rows.nth(0)).toContainText(`arn:aws:lambda:us-east-1:${server.account}:function:send-email:live`);
+  await expectWhole(rows.nth(0).locator("td").last());
   await expect(rows.nth(1)).toContainText("staging");
   await expect(page.getByTestId("lambda-aliases")).toContainText("An alias is a pointer to a function version that you can update. Callers use the alias ARN and never change.");
   await expect(page.getByTestId("lambda-aliases")).toContainText("The columns are fields of ListAliases: Name, Description, FunctionVersion and AliasArn.");
@@ -568,6 +587,7 @@ test("lambda__function-aliases, lambda__alias-create and lambda__aliases-none: t
   await page.getByRole("button", { name: "Delete alias scratch" }).click();
   await expect(page.getByTestId("alias-delete-dialog")).toContainText("Delete the alias scratch");
   await page.getByTestId("alias-delete-dialog-submit").click();
+  await expect(page.getByTestId("done-banner")).toContainText("Alias deleted.");
   await expect(page.getByRole("table", { name: "Aliases" }).locator("tbody tr[data-row]")).toHaveCount(3);
   await go(page, fn("dispatch-hook", "?tab=aliases"), "dispatch-hook");
   await expect(page.getByTestId("aliases-none")).toContainText("dispatch-hook has no aliases. An alias is a pointer to a version that you can move without changing callers.");
@@ -583,6 +603,9 @@ test("lambda__function-versions and lambda__version-publish: the versions, and t
   await expect(rows.nth(0)).toContainText("Send alert and invoice emails");
   // The $LATEST row's ARN ends in its qualifier, as AWS lists it.
   await expect(rows.nth(0)).toContainText(`arn:aws:lambda:us-east-1:${server.account}:function:send-email:$LATEST`);
+  // The whole ARN is there to read (the version is its last part): the cell is not cut, and the table does not run out of its card.
+  await expectWhole(rows.nth(0).locator("td").last());
+  await expectWhole(rows.nth(2).locator("td").last());
   await expect(rows.nth(1)).toContainText("html alert template");
   await expect(rows.nth(3)).toContainText("first deploy");
   await expect(rows.nth(1)).toContainText(`arn:aws:lambda:us-east-1:${server.account}:function:send-email:3`);
@@ -606,7 +629,12 @@ test("lambda__function-versions and lambda__version-publish: the versions, and t
   await expect(page.getByTestId("publish-dialog")).toContainText("Nothing changed since version 4");
   // It does not also promise a version 5 that the call will not make.
   await expect(page.getByTestId("publish-words")).not.toContainText("creates version");
-  await page.keyboard.press("Escape");
+  // Publishing anyway answers with version 4: the page says no version was made, and the list is as it was.
+  await page.getByTestId("publish-submit").click();
+  await expect(page.getByTestId("done-banner")).toContainText("No new version was made.");
+  await expect(page.getByTestId("done-banner")).toContainText("version 4");
+  await expect(page.getByTestId("done-banner")).not.toContainText("Version published.");
+  await expect(page.getByRole("table", { name: "Versions" }).locator("tbody tr[data-row]")).toHaveCount(5);
 });
 
 test("lambda__function-code: an edit is deployed with the files it did not touch", async ({ page }) => {
@@ -688,6 +716,10 @@ test("lambda__layer-create: a name, a .zip, its compatibility, and the call", as
   await expect(code(page)).toContainText('"python3.13"');
   await expect(code(page)).toContainText('"LicenseInfo": "MIT"');
   await expect(code(page)).toContainText("<fn.zip>");
+  // The members are in the board's order: the description before the code.
+  const call = await code(page).innerText();
+  expect(call.indexOf('"Description"')).toBeGreaterThan(call.indexOf('"LayerName"'));
+  expect(call.indexOf('"Description"')).toBeLessThan(call.indexOf('"Content"'));
   await shot(page, "lambda__layer-create");
   await advance(page);
   await expect(page.getByTestId("published-banner")).toContainText("mail-templates version 1 was published.");
