@@ -12,12 +12,14 @@ use crate::ring::{Call, Flow};
 
 mod deep;
 mod extras;
+mod lab_rules;
 mod regions;
 mod resources;
 mod spaces;
 mod wiring;
 pub use deep::*;
 pub use extras::*;
+pub use lab_rules::*;
 pub use regions::*;
 pub use resources::*;
 pub use spaces::*;
@@ -198,6 +200,8 @@ pub struct CallRecord {
     /// for an operation that has none, for a call that failed and for a call between services. The record keeps no bodies: this is
     /// all it knows of them.
     pub summary: Option<String>,
+    /// The Lab rule that touched this call (it was delayed, failed or dropped on purpose); `null` for a call no rule touched.
+    pub lab: Option<LabTag>,
 }
 
 /// What made a call between services.
@@ -254,6 +258,7 @@ impl CallRecord {
                     .filter(|_| call.status < 400)
                     .map_or("", |e| &e.message),
             ),
+            lab: None,
         }
     }
 }
