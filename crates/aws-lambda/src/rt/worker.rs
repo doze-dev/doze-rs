@@ -143,6 +143,11 @@ impl Worker {
         self.dead.load(Ordering::Acquire)
     }
 
+    /// Whether it has been told to end once it is idle.
+    pub(crate) fn is_retired(&self) -> bool {
+        self.retired.load(Ordering::Acquire)
+    }
+
     /// Ends the process once it is idle: its code or configuration has been replaced.
     pub(crate) fn retire(&self) {
         self.retired.store(true, Ordering::Release);

@@ -28,6 +28,7 @@ pub mod deep;
 pub mod flows;
 pub mod home;
 pub mod lab;
+pub mod lab_once;
 pub mod objects;
 pub mod ops;
 pub mod policies;
@@ -67,6 +68,16 @@ fn spaces() -> Router<Shared> {
         .route("/api/v1/preview", post(preview::preview))
 }
 
+/// The Lab's forced events (`lab_once`).
+fn forced_events() -> Router<Shared> {
+    Router::new()
+        .route("/api/v1/lab/once", get(lab_once::index))
+        .route("/api/v1/lab/once/guide", get(lab_once::guide))
+        .route("/api/v1/lab/once/history/clear", post(lab_once::clear))
+        .route("/api/v1/lab/once/{kind}/form", get(lab_once::form))
+        .route("/api/v1/lab/once/{kind}", post(lab_once::force))
+}
+
 /// The API's routes, each behind [`guard`].
 pub fn routes() -> Router<Shared> {
     Router::new()
@@ -77,6 +88,7 @@ pub fn routes() -> Router<Shared> {
         .route("/api/v1/calls/{seq}/copy", get(copy::copy))
         .route("/api/v1/flows", get(flows::flows))
         .merge(spaces())
+        .merge(forced_events())
         .route("/api/v1/resources", get(resources::index))
         .route(
             "/api/v1/resources/{service}/{kind}",

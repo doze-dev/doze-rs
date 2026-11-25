@@ -37,6 +37,12 @@ pub(crate) enum Request {
         group: String,
         name: String,
     },
+    /// From the console's Lab: fire this schedule now if its timer would (`forced`).
+    Force {
+        account: String,
+        group: String,
+        name: String,
+    },
     /// From `doze-aws data`: what Scheduler holds, or remove it all.
     Data(Box<crate::storage::DataCall>),
 }
@@ -96,6 +102,11 @@ impl doze_runtime::Service for Core {
                 group,
                 name,
             } => self.fire_now(account.as_deref(), &group, &name),
+            Request::Force {
+                account,
+                group,
+                name,
+            } => self.fire_checked(&account, &group, &name),
             Request::Data(asked) => {
                 let crate::storage::DataCall { region, ask, reply } = *asked;
                 if reply.send(self.data(&region, ask)).is_err() {

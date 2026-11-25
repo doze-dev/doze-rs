@@ -57,6 +57,12 @@ impl Bus {
         }
     }
 
+    /// Who it calls as: the console, with the account's root rights.
+    #[must_use]
+    pub fn caller(&self) -> &Caller {
+        &self.caller
+    }
+
     /// The account it calls for.
     #[must_use]
     pub fn account(&self) -> &str {

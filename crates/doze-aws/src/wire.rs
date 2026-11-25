@@ -119,6 +119,8 @@ pub(crate) fn gateway(
             ext: Some(Arc::clone(&ext)),
         })
     };
+    // Every service's lazy actors are made on `tasks`: the console's Lab reads which run, and tells one to rest, through the bus.
+    peers.set_rests(tasks.rests());
     let hook = data_hook(cfg, &mut gw);
     live_on_the_bus(cfg, peers, &mut gw, recorder.as_ref());
     let (iam, sts) = aws_iam::services(ctx("iam"));

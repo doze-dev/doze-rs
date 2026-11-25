@@ -15,6 +15,7 @@ mod check;
 mod core;
 mod deliver;
 mod fire;
+mod forced;
 mod groups;
 mod hook;
 mod model;
@@ -200,6 +201,11 @@ pub(crate) fn region_of(dir: &Path) -> String {
 
 impl Service for Scheduler {
     fn storage(&self) -> Option<&dyn aws_wire::storage::Storage> {
+        Some(self)
+    }
+
+    /// The console's Lab fires a schedule now (`forced`).
+    fn forced(&self) -> Option<&dyn aws_wire::forced::Forced> {
         Some(self)
     }
 

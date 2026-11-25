@@ -88,6 +88,67 @@ How the console reaches a service's private step is a design choice for the buil
 service trait, or the `/_doze/<service>/...` local hooks, or the peer bus). No console-only fake. The console checks a right first like Kafka's LAB-18
 (the console is root). Each leaves a line in the `once` history ("Fired nightly-report now: it sent to email-outbox"), with a way to see the result.
 
+### Forced events: survey
+
+Read 2026-11-26 in `doze-runtime` (`Lazy`, `Keyed`, `Deadlines`, `Tasks`) and the services. The question for each candidate: what is the
+function the service's own timer or request path calls, and can the console make it call that now without inventing a transition.
+
+| Candidate | The service's own path | Verdict |
+|---|---|---|
+| Rest a service | `Lazy`'s actor loop (`run`): `timeout(idle, inbox.recv())` ends, the inbox closes, what is queued is answered, `Service::close` runs, the slot is released. Nothing outside the actor can end it early. | **Built.** `Lazy` gets a rest token (a child of the task set's stop token, so shutdown is unchanged); cancelling it ends the same loop. Every `Lazy` records itself, weakly, in its `Tasks`' `Rests` (name and region key). |
+| Fire a schedule now | Scheduler: the region's `Deadlines` task sends `Request::Tick`, `tick()` -> `fire_one()` hands out an `Invocation`, `spawn_all` runs `deliver::attempt` and `retry::carry_on`. The local hook (`Request::Fire` -> `fire_now`) hands out the same `Invocation`, for any schedule, enabled or not. | **Built** as `Request::Force` -> `fire_checked` (refuses what the timer would not fire) -> `fire_now`, then the same `attempt` and `carry_on`. |
+| Let an in-flight SQS message time out | **There is no step.** A message is in flight while `visible_at_ms > now`; every receive decides it by the clock, and the retention tick only reclaims space. The request path that ends the wait early is `ChangeMessageVisibility` with a timeout of 0, i.e. `Queue::change_visibility(handle, 0, now)`. | **Built** as exactly that function, for each in-flight message of the queue with the latest handle it was given. This is what a consumer does, not something a timer does, and the doc says so on the card. |
+| DynamoDB TTL sweep | `Request::Tick` -> `housekeeping()` -> `sweep_expired()` (also run at the start of every call, at most once a second). | **Built** as `Request::Sweep`: counts what is expired in the table (the same index scan), then runs `housekeeping()` with the once-a-second limit lifted, as `Tick` does. doze deletes an item when it is due, so it seldom finds anything; see "Not built". |
+| Make the next Lambda call cold | `Runtime::retire(region/name)`, called after `UpdateFunctionCode` and `UpdateFunctionConfiguration`: marks every warm process retired, kills the idle ones, the busy ones when they finish. | **Built** as `retire`, behind a check that the function exists, with `Runtime::alive` to say how many it ended. |
+| Secrets rotation due | `Core::tick` -> `begin(name)` when the window opens; the request path is `RotateSecret` with no arguments, a real API call. | Not built: it is already an AWS call and the Resources page offers it. |
+| Secrets recovery window, KMS pending deletion | `Core::sweep` removes what is past `purge_ms`, lazily on every call. | Not built: "the window has run out" would be a new value written to `purge_ms`, not a step. The real calls are `DeleteSecret` with `ForceDeleteWithoutRecovery` and (for KMS) none. |
+| EventBridge archive retention | `archives.rs` removes events older than the retention, lazily, at most once an hour. | Not built: lifting a one-hour limit shows a client nothing it can act on. |
+| Logs retention sweep | `Core::sweep(group)` runs on every write and read of the group, at most once a minute. | Not built, same reason. |
+| SQS message retention | `Ask::Tick`; every call also counts expired messages out against the clock. | Not built: no client can see the difference. |
+
+### Forced events: as built
+
+- **How the console reaches a service's private step.** `aws_wire::forced::Forced` (`crates/aws-wire/src/forced.rs`): `force(caller, kind, input)
+  -> Step::Done{sentence, subject} | Step::Nothing(why)`, reached through `Service::forced()`, a method with the default `None`, on the services the
+  console already holds from the bus (`Peers::targets()`). No route on the gateway, no `/_doze/` hook, no network: only code in the process can ask.
+  A service that implements it: SQS, Scheduler, DynamoDB, Lambda (`crates/aws-<service>/src/forced.rs`, each with its tests in `src/tests/forced.rs`).
+  Each asks the authorizer first, as the matching call does: `sqs:ChangeMessageVisibility` on the queue, `scheduler:UpdateSchedule` on the schedule,
+  `dynamodb:DeleteItem` on the table, `lambda:UpdateFunctionConfiguration` on the function. The console calls as itself, the account's root, which IAM
+  lets do what the person running doze-aws can; a caller without the right is refused in the words its own call is refused in, and nothing is changed.
+- **Resting** is not a service's own step: it is the host's register of lazy services. `doze_runtime::Rests` (one per `Tasks`, `crates/doze-runtime/src/rests.rs`)
+  lists every `Lazy` by name and region key and rests one: `Lazy::keyed` registers a weak handle, `Rests::rest(name, key)` cancels that actor's rest token and
+  waits until the actor has ended. `doze-aws` hands the register to the bus (`Peers::set_rests(tasks.rests())`, one line in `wire.rs`), which is how the console
+  reads it. Per region: a region is a key. IAM is one key-less actor and is rested in every region at once (it is the same service).
+- **The console** (`crates/aws-console/src/lab_once/`): `kinds` (five kinds and whether this run can carry each out), `form` (what there is to choose, read through the
+  bus with the Resources space's own descriptors and calls), `act` (carrying out, as the console), `rest`, `history` (the last 200, in `State::once`), `teach`
+  (`GET /api/v1/lab/once/guide`); `src/api/lab_once.rs` has the five handlers, `src/model/lab_once.rs` the models (ts-rs types in `console/apps/aws/src/api/types/LabOnce*.ts`).
+  The page's other agent reads the history for `GET /api/v1/lab/rules` through `aws_console::lab_once::recent(&state)`.
+- **A resting service is described as resting.** A form for a queue, schedule, table or function asks the register whether the service runs in the region; if not it
+  answers `resting: true` with no choices and does not call it (a list is a call, and a call starts it). `?look=yes` reads it anyway.
+- **Home** counts a service as running only if a call reached it after the last time the Lab rested it in that region (`History::rested_after`, one filter in `api::home::awake`).
+- **Decisions made where the brief was silent.** The kinds are named `rest-service`, `fire-schedule`, `expire-visibility`, `sweep-ttl`, `cold-start`. A refusal in words is a
+  200 with `ok: false` and is kept in the history like a success (a request that is not one, such as no choice or an unknown kind, is 400/404 and is not kept). Forms take
+  `?region=`, else `X-Console-Region`, else `--region`; a POST takes `region` in its body the same way. "Rest" can time the wake: the first list call of the service after the rest and the same
+  call again, both on Live as the console's. A schedule fired now invokes the target once and keeps its plan (the local hook's meaning), a one-time schedule's fire is its one fire.
+  A schedule's first attempt is waited for at most ten seconds; after that the invocation carries on in the background and the sentence says so.
+
+- **Weight** (`cargo xtask weight doze-aws`, macOS, release-aws, 2026-11-26): 12,087,968 B (the base commit `ce3fe9566`, measured the same way: 12,004,640 B, so +83,328 B), 305
+  packages (unchanged), idle 7,760 KB (samples 7,664 to 7,792; the base 7,792 to 7,872). The register holds one weak handle per lazy actor made, which is a few bytes for each region a service was called in.
+
+### Forced events: not built
+
+- **Secrets rotation, Secrets and KMS deletion windows, EventBridge archive retention, Logs retention, SQS retention.** See the survey: each is lazy against the clock or is already a
+  real API call; forcing it would write a new date or lift a limit no client can see. Not built on purpose.
+- **A held-back TTL deletion.** DynamoDB's real behaviour that a client has to survive is deletion that comes up to two days late, with expired items still returned by reads.
+  The sweep here cannot rehearse that: it would need a switch that delays the deletion, which is a new state, not a forced step. What was built is the sweep itself, which in doze
+  finds something only when items have expired and not yet been swept (the timer sleeps to the first expiry, and the sweep is also run by every call), so it usually answers "nothing
+  has expired" with when the next item does. The card says so in its lesson; the owner may prefer to drop it.
+- **Which message, which handle.** The in-flight form brings back every in-flight message of a queue, not one chosen message: the Lab cannot see receipt handles and the console
+  does not list messages in flight.
+- **A forced event on a service left out of `--services`.** Refused in words (`available: false`, why): the service is on the bus but is not what the run serves.
+- **Lambda's warm processes are not listed on the form** (the form lists functions with their runtime); the sentence after the event says how many ended.
+- **The page.** Another agent builds `console/apps/aws/src/pages/lab`; these endpoints and types are its contract.
+
 ## 1. The page
 
 Under `console/apps/aws/src/pages/lab/`, files under 300 lines. Use `@doze/ui` pieces and the app's `kit/`; Graphite look as the rest of the console;
