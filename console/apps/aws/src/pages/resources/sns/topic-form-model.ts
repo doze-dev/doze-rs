@@ -101,6 +101,18 @@ export function formOfTopic(t: Topic, tags: readonly Tag[], region: string, acco
   };
 }
 
+/** Whether the access policy typed is not a JSON object yet: none of it is put in a call (a half-typed policy is no member of one), and the
+ * form cannot be saved until it is. */
+export function policyBroken(f: Pick<TopicForm, "policy">): boolean {
+  if (f.policy.trim() === "") return false;
+  try {
+    const doc: unknown = JSON.parse(f.policy);
+    return typeof doc !== "object" || doc === null || Array.isArray(doc);
+  } catch {
+    return true;
+  }
+}
+
 export type Problems = Partial<Record<"name" | "maxKib" | "kms" | "policy" | "retry" | "logging" | "archive" | "display", string>>;
 
 const whole = (v: string, min: number, max: number): boolean => /^\d+$/.test(v.trim()) && Number(v) >= min && Number(v) <= max;
@@ -162,7 +174,7 @@ export function createInput(f: TopicForm, region: string, account: string): Reco
   if (f.display.trim()) attrs.DisplayName = f.display.trim();
   if (Number(f.maxKib) * 1024 !== DEFAULT_MAX_SIZE && /^\d+$/.test(f.maxKib.trim())) attrs.MaximumMessageSize = String(Number(f.maxKib) * 1024);
   if (f.sse && f.kms.trim()) attrs.KmsMasterKeyId = f.kms.trim();
-  if (f.policy.trim() && norm(f.policy) !== norm(defaultPolicy(f.name, region, account))) attrs.Policy = norm(f.policy);
+  if (f.policy.trim() && !policyBroken(f) && norm(f.policy) !== norm(defaultPolicy(f.name, region, account))) attrs.Policy = norm(f.policy);
   if (!sameRetry(f.retry, DEFAULT_RETRY)) attrs.DeliveryPolicy = deliveryPolicy(f.retry);
   Object.assign(attrs, logAttrs(f));
   if (f.tracing) attrs.TracingConfig = "Active";
@@ -184,7 +196,7 @@ export function changes(f: TopicForm, t: Topic, region: string, account: string)
   const kms = f.sse ? f.kms.trim() : "";
   if (kms !== (t.kms ?? "")) set("KmsMasterKeyId", kms);
   const was = t.policy ?? defaultPolicy(t.name, region, account);
-  if (f.policy.trim() !== "" && norm(f.policy) !== norm(was)) set("Policy", norm(f.policy));
+  if (f.policy.trim() !== "" && !policyBroken(f) && norm(f.policy) !== norm(was)) set("Policy", norm(f.policy));
   if (!sameRetry(f.retry, retryOf(t.effective))) set("DeliveryPolicy", deliveryPolicy(f.retry));
   for (const l of LOGGED) {
     const g = f.logging[l];

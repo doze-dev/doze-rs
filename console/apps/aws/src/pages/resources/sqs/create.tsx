@@ -12,7 +12,7 @@ import { useResourceDetail, useResourceList } from "../../../api/resources";
 import { FormPage, useKindOp } from "../../../kit";
 import { seconds } from "../model";
 import { Configuration, type Hints, TypeAndName } from "./form-fields";
-import { createInput, emptyForm, type QueueForm, problems } from "./form-model";
+import { createInput, emptyForm, type QueueForm, policyBroken, problems } from "./form-model";
 import { AccessPolicy, DeadLetter, Encryption, FoldedStart, RedriveAllow, TagsSection } from "./form-sections";
 import { queueOf } from "./queue-model";
 import { mismatched, nameTaken, whatItHas } from "./refusal";
@@ -88,8 +88,8 @@ export function SqsCreate() {
       }
       submitLabel="Create queue"
       pending={make.isPending}
-      disabled={tried && Object.keys(p).length > 0}
-      disabledWhy={Object.values(p)[0]}
+      disabled={policyBroken(f) || (tried && Object.keys(p).length > 0)}
+      disabledWhy={policyBroken(f) ? "Fix the JSON policy to continue." : Object.values(p)[0]}
       onCancel={back}
       onSubmit={submit}
       testId="queue-create"

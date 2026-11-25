@@ -1,7 +1,7 @@
 // The first sections of Create topic and Edit topic: type and name, FIFO options, maximum message size, encryption and access policy.
 import { useQuery } from "@tanstack/react-query";
 import { Combobox } from "@doze/ui/components/app/combobox";
-import { JsonEditor } from "@doze/ui/components/app/json-editor";
+import { checkJson, JsonEditor } from "@doze/ui/components/app/json-editor";
 import { Input } from "@doze/ui/components/ui/input";
 import { Label } from "@doze/ui/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@doze/ui/components/ui/radio-group";
@@ -153,7 +153,8 @@ export function AccessPolicy({ f, set, p, name, region, account, collapsed }: Fi
   return (
     <FormSection title="Access policy" collapsible={collapsed} defaultOpen={!collapsed} description="By default, only the topic owner can publish or subscribe." summary={same ? "Default: only the topic owner can publish or subscribe" : "A custom policy."} testId="section-access">
       <JsonEditor value={f.policy === "" ? standard : f.policy} onChange={(policy) => set({ policy })} label="Policy optional" rows={18} testId="policy-json" help={<>When you create a topic in the console, the default policy uses the aws:SourceOwner condition key, similar to aws:SourceAccount. Attribute: <span className="font-mono">Policy</span>.</>} />
-      {p.policy && <p className="text-[13px] text-bad" role="alert">{p.policy}</p>}
+      {/* The editor says what is not JSON; this says only what its words do not (valid JSON that is not an object). */}
+      {p.policy && checkJson(f.policy).ok && <p className="text-[13px] text-bad" role="alert">{p.policy}</p>}
     </FormSection>
   );
 }
