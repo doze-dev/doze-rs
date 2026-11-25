@@ -161,11 +161,35 @@ valkey, kvrocks, temporal, mariadb, ferret and aws (Go reached postgres 0.2.4, a
 0.1.2). Those Go versions are withdrawn (doze-registry `withdrawn.yaml`, which now names versions) and may never be
 published again. Every Rust release is protocol 2; the Go doze takes only protocol-1 releases, so it never selects one.
 
+### The standalone kafka download
+
+The owner's decision (2026-11-25): kafka also ships as a standalone download, for people who want a Kafka broker without
+doze. It is the lean build (`cargo build --release -p doze-kafka --no-default-features`): the whole broker, with no web
+console, schema registry, TLS or module face. CI's `weight-lean` job holds it to its size, package and idle lines on
+every pull request. It is about 5.3 MB on darwin/arm64 and idles at about 7 MB.
+
+A kafka run of `modules-release.yml` builds it on each target after the module (job `build`, step "The standalone
+broker"). That step checks `--version` says the release's version, that the broker starts and takes a connection, and
+that it serves no console or schema registry. Job `standalone` then packages it:
+
+- `doze-kafka_<v>_darwin_arm64.tar.gz`, `doze-kafka_<v>_linux_amd64.tar.gz` and `doze-kafka_<v>_linux_arm64.tar.gz`.
+  Each holds `doze-kafka`, `LICENSE`, `NOTICE` and `README.md` (`packaging/kafka/README.md`).
+- `checksums.txt`, the SHA-256 of each archive.
+
+A real run from a tag uploads them to that tag's GitHub release: `module/kafka/v<v>`, titled `doze-kafka <v>`, not
+marked latest. That release is not the bare-name `kafka` release doze-registry reads, so the registry never sees these
+files. A manual real run has no tag and publishes no standalone download. A dry run keeps them as the run's artifact
+`doze-kafka-standalone-<v>`.
+
+Not done: the macOS binary is signed ad hoc (the linker's), not with a Developer ID, and not notarised. A copy
+downloaded with a browser is refused until its quarantine flag is cleared; the README says how.
+
 ## Testing the pipeline
 
 GitHub starts a manual run only of a workflow that is already on main, so a change to either workflow is tried on its
 pull request with a label: `release-dry-run` runs `release.yml` as a dry run of the pull request's code, and
-`modules-release-dry-run` runs `modules-release.yml` as a dry run of valkey. (Like any label, each also starts ci.yml
+`modules-release-dry-run` runs `modules-release.yml` as a dry run of valkey (`modules-release-dry-run-kafka`: of kafka,
+with the standalone download). (Like any label, each also starts ci.yml
 with nothing to do; put `ci` on last.) Once on main:
 
 - `gh workflow run release --ref <branch> -f dry_run=true` builds every file and keeps it as the run's artifacts; with
