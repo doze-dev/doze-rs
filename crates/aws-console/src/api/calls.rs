@@ -21,7 +21,7 @@ use futures_util::stream::{self, Stream, StreamExt};
 use serde::Serialize;
 use tokio::sync::{OwnedSemaphorePermit, watch};
 
-use super::{busy, json, param};
+use super::{busy, error, json, param};
 use crate::model::{CallRecord, CallsPage, RingFill, TailReady};
 use crate::ring::Page;
 use crate::state::{Shared, State as Console};
@@ -77,13 +77,38 @@ fn view(s: &Console, page: &Page, reset: bool) -> CallsPage {
 }
 
 /// `GET /api/v1/calls?since=<cursor>&limit=<n>`: the calls after `since`, oldest first; with no `since`, the newest. `console=no`
-/// leaves the console's own calls out of the newest (what the apps did, whatever the pages have read since).
+/// leaves the console's own calls out of the newest (what the apps did, whatever the pages have read since). `lab=<rule>` keeps only
+/// the calls that Lab rule touched, and `lab=any` those any rule touched: the newest of them, oldest first (`since` is not read).
 pub async fn calls(State(s): State<Shared>, RawQuery(query): RawQuery) -> Response {
     let query = query.as_deref();
     let limit = param(query, "limit")
         .and_then(|l| l.parse::<usize>().ok())
         .unwrap_or(DEFAULT_LIMIT)
         .clamp(1, s.recorder.capacity());
+    if let Some(which) = param(query, "lab") {
+        let rule = match which {
+            "any" => None,
+            n => match n.parse::<u32>() {
+                Ok(n) => Some(n),
+                Err(_) => {
+                    return error(
+                        StatusCode::BAD_REQUEST,
+                        "BAD_REQUEST",
+                        "lab is the number of a rule, or any.",
+                    );
+                }
+            },
+        };
+        let (mut touched, _) = s.recorder.touched(rule, limit);
+        touched.reverse();
+        let page = Page {
+            calls: touched,
+            last: s.recorder.newest_seq(),
+            missed: 0,
+            more: false,
+        };
+        return json(StatusCode::OK, &view(&s, &page, false));
+    }
     let asked = param(query, "since").map(|c| seq_of(&s, c));
     let (page, reset) = match asked {
         None if param(query, "console") == Some("no") => (s.recorder.newest_apps(limit), false),
