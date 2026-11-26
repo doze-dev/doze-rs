@@ -91,7 +91,9 @@ async fn an_sns_error_the_model_lists_is_answered_in_query_xml_with_its_query_co
 async fn an_s3_error_the_model_lists_is_answered_in_s3s_xml_with_the_models_404() {
     let w = start("listed-s3").await;
     assert_eq!(
-        send(w.addr, "s3", ("PUT", "/orders"), &[], b"").await.status,
+        send(w.addr, "s3", ("PUT", "/orders"), &[], b"")
+            .await
+            .status,
         Some(200)
     );
     let fail = chosen(S3, "GetObject", "NoSuchKey");

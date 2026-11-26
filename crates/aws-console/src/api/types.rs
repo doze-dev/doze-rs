@@ -130,9 +130,9 @@ fn all() -> BTreeMap<String, String> {
 fn lab_types(cfg: &Config, out: &mut BTreeMap<String, String>) {
     use crate::model::{
         LabCheck, LabCleared, LabCode, LabDid, LabEffect, LabEnd, LabErrors, LabFailKind, LabFirst,
-        LabGuide, LabIntro, LabKind, LabLimits, LabListedError, LabMade, LabMatcher, LabProblem, LabRule, LabRuleBody,
-        LabRuleView, LabRules, LabSetting, LabShare, LabStep, LabStopped, LabSwitchBody, LabTag,
-        LabTeach,
+        LabGuide, LabIntro, LabKind, LabLimits, LabListedError, LabMade, LabMatcher, LabProblem,
+        LabRule, LabRuleBody, LabRuleView, LabRules, LabSetting, LabShare, LabStep, LabStopped,
+        LabSwitchBody, LabTag, LabTeach,
     };
     one::<LabKind>(cfg, out);
     one::<LabFailKind>(cfg, out);

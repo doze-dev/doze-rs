@@ -81,7 +81,10 @@ pub(super) fn resolve(facts: &Facts, word: &str) -> Option<Vec<String>> {
 }
 
 /// The APIs of the build that `services` (signing names or SDK ids) name, with their models.
-pub(super) fn models_fitting(facts: &Facts, services: &[impl AsRef<str>]) -> Vec<crate::lab::listed::Model> {
+pub(super) fn models_fitting(
+    facts: &Facts,
+    services: &[impl AsRef<str>],
+) -> Vec<crate::lab::listed::Model> {
     apis(facts)
         .filter(|a| {
             services.iter().any(|s| {
@@ -224,8 +227,12 @@ pub(super) fn build(facts: &Facts, body: &LabRuleBody) -> (Spec, Vec<AddError>) 
         ttl: std::time::Duration::from_secs(body.ends_in_secs),
         max_hits: body.max_hits,
     };
+    // A rule that cannot say which errors to choose from has no code to judge: the missing service or operation is what to fix.
+    let needs = problems
+        .iter()
+        .any(|p| matches!(p, AddError::CustomNeeds(_)));
     for p in spec.problems() {
-        if !problems.contains(&p) {
+        if !problems.contains(&p) && !(needs && p == AddError::BadCode) {
             problems.push(p);
         }
     }

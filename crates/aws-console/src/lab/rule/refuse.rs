@@ -41,7 +41,11 @@ pub enum AddError {
     /// Operations whose models list no error in common.
     NoCommonError { operations: String, several: bool },
     /// A status other than the one the model gives the code.
-    WrongStatus { code: String, listed: u16, given: u16 },
+    WrongStatus {
+        code: String,
+        listed: u16,
+        given: u16,
+    },
 }
 
 /// A list of a matcher.
@@ -92,8 +96,10 @@ impl AddError {
             Self::TooMany(f) | Self::BadEntry(f) => f.word(),
             Self::UnknownService(_) => "services",
             Self::UnknownOperation(_) => "operations",
-            Self::CustomNeeds(f) => f.word(),
-            Self::NotListed { .. } | Self::NoCommonError { .. } | Self::WrongStatus { .. } => "effect",
+            Self::CustomNeeds(_)
+            | Self::NotListed { .. }
+            | Self::NoCommonError { .. }
+            | Self::WrongStatus { .. } => "effect",
         }
     }
 
@@ -140,20 +146,29 @@ impl AddError {
             }
             Self::CustomNeeds(f) => format!(
                 "An error of your choosing is picked from the errors AWS lists for an operation: name the {} first.",
-                if *f == Field::Services { "service" } else { "operation" }
+                if *f == Field::Services {
+                    "service"
+                } else {
+                    "operation"
+                }
             ),
             Self::NotListed { code, operations } => format!(
                 "AWS's model does not list {code} as an error of {operations}, so a rule cannot answer it. Choose one of the errors offered."
             ),
-            Self::NoCommonError { operations, several: false } => format!(
+            Self::NoCommonError {
+                operations,
+                several: false,
+            } => format!(
                 "AWS's model lists no error for {operations}: it fails only with the errors every service can answer. Use Throttle, Unavailable, Internal or Access denied."
             ),
             Self::NoCommonError { operations, .. } => format!(
                 "AWS's model lists no error that {operations} all share. Name one operation, or operations that fail the same way."
             ),
-            Self::WrongStatus { code, listed, given } => format!(
-                "AWS's model gives {code} the status {listed}, not {given}."
-            ),
+            Self::WrongStatus {
+                code,
+                listed,
+                given,
+            } => format!("AWS's model gives {code} the status {listed}, not {given}."),
         }
     }
 }

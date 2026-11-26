@@ -23,7 +23,8 @@ const PART_WHY: &str = "UploadPart sends one part of a multipart upload, which n
 /// The most text the operation's `Body` may be, for an operation that carries an object's body.
 #[must_use]
 pub(super) fn body_max(target: &str, operation: &str) -> Option<u32> {
-    (target == "s3" && operation == "PutObject").then(|| u32::try_from(BODY_MAX).unwrap_or(u32::MAX))
+    (target == "s3" && operation == "PutObject")
+        .then(|| u32::try_from(BODY_MAX).unwrap_or(u32::MAX))
 }
 
 /// Why the Lab does not send the operation, when it does not.
@@ -97,15 +98,22 @@ mod tests {
     fn a_put_takes_its_body_out_of_the_input_and_says_its_length() {
         let (input, body) = put(json!({ "Bucket": "b", "Key": "k", "Body": "héllo" })).unwrap();
         assert_eq!(body.as_deref(), Some("héllo".as_bytes()));
-        assert_eq!(input, json!({ "Bucket": "b", "Key": "k", "ContentLength": 6 }));
+        assert_eq!(
+            input,
+            json!({ "Bucket": "b", "Key": "k", "ContentLength": 6 })
+        );
         // A length the form sent is not believed.
-        let (input, _) = put(json!({ "Bucket": "b", "Key": "k", "Body": "ab", "ContentLength": 99 })).unwrap();
+        let (input, _) =
+            put(json!({ "Bucket": "b", "Key": "k", "Body": "ab", "ContentLength": 99 })).unwrap();
         assert_eq!(input["ContentLength"], 2);
     }
 
     #[test]
     fn no_body_is_an_empty_object() {
-        for input in [json!({ "Bucket": "b", "Key": "k" }), json!({ "Bucket": "b", "Key": "k", "Body": null })] {
+        for input in [
+            json!({ "Bucket": "b", "Key": "k" }),
+            json!({ "Bucket": "b", "Key": "k", "Body": null }),
+        ] {
             let (input, body) = put(input).unwrap();
             assert_eq!(body.as_deref(), Some(&b""[..]));
             assert_eq!(input["ContentLength"], 0);
@@ -115,7 +123,10 @@ mod tests {
     #[test]
     fn a_body_is_text_and_at_most_64_kib() {
         let at_most = "a".repeat(BODY_MAX);
-        assert_eq!(put(json!({ "Body": at_most })).unwrap().1.unwrap().len(), BODY_MAX);
+        assert_eq!(
+            put(json!({ "Body": at_most })).unwrap().1.unwrap().len(),
+            BODY_MAX
+        );
         let past = "a".repeat(BODY_MAX + 1);
         let refused = put(json!({ "Body": past })).unwrap_err();
         assert_eq!(refused.status(), StatusCode::PAYLOAD_TOO_LARGE);
@@ -128,8 +139,14 @@ mod tests {
         let refused = split("s3", "UploadPart", json!({ "Body": "x" })).unwrap_err();
         assert_eq!(refused.status(), StatusCode::BAD_REQUEST);
         let input = json!({ "Bucket": "b", "Body": "x" });
-        assert_eq!(split("s3", "GetObject", input.clone()).unwrap(), (input.clone(), None));
+        assert_eq!(
+            split("s3", "GetObject", input.clone()).unwrap(),
+            (input.clone(), None)
+        );
         // Another service's `Body` member is its own.
-        assert_eq!(split("sqs", "PutObject", input.clone()).unwrap(), (input, None));
+        assert_eq!(
+            split("sqs", "PutObject", input.clone()).unwrap(),
+            (input, None)
+        );
     }
 }

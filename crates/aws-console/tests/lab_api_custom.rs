@@ -55,7 +55,10 @@ async fn the_errors_offered_are_the_ones_the_model_lists_for_the_operation_with_
         .iter()
         .find(|e| e["code"] == "QueueDoesNotExist")
         .unwrap();
-    assert_eq!((&missing["status"], &missing["server"]), (&json!(400), &json!(false)));
+    assert_eq!(
+        (&missing["status"], &missing["server"]),
+        (&json!(400), &json!(false))
+    );
     // The console's names for a service are read as the matcher reads them.
     let (_, by_sdk_id) = lab
         .get("/api/v1/lab/errors?services=SQS&operations=SendMessage")
@@ -73,12 +76,18 @@ async fn several_operations_offer_what_they_share_and_nothing_is_offered_without
         .get("/api/v1/lab/errors?services=sqs&operations=SendMessage%2CReceiveMessage")
         .await;
     assert!(codes(&both).contains(&"QueueDoesNotExist"));
-    assert!(!codes(&both).contains(&"InvalidMessageContents"), "only SendMessage lists it");
+    assert!(
+        !codes(&both).contains(&"InvalidMessageContents"),
+        "only SendMessage lists it"
+    );
     assert!(codes(&both).len() < codes(&one).len());
     for (query, said) in [
         ("operations=SendMessage", "name the service"),
         ("services=sqs", "name the operation"),
-        ("services=sqs&operations=SendMesage", "lists no error for SendMesage"),
+        (
+            "services=sqs&operations=SendMesage",
+            "lists no error for SendMesage",
+        ),
     ] {
         let (status, v) = lab.get(&format!("/api/v1/lab/errors?{query}")).await;
         assert_eq!(status, 200, "{v}");
@@ -88,16 +97,22 @@ async fn several_operations_offer_what_they_share_and_nothing_is_offered_without
 }
 
 #[tokio::test]
-async fn a_listed_error_makes_a_rule_with_the_models_status_and_the_sentence_and_name_say_the_code() {
+async fn a_listed_error_makes_a_rule_with_the_models_status_and_the_sentence_and_name_say_the_code()
+{
     let lab = lab(true);
     // The status is the model's, so the form may leave it out.
     let (_, check) = lab
-        .post("/api/v1/lab/rules/check", &custom(None, "QueueDoesNotExist"))
+        .post(
+            "/api/v1/lab/rules/check",
+            &custom(None, "QueueDoesNotExist"),
+        )
         .await;
     assert_eq!(check["ok"], true, "{check}");
     let sentence = check["sentence"].as_str().unwrap();
     assert!(
-        sentence.starts_with("Answer QueueDoesNotExist (400) to 1 in 4 SQS SendMessage calls to orders"),
+        sentence.starts_with(
+            "Answer QueueDoesNotExist (400) to 1 in 4 SQS SendMessage calls to orders"
+        ),
         "{sentence}"
     );
     assert_eq!(check["answers"][0]["code"], "QueueDoesNotExist");
@@ -114,16 +129,27 @@ async fn a_listed_error_makes_a_rule_with_the_models_status_and_the_sentence_and
     assert_eq!(keys(rule), ts_keys("LabRule"));
     // A code is also taken by the model's shape name, and is made the code a client reads.
     let (_, again) = lab
-        .post("/api/v1/lab/rules/check", &custom(Some(400), "RequestThrottled"))
+        .post(
+            "/api/v1/lab/rules/check",
+            &custom(Some(400), "RequestThrottled"),
+        )
         .await;
-    assert_eq!(again["ok"], false, "the model gives RequestThrottled 403: {again}");
+    assert_eq!(
+        again["ok"], false,
+        "the model gives RequestThrottled 403: {again}"
+    );
     assert!(problems(&again).contains("403, not 400"), "{again}");
 }
 
 #[tokio::test]
-async fn a_code_the_model_does_not_list_for_the_operation_is_refused_in_words_and_no_rule_is_made() {
+async fn a_code_the_model_does_not_list_for_the_operation_is_refused_in_words_and_no_rule_is_made()
+{
     let lab = lab(true);
-    for (code, status) in [("Teapot", Some(418)), ("ThrottlingException", None), ("InvalidMessageContent", Some(400))] {
+    for (code, status) in [
+        ("Teapot", Some(418)),
+        ("ThrottlingException", None),
+        ("InvalidMessageContent", Some(400)),
+    ] {
         let (_, check) = lab
             .post("/api/v1/lab/rules/check", &custom(status, code))
             .await;
@@ -134,13 +160,19 @@ async fn a_code_the_model_does_not_list_for_the_operation_is_refused_in_words_an
             "{code}: {said}"
         );
         assert_eq!(check["problems"][0]["field"], "effect");
-        let (status, made) = lab
-            .post("/api/v1/lab/rules", &custom(status, code))
-            .await;
-        assert_eq!((status, &made["outcome"]), (200, &json!("refused")), "{code}");
+        let (status, made) = lab.post("/api/v1/lab/rules", &custom(status, code)).await;
+        assert_eq!(
+            (status, &made["outcome"]),
+            (200, &json!("refused")),
+            "{code}"
+        );
     }
     let (_, listed) = lab.get("/api/v1/lab/rules").await;
-    assert_eq!(listed["in_force"].as_array().unwrap().len(), 0, "nothing was made");
+    assert_eq!(
+        listed["in_force"].as_array().unwrap().len(),
+        0,
+        "nothing was made"
+    );
 }
 
 #[tokio::test]
@@ -166,12 +198,18 @@ async fn an_error_of_ones_choosing_needs_a_service_and_an_operation_to_choose_fr
     let mut no_service = custom(Some(400), "QueueDoesNotExist");
     no_service["matcher"]["services"] = json!([]);
     let (_, v) = lab.post("/api/v1/lab/rules/check", &no_service).await;
-    assert_eq!(v["problems"][0]["field"], "services", "{v}");
+    assert_eq!(v["problems"][0]["field"], "effect", "{v}");
     assert!(problems(&v).contains("name the service first"), "{v}");
     let mut no_operation = custom(Some(400), "QueueDoesNotExist");
     no_operation["matcher"]["operations"] = json!([]);
     let (_, v) = lab.post("/api/v1/lab/rules/check", &no_operation).await;
-    assert_eq!(v["problems"][0]["field"], "operations", "{v}");
+    assert_eq!(v["problems"][0]["field"], "effect", "{v}");
+    assert!(problems(&v).contains("name the operation first"), "{v}");
+    assert_eq!(
+        v["problems"].as_array().unwrap().len(),
+        1,
+        "no second complaint about the code: {v}"
+    );
     // An operation that is not there is said once, as for every rule, and the model is not asked about it.
     let mut unknown = custom(Some(400), "QueueDoesNotExist");
     unknown["matcher"]["operations"] = json!(["SendMesage"]);
@@ -180,6 +218,8 @@ async fn an_error_of_ones_choosing_needs_a_service_and_an_operation_to_choose_fr
     // No code at all, and a code that is no code, are the form's to say and are not "not listed".
     let (_, v) = lab.post("/api/v1/lab/rules/check", &custom(None, "")).await;
     assert_eq!(v["ok"], false);
-    let (_, v) = lab.post("/api/v1/lab/rules/check", &custom(None, "no good")).await;
+    let (_, v) = lab
+        .post("/api/v1/lab/rules/check", &custom(None, "no good"))
+        .await;
     assert!(!problems(&v).contains("does not list"), "{v}");
 }

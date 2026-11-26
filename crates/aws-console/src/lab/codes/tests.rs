@@ -311,7 +311,11 @@ fn an_error_chosen_from_the_model_keeps_its_shape_so_the_gateway_words_it_as_the
     );
     assert_eq!(
         (chosen.shape, chosen.status, &*chosen.code),
-        (Some("InvalidMessageContents"), 400, "InvalidMessageContents")
+        (
+            Some("InvalidMessageContents"),
+            400,
+            "InvalidMessageContents"
+        )
     );
     assert!(chosen.message.contains("InvalidMessageContents"));
 }

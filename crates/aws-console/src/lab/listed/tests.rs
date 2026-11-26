@@ -53,7 +53,10 @@ fn a_query_service_names_a_code_by_its_query_code_and_it_can_still_be_found_by_i
     let invalid = find(&publish, "ParameterValueInvalid").unwrap();
     assert_eq!(invalid.shape, "InvalidParameterValueException");
     assert_eq!(invalid.status, 400);
-    assert_eq!(find(&publish, "InvalidParameterValueException"), Some(invalid));
+    assert_eq!(
+        find(&publish, "InvalidParameterValueException"),
+        Some(invalid)
+    );
     // A service that speaks JSON names it by its shape.
     assert!(find(&common(&[DDB], &["GetItem"]), "ResourceNotFoundException").is_some());
     assert!(find(&publish, "NotAnError").is_none());
@@ -76,7 +79,11 @@ fn two_apis_that_sign_alike_are_each_asked_only_about_the_operations_they_have()
     let both = common(&[DDB, STREAMS], &["GetItem", "GetRecords"]);
     let item = common(&[DDB], &["GetItem"]);
     let records = common(&[STREAMS], &["GetRecords"]);
-    let shared: Vec<Listed> = item.iter().filter(|e| records.contains(e)).copied().collect();
+    let shared: Vec<Listed> = item
+        .iter()
+        .filter(|e| records.contains(e))
+        .copied()
+        .collect();
     assert_eq!(both, shared);
     assert!(find(&both, "InternalServerError").is_some());
 }
@@ -92,9 +99,15 @@ fn every_error_a_model_lists_for_an_operation_is_one_a_rule_can_answer() {
         (&aws_model_sts::meta::META, &aws_model_sts::tables::TABLES),
         (&aws_model_iam::meta::META, &aws_model_iam::tables::TABLES),
         (&aws_model_kms::meta::META, &aws_model_kms::tables::TABLES),
-        (&aws_model_lambda::meta::META, &aws_model_lambda::tables::TABLES),
+        (
+            &aws_model_lambda::meta::META,
+            &aws_model_lambda::tables::TABLES,
+        ),
         (&aws_model_sfn::meta::META, &aws_model_sfn::tables::TABLES),
-        (&aws_model_kinesis::meta::META, &aws_model_kinesis::tables::TABLES),
+        (
+            &aws_model_kinesis::meta::META,
+            &aws_model_kinesis::tables::TABLES,
+        ),
         (&aws_model_ssm::meta::META, &aws_model_ssm::tables::TABLES),
     ];
     let mut checked = 0;
@@ -104,14 +117,25 @@ fn every_error_a_model_lists_for_an_operation_is_one_a_rule_can_answer() {
             let name = tables.op(i).unwrap().name;
             for e in common(&[model], &[name]) {
                 assert!((400..=599).contains(&e.status), "{name} {}", e.code);
-                assert!(!e.code.is_empty() && e.code.len() <= crate::lab::LONGEST_CODE, "{name} {}", e.code);
                 assert!(
-                    e.code.chars().all(|c| c.is_ascii_alphanumeric() || c == '.'),
+                    !e.code.is_empty() && e.code.len() <= crate::lab::LONGEST_CODE,
+                    "{name} {}",
+                    e.code
+                );
+                assert!(
+                    e.code
+                        .chars()
+                        .all(|c| c.is_ascii_alphanumeric() || c == '.'),
                     "{name} {}",
                     e.code
                 );
                 assert_eq!(find(&common(&[model], &[name]), e.code), Some(&e));
-                assert_eq!(e.server, e.status >= 500, "{name} {}: the fault of a status", e.code);
+                assert_eq!(
+                    e.server,
+                    e.status >= 500,
+                    "{name} {}: the fault of a status",
+                    e.code
+                );
                 checked += 1;
             }
         }

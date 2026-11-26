@@ -38,12 +38,19 @@ async fn text_of(w: &World, key: &str) -> (u16, String) {
     ));
     let (parts, body) = w.app.clone().oneshot(get).await.unwrap().into_parts();
     let bytes = body.collect().await.unwrap().to_bytes();
-    (parts.status.as_u16(), String::from_utf8(bytes.to_vec()).unwrap())
+    (
+        parts.status.as_u16(),
+        String::from_utf8(bytes.to_vec()).unwrap(),
+    )
 }
 
 async fn count(w: &World) -> usize {
     let listed = w
-        .send("POST", "/api/v1/lab/s3/ListObjectsV2", &json!({"Bucket": "notes"}))
+        .send(
+            "POST",
+            "/api/v1/lab/s3/ListObjectsV2",
+            &json!({"Bucket": "notes"}),
+        )
         .await
         .1;
     let output: Value = serde_json::from_str(listed["output"].as_str().unwrap()).unwrap();
@@ -62,15 +69,29 @@ async fn a_put_object_from_send_a_call_puts_its_text_body_as_an_upload_does() {
     assert_eq!(answer["error"], Value::Null, "{answer}");
     let output: Value = serde_json::from_str(answer["output"].as_str().unwrap()).unwrap();
     assert!(output["ETag"].as_str().unwrap().len() > 8, "{output}");
-    assert_eq!(text_of(&w, "a/hello.txt").await, (200, "hello, lab\nsecond line".to_owned()));
+    assert_eq!(
+        text_of(&w, "a/hello.txt").await,
+        (200, "hello, lab\nsecond line".to_owned())
+    );
     let head = w
-        .send("POST", "/api/v1/lab/s3/HeadObject", &json!({ "Bucket": "notes", "Key": "a/hello.txt" }))
+        .send(
+            "POST",
+            "/api/v1/lab/s3/HeadObject",
+            &json!({ "Bucket": "notes", "Key": "a/hello.txt" }),
+        )
         .await
         .1;
     let head: Value = serde_json::from_str(head["output"].as_str().unwrap()).unwrap();
-    assert_eq!((&head["ContentLength"], &head["ContentType"]), (&json!(22), &json!("text/plain")));
+    assert_eq!(
+        (&head["ContentLength"], &head["ContentType"]),
+        (&json!(22), &json!("text/plain"))
+    );
     // It is the console's own call, on Live, and it carries the length of what was sent.
-    let call = w.state.recorder.get(answer["seq"].as_u64().unwrap()).unwrap();
+    let call = w
+        .state
+        .recorder
+        .get(answer["seq"].as_u64().unwrap())
+        .unwrap();
     assert_eq!((&*call.caller, call.action), ("console", "PutObject"));
 }
 
@@ -81,7 +102,11 @@ async fn a_put_object_with_no_body_makes_an_empty_object_and_a_body_of_64_kib_go
     assert_eq!(status, 200);
     assert_eq!(text_of(&w, "empty").await, (200, String::new()));
     let most = "x".repeat(64 << 10);
-    let (status, answer) = put(&w, &json!({ "Bucket": "notes", "Key": "most", "Body": most })).await;
+    let (status, answer) = put(
+        &w,
+        &json!({ "Bucket": "notes", "Key": "most", "Body": most }),
+    )
+    .await;
     assert_eq!((status, &answer["error"]), (200, &Value::Null), "{answer}");
     assert_eq!(text_of(&w, "most").await.1.len(), 64 << 10);
 }
@@ -90,11 +115,26 @@ async fn a_put_object_with_no_body_makes_an_empty_object_and_a_body_of_64_kib_go
 async fn a_body_past_64_kib_or_not_text_is_refused_and_nothing_is_put() {
     let w = bucket("lab-body-refused").await;
     let past = "x".repeat((64 << 10) + 1);
-    let (status, refused) = put(&w, &json!({ "Bucket": "notes", "Key": "big", "Body": past })).await;
-    assert_eq!((status, refused["code"].as_str()), (413, Some("BODY_TOO_LARGE")), "{refused}");
+    let (status, refused) = put(
+        &w,
+        &json!({ "Bucket": "notes", "Key": "big", "Body": past }),
+    )
+    .await;
+    assert_eq!(
+        (status, refused["code"].as_str()),
+        (413, Some("BODY_TOO_LARGE")),
+        "{refused}"
+    );
     assert!(refused["message"].as_str().unwrap().contains("64 KiB"));
-    let (status, refused) = put(&w, &json!({ "Bucket": "notes", "Key": "list", "Body": [1, 2] })).await;
-    assert_eq!((status, refused["code"].as_str()), (400, Some("BAD_REQUEST")));
+    let (status, refused) = put(
+        &w,
+        &json!({ "Bucket": "notes", "Key": "list", "Body": [1, 2] }),
+    )
+    .await;
+    assert_eq!(
+        (status, refused["code"].as_str()),
+        (400, Some("BAD_REQUEST"))
+    );
     assert_eq!(count(&w).await, 0, "nothing was put");
 }
 
@@ -108,8 +148,17 @@ async fn an_upload_part_is_refused_with_its_reason_and_the_operation_says_what_i
             &json!({ "Bucket": "notes", "Key": "k", "UploadId": "u", "PartNumber": 1, "Body": "x" }),
         )
         .await;
-    assert_eq!((status, refused["code"].as_str()), (400, Some("NEEDS_MULTIPART")), "{refused}");
-    assert!(refused["message"].as_str().unwrap().contains("CreateMultipartUpload"));
+    assert_eq!(
+        (status, refused["code"].as_str()),
+        (400, Some("NEEDS_MULTIPART")),
+        "{refused}"
+    );
+    assert!(
+        refused["message"]
+            .as_str()
+            .unwrap()
+            .contains("CreateMultipartUpload")
+    );
     for (op, body_max, cannot) in [
         ("PutObject", json!(65_536), false),
         ("UploadPart", Value::Null, true),
