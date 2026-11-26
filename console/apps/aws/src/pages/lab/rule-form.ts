@@ -2,8 +2,15 @@
 import type { LabEnd } from "../../api/types/LabEnd";
 import type { LabRuleBody } from "../../api/types/LabRuleBody";
 
-/** The rehearsals that are rules, by the `tab` of the guide's lessons. */
-export const RULE_TABS = ["throttle", "unavailable", "internal", "access-denied", "slow", "drop"] as const;
+/** The rehearsals that are rules: the guide's six lessons (by their `tab`) and `custom`, which has no lesson: an error the operation's model lists, chosen. */
+export const RULE_TABS = ["throttle", "unavailable", "internal", "access-denied", "slow", "drop", "custom"] as const;
+
+/** What the seventh kind says of itself (the server teaches the other six). */
+export const CUSTOM_WORDS = {
+  title: "Fail with an error I choose",
+  lede: "Answer with one of the errors AWS lists for the operation, with the status its model gives it.",
+  production: "an operation fails in the ways it documents: a queue deleted under a producer, a conditional write that loses a race, a key that is gone. A client handles each its own way, and this makes one of them happen on demand.",
+} as const;
 export type RuleTab = (typeof RULE_TABS)[number];
 export const isRuleTab = (t: string): t is RuleTab => (RULE_TABS as readonly string[]).includes(t);
 
@@ -18,6 +25,8 @@ export type RuleForm = {
   regions: string[];
   callers: string[];
   resources: string[];
+  /** The error a Custom rule answers with: a code the operation's model lists (empty until chosen). */
+  code: string;
   delay_ms: string;
   jitter_ms: string;
   share: "every" | "nth" | "percent";
@@ -30,7 +39,7 @@ export type RuleForm = {
 
 /** A new form: every call, ten minutes, a one-second delay for Slow. */
 export function newForm(tab: RuleTab = "throttle"): RuleForm {
-  return { tab, name: "", services: [], operations: [], regions: [], callers: [], resources: [], delay_ms: "1000", jitter_ms: "0", share: "every", n: "4", percent: "25", ends: "10", unit: "minutes", max_hits: "" };
+  return { tab, name: "", services: [], operations: [], regions: [], callers: [], resources: [], code: "", delay_ms: "1000", jitter_ms: "0", share: "every", n: "4", percent: "25", ends: "10", unit: "minutes", max_hits: "" };
 }
 
 /** A form for what a recipe names: its service, operation and the resource it was made from. */
@@ -45,7 +54,7 @@ export const endsInSecs = (f: RuleForm): number => whole(f.ends) * UNIT_SECS[f.u
 
 /** The rule as it is asked for. A number that is not a whole number is sent as 0, and the check answers in words what is wrong with it. */
 export function toBody(f: RuleForm): LabRuleBody {
-  const effect: LabRuleBody["effect"] = f.tab === "slow" ? { kind: "slow", delay_ms: whole(f.delay_ms), jitter_ms: whole(f.jitter_ms) } : f.tab === "drop" ? { kind: "drop" } : { kind: "fail", error: f.tab === "access-denied" ? "access-denied" : f.tab };
+  const effect: LabRuleBody["effect"] = f.tab === "slow" ? { kind: "slow", delay_ms: whole(f.delay_ms), jitter_ms: whole(f.jitter_ms) } : f.tab === "drop" ? { kind: "drop" } : f.tab === "custom" ? { kind: "fail", error: "custom", code: f.code.trim() } : { kind: "fail", error: f.tab };
   const share: LabRuleBody["share"] = f.share === "nth" ? { kind: "nth", n: whole(f.n) } : f.share === "percent" ? { kind: "percent", percent: whole(f.percent) } : { kind: "every" };
   const hits = whole(f.max_hits);
   return {

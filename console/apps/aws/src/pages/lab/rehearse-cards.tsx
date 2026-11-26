@@ -1,11 +1,12 @@
-import { BanIcon, CalendarClockIcon, CloudOffIcon, GaugeIcon, HourglassIcon, type LucideIcon, MoonIcon, PlugZapIcon, ServerCrashIcon, SnowflakeIcon, TimerIcon, TimerResetIcon } from "lucide-react";
+import { BanIcon, CalendarClockIcon, CircleAlertIcon, CloudOffIcon, GaugeIcon, HourglassIcon, type LucideIcon, MoonIcon, PlugZapIcon, ServerCrashIcon, SnowflakeIcon, TimerIcon, TimerResetIcon } from "lucide-react";
 import { Button } from "@doze/ui/components/ui/button";
 import { Skeleton } from "@doze/ui/components/ui/skeleton";
 import type { LabOnceKind } from "../../api/types/LabOnceKind";
 import type { LabOnceTeach } from "../../api/types/LabOnceTeach";
 import type { LabTeach } from "../../api/types/LabTeach";
+import { CUSTOM_WORDS } from "./rule-form";
 
-const RULE_ICONS: Record<string, LucideIcon> = { slow: TimerIcon, throttle: GaugeIcon, unavailable: CloudOffIcon, internal: ServerCrashIcon, "access-denied": BanIcon, drop: PlugZapIcon };
+const RULE_ICONS: Record<string, LucideIcon> = { slow: TimerIcon, custom: CircleAlertIcon, throttle: GaugeIcon, unavailable: CloudOffIcon, internal: ServerCrashIcon, "access-denied": BanIcon, drop: PlugZapIcon };
 const ONCE_ICONS: Record<string, LucideIcon> = { "rest-service": MoonIcon, "fire-schedule": CalendarClockIcon, "expire-visibility": HourglassIcon, "sweep-ttl": TimerResetIcon, "cold-start": SnowflakeIcon };
 
 function Card({ id, icon: Icon, title, lede, production, children }: { id: string; icon: LucideIcon; title: string; lede: string; production: string; children: React.ReactNode }) {
@@ -38,6 +39,9 @@ export function RuleCards({ teach, enabled, onStart }: { teach: LabTeach[] | und
           <Button type="button" variant="outline" size="sm" className="bg-card" disabled={!enabled} onClick={() => onStart(t.tab)} data-testid="rule-start">Make a rule</Button>
         </Card>
       ))}
+      <Card id="custom" icon={CircleAlertIcon} title={CUSTOM_WORDS.title} lede={CUSTOM_WORDS.lede} production={CUSTOM_WORDS.production}>
+        <Button type="button" variant="outline" size="sm" className="bg-card" disabled={!enabled} onClick={() => onStart("custom")} data-testid="rule-start">Make a rule</Button>
+      </Card>
     </div>
   );
 }

@@ -8,4 +8,12 @@ export type LabOperation = { target: string, operation: string, members: Array<L
 /**
  * A starting input: every required member, with an empty value of its kind (pretty JSON).
  */
-example: string, };
+example: string, 
+/**
+ * The most bytes of text the operation's `Body` may be when it carries an object's body (S3 `PutObject`); `null` when it carries none.
+ */
+body_max: number | null, 
+/**
+ * Why the Lab cannot send the operation, when it cannot (S3 `UploadPart`); `null` when it can.
+ */
+cannot: string | null, };

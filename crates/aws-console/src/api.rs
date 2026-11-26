@@ -28,6 +28,7 @@ pub mod deep;
 pub mod flows;
 pub mod home;
 pub mod lab;
+mod lab_body;
 mod lab_build;
 mod lab_custom;
 pub mod lab_once;

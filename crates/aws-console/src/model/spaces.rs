@@ -305,6 +305,10 @@ pub struct LabOperation {
     pub members: Vec<LabMember>,
     /// A starting input: every required member, with an empty value of its kind (pretty JSON).
     pub example: String,
+    /// The most bytes of text the operation's `Body` may be when it carries an object's body (S3 `PutObject`); `null` when it carries none.
+    pub body_max: Option<u32>,
+    /// Why the Lab cannot send the operation, when it cannot (S3 `UploadPart`); `null` when it can.
+    pub cannot: Option<String>,
 }
 
 /// An error answer, as the service gave it.

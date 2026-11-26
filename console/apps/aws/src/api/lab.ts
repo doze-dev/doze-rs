@@ -6,6 +6,7 @@ import { usePollInterval } from "@doze/ui/lib/refresh";
 import { client } from "./client";
 import type { LabCheck } from "./types/LabCheck";
 import type { LabCleared } from "./types/LabCleared";
+import type { LabErrors } from "./types/LabErrors";
 import type { LabGuide } from "./types/LabGuide";
 import type { LabMade } from "./types/LabMade";
 import type { LabOnceDone } from "./types/LabOnceDone";
@@ -28,6 +29,7 @@ export const LAB_PATHS = {
   stopAll: "/api/v1/lab/stop-all",
   clearEnded: "/api/v1/lab/history/clear",
   guide: "/api/v1/lab/guide",
+  errors: (services: readonly string[], operations: readonly string[]) => `/api/v1/lab/errors?services=${enc(services.join(","))}&operations=${enc(operations.join(","))}`,
   once: "/api/v1/lab/once",
   onceGuide: "/api/v1/lab/once/guide",
   onceClear: "/api/v1/lab/once/history/clear",
@@ -44,6 +46,11 @@ export function useLabRules() {
 /** The words of the Lab: what it is, and one lesson for each rehearsal. Fixed for the life of the process. */
 export function useLabGuide() {
   return useQuery({ queryKey: ["lab", "guide"], queryFn: ({ signal }) => client.api<LabGuide>(LAB_PATHS.guide, {}, signal), staleTime: Number.POSITIVE_INFINITY });
+}
+
+/** The errors AWS lists for the operations a rule fits (the ones every operation lists), with the status its model gives each: what "an error I choose" is picked from. */
+export function useLabErrors(services: readonly string[], operations: readonly string[], enabled = true) {
+  return useQuery({ queryKey: ["lab", "errors", services, operations], queryFn: ({ signal }) => client.api<LabErrors>(LAB_PATHS.errors(services, operations), {}, signal), enabled, placeholderData: keepPreviousData, staleTime: Number.POSITIVE_INFINITY, retry: false });
 }
 
 /** What a rule would be, said in a sentence with its problems in words: asked as the form changes (the caller debounces). */
