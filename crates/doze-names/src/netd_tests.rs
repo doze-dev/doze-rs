@@ -14,7 +14,7 @@ use crate::registry::tests::home;
 use crate::resolver::free_udp_addr;
 use crate::upstream::Upstreams;
 use crate::wire::TYPE_A;
-use crate::wire::tests::{ancount, query, rcode};
+use crate::wire::tests::{ancount, query, rcode, soa};
 use std::net::SocketAddr;
 use tokio::net::UdpSocket;
 
@@ -43,10 +43,12 @@ async fn the_daemon_answers_the_zone_when_no_program_does() {
         netd.bound(Duration::from_secs(3)).await,
         "the daemon never took the resolver"
     );
+    let nx = ask(addr, "web.shop.doze").await;
+    assert_eq!(rcode(&nx), 3, "nothing runs: NXDOMAIN");
     assert_eq!(
-        rcode(&ask(addr, "web.shop.doze").await),
-        3,
-        "nothing runs: NXDOMAIN"
+        soa(&nx).map(|s| (s.0, s.1)),
+        Some(("doze".to_string(), 1)),
+        "with the zone's SOA, so a cache keeps it for a second"
     );
     let mut r = Registry::open(&h, "doze");
     r.net = LOOPBACK;

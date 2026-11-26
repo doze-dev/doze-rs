@@ -224,3 +224,30 @@ fn other_packets_are_dropped() {
     frag[6..8].copy_from_slice(&0x2000u16.to_be_bytes());
     assert!(!translate(&mut frag, GW, &table()), "a fragment");
 }
+
+#[test]
+fn a_partial_checksum_is_put_right() {
+    // Why every sum is worked out whole: a packet whose checksum was left for the hardware (here, any wrong value)
+    // leaves right, at every size, where adjusting it for the port would have carried the error on.
+    for len in [0usize, 1, 7, 8, 9, 1400, 16000] {
+        let payload = "x".repeat(len);
+        let mut p = tcp(GW, DB, 49200, 5432, ACK, 1, 1, &payload);
+        p[36..38].copy_from_slice(&0xbeefu16.to_be_bytes());
+        p[10..12].copy_from_slice(&0x1234u16.to_be_bytes());
+        assert!(translate(&mut p, GW, &table()));
+        assert_eq!(
+            read(&p),
+            seen(DB, GW, 49200, 51000, ACK, 1, 1, &payload),
+            "{len} bytes"
+        );
+    }
+}
+
+#[test]
+fn an_address_says_whose_it_is() {
+    let mut t = table();
+    assert_eq!(t.owner(DB), None);
+    t.set_owner(DB, 4242);
+    assert_eq!(t.owner(DB), Some(4242));
+    assert_eq!(t.owner(GW), None);
+}

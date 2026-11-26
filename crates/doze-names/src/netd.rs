@@ -25,16 +25,27 @@ use std::time::Duration;
 pub const OWNER: &str = "doze-netd";
 
 /// Goes into the daemon's job (launchd plist, systemd unit), so a build whose daemon differs from the installed one
-/// installs again. Go's were 2 (Linux) and 3 (macOS: reads `names.ports.json`); 4 also forwards https to the front door.
-pub const VERSION_LINUX: &str = "2";
-pub const VERSION_DARWIN: &str = "4";
+/// installs again. Go's were 2 (Linux) and 3 (macOS: reads `names.ports.json`); 4 also forwards https to the front door;
+/// 5 (macOS) and 3 (Linux), 2026-11-26: negative answers carry the zone's SOA (the daemon is the resolver from boot,
+/// so nothing else would send it), and on macOS the table follows the registry by an event instead of a 1 s ticker,
+/// and a new connection to a service that died without writing is refused at once.
+pub const VERSION_LINUX: &str = "3";
+pub const VERSION_DARWIN: &str = "5";
 
 /// The file beside the registry naming the daemon that serves it.
 pub const SERVING_FILE: &str = crate::listen::NETD_SERVING_FILE;
 
 const MTU: u16 = 16384;
-/// For what the registry cannot say: a service that died without writing.
-const TABLE_REFRESH: Duration = Duration::from_secs(1);
+/// For what the registry cannot say: a service that died without writing. Not a heartbeat: the table follows the
+/// files by an event ([`TableCache::follow`]) and a check at every new connection, and a process that died is pruned (and
+/// the file written, which is an event) by the next program that reads the registry, the resolver at the next lookup
+/// among them; and a new connection to it finds its process gone ([`TableCache::check_connection`]) and is refused.
+/// What is left is a connection already open, whose packets go on to the dead process's private port for up to this
+/// long: the kernel refuses them unless something else has bound that port meanwhile. Was 1 s, a wakeup every second
+/// of every day for that one case.
+const TABLE_REFRESH: Duration = Duration::from_secs(60);
+/// Where the registry's folder cannot be watched (it is missing, or the system has no events for it): Go's ticker.
+const TABLE_POLL: Duration = Duration::from_secs(1);
 
 fn fail(what: &str, e: impl std::fmt::Display) -> Error {
     Error::Io(std::io::Error::other(format!("netd: {what}: {e}")))
@@ -79,14 +90,13 @@ pub fn run_translating(registry: &Path, uid: u32, gid: u32) -> Result<(), Error>
     write_serving(registry);
     serve_zone(registry)?;
     let cache = Arc::new(TableCache::new(registry, net));
-    let ticker = Arc::clone(&cache);
-    std::thread::spawn(move || {
-        loop {
-            std::thread::sleep(TABLE_REFRESH);
-            ticker.refresh(true);
-        }
-    });
+    let watcher = Arc::clone(&cache);
+    let dir = registry.parent().unwrap_or(Path::new(".")).to_path_buf();
+    std::thread::spawn(move || watcher.follow(&dir, TABLE_REFRESH, TABLE_POLL));
     let mut buf = vec![0u8; 65535];
+    // The table is taken again only when it was rebuilt, not per packet.
+    let mut seen = cache.generation();
+    let mut table = cache.current();
     loop {
         let n = match dev.recv(&mut buf) {
             Ok(n) => n,
@@ -94,10 +104,17 @@ pub fn run_translating(registry: &Path, uid: u32, gid: u32) -> Result<(), Error>
             Err(e) => return Err(fail("read", e)),
         };
         let Some(p) = buf.get_mut(..n) else { continue };
-        if first_packet(p) {
-            cache.refresh(false);
+        // A new connection: checked against the files and against its service's process (`check_connection`).
+        if first_packet(p)
+            && let Some(v) = p.get(16..20).and_then(|d| <[u8; 4]>::try_from(d).ok())
+        {
+            cache.check_connection(v);
         }
-        if !translate(p, gw.octets(), cache.current().as_ref()) {
+        if cache.generation() != seen {
+            seen = cache.generation();
+            table = cache.current();
+        }
+        if !translate(p, gw.octets(), table.as_ref()) {
             continue;
         }
         let len = packet_len(p);

@@ -329,6 +329,23 @@ impl Zone {
         *crate::lock(&self.serving) = Some(Serving { resolver, door });
     }
 
+    /// Leaves the stack's names resolving while it is down (`Registry::park`), so a client that asks between a
+    /// `doze down` and the next `up` gets the address the name will have again (its connection refused meanwhile),
+    /// never a "no such name" a cache may hold on to. Called as the daemon stops, before its names are released.
+    pub fn park(&self) {
+        if !self.addressing.named() {
+            return;
+        }
+        match self.reg.park() {
+            Ok(0) => {}
+            Ok(n) => say!(
+                "names: {n} name{} kept resolving while the stack is down",
+                if n == 1 { "" } else { "s" }
+            ),
+            Err(e) => say!("names: could not keep the names resolving: {e}"),
+        }
+    }
+
     /// Leaves the resolver and the front door to the other programs, and gives the stack's name back.
     pub async fn close(&self) {
         let serving = crate::lock(&self.serving).take();

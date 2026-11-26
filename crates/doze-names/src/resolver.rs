@@ -4,6 +4,7 @@
 
 use crate::Registry;
 use crate::front::RESOLVER_KEY;
+use crate::standby::Standby;
 use crate::upstream::Upstreams;
 use crate::wire::{RELAY_TTL, answer, cap_ttl};
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
@@ -13,8 +14,9 @@ use tokio::net::UdpSocket;
 use tokio::sync::watch;
 use tokio::task::JoinHandle;
 
-/// How often a peer that lost the bind tries again: prompt when the holder exits, free at idle.
-const RETRY: Duration = Duration::from_secs(2);
+/// How often a peer that lost the bind tries again where nothing tells it the holder let go ([`crate::standby`]).
+#[cfg(test)]
+pub(crate) const RETRY: Duration = crate::standby::RETRY;
 
 /// What the server asks for each question.
 pub type Resolve = Arc<dyn Fn(&str) -> Option<Ipv4Addr> + Send + Sync>;
@@ -83,6 +85,7 @@ impl Resolver {
 
 async fn run(cfg: ResolverConfig, mut stop: watch::Receiver<bool>, bound: watch::Sender<bool>) {
     let mut announced = false;
+    let mut standby = Standby::new(cfg.registry.as_ref().map(Registry::path));
     loop {
         match UdpSocket::bind(&cfg.addr).await {
             Ok(sock) => {
@@ -112,9 +115,8 @@ async fn run(cfg: ResolverConfig, mut stop: watch::Receiver<bool>, bound: watch:
             }
             Err(_) => {}
         }
-        tokio::select! {
-            _ = stop.changed() => return,
-            () = tokio::time::sleep(RETRY) => {}
+        if standby.wait(&mut stop).await {
+            return;
         }
     }
 }

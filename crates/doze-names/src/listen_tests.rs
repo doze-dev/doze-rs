@@ -17,6 +17,7 @@ use crate::{Error, Name, Registry};
 use std::io::{Read, Write};
 use std::net::{Ipv4Addr, SocketAddrV4, TcpStream};
 use std::sync::Arc;
+use std::time::Duration;
 
 const TRANSLATED: Net = Net {
     a: 127,
@@ -162,6 +163,77 @@ fn the_table_follows_a_service_that_restarted() {
         Arc::ptr_eq(&before, &c.current()),
         "rebuilt though nothing was written"
     );
+}
+
+#[test]
+fn a_new_connection_to_a_service_that_died_without_writing_is_refused() {
+    // The service's process, as another process: it registers a port and is killed (nothing written).
+    let mut child = std::process::Command::new(if cfg!(windows) { "ping" } else { "sleep" })
+        .args(if cfg!(windows) {
+            vec!["-n", "60", "127.0.0.1"]
+        } else {
+            vec!["60"]
+        })
+        .spawn()
+        .unwrap();
+    let mut r = reg(TRANSLATED);
+    r.pid = child.id();
+    let lease = r.claim(&Name::qualified("db", "shop")).unwrap();
+    let v = lease.ip.octets();
+    lease.forward(5432, 51885).unwrap();
+    let c = TableCache::new(r.path(), TRANSLATED);
+    c.check_connection(v);
+    assert_eq!(c.current().private(v, 5432), Some(51885), "alive: kept");
+    assert_eq!(c.current().owner(v), Some(child.id()));
+    child.kill().unwrap();
+    child.wait().unwrap();
+    let before = c.generation();
+    c.check_connection([127, 0, 9, 9]);
+    assert_eq!(
+        c.generation(),
+        before,
+        "an address nobody owns costs no rebuild"
+    );
+    c.check_connection(v);
+    assert_eq!(
+        c.current().private(v, 5432),
+        None,
+        "the dead service's port is still translated"
+    );
+}
+
+#[test]
+fn the_table_follows_the_files_without_a_ticker() {
+    let r = reg(TRANSLATED);
+    let lease = r.claim(&Name::qualified("db", "shop")).unwrap();
+    let v = lease.ip.octets();
+    lease.forward(5432, 51885).unwrap();
+    let c = Arc::new(TableCache::new(r.path(), TRANSLATED));
+    let notifies = doze_os::fs::Watch::notifies();
+    // An hour between forced rebuilds: whatever happens below happens because a file was written.
+    let poll = if notifies {
+        Duration::from_secs(3600)
+    } else {
+        Duration::from_millis(20)
+    };
+    let (follower, dir) = (Arc::clone(&c), r.path().parent().unwrap().to_path_buf());
+    std::thread::spawn(move || follower.follow(&dir, Duration::from_secs(3600), poll));
+    std::thread::sleep(Duration::from_millis(200));
+    let quiet = c.generation();
+    std::thread::sleep(Duration::from_millis(300));
+    if notifies {
+        assert_eq!(c.generation(), quiet, "rebuilt while nothing was written");
+    }
+    lease.forward(5432, 52094).unwrap();
+    let t = std::time::Instant::now();
+    while c.current().private(v, 5432) != Some(52094) {
+        assert!(
+            t.elapsed() < Duration::from_secs(3),
+            "the change was never picked up"
+        );
+        std::thread::sleep(Duration::from_millis(10));
+    }
+    assert!(c.generation() > quiet);
 }
 
 /// TestAForwardLostToAnOlderWriterIsPutBack: the daemon does not need the registry's copy, so there is no heal.

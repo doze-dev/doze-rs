@@ -1,9 +1,12 @@
-//! Files and directories: exclusive locks between processes, directories only the user can open, and cloning a data
-//! directory (copy-on-write where the filesystem can) for engine templates.
+//! Files and directories: exclusive locks between processes, directories only the user can open, waiting for a folder
+//! to change ([`Watch`]), and cloning a data directory (copy-on-write where the filesystem can) for engine templates.
 
 use std::fs::{File, OpenOptions, TryLockError};
 use std::io;
 use std::path::Path;
+
+mod watch;
+pub use watch::Watch;
 
 #[cfg(unix)]
 mod unix;

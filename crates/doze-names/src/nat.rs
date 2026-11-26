@@ -10,6 +10,7 @@
 //! was. A port nobody registered gets a reset at once (a closed port's answer, not a hang); a ping is answered.
 
 use std::collections::HashMap;
+use std::hash::{BuildHasherDefault, Hasher};
 
 const ICMP: u8 = 1;
 const TCP: u8 = 6;
@@ -26,30 +27,77 @@ pub trait Forwards {
     fn public(&self, v: [u8; 4], private: u16) -> Option<u16>;
 }
 
-/// The ports as the registry has them.
+/// The ports as the registry has them: one map each way, keyed by address and port together.
+///
+/// Every packet is looked up here once or twice, so the keys are hashed by [`KeyHash`] (one multiply) rather than by
+/// the standard SipHash, which guards a map against keys an attacker picks: these come from the registry, and a
+/// packet only chooses which of them to look up.
 #[derive(Debug, Default, Clone)]
 pub struct PortTable {
-    pub to_private: HashMap<[u8; 4], HashMap<u16, u16>>,
-    pub to_public: HashMap<[u8; 4], HashMap<u16, u16>>,
+    to_private: HashMap<u64, u16, BuildHasherDefault<KeyHash>>,
+    to_public: HashMap<u64, u16, BuildHasherDefault<KeyHash>>,
+    /// The process each address's ports are registered by, so a new connection can be checked against a service
+    /// that died without writing (`TableCache::check_connection`).
+    owners: HashMap<u64, u32, BuildHasherDefault<KeyHash>>,
+}
+
+fn key(v: [u8; 4], port: u16) -> u64 {
+    u64::from(u32::from_be_bytes(v)) << 16 | u64::from(port)
 }
 
 impl PortTable {
     /// Adds `public -> private` for address `v`.
     pub fn add(&mut self, v: [u8; 4], public: u16, private: u16) {
-        self.to_private
-            .entry(v)
-            .or_default()
-            .insert(public, private);
-        self.to_public.entry(v).or_default().insert(private, public);
+        self.to_private.insert(key(v, public), private);
+        self.to_public.insert(key(v, private), public);
+    }
+
+    /// Records that `pid` registered address `v`'s ports.
+    pub fn set_owner(&mut self, v: [u8; 4], pid: u32) {
+        self.owners.insert(u64::from(u32::from_be_bytes(v)), pid);
+    }
+
+    /// The process that registered address `v`'s ports, if it has any.
+    pub fn owner(&self, v: [u8; 4]) -> Option<u32> {
+        self.owners.get(&u64::from(u32::from_be_bytes(v))).copied()
+    }
+
+    /// How many public ports it holds.
+    pub fn len(&self) -> usize {
+        self.to_private.len()
+    }
+
+    /// Whether it holds none.
+    pub fn is_empty(&self) -> bool {
+        self.to_private.is_empty()
     }
 }
 
 impl Forwards for PortTable {
     fn private(&self, v: [u8; 4], public: u16) -> Option<u16> {
-        self.to_private.get(&v)?.get(&public).copied()
+        self.to_private.get(&key(v, public)).copied()
     }
     fn public(&self, v: [u8; 4], private: u16) -> Option<u16> {
-        self.to_public.get(&v)?.get(&private).copied()
+        self.to_public.get(&key(v, private)).copied()
+    }
+}
+
+/// The table's hash: a 48-bit key times an odd constant (Fibonacci hashing), its high bits folded down.
+#[derive(Debug, Default, Clone, Copy)]
+pub struct KeyHash(u64);
+
+impl Hasher for KeyHash {
+    fn finish(&self) -> u64 {
+        let h = self.0.wrapping_mul(0x9e37_79b9_7f4a_7c15);
+        h ^ (h >> 32)
+    }
+    fn write(&mut self, bytes: &[u8]) {
+        for b in bytes {
+            self.0 = (self.0 << 8 | u64::from(*b)).rotate_left(5);
+        }
+    }
+    fn write_u64(&mut self, n: u64) {
+        self.0 = n;
     }
 }
 
@@ -72,6 +120,12 @@ fn addr(b: &[u8], at: usize) -> Option<[u8; 4]> {
 
 /// Rewrites one IPv4 packet read from the interface, in place; whether it should be written back. `gw` is the
 /// interface's address.
+///
+/// Both checksums are worked out whole on every packet, never adjusted for the changed port (RFC 1624): adjusting
+/// is only right if the sum arrived complete, and a stack that leaves it to the hardware may hand over a partial one
+/// for some packets and not others (large segments, say), which no sample of earlier packets can rule out. A
+/// whole sum is right whatever arrived, and it is not where a packet's time goes (`benches/translate.rs`: the `recv`
+/// and `send` around it are).
 // fuzz:parser fuzz_packet
 pub fn translate(p: &mut [u8], gw: [u8; 4], f: &dyn Forwards) -> bool {
     translate_inner(p, gw, f).unwrap_or(false)
@@ -184,22 +238,32 @@ fn set_addrs(p: &mut [u8], ihl: usize, src: [u8; 4], dst: [u8; 4]) -> Option<()>
 /// it left for the hardware to fill in.
 fn tcp_checksum(p: &mut [u8], ihl: usize, total: usize) -> Option<()> {
     put(p, ihl + 16, &[0, 0])?;
+    let sum = checksum(p.get(ihl..total)?, pseudo_header(p, ihl, total)?);
+    put(p, ihl + 16, &sum.to_be_bytes())
+}
+
+/// TCP's pseudo-header sum: both addresses, the protocol and the segment's length.
+fn pseudo_header(p: &[u8], ihl: usize, total: usize) -> Option<u32> {
     let words = [
         u16_at(p, 12)?,
         u16_at(p, 14)?,
         u16_at(p, 16)?,
         u16_at(p, 18)?,
     ];
-    let len = u32::try_from(total - ihl).ok()?;
-    let pseudo = words.iter().map(|w| u32::from(*w)).sum::<u32>() + u32::from(TCP) + len;
-    let sum = checksum(p.get(ihl..total)?, pseudo);
-    put(p, ihl + 16, &sum.to_be_bytes())
+    let len = u32::try_from(total.checked_sub(ihl)?).ok()?;
+    Some(words.iter().map(|w| u32::from(*w)).sum::<u32>() + u32::from(TCP) + len)
 }
 
-/// The internet checksum of `b`, continued from `sum`.
+/// The internet checksum of `b`, continued from `sum`. Eight bytes at a time, as two 32-bit words: a sum of 32-bit
+/// words folds to the same 16-bit one's complement sum (2^16 is 1 modulo 0xffff), with a quarter of the additions.
 pub(crate) fn checksum(b: &[u8], sum: u32) -> u16 {
     let mut s = u64::from(sum);
-    let (pairs, rest) = b.as_chunks::<2>();
+    let (eights, rest) = b.as_chunks::<8>();
+    for e in eights {
+        let v = u64::from_be_bytes(*e);
+        s += (v >> 32) + (v & 0xffff_ffff);
+    }
+    let (pairs, rest) = rest.as_chunks::<2>();
     for pair in pairs {
         s += u64::from(u16::from_be_bytes(*pair));
     }
