@@ -274,7 +274,9 @@ test("what the boards do not draw: an anomaly alarm from the wizard, a metric ma
   await page.getByTestId("alarm-name").fill("orders-band");
   await advance(page);
   await advance(page);
-  await expect(page.getByTestId("created-banner")).toContainText("orders-band");
+  // The last press makes the call and then goes to the alarm's page: on a loaded CI runner (Firefox, once) that took longer than the
+  // default 10 s. It passed 8 of 8 here, so the wait is longer and nothing else changes.
+  await expect(page.getByTestId("created-banner")).toContainText("orders-band", { timeout: 25_000 });
   await expect(page.getByTestId("alarm-threshold")).toContainText("OrdersPlaced is outside the band");
   // Deleted from its own page, the alarm is not asked for again (a read of it would be refused and logged).
   await expect(page.getByTestId("rail-recent")).toContainText("orders-band");

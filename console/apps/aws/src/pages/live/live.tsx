@@ -145,13 +145,13 @@ export function LivePage() {
   const columns = useMemo<DataColumn<Line>[]>(
     () => [
       // The board's columns: Time, Caller, Operation, Resource, Result, Latency. The widths add up to what a 1440 px window leaves beside the rail,
-      // with the rest (about 260 px) for Resource; the result is wide enough for `REFUSED 400 InvalidParameterValue` whole. In a narrower window the
+      // with the rest (about 246 px) for Resource (the time has room for a wider monospace face than the one the design was drawn in: on Linux it was 2 px short at 118); the result is wide enough for `REFUSED 400 InvalidParameterValue` whole. In a narrower window the
       // columns with a `min` give up width before the table scrolls. The time is never cut; a long operation, resource or error code is, with the
       // whole value on hover and in the drawer.
       {
         id: "time",
         header: "Time",
-        size: 118,
+        size: 132,
         enableSorting: false,
         accessorFn: (l) => clockMsUtc(l.call.at_ms),
         meta: { mono: true },
