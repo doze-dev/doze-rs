@@ -152,6 +152,16 @@ pub(crate) async fn run(
     }
 }
 
+/// Set when dropped: what a blocking hash watches to give up once the decide that wanted it is gone.
+#[derive(Default)]
+struct Abandon(std::sync::Arc<std::sync::atomic::AtomicBool>);
+
+impl Drop for Abandon {
+    fn drop(&mut self) {
+        self.0.store(true, std::sync::atomic::Ordering::Relaxed);
+    }
+}
+
 /// Whether task `name` has to run: its service, spec, why and inputs hash when it does (it is then `booting`, its wake
 /// journalled), `None` when it does not.
 async fn decide(
@@ -169,9 +179,16 @@ async fn decide(
         String::new()
     } else {
         let (dir, globs) = (ts.dir.clone(), ts.inputs.clone());
-        let hashed = tokio::task::spawn_blocking(move || super::inputs::hash(&dir, &globs).0);
+        // A stop drops this future mid-hash; the guard tells the blocking read to give up rather than finish a large
+        // input on a thread nothing waits for (and that the daemon's exit would wait for).
+        let abandon = Abandon::default();
+        let flag = abandon.0.clone();
+        let hashed = tokio::task::spawn_blocking(move || {
+            super::inputs::hash_unless(&dir, &globs, &flag).map(|(h, _)| h)
+        });
         match hashed.await {
-            Ok(h) => h,
+            Ok(Some(h)) => h,
+            Ok(None) => return Err(Error::Failed(format!("task \"{name}\" was stopped"))),
             Err(err) => {
                 // Go fails the task when its inputs cannot be read (E2 audit 2, n5).
                 let fx = e.update(|c| c.m.task_skipped(name, boot, Now::current()));

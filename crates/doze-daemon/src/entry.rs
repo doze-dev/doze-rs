@@ -52,7 +52,11 @@ pub fn main(args: &[String], version: &str) -> ExitCode {
     if args.iter().any(|a| a == LINT_ARG) {
         return crate::lint::main(&rt, &config, version);
     }
-    match rt.block_on(run(&config, version)) {
+    let ran = rt.block_on(run(&config, version));
+    // Dropping the runtime would wait for every blocking task to end; one stuck in the kernel (a read nothing will
+    // answer) would keep a stopped daemon alive for ever. The engine has shut down by now: give stragglers a moment.
+    rt.shutdown_timeout(std::time::Duration::from_secs(5));
+    match ran {
         Ok(()) => ExitCode::SUCCESS,
         Err(e) => {
             eprintln!("doze daemon: {e}");
