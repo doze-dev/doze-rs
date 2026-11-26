@@ -161,7 +161,7 @@ pub fn pin(path: &str, now: &Value) -> Result<(), String> {
     }
     let pinned: Value = std::fs::read_to_string(path)
         .ok()
-        .and_then(|t| serde_json::from_str(&t).ok())
+        .and_then(|t| serde_json::from_slice(t.as_bytes()).ok())
         .unwrap_or(Value::Null);
     if &pinned == now {
         return Ok(());

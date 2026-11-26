@@ -313,7 +313,7 @@ fn write_previous(dir: &Path, fps: &[String]) -> Result<(), Error> {
 /// file is the person's to edit, and what it holds reaches a privileged script).
 fn read_previous(dir: &Path) -> Vec<String> {
     let text = std::fs::read_to_string(dir.join(PREVIOUS_FILE)).unwrap_or_default();
-    let fps: Vec<String> = serde_json::from_str(&text).unwrap_or_default();
+    let fps: Vec<String> = serde_json::from_slice(text.as_bytes()).unwrap_or_default();
     fps.into_iter()
         .filter(|fp| crate::trust_store::valid_fingerprint(fp))
         .map(|fp| fp.to_ascii_lowercase())
