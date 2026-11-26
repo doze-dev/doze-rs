@@ -40,8 +40,11 @@ impl Registry {
     ) -> Result<Lease, Error> {
         let pid = i64::from(self.pid);
         self.update(|m| {
+            // A parked name is nobody's: whoever claims it takes it (the stack that parked it, coming back up, most
+            // often).
             if let Some(cur) = m.get(&name.host)
                 && cur.pid != pid
+                && !cur.is_parked()
             {
                 return Err(Error::Held {
                     host: name.host.clone(),
@@ -59,7 +62,10 @@ impl Registry {
                 Some(ip) => {
                     if self.net.in_pool(ip) && taken.contains(&ip) {
                         let clash = m.iter().find(|(host, e)| {
-                            **host != name.host && e.addr() == Some(ip) && !(shared && e.pid == pid)
+                            **host != name.host
+                                && e.addr() == Some(ip)
+                                && !(shared && e.pid == pid)
+                                && !e.is_parked()
                         });
                         if let Some((host, e)) = clash {
                             let (host, owner) = (host.clone(), e.owner.clone());
@@ -90,6 +96,12 @@ impl Registry {
                 if cur.ip == entry.ip {
                     entry.ports = cur.ports.clone();
                 }
+            }
+            // A parked name at an address this claim takes yields it: two names on one address would send each
+            // other's clients to the wrong service once the parked one's stack came back. (A new name is not given a
+            // parked address by the hash, which counts parked ones as taken; this is an address asked for.)
+            if self.net.in_pool(ip) {
+                m.retain(|host, e| !(e.is_parked() && *host != name.host && e.addr() == Some(ip)));
             }
             m.insert(name.host.clone(), entry);
             Ok(Lease {

@@ -50,6 +50,13 @@ pub(crate) fn parse_name(q: &[u8], off: usize) -> Option<(String, usize)> {
 /// NOERROR for its other types (so a client falls back to the A answer instead of retrying), NXDOMAIN for the rest
 /// of the zone. For a name outside the zone nobody serves, `forward` is true and the NXDOMAIN is the fallback if no
 /// upstream answers. `None` for input that cannot be read, or anything but one question.
+///
+/// What this machine answers for (the zone, and a domain a stack registered) is answered with authority (`aa`), and
+/// an answer that says no (NXDOMAIN, or NOERROR with nothing in it) carries the zone's SOA, whose TTL and MINIMUM
+/// bound how long it may be cached (`NEGATIVE_TTL`, RFC 2308 §5). Go sent neither: a negative answer said nothing
+/// of how long it held, and a cache was free to keep it as long as it liked, so a name asked for in the moment before
+/// its stack came up could stay "not found" after it had (ENOTFOUND for `kafka.larder.doze` after a `doze down` and
+/// `up`, 2026-11-25).
 pub fn answer(q: &[u8], resolve: &dyn Fn(&str) -> Option<Ipv4Addr>) -> Option<(Vec<u8>, bool)> {
     if q.len() < 12 || u16_at(q, 4)? != 1 {
         return None;
@@ -60,13 +67,20 @@ pub fn answer(q: &[u8], resolve: &dyn Fn(&str) -> Option<Ipv4Addr>) -> Option<(V
     let question = q.get(12..question_end)?;
     let ip = resolve(&name);
     let in_zone = crate::in_zone(&name);
-    let forward = ip.is_none() && !in_zone;
+    let ours = ip.is_some() || in_zone;
+    let forward = !ours;
     let answers = u16::from(ip.is_some() && qtype == TYPE_A);
     let rcode: u16 = if ip.is_none() { 3 } else { 0 };
-    let flags = 0x8080 | (u16_at(q, 2)? & 0x0100) | rcode; // QR, RA, the client's RD
-    let mut resp = Vec::with_capacity(question_end + 16);
+    let soa = if ours && answers == 0 {
+        soa_owner(&name, in_zone)
+    } else {
+        None
+    };
+    let aa = if ours { 0x0400 } else { 0 };
+    let flags = 0x8080 | aa | (u16_at(q, 2)? & 0x0100) | rcode; // QR, AA, RA, the client's RD
+    let mut resp = Vec::with_capacity(question_end + 96);
     resp.extend_from_slice(q.get(..2)?);
-    for v in [flags, 1, answers, 0, 0] {
+    for v in [flags, 1, answers, u16::from(soa.is_some()), 0] {
         resp.extend_from_slice(&v.to_be_bytes());
     }
     resp.extend_from_slice(question);
@@ -78,7 +92,62 @@ pub fn answer(q: &[u8], resolve: &dyn Fn(&str) -> Option<Ipv4Addr>) -> Option<(V
         resp.extend_from_slice(&4u16.to_be_bytes());
         resp.extend_from_slice(&ip.octets());
     }
+    if let Some(owner) = soa {
+        let before = resp.len();
+        // A plain UDP answer stops at 512 bytes: one too long to carry the SOA goes without it (a long registered
+        // domain asked for under a long name), as Go's always did.
+        if put_soa(&mut resp, &owner).is_none() || resp.len() > 512 {
+            resp.truncate(before);
+            resp.get_mut(8..10)?.copy_from_slice(&[0, 0]);
+        }
+    }
     Some((resp, forward))
+}
+
+pub(crate) const TYPE_SOA: u16 = 6;
+/// How long a "no such name" or "no such record" from the zone may be cached: a stack comes up in about this long,
+/// and the answer must change the moment it does. RFC 2308 has a cache take the lesser of the SOA's TTL and its
+/// MINIMUM; both are this.
+pub(crate) const NEGATIVE_TTL: u32 = 1;
+
+/// The labels of the SOA a negative answer for `name` carries: the zone's apex for a name in it, else the name itself
+/// (a registered domain, or a name under one: the resolver is not told which domain it was found under, and the
+/// owner only has to be something this machine answers for). `None` when the name cannot be written back (a label
+/// longer than DNS allows).
+fn soa_owner(name: &str, in_zone: bool) -> Option<Vec<u8>> {
+    let owner = if in_zone { crate::SUFFIX } else { name };
+    let mut out = Vec::with_capacity(owner.len() + 2);
+    for label in owner.split('.').filter(|l| !l.is_empty()) {
+        let len = u8::try_from(label.len()).ok().filter(|l| *l <= 63)?;
+        out.push(len);
+        out.extend_from_slice(label.as_bytes());
+    }
+    out.push(0);
+    Some(out)
+}
+
+/// Appends the SOA record for `owner` (wire labels): `ns.<owner>`, `hostmaster.<owner>`, serial 1, and
+/// [`NEGATIVE_TTL`] as both its TTL and MINIMUM. The owner is written out (the question may be a pointer into
+/// something this response does not carry) and the two names in it point back at it.
+fn put_soa(resp: &mut Vec<u8>, owner: &[u8]) -> Option<()> {
+    let at = u16::try_from(resp.len()).ok().filter(|a| *a < 0x3FFF)?;
+    let back = (0xC000 | at).to_be_bytes();
+    resp.extend_from_slice(owner);
+    resp.extend_from_slice(&TYPE_SOA.to_be_bytes());
+    resp.extend_from_slice(&1u16.to_be_bytes()); // IN
+    resp.extend_from_slice(&NEGATIVE_TTL.to_be_bytes());
+    let mut rdata = Vec::with_capacity(48);
+    rdata.extend_from_slice(b"\x02ns");
+    rdata.extend_from_slice(&back);
+    rdata.extend_from_slice(b"\x0ahostmaster");
+    rdata.extend_from_slice(&back);
+    // Serial, refresh, retry, expire: nothing transfers this zone, so they are only well-formed; then MINIMUM.
+    for v in [1u32, 3600, 600, 86_400, NEGATIVE_TTL] {
+        rdata.extend_from_slice(&v.to_be_bytes());
+    }
+    resp.extend_from_slice(&u16::try_from(rdata.len()).ok()?.to_be_bytes());
+    resp.extend_from_slice(&rdata);
+    Some(())
 }
 
 /// The offset after a name at `off`, compressed or not.
@@ -198,6 +267,100 @@ pub(crate) mod tests {
         q.extend_from_slice(&base[12..]);
         let (resp, _) = answer(&q, &resolve).unwrap();
         assert_eq!(ancount(&resp), 1);
+    }
+
+    pub(crate) fn authoritative(resp: &[u8]) -> bool {
+        u16_at(resp, 2).unwrap() & 0x0400 != 0
+    }
+
+    /// The SOA in a response's authority section: its owner, TTL, MNAME and MINIMUM. `None` when there is none.
+    pub(crate) fn soa(resp: &[u8]) -> Option<(String, u32, String, u32)> {
+        if u16_at(resp, 8).unwrap() != 1 {
+            return None;
+        }
+        let mut off = skip_name(resp, 12).unwrap() + 4;
+        for _ in 0..ancount(resp) {
+            off = skip_name(resp, off).unwrap();
+            off += 10 + usize::from(u16_at(resp, off + 8).unwrap());
+        }
+        let (owner, n) = parse_name(resp, off).unwrap();
+        assert_eq!(u16_at(resp, n).unwrap(), TYPE_SOA);
+        let ttl = u32::from_be_bytes(resp[n + 4..n + 8].try_into().unwrap());
+        let rdlen = usize::from(u16_at(resp, n + 8).unwrap());
+        let rdata = n + 10;
+        assert_eq!(rdata + rdlen, resp.len(), "the SOA is the last thing");
+        let (mname, m) = parse_name(resp, rdata).unwrap();
+        let (_rname, r) = parse_name(resp, m).unwrap();
+        let minimum = u32::from_be_bytes(resp[r + 16..r + 20].try_into().unwrap());
+        Some((owner, ttl, mname, minimum))
+    }
+
+    #[test]
+    fn a_negative_answer_from_the_zone_says_how_long_it_holds() {
+        // RFC 2308: NXDOMAIN and NODATA carry the zone's SOA, and its TTL and MINIMUM are the negative TTL.
+        let zone_soa = Some(("doze".into(), NEGATIVE_TTL, "ns.doze".into(), NEGATIVE_TTL));
+        let (resp, _) = answer(&query("nope.shop.doze", TYPE_A), &resolve).unwrap();
+        assert_eq!(rcode(&resp), 3);
+        assert!(authoritative(&resp), "the zone is answered with authority");
+        assert_eq!(soa(&resp), zone_soa, "NXDOMAIN");
+        let (resp, _) = answer(&query("aws.doze", TYPE_AAAA), &resolve).unwrap();
+        assert_eq!((rcode(&resp), ancount(&resp)), (0, 0));
+        assert!(authoritative(&resp));
+        assert_eq!(soa(&resp), zone_soa, "NODATA");
+        // A positive answer is authoritative and carries no SOA.
+        let (resp, _) = answer(&query("aws.doze", TYPE_A), &resolve).unwrap();
+        assert!(authoritative(&resp));
+        assert_eq!((ancount(&resp), soa(&resp)), (1, None));
+        assert_eq!(&resp[resp.len() - 4..], &[127, 0, 0, 2]);
+        // A name outside the zone that nobody here serves is not ours to deny: the fallback claims nothing.
+        let (resp, fwd) = answer(&query("example.com", TYPE_A), &resolve).unwrap();
+        assert!(fwd && !authoritative(&resp));
+        assert_eq!(soa(&resp), None);
+        // A registered domain's own NODATA names the domain as the SOA's owner.
+        let dev = |h: &str| (h == "dev.acme.com").then(|| Ipv4Addr::new(198, 19, 3, 7));
+        let (resp, fwd) = answer(&query("dev.acme.com", TYPE_AAAA), &dev).unwrap();
+        assert!(!fwd && authoritative(&resp));
+        assert_eq!(
+            soa(&resp),
+            Some((
+                "dev.acme.com".into(),
+                NEGATIVE_TTL,
+                "ns.dev.acme.com".into(),
+                NEGATIVE_TTL
+            ))
+        );
+    }
+
+    #[test]
+    fn a_negative_answer_to_a_compressed_question_is_well_formed() {
+        // mDNSResponder's pointer in the question points past it; the SOA must not lean on it.
+        let base = query("gone.doze", TYPE_A);
+        let target = 12 + 2 + 4;
+        let mut q = base[..12].to_vec();
+        q.extend_from_slice(&[0xC0, u8::try_from(target).unwrap()]);
+        q.extend_from_slice(&TYPE_AAAA.to_be_bytes());
+        q.extend_from_slice(&1u16.to_be_bytes());
+        q.extend_from_slice(&base[12..]);
+        let (resp, _) = answer(&q, &resolve).unwrap();
+        assert_eq!(rcode(&resp), 3);
+        assert_eq!(soa(&resp).unwrap().0, "doze");
+    }
+
+    #[test]
+    fn an_answer_too_long_for_udp_goes_without_its_soa() {
+        let long = format!(
+            "{}.{}.{}.example.com",
+            "a".repeat(63),
+            "b".repeat(63),
+            "c".repeat(60)
+        );
+        let host = format!("{}.{}.{long}", "x".repeat(40), "y".repeat(10));
+        // A name under a registered domain resolves through it (the registry's walk).
+        let under = move |h: &str| h.ends_with(&long).then(|| Ipv4Addr::new(198, 19, 3, 7));
+        let (resp, _) = answer(&query(&host, TYPE_AAAA), &under).unwrap();
+        assert!(resp.len() <= 512, "{} bytes", resp.len());
+        assert!(authoritative(&resp));
+        assert_eq!((rcode(&resp), soa(&resp)), (0, None));
     }
 
     #[test]

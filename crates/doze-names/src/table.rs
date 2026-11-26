@@ -7,9 +7,12 @@ use crate::nat::PortTable;
 use crate::pool::Net;
 use crate::ports::{ports_path, read_ports};
 use crate::registry::Entry;
+use doze_os::fs::Watch;
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, RwLock};
+use std::time::Duration;
 
 /// The ports the shared front door answers on, by the entry that records it and the bind that makes it reachable at
 /// the daemon's address (the wildcard). Go answered port 80 only; https to a routed name was refused on macOS.
@@ -79,13 +82,17 @@ pub fn read_port_table(path: &Path, net: Net) -> PortTable {
 /// A connection to a service registered a moment ago, or whose port a restart just replaced, must be translated by
 /// what the registry says now: a copy re-read only on a timer sends it to the last run's port, refused or dropped. So
 /// the files are looked at again (one stat each) whenever a connection opens, and the table rebuilt when either was
-/// written. The timer remains for what the files cannot say: a process that died without writing.
+/// written. Between connections it follows the files by an event ([`TableCache::follow`]), and a long timer remains for
+/// what the files cannot say: a process that died without writing.
 #[derive(Debug)]
 pub struct TableCache {
     path: PathBuf,
     net: Net,
     stamp: Mutex<String>,
     table: RwLock<Arc<PortTable>>,
+    /// Counts rebuilds, so the packet loop can keep its own copy and look at one atomic per packet rather than take
+    /// the lock and the table's reference count.
+    generation: AtomicU64,
 }
 
 impl TableCache {
@@ -95,6 +102,7 @@ impl TableCache {
             net,
             stamp: Mutex::new(String::new()),
             table: RwLock::new(Arc::default()),
+            generation: AtomicU64::new(0),
         };
         c.refresh(true);
         c
@@ -105,6 +113,45 @@ impl TableCache {
         self.table
             .read()
             .map_or_else(|e| e.into_inner().clone(), |t| t.clone())
+    }
+
+    /// Which rebuild [`TableCache::current`] is: it changes whenever the table does. Read it before the table.
+    pub fn generation(&self) -> u64 {
+        self.generation.load(Ordering::Acquire)
+    }
+
+    /// Keeps the table in step with the files, on this thread, for good: rebuilt when something in `dir` (the
+    /// registry's folder) changed and either file with it, and regardless every `every`. Both files are replaced by
+    /// a rename, which is a change to the folder, so nothing is looked at while nothing is written: no wakeups while
+    /// idle. Where the folder cannot be watched it looks every `poll` instead, as it always did.
+    pub fn follow(&self, dir: &Path, every: Duration, poll: Duration) {
+        let mut watch = match Watch::dir(dir) {
+            Ok(w) if Watch::notifies() => Some(w),
+            Ok(_) => None,
+            Err(e) => {
+                eprintln!(
+                    "netd: cannot watch {} ({e}); looking every {poll:?}",
+                    dir.display()
+                );
+                None
+            }
+        };
+        loop {
+            match watch.as_mut().map(|w| w.wait(every)) {
+                Some(Ok(changed)) => self.refresh(!changed),
+                Some(Err(e)) => {
+                    eprintln!(
+                        "netd: watching {} failed ({e}); looking every {poll:?}",
+                        dir.display()
+                    );
+                    watch = None;
+                }
+                None => {
+                    std::thread::sleep(poll);
+                    self.refresh(true);
+                }
+            }
+        }
     }
 
     /// Rebuilds the table if either file was written since it was read, or regardless when `force` is set.
@@ -126,6 +173,7 @@ impl TableCache {
             Ok(mut t) => *t = table,
             Err(e) => *e.into_inner() = table,
         }
+        self.generation.fetch_add(1, Ordering::Release);
         *stamp = now;
     }
 

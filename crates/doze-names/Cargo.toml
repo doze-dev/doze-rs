@@ -47,6 +47,11 @@ required-features = ["setup"]
 test = false
 doc = false
 
+[[bench]]
+# The macOS daemon's per-packet translation, unprivileged (packets per second at 64 B, 1500 B and 16 KB).
+name = "translate"
+harness = false
+
 [features]
 # The network daemon: the tunnel and the packet loop. Only the program that runs the daemon needs it.
 netd = ["dep:tun-rs"]

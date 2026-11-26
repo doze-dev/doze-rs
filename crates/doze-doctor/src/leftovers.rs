@@ -52,7 +52,8 @@ pub fn dead_names(home: &Path) -> Vec<String> {
     };
     entries
         .into_iter()
-        .filter(|(_, e)| !u32::try_from(e.pid).is_ok_and(doze_os::process::alive))
+        // A parked name (a stopped stack's, kept resolving until it is back) is held by nobody on purpose.
+        .filter(|(_, e)| !e.is_parked() && !u32::try_from(e.pid).is_ok_and(doze_os::process::alive))
         .map(|(k, _)| k)
         .collect()
 }

@@ -278,3 +278,130 @@ fn a_url_is_port_less_only_while_a_doze_front_door_holds_80() {
     r.release_key(crate::front::INGRESS_KEY).unwrap();
     assert!(r.ingress_holder().is_none());
 }
+
+/// A stack's daemon, as another process: it claims, parks and is gone.
+fn stopped_stack(h: &Path, hosts: &[&str]) -> Vec<Ipv4Addr> {
+    let daemon = Other::spawn();
+    let mut r = reg(h, "doze");
+    r.pid = daemon.pid();
+    let ips = hosts
+        .iter()
+        .map(|host| r.claim(&Name::qualified(host, "shop")).unwrap().ip)
+        .collect();
+    assert_eq!(r.park().unwrap(), hosts.len());
+    drop(daemon);
+    ips
+}
+
+#[test]
+fn a_stopped_stacks_names_keep_resolving_until_it_is_back() {
+    let h = home();
+    let ips = stopped_stack(&h, &["db", "web"]);
+    let peer = reg(&h, "doze-aws");
+    assert_eq!(
+        peer.resolve("db.shop.doze"),
+        Some(ips[0]),
+        "parked: same address"
+    );
+    assert_eq!(
+        peer.resolve("api.web.shop.doze"),
+        Some(ips[1]),
+        "and owns its subtree, as it did"
+    );
+    assert!(
+        peer.snapshot().is_empty(),
+        "the front door, doctor and the daemon see no parked name"
+    );
+    assert_eq!(peer.resolve("nope.shop.doze"), None);
+
+    // The stack comes back (another pid): its names are its own again, at the same addresses.
+    let back = reg(&h, "doze");
+    let lease = back.claim(&Name::qualified("db", "shop")).unwrap();
+    assert_eq!(lease.ip, ips[0]);
+    let e = &back.snapshot()["db.shop.doze"];
+    assert_eq!((e.pid, e.parked), (i64::from(std::process::id()), 0));
+    // A new name is not given a parked one's address.
+    let other = back.claim(&Name::qualified("cache", "shop")).unwrap();
+    assert!(!ips.contains(&other.ip));
+}
+
+#[test]
+fn a_parked_name_yields_to_any_claim_and_expires() {
+    let h = home();
+    let ips = stopped_stack(&h, &["db", "web"]);
+    // Any process may take a parked name: it is nobody's.
+    let tool = reg(&h, "doze-aws");
+    tool.claim(&Name::qualified("db", "shop")).unwrap();
+    // An address asked for that a parked name has: the parked name goes, rather than two names on one address.
+    let at = tool
+        .claim_at(&Name::qualified("blog", "home"), ips[1])
+        .unwrap();
+    assert_eq!(at.ip, ips[1]);
+    assert_eq!(tool.resolve("web.shop.doze"), None);
+
+    // A day on, a parked name is pruned like a dead one.
+    let h = home();
+    stopped_stack(&h, &["db"]);
+    let raw = std::fs::read_to_string(h.join(FILE_NAME)).unwrap();
+    let mut m: BTreeMap<String, Entry> = serde_json::from_str(&raw).unwrap();
+    m.get_mut("db.shop.doze").unwrap().parked = now_secs() - PARKED_FOR.as_secs() - 1;
+    std::fs::write(h.join(FILE_NAME), serde_json::to_string(&m).unwrap()).unwrap();
+    assert_eq!(reg(&h, "doze").resolve("db.shop.doze"), None);
+    let raw = std::fs::read_to_string(h.join(FILE_NAME)).unwrap();
+    assert!(!raw.contains("db.shop.doze"), "pruned from the file: {raw}");
+}
+
+#[test]
+fn only_names_with_an_address_of_their_own_are_parked() {
+    // On a shared address a name is reached by its port, which another stack may take while this one is down; and a
+    // domain outside the zone is the real one's while no stack serves it.
+    let h = home();
+    let daemon = Other::spawn();
+    let mut r = reg(&h, "doze");
+    r.pid = daemon.pid();
+    r.claim_at(&Name::qualified("db", "shop"), Ipv4Addr::LOCALHOST)
+        .unwrap();
+    let own = r.claim(&Name::qualified("web", "shop")).unwrap();
+    own.twin(&Name::domain("dev.acme.com")).unwrap();
+    r.claim_stack("shop", "/src/shop").unwrap();
+    assert_eq!(r.park().unwrap(), 1);
+    drop(daemon);
+    let peer = reg(&h, "doze-aws");
+    assert_eq!(peer.resolve("web.shop.doze"), Some(own.ip));
+    assert_eq!(peer.resolve("db.shop.doze"), None);
+    assert_eq!(peer.resolve("dev.acme.com"), None);
+    assert!(
+        peer.claim_stack("shop", "/elsewhere/shop").is_ok(),
+        "the stack name is not kept"
+    );
+}
+
+#[test]
+fn a_read_neither_locks_nor_writes_the_file() {
+    // Every DNS question and front-door request reads the registry. A read used to rewrite it (and so wake the network
+    // daemon); now only a read that has a dead entry to prune writes.
+    let h = home();
+    let r = reg(&h, "doze");
+    r.claim(&Name::qualified("db", "shop")).unwrap();
+    let id = |p: &Path| (doze_os::fs::file_id(p).unwrap(), std::fs::read(p).unwrap());
+    let before = id(r.path());
+    for _ in 0..20 {
+        assert!(r.resolve("db.shop.doze").is_some());
+        assert!(r.snapshot().contains_key("db.shop.doze"));
+    }
+    assert_eq!(id(r.path()), before, "a read replaced the file");
+    assert!(
+        !h.join("names.json.tmp").exists(),
+        "a read wrote the temporary file"
+    );
+
+    // A dead holder's entry is still pruned by the first read that meets it.
+    let gone = Other::spawn();
+    let mut dead = reg(&h, "doze");
+    dead.pid = gone.pid();
+    dead.claim(&Name::qualified("web", "shop")).unwrap();
+    drop(gone);
+    assert_eq!(r.resolve("web.shop.doze"), None);
+    let raw = std::fs::read_to_string(r.path()).unwrap();
+    assert!(!raw.contains("web.shop.doze"), "{raw}");
+}

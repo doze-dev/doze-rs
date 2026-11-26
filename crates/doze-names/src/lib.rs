@@ -37,6 +37,7 @@ pub mod resolver;
 pub mod routes;
 #[cfg(feature = "setup")]
 pub mod setup;
+mod standby;
 pub mod table;
 pub mod trust_store;
 pub mod upstream;

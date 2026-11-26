@@ -330,6 +330,8 @@ async fn run(config: &Path, version: &str) -> Result<(), String> {
         asked.map_or_else(|e| e.to_string(), |()| "asked to".into())
     );
     serving.stop();
+    // Before the front closes, which releases every name: parked, they keep resolving until the stack is back.
+    zone.park();
     front.close();
     modules.abort();
     meters.abort();

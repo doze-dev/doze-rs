@@ -49,6 +49,10 @@ pub struct Entry {
     /// Set only on the entry that records the file's format.
     #[serde(default, skip_serializing_if = "is_zero")]
     pub format: u32,
+    /// When (Unix seconds) a stopped stack left the name parked ([`Registry::park`]): it still resolves, to the same
+    /// address, though nothing holds it. 0 for a held name.
+    #[serde(default, skip_serializing_if = "is_zero_u64")]
+    pub parked: u64,
     /// Fields this build does not know, written by a newer program of the same format, kept and written back. Go
     /// dropped them on every rewrite; that is how an older doze-aws once erased `ports` and every connection to the
     /// name was refused (`heal` in Go exists to repair it).
@@ -60,14 +64,38 @@ fn is_zero(n: &u32) -> bool {
     *n == 0
 }
 
+fn is_zero_u64(n: &u64) -> bool {
+    *n == 0
+}
+
+/// How long a parked name keeps resolving after its stack stopped: across a `doze down` and the next `up`, and a
+/// night between them, but not for good (a project moved or deleted leaves nothing that answers for long).
+pub const PARKED_FOR: std::time::Duration = std::time::Duration::from_secs(24 * 3600);
+
+pub(crate) fn now_secs() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_or(0, |d| d.as_secs())
+}
+
 impl Entry {
     /// The address, if it is one.
     pub fn addr(&self) -> Option<Ipv4Addr> {
         self.ip.parse().ok()
     }
 
-    fn alive(&self) -> bool {
+    /// Whether this is a parked name ([`Registry::park`]): held by no process, resolving until it expires or
+    /// someone claims it.
+    pub fn is_parked(&self) -> bool {
+        self.pid == 0 && self.parked != 0
+    }
+
+    /// Whether the entry is kept: its process runs, or it is parked and not yet expired. Pid 0 is never a live
+    /// process, so a build from before parking prunes a parked name as a dead one (it then answers NXDOMAIN, as all
+    /// builds did before).
+    fn kept_at(&self, now: u64) -> bool {
         u32::try_from(self.pid).is_ok_and(doze_os::process::alive)
+            || (self.is_parked() && now < self.parked.saturating_add(PARKED_FOR.as_secs()))
     }
 }
 
@@ -136,7 +164,8 @@ impl Registry {
             });
         }
         m.remove(FORMAT_KEY);
-        m.retain(|_, e| e.alive());
+        let now = now_secs();
+        m.retain(|_, e| e.kept_at(now));
         let out = f(&mut m)?;
         // The stamp carries this pid so an older build, which prunes every entry whose process is gone, keeps it
         // while a writer that understands it runs.
@@ -155,15 +184,87 @@ impl Registry {
         Ok(out)
     }
 
-    /// The live entries, dead ones pruned, without the format stamp. A file this build cannot read gives none.
+    /// The live entries, dead ones pruned, without the format stamp or parked names. A file this build cannot read
+    /// gives none.
     pub fn snapshot(&self) -> BTreeMap<String, Entry> {
-        self.update(|m| Ok(m.clone())).unwrap_or_default()
+        let mut m = self.entries();
+        m.retain(|_, e| !e.is_parked());
+        m
+    }
+
+    /// The entries as they stand, parked names included.
+    ///
+    /// Read without the lock and without writing: the file is only ever replaced by a rename, so a read is of one
+    /// whole version. Only when it holds something to prune (or cannot be read) does it go through [`Registry::update`],
+    /// which writes. Every read used to: each DNS question, each request at the front door and each TLS handshake took
+    /// the lock and rewrote the file, and each rewrite told the network daemon the table might have changed.
+    fn entries(&self) -> BTreeMap<String, Entry> {
+        self.read_clean()
+            .unwrap_or_else(|| self.update(|m| Ok(m.clone())).unwrap_or_default())
+    }
+
+    /// The file's entries when it has nothing to prune; `None` when it has, or cannot be read, or is newer than this
+    /// build (which [`Registry::update`] refuses), or carries no format stamp yet (which it adds, once).
+    fn read_clean(&self) -> Option<BTreeMap<String, Entry>> {
+        let raw = match std::fs::read(&self.path) {
+            Ok(raw) => raw,
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Some(BTreeMap::new()),
+            Err(_) => return None,
+        };
+        let mut m: BTreeMap<String, Entry> = serde_json::from_slice(&raw).ok()?;
+        if m.remove(FORMAT_KEY)
+            .is_none_or(|s| s.format != FORMAT_VERSION)
+        {
+            return None;
+        }
+        let now = now_secs();
+        m.values().all(|e| e.kept_at(now)).then_some(m)
     }
 
     /// The address a host resolves to on this machine, or `None`. Answers for every peer's names, not only this
-    /// process's: that is what lets any program serve the whole zone.
+    /// process's: that is what lets any program serve the whole zone. A parked name resolves too.
     pub fn resolve(&self, host: &str) -> Option<Ipv4Addr> {
-        self.lookup(host).and_then(|e| e.addr())
+        let m = self.entries();
+        let e = if in_zone(host) {
+            zone_owner(&m, host).map(|(e, _)| e)
+        } else {
+            crate::domains::lookup_domain(&m, host).map(|(e, _)| e)
+        };
+        e.and_then(|e| e.addr())
+    }
+
+    /// Parks this process's names in the zone, for a stack that is stopping: each keeps resolving to its address for
+    /// [`PARKED_FOR`], or until a process claims it, though nothing holds it.
+    ///
+    /// Why: between a stack's `down` and its next `up` its names used to be NXDOMAIN, and a client that asked in that
+    /// moment (an app retrying, a browser tab) was told the name does not exist. A cache may keep that answer (Go's
+    /// carried no SOA to bound it), and so `kafka.larder.doze` failed after the stack was back. A parked name answers
+    /// with the address it will have again (addresses are hashed from the name), so a connection meanwhile is refused,
+    /// like any stopped service's port, and the next one after `up` works with nothing to forget.
+    ///
+    /// Only names with an address of their own are parked: one on a shared address (127.0.0.1 without machine setup)
+    /// is reached by its port, and another stack may take that port while this one is down. Domains outside the zone
+    /// are not parked either: while no stack serves `dev.acme.com` it is the real one's. Nothing that fronts or
+    /// translates is kept (route, certificate, ports), so the front door and the network daemon see no parked name.
+    pub fn park(&self) -> Result<usize, Error> {
+        let (pid, now, net) = (i64::from(self.pid), now_secs(), self.net);
+        self.update(|m| {
+            let mut n = 0;
+            for (host, e) in m.iter_mut() {
+                let own = e.addr().is_some_and(|ip| net.in_pool(ip));
+                if e.pid == pid && own && in_zone(host) && !host.starts_with('_') {
+                    *e = Entry {
+                        ip: std::mem::take(&mut e.ip),
+                        owner: std::mem::take(&mut e.owner),
+                        tier: std::mem::take(&mut e.tier),
+                        parked: now,
+                        ..Entry::default()
+                    };
+                    n += 1;
+                }
+            }
+            Ok(n)
+        })
     }
 
     /// The entry that owns `host`: an exact match, else the nearest registered ancestor (a name owns its subtree).

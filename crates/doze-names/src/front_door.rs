@@ -7,6 +7,7 @@
 use crate::certs::{CA_CHECK_EVERY, CaSource, Certs, Chosen};
 use crate::front::{INGRESS_KEY, INGRESS_TLS_KEY, ingress_bind, ingress_tls_bind};
 use crate::resolver::Log;
+use crate::standby::Standby;
 use crate::{Registry, SUFFIX};
 use hyper::service::service_fn;
 use hyper_util::rt::TokioIo;
@@ -18,8 +19,6 @@ use tokio::net::TcpListener;
 use tokio::sync::watch;
 use tokio::task::JoinHandle;
 use tokio_rustls::LazyConfigAcceptor;
-
-const RETRY: Duration = Duration::from_secs(2);
 
 /// The https side: the settings every handshake shares, and where its certificate comes from. The certificate is
 /// chosen after the client's hello is read, on a blocking thread (it may read files or mint a leaf), and handed to
@@ -137,6 +136,7 @@ async fn hold(
     bound: Option<watch::Sender<bool>>,
 ) {
     let mut announced = false;
+    let mut standby = Standby::new(Some(cfg.registry.path()));
     loop {
         // IPv4 explicitly: `:80` takes the IPv6 wildcard, which macOS hands over even while another program holds
         // IPv4 0.0.0.0:80, leaving a socket no client reaches.
@@ -161,9 +161,8 @@ async fn hold(
             }
             Err(_) => {}
         }
-        tokio::select! {
-            _ = stop.changed() => return,
-            () = tokio::time::sleep(RETRY) => {}
+        if standby.wait(&mut stop).await {
+            return;
         }
     }
 }

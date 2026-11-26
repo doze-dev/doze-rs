@@ -261,3 +261,41 @@ elevated Windows runners). Tests never touch the real zone: a private home with 
   mailpit-like) are its tests. It plugs into the Rust core's daemon when that exists (the proxy accepts on the bound
   sockets). Note: the standalone doze-aws and doze-kafka binaries do not join the zone (owner, 2026-11-07); doze-aws
   and every other module reach names by declaring routes.
+- **Stronger and lighter, 2026-11-26** (branch names-lighter), from the network audit of that day
+  (`proof/network-audit-2026-11-26.txt`: pipelined valkey through a name at 0.78M GET/s against 2.09M over plain TCP,
+  netd waking every second, NXDOMAIN with no SOA and an ENOTFOUND for `kafka.larder.doze` after a `down`/`up`):
+  - DNS (wire.rs): what the machine answers for is answered with `aa`, and NXDOMAIN and NODATA carry the zone's SOA
+    (owner `doze.`, TTL and MINIMUM 1 s: RFC 2308's negative TTL), so no cache may keep a "not found" longer. A
+    forwarded name's fallback NXDOMAIN claims nothing, as before. Whether mDNSResponder honours it is for the owner's
+    Mac to confirm (the resolver file is root's; the wire format is tested).
+  - Parked names (registry.rs, `Registry::park`; doze-daemon calls it as it stops): `doze down` used to release every
+    name, so it was NXDOMAIN until the next `up`. Now a stopping daemon parks its names that have an address of their
+    own (pid 0, `parked` time, no route, ports or certificate): they keep resolving to the same hashed address for 24
+    h, connections to them are refused (netd sees no ports; the front door no route), any claim takes them, an address
+    asked for takes it from a parked name, and the hash counts parked addresses as taken. Not parked: names on a shared
+    127.0.0.1 (another stack may take the port while this one is down), domains outside the zone (the real one's while
+    no stack serves it), the stack's own record. A build from before parking prunes them as dead (pid 0), which is the
+    old behaviour. `snapshot()` (front door, doctor, CLI) never shows them; doctor does not call them leftovers.
+  - Reads stopped writing (registry.rs): every `snapshot`/`resolve` took the lock and rewrote names.json, so each DNS
+    question, front-door request and TLS handshake replaced the file (and told netd the table might have changed). A
+    read is now a plain read of the renamed-into-place file; only one that finds something to prune (or no stamp, or
+    another format) goes through the locked write.
+  - netd idle (table.rs `TableCache::follow`, doze-os `fs::Watch`): the 1 s ticker became a kqueue `EVFILT_VNODE` watch
+    on the registry's folder (both files are replaced by rename, a write to the folder), a stat check on each event,
+    and a forced rebuild every 60 s for a process that died without writing (the next registry read prunes it and
+    writes, which is an event too). Zero wakeups while nothing is written. Where nothing can be watched: the 1 s poll.
+  - Standing by (standby.rs): the resolver's and front door's 2 s retry ran in every standing-by program (netd and each
+    daemon, three loops apiece). They now wait for the registry's folder to change (the holder's record goes when it
+    lets go: take-over is immediate, then five tries 100 ms apart), with 10 s for a holder killed without writing; 2 s
+    where nothing can be watched (Linux, Windows).
+  - netd per packet (nat.rs): the translation swaps the addresses (which leaves both sums as they were) and changes one
+    port, so the TCP checksum is adjusted (RFC 1624 eqn. 3) and the IP header's left alone, once `Checksums` has seen
+    64 packets arrive with complete sums (then one in 1024 is still checked; one partial sum means whole sums for
+    good, logged). The whole sum adds 8 bytes at a time; the port table is one map each way keyed by address and port
+    with a one-multiply hash; the loop keeps its table and looks at a generation counter instead of taking the lock
+    and the reference count per packet. `cargo bench -p doze-names --bench translate` (copy of the packet included;
+    M packets/s, Apple silicon): 64 B 33.6 → 194, 1500 B 13.9 → 60.6, 16 KB 1.70 → 6.9 (the copy alone: 7.0). The
+    translation was never most of a packet's cost (one `recv` and one `send` per packet are, and tun-rs has no batch
+    read on macOS's utun), so the valkey ceiling is to be measured again on the owner's Mac after the helper reinstall.
+  - Job versions: VERSION_DARWIN 5, VERSION_LINUX 3, so `doze setup` installs the new daemon (it holds the resolver
+    from boot, so the SOA reaches clients only once it is reinstalled).
