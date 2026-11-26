@@ -115,7 +115,9 @@ async fn run(cfg: &Config, started: Instant) -> Result<(), String> {
     };
     me.endpoint = endpoint_of(running.local_addr());
     resumable.resume(&me.endpoint).await;
-    me.advertised = advertised(cfg)?;
+    me.advertised = advertised(cfg, "advertise")?;
+    // Refused here, with the gateway's, not found out when the console starts.
+    advertised(cfg, "advertise-console")?;
     // The line a supervisor (and the conformance harness) waits for.
     tracing::info!("doze-aws listening on {}", running.local_addr());
     write_instance(cfg, &data, &mut me);
@@ -148,13 +150,13 @@ fn write_instance(cfg: &Config, data: &std::path::Path, me: &mut Instance) {
     }
 }
 
-/// The URL `--advertise` names (without a trailing slash), empty when none is given.
-fn advertised(cfg: &Config) -> Result<String, String> {
-    let given = cfg.text("advertise");
+/// The URL `--advertise` (or `--advertise-console`) names (without a trailing slash), empty when none is given.
+fn advertised(cfg: &Config, key: &str) -> Result<String, String> {
+    let given = cfg.text(key);
     let url = given.trim().trim_end_matches('/');
     if !url.is_empty() && !(url.starts_with("http://") || url.starts_with("https://")) {
         return Err(format!(
-            "--advertise {given:?} is not an http:// or https:// address"
+            "--{key} {given:?} is not an http:// or https:// address"
         ));
     }
     Ok(url.to_owned())

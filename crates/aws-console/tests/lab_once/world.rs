@@ -123,6 +123,7 @@ pub(crate) fn lab_in(name: &str, served: &[&'static str], mode: Mode) -> Lab {
         flags: Vec::new(),
         data: None,
         lab: aws_console::LabFacts::default(),
+        console_url: String::new(),
     };
     let state = State::new(
         facts,

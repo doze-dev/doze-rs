@@ -64,13 +64,19 @@ pub(crate) fn facts() -> Facts {
         flags: Vec::new(),
         data: None,
         lab: aws_console::LabFacts::default(),
+        console_url: String::new(),
     }
 }
 
 /// The state of a console with an empty record of `capacity` calls.
 pub(crate) fn state(capacity: usize, allow_hosts: &[&str]) -> Shared {
+    state_of(facts(), capacity, allow_hosts)
+}
+
+/// The same, over the facts given.
+pub(crate) fn state_of(facts: Facts, capacity: usize, allow_hosts: &[&str]) -> Shared {
     State::new(
-        facts(),
+        facts,
         Arc::new(Recorder::holding(capacity)),
         HOST.parse().unwrap(),
         allow_hosts.iter().map(|h| (*h).to_owned()).collect(),

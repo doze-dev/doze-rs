@@ -61,6 +61,9 @@ pub struct Facts {
     pub data: Option<Arc<dyn LocalData>>,
     /// The Lab's fault rules: the table the gateway asks, or why there is none.
     pub lab: LabFacts,
+    /// The URL people reach the console at when it is not the address it listens on (`--advertise-console`: under doze, the
+    /// front doze put before it). Empty: the address it listens on.
+    pub console_url: String,
 }
 
 /// What the binary says of the Lab (`--lab`).

@@ -10,7 +10,17 @@
 mod support;
 
 use aws_gateway::Finished;
-use support::{app, get, json, keys, sqs_call, state, ts_keys};
+use support::{app, get, json, keys, sqs_call, state, state_of, ts_keys};
+
+#[tokio::test]
+async fn about_says_the_console_is_where_it_was_advertised_when_it_was() {
+    let mut facts = support::facts();
+    facts.console_url = "http://local.shop.doze:4567".into();
+    let app = app(&state_of(facts, 8, &[]));
+    let (status, about) = json(&app, get("/api/v1/about")).await;
+    assert_eq!(status, 200, "{about}");
+    assert_eq!(about["console"], "http://local.shop.doze:4567");
+}
 
 #[tokio::test]
 async fn about_says_what_this_doze_aws_is() {

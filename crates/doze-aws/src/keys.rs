@@ -85,6 +85,14 @@ pub(crate) const KEYS: &[Key] = &[
         SERVER,
     ),
     key(
+        "advertise-console",
+        Kind::Text,
+        "",
+        "URL",
+        "The address the console is reached at, when it is not the one it listens on: set by doze, whose address stands in front of it",
+        SERVER,
+    ),
+    key(
         "lab",
         Kind::Text,
         "on",
