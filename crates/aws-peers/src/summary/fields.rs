@@ -13,6 +13,8 @@ pub trait Fields {
     fn number(&self, member: &str) -> Option<u64>;
     /// The text `member` holds.
     fn text(&self, member: &str) -> Option<&str>;
+    /// The text `member` of the structure `parent` holds (IAM `PolicyVersion.VersionId`).
+    fn text_in(&self, parent: &str, member: &str) -> Option<&str>;
     /// The boolean `member` holds (`IsTruncated`).
     fn flag(&self, member: &str) -> Option<bool>;
     /// Whether `member` is there and not null.
@@ -36,6 +38,11 @@ impl TreeFields<'_> {
         let Val::Obj(first) = self.arena.node(self.root)?.val else {
             return None;
         };
+        self.find_from(first, member)
+    }
+
+    /// The member among the siblings that begin at `first`.
+    fn find_from(&self, first: u32, member: &str) -> Option<Val> {
         let mut at = first;
         while at != NIL {
             let node = self.arena.node(at)?;
@@ -76,6 +83,13 @@ impl Fields for TreeFields<'_> {
         self.arena.str_of(self.body, self.find(member)?)
     }
 
+    fn text_in(&self, parent: &str, member: &str) -> Option<&str> {
+        let Val::Obj(first) = self.find(parent)? else {
+            return None;
+        };
+        self.arena.str_of(self.body, self.find_from(first, member)?)
+    }
+
     fn flag(&self, member: &str) -> Option<bool> {
         match self.find(member)? {
             Val::Bool(b) => Some(b),
@@ -110,6 +124,10 @@ impl Fields for Value {
 
     fn text(&self, member: &str) -> Option<&str> {
         get(self, member)?.as_str()
+    }
+
+    fn text_in(&self, parent: &str, member: &str) -> Option<&str> {
+        get(get(self, parent)?, member)?.as_str()
     }
 
     fn flag(&self, member: &str) -> Option<bool> {

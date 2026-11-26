@@ -64,6 +64,20 @@ pub enum Kind {
     Session,
     /// IAM: who or what an attach or a membership was for, held as the detail.
     To,
+    /// IAM `ListGroupsForUser`: the groups a user is in.
+    Groups,
+    /// IAM `ListAttached*Policies` and `List*Policies`: the policies attached to, or written into, a user, group or role.
+    Policies,
+    /// IAM `ListAccessKeys`.
+    AccessKeys,
+    /// IAM `ListMFADevices`.
+    MfaDevices,
+    /// IAM `ListEntitiesForPolicy`: the users, groups and roles a policy is attached to, together.
+    Entities,
+    /// IAM `ListPolicyVersions`.
+    Versions,
+    /// IAM `GetPolicyVersion`: the number of the version read (`v3`).
+    Version,
 }
 
 /// A result, compact: a kind and up to two counts.
@@ -159,6 +173,13 @@ impl Summary {
             Kind::Series => more("series", "series", "no series"),
             Kind::Session => with("session".to_owned()),
             Kind::To => with("to".to_owned()),
+            Kind::Groups => more("group", "groups", "no groups"),
+            Kind::Policies => more("policy", "policies", "no policies"),
+            Kind::AccessKeys => more("access key", "access keys", "no access keys"),
+            Kind::MfaDevices => more("MFA device", "MFA devices", "no MFA devices"),
+            Kind::Entities => more("entity", "entities", "no entities"),
+            Kind::Versions => more("version", "versions", "no versions"),
+            Kind::Version => format!("v{n}"),
         })
     }
 }

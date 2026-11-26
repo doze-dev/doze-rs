@@ -9,69 +9,9 @@
     clippy::panic
 )]
 
-use std::io::{BufRead, BufReader, Read, Write};
-use std::net::TcpStream;
-use std::path::Path;
-use std::process::{Child, Command, Stdio};
-use std::time::{Duration, Instant};
+mod summaries_support;
 
-use serde_json::Value;
-
-const BIN: &str = env!("CARGO_BIN_EXE_doze-aws");
-
-fn start(dir: &Path) -> (Child, String, String) {
-    let mut child = Command::new(BIN)
-        .args(["--listen", "127.0.0.1:0", "--console", "127.0.0.1:0"])
-        .args([
-            "--services",
-            "sqs,sns,s3,dynamodb,kinesis,eventbridge,logs,cloudwatch,iam,sts,stepfunctions",
-        ])
-        .current_dir(dir)
-        .env("NO_COLOR", "1")
-        .stdout(Stdio::piped())
-        .stderr(Stdio::null())
-        .spawn()
-        .unwrap();
-    let mut lines = BufReader::new(child.stdout.take().unwrap()).lines();
-    let (mut endpoint, mut console) = (String::new(), String::new());
-    for line in lines.by_ref() {
-        let line = line.unwrap();
-        if let Some((label, value)) = line.trim().split_once(' ') {
-            match label {
-                "endpoint" => value.trim().clone_into(&mut endpoint),
-                "console" => value.trim().clone_into(&mut console),
-                _ => {}
-            }
-        }
-        if line.contains("when something looks wrong") {
-            break;
-        }
-    }
-    std::thread::spawn(move || lines.for_each(drop));
-    (child, endpoint, console)
-}
-
-fn request(url: &str, head: &str, body: &str) -> String {
-    let host = url.trim_start_matches("http://");
-    let mut s = TcpStream::connect(host).unwrap();
-    s.set_read_timeout(Some(Duration::from_secs(5))).unwrap();
-    write!(
-        s,
-        "{head}\r\nHost: {host}\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
-        body.len()
-    )
-    .unwrap();
-    let mut out = String::new();
-    s.read_to_string(&mut out).unwrap();
-    out
-}
-
-fn signed(service: &str) -> String {
-    format!(
-        "X-Amz-Date: 20261114T000000Z\r\nAuthorization: AWS4-HMAC-SHA256 Credential=AKIDSUM/20261114/us-east-1/{service}/aws4_request, \
-         SignedHeaders=host;x-amz-date, Signature=00"
-    )
-}
+use summaries_support::{api, ok, query, request, said, signed, start, stop};
 
 /// A JSON-protocol call: `prefix.action`, the signing name and content type of the service.
 fn json(
@@ -94,46 +34,9 @@ const EVENTS: (&str, &str, &str) = ("events", "AWSEvents", "1.1");
 const CLOUDWATCH: (&str, &str, &str) = ("monitoring", "GraniteServiceVersion20100801", "1.0");
 const LOGS: (&str, &str, &str) = ("logs", "Logs_20140328", "1.1");
 
-fn query(endpoint: &str, service: &str, form: &str) -> String {
-    let head = format!(
-        "POST / HTTP/1.1\r\nContent-Type: application/x-www-form-urlencoded\r\n{}",
-        signed(service)
-    );
-    ok(&request(endpoint, &head, form))
-}
-
 fn s3(endpoint: &str, method: &str, path: &str, body: &str) -> String {
     let head = format!("{method} {path} HTTP/1.1\r\n{}", signed("s3"));
     ok(&request(endpoint, &head, body))
-}
-
-fn ok(made: &str) -> String {
-    assert!(made.starts_with("HTTP/1.1 200"), "{made}");
-    made.to_owned()
-}
-
-fn api(console: &str, path: &str) -> Value {
-    let answer = request(console, &format!("GET {path} HTTP/1.1\r\nX-Console: 1"), "");
-    let body = answer.split_once("\r\n\r\n").unwrap().1;
-    serde_json::from_str(body).unwrap_or_else(|e| panic!("{path}: {e}: {answer}"))
-}
-
-fn stop(mut child: Child) {
-    let _ = Command::new("kill").arg(child.id().to_string()).status();
-    let deadline = Instant::now() + Duration::from_secs(10);
-    while child.try_wait().unwrap().is_none() {
-        assert!(Instant::now() < deadline, "doze-aws did not stop");
-        std::thread::sleep(Duration::from_millis(20));
-    }
-}
-
-/// The summaries of the calls to `action`, oldest first (a call with none is `null`).
-fn said(calls: &[Value], action: &str) -> Vec<Value> {
-    calls
-        .iter()
-        .filter(|c| c["action"] == action && c["via"].is_null())
-        .map(|c| c["summary"].clone())
-        .collect()
 }
 
 /// SQS: a send says how big the body was; a receive how many came back; a batch how many were taken.
@@ -330,11 +233,55 @@ fn identities(e: &str) {
         "iam",
         "Action=AttachRolePolicy&RoleName=report-job&PolicyArn=arn%3Aaws%3Aiam%3A%3Aaws%3Apolicy%2FReadOnlyAccess&Version=2010-05-08",
     );
+    iam_lists(e);
     query(
         e,
         "sts",
         "Action=AssumeRole&RoleArn=arn%3Aaws%3Aiam%3A%3A000000000000%3Arole%2Freport-job&RoleSessionName=nightly&Version=2011-06-15",
     );
+}
+
+/// IAM lists say how many they hold, and a policy version read says which one: a user in one group with a policy attached
+/// and another written in, an access key, and no device.
+fn iam_lists(e: &str) {
+    let doc = "%7B%22Version%22%3A%222012-10-17%22%2C%22Statement%22%3A%5B%7B%22Effect%22%3A%22Allow%22%2C%22Action%22%3A%22s3%3AGetObject%22%2C%22Resource%22%3A%22*%22%7D%5D%7D";
+    let arn = "arn%3Aaws%3Aiam%3A%3A000000000000%3Apolicy%2Freaders";
+    let iam = |form: &str| query(e, "iam", &format!("{form}&Version=2010-05-08"));
+    iam("Action=CreateUser&UserName=ann");
+    iam("Action=CreateGroup&GroupName=cooks");
+    iam("Action=AddUserToGroup&GroupName=cooks&UserName=ann");
+    iam(&format!(
+        "Action=CreatePolicy&PolicyName=readers&PolicyDocument={doc}"
+    ));
+    iam(&format!(
+        "Action=AttachUserPolicy&UserName=ann&PolicyArn={arn}"
+    ));
+    iam(&format!(
+        "Action=AttachGroupPolicy&GroupName=cooks&PolicyArn={arn}"
+    ));
+    iam(&format!(
+        "Action=PutUserPolicy&UserName=ann&PolicyName=inline&PolicyDocument={doc}"
+    ));
+    iam(&format!(
+        "Action=PutGroupPolicy&GroupName=cooks&PolicyName=inline&PolicyDocument={doc}"
+    ));
+    iam("Action=CreateAccessKey&UserName=ann");
+    for form in [
+        "Action=ListGroupsForUser&UserName=ann".to_owned(),
+        "Action=ListAttachedUserPolicies&UserName=ann".to_owned(),
+        "Action=ListAttachedGroupPolicies&GroupName=cooks".to_owned(),
+        "Action=ListAttachedRolePolicies&RoleName=report-job".to_owned(),
+        "Action=ListUserPolicies&UserName=ann".to_owned(),
+        "Action=ListGroupPolicies&GroupName=cooks".to_owned(),
+        "Action=ListRolePolicies&RoleName=report-job".to_owned(),
+        "Action=ListAccessKeys&UserName=ann".to_owned(),
+        "Action=ListMFADevices&UserName=ann".to_owned(),
+        format!("Action=ListEntitiesForPolicy&PolicyArn={arn}"),
+        format!("Action=GetPolicyVersion&PolicyArn={arn}&VersionId=v1"),
+        format!("Action=ListPolicyVersions&PolicyArn={arn}"),
+    ] {
+        iam(&form);
+    }
 }
 
 /// CloudWatch: metrics put, series read.
@@ -413,6 +360,18 @@ fn a_record_says_what_each_call_did_and_only_what_it_can_know() {
     want("PutLogEvents", &["3 events"]);
     want("GetLogEvents", &["3 events"]);
     want("AttachRolePolicy", &["to report-job"]);
+    want("ListGroupsForUser", &["1 group"]);
+    want("ListAttachedUserPolicies", &["1 policy"]);
+    want("ListAttachedGroupPolicies", &["1 policy"]);
+    want("ListAttachedRolePolicies", &["1 policy"]);
+    want("ListUserPolicies", &["1 policy"]);
+    want("ListGroupPolicies", &["1 policy"]);
+    want("ListRolePolicies", &["no policies"]);
+    want("ListAccessKeys", &["1 access key"]);
+    want("ListMFADevices", &["no MFA devices"]);
+    want("ListEntitiesForPolicy", &["2 entities"]);
+    want("GetPolicyVersion", &["v1"]);
+    want("ListPolicyVersions", &["1 version"]);
     want("AssumeRole", &["session nightly"]);
     stop(child);
 }
