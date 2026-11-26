@@ -25,6 +25,7 @@ import { Switch } from "@/components/ui/switch";
 import { Toggle } from "@/components/ui/toggle";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { hhmmUtc, number } from "@/lib/format";
+import { useHidden } from "@/lib/hidden";
 import { useTailOwnsRefresh } from "@/lib/refresh";
 import { cn } from "@/lib/utils";
 import { PageError } from "../page-error";
@@ -203,6 +204,7 @@ function useTailTape(on: boolean, query: string, snap: LiveResponse | undefined,
   const [store] = useState(() => new TailStore());
   const { rows, heldCount, conn } = useSyncExternalStore(store.subscribe, store.get, store.get);
   const ctl = useRef({ show: () => {}, retry: () => {} });
+  const hidden = useHidden();
   const snapRef = useRef(snap);
   // Where a tail that restarts (a new speed) carries on from, so that the tape is not set back to the snapshot.
   const kept = useRef<{ query: string; tape: TapeRow[]; cursor: string } | null>(null);
@@ -220,7 +222,8 @@ function useTailTape(on: boolean, query: string, snap: LiveResponse | undefined,
       return;
     }
     const s = snapRef.current;
-    if (!ready || !s) return;
+    // A hidden tab keeps the tape it has and opens no stream; seen again, the tail goes on from the kept cursor.
+    if (!ready || !s || hidden) return;
     const carry = kept.current?.query === query ? kept.current : null;
     let tape: TapeRow[] = carry?.tape ?? s.live.rows.slice(0, TAPE_MOST);
     let aside: WireRow[] = [];
@@ -281,7 +284,7 @@ function useTailTape(on: boolean, query: string, snap: LiveResponse | undefined,
       stream.stop();
       clearTimeout(timer);
     };
-  }, [on, query, ready, pace, held, store]);
+  }, [on, query, ready, pace, held, store, hidden]);
   return { rows, heldCount, conn, show: () => ctl.current.show(), retry: () => ctl.current.retry() };
 }
 

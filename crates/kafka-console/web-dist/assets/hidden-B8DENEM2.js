@@ -1,0 +1,1 @@
+import{a as e,n as t}from"./react-dom-Bs1mUpjc.js";var n=e(t(),1);function r(e){return document.addEventListener(`visibilitychange`,e),()=>document.removeEventListener(`visibilitychange`,e)}function i(){return(0,n.useSyncExternalStore)(r,()=>document.hidden,()=>!1)}export{i as t};
