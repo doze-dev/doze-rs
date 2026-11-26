@@ -6,11 +6,13 @@
 //! - [`rule`]: what a rule is and every bound of the Lab, with the typed refusal for going past it.
 //! - [`glob`]: the pattern language of a rule's resource list.
 //! - [`codes`]: the error each service answers each kind of failure with, with where each comes from.
+//! - [`listed`]: the errors AWS's model lists for an operation, which a rule that fails with "an error I choose" answers with.
 //! - [`table`]: the table: bounded, in memory, with lazy expiry, precedence, and what a rule remembers.
 //! - [`words`]: the sentences. [`teach`]: the lessons.
 
 pub mod codes;
 pub mod glob;
+pub mod listed;
 pub mod record;
 pub mod rule;
 pub mod table;

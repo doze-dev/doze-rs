@@ -9,7 +9,7 @@ these are numbered AWS-LAB-1 and up. Forced events (`lab_once`) are another part
 Where the tests are: `aws-gateway/tests/fault_verdicts.rs` and `fault_slow_drop.rs` (the hook with a scripted table and a fake SQS, shared in `tests/fault/mod.rs`); `aws-console/src/lab/**/tests*.rs` (the table,
 rules, glob, codes, words, lessons); `aws-console/tests/lab_wire_json.rs`, `lab_wire_query.rs`, `lab_wire_others.rs` and `lab_wire_lambda.rs` (a real gateway with real SQS,
 SNS, S3, CloudWatch and Lambda behind it, shared in `tests/lab_wire/mod.rs`: the four protocol paths and the REST JSON one);
-`aws-console/tests/lab_api_rules.rs` and `lab_api_more.rs` (the console API, shared in `tests/lab_api/mod.rs`); `doze-aws/tests/lab.rs` (the binary);
+`aws-console/tests/lab_api_rules.rs`, `lab_api_more.rs` and `lab_api_custom.rs` (the console API, shared in `tests/lab_api/mod.rs`), `lab_wire_listed.rs`, `lab_send_body.rs`; `doze-aws/tests/lab.rs` (the binary);
 `console/apps/aws/e2e/tests/live-lab.spec.ts` (Live in a browser with the real AWS CLI). A name below with no file before it is in the file the last
 `tests/...::` named.
 
@@ -17,7 +17,7 @@ SNS, S3, CloudWatch and Lambda behind it, shared in `tests/lab_wire/mod.rs`: the
 At most 50 rules at once; a rule lasts 1 second to 24 hours; a delay is 1 to 60,000 ms (and jitter 0 to 60,000); a share is every call, every
 Nth (2 to 1,000) or a random 1 to 99 %; a rule names at most 16 services, 16 operations, 16 resource patterns, 8 regions and 8 access keys;
 a name is at most 80 characters with no control character; a pattern at most 256 bytes; a custom error code is 1 to 64 letters, digits and
-dots and its status 400 to 599. A rule past a bound is refused with a typed reason (`AddError`: its field and a sentence), never made and
+dots and its status 400 to 599, and (AWS-LAB-21) one the operation's model lists. A rule past a bound is refused with a typed reason (`AddError`: its field and a sentence), never made and
 never cut. The 51st rule is refused in words.
 Test: `lab::rule::tests::a_rule_is_checked_against_every_bound`, `a_delay_and_its_jitter_are_bounded`, `a_custom_error_has_an_error_status_and_a_plain_code`, `a_matcher_is_bounded_in_every_list`, `hostile_words_are_said_and_left_out`, `every_refusal_says_its_field_and_what_to_do`, `lab::table::tests::rules_are_bounded_at_fifty_and_a_replacement_does_not_count_twice`, `tests/lab_api_*::the_51st_rule_is_refused_in_words_and_a_replacement_is_not_counted_twice`, `tests/lab_api_*::what_is_wrong_with_a_rule_is_said_field_by_field`
 
@@ -42,7 +42,7 @@ Test: `lab::glob::tests::a_hostile_pattern_is_linear_not_exponential`, `the_walk
 
 ### AWS-LAB-5. What is not judged, and the console is never bent
 The hook sits after a request is decoded and before the service is asked. Not judged: `/_doze/health`, the `/_doze/` local hooks, function
-URLs and API Gateway stages (not AWS API calls), the console's own calls, a Lab "Send a call", and calls between services (they go over
+URLs and API Gateway stages (not AWS API calls), the console's own calls, a Lab "Send a call" (S3 PutObject with a body included: AWS-LAB-23), and calls between services (they go over
 the bus, not through the gateway). A request refused before it was decoded (a body the model refuses) is the service's validation error,
 as AWS answers it: no rule is asked about it.
 Test: `aws-gateway/tests/fault_*::a_request_the_pipeline_refused_before_it_was_decoded_is_not_judged`, `a_request_is_judged_with_what_the_pipeline_learnt_of_it`
@@ -148,3 +148,29 @@ The answer to a throttle, an unavailable or an internal error carries a code eve
 client that retries as the SDKs do (three attempts) gets through when a rule that fires twice has fired twice. The browser test runs the real AWS
 CLI at its default retries against a throttle rule and sees the three tagged tries on Live.
 Test: `tests/lab_wire_*::a_client_that_retries_as_the_sdks_do_gets_through_when_the_rule_has_run_out`, `e2e/tests/live-lab.spec.ts`
+
+### AWS-LAB-21. An error of one's choosing is one the operation's model lists, with the model's status
+A Fail rule of kind `custom` answers an error from AWS's model of the operations it fits (`lab::listed`: the operation's error list in the vendored model, as a
+client reads its code: the shape's name for a JSON, CBOR or REST service, the Query code for a service that speaks only Query). A rule that fits several operations
+offers the errors every one of them lists (a model that does not have an operation is not asked about it); it must name a service and an operation, and says
+so where the list would be. The server enforces it for the check and for the make: a code the model does not list for them is refused in words
+(`AWS's model does not list X as an error of Y`, or `of every one of Y and Z`) and no rule is made; a status other than the model's is refused with the model's;
+operations with no error in common say so; a malformed code (not letters, digits and dots) is the form's own refusal. The rule keeps the model's shape, so
+the gateway words the answer as the model does for the protocol (SQS's JSON with its Query-compatible code, SNS's Query XML with its Query code, S3's `<Error>`
+with the model's status). The rule's sentence says the code and the status (`Answer QueueDoesNotExist (400) to ...`), a rule given no name is named after the code, and Live shows
+the code the call got. `GET /api/v1/lab/errors?services=&operations=` is the list.
+Test: `lab::listed::tests::an_operation_lists_the_errors_its_model_gives_it_with_the_models_status`, `several_operations_offer_only_the_errors_every_one_of_them_lists`, `a_query_service_names_a_code_by_its_query_code_and_it_can_still_be_found_by_its_shape`, `an_operation_no_model_has_and_no_operation_at_all_offer_nothing`, `two_apis_that_sign_alike_are_each_asked_only_about_the_operations_they_have`, `every_error_a_model_lists_for_an_operation_is_one_a_rule_can_answer`, `lab::codes::tests::an_error_chosen_from_the_model_keeps_its_shape_so_the_gateway_words_it_as_the_model_does`, `lab::words::tests::a_rule_without_a_name_is_named_by_what_it_does_and_never_too_long`, `tests/lab_api_custom::the_errors_offered_are_the_ones_the_model_lists_for_the_operation_with_its_status`, `several_operations_offer_what_they_share_and_nothing_is_offered_without_them`, `a_listed_error_makes_a_rule_with_the_models_status_and_the_sentence_and_name_say_the_code`, `a_code_the_model_does_not_list_for_the_operation_is_refused_in_words_and_no_rule_is_made`, `a_rule_that_fits_several_operations_needs_a_code_every_one_of_them_lists`, `an_error_of_ones_choosing_needs_a_service_and_an_operation_to_choose_from`, `tests/lab_wire_listed::an_sqs_error_the_model_lists_is_answered_with_the_models_status_and_its_query_code`, `an_sns_error_the_model_lists_is_answered_in_query_xml_with_its_query_code`, `an_s3_error_the_model_lists_is_answered_in_s3s_xml_with_the_models_404`; the browser: `e2e/tests/lab-gaps.spec.ts` (the first test, with the real AWS CLI and Live), `pages/lab/rule-form.test.ts`
+
+### AWS-LAB-22. A rule's callers are chosen from the account's keys and what Live has seen, or typed
+The Callers list of the rule dialog offers the access keys IAM lists for each user (with the user beside each, an inactive key said so), then the callers
+Live has seen that IAM does not list (with their client); a key in neither is typed in as it is. The console's own key and a call made for a service are not offered.
+The rule's matcher is the same list of keys as before (AWS-LAB-3).
+Test: `pages/lab/callers.test.ts`; the browser: `e2e/tests/lab-gaps.spec.ts` (the second test: an issued key with its user, a key Live saw, a key typed; a rule for one key bends that key only)
+
+### AWS-LAB-23. Send a call puts a small text body for S3 PutObject, through the upload's path, and refuses UploadPart with its reason
+`PutObject` takes the input's `Body` as text, at most 64 KiB (the operation says it as `body_max`, and the form shows a live count); the bytes go to S3 through the
+bus's payload path the console's own upload uses (`Bus::call_rest`), with the length set by the server, so a body past the limit or that is not text is refused
+before anything is put, and no body is an empty object. `UploadPart` (one part of a multipart upload: it needs an upload ID, and every part but the last is at least 5 MiB)
+is refused with that reason, by the server (`NEEDS_MULTIPART`) and by the form (the operation's `cannot`). It is the console's own call, over the bus and not through the gateway, so no Lab rule
+sees it (AWS-LAB-5): a rule on `PutObject` bends an app's upload and not this one.
+Test: `api::lab_body::tests::a_put_takes_its_body_out_of_the_input_and_says_its_length`, `no_body_is_an_empty_object`, `a_body_is_text_and_at_most_64_kib`, `an_upload_part_is_refused_with_its_reason_and_other_calls_are_not_touched`, `tests/lab_send_body::a_put_object_from_send_a_call_puts_its_text_body_as_an_upload_does`, `a_put_object_with_no_body_makes_an_empty_object_and_a_body_of_64_kib_goes_through`, `a_body_past_64_kib_or_not_text_is_refused_and_nothing_is_put`, `an_upload_part_is_refused_with_its_reason_and_the_operation_says_what_it_carries`; the browser: `e2e/tests/lab-gaps.spec.ts` (the third and fourth tests), `pages/lab/body-box.test.ts`, `pages/lab/recipes.test.ts`

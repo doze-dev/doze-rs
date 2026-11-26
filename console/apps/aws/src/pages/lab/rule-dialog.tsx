@@ -12,8 +12,8 @@ import type { LabProblem } from "../../api/types/LabProblem";
 import { useDebounced } from "../../kit/debounce";
 import { useRegions } from "../../shell/region-menu";
 import { RuleLesson } from "./lesson";
-import { Field, LifetimeFields, MatchFields, ShareFields, SlowFields } from "./rule-fields";
-import { RULE_TABS, type RuleForm, type RuleTab, toBody } from "./rule-form";
+import { ErrorFields, Field, LifetimeFields, MatchFields, ShareFields, SlowFields } from "./rule-fields";
+import { CUSTOM_WORDS, RULE_TABS, type RuleForm, type RuleTab, toBody } from "./rule-form";
 
 /** The kind of rule, one of the guide's six: a group of buttons, one pressed. */
 function KindPicker({ tab, onPick, titles }: { tab: RuleTab; onPick: (t: RuleTab) => void; titles: Record<string, string> }) {
@@ -54,7 +54,7 @@ function Body({ initial, onDone }: { initial: RuleForm; onDone: () => void }) {
   const asked = useDebounced(JSON.stringify(body), 250);
   const check = useLabCheck(JSON.parse(asked.value));
   const set = (patch: Partial<RuleForm>) => (setForm((f) => ({ ...f, ...patch })), setRefusal(null));
-  const titles = Object.fromEntries((guide.data?.rehearsals ?? []).map((r) => [r.tab, r.title]));
+  const titles = { ...Object.fromEntries((guide.data?.rehearsals ?? []).map((r) => [r.tab, r.title])), custom: CUSTOM_WORDS.title };
   const teach = guide.data?.rehearsals.find((r) => r.tab === form.tab);
   const problems = refusal?.problems ?? check.data?.problems ?? [];
   const submit = (e: React.FormEvent) => {
@@ -86,7 +86,14 @@ function Body({ initial, onDone }: { initial: RuleForm; onDone: () => void }) {
       <section className="grid gap-3"><h3 className="text-[12px] font-medium tracking-[0.08em] text-muted-foreground uppercase">Which calls</h3>
         <MatchFields form={form} set={set} problems={problems} targets={lab.data?.targets ?? []} regions={regions} />
       </section>
+      {form.tab === "custom" && (
+        <details className="rounded-lg border bg-card px-4 py-3" data-testid="rule-lesson">
+          <summary className="cursor-pointer text-[13.5px] font-medium text-bright">{CUSTOM_WORDS.title}: {CUSTOM_WORDS.lede}</summary>
+          <p className="mt-3 text-[13px] leading-5 text-muted-foreground"><b className="font-semibold text-foreground">In production: </b>{CUSTOM_WORDS.production}</p>
+        </details>
+      )}
       {form.tab === "slow" && <section className="grid gap-3"><h3 className="text-[12px] font-medium tracking-[0.08em] text-muted-foreground uppercase">What happens</h3><SlowFields form={form} set={set} problems={problems} max={60_000} /></section>}
+      {form.tab === "custom" && <section className="grid gap-3"><h3 className="text-[12px] font-medium tracking-[0.08em] text-muted-foreground uppercase">What happens</h3><ErrorFields form={form} set={set} problems={problems} /></section>}
       <section className="grid gap-3"><h3 className="text-[12px] font-medium tracking-[0.08em] text-muted-foreground uppercase">How often and how long</h3>
         <ShareFields form={form} set={set} problems={problems} />
         <LifetimeFields form={form} set={set} problems={problems} />

@@ -19,6 +19,7 @@ use axum::http::StatusCode;
 use axum::response::Response;
 use serde_json::{Map, Value};
 
+use super::lab_body::{body_max, cannot, split};
 use super::{error, json};
 use crate::model::{LabAnswer, LabError, LabIndex, LabMember, LabOperation, LabTarget};
 use crate::resources::bus::CONSOLE;
@@ -177,6 +178,7 @@ pub async fn operation(
         Err(res) => return *res,
     };
     let (members, example) = members(tables, op);
+    let (body_max, cannot) = (body_max(&target, &operation), cannot(&target, &operation));
     json(
         StatusCode::OK,
         &LabOperation {
@@ -184,6 +186,8 @@ pub async fn operation(
             operation,
             members,
             example,
+            body_max,
+            cannot,
         },
     )
 }
@@ -211,9 +215,20 @@ pub async fn send(
             "This console was started without the services' bus.",
         );
     };
+    // An object's body travels as an upload's does (`lab_body`); every other call is its JSON input.
+    let (input, payload) = match split(&target, &operation, input) {
+        Ok(split) => split,
+        Err(res) => return *res,
+    };
     let before = s.recorder.newest_seq();
     let started = Instant::now();
-    let answered = bus.call(&target, &operation, &input).await;
+    let answered = match payload {
+        Some(bytes) => bus
+            .call_rest(&target, &operation, &input, Some(bytes))
+            .await
+            .map(|reply| reply.json),
+        None => bus.call(&target, &operation, &input).await,
+    };
     let took_us = u64::try_from(started.elapsed().as_micros()).unwrap_or(u64::MAX);
     // The call's record: the console's first call of this operation after the ones held before it.
     let seq = s

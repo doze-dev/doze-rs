@@ -90,6 +90,7 @@ fn a_custom_error_has_an_error_status_and_a_plain_code() {
         effect: Effect::Fail(Fail::Custom {
             status,
             code: code.into(),
+            shape: None,
         }),
         ..throttle()
     };
@@ -271,6 +272,25 @@ fn every_refusal_says_its_field_and_what_to_do() {
         AddError::BadEntry(Field::Resources),
         AddError::UnknownService("sqz".to_owned()),
         AddError::UnknownOperation("SendMesage".to_owned()),
+        AddError::CustomNeeds(Field::Services),
+        AddError::CustomNeeds(Field::Operations),
+        AddError::NotListed {
+            code: "Teapot".to_owned(),
+            operations: "SendMessage".to_owned(),
+        },
+        AddError::NoCommonError {
+            operations: "SendMessage".to_owned(),
+            several: false,
+        },
+        AddError::NoCommonError {
+            operations: "SendMessage and ReceiveMessage".to_owned(),
+            several: true,
+        },
+        AddError::WrongStatus {
+            code: "Teapot".to_owned(),
+            listed: 400,
+            given: 418,
+        },
     ];
     for e in all {
         assert!(!e.field().is_empty(), "{e:?}");

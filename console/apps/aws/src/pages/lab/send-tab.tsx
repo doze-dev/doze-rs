@@ -1,5 +1,5 @@
 import { SendIcon, UndoIcon } from "lucide-react";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Alert, ErrorBlock, errorWords } from "@doze/ui/components/app/alert";
 import { Combobox } from "@doze/ui/components/app/combobox";
 import { Button } from "@doze/ui/components/ui/button";
@@ -10,6 +10,7 @@ import { useLab, useLabOperation, useLabSend } from "../../api/spaces";
 import { CopyCalls, callJson, usePreview } from "../../kit";
 import { Card, CardSkeleton } from "../card";
 import { Answer } from "./answer";
+import { BodyBox, bytesOf, splitBody, withBody } from "./body-box";
 import { type Ask, addSent, newId, parseSent, sentFrom, type Sent } from "./history";
 import { SENT_KEY, readKept, writeKept } from "./kept";
 import { draftFor, inputText, setDraft, useDraft } from "./draft";
@@ -18,12 +19,6 @@ import { SavedList, SaveInput } from "./saved-list";
 import { SentList } from "./sent-list";
 import { type LabSearch, readInput } from "./search";
 import type { Saved } from "./saved";
-
-/** The words under the editor for an operation the Lab cannot send whole. */
-function cannotWords(op: string, target: string): string | null {
-  if (target === "s3" && (op === "PutObject" || op === "UploadPart")) return "The Lab sends over doze-aws's own bus, which carries no object body, so this is answered with an error. Upload on the bucket's page, or with the AWS CLI.";
-  return null;
-}
 
 /** Send a call: any operation doze-aws has built, an input started from AWS's model, sent as this console; the answer here and in Live. */
 export function SendTab({ api, op, pick }: { api: string; op: string; pick: (next: LabSearch) => void }) {
@@ -40,13 +35,18 @@ export function SendTab({ api, op, pick }: { api: string; op: string; pick: (nex
     writeKept(SENT_KEY, addSent(readKept(SENT_KEY, parseSent), entry));
   };
   const send = useLabSend(record);
+  // The body of a put, by the operation it is for: kept while the page is open, as the draft is.
+  const [bodies, setBodies] = useState<Record<string, string>>({});
   const text = draft?.text ?? operation.data?.example ?? "";
   const edited = draft !== null && operation.data !== undefined && draft.text !== operation.data.example;
   const input = readInput(text);
+  const bodyMax = operation.data?.body_max ?? null;
+  const body = bodies[`${api}/${op}`] ?? "";
+  const overBody = bodyMax !== null && bytesOf(body) > bodyMax;
   const apis = useMemo(() => targets.map((t) => ({ value: t.target, label: `${t.title}${t.sdk_id !== t.title ? ` · ${t.sdk_id}` : ""}`, hint: `${number(t.operations.length)} operations${t.served ? "" : " · not served"}` })), [targets]);
   const ops = useMemo(() => (target?.operations ?? []).map((o) => ({ value: o, label: o })), [target]);
   const preview = usePreview(target && op && input.ok ? { service: target.service, operation: op, input: input.value } : null);
-  const ask: Ask | null = target && op && input.ok ? { target: target.target, service: target.service, title: target.title, op, input: input.value } : null;
+  const ask: Ask | null = target && op && input.ok ? { target: target.target, service: target.service, title: target.title, op, input: bodyMax !== null ? withBody(input.value, body) : input.value } : null;
   const setText = (t: string) => setDraft({ target: api, op, text: t, note: draft?.note ?? null });
   const choose = (next: LabSearch) => (send.reset(), pick(next));
   const go = (e: React.FormEvent) => {
@@ -55,12 +55,15 @@ export function SendTab({ api, op, pick }: { api: string; op: string; pick: (nex
   };
   const replay = (s: Sent | Saved, note: string) => {
     if (!s.input) return;
-    setDraft({ target: s.target, op: s.op, text: inputText(s.input), note });
+    // A put's body goes back into its box, so the editor holds the rest.
+    const parts = s.op === "PutObject" ? splitBody(s.input) : { input: s.input, body: "" };
+    setBodies((b) => ({ ...b, [`${s.target}/${s.op}`]: parts.body }));
+    setDraft({ target: s.target, op: s.op, text: inputText(parts.input), note });
     send.reset();
     pick({ tab: "send", api: s.target, op: s.op });
   };
   const failed = send.error ? errorWords(send.error) : null;
-  const cannot = cannotWords(op, api);
+  const cannot = operation.data?.cannot ?? null;
   if (lab.isError && !lab.data) return <ErrorBlock what="The operations could not be read" error={lab.error} hint="Check that doze-aws is still running." onRetry={() => void lab.refetch()} retrying={lab.isFetching} className="mb-10" testId="lab-error" />;
   if (!lab.data) return <CardSkeleton rows={4} />;
   return (
@@ -99,10 +102,11 @@ export function SendTab({ api, op, pick }: { api: string; op: string; pick: (nex
                   <Textarea id="lab-input" value={text} onChange={(e) => setText(e.target.value)} spellCheck={false} rows={12} className="bg-card font-mono text-[12.5px] leading-5" data-testid="lab-input" aria-invalid={!input.ok} />
                   {!input.ok && <p className="text-[12.5px] text-destructive" data-testid="lab-input-why">{input.why}</p>}
                 </div>
-                {cannot && <Alert tone="warn" title="This call cannot be sent whole from the Lab" testId="lab-cannot">{cannot}</Alert>}
+                {cannot && <Alert tone="warn" title="This call cannot be sent from the Lab" testId="lab-cannot">{cannot}</Alert>}
+                {bodyMax !== null && <BodyBox value={body} onChange={(v) => setBodies((b) => ({ ...b, [`${api}/${op}`]: v }))} max={bodyMax} />}
                 <MemberList members={operation.data.members} />
                 <div className="flex flex-wrap items-center gap-3">
-                  <Button type="submit" disabled={!ask || send.isPending} data-testid="lab-send">
+                  <Button type="submit" disabled={!ask || send.isPending || overBody || cannot !== null} data-testid="lab-send">
                     <SendIcon /> {send.isPending ? "Sending…" : `Send ${op}`}
                   </Button>
                   <SaveInput ask={ask} />

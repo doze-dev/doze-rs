@@ -222,6 +222,7 @@ fn a_fail_rule_answers_with_the_error_of_the_service_it_fits() {
         effect: Effect::Fail(Fail::Custom {
             status: 418,
             code: "Teapot".into(),
+            shape: None,
         }),
         ..throttle()
     })

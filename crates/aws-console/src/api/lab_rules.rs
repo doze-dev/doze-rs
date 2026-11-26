@@ -43,6 +43,7 @@ pub fn routes() -> Router<Shared> {
         .route("/api/v1/lab/stop-all", post(stop_all))
         .route("/api/v1/lab/history/clear", post(clear_history))
         .route("/api/v1/lab/guide", get(guide))
+        .route("/api/v1/lab/errors", get(super::lab_custom::errors))
 }
 
 /// The table, or the answer that says the Lab is off.
