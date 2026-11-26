@@ -281,6 +281,7 @@ fn a_failure_carries_the_rule_and_says_it_was_made_by_one() {
         &Fail::Custom {
             status: 509,
             code: "Bandwidth.Exceeded".into(),
+            shape: None,
         },
         &call,
         tag(),
@@ -290,4 +291,27 @@ fn a_failure_carries_the_rule_and_says_it_was_made_by_one() {
         (None, 509, "Bandwidth.Exceeded")
     );
     assert!(custom.message.contains("Bandwidth.Exceeded"));
+}
+
+#[test]
+fn an_error_chosen_from_the_model_keeps_its_shape_so_the_gateway_words_it_as_the_model_does() {
+    let tag = || aws_gateway::Tag {
+        rule: 3,
+        name: "n".into(),
+    };
+    let call = ask("sqs", "SQS", "SendMessage");
+    let chosen = failure(
+        &Fail::Custom {
+            status: 400,
+            code: "InvalidMessageContents".into(),
+            shape: Some("InvalidMessageContents"),
+        },
+        &call,
+        tag(),
+    );
+    assert_eq!(
+        (chosen.shape, chosen.status, &*chosen.code),
+        (Some("InvalidMessageContents"), 400, "InvalidMessageContents")
+    );
+    assert!(chosen.message.contains("InvalidMessageContents"));
 }

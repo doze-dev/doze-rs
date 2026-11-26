@@ -69,6 +69,7 @@ fn a_rule_is_a_sentence_made_once() {
             Effect::Fail(Fail::Custom {
                 status: 418,
                 code: "Teapot".into(),
+                shape: None,
             }),
             Share::Every,
         )
@@ -155,6 +156,18 @@ fn a_rule_without_a_name_is_named_by_what_it_does_and_never_too_long() {
     assert_eq!(
         default_name(&spec(Effect::Drop, Share::Every)),
         "Drop every call"
+    );
+    let custom = Fail::Custom {
+        status: 404,
+        code: "QueueDoesNotExist".into(),
+        shape: None,
+    };
+    assert_eq!(
+        default_name(&with(
+            (&["sqs"], &["SendMessage"], &[]),
+            spec(Effect::Fail(custom), Share::Every)
+        )),
+        "Fail with QueueDoesNotExist sqs SendMessage"
     );
     let ops: Vec<String> = (0..3).map(|i| format!("{}{i}", "O".repeat(40))).collect();
     let refs: Vec<&str> = ops.iter().map(String::as_str).collect();

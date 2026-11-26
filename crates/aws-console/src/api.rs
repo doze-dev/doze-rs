@@ -29,6 +29,7 @@ pub mod flows;
 pub mod home;
 pub mod lab;
 mod lab_build;
+mod lab_custom;
 pub mod lab_once;
 pub mod lab_rules;
 mod lab_view;

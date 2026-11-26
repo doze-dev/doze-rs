@@ -66,8 +66,13 @@ pub enum Fail {
     Internal,
     /// The caller may not do this.
     AccessDenied,
-    /// A status and a code of the person's.
-    Custom { status: u16, code: Box<str> },
+    /// An error the operation's model lists, which the person chose: the status and code the model gives, and the model's shape
+    /// (so the gateway words it as the model says). A rule not made through the console's API may carry a code of its own and no shape.
+    Custom {
+        status: u16,
+        code: Box<str>,
+        shape: Option<&'static str>,
+    },
 }
 
 /// What a rule does to a call it fires on.
@@ -151,7 +156,7 @@ impl Spec {
             {
                 out.push(AddError::BadDelay);
             }
-            Effect::Fail(Fail::Custom { status, code }) => {
+            Effect::Fail(Fail::Custom { status, code, .. }) => {
                 if !(400..=599).contains(status) {
                     out.push(AddError::BadStatus(*status));
                 }

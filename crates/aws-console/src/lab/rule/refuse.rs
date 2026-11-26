@@ -34,6 +34,14 @@ pub enum AddError {
     UnknownService(String),
     /// An operation none of the services named has.
     UnknownOperation(String),
+    /// An error of the person's choosing needs the field named to say which errors the model lists.
+    CustomNeeds(Field),
+    /// A code the model does not list for the operation (for every one of them, when there are several).
+    NotListed { code: String, operations: String },
+    /// Operations whose models list no error in common.
+    NoCommonError { operations: String, several: bool },
+    /// A status other than the one the model gives the code.
+    WrongStatus { code: String, listed: u16, given: u16 },
 }
 
 /// A list of a matcher.
@@ -84,6 +92,8 @@ impl AddError {
             Self::TooMany(f) | Self::BadEntry(f) => f.word(),
             Self::UnknownService(_) => "services",
             Self::UnknownOperation(_) => "operations",
+            Self::CustomNeeds(f) => f.word(),
+            Self::NotListed { .. } | Self::NoCommonError { .. } | Self::WrongStatus { .. } => "effect",
         }
     }
 
@@ -112,7 +122,7 @@ impl AddError {
             Self::BadHits => "A number of hits is at least 1.".to_owned(),
             Self::BadStatus(s) => format!("{s} is not an error status: use 400 to 599."),
             Self::BadCode => format!(
-                "An error code is 1 to {LONGEST_CODE} letters, digits and dots (such as ThrottlingException)."
+                "Choose an error from the list: a code is 1 to {LONGEST_CODE} letters, digits and dots (such as QueueDoesNotExist), and the operation's model lists it."
             ),
             Self::TooMany(f) => format!("A rule names at most {} {}.", f.most(), f.word()),
             Self::BadEntry(f) => format!(
@@ -128,6 +138,22 @@ impl AddError {
             Self::UnknownOperation(o) => {
                 format!("None of the services this rule names has an operation called {o}.")
             }
+            Self::CustomNeeds(f) => format!(
+                "An error of your choosing is picked from the errors AWS lists for an operation: name the {} first.",
+                if *f == Field::Services { "service" } else { "operation" }
+            ),
+            Self::NotListed { code, operations } => format!(
+                "AWS's model does not list {code} as an error of {operations}, so a rule cannot answer it. Choose one of the errors offered."
+            ),
+            Self::NoCommonError { operations, several: false } => format!(
+                "AWS's model lists no error for {operations}: it fails only with the errors every service can answer. Use Throttle, Unavailable, Internal or Access denied."
+            ),
+            Self::NoCommonError { operations, .. } => format!(
+                "AWS's model lists no error that {operations} all share. Name one operation, or operations that fail the same way."
+            ),
+            Self::WrongStatus { code, listed, given } => format!(
+                "AWS's model gives {code} the status {listed}, not {given}."
+            ),
         }
     }
 }

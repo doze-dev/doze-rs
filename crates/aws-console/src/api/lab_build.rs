@@ -4,6 +4,7 @@
 
 use aws_wire::service::Service;
 
+use super::lab_custom::custom;
 use super::lab_view::answers;
 use crate::facts::Facts;
 use crate::lab::rule::Fail as Failure;
@@ -52,7 +53,7 @@ fn apis(facts: &Facts) -> impl Iterator<Item = &dyn Service> {
 
 /// What the words a person typed for a service mean: the signing names of its APIs when it is a catalogue name (`stepfunctions` is
 /// `states`), the word as it is when it is a signing name or an SDK id, and `None` when this build has no such service.
-fn resolve(facts: &Facts, word: &str) -> Option<Vec<String>> {
+pub(super) fn resolve(facts: &Facts, word: &str) -> Option<Vec<String>> {
     if let Some(s) = facts
         .services
         .iter()
@@ -77,6 +78,19 @@ fn resolve(facts: &Facts, word: &str) -> Option<Vec<String>> {
                 || a.meta().sdk_id.eq_ignore_ascii_case(word)
         })
         .then(|| vec![word.to_owned()])
+}
+
+/// The APIs of the build that `services` (signing names or SDK ids) name, with their models.
+pub(super) fn models_fitting(facts: &Facts, services: &[impl AsRef<str>]) -> Vec<crate::lab::listed::Model> {
+    apis(facts)
+        .filter(|a| {
+            services.iter().any(|s| {
+                s.as_ref().eq_ignore_ascii_case(a.meta().signing_name)
+                    || s.as_ref().eq_ignore_ascii_case(a.meta().sdk_id)
+            })
+        })
+        .map(|a| (a.meta(), a.tables()))
+        .collect()
 }
 
 /// The service a word of a rule's matcher is, as a person reads it (`states` is `Step Functions`; an SDK id is itself).
@@ -143,7 +157,12 @@ fn matcher_of(facts: &Facts, m: &LabMatcher, problems: &mut Vec<AddError>) -> Ma
     matcher
 }
 
-fn effect_of(e: &LabEffect, problems: &mut Vec<AddError>) -> Effect {
+fn effect_of(
+    facts: &Facts,
+    e: &LabEffect,
+    matcher: &Matcher,
+    problems: &mut Vec<AddError>,
+) -> Effect {
     match e {
         LabEffect::Slow {
             delay_ms,
@@ -162,14 +181,24 @@ fn effect_of(e: &LabEffect, problems: &mut Vec<AddError>) -> Effect {
             LabFailKind::Unavailable => Failure::Unavailable,
             LabFailKind::Internal => Failure::Internal,
             LabFailKind::AccessDenied => Failure::AccessDenied,
+            // What the service or an operation could not be read as is said already, and the model is not asked about it.
             LabFailKind::Custom => {
-                if status.is_none() {
-                    problems.push(AddError::BadStatus(0));
+                let unread = problems
+                    .iter()
+                    .any(|p| matches!(p.field(), "services" | "operations"));
+                let mut said = Vec::new();
+                let fail = custom(
+                    facts,
+                    &matcher.services,
+                    &matcher.operations,
+                    *status,
+                    code.as_deref().unwrap_or_default(),
+                    &mut said,
+                );
+                if !unread {
+                    problems.extend(said);
                 }
-                Failure::Custom {
-                    status: status.unwrap_or(0),
-                    code: code.clone().unwrap_or_default().trim().into(),
-                }
+                fail
             }
         }),
     }
@@ -181,7 +210,7 @@ fn effect_of(e: &LabEffect, problems: &mut Vec<AddError>) -> Effect {
 pub(super) fn build(facts: &Facts, body: &LabRuleBody) -> (Spec, Vec<AddError>) {
     let mut problems = Vec::new();
     let matcher = matcher_of(facts, &body.matcher, &mut problems);
-    let effect = effect_of(&body.effect, &mut problems);
+    let effect = effect_of(facts, &body.effect, &matcher, &mut problems);
     let share = match body.share {
         LabShare::Every => Share::Every,
         LabShare::Nth { n } => Share::Nth(n),
