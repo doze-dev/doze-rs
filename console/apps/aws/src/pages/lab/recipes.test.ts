@@ -38,9 +38,12 @@ describe("recipes", () => {
     expect(atob(input.Payload)).toBe('{"source":"lab"}');
   });
 
-  test("the bucket's recipe looks inside it, because an object cannot be put from the Lab", () => {
+  test("a bucket has two recipes: look inside it, and put a short text note in it, whose body is the input's Body", () => {
     const r = spec("s3-list").build(row("images"), []);
     expect(r?.ask).toMatchObject({ op: "ListObjectsV2", input: { Bucket: "images" } });
+    const p = spec("s3-put").build(row("images"), []);
+    expect(p?.ask).toMatchObject({ op: "PutObject", input: { Bucket: "images", Key: "lab-note.txt", Body: "Hello from the Lab" } });
+    expect(p?.resource).toBe("images/lab-note.txt");
   });
 
   test("a state machine, a topic, a bus and a secret name themselves in the call", () => {

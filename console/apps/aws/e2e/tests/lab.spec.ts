@@ -35,11 +35,13 @@ test("the tabs are in the address, a reload keeps the tab, and the keyboard goes
   await expect(page.getByTestId("lab-tab-rehearse")).toHaveAttribute("aria-current", "page");
 });
 
-test("Rehearse has the six rule rehearsals and the five forced events, each with what it stands for in production", async ({ page }) => {
+test("Rehearse has the six rule rehearsals, the error of one's choosing and the five forced events, each with what it stands for in production", async ({ page }) => {
   await open(page, "/lab", "Lab");
   await expect(page.getByText("Not built yet")).toHaveCount(0);
   await expect(page.getByText("Needs a newer doze-aws")).toHaveCount(0);
-  await expect(page.getByTestId("rehearsal-cards").getByRole("article")).toHaveCount(6);
+  await expect(page.getByTestId("rehearsal-cards").getByRole("article")).toHaveCount(7);
+  await expect(page.getByTestId("rehearsal-custom")).toContainText("In production:");
+  await expect(page.getByTestId("rehearsal-custom").getByTestId("rule-start")).toBeEnabled();
   await expect(page.getByTestId("event-cards").getByRole("article")).toHaveCount(5);
   await expect(page.getByTestId("rehearsal-throttle")).toContainText("In production:");
   await expect(page.getByTestId("rehearsal-throttle").getByTestId("rule-start")).toBeEnabled();
@@ -69,9 +71,14 @@ test("Send a call picks a service and an operation, starts from the model's exam
   await expect(page.getByTestId("lab-send")).toBeEnabled();
 });
 
-test("S3 PutObject says in words that the Lab cannot carry an object", async ({ page }) => {
+test("S3 PutObject asks for a text body, and UploadPart says in words why it cannot be sent", async ({ page }) => {
   await open(page, "/lab?tab=send&api=s3&op=PutObject", "Lab");
-  await expect(page.getByTestId("lab-cannot")).toContainText("carries no object body");
+  await expect(page.getByTestId("lab-body")).toContainText("65,536 bytes");
+  await expect(page.getByTestId("lab-cannot")).toHaveCount(0);
+  await open(page, "/lab?tab=send&api=s3&op=UploadPart", "Lab");
+  await expect(page.getByTestId("lab-cannot")).toContainText("CreateMultipartUpload");
+  await expect(page.getByTestId("lab-body")).toHaveCount(0);
+  await expect(page.getByTestId("lab-send")).toBeDisabled();
 });
 
 test("with nothing made, the recipes say to make something first; a recipe appears when its thing exists and goes when it does not", async ({ page, accessKey, browserName }) => {
@@ -144,7 +151,7 @@ test("the table, bucket and secret recipes send real calls; a secret's value is 
     await expect(page.getByTestId("lab-answer")).toContainText("Answered");
     const item = aws(server.endpoint, ["dynamodb", "get-item", "--table-name", table, "--key", '{"id":{"S":"lab-1"}}'], { accessKey });
     expect(item.out).toContain("lab-1");
-    // A bucket: it is looked inside (an object cannot be put from the Lab).
+    // A bucket: it is looked inside.
     await page.goto(`${server.console}/lab`);
     await page.getByTestId("lab-recipe-s3-list").getByTestId("lab-recipe-open").click();
     await page.getByTestId("lab-send").click();
