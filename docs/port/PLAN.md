@@ -229,7 +229,7 @@ clients with weight measured against Go.
 - **Group and transaction semantics** (largest correctness risk; the sans-IO
   design makes them testable but not simpler).
 - **Registry parity** for Protobuf/JSON-Schema compatibility.
-- **`F_FULLFSYNC`** on macOS: confirm `sync_all` matches the Go behaviour.
+- **`F_FULLFSYNC`** on macOS: confirm `sync_all` matches the Go behaviour. (2026-11-26, the owner: doze-kafka flushes with `fsync(2)` on macOS instead; weight.md, "A flush per produce on macOS".)
 - **Console fidelity** after rewriting markup in maud: the e2e suite is the net;
   if it proves too costly, fall back to askama templates with the same typed
   view-models.

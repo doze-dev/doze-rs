@@ -923,12 +923,28 @@ nothing (0.07 wake-ups a second). Parking it would also change the console's "la
 most measured under load is 13 threads; a cap would only matter in a stall, and the keep-alive is what lets a burst reuse its
 threads.
 
-**Not changed, the owner's call: a full flush per acks=all produce on macOS.** `RealFile::sync_data` uses std's `sync_data`, which
-on Apple platforms is `fcntl(F_FULLFSYNC)`: it empties the drive's write cache, takes milliseconds, and slows other programs'
-writes too. Java producers send acks=all by default, so an app producing a few records a second costs that many full flushes. A
-plain `fsync` (or `F_BARRIERFSYNC`) would keep everything through a crash of the broker or of macOS and lose only what a power cut
-catches in the drive's cache. `kill -9`, the usual crash in development, loses nothing either way. PLAN.md chose acks=all durable
-before the reply, and `F_FULLFSYNC`, to match Go.
+### A flush per produce on macOS (2026-11-26, the owner's call)
+
+std's `sync_data` and `sync_all` are `fcntl(F_FULLFSYNC)` on Apple platforms: the drive empties its write cache before the call
+returns. That takes milliseconds and slows every other program's writes meanwhile. doze-kafka flushes once per group of acks=all
+produces (Java producers send acks=all by default), once per partition every `--fsync-interval` for acks=1, and once per
+metadata commit, so a busy app asked for a full flush many times a second. PLAN.md had chosen `F_FULLFSYNC` to match Go.
+
+doze-kafka now calls `doze_fs::fs::full_flush(false)` at start, and its flushes on macOS are `fsync(2)` (through rustix: no
+`unsafe`). What is flushed survives a crash of the broker and of macOS; only a power cut can lose what the drive had not yet
+written from its cache. `kill -9`, the usual crash in development, never lost anything either way. Linux is unchanged (its `fsync`
+is already the whole flush), and so is every other user of `doze-fs` (doze-aws, doze's own store): the default stays `true`.
+
+Measured (release, darwin/arm64, loopback, franz-go, two runs each):
+
+| | `F_FULLFSYNC` | `fsync(2)` |
+|---|---|---|
+| 200k × 1000 B, acks=all, one producer | 161k to 173k records/s, broker CPU 0.14 to 0.16 s | 1.68M to 2.14M records/s, 0.08 to 0.09 s |
+| An app at 100 records/s (acks=all) and its group, 20 s | broker CPU 0.42 to 0.43 s | 0.38 to 0.39 s |
+
+acks=all is now about as fast as acks=1 (1.25M to 1.68M records/s on the same machine and load), since the flush no longer waits
+on the drive's cache.
+
 ## One build: CI's measurements (2026-11-14)
 
 Main's first CI run with the one build (TLS in the default, the registry with Avro, JSON Schema and Protobuf), run 43588988185 on PR #45,

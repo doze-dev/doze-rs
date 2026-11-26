@@ -133,6 +133,21 @@ fn the_real_file_system_keeps_the_contract() {
     contract(&RealFs, &scratch.0);
 }
 
+/// With the full flush off (doze-kafka's setting) every flush still succeeds, of files and of directories: on macOS it is
+/// `fsync(2)` instead of `F_FULLFSYNC`, elsewhere nothing changes. (Other tests running meanwhile may see either setting;
+/// both keep the contract.)
+#[test]
+fn the_real_file_system_keeps_the_contract_with_the_full_flush_off() {
+    let scratch = Scratch::new();
+    full_flush(false);
+    contract(&RealFs, &scratch.0);
+    let (file, _) = RealFs.open_or_create(&scratch.0.join("flushed")).unwrap();
+    file.write_all_at(b"kept", 0).unwrap();
+    file.sync_data().unwrap();
+    RealFs.sync_dir(&scratch.0).unwrap();
+    full_flush(true);
+}
+
 #[test]
 fn the_simulated_file_system_keeps_the_contract() {
     contract(&SimFs::new(), Path::new("/"));

@@ -13,7 +13,7 @@ use std::io;
 use std::path::Path;
 
 pub use durable::{create_dirs_durably, read_file, write_durably};
-pub use real::RealFs;
+pub use real::{RealFs, full_flush};
 
 /// An entry in a directory listing.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
@@ -184,7 +184,8 @@ pub trait FsFile: Send + Sync + 'static {
     /// Anything the system refuses.
     fn size(&self) -> io::Result<u64>;
 
-    /// Flushes the file's contents to stable storage (a full device-cache flush on macOS).
+    /// Flushes the file's contents to stable storage (on macOS a full device-cache flush unless [`full_flush`] turned it
+    /// off).
     ///
     /// # Errors
     /// A failed flush. It is never retried: see `StorageError::Offline`.
