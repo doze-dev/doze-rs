@@ -92,7 +92,7 @@ pub fn write_blocks(run: &RunDir, cfg: &doze_config::Config) -> io::Result<()> {
 /// daemon's prints are made another way, so a caller that knows the daemon is Go's does not compare them).
 pub fn blocks(run: &RunDir) -> Option<std::collections::BTreeMap<String, doze_config::BlockPrint>> {
     let text = std::fs::read_to_string(run.blocks_file()).ok()?;
-    let serde_json::Value::Object(map) = serde_json::from_str(&text).ok()? else {
+    let serde_json::Value::Object(map) = serde_json::from_slice(text.as_bytes()).ok()? else {
         return None;
     };
     map.into_iter()

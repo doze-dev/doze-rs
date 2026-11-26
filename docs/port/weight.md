@@ -1029,6 +1029,55 @@ the linker (the base measured 8,652,824 B here against CI's 8,607,968 B, +0.5%),
   median 35.0 ms (32.0–38.8), cache 18.8 ms (17.2–22.6), a valkey PING through the front after a sleep 19.3 ms to its
   PONG; names on (Shared, a private zone): 36.8 ms, 19.5 ms, 20.7 ms. Go's budget (`budget.json`) is 250 ms.
 
+## Headroom for doze (2026-11-26, branch `doze-trim`)
+
+Main had reached 8,993,656 B on CI's x86_64 Linux (232 packages), 6 KB under the 9 MB line, and the next pull requests
+were over it. x86_64 Linux here is the zig cross build (main measured 9,022,944 B against CI's 8,993,656 B, +0.3%),
+`release-doze`; darwin/arm64 is native. Each row is measured on the row above:
+
+| | x86_64 Linux | darwin/arm64 | packages |
+|---|---|---|---|
+| main (4ff67532) | 9,022,944 B | 6,181,536 B | 234 (232 on CI) |
+| doze-hcl, doze-config and hcl-edit at "z" | 8,822,832 B (−200,112) | 5,853,712 B (−327,824) | |
+| serde_json reads bytes only (`from_slice`, never `from_str`) | 8,723,152 B (−99,680) | 5,787,200 B (−66,512) | |
+| the wall clock without jiff's `strftime` | 8,599,744 B (−123,408) | 5,687,568 B (−99,632) | |
+| the public suffix list decoded per top-level label | **8,607,376 B** (+7,632) | **5,704,112 B** (+16,544) | 234 |
+
+- **The profile.** A custom profile inherits its parent's package overrides: `release` puts doze-hcl, doze-config and
+  hcl-edit at "s" (core C2a), so D2's "the whole build at z" left those three at "s". Overriding them in `release-doze`
+  makes it whole. D2's warning (mixed levels grew darwin by 1.8 MB) was about "z" on a few crates over an "s" build;
+  this is the other way round, and both platforms shrink.
+- **serde_json.** Each reader type is a separate copy of every `Deserialize` it reaches: `from_str` and `from_slice`
+  of `InstanceView` and the rest of the control types were both in the binary (StrRead about 99 KB of `.text`). Nine
+  call sites (doze-cli lint, doze-fetch's child, doze-daemon ctl and topics, doze-journal and doze-projects gojson,
+  doze-names routes and ca, doze-module-proto snapshot) now pass `s.as_bytes()`; the input is already UTF-8, so the
+  values and the errors are the same.
+- **The wall clock.** `clock::wall` (log lines, `why`) formatted `%H:%M:%S` through jiff's `strftime`, which brought
+  jiff's whole strtime formatter and its errors. It now adds the zone's offset to the floored second and writes the
+  three fields; a unit test holds it to `strftime` over 1900–2100, negative fractions, quarter-hour offsets and both
+  DST edges. The zone itself (TZ, IANA, POSIX rules, the system's) is still jiff's.
+- **The public suffix list.** doze-config at "z" made a warm `doze status` on the acme fixture (one app domain) about
+  2 ms slower: decoding the whole front-coded list into a 10,000-node `BTreeMap` was most of the command (about 5 ms
+  of 9 at "s"; 3.8 ms without the domain). The list is now indexed by top-level label in one pass and only the
+  label a name ends in is decoded, on first use, which is the same table for that name (only rules that start with
+  the label touch its nodes; a unit test compares every node against the whole decode, and tests/psl.rs still
+  matches `psl` on every rule). Warm `doze status`, darwin, interleaved, median of 100 on a loaded machine: acme
+  10.50/11.14 ms on main and 8.25/8.78 ms on this branch; without the domain 6.25/6.31 and 6.29/6.50 ms.
+- **Headroom**: CI's figure should be about 8,579,000 B, 420 KB under the 9 MB line. The line is unchanged.
+- **Considered, not taken:**
+  - `.eh_frame` and `.eh_frame_hdr` are 1.06 MB of the Linux file and `.rela.dyn` 404 KB. Dropping them needs
+    `-C force-unwind-tables=no` or a static relocation model in RUSTFLAGS, which CI's and the release workflow's own
+    `RUSTFLAGS` replace; linking with `-z pack-relative-relocs` needs glibc 2.36 and the release builds on ubuntu-22.04
+    (2.35); `-no-pie` gives up ASLR for a program that runs a TLS front door. Left.
+  - ed25519-dalek to ring's Ed25519 (ring is already linked by rustls): curve25519-dalek and SHA-512 are about 50 KB of
+    `.text`, but `verify_strict`'s weak-key and small-order checks would have to be carried by hand, and
+    `VerifyingKey` is in doze-fetch's API. Not worth the risk for this size.
+  - The RustCrypto stack under the CA (p256, ecdsa, x509-cert, der, spki: about 280 KB of `.text` by symbol) next to
+    ring: replacing it means owning the certificate's DER and the key files' formats. The largest remaining lever,
+    for a separate change with its own audit.
+  - jiff for the zone (about 90 KB with jiff-core before this change, less now): the POSIX rules and TZif reading are
+    Go's `time.Local` behaviour and fuzzed; not replaced.
+
 ## Core D1 with the module catalog (`doze` carries the daemon), measured 2026-11-15, release, darwin/arm64
 
 | | bytes | packages (normal, unique) |
