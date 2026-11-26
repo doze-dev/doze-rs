@@ -159,7 +159,26 @@ test("ssm__parameter-edit: Edit saves the next version with Overwrite", async ({
   // The board edits the description, the tier and the value: the type, the data type and the key stay as they are, and are not asked.
   await expect(page.getByTestId("type-SecureString")).toHaveCount(0);
   await expect(page.getByTestId("parameter-datatype")).toHaveCount(0);
+  // A SecureString opens masked and read-only, holding the encrypted text, not the value: the value is read only on request.
+  const masked = page.getByTestId("parameter-value-masked");
+  await expect(masked).toHaveAttribute("type", "password");
+  await expect(masked).toHaveAttribute("readonly", "");
+  await expect(masked).not.toHaveValue("kq7Vz-2mPf-Lr9Xw-Tn40");
+  await expect(masked).not.toHaveValue("");
+  await expect(page.getByTestId("parameter-value")).toHaveCount(0);
+  await expect(page.getByTestId("field-value")).toContainText("the encrypted text would become the new value");
+  // Saving before the value is read is refused by the form: the encrypted text must not be written back.
+  await page.getByTestId("form-submit").click();
+  await expect(page.getByTestId("field-value")).toContainText("Turn on Show decrypted value before saving");
+  await expect(page.getByTestId("saved-banner")).toHaveCount(0);
+  // Show decrypted value reads it open, and only then can it be changed.
+  await page.getByTestId("value-reveal").click();
   await expect(page.getByTestId("parameter-value")).toHaveValue("kq7Vz-2mPf-Lr9Xw-Tn40");
+  await expect(page.getByTestId("parameter-value")).not.toHaveAttribute("readonly", "");
+  await page.getByTestId("value-reveal").click();
+  await expect(page.getByTestId("parameter-value-masked")).toHaveAttribute("readonly", "");
+  await expect(page.getByTestId("parameter-value-masked")).toHaveValue("kq7Vz-2mPf-Lr9Xw-Tn40");
+  await page.getByTestId("value-reveal").click();
   await page.getByTestId("parameter-value").fill("Zt3Mw-8cQd-Hn5Rb-Ve62");
   await expect(page.getByTestId("call-panel")).toContainText('"Overwrite": true');
   await expect(page.getByTestId("call-panel")).not.toContainText('"Type"');

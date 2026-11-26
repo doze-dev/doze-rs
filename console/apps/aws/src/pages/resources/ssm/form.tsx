@@ -3,12 +3,14 @@
 // and makes the next version, and cannot change the type.
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Alert } from "@doze/ui/components/app/alert";
 import { KeyValueEditor } from "@doze/ui/components/app/key-value-editor";
 import { rowsValid } from "@doze/ui/components/app/key-values";
 import { Input } from "@doze/ui/components/ui/input";
+import { Label } from "@doze/ui/components/ui/label";
+import { Switch } from "@doze/ui/components/ui/switch";
 import { cn } from "@doze/ui/lib/utils";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@doze/ui/components/ui/select";
 import { Textarea } from "@doze/ui/components/ui/textarea";
@@ -20,7 +22,7 @@ import { fieldOf } from "../cfg-parts";
 import { KeyAliasPicker } from "../key-picker";
 import { crumbs } from "../kms/parts";
 import { refusalOf } from "../kms/schedule";
-import { blankParam, DATA_TYPES, type DataType, nameProblem, type ParamForm, paramRows, pasts, putInput, savingWords, type Tier, valueProblem } from "./model";
+import { blankParam, DATA_TYPES, type DataType, nameProblem, type ParamForm, paramRows, pasts, putInput, savingWords, secureEditValue, type Tier, valueProblem } from "./model";
 import { useHistory } from "./tab-history";
 
 export const PARAMETERS = { service: "ssm", kind: "parameters" } as const;
@@ -44,24 +46,28 @@ export function ParameterForm({ d }: { d?: ResourceDetail }) {
   const list = useAllRows("ssm", "parameters");
   const known = useMemo(() => paramRows(list.rows, list.columns), [list.rows, list.columns]);
   const first = list.first;
-  const [f, setF] = useState<ParamForm>(() => (d ? { ...blankParam(), name: d.name, description: fieldOf(d, "Description") ?? "", tier: (fieldOf(d, "Tier") === "Advanced" ? "Advanced" : "Standard") as Tier, type: (fieldOf(d, "Type") ?? "String") as ParamForm["type"], key: fieldOf(d, "Key") ?? null, value: fieldOf(d, "Type") === "SecureString" ? "" : (fieldOf(d, "Value") ?? "") } : blankParam()));
+  const [raw, setF] = useState<ParamForm>(() => (d ? { ...blankParam(), name: d.name, description: fieldOf(d, "Description") ?? "", tier: (fieldOf(d, "Tier") === "Advanced" ? "Advanced" : "Standard") as Tier, type: (fieldOf(d, "Type") ?? "String") as ParamForm["type"], key: fieldOf(d, "Key") ?? null, value: fieldOf(d, "Type") === "SecureString" ? "" : (fieldOf(d, "Value") ?? "") } : blankParam()));
   const [tried, setTried] = useState(false);
   const [pending, setPending] = useState(false);
   const [refused, setRefused] = useState<{ code: string; message: string } | null>(null);
-  // A SecureString is edited from its own value: read decrypted when the form opens, until the person has typed.
-  const typed = useRef(false);
+  // A SecureString opens masked, as the encrypted text GetParameter returns without decryption; "Show decrypted value" reads it open, on
+  // demand, and only then is the value shown and editable (see secureEditValue).
   const secureEdit = editing && fieldOf(d, "Type") === "SecureString";
-  const current = useQuery({ queryKey: ["resources", "kindop", "ssm", "parameters", "GetParameter", d?.name, "edit"], queryFn: ({ signal }) => callKindOp<{ Parameter: { Value: string } }>(PARAMETERS, "GetParameter", { Name: d?.name, WithDecryption: true }, signal), enabled: secureEdit, retry: false, staleTime: 0, gcTime: 0 });
-  useEffect(() => {
-    const read = current.data?.Parameter.Value;
-    if (read !== undefined && !typed.current) setF((x) => ({ ...x, value: read }));
-  }, [current.data]);
-  const set = (patch: Partial<ParamForm>) => { if (patch.value !== undefined) typed.current = true; setF((x) => ({ ...x, ...patch })); setRefused(null); };
+  const [shown, setShown] = useState(false);
+  const [edited, setEdited] = useState(false);
+  const sealed = useQuery({ queryKey: ["resources", "kindop", "ssm", "parameters", "GetParameter", d?.name, "sealed"], queryFn: ({ signal }) => callKindOp<{ Parameter: { Value: string } }>(PARAMETERS, "GetParameter", { Name: d?.name, WithDecryption: false }, signal), enabled: secureEdit, retry: false, staleTime: 0, gcTime: 0 });
+  const current = useQuery({ queryKey: ["resources", "kindop", "ssm", "parameters", "GetParameter", d?.name, "edit"], queryFn: ({ signal }) => callKindOp<{ Parameter: { Value: string } }>(PARAMETERS, "GetParameter", { Name: d?.name, WithDecryption: true }, signal), enabled: secureEdit && shown, retry: false, staleTime: 0, gcTime: 0 });
+  // The value read open fills the field until the person types; it is read-only until it has been read, so nothing is typed before.
+  const plain = current.data?.Parameter.Value;
+  const loaded = plain !== undefined;
+  const f: ParamForm = secureEdit && !edited && loaded ? { ...raw, value: plain } : raw;
+  const vs = secureEditValue({ secure: secureEdit, shown, loaded });
+  const set = (patch: Partial<ParamForm>) => { if (patch.value !== undefined) setEdited(true); setF((x) => ({ ...x, ...patch })); setRefused(null); };
   const history = useHistory(d?.name ?? "", editing);
   const saving = editing ? savingWords(pasts(history.data?.Parameters ?? [])) : null;
   const exists = !editing && known.some((p) => p.name === f.name);
   const existing = known.find((p) => p.name === f.name);
-  const problems = { name: editing ? null : nameProblem(f.name), value: valueProblem(f.value, f.tier), tags: rowsValid(f.tags, TAG_RULES) ? null : "Fix the tags marked." };
+  const problems = { name: editing ? null : nameProblem(f.name), value: vs.blocked ?? valueProblem(f.value, f.tier), tags: rowsValid(f.tags, TAG_RULES) ? null : "Fix the tags marked." };
   const bad = Object.values(problems).some(Boolean);
   const taken = refused?.code === "ParameterAlreadyExists";
   const input = putInput(f, { overwrite: editing, editing });
@@ -131,8 +137,13 @@ export function ParameterForm({ d }: { d?: ResourceDetail }) {
         {!editing && <Field label="KMS Key ID" optional={f.type !== "SecureString"} help={<>A key id, key ARN, alias name or alias ARN; an alias is written with the <span className="font-mono">alias/</span> prefix. Left empty, AWS uses <span className="font-mono">alias/aws/ssm</span>. {f.type === "SecureString" ? "doze-aws seals the value with this key, through KMS, so the key must exist and be enabled." : "It applies to a SecureString only."}</>}>
           {(id) => <KeyAliasPicker id={id} value={f.type === "SecureString" ? f.key : null} onChange={(key) => set({ key })} defaultLabel="aws/ssm" />}
         </Field>}
-        <Field label="Value" error={tried ? (problems.value ?? undefined) : undefined} help={<>On AWS a value is limited to <b>4 KB</b> on Standard and <b>8 KB</b> on Advanced, and can&apos;t contain <span className="font-mono">{"{{ }}"}</span> or <span className="font-mono">{"{{ssm:name}}"}</span>. This one is {new TextEncoder().encode(f.value).length.toLocaleString("en-US")} characters.</>} hint={secureEdit ? (current.isError ? "The current value could not be read. Saving makes a new version with what you enter." : "The current value is read decrypted when this form opens, so the call is on the record; saving makes a new version with what is here.") : undefined} testId="field-value">
-          {(id) => <Textarea id={id} value={f.value} onChange={(e) => set({ value: e.target.value })} rows={4} spellCheck={false} className="bg-card font-mono text-[13px]" data-testid="parameter-value" />}
+        <Field label="Value" error={tried ? (problems.value ?? undefined) : undefined} help={<>On AWS a value is limited to <b>4 KB</b> on Standard and <b>8 KB</b> on Advanced, and can&apos;t contain <span className="font-mono">{"{{ }}"}</span> or <span className="font-mono">{"{{ssm:name}}"}</span>. This one is {new TextEncoder().encode(f.value).length.toLocaleString("en-US")} characters.</>} hint={secureEdit ? (shown && current.isError ? "The decrypted value could not be read. Saving needs it: try the switch again." : shown && !loaded ? "Reading the value with GetParameter and WithDecryption…" : loaded ? "Decrypted for this form by a GetParameter call from the console, which is in Recent calls; saving makes a new version with what is here." : "A SecureString opens masked, as the encrypted text GetParameter returns without decryption. The value can be changed only after Show decrypted value, which reads it open and puts that call in Recent calls. It can't be saved before: the encrypted text would become the new value.") : undefined} testId="field-value">
+          {(id) => secureEdit ? (
+            <div className="grid gap-3">
+              {vs.masked ? <Input id={id} type="password" value={loaded ? f.value : (sealed.data?.Parameter.Value ?? "")} readOnly aria-readonly className="cursor-default bg-well font-mono text-[13px]" autoComplete="off" data-testid="parameter-value-masked" /> : <Textarea id={id} value={f.value} onChange={(e) => set({ value: e.target.value })} readOnly={vs.readOnly} rows={4} spellCheck={false} className="bg-card font-mono text-[13px]" data-testid="parameter-value" />}
+              <div className="flex items-center gap-3"><Switch id="reveal-value" checked={shown} onCheckedChange={setShown} data-testid="value-reveal" /><Label htmlFor="reveal-value" className="font-normal">Show decrypted value</Label></div>
+            </div>
+          ) : <Textarea id={id} value={f.value} onChange={(e) => set({ value: e.target.value })} rows={4} spellCheck={false} className="bg-card font-mono text-[13px]" data-testid="parameter-value" />}
         </Field>
         {saving && <RuleHelp className="max-w-[46rem]"><span data-testid="saving-words"><b>{saving.lead}</b>{saving.rest && <> {saving.rest}</>}</span></RuleHelp>}
       </FormSection>
