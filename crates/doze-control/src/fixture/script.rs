@@ -10,6 +10,7 @@
 //! {"plan":[{"instance":"db","change":"create","kind":"database","name":"shop"}]}  what `plan` answers
 //! {"fail":{"key":"wake api","error":"boom","code":"timeout"}} an op ("op" or "op target") that fails
 //! {"verb_delay_ms":800}                                     how long each verb and data action takes to answer
+//! {"answer":{"op":"value","instance":"db","panel":"t","key":"orders","response":{…}}}  a canned answer (blocks)
 //! ```
 //!
 //! The scripts of the Go fixture hubs (shop, crash, modules, larder, …) were captured from Go's own
@@ -34,6 +35,22 @@ pub enum Entry {
     Plan(Vec<ChangeView>),
     Fail(Fail),
     VerbDelayMs(u64),
+    Answer(Answer),
+}
+
+/// A canned answer to one block request (the Rust daemon's `value` and `children`, and an `admin` form): for `op` on
+/// `instance`'s `panel`, where `key` is a value of the asked row (`value`), the folder (`children`)
+/// (with `filter` and `cursor`) or the action (`admin`). Its response may be a refusal (`error`, `code`, `field`).
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct Answer {
+    pub op: String,
+    pub instance: String,
+    pub panel: String,
+    pub key: String,
+    pub filter: String,
+    pub cursor: String,
+    pub response: Response,
 }
 
 /// An op that fails: `key` is `"op target"` or `"op"` (`"admin <action>"` for a data action).
@@ -71,6 +88,8 @@ pub struct Script {
     /// How long each verb (and data action) takes before it answers, as a real one takes a moment: so a page shows it
     /// busy.
     pub verb_delay: Duration,
+    /// Canned answers to block requests, the first that fits wins.
+    pub answers: Vec<Answer>,
 }
 
 /// A script line that could not be read.
@@ -123,6 +142,7 @@ impl Script {
             Entry::Plan(p) => self.plan = p,
             Entry::Fail(f) => self.fail.push(f),
             Entry::VerbDelayMs(ms) => self.verb_delay = Duration::from_millis(ms),
+            Entry::Answer(a) => self.answers.push(a),
         }
     }
 
@@ -138,6 +158,7 @@ impl Script {
         entries.extend((!self.verb_delay.is_zero()).then(|| {
             Entry::VerbDelayMs(u64::try_from(self.verb_delay.as_millis()).unwrap_or(u64::MAX))
         }));
+        entries.extend(self.answers.iter().cloned().map(Entry::Answer));
         entries.extend(self.steps.iter().map(|s| match s {
             Step::Frame(f) => Entry::Frame(f.clone()),
             Step::Wait(d) => Entry::WaitMs(u64::try_from(d.as_millis()).unwrap_or(u64::MAX)),
@@ -148,6 +169,23 @@ impl Script {
             .filter_map(|e| codec::encode(e).ok())
             .map(|l| String::from_utf8_lossy(&l).into_owned())
             .collect()
+    }
+
+    /// The canned answer for a block request, if one fits.
+    pub(crate) fn answer(&self, req: &crate::Request) -> Option<&Answer> {
+        self.answers.iter().find(|a| {
+            let key = match req.op.as_str() {
+                "value" => a.key.is_empty() || req.row.values().any(|v| *v == a.key),
+                "children" => {
+                    a.key == req.parent && a.filter == req.filter && a.cursor == req.cursor
+                }
+                _ => a.key == req.action,
+            };
+            a.op == req.op
+                && a.instance == req.db
+                && (a.panel.is_empty() || a.panel == req.panel)
+                && key
+        })
     }
 
     /// The failure scripted for `op` on `target`, if any.

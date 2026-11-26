@@ -2,6 +2,7 @@
 
 use crate::services::{self, Services};
 use doze_module_proto::method::Method;
+use doze_module_proto::msg::blocks::{Children, ChildrenArgs, ValueAnswer, ValueArgs};
 use doze_module_proto::msg::calls::{
     PruneArgs, RunAction, Shutdown, TemplateClone, TemplateEnsure, Unit,
 };
@@ -175,6 +176,18 @@ impl Running {
     }
     pub async fn run_action(&self, a: &RunAction) -> Result<String, Error> {
         self.call(Method::RunAction, a, SLOW).await
+    }
+    /// Whether the module may be asked `method`: it declared the capability, and the agreed protocol minor has it.
+    pub fn offers(&self, method: Method) -> bool {
+        self.peer.can_call(method)
+    }
+    /// Part of one value in full.
+    pub async fn value(&self, a: &ValueArgs) -> Result<ValueAnswer, Error> {
+        self.call(Method::Value, a, QUICK).await
+    }
+    /// One page of a tree folder's children.
+    pub async fn children(&self, a: &ChildrenArgs) -> Result<Children, Error> {
+        self.call(Method::Children, a, QUICK).await
     }
     /// Moves an instance's data to the version its block declares (it may fetch the builds it needs); what it did.
     pub async fn migrate(&self, a: &ResolveArgs) -> Result<String, Error> {

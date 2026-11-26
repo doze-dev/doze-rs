@@ -354,6 +354,7 @@ impl Draw<'_> {
                     asleep,
                     // The same measurements as the header: its actions column is the rows' width.
                     rooms: rooms.clone(),
+                    work: None,
                 };
                 range
                     .filter_map(|i| node.rows.get(i).map(|r| d.table_row(&node, &widths, r)))

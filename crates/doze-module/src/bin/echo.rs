@@ -12,6 +12,11 @@ use std::collections::BTreeMap;
 #[path = "echo/side.rs"]
 mod side;
 
+#[path = "echo/answers.rs"]
+mod answers;
+#[path = "echo/blocks.rs"]
+mod blocks;
+
 #[derive(Debug, Spec)]
 struct EchoSpec {
     #[spec(since = 2, doc = "What the engine says first (engine 2 and later).")]
@@ -49,7 +54,7 @@ impl Module for Echo {
             supervised: side::supervised(),
             backend_socket: Some("echo.sock".into()),
             example: "echo \"e\" {\n  version = \"2\"\n}\n".into(),
-            console: Some(console()),
+            console: Some(blocks::console()),
             // The engine's own build has a client: `doze connect` runs it there, at doze's address for the instance.
             client: Some(doze_module::proto::msg::hello::ClientCommand {
                 program: "doze-module-echo-engine".into(),
@@ -57,13 +62,7 @@ impl Module for Echo {
                 env: BTreeMap::from([("ECHO_PASSWORD".into(), "{password}".into())]),
                 fallbacks: vec!["nc".into()],
             }),
-            actions: vec![doze_module::proto::msg::console::Action {
-                id: "purge".into(),
-                label: "Purge".into(),
-                kind: "channel".into(),
-                destructive: true,
-                input_hint: None,
-            }],
+            actions: blocks::actions(),
             targets: [
                 "aarch64-apple-darwin",
                 "aarch64-unknown-linux-gnu",
@@ -234,6 +233,7 @@ impl doze_module::caps::Admin for Echo {
                 status: "open".into(),
                 info: BTreeMap::from([("size".to_string(), c.size.to_string())]),
             })
+            .chain(blocks::resources())
             .collect())
     }
 
@@ -246,6 +246,21 @@ impl doze_module::caps::Admin for Echo {
     ) -> Result<String> {
         record(&cx.spec, &format!("{action} {resource}"));
         Ok(format!("{action}d {resource}"))
+    }
+
+    async fn run_form(
+        &self,
+        cx: &Cx<EchoSpec>,
+        action: &str,
+        resource: &str,
+        input: Option<&str>,
+        values: &BTreeMap<String, String>,
+    ) -> Result<String> {
+        if !matches!(action, "create" | "apply-migrations") {
+            return self.run_action(cx, action, resource, input).await;
+        }
+        record(&cx.spec, &format!("{action} form"));
+        blocks::run_form(action, values)
     }
 }
 
@@ -295,6 +310,8 @@ fn main() -> std::process::ExitCode {
         .admin()
         .console()
         .migrate()
+        .values()
+        .tree()
         .run()
 }
 
@@ -326,41 +343,6 @@ impl doze_module::caps::Wire for Echo {
         let spliced = tokio::io::copy_bidirectional(&mut client, &mut backend).await;
         host.release().await?;
         spliced.map(drop).map_err(io)
-    }
-}
-
-/// A console with a stat block added to the app's overview after its "vitals" card: a module powering its own block in
-/// the app's page.
-fn console() -> doze_module::proto::msg::console::ConsoleSpec {
-    use doze_module::proto::msg::console::{Column, ConsoleSpec, Extension, Node, Panel};
-    let channels = Panel {
-        id: "channels".into(),
-        title: "Channels".into(),
-        kind: "counters".into(),
-        source: "channel".into(),
-        columns: vec![Column {
-            key: "size".into(),
-            title: "Size".into(),
-            role: "count".into(),
-            align: "right".into(),
-        }],
-        select: None,
-    };
-    let stat = Node {
-        kind: "stat".into(),
-        panel: "channels".into(),
-        title: "Channels".into(),
-        ..Node::default()
-    };
-    ConsoleSpec {
-        panels: vec![channels],
-        tabs: vec![],
-        web_url: None,
-        front: Some("console".into()),
-        extend: vec![Extension {
-            after: "vitals".into(),
-            node: stat,
-        }],
     }
 }
 

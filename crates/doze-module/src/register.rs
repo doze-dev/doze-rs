@@ -167,9 +167,28 @@ impl<M: Module> Server<M> {
                 let Some((a, call)) = args::<RunAction>(call) else {
                     return;
                 };
-                with_cx!(m, a.instance, call, peer, |cx| m
-                    .run_action(&cx, &a.action, &a.resource, a.input.as_deref())
-                    .await);
+                // A form's values are checked against what the action declares, its defaults filled in, before the
+                // module sees them; an action without fields runs as it always has.
+                let fields = m
+                    .about()
+                    .actions
+                    .into_iter()
+                    .find(|d| d.id == a.action)
+                    .map(|d| d.fields)
+                    .unwrap_or_default();
+                let mut values = a.values;
+                crate::forms::one_box(&fields, a.form, a.input.as_deref(), &mut values);
+                with_cx!(m, a.instance, call, peer, |cx| match crate::forms::check(
+                    &fields,
+                    a.form,
+                    &mut values
+                ) {
+                    Err(e) => Err(e),
+                    Ok(()) => {
+                        m.run_form(&cx, &a.action, &a.resource, a.input.as_deref(), &values)
+                            .await
+                    }
+                });
             }),
         )
     }

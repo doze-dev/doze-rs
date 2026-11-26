@@ -12,7 +12,7 @@ use doze_module::proto::msg::error::{Error, ErrorKind};
 use doze_module::{Cx, Result};
 
 use super::client::{Client, Fetched, TopicInfo};
-use super::{Kafka, KafkaSpec};
+use super::{Kafka, KafkaSpec, forms};
 
 /// How many messages of history a tail starts with, so that a quiet topic still shows what it is for (Go's).
 const TAIL_BACK: i64 = 10;
@@ -187,6 +187,27 @@ impl Admin for Kafka {
         }
         produce(&mut Client::connect(&cx.instance).await?, resource, input).await
     }
+
+    /// The forms (forms.rs); produce without values (an app that does not know forms) runs as it always did.
+    async fn run_form(
+        &self,
+        cx: &Cx<KafkaSpec>,
+        action: &str,
+        resource: &str,
+        input: Option<&str>,
+        values: &BTreeMap<String, String>,
+    ) -> Result<String> {
+        match action {
+            forms::CREATE_TOPIC => {
+                forms::create(&mut Client::connect(&cx.instance).await?, values).await
+            }
+            forms::PRODUCE if !values.is_empty() => {
+                let c = &mut Client::connect(&cx.instance).await?;
+                forms::produce(c, resource, input, values).await
+            }
+            _ => self.run_action(cx, action, resource, input).await,
+        }
+    }
 }
 
 impl Console for Kafka {
@@ -201,15 +222,20 @@ impl Console for Kafka {
     }
 }
 
-/// The one action: put a message on a topic, the thing a person reaches for a console to do.
+/// Put a message on a topic, the thing a person reaches for a console to do, and create a topic (their forms:
+/// forms.rs).
 pub(crate) fn actions() -> Vec<Action> {
-    vec![Action {
-        id: "produce".into(),
-        label: "Produce a message".into(),
-        kind: "topic".into(),
-        destructive: false,
-        input_hint: Some("message value".into()),
-    }]
+    vec![
+        Action {
+            id: forms::PRODUCE.into(),
+            label: "Produce a message".into(),
+            kind: "topic".into(),
+            destructive: false,
+            input_hint: Some("message value".into()),
+            fields: forms::produce_fields(),
+        },
+        forms::create_topic(),
+    ]
 }
 
 fn column(key: &str, title: &str, role: &str, right: bool) -> Column {

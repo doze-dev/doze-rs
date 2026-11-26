@@ -191,6 +191,8 @@ async fn the_app_sees_each_namespace_watches_commands_and_can_empty_one() {
         action: action.into(),
         resource: resource.into(),
         input: None,
+        values: Default::default(),
+        form: false,
     };
     assert_eq!(
         b.module

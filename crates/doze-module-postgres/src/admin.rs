@@ -1,10 +1,13 @@
-//! The console: what the server is doing now (counts, sessions and their queries, databases and their size), and two
-//! actions on a session (cancel its query, end it). Read with psql over the socket, as Go did.
+//! The console: what the server is doing now (counts, sessions and their queries, databases and their size), two
+//! actions on a session (cancel its query, end it) and one on the server (create a database, forms.rs), and the tabs
+//! that draw them with the schema tree (browse.rs) and the value viewer (value.rs). Read with psql over the socket.
 
 use crate::Postgres;
 use crate::psql::{self, Psql};
 use crate::spec::PostgresSpec;
+use crate::value;
 use doze_module::caps::Admin;
+use doze_module::proto::msg::blocks::kind;
 use doze_module::proto::msg::console::{
     Action, Column, ConsoleSpec, Extension, Node, Panel, Resource, Tab,
 };
@@ -115,8 +118,11 @@ impl Admin for Postgres {
         cx: &Cx<PostgresSpec>,
         action: &str,
         resource: &str,
-        _input: Option<&str>,
+        input: Option<&str>,
     ) -> Result<String> {
+        if action == crate::forms::CREATE_DATABASE {
+            return crate::forms::create(&cx.instance, input, &BTreeMap::new()).await;
+        }
         let pid = resource.trim().parse::<u32>().ok().filter(|p| *p > 0);
         let Some(pid) = pid else {
             return Err(Error::new(
@@ -149,6 +155,20 @@ impl Admin for Postgres {
         }
         Ok(done)
     }
+
+    async fn run_form(
+        &self,
+        cx: &Cx<PostgresSpec>,
+        action: &str,
+        resource: &str,
+        input: Option<&str>,
+        values: &BTreeMap<String, String>,
+    ) -> Result<String> {
+        if action == crate::forms::CREATE_DATABASE {
+            return crate::forms::create(&cx.instance, input, values).await;
+        }
+        self.run_action(cx, action, resource, input).await
+    }
 }
 
 pub(crate) fn actions() -> Vec<Action> {
@@ -158,10 +178,12 @@ pub(crate) fn actions() -> Vec<Action> {
         kind: "session".into(),
         destructive,
         input_hint: None,
+        fields: vec![],
     };
     vec![
         action("cancel", "Cancel query", false),
         action("terminate", "Terminate session", true),
+        crate::forms::create_database(),
     ]
 }
 
@@ -240,23 +262,44 @@ fn panels() -> Vec<Panel> {
             column("owner", "Owner", "", false),
         ],
     );
-    vec![activity, sessions, databases]
+    let browse = panel(crate::browse::PANEL, "Schemas", kind::TREE, "", vec![]);
+    vec![activity, sessions, databases, browse]
 }
 
-/// Go's layout: an activity tab (the counts, the sessions beside the selected one's query and the actions), and the
-/// databases after the overview's vitals card.
+/// Go's layout: an activity tab (the counts, the sessions with the selected one's whole query under them, and beside
+/// them its detail and the actions), and the databases after the overview's vitals card; then a browse tab, the schema tree beside the value of
+/// the leaf opened in it, and the form that creates a database.
 pub(crate) fn console() -> ConsoleSpec {
     let query = Node {
         from: "sessions".into(),
         ..node("detail", "", "query", 1, vec![])
+    };
+    // The whole query of the selected session: the table and its detail cut it at 600 characters.
+    let full = Node {
+        id: "query-text".into(),
+        from: value::SESSIONS.into(),
+        ..node(kind::VALUE, value::SESSIONS, "Full query", 1, vec![])
     };
     let side = node(
         "col",
         "",
         "",
         1,
-        vec![query, node("actions", "", "", 1, vec![])],
+        // The sessions' own actions (at the selected row and in its detail); creating a database is the Browse tab's.
+        vec![
+            query,
+            Node {
+                actions: vec!["cancel".into(), "terminate".into()],
+                ..node("actions", "", "", 1, vec![])
+            },
+        ],
     );
+    let sessions = Node {
+        id: value::SESSIONS.into(),
+        ..node("table", value::SESSIONS, "", 2, vec![])
+    };
+    // The whole query reads at the table's width, under it, rather than squeezed under the detail.
+    let sessions = node("col", "", "", 2, vec![sessions, full]);
     let body = node(
         "col",
         "",
@@ -264,28 +307,53 @@ pub(crate) fn console() -> ConsoleSpec {
         1,
         vec![
             node("stat", "activity", "", 1, vec![]),
-            node(
-                "row",
-                "",
-                "",
-                1,
-                vec![node("table", "sessions", "", 2, vec![]), side],
-            ),
+            node("row", "", "", 1, vec![sessions, side]),
         ],
     );
     ConsoleSpec {
         panels: panels(),
-        tabs: vec![Tab {
-            id: "activity".into(),
-            title: "Activity".into(),
-            body,
-        }],
+        tabs: vec![
+            Tab {
+                id: "activity".into(),
+                title: "Activity".into(),
+                body,
+            },
+            browse_tab(),
+        ],
         web_url: None,
         front: Some("overview".into()),
         extend: vec![Extension {
             after: "vitals".into(),
             node: node("table", "databases", "", 1, vec![]),
         }],
+    }
+}
+
+/// The schema tree (weight 1) beside the value of its opened leaf (weight 2), the create-database form under them.
+fn browse_tab() -> Tab {
+    let tree = Node {
+        id: crate::browse::PANEL.into(),
+        ..node(kind::TREE, crate::browse::PANEL, "Schemas", 1, vec![])
+    };
+    let leaf = Node {
+        id: "leaf".into(),
+        from: crate::browse::PANEL.into(),
+        ..node(kind::VALUE, crate::browse::PANEL, "Value", 2, vec![])
+    };
+    let create = Node {
+        actions: vec![crate::forms::CREATE_DATABASE.into()],
+        ..node("actions", "", "", 1, vec![])
+    };
+    Tab {
+        id: "browse".into(),
+        title: "Browse".into(),
+        body: node(
+            "col",
+            "",
+            "",
+            1,
+            vec![node("row", "", "", 1, vec![tree, leaf]), create],
+        ),
     }
 }
 

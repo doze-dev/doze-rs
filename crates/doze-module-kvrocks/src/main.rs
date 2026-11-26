@@ -12,6 +12,7 @@
 //!   core (it quotes its dotted setting).
 
 mod admin;
+mod browse;
 mod check;
 mod conf;
 
@@ -192,6 +193,17 @@ impl Admin for Kvrocks {
     ) -> Result<String> {
         admin::run_action(cx, action, resource).await
     }
+
+    async fn run_form(
+        &self,
+        cx: &Cx<KvrocksSpec>,
+        action: &str,
+        resource: &str,
+        input: Option<&str>,
+        values: &BTreeMap<String, String>,
+    ) -> Result<String> {
+        browse::run_form(cx, action, resource, input, values).await
+    }
 }
 
 impl Console for Kvrocks {
@@ -211,5 +223,7 @@ fn main() -> std::process::ExitCode {
         .release(env!("CARGO_PKG_VERSION"))
         .admin()
         .console()
+        .values()
+        .tree()
         .run()
 }

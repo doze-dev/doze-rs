@@ -12,6 +12,7 @@ publish.workspace = true
 workspace = true
 
 [dependencies]
+doze-module-proto = { path = "../doze-module-proto" }
 tokio = { version = "1.54", features = ["io-util"] }
 
 [dev-dependencies]

@@ -69,6 +69,10 @@ names! {
         /// Rust daemon, additive: the stack's doze.hcl loaded through its module catalog, each module checking its own
         /// block (lint's second pass): its warnings as `lines`, unchecked module types as `unchecked`.
         Lint = "lint",
+        /// Rust daemon, additive: part of one value in full (`Response::value`); wakes only with `wake`.
+        Value = "value",
+        /// Rust daemon, additive: one page of a console tree folder's children (`Response::children`). Never wakes.
+        Children = "children",
         Subscribe = "subscribe",
         Events = "events",
         Cancel = "cancel",
@@ -152,6 +156,12 @@ pub mod fault {
     pub const TIMEOUT: &str = "timeout";
     pub const NEEDS_CONFIRMATION: &str = "needs_confirmation";
     pub const INTERRUPTED: &str = "interrupted";
+    /// Rust daemon, additive: the instance sleeps and the request did not ask to wake it.
+    pub const ASLEEP: &str = "asleep";
+    /// Rust daemon, additive: the instance is starting; asked again in a moment, it answers.
+    pub const STARTING: &str = "starting";
+    /// Rust daemon, additive: the instance is off (`doze off`, or `enabled = false`); nothing wakes it until it is on.
+    pub const OFF: &str = "off";
 }
 
 /// What a subscribe request asks for (Go `Subscription`).

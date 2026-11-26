@@ -135,6 +135,9 @@ pub struct InstanceView {
     /// The latest liveness probe: `None` = not probed.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub healthy: Option<bool>,
+    /// Rust daemon, additive: its module's checks that fail (`bad`), for the map and Needs you, as a crash is shown.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub checks: Vec<super::blocks::CheckView>,
 }
 
 /// How a task last ran (Go `TaskView`).

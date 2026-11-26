@@ -5,7 +5,7 @@ use super::{ConsoleView, NodeKind, block, consoles, live};
 use doze_desk::page::console::{Picked, gone, row_ident, selection};
 
 const TAB: &str = "console:activity";
-const TABLE: &str = "table:sessions";
+const TABLE: &str = "sessions";
 
 /// The row selected and the row the Terminate action names, as the tab draws them.
 fn target(c: &ConsoleView, picked: &Picked) -> (String, String) {

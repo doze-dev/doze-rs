@@ -54,6 +54,11 @@ pub enum NodeKind {
     Note,
     /// A chart.
     Chart,
+    /// One value in full (a message, a key, a row): of the row picked in the table, or the leaf opened in the tree,
+    /// its `from` names (module protocol minor 2).
+    Value,
+    /// Folders that open as you go, each folder's children asked of the module (module protocol minor 2).
+    Tree,
     /// A kind this crate does not know.
     Other(String),
 }
@@ -79,6 +84,8 @@ impl NodeKind {
             "actions" => Self::Actions,
             "note" => Self::Note,
             "chart" => Self::Chart,
+            "value" => Self::Value,
+            "tree" => Self::Tree,
             other => Self::Other(other.to_owned()),
         }
     }
@@ -96,6 +103,8 @@ impl NodeKind {
             Self::Actions => "actions",
             Self::Note => "note",
             Self::Chart => "chart",
+            Self::Value => "value",
+            Self::Tree => "tree",
             Self::Other(word) => word,
         }
     }
@@ -152,7 +161,12 @@ impl Node {
     pub fn flexible(&self) -> bool {
         matches!(
             self.kind,
-            NodeKind::Table | NodeKind::Stream | NodeKind::Row | NodeKind::Col
+            NodeKind::Table
+                | NodeKind::Stream
+                | NodeKind::Row
+                | NodeKind::Col
+                | NodeKind::Value
+                | NodeKind::Tree
         )
     }
 

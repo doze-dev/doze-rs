@@ -1,7 +1,7 @@
 //! What the app shows of a running kvrocks and can do to it: memory, the disk its data really takes (kvrocks's own
-//! disk figures are the whole disk), keys in each namespace, the commands clients send as they send them, and three
-//! actions: empty a namespace, recount keys, and compact (give deleted data's disk space back). The Go module showed
-//! nothing.
+//! disk figures are the whole disk), keys in each namespace, the commands clients send as they send them, and four
+//! actions: empty a namespace, recount keys, compact (give deleted data's disk space back) and set a key (a form).
+//! The keys tab is in [`crate::browse`]. The Go module showed nothing.
 //!
 //! kvrocks counts keys lazily: `DBSIZE` answers the last count, and `DBSIZE SCAN` starts a new one in the background.
 //! Each look starts a recount, so the next look is current; the console polls.
@@ -18,11 +18,14 @@ use std::collections::BTreeMap;
 /// The name the app shows for the namespace the password opens.
 pub(crate) const DEFAULT: &str = "(default)";
 
-fn unavailable(e: std::io::Error) -> Error {
+pub(crate) fn unavailable(e: std::io::Error) -> Error {
     Error::new(ErrorKind::Unavailable, e.to_string())
 }
 
-async fn client(cx: &Cx<KvrocksSpec>, token: Option<&str>) -> Result<Client<doze_os::net::Stream>> {
+pub(crate) async fn client(
+    cx: &Cx<KvrocksSpec>,
+    token: Option<&str>,
+) -> Result<Client<doze_os::net::Stream>> {
     let stream = help::dial_backend(&cx.instance).await?;
     Client::authenticated(stream, token)
         .await
@@ -184,6 +187,7 @@ pub(crate) fn actions() -> Vec<Action> {
         kind: kind.into(),
         destructive,
         input_hint: None,
+        fields: vec![],
     };
     vec![
         action("flush", "Empty this namespace", "namespace", true),
@@ -194,6 +198,7 @@ pub(crate) fn actions() -> Vec<Action> {
             "server",
             false,
         ),
+        doze_resp::browse::set_key_action(),
     ]
 }
 
@@ -279,9 +284,15 @@ pub(crate) fn console() -> ConsoleSpec {
         ],
         ..Node::default()
     };
+    let console = doze_resp::layout::console_tab("Kvrocks", "namespaces", "Namespaces");
     ConsoleSpec {
-        panels: vec![server, namespaces, commands],
-        tabs: vec![],
+        panels: vec![
+            server,
+            namespaces,
+            commands,
+            doze_resp::layout::keys_panel(),
+        ],
+        tabs: vec![console, doze_resp::layout::keys_tab()],
         web_url: None,
         front: None,
         extend: vec![Extension {

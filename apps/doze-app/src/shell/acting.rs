@@ -12,6 +12,7 @@ use super::{Root, Screen};
 use crate::act::{Acts, ActsEvent};
 use crate::empty::EmptyView;
 use crate::overlays::dialog::{DialogEvent, DialogView};
+use crate::overlays::form::{FormEvent, FormView};
 use crate::overlays::preflight::{PreflightEvent, PreflightView};
 use crate::overlays::start::{StartEvent, StartView};
 use crate::overlays::{Overlay, scrim};
@@ -76,6 +77,19 @@ impl Root {
                     .detach();
                     this.show_overlay(Overlay::Start(v), cx);
                 }
+                ActsEvent::Form(key, inst, a) => {
+                    let hub = this.hub.clone();
+                    let v = cx.new(|cx| FormView::new((hub, key.clone()), inst, a, window, cx));
+                    cx.subscribe_in(&v, window, |this, _, ev: &FormEvent, window, cx| {
+                        this.close(window, cx);
+                        if let FormEvent::Done(said) = ev {
+                            let said = said.clone();
+                            this.acts.update(cx, |a, cx| a.say(said, false, cx));
+                        }
+                    })
+                    .detach();
+                    this.show_overlay(Overlay::Form(v), cx);
+                }
                 ActsEvent::Open(dir) => this.open_dir(dir, None, window, cx),
                 ActsEvent::Repair => {
                     window.dispatch_action(Box::new(crate::actions::RepairMachine), cx);
@@ -104,6 +118,7 @@ impl Root {
         });
         let (panel, id) = match o {
             Overlay::Dialog(v) => (v.clone().into_any_element(), "dialog"),
+            Overlay::Form(v) => (v.clone().into_any_element(), "form"),
             Overlay::Preflight(v) => (v.clone().into_any_element(), "preflight"),
             Overlay::Start(v) => (v.clone().into_any_element(), "start"),
             Overlay::Admin(v) => (v.clone().into_any_element(), "admin"),
@@ -200,6 +215,14 @@ impl EmitOpen for gpui::App {
 
 #[cfg_attr(not(feature = "capture"), allow(dead_code))] // WHY: shots type into the dialog shown
 impl Root {
+    /// The form shown, if one is.
+    pub(crate) fn form(&self) -> Option<Entity<FormView>> {
+        match &self.overlay {
+            Some(Overlay::Form(f)) => Some(f.clone()),
+            _ => None,
+        }
+    }
+
     /// The dialog shown, if one is.
     pub(crate) fn dialog(&self) -> Option<Entity<DialogView>> {
         match &self.overlay {
@@ -222,6 +245,7 @@ impl Root {
         self.show_key(key, window, cx);
         let f = match &self.overlay {
             Some(Overlay::Dialog(v)) => Some(v.focus_handle(cx)),
+            Some(Overlay::Form(v)) => Some(v.focus_handle(cx)),
             Some(Overlay::Preflight(v)) => Some(v.focus_handle(cx)),
             Some(Overlay::Start(v)) => Some(v.focus_handle(cx)),
             _ => None,

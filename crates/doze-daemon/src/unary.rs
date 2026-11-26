@@ -33,6 +33,8 @@ pub(crate) fn answer(d: &Daemon, req: &doze_control::Request) -> Response {
         Op::Plan => return rt.block_on(plan(d, &req.db)),
         Op::Migrate => return rt.block_on(crate::admin::migrate(d, &req.db)),
         Op::Lint => return rt.block_on(crate::lint::lint(d, &req.input)),
+        Op::Value => return rt.block_on(crate::blocks::value(d, req)),
+        Op::Children => return rt.block_on(crate::blocks::children(d, req)),
         Op::Add => return rt.block_on(crate::live::add(d, &req.block)),
         Op::Remove => return rt.block_on(crate::live::remove(d, &req.db, req.wipe)),
         // Streams and cancel are the session's.
@@ -125,7 +127,7 @@ fn paused(d: &Daemon, name: &str) -> bool {
     d.label(name).is_some_and(|l| l.paused)
 }
 
-async fn wake(d: &Daemon, name: &str) -> Result<(), Error> {
+pub(crate) async fn wake(d: &Daemon, name: &str) -> Result<(), Error> {
     if paused(d, name) {
         return Err(Error::Failed(format!(
             "instance \"{name}\" is disabled (enabled = false); enable it in the config to wake it"

@@ -11,6 +11,7 @@
 //!   (module bug 7); the server listens where the host granted (D13).
 
 mod admin;
+mod browse;
 mod check;
 mod plan;
 
@@ -245,6 +246,17 @@ impl Admin for Valkey {
     ) -> Result<String> {
         admin::run_action(cx, action).await
     }
+
+    async fn run_form(
+        &self,
+        cx: &Cx<ValkeySpec>,
+        action: &str,
+        _resource: &str,
+        input: Option<&str>,
+        values: &BTreeMap<String, String>,
+    ) -> Result<String> {
+        browse::run_form(cx, action, input, values).await
+    }
 }
 
 impl Console for Valkey {
@@ -264,5 +276,7 @@ fn main() -> std::process::ExitCode {
         .release(env!("CARGO_PKG_VERSION"))
         .admin()
         .console()
+        .values()
+        .tree()
         .run()
 }

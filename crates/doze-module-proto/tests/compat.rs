@@ -225,3 +225,142 @@ fn an_unknown_error_kind_reads_as_internal() {
     assert_eq!((e.kind, e.kind()), (None, ErrorKind::Internal));
     assert_eq!(e.message, "slow down");
 }
+
+// ── Minor 2: the console's working blocks ───────────────────────────────────────────────────────────────────────────
+//
+// Each new field read by the other side's types, both ways: what a 2.1 build wrote reads as "none" in a 2.2 build, and
+// what a 2.2 build writes reads in a 2.1 build with the new fields left out. The 2.1 types are written out here as
+// they were.
+
+use doze_module_proto::msg::blocks::{self, Field};
+use doze_module_proto::msg::calls::RunAction;
+use doze_module_proto::msg::console::Node;
+use std::collections::BTreeMap;
+
+#[derive(Debug, Clone, PartialEq, Encode, Decode)]
+struct Action21 {
+    #[n(0)]
+    id: String,
+    #[n(1)]
+    label: String,
+    #[n(2)]
+    kind: String,
+    #[n(3)]
+    destructive: bool,
+    #[n(4)]
+    input_hint: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Default, Encode, Decode)]
+struct Node21 {
+    #[n(0)]
+    kind: String,
+    #[n(1)]
+    id: String,
+    #[n(2)]
+    title: String,
+    #[n(3)]
+    weight: u32,
+    #[n(4)]
+    panel: String,
+    #[n(5)]
+    from: String,
+    #[n(6)]
+    text: String,
+    #[n(7)]
+    #[cbor(default)]
+    actions: Vec<String>,
+    #[n(8)]
+    #[cbor(default)]
+    children: Vec<Node21>,
+}
+
+#[derive(Debug, Clone, PartialEq, Encode, Decode)]
+struct RunAction21 {
+    #[n(0)]
+    instance: doze_module_proto::msg::instance::Instance,
+    #[n(1)]
+    action: String,
+    #[n(2)]
+    resource: String,
+    #[n(3)]
+    input: Option<String>,
+}
+
+fn across<A: Encode<()>, B: for<'b> Decode<'b, ()>>(a: &A) -> B {
+    msg::decode(&msg::encode(a).unwrap()).unwrap()
+}
+
+#[test]
+fn what_a_2_1_build_wrote_reads_in_2_2_with_the_blocks_left_empty() {
+    let a: Action = across(&Action21 {
+        id: "purge".into(),
+        label: "Purge".into(),
+        kind: "queue".into(),
+        destructive: true,
+        input_hint: Some("name".into()),
+    });
+    assert_eq!((a.id.as_str(), a.fields.len()), ("purge", 0));
+    let n: Node = across(&Node21 {
+        kind: "row".into(),
+        children: vec![Node21 {
+            kind: "table".into(),
+            ..Node21::default()
+        }],
+        ..Node21::default()
+    });
+    assert_eq!(n.children[0].kind, "table");
+    assert!(n.keys.is_empty() && n.by.is_empty());
+    let r: RunAction = across(&RunAction21 {
+        instance: common::instance(),
+        action: "create".into(),
+        resource: String::new(),
+        input: Some("payments".into()),
+    });
+    assert!(r.values.is_empty(), "an old host sends no form values");
+    assert!(!r.form, "and does not say it knows forms");
+}
+
+#[test]
+fn what_a_2_2_build_writes_reads_in_2_1_without_the_blocks() {
+    let action = Action {
+        id: "create".into(),
+        label: "Create a topic".into(),
+        kind: "topic".into(),
+        input_hint: Some("name".into()),
+        fields: vec![Field {
+            id: "partitions".into(),
+            kind: blocks::field::NUMBER.into(),
+            min: Some(1),
+            ..Field::default()
+        }],
+        ..Action::default()
+    };
+    let old: Action21 = across(&action);
+    assert_eq!(old.input_hint.as_deref(), Some("name"), "the one box stays");
+    let series = Node {
+        kind: blocks::kind::SERIES.into(),
+        children: vec![Node {
+            kind: blocks::kind::TREE.into(),
+            keys: vec!["lag".into()],
+            by: "name".into(),
+            ..Node::default()
+        }],
+        ..Node::default()
+    };
+    let old: Node21 = across(&series);
+    assert_eq!(
+        (old.kind.as_str(), old.children[0].kind.as_str()),
+        ("series", "tree")
+    );
+    let run = RunAction {
+        instance: common::instance(),
+        action: "create".into(),
+        resource: String::new(),
+        input: Some("payments".into()),
+        values: BTreeMap::from([("partitions".into(), "6".into())]),
+        form: true,
+    };
+    let old: RunAction21 = across(&run);
+    assert_eq!(old.input.as_deref(), Some("payments"));
+}

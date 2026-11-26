@@ -1,7 +1,7 @@
 //! A RESP2 client over any byte stream (a Unix socket or loopback TCP, whichever backend the host granted): one
 //! command, one reply, in order; or, after `MONITOR`, replies the server pushes unasked.
 
-use crate::reply::{Reply, encode, parse};
+use crate::reply::{Reply, encode, encode_bytes, parse};
 use std::io;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 
@@ -35,6 +35,26 @@ impl<S: AsyncRead + AsyncWrite + Unpin> Client<S> {
     pub async fn call(&mut self, args: &[&str]) -> io::Result<Reply> {
         self.stream.write_all(&encode(args)).await?;
         self.next_reply().await
+    }
+
+    /// Sends one command whose arguments are bytes and returns its reply.
+    pub async fn call_bytes(&mut self, args: &[&[u8]]) -> io::Result<Reply> {
+        self.stream.write_all(&encode_bytes(args)).await?;
+        self.next_reply().await
+    }
+
+    /// Sends every command at once and reads their replies in order: one round trip for many keys.
+    pub async fn pipeline(&mut self, commands: &[Vec<&[u8]>]) -> io::Result<Vec<Reply>> {
+        let mut out = Vec::new();
+        for c in commands {
+            out.extend_from_slice(&encode_bytes(c));
+        }
+        self.stream.write_all(&out).await?;
+        let mut replies = Vec::with_capacity(commands.len());
+        for _ in commands {
+            replies.push(self.next_reply().await?);
+        }
+        Ok(replies)
     }
 
     /// The next reply the server sends, asked for or not.

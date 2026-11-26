@@ -14,8 +14,11 @@
 //   files    aws       crates/doze-aws/src/module/console.snapshot.json (a web console only)
 //   echo     echo      crates/doze-module/src/bin/echo.rs       console() (the Rust test module)
 //   echo-go  echo      doze-sdk/plugin/echo/main.go             DescribeConsole() (the Go test module)
-//   gauge    (none)    a module newer than this doze: a 1,000-row table, a busy stream, a chart, a note, and a block
-//                      kind no doze knows yet
+//   gauge    (none)    a module newer than this doze: a 1,000-row table, a busy stream, a chart, a note, a block
+//                      kind no doze knows yet, and a time chart (`series`) this app does not draw yet
+//
+// The working blocks (value viewer, tree, forms) are answered by `answer` entries: a few folders and values of db,
+// events and cache, and an asleep refusal for archive.
 
 const root = new URL("../../../", import.meta.url).pathname;
 const snapshot = async (path: string): Promise<{ spec: Spec; actions: Action[] }> => Bun.file(root + path).json();
@@ -168,6 +171,7 @@ console("gauge", {
       { kind: "chart", panel: "series", id: "chart-rps", title: "Requests a second", weight: 2 },
       { kind: "note", id: "note", title: "About", text: "gauge keeps every key in memory and writes a snapshot when it sleeps. Keys with a TTL leave on their own.", weight: 1 },
       { kind: "gauge", id: "dial", title: "Memory", panel: "series", weight: 1 },
+      { kind: "series", id: "lines", title: "Requests over time", panel: "series", weight: 1 },
     ] },
     { kind: "table", panel: "keys", id: "keys" },
   ] } },
@@ -188,10 +192,36 @@ console("gauge", {
   log: Array.from({ length: 400 }, (_, i) => ({ time: clock(400 - i), method: i % 5 ? "GET" : "POST", path: i % 5 ? `/users/${10000 + (i % 1000)}` : "/sessions", status: i % 23 === 0 ? "500" : "200", took: `${(i * 13) % 90 + 1}ms` })),
 });
 
+// The working blocks' answers (module protocol minor 2), as the daemon relays the module's: a value viewer's parts and a
+// tree's folders are asked as a person looks, so the fixture answers them by what is asked (`answer` entries).
+const answers: any[] = [];
+const answer = (op: string, instance: string, panel: string, key: string, response: any, filter = "") =>
+  answers.push({ answer: { op, instance, panel, key, filter, response } });
+const node = (id: string, label: string, leaf = false, info: Cells = {}) => ({ id, label, ...(leaf ? { leaf } : {}), ...(Object.keys(info).length ? { info } : {}) });
+const order = (id: number) => JSON.stringify({ id, status: "open", total: 42.1, lines: [{ sku: "A-1", qty: 2 }, { sku: "B-7", qty: 1 }], customer: { id: 2040, name: "Ada", email: "ada@example.com", tier: "gold" } });
+// postgres: databases, schemas, tables, columns; a table's rows as JSON
+answer("children", "db", "browse", "", { children: { nodes: [node("app", "app"), node("app_test", "app_test")] } });
+answer("children", "db", "browse", "app", { children: { nodes: [node("app/public", "public"), node("app/audit", "audit")] } });
+answer("children", "db", "browse", "app/public", { children: { nodes: [node("app/public/customers", "customers", false, { rows: "2040" }), node("app/public/orders", "orders", false, { rows: "12431" })] } });
+answer("children", "db", "browse", "app/public/orders", { children: { nodes: [node("app/public/orders/#rows", "rows", true), node("app/public/orders/.id", "id", true, { type: "bigint" }), node("app/public/orders/.status", "status", true, { type: "text" }), node("app/public/orders/.total", "total", true, { null: "nullable", type: "numeric(10,2)" })] } });
+const rows = "[" + Array.from({ length: 40 }, (_, i) => order(10433 - i)).join(",") + "]";
+answer("value", "db", "browse", "app/public/orders/#rows", { value: { media: "json", body: rows, size: rows.length } });
+answer("admin", "db", "", "new-database", { error: "a database named app already exists", field: "name" });
+// kafka: a message with its headers
+answer("children", "events", "browse", "", { children: { nodes: [node("topics", "Topics"), node("groups", "Consumer groups")] } });
+answer("value", "events", "browse", "t/orders/0/1042", { value: { media: "json", body: order(10433), size: order(10433).length, pairs: [{ key: "traceparent", value: "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01" }, { key: "source", value: "api" }] } });
+// valkey: keys split on ":", a hash's fields; the asleep one says so where its keys would be
+answer("children", "cache", "keys", "", { children: { nodes: [node("f:cart:", "cart", false, { keys: "1980" }), node("f:user:", "user", false, { keys: "31" })] } });
+answer("children", "cache", "keys", "f:user:", { children: { nodes: [node("k:user:1001", "1001", true, { type: "hash" }), node("k:user:1002", "1002", true, { type: "hash" })], next: "500" } });
+answer("value", "cache", "keys", "k:user:1001", { value: { media: "pairs", size: 64, pairs: [{ key: "name", value: "Ada" }, { key: "plan", value: "pro" }, { key: "tz", value: "Europe/London" }] } });
+answer("children", "archive", "keys", "", { error: "archive is asleep. Opening a value wakes it.", code: "asleep" });
+answer("value", "archive", "keys", "", { error: "archive is asleep. Opening a value wakes it.", code: "asleep" });
+
 const status = { ok: true, idle_timeout: 300000000000, stack: "consoles", dir: "~/code/consoles", instances };
 out.push(JSON.stringify({ status }));
 out.push(JSON.stringify({ hold: true }));
 const stats = instances.map((v) => ({ name: v.name, pid: v.pid, ram: v.ram, cpu: v.cpu, conns: v.conns }));
 for (let i = 0; i < 5; i++) out.push(JSON.stringify({ frame: { topic: "stats", at: zero, stats } }));
+for (const a of answers) out.push(JSON.stringify(a));
 for (const f of frames) out.push(JSON.stringify({ frame: { topic: "console", at: zero, console: f } }));
 await Bun.write(Bun.stdout, out.join("\n") + "\n");

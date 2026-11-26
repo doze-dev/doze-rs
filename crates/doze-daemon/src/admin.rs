@@ -94,8 +94,23 @@ pub(crate) fn action_views(m: &doze_module_proto::msg::hello::Manifest) -> Vec<A
             kind: a.kind.clone(),
             destructive: a.destructive,
             input_hint: a.input_hint.clone().unwrap_or_default(),
+            fields: a.fields.iter().map(field_view).collect(),
         })
         .collect()
+}
+
+fn field_view(f: &doze_module_proto::msg::blocks::Field) -> doze_control::FieldView {
+    doze_control::FieldView {
+        id: f.id.clone(),
+        label: f.label.clone(),
+        kind: f.kind.clone(),
+        required: f.required,
+        default: f.default.clone().unwrap_or_default(),
+        choices: f.choices.clone(),
+        min: f.min,
+        max: f.max,
+        help: f.help.clone().unwrap_or_default(),
+    }
 }
 
 /// Go's `Resources`: a module instance's resources with a status line, and its module's data actions. Empty for an
@@ -163,13 +178,22 @@ pub(crate) async fn admin(d: &Daemon, req: &doze_control::Request) -> Response {
     }
     let ctx = d.engine().ctx_for(name);
     let input = (!req.input.is_empty()).then(|| req.input.clone());
-    match mi.run_action(&ctx, &req.action, &req.resource, input).await {
+    // A client that sends values knows forms, whether or not it says so.
+    let form = (req.form || !req.values.is_empty()).then(|| req.values.clone());
+    match mi
+        .run_action(&ctx, &req.action, &req.resource, input, form)
+        .await
+    {
         Ok(result) => Response {
             ok: true,
             result,
             ..Response::default()
         },
-        Err(err) => failed(err, ""),
+        Err(err) => Response {
+            // Only a refusal of a form field names one (never a problem in the instance's configuration).
+            field: err.field.clone().unwrap_or_default(),
+            ..failed(err.describe(), "")
+        },
     }
 }
 

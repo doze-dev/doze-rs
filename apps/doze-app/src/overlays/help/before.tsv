@@ -116,6 +116,9 @@ Console	down	Row below
 Console	j	Row below
 Console	up	Row above
 Console	k	Row above
+Console	right	Open the folder
+Console	left	Close the folder
+Console	enter	Open the leaf
 Activity	[	Shorter span
 Activity	]	Longer span
 Activity	up	Service above

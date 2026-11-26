@@ -184,8 +184,9 @@ fn requests_are_written_as_go_writes_them() {
 #[test]
 fn the_names_match_go() {
     // server.go dispatches 23 op names (with the aliases down/sleep, boot/wake, keepawake/pin); types.go has five
-    // topics; daemon.go ten verbs. The Rust daemon adds `plan`, `migrate` and `lint`.
-    assert_eq!(Op::ALL.len(), 26);
+    // topics; daemon.go ten verbs. The Rust daemon adds `plan`, `migrate`, `lint`, and the console blocks' `value` and
+    // `children`.
+    assert_eq!(Op::ALL.len(), 28);
     assert_eq!(Topic::ALL.len(), 5);
     assert_eq!(Verb::ALL.len(), 10);
     for op in Op::ALL {
@@ -194,4 +195,127 @@ fn the_names_match_go() {
     for v in Verb::ALL {
         assert_eq!(v.op().as_str(), v.as_str());
     }
+}
+
+// ── The console's working blocks (Rust daemon, additive) ────────────────────────────────────────────────────────────
+
+/// Encodes `v` and reads it back as `T`.
+fn across<T: DeserializeOwned>(v: &impl Serialize) -> T {
+    serde_json::from_slice(&codec::encode(v).unwrap()).unwrap()
+}
+
+#[test]
+fn the_block_requests_are_written_with_only_what_they_set() {
+    let line = |r: Request| String::from_utf8(codec::encode(&r).unwrap()).unwrap();
+    let row = std::collections::BTreeMap::from([("name".to_owned(), "k".to_owned())]);
+    assert_eq!(
+        line(Request::value("cache", "keys", row.clone(), 1024, true)),
+        "{\"op\":\"value\",\"db\":\"cache\",\"panel\":\"keys\",\"wake\":true,\"row\":{\"name\":\"k\"},\"offset\":1024}\n"
+    );
+    assert_eq!(
+        line(Request::children("db", "tree", "app", "ord", "50")),
+        "{\"op\":\"children\",\"db\":\"db\",\"panel\":\"tree\",\"parent\":\"app\",\"filter\":\"ord\",\"cursor\":\"50\"}\n"
+    );
+    let values = std::collections::BTreeMap::from([("partitions".to_owned(), "6".to_owned())]);
+    assert_eq!(
+        line(Request::admin_form("events", "create", "", values)),
+        "{\"op\":\"admin\",\"db\":\"events\",\"action\":\"create\",\"values\":{\"partitions\":\"6\"},\"form\":true}\n"
+    );
+    for r in [
+        Request::value("db", "keys", row, 0, false),
+        Request::children("db", "tree", "", "", ""),
+    ] {
+        assert_eq!(across::<Request>(&r), r);
+    }
+}
+
+#[test]
+fn the_block_answers_round_trip() {
+    let mut value = ValueView {
+        media: "bytes".into(),
+        size: 3,
+        ..ValueView::default()
+    };
+    value.set_body(&[0, 159, 146]);
+    let r = Response {
+        ok: true,
+        value: Some(value.clone()),
+        children: Some(ChildrenView {
+            nodes: vec![TreeNodeView {
+                id: "app/public/orders".into(),
+                label: "orders".into(),
+                leaf: true,
+                ..TreeNodeView::default()
+            }],
+            next: "50".into(),
+        }),
+        field: "partitions".into(),
+        ..Response::default()
+    };
+    let back: Response = across(&r);
+    assert_eq!(back, r);
+    assert_eq!(back.value.unwrap().part().unwrap(), [0, 159, 146]);
+    // Text stays text; bytes that are not UTF-8 go as base64.
+    let mut text = ValueView {
+        media: "json".into(),
+        ..ValueView::default()
+    };
+    text.set_body(b"{\"a\":1}");
+    assert_eq!((text.body.as_str(), text.base64), ("{\"a\":1}", false));
+    assert!(value.base64);
+}
+
+/// An older client's views have none of the new fields: it reads the rest as before.
+#[test]
+fn an_older_client_reads_around_the_block_fields() {
+    #[derive(serde::Deserialize, Debug, PartialEq)]
+    struct OldAction {
+        id: String,
+        input_hint: String,
+    }
+    let action = ActionView {
+        id: "create".into(),
+        input_hint: "name".into(),
+        fields: vec![FieldView {
+            id: "partitions".into(),
+            kind: "number".into(),
+            min: Some(1),
+            ..FieldView::default()
+        }],
+        ..ActionView::default()
+    };
+    let old: OldAction = across(&action);
+    assert_eq!(
+        (old.id.as_str(), old.input_hint.as_str()),
+        ("create", "name")
+    );
+    assert_eq!(across::<ActionView>(&action), action);
+    let node = ConsoleNode {
+        kind: "series".into(),
+        keys: vec!["lag".into()],
+        by: "name".into(),
+        ..ConsoleNode::default()
+    };
+    assert_eq!(across::<ConsoleNode>(&node), node);
+    let frame = ConsoleFrame {
+        panel: "groups".into(),
+        history: vec![ConsoleReading {
+            at: Timestamp::from_unix_nanos(1_767_303_245_000_000_000),
+            rows: vec![ConsoleRow::default()],
+        }],
+        ..ConsoleFrame::default()
+    };
+    assert_eq!(across::<ConsoleFrame>(&frame), frame);
+    let inst = InstanceView {
+        name: "db".into(),
+        checks: vec![CheckView {
+            name: "migrations".into(),
+            status: "bad".into(),
+            detail: "2 migrations pending".into(),
+            fix: "apply-migrations".into(),
+        }],
+        ..InstanceView::default()
+    };
+    assert_eq!(across::<InstanceView>(&inst), inst);
+    assert_eq!(READINGS_EVERY_SECS * READINGS_KEPT as u64, 15 * 60);
 }

@@ -36,6 +36,10 @@ pub use duration::{format_go_duration, parse_go_duration};
 pub use error::Error;
 pub use json::{go_line, go_pretty};
 pub use time::{GoDuration, Timestamp};
+pub use types::blocks::{
+    CheckView, ChildrenView, ConsoleReading, FieldView, PairView, READINGS_EVERY_SECS,
+    READINGS_KEPT, TreeNodeView, ValueView,
+};
 pub use types::console::{
     CELL_RUNTIME, ConsoleColumn, ConsoleExtension, ConsoleFrame, ConsoleNode, ConsolePanel,
     ConsoleRow, ConsoleSpec, ConsoleTab,

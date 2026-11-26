@@ -9,8 +9,14 @@ mod acts;
 pub(crate) mod blocks;
 mod figures;
 mod filter;
+mod page;
 mod parts;
 mod stream;
+mod tree;
+mod tree_keys;
+mod value;
+mod value_body;
+pub(crate) mod work;
 
 use doze_desk::page::console::{self, Action, ConsolePage, FILTER_FROM, Picked, Selection, Views};
 use doze_desk::{Batch, Hub, Parts, StackKey};
@@ -21,10 +27,12 @@ use gpui::{
 };
 use gpui_component::input::InputState;
 
-use crate::actions::{FilterRows, NextTable, PrevTable, RowDown, RowUp};
+use crate::actions::{
+    FilterRows, FolderClose, FolderOpen, NextTable, OpenLeaf, PrevTable, RowDown, RowUp,
+};
 use crate::instance::head::{chip, keys_bar};
-use crate::instance::ui::{self, text};
-use crate::theme::{tokens, ty};
+use crate::instance::ui;
+use crate::theme::tokens;
 
 /// The height each stream's place in the layout had when last laid out, by block id: a stream shows as many whole lines
 /// as fit (`Draw::stream`).
@@ -52,6 +60,8 @@ pub(crate) struct ConsoleTabView {
     /// The filter box, and the table it filters, while one is open.
     pub(crate) filter: Option<(String, Entity<InputState>)>,
     pub(crate) rooms: Rooms,
+    /// The working blocks: what each value viewer shows, each tree's folders.
+    pub(crate) work: work::Work,
     pub(crate) focus: FocusHandle,
 }
 
@@ -78,6 +88,7 @@ impl ConsoleTabView {
             lists: std::collections::HashMap::new(),
             filter: None,
             rooms: Rooms::default(),
+            work: work::Work::default(),
             focus: cx.focus_handle(),
         };
         v.refresh(cx);
@@ -131,6 +142,7 @@ impl ConsoleTabView {
             }
             cx.notify();
         }
+        self.sync_work(cx);
     }
 
     /// The tables of the tab, in order: their ids and the rows they show, as indexes among the module's rows.
@@ -186,6 +198,15 @@ impl ConsoleTabView {
 
     /// Moves the selection `by` rows in the order the table shows them.
     fn step_row(&mut self, by: isize, cx: &mut Context<Self>) {
+        if self.tree_keys(
+            |t| {
+                t.step(by);
+                None
+            },
+            cx,
+        ) {
+            return;
+        }
         let Some(id) = self.focused_table() else {
             return;
         };
@@ -265,6 +286,12 @@ impl ConsoleTabView {
         out
     }
 
+    /// Every action the tab offers (a shot opens one's form).
+    #[cfg(feature = "capture")]
+    pub(crate) fn offered(&self) -> Vec<Action> {
+        self.actions()
+    }
+
     /// Runs a module's action on the row it shows; one that takes input or deletes something asks first
     /// (`crate::act`). The tables are read again first: an action whose row has gone since it was drawn (the session
     /// ended) is not run on whatever row took its place, and says so.
@@ -318,61 +345,9 @@ impl Focusable for ConsoleTabView {
 }
 
 impl ConsoleTabView {
-    /// What the tab holds: the tree, or why there is none yet.
-    fn body(
-        &self,
-        t: &crate::theme::Tokens,
-        window: &Window,
-        cx: &mut Context<Self>,
-    ) -> gpui::AnyElement {
-        let p = &self.page;
-        let why = if p.reading && !p.err.is_empty() {
-            // The banner above says why; not "reading", which it is not.
-            Some("Nothing to show until the module answers.")
-        } else if p.reading {
-            Some("Reading the console…")
-        } else if p.missing {
-            Some("The module has no such tab.")
-        } else {
-            None
-        };
-        match why {
-            // Said where the blocks would start, not floating mid-page.
-            Some(w) => div()
-                .flex_1()
-                .px(px(28.))
-                .pt(px(16.))
-                .text_size(px(ty::SM))
-                .text_color(t.dim)
-                .child(w)
-                .into_any_element(),
-            None => blocks::tab_body(t, self, window, cx),
-        }
-    }
-
-    /// Asleep, the console shows what it last read and never wakes the module: one quiet line says so.
-    fn asleep(&self, t: &crate::theme::Tokens) -> Option<gpui::Div> {
-        let p = &self.page;
-        (!p.state.is_empty() && !p.awake && !p.missing && !p.reading).then(|| {
-            div()
-                .flex_none()
-                .px(px(28.))
-                .pt(px(12.))
-                .text_size(px(ty::SM))
-                .text_color(t.dim)
-                .child(text(&format!(
-                    "{} is {}: the console never wakes it, so this is what it showed last.",
-                    p.name,
-                    doze_display::State::parse(&p.state).word()
-                )))
-        })
-    }
-}
-
-impl Render for ConsoleTabView {
-    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        let t = tokens(cx);
-        let body = self.body(&t, window, cx);
+    /// The keys bar: the page's keys (the actions' wait while asleep), between tables where there are two, the filter
+    /// where one is long, and a tree's once it has been clicked.
+    fn keys_shown(&self) -> Vec<(String, &str)> {
         let p = &self.page;
         let mut keys: Vec<(String, &str)> = p
             .keys
@@ -398,6 +373,33 @@ impl Render for ConsoleTabView {
         if self.long_table() {
             keys.insert(at, (chip("Filter the table"), "filter"));
         }
+        // A tree's keys, once it has been clicked (it then takes them).
+        if self
+            .focused
+            .as_ref()
+            .is_some_and(|f| self.work.trees.contains_key(f))
+        {
+            let folders = format!("{} {}", chip("Close the folder"), chip("Open the folder"));
+            keys.splice(
+                0..0,
+                [
+                    ("↑↓".to_owned(), "move"),
+                    (folders, "folders"),
+                    (chip("Open the leaf"), "open"),
+                ],
+            );
+        }
+        keys
+    }
+}
+
+impl Render for ConsoleTabView {
+    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        let t = tokens(cx);
+        self.ensure_filters(window, cx);
+        let body = self.body(&t, window, cx);
+        let keys = self.keys_shown();
+        let p = &self.page;
         div()
             .id("console")
             .key_context("ConsoleTab")
@@ -409,6 +411,9 @@ impl Render for ConsoleTabView {
             .min_w_0()
             .on_action(cx.listener(|v, _: &RowDown, _, cx| v.step_row(1, cx)))
             .on_action(cx.listener(|v, _: &RowUp, _, cx| v.step_row(-1, cx)))
+            .on_action(cx.listener(|v, _: &FolderOpen, _, cx| v.tree_right(cx)))
+            .on_action(cx.listener(|v, _: &FolderClose, _, cx| v.tree_left(cx)))
+            .on_action(cx.listener(|v, _: &OpenLeaf, _, cx| v.tree_enter(cx)))
             .on_action(cx.listener(|v, _: &NextTable, _, cx| v.step_table(1, cx)))
             .on_action(cx.listener(|v, _: &PrevTable, _, cx| v.step_table(-1, cx)))
             .on_action(cx.listener(|v, _: &FilterRows, w, cx| v.open_filter(w, cx)))
@@ -423,7 +428,7 @@ impl Render for ConsoleTabView {
                 d.child(div().px(px(28.)).pt(px(14.)).child(ui::banner(
                     &t,
                     ui::Tone::Bad,
-                    &sentence(&p.err),
+                    &page::sentence(&p.err),
                     "",
                 )))
             })
@@ -431,12 +436,4 @@ impl Render for ConsoleTabView {
             .child(body)
             .child(keys_bar(&t, keys, &p.note))
     }
-}
-
-/// Words as a sentence starts: a capital first ("the module did not answer" is "The module did not answer").
-fn sentence(s: &str) -> String {
-    let mut c = s.chars();
-    c.next()
-        .map(|f| f.to_uppercase().chain(c).collect())
-        .unwrap_or_default()
 }

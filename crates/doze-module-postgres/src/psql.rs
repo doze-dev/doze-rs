@@ -68,10 +68,31 @@ impl Psql {
     /// Runs `script` in database `db`, stopping at the first error; one transaction when `atomic`. Its output (rows,
     /// tuples only, fields split by [`SEP`]).
     pub(crate) async fn run(&self, db: &str, script: &str, atomic: bool) -> Result<String> {
+        self.run_with(db, script, atomic, None).await
+    }
+
+    /// Reads for a person looking (the console's value viewer): the statement gives up after [`READ_TIMEOUT`], and
+    /// more than `cap` bytes of output is refused rather than held in memory.
+    pub(crate) async fn read(&self, db: &str, script: &str, cap: usize) -> Result<String> {
+        self.run_with(db, script, false, Some(cap)).await
+    }
+
+    async fn run_with(
+        &self,
+        db: &str,
+        script: &str,
+        atomic: bool,
+        cap: Option<usize>,
+    ) -> Result<String> {
         // standard_conforming_strings forced on: with it off (a person's setting), a backslash in a literal would end it,
         // and the rest would run as SQL or as a psql command. A lock held by a client cannot stall converge for ever.
+        let timeout = if cap.is_some() {
+            format!(" -c statement_timeout={READ_TIMEOUT}")
+        } else {
+            String::new()
+        };
         let conninfo = format!(
-            "dbname='{}' options='-c standard_conforming_strings=on -c lock_timeout=30s'",
+            "dbname='{}' options='-c standard_conforming_strings=on -c lock_timeout=30s{timeout}'",
             db.replace('\\', "\\\\").replace('\'', "\\'")
         );
         let mut c = tokio::process::Command::new(&self.bin);
@@ -104,6 +125,9 @@ impl Psql {
                 let _ = i.write_all(script.as_bytes()).await;
             }
         };
+        if let Some(cap) = cap {
+            return capped(child, feed, cap).await;
+        }
         let (_, out) = tokio::join!(feed, child.wait_with_output());
         let out = out.map_err(|e| Error::new(ErrorKind::Unavailable, format!("psql: {e}")))?;
         if out.status.success() {
@@ -203,6 +227,47 @@ pub(crate) fn wrap(what: String) -> impl FnOnce(Error) -> Error {
         e.message = format!("{what}: {}", e.message);
         e
     }
+}
+
+/// How long a read for the value viewer may run.
+pub(crate) const READ_TIMEOUT: &str = "10s";
+
+/// psql's output, read up to `cap` bytes: more stops psql and is refused (the viewer never holds a value it cannot
+/// show).
+async fn capped(
+    mut child: tokio::process::Child,
+    feed: impl std::future::Future<Output = ()>,
+    cap: usize,
+) -> Result<String> {
+    use tokio::io::AsyncReadExt as _;
+    let (Some(stdout), Some(mut stderr)) = (child.stdout.take(), child.stderr.take()) else {
+        return Err(Error::new(ErrorKind::Internal, "psql: no output"));
+    };
+    let mut out = Vec::new();
+    let mut err = Vec::new();
+    let read = async {
+        let r = stdout.take(cap as u64 + 1).read_to_end(&mut out).await;
+        let _ = stderr.read_to_end(&mut err).await;
+        r
+    };
+    let (_, read) = tokio::join!(feed, read);
+    read.map_err(|e| Error::new(ErrorKind::Unavailable, format!("psql: {e}")))?;
+    if out.len() > cap {
+        let _ = child.kill().await;
+        return Err(Error::new(
+            ErrorKind::Invalid,
+            format!("the value is larger than the {cap} bytes the viewer reads"),
+        ));
+    }
+    let status = child
+        .wait()
+        .await
+        .map_err(|e| Error::new(ErrorKind::Unavailable, format!("psql: {e}")))?;
+    if status.success() {
+        return Ok(String::from_utf8_lossy(&out).into_owned());
+    }
+    let err = String::from_utf8_lossy(&err);
+    Err(Error::new(ErrorKind::Unavailable, clean(err.trim())))
 }
 
 #[cfg(test)]

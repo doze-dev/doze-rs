@@ -6,7 +6,7 @@ use doze_module::proto::msg::value::{Node, PathSeg, Span, Value};
 
 use super::check::{bad_topic_name, check, major, retention_ms};
 use super::client::Fetched;
-use super::{ConfigValue, KafkaSpec, Topic, admin, broker_args, is_module, listeners};
+use super::{ConfigValue, KafkaSpec, Topic, admin, broker_args, is_module, layout, listeners};
 
 fn args(v: &[&str]) -> Vec<OsString> {
     v.iter().map(OsString::from).collect()
@@ -364,17 +364,28 @@ fn a_tail_row_has_the_record_cut_to_its_size_on_a_character() {
 }
 
 #[test]
-fn the_console_is_the_go_modules_three_panels_and_the_web_console() {
-    let c = admin::console();
+fn the_console_is_the_go_modules_three_panels_a_tree_and_the_web_console() {
+    let c = layout::console();
     let ids: Vec<&str> = c.panels.iter().map(|p| p.id.as_str()).collect();
-    assert_eq!(ids, ["topics", "groups", "tail"]);
+    assert_eq!(ids, ["topics", "groups", "tail", "browse"]);
+    let tabs: Vec<&str> = c.tabs.iter().map(|t| t.id.as_str()).collect();
+    assert_eq!(tabs, ["console", "browse"]);
     assert_eq!(c.front.as_deref(), Some("console"));
     // A build without the console serves none, so the app is not told of one.
     let web = cfg!(feature = "console").then_some("http://{address:console}");
     assert_eq!(c.web_url.as_deref(), web);
     let a = admin::actions();
-    assert_eq!(a.len(), 1);
-    assert_eq!((a[0].id.as_str(), a[0].kind.as_str()), ("produce", "topic"));
+    let ids: Vec<(&str, &str)> = a.iter().map(|a| (a.id.as_str(), a.kind.as_str())).collect();
+    assert_eq!(ids, [("produce", "topic"), ("create-topic", "")]);
+    // Produce keeps its one box for an app that does not know forms: its only required field, the value.
+    let required: Vec<&str> = a[0]
+        .fields
+        .iter()
+        .filter(|f| f.required)
+        .map(|f| f.id.as_str())
+        .collect();
+    assert!(a[0].input_hint.is_some());
+    assert_eq!(required, ["value"]);
 }
 
 /// The kafka module's console and actions, pinned: the app's fixture for a kafka instance is generated from
@@ -383,7 +394,7 @@ fn the_console_is_the_go_modules_three_panels_and_the_web_console() {
 #[test]
 #[cfg(feature = "console")]
 fn the_console_and_actions_match_their_snapshot() {
-    let now = doze_module_proto::msg::snapshot::console_json(&admin::console(), &admin::actions());
+    let now = doze_module_proto::msg::snapshot::console_json(&layout::console(), &admin::actions());
     let pinned = doze_module_proto::msg::snapshot::pin(
         concat!(
             env!("CARGO_MANIFEST_DIR"),

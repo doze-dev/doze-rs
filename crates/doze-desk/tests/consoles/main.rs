@@ -15,6 +15,7 @@ use std::collections::BTreeMap;
 use std::path::Path;
 use std::sync::Arc;
 
+mod blocks;
 mod picks;
 
 /// Each instance's console as the hub would hold it once the script played.
@@ -73,6 +74,8 @@ fn blank(n: &Node) -> Vec<String> {
             NodeKind::Stat => b.stats.is_empty(),
             NodeKind::Note => b.text.is_empty(),
             NodeKind::Chart => b.values.is_empty(),
+            // Asked of the daemon as a person looks: what to ask is all a page resolves for them.
+            NodeKind::Value | NodeKind::Tree => b.panel.is_empty(),
             NodeKind::Other(_) => true,
         };
         if empty && b.missing.is_empty() {
@@ -129,12 +132,12 @@ fn a_block_this_doze_does_not_know_says_it_needs_a_newer_doze() {
         .into_iter()
         .filter(|n| matches!(n.kind, NodeKind::Other(_)))
         .collect();
-    assert_eq!(unknown.len(), 1);
-    assert!(
-        unknown[0].missing.contains("needs a newer doze"),
-        "{:?}",
-        unknown[0].missing
-    );
+    // A kind no doze knows, and a time chart (`series`) this one does not draw yet.
+    let kinds: Vec<&str> = unknown.iter().map(|n| n.kind.as_str()).collect();
+    assert_eq!(kinds, ["gauge", "series"]);
+    for n in unknown {
+        assert!(n.missing.contains("needs a newer doze"), "{:?}", n.missing);
+    }
     let ext = extensions(g);
     assert!(ext.iter().any(|(_, n)| {
         n.walk()
@@ -185,7 +188,12 @@ fn a_thousand_row_table_and_a_full_stream_resolve_whole() {
 #[test]
 fn an_action_on_the_server_is_not_put_on_a_tables_row() {
     let all = consoles();
-    let p = console_page("cache", "console:_", Some(&all["cache"]), &Selection::new());
+    let p = console_page(
+        "cache",
+        "console:console",
+        Some(&all["cache"]),
+        &Selection::new(),
+    );
     let acts: Vec<_> = p
         .body
         .walk()
@@ -197,7 +205,7 @@ fn an_action_on_the_server_is_not_put_on_a_tables_row() {
         assert_eq!(a.resource, "", "{} is on the server, not on db0", a.label);
     }
     // A namespace action still names the selected namespace, and is at that row, not in the actions block.
-    let p = live("store", "console:_", &all["store"], &Selection::new());
+    let p = live("store", "console:console", &all["store"], &Selection::new());
     let flush = p
         .body
         .walk()
@@ -228,7 +236,7 @@ fn block(p: &ConsolePage, kind: NodeKind) -> &Node {
 fn a_session_action_is_at_the_row_and_in_the_detail_and_the_actions_card_goes() {
     let all = consoles();
     let mut sel = Selection::new();
-    sel.insert("table:sessions".to_owned(), 2);
+    sel.insert("sessions".to_owned(), 2);
     let p = live("db", "console:activity", &all["db"], &sel);
     let sessions = block(&p, NodeKind::Table);
     let ids: Vec<&str> = sessions.row_actions.iter().map(|a| a.id.as_str()).collect();
@@ -281,12 +289,17 @@ fn columns_are_sized_for_what_they_hold_and_only_long_words_grow() {
         "or its title, with room for the sort mark"
     );
     // A table of short columns keeps them together: none grows.
-    let p = live("events", "console:_", &all["events"], &Selection::new());
+    let p = live(
+        "events",
+        "console:console",
+        &all["events"],
+        &Selection::new(),
+    );
     let topics = p
         .body
         .walk()
         .into_iter()
-        .find(|n| n.id == "table:topics")
+        .find(|n| n.id == "topics")
         .unwrap();
     assert!(topics.cols.iter().all(|c| !c.grow), "{:?}", topics.cols);
 }
@@ -320,7 +333,7 @@ fn a_limit_folds_into_the_figure_before_it() {
     assert_eq!((c.value.as_str(), c.of.as_str()), ("16", "100"));
     assert_eq!(c.fill, Some(0.16));
     // Words as the limit: no meter. A figure not read yet says why.
-    let p = live("cache", "console:_", &all["cache"], &Selection::new());
+    let p = live("cache", "console:console", &all["cache"], &Selection::new());
     let stats = &block(&p, NodeKind::Stat).stats;
     let mem = stats.iter().find(|s| s.label == "Memory").unwrap();
     assert_eq!(mem.of, "256 MB");
