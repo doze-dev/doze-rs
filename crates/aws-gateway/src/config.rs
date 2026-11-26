@@ -54,6 +54,10 @@ pub struct Config {
     /// ([`crate::Finished::would_be_denied`]) and which a call between services is matched to as its cause
     /// ([`crate::WouldDeny::request_of`]). `None`, the default, costs a request nothing.
     pub would_deny: Option<Arc<crate::WouldDeny>>,
+    /// The Lab's fault rules: asked about each request after it is decoded and before its service is, which may make it wait, fail
+    /// it with an error of the service's own, or close the connection (the `fault` module). `None`, the default, costs a request one
+    /// `Option` test.
+    pub faults: Option<Arc<dyn crate::Faults>>,
 }
 
 impl Config {
@@ -75,6 +79,7 @@ impl Config {
             local_key: None,
             observer: None,
             would_deny: None,
+            faults: None,
         }
     }
 }

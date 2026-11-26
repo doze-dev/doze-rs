@@ -14,6 +14,7 @@ pub mod seen;
 pub mod summary;
 
 pub use authz::{Authorizer, Mode, Need};
+pub use doze_runtime::{Rested, Rests};
 pub use metrics::{Made, Producer};
 pub use seen::{BusCall, CallWatcher, Cause};
 
@@ -45,6 +46,7 @@ pub struct Peers {
     would_deny: RwLock<Option<authz::WouldDeny>>,
     metrics: RwLock<metrics::Registry>,
     watcher: RwLock<Option<Arc<dyn CallWatcher>>>,
+    rests: RwLock<Option<Arc<doze_runtime::Rests>>>,
 }
 
 impl std::fmt::Debug for Peers {
@@ -58,6 +60,19 @@ impl Peers {
     #[must_use]
     pub fn new() -> Arc<Self> {
         Arc::new(Self::default())
+    }
+
+    /// Hands the bus the lazy services of the host (`Tasks::rests`), so a tool can see which are running and tell one to rest.
+    pub fn set_rests(&self, rests: Arc<doze_runtime::Rests>) {
+        if let Ok(mut slot) = self.rests.write() {
+            *slot = Some(rests);
+        }
+    }
+
+    /// The host's lazy services, when it handed them over ([`Peers::set_rests`]).
+    #[must_use]
+    pub fn rests(&self) -> Option<Arc<doze_runtime::Rests>> {
+        self.rests.read().ok().and_then(|r| r.clone())
     }
 
     /// Tells `watcher` about every call on the bus from now on (the console's Live record). Unset, a call pays one read lock.

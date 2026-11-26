@@ -27,6 +27,8 @@ pub mod files;
 pub mod guard;
 pub mod headers;
 pub mod iam;
+pub mod lab;
+pub mod lab_once;
 pub mod limits;
 pub mod model;
 pub mod origin;
@@ -37,7 +39,7 @@ pub mod serve;
 pub mod state;
 pub mod web;
 
-pub use facts::{Facts, Flag, LocalData, ServiceFacts};
+pub use facts::{Facts, Flag, LabFacts, LocalData, ServiceFacts};
 pub use limits::Limits;
 pub use ring::Recorder;
 pub use serve::{Running, Settings, start_on, start_with};

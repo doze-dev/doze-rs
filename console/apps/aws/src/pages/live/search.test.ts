@@ -39,3 +39,29 @@ describe("the Needs a look chips as a filter", () => {
     expect(lookOf(call({}))).toBeNull();
   });
 });
+
+describe("the Lab on the wire", () => {
+  const lab = (id: number, kind: "failed" | "dropped" | "delayed" = "failed") => ({ id, name: `rule ${id}`, effect: kind === "delayed" ? { kind, ms: 250 } : { kind } }) as CallRecord["lab"];
+  test("the Lab filter keeps the calls any rule touched, or one rule's", () => {
+    const any = liveSearch({ lab: "any" });
+    const one = liveSearch({ lab: 3 });
+    expect(any.lab).toBe("any");
+    expect(one.lab).toBe(3);
+    expect(filtering(any) && filtering(one)).toBe(true);
+    expect(matches(call({ lab: lab(3) }), any)).toBe(true);
+    expect(matches(call({ lab: lab(4) }), any)).toBe(true);
+    expect(matches(call({ lab: null }), any)).toBe(false);
+    expect(matches(call({ lab: lab(3) }), one)).toBe(true);
+    expect(matches(call({ lab: lab(4) }), one)).toBe(false);
+    expect(matches(call({ lab: null }), one)).toBe(false);
+  });
+  test("what is not a rule number is dropped from the address", () => {
+    for (const bad of [0, -1, 1.5, "3", "all", null, {}]) expect(liveSearch({ lab: bad }).lab).toBeUndefined();
+  });
+  test("a call whose connection was closed with no answer is a failure, not a refusal", () => {
+    const dropped = call({ outcome: "error", status: 0, lab: lab(1, "dropped") });
+    expect(lookOf(dropped)).toBe("failed");
+    expect(matches(dropped, liveSearch({ outcome: "refused" }))).toBe(false);
+    expect(matches(dropped, liveSearch({ outcome: "error" }))).toBe(true);
+  });
+});

@@ -12,12 +12,20 @@ use crate::ring::{Call, Flow};
 
 mod deep;
 mod extras;
+mod lab_acts;
+mod lab_guide;
+mod lab_once;
+mod lab_rules;
 mod regions;
 mod resources;
 mod spaces;
 mod wiring;
 pub use deep::*;
 pub use extras::*;
+pub use lab_acts::*;
+pub use lab_guide::*;
+pub use lab_once::*;
+pub use lab_rules::*;
 pub use regions::*;
 pub use resources::*;
 pub use spaces::*;
@@ -118,7 +126,8 @@ pub struct ServicesResponse {
 pub enum Outcome {
     /// Answered as asked (a status under 400).
     Ok,
-    /// Any other error answer, 4xx or 5xx, the caller's or the server's, a validation error included: the status says which.
+    /// Any other error answer, 4xx or 5xx, the caller's or the server's, a validation error included: the status says which. Also a
+    /// call whose connection was closed with no answer (status 0).
     Error,
     /// IAM refused it (an `AccessDenied...` error, under `--iam enforce`): the caller may not do this.
     Denied,
@@ -131,9 +140,12 @@ impl Outcome {
     /// The outcome of an answer with `status` and error `code`.
     #[must_use]
     pub fn of(status: u16, code: &str) -> Self {
-        if status < 400 {
+        if status == 0 {
+            // A connection closed with no answer (a Lab rule dropped it): it did not succeed, and no one said no.
+            Self::Error
+        } else if status < 400 {
             Self::Ok
-        } else if code.starts_with("AccessDenied") {
+        } else if code.starts_with("AccessDenied") || code == "AuthorizationError" {
             Self::Denied
         } else if (status == 501 && code == "NotImplemented") || code == "OptInRequired" {
             Self::NotBuilt
@@ -169,7 +181,7 @@ pub struct CallRecord {
     pub caller: Option<String>,
     /// The region it was signed for.
     pub region: Option<String>,
-    /// The HTTP status answered.
+    /// The HTTP status answered; 0 for a call whose connection was closed with no answer (a Lab rule dropped it).
     pub status: u16,
     /// The error code answered (`QueueDoesNotExist`); `null` for a success.
     pub error_code: Option<String>,
@@ -198,6 +210,8 @@ pub struct CallRecord {
     /// for an operation that has none, for a call that failed and for a call between services. The record keeps no bodies: this is
     /// all it knows of them.
     pub summary: Option<String>,
+    /// The Lab rule that touched this call (it was delayed, failed or dropped on purpose); `null` for a call no rule touched.
+    pub lab: Option<LabTag>,
 }
 
 /// What made a call between services.
@@ -254,6 +268,24 @@ impl CallRecord {
                     .filter(|_| call.status < 400)
                     .map_or("", |e| &e.message),
             ),
+            lab: call
+                .extra
+                .as_ref()
+                .and_then(|e| e.lab.as_ref())
+                .map(|l| LabTag {
+                    id: l.rule(),
+                    name: facts
+                        .lab
+                        .table
+                        .as_ref()
+                        .and_then(|t| t.name_of(l.rule()))
+                        .map_or_else(|| format!("Lab rule {}", l.rule()), |n| n.to_string()),
+                    effect: match l.did() {
+                        crate::ring::LabDid::Delayed(ms) => LabDid::Delayed { ms },
+                        crate::ring::LabDid::Failed => LabDid::Failed,
+                        crate::ring::LabDid::Dropped => LabDid::Dropped,
+                    },
+                }),
         }
     }
 }

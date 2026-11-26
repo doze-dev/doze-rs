@@ -96,8 +96,17 @@ export function useLabOperation(target: string, op: string) {
   return useQuery({ queryKey: ["lab", target, op], queryFn: ({ signal }) => client.api<LabOperation>(SPACE_PATHS.op(target, op), {}, signal), enabled: target !== "" && op !== "", staleTime: Number.POSITIVE_INFINITY });
 }
 
-export function useLabSend() {
-  return useMutation({ mutationFn: ({ target, op, input }: { target: string; op: string; input: unknown }) => client.api<LabAnswer>(SPACE_PATHS.op(target, op), post(input)) });
+/** Sends one call as this console. `onAnswered` is told of every answer (a service's refusal is one), with what was sent: the Lab keeps its
+ * history from it. A call can change what Resources lists, so what was read of them is read again when they are next shown. */
+export function useLabSend(onAnswered?: (sent: { target: string; op: string; input: unknown }, answer: LabAnswer) => void) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ target, op, input }: { target: string; op: string; input: unknown }) => client.api<LabAnswer>(SPACE_PATHS.op(target, op), post(input)),
+    onSuccess: (answer, sent) => {
+      onAnswered?.(sent, answer);
+      void qc.invalidateQueries({ queryKey: ["resources"] });
+    },
+  });
 }
 
 /** Calls `onCalls` each time calls arrive in the Live record, while the page is on screen: the tail's stream, read for its

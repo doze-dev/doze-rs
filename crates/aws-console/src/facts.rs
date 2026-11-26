@@ -59,6 +59,19 @@ pub struct Facts {
     pub flags: Vec<Flag>,
     /// The data directory, as `doze-aws data` reads and resets it; `None` when the binary did not hand it over.
     pub data: Option<Arc<dyn LocalData>>,
+    /// The Lab's fault rules: the table the gateway asks, or why there is none.
+    pub lab: LabFacts,
+}
+
+/// What the binary says of the Lab (`--lab`).
+#[derive(Debug, Clone, Default)]
+pub struct LabFacts {
+    /// The table the gateway asks about each request and the console makes rules in; `None` when the Lab is off.
+    pub table: Option<Arc<crate::lab::LabTable>>,
+    /// Why it is off, in a sentence (`--lab=false`, no console, a console open to other machines).
+    pub off_why: Option<String>,
+    /// The Lab is on and the console is served beyond this machine: anyone who can reach the console can inject faults.
+    pub open: bool,
 }
 
 /// One setting of the run: its name, its value and where the value came from.

@@ -97,6 +97,8 @@ async fn run(cfg: &Config, started: Instant) -> Result<(), String> {
     // A verifying gateway serves an unsigned S3 request as the anonymous principal only when IAM is there to judge it.
     gw.anonymous = cfg.text("iam") != "off";
     gw.health = Some(me.health());
+    // The Lab's rules, when there is a console to make them from and `--lab` allows them.
+    gw.faults = console.as_ref().and_then(crate::console::Planned::faults);
     let tasks = Tasks::new();
     // With the console on, its Live record is told about every call (wire::live_on_the_bus).
     let live = console.as_ref().map(crate::console::Planned::recorder);

@@ -6,6 +6,7 @@
 //! - [`Deadlines`]: one task per key asleep until a [`Lazy`] service next needs asking, and none while nothing is due.
 //! - [`Clock`]: time as a value passed in, so tests own the clock.
 //! - [`Tasks`]: tracked tasks and a clean stop.
+//! - [`Rests`]: the lazy services made on a task set, which a tool may tell to rest now.
 //! - [`DataDirLock`]: one process per data directory.
 //!
 //! The lifecycle and timer patterns come from spike C (2026-11-08); the lock and the stop handle are
@@ -17,6 +18,7 @@ mod expiring;
 mod keyed;
 mod lazy;
 mod lock;
+mod rests;
 mod tasks;
 
 pub use clock::{Clock, ManualClock, SystemClock};
@@ -25,4 +27,5 @@ pub use expiring::Expiring;
 pub use keyed::{KeyError, Keyed, MAX_KEYS};
 pub use lazy::{Ctx, Error, Lazy, Service};
 pub use lock::{DataDirLock, LockError};
+pub use rests::{Rested, Rests, Seen};
 pub use tasks::Tasks;

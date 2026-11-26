@@ -5,23 +5,23 @@ use std::collections::HashMap;
 use crate::body::RespBody;
 use aws_auth::AuthError;
 use aws_auth::claim::Claim;
-use aws_schema::arena::{Arena, NIL};
-use aws_schema::enc::encode;
-use aws_schema::json::decode;
 use aws_schema::meta::Protocol;
 use aws_schema::patterns::Patterns;
-use aws_wire::service::{Call, Caller, Service};
+use aws_wire::service::{Call, Service};
 use aws_wire::{ApiError, Family, RequestId, from_auth, json};
-use bytes::Bytes;
 use http::Response;
 use http::request::Parts;
 use hyper::body::Incoming;
 
+use crate::fault::Step;
+mod codec;
 pub(crate) use crate::head::{
     authenticate, caller_of, endpoint_of, inflate, read_body, session_token,
 };
 use crate::target::target_prefix;
 use crate::{Auth, Config};
+pub(crate) use codec::decode_call;
+use codec::encode_output;
 
 /// A registered service and the pattern cache for its model.
 pub(crate) struct Entry {
@@ -278,17 +278,7 @@ async fn handle(
         }
         return Err(early(id, parts, &unserved_protocol(meta)));
     };
-    let fail = |e: &ApiError| -> Fail {
-        crate::observe::failed(parts, e);
-        Box::new(json::failure(
-            meta,
-            tables,
-            version,
-            id,
-            e,
-            entry.service.flat_client_errors(),
-        ))
-    };
+    let fail = |e: &ApiError| json_fail(parts, entry, (version, id), e);
     let authed = authenticate(shared, parts, claim.service.as_str())
         .await
         .map_err(|e| fail(&from_auth(&e, Family::Coral)))?;
@@ -315,9 +305,32 @@ async fn handle(
     let caller = caller_of(shared, parts, claim);
     let call =
         crate::observe::decode(parts, entry, (op, id), caller, bytes).map_err(|e| fail(&e))?;
+    match crate::fault::apply(shared, parts).await {
+        Step::Go => {}
+        Step::Fail(e) => return Err(fail(&e)),
+        Step::Drop => return Err(Box::new(crate::fault::marked_dropped())),
+    }
     answer(parts, entry, (op, version), call)
         .await
         .map_err(|e| fail(&e))
+}
+
+/// An error answer in the JSON protocol, noted for the observer.
+fn json_fail(
+    parts: &Parts,
+    entry: &Entry,
+    (version, id): (json::Version, &RequestId),
+    e: &ApiError,
+) -> Fail {
+    crate::observe::failed(parts, e);
+    Box::new(json::failure(
+        entry.service.meta(),
+        entry.service.tables(),
+        version,
+        id,
+        e,
+        entry.service.flat_client_errors(),
+    ))
 }
 
 /// The service's answer to a decoded JSON-protocol call: whole, or (an operation whose output is an event stream) streamed.
@@ -385,61 +398,4 @@ fn unserved_protocol(meta: &aws_schema::meta::ServiceMeta) -> ApiError {
 pub(crate) fn early(id: &RequestId, parts: &Parts, err: &ApiError) -> Fail {
     crate::observe::failed(parts, err);
     Box::new(json::generic_failure(json::Version::V10, id, err))
-}
-
-/// Decodes and validates the body against the operation's input shape.
-pub(crate) fn decode_call(
-    entry: &Entry,
-    op: u32,
-    id: &RequestId,
-    caller: Caller,
-    bytes: Bytes,
-) -> Result<Call, ApiError> {
-    let tables = entry.service.tables();
-    let body = String::from_utf8(bytes.to_vec()).map_err(|_| {
-        ApiError::new(
-            400,
-            "SerializationException",
-            "The request body is not valid UTF-8.",
-        )
-    })?;
-    let input = tables.op(op).and_then(|o| o.input);
-    let mut arena = Arena::new();
-    let root = match input {
-        Some(shape) => {
-            let text = if body.trim().is_empty() {
-                "{}"
-            } else {
-                body.as_str()
-            };
-            decode(tables, &entry.patterns, shape, text, &mut arena).map_err(|v| {
-                let e = entry.service.invalid_in(&v, text);
-                aws_wire::located::place(e, tables, &entry.patterns, shape, text, &v)
-            })?
-        }
-        None => NIL,
-    };
-    Ok(Call {
-        op,
-        id: id.clone(),
-        caller,
-        body,
-        arena,
-        root,
-    })
-}
-
-fn encode_output(entry: &Entry, op: u32, arena: &Arena, root: u32) -> Result<Vec<u8>, ApiError> {
-    let tables = entry.service.tables();
-    let Some(shape) = tables.op(op).and_then(|o| o.output) else {
-        return Ok(b"{}".to_vec());
-    };
-    // An operation whose output is an empty structure answers with no tree at all.
-    if root == NIL {
-        return Ok(b"{}".to_vec());
-    }
-    let mut out = Vec::new();
-    encode(tables, shape, arena, "", root, &mut out)
-        .map_err(|_| ApiError::internal("The response could not be written."))?;
-    Ok(out)
 }

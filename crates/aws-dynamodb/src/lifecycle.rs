@@ -12,7 +12,7 @@ use crate::meta::Status;
 use crate::stage::item_key;
 
 /// The most expired items one sweep deletes; the next call (or the timer, at once) carries on.
-const SWEEP_BATCH: usize = 500;
+pub(crate) const SWEEP_BATCH: usize = 500;
 
 impl Core {
     /// Settles transitional states and sweeps expired items, and waits for what that wrote. Answers whether a stream record was
@@ -44,30 +44,35 @@ impl Core {
             .iter()
             .filter(|(_, t)| t.ttl.enabled && t.status != Status::Deleting)
         {
-            let mut lo = t.id.to_vec();
-            lo.extend_from_slice(&0_u32.to_be_bytes());
-            let mut first = None;
-            // WHY: a failed read leaves this table out of the deadline; the next call's sweep still finds its items.
-            let _ = self
-                .disk
-                .scan(Space::Index, &lo, &keys::prefix_end(&lo), false, |_, pk| {
-                    first = Some(pk.to_vec());
-                    crate::disk::Flow::Stop
-                });
-            let Some(pk) = first else { continue };
-            let at = match self.read_item(&item_key(t, &pk)) {
-                Ok(Some(item)) => match item.get(&t.ttl.attribute) {
-                    Some(Value::N(n)) => n.floor_i64().map(|secs| secs.saturating_mul(1000)),
-                    _ => None,
-                },
-                _ => None,
-            };
-            // An entry always moves with its item (`stage`); one that does not match it is left to the next call's sweep rather than
-            // made a deadline the timer could never satisfy.
-            let Some(at) = at else { continue };
-            due = Some(due.map_or(at, |d| d.min(at)));
+            if let Some(at) = self.first_expiry_of(t) {
+                due = Some(due.map_or(at, |d| d.min(at)));
+            }
         }
         due
+    }
+
+    /// When the first item of `t` expires, as the time-to-live index files it.
+    pub(crate) fn first_expiry_of(&self, t: &crate::meta::Table) -> Option<i64> {
+        let mut lo = t.id.to_vec();
+        lo.extend_from_slice(&0_u32.to_be_bytes());
+        let mut first = None;
+        // WHY: a failed read leaves this table out of the deadline; the next call's sweep still finds its items.
+        let _ = self
+            .disk
+            .scan(Space::Index, &lo, &keys::prefix_end(&lo), false, |_, pk| {
+                first = Some(pk.to_vec());
+                crate::disk::Flow::Stop
+            });
+        let pk = first?;
+        // An entry always moves with its item (`stage`); one that does not match it is left to the next call's sweep rather
+        // than made a deadline the timer could never satisfy.
+        match self.read_item(&item_key(t, &pk)) {
+            Ok(Some(item)) => match item.get(&t.ttl.attribute) {
+                Some(Value::N(n)) => n.floor_i64().map(|secs| secs.saturating_mul(1000)),
+                _ => None,
+            },
+            _ => None,
+        }
     }
 
     /// Tables and indexes whose window has passed become active; a table being deleted goes, with its items.
@@ -136,21 +141,7 @@ impl Core {
             .collect();
         for name in names {
             let t = self.table(&name)?;
-            let mut lo = t.id.to_vec();
-            lo.extend_from_slice(&0_u32.to_be_bytes());
-            let mut hi = lo.clone();
-            Number::from_i64(now_secs).order_key(&mut hi);
-            let hi = keys::prefix_end(&hi);
-            let mut expired = Vec::new();
-            let read = self.disk.scan(Space::Index, &lo, &hi, false, |_, pk| {
-                expired.push(pk.to_vec());
-                if expired.len() >= SWEEP_BATCH {
-                    crate::disk::Flow::Stop
-                } else {
-                    crate::disk::Flow::Continue
-                }
-            });
-            read.map_err(|e| ApiError::internal(e.to_string()))?;
+            let expired = self.expired_keys(&t, now_secs)?;
             if expired.len() >= SWEEP_BATCH {
                 self.next_sweep_ms = now;
             }
@@ -159,6 +150,30 @@ impl Core {
             }
         }
         Ok(())
+    }
+
+    /// The keys of the items of `t` whose time to live is at or before `now_secs`, at most [`SWEEP_BATCH`] of them.
+    pub(crate) fn expired_keys(
+        &self,
+        t: &crate::meta::Table,
+        now_secs: i64,
+    ) -> Result<Vec<Vec<u8>>, ApiError> {
+        let mut lo = t.id.to_vec();
+        lo.extend_from_slice(&0_u32.to_be_bytes());
+        let mut hi = lo.clone();
+        Number::from_i64(now_secs).order_key(&mut hi);
+        let hi = keys::prefix_end(&hi);
+        let mut expired = Vec::new();
+        let read = self.disk.scan(Space::Index, &lo, &hi, false, |_, pk| {
+            expired.push(pk.to_vec());
+            if expired.len() >= SWEEP_BATCH {
+                crate::disk::Flow::Stop
+            } else {
+                crate::disk::Flow::Continue
+            }
+        });
+        read.map_err(|e| ApiError::internal(e.to_string()))?;
+        Ok(expired)
     }
 
     /// Deletes one expired item, if it is still there and still expired.

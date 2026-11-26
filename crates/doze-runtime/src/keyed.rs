@@ -84,7 +84,7 @@ impl<S: Service> Keyed<S> {
             clock: Arc::clone(&self.ctx.clock),
             ext: self.ctx.ext.clone(),
         });
-        let actor = Arc::new(Lazy::new(self.name, ctx));
+        let actor = Arc::new(Lazy::keyed(self.name, key, ctx));
         actors.insert(key.to_owned(), Arc::clone(&actor));
         Ok(actor)
     }
@@ -180,6 +180,25 @@ mod tests {
             &k.actor("eu-west-1").unwrap(),
             &k.actor("eu-west-1").unwrap()
         ));
+    }
+
+    #[tokio::test]
+    async fn a_region_is_rested_alone_and_the_others_keep_running() {
+        let k = keyed();
+        let rests = k.ctx.tasks.rests();
+        k.actor("us-east-1").unwrap().call(()).await.unwrap();
+        k.actor("eu-west-1").unwrap().call(()).await.unwrap();
+        assert_eq!(
+            rests.rest("where", "eu-west-1").await,
+            crate::Rested::Closed
+        );
+        assert_eq!(rests.is_live("where", "eu-west-1"), Some(false));
+        assert_eq!(rests.is_live("where", "us-east-1"), Some(true));
+        // A region nobody called was never made: there is nothing of it to rest.
+        assert_eq!(
+            rests.rest("where", "ap-south-1").await,
+            crate::Rested::Unknown
+        );
     }
 
     #[test]

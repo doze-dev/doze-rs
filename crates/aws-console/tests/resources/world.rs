@@ -161,6 +161,7 @@ pub(crate) fn world(name: &str, mode: Mode, served: &[&'static str]) -> World {
         peers: Some(peers),
         flags: Vec::new(),
         data: None,
+        lab: aws_console::LabFacts::default(),
     };
     let state = State::new(
         facts,

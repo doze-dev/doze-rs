@@ -4,15 +4,19 @@
 //! wait until it has.
 
 use std::future::Future;
+use std::sync::Arc;
 
 use tokio_util::sync::CancellationToken;
 use tokio_util::task::TaskTracker;
+
+use crate::Rests;
 
 /// A set of tasks and the signal that tells them to stop.
 #[derive(Debug, Clone, Default)]
 pub struct Tasks {
     stop: CancellationToken,
     tracker: TaskTracker,
+    rests: Arc<Rests>,
 }
 
 impl Tasks {
@@ -34,6 +38,12 @@ impl Tasks {
     #[must_use]
     pub fn stopping(&self) -> CancellationToken {
         self.stop.clone()
+    }
+
+    /// The lazy services made on this task set, which a tool may tell to rest (see [`Rests`]).
+    #[must_use]
+    pub fn rests(&self) -> Arc<Rests> {
+        Arc::clone(&self.rests)
     }
 
     /// How many tasks are running.

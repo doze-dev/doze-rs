@@ -165,6 +165,24 @@ impl Runtime {
         }
     }
 
+    /// How many processes of `function` (`region/name`) are running, whatever version they run.
+    pub(crate) fn alive(&self, function: &str) -> usize {
+        let prefix = format!("{function}/");
+        let slots = self.slots.lock().unwrap_or_else(PoisonError::into_inner);
+        slots
+            .iter()
+            .filter(|(k, _)| k.starts_with(&prefix))
+            .map(|(_, slot)| {
+                slot.workers
+                    .lock()
+                    .unwrap_or_else(PoisonError::into_inner)
+                    .iter()
+                    .filter(|w| !w.is_dead() && !w.is_retired())
+                    .count()
+            })
+            .sum()
+    }
+
     /// Starts the invocation on a warm process or a new one.
     ///
     /// # Errors

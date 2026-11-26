@@ -93,7 +93,7 @@ function touch(n: MapNode, c: CallRecord, now: number) {
   if (c.action && !n.ops.includes(c.action)) n.ops.push(c.action);
   if (c.would_be_denied) n.seen.wouldBeDenied += 1;
   if (c.outcome === "error") {
-    if (c.status < 500) n.seen.refused += 1;
+    if (c.status > 0 && c.status < 500) n.seen.refused += 1;
     else n.seen.error += 1;
   }
   if (c.outcome === "not-built") n.seen.notBuilt += 1;
