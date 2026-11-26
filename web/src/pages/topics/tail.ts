@@ -3,6 +3,7 @@
 // hovering, selecting or focused in it; on a dropped connection it reconnects with the newest id it has (no duplicates).
 import { useCallback, useEffect, useRef, useState } from "react";
 import { streamEvents } from "@/api/sse";
+import { useHidden } from "@/lib/hidden";
 import type { RecordRow } from "@/api/types/RecordRow";
 import type { TailRows } from "@/api/types/TailRows";
 
@@ -51,10 +52,14 @@ export function useMessagesTail({ path, cursor, isHeld, known }: { path: string 
     setTimeout(() => setFresh((f) => (f === ids ? new Set() : f)), 1600);
   }, []);
 
+  // Where the stream goes on from: kept across a restart (the tab hidden and seen again, a new pace), so nothing is read twice.
+  const lastRef = useRef<string | null>(null);
+  const hidden = useHidden();
+
   useEffect(() => {
-    if (!path) return;
+    if (!path || hidden) return;
     const ctrl = new AbortController();
-    let last = String(start.current);
+    let last = lastRef.current ?? String(start.current);
     let attempt = 0;
     let timer: ReturnType<typeof setTimeout> | undefined;
     const run = async () => {
@@ -72,7 +77,7 @@ export function useMessagesTail({ path, cursor, isHeld, known }: { path: string 
               return;
             }
             if (e.event !== "rows") return;
-            if (e.id) last = e.id;
+            if (e.id) last = lastRef.current = e.id;
             let body: TailRows;
             try {
               body = JSON.parse(e.data) as TailRows;
@@ -115,7 +120,7 @@ export function useMessagesTail({ path, cursor, isHeld, known }: { path: string 
       ctrl.abort();
       clearTimeout(timer);
     };
-  }, [path, mark]);
+  }, [path, mark, hidden]);
 
   /** Puts the held rows on screen (the pill's Show). */
   const show = useCallback(() => {

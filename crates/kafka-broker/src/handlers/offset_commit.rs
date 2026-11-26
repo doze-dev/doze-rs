@@ -23,6 +23,17 @@ const BY_ID: i16 = 10;
 /// The version whose offsets Kafka keeps in ZooKeeper, apart from every other commit.
 const ZOOKEEPER: i16 = 0;
 
+/// How long an offset committed again unchanged keeps its stored commit time instead of being written (and flushed)
+/// again (`MetaStore::commit_offsets_unless_held`): a minute, or a tenth of how long offsets are kept when that is
+/// shorter, so a commit time that lags never lets an offset a client keeps committing expire.
+fn held_for(retention: std::time::Duration) -> i64 {
+    const MINUTE_MS: i64 = 60_000;
+    if retention.is_zero() {
+        return MINUTE_MS;
+    }
+    i64::try_from(retention.as_millis() / 10).map_or(MINUTE_MS, |ms| ms.min(MINUTE_MS))
+}
+
 mod zookeeper;
 
 impl<F: Fs> Broker<F> {
@@ -228,7 +239,11 @@ impl<F: Fs> Broker<F> {
         let Ok(group) = GroupId::parse(req.group_id.as_str()) else {
             return;
         };
-        let result = blocking::run(|| self.meta.commit_offsets(&group, commits));
+        let within = held_for(self.config.offsets_retention);
+        let result = blocking::run(|| {
+            self.meta
+                .commit_offsets_unless_held(&group, commits, within)
+        });
         let codes: Vec<i16> = match result {
             Ok(outcomes) => outcomes
                 .iter()
