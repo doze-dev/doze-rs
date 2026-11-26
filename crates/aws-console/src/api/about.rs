@@ -35,7 +35,11 @@ pub async fn about(State(s): State<Shared>) -> Response {
             region: f.region.clone(),
             regions: regions.into_iter().collect(),
             endpoint: f.endpoint.clone(),
-            console: s.url(),
+            console: if f.console_url.is_empty() {
+                s.url()
+            } else {
+                f.console_url.clone()
+            },
             auth: f.auth.clone(),
             iam: f.iam.clone(),
             data_dir: f.data_dir.clone(),

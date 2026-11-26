@@ -197,6 +197,11 @@ impl Planned {
             off_why: self.lab.off_why.clone(),
             open: self.lab.open,
         };
+        facts.console_url = cfg
+            .text("advertise-console")
+            .trim()
+            .trim_end_matches('/')
+            .to_owned();
         for (level, line) in &self.lab.lines {
             say(*level, line);
         }
@@ -286,6 +291,7 @@ fn facts(cfg: &Config, me: &Instance, on: &[&'static Svc], apis: &Apis) -> Facts
         flags: Vec::new(),
         data: None,
         lab: aws_console::LabFacts::default(),
+        console_url: String::new(),
     }
 }
 

@@ -162,6 +162,7 @@ pub(crate) fn world(name: &str, mode: Mode, served: &[&'static str]) -> World {
         flags: Vec::new(),
         data: None,
         lab: aws_console::LabFacts::default(),
+        console_url: String::new(),
     };
     let state = State::new(
         facts,

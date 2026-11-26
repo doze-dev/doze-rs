@@ -201,6 +201,17 @@ pub(crate) fn server_args(instance: &Instance, region: &str) -> Result<Vec<Strin
     match tcp_backend(instance, CONSOLE)? {
         Some(addr) => {
             args.extend(["--console".into(), addr]);
+            // The console is reached at the front doze put before it, as the gateway is: the address the console says of itself.
+            if let Some(front) = instance
+                .listeners
+                .get(CONSOLE)
+                .filter(|g| !g.addr.is_empty())
+            {
+                args.extend([
+                    "--advertise-console".into(),
+                    format!("http://{}", front.addr),
+                ]);
+            }
             let hosts = instance.listeners.get(CONSOLE).map(|g| g.hosts.clone());
             for h in hosts.unwrap_or_default() {
                 args.extend(["--console-allow-host".into(), h]);

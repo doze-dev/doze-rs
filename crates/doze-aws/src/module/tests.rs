@@ -236,6 +236,12 @@ fn the_server_under_doze_listens_and_serves_its_console_only_where_doze_granted(
     assert!(!args.iter().any(|a| a == "--no-console"), "{args:?}");
     let at = args.iter().position(|a| a == "--advertise").unwrap();
     assert_eq!(args[at + 1], "http://local.shop.doze:4566", "{args:?}");
+    // The console says it is where doze put it (the front), not at the private backend it listens on.
+    let at = args
+        .iter()
+        .position(|a| a == "--advertise-console")
+        .unwrap();
+    assert_eq!(args[at + 1], "http://local.shop.doze:4567", "{args:?}");
 }
 
 #[test]
