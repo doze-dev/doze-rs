@@ -11,7 +11,6 @@ use crate::MetaError;
 use crate::offsets::{Committed, GroupOffset, OffsetCommit, StoredOffset};
 
 type OffsetsTable = redb::ReadOnlyTable<&'static [u8], &'static [u8]>;
-
 fn key(group: &GroupId, topic: &TopicName, partition: PartitionId) -> Vec<u8> {
     let mut k = prefix(group);
     k.extend_from_slice(topic.as_str().as_bytes());
@@ -83,6 +82,23 @@ impl MetaStore {
         group: &GroupId,
         commits: &[OffsetCommit],
     ) -> Result<Vec<Committed>, MetaError> {
+        self.commit_offsets_unless_held(group, commits, 0)
+    }
+
+    /// [`MetaStore::commit_offsets`], except that when every offset is already stored as it is (offset, epoch and
+    /// metadata), committed less than `within_ms` before, nothing is written and each keeps its earlier commit time.
+    /// Java's consumer commits every position it holds every five seconds whether it moved or not, and each write is a
+    /// flush of the database (`F_FULLFSYNC` on macOS): a quiet app cost one every five seconds for nothing. The caller
+    /// picks `within_ms` well under how long offsets are kept, since a commit time that lags is one that expires sooner.
+    ///
+    /// # Errors
+    /// A failed write, in which case nothing was stored.
+    pub fn commit_offsets_unless_held(
+        &self,
+        group: &GroupId,
+        commits: &[OffsetCommit],
+        within_ms: i64,
+    ) -> Result<Vec<Committed>, MetaError> {
         let _one_at_a_time = lock(&self.write);
         let outcomes: Vec<Committed> = commits
             .iter()
@@ -91,7 +107,9 @@ impl MetaStore {
                 _ => Committed::UnknownTopicOrPartition,
             })
             .collect();
-        if !outcomes.contains(&Committed::Stored) {
+        if !outcomes.contains(&Committed::Stored)
+            || (within_ms > 0 && self.held(group, commits, &outcomes, within_ms)?)
+        {
             return Ok(outcomes);
         }
         let txn = self.begin()?;
@@ -263,6 +281,36 @@ impl MetaStore {
     }
 
     /// The offsets table, or `None` if no offset has ever been committed (a database made before the table was).
+    /// Whether every offset to be stored is already there as it is, committed less than `within_ms` before.
+    fn held(
+        &self,
+        group: &GroupId,
+        commits: &[OffsetCommit],
+        outcomes: &[Committed],
+        within_ms: i64,
+    ) -> Result<bool, MetaError> {
+        let Some(table) = self.offsets_table()? else {
+            return Ok(false);
+        };
+        for (c, outcome) in commits.iter().zip(outcomes) {
+            if *outcome != Committed::Stored {
+                continue;
+            }
+            let Some(found) = table.get(key(group, &c.topic, c.partition).as_slice())? else {
+                return Ok(false);
+            };
+            let (was, now) = (StoredOffset::decode(found.value())?, &c.offset);
+            let age = now.committed_ms - was.committed_ms;
+            if (was.offset, was.leader_epoch, &was.metadata)
+                != (now.offset, now.leader_epoch, &now.metadata)
+                || !(0..within_ms).contains(&age)
+            {
+                return Ok(false);
+            }
+        }
+        Ok(true)
+    }
+
     fn offsets_table(&self) -> Result<Option<OffsetsTable>, MetaError> {
         match self.db.begin_read()?.open_table(OFFSETS) {
             Ok(table) => Ok(Some(table)),

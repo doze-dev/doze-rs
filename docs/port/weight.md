@@ -881,6 +881,54 @@ schemas) the start cost is under a millisecond, so it stays eager.
 **The console recorder's ring** (2,000 rows, 1 MiB at most) keeps its rows however long the broker is idle: they are the history
 the Live page shows. The comment that said "an idle ring holds nothing" now says it holds nothing only until the first request
 (CON-307).
+
+### A quiet consumer (2026-11-26), release, darwin/arm64
+
+The idle figures above are a broker with no clients. The usual local state is different: an app is connected, its consumer group
+waits for records, and now and then it writes some. An audit of that state, measured with kcat (librdkafka) and franz-go on
+loopback:
+
+| | Before | After |
+|---|---|---|
+| No clients, 120 s | 3 threads, 0.01 s CPU, no idle wake-ups | unchanged |
+| One quiet consumer group, 60 s | 4 threads for good | 3 |
+| An app at 5 records/s (acks=all) and its group, 40 s | 5 to 6 threads, 4,000 to 5,800 switches | 5 to 6 threads, 4,150 to 4,480 switches |
+| Three apps at 200 records/s each, 40 s | 10 to 13 threads, 212,000 to 219,000 switches | 10 to 12 threads, 186,000 to 191,000 switches |
+| 12 s after that load | 6 threads | 3 threads |
+
+What changed:
+- **A fetch with nothing to read runs where it is.** Each fetch round went through `block_in_place`, even when every partition was at
+  its end and the round touched no file. A quiet consumer fetches twice a second (Java's `fetch.max.wait.ms` is 500 ms), so a
+  blocking thread was woken for nothing every half second, and its 10 s keep-alive never ran out. A round whose partitions are all
+  at their end, or refused, now runs on the worker (`handlers/fetch.rs`, `at_the_end`).
+- **A small produce batch is checked where it is.** The check is CPU work only (a CRC, a walk of the records, a re-encoding only
+  where the codec changes). Batches of 16 KiB or less, the usual size from an app, no longer hand the worker over
+  (`handlers/produce.rs`, `CHECKED_HERE`). The partition writer's own hand-off stays: a write into the page cache can stall while
+  the kernel throttles dirty pages, and a flush always blocks.
+- **An offset committed again unchanged is not written again** for a minute, or a tenth of `--offsets-retention` when that is
+  shorter (`MetaStore::commit_offsets_unless_held`). Java's consumer commits every position it holds every five seconds whether it
+  moved or not, and each commit was a flush of the metadata database (`F_FULLFSYNC` on macOS). So a quiet Java app cost one full
+  flush every five seconds; now it is one a minute. The stored commit time lags by up to that minute, which is how much sooner such
+  an offset can expire and how stale the console's "committed" time can be. librdkafka already skips unchanged commits (a quiet kcat
+group wrote nothing to the database in 60 s).
+- **Console tails stop in a hidden tab.** The Live tail and a topic's Messages tail kept their stream open in a background tab,
+  and the broker kept reading for them once a pace; the Messages tail's reads also kept its partitions open past their 5-minute
+  idle close. Both now close the stream while the tab is hidden and go on from where they were when it is seen again (the Tail page
+  already did).
+
+**Not changed, measured: the cleaner's look every 15 s** with no compacted topic: it reads the topic list in memory and touches
+nothing (0.07 wake-ups a second). Parking it would also change the console's "last looked" time.
+
+**Not changed: blocking-thread limits.** The runtime keeps tokio's defaults (at most 512 blocking threads, 10 s keep-alive). The
+most measured under load is 13 threads; a cap would only matter in a stall, and the keep-alive is what lets a burst reuse its
+threads.
+
+**Not changed, the owner's call: a full flush per acks=all produce on macOS.** `RealFile::sync_data` uses std's `sync_data`, which
+on Apple platforms is `fcntl(F_FULLFSYNC)`: it empties the drive's write cache, takes milliseconds, and slows other programs'
+writes too. Java producers send acks=all by default, so an app producing a few records a second costs that many full flushes. A
+plain `fsync` (or `F_BARRIERFSYNC`) would keep everything through a crash of the broker or of macOS and lose only what a power cut
+catches in the drive's cache. `kill -9`, the usual crash in development, loses nothing either way. PLAN.md chose acks=all durable
+before the reply, and `F_FULLFSYNC`, to match Go.
 ## One build: CI's measurements (2026-11-14)
 
 Main's first CI run with the one build (TLS in the default, the registry with Avro, JSON Schema and Protobuf), run 43588988185 on PR #45,
