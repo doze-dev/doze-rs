@@ -98,25 +98,38 @@ impl Core {
         doc.insert("MessageId".into(), json!(message_id));
         doc.insert("Token".into(), json!(token));
         doc.insert("TopicArn".into(), json!(sub.topic_arn));
-        doc.insert("Message".into(), json!(format!("You have chosen to subscribe to the topic {}.\nTo confirm the subscription, visit the SubscribeURL included in this message.", sub.topic_arn)));
-        // A peer call has no address worth naming; the token alone still confirms through ConfirmSubscription.
-        if endpoint.starts_with("http") {
-            let enc = |s: &str| aws_core::uri::encode(s.as_bytes(), false);
-            doc.insert(
-                "SubscribeURL".into(),
-                json!(format!(
-                    "{endpoint}{CONFIRM_PATH}?Action=ConfirmSubscription&TopicArn={}&Token={}",
-                    enc(&sub.topic_arn),
-                    enc(token)
-                )),
-            );
-        }
-        doc.insert(
-            "Timestamp".into(),
-            json!(crate::publish::timestamp(self.now_ms())),
+        let message = format!(
+            "You have chosen to subscribe to the topic {}.\nTo confirm the subscription, visit the SubscribeURL included in this message.",
+            sub.topic_arn
         );
+        doc.insert("Message".into(), json!(message));
+        // A peer call has no address worth naming; the token alone still confirms through ConfirmSubscription.
+        let subscribe_url = endpoint.starts_with("http").then(|| {
+            let enc = |s: &str| aws_core::uri::encode(s.as_bytes(), false);
+            format!(
+                "{endpoint}{CONFIRM_PATH}?Action=ConfirmSubscription&TopicArn={}&Token={}",
+                enc(&sub.topic_arn),
+                enc(token)
+            )
+        });
+        if let Some(url) = &subscribe_url {
+            doc.insert("SubscribeURL".into(), json!(url));
+        }
+        let timestamp = crate::publish::timestamp(self.now_ms());
+        doc.insert("Timestamp".into(), json!(timestamp));
         doc.insert("SignatureVersion".into(), json!("1"));
-        doc.insert("Signature".into(), json!(""));
+        // Signed as a notification is: a digest of the text AWS signs, so a message's `Signature` is never empty.
+        doc.insert(
+            "Signature".into(),
+            json!(envelope::confirmation_signature(&envelope::Confirmation {
+                message: &message,
+                message_id: &message_id,
+                subscribe_url: subscribe_url.as_deref(),
+                timestamp: &timestamp,
+                token,
+                topic_arn: &sub.topic_arn,
+            })),
+        );
         doc.insert(
             "SigningCertURL".into(),
             json!(format!("{endpoint}/SimpleNotificationService-doze.pem")),

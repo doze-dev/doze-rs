@@ -206,14 +206,21 @@ test("stepfunctions__executions-none and execution-start: a machine that never r
   await go(page, machine("stock-reorder"), "stock-reorder");
   await expect(page.getByTestId("executions-none")).toBeVisible();
   await shot(page, "stepfunctions__executions-none");
+  // Nothing has succeeded on it, so Start opens with the paths its first state reads, none of them empty (an empty DynamoDB key, queue message or topic message is refused).
+  await page.getByTestId("start-empty").click();
+  await expect(page.getByTestId("start-input")).toHaveValue(JSON.stringify({ on_hand: 1, reorder_point: 1 }, null, 2));
+  await expect(page.getByTestId("start-dialog")).toContainText("No execution has succeeded yet, so it opens with the paths CheckLevel reads, each holding its own name: replace them with values that exist.");
+  await page.keyboard.press("Escape");
   await go(page, machine("order-fulfilment"), "order-fulfilment");
   await page.getByTestId("verb-start").click();
   const dialog = page.getByTestId("start-dialog");
   await expect(page.getByTestId("start-words")).toContainText("Starts the current revision of order-fulfilment. To start a version or an alias instead, choose it on the Versions or Aliases tab.");
   await expect(dialog).toContainText("A name is unique per state machine and can be used again 90 days after its execution closes. Starting the same name with the same input while it runs returns that run instead of a second one.");
   await expect(dialog).toContainText("The JSON that LoadOrder receives. Send {} when there is no input. Up to 256 KiB as UTF-8.");
-  // It opens with the members the first state reads (LoadOrder reads $.order_id and $.created_at), so a first Start is not a run that fails at once.
-  await expect(page.getByTestId("start-input")).toHaveValue(JSON.stringify({ created_at: "", order_id: "" }, null, 2));
+  // It opens with the input of the newest run that succeeded (a run that fails at once on an empty DynamoDB key is what a skeleton of empty strings made).
+  const good = { order_id: "ord-20261108-0416", created_at: "2026-11-08T08:00:00Z", email: "priya@example.com" };
+  await expect(page.getByTestId("start-input")).toHaveValue(JSON.stringify(good, null, 2));
+  await expect(dialog).toContainText("It opens with the input of ord-20261108-0416, the newest execution that succeeded.");
   await page.getByTestId("start-name").fill("ord-20261108-0421");
   await page.getByTestId("start-input").fill(JSON.stringify({ order_id: "ord-20261108-0412", created_at: "2026-11-08T08:00:00Z", email: "priya@example.com" }, null, 2));
   await shot(page, "stepfunctions__execution-start");
@@ -505,7 +512,7 @@ test("stepfunctions__activities-list and activity-create: the workers' tasks, an
   await expect(page.locator("h1").first()).toHaveText("Activities");
   await expect(rows(page, "Activities")).toHaveCount(2);
   await expect(rows(page, "Activities").filter({ hasText: "pack-order" })).toContainText(`arn:aws:states:us-east-1:${server.account}:activity:pack-order`);
-  await expect(page.getByTestId("list-sentence")).toContainText("polls pack-order, which order-fulfilment uses in its PackOrder step. print-label is not used by any machine yet.");
+  await expect(page.getByTestId("list-sentence")).toContainText(/last polled pack-order (just now|\d+ s ago|\d+ min ago), which order-fulfilment uses in its PackOrder step\. print-label is not used by any machine yet\./);
   await expect(page.getByTestId("activities-note")).toContainText("A worker asks for a task with GetActivityTask, which holds the request for up to 60 seconds");
   await expect(page.getByTestId("worker-calls")).toContainText("GetActivityTask");
   await shot(page, "stepfunctions__activities-list");
@@ -558,6 +565,12 @@ test("stepfunctions__machine-delete, machines-none and activities-none: the dele
   await expect(rows(page, "State machines")).toHaveCount(2);
   expect(refused).toEqual([]);
   expect(cli(["stepfunctions", "list-state-machines"])).not.toContain("order-fulfilment");
+  // A run of the deleted machine still opens, with its own definition, but nothing on it links to the machine (its page would be refused) and nothing new starts on it.
+  await page.goto(`${server.console}${execution("ord-20261108-0416")}`);
+  await expect(page.getByTestId("execution")).toBeVisible();
+  await expect(page.getByTestId("machine-gone")).toContainText("order-fulfilment (deleted: this execution keeps the definition it ran)");
+  await expect(page.getByTestId("start-open")).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "order-fulfilment" })).toHaveCount(0);
   for (const name of ["thumbnail-batch", "stock-reorder"]) cli(["stepfunctions", "delete-state-machine", "--state-machine-arn", `arn:aws:states:us-east-1:${server.account}:stateMachine:${name}`]);
   await go(page, "/resources/stepfunctions/machines", "State machines");
   await expect(page.getByTestId("list-empty")).toContainText("You have no state machines in this region. Create one to orchestrate steps across services.");

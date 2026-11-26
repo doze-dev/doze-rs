@@ -98,4 +98,11 @@ export const corsInput = (api: string, f: CorsForm) => ({ ApiId: api, corsConfig
 /** A route with the greedy variable replaced by a sample, for the sentence that says where a request would land. */
 export const sampleOf = (key: string): string => key.split(" ").slice(-1)[0]!.replace(/\{[^}+]+\+\}/g, "12").replace(/\{[^}]+\}/g, "12");
 export const methodOfKey = (r: Pick<Route, "routeKey">): string => (r.routeKey.includes(" ") ? r.routeKey.split(" ")[0]! : "ANY");
+/** The routes another API already has, all of them (up to four, then how many more): `GET /reports, POST /reports/run and ANY /orders/{proxy+}`. */
+export function routeKeysWords(keys: readonly string[]): string {
+  const shown = keys.slice(0, 4);
+  const more = keys.length - shown.length;
+  const head = shown.length <= 1 ? shown.join("") : `${shown.slice(0, -1).join(", ")}${more > 0 ? ", " : " and "}${shown[shown.length - 1]}`;
+  return more > 0 ? `${head} and ${more} more` : head;
+}
 export { restLambdaUri };

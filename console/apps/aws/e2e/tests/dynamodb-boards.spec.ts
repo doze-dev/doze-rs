@@ -8,6 +8,7 @@ import { start, type Running, aws } from "../server";
 import { keyParam } from "../../src/pages/resources/dynamodb/item-rows";
 import { seedLarder } from "./dynamodb-seed";
 import { expectCopy } from "./callpanel-kit";
+import { expectCrumbsEnd } from "./crumbs-kit";
 import { advance, expect, expectNoErrorAnswers, test } from "./fixtures";
 
 const SHOTS = process.env.SHOTS_DIR ?? join(import.meta.dirname, "../../../../../shots-dynamodb");
@@ -67,7 +68,13 @@ test("dynamodb__tables-list and table-delete: every table with its keys, indexes
   await expect(rows.filter({ hasText: "deliveries" })).toContainText("5 read, 5 write units");
   await expect(rows.filter({ hasText: "orders-table" })).toContainText("On-demand");
   await expect(page.getByTestId("table-delete")).toBeDisabled();
+  // One table at a time (the actions take one): the rows are radios, there is no select-all, and choosing another moves the choice.
+  await expect(page.getByTestId("select-all")).toHaveCount(0);
+  await expect(page.getByTestId("selection-bar")).not.toContainText("act on them together");
+  await page.getByTestId("select-orders-table").click();
   await page.getByTestId("select-deliveries").click();
+  await expect(page.getByTestId("select-orders-table")).toHaveAttribute("aria-checked", "false");
+  await expect(page.getByTestId("selected-count")).toHaveText("1 table selected");
   await expect(page.getByTestId("list-sentence")).toContainText("deliveries is ticked.");
   await expect(page.getByTestId("list-sentence")).toContainText("doze-aws counts live");
   await shot(page, "dynamodb__tables-list");
@@ -112,6 +119,9 @@ test("dynamodb__table-create-custom and table-created: capacity, encryption and 
   await page.getByTestId("table-pk").fill("sku");
   await page.getByTestId("table-sk").fill("moved_at");
   await page.getByTestId("settings-custom").click();
+  // Customized, the mode cards are names only and the crumbs gain the board's last one.
+  await expect(page.getByTestId("section-Table settings")).not.toContainText("On-demand capacity and the default encryption.");
+  await expectCrumbsEnd(page, ["Create table", "Create table (customized)"]);
   await expect(page.getByTestId("section-Read/write capacity settings")).toContainText("Stored, not applied locally.");
   await expect(page.getByTestId("section-Encryption at rest")).toContainText("Owned by Amazon DynamoDB");
   await page.getByTestId("create-tags-key-0").fill("app");
@@ -125,6 +135,8 @@ test("dynamodb__table-create-custom and table-created: capacity, encryption and 
   await advance(page);
   await expect(page.getByTestId("created-banner")).toContainText("stock-moves was created and is Active.");
   await expect(page.getByTestId("created-banner")).toContainText("here it is ready at once");
+  // The board says only that the table was made: the sentence about every table is not drawn under it.
+  await expect(page.getByTestId("list-sentence")).toHaveCount(0);
   await expect(page.getByRole("table", { name: "Tables" }).locator("tbody tr[data-row]")).toHaveCount(4);
   await shot(page, "dynamodb__table-created");
   expect(cli(["dynamodb", "list-tags-of-resource", "--resource-arn", `arn:aws:dynamodb:us-east-1:${server.account}:table/stock-moves`])).toContain("fulfilment");
@@ -193,6 +205,12 @@ test("dynamodb__table-indexes, index-create, index-created and index-delete: the
   await advance(page);
   await expect(page.getByTestId("result-banner")).toContainText("by-status was created from the table's 7 items;");
   await expect(page.getByTestId("global-indexes")).toContainText("by-status");
+  // The sentence is under the tabs (the board's place), not above them, and the line under the list says only what it means for writes.
+  const strip = await page.getByRole("tablist").first().boundingBox();
+  const said = await page.getByTestId("result-banner").boundingBox();
+  expect(said!.y).toBeGreaterThan(strip!.y);
+  await expect(page.getByTestId("global-indexes")).not.toContainText("20 global secondary indexes");
+  await expect(page.getByTestId("global-indexes")).toContainText("Every write to orders-table now also updates both indexes.");
   await shot(page, "dynamodb__index-created");
   await page.getByTestId("index-delete-by-status").click();
   await expect(page.getByTestId("index-delete-dialog")).toContainText("Delete index by-status?");
@@ -309,8 +327,12 @@ test("dynamodb__table-settings, capacity-edit and ttl-edit: capacity, Time to Li
   await page.getByTestId("tag-value").fill("gold");
   await page.getByTestId("tag-save").click();
   await expect(page.getByTestId("table-tags")).toContainText("gold");
+  // The tag change says so, and the banner of the protection save before it is gone.
+  await expect(page.getByTestId("settings-saved")).toHaveText(/Tag tier added to orders-table\./);
+  await expect(page.getByTestId("settings-saved")).not.toContainText("Deletion protection");
   await page.getByTestId("tag-delete-tier").click();
   await expect(page.getByTestId("table-tags")).not.toContainText("gold");
+  await expect(page.getByTestId("settings-saved")).toContainText("Tag tier deleted from orders-table.");
 });
 
 test("dynamodb__table-tags-none: a table with no tags", async ({ page }) => {
@@ -343,7 +365,7 @@ test("dynamodb__items-explore, items-scan and items-none: a query by key and ind
   await expect(rows.nth(0).locator("[data-tone]")).toHaveAttribute("data-tone", "ok");
   await expect(rows.nth(1).locator("[data-tone]")).toHaveAttribute("data-tone", "warn");
   await expect(rows.nth(1).locator("[data-tone]")).toHaveText("placed");
-  await rows.first().getByRole("checkbox").click();
+  await rows.first().getByRole("radio").click();
   await shot(page, "dynamodb__items-explore");
   await page.getByTestId("mode-scan").click();
   await page.getByTestId("items-source").click();
@@ -353,7 +375,9 @@ test("dynamodb__items-explore, items-scan and items-none: a query by key and ind
   await page.getByTestId("s-values").fill('{":s": {"S": "shipped"}}');
   await page.getByTestId("items-run").click();
   await expect(rows).toHaveCount(4);
-  await expect(page.getByTestId("items-card")).toContainText("Scanned 7 items; 4 match the filter.");
+  await expect(page.getByTestId("items-card")).toContainText("Scanned 7 items; 4 have status shipped.");
+  // A shipped order is in transit: blue, as drawn (delivered is the green one).
+  await expect(rows.first().locator("[data-tone]")).toHaveAttribute("data-tone", "info");
   await shot(page, "dynamodb__items-scan");
   await page.getByTestId("mode-query").click();
   await page.getByTestId("items-source").click();
@@ -419,7 +443,7 @@ test("dynamodb__item-delete: the ticked item is named by its key and deleted", a
   // (Firefox on a busy machine: Delete stayed disabled). A person waits for "Updating…" to go; so does the test.
   await expect(code(page)).toContainText('"S": "cus-1042"');
   await expect(page.getByTestId("call-panel-settling")).toHaveCount(0);
-  await rows.filter({ hasText: "ord-20261108-0412" }).getByRole("checkbox").check();
+  await rows.filter({ hasText: "ord-20261108-0412" }).getByRole("radio").click();
   await expect(page.getByTestId("item-delete")).toBeEnabled();
   await page.getByTestId("item-delete").click();
   await expect(page.getByTestId("item-delete-dialog")).toContainText("Delete 1 item?");

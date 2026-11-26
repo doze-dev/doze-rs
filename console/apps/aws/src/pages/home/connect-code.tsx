@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { Callout } from "@doze/ui/components/app/callout";
 import type { About } from "../../api/types/About";
 import { Card, CodeBlock } from "../card";
 import { credsFor, snippets } from "./snippets";
@@ -28,13 +29,13 @@ export function Code({ a, goTo }: { a: About; goTo: (tab: "overview" | "services
           </p>
         </Card>
       ))}
-      <p className="max-w-[46rem] text-[13px] text-muted-foreground" data-testid="connect-s3">
-        Using S3 or Step Functions sync calls on an IP and port? Both need one extra client setting there, because the IP form has no hostnames to put a bucket or a host prefix under. See{" "}
+      <Callout tone="note" lead="Using S3 or Step Functions sync calls on an IP and port?" testId="connect-s3">
+        Both need one extra client setting there, because the IP form has no hostnames to put a bucket or a host prefix under. See{" "}
         <button type="button" className={link} onClick={() => goTo("services")} data-testid="code-to-services">
           By service
         </button>
         .
-      </p>
+      </Callout>
     </div>
   );
 }

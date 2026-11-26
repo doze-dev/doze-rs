@@ -99,3 +99,13 @@ describe("a metric handed to the wizard in the address", () => {
     expect(selSearch({ ns: "N", m: "M", d: [] })).toEqual({ ns: "N", metric: "M" });
   });
 });
+
+describe("an alarm read back for editing", () => {
+  test("opens a topic it notifies on the existing-topic choice, and a function on the function choice", () => {
+    const base = { AlarmName: "a", MetricName: "m", Namespace: "n", Statistic: "Sum", Period: 60, EvaluationPeriods: 1, ComparisonOperator: "GreaterThanThreshold", Threshold: 1 };
+    const d = fromAlarm({ ...base, AlarmActions: ["arn:aws:sns:us-east-1:111122223333:alerts", "arn:aws:lambda:us-east-1:111122223333:function:send-email"] } as never);
+    expect(d?.notify.map((n) => n.via)).toEqual(["existing", "lambda"]);
+    expect(d?.notify[0]?.arn).toBe("arn:aws:sns:us-east-1:111122223333:alerts");
+    expect(fromAlarm(base as never)?.notify).toEqual([]);
+  });
+});

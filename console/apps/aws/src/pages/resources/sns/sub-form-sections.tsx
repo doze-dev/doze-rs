@@ -3,7 +3,7 @@
 import { ChevronDownIcon } from "lucide-react";
 import { useState } from "react";
 import { Combobox } from "@doze/ui/components/app/combobox";
-import { JsonEditor } from "@doze/ui/components/app/json-editor";
+import { checkJson, JsonEditor } from "@doze/ui/components/app/json-editor";
 import { Badge } from "@doze/ui/components/ui/badge";
 import { Checkbox } from "@doze/ui/components/ui/checkbox";
 import { Input } from "@doze/ui/components/ui/input";
@@ -142,7 +142,7 @@ export function FilterPolicy({ f, set, p, collapsed }: SubFieldProps & { collaps
             <RuleHelp>Attribute: <span className="font-mono">FilterPolicyScope</span>.</RuleHelp>
           </div>
           <JsonEditor value={f.filter} onChange={(filter) => set({ filter })} label="JSON editor" rows={8} placeholder={'{\n  "event": ["order_placed", "order_cancelled"]\n}'} testId="filter-json" help={<><b className="font-semibold text-foreground">A policy has at most 5 keys and 150 combinations of values</b> (multiply the number of values in each array), and at most 256 KB. String matching is case-sensitive. On AWS a change can take up to 15 minutes to take full effect.</>} />
-          {p.filter && <p className="text-[13px] text-bad" role="alert">{p.filter}</p>}
+          {p.filter && checkJson(f.filter).ok && <p className="text-[13px] text-bad" role="alert">{p.filter}</p>}
         </>
       )}
     </FormSection>

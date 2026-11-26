@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { resourceCrumbs, withCurrent } from "./crumbs";
+import { resourceCrumbs, serviceTrail, withCurrent } from "./crumbs";
 
 const queue = { name: "larder-app", group: "Messaging and events", service: "sqs", service_title: "SQS", kind: "queues", kind_title: "Queues" };
 
@@ -29,5 +29,22 @@ describe("a page's breadcrumb ends on the page itself", () => {
     expect(withCurrent(longer, "Create data stream")).toBe(longer);
     const goesNowhere = [{ label: "Keys", to: "/k" }, { label: "Edit key policy", to: "" }];
     expect(withCurrent(goesNowhere, "larder-app")).toBe(goesNowhere);
+  });
+});
+
+describe("IAM and STS begin with Access, not Resources", () => {
+  const user = { name: "dev", group: "Identity and access", service: "iam", service_title: "IAM", kind: "users", kind_title: "Users" };
+
+  test("a resource of IAM", () => {
+    const c = resourceCrumbs(user);
+    expect(c.map((x) => x.label)).toEqual(["Access", "IAM", "Users", "dev"]);
+    expect(c[0]?.to).toBe("/access");
+    expect(c[1]?.to).toBe("/resources/iam");
+  });
+
+  test("a service's own trail, and no group crumb for any service", () => {
+    expect(serviceTrail("sts", "STS").map((x) => x.label)).toEqual(["Access", "STS"]);
+    expect(serviceTrail("sqs", "SQS").map((x) => x.label)).toEqual(["Resources", "SQS"]);
+    expect(serviceTrail("sqs").map((x) => x.label)).toEqual(["Resources"]);
   });
 });

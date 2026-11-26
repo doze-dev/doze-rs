@@ -113,7 +113,11 @@ test("a function is tested, configured on pages of its own, and its runs' logs o
 
   await page.reload();
   await page.getByTestId("tab-monitor").click();
+  // The button is a link only once the function's log group exists, and the group's page draws its tabs once it has read the group: on a
+  // loaded runner (Firefox, once, a full run) neither was there within the 8 s of a click. Both are waited for, longer; the test passed alone 3 of 3.
+  await expect(page.getByTestId("view-logs")).toBeEnabled({ timeout: 25_000 });
   await page.getByTestId("view-logs").click();
+  await expect(page.getByTestId("tab-streams")).toBeVisible({ timeout: 25_000 });
   await page.getByTestId("tab-streams").click();
   const stream = page.getByTestId("group-streams").getByTestId("stream-link").first();
   await stream.click();

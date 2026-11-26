@@ -11,6 +11,14 @@ const ROW = 40;
 const NO_SIZE = { size: undefined };
 /** The least the column without a size keeps (px). */
 const FILL_MIN = 120;
+/** The header row's height (px): `h-10`. */
+const HEADER_H = 40;
+
+/** The height of a box that shows exactly `rows` rows under the header (px), borders included: the box ends where a row ends, so
+ * a table that scrolls never cuts its last visible row in half. */
+export function boxHeight(rows: number, rowHeight: number): number {
+  return HEADER_H + Math.max(1, Math.floor(rows)) * rowHeight + 2;
+}
 
 /** The width a header needs on one line (CON-808: a header never truncates): its uppercase words at about 9 px a letter (12 px,
  * medium, tracked), the cell padding, and the sort arrow's slot. A column the page sized narrower is widened to it, so a page
@@ -58,7 +66,7 @@ export function columnWidths(cols: { size?: number; min?: number; header: number
 /** A table whose layout never depends on its rows (CON-808): fixed column widths, one line per cell with an ellipsis and the
  * whole value on hover (`title`), a sticky header, stable row ids (React keys), numbers right-aligned in tabular figures,
  * a fixed row height, and a virtual body past {@link VIRTUAL_FROM} rows. */
-export function DataTable<T>({ data, columns, rowId, empty, maxHeight = 560, className, "aria-label": ariaLabel, onRowClick, rowHeight: ownRowHeight, rowClassName, anchorTop = false }: { data: T[]; columns: DataColumn<T>[]; rowId: (row: T) => string; empty?: React.ReactNode; maxHeight?: number; className?: string; "aria-label"?: string; onRowClick?: (row: T) => void; /** px; the theme's `--row-h` unless a row holds two lines. */ rowHeight?: number; /** A class per row (a new row of a tail is highlighted). */ rowClassName?: (row: T) => string | undefined; /** A tail: rows prepended at the top do not push the rows on screen (see below). */ anchorTop?: boolean }) {
+export function DataTable<T>({ data, columns, rowId, empty, maxHeight = 560, maxRows, className, "aria-label": ariaLabel, onRowClick, rowHeight: ownRowHeight, rowClassName, anchorTop = false }: { data: T[]; columns: DataColumn<T>[]; rowId: (row: T) => string; empty?: React.ReactNode; maxHeight?: number; /** The box shows this many rows (then scrolls), ending on a row boundary: it replaces `maxHeight`. */ maxRows?: number; className?: string; "aria-label"?: string; onRowClick?: (row: T) => void; /** px; the theme's `--row-h` unless a row holds two lines. */ rowHeight?: number; /** A class per row (a new row of a tail is highlighted). */ rowClassName?: (row: T) => string | undefined; /** A tail: rows prepended at the top do not push the rows on screen (see below). */ anchorTop?: boolean }) {
   const [sorting, setSorting] = useState<SortingState>([]);
   // TanStack Table returns functions that change identity on purpose; the React compiler lint knows and says so.
   // `defaultColumn`: TanStack gives a column with no size 150 px; here no size means the column that takes the rest.
@@ -125,7 +133,7 @@ export function DataTable<T>({ data, columns, rowId, empty, maxHeight = 560, cla
     box,
   );
   return (
-    <div ref={scroller} className={cn("relative overflow-auto rounded-xl border bg-card", className)} style={{ maxHeight }} data-slot="data-table" data-virtual={virtual || undefined}>
+    <div ref={scroller} className={cn("relative overflow-auto rounded-xl border bg-card", className)} style={{ maxHeight: maxRows === undefined ? maxHeight : boxHeight(maxRows, rowHeight) }} data-slot="data-table" data-virtual={virtual || undefined}>
       <table className="w-full table-fixed border-separate border-spacing-0 text-[13.5px]" style={{ minWidth }} aria-label={ariaLabel} aria-rowcount={virtual ? rows.length + 1 : undefined}>
         <colgroup>
           {cols.map((c, i) => (

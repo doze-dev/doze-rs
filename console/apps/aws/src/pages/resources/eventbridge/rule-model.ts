@@ -45,7 +45,7 @@ export type RuleDraft = {
 
 let n = 0;
 export const newTarget = (kind: TargetKind = "sns"): TargetDraft => ({ key: `t${++n}`, kind, arn: null, input: "event", path: "$.detail", constant: "", paths: "", template: "", retry: false, hours: "24", minutes: "0", seconds: "0", attempts: "185", dlq: null });
-export const emptyRule = (kind: RuleDraft["kind"] = "pattern", bus = "default"): RuleDraft => ({ name: "", description: "", bus: kind === "schedule" ? "default" : bus, kind, pattern: DEFAULT_PATTERN, schedule: "rate(5 minutes)", enabled: true, targets: [newTarget()], tags: [] });
+export const emptyRule = (kind: RuleDraft["kind"] = "pattern", bus = "default"): RuleDraft => ({ name: "", description: "", bus: kind === "schedule" ? "default" : bus, kind, pattern: DEFAULT_PATTERN, schedule: "cron(0 18 ? * MON-FRI *)", enabled: true, targets: [newTarget()], tags: [] });
 
 /** A rule's name: 1 to 64 letters, digits, dot, hyphen and underscore. */
 export function nameProblem(name: string): string | null {

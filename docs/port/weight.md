@@ -881,6 +881,54 @@ schemas) the start cost is under a millisecond, so it stays eager.
 **The console recorder's ring** (2,000 rows, 1 MiB at most) keeps its rows however long the broker is idle: they are the history
 the Live page shows. The comment that said "an idle ring holds nothing" now says it holds nothing only until the first request
 (CON-307).
+
+### A quiet consumer (2026-11-26), release, darwin/arm64
+
+The idle figures above are a broker with no clients. The usual local state is different: an app is connected, its consumer group
+waits for records, and now and then it writes some. An audit of that state, measured with kcat (librdkafka) and franz-go on
+loopback:
+
+| | Before | After |
+|---|---|---|
+| No clients, 120 s | 3 threads, 0.01 s CPU, no idle wake-ups | unchanged |
+| One quiet consumer group, 60 s | 4 threads for good | 3 |
+| An app at 5 records/s (acks=all) and its group, 40 s | 5 to 6 threads, 4,000 to 5,800 switches | 5 to 6 threads, 4,150 to 4,480 switches |
+| Three apps at 200 records/s each, 40 s | 10 to 13 threads, 212,000 to 219,000 switches | 10 to 12 threads, 186,000 to 191,000 switches |
+| 12 s after that load | 6 threads | 3 threads |
+
+What changed:
+- **A fetch with nothing to read runs where it is.** Each fetch round went through `block_in_place`, even when every partition was at
+  its end and the round touched no file. A quiet consumer fetches twice a second (Java's `fetch.max.wait.ms` is 500 ms), so a
+  blocking thread was woken for nothing every half second, and its 10 s keep-alive never ran out. A round whose partitions are all
+  at their end, or refused, now runs on the worker (`handlers/fetch.rs`, `at_the_end`).
+- **A small produce batch is checked where it is.** The check is CPU work only (a CRC, a walk of the records, a re-encoding only
+  where the codec changes). Batches of 16 KiB or less, the usual size from an app, no longer hand the worker over
+  (`handlers/produce.rs`, `CHECKED_HERE`). The partition writer's own hand-off stays: a write into the page cache can stall while
+  the kernel throttles dirty pages, and a flush always blocks.
+- **An offset committed again unchanged is not written again** for a minute, or a tenth of `--offsets-retention` when that is
+  shorter (`MetaStore::commit_offsets_unless_held`). Java's consumer commits every position it holds every five seconds whether it
+  moved or not, and each commit was a flush of the metadata database (`F_FULLFSYNC` on macOS). So a quiet Java app cost one full
+  flush every five seconds; now it is one a minute. The stored commit time lags by up to that minute, which is how much sooner such
+  an offset can expire and how stale the console's "committed" time can be. librdkafka already skips unchanged commits (a quiet kcat
+group wrote nothing to the database in 60 s).
+- **Console tails stop in a hidden tab.** The Live tail and a topic's Messages tail kept their stream open in a background tab,
+  and the broker kept reading for them once a pace; the Messages tail's reads also kept its partitions open past their 5-minute
+  idle close. Both now close the stream while the tab is hidden and go on from where they were when it is seen again (the Tail page
+  already did).
+
+**Not changed, measured: the cleaner's look every 15 s** with no compacted topic: it reads the topic list in memory and touches
+nothing (0.07 wake-ups a second). Parking it would also change the console's "last looked" time.
+
+**Not changed: blocking-thread limits.** The runtime keeps tokio's defaults (at most 512 blocking threads, 10 s keep-alive). The
+most measured under load is 13 threads; a cap would only matter in a stall, and the keep-alive is what lets a burst reuse its
+threads.
+
+**Not changed, the owner's call: a full flush per acks=all produce on macOS.** `RealFile::sync_data` uses std's `sync_data`, which
+on Apple platforms is `fcntl(F_FULLFSYNC)`: it empties the drive's write cache, takes milliseconds, and slows other programs'
+writes too. Java producers send acks=all by default, so an app producing a few records a second costs that many full flushes. A
+plain `fsync` (or `F_BARRIERFSYNC`) would keep everything through a crash of the broker or of macOS and lose only what a power cut
+catches in the drive's cache. `kill -9`, the usual crash in development, loses nothing either way. PLAN.md chose acks=all durable
+before the reply, and `F_FULLFSYNC`, to match Go.
 ## One build: CI's measurements (2026-11-14)
 
 Main's first CI run with the one build (TLS in the default, the registry with Avro, JSON Schema and Protobuf), run 43588988185 on PR #45,
@@ -1028,6 +1076,55 @@ the linker (the base measured 8,652,824 B here against CI's 8,607,968 B, +0.5%),
   control socket, the journal's `ready` times; postgres 16 and valkey 8 from a local signed registry): names off, db
   median 35.0 ms (32.0–38.8), cache 18.8 ms (17.2–22.6), a valkey PING through the front after a sleep 19.3 ms to its
   PONG; names on (Shared, a private zone): 36.8 ms, 19.5 ms, 20.7 ms. Go's budget (`budget.json`) is 250 ms.
+
+## Headroom for doze (2026-11-26, branch `doze-trim`)
+
+Main had reached 8,993,656 B on CI's x86_64 Linux (232 packages), 6 KB under the 9 MB line, and the next pull requests
+were over it. x86_64 Linux here is the zig cross build (main measured 9,022,944 B against CI's 8,993,656 B, +0.3%),
+`release-doze`; darwin/arm64 is native. Each row is measured on the row above:
+
+| | x86_64 Linux | darwin/arm64 | packages |
+|---|---|---|---|
+| main (4ff67532) | 9,022,944 B | 6,181,536 B | 234 (232 on CI) |
+| doze-hcl, doze-config and hcl-edit at "z" | 8,822,832 B (−200,112) | 5,853,712 B (−327,824) | |
+| serde_json reads bytes only (`from_slice`, never `from_str`) | 8,723,152 B (−99,680) | 5,787,200 B (−66,512) | |
+| the wall clock without jiff's `strftime` | 8,599,744 B (−123,408) | 5,687,568 B (−99,632) | |
+| the public suffix list decoded per top-level label | **8,607,376 B** (+7,632) | **5,704,112 B** (+16,544) | 234 |
+
+- **The profile.** A custom profile inherits its parent's package overrides: `release` puts doze-hcl, doze-config and
+  hcl-edit at "s" (core C2a), so D2's "the whole build at z" left those three at "s". Overriding them in `release-doze`
+  makes it whole. D2's warning (mixed levels grew darwin by 1.8 MB) was about "z" on a few crates over an "s" build;
+  this is the other way round, and both platforms shrink.
+- **serde_json.** Each reader type is a separate copy of every `Deserialize` it reaches: `from_str` and `from_slice`
+  of `InstanceView` and the rest of the control types were both in the binary (StrRead about 99 KB of `.text`). Nine
+  call sites (doze-cli lint, doze-fetch's child, doze-daemon ctl and topics, doze-journal and doze-projects gojson,
+  doze-names routes and ca, doze-module-proto snapshot) now pass `s.as_bytes()`; the input is already UTF-8, so the
+  values and the errors are the same.
+- **The wall clock.** `clock::wall` (log lines, `why`) formatted `%H:%M:%S` through jiff's `strftime`, which brought
+  jiff's whole strtime formatter and its errors. It now adds the zone's offset to the floored second and writes the
+  three fields; a unit test holds it to `strftime` over 1900–2100, negative fractions, quarter-hour offsets and both
+  DST edges. The zone itself (TZ, IANA, POSIX rules, the system's) is still jiff's.
+- **The public suffix list.** doze-config at "z" made a warm `doze status` on the acme fixture (one app domain) about
+  2 ms slower: decoding the whole front-coded list into a 10,000-node `BTreeMap` was most of the command (about 5 ms
+  of 9 at "s"; 3.8 ms without the domain). The list is now indexed by top-level label in one pass and only the
+  label a name ends in is decoded, on first use, which is the same table for that name (only rules that start with
+  the label touch its nodes; a unit test compares every node against the whole decode, and tests/psl.rs still
+  matches `psl` on every rule). Warm `doze status`, darwin, interleaved, median of 100 on a loaded machine: acme
+  10.50/11.14 ms on main and 8.25/8.78 ms on this branch; without the domain 6.25/6.31 and 6.29/6.50 ms.
+- **Headroom**: CI's figure should be about 8,579,000 B, 420 KB under the 9 MB line. The line is unchanged.
+- **Considered, not taken:**
+  - `.eh_frame` and `.eh_frame_hdr` are 1.06 MB of the Linux file and `.rela.dyn` 404 KB. Dropping them needs
+    `-C force-unwind-tables=no` or a static relocation model in RUSTFLAGS, which CI's and the release workflow's own
+    `RUSTFLAGS` replace; linking with `-z pack-relative-relocs` needs glibc 2.36 and the release builds on ubuntu-22.04
+    (2.35); `-no-pie` gives up ASLR for a program that runs a TLS front door. Left.
+  - ed25519-dalek to ring's Ed25519 (ring is already linked by rustls): curve25519-dalek and SHA-512 are about 50 KB of
+    `.text`, but `verify_strict`'s weak-key and small-order checks would have to be carried by hand, and
+    `VerifyingKey` is in doze-fetch's API. Not worth the risk for this size.
+  - The RustCrypto stack under the CA (p256, ecdsa, x509-cert, der, spki: about 280 KB of `.text` by symbol) next to
+    ring: replacing it means owning the certificate's DER and the key files' formats. The largest remaining lever,
+    for a separate change with its own audit.
+  - jiff for the zone (about 90 KB with jiff-core before this change, less now): the POSIX rules and TZif reading are
+    Go's `time.Local` behaviour and fuzzed; not replaced.
 
 ## Core D1 with the module catalog (`doze` carries the daemon), measured 2026-11-15, release, darwin/arm64
 

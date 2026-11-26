@@ -220,7 +220,30 @@ fn blocking_round<F: Fs>(
     how: round::How,
     budget: Budget,
 ) -> round::Round {
+    if at_the_end(wanted) {
+        return round::read(wanted, req, how, budget);
+    }
     crate::blocking::run(|| round::read(wanted, req, how, budget))
+}
+
+/// Whether every partition asked for is refused or read from its end: the round then opens and reads no file (a read at
+/// the end answers from memory, `LogReader::read_once`) and runs where it is. Handing the worker over for it
+/// (`block_in_place`) wakes a blocking thread twice a fetch, and a quiet consumer fetches every half second (Java's
+/// `fetch.max.wait.ms`), so the thread's keep-alive never ran out: one quiet consumer group took an idle broker from 3
+/// threads to 7, for good (weight.md, "A quiet consumer").
+fn at_the_end<F: Fs>(wanted: &[Wanted<'_, F>]) -> bool {
+    wanted.iter().all(|w| {
+        w.request
+            .partitions
+            .iter()
+            .zip(&w.places)
+            .all(|(asked, place)| match place {
+                Place::Error(_) => true,
+                Place::Open(partition) => {
+                    asked.fetch_offset == partition.reader().end_offset().get()
+                }
+            })
+    })
 }
 
 #[cfg(test)]

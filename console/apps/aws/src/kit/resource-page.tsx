@@ -1,4 +1,4 @@
-import { ChevronDownIcon, CopyIcon, RadioIcon } from "lucide-react";
+import { ChevronDownIcon, CopyIcon, PencilIcon, RadioIcon, Trash2Icon } from "lucide-react";
 import { copyText } from "@doze/ui/components/app/copy";
 import { PageHeader } from "@doze/ui/components/app/page-header";
 import { Button } from "@doze/ui/components/ui/button";
@@ -33,8 +33,12 @@ export function ResourcePage({ detail, meta, banner, overview, tabs = [], tab, o
   const verbs = detail.verbs ?? [];
   const verb = (v: Verb) => {
     const why = verbStates?.[v.id]?.disabled;
+    // Boards draw the header verbs as outlined buttons: Edit with a pencil, Delete in red with a bin, any other dangerous one (Purge) plain.
+    const remove = v.danger && v.id === "delete";
     return (
-      <Button key={v.id} type="button" variant={v.id === primary ? "default" : v.danger ? "ghost" : "outline"} className={cn(v.id !== primary && !v.danger && "bg-card", v.danger && "text-bad hover:bg-bad/10 hover:text-bad")} disabled={Boolean(why)} title={why} onClick={() => onVerb?.(v)} data-testid={`verb-${v.id}`}>
+      <Button key={v.id} type="button" variant={v.id === primary ? "default" : "outline"} className={cn(v.id !== primary && "bg-card", remove && "border-bad/40 text-bad hover:bg-bad/10 hover:text-bad")} disabled={Boolean(why)} title={why} onClick={() => onVerb?.(v)} data-testid={`verb-${v.id}`}>
+        {v.id === "edit" && <PencilIcon />}
+        {remove && <Trash2Icon />}
         {v.label}
       </Button>
     );
@@ -113,7 +117,8 @@ function ActionsMenu({ detail, extra }: { detail: ResourceDetail; extra?: { labe
           </DropdownMenuItem>
         )}
         <DropdownMenuItem asChild>
-          <Link to={"/live" as never}>
+          {/* Live, filtered to this resource's service and name (its filters are `service` and `q`). */}
+          <Link to={"/live" as never} search={{ service: detail.service, q: detail.name } as never} data-testid="actions-open-live">
             <RadioIcon /> Open Live
           </Link>
         </DropdownMenuItem>

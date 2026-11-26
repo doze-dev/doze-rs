@@ -14,7 +14,7 @@ import { sdkShown } from "./calls";
 
 const NONE = "__none__";
 
-export function IntegrationCreate({ api, apiName, route, crumbs, onClose }: { api: string; apiName: string; route: string | undefined; crumbs: { label: string; to: string }[]; onClose: (created?: string) => void }) {
+export function IntegrationCreate({ api, apiName, route, crumbs, onClose }: { api: string; apiName: string; route: string | undefined; crumbs: { label: string; to: string }[]; /** `attached`: the route key it was attached to, when the form chose one. */ onClose: (created?: string, attached?: string) => void }) {
   const where = useWhere();
   const refresh = useRefreshReads();
   const routes = useRoutes(api).data?.items ?? [];
@@ -36,7 +36,7 @@ export function IntegrationCreate({ api, apiName, route, crumbs, onClose }: { ap
           try { await runCalls(HTTP, [{ operation: "UpdateRoute", input: { ApiId: api, RouteId: target.routeId, target: `integrations/${made.integrationId}` } }]); } catch (e) { refresh(); setLate(e instanceof Error ? e.message : String(e)); return; }
         }
         refresh();
-        onClose(made.integrationId);
+        onClose(made.integrationId, target?.routeKey);
       },
     });
   };

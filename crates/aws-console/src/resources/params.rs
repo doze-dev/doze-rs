@@ -79,6 +79,23 @@ impl Param {
         }
     }
 
+    /// A filter of the rows the page never draws: a picker asks for it in the address (`?p.trusts=sns.amazonaws.com`).
+    #[must_use]
+    pub const fn hidden(
+        key: &'static str,
+        label: &'static str,
+        keep: fn(&Value, &str) -> bool,
+    ) -> Self {
+        Self {
+            key,
+            label,
+            input: ParamKind::Hidden,
+            options: Options::None,
+            default: "",
+            apply: Apply::Filter(keep),
+        }
+    }
+
     /// The same, holding `default` until the address says otherwise.
     #[must_use]
     pub const fn or(mut self, default: &'static str) -> Self {
@@ -176,6 +193,9 @@ pub async fn specs(
 ) -> Result<Vec<ParamSpec>, ApiError> {
     let mut out = Vec::new();
     for p in kind.params {
+        if p.input == ParamKind::Hidden {
+            continue;
+        }
         // A row filter says how many rows of the page each of its choices keeps.
         let choice = |value: &str, label: &str| ParamOption {
             value: value.to_owned(),

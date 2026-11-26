@@ -8,6 +8,7 @@ import type { CallRecord } from "../../api/types/CallRecord";
 import type { Wiring } from "../../api/types/Wiring";
 import { clientName } from "../../people";
 import { callerOf } from "./search";
+import { lift, skips } from "./map-geometry";
 import { resourceName } from "./resource";
 
 export type NodeKind = "app" | "service" | "resource";
@@ -213,7 +214,11 @@ function place(shown: MapNode[], edges: MapEdge[], flows: MapNode[][], layout: L
     for (const n of shown) n.col = cols.indexOf(domainOf(n));
     stack(shown, cols.length);
     const tallest = Math.max(1, ...Array.from({ length: cols.length }, (_, c) => shown.filter((n) => n.col === c).length));
-    return { columns: Math.max(1, cols.length), height: TOP * 2 + tallest * ROW };
+    // A line that skips a column runs over the columns, not behind the cards between: they are pushed down to leave it room.
+    const byId = new Map(shown.map((n) => [n.id, n]));
+    const up = lift(edges.filter((e) => { const a = byId.get(e.from); const b = byId.get(e.to); return a !== undefined && b !== undefined && skips(a, b); }).length);
+    for (const n of shown) n.y += up;
+    return { columns: Math.max(1, cols.length), height: TOP * 2 + tallest * ROW + up };
   }
   const wire = edges.filter((e) => e.kind === "wire");
   const byId = new Map(shown.map((n) => [n.id, n]));

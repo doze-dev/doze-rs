@@ -14,8 +14,8 @@ test("calls made with the AWS CLI appear as they are answered, without a reload"
   expect(cli(["sqs", "create-queue", "--queue-name", queue]).code).toBe(0);
   const first = rows(page).first();
   await expect(first.locator("td").nth(2)).toHaveText("CreateQueue");
-  await expect(first.locator("td").nth(1)).toHaveText("SQS");
-  await expect(first.locator("td").nth(4)).toHaveText(accessKey);
+  // The board's columns: Time, Caller, Operation, Resource, Result, Latency.
+  await expect(first.locator("td").nth(1)).toHaveText(accessKey);
   await expect(first.locator('[data-slot="result"]')).toHaveAttribute("data-outcome", "ok");
   await expect(first.locator('[data-slot="result"]')).toContainText("200");
 
@@ -53,7 +53,7 @@ test("calls made with the AWS CLI appear as they are answered, without a reload"
   // Every column fits a 1440 px window: the table does not scroll sideways in its box, and no time is cut.
   expect(await page.locator('[data-slot="data-table"]').evaluate((el) => Math.max(0, el.scrollWidth - el.clientWidth))).toBe(0);
   expect(await first.locator("td").nth(0).evaluate((td) => Math.max(0, td.scrollWidth - td.clientWidth))).toBe(0);
-  expect(await first.locator("td").nth(6).evaluate((td) => Math.max(0, td.scrollWidth - td.clientWidth))).toBe(0);
+  expect(await first.locator("td").nth(5).evaluate((td) => Math.max(0, td.scrollWidth - td.clientWidth))).toBe(0);
 });
 
 test("Pause holds new calls aside and counts them; Resume shows them", async ({ page, cli }) => {

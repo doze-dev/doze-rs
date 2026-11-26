@@ -2,7 +2,8 @@
 // the request path as a strip, and the four pages of a method (`?mode=` request | integration | iresponse | mresponse). The method is
 // read with the rest of the API's tree, so what a page shows of it is one read.
 import { Link } from "@tanstack/react-router";
-import { UploadIcon } from "lucide-react";
+import { Trash2Icon, UploadIcon } from "lucide-react";
+import { useState } from "react";
 import { PageHeader } from "@doze/ui/components/app/page-header";
 import { EmptyState } from "@doze/ui/components/app/empty-state";
 import { Button } from "@doze/ui/components/ui/button";
@@ -16,6 +17,7 @@ import { useAuthorizers, useResources } from "./api";
 import { IntegrationRequest } from "./integration-request";
 import { IntegrationResponses } from "./integration-responses";
 import { MethodRequest } from "./method-request";
+import { MethodDelete } from "./part-deletes";
 import { MethodResponses } from "./method-responses";
 import { Said } from "./parts";
 import { backendName, integrationBadge, methodSentence } from "./words";
@@ -33,6 +35,7 @@ export function MethodPage({ api, apiName, resource, method, mode, crumbs, go }:
   const tree = useResources(api);
   const authorizers = useAuthorizers(api).data?.item ?? [];
   const current = MODES.find((m) => m.id === mode)?.id ?? "request";
+  const [dropping, setDropping] = useState(false);
   if (!tree.data) return <div className="grid gap-4" data-testid="resource-page-loading"><Skeleton className="h-12 w-80" /><Skeleton className="h-72 rounded-[var(--radius-card)]" /></div>;
   const res = tree.data.item?.find((r) => r.id === resource);
   const m = res?.resourceMethods?.[method];
@@ -62,8 +65,9 @@ export function MethodPage({ api, apiName, resource, method, mode, crumbs, go }:
         crumbs={[...crumbs, { label: here, to: `/resources/apigateway/restapis/${api}?do=method&key=${res.id}&sel=${m.httpMethod}` }, { label: MODES.find((x) => x.id === current)!.label, to: "#" }]}
         titleExtra={<Badge variant="secondary" className="font-normal" data-testid="integration-badge">{integrationBadge(m.methodIntegration)}</Badge>}
         sub={SUB[current]}
-        actions={<Button onClick={() => go({ dialog: "deploy" })} data-testid="deploy-open"><UploadIcon /> Deploy API</Button>}
+        actions={<><Button variant="outline" className="bg-card text-bad hover:text-bad" onClick={() => setDropping(true)} data-testid="delete-method"><Trash2Icon /> Delete method</Button><Button onClick={() => go({ dialog: "deploy" })} data-testid="deploy-open"><UploadIcon /> Deploy API</Button></>}
       />
+      <MethodDelete api={api} resource={res} method={m} open={dropping} onOpenChange={setDropping} onDone={() => { setDropping(false); go({ key: res.id }); }} />
       {current === "request" && <Said text={methodSentence(m, res.path, authorizer)} names={[m.httpMethod, res.path, backend, ...(Object.keys(m.requestParameters ?? {}).map((k) => k.split(".").pop() ?? ""))]} bold={[]} />}
       <FlowStrip groups={stripe} className="mb-10" />
       <Tabs value={current} onValueChange={(v) => go({ do: "method", key: res.id, sel: m.httpMethod, mode: v })} className="gap-0">

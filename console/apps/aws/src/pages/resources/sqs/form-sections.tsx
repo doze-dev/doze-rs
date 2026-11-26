@@ -5,7 +5,7 @@ import { KeyValueEditor } from "@doze/ui/components/app/key-value-editor";
 import { filled } from "@doze/ui/components/app/key-values";
 import { Combobox } from "@doze/ui/components/app/combobox";
 import { CodeBlock } from "@doze/ui/components/app/code-block";
-import { JsonEditor } from "@doze/ui/components/app/json-editor";
+import { checkJson, JsonEditor } from "@doze/ui/components/app/json-editor";
 import { Input } from "@doze/ui/components/ui/input";
 import { Label } from "@doze/ui/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@doze/ui/components/ui/radio-group";
@@ -59,14 +59,15 @@ export function AccessPolicy({ f, set, p, queueArn, basic }: FieldProps & { queu
           )}
           <div className="grid gap-1.5" data-testid="resulting-policy">
             <Label>Resulting access policy</Label>
-            {resulting ? <CodeBlock text={resulting} max="max-h-64" /> : <p className="rounded-[var(--radius-field)] border border-dashed px-4 py-3 text-[13.5px] text-muted-foreground">No statement is needed: with both choices on Only the queue owner, nobody else can send or receive. The default policy lets only the queue owner send and receive. Anything else, such as letting a service principal send, is written in Advanced.</p>}
             <RuleHelp>Basic shows the resulting policy in a read-only JSON panel. Choose Advanced to edit the JSON directly and name a custom set of actions for each principal.</RuleHelp>
+            {resulting ? <CodeBlock text={resulting} max="max-h-64" /> : <p className="rounded-[var(--radius-field)] border border-dashed px-4 py-3 text-[13.5px] text-muted-foreground">No statement is needed: with both choices on Only the queue owner, nobody else can send or receive. The default policy lets only the queue owner send and receive. Anything else, such as letting a service principal send, is written in Advanced.</p>}
           </div>
         </>
       ) : (
         <div className="grid gap-2">
           <JsonEditor value={f.policy} onChange={(policy) => set({ policy })} label="JSON policy" rows={14} testId="policy-json" help={basic ? undefined : "Saving writes the whole Policy attribute with SetQueueAttributes, so keep every statement you still want."} />
-          {p.policy && <p className="text-[13px] text-bad" role="alert">{p.policy}</p>}
+          {/* The editor says what is not JSON; this says only what its words do not (valid JSON that is not an object). */}
+          {p.policy && checkJson(f.policy).ok && <p className="text-[13px] text-bad" role="alert">{p.policy}</p>}
           {basic && <RuleHelp>The default policy lets only the queue owner send and receive. Anything else, such as letting a service principal send, is written in Advanced.</RuleHelp>}
         </div>
       )}
@@ -135,7 +136,7 @@ export function Encryption({ f, set, p, show, edit }: FieldProps & { edit: boole
       <LocalStatus state="stored" reason="doze-aws keeps the encryption settings and returns them; it encrypts no message." />
       {on && (
         <>
-          <RadioGroup value={f.sse} onValueChange={(v) => set({ sse: v as QueueForm["sse"] })} className="grid gap-2" aria-label="Server-side encryption type">
+          <RadioGroup value={f.sse} onValueChange={(v) => set({ sse: v as QueueForm["sse"] })} className="grid gap-2 sm:grid-cols-2" aria-label="Server-side encryption type">
             {[["sqs", "Amazon SQS key (SSE-SQS)", "SQS manages the key for you."], ["kms", "AWS Key Management Service key (SSE-KMS)", "You choose the KMS key."]].map(([v, t, d]) => (
               <Label key={v} htmlFor={`sse-${v}`} className="flex cursor-pointer items-start gap-3 rounded-xl border bg-card p-3.5 font-normal leading-5 has-[[data-state=checked]]:border-primary has-[[data-state=checked]]:bg-pick/40">
                 <RadioGroupItem id={`sse-${v}`} value={v!} className="mt-0.5" data-testid={`sse-${v}`} />
@@ -182,7 +183,7 @@ export function DeadLetter({ f, set, p, show, self, region, account, empty }: Fi
       </div>
       {!f.dlqOn && (
         <RuleHelp>
-          {f.fifo ? <>The dead-letter queue of a FIFO queue must also be a FIFO queue. {rows.length === 0 ? "There is no FIFO queue to use yet. Create one first; SQS does not create it for you." : `${rows.map((r) => r.name).join(", ")} ${rows.length === 1 ? "is the only other FIFO queue" : "are the other FIFO queues"} in this Region${real.length === 0 ? ", and none is a dead-letter queue yet, so there is no good target. Create one first; SQS does not create it for you." : "."}`}</> : <>Turn this on to move messages that keep failing to a dead-letter queue. Create the queue first; SQS does not create it, and a standard queue needs a standard dead-letter queue.{real.length > 0 && !empty ? ` ${real.slice(0, 3).map((r) => r.name).join(", ")} ${real.length === 1 ? "is one" : "are some"}${keeps !== null ? `; ${real[0]!.name} keeps messages for ${wait(keeps)}` : ""}.` : ""}</>}
+          {f.fifo ? <>The dead-letter queue of a FIFO queue must also be a FIFO queue. {rows.length === 0 ? "There is no FIFO queue to use yet. Create one first; SQS does not create it for you." : `${rows.map((r) => r.name).join(", ")} ${rows.length === 1 ? "is the only other FIFO queue" : "are the other FIFO queues"} in this Region${real.length === 0 ? ", and none is a dead-letter queue yet, so there is no good target. Create one first; SQS does not create it for you." : "."}`}</> : <>Turn this on to move messages that keep failing to a dead-letter queue. Create the queue first; SQS does not create it, and a standard queue needs a standard dead-letter queue.{real.length > 0 && !empty ? ` ${real.slice(0, 3).map((r) => r.name).join(", ")} ${real.length === 1 ? "is one" : "are some"}${keeps !== null ? `; ${real.length === 1 ? "it" : real[0]!.name} keeps messages for ${wait(keeps)}` : ""}.` : ""}</>}
         </RuleHelp>
       )}
       {f.dlqOn && (
@@ -204,7 +205,7 @@ export function TagsSection({ f, set, show, note }: Pick<FieldProps, "f" | "set"
   const n = filled(f.tags).length;
   return (
     <FormSection title="Tags" optional collapsible defaultOpen={!useContext(FoldedStart)} description="Cost allocation tags. Tags are case-sensitive, and a new tag with an existing key overwrites it. Adding more than 50 tags to a queue isn't recommended." summary={n > 0 ? `${n} ${n === 1 ? "tag" : "tags"}.` : "No tags."} testId="section-tags">
-      <KeyValueEditor rows={f.tags} onChange={(tags) => set({ tags })} rules={TAG_RULES} showErrors={show} testId="form-tags" />
+      <KeyValueEditor rows={f.tags} onChange={(tags) => set({ tags })} rules={TAG_RULES} showErrors={show} fieldLabels removeLabel="Remove" testId="form-tags" />
       {note}
     </FormSection>
   );

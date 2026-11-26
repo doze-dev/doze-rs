@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import type { KeyPrincipal } from "../api/types/KeyPrincipal";
-import { callerWords, namedKeys, targetKey, tookWords } from "./calls";
+import { callerWords, isConsoleRead, isReadCall, namedKeys, targetKey, tookWords } from "./calls";
 
 const titles = new Map([["events", "EventBridge"], ["sns", "SNS"]]);
 const user: KeyPrincipal = { key: "AKIAUSER", kind: "user", name: "admin-cli", arn: "arn:aws:iam::1:user/admin-cli" };
@@ -46,4 +46,19 @@ test("an S3 call that named an object shows its key beside the bucket's page; an
   // A call that names the bucket by a member (a listing's `Bucket`) acts on the bucket.
   expect(targetKey(s3("pics", "Bucket"))).toBeNull();
   expect(targetKey({ service: "sqs", member: null, resource: "a/b" })).toBeNull();
+});
+
+test("an operation that only looks is a read; one that changes anything, or starts something, is not", () => {
+  for (const a of ["ListQueues", "DescribeTable", "GetFunction", "HeadObject", "Query", "Scan", "BatchGetItem", "FilterLogEvents", "GetSecretValue", "ListMessageMoveTasks"]) expect(isReadCall({ action: a })).toBe(true);
+  for (const a of ["CreateQueue", "PutObject", "DeleteBucket", "StartMessageMoveTask", "SendMessage", "ReceiveMessage", "Publish", "UpdateFunctionCode", "StartExecution", "ExecuteStatement"]) expect(isReadCall({ action: a })).toBe(false);
+  expect(isReadCall({ action: null })).toBe(false);
+});
+
+test("only the console's own reads are hidden: its writes, an app's reads and a pinned read stay", () => {
+  expect(isConsoleRead({ caller: "console", action: "ListQueues" })).toBe(true);
+  expect(isConsoleRead({ caller: "console", action: "StartMessageMoveTask" })).toBe(false);
+  expect(isConsoleRead({ caller: "console", action: "CreateQueue" })).toBe(false);
+  expect(isConsoleRead({ caller: "AKIAAPP", action: "ListQueues" })).toBe(false);
+  expect(isConsoleRead({ caller: "console", action: "GetSecretValue" }, ["GetSecretValue"])).toBe(false);
+  expect(isConsoleRead({ caller: "console", action: "GetSecretValue" }, ["GetParameter"])).toBe(true);
 });

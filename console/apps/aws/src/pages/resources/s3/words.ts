@@ -209,3 +209,14 @@ export function fifoDestinationHint(fifo: readonly string[]): string {
   const one = fifo.length === 1;
   return `${base}: ${listWords(fifo)} ${one ? "is a FIFO queue, so it is" : "are FIFO queues, so they are"} not in the list, and naming ${one ? "it" : "one"} by its ARN is refused with InvalidArgument.`;
 }
+
+/** What a copy to `key` of `bucket` sets off: the rules that fire for an object created there (`product-images notifies resize-product-image again`),
+ * judged by each rule's events and key filters. */
+export function copyNotifies(bucket: string, key: string, rules: readonly { events: string[]; prefix: string; suffix: string; name: string }[]): string {
+  const fires = rules.filter((r) => r.events.some((e) => e === "s3:ObjectCreated:*" || e === "s3:ObjectCreated:Copy") && key.startsWith(r.prefix) && key.endsWith(r.suffix));
+  const names = [...new Set(fires.map((r) => r.name))];
+  return names.length === 0 ? `A copy is written as a new object, so a rule that fires on creation would notify; ${bucket} has none for ${key}.` : `A copy is written as a new object, so ${bucket} notifies ${listWords(names)} again.`;
+}
+
+/** `resize-product-image is notified when an object is created in the bucket`; two or more are notified. */
+export const notifiedWords = (names: readonly string[]): string => `${listWords(names)} ${names.length === 1 ? "is" : "are"} notified when an object is created in the bucket`;

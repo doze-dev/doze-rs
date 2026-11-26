@@ -4,7 +4,8 @@
 //! Unix: the command gets a process group of its own, and the terminal when doze has it (`tcsetpgrp`), so Ctrl-C,
 //! Ctrl-\ and a hang-up from the terminal reach the command alone (a database shell cancels its query and stays). A
 //! SIGINT, SIGTERM, SIGHUP or SIGQUIT sent to doze by another process (an IDE's stop, `kill -INT <doze>`, or the
-//! whole group doze is in) is passed on to the command's group, once, and doze goes on waiting for it. Without the
+//! whole group doze is in) is passed on to the command's group, once, and doze goes on waiting for it; one that comes
+//! while the command is starting is passed on as soon as it has started (it does not end doze). Without the
 //! group of its own, a signal sent to doze alone never reached the command, and one sent to doze's group reached it
 //! from both sides. Ctrl-Z stops the command, then doze with it (its shell sees the job stopped); `fg` gives the
 //! terminal back to the command and continues it. When the command ends, doze takes the terminal back.
@@ -38,17 +39,29 @@ mod imp {
     use std::io;
     use std::os::unix::process::{CommandExt, ExitStatusExt};
     use std::process::{Command, ExitStatus};
-    use std::sync::atomic::{AtomicI32, Ordering};
+    use std::sync::atomic::{AtomicI32, AtomicU32, Ordering};
 
     /// The process group the signals doze is sent are passed to: the command's (its pid), 0 while none runs.
     static GROUP: AtomicI32 = AtomicI32::new(0);
 
+    /// The signals caught before `GROUP` was known (one bit each, by their place in `PASSED`), not yet passed on.
+    static PENDING: AtomicU32 = AtomicU32::new(0);
+
     /// The signals passed on to the command.
     const PASSED: [libc::c_int; 4] = [libc::SIGINT, libc::SIGTERM, libc::SIGHUP, libc::SIGQUIT];
 
+    fn bit(sig: libc::c_int) -> u32 {
+        PASSED.iter().position(|&s| s == sig).map_or(0, |i| 1 << i)
+    }
+
+    /// The handler. It marks the signal pending, then passes it on if the group is known and the mark is still there:
+    /// whichever of it and `run` (which takes the marks once it knows the group) clears a mark passes that signal on,
+    /// so it goes once, however the two interleave.
     extern "C" fn pass_on(sig: libc::c_int) {
+        let bit = bit(sig);
+        PENDING.fetch_or(bit, Ordering::SeqCst);
         let group = GROUP.load(Ordering::SeqCst);
-        if group > 0 {
+        if group > 0 && PENDING.fetch_and(!bit, Ordering::SeqCst) & bit != 0 {
             // SAFETY: kill(2) is async-signal-safe; it only reads its two integers.
             unsafe { libc::kill(-group, sig) };
         }
@@ -57,6 +70,12 @@ mod imp {
     pub(super) fn run(mut cmd: Command) -> io::Result<ExitStatus> {
         let tty = foreground_tty();
         cmd.process_group(0);
+        // The handlers go in before the command starts: a stop sent in between would otherwise end doze (the default
+        // action) and leave the command running without it. One caught before the group is known waits in `PENDING`.
+        // A signal doze was started ignoring (`nohup`'s SIGHUP) gets its handler after: the command starts ignoring it
+        // too, as a shell's job does.
+        PENDING.store(0, Ordering::SeqCst);
+        let saved = Handlers::install(false);
         let child = cmd.spawn()?;
         let pid = i32::try_from(child.id()).map_err(io::Error::other)?;
         let group = Pid::from_raw(pid).ok_or_else(|| io::Error::other("pid 0"))?;
@@ -66,10 +85,15 @@ mod imp {
             give(fd, group);
         }
         GROUP.store(pid, Ordering::SeqCst);
-        let saved = Handlers::install();
+        let ignored = Handlers::install(true);
+        let caught = PENDING.swap(0, Ordering::SeqCst);
+        for sig in PASSED.into_iter().filter(|&s| caught & bit(s) != 0) {
+            // SAFETY: as in `pass_on`.
+            unsafe { libc::kill(-pid, sig) };
+        }
         let status = wait(group, tty);
         GROUP.store(0, Ordering::SeqCst);
-        drop(saved);
+        drop((saved, ignored));
         if let Some(fd) = tty {
             give(fd, rustix::process::getpgrp());
         }
@@ -165,7 +189,8 @@ mod imp {
     struct Handlers(Vec<(libc::c_int, libc::sigaction)>);
 
     impl Handlers {
-        fn install() -> Handlers {
+        /// Puts `pass_on` in for the passed signals doze ignores (`ignored`) or the others.
+        fn install(ignored: bool) -> Handlers {
             // SAFETY: sigaction is plain data; all zeroes is a valid value, filled in below.
             let mut act: libc::sigaction = unsafe { std::mem::zeroed() };
             act.sa_sigaction = pass_on as extern "C" fn(libc::c_int) as libc::sighandler_t;
@@ -175,6 +200,12 @@ mod imp {
             for sig in PASSED {
                 // SAFETY: as above.
                 let mut old: libc::sigaction = unsafe { std::mem::zeroed() };
+                // SAFETY: reads the action only; the pointer is to the local above.
+                if unsafe { libc::sigaction(sig, std::ptr::null(), &raw mut old) } != 0
+                    || (old.sa_sigaction == libc::SIG_IGN) != ignored
+                {
+                    continue;
+                }
                 // SAFETY: `pass_on` only does async-signal-safe work; both pointers are to locals.
                 if unsafe { libc::sigaction(sig, &raw const act, &raw mut old) } == 0 {
                     saved.push((sig, old));

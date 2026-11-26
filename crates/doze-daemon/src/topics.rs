@@ -161,7 +161,7 @@ async fn stats(d: &Daemon, w: &Writer, id: u64, gap: Duration) -> Done {
 }
 
 fn wire_event(e: &doze_journal::Event) -> Option<doze_control::Event> {
-    serde_json::from_str(&doze_journal::encode(e)).ok()
+    serde_json::from_slice(doze_journal::encode(e).as_bytes()).ok()
 }
 
 fn journal_frame(e: &doze_journal::Event) -> Option<Frame> {

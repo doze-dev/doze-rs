@@ -1,7 +1,7 @@
 // An HTTP API's Stages (apigateway__http-stages, http-stages-none): the stages with their automatic deployment, the one chosen as details
 // (its invoke URL in AWS's form and this doze-aws's, its deployment), Create stage, Deploy for a stage deployed by hand, and Edit.
 import { useNavigate } from "@tanstack/react-router";
-import { PlusIcon, UploadIcon, PencilIcon, Layers3Icon } from "lucide-react";
+import { PlusIcon, UploadIcon, PencilIcon, Layers3Icon, Trash2Icon } from "lucide-react";
 import { useState } from "react";
 import { Alert, ErrorBlock, errorWords } from "@doze/ui/components/app/alert";
 import { type DataColumn, DataTable } from "@doze/ui/components/app/data-table";
@@ -16,9 +16,10 @@ import type { CallRecord } from "../../../api/types/CallRecord";
 import { Field, RecentCalls, RuleHelp } from "../../../kit";
 import { HINT } from "../index-page";
 import { HTTP, useHttpDeployments, useHttpStages, useWrite } from "./api";
+import { HttpDeploymentDelete, HttpStageDelete } from "./part-deletes";
 import { ApiChips, Caption, Card, Mono, Rows, Said, useWhere } from "./parts";
 import { httpSections } from "./sections";
-import type { HttpApi, HttpStage } from "./types";
+import type { HttpApi, HttpDeployment, HttpStage } from "./types";
 import { httpStagesSentence, invokeUrls, stageNameProblem, when } from "./words";
 
 const ACTIONS = ["GetStage", "GetStages", "CreateStage", "UpdateStage", "DeleteStage", "CreateDeployment", "GetDeployments", "GetDeployment"];
@@ -63,6 +64,8 @@ export function HttpStages({ id, api, calls, selected }: { id: string; api: Http
   const deployments = useHttpDeployments(id);
   const deploy = useWrite(HTTP, "CreateDeployment");
   const [form, setForm] = useState<{ stage: HttpStage | null } | null>(null);
+  const [dropStage, setDropStage] = useState(false);
+  const [dropDeployment, setDropDeployment] = useState<HttpDeployment | null>(null);
   const go = (search: Record<string, string | undefined>) => void navigate({ to: "/resources/$service/$kind/$name", params: { service: "apigateway", kind: "apis", name: id }, search: search as never });
   if (stages.isError) return <ErrorBlock what="The stages could not be read" error={stages.error} hint={HINT} onRetry={() => void stages.refetch()} retrying={stages.isFetching} testId="stages-error" />;
   if (!stages.data) return null;
@@ -88,6 +91,12 @@ export function HttpStages({ id, api, calls, selected }: { id: string; api: Http
     { id: "deployment", header: "Deployment", size: 200, accessorFn: (s) => s.deploymentId ?? "", cell: (c) => (c.row.original.deploymentId ? <span className="font-mono text-[13px]">{c.row.original.deploymentId}</span> : <span className="text-muted-foreground">None</span>) },
   ];
   const failed = deploy.error ? errorWords(deploy.error) : null;
+  const depColumns: DataColumn<HttpDeployment>[] = [
+    { id: "id", header: "Deployment ID", size: 190, accessorFn: (d) => d.deploymentId, cell: (c) => <span className="font-mono text-[13px]">{c.row.original.deploymentId}{all.some((s) => s.deploymentId === c.row.original.deploymentId) && <span className="ml-2 rounded-full border bg-pick px-2 py-0.5 font-sans text-[11.5px]">Active</span>}</span> },
+    { id: "created", header: "Created", size: 210, accessorFn: (d) => d.createdDate ?? "", cell: (c) => when(c.row.original.createdDate) },
+    { id: "how", header: "Made", accessorFn: (d) => (d.autoDeployed ? "Automatic" : "By hand"), cell: (c) => (c.row.original.autoDeployed ? "Automatic" : "By hand") },
+    { id: "delete", header: "", size: 60, enableSorting: false, cell: (c) => <Button variant="ghost" size="icon" aria-label={`Delete deployment ${c.row.original.deploymentId}`} onClick={() => setDropDeployment(c.row.original)} data-testid={`delete-deployment-${c.row.original.deploymentId}`}><Trash2Icon /></Button> },
+  ];
   return (
     <>
       <Said text={httpStagesSentence(api.name, all, deps)} names={[...all.map((s) => s.stageName), ...deps.map((d) => d.deploymentId)]} />
@@ -99,7 +108,7 @@ export function HttpStages({ id, api, calls, selected }: { id: string; api: Http
       </div>
       <div className="min-w-0">
       <Caption title="Stage details" />
-      <Card title={chosen.stageName} action={<div className="flex flex-wrap gap-2">{!chosen.autoDeploy && <Button variant="outline" size="sm" className="bg-card" disabled={deploy.isPending} onClick={() => deploy.mutate({ ApiId: id, stageName: chosen.stageName } as never)} data-testid="deploy-stage"><UploadIcon /> Deploy</Button>}<Button variant="outline" size="sm" className="bg-card" onClick={() => setForm({ stage: chosen })} data-testid="edit-stage"><PencilIcon /> Edit</Button></div>} testId="stage-details">
+      <Card title={chosen.stageName} action={<div className="flex flex-wrap gap-2">{!chosen.autoDeploy && <Button variant="outline" size="sm" className="bg-card" disabled={deploy.isPending} onClick={() => deploy.mutate({ ApiId: id, stageName: chosen.stageName } as never)} data-testid="deploy-stage"><UploadIcon /> Deploy</Button>}<Button variant="outline" size="sm" className="bg-card" onClick={() => setForm({ stage: chosen })} data-testid="edit-stage"><PencilIcon /> Edit</Button><Button variant="outline" size="sm" className="bg-card text-bad hover:text-bad" onClick={() => setDropStage(true)} data-testid="delete-stage"><Trash2Icon /> Delete</Button></div>} testId="stage-details">
         <Rows rows={[
           { label: "Invoke URL", value: <Mono>{urls.aws}</Mono>, note: <>Also at <span className="font-mono break-all">{urls.local}</span></> },
           { label: "Automatic deployment", value: chosen.autoDeploy ? "On" : "Off" },
@@ -118,8 +127,16 @@ export function HttpStages({ id, api, calls, selected }: { id: string; api: Http
       </Card>
       </div>
       </div>
+      {deps.length > 0 && (
+        <div className="mt-10" data-testid="deployment-history">
+          <Caption title="Deployment history" />
+          <DataTable<HttpDeployment> aria-label="Deployment history" data={[...deps].sort((a, b) => String(b.createdDate ?? "").localeCompare(String(a.createdDate ?? "")))} columns={depColumns} rowId={(d) => d.deploymentId} />
+        </div>
+      )}
       <RecentCalls className="mt-12" calls={calls.filter((c) => c.action !== null && ACTIONS.includes(c.action))} noun="stage" title="Recent calls" scope={`the stages of ${api.name}`} />
       {form && <StageForm api={id} stage={form.stage} websocket={websocket} onClose={() => setForm(null)} />}
+      <HttpStageDelete api={id} apiName={api.name} stage={chosen} url={urls.aws} open={dropStage} onOpenChange={setDropStage} onDone={() => { setDropStage(false); go({ tab: "stages" }); }} />
+      {dropDeployment && <HttpDeploymentDelete api={id} deployment={dropDeployment} stages={all} open onOpenChange={() => setDropDeployment(null)} onDone={() => setDropDeployment(null)} />}
     </>
   );
 }

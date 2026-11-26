@@ -15,7 +15,8 @@ type Edit = { s: Stream; onClose: () => void };
 
 /** Capacity mode: On-demand or Provisioned. Switching only changes the mode; the shards the stream has stay. */
 export function CapacityEdit({ s, onClose }: Edit) {
-  const [mode, setMode] = useState<Mode>(s.mode === "ON_DEMAND" ? "ON_DEMAND" : "PROVISIONED");
+  // Opens on the other mode, the one a person came to switch to (the board opens with the target chosen).
+  const [mode, setMode] = useState<Mode>(s.mode === "ON_DEMAND" ? "PROVISIONED" : "ON_DEMAND");
   const w = useStreamWrite("UpdateStreamMode");
   return (
     <SectionEdit open onOpenChange={(o) => !o && onClose()} title="Edit capacity mode" description={<>Choose how <b className="font-mono font-semibold text-bright">{s.name}</b> gets its capacity. It is {modeWords(s.mode)} now.</>}
@@ -41,7 +42,14 @@ export function ShardsEdit({ s, onClose }: Edit) {
         <div className="grid gap-1.5"><Label htmlFor="sh-now">Current shards</Label><Input id="sh-now" value={s.shards} disabled className="bg-muted font-mono" /></div>
         <Field label="New shard count" error={problem ?? undefined}>{(id) => <Input id={id} value={target} onChange={(e) => setTarget(e.target.value)} inputMode="numeric" autoComplete="off" className="font-mono" data-testid="shard-target" />}</Field>
       </div>
-      <div className="grid gap-1.5"><Label htmlFor="sh-type">Scaling type</Label><Input id="sh-type" value="UNIFORM_SCALING" disabled className="bg-muted font-mono" /><p className="text-[13px] text-muted-foreground">The only value the API accepts.</p></div>
+      <div className="grid gap-1.5">
+        <Label htmlFor="sh-type">Scaling type</Label>
+        <Select value="UNIFORM_SCALING">
+          <SelectTrigger id="sh-type" className="w-full bg-card font-mono" data-testid="shard-scaling"><SelectValue /></SelectTrigger>
+          <SelectContent><SelectItem value="UNIFORM_SCALING" className="font-mono">UNIFORM_SCALING</SelectItem></SelectContent>
+        </Select>
+        <p className="text-[13px] text-muted-foreground">The only value the API accepts.</p>
+      </div>
       <RuleHelp>Uniform scaling closes every open shard and opens new ones that tile the whole hash range; each new shard names the shard that owned its starting hash. A closed shard keeps its records for the retention period and is listed until then.</RuleHelp>
       <p className="text-[13.5px] text-muted-foreground" data-testid="shards-after">Open shards <b className="text-bright">{s.shards}</b> now, <b className="text-bright">{problem ? "–" : Number(target)}</b> after</p>
     </SectionEdit>
@@ -59,7 +67,7 @@ export function RetentionEdit({ s, onClose }: Edit) {
   const w = op === "DecreaseStreamRetentionPeriod" ? dec : inc;
   return (
     <SectionEdit open onOpenChange={(o) => !o && onClose()} title="Edit data retention period" description={<>How long records stay readable after they are added to <b className="font-mono font-semibold text-bright">{s.name}</b>. It keeps them {hoursWords(s.retention)} now.</>}
-      request={{ service: "kinesis", operation: op ?? "IncreaseStreamRetentionPeriod", input: { StreamName: s.name, RetentionPeriodHours: n || 0 } }}
+      request={op ? { service: "kinesis", operation: op, input: { StreamName: s.name, RetentionPeriodHours: n } } : null}
       onSave={() => op && w.mutate({ stream: s.name, input: { RetentionPeriodHours: n } }, { onSuccess: onClose })} pending={w.isPending} error={w.error} disabled={problem !== null || op === null} disabledWhy={problem ?? "That is the period it has."} testId="retention-dialog">
       <Field label="Data retention period" error={problem ?? undefined} hint={!problem && daysWords(n) ? `That is ${daysWords(n)}. The API takes hours (RetentionPeriodHours).` : "The API takes hours (RetentionPeriodHours)."}>
         {(id) => <div className="relative max-w-[16rem]"><Input id={id} value={hours} onChange={(e) => setHours(e.target.value)} inputMode="numeric" autoComplete="off" className="pr-16 font-mono" data-testid="retention-hours" /><span className="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 text-[13px] text-muted-foreground">hours</span></div>}

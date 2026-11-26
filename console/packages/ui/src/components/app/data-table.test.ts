@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { columnWidths } from "./data-table";
+import { boxHeight, columnWidths } from "./data-table";
 
 describe("columnWidths", () => {
   const cols = [
@@ -26,5 +26,17 @@ describe("columnWidths", () => {
   test("a table with no rest column has no least width of its own", () => {
     expect(columnWidths([{ size: 100, min: 50, header: 10 }], 80).widths).toEqual([80]);
     expect(columnWidths([{ size: 100, header: 10 }], 80).minWidth).toBeUndefined();
+  });
+});
+
+describe("boxHeight", () => {
+  test("a box of N rows ends where the Nth row ends: the header, N rows and the two borders", () => {
+    expect(boxHeight(10, 36)).toBe(40 + 360 + 2);
+    expect(boxHeight(10, 40)).toBe(40 + 400 + 2);
+  });
+
+  test("at least one row, and a whole number of them", () => {
+    expect(boxHeight(0, 36)).toBe(40 + 36 + 2);
+    expect(boxHeight(2.7, 36)).toBe(40 + 72 + 2);
   });
 });

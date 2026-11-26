@@ -13,7 +13,7 @@ describe("the KMS keys S3 can use", () => {
     const k = kmsKeys([app, signing], aliases, "us-east-1", "111122223333");
     expect(k.usable).toEqual([{ value: "arn:aws:kms:us-east-1:111122223333:alias/larder-app", label: "alias/larder-app", hint: "app" }]);
     expect(k.unusable).toEqual([{ label: "alias/larder-signing", why: "is RSA_2048 for signing" }]);
-    expect(kmsHint(k)).toBe("Only a symmetric encryption key in the bucket's Region can be used. alias/larder-app qualifies; alias/larder-signing is RSA_2048 for signing, so S3 cannot use it.");
+    expect(kmsHint(k)).toBe("Only a symmetric encryption key in the bucket's Region can be used, and the console lists the first 100. alias/larder-app qualifies; alias/larder-signing is RSA_2048 for signing, so S3 cannot use it.");
   });
   test("a key with no alias is chosen by its own ARN, and a disabled one is not usable", () => {
     const k = kmsKeys([app, key("k3", ["old", "Disabled", "SYMMETRIC_DEFAULT", "ENCRYPT_DECRYPT", "Customer", null, null])], [], "eu-west-1", "1");

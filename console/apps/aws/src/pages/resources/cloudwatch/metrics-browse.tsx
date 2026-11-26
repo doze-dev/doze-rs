@@ -64,6 +64,7 @@ export function Browse({ view, onView, rows, onRows, retry }: { view: View; onVi
           aria-label="Metrics"
           data={drill}
           rowId={refId}
+          rowLabel={(r) => `${r.MetricName}${(r.Dimensions ?? []).length > 0 ? ` ${dimensionText(r.Dimensions ?? [])}` : ""}`}
           selected={chosen}
           onSelectedChange={toggle}
           noun="metric"

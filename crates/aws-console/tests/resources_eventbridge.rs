@@ -193,6 +193,8 @@ async fn a_rule_a_bus_and_an_archive_say_what_they_do() {
         archive["sentence"],
         "all keeps every event from the larder bus for 30 days and holds 0 events."
     );
+    // An archive is replayed from its page, and deleted.
+    assert_eq!(texts(&archive, "verbs"), ["replay", "delete"]);
 }
 
 #[tokio::test]
@@ -240,6 +242,9 @@ async fn replays_and_api_destinations_are_kinds_with_pages_of_their_own() {
         .get(&format!("{BASE}/api-destinations/finance-webhook"))
         .await;
     assert_eq!(field(&one, "Rate limit per second")["value"], "300");
+    // Its page has a Delete verb, and a state in its header.
+    assert_eq!(texts(&one, "verbs"), ["delete"]);
+    assert_eq!(texts(&one, "badges"), ["ACTIVE"]);
     // The connection is read through the kind, and its secret is never in the answer.
     let (_, conns) = w
         .send(

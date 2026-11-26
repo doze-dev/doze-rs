@@ -22,7 +22,7 @@ pub(crate) type Pairs<'a> = Option<Vec<(String, &'a RawValue)>>;
 
 /// Splits a document into its object's pairs. Anything but an object or `null` is an error, as Go's is.
 pub(crate) fn object(text: &str) -> serde_json::Result<Pairs<'_>> {
-    let mut de = serde_json::Deserializer::from_str(text);
+    let mut de = serde_json::Deserializer::from_slice(text.as_bytes());
     let pairs = (&mut de).deserialize_any(ObjectVisitor)?;
     de.end()?;
     Ok(pairs)
@@ -59,7 +59,7 @@ pub(crate) fn is(key: &str, field: &str) -> bool {
 pub(crate) fn value<'a, T: serde::Deserialize<'a>>(
     raw: &'a RawValue,
 ) -> serde_json::Result<Option<T>> {
-    serde_json::from_str(raw.get())
+    serde_json::from_slice(raw.get().as_bytes())
 }
 
 #[allow(

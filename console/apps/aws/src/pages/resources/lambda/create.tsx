@@ -151,7 +151,7 @@ export function FunctionCreate() {
       <FormSection title="Permissions" description="Choose the execution role Lambda assumes to run the function." testId="section-permissions">
         <div className="grid gap-1.5">
           <Label>Change default execution role</Label>
-          <RadioGroup value="another" className="grid gap-2" aria-label="Change default execution role">
+          <RadioGroup value="another" className="grid gap-3" aria-label="Change default execution role">
             <Label htmlFor="role-default" className="flex items-start gap-3 font-normal opacity-60" data-testid="role-create-off"><RadioGroupItem id="role-default" value="default" disabled className="mt-0.5" /><span className="grid gap-0.5"><span className="text-bright">Create default role</span><span className="text-[13px] text-muted-foreground">Not in this form: create the role in IAM, then choose it here.</span></span></Label>
             <Label htmlFor="role-another" className="flex items-center gap-3 font-normal"><RadioGroupItem id="role-another" value="another" data-testid="role-another" /><span className="text-bright">Use another role</span></Label>
           </RadioGroup>

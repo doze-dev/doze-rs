@@ -42,7 +42,7 @@ export function TagsPanel({ d }: { d: ResourceDetail }) {
     <div data-testid="tags-view">
       <div className="mb-4 flex justify-end"><Button type="button" variant="outline" className="bg-card" onClick={manage} data-testid="tags-manage">Manage tags</Button></div>
       <DataTable aria-label="Tags" data={list} columns={COLUMNS} rowId={(t) => t.key} maxHeight={420} />
-      <p className="mt-5 max-w-[46rem] border-l-2 border-input pl-3.5 text-[13px] leading-5 text-muted-foreground" data-testid="tags-note">{RULE} Executions inherit the tags of their state machine for access control.</p>
+      <p className="mt-5 max-w-[46rem] border-l-2 border-input pl-3.5 text-[13px] leading-5 text-muted-foreground" data-testid="tags-note">{RULE} In AWS an execution inherits the tags of its state machine, for access control. <b className="font-semibold text-foreground">Stored, not applied locally.</b> doze-aws keeps and lists the tags but evaluates no tag condition for Step Functions.</p>
     </div>
   );
 }

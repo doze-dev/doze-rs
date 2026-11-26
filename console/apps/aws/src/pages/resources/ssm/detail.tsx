@@ -93,7 +93,7 @@ function ParameterView({ d, updatedAt, fetching, refresh }: { d: ResourceDetail;
             { label: "Last modified date", value: modified ? `${versionLine(version, modified).replace(/^Version \d+, last modified /, "").replace(/ UTC\.$/, "")} UTC` : "–" },
           ]} />
         </Card>
-        <Card title="Value" lede={secure ? "A SecureString value is masked until you ask to see it." : `A ${type} value is shown as it is stored.`} testId="parameter-value-card">
+        <Card title="Value" lede={secure ? (value === null ? "A SecureString value is masked until you ask to see it." : `Decrypted by KMS with ${key ?? "alias/aws/ssm"}, for this page view.`) : `A ${type} value is shown as it is stored.`} testId="parameter-value-card">
           <div className="flex items-center gap-3">
             <p className="min-w-0 flex-1 break-all rounded-lg border bg-well px-4 py-2.5 text-[14px]" data-testid="parameter-value-box">{valueCell}</p>
             {secure && (

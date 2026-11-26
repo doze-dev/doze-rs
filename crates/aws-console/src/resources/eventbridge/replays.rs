@@ -1,7 +1,7 @@
 //! EventBridge replays: the list, a replay's page, and Start replay.
 
 use super::super::Format::{Json, Mono, Tail, Text as Plain, Time};
-use super::super::{Id, Kind, List, Step, Text, col, field, ops, or, state};
+use super::super::{Id, Kind, List, Step, Text, col, field, ops, or, says, state};
 
 pub(super) const REPLAYS: Kind = Kind {
     id: "replays",
@@ -57,5 +57,6 @@ pub(super) const REPLAYS: Kind = Kind {
         ops::free("ListArchives"),
         ops::free("ListRules"),
     ],
+    page: says::eventbridge::REPLAY,
     ..Kind::BARE
 };

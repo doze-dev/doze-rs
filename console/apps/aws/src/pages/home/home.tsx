@@ -20,6 +20,7 @@ import { Section, useNow } from "../card";
 import { AwakeSection } from "./awake-section";
 import { ConnectedCard, WhereCard } from "./connect-cards";
 import { Signals } from "./signals";
+import { shownVersion } from "./version";
 
 const HINT = "Check that doze-aws is still running, then try again. Nothing was changed.";
 
@@ -79,7 +80,7 @@ export function HomePage() {
         sub={
           a ? (
             <span data-testid="home-sub">
-              account <span className="font-mono text-foreground">{a.account}</span> · <span className="font-mono text-foreground">{a.region}</span> · {iamWords(a.iam).chip} · doze-aws <span className="font-mono text-foreground">{a.version}</span>
+              account <span className="font-mono text-foreground">{a.account}</span> · <span className="font-mono text-foreground">{a.region}</span> · {iamWords(a.iam).chip}{shownVersion(a.version) && <> · doze-aws <span className="font-mono text-foreground">{shownVersion(a.version)}</span></>}
             </span>
           ) : (
             "This doze-aws: where your app connects, and what it serves."

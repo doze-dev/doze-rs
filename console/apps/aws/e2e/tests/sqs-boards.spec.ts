@@ -64,6 +64,18 @@ test("sqs__queues-list: every queue with what it holds, and a sentence", async (
   const fifo = page.getByRole("table", { name: "Queues" }).locator("tr[data-row]", { hasText: "orders-events.fifo" });
   await expect(fifo).toContainText("FIFO");
   await expect(fifo).toContainText("Enabled");
+  // At 1440 px every column fits its box: no sideways scroll, and the last header is whole.
+  const box = page.locator('[data-slot="data-table"]').first();
+  const [scroll, client] = await box.evaluate((el) => [el.scrollWidth, el.clientWidth]);
+  expect(scroll).toBeLessThanOrEqual(client);
+  const head = page.getByRole("columnheader", { name: /Content-based deduplication/i });
+  const [headFits] = await head.evaluate((el) => [el.scrollWidth <= el.clientWidth + 1]);
+  expect(headFits).toBe(true);
+  // Fitting the box does not cut a cell instead: the type, the date and the longest name are whole.
+  for (const cell of [fifo.locator("td").nth(0), fifo.locator("td").nth(1), fifo.locator("td").nth(2)]) {
+    const [inner, outer] = await cell.evaluate((el) => [el.scrollWidth, el.clientWidth]);
+    expect(inner).toBeLessThanOrEqual(outer);
+  }
   await shot(page, "sqs__queues-list");
 });
 
@@ -95,7 +107,7 @@ test("sqs__queue-create and sqs__queue-create-refused: the form, its call, and t
   await expect(page.getByText("pick-lists uses 30 seconds.")).toBeVisible();
   // Retention names its neighbour, the dead-letter queue; the dead-letter hint names queues that are one, and what the first keeps.
   await expect(page.getByText(/pick-lists keeps 4 days\./)).toContainText("pick-lists-dlq keeps 14 days.");
-  await expect(page.getByTestId("section-dlq")).toContainText("pick-lists-dlq is one; pick-lists-dlq keeps messages for 14 days.");
+  await expect(page.getByTestId("section-dlq")).toContainText("pick-lists-dlq is one; it keeps messages for 14 days.");
   await expect(page.getByTestId("section-dlq")).not.toContainText("invoice-queue");
   await page.getByTestId("queue-visibility").fill("60");
   await expect(page.getByTestId("call-panel-code")).toContainText('"VisibilityTimeout": "60"');
@@ -125,7 +137,11 @@ test("sqs__queue-create-fifo and sqs__queue-created: a FIFO queue with its own s
   await expect(page.getByText("orders-events.fifo already exists in this Region.")).toBeVisible();
   await page.getByTestId("queue-name").fill("stock-moves.fifo");
   await page.getByTestId("queue-dedup").click();
+  // Content-based deduplication is a labelled block of its own, and the tag rows have a Remove button, as drawn (no bin icon).
+  await expect(page.getByTestId("field-dedup")).toContainText("Content-based deduplication");
+  await expect(page.getByTestId("field-high-throughput")).toBeVisible();
   await page.getByTestId("form-tags-add").click();
+  await expect(page.getByTestId("section-tags").getByRole("button", { name: "Remove" })).toHaveCount(1);
   await page.getByTestId("form-tags-key-0").fill("stack");
   await page.getByTestId("form-tags-value-0").fill("larder");
   await page.getByTestId("form-tags-add").click();
@@ -155,6 +171,12 @@ test("sqs__queue-detail: the sentence, what the queue is wired to, its verbs, de
   await expect(page.getByTestId("wired-strip")).toContainText("alias/larder-app key");
   await expect(page.getByTestId("wired-self")).toHaveText("pick-lists");
   for (const verb of ["edit", "delete", "purge", "messages"]) await expect(page.getByTestId(`verb-${verb}`)).toBeVisible();
+  // The verbs are outlined buttons as drawn: Edit with a pencil, Delete in red with a bin, Purge plain.
+  await expect(page.getByTestId("verb-edit").locator("svg")).toHaveCount(1);
+  await expect(page.getByTestId("verb-delete").locator("svg")).toHaveCount(1);
+  await expect(page.getByTestId("verb-delete")).toHaveClass(/border-bad/);
+  await expect(page.getByTestId("verb-purge")).not.toHaveClass(/border-bad|text-bad/);
+  await expect(page.getByTestId("verb-purge")).toHaveAttribute("data-variant", "outline");
   // Start DLQ redrive is there, greyed: pick-lists is no one's dead-letter queue.
   await expect(page.getByTestId("verb-redrive")).toBeDisabled();
   await expect(page.getByTestId("verb-reasons")).toHaveCount(0);

@@ -65,6 +65,9 @@ const BY_ID: i16 = 13;
 /// format the log stores (`batch::legacy`); from v3 a partition's records are one v2 batch.
 const OLD_FORMATS_TO: i16 = 3;
 
+/// The largest batch checked on the runtime's own thread (weight.md, "A quiet consumer").
+const CHECKED_HERE: usize = 16 * 1024;
+
 /// What a Produce of v12 on adds to its transaction: the partitions, and the producer adding them.
 struct Adds {
     who: (i64, i16),
@@ -251,7 +254,13 @@ impl<F: Fs> Broker<F> {
         };
         let now = clock::now();
         let records = p.records.as_ref().unwrap_or(&NO_RECORDS);
-        let checked = blocking::run(|| self.checked(version, topic, id, records, now));
+        // Checking is work for the CPU alone (a CRC, a walk of the records, a re-encoding only where the codec changes): a
+        // small batch, the usual one from an app, is checked where it is, and handing the worker over would cost more.
+        let checked = if records.len() <= CHECKED_HERE {
+            self.checked(version, topic, id, records, now)
+        } else {
+            blocking::run(|| self.checked(version, topic, id, records, now))
+        };
         let Accepted {
             batch,
             log_append_time,

@@ -16,7 +16,7 @@ import { assumedOf, ROLES, useIamCalls, useRead, useRefresh } from "./api";
 import { DeleteEntity } from "./delete-entity";
 import { CreatedBanner, GoneBanner, ListError, ListLoading, PageLine, SearchBox, useToList } from "./list-parts";
 import { type Doc, trustedEntities } from "./model";
-import { crumbs, Say, To } from "./parts";
+import { KINDS, listCrumbs, Say, To } from "./parts";
 import { RoleCreate } from "./role-create";
 import { rolesSentence } from "./sentences";
 
@@ -60,7 +60,7 @@ function Roles({ gone, created }: { gone?: string; created?: string }) {
     <>
       <PageHeader
         title="Roles"
-        crumbs={crumbs()}
+        crumbs={listCrumbs(KINDS.roles)}
         sub="A role is an identity with specific permissions that anyone you trust can assume. Its credentials are temporary."
         refresh={<RefreshControl updatedAt={read.dataUpdatedAt} fetching={read.isFetching} onRefresh={refresh} interval={false} />}
         actions={

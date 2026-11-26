@@ -1,12 +1,19 @@
 import type { Crumb } from "@doze/ui/components/app/page-header";
 import { useCatalogue } from "../api/resources";
+import { ACCESS_SERVICES } from "../nav";
 
-/** The breadcrumb a service's pages begin with: `Resources`, the service (`CloudWatch Logs`). (Its group, `Observability`, is not a crumb: it has no
- * page of its own, so it only led back to Resources.)
+/** What a service's pages begin with: `Resources`, or `Access` for IAM and STS (the rail marks Access on their pages), then the service
+ * (`CloudWatch Logs`). Its group (`Observability`) is not a crumb: it has no page of its own, so it only led back to Resources. */
+export function serviceTrail(service: string, title?: string): Crumb[] {
+  const space = ACCESS_SERVICES.includes(service) ? { label: "Access", to: "/access" } : { label: "Resources", to: "/resources" };
+  return [space, ...(title ? [{ label: title, to: `/resources/${service}` }] : [])];
+}
+
+/** The breadcrumb a service's pages begin with (see {@link serviceTrail}).
  * Read from the catalogue, which makes no call and is kept, so a page that has read nothing else still knows where it is. */
 export function useServiceCrumbs(service: string): Crumb[] {
   const s = useCatalogue().data?.services.find((x) => x.name === service);
-  return [{ label: "Resources", to: "/resources" }, ...(s ? [{ label: s.title, to: `/resources/${service}` }] : [])];
+  return serviceTrail(service, s?.title);
 }
 
 const norm = (s: string) => s.trim().toLowerCase();
@@ -25,9 +32,9 @@ export function withCurrent(crumbs: Crumb[], title: string, label?: string): Cru
   return [...crumbs, { label: label ?? title, to: "" }];
 }
 
-/** Where a resource's own pages start: Resources, its service, its kind. */
+/** Where a resource's own pages start: Resources (Access for IAM and STS), its service, its kind. */
 export function kindCrumbs(d: { group: string; service: string; service_title: string; kind: string; kind_title: string }): Crumb[] {
-  return [{ label: "Resources", to: "/resources" }, { label: d.service_title, to: `/resources/${d.service}` }, { label: d.kind_title, to: `/resources/${d.service}/${d.kind}` }];
+  return [...serviceTrail(d.service, d.service_title), { label: d.kind_title, to: `/resources/${d.service}/${d.kind}` }];
 }
 
 /** A resource's pages: the kind's trail, the resource (a link to its page, or the page itself when nothing follows), then

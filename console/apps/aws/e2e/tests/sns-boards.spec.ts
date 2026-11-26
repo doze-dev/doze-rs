@@ -82,6 +82,14 @@ test("sns__topic-create: every setting of a topic, the sentence, and the call it
   await expect(page.getByTestId("logging-Firehose")).toContainText("Not available in doze-aws");
   await expect(page.getByTestId("logging-Application")).toContainText("Disabled");
   await expect(page.getByTestId("section-logging")).toContainText("writes no delivery logs");
+  // A delivery logging role is chosen from the roles SNS can assume: larder-fn trusts Lambda, so it is not offered.
+  await page.getByTestId("log-SQS").click();
+  await page.getByRole("combobox", { name: "SQS success role" }).click();
+  await expect(page.getByRole("option", { name: "sns-delivery-logs" })).toBeVisible();
+  await expect(page.getByRole("option", { name: "larder-fn" })).toHaveCount(0);
+  await page.keyboard.press("Escape");
+  await expect(page.getByTestId("role-trust-note").first()).toContainText("Only roles whose trust policy lets sns.amazonaws.com assume them are listed.");
+  await page.getByTestId("log-SQS").click();
   await expect(page.getByTestId("section-tracing")).toContainText("doze-aws has no X-Ray, so the setting is only recorded.");
   // Tags.
   await page.getByTestId("section-tags").getByRole("button", { name: "Add tag" }).click();
@@ -398,6 +406,9 @@ test("sns__topic-encryption: the key, what it is, and that nothing is encrypted"
   await expect(page.getByTestId("field-Customer managed key ARN")).toContainText("arn:aws:kms:us-east-1:");
   await expect(page.getByTestId("field-Description")).toHaveText("Larder application data key");
   await expect(page.getByTestId("encryption-tab")).toContainText("Stored, not applied locally.");
+  // One strip, the tab's own (publisher, topic, key): the page's Wired to strip would say the same publisher and topic again.
+  await expect(page.getByTestId("kms-strip")).toHaveCount(1);
+  await expect(page.getByTestId("wired-strip")).toHaveCount(0);
   await shot(page, "sns__topic-encryption");
 });
 
@@ -473,6 +484,10 @@ test("sns__publish-fifo, sns__publish-fifo-refused and sns__topic-published: a g
   await expect(page.getByTestId("recent-calls")).toContainText("Publish");
   await expect(page.getByTestId("recent-calls").getByTestId("call-caller").first()).toContainText("This console");
   await expect(page.getByTestId("calls-console-hidden")).toContainText("made by this console");
+  // The row says the publish reached the queue, as the sentence above it does (not "no deliveries").
+  const publishRow = page.getByTestId("recent-calls").locator("tr[data-row]").filter({ hasText: "Publish" }).first();
+  await expect(publishRow).toContainText("delivered to 1");
+  await expect(publishRow).not.toContainText("no deliveries");
   const got = JSON.parse(cli(["sqs", "receive-message", "--queue-url", `${server.endpoint}/${server.account}/${FIFO}`, "--attribute-names", "All"])) as { Messages: { Body: string }[] };
   expect(JSON.parse(got.Messages[0]!.Body).Message).toContain("order_placed");
 });

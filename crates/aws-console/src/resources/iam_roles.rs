@@ -5,9 +5,10 @@ use super::iam::{PATH, attached};
 use super::iam_blockers::ROLE_BLOCKERS;
 use super::iam_ops::ROLE_OPS;
 use super::{
-    Create, Delete, Id, Input, InputKind, Kind, List, Shape, Step, Sub, Tags, Text, Write, col,
-    field, input, op, or,
+    Create, Delete, Id, Input, InputKind, Kind, List, Param, Shape, Step, Sub, Tags, Text, Write,
+    col, field, input, op, or,
 };
+use serde_json::Value;
 
 /// What a role call names: this role.
 const ROLE: &str = r#"{"RoleName":"{id}"}"#;
@@ -139,5 +140,79 @@ pub(super) const ROLES: Kind = Kind {
     )),
     blockers: ROLE_BLOCKERS,
     ops: ROLE_OPS,
+    // The roles a service can assume (a topic's delivery logging offers the ones SNS can): never drawn on this list.
+    params: &[Param::hidden("trusts", "Trusts", trusts)],
     ..Kind::BARE
 };
+
+/// Whether the trust policy of `role` lets `service` (`sns.amazonaws.com`) assume it: an Allow statement that names the service as
+/// a principal and allows `sts:AssumeRole`. IAM answers the document as JSON, or as the URL-encoded text a client of the wire reads.
+fn trusts(role: &Value, service: &str) -> bool {
+    let Some(doc) = role.get("AssumeRolePolicyDocument") else {
+        return false;
+    };
+    let parsed;
+    let doc = match doc {
+        Value::String(text) => {
+            let Ok(v) = serde_json::from_str::<Value>(&crate::api::resources::decode(text)) else {
+                return false;
+            };
+            parsed = v;
+            &parsed
+        }
+        other => other,
+    };
+    let each = |v: Option<&Value>| -> Vec<String> {
+        match v {
+            Some(Value::String(s)) => vec![s.clone()],
+            Some(Value::Array(a)) => a
+                .iter()
+                .filter_map(|x| x.as_str().map(str::to_owned))
+                .collect(),
+            _ => Vec::new(),
+        }
+    };
+    let statements = match doc.get("Statement") {
+        Some(Value::Array(a)) => a.clone(),
+        Some(one @ Value::Object(_)) => vec![one.clone()],
+        _ => return false,
+    };
+    statements.iter().any(|s| {
+        s.get("Effect").and_then(Value::as_str) == Some("Allow")
+            && each(s.pointer("/Principal/Service"))
+                .iter()
+                .any(|p| p == service)
+            && each(s.get("Action"))
+                .iter()
+                .any(|a| matches!(a.as_str(), "sts:AssumeRole" | "sts:*" | "*"))
+    })
+}
+
+#[cfg(test)]
+mod tests {
+    use serde_json::json;
+
+    use super::trusts;
+
+    #[test]
+    fn a_role_is_trusted_by_the_services_an_allow_statement_names() {
+        let sns = json!({"AssumeRolePolicyDocument": {"Version": "2012-10-17", "Statement": [
+            {"Effect": "Allow", "Principal": {"Service": ["sns.amazonaws.com", "lambda.amazonaws.com"]}, "Action": "sts:AssumeRole"}]}});
+        assert!(trusts(&sns, "sns.amazonaws.com") && trusts(&sns, "lambda.amazonaws.com"));
+        assert!(!trusts(&sns, "states.amazonaws.com"));
+        // The document as a wire client reads it: URL-encoded text; one statement, not a list.
+        let encoded = json!({"AssumeRolePolicyDocument":
+            "%7B%22Statement%22%3A%7B%22Effect%22%3A%22Allow%22%2C%22Principal%22%3A%7B%22Service%22%3A%22sns.amazonaws.com%22%7D%2C%22Action%22%3A%22sts%3AAssumeRole%22%7D%7D"});
+        assert!(trusts(&encoded, "sns.amazonaws.com"));
+        // A Deny, another action, a person as the principal, and no document at all, trust nobody.
+        for statement in [
+            json!({"Effect": "Deny", "Principal": {"Service": "sns.amazonaws.com"}, "Action": "sts:AssumeRole"}),
+            json!({"Effect": "Allow", "Principal": {"Service": "sns.amazonaws.com"}, "Action": "sts:TagSession"}),
+            json!({"Effect": "Allow", "Principal": {"AWS": "arn:aws:iam::1:root"}, "Action": "sts:AssumeRole"}),
+        ] {
+            let role = json!({"AssumeRolePolicyDocument": {"Statement": [statement]}});
+            assert!(!trusts(&role, "sns.amazonaws.com"), "{role}");
+        }
+        assert!(!trusts(&json!({}), "sns.amazonaws.com"));
+    }
+}
