@@ -24,7 +24,6 @@ import { ResourceTo } from "../value";
 import { useSecretActivity } from "./activity";
 import { SecretCreate } from "./create";
 import { listSentence, PROPS, type SecretRow, secretRows, type Token, tokensFromQuery, tokensToQuery } from "./model";
-import { FromYourApp } from "../../../kit/from-your-app";
 
 const FILTERS: FilterProp[] = PROPS.map((p) => ({ value: p.value, label: p.label }));
 
@@ -68,7 +67,6 @@ function Secrets({ q, deleted, stored }: { q: string; deleted: boolean; stored: 
       ) : none ? (
         <div data-testid="list-empty">
           <EmptyState icon={LockKeyholeIcon} title="No secrets" action={create}>Store a secret to keep a database password or an API key out of your code.</EmptyState>
-          <FromYourApp service="secretsmanager" />
         </div>
       ) : (
         <>

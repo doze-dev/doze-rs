@@ -23,7 +23,6 @@ import { ResourceTo, Value } from "../value";
 import { LogsCreate } from "./create";
 import { type GroupRow, classWords, count, groupRows, listSentence, retentionWords } from "./model";
 import { RetentionDialog } from "./retention-dialog";
-import { FromYourApp } from "../../../kit/from-your-app";
 
 const NAMES = (rows: readonly GroupRow[]) => rows.map((r) => r.name);
 
@@ -94,7 +93,6 @@ function Groups({ service, kind, gone }: { service: string; kind: string; gone?:
           <EmptyState icon={ScrollTextIcon} title="No log groups" action={<Button onClick={() => go({ create: "yes" })} data-testid="create-open"><PlusIcon /> Create log group</Button>}>
             Log groups appear when a function runs or a producer writes. You can also create one.
           </EmptyState>
-          <FromYourApp service="logs" />
         </div>
       ) : (
         <>

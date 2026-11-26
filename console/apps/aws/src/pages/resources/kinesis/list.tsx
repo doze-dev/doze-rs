@@ -24,7 +24,6 @@ import { streamArn, useConsumerNames } from "./api";
 import { KinesisCreate } from "./create";
 import { DeleteStream, lastDeleted } from "./delete";
 import { type StreamRow, count, list, listSentence, modeWords, statusWords, streamRows } from "./model";
-import { FromYourApp } from "../../../kit/from-your-app";
 
 const tone = (s: string | null) => (s === "ACTIVE" ? "ok" : s === "CREATING" || s === "UPDATING" ? "info" : "idle");
 
@@ -79,7 +78,6 @@ function Streams({ service, kind, gone }: { service: string; kind: string; gone?
           <EmptyState icon={DatabaseIcon} title="No data streams" action={<Button onClick={() => go({ create: "yes" })}><PlusIcon /> Create data stream</Button>}>
             Create a data stream to start ingesting records.
           </EmptyState>
-          <FromYourApp service="kinesis" />
         </div>
       ) : (
         <>

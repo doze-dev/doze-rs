@@ -25,7 +25,6 @@ import { FunctionCreate } from "./create";
 import { leftWords, readLeft, recalledLeft } from "./delete-model";
 import { type FunctionRow, invokedSentence, rowsOf } from "./list-model";
 import { HOUR } from "./monitor-model";
-import { FromYourApp } from "../../../kit/from-your-app";
 
 const COLUMNS: DataColumn<FunctionRow>[] = [
   { id: "name", header: "Function name", min: 170, accessorFn: (r) => r.name.toLowerCase(), meta: { mono: true }, cell: (c) => <ResourceTo to={{ service: "lambda", kind: "functions", name: c.row.original.name }} className="font-mono text-[13px] font-medium" testId="row-link">{c.row.original.name}</ResourceTo> },
@@ -82,7 +81,6 @@ function FunctionsList({ service, kind, q, gone }: { service: string; kind: stri
           <EmptyState icon={ZapIcon} title="No functions" action={<Button variant="outline" className="bg-card" onClick={() => go({ create: "yes" })} data-testid="create-empty">Create function</Button>}>
             You have no functions in this region. Create a function to run code without managing servers.
           </EmptyState>
-          <FromYourApp service="lambda" />
         </div>
       ) : (
         <>

@@ -123,15 +123,16 @@ test("Scope: what doze-aws cannot do is said in a form, on the resource, on the 
   await expect(page.getByTestId("needs-a-look")).toContainText("1 subscription stored");
 });
 
-test("an empty place says how an app makes the first one", async ({ page }) => {
+test("an empty place says what is missing and offers the Create button, and nothing more", async ({ page }) => {
   await go(page, "/resources/kinesis/streams", "Data streams");
-  const snippet = page.getByTestId("from-your-app");
-  await expect(snippet).toContainText("Or from your app");
-  await expect(snippet.getByTestId("from-app-cli")).toContainText(`aws kinesis create-stream --stream-name events --shard-count 1 --endpoint-url ${world.server.endpoint}`);
-  await expect(snippet.getByTestId("from-app-py")).toContainText("boto3.client(\"kinesis\"");
+  await expect(page.getByTestId("list-empty")).toContainText("No data streams");
+  await expect(page.getByTestId("list-empty").getByRole("button", { name: "Create data stream" })).toBeVisible();
+  await expect(page.getByTestId("from-your-app")).toHaveCount(0);
+  await expect(page.getByText("Or from your app")).toHaveCount(0);
   await shot(page, "Patterns.empty");
   await go(page, "/resources/secretsmanager/secrets", "Secrets");
-  await expect(page.getByTestId("from-app-cli")).toContainText("aws secretsmanager create-secret");
+  await expect(page.getByTestId("list-empty")).toContainText("No secrets");
+  await expect(page.getByTestId("from-app-cli")).toHaveCount(0);
 });
 
 test("Main: the five jobs each have a place: connect, watch, build, understand, rehearse", async ({ page }) => {
