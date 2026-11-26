@@ -153,8 +153,8 @@ async fn stats(d: &Daemon, w: &Writer, id: u64, gap: Duration) -> Done {
         emit(w, id, f)?;
     }
     loop {
-        let (at, frame) = crate::meters::sample(d).await;
-        ring.record(at, &frame);
+        let frame = crate::meters::sample(d).await;
+        ring.record(&frame);
         emit(w, id, frame)?;
         tokio::time::sleep(gap).await;
     }

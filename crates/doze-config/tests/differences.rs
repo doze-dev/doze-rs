@@ -433,4 +433,11 @@ fn a_task_lists_the_outputs_it_makes() {
     )
     .unwrap_err();
     assert!(e.is_invalid(), "{}", summary(&e));
+    // Checked as written: a glob or `~` would never be there, and the task would run on every start.
+    for (out, says) in [("bin/*", "is a pattern"), ("~/bin/api", "starts with ~")] {
+        let src = format!("task \"build\" {{\n  run = \"x\"\n  outputs = [\"{out}\"]\n}}\n");
+        let e = load_one("task-outputs-bad", &src, &Fixtures).unwrap_err();
+        let all = format!("{e:?}");
+        assert!(all.contains(says), "{out}: {all}");
+    }
 }

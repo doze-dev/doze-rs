@@ -118,12 +118,25 @@ impl Hub {
         Some(sets)
     }
 
-    /// Hands each watcher its part of a look; the gap before the next look.
+    /// Hands each watcher its part of a look; the gap before the next look. A watcher that came while the look was under
+    /// way, wanting a glob it did not cover, is left for the next look (in an interval): half a baseline would make every
+    /// file it missed look added a look later, and restart its app for nothing.
     fn take(&self, looked: &[(Set, Snapshot)], interval: Duration) -> Duration {
         let now = tokio::time::Instant::now();
         let mut st = self.lock();
         let mut gap = interval * QUIET_STRIDE;
         for sub in st.subs.values_mut() {
+            let covered = sub.sets.iter().all(|s| {
+                s.globs.iter().all(|g| {
+                    looked
+                        .iter()
+                        .any(|(l, _)| l.dir == s.dir && l.globs.contains(g))
+                })
+            });
+            if !covered {
+                gap = interval;
+                continue;
+            }
             let mut cur = Snapshot::new();
             for (set, snap) in looked {
                 if sub
@@ -143,18 +156,32 @@ impl Hub {
     }
 }
 
+/// When the look after one due at `due` falls: a gap on from `due`, on the grid; a look that ran late (past that) goes to
+/// the next grid point after now. Stepping from the due instant, not from when the look ended, keeps a look that took a
+/// few milliseconds from rounding up a whole extra gap.
+fn next_look(
+    due: tokio::time::Instant,
+    now: tokio::time::Instant,
+    gap: Duration,
+    epoch: tokio::time::Instant,
+) -> tokio::time::Instant {
+    aligned((due + gap).max(now), gap, epoch)
+}
+
 async fn hub_loop(hub: std::sync::Weak<Hub>) {
     let mut next: Option<tokio::time::Instant> = None;
     loop {
         let Some(h) = hub.upgrade() else {
             return;
         };
-        if let Some(at) = next {
-            tokio::select! {
-                () = tokio::time::sleep_until(at) => {}
-                () = h.poke.notified() => {}
-            }
-        }
+        // The instant this look is for: the one it was set for, or now when a watcher came or went.
+        let due = match next {
+            None => tokio::time::Instant::now(),
+            Some(at) => tokio::select! {
+                () = tokio::time::sleep_until(at) => at,
+                () = h.poke.notified() => tokio::time::Instant::now(),
+            },
+        };
         let Some(sets) = h.wanted() else {
             return;
         };
@@ -166,10 +193,13 @@ async fn hub_loop(hub: std::sync::Weak<Hub>) {
                 })
                 .collect::<Vec<_>>()
         })
-        .await
-        .unwrap_or_default();
-        let gap = h.take(&looked, DEFAULT_INTERVAL);
-        next = Some(aligned(tokio::time::Instant::now() + gap, gap, h.epoch));
+        .await;
+        // A look that failed (it panicked) says nothing: an empty one would read as every file deleted.
+        let gap = match looked {
+            Ok(looked) => h.take(&looked, DEFAULT_INTERVAL),
+            Err(_) => DEFAULT_INTERVAL,
+        };
+        next = Some(next_look(due, tokio::time::Instant::now(), gap, h.epoch));
     }
 }
 
@@ -285,5 +315,67 @@ mod tests {
         assert_eq!(aligned(epoch + ms(3100), s(3), epoch), epoch + s(6));
         // Before the epoch (cannot happen, but must not panic or go back): the epoch itself.
         assert_eq!(aligned(epoch, s(3), epoch), epoch);
+    }
+
+    /// A look that took a few milliseconds (or woke a little late) is still followed a gap later, not two: the next
+    /// look steps from the instant this one was due. One that ran past its successor's instant goes to the next point.
+    #[test]
+    fn a_slow_look_does_not_skip_a_gap() {
+        let epoch = tokio::time::Instant::now();
+        let s = Duration::from_secs;
+        let ms = Duration::from_millis;
+        let due = epoch + s(1);
+        assert_eq!(next_look(due, due + ms(5), s(1), epoch), epoch + s(2));
+        assert_eq!(
+            next_look(epoch + s(3), epoch + ms(3020), s(3), epoch),
+            epoch + s(6)
+        );
+        assert_eq!(next_look(due, due + ms(1500), s(1), epoch), epoch + s(3));
+        // A poke between grid points: the next look is the first grid point a gap or more on.
+        assert_eq!(
+            next_look(epoch + ms(400), epoch + ms(410), s(1), epoch),
+            epoch + s(2)
+        );
+    }
+
+    /// A watcher that comes while a look is under way is not handed that look (its globs were not in it): its baseline
+    /// is the next look, so nothing it watches reads as added and its app is not restarted for nothing.
+    #[tokio::test]
+    async fn a_watcher_added_during_a_look_waits_for_the_next() {
+        let (_t, _, first, sets) = watched();
+        let other = tempfile::tempdir().unwrap();
+        write(&other.path().join("lib.go"), "package lib");
+        let late_sets = vec![Set {
+            dir: other.path().to_path_buf(),
+            globs: vec!["*.go".into()],
+        }];
+        let late = Arc::new(Mutex::new(0usize));
+        let hub = Hub::new();
+        // Drive the looks by hand: no task of the hub's own.
+        hub.lock().running = true;
+        let count = |n: &Arc<Mutex<usize>>| -> React {
+            let n = n.clone();
+            Box::new(move |_| *n.lock().unwrap() += 1)
+        };
+        let look = |sets: Vec<Set>| -> Vec<(Set, Snapshot)> {
+            sets.into_iter()
+                .map(|s| {
+                    let snap = snapshot(std::slice::from_ref(&s));
+                    (s, snap)
+                })
+                .collect()
+        };
+        let _a = hub.watch(sets, count(&first));
+        let in_flight = look(hub.wanted().unwrap());
+        let _b = hub.watch(late_sets, count(&late));
+        assert_eq!(
+            hub.take(&in_flight, DEFAULT_INTERVAL),
+            DEFAULT_INTERVAL,
+            "the newcomer is looked at again in an interval"
+        );
+        for _ in 0..3 {
+            hub.take(&look(hub.wanted().unwrap()), DEFAULT_INTERVAL);
+        }
+        assert_eq!((*first.lock().unwrap(), *late.lock().unwrap()), (0, 0));
     }
 }

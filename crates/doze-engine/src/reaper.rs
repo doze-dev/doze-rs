@@ -104,12 +104,42 @@ async fn health_loop(e: Engine) {
     let mut changes = e.changes();
     loop {
         e.background_woke();
+        let seen = running_commands(&e);
         if probe_once(&e).await {
-            tokio::time::sleep(HEALTH_EVERY).await;
+            // Repeat in HEALTH_EVERY, or sooner when a command starts (or restarts) running: it is probed at once
+            // rather than showing no answer for up to that long. Other changes (connections) do not cut the wait.
+            let deadline = tokio::time::Instant::now() + HEALTH_EVERY;
+            loop {
+                tokio::select! {
+                    () = tokio::time::sleep_until(deadline) => break,
+                    r = changes.changed() => {
+                        if r.is_err() {
+                            return;
+                        }
+                        if running_commands(&e).iter().any(|n| !seen.contains(n)) {
+                            break;
+                        }
+                    }
+                }
+            }
         } else if changes.changed().await.is_err() {
             return;
         }
     }
+}
+
+/// The supervised commands running now, each with its process: a restart is a new pid under the same name.
+fn running_commands(e: &Engine) -> Vec<(String, u32)> {
+    let now = Now::current();
+    e.update(|c| {
+        c.live
+            .iter()
+            .filter(|(_, l)| l.supervised)
+            .filter_map(|(n, _)| c.m.table().get(n, now))
+            .filter(|i| i.state.running())
+            .map(|i| (i.name, i.pid))
+            .collect()
+    })
 }
 
 /// One health probe's limit (Go's).

@@ -101,3 +101,32 @@ pub fn pid_in(path: &Path) -> u32 {
 pub fn pid_of(e: &Engine, name: &str) -> u32 {
     e.get(name).map_or(0, |i| i.pid)
 }
+
+/// Ends every read of the FIFO at `path`, now and later, for as long as the test process lives. A blocking open for
+/// writing waits for a reader, and a reader that opens only after it (a loaded machine) then blocks forever, and the
+/// runtime's shutdown with it (a hang seen in a full workspace run). This thread opens the FIFO without blocking (it
+/// succeeds only while a reader waits) and closes it at once, which gives that reader EOF.
+#[cfg(unix)]
+pub fn release_fifo_readers(path: &Path) {
+    use std::os::unix::fs::OpenOptionsExt;
+    // O_NONBLOCK: Linux's value, else the one macOS and the BSDs share.
+    let nonblock = if cfg!(target_os = "linux") {
+        0o4000
+    } else {
+        0x0004
+    };
+    let path = path.to_path_buf();
+    std::thread::spawn(move || {
+        loop {
+            let _ = std::fs::OpenOptions::new()
+                .write(true)
+                .custom_flags(nonblock)
+                .open(&path);
+            std::thread::sleep(Duration::from_millis(10));
+        }
+    });
+}
+
+/// No FIFOs elsewhere: nothing to release.
+#[cfg(not(unix))]
+pub fn release_fifo_readers(_: &Path) {}

@@ -11,7 +11,7 @@ use doze_control::{Frame, InstanceView, ProcView, StatView, Timestamp};
 use std::collections::VecDeque;
 use std::sync::Mutex;
 use std::sync::atomic::{AtomicUsize, Ordering};
-use std::time::{Duration, SystemTime};
+use std::time::{Duration, Instant, SystemTime};
 
 const KEPT: usize = 240;
 /// Unwatched, a reading for the ring this often: enough for a chart that opens to start with the last two hours (240
@@ -22,19 +22,22 @@ const DEDUPE: Duration = Duration::from_millis(800);
 /// The kept readings and how many subscribers read their own.
 #[derive(Debug, Default)]
 pub(crate) struct Ring {
-    frames: Mutex<VecDeque<(SystemTime, Frame)>>,
+    /// Each kept reading with the monotonic instant it was kept: what spacing and scheduling go by, so a wall clock
+    /// that jumps back does not stall the ring (the frame carries its wall time for screens).
+    frames: Mutex<VecDeque<(Instant, Frame)>>,
     watchers: AtomicUsize,
 }
 
 impl Ring {
     /// Keeps `f` (without the processes under each app), unless a reading was kept a moment before it.
-    pub(crate) fn record(&self, at: SystemTime, f: &Frame) {
+    pub(crate) fn record(&self, f: &Frame) {
         if f.stats.is_empty() {
             return;
         }
+        let at = Instant::now();
         let mut frames = crate::lock(&self.frames);
         if let Some((last, _)) = frames.back()
-            && at.duration_since(*last).unwrap_or_default() < DEDUPE
+            && at.saturating_duration_since(*last) < DEDUPE
         {
             return;
         }
@@ -56,7 +59,7 @@ impl Ring {
             .collect()
     }
 
-    fn last_at(&self) -> Option<SystemTime> {
+    fn last_at(&self) -> Option<Instant> {
         crate::lock(&self.frames).back().map(|(at, _)| *at)
     }
 
@@ -94,7 +97,7 @@ fn proc_view(n: &doze_os::meters::Node) -> ProcView {
 }
 
 /// The meters of every running instance now, as a `stats` frame stamped with the time it was read.
-pub(crate) async fn sample(d: &Daemon) -> (SystemTime, Frame) {
+pub(crate) async fn sample(d: &Daemon) -> Frame {
     let running: Vec<_> = d
         .engine()
         .snapshot()
@@ -123,13 +126,12 @@ pub(crate) async fn sample(d: &Daemon) -> (SystemTime, Frame) {
             }
         })
         .collect();
-    let frame = Frame {
+    Frame {
         topic: "stats".into(),
         at: Timestamp::from_system_time(at),
         stats,
         ..Frame::default()
-    };
-    (at, frame)
+    }
 }
 
 /// Fills each running view's `ram`, `cpu` and (an app's) `children` (Go's `Status`).
@@ -160,7 +162,7 @@ pub(crate) async fn keep(d: Daemon) {
     loop {
         let due_in = ring
             .last_at()
-            .and_then(|at| (at + UNWATCHED_GAP).duration_since(SystemTime::now()).ok())
+            .map(|at| (at + UNWATCHED_GAP).saturating_duration_since(Instant::now()))
             .filter(|w| !w.is_zero());
         if let Some(wait) = due_in {
             tokio::time::sleep(wait).await;
@@ -177,8 +179,8 @@ pub(crate) async fn keep(d: Daemon) {
             }
             continue;
         }
-        let (at, f) = sample(&d).await;
-        ring.record(at, &f);
+        let f = sample(&d).await;
+        ring.record(&f);
         // Even when there was nothing to keep (no reading was recorded), the next look is a gap away.
         tokio::time::sleep(UNWATCHED_GAP).await;
     }

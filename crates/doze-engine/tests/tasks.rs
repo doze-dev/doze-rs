@@ -410,8 +410,8 @@ async fn a_task_stopped_while_it_decides_ends_at_once_and_says_why() {
     let stopped =
         tokio::time::timeout(Duration::from_secs(3), e.stop("seed", Cause::Command)).await;
     let woke = tokio::time::timeout(Duration::from_secs(3), waking).await;
-    // Let the blocked read go, whatever happened.
-    let _ = std::fs::OpenOptions::new().write(true).open(&fifo);
+    // Let every blocked read go, whatever happened (see `release_fifo_readers`).
+    release_fifo_readers(&fifo);
     stopped
         .expect("the stop does not wait for the read")
         .unwrap();
