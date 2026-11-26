@@ -447,16 +447,20 @@ jobs:
 
   # The console workspace (console/: @doze/ui, the gallery, the doze-aws console; docs/port/aws/console-react-plan.md). The
   # doze-aws bundle is committed in crates/aws-console/web-dist so that `cargo build` needs no bun, and the `check` job's Rust
-  # tests fail when it is stale against the console/ sources (aws-console's source-hash test). This job rebuilds it from the
-  # locked dependencies and fails if the result differs from what is committed, runs the lint and the unit tests, then the
-  # Playwright gate in Firefox, WebKit and Chromium: the gallery, and the doze-aws console against a real doze-aws (a debug
-  # build, made here) called with the real AWS CLI (on the runner image).
-  console:
+  # tests fail when it is stale against the console/ sources (aws-console's source-hash test).
+  #
+  # Three jobs, so that the Playwright run (about 70 minutes in one job, one browser after the other) is three runs side by side:
+  #   console-check: rebuilds the bundle from the locked dependencies and fails if the result differs from what is committed, runs the
+  #     lint and the unit tests.
+  #   console-e2e: the Playwright gate, one job a browser (Firefox, WebKit, Chromium): the gallery, and the doze-aws console against a
+  #     real doze-aws (a debug build, made in each job) called with the real AWS CLI (on the runner image). Each job starts its own
+  #     doze-aws, so no browser's run shares a Live record with another's.
+  # Both are in the `all-green` check, the one main's rules name.
+  console-check:
     needs: gate
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
-      - uses: actions-rust-lang/setup-rust-toolchain@v1
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: 1.4.0
@@ -467,6 +471,25 @@ jobs:
       - name: The committed bundle and types are the ones the sources build
         run: git diff --exit-code --stat -- crates/aws-console/web-dist console/apps/aws/src/api/types
       - run: bun run lint && bun run test
+        working-directory: console
+
+  console-e2e:
+    needs: gate
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        browser: [firefox, webkit, chromium]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.0
+      - run: bun install --frozen-lockfile
+        working-directory: console
+      # The gallery is served from its build; the doze-aws console from the bundle committed (the console-check job says it is current).
+      - run: bun run build
         working-directory: console
       - name: doze-aws for the browser tests (debug, no debug info)
         run: cargo build -p doze-aws
@@ -479,12 +502,14 @@ jobs:
       - uses: actions/cache@v4
         with:
           path: ~/.cache/ms-playwright
-          key: playwright-${{ runner.os }}-${{ runner.arch }}-${{ steps.playwright.outputs.version }}
-      # The browsers come from the cache when it hit; their system libraries are installed every time (apt, not cached).
-      - run: bunx --bun playwright install --with-deps firefox webkit chromium
+          key: playwright-${{ runner.os }}-${{ runner.arch }}-${{ matrix.browser }}-${{ steps.playwright.outputs.version }}
+      # The browser comes from the cache when it hit; its system libraries are installed every time (apt, not cached).
+      - run: bunx --bun playwright install --with-deps ${{ matrix.browser }}
         working-directory: console/apps/aws
       - run: aws --version
-      - run: bun run e2e
+      - run: bun run --cwd apps/gallery e2e --project=${{ matrix.browser }}
+        working-directory: console
+      - run: bun run --cwd apps/aws e2e --project=${{ matrix.browser }}
         working-directory: console
 
   # deny.toml sets `all-features = true`, so this checks the `tls` feature's crates (ring, rustls) too.
@@ -698,7 +723,7 @@ jobs:
   # was skipped (a label other than `ci` skips them all), so a skipped run never counts as green.
   all-green:
     if: always()
-    needs: [gate, check, os, modules, windows, macos, weight, weight-doze, weight-lean, weight-tls-idle, web, console, supply-chain, fuzz]
+    needs: [gate, check, os, modules, windows, macos, weight, weight-doze, weight-lean, weight-tls-idle, web, console-check, console-e2e, supply-chain, fuzz]
     runs-on: ubuntu-24.04
     steps:
       - name: Every job passed
