@@ -150,3 +150,15 @@ export function savingWords(ps: readonly Past[]): { lead: string; rest: string |
   if (held.length === 1) return { lead, rest: `The label ${held[0]!.label} stays on version ${held[0]!.version}: ${tail}` };
   return { lead, rest: `The labels ${andList(held.map((h) => `${h.label} (version ${h.version})`))} stay where they are: ${tail}` };
 }
+
+// ---- the value of a SecureString on the edit page ----
+
+export type ValueState = { masked: boolean; readOnly: boolean; blocked: string | null };
+/** How the Value field of the edit page stands. A SecureString opens masked, as the encrypted text GetParameter returns without
+ * decryption, and read-only: the one way to a value to change is "Show decrypted value", which reads it open on demand. Until it has
+ * been read the form cannot be saved, since PutParameter sends the whole value and the encrypted text would become the new value. A
+ * String or a StringList is shown and edited as it is. */
+export function secureEditValue(o: { secure: boolean; shown: boolean; loaded: boolean }): ValueState {
+  if (!o.secure) return { masked: false, readOnly: false, blocked: null };
+  return { masked: !o.shown, readOnly: !(o.shown && o.loaded), blocked: o.loaded ? null : "Turn on Show decrypted value before saving: a save sends the whole value, and the encrypted text shown here must not become the new value." };
+}

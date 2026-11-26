@@ -70,16 +70,25 @@ export function retryFor(state: AslState | undefined, error: string | undefined)
   return (state.Retry ?? []).find((r) => (r.ErrorEquals ?? []).some((e) => e === error || e === "States.ALL" || (e === "States.TaskFailed" && !error.startsWith("States.")))) ?? null;
 }
 
+/** How an execution that is no longer running stopped, after "when the execution". */
+const ENDED: Record<string, string> = { ABORTED: "was stopped", TIMED_OUT: "timed out", FAILED: "failed" };
+
 /** What the teaching line under a step says, as the boards say it. */
 export function stepNote(def: Definition | undefined, step: Pick<Step, "name" | "status" | "error" | "types">, opts: { status: string; redrivable: boolean; pollers: string[]; }): { text: string; names: string[] } | null {
   const state = statesOf(def)[step.name];
   const names = [step.name];
   if (step.status === "running" && state && taskResource(state.Resource)?.activity) {
     const activity = taskResource(state.Resource)?.activity ?? "";
-    const beat = typeof state.HeartbeatSeconds === "number" ? ` With HeartbeatSeconds ${state.HeartbeatSeconds} the worker must call SendTaskHeartbeat within that time.` : "";
-    const poll = opts.pollers[0] ? ` ${opts.pollers[0]} polls ${activity};` : "";
-    const timeout = typeof def?.TimeoutSeconds === "number" ? `${poll ? "" : " "}the machine's own timeout of ${def.TimeoutSeconds.toLocaleString("en-US")} seconds still applies.` : "";
-    return { text: `${step.name} is an activity task. It stays in progress until a worker calls GetActivityTask for ${activity}, then answers with SendTaskSuccess or SendTaskFailure.${beat}${poll}${poll || timeout ? ` ${timeout}`.trimEnd() : ""}`.trim(), names: [...names, activity] };
+    // The board draws a run in progress, in the present. A run that is no longer running left this step in progress: it says what was happening, in the past.
+    const live = opts.status === "RUNNING";
+    const beat = typeof state.HeartbeatSeconds === "number" ? ` With HeartbeatSeconds ${state.HeartbeatSeconds} the worker ${live ? "must" : "had to"} call SendTaskHeartbeat within that time.` : "";
+    const poll = opts.pollers[0] ? ` ${opts.pollers[0]} ${live ? "polls" : "polled"} ${activity};` : "";
+    const limit = typeof def?.TimeoutSeconds === "number" ? def.TimeoutSeconds.toLocaleString("en-US") : null;
+    const timeout = limit ? `${poll ? "" : " "}the machine's own timeout of ${limit} seconds ${live ? "still applies" : "applied"}.` : "";
+    const lead = live
+      ? `${step.name} is an activity task. It stays in progress until a worker calls GetActivityTask for ${activity}, then answers with SendTaskSuccess or SendTaskFailure.`
+      : `${step.name} is an activity task. It was waiting for a worker to call GetActivityTask for ${activity} and answer with SendTaskSuccess or SendTaskFailure when the execution ${ENDED[opts.status] ?? "stopped running"}.`;
+    return { text: `${lead}${beat}${poll}${poll || timeout ? ` ${timeout}`.trimEnd() : ""}`.trim(), names: [...names, activity] };
   }
   if (step.status === "failed" && state) {
     const rule = retryFor(state, step.error);

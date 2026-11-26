@@ -1,13 +1,16 @@
 import { useMemo } from "react";
+import { Combobox } from "@doze/ui/components/app/combobox";
 import { MultiSelect } from "@doze/ui/components/app/multi-select";
 import { Input } from "@doze/ui/components/ui/input";
 import { Label } from "@doze/ui/components/ui/label";
 import { cn } from "@doze/ui/lib/utils";
+import { useLabErrors } from "../../api/lab";
 import { useResourcesIndex } from "../../api/resources";
 import type { LabProblem } from "../../api/types/LabProblem";
 import type { LabTarget } from "../../api/types/LabTarget";
 import type { RegionRow } from "../../api/types/RegionRow";
 import { Segmented } from "../../kit";
+import { useCallerOptions } from "./callers";
 import { type RuleForm, type Unit } from "./rule-form";
 
 type Set = (patch: Partial<RuleForm>) => void;
@@ -45,6 +48,7 @@ export function MatchFields({ form, set, problems, targets, regions }: { form: R
     const all = (index.data?.services ?? []).filter((s) => form.services.includes(s.name)).flatMap((s) => s.kinds.flatMap((k) => k.names));
     return [...new Set(all)].sort().map((n) => ({ value: n, label: n }));
   }, [index.data, form.services]);
+  const keys = useCallerOptions();
   const regionOptions = regions.map((r) => ({ value: r.code, label: r.code, hint: r.name }));
   return (
     <div className="grid gap-4 sm:grid-cols-2" data-testid="rule-match">
@@ -60,10 +64,25 @@ export function MatchFields({ form, set, problems, targets, regions }: { form: R
       <Field id="rule-regions" label="Regions" field="regions" problems={problems} help="The region the call was signed for.">
         <MultiSelect options={regionOptions} value={form.regions} onChange={(regions) => set({ regions })} noun="regions" aria-label="Regions" triggerClassName="w-full" pattern />
       </Field>
-      <Field id="rule-callers" label="Callers" field="callers" problems={problems} className="sm:col-span-2" help="Access key ids the call was signed with (the apps you point at doze-aws). Empty fits every caller.">
-        <MultiSelect options={[]} value={form.callers} onChange={(callers) => set({ callers })} noun="callers" aria-label="Callers" triggerClassName="w-full sm:w-1/2" pattern />
+      <Field id="rule-callers" label="Callers" field="callers" problems={problems} className="sm:col-span-2" help="Access keys the call was signed with: the account's own, and the callers Live has seen. Type a key that is in neither. Empty fits every caller.">
+        <MultiSelect options={keys} value={form.callers} onChange={(callers) => set({ callers })} noun="callers" aria-label="Callers" triggerClassName="w-full sm:w-1/2" pattern />
       </Field>
     </div>
+  );
+}
+
+/** What a Custom rule answers with: one of the errors AWS's model lists for the operations the rule fits (the ones every one of them lists),
+ * with the status the model gives it. A code typed in that the model does not list is refused by the server, in words. */
+export function ErrorFields({ form, set, problems }: { form: RuleForm; set: Set; problems: LabProblem[] }) {
+  const found = useLabErrors(form.services, form.operations);
+  const errors = found.data?.errors ?? [];
+  const options = errors.map((e) => ({ value: e.code, label: e.code, hint: String(e.status) }));
+  const chosen = errors.find((e) => e.code === form.code);
+  const help = found.data?.why ?? (chosen ? `AWS's model gives  the status ; the answer is worded as the model words it.` : "The errors AWS lists for the operations above, each with its status. Type a code to look for it; only a listed one is accepted.");
+  return (
+    <Field id="rule-error" label="Error" field="effect" problems={problems} help={help}>
+      <Combobox id="rule-error" aria-label="Error" options={options} value={form.code || null} onChange={(v) => set({ code: v ?? "" })} placeholder="Choose an error" search="Search errors, or type a code" empty="The model lists no such error." pattern className="w-full sm:w-1/2" />
+    </Field>
   );
 }
 

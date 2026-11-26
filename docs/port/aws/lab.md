@@ -162,9 +162,8 @@ The console is the only way to make a rule. Faults live in memory. The binary st
 Lab chunk is lazy (it already is). Fuzz: a new parser needs a `// fuzz:parser` marker and a target (the glob matcher and the rule body are such).
 
 ## Not built (page, part 1)
-- **S3 PutObject from Send a call.** The Lab sends over the peer bus, which carries no object body (`aws-s3/src/put.rs`: "the object body was not
-  received"), so PutObject and UploadPart are answered with an error. The page says so under the editor; the bucket's recipe is *Look inside*
-  (ListObjectsV2) and its next step is the bucket's page, where upload exists. Sending a body needs the bus to carry one.
+- **S3 PutObject from Send a call.** Built in the gaps round (section 7): a text body of at most 64 KiB through the upload's bus path. `UploadPart` is
+  still refused, with its reason.
 
 ## 4. As built: the engine (branch `aws-lab-engine`)
 
@@ -260,8 +259,25 @@ Decisions where the brief was silent: the forced-event form reads the services (
 **not** invalidate what Resources lists (reading it would start the service that was just rested). A recipe's rule names its resource by the name (`orders`) or, for
 an ARN-named thing (SNS topic, state machine), by `*:name`; both checked against the real engine.
 
-Not built (page, part 2): **a Custom error rule** (`fail.error: custom`, a status and a code of the person's choosing) has no tab; the six lessons are the guide's six, and the
-dialog sends `throttle`, `unavailable`, `internal` or `access-denied`. **Callers** are typed (access key ids), with no picker. **The rule's sheet** shows at most 20 of the calls it touched
+Not built (page, part 2): ~~a Custom error rule~~ and ~~a picker for callers~~ were built in the gaps round (section 7). **The rule's sheet** shows at most 20 of the calls it touched
 (Live has all). **Live's Lab tag, the Lab-only chip, `?lab=`, `+ms` and NO ANSWER** are the engine's and were checked (and are covered by `lab-rules.spec.ts` and `live-lab.spec.ts`),
 not redone; `live-lab.spec.ts` fails when run for the three browsers in one run (it counts rows another browser's run left on the shared Live record) and passes alone in Chromium.
 
+
+## 7. As built: the gaps round (branch `aws-gaps-b`)
+
+Three things the first build left out, decided by the owner. Each decision is a row in `docs/port/aws/console-board-deviations.md` ("Gaps round (Lab)");
+the rules and their tests are `docs/port/behaviours/aws-lab.md` (AWS-LAB-21 to 23).
+
+1. **"Fail with an error I choose."** A seventh kind in the rule dialog (and a seventh card), `fail.error: custom`. The error is picked from what AWS's model
+   lists for the operation (`crates/aws-console/src/lab/listed.rs`: `aws_schema::tables`, the operation's error list, with the model's status); a rule that
+   fits several operations is offered the errors every one of them lists; it must name a service and an operation. The server enforces it
+   (`api/lab_custom.rs`, called by `/rules` and `/rules/check`): a code the model does not list is refused in words and no rule is made; the status is the
+   model's (a form that sends another is refused). The rule keeps the model's shape (`Fail::Custom::shape`), so every protocol words it as the model does.
+   `GET /api/v1/lab/errors?services=&operations=` is the list the picker reads. A rule given no name is named `Fail with <code> ...`.
+2. **Callers.** The text box is a picker (`MultiSelect`, `pages/lab/callers.ts`): the account's access keys (IAM `ListAccessKeys` for each user, through the
+   console's own list endpoints), each with its user, then the callers Live has seen with their client; a key in neither is typed.
+3. **S3 `PutObject` from Send a call.** A Body box (text, at most 64 KiB; the server says the limit in `body_max`). The call goes to the service as the
+   console's own upload does (`Bus::call_rest` with the bytes), so nothing of the upload was copied. `UploadPart` is refused with its reason.
+   **Finding, reported:** this path, like every Send a call and like the console's upload, goes over the bus and **bypasses the gateway's fault hook**, so a
+   Lab rule on `PutObject` does not bend a `PutObject` sent from the Lab (AWS-LAB-5, as designed); it bends the app's upload (tested).

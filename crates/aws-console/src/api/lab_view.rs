@@ -60,7 +60,7 @@ fn effect_view(effect: &Effect) -> (LabKind, LabEffect) {
                 Failure::Unavailable => (LabFailKind::Unavailable, None, None),
                 Failure::Internal => (LabFailKind::Internal, None, None),
                 Failure::AccessDenied => (LabFailKind::AccessDenied, None, None),
-                Failure::Custom { status, code } => {
+                Failure::Custom { status, code, .. } => {
                     (LabFailKind::Custom, Some(*status), Some(code.to_string()))
                 }
             };

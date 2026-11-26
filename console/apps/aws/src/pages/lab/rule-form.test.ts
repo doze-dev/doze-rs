@@ -38,10 +38,18 @@ describe("the rule form", () => {
     expect(toBody(formFor({ service: "eventbridge", op: "PutEvents" })).matcher.resources).toEqual([]);
   });
 
-  test("the six tabs are the guide's, and every way a rule ends has words", () => {
-    expect(RULE_TABS).toHaveLength(6);
+  test("an error of one's choosing sends the code and leaves the status to the model", () => {
+    const f = { ...formFor({ service: "sqs", op: "SendMessage", resource: "orders" }, "custom"), code: "  QueueDoesNotExist " };
+    expect(toBody(f).effect).toEqual({ kind: "fail", error: "custom", code: "QueueDoesNotExist" });
+    expect(toBody(f).matcher.operations).toEqual(["SendMessage"]);
+    expect(toBody(newForm("custom")).effect).toEqual({ kind: "fail", error: "custom", code: "" });
+  });
+
+  test("the tabs are the guide's six and the error of one's choosing, and every way a rule ends has words", () => {
+    expect(RULE_TABS).toHaveLength(7);
     expect(isRuleTab("slow")).toBe(true);
-    expect(isRuleTab("custom")).toBe(false);
+    expect(isRuleTab("custom")).toBe(true);
+    expect(isRuleTab("nope")).toBe(false);
     for (const e of ["expired", "spent", "cleared", "replaced"] as const) expect(END_WORDS[e].length).toBeGreaterThan(5);
   });
 });

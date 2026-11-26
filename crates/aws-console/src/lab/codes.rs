@@ -214,8 +214,12 @@ impl Row {
             Fail::Unavailable => self.unavailable,
             Fail::Internal => self.internal,
             Fail::AccessDenied => self.denied,
-            Fail::Custom { status, code } => {
-                return (None, *status, Cow::Owned(code.to_string()));
+            Fail::Custom {
+                status,
+                code,
+                shape,
+            } => {
+                return (*shape, *status, Cow::Owned(code.to_string()));
             }
         };
         (coded.shape, coded.status, Cow::Borrowed(coded.code))

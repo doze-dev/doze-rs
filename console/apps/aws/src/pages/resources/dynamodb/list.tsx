@@ -23,7 +23,6 @@ import { ResourceTo } from "../value";
 import { listRows, listSentence, modeWords, type TableRow, TYPE_WORDS, unitsWords } from "./model";
 import { crumbs, useListNav } from "./parts";
 import { TableDelete } from "./table-delete";
-import { FromYourApp } from "../../../kit/from-your-app";
 
 const Key = ({ k }: { k: TableRow["hash"] | null }) =>
   k ? (
@@ -106,7 +105,6 @@ export function TablesList({ search }: OwnProps) {
           <EmptyState icon={TableIcon} title="No tables" action={<Button variant="outline" className="bg-card" onClick={() => go({ do: "create" })}>Create table</Button>}>
             You have no tables in this region. Create a table to start storing items.
           </EmptyState>
-          <FromYourApp service="dynamodb" />
         </div>
       ) : (
         <>

@@ -147,3 +147,97 @@ fn a_detail_is_cut_on_a_character_boundary() {
     assert_eq!(detail.len(), MOST_DETAIL);
     assert!(detail.chars().all(|c| c == 'é'));
 }
+
+#[test]
+fn iam_lists_are_counted_in_the_words_of_what_they_list() {
+    let words = |action: &str, answer: &serde_json::Value| {
+        output("IAM", action, answer).text("").unwrap_or_default()
+    };
+    assert_eq!(
+        words("ListGroupsForUser", &json!({"Groups": [{}]})),
+        "1 group"
+    );
+    assert_eq!(
+        words("ListGroupsForUser", &json!({"Groups": [{}, {}]})),
+        "2 groups"
+    );
+    assert_eq!(words("ListGroupsForUser", &json!({})), "no groups");
+    for action in [
+        "ListAttachedUserPolicies",
+        "ListAttachedGroupPolicies",
+        "ListAttachedRolePolicies",
+    ] {
+        assert_eq!(
+            words(action, &json!({"AttachedPolicies": [{}]})),
+            "1 policy",
+            "{action}"
+        );
+        assert_eq!(words(action, &json!({})), "no policies", "{action}");
+    }
+    for action in ["ListUserPolicies", "ListGroupPolicies", "ListRolePolicies"] {
+        assert_eq!(
+            words(action, &json!({"PolicyNames": ["a", "b"]})),
+            "2 policies",
+            "{action}"
+        );
+    }
+    assert_eq!(
+        words("ListAccessKeys", &json!({"AccessKeyMetadata": [{}]})),
+        "1 access key"
+    );
+    assert_eq!(
+        words("ListMFADevices", &json!({"MFADevices": [{}, {}]})),
+        "2 MFA devices"
+    );
+    assert_eq!(
+        words("ListPolicyVersions", &json!({"Versions": [{}, {}, {}]})),
+        "3 versions"
+    );
+}
+
+#[test]
+fn the_entities_of_a_policy_are_its_users_groups_and_roles_together() {
+    let answer = json!({"PolicyUsers": [{}], "PolicyGroups": [{}], "PolicyRoles": [{}, {}]});
+    assert_eq!(
+        output("IAM", "ListEntitiesForPolicy", &answer).text(""),
+        Some("4 entities".to_owned())
+    );
+    assert_eq!(
+        output(
+            "IAM",
+            "ListEntitiesForPolicy",
+            &json!({"PolicyUsers": [{}]})
+        )
+        .text(""),
+        Some("1 entity".to_owned())
+    );
+    assert_eq!(
+        output("IAM", "ListEntitiesForPolicy", &json!({})).text(""),
+        Some("no entities".to_owned())
+    );
+}
+
+#[test]
+fn a_policy_version_read_is_said_by_its_number_and_nothing_is_guessed() {
+    let read = |id: serde_json::Value| {
+        output(
+            "IAM",
+            "GetPolicyVersion",
+            &json!({"PolicyVersion": {"VersionId": id, "IsDefaultVersion": true}}),
+        )
+    };
+    assert_eq!(read(json!("v1")).text(""), Some("v1".to_owned()));
+    assert_eq!(read(json!("v12")).text(""), Some("v12".to_owned()));
+    assert_eq!(read(json!("latest")), Summary::NONE);
+    assert_eq!(output("IAM", "GetPolicyVersion", &json!({})), Summary::NONE);
+    // Another API's operation of the same name is not an IAM one.
+    assert_eq!(
+        output("SQS", "ListGroupsForUser", &json!({"Groups": [{}]})),
+        Summary::NONE
+    );
+    // An IAM operation the table does not know has no summary.
+    assert_eq!(
+        output("IAM", "GetUser", &json!({"User": {}})),
+        Summary::NONE
+    );
+}

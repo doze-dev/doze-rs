@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { newRow } from "@doze/ui/components/app/key-values";
 import type { ColumnSpec } from "../../../api/types/ColumnSpec";
 import type { ResourceRow } from "../../../api/types/ResourceRow";
-import { blankParam, filterSentence, labelElsewhere, labelProblem, listSentence, moveWords, nameProblem, paramRows, pasts, putInput, savingWords, tokensFromQuery, tokensToQuery, valueProblem, versionLine, whenWords } from "./model";
+import { blankParam, filterSentence, labelElsewhere, labelProblem, listSentence, moveWords, nameProblem, paramRows, pasts, putInput, savingWords, secureEditValue, tokensFromQuery, tokensToQuery, valueProblem, versionLine, whenWords } from "./model";
 
 const col = (title: string): ColumnSpec => ({ title, format: "text", badge: null });
 const COLUMNS = ["Type", "Tier", "Version", "Last modified", "Description", "KMS key"].map(col);
@@ -83,5 +83,25 @@ describe("the edit form's teaching line", () => {
   test("several labels are listed with their versions; none says nothing more", () => {
     expect(savingWords(ps({ 1: ["stable"], 2: ["current"] })).rest).toBe("The labels stable (version 1) and current (version 2) stay where they are: a label names one version until you move it.");
     expect(savingWords(ps({ 1: [] })).rest).toBeNull();
+  });
+});
+
+describe("the value of a SecureString on the edit page", () => {
+  test("a String or a StringList is shown and edited as it is", () => {
+    expect(secureEditValue({ secure: false, shown: false, loaded: false })).toEqual({ masked: false, readOnly: false, blocked: null });
+  });
+  test("a SecureString opens masked and read-only, and a save is blocked so the encrypted text is never written back", () => {
+    const s = secureEditValue({ secure: true, shown: false, loaded: false });
+    expect(s.masked).toBe(true);
+    expect(s.readOnly).toBe(true);
+    expect(s.blocked).toContain("Show decrypted value");
+  });
+  test("while the decrypted value is being read it is still read-only and blocked", () => {
+    expect(secureEditValue({ secure: true, shown: true, loaded: false })).toMatchObject({ masked: false, readOnly: true });
+    expect(secureEditValue({ secure: true, shown: true, loaded: false }).blocked).not.toBeNull();
+  });
+  test("once it has been read it shows and is editable; turned off again it is masked and read-only but can be saved", () => {
+    expect(secureEditValue({ secure: true, shown: true, loaded: true })).toEqual({ masked: false, readOnly: false, blocked: null });
+    expect(secureEditValue({ secure: true, shown: false, loaded: true })).toEqual({ masked: true, readOnly: true, blocked: null });
   });
 });

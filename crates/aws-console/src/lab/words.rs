@@ -79,7 +79,7 @@ fn effect_phrase(effect: &Effect) -> String {
         Effect::Fail(Fail::Unavailable) => "Answer unavailable (503) to".to_owned(),
         Effect::Fail(Fail::Internal) => "Answer an internal error (500) to".to_owned(),
         Effect::Fail(Fail::AccessDenied) => "Deny".to_owned(),
-        Effect::Fail(Fail::Custom { status, code }) => format!("Answer {code} ({status}) to"),
+        Effect::Fail(Fail::Custom { status, code, .. }) => format!("Answer {code} ({status}) to"),
         Effect::Drop => "Close the connection of".to_owned(),
     }
 }
@@ -151,7 +151,7 @@ pub fn default_name(spec: &Spec) -> String {
         Effect::Fail(Fail::Unavailable) => "Unavailable".to_owned(),
         Effect::Fail(Fail::Internal) => "Internal error".to_owned(),
         Effect::Fail(Fail::AccessDenied) => "Access denied".to_owned(),
-        Effect::Fail(Fail::Custom { status, .. }) => format!("Fail {status}"),
+        Effect::Fail(Fail::Custom { code, .. }) => format!("Fail with {code}"),
         Effect::Drop => "Drop".to_owned(),
     };
     out.push(' ');

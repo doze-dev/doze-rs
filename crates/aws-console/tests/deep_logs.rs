@@ -213,7 +213,10 @@ async fn a_stack_shows_its_events_template_and_change_sets() {
         )
         .await
         .1;
-        if events.to_string().contains("CREATE_COMPLETE") {
+        // The stack's own event is the last of the create and the newest: the resource's `CREATE_COMPLETE` comes before it, so any
+        // `CREATE_COMPLETE` is not the end (the first one seen is the queue's, on a loaded machine).
+        let first = &events["StackEvents"][0];
+        if first["LogicalResourceId"] == "larder" && first["ResourceStatus"] == "CREATE_COMPLETE" {
             break;
         }
         tokio::time::sleep(Duration::from_millis(100)).await;

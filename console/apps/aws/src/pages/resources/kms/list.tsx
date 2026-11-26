@@ -158,7 +158,7 @@ function Keys({ aws, scheduled }: { aws: boolean; scheduled: string[] }) {
 function Note({ words, aws }: { words: string | null; aws: boolean }) {
   return (
     <p className="mt-5 max-w-[48rem] border-l-2 pl-3.5 text-[13.5px] leading-[21px] text-muted-foreground" data-testid="list-note">
-      {aws ? "Keys that an AWS service owns in its own account (AWS owned keys) are not in your account, and their metadata cannot be viewed, so they are not listed here. doze-aws makes an AWS managed key only when a service uses one: the first SecureString with no key makes alias/aws/ssm and the first secret with no key makes alias/aws/secretsmanager, each reported with KeyManager AWS. S3, SQS, DynamoDB and Lambda keep their encryption settings without calling KMS, so aws/s3, aws/sqs, aws/dynamodb and aws/lambda do not exist here." : words}
+      {aws ? <><span data-testid="aws-created-note">AWS managed keys are created the first time a service uses KMS for your account.</span> Keys that an AWS service owns in its own account (AWS owned keys) are not in your account, and their metadata cannot be viewed, so they are not listed here. doze-aws makes an AWS managed key only when a service uses one: the first SecureString with no key makes alias/aws/ssm and the first secret with no key makes alias/aws/secretsmanager, each reported with KeyManager AWS. S3, SQS, DynamoDB and Lambda keep their encryption settings without calling KMS, so aws/s3, aws/sqs, aws/dynamodb and aws/lambda do not exist here.</> : words}
     </p>
   );
 }

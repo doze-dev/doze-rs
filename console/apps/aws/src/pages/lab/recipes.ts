@@ -133,7 +133,6 @@ const sns: RecipeSpec = {
   }),
 };
 
-// An object cannot be put from the Lab: the Lab sends over the bus, which carries no object body. So the bucket's recipe looks inside it.
 const s3: RecipeSpec = {
   id: "s3-list",
   service: "s3",
@@ -142,11 +141,28 @@ const s3: RecipeSpec = {
     id: "s3-list",
     service: "s3",
     title: `Look inside ${row.name}`,
-    line: "S3 ListObjectsV2. (PutObject cannot be sent from here: upload on the bucket's page.)",
+    line: "S3 ListObjectsV2 with the bucket's name filled in.",
     resource: row.name,
     ask: { target: "s3", service: "s3", op: "ListObjectsV2", input: { Bucket: row.id } },
     secret: false,
-    next: { text: "Then open the bucket to upload an object.", to: { kind: "resource", service: "s3", resKind: "buckets", name: row.name } },
+    next: { text: "Then open the bucket to see its objects.", to: { kind: "resource", service: "s3", resKind: "buckets", name: row.name } },
+  }),
+};
+
+// A small text object: the input's `Body` is its text (at most 64 KiB, `body-box.tsx`); larger objects are uploaded on the bucket's page.
+const s3Put: RecipeSpec = {
+  id: "s3-put",
+  service: "s3",
+  kind: "buckets",
+  build: (row) => ({
+    id: "s3-put",
+    service: "s3",
+    title: `Put a note in ${row.name}`,
+    line: "S3 PutObject with the bucket's name filled in and a short text body.",
+    resource: `${row.name}/lab-note.txt`,
+    ask: { target: "s3", service: "s3", op: "PutObject", input: { Bucket: row.id, Key: "lab-note.txt", ContentType: "text/plain", Body: HELLO } },
+    secret: false,
+    next: { text: "Then open the bucket and read the note.", to: { kind: "resource", service: "s3", resKind: "buckets", name: row.name } },
   }),
 };
 
@@ -198,7 +214,7 @@ const events: RecipeSpec = {
 };
 
 /** The recipes, in the order their cards are drawn. */
-export const SPECS: readonly RecipeSpec[] = [sqs, dynamodb, lambda, sns, s3, states, secrets, events];
+export const SPECS: readonly RecipeSpec[] = [sqs, dynamodb, lambda, sns, s3, s3Put, states, secrets, events];
 
 /** A secret's value in an answer's text, hidden: the `SecretString` and `SecretBinary` members are replaced by a mark of the same shape. */
 export function hideSecret(output: string): string {

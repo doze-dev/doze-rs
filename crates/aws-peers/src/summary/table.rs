@@ -130,11 +130,46 @@ pub fn from_output(sdk_id: &str, action: &str, output: &dyn Fields, s: &mut Summ
             }
         }
         ("SNS", "Publish" | "PublishBatch") => *s = Summary::of(Kind::Delivered, 0, 0),
+        ("IAM", _) => from_iam(action, output, s),
         ("SFN", "GetActivityTask") => {
             *s = Summary::of(Kind::Task, u32::from(output.present("taskToken")), 0);
         }
         ("CloudWatch", "GetMetricData") => {
             *s = Summary::of(Kind::Series, count("MetricDataResults"), 0);
+        }
+        _ => {}
+    }
+}
+
+/// What an IAM list or `GetPolicyVersion` answered: how many it holds, or which version it read.
+fn from_iam(action: &str, output: &dyn Fields, s: &mut Summary) {
+    let count = |member: &str| output.count(member).unwrap_or(0);
+    match action {
+        "ListGroupsForUser" => *s = Summary::of(Kind::Groups, count("Groups"), 0),
+        "ListAttachedUserPolicies" | "ListAttachedGroupPolicies" | "ListAttachedRolePolicies" => {
+            *s = Summary::of(Kind::Policies, count("AttachedPolicies"), 0);
+        }
+        "ListUserPolicies" | "ListGroupPolicies" | "ListRolePolicies" => {
+            *s = Summary::of(Kind::Policies, count("PolicyNames"), 0);
+        }
+        "ListAccessKeys" => *s = Summary::of(Kind::AccessKeys, count("AccessKeyMetadata"), 0),
+        "ListMFADevices" => *s = Summary::of(Kind::MfaDevices, count("MFADevices"), 0),
+        "ListEntitiesForPolicy" => {
+            let n = count("PolicyUsers")
+                .saturating_add(count("PolicyGroups"))
+                .saturating_add(count("PolicyRoles"));
+            *s = Summary::of(Kind::Entities, n, 0);
+        }
+        "ListPolicyVersions" => *s = Summary::of(Kind::Versions, count("Versions"), 0),
+        "GetPolicyVersion" => {
+            // IAM numbers versions `v1`, `v2`...; an id of another shape is not guessed at.
+            let n = output
+                .text_in("PolicyVersion", "VersionId")
+                .and_then(|v| v.strip_prefix('v'))
+                .and_then(|v| v.parse::<u32>().ok());
+            if let Some(n) = n {
+                *s = Summary::of(Kind::Version, n, 0);
+            }
         }
         _ => {}
     }

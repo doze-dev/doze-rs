@@ -79,7 +79,7 @@ export function Overview() {
   const dashCount = dashboards.data?.length;
   return (
     <>
-      <PageHeader title="CloudWatch" crumbs={crumbs} refresh={<RefreshControl updatedAt={Math.max(alarms.dataUpdatedAt, metrics.dataUpdatedAt)} fetching={alarms.isFetching || metrics.isFetching} onRefresh={refresh} interval={false} />} sub={<span data-testid="overview-lead"><Emphasis text={lead} names={own} /></span>} />
+      <PageHeader title="CloudWatch" crumbs={crumbs} refresh={<RefreshControl updatedAt={Math.max(alarms.dataUpdatedAt, metrics.dataUpdatedAt)} fetching={alarms.isFetching || metrics.isFetching} onRefresh={refresh} interval={false} />} sub={<span data-testid="overview-lead"><Emphasis text={lead} names={[...own, about?.region ?? ""]} bold={[about?.account ?? ""]} /></span>} />
       {alarms.isError && !alarms.data ? (
         <ErrorBlock what="The alarms could not be read" error={alarms.error} hint={HINT} onRetry={refresh} retrying={alarms.isFetching} testId="overview-error" />
       ) : !alarms.data ? (
