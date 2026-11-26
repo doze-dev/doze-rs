@@ -4,8 +4,10 @@
 //! never types one the model does not list for it. The model is the vendored one (`aws_schema::tables`): for each operation, its error
 //! shapes in model order. A rule that fits several operations offers the errors every one of them lists.
 //!
-//! The code is what a client reads: the shape's name for a service that speaks JSON, CBOR or REST, and the Query code (`awsQueryError`,
-//! else the shape's name) for a service that speaks only Query. That is the rule `codes` follows for its own rows.
+//! The code is what the app receives. A service that speaks Query (the Query-only ones, and SQS, whose JSON carries the Query code in
+//! `x-amzn-query-error`, which the SDKs and the CLI read) is named by its Query code (`awsQueryError`, else the shape's name): SQS's
+//! `KmsDisabled` reaches the CLI as `KMS.DisabledException`. A service that speaks only JSON, CBOR or REST is named by the shape's name.
+//! The shape's name is still found: a person may type it.
 
 use aws_schema::meta::{Protocol, ServiceMeta};
 use aws_schema::tables::Tables;
@@ -26,12 +28,10 @@ pub struct Listed {
 /// An API of the build: its meta and its model.
 pub type Model = (&'static ServiceMeta, &'static Tables);
 
-/// Whether the service names a code by its Query code alone.
-fn query_only(meta: &ServiceMeta) -> bool {
-    meta.speaks(Protocol::AwsQuery)
-        && !meta.speaks(Protocol::AwsJson10)
-        && !meta.speaks(Protocol::AwsJson11)
-        && !meta.speaks(Protocol::Rpcv2Cbor)
+/// Whether an app of the service reads the Query code: the service speaks Query, or its JSON says the Query code beside its own
+/// (`awsQueryCompatible`: SQS, whose `x-amzn-query-error` the SDKs and the CLI prefer).
+fn reads_query_code(meta: &ServiceMeta) -> bool {
+    meta.speaks(Protocol::AwsQuery) || meta.query_compatible
 }
 
 /// The errors of operation `op` in one model, in model order; none when the model has no such operation.
@@ -44,7 +44,11 @@ fn of_operation(model: Model, op: &str) -> Option<Vec<Listed>> {
             continue;
         };
         let listed = Listed {
-            code: if query_only(meta) { e.code } else { shape.name },
+            code: if reads_query_code(meta) {
+                e.code
+            } else {
+                shape.name
+            },
             status: e.status,
             shape: shape.name,
             server: e.server,
