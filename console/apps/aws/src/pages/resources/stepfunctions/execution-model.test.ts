@@ -52,6 +52,26 @@ describe("what a failed step teaches", () => {
   });
 });
 
+describe("the tense of an activity step's note follows the execution", () => {
+  const wait = { StartAt: "P", TimeoutSeconds: 3600, States: { P: { Type: "Task", Resource: "arn:aws:states:us-east-1:1:activity:pack-order", HeartbeatSeconds: 120, End: true } } };
+  const note = (status: string) => stepNote(wait, { name: "P", status: "running", types: [] }, { status, redrivable: false, pollers: ["fulfilment (py)"] })?.text;
+  test("a run in progress is in the present tense", () => {
+    expect(note("RUNNING")).toContain("It stays in progress until a worker calls GetActivityTask for pack-order");
+    expect(note("RUNNING")).toContain("the worker must call SendTaskHeartbeat");
+    expect(note("RUNNING")).toContain("fulfilment (py) polls pack-order; the machine's own timeout of 3,600 seconds still applies.");
+  });
+  test("a run that is no longer running says what the step was doing, not what it does", () => {
+    for (const [status, how] of [["ABORTED", "was stopped"], ["TIMED_OUT", "timed out"], ["FAILED", "failed"], ["PENDING_REDRIVE", "stopped running"]] as const) {
+      const text = note(status)!;
+      expect(text).toContain(`It was waiting for a worker to call GetActivityTask for pack-order and answer with SendTaskSuccess or SendTaskFailure when the execution ${how}.`);
+      expect(text).toContain("the worker had to call SendTaskHeartbeat");
+      expect(text).toContain("fulfilment (py) polled pack-order; the machine's own timeout of 3,600 seconds applied.");
+      expect(text).not.toContain("stays in progress");
+      expect(text).not.toContain(" polls ");
+    }
+  });
+});
+
 describe("what redriving a failed Lambda step says", () => {
   const state = { Type: "Task", Resource: "arn:aws:states:::lambda:invoke", Parameters: { FunctionName: "send-email", "Payload.$": "$" } };
   const cause = JSON.stringify({ errorType: "KeyError", errorMessage: "'email'" });

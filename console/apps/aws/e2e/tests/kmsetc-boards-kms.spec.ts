@@ -44,6 +44,7 @@ test("kms__keys-list, kms__aws-managed-keys, kms__keys-none: the keys by who man
   await expect(page.locator("h1").first()).toHaveText("AWS managed keys");
   await expect(page.getByTestId("list-sentence")).toContainText("AWS managed key, all Enabled. Each alias has the form aws/<service-name>.");
   await expect(page.getByRole("table", { name: "Keys" })).toContainText("aws/secretsmanager");
+  await expect(page.getByTestId("aws-created-note")).toHaveText("AWS managed keys are created the first time a service uses KMS for your account.");
   await shot(page, "kms__aws-managed-keys");
   await open(page, empty.console, "/resources/kms/keys", "Customer managed keys");
   await expect(page.getByTestId("list-empty")).toContainText("No customer managed keys");

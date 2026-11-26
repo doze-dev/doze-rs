@@ -9,6 +9,10 @@ test("cloudwatch__overview: alarms by AWS service, the recent alarms, and where 
   await go(page, "/resources/cloudwatch", "CloudWatch");
   await expect(page.getByTestId("overview-lead")).toContainText(`account ${world.server.account} in us-east-1`);
   await expect(page.getByTestId("overview-lead")).toContainText("Larder/Orders and Larder/Queues");
+  // The board sets the account, the Region and the namespaces apart.
+  await expect(page.getByTestId("overview-lead").locator('[data-slot="emphasis-bold"]')).toHaveText(world.server.account);
+  await expect(page.getByTestId("overview-lead").locator('[data-slot="emphasis-name"]').filter({ hasText: "us-east-1" })).toHaveCount(1);
+  await expect(page.getByTestId("overview-lead").locator('[data-slot="emphasis-name"]').filter({ hasText: "Larder/Orders" })).toHaveCount(1);
   const service = page.getByRole("table", { name: "Alarms by AWS service" });
   await expect(service.locator("tr[data-row]", { hasText: "AWS Lambda" })).toContainText("1");
   await expect(service.locator("tr[data-row]", { hasText: "Amazon API Gateway" })).toContainText("1");
@@ -221,6 +225,7 @@ test("cloudwatch__alarm-step1 to step4: the wizard, the call each step makes, an
   await page.getByTestId("alarm-name").fill("pick-lists-dlq-watch");
   await page.getByTestId("alarm-description").fill("The dead-letter queue pick-lists-dlq holds a message. Look at the message first.");
   await expect(code(page)).toContainText('"AlarmName": "pick-lists-dlq-watch"');
+  await expect(page.getByTestId("section-name")).toContainText("Add name and description");
   await shot(page, "cloudwatch__alarm-step3");
   await advance(page);
   await expect(page.getByText("Step 4 of 4.")).toBeVisible();
