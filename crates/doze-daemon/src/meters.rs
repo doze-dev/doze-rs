@@ -152,22 +152,34 @@ pub(crate) async fn fill(d: &Daemon, views: &mut [InstanceView]) {
 }
 
 /// Go's `runMeters` (every 5 s there): every [`UNWATCHED_GAP`] while nobody subscribes and something runs, a reading
-/// for the ring. It looks every 5 s whether one is due.
+/// for the ring. It sleeps until the next reading is due rather than looking every few seconds whether one is, and
+/// while nothing runs it waits for the instances to change: an idle stack with everything asleep sets no timer here.
 pub(crate) async fn keep(d: Daemon) {
-    let mut tick = tokio::time::interval(Duration::from_secs(5));
+    let mut changes = d.engine().changes();
+    let ring = &d.inner.meters;
     loop {
-        tick.tick().await;
-        let ring = &d.inner.meters;
-        let recent = ring
+        let due_in = ring
             .last_at()
-            .and_then(|at| SystemTime::now().duration_since(at).ok())
-            .is_some_and(|ago| ago < UNWATCHED_GAP);
-        if ring.watchers.load(Ordering::SeqCst) > 0 || recent {
+            .and_then(|at| (at + UNWATCHED_GAP).duration_since(SystemTime::now()).ok())
+            .filter(|w| !w.is_zero());
+        if let Some(wait) = due_in {
+            tokio::time::sleep(wait).await;
             continue;
         }
-        if d.engine().snapshot().iter().any(|i| i.pid != 0) {
-            let (at, f) = sample(&d).await;
-            ring.record(at, &f);
+        if ring.watchers.load(Ordering::SeqCst) > 0 {
+            // A subscriber's own readings fill the ring meanwhile.
+            tokio::time::sleep(UNWATCHED_GAP).await;
+            continue;
         }
+        if !d.engine().snapshot().iter().any(|i| i.pid != 0) {
+            if changes.changed().await.is_err() {
+                return;
+            }
+            continue;
+        }
+        let (at, f) = sample(&d).await;
+        ring.record(at, &f);
+        // Even when there was nothing to keep (no reading was recorded), the next look is a gap away.
+        tokio::time::sleep(UNWATCHED_GAP).await;
     }
 }

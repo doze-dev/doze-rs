@@ -55,6 +55,25 @@ impl Pool {
         Ok(m)
     }
 
+    /// How long until [`Pool::reap_idle`] could next stop something, if no call comes first: the least time any module
+    /// has left of the limit, or the whole limit with none running (one started now is not due before then). A caller
+    /// sleeps this long between passes instead of looking at a fixed tick.
+    pub async fn next_reap(&self) -> Duration {
+        self.modules
+            .lock()
+            .await
+            .values()
+            .map(|m| {
+                if m.is_alive() {
+                    self.idle.saturating_sub(m.idle_for())
+                } else {
+                    Duration::ZERO
+                }
+            })
+            .min()
+            .unwrap_or(self.idle)
+    }
+
     /// Stops modules idle for longer than the pool's limit; returns their engines. Call it now and then.
     pub async fn reap_idle(&self) -> Vec<String> {
         let idle: Vec<(String, Arc<Running>)> = {

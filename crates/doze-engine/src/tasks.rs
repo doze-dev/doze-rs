@@ -23,6 +23,9 @@ pub struct TaskSpec {
     pub env_file: Option<PathBuf>,
     /// Globs of the files whose change makes it run again; none: it runs once, and again only after a failure.
     pub inputs: Vec<String>,
+    /// Paths (relative to `dir`) the run makes, such as a built program: when one is not there, the task runs again even
+    /// though its inputs did not change, so an app that runs what a build task made never starts without it.
+    pub outputs: Vec<String>,
     /// Runs only when asked for (`doze task`), never because something needs it.
     pub manual: bool,
     /// How long one run may take; `None`: as long as it takes.
@@ -47,6 +50,20 @@ impl TaskSpec {
         self.inputs = globs.iter().map(|g| (*g).to_string()).collect();
         self
     }
+
+    /// Sets its `outputs`.
+    pub fn outputs(mut self, paths: &[&str]) -> TaskSpec {
+        self.outputs = paths.iter().map(|p| (*p).to_string()).collect();
+        self
+    }
+
+    /// The first of its `outputs` that is not there, as written.
+    pub fn missing_output(&self) -> Option<&str> {
+        self.outputs
+            .iter()
+            .find(|o| !self.dir.join(o).exists())
+            .map(String::as_str)
+    }
 }
 
 /// What to watch for a service that asked to be (Go's `watchSets`): its own globs, and the inputs of every task it
@@ -69,13 +86,17 @@ pub fn watch_sets(
         let Some(dep) = stack.service(name) else {
             continue;
         };
+        // A set already watched (a build task whose inputs are the app's own `watch`) is not looked at twice.
         if let crate::stack::Kind::Task(t) = &dep.kind
             && !t.inputs.is_empty()
         {
-            sets.push(crate::watch::Set {
+            let set = crate::watch::Set {
                 dir: t.dir.clone(),
                 globs: t.inputs.clone(),
-            });
+            };
+            if !sets.contains(&set) {
+                sets.push(set);
+            }
         }
         todo.extend(dep.needs.iter().rev().map(|n| n.name.as_str()));
     }

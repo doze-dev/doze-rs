@@ -1,5 +1,10 @@
 //! The engine's background work: the idle reaper (Go's `RunReaper`) and the health prober of supervised commands
 //! (Go's `RunHealthProber`, which records and never restarts: a blip must not cause a flap).
+//!
+//! Neither ticks while nothing happens. Go's reaper looked every second and its prober every 3 s, around the clock, so
+//! an idle stack woke its daemon (and, through the probes, every app) for nothing. Here the reaper sleeps until the
+//! first idle deadline or until the instances change; the prober looks every [`HEALTH_EVERY`] only while a running
+//! command has a check to repeat, and otherwise waits for a change.
 
 use crate::engine::Engine;
 use crate::lifecycle::Now;
@@ -7,8 +12,12 @@ use doze_module_proto::msg::run::Ready;
 use std::time::Duration;
 use tokio::task::JoinHandle;
 
-/// How often the health prober looks.
-pub const HEALTH_EVERY: Duration = Duration::from_secs(3);
+/// How often the health prober repeats the checks. Its answer is a record (nothing restarts on it), so it is taken
+/// seldom: each probe is a request into the app as well as a wakeup of the daemon.
+pub const HEALTH_EVERY: Duration = Duration::from_secs(30);
+
+/// The least time between two reaper passes, so an instance that stays due (its stop was refused) cannot spin it.
+const REAP_FLOOR: Duration = Duration::from_millis(250);
 
 /// The background tasks of an engine; dropping this stops them (not the instances).
 #[derive(Debug)]
@@ -21,17 +30,6 @@ impl Drop for Background {
         for t in &self.tasks {
             t.abort();
         }
-    }
-}
-
-/// The reaper's tick: a tenth of the idle time, within 250 ms to 1 s, so an instance sleeps within about a second of
-/// its deadline and the "sleeps in" countdown stays honest.
-pub fn reap_interval(idle: Option<Duration>) -> Duration {
-    let i = idle.map_or(Duration::ZERO, |d| d / 10);
-    if i.is_zero() || i > Duration::from_secs(1) {
-        Duration::from_secs(1)
-    } else {
-        i.max(Duration::from_millis(250))
     }
 }
 
@@ -71,21 +69,46 @@ impl Engine {
     }
 }
 
+/// Sleeps until the first instance is due to sleep, reaps, and again; any change (a connection ending, a stop, a
+/// start) recomputes the deadline. With nothing that could sleep it waits for a change and sets no timer at all; an
+/// instance sleeps at its deadline, not up to a tick after it.
 async fn reap_loop(e: Engine) {
-    let mut tick = tokio::time::interval(reap_interval(e.stack().idle_timeout));
-    tick.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+    let mut changes = e.changes();
+    let mut floor = tokio::time::Instant::now();
     loop {
-        tick.tick().await;
-        e.reap_once().await;
+        e.background_woke();
+        let due = e.update(|c| c.m.next_reap());
+        match due {
+            Some(at) => {
+                let at = tokio::time::Instant::from_std(at).max(floor);
+                tokio::select! {
+                    () = tokio::time::sleep_until(at) => {
+                        e.reap_once().await;
+                        floor = tokio::time::Instant::now() + REAP_FLOOR;
+                    }
+                    r = changes.changed() => if r.is_err() { return },
+                }
+            }
+            None => {
+                if changes.changed().await.is_err() {
+                    return;
+                }
+            }
+        }
     }
 }
 
+/// Probes, then waits [`HEALTH_EVERY`] while a running command has a check to repeat, or for a change while none has
+/// (a command without one counts as healthy: marking it needs no timer).
 async fn health_loop(e: Engine) {
-    let mut tick = tokio::time::interval(HEALTH_EVERY);
-    tick.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+    let mut changes = e.changes();
     loop {
-        tick.tick().await;
-        probe_once(&e).await;
+        e.background_woke();
+        if probe_once(&e).await {
+            tokio::time::sleep(HEALTH_EVERY).await;
+        } else if changes.changed().await.is_err() {
+            return;
+        }
     }
 }
 
@@ -93,8 +116,8 @@ async fn health_loop(e: Engine) {
 pub const HEALTH_TIMEOUT: Duration = Duration::from_secs(2);
 
 /// Probes every running supervised command. With no check, or a one-shot `log_line` one, a running command counts as
-/// healthy (Go's `CheckHealth` returned nil for those).
-pub(crate) async fn probe_once(e: &Engine) {
+/// healthy (Go's `CheckHealth` returned nil for those). Whether any of them had a check to repeat.
+pub(crate) async fn probe_once(e: &Engine) -> bool {
     let checks: Vec<(String, Option<Ready>)> = e.update(|c| {
         c.live
             .iter()
@@ -107,6 +130,7 @@ pub(crate) async fn probe_once(e: &Engine) {
             })
             .collect()
     });
+    let any = checks.iter().any(|(_, r)| r.is_some());
     for (name, ready) in checks {
         let pids = e.pids(&name);
         let healthy = match ready {
@@ -123,18 +147,5 @@ pub(crate) async fn probe_once(e: &Engine) {
             }
         });
     }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn the_tick_follows_gos_rule() {
-        let ms = Duration::from_millis;
-        assert_eq!(reap_interval(None), ms(1000));
-        assert_eq!(reap_interval(Some(Duration::from_secs(300))), ms(1000));
-        assert_eq!(reap_interval(Some(ms(5000))), ms(500));
-        assert_eq!(reap_interval(Some(ms(1000))), ms(250));
-    }
+    any
 }

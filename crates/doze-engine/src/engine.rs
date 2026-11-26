@@ -35,6 +35,11 @@ pub(crate) struct Inner {
     changed: watch::Sender<u64>,
     transitions: broadcast::Sender<Instance>,
     events: broadcast::Sender<Event>,
+    /// Every running instance's `watch`, looked at by one task (see [`crate::watch`]).
+    watch_hub: Arc<crate::watch::Hub>,
+    /// How many times the background loops (reaper, health prober) have woken: what the idle guard counts, so a timer
+    /// that ticks with nothing to do is a failing test rather than a slow drain nobody sees.
+    background_wakes: std::sync::atomic::AtomicU64,
 }
 
 /// The machine and the I/O resources it refers to, behind one lock.
@@ -62,7 +67,7 @@ pub(crate) struct Live {
     /// Its readiness check, which the health prober repeats.
     pub(crate) health: Option<Ready>,
     /// The poller of its `watch` files while it runs.
-    pub(crate) watcher: Option<tokio::task::AbortHandle>,
+    pub(crate) watcher: Option<crate::watch::Watching>,
 }
 
 /// Where a start stands.
@@ -149,6 +154,8 @@ impl Engine {
                 m.declare_task(&s.name);
             }
         }
+        // The channel starts at the table's version, so the first update after a subscribe is not a change.
+        let version = m.table().version();
         let core = Core {
             m,
             handles: BTreeMap::new(),
@@ -170,9 +177,11 @@ impl Engine {
             journal,
             stack: std::sync::RwLock::new(Arc::new(stack)),
             core: Mutex::new(core),
-            changed: watch::channel(0).0,
+            changed: watch::channel(version).0,
             transitions: broadcast::channel(256).0,
             events: broadcast::channel(1024).0,
+            watch_hub: crate::watch::Hub::new(),
+            background_wakes: std::sync::atomic::AtomicU64::new(0),
         };
         Ok(Engine {
             inner: Arc::new(inner),
@@ -307,6 +316,24 @@ impl Engine {
     /// Transitions as they happen (lossy: a slow reader misses some and should take a fresh [`Engine::snapshot`]).
     pub fn transitions(&self) -> broadcast::Receiver<Instance> {
         self.inner.transitions.subscribe()
+    }
+
+    /// How many times the background loops have woken (see [`Engine::background`]).
+    pub fn background_wakes(&self) -> u64 {
+        self.inner
+            .background_wakes
+            .load(std::sync::atomic::Ordering::Relaxed)
+    }
+
+    pub(crate) fn background_woke(&self) {
+        self.inner
+            .background_wakes
+            .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    }
+
+    /// What watches the files of this engine's instances.
+    pub(crate) fn watch_hub(&self) -> &Arc<crate::watch::Hub> {
+        &self.inner.watch_hub
     }
 
     /// A version that moves on every change, connection churn included.

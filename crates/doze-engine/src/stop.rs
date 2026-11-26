@@ -139,8 +139,8 @@ async fn stop_steps(e: &Engine, name: &str) -> Duration {
 
 /// Stops watching `name`'s files: it no longer runs (a restart watches again when it registers).
 fn unwatch(c: &mut crate::engine::Core, name: &str) {
-    if let Some(w) = c.live.get_mut(name).and_then(|l| l.watcher.take()) {
-        w.abort();
+    if let Some(l) = c.live.get_mut(name) {
+        l.watcher = None;
     }
 }
 

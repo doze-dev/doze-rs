@@ -32,6 +32,7 @@ pub(crate) fn task(
             resolve_dir(base, &env_file)
         },
         inputs: raw.list("inputs"),
+        outputs: raw.list("outputs"),
         manual: raw.bool("manual"),
         after: after.to_vec(),
         refs: refs.to_vec(),
@@ -43,6 +44,7 @@ pub(crate) fn task(
         env_file: decl.env_file.clone(),
         task: true,
         inputs: decl.inputs.clone(),
+        outputs: decl.outputs.clone(),
         manual: decl.manual,
         ..Command::default()
     };

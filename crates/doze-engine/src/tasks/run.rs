@@ -189,7 +189,16 @@ async fn decide(
     let ask = if force { Ask::Forced } else { Ask::Needed };
     let last = e.task_record(name);
     let has_inputs = !ts.inputs.is_empty();
-    let Some(why) = why_run(ask, ts.manual, has_inputs, &hash, last.as_ref(), needed_by) else {
+    // Up to date by its inputs, but what it makes is gone (a clean, a deleted build): it runs, or what runs the output
+    // would fail to start. A manual task is still only run when asked.
+    let why = why_run(ask, ts.manual, has_inputs, &hash, last.as_ref(), needed_by).or_else(|| {
+        let missing = ts.missing_output().filter(|_| !ts.manual)?;
+        let by = needed_by
+            .map(|b| format!(" (needed by {b})"))
+            .unwrap_or_default();
+        Some(format!("{missing} is missing{by}"))
+    });
+    let Some(why) = why else {
         let fx = e.update(|c| c.m.task_skipped(name, boot, Now::current()));
         e.run(fx);
         return Ok(None);

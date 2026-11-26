@@ -195,8 +195,15 @@ impl Table {
         self.slot(name).view.tainted = tainted;
     }
 
-    /// Records the last health probe.
+    /// Records the last health probe; the same answer again moves no version (a watcher is not woken by each probe).
     pub fn set_healthy(&mut self, name: &str, healthy: bool) {
+        if self
+            .slots
+            .get(name)
+            .is_some_and(|s| s.view.healthy == Some(healthy))
+        {
+            return;
+        }
         self.slot(name).view.healthy = Some(healthy);
     }
 
@@ -308,25 +315,20 @@ impl Table {
     /// The instances the reaper stops now: idle, held by nothing, not pinned, for at least their own idle time or
     /// else `default` (none: never). Sorted.
     pub fn reapable(&self, default: Option<Duration>, now: Now) -> Vec<String> {
-        let mut out = Vec::new();
-        for (name, s) in &self.slots {
-            let Some(limit) = s.view.idle_after.filter(|d| !d.is_zero()).or(default) else {
-                continue;
-            };
-            if s.view.keep_awake
-                || limit.is_zero()
-                || s.view.state != State::Idle
-                || s.view.conns != 0
-            {
-                continue;
-            }
-            if s.idle_since
-                .is_some_and(|t| now.mono.saturating_duration_since(t) >= limit)
-            {
-                out.push(name.clone());
-            }
-        }
-        out
+        self.slots
+            .iter()
+            .filter(|(_, s)| sleeps_at(s, default).is_some_and(|at| now.mono >= at))
+            .map(|(name, _)| name.clone())
+            .collect()
+    }
+
+    /// When the first instance becomes [`Table::reapable`], if any will without something else changing first. The
+    /// reaper sleeps until then instead of looking every second: nothing that could sleep, no wakeup.
+    pub fn next_reap(&self, default: Option<Duration>) -> Option<Instant> {
+        self.slots
+            .values()
+            .filter_map(|s| sleeps_at(s, default))
+            .min()
     }
 
     /// It exited by itself: reaped, then restarted, given up on, or failed, as Go's crash watcher decided.
@@ -392,6 +394,16 @@ impl Table {
             max: r.max_retries,
         }
     }
+}
+
+/// When `s` sleeps if nothing changes: idle, unheld, unpinned, its own idle time (else `default`) after it went idle.
+fn sleeps_at(s: &Slot, default: Option<Duration>) -> Option<Instant> {
+    let own = s.view.idle_after.filter(|d| !d.is_zero());
+    let limit = own.or(default).filter(|d| !d.is_zero())?;
+    if s.view.keep_awake || s.view.state != State::Idle || s.view.conns != 0 {
+        return None;
+    }
+    s.idle_since?.checked_add(limit)
 }
 
 /// What describes a running process goes. Holds stay: whoever holds it (a running dependant, an open client) still
