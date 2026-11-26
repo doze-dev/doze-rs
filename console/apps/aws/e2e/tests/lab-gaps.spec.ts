@@ -47,7 +47,11 @@ test("an error of one's own choosing is picked from the operation's model with i
     // The list is the model's for SendMessage, each with its status.
     await page.getByRole("combobox", { name: "Error", exact: true }).click();
     await expect(page.locator("[cmdk-item]").filter({ hasText: "InvalidMessageContents" })).toContainText("400");
-    await expect(page.locator("[cmdk-item]").filter({ hasText: "QueueDoesNotExist" })).toBeVisible();
+    // Each is named by the code an app receives: SQS's JSON carries the Query code in x-amzn-query-error, which the CLI and the SDKs read
+    // (the model's KmsDisabled reaches an app as KMS.DisabledException, and QueueDoesNotExist as AWS.SimpleQueueService.NonExistentQueue).
+    await expect(page.locator("[cmdk-item]").filter({ hasText: "AWS.SimpleQueueService.NonExistentQueue" })).toBeVisible();
+    await expect(page.locator("[cmdk-item]").filter({ hasText: "KMS.DisabledException" })).toContainText("400");
+    await expect(page.locator("[cmdk-item]").filter({ hasText: /^KmsDisabled/ })).toHaveCount(0);
     // An error that only another operation lists is not offered.
     await expect(page.locator("[cmdk-item]").filter({ hasText: "OverLimit" })).toHaveCount(0);
     await closePopover(page);

@@ -142,3 +142,19 @@ fn every_error_a_model_lists_for_an_operation_is_one_a_rule_can_answer() {
     }
     assert!(checked > 1000, "only {checked} errors were checked");
 }
+
+#[test]
+fn a_service_that_speaks_query_beside_json_is_named_by_the_code_its_app_receives() {
+    // SQS answers its JSON with the Query code in `x-amzn-query-error`, and the SDKs and the CLI read that one: the model's
+    // `KmsDisabled` reaches an app as `KMS.DisabledException`, and the picker says so.
+    let send = common(&[SQS], &["SendMessage"]);
+    let kms = find(&send, "KMS.DisabledException").unwrap();
+    assert_eq!(kms.shape, "KmsDisabled");
+    // The shape's name is still found, as a person may type it, and it is the same error.
+    assert_eq!(find(&send, "KmsDisabled"), Some(kms));
+    // No listed code is a shape name whose Query code differs: what is shown is what is received.
+    assert!(send.iter().all(|e| find(&send, e.code) == Some(e)));
+    // A service that speaks no Query is named by its shape.
+    let busy = common(&[DDB], &["GetItem"]);
+    assert!(busy.iter().all(|e| e.code == e.shape));
+}

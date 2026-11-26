@@ -15,6 +15,9 @@ use lab_api::{body, lab};
 use serde_json::{Value, json};
 use support::{keys, ts_keys};
 
+/// What an app receives for SQS's `QueueDoesNotExist` (its JSON carries the Query code in `x-amzn-query-error`, which the SDKs read).
+const GONE: &str = "AWS.SimpleQueueService.NonExistentQueue";
+
 fn custom(status: Option<u16>, code: &str) -> Value {
     let mut effect = json!({ "kind": "fail", "error": "custom", "code": code });
     if let Some(s) = status {
@@ -47,13 +50,13 @@ async fn the_errors_offered_are_the_ones_the_model_lists_for_the_operation_with_
     assert_eq!(keys(&v["errors"][0]), ts_keys("LabListedError"));
     assert_eq!(v["why"], Value::Null);
     let all = codes(&v);
-    assert!(all.contains(&"QueueDoesNotExist") && all.contains(&"InvalidMessageContents"));
+    assert!(all.contains(&GONE) && all.contains(&"InvalidMessageContents"));
     assert!(!all.contains(&"ThrottlingException"), "{all:?}");
     let missing = v["errors"]
         .as_array()
         .unwrap()
         .iter()
-        .find(|e| e["code"] == "QueueDoesNotExist")
+        .find(|e| e["code"] == GONE)
         .unwrap();
     assert_eq!(
         (&missing["status"], &missing["server"]),
@@ -75,7 +78,7 @@ async fn several_operations_offer_what_they_share_and_nothing_is_offered_without
     let (_, both) = lab
         .get("/api/v1/lab/errors?services=sqs&operations=SendMessage%2CReceiveMessage")
         .await;
-    assert!(codes(&both).contains(&"QueueDoesNotExist"));
+    assert!(codes(&both).contains(&GONE));
     assert!(
         !codes(&both).contains(&"InvalidMessageContents"),
         "only SendMessage lists it"
@@ -111,20 +114,23 @@ async fn a_listed_error_makes_a_rule_with_the_models_status_and_the_sentence_and
     let sentence = check["sentence"].as_str().unwrap();
     assert!(
         sentence.starts_with(
-            "Answer QueueDoesNotExist (400) to 1 in 4 SQS SendMessage calls to orders"
+            "Answer AWS.SimpleQueueService.NonExistentQueue (400) to 1 in 4 SQS SendMessage calls to orders"
         ),
         "{sentence}"
     );
-    assert_eq!(check["answers"][0]["code"], "QueueDoesNotExist");
+    assert_eq!(check["answers"][0]["code"], GONE);
     let (status, made) = lab
         .post("/api/v1/lab/rules", &custom(Some(400), "QueueDoesNotExist"))
         .await;
     assert_eq!((status, &made["outcome"]), (200, &json!("made")), "{made}");
     let rule = &made["rule"];
-    assert_eq!(rule["name"], "Fail with QueueDoesNotExist sqs SendMessage");
+    assert_eq!(
+        rule["name"],
+        "Fail with AWS.SimpleQueueService.NonExistentQueue sqs SendMessage"
+    );
     assert_eq!(
         rule["effect"],
-        json!({ "kind": "fail", "error": "custom", "status": 400, "code": "QueueDoesNotExist" })
+        json!({ "kind": "fail", "error": "custom", "status": 400, "code": "AWS.SimpleQueueService.NonExistentQueue" })
     );
     assert_eq!(keys(rule), ts_keys("LabRule"));
     // A code is also taken by the model's shape name, and is made the code a client reads.
